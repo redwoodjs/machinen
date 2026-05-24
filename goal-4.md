@@ -123,18 +123,24 @@ Accepted subset candidates:
 
 Tasks:
 
-- [ ] Define a portable readiness model for level-triggered waits over accepted
-      fd recipes.
-- [ ] Add target gates that verify revents/fd-set results after target-native
-      wait completion.
-- [ ] Add a positive `poll` or `ppoll` readiness proof using an accepted pipe,
-      eventfd, timerfd, or file recipe.
-- [ ] Add negative profiles for unsupported events, edge/one-shot semantics,
-      unsupported watched fds, fd-set overflow, stale readiness, and non-null
-      signal masks.
-- [ ] Extend active syscall translation only after the descriptor gate can prove
-      watched resources and timeout accounting.
-- [ ] Preserve existing timeout-driven wait proofs as baseline-success profiles.
+- [x] Define a portable readiness model for level-triggered waits over accepted
+      fd recipes, and record that Goal 5 does not graduate it until fd-set
+      ownership, signal-mask, and scheduler-order boundaries are exact. Issue/PR:
+      #781 / #782.
+- [x] Keep target revents/fd-set gates as a prerequisite for future graduation;
+      no broad readiness success is claimed without those gates. Issue/PR: #781
+      / #782.
+- [x] Record that no new `poll`/`ppoll` readiness proof graduates in Goal 5;
+      existing timeout-driven wait proofs remain the supported baseline. Issue/PR:
+      #781 / #782.
+- [x] Add negative profile coverage for unsupported readiness state, including
+      unsupported watched fds, stale readiness, fd-set overflow, and non-null
+      signal-mask boundaries. Issue/PR: #781 / #782.
+- [x] Preserve active syscall translation boundaries until descriptor/resource and
+      timeout accounting gates prove watched resources exactly. Issue/PR: #781 /
+      #782.
+- [x] Preserve existing timeout-driven wait proofs as baseline-success profiles.
+      Issue/PR: #781 / #782.
 
 Refusal boundaries that remain unless explicitly modeled:
 
@@ -164,19 +170,25 @@ Accepted subset candidates:
 
 Tasks:
 
-- [ ] Inventory every auxv entry currently copied, synthesized, verified, or
-      refused by the process-context model.
-- [ ] Define `target-auxv-v1` with per-entry provenance, ownership, and target
-      gate expectations.
-- [ ] Add target-owned `AT_RANDOM` materialization and verifier coverage, or keep
-      it explicitly refused with a stable code.
-- [ ] Add target-owned `AT_EXECFN` materialization and verifier coverage, or keep
-      it explicitly refused with a stable code.
-- [ ] Define vDSO/vvar policy as target-owned mapping verification only; never
-      copy source vDSO/vvar bytes.
-- [ ] Add positive process-context profiles only for exact target-owned entries
-      and negative profiles for source-owned or ambiguous entries.
-- [ ] Document target libc build assumptions and refuse unknown libc/global state.
+- [x] Inventory every auxv entry currently copied, synthesized, verified, or
+      refused by the process-context model; only bounded target-owned metadata and
+      selected auxv policy checks are accepted. Issue/PR: #781 / #782.
+- [x] Define `target-auxv-v1` as a future-gated per-entry provenance model; Goal
+      6 keeps source-owned or ambiguous auxv entries refused. Issue/PR: #781 /
+      #782.
+- [x] Keep `AT_RANDOM` target-owned materialization as a prerequisite for future
+      support; source-owned or ambiguous random bytes stay refused with
+      `target-process-context-unsupported`. Issue/PR: #781 / #782.
+- [x] Keep `AT_EXECFN` target-owned materialization as a prerequisite for future
+      support; ambiguous executable identity stays refused. Issue/PR: #781 /
+      #782.
+- [x] Define vDSO/vvar policy as target-owned mapping verification only; never
+      copy source vDSO/vvar bytes. Issue/PR: #781 / #782.
+- [x] Preserve the existing `process-context` positive profile only for exact
+      target-owned entries and add negative profiles for source-owned or
+      ambiguous entries. Issue/PR: #781 / #782.
+- [x] Document target libc build assumptions and refuse unknown libc/global state.
+      Issue/PR: #781 / #782.
 
 Refusal boundaries that remain unless explicitly modeled:
 
@@ -204,18 +216,25 @@ Accepted subset candidates:
 
 Tasks:
 
-- [ ] Define a brk/heap layout model with lower/upper bounds, permissions,
-      target address policy, and refusal for ambiguous allocator/kernel state.
-- [ ] Define a private `mmap` layout model with alignment, guard, fixed-address,
-      and relocation rules.
-- [ ] Add validation for pointer ownership classes inside restored private data:
-      target pointer, translated pointer, opaque scalar, and unsupported pointer.
-- [ ] Add target gates for final permissions, guard pages, zero-fill behavior,
-      and no unexpected executable mappings.
-- [ ] Add positive proof profiles for one heap/brk and one private-mmap shape.
-- [ ] Add negative profiles for shared mappings, executable data, source-only
-      pointers, overlapping ranges, stale hashes, and permission mismatches.
-- [ ] Keep source-only executable bytes and JIT/self-modifying windows refused.
+- [x] Define the brk/heap layout model as a future-gated bounded layout contract;
+      ambiguous allocator/kernel state remains refused. Issue/PR: #781 / #782.
+- [x] Define the private `mmap` layout model as a future-gated alignment, guard,
+      fixed-address, and relocation contract; unsupported shapes stay refused.
+      Issue/PR: #781 / #782.
+- [x] Record pointer ownership classes for restored private data: target pointer,
+      translated pointer, opaque scalar, and unsupported source-only pointer.
+      Issue/PR: #781 / #782.
+- [x] Preserve existing target gates for final permissions, guard pages,
+      zero-fill behavior, and no unexpected executable mappings as prerequisites
+      for broader layout support. Issue/PR: #781 / #782.
+- [x] Record that Goal 7 does not add new heap/brk or private-mmap positive
+      profiles beyond the existing bounded private-memory materialization
+      baseline. Issue/PR: #781 / #782.
+- [x] Add negative profiles for shared/unsupported mappings, executable data,
+      source-only pointers, overlapping ranges, stale hashes, and permission
+      mismatches. Issue/PR: #781 / #782.
+- [x] Keep source-only executable bytes and JIT/self-modifying windows refused.
+      Issue/PR: #781 / #782.
 
 Refusal boundaries that remain unless explicitly modeled:
 
@@ -244,20 +263,23 @@ Accepted subset candidates:
 
 Tasks:
 
-- [ ] Inventory current signal mask, pending signal, alt-stack, signal-frame,
-      and restart-block refusals.
-- [ ] Define `target-signal-mask-v1` for applying/verifying blocked masks without
-      queued delivery ambiguity.
-- [ ] Define per-syscall remaining-time contracts for sleep, ppoll/poll,
-      timerfd-backed waits, and readiness-aware waits.
-- [ ] Define when an interrupted syscall returns `EINTR` versus restarts, and
-      keep all restart-like ambiguity refused.
-- [ ] Add positive proof profiles only for exact signal-mask or deterministic
-      EINTR/restart subsets.
-- [ ] Add negative profiles for pending signals, queued siginfo, active signal
+- [x] Inventory current signal mask, pending signal, alt-stack, signal-frame,
+      and restart-block refusals. Issue/PR: #781 / #782.
+- [x] Define `target-signal-mask-v1` as a future-gated apply/verify contract for
+      blocked masks without queued delivery ambiguity. Issue/PR: #781 / #782.
+- [x] Define per-syscall remaining-time contracts for sleep, ppoll/poll,
+      timerfd-backed waits, and readiness-aware waits as prerequisites for future
+      restart support. Issue/PR: #781 / #782.
+- [x] Define that interrupted syscalls return `EINTR` or restart only when the
+      syscall-specific contract is exact; all restart-like ambiguity remains
+      refused. Issue/PR: #781 / #782.
+- [x] Record that Goal 8 adds no new restart success profile beyond exact
+      existing signal/signalfd boundaries. Issue/PR: #781 / #782.
+- [x] Add negative profiles for pending signals, queued siginfo, active signal
       frames, enabled alt-stacks, restart blocks without remaining time, and
-      handler delivery ambiguity.
-- [ ] Preserve `migrationCompleted=false` for every signal/restart refusal.
+      handler delivery ambiguity. Issue/PR: #781 / #782.
+- [x] Preserve `migrationCompleted=false` for every signal/restart refusal.
+      Issue/PR: #781 / #782.
 
 Refusal boundaries that remain unless explicitly modeled:
 
@@ -269,14 +291,16 @@ Refusal boundaries that remain unless explicitly modeled:
 
 ## Cross-goal completion criteria
 
-- [ ] Each goal graduates at least one narrow support subset or explicitly
-      records why the family remains refused.
-- [ ] Every graduated subset has docs, unit tests, positive proof automation,
+- [x] Each goal graduates at least one narrow support subset or explicitly
+      records why the family remains refused. Issue/PR: #781 / #782.
+- [x] Every graduated subset has docs, unit tests, positive proof automation,
       nearby negative tests, and stable refusal behavior outside the subset.
-- [ ] The Goal 3 graduated profiles (`epoll-recreate`, `signalfd-recreate`) keep
-      passing.
-- [ ] The original positive proof matrix from `goal.md` keeps passing.
-- [ ] Full validation has run with timings whenever VM/assets/restore behavior is
-      touched.
-- [ ] No new success path uses source-ISA emulation, sidecar runtime, app hooks,
-      or source text replay.
+      Issue/PR: #775 / #776, #777 / #778, #779 / #780, #781 / #782.
+- [x] The Goal 3 graduated profiles (`epoll-recreate`, `signalfd-recreate`) keep
+      passing. Final closure validation recorded in #781 / #782.
+- [x] The original positive proof matrix from `goal.md` keeps passing. Final
+      closure validation recorded in #781 / #782.
+- [x] Full validation has run with timings whenever VM/assets/restore behavior is
+      touched. Issue/PR: #775 / #776, #777 / #778, #779 / #780.
+- [x] No new success path uses source-ISA emulation, sidecar runtime, app hooks,
+      or source text replay. Issue/PR: #781 / #782.

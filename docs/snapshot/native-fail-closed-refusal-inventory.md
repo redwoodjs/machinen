@@ -12,6 +12,10 @@ the refusal with an exact target-native model and proof profile.
 | Futex wait state                                        | `futex-state-unsupported`                 | `native-two-thread-boundary.md`, `native-thread-refusal-matrix.md`, `portable-machine-proof-profiles.md`                                                               | `native-active-syscall-policy.test.ts`, `native-thread-refusal-matrix.test.ts`, `native-two-thread-boundary.test.ts`, `portable-machine-proof-runner.test.ts`                                 |
 | rseq state                                              | `rseq-state-unsupported`                  | `native-two-thread-boundary.md`, `native-thread-refusal-matrix.md`, `portable-machine-proof-profiles.md`                                                               | `native-thread-refusal-matrix.test.ts`, `native-two-thread-boundary.test.ts`, `native-register-translation.test.ts`, `portable-machine-proof-runner.test.ts`                                  |
 | Restart blocks / interrupted syscalls                   | `syscall-restart-unsupported`             | `native-active-syscall-policy.md`, `native-signal-policy.md`, `portable-machine-proof-profiles.md`                                                                     | `native-active-syscall-policy.test.ts`, `native-signal-policy.test.ts`, `portable-machine-proof-runner.test.ts`                                                                               |
+| Signal mask / delivery ambiguity                        | `signal-state-unsupported`                | `native-signal-policy.md`, `portable-machine-proof-profiles.md`                                                                                                        | `native-signal-policy.test.ts`, `portable-machine-proof-runner.test.ts`                                                                                                                       |
+| Readiness-aware wait ambiguity                          | `kernel-state-unsupported`                | `native-active-syscall-policy.md`, `native-resource-translation.md`, `portable-machine-proof-profiles.md`                                                              | `native-active-syscall-policy.test.ts`, `native-resource-translation.test.ts`, `portable-machine-proof-runner.test.ts`                                                                        |
+| Process-context auxv source pointers                    | `target-process-context-unsupported`      | `target-guest-process-context-restore.md`, `native-arbitrary-boundary.md`, `portable-machine-proof-profiles.md`                                                        | `target-guest-process-context-restore.test.ts`, `portable-machine-proof-runner.test.ts`                                                                                                       |
+| Private memory layout / pointer ambiguity               | `mapping-permission-unsupported`          | `target-guest-memory-materialization.md`, `native-arbitrary-boundary.md`, `portable-machine-proof-profiles.md`                                                         | `target-guest-memory-materialization.test.ts`, `native-mapping-materialization.test.ts`, `portable-machine-proof-runner.test.ts`                                                              |
 | Writable+executable or source executable bytes          | `mapping-executable-unsupported`          | `target-guest-memory-materialization.md`, `target-guest-executable-materialization.md`, `native-arbitrary-boundary.md`, `portable-machine-proof-profiles.md`           | `target-guest-memory-materialization.test.ts`, `target-guest-executable-materialization.test.ts`, `native-mapping-materialization.test.ts`, `portable-machine-proof-runner.test.ts`           |
 | Ambiguous mapping permissions                           | `mapping-permission-unsupported`          | `native-mapping-materializer.md`, `target-guest-memory-materialization.md`, `native-arbitrary-boundary.md`                                                             | `native-mapping-materialization.test.ts`, `target-guest-memory-materialization.test.ts`                                                                                                       |
 | Missing executable provenance                           | `mapping-provenance-ambiguous`            | `target-guest-executable-materialization.md`, `native-arbitrary-boundary.md`, `portable-machine-proof-profiles.md`                                                     | `target-guest-executable-materialization.test.ts`, `native-mapping-materialization.test.ts`, `portable-machine-proof-runner.test.ts`                                                          |
@@ -51,6 +55,32 @@ not-readable readiness, supported fd flags, and close-on-exec provenance.
 Non-empty/unknown buffers, missing or closed peers, waiter/readiness ambiguity,
 EOF-only shapes, and unsupported pipe fd flags continue to require
 `kernel-state-unsupported`.
+
+Goal 5 records readiness-aware waits as intentionally refused unless every
+watched resource has an accepted recipe and the target gate can prove level
+readiness without scheduler wake-order claims. The `readiness-wait-refusal`
+profile keeps unsupported watched fds, stale readiness, fd-set overflow,
+signal-mask-changing waits, and ambiguous shared memory on
+`kernel-state-unsupported`.
+
+Goal 6 keeps source-owned auxv pointers and source vDSO/vvar bytes refused. The
+`process-context` positive profile covers only bounded target-owned metadata and
+selected auxv policy checks; `auxv-source-pointer-refusal` and
+`source-vdso-vvar-refusal` prove that source-owned or ambiguous process-context
+state cannot report migration success.
+
+Goal 7 keeps broad heap/brk/private-mmap layout claims refused unless bounds,
+permissions, guard gaps, zero-fill, and pointer ownership are exact. The current
+positive profiles cover bounded private-memory materialization only;
+`private-layout-refusal` covers unsupported permissions, overlapping ranges,
+source-only pointers, stale hashes, and unexpected executable mappings.
+
+Goal 8 keeps signal delivery and restart ambiguity refused. Empty signalfd queues
+remain covered by `signalfd-recreate`, while pending signals, queued siginfo,
+active frames, enabled alt-stacks, signal-mask-changing waits, and restart blocks
+without exact remaining-time contracts stay on `signal-state-unsupported` or
+`syscall-restart-unsupported`; `signal-mask-restart-refusal` and
+`restart-state-refusal` guard those boundaries.
 
 Goal 3 intentionally leaves sockets without a graduated support subset. Listening
 sockets, connected socketpairs, TCP/Unix sockets, ancillary data, partial
