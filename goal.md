@@ -170,15 +170,15 @@ narrow exact contract or fail closed with a stable refusal.
 
 - [!] Keep pending signals, active signal delivery, alt-stack frames, and generic
   restart blocks refused by default.
-- [ ] Capture pending signals, blocked masks, signal dispositions needed by the
+- [x] Capture pending signals, blocked masks, signal dispositions needed by the
       restore contract, and interrupted syscall state.
-- [ ] Model signal-mask restore for safe cases without allowing pending or active
+- [x] Model signal-mask restore for safe cases without allowing pending or active
       signal delivery to pass silently.
-- [ ] Define remaining-time accounting per blocking syscall family.
-- [ ] Restart only when target can prove equivalent signal/restart semantics.
-- [ ] Preserve current refusals for plain `EINTR`, `ERESTART*`-style results, and
+- [x] Define remaining-time accounting per blocking syscall family.
+- [x] Restart only when target can prove equivalent signal/restart semantics.
+- [x] Preserve current refusals for plain `EINTR`, `ERESTART*`-style results, and
       other unmodeled negative errno returns until modeled.
-- [ ] Add tests for pending signal queue, siginfo ownership, alt-stack state,
+- [x] Add tests for pending signal queue, siginfo ownership, alt-stack state,
       signal trampoline frames, restart-block state, and target timeout
       accounting.
 
