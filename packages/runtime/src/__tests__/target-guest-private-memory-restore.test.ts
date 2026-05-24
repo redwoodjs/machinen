@@ -68,11 +68,43 @@ describe("target guest private memory restore", () => {
 
     expect(planTargetGuestPrivateMemoryRestore([executable])).toMatchObject({
       state: "refused",
+      steps: [],
       refusals: [expect.objectContaining({ code: "mapping-executable-unsupported" })],
     });
     expect(planTargetGuestPrivateMemoryRestore([shared])).toMatchObject({
       state: "refused",
+      steps: [],
       refusals: [expect.objectContaining({ code: "mapping-shared-unsupported" })],
+    });
+  });
+
+  it("refuses copied bytes without writable private permissions", () => {
+    const readOnlyCopy = { ...entries[0]!, permissions: "r--p" };
+
+    expect(planTargetGuestPrivateMemoryRestore([readOnlyCopy])).toMatchObject({
+      state: "refused",
+      steps: [],
+      refusals: [
+        expect.objectContaining({
+          code: "mapping-permission-unsupported",
+          message: "mapping:heap copied private memory must be writable",
+        }),
+      ],
+    });
+  });
+
+  it("refuses guard entries that would materialize readable or writable bytes", () => {
+    const readableGuard = { ...entries[1]!, permissions: "r--p" };
+
+    expect(planTargetGuestPrivateMemoryRestore([readableGuard])).toMatchObject({
+      state: "refused",
+      steps: [],
+      refusals: [
+        expect.objectContaining({
+          code: "mapping-permission-unsupported",
+          message: "mapping:heap-guard guard mapping must be no-access private",
+        }),
+      ],
     });
   });
 });
