@@ -58,19 +58,22 @@ function completedSummary(remoteSourceTarget = "file-write") {
   };
 }
 
-function refusedSummary(remoteSourceTarget = "socket-transfer-refusal") {
+function refusedSummary(
+  remoteSourceTarget = "socket-transfer-refusal",
+  code = "target-socket-syscall-state-unsupported",
+) {
   return {
     profile: "portable-machine-restore",
     state: "failed",
-    failure: "target restore refused with target-socket-syscall-state-unsupported",
+    failure: `target restore refused with ${code}`,
     remoteSourceTarget,
     targetRestore: {
       state: "refused",
       migrationCompleted: false,
       descriptorGateCompleted: false,
       refusal: {
-        code: "target-socket-syscall-state-unsupported",
-        message: "socket endpoint kernel state is unsupported",
+        code,
+        message: `${remoteSourceTarget} is unsupported`,
       },
       sourceTextReusedAsTargetCode: false,
       sourceIsaEmulationUsed: false,
@@ -79,6 +82,19 @@ function refusedSummary(remoteSourceTarget = "socket-transfer-refusal") {
     timings: [],
   };
 }
+
+const negativeProfiles = [
+  ["socket-transfer-refusal", "target-socket-syscall-state-unsupported"],
+  ["epoll-wait-refusal", "target-epoll-syscall-state-unsupported"],
+  ["signalfd-read-refusal", "target-signalfd-state-unsupported"],
+  ["futex-refusal", "futex-state-unsupported"],
+  ["rseq-refusal", "rseq-state-unsupported"],
+  ["restart-state-refusal", "syscall-restart-unsupported"],
+  ["jit-self-modifying-refusal", "mapping-executable-unsupported"],
+  ["source-vdso-vvar-refusal", "vdso-policy-unsupported"],
+  ["raw-cross-isa-vmstate-refusal", "cross-isa-vmstate-restore-unsupported"],
+  ["descriptor-provenance-refusal", "mapping-provenance-ambiguous"],
+] as const;
 
 describe("portable machine proof runner", () => {
   it("lists every current remote proof profile", () => {
@@ -236,34 +252,44 @@ describe("portable machine proof runner", () => {
     );
   });
 
-  it("checks an expected refusal summary without allowing migration completion", () => {
-    const dir = tempDir();
-    const summaryFile = join(dir, "summary.json");
-    writeFileSync(summaryFile, JSON.stringify(refusedSummary(), null, 2));
+  it.each(negativeProfiles)(
+    "checks expected refusal profile %s without allowing migration completion",
+    (profile, code) => {
+      const dir = tempDir();
+      const summaryFile = join(dir, "summary.json");
+      writeFileSync(summaryFile, JSON.stringify(refusedSummary(profile, code), null, 2));
 
-    const result = spawnSync(
-      "node",
-      [RUNNER, "--profile", "socket-transfer-refusal", "--check-summary", summaryFile, "--json"],
-      {
-        cwd: REPO_ROOT,
-        encoding: "utf8",
-        env: SCRIPT_ENV,
-        timeout: 30_000,
-      },
-    );
+      const result = spawnSync(
+        "node",
+        [RUNNER, "--profile", profile, "--check-summary", summaryFile, "--json"],
+        {
+          cwd: REPO_ROOT,
+          encoding: "utf8",
+          env: SCRIPT_ENV,
+          timeout: 30_000,
+        },
+      );
 
-    expect(result.status, result.stderr).toBe(0);
-    const summary = JSON.parse(result.stdout);
-    expect(summary).toMatchObject({
-      profile: "socket-transfer-refusal",
-      state: "refused",
-      pass: true,
-      gateCheck: { passed: true, failures: [] },
-    });
-    expect(summary.gateCheck.checks).toContainEqual(
-      expect.objectContaining({ label: "targetRestore.migrationCompleted", actual: false }),
-    );
-  });
+      expect(result.status, result.stderr).toBe(0);
+      const summary = JSON.parse(result.stdout);
+      expect(summary).toMatchObject({
+        profile,
+        state: "refused",
+        pass: true,
+        gateCheck: { passed: true, failures: [] },
+      });
+      expect(summary.gateCheck.checks).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ label: "refusal.code", actual: code }),
+          expect.objectContaining({ label: "targetRestore.migrationCompleted", actual: false }),
+          expect.objectContaining({
+            label: "targetRestore.descriptorGateCompleted",
+            actual: false,
+          }),
+        ]),
+      );
+    },
+  );
 
   it("rejects a negative profile summary that reports target-native success", () => {
     const dir = tempDir();

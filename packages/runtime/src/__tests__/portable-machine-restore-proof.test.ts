@@ -389,6 +389,7 @@ describe("portable machine VM restore proof", () => {
     for (const failedObservation of [
       { targetStackWindowMaterializationResult: "failed" as const },
       { targetPrivateMemoryRestoreResult: "failed" as const },
+      { targetExecutableMappingResult: "failed" as const },
       { targetProcessContextRestoreResult: "failed" as const },
       { targetSignalRestoreResult: "failed" as const },
       { targetActiveSyscallRestoreResult: "failed" as const },

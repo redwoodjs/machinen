@@ -189,6 +189,12 @@ function overlapWithNext(
 }
 
 function unsafeMappingRefusal(mapping: NativeMemoryMapping): NativeProcessImageRefusal | undefined {
+  if (
+    isTargetOwnedSpecialMapping(mapping) &&
+    (mapping.captured || mapping.target.materialization !== "recreate")
+  ) {
+    return targetOwnedSpecialMappingRefusal(mapping);
+  }
   if (mapping.permissions.execute) {
     return executableSourceRefusal(mapping);
   }
@@ -196,6 +202,26 @@ function unsafeMappingRefusal(mapping: NativeMemoryMapping): NativeProcessImageR
     return sharedMappingRefusal(mapping);
   }
   return undefined;
+}
+
+function targetOwnedSpecialMappingRefusal(mapping: NativeMemoryMapping): NativeProcessImageRefusal {
+  return refusal(
+    "vdso-policy-unsupported",
+    `${mapping.id} ${mapping.kind} mapping must be recreated by the target kernel`,
+    {
+      mapping: mapping.id,
+      kind: mapping.kind,
+      sourceStart: mapping.sourceStart,
+      sourceEnd: mapping.sourceEnd,
+      requestedMaterialization: mapping.target.materialization,
+      sourceBytesCopied: false,
+      targetOwned: true,
+    },
+  );
+}
+
+function isTargetOwnedSpecialMapping(mapping: NativeMemoryMapping): boolean {
+  return mapping.kind === "vdso" || mapping.kind === "vvar" || mapping.kind === "special";
 }
 
 function executableSourceRefusal(mapping: NativeMemoryMapping): NativeProcessImageRefusal {

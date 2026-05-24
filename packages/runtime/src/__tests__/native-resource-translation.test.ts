@@ -202,6 +202,85 @@ describe("native resource translation", () => {
     ]);
   });
 
+  it("records required models for sockets, epoll, and signalfd before target execution", () => {
+    const result = translateNativeResources({
+      resources: [
+        {
+          id: "fd:listen",
+          kind: "socket",
+          state: "captured",
+          fd: 20,
+          path: "socket:[listen]",
+          recipe: { socketState: "listen", queuedConnections: 1 },
+        },
+        {
+          id: "fd:socketpair",
+          kind: "socket",
+          state: "captured",
+          fd: 23,
+          path: "socket:[pair]",
+          recipe: { socketState: "connected", peer: "socket:[other]" },
+        },
+        {
+          id: "fd:epoll-nested",
+          kind: "epoll",
+          state: "captured",
+          fd: 21,
+          path: "anon_inode:[eventpoll]",
+          recipe: { watchedFds: [20, 22], nested: true, edgeTriggered: true },
+        },
+        {
+          id: "fd:signalfd",
+          kind: "signalfd",
+          state: "captured",
+          fd: 22,
+          path: "anon_inode:[signalfd]",
+          recipe: { mask: "0x2", queuedSignals: [{ signo: 2 }] },
+        },
+      ],
+    });
+
+    expect(result.refusals).toEqual([
+      expect.objectContaining({
+        code: "kernel-state-unsupported",
+        detail: expect.objectContaining({
+          id: "fd:listen",
+          requiredModel: expect.arrayContaining([
+            "accept/connect/listen queue state",
+            "credentials and namespaces",
+          ]),
+        }),
+      }),
+      expect.objectContaining({
+        code: "kernel-state-unsupported",
+        detail: expect.objectContaining({
+          id: "fd:socketpair",
+          requiredModel: expect.arrayContaining(["peer endpoint identity"]),
+        }),
+      }),
+      expect.objectContaining({
+        code: "kernel-state-unsupported",
+        detail: expect.objectContaining({
+          id: "fd:epoll-nested",
+          requiredModel: expect.arrayContaining([
+            "interest list",
+            "nested epoll and wakeup ordering",
+          ]),
+        }),
+      }),
+      expect.objectContaining({
+        code: "kernel-state-unsupported",
+        detail: expect.objectContaining({
+          id: "fd:signalfd",
+          requiredModel: expect.arrayContaining([
+            "pending signal queue",
+            "siginfo payload provenance",
+          ]),
+        }),
+      }),
+    ]);
+  });
+
   it("plans a deterministic target fd table and target guest resource recipes", () => {
     const plan = planNativeTargetFdTable({
       inheritedStdio: { mode: "inherit-output" },

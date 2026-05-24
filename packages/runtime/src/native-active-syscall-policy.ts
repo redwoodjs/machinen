@@ -320,7 +320,14 @@ export function classifyNativeThreadSyscall(
     return refusedClassification(thread, "restart", {
       code: "syscall-restart-unsupported",
       message: `thread ${thread.id} is in restartable syscall state`,
-      detail: detail(thread, "restart"),
+      detail: detail(thread, "restart", {
+        requiredModel: [
+          "remaining time accounting",
+          "restart/result contract",
+          "signal mask delivery",
+          "target syscall rearm policy",
+        ],
+      }),
     });
   }
   const name = syscallName(thread);
@@ -720,7 +727,9 @@ function futexActiveSyscallDetail(thread: NativeThreadState): Record<string, unk
         "source futex word address and value race",
         "kernel wait queue membership",
         "wake/requeue ordering",
+        "timeout accounting",
         "robust-list owner-death semantics",
+        "priority-inheritance futex ownership",
       ],
     },
   });

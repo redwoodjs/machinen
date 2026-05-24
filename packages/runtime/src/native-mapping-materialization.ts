@@ -77,6 +77,11 @@ function planMapping(
     return refusedStep(mapping, permissionRefusal);
   }
 
+  const targetOwnedSpecialRefusal = validateTargetOwnedSpecialMapping(mapping);
+  if (targetOwnedSpecialRefusal) {
+    return refusedStep(mapping, targetOwnedSpecialRefusal);
+  }
+
   const privateWritableRefusal = validatePrivateWritable(mapping);
   if (privateWritableRefusal) {
     return refusedStep(mapping, privateWritableRefusal);
@@ -266,6 +271,35 @@ function validatePermissions(mapping: NativeMemoryMapping): NativeProcessImageRe
     return refusal("mapping-permission-unsupported", `${mapping.id} is writable and executable`);
   }
   return undefined;
+}
+
+function validateTargetOwnedSpecialMapping(
+  mapping: NativeMemoryMapping,
+): NativeProcessImageRefusal | undefined {
+  if (!isTargetOwnedSpecialMapping(mapping)) {
+    return undefined;
+  }
+  if (mapping.target.materialization === "recreate" && !mapping.captured) {
+    return undefined;
+  }
+  return {
+    code: "vdso-policy-unsupported",
+    message: `${mapping.id} ${mapping.kind} mapping is target-owned and cannot copy source bytes`,
+    detail: {
+      mapping: mapping.id,
+      kind: mapping.kind,
+      sourceStart: mapping.sourceStart,
+      sourceEnd: mapping.sourceEnd,
+      requestedMaterialization: mapping.target.materialization,
+      sourceBytesCopied: false,
+      targetOwned: true,
+      requiredModel: ["target kernel vDSO/vvar recreation", "special mapping provenance"],
+    },
+  };
+}
+
+function isTargetOwnedSpecialMapping(mapping: NativeMemoryMapping): boolean {
+  return mapping.kind === "vdso" || mapping.kind === "vvar" || mapping.kind === "special";
 }
 
 function validatePrivateWritable(

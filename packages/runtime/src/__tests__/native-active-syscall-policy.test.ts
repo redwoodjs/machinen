@@ -107,10 +107,17 @@ function arm64SocketThread(
 }
 
 function arm64SocketTransferThread(
-  name: "recvfrom" | "recvmsg" | "sendto" | "sendmsg",
+  name: "recvfrom" | "recvmsg" | "recvmmsg" | "sendto" | "sendmsg" | "sendmmsg",
   x: string[] = ["0x28", "0x4100", "0x20", "0x0", "0x0", "0x0"],
 ): NativeThreadState {
-  const numbers = { recvfrom: 207, recvmsg: 212, sendto: 206, sendmsg: 211 };
+  const numbers = {
+    recvfrom: 207,
+    recvmsg: 212,
+    recvmmsg: 243,
+    sendto: 206,
+    sendmsg: 211,
+    sendmmsg: 269,
+  };
   return arm64SleepThread({ state: "inside-syscall", number: numbers[name], name }, x);
 }
 
@@ -122,10 +129,11 @@ function arm64EpollThread(
 }
 
 function arm64FutexThread(
-  name: "futex" | "futex_waitv" = "futex",
+  name: "futex" | "futex_time64" | "futex_waitv" = "futex",
   x: string[] = ["0x5000", "0x0", "0x1", "0x0", "0x0", "0x0"],
 ): NativeThreadState {
-  return arm64SleepThread({ state: "inside-syscall", number: 98, name }, x);
+  const numbers = { futex: 98, futex_time64: 422, futex_waitv: 449 };
+  return arm64SleepThread({ state: "inside-syscall", number: numbers[name], name }, x);
 }
 
 function documentsWithTimespec(options: {
@@ -1608,7 +1616,36 @@ describe("native active syscall classification", () => {
           futexSyscall: {
             name: "futex",
             arguments: { source: "registers", uaddr: "0x5000", operation: "0x80" },
-            unsupportedState: expect.arrayContaining(["kernel wait queue membership"]),
+            unsupportedState: expect.arrayContaining([
+              "kernel wait queue membership",
+              "timeout accounting",
+              "priority-inheritance futex ownership",
+            ]),
+          },
+        },
+      },
+    });
+  });
+
+  it("refuses futex_time64 with timeout argument detail", () => {
+    const activeThread = arm64FutexThread("futex_time64", [
+      "0x5000",
+      "0x80",
+      "0x1",
+      "0x6000",
+      "0x0",
+      "0x0",
+    ]);
+    const result = classifyNativeActiveSyscalls([activeThread]);
+
+    expect(result.classifications[0]).toMatchObject({
+      class: "futex-wait",
+      refusal: {
+        code: "futex-state-unsupported",
+        detail: {
+          futexSyscall: {
+            name: "futex_time64",
+            arguments: { source: "registers", timeoutPointer: "0x6000" },
           },
         },
       },
@@ -1754,7 +1791,7 @@ describe("native active syscall classification", () => {
     },
   );
 
-  it.each(["recvfrom", "recvmsg", "sendto", "sendmsg"] as const)(
+  it.each(["recvfrom", "recvmsg", "recvmmsg", "sendto", "sendmsg", "sendmmsg"] as const)(
     "refuses active socket transfer syscall %s with socket-specific detail",
     (name) => {
       const activeThread = arm64SocketTransferThread(name);
@@ -1855,6 +1892,72 @@ describe("native active syscall classification", () => {
     });
   });
 
+  it("decodes ancillary-data-shaped socket message arguments but still refuses them", () => {
+    const activeThread = arm64SocketTransferThread("sendmmsg", [
+      "0x28",
+      "0x5100",
+      "0x3",
+      "0x40",
+      "0x0",
+      "0x0",
+    ]);
+    const result = classifyNativeActiveSyscalls([activeThread], {
+      documents: documentsWithSocketResource(activeThread),
+    });
+
+    expect(result.classifications[0]).toMatchObject({
+      refusal: {
+        code: "target-socket-syscall-state-unsupported",
+        detail: {
+          socketSyscall: {
+            family: "socket-transfer",
+            arguments: {
+              source: "registers",
+              fd: 40,
+              messagePointer: "0x5100",
+              messageCount: "0x3",
+              flags: 64,
+            },
+            unsupportedState: expect.arrayContaining(["partial transfer and ancillary data state"]),
+          },
+        },
+      },
+    });
+  });
+
+  it.each(["epoll_wait", "epoll_pwait", "epoll_pwait2"] as const)(
+    "keeps active %s fail-closed with timeout and signal-mask detail",
+    (name) => {
+      const activeThread = arm64EpollThread(name, [
+        "0x30",
+        "0x4100",
+        "0x4",
+        "0xffffffff",
+        "0x5200",
+        "0x8",
+      ]);
+      const result = classifyNativeActiveSyscalls([activeThread], {
+        documents: documentsWithKernelFdResource(activeThread, 48, "epoll"),
+      });
+
+      expect(result.classifications[0]).toMatchObject({
+        refusal: {
+          code: "target-epoll-syscall-state-unsupported",
+          detail: {
+            epollSyscall: {
+              arguments: expect.objectContaining({
+                epfd: 48,
+                eventsPointer: "0x4100",
+                timeoutMs: "0xffffffff",
+              }),
+              unsupportedState: expect.arrayContaining(["edge-triggered delivery state"]),
+            },
+          },
+        },
+      });
+    },
+  );
+
   it("classifies fd-blocking syscalls separately from sleep timers", () => {
     const result = classifyNativeActiveSyscalls([
       thread({ state: "inside-syscall", number: 63, name: "read" }),
@@ -1873,7 +1976,16 @@ describe("native active syscall classification", () => {
 
     expect(result.classifications[0]).toMatchObject({
       class: "restart",
-      refusal: { code: "syscall-restart-unsupported" },
+      refusal: {
+        code: "syscall-restart-unsupported",
+        detail: {
+          requiredModel: expect.arrayContaining([
+            "remaining time accounting",
+            "restart/result contract",
+            "signal mask delivery",
+          ]),
+        },
+      },
     });
   });
 

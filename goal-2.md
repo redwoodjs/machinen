@@ -64,16 +64,16 @@ unless a later task adds an exact model and proof.
 
 ## A. Refusal taxonomy and negative profile automation
 
-- [ ] Add an `expectedResult: "refusal"` path to proof-profile automation that
+- [x] Add an `expectedResult: "refusal"` path to proof-profile automation that
       can assert exact refusal code, target gate values, and
       `migrationCompleted=false` for negative profiles.
-- [ ] Add profile-matrix fields for unsafe-state family, required refusal code,
+- [x] Add profile-matrix fields for unsafe-state family, required refusal code,
       and whether descriptor consumption is expected to be attempted.
-- [ ] Add summary checks that fail if a negative profile reaches target-native
+- [x] Add summary checks that fail if a negative profile reaches target-native
       success or sets `migrationCompleted=true`.
-- [ ] Document the negative-profile contract in
+- [x] Document the negative-profile contract in
       `docs/snapshot/portable-machine-proof-profiles.md`.
-- [ ] Add a refusal-code inventory table covering all codes used by this goal,
+- [x] Add a refusal-code inventory table covering all codes used by this goal,
       with owner docs and test files.
 
 ## B. Socket state remains refused
@@ -81,14 +81,14 @@ unless a later task adds an exact model and proof.
 - [!] Keep sockets refused until accept/connect/listen queues, peer identity,
   credentials, namespaces, socket options, shutdown state, readiness, and
   partial transfer state are modeled or brokered.
-- [ ] Add negative tests for captured listening sockets, connected socketpairs,
+- [x] Add negative tests for captured listening sockets, connected socketpairs,
       in-flight `accept`/`accept4`, in-flight `connect`, and transfer syscalls
       with ancillary-data-shaped arguments.
-- [ ] Ensure generic `read`/`readv`/`write`/`writev` on socket resources always
+- [x] Ensure generic `read`/`readv`/`write`/`writev` on socket resources always
       returns `target-socket-syscall-state-unsupported` with fd/resource detail.
-- [ ] Add or document a negative proof profile for active socket transfer that
+- [x] Add or document a negative proof profile for active socket transfer that
       proves `migrationCompleted=false`.
-- [ ] Update socket refusal docs with queue/peer/credential/namespace fields
+- [x] Update socket refusal docs with queue/peer/credential/namespace fields
       that must be modeled before support can be claimed.
 
 ## C. Epoll state remains refused
@@ -96,13 +96,13 @@ unless a later task adds an exact model and proof.
 - [!] Keep epoll refused until interest lists, ready-list ordering,
   edge-triggered delivery state, nested epoll semantics, wakeups, and target
   fd mapping are modeled.
-- [ ] Add negative tests for epoll resources with multiple watched fds,
+- [x] Add negative tests for epoll resources with multiple watched fds,
       edge-triggered flags, nested epoll, and active `epoll_wait` /
       `epoll_pwait` / `epoll_pwait2`.
-- [ ] Ensure active epoll waits return
+- [x] Ensure active epoll waits return
       `target-epoll-syscall-state-unsupported` with decoded timeout/event/fd
       detail when arguments are available.
-- [ ] Add or document a negative proof profile for active epoll wait refusal.
+- [x] Add or document a negative proof profile for active epoll wait refusal.
 
 ## D. signalfd and pending signal queues remain refused
 
@@ -110,12 +110,12 @@ unless a later task adds an exact model and proof.
   ownership, delivery ordering, and signal-mask coordination are modeled.
 - [!] Keep pending signals, active signal-delivery stops, signal trampoline
   frames, and active alt-stacks refused by default.
-- [ ] Add negative tests for pending per-thread/process signals, queued siginfo,
+- [x] Add negative tests for pending per-thread/process signals, queued siginfo,
       signalfd masks, active signal frames, active alt-stack state, and malformed
       signal masks.
-- [ ] Ensure active signalfd reads return `target-signalfd-state-unsupported`
+- [x] Ensure active signalfd reads return `target-signalfd-state-unsupported`
       with queue/mask/siginfo detail.
-- [ ] Add or document a negative proof profile for signalfd read refusal.
+- [x] Add or document a negative proof profile for signalfd read refusal.
 
 ## E. Futex, rseq, and scheduler state remain refused
 
@@ -126,12 +126,12 @@ unless a later task adds an exact model and proof.
   translation, critical-section state, and TLS ownership are modeled.
 - [!] Keep general scheduler state refused until runnable/blocked relationships,
   priorities, affinity, robust lists, and cross-thread ordering are explicit.
-- [ ] Add negative tests for active `futex`, `futex_time64`, `futex_waitv`,
+- [x] Add negative tests for active `futex`, `futex_time64`, `futex_waitv`,
       robust-list metadata, captured futex resources, and unsupported rseq state.
-- [ ] Ensure futex refusals use `futex-state-unsupported` with required-model
+- [x] Ensure futex refusals use `futex-state-unsupported` with required-model
       detail and rseq refusals use `rseq-state-unsupported` with TLS/abort-IP
       detail.
-- [ ] Add or document negative proof profiles for futex/rseq refusal where a
+- [x] Add or document negative proof profiles for futex/rseq refusal where a
       deterministic fixture is practical.
 
 ## F. Interrupted syscall and restart state remains refused
@@ -140,24 +140,24 @@ unless a later task adds an exact model and proof.
   `restart_syscall` refused unless a family-specific model proves remaining
   time, restart/result contract, signal mask delivery, and target rearm
   policy.
-- [ ] Add negative tests for restart-block thread state, `restart_syscall`,
+- [x] Add negative tests for restart-block thread state, `restart_syscall`,
       interrupted blocking syscalls without modeled remaining time, and non-null
       signal masks for poll-style syscalls.
-- [ ] Ensure refusal detail names the missing remaining-time and restart/result
+- [x] Ensure refusal detail names the missing remaining-time and restart/result
       model.
-- [ ] Add or document a negative proof profile for restart-state refusal.
+- [x] Add or document a negative proof profile for restart-state refusal.
 
 ## G. JIT and self-modifying code remain refused
 
 - [!] Keep writable+executable memory, anonymous executable code, JIT code,
   self-modifying text, and code without target build identity refused.
-- [ ] Add tests for writable+executable mappings, executable anonymous mappings,
+- [x] Add tests for writable+executable mappings, executable anonymous mappings,
       changed text hashes, missing build-id/sha256/path provenance, and code
       pointers into unowned regions.
-- [ ] Ensure refusals distinguish `mapping-executable-unsupported`,
+- [x] Ensure refusals distinguish `mapping-executable-unsupported`,
       `mapping-permission-unsupported`, `mapping-provenance-ambiguous`, and
       `target-build-mismatch`.
-- [ ] Document the exact runtime metadata required before any JIT/self-modifying
+- [x] Document the exact runtime metadata required before any JIT/self-modifying
       code support can be considered.
 
 ## H. Source vDSO/vvar and target libc special state are target-owned or refused
@@ -166,22 +166,22 @@ unless a later task adds an exact model and proof.
   target vDSO/vvar mappings.
 - [!] Keep unsafe auxv pointers such as `AT_RANDOM`, `AT_EXECFN`, `AT_BASE`, and
   `AT_SYSINFO_EHDR` refused unless target ownership is explicit.
-- [ ] Add tests proving source vDSO/vvar pages cannot appear in copied target
+- [x] Add tests proving source vDSO/vvar pages cannot appear in copied target
       memory or executable mapping descriptors.
-- [ ] Add tests proving refused auxv entries are not copied into target initial
+- [x] Add tests proving refused auxv entries are not copied into target initial
       stack materialization.
-- [ ] Document target-owned recreate/verify policy for any special mapping that
+- [x] Document target-owned recreate/verify policy for any special mapping that
       remains visible after restore.
 
 ## I. Raw cross-ISA VM state remains refused
 
 - [!] Keep raw arm64 `.vmstate` restore into amd64 refused with
   `cross-isa-vmstate-restore-unsupported`.
-- [ ] Add negative tests for manifests or CLI paths that try to mark raw
+- [x] Add negative tests for manifests or CLI paths that try to mark raw
       cross-ISA VM state as translated, replayed, emulated, or successful.
-- [ ] Ensure refusal detail names source arch, target arch, and required portable
+- [x] Ensure refusal detail names source arch, target arch, and required portable
       machine process-restore path.
-- [ ] Document that raw whole-VM state remains same-ISA only unless a future
+- [x] Document that raw whole-VM state remains same-ISA only unless a future
       target-native machine-state model exists.
 
 ## J. Descriptor, manifest, and provenance ambiguity remains refused
@@ -189,12 +189,12 @@ unless a later task adds an exact model and proof.
 - [!] Keep malformed descriptors, missing restore sections, duplicate sections,
   unsupported resource recipes, path escapes, arch mismatches, and failed
   native gate markers refused.
-- [ ] Add negative tests for every restore section added by future work.
-- [ ] Add negative proof profiles for malformed descriptor and failed native gate
+- [x] Add negative tests for every restore section added by future work.
+- [x] Add negative proof profiles for malformed descriptor and failed native gate
       markers that assert `migrationCompleted=false`.
-- [ ] Ensure descriptor/provenance hashes are checked before target-native
+- [x] Ensure descriptor/provenance hashes are checked before target-native
       completion is reported.
-- [ ] Keep target-loader completion gated on descriptor consumption and all
+- [x] Keep target-loader completion gated on descriptor consumption and all
       relevant native restore results.
 
 ## K. Final done criteria for Goal 2
