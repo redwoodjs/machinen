@@ -36,9 +36,28 @@ missing from the capture, carries close-on-exec provenance, and converts modeled
 resources into target-guest loader recipes (`reopen-file`, `inherit-stdio`,
 `synthetic-empty-pipe`, `synthetic-empty-eventfd`, and `synthetic-timerfd`).
 The loader/trampoline handoff applies close-on-exec after restore setup and
-before the target-native jump. Duplicate captured fds are refused before target execution with
-`target-fd-table-duplicate`; captured fds without any safe target recipe refuse
-with `target-fd-table-missing` or the underlying resource refusal.
+before the target-native jump. Duplicate captured fds are refused before target
+execution with `target-fd-table-duplicate`; captured fds without any safe target
+recipe refuse with `target-fd-table-missing` or the underlying resource refusal.
+
+## Resource boundary matrix
+
+| Resource / fd state          | Current policy                                                                               |
+| ---------------------------- | -------------------------------------------------------------------------------------------- |
+| regular file                 | reopen by path/offset/flags when provenance is safe                                          |
+| stdio                        | inherit stdout/stderr only with explicit stdio policy; stdin refused                         |
+| close-fd gap                 | explicit target `close-fd` recipe                                                            |
+| synthetic empty pipe         | only for modeled ppoll/read proof slices with paired read/write ends                         |
+| synthetic empty eventfd      | only counter-0, non-semaphore, modeled proof slices                                          |
+| synthetic timerfd            | only modeled disarmed/future one-shot timerfd proof slices                                   |
+| PTY                          | refuse unless a PTY broker capability is declared                                            |
+| raw socket                   | refuse unless a raw-socket broker capability is declared                                     |
+| sockets                      | refuse until queues, peer identity, shutdown/options, and namespace state are modeled        |
+| epoll                        | refuse until interest lists, ready-list ordering, wakeups, and target fd mapping are modeled |
+| signalfd                     | refuse until pending signal queue, siginfo payloads, and mask coordination are modeled       |
+| generic eventfd/timerfd      | refuse except for the narrow empty/disarmed modeled states above                             |
+| duplicate captured fd        | refuse with `target-fd-table-duplicate` before target execution                              |
+| unsupported descriptor shape | refuse before loader/trampoline args are built                                               |
 
 ## Refusals
 

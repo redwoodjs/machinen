@@ -199,22 +199,22 @@ narrow exact contract or fail closed with a stable refusal.
 
 ### H. Kernel resources and fd recipes beyond current proofs
 
-- [~] Keep current regular-file, stdio, close-fd, synthetic empty pipe, synthetic
-  empty eventfd, and synthetic timerfd recipes passing.
-- [ ] Add or refine refusals for unsupported descriptor state before target
+- [x] Keep current regular-file, stdio, close-fd, synthetic empty pipe, synthetic
+      empty eventfd, and synthetic timerfd recipes passing.
+- [x] Add or refine refusals for unsupported descriptor state before target
       execution.
-- [ ] Decide broker/model/refuse policy for PTYs.
-- [ ] Decide broker/model/refuse policy for raw sockets.
-- [ ] Keep sockets refused until accept/connect/listen queues, peer identity,
+- [x] Decide broker/model/refuse policy for PTYs.
+- [x] Decide broker/model/refuse policy for raw sockets.
+- [x] Keep sockets refused until accept/connect/listen queues, peer identity,
       credentials, namespaces, socket options, and readiness are modeled or
       brokered.
-- [ ] Keep epoll refused until interest lists, ready-list ordering, wakeups, and
+- [x] Keep epoll refused until interest lists, ready-list ordering, wakeups, and
       nested epoll semantics are modeled or brokered.
-- [ ] Keep signalfd refused until pending signal queue and siginfo ownership are
+- [x] Keep signalfd refused until pending signal queue and siginfo ownership are
       modeled.
-- [ ] Keep generic eventfd/timerfd state refused except for the already modeled
+- [x] Keep generic eventfd/timerfd state refused except for the already modeled
       narrow active-read recipes.
-- [ ] Add target fd-table tests for duplicate fds, unsupported descriptors,
+- [x] Add target fd-table tests for duplicate fds, unsupported descriptors,
       close-on-exec, safe flag filtering, and missing reopen recipes.
 
 ### I. Code identity, unwind, stack, and arbitrary binary boundary
