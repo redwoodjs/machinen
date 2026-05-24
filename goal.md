@@ -236,17 +236,17 @@ narrow exact contract or fail closed with a stable refusal.
 
 ### J. Portable machine snapshot and target VM restore hardening
 
-- [~] Keep raw cross-ISA `.vmstate` restore refused as
-  `cross-isa-vmstate-restore-unsupported`.
-- [ ] Keep portable-machine snapshots fd-backed.
-- [ ] Refuse target execution when manifest `capture.sourceArch` /
+- [x] Keep raw cross-ISA `.vmstate` restore refused as
+      `cross-isa-vmstate-restore-unsupported`.
+- [x] Keep portable-machine snapshots fd-backed.
+- [x] Refuse target execution when manifest `capture.sourceArch` /
       `target.arch` mismatches are detected.
-- [ ] Preserve descriptor, byte, and provenance hashes for every target-native
+- [x] Preserve descriptor, byte, and provenance hashes for every target-native
       continuation and restore section.
-- [ ] Add descriptor schema/version tests for every new restore section.
-- [ ] Keep target-loader completion gated on descriptor consumption and native
+- [x] Add descriptor schema/version tests for every new restore section.
+- [x] Keep target-loader completion gated on descriptor consumption and native
       marker success.
-- [ ] Add negative VM proof tests for malformed descriptors, missing sections,
+- [x] Add negative VM proof tests for malformed descriptors, missing sections,
       unsupported versions, and failed native markers.
 
 ### K. Automation and reporting

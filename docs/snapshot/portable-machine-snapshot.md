@@ -52,7 +52,11 @@ native-process/
 `validatePortableMachineSnapshotBundle()`. The embedded native process image is
 validated with the existing native-process-image validator, and its
 `capture.sourceArch` / `target.arch` must match the portable machine manifest.
-Paths are bundle-relative and may not escape the bundle root.
+Paths are bundle-relative and may not escape the bundle root. The bundle remains
+file/fd-backed: large payloads live in bundle files (`native-memory.bin`, target
+continuation bytes, descriptors, and logs) that the loader opens by path or file
+descriptor. The manifest records provenance instead of embedding an in-memory
+sidecar runtime.
 
 A local wrapper can create this bundle from an existing native process image:
 
@@ -81,8 +85,29 @@ is `cross-isa-vmstate-restore-unsupported`.
 The refusal is intentional: whole-VM `.vmstate` remains same-ISA only. Cross-ISA
 restore must go through the portable machine snapshot ladder.
 
+## Hardening gates
+
+Portable-machine restore success requires all of the following:
+
+- raw cross-ISA `.vmstate` replay remains refused with
+  `cross-isa-vmstate-restore-unsupported`;
+- manifest `capture.sourceArch`, native-process `capture.sourceArch`, and target
+  `arch` agree with the portable-machine source/target arches;
+- bundle paths stay inside the bundle root;
+- restore descriptors carry explicit schema/versioned sections and reject
+  malformed, missing, duplicate, or unsupported sections before trampoline args
+  are built;
+- target bytes, executable mappings, and file resources carry build-id, sha256,
+  path, offset, and permission provenance where applicable;
+- descriptor consumption is a completion gate: `migrationCompleted=true` is
+  reported only after `descriptorGateCompleted=true`, target-native execution
+  completes, and every relevant target-native consumption result passes;
+- failed native consumption markers, missing sections, or malformed descriptors
+  keep the proof in a refused/not-completed state.
+
 ## Non-claims
 
-This boundary does not yet implement the target VM restore loader, target memory
-materialization, or end-to-end VM-level restore. Those are tracked in follow-up
-issues #585 through #589.
+This boundary does not claim general arbitrary-process migration. The supported
+class is limited to the proof profiles and fail-closed boundaries documented in
+[Portable machine VM restore proof](./portable-machine-vm-restore-proof.md) and
+[Portable machine proof profiles](./portable-machine-proof-profiles.md).
