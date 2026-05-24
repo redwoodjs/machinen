@@ -29,13 +29,13 @@ completion is reported:
 | executable mapping         | verifies target file/path/address/size/offset, executable/private flags, and build-id or sha256 provenance                     |
 | signal restore             | saves, applies, verifies, and restores the loader signal mask                                                                  |
 | process context            | carries bounded argv/env/cwd/auxv, applies/verifies env+cwd, and can materialize a bounded target argv/envp/auxv pointer block |
-| active syscall             | re-arms modeled sleep/ppoll timers, recreates pipe/eventfd/timerfd read blockers, and completes safe regular-file reads        |
+| active syscall             | re-arms modeled sleep/ppoll timers, recreates pipe/eventfd/timerfd read blockers, and completes safe regular-file reads/writes |
 | controlled thread spawn    | maps requested stacks and consumes narrow spawn steps with short-lived target tasks                                            |
 
 Recent remote arm64→amd64 proofs now cover:
 
-- pipe, eventfd, timerfd, and regular-file active `read` profiles with
-  `targetActiveSyscallRestoreResult=passed`;
+- pipe, eventfd, timerfd, and regular-file active `read` profiles plus a
+  regular-file active `write` profile with `targetActiveSyscallRestoreResult=passed`;
 - process-context handoff through the initial-stack pointer block model with
   `targetProcessContextRestoreResult=passed`;
 - controlled two-thread restore with futex and rseq still fail-closed behind
@@ -47,8 +47,7 @@ The next work should expand _accepted process shapes_, not relax the success
 criteria. Good next issues are:
 
 1. Add more real resource/syscall families one at a time, starting with cases
-   whose target fd/resource recipes can be proven without readiness ambiguity
-   (for example, safe offset-backed regular-file `write`).
+   whose target fd/resource recipes can be proven without readiness ambiguity.
 2. Broaden private target memory coverage only where provenance, permissions,
    guards, and pointer ownership are explicit.
 3. Continue process context work beyond the bounded pointer block: model libc

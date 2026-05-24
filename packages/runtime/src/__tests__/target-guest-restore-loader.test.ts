@@ -409,6 +409,18 @@ describe("target guest restore loader descriptor", () => {
         },
       },
       {
+        section: "active-syscall" as const,
+        step: {
+          action: "complete-fd-write-to-file" as const,
+          threadId: "thread:1",
+          fd: 39,
+          countBytes: 4,
+          targetBufferPointer: "0x600000000180",
+          fileOffset: 11,
+          resumeMode: "defer-target-resume" as const,
+        },
+      },
+      {
         section: "thread-spawn" as const,
         step: {
           action: "spawn-target-thread" as const,
@@ -455,6 +467,8 @@ describe("target guest restore loader descriptor", () => {
         "action=restore-fd-read-block;threadId=thread:1;fd=36;countBytes=8;resource=synthetic-timerfd;seconds=1;nanoseconds=0;resumeMode=defer-target-resume",
         "--native-active-syscall-step",
         "action=complete-fd-read-from-file;threadId=thread:1;fd=38;countBytes=4;targetBufferPointer=0x600000000100;fileOffset=7;resumeMode=defer-target-resume",
+        "--native-active-syscall-step",
+        "action=complete-fd-write-to-file;threadId=thread:1;fd=39;countBytes=4;targetBufferPointer=0x600000000180;fileOffset=11;resumeMode=defer-target-resume",
         "--native-thread-spawn-step",
         "action=spawn-target-thread;threadId=thread:2;stackBase=0x530000000000;stackLimit=0x530000010000;rip=0x700300000000;rsp=0x530000010000",
       ]),

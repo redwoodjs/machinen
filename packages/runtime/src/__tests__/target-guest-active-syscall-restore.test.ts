@@ -149,6 +149,35 @@ const fileReadResult: NativeActiveSyscallClassificationResult = {
   ],
 };
 
+const fileWriteResult: NativeActiveSyscallClassificationResult = {
+  classifications: [],
+  refusals: [],
+  continuations: [
+    {
+      threadId: "thread:5",
+      syscallClass: "fd-blocking",
+      action: "defer-target-resume",
+      syscall: { state: "inside-syscall", name: "write" },
+      metadata: {
+        fdWrite: {
+          kind: "fd-write-complete",
+          syscallName: "write",
+          argumentSource: "registers",
+          fd: 39,
+          bufferPointer: "0x3100",
+          countBytes: 4,
+          bufferMapping: "mapping:stack",
+          resourceId: "fd:39:write",
+          targetResource: "reopened-offset-file",
+          targetBufferPointer: "0x600000000100",
+          fileOffset: 7,
+        },
+        policy: "conservative-target-fd-write-completed-from-buffer",
+      },
+    },
+  ],
+};
+
 describe("target guest active syscall restore", () => {
   it("plans target re-arm for modeled sleep timers", () => {
     expect(planTargetGuestActiveSyscallRestore(sleepResult)).toEqual({
@@ -209,6 +238,24 @@ describe("target guest active syscall restore", () => {
           action: "complete-fd-read-from-file",
           threadId: "thread:4",
           fd: 38,
+          countBytes: 4,
+          targetBufferPointer: "0x600000000100",
+          fileOffset: 7,
+          resumeMode: "defer-target-resume",
+        },
+      ],
+    });
+  });
+
+  it("plans target-side completion for modeled regular-file writes", () => {
+    expect(planTargetGuestActiveSyscallRestore(fileWriteResult)).toEqual({
+      state: "planned",
+      refusals: [],
+      steps: [
+        {
+          action: "complete-fd-write-to-file",
+          threadId: "thread:5",
+          fd: 39,
           countBytes: 4,
           targetBufferPointer: "0x600000000100",
           fileOffset: 7,

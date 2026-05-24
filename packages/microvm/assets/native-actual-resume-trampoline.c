@@ -1985,6 +1985,27 @@ static void complete_native_fd_read_from_file(const char *spec, struct NativeAct
   state->consumed_count++;
 }
 
+static void complete_native_fd_write_to_file(const char *spec, struct NativeActiveSyscallRestoreState *state) {
+  uint64_t fd = native_step_u64(spec, "fd", "active-syscall");
+  uint64_t count_bytes = native_step_u64(spec, "countBytes", "active-syscall");
+  uint64_t target_buffer = native_step_u64(spec, "targetBufferPointer", "active-syscall");
+  uint64_t file_offset = native_step_u64(spec, "fileOffset", "active-syscall");
+  if (fd > 1024u || count_bytes == 0 || count_bytes > (1024u * 1024u) || target_buffer == 0) {
+    fprintf(stderr, "native-actual-resume-trampoline: native file write arguments are unsupported\n");
+    exit(2);
+  }
+  ssize_t wrote = pwrite((int)fd, (const void *)(uintptr_t)target_buffer, (size_t)count_bytes, (off_t)file_offset);
+  if (wrote < 0) {
+    fprintf(stderr, "native-actual-resume-trampoline: native file write failed: %s\n", strerror(errno));
+    exit(1);
+  }
+  if ((uint64_t)wrote != count_bytes) {
+    fprintf(stderr, "native-actual-resume-trampoline: native file write was partial\n");
+    exit(2);
+  }
+  state->consumed_count++;
+}
+
 static void restore_native_fd_read_block(const char *spec, struct NativeActiveSyscallRestoreState *state) {
   uint64_t fd = native_step_u64(spec, "fd", "active-syscall");
   uint64_t count_bytes = native_step_u64(spec, "countBytes", "active-syscall");
@@ -2058,6 +2079,8 @@ static void apply_native_active_syscall_restore_steps(
       restore_native_fd_read_block(spec, state);
     } else if (streq(action, "complete-fd-read-from-file")) {
       complete_native_fd_read_from_file(spec, state);
+    } else if (streq(action, "complete-fd-write-to-file")) {
+      complete_native_fd_write_to_file(spec, state);
     } else {
       fprintf(stderr, "native-actual-resume-trampoline: unsupported native active-syscall action\n");
       exit(2);

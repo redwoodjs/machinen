@@ -924,7 +924,7 @@ function parseNativeActiveSyscallStep(
       resumeMode: "defer-target-resume",
     };
   }
-  if (action === "complete-fd-read-from-file") {
+  if (action === "complete-fd-read-from-file" || action === "complete-fd-write-to-file") {
     return {
       action,
       threadId: requiredNativeField(fields, "threadId"),
@@ -1295,7 +1295,7 @@ function validateSignalRestoreStep(step: TargetGuestSignalRestoreStep): void {
 // fallow-ignore-next-line complexity
 function validateActiveSyscallRestoreStep(step: TargetGuestActiveSyscallRestoreStep): void {
   assertNoWhitespace(step.threadId, "threadId");
-  if (step.action === "complete-fd-read-from-file") {
+  if (step.action === "complete-fd-read-from-file" || step.action === "complete-fd-write-to-file") {
     assertFd(step.fd, "fd");
     assertPositive(step.countBytes, "countBytes");
     assertHexAddress(step.targetBufferPointer, "targetBufferPointer");
@@ -1742,7 +1742,7 @@ function serializeSignalRestoreStep(step: TargetGuestSignalRestoreStep): string 
 }
 
 function serializeActiveSyscallStep(step: TargetGuestActiveSyscallRestoreStep): string {
-  if (step.action === "complete-fd-read-from-file") {
+  if (step.action === "complete-fd-read-from-file" || step.action === "complete-fd-write-to-file") {
     return `native=active-syscall action=${step.action} threadId=${step.threadId} fd=${step.fd} countBytes=${step.countBytes} targetBufferPointer=${step.targetBufferPointer} fileOffset=${step.fileOffset} resumeMode=${step.resumeMode}`;
   }
   if (step.action === "restore-fd-read-block") {

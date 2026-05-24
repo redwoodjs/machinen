@@ -34,6 +34,8 @@ export type NativeFdReadResourcePolicy =
   | "synthetic-empty-eventfd"
   | "synthetic-timerfd"
   | "reopen-file";
+export type NativeFdWritePolicy = "refuse" | "defer-target-resume";
+export type NativeFdWriteResourcePolicy = "reopen-file";
 
 export interface NativeActiveSyscallPolicyOptions {
   sleepTimerPolicy?: NativeSleepTimerSyscallPolicy;
@@ -41,6 +43,8 @@ export interface NativeActiveSyscallPolicyOptions {
   pollTimeoutFdPolicy?: NativePollTimeoutFdPolicy;
   fdReadPolicy?: NativeFdReadPolicy;
   fdReadResourcePolicy?: NativeFdReadResourcePolicy;
+  fdWritePolicy?: NativeFdWritePolicy;
+  fdWriteResourcePolicy?: NativeFdWriteResourcePolicy;
   documents?: NativeProcessImageDocuments;
 }
 
@@ -132,6 +136,22 @@ export interface NativeModeledFdReadState {
   remainingTime?: NativeModeledFdReadTimerRemainingTime;
 }
 
+export type NativeModeledFdWriteTargetResource = "reopened-offset-file";
+
+export interface NativeModeledFdWriteState {
+  kind: "fd-write-complete";
+  syscallName: "write";
+  argumentSource: "proc-syscall" | "registers";
+  fd: number;
+  bufferPointer: string;
+  countBytes: number;
+  bufferMapping: string;
+  resourceId: string;
+  targetResource: NativeModeledFdWriteTargetResource;
+  targetBufferPointer: string;
+  fileOffset: number;
+}
+
 export type NativeSleepTimerModelResult =
   | { state: "modeled"; timer: NativeModeledSleepTimerState }
   | { state: "missing"; refusal: NativeProcessImageRefusal };
@@ -142,6 +162,10 @@ export type NativePpollTimeoutModelResult =
 
 export type NativeFdReadModelResult =
   | { state: "modeled"; read: NativeModeledFdReadState }
+  | { state: "missing"; refusal: NativeProcessImageRefusal };
+
+export type NativeFdWriteModelResult =
+  | { state: "modeled"; write: NativeModeledFdWriteState }
   | { state: "missing"; refusal: NativeProcessImageRefusal };
 
 export interface NativeActiveSleepTimerContinuation {
@@ -179,10 +203,22 @@ export interface NativeActiveFdReadContinuation {
   };
 }
 
+export interface NativeActiveFdWriteContinuation {
+  threadId: string;
+  syscallClass: Extract<NativeActiveSyscallClass, "fd-blocking">;
+  action: "defer-target-resume";
+  syscall: NativeThreadState["syscall"];
+  metadata: {
+    fdWrite: NativeModeledFdWriteState;
+    policy: "conservative-target-fd-write-completed-from-buffer";
+  };
+}
+
 export type NativeActiveSyscallContinuation =
   | NativeActiveSleepTimerContinuation
   | NativeActivePpollTimeoutContinuation
-  | NativeActiveFdReadContinuation;
+  | NativeActiveFdReadContinuation
+  | NativeActiveFdWriteContinuation;
 
 export interface NativeActiveSyscallClassification {
   threadId: string;
@@ -233,6 +269,8 @@ const SUPPORTED_TIMERFD_READ_FLAGS = new Set([0o2, SUPPORTED_TIMERFD_FLAGS]);
 const MAX_SIGNED_I64 = 0x7fff_ffff_ffff_ffffn;
 const MAX_NANOSECONDS = 999_999_999n;
 const MAX_FD_READ_BYTES = 1024n * 1024n;
+const MAX_FD_WRITE_BYTES = 1024n * 1024n;
+const O_APPEND_FLAG = 0o2000;
 
 export function classifyNativeActiveSyscalls(
   threads: NativeThreadState[],
@@ -289,6 +327,9 @@ export function classifyNativeThreadSyscall(
   }
   if (name === "read" && options.fdReadPolicy === "defer-target-resume") {
     return deferredFdReadClassification(thread, options);
+  }
+  if (name === "write" && options.fdWritePolicy === "defer-target-resume") {
+    return deferredFdWriteClassification(thread, options);
   }
   if (SOCKET_ACTIVE_SYSCALLS.has(name)) {
     return refusedSocketActiveSyscallClassification(thread, options);
@@ -386,6 +427,35 @@ export function modelNativeFdReadState(
     read: {
       kind: "fd-read-block",
       syscallName: "read",
+      argumentSource: args.source,
+      ...decoded,
+    },
+  };
+}
+
+export function modelNativeFdWriteState(
+  thread: NativeThreadState,
+  documents?: NativeProcessImageDocuments,
+  resourcePolicy: NativeFdWriteResourcePolicy = "reopen-file",
+): NativeFdWriteModelResult {
+  const args = sleepTimerArguments(thread);
+  if (!args) {
+    return missingFdWrite(thread, "syscall arguments were not captured");
+  }
+  if (!documents?.rootDir) {
+    return missingFdWrite(thread, "captured memory bundle is not available", {
+      argumentSource: args.source,
+    });
+  }
+  const decoded = decodeFdWriteArguments(thread, args, documents, resourcePolicy);
+  if ("refusal" in decoded) {
+    return decoded;
+  }
+  return {
+    state: "modeled",
+    write: {
+      kind: "fd-write-complete",
+      syscallName: "write",
       argumentSource: args.source,
       ...decoded,
     },
@@ -522,19 +592,40 @@ function deferredFdReadClassification(
   if (modeled.state === "missing") {
     return refusedClassification(thread, "fd-blocking", modeled.refusal);
   }
-  return {
-    ...baseClassification(thread, "fd-blocking"),
-    continuation: {
-      threadId: thread.id,
-      syscallClass: "fd-blocking",
-      action: "defer-target-resume",
-      syscall: thread.syscall,
-      metadata: {
-        fdRead: modeled.read,
-        policy: "conservative-target-fd-read-block-preserved",
-      },
-    },
-  };
+  return deferredFdBlockingClassification(thread, {
+    fdRead: modeled.read,
+    policy: "conservative-target-fd-read-block-preserved",
+  });
+}
+
+function deferredFdWriteClassification(
+  thread: NativeThreadState,
+  options: NativeActiveSyscallPolicyOptions,
+): NativeActiveSyscallClassification {
+  const modeled = modelNativeFdWriteState(thread, options.documents, options.fdWriteResourcePolicy);
+  if (modeled.state === "missing") {
+    return refusedClassification(thread, "fd-blocking", modeled.refusal);
+  }
+  return deferredFdBlockingClassification(thread, {
+    fdWrite: modeled.write,
+    policy: "conservative-target-fd-write-completed-from-buffer",
+  });
+}
+
+function deferredFdBlockingClassification(
+  thread: NativeThreadState,
+  metadata:
+    | NativeActiveFdReadContinuation["metadata"]
+    | NativeActiveFdWriteContinuation["metadata"],
+): NativeActiveSyscallClassification {
+  const continuation = {
+    threadId: thread.id,
+    syscallClass: "fd-blocking" as const,
+    action: "defer-target-resume" as const,
+    syscall: thread.syscall,
+    metadata,
+  } as NativeActiveFdReadContinuation | NativeActiveFdWriteContinuation;
+  return { ...baseClassification(thread, "fd-blocking"), continuation };
 }
 
 function refusedFutexActiveSyscallClassification(
@@ -1037,6 +1128,45 @@ function decodeFdReadArguments(
   };
 }
 
+function decodeFdWriteArguments(
+  thread: NativeThreadState,
+  args: SleepTimerArguments,
+  documents: NativeProcessImageDocuments,
+  resourcePolicy: NativeFdWriteResourcePolicy,
+):
+  | Omit<NativeModeledFdWriteState, "kind" | "syscallName" | "argumentSource">
+  | { state: "missing"; refusal: NativeProcessImageRefusal } {
+  const values = decodeFdWriteArgumentValues(thread, args);
+  if ("state" in values) {
+    return values;
+  }
+  const bufferMapping = validateFdWriteBuffer(thread, args, documents, values);
+  if ("state" in bufferMapping) {
+    return bufferMapping;
+  }
+  const resource = validateFdWriteModeledResource(thread, documents, values.fd, resourcePolicy);
+  if ("state" in resource) {
+    return resource;
+  }
+  const targetBufferPointer = targetWriteBufferPointer(bufferMapping, values.bufferPointer);
+  if (!targetBufferPointer) {
+    return missingFdWrite(thread, "write file proof requires a translated target buffer", {
+      fd: values.fd,
+      bufferMapping: bufferMapping.id,
+    });
+  }
+  return {
+    fd: values.fd,
+    bufferPointer: hex(values.bufferPointer),
+    countBytes: values.countBytes,
+    bufferMapping: bufferMapping.id,
+    resourceId: resource.resource.id,
+    targetResource: resource.targetResource,
+    targetBufferPointer,
+    fileOffset: resource.fileOffset,
+  };
+}
+
 interface FdReadArgumentValues {
   fd: number;
   bufferPointer: bigint;
@@ -1066,17 +1196,62 @@ function decodeFdReadCount(
   fd: number,
   count: bigint,
 ): number | { state: "missing"; refusal: NativeProcessImageRefusal } {
-  if (count <= 0n || count > MAX_FD_READ_BYTES) {
-    return missingFdRead(thread, "read count is outside supported bounds", {
+  return decodeFdTransferCount(thread, args, fd, count, "read", MAX_FD_READ_BYTES, missingFdRead);
+}
+
+function decodeFdWriteArgumentValues(
+  thread: NativeThreadState,
+  args: SleepTimerArguments,
+): FdReadArgumentValues | { state: "missing"; refusal: NativeProcessImageRefusal } {
+  const fd = safeNumber(args.values[0] ?? -1n);
+  const bufferPointer = args.values[1] ?? 0n;
+  const count = args.values[2] ?? 0n;
+  if (fd === undefined || fd < 0) {
+    return missingFdWrite(thread, "write fd is missing or invalid", {
+      fd: hex(args.values[0] ?? -1n),
+    });
+  }
+  const countBytes = decodeFdWriteCount(thread, args, fd, count);
+  return typeof countBytes === "number" ? { fd, bufferPointer, count, countBytes } : countBytes;
+}
+
+function decodeFdWriteCount(
+  thread: NativeThreadState,
+  args: SleepTimerArguments,
+  fd: number,
+  count: bigint,
+): number | { state: "missing"; refusal: NativeProcessImageRefusal } {
+  return decodeFdTransferCount(
+    thread,
+    args,
+    fd,
+    count,
+    "write",
+    MAX_FD_WRITE_BYTES,
+    missingFdWrite,
+  );
+}
+
+function decodeFdTransferCount(
+  thread: NativeThreadState,
+  args: SleepTimerArguments,
+  fd: number,
+  count: bigint,
+  operation: "read" | "write",
+  maxBytes: bigint,
+  missing: typeof missingFdRead,
+): number | { state: "missing"; refusal: NativeProcessImageRefusal } {
+  if (count <= 0n || count > maxBytes) {
+    return missing(thread, `${operation} count is outside supported bounds`, {
       fd,
       countBytes: count.toString(10),
-      maxCountBytes: MAX_FD_READ_BYTES.toString(10),
+      maxCountBytes: maxBytes.toString(10),
       argumentSource: args.source,
     });
   }
   return (
     safeNumber(count) ??
-    missingFdRead(thread, "read count does not fit in a safe integer", {
+    missing(thread, `${operation} count does not fit in a safe integer`, {
       fd,
       countBytes: count.toString(10),
       argumentSource: args.source,
@@ -1104,6 +1279,33 @@ function validateFdReadBuffer(
   return bufferMapping?.captured
     ? bufferMapping
     : missingFdRead(thread, "read buffer is not in captured writable memory", {
+        fd: values.fd,
+        bufferPointer: hex(values.bufferPointer),
+        countBytes: values.countBytes,
+        argumentSource: args.source,
+      });
+}
+
+function validateFdWriteBuffer(
+  thread: NativeThreadState,
+  args: SleepTimerArguments,
+  documents: NativeProcessImageDocuments,
+  values: FdReadArgumentValues,
+): NativeMemoryMapping | { state: "missing"; refusal: NativeProcessImageRefusal } {
+  if (values.bufferPointer === 0n) {
+    return missingFdWrite(thread, "write buffer pointer is null", {
+      fd: values.fd,
+      argumentSource: args.source,
+    });
+  }
+  const bufferMapping = readableDataMappingContainingRange(
+    documents,
+    values.bufferPointer,
+    values.count,
+  );
+  return bufferMapping?.captured
+    ? bufferMapping
+    : missingFdWrite(thread, "write buffer is not in captured readable data memory", {
         fd: values.fd,
         bufferPointer: hex(values.bufferPointer),
         countBytes: values.countBytes,
@@ -1424,6 +1626,24 @@ function validateFdReadModeledResource(
     : validateFdReadPipeResource(thread, documents, fd);
 }
 
+function validateFdWriteModeledResource(
+  thread: NativeThreadState,
+  documents: NativeProcessImageDocuments,
+  fd: number,
+  resourcePolicy: NativeFdWriteResourcePolicy,
+):
+  | {
+      resource: NativeProcessResource;
+      targetResource: NativeModeledFdWriteTargetResource;
+      fileOffset: number;
+    }
+  | { state: "missing"; refusal: NativeProcessImageRefusal } {
+  if (resourcePolicy !== "reopen-file") {
+    return missingFdWrite(thread, "write file proof requires reopen-file resource policy", { fd });
+  }
+  return validateFdWriteFileResource(thread, documents, fd);
+}
+
 function validateFdReadPipeResource(
   thread: NativeThreadState,
   documents: NativeProcessImageDocuments,
@@ -1474,14 +1694,11 @@ function validateFdReadFileResource(
 ):
   | { resource: NativeProcessResource; targetResource: "reopened-offset-file"; fileOffset: number }
   | { state: "missing"; refusal: NativeProcessImageRefusal } {
-  const resource = documents.resources.resources.find((candidate) => candidate.fd === fd);
-  if (resource?.kind !== "file") {
-    return missingFdRead(thread, "read file proof requires a captured regular file fd", {
-      fd,
-      resourceKind: resource?.kind,
-      resourceId: resource?.id,
-    });
+  const base = capturedRegularFileResource(thread, documents, fd, "read", missingFdRead);
+  if (!("resource" in base)) {
+    return base;
   }
+  const { resource } = base;
   if (nativeFdAccessMode(resource.flags) === 1) {
     return missingFdRead(thread, "read file proof requires a readable file fd", {
       fd,
@@ -1489,25 +1706,88 @@ function validateFdReadFileResource(
       resourceFlags: resource.flags,
     });
   }
+  const fileOffset = validateFileReopenOffset(thread, fd, resource, "read", missingFdRead);
+  return typeof fileOffset === "number"
+    ? { resource, targetResource: "reopened-offset-file", fileOffset }
+    : fileOffset;
+}
+
+function fdReadFileOffset(resource: NativeProcessResource): number {
+  const recipeOffset = resource.recipe?.offset;
+  return typeof recipeOffset === "number" ? recipeOffset : (resource.offset ?? 0);
+}
+
+function capturedRegularFileResource(
+  thread: NativeThreadState,
+  documents: NativeProcessImageDocuments,
+  fd: number,
+  operation: "read" | "write",
+  missing: typeof missingFdRead,
+): { resource: NativeProcessResource } | { state: "missing"; refusal: NativeProcessImageRefusal } {
+  const resource = documents.resources.resources.find((candidate) => candidate.fd === fd);
+  return resource?.kind === "file"
+    ? { resource }
+    : missing(thread, `${operation} file proof requires a captured regular file fd`, {
+        fd,
+        resourceKind: resource?.kind,
+        resourceId: resource?.id,
+      });
+}
+
+function validateFileReopenOffset(
+  thread: NativeThreadState,
+  fd: number,
+  resource: NativeProcessResource,
+  operation: "read" | "write",
+  missing: typeof missingFdRead,
+): number | { state: "missing"; refusal: NativeProcessImageRefusal } {
   if (typeof resource.recipe?.reopen !== "string") {
-    return missingFdRead(thread, "read file proof requires a reopen recipe", {
+    return missing(thread, `${operation} file proof requires a reopen recipe`, {
       fd,
       resourceId: resource.id,
     });
   }
   const fileOffset = fdReadFileOffset(resource);
   return Number.isSafeInteger(fileOffset) && fileOffset >= 0
-    ? { resource, targetResource: "reopened-offset-file", fileOffset }
-    : missingFdRead(thread, "read file proof requires a safe non-negative file offset", {
+    ? fileOffset
+    : missing(thread, `${operation} file proof requires a safe non-negative file offset`, {
         fd,
         resourceId: resource.id,
         offset: resource.offset,
       });
 }
 
-function fdReadFileOffset(resource: NativeProcessResource): number {
-  const recipeOffset = resource.recipe?.offset;
-  return typeof recipeOffset === "number" ? recipeOffset : (resource.offset ?? 0);
+function validateFdWriteFileResource(
+  thread: NativeThreadState,
+  documents: NativeProcessImageDocuments,
+  fd: number,
+):
+  | { resource: NativeProcessResource; targetResource: "reopened-offset-file"; fileOffset: number }
+  | { state: "missing"; refusal: NativeProcessImageRefusal } {
+  const base = capturedRegularFileResource(thread, documents, fd, "write", missingFdWrite);
+  if (!("resource" in base)) {
+    return base;
+  }
+  const { resource } = base;
+  const access = nativeFdAccessMode(resource.flags);
+  if (access !== 1 && access !== 2) {
+    return missingFdWrite(thread, "write file proof requires a writable file fd", {
+      fd,
+      resourceId: resource.id,
+      resourceFlags: resource.flags,
+    });
+  }
+  if ((nativeFdFlagBits(resource.flags) ?? 0) & O_APPEND_FLAG) {
+    return missingFdWrite(thread, "write file proof does not model O_APPEND", {
+      fd,
+      resourceId: resource.id,
+      resourceFlags: resource.flags,
+    });
+  }
+  const fileOffset = validateFileReopenOffset(thread, fd, resource, "write", missingFdWrite);
+  return typeof fileOffset === "number"
+    ? { resource, targetResource: "reopened-offset-file", fileOffset }
+    : fileOffset;
 }
 
 function validateFdReadEventfdResource(
@@ -1926,7 +2206,35 @@ function writableMappingContainingRange(
   );
 }
 
+function readableDataMappingContainingRange(
+  documents: NativeProcessImageDocuments,
+  sourceAddress: bigint,
+  sizeBytes: bigint,
+): NativeMemoryMapping | undefined {
+  return documents.mappings.mappings.find(
+    (mapping) =>
+      mapping.permissions.read &&
+      !mapping.permissions.execute &&
+      sourceAddress >= BigInt(mapping.sourceStart) &&
+      sourceAddress + sizeBytes <= BigInt(mapping.sourceEnd),
+  );
+}
+
 function targetReadBufferPointer(
+  mapping: NativeMemoryMapping,
+  sourceAddress: bigint,
+): string | undefined {
+  return targetTranslatedBufferPointer(mapping, sourceAddress);
+}
+
+function targetWriteBufferPointer(
+  mapping: NativeMemoryMapping,
+  sourceAddress: bigint,
+): string | undefined {
+  return targetTranslatedBufferPointer(mapping, sourceAddress);
+}
+
+function targetTranslatedBufferPointer(
   mapping: NativeMemoryMapping,
   sourceAddress: bigint,
 ): string | undefined {
@@ -1962,6 +2270,14 @@ function missingFdRead(
   extra?: Record<string, unknown>,
 ): { state: "missing"; refusal: NativeProcessImageRefusal } {
   return { state: "missing", refusal: missingFdReadRefusal(thread, reason, extra) };
+}
+
+function missingFdWrite(
+  thread: NativeThreadState,
+  reason: string,
+  extra?: Record<string, unknown>,
+): { state: "missing"; refusal: NativeProcessImageRefusal } {
+  return { state: "missing", refusal: missingFdWriteRefusal(thread, reason, extra) };
 }
 
 function missingSleepTimerRefusal(
@@ -2012,6 +2328,28 @@ function missingFdReadRefusal(
         "empty pipe read end",
         "paired write end",
         "target fd block verification",
+      ],
+      ...extra,
+    }),
+  };
+}
+
+function missingFdWriteRefusal(
+  thread: NativeThreadState,
+  reason: string,
+  extra?: Record<string, unknown>,
+): NativeProcessImageRefusal {
+  return {
+    code: "target-fd-write-state-missing",
+    message: `thread ${thread.id} fd write state is not modeled`,
+    detail: detail(thread, "fd-blocking", {
+      reason,
+      requiredModel: [
+        "write syscall arguments",
+        "captured readable write buffer",
+        "regular-file reopen recipe",
+        "safe target file offset",
+        "target pwrite completion verification",
       ],
       ...extra,
     }),
