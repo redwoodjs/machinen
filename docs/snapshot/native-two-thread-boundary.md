@@ -32,5 +32,28 @@ unsupported rseq state on either thread.
 - the underlying single-thread gate's precise refusals for stack, signal,
   register, TLS, SIMD/FPU, or active syscall failures.
 
+## Futex, rseq, and scheduler requirements
+
+General futex migration remains refused until a target model can prove all of the
+following at once:
+
+- the futex word address is translated and belongs to target-owned memory;
+- wait-queue membership, wake/requeue ordering, priority-inheritance state, and
+  robust-list owner-death behavior are known;
+- timeout and signal interruption semantics match the target restart policy;
+- every participating thread's scheduling relationship is represented.
+
+General rseq migration remains refused until the target can register a new rseq
+area, translate any active critical-section abort IP, prove whether execution is
+inside a critical section, and tie the rseq area to the target TLS/TCB owner.
+Captured or unsupported rseq state therefore fails closed with
+`rseq-state-unsupported`.
+
+The controlled two-thread proof intentionally avoids those states. Its target
+spawns are short-lived verifier tasks with independent stacks/registers/TLS and
+no futex wait, rseq, or scheduler handoff. Any future proof that accepts
+multithread/futex/rseq state must add a new remote profile and keep all other
+scheduler state refused until modeled.
+
 This boundary gives us a controlled target for future scheduling/futex work while
 keeping ambiguous multi-thread state fail-closed.
