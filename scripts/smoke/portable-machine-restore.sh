@@ -364,6 +364,10 @@ capture_remote_native_process_bundle() {
       target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-ppoll-timeout-target"
       target_detail="remote arm64 process-context native-process bundle captured from $ARM64_SSH"
       ;;
+    epoll-recreate)
+      target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-pipe-read-target"
+      target_detail="remote arm64 pipe read bundle with target epoll reconstruction proof captured from $ARM64_SSH"
+      ;;
     *)
       finish_failure "unsupported PORTABLE_MACHINE_REMOTE_SOURCE_TARGET=$REMOTE_SOURCE_TARGET"
       ;;
@@ -432,9 +436,15 @@ run_target_restore() {
   fi
   local process_context_restore_args=()
   local process_context_restore_args_text=""
+  local resource_model_args=()
+  local resource_model_args_text=""
   if [[ "$REMOTE_SOURCE_TARGET" == "process-context" ]]; then
     process_context_restore_args=(--process-context-restore apply-target-initial-stack)
     process_context_restore_args_text="${process_context_restore_args[*]}"
+  fi
+  if [[ "$REMOTE_SOURCE_TARGET" == "epoll-recreate" ]]; then
+    resource_model_args=(--include-epoll-proof)
+    resource_model_args_text="${resource_model_args[*]}"
   fi
   if [[ $REMOTE_E2E -eq 1 ]]; then
     local remote_path_assignment="PATH=\$PATH"
@@ -442,7 +452,7 @@ run_target_restore() {
       remote_path_assignment="PATH='$AMD64_PATH_PREFIX':\$PATH"
     fi
     if ! ssh "$AMD64_SSH" \
-      "cd '$AMD64_REPO' && $remote_path_assignment MACHINEN_VMM='$AMD64_VMM' MACHINEN_KERNEL='$AMD64_KERNEL' MACHINEN_ASSETS_DIR='$AMD64_ASSETS_DIR' '$AMD64_PNPM' --silent portable-machine-vm-restore-proof -- --bundle-dir '$REMOTE_PORTABLE_BUNDLE' --target-code-file '$REMOTE_TARGET_CODE' --image '$TARGET_IMAGE' --combined-descriptor --real-utility-continuation $process_context_restore_args_text --json" \
+      "cd '$AMD64_REPO' && $remote_path_assignment MACHINEN_VMM='$AMD64_VMM' MACHINEN_KERNEL='$AMD64_KERNEL' MACHINEN_ASSETS_DIR='$AMD64_ASSETS_DIR' '$AMD64_PNPM' --silent portable-machine-vm-restore-proof -- --bundle-dir '$REMOTE_PORTABLE_BUNDLE' --target-code-file '$REMOTE_TARGET_CODE' --image '$TARGET_IMAGE' --combined-descriptor --real-utility-continuation $process_context_restore_args_text $resource_model_args_text --json" \
       >"$TARGET_LOG" 2>"$WORK/target-restore.stderr"; then
       record_timing "target-boot-restore" "failed" "$start" "remote runner failed"
       return 21
@@ -454,6 +464,7 @@ run_target_restore() {
     --combined-descriptor \
     --real-utility-continuation \
     "${process_context_restore_args[@]}" \
+    "${resource_model_args[@]}" \
     --json >"$TARGET_LOG" 2>"$WORK/target-restore.stderr"; then
     record_timing "target-boot-restore" "failed" "$start" "runner failed"
     return 21

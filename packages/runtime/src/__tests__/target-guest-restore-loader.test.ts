@@ -108,6 +108,12 @@ describe("target guest restore loader descriptor", () => {
         { kind: "synthetic-empty-pipe", readFd: 3, writeFd: 4, closeOnExec: false },
         { kind: "synthetic-empty-eventfd", fd: 5, closeOnExec: false },
         { kind: "synthetic-timerfd", fd: 6, closeOnExec: false },
+        {
+          kind: "synthetic-epoll",
+          fd: 8,
+          watches: [{ fd: 5, events: 1, data: "0x45504f4c4c" }],
+          closeOnExec: false,
+        },
       ],
     });
 
@@ -195,6 +201,8 @@ describe("target guest restore loader descriptor", () => {
       "5",
       "--synthetic-timerfd",
       "6",
+      "--synthetic-epoll",
+      "fd=8;watchCount=1;watch0Fd=5;watch0Events=1;watch0Data=0x45504f4c4c",
     ]);
   });
 
@@ -565,6 +573,20 @@ describe("target guest restore loader descriptor", () => {
         descriptor({ resources: [{ kind: "inherit-stdio", fd: 1, stream: "stderr" }] }),
       ),
     ).toThrow(/stdio fd and stream do not match/);
+
+    expect(() =>
+      validateTargetGuestRestoreDescriptor(
+        descriptor({
+          resources: [
+            {
+              kind: "synthetic-epoll",
+              fd: 8,
+              watches: [{ fd: 8, events: 1, data: "0x1" }],
+            },
+          ],
+        }),
+      ),
+    ).toThrow(/epoll cannot watch itself/);
   });
 
   it("refuses invalid translated frame descriptors", () => {

@@ -1503,6 +1503,37 @@ static void fdinfo_pair_value(pid_t pid, const char *fd_name, const char *field,
   fclose(file);
 }
 
+static void write_epoll_recipe(FILE *out, pid_t pid, const char *fd_name) {
+  char path[PATH_MAX];
+  snprintf(path, sizeof(path), "/proc/%ld/fdinfo/%s", (long)pid, fd_name);
+  FILE *file = fopen(path, "rb");
+  fputs(",\"recipe\":{\"epollModel\":\"interest-list-v1\",\"watches\":[", out);
+  bool first = true;
+  if (file) {
+    char line[512];
+    while (fgets(line, sizeof(line), file)) {
+      char *tfd_field = strstr(line, "tfd:");
+      char *events_field = strstr(line, "events:");
+      char *data_field = strstr(line, "data:");
+      if (!tfd_field || !events_field || !data_field) {
+        continue;
+      }
+      uint64_t tfd = strtoull(tfd_field + strlen("tfd:"), NULL, 10);
+      uint64_t events = strtoull(events_field + strlen("events:"), NULL, 16);
+      uint64_t data = strtoull(data_field + strlen("data:"), NULL, 16);
+      if (!first) {
+        fputc(',', out);
+      }
+      first = false;
+      fprintf(out, "{\"fd\":%" PRIu64 ",\"events\":%" PRIu64 ",\"data\":", tfd, events);
+      json_hex_u64(out, data);
+      fputc('}', out);
+    }
+    fclose(file);
+  }
+  fputs("]}", out);
+}
+
 static void write_fd_resource(FILE *out, pid_t pid, const char *fd_name, const char *target,
     bool *first) {
   if (!*first) {
@@ -1516,8 +1547,10 @@ static void write_fd_resource(FILE *out, pid_t pid, const char *fd_name, const c
   json_string(out, id);
   fputs(",\"kind\":", out);
   json_string(out, kind);
-  fprintf(out, ",\"state\":%s,\"fd\":%s", streq(kind, "file") ? "\"recipe\"" : "\"refused\"",
-      fd_name);
+  const char *state = streq(kind, "file") ? "recipe" : (streq(kind, "epoll") ? "captured" : "refused");
+  fprintf(out, ",\"state\":");
+  json_string(out, state);
+  fprintf(out, ",\"fd\":%s", fd_name);
   fputs(",\"path\":", out);
   json_string(out, target);
   fprintf(out, ",\"offset\":%" PRIu64 ",\"flags\":[", fdinfo_value(pid, fd_name, "pos"));
@@ -1557,11 +1590,14 @@ static void write_fd_resource(FILE *out, pid_t pid, const char *fd_name, const c
         interval_nsec);
     fputs("}", out);
   }
+  if (streq(kind, "epoll")) {
+    write_epoll_recipe(out, pid, fd_name);
+  }
   if (streq(kind, "file")) {
     fputs(",\"recipe\":{\"reopen\":", out);
     json_string(out, target);
     fputs("}", out);
-  } else {
+  } else if (!streq(kind, "epoll")) {
     fputs(",\"refusal\":", out);
     write_refusal(out, fd_refusal_code(kind), "fd kind needs a resource broker recipe");
   }

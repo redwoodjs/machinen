@@ -182,6 +182,112 @@ describe("native resource translation", () => {
     });
   });
 
+  it("plans an accepted epoll interest list when every watched fd has a target recipe", () => {
+    const plan = planNativeTargetFdTable({
+      syntheticEmptyEventFds: [10],
+      resources: [
+        {
+          id: "fd:10",
+          kind: "eventfd",
+          state: "captured",
+          fd: 10,
+          path: "anon_inode:[eventfd]",
+          flags: ["octal:2"],
+        },
+        {
+          id: "fd:12",
+          kind: "epoll",
+          state: "captured",
+          fd: 12,
+          path: "anon_inode:[eventpoll]",
+          flags: ["octal:2"],
+          recipe: {
+            epollModel: "interest-list-v1",
+            watches: [{ fd: 10, events: 1, data: "0x45504f4c4c" }],
+          },
+        },
+      ],
+    });
+
+    expect(plan.refusals).toEqual([]);
+    expect(plan.entries.map((entry) => [entry.targetFd, entry.kind])).toEqual([
+      [10, "synthetic-empty-eventfd"],
+      [12, "synthetic-epoll"],
+    ]);
+    expect(plan.targetGuestResources).toEqual([
+      { kind: "synthetic-empty-eventfd", fd: 10, closeOnExec: false },
+      {
+        kind: "synthetic-epoll",
+        fd: 12,
+        watches: [{ fd: 10, events: 1, data: "0x45504f4c4c" }],
+        closeOnExec: false,
+      },
+    ]);
+  });
+
+  it.each([
+    {
+      name: "missing watched fd recipe",
+      watch: { fd: 20, events: 1, data: "0x1" },
+      reason: "epoll watched fd has no accepted target recipe",
+    },
+    {
+      name: "edge-triggered watch",
+      watch: { fd: 10, events: 0x80000001, data: "0x1" },
+      reason: "epoll edge-triggered or one-shot delivery state is unsupported",
+    },
+    {
+      name: "nested epoll",
+      watch: { fd: 13, events: 1, data: "0x1" },
+      extra: {
+        id: "fd:13",
+        kind: "epoll" as const,
+        state: "captured" as const,
+        fd: 13,
+        recipe: {
+          epollModel: "interest-list-v1",
+          watches: [{ fd: 10, events: 1, data: "0x13" }],
+        },
+      },
+      reason: "nested epoll and self-watch state remain unsupported",
+    },
+  ])("keeps unsafe epoll interest-list variants fail-closed: $name", ({ watch, extra, reason }) => {
+    const resourcesWithUnsafe = [
+      {
+        id: "fd:10",
+        kind: "eventfd" as const,
+        state: "captured" as const,
+        fd: 10,
+        path: "anon_inode:[eventfd]",
+        flags: ["octal:2"],
+      },
+      ...(extra ? [extra] : []),
+      {
+        id: "fd:12",
+        kind: "epoll" as const,
+        state: "captured" as const,
+        fd: 12,
+        path: "anon_inode:[eventpoll]",
+        flags: ["octal:2"],
+        recipe: { epollModel: "interest-list-v1", watches: [watch] },
+      },
+    ];
+    const plan = planNativeTargetFdTable({
+      syntheticEmptyEventFds: [10],
+      resources: resourcesWithUnsafe,
+    });
+
+    expect(plan.refusals).toEqual([
+      expect.objectContaining({
+        code: "target-epoll-syscall-state-unsupported",
+        detail: expect.objectContaining({ reason }),
+      }),
+    ]);
+    expect(plan.targetGuestResources).not.toContainEqual(
+      expect.objectContaining({ kind: "synthetic-epoll", fd: 12 }),
+    );
+  });
+
   it("uses exact refusal codes for generic and stateful kernel fd resources", () => {
     const result = translateNativeResources({
       resources: [

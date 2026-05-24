@@ -100,6 +100,9 @@ struct Descriptor {
   int pipe_write_fd;
   int event_fd;
   int timer_fd;
+  int epoll_fds[MAX_FD_RECIPES];
+  char epoll_specs[MAX_FD_RECIPES][1024];
+  size_t epoll_count;
   int cloexec_fds[MAX_FD_RECIPES];
   size_t cloexec_fd_count;
   int close_fds[MAX_FD_RECIPES];
@@ -304,6 +307,7 @@ static void parse_field(struct Descriptor *descriptor, char *line) {
 }
 
 static void add_cloexec_if_requested(struct Descriptor *descriptor, char *fields, int fd);
+static void fields_to_semicolon_spec(char *dst, size_t dst_size, char *fields);
 
 static const char *find_token_value(char *line, const char *name) {
   size_t name_length = strlen(name);
@@ -380,6 +384,19 @@ static void parse_eventfd_resource(struct Descriptor *descriptor, char *fields) 
 static void parse_timerfd_resource(struct Descriptor *descriptor, char *fields) {
   descriptor->timer_fd = parse_single_fd_resource(fields, "timerfd fd is required");
   add_cloexec_if_requested(descriptor, fields, descriptor->timer_fd);
+}
+
+static void parse_epoll_resource(struct Descriptor *descriptor, char *fields) {
+  if (descriptor->epoll_count >= MAX_FD_RECIPES) {
+    refuse("target-guest-loader-resource-unsupported", "too many epoll recipes");
+  }
+  int fd = parse_single_fd_resource(fields, "epoll fd is required");
+  descriptor->epoll_fds[descriptor->epoll_count] = fd;
+  fields_to_semicolon_spec(descriptor->epoll_specs[descriptor->epoll_count],
+      sizeof(descriptor->epoll_specs[0]),
+      fields);
+  descriptor->epoll_count++;
+  add_cloexec_if_requested(descriptor, fields, fd);
 }
 
 static void parse_close_fd_resource(struct Descriptor *descriptor, char *fields) {
@@ -749,6 +766,8 @@ static void parse_resource(struct Descriptor *descriptor, char *line) {
     parse_eventfd_resource(descriptor, line + strlen("resource=synthetic-empty-eventfd"));
   } else if (starts_with(line, "resource=synthetic-timerfd")) {
     parse_timerfd_resource(descriptor, line + strlen("resource=synthetic-timerfd"));
+  } else if (starts_with(line, "resource=synthetic-epoll")) {
+    parse_epoll_resource(descriptor, line + strlen("resource=synthetic-epoll"));
   } else {
     refuse("target-guest-loader-resource-unsupported", "resource recipe is not supported");
   }
@@ -835,6 +854,9 @@ static void validate_descriptor(const struct Descriptor *descriptor) {
   mark_fd(seen, descriptor->pipe_write_fd);
   mark_fd(seen, descriptor->event_fd);
   mark_fd(seen, descriptor->timer_fd);
+  for (size_t i = 0; i < descriptor->epoll_count; i++) {
+    mark_fd(seen, descriptor->epoll_fds[i]);
+  }
   for (size_t i = 0; i < descriptor->close_fd_count; i++) {
     mark_fd(seen, descriptor->close_fds[i]);
   }
@@ -1076,6 +1098,10 @@ static int run_trampoline(const struct Options *opts, const struct Descriptor *d
   if (descriptor->timer_fd >= 0) {
     push_arg(child_argv, &child_argc, "--synthetic-timerfd");
     push_arg(child_argv, &child_argc, timer_fd);
+  }
+  for (size_t i = 0; i < descriptor->epoll_count; i++) {
+    push_arg(child_argv, &child_argc, "--synthetic-epoll");
+    push_arg(child_argv, &child_argc, descriptor->epoll_specs[i]);
   }
   for (size_t i = 0; i < descriptor->cloexec_fd_count; i++) {
     push_arg(child_argv, &child_argc, "--set-cloexec-fd");

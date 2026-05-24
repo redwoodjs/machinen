@@ -123,6 +123,7 @@ describe("portable machine proof runner", () => {
     ]);
     expect(names).toEqual(
       expect.arrayContaining([
+        "epoll-recreate",
         "socket-transfer-refusal",
         "epoll-wait-refusal",
         "signalfd-read-refusal",
@@ -161,10 +162,17 @@ describe("portable machine proof runner", () => {
     expect(summary.supportReport).toMatchObject({
       counts: {
         "baseline-success": 11,
+        "graduated-support": 1,
         "intentional-refusal": 7,
         "permanent-refusal": 3,
       },
-      graduated: [],
+      graduated: [
+        expect.objectContaining({
+          name: "epoll-recreate",
+          acceptedSubset: "single-level-triggered-restorable-fd-watch",
+          graduatedFromRefusalCode: "target-epoll-syscall-state-unsupported",
+        }),
+      ],
     });
     expect(summary.supportReport.intentionallyRefused).toEqual(
       expect.arrayContaining([

@@ -117,18 +117,18 @@ Accepted subset to model first:
 
 Tasks:
 
-- [ ] Define the portable epoll state schema: epoll fd, watched target fd map,
+- [x] Define the portable epoll state schema: epoll fd, watched target fd map,
       events, user data, flags, and ordering limits.
-- [ ] Add descriptor validation that refuses watched fds without accepted target
+- [x] Add descriptor validation that refuses watched fds without accepted target
       recipes.
-- [ ] Implement target-native epoll recreation using target fds and
+- [x] Implement target-native epoll recreation using target fds and
       `epoll_ctl`.
-- [ ] Add target gates proving recreated interest lists match the portable
+- [x] Add target gates proving recreated interest lists match the portable
       descriptor.
-- [ ] Add a positive proof profile for the accepted epoll subset.
-- [ ] Keep/refine negative profiles for nested epoll, edge-triggered state that
+- [x] Add a positive proof profile for the accepted epoll subset.
+- [x] Keep/refine negative profiles for nested epoll, edge-triggered state that
       is not modeled, unsupported watched fds, and ambiguous active waits.
-- [ ] Flip only the accepted epoll subset away from
+- [x] Flip only the accepted epoll subset away from
       `target-epoll-syscall-state-unsupported`.
 
 ## D. signalfd descriptor recreation without pending queues

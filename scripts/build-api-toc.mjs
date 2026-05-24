@@ -121,6 +121,7 @@ const TOC = {
     "validatePortableMachineSnapshotManifest",
     "TargetGuestRestoreLoaderValidationError",
     "TargetGuestRestoreLoaderRefusalCode",
+    "TargetGuestEpollWatchRecipe",
     "TargetGuestRestoreResourceRecipe",
     "TargetGuestRestoreResumeMode",
     "TargetGuestResumeRegisterName",

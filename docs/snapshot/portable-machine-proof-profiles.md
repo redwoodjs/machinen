@@ -105,8 +105,9 @@ passes. The accepted class includes:
 - metadata-proven return-chain/frame/register/RFLAGS/TLS/stack-window restore;
 - target-owned private-memory, executable-mapping, signal, resource, and
   descriptor consumption gates;
-- regular-file fd recipes, stdio/close-fd recipes, and the modeled synthetic
-  empty pipe/eventfd/timerfd proof states;
+- regular-file fd recipes, stdio/close-fd recipes, the modeled synthetic empty
+  pipe/eventfd/timerfd proof states, and the Goal 3 epoll `interest-list-v1`
+  reconstruction subset;
 - active syscall completion only for sleep/`ppoll` timeout, empty pipe read,
   empty eventfd read, timerfd read, offset-backed regular-file
   `read`/`pread64`/single-iovec `readv`, and offset-backed regular-file
@@ -138,6 +139,7 @@ all profile gates pass.
 | `file-pwrite`      | `native-file-pwrite-target.c`      | `pwrite64` fd 41 | active syscall                     |
 | `file-writev`      | `native-file-writev-target.c`      | `writev` fd 43   | active syscall                     |
 | `process-context`  | `native-ppoll-timeout-target.c`    | none             | process context                    |
+| `epoll-recreate`   | `native-pipe-read-target.c`        | none             | active syscall + epoll resources   |
 
 ## Current negative profiles
 
@@ -148,7 +150,7 @@ success report.
 | Profile                         | Unsafe family              | Required refusal code                     | Descriptor gate |
 | ------------------------------- | -------------------------- | ----------------------------------------- | --------------- |
 | `socket-transfer-refusal`       | sockets                    | `target-socket-syscall-state-unsupported` | false           |
-| `epoll-wait-refusal`            | epoll                      | `target-epoll-syscall-state-unsupported`  | false           |
+| `epoll-wait-refusal`            | epoll active/unsafe state  | `target-epoll-syscall-state-unsupported`  | false           |
 | `signalfd-read-refusal`         | signalfd / pending signals | `target-signalfd-state-unsupported`       | false           |
 | `futex-refusal`                 | futex                      | `futex-state-unsupported`                 | false           |
 | `rseq-refusal`                  | rseq                       | `rseq-state-unsupported`                  | false           |
