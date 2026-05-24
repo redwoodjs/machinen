@@ -437,6 +437,130 @@
     ]
   },
   {
+    "name": "readiness-wait-refusal",
+    "remoteSourceTarget": "readiness-wait-refusal",
+    "description": "Readiness-aware waits without exact resource/readiness accounting must fail closed.",
+    "sourceFixture": "synthetic-negative:readiness-wait-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "unsafeStateFamily": "readiness-wait",
+    "expectedRefusalCode": "kernel-state-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "descriptorConsumptionExpected": false,
+    "expectedDescriptorGateCompleted": false,
+    "expectedMigrationCompleted": false,
+    "expectedGates": [],
+    "supportStatus": "intentional-refusal",
+    "refusalSupportContract": {
+      "currentRefusalCode": "kernel-state-unsupported",
+      "unsafeStateFamily": "readiness-wait",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-variants",
+        "docs",
+        "validation-timings"
+      ]
+    }
+  },
+  {
+    "name": "auxv-source-pointer-refusal",
+    "remoteSourceTarget": "auxv-source-pointer-refusal",
+    "description": "Source-owned or ambiguous auxv pointers must fail closed before target-native success.",
+    "sourceFixture": "synthetic-negative:auxv-source-pointer-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "unsafeStateFamily": "process-context-auxv",
+    "expectedRefusalCode": "target-process-context-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "descriptorConsumptionExpected": false,
+    "expectedDescriptorGateCompleted": false,
+    "expectedMigrationCompleted": false,
+    "expectedGates": [],
+    "supportStatus": "intentional-refusal",
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-process-context-unsupported",
+      "unsafeStateFamily": "process-context-auxv",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-variants",
+        "docs",
+        "validation-timings"
+      ]
+    }
+  },
+  {
+    "name": "private-layout-refusal",
+    "remoteSourceTarget": "private-layout-refusal",
+    "description": "Private memory layouts with unsupported permissions, gaps, or pointer ownership must fail closed.",
+    "sourceFixture": "synthetic-negative:private-layout-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "unsafeStateFamily": "private-memory-layout",
+    "expectedRefusalCode": "mapping-permission-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "descriptorConsumptionExpected": false,
+    "expectedDescriptorGateCompleted": false,
+    "expectedMigrationCompleted": false,
+    "expectedGates": [],
+    "supportStatus": "intentional-refusal",
+    "refusalSupportContract": {
+      "currentRefusalCode": "mapping-permission-unsupported",
+      "unsafeStateFamily": "private-memory-layout",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-variants",
+        "docs",
+        "validation-timings"
+      ]
+    }
+  },
+  {
+    "name": "signal-mask-restart-refusal",
+    "remoteSourceTarget": "signal-mask-restart-refusal",
+    "description": "Signal masks, pending delivery, alt-stack, or restart ambiguity must fail closed.",
+    "sourceFixture": "synthetic-negative:signal-mask-restart-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "unsafeStateFamily": "signal-restart",
+    "expectedRefusalCode": "signal-state-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "descriptorConsumptionExpected": false,
+    "expectedDescriptorGateCompleted": false,
+    "expectedMigrationCompleted": false,
+    "expectedGates": [],
+    "supportStatus": "intentional-refusal",
+    "refusalSupportContract": {
+      "currentRefusalCode": "signal-state-unsupported",
+      "unsafeStateFamily": "signal-restart",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-variants",
+        "docs",
+        "validation-timings"
+      ]
+    }
+  },
+  {
     "name": "socket-transfer-refusal",
     "remoteSourceTarget": "socket-transfer-refusal",
     "description": "Active socket transfer must fail closed before target-native success.",

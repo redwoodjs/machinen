@@ -159,6 +159,10 @@ success report.
 
 | Profile                         | Unsafe family              | Required refusal code                     | Descriptor gate |
 | ------------------------------- | -------------------------- | ----------------------------------------- | --------------- |
+| `readiness-wait-refusal`        | readiness waits            | `kernel-state-unsupported`                | false           |
+| `auxv-source-pointer-refusal`   | process-context auxv       | `target-process-context-unsupported`      | false           |
+| `private-layout-refusal`        | private memory layout      | `mapping-permission-unsupported`          | false           |
+| `signal-mask-restart-refusal`   | signal/restart state       | `signal-state-unsupported`                | false           |
 | `socket-transfer-refusal`       | sockets                    | `target-socket-syscall-state-unsupported` | false           |
 | `epoll-wait-refusal`            | epoll active/unsafe state  | `target-epoll-syscall-state-unsupported`  | false           |
 | `signalfd-read-refusal`         | signalfd / pending signals | `target-signalfd-state-unsupported`       | false           |

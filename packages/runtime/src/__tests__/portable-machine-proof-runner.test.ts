@@ -84,6 +84,10 @@ function refusedSummary(
 }
 
 const negativeProfiles = [
+  ["readiness-wait-refusal", "kernel-state-unsupported"],
+  ["auxv-source-pointer-refusal", "target-process-context-unsupported"],
+  ["private-layout-refusal", "mapping-permission-unsupported"],
+  ["signal-mask-restart-refusal", "signal-state-unsupported"],
   ["socket-transfer-refusal", "target-socket-syscall-state-unsupported"],
   ["epoll-wait-refusal", "target-epoll-syscall-state-unsupported"],
   ["signalfd-read-refusal", "target-signalfd-state-unsupported"],
@@ -130,6 +134,10 @@ describe("portable machine proof runner", () => {
         "timerfd-descriptor-recreate",
         "pipe-pair-recreate",
         "signalfd-recreate",
+        "readiness-wait-refusal",
+        "auxv-source-pointer-refusal",
+        "private-layout-refusal",
+        "signal-mask-restart-refusal",
         "socket-transfer-refusal",
         "epoll-wait-refusal",
         "signalfd-read-refusal",
@@ -169,7 +177,7 @@ describe("portable machine proof runner", () => {
       counts: {
         "baseline-success": 11,
         "graduated-support": 5,
-        "intentional-refusal": 7,
+        "intentional-refusal": 11,
         "permanent-refusal": 3,
       },
       graduated: [
