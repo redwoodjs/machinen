@@ -132,51 +132,43 @@ all profile gates pass.
 
 ## Current positive profiles
 
-| Profile                       | Source fixture                     | Trace            | Profile-specific gates              |
-| ----------------------------- | ---------------------------------- | ---------------- | ----------------------------------- |
-| `two-thread-ppoll`            | `native-two-thread-ppoll-target.c` | none             | active syscall + controlled thread  |
-| `pipe-read`                   | `native-pipe-read-target.c`        | none             | active syscall                      |
-| `eventfd-read`                | `native-eventfd-read-target.c`     | none             | active syscall                      |
-| `eventfd-counter-recreate`    | `native-pipe-read-target.c`        | none             | active syscall + eventfd resources  |
-| `timerfd-descriptor-recreate` | `native-pipe-read-target.c`        | none             | active syscall + timerfd resources  |
-| `pipe-pair-recreate`          | `native-pipe-read-target.c`        | none             | active syscall + pipe resources     |
-| `timerfd-read`                | `native-timerfd-read-target.c`     | none             | active syscall                      |
-| `file-read`                   | `native-file-read-target.c`        | `read` fd 38     | active syscall                      |
-| `file-pread`                  | `native-file-pread-target.c`       | `pread64` fd 40  | active syscall                      |
-| `file-readv`                  | `native-file-readv-target.c`       | `readv` fd 42    | active syscall                      |
-| `file-write`                  | `native-file-write-target.c`       | `write` fd 39    | active syscall                      |
-| `file-pwrite`                 | `native-file-pwrite-target.c`      | `pwrite64` fd 41 | active syscall                      |
-| `file-writev`                 | `native-file-writev-target.c`      | `writev` fd 43   | active syscall                      |
-| `process-context`             | `native-ppoll-timeout-target.c`    | none             | process context                     |
-| `epoll-recreate`              | `native-pipe-read-target.c`        | none             | active syscall + epoll resources    |
-| `signalfd-recreate`           | `native-pipe-read-target.c`        | none             | active syscall + signalfd resources |
-
-## Current negative profiles
-
-Negative profiles are runnable synthetic refusal proofs for unsupported or
-ambiguous state. The proof runner emits the expected fail-closed restore summary
-for `synthetic-negative:*` fixtures and then applies the same gate checker used
-for remote summaries. This proves that automation cannot turn a known refusal
-into a migration success report: the refusal code must match, descriptor and
-migration gates must remain false, and source-text, source-ISA-emulation, and
-sidecar success paths must remain false.
-
-| Profile                         | Unsafe family              | Required refusal code                     | Descriptor gate |
-| ------------------------------- | -------------------------- | ----------------------------------------- | --------------- |
-| `readiness-wait-refusal`        | readiness waits            | `kernel-state-unsupported`                | false           |
-| `auxv-source-pointer-refusal`   | process-context auxv       | `target-process-context-unsupported`      | false           |
-| `private-layout-refusal`        | private memory layout      | `mapping-permission-unsupported`          | false           |
-| `signal-mask-restart-refusal`   | signal/restart state       | `signal-state-unsupported`                | false           |
-| `socket-transfer-refusal`       | sockets                    | `target-socket-syscall-state-unsupported` | false           |
-| `epoll-wait-refusal`            | epoll active/unsafe state  | `target-epoll-syscall-state-unsupported`  | false           |
-| `signalfd-read-refusal`         | signalfd / pending signals | `target-signalfd-state-unsupported`       | false           |
-| `futex-refusal`                 | futex                      | `futex-state-unsupported`                 | false           |
-| `rseq-refusal`                  | rseq                       | `rseq-state-unsupported`                  | false           |
-| `restart-state-refusal`         | restart / interrupted call | `syscall-restart-unsupported`             | false           |
-| `jit-self-modifying-refusal`    | JIT / self-modifying code  | `mapping-executable-unsupported`          | false           |
-| `source-vdso-vvar-refusal`      | source vDSO/vvar           | `vdso-policy-unsupported`                 | false           |
-| `raw-cross-isa-vmstate-refusal` | raw `.vmstate`             | `cross-isa-vmstate-restore-unsupported`   | false           |
-| `descriptor-provenance-refusal` | descriptor/provenance      | `mapping-provenance-ambiguous`            | false           |
+| Profile                           | Unsafe family             | Required refusal code                     | Descriptor gate |
+| --------------------------------- | ------------------------- | ----------------------------------------- | --------------- |
+| `readiness-wait-refusal`          | readiness-wait            | `kernel-state-unsupported`                | false           |
+| `readiness-scheduler-refusal`     | readiness-scheduler       | `kernel-state-unsupported`                | false           |
+| `readiness-edge-trigger-refusal`  | readiness-edge-trigger    | `kernel-state-unsupported`                | false           |
+| `readiness-signal-mask-refusal`   | readiness-signal-mask     | `signal-state-unsupported`                | false           |
+| `readiness-pollfd-memory-refusal` | readiness-pollfd-memory   | `mapping-provenance-ambiguous`            | false           |
+| `socket-readiness-refusal`        | socket-readiness          | `target-socket-syscall-state-unsupported` | false           |
+| `auxv-source-pointer-refusal`     | process-context-auxv      | `target-process-context-unsupported`      | false           |
+| `at-random-source-refusal`        | process-context-at-random | `target-process-context-unsupported`      | false           |
+| `at-execfn-identity-refusal`      | process-context-at-execfn | `target-process-context-unsupported`      | false           |
+| `target-libc-global-refusal`      | target-libc-global        | `target-process-context-unsupported`      | false           |
+| `argv-env-pointer-refusal`        | process-context-argv-env  | `target-process-context-unsupported`      | false           |
+| `private-layout-refusal`          | private-memory-layout     | `mapping-permission-unsupported`          | false           |
+| `shared-mapping-refusal`          | shared-mapping            | `mapping-shared-unsupported`              | false           |
+| `private-source-pointer-refusal`  | private-source-pointer    | `mapping-provenance-ambiguous`            | false           |
+| `stale-private-range-refusal`     | private-stale-range       | `mapping-captured-range-unsupported`      | false           |
+| `wx-private-mapping-refusal`      | private-wx-mapping        | `mapping-executable-unsupported`          | false           |
+| `signal-mask-restart-refusal`     | signal-restart            | `signal-state-unsupported`                | false           |
+| `pending-signal-refusal`          | pending-signal            | `signal-state-unsupported`                | false           |
+| `active-signal-frame-refusal`     | active-signal-frame       | `signal-state-unsupported`                | false           |
+| `alt-stack-refusal`               | signal-alt-stack          | `signal-state-unsupported`                | false           |
+| `restart-remaining-time-refusal`  | restart-remaining-time    | `syscall-restart-unsupported`             | false           |
+| `socket-transfer-refusal`         | socket                    | `target-socket-syscall-state-unsupported` | false           |
+| `epoll-wait-refusal`              | epoll                     | `target-epoll-syscall-state-unsupported`  | false           |
+| `signalfd-read-refusal`           | signalfd                  | `target-signalfd-state-unsupported`       | false           |
+| `futex-refusal`                   | futex                     | `futex-state-unsupported`                 | false           |
+| `rseq-refusal`                    | rseq                      | `rseq-state-unsupported`                  | false           |
+| `restart-state-refusal`           | restart                   | `syscall-restart-unsupported`             | false           |
+| `jit-self-modifying-refusal`      | jit-self-modifying-code   | `mapping-executable-unsupported`          | false           |
+| `source-vdso-vvar-refusal`        | source-vdso-vvar          | `vdso-policy-unsupported`                 | false           |
+| `raw-cross-isa-vmstate-refusal`   | raw-cross-isa-vmstate     | `cross-isa-vmstate-restore-unsupported`   | false           |
+| `descriptor-provenance-refusal`   | descriptor-provenance     | `mapping-provenance-ambiguous`            | false           |
+| `duplicate-fd-alias-refusal`      | duplicate-fd-alias        | `target-fd-table-duplicate`               | false           |
+| `fd-alias-lock-refusal`           | fd-alias-lock             | `target-fd-table-duplicate`               | false           |
+| `fd-alias-socket-refusal`         | fd-alias-socket           | `target-socket-syscall-state-unsupported` | false           |
+| `fd-alias-epoll-cycle-refusal`    | fd-alias-epoll-cycle      | `target-epoll-syscall-state-unsupported`  | false           |
 
 All profiles also require descriptor, verifier, state-consumption, resource,
 return-chain, frame, register/RFLAGS, TLS, stack-window, private-memory,
