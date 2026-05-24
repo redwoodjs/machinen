@@ -12,6 +12,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
+#include <limits.h>
 #include <poll.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -233,6 +234,7 @@ struct Options {
   int synthetic_eventfd;
   uint64_t synthetic_eventfd_initial_value;
   int synthetic_timerfd;
+  char synthetic_timerfd_spec[1024];
   struct NativeRestoreStepSpec synthetic_signalfds[MAX_NATIVE_RESTORE_STEPS];
   size_t synthetic_signalfd_count;
   struct NativeRestoreStepSpec synthetic_epolls[MAX_NATIVE_RESTORE_STEPS];
@@ -723,12 +725,13 @@ static struct Options parse_args(int argc, char **argv) {
       if (++i >= argc) {
         usage();
       }
-      uint64_t fd = parse_u64(argv[i], "synthetic-timerfd");
+      uint64_t fd = strchr(argv[i], '=') ? native_step_u64(argv[i], "fd", "synthetic-timerfd") : parse_u64(argv[i], "synthetic-timerfd");
       if (fd > 1024u) {
         fprintf(stderr, "native-actual-resume-trampoline: synthetic fd is too large\n");
         exit(2);
       }
       opts.synthetic_timerfd = (int)fd;
+      snprintf(opts.synthetic_timerfd_spec, sizeof(opts.synthetic_timerfd_spec), "%s", strchr(argv[i], '=') ? argv[i] : "");
     } else if (streq(argv[i], "--synthetic-signalfd")) {
       if (++i >= argc) {
         usage();
@@ -1268,12 +1271,34 @@ static void install_synthetic_empty_pipe(int read_fd, int write_fd) {
 }
 
 static uint64_t native_step_u64(const char *spec, const char *name, const char *label);
+static bool native_step_has_value(const char *spec, const char *name);
 
-static void install_synthetic_timerfd(int target_fd) {
+static void install_synthetic_timerfd_with_spec(int target_fd, const char *spec) {
   if (target_fd < 0) {
     return;
   }
-  int fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC);
+  int clock_id = CLOCK_MONOTONIC;
+  uint64_t settime_flags = 0;
+  struct itimerspec timer = {0};
+  bool has_descriptor_state = spec && spec[0] && native_step_has_value(spec, "clockId");
+  if (has_descriptor_state) {
+    uint64_t parsed_clock = native_step_u64(spec, "clockId", "synthetic-timerfd");
+    settime_flags = native_step_u64(spec, "settimeFlags", "synthetic-timerfd");
+    uint64_t value_seconds = native_step_u64(spec, "valueSeconds", "synthetic-timerfd");
+    uint64_t value_nanoseconds = native_step_u64(spec, "valueNanoseconds", "synthetic-timerfd");
+    uint64_t interval_seconds = native_step_u64(spec, "intervalSeconds", "synthetic-timerfd");
+    uint64_t interval_nanoseconds = native_step_u64(spec, "intervalNanoseconds", "synthetic-timerfd");
+    if (parsed_clock > INT_MAX || value_nanoseconds > 999999999u || interval_nanoseconds > 999999999u) {
+      fprintf(stderr, "native-actual-resume-trampoline: synthetic timerfd descriptor is invalid\n");
+      exit(2);
+    }
+    clock_id = (int)parsed_clock;
+    timer.it_value.tv_sec = (time_t)value_seconds;
+    timer.it_value.tv_nsec = (long)value_nanoseconds;
+    timer.it_interval.tv_sec = (time_t)interval_seconds;
+    timer.it_interval.tv_nsec = (long)interval_nanoseconds;
+  }
+  int fd = timerfd_create(clock_id, TFD_CLOEXEC);
   if (fd < 0) {
     fprintf(stderr, "native-actual-resume-trampoline: synthetic timerfd failed: %s\n", strerror(errno));
     exit(1);
@@ -1285,10 +1310,18 @@ static void install_synthetic_timerfd(int target_fd) {
     }
     close(fd);
   }
+  if (has_descriptor_state && timerfd_settime(target_fd, (int)settime_flags, &timer, NULL) != 0) {
+    fprintf(stderr, "native-actual-resume-trampoline: synthetic timerfd settime failed: %s\n", strerror(errno));
+    exit(1);
+  }
   if (fcntl(target_fd, F_SETFD, FD_CLOEXEC) != 0) {
     fprintf(stderr, "native-actual-resume-trampoline: synthetic timerfd cloexec failed: %s\n", strerror(errno));
     exit(1);
   }
+}
+
+static void install_synthetic_timerfd(int target_fd) {
+  install_synthetic_timerfd_with_spec(target_fd, NULL);
 }
 
 static void install_synthetic_eventfd(int target_fd, uint64_t initial_value) {
@@ -3087,7 +3120,7 @@ int main(int argc, char **argv) {
   if (opts.has_synthetic_eventfd) {
     install_synthetic_eventfd(opts.synthetic_eventfd, opts.synthetic_eventfd_initial_value);
   }
-  install_synthetic_timerfd(opts.synthetic_timerfd);
+  install_synthetic_timerfd_with_spec(opts.synthetic_timerfd, opts.synthetic_timerfd_spec);
   install_synthetic_signalfds(&opts);
   install_synthetic_epolls(&opts);
   apply_cloexec_fds(&opts);

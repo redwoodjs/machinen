@@ -39,7 +39,7 @@ resource=reopen-file fd=7 path=/tmp/data.txt offset=9 access=0 closeOnExec=true
 resource=synthetic-empty-pipe readFd=3 writeFd=4 closeOnExec=false
 resource=synthetic-empty-eventfd fd=5 closeOnExec=false
 resource=synthetic-eventfd fd=10 initialValue=0x2a closeOnExec=false
-resource=synthetic-timerfd fd=6 closeOnExec=false
+resource=synthetic-timerfd fd=6 clockId=1 settimeFlags=0 valueSeconds=0 valueNanoseconds=0 intervalSeconds=0 intervalNanoseconds=0 closeOnExec=false
 resource=synthetic-signalfd fd=9 signalMask=0x200 flags=2048 closeOnExec=false
 resource=synthetic-epoll fd=8 watchCount=1 watch0Fd=5 watch0Events=1 watch0Data=0x45504f4c4c closeOnExec=false
 memory=copy-captured-bytes mapping=heap targetStart=0x600000000000 sizeBytes=4096 permissions=rw-p sourceFile=/tmp/native-memory.bin sourceOffset=0
@@ -58,7 +58,10 @@ Supported fd-table resources and memory materialization are intentionally narrow
 - `synthetic-eventfd` with a Goal 4 `eventfd-counter-v1` non-semaphore counter
   value, refused unless the counter, waiter state, flags, and close-on-exec
   provenance are exact;
-- `synthetic-timerfd` with a disarmed/future one-shot timerfd;
+- `synthetic-timerfd` with a Goal 4 `timerfd-descriptor-v1` disarmed or
+  relative future one-shot `CLOCK_MONOTONIC` timerfd, refused unless the clock,
+  settime flags, remaining time, interval, unread-expiration state, fd flags,
+  and close-on-exec provenance are exact;
 - `synthetic-epoll` for the Goal 3 `interest-list-v1` subset: a finite
   level-triggered watch list over fds that already have target recipes;
 - `synthetic-signalfd` for the Goal 3 `empty-queue-v1` subset: a normalized
@@ -81,9 +84,12 @@ the trampoline, applies `close-fd` and `reopen-file` recipes in the child proces
 and forwards synthetic fd recipes plus `--set-cloexec-fd` intents to the
 trampoline. Eventfd counter recipes are installed with a target-owned `eventfd()`
 followed by an exact 8-byte write of the modeled counter before the target-native
-jump. signalfd recipes are installed with `signalfd()` from the normalized mask
-and flags. Epoll recipes are installed after their watched synthetic fds,
-signalfds, and reopened files exist, then `epoll_ctl(EPOLL_CTL_ADD)` recreates
+jump. Timerfd descriptor recipes are installed with target-owned
+`timerfd_create()` and, when armed, `timerfd_settime()` using the modeled
+relative one-shot `itimerspec`; disarmed descriptors are verified with a zero
+`timerfd_gettime()` result. signalfd recipes are installed with `signalfd()` from
+the normalized mask and flags. Epoll recipes are installed after their watched
+synthetic fds, signalfds, and reopened files exist, then `epoll_ctl(EPOLL_CTL_ADD)` recreates
 the declared interest list. The trampoline applies close-on-exec flags after the
 loader-to-trampoline `exec` boundary and before the target-native jump, so modeled
 fds remain open for restore setup but have the captured descriptor flag by the

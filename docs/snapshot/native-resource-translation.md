@@ -26,6 +26,9 @@ Currently supported resource recipes:
 - Goal 4 `eventfd-counter-v1` descriptors may recreate non-semaphore eventfds
   with an exact nonzero counter, known-empty waiter state, supported fd flags,
   and close-on-exec provenance;
+- Goal 4 `timerfd-descriptor-v1` descriptors may recreate disarmed or relative
+  future one-shot `CLOCK_MONOTONIC` timerfds with zero unread expirations,
+  zero interval, supported fd flags, and close-on-exec provenance;
 - epoll instances may be recreated only for the Goal 3 `interest-list-v1`
   subset: finite level-triggered watches whose watched fds already have accepted
   target recipes, with no nested epoll, no edge-triggered/one-shot delivery
@@ -62,7 +65,7 @@ recipe refuse with `target-fd-table-missing` or the underlying resource refusal.
 | synthetic empty pipe         | only for modeled ppoll/read proof slices with paired read/write ends                       |
 | synthetic empty eventfd      | only counter-0, non-semaphore, modeled proof slices                                        |
 | synthetic eventfd counter    | only `eventfd-counter-v1`: nonzero counter, non-semaphore, supported flags, no waiters     |
-| synthetic timerfd            | only modeled disarmed/future one-shot timerfd proof slices                                 |
+| synthetic timerfd            | `timerfd-descriptor-v1` disarmed/relative one-shot descriptors, plus modeled proof slices  |
 | PTY                          | refuse unless a PTY broker capability is declared                                          |
 | raw socket                   | refuse unless a raw-socket broker capability is declared                                   |
 | sockets                      | Goal 3 keeps arbitrary/brokerless sockets refused until an explicit broker contract exists |
@@ -80,8 +83,10 @@ Unsupported resources are not silently dropped. They are returned with:
 - `kernel-state-unsupported` for pipes, sockets, eventfd, timerfd, and signalfd
   resources whose kernel state is not explicitly modeled by a narrow proof
   recipe, including eventfd semaphore mode, unknown eventfd waiters, unsupported
-  eventfd flags, zero counters outside the empty-eventfd recipe, and overflow
-  counters outside `eventfd-counter-v1`;
+  eventfd flags, zero counters outside the empty-eventfd recipe, overflow
+  counters outside `eventfd-counter-v1`, timerfd periodic intervals, expired or
+  overrun timerfd state, absolute/cancel-on-set timerfd flags, unsupported
+  timerfd clocks, and unsupported timerfd fd flags;
 - `target-epoll-syscall-state-unsupported` for epoll resources outside the
   `interest-list-v1` subset, including unsupported watched fds, nested epoll,
   edge-triggered/one-shot flags, and malformed interest lists;

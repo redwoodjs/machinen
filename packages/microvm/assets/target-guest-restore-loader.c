@@ -102,6 +102,7 @@ struct Descriptor {
   bool has_eventfd_spec;
   char eventfd_spec[1024];
   int timer_fd;
+  char timerfd_spec[1024];
   int signalfd_fds[MAX_FD_RECIPES];
   char signalfd_specs[MAX_FD_RECIPES][1024];
   size_t signalfd_count;
@@ -397,6 +398,7 @@ static void parse_counter_eventfd_resource(struct Descriptor *descriptor, char *
 
 static void parse_timerfd_resource(struct Descriptor *descriptor, char *fields) {
   descriptor->timer_fd = parse_single_fd_resource(fields, "timerfd fd is required");
+  fields_to_semicolon_spec(descriptor->timerfd_spec, sizeof(descriptor->timerfd_spec), fields);
   add_cloexec_if_requested(descriptor, fields, descriptor->timer_fd);
 }
 
@@ -1136,7 +1138,7 @@ static int run_trampoline(const struct Options *opts, const struct Descriptor *d
   }
   if (descriptor->timer_fd >= 0) {
     push_arg(child_argv, &child_argc, "--synthetic-timerfd");
-    push_arg(child_argv, &child_argc, timer_fd);
+    push_arg(child_argv, &child_argc, descriptor->timerfd_spec[0] ? descriptor->timerfd_spec : timer_fd);
   }
   for (size_t i = 0; i < descriptor->signalfd_count; i++) {
     push_arg(child_argv, &child_argc, "--synthetic-signalfd");

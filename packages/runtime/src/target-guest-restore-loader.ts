@@ -56,7 +56,17 @@ export type TargetGuestRestoreResourceRecipe =
   | { kind: "synthetic-empty-pipe"; readFd: number; writeFd?: number; closeOnExec?: boolean }
   | { kind: "synthetic-empty-eventfd"; fd: number; closeOnExec?: boolean }
   | { kind: "synthetic-eventfd"; fd: number; initialValue: string; closeOnExec?: boolean }
-  | { kind: "synthetic-timerfd"; fd: number; closeOnExec?: boolean }
+  | {
+      kind: "synthetic-timerfd";
+      fd: number;
+      clockId?: number;
+      settimeFlags?: number;
+      valueSeconds?: number;
+      valueNanoseconds?: number;
+      intervalSeconds?: number;
+      intervalNanoseconds?: number;
+      closeOnExec?: boolean;
+    }
   | {
       kind: "synthetic-signalfd";
       fd: number;
@@ -466,7 +476,7 @@ const RESOURCE_RECIPE_PARSERS: Record<
   "synthetic-empty-eventfd": (fields) =>
     parseSingleFdSyntheticRecipe("synthetic-empty-eventfd", fields),
   "synthetic-eventfd": parseSyntheticEventfdRecipe,
-  "synthetic-timerfd": (fields) => parseSingleFdSyntheticRecipe("synthetic-timerfd", fields),
+  "synthetic-timerfd": parseSyntheticTimerfdRecipe,
   "synthetic-signalfd": parseSyntheticSignalfdRecipe,
   "synthetic-epoll": parseSyntheticEpollRecipe,
 };
@@ -507,7 +517,7 @@ function parseReopenFileRecipe(fields: Map<string, string>): TargetGuestRestoreR
 }
 
 function parseSingleFdSyntheticRecipe(
-  kind: "synthetic-empty-eventfd" | "synthetic-timerfd",
+  kind: "synthetic-empty-eventfd",
   fields: Map<string, string>,
 ): TargetGuestRestoreResourceRecipe {
   return {
@@ -524,6 +534,22 @@ function parseSyntheticEventfdRecipe(
     kind: "synthetic-eventfd",
     fd: parseResourceInteger(fields, "fd"),
     initialValue: requiredResourceField(fields, "initialValue"),
+    closeOnExec: parseResourceBoolean(fields, "closeOnExec"),
+  };
+}
+
+function parseSyntheticTimerfdRecipe(
+  fields: Map<string, string>,
+): TargetGuestRestoreResourceRecipe {
+  return {
+    kind: "synthetic-timerfd",
+    fd: parseResourceInteger(fields, "fd"),
+    clockId: optionalResourceInteger(fields, "clockId"),
+    settimeFlags: optionalResourceInteger(fields, "settimeFlags"),
+    valueSeconds: optionalResourceInteger(fields, "valueSeconds"),
+    valueNanoseconds: optionalResourceInteger(fields, "valueNanoseconds"),
+    intervalSeconds: optionalResourceInteger(fields, "intervalSeconds"),
+    intervalNanoseconds: optionalResourceInteger(fields, "intervalNanoseconds"),
     closeOnExec: parseResourceBoolean(fields, "closeOnExec"),
   };
 }
@@ -1117,7 +1143,7 @@ const RESOURCE_RECIPE_VALIDATORS = {
   },
   "synthetic-empty-eventfd": validateSingleFdRecipe,
   "synthetic-eventfd": validateSyntheticEventfdRecipe,
-  "synthetic-timerfd": validateSingleFdRecipe,
+  "synthetic-timerfd": validateSyntheticTimerfdRecipe,
   "synthetic-signalfd": validateSyntheticSignalfdRecipe,
   "synthetic-epoll": validateSyntheticEpollRecipe,
 };
@@ -1150,10 +1176,7 @@ function validateReopenFileRecipe(
 }
 
 function validateSingleFdRecipe(
-  recipe: Extract<
-    TargetGuestRestoreResourceRecipe,
-    { kind: "synthetic-empty-eventfd" | "synthetic-timerfd" }
-  >,
+  recipe: Extract<TargetGuestRestoreResourceRecipe, { kind: "synthetic-empty-eventfd" }>,
 ): void {
   assertFd(recipe.fd, "fd");
 }
@@ -1166,6 +1189,31 @@ function validateSyntheticEventfdRecipe(
   const value = BigInt(recipe.initialValue);
   if (value > 0xfffffffffffffffen) {
     fail("target-guest-loader-descriptor-invalid", "eventfd initialValue is unsupported");
+  }
+}
+
+function validateSyntheticTimerfdRecipe(
+  recipe: Extract<TargetGuestRestoreResourceRecipe, { kind: "synthetic-timerfd" }>,
+): void {
+  assertFd(recipe.fd, "fd");
+  const numericFields = [
+    ["clockId", recipe.clockId],
+    ["settimeFlags", recipe.settimeFlags],
+    ["valueSeconds", recipe.valueSeconds],
+    ["valueNanoseconds", recipe.valueNanoseconds],
+    ["intervalSeconds", recipe.intervalSeconds],
+    ["intervalNanoseconds", recipe.intervalNanoseconds],
+  ] as const;
+  for (const [name, value] of numericFields) {
+    if (value !== undefined) {
+      assertNonNegative(value, name);
+    }
+  }
+  if ((recipe.valueNanoseconds ?? 0) > 999_999_999) {
+    fail("target-guest-loader-descriptor-invalid", "timerfd valueNanoseconds is invalid");
+  }
+  if ((recipe.intervalNanoseconds ?? 0) > 999_999_999) {
+    fail("target-guest-loader-descriptor-invalid", "timerfd intervalNanoseconds is invalid");
   }
 }
 
@@ -1730,7 +1778,7 @@ function serializeResourceRecipe(recipe: TargetGuestRestoreResourceRecipe): stri
     return `resource=synthetic-eventfd fd=${recipe.fd} initialValue=${recipe.initialValue}${serializeCloseOnExec(recipe.closeOnExec)}`;
   }
   if (recipe.kind === "synthetic-timerfd") {
-    return `resource=synthetic-timerfd fd=${recipe.fd}${serializeCloseOnExec(recipe.closeOnExec)}`;
+    return `resource=synthetic-timerfd ${timerfdResourceFields(recipe)}${serializeCloseOnExec(recipe.closeOnExec)}`;
   }
   if (recipe.kind === "synthetic-signalfd") {
     return `resource=synthetic-signalfd fd=${recipe.fd} signalMask=${recipe.signalMask} flags=${recipe.flags}${serializeCloseOnExec(recipe.closeOnExec)}`;
@@ -1924,7 +1972,7 @@ function resourceToTrampolineArgs(recipe: TargetGuestRestoreResourceRecipe): str
   if (recipe.kind === "synthetic-timerfd") {
     return [
       "--synthetic-timerfd",
-      String(recipe.fd),
+      timerfdResourceSpec(recipe),
       ...closeOnExecArgs(recipe.fd, recipe.closeOnExec),
     ];
   }
@@ -1946,6 +1994,29 @@ function eventfdResourceSpec(
   recipe: Extract<TargetGuestRestoreResourceRecipe, { kind: "synthetic-eventfd" }>,
 ): string {
   return [`fd=${recipe.fd}`, `initialValue=${recipe.initialValue}`].join(";");
+}
+
+function timerfdResourceFields(
+  recipe: Extract<TargetGuestRestoreResourceRecipe, { kind: "synthetic-timerfd" }>,
+): string {
+  return [
+    ["fd", recipe.fd],
+    ["clockId", recipe.clockId],
+    ["settimeFlags", recipe.settimeFlags],
+    ["valueSeconds", recipe.valueSeconds],
+    ["valueNanoseconds", recipe.valueNanoseconds],
+    ["intervalSeconds", recipe.intervalSeconds],
+    ["intervalNanoseconds", recipe.intervalNanoseconds],
+  ]
+    .filter(([, value]) => value !== undefined)
+    .map(([name, value]) => `${name}=${value}`)
+    .join(" ");
+}
+
+function timerfdResourceSpec(
+  recipe: Extract<TargetGuestRestoreResourceRecipe, { kind: "synthetic-timerfd" }>,
+): string {
+  return timerfdResourceFields(recipe).replaceAll(" ", ";");
 }
 
 function signalfdResourceSpec(

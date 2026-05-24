@@ -79,12 +79,12 @@ Tasks:
 - [x] Add target-native eventfd recreation, verifier reads/writes, positive proof
       profile, and negative profiles for semaphore mode, overflow, pending
       waiters, and unsupported flags. Issue/PR: #775 / #776.
-- [ ] Define `timerfd-descriptor-v1` for disarmed and future one-shot timerfds,
+- [x] Define `timerfd-descriptor-v1` for disarmed and future one-shot timerfds,
       including clock source, absolute/relative mode, remaining time, interval,
-      overrun, and cancellation semantics.
-- [ ] Add target-native timerfd recreation and proof profiles for the accepted
+      overrun, and cancellation semantics. Issue/PR: #777 / #778.
+- [x] Add target-native timerfd recreation and proof profiles for the accepted
       timerfd subset; keep expired, interval, ambiguous clock, and unmodeled
-      overrun state refused.
+      overrun state refused. Issue/PR: #777 / #778.
 - [ ] Define pipe descriptor-pair provenance for empty-buffer pipes with known
       read/write ends, peer lifetime, EOF behavior, and fd flags.
 - [ ] Add positive and negative proofs for empty pipe pairs only when readiness,

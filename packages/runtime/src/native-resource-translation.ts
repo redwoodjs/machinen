@@ -193,6 +193,7 @@ function fdTableEntryFromRecipe(
     reopenFileFdTableEntry(fd, resource, recipe, closeOnExec) ??
     syntheticFdTableEntry(fd, resource, recipe, closeOnExec) ??
     syntheticEventfdFdTableEntry(resource, recipe, closeOnExec) ??
+    syntheticTimerfdFdTableEntry(resource, recipe, closeOnExec) ??
     syntheticSignalfdFdTableEntry(resource, recipe, closeOnExec) ??
     syntheticEpollFdTableEntry(resource, recipe, closeOnExec, resources)
   );
@@ -320,6 +321,109 @@ function normalizedEventfdCounterRecipe(
     });
   }
   return { initialValue: `0x${count.toString(16)}` };
+}
+
+function syntheticTimerfdFdTableEntry(
+  resource: NativeProcessResource,
+  recipe: Record<string, unknown>,
+  closeOnExec: boolean,
+): NativeTargetFdTableEntry | undefined {
+  if (resource.kind !== "timer" || recipe.timerfdModel !== "descriptor-v1") {
+    return undefined;
+  }
+  const timerfdRecipe = normalizedTimerfdRecipe(resource);
+  if ("code" in timerfdRecipe) {
+    return refusedFdTableEntry(resource, timerfdRecipe);
+  }
+  return materializedFdTableEntry(resource, "synthetic-timerfd", closeOnExec, {
+    kind: "synthetic-timerfd",
+    fd: resource.fd!,
+    clockId: timerfdRecipe.clockId,
+    settimeFlags: timerfdRecipe.settimeFlags,
+    valueSeconds: timerfdRecipe.valueSeconds,
+    valueNanoseconds: timerfdRecipe.valueNanoseconds,
+    intervalSeconds: timerfdRecipe.intervalSeconds,
+    intervalNanoseconds: timerfdRecipe.intervalNanoseconds,
+    closeOnExec,
+  });
+}
+
+// fallow-ignore-next-line complexity
+function normalizedTimerfdRecipe(resource: NativeProcessResource):
+  | {
+      clockId: number;
+      settimeFlags: number;
+      valueSeconds: number;
+      valueNanoseconds: number;
+      intervalSeconds: number;
+      intervalNanoseconds: number;
+    }
+  | NativeProcessImageRefusal {
+  if (nativeFdAccessMode(resource.flags) !== 2) {
+    return timerfdRefusal(resource, "timerfd descriptor recipe requires read/write access", {
+      flags: resource.flags,
+    });
+  }
+  if (!TIMERFD_DESCRIPTOR_SUPPORTED_FLAGS.has(nativeFdFlagBits(resource.flags))) {
+    return timerfdRefusal(resource, "timerfd flags are unsupported", {
+      flags: resource.flags,
+      supportedFlags: Array.from(
+        TIMERFD_DESCRIPTOR_SUPPORTED_FLAGS,
+        (flags) => `octal:${flags.toString(8)}`,
+      ),
+    });
+  }
+  const clockId = nativeResourceSafeNumber(resource, "timerfdClockId");
+  if (clockId !== CLOCK_MONOTONIC) {
+    return timerfdRefusal(resource, "timerfd clock is unsupported", {
+      timerfdClockId: clockId,
+    });
+  }
+  const ticks = nativeResourceBigInt(resource, "timerfdTicks");
+  if (ticks !== 0n) {
+    return timerfdRefusal(resource, "timerfd has unread expirations or overrun state", {
+      timerfdTicks: ticks?.toString(10),
+    });
+  }
+  const settimeFlags = nativeResourceSafeNumber(resource, "timerfdSettimeFlags");
+  if (settimeFlags !== 0) {
+    return timerfdRefusal(resource, "timerfd absolute/cancel-on-set semantics are unsupported", {
+      timerfdSettimeFlags: settimeFlags,
+    });
+  }
+  const valueSeconds = nativeResourceSafeNumber(resource, "timerfdValueSeconds");
+  const valueNanoseconds = nativeResourceSafeNumber(resource, "timerfdValueNanoseconds");
+  const intervalSeconds = nativeResourceSafeNumber(resource, "timerfdIntervalSeconds");
+  const intervalNanoseconds = nativeResourceSafeNumber(resource, "timerfdIntervalNanoseconds");
+  if (
+    valueSeconds === undefined ||
+    valueNanoseconds === undefined ||
+    intervalSeconds === undefined ||
+    intervalNanoseconds === undefined ||
+    valueNanoseconds > MAX_NANOSECONDS ||
+    intervalNanoseconds > MAX_NANOSECONDS
+  ) {
+    return timerfdRefusal(resource, "timerfd duration fields are invalid or missing", {
+      timerfdValueSeconds: valueSeconds,
+      timerfdValueNanoseconds: valueNanoseconds,
+      timerfdIntervalSeconds: intervalSeconds,
+      timerfdIntervalNanoseconds: intervalNanoseconds,
+    });
+  }
+  if (intervalSeconds !== 0 || intervalNanoseconds !== 0) {
+    return timerfdRefusal(resource, "timerfd periodic interval is unsupported", {
+      timerfdIntervalSeconds: intervalSeconds,
+      timerfdIntervalNanoseconds: intervalNanoseconds,
+    });
+  }
+  return {
+    clockId,
+    settimeFlags,
+    valueSeconds,
+    valueNanoseconds,
+    intervalSeconds,
+    intervalNanoseconds,
+  };
 }
 
 function syntheticSignalfdFdTableEntry(
@@ -618,6 +722,13 @@ function translateResource(
       refusal: undefined,
     };
   }
+  if (resource.kind === "timer" && resource.recipe?.timerfdModel === "descriptor-v1") {
+    return {
+      ...resource,
+      state: "recipe",
+      refusal: undefined,
+    };
+  }
   if (
     resource.kind === "timer" &&
     resource.fd !== undefined &&
@@ -780,6 +891,9 @@ function resourceRefusalCode(
 
 const EVENTFD_COUNTER_SUPPORTED_FLAGS = new Set([0o2, 0o2000002]);
 const EVENTFD_MAX_COUNTER = 0xfffffffffffffffen;
+const TIMERFD_DESCRIPTOR_SUPPORTED_FLAGS = new Set([0o2, 0o2000002]);
+const CLOCK_MONOTONIC = 1;
+const MAX_NANOSECONDS = 999_999_999;
 const SIGNALFD_SUPPORTED_FLAGS = 0x800;
 const EPOLL_EDGE_TRIGGERED = 0x80000000;
 const EPOLL_ONESHOT = 0x40000000;
@@ -808,6 +922,17 @@ function normalizeHex(value: string): string | undefined {
 
 const nativeResourceBigInt = nativeResourceRecipeBigInt;
 
+function nativeResourceSafeNumber(
+  resource: NativeProcessResource,
+  key: string,
+): number | undefined {
+  const value = nativeResourceBigInt(resource, key);
+  if (value === undefined || value < 0n || value > BigInt(Number.MAX_SAFE_INTEGER)) {
+    return undefined;
+  }
+  return Number(value);
+}
+
 function eventfdRefusal(
   resource: NativeProcessResource,
   reason: string,
@@ -824,6 +949,27 @@ function eventfdRefusal(
       boundary: "eventfd-counter-v1",
       reason,
       requiredModel: RESOURCE_REQUIRED_MODELS.eventfd,
+      ...detail,
+    },
+  };
+}
+
+function timerfdRefusal(
+  resource: NativeProcessResource,
+  reason: string,
+  detail: Record<string, unknown> = {},
+): NativeProcessImageRefusal {
+  return {
+    code: "kernel-state-unsupported",
+    message: `timerfd resource ${resource.id} cannot be recreated target-natively`,
+    detail: {
+      id: resource.id,
+      kind: resource.kind,
+      fd: resource.fd,
+      path: resource.path,
+      boundary: "timerfd-descriptor-v1",
+      reason,
+      requiredModel: RESOURCE_REQUIRED_MODELS.timer,
       ...detail,
     },
   };
