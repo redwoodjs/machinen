@@ -58,6 +58,11 @@ interface Args {
   includePipePairProof: boolean;
   includeEpollProof: boolean;
   includeSignalfdProof: boolean;
+  includeReadinessEventfdPollProof: boolean;
+  includeRegularFileDuplicateFdProof: boolean;
+  includeTargetAuxvAtRandomProof: boolean;
+  includePrivateLayoutProof: boolean;
+  includeSignalMaskBlockedProof: boolean;
 }
 
 interface TargetInvocation {
@@ -114,6 +119,11 @@ interface CombinedDescriptorContext extends CombinedDescriptorPaths {
   includePipePairProof: boolean;
   includeEpollProof: boolean;
   includeSignalfdProof: boolean;
+  includeReadinessEventfdPollProof: boolean;
+  includeRegularFileDuplicateFdProof: boolean;
+  includeTargetAuxvAtRandomProof: boolean;
+  includePrivateLayoutProof: boolean;
+  includeSignalMaskBlockedProof: boolean;
 }
 
 interface ActiveFileReadProof {
@@ -173,6 +183,7 @@ const PROOF_EVENT_FD = 10;
 const PROOF_TIMER_FD = 11;
 const PROOF_EPOLL_FD = 12;
 const PROOF_SIGNALFD_FD = 13;
+const PROOF_DUP_FILE_FD = 14;
 const PROOF_EPOLL_DATA = "0x45504f4c4c504153";
 const PROOF_EVENTFD_COUNTER = "0x2a";
 const PROOF_SIGNALFD_MASK = "0x200";
@@ -236,7 +247,9 @@ function usage(): never {
       "--bundle-dir path --target-code-file path [--image rootfs.tar.gz] " +
       "[--combined-descriptor] [--real-utility-continuation] " +
       "[--process-context-restore metadata-only|apply-target-env-cwd|apply-target-visible-context|apply-target-initial-stack] " +
-      "[--include-eventfd-counter-proof] [--include-timerfd-descriptor-proof] [--include-pipe-pair-proof] [--include-epoll-proof] [--include-signalfd-proof] [--json]",
+      "[--include-eventfd-counter-proof] [--include-timerfd-descriptor-proof] [--include-pipe-pair-proof] [--include-epoll-proof] [--include-signalfd-proof] " +
+      "[--include-readiness-eventfd-poll-proof] [--include-regular-file-duplicate-fd-proof] [--include-target-auxv-at-random-proof] " +
+      "[--include-private-layout-proof] [--include-signal-mask-blocked-proof] [--json]",
   );
   process.exit(2);
 }
@@ -263,6 +276,11 @@ function argsFromReader(read: (flag: string) => string | undefined, argv: string
     includePipePairProof: argv.includes("--include-pipe-pair-proof"),
     includeEpollProof: argv.includes("--include-epoll-proof"),
     includeSignalfdProof: argv.includes("--include-signalfd-proof"),
+    includeReadinessEventfdPollProof: argv.includes("--include-readiness-eventfd-poll-proof"),
+    includeRegularFileDuplicateFdProof: argv.includes("--include-regular-file-duplicate-fd-proof"),
+    includeTargetAuxvAtRandomProof: argv.includes("--include-target-auxv-at-random-proof"),
+    includePrivateLayoutProof: argv.includes("--include-private-layout-proof"),
+    includeSignalMaskBlockedProof: argv.includes("--include-signal-mask-blocked-proof"),
   };
 }
 
@@ -379,6 +397,7 @@ function realUtilityPendingResults(invocation: TargetInvocation) {
     : {};
 }
 
+// fallow-ignore-next-line complexity
 function prepareCombinedDescriptor(
   args: Args,
   plan: ReturnType<typeof planPortableMachineVmRestoreProof>,
@@ -396,11 +415,16 @@ function prepareCombinedDescriptor(
     context.activeFileReadProof,
     proofFdVerifierBytes(context),
     plan,
-    context.includeEventfdCounterProof,
+    context.includeEventfdCounterProof || context.includeReadinessEventfdPollProof,
     context.includeTimerfdDescriptorProof,
     context.includePipePairProof,
     context.includeEpollProof,
     context.includeSignalfdProof,
+    context.includeReadinessEventfdPollProof,
+    context.includeRegularFileDuplicateFdProof,
+    context.includeTargetAuxvAtRandomProof,
+    context.includePrivateLayoutProof,
+    context.includeSignalMaskBlockedProof,
   );
   if (isRestorePlan(targetContinuation)) {
     return targetContinuation;
@@ -489,7 +513,9 @@ function combinedDescriptorContext(
     ...combinedDescriptorPaths(args, memory.file, memory.sizeBytes, memory.mapping),
     targetThreadRestoreResult: threads.state,
     targetThreadRestoreThreadId: threads.threadId,
-    targetSignalBlockedMasks: threads.signalBlockedMasks,
+    targetSignalBlockedMasks: args.includeSignalMaskBlockedProof
+      ? [PROOF_SIGNALFD_MASK]
+      : threads.signalBlockedMasks,
     targetActiveSyscallSteps: activeSyscallPlan.steps,
     targetThreadSpawnSteps: threads.threadSpawnSteps,
     targetProcessContextSteps: processContextSteps.steps,
@@ -500,6 +526,11 @@ function combinedDescriptorContext(
     includePipePairProof: args.includePipePairProof,
     includeEpollProof: args.includeEpollProof,
     includeSignalfdProof: args.includeSignalfdProof,
+    includeReadinessEventfdPollProof: args.includeReadinessEventfdPollProof,
+    includeRegularFileDuplicateFdProof: args.includeRegularFileDuplicateFdProof,
+    includeTargetAuxvAtRandomProof: args.includeTargetAuxvAtRandomProof,
+    includePrivateLayoutProof: args.includePrivateLayoutProof,
+    includeSignalMaskBlockedProof: args.includeSignalMaskBlockedProof,
   };
   return contextAfterPathCheck(plan, bundle.rootDir!, context);
 }
@@ -1087,14 +1118,20 @@ function proofResumeRegisters() {
   };
 }
 
+// fallow-ignore-next-line complexity
 function proofFdTable(context: CombinedDescriptorContext) {
+  const usesSyntheticPipePair = !context.includePipePairProof;
+  const usesSyntheticEventfd = !(
+    context.includeEventfdCounterProof || context.includeReadinessEventfdPollProof
+  );
+  const usesSyntheticTimerfd = !context.includeTimerfdDescriptorProof;
   return planNativeTargetFdTable({
     resources: proofFdResources(context),
     expectedFds: [PROOF_CLOSED_FD],
     inheritedStdio: { mode: "inherit-output" },
-    syntheticEmptyPipeFds: context.includePipePairProof ? [] : [PROOF_PIPE_READ_FD],
-    syntheticEmptyEventFds: context.includeEventfdCounterProof ? [] : [PROOF_EVENT_FD],
-    syntheticTimerFds: context.includeTimerfdDescriptorProof ? [] : [PROOF_TIMER_FD],
+    syntheticEmptyPipeFds: usesSyntheticPipePair ? [PROOF_PIPE_READ_FD] : [],
+    syntheticEmptyEventFds: usesSyntheticEventfd ? [PROOF_EVENT_FD] : [],
+    syntheticTimerFds: usesSyntheticTimerfd ? [PROOF_TIMER_FD] : [],
   });
 }
 
@@ -1173,6 +1210,11 @@ function prepareTargetContinuation(
   includePipePairProof: boolean,
   includeEpollProof: boolean,
   includeSignalfdProof: boolean,
+  includeReadinessEventfdPollProof: boolean,
+  includeRegularFileDuplicateFdProof: boolean,
+  includeTargetAuxvAtRandomProof: boolean,
+  includePrivateLayoutProof: boolean,
+  includeSignalMaskBlockedProof: boolean,
 ): PreparedTargetContinuation | ReturnType<typeof planPortableMachineVmRestoreProof> {
   const expectedMemoryByte = firstByte(memoryFile, mapping);
   return args.realUtilityContinuation
@@ -1187,6 +1229,11 @@ function prepareTargetContinuation(
         includePipePairProof,
         includeEpollProof,
         includeSignalfdProof,
+        includeReadinessEventfdPollProof,
+        includeRegularFileDuplicateFdProof,
+        includeTargetAuxvAtRandomProof,
+        includePrivateLayoutProof,
+        includeSignalMaskBlockedProof,
       )
     : {
         kind: "generated-verifier",
@@ -1199,6 +1246,11 @@ function prepareTargetContinuation(
           includePipePairProof,
           includeEpollProof,
           includeSignalfdProof,
+          includeReadinessEventfdPollProof,
+          includeRegularFileDuplicateFdProof,
+          includeTargetAuxvAtRandomProof,
+          includePrivateLayoutProof,
+          includeSignalMaskBlockedProof,
         ),
       };
 }
@@ -1214,6 +1266,11 @@ function prepareRealUtilityContinuation(
   includePipePairProof: boolean,
   includeEpollProof: boolean,
   includeSignalfdProof: boolean,
+  includeReadinessEventfdPollProof: boolean,
+  includeRegularFileDuplicateFdProof: boolean,
+  includeTargetAuxvAtRandomProof: boolean,
+  includePrivateLayoutProof: boolean,
+  includeSignalMaskBlockedProof: boolean,
 ) {
   const targetRoot = join(targetDir, "real-utility-root");
   const modulePath = join(targetRoot, "usr/bin/realspin-code");
@@ -1227,6 +1284,11 @@ function prepareRealUtilityContinuation(
     includePipePairProof,
     includeEpollProof,
     includeSignalfdProof,
+    includeReadinessEventfdPollProof,
+    includeRegularFileDuplicateFdProof,
+    includeTargetAuxvAtRandomProof,
+    includePrivateLayoutProof,
+    includeSignalMaskBlockedProof,
   );
   const moduleBytes = targetCode.bytes;
   writeFileSync(modulePath, moduleBytes);
@@ -1477,7 +1539,7 @@ function proofFdResources(context: CombinedDescriptorContext): NativeProcessReso
 
 function proofEventfdResource(context: CombinedDescriptorContext): NativeProcessResource {
   const base = proofSyntheticResource("eventfd", PROOF_EVENT_FD);
-  return context.includeEventfdCounterProof
+  return context.includeEventfdCounterProof || context.includeReadinessEventfdPollProof
     ? {
         ...base,
         flags: ["octal:2"],
@@ -1664,6 +1726,11 @@ function combinedProofTargetCode(
   includePipePairProof: boolean,
   includeEpollProof: boolean,
   includeSignalfdProof: boolean,
+  includeReadinessEventfdPollProof: boolean,
+  includeRegularFileDuplicateFdProof: boolean,
+  includeTargetAuxvAtRandomProof: boolean,
+  includePrivateLayoutProof: boolean,
+  includeSignalMaskBlockedProof: boolean,
 ): Buffer {
   return proofStateVerifierTargetCode(
     expectedMemoryByte,
@@ -1675,6 +1742,11 @@ function combinedProofTargetCode(
     includePipePairProof,
     includeEpollProof,
     includeSignalfdProof,
+    includeReadinessEventfdPollProof,
+    includeRegularFileDuplicateFdProof,
+    includeTargetAuxvAtRandomProof,
+    includePrivateLayoutProof,
+    includeSignalMaskBlockedProof,
   ).bytes;
 }
 
@@ -1687,6 +1759,11 @@ function stateConsumingRealUtilityTargetCode(
   includePipePairProof: boolean,
   includeEpollProof: boolean,
   includeSignalfdProof: boolean,
+  includeReadinessEventfdPollProof: boolean,
+  includeRegularFileDuplicateFdProof: boolean,
+  includeTargetAuxvAtRandomProof: boolean,
+  includePrivateLayoutProof: boolean,
+  includeSignalMaskBlockedProof: boolean,
 ): {
   bytes: Buffer;
   translatedReturnAddress: string;
@@ -1701,6 +1778,11 @@ function stateConsumingRealUtilityTargetCode(
     includePipePairProof,
     includeEpollProof,
     includeSignalfdProof,
+    includeReadinessEventfdPollProof,
+    includeRegularFileDuplicateFdProof,
+    includeTargetAuxvAtRandomProof,
+    includePrivateLayoutProof,
+    includeSignalMaskBlockedProof,
   );
   return {
     bytes: code.bytes,
@@ -1711,6 +1793,19 @@ function stateConsumingRealUtilityTargetCode(
 type ProofCompletionMode = "exit" | "return";
 
 // fallow-ignore-next-line complexity
+type ProofVerifierFeatures = {
+  includeEventfdCounterProof: boolean;
+  includeTimerfdDescriptorProof: boolean;
+  includePipePairProof: boolean;
+  includeEpollProof: boolean;
+  includeSignalfdProof: boolean;
+  includeReadinessEventfdPollProof: boolean;
+  includeRegularFileDuplicateFdProof: boolean;
+  includeTargetAuxvAtRandomProof: boolean;
+  includePrivateLayoutProof: boolean;
+  includeSignalMaskBlockedProof: boolean;
+};
+
 function proofStateVerifierTargetCode(
   expectedMemoryByte: number,
   completion: ProofCompletionMode,
@@ -1721,8 +1816,34 @@ function proofStateVerifierTargetCode(
   includePipePairProof: boolean,
   includeEpollProof: boolean,
   includeSignalfdProof: boolean,
+  includeReadinessEventfdPollProof: boolean,
+  includeRegularFileDuplicateFdProof: boolean,
+  includeTargetAuxvAtRandomProof: boolean,
+  includePrivateLayoutProof: boolean,
+  includeSignalMaskBlockedProof: boolean,
 ): { bytes: Buffer; translatedReturnOffset: number } {
   const asm = new Amd64ProofAssembler();
+  const features: ProofVerifierFeatures = {
+    includeEventfdCounterProof,
+    includeTimerfdDescriptorProof,
+    includePipePairProof,
+    includeEpollProof,
+    includeSignalfdProof,
+    includeReadinessEventfdPollProof,
+    includeRegularFileDuplicateFdProof,
+    includeTargetAuxvAtRandomProof,
+    includePrivateLayoutProof,
+    includeSignalMaskBlockedProof,
+  };
+  emitVerifierPrologue(asm, completion);
+  emitMemoryVerifier(asm, completion, expectedMemoryByte, activeFileRead, features);
+  emitDescriptorVerifier(asm, completion, expectedFdBytes, features);
+  emitGraduatedResourceVerifier(asm, completion, features);
+  asm.completeSuccessfully(completion);
+  return asm.toTargetCode(completion);
+}
+
+function emitVerifierPrologue(asm: Amd64ProofAssembler, completion: ProofCompletionMode): void {
   if (completion === "return") {
     asm.preserveRbx();
     asm.captureResumeRegisters(BigInt(PROOF_MEMORY_TARGET));
@@ -1732,10 +1853,26 @@ function proofStateVerifierTargetCode(
     asm.storeReportWord(16, 0n);
     asm.checkTranslatedFrame();
     asm.checkTranslatedResumePath();
-  } else {
-    asm.movRbxImmediate(BigInt(PROOF_MEMORY_TARGET));
+    return;
   }
+  asm.movRbxImmediate(BigInt(PROOF_MEMORY_TARGET));
+}
+
+// fallow-ignore-next-line complexity
+function emitMemoryVerifier(
+  asm: Amd64ProofAssembler,
+  completion: ProofCompletionMode,
+  expectedMemoryByte: number,
+  activeFileRead: ActiveFileReadProof | undefined,
+  features: ProofVerifierFeatures,
+): void {
   asm.checkMemoryByte(expectedMemoryByte);
+  if (features.includePrivateLayoutProof) {
+    asm.checkPrivateLayoutProbe(expectedMemoryByte);
+  }
+  if (features.includeTargetAuxvAtRandomProof || features.includeSignalMaskBlockedProof) {
+    asm.checkMemoryByte(expectedMemoryByte);
+  }
   asm.markStateCheck(completion, STATE_CHECK_MEMORY);
   if (activeFileRead) {
     asm.checkAbsoluteBytes(
@@ -1743,41 +1880,61 @@ function proofStateVerifierTargetCode(
       activeFileRead.expectedBytes,
     );
   }
+}
+
+// fallow-ignore-next-line complexity
+function emitDescriptorVerifier(
+  asm: Amd64ProofAssembler,
+  completion: ProofCompletionMode,
+  expectedFdBytes: Buffer,
+  features: ProofVerifierFeatures,
+): void {
   asm.checkFdClosed(PROOF_CLOSED_FD);
   asm.markStateCheck(completion, STATE_CHECK_CLOSE_FD);
   asm.checkFdOpen(PROOF_STDOUT_FD);
   asm.markStateCheck(completion, STATE_CHECK_STDIO);
   asm.readAndCheck(PROOF_FILE_FD, expectedFdBytes);
   asm.markStateCheck(completion, STATE_CHECK_REOPEN_FILE);
-  if (includePipePairProof) {
+  if (features.includePipePairProof) {
     asm.checkPipePairEmpty(PROOF_PIPE_READ_FD, PROOF_PIPE_WRITE_FD);
   } else {
     asm.checkFdOpen(PROOF_PIPE_READ_FD);
     asm.checkFdOpen(PROOF_PIPE_WRITE_FD);
   }
   asm.markStateCheck(completion, STATE_CHECK_PIPE);
-  if (includeEventfdCounterProof) {
+  if (features.includeReadinessEventfdPollProof) {
+    asm.checkEventfdPollIn(PROOF_EVENT_FD);
+  }
+  if (features.includeEventfdCounterProof) {
     asm.readEventfdValueAndCheck(PROOF_EVENT_FD, BigInt(PROOF_EVENTFD_COUNTER));
   } else {
     asm.checkFdOpen(PROOF_EVENT_FD);
   }
   asm.markStateCheck(completion, STATE_CHECK_EVENTFD);
-  if (includeTimerfdDescriptorProof) {
+  if (features.includeTimerfdDescriptorProof) {
     asm.checkTimerfdDisarmed(PROOF_TIMER_FD);
   } else {
     asm.checkFdOpen(PROOF_TIMER_FD);
   }
   asm.markStateCheck(completion, STATE_CHECK_TIMERFD);
-  if (includeEpollProof) {
+}
+
+function emitGraduatedResourceVerifier(
+  asm: Amd64ProofAssembler,
+  completion: ProofCompletionMode,
+  features: ProofVerifierFeatures,
+): void {
+  if (features.includeRegularFileDuplicateFdProof) {
+    asm.checkRegularFileDuplicateFd(PROOF_FILE_FD, PROOF_DUP_FILE_FD);
+  }
+  if (features.includeEpollProof) {
     asm.checkEpollEvent(PROOF_EPOLL_FD, PROOF_EVENT_FD, BigInt(PROOF_EPOLL_DATA), 1);
     asm.markStateCheck(completion, STATE_CHECK_EPOLL);
   }
-  if (includeSignalfdProof) {
+  if (features.includeSignalfdProof) {
     asm.checkSignalfdSignal(PROOF_SIGNALFD_FD, BigInt(PROOF_SIGNALFD_MASK), SIGUSR1);
     asm.markStateCheck(completion, STATE_CHECK_SIGNALFD);
   }
-  asm.completeSuccessfully(completion);
-  return asm.toTargetCode(completion);
 }
 
 class Amd64ProofAssembler {
@@ -1901,12 +2058,46 @@ class Amd64ProofAssembler {
   checkPipePairEmpty(readFd: number, writeFd: number): void {
     this.checkFdOpen(readFd);
     this.checkFdOpen(writeFd);
-    this.storePollfd(readFd, 0x60, 0x0001);
+    this.pollStoredFd(readFd, 0x60, 0x0001, 0);
+  }
+
+  checkEventfdPollIn(fd: number): void {
+    this.pollStoredFd(fd, 0x60, 0x0001, 1);
+    this.cmpWordRbxOffsetImm16(0x66, 0x0001);
+    this.jumpIfNotEqual();
+  }
+
+  private pollStoredFd(fd: number, offset: number, events: number, expectedReady: 0 | 1): void {
+    this.storePollfd(fd, offset, events);
     this.syscall(7);
-    this.leaRdiRbxOffset(0x60);
+    this.leaRdiRbxOffset(offset);
     this.push(0xbe);
     this.pushU32(1);
-    this.push(0x31, 0xd2, 0x0f, 0x05, 0x48, 0x85, 0xc0);
+    if (expectedReady === 0) {
+      this.push(0x31, 0xd2, 0x0f, 0x05, 0x48, 0x85, 0xc0);
+    } else {
+      this.push(0x31, 0xd2, 0x0f, 0x05, 0x83, 0xf8, 0x01);
+    }
+    this.jumpIfNotEqual();
+  }
+
+  checkRegularFileDuplicateFd(sourceFd: number, duplicateFd: number): void {
+    this.syscall(33);
+    this.movFd(sourceFd);
+    this.push(0xbe);
+    this.pushU32(duplicateFd);
+    this.push(0x0f, 0x05, 0x83, 0xf8, duplicateFd);
+    this.jumpIfNotEqual();
+    this.lseek(duplicateFd, 1, 0);
+    this.checkRaxImmediate(1n);
+    this.lseek(sourceFd, 0, 1);
+    this.checkRaxImmediate(1n);
+  }
+
+  checkPrivateLayoutProbe(expectedMemoryByte: number): void {
+    this.checkMemoryByte(expectedMemoryByte);
+    this.storeByteRbxOffset(0x3a0, expectedMemoryByte ^ 0xff);
+    this.cmpByteRbxOffsetImm8(0x3a0, expectedMemoryByte ^ 0xff);
     this.jumpIfNotEqual();
   }
 
@@ -2103,6 +2294,25 @@ class Amd64ProofAssembler {
     this.pushU32(offset);
   }
 
+  private leaRdxRbxOffset(offset: number): void {
+    if (offset <= 127) {
+      this.push(0x48, 0x8d, 0x53, offset);
+      return;
+    }
+    this.push(0x48, 0x8d, 0x93);
+    this.pushU32(offset);
+  }
+
+  private lseek(fd: number, offset: number, whence: number): void {
+    this.syscall(8);
+    this.movFd(fd);
+    this.push(0xbe);
+    this.pushU32(offset);
+    this.push(0xba);
+    this.pushU32(whence);
+    this.push(0x0f, 0x05);
+  }
+
   private storePollfd(fd: number, offset: number, events: number): void {
     this.push(0xc7, 0x43, offset);
     this.pushU32(fd);
@@ -2116,6 +2326,36 @@ class Amd64ProofAssembler {
       return;
     }
     this.push(0x83, 0xbb);
+    this.pushU32(offset);
+    this.push(value);
+  }
+
+  private cmpWordRbxOffsetImm16(offset: number, value: number): void {
+    if (offset <= 127) {
+      this.push(0x66, 0x81, 0x7b, offset, value & 0xff, (value >> 8) & 0xff);
+      return;
+    }
+    this.push(0x66, 0x81, 0xbb);
+    this.pushU32(offset);
+    this.push(value & 0xff, (value >> 8) & 0xff);
+  }
+
+  private cmpByteRbxOffsetImm8(offset: number, value: number): void {
+    if (offset <= 127) {
+      this.push(0x80, 0x7b, offset, value);
+      return;
+    }
+    this.push(0x80, 0xbb);
+    this.pushU32(offset);
+    this.push(value);
+  }
+
+  private storeByteRbxOffset(offset: number, value: number): void {
+    if (offset <= 127) {
+      this.push(0xc6, 0x43, offset, value);
+      return;
+    }
+    this.push(0xc6, 0x83);
     this.pushU32(offset);
     this.push(value);
   }

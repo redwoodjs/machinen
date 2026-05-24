@@ -178,9 +178,8 @@ profile (or an explicit documented refusal if it stays unsupported), target gate
 coverage, fail-closed tests, and docs updates before it can be counted as
 native-transparent success.
 
-The Goals 9-13 closure keeps all newly listed families in the refusal matrix. No
-new success profile is claimed for readiness-aware waits, target auxv expansion,
-broader private-memory layout, signal/restart semantics, or duplicate fd aliases;
-future work must replace exactly one refusal at a time with a portable model,
-target-native recipe, target verifier, positive proof, nearby negative proofs,
-docs, and validation timings.
+Goal 6 adds five graduated support profiles on top of the refusal matrix:
+`eventfd-readiness-pollin-recreate`, `regular-file-duplicate-fd-recreate`,
+`target-auxv-at-random`, `private-anonymous-data-range-recreate`, and
+`signal-mask-blocked-recreate`. Each starts from one proven Goal 5 refusal and
+keeps the adjacent unsafe variants in the runnable refusal matrix.

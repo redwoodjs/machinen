@@ -155,6 +155,11 @@ describe("portable machine proof runner", () => {
         "timerfd-descriptor-recreate",
         "pipe-pair-recreate",
         "signalfd-recreate",
+        "eventfd-readiness-pollin-recreate",
+        "regular-file-duplicate-fd-recreate",
+        "target-auxv-at-random",
+        "private-anonymous-data-range-recreate",
+        "signal-mask-blocked-recreate",
         "readiness-wait-refusal",
         "readiness-scheduler-refusal",
         "readiness-edge-trigger-refusal",
@@ -218,7 +223,7 @@ describe("portable machine proof runner", () => {
     expect(summary.supportReport).toMatchObject({
       counts: {
         "baseline-success": 11,
-        "graduated-support": 5,
+        "graduated-support": 10,
         "intentional-refusal": 32,
         "permanent-refusal": 3,
       },
@@ -247,6 +252,31 @@ describe("portable machine proof runner", () => {
           name: "signalfd-recreate",
           acceptedSubset: "empty-queue-normalized-mask-descriptor",
           graduatedFromRefusalCode: "target-signalfd-state-unsupported",
+        }),
+        expect.objectContaining({
+          name: "eventfd-readiness-pollin-recreate",
+          acceptedSubset: "readiness-wait-v1-eventfd-pollin",
+          graduatedFromRefusalCode: "kernel-state-unsupported",
+        }),
+        expect.objectContaining({
+          name: "regular-file-duplicate-fd-recreate",
+          acceptedSubset: "shared-open-file-description-v1-regular-file-two-fd-alias",
+          graduatedFromRefusalCode: "target-fd-table-duplicate",
+        }),
+        expect.objectContaining({
+          name: "target-auxv-at-random",
+          acceptedSubset: "target-auxv-v1-at-random-target-owned",
+          graduatedFromRefusalCode: "target-process-context-unsupported",
+        }),
+        expect.objectContaining({
+          name: "private-anonymous-data-range-recreate",
+          acceptedSubset: "private-layout-v1-single-anonymous-data-range",
+          graduatedFromRefusalCode: "mapping-permission-unsupported",
+        }),
+        expect.objectContaining({
+          name: "signal-mask-blocked-recreate",
+          acceptedSubset: "target-signal-mask-v1-blocked-mask-only",
+          graduatedFromRefusalCode: "signal-state-unsupported",
         }),
       ],
     });
