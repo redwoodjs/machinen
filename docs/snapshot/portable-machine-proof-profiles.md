@@ -41,6 +41,17 @@ TLS, stack-window, private-memory, executable mapping, signal restore,
 active-syscall restore, process-context restore, controlled thread restore, and
 resume-path checks.
 
+Every profile also carries a support status:
+
+- `baseline-success`: part of the original constrained success class.
+- `intentional-refusal`: fail-closed today, but may graduate after an exact
+  model lands.
+- `permanent-refusal`: an invariant of the native-transparent contract, not a
+  backlog support item.
+- `graduated-support`: a formerly refused family now has a positive target-native
+  subset. These profiles must record `graduatedFromRefusalCode`, an
+  `acceptedSubset`, and unsafe variants that still refuse.
+
 Negative profiles set `expectedResult: "refusal"`. They are pass/fail checks for
 unsafe states, not accepted migrations. The runner treats a negative profile as
 passing only when the checked summary matches the unsafe-state family, carries
@@ -60,6 +71,28 @@ pnpm portable-machine-proof-runner -- \
 ```
 
 This exits non-zero if any required gate is missing or not `passed`.
+
+## Refusal graduation checklist
+
+A refused family may move to `graduated-support` only when the same PR documents
+and tests all of the following:
+
+1. **Portable state model** — exact descriptor fields, provenance, and bounds.
+2. **Target restore recipe** — target-native syscalls or loader actions used to
+   recreate state.
+3. **Target gates** — checks proving descriptor consumption, target-native
+   completion, and resource-specific state.
+4. **Positive profile** — a profile with `expectedResult: "success"`,
+   `supportStatus: "graduated-support"`, `graduatedFromRefusalCode`, and an
+   accepted subset name.
+5. **Negative variants** — nearby unsafe states that still assert exact refusal
+   codes and `migrationCompleted=false`.
+6. **Docs and validation timings** — update the refusal inventory and the goal
+   ledger before claiming completion.
+
+The runner refuses a graduated success profile that reports
+`migrationCompleted=true` without descriptor completion and the listed target
+native gates.
 
 ## Constrained native-transparent class
 

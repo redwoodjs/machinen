@@ -149,10 +149,31 @@ describe("portable machine proof runner", () => {
       ),
     ).toMatchObject({
       expectedResult: "refusal",
+      supportStatus: "intentional-refusal",
       unsafeStateFamily: "socket",
       expectedRefusalCode: "target-socket-syscall-state-unsupported",
       descriptorConsumptionExpected: false,
+      refusalSupportContract: {
+        currentRefusalCode: "target-socket-syscall-state-unsupported",
+        graduationRequires: expect.arrayContaining(["portable-state-model", "target-gates"]),
+      },
     });
+    expect(summary.supportReport).toMatchObject({
+      counts: {
+        "baseline-success": 11,
+        "intentional-refusal": 7,
+        "permanent-refusal": 3,
+      },
+      graduated: [],
+    });
+    expect(summary.supportReport.intentionallyRefused).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "raw-cross-isa-vmstate-refusal",
+          supportStatus: "permanent-refusal",
+        }),
+      ]),
+    );
   });
 
   it("runs a named profile through dry-run smoke wiring without reporting success", () => {
@@ -319,6 +340,51 @@ describe("portable machine proof runner", () => {
       expect.arrayContaining([
         expect.objectContaining({ label: "summary.state" }),
         expect.objectContaining({ label: "targetRestore.migrationCompleted" }),
+        expect.objectContaining({ label: "targetRestore.descriptorGateCompleted" }),
+      ]),
+    );
+  });
+
+  it("rejects a graduated support profile unless descriptor and target gates pass", () => {
+    const dir = tempDir();
+    const profileFile = join(dir, "profiles.json");
+    const badSummaryFile = join(dir, "summary.json");
+    const profile = {
+      name: "graduated-epoll",
+      remoteSourceTarget: "graduated-epoll",
+      sourceFixture: "synthetic",
+      expectedResult: "success",
+      supportStatus: "graduated-support",
+      unsafeStateFamily: "epoll",
+      graduatedFromRefusalCode: "target-epoll-syscall-state-unsupported",
+      acceptedSubset: "single-level-triggered-watch",
+      unsafeVariants: ["epoll-wait-refusal"],
+      expectedGates: ["descriptor", "resources", "verifier"],
+    };
+    writeFileSync(profileFile, JSON.stringify([profile], null, 2));
+    const badSummary = completedSummary("graduated-epoll");
+    badSummary.targetRestore.descriptorGateCompleted = false;
+    writeFileSync(badSummaryFile, JSON.stringify(badSummary, null, 2));
+
+    const result = spawnSync(
+      "node",
+      [RUNNER, "--profile", "graduated-epoll", "--check-summary", badSummaryFile, "--json"],
+      {
+        cwd: REPO_ROOT,
+        encoding: "utf8",
+        env: { ...SCRIPT_ENV, PORTABLE_MACHINE_PROOF_PROFILES: profileFile },
+        timeout: 30_000,
+      },
+    );
+
+    expect(result.status).toBe(1);
+    const summary = JSON.parse(result.stdout);
+    expect(summary).toMatchObject({ profile: "graduated-epoll", pass: false });
+    expect(summary.gateCheck.failures).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          label: "graduated profile descriptor gate completed before success",
+        }),
         expect.objectContaining({ label: "targetRestore.descriptorGateCompleted" }),
       ]),
     );

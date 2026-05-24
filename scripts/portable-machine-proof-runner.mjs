@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(SCRIPT_DIR, "..");
 const PROFILE_FILE = join(SCRIPT_DIR, "portable-machine-proof-profiles.json");
+const PROFILE_FILE_ENV = "PORTABLE_MACHINE_PROOF_PROFILES";
 const SMOKE_SCRIPT = join(SCRIPT_DIR, "smoke/portable-machine-restore.sh");
 const DEFAULT_TIMEOUT_MS = 900_000;
 
@@ -92,8 +93,12 @@ const GATE_FIELDS = {
   "resume-path": [["targetRestore.targetResumePathResult", "targetResumePathResult", "passed"]],
 };
 
+function profileFile() {
+  return process.env[PROFILE_FILE_ENV] ? resolve(process.env[PROFILE_FILE_ENV]) : PROFILE_FILE;
+}
+
 function loadProfiles() {
-  return JSON.parse(readFileSync(PROFILE_FILE, "utf8"));
+  return JSON.parse(readFileSync(profileFile(), "utf8"));
 }
 
 function profileByName(name) {
@@ -261,11 +266,15 @@ function gateChecksFor(summary, profile) {
     : successChecksFor(summary, profile);
 }
 
+// fallow-ignore-next-line complexity
 function successChecksFor(summary, profile) {
   const target = targetFromSummary(summary);
   const checks = [];
   checkEquals(checks, "profile expected result", profile.expectedResult, "success");
   checkEquals(checks, "summary.state", summary?.state, "completed");
+  if (profile.supportStatus === "graduated-support") {
+    checkGraduatedProfileContract(checks, profile, target);
+  }
   checkEquals(
     checks,
     "summary.remoteSourceTarget",
@@ -278,6 +287,33 @@ function successChecksFor(summary, profile) {
     applyGateCheck(checks, target, gate);
   }
   return checks;
+}
+
+function checkGraduatedProfileContract(checks, profile, target) {
+  checkEquals(
+    checks,
+    "graduated profile old refusal code recorded",
+    typeof profile.graduatedFromRefusalCode,
+    "string",
+  );
+  checkEquals(
+    checks,
+    "graduated profile accepted subset recorded",
+    typeof profile.acceptedSubset,
+    "string",
+  );
+  checkEquals(
+    checks,
+    "graduated profile descriptor gate completed before success",
+    target.descriptorGateCompleted,
+    true,
+  );
+  checkEquals(
+    checks,
+    "graduated profile keeps target-native completion gate",
+    target.migrationCompleted,
+    true,
+  );
 }
 
 // fallow-ignore-next-line complexity
@@ -520,15 +556,50 @@ function printSummary(summary, json) {
   }
 }
 
+function supportReport(profiles) {
+  const counts = profiles.reduce((acc, profile) => {
+    const status = profile.supportStatus ?? "unspecified";
+    acc[status] = (acc[status] ?? 0) + 1;
+    return acc;
+  }, {});
+  const graduated = profiles
+    .filter((profile) => profile.supportStatus === "graduated-support")
+    .map((profile) => ({
+      name: profile.name,
+      family: profile.unsafeStateFamily,
+      acceptedSubset: profile.acceptedSubset,
+      graduatedFromRefusalCode: profile.graduatedFromRefusalCode,
+      unsafeVariants: profile.unsafeVariants ?? [],
+    }));
+  const intentionallyRefused = profiles
+    .filter(
+      (profile) =>
+        profile.supportStatus === "intentional-refusal" ||
+        profile.supportStatus === "permanent-refusal",
+    )
+    .map((profile) => ({
+      name: profile.name,
+      family: profile.unsafeStateFamily,
+      expectedRefusalCode: profile.expectedRefusalCode,
+      supportStatus: profile.supportStatus,
+    }));
+  return { counts, graduated, intentionallyRefused };
+}
+
 function listProfiles(json) {
   const profiles = loadProfiles();
+  const report = supportReport(profiles);
   if (json) {
-    process.stdout.write(`${JSON.stringify({ profiles }, null, 2)}\n`);
+    process.stdout.write(`${JSON.stringify({ profiles, supportReport: report }, null, 2)}\n`);
     return;
   }
   for (const profile of profiles) {
-    console.log(`${profile.name}\t${profile.sourceFixture}\t${profile.description}`);
+    const status = profile.supportStatus ?? "unspecified";
+    console.log(`${profile.name}\t${status}\t${profile.sourceFixture}\t${profile.description}`);
   }
+  console.log(
+    `support-report\tgraduated=${report.graduated.length}\tintentionally-refused=${report.intentionallyRefused.length}`,
+  );
 }
 
 function checkExistingSummary(options, profile) {

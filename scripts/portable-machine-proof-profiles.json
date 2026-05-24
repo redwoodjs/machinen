@@ -23,7 +23,8 @@
       "active-syscall",
       "controlled-thread",
       "resume-path"
-    ]
+    ],
+    "supportStatus": "baseline-success"
   },
   {
     "name": "pipe-read",
@@ -48,7 +49,8 @@
       "signal",
       "active-syscall",
       "resume-path"
-    ]
+    ],
+    "supportStatus": "baseline-success"
   },
   {
     "name": "eventfd-read",
@@ -73,7 +75,8 @@
       "signal",
       "active-syscall",
       "resume-path"
-    ]
+    ],
+    "supportStatus": "baseline-success"
   },
   {
     "name": "timerfd-read",
@@ -98,7 +101,8 @@
       "signal",
       "active-syscall",
       "resume-path"
-    ]
+    ],
+    "supportStatus": "baseline-success"
   },
   {
     "name": "file-read",
@@ -123,7 +127,8 @@
       "signal",
       "active-syscall",
       "resume-path"
-    ]
+    ],
+    "supportStatus": "baseline-success"
   },
   {
     "name": "file-pread",
@@ -148,7 +153,8 @@
       "signal",
       "active-syscall",
       "resume-path"
-    ]
+    ],
+    "supportStatus": "baseline-success"
   },
   {
     "name": "file-readv",
@@ -173,7 +179,8 @@
       "signal",
       "active-syscall",
       "resume-path"
-    ]
+    ],
+    "supportStatus": "baseline-success"
   },
   {
     "name": "file-write",
@@ -198,7 +205,8 @@
       "signal",
       "active-syscall",
       "resume-path"
-    ]
+    ],
+    "supportStatus": "baseline-success"
   },
   {
     "name": "file-pwrite",
@@ -223,7 +231,8 @@
       "signal",
       "active-syscall",
       "resume-path"
-    ]
+    ],
+    "supportStatus": "baseline-success"
   },
   {
     "name": "file-writev",
@@ -248,7 +257,8 @@
       "signal",
       "active-syscall",
       "resume-path"
-    ]
+    ],
+    "supportStatus": "baseline-success"
   },
   {
     "name": "process-context",
@@ -273,7 +283,8 @@
       "process-context",
       "signal",
       "resume-path"
-    ]
+    ],
+    "supportStatus": "baseline-success"
   },
   {
     "name": "socket-transfer-refusal",
@@ -290,7 +301,21 @@
     "descriptorConsumptionExpected": false,
     "expectedDescriptorGateCompleted": false,
     "expectedMigrationCompleted": false,
-    "expectedGates": []
+    "expectedGates": [],
+    "supportStatus": "intentional-refusal",
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "unsafeStateFamily": "socket",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-variants",
+        "docs",
+        "validation-timings"
+      ]
+    }
   },
   {
     "name": "epoll-wait-refusal",
@@ -307,7 +332,21 @@
     "descriptorConsumptionExpected": false,
     "expectedDescriptorGateCompleted": false,
     "expectedMigrationCompleted": false,
-    "expectedGates": []
+    "expectedGates": [],
+    "supportStatus": "intentional-refusal",
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-epoll-syscall-state-unsupported",
+      "unsafeStateFamily": "epoll",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-variants",
+        "docs",
+        "validation-timings"
+      ]
+    }
   },
   {
     "name": "signalfd-read-refusal",
@@ -324,7 +363,21 @@
     "descriptorConsumptionExpected": false,
     "expectedDescriptorGateCompleted": false,
     "expectedMigrationCompleted": false,
-    "expectedGates": []
+    "expectedGates": [],
+    "supportStatus": "intentional-refusal",
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-signalfd-state-unsupported",
+      "unsafeStateFamily": "signalfd",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-variants",
+        "docs",
+        "validation-timings"
+      ]
+    }
   },
   {
     "name": "futex-refusal",
@@ -341,7 +394,21 @@
     "descriptorConsumptionExpected": false,
     "expectedDescriptorGateCompleted": false,
     "expectedMigrationCompleted": false,
-    "expectedGates": []
+    "expectedGates": [],
+    "supportStatus": "intentional-refusal",
+    "refusalSupportContract": {
+      "currentRefusalCode": "futex-state-unsupported",
+      "unsafeStateFamily": "futex",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-variants",
+        "docs",
+        "validation-timings"
+      ]
+    }
   },
   {
     "name": "rseq-refusal",
@@ -358,7 +425,21 @@
     "descriptorConsumptionExpected": false,
     "expectedDescriptorGateCompleted": false,
     "expectedMigrationCompleted": false,
-    "expectedGates": []
+    "expectedGates": [],
+    "supportStatus": "intentional-refusal",
+    "refusalSupportContract": {
+      "currentRefusalCode": "rseq-state-unsupported",
+      "unsafeStateFamily": "rseq",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-variants",
+        "docs",
+        "validation-timings"
+      ]
+    }
   },
   {
     "name": "restart-state-refusal",
@@ -375,7 +456,21 @@
     "descriptorConsumptionExpected": false,
     "expectedDescriptorGateCompleted": false,
     "expectedMigrationCompleted": false,
-    "expectedGates": []
+    "expectedGates": [],
+    "supportStatus": "intentional-refusal",
+    "refusalSupportContract": {
+      "currentRefusalCode": "syscall-restart-unsupported",
+      "unsafeStateFamily": "restart",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-variants",
+        "docs",
+        "validation-timings"
+      ]
+    }
   },
   {
     "name": "jit-self-modifying-refusal",
@@ -392,7 +487,21 @@
     "descriptorConsumptionExpected": false,
     "expectedDescriptorGateCompleted": false,
     "expectedMigrationCompleted": false,
-    "expectedGates": []
+    "expectedGates": [],
+    "supportStatus": "intentional-refusal",
+    "refusalSupportContract": {
+      "currentRefusalCode": "mapping-executable-unsupported",
+      "unsafeStateFamily": "jit-self-modifying-code",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-variants",
+        "docs",
+        "validation-timings"
+      ]
+    }
   },
   {
     "name": "source-vdso-vvar-refusal",
@@ -409,7 +518,21 @@
     "descriptorConsumptionExpected": false,
     "expectedDescriptorGateCompleted": false,
     "expectedMigrationCompleted": false,
-    "expectedGates": []
+    "expectedGates": [],
+    "supportStatus": "permanent-refusal",
+    "refusalSupportContract": {
+      "currentRefusalCode": "vdso-policy-unsupported",
+      "unsafeStateFamily": "source-vdso-vvar",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-variants",
+        "docs",
+        "validation-timings"
+      ]
+    }
   },
   {
     "name": "raw-cross-isa-vmstate-refusal",
@@ -426,7 +549,21 @@
     "descriptorConsumptionExpected": false,
     "expectedDescriptorGateCompleted": false,
     "expectedMigrationCompleted": false,
-    "expectedGates": []
+    "expectedGates": [],
+    "supportStatus": "permanent-refusal",
+    "refusalSupportContract": {
+      "currentRefusalCode": "cross-isa-vmstate-restore-unsupported",
+      "unsafeStateFamily": "raw-cross-isa-vmstate",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-variants",
+        "docs",
+        "validation-timings"
+      ]
+    }
   },
   {
     "name": "descriptor-provenance-refusal",
@@ -443,6 +580,20 @@
     "descriptorConsumptionExpected": false,
     "expectedDescriptorGateCompleted": false,
     "expectedMigrationCompleted": false,
-    "expectedGates": []
+    "expectedGates": [],
+    "supportStatus": "permanent-refusal",
+    "refusalSupportContract": {
+      "currentRefusalCode": "mapping-provenance-ambiguous",
+      "unsafeStateFamily": "descriptor-provenance",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-variants",
+        "docs",
+        "validation-timings"
+      ]
+    }
   }
 ]
