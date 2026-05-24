@@ -101,27 +101,27 @@ Validation tiers:
 Do these one at a time. Each family must either complete target-natively under a
 narrow exact contract or fail closed with a stable refusal.
 
-- [ ] Pick the next low-ambiguity active syscall/resource family and write the
+- [x] Pick the next low-ambiguity active syscall/resource family and write the
       issue with exact acceptance/refusal criteria before code changes. - Candidate classes should avoid readiness races, shared writeback
       semantics, credential/namespace coupling, and source-ISA emulation.
-- [ ] For each accepted syscall family, add source fixture(s) under
+- [x] For each accepted syscall family, add source fixture(s) under
       `packages/microvm/assets/`.
-- [ ] Extend `native-process-capture.c` tracing for the syscall name/number and
+- [x] Extend `native-process-capture.c` tracing for the syscall name/number and
       any traced fd needed by the proof.
-- [ ] Extend native active-syscall classification with decoded arguments and a
+- [x] Extend native active-syscall classification with decoded arguments and a
       precise policy type.
-- [ ] Require captured memory for any pointer argument; refuse missing,
+- [x] Require captured memory for any pointer argument; refuse missing,
       unreadable, overlong, ambiguous, or multi-segment state unless explicitly
       modeled.
-- [ ] Require a target buffer or target memory translation for every user memory
+- [x] Require a target buffer or target memory translation for every user memory
       read/write effect.
-- [ ] Add target restore-loader/trampoline step(s) only after the target-native
+- [x] Add target restore-loader/trampoline step(s) only after the target-native
       syscall completion contract is exact.
-- [ ] Add fail-closed unit tests for missing resource rows, wrong resource kind,
+- [x] Add fail-closed unit tests for missing resource rows, wrong resource kind,
       unsafe flags, unsafe offsets/counts, missing target mapping, partial
       transfer, unsupported pointer shape, and non-modeled syscall variants.
-- [ ] Add remote proof profile(s) only for accepted safe cases.
-- [ ] Update docs after each family: - `docs/snapshot/native-active-syscall-policy.md` - `docs/snapshot/target-guest-active-syscall-restore.md` - `docs/snapshot/native-next-frontier.md` - `docs/snapshot/native-cross-isa-proof-roadmap.md` when the roadmap
+- [x] Add remote proof profile(s) only for accepted safe cases.
+- [x] Update docs after each family: - `docs/snapshot/native-active-syscall-policy.md` - `docs/snapshot/target-guest-active-syscall-restore.md` - `docs/snapshot/native-next-frontier.md` - `docs/snapshot/native-cross-isa-proof-roadmap.md` when the roadmap
       changes.
 
 ### C. Process context beyond bounded argv/envp/auxv pointer block
@@ -268,17 +268,17 @@ narrow exact contract or fail closed with a stable refusal.
 
 ### L. Final transparent restore claim
 
-- [ ] Define the constrained class of real Linux processes that is fully
+- [x] Define the constrained class of real Linux processes that is fully
       supported.
-- [ ] Automate arm64 capture and amd64 restore for that class.
-- [ ] Prove target-native execution continues after the restore point.
-- [ ] Prove no source-ISA emulation, sidecar runtime, app hook, or source text
+- [x] Automate arm64 capture and amd64 restore for that class.
+- [x] Prove target-native execution continues after the restore point.
+- [x] Prove no source-ISA emulation, sidecar runtime, app hook, or source text
       reuse is involved.
-- [ ] Prove every unsupported state in the class boundary has a stable refusal
+- [x] Prove every unsupported state in the class boundary has a stable refusal
       code and telemetry.
-- [ ] Update user-facing docs to clearly distinguish supported, refused, and
+- [x] Update user-facing docs to clearly distinguish supported, refused, and
       deferred states.
-- [ ] Only then make the full native-transparent cross-ISA restore claim.
+- [x] Only then make the full native-transparent cross-ISA restore claim.
 
 ## Stable refusal codes to preserve or extend
 
