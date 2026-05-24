@@ -40,6 +40,13 @@ captured-regular-file-coexists-with-precise-nonfile-resource-refusals
 | raw socket            | refuse unless a raw-socket broker capability is supplied | `resource-kind-unsupported` |
 | unknown fd            | refuse                                                   | `fd-kind-unsupported`       |
 
+The refusal detail records the missing model. Socket resources require
+accept/connect/listen queues, peer identity, credentials, namespaces, options,
+shutdown/readiness, and partial-transfer state. Epoll resources require interest
+lists, ready-list ordering, edge-triggered delivery state, nested epoll, and
+wakeup ordering. signalfd resources require pending signal queues, siginfo
+payload ownership, delivery ordering, and signal-mask coordination.
+
 ## Next broker candidates
 
 The first broker candidates are PTYs and raw sockets because the existing resource translator already has capability gates for those recipe shapes. Pipes, sockets, epoll, eventfd, timerfd, and signalfd carry kernel state that must be modeled or brokered before transparent restore can safely claim support.

@@ -118,9 +118,21 @@ describe("vmstate portability metadata", () => {
         0n,
       );
 
-      await expect(restore({ snapDir: dir, image, binary: "/bin/sh" })).rejects.toMatchObject({
+      let error: unknown;
+      try {
+        await restore({ snapDir: dir, image, binary: "/bin/sh" });
+      } catch (caught) {
+        error = caught;
+      }
+
+      expect(error).toMatchObject({
         code: "BOOT_VMSTATE_CROSS_ISA_UNSUPPORTED",
         message: expect.stringContaining("cross-isa-vmstate-restore-unsupported"),
+      });
+      expect(error).toMatchObject({
+        message: expect.stringMatching(
+          /snapshot guest: arm64[\s\S]*restore guest:\s+amd64[\s\S]*target-isa-vm-process-restore/,
+        ),
       });
     } finally {
       if (original === undefined) {

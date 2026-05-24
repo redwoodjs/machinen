@@ -61,19 +61,36 @@ function activeSignalFrameRefusal(
   thread: NativeThreadState,
 ): NativeProcessImageRefusal | undefined {
   return thread.signal.activeFrame
-    ? signalRefusal("signal-frame-active", thread, "is inside a signal frame")
+    ? signalRefusal("signal-frame-active", thread, "is inside a signal frame", {
+        activeFrame: true,
+        requiredModel: [
+          "signal trampoline frame",
+          "siginfo ownership",
+          "target signal return path",
+        ],
+      })
     : undefined;
 }
 
 function pendingSignalRefusal(thread: NativeThreadState): NativeProcessImageRefusal | undefined {
   return hasNonZeroMask(thread.signal.pending)
-    ? signalRefusal("signal-state-unsupported", thread, "has pending signal state")
+    ? signalRefusal("signal-state-unsupported", thread, "has pending signal state", {
+        pendingMasks: normalizedMasks(thread.signal.pending),
+        requiredModel: [
+          "pending per-thread/process signal queues",
+          "siginfo ownership",
+          "delivery ordering",
+        ],
+      })
     : undefined;
 }
 
 function altStackRefusal(thread: NativeThreadState): NativeProcessImageRefusal | undefined {
   return thread.signal.altStack.state !== "disabled"
-    ? signalRefusal("signal-state-unsupported", thread, "has active alt-stack state")
+    ? signalRefusal("signal-state-unsupported", thread, "has active alt-stack state", {
+        altStack: thread.signal.altStack,
+        requiredModel: ["target alt-stack allocation", "active signal-frame ownership"],
+      })
     : undefined;
 }
 
@@ -83,7 +100,11 @@ function malformedMaskRefusal(
   masks: string[],
 ): NativeProcessImageRefusal | undefined {
   return masks.some((mask) => normalizeMask(mask) === undefined)
-    ? signalRefusal("signal-state-unsupported", thread, `has malformed ${kind} signal mask`)
+    ? signalRefusal("signal-state-unsupported", thread, `has malformed ${kind} signal mask`, {
+        maskKind: kind,
+        masks,
+        requiredModel: ["well-formed signal mask"],
+      })
     : undefined;
 }
 
@@ -92,7 +113,11 @@ function blockedMaskRefusal(
   policy: NativeSignalBlockedMaskPolicy,
 ): NativeProcessImageRefusal | undefined {
   return policy === "require-empty" && hasNonZeroMask(thread.signal.blocked)
-    ? signalRefusal("signal-state-unsupported", thread, "has blocked signal state")
+    ? signalRefusal("signal-state-unsupported", thread, "has blocked signal state", {
+        blockedMasks: normalizedMasks(thread.signal.blocked),
+        policy,
+        requiredModel: ["explicit blocked-mask restore policy"],
+      })
     : undefined;
 }
 
@@ -116,6 +141,11 @@ function signalRefusal(
   code: NativeProcessImageRefusal["code"],
   thread: NativeThreadState,
   message: string,
+  detail: Record<string, unknown> = {},
 ): NativeProcessImageRefusal {
-  return { code, message: `thread ${thread.id} ${message}` };
+  return {
+    code,
+    message: `thread ${thread.id} ${message}`,
+    detail: { threadId: thread.id, ...detail },
+  };
 }

@@ -326,14 +326,17 @@ describe("portable machine snapshot boundary", () => {
     ).toThrow(PortableMachineSnapshotValidationError);
   });
 
-  it("refuses metadata that tries to replay raw vmstate", () => {
-    const unsafe = manifest() as unknown as { source: { vmstate: { rawRestore: string } } };
-    unsafe.source.vmstate.rawRestore = "translated";
+  it.each(["translated", "replayed", "emulated", "successful"])(
+    "refuses metadata that tries to mark raw vmstate as %s",
+    (rawRestore) => {
+      const unsafe = manifest() as unknown as { source: { vmstate: { rawRestore: string } } };
+      unsafe.source.vmstate.rawRestore = rawRestore;
 
-    expect(() => validatePortableMachineSnapshotManifest(unsafe)).toThrow(
-      /rawRestore must be "refused"/,
-    );
-  });
+      expect(() => validatePortableMachineSnapshotManifest(unsafe)).toThrow(
+        /rawRestore must be "refused"/,
+      );
+    },
+  );
 
   it("refuses metadata that would use source ISA or sidecar execution", () => {
     expect(() =>
@@ -348,10 +351,12 @@ describe("portable machine snapshot boundary", () => {
       ),
     ).not.toThrow();
 
-    const unsafe = manifest() as unknown as { target: { execution: string } };
-    unsafe.target.execution = "source-isa-emulation";
-    expect(() => validatePortableMachineSnapshotManifest(unsafe)).toThrow(
-      /execution must be "target-native"/,
-    );
+    for (const execution of ["source-isa-emulation", "sidecar-runtime", "source-text-replay"]) {
+      const unsafe = manifest() as unknown as { target: { execution: string } };
+      unsafe.target.execution = execution;
+      expect(() => validatePortableMachineSnapshotManifest(unsafe), execution).toThrow(
+        /execution must be "target-native"/,
+      );
+    }
   });
 });

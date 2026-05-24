@@ -120,7 +120,15 @@ function planThreadSignalRestore(
 function singleThreadRefusal(threads: NativeThreadState[]): NativeProcessImageRefusal | undefined {
   return threads.length === 1
     ? undefined
-    : refusal("thread-state-unsupported", "portable restore currently accepts exactly one thread");
+    : refusal("thread-state-unsupported", "portable restore currently accepts exactly one thread", {
+        targetThreadCount: threads.length,
+        requiredModel: [
+          "runnable/blocked scheduler relationships",
+          "thread priorities and affinity",
+          "cross-thread ordering",
+          "robust-list and futex ownership",
+        ],
+      });
 }
 
 function safeStoppedThreadRefusal(

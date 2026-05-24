@@ -89,6 +89,45 @@ describe("target guest memory materialization", () => {
     ]);
   });
 
+  it("refuses source vDSO/vvar pages instead of copying target-owned kernel mappings", () => {
+    const result = planTargetGuestMemoryMaterialization({
+      mappings: [
+        mapping({
+          id: "vdso-source",
+          kind: "vdso",
+          permissions: { read: true, write: false, execute: true, private: true, shared: false },
+          captured: { file: "native-memory.bin", offset: 0, sizeBytes: 4096 },
+          target: { materialization: "translate", targetStart: "0x600000010000" },
+        }),
+        mapping({
+          id: "vvar-source",
+          kind: "vvar",
+          permissions: { read: true, write: true, execute: false, private: true, shared: false },
+          captured: { file: "native-memory.bin", offset: 4096, sizeBytes: 4096 },
+          target: { materialization: "translate", targetStart: "0x600000011000" },
+        }),
+      ],
+      memoryFile: "/tmp/native-memory.bin",
+      memorySizeBytes: 8192,
+    });
+
+    expect(result.entries).toEqual([]);
+    expect(result.refusals).toEqual([
+      expect.objectContaining({
+        code: "vdso-policy-unsupported",
+        detail: expect.objectContaining({
+          mapping: "vdso-source",
+          sourceBytesCopied: false,
+          targetOwned: true,
+        }),
+      }),
+      expect.objectContaining({
+        code: "vdso-policy-unsupported",
+        detail: expect.objectContaining({ mapping: "vvar-source", sourceBytesCopied: false }),
+      }),
+    ]);
+  });
+
   it("refuses shared mappings without an explicit shared-resource recipe", () => {
     const result = planTargetGuestMemoryMaterialization({
       mappings: [

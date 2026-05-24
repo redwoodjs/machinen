@@ -53,14 +53,41 @@ describe("native signal restore policy", () => {
   });
 
   it("refuses pending signals, active signal frames, altstack, and malformed masks", () => {
-    const cases: Array<{ name: string; mutate: (candidate: NativeThreadState) => void }> = [
-      { name: "pending", mutate: (candidate) => (candidate.signal.pending = ["0x1"]) },
-      { name: "active-frame", mutate: (candidate) => (candidate.signal.activeFrame = true) },
+    const cases: Array<{
+      name: string;
+      mutate: (candidate: NativeThreadState) => void;
+      detail: Record<string, unknown>;
+    }> = [
+      {
+        name: "pending",
+        mutate: (candidate) => (candidate.signal.pending = ["0x1"]),
+        detail: {
+          pendingMasks: ["0x1"],
+          requiredModel: expect.arrayContaining(["siginfo ownership", "delivery ordering"]),
+        },
+      },
+      {
+        name: "active-frame",
+        mutate: (candidate) => (candidate.signal.activeFrame = true),
+        detail: {
+          activeFrame: true,
+          requiredModel: expect.arrayContaining(["signal trampoline frame"]),
+        },
+      },
       {
         name: "altstack",
-        mutate: (candidate) => (candidate.signal.altStack = { state: "enabled" }),
+        mutate: (candidate) =>
+          (candidate.signal.altStack = { state: "enabled", sp: "0x7000", sizeBytes: 8192 }),
+        detail: {
+          altStack: { state: "enabled", sp: "0x7000", sizeBytes: 8192 },
+          requiredModel: expect.arrayContaining(["target alt-stack allocation"]),
+        },
       },
-      { name: "malformed", mutate: (candidate) => (candidate.signal.blocked = ["not-hex"]) },
+      {
+        name: "malformed",
+        mutate: (candidate) => (candidate.signal.blocked = ["not-hex"]),
+        detail: { maskKind: "blocked", masks: ["not-hex"] },
+      },
     ];
 
     for (const entry of cases) {
@@ -74,7 +101,12 @@ describe("native signal restore policy", () => {
         entry.name,
       ).toMatchObject({
         state: "refused",
-        refusals: [expect.objectContaining({ code: expect.stringMatching(/^signal-/) })],
+        refusals: [
+          expect.objectContaining({
+            code: expect.stringMatching(/^signal-/),
+            detail: expect.objectContaining({ threadId: candidate.id, ...entry.detail }),
+          }),
+        ],
       });
     }
   });

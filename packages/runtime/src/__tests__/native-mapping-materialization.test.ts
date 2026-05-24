@@ -199,6 +199,45 @@ describe("native mapping materialization", () => {
     expect(result.steps[0]).toMatchObject({ action: "refuse" });
   });
 
+  it("refuses source vDSO/vvar/special bytes instead of translating target-owned mappings", () => {
+    const result = planNativeMappingMaterialization({
+      memorySizeBytes: 8192,
+      mappings: [
+        mapping({
+          id: "mapping:vdso-copy",
+          kind: "vdso",
+          permissions: { read: true, write: false, execute: true, private: true, shared: false },
+          captured: { file: "native-memory.bin", offset: 0, sizeBytes: 4096 },
+          target: { materialization: "translate", targetStart: "0x75000000" },
+        }),
+        mapping({
+          id: "mapping:vvar-copy",
+          kind: "vvar",
+          permissions: { read: true, write: false, execute: false, private: true, shared: false },
+          captured: { file: "native-memory.bin", offset: 4096, sizeBytes: 4096 },
+          target: { materialization: "translate", targetStart: "0x75001000" },
+        }),
+      ],
+    });
+
+    expect(result.steps).toEqual([
+      expect.objectContaining({
+        mapping: "mapping:vdso-copy",
+        action: "refuse",
+        refusal: expect.objectContaining({
+          code: "vdso-policy-unsupported",
+          detail: expect.objectContaining({ sourceBytesCopied: false, targetOwned: true }),
+        }),
+      }),
+      expect.objectContaining({
+        mapping: "mapping:vvar-copy",
+        action: "refuse",
+        refusal: expect.objectContaining({ code: "vdso-policy-unsupported" }),
+      }),
+    ]);
+    expect(result.steps.some((step) => step.sourceBytes)).toBe(false);
+  });
+
   it("refuses executable target files without build or hash provenance", () => {
     const result = planNativeMappingMaterialization({
       memorySizeBytes: 0,

@@ -42,8 +42,20 @@ bounded by metadata-proven translated frames:
 | frame/register state              | translated target frame pointer, stack pointer, instruction pointer, RFLAGS, TLS/TCB, and modeled callee-saved slots; missing or unsafe slots refuse |
 | pointer-shaped stack/heap words   | classified as pointer, code pointer, thread pointer, or integer through metadata; ambiguous values refuse                                            |
 | stack frame metadata              | DWARF/sidecar/unwind metadata required for every accepted frame; optimized-away/missing metadata refuses                                             |
-| JIT or self-modifying code        | refused until runtime code provenance and invalidation rules are modeled                                                                             |
+| JIT or self-modifying code        | refused until runtime code provenance, target build identity, code-cache lifetime, permission-transition, and invalidation rules are modeled         |
 | signal trampoline/alt-stack frame | refused unless decoded by a future signal-frame model                                                                                                |
+
+## JIT and self-modifying-code refusal
+
+Writable+executable memory, executable anonymous mappings, target text whose
+build-id/sha256/path provenance is missing or mismatched, and code pointers into
+unowned regions remain outside the accepted class. A future JIT model would need
+runtime metadata for each generated code range, target-native code generation or
+verification, cache invalidation rules, permission-transition history, and a way
+to prove no captured source-ISA text is reused as target code. Until then these
+states refuse with `mapping-executable-unsupported`,
+`mapping-permission-unsupported`, `mapping-provenance-ambiguous`, or
+`target-build-mismatch`.
 
 ## No overclaiming
 

@@ -221,6 +221,30 @@ describe("native thread restore boundary", () => {
       );
     }
   });
+
+  it("refuses general scheduler-visible multi-thread state with required model detail", () => {
+    const result = planNativeThreadRestoreBoundary({
+      threads: [thread("thread:one"), thread("thread:two")],
+      mappings: [stackMapping],
+    });
+
+    expect(result).toMatchObject({
+      state: "refused",
+      refusals: [
+        expect.objectContaining({
+          code: "thread-state-unsupported",
+          detail: expect.objectContaining({
+            targetThreadCount: 2,
+            requiredModel: expect.arrayContaining([
+              "runnable/blocked scheduler relationships",
+              "thread priorities and affinity",
+              "cross-thread ordering",
+            ]),
+          }),
+        }),
+      ],
+    });
+  });
 });
 
 function documentsWithTimespec(activeThread: NativeThreadState): NativeProcessImageDocuments {

@@ -530,6 +530,7 @@ function resourceRefusalWithCode(
       fd: resource.fd,
       path: resource.path,
       boundary: resourceBoundary(code),
+      requiredModel: resourceRequiredModel(resource),
     },
   };
 }
@@ -545,6 +546,42 @@ function resourceRefusalCode(
     return inheritedStdio ? "non-stdio-kernel-state-unsupported" : "kernel-state-unsupported";
   }
   return "resource-kind-unsupported";
+}
+
+const RESOURCE_REQUIRED_MODELS: Partial<Record<NativeProcessResource["kind"], string[]>> = {
+  socket: [
+    "accept/connect/listen queue state",
+    "peer endpoint identity",
+    "credentials and namespaces",
+    "socket options, shutdown state, readiness, and partial transfer state",
+  ],
+  epoll: [
+    "interest list",
+    "ready-list ordering",
+    "edge-triggered delivery state",
+    "nested epoll and wakeup ordering",
+  ],
+  signalfd: [
+    "pending signal queue",
+    "siginfo payload provenance",
+    "delivery ordering",
+    "signal-mask coordination",
+  ],
+  signal: [
+    "pending signal queue",
+    "siginfo payload provenance",
+    "delivery ordering",
+    "signal-mask coordination",
+  ],
+  eventfd: ["counter state", "semaphore mode", "readiness and wakeup ordering"],
+  timer: ["timerfd clock", "absolute/relative expiry", "interval and overrun state"],
+  pipe: ["pipe buffer contents", "peer fd ownership", "readiness and wakeup ordering"],
+  "raw-socket": ["explicit broker capability", "network namespace and credential policy"],
+  pty: ["explicit broker capability", "termios state", "session and foreground process group"],
+};
+
+function resourceRequiredModel(resource: NativeProcessResource): string[] {
+  return RESOURCE_REQUIRED_MODELS[resource.kind] ?? [];
 }
 
 function isStatefulKernelResource(resource: NativeProcessResource): boolean {

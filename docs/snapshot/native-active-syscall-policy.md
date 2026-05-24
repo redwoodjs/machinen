@@ -115,8 +115,8 @@ Active futex syscalls now fail closed with `futex-state-unsupported` instead of
 falling through to a generic active-syscall refusal. The refusal records decoded
 futex arguments when available (`uaddr`, operation, timeout, or `futex_waitv`
 waiter-vector arguments) and names the unsupported kernel state: futex word race,
-wait-queue membership, wake/requeue ordering, and robust-list owner-death
-semantics.
+wait-queue membership, wake/requeue ordering, timeout accounting, robust-list
+owner-death semantics, and priority-inheritance futex ownership.
 
 This is refusal tightening only. No futex wait is restarted, emulated, or treated
 as target-native success.
