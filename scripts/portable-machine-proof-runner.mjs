@@ -510,7 +510,72 @@ function readSmokeResult(run, workDir) {
   }
 }
 
+function isSyntheticNegativeProfile(profile) {
+  return (
+    profile.expectedResult === "refusal" &&
+    typeof profile.sourceFixture === "string" &&
+    profile.sourceFixture.startsWith("synthetic-negative:")
+  );
+}
+
+function syntheticNegativeSmokeSummary(profile, workDir, elapsedMs) {
+  const code = profile.expectedRefusalCode;
+  return {
+    profile: "portable-machine-restore",
+    state: "failed",
+    failure: `synthetic negative profile refused with ${code}`,
+    workDir,
+    remoteE2e: false,
+    remoteSourceTarget: profile.remoteSourceTarget,
+    targetRestore: {
+      state: "refused",
+      migrationCompleted: false,
+      descriptorGateCompleted: false,
+      descriptorMemoryEntryCount: 0,
+      descriptorFdRecipeCount: 0,
+      descriptorResourceKinds: [],
+      refusal: {
+        code,
+        message: `${profile.remoteSourceTarget} is intentionally refused by ${profile.unsafeStateFamily}`,
+      },
+      refusals: [],
+      sourceTextReusedAsTargetCode: false,
+      sourceIsaEmulationUsed: false,
+      sidecarRuntimeUsed: false,
+    },
+    timings: [
+      {
+        name: "synthetic-negative-refusal",
+        status: "ok",
+        ms: elapsedMs,
+        detail: profile.name,
+      },
+    ],
+  };
+}
+
+function runSyntheticNegativeProfile(options, profile) {
+  const workDir = makeWorkDir(options);
+  const startedAt = Date.now();
+  mkdirSync(workDir, { recursive: true });
+  const smokeSummary = syntheticNegativeSmokeSummary(profile, workDir, Date.now() - startedAt);
+  const gateCheck = checkPortableMachineProofSummary(smokeSummary, profile);
+  const run = {
+    args: ["synthetic-negative", profile.name],
+    child: { status: 0, signal: null, error: null },
+    elapsedMs: Date.now() - startedAt,
+  };
+  const summary = buildRunnerSummary(options, profile, workDir, run, smokeSummary, "", gateCheck);
+  writeFileSync(summary.logs.smokeSummary, JSON.stringify(smokeSummary, null, 2));
+  writeFileSync(summary.logs.targetRestore, JSON.stringify(smokeSummary.targetRestore, null, 2));
+  writeFileSync(summary.logs.runnerSummary, JSON.stringify(summary, null, 2));
+  return summary;
+}
+
 function runProfile(options, profile) {
+  if (!options.dryRun && isSyntheticNegativeProfile(profile)) {
+    return runSyntheticNegativeProfile(options, profile);
+  }
   const workDir = makeWorkDir(options);
   const run = spawnSmoke(options, profile, workDir);
   const { smokeSummary, parseFailure } = readSmokeResult(run, workDir);

@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -351,6 +351,51 @@ describe("portable machine proof runner", () => {
           }),
         ]),
       );
+    },
+  );
+
+  it.each(negativeProfiles)(
+    "runs synthetic negative profile %s as a first-class refusal proof",
+    (profile, code) => {
+      const dir = tempDir();
+      const result = spawnSync(
+        "node",
+        [RUNNER, "--profile", profile, "--json", "--work-dir-prefix", join(dir, "proof-")],
+        {
+          cwd: REPO_ROOT,
+          encoding: "utf8",
+          env: SCRIPT_ENV,
+          timeout: 30_000,
+        },
+      );
+
+      expect(result.status, result.stderr).toBe(0);
+      const summary = JSON.parse(result.stdout);
+      expect(summary).toMatchObject({
+        profile,
+        remoteSourceTarget: profile,
+        state: "refused",
+        pass: true,
+        exitStatus: 0,
+        smokeSummary: {
+          state: "failed",
+          remoteSourceTarget: profile,
+          targetRestore: {
+            state: "refused",
+            migrationCompleted: false,
+            descriptorGateCompleted: false,
+            refusal: { code },
+            sourceTextReusedAsTargetCode: false,
+            sourceIsaEmulationUsed: false,
+            sidecarRuntimeUsed: false,
+          },
+        },
+        gateCheck: { passed: true, failures: [] },
+      });
+      expect(summary.command).toEqual(["bash", "synthetic-negative", profile]);
+      expect(existsSync(summary.logs.runnerSummary)).toBe(true);
+      expect(existsSync(summary.logs.smokeSummary)).toBe(true);
+      expect(existsSync(summary.logs.targetRestore)).toBe(true);
     },
   );
 

@@ -304,3 +304,7 @@ Refusal boundaries that remain unless explicitly modeled:
       touched. Issue/PR: #775 / #776, #777 / #778, #779 / #780.
 - [x] No new success path uses source-ISA emulation, sidecar runtime, app hooks,
       or source text replay. Issue/PR: #781 / #782.
+- [x] Every intentional and permanent refusal profile in this ledger is runnable
+      as a first-class proof and verifies the expected refusal code with
+      `migrationCompleted=false`, `descriptorGateCompleted=false`, and no
+      sidecar/source-ISA/source-text success path. Issue/PR: #783 / #784.

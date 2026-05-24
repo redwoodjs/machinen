@@ -153,9 +153,13 @@ all profile gates pass.
 
 ## Current negative profiles
 
-Negative profiles are summary-check contracts for unsupported or ambiguous
-state. They prove that automation cannot turn a known refusal into a migration
-success report.
+Negative profiles are runnable synthetic refusal proofs for unsupported or
+ambiguous state. The proof runner emits the expected fail-closed restore summary
+for `synthetic-negative:*` fixtures and then applies the same gate checker used
+for remote summaries. This proves that automation cannot turn a known refusal
+into a migration success report: the refusal code must match, descriptor and
+migration gates must remain false, and source-text, source-ISA-emulation, and
+sidecar success paths must remain false.
 
 | Profile                         | Unsafe family              | Required refusal code                     | Descriptor gate |
 | ------------------------------- | -------------------------- | ----------------------------------------- | --------------- |
