@@ -160,8 +160,8 @@ Tasks:
 
 ## E. Brokered socket model, not arbitrary live sockets
 
-Sockets need an explicit broker or reconnect model. Arbitrary live TCP/Unix
-socket state remains refused.
+Sockets need an explicit broker or reconnect model. Goal 3 does not add that
+broker. Arbitrary live TCP/Unix socket state remains refused.
 
 Accepted subset to consider first:
 
@@ -174,16 +174,21 @@ Accepted subset to consider first:
 
 Tasks:
 
-- [ ] Decide whether Goal 3 supports any socket subset at all, or leaves sockets
-      permanently refused for native-transparent migration.
-- [ ] If supported, define the broker contract and portable socket descriptor.
-- [ ] Add provenance and authorization gates for brokered endpoint identity.
-- [ ] Implement target-native broker reattach/reconnect flow.
-- [ ] Add positive proof profiles for the narrow brokered subset.
-- [ ] Keep/refine negative profiles for listening sockets, connected socketpairs,
+- [x] Decide whether Goal 3 supports any socket subset at all, or leaves sockets
+      permanently refused for native-transparent migration: Goal 3 leaves sockets
+      refused because no broker contract exists.
+- [!] If supported, define the broker contract and portable socket descriptor.
+  Not supported in Goal 3; future work must start with an explicit broker.
+- [!] Add provenance and authorization gates for brokered endpoint identity. Not
+  supported in Goal 3 without a broker descriptor.
+- [!] Implement target-native broker reattach/reconnect flow. Not supported in
+  Goal 3.
+- [!] Add positive proof profiles for the narrow brokered subset. Not supported
+  in Goal 3.
+- [x] Keep/refine negative profiles for listening sockets, connected socketpairs,
       arbitrary TCP/Unix sockets, ancillary data, partial transfers, and
       unbrokered endpoints.
-- [ ] Keep arbitrary sockets refused with
+- [x] Keep arbitrary sockets refused with
       `target-socket-syscall-state-unsupported`.
 
 ## F. JIT or self-modifying code via target-owned regeneration only

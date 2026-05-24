@@ -117,7 +117,8 @@ passes. The accepted class includes:
   profile.
 
 Everything outside that class must fail closed with a stable refusal before
-`migrationCompleted=true`: sockets/epoll/signalfd/futex/rseq/general scheduler
+`migrationCompleted=true`: sockets without an explicit broker contract,
+epoll/signalfd state outside their graduated subsets, futex/rseq/general scheduler
 state, source vDSO/vvar copying, source executable text reuse, JIT or
 self-modifying code, pending signals/active signal frames, raw cross-ISA
 `.vmstate` replay, missing provenance, malformed descriptors, or unsupported
