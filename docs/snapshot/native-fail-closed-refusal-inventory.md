@@ -107,6 +107,14 @@ signal/restart semantics, and duplicate fd aliases all remain refused until a
 future task supplies the complete portable model, target-native restore recipe,
 target verifier, positive proof, nearby negative proofs, docs, and timings.
 
+Goal 6 graduates one narrow proof profile from each Goal 5 frontier while keeping
+the neighboring unsafe states refused: `eventfd-readiness-pollin-recreate`,
+`regular-file-duplicate-fd-recreate`, `target-auxv-at-random`,
+`private-anonymous-data-range-recreate`, and `signal-mask-blocked-recreate`.
+Unsupported scheduler ordering, socket readiness, source-owned auxv pointers,
+shared/stale/W+X memory, pending signal delivery, restart ambiguity, and unsafe
+fd aliases remain on the refusal codes listed above.
+
 Goal 3 intentionally leaves sockets without a graduated support subset. Listening
 sockets, connected socketpairs, TCP/Unix sockets, ancillary data, partial
 transfers, and unbrokered endpoints continue to require

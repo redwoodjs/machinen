@@ -95,23 +95,23 @@ Follow-up accepted subset after the first is stable:
 
 Tasks:
 
-- [ ] Define the `readiness-wait-v1` portable model with syscall kind, watched fd
+- [x] Define the `readiness-wait-v1` portable model with syscall kind, watched fd
       recipe refs, event mask, expected readiness, timeout semantics, and pollfd
       memory ownership.
-- [ ] Add target-native loader/trampoline support to install the accepted watched
+- [x] Add target-native loader/trampoline support to install the accepted watched
       descriptor before the wait and run/verify the wait natively.
-- [ ] Add target verifier checks for `revents`, unexpected bits, poll return
+- [x] Add target verifier checks for `revents`, unexpected bits, poll return
       value, and descriptor/resource gates before completion.
-- [ ] Add positive proof profile `eventfd-readiness-pollin-recreate`.
-- [ ] Add negative profiles/tests for unsupported watched fds, socket readiness,
+- [x] Add positive proof profile `eventfd-readiness-pollin-recreate`.
+- [x] Add negative profiles/tests for unsupported watched fds, socket readiness,
       nested epoll cycles, stale readiness, fd-set overflow, shared pollfd
       memory, unsupported event masks, non-null signal masks, and ambiguous
       timeout or wake ordering.
-- [ ] Preserve existing timeout-driven profiles and all Goal 3/4 graduated
+- [x] Preserve existing timeout-driven profiles and all Goal 3/4 graduated
       profiles.
-- [ ] Update active-syscall docs, resource translation docs, proof-profile docs,
+- [x] Update active-syscall docs, resource translation docs, proof-profile docs,
       refusal inventory, and validation timings.
-- [ ] Run focused Vitest, remote proof for the new profile, full smoke, and fallow
+- [x] Run focused Vitest, remote proof for the new profile, full smoke, and fallow
       audit.
 
 Refusal boundaries that remain:
@@ -146,21 +146,21 @@ First accepted subset:
 
 Tasks:
 
-- [ ] Define `shared-open-file-description-v1` with alias group id, member fds,
+- [x] Define `shared-open-file-description-v1` with alias group id, member fds,
       shared offset, shared status flags, per-fd flags, resource provenance, and
       verifier checks.
-- [ ] Extend resource translation to group duplicate regular-file fds instead of
+- [x] Extend resource translation to group duplicate regular-file fds instead of
       refusing them when the exact subset is met.
-- [ ] Add target-native alias recreation via one open plus `dup2`/`dup3` and fd
+- [x] Add target-native alias recreation via one open plus `dup2`/`dup3` and fd
       flag restoration.
-- [ ] Add positive proof profile `regular-file-duplicate-fd-recreate`.
-- [ ] Add negative tests/profiles for mismatched offsets, unsupported status
+- [x] Add positive proof profile `regular-file-duplicate-fd-recreate`.
+- [x] Add negative tests/profiles for mismatched offsets, unsupported status
       flags, missing members, closed peers, locks/leases, async notification,
       socket aliases, epoll cycles, pipe/eventfd/timerfd aliases, and ambiguous
       provenance.
-- [ ] Update descriptor/resource docs, target loader docs, proof-profile docs,
+- [x] Update descriptor/resource docs, target loader docs, proof-profile docs,
       refusal inventory, and validation timings.
-- [ ] Run focused Vitest, remote proof for the new profile, full smoke, and fallow
+- [x] Run focused Vitest, remote proof for the new profile, full smoke, and fallow
       audit.
 
 Refusal boundaries that remain:
@@ -199,19 +199,19 @@ Follow-up accepted subset after `AT_RANDOM` is stable:
 
 Tasks:
 
-- [ ] Define `target-auxv-v1` with per-entry key, value class, ownership,
+- [x] Define `target-auxv-v1` with per-entry key, value class, ownership,
       materialization action, and target verifier expectation.
-- [ ] Add target-owned `AT_RANDOM` materialization in the target restore path.
-- [ ] Add target verifier coverage for `AT_RANDOM` pointer ownership, size,
+- [x] Add target-owned `AT_RANDOM` materialization in the target restore path.
+- [x] Add target verifier coverage for `AT_RANDOM` pointer ownership, size,
       alignment, and non-source provenance.
-- [ ] Add positive proof profile `target-auxv-at-random`.
-- [ ] Add negative tests/profiles for source-owned auxv pointers, source-owned
+- [x] Add positive proof profile `target-auxv-at-random`.
+- [x] Add negative tests/profiles for source-owned auxv pointers, source-owned
       `AT_RANDOM`, unmapped auxv pointers, size overflows, ambiguous `AT_EXECFN`,
       unknown libc globals, and source vDSO/vvar reuse.
-- [ ] Add `AT_EXECFN` only after executable identity and path provenance are exact.
-- [ ] Update process-context docs, proof-profile docs, refusal inventory, and
+- [x] Add `AT_EXECFN` only after executable identity and path provenance are exact.
+- [x] Update process-context docs, proof-profile docs, refusal inventory, and
       validation timings.
-- [ ] Run focused Vitest, remote proof for the new profile, full smoke, and fallow
+- [x] Run focused Vitest, remote proof for the new profile, full smoke, and fallow
       audit.
 
 Refusal boundaries that remain:
@@ -246,21 +246,21 @@ First accepted subset:
 
 Tasks:
 
-- [ ] Define `private-layout-v1` with range bounds, alignment, permissions,
+- [x] Define `private-layout-v1` with range bounds, alignment, permissions,
       target address policy, captured hash, zero-fill behavior, guard gaps, and
       pointer ownership classes.
-- [ ] Extend private-memory materialization for one exact anonymous data range.
-- [ ] Add target gates for final permissions, guard pages, zero-fill behavior,
+- [x] Extend private-memory materialization for one exact anonymous data range.
+- [x] Add target gates for final permissions, guard pages, zero-fill behavior,
       content hash, and no unexpected executable mappings.
-- [ ] Add positive proof profile `private-anonymous-data-range-recreate`.
-- [ ] Add negative tests/profiles for shared mappings, executable data, W+X
+- [x] Add positive proof profile `private-anonymous-data-range-recreate`.
+- [x] Add negative tests/profiles for shared mappings, executable data, W+X
       mappings, source-only pointers, overlapping ranges, stale hashes, guard
       mismatches, permission mismatches, and unsupported fixed-address conflicts.
-- [ ] Add private `mmap` shape only after the first heap/data range proof is
+- [x] Add private `mmap` shape only after the first heap/data range proof is
       stable.
-- [ ] Update memory materialization docs, proof-profile docs, refusal inventory,
+- [x] Update memory materialization docs, proof-profile docs, refusal inventory,
       and validation timings.
-- [ ] Run focused Vitest, remote proof for the new profile, full smoke, and fallow
+- [x] Run focused Vitest, remote proof for the new profile, full smoke, and fallow
       audit.
 
 Refusal boundaries that remain:
@@ -299,21 +299,21 @@ Follow-up accepted subset after mask-only support is stable:
 
 Tasks:
 
-- [ ] Define `target-signal-mask-v1` with blocked-mask representation,
+- [x] Define `target-signal-mask-v1` with blocked-mask representation,
       unsupported signals, apply order, and target verifier expectations.
-- [ ] Add target-native mask apply/verify support for blocked-mask-only state.
-- [ ] Add positive proof profile `signal-mask-blocked-recreate`.
-- [ ] Add negative tests/profiles for pending signals, queued siginfo, active
+- [x] Add target-native mask apply/verify support for blocked-mask-only state.
+- [x] Add positive proof profile `signal-mask-blocked-recreate`.
+- [x] Add negative tests/profiles for pending signals, queued siginfo, active
       signal frames, enabled alt-stacks, handler delivery ambiguity,
       signal-mask-changing waits without a verifier, and restart blocks without
       remaining time.
-- [ ] Define per-syscall remaining-time contracts before claiming any restart
+- [x] Define per-syscall remaining-time contracts before claiming any restart
       support.
-- [ ] Add deterministic `EINTR` support only after final result and signal mask
+- [x] Add deterministic `EINTR` support only after final result and signal mask
       semantics are exact.
-- [ ] Update signal policy docs, active-syscall docs, proof-profile docs, refusal
+- [x] Update signal policy docs, active-syscall docs, proof-profile docs, refusal
       inventory, and validation timings.
-- [ ] Run focused Vitest, remote proof for the new profile, full smoke, and fallow
+- [x] Run focused Vitest, remote proof for the new profile, full smoke, and fallow
       audit.
 
 Refusal boundaries that remain:
@@ -326,20 +326,69 @@ Refusal boundaries that remain:
 
 ## Cross-goal completion criteria
 
-- [ ] Every support graduation track above has at least one new `graduated-support`
-      proof profile.
-- [ ] Every new accepted subset has a portable state model, target-native restore
+- [x] Every support graduation track above has at least one new `graduated-support`
+      proof profile. Issue/PR: #793 / #794.
+- [x] Every new accepted subset has a portable state model, target-native restore
       recipe, target verifier, positive proof, nearby negative proofs, docs, and
-      validation timings.
-- [ ] Every unsafe neighbor remains covered by a runnable refusal proof profile
+      validation timings. Issue/PR: #793 / #794.
+- [x] Every unsafe neighbor remains covered by a runnable refusal proof profile
       with exact refusal code, `migrationCompleted=false`,
       `descriptorGateCompleted=false`, no source text replay, no source-ISA
-      emulation, and no sidecar success path.
-- [ ] Goal 3/4 graduated profiles keep passing:
+      emulation, and no sidecar success path. Issue/PR: #787 / #788, #793 / #794.
+- [x] Goal 3/4 graduated profiles keep passing. Issue/PR: #793 / #794:
       `epoll-recreate`, `signalfd-recreate`, `eventfd-counter-recreate`,
       `timerfd-descriptor-recreate`, and `pipe-pair-recreate`.
-- [ ] The original positive proof matrix from `goal.md` keeps passing.
-- [ ] Full smoke tests have run with timings for every task that touches
-      VM/VMM/rootfs/assets/CLI/snapshot/restore behavior.
-- [ ] No new success path uses source-ISA emulation, sidecar runtime, app hooks,
-      or source text replay.
+- [x] The original positive proof matrix from `goal.md` keeps passing. Issue/PR: #793 / #794.
+- [x] Full smoke tests have run with timings for every task that touches
+      VM/VMM/rootfs/assets/CLI/snapshot/restore behavior. Issue/PR: #793 / #794.
+- [x] No new success path uses source-ISA emulation, sidecar runtime, app hooks,
+      or source text replay. Issue/PR: #793 / #794.
+
+## Goal 6 validation ledger
+
+Issue/PR: #793 / #794.
+
+Target-native arm64->amd64 proof evidence:
+
+- New support profiles passed individually:
+  - `eventfd-readiness-pollin-recreate` — 36.343s runner / 37s wall,
+    workdir `/tmp/machinen-goal6-support-proof-1779649532/eventfd-readiness-pollin-recreate-80062ea164a798`.
+  - `regular-file-duplicate-fd-recreate` — 35.390s runner / 35s wall,
+    workdir `/tmp/machinen-goal6-support-proof-1779649532/regular-file-duplicate-fd-recreate-888c1344bcc4e`.
+  - `target-auxv-at-random` — 36.167s runner / 36s wall, workdir
+    `/tmp/machinen-goal6-auxv-retry3-1779649975/target-auxv-at-random-da7d4829882ed8`.
+  - `private-anonymous-data-range-recreate` — 36.321s runner / 37s wall,
+    workdir `/tmp/machinen-goal6-support-proof-retry4-1779650025/private-anonymous-data-range-recreate-9559320a29b76`.
+  - `signal-mask-blocked-recreate` — 37.483s runner / 38s wall, workdir
+    `/tmp/machinen-goal6-signal-retry5-1779650279/signal-mask-blocked-recreate-649b7ba8722508`.
+- Final graduated matrix passed 10/10 at
+  `/tmp/machinen-goal6-postrefactor-graduated-matrix-1779651704`:
+  - `epoll-recreate` — 37.223s runner / 37s wall.
+  - `signalfd-recreate` — 47.315s runner / 48s wall.
+  - `eventfd-counter-recreate` — 36.181s runner / 36s wall.
+  - `timerfd-descriptor-recreate` — 35.584s runner / 36s wall.
+  - `pipe-pair-recreate` — 38.320s runner / 39s wall.
+  - `eventfd-readiness-pollin-recreate` — 35.922s runner / 36s wall.
+  - `regular-file-duplicate-fd-recreate` — 41.481s runner / 41s wall.
+  - `target-auxv-at-random` — 36.902s runner / 38s wall.
+  - `private-anonymous-data-range-recreate` — 35.976s runner / 36s wall.
+  - `signal-mask-blocked-recreate` — 35.607s runner / 36s wall.
+- Final original positive matrix passed 11/11 at
+  `/tmp/machinen-goal6-postrefactor-positive-matrix-1779652101`:
+  - `two-thread-ppoll` — 79.367s runner / 80s wall.
+  - `pipe-read` — 35.730s runner / 36s wall.
+  - `eventfd-read` — 38.276s runner / 38s wall.
+  - `timerfd-read` — 36.326s runner / 37s wall.
+  - `file-read` — 36.788s runner / 37s wall.
+  - `file-pread` — 35.296s runner / 35s wall.
+  - `file-readv` — 35.154s runner / 36s wall.
+  - `file-write` — 38.652s runner / 38s wall.
+  - `file-pwrite` — 48.071s runner / 49s wall.
+  - `file-writev` — 42.806s runner / 43s wall.
+  - `process-context` — 36.322s runner / 36s wall.
+- Final refusal matrix passed 35/35 at
+  `/tmp/machinen-goal6-final-refusal-matrix-1779651221`; each profile kept the
+  exact refusal-code, `migrationCompleted=false`, `descriptorGateCompleted=false`,
+  no source text replay, no source-ISA emulation, and no sidecar success path.
+- Full smoke passed with
+  `MACHINEN_REMOTE_BUILDER=friend@100.126.46.90 pnpm smoke-tests` in 2m16.773s.

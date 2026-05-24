@@ -368,6 +368,26 @@ capture_remote_native_process_bundle() {
       target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-pipe-read-target"
       target_detail="remote arm64 pipe read bundle with target eventfd counter descriptor proof captured from $ARM64_SSH"
       ;;
+    eventfd-readiness-pollin-recreate)
+      target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-pipe-read-target"
+      target_detail="remote arm64 pipe read bundle with target eventfd readiness poll proof captured from $ARM64_SSH"
+      ;;
+    regular-file-duplicate-fd-recreate)
+      target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-pipe-read-target"
+      target_detail="remote arm64 pipe read bundle with target regular-file duplicate fd proof captured from $ARM64_SSH"
+      ;;
+    target-auxv-at-random)
+      target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-ppoll-timeout-target"
+      target_detail="remote arm64 process-context bundle with target-owned AT_RANDOM proof captured from $ARM64_SSH"
+      ;;
+    private-anonymous-data-range-recreate)
+      target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-pipe-read-target"
+      target_detail="remote arm64 pipe read bundle with target private anonymous data range proof captured from $ARM64_SSH"
+      ;;
+    signal-mask-blocked-recreate)
+      target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-pipe-read-target"
+      target_detail="remote arm64 pipe read bundle with target blocked signal-mask proof captured from $ARM64_SSH"
+      ;;
     timerfd-descriptor-recreate)
       target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-pipe-read-target"
       target_detail="remote arm64 pipe read bundle with target timerfd descriptor proof captured from $ARM64_SSH"
@@ -389,7 +409,7 @@ capture_remote_native_process_bundle() {
       ;;
   esac
   local capture_command="'$ARM64_REMOTE_WORK/bin/machinen-native-process-capture' --output '$ARM64_REMOTE_WORK/capture/bundle' --target-arch amd64 --settle-ms 150 -- '$target_binary'"
-  if [[ "$REMOTE_SOURCE_TARGET" == "process-context" ]]; then
+  if [[ "$REMOTE_SOURCE_TARGET" == "process-context" || "$REMOTE_SOURCE_TARGET" == "target-auxv-at-random" ]]; then
     capture_command="cd / && env -i MACHINEN_CONTEXT_TOKEN=process-context '$ARM64_REMOTE_WORK/bin/machinen-native-process-capture' --output '$ARM64_REMOTE_WORK/capture/bundle' --target-arch amd64 --settle-ms 150 -- '$target_binary' --machinen-argv-token"
   elif [[ "$REMOTE_SOURCE_TARGET" == "file-read" ]]; then
     capture_command="'$ARM64_REMOTE_WORK/bin/machinen-native-process-capture' --output '$ARM64_REMOTE_WORK/capture/bundle' --target-arch amd64 --trace-syscall read --trace-syscall-fd 38 -- '$target_binary'"
@@ -454,12 +474,27 @@ run_target_restore() {
   local process_context_restore_args_text=""
   local resource_model_args=()
   local resource_model_args_text=""
-  if [[ "$REMOTE_SOURCE_TARGET" == "process-context" ]]; then
+  if [[ "$REMOTE_SOURCE_TARGET" == "process-context" || "$REMOTE_SOURCE_TARGET" == "target-auxv-at-random" ]]; then
     process_context_restore_args=(--process-context-restore apply-target-initial-stack)
     process_context_restore_args_text="${process_context_restore_args[*]}"
   fi
   if [[ "$REMOTE_SOURCE_TARGET" == "eventfd-counter-recreate" ]]; then
     resource_model_args=(--include-eventfd-counter-proof)
+    resource_model_args_text="${resource_model_args[*]}"
+  elif [[ "$REMOTE_SOURCE_TARGET" == "eventfd-readiness-pollin-recreate" ]]; then
+    resource_model_args=(--include-readiness-eventfd-poll-proof)
+    resource_model_args_text="${resource_model_args[*]}"
+  elif [[ "$REMOTE_SOURCE_TARGET" == "regular-file-duplicate-fd-recreate" ]]; then
+    resource_model_args=(--include-regular-file-duplicate-fd-proof)
+    resource_model_args_text="${resource_model_args[*]}"
+  elif [[ "$REMOTE_SOURCE_TARGET" == "target-auxv-at-random" ]]; then
+    resource_model_args=(--include-target-auxv-at-random-proof)
+    resource_model_args_text="${resource_model_args[*]}"
+  elif [[ "$REMOTE_SOURCE_TARGET" == "private-anonymous-data-range-recreate" ]]; then
+    resource_model_args=(--include-private-layout-proof)
+    resource_model_args_text="${resource_model_args[*]}"
+  elif [[ "$REMOTE_SOURCE_TARGET" == "signal-mask-blocked-recreate" ]]; then
+    resource_model_args=(--include-signal-mask-blocked-proof)
     resource_model_args_text="${resource_model_args[*]}"
   elif [[ "$REMOTE_SOURCE_TARGET" == "timerfd-descriptor-recreate" ]]; then
     resource_model_args=(--include-timerfd-descriptor-proof)
@@ -518,9 +553,9 @@ process.exit(
   result.targetStackWindowMaterializationResult === 'passed' &&
   result.targetPrivateMemoryRestoreResult === 'passed' &&
   result.targetExecutableMappingResult === 'passed' &&
-  (sourceTarget !== 'process-context' || result.targetProcessContextRestoreResult === 'passed') &&
+  ((sourceTarget !== 'process-context' && sourceTarget !== 'target-auxv-at-random') || result.targetProcessContextRestoreResult === 'passed') &&
   result.targetSignalRestoreResult === 'passed' &&
-  (!remoteE2e || sourceTarget === 'process-context' || result.targetActiveSyscallRestoreResult === 'passed') &&
+  (!remoteE2e || sourceTarget === 'process-context' || sourceTarget === 'target-auxv-at-random' || result.targetActiveSyscallRestoreResult === 'passed') &&
   (!remoteE2e || sourceTarget !== 'two-thread-ppoll' || result.targetThreadRestoreResult === 'passed') &&
   result.targetResumePathResult === 'passed'
     ? 0
