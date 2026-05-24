@@ -251,19 +251,19 @@ narrow exact contract or fail closed with a stable refusal.
 
 ### K. Automation and reporting
 
-- [ ] Create an automation command that opens an issue from a task template,
+- [x] Create an automation command that opens an issue from a task template,
       creates a branch, runs the requested implementation command, validates,
       pushes, and opens a PR against `portable-snapshots`.
-- [ ] Add reusable PR body generation with Problem/Solution/Validation and timing
+- [x] Add reusable PR body generation with Problem/Solution/Validation and timing
       sections.
-- [ ] Add validation log capture so every run records command, elapsed time,
+- [x] Add validation log capture so every run records command, elapsed time,
       commit, branch, remote hosts, profile, and paths.
-- [ ] Add a command to run only the relevant focused vitest set for a touched
+- [x] Add a command to run only the relevant focused vitest set for a touched
       subsystem.
-- [ ] Add a command to run the full required gate set when VM/VMM/rootfs/assets or
+- [x] Add a command to run the full required gate set when VM/VMM/rootfs/assets or
       target restore wiring changes.
-- [ ] Add a command to update `goal.md` task status after a PR merges.
-- [ ] Add a command to close non-default-base issues manually when GitHub does not
+- [x] Add a command to update `goal.md` task status after a PR merges.
+- [x] Add a command to close non-default-base issues manually when GitHub does not
       auto-close them after merging to `portable-snapshots`.
 
 ### L. Final transparent restore claim
