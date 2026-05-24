@@ -52,8 +52,10 @@ build-id/sha256/path provenance is missing or mismatched, and code pointers into
 unowned regions remain outside the accepted class. A future JIT model would need
 runtime metadata for each generated code range, target-native code generation or
 verification, cache invalidation rules, permission-transition history, and a way
-to prove no captured source-ISA text is reused as target code. Until then these
-states refuse with `mapping-executable-unsupported`,
+to prove no captured source-ISA text is reused as target code. Goal 3 does not
+add such a provider, so target-generated JIT remains a future model rather than
+an accepted subset. Until then these states refuse with
+`mapping-executable-unsupported`,
 `mapping-permission-unsupported`, `mapping-provenance-ambiguous`, or
 `target-build-mismatch`.
 
