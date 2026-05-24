@@ -41,6 +41,12 @@ transfers, and unbrokered endpoints continue to require
 broker descriptor and authorization/provenance gates before any socket profile can
 move to `graduated-support`.
 
+Goal 3 leaves futex/rseq/scheduler state without a graduated support subset.
+Words in copied private memory are data only; active futex waits, PI futexes,
+robust-list owner-death transitions, rseq registration, active rseq critical
+sections, and scheduler-ordering claims continue to require
+`futex-state-unsupported` or `rseq-state-unsupported`.
+
 Goal 3 also leaves JIT and self-modifying code without a graduated support
 subset. Target-owned static executable mappings remain supported only through
 explicit target build/hash provenance. Source-only executable bytes, ambiguous

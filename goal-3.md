@@ -228,9 +228,9 @@ Tasks:
 
 ## G. Futex, rseq, and scheduler state: likely quiescent-only
 
-General live futex/rseq/scheduler migration is the hardest class. The default is
-to keep it refused. Any support should start from quiescent constraints, not live
-kernel wait queues.
+General live futex/rseq/scheduler migration is the hardest class. Goal 3 keeps
+kernel futex/rseq/scheduler state refused. Ordinary private memory words may be
+copied only as data; no futex wait queue or rseq registration is recreated.
 
 Accepted subset to consider first:
 
@@ -244,19 +244,22 @@ Accepted subset to consider first:
 
 Tasks:
 
-- [ ] Define a quiescent futex-word model that treats futex memory as data only
+- [x] Define a quiescent futex-word model that treats futex memory as data only
       and refuses all active wait queues.
-- [ ] Add validation distinguishing ordinary futex words from active futex wait
-      state.
-- [ ] Define whether target rseq can be recreated safely from target TLS, or must
-      remain refused.
-- [ ] Add target gates for thread quiescence, robust-list state, rseq state, and
-      scheduler assumptions.
-- [ ] Add positive proof profiles only for quiescent accepted subsets, if any.
-- [ ] Keep/refine negative profiles for active futex waits, PI futexes,
+- [x] Add validation distinguishing ordinary futex words from active futex wait
+      state: Goal 3 accepts no explicit futex resource; active futex syscall,
+      wait queue, PI futex, or robust-list transition metadata remains refused.
+- [x] Define whether target rseq can be recreated safely from target TLS, or must
+      remain refused: target rseq registration remains refused in Goal 3.
+- [!] Add target gates for thread quiescence, robust-list state, rseq state, and
+  scheduler assumptions. Not supported in Goal 3 beyond existing controlled
+  thread gates; no futex/rseq target gate can mark migration success.
+- [!] Add positive proof profiles only for quiescent accepted subsets, if any. No
+  futex/rseq/scheduler subset graduates in Goal 3.
+- [x] Keep/refine negative profiles for active futex waits, PI futexes,
       robust-list owner death, active rseq critical sections, and scheduler
       ambiguity.
-- [ ] Keep general futex/rseq/scheduler migration refused with
+- [x] Keep general futex/rseq/scheduler migration refused with
       `futex-state-unsupported` and `rseq-state-unsupported`.
 
 ## H. Completion criteria for Goal 3
