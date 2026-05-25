@@ -127,6 +127,7 @@ describe("portable machine proof runner", () => {
       cwd: REPO_ROOT,
       encoding: "utf8",
       env: SCRIPT_ENV,
+      maxBuffer: 20 * 1024 * 1024,
       timeout: 30_000,
     });
 
@@ -217,8 +218,8 @@ describe("portable machine proof runner", () => {
     expect(summary.supportReport).toMatchObject({
       counts: {
         "baseline-success": 11,
-        "graduated-support": 30,
-        "intentional-refusal": 162,
+        "graduated-support": 79,
+        "intentional-refusal": 407,
         "permanent-refusal": 27,
       },
       graduated: expect.arrayContaining([
@@ -541,6 +542,107 @@ describe("portable machine proof runner", () => {
       expect(existsSync(summary.logs.targetRestore)).toBe(true);
     },
   );
+
+  it("runs a Goal 22 concrete negative descriptor fixture without synthetic shortcuts", () => {
+    const dir = tempDir();
+    const result = spawnSync(
+      "node",
+      [
+        RUNNER,
+        "--profile",
+        "udp-loopback-single-queued-datagram-v1-multiple-datagrams-refusal",
+        "--json",
+        "--work-dir-prefix",
+        join(dir, "proof-"),
+      ],
+      {
+        cwd: REPO_ROOT,
+        encoding: "utf8",
+        env: SCRIPT_ENV,
+        timeout: 30_000,
+      },
+    );
+
+    expect(result.status, result.stderr).toBe(0);
+    const summary = JSON.parse(result.stdout);
+    expect(summary).toMatchObject({
+      profile: "udp-loopback-single-queued-datagram-v1-multiple-datagrams-refusal",
+      state: "refused",
+      pass: true,
+      command: [
+        "bash",
+        "concrete-negative",
+        "udp-loopback-single-queued-datagram-v1-multiple-datagrams-refusal",
+      ],
+      smokeSummary: {
+        state: "failed",
+        targetRestore: {
+          state: "refused",
+          migrationCompleted: false,
+          descriptorGateCompleted: false,
+          concreteFixtureResult: "refused",
+          refusal: { code: "target-socket-syscall-state-unsupported" },
+          sourceIsaEmulationUsed: false,
+          sidecarRuntimeUsed: false,
+          appHooksRequired: false,
+        },
+      },
+      gateCheck: { passed: true, failures: [] },
+    });
+    expect(summary.proofProvenance.artifacts.restoreDescriptor).toMatchObject({
+      path: expect.stringContaining("goal21-negative-descriptor-fixtures.json"),
+      exists: true,
+      sha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+    });
+  });
+
+  it("runs a Goal 21 synthetic positive profile with target-native provenance artifacts", () => {
+    const dir = tempDir();
+    const result = spawnSync(
+      "node",
+      [
+        RUNNER,
+        "--profile",
+        "udp-loopback-single-queued-datagram-v1-recreate",
+        "--json",
+        "--work-dir-prefix",
+        join(dir, "proof-"),
+      ],
+      {
+        cwd: REPO_ROOT,
+        encoding: "utf8",
+        env: SCRIPT_ENV,
+        timeout: 30_000,
+      },
+    );
+
+    expect(result.status, result.stderr).toBe(0);
+    const summary = JSON.parse(result.stdout);
+    expect(summary).toMatchObject({
+      profile: "udp-loopback-single-queued-datagram-v1-recreate",
+      state: "completed",
+      pass: true,
+      smokeSummary: {
+        state: "completed",
+        remoteSourceTarget: "udp-loopback-single-queued-datagram-v1-recreate",
+        targetRestore: {
+          migrationCompleted: true,
+          descriptorGateCompleted: true,
+          sourceIsaEmulationUsed: false,
+          sidecarRuntimeUsed: false,
+        },
+      },
+      gateCheck: { passed: true, failures: [] },
+    });
+    expect(summary.proofProvenance.artifacts.restoreDescriptor).toMatchObject({
+      exists: true,
+      sha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+    });
+    expect(summary.proofProvenance.artifacts.targetContinuation).toMatchObject({
+      exists: true,
+      sha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+    });
+  });
 
   it("rejects a negative profile summary that reports target-native success", () => {
     const dir = tempDir();

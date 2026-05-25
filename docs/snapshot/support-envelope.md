@@ -9,8 +9,8 @@ makes a runtime/app family supported.
 Current profile inventory:
 
 - 11 `baseline-success` profiles;
-- 30 `graduated-support` profiles;
-- 162 `intentional-refusal` profiles;
+- 79 `graduated-support` profiles;
+- 407 `intentional-refusal` profiles;
 - 27 `permanent-refusal` profiles.
 
 ## Success contract
@@ -77,7 +77,15 @@ under `capabilities`. The families currently covered are:
 - threads: the controlled two-thread ppoll proof with target thread-spawn gates
   and deterministic wake gates for the futex subset;
 - active syscalls: the active syscall completions named by the positive profiles,
-  including deterministic `EINTR` for the accepted ppoll-timeout subset.
+  including deterministic `EINTR` for the accepted ppoll-timeout subset;
+- Goal 21/22 graduations: 49 additional narrow `goal21:*` target-native subsets
+  for UDP queues, advisory locks, shared/private mappings, executable
+  materializing, eventfd/timerfd/signalfd/signal/restart/futex/rseq/memfd/shared-memory
+  states, TCP/raw-ICMP/ping/ICMPv6 packet contracts, epoll edge/oneshot/ready-list
+  states, and thread join/TLS edges. Each positive profile carries a descriptor
+  identity, target-native continuation identity, and verifier gates; each of the
+  245 Goal 21 negative neighbors now has a concrete descriptor fixture that
+  drives the target restore refusal with `migrationCompleted=false`.
 
 ## Refusal families that remain
 
@@ -110,18 +118,23 @@ unsafe families are:
 - signal-mask-changing `ppoll`/wait semantics;
 - native addons, JIT/self-modifying code, and opaque runtime state;
 - source vDSO/vvar reuse and raw cross-ISA vmstate replay;
-- Goal 18/20 master-audit families that are permanent broad-state refusals until
-  a future narrow subset supplies exact descriptor/verifier gates: generic socket
-  send/receive queues, UDP
-  datagram queues, established TCP without the explicit broker, kqueue state,
-  file locks/leases, mmap dirty aliasing, huge/special mappings, general
-  SIMD/FPU and architecture-specific register state, dynamic linker state,
-  deleted/replaced executable mappings, ASLR-sensitive source pointers,
-  signal-handler PC/stack state, thread join/TLS edge cases, timer delivery
-  ordering, pipe waiters and eventfd waiters/ambiguous aliases beyond the
-  two-fd no-waiter alias contract, namespace/routing provenance, target
-  next-packet verification gaps, stack/heap edge layouts, and vvar time-source
-  reuse.
+- Goal 18/20 master-audit broad-state refusals remain fail-closed except for the
+  narrow Goal 21 target-native subsets recorded as `goal21:*` capabilities in
+  the proof profile matrix. The still-refused broad neighbors include generic
+  socket send/receive queues outside the exact UDP/TCP/ping/ICMP contracts,
+  kqueue state, file locks/leases outside the single modeled advisory-lock
+  handoff contracts, mmap dirty aliasing outside the explicit dirty-overlay
+  descriptor contracts, huge/special mappings, general SIMD/FPU and
+  architecture-specific register state, dynamic linker state outside the
+  build-id/digest-gated executable-text subset, deleted/replaced executable
+  mappings outside the content-addressed immutable-copy subset, ASLR-sensitive
+  source pointers, signal-handler PC/stack states outside the deterministic
+  target-native frame subset, thread join/TLS edge cases outside the modeled
+  child/TLS-slot subsets, timer delivery ordering outside the exact timerfd
+  count/periodic contracts, pipe/eventfd waiters or aliases outside the modeled
+  Goal 21 subsets, namespace/routing provenance outside target-verified loopback
+  routes, target next-packet verification gaps outside known packet contracts,
+  stack/heap edge layouts, and vvar time-source reuse.
 
 Readiness note: Goal 6 graduated blocked-mask-only signal support and one
 level-triggered eventfd readiness proof. Signal-mask-changing `ppoll` or wait

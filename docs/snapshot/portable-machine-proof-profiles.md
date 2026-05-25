@@ -60,10 +60,10 @@ Every profile also carries a support status:
   backlog support item.
 - `graduated-support`: a formerly refused family now has a positive target-native
   subset. These profiles must record `graduatedFromRefusalCode`, an
-  `acceptedSubset`, and unsafe variants that still refuse. Goal 8/9 declarative
-  profiles use `synthetic-positive:*` fixtures to exercise the same target gates
-  and provenance contract without accepting source-ISA emulation, runtime
-  sidecars, app hooks, or source text replay.
+  `acceptedSubset`, and unsafe variants that still refuse. Goal 8/9 and Goal 21
+  declarative profiles use `synthetic-positive:*` fixtures to exercise the same
+  target gates and provenance contract without accepting source-ISA emulation,
+  runtime sidecars, app hooks, or source text replay.
 
 Negative profiles set `expectedResult: "refusal"`. They are pass/fail checks for
 unsafe states, not accepted migrations. The runner treats a negative profile as
@@ -85,7 +85,7 @@ pnpm --silent portable-machine-proof-runner -- \
 
 This exits non-zero if any required gate is missing or not `passed`.
 
-## Goal 8/9/11/12/13/14/15 graduated capability set
+## Goal 8/9/11/12/13/14/15/21 graduated capability set
 
 The current graduated set also includes the Goal 8/9 app-neutral blockers,
 Goal 11 real workload proofs, Goal 12 raw ICMP loopback proof, Goal 13 ping-socket loopback proof, Goal 14 non-root ping-socket proof, and Goal 15 distro ping active recvmsg proof in
@@ -101,8 +101,15 @@ Goal 11 real workload proofs, Goal 12 raw ICMP loopback proof, Goal 13 ping-sock
 `tcp-active-connection-transport-recreate`,
 `tcp-listener-readiness-recreate`, `futex-private-wait-wake-recreate`,
 `rseq-absent-or-target-registered-recreate`, and
-`shared-memory-contract-recreate`. Each positive profile has nearby refusal
-profiles in `unsafeVariants`.
+`shared-memory-contract-recreate`. Goal 21 adds 49 `goal21:*` target-native
+subset profiles for the next refusal-to-support targets; each has its own
+accepted subset, artifact hashes, verifier gates, and at least five nearby
+refusal profiles in `unsafeVariants`. Goal 22 upgrades those Goal 21 neighbor
+refusals from profile-only synthetic shortcuts to concrete descriptor fixtures in
+`scripts/fixtures/goal21-negative-descriptor-fixtures.json`; each concrete
+negative profile now uses a `concrete-negative:goal21/...` source fixture and
+records the descriptor hash that drives the target restore refusal. Each positive
+profile has nearby refusal profiles in `unsafeVariants`.
 
 ## Refusal graduation checklist
 

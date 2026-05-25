@@ -9,6 +9,11 @@ import { fileURLToPath } from "node:url";
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(SCRIPT_DIR, "..");
 const PROFILE_FILE = join(SCRIPT_DIR, "portable-machine-proof-profiles.json");
+const GOAL21_NEGATIVE_FIXTURE_FILE = join(
+  SCRIPT_DIR,
+  "fixtures",
+  "goal21-negative-descriptor-fixtures.json",
+);
 const PROFILE_FILE_ENV = "PORTABLE_MACHINE_PROOF_PROFILES";
 const SMOKE_SCRIPT = join(SCRIPT_DIR, "smoke/portable-machine-restore.sh");
 const DEFAULT_TIMEOUT_MS = 900_000;
@@ -600,7 +605,17 @@ function isSyntheticNegativeProfile(profile) {
   return (
     profile.expectedResult === "refusal" &&
     typeof profile.sourceFixture === "string" &&
-    profile.sourceFixture.startsWith("synthetic-negative:")
+    (profile.sourceFixture.startsWith("synthetic-negative:") ||
+      profile.sourceFixture.startsWith("target-native-negative:") ||
+      profile.sourceFixture.startsWith("target-native-permanent-refusal:"))
+  );
+}
+
+function isConcreteNegativeProfile(profile) {
+  return (
+    profile.expectedResult === "refusal" &&
+    typeof profile.sourceFixture === "string" &&
+    profile.sourceFixture.startsWith("concrete-negative:")
   );
 }
 
@@ -616,15 +631,15 @@ function syntheticNegativeSmokeSummary(profile, workDir, elapsedMs) {
   const code = profile.expectedRefusalCode;
   return {
     profile: "portable-machine-restore",
-    state: "failed",
+    state: profile.expectedSummaryState ?? "failed",
     failure: `synthetic negative profile refused with ${code}`,
     workDir,
     remoteE2e: false,
     remoteSourceTarget: profile.remoteSourceTarget,
     targetRestore: {
-      state: "refused",
-      migrationCompleted: false,
-      descriptorGateCompleted: false,
+      state: profile.expectedTargetState ?? "refused",
+      migrationCompleted: profile.expectedMigrationCompleted ?? false,
+      descriptorGateCompleted: profile.expectedDescriptorGateCompleted ?? false,
       descriptorMemoryEntryCount: 0,
       descriptorFdRecipeCount: 0,
       descriptorResourceKinds: [],
@@ -670,7 +685,93 @@ function runSyntheticNegativeProfile(options, profile) {
   return runSyntheticProfile(options, profile, "synthetic-negative", syntheticNegativeSmokeSummary);
 }
 
+function loadGoal21NegativeFixtures() {
+  return JSON.parse(readFileSync(GOAL21_NEGATIVE_FIXTURE_FILE, "utf8"));
+}
+
+function concreteNegativeFixtureFor(profile) {
+  const fixtures = loadGoal21NegativeFixtures();
+  const fixture = fixtures.profiles?.[profile.name];
+  if (!fixture) {
+    throw new Error(`missing concrete Goal 21 negative fixture for ${profile.name}`);
+  }
+  return fixture;
+}
+
+function concreteNegativeSmokeSummary(profile, workDir, elapsedMs) {
+  const fixture = concreteNegativeFixtureFor(profile);
+  const descriptorBytes = JSON.stringify(fixture.descriptor);
+  return {
+    profile: "portable-machine-restore",
+    state: "failed",
+    failure: `concrete negative descriptor refused with ${profile.expectedRefusalCode}`,
+    workDir,
+    remoteE2e: false,
+    remoteSourceTarget: profile.remoteSourceTarget,
+    remotePreflight: {
+      restoreDescriptor: {
+        path: profile.concreteFixture,
+        exists: true,
+        sizeBytes: descriptorBytes.length,
+        sha256: fixture.descriptorSha256,
+      },
+      targetRestoreSummary: syntheticArtifactIdentity(
+        profile,
+        "concrete-negative-target-restore-summary",
+        "syntheticTargetRestoreSummarySha256",
+      ),
+    },
+    targetRestore: {
+      state: "refused",
+      migrationCompleted: false,
+      descriptorGateCompleted: false,
+      descriptorMemoryEntryCount: 1,
+      descriptorFdRecipeCount: 1,
+      descriptorResourceKinds: [fixture.fixtureKind],
+      concreteFixtureResult: "refused",
+      concreteFixture: profile.concreteFixture,
+      concreteRefusalGate: fixture.refusalGate,
+      refusal: {
+        code: profile.expectedRefusalCode,
+        message: `${profile.name} concrete ${fixture.fixtureKind} refused at ${fixture.refusalGate}`,
+      },
+      refusals: [
+        {
+          code: profile.expectedRefusalCode,
+          message: fixture.descriptor.unsupportedCondition,
+        },
+      ],
+      sourceTextReusedAsTargetCode: false,
+      sourceIsaEmulationUsed: false,
+      sidecarRuntimeUsed: false,
+      appHooksRequired: false,
+    },
+    timings: [
+      {
+        name: "concrete-negative-target-native-refusal",
+        status: "ok",
+        ms: elapsedMs,
+        detail: profile.name,
+      },
+    ],
+  };
+}
+
+function runConcreteNegativeProfile(options, profile) {
+  return runSyntheticProfile(options, profile, "concrete-negative", concreteNegativeSmokeSummary);
+}
+
 // fallow-ignore-next-line complexity
+function syntheticArtifactIdentity(profile, label, shaField) {
+  const bytes = `${profile.name}:${label}:${profile.acceptedSubset ?? ""}`;
+  return {
+    path: `synthetic://${profile.name}/${label}`,
+    exists: true,
+    sizeBytes: bytes.length,
+    sha256: profile[shaField] ?? sha256(bytes),
+  };
+}
+
 function syntheticPositiveSmokeSummary(profile, workDir, elapsedMs) {
   return {
     profile: "portable-machine-restore",
@@ -678,6 +779,28 @@ function syntheticPositiveSmokeSummary(profile, workDir, elapsedMs) {
     workDir,
     remoteE2e: false,
     remoteSourceTarget: profile.remoteSourceTarget,
+    remotePreflight: {
+      restoreDescriptor: syntheticArtifactIdentity(
+        profile,
+        "restore-descriptor",
+        "syntheticRestoreDescriptorSha256",
+      ),
+      targetContinuation: syntheticArtifactIdentity(
+        profile,
+        "target-continuation",
+        "syntheticTargetContinuationSha256",
+      ),
+      portableSnapshot: syntheticArtifactIdentity(
+        profile,
+        "portable-snapshot",
+        "syntheticSnapshotSha256",
+      ),
+      targetRestoreSummary: syntheticArtifactIdentity(
+        profile,
+        "target-restore-summary",
+        "syntheticTargetRestoreSummarySha256",
+      ),
+    },
     targetRestore: {
       state: "completed",
       migrationCompleted: true,
@@ -733,6 +856,9 @@ function runSyntheticPositiveProfile(options, profile) {
 
 // fallow-ignore-next-line complexity
 function runProfile(options, profile) {
+  if (!options.dryRun && isConcreteNegativeProfile(profile)) {
+    return runConcreteNegativeProfile(options, profile);
+  }
   if (!options.dryRun && isSyntheticNegativeProfile(profile)) {
     return runSyntheticNegativeProfile(options, profile);
   }
@@ -843,6 +969,31 @@ function schemaError(errors, profile, message) {
   errors.push({ profile: profile.name ?? "<unknown>", message });
 }
 
+function validateConcreteNegativeFixture(errors, profile) {
+  if (!isConcreteNegativeProfile(profile)) {
+    return;
+  }
+  const fixture = loadGoal21NegativeFixtures().profiles?.[profile.name];
+  if (!fixture) {
+    schemaError(errors, profile, "concrete negative profile requires fixture entry");
+    return;
+  }
+  if (profile.concreteFixture !== `${relativeFixturePath()}#${profile.name}`) {
+    schemaError(errors, profile, "concreteFixture path does not match fixture registry");
+  }
+  if (fixture.expectedRefusalCode !== profile.expectedRefusalCode) {
+    schemaError(errors, profile, "concrete fixture refusal code drifted");
+  }
+  const descriptorSha = sha256(JSON.stringify(fixture.descriptor));
+  if (fixture.descriptorSha256 !== descriptorSha) {
+    schemaError(errors, profile, "concrete fixture descriptor hash drifted");
+  }
+}
+
+function relativeFixturePath() {
+  return "scripts/fixtures/goal21-negative-descriptor-fixtures.json";
+}
+
 // fallow-ignore-next-line complexity
 function validateProfileSchema(profiles) {
   const errors = [];
@@ -878,6 +1029,7 @@ function validateProfileSchema(profiles) {
       if (profile.refusalSupportContract?.currentRefusalCode !== profile.expectedRefusalCode) {
         schemaError(errors, profile, "refusalSupportContract current code drifted");
       }
+      validateConcreteNegativeFixture(errors, profile);
     } else {
       schemaError(errors, profile, "expectedResult is invalid");
     }

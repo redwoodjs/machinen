@@ -29,6 +29,15 @@ const PRESETS = {
     profiles.filter(
       (profile) => isRealWorkloadProfile(profile) && profile.expectedResult === "success",
     ),
+  goal21: (profiles) => profiles.filter((profile) => hasGoal21Capability(profile)),
+  "goal21-positive": (profiles) =>
+    profiles.filter(
+      (profile) => hasGoal21Capability(profile) && profile.expectedResult === "success",
+    ),
+  "goal21-refusal": (profiles) =>
+    profiles.filter(
+      (profile) => hasGoal21Capability(profile) && profile.expectedResult === "refusal",
+    ),
 };
 
 const PASS_THROUGH_OPTIONS = new Set([
@@ -44,7 +53,7 @@ const PASS_THROUGH_OPTIONS = new Set([
 
 function usage(exitCode = 2) {
   console.error(
-    `usage: node scripts/portable-machine-proof-matrix.mjs [options]\n\nOptions:\n  --preset name               baseline-success, graduated-support, positive, refusal, foundation-full, real-workload\n  --support-status status     Select profiles by supportStatus (repeatable or comma-separated)\n  --capability capability     Select profiles by capabilities/refusesCapabilities\n  --unsafe-family family      Select profiles by unsafeStateFamily\n  --profile name              Explicit profile (repeatable or comma-separated)\n  --check-summary-dir path    Verify existing <profile>.json summaries instead of running profiles\n  --summary-cache-dir path    Reuse existing <profile>.json smoke summaries and save newly run ones\n  --save-summary-dir path     Save reusable smoke summaries for newly run profiles\n  --artifact-inventory path   Write flattened artifact inventory JSON\n  --shard index/count         Run one 1-based shard of the selected profiles, e.g. 1/4\n  --summary path              Write summary JSON to path\n  --json                      Emit summary JSON to stdout\n  --dry-run                   Pass --dry-run to the underlying proof runner\n  --continue-on-fail          Run all selected profiles after a failure\n  --work-dir-prefix path      Prefix for profile work directories\n  --timeout-ms ms             Per-profile timeout (default: ${DEFAULT_TIMEOUT_MS})`,
+    `usage: node scripts/portable-machine-proof-matrix.mjs [options]\n\nOptions:\n  --preset name               baseline-success, graduated-support, positive, refusal, foundation-full, real-workload, goal21\n  --support-status status     Select profiles by supportStatus (repeatable or comma-separated)\n  --capability capability     Select profiles by capabilities/refusesCapabilities\n  --unsafe-family family      Select profiles by unsafeStateFamily\n  --profile name              Explicit profile (repeatable or comma-separated)\n  --check-summary-dir path    Verify existing <profile>.json summaries instead of running profiles\n  --summary-cache-dir path    Reuse existing <profile>.json smoke summaries and save newly run ones\n  --save-summary-dir path     Save reusable smoke summaries for newly run profiles\n  --artifact-inventory path   Write flattened artifact inventory JSON\n  --shard index/count         Run one 1-based shard of the selected profiles, e.g. 1/4\n  --summary path              Write summary JSON to path\n  --json                      Emit summary JSON to stdout\n  --dry-run                   Pass --dry-run to the underlying proof runner\n  --continue-on-fail          Run all selected profiles after a failure\n  --work-dir-prefix path      Prefix for profile work directories\n  --timeout-ms ms             Per-profile timeout (default: ${DEFAULT_TIMEOUT_MS})`,
   );
   process.exit(exitCode);
 }
@@ -180,6 +189,12 @@ function loadProfiles() {
 
 function isRealWorkloadProfile(profile) {
   return profile.sourceFixture?.startsWith("real:") || profile.name.startsWith("real-");
+}
+
+function hasGoal21Capability(profile) {
+  return [...(profile.capabilities ?? []), ...(profile.refusesCapabilities ?? [])].some(
+    (capability) => capability.startsWith("goal21:"),
+  );
 }
 
 function uniqProfiles(profiles) {

@@ -35,20 +35,26 @@ reference the same refusal codes. The proof runner checks those summaries with
 `expectedResult: "refusal"`; a matching refusal is a pass only when migration did
 not complete.
 
-Goals 8, 9, 11, 12, 13, 14, and 15 graduate the app-neutral subsets documented in
-[`goal-8-9-capability-graduations.md`](./goal-8-9-capability-graduations.md): a
-real private multi-range memory plus regular-file workload, TCP
-listeners, raw ICMP loopback echo, Linux ping-socket loopback echo, distro ping active `recvmsg` empty-queue wait, multiple private ranges with guards, acyclic
-epoll graphs, file-backed private mappings, deterministic `EINTR`,
-explicit-broker active TCP streams, listener readiness probes, private futex
-wait/wake, rseq lifecycle, and shared-memory contracts. The neighboring unsafe
+Goals 8, 9, 11, 12, 13, 14, 15, and 21 graduate the app-neutral subsets documented in
+[`goal-8-9-capability-graduations.md`](./goal-8-9-capability-graduations.md) and
+[`goal-021.md`](../../goals/goal-021.md): a real private multi-range memory plus
+regular-file workload, TCP listeners, raw ICMP loopback echo, Linux ping-socket
+loopback echo, distro ping active `recvmsg` empty-queue wait, multiple private
+ranges with guards, acyclic epoll graphs, file-backed private mappings,
+deterministic `EINTR`, explicit-broker active TCP streams, listener readiness
+probes, private futex wait/wake, rseq lifecycle, shared-memory contracts, and the
+49 Goal 21 `goal21:*` narrow target-native subsets. The neighboring unsafe
 profiles keep active or queued connections, raw ICMP without capability or route
 provenance, ping sockets without credential/range provenance, non-loopback ICMP,
 in-flight/unread ICMP packets, active `recvmsg` queue/flag/signal ambiguity,
 socket option ambiguity, fd aliases, W+X/stale/shared/source-only memory, epoll
 cycles/edge/one-shot readiness, restart/signal ambiguity, missing brokers,
 TLS/session opacity, PI/robust/shared futexes, active rseq critical sections,
-and undeclared shared participants on the refusal codes in this table.
+undeclared shared participants, and every Goal 21 key negative neighbor on the
+refusal codes in this table. Goal 22 backs the 245 Goal 21 neighbor refusals with
+concrete descriptor fixtures in
+[`goal21-negative-descriptor-fixtures.json`](../../scripts/fixtures/goal21-negative-descriptor-fixtures.json),
+so those profiles no longer rely on profile-only synthetic negative shortcuts.
 
 Goal 3 graduates only the epoll `interest-list-v1` subset to
 `epoll-recreate`; active waits, nested epoll, edge-triggered/one-shot delivery,
