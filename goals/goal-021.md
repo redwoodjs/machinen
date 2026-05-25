@@ -400,6 +400,51 @@ named by the target, and keep all broader/neighboring states refused.
     - Key negative neighbors: source pointer, DSO TLS relocation, rseq TLS
       conflict, stale thread pointer, cross-thread alias.
 
+## Required graduation standard for each target
+
+Each of the 50 targets above is a real implementation target. A target may be
+marked complete only after all of these are true:
+
+- an accepted subset name and descriptor version are defined;
+- source capture records the exact kernel-visible state needed by the subset;
+- the portable descriptor/schema carries every field needed for target restore;
+- target-native restore recipes materialize the state without source-ISA
+  emulation, runtime sidecars, app hooks, source text replay, or hidden
+  source-side helpers;
+- target verifier gates prove the restored state exactly, including byte counts,
+  identities, flags, ordering constraints, and ownership where applicable;
+- the proof profile contains a positive target-native arm64→amd64 proof with
+  `migrationCompleted=true` only after descriptor/resource gates and verifier
+  gates pass;
+- neighboring unsupported states have target-native negative profiles with stable
+  refusal codes and `migrationCompleted=false`;
+- all broader source refusal families remain fail-closed unless separately
+  graduated with the same standard;
+- support-envelope docs, proof profiles, matrices, and focused tests are updated;
+- descriptor sha256, continuation sha256 when applicable, artifacts, and timings
+  are recorded in the goal file.
+
+Documentation-only support, synthetic-only success, weakened gates, source-side
+helpers, or runtime/app hooks do not count as completing a target.
+
+## Required negative coverage for each target
+
+For every graduated subset, add target-native negative proofs for all applicable
+neighbors, including at least:
+
+- aliasing ambiguity;
+- stale source state;
+- mismatched target verifier state;
+- unsupported flags/options;
+- unsupported waiters or scheduler-visible races;
+- cross-namespace/cross-process ambiguity when applicable;
+- malformed descriptor/refusal path;
+- hidden helper/source dependency;
+- target next-event/next-packet/next-wake ambiguity when applicable.
+
+If one category is genuinely not applicable, record why and add the closest
+family-specific fail-closed neighbor instead.
+
 ## Standard validation for each target
 
 For each target, run and record at minimum:
@@ -419,3 +464,19 @@ For each target, run and record at minimum:
 - `git diff --check`;
 - full smoke tests when VM/VMM/rootfs/assets/CLI/snapshot/restore behavior is
   touched.
+
+## Goal completion criteria
+
+Goal 21 is complete only when all 50 targets above are implemented and verified
+under the required graduation standard. The final audit must show:
+
+- all 50 targets have positive target-native proof profiles;
+- every listed negative neighbor either has a target-native refusal profile or an
+  explicitly recorded non-applicability rationale plus an equivalent fail-closed
+  neighbor;
+- refusal and foundation matrices pass with checked summaries for the final
+  profile inventory;
+- the final full validation set passes with timings recorded;
+- no target relies on source-ISA emulation, sidecar runtime success, app hooks,
+  hidden helpers, or source text replay;
+- no known broader unsupported state can reach `migrationCompleted=true`.
