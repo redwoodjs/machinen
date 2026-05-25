@@ -4603,7 +4603,10 @@
       "ping-socket-active-recvmsg-icmpv6-refusal",
       "ping-socket-active-recvmsg-known-inflight-refusal",
       "ping-socket-active-recvmsg-known-unread-reply-refusal",
-      "ping-socket-active-recvmsg-multi-interval-refusal"
+      "ping-socket-active-recvmsg-multi-interval-refusal",
+      "ping-socket-active-recvmsg-packet-bytes-unknown-refusal",
+      "ping-socket-active-recvmsg-ancillary-data-unknown-refusal",
+      "ping-socket-active-recvmsg-ppoll-transition-refusal"
     ]
   },
   {
@@ -5296,6 +5299,115 @@
       "graduationRequires": [
         "exact packet queue descriptor",
         "target-native next-packet verifier gates",
+        "positive distro ping proof profile"
+      ]
+    }
+  },
+  {
+    "name": "ping-socket-active-recvmsg-ppoll-transition-refusal",
+    "remoteSourceTarget": "ping-socket-active-recvmsg-ppoll-transition-refusal",
+    "description": "candidate multi-interval ppoll/recvmsg transition without exact timer ordering remains refused",
+    "sourceFixture": "target-native-negative:ping-socket-active-recvmsg-ppoll-transition-refusal",
+    "refusesCapabilities": [
+      "network:ping-socket",
+      "fd:ping-socket",
+      "syscall:active-recvmsg",
+      "syscall:ppoll-transition",
+      "signal:timer-ordering-unknown"
+    ],
+    "graduationRequires": [
+      "portable ppoll/recvmsg transition descriptor",
+      "target-native setitimer/signal ordering verifier",
+      "positive multi-interval distro ping proof profile"
+    ],
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": true,
+    "unsafeStateFamily": "ping-socket-active-recvmsg",
+    "proofCategory": "target-native-negative-active-recvmsg-v3-descriptor-gate",
+    "evidence": [
+      "target-native VM restore path returns stable refusal before migration completion"
+    ],
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "portable ppoll/recvmsg transition descriptor",
+        "target-native setitimer/signal ordering verifier",
+        "positive multi-interval distro ping proof profile"
+      ]
+    }
+  },
+  {
+    "name": "ping-socket-active-recvmsg-ancillary-data-unknown-refusal",
+    "remoteSourceTarget": "ping-socket-active-recvmsg-ancillary-data-unknown-refusal",
+    "description": "candidate unread distro ping reply without timestamp/TTL ancillary-data contract remains refused",
+    "sourceFixture": "target-native-negative:ping-socket-active-recvmsg-ancillary-data-unknown-refusal",
+    "refusesCapabilities": [
+      "network:ping-socket",
+      "fd:ping-socket",
+      "syscall:active-recvmsg",
+      "packet:icmp-ancillary-data-unknown"
+    ],
+    "graduationRequires": [
+      "portable timestamp and TTL control-message descriptor",
+      "target-native ancillary-data verifier",
+      "positive distro ping proof profile"
+    ],
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": true,
+    "unsafeStateFamily": "ping-socket-active-recvmsg",
+    "proofCategory": "target-native-negative-active-recvmsg-v3-descriptor-gate",
+    "evidence": [
+      "target-native VM restore path returns stable refusal before migration completion"
+    ],
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "portable timestamp and TTL control-message descriptor",
+        "target-native ancillary-data verifier",
+        "positive distro ping proof profile"
+      ]
+    }
+  },
+  {
+    "name": "ping-socket-active-recvmsg-packet-bytes-unknown-refusal",
+    "remoteSourceTarget": "ping-socket-active-recvmsg-packet-bytes-unknown-refusal",
+    "description": "candidate unread distro ping reply without exact queued packet bytes remains refused",
+    "sourceFixture": "target-native-negative:ping-socket-active-recvmsg-packet-bytes-unknown-refusal",
+    "refusesCapabilities": [
+      "network:ping-socket",
+      "fd:ping-socket",
+      "syscall:active-recvmsg",
+      "packet:icmp-queued-bytes-unknown"
+    ],
+    "graduationRequires": [
+      "portable queued-packet byte descriptor",
+      "target-native exact packet byte verifier",
+      "positive distro ping proof profile"
+    ],
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": true,
+    "unsafeStateFamily": "ping-socket-active-recvmsg",
+    "proofCategory": "target-native-negative-active-recvmsg-v3-descriptor-gate",
+    "evidence": [
+      "target-native VM restore path returns stable refusal before migration completion"
+    ],
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "portable queued-packet byte descriptor",
+        "target-native exact packet byte verifier",
         "positive distro ping proof profile"
       ]
     }
