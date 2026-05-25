@@ -14,8 +14,10 @@ for now and records:
 - register setup and syscall-clobbered registers
 - stack setup assumptions
 - completion policy, such as returning to the trampoline or exiting the process
-- failure exit buckets that map reserved process statuses to restart-like or
-  unmodeled negative errno returns
+- failure exit buckets that map reserved process statuses to plain `EINTR`,
+  restart-like, or unmodeled negative errno returns
+- a fail-closed restart contract that records the signal-mask and restart-block
+  state that is not yet modeled
 - byte and descriptor hashes for generated-code telemetry
 - invariants that source text was not reused, source-ISA emulation was not used,
   and no sidecar runtime participated
@@ -27,17 +29,24 @@ The existing synthetic sleep continuation now exposes this shared descriptor as
 embedded modeled timespec. The sleep-specific provenance extends the descriptor
 instead of inventing a separate byte/syscall/register/stack schema.
 
-## Zero-fd ppoll integration
+## ppoll timeout integration
 
-The second supported family is a narrow `ppoll` timeout continuation for
-`ppoll(NULL, 0, &timeout, NULL)`. It uses the same descriptor evidence as sleep:
-generated amd64 bytes, register arguments, embedded timeout data, completion
-mode, failure exit buckets, byte hash, and descriptor hash. The continuation is
-only selected when the active syscall model proves there are no fds and no signal
-mask to restore.
+The second supported family is a narrow `ppoll` timeout continuation. The first
+shape is `ppoll(NULL, 0, &timeout, NULL)`. The one-fd shapes add exactly one
+embedded `struct pollfd` entry for a captured `POLLIN` pipe read end or empty
+non-semaphore eventfd with empty `revents`; the target recipe creates a fresh
+empty pipe read end plus writer or a fresh empty eventfd at the same fd so the
+syscall remains timeout-driven.
 
-Refusals stay precise and fail closed: non-zero `nfds`, non-null fd arrays,
-non-null signal masks, missing timeout pointers, unreadable timeout memory, and
+Both shapes use the same descriptor evidence as sleep: generated amd64 bytes,
+register arguments, embedded timeout data, completion mode, failure exit buckets,
+byte hash, and descriptor hash. The one-fd shape additionally records an
+`embeddedPollFds` provenance block and uses a stack-local `rdi` setup for the
+kernel-writable pollfd array.
+
+Refusals stay precise and fail closed: unsupported `nfds`, wrong resource kinds,
+unsupported fd flags or state, unsupported poll events, non-empty `revents`,
+non-null signal masks, missing timeout pointers, unreadable captured memory, and
 unsupported syscall return buckets do not claim migration success.
 
 ## Boundary
@@ -46,7 +55,10 @@ The descriptor is provenance, not a blanket success rule. A generated
 continuation still succeeds only when its modeled syscall contract and completion
 policy are satisfied. Unsupported states continue to fail closed with precise
 refusals. Descriptor failure exit buckets are classified as
-`target-synthetic-signal-restart-unsupported` for restart-like outcomes or
-`target-synthetic-syscall-return-unmodeled` for other negative errno returns.
+`target-synthetic-signal-interrupted-unsupported` for plain `EINTR`,
+`target-synthetic-signal-restart-unsupported` for `ERESTART*`-style outcomes,
+or `target-synthetic-syscall-return-unmodeled` for other negative errno returns.
 The refusal detail records the syscall name, syscall number, reserved exit
-status, errno bucket, and descriptor hash.
+status, errno bucket, restart contract evidence, and descriptor hash. Plain
+`EINTR` is intentionally separate from restart-like kernel states so target
+success cannot hide missing signal-delivery or restart-block semantics.

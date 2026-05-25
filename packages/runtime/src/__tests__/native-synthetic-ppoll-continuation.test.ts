@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { nativeSyntheticExitProcessSuffix } from "../native-synthetic-continuation.ts";
 import {
   NATIVE_SYNTHETIC_PPOLL_SYSCALL_BASE,
   buildNativeSyntheticPpollSyscallContinuation,
@@ -13,6 +14,30 @@ function remainingTime(seconds = "1", nanoseconds = 250) {
     precision: "requested-duration-upper-bound" as const,
     seconds,
     nanoseconds,
+  };
+}
+
+function oneFdPpollTimeout() {
+  return {
+    kind: "relative-duration" as const,
+    syscallName: "ppoll" as const,
+    argumentSource: "registers" as const,
+    fdsPointer: "0x3100",
+    nfds: 1 as const,
+    pollFds: [
+      {
+        fd: 3,
+        events: 1,
+        revents: 0,
+        sourceAddress: "0x3100",
+        resourceId: "fd:3",
+        targetResource: "synthetic-empty-pipe-read-end" as const,
+      },
+    ],
+    timeoutPointer: "0x3000",
+    sigmaskPointer: "0x0" as const,
+    requestedTime: { seconds: "1", nanoseconds: 250 },
+    remainingTime: remainingTime("1", 250),
   };
 }
 
@@ -81,6 +106,58 @@ describe("synthetic ppoll syscall continuation", () => {
     expect(result.continuation!.descriptor.descriptorSha256).toHaveLength(64);
   });
 
+  it("can generate a one-fd empty-pipe ppoll continuation", () => {
+    const result = buildNativeSyntheticPpollSyscallContinuation({
+      threadId: "thread:1",
+      remainingTime: remainingTime("1", 250),
+      ppollTimeout: oneFdPpollTimeout(),
+    });
+
+    expect(result.refusals).toEqual([]);
+    expect(result.continuation).toMatchObject({
+      syscall: {
+        fdsPointer: "stack-relative-pollfd-array",
+        nfds: 1,
+        pollFds: [{ fd: 3, events: 1, revents: 0 }],
+      },
+      sizeBytes: 72,
+    });
+    expect(Buffer.from(result.continuation!.bytes.subarray(0, 52)).toString("hex")).toBe(
+      "b80f010000c74424f80300000066c74424fc010066c74424fe0000488d7c24f8be01000000488d150c0000004531d24531c00f05",
+    );
+    const view = new DataView(result.continuation!.bytes.buffer);
+    expect(view.getBigUint64(56, true)).toBe(1n);
+    expect(result.continuation!.provenance).toMatchObject({
+      embeddedPollFds: {
+        kind: "pollfd-array",
+        offset: -8,
+        entries: [{ fd: 3, targetResource: "synthetic-empty-pipe-read-end" }],
+      },
+      embeddedData: { offset: 56 },
+    });
+  });
+
+  it("keeps exit-process completion available for one-fd ppoll", () => {
+    const result = buildNativeSyntheticPpollSyscallContinuation({
+      threadId: "thread:1",
+      remainingTime: remainingTime("1", 250),
+      ppollTimeout: oneFdPpollTimeout(),
+      completionMode: "exit-process",
+    });
+
+    expect(result.refusals).toEqual([]);
+    expect(result.continuation).toMatchObject({
+      completionMode: "exit-process",
+      exitStatusOnSuccess: 0,
+      syscall: { nfds: 1, fdsPointer: "stack-relative-pollfd-array" },
+      sizeBytes: 160,
+      provenance: {
+        embeddedPollFds: { offset: -8 },
+        embeddedData: { offset: 144 },
+      },
+    });
+  });
+
   it("can generate an exit-process continuation after a successful ppoll timeout", () => {
     const result = buildNativeSyntheticPpollSyscallContinuation({
       threadId: "thread:1",
@@ -92,16 +169,25 @@ describe("synthetic ppoll syscall continuation", () => {
     expect(result.continuation).toMatchObject({
       completionMode: "exit-process",
       exitStatusOnSuccess: 0,
-      sizeBytes: 128,
+      sizeBytes: 144,
     });
     expect(Buffer.from(result.continuation!.bytes.subarray(0, 24)).toString("hex")).toBe(
-      "b80f01000031ff31f6488d15600000004531d24531c00f05",
+      "b80f01000031ff31f6488d15700000004531d24531c00f05",
     );
-    expect(new DataView(result.continuation!.bytes.buffer).getBigUint64(112, true)).toBe(0n);
+    expect(Buffer.from(result.continuation!.bytes.subarray(24, 119)).toString("hex")).toBe(
+      Buffer.from(nativeSyntheticExitProcessSuffix()).toString("hex"),
+    );
+    expect(new DataView(result.continuation!.bytes.buffer).getBigUint64(128, true)).toBe(0n);
     expect(result.continuation!.descriptor.completion).toMatchObject({
       mode: "exit-process",
       successExitStatus: 0,
+      restartContract: { mode: "fail-closed", plainEintr: "refuse" },
       failureExitBuckets: [
+        {
+          exitStatus: 110,
+          failureKind: "signal-interrupted-unsupported",
+          syscallReturn: { condition: "equals-negative-errno", errnoName: "EINTR" },
+        },
         {
           exitStatus: 111,
           failureKind: "signal-restart-unsupported",

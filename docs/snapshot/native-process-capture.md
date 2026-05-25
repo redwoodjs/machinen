@@ -44,8 +44,13 @@ The bundle records:
 - per-thread stopped state and architecture-specific register documents;
 - syscall state from `/proc/<tid>/syscall`, classified as `outside-syscall`,
   `inside-syscall`, or `restart-block`;
-- signal masks and TLS thread pointer metadata;
-- fd table metadata, regular-file reopen recipes, and resource refusals for
+- signal masks and TLS thread-pointer metadata, including whether the pointer
+  came from arm64 `TPIDR_EL0` or amd64 `%fs` base;
+- SIMD/FPU policy state (`not-live` when ptrace FP/SIMD bytes are all zero,
+  otherwise `requires-restore` or `not-captured`); live and partial SIMD/FPU
+  subsets are deliberately refused until an exact target restore contract exists;
+- fd table metadata, regular-file reopen recipes, epoll `interest-list-v1`
+  fdinfo, signalfd `empty-queue-v1` descriptor hints, and resource refusals for
   broker-required fd kinds;
 - a pending `native-translation.json` plan.
 
@@ -77,4 +82,7 @@ include the mapping kind, range, path, and permission details. Mappings that
 exceed the capture policy are emitted with `mapping-ambiguous`. Threads stopped
 inside a syscall or restart block are later refused by register translation with
 `active-syscall`. Non-regular fd kinds are emitted as resource refusals until a
-broker recipe exists.
+broker recipe exists or a narrow Goal 3 model accepts them. signalfd hints remain
+fail-closed unless pending process/thread signal masks are empty and the recipe
+also proves no queued `siginfo`, active signal frame, or active alt-stack state
+must be migrated.

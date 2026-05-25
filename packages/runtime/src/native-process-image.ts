@@ -31,19 +31,26 @@ export const nativeProcessImageRefusalCodes = [
   "architecture-unsupported",
   "blocking-syscall-state-unsupported",
   "code-location-unknown",
+  "cross-isa-vmstate-restore-unsupported",
   "fd-kind-unsupported",
   "futex-state-unsupported",
   "inherited-stdio-policy-required",
   "kernel-state-unsupported",
   "mapping-ambiguous",
+  "mapping-captured-range-unsupported",
+  "mapping-executable-unsupported",
   "mapping-permission-unsupported",
+  "mapping-provenance-ambiguous",
+  "mapping-shared-unsupported",
   "mapping-unreadable",
   "pointer-ambiguous",
+  "proof-arch-pair-unsupported",
   "resource-kind-unsupported",
   "non-stdio-kernel-state-unsupported",
   "rseq-state-unsupported",
   "signal-frame-active",
   "signal-state-unsupported",
+  "simd-fpu-state-unsupported",
   "stdin-buffer-state-unsupported",
   "syscall-argument-state-unsupported",
   "syscall-restart-unsupported",
@@ -53,6 +60,12 @@ export const nativeProcessImageRefusalCodes = [
   "target-callee-saved-state-unsupported",
   "target-caller-frame-unavailable",
   "target-code-rva-unmapped",
+  "target-code-outside-portable-bundle",
+  "target-epoll-syscall-state-unsupported",
+  "target-fd-table-duplicate",
+  "target-fd-read-state-missing",
+  "target-fd-write-state-missing",
+  "target-fd-table-missing",
   "target-frame-layout-unsupported",
   "target-frame-register-value-unavailable",
   "target-module-bytes-missing",
@@ -62,7 +75,9 @@ export const nativeProcessImageRefusalCodes = [
   "target-module-range-unreadable",
   "target-ppoll-syscall-continuation-missing",
   "target-ppoll-timeout-missing",
+  "target-process-context-unsupported",
   "target-return-slot-unsupported",
+  "target-signalfd-state-unsupported",
   "target-resume-execution-unavailable",
   "target-resume-fault-invalid-code-landing",
   "target-resume-fault-outside-target-bytes",
@@ -72,8 +87,11 @@ export const nativeProcessImageRefusalCodes = [
   "target-resume-fault-unmodeled-memory",
   "target-semantic-continuation-missing",
   "target-sleep-remaining-time-missing",
+  "target-socket-syscall-state-unsupported",
   "target-sleep-signal-restart-unsupported",
   "target-sleep-syscall-continuation-missing",
+  "target-stack-window-unsupported",
+  "target-synthetic-signal-interrupted-unsupported",
   "target-synthetic-signal-restart-unsupported",
   "target-synthetic-syscall-return-unmodeled",
   "thread-state-unsupported",
@@ -206,6 +224,40 @@ export interface NativeAmd64Registers {
 
 export type NativeRegisterState = NativeArm64Registers | NativeAmd64Registers;
 
+export type NativeTlsThreadPointerRegister = "arm64-tpidr-el0" | "amd64-fs-base";
+
+export type NativeTlsAmd64SegmentBases =
+  | {
+      state: "not-required";
+      fsBase: string;
+      gsBase: string;
+      reason?: string;
+    }
+  | {
+      state: "provided";
+      fsBase: string;
+      gsBase: string;
+      provenance?: string;
+    }
+  | { state: "unsupported"; reason?: string; refusal?: NativeProcessImageRefusal };
+
+export type NativeSimdFpuLiveSubset =
+  | "fp-control-state"
+  | "caller-saved-vector-registers"
+  | "callee-saved-vector-registers"
+  | "unknown-live-state";
+
+export type NativeSimdFpuState =
+  | { state: "not-live"; provenance?: string }
+  | {
+      state: "requires-restore";
+      arch?: NativeProcessImageArchitecture;
+      byteLength?: number;
+      liveSubset?: NativeSimdFpuLiveSubset;
+      reason?: string;
+    }
+  | { state: "not-captured" | "unsupported"; reason?: string; refusal?: NativeProcessImageRefusal };
+
 export interface NativeThreadState {
   id: string;
   lwpid?: number;
@@ -234,11 +286,14 @@ export interface NativeThreadState {
   };
   tls: {
     threadPointer: string;
+    sourceRegister?: NativeTlsThreadPointerRegister;
+    targetSegmentBases?: NativeTlsAmd64SegmentBases;
     rseq: {
       state: "absent" | "captured" | "unsupported";
       refusal?: NativeProcessImageRefusal;
     };
   };
+  simdFpu?: NativeSimdFpuState;
   refusal?: NativeProcessImageRefusal;
 }
 
@@ -263,6 +318,7 @@ export type NativeProcessResourceKind =
   | "timer"
   | "eventfd"
   | "signal"
+  | "signalfd"
   | "namespace"
   | "credential"
   | "futex"
@@ -750,6 +806,7 @@ function validateThreadEntry(
   validateThreadSyscall(ctx, `${path}.syscall`, thread.syscall);
   validateThreadSignal(ctx, `${path}.signal`, thread.signal);
   validateThreadTls(ctx, `${path}.tls`, thread.tls);
+  validateThreadSimdFpu(ctx, `${path}.simdFpu`, thread.simdFpu);
   if (thread.refusal !== undefined) {
     validateNativeRefusal(ctx, `${path}.refusal`, thread.refusal);
   }
@@ -863,6 +920,10 @@ function validateThreadTls(ctx: NativeValidationContext, path: string, value: un
     return;
   }
   nativeHex(ctx, `${path}.threadPointer`, tls.threadPointer);
+  if (tls.sourceRegister !== undefined) {
+    nativeEnum(ctx, `${path}.sourceRegister`, tls.sourceRegister, TLS_THREAD_POINTER_REGISTERS);
+  }
+  validateThreadTargetSegmentBases(ctx, `${path}.targetSegmentBases`, tls.targetSegmentBases);
   const rseq = nativeRecord(ctx, `${path}.rseq`, tls.rseq);
   if (!rseq) {
     return;
@@ -870,6 +931,53 @@ function validateThreadTls(ctx: NativeValidationContext, path: string, value: un
   nativeEnum(ctx, `${path}.rseq.state`, rseq.state, RSEQ_STATES);
   if (rseq.refusal !== undefined) {
     validateNativeRefusal(ctx, `${path}.rseq.refusal`, rseq.refusal);
+  }
+}
+
+function validateThreadTargetSegmentBases(
+  ctx: NativeValidationContext,
+  path: string,
+  value: unknown,
+): void {
+  if (value === undefined) {
+    return;
+  }
+  const bases = nativeRecord(ctx, path, value);
+  if (!bases) {
+    return;
+  }
+  nativeEnum(ctx, `${path}.state`, bases.state, TLS_TARGET_SEGMENT_BASE_STATES);
+  if (bases.state !== "unsupported") {
+    nativeHex(ctx, `${path}.fsBase`, bases.fsBase);
+    nativeHex(ctx, `${path}.gsBase`, bases.gsBase);
+  }
+  nativeOptionalString(ctx, `${path}.reason`, bases.reason);
+  nativeOptionalString(ctx, `${path}.provenance`, bases.provenance);
+  if (bases.refusal !== undefined) {
+    validateNativeRefusal(ctx, `${path}.refusal`, bases.refusal);
+  }
+}
+
+function validateThreadSimdFpu(ctx: NativeValidationContext, path: string, value: unknown): void {
+  if (value === undefined) {
+    return;
+  }
+  const simdFpu = nativeRecord(ctx, path, value);
+  if (!simdFpu) {
+    return;
+  }
+  nativeEnum(ctx, `${path}.state`, simdFpu.state, SIMD_FPU_STATES);
+  nativeOptionalString(ctx, `${path}.provenance`, simdFpu.provenance);
+  nativeOptionalString(ctx, `${path}.reason`, simdFpu.reason);
+  if (simdFpu.liveSubset !== undefined) {
+    nativeEnum(ctx, `${path}.liveSubset`, simdFpu.liveSubset, SIMD_FPU_LIVE_SUBSETS);
+  }
+  if (simdFpu.arch !== undefined) {
+    nativeArch(ctx, `${path}.arch`, simdFpu.arch);
+  }
+  nativeOptionalNonNegativeInt(ctx, `${path}.byteLength`, simdFpu.byteLength);
+  if (simdFpu.refusal !== undefined) {
+    validateNativeRefusal(ctx, `${path}.refusal`, simdFpu.refusal);
   }
 }
 
@@ -1416,6 +1524,15 @@ const THREAD_STOP_REASONS = ["ptrace-stop", "signal-delivery-stop", "group-stop"
 const SYSCALL_STATES = ["outside-syscall", "inside-syscall", "restart-block"] as const;
 const ALT_STACK_STATES = ["disabled", "enabled", "unsupported"] as const;
 const RSEQ_STATES = ["absent", "captured", "unsupported"] as const;
+const TLS_THREAD_POINTER_REGISTERS = ["arm64-tpidr-el0", "amd64-fs-base"] as const;
+const TLS_TARGET_SEGMENT_BASE_STATES = ["not-required", "provided", "unsupported"] as const;
+const SIMD_FPU_STATES = ["not-live", "requires-restore", "not-captured", "unsupported"] as const;
+const SIMD_FPU_LIVE_SUBSETS = [
+  "fp-control-state",
+  "caller-saved-vector-registers",
+  "callee-saved-vector-registers",
+  "unknown-live-state",
+] as const;
 const RESOURCE_KINDS = [
   "argv",
   "env",

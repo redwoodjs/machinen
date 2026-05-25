@@ -28,12 +28,28 @@ A passing run proves:
    `target.materialization: "recreate"`;
 4. the recreated protection mappings are not copied into `native-memory.bin`.
 
-## Boundary
+## Special-mapping inventory and policy
 
-This does not implement target vdso/vvar reconstruction. It only prevents a bad
-restore from copying source kernel pages as normal user memory. The follow-up
+Accepted proof bundles currently observe these special mapping families:
+
+| Source mapping                                         | Target policy                          | Copy source bytes? | Reason / refusal path                                                                                                                         |
+| ------------------------------------------------------ | -------------------------------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `[vdso]` / `vdso`                                      | target-owned recreate/verify only      | no                 | target kernel supplies vDSO code and address; source vDSO is never target code                                                                |
+| `[vvar]` / `vvar`                                      | target-owned recreate/verify only      | no                 | target kernel supplies time data pages                                                                                                        |
+| other kernel `special` mappings                        | target-owned recreate/verify or refuse | no                 | kernel semantics must be explicit before use                                                                                                  |
+| stack/heap/file `PROT_NONE` guards                     | recreate as no-access guard            | no                 | preserves fault boundary without copying unreadable bytes                                                                                     |
+| executable source text                                 | map target-native file only            | no                 | requires target build-id/sha256/path provenance                                                                                               |
+| unreadable shared/writable/executable ambiguous ranges | refuse                                 | no                 | `mapping-unreadable`, `mapping-shared-unsupported`, `mapping-executable-unsupported`, or `mapping-permission-unsupported` with mapping detail |
+
+This does not implement target vDSO/vvar byte reconstruction. It only prevents a
+bad restore from copying source kernel pages as normal user memory. The follow-up
 [Native mapping materializer](./native-mapping-materializer.md) applies this
 policy to target mappings. Real target kernels must supply their own
-vdso/vvar/special mappings. Unreadable mappings that are writable, executable,
-shared, or otherwise ambiguous still remain precise `mapping-unreadable`
-refusals with mapping details.
+vDSO/vvar/special mappings. Unreadable mappings that are writable, executable,
+shared, or otherwise ambiguous still remain precise refusals with mapping
+details.
+
+Target-native verification for modeled special mappings is limited to verifying
+that target-owned mappings exist and are not sourced from the captured
+`native-memory.bin`. Data-dependent vDSO/vvar semantics stay unsupported until a
+future target-kernel contract models them explicitly.

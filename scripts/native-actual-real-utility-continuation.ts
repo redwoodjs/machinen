@@ -5,6 +5,7 @@ import {
   classifyNativeActiveSyscalls,
   type NativeActivePpollTimeoutContinuation,
   type NativeActiveSleepTimerContinuation,
+  type NativeActiveSyscallContinuation,
 } from "../packages/runtime/src/native-active-syscall-policy.ts";
 import { planNativeMappingMaterialization } from "../packages/runtime/src/native-mapping-materialization.ts";
 import { inventoryNativeActualTargetModules } from "../packages/runtime/src/native-actual-target-module-inventory.ts";
@@ -60,10 +61,16 @@ import { translateNativeResources } from "../packages/runtime/src/native-resourc
 import {
   NATIVE_ACTUAL_RESUME_TRAMPOLINE_SOURCE,
   NATIVE_CAPTURE_SOURCE,
+  NATIVE_PPOLL_EVENTFD_TIMEOUT_TARGET_SOURCE,
+  NATIVE_PPOLL_PIPE_TIMEOUT_TARGET_SOURCE,
+  NATIVE_PPOLL_TIMERFD_TIMEOUT_TARGET_SOURCE,
   NATIVE_PPOLL_TIMEOUT_TARGET_SOURCE,
   NATIVE_PROCESS_IMAGE_BUNDLE_FILES,
   bundleFileStats,
   compileNativeActualResumeTrampoline,
+  compileNativePpollEventfdTimeoutTarget,
+  compileNativePpollPipeTimeoutTarget,
+  compileNativePpollTimerfdTimeoutTarget,
   compileNativePpollTimeoutTarget,
   compileNativeProcessCapturer,
   ensureSourcesExist,
@@ -93,9 +100,12 @@ const TARGET_ROOT_ENV = "MACHINEN_ACTUAL_REAL_UTILITY_TARGET_ROOT";
 const TARGET_MODULE_PATH_ENV = "MACHINEN_ACTUAL_REAL_UTILITY_TARGET_MODULE";
 const SLEEP_SYSCALL_POLICY_ENV = "MACHINEN_ACTUAL_REAL_UTILITY_SLEEP_SYSCALL_POLICY";
 const PPOLL_SYSCALL_POLICY_ENV = "MACHINEN_ACTUAL_REAL_UTILITY_PPOLL_SYSCALL_POLICY";
+const PPOLL_FD_POLICY_ENV = "MACHINEN_ACTUAL_REAL_UTILITY_PPOLL_FD_POLICY";
 const SYNTHETIC_COMPLETION_ENV = "MACHINEN_ACTUAL_REAL_UTILITY_SYNTHETIC_COMPLETION";
 const WORKLOAD_ENV = "MACHINEN_ACTUAL_REAL_UTILITY_WORKLOAD";
 const UTILITY_NAME = "sleep";
+const PERL_PPOLL_PIPE_SNIPPET =
+  "use IO::Poll qw(POLLIN); pipe(my $r, my $w) or die qq(pipe: $!); my $p = IO::Poll->new(); $p->mask($r => POLLIN); $p->poll(2);";
 const SETTLE_MS = "150";
 const TARGET_BYTE_WINDOW = 32;
 const SOURCE_UNWIND_FILE = "native-source-unwind.json";
@@ -196,23 +206,52 @@ function captureArm64ActualUtility(outDir: string) {
   });
 }
 
-function actualUtilityWorkload(): {
+interface ActualUtilityWorkloadSpec {
   name: string;
   requiredSources: string[];
   command: (binDir: string) => string[];
-} {
-  if (process.env[WORKLOAD_ENV] === "ppoll") {
-    return {
+}
+
+function actualUtilityWorkload(): ActualUtilityWorkloadSpec {
+  const workloads: Record<string, ActualUtilityWorkloadSpec> = {
+    ppoll: {
       name: "ppoll-timeout",
       requiredSources: [NATIVE_CAPTURE_SOURCE, NATIVE_PPOLL_TIMEOUT_TARGET_SOURCE],
       command: (binDir) => [compileNativePpollTimeoutTarget(binDir)],
-    };
-  }
-  return {
-    name: UTILITY_NAME,
-    requiredSources: [NATIVE_CAPTURE_SOURCE],
-    command: () => [requireUtility(["/bin/sleep", "/usr/bin/sleep"]), "30"],
+    },
+    "ppoll-pipe": {
+      name: "ppoll-pipe-timeout",
+      requiredSources: [NATIVE_CAPTURE_SOURCE, NATIVE_PPOLL_PIPE_TIMEOUT_TARGET_SOURCE],
+      command: (binDir) => [compileNativePpollPipeTimeoutTarget(binDir)],
+    },
+    "ppoll-eventfd": {
+      name: "ppoll-eventfd-timeout",
+      requiredSources: [NATIVE_CAPTURE_SOURCE, NATIVE_PPOLL_EVENTFD_TIMEOUT_TARGET_SOURCE],
+      command: (binDir) => [compileNativePpollEventfdTimeoutTarget(binDir)],
+    },
+    "ppoll-timerfd": {
+      name: "ppoll-timerfd-timeout",
+      requiredSources: [NATIVE_CAPTURE_SOURCE, NATIVE_PPOLL_TIMERFD_TIMEOUT_TARGET_SOURCE],
+      command: (binDir) => [compileNativePpollTimerfdTimeoutTarget(binDir)],
+    },
+    "perl-ppoll-pipe": {
+      name: "perl-ppoll-pipe-timeout",
+      requiredSources: [NATIVE_CAPTURE_SOURCE],
+      command: () => [
+        requireUtility(["/usr/bin/perl", "/bin/perl"]),
+        "-MIO::Poll=POLLIN",
+        "-e",
+        PERL_PPOLL_PIPE_SNIPPET,
+      ],
+    },
   };
+  return (
+    workloads[process.env[WORKLOAD_ENV] ?? ""] ?? {
+      name: UTILITY_NAME,
+      requiredSources: [NATIVE_CAPTURE_SOURCE],
+      command: () => [requireUtility(["/bin/sleep", "/usr/bin/sleep"]), "30"],
+    }
+  );
 }
 
 function consumeAmd64ActualUtility(outDir: string, sourceBundleDir: string) {
@@ -305,6 +344,37 @@ function hasActiveContinuation(
   );
 }
 
+function syntheticEmptyPipeFds(
+  activeSyscalls: ReturnType<typeof classifyNativeActiveSyscalls>,
+): number[] {
+  return syntheticPpollFds(activeSyscalls, "synthetic-empty-pipe-read-end");
+}
+
+function syntheticEmptyEventFds(
+  activeSyscalls: ReturnType<typeof classifyNativeActiveSyscalls>,
+): number[] {
+  return syntheticPpollFds(activeSyscalls, "synthetic-empty-eventfd");
+}
+
+function syntheticTimerFds(
+  activeSyscalls: ReturnType<typeof classifyNativeActiveSyscalls>,
+): number[] {
+  return syntheticPpollFds(activeSyscalls, "synthetic-timerfd");
+}
+
+function syntheticPpollFds(
+  activeSyscalls: ReturnType<typeof classifyNativeActiveSyscalls>,
+  targetResource: string,
+): number[] {
+  return activeSyscalls.continuations.flatMap((continuation) =>
+    continuation.syscallClass === "poll-timeout"
+      ? (continuation.metadata.ppollTimeout.pollFds ?? [])
+          .filter((pollFd) => pollFd.targetResource === targetResource)
+          .map((pollFd) => pollFd.fd)
+      : [],
+  );
+}
+
 function isSyntheticSyscallStrategy(strategy: string): boolean {
   return strategy === "synthetic-sleep-syscall" || strategy === "synthetic-ppoll-syscall";
 }
@@ -318,6 +388,7 @@ function actualUtilityPlanningInputs(
   const activeSyscalls = classifyNativeActiveSyscalls(bundle.threads.threads, {
     sleepTimerPolicy: sleepTimerPolicy(),
     pollTimeoutPolicy: ppollTimeoutPolicy(),
+    pollTimeoutFdPolicy: ppollTimeoutFdPolicy(),
     documents: bundle,
   });
   const registers = translateNativeRegisterState({
@@ -331,6 +402,9 @@ function actualUtilityPlanningInputs(
   const resources = translateNativeResources({
     resources: bundle.resources.resources,
     inheritedStdio: { mode: "inherit-output" },
+    syntheticEmptyPipeFds: syntheticEmptyPipeFds(activeSyscalls),
+    syntheticEmptyEventFds: syntheticEmptyEventFds(activeSyscalls),
+    syntheticTimerFds: syntheticTimerFds(activeSyscalls),
   });
   const mappings = planNativeMappingMaterialization({
     mappings: bundle.mappings.mappings,
@@ -839,6 +913,7 @@ function materializeSyntheticPpollTargetBytes(
   const synthetic = buildNativeSyntheticPpollSyscallContinuation({
     threadId: location.threadId,
     remainingTime: metadata.remainingTime,
+    ppollTimeout: metadata.ppollTimeout,
     targetAddress: location.targetAddress,
     completionMode: location.syntheticContinuation?.completionMode,
   });
@@ -1096,6 +1171,7 @@ function executeActualTargetResumeAttempt(
       planned.targetResumeExecution.plan.entryAddress,
       "--timeout-seconds",
       String(actualResumeTimeoutSeconds(planned)),
+      ...actualResumeSyntheticResourceArgs(planned),
       "--stack-target-start",
       finalJumpHex(ACTUAL_RESUME_TARGET_STACK_START),
       "--stack-size",
@@ -1159,6 +1235,54 @@ function actualResumeCodeFile(
   );
   writeFileSync(syntheticPath, targetBytes.bytes);
   return { path: syntheticPath, fileOffset: 0 };
+}
+
+function actualResumeSyntheticResourceArgs(
+  planned: ReturnType<typeof planCapturedActualUtilityBundle>,
+): string[] {
+  return eventfdResumeArgs(planned) ?? timerfdResumeArgs(planned) ?? pipeResumeArgs(planned) ?? [];
+}
+
+function eventfdResumeArgs(planned: ReturnType<typeof planCapturedActualUtilityBundle>) {
+  const fd = syntheticPpollFdForPlan(planned, "synthetic-empty-eventfd");
+  return fd === undefined ? undefined : ["--synthetic-empty-eventfd", String(fd)];
+}
+
+function timerfdResumeArgs(planned: ReturnType<typeof planCapturedActualUtilityBundle>) {
+  const fd = syntheticPpollFdForPlan(planned, "synthetic-timerfd");
+  return fd === undefined ? undefined : ["--synthetic-timerfd", String(fd)];
+}
+
+function pipeResumeArgs(planned: ReturnType<typeof planCapturedActualUtilityBundle>) {
+  const readFd = syntheticPpollFdForPlan(planned, "synthetic-empty-pipe-read-end");
+  if (readFd === undefined) {
+    return undefined;
+  }
+  const writeFd = syntheticEmptyPipeWriteFdForPlan(planned, readFd);
+  return [
+    "--synthetic-empty-pipe-read-fd",
+    String(readFd),
+    ...(writeFd === undefined ? [] : ["--synthetic-empty-pipe-write-fd", String(writeFd)]),
+  ];
+}
+
+function syntheticPpollFdForPlan(
+  planned: ReturnType<typeof planCapturedActualUtilityBundle>,
+  targetResource: string,
+): number | undefined {
+  return syntheticPpollFds(planned.activeSyscalls, targetResource)[0];
+}
+
+function syntheticEmptyPipeWriteFdForPlan(
+  planned: ReturnType<typeof planCapturedActualUtilityBundle>,
+  readFd: number,
+): number | undefined {
+  const resource = planned.resources.resources.find(
+    (candidate) =>
+      candidate.recipe?.synthetic === "empty-pipe-write-end" &&
+      candidate.recipe.pairedReadFd === readFd,
+  );
+  return typeof resource?.fd === "number" ? resource.fd : undefined;
 }
 
 function actualResumeTimeoutSeconds(planned: ReturnType<typeof planCapturedActualUtilityBundle>) {
@@ -1314,6 +1438,7 @@ function actualUtilitySummary(context: {
     activeSyscallPolicy: {
       sleepTimerPolicy: sleepTimerPolicy(),
       ppollTimeoutPolicy: ppollTimeoutPolicy(),
+      ppollTimeoutFdPolicy: ppollTimeoutFdPolicy(),
     },
     threadSyscalls: threadSyscallSummaries(planned),
     activeSyscallClassifications: planned.activeSyscalls.classifications,
@@ -1462,7 +1587,7 @@ function deferredActiveSyscallLandingSummaries(
             strategy: landing.strategy,
             semanticContinuation: landing.semanticContinuation,
             syntheticContinuation: landing.syntheticContinuation,
-            remainingTime: landing.metadata.remainingTime,
+            remainingTime: activeSyscallRemainingTime(landing.metadata),
           },
         ]
       : [];
@@ -1496,12 +1621,20 @@ function syntheticSleepContinuationSummaries(
             threadId: location.threadId,
             strategy: location.continuationStrategy,
             targetModuleId: location.targetModule.id,
-            remainingTime: location.deferredActiveSyscallLanding?.metadata.remainingTime,
+            remainingTime: location.deferredActiveSyscallLanding
+              ? activeSyscallRemainingTime(location.deferredActiveSyscallLanding.metadata)
+              : undefined,
             ...location.syntheticContinuation,
           },
         ]
       : [],
   );
+}
+
+function activeSyscallRemainingTime(
+  metadata: NativeActiveSyscallContinuation["metadata"],
+): { seconds: string; nanoseconds: number } | undefined {
+  return "remainingTime" in metadata ? metadata.remainingTime : undefined;
 }
 
 function materializedTargetByteSummaries(
@@ -1562,6 +1695,18 @@ function ppollTimeoutPolicy() {
   return process.env[PPOLL_SYSCALL_POLICY_ENV] === "defer-target-resume"
     ? "defer-target-resume"
     : "refuse";
+}
+
+function ppollTimeoutFdPolicy() {
+  if (process.env[PPOLL_FD_POLICY_ENV] === "synthetic-empty-eventfd") {
+    return "synthetic-empty-eventfd";
+  }
+  if (process.env[PPOLL_FD_POLICY_ENV] === "synthetic-timerfd") {
+    return "synthetic-timerfd";
+  }
+  return process.env[PPOLL_FD_POLICY_ENV] === "synthetic-empty-pipe"
+    ? "synthetic-empty-pipe"
+    : "zero-fd-only";
 }
 
 function syntheticCompletionMode() {

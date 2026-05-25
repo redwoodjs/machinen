@@ -53,9 +53,25 @@ export const NATIVE_ACTUAL_RESUME_TRAMPOLINE_SOURCE = join(
   REPO_ROOT,
   "packages/microvm/assets/native-actual-resume-trampoline.c",
 );
+export const TARGET_GUEST_RESTORE_LOADER_SOURCE = join(
+  REPO_ROOT,
+  "packages/microvm/assets/target-guest-restore-loader.c",
+);
 export const NATIVE_PPOLL_TIMEOUT_TARGET_SOURCE = join(
   REPO_ROOT,
   "packages/microvm/assets/native-ppoll-timeout-target.c",
+);
+export const NATIVE_PPOLL_PIPE_TIMEOUT_TARGET_SOURCE = join(
+  REPO_ROOT,
+  "packages/microvm/assets/native-ppoll-pipe-timeout-target.c",
+);
+export const NATIVE_PPOLL_EVENTFD_TIMEOUT_TARGET_SOURCE = join(
+  REPO_ROOT,
+  "packages/microvm/assets/native-ppoll-eventfd-timeout-target.c",
+);
+export const NATIVE_PPOLL_TIMERFD_TIMEOUT_TARGET_SOURCE = join(
+  REPO_ROOT,
+  "packages/microvm/assets/native-ppoll-timerfd-timeout-target.c",
 );
 export const NATIVE_FINAL_JUMP_SOURCE_TARGET_SOURCE = join(
   REPO_ROOT,
@@ -473,6 +489,66 @@ export function compileNativePpollTimeoutTarget(binDir) {
       executable,
     ],
     { label: "native ppoll timeout target build" },
+  );
+  return executable;
+}
+
+export function compileNativePpollPipeTimeoutTarget(binDir) {
+  const executable = join(binDir, "machinen-native-ppoll-pipe-timeout-target");
+  runCommand(
+    "cc",
+    [
+      "-std=c11",
+      "-O0",
+      "-g",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      NATIVE_PPOLL_PIPE_TIMEOUT_TARGET_SOURCE,
+      "-o",
+      executable,
+    ],
+    { label: "native ppoll pipe timeout target build" },
+  );
+  return executable;
+}
+
+export function compileNativePpollEventfdTimeoutTarget(binDir) {
+  const executable = join(binDir, "machinen-native-ppoll-eventfd-timeout-target");
+  runCommand(
+    "cc",
+    [
+      "-std=c11",
+      "-O0",
+      "-g",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      NATIVE_PPOLL_EVENTFD_TIMEOUT_TARGET_SOURCE,
+      "-o",
+      executable,
+    ],
+    { label: "native ppoll eventfd timeout target build" },
+  );
+  return executable;
+}
+
+export function compileNativePpollTimerfdTimeoutTarget(binDir) {
+  const executable = join(binDir, "machinen-native-ppoll-timerfd-timeout-target");
+  runCommand(
+    "cc",
+    [
+      "-std=c11",
+      "-O0",
+      "-g",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      NATIVE_PPOLL_TIMERFD_TIMEOUT_TARGET_SOURCE,
+      "-o",
+      executable,
+    ],
+    { label: "native ppoll timerfd timeout target build" },
   );
   return executable;
 }

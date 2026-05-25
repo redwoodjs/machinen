@@ -20,7 +20,9 @@ interface NativeProcessCaptureSummary {
   capturedMappingCount: number;
   threadCount: number;
   sourceRegisterArchs: string[];
+  tlsSourceRegisters: string[];
   syscallStates: string[];
+  simdFpuStates: string[];
   resourceKinds: string[];
   fileResource?: { offset: number; state: string };
   translationThreadStates: string[];
@@ -58,7 +60,9 @@ describe("native process capture", () => {
       expect(summary.capturedMappingCount).toBeGreaterThan(0);
       expect(summary.threadCount).toBeGreaterThanOrEqual(1);
       expect(summary.sourceRegisterArchs.every((arch) => arch === summary.hostArch)).toBe(true);
+      expect(summary.tlsSourceRegisters.every((source) => source !== "missing")).toBe(true);
       expect(summary.syscallStates.every((state) => state === "outside-syscall")).toBe(true);
+      expect(summary.simdFpuStates.every((state) => state !== "missing")).toBe(true);
       expect(summary.resourceKinds).toEqual(
         expect.arrayContaining(["argv", "env", "cwd", "exe", "auxv", "file"]),
       );

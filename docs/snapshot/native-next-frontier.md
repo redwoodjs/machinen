@@ -1,68 +1,76 @@
 # Native-transparent next frontier
 
-Issue #555 records the post-`/bin/sleep` frontier decision.
+Issue #555 originally selected synthesized target-native blocking syscall
+continuations as the next frontier. That ladder has since fed into the portable
+machine VM restore proof and the current active frontier is now narrower:
+**broaden the class of real processes accepted by the native target-loader path
+without weakening fail-closed boundaries**.
 
-## Decision
+## Current proven target-loader point
 
-The next frontier is **synthesized target-native blocking syscall continuations**.
-Broad target libc/TLS/vDSO process-memory materialization is deferred.
+The target VM proof runs a real amd64 target-native continuation through the
+in-guest restore loader. The success path still preserves the Option B
+invariants:
 
-## Why this frontier
+- no Node/Bun sidecar runtime;
+- no source-ISA emulation;
+- no application hooks;
+- no captured source text reused as target code;
+- unsupported state fails closed with precise refusals.
 
-The completed `/bin/sleep` proof succeeds by resuming in generated amd64 bytes
-that perform the modeled kernel syscall and then exit natively. That keeps the
-core invariants intact:
+The following native restore sections are consumed as target-side work before
+completion is reported:
 
-- no Node/Bun sidecar runtime
-- no source-ISA emulation
-- no application hooks
-- no captured source text reused as target code
+| Native section             | Current target-side behavior                                                                                                   |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| stack-window writes/guards | writes target stack slots and maps guard pages                                                                                 |
+| return-chain writes        | writes bounded target return slots                                                                                             |
+| private memory             | maps target private ranges, copies captured bytes, applies final permissions, and backs target TLS/TCB                         |
+| executable mapping         | verifies target file/path/address/size/offset, executable/private flags, and build-id or sha256 provenance                     |
+| signal restore             | saves, applies, verifies, and restores the loader signal mask                                                                  |
+| process context            | carries bounded argv/env/cwd/auxv, applies/verifies env+cwd, and can materialize a bounded target argv/envp/auxv pointer block |
+| active syscall             | re-arms modeled sleep/ppoll timers, recreates pipe/eventfd/timerfd read blockers, and completes safe regular-file reads/writes |
+| controlled thread spawn    | maps requested stacks and consumes narrow spawn steps with short-lived target tasks                                            |
 
-The earlier semantic libc landing proved that a target-native address can be
-selected by meaning, but real libc immediately required unmodeled target process
-state such as TLS/GOT/vDSO-adjacent memory. Synthesized blocking syscall
-continuations let us expand the proof one kernel contract at a time while every
-unsupported condition still fails closed with a precise refusal.
+Recent remote arm64→amd64 proofs now cover:
+
+- pipe, eventfd, timerfd, regular-file active `read`, regular-file active
+  `pread64`, single-iovec regular-file active `readv`, regular-file active
+  `write`, regular-file active `pwrite64`, and single-iovec regular-file active
+  `writev` profiles with `targetActiveSyscallRestoreResult=passed`;
+- process-context handoff through the initial-stack pointer block model with
+  `targetProcessContextRestoreResult=passed`;
+- controlled two-thread restore with futex and rseq still fail-closed behind
+  precise refusal detail.
+
+## Remaining frontier
+
+The next work should expand _accepted process shapes_, not relax the success
+criteria. Good next issues are:
+
+1. Add more real resource/syscall families one at a time, starting with cases
+   whose target fd/resource recipes can be proven without readiness ambiguity.
+2. Broaden private target memory coverage only where provenance, permissions,
+   guards, and pointer ownership are explicit.
+3. Continue process context work beyond the bounded pointer block: model libc
+   globals/startup expectations only where target libc, vDSO/vvar, `AT_RANDOM`,
+   and `AT_EXECFN` dependencies are explicit.
+4. Revisit target libc/vDSO/vvar data dependencies after the syscall/resource
+   cases provide comparison points for what must be materialized versus refused.
+5. Keep futex wait handoff, rseq resume, arbitrary signal restart, JIT/native
+   code migration, and general scheduler state refused until their kernel/user
+   ABI contracts are modeled.
 
 ## Deferred frontier
 
-Real libc/TLS/vDSO memory materialization remains important for broader native
-transparency, but it should not be the next step. It is a larger surface area
-with many implicit process-state dependencies. It should return after the kernel
-continuation path has stronger syscall, signal, restart, fd, and provenance
-models to compare against.
-
-## Next proof ladder
-
-See [Native cross-ISA proof roadmap](./native-cross-isa-proof-roadmap.md) for the
-canonical ordered backlog. The next issues should stay narrow and stacked:
-
-1. Generalize the synthetic continuation descriptor so syscall number,
-   arguments, generated bytes, stack/register setup, and completion policy share
-   one provenance schema. See
-   [Native synthetic continuation descriptor](./native-synthetic-continuation-descriptor.md).
-2. Model interrupted syscall returns before expanding success cases. `EINTR`,
-   `ERESTART*`, and signal-delivery states must keep precise fail-closed
-   refusals such as `target-synthetic-signal-restart-unsupported` and
-   `target-synthetic-syscall-return-unmodeled` until restart behavior is
-   modeled.
-3. Add one additional blocking syscall family with a captured real utility and a
-   synthesized amd64 continuation. Prefer a syscall whose resource model is
-   already explicit or can be refused precisely.
-4. Harden fd/resource compatibility for that syscall family before claiming
-   completion.
-5. Only after multiple syscall continuations share the same ABI/provenance shape,
-   revisit target libc/TLS/vDSO materialization as a separate frontier.
+Broad target libc/vDSO/vvar materialization, arbitrary signal restart, futex wait
+handoff, rseq resume, JIT/native code migration, and general multithread restore
+remain deferred. They must keep refusing until their kernel/user ABI contracts
+are modeled precisely.
 
 ## Validation loop
 
-The next syscall-family work should record validation timing with
-[Validation profiling and proof-container caches](./validation-profile.md) so we
-can see whether local checks, Agent CI, smoke tests, or repeated remote installs
-are dominating the loop.
-
-## Non-goals
-
-This frontier does not make arbitrary native process migration complete. It also
-does not treat a target libc jump, source-ISA emulation, source text reuse, or a
-runtime helper process as success.
+Native-loader and portable-machine changes should run targeted unit tests plus
+full smoke, and remote arm64→amd64 proof when target-loader descriptors,
+trampoline consumption, or VM restore completion gates change. Always report
+wall-clock timings for validation and remote proof runs.

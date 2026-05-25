@@ -55,15 +55,19 @@ is only reported after target process exit.
 
 ## EINTR / restart gate
 
-Issue #551 keeps interrupted sleep semantics fail-closed. If the synthetic sleep
-syscall does not return success, the generated exit-process continuation now
-uses failure buckets: status `111` for `-EINTR`/restart-like returns and status
-`112` for other negative errno returns. Descriptor-aware proofs classify those
-as `target-synthetic-signal-restart-unsupported` or
+Issue #591 keeps interrupted sleep semantics fail-closed while making the
+buckets explicit. If the synthetic sleep syscall does not return success, the
+generated exit-process continuation uses status `110` for plain `-EINTR`, status
+`111` for `ERESTART*`-style restart-like returns, and status `112` for other
+negative errno returns. Descriptor-aware proofs classify those as
+`target-synthetic-signal-interrupted-unsupported`,
+`target-synthetic-signal-restart-unsupported`, or
 `target-synthetic-syscall-return-unmodeled`; legacy descriptor-less status `111`
 attempts still use `target-sleep-signal-restart-unsupported`. All failure paths
-keep `migrationCompleted: false`. This covers EINTR/restart-like outcomes until
-signal delivery, remaining time, and restart contracts are modeled explicitly.
+keep `migrationCompleted: false`. The descriptor also carries a fail-closed
+restart contract that records the missing signal mask, pending-signal, restart
+block, and timeout-accounting evidence required before any interrupted syscall
+can be modeled as success.
 
 ## Provenance
 

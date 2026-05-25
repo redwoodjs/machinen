@@ -57,6 +57,8 @@ struct Options {
   pid_t pid;
   int command_index;
   uint32_t settle_ms;
+  const char *trace_syscall;
+  int64_t trace_syscall_fd;
 };
 
 #if defined(__aarch64__)
@@ -67,6 +69,8 @@ struct NativeArm64Regs {
   uint64_t pstate;
 };
 #endif
+
+struct ThreadCapture;
 
 struct SyscallInfo {
   char state[32];
@@ -81,13 +85,18 @@ struct SyscallInfo {
   uint64_t instruction_pointer;
 };
 
+static const char *syscall_name(long long number);
 static void read_thread_syscall(pid_t tid, struct SyscallInfo *info);
+static void read_thread_simd_fpu(struct ThreadCapture *thread);
 
 struct ThreadCapture {
   pid_t tid;
   bool attached;
   int stop_signal;
   struct SyscallInfo syscall;
+  bool simd_fpu_captured;
+  bool simd_fpu_zero;
+  size_t simd_fpu_size;
 #if defined(__x86_64__)
   struct user_regs_struct amd64_regs;
 #elif defined(__aarch64__)
@@ -225,7 +234,7 @@ static const char *opposite_arch(void) {
 static void usage(void) {
   fprintf(stderr,
       "usage: machinen-native-process-capture --output dir [--target-arch arch] "
-      "[--settle-ms n] (--pid pid | -- command [args...])\n");
+      "[--settle-ms n] [--trace-syscall name] [--trace-syscall-fd n] (--pid pid | -- command [args...])\n");
   exit(2);
 }
 
@@ -234,7 +243,9 @@ static struct Options parse_args(int argc, char **argv) {
       .target_arch = NULL,
       .pid = 0,
       .command_index = -1,
-      .settle_ms = 200};
+      .settle_ms = 200,
+      .trace_syscall = NULL,
+      .trace_syscall_fd = -1};
   for (int i = 1; i < argc; i++) {
     if (streq(argv[i], "--output")) {
       if (++i >= argc) {
@@ -256,6 +267,16 @@ static struct Options parse_args(int argc, char **argv) {
         usage();
       }
       opts.settle_ms = (uint32_t)parse_u64(argv[i], "settle-ms");
+    } else if (streq(argv[i], "--trace-syscall")) {
+      if (++i >= argc) {
+        usage();
+      }
+      opts.trace_syscall = argv[i];
+    } else if (streq(argv[i], "--trace-syscall-fd")) {
+      if (++i >= argc) {
+        usage();
+      }
+      opts.trace_syscall_fd = (int64_t)parse_u64(argv[i], "trace-syscall-fd");
     } else if (streq(argv[i], "--")) {
       opts.command_index = i + 1;
       break;
@@ -272,10 +293,102 @@ static struct Options parse_args(int argc, char **argv) {
   if ((opts.pid > 0) == (opts.command_index >= 0)) {
     usage();
   }
+  if (opts.trace_syscall && opts.command_index < 0) {
+    usage();
+  }
+  if (opts.trace_syscall_fd >= 0 && !opts.trace_syscall) {
+    usage();
+  }
   if (opts.command_index >= argc) {
     usage();
   }
   return opts;
+}
+
+static void wait_for_launch_stop(pid_t child) {
+  for (;;) {
+    int status = 0;
+    pid_t got = waitpid(child, &status, 0);
+    if (got == child && WIFSTOPPED(status)) {
+      return;
+    }
+    if (got == child && WIFEXITED(status)) {
+      fail("traced target exited before capture");
+    }
+    if (got < 0 && errno == EINTR) {
+      continue;
+    }
+    fail("traced target did not stop before capture");
+  }
+}
+
+struct TraceSyscallRegisters {
+  long long number;
+  uint64_t arg0;
+};
+
+static struct TraceSyscallRegisters current_ptrace_syscall_registers(pid_t child) {
+#if defined(__x86_64__)
+  struct user_regs_struct regs;
+  if (ptrace(PTRACE_GETREGS, child, NULL, &regs) != 0) {
+    die("ptrace getregs trace syscall");
+  }
+  return (struct TraceSyscallRegisters){.number = (long long)regs.orig_rax, .arg0 = regs.rdi};
+#elif defined(__aarch64__)
+  struct NativeArm64Regs regs;
+  struct iovec regs_iov = {.iov_base = &regs, .iov_len = sizeof(regs)};
+  if (ptrace(PTRACE_GETREGSET, child, (void *)NT_PRSTATUS, &regs_iov) != 0) {
+    die("ptrace getregset trace syscall");
+  }
+  return (struct TraceSyscallRegisters){.number = (long long)regs.regs[8], .arg0 = regs.regs[0]};
+#else
+  (void)child;
+  return (struct TraceSyscallRegisters){.number = -1, .arg0 = 0};
+#endif
+}
+
+static bool trace_syscall_matches(
+    const char *wanted_syscall, int64_t wanted_fd, struct TraceSyscallRegisters regs) {
+  if (!streq(syscall_name(regs.number), wanted_syscall)) {
+    return false;
+  }
+  return wanted_fd < 0 || regs.arg0 == (uint64_t)wanted_fd;
+}
+
+static void trace_target_to_syscall(pid_t child, const char *syscall, int64_t syscall_fd) {
+  wait_for_launch_stop(child);
+  if (ptrace(PTRACE_SETOPTIONS, child, NULL, (void *)(uintptr_t)PTRACE_O_TRACESYSGOOD) != 0) {
+    die("ptrace setoptions trace syscall");
+  }
+  bool entering = true;
+  for (;;) {
+    if (ptrace(PTRACE_SYSCALL, child, NULL, NULL) != 0) {
+      die("ptrace syscall trace");
+    }
+    int status = 0;
+    pid_t got = 0;
+    do {
+      got = waitpid(child, &status, 0);
+    } while (got < 0 && errno == EINTR);
+    if (got != child) {
+      fail("traced target wait failed");
+    }
+    if (WIFEXITED(status) || WIFSIGNALED(status)) {
+      fail("traced target exited before requested syscall");
+    }
+    if (!WIFSTOPPED(status)) {
+      continue;
+    }
+    int signal = WSTOPSIG(status);
+    if ((signal & 0x80) == 0) {
+      continue;
+    }
+    struct TraceSyscallRegisters regs = current_ptrace_syscall_registers(child);
+    if (entering && trace_syscall_matches(syscall, syscall_fd, regs)) {
+      return;
+    }
+    entering = !entering;
+  }
 }
 
 static pid_t launch_target(const struct Options *opts, char **argv) {
@@ -296,9 +409,21 @@ static pid_t launch_target(const struct Options *opts, char **argv) {
       dup2(log_fd, STDERR_FILENO);
       close(log_fd);
     }
+    if (opts->trace_syscall) {
+      if (ptrace(PTRACE_TRACEME, 0, NULL, NULL) != 0) {
+        fprintf(stderr, "machinen-native-process-capture: ptrace traceme failed: %s\n", strerror(errno));
+        _exit(126);
+      }
+      raise(SIGSTOP);
+    }
     execvp(argv[opts->command_index], &argv[opts->command_index]);
     fprintf(stderr, "machinen-native-process-capture: exec target failed: %s\n", strerror(errno));
     _exit(127);
+  }
+
+  if (opts->trace_syscall) {
+    trace_target_to_syscall(child, opts->trace_syscall, opts->trace_syscall_fd);
+    return child;
   }
 
   struct timespec delay = {.tv_sec = opts->settle_ms / 1000u,
@@ -373,9 +498,14 @@ static void wait_for_ptrace_stop(pid_t tid, int *stop_signal) {
   }
 }
 
-static void attach_thread(struct ThreadCapture *thread) {
+static void attach_thread(struct ThreadCapture *thread, pid_t already_attached_tid) {
   thread->attached = false;
   thread->stop_signal = 0;
+  if (thread->tid == already_attached_tid) {
+    thread->attached = true;
+    thread->stop_signal = SIGTRAP;
+    return;
+  }
   if (ptrace(PTRACE_ATTACH, thread->tid, NULL, NULL) != 0) {
     return;
   }
@@ -414,7 +544,37 @@ static void capture_registers(struct ThreadCapture *thread) {
 #endif
 }
 
-static uint32_t attach_threads(pid_t pid, struct ThreadCapture threads[NATIVE_CAPTURE_MAX_THREADS]) {
+static bool bytes_are_zero(const unsigned char *bytes, size_t len) {
+  for (size_t i = 0; i < len; i++) {
+    if (bytes[i] != 0) {
+      return false;
+    }
+  }
+  return true;
+}
+
+static void read_thread_simd_fpu(struct ThreadCapture *thread) {
+  thread->simd_fpu_captured = false;
+  thread->simd_fpu_zero = false;
+  thread->simd_fpu_size = 0;
+  if (!thread->attached) {
+    return;
+  }
+#if defined(__aarch64__) || defined(__x86_64__)
+  unsigned char fpstate[4096];
+  memset(fpstate, 0, sizeof(fpstate));
+  struct iovec iov = {.iov_base = fpstate, .iov_len = sizeof(fpstate)};
+  if (ptrace(PTRACE_GETREGSET, thread->tid, (void *)NT_PRFPREG, &iov) == 0 &&
+      iov.iov_len <= sizeof(fpstate)) {
+    thread->simd_fpu_captured = true;
+    thread->simd_fpu_size = iov.iov_len;
+    thread->simd_fpu_zero = bytes_are_zero(fpstate, iov.iov_len);
+  }
+#endif
+}
+
+static uint32_t attach_threads(
+    pid_t pid, struct ThreadCapture threads[NATIVE_CAPTURE_MAX_THREADS], pid_t already_attached_tid) {
   pid_t tids[NATIVE_CAPTURE_MAX_THREADS];
   uint32_t count = list_threads(pid, tids);
   if (count == 0) {
@@ -423,8 +583,9 @@ static uint32_t attach_threads(pid_t pid, struct ThreadCapture threads[NATIVE_CA
   for (uint32_t i = 0; i < count; i++) {
     threads[i] = (struct ThreadCapture){.tid = tids[i]};
     read_thread_syscall(threads[i].tid, &threads[i].syscall);
-    attach_thread(&threads[i]);
+    attach_thread(&threads[i], already_attached_tid);
     capture_registers(&threads[i]);
+    read_thread_simd_fpu(&threads[i]);
   }
   return count;
 }
@@ -975,9 +1136,29 @@ static const char *syscall_name(long long number) {
     return "read";
   }
 #endif
+#ifdef __NR_pread64
+  if (number == __NR_pread64) {
+    return "pread64";
+  }
+#endif
+#ifdef __NR_readv
+  if (number == __NR_readv) {
+    return "readv";
+  }
+#endif
 #ifdef __NR_write
   if (number == __NR_write) {
     return "write";
+  }
+#endif
+#ifdef __NR_pwrite64
+  if (number == __NR_pwrite64) {
+    return "pwrite64";
+  }
+#endif
+#ifdef __NR_writev
+  if (number == __NR_writev) {
+    return "writev";
   }
 #endif
   return "unknown";
@@ -1148,6 +1329,22 @@ static const char *thread_stack_mapping(
   return mapping_count > 0 ? mappings[0].id : "mapping:0";
 }
 
+static void write_simd_fpu_state(FILE *out, const struct ThreadCapture *thread) {
+  fputs(",\"simdFpu\":", out);
+  if (!thread->simd_fpu_captured) {
+    fputs("{\"state\":\"not-captured\",\"reason\":\"ptrace fpstate unavailable\"}", out);
+    return;
+  }
+  if (thread->simd_fpu_zero) {
+    fputs("{\"state\":\"not-live\",\"provenance\":\"ptrace-zero-fpstate\"}", out);
+    return;
+  }
+  fprintf(out,
+      "{\"state\":\"requires-restore\",\"arch\":\"%s\",\"byteLength\":%zu,\"reason\":\"captured fpstate is non-zero\"}",
+      NATIVE_CAPTURE_ARCH,
+      thread->simd_fpu_size);
+}
+
 static void write_thread(const struct ThreadCapture *thread, FILE *out,
     const struct MappingCapture mappings[NATIVE_CAPTURE_MAX_MAPPINGS], uint32_t mapping_count) {
   fputs("{\"id\":", out);
@@ -1168,12 +1365,15 @@ static void write_thread(const struct ThreadCapture *thread, FILE *out,
   fputs(",\"activeFrame\":false,\"altStack\":{\"state\":\"disabled\"}},\"tls\":{\"threadPointer\":", out);
 #if defined(__x86_64__)
   json_hex_u64(out, thread->amd64_regs.fs_base);
+  fputs(",\"sourceRegister\":\"amd64-fs-base\"", out);
 #elif defined(__aarch64__)
   json_hex_u64(out, thread->arm64_tls);
+  fputs(",\"sourceRegister\":\"arm64-tpidr-el0\"", out);
 #else
   json_hex_u64(out, 0);
 #endif
   fputs(",\"rseq\":{\"state\":\"absent\"}}", out);
+  write_simd_fpu_state(out, thread);
   if (!thread->attached) {
     fputs(",\"refusal\":", out);
     write_refusal(out, "thread-state-unsupported", "ptrace register capture failed for thread");
@@ -1228,7 +1428,7 @@ static const char *fd_kind(const char *target) {
     return "timer";
   }
   if (strncmp(target, "anon_inode:[signalfd]", 21) == 0) {
-    return "signal";
+    return "signalfd";
   }
   if (target[0] == '/') {
     return "file";
@@ -1241,7 +1441,8 @@ static const char *fd_refusal_code(const char *kind) {
     return "fd-kind-unsupported";
   }
   if (streq(kind, "pipe") || streq(kind, "socket") || streq(kind, "epoll") ||
-      streq(kind, "eventfd") || streq(kind, "timer") || streq(kind, "signal")) {
+      streq(kind, "eventfd") || streq(kind, "timer") || streq(kind, "signal") ||
+      streq(kind, "signalfd")) {
     return "kernel-state-unsupported";
   }
   return "resource-kind-unsupported";
@@ -1272,6 +1473,157 @@ static uint64_t fdinfo_value(pid_t pid, const char *fd_name, const char *field) 
   return value;
 }
 
+static uint64_t fdinfo_hex_value(pid_t pid, const char *fd_name, const char *field) {
+  char path[PATH_MAX];
+  snprintf(path, sizeof(path), "/proc/%ld/fdinfo/%s", (long)pid, fd_name);
+  FILE *file = fopen(path, "rb");
+  if (!file) {
+    return 0;
+  }
+  char wanted[32];
+  snprintf(wanted, sizeof(wanted), "%s:", field);
+  uint64_t value = 0;
+  char line[256];
+  while (fgets(line, sizeof(line), file)) {
+    if (strncmp(line, wanted, strlen(wanted)) == 0) {
+      char *cursor = line + strlen(wanted);
+      while (*cursor && isspace((unsigned char)*cursor)) {
+        cursor++;
+      }
+      value = strtoull(cursor, NULL, 16);
+      break;
+    }
+  }
+  fclose(file);
+  return value;
+}
+
+static uint64_t status_hex_mask_path(const char *path, const char *field) {
+  FILE *file = fopen(path, "rb");
+  if (!file) {
+    return UINT64_MAX;
+  }
+  char wanted[32];
+  snprintf(wanted, sizeof(wanted), "%s:", field);
+  uint64_t value = UINT64_MAX;
+  char line[256];
+  while (fgets(line, sizeof(line), file)) {
+    if (strncmp(line, wanted, strlen(wanted)) == 0) {
+      char *cursor = line + strlen(wanted);
+      while (*cursor && isspace((unsigned char)*cursor)) {
+        cursor++;
+      }
+      value = strtoull(cursor, NULL, 16);
+      break;
+    }
+  }
+  fclose(file);
+  return value;
+}
+
+static bool pending_signals_empty(pid_t pid) {
+  char path[PATH_MAX];
+  snprintf(path, sizeof(path), "/proc/%ld/status", (long)pid);
+  if (status_hex_mask_path(path, "SigPnd") != 0 || status_hex_mask_path(path, "ShdPnd") != 0) {
+    return false;
+  }
+  snprintf(path, sizeof(path), "/proc/%ld/task", (long)pid);
+  DIR *dir = opendir(path);
+  if (!dir) {
+    return false;
+  }
+  struct dirent *entry = NULL;
+  while ((entry = readdir(dir)) != NULL) {
+    if (!isdigit((unsigned char)entry->d_name[0])) {
+      continue;
+    }
+    char task_status[PATH_MAX];
+    snprintf(task_status, sizeof(task_status), "/proc/%ld/task/%s/status", (long)pid, entry->d_name);
+    if (status_hex_mask_path(task_status, "SigPnd") != 0) {
+      closedir(dir);
+      return false;
+    }
+  }
+  closedir(dir);
+  return true;
+}
+
+static void fdinfo_pair_value(pid_t pid, const char *fd_name, const char *field,
+    uint64_t *first, uint64_t *second) {
+  *first = 0;
+  *second = 0;
+  char path[PATH_MAX];
+  snprintf(path, sizeof(path), "/proc/%ld/fdinfo/%s", (long)pid, fd_name);
+  FILE *file = fopen(path, "rb");
+  if (!file) {
+    return;
+  }
+  char wanted[32];
+  snprintf(wanted, sizeof(wanted), "%s:", field);
+  char line[256];
+  while (fgets(line, sizeof(line), file)) {
+    if (strncmp(line, wanted, strlen(wanted)) == 0) {
+      char *cursor = line + strlen(wanted);
+      while (*cursor && !isdigit((unsigned char)*cursor)) {
+        cursor++;
+      }
+      *first = strtoull(cursor, &cursor, 0);
+      while (*cursor && !isdigit((unsigned char)*cursor)) {
+        cursor++;
+      }
+      *second = strtoull(cursor, NULL, 0);
+      break;
+    }
+  }
+  fclose(file);
+}
+
+static void write_epoll_recipe(FILE *out, pid_t pid, const char *fd_name) {
+  char path[PATH_MAX];
+  snprintf(path, sizeof(path), "/proc/%ld/fdinfo/%s", (long)pid, fd_name);
+  FILE *file = fopen(path, "rb");
+  fputs(",\"recipe\":{\"epollModel\":\"interest-list-v1\",\"watches\":[", out);
+  bool first = true;
+  if (file) {
+    char line[512];
+    while (fgets(line, sizeof(line), file)) {
+      char *tfd_field = strstr(line, "tfd:");
+      char *events_field = strstr(line, "events:");
+      char *data_field = strstr(line, "data:");
+      if (!tfd_field || !events_field || !data_field) {
+        continue;
+      }
+      uint64_t tfd = strtoull(tfd_field + strlen("tfd:"), NULL, 10);
+      uint64_t events = strtoull(events_field + strlen("events:"), NULL, 16);
+      uint64_t data = strtoull(data_field + strlen("data:"), NULL, 16);
+      if (!first) {
+        fputc(',', out);
+      }
+      first = false;
+      fprintf(out, "{\"fd\":%" PRIu64 ",\"events\":%" PRIu64 ",\"data\":", tfd, events);
+      json_hex_u64(out, data);
+      fputc('}', out);
+    }
+    fclose(file);
+  }
+  fputs("]}", out);
+}
+
+static void write_signalfd_recipe(FILE *out, pid_t pid, const char *fd_name) {
+  uint64_t fd_flags = fdinfo_value(pid, fd_name, "flags");
+  fputs(",\"recipe\":{\"signalfdModel\":\"empty-queue-v1\",\"signalMask\":", out);
+  json_hex_u64(out, fdinfo_hex_value(pid, fd_name, "sigmask"));
+  fprintf(out,
+      ",\"flags\":%" PRIu64
+      ",\"pendingSignals\":\"%s\""
+      ",\"queuedSiginfo\":\"%s\""
+      ",\"activeSignalFrame\":false"
+      ",\"altStackState\":\"disabled\"}",
+      fd_flags & 04000u,
+      pending_signals_empty(pid) ? "none" : "unknown",
+      pending_signals_empty(pid) ? "empty" : "unknown");
+}
+
 static void write_fd_resource(FILE *out, pid_t pid, const char *fd_name, const char *target,
     bool *first) {
   if (!*first) {
@@ -1285,8 +1637,10 @@ static void write_fd_resource(FILE *out, pid_t pid, const char *fd_name, const c
   json_string(out, id);
   fputs(",\"kind\":", out);
   json_string(out, kind);
-  fprintf(out, ",\"state\":%s,\"fd\":%s", streq(kind, "file") ? "\"recipe\"" : "\"refused\"",
-      fd_name);
+  const char *state = streq(kind, "file") ? "recipe" : ((streq(kind, "epoll") || streq(kind, "signalfd") || streq(kind, "timer")) ? "captured" : "refused");
+  fprintf(out, ",\"state\":");
+  json_string(out, state);
+  fprintf(out, ",\"fd\":%s", fd_name);
   fputs(",\"path\":", out);
   json_string(out, target);
   fprintf(out, ",\"offset\":%" PRIu64 ",\"flags\":[", fdinfo_value(pid, fd_name, "pos"));
@@ -1294,11 +1648,49 @@ static void write_fd_resource(FILE *out, pid_t pid, const char *fd_name, const c
   snprintf(flags, sizeof(flags), "octal:%llo", (unsigned long long)fdinfo_value(pid, fd_name, "flags"));
   json_string(out, flags);
   fputc(']', out);
+  if (streq(kind, "eventfd")) {
+    fputs(",\"recipe\":{\"eventfdCount\":", out);
+    json_hex_u64(out, fdinfo_value(pid, fd_name, "eventfd-count"));
+    fprintf(out,
+        ",\"eventfdSemaphore\":%" PRIu64,
+        fdinfo_value(pid, fd_name, "eventfd-semaphore"));
+    fputs("}", out);
+  }
+  if (streq(kind, "timer")) {
+    uint64_t value_sec = 0;
+    uint64_t value_nsec = 0;
+    uint64_t interval_sec = 0;
+    uint64_t interval_nsec = 0;
+    fdinfo_pair_value(pid, fd_name, "it_value", &value_sec, &value_nsec);
+    fdinfo_pair_value(pid, fd_name, "it_interval", &interval_sec, &interval_nsec);
+    fputs(",\"recipe\":{\"timerfdModel\":\"descriptor-v1\",\"timerfdClockId\":", out);
+    json_hex_u64(out, fdinfo_value(pid, fd_name, "clockid"));
+    fputs(",\"timerfdTicks\":", out);
+    json_hex_u64(out, fdinfo_value(pid, fd_name, "ticks"));
+    fprintf(out,
+        ",\"timerfdSettimeFlags\":%" PRIu64
+        ",\"timerfdValueSeconds\":%" PRIu64
+        ",\"timerfdValueNanoseconds\":%" PRIu64
+        ",\"timerfdIntervalSeconds\":%" PRIu64
+        ",\"timerfdIntervalNanoseconds\":%" PRIu64,
+        fdinfo_value(pid, fd_name, "settime flags"),
+        value_sec,
+        value_nsec,
+        interval_sec,
+        interval_nsec);
+    fputs("}", out);
+  }
+  if (streq(kind, "epoll")) {
+    write_epoll_recipe(out, pid, fd_name);
+  }
+  if (streq(kind, "signalfd")) {
+    write_signalfd_recipe(out, pid, fd_name);
+  }
   if (streq(kind, "file")) {
     fputs(",\"recipe\":{\"reopen\":", out);
     json_string(out, target);
     fputs("}", out);
-  } else {
+  } else if (!streq(kind, "epoll") && !streq(kind, "signalfd") && !streq(kind, "timer")) {
     fputs(",\"refusal\":", out);
     write_refusal(out, fd_refusal_code(kind), "fd kind needs a resource broker recipe");
   }
@@ -1405,7 +1797,7 @@ int main(int argc, char **argv) {
   pid_t pid = launch_target(&opts, argv);
 
   struct ThreadCapture threads[NATIVE_CAPTURE_MAX_THREADS];
-  uint32_t thread_count = attach_threads(pid, threads);
+  uint32_t thread_count = attach_threads(pid, threads, opts.trace_syscall ? pid : -1);
   struct ProcessInfo info = read_process_info(pid);
   struct MappingCapture mappings[NATIVE_CAPTURE_MAX_MAPPINGS];
   uint32_t mapping_count = parse_maps(pid, mappings);

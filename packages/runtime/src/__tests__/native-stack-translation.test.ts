@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  planNativeStackWindowMaterialization,
   translateNativeStack,
   type NativeStackTranslationRequest,
+  type NativeStackWindowMaterializationRequest,
 } from "../native-stack-translation.ts";
 
 function request(): NativeStackTranslationRequest {
@@ -32,6 +34,18 @@ function request(): NativeStackTranslationRequest {
         ],
       },
     ],
+  };
+}
+
+function windowRequest(): NativeStackWindowMaterializationRequest {
+  return {
+    ...request(),
+    sourceStackBase: "0x7fff0000",
+    sourceStackLimit: "0x80000000",
+    targetStackLimit: "0x7fffffffe100",
+    guardBelowAddress: "0x7fffffffd000",
+    guardAboveAddress: "0x7ffffffff000",
+    pointerRanges: [{ id: "heap", targetBase: "0x700000", targetLimit: "0x701000" }],
   };
 }
 
@@ -106,5 +120,91 @@ describe("native stack translation", () => {
         message: expect.stringContaining("slot 40"),
       }),
     ]);
+  });
+
+  it("materializes a bounded translated stack window with guard pages", () => {
+    const result = planNativeStackWindowMaterialization(windowRequest());
+
+    expect(result.state).toBe("materialized");
+    expect(result.refusals).toEqual([]);
+    expect(result.targetWindow).toEqual({
+      base: "0x7fffffffe000",
+      limit: "0x7fffffffe100",
+      sizeBytes: 64,
+    });
+    expect(result.guards).toEqual({ below: "0x7fffffffd000", above: "0x7ffffffff000" });
+  });
+
+  it("refuses translated stack windows that do not fit the target range", () => {
+    const input = windowRequest();
+    input.targetStackLimit = "0x7fffffffe020";
+
+    const result = planNativeStackWindowMaterialization(input);
+
+    expect(result.state).toBe("refused");
+    expect(result.refusals).toEqual([
+      expect.objectContaining({
+        code: "target-stack-window-unsupported",
+        message: expect.stringContaining("fit"),
+      }),
+    ]);
+  });
+
+  it("refuses guard pages that do not bracket the target window", () => {
+    const input = windowRequest();
+    input.guardAboveAddress = "0x7fffffffe080";
+
+    const result = planNativeStackWindowMaterialization(input);
+
+    expect(result.refusals).toEqual([
+      expect.objectContaining({
+        code: "target-stack-window-unsupported",
+        message: expect.stringContaining("guard"),
+      }),
+    ]);
+  });
+
+  it("refuses pointer slots outside materialized target ranges", () => {
+    const input = windowRequest();
+    input.frames[0]!.locals[1]!.targetValue = "0x900000";
+
+    const result = planNativeStackWindowMaterialization(input);
+
+    expect(result.refusals).toEqual([
+      expect.objectContaining({
+        code: "pointer-ambiguous",
+        message: expect.stringContaining("outside materialized target ranges"),
+      }),
+    ]);
+  });
+
+  it("refuses stack slots that fall outside their validated frame", () => {
+    const input = windowRequest();
+    input.frames[0]!.locals[1]!.offset = 80;
+
+    const result = planNativeStackWindowMaterialization(input);
+
+    expect(result.refusals).toEqual([
+      expect.objectContaining({
+        code: "target-stack-window-unsupported",
+        message: expect.stringContaining("outside the frame"),
+      }),
+    ]);
+  });
+
+  it("refuses malformed stack-window addresses without throwing", () => {
+    const input = windowRequest();
+    input.targetStackBase = "not-hex";
+
+    const result = planNativeStackWindowMaterialization(input);
+
+    expect(result.state).toBe("refused");
+    expect(result.targetWindow.base).toBe("not-hex");
+    expect(result.refusals).toContainEqual(
+      expect.objectContaining({
+        code: "target-stack-window-unsupported",
+        message: expect.stringContaining("target stack base"),
+      }),
+    );
   });
 });

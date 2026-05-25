@@ -116,7 +116,13 @@ function summarizeBundle(context) {
     sourceRegisterArchs: context.bundle.threads.threads.map(
       (thread) => thread.sourceRegisters.arch,
     ),
+    tlsSourceRegisters: context.bundle.threads.threads.map(
+      (thread) => thread.tls.sourceRegister ?? "missing",
+    ),
     syscallStates: context.bundle.threads.threads.map((thread) => thread.syscall.state),
+    simdFpuStates: context.bundle.threads.threads.map(
+      (thread) => thread.simdFpu?.state ?? "missing",
+    ),
     resourceCount: context.bundle.resources.resources.length,
     resourceKinds: [
       ...new Set(context.bundle.resources.resources.map((resource) => resource.kind)),
@@ -144,8 +150,16 @@ function validateSummary(summary) {
     "thread register architecture mismatch",
   );
   assert(
+    summary.tlsSourceRegisters.every((source) => source !== "missing"),
+    "thread TLS source register was not captured",
+  );
+  assert(
     summary.syscallStates.every((state) => state === "outside-syscall"),
     "spinning capture target should be outside syscalls",
+  );
+  assert(
+    summary.simdFpuStates.every((state) => state !== "missing"),
+    "thread SIMD/FPU policy state was not captured",
   );
   assert(summary.resourceKinds.includes("auxv"), "auxv resource was not captured");
   assert(summary.resourceKinds.includes("file"), "file descriptor resource was not captured");

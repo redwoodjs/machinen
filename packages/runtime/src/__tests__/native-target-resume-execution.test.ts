@@ -59,9 +59,39 @@ const invalidLanding: NativeTargetResumeLandingProvenance = {
 };
 
 function syntheticLanding(
-  failureKind: "signal-restart-unsupported" | "syscall-return-unmodeled",
+  failureKind:
+    | "signal-interrupted-unsupported"
+    | "signal-restart-unsupported"
+    | "syscall-return-unmodeled",
   failureExitStatus: number,
 ): NativeTargetResumeLandingProvenance {
+  const syscall =
+    failureKind === "syscall-return-unmodeled"
+      ? { name: "ppoll", number: 271 }
+      : { name: "clock_nanosleep", number: 230 };
+  const syscallReturn =
+    failureKind === "signal-interrupted-unsupported"
+      ? {
+          register: "rax" as const,
+          condition: "equals-negative-errno" as const,
+          errno: 4,
+          errnoName: "EINTR",
+        }
+      : failureKind === "signal-restart-unsupported"
+        ? {
+            register: "rax" as const,
+            condition: "restart-like-negative-errno" as const,
+            errnos: [{ errno: 512, errnoName: "ERESTARTSYS" }],
+          }
+        : {
+            register: "rax" as const,
+            condition: "other-negative-errno" as const,
+            errnoRange: { min: 1, max: 4095 },
+            excludedErrnos: [
+              { errno: 4, errnoName: "EINTR" },
+              { errno: 512, errnoName: "ERESTARTSYS" },
+            ],
+          };
   const descriptor = buildNativeSyntheticSyscallContinuationDescriptor({
     targetArch: "amd64",
     entryAddress: "0x700200000000",
@@ -69,8 +99,7 @@ function syntheticLanding(
     generatorBuildId: "test-synthetic-syscall",
     bytes: new Uint8Array([0x0f, 0x05]),
     syscall: {
-      name: failureKind === "signal-restart-unsupported" ? "clock_nanosleep" : "ppoll",
-      number: failureKind === "signal-restart-unsupported" ? 230 : 271,
+      ...syscall,
       arguments: [],
     },
     registerSetup: {
@@ -92,23 +121,12 @@ function syntheticLanding(
           exitStatus: failureExitStatus,
           failureKind,
           failureReason:
-            failureKind === "signal-restart-unsupported"
+            failureKind === "signal-interrupted-unsupported"
               ? "test syscall returned -EINTR"
-              : "test syscall returned another negative errno",
-          syscallReturn:
-            failureKind === "signal-restart-unsupported"
-              ? {
-                  register: "rax",
-                  condition: "equals-negative-errno",
-                  errno: 4,
-                  errnoName: "EINTR",
-                }
-              : {
-                  register: "rax",
-                  condition: "other-negative-errno",
-                  errnoRange: { min: 1, max: 4095 },
-                  excludedErrnos: [{ errno: 4, errnoName: "EINTR" }],
-                },
+              : failureKind === "signal-restart-unsupported"
+                ? "test syscall returned a restart-like errno"
+                : "test syscall returned another negative errno",
+          syscallReturn,
         },
       ],
     },
@@ -292,6 +310,53 @@ describe("native target resume execution planning", () => {
     expect(classified).toEqual({ state: "not-faulted", refusals: [] });
   });
 
+  it("classifies descriptor synthetic EINTR exits fail-closed through the shared gate", () => {
+    const classified = classifyNativeTargetResumeExecutionAttempt(
+      {
+        status: "exited",
+        targetArch: "amd64",
+        entryAddress: "0x700200000000",
+        stackPointer: "0x500000010000",
+        targetBytesStart: "0x700200000000",
+        targetBytesEnd: "0x700200000040",
+        exitStatus: 110,
+        instructionPointerInTargetBytes: true,
+        attemptedResume: true,
+        sourceTextReusedAsTargetCode: false,
+        sourceIsaEmulationUsed: false,
+        sidecarRuntimeUsed: false,
+      },
+      { landingProvenance: [syntheticLanding("signal-interrupted-unsupported", 110)] },
+    );
+
+    expect(classified).toMatchObject({
+      state: "classified",
+      refusals: [
+        {
+          code: "target-synthetic-signal-interrupted-unsupported",
+          detail: {
+            descriptorHash: expect.any(String),
+            exitStatus: 110,
+            errno: 4,
+            errnoName: "EINTR",
+            syscall: { name: "clock_nanosleep", number: 230 },
+            syscallReturn: { condition: "equals-negative-errno", errno: 4, errnoName: "EINTR" },
+            syntheticContinuation: {
+              kind: "synthetic-syscall-continuation",
+              descriptorSha256: expect.any(String),
+              syscall: { name: "clock_nanosleep", number: 230 },
+              failureExitBucket: {
+                exitStatus: 110,
+                failureKind: "signal-interrupted-unsupported",
+              },
+            },
+          },
+        },
+      ],
+      classification: { attemptedResume: true, migrationCompleted: false },
+    });
+  });
+
   it("classifies descriptor synthetic restart exits fail-closed through the shared gate", () => {
     const classified = classifyNativeTargetResumeExecutionAttempt(
       {
@@ -319,10 +384,9 @@ describe("native target resume execution planning", () => {
           detail: {
             descriptorHash: expect.any(String),
             exitStatus: 111,
-            errno: 4,
-            errnoName: "EINTR",
+            errnos: [{ errno: 512, errnoName: "ERESTARTSYS" }],
             syscall: { name: "clock_nanosleep", number: 230 },
-            syscallReturn: { condition: "equals-negative-errno", errno: 4, errnoName: "EINTR" },
+            syscallReturn: { condition: "restart-like-negative-errno" },
             syntheticContinuation: {
               kind: "synthetic-syscall-continuation",
               descriptorSha256: expect.any(String),
@@ -368,7 +432,10 @@ describe("native target resume execution planning", () => {
             exitStatus: 112,
             syscall: { name: "ppoll", number: 271 },
             errnoRange: { min: 1, max: 4095 },
-            excludedErrnos: [{ errno: 4, errnoName: "EINTR" }],
+            excludedErrnos: [
+              { errno: 4, errnoName: "EINTR" },
+              { errno: 512, errnoName: "ERESTARTSYS" },
+            ],
             syscallReturn: { condition: "other-negative-errno" },
             syntheticContinuation: {
               descriptorSha256: expect.any(String),

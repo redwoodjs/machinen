@@ -14,19 +14,34 @@ The success target remains native-transparent Option B:
 - no captured source text reused as target code
 - unsafe or ambiguous process state fails closed with a precise refusal
 
+For machine-level restore, raw cross-ISA `.vmstate` replay is not a success path:
+source kernel/vCPU/device state is ISA-specific. The portable machine boundary is
+tracked in [Portable machine snapshot boundary](./portable-machine-snapshot.md):
+boot/preload a target-ISA VM, then restore only modeled process/resource state.
+
 ## Current proven point
 
-The current `/bin/sleep` proof captures a live arm64 process blocked in a modeled
-sleep syscall, synthesizes target-native amd64 syscall bytes, runs those bytes on
-an amd64 host, and exits the target process with status `0` after the modeled
-syscall succeeds. The next narrow proof adds the same generated-byte path for
-`ppoll(NULL, 0, &timeout, NULL)` so a second blocking family shares the descriptor
-and failure telemetry. These are narrow completion proofs, not arbitrary process
-migration.
+The current portable machine VM proof captures an arm64 native-process bundle,
+wraps it in a portable machine snapshot, stages target-native amd64 continuation
+bytes, boots an amd64 target VM, and completes through the in-guest restore
+loader without sidecars or source-ISA emulation. The target trampoline now
+consumes native restore sections for stack windows, bounded return-chain writes,
+private memory, executable provenance checks, signal masks, modeled active
+syscall timer re-arm, and controlled thread-spawn steps before reporting success.
 
-The active frontier is generated target-native blocking syscall continuations.
-Broad libc/TLS/vDSO materialization remains deferred until multiple syscall
-families share the same continuation, failure, and provenance shape.
+The latest remote arm64→amd64 proof captured a real two-thread arm64 source
+bundle with one thread blocked in a modeled `ppoll` timeout. The amd64 target VM
+completed through a real utility continuation returning `0x4d` and passed
+state-consumption, fd/resource, return-chain, translated-frame, register,
+RFLAGS, TLS, stack-window, private-memory, executable-mapping, signal restore,
+active-syscall re-arm, and controlled thread-spawn gates. This is still a narrow
+completion proof, not arbitrary process or whole-machine migration.
+
+The active frontier is now broader real-process coverage through this target
+loader path while preserving exact refusals for unsupported kernel/user ABI
+state. More syscall/resource families should come before broad libc/vDSO/vvar,
+argv/env/auxv/cwd, arbitrary restart semantics, futex/rseq handoff, or general
+multithread restore claims.
 
 ## Ordered proof ladder
 
@@ -39,13 +54,13 @@ failure buckets, and no-source-reuse invariants.
 Done when:
 
 - descriptors include byte and descriptor hashes;
-- failure buckets distinguish restart-like returns from other negative errno
-  returns;
+- failure buckets distinguish plain `EINTR`, restart-like returns, and other
+  negative errno returns;
 - resume classification reports syscall name, syscall number, exit status,
   errno bucket, and descriptor hash;
 - `/bin/sleep` still completes through generated amd64 bytes.
 
-### 2. Second blocking syscall family — in progress
+### 2. Second blocking syscall family — done
 
 Goal: prove a second syscall family with the same descriptor and failure gate.
 The preferred first target is `ppoll` with:
@@ -67,9 +82,10 @@ Required refusals:
 - missing or unreadable timeout memory refuses precisely;
 - missing ppoll code-location/materialization support refuses as
   `target-ppoll-syscall-continuation-missing`;
-- restart-like and other negative errno returns keep `migrationCompleted: false`.
+- plain `EINTR`, restart-like, and other negative errno returns keep
+  `migrationCompleted: false`.
 
-### 3. Generic synthetic syscall builder
+### 3. Generic synthetic syscall builder — done
 
 Goal: move sleep and `ppoll` onto shared generated-code helpers instead of
 per-syscall byte assembly drift.
@@ -81,7 +97,7 @@ Done when:
 - success/failure completion snippets are shared;
 - sleep and `ppoll` tests assert the same invariants.
 
-### 4. Continue after a target-native syscall — in progress
+### 4. Continue after a target-native syscall — done
 
 Goal: prove a generated target-native syscall can return into a controlled
 target-native caller frame instead of exiting the process immediately.
@@ -93,72 +109,163 @@ Done when:
 - the proof observes target-native code running after the syscall return;
 - synthetic exit remains available as a narrow proof mode.
 
-### 5. Signal and restart semantics
+### 5. Signal and restart semantics — fail-closed contract done
 
-Goal: replace fail-closed restart buckets with modeled signal/restart behavior
-where safe.
+Goal: make interrupted syscall outcomes explicit before replacing fail-closed
+restart buckets with modeled signal/restart behavior where safe.
 
-Done when:
+Done:
 
-- pending signals, signal masks, and interrupted syscalls are captured in the
+- generated continuations reserve status `110` for plain `EINTR`, `111` for
+  `ERESTART*`-style restart-like returns, and `112` for other negative errno
+  returns;
+- descriptor-aware classification refuses those as
+  `target-synthetic-signal-interrupted-unsupported`,
+  `target-synthetic-signal-restart-unsupported`, or
+  `target-synthetic-syscall-return-unmodeled`;
+- descriptors carry a restart contract naming the missing pending-signal,
+  signal-mask, restart-block, and timeout-accounting evidence.
+
+Still future work:
+
+- capture pending signals, signal masks, and interrupted syscall state in the
   process image;
-- `EINTR` and `ERESTART*` states either restart correctly or refuse with a
-  specific reason;
-- remaining-time contracts are explicit for each blocking syscall family.
+- restart only when the target can prove the same signal/restart semantics;
+- make remaining-time contracts explicit for each blocking syscall family.
 
-### 6. FD-backed blocking syscalls
+### 6. FD-backed blocking syscalls — done
 
 Goal: extend the second-family proof from zero fds to one modeled fd/resource.
-Start with resources whose semantics are easiest to prove, such as a pipe,
-eventfd, timerfd, regular file, or inherited stdio.
+The first resources are deliberately narrow: a captured `struct pollfd` with one
+`POLLIN` read end whose captured resource is either a pipe or an empty
+non-semaphore eventfd. The target recipe creates a fresh empty pipe read end (and
+keeps its write end open) or a fresh empty eventfd at the same fd, so `ppoll`
+remains timeout-driven instead of readiness-driven.
 
 Done when:
 
 - captured fd identity maps to a target resource recipe;
 - readiness and partial-transfer state are modeled or refused;
-- target-native execution observes the expected fd behavior after restore.
+- target-native execution observes the expected fd behavior after restore;
+- non-one-fd, wrong-resource, unsupported-flag/state, non-`POLLIN`,
+  non-empty-`revents`, and signal-mask cases keep refusing as
+  `target-ppoll-timeout-missing`.
 
-### 7. Real utility beyond `/bin/sleep`
+### 7. Target fd-table recipes — done
+
+Goal: replace one-off modeled-fd flags with a deterministic target fd-table plan
+that can feed the in-guest loader.
+
+Done when:
+
+- stable captured fd -> target fd mappings are emitted for every modeled fd;
+- regular files, stdout/stderr inheritance, explicit close slots, synthetic
+  empty pipes, synthetic empty eventfds, and synthetic timerfds become loader
+  resource recipes;
+- duplicate fds and unsupported descriptors refuse before target execution;
+- close-on-exec provenance is forwarded to the trampoline and applied after the
+  loader-to-trampoline `exec` boundary but before the target-native jump.
+
+### 8. Real utility beyond `/bin/sleep` — done
 
 Goal: prove a real unmodified utility whose blocked syscall matches the expanded
-blocking-family model.
+blocking-family model. The first narrow utility is the packaged `/usr/bin/perl`
+executable using its standard `IO::Poll` module to block in one-fd `ppoll` on an
+empty pipe. The command text shapes the source wait only; target execution still
+uses generated amd64 syscall bytes, not source text.
 
 Done when:
 
 - the source utility is captured live on arm64;
 - the target continuation runs as amd64 without sidecars or emulation;
 - observable behavior continues or exits successfully according to the modeled
-  utility contract;
-- unrelated resources still refuse precisely.
+  utility contract, including target-native exit `0` for the packaged Perl
+  one-fd `ppoll` proof;
+- missing fd resources, non-pipe fds, pipe write ends, wrong events, non-empty
+  `revents`, `nfds > 1`, and non-null signal masks refuse precisely.
 
-### 8. Target process memory materialization
+### 9. Target process memory materialization — partial target-loader proof done
 
 Goal: resume more than isolated generated syscall bytes by materializing the
 minimum target process memory needed for real continuation.
 
-Likely subproofs:
+Done so far:
 
-- writable mapping and stack materialization;
-- heap/brk/mmap layout policy;
-- argv/env/auxv/cwd handoff;
-- guard mappings;
-- target libc data dependencies.
+- target private writable ranges are mapped, copied, protected, and guarded from
+  native private-memory sections;
+- target stack-window and bounded return-chain writes are materialized;
+- a minimal target-owned TCB can be backed by native private memory and handed to
+  `%fs`;
+- target executable mappings are verified by target file provenance instead of
+  copying source executable bytes.
 
-TLS, vDSO, and vvar should return here only after syscall-family proofs provide
-comparison points for what must be modeled versus refused.
+Still future work:
 
-### 9. Threads, futexes, and rseq
+- broader heap/brk/mmap layout policy;
+- libc/vDSO/vvar data dependencies beyond the bounded target argv/envp/auxv
+  pointer block;
+- target-specific materialization or explicit refusal for `AT_RANDOM`,
+  `AT_EXECFN`, vDSO, and vvar semantics.
 
-Goal: move from single-thread proofs to controlled multi-thread restore.
+### 10. Combined descriptor gate — done
+
+Goal: feed continuation bytes, target guest memory materialization entries, and
+fd-table recipes into one restore descriptor, refusing unsafe pieces before guest
+execution.
 
 Done when:
 
-- multi-thread state refuses precisely by default;
-- a controlled two-thread proof translates scheduler-visible state safely;
-- futex wait/wake and rseq either model their kernel contracts or refuse with
-  exact blockers.
+- one descriptor contains the continuation, safe non-executable memory entries,
+  and modeled fd recipes;
+- fd-table refusals and memory refusals prevent descriptor execution;
+- the descriptor preserves no-source-text, no-source-ISA-emulation, and no-sidecar
+  invariants.
 
-### 10. Full transparent restore claim
+### 11. Threads, futexes, and rseq — controlled target proof and refusal tightening done
+
+Goal: move from single-thread proofs to controlled multi-thread restore.
+
+Done so far:
+
+- multi-thread state refuses precisely by default;
+- exactly two safe threads can be planned at the boundary;
+- controlled `thread-spawn` target sections are forwarded to the loader and
+  consumed by the amd64 trampoline as short-lived target tasks;
+- active futex syscalls and futex resources refuse with `futex-state-unsupported`
+  plus detail for word translation, waiter queues, wake/requeue ordering, and
+  robust-list owner-death semantics;
+- captured/unsupported rseq state refuses with `rseq-state-unsupported` plus
+  detail for target registration lifecycle, abort IP translation, and TLS rseq
+  ownership;
+- the remote portable-machine proof captures a real two-thread arm64 source
+  bundle and requires the controlled target thread gate alongside the other
+  native gates.
+
+Still future work:
+
+- model futex wait/wake and rseq resume before claiming general multithread
+  restore;
+- preserve exact refusals for scheduler-visible state beyond the controlled
+  two-thread proof.
+
+### 12. Broader real-process coverage
+
+Goal: widen the constrained class of accepted native cross-ISA Linux processes
+without relaxing the all-gates success contract.
+
+Next steps:
+
+- add more real resource/syscall families with explicit target recipes, starting
+  with cases that avoid readiness ambiguity;
+- extend process-context modeling beyond the bounded target argv/envp/auxv
+  pointer block only where libc/vDSO/vvar, `AT_RANDOM`, and `AT_EXECFN`
+  dependencies are explicit;
+- expand private target memory only when provenance, permissions, guards, and
+  pointer ownership are explicit;
+- revisit target libc/vDSO/vvar data dependencies after those narrower families
+  provide comparison points.
+
+### 13. Full transparent restore claim
 
 Goal: claim native cross-ISA live process migration for a constrained class of
 real Linux processes.
@@ -196,8 +303,11 @@ Then run the relevant remote proof pair:
 1. arm64 capture/modeling proof on `friend@100.126.46.90`;
 2. amd64 target execution proof on `root@192.168.0.8` / CT `111` when reachable.
 
-Run full `pnpm smoke-tests` only when the change touches VM lifecycle, rootfs,
-boot/exec/mount, snapshot/restore, memory/ballooning, virtio devices, FUSE/live
-mounts, or when broad end-to-end validation is explicitly requested.
+Run `pnpm smoke-portable-machine-restore` when the change touches portable
+machine bundle layout, target-guest loader descriptors, target VM restore wiring,
+or VM-level portable cross-ISA restore behavior. Run full `pnpm smoke-tests` only
+when the change touches VM lifecycle, rootfs, boot/exec/mount, snapshot/restore,
+memory/ballooning, virtio devices, FUSE/live mounts, or when broad end-to-end
+validation is explicitly requested.
 
 Always include timings when reporting validation results.

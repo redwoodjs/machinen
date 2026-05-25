@@ -1,0 +1,20 @@
+{
+  "kind": "machinen.application-harness",
+  "name": "planning-only-refusal-harness",
+  "workload": {
+    "name": "runtime-planning-smoke",
+    "inputs": ["fixture"]
+  },
+  "runtimeManifest": "node-planning-fixture",
+  "requiredCapabilities": ["fd:regular-file"],
+  "expectedResult": "refusal",
+  "expectedTargetOutput": null,
+  "correctnessHooks": [],
+  "successProhibitions": [
+    "app-hook-required",
+    "source-isa-execution",
+    "sidecar-runtime-success",
+    "source-text-replay"
+  ],
+  "refusalExpectations": ["runtime-app-hook-required", "runtime-source-text-replay"]
+}

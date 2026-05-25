@@ -71,6 +71,8 @@ first native-translation blockers:
 - `target-module-range-unreadable`
 - `target-code-location-unresolved`
 - `target-code-rva-unmapped`
+- `target-fd-table-duplicate`
+- `target-fd-table-missing`
 - `unwind-metadata-missing`
 - `unwind-fde-missing`
 - `unwind-rule-unsupported`
@@ -81,6 +83,9 @@ first native-translation blockers:
 - `target-caller-frame-unavailable`
 - `target-return-slot-unsupported`
 - `target-resume-execution-unavailable`
+- `target-synthetic-signal-interrupted-unsupported`
+- `target-synthetic-signal-restart-unsupported`
+- `target-synthetic-syscall-return-unmodeled`
 - `target-callee-saved-state-unsupported`
 
 Unsupported work must emit a precise refusal instead of silently copying source

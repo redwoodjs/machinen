@@ -53,6 +53,8 @@
 - [`NativeProcessImageMappings`](#nativeprocessimagemappings)
 - [`NativeArm64Registers`](#nativearm64registers)
 - [`NativeAmd64Registers`](#nativeamd64registers)
+- [`NativeSimdFpuLiveSubset`](#nativesimdfpulivesubset)
+- [`NativeSimdFpuState`](#nativesimdfpustate)
 - [`NativeThreadState`](#nativethreadstate)
 - [`NativeProcessImageThreads`](#nativeprocessimagethreads)
 - [`NativeProcessResource`](#nativeprocessresource)
@@ -78,28 +80,164 @@
 - [`validateNativeProcessImageBundle`](#validatenativeprocessimagebundle)
 - [`validateNativeProcessImageDocuments`](#validatenativeprocessimagedocuments)
 - [`assertNativeProcessImageDocuments`](#assertnativeprocessimagedocuments)
+- [`PortableMachineSnapshotArchitecture`](#portablemachinesnapshotarchitecture)
+- [`PortableMachineSnapshotRefusalCode`](#portablemachinesnapshotrefusalcode)
+- [`PortableMachineSnapshotRefusal`](#portablemachinesnapshotrefusal)
+- [`PortableMachineSnapshotRefusals`](#portablemachinesnapshotrefusals)
+- [`PortableMachineSnapshotManifest`](#portablemachinesnapshotmanifest)
+- [`PortableMachineSnapshotDocuments`](#portablemachinesnapshotdocuments)
+- [`PORTABLE_MACHINE_SNAPSHOT_FORMAT_VERSION`](#portable_machine_snapshot_format_version)
+- [`PORTABLE_MACHINE_SNAPSHOT_FILES`](#portable_machine_snapshot_files)
+- [`portableMachineSnapshotArchitectures`](#portablemachinesnapshotarchitectures)
+- [`portableMachineSnapshotRefusalCodes`](#portablemachinesnapshotrefusalcodes)
+- [`portableMachineSnapshotManifestSchema`](#portablemachinesnapshotmanifestschema)
+- [`PortableMachineSnapshotValidationError`](#portablemachinesnapshotvalidationerror)
+- [`crossIsaVmstateRestoreRefusal`](#crossisavmstaterestorerefusal)
+- [`buildPortableMachineSnapshotManifestFromNativeProcessImage`](#buildportablemachinesnapshotmanifestfromnativeprocessimage)
+- [`isPortableMachineSnapshotBundle`](#isportablemachinesnapshotbundle)
+- [`validatePortableMachineSnapshotBundle`](#validateportablemachinesnapshotbundle)
+- [`validatePortableMachineSnapshotManifest`](#validateportablemachinesnapshotmanifest)
+- [`TargetGuestRestoreLoaderValidationError`](#targetguestrestoreloadervalidationerror)
+- [`TargetGuestRestoreLoaderRefusalCode`](#targetguestrestoreloaderrefusalcode)
+- [`TargetGuestEpollWatchRecipe`](#targetguestepollwatchrecipe)
+- [`TargetGuestRestoreResourceRecipe`](#targetguestrestoreresourcerecipe)
+- [`TargetGuestRestoreResumeMode`](#targetguestrestoreresumemode)
+- [`TargetGuestResumeRegisterName`](#targetguestresumeregistername)
+- [`TargetGuestResumeRegisters`](#targetguestresumeregisters)
+- [`TargetGuestNativeRestoreStep`](#targetguestnativerestorestep)
+- [`TargetGuestRestoreContinuationDescriptor`](#targetguestrestorecontinuationdescriptor)
+- [`TargetGuestRestoreDescriptor`](#targetguestrestoredescriptor)
+- [`TargetGuestTranslatedFrameDescriptor`](#targetguesttranslatedframedescriptor)
+- [`TargetGuestTranslatedFrameRegister`](#targetguesttranslatedframeregister)
+- [`TargetGuestTranslatedFrameRegisterName`](#targetguesttranslatedframeregistername)
+- [`TargetGuestTranslatedFrameSlot`](#targetguesttranslatedframeslot)
+- [`TargetGuestActiveSyscallRestorePlan`](#targetguestactivesyscallrestoreplan)
+- [`TargetGuestActiveSyscallRestoreStep`](#targetguestactivesyscallrestorestep)
+- [`TargetGuestExecutableMappingStep`](#targetguestexecutablemappingstep)
+- [`TargetGuestExecutableMaterializationPlan`](#targetguestexecutablematerializationplan)
+- [`TargetGuestMemoryMaterializationKind`](#targetguestmemorymaterializationkind)
+- [`TargetGuestMemoryMaterializationEntry`](#targetguestmemorymaterializationentry)
+- [`TargetGuestCopyCapturedBytesEntry`](#targetguestcopycapturedbytesentry)
+- [`TargetGuestRecreateGuardEntry`](#targetguestrecreateguardentry)
+- [`TargetGuestMemoryMaterializationRequest`](#targetguestmemorymaterializationrequest)
+- [`TargetGuestMemoryMaterializationResult`](#targetguestmemorymaterializationresult)
+- [`TargetGuestPrivateMemoryRestorePlan`](#targetguestprivatememoryrestoreplan)
+- [`TargetGuestPrivateMemoryRestoreStep`](#targetguestprivatememoryrestorestep)
+- [`TargetGuestProcessContextRestoreMode`](#targetguestprocesscontextrestoremode)
+- [`TargetGuestProcessContextRestoreOptions`](#targetguestprocesscontextrestoreoptions)
+- [`TargetGuestProcessContextRestorePlan`](#targetguestprocesscontextrestoreplan)
+- [`TargetGuestProcessContextRestoreStep`](#targetguestprocesscontextrestorestep)
+- [`TargetGuestSignalRestorePlan`](#targetguestsignalrestoreplan)
+- [`TargetGuestSignalRestoreStep`](#targetguestsignalrestorestep)
+- [`TargetGuestTwoThreadBinding`](#targetguesttwothreadbinding)
+- [`TargetGuestTwoThreadRestorePlan`](#targetguesttwothreadrestoreplan)
+- [`TargetNativeConsumptionEvent`](#targetnativeconsumptionevent)
+- [`TargetNativeConsumptionEvents`](#targetnativeconsumptionevents)
+- [`TargetNativeConsumptionStatus`](#targetnativeconsumptionstatus)
+- [`TargetGuestTwoThreadSpawnStep`](#targetguesttwothreadspawnstep)
+- [`PortableMachineTargetRestoreDescriptorRequest`](#portablemachinetargetrestoredescriptorrequest)
+- [`PortableMachineTargetRestoreDescriptorPlan`](#portablemachinetargetrestoredescriptorplan)
+- [`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation)
+- [`PortableMachineVmRestoreProofState`](#portablemachinevmrestoreproofstate)
+- [`PortableMachineTargetContinuationKind`](#portablemachinetargetcontinuationkind)
+- [`PortableMachineTargetFrameRestoreResult`](#portablemachinetargetframerestoreresult)
+- [`PortableMachineTargetRegisterRestoreResult`](#portablemachinetargetregisterrestoreresult)
+- [`PortableMachineTargetRflagsRestoreResult`](#portablemachinetargetrflagsrestoreresult)
+- [`PortableMachineTargetTlsRestoreResult`](#portablemachinetargettlsrestoreresult)
+- [`PortableMachineTargetThreadRestoreResult`](#portablemachinetargetthreadrestoreresult)
+- [`PortableMachineTargetResourceStatus`](#portablemachinetargetresourcestatus)
+- [`PortableMachineTargetResumePathResult`](#portablemachinetargetresumepathresult)
+- [`PortableMachineTargetReturnChainResult`](#portablemachinetargetreturnchainresult)
+- [`PortableMachineTargetNativePlanConsumptionResult`](#portablemachinetargetnativeplanconsumptionresult)
+- [`PortableMachineTargetStateConsumptionResult`](#portablemachinetargetstateconsumptionresult)
+- [`PortableMachineTargetVerifierResult`](#portablemachinetargetverifierresult)
+- [`PortableMachineVmRestoreProofRequest`](#portablemachinevmrestoreproofrequest)
+- [`PortableMachineVmRestoreProofPlan`](#portablemachinevmrestoreproofplan)
+- [`PortableMachineVmRestoreTargetResult`](#portablemachinevmrestoretargetresult)
+- [`TARGET_GUEST_RESTORE_DESCRIPTOR_KIND`](#target_guest_restore_descriptor_kind)
+- [`serializeTargetGuestRestoreDescriptor`](#serializetargetguestrestoredescriptor)
+- [`parseTargetGuestRestoreDescriptor`](#parsetargetguestrestoredescriptor)
+- [`validateTargetGuestRestoreDescriptor`](#validatetargetguestrestoredescriptor)
+- [`planTargetGuestActiveSyscallRestore`](#plantargetguestactivesyscallrestore)
+- [`planTargetGuestExecutableMaterialization`](#plantargetguestexecutablematerialization)
+- [`planTargetGuestMemoryMaterialization`](#plantargetguestmemorymaterialization)
+- [`planTargetGuestPrivateMemoryRestore`](#plantargetguestprivatememoryrestore)
+- [`planTargetGuestProcessContextRestore`](#plantargetguestprocesscontextrestore)
+- [`planTargetGuestSignalRestore`](#plantargetguestsignalrestore)
+- [`planTargetGuestTwoThreadRestore`](#plantargetguesttwothreadrestore)
+- [`parseTargetNativeConsumptionEvents`](#parsetargetnativeconsumptionevents)
+- [`targetNativeConsumptionFields`](#targetnativeconsumptionfields)
+- [`targetNativeConsumptionPassed`](#targetnativeconsumptionpassed)
+- [`planPortableMachineTargetRestoreDescriptor`](#planportablemachinetargetrestoredescriptor)
+- [`planPortableMachineVmRestoreProof`](#planportablemachinevmrestoreproof)
+- [`completePortableMachineVmRestoreProof`](#completeportablemachinevmrestoreproof)
+- [`buildNativeActualResumeTrampolineArgs`](#buildnativeactualresumetrampolineargs)
+- [`buildTargetGuestRestoreLoaderArgv`](#buildtargetguestrestoreloaderargv)
 - [`NativeRegisterTranslationRequest`](#nativeregistertranslationrequest)
 - [`NativeContinuationTarget`](#nativecontinuationtarget)
 - [`NativeRegisterTranslationResult`](#nativeregistertranslationresult)
+- [`NativeTlsThreadPointerRegister`](#nativetlsthreadpointerregister)
+- [`NativeTlsAmd64SegmentBases`](#nativetlsamd64segmentbases)
+- [`NativeThreadRestorePlan`](#nativethreadrestoreplan)
+- [`NativeThreadRestorePlanRequest`](#nativethreadrestoreplanrequest)
+- [`NativeControlledTwoThreadRestorePlan`](#nativecontrolledtwothreadrestoreplan)
+- [`NativeControlledTwoThreadRestorePlanRequest`](#nativecontrolledtwothreadrestoreplanrequest)
+- [`NativeSignalBlockedMaskPolicy`](#nativesignalblockedmaskpolicy)
+- [`NativeSignalRestorePolicyRequest`](#nativesignalrestorepolicyrequest)
+- [`NativeSignalRestorePolicyResult`](#nativesignalrestorepolicyresult)
+- [`NativeSimdFpuLiveSubsetPolicy`](#nativesimdfpulivesubsetpolicy)
+- [`NativeSimdFpuRestorePolicyResult`](#nativesimdfpurestorepolicyresult)
+- [`NativeThreadTlsPolicyRequest`](#nativethreadtlspolicyrequest)
+- [`NativeTlsSegmentBaseHandoffRequest`](#nativetlssegmentbasehandoffrequest)
+- [`NativeTlsSegmentBaseHandoffResult`](#nativetlssegmentbasehandoffresult)
+- [`NativeTlsTargetAccessPolicy`](#nativetlstargetaccesspolicy)
 - [`translateNativeRegisterState`](#translatenativeregisterstate)
+- [`planNativeThreadRestoreBoundary`](#plannativethreadrestoreboundary)
+- [`planNativeControlledTwoThreadRestoreBoundary`](#plannativecontrolledtwothreadrestoreboundary)
+- [`planNativeSignalRestorePolicy`](#plannativesignalrestorepolicy)
+- [`safeSignalRestoreRefusal`](#safesignalrestorerefusal)
+- [`NATIVE_SIMD_FPU_LIVE_SUBSET_POLICY`](#native_simd_fpu_live_subset_policy)
+- [`planNativeSimdFpuLiveSubsetPolicy`](#plannativesimdfpulivesubsetpolicy)
+- [`planNativeSimdFpuRestorePolicy`](#plannativesimdfpurestorepolicy)
+- [`safeSimdFpuRefusal`](#safesimdfpurefusal)
+- [`planNativeTlsSegmentBaseHandoff`](#plannativetlssegmentbasehandoff)
+- [`safeTlsSegmentBaseRefusal`](#safetlssegmentbaserefusal)
 - [`NativeActiveSyscallClass`](#nativeactivesyscallclass)
 - [`NativeSleepTimerSyscallPolicy`](#nativesleeptimersyscallpolicy)
 - [`NativePollTimeoutSyscallPolicy`](#nativepolltimeoutsyscallpolicy)
+- [`NativePollTimeoutFdPolicy`](#nativepolltimeoutfdpolicy)
+- [`NativeFdReadPolicy`](#nativefdreadpolicy)
+- [`NativeFdReadResourcePolicy`](#nativefdreadresourcepolicy)
+- [`NativeFdWritePolicy`](#nativefdwritepolicy)
+- [`NativeFdWriteResourcePolicy`](#nativefdwriteresourcepolicy)
 - [`NativeActiveSyscallPolicyOptions`](#nativeactivesyscallpolicyoptions)
 - [`NativeSleepTimerDuration`](#nativesleeptimerduration)
 - [`NativeModeledSleepTimerRemainingTime`](#nativemodeledsleeptimerremainingtime)
 - [`NativeModeledSleepTimerState`](#nativemodeledsleeptimerstate)
 - [`NativeModeledPpollTimeoutRemainingTime`](#nativemodeledppolltimeoutremainingtime)
+- [`NativeModeledPpollTargetResource`](#nativemodeledppolltargetresource)
+- [`NativeModeledPpollFdState`](#nativemodeledppollfdstate)
 - [`NativeModeledPpollTimeoutState`](#nativemodeledppolltimeoutstate)
+- [`NativeModeledFdReadTargetResource`](#nativemodeledfdreadtargetresource)
+- [`NativeModeledFdReadTimerRemainingTime`](#nativemodeledfdreadtimerremainingtime)
+- [`NativeModeledFdReadState`](#nativemodeledfdreadstate)
+- [`NativeModeledFdWriteTargetResource`](#nativemodeledfdwritetargetresource)
+- [`NativeModeledFdWriteState`](#nativemodeledfdwritestate)
 - [`NativeSleepTimerModelResult`](#nativesleeptimermodelresult)
 - [`NativePpollTimeoutModelResult`](#nativeppolltimeoutmodelresult)
+- [`NativeFdReadModelResult`](#nativefdreadmodelresult)
+- [`NativeFdWriteModelResult`](#nativefdwritemodelresult)
 - [`NativeActiveSleepTimerContinuation`](#nativeactivesleeptimercontinuation)
 - [`NativeActivePpollTimeoutContinuation`](#nativeactiveppolltimeoutcontinuation)
+- [`NativeActiveFdReadContinuation`](#nativeactivefdreadcontinuation)
+- [`NativeActiveFdWriteContinuation`](#nativeactivefdwritecontinuation)
 - [`NativeActiveSyscallContinuation`](#nativeactivesyscallcontinuation)
 - [`NativeActiveSyscallClassification`](#nativeactivesyscallclassification)
 - [`NativeActiveSyscallClassificationResult`](#nativeactivesyscallclassificationresult)
 - [`modelNativeSleepTimerState`](#modelnativesleeptimerstate)
 - [`modelNativePpollTimeoutState`](#modelnativeppolltimeoutstate)
+- [`modelNativeFdReadState`](#modelnativefdreadstate)
+- [`modelNativeFdWriteState`](#modelnativefdwritestate)
 - [`classifyNativeThreadSyscall`](#classifynativethreadsyscall)
 - [`classifyNativeActiveSyscalls`](#classifynativeactivesyscalls)
 - [`NativeCodeModule`](#nativecodemodule)
@@ -149,17 +287,21 @@
 - [`NativeSyntheticSyscallArgumentDescriptor`](#nativesyntheticsyscallargumentdescriptor)
 - [`NativeSyntheticSyscallDescriptor`](#nativesyntheticsyscalldescriptor)
 - [`NativeSyntheticContinuationRegisterSetupDescriptor`](#nativesyntheticcontinuationregistersetupdescriptor)
+- [`NativeSyntheticContinuationRestartContract`](#nativesyntheticcontinuationrestartcontract)
 - [`NativeSyntheticContinuationStackSetupDescriptor`](#nativesyntheticcontinuationstacksetupdescriptor)
 - [`NativeSyntheticContinuationFailureExitBucket`](#nativesyntheticcontinuationfailureexitbucket)
 - [`NativeSyntheticContinuationCompletionDescriptor`](#nativesyntheticcontinuationcompletiondescriptor)
 - [`NativeSyntheticSyscallContinuationDescriptorRequest`](#nativesyntheticsyscallcontinuationdescriptorrequest)
 - [`NativeSyntheticSyscallContinuationDescriptorPayload`](#nativesyntheticsyscallcontinuationdescriptorpayload)
 - [`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor)
+- [`NATIVE_SYNTHETIC_SYSCALL_EINTR_EXIT_STATUS`](#native_synthetic_syscall_eintr_exit_status)
 - [`NATIVE_SYNTHETIC_SYSCALL_RESTART_EXIT_STATUS`](#native_synthetic_syscall_restart_exit_status)
 - [`NATIVE_SYNTHETIC_SYSCALL_UNMODELED_RETURN_EXIT_STATUS`](#native_synthetic_syscall_unmodeled_return_exit_status)
 - [`buildNativeSyntheticSyscallContinuationDescriptor`](#buildnativesyntheticsyscallcontinuationdescriptor)
+- [`nativeSyntheticEintrErrno`](#nativesyntheticeintrerrno)
 - [`nativeSyntheticRestartLikeErrnos`](#nativesyntheticrestartlikeerrnos)
 - [`nativeSyntheticSyscallFailureExitBuckets`](#nativesyntheticsyscallfailureexitbuckets)
+- [`nativeSyntheticSyscallRestartContract`](#nativesyntheticsyscallrestartcontract)
 - [`nativeSyntheticExitProcessSuffix`](#nativesyntheticexitprocesssuffix)
 - [`nativeSyntheticContinuationBytesHex`](#nativesyntheticcontinuationbyteshex)
 - [`nativeSyntheticContinuationBytesSha256`](#nativesyntheticcontinuationbytessha256)
@@ -193,6 +335,7 @@
 - [`NATIVE_SYNTHETIC_SLEEP_SYSCALL_LOGICAL_NAME`](#native_synthetic_sleep_syscall_logical_name)
 - [`NATIVE_SYNTHETIC_SLEEP_SYSCALL_PATH`](#native_synthetic_sleep_syscall_path)
 - [`NATIVE_SYNTHETIC_SLEEP_SYSCALL_BASE`](#native_synthetic_sleep_syscall_base)
+- [`NATIVE_SYNTHETIC_SLEEP_SYSCALL_EINTR_EXIT_STATUS`](#native_synthetic_sleep_syscall_eintr_exit_status)
 - [`NATIVE_SYNTHETIC_SLEEP_SYSCALL_FAILURE_EXIT_STATUS`](#native_synthetic_sleep_syscall_failure_exit_status)
 - [`NATIVE_SYNTHETIC_SLEEP_SYSCALL_RESTART_EXIT_STATUS`](#native_synthetic_sleep_syscall_restart_exit_status)
 - [`NATIVE_SYNTHETIC_SLEEP_SYSCALL_UNMODELED_RETURN_EXIT_STATUS`](#native_synthetic_sleep_syscall_unmodeled_return_exit_status)
@@ -248,10 +391,26 @@
 - [`NativeTargetResumeExecutionPlanResult`](#nativetargetresumeexecutionplanresult)
 - [`classifyNativeTargetResumeExecutionAttempt`](#classifynativetargetresumeexecutionattempt)
 - [`planNativeTargetResumeExecution`](#plannativetargetresumeexecution)
+- [`NativeReturnChainFrameWrite`](#nativereturnchainframewrite)
+- [`NativeReturnChainMaterialization`](#nativereturnchainmaterialization)
+- [`materializeNativeReturnChainFrames`](#materializenativereturnchainframes)
+- [`NativeReturnChainFrame`](#nativereturnchainframe)
+- [`NativeReturnChainPlan`](#nativereturnchainplan)
+- [`NativeReturnChainPlanFrame`](#nativereturnchainplanframe)
+- [`NativeReturnChainPlanRequest`](#nativereturnchainplanrequest)
+- [`planNativeReturnChain`](#plannativereturnchain)
+- [`NativeStackWindowGuardMapping`](#nativestackwindowguardmapping)
+- [`NativeStackWindowMaterializedWrites`](#nativestackwindowmaterializedwrites)
+- [`NativeStackWindowWrite`](#nativestackwindowwrite)
+- [`materializeNativeStackWindowWrites`](#materializenativestackwindowwrites)
 - [`NativeStackFrame`](#nativestackframe)
+- [`NativeStackPointerRange`](#nativestackpointerrange)
 - [`NativeStackSlot`](#nativestackslot)
 - [`NativeStackTranslationRequest`](#nativestacktranslationrequest)
 - [`NativeStackTranslationResult`](#nativestacktranslationresult)
+- [`NativeStackWindowMaterializationPlan`](#nativestackwindowmaterializationplan)
+- [`NativeStackWindowMaterializationRequest`](#nativestackwindowmaterializationrequest)
+- [`planNativeStackWindowMaterialization`](#plannativestackwindowmaterialization)
 - [`translateNativeStack`](#translatenativestack)
 - [`NativeUnwindFrameRule`](#nativeunwindframerule)
 - [`NativeUnwindStackWord`](#nativeunwindstackword)
@@ -266,6 +425,17 @@
 - [`nativeUnwindReturnAddressSlot`](#nativeunwindreturnaddressslot)
 - [`parseNativeEhFrameText`](#parsenativeehframetext)
 - [`NativeMemoryWord`](#nativememoryword)
+- [`NATIVE_MACHINE_RESTORE_DESCRIPTOR_FORMAT_VERSION`](#native_machine_restore_descriptor_format_version)
+- [`NATIVE_MACHINE_RESTORE_DESCRIPTOR_KIND`](#native_machine_restore_descriptor_kind)
+- [`NativeMachineRestoreDescriptor`](#nativemachinerestoredescriptor)
+- [`NativeMachineRestoreDescriptorValidationError`](#nativemachinerestoredescriptorvalidationerror)
+- [`NativeMachineRestorePlan`](#nativemachinerestoreplan)
+- [`NativeMachineRestorePlanRequest`](#nativemachinerestoreplanrequest)
+- [`buildNativeMachineRestoreDescriptor`](#buildnativemachinerestoredescriptor)
+- [`parseNativeMachineRestoreDescriptor`](#parsenativemachinerestoredescriptor)
+- [`planNativeMachineRestore`](#plannativemachinerestore)
+- [`serializeNativeMachineRestoreDescriptor`](#serializenativemachinerestoredescriptor)
+- [`validateNativeMachineRestoreDescriptor`](#validatenativemachinerestoredescriptor)
 - [`NativeMemoryTranslationRequest`](#nativememorytranslationrequest)
 - [`NativeMemoryTranslationResult`](#nativememorytranslationresult)
 - [`translateNativeMemory`](#translatenativememory)
@@ -281,11 +451,17 @@
 - [`NativeMappingMaterializationStep`](#nativemappingmaterializationstep)
 - [`NativeMappingMaterializationRequest`](#nativemappingmaterializationrequest)
 - [`NativeMappingMaterializationResult`](#nativemappingmaterializationresult)
+- [`NativePrivateWritableGuardRequest`](#nativeprivatewritableguardrequest)
 - [`planNativeMappingMaterialization`](#plannativemappingmaterialization)
 - [`NativeInheritedStdioPolicy`](#nativeinheritedstdiopolicy)
 - [`NativeResourceTranslationRequest`](#nativeresourcetranslationrequest)
 - [`NativeResourceTranslationResult`](#nativeresourcetranslationresult)
+- [`NativeTargetFdTableEntryKind`](#nativetargetfdtableentrykind)
+- [`NativeTargetFdTableEntry`](#nativetargetfdtableentry)
+- [`NativeTargetFdTablePlanRequest`](#nativetargetfdtableplanrequest)
+- [`NativeTargetFdTablePlan`](#nativetargetfdtableplan)
 - [`translateNativeResources`](#translatenativeresources)
+- [`planNativeTargetFdTable`](#plannativetargetfdtable)
 
 ### Provision base images
 
@@ -1512,6 +1688,44 @@ Attach to `id`. Throws if id doesn't exist.
 
 ***
 
+### NativeMachineRestoreDescriptorValidationError
+
+#### Extends
+
+- `Error`
+
+#### Constructors
+
+##### Constructor
+
+> **new NativeMachineRestoreDescriptorValidationError**(`message`, `refusals?`): [`NativeMachineRestoreDescriptorValidationError`](#nativemachinerestoredescriptorvalidationerror)
+
+###### Parameters
+
+###### message
+
+`string`
+
+###### refusals?
+
+[`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[] = `[]`
+
+###### Returns
+
+[`NativeMachineRestoreDescriptorValidationError`](#nativemachinerestoredescriptorvalidationerror)
+
+###### Overrides
+
+`Error.constructor`
+
+#### Properties
+
+##### refusals
+
+> `readonly` **refusals**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[] = `[]`
+
+***
+
 ### NativeProcessImageValidationError
 
 #### Extends
@@ -1543,6 +1757,72 @@ Attach to `id`. Throws if id doesn't exist.
 ##### errors
 
 > `readonly` **errors**: `string`[]
+
+***
+
+### PortableMachineSnapshotValidationError
+
+#### Extends
+
+- `Error`
+
+#### Constructors
+
+##### Constructor
+
+> **new PortableMachineSnapshotValidationError**(`message`): [`PortableMachineSnapshotValidationError`](#portablemachinesnapshotvalidationerror)
+
+###### Parameters
+
+###### message
+
+`string`
+
+###### Returns
+
+[`PortableMachineSnapshotValidationError`](#portablemachinesnapshotvalidationerror)
+
+###### Overrides
+
+`Error.constructor`
+
+***
+
+### TargetGuestRestoreLoaderValidationError
+
+#### Extends
+
+- `Error`
+
+#### Constructors
+
+##### Constructor
+
+> **new TargetGuestRestoreLoaderValidationError**(`code`, `message`): [`TargetGuestRestoreLoaderValidationError`](#targetguestrestoreloadervalidationerror)
+
+###### Parameters
+
+###### code
+
+[`TargetGuestRestoreLoaderRefusalCode`](#targetguestrestoreloaderrefusalcode)
+
+###### message
+
+`string`
+
+###### Returns
+
+[`TargetGuestRestoreLoaderValidationError`](#targetguestrestoreloadervalidationerror)
+
+###### Overrides
+
+`Error.constructor`
+
+#### Properties
+
+##### code
+
+> `readonly` **code**: [`TargetGuestRestoreLoaderRefusalCode`](#targetguestrestoreloaderrefusalcode)
 
 ***
 
@@ -2379,6 +2659,26 @@ by default when `output` is a TTY.
 
 > `optional` **pollTimeoutPolicy?**: [`NativePollTimeoutSyscallPolicy`](#nativepolltimeoutsyscallpolicy)
 
+##### pollTimeoutFdPolicy?
+
+> `optional` **pollTimeoutFdPolicy?**: [`NativePollTimeoutFdPolicy`](#nativepolltimeoutfdpolicy)
+
+##### fdReadPolicy?
+
+> `optional` **fdReadPolicy?**: [`NativeFdReadPolicy`](#nativefdreadpolicy)
+
+##### fdReadResourcePolicy?
+
+> `optional` **fdReadResourcePolicy?**: [`NativeFdReadResourcePolicy`](#nativefdreadresourcepolicy)
+
+##### fdWritePolicy?
+
+> `optional` **fdWritePolicy?**: [`NativeFdWritePolicy`](#nativefdwritepolicy)
+
+##### fdWriteResourcePolicy?
+
+> `optional` **fdWriteResourcePolicy?**: `"reopen-file"`
+
 ##### documents?
 
 > `optional` **documents?**: [`NativeProcessImageDocuments`](#nativeprocessimagedocuments)
@@ -2389,6 +2689,7 @@ by default when `output` is a TTY.
 
 #### Extended by
 
+- [`NativeModeledFdReadTimerRemainingTime`](#nativemodeledfdreadtimerremainingtime)
 - [`NativeModeledPpollTimeoutRemainingTime`](#nativemodeledppolltimeoutremainingtime)
 - [`NativeModeledSleepTimerRemainingTime`](#nativemodeledsleeptimerremainingtime)
 
@@ -2530,6 +2831,36 @@ by default when `output` is a TTY.
 
 ***
 
+### NativeModeledPpollFdState
+
+#### Properties
+
+##### fd
+
+> **fd**: `number`
+
+##### events
+
+> **events**: `number`
+
+##### revents
+
+> **revents**: `number`
+
+##### sourceAddress
+
+> **sourceAddress**: `string`
+
+##### resourceId?
+
+> `optional` **resourceId?**: `string`
+
+##### targetResource
+
+> **targetResource**: [`NativeModeledPpollTargetResource`](#nativemodeledppolltargetresource)
+
+***
+
 ### NativeModeledPpollTimeoutState
 
 #### Properties
@@ -2548,11 +2879,15 @@ by default when `output` is a TTY.
 
 ##### fdsPointer
 
-> **fdsPointer**: `"0x0"`
+> **fdsPointer**: `string`
 
 ##### nfds
 
-> **nfds**: `0`
+> **nfds**: `0` \| `1`
+
+##### pollFds?
+
+> `optional` **pollFds?**: [`NativeModeledPpollFdState`](#nativemodeledppollfdstate)[]
 
 ##### timeoutPointer
 
@@ -2573,6 +2908,172 @@ by default when `output` is a TTY.
 ##### remainingTime
 
 > **remainingTime**: [`NativeModeledPpollTimeoutRemainingTime`](#nativemodeledppolltimeoutremainingtime)
+
+***
+
+### NativeModeledFdReadTimerRemainingTime
+
+#### Extends
+
+- [`NativeSleepTimerDuration`](#nativesleeptimerduration)
+
+#### Properties
+
+##### seconds
+
+> **seconds**: `string`
+
+###### Inherited from
+
+[`NativeSleepTimerDuration`](#nativesleeptimerduration).[`seconds`](#seconds)
+
+##### nanoseconds
+
+> **nanoseconds**: `number`
+
+###### Inherited from
+
+[`NativeSleepTimerDuration`](#nativesleeptimerduration).[`nanoseconds`](#nanoseconds)
+
+##### state
+
+> **state**: `"modeled"`
+
+##### kind
+
+> **kind**: `"relative-duration"`
+
+##### source
+
+> **source**: `"active-syscall-timerfd-read-timeout"`
+
+##### precision
+
+> **precision**: `"captured-fdinfo-upper-bound"`
+
+***
+
+### NativeModeledFdReadState
+
+#### Properties
+
+##### kind
+
+> **kind**: `"fd-read-block"`
+
+##### syscallName
+
+> **syscallName**: `"read"` \| `"pread64"` \| `"readv"`
+
+##### argumentSource
+
+> **argumentSource**: `"proc-syscall"` \| `"registers"`
+
+##### fd
+
+> **fd**: `number`
+
+##### bufferPointer
+
+> **bufferPointer**: `string`
+
+##### countBytes
+
+> **countBytes**: `number`
+
+##### iovPointer?
+
+> `optional` **iovPointer?**: `string`
+
+##### iovCount?
+
+> `optional` **iovCount?**: `1`
+
+##### bufferMapping
+
+> **bufferMapping**: `string`
+
+##### resourceId
+
+> **resourceId**: `string`
+
+##### pairedWriteResourceId?
+
+> `optional` **pairedWriteResourceId?**: `string`
+
+##### targetResource
+
+> **targetResource**: [`NativeModeledFdReadTargetResource`](#nativemodeledfdreadtargetresource)
+
+##### targetBufferPointer?
+
+> `optional` **targetBufferPointer?**: `string`
+
+##### fileOffset?
+
+> `optional` **fileOffset?**: `number`
+
+##### remainingTime?
+
+> `optional` **remainingTime?**: [`NativeModeledFdReadTimerRemainingTime`](#nativemodeledfdreadtimerremainingtime)
+
+***
+
+### NativeModeledFdWriteState
+
+#### Properties
+
+##### kind
+
+> **kind**: `"fd-write-complete"`
+
+##### syscallName
+
+> **syscallName**: `"write"` \| `"pwrite64"` \| `"writev"`
+
+##### argumentSource
+
+> **argumentSource**: `"proc-syscall"` \| `"registers"`
+
+##### fd
+
+> **fd**: `number`
+
+##### bufferPointer
+
+> **bufferPointer**: `string`
+
+##### countBytes
+
+> **countBytes**: `number`
+
+##### iovPointer?
+
+> `optional` **iovPointer?**: `string`
+
+##### iovCount?
+
+> `optional` **iovCount?**: `1`
+
+##### bufferMapping
+
+> **bufferMapping**: `string`
+
+##### resourceId
+
+> **resourceId**: `string`
+
+##### targetResource
+
+> **targetResource**: `"reopened-offset-file"`
+
+##### targetBufferPointer
+
+> **targetBufferPointer**: `string`
+
+##### fileOffset
+
+> **fileOffset**: `number`
 
 ***
 
@@ -2697,6 +3198,122 @@ by default when `output` is a TTY.
 ###### policy
 
 > **policy**: `"conservative-target-ppoll-timeout-rearm-required"`
+
+***
+
+### NativeActiveFdReadContinuation
+
+#### Properties
+
+##### threadId
+
+> **threadId**: `string`
+
+##### syscallClass
+
+> **syscallClass**: `"fd-blocking"`
+
+##### action
+
+> **action**: `"defer-target-resume"`
+
+##### syscall
+
+> **syscall**: `object`
+
+###### state
+
+> **state**: `"outside-syscall"` \| `"inside-syscall"` \| `"restart-block"`
+
+###### number?
+
+> `optional` **number?**: `number`
+
+###### name?
+
+> `optional` **name?**: `string`
+
+###### arguments?
+
+> `optional` **arguments?**: `string`[]
+
+###### stackPointer?
+
+> `optional` **stackPointer?**: `string`
+
+###### instructionPointer?
+
+> `optional` **instructionPointer?**: `string`
+
+##### metadata
+
+> **metadata**: `object`
+
+###### fdRead
+
+> **fdRead**: [`NativeModeledFdReadState`](#nativemodeledfdreadstate)
+
+###### policy
+
+> **policy**: `"conservative-target-fd-read-block-preserved"`
+
+***
+
+### NativeActiveFdWriteContinuation
+
+#### Properties
+
+##### threadId
+
+> **threadId**: `string`
+
+##### syscallClass
+
+> **syscallClass**: `"fd-blocking"`
+
+##### action
+
+> **action**: `"defer-target-resume"`
+
+##### syscall
+
+> **syscall**: `object`
+
+###### state
+
+> **state**: `"outside-syscall"` \| `"inside-syscall"` \| `"restart-block"`
+
+###### number?
+
+> `optional` **number?**: `number`
+
+###### name?
+
+> `optional` **name?**: `string`
+
+###### arguments?
+
+> `optional` **arguments?**: `string`[]
+
+###### stackPointer?
+
+> `optional` **stackPointer?**: `string`
+
+###### instructionPointer?
+
+> `optional` **instructionPointer?**: `string`
+
+##### metadata
+
+> **metadata**: `object`
+
+###### fdWrite
+
+> **fdWrite**: [`NativeModeledFdWriteState`](#nativemodeledfdwritestate)
+
+###### policy
+
+> **policy**: `"conservative-target-fd-write-completed-from-buffer"`
 
 ***
 
@@ -2884,7 +3501,7 @@ by default when `output` is a TTY.
 
 ##### state
 
-> **state**: `"ready"` \| `"refused"`
+> **state**: `"refused"` \| `"ready"`
 
 ##### blockingBoundary
 
@@ -2975,7 +3592,7 @@ by default when `output` is a TTY.
 
 ##### kind
 
-> **kind**: `"unknown"` \| `"executable"` \| `"vdso"` \| `"pie-executable"` \| `"shared-object"`
+> **kind**: `"unknown"` \| `"vdso"` \| `"executable"` \| `"pie-executable"` \| `"shared-object"`
 
 ##### buildId
 
@@ -3207,6 +3824,146 @@ by default when `output` is a TTY.
 
 ***
 
+### NativeMachineRestoreDescriptor
+
+#### Properties
+
+##### formatVersion
+
+> **formatVersion**: `1`
+
+##### kind
+
+> **kind**: `"machinen.native-machine-restore"`
+
+##### thread
+
+> **thread**: `object`
+
+###### id
+
+> **id**: `string`
+
+###### targetThreadCount
+
+> **targetThreadCount**: `number`
+
+##### signal
+
+> **signal**: `object`
+
+###### blockedMasks
+
+> **blockedMasks**: `string`[]
+
+##### activeSyscalls
+
+> **activeSyscalls**: [`NativeActiveSyscallContinuation`](#nativeactivesyscallcontinuation)[]
+
+##### stackWindow?
+
+> `optional` **stackWindow?**: `object`
+
+###### stackMapping
+
+> **stackMapping**: `string`
+
+###### sourceWindow
+
+> **sourceWindow**: `object`
+
+###### sourceWindow.base
+
+> **base**: `string`
+
+###### sourceWindow.limit
+
+> **limit**: `string`
+
+###### targetWindow
+
+> **targetWindow**: `object`
+
+###### targetWindow.base
+
+> **base**: `string`
+
+###### targetWindow.limit
+
+> **limit**: `string`
+
+###### targetWindow.sizeBytes
+
+> **sizeBytes**: `number`
+
+###### guards
+
+> **guards**: `object`
+
+###### guards.below
+
+> **below**: `string`
+
+###### guards.above
+
+> **above**: `string`
+
+###### relocationCount
+
+> **relocationCount**: `number`
+
+##### returnChain?
+
+> `optional` **returnChain?**: `object`
+
+###### targetStack
+
+> **targetStack**: `object`
+
+###### targetStack.base
+
+> **base**: `string`
+
+###### targetStack.limit
+
+> **limit**: `string`
+
+###### frames
+
+> **frames**: [`NativeReturnChainPlanFrame`](#nativereturnchainplanframe)[]
+
+##### mappings?
+
+> `optional` **mappings?**: `object`
+
+###### steps
+
+> **steps**: [`NativeMappingMaterializationStep`](#nativemappingmaterializationstep)[]
+
+***
+
+### NativeMachineRestorePlanRequest
+
+#### Properties
+
+##### thread
+
+> **thread**: [`NativeThreadRestorePlanRequest`](#nativethreadrestoreplanrequest)
+
+##### stackWindow?
+
+> `optional` **stackWindow?**: [`NativeStackWindowMaterializationRequest`](#nativestackwindowmaterializationrequest)
+
+##### returnChain?
+
+> `optional` **returnChain?**: [`NativeReturnChainPlanRequest`](#nativereturnchainplanrequest)
+
+##### mappings?
+
+> `optional` **mappings?**: [`NativeMappingMaterializationRequest`](#nativemappingmaterializationrequest)
+
+***
+
 ### NativeMappingMaterializationStep
 
 #### Properties
@@ -3287,9 +4044,35 @@ by default when `output` is a TTY.
 
 > **sizeBytes**: `number`
 
+##### privateWritable?
+
+> `optional` **privateWritable?**: `object`
+
+###### guardMappings
+
+> **guardMappings**: `string`[]
+
 ##### refusal?
 
 > `optional` **refusal?**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)
+
+***
+
+### NativePrivateWritableGuardRequest
+
+#### Properties
+
+##### mapping
+
+> **mapping**: `string`
+
+##### belowMapping?
+
+> `optional` **belowMapping?**: `string`
+
+##### aboveMapping?
+
+> `optional` **aboveMapping?**: `string`
 
 ***
 
@@ -3308,6 +4091,10 @@ by default when `output` is a TTY.
 ##### targetFileBuildIds?
 
 > `optional` **targetFileBuildIds?**: `Record`\<`string`, `string`\>
+
+##### privateWritableGuards?
+
+> `optional` **privateWritableGuards?**: [`NativePrivateWritableGuardRequest`](#nativeprivatewritableguardrequest)[]
 
 ***
 
@@ -3343,7 +4130,7 @@ by default when `output` is a TTY.
 
 ##### classification
 
-> **classification**: `"pointer"` \| `"integer"` \| `"code-pointer"` \| `"thread-pointer"` \| `"ambiguous"`
+> **classification**: `"pointer"` \| `"code-pointer"` \| `"thread-pointer"` \| `"ambiguous"` \| `"integer"`
 
 ##### targetValue?
 
@@ -3389,7 +4176,7 @@ by default when `output` is a TTY.
 
 ##### code
 
-> **code**: `"fd-kind-unsupported"` \| `"target-build-mismatch"` \| `"architecture-pair-unsupported"` \| `"architecture-unsupported"` \| `"active-syscall"` \| `"blocking-syscall-state-unsupported"` \| `"code-location-unknown"` \| `"futex-state-unsupported"` \| `"inherited-stdio-policy-required"` \| `"kernel-state-unsupported"` \| `"mapping-ambiguous"` \| `"mapping-permission-unsupported"` \| `"mapping-unreadable"` \| `"pointer-ambiguous"` \| `"resource-kind-unsupported"` \| `"non-stdio-kernel-state-unsupported"` \| `"rseq-state-unsupported"` \| `"signal-frame-active"` \| `"signal-state-unsupported"` \| `"stdin-buffer-state-unsupported"` \| `"syscall-argument-state-unsupported"` \| `"syscall-restart-unsupported"` \| `"target-build-id-mismatch"` \| `"target-code-location-unresolved"` \| `"target-callee-saved-state-unsupported"` \| `"target-caller-frame-unavailable"` \| `"target-code-rva-unmapped"` \| `"target-frame-layout-unsupported"` \| `"target-frame-register-value-unavailable"` \| `"target-module-bytes-missing"` \| `"target-module-file-missing"` \| `"target-module-missing"` \| `"target-module-not-executable"` \| `"target-module-range-unreadable"` \| `"target-ppoll-syscall-continuation-missing"` \| `"target-ppoll-timeout-missing"` \| `"target-return-slot-unsupported"` \| `"target-resume-execution-unavailable"` \| `"target-resume-fault-invalid-code-landing"` \| `"target-resume-fault-outside-target-bytes"` \| `"target-resume-fault-privileged-instruction"` \| `"target-resume-fault-signal-unsupported"` \| `"target-resume-fault-timeout"` \| `"target-resume-fault-unmodeled-memory"` \| `"target-semantic-continuation-missing"` \| `"target-sleep-remaining-time-missing"` \| `"target-sleep-signal-restart-unsupported"` \| `"target-sleep-syscall-continuation-missing"` \| `"target-synthetic-signal-restart-unsupported"` \| `"target-synthetic-syscall-return-unmodeled"` \| `"thread-state-unsupported"` \| `"tls-state-unsupported"` \| `"return-slot-unreadable"` \| `"target-unwind-mismatch"` \| `"unwind-fde-missing"` \| `"unwind-metadata-missing"` \| `"unwind-rule-unsupported"` \| `"vdso-policy-unsupported"`
+> **code**: `"active-syscall"` \| `"architecture-pair-unsupported"` \| `"architecture-unsupported"` \| `"blocking-syscall-state-unsupported"` \| `"code-location-unknown"` \| `"cross-isa-vmstate-restore-unsupported"` \| `"fd-kind-unsupported"` \| `"futex-state-unsupported"` \| `"inherited-stdio-policy-required"` \| `"kernel-state-unsupported"` \| `"mapping-ambiguous"` \| `"mapping-captured-range-unsupported"` \| `"mapping-executable-unsupported"` \| `"mapping-permission-unsupported"` \| `"mapping-provenance-ambiguous"` \| `"mapping-shared-unsupported"` \| `"mapping-unreadable"` \| `"pointer-ambiguous"` \| `"proof-arch-pair-unsupported"` \| `"resource-kind-unsupported"` \| `"non-stdio-kernel-state-unsupported"` \| `"rseq-state-unsupported"` \| `"signal-frame-active"` \| `"signal-state-unsupported"` \| `"simd-fpu-state-unsupported"` \| `"stdin-buffer-state-unsupported"` \| `"syscall-argument-state-unsupported"` \| `"syscall-restart-unsupported"` \| `"target-build-id-mismatch"` \| `"target-build-mismatch"` \| `"target-code-location-unresolved"` \| `"target-callee-saved-state-unsupported"` \| `"target-caller-frame-unavailable"` \| `"target-code-rva-unmapped"` \| `"target-code-outside-portable-bundle"` \| `"target-epoll-syscall-state-unsupported"` \| `"target-fd-table-duplicate"` \| `"target-fd-read-state-missing"` \| `"target-fd-write-state-missing"` \| `"target-fd-table-missing"` \| `"target-frame-layout-unsupported"` \| `"target-frame-register-value-unavailable"` \| `"target-module-bytes-missing"` \| `"target-module-file-missing"` \| `"target-module-missing"` \| `"target-module-not-executable"` \| `"target-module-range-unreadable"` \| `"target-ppoll-syscall-continuation-missing"` \| `"target-ppoll-timeout-missing"` \| `"target-process-context-unsupported"` \| `"target-return-slot-unsupported"` \| `"target-signalfd-state-unsupported"` \| `"target-resume-execution-unavailable"` \| `"target-resume-fault-invalid-code-landing"` \| `"target-resume-fault-outside-target-bytes"` \| `"target-resume-fault-privileged-instruction"` \| `"target-resume-fault-signal-unsupported"` \| `"target-resume-fault-timeout"` \| `"target-resume-fault-unmodeled-memory"` \| `"target-semantic-continuation-missing"` \| `"target-sleep-remaining-time-missing"` \| `"target-socket-syscall-state-unsupported"` \| `"target-sleep-signal-restart-unsupported"` \| `"target-sleep-syscall-continuation-missing"` \| `"target-stack-window-unsupported"` \| `"target-synthetic-signal-interrupted-unsupported"` \| `"target-synthetic-signal-restart-unsupported"` \| `"target-synthetic-syscall-return-unmodeled"` \| `"thread-state-unsupported"` \| `"tls-state-unsupported"` \| `"return-slot-unreadable"` \| `"target-unwind-mismatch"` \| `"unwind-fde-missing"` \| `"unwind-metadata-missing"` \| `"unwind-rule-unsupported"` \| `"vdso-policy-unsupported"`
 
 ##### message
 
@@ -3829,17 +4616,29 @@ by default when `output` is a TTY.
 
 > **threadPointer**: `string`
 
+###### sourceRegister?
+
+> `optional` **sourceRegister?**: [`NativeTlsThreadPointerRegister`](#nativetlsthreadpointerregister)
+
+###### targetSegmentBases?
+
+> `optional` **targetSegmentBases?**: [`NativeTlsAmd64SegmentBases`](#nativetlsamd64segmentbases)
+
 ###### rseq
 
 > **rseq**: `object`
 
 ###### rseq.state
 
-> **state**: `"captured"` \| `"unsupported"` \| `"absent"`
+> **state**: `"unsupported"` \| `"absent"` \| `"captured"`
 
 ###### rseq.refusal?
 
 > `optional` **refusal?**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)
+
+##### simdFpu?
+
+> `optional` **simdFpu?**: [`NativeSimdFpuState`](#nativesimdfpustate)
 
 ##### refusal?
 
@@ -3879,7 +4678,7 @@ by default when `output` is a TTY.
 
 ##### state
 
-> **state**: `"captured"` \| `"refused"` \| `"unsupported"` \| `"recipe"`
+> **state**: `"unsupported"` \| `"captured"` \| `"recipe"` \| `"refused"`
 
 ##### fd?
 
@@ -4165,11 +4964,11 @@ by default when `output` is a TTY.
 
 ##### kind
 
-> **kind**: `"unknown"` \| `"executable"` \| `"vdso"` \| `"pie-executable"` \| `"shared-object"`
+> **kind**: `"unknown"` \| `"vdso"` \| `"executable"` \| `"pie-executable"` \| `"shared-object"`
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-5)
+[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-8)
 
 ##### buildId
 
@@ -4273,11 +5072,11 @@ by default when `output` is a TTY.
 
 ##### kind
 
-> **kind**: `"unknown"` \| `"executable"` \| `"vdso"` \| `"pie-executable"` \| `"shared-object"`
+> **kind**: `"unknown"` \| `"vdso"` \| `"executable"` \| `"pie-executable"` \| `"shared-object"`
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-5)
+[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-8)
 
 ##### buildId
 
@@ -4403,7 +5202,7 @@ by default when `output` is a TTY.
 
 ##### syscallClass
 
-> **syscallClass**: `"sleep-timer"` \| `"poll-timeout"`
+> **syscallClass**: `"sleep-timer"` \| `"poll-timeout"` \| `"fd-blocking"`
 
 ##### action
 
@@ -4439,7 +5238,7 @@ by default when `output` is a TTY.
 
 ##### metadata
 
-> **metadata**: \{ `remainingTime`: [`NativeModeledSleepTimerRemainingTime`](#nativemodeledsleeptimerremainingtime); `sleepTimer`: [`NativeModeledSleepTimerState`](#nativemodeledsleeptimerstate); `policy`: `"conservative-target-timer-rearm-required"`; \} \| \{ `remainingTime`: [`NativeModeledPpollTimeoutRemainingTime`](#nativemodeledppolltimeoutremainingtime); `ppollTimeout`: [`NativeModeledPpollTimeoutState`](#nativemodeledppolltimeoutstate); `policy`: `"conservative-target-ppoll-timeout-rearm-required"`; \}
+> **metadata**: \{ `remainingTime`: [`NativeModeledSleepTimerRemainingTime`](#nativemodeledsleeptimerremainingtime); `sleepTimer`: [`NativeModeledSleepTimerState`](#nativemodeledsleeptimerstate); `policy`: `"conservative-target-timer-rearm-required"`; \} \| \{ `remainingTime`: [`NativeModeledPpollTimeoutRemainingTime`](#nativemodeledppolltimeoutremainingtime); `ppollTimeout`: [`NativeModeledPpollTimeoutState`](#nativemodeledppolltimeoutstate); `policy`: `"conservative-target-ppoll-timeout-rearm-required"`; \} \| \{ `fdRead`: [`NativeModeledFdReadState`](#nativemodeledfdreadstate); `policy`: `"conservative-target-fd-read-block-preserved"`; \} \| \{ `fdWrite`: [`NativeModeledFdWriteState`](#nativemodeledfdwritestate); `policy`: `"conservative-target-fd-write-completed-from-buffer"`; \}
 
 ##### semanticContinuation?
 
@@ -4641,7 +5440,7 @@ by default when `output` is a TTY.
 
 ##### state
 
-> **state**: `"ready"` \| `"refused"`
+> **state**: `"refused"` \| `"ready"`
 
 ##### blockingBoundary
 
@@ -4711,6 +5510,10 @@ by default when `output` is a TTY.
 
 > **targetTls**: `string`
 
+##### targetTlsAccessPolicy?
+
+> `optional` **targetTlsAccessPolicy?**: [`NativeTlsTargetAccessPolicy`](#nativetlstargetaccesspolicy)
+
 ##### targetRegisterOverrides?
 
 > `optional` **targetRegisterOverrides?**: `Partial`\<`Pick`\<[`NativeAmd64Registers`](#nativeamd64registers), `"rax"` \| `"rbx"` \| `"rcx"` \| `"rdx"` \| `"rsi"` \| `"rdi"` \| `"rbp"` \| `"r8"` \| `"r9"` \| `"r10"` \| `"r11"` \| `"r12"` \| `"r13"` \| `"r14"` \| `"r15"`\>\>
@@ -4751,6 +5554,10 @@ by default when `output` is a TTY.
 
 ### NativeResourceTranslationRequest
 
+#### Extended by
+
+- [`NativeTargetFdTablePlanRequest`](#nativetargetfdtableplanrequest)
+
 #### Properties
 
 ##### resources
@@ -4765,6 +5572,18 @@ by default when `output` is a TTY.
 
 > `optional` **inheritedStdio?**: [`NativeInheritedStdioPolicy`](#nativeinheritedstdiopolicy)
 
+##### syntheticEmptyPipeFds?
+
+> `optional` **syntheticEmptyPipeFds?**: `number`[]
+
+##### syntheticEmptyEventFds?
+
+> `optional` **syntheticEmptyEventFds?**: `number`[]
+
+##### syntheticTimerFds?
+
+> `optional` **syntheticTimerFds?**: `number`[]
+
 ***
 
 ### NativeResourceTranslationResult
@@ -4778,6 +5597,386 @@ by default when `output` is a TTY.
 ##### refusals
 
 > **refusals**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
+
+***
+
+### NativeTargetFdTableEntry
+
+#### Properties
+
+##### targetFd
+
+> **targetFd**: `number`
+
+##### capturedFd?
+
+> `optional` **capturedFd?**: `number`
+
+##### resourceId?
+
+> `optional` **resourceId?**: `string`
+
+##### resourceKind?
+
+> `optional` **resourceKind?**: [`NativeProcessResourceKind`](#nativeprocessresourcekind)
+
+##### kind
+
+> **kind**: [`NativeTargetFdTableEntryKind`](#nativetargetfdtableentrykind)
+
+##### closeOnExec
+
+> **closeOnExec**: `boolean`
+
+##### action
+
+> **action**: `"close"` \| `"refuse"` \| `"materialize"`
+
+##### source
+
+> **source**: `"captured-resource"` \| `"missing-captured-fd"`
+
+##### recipe?
+
+> `optional` **recipe?**: `Record`\<`string`, `unknown`\>
+
+##### targetGuestRecipe?
+
+> `optional` **targetGuestRecipe?**: [`TargetGuestRestoreResourceRecipe`](#targetguestrestoreresourcerecipe)
+
+##### refusal?
+
+> `optional` **refusal?**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)
+
+##### provenance
+
+> **provenance**: `object`
+
+###### resourceId?
+
+> `optional` **resourceId?**: `string`
+
+###### capturedFd?
+
+> `optional` **capturedFd?**: `number`
+
+###### targetFd
+
+> **targetFd**: `number`
+
+###### flags?
+
+> `optional` **flags?**: `string`[]
+
+###### reason
+
+> **reason**: `string`
+
+***
+
+### NativeTargetFdTablePlanRequest
+
+#### Extends
+
+- [`NativeResourceTranslationRequest`](#nativeresourcetranslationrequest)
+
+#### Properties
+
+##### resources
+
+> **resources**: [`NativeProcessResource`](#nativeprocessresource)[]
+
+###### Inherited from
+
+[`NativeResourceTranslationRequest`](#nativeresourcetranslationrequest).[`resources`](#resources-5)
+
+##### hostCapabilities?
+
+> `optional` **hostCapabilities?**: `string`[]
+
+###### Inherited from
+
+[`NativeResourceTranslationRequest`](#nativeresourcetranslationrequest).[`hostCapabilities`](#hostcapabilities)
+
+##### inheritedStdio?
+
+> `optional` **inheritedStdio?**: [`NativeInheritedStdioPolicy`](#nativeinheritedstdiopolicy)
+
+###### Inherited from
+
+[`NativeResourceTranslationRequest`](#nativeresourcetranslationrequest).[`inheritedStdio`](#inheritedstdio)
+
+##### syntheticEmptyPipeFds?
+
+> `optional` **syntheticEmptyPipeFds?**: `number`[]
+
+###### Inherited from
+
+[`NativeResourceTranslationRequest`](#nativeresourcetranslationrequest).[`syntheticEmptyPipeFds`](#syntheticemptypipefds)
+
+##### syntheticEmptyEventFds?
+
+> `optional` **syntheticEmptyEventFds?**: `number`[]
+
+###### Inherited from
+
+[`NativeResourceTranslationRequest`](#nativeresourcetranslationrequest).[`syntheticEmptyEventFds`](#syntheticemptyeventfds)
+
+##### syntheticTimerFds?
+
+> `optional` **syntheticTimerFds?**: `number`[]
+
+###### Inherited from
+
+[`NativeResourceTranslationRequest`](#nativeresourcetranslationrequest).[`syntheticTimerFds`](#synthetictimerfds)
+
+##### expectedFds?
+
+> `optional` **expectedFds?**: `number`[]
+
+***
+
+### NativeTargetFdTablePlan
+
+#### Properties
+
+##### entries
+
+> **entries**: [`NativeTargetFdTableEntry`](#nativetargetfdtableentry)[]
+
+##### resources
+
+> **resources**: [`NativeProcessResource`](#nativeprocessresource)[]
+
+##### targetGuestResources
+
+> **targetGuestResources**: [`TargetGuestRestoreResourceRecipe`](#targetguestrestoreresourcerecipe)[]
+
+##### refusals
+
+> **refusals**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
+
+***
+
+### NativeReturnChainFrameWrite
+
+#### Properties
+
+##### frameId
+
+> **frameId**: `string`
+
+##### targetAddress
+
+> **targetAddress**: `string`
+
+##### value
+
+> **value**: `string`
+
+##### bytes
+
+> **bytes**: `string`
+
+##### kind
+
+> **kind**: `"return-address"` \| `"caller-frame-pointer"`
+
+***
+
+### NativeReturnChainFrame
+
+#### Extended by
+
+- [`NativeReturnChainPlanFrame`](#nativereturnchainplanframe)
+
+#### Properties
+
+##### id
+
+> **id**: `string`
+
+##### framePointer
+
+> **framePointer**: `string`
+
+##### canonicalFrameAddress
+
+> **canonicalFrameAddress**: `string`
+
+##### returnAddressSlot
+
+> **returnAddressSlot**: `string`
+
+##### returnAddress
+
+> **returnAddress**: `string`
+
+##### unwindId
+
+> **unwindId**: `string`
+
+##### callerFramePointer?
+
+> `optional` **callerFramePointer?**: `string`
+
+***
+
+### NativeReturnChainPlanRequest
+
+#### Properties
+
+##### targetStackBase
+
+> **targetStackBase**: `string`
+
+##### targetStackLimit
+
+> **targetStackLimit**: `string`
+
+##### maxFrames
+
+> **maxFrames**: `number`
+
+##### frames
+
+> **frames**: [`NativeReturnChainFrame`](#nativereturnchainframe)[]
+
+***
+
+### NativeReturnChainPlanFrame
+
+#### Extends
+
+- [`NativeReturnChainFrame`](#nativereturnchainframe)
+
+#### Properties
+
+##### id
+
+> **id**: `string`
+
+###### Inherited from
+
+[`NativeReturnChainFrame`](#nativereturnchainframe).[`id`](#id-10)
+
+##### unwindId
+
+> **unwindId**: `string`
+
+###### Inherited from
+
+[`NativeReturnChainFrame`](#nativereturnchainframe).[`unwindId`](#unwindid)
+
+##### index
+
+> **index**: `number`
+
+##### framePointer
+
+> **framePointer**: `string`
+
+###### Overrides
+
+[`NativeReturnChainFrame`](#nativereturnchainframe).[`framePointer`](#framepointer)
+
+##### canonicalFrameAddress
+
+> **canonicalFrameAddress**: `string`
+
+###### Overrides
+
+[`NativeReturnChainFrame`](#nativereturnchainframe).[`canonicalFrameAddress`](#canonicalframeaddress)
+
+##### returnAddressSlot
+
+> **returnAddressSlot**: `string`
+
+###### Overrides
+
+[`NativeReturnChainFrame`](#nativereturnchainframe).[`returnAddressSlot`](#returnaddressslot)
+
+##### returnAddress
+
+> **returnAddress**: `string`
+
+###### Overrides
+
+[`NativeReturnChainFrame`](#nativereturnchainframe).[`returnAddress`](#returnaddress)
+
+##### callerFramePointer?
+
+> `optional` **callerFramePointer?**: `string`
+
+###### Overrides
+
+[`NativeReturnChainFrame`](#nativereturnchainframe).[`callerFramePointer`](#callerframepointer)
+
+***
+
+### NativeReturnChainPlan
+
+#### Properties
+
+##### state
+
+> **state**: `"refused"` \| `"materialized"`
+
+##### targetStack
+
+> **targetStack**: `object`
+
+###### base
+
+> **base**: `string`
+
+###### limit
+
+> **limit**: `string`
+
+##### frames
+
+> **frames**: [`NativeReturnChainPlanFrame`](#nativereturnchainplanframe)[]
+
+##### refusals
+
+> **refusals**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
+
+***
+
+### NativeSignalRestorePolicyRequest
+
+#### Properties
+
+##### thread
+
+> **thread**: [`NativeThreadState`](#nativethreadstate)
+
+##### blockedMaskPolicy?
+
+> `optional` **blockedMaskPolicy?**: [`NativeSignalBlockedMaskPolicy`](#nativesignalblockedmaskpolicy)
+
+***
+
+### NativeSimdFpuLiveSubsetPolicy
+
+#### Properties
+
+##### state
+
+> **state**: `"refuse-all-live-subsets"`
+
+##### acceptedSubsets
+
+> **acceptedSubsets**: \[\]
+
+##### refusalCode
+
+> **refusalCode**: `"simd-fpu-state-unsupported"`
+
+##### reason
+
+> **reason**: `string`
 
 ***
 
@@ -4821,7 +6020,7 @@ by default when `output` is a TTY.
 
 ##### kind
 
-> **kind**: `"pointer"` \| `"integer"` \| `"code-pointer"` \| `"ambiguous"`
+> **kind**: `"pointer"` \| `"code-pointer"` \| `"ambiguous"` \| `"integer"`
 
 ##### sourceValue
 
@@ -4834,6 +6033,10 @@ by default when `output` is a TTY.
 ***
 
 ### NativeStackTranslationRequest
+
+#### Extended by
+
+- [`NativeStackWindowMaterializationRequest`](#nativestackwindowmaterializationrequest)
 
 #### Properties
 
@@ -4878,6 +6081,204 @@ by default when `output` is a TTY.
 ##### refusals
 
 > **refusals**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
+
+***
+
+### NativeStackPointerRange
+
+#### Properties
+
+##### id
+
+> **id**: `string`
+
+##### targetBase
+
+> **targetBase**: `string`
+
+##### targetLimit
+
+> **targetLimit**: `string`
+
+***
+
+### NativeStackWindowMaterializationRequest
+
+#### Extends
+
+- [`NativeStackTranslationRequest`](#nativestacktranslationrequest)
+
+#### Properties
+
+##### stackMapping
+
+> **stackMapping**: `string`
+
+###### Inherited from
+
+[`NativeStackTranslationRequest`](#nativestacktranslationrequest).[`stackMapping`](#stackmapping-1)
+
+##### targetStackBase
+
+> **targetStackBase**: `string`
+
+###### Inherited from
+
+[`NativeStackTranslationRequest`](#nativestacktranslationrequest).[`targetStackBase`](#targetstackbase-1)
+
+##### frames
+
+> **frames**: [`NativeStackFrame`](#nativestackframe)[]
+
+###### Inherited from
+
+[`NativeStackTranslationRequest`](#nativestacktranslationrequest).[`frames`](#frames-2)
+
+##### codeLocations
+
+> **codeLocations**: [`NativeCodeLocationMapping`](#nativecodelocationmapping)[]
+
+###### Inherited from
+
+[`NativeStackTranslationRequest`](#nativestacktranslationrequest).[`codeLocations`](#codelocations-6)
+
+##### sourceStackBase
+
+> **sourceStackBase**: `string`
+
+##### sourceStackLimit
+
+> **sourceStackLimit**: `string`
+
+##### targetStackLimit
+
+> **targetStackLimit**: `string`
+
+##### guardBelowAddress
+
+> **guardBelowAddress**: `string`
+
+##### guardAboveAddress
+
+> **guardAboveAddress**: `string`
+
+##### pointerRanges
+
+> **pointerRanges**: [`NativeStackPointerRange`](#nativestackpointerrange)[]
+
+***
+
+### NativeStackWindowMaterializationPlan
+
+#### Properties
+
+##### state
+
+> **state**: `"refused"` \| `"materialized"`
+
+##### stackMapping
+
+> **stackMapping**: `string`
+
+##### sourceWindow
+
+> **sourceWindow**: `object`
+
+###### base
+
+> **base**: `string`
+
+###### limit
+
+> **limit**: `string`
+
+##### targetWindow
+
+> **targetWindow**: `object`
+
+###### base
+
+> **base**: `string`
+
+###### limit
+
+> **limit**: `string`
+
+###### sizeBytes
+
+> **sizeBytes**: `number`
+
+##### guards
+
+> **guards**: `object`
+
+###### below
+
+> **below**: `string`
+
+###### above
+
+> **above**: `string`
+
+##### relocations
+
+> **relocations**: [`NativeMemoryRelocation`](#nativememoryrelocation)[]
+
+##### refusals
+
+> **refusals**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
+
+***
+
+### NativeStackWindowWrite
+
+#### Properties
+
+##### mapping
+
+> **mapping**: `string`
+
+##### targetAddress
+
+> **targetAddress**: `string`
+
+##### offset
+
+> **offset**: `number`
+
+##### sizeBytes
+
+> **sizeBytes**: `8`
+
+##### value
+
+> **value**: `string`
+
+##### bytes
+
+> **bytes**: `string`
+
+##### kind
+
+> **kind**: `"pointer"` \| `"code-pointer"` \| `"return-address"` \| `"thread-pointer"`
+
+***
+
+### NativeStackWindowGuardMapping
+
+#### Properties
+
+##### targetStart
+
+> **targetStart**: `string`
+
+##### sizeBytes
+
+> **sizeBytes**: `number`
+
+##### placement
+
+> **placement**: `"below"` \| `"above"`
 
 ***
 
@@ -5042,6 +6443,44 @@ by default when `output` is a TTY.
 
 ***
 
+### NativeSyntheticContinuationRestartContract
+
+#### Properties
+
+##### mode
+
+> **mode**: `"fail-closed"`
+
+##### signalMaskAssumption
+
+> **signalMaskAssumption**: `"source-sigmask-null-or-unmodeled"`
+
+##### pendingSignalAssumption
+
+> **pendingSignalAssumption**: `"no-pending-signal-state-modeled"`
+
+##### plainEintr
+
+> **plainEintr**: `"refuse"`
+
+##### restartLikeErrnos
+
+> **restartLikeErrnos**: `object`[]
+
+###### errno
+
+> **errno**: `number`
+
+###### errnoName
+
+> **errnoName**: `string`
+
+##### targetRestartRequirements
+
+> **targetRestartRequirements**: `string`[]
+
+***
+
 ### NativeSyntheticContinuationCompletionDescriptor
 
 #### Extended by
@@ -5058,6 +6497,10 @@ by default when `output` is a TTY.
 ##### successExitStatus?
 
 > `optional` **successExitStatus?**: `number`
+
+##### restartContract?
+
+> `optional` **restartContract?**: [`NativeSyntheticContinuationRestartContract`](#nativesyntheticcontinuationrestartcontract)
 
 ##### failureExitStatus?
 
@@ -5230,7 +6673,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallArgumentDescriptor`](#nativesyntheticsyscallargumentdescriptor).[`value`](#value)
+[`NativeSyntheticSyscallArgumentDescriptor`](#nativesyntheticsyscallargumentdescriptor).[`value`](#value-2)
 
 ##### register
 
@@ -5254,7 +6697,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Overrides
 
-[`NativeSyntheticSyscallArgumentDescriptor`](#nativesyntheticsyscallargumentdescriptor).[`source`](#source-6)
+[`NativeSyntheticSyscallArgumentDescriptor`](#nativesyntheticsyscallargumentdescriptor).[`source`](#source-8)
 
 ***
 
@@ -5330,7 +6773,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Overrides
 
-[`NativeSyntheticContinuationStackSetupDescriptor`](#nativesyntheticcontinuationstacksetupdescriptor).[`returnAddress`](#returnaddress)
+[`NativeSyntheticContinuationStackSetupDescriptor`](#nativesyntheticcontinuationstacksetupdescriptor).[`returnAddress`](#returnaddress-2)
 
 ##### requiresSourceStackBytes
 
@@ -5349,6 +6792,14 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 - [`NativeSyntheticContinuationCompletionDescriptor`](#nativesyntheticcontinuationcompletiondescriptor)
 
 #### Properties
+
+##### restartContract?
+
+> `optional` **restartContract?**: [`NativeSyntheticContinuationRestartContract`](#nativesyntheticcontinuationrestartcontract)
+
+###### Inherited from
+
+[`NativeSyntheticContinuationCompletionDescriptor`](#nativesyntheticcontinuationcompletiondescriptor).[`restartContract`](#restartcontract)
 
 ##### failureExitStatus?
 
@@ -5386,7 +6837,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Overrides
 
-[`NativeSyntheticContinuationCompletionDescriptor`](#nativesyntheticcontinuationcompletiondescriptor).[`mode`](#mode-2)
+[`NativeSyntheticContinuationCompletionDescriptor`](#nativesyntheticcontinuationcompletiondescriptor).[`mode`](#mode-3)
 
 ##### successExitStatus?
 
@@ -5420,7 +6871,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-16)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-23)
 
 ##### targetArch
 
@@ -5468,7 +6919,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`sizeBytes`](#sizebytes-9)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`sizeBytes`](#sizebytes-11)
 
 ##### bytesHex
 
@@ -5536,7 +6987,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ##### generatorBuildId
 
-> **generatorBuildId**: `"machinen-synthetic-ppoll-syscall-v1"`
+> **generatorBuildId**: `"machinen-synthetic-ppoll-syscall-v2"`
 
 ###### Overrides
 
@@ -5562,7 +7013,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Overrides
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`syscall`](#syscall-5)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`syscall`](#syscall-7)
 
 ##### embeddedData
 
@@ -5595,6 +7046,34 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 ###### pointerEncoding
 
 > **pointerEncoding**: `"rip-relative"`
+
+##### embeddedPollFds?
+
+> `optional` **embeddedPollFds?**: `object`
+
+###### kind
+
+> **kind**: `"pollfd-array"`
+
+###### offset
+
+> **offset**: `number`
+
+###### entries
+
+> **entries**: [`NativeModeledPpollFdState`](#nativemodeledppollfdstate)[]
+
+###### byteOrder
+
+> **byteOrder**: `"little-endian"`
+
+###### pointerRegister
+
+> **pointerRegister**: `"rdi"`
+
+###### pointerEncoding
+
+> **pointerEncoding**: `"stack-relative"`
 
 ##### registerSetup
 
@@ -5633,6 +7112,10 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 ##### remainingTime
 
 > **remainingTime**: [`NativeModeledPpollTimeoutRemainingTime`](#nativemodeledppolltimeoutremainingtime)
+
+##### ppollTimeout?
+
+> `optional` **ppollTimeout?**: [`NativeModeledPpollTimeoutState`](#nativemodeledppolltimeoutstate)
 
 ##### targetAddress?
 
@@ -5682,11 +7165,15 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### fdsPointer
 
-> **fdsPointer**: `"0x0"`
+> **fdsPointer**: `"0x0"` \| `"stack-relative-pollfd-array"`
 
 ###### nfds
 
-> **nfds**: `0`
+> **nfds**: `0` \| `1`
+
+###### pollFds?
+
+> `optional` **pollFds?**: [`NativeModeledPpollFdState`](#nativemodeledppollfdstate)[]
 
 ###### timeoutPointerEncoding
 
@@ -5774,7 +7261,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallArgumentDescriptor`](#nativesyntheticsyscallargumentdescriptor).[`value`](#value)
+[`NativeSyntheticSyscallArgumentDescriptor`](#nativesyntheticsyscallargumentdescriptor).[`value`](#value-2)
 
 ##### register
 
@@ -5798,7 +7285,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Overrides
 
-[`NativeSyntheticSyscallArgumentDescriptor`](#nativesyntheticsyscallargumentdescriptor).[`source`](#source-6)
+[`NativeSyntheticSyscallArgumentDescriptor`](#nativesyntheticsyscallargumentdescriptor).[`source`](#source-8)
 
 ***
 
@@ -5874,7 +7361,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Overrides
 
-[`NativeSyntheticContinuationStackSetupDescriptor`](#nativesyntheticcontinuationstacksetupdescriptor).[`returnAddress`](#returnaddress)
+[`NativeSyntheticContinuationStackSetupDescriptor`](#nativesyntheticcontinuationstacksetupdescriptor).[`returnAddress`](#returnaddress-2)
 
 ##### requiresSourceStackBytes
 
@@ -5893,6 +7380,14 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 - [`NativeSyntheticContinuationCompletionDescriptor`](#nativesyntheticcontinuationcompletiondescriptor)
 
 #### Properties
+
+##### restartContract?
+
+> `optional` **restartContract?**: [`NativeSyntheticContinuationRestartContract`](#nativesyntheticcontinuationrestartcontract)
+
+###### Inherited from
+
+[`NativeSyntheticContinuationCompletionDescriptor`](#nativesyntheticcontinuationcompletiondescriptor).[`restartContract`](#restartcontract)
 
 ##### failureKind?
 
@@ -5920,7 +7415,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Overrides
 
-[`NativeSyntheticContinuationCompletionDescriptor`](#nativesyntheticcontinuationcompletiondescriptor).[`mode`](#mode-2)
+[`NativeSyntheticContinuationCompletionDescriptor`](#nativesyntheticcontinuationcompletiondescriptor).[`mode`](#mode-3)
 
 ##### successExitStatus?
 
@@ -5964,7 +7459,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-16)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-23)
 
 ##### targetArch
 
@@ -6012,7 +7507,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`sizeBytes`](#sizebytes-9)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`sizeBytes`](#sizebytes-11)
 
 ##### bytesHex
 
@@ -6080,7 +7575,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ##### generatorBuildId
 
-> **generatorBuildId**: `"machinen-synthetic-sleep-syscall-v3"`
+> **generatorBuildId**: `"machinen-synthetic-sleep-syscall-v4"`
 
 ###### Overrides
 
@@ -6106,7 +7601,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Overrides
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`syscall`](#syscall-5)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`syscall`](#syscall-7)
 
 ##### embeddedData
 
@@ -7394,6 +8889,150 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ***
 
+### NativeThreadRestorePlanRequest
+
+#### Properties
+
+##### threads
+
+> **threads**: [`NativeThreadState`](#nativethreadstate)[]
+
+##### mappings?
+
+> `optional` **mappings?**: [`NativeMemoryMapping`](#nativememorymapping)[]
+
+##### resources?
+
+> `optional` **resources?**: [`NativeProcessResource`](#nativeprocessresource)[]
+
+##### tls?
+
+> `optional` **tls?**: `object`
+
+###### targetFsBase?
+
+> `optional` **targetFsBase?**: `string`
+
+###### targetGsBase?
+
+> `optional` **targetGsBase?**: `string`
+
+###### targetAccessPolicy?
+
+> `optional` **targetAccessPolicy?**: [`NativeTlsTargetAccessPolicy`](#nativetlstargetaccesspolicy)
+
+##### activeSyscall?
+
+> `optional` **activeSyscall?**: [`NativeActiveSyscallPolicyOptions`](#nativeactivesyscallpolicyoptions)
+
+##### signal?
+
+> `optional` **signal?**: `object`
+
+###### blockedMaskPolicy?
+
+> `optional` **blockedMaskPolicy?**: [`NativeSignalBlockedMaskPolicy`](#nativesignalblockedmaskpolicy)
+
+***
+
+### NativeTlsSegmentBaseHandoffRequest
+
+#### Properties
+
+##### threadId
+
+> **threadId**: `string`
+
+##### sourceArch
+
+> **sourceArch**: `"amd64"` \| `"arm64"`
+
+##### targetArch
+
+> **targetArch**: `"amd64"` \| `"arm64"`
+
+##### sourceThreadPointer?
+
+> `optional` **sourceThreadPointer?**: `string`
+
+##### sourceRegister?
+
+> `optional` **sourceRegister?**: [`NativeTlsThreadPointerRegister`](#nativetlsthreadpointerregister)
+
+##### targetFsBase?
+
+> `optional` **targetFsBase?**: `string`
+
+##### targetGsBase?
+
+> `optional` **targetGsBase?**: `string`
+
+##### targetAccessPolicy?
+
+> `optional` **targetAccessPolicy?**: [`NativeTlsTargetAccessPolicy`](#nativetlstargetaccesspolicy)
+
+##### capturedTargetSegmentBases?
+
+> `optional` **capturedTargetSegmentBases?**: [`NativeTlsAmd64SegmentBases`](#nativetlsamd64segmentbases)
+
+***
+
+### NativeThreadTlsPolicyRequest
+
+#### Properties
+
+##### thread
+
+> **thread**: [`NativeThreadState`](#nativethreadstate)
+
+##### targetArch?
+
+> `optional` **targetArch?**: `"amd64"` \| `"arm64"`
+
+##### targetFsBase?
+
+> `optional` **targetFsBase?**: `string`
+
+##### targetGsBase?
+
+> `optional` **targetGsBase?**: `string`
+
+##### targetAccessPolicy?
+
+> `optional` **targetAccessPolicy?**: [`NativeTlsTargetAccessPolicy`](#nativetlstargetaccesspolicy)
+
+***
+
+### NativeControlledTwoThreadRestorePlanRequest
+
+#### Properties
+
+##### threads
+
+> **threads**: [`NativeThreadState`](#nativethreadstate)[]
+
+##### mappings
+
+> **mappings**: [`NativeMemoryMapping`](#nativememorymapping)[]
+
+##### resources?
+
+> `optional` **resources?**: [`NativeProcessResource`](#nativeprocessresource)[]
+
+##### activeSyscall?
+
+> `optional` **activeSyscall?**: [`NativeActiveSyscallPolicyOptions`](#nativeactivesyscallpolicyoptions)
+
+##### signal?
+
+> `optional` **signal?**: `object`
+
+###### blockedMaskPolicy?
+
+> `optional` **blockedMaskPolicy?**: [`NativeSignalBlockedMaskPolicy`](#nativesignalblockedmaskpolicy)
+
+***
+
 ### NativeUnwindFrameRule
 
 #### Properties
@@ -7573,6 +9212,767 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 ##### refusals
 
 > **refusals**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
+
+***
+
+### PortableMachineVmRestoreProofRequest
+
+#### Properties
+
+##### bundleDir?
+
+> `optional` **bundleDir?**: `string`
+
+##### targetCodeFile?
+
+> `optional` **targetCodeFile?**: `string`
+
+##### targetImage?
+
+> `optional` **targetImage?**: `string`
+
+***
+
+### PortableMachineTargetResourceStatus
+
+#### Properties
+
+##### kind
+
+> **kind**: `string`
+
+##### status
+
+> **status**: `"passed"` \| `"failed"`
+
+***
+
+### PortableMachineTargetRestoreObservation
+
+#### Extended by
+
+- [`PortableMachineVmRestoreProofPlan`](#portablemachinevmrestoreproofplan)
+- [`PortableMachineVmRestoreTargetResult`](#portablemachinevmrestoretargetresult)
+
+#### Properties
+
+##### targetVerifierResult?
+
+> `optional` **targetVerifierResult?**: [`PortableMachineTargetVerifierResult`](#portablemachinetargetverifierresult)
+
+##### targetStateConsumptionResult?
+
+> `optional` **targetStateConsumptionResult?**: [`PortableMachineTargetStateConsumptionResult`](#portablemachinetargetstateconsumptionresult)
+
+##### targetResourceStatuses?
+
+> `optional` **targetResourceStatuses?**: [`PortableMachineTargetResourceStatus`](#portablemachinetargetresourcestatus)[]
+
+##### targetStackWindowMaterializationResult?
+
+> `optional` **targetStackWindowMaterializationResult?**: [`PortableMachineTargetNativePlanConsumptionResult`](#portablemachinetargetnativeplanconsumptionresult)
+
+##### targetPrivateMemoryRestoreResult?
+
+> `optional` **targetPrivateMemoryRestoreResult?**: [`PortableMachineTargetNativePlanConsumptionResult`](#portablemachinetargetnativeplanconsumptionresult)
+
+##### targetExecutableMappingResult?
+
+> `optional` **targetExecutableMappingResult?**: [`PortableMachineTargetNativePlanConsumptionResult`](#portablemachinetargetnativeplanconsumptionresult)
+
+##### targetProcessContextRestoreResult?
+
+> `optional` **targetProcessContextRestoreResult?**: [`PortableMachineTargetNativePlanConsumptionResult`](#portablemachinetargetnativeplanconsumptionresult)
+
+##### targetSignalRestoreResult?
+
+> `optional` **targetSignalRestoreResult?**: [`PortableMachineTargetNativePlanConsumptionResult`](#portablemachinetargetnativeplanconsumptionresult)
+
+##### targetActiveSyscallRestoreResult?
+
+> `optional` **targetActiveSyscallRestoreResult?**: [`PortableMachineTargetNativePlanConsumptionResult`](#portablemachinetargetnativeplanconsumptionresult)
+
+##### targetReturnChainResult?
+
+> `optional` **targetReturnChainResult?**: [`PortableMachineTargetReturnChainResult`](#portablemachinetargetreturnchainresult)
+
+##### targetTranslatedReturnAddress?
+
+> `optional` **targetTranslatedReturnAddress?**: `string`
+
+##### targetFrameRestoreResult?
+
+> `optional` **targetFrameRestoreResult?**: [`PortableMachineTargetFrameRestoreResult`](#portablemachinetargetframerestoreresult)
+
+##### targetTranslatedFramePointer?
+
+> `optional` **targetTranslatedFramePointer?**: `string`
+
+##### targetRegisterRestoreResult?
+
+> `optional` **targetRegisterRestoreResult?**: [`PortableMachineTargetRegisterRestoreResult`](#portablemachinetargetregisterrestoreresult)
+
+##### targetRflagsRestoreResult?
+
+> `optional` **targetRflagsRestoreResult?**: [`PortableMachineTargetRflagsRestoreResult`](#portablemachinetargetrflagsrestoreresult)
+
+##### targetTlsRestoreResult?
+
+> `optional` **targetTlsRestoreResult?**: [`PortableMachineTargetTlsRestoreResult`](#portablemachinetargettlsrestoreresult)
+
+##### targetThreadRestoreResult?
+
+> `optional` **targetThreadRestoreResult?**: [`PortableMachineTargetThreadRestoreResult`](#portablemachinetargetthreadrestoreresult)
+
+##### targetThreadRestoreThreadId?
+
+> `optional` **targetThreadRestoreThreadId?**: `string`
+
+##### targetResumePathResult?
+
+> `optional` **targetResumePathResult?**: [`PortableMachineTargetResumePathResult`](#portablemachinetargetresumepathresult)
+
+##### targetResumePathMode?
+
+> `optional` **targetResumePathMode?**: `string`
+
+***
+
+### PortableMachineVmRestoreProofPlan
+
+#### Extends
+
+- [`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation)
+
+#### Properties
+
+##### targetVerifierResult?
+
+> `optional` **targetVerifierResult?**: [`PortableMachineTargetVerifierResult`](#portablemachinetargetverifierresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetVerifierResult`](#targetverifierresult)
+
+##### targetStateConsumptionResult?
+
+> `optional` **targetStateConsumptionResult?**: [`PortableMachineTargetStateConsumptionResult`](#portablemachinetargetstateconsumptionresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetStateConsumptionResult`](#targetstateconsumptionresult)
+
+##### targetResourceStatuses?
+
+> `optional` **targetResourceStatuses?**: [`PortableMachineTargetResourceStatus`](#portablemachinetargetresourcestatus)[]
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetResourceStatuses`](#targetresourcestatuses)
+
+##### targetStackWindowMaterializationResult?
+
+> `optional` **targetStackWindowMaterializationResult?**: [`PortableMachineTargetNativePlanConsumptionResult`](#portablemachinetargetnativeplanconsumptionresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetStackWindowMaterializationResult`](#targetstackwindowmaterializationresult)
+
+##### targetPrivateMemoryRestoreResult?
+
+> `optional` **targetPrivateMemoryRestoreResult?**: [`PortableMachineTargetNativePlanConsumptionResult`](#portablemachinetargetnativeplanconsumptionresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetPrivateMemoryRestoreResult`](#targetprivatememoryrestoreresult)
+
+##### targetExecutableMappingResult?
+
+> `optional` **targetExecutableMappingResult?**: [`PortableMachineTargetNativePlanConsumptionResult`](#portablemachinetargetnativeplanconsumptionresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetExecutableMappingResult`](#targetexecutablemappingresult)
+
+##### targetProcessContextRestoreResult?
+
+> `optional` **targetProcessContextRestoreResult?**: [`PortableMachineTargetNativePlanConsumptionResult`](#portablemachinetargetnativeplanconsumptionresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetProcessContextRestoreResult`](#targetprocesscontextrestoreresult)
+
+##### targetSignalRestoreResult?
+
+> `optional` **targetSignalRestoreResult?**: [`PortableMachineTargetNativePlanConsumptionResult`](#portablemachinetargetnativeplanconsumptionresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetSignalRestoreResult`](#targetsignalrestoreresult)
+
+##### targetActiveSyscallRestoreResult?
+
+> `optional` **targetActiveSyscallRestoreResult?**: [`PortableMachineTargetNativePlanConsumptionResult`](#portablemachinetargetnativeplanconsumptionresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetActiveSyscallRestoreResult`](#targetactivesyscallrestoreresult)
+
+##### targetReturnChainResult?
+
+> `optional` **targetReturnChainResult?**: [`PortableMachineTargetReturnChainResult`](#portablemachinetargetreturnchainresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetReturnChainResult`](#targetreturnchainresult)
+
+##### targetTranslatedReturnAddress?
+
+> `optional` **targetTranslatedReturnAddress?**: `string`
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetTranslatedReturnAddress`](#targettranslatedreturnaddress)
+
+##### targetFrameRestoreResult?
+
+> `optional` **targetFrameRestoreResult?**: [`PortableMachineTargetFrameRestoreResult`](#portablemachinetargetframerestoreresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetFrameRestoreResult`](#targetframerestoreresult)
+
+##### targetTranslatedFramePointer?
+
+> `optional` **targetTranslatedFramePointer?**: `string`
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetTranslatedFramePointer`](#targettranslatedframepointer)
+
+##### targetRegisterRestoreResult?
+
+> `optional` **targetRegisterRestoreResult?**: [`PortableMachineTargetRegisterRestoreResult`](#portablemachinetargetregisterrestoreresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetRegisterRestoreResult`](#targetregisterrestoreresult)
+
+##### targetRflagsRestoreResult?
+
+> `optional` **targetRflagsRestoreResult?**: [`PortableMachineTargetRflagsRestoreResult`](#portablemachinetargetrflagsrestoreresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetRflagsRestoreResult`](#targetrflagsrestoreresult)
+
+##### targetTlsRestoreResult?
+
+> `optional` **targetTlsRestoreResult?**: [`PortableMachineTargetTlsRestoreResult`](#portablemachinetargettlsrestoreresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetTlsRestoreResult`](#targettlsrestoreresult)
+
+##### targetThreadRestoreResult?
+
+> `optional` **targetThreadRestoreResult?**: [`PortableMachineTargetThreadRestoreResult`](#portablemachinetargetthreadrestoreresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetThreadRestoreResult`](#targetthreadrestoreresult)
+
+##### targetThreadRestoreThreadId?
+
+> `optional` **targetThreadRestoreThreadId?**: `string`
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetThreadRestoreThreadId`](#targetthreadrestorethreadid)
+
+##### targetResumePathResult?
+
+> `optional` **targetResumePathResult?**: [`PortableMachineTargetResumePathResult`](#portablemachinetargetresumepathresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetResumePathResult`](#targetresumepathresult)
+
+##### targetResumePathMode?
+
+> `optional` **targetResumePathMode?**: `string`
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetResumePathMode`](#targetresumepathmode)
+
+##### phase
+
+> **phase**: `"portable-machine-vm-restore-proof"`
+
+##### state
+
+> **state**: [`PortableMachineVmRestoreProofState`](#portablemachinevmrestoreproofstate)
+
+##### portableMachineBundle?
+
+> `optional` **portableMachineBundle?**: `string`
+
+##### targetCodeFile?
+
+> `optional` **targetCodeFile?**: `string`
+
+##### targetImage?
+
+> `optional` **targetImage?**: `string`
+
+##### sourceGuestArch?
+
+> `optional` **sourceGuestArch?**: `"arm64"`
+
+##### targetGuestArch?
+
+> `optional` **targetGuestArch?**: `"amd64"`
+
+##### targetVmRequired
+
+> **targetVmRequired**: `true`
+
+##### targetNativeCompletionRequired
+
+> **targetNativeCompletionRequired**: `true`
+
+##### migrationCompleted
+
+> **migrationCompleted**: `boolean`
+
+##### descriptorGateCompleted
+
+> **descriptorGateCompleted**: `boolean`
+
+##### descriptorMemoryEntryCount?
+
+> `optional` **descriptorMemoryEntryCount?**: `number`
+
+##### descriptorFdRecipeCount?
+
+> `optional` **descriptorFdRecipeCount?**: `number`
+
+##### descriptorResourceKinds?
+
+> `optional` **descriptorResourceKinds?**: `string`[]
+
+##### targetContinuationKind?
+
+> `optional` **targetContinuationKind?**: [`PortableMachineTargetContinuationKind`](#portablemachinetargetcontinuationkind)
+
+##### targetContinuationStatus?
+
+> `optional` **targetContinuationStatus?**: `string`
+
+##### targetContinuationReturnValue?
+
+> `optional` **targetContinuationReturnValue?**: `string`
+
+##### targetModuleBytesSource?
+
+> `optional` **targetModuleBytesSource?**: `string`
+
+##### sourceTextReusedAsTargetCode
+
+> **sourceTextReusedAsTargetCode**: `false`
+
+##### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+##### sidecarRuntimeUsed
+
+> **sidecarRuntimeUsed**: `false`
+
+##### refusal?
+
+> `optional` **refusal?**: `object`
+
+###### code
+
+> **code**: `string`
+
+###### message
+
+> **message**: `string`
+
+##### skipReason?
+
+> `optional` **skipReason?**: `string`
+
+***
+
+### PortableMachineVmRestoreTargetResult
+
+#### Extends
+
+- [`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation)
+
+#### Properties
+
+##### targetVerifierResult?
+
+> `optional` **targetVerifierResult?**: [`PortableMachineTargetVerifierResult`](#portablemachinetargetverifierresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetVerifierResult`](#targetverifierresult)
+
+##### targetStateConsumptionResult?
+
+> `optional` **targetStateConsumptionResult?**: [`PortableMachineTargetStateConsumptionResult`](#portablemachinetargetstateconsumptionresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetStateConsumptionResult`](#targetstateconsumptionresult)
+
+##### targetResourceStatuses?
+
+> `optional` **targetResourceStatuses?**: [`PortableMachineTargetResourceStatus`](#portablemachinetargetresourcestatus)[]
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetResourceStatuses`](#targetresourcestatuses)
+
+##### targetStackWindowMaterializationResult?
+
+> `optional` **targetStackWindowMaterializationResult?**: [`PortableMachineTargetNativePlanConsumptionResult`](#portablemachinetargetnativeplanconsumptionresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetStackWindowMaterializationResult`](#targetstackwindowmaterializationresult)
+
+##### targetPrivateMemoryRestoreResult?
+
+> `optional` **targetPrivateMemoryRestoreResult?**: [`PortableMachineTargetNativePlanConsumptionResult`](#portablemachinetargetnativeplanconsumptionresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetPrivateMemoryRestoreResult`](#targetprivatememoryrestoreresult)
+
+##### targetExecutableMappingResult?
+
+> `optional` **targetExecutableMappingResult?**: [`PortableMachineTargetNativePlanConsumptionResult`](#portablemachinetargetnativeplanconsumptionresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetExecutableMappingResult`](#targetexecutablemappingresult)
+
+##### targetProcessContextRestoreResult?
+
+> `optional` **targetProcessContextRestoreResult?**: [`PortableMachineTargetNativePlanConsumptionResult`](#portablemachinetargetnativeplanconsumptionresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetProcessContextRestoreResult`](#targetprocesscontextrestoreresult)
+
+##### targetSignalRestoreResult?
+
+> `optional` **targetSignalRestoreResult?**: [`PortableMachineTargetNativePlanConsumptionResult`](#portablemachinetargetnativeplanconsumptionresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetSignalRestoreResult`](#targetsignalrestoreresult)
+
+##### targetActiveSyscallRestoreResult?
+
+> `optional` **targetActiveSyscallRestoreResult?**: [`PortableMachineTargetNativePlanConsumptionResult`](#portablemachinetargetnativeplanconsumptionresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetActiveSyscallRestoreResult`](#targetactivesyscallrestoreresult)
+
+##### targetReturnChainResult?
+
+> `optional` **targetReturnChainResult?**: [`PortableMachineTargetReturnChainResult`](#portablemachinetargetreturnchainresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetReturnChainResult`](#targetreturnchainresult)
+
+##### targetTranslatedReturnAddress?
+
+> `optional` **targetTranslatedReturnAddress?**: `string`
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetTranslatedReturnAddress`](#targettranslatedreturnaddress)
+
+##### targetFrameRestoreResult?
+
+> `optional` **targetFrameRestoreResult?**: [`PortableMachineTargetFrameRestoreResult`](#portablemachinetargetframerestoreresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetFrameRestoreResult`](#targetframerestoreresult)
+
+##### targetTranslatedFramePointer?
+
+> `optional` **targetTranslatedFramePointer?**: `string`
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetTranslatedFramePointer`](#targettranslatedframepointer)
+
+##### targetRegisterRestoreResult?
+
+> `optional` **targetRegisterRestoreResult?**: [`PortableMachineTargetRegisterRestoreResult`](#portablemachinetargetregisterrestoreresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetRegisterRestoreResult`](#targetregisterrestoreresult)
+
+##### targetRflagsRestoreResult?
+
+> `optional` **targetRflagsRestoreResult?**: [`PortableMachineTargetRflagsRestoreResult`](#portablemachinetargetrflagsrestoreresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetRflagsRestoreResult`](#targetrflagsrestoreresult)
+
+##### targetTlsRestoreResult?
+
+> `optional` **targetTlsRestoreResult?**: [`PortableMachineTargetTlsRestoreResult`](#portablemachinetargettlsrestoreresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetTlsRestoreResult`](#targettlsrestoreresult)
+
+##### targetThreadRestoreResult?
+
+> `optional` **targetThreadRestoreResult?**: [`PortableMachineTargetThreadRestoreResult`](#portablemachinetargetthreadrestoreresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetThreadRestoreResult`](#targetthreadrestoreresult)
+
+##### targetThreadRestoreThreadId?
+
+> `optional` **targetThreadRestoreThreadId?**: `string`
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetThreadRestoreThreadId`](#targetthreadrestorethreadid)
+
+##### targetResumePathResult?
+
+> `optional` **targetResumePathResult?**: [`PortableMachineTargetResumePathResult`](#portablemachinetargetresumepathresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetResumePathResult`](#targetresumepathresult)
+
+##### targetResumePathMode?
+
+> `optional` **targetResumePathMode?**: `string`
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetResumePathMode`](#targetresumepathmode)
+
+##### exitCode
+
+> **exitCode**: `number`
+
+##### migrationCompleted?
+
+> `optional` **migrationCompleted?**: `boolean`
+
+##### descriptorGateCompleted?
+
+> `optional` **descriptorGateCompleted?**: `boolean`
+
+##### actualResumeEvent?
+
+> `optional` **actualResumeEvent?**: `object`
+
+###### status?
+
+> `optional` **status?**: `string`
+
+###### returnValue?
+
+> `optional` **returnValue?**: `string`
+
+##### sourceTextReusedAsTargetCode?
+
+> `optional` **sourceTextReusedAsTargetCode?**: `boolean`
+
+##### sourceIsaEmulationUsed?
+
+> `optional` **sourceIsaEmulationUsed?**: `boolean`
+
+##### sidecarRuntimeUsed?
+
+> `optional` **sidecarRuntimeUsed?**: `boolean`
+
+***
+
+### PortableMachineTargetRestoreDescriptorRequest
+
+#### Properties
+
+##### continuation
+
+> **continuation**: [`TargetGuestRestoreContinuationDescriptor`](#targetguestrestorecontinuationdescriptor)
+
+##### translatedFrame?
+
+> `optional` **translatedFrame?**: [`TargetGuestTranslatedFrameDescriptor`](#targetguesttranslatedframedescriptor)
+
+##### fdTable
+
+> **fdTable**: [`NativeTargetFdTablePlan`](#nativetargetfdtableplan)
+
+##### memory
+
+> **memory**: [`TargetGuestMemoryMaterializationResult`](#targetguestmemorymaterializationresult)
+
+##### nativeRestore?
+
+> `optional` **nativeRestore?**: [`TargetGuestNativeRestoreStep`](#targetguestnativerestorestep)[]
+
+***
+
+### PortableMachineSnapshotRefusal
+
+#### Properties
+
+##### code
+
+> **code**: `"cross-isa-vmstate-restore-unsupported"` \| `"raw-vcpu-state-unsupported"` \| `"raw-kernel-state-unsupported"` \| `"raw-device-state-unsupported"` \| `"target-isa-vm-restore-loader-missing"` \| `"portable-process-image-missing"`
+
+##### message
+
+> **message**: `string`
+
+##### detail?
+
+> `optional` **detail?**: `Record`\<`string`, `unknown`\>
+
+***
+
+### PortableMachineSnapshotRefusals
+
+#### Properties
+
+##### vocabularyVersion
+
+> **vocabularyVersion**: `1`
+
+##### refusals
+
+> **refusals**: [`PortableMachineSnapshotRefusal`](#portablemachinesnapshotrefusal)[]
+
+***
+
+### PortableMachineSnapshotDocuments
+
+#### Properties
+
+##### rootDir?
+
+> `optional` **rootDir?**: `string`
+
+##### manifest
+
+> **manifest**: [`PortableMachineSnapshotManifest`](#portablemachinesnapshotmanifest)
+
+##### nativeProcessImage
+
+> **nativeProcessImage**: [`NativeProcessImageDocuments`](#nativeprocessimagedocuments)
+
+***
+
+### PortableMachineSnapshotManifest
+
+#### Properties
+
+##### formatVersion
+
+> **formatVersion**: `1`
+
+##### kind
+
+> **kind**: `"machinen.portable-machine-snapshot"`
+
+##### source
+
+> **source**: `object`
+
+###### guestArch
+
+> **guestArch**: `"amd64"` \| `"arm64"`
+
+###### vmstate
+
+> **vmstate**: `object`
+
+###### vmstate.rawRestore
+
+> **rawRestore**: `"refused"`
+
+###### vmstate.refusalCode
+
+> **refusalCode**: `"cross-isa-vmstate-restore-unsupported"`
+
+###### vmstate.reason
+
+> **reason**: `string`
+
+###### kernelState
+
+> **kernelState**: `"not-translated"`
+
+###### deviceState
+
+> **deviceState**: `"not-translated"`
+
+##### target
+
+> **target**: `object`
+
+###### guestArch
+
+> **guestArch**: `"amd64"` \| `"arm64"`
+
+###### mode
+
+> **mode**: `"target-isa-vm-process-restore"`
+
+###### execution
+
+> **execution**: `"target-native"`
+
+##### payload
+
+> **payload**: `object`
+
+###### nativeProcessImage
+
+> **nativeProcessImage**: `object`
+
+###### nativeProcessImage.kind
+
+> **kind**: `"machinen.native-process-image"`
+
+###### nativeProcessImage.path
+
+> **path**: `string`
+
+###### resourceModel
+
+> **resourceModel**: `"explicit-recipes-only"`
+
+##### refusals
+
+> **refusals**: [`PortableMachineSnapshotRefusals`](#portablemachinesnapshotrefusals)
 
 ***
 
@@ -8209,6 +10609,578 @@ How long to keep retrying the UDS connect. Default 10s.
 > `optional` **retryMs?**: `number`
 
 Poll interval in ms while retrying. Default 250.
+
+***
+
+### TargetGuestExecutableMappingStep
+
+#### Properties
+
+##### action
+
+> **action**: `"map-target-executable"`
+
+##### mapping
+
+> **mapping**: `string`
+
+##### targetStart
+
+> **targetStart**: `string`
+
+##### sizeBytes
+
+> **sizeBytes**: `number`
+
+##### permissions
+
+> **permissions**: `object`
+
+###### read
+
+> **read**: `boolean`
+
+###### write
+
+> **write**: `boolean`
+
+###### execute
+
+> **execute**: `boolean`
+
+###### private
+
+> **private**: `boolean`
+
+###### shared
+
+> **shared**: `boolean`
+
+##### path
+
+> **path**: `string`
+
+##### fileOffset
+
+> **fileOffset**: `number`
+
+##### buildId?
+
+> `optional` **buildId?**: `string`
+
+##### sha256?
+
+> `optional` **sha256?**: `string`
+
+##### sourceTextReusedAsTargetCode
+
+> **sourceTextReusedAsTargetCode**: `false`
+
+***
+
+### TargetGuestExecutableMaterializationPlan
+
+#### Properties
+
+##### state
+
+> **state**: `"refused"` \| `"planned"`
+
+##### steps
+
+> **steps**: [`TargetGuestExecutableMappingStep`](#targetguestexecutablemappingstep)[]
+
+##### refusals
+
+> **refusals**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
+
+***
+
+### TargetGuestCopyCapturedBytesEntry
+
+#### Extends
+
+- `TargetGuestMemoryMaterializationEntryBase`
+
+#### Properties
+
+##### mapping
+
+> **mapping**: `string`
+
+###### Inherited from
+
+`TargetGuestMemoryMaterializationEntryBase.mapping`
+
+##### targetStart
+
+> **targetStart**: `string`
+
+###### Inherited from
+
+`TargetGuestMemoryMaterializationEntryBase.targetStart`
+
+##### sizeBytes
+
+> **sizeBytes**: `number`
+
+###### Inherited from
+
+`TargetGuestMemoryMaterializationEntryBase.sizeBytes`
+
+##### permissions
+
+> **permissions**: `string`
+
+###### Inherited from
+
+`TargetGuestMemoryMaterializationEntryBase.permissions`
+
+##### kind
+
+> **kind**: `"copy-captured-bytes"`
+
+###### Overrides
+
+`TargetGuestMemoryMaterializationEntryBase.kind`
+
+##### sourceFile
+
+> **sourceFile**: `string`
+
+##### sourceOffset
+
+> **sourceOffset**: `number`
+
+##### provenance
+
+> **provenance**: `"native-process-image"`
+
+###### Overrides
+
+`TargetGuestMemoryMaterializationEntryBase.provenance`
+
+***
+
+### TargetGuestRecreateGuardEntry
+
+#### Extends
+
+- `TargetGuestMemoryMaterializationEntryBase`
+
+#### Properties
+
+##### mapping
+
+> **mapping**: `string`
+
+###### Inherited from
+
+`TargetGuestMemoryMaterializationEntryBase.mapping`
+
+##### targetStart
+
+> **targetStart**: `string`
+
+###### Inherited from
+
+`TargetGuestMemoryMaterializationEntryBase.targetStart`
+
+##### sizeBytes
+
+> **sizeBytes**: `number`
+
+###### Inherited from
+
+`TargetGuestMemoryMaterializationEntryBase.sizeBytes`
+
+##### permissions
+
+> **permissions**: `string`
+
+###### Inherited from
+
+`TargetGuestMemoryMaterializationEntryBase.permissions`
+
+##### kind
+
+> **kind**: `"recreate-guard"`
+
+###### Overrides
+
+`TargetGuestMemoryMaterializationEntryBase.kind`
+
+##### provenance
+
+> **provenance**: `"guard-protection"`
+
+###### Overrides
+
+`TargetGuestMemoryMaterializationEntryBase.provenance`
+
+***
+
+### TargetGuestMemoryMaterializationRequest
+
+#### Properties
+
+##### mappings
+
+> **mappings**: [`NativeMemoryMapping`](#nativememorymapping)[]
+
+##### memorySizeBytes
+
+> **memorySizeBytes**: `number`
+
+##### memoryFile
+
+> **memoryFile**: `string`
+
+***
+
+### TargetGuestMemoryMaterializationResult
+
+#### Properties
+
+##### entries
+
+> **entries**: [`TargetGuestMemoryMaterializationEntry`](#targetguestmemorymaterializationentry)[]
+
+##### refusals
+
+> **refusals**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
+
+***
+
+### TargetGuestPrivateMemoryRestorePlan
+
+#### Properties
+
+##### state
+
+> **state**: `"refused"` \| `"planned"`
+
+##### steps
+
+> **steps**: [`TargetGuestPrivateMemoryRestoreStep`](#targetguestprivatememoryrestorestep)[]
+
+##### refusals
+
+> **refusals**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
+
+***
+
+### TargetGuestProcessContextRestoreOptions
+
+#### Properties
+
+##### mode?
+
+> `optional` **mode?**: [`TargetGuestProcessContextRestoreMode`](#targetguestprocesscontextrestoremode)
+
+##### maxArgvEntries?
+
+> `optional` **maxArgvEntries?**: `number`
+
+##### maxEnvEntries?
+
+> `optional` **maxEnvEntries?**: `number`
+
+##### maxStringBytes?
+
+> `optional` **maxStringBytes?**: `number`
+
+##### maxAuxvBytes?
+
+> `optional` **maxAuxvBytes?**: `number`
+
+##### initialStackTargetStart?
+
+> `optional` **initialStackTargetStart?**: `string`
+
+##### initialStackSizeBytes?
+
+> `optional` **initialStackSizeBytes?**: `number`
+
+***
+
+### TargetGuestEpollWatchRecipe
+
+#### Properties
+
+##### fd
+
+> **fd**: `number`
+
+##### events
+
+> **events**: `number`
+
+##### data
+
+> **data**: `string`
+
+***
+
+### TargetGuestRestoreContinuationDescriptor
+
+#### Properties
+
+##### codeFile
+
+> **codeFile**: `string`
+
+##### fileOffset
+
+> **fileOffset**: `number`
+
+##### codeSize
+
+> **codeSize**: `number`
+
+##### targetAddress
+
+> **targetAddress**: `string`
+
+##### argument0?
+
+> `optional` **argument0?**: `string`
+
+##### stateReportAddress?
+
+> `optional` **stateReportAddress?**: `string`
+
+##### targetFsBase?
+
+> `optional` **targetFsBase?**: `string`
+
+##### translatedReturnAddress?
+
+> `optional` **translatedReturnAddress?**: `string`
+
+##### resumeMode?
+
+> `optional` **resumeMode?**: `"translated-frame"`
+
+##### resumeRflags?
+
+> `optional` **resumeRflags?**: `string`
+
+##### resumeRegisters?
+
+> `optional` **resumeRegisters?**: [`TargetGuestResumeRegisters`](#targetguestresumeregisters)
+
+##### timeoutSeconds
+
+> **timeoutSeconds**: `number`
+
+##### stackTargetStart
+
+> **stackTargetStart**: `string`
+
+##### stackSize
+
+> **stackSize**: `number`
+
+##### stackPointer
+
+> **stackPointer**: `string`
+
+***
+
+### TargetGuestTranslatedFrameDescriptor
+
+#### Properties
+
+##### kind
+
+> **kind**: `"single-target-caller-frame"`
+
+##### framePointer
+
+> **framePointer**: `string`
+
+##### canonicalFrameAddress
+
+> **canonicalFrameAddress**: `string`
+
+##### returnAddressSlot
+
+> **returnAddressSlot**: `string`
+
+##### returnAddress
+
+> **returnAddress**: `string`
+
+##### unwindId
+
+> **unwindId**: `string`
+
+##### calleeSaved
+
+> **calleeSaved**: [`TargetGuestTranslatedFrameRegister`](#targetguesttranslatedframeregister)[]
+
+##### slots
+
+> **slots**: [`TargetGuestTranslatedFrameSlot`](#targetguesttranslatedframeslot)[]
+
+***
+
+### TargetGuestTranslatedFrameRegister
+
+#### Properties
+
+##### register
+
+> **register**: [`TargetGuestTranslatedFrameRegisterName`](#targetguesttranslatedframeregistername)
+
+##### value
+
+> **value**: `string`
+
+***
+
+### TargetGuestTranslatedFrameSlot
+
+#### Properties
+
+##### offset
+
+> **offset**: `number`
+
+##### value
+
+> **value**: `string`
+
+##### classification
+
+> **classification**: `"non-pointer-data"`
+
+***
+
+### TargetGuestRestoreDescriptor
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.target-guest-restore"`
+
+##### targetArch
+
+> **targetArch**: `"amd64"`
+
+##### continuation
+
+> **continuation**: [`TargetGuestRestoreContinuationDescriptor`](#targetguestrestorecontinuationdescriptor)
+
+##### translatedFrame?
+
+> `optional` **translatedFrame?**: [`TargetGuestTranslatedFrameDescriptor`](#targetguesttranslatedframedescriptor)
+
+##### resources
+
+> **resources**: [`TargetGuestRestoreResourceRecipe`](#targetguestrestoreresourcerecipe)[]
+
+##### memory
+
+> **memory**: [`TargetGuestMemoryMaterializationEntry`](#targetguestmemorymaterializationentry)[]
+
+##### nativeRestore?
+
+> `optional` **nativeRestore?**: [`TargetGuestNativeRestoreStep`](#targetguestnativerestorestep)[]
+
+***
+
+### TargetGuestTwoThreadBinding
+
+#### Properties
+
+##### threadId
+
+> **threadId**: `string`
+
+##### stackBase
+
+> **stackBase**: `string`
+
+##### stackLimit
+
+> **stackLimit**: `string`
+
+##### registers
+
+> **registers**: `Record`\<`string`, `string`\>
+
+***
+
+### TargetGuestTwoThreadSpawnStep
+
+#### Properties
+
+##### action
+
+> **action**: `"spawn-target-thread"`
+
+##### threadId
+
+> **threadId**: `string`
+
+##### stackBase
+
+> **stackBase**: `string`
+
+##### stackLimit
+
+> **stackLimit**: `string`
+
+##### registers
+
+> **registers**: `Record`\<`string`, `string`\>
+
+***
+
+### TargetNativeConsumptionEvent
+
+#### Properties
+
+##### status?
+
+> `optional` **status?**: [`TargetNativeConsumptionStatus`](#targetnativeconsumptionstatus)
+
+***
+
+### TargetNativeConsumptionEvents
+
+#### Properties
+
+##### nativeStackWindowMaterialization?
+
+> `optional` **nativeStackWindowMaterialization?**: [`TargetNativeConsumptionEvent`](#targetnativeconsumptionevent)
+
+##### nativePrivateMemoryRestore?
+
+> `optional` **nativePrivateMemoryRestore?**: [`TargetNativeConsumptionEvent`](#targetnativeconsumptionevent)
+
+##### nativeExecutableMapping?
+
+> `optional` **nativeExecutableMapping?**: [`TargetNativeConsumptionEvent`](#targetnativeconsumptionevent)
+
+##### nativeProcessContextRestore?
+
+> `optional` **nativeProcessContextRestore?**: [`TargetNativeConsumptionEvent`](#targetnativeconsumptionevent)
+
+##### nativeSignalRestore?
+
+> `optional` **nativeSignalRestore?**: [`TargetNativeConsumptionEvent`](#targetnativeconsumptionevent)
+
+##### nativeActiveSyscallRestore?
+
+> `optional` **nativeActiveSyscallRestore?**: [`TargetNativeConsumptionEvent`](#targetnativeconsumptionevent)
+
+##### nativeThreadRestore?
+
+> `optional` **nativeThreadRestore?**: [`TargetNativeConsumptionEvent`](#targetnativeconsumptionevent)
 
 ***
 
@@ -9377,7 +12349,7 @@ need to set it.
 
 ###### Inherited from
 
-[`BootOptions`](#bootoptions).[`memory`](#memory-2)
+[`BootOptions`](#bootoptions).[`memory`](#memory-4)
 
 ##### pdeathsig?
 
@@ -10195,7 +13167,7 @@ need to set it.
 
 ###### Inherited from
 
-[`BootOptions`](#bootoptions).[`memory`](#memory-2)
+[`BootOptions`](#bootoptions).[`memory`](#memory-4)
 
 ##### pdeathsig?
 
@@ -10372,7 +13344,7 @@ Poll interval in ms while retrying. Default 250.
 
 ### NativeActiveSyscallClass
 
-> **NativeActiveSyscallClass** = `"outside-syscall"` \| `"sleep-timer"` \| `"poll-timeout"` \| `"fd-blocking"` \| `"restart"` \| `"unknown-active"`
+> **NativeActiveSyscallClass** = `"outside-syscall"` \| `"sleep-timer"` \| `"poll-timeout"` \| `"fd-blocking"` \| `"futex-wait"` \| `"restart"` \| `"unknown-active"`
 
 ***
 
@@ -10388,6 +13360,54 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NativePollTimeoutFdPolicy
+
+> **NativePollTimeoutFdPolicy** = `"zero-fd-only"` \| `"synthetic-empty-pipe"` \| `"synthetic-empty-eventfd"` \| `"synthetic-timerfd"`
+
+***
+
+### NativeFdReadPolicy
+
+> **NativeFdReadPolicy** = `"refuse"` \| `"defer-target-resume"`
+
+***
+
+### NativeFdReadResourcePolicy
+
+> **NativeFdReadResourcePolicy** = `"synthetic-empty-pipe"` \| `"synthetic-empty-eventfd"` \| `"synthetic-timerfd"` \| `"reopen-file"`
+
+***
+
+### NativeFdWritePolicy
+
+> **NativeFdWritePolicy** = `"refuse"` \| `"defer-target-resume"`
+
+***
+
+### NativeFdWriteResourcePolicy
+
+> **NativeFdWriteResourcePolicy** = `"reopen-file"`
+
+***
+
+### NativeModeledPpollTargetResource
+
+> **NativeModeledPpollTargetResource** = `"synthetic-empty-pipe-read-end"` \| `"synthetic-empty-eventfd"` \| `"synthetic-timerfd"`
+
+***
+
+### NativeModeledFdReadTargetResource
+
+> **NativeModeledFdReadTargetResource** = `"synthetic-empty-pipe-read-end"` \| `"synthetic-empty-eventfd"` \| `"synthetic-timerfd"` \| `"reopened-offset-file"`
+
+***
+
+### NativeModeledFdWriteTargetResource
+
+> **NativeModeledFdWriteTargetResource** = `"reopened-offset-file"`
+
+***
+
 ### NativeSleepTimerModelResult
 
 > **NativeSleepTimerModelResult** = \{ `state`: `"modeled"`; `timer`: [`NativeModeledSleepTimerState`](#nativemodeledsleeptimerstate); \} \| \{ `state`: `"missing"`; `refusal`: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal); \}
@@ -10400,9 +13420,21 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NativeFdReadModelResult
+
+> **NativeFdReadModelResult** = \{ `state`: `"modeled"`; `read`: [`NativeModeledFdReadState`](#nativemodeledfdreadstate); \} \| \{ `state`: `"missing"`; `refusal`: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal); \}
+
+***
+
+### NativeFdWriteModelResult
+
+> **NativeFdWriteModelResult** = \{ `state`: `"modeled"`; `write`: [`NativeModeledFdWriteState`](#nativemodeledfdwritestate); \} \| \{ `state`: `"missing"`; `refusal`: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal); \}
+
+***
+
 ### NativeActiveSyscallContinuation
 
-> **NativeActiveSyscallContinuation** = [`NativeActiveSleepTimerContinuation`](#nativeactivesleeptimercontinuation) \| [`NativeActivePpollTimeoutContinuation`](#nativeactiveppolltimeoutcontinuation)
+> **NativeActiveSyscallContinuation** = [`NativeActiveSleepTimerContinuation`](#nativeactivesleeptimercontinuation) \| [`NativeActivePpollTimeoutContinuation`](#nativeactiveppolltimeoutcontinuation) \| [`NativeActiveFdReadContinuation`](#nativeactivefdreadcontinuation) \| [`NativeActiveFdWriteContinuation`](#nativeactivefdwritecontinuation)
 
 ***
 
@@ -10421,6 +13453,12 @@ Poll interval in ms while retrying. Default 250.
 ### NativeDebugMemoryFieldClassification
 
 > **NativeDebugMemoryFieldClassification** = `"integer"` \| `"pointer"` \| `"code-pointer"` \| `"unknown"`
+
+***
+
+### NativeMachineRestorePlan
+
+> **NativeMachineRestorePlan** = \{ `state`: `"accepted"`; `thread`: `Extract`\<[`NativeThreadRestorePlan`](#nativethreadrestoreplan), \{ `state`: `"accepted"`; \}\>; `stackWindow?`: [`NativeStackWindowMaterializationPlan`](#nativestackwindowmaterializationplan) & `object`; `returnChain?`: [`NativeReturnChainPlan`](#nativereturnchainplan) & `object`; `mappings?`: [`NativeMappingMaterializationResult`](#nativemappingmaterializationresult); `refusals`: \[\]; \} \| \{ `state`: `"refused"`; `thread`: [`NativeThreadRestorePlan`](#nativethreadrestoreplan); `stackWindow?`: [`NativeStackWindowMaterializationPlan`](#nativestackwindowmaterializationplan); `returnChain?`: [`NativeReturnChainPlan`](#nativereturnchainplan); `mappings?`: [`NativeMappingMaterializationResult`](#nativemappingmaterializationresult); `refusals`: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]; \}
 
 ***
 
@@ -10454,9 +13492,33 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NativeTlsThreadPointerRegister
+
+> **NativeTlsThreadPointerRegister** = `"arm64-tpidr-el0"` \| `"amd64-fs-base"`
+
+***
+
+### NativeTlsAmd64SegmentBases
+
+> **NativeTlsAmd64SegmentBases** = \{ `state`: `"not-required"`; `fsBase`: `string`; `gsBase`: `string`; `reason?`: `string`; \} \| \{ `state`: `"provided"`; `fsBase`: `string`; `gsBase`: `string`; `provenance?`: `string`; \} \| \{ `state`: `"unsupported"`; `reason?`: `string`; `refusal?`: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal); \}
+
+***
+
+### NativeSimdFpuLiveSubset
+
+> **NativeSimdFpuLiveSubset** = `"fp-control-state"` \| `"caller-saved-vector-registers"` \| `"callee-saved-vector-registers"` \| `"unknown-live-state"`
+
+***
+
+### NativeSimdFpuState
+
+> **NativeSimdFpuState** = \{ `state`: `"not-live"`; `provenance?`: `string`; \} \| \{ `state`: `"requires-restore"`; `arch?`: [`NativeProcessImageArchitecture`](#nativeprocessimagearchitecture); `byteLength?`: `number`; `liveSubset?`: [`NativeSimdFpuLiveSubset`](#nativesimdfpulivesubset); `reason?`: `string`; \} \| \{ `state`: `"not-captured"` \| `"unsupported"`; `reason?`: `string`; `refusal?`: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal); \}
+
+***
+
 ### NativeProcessResourceKind
 
-> **NativeProcessResourceKind** = `"argv"` \| `"env"` \| `"cwd"` \| `"exe"` \| `"auxv"` \| `"fd"` \| `"file"` \| `"pipe"` \| `"socket"` \| `"raw-socket"` \| `"pty"` \| `"timer"` \| `"eventfd"` \| `"signal"` \| `"namespace"` \| `"credential"` \| `"futex"` \| `"epoll"` \| `"unknown"`
+> **NativeProcessResourceKind** = `"argv"` \| `"env"` \| `"cwd"` \| `"exe"` \| `"auxv"` \| `"fd"` \| `"file"` \| `"pipe"` \| `"socket"` \| `"raw-socket"` \| `"pty"` \| `"timer"` \| `"eventfd"` \| `"signal"` \| `"signalfd"` \| `"namespace"` \| `"credential"` \| `"futex"` \| `"epoll"` \| `"unknown"`
 
 ***
 
@@ -10487,6 +13549,42 @@ Poll interval in ms while retrying. Default 250.
 ### NativeRealUtilityContinuationBoundary
 
 > **NativeRealUtilityContinuationBoundary** = `"thread-state"` \| `"resource-boundary"` \| `"mapping-materialization"` \| `"target-code-location"` \| `"source-unwind"` \| `"target-unwind"` \| `"target-frame-state"` \| `"ready"`
+
+***
+
+### NativeTargetFdTableEntryKind
+
+> **NativeTargetFdTableEntryKind** = `"close-fd"` \| `"inherit-stdio"` \| `"reopen-file"` \| `"synthetic-empty-pipe-read-end"` \| `"synthetic-empty-pipe-write-end"` \| `"synthetic-empty-eventfd"` \| `"synthetic-eventfd"` \| `"synthetic-timerfd"` \| `"synthetic-signalfd"` \| `"synthetic-epoll"` \| `"synthetic-tcp-listener"` \| `"synthetic-tcp-active-broker"` \| `"refused"`
+
+***
+
+### NativeReturnChainMaterialization
+
+> **NativeReturnChainMaterialization** = \{ `state`: `"materialized"`; `initialFramePointer`: `string`; `targetStack`: [`NativeReturnChainPlan`](#nativereturnchainplan)\[`"targetStack"`\]; `writes`: [`NativeReturnChainFrameWrite`](#nativereturnchainframewrite)[]; `refusals`: \[\]; \} \| \{ `state`: `"refused"`; `refusals`: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]; \}
+
+***
+
+### NativeSignalBlockedMaskPolicy
+
+> **NativeSignalBlockedMaskPolicy** = `"require-empty"` \| `"restore-safe-mask"`
+
+***
+
+### NativeSignalRestorePolicyResult
+
+> **NativeSignalRestorePolicyResult** = \{ `state`: `"accepted"`; `threadId`: `string`; `blockedMaskPolicy`: [`NativeSignalBlockedMaskPolicy`](#nativesignalblockedmaskpolicy); `targetBlockedMasks`: `string`[]; `refusals`: \[\]; \} \| \{ `state`: `"refused"`; `threadId`: `string`; `refusals`: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]; \}
+
+***
+
+### NativeSimdFpuRestorePolicyResult
+
+> **NativeSimdFpuRestorePolicyResult** = \{ `state`: `"accepted"`; `threadId`: `string`; `policy`: `"not-live"`; `refusals`: \[\]; \} \| \{ `state`: `"refused"`; `threadId`: `string`; `refusals`: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]; \}
+
+***
+
+### NativeStackWindowMaterializedWrites
+
+> **NativeStackWindowMaterializedWrites** = \{ `state`: `"materialized"`; `stackMapping`: `string`; `targetWindow`: [`NativeStackWindowMaterializationPlan`](#nativestackwindowmaterializationplan)\[`"targetWindow"`\]; `writes`: [`NativeStackWindowWrite`](#nativestackwindowwrite)[]; `guards`: [`NativeStackWindowGuardMapping`](#nativestackwindowguardmapping)[]; `refusals`: \[\]; \} \| \{ `state`: `"refused"`; `stackMapping`: `string`; `refusals`: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]; \}
 
 ***
 
@@ -10522,7 +13620,7 @@ Poll interval in ms while retrying. Default 250.
 
 ### NativeSyntheticContinuationFailureKind
 
-> **NativeSyntheticContinuationFailureKind** = `"signal-restart-unsupported"` \| `"syscall-return-unmodeled"`
+> **NativeSyntheticContinuationFailureKind** = `"signal-interrupted-unsupported"` \| `"signal-restart-unsupported"` \| `"syscall-return-unmodeled"`
 
 ***
 
@@ -10628,6 +13726,30 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NativeThreadRestorePlan
+
+> **NativeThreadRestorePlan** = \{ `state`: `"accepted"`; `threadId`: `string`; `targetThreadCount`: `1`; `activeSyscallContinuations`: [`NativeActiveSyscallContinuation`](#nativeactivesyscallcontinuation)[]; `signalRestore`: \{ `blockedMasks`: `string`[]; \}; `refusals`: \[\]; \} \| \{ `state`: `"refused"`; `targetThreadCount`: `number`; `refusals`: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]; \}
+
+***
+
+### NativeTlsTargetAccessPolicy
+
+> **NativeTlsTargetAccessPolicy** = `"not-required"` \| `"segment-bases-provided"` \| `"target-tcb-materialized"` \| `"target-tcb-required"`
+
+***
+
+### NativeTlsSegmentBaseHandoffResult
+
+> **NativeTlsSegmentBaseHandoffResult** = \{ `state`: `"accepted"`; `threadId`: `string`; `sourceArch`: `"arm64"`; `sourceRegister`: `"arm64-tpidr-el0"`; `sourceThreadPointer`: `string`; `targetArch`: `"amd64"`; `targetSegmentBases`: \{ `fsBase`: `string`; `gsBase`: `string`; `accessPolicy`: `Exclude`\<[`NativeTlsTargetAccessPolicy`](#nativetlstargetaccesspolicy), `"target-tcb-required"`\>; \}; `refusals`: \[\]; \} \| \{ `state`: `"refused"`; `threadId`: `string`; `refusals`: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]; \}
+
+***
+
+### NativeControlledTwoThreadRestorePlan
+
+> **NativeControlledTwoThreadRestorePlan** = \{ `state`: `"accepted"`; `targetThreadCount`: `2`; `threadIds`: \[`string`, `string`\]; `threadPlans`: \[`Extract`\<[`NativeThreadRestorePlan`](#nativethreadrestoreplan), \{ `state`: `"accepted"`; \}\>, `Extract`\<[`NativeThreadRestorePlan`](#nativethreadrestoreplan), \{ `state`: `"accepted"`; \}\>\]; `refusals`: \[\]; \} \| \{ `state`: `"refused"`; `targetThreadCount`: `number`; `refusals`: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]; \}
+
+***
+
 ### NativeUnwindMetadataKind
 
 > **NativeUnwindMetadataKind** = `"dwarf"` \| `"eh-frame"`
@@ -10645,6 +13767,210 @@ Poll interval in ms while retrying. Default 250.
 > **PidStatus** = `"alive"` \| `"dead"` \| `"recycled"`
 
 Result of `validatePid` — easy to switch on at the call site.
+
+***
+
+### PortableMachineVmRestoreProofState
+
+> **PortableMachineVmRestoreProofState** = `"ready"` \| `"skipped"` \| `"refused"` \| `"completed"`
+
+***
+
+### PortableMachineTargetVerifierResult
+
+> **PortableMachineTargetVerifierResult** = `"pending"` \| `"passed"` \| `"failed"`
+
+***
+
+### PortableMachineTargetContinuationKind
+
+> **PortableMachineTargetContinuationKind** = `"generated-verifier"` \| `"real-utility"`
+
+***
+
+### PortableMachineTargetStateConsumptionResult
+
+> **PortableMachineTargetStateConsumptionResult** = `"pending"` \| `"passed"` \| `"failed"`
+
+***
+
+### PortableMachineTargetNativePlanConsumptionResult
+
+> **PortableMachineTargetNativePlanConsumptionResult** = `"pending"` \| `"passed"` \| `"failed"`
+
+***
+
+### PortableMachineTargetReturnChainResult
+
+> **PortableMachineTargetReturnChainResult** = `"pending"` \| `"passed"` \| `"failed"`
+
+***
+
+### PortableMachineTargetFrameRestoreResult
+
+> **PortableMachineTargetFrameRestoreResult** = `"pending"` \| `"passed"` \| `"failed"`
+
+***
+
+### PortableMachineTargetRegisterRestoreResult
+
+> **PortableMachineTargetRegisterRestoreResult** = `"pending"` \| `"passed"` \| `"failed"`
+
+***
+
+### PortableMachineTargetRflagsRestoreResult
+
+> **PortableMachineTargetRflagsRestoreResult** = `"pending"` \| `"passed"` \| `"failed"`
+
+***
+
+### PortableMachineTargetTlsRestoreResult
+
+> **PortableMachineTargetTlsRestoreResult** = `"pending"` \| `"passed"` \| `"failed"`
+
+***
+
+### PortableMachineTargetThreadRestoreResult
+
+> **PortableMachineTargetThreadRestoreResult** = `"accepted"` \| `"refused"` \| `"passed"` \| `"failed"`
+
+***
+
+### PortableMachineTargetResumePathResult
+
+> **PortableMachineTargetResumePathResult** = `"pending"` \| `"passed"` \| `"failed"`
+
+***
+
+### PortableMachineTargetRestoreDescriptorPlan
+
+> **PortableMachineTargetRestoreDescriptorPlan** = \{ `state`: `"ready"`; `descriptor`: [`TargetGuestRestoreDescriptor`](#targetguestrestoredescriptor); `refusals`: \[\]; `memoryEntryCount`: `number`; `fdRecipeCount`: `number`; `sourceTextReusedAsTargetCode`: `false`; `sourceIsaEmulationUsed`: `false`; `sidecarRuntimeUsed`: `false`; \} \| \{ `state`: `"refused"`; `refusals`: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]; `memoryEntryCount`: `number`; `fdRecipeCount`: `number`; `sourceTextReusedAsTargetCode`: `false`; `sourceIsaEmulationUsed`: `false`; `sidecarRuntimeUsed`: `false`; \}
+
+***
+
+### PortableMachineSnapshotArchitecture
+
+> **PortableMachineSnapshotArchitecture** = *typeof* [`portableMachineSnapshotArchitectures`](#portablemachinesnapshotarchitectures)\[`number`\]
+
+***
+
+### PortableMachineSnapshotRefusalCode
+
+> **PortableMachineSnapshotRefusalCode** = *typeof* [`portableMachineSnapshotRefusalCodes`](#portablemachinesnapshotrefusalcodes)\[`number`\]
+
+***
+
+### TargetGuestActiveSyscallRestoreStep
+
+> **TargetGuestActiveSyscallRestoreStep** = \{ `action`: `"rearm-sleep-timer"`; `threadId`: `string`; `syscallName`: `string`; `remainingTime`: \{ `seconds`: `string`; `nanoseconds`: `number`; \}; `resumeMode`: `"defer-target-resume"`; \} \| \{ `action`: `"rearm-ppoll-timeout"`; `threadId`: `string`; `remainingTime`: \{ `seconds`: `string`; `nanoseconds`: `number`; \}; `nfds`: `0` \| `1`; `resources`: [`NativeModeledPpollTargetResource`](#nativemodeledppolltargetresource)[]; `resumeMode`: `"defer-target-resume"`; \} \| \{ `action`: `"restore-fd-read-block"`; `threadId`: `string`; `fd`: `number`; `countBytes`: `number`; `resource`: `Exclude`\<[`NativeModeledFdReadTargetResource`](#nativemodeledfdreadtargetresource), `"reopened-offset-file"`\>; `remainingTime?`: \{ `seconds`: `string`; `nanoseconds`: `number`; \}; `resumeMode`: `"defer-target-resume"`; \} \| \{ `action`: `"complete-fd-read-from-file"`; `threadId`: `string`; `fd`: `number`; `countBytes`: `number`; `targetBufferPointer`: `string`; `fileOffset`: `number`; `resumeMode`: `"defer-target-resume"`; \} \| \{ `action`: `"complete-fd-write-to-file"`; `threadId`: `string`; `fd`: `number`; `countBytes`: `number`; `targetBufferPointer`: `string`; `fileOffset`: `number`; `resumeMode`: `"defer-target-resume"`; \}
+
+***
+
+### TargetGuestActiveSyscallRestorePlan
+
+> **TargetGuestActiveSyscallRestorePlan** = \{ `state`: `"planned"`; `steps`: [`TargetGuestActiveSyscallRestoreStep`](#targetguestactivesyscallrestorestep)[]; `refusals`: \[\]; \} \| \{ `state`: `"refused"`; `steps`: \[\]; `refusals`: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]; \}
+
+***
+
+### TargetGuestMemoryMaterializationKind
+
+> **TargetGuestMemoryMaterializationKind** = `"copy-captured-bytes"` \| `"recreate-guard"`
+
+***
+
+### TargetGuestMemoryMaterializationEntry
+
+> **TargetGuestMemoryMaterializationEntry** = [`TargetGuestCopyCapturedBytesEntry`](#targetguestcopycapturedbytesentry) \| [`TargetGuestRecreateGuardEntry`](#targetguestrecreateguardentry)
+
+***
+
+### TargetGuestPrivateMemoryRestoreStep
+
+> **TargetGuestPrivateMemoryRestoreStep** = \{ `action`: `"mmap-private-writable"`; `mapping`: `string`; `targetStart`: `string`; `sizeBytes`: `number`; `permissions`: `string`; \} \| \{ `action`: `"copy-captured-bytes"`; `mapping`: `string`; `sourceFile`: `string`; `sourceOffset`: `number`; `targetStart`: `string`; `sizeBytes`: `number`; \} \| \{ `action`: `"mprotect-final"`; `mapping`: `string`; `targetStart`: `string`; `sizeBytes`: `number`; `permissions`: `string`; \} \| \{ `action`: `"mmap-guard"`; `mapping`: `string`; `targetStart`: `string`; `sizeBytes`: `number`; `permissions`: `"---p"`; \}
+
+***
+
+### TargetGuestProcessContextRestoreMode
+
+> **TargetGuestProcessContextRestoreMode** = `"metadata-only"` \| `"apply-target-env-cwd"` \| `"apply-target-visible-context"` \| `"apply-target-initial-stack"`
+
+***
+
+### TargetGuestProcessContextRestoreStep
+
+> **TargetGuestProcessContextRestoreStep** = \{ `action`: `"record-argv"`; `argc`: `number`; `argvBytes`: `number`; `argvSha256`: `string`; \} \| \{ `action`: `"materialize-argv"`; `argc`: `number`; `argvSha256`: `string`; `tokenIndex`: `number`; `tokenHex`: `string`; `tokenSha256`: `string`; \} \| \{ `action`: `"set-argv-entry"`; `index`: `number`; `valueHex`: `string`; `valueSha256`: `string`; \} \| \{ `action`: `"record-env"`; `envCount`: `number`; `envBytes`: `number`; `envSha256`: `string`; \} \| \{ `action`: `"clear-env"`; `envCount`: `number`; `envSha256`: `string`; \} \| \{ `action`: `"set-env"`; `keyHex`: `string`; `valueHex`: `string`; `valueSha256`: `string`; \} \| \{ `action`: `"verify-env"`; `envCount`: `number`; `envSha256`: `string`; \} \| \{ `action`: `"verify-env-value"`; `keyHex`: `string`; `valueHex`: `string`; `valueSha256`: `string`; \} \| \{ `action`: `"record-cwd"`; `cwdHex`: `string`; `cwdSha256`: `string`; \} \| \{ `action`: `"chdir"`; `cwdHex`: `string`; `cwdSha256`: `string`; \} \| \{ `action`: `"verify-cwd"`; `cwdHex`: `string`; `cwdSha256`: `string`; \} \| \{ `action`: `"record-auxv"`; `auxvBytes`: `number`; `auxvSha256`: `string`; \} \| \{ `action`: `"verify-auxv-selected"`; `pageSize`: `number`; `clockTick`: `number`; `auxvSha256`: `string`; \} \| \{ `action`: `"record-auxv-policy"`; `mode`: `"selected-safe-only"`; `materializedKeys`: `string`; `refusedKeys`: `string`; `auxvSha256`: `string`; \} \| \{ `action`: `"materialize-initial-stack"`; `targetStart`: `string`; `sizeBytes`: `number`; `argc`: `number`; `envCount`: `number`; `pageSize`: `number`; `clockTick`: `number`; `argvSha256`: `string`; `envSha256`: `string`; \} \| \{ `action`: `"verify-initial-stack"`; `targetStart`: `string`; `argc`: `number`; `envCount`: `number`; \}
+
+***
+
+### TargetGuestProcessContextRestorePlan
+
+> **TargetGuestProcessContextRestorePlan** = \{ `state`: `"planned"`; `mode`: [`TargetGuestProcessContextRestoreMode`](#targetguestprocesscontextrestoremode); `steps`: [`TargetGuestProcessContextRestoreStep`](#targetguestprocesscontextrestorestep)[]; \} \| \{ `state`: `"refused"`; `refusals`: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]; \}
+
+***
+
+### TargetGuestRestoreLoaderRefusalCode
+
+> **TargetGuestRestoreLoaderRefusalCode** = `"target-guest-loader-descriptor-invalid"` \| `"target-guest-loader-target-arch-unsupported"` \| `"target-guest-loader-resource-unsupported"` \| `"target-guest-loader-invalid-fd"` \| `"target-guest-loader-invalid-continuation"` \| `"target-guest-loader-memory-unsupported"` \| `"target-guest-loader-frame-unsupported"`
+
+***
+
+### TargetGuestRestoreResourceRecipe
+
+> **TargetGuestRestoreResourceRecipe** = \{ `kind`: `"close-fd"`; `fd`: `number`; `reason?`: `string`; \} \| \{ `kind`: `"inherit-stdio"`; `fd`: `1` \| `2`; `stream`: `"stdout"` \| `"stderr"`; `closeOnExec?`: `boolean`; \} \| \{ `kind`: `"reopen-file"`; `fd`: `number`; `path`: `string`; `offset`: `number`; `access`: `0` \| `1` \| `2`; `closeOnExec?`: `boolean`; \} \| \{ `kind`: `"synthetic-empty-pipe"`; `readFd`: `number`; `writeFd?`: `number`; `closeOnExec?`: `boolean`; \} \| \{ `kind`: `"synthetic-empty-eventfd"`; `fd`: `number`; `closeOnExec?`: `boolean`; \} \| \{ `kind`: `"synthetic-eventfd"`; `fd`: `number`; `initialValue`: `string`; `closeOnExec?`: `boolean`; \} \| \{ `kind`: `"synthetic-timerfd"`; `fd`: `number`; `clockId?`: `number`; `settimeFlags?`: `number`; `valueSeconds?`: `number`; `valueNanoseconds?`: `number`; `intervalSeconds?`: `number`; `intervalNanoseconds?`: `number`; `closeOnExec?`: `boolean`; \} \| \{ `kind`: `"synthetic-signalfd"`; `fd`: `number`; `signalMask`: `string`; `flags`: `number`; `closeOnExec?`: `boolean`; \} \| \{ `kind`: `"synthetic-epoll"`; `fd`: `number`; `watches`: [`TargetGuestEpollWatchRecipe`](#targetguestepollwatchrecipe)[]; `closeOnExec?`: `boolean`; \} \| \{ `kind`: `"synthetic-tcp-listener"`; `fd`: `number`; `port`: `number`; `backlog`: `number`; `reuseAddr?`: `boolean`; `closeOnExec?`: `boolean`; \} \| \{ `kind`: `"synthetic-tcp-active-broker"`; `fd`: `number`; `brokerFd`: `number`; `port`: `number`; `initialPeerBytes`: `string`; `closeOnExec?`: `boolean`; \}
+
+***
+
+### TargetGuestRestoreResumeMode
+
+> **TargetGuestRestoreResumeMode** = `"translated-frame"`
+
+***
+
+### TargetGuestResumeRegisterName
+
+> **TargetGuestResumeRegisterName** = `"rax"` \| `"rdi"` \| `"rsi"` \| `"rdx"` \| `"rcx"` \| `"r8"` \| `"r9"` \| `"r10"` \| `"r11"`
+
+***
+
+### TargetGuestResumeRegisters
+
+> **TargetGuestResumeRegisters** = `Record`\<[`TargetGuestResumeRegisterName`](#targetguestresumeregistername), `string`\>
+
+***
+
+### TargetGuestTranslatedFrameRegisterName
+
+> **TargetGuestTranslatedFrameRegisterName** = `"rbx"` \| `"r12"` \| `"r13"` \| `"r14"` \| `"r15"`
+
+***
+
+### TargetGuestNativeRestoreStep
+
+> **TargetGuestNativeRestoreStep** = \{ `section`: `"stack-window-write"`; `write`: [`NativeStackWindowWrite`](#nativestackwindowwrite); \} \| \{ `section`: `"stack-window-guard"`; `guard`: [`NativeStackWindowGuardMapping`](#nativestackwindowguardmapping); \} \| \{ `section`: `"return-chain-write"`; `write`: [`NativeReturnChainFrameWrite`](#nativereturnchainframewrite); \} \| \{ `section`: `"private-memory"`; `step`: [`TargetGuestPrivateMemoryRestoreStep`](#targetguestprivatememoryrestorestep); \} \| \{ `section`: `"executable-mapping"`; `step`: [`TargetGuestExecutableMappingStep`](#targetguestexecutablemappingstep); \} \| \{ `section`: `"process-context"`; `step`: [`TargetGuestProcessContextRestoreStep`](#targetguestprocesscontextrestorestep); \} \| \{ `section`: `"signal-restore"`; `step`: [`TargetGuestSignalRestoreStep`](#targetguestsignalrestorestep); \} \| \{ `section`: `"active-syscall"`; `step`: [`TargetGuestActiveSyscallRestoreStep`](#targetguestactivesyscallrestorestep); \} \| \{ `section`: `"thread-spawn"`; `step`: [`TargetGuestTwoThreadSpawnStep`](#targetguesttwothreadspawnstep); \}
+
+***
+
+### TargetGuestSignalRestoreStep
+
+> **TargetGuestSignalRestoreStep** = \{ `action`: `"save-loader-signal-mask"`; `threadId`: `string`; \} \| \{ `action`: `"sigprocmask-set-blocked"`; `threadId`: `string`; `targetBlockedMasks`: `string`[]; \} \| \{ `action`: `"verify-blocked-signal-mask"`; `threadId`: `string`; `targetBlockedMasks`: `string`[]; \} \| \{ `action`: `"restore-loader-signal-mask"`; `threadId`: `string`; \}
+
+***
+
+### TargetGuestSignalRestorePlan
+
+> **TargetGuestSignalRestorePlan** = \{ `state`: `"planned"`; `threadId`: `string`; `targetBlockedMasks`: `string`[]; `steps`: [`TargetGuestSignalRestoreStep`](#targetguestsignalrestorestep)[]; `refusals`: \[\]; \} \| \{ `state`: `"refused"`; `threadId`: `string`; `refusals`: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]; \}
+
+***
+
+### TargetGuestTwoThreadRestorePlan
+
+> **TargetGuestTwoThreadRestorePlan** = \{ `state`: `"planned"`; `targetThreadCount`: `2`; `steps`: \[[`TargetGuestTwoThreadSpawnStep`](#targetguesttwothreadspawnstep), [`TargetGuestTwoThreadSpawnStep`](#targetguesttwothreadspawnstep)\]; `refusals`: \[\]; \} \| \{ `state`: `"refused"`; `targetThreadCount`: `number`; `steps`: \[\]; `refusals`: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]; \}
+
+***
+
+### TargetNativeConsumptionStatus
+
+> **TargetNativeConsumptionStatus** = `"passed"` \| `"failed"`
 
 ***
 
@@ -10788,6 +14114,10 @@ tarball-producing tool can pre-populate the lookup cache.
 ##### BOOT\_VMSTATE\_UNSUPPORTED
 
 > `readonly` **BOOT\_VMSTATE\_UNSUPPORTED**: `"BOOT_VMSTATE_UNSUPPORTED"` = `"BOOT_VMSTATE_UNSUPPORTED"`
+
+##### BOOT\_VMSTATE\_CROSS\_ISA\_UNSUPPORTED
+
+> `readonly` **BOOT\_VMSTATE\_CROSS\_ISA\_UNSUPPORTED**: `"BOOT_VMSTATE_CROSS_ISA_UNSUPPORTED"` = `"BOOT_VMSTATE_CROSS_ISA_UNSUPPORTED"`
 
 ##### BOOT\_VMSTATE\_RESEED\_FAILED
 
@@ -11142,6 +14472,18 @@ loops; anything looser stops being a meaningful gate.
 
 ***
 
+### NATIVE\_MACHINE\_RESTORE\_DESCRIPTOR\_FORMAT\_VERSION
+
+> `const` **NATIVE\_MACHINE\_RESTORE\_DESCRIPTOR\_FORMAT\_VERSION**: `1` = `1`
+
+***
+
+### NATIVE\_MACHINE\_RESTORE\_DESCRIPTOR\_KIND
+
+> `const` **NATIVE\_MACHINE\_RESTORE\_DESCRIPTOR\_KIND**: `"machinen.native-machine-restore"` = `"machinen.native-machine-restore"`
+
+***
+
 ### NATIVE\_PROCESS\_IMAGE\_FORMAT\_VERSION
 
 > `const` **NATIVE\_PROCESS\_IMAGE\_FORMAT\_VERSION**: `1` = `1`
@@ -11188,7 +14530,7 @@ loops; anything looser stops being a meaningful gate.
 
 ### nativeProcessImageRefusalCodes
 
-> `const` **nativeProcessImageRefusalCodes**: readonly \[`"active-syscall"`, `"architecture-pair-unsupported"`, `"architecture-unsupported"`, `"blocking-syscall-state-unsupported"`, `"code-location-unknown"`, `"fd-kind-unsupported"`, `"futex-state-unsupported"`, `"inherited-stdio-policy-required"`, `"kernel-state-unsupported"`, `"mapping-ambiguous"`, `"mapping-permission-unsupported"`, `"mapping-unreadable"`, `"pointer-ambiguous"`, `"resource-kind-unsupported"`, `"non-stdio-kernel-state-unsupported"`, `"rseq-state-unsupported"`, `"signal-frame-active"`, `"signal-state-unsupported"`, `"stdin-buffer-state-unsupported"`, `"syscall-argument-state-unsupported"`, `"syscall-restart-unsupported"`, `"target-build-id-mismatch"`, `"target-build-mismatch"`, `"target-code-location-unresolved"`, `"target-callee-saved-state-unsupported"`, `"target-caller-frame-unavailable"`, `"target-code-rva-unmapped"`, `"target-frame-layout-unsupported"`, `"target-frame-register-value-unavailable"`, `"target-module-bytes-missing"`, `"target-module-file-missing"`, `"target-module-missing"`, `"target-module-not-executable"`, `"target-module-range-unreadable"`, `"target-ppoll-syscall-continuation-missing"`, `"target-ppoll-timeout-missing"`, `"target-return-slot-unsupported"`, `"target-resume-execution-unavailable"`, `"target-resume-fault-invalid-code-landing"`, `"target-resume-fault-outside-target-bytes"`, `"target-resume-fault-privileged-instruction"`, `"target-resume-fault-signal-unsupported"`, `"target-resume-fault-timeout"`, `"target-resume-fault-unmodeled-memory"`, `"target-semantic-continuation-missing"`, `"target-sleep-remaining-time-missing"`, `"target-sleep-signal-restart-unsupported"`, `"target-sleep-syscall-continuation-missing"`, `"target-synthetic-signal-restart-unsupported"`, `"target-synthetic-syscall-return-unmodeled"`, `"thread-state-unsupported"`, `"tls-state-unsupported"`, `"return-slot-unreadable"`, `"target-unwind-mismatch"`, `"unwind-fde-missing"`, `"unwind-metadata-missing"`, `"unwind-rule-unsupported"`, `"vdso-policy-unsupported"`\]
+> `const` **nativeProcessImageRefusalCodes**: readonly \[`"active-syscall"`, `"architecture-pair-unsupported"`, `"architecture-unsupported"`, `"blocking-syscall-state-unsupported"`, `"code-location-unknown"`, `"cross-isa-vmstate-restore-unsupported"`, `"fd-kind-unsupported"`, `"futex-state-unsupported"`, `"inherited-stdio-policy-required"`, `"kernel-state-unsupported"`, `"mapping-ambiguous"`, `"mapping-captured-range-unsupported"`, `"mapping-executable-unsupported"`, `"mapping-permission-unsupported"`, `"mapping-provenance-ambiguous"`, `"mapping-shared-unsupported"`, `"mapping-unreadable"`, `"pointer-ambiguous"`, `"proof-arch-pair-unsupported"`, `"resource-kind-unsupported"`, `"non-stdio-kernel-state-unsupported"`, `"rseq-state-unsupported"`, `"signal-frame-active"`, `"signal-state-unsupported"`, `"simd-fpu-state-unsupported"`, `"stdin-buffer-state-unsupported"`, `"syscall-argument-state-unsupported"`, `"syscall-restart-unsupported"`, `"target-build-id-mismatch"`, `"target-build-mismatch"`, `"target-code-location-unresolved"`, `"target-callee-saved-state-unsupported"`, `"target-caller-frame-unavailable"`, `"target-code-rva-unmapped"`, `"target-code-outside-portable-bundle"`, `"target-epoll-syscall-state-unsupported"`, `"target-fd-table-duplicate"`, `"target-fd-read-state-missing"`, `"target-fd-write-state-missing"`, `"target-fd-table-missing"`, `"target-frame-layout-unsupported"`, `"target-frame-register-value-unavailable"`, `"target-module-bytes-missing"`, `"target-module-file-missing"`, `"target-module-missing"`, `"target-module-not-executable"`, `"target-module-range-unreadable"`, `"target-ppoll-syscall-continuation-missing"`, `"target-ppoll-timeout-missing"`, `"target-process-context-unsupported"`, `"target-return-slot-unsupported"`, `"target-signalfd-state-unsupported"`, `"target-resume-execution-unavailable"`, `"target-resume-fault-invalid-code-landing"`, `"target-resume-fault-outside-target-bytes"`, `"target-resume-fault-privileged-instruction"`, `"target-resume-fault-signal-unsupported"`, `"target-resume-fault-timeout"`, `"target-resume-fault-unmodeled-memory"`, `"target-semantic-continuation-missing"`, `"target-sleep-remaining-time-missing"`, `"target-socket-syscall-state-unsupported"`, `"target-sleep-signal-restart-unsupported"`, `"target-sleep-syscall-continuation-missing"`, `"target-stack-window-unsupported"`, `"target-synthetic-signal-interrupted-unsupported"`, `"target-synthetic-signal-restart-unsupported"`, `"target-synthetic-syscall-return-unmodeled"`, `"thread-state-unsupported"`, `"tls-state-unsupported"`, `"return-slot-unreadable"`, `"target-unwind-mismatch"`, `"unwind-fde-missing"`, `"unwind-metadata-missing"`, `"unwind-rule-unsupported"`, `"vdso-policy-unsupported"`\]
 
 ***
 
@@ -11684,6 +15026,18 @@ loops; anything looser stops being a meaningful gate.
 
 ***
 
+### NATIVE\_SIMD\_FPU\_LIVE\_SUBSET\_POLICY
+
+> `const` **NATIVE\_SIMD\_FPU\_LIVE\_SUBSET\_POLICY**: [`NativeSimdFpuLiveSubsetPolicy`](#nativesimdfpulivesubsetpolicy)
+
+***
+
+### NATIVE\_SYNTHETIC\_SYSCALL\_EINTR\_EXIT\_STATUS
+
+> `const` **NATIVE\_SYNTHETIC\_SYSCALL\_EINTR\_EXIT\_STATUS**: `110` = `110`
+
+***
+
 ### NATIVE\_SYNTHETIC\_SYSCALL\_RESTART\_EXIT\_STATUS
 
 > `const` **NATIVE\_SYNTHETIC\_SYSCALL\_RESTART\_EXIT\_STATUS**: `111` = `111`
@@ -11698,7 +15052,7 @@ loops; anything looser stops being a meaningful gate.
 
 ### NATIVE\_SYNTHETIC\_PPOLL\_SYSCALL\_BUILD\_ID
 
-> `const` **NATIVE\_SYNTHETIC\_PPOLL\_SYSCALL\_BUILD\_ID**: `"machinen-synthetic-ppoll-syscall-v1"` = `"machinen-synthetic-ppoll-syscall-v1"`
+> `const` **NATIVE\_SYNTHETIC\_PPOLL\_SYSCALL\_BUILD\_ID**: `"machinen-synthetic-ppoll-syscall-v2"` = `"machinen-synthetic-ppoll-syscall-v2"`
 
 ***
 
@@ -11722,7 +15076,7 @@ loops; anything looser stops being a meaningful gate.
 
 ### NATIVE\_SYNTHETIC\_SLEEP\_SYSCALL\_BUILD\_ID
 
-> `const` **NATIVE\_SYNTHETIC\_SLEEP\_SYSCALL\_BUILD\_ID**: `"machinen-synthetic-sleep-syscall-v3"` = `"machinen-synthetic-sleep-syscall-v3"`
+> `const` **NATIVE\_SYNTHETIC\_SLEEP\_SYSCALL\_BUILD\_ID**: `"machinen-synthetic-sleep-syscall-v4"` = `"machinen-synthetic-sleep-syscall-v4"`
 
 ***
 
@@ -11744,6 +15098,12 @@ loops; anything looser stops being a meaningful gate.
 
 ***
 
+### NATIVE\_SYNTHETIC\_SLEEP\_SYSCALL\_EINTR\_EXIT\_STATUS
+
+> `const` **NATIVE\_SYNTHETIC\_SLEEP\_SYSCALL\_EINTR\_EXIT\_STATUS**: `110` = `NATIVE_SYNTHETIC_SYSCALL_EINTR_EXIT_STATUS`
+
+***
+
 ### NATIVE\_SYNTHETIC\_SLEEP\_SYSCALL\_RESTART\_EXIT\_STATUS
 
 > `const` **NATIVE\_SYNTHETIC\_SLEEP\_SYSCALL\_RESTART\_EXIT\_STATUS**: `111` = `NATIVE_SYNTHETIC_SYSCALL_RESTART_EXIT_STATUS`
@@ -11759,6 +15119,380 @@ loops; anything looser stops being a meaningful gate.
 ### NATIVE\_SYNTHETIC\_SLEEP\_SYSCALL\_FAILURE\_EXIT\_STATUS
 
 > `const` **NATIVE\_SYNTHETIC\_SLEEP\_SYSCALL\_FAILURE\_EXIT\_STATUS**: `111` = `NATIVE_SYNTHETIC_SLEEP_SYSCALL_RESTART_EXIT_STATUS`
+
+***
+
+### PORTABLE\_MACHINE\_SNAPSHOT\_FORMAT\_VERSION
+
+> `const` **PORTABLE\_MACHINE\_SNAPSHOT\_FORMAT\_VERSION**: `1` = `1`
+
+***
+
+### PORTABLE\_MACHINE\_SNAPSHOT\_FILES
+
+> `const` **PORTABLE\_MACHINE\_SNAPSHOT\_FILES**: `object`
+
+#### Type Declaration
+
+##### manifest
+
+> `readonly` **manifest**: `"portable-machine.json"` = `"portable-machine.json"`
+
+##### nativeProcessImage
+
+> `readonly` **nativeProcessImage**: `"native-process"` = `"native-process"`
+
+***
+
+### portableMachineSnapshotArchitectures
+
+> `const` **portableMachineSnapshotArchitectures**: readonly \[`"arm64"`, `"amd64"`\]
+
+***
+
+### portableMachineSnapshotRefusalCodes
+
+> `const` **portableMachineSnapshotRefusalCodes**: readonly \[`"cross-isa-vmstate-restore-unsupported"`, `"raw-vcpu-state-unsupported"`, `"raw-kernel-state-unsupported"`, `"raw-device-state-unsupported"`, `"target-isa-vm-restore-loader-missing"`, `"portable-process-image-missing"`\]
+
+***
+
+### portableMachineSnapshotManifestSchema
+
+> `const` **portableMachineSnapshotManifestSchema**: `object`
+
+#### Type Declaration
+
+##### $schema
+
+> `readonly` **$schema**: `"https://json-schema.org/draft/2020-12/schema"` = `"https://json-schema.org/draft/2020-12/schema"`
+
+##### $id
+
+> `readonly` **$id**: `"https://machinen.dev/schemas/portable-machine-snapshot/manifest.schema.json"` = `"https://machinen.dev/schemas/portable-machine-snapshot/manifest.schema.json"`
+
+##### title
+
+> `readonly` **title**: `"Machinen portable machine snapshot manifest"` = `"Machinen portable machine snapshot manifest"`
+
+##### type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+##### additionalProperties
+
+> `readonly` **additionalProperties**: `false` = `false`
+
+##### required
+
+> `readonly` **required**: readonly \[`"formatVersion"`, `"kind"`, `"source"`, `"target"`, `"payload"`, `"refusals"`\]
+
+##### properties
+
+> `readonly` **properties**: `object`
+
+###### properties.formatVersion
+
+> `readonly` **formatVersion**: `object`
+
+###### properties.formatVersion.const
+
+> `readonly` **const**: `1` = `PORTABLE_MACHINE_SNAPSHOT_FORMAT_VERSION`
+
+###### properties.kind
+
+> `readonly` **kind**: `object`
+
+###### properties.kind.const
+
+> `readonly` **const**: `"machinen.portable-machine-snapshot"` = `"machinen.portable-machine-snapshot"`
+
+###### properties.source
+
+> `readonly` **source**: `object`
+
+###### properties.source.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### properties.source.additionalProperties
+
+> `readonly` **additionalProperties**: `false` = `false`
+
+###### properties.source.required
+
+> `readonly` **required**: readonly \[`"guestArch"`, `"vmstate"`, `"kernelState"`, `"deviceState"`\]
+
+###### properties.source.properties
+
+> `readonly` **properties**: `object`
+
+###### properties.source.properties.guestArch
+
+> `readonly` **guestArch**: `object`
+
+###### properties.source.properties.guestArch.enum
+
+> `readonly` **enum**: readonly \[`"arm64"`, `"amd64"`\] = `portableMachineSnapshotArchitectures`
+
+###### properties.source.properties.vmstate
+
+> `readonly` **vmstate**: `object`
+
+###### properties.source.properties.vmstate.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### properties.source.properties.vmstate.additionalProperties
+
+> `readonly` **additionalProperties**: `false` = `false`
+
+###### properties.source.properties.vmstate.required
+
+> `readonly` **required**: readonly \[`"rawRestore"`, `"refusalCode"`, `"reason"`\]
+
+###### properties.source.properties.vmstate.properties
+
+> `readonly` **properties**: `object`
+
+###### properties.source.properties.vmstate.properties.rawRestore
+
+> `readonly` **rawRestore**: `object`
+
+###### properties.source.properties.vmstate.properties.rawRestore.const
+
+> `readonly` **const**: `"refused"` = `"refused"`
+
+###### properties.source.properties.vmstate.properties.refusalCode
+
+> `readonly` **refusalCode**: `object`
+
+###### properties.source.properties.vmstate.properties.refusalCode.const
+
+> `readonly` **const**: `"cross-isa-vmstate-restore-unsupported"` = `"cross-isa-vmstate-restore-unsupported"`
+
+###### properties.source.properties.vmstate.properties.reason
+
+> `readonly` **reason**: `object`
+
+###### properties.source.properties.vmstate.properties.reason.type
+
+> `readonly` **type**: `"string"` = `"string"`
+
+###### properties.source.properties.vmstate.properties.reason.minLength
+
+> `readonly` **minLength**: `1` = `1`
+
+###### properties.source.properties.kernelState
+
+> `readonly` **kernelState**: `object`
+
+###### properties.source.properties.kernelState.const
+
+> `readonly` **const**: `"not-translated"` = `"not-translated"`
+
+###### properties.source.properties.deviceState
+
+> `readonly` **deviceState**: `object`
+
+###### properties.source.properties.deviceState.const
+
+> `readonly` **const**: `"not-translated"` = `"not-translated"`
+
+###### properties.target
+
+> `readonly` **target**: `object`
+
+###### properties.target.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### properties.target.additionalProperties
+
+> `readonly` **additionalProperties**: `false` = `false`
+
+###### properties.target.required
+
+> `readonly` **required**: readonly \[`"guestArch"`, `"mode"`, `"execution"`\]
+
+###### properties.target.properties
+
+> `readonly` **properties**: `object`
+
+###### properties.target.properties.guestArch
+
+> `readonly` **guestArch**: `object`
+
+###### properties.target.properties.guestArch.enum
+
+> `readonly` **enum**: readonly \[`"arm64"`, `"amd64"`\] = `portableMachineSnapshotArchitectures`
+
+###### properties.target.properties.mode
+
+> `readonly` **mode**: `object`
+
+###### properties.target.properties.mode.const
+
+> `readonly` **const**: `"target-isa-vm-process-restore"` = `"target-isa-vm-process-restore"`
+
+###### properties.target.properties.execution
+
+> `readonly` **execution**: `object`
+
+###### properties.target.properties.execution.const
+
+> `readonly` **const**: `"target-native"` = `"target-native"`
+
+###### properties.payload
+
+> `readonly` **payload**: `object`
+
+###### properties.payload.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### properties.payload.additionalProperties
+
+> `readonly` **additionalProperties**: `false` = `false`
+
+###### properties.payload.required
+
+> `readonly` **required**: readonly \[`"nativeProcessImage"`, `"resourceModel"`\]
+
+###### properties.payload.properties
+
+> `readonly` **properties**: `object`
+
+###### properties.payload.properties.nativeProcessImage
+
+> `readonly` **nativeProcessImage**: `object`
+
+###### properties.payload.properties.nativeProcessImage.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### properties.payload.properties.nativeProcessImage.additionalProperties
+
+> `readonly` **additionalProperties**: `false` = `false`
+
+###### properties.payload.properties.nativeProcessImage.required
+
+> `readonly` **required**: readonly \[`"kind"`, `"path"`\]
+
+###### properties.payload.properties.nativeProcessImage.properties
+
+> `readonly` **properties**: `object`
+
+###### properties.payload.properties.nativeProcessImage.properties.kind
+
+> `readonly` **kind**: `object`
+
+###### properties.payload.properties.nativeProcessImage.properties.kind.const
+
+> `readonly` **const**: `"machinen.native-process-image"` = `"machinen.native-process-image"`
+
+###### properties.payload.properties.nativeProcessImage.properties.path
+
+> `readonly` **path**: `object`
+
+###### properties.payload.properties.nativeProcessImage.properties.path.type
+
+> `readonly` **type**: `"string"` = `"string"`
+
+###### properties.payload.properties.nativeProcessImage.properties.path.minLength
+
+> `readonly` **minLength**: `1` = `1`
+
+###### properties.payload.properties.resourceModel
+
+> `readonly` **resourceModel**: `object`
+
+###### properties.payload.properties.resourceModel.const
+
+> `readonly` **const**: `"explicit-recipes-only"` = `"explicit-recipes-only"`
+
+###### properties.refusals
+
+> `readonly` **refusals**: `object`
+
+###### properties.refusals.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### properties.refusals.additionalProperties
+
+> `readonly` **additionalProperties**: `false` = `false`
+
+###### properties.refusals.required
+
+> `readonly` **required**: readonly \[`"vocabularyVersion"`, `"refusals"`\]
+
+###### properties.refusals.properties
+
+> `readonly` **properties**: `object`
+
+###### properties.refusals.properties.vocabularyVersion
+
+> `readonly` **vocabularyVersion**: `object`
+
+###### properties.refusals.properties.vocabularyVersion.const
+
+> `readonly` **const**: `1` = `1`
+
+###### properties.refusals.properties.refusals
+
+> `readonly` **refusals**: `object`
+
+###### properties.refusals.properties.refusals.type
+
+> `readonly` **type**: `"array"` = `"array"`
+
+###### properties.refusals.properties.refusals.items
+
+> `readonly` **items**: `object`
+
+###### properties.refusals.properties.refusals.items.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### properties.refusals.properties.refusals.items.additionalProperties
+
+> `readonly` **additionalProperties**: `false` = `false`
+
+###### properties.refusals.properties.refusals.items.required
+
+> `readonly` **required**: readonly \[`"code"`, `"message"`\]
+
+###### properties.refusals.properties.refusals.items.properties
+
+> `readonly` **properties**: `object`
+
+###### properties.refusals.properties.refusals.items.properties.code
+
+> `readonly` **code**: `object`
+
+###### properties.refusals.properties.refusals.items.properties.code.enum
+
+> `readonly` **enum**: readonly \[`"cross-isa-vmstate-restore-unsupported"`, `"raw-vcpu-state-unsupported"`, `"raw-kernel-state-unsupported"`, `"raw-device-state-unsupported"`, `"target-isa-vm-restore-loader-missing"`, `"portable-process-image-missing"`\] = `portableMachineSnapshotRefusalCodes`
+
+###### properties.refusals.properties.refusals.items.properties.message
+
+> `readonly` **message**: `object`
+
+###### properties.refusals.properties.refusals.items.properties.message.type
+
+> `readonly` **type**: `"string"` = `"string"`
+
+###### properties.refusals.properties.refusals.items.properties.message.minLength
+
+> `readonly` **minLength**: `1` = `1`
+
+###### properties.refusals.properties.refusals.items.properties.detail
+
+> `readonly` **detail**: `object`
+
+###### properties.refusals.properties.refusals.items.properties.detail.type
+
+> `readonly` **type**: `"object"` = `"object"`
 
 ***
 
@@ -11796,6 +15530,12 @@ the guest agent skips entries that don't match.
 ###### Returns
 
 `Promise`\<`void`\>
+
+***
+
+### TARGET\_GUEST\_RESTORE\_DESCRIPTOR\_KIND
+
+> `const` **TARGET\_GUEST\_RESTORE\_DESCRIPTOR\_KIND**: `"machinen.target-guest-restore"` = `"machinen.target-guest-restore"`
 
 ***
 
@@ -12336,7 +16076,7 @@ available.
 
 ### modelNativePpollTimeoutState()
 
-> **modelNativePpollTimeoutState**(`thread`, `documents?`): [`NativePpollTimeoutModelResult`](#nativeppolltimeoutmodelresult)
+> **modelNativePpollTimeoutState**(`thread`, `documents?`, `fdPolicy?`): [`NativePpollTimeoutModelResult`](#nativeppolltimeoutmodelresult)
 
 #### Parameters
 
@@ -12348,9 +16088,61 @@ available.
 
 [`NativeProcessImageDocuments`](#nativeprocessimagedocuments)
 
+##### fdPolicy?
+
+[`NativePollTimeoutFdPolicy`](#nativepolltimeoutfdpolicy) = `"zero-fd-only"`
+
 #### Returns
 
 [`NativePpollTimeoutModelResult`](#nativeppolltimeoutmodelresult)
+
+***
+
+### modelNativeFdReadState()
+
+> **modelNativeFdReadState**(`thread`, `documents?`, `resourcePolicy?`): [`NativeFdReadModelResult`](#nativefdreadmodelresult)
+
+#### Parameters
+
+##### thread
+
+[`NativeThreadState`](#nativethreadstate)
+
+##### documents?
+
+[`NativeProcessImageDocuments`](#nativeprocessimagedocuments)
+
+##### resourcePolicy?
+
+[`NativeFdReadResourcePolicy`](#nativefdreadresourcepolicy) = `"synthetic-empty-pipe"`
+
+#### Returns
+
+[`NativeFdReadModelResult`](#nativefdreadmodelresult)
+
+***
+
+### modelNativeFdWriteState()
+
+> **modelNativeFdWriteState**(`thread`, `documents?`, `resourcePolicy?`): [`NativeFdWriteModelResult`](#nativefdwritemodelresult)
+
+#### Parameters
+
+##### thread
+
+[`NativeThreadState`](#nativethreadstate)
+
+##### documents?
+
+[`NativeProcessImageDocuments`](#nativeprocessimagedocuments)
+
+##### resourcePolicy?
+
+`"reopen-file"` = `"reopen-file"`
+
+#### Returns
+
+[`NativeFdWriteModelResult`](#nativefdwritemodelresult)
 
 ***
 
@@ -12435,6 +16227,86 @@ available.
 #### Returns
 
 [`NativeDebugMemoryPointerClassificationResult`](#nativedebugmemorypointerclassificationresult)
+
+***
+
+### buildNativeMachineRestoreDescriptor()
+
+> **buildNativeMachineRestoreDescriptor**(`plan`): [`NativeMachineRestoreDescriptor`](#nativemachinerestoredescriptor)
+
+#### Parameters
+
+##### plan
+
+[`NativeMachineRestorePlan`](#nativemachinerestoreplan)
+
+#### Returns
+
+[`NativeMachineRestoreDescriptor`](#nativemachinerestoredescriptor)
+
+***
+
+### serializeNativeMachineRestoreDescriptor()
+
+> **serializeNativeMachineRestoreDescriptor**(`descriptor`): `string`
+
+#### Parameters
+
+##### descriptor
+
+[`NativeMachineRestoreDescriptor`](#nativemachinerestoredescriptor)
+
+#### Returns
+
+`string`
+
+***
+
+### parseNativeMachineRestoreDescriptor()
+
+> **parseNativeMachineRestoreDescriptor**(`text`): [`NativeMachineRestoreDescriptor`](#nativemachinerestoredescriptor)
+
+#### Parameters
+
+##### text
+
+`string`
+
+#### Returns
+
+[`NativeMachineRestoreDescriptor`](#nativemachinerestoredescriptor)
+
+***
+
+### validateNativeMachineRestoreDescriptor()
+
+> **validateNativeMachineRestoreDescriptor**(`descriptor`): [`NativeMachineRestoreDescriptor`](#nativemachinerestoredescriptor)
+
+#### Parameters
+
+##### descriptor
+
+[`NativeMachineRestoreDescriptor`](#nativemachinerestoredescriptor)
+
+#### Returns
+
+[`NativeMachineRestoreDescriptor`](#nativemachinerestoredescriptor)
+
+***
+
+### planNativeMachineRestore()
+
+> **planNativeMachineRestore**(`request`): [`NativeMachineRestorePlan`](#nativemachinerestoreplan)
+
+#### Parameters
+
+##### request
+
+[`NativeMachineRestorePlanRequest`](#nativemachinerestoreplanrequest)
+
+#### Returns
+
+[`NativeMachineRestorePlan`](#nativemachinerestoreplan)
 
 ***
 
@@ -12626,6 +16498,128 @@ available.
 
 ***
 
+### planNativeTargetFdTable()
+
+> **planNativeTargetFdTable**(`request`): [`NativeTargetFdTablePlan`](#nativetargetfdtableplan)
+
+#### Parameters
+
+##### request
+
+[`NativeTargetFdTablePlanRequest`](#nativetargetfdtableplanrequest)
+
+#### Returns
+
+[`NativeTargetFdTablePlan`](#nativetargetfdtableplan)
+
+***
+
+### materializeNativeReturnChainFrames()
+
+> **materializeNativeReturnChainFrames**(`plan`): [`NativeReturnChainMaterialization`](#nativereturnchainmaterialization)
+
+#### Parameters
+
+##### plan
+
+[`NativeReturnChainPlan`](#nativereturnchainplan)
+
+#### Returns
+
+[`NativeReturnChainMaterialization`](#nativereturnchainmaterialization)
+
+***
+
+### planNativeReturnChain()
+
+> **planNativeReturnChain**(`request`): [`NativeReturnChainPlan`](#nativereturnchainplan)
+
+#### Parameters
+
+##### request
+
+[`NativeReturnChainPlanRequest`](#nativereturnchainplanrequest)
+
+#### Returns
+
+[`NativeReturnChainPlan`](#nativereturnchainplan)
+
+***
+
+### planNativeSignalRestorePolicy()
+
+> **planNativeSignalRestorePolicy**(`request`): [`NativeSignalRestorePolicyResult`](#nativesignalrestorepolicyresult)
+
+#### Parameters
+
+##### request
+
+[`NativeSignalRestorePolicyRequest`](#nativesignalrestorepolicyrequest)
+
+#### Returns
+
+[`NativeSignalRestorePolicyResult`](#nativesignalrestorepolicyresult)
+
+***
+
+### safeSignalRestoreRefusal()
+
+> **safeSignalRestoreRefusal**(`request`): [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)
+
+#### Parameters
+
+##### request
+
+[`NativeSignalRestorePolicyRequest`](#nativesignalrestorepolicyrequest)
+
+#### Returns
+
+[`NativeProcessImageRefusal`](#nativeprocessimagerefusal)
+
+***
+
+### planNativeSimdFpuLiveSubsetPolicy()
+
+> **planNativeSimdFpuLiveSubsetPolicy**(): [`NativeSimdFpuLiveSubsetPolicy`](#nativesimdfpulivesubsetpolicy)
+
+#### Returns
+
+[`NativeSimdFpuLiveSubsetPolicy`](#nativesimdfpulivesubsetpolicy)
+
+***
+
+### planNativeSimdFpuRestorePolicy()
+
+> **planNativeSimdFpuRestorePolicy**(`thread`): [`NativeSimdFpuRestorePolicyResult`](#nativesimdfpurestorepolicyresult)
+
+#### Parameters
+
+##### thread
+
+[`NativeThreadState`](#nativethreadstate)
+
+#### Returns
+
+[`NativeSimdFpuRestorePolicyResult`](#nativesimdfpurestorepolicyresult)
+
+***
+
+### safeSimdFpuRefusal()
+
+> **safeSimdFpuRefusal**(`thread`): [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)
+
+#### Parameters
+
+##### thread
+
+[`NativeThreadState`](#nativethreadstate)
+
+#### Returns
+
+[`NativeProcessImageRefusal`](#nativeprocessimagerefusal)
+
+***
+
 ### translateNativeStack()
 
 > **translateNativeStack**(`request`): [`NativeStackTranslationResult`](#nativestacktranslationresult)
@@ -12639,6 +16633,38 @@ available.
 #### Returns
 
 [`NativeStackTranslationResult`](#nativestacktranslationresult)
+
+***
+
+### planNativeStackWindowMaterialization()
+
+> **planNativeStackWindowMaterialization**(`request`): [`NativeStackWindowMaterializationPlan`](#nativestackwindowmaterializationplan)
+
+#### Parameters
+
+##### request
+
+[`NativeStackWindowMaterializationRequest`](#nativestackwindowmaterializationrequest)
+
+#### Returns
+
+[`NativeStackWindowMaterializationPlan`](#nativestackwindowmaterializationplan)
+
+***
+
+### materializeNativeStackWindowWrites()
+
+> **materializeNativeStackWindowWrites**(`plan`): [`NativeStackWindowMaterializedWrites`](#nativestackwindowmaterializedwrites)
+
+#### Parameters
+
+##### plan
+
+[`NativeStackWindowMaterializationPlan`](#nativestackwindowmaterializationplan)
+
+#### Returns
+
+[`NativeStackWindowMaterializedWrites`](#nativestackwindowmaterializedwrites)
 
 ***
 
@@ -12706,6 +16732,24 @@ available.
 
 ***
 
+### nativeSyntheticEintrErrno()
+
+> **nativeSyntheticEintrErrno**(): `object`
+
+#### Returns
+
+`object`
+
+##### errno
+
+> **errno**: `number`
+
+##### errnoName
+
+> **errnoName**: `string`
+
+***
+
 ### nativeSyntheticRestartLikeErrnos()
 
 > **nativeSyntheticRestartLikeErrnos**(): `object`[]
@@ -12713,6 +16757,16 @@ available.
 #### Returns
 
 `object`[]
+
+***
+
+### nativeSyntheticSyscallRestartContract()
+
+> **nativeSyntheticSyscallRestartContract**(): [`NativeSyntheticContinuationRestartContract`](#nativesyntheticcontinuationrestartcontract)
+
+#### Returns
+
+[`NativeSyntheticContinuationRestartContract`](#nativesyntheticcontinuationrestartcontract)
 
 ***
 
@@ -12922,6 +16976,70 @@ available.
 
 ***
 
+### planNativeThreadRestoreBoundary()
+
+> **planNativeThreadRestoreBoundary**(`request`): [`NativeThreadRestorePlan`](#nativethreadrestoreplan)
+
+#### Parameters
+
+##### request
+
+[`NativeThreadRestorePlanRequest`](#nativethreadrestoreplanrequest)
+
+#### Returns
+
+[`NativeThreadRestorePlan`](#nativethreadrestoreplan)
+
+***
+
+### planNativeTlsSegmentBaseHandoff()
+
+> **planNativeTlsSegmentBaseHandoff**(`request`): [`NativeTlsSegmentBaseHandoffResult`](#nativetlssegmentbasehandoffresult)
+
+#### Parameters
+
+##### request
+
+[`NativeTlsSegmentBaseHandoffRequest`](#nativetlssegmentbasehandoffrequest)
+
+#### Returns
+
+[`NativeTlsSegmentBaseHandoffResult`](#nativetlssegmentbasehandoffresult)
+
+***
+
+### safeTlsSegmentBaseRefusal()
+
+> **safeTlsSegmentBaseRefusal**(`request`): [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)
+
+#### Parameters
+
+##### request
+
+[`NativeThreadTlsPolicyRequest`](#nativethreadtlspolicyrequest)
+
+#### Returns
+
+[`NativeProcessImageRefusal`](#nativeprocessimagerefusal)
+
+***
+
+### planNativeControlledTwoThreadRestoreBoundary()
+
+> **planNativeControlledTwoThreadRestoreBoundary**(`request`): [`NativeControlledTwoThreadRestorePlan`](#nativecontrolledtwothreadrestoreplan)
+
+#### Parameters
+
+##### request
+
+[`NativeControlledTwoThreadRestorePlanRequest`](#nativecontrolledtwothreadrestoreplanrequest)
+
+#### Returns
+
+[`NativeControlledTwoThreadRestorePlan`](#nativecontrolledtwothreadrestoreplan)
+
+***
+
 ### discoverNativeUnwindFrames()
 
 > **discoverNativeUnwindFrames**(`request`): [`NativeUnwindFrameDiscoveryResult`](#nativeunwindframediscoveryresult)
@@ -13012,6 +17130,146 @@ behaviour we had before.
 #### Returns
 
 [`PidStatus`](#pidstatus)
+
+***
+
+### planPortableMachineTargetRestoreDescriptor()
+
+> **planPortableMachineTargetRestoreDescriptor**(`request`): [`PortableMachineTargetRestoreDescriptorPlan`](#portablemachinetargetrestoredescriptorplan)
+
+#### Parameters
+
+##### request
+
+[`PortableMachineTargetRestoreDescriptorRequest`](#portablemachinetargetrestoredescriptorrequest)
+
+#### Returns
+
+[`PortableMachineTargetRestoreDescriptorPlan`](#portablemachinetargetrestoredescriptorplan)
+
+***
+
+### planPortableMachineVmRestoreProof()
+
+> **planPortableMachineVmRestoreProof**(`request`): [`PortableMachineVmRestoreProofPlan`](#portablemachinevmrestoreproofplan)
+
+#### Parameters
+
+##### request
+
+[`PortableMachineVmRestoreProofRequest`](#portablemachinevmrestoreproofrequest)
+
+#### Returns
+
+[`PortableMachineVmRestoreProofPlan`](#portablemachinevmrestoreproofplan)
+
+***
+
+### completePortableMachineVmRestoreProof()
+
+> **completePortableMachineVmRestoreProof**(`plan`, `result`): [`PortableMachineVmRestoreProofPlan`](#portablemachinevmrestoreproofplan)
+
+#### Parameters
+
+##### plan
+
+[`PortableMachineVmRestoreProofPlan`](#portablemachinevmrestoreproofplan)
+
+##### result
+
+[`PortableMachineVmRestoreTargetResult`](#portablemachinevmrestoretargetresult)
+
+#### Returns
+
+[`PortableMachineVmRestoreProofPlan`](#portablemachinevmrestoreproofplan)
+
+***
+
+### isPortableMachineSnapshotBundle()
+
+> **isPortableMachineSnapshotBundle**(`rootDir`): `boolean`
+
+#### Parameters
+
+##### rootDir
+
+`string`
+
+#### Returns
+
+`boolean`
+
+***
+
+### validatePortableMachineSnapshotBundle()
+
+> **validatePortableMachineSnapshotBundle**(`rootDir`): [`PortableMachineSnapshotDocuments`](#portablemachinesnapshotdocuments)
+
+#### Parameters
+
+##### rootDir
+
+`string`
+
+#### Returns
+
+[`PortableMachineSnapshotDocuments`](#portablemachinesnapshotdocuments)
+
+***
+
+### buildPortableMachineSnapshotManifestFromNativeProcessImage()
+
+> **buildPortableMachineSnapshotManifestFromNativeProcessImage**(`nativeProcessImage`, `nativeProcessPath?`): [`PortableMachineSnapshotManifest`](#portablemachinesnapshotmanifest)
+
+#### Parameters
+
+##### nativeProcessImage
+
+[`NativeProcessImageDocuments`](#nativeprocessimagedocuments)
+
+##### nativeProcessPath?
+
+`"native-process"` = `PORTABLE_MACHINE_SNAPSHOT_FILES.nativeProcessImage`
+
+#### Returns
+
+[`PortableMachineSnapshotManifest`](#portablemachinesnapshotmanifest)
+
+***
+
+### crossIsaVmstateRestoreRefusal()
+
+> **crossIsaVmstateRestoreRefusal**(`sourceArch`, `targetArch`): [`PortableMachineSnapshotRefusal`](#portablemachinesnapshotrefusal)
+
+#### Parameters
+
+##### sourceArch
+
+`string`
+
+##### targetArch
+
+`string`
+
+#### Returns
+
+[`PortableMachineSnapshotRefusal`](#portablemachinesnapshotrefusal)
+
+***
+
+### validatePortableMachineSnapshotManifest()
+
+> **validatePortableMachineSnapshotManifest**(`input`): [`PortableMachineSnapshotManifest`](#portablemachinesnapshotmanifest)
+
+#### Parameters
+
+##### input
+
+`unknown`
+
+#### Returns
+
+[`PortableMachineSnapshotManifest`](#portablemachinesnapshotmanifest)
 
 ***
 
@@ -13332,6 +17590,286 @@ resolve the binary through the same lookup chain.
 #### Returns
 
 `string`
+
+***
+
+### planTargetGuestActiveSyscallRestore()
+
+> **planTargetGuestActiveSyscallRestore**(`classification`): [`TargetGuestActiveSyscallRestorePlan`](#targetguestactivesyscallrestoreplan)
+
+#### Parameters
+
+##### classification
+
+[`NativeActiveSyscallClassificationResult`](#nativeactivesyscallclassificationresult)
+
+#### Returns
+
+[`TargetGuestActiveSyscallRestorePlan`](#targetguestactivesyscallrestoreplan)
+
+***
+
+### planTargetGuestExecutableMaterialization()
+
+> **planTargetGuestExecutableMaterialization**(`steps`): [`TargetGuestExecutableMaterializationPlan`](#targetguestexecutablematerializationplan)
+
+#### Parameters
+
+##### steps
+
+[`NativeMappingMaterializationStep`](#nativemappingmaterializationstep)[]
+
+#### Returns
+
+[`TargetGuestExecutableMaterializationPlan`](#targetguestexecutablematerializationplan)
+
+***
+
+### planTargetGuestMemoryMaterialization()
+
+> **planTargetGuestMemoryMaterialization**(`request`): [`TargetGuestMemoryMaterializationResult`](#targetguestmemorymaterializationresult)
+
+#### Parameters
+
+##### request
+
+[`TargetGuestMemoryMaterializationRequest`](#targetguestmemorymaterializationrequest)
+
+#### Returns
+
+[`TargetGuestMemoryMaterializationResult`](#targetguestmemorymaterializationresult)
+
+***
+
+### planTargetGuestPrivateMemoryRestore()
+
+> **planTargetGuestPrivateMemoryRestore**(`entries`): [`TargetGuestPrivateMemoryRestorePlan`](#targetguestprivatememoryrestoreplan)
+
+#### Parameters
+
+##### entries
+
+[`TargetGuestMemoryMaterializationEntry`](#targetguestmemorymaterializationentry)[]
+
+#### Returns
+
+[`TargetGuestPrivateMemoryRestorePlan`](#targetguestprivatememoryrestoreplan)
+
+***
+
+### planTargetGuestProcessContextRestore()
+
+> **planTargetGuestProcessContextRestore**(`documents`, `options?`): [`TargetGuestProcessContextRestorePlan`](#targetguestprocesscontextrestoreplan)
+
+#### Parameters
+
+##### documents
+
+[`NativeProcessImageDocuments`](#nativeprocessimagedocuments)
+
+##### options?
+
+[`TargetGuestProcessContextRestoreOptions`](#targetguestprocesscontextrestoreoptions) = `{}`
+
+#### Returns
+
+[`TargetGuestProcessContextRestorePlan`](#targetguestprocesscontextrestoreplan)
+
+***
+
+### serializeTargetGuestRestoreDescriptor()
+
+> **serializeTargetGuestRestoreDescriptor**(`descriptor`): `string`
+
+#### Parameters
+
+##### descriptor
+
+[`TargetGuestRestoreDescriptor`](#targetguestrestoredescriptor)
+
+#### Returns
+
+`string`
+
+***
+
+### parseTargetGuestRestoreDescriptor()
+
+> **parseTargetGuestRestoreDescriptor**(`text`): [`TargetGuestRestoreDescriptor`](#targetguestrestoredescriptor)
+
+#### Parameters
+
+##### text
+
+`string`
+
+#### Returns
+
+[`TargetGuestRestoreDescriptor`](#targetguestrestoredescriptor)
+
+***
+
+### validateTargetGuestRestoreDescriptor()
+
+> **validateTargetGuestRestoreDescriptor**(`descriptor`): [`TargetGuestRestoreDescriptor`](#targetguestrestoredescriptor)
+
+#### Parameters
+
+##### descriptor
+
+[`TargetGuestRestoreDescriptor`](#targetguestrestoredescriptor)
+
+#### Returns
+
+[`TargetGuestRestoreDescriptor`](#targetguestrestoredescriptor)
+
+***
+
+### buildNativeActualResumeTrampolineArgs()
+
+> **buildNativeActualResumeTrampolineArgs**(`descriptor`): `string`[]
+
+#### Parameters
+
+##### descriptor
+
+[`TargetGuestRestoreDescriptor`](#targetguestrestoredescriptor)
+
+#### Returns
+
+`string`[]
+
+***
+
+### buildTargetGuestRestoreLoaderArgv()
+
+> **buildTargetGuestRestoreLoaderArgv**(`descriptorPath`, `trampolinePath`): `string`[]
+
+#### Parameters
+
+##### descriptorPath
+
+`string`
+
+##### trampolinePath
+
+`string`
+
+#### Returns
+
+`string`[]
+
+***
+
+### planTargetGuestSignalRestore()
+
+> **planTargetGuestSignalRestore**(`policy`): [`TargetGuestSignalRestorePlan`](#targetguestsignalrestoreplan)
+
+#### Parameters
+
+##### policy
+
+[`NativeSignalRestorePolicyResult`](#nativesignalrestorepolicyresult)
+
+#### Returns
+
+[`TargetGuestSignalRestorePlan`](#targetguestsignalrestoreplan)
+
+***
+
+### planTargetGuestTwoThreadRestore()
+
+> **planTargetGuestTwoThreadRestore**(`boundary`, `bindings`): [`TargetGuestTwoThreadRestorePlan`](#targetguesttwothreadrestoreplan)
+
+#### Parameters
+
+##### boundary
+
+[`NativeControlledTwoThreadRestorePlan`](#nativecontrolledtwothreadrestoreplan)
+
+##### bindings
+
+[`TargetGuestTwoThreadBinding`](#targetguesttwothreadbinding)[]
+
+#### Returns
+
+[`TargetGuestTwoThreadRestorePlan`](#targetguesttwothreadrestoreplan)
+
+***
+
+### parseTargetNativeConsumptionEvents()
+
+> **parseTargetNativeConsumptionEvents**(`actualResumeEvent`): [`TargetNativeConsumptionEvents`](#targetnativeconsumptionevents)
+
+#### Parameters
+
+##### actualResumeEvent
+
+`Record`\<`string`, `unknown`\>
+
+#### Returns
+
+[`TargetNativeConsumptionEvents`](#targetnativeconsumptionevents)
+
+***
+
+### targetNativeConsumptionFields()
+
+> **targetNativeConsumptionFields**(`events`): `object`
+
+#### Parameters
+
+##### events
+
+[`TargetNativeConsumptionEvents`](#targetnativeconsumptionevents)
+
+#### Returns
+
+`object`
+
+##### targetStackWindowMaterializationResult?
+
+> `optional` **targetStackWindowMaterializationResult?**: [`TargetNativeConsumptionStatus`](#targetnativeconsumptionstatus)
+
+##### targetPrivateMemoryRestoreResult?
+
+> `optional` **targetPrivateMemoryRestoreResult?**: [`TargetNativeConsumptionStatus`](#targetnativeconsumptionstatus)
+
+##### targetExecutableMappingResult?
+
+> `optional` **targetExecutableMappingResult?**: [`TargetNativeConsumptionStatus`](#targetnativeconsumptionstatus)
+
+##### targetProcessContextRestoreResult?
+
+> `optional` **targetProcessContextRestoreResult?**: [`TargetNativeConsumptionStatus`](#targetnativeconsumptionstatus)
+
+##### targetSignalRestoreResult?
+
+> `optional` **targetSignalRestoreResult?**: [`TargetNativeConsumptionStatus`](#targetnativeconsumptionstatus)
+
+##### targetActiveSyscallRestoreResult?
+
+> `optional` **targetActiveSyscallRestoreResult?**: [`TargetNativeConsumptionStatus`](#targetnativeconsumptionstatus)
+
+##### targetThreadRestoreResult?
+
+> `optional` **targetThreadRestoreResult?**: [`TargetNativeConsumptionStatus`](#targetnativeconsumptionstatus)
+
+***
+
+### targetNativeConsumptionPassed()
+
+> **targetNativeConsumptionPassed**(`events`): `boolean`
+
+#### Parameters
+
+##### events
+
+[`TargetNativeConsumptionEvents`](#targetnativeconsumptionevents)
+
+#### Returns
+
+`boolean`
 
 ***
 

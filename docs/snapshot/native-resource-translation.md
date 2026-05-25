@@ -16,22 +16,95 @@ return.
 
 ## Recipes
 
-Currently supported recipes:
+Currently supported resource recipes:
 
 - argv/env/cwd/exe/auxv metadata is carried through;
-- regular files are reopened with path, offset, and flags;
+- regular files are reopened with path, offset, flags, and close-on-exec
+  provenance;
+- explicitly modeled one-fd `ppoll` proofs may request synthetic empty pipe,
+  empty eventfd, and disarmed/future one-shot timerfd recipes at the captured fd;
+- Goal 4 `pipe-pair-v1` descriptors may recreate exactly one read end plus one
+  write end for a known-empty pipe with open peer lifetime, no waiters,
+  not-readable readiness, supported fd flags, and close-on-exec provenance;
+- Goal 4 `eventfd-counter-v1` descriptors may recreate non-semaphore eventfds
+  with an exact nonzero counter, known-empty waiter state, supported fd flags,
+  and close-on-exec provenance;
+- Goal 4 `timerfd-descriptor-v1` descriptors may recreate disarmed or relative
+  future one-shot `CLOCK_MONOTONIC` timerfds with zero unread expirations,
+  zero interval, supported fd flags, and close-on-exec provenance;
+- epoll instances may be recreated only for the Goal 3 `interest-list-v1`
+  subset: finite level-triggered watches whose watched fds already have accepted
+  target recipes, with no nested epoll, no edge-triggered/one-shot delivery
+  state, and no ready-list ordering claim;
+- signalfd descriptors may be recreated only for the Goal 3 `empty-queue-v1`
+  subset: normalized signal mask, supported flags, no pending process/thread
+  signals, no queued `siginfo`, no active signal frame, and no active alt-stack
+  migration requirement;
+- inherited stdout/stderr can be passed through only under an explicit inherited
+  stdio policy; stdin remains refused because buffered input state is not
+  modeled;
 - raw sockets and PTYs can be represented only when the caller declares a host
   broker capability for that kind.
+
+Issue #592 adds `planNativeTargetFdTable()`, which turns translated resources
+into a deterministic target fd-table plan. The plan preserves the stable captured
+fd -> target fd mapping, emits explicit `close-fd` recipes for expected fd slots
+missing from the capture, carries close-on-exec provenance, and converts modeled
+resources into target-guest loader recipes (`reopen-file`, `inherit-stdio`,
+`synthetic-empty-pipe`, `synthetic-empty-eventfd`, `synthetic-eventfd`,
+`synthetic-timerfd`, `synthetic-epoll`, and `synthetic-signalfd`).
+The loader/trampoline handoff applies close-on-exec after restore setup and
+before the target-native jump. Duplicate captured fds are refused before target
+execution with `target-fd-table-duplicate`; captured fds without any safe target
+recipe refuse with `target-fd-table-missing` or the underlying resource refusal.
+
+## Resource boundary matrix
+
+| Resource / fd state          | Current policy                                                                             |
+| ---------------------------- | ------------------------------------------------------------------------------------------ |
+| regular file                 | reopen by path/offset/flags when provenance is safe                                        |
+| stdio                        | inherit stdout/stderr only with explicit stdio policy; stdin refused                       |
+| close-fd gap                 | explicit target `close-fd` recipe                                                          |
+| synthetic empty pipe         | `pipe-pair-v1` empty open-peer pairs, plus modeled ppoll/read proof slices                 |
+| synthetic empty eventfd      | only counter-0, non-semaphore, modeled proof slices                                        |
+| synthetic eventfd counter    | only `eventfd-counter-v1`: nonzero counter, non-semaphore, supported flags, no waiters     |
+| synthetic timerfd            | `timerfd-descriptor-v1` disarmed/relative one-shot descriptors, plus modeled proof slices  |
+| PTY                          | refuse unless a PTY broker capability is declared                                          |
+| raw socket                   | refuse unless a raw-socket broker capability is declared                                   |
+| sockets                      | Goal 3 keeps arbitrary/brokerless sockets refused until an explicit broker contract exists |
+| epoll                        | recreate `interest-list-v1` only when watched fds have accepted recipes; otherwise refuse  |
+| signalfd                     | recreate `empty-queue-v1` descriptors only; pending queues/active frames still refuse      |
+| generic eventfd/timerfd      | refuse except for the narrow empty/counter/disarmed modeled states above                   |
+| duplicate captured fd        | refuse with `target-fd-table-duplicate` before target execution                            |
+| unsupported descriptor shape | refuse before loader/trampoline args are built                                             |
 
 ## Refusals
 
 Unsupported resources are not silently dropped. They are returned with:
 
 - `fd-kind-unsupported` for unknown generic fd entries;
-- `kernel-state-unsupported` for pipes, sockets, epoll, eventfd, timerfd, and
-  signalfd resources whose kernel state is not yet modeled;
+- `kernel-state-unsupported` for pipes, sockets, eventfd, timerfd, and signalfd
+  resources whose kernel state is not explicitly modeled by a narrow proof
+  recipe, including eventfd semaphore mode, unknown eventfd waiters, unsupported
+  eventfd flags, zero counters outside the empty-eventfd recipe, overflow
+  counters outside `eventfd-counter-v1`, ambiguous/non-empty pipe buffers,
+  missing or closed pipe peers, pipe waiters/readiness ambiguity, unsupported
+  pipe fd flags, timerfd periodic intervals, expired or
+  overrun timerfd state, absolute/cancel-on-set timerfd flags, unsupported
+  timerfd clocks, and unsupported timerfd fd flags;
+- `target-epoll-syscall-state-unsupported` for epoll resources outside the
+  `interest-list-v1` subset, including unsupported watched fds, nested epoll,
+  edge-triggered/one-shot flags, and malformed interest lists;
+- `target-signalfd-state-unsupported` for signalfd resources outside the
+  `empty-queue-v1` subset, including malformed masks, unsupported flags,
+  pending signals, queued `siginfo`, active signal frames, and active alt-stack
+  state;
 - `resource-kind-unsupported` for resources that need a broker recipe, such as
-  PTYs and raw sockets without an enabled broker capability.
+  PTYs and raw sockets without an enabled broker capability;
+- `target-fd-table-duplicate` when multiple captured resources claim the same
+  fd;
+- `target-fd-table-missing` when a captured fd has no loader recipe after
+  translation.
 
 Each refusal includes the resource id, kind, fd, and path when available.
 
@@ -39,8 +112,12 @@ Each refusal includes the resource id, kind, fd, and path when available.
 
 This issue defines resource recipes. The follow-up file-resource final-jump
 proof applies only regular-file recipes that can be reopened by path on the
-target host. A host broker is still required before `ping` raw sockets, PTYs,
-child process trees, timers, epoll sets, and futex waiters can resume
-transparently.
+target host. Goal 3 explicitly leaves arbitrary sockets refused: no TCP/Unix
+socket, socketpair, listening socket, ancillary-data, partial-transfer, or
+unbrokered endpoint state may reach target-native success without a future
+broker descriptor plus provenance/authorization gates. A host broker or a
+narrower target-native model is still required before `ping` raw sockets, PTYs,
+child process trees, arbitrary timers, active ready-list epoll state, queued
+signalfd state, and futex waiters can resume transparently.
 
 See also: [Native non-file resource boundary](./native-nonfile-resource-boundary.md).

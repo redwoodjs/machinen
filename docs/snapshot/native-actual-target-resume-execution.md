@@ -56,13 +56,15 @@ synthetic amd64 syscall continuation instead of the source RVA or target libc:
 
 `migrationCompleted: true` is intentionally narrow here. It applies to this
 modeled `/bin/sleep` path only, after the generated amd64 sleep syscall bytes
-exit the target process with status `0`. Other planned, faulted, timed-out, trampoline-return-only, or interrupted
-synthetic syscall attempts still keep `migrationCompleted: false`. Descriptor
-failure exit buckets are classified as `target-synthetic-signal-restart-unsupported`
-or `target-synthetic-syscall-return-unmodeled`, depending on the shared
-synthetic completion policy. Refusal detail includes the syscall name, syscall
-number, reserved exit status, errno bucket, and descriptor hash. Legacy
-descriptor-less sleep failure exits still map to
+exit the target process with status `0`. Other planned, faulted, timed-out,
+trampoline-return-only, or interrupted synthetic syscall attempts still keep
+`migrationCompleted: false`. Descriptor failure exit buckets are classified as
+`target-synthetic-signal-interrupted-unsupported` for plain `EINTR`,
+`target-synthetic-signal-restart-unsupported` for restart-like `ERESTART*`
+outcomes, or `target-synthetic-syscall-return-unmodeled` for other negative
+errno buckets. Refusal detail includes the syscall name, syscall number,
+reserved exit status, errno bucket, restart-contract evidence, and descriptor
+hash. Legacy descriptor-less sleep failure exits still map to
 `target-sleep-signal-restart-unsupported`. Synthetic sleep summaries also carry
 generated-byte, syscall-argument, stack/register, and no-source-reuse provenance
 so the completed proof is auditable without trusting libc internals.

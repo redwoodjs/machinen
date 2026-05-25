@@ -106,6 +106,8 @@ export { buildNativeCodeMap } from "./native-code-map.ts";
 export {
   classifyNativeActiveSyscalls,
   classifyNativeThreadSyscall,
+  modelNativeFdReadState,
+  modelNativeFdWriteState,
   modelNativePpollTimeoutState,
   modelNativeSleepTimerState,
 } from "./native-active-syscall-policy.ts";
@@ -128,6 +130,19 @@ export {
 } from "./native-target-unwind.ts";
 export { planNativeTargetFrameStateMaterialization } from "./native-target-frame-state.ts";
 export { planNativeSyntheticTargetCallerFrame } from "./native-target-caller-frame.ts";
+export { planNativeThreadRestoreBoundary } from "./native-thread-restore-policy.ts";
+export { planNativeControlledTwoThreadRestoreBoundary } from "./native-two-thread-boundary.ts";
+export { planNativeSignalRestorePolicy, safeSignalRestoreRefusal } from "./native-signal-policy.ts";
+export {
+  NATIVE_SIMD_FPU_LIVE_SUBSET_POLICY,
+  planNativeSimdFpuLiveSubsetPolicy,
+  planNativeSimdFpuRestorePolicy,
+  safeSimdFpuRefusal,
+} from "./native-simd-fpu-policy.ts";
+export {
+  planNativeTlsSegmentBaseHandoff,
+  safeTlsSegmentBaseRefusal,
+} from "./native-tls-segment-policy.ts";
 export {
   inspectNativeTargetResumeLanding,
   nativeTargetResumeLandingRefusals,
@@ -139,14 +154,17 @@ export {
 export { materializeNativeTargetModuleBytes } from "./native-target-module-bytes.ts";
 export {
   buildNativeSyntheticSyscallContinuationDescriptor,
+  NATIVE_SYNTHETIC_SYSCALL_EINTR_EXIT_STATUS,
   NATIVE_SYNTHETIC_SYSCALL_RESTART_EXIT_STATUS,
   NATIVE_SYNTHETIC_SYSCALL_UNMODELED_RETURN_EXIT_STATUS,
   nativeSyntheticContinuationBytesHex,
   nativeSyntheticContinuationBytesSha256,
   nativeSyntheticContinuationDescriptorSha256,
+  nativeSyntheticEintrErrno,
   nativeSyntheticExitProcessSuffix,
   nativeSyntheticRestartLikeErrnos,
   nativeSyntheticSyscallFailureExitBuckets,
+  nativeSyntheticSyscallRestartContract,
 } from "./native-synthetic-continuation.ts";
 export {
   NATIVE_SYNTHETIC_PPOLL_SYSCALL_BASE,
@@ -160,6 +178,7 @@ export {
   NATIVE_SYNTHETIC_SLEEP_SYSCALL_BUILD_ID,
   NATIVE_SYNTHETIC_SLEEP_SYSCALL_LOGICAL_NAME,
   NATIVE_SYNTHETIC_SLEEP_SYSCALL_PATH,
+  NATIVE_SYNTHETIC_SLEEP_SYSCALL_EINTR_EXIT_STATUS,
   NATIVE_SYNTHETIC_SLEEP_SYSCALL_FAILURE_EXIT_STATUS,
   NATIVE_SYNTHETIC_SLEEP_SYSCALL_RESTART_EXIT_STATUS,
   NATIVE_SYNTHETIC_SLEEP_SYSCALL_UNMODELED_RETURN_EXIT_STATUS,
@@ -199,15 +218,31 @@ export type {
   NativeActiveSyscallClassification,
   NativeActiveSyscallClassificationResult,
   NativeActiveSyscallContinuation,
+  NativeActiveFdReadContinuation,
+  NativeActiveFdWriteContinuation,
   NativeActivePpollTimeoutContinuation,
   NativeActiveSyscallPolicyOptions,
   NativeActiveSleepTimerContinuation,
+  NativeFdReadPolicy,
+  NativeFdReadResourcePolicy,
+  NativeFdWritePolicy,
+  NativeFdWriteResourcePolicy,
+  NativeModeledFdReadState,
+  NativeModeledFdReadTargetResource,
+  NativeModeledFdReadTimerRemainingTime,
+  NativeModeledFdWriteState,
+  NativeModeledFdWriteTargetResource,
   NativeModeledPpollTimeoutRemainingTime,
   NativeModeledPpollTimeoutState,
   NativeModeledSleepTimerRemainingTime,
   NativeModeledSleepTimerState,
+  NativePollTimeoutFdPolicy,
   NativePollTimeoutSyscallPolicy,
+  NativeFdReadModelResult,
+  NativeFdWriteModelResult,
   NativePpollTimeoutModelResult,
+  NativeModeledPpollFdState,
+  NativeModeledPpollTargetResource,
   NativeSleepTimerDuration,
   NativeSleepTimerModelResult,
   NativeSleepTimerSyscallPolicy,
@@ -228,6 +263,7 @@ export type {
   NativeSyntheticContinuationRegister,
   NativeSyntheticContinuationRegisterSetupAbi,
   NativeSyntheticContinuationRegisterSetupDescriptor,
+  NativeSyntheticContinuationRestartContract,
   NativeSyntheticContinuationStackSetupDescriptor,
   NativeSyntheticContinuationSyscallAbi,
   NativeSyntheticContinuationTargetArch,
@@ -330,26 +366,73 @@ export type {
   NativeMemoryTranslationResult,
   NativeMemoryWord,
 } from "./native-memory-translation.ts";
+export {
+  NATIVE_MACHINE_RESTORE_DESCRIPTOR_FORMAT_VERSION,
+  NATIVE_MACHINE_RESTORE_DESCRIPTOR_KIND,
+  NativeMachineRestoreDescriptorValidationError,
+  buildNativeMachineRestoreDescriptor,
+  parseNativeMachineRestoreDescriptor,
+  serializeNativeMachineRestoreDescriptor,
+  validateNativeMachineRestoreDescriptor,
+} from "./native-machine-restore-descriptor.ts";
+export { planNativeMachineRestore } from "./native-machine-restore-plan.ts";
 export { planNativeMappingMaterialization } from "./native-mapping-materialization.ts";
+export type { NativeMachineRestoreDescriptor } from "./native-machine-restore-descriptor.ts";
+export type {
+  NativeMachineRestorePlan,
+  NativeMachineRestorePlanRequest,
+} from "./native-machine-restore-plan.ts";
 export type {
   NativeMappingMaterializationAction,
   NativeMappingMaterializationRequest,
+  NativePrivateWritableGuardRequest,
   NativeMappingMaterializationResult,
   NativeMappingMaterializationStep,
 } from "./native-mapping-materialization.ts";
 export { translateNativeRegisterState } from "./native-register-translation.ts";
-export { translateNativeResources } from "./native-resource-translation.ts";
+export {
+  planNativeTargetFdTable,
+  translateNativeResources,
+} from "./native-resource-translation.ts";
 export type {
   NativeInheritedStdioPolicy,
   NativeResourceTranslationRequest,
   NativeResourceTranslationResult,
+  NativeTargetFdTableEntry,
+  NativeTargetFdTableEntryKind,
+  NativeTargetFdTablePlan,
+  NativeTargetFdTablePlanRequest,
 } from "./native-resource-translation.ts";
-export { translateNativeStack } from "./native-stack-translation.ts";
+export { materializeNativeReturnChainFrames } from "./native-return-chain-materializer.ts";
+export { planNativeReturnChain } from "./native-return-chain.ts";
+export { materializeNativeStackWindowWrites } from "./native-stack-window-materializer.ts";
+export {
+  planNativeStackWindowMaterialization,
+  translateNativeStack,
+} from "./native-stack-translation.ts";
+export type {
+  NativeReturnChainFrameWrite,
+  NativeReturnChainMaterialization,
+} from "./native-return-chain-materializer.ts";
+export type {
+  NativeReturnChainFrame,
+  NativeReturnChainPlan,
+  NativeReturnChainPlanFrame,
+  NativeReturnChainPlanRequest,
+} from "./native-return-chain.ts";
+export type {
+  NativeStackWindowGuardMapping,
+  NativeStackWindowMaterializedWrites,
+  NativeStackWindowWrite,
+} from "./native-stack-window-materializer.ts";
 export type {
   NativeStackFrame,
+  NativeStackPointerRange,
   NativeStackSlot,
   NativeStackTranslationRequest,
   NativeStackTranslationResult,
+  NativeStackWindowMaterializationPlan,
+  NativeStackWindowMaterializationRequest,
 } from "./native-stack-translation.ts";
 export {
   discoverNativeUnwindFrames,
@@ -384,6 +467,129 @@ export {
   validateNativeProcessImageBundle,
   validateNativeProcessImageDocuments,
 } from "./native-process-image.ts";
+export {
+  PORTABLE_MACHINE_SNAPSHOT_FILES,
+  PORTABLE_MACHINE_SNAPSHOT_FORMAT_VERSION,
+  PortableMachineSnapshotValidationError,
+  buildPortableMachineSnapshotManifestFromNativeProcessImage,
+  crossIsaVmstateRestoreRefusal,
+  isPortableMachineSnapshotBundle,
+  portableMachineSnapshotArchitectures,
+  portableMachineSnapshotManifestSchema,
+  portableMachineSnapshotRefusalCodes,
+  validatePortableMachineSnapshotBundle,
+  validatePortableMachineSnapshotManifest,
+} from "./portable-machine-snapshot.ts";
+export {
+  TARGET_GUEST_RESTORE_DESCRIPTOR_KIND,
+  TargetGuestRestoreLoaderValidationError,
+  buildNativeActualResumeTrampolineArgs,
+  buildTargetGuestRestoreLoaderArgv,
+  parseTargetGuestRestoreDescriptor,
+  serializeTargetGuestRestoreDescriptor,
+  validateTargetGuestRestoreDescriptor,
+} from "./target-guest-restore-loader.ts";
+export { planTargetGuestActiveSyscallRestore } from "./target-guest-active-syscall-restore.ts";
+export { planTargetGuestExecutableMaterialization } from "./target-guest-executable-materialization.ts";
+export { planTargetGuestMemoryMaterialization } from "./target-guest-memory-materialization.ts";
+export { planTargetGuestPrivateMemoryRestore } from "./target-guest-private-memory-restore.ts";
+export { planTargetGuestProcessContextRestore } from "./target-guest-process-context-restore.ts";
+export { planTargetGuestSignalRestore } from "./target-guest-signal-restore.ts";
+export { planTargetGuestTwoThreadRestore } from "./target-guest-two-thread-restore.ts";
+export {
+  parseTargetNativeConsumptionEvents,
+  targetNativeConsumptionFields,
+  targetNativeConsumptionPassed,
+} from "./target-native-consumption-results.ts";
+export {
+  completePortableMachineVmRestoreProof,
+  planPortableMachineTargetRestoreDescriptor,
+  planPortableMachineVmRestoreProof,
+} from "./portable-machine-restore-proof.ts";
+export type {
+  PortableMachineSnapshotArchitecture,
+  PortableMachineSnapshotDocuments,
+  PortableMachineSnapshotManifest,
+  PortableMachineSnapshotRefusal,
+  PortableMachineSnapshotRefusalCode,
+  PortableMachineSnapshotRefusals,
+} from "./portable-machine-snapshot.ts";
+export type {
+  TargetGuestEpollWatchRecipe,
+  TargetGuestNativeRestoreStep,
+  TargetGuestRestoreContinuationDescriptor,
+  TargetGuestRestoreDescriptor,
+  TargetGuestRestoreLoaderRefusalCode,
+  TargetGuestRestoreResourceRecipe,
+  TargetGuestRestoreResumeMode,
+  TargetGuestResumeRegisterName,
+  TargetGuestResumeRegisters,
+  TargetGuestTranslatedFrameDescriptor,
+  TargetGuestTranslatedFrameRegister,
+  TargetGuestTranslatedFrameRegisterName,
+  TargetGuestTranslatedFrameSlot,
+} from "./target-guest-restore-loader.ts";
+export type {
+  TargetGuestActiveSyscallRestorePlan,
+  TargetGuestActiveSyscallRestoreStep,
+} from "./target-guest-active-syscall-restore.ts";
+export type {
+  TargetGuestExecutableMappingStep,
+  TargetGuestExecutableMaterializationPlan,
+} from "./target-guest-executable-materialization.ts";
+export type {
+  TargetGuestCopyCapturedBytesEntry,
+  TargetGuestMemoryMaterializationEntry,
+  TargetGuestMemoryMaterializationKind,
+  TargetGuestMemoryMaterializationRequest,
+  TargetGuestMemoryMaterializationResult,
+  TargetGuestRecreateGuardEntry,
+} from "./target-guest-memory-materialization.ts";
+export type {
+  TargetGuestPrivateMemoryRestorePlan,
+  TargetGuestPrivateMemoryRestoreStep,
+} from "./target-guest-private-memory-restore.ts";
+export type {
+  TargetGuestProcessContextRestoreMode,
+  TargetGuestProcessContextRestoreOptions,
+  TargetGuestProcessContextRestorePlan,
+  TargetGuestProcessContextRestoreStep,
+} from "./target-guest-process-context-restore.ts";
+export type {
+  TargetGuestSignalRestorePlan,
+  TargetGuestSignalRestoreStep,
+} from "./target-guest-signal-restore.ts";
+export type {
+  TargetGuestTwoThreadBinding,
+  TargetGuestTwoThreadRestorePlan,
+  TargetGuestTwoThreadSpawnStep,
+} from "./target-guest-two-thread-restore.ts";
+export type {
+  TargetNativeConsumptionEvent,
+  TargetNativeConsumptionEvents,
+  TargetNativeConsumptionStatus,
+} from "./target-native-consumption-results.ts";
+export type {
+  PortableMachineTargetContinuationKind,
+  PortableMachineTargetFrameRestoreResult,
+  PortableMachineTargetRegisterRestoreResult,
+  PortableMachineTargetRflagsRestoreResult,
+  PortableMachineTargetTlsRestoreResult,
+  PortableMachineTargetResourceStatus,
+  PortableMachineTargetResumePathResult,
+  PortableMachineTargetReturnChainResult,
+  PortableMachineTargetRestoreDescriptorPlan,
+  PortableMachineTargetRestoreObservation,
+  PortableMachineTargetThreadRestoreResult,
+  PortableMachineTargetRestoreDescriptorRequest,
+  PortableMachineTargetNativePlanConsumptionResult,
+  PortableMachineTargetStateConsumptionResult,
+  PortableMachineTargetVerifierResult,
+  PortableMachineVmRestoreProofPlan,
+  PortableMachineVmRestoreProofRequest,
+  PortableMachineVmRestoreProofState,
+  PortableMachineVmRestoreTargetResult,
+} from "./portable-machine-restore-proof.ts";
 export type {
   NativeAmd64Registers,
   NativeArm64Registers,
@@ -406,9 +612,36 @@ export type {
   NativeProcessResource,
   NativeProcessResourceKind,
   NativeRegisterState,
+  NativeSimdFpuLiveSubset,
+  NativeSimdFpuState,
   NativeThreadState,
+  NativeTlsAmd64SegmentBases,
+  NativeTlsThreadPointerRegister,
   NativeThreadTranslation,
 } from "./native-process-image.ts";
+export type {
+  NativeThreadRestorePlan,
+  NativeThreadRestorePlanRequest,
+} from "./native-thread-restore-policy.ts";
+export type {
+  NativeControlledTwoThreadRestorePlan,
+  NativeControlledTwoThreadRestorePlanRequest,
+} from "./native-two-thread-boundary.ts";
+export type {
+  NativeSignalBlockedMaskPolicy,
+  NativeSignalRestorePolicyRequest,
+  NativeSignalRestorePolicyResult,
+} from "./native-signal-policy.ts";
+export type {
+  NativeSimdFpuLiveSubsetPolicy,
+  NativeSimdFpuRestorePolicyResult,
+} from "./native-simd-fpu-policy.ts";
+export type {
+  NativeThreadTlsPolicyRequest,
+  NativeTlsSegmentBaseHandoffRequest,
+  NativeTlsSegmentBaseHandoffResult,
+  NativeTlsTargetAccessPolicy,
+} from "./native-tls-segment-policy.ts";
 export {
   _internal,
   attach,

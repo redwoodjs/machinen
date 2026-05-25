@@ -275,6 +275,9 @@ function syntheticFailureExitBucket(
 function syntheticFailureRefusalCode(
   bucket: NativeSyntheticContinuationFailureExitBucket,
 ): NativeProcessImageRefusal["code"] {
+  if (bucket.failureKind === "signal-interrupted-unsupported") {
+    return "target-synthetic-signal-interrupted-unsupported";
+  }
   return bucket.failureKind === "signal-restart-unsupported"
     ? "target-synthetic-signal-restart-unsupported"
     : "target-synthetic-syscall-return-unmodeled";

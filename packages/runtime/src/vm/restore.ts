@@ -21,8 +21,9 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import debugLib from "debug";
 
-import { BootError } from "../errors.ts";
+import { BootError, ErrorCode } from "../errors.ts";
 import { markPagemapsLazy } from "../lazy-pagemap.ts";
+import { crossIsaVmstateRestoreRefusal } from "../portable-machine-snapshot.ts";
 import { PhaseTimer } from "../phase-timer.ts";
 import { claimName, findEntry, writeEntry } from "../registry.ts";
 import { boot, type BootOptions } from "./boot.ts";
@@ -559,12 +560,15 @@ function validateVmstateGuestArch(vmstate: VmstateSnapshotMeta, facts: VmstateFa
     );
   }
   if (source !== "unknown" && target !== "unknown" && source !== target) {
+    const refusal = crossIsaVmstateRestoreRefusal(source, target);
     throw new BootError(
-      "BOOT_VMSTATE_UNSUPPORTED",
-      `restore: vmstate guest architecture mismatch.\n` +
+      ErrorCode.BOOT_VMSTATE_CROSS_ISA_UNSUPPORTED,
+      `restore: raw cross-ISA vmstate restore is unsupported.\n` +
         `  snapshot guest: ${source}\n` +
         `  restore guest:  ${target}\n` +
-        "  Whole-VM restore is same-architecture only.",
+        `  refusal: ${refusal.code}\n` +
+        "  Whole-VM .vmstate replays source kernel/vCPU/device state and is same-architecture only.\n" +
+        "  Use a portable machine snapshot with target-isa-vm-process-restore instead.",
     );
   }
 }

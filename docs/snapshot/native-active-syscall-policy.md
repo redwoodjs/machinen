@@ -2,7 +2,9 @@
 
 Issue #510 classifies active native syscalls before actual real-utility resume.
 The classifier is deliberately fail-closed by default: recognizing a syscall
-class does not make it resumable.
+class does not make it resumable. The full thread-restore boundary may consume
+an explicitly modeled `defer-target-resume` continuation for sleep/ppoll timeout
+state, but only after the same TLS/register/SIMD/stack/resource gates pass.
 
 ## Classes
 
@@ -10,8 +12,15 @@ The current classifier reports:
 
 - `outside-syscall` — safe to continue to later gates;
 - `sleep-timer` — `clock_nanosleep` / `nanosleep` style waits;
-- `fd-blocking` — `read`, `write`, `poll`, `ppoll`, `select`, `pselect6`, and
-  related fd waits;
+- `poll-timeout` — modeled `ppoll` timeout waits under an explicit deferral
+  policy;
+- `fd-blocking` — `read`, `pread64`, `readv`, `write`, `pwrite64`, `writev`,
+  `poll`, `ppoll`, `select`, `pselect6`, and related fd waits. Narrow
+  pipe/eventfd/timerfd reads, safe offset-backed regular-file reads, `pread64`,
+  or single-iovec `readv` calls, and safe offset-backed regular-file writes,
+  `pwrite64`, or single-iovec `writev` calls are modeled only under explicit fd
+  deferral policies; other fd waits still refuse;
+- `futex-wait` — `futex`, `futex_time64`, and `futex_waitv` wait state;
 - `restart` — `restart_syscall` or captured restart-block state;
 - `unknown-active` — any active syscall that has not been modeled.
 
@@ -19,9 +28,21 @@ The current classifier reports:
 
 Known blocking syscall classes refuse with precise codes:
 
-- `blocking-syscall-state-unsupported` for sleep/timer and fd-blocking syscalls;
+- `blocking-syscall-state-unsupported` for sleep/timer and generic fd-blocking
+  syscalls;
 - `target-sleep-remaining-time-missing` when explicit sleep deferral is requested
   but the capture cannot model a relative target timer rearm duration;
+- `target-ppoll-timeout-missing` when explicit `ppoll` deferral is requested but
+  the capture cannot model the timeout, fd, or signal-mask contract;
+- `target-fd-read-state-missing` when explicit fd-read deferral is requested but
+  the capture cannot prove a blocking read contract;
+- `target-socket-syscall-state-unsupported` for active socket accept/connect and
+  socket transfer state;
+- `target-epoll-syscall-state-unsupported` for active `epoll_wait`,
+  `epoll_pwait`, and `epoll_pwait2` state;
+- `target-signalfd-state-unsupported` for active reads from signalfd resources;
+- `futex-state-unsupported` for active futex wait syscalls or captured futex
+  resources;
 - `syscall-restart-unsupported` for restart state;
 - `active-syscall` for unknown active syscalls.
 
@@ -38,9 +59,177 @@ with `remainingTime.state: "modeled"` and a conservative
 `requested-duration-upper-bound` rearm duration. When the model is missing, it
 fails closed with `target-sleep-remaining-time-missing`.
 
-The actual utility proof uses this to move past the `thread-state` gate only when
-there is explicit target timer metadata, without pretending that source kernel
-state was restored.
+The actual utility proof and thread-restore boundary use this to move past the
+`thread-state` gate only when there is explicit target timer metadata, without
+pretending that source kernel state was restored.
+
+## Explicit ppoll timeout deferral
+
+The `pollTimeoutPolicy: "defer-target-resume"` option models only relative
+`ppoll` timeouts with `sigmask = NULL`. The default `pollTimeoutFdPolicy` is
+`"zero-fd-only"`, which accepts only `ppoll(NULL, 0, &timeout, NULL)`.
+
+The optional `"synthetic-empty-pipe"`, `"synthetic-empty-eventfd"`, and
+`"synthetic-timerfd"` fd policies accept exactly one captured `struct pollfd`
+entry when all of these are true:
+
+- `nfds == 1` and the pollfd array is readable in captured memory;
+- the entry is `POLLIN` with `revents == 0`;
+- the entry's fd maps to a supported captured resource:
+  - pipe: read end only, including read-only fds with extra flags such as
+    close-on-exec;
+  - eventfd: read/write fd only, counter `0`, and non-semaphore mode;
+  - timerfd: read/write fd only, unread `ticks == 0`, non-periodic interval,
+    and no absolute `settime` flags;
+- the signal mask is still null.
+
+The pipe target recipe creates a fresh empty pipe read end at the same fd and
+keeps a write end open. The eventfd target recipe creates a fresh
+`eventfd(0, EFD_CLOEXEC)` at the same fd. The timerfd target recipe creates a
+fresh disarmed `timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC)` at the same fd.
+These preserve timeout-driven proofs without claiming general fd readiness
+migration. Missing fd resources, wrong resource kinds, unsupported flags or
+state, wrong events, non-empty `revents`, `nfds > 1`, and non-null signal masks
+all fail closed as `target-ppoll-timeout-missing`.
+
+## Signal interruption and restart boundary
+
+The active-syscall model restarts only the narrow families whose target-side
+equivalence is explicitly modeled in this document. Plain interrupted syscalls,
+`ERESTART*`-style kernel restart blocks, and `restart_syscall` refuse with
+`syscall-restart-unsupported` unless a future family proves all of the following:
+remaining-time accounting, signal mask delivery semantics, syscall result/restart
+contract, and target resource rearm policy.
+
+For already accepted timeout families, remaining-time modeling is family-local:
+sleep and `ppoll` require captured relative timespec state, timerfd read may carry
+a captured remaining timer value, and fd/file transfer proofs complete bounded
+native `pread()`/`pwrite()` work instead of replaying source restart state.
+Pending signals, signalfd delivery, active signal frames, and non-null `ppoll`
+signal masks stay refused so `migrationCompleted=true` is never reported for an
+ambiguous signal/restart state.
+
+## Futex refusal tightening
+
+Active futex syscalls now fail closed with `futex-state-unsupported` instead of
+falling through to a generic active-syscall refusal. The refusal records decoded
+futex arguments when available (`uaddr`, operation, timeout, or `futex_waitv`
+waiter-vector arguments) and names the unsupported kernel state: futex word race,
+wait-queue membership, wake/requeue ordering, timeout accounting, robust-list
+owner-death semantics, and priority-inheritance futex ownership.
+
+This is refusal tightening only. No futex wait is restarted, emulated, or treated
+as target-native success.
+
+## Socket refusal tightening
+
+Active socket `accept`, `accept4`, and `connect` remain unsupported for native
+restore. Active socket transfer syscalls (`recvfrom`, `recvmsg`, `recvmmsg`,
+`sendto`, `sendmsg`, and `sendmmsg`) also refuse with
+`target-socket-syscall-state-unsupported`. Generic `read`, `readv`, `write`, and
+`writev` use the same socket refusal when their fd maps to a captured socket or
+raw-socket resource, instead of falling through to regular fd-read/write missing
+state.
+
+When syscall arguments and the captured resource table are available, the
+refusal detail records the socket fd, decoded pointer/count arguments, resource
+id/kind/path/flags, and the unsupported kernel state family:
+
+- `connect` needs endpoint identity, in-flight connection result, namespace and
+  routing state, and target fd mapping;
+- `accept`/`accept4` need listening socket identity, backlog/queued connection
+  state, accepted peer endpoint state, and target fd mapping;
+- socket transfer needs receive/send queue state, peer endpoint identity, socket
+  shutdown/options, partial transfer and ancillary data state, and target fd
+  mapping.
+
+Missing arguments, missing resource rows, and non-socket fds remain refusals with
+the same code and a specific `detail.reason`. This is refusal tightening only;
+no socket syscall is restarted or emulated.
+
+## Epoll/signalfd refusal tightening
+
+Active epoll waits now refuse with
+`target-epoll-syscall-state-unsupported`. The refusal records decoded epoll
+arguments when available, the captured epoll fd resource when present, and the
+unsupported kernel state family: interest list, ready-list ordering,
+edge-triggered delivery state, waiter wakeup races, and target fd resource
+mapping.
+
+Reads from captured signalfd resources continue to refuse with
+`target-signalfd-state-unsupported`. Goal 3 graduates only descriptor
+recreation for `empty-queue-v1`; an active `read(signalfd)` still requires
+payload/order preservation and is not completed or emulated. The refusal records
+the read arguments, signalfd resource detail, and the unsupported pending signal
+queue / siginfo payload / signal-mask coordination state. Missing arguments,
+missing resource rows, and wrong resource kinds are still precise fail-closed
+refusals.
+
+## Explicit fd write deferral
+
+The `fdWritePolicy: "defer-target-resume"` option currently accepts only narrow
+regular-file `write(fd, buf, count)`, `pwrite64(fd, buf, count, offset)`, and
+single-iovec `writev(fd, iov, 1)` cases under
+`fdWriteResourcePolicy: "reopen-file"`. The model requires captured syscall
+arguments, a non-null write buffer contained in captured readable non-executable
+memory, a translated target buffer, a captured regular-file fd with a reopen
+recipe, writable access flags, no `O_APPEND`, and a safe non-negative file
+offset. Active `pwrite64` uses the explicit syscall offset instead of the
+captured fd offset. Active `writev` first decodes exactly one captured `struct
+iovec` from readable process memory and treats its `iov_base`/`iov_len` as the
+write buffer/count.
+
+The target step performs a bounded `pwrite()` at the captured offset from the
+translated target buffer and refuses partial writes. This is an offset-backed
+completion proof, not a general page-cache, append, or writeback migration.
+Missing arguments, zero or oversized counts, missing readable buffer state, wrong
+resource kind/access, `O_APPEND`, missing or non-one writev iovecs, unsafe file
+offsets or `pwrite64` offsets, and missing reopen recipes fail closed as
+`target-fd-write-state-missing`.
+
+## Explicit fd read deferral
+
+The `fdReadPolicy: "defer-target-resume"` option currently accepts only narrow
+blocking `read(fd, buf, count)` cases under an explicit fd resource policy plus
+safe regular-file `pread64(fd, buf, count, offset)` and single-iovec
+`readv(fd, iov, 1)` cases. Every modeled read requires captured syscall
+arguments from `/proc/<tid>/syscall` or source registers and a non-null buffer
+range contained in captured writable non-executable memory.
+
+With `fdReadResourcePolicy: "synthetic-empty-pipe"`, the model additionally
+requires a captured pipe read-end resource for `fd` and a paired pipe write end
+with the same pipe id still open, so the read is not an EOF/readiness ambiguity.
+
+With `fdReadResourcePolicy: "synthetic-empty-eventfd"`, the model requires a
+captured eventfd with supported read/write flags, counter `0`, non-semaphore
+mode, and `count >= 8`.
+
+With `fdReadResourcePolicy: "synthetic-timerfd"`, the model requires a captured
+timerfd with supported read/write flags, `count >= 8`, unread `ticks == 0`,
+non-periodic interval, and relative settime state. When captured fdinfo reports a
+non-zero remaining timer value, the target step carries that duration so the
+trampoline can arm the target timerfd before verifying it still blocks.
+
+With `fdReadResourcePolicy: "reopen-file"`, the model requires a captured
+regular-file fd with a reopen recipe, readable access flags, a safe non-negative
+file offset, and a translated writable target buffer. Active `pread64` and
+`readv` force the same regular-file resource policy; `pread64` uses the explicit
+syscall offset instead of the captured fd offset, while `readv` first decodes
+exactly one captured `struct iovec` from readable process memory and treats its
+`iov_base`/`iov_len` as the read buffer/count. The target step uses bounded
+`pread()` at the modeled offset into the translated buffer and refuses partial
+reads; this is an offset-backed completion proof, not a general file or
+page-cache migration.
+
+The target step recreates a fresh empty pipe, empty eventfd, or timerfd and
+verifies with target-side `poll(POLLIN, timeout=0)` that the read fd would still
+block before reporting `nativeActiveSyscallRestore.status=passed`, or completes
+the safe regular-file read with target-side `pread()`. Missing arguments, zero
+or short counts, missing writable buffer state, wrong resource kind/access,
+non-empty eventfds, semaphore mode, unsupported flags, expired or periodic
+timerfds, absolute timerfd state, missing paired pipe write ends, missing or
+non-one readv iovecs, unsafe file offsets or `pread64` offsets, and missing file
+reopen recipes fail closed as `target-fd-read-state-missing`.
 
 ## Proof
 
