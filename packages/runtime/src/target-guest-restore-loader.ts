@@ -55,7 +55,15 @@ export type TargetGuestRestoreResourceRecipe =
     }
   | { kind: "synthetic-empty-pipe"; readFd: number; writeFd?: number; closeOnExec?: boolean }
   | { kind: "synthetic-empty-eventfd"; fd: number; closeOnExec?: boolean }
-  | { kind: "synthetic-eventfd"; fd: number; initialValue: string; closeOnExec?: boolean }
+  | {
+      kind: "synthetic-eventfd";
+      fd: number;
+      initialValue: string;
+      duplicateFd?: number;
+      expectedRefusalCode?: string;
+      expectedRefusalReason?: string;
+      closeOnExec?: boolean;
+    }
   | {
       kind: "synthetic-timerfd";
       fd: number;
@@ -575,6 +583,9 @@ function parseSyntheticEventfdRecipe(
     kind: "synthetic-eventfd",
     fd: parseResourceInteger(fields, "fd"),
     initialValue: requiredResourceField(fields, "initialValue"),
+    duplicateFd: optionalResourceInteger(fields, "duplicateFd"),
+    expectedRefusalCode: fields.get("expectedRefusalCode"),
+    expectedRefusalReason: fields.get("expectedRefusalReason"),
     closeOnExec: parseResourceBoolean(fields, "closeOnExec"),
   };
 }
@@ -1305,6 +1316,12 @@ function validateSyntheticEventfdRecipe(
   recipe: Extract<TargetGuestRestoreResourceRecipe, { kind: "synthetic-eventfd" }>,
 ): void {
   assertFd(recipe.fd, "fd");
+  if (recipe.duplicateFd !== undefined) {
+    assertFd(recipe.duplicateFd, "duplicateFd");
+    if (recipe.duplicateFd === recipe.fd) {
+      fail("target-guest-loader-descriptor-invalid", "eventfd duplicateFd must differ from fd");
+    }
+  }
   assertHexAddress(recipe.initialValue, "initialValue");
   const value = BigInt(recipe.initialValue);
   if (value > 0xfffffffffffffffen) {
@@ -1995,7 +2012,7 @@ function serializeResourceRecipe(recipe: TargetGuestRestoreResourceRecipe): stri
     return `resource=synthetic-empty-eventfd fd=${recipe.fd}${serializeCloseOnExec(recipe.closeOnExec)}`;
   }
   if (recipe.kind === "synthetic-eventfd") {
-    return `resource=synthetic-eventfd fd=${recipe.fd} initialValue=${recipe.initialValue}${serializeCloseOnExec(recipe.closeOnExec)}`;
+    return `resource=synthetic-eventfd fd=${recipe.fd} initialValue=${recipe.initialValue}${serializeOptionalNumber("duplicateFd", recipe.duplicateFd)}${serializeOptionalString("expectedRefusalCode", recipe.expectedRefusalCode)}${serializeOptionalString("expectedRefusalReason", recipe.expectedRefusalReason)}${serializeCloseOnExec(recipe.closeOnExec)}`;
   }
   if (recipe.kind === "synthetic-timerfd") {
     return `resource=synthetic-timerfd ${timerfdResourceFields(recipe)}${serializeCloseOnExec(recipe.closeOnExec)}`;
@@ -2034,6 +2051,10 @@ function serializeOptionalBoolean(name: string, value: boolean | undefined): str
 }
 
 function serializeOptionalString(name: string, value: string | undefined): string {
+  return value === undefined ? "" : ` ${name}=${value}`;
+}
+
+function serializeOptionalNumber(name: string, value: number | undefined): string {
   return value === undefined ? "" : ` ${name}=${value}`;
 }
 
@@ -2265,7 +2286,17 @@ function resourceToTrampolineArgs(recipe: TargetGuestRestoreResourceRecipe): str
 function eventfdResourceSpec(
   recipe: Extract<TargetGuestRestoreResourceRecipe, { kind: "synthetic-eventfd" }>,
 ): string {
-  return [`fd=${recipe.fd}`, `initialValue=${recipe.initialValue}`].join(";");
+  return [
+    `fd=${recipe.fd}`,
+    `initialValue=${recipe.initialValue}`,
+    ...optionalSemicolonField("duplicateFd", recipe.duplicateFd),
+    ...optionalSemicolonField("expectedRefusalCode", recipe.expectedRefusalCode),
+    ...optionalSemicolonField("expectedRefusalReason", recipe.expectedRefusalReason),
+  ].join(";");
+}
+
+function optionalSemicolonField(name: string, value: string | number | undefined): string[] {
+  return value === undefined ? [] : [`${name}=${value}`];
 }
 
 function timerfdResourceFields(

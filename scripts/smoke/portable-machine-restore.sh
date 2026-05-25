@@ -448,7 +448,7 @@ capture_remote_native_process_bundle() {
       target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-ppoll-timeout-target"
       target_detail="remote arm64 process-context native-process bundle captured from $ARM64_SSH"
       ;;
-    eventfd-counter-recreate)
+    eventfd-counter-recreate|eventfd-alias-counter-recreate|eventfd-alias-*-refusal)
       target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-pipe-read-target"
       target_detail="remote arm64 pipe read bundle with target eventfd counter descriptor proof captured from $ARM64_SSH"
       ;;
@@ -582,6 +582,12 @@ run_target_restore() {
   fi
   if [[ "$REMOTE_SOURCE_TARGET" == "eventfd-counter-recreate" ]]; then
     resource_model_args=(--include-eventfd-counter-proof)
+    resource_model_args_text="${resource_model_args[*]}"
+  elif [[ "$REMOTE_SOURCE_TARGET" == "eventfd-alias-counter-recreate" ]]; then
+    resource_model_args=(--include-eventfd-alias-proof)
+    resource_model_args_text="${resource_model_args[*]}"
+  elif [[ "$REMOTE_SOURCE_TARGET" == eventfd-alias-*-refusal ]]; then
+    resource_model_args=(--include-eventfd-alias-proof --eventfd-alias-expected-refusal-code kernel-state-unsupported --eventfd-alias-expected-refusal-reason "$REMOTE_SOURCE_TARGET" --expect-target-refusal-code kernel-state-unsupported)
     resource_model_args_text="${resource_model_args[*]}"
   elif [[ "$REMOTE_SOURCE_TARGET" == "eventfd-readiness-pollin-recreate" ]]; then
     resource_model_args=(--include-readiness-eventfd-poll-proof)

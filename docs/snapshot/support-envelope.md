@@ -9,8 +9,8 @@ makes a runtime/app family supported.
 Current profile inventory:
 
 - 11 `baseline-success` profiles;
-- 28 `graduated-support` profiles;
-- 173 `intentional-refusal` profiles;
+- 29 `graduated-support` profiles;
+- 181 `intentional-refusal` profiles;
 - 3 `permanent-refusal` profiles.
 
 ## Success contract
@@ -37,7 +37,9 @@ under `capabilities`. The families currently covered are:
   `writev`, plus one graduated duplicate-fd alias with shared open-file
   description semantics;
 - pipe pairs: empty pipe pair recreation with a known open peer and no waiters;
-- eventfd/timerfd: non-semaphore eventfd counter recreation and disarmed or
+- eventfd/timerfd: non-semaphore eventfd counter recreation, the
+  `eventfd-counter-alias-v1-two-fds-nonsemaphore-no-waiters` subset for two fds
+  sharing one target-owned eventfd open-file description, and disarmed or
   relative one-shot timerfd descriptor recreation;
 - readiness wait: one level-triggered `poll`/readiness proof for recreated
   eventfd `POLLIN`;
@@ -106,14 +108,15 @@ unsafe families are:
 - signal-mask-changing `ppoll`/wait semantics;
 - native addons, JIT/self-modifying code, and opaque runtime state;
 - source vDSO/vvar reuse and raw cross-ISA vmstate replay;
-- Goal 18 master-audit families that are intentionally refused until exact
+- Goal 18/20 master-audit families that are intentionally refused until exact
   descriptor/verifier gates exist: generic socket send/receive queues, UDP
   datagram queues, established TCP without the explicit broker, kqueue state,
   file locks/leases, mmap dirty aliasing, huge/special mappings, general
   SIMD/FPU and architecture-specific register state, dynamic linker state,
   deleted/replaced executable mappings, ASLR-sensitive source pointers,
   signal-handler PC/stack state, thread join/TLS edge cases, timer delivery
-  ordering, pipe/eventfd waiters, namespace/routing provenance, target
+  ordering, pipe waiters and eventfd waiters/ambiguous aliases beyond the
+  two-fd no-waiter alias contract, namespace/routing provenance, target
   next-packet verification gaps, stack/heap edge layouts, and vvar time-source
   reuse.
 

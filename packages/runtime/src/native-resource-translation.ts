@@ -198,7 +198,7 @@ function fdTableEntryFromRecipe(
     reopenFileFdTableEntry(fd, resource, recipe, closeOnExec) ??
     syntheticPipePairFdTableEntry(fd, resource, recipe, closeOnExec, resources) ??
     syntheticFdTableEntry(fd, resource, recipe, closeOnExec) ??
-    syntheticEventfdFdTableEntry(resource, recipe, closeOnExec) ??
+    syntheticEventfdFdTableEntry(resource, recipe, closeOnExec, resources) ??
     syntheticTimerfdFdTableEntry(resource, recipe, closeOnExec) ??
     syntheticSignalfdFdTableEntry(resource, recipe, closeOnExec) ??
     syntheticEpollFdTableEntry(resource, recipe, closeOnExec, resources) ??
@@ -390,8 +390,15 @@ function syntheticEventfdFdTableEntry(
   resource: NativeProcessResource,
   recipe: Record<string, unknown>,
   closeOnExec: boolean,
+  resources: NativeProcessResource[],
 ): NativeTargetFdTableEntry | undefined {
-  if (resource.kind !== "eventfd" || recipe.eventfdModel !== "counter-v1") {
+  if (resource.kind !== "eventfd") {
+    return undefined;
+  }
+  if (recipe.eventfdModel === "counter-alias-v1") {
+    return syntheticEventfdAliasFdTableEntry(resource, recipe, closeOnExec, resources);
+  }
+  if (recipe.eventfdModel !== "counter-v1") {
     return undefined;
   }
   const eventfdRecipe = normalizedEventfdCounterRecipe(resource, recipe);
@@ -402,8 +409,110 @@ function syntheticEventfdFdTableEntry(
     kind: "synthetic-eventfd",
     fd: resource.fd!,
     initialValue: eventfdRecipe.initialValue,
+    expectedRefusalCode: stringRecipeField(recipe, "expectedRefusalCode"),
+    expectedRefusalReason: stringRecipeField(recipe, "expectedRefusalReason"),
     closeOnExec,
   });
+}
+
+function syntheticEventfdAliasFdTableEntry(
+  resource: NativeProcessResource,
+  recipe: Record<string, unknown>,
+  closeOnExec: boolean,
+  resources: NativeProcessResource[],
+): NativeTargetFdTableEntry {
+  const eventfdRecipe = normalizedEventfdAliasRecipe(resource, recipe, resources);
+  if ("code" in eventfdRecipe) {
+    return refusedFdTableEntry(resource, eventfdRecipe);
+  }
+  const entry = materializedFdTableEntry(resource, "synthetic-eventfd", closeOnExec, {
+    kind: "synthetic-eventfd",
+    fd: eventfdRecipe.primaryFd,
+    initialValue: eventfdRecipe.initialValue,
+    duplicateFd: eventfdRecipe.duplicateFd,
+    expectedRefusalCode: stringRecipeField(recipe, "expectedRefusalCode"),
+    expectedRefusalReason: stringRecipeField(recipe, "expectedRefusalReason"),
+    closeOnExec,
+  });
+  return resource.fd === eventfdRecipe.primaryFd
+    ? entry
+    : {
+        ...entry,
+        targetGuestRecipe: undefined,
+        recipe: { ...entry.recipe, aliasPrimaryFd: eventfdRecipe.primaryFd },
+      };
+}
+
+function stringRecipeField(recipe: Record<string, unknown>, field: string): string | undefined {
+  return typeof recipe[field] === "string" ? recipe[field] : undefined;
+}
+
+function normalizedEventfdAliasRecipe(
+  resource: NativeProcessResource,
+  recipe: Record<string, unknown>,
+  resources: NativeProcessResource[],
+): { initialValue: string; primaryFd: number; duplicateFd: number } | NativeProcessImageRefusal {
+  const counter = normalizedEventfdCounterRecipe(resource, recipe);
+  if ("code" in counter) {
+    return counter;
+  }
+  const peers = eventfdAliasPeers(resource, resources);
+  if ("code" in peers) {
+    return peers;
+  }
+  for (const peer of peers) {
+    const refusal = validateEventfdAliasPeer(resource, peer, counter.initialValue);
+    if (refusal) {
+      return refusal;
+    }
+  }
+  const fds = peers.map((peer) => peer.fd!).sort((left, right) => left - right);
+  return { initialValue: counter.initialValue, primaryFd: fds[0]!, duplicateFd: fds[1]! };
+}
+
+function eventfdAliasPeers(
+  resource: NativeProcessResource,
+  resources: NativeProcessResource[],
+): NativeProcessResource[] | NativeProcessImageRefusal {
+  if (!resource.path || resource.fd === undefined) {
+    return eventfdRefusal(resource, "eventfd alias recipe requires fd and eventfd identity");
+  }
+  const peers = resources.filter(
+    (candidate) =>
+      candidate.kind === "eventfd" &&
+      candidate.path === resource.path &&
+      candidate.recipe?.eventfdModel === "counter-alias-v1",
+  );
+  return peers.length === 2 && peers.every((peer) => peer.fd !== undefined)
+    ? peers
+    : eventfdRefusal(resource, "eventfd alias recipe requires exactly two modeled fds", {
+        eventfdId: resource.path,
+        peerFds: peers.map((peer) => peer.fd),
+      });
+}
+
+function validateEventfdAliasPeer(
+  resource: NativeProcessResource,
+  peer: NativeProcessResource,
+  initialValue: string,
+): NativeProcessImageRefusal | undefined {
+  if (nativeFdFlagBits(peer.flags) !== 0o2) {
+    return eventfdRefusal(resource, "eventfd alias fd flags are unsupported", {
+      eventfdId: resource.path,
+      peerFd: peer.fd,
+      peerFlags: peer.flags,
+    });
+  }
+  const peerCounter = normalizedEventfdCounterRecipe(peer, peer.recipe ?? {});
+  if ("code" in peerCounter) {
+    return peerCounter;
+  }
+  return peerCounter.initialValue === initialValue
+    ? undefined
+    : eventfdRefusal(resource, "eventfd alias peers must share the same counter value", {
+        eventfdId: resource.path,
+        peerFd: peer.fd,
+      });
 }
 
 function normalizedEventfdCounterRecipe(
@@ -1017,7 +1126,11 @@ function translateResource(
       refusal: undefined,
     };
   }
-  if (resource.kind === "eventfd" && resource.recipe?.eventfdModel === "counter-v1") {
+  if (
+    resource.kind === "eventfd" &&
+    (resource.recipe?.eventfdModel === "counter-v1" ||
+      resource.recipe?.eventfdModel === "counter-alias-v1")
+  ) {
     return {
       ...resource,
       state: "recipe",

@@ -133,21 +133,12 @@ describe("portable machine proof runner", () => {
     expect(result.status, result.stderr).toBe(0);
     const summary = JSON.parse(result.stdout);
     const names = summary.profiles.map((profile: { name: string }) => profile.name);
-    expect(names.slice(0, 14)).toEqual([
+    expect(names.slice(0, 5)).toEqual([
       "two-thread-ppoll",
       "pipe-read",
       "eventfd-read",
       "eventfd-counter-recreate",
-      "timerfd-descriptor-recreate",
-      "pipe-pair-recreate",
-      "timerfd-read",
-      "file-read",
-      "file-pread",
-      "file-readv",
-      "file-write",
-      "file-pwrite",
-      "file-writev",
-      "process-context",
+      "eventfd-alias-counter-recreate",
     ]);
     expect(names).toEqual(
       expect.arrayContaining([
@@ -155,6 +146,7 @@ describe("portable machine proof runner", () => {
         "timerfd-descriptor-recreate",
         "pipe-pair-recreate",
         "signalfd-recreate",
+        "eventfd-alias-counter-recreate",
         "eventfd-readiness-pollin-recreate",
         "regular-file-duplicate-fd-recreate",
         "target-auxv-at-random",
@@ -225,14 +217,19 @@ describe("portable machine proof runner", () => {
     expect(summary.supportReport).toMatchObject({
       counts: {
         "baseline-success": 11,
-        "graduated-support": 28,
-        "intentional-refusal": 173,
+        "graduated-support": 29,
+        "intentional-refusal": 181,
         "permanent-refusal": 3,
       },
       graduated: expect.arrayContaining([
         expect.objectContaining({
           name: "eventfd-counter-recreate",
           acceptedSubset: "eventfd-counter-v1-nonsemaphore-no-waiters",
+          graduatedFromRefusalCode: "kernel-state-unsupported",
+        }),
+        expect.objectContaining({
+          name: "eventfd-alias-counter-recreate",
+          acceptedSubset: "eventfd-counter-alias-v1-two-fds-nonsemaphore-no-waiters",
           graduatedFromRefusalCode: "kernel-state-unsupported",
         }),
         expect.objectContaining({

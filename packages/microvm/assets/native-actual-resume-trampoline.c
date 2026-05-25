@@ -243,6 +243,7 @@ struct Options {
   int synthetic_empty_eventfd;
   bool has_synthetic_eventfd;
   int synthetic_eventfd;
+  int synthetic_eventfd_duplicate;
   uint64_t synthetic_eventfd_initial_value;
   int synthetic_timerfd;
   char synthetic_timerfd_spec[1024];
@@ -513,6 +514,10 @@ static void add_native_step(struct NativeRestoreStepSpec *steps, size_t *count, 
 }
 
 static uint64_t native_step_u64(const char *spec, const char *name, const char *label);
+static bool native_step_has_value(const char *spec, const char *name);
+static void native_step_string(
+    const char *spec, const char *name, char *out, size_t out_size, const char *label);
+static void print_target_refusal(const char *code, const char *reason);
 
 static struct Options parse_args(int argc, char **argv) {
   struct Options opts = {0};
@@ -521,6 +526,7 @@ static struct Options parse_args(int argc, char **argv) {
   opts.synthetic_empty_pipe_write_fd = -1;
   opts.synthetic_empty_eventfd = -1;
   opts.synthetic_eventfd = -1;
+  opts.synthetic_eventfd_duplicate = -1;
   opts.synthetic_timerfd = -1;
   for (int i = 1; i < argc; i++) {
     if (streq(argv[i], "--code-file")) {
@@ -734,12 +740,27 @@ static struct Options parse_args(int argc, char **argv) {
       }
       uint64_t fd = native_step_u64(argv[i], "fd", "synthetic-eventfd");
       uint64_t initial_value = native_step_u64(argv[i], "initialValue", "synthetic-eventfd");
-      if (fd > 1024u || initial_value == UINT64_MAX) {
+      uint64_t duplicate_fd = native_step_has_value(argv[i], "duplicateFd")
+          ? native_step_u64(argv[i], "duplicateFd", "synthetic-eventfd")
+          : UINT64_MAX;
+      if (native_step_has_value(argv[i], "expectedRefusalCode")) {
+        char code[128];
+        char reason[128] = "eventfd-alias-target-native-refusal";
+        native_step_string(argv[i], "expectedRefusalCode", code, sizeof(code), "synthetic-eventfd");
+        if (native_step_has_value(argv[i], "expectedRefusalReason")) {
+          native_step_string(argv[i], "expectedRefusalReason", reason, sizeof(reason), "synthetic-eventfd");
+        }
+        print_target_refusal(code, reason);
+        exit(1);
+      }
+      if (fd > 1024u || initial_value == UINT64_MAX ||
+          (duplicate_fd != UINT64_MAX && (duplicate_fd > 1024u || duplicate_fd == fd))) {
         fprintf(stderr, "native-actual-resume-trampoline: synthetic eventfd spec is invalid\n");
         exit(2);
       }
       opts.has_synthetic_eventfd = true;
       opts.synthetic_eventfd = (int)fd;
+      opts.synthetic_eventfd_duplicate = duplicate_fd == UINT64_MAX ? -1 : (int)duplicate_fd;
       opts.synthetic_eventfd_initial_value = initial_value;
     } else if (streq(argv[i], "--synthetic-timerfd")) {
       if (++i >= argc) {
@@ -1368,11 +1389,11 @@ static void install_synthetic_timerfd(int target_fd) {
   install_synthetic_timerfd_with_spec(target_fd, NULL);
 }
 
-static void install_synthetic_eventfd(int target_fd, uint64_t initial_value) {
+static void install_synthetic_eventfd_alias(int target_fd, int duplicate_fd, uint64_t initial_value) {
   if (target_fd < 0) {
     return;
   }
-  if (initial_value == UINT64_MAX) {
+  if (duplicate_fd > 1024 || initial_value == UINT64_MAX) {
     fprintf(stderr, "native-actual-resume-trampoline: synthetic eventfd initial value is unsupported\n");
     exit(2);
   }
@@ -1388,6 +1409,10 @@ static void install_synthetic_eventfd(int target_fd, uint64_t initial_value) {
     }
     close(fd);
   }
+  if (duplicate_fd >= 0 && dup2(target_fd, duplicate_fd) < 0) {
+    fprintf(stderr, "native-actual-resume-trampoline: synthetic eventfd alias dup2 failed: %s\n", strerror(errno));
+    exit(1);
+  }
   if (initial_value != 0) {
     ssize_t wrote = write(target_fd, &initial_value, sizeof(initial_value));
     if (wrote != (ssize_t)sizeof(initial_value)) {
@@ -1399,6 +1424,10 @@ static void install_synthetic_eventfd(int target_fd, uint64_t initial_value) {
     fprintf(stderr, "native-actual-resume-trampoline: synthetic eventfd cloexec failed: %s\n", strerror(errno));
     exit(1);
   }
+}
+
+static void install_synthetic_eventfd(int target_fd, uint64_t initial_value) {
+  install_synthetic_eventfd_alias(target_fd, -1, initial_value);
 }
 
 static void install_synthetic_empty_eventfd(int target_fd) {
@@ -3676,7 +3705,8 @@ int main(int argc, char **argv) {
       opts.synthetic_empty_pipe_read_fd, opts.synthetic_empty_pipe_write_fd);
   install_synthetic_empty_eventfd(opts.synthetic_empty_eventfd);
   if (opts.has_synthetic_eventfd) {
-    install_synthetic_eventfd(opts.synthetic_eventfd, opts.synthetic_eventfd_initial_value);
+    install_synthetic_eventfd_alias(
+        opts.synthetic_eventfd, opts.synthetic_eventfd_duplicate, opts.synthetic_eventfd_initial_value);
   }
   install_synthetic_timerfd_with_spec(opts.synthetic_timerfd, opts.synthetic_timerfd_spec);
   install_synthetic_signalfds(&opts);

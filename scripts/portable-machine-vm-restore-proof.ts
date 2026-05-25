@@ -39,6 +39,7 @@ import { FINAL_JUMP_EXPECTED_RETURN, FINAL_JUMP_RETURN_MARKER } from "./native-f
 
 interface ProofVerifierFeatures {
   includeEventfdCounterProof: boolean;
+  includeEventfdAliasProof: boolean;
   includeTimerfdDescriptorProof: boolean;
   includePipePairProof: boolean;
   includeEpollProof: boolean;
@@ -78,6 +79,8 @@ interface Args extends ProofVerifierFeatures {
   pingSocketAdoptCredentials: boolean;
   pingSocketExpectedRefusalCode?: string;
   pingSocketExpectedRefusalReason?: string;
+  eventfdAliasExpectedRefusalCode?: string;
+  eventfdAliasExpectedRefusalReason?: string;
   pingSocketActiveRecvmsgProof: boolean;
   pingSocketActiveRecvmsgSourceFd: number;
   expectTargetRefusalCode?: string;
@@ -128,6 +131,8 @@ interface CombinedDescriptorContext extends CombinedDescriptorPaths, ProofVerifi
   pingSocketAdoptCredentials: boolean;
   pingSocketExpectedRefusalCode?: string;
   pingSocketExpectedRefusalReason?: string;
+  eventfdAliasExpectedRefusalCode?: string;
+  eventfdAliasExpectedRefusalReason?: string;
   pingSocketActiveRecvmsgProof: boolean;
   pingSocketActiveRecvmsgSourceFd: number;
   targetThreadRestoreResult: "accepted";
@@ -198,6 +203,7 @@ const PROOF_PIPE_READ_FD = 8;
 const PROOF_PIPE_WRITE_FD = 9;
 const PROOF_EVENT_FD = 10;
 const PROOF_TIMER_FD = 11;
+const PROOF_EVENT_ALIAS_FD = 60;
 const PROOF_EPOLL_FD = 12;
 const PROOF_SIGNALFD_FD = 13;
 const PROOF_DUP_FILE_FD = 14;
@@ -287,7 +293,7 @@ function usage(): never {
       "--bundle-dir path --target-code-file path [--image rootfs.tar.gz] " +
       "[--combined-descriptor] [--real-utility-continuation] " +
       "[--process-context-restore metadata-only|apply-target-env-cwd|apply-target-visible-context|apply-target-initial-stack] " +
-      "[--include-eventfd-counter-proof] [--include-timerfd-descriptor-proof] [--include-pipe-pair-proof] [--include-epoll-proof] [--include-signalfd-proof] " +
+      "[--include-eventfd-counter-proof] [--include-eventfd-alias-proof] [--include-timerfd-descriptor-proof] [--include-pipe-pair-proof] [--include-epoll-proof] [--include-signalfd-proof] " +
       "[--include-readiness-eventfd-poll-proof] [--include-regular-file-duplicate-fd-proof] [--include-target-auxv-at-random-proof] " +
       "[--include-private-layout-proof] [--include-signal-mask-blocked-proof] " +
       "[--include-tcp-listener-proof] [--include-tcp-listener-readiness-proof] [--include-tcp-active-broker-proof] " +
@@ -295,6 +301,7 @@ function usage(): never {
       "[--ping-socket-range-start n] [--ping-socket-range-end n] [--ping-socket-adopt-credentials] " +
       "[--ping-socket-active-recvmsg-proof] [--ping-socket-active-recvmsg-source-fd n] " +
       "[--ping-socket-expected-refusal-code code] [--ping-socket-expected-refusal-reason reason] " +
+      "[--eventfd-alias-expected-refusal-code code] [--eventfd-alias-expected-refusal-reason reason] " +
       "[--expect-target-refusal-code code] [--json]",
   );
   process.exit(2);
@@ -318,6 +325,7 @@ function argsFromReader(read: (flag: string) => string | undefined, argv: string
     syntheticTimerFd: read("--synthetic-timerfd"),
     processContextRestore: parseProcessContextRestoreMode(read("--process-context-restore")),
     includeEventfdCounterProof: argv.includes("--include-eventfd-counter-proof"),
+    includeEventfdAliasProof: argv.includes("--include-eventfd-alias-proof"),
     includeTimerfdDescriptorProof: argv.includes("--include-timerfd-descriptor-proof"),
     includePipePairProof: argv.includes("--include-pipe-pair-proof"),
     includeEpollProof: argv.includes("--include-epoll-proof"),
@@ -350,6 +358,8 @@ function argsFromReader(read: (flag: string) => string | undefined, argv: string
     ),
     pingSocketExpectedRefusalCode: read("--ping-socket-expected-refusal-code"),
     pingSocketExpectedRefusalReason: read("--ping-socket-expected-refusal-reason"),
+    eventfdAliasExpectedRefusalCode: read("--eventfd-alias-expected-refusal-code"),
+    eventfdAliasExpectedRefusalReason: read("--eventfd-alias-expected-refusal-reason"),
     expectTargetRefusalCode: read("--expect-target-refusal-code"),
   };
 }
@@ -484,6 +494,7 @@ function proofVerifierFeaturesFromContext(
   return {
     includeEventfdCounterProof:
       context.includeEventfdCounterProof || context.includeReadinessEventfdPollProof,
+    includeEventfdAliasProof: context.includeEventfdAliasProof,
     includeTimerfdDescriptorProof: context.includeTimerfdDescriptorProof,
     includePipePairProof: context.includePipePairProof,
     includeEpollProof: context.includeEpollProof,
@@ -617,6 +628,7 @@ function combinedDescriptorContext(
     activeFileReadProof: activeFileReadProof(activeSyscallPlan.steps),
     activeFileWriteProof: activeFileWriteProof(activeSyscallPlan.steps),
     includeEventfdCounterProof: args.includeEventfdCounterProof,
+    includeEventfdAliasProof: args.includeEventfdAliasProof,
     includeTimerfdDescriptorProof: args.includeTimerfdDescriptorProof,
     includePipePairProof: args.includePipePairProof,
     includeEpollProof: args.includeEpollProof,
@@ -638,6 +650,8 @@ function combinedDescriptorContext(
     pingSocketAdoptCredentials: args.pingSocketAdoptCredentials,
     pingSocketExpectedRefusalCode: args.pingSocketExpectedRefusalCode,
     pingSocketExpectedRefusalReason: args.pingSocketExpectedRefusalReason,
+    eventfdAliasExpectedRefusalCode: args.eventfdAliasExpectedRefusalCode,
+    eventfdAliasExpectedRefusalReason: args.eventfdAliasExpectedRefusalReason,
     pingSocketActiveRecvmsgProof: args.pingSocketActiveRecvmsgProof,
     pingSocketActiveRecvmsgSourceFd: args.pingSocketActiveRecvmsgSourceFd,
   };
@@ -1260,7 +1274,9 @@ function proofResumeRegisters() {
 function proofFdTable(context: CombinedDescriptorContext) {
   const usesSyntheticPipePair = !context.includePipePairProof;
   const usesSyntheticEventfd = !(
-    context.includeEventfdCounterProof || context.includeReadinessEventfdPollProof
+    context.includeEventfdCounterProof ||
+    context.includeReadinessEventfdPollProof ||
+    context.includeEventfdAliasProof
   );
   const usesSyntheticTimerfd = !context.includeTimerfdDescriptorProof;
   return planNativeTargetFdTable({
@@ -1624,6 +1640,7 @@ function proofFdResources(context: CombinedDescriptorContext): NativeProcessReso
     proofPipeResource(PROOF_PIPE_READ_FD, "read", context),
     proofPipeResource(PROOF_PIPE_WRITE_FD, "write", context),
     proofEventfdResource(context),
+    ...eventfdAliasProofResources(context),
     proofTimerfdResource(context),
     ...epollProofResources(context),
     ...signalfdProofResources(context),
@@ -1765,18 +1782,37 @@ function pingSocketProofResources(context: CombinedDescriptorContext): NativePro
 
 function proofEventfdResource(context: CombinedDescriptorContext): NativeProcessResource {
   const base = proofSyntheticResource("eventfd", PROOF_EVENT_FD);
-  return context.includeEventfdCounterProof || context.includeReadinessEventfdPollProof
-    ? {
-        ...base,
-        flags: ["octal:2"],
-        recipe: {
-          eventfdModel: "counter-v1",
-          eventfdCount: PROOF_EVENTFD_COUNTER,
-          eventfdSemaphore: 0,
-          eventfdWaiters: "none",
-        },
-      }
+  return context.includeEventfdCounterProof ||
+    context.includeReadinessEventfdPollProof ||
+    context.includeEventfdAliasProof
+    ? eventfdCounterResource(base, context)
     : base;
+}
+
+function eventfdAliasProofResources(context: CombinedDescriptorContext): NativeProcessResource[] {
+  return context.includeEventfdAliasProof
+    ? [eventfdCounterResource(proofSyntheticResource("eventfd", PROOF_EVENT_ALIAS_FD), context)]
+    : [];
+}
+
+function eventfdCounterResource(
+  base: NativeProcessResource,
+  context: CombinedDescriptorContext,
+): NativeProcessResource {
+  const alias = context.includeEventfdAliasProof;
+  return {
+    ...base,
+    path: alias ? "anon_inode:[eventfd-alias-proof]" : base.path,
+    flags: ["octal:2"],
+    recipe: {
+      eventfdModel: alias ? "counter-alias-v1" : "counter-v1",
+      eventfdCount: PROOF_EVENTFD_COUNTER,
+      eventfdSemaphore: 0,
+      eventfdWaiters: "none",
+      expectedRefusalCode: context.eventfdAliasExpectedRefusalCode,
+      expectedRefusalReason: context.eventfdAliasExpectedRefusalReason,
+    },
+  };
 }
 
 function epollProofResources(context: CombinedDescriptorContext): NativeProcessResource[] {
@@ -2060,7 +2096,9 @@ function emitDescriptorVerifier(
   if (features.includeReadinessEventfdPollProof) {
     asm.checkEventfdPollIn(PROOF_EVENT_FD);
   }
-  if (features.includeEventfdCounterProof) {
+  if (features.includeEventfdAliasProof) {
+    asm.checkEventfdAlias(PROOF_EVENT_FD, PROOF_EVENT_ALIAS_FD, BigInt(PROOF_EVENTFD_COUNTER));
+  } else if (features.includeEventfdCounterProof) {
     asm.readEventfdValueAndCheck(PROOF_EVENT_FD, BigInt(PROOF_EVENTFD_COUNTER));
   } else {
     asm.checkFdOpen(PROOF_EVENT_FD);
@@ -2234,6 +2272,11 @@ class Amd64ProofAssembler {
     this.jumpIfNotEqual();
     this.loadU64FromRbxOffset(0x60);
     this.checkRaxImmediate(expected);
+  }
+
+  checkEventfdAlias(fd: number, duplicateFd: number, expected: bigint): void {
+    this.readEventfdValueAndCheck(fd, expected);
+    this.pollStoredFd(duplicateFd, 0x70, 0x0001, 0);
   }
 
   checkPipePairEmpty(readFd: number, writeFd: number): void {

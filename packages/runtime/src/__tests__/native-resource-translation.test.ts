@@ -428,6 +428,39 @@ describe("native resource translation", () => {
     ]);
   });
 
+  it("plans an accepted eventfd-counter-alias-v1 descriptor", () => {
+    const resources = [11, 12].map((fd) => ({
+      id: `fd:${fd}`,
+      kind: "eventfd" as const,
+      state: "captured" as const,
+      fd,
+      path: "anon_inode:[eventfd-alias-proof]",
+      flags: ["octal:2"],
+      recipe: {
+        eventfdModel: "counter-alias-v1",
+        eventfdCount: "0x2a",
+        eventfdSemaphore: 0,
+        eventfdWaiters: "none",
+      },
+    }));
+    const plan = planNativeTargetFdTable({ resources });
+
+    expect(plan.refusals).toEqual([]);
+    expect(plan.entries).toEqual([
+      expect.objectContaining({ targetFd: 11, kind: "synthetic-eventfd", action: "materialize" }),
+      expect.objectContaining({ targetFd: 12, kind: "synthetic-eventfd", action: "materialize" }),
+    ]);
+    expect(plan.targetGuestResources).toEqual([
+      {
+        kind: "synthetic-eventfd",
+        fd: 11,
+        duplicateFd: 12,
+        initialValue: "0x2a",
+        closeOnExec: false,
+      },
+    ]);
+  });
+
   it.each([
     {
       name: "semaphore mode",
