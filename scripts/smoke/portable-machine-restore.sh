@@ -436,7 +436,7 @@ capture_remote_native_process_bundle() {
       target_binary="/usr/bin/ping"
       target_detail="remote arm64 distro /usr/bin/ping socket loopback native-process bundle captured from $ARM64_SSH"
       ;;
-    ping-socket-target-native-*-refusal)
+    ping-socket-target-native-*-refusal|ping-socket-active-recvmsg-*-refusal)
       target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-pipe-read-target"
       target_detail="remote arm64 pipe read bundle with target-native ping socket refusal proof captured from $ARM64_SSH"
       ;;
@@ -625,10 +625,13 @@ run_target_restore() {
   elif [[ "$REMOTE_SOURCE_TARGET" == "real-ping-socket-loopback-recreate" ]]; then
     resource_model_args=(--include-ping-socket-proof)
     resource_model_args_text="${resource_model_args[*]}"
-  elif [[ "$REMOTE_SOURCE_TARGET" == "real-nonroot-ping-socket-loopback-recreate" || "$REMOTE_SOURCE_TARGET" == "real-distro-ping-socket-loopback-recreate" ]]; then
+  elif [[ "$REMOTE_SOURCE_TARGET" == "real-nonroot-ping-socket-loopback-recreate" ]]; then
     resource_model_args=(--include-ping-socket-proof --ping-socket-uid 1000 --ping-socket-gid 1000 --ping-socket-range-start 0 --ping-socket-range-end 2147483647 --ping-socket-adopt-credentials)
     resource_model_args_text="${resource_model_args[*]}"
-  elif [[ "$REMOTE_SOURCE_TARGET" == ping-socket-target-native-*-refusal ]]; then
+  elif [[ "$REMOTE_SOURCE_TARGET" == "real-distro-ping-socket-loopback-recreate" ]]; then
+    resource_model_args=(--include-ping-socket-proof --ping-socket-uid 1000 --ping-socket-gid 1000 --ping-socket-range-start 0 --ping-socket-range-end 2147483647 --ping-socket-adopt-credentials --ping-socket-active-recvmsg-proof --ping-socket-active-recvmsg-source-fd 3)
+    resource_model_args_text="${resource_model_args[*]}"
+  elif [[ "$REMOTE_SOURCE_TARGET" == ping-socket-target-native-*-refusal || "$REMOTE_SOURCE_TARGET" == ping-socket-active-recvmsg-*-refusal ]]; then
     local refusal_reason="$REMOTE_SOURCE_TARGET"
     resource_model_args=(--include-ping-socket-proof --ping-socket-expected-refusal-code target-socket-syscall-state-unsupported --ping-socket-expected-refusal-reason "$refusal_reason" --expect-target-refusal-code target-socket-syscall-state-unsupported)
     resource_model_args_text="${resource_model_args[*]}"

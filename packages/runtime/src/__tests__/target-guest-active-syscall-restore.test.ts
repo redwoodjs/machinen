@@ -149,6 +149,44 @@ const fileReadResult: NativeActiveSyscallClassificationResult = {
   ],
 };
 
+const pingRecvmsgResult: NativeActiveSyscallClassificationResult = {
+  classifications: [],
+  refusals: [],
+  continuations: [
+    {
+      threadId: "thread:6",
+      syscallClass: "fd-blocking",
+      action: "defer-target-resume",
+      syscall: { state: "inside-syscall", name: "recvmsg" },
+      metadata: {
+        pingSocketRecvmsg: {
+          kind: "ping-socket-recvmsg-wait",
+          syscallName: "recvmsg",
+          argumentSource: "registers",
+          sourceFd: 3,
+          targetFd: 59,
+          messagePointer: "0x3100",
+          flags: 0,
+          namePointer: "0x3400",
+          nameLengthBytes: 128,
+          iovPointer: "0x3200",
+          iovCount: 1,
+          iovBasePointer: "0x3300",
+          iovLengthBytes: 192,
+          controlPointer: "0x3500",
+          controlLengthBytes: 56,
+          messageFlags: 0,
+          resourceId: "fd:3:socket",
+          receiveQueue: "empty",
+          inFlightPackets: "none",
+          signalTimer: "no-pending-signal-frame-target-wait-preserved",
+        },
+        policy: "conservative-target-ping-socket-recvmsg-wait-preserved",
+      },
+    },
+  ],
+};
+
 const fileWriteResult: NativeActiveSyscallClassificationResult = {
   classifications: [],
   refusals: [],
@@ -241,6 +279,28 @@ describe("target guest active syscall restore", () => {
           countBytes: 4,
           targetBufferPointer: "0x600000000100",
           fileOffset: 7,
+          resumeMode: "defer-target-resume",
+        },
+      ],
+    });
+  });
+
+  it("plans target-side ping socket recvmsg wait preservation", () => {
+    expect(planTargetGuestActiveSyscallRestore(pingRecvmsgResult)).toEqual({
+      state: "planned",
+      refusals: [],
+      steps: [
+        {
+          action: "restore-ping-socket-recvmsg-wait",
+          threadId: "thread:6",
+          fd: 59,
+          sourceFd: 3,
+          messagePointer: "0x3100",
+          iovLengthBytes: 192,
+          controlLengthBytes: 56,
+          receiveQueue: "empty",
+          inFlightPackets: "none",
+          signalTimer: "no-pending-signal-frame-target-wait-preserved",
           resumeMode: "defer-target-resume",
         },
       ],

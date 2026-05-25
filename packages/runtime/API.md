@@ -210,6 +210,7 @@
 - [`NativeFdReadResourcePolicy`](#nativefdreadresourcepolicy)
 - [`NativeFdWritePolicy`](#nativefdwritepolicy)
 - [`NativeFdWriteResourcePolicy`](#nativefdwriteresourcepolicy)
+- [`NativePingSocketRecvmsgPolicy`](#nativepingsocketrecvmsgpolicy)
 - [`NativeActiveSyscallPolicyOptions`](#nativeactivesyscallpolicyoptions)
 - [`NativeSleepTimerDuration`](#nativesleeptimerduration)
 - [`NativeModeledSleepTimerRemainingTime`](#nativemodeledsleeptimerremainingtime)
@@ -223,14 +224,17 @@
 - [`NativeModeledFdReadState`](#nativemodeledfdreadstate)
 - [`NativeModeledFdWriteTargetResource`](#nativemodeledfdwritetargetresource)
 - [`NativeModeledFdWriteState`](#nativemodeledfdwritestate)
+- [`NativeModeledPingSocketRecvmsgState`](#nativemodeledpingsocketrecvmsgstate)
 - [`NativeSleepTimerModelResult`](#nativesleeptimermodelresult)
 - [`NativePpollTimeoutModelResult`](#nativeppolltimeoutmodelresult)
 - [`NativeFdReadModelResult`](#nativefdreadmodelresult)
 - [`NativeFdWriteModelResult`](#nativefdwritemodelresult)
+- [`NativePingSocketRecvmsgModelResult`](#nativepingsocketrecvmsgmodelresult)
 - [`NativeActiveSleepTimerContinuation`](#nativeactivesleeptimercontinuation)
 - [`NativeActivePpollTimeoutContinuation`](#nativeactiveppolltimeoutcontinuation)
 - [`NativeActiveFdReadContinuation`](#nativeactivefdreadcontinuation)
 - [`NativeActiveFdWriteContinuation`](#nativeactivefdwritecontinuation)
+- [`NativeActivePingSocketRecvmsgContinuation`](#nativeactivepingsocketrecvmsgcontinuation)
 - [`NativeActiveSyscallContinuation`](#nativeactivesyscallcontinuation)
 - [`NativeActiveSyscallClassification`](#nativeactivesyscallclassification)
 - [`NativeActiveSyscallClassificationResult`](#nativeactivesyscallclassificationresult)
@@ -238,6 +242,7 @@
 - [`modelNativePpollTimeoutState`](#modelnativeppolltimeoutstate)
 - [`modelNativeFdReadState`](#modelnativefdreadstate)
 - [`modelNativeFdWriteState`](#modelnativefdwritestate)
+- [`modelNativePingSocketRecvmsgState`](#modelnativepingsocketrecvmsgstate)
 - [`classifyNativeThreadSyscall`](#classifynativethreadsyscall)
 - [`classifyNativeActiveSyscalls`](#classifynativeactivesyscalls)
 - [`NativeCodeModule`](#nativecodemodule)
@@ -2679,6 +2684,18 @@ by default when `output` is a TTY.
 
 > `optional` **fdWriteResourcePolicy?**: `"reopen-file"`
 
+##### pingSocketRecvmsgPolicy?
+
+> `optional` **pingSocketRecvmsgPolicy?**: [`NativePingSocketRecvmsgPolicy`](#nativepingsocketrecvmsgpolicy)
+
+##### pingSocketRecvmsgSourceFd?
+
+> `optional` **pingSocketRecvmsgSourceFd?**: `number`
+
+##### pingSocketRecvmsgTargetFd?
+
+> `optional` **pingSocketRecvmsgTargetFd?**: `number`
+
 ##### documents?
 
 > `optional` **documents?**: [`NativeProcessImageDocuments`](#nativeprocessimagedocuments)
@@ -3077,6 +3094,92 @@ by default when `output` is a TTY.
 
 ***
 
+### NativeModeledPingSocketRecvmsgState
+
+#### Properties
+
+##### kind
+
+> **kind**: `"ping-socket-recvmsg-wait"`
+
+##### syscallName
+
+> **syscallName**: `"recvmsg"`
+
+##### argumentSource
+
+> **argumentSource**: `"proc-syscall"` \| `"registers"`
+
+##### sourceFd
+
+> **sourceFd**: `number`
+
+##### targetFd
+
+> **targetFd**: `number`
+
+##### messagePointer
+
+> **messagePointer**: `string`
+
+##### flags
+
+> **flags**: `0`
+
+##### namePointer
+
+> **namePointer**: `string`
+
+##### nameLengthBytes
+
+> **nameLengthBytes**: `number`
+
+##### iovPointer
+
+> **iovPointer**: `string`
+
+##### iovCount
+
+> **iovCount**: `1`
+
+##### iovBasePointer
+
+> **iovBasePointer**: `string`
+
+##### iovLengthBytes
+
+> **iovLengthBytes**: `number`
+
+##### controlPointer
+
+> **controlPointer**: `string`
+
+##### controlLengthBytes
+
+> **controlLengthBytes**: `number`
+
+##### messageFlags
+
+> **messageFlags**: `0`
+
+##### resourceId
+
+> **resourceId**: `string`
+
+##### receiveQueue
+
+> **receiveQueue**: `"empty"`
+
+##### inFlightPackets
+
+> **inFlightPackets**: `"none"`
+
+##### signalTimer
+
+> **signalTimer**: `"no-pending-signal-frame-target-wait-preserved"`
+
+***
+
 ### NativeActiveSleepTimerContinuation
 
 #### Properties
@@ -3314,6 +3417,64 @@ by default when `output` is a TTY.
 ###### policy
 
 > **policy**: `"conservative-target-fd-write-completed-from-buffer"`
+
+***
+
+### NativeActivePingSocketRecvmsgContinuation
+
+#### Properties
+
+##### threadId
+
+> **threadId**: `string`
+
+##### syscallClass
+
+> **syscallClass**: `"fd-blocking"`
+
+##### action
+
+> **action**: `"defer-target-resume"`
+
+##### syscall
+
+> **syscall**: `object`
+
+###### state
+
+> **state**: `"outside-syscall"` \| `"inside-syscall"` \| `"restart-block"`
+
+###### number?
+
+> `optional` **number?**: `number`
+
+###### name?
+
+> `optional` **name?**: `string`
+
+###### arguments?
+
+> `optional` **arguments?**: `string`[]
+
+###### stackPointer?
+
+> `optional` **stackPointer?**: `string`
+
+###### instructionPointer?
+
+> `optional` **instructionPointer?**: `string`
+
+##### metadata
+
+> **metadata**: `object`
+
+###### pingSocketRecvmsg
+
+> **pingSocketRecvmsg**: [`NativeModeledPingSocketRecvmsgState`](#nativemodeledpingsocketrecvmsgstate)
+
+###### policy
+
+> **policy**: `"conservative-target-ping-socket-recvmsg-wait-preserved"`
 
 ***
 
@@ -4968,7 +5129,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-8)
+[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-9)
 
 ##### buildId
 
@@ -5076,7 +5237,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-8)
+[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-9)
 
 ##### buildId
 
@@ -5238,7 +5399,7 @@ by default when `output` is a TTY.
 
 ##### metadata
 
-> **metadata**: \{ `remainingTime`: [`NativeModeledSleepTimerRemainingTime`](#nativemodeledsleeptimerremainingtime); `sleepTimer`: [`NativeModeledSleepTimerState`](#nativemodeledsleeptimerstate); `policy`: `"conservative-target-timer-rearm-required"`; \} \| \{ `remainingTime`: [`NativeModeledPpollTimeoutRemainingTime`](#nativemodeledppolltimeoutremainingtime); `ppollTimeout`: [`NativeModeledPpollTimeoutState`](#nativemodeledppolltimeoutstate); `policy`: `"conservative-target-ppoll-timeout-rearm-required"`; \} \| \{ `fdRead`: [`NativeModeledFdReadState`](#nativemodeledfdreadstate); `policy`: `"conservative-target-fd-read-block-preserved"`; \} \| \{ `fdWrite`: [`NativeModeledFdWriteState`](#nativemodeledfdwritestate); `policy`: `"conservative-target-fd-write-completed-from-buffer"`; \}
+> **metadata**: \{ `remainingTime`: [`NativeModeledSleepTimerRemainingTime`](#nativemodeledsleeptimerremainingtime); `sleepTimer`: [`NativeModeledSleepTimerState`](#nativemodeledsleeptimerstate); `policy`: `"conservative-target-timer-rearm-required"`; \} \| \{ `remainingTime`: [`NativeModeledPpollTimeoutRemainingTime`](#nativemodeledppolltimeoutremainingtime); `ppollTimeout`: [`NativeModeledPpollTimeoutState`](#nativemodeledppolltimeoutstate); `policy`: `"conservative-target-ppoll-timeout-rearm-required"`; \} \| \{ `fdRead`: [`NativeModeledFdReadState`](#nativemodeledfdreadstate); `policy`: `"conservative-target-fd-read-block-preserved"`; \} \| \{ `fdWrite`: [`NativeModeledFdWriteState`](#nativemodeledfdwritestate); `policy`: `"conservative-target-fd-write-completed-from-buffer"`; \} \| \{ `pingSocketRecvmsg`: [`NativeModeledPingSocketRecvmsgState`](#nativemodeledpingsocketrecvmsgstate); `policy`: `"conservative-target-ping-socket-recvmsg-wait-preserved"`; \}
 
 ##### semanticContinuation?
 
@@ -6871,7 +7032,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-23)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-24)
 
 ##### targetArch
 
@@ -7013,7 +7174,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Overrides
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`syscall`](#syscall-7)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`syscall`](#syscall-8)
 
 ##### embeddedData
 
@@ -7459,7 +7620,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-23)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-24)
 
 ##### targetArch
 
@@ -7601,7 +7762,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Overrides
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`syscall`](#syscall-7)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`syscall`](#syscall-8)
 
 ##### embeddedData
 
@@ -13390,6 +13551,12 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NativePingSocketRecvmsgPolicy
+
+> **NativePingSocketRecvmsgPolicy** = `"refuse"` \| `"defer-target-resume"`
+
+***
+
 ### NativeModeledPpollTargetResource
 
 > **NativeModeledPpollTargetResource** = `"synthetic-empty-pipe-read-end"` \| `"synthetic-empty-eventfd"` \| `"synthetic-timerfd"`
@@ -13432,9 +13599,15 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NativePingSocketRecvmsgModelResult
+
+> **NativePingSocketRecvmsgModelResult** = \{ `state`: `"modeled"`; `recvmsg`: [`NativeModeledPingSocketRecvmsgState`](#nativemodeledpingsocketrecvmsgstate); \} \| \{ `state`: `"missing"`; `refusal`: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal); \}
+
+***
+
 ### NativeActiveSyscallContinuation
 
-> **NativeActiveSyscallContinuation** = [`NativeActiveSleepTimerContinuation`](#nativeactivesleeptimercontinuation) \| [`NativeActivePpollTimeoutContinuation`](#nativeactiveppolltimeoutcontinuation) \| [`NativeActiveFdReadContinuation`](#nativeactivefdreadcontinuation) \| [`NativeActiveFdWriteContinuation`](#nativeactivefdwritecontinuation)
+> **NativeActiveSyscallContinuation** = [`NativeActiveSleepTimerContinuation`](#nativeactivesleeptimercontinuation) \| [`NativeActivePpollTimeoutContinuation`](#nativeactiveppolltimeoutcontinuation) \| [`NativeActiveFdReadContinuation`](#nativeactivefdreadcontinuation) \| [`NativeActiveFdWriteContinuation`](#nativeactivefdwritecontinuation) \| [`NativeActivePingSocketRecvmsgContinuation`](#nativeactivepingsocketrecvmsgcontinuation)
 
 ***
 
@@ -13862,7 +14035,7 @@ Result of `validatePid` — easy to switch on at the call site.
 
 ### TargetGuestActiveSyscallRestoreStep
 
-> **TargetGuestActiveSyscallRestoreStep** = \{ `action`: `"rearm-sleep-timer"`; `threadId`: `string`; `syscallName`: `string`; `remainingTime`: \{ `seconds`: `string`; `nanoseconds`: `number`; \}; `resumeMode`: `"defer-target-resume"`; \} \| \{ `action`: `"rearm-ppoll-timeout"`; `threadId`: `string`; `remainingTime`: \{ `seconds`: `string`; `nanoseconds`: `number`; \}; `nfds`: `0` \| `1`; `resources`: [`NativeModeledPpollTargetResource`](#nativemodeledppolltargetresource)[]; `resumeMode`: `"defer-target-resume"`; \} \| \{ `action`: `"restore-fd-read-block"`; `threadId`: `string`; `fd`: `number`; `countBytes`: `number`; `resource`: `Exclude`\<[`NativeModeledFdReadTargetResource`](#nativemodeledfdreadtargetresource), `"reopened-offset-file"`\>; `remainingTime?`: \{ `seconds`: `string`; `nanoseconds`: `number`; \}; `resumeMode`: `"defer-target-resume"`; \} \| \{ `action`: `"complete-fd-read-from-file"`; `threadId`: `string`; `fd`: `number`; `countBytes`: `number`; `targetBufferPointer`: `string`; `fileOffset`: `number`; `resumeMode`: `"defer-target-resume"`; \} \| \{ `action`: `"complete-fd-write-to-file"`; `threadId`: `string`; `fd`: `number`; `countBytes`: `number`; `targetBufferPointer`: `string`; `fileOffset`: `number`; `resumeMode`: `"defer-target-resume"`; \}
+> **TargetGuestActiveSyscallRestoreStep** = \{ `action`: `"rearm-sleep-timer"`; `threadId`: `string`; `syscallName`: `string`; `remainingTime`: \{ `seconds`: `string`; `nanoseconds`: `number`; \}; `resumeMode`: `"defer-target-resume"`; \} \| \{ `action`: `"rearm-ppoll-timeout"`; `threadId`: `string`; `remainingTime`: \{ `seconds`: `string`; `nanoseconds`: `number`; \}; `nfds`: `0` \| `1`; `resources`: [`NativeModeledPpollTargetResource`](#nativemodeledppolltargetresource)[]; `resumeMode`: `"defer-target-resume"`; \} \| \{ `action`: `"restore-fd-read-block"`; `threadId`: `string`; `fd`: `number`; `countBytes`: `number`; `resource`: `Exclude`\<[`NativeModeledFdReadTargetResource`](#nativemodeledfdreadtargetresource), `"reopened-offset-file"`\>; `remainingTime?`: \{ `seconds`: `string`; `nanoseconds`: `number`; \}; `resumeMode`: `"defer-target-resume"`; \} \| \{ `action`: `"complete-fd-read-from-file"`; `threadId`: `string`; `fd`: `number`; `countBytes`: `number`; `targetBufferPointer`: `string`; `fileOffset`: `number`; `resumeMode`: `"defer-target-resume"`; \} \| \{ `action`: `"complete-fd-write-to-file"`; `threadId`: `string`; `fd`: `number`; `countBytes`: `number`; `targetBufferPointer`: `string`; `fileOffset`: `number`; `resumeMode`: `"defer-target-resume"`; \} \| \{ `action`: `"restore-ping-socket-recvmsg-wait"`; `threadId`: `string`; `fd`: `number`; `sourceFd`: `number`; `messagePointer`: `string`; `iovLengthBytes`: `number`; `controlLengthBytes`: `number`; `receiveQueue`: [`NativeModeledPingSocketRecvmsgState`](#nativemodeledpingsocketrecvmsgstate)\[`"receiveQueue"`\]; `inFlightPackets`: [`NativeModeledPingSocketRecvmsgState`](#nativemodeledpingsocketrecvmsgstate)\[`"inFlightPackets"`\]; `signalTimer`: [`NativeModeledPingSocketRecvmsgState`](#nativemodeledpingsocketrecvmsgstate)\[`"signalTimer"`\]; `resumeMode`: `"defer-target-resume"`; \}
 
 ***
 
@@ -16143,6 +16316,34 @@ available.
 #### Returns
 
 [`NativeFdWriteModelResult`](#nativefdwritemodelresult)
+
+***
+
+### modelNativePingSocketRecvmsgState()
+
+> **modelNativePingSocketRecvmsgState**(`thread`, `documents?`, `sourceFd?`, `targetFd?`): [`NativePingSocketRecvmsgModelResult`](#nativepingsocketrecvmsgmodelresult)
+
+#### Parameters
+
+##### thread
+
+[`NativeThreadState`](#nativethreadstate)
+
+##### documents?
+
+[`NativeProcessImageDocuments`](#nativeprocessimagedocuments)
+
+##### sourceFd?
+
+`number`
+
+##### targetFd?
+
+`number`
+
+#### Returns
+
+[`NativePingSocketRecvmsgModelResult`](#nativepingsocketrecvmsgmodelresult)
 
 ***
 

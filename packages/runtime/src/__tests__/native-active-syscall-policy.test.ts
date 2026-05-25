@@ -7,6 +7,7 @@ import {
   classifyNativeActiveSyscalls,
   modelNativeFdReadState,
   modelNativeFdWriteState,
+  modelNativePingSocketRecvmsgState,
   modelNativePpollTimeoutState,
   modelNativeSleepTimerState,
 } from "../native-active-syscall-policy.ts";
@@ -378,6 +379,25 @@ function timerfdRecipe(overrides: Record<string, unknown> = {}): Record<string, 
     timerfdIntervalNanoseconds: 0,
     ...overrides,
   };
+}
+
+function documentsWithPingRecvmsg(activeThread: NativeThreadState): NativeProcessImageDocuments {
+  const documents = documentsWithSocketResource(activeThread, { fd: 3 });
+  const memoryFile = join(documents.rootDir!, NATIVE_PROCESS_IMAGE_FILES.memory);
+  const memory = Buffer.from(readFileSync(memoryFile));
+  const msghdrOffset = 0x100;
+  memory.writeBigUInt64LE(0x3400n, msghdrOffset);
+  memory.writeBigUInt64LE(128n, msghdrOffset + 8);
+  memory.writeBigUInt64LE(0x3200n, msghdrOffset + 16);
+  memory.writeBigUInt64LE(1n, msghdrOffset + 24);
+  memory.writeBigUInt64LE(0x3500n, msghdrOffset + 32);
+  memory.writeBigUInt64LE(56n, msghdrOffset + 40);
+  memory.writeInt32LE(0, msghdrOffset + 48);
+  const iovOffset = 0x200;
+  memory.writeBigUInt64LE(0x3300n, iovOffset);
+  memory.writeBigUInt64LE(192n, iovOffset + 8);
+  writeFileSync(memoryFile, memory);
+  return documents;
 }
 
 function documentsWithSocketResource(
@@ -1790,6 +1810,91 @@ describe("native active syscall classification", () => {
       });
     },
   );
+
+  it("models the distro ping active recvmsg empty-queue wait subset", () => {
+    const activeThread = arm64SocketTransferThread("recvmsg", [
+      "0x3",
+      "0x3100",
+      "0x0",
+      "0x0",
+      "0x0",
+      "0x0",
+    ]);
+    const result = classifyNativeActiveSyscalls([activeThread], {
+      documents: documentsWithPingRecvmsg(activeThread),
+      pingSocketRecvmsgPolicy: "defer-target-resume",
+      pingSocketRecvmsgSourceFd: 3,
+      pingSocketRecvmsgTargetFd: 59,
+    });
+
+    expect(result.refusals).toEqual([]);
+    expect(result.continuations[0]).toMatchObject({
+      syscallClass: "fd-blocking",
+      metadata: {
+        pingSocketRecvmsg: {
+          kind: "ping-socket-recvmsg-wait",
+          sourceFd: 3,
+          targetFd: 59,
+          messagePointer: "0x3100",
+          iovLengthBytes: 192,
+          controlLengthBytes: 56,
+          receiveQueue: "empty",
+          inFlightPackets: "none",
+          signalTimer: "no-pending-signal-frame-target-wait-preserved",
+        },
+        policy: "conservative-target-ping-socket-recvmsg-wait-preserved",
+      },
+    });
+  });
+
+  it("models the ping recvmsg state directly for target restore planning", () => {
+    const activeThread = arm64SocketTransferThread("recvmsg", [
+      "0x3",
+      "0x3100",
+      "0x0",
+      "0x0",
+      "0x0",
+      "0x0",
+    ]);
+
+    expect(
+      modelNativePingSocketRecvmsgState(
+        activeThread,
+        documentsWithPingRecvmsg(activeThread),
+        3,
+        59,
+      ),
+    ).toMatchObject({
+      state: "modeled",
+      recvmsg: { sourceFd: 3, targetFd: 59, iovCount: 1, messageFlags: 0 },
+    });
+  });
+
+  it("keeps neighboring ping recvmsg states fail-closed", () => {
+    const activeThread = arm64SocketTransferThread("recvmsg", [
+      "0x4",
+      "0x3100",
+      "0x0",
+      "0x0",
+      "0x0",
+      "0x0",
+    ]);
+    const result = classifyNativeActiveSyscalls([activeThread], {
+      documents: documentsWithPingRecvmsg(activeThread),
+      pingSocketRecvmsgPolicy: "defer-target-resume",
+      pingSocketRecvmsgSourceFd: 3,
+      pingSocketRecvmsgTargetFd: 59,
+    });
+
+    expect(result.refusals).toEqual([
+      expect.objectContaining({
+        code: "target-socket-syscall-state-unsupported",
+        detail: expect.objectContaining({
+          acceptedSubset: "ping-socket-v2:loopback-echo-active-recvmsg-empty-queue",
+        }),
+      }),
+    ]);
+  });
 
   it.each(["recvfrom", "recvmsg", "recvmmsg", "sendto", "sendmsg", "sendmmsg"] as const)(
     "refuses active socket transfer syscall %s with socket-specific detail",

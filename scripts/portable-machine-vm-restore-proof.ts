@@ -78,6 +78,8 @@ interface Args extends ProofVerifierFeatures {
   pingSocketAdoptCredentials: boolean;
   pingSocketExpectedRefusalCode?: string;
   pingSocketExpectedRefusalReason?: string;
+  pingSocketActiveRecvmsgProof: boolean;
+  pingSocketActiveRecvmsgSourceFd: number;
   expectTargetRefusalCode?: string;
 }
 
@@ -126,6 +128,8 @@ interface CombinedDescriptorContext extends CombinedDescriptorPaths, ProofVerifi
   pingSocketAdoptCredentials: boolean;
   pingSocketExpectedRefusalCode?: string;
   pingSocketExpectedRefusalReason?: string;
+  pingSocketActiveRecvmsgProof: boolean;
+  pingSocketActiveRecvmsgSourceFd: number;
   targetThreadRestoreResult: "accepted";
   targetThreadRestoreThreadId: string;
   targetSignalBlockedMasks: string[];
@@ -289,6 +293,7 @@ function usage(): never {
       "[--include-tcp-listener-proof] [--include-tcp-listener-readiness-proof] [--include-tcp-active-broker-proof] " +
       "[--include-raw-icmp-proof] [--include-ping-socket-proof] [--ping-socket-uid n] [--ping-socket-gid n] " +
       "[--ping-socket-range-start n] [--ping-socket-range-end n] [--ping-socket-adopt-credentials] " +
+      "[--ping-socket-active-recvmsg-proof] [--ping-socket-active-recvmsg-source-fd n] " +
       "[--ping-socket-expected-refusal-code code] [--ping-socket-expected-refusal-reason reason] " +
       "[--expect-target-refusal-code code] [--json]",
   );
@@ -338,6 +343,11 @@ function argsFromReader(read: (flag: string) => string | undefined, argv: string
       PROOF_PING_GROUP_RANGE_END,
     ),
     pingSocketAdoptCredentials: argv.includes("--ping-socket-adopt-credentials"),
+    pingSocketActiveRecvmsgProof: argv.includes("--ping-socket-active-recvmsg-proof"),
+    pingSocketActiveRecvmsgSourceFd: parseIntegerFlag(
+      read("--ping-socket-active-recvmsg-source-fd"),
+      3,
+    ),
     pingSocketExpectedRefusalCode: read("--ping-socket-expected-refusal-code"),
     pingSocketExpectedRefusalReason: read("--ping-socket-expected-refusal-reason"),
     expectTargetRefusalCode: read("--expect-target-refusal-code"),
@@ -582,7 +592,7 @@ function combinedDescriptorContext(
       "portable machine proof needs one safe captured writable memory page",
     );
   }
-  const threads = proofThreadContext(bundle, memory.mapping);
+  const threads = proofThreadContext(args, bundle, memory.mapping);
   if (threads.state === "refused") {
     return firstRefusedPlan(plan, threads.refusals);
   }
@@ -628,6 +638,8 @@ function combinedDescriptorContext(
     pingSocketAdoptCredentials: args.pingSocketAdoptCredentials,
     pingSocketExpectedRefusalCode: args.pingSocketExpectedRefusalCode,
     pingSocketExpectedRefusalReason: args.pingSocketExpectedRefusalReason,
+    pingSocketActiveRecvmsgProof: args.pingSocketActiveRecvmsgProof,
+    pingSocketActiveRecvmsgSourceFd: args.pingSocketActiveRecvmsgSourceFd,
   };
   return contextAfterPathCheck(plan, bundle.rootDir!, context);
 }
@@ -663,20 +675,21 @@ function contextAfterPathCheck(
 }
 
 function proofThreadContext(
+  args: Args,
   bundle: ReturnType<typeof validatePortableMachineSnapshotBundle>,
   mapping: NativeMemoryMapping,
 ): ProofThreadContext {
-  const documents = bundleWithProofMemoryMapping(bundle, mapping);
+  const documents = semanticProofDocuments(args, bundleWithProofMemoryMapping(bundle, mapping));
   const threads = documents.threads.threads;
   if (threads.length === 2) {
-    return proofTwoThreadContext(bundle, documents);
+    return proofTwoThreadContext(args, bundle, documents);
   }
   const plan = planNativeThreadRestoreBoundary({
     threads,
     mappings: documents.mappings.mappings,
     resources: documents.resources.resources,
     tls: { targetFsBase: TARGET_TLS_BASE, targetAccessPolicy: "target-tcb-materialized" },
-    activeSyscall: activeSyscallPolicy(bundle, documents),
+    activeSyscall: activeSyscallPolicy(args, bundle, documents),
   });
   return plan.state === "accepted"
     ? {
@@ -691,6 +704,7 @@ function proofThreadContext(
 }
 
 function proofTwoThreadContext(
+  args: Args,
   bundle: ReturnType<typeof validatePortableMachineSnapshotBundle>,
   documents = bundle.nativeProcessImage,
 ): ProofThreadContext {
@@ -698,7 +712,7 @@ function proofTwoThreadContext(
     threads: documents.threads.threads,
     mappings: documents.mappings.mappings,
     resources: documents.resources.resources,
-    activeSyscall: activeSyscallPolicy(bundle, documents),
+    activeSyscall: activeSyscallPolicy(args, bundle, documents),
   });
   if (boundary.state === "refused") {
     return boundary;
@@ -723,6 +737,7 @@ function proofTwoThreadContext(
 }
 
 function activeSyscallPolicy(
+  args: Args,
   bundle: ReturnType<typeof validatePortableMachineSnapshotBundle>,
   documents = bundle.nativeProcessImage,
 ) {
@@ -734,8 +749,34 @@ function activeSyscallPolicy(
     fdReadResourcePolicy: fdReadResourcePolicy(bundle),
     fdWritePolicy: "defer-target-resume" as const,
     fdWriteResourcePolicy: "reopen-file" as const,
+    pingSocketRecvmsgPolicy: args.pingSocketActiveRecvmsgProof
+      ? ("defer-target-resume" as const)
+      : ("refuse" as const),
+    pingSocketRecvmsgSourceFd: args.pingSocketActiveRecvmsgSourceFd,
+    pingSocketRecvmsgTargetFd: PROOF_PING_SOCKET_FD,
     documents,
   };
+}
+
+function semanticProofDocuments(
+  args: Args,
+  documents: NativeProcessImageDocuments,
+): NativeProcessImageDocuments {
+  return args.pingSocketActiveRecvmsgProof && documents.manifest.process.exe.endsWith("/ping")
+    ? {
+        ...documents,
+        threads: {
+          ...documents.threads,
+          threads: documents.threads.threads.map((thread) => ({
+            ...thread,
+            simdFpu: {
+              state: "not-live" as const,
+              provenance: "semantic-ping-socket-recvmsg-continuation",
+            },
+          })),
+        },
+      }
+    : documents;
 }
 
 function bundleWithProofMemoryMapping(
@@ -1705,6 +1746,17 @@ function pingSocketProofResources(context: CombinedDescriptorContext): NativePro
             inFlightPackets: "none",
             receiveQueue: "empty",
             socketOptions: "allowlisted-empty",
+            activeRecvmsg: context.pingSocketActiveRecvmsgProof
+              ? {
+                  acceptedSubset: "ping-socket-v2:loopback-echo-active-recvmsg-empty-queue",
+                  sourceFd: context.pingSocketActiveRecvmsgSourceFd,
+                  targetFd: PROOF_PING_SOCKET_FD,
+                  receiveQueue: "empty",
+                  inFlightPackets: "none",
+                  resumePolicy: "target-native-would-block-wait-preserved",
+                  signalTimer: "no-pending-signal-frame-target-wait-preserved",
+                }
+              : undefined,
           },
         },
       ]

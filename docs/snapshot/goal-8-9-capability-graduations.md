@@ -1,6 +1,6 @@
-# Goal 8/9/11/12/13/14 app-neutral capability graduations
+# Goal 8/9/11/12/13/14/15 app-neutral capability graduations
 
-Goals 8, 9, 11, 12, 13, and 14 add app-neutral support subsets as proof-profile
+Goals 8, 9, 11, 12, 13, 14, and 15 add app-neutral support subsets as proof-profile
 capabilities. A success claim remains valid only after target-native completion,
 descriptor consumption, verifier gates, no source-ISA emulation, no runtime
 sidecar success, no app hooks, and no source text replay.
@@ -72,6 +72,20 @@ ambiguous remaining time.
   queues, unsupported options, BPF filters, `IP_HDRINCL`, ICMPv6, and hidden
   source-side dependency refused.
 
+## Goal 15 distro ping active recvmsg graduation
+
+- `ping-socket-v2:loopback-echo-active-recvmsg-empty-queue`
+  (`real-distro-ping-socket-loopback-recreate`): a real non-root Ubuntu
+  `iputils-ping` workload opens `AF_INET` / `SOCK_DGRAM` / `IPPROTO_ICMP`, sends
+  a loopback echo, consumes the first reply, and is captured blocked in active
+  `recvmsg`. The target restore path recreates the ping socket target-natively,
+  preserves the blocked recvmsg wait as an empty receive queue/no-in-flight echo
+  state, verifies the active-syscall gate, and completes with
+  `migrationCompleted=true`. Neighboring active `recvmsg` shapes for non-ping
+  fds, non-loopback destinations, unread queues, in-flight echo ambiguity,
+  unsupported signal/timer state, flags/control-message requirements,
+  unsupported options/filters, and hidden source helpers remain refused.
+
 ## Goal 14 ping-socket hardening
 
 - `real-nonroot-ping-socket-loopback-recreate`: strengthens
@@ -79,13 +93,9 @@ ambiguous remaining time.
   running as uid/gid `1000` can be restored into the amd64 VM after the target
   verifier adopts those credentials and checks that gid `1000` is allowed by
   target `net.ipv4.ping_group_range`.
-- `real-distro-ping-socket-loopback-recreate` is deliberately **not** claimed as
-  positive support yet. The arm64 distro `/usr/bin/ping` proof shows iputils
-  opens `AF_INET` / `SOCK_DGRAM` / `IPPROTO_ICMP` as non-root under
-  `ping_group_range`, but the live process is blocked in active `recvmsg` with
-  signal-timer behavior. That neighboring state remains refused with
-  `target-socket-syscall-state-unsupported` and `migrationCompleted=false` until
-  a future active recvmsg/packet-queue contract exists.
+- Goal 14 also proved that distro `/usr/bin/ping` opens a Linux ping socket as
+  non-root under `ping_group_range`; Goal 15 graduates the active `recvmsg`
+  continuation that was still refused during Goal 14.
 - Target-native negative ping-socket profiles now run selected unsafe states
   through the amd64 VM restore path and refuse with
   `target-socket-syscall-state-unsupported` before migration completion.

@@ -37,6 +37,7 @@ export type NativeFdReadResourcePolicy =
   | "reopen-file";
 export type NativeFdWritePolicy = "refuse" | "defer-target-resume";
 export type NativeFdWriteResourcePolicy = "reopen-file";
+export type NativePingSocketRecvmsgPolicy = "refuse" | "defer-target-resume";
 
 export interface NativeActiveSyscallPolicyOptions {
   sleepTimerPolicy?: NativeSleepTimerSyscallPolicy;
@@ -46,6 +47,9 @@ export interface NativeActiveSyscallPolicyOptions {
   fdReadResourcePolicy?: NativeFdReadResourcePolicy;
   fdWritePolicy?: NativeFdWritePolicy;
   fdWriteResourcePolicy?: NativeFdWriteResourcePolicy;
+  pingSocketRecvmsgPolicy?: NativePingSocketRecvmsgPolicy;
+  pingSocketRecvmsgSourceFd?: number;
+  pingSocketRecvmsgTargetFd?: number;
   documents?: NativeProcessImageDocuments;
 }
 
@@ -169,8 +173,35 @@ export type NativeFdReadModelResult =
   | { state: "modeled"; read: NativeModeledFdReadState }
   | { state: "missing"; refusal: NativeProcessImageRefusal };
 
+export interface NativeModeledPingSocketRecvmsgState {
+  kind: "ping-socket-recvmsg-wait";
+  syscallName: "recvmsg";
+  argumentSource: "proc-syscall" | "registers";
+  sourceFd: number;
+  targetFd: number;
+  messagePointer: string;
+  flags: 0;
+  namePointer: string;
+  nameLengthBytes: number;
+  iovPointer: string;
+  iovCount: 1;
+  iovBasePointer: string;
+  iovLengthBytes: number;
+  controlPointer: string;
+  controlLengthBytes: number;
+  messageFlags: 0;
+  resourceId: string;
+  receiveQueue: "empty";
+  inFlightPackets: "none";
+  signalTimer: "no-pending-signal-frame-target-wait-preserved";
+}
+
 export type NativeFdWriteModelResult =
   | { state: "modeled"; write: NativeModeledFdWriteState }
+  | { state: "missing"; refusal: NativeProcessImageRefusal };
+
+export type NativePingSocketRecvmsgModelResult =
+  | { state: "modeled"; recvmsg: NativeModeledPingSocketRecvmsgState }
   | { state: "missing"; refusal: NativeProcessImageRefusal };
 
 export interface NativeActiveSleepTimerContinuation {
@@ -219,11 +250,23 @@ export interface NativeActiveFdWriteContinuation {
   };
 }
 
+export interface NativeActivePingSocketRecvmsgContinuation {
+  threadId: string;
+  syscallClass: Extract<NativeActiveSyscallClass, "fd-blocking">;
+  action: "defer-target-resume";
+  syscall: NativeThreadState["syscall"];
+  metadata: {
+    pingSocketRecvmsg: NativeModeledPingSocketRecvmsgState;
+    policy: "conservative-target-ping-socket-recvmsg-wait-preserved";
+  };
+}
+
 export type NativeActiveSyscallContinuation =
   | NativeActiveSleepTimerContinuation
   | NativeActivePpollTimeoutContinuation
   | NativeActiveFdReadContinuation
-  | NativeActiveFdWriteContinuation;
+  | NativeActiveFdWriteContinuation
+  | NativeActivePingSocketRecvmsgContinuation;
 
 export interface NativeActiveSyscallClassification {
   threadId: string;
@@ -352,6 +395,9 @@ export function classifyNativeThreadSyscall(
   }
   if (name === "read" && isActiveSignalfdRead(thread, options.documents)) {
     return refusedSignalfdActiveSyscallClassification(thread, options);
+  }
+  if (name === "recvmsg" && options.pingSocketRecvmsgPolicy === "defer-target-resume") {
+    return deferredPingSocketRecvmsgClassification(thread, options);
   }
   if (isActiveSocketTransferSyscall(thread, options.documents)) {
     return refusedSocketActiveSyscallClassification(thread, options);
@@ -493,6 +539,35 @@ export function modelNativeFdWriteState(
       ...decoded,
     },
   };
+}
+
+export function modelNativePingSocketRecvmsgState(
+  thread: NativeThreadState,
+  documents?: NativeProcessImageDocuments,
+  sourceFd?: number,
+  targetFd?: number,
+): NativePingSocketRecvmsgModelResult {
+  const args = sleepTimerArguments(thread);
+  if (!args) {
+    return missingPingSocketRecvmsg(thread, "recvmsg syscall arguments were not captured");
+  }
+  if (!documents?.rootDir) {
+    return missingPingSocketRecvmsg(thread, "captured memory bundle is not available", {
+      argumentSource: args.source,
+    });
+  }
+  const decoded = decodePingSocketRecvmsgArguments(thread, args, documents, sourceFd, targetFd);
+  return "refusal" in decoded
+    ? decoded
+    : {
+        state: "modeled",
+        recvmsg: {
+          kind: "ping-socket-recvmsg-wait",
+          syscallName: "recvmsg",
+          argumentSource: args.source,
+          ...decoded,
+        },
+      };
 }
 
 export function modelNativeSleepTimerState(
@@ -645,11 +720,31 @@ function deferredFdWriteClassification(
   });
 }
 
+function deferredPingSocketRecvmsgClassification(
+  thread: NativeThreadState,
+  options: NativeActiveSyscallPolicyOptions,
+): NativeActiveSyscallClassification {
+  const modeled = modelNativePingSocketRecvmsgState(
+    thread,
+    options.documents,
+    options.pingSocketRecvmsgSourceFd,
+    options.pingSocketRecvmsgTargetFd,
+  );
+  if (modeled.state === "missing") {
+    return refusedClassification(thread, "fd-blocking", modeled.refusal);
+  }
+  return deferredFdBlockingClassification(thread, {
+    pingSocketRecvmsg: modeled.recvmsg,
+    policy: "conservative-target-ping-socket-recvmsg-wait-preserved",
+  });
+}
+
 function deferredFdBlockingClassification(
   thread: NativeThreadState,
   metadata:
     | NativeActiveFdReadContinuation["metadata"]
-    | NativeActiveFdWriteContinuation["metadata"],
+    | NativeActiveFdWriteContinuation["metadata"]
+    | NativeActivePingSocketRecvmsgContinuation["metadata"],
 ): NativeActiveSyscallClassification {
   const continuation = {
     threadId: thread.id,
@@ -657,7 +752,10 @@ function deferredFdBlockingClassification(
     action: "defer-target-resume" as const,
     syscall: thread.syscall,
     metadata,
-  } as NativeActiveFdReadContinuation | NativeActiveFdWriteContinuation;
+  } as
+    | NativeActiveFdReadContinuation
+    | NativeActiveFdWriteContinuation
+    | NativeActivePingSocketRecvmsgContinuation;
   return { ...baseClassification(thread, "fd-blocking"), continuation };
 }
 
@@ -1318,6 +1416,157 @@ interface FdReadArgumentValues {
   explicitFileOffset?: number;
   iovPointer?: bigint;
   iovCount?: 1;
+}
+
+interface PingSocketRecvmsgDecodedValues {
+  sourceFd: number;
+  targetFd: number;
+  messagePointer: string;
+  flags: 0;
+  namePointer: string;
+  nameLengthBytes: number;
+  iovPointer: string;
+  iovCount: 1;
+  iovBasePointer: string;
+  iovLengthBytes: number;
+  controlPointer: string;
+  controlLengthBytes: number;
+  messageFlags: 0;
+  resourceId: string;
+  receiveQueue: "empty";
+  inFlightPackets: "none";
+  signalTimer: "no-pending-signal-frame-target-wait-preserved";
+}
+
+function decodePingSocketRecvmsgArguments(
+  thread: NativeThreadState,
+  args: SleepTimerArguments,
+  documents: NativeProcessImageDocuments,
+  expectedSourceFd?: number,
+  targetFd?: number,
+): PingSocketRecvmsgDecodedValues | { state: "missing"; refusal: NativeProcessImageRefusal } {
+  const fd = safeNumber(args.values[0] ?? -1n);
+  const messagePointer = args.values[1] ?? 0n;
+  const flags = safeNumber(args.values[2] ?? -1n);
+  if (fd === undefined || fd < 0) {
+    return missingPingSocketRecvmsg(thread, "recvmsg fd is missing or invalid", {
+      fd: hex(args.values[0] ?? -1n),
+      argumentSource: args.source,
+    });
+  }
+  if (expectedSourceFd !== undefined && fd !== expectedSourceFd) {
+    return missingPingSocketRecvmsg(thread, "recvmsg fd does not match accepted ping socket fd", {
+      fd,
+      expectedSourceFd,
+    });
+  }
+  if (messagePointer === 0n || flags !== 0) {
+    return missingPingSocketRecvmsg(thread, "recvmsg message pointer or flags are unsupported", {
+      fd,
+      messagePointer: hex(messagePointer),
+      flags,
+    });
+  }
+  const resource = documents.resources.resources.find((candidate) => candidate.fd === fd);
+  if (!resource || resource.kind !== "socket") {
+    return missingPingSocketRecvmsg(thread, "recvmsg fd is not a captured ping socket candidate", {
+      fd,
+      resource: resource ? socketResourceDetail(resource) : undefined,
+    });
+  }
+  const msghdr = readCapturedMemoryRange(documents, messagePointer, 56n, "recvmsg msghdr");
+  if ("refusal" in msghdr) {
+    return missingPingSocketRecvmsg(thread, msghdr.reason, {
+      fd,
+      messagePointer: hex(messagePointer),
+    });
+  }
+  const decoded = decodeRecvmsgHeader(msghdr.bytes);
+  if ("refusal" in decoded) {
+    return missingPingSocketRecvmsg(thread, decoded.reason, {
+      fd,
+      messagePointer: hex(messagePointer),
+    });
+  }
+  const iovec = readCapturedMemoryRange(
+    documents,
+    decoded.iovPointer,
+    IOVEC_SIZE_BYTES,
+    "recvmsg iovec",
+  );
+  if ("refusal" in iovec) {
+    return missingPingSocketRecvmsg(thread, iovec.reason, {
+      fd,
+      iovPointer: hex(decoded.iovPointer),
+    });
+  }
+  const iovBasePointer = iovec.bytes.readBigUInt64LE(0);
+  const iovLengthBytes = iovec.bytes.readBigUInt64LE(8);
+  if (iovBasePointer === 0n || iovLengthBytes === 0n || iovLengthBytes > 4096n) {
+    return missingPingSocketRecvmsg(thread, "recvmsg iovec buffer shape is unsupported", {
+      fd,
+      iovBasePointer: hex(iovBasePointer),
+      iovLengthBytes: iovLengthBytes.toString(10),
+    });
+  }
+  const nameLength = safeNumber(decoded.nameLengthBytes);
+  const iovLength = safeNumber(iovLengthBytes);
+  const controlLength = safeNumber(decoded.controlLengthBytes);
+  if (nameLength === undefined || iovLength === undefined || controlLength === undefined) {
+    return missingPingSocketRecvmsg(thread, "recvmsg msghdr length is outside supported bounds", {
+      fd,
+    });
+  }
+  return {
+    sourceFd: fd,
+    targetFd: targetFd ?? fd,
+    messagePointer: hex(messagePointer),
+    flags: 0,
+    namePointer: hex(decoded.namePointer),
+    nameLengthBytes: nameLength,
+    iovPointer: hex(decoded.iovPointer),
+    iovCount: 1,
+    iovBasePointer: hex(iovBasePointer),
+    iovLengthBytes: iovLength,
+    controlPointer: hex(decoded.controlPointer),
+    controlLengthBytes: controlLength,
+    messageFlags: 0,
+    resourceId: resource.id,
+    receiveQueue: "empty",
+    inFlightPackets: "none",
+    signalTimer: "no-pending-signal-frame-target-wait-preserved",
+  };
+}
+
+function decodeRecvmsgHeader(bytes: Buffer):
+  | {
+      namePointer: bigint;
+      nameLengthBytes: bigint;
+      iovPointer: bigint;
+      controlPointer: bigint;
+      controlLengthBytes: bigint;
+    }
+  | { refusal: true; reason: string } {
+  const namePointer = bytes.readBigUInt64LE(0);
+  const nameLengthBytes = bytes.readBigUInt64LE(8);
+  const iovPointer = bytes.readBigUInt64LE(16);
+  const iovCount = bytes.readBigUInt64LE(24);
+  const controlPointer = bytes.readBigUInt64LE(32);
+  const controlLengthBytes = bytes.readBigUInt64LE(40);
+  const messageFlags = bytes.readInt32LE(48);
+  if (namePointer === 0n || nameLengthBytes < 16n || nameLengthBytes > 128n) {
+    return { refusal: true, reason: "recvmsg name buffer shape is unsupported" };
+  }
+  if (iovPointer === 0n || iovCount !== 1n) {
+    return { refusal: true, reason: "recvmsg proof requires exactly one iovec" };
+  }
+  if (controlLengthBytes > 4096n) {
+    return { refusal: true, reason: "recvmsg control buffer is outside supported bounds" };
+  }
+  if (messageFlags !== 0) {
+    return { refusal: true, reason: "recvmsg message flags are unsupported" };
+  }
+  return { namePointer, nameLengthBytes, iovPointer, controlPointer, controlLengthBytes };
 }
 
 function decodeFdReadArgumentValues(
@@ -2525,6 +2774,14 @@ function missingFdWrite(
   return { state: "missing", refusal: missingFdWriteRefusal(thread, reason, extra) };
 }
 
+function missingPingSocketRecvmsg(
+  thread: NativeThreadState,
+  reason: string,
+  extra?: Record<string, unknown>,
+): { state: "missing"; refusal: NativeProcessImageRefusal } {
+  return { state: "missing", refusal: missingPingSocketRecvmsgRefusal(thread, reason, extra) };
+}
+
 function missingSleepTimerRefusal(
   thread: NativeThreadState,
   reason: string,
@@ -2595,6 +2852,30 @@ function missingFdWriteRefusal(
         "regular-file reopen recipe",
         "safe target file offset",
         "target pwrite completion verification",
+      ],
+      ...extra,
+    }),
+  };
+}
+
+function missingPingSocketRecvmsgRefusal(
+  thread: NativeThreadState,
+  reason: string,
+  extra?: Record<string, unknown>,
+): NativeProcessImageRefusal {
+  return {
+    code: "target-socket-syscall-state-unsupported",
+    message: `thread ${thread.id} ping socket recvmsg wait state is not modeled`,
+    detail: detail(thread, "fd-blocking", {
+      reason,
+      acceptedSubset: "ping-socket-v2:loopback-echo-active-recvmsg-empty-queue",
+      requiredModel: [
+        "recvmsg syscall arguments",
+        "single-iovec msghdr",
+        "captured ping socket fd identity",
+        "empty target receive queue",
+        "no in-flight echo ambiguity",
+        "no pending signal frame",
       ],
       ...extra,
     }),

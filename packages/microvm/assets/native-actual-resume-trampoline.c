@@ -2644,6 +2644,27 @@ static void complete_native_fd_write_to_file(const char *spec, struct NativeActi
   state->consumed_count++;
 }
 
+static void restore_native_ping_socket_recvmsg_wait(const char *spec, struct NativeActiveSyscallRestoreState *state) {
+  uint64_t fd = native_step_u64(spec, "fd", "active-syscall");
+  uint64_t source_fd = native_step_u64(spec, "sourceFd", "active-syscall");
+  uint64_t iov_length = native_step_u64(spec, "iovLengthBytes", "active-syscall");
+  uint64_t control_length = native_step_u64(spec, "controlLengthBytes", "active-syscall");
+  char receive_queue[64];
+  char in_flight[64];
+  char signal_timer[128];
+  native_step_string(spec, "receiveQueue", receive_queue, sizeof(receive_queue), "active-syscall");
+  native_step_string(spec, "inFlightPackets", in_flight, sizeof(in_flight), "active-syscall");
+  native_step_string(spec, "signalTimer", signal_timer, sizeof(signal_timer), "active-syscall");
+  if (fd > 1024u || source_fd > 1024u || iov_length == 0 || iov_length > 4096u || control_length > 4096u ||
+      !streq(receive_queue, "empty") || !streq(in_flight, "none") ||
+      !streq(signal_timer, "no-pending-signal-frame-target-wait-preserved")) {
+    fprintf(stderr, "native-actual-resume-trampoline: native ping recvmsg wait arguments are unsupported\n");
+    exit(2);
+  }
+  verify_fd_read_would_block((int)fd, "active-syscall");
+  state->consumed_count++;
+}
+
 static void restore_native_fd_read_block(const char *spec, struct NativeActiveSyscallRestoreState *state) {
   uint64_t fd = native_step_u64(spec, "fd", "active-syscall");
   uint64_t count_bytes = native_step_u64(spec, "countBytes", "active-syscall");
@@ -2719,6 +2740,8 @@ static void apply_native_active_syscall_restore_steps(
       complete_native_fd_read_from_file(spec, state);
     } else if (streq(action, "complete-fd-write-to-file")) {
       complete_native_fd_write_to_file(spec, state);
+    } else if (streq(action, "restore-ping-socket-recvmsg-wait")) {
+      restore_native_ping_socket_recvmsg_wait(spec, state);
     } else {
       fprintf(stderr, "native-actual-resume-trampoline: unsupported native active-syscall action\n");
       exit(2);

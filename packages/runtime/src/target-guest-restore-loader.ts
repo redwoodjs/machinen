@@ -1123,6 +1123,24 @@ function parseNativeActiveSyscallStep(
       resumeMode: "defer-target-resume",
     };
   }
+  if (action === "restore-ping-socket-recvmsg-wait") {
+    return {
+      action,
+      threadId: requiredNativeField(fields, "threadId"),
+      fd: parseNativeInteger(fields, "fd"),
+      sourceFd: parseNativeInteger(fields, "sourceFd"),
+      messagePointer: requiredNativeField(fields, "messagePointer"),
+      iovLengthBytes: parseNativeInteger(fields, "iovLengthBytes"),
+      controlLengthBytes: parseNativeInteger(fields, "controlLengthBytes"),
+      receiveQueue: requiredNativeField(fields, "receiveQueue") as "empty",
+      inFlightPackets: requiredNativeField(fields, "inFlightPackets") as "none",
+      signalTimer: requiredNativeField(
+        fields,
+        "signalTimer",
+      ) as "no-pending-signal-frame-target-wait-preserved",
+      resumeMode: "defer-target-resume",
+    };
+  }
   return fail("target-guest-loader-descriptor-invalid", "unsupported native active-syscall action");
 }
 
@@ -1648,6 +1666,26 @@ function validateActiveSyscallRestoreStep(step: TargetGuestActiveSyscallRestoreS
     }
     return;
   }
+  if (step.action === "restore-ping-socket-recvmsg-wait") {
+    assertFd(step.fd, "fd");
+    assertFd(step.sourceFd, "sourceFd");
+    assertHexAddress(step.messagePointer, "messagePointer");
+    assertPositive(step.iovLengthBytes, "iovLengthBytes");
+    assertNonNegative(step.controlLengthBytes, "controlLengthBytes");
+    if (step.receiveQueue !== "empty" || step.inFlightPackets !== "none") {
+      fail(
+        "target-guest-loader-invalid-continuation",
+        "ping recvmsg wait must be empty/no-inflight",
+      );
+    }
+    if (step.signalTimer !== "no-pending-signal-frame-target-wait-preserved") {
+      fail(
+        "target-guest-loader-invalid-continuation",
+        "ping recvmsg signal timer policy is unsupported",
+      );
+    }
+    return;
+  }
   assertNoWhitespace(step.remainingTime.seconds, "seconds");
   assertNonNegative(step.remainingTime.nanoseconds, "nanoseconds");
   if (step.remainingTime.nanoseconds > 999_999_999) {
@@ -2123,6 +2161,9 @@ function serializeActiveSyscallStep(step: TargetGuestActiveSyscallRestoreStep): 
       ? ` seconds=${step.remainingTime.seconds} nanoseconds=${step.remainingTime.nanoseconds}`
       : "";
     return `native=active-syscall action=${step.action} threadId=${step.threadId} fd=${step.fd} countBytes=${step.countBytes} resource=${step.resource}${remainingTime} resumeMode=${step.resumeMode}`;
+  }
+  if (step.action === "restore-ping-socket-recvmsg-wait") {
+    return `native=active-syscall action=${step.action} threadId=${step.threadId} fd=${step.fd} sourceFd=${step.sourceFd} messagePointer=${step.messagePointer} iovLengthBytes=${step.iovLengthBytes} controlLengthBytes=${step.controlLengthBytes} receiveQueue=${step.receiveQueue} inFlightPackets=${step.inFlightPackets} signalTimer=${step.signalTimer} resumeMode=${step.resumeMode}`;
   }
   const base = `native=active-syscall action=${step.action} threadId=${step.threadId} seconds=${step.remainingTime.seconds} nanoseconds=${step.remainingTime.nanoseconds} resumeMode=${step.resumeMode}`;
   return step.action === "rearm-sleep-timer"

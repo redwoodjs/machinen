@@ -803,7 +803,11 @@ function syntheticPingSocketFdTableEntry(
   recipe: Record<string, unknown>,
   closeOnExec: boolean,
 ): NativeTargetFdTableEntry | undefined {
-  if (resource.kind !== "socket" || recipe.pingSocketModel !== "loopback-echo-v1") {
+  if (
+    resource.kind !== "socket" ||
+    (recipe.pingSocketModel !== "loopback-echo-v1" &&
+      recipe.pingSocketModel !== "loopback-echo-active-recvmsg-empty-queue-v2")
+  ) {
     return undefined;
   }
   const identifier = typeof recipe.identifier === "number" ? recipe.identifier : undefined;
