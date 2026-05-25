@@ -226,7 +226,7 @@ describe("portable machine proof runner", () => {
       counts: {
         "baseline-success": 11,
         "graduated-support": 28,
-        "intentional-refusal": 139,
+        "intentional-refusal": 146,
         "permanent-refusal": 3,
       },
       graduated: expect.arrayContaining([
@@ -334,7 +334,7 @@ describe("portable machine proof runner", () => {
       ]),
       capabilitySummary: {
         accepted: expect.objectContaining({ "fd:regular-file": 8 }),
-        refused: expect.objectContaining({ "fd:socket": 6, "syscall:active-recvmsg": 8 }),
+        refused: expect.objectContaining({ "fd:socket": 6, "syscall:active-recvmsg": 15 }),
       },
     });
     expect(summary.supportReport.intentionallyRefused).toEqual(

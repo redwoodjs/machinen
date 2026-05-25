@@ -10,7 +10,7 @@ Current profile inventory:
 
 - 11 `baseline-success` profiles;
 - 28 `graduated-support` profiles;
-- 139 `intentional-refusal` profiles;
+- 146 `intentional-refusal` profiles;
 - 3 `permanent-refusal` profiles.
 
 ## Success contract
@@ -92,7 +92,11 @@ unsafe families are:
   capability confusion, wrong namespace, stale route, non-loopback destinations,
   id/sequence mismatch, in-flight/unread packet ambiguity, unsupported options,
   BPF filters, ICMPv6, hidden source-side helpers, or active `recvmsg` shapes
-  outside the empty-queue/no-in-flight distro ping contract;
+  outside the empty-queue/no-in-flight distro ping contract; Goal 16 keeps
+  known in-flight, known unread reply, multi-interval sequence continuity,
+  multiple in-flight/unread replies, mismatched id/sequence, ICMPv6, and
+  ambiguous timer/control-message states refused until exact packet/timer gates
+  exist;
 - futex/rseq and scheduler-visible synchronization outside the one-waiter,
   target-owned lifecycle contracts;
 - shared memory without a target sharing contract;

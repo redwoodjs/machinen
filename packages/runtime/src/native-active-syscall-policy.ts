@@ -1418,24 +1418,35 @@ interface FdReadArgumentValues {
   iovCount?: 1;
 }
 
-interface PingSocketRecvmsgDecodedValues {
-  sourceFd: number;
-  targetFd: number;
-  messagePointer: string;
-  flags: 0;
-  namePointer: string;
-  nameLengthBytes: number;
-  iovPointer: string;
-  iovCount: 1;
-  iovBasePointer: string;
-  iovLengthBytes: number;
-  controlPointer: string;
-  controlLengthBytes: number;
-  messageFlags: 0;
-  resourceId: string;
-  receiveQueue: "empty";
-  inFlightPackets: "none";
-  signalTimer: "no-pending-signal-frame-target-wait-preserved";
+type PingSocketRecvmsgDecodedValues = Omit<
+  NativeModeledPingSocketRecvmsgState,
+  "kind" | "syscallName" | "argumentSource"
+>;
+
+type MissingPingSocketRecvmsg = { state: "missing"; refusal: NativeProcessImageRefusal };
+
+interface PingSocketRecvmsgBaseArguments {
+  fd: number;
+  messagePointer: bigint;
+}
+
+interface PingSocketRecvmsgIovec {
+  basePointer: bigint;
+  lengthBytes: bigint;
+}
+
+interface RecvmsgHeader {
+  namePointer: bigint;
+  nameLengthBytes: bigint;
+  iovPointer: bigint;
+  controlPointer: bigint;
+  controlLengthBytes: bigint;
+}
+
+function isMissingPingSocketRecvmsg(value: unknown): value is MissingPingSocketRecvmsg {
+  return (
+    typeof value === "object" && value !== null && "state" in value && value.state === "missing"
+  );
 }
 
 function decodePingSocketRecvmsgArguments(
@@ -1444,92 +1455,172 @@ function decodePingSocketRecvmsgArguments(
   documents: NativeProcessImageDocuments,
   expectedSourceFd?: number,
   targetFd?: number,
-): PingSocketRecvmsgDecodedValues | { state: "missing"; refusal: NativeProcessImageRefusal } {
-  const fd = safeNumber(args.values[0] ?? -1n);
+): PingSocketRecvmsgDecodedValues | MissingPingSocketRecvmsg {
+  const base = decodePingSocketRecvmsgBaseArguments(thread, args, expectedSourceFd);
+  if (isMissingPingSocketRecvmsg(base)) {
+    return base;
+  }
+  const resource = pingSocketRecvmsgResource(thread, documents, base.fd);
+  if (isMissingPingSocketRecvmsg(resource)) {
+    return resource;
+  }
+  const header = readPingSocketRecvmsgHeader(thread, documents, base);
+  if (isMissingPingSocketRecvmsg(header)) {
+    return header;
+  }
+  const iovec = readPingSocketRecvmsgIovec(thread, documents, base.fd, header.iovPointer);
+  if (isMissingPingSocketRecvmsg(iovec)) {
+    return iovec;
+  }
+  const lengths = safePingSocketRecvmsgLengths(thread, base.fd, header, iovec);
+  if (isMissingPingSocketRecvmsg(lengths)) {
+    return lengths;
+  }
+  return pingSocketRecvmsgDecodedValues(base, header, iovec, lengths, resource, targetFd);
+}
+
+function decodePingSocketRecvmsgBaseArguments(
+  thread: NativeThreadState,
+  args: SleepTimerArguments,
+  expectedSourceFd?: number,
+): PingSocketRecvmsgBaseArguments | MissingPingSocketRecvmsg {
+  const fd = decodePingSocketRecvmsgFd(thread, args, expectedSourceFd);
+  if (isMissingPingSocketRecvmsg(fd)) {
+    return fd;
+  }
   const messagePointer = args.values[1] ?? 0n;
   const flags = safeNumber(args.values[2] ?? -1n);
+  return (
+    pingSocketRecvmsgPointerFlagRefusal(thread, fd, messagePointer, flags) ?? { fd, messagePointer }
+  );
+}
+
+function decodePingSocketRecvmsgFd(
+  thread: NativeThreadState,
+  args: SleepTimerArguments,
+  expectedSourceFd?: number,
+): number | MissingPingSocketRecvmsg {
+  const fd = safeNumber(args.values[0] ?? -1n);
   if (fd === undefined || fd < 0) {
     return missingPingSocketRecvmsg(thread, "recvmsg fd is missing or invalid", {
       fd: hex(args.values[0] ?? -1n),
       argumentSource: args.source,
     });
   }
-  if (expectedSourceFd !== undefined && fd !== expectedSourceFd) {
-    return missingPingSocketRecvmsg(thread, "recvmsg fd does not match accepted ping socket fd", {
-      fd,
-      expectedSourceFd,
-    });
-  }
-  if (messagePointer === 0n || flags !== 0) {
-    return missingPingSocketRecvmsg(thread, "recvmsg message pointer or flags are unsupported", {
-      fd,
-      messagePointer: hex(messagePointer),
-      flags,
-    });
-  }
+  return expectedSourceFd !== undefined && fd !== expectedSourceFd
+    ? missingPingSocketRecvmsg(thread, "recvmsg fd does not match accepted ping socket fd", {
+        fd,
+        expectedSourceFd,
+      })
+    : fd;
+}
+
+function pingSocketRecvmsgPointerFlagRefusal(
+  thread: NativeThreadState,
+  fd: number,
+  messagePointer: bigint,
+  flags: number | undefined,
+): MissingPingSocketRecvmsg | undefined {
+  return messagePointer === 0n || flags !== 0
+    ? missingPingSocketRecvmsg(thread, "recvmsg message pointer or flags are unsupported", {
+        fd,
+        messagePointer: hex(messagePointer),
+        flags,
+      })
+    : undefined;
+}
+
+function pingSocketRecvmsgResource(
+  thread: NativeThreadState,
+  documents: NativeProcessImageDocuments,
+  fd: number,
+): NativeProcessResource | MissingPingSocketRecvmsg {
   const resource = documents.resources.resources.find((candidate) => candidate.fd === fd);
-  if (!resource || resource.kind !== "socket") {
-    return missingPingSocketRecvmsg(thread, "recvmsg fd is not a captured ping socket candidate", {
-      fd,
-      resource: resource ? socketResourceDetail(resource) : undefined,
-    });
-  }
-  const msghdr = readCapturedMemoryRange(documents, messagePointer, 56n, "recvmsg msghdr");
+  return resource?.kind === "socket"
+    ? resource
+    : missingPingSocketRecvmsg(thread, "recvmsg fd is not a captured ping socket candidate", {
+        fd,
+        resource: resource ? socketResourceDetail(resource) : undefined,
+      });
+}
+
+function readPingSocketRecvmsgHeader(
+  thread: NativeThreadState,
+  documents: NativeProcessImageDocuments,
+  base: PingSocketRecvmsgBaseArguments,
+): RecvmsgHeader | MissingPingSocketRecvmsg {
+  const msghdr = readCapturedMemoryRange(documents, base.messagePointer, 56n, "recvmsg msghdr");
   if ("refusal" in msghdr) {
     return missingPingSocketRecvmsg(thread, msghdr.reason, {
-      fd,
-      messagePointer: hex(messagePointer),
+      fd: base.fd,
+      messagePointer: hex(base.messagePointer),
     });
   }
   const decoded = decodeRecvmsgHeader(msghdr.bytes);
-  if ("refusal" in decoded) {
-    return missingPingSocketRecvmsg(thread, decoded.reason, {
-      fd,
-      messagePointer: hex(messagePointer),
-    });
-  }
-  const iovec = readCapturedMemoryRange(
-    documents,
-    decoded.iovPointer,
-    IOVEC_SIZE_BYTES,
-    "recvmsg iovec",
-  );
+  return "refusal" in decoded
+    ? missingPingSocketRecvmsg(thread, decoded.reason, {
+        fd: base.fd,
+        messagePointer: hex(base.messagePointer),
+      })
+    : decoded;
+}
+
+function readPingSocketRecvmsgIovec(
+  thread: NativeThreadState,
+  documents: NativeProcessImageDocuments,
+  fd: number,
+  iovPointer: bigint,
+): PingSocketRecvmsgIovec | MissingPingSocketRecvmsg {
+  const iovec = readCapturedMemoryRange(documents, iovPointer, IOVEC_SIZE_BYTES, "recvmsg iovec");
   if ("refusal" in iovec) {
-    return missingPingSocketRecvmsg(thread, iovec.reason, {
-      fd,
-      iovPointer: hex(decoded.iovPointer),
-    });
+    return missingPingSocketRecvmsg(thread, iovec.reason, { fd, iovPointer: hex(iovPointer) });
   }
-  const iovBasePointer = iovec.bytes.readBigUInt64LE(0);
-  const iovLengthBytes = iovec.bytes.readBigUInt64LE(8);
-  if (iovBasePointer === 0n || iovLengthBytes === 0n || iovLengthBytes > 4096n) {
-    return missingPingSocketRecvmsg(thread, "recvmsg iovec buffer shape is unsupported", {
-      fd,
-      iovBasePointer: hex(iovBasePointer),
-      iovLengthBytes: iovLengthBytes.toString(10),
-    });
-  }
-  const nameLength = safeNumber(decoded.nameLengthBytes);
-  const iovLength = safeNumber(iovLengthBytes);
-  const controlLength = safeNumber(decoded.controlLengthBytes);
-  if (nameLength === undefined || iovLength === undefined || controlLength === undefined) {
-    return missingPingSocketRecvmsg(thread, "recvmsg msghdr length is outside supported bounds", {
-      fd,
-    });
-  }
+  const basePointer = iovec.bytes.readBigUInt64LE(0);
+  const lengthBytes = iovec.bytes.readBigUInt64LE(8);
+  return basePointer === 0n || lengthBytes === 0n || lengthBytes > 4096n
+    ? missingPingSocketRecvmsg(thread, "recvmsg iovec buffer shape is unsupported", {
+        fd,
+        iovBasePointer: hex(basePointer),
+        iovLengthBytes: lengthBytes.toString(10),
+      })
+    : { basePointer, lengthBytes };
+}
+
+function safePingSocketRecvmsgLengths(
+  thread: NativeThreadState,
+  fd: number,
+  header: RecvmsgHeader,
+  iovec: PingSocketRecvmsgIovec,
+): { nameLength: number; iovLength: number; controlLength: number } | MissingPingSocketRecvmsg {
+  const nameLength = safeNumber(header.nameLengthBytes);
+  const iovLength = safeNumber(iovec.lengthBytes);
+  const controlLength = safeNumber(header.controlLengthBytes);
+  return nameLength === undefined || iovLength === undefined || controlLength === undefined
+    ? missingPingSocketRecvmsg(thread, "recvmsg msghdr length is outside supported bounds", { fd })
+    : { nameLength, iovLength, controlLength };
+}
+
+function pingSocketRecvmsgDecodedValues(
+  base: PingSocketRecvmsgBaseArguments,
+  header: RecvmsgHeader,
+  iovec: PingSocketRecvmsgIovec,
+  lengths: { nameLength: number; iovLength: number; controlLength: number },
+  resource: NativeProcessResource,
+  targetFd?: number,
+): PingSocketRecvmsgDecodedValues {
   return {
-    sourceFd: fd,
-    targetFd: targetFd ?? fd,
-    messagePointer: hex(messagePointer),
+    sourceFd: base.fd,
+    targetFd: targetFd ?? base.fd,
+    messagePointer: hex(base.messagePointer),
     flags: 0,
-    namePointer: hex(decoded.namePointer),
-    nameLengthBytes: nameLength,
-    iovPointer: hex(decoded.iovPointer),
+    namePointer: hex(header.namePointer),
+    nameLengthBytes: lengths.nameLength,
+    iovPointer: hex(header.iovPointer),
     iovCount: 1,
-    iovBasePointer: hex(iovBasePointer),
-    iovLengthBytes: iovLength,
-    controlPointer: hex(decoded.controlPointer),
-    controlLengthBytes: controlLength,
+    iovBasePointer: hex(iovec.basePointer),
+    iovLengthBytes: lengths.iovLength,
+    controlPointer: hex(header.controlPointer),
+    controlLengthBytes: lengths.controlLength,
     messageFlags: 0,
     resourceId: resource.id,
     receiveQueue: "empty",
@@ -1538,15 +1629,7 @@ function decodePingSocketRecvmsgArguments(
   };
 }
 
-function decodeRecvmsgHeader(bytes: Buffer):
-  | {
-      namePointer: bigint;
-      nameLengthBytes: bigint;
-      iovPointer: bigint;
-      controlPointer: bigint;
-      controlLengthBytes: bigint;
-    }
-  | { refusal: true; reason: string } {
+function decodeRecvmsgHeader(bytes: Buffer): RecvmsgHeader | { refusal: true; reason: string } {
   const namePointer = bytes.readBigUInt64LE(0);
   const nameLengthBytes = bytes.readBigUInt64LE(8);
   const iovPointer = bytes.readBigUInt64LE(16);
