@@ -122,7 +122,9 @@ Done only when all are true:
 
 ## Required validation
 
-Record timings for every command/proof:
+Record timings for every command/proof, and also collect a validation speed
+summary so we can decide whether any checks need to be made faster before the
+next proof ladder step.
 
 - schema validation for proof profiles;
 - focused active `recvmsg` / ping-socket policy tests;
@@ -141,6 +143,24 @@ Record timings for every command/proof:
 - `pnpm exec fallow audit --changed-since origin/main`;
 - full smoke tests if VM/VMM/rootfs/assets/CLI/snapshot/restore behavior
   changed.
+
+## Validation performance audit
+
+In addition to pass/fail, this goal must measure validation cost.
+
+- [ ] Capture wall-clock timing for every proof, matrix, static check, unit test
+      command, and smoke command run for the goal.
+- [ ] Split timings into categories: - local static checks; - local unit/focused tests; - matrix/schema checks; - remote arm64 capture; - remote amd64 target VM restore; - full smoke tests.
+- [ ] For remote proofs, record sub-step timings from the proof runner when
+      available: preflight, capture, bundle, transfer, target boot/restore, and
+      completion.
+- [ ] Identify the slowest validation steps and record whether each is expected,
+      avoidable, or a candidate for optimization.
+- [ ] If any single routinely-run validation step takes more than 60 seconds,
+      either justify it in this goal or add a follow-up optimization task.
+- [ ] If full smoke tests are required, record why they are required and whether
+      a smaller future validation target could cover the same risk.
+- [ ] Include a final validation timing table in this goal before completion.
 
 ## Starting boundary
 
