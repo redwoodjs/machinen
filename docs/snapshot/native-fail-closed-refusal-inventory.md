@@ -1,6 +1,6 @@
 # Fail-closed refusal inventory
 
-This inventory covers the refusal codes used by `goal-2.md`. Each code marks a
+This inventory covers the refusal codes used by [`goal-2.md`](../../goals/goal-2.md). Each code marks a
 state that must not reach `migrationCompleted=true` unless a later task replaces
 the refusal with an exact target-native model and proof profile.
 
@@ -102,7 +102,7 @@ without exact remaining-time contracts stay on `signal-state-unsupported` or
 `syscall-restart-unsupported`; `signal-mask-restart-refusal` and
 `restart-state-refusal` guard those boundaries.
 
-`goal-5.md` adds granular proof profiles for the Goals 9-13 refusal wave.
+[`goal-5.md`](../../goals/goal-5.md) adds granular proof profiles for the Goals 9-13 refusal wave.
 Readiness wake ordering, edge/one-shot readiness, socket readiness,
 signal-mask-changing waits, and ambiguous pollfd/fd-set memory are refused by
 `readiness-scheduler-refusal`, `readiness-edge-trigger-refusal`,
