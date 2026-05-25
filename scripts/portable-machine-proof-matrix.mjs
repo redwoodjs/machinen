@@ -75,16 +75,22 @@ function parseShard(value) {
   }
   const index = Number(match[1]);
   const count = Number(match[2]);
-  if (
-    !Number.isSafeInteger(index) ||
-    !Number.isSafeInteger(count) ||
-    index < 1 ||
-    count < 1 ||
-    index > count
-  ) {
+  validateShardParts(index, count);
+  return { index: index - 1, count, label: value };
+}
+
+function validateShardParts(index, count) {
+  if (!isValidShardParts(index, count)) {
     usage();
   }
-  return { index: index - 1, count, label: value };
+}
+
+function isValidShardParts(index, count) {
+  return isPositiveSafeInteger(index) && isPositiveSafeInteger(count) && index <= count;
+}
+
+function isPositiveSafeInteger(value) {
+  return Number.isSafeInteger(value) && value >= 1;
 }
 
 // fallow-ignore-next-line complexity
@@ -487,20 +493,23 @@ function main() {
 }
 
 function output(summary, options) {
-  if (options.summary) {
-    mkdirSync(dirname(resolve(options.summary)), { recursive: true });
-    writeFileSync(resolve(options.summary), `${JSON.stringify(summary, null, 2)}\n`);
-  }
-  if (options.artifactInventory) {
-    mkdirSync(dirname(resolve(options.artifactInventory)), { recursive: true });
-    writeFileSync(
-      resolve(options.artifactInventory),
-      `${JSON.stringify(summary.artifactInventory, null, 2)}\n`,
-    );
-  }
-  if (options.json || !options.summary) {
+  writeJsonFileOption(options.summary, summary);
+  writeJsonFileOption(options.artifactInventory, summary.artifactInventory);
+  if (shouldPrintSummary(options)) {
     process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
   }
+}
+
+function writeJsonFileOption(path, value) {
+  if (!path) {
+    return;
+  }
+  mkdirSync(dirname(resolve(path)), { recursive: true });
+  writeFileSync(resolve(path), `${JSON.stringify(value, null, 2)}\n`);
+}
+
+function shouldPrintSummary(options) {
+  return options.json || !options.summary;
 }
 
 try {
