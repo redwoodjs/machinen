@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -24,6 +24,11 @@ const PRESETS = {
     profiles.filter((profile) => profile.expectedResult === "refusal"),
   "foundation-full": (profiles) => profiles,
   "goal-6-7-full-foundation": (profiles) => profiles,
+  "real-workload": (profiles) => profiles.filter((profile) => isRealWorkloadProfile(profile)),
+  "real-workload-positive": (profiles) =>
+    profiles.filter(
+      (profile) => isRealWorkloadProfile(profile) && profile.expectedResult === "success",
+    ),
 };
 
 const PASS_THROUGH_OPTIONS = new Set([
@@ -39,7 +44,7 @@ const PASS_THROUGH_OPTIONS = new Set([
 
 function usage(exitCode = 2) {
   console.error(
-    `usage: node scripts/portable-machine-proof-matrix.mjs [options]\n\nOptions:\n  --preset name               baseline-success, graduated-support, positive, refusal, foundation-full\n  --support-status status     Select profiles by supportStatus (repeatable or comma-separated)\n  --capability capability     Select profiles by capabilities/refusesCapabilities\n  --unsafe-family family      Select profiles by unsafeStateFamily\n  --profile name              Explicit profile (repeatable or comma-separated)\n  --check-summary-dir path    Verify existing <profile>.json summaries instead of running profiles\n  --summary path              Write summary JSON to path\n  --json                      Emit summary JSON to stdout\n  --dry-run                   Pass --dry-run to the underlying proof runner\n  --continue-on-fail          Run all selected profiles after a failure\n  --work-dir-prefix path      Prefix for profile work directories\n  --timeout-ms ms             Per-profile timeout (default: ${DEFAULT_TIMEOUT_MS})`,
+    `usage: node scripts/portable-machine-proof-matrix.mjs [options]\n\nOptions:\n  --preset name               baseline-success, graduated-support, positive, refusal, foundation-full, real-workload\n  --support-status status     Select profiles by supportStatus (repeatable or comma-separated)\n  --capability capability     Select profiles by capabilities/refusesCapabilities\n  --unsafe-family family      Select profiles by unsafeStateFamily\n  --profile name              Explicit profile (repeatable or comma-separated)\n  --check-summary-dir path    Verify existing <profile>.json summaries instead of running profiles\n  --summary-cache-dir path    Reuse existing <profile>.json smoke summaries and save newly run ones\n  --save-summary-dir path     Save reusable smoke summaries for newly run profiles\n  --artifact-inventory path   Write flattened artifact inventory JSON\n  --shard index/count         Run one 1-based shard of the selected profiles, e.g. 1/4\n  --summary path              Write summary JSON to path\n  --json                      Emit summary JSON to stdout\n  --dry-run                   Pass --dry-run to the underlying proof runner\n  --continue-on-fail          Run all selected profiles after a failure\n  --work-dir-prefix path      Prefix for profile work directories\n  --timeout-ms ms             Per-profile timeout (default: ${DEFAULT_TIMEOUT_MS})`,
   );
   process.exit(exitCode);
 }
@@ -61,6 +66,25 @@ function pushCsv(target, value) {
       target.push(item);
     }
   }
+}
+
+function parseShard(value) {
+  const match = /^(\d+)\/(\d+)$/.exec(value);
+  if (!match) {
+    usage();
+  }
+  const index = Number(match[1]);
+  const count = Number(match[2]);
+  if (
+    !Number.isSafeInteger(index) ||
+    !Number.isSafeInteger(count) ||
+    index < 1 ||
+    count < 1 ||
+    index > count
+  ) {
+    usage();
+  }
+  return { index: index - 1, count, label: value };
 }
 
 // fallow-ignore-next-line complexity
@@ -115,6 +139,16 @@ function parseArgs(argv) {
       [options.summary, index] = readValue(argv, index);
     } else if (arg === "--check-summary-dir") {
       [options.checkSummaryDir, index] = readValue(argv, index);
+    } else if (arg === "--summary-cache-dir") {
+      [options.summaryCacheDir, index] = readValue(argv, index);
+    } else if (arg === "--save-summary-dir") {
+      [options.saveSummaryDir, index] = readValue(argv, index);
+    } else if (arg === "--artifact-inventory") {
+      [options.artifactInventory, index] = readValue(argv, index);
+    } else if (arg === "--shard") {
+      const [value, next] = readValue(argv, index);
+      options.shard = parseShard(value);
+      index = next;
     } else if (arg === "--work-dir-prefix") {
       [options.workDirPrefix, index] = readValue(argv, index);
     } else if (arg === "--timeout-ms") {
@@ -136,6 +170,10 @@ function loadProfiles() {
   return JSON.parse(
     readFileSync(process.env.PORTABLE_MACHINE_PROOF_PROFILES ?? PROFILE_FILE, "utf8"),
   );
+}
+
+function isRealWorkloadProfile(profile) {
+  return profile.sourceFixture?.startsWith("real:") || profile.name.startsWith("real-");
 }
 
 function uniqProfiles(profiles) {
@@ -189,6 +227,28 @@ function selectProfiles(profiles, options) {
   return uniqProfiles(selected.length > 0 ? selected : PRESETS["foundation-full"](profiles));
 }
 
+function applyShard(profiles, shard) {
+  if (!shard) {
+    return profiles;
+  }
+  return profiles.filter((_, index) => index % shard.count === shard.index);
+}
+
+function summaryPath(dir, profile) {
+  return join(resolve(dir), `${profile.name}.json`);
+}
+
+function checkSummaryPath(profile, options) {
+  if (options.checkSummaryDir) {
+    return summaryPath(options.checkSummaryDir, profile);
+  }
+  if (options.summaryCacheDir) {
+    const path = summaryPath(options.summaryCacheDir, profile);
+    return existsSync(path) ? path : undefined;
+  }
+  return undefined;
+}
+
 function runnerArgs(profile, options, index) {
   const args = [
     RUNNER,
@@ -201,8 +261,9 @@ function runnerArgs(profile, options, index) {
   if (options.dryRun) {
     args.push("--dry-run");
   }
-  if (options.checkSummaryDir) {
-    args.push("--check-summary", join(resolve(options.checkSummaryDir), `${profile.name}.json`));
+  const checkedSummary = checkSummaryPath(profile, options);
+  if (checkedSummary) {
+    args.push("--check-summary", checkedSummary);
   }
   const prefix = options.workDirPrefix ?? join(tmpdir(), "machinen-proof-matrix-");
   args.push("--work-dir-prefix", `${resolve(prefix)}${index}-${profile.name}-`);
@@ -210,9 +271,21 @@ function runnerArgs(profile, options, index) {
   return args;
 }
 
+function saveReusableSummary(profile, options, summary) {
+  const targetDir = options.saveSummaryDir ?? options.summaryCacheDir;
+  if (!targetDir || !summary.smokeSummary) {
+    return undefined;
+  }
+  const path = summaryPath(targetDir, profile);
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, `${JSON.stringify(summary.smokeSummary, null, 2)}\n`);
+  return path;
+}
+
 // fallow-ignore-next-line complexity
 function runOne(profile, options, index) {
   const startedAt = Date.now();
+  const checkedSummary = checkSummaryPath(profile, options);
   const args = runnerArgs(profile, options, index);
   const child = spawnSync("node", args, {
     cwd: REPO_ROOT,
@@ -233,6 +306,7 @@ function runOne(profile, options, index) {
       stderr: child.stderr,
     };
   }
+  const savedSummaryPath = saveReusableSummary(profile, options, summary);
   return {
     profile: profile.name,
     supportStatus: profile.supportStatus,
@@ -242,6 +316,9 @@ function runOne(profile, options, index) {
     exitStatus: child.status,
     elapsedMs: Date.now() - startedAt,
     workDir: summary.workDir,
+    summarySource: checkedSummary ? "cache" : "run",
+    checkedSummary,
+    savedSummaryPath,
     refusalCode: refusalCode(summary),
     targetGates: targetGates(summary),
     remoteHostDetails: summary.proofProvenance?.remote ?? {},
@@ -267,6 +344,49 @@ function targetGates(summary) {
   };
 }
 
+function artifactInventory(results) {
+  return {
+    kind: "machinen.portable-machine-proof-artifact-inventory",
+    profiles: Object.fromEntries(
+      results.map((result) => [result.profile, artifactEntries(result.runnerSummary, result)]),
+    ),
+  };
+}
+
+function artifactEntries(summary, result) {
+  return [...localArtifactEntries(summary, result), ...provenanceArtifactEntries(summary)].filter(
+    (entry) => entry.path || entry.remotePath,
+  );
+}
+
+function localArtifactEntries(summary, result) {
+  const logs = summary.logs ?? {};
+  const smoke = summary.smokeSummary ?? {};
+  return [
+    { kind: "work-dir", path: result.workDir },
+    { kind: "checked-summary", path: result.checkedSummary },
+    { kind: "saved-summary", path: result.savedSummaryPath },
+    ...Object.entries(logs).map(([kind, path]) => ({ kind: `log:${kind}`, path })),
+    { kind: "native-process-bundle", path: smoke.nativeProcessBundle },
+    { kind: "portable-machine-bundle", path: smoke.portableMachineBundle },
+    { kind: "target-code-file", path: smoke.targetCodeFile },
+    { kind: "remote-portable-machine-bundle", remotePath: smoke.remotePortableMachineBundle },
+    { kind: "remote-target-code-file", remotePath: smoke.remoteTargetCodeFile },
+  ];
+}
+
+function provenanceArtifactEntries(summary) {
+  const artifacts = summary.proofProvenance?.artifacts ?? {};
+  return Object.entries(artifacts).map(([kind, artifact]) => ({
+    kind: `provenance:${kind}`,
+    path: artifact.path,
+    exists: artifact.exists,
+    sizeBytes: artifact.sizeBytes,
+    sha256: artifact.sha256,
+    file: artifact.file,
+  }));
+}
+
 function profileCounts(profiles) {
   return profiles.reduce(
     (acc, profile) => {
@@ -282,7 +402,7 @@ function profileCounts(profiles) {
 }
 
 // fallow-ignore-next-line complexity
-function matrixSummary(options, profiles, results, startedAt, schemaValidation) {
+function matrixSummary(options, profiles, results, startedAt, schemaValidation, unshardedCount) {
   const failed = results.filter((result) => !result.pass);
   return {
     kind: "machinen.portable-machine-proof-matrix",
@@ -290,6 +410,13 @@ function matrixSummary(options, profiles, results, startedAt, schemaValidation) 
     pass: failed.length === 0,
     profileCounts: profileCounts(profiles),
     selectedProfiles: profiles.map((profile) => profile.name),
+    shard: options.shard
+      ? {
+          ...options.shard,
+          selectedBeforeShard: unshardedCount,
+          selectedAfterShard: profiles.length,
+        }
+      : undefined,
     schemaValidation,
     timings: [
       {
@@ -310,6 +437,15 @@ function matrixSummary(options, profiles, results, startedAt, schemaValidation) 
       results.map((result) => [result.profile, result.refusalCode]).filter((entry) => entry[1]),
     ),
     targetGates: Object.fromEntries(results.map((result) => [result.profile, result.targetGates])),
+    summarySources: Object.fromEntries(
+      results.map((result) => [result.profile, result.summarySource]),
+    ),
+    savedSummaries: Object.fromEntries(
+      results
+        .map((result) => [result.profile, result.savedSummaryPath])
+        .filter((entry) => entry[1]),
+    ),
+    artifactInventory: artifactInventory(results),
     remoteHostDetails:
       results.find((result) => Object.keys(result.remoteHostDetails).length > 0)
         ?.remoteHostDetails ?? {},
@@ -324,11 +460,12 @@ function main() {
   const allProfiles = loadProfiles();
   const schemaValidation = validatePortableMachineProofProfiles(allProfiles);
   if (!schemaValidation.passed) {
-    const summary = matrixSummary(options, [], [], startedAt, schemaValidation);
+    const summary = matrixSummary(options, [], [], startedAt, schemaValidation, 0);
     output(summary, options);
     process.exit(1);
   }
-  const selected = selectProfiles(allProfiles, options);
+  const unsharded = selectProfiles(allProfiles, options);
+  const selected = applyShard(unsharded, options.shard);
   const results = [];
   for (const [index, profile] of selected.entries()) {
     const result = runOne(profile, options, index);
@@ -337,7 +474,14 @@ function main() {
       break;
     }
   }
-  const summary = matrixSummary(options, selected, results, startedAt, schemaValidation);
+  const summary = matrixSummary(
+    options,
+    selected,
+    results,
+    startedAt,
+    schemaValidation,
+    unsharded.length,
+  );
   output(summary, options);
   process.exit(summary.pass ? 0 : 1);
 }
@@ -345,7 +489,14 @@ function main() {
 function output(summary, options) {
   if (options.summary) {
     mkdirSync(dirname(resolve(options.summary)), { recursive: true });
-    writeFileSync(resolve(options.summary), JSON.stringify(summary, null, 2));
+    writeFileSync(resolve(options.summary), `${JSON.stringify(summary, null, 2)}\n`);
+  }
+  if (options.artifactInventory) {
+    mkdirSync(dirname(resolve(options.artifactInventory)), { recursive: true });
+    writeFileSync(
+      resolve(options.artifactInventory),
+      `${JSON.stringify(summary.artifactInventory, null, 2)}\n`,
+    );
   }
   if (options.json || !options.summary) {
     process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);

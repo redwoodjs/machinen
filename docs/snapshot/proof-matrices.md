@@ -21,15 +21,46 @@ Presets:
 - `graduated-support` — the 28 graduated support profiles;
 - `positive` / `all-positive` — all positive profiles;
 - `refusal` / `refusal-matrix` — all intentional and permanent refusals;
-- `foundation-full` / `goal-6-7-full-foundation` — all profiles.
+- `foundation-full` / `goal-6-7-full-foundation` — all profiles;
+- `real-workload` — all profiles sourced from real workloads;
+- `real-workload-positive` — positive real-workload profiles only.
 
 The summary JSON has a stable top-level shape:
 
 - `profileCounts` by support status and expected result;
-- `results[]` with pass/fail state, elapsed time, workdir, refusal code, target
-  gates, and runner summary;
-- `refusalCodes`, `targetGates`, `workdirs`, `remoteHostDetails`, and `timings`;
+- `results[]` with pass/fail state, elapsed time, workdir, summary source,
+  reusable summary path, refusal code, target gates, and runner summary;
+- `refusalCodes`, `targetGates`, `workdirs`, `remoteHostDetails`, `timings`,
+  `summarySources`, `savedSummaries`, and `artifactInventory`;
+- `shard` when `--shard index/count` is used;
 - `schemaValidation` for capability/profile schema drift.
+
+## Validation scale features
+
+Matrices can be sharded deterministically by selected-profile order:
+
+```sh
+pnpm --silent portable-machine-proof-matrix -- --preset refusal --shard 1/4 --json
+pnpm --silent portable-machine-proof-matrix -- --preset refusal --shard 2/4 --json
+```
+
+Reusable smoke summaries can be cached and rechecked without rerunning remote
+proofs. Existing `<profile>.json` files in `--summary-cache-dir` are used as
+checked summaries; newly run profiles save their smoke summaries back into that
+directory.
+
+```sh
+pnpm --silent portable-machine-proof-matrix -- \
+  --preset refusal \
+  --summary-cache-dir ./proof-summary-cache \
+  --artifact-inventory ./artifact-inventory.json \
+  --json --summary ./refusals.json --continue-on-fail
+```
+
+`--save-summary-dir` writes reusable smoke summaries without reading from the
+directory first. `--artifact-inventory` writes the flattened inventory of local
+and remote bundles, logs, descriptors, continuations, and provenance artifacts
+for every profile in the matrix summary.
 
 ## Local synthetic proof runs
 
