@@ -10,7 +10,7 @@ Current profile inventory:
 
 - 11 `baseline-success` profiles;
 - 28 `graduated-support` profiles;
-- 149 `intentional-refusal` profiles;
+- 173 `intentional-refusal` profiles;
 - 3 `permanent-refusal` profiles.
 
 ## Success contract
@@ -105,7 +105,17 @@ unsafe families are:
 - pending signals, active signal frames, alt-stacks, and ambiguous restarts;
 - signal-mask-changing `ppoll`/wait semantics;
 - native addons, JIT/self-modifying code, and opaque runtime state;
-- source vDSO/vvar reuse and raw cross-ISA vmstate replay.
+- source vDSO/vvar reuse and raw cross-ISA vmstate replay;
+- Goal 18 master-audit families that are intentionally refused until exact
+  descriptor/verifier gates exist: generic socket send/receive queues, UDP
+  datagram queues, established TCP without the explicit broker, kqueue state,
+  file locks/leases, mmap dirty aliasing, huge/special mappings, general
+  SIMD/FPU and architecture-specific register state, dynamic linker state,
+  deleted/replaced executable mappings, ASLR-sensitive source pointers,
+  signal-handler PC/stack state, thread join/TLS edge cases, timer delivery
+  ordering, pipe/eventfd waiters, namespace/routing provenance, target
+  next-packet verification gaps, stack/heap edge layouts, and vvar time-source
+  reuse.
 
 Readiness note: Goal 6 graduated blocked-mask-only signal support and one
 level-triggered eventfd readiness proof. Signal-mask-changing `ppoll` or wait
