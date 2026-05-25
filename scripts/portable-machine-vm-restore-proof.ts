@@ -42,6 +42,7 @@ interface ProofVerifierFeatures {
   includeEventfdAliasProof: boolean;
   includeTimerfdDescriptorProof: boolean;
   includePipePairProof: boolean;
+  includePipeBufferedProof: boolean;
   includeEpollProof: boolean;
   includeSignalfdProof: boolean;
   includeReadinessEventfdPollProof: boolean;
@@ -231,6 +232,7 @@ const PROOF_SIGNALFD_MASK = "0x200";
 const PROOF_SIGNALFD_FLAGS = 0x800;
 const SIGUSR1 = 10;
 const PROOF_FD_BYTES = Buffer.from("FD");
+const PROOF_PIPE_BUFFERED_BYTES = Buffer.from("PIPEBUF");
 const PROOF_FILE_READ_BYTES = Buffer.from("FILE");
 const PROOF_FILE_WRITE_BYTES = Buffer.from("WRIT");
 const PROOF_INITIAL_STACK_TARGET = "0x600000002000";
@@ -293,7 +295,7 @@ function usage(): never {
       "--bundle-dir path --target-code-file path [--image rootfs.tar.gz] " +
       "[--combined-descriptor] [--real-utility-continuation] " +
       "[--process-context-restore metadata-only|apply-target-env-cwd|apply-target-visible-context|apply-target-initial-stack] " +
-      "[--include-eventfd-counter-proof] [--include-eventfd-alias-proof] [--include-timerfd-descriptor-proof] [--include-pipe-pair-proof] [--include-epoll-proof] [--include-signalfd-proof] " +
+      "[--include-eventfd-counter-proof] [--include-eventfd-alias-proof] [--include-timerfd-descriptor-proof] [--include-pipe-pair-proof] [--include-pipe-buffered-proof] [--include-epoll-proof] [--include-signalfd-proof] " +
       "[--include-readiness-eventfd-poll-proof] [--include-regular-file-duplicate-fd-proof] [--include-target-auxv-at-random-proof] " +
       "[--include-private-layout-proof] [--include-signal-mask-blocked-proof] " +
       "[--include-tcp-listener-proof] [--include-tcp-listener-readiness-proof] [--include-tcp-active-broker-proof] " +
@@ -328,6 +330,7 @@ function argsFromReader(read: (flag: string) => string | undefined, argv: string
     includeEventfdAliasProof: argv.includes("--include-eventfd-alias-proof"),
     includeTimerfdDescriptorProof: argv.includes("--include-timerfd-descriptor-proof"),
     includePipePairProof: argv.includes("--include-pipe-pair-proof"),
+    includePipeBufferedProof: argv.includes("--include-pipe-buffered-proof"),
     includeEpollProof: argv.includes("--include-epoll-proof"),
     includeSignalfdProof: argv.includes("--include-signalfd-proof"),
     includeReadinessEventfdPollProof: argv.includes("--include-readiness-eventfd-poll-proof"),
@@ -497,6 +500,7 @@ function proofVerifierFeaturesFromContext(
     includeEventfdAliasProof: context.includeEventfdAliasProof,
     includeTimerfdDescriptorProof: context.includeTimerfdDescriptorProof,
     includePipePairProof: context.includePipePairProof,
+    includePipeBufferedProof: context.includePipeBufferedProof,
     includeEpollProof: context.includeEpollProof,
     includeSignalfdProof: context.includeSignalfdProof,
     includeReadinessEventfdPollProof: context.includeReadinessEventfdPollProof,
@@ -631,6 +635,7 @@ function combinedDescriptorContext(
     includeEventfdAliasProof: args.includeEventfdAliasProof,
     includeTimerfdDescriptorProof: args.includeTimerfdDescriptorProof,
     includePipePairProof: args.includePipePairProof,
+    includePipeBufferedProof: args.includePipeBufferedProof,
     includeEpollProof: args.includeEpollProof,
     includeSignalfdProof: args.includeSignalfdProof,
     includeReadinessEventfdPollProof: args.includeReadinessEventfdPollProof,
@@ -1272,7 +1277,7 @@ function proofResumeRegisters() {
 
 // fallow-ignore-next-line complexity
 function proofFdTable(context: CombinedDescriptorContext) {
-  const usesSyntheticPipePair = !context.includePipePairProof;
+  const usesSyntheticPipePair = !(context.includePipePairProof || context.includePipeBufferedProof);
   const usesSyntheticEventfd = !(
     context.includeEventfdCounterProof ||
     context.includeReadinessEventfdPollProof ||
@@ -1930,18 +1935,31 @@ function proofPipeResource(
     path: "pipe:combined-proof",
     flags: [end === "read" ? "octal:0" : "octal:1"],
   };
-  return context.includePipePairProof
-    ? {
-        ...base,
-        recipe: {
-          pipeModel: "empty-pair-v1",
-          pipeBuffer: "empty",
-          peerLifetime: "open",
-          pipeWaiters: "none",
-          readiness: "not-readable",
-        },
-      }
-    : base;
+  if (context.includePipeBufferedProof) {
+    return { ...base, recipe: pipeBufferedProofRecipe() };
+  }
+  return context.includePipePairProof ? { ...base, recipe: pipeEmptyProofRecipe() } : base;
+}
+
+function pipeEmptyProofRecipe() {
+  return {
+    pipeModel: "empty-pair-v1",
+    pipeBuffer: "empty",
+    peerLifetime: "open",
+    pipeWaiters: "none",
+    readiness: "not-readable",
+  };
+}
+
+function pipeBufferedProofRecipe() {
+  return {
+    pipeModel: "buffered-bytes-v1",
+    pipeBuffer: "bytes",
+    pipeBufferBytes: PROOF_PIPE_BUFFERED_BYTES.toString("hex"),
+    peerLifetime: "open",
+    pipeWaiters: "none",
+    readiness: "readable",
+  };
 }
 
 function proofSyntheticResource(kind: "eventfd" | "timer", fd: number): NativeProcessResource {
@@ -2086,7 +2104,9 @@ function emitDescriptorVerifier(
   asm.markStateCheck(completion, STATE_CHECK_STDIO);
   asm.readAndCheck(PROOF_FILE_FD, expectedFdBytes);
   asm.markStateCheck(completion, STATE_CHECK_REOPEN_FILE);
-  if (features.includePipePairProof) {
+  if (features.includePipeBufferedProof) {
+    asm.checkPipePairBuffered(PROOF_PIPE_READ_FD, PROOF_PIPE_WRITE_FD, PROOF_PIPE_BUFFERED_BYTES);
+  } else if (features.includePipePairProof) {
     asm.checkPipePairEmpty(PROOF_PIPE_READ_FD, PROOF_PIPE_WRITE_FD);
   } else {
     asm.checkFdOpen(PROOF_PIPE_READ_FD);
@@ -2283,6 +2303,14 @@ class Amd64ProofAssembler {
     this.checkFdOpen(readFd);
     this.checkFdOpen(writeFd);
     this.pollStoredFd(readFd, 0x60, 0x0001, 0);
+  }
+
+  checkPipePairBuffered(readFd: number, writeFd: number, expected: Buffer): void {
+    this.checkFdOpen(readFd);
+    this.checkFdOpen(writeFd);
+    this.pollStoredFd(readFd, 0x60, 0x0001, 1);
+    this.readAndCheck(readFd, expected);
+    this.pollStoredFd(readFd, 0x70, 0x0001, 0);
   }
 
   checkEventfdPollIn(fd: number): void {

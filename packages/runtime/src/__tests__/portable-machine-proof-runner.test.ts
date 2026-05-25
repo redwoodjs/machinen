@@ -217,8 +217,8 @@ describe("portable machine proof runner", () => {
     expect(summary.supportReport).toMatchObject({
       counts: {
         "baseline-success": 11,
-        "graduated-support": 29,
-        "intentional-refusal": 157,
+        "graduated-support": 30,
+        "intentional-refusal": 162,
         "permanent-refusal": 27,
       },
       graduated: expect.arrayContaining([
@@ -240,6 +240,11 @@ describe("portable machine proof runner", () => {
         expect.objectContaining({
           name: "pipe-pair-recreate",
           acceptedSubset: "pipe-pair-v1-empty-open-peer-no-waiters",
+          graduatedFromRefusalCode: "kernel-state-unsupported",
+        }),
+        expect.objectContaining({
+          name: "pipe-buffered-bytes-recreate",
+          acceptedSubset: "pipe-buffered-bytes-v1-open-peer-no-waiters-bounded-payload",
           graduatedFromRefusalCode: "kernel-state-unsupported",
         }),
         expect.objectContaining({

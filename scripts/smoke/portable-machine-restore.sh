@@ -30,7 +30,7 @@ master_audit_refusal_code() {
     socket-receive-queue-general-refusal|socket-send-queue-general-refusal|udp-datagram-queue-refusal|tcp-established-without-broker-refusal|namespace-routing-provenance-refusal|target-next-packet-unverified-refusal)
       echo "target-socket-syscall-state-unsupported"
       ;;
-    kqueue-readiness-refusal|file-lock-refusal|file-lease-refusal|timer-delivery-order-refusal|pipe-buffered-data-waiter-refusal|eventfd-waiter-alias-refusal)
+    kqueue-readiness-refusal|file-lock-refusal|file-lease-refusal|timer-delivery-order-refusal|pipe-buffered-data-waiter-refusal|pipe-buffered-*-refusal|eventfd-waiter-alias-refusal)
       echo "kernel-state-unsupported"
       ;;
     mmap-dirty-alias-refusal|dynamic-linker-state-refusal|deleted-executable-mapping-refusal)
@@ -514,9 +514,9 @@ capture_remote_native_process_bundle() {
       target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-pipe-read-target"
       target_detail="remote arm64 pipe read bundle with target timerfd descriptor proof captured from $ARM64_SSH"
       ;;
-    pipe-pair-recreate)
+    pipe-pair-recreate|pipe-buffered-bytes-recreate)
       target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-pipe-read-target"
-      target_detail="remote arm64 pipe read bundle with target pipe pair descriptor proof captured from $ARM64_SSH"
+      target_detail="remote arm64 pipe read bundle with target pipe descriptor proof captured from $ARM64_SSH"
       ;;
     epoll-recreate)
       target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-pipe-read-target"
@@ -655,6 +655,9 @@ run_target_restore() {
     resource_model_args_text="${resource_model_args[*]}"
   elif [[ "$REMOTE_SOURCE_TARGET" == "pipe-pair-recreate" ]]; then
     resource_model_args=(--include-pipe-pair-proof)
+    resource_model_args_text="${resource_model_args[*]}"
+  elif [[ "$REMOTE_SOURCE_TARGET" == "pipe-buffered-bytes-recreate" ]]; then
+    resource_model_args=(--include-pipe-buffered-proof)
     resource_model_args_text="${resource_model_args[*]}"
   elif [[ "$REMOTE_SOURCE_TARGET" == "epoll-recreate" ]]; then
     resource_model_args=(--include-epoll-proof)

@@ -314,6 +314,36 @@ describe("native resource translation", () => {
     ]);
   });
 
+  it("plans an accepted pipe-buffered-bytes-v1 descriptor pair", () => {
+    const plan = planNativeTargetFdTable({
+      resources: [
+        pipePairResource(10, "read", {
+          pipeModel: "buffered-bytes-v1",
+          pipeBuffer: "bytes",
+          pipeBufferBytes: "50495045",
+          readiness: "readable",
+        }),
+        pipePairResource(12, "write", {
+          pipeModel: "buffered-bytes-v1",
+          pipeBuffer: "bytes",
+          pipeBufferBytes: "50495045",
+          readiness: "readable",
+        }),
+      ],
+    });
+
+    expect(plan.refusals).toEqual([]);
+    expect(plan.targetGuestResources).toEqual([
+      {
+        kind: "synthetic-empty-pipe",
+        readFd: 10,
+        writeFd: 12,
+        initialBytesHex: "50495045",
+        closeOnExec: false,
+      },
+    ]);
+  });
+
   it.each([
     {
       name: "unknown buffer",
@@ -350,7 +380,7 @@ describe("native resource translation", () => {
         pipePairResource(10, "read", { readiness: "readable" }),
         pipePairResource(12, "write"),
       ],
-      reason: "pipe readiness must be known not-readable",
+      reason: "pipe readiness does not match captured buffer state",
     },
     {
       name: "unsupported flags",

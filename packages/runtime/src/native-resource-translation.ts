@@ -250,7 +250,10 @@ function syntheticPipePairFdTableEntry(
   closeOnExec: boolean,
   resources: NativeProcessResource[],
 ): NativeTargetFdTableEntry | undefined {
-  if (resource.kind !== "pipe" || recipe.pipeModel !== "empty-pair-v1") {
+  if (
+    resource.kind !== "pipe" ||
+    (recipe.pipeModel !== "empty-pair-v1" && recipe.pipeModel !== "buffered-bytes-v1")
+  ) {
     return undefined;
   }
   const pipeRecipe = normalizedPipePairRecipe(resource, resources);
@@ -261,6 +264,7 @@ function syntheticPipePairFdTableEntry(
     return materializedFdTableEntry(resource, "synthetic-empty-pipe-read-end", closeOnExec, {
       kind: "synthetic-empty-pipe",
       readFd: fd,
+      initialBytesHex: pipeRecipe.initialBytesHex,
       closeOnExec,
     });
   }
@@ -272,7 +276,10 @@ function syntheticPipePairFdTableEntry(
 function normalizedPipePairRecipe(
   resource: NativeProcessResource,
   resources: NativeProcessResource[],
-): { end: "read"; readFd: number } | { end: "write"; readFd: number } | NativeProcessImageRefusal {
+):
+  | { end: "read"; readFd: number; initialBytesHex?: string }
+  | { end: "write"; readFd: number }
+  | NativeProcessImageRefusal {
   if (!resource.path || resource.fd === undefined) {
     return pipePairRefusal(resource, "pipe pair requires fd and pipe identity");
   }
@@ -297,7 +304,7 @@ function normalizedPipePairRecipe(
     (candidate) =>
       candidate.kind === "pipe" &&
       candidate.path === resource.path &&
-      candidate.recipe?.pipeModel === "empty-pair-v1",
+      candidate.recipe?.pipeModel === resource.recipe?.pipeModel,
   );
   for (const peer of peers) {
     if (!PIPE_PAIR_SUPPORTED_FLAGS.has(nativeFdFlagBits(peer.flags))) {
@@ -324,34 +331,93 @@ function normalizedPipePairRecipe(
   if (readFd === undefined) {
     return pipePairRefusal(resource, "pipe pair read end is missing an fd");
   }
-  return access === 0 ? { end: "read", readFd } : { end: "write", readFd };
+  if (access !== 0) {
+    return { end: "write", readFd };
+  }
+  const initialBytesHex = pipePairInitialBytes(resource);
+  if (typeof initialBytesHex === "object") {
+    return initialBytesHex;
+  }
+  return { end: "read", readFd, initialBytesHex };
 }
 
 function pipePairModelRefusal(
   resource: NativeProcessResource,
 ): NativeProcessImageRefusal | undefined {
+  return (
+    pipeBufferModelRefusal(resource) ??
+    pipePeerModelRefusal(resource) ??
+    pipeReadinessModelRefusal(resource)
+  );
+}
+
+function pipeBufferModelRefusal(
+  resource: NativeProcessResource,
+): NativeProcessImageRefusal | undefined {
   const recipe = resource.recipe ?? {};
-  if (recipe.pipeBuffer !== "empty") {
-    return pipePairRefusal(resource, "pipe buffer must be known empty", {
-      pipeBuffer: recipe.pipeBuffer,
-    });
-  }
+  const expectedBuffer = recipe.pipeModel === "buffered-bytes-v1" ? "bytes" : "empty";
+  return recipe.pipeBuffer === expectedBuffer
+    ? undefined
+    : pipePairRefusal(
+        resource,
+        expectedBuffer === "bytes"
+          ? "pipe buffer must be captured bytes"
+          : "pipe buffer must be known empty",
+        { pipeBuffer: recipe.pipeBuffer },
+      );
+}
+
+function pipePeerModelRefusal(
+  resource: NativeProcessResource,
+): NativeProcessImageRefusal | undefined {
+  const recipe = resource.recipe ?? {};
   if (recipe.peerLifetime !== "open") {
     return pipePairRefusal(resource, "pipe peer lifetime must be known open", {
       peerLifetime: recipe.peerLifetime,
     });
   }
-  if (recipe.pipeWaiters !== "none") {
-    return pipePairRefusal(resource, "pipe waiters must be known empty", {
-      pipeWaiters: recipe.pipeWaiters,
+  return recipe.pipeWaiters === "none"
+    ? undefined
+    : pipePairRefusal(resource, "pipe waiters must be known empty", {
+        pipeWaiters: recipe.pipeWaiters,
+      });
+}
+
+function pipeReadinessModelRefusal(
+  resource: NativeProcessResource,
+): NativeProcessImageRefusal | undefined {
+  const recipe = resource.recipe ?? {};
+  const expectedReadiness = recipe.pipeModel === "buffered-bytes-v1" ? "readable" : "not-readable";
+  return recipe.readiness === expectedReadiness
+    ? undefined
+    : pipePairRefusal(resource, "pipe readiness does not match captured buffer state", {
+        readiness: recipe.readiness,
+        expectedReadiness,
+      });
+}
+
+function pipePairInitialBytes(
+  resource: NativeProcessResource,
+): string | undefined | NativeProcessImageRefusal {
+  const recipe = resource.recipe ?? {};
+  if (recipe.pipeModel !== "buffered-bytes-v1") {
+    return undefined;
+  }
+  if (
+    typeof recipe.pipeBufferBytes !== "string" ||
+    !/^(?:[0-9a-fA-F]{2})+$/.test(recipe.pipeBufferBytes)
+  ) {
+    return pipePairRefusal(resource, "pipe buffered bytes must be non-empty hex bytes", {
+      pipeBufferBytes: recipe.pipeBufferBytes,
     });
   }
-  if (recipe.readiness !== "not-readable") {
-    return pipePairRefusal(resource, "pipe readiness must be known not-readable", {
-      readiness: recipe.readiness,
+  if (recipe.pipeBufferBytes.length > 512) {
+    return pipePairRefusal(resource, "pipe buffered bytes exceed supported bound", {
+      byteLength: recipe.pipeBufferBytes.length / 2,
+      maxBytes: 256,
     });
   }
-  return undefined;
+  return recipe.pipeBufferBytes.toLowerCase();
 }
 
 function syntheticFdTableEntry(
@@ -1156,7 +1222,11 @@ function translateResource(
       refusal: undefined,
     };
   }
-  if (resource.kind === "pipe" && resource.recipe?.pipeModel === "empty-pair-v1") {
+  if (
+    resource.kind === "pipe" &&
+    (resource.recipe?.pipeModel === "empty-pair-v1" ||
+      resource.recipe?.pipeModel === "buffered-bytes-v1")
+  ) {
     return {
       ...resource,
       state: "recipe",

@@ -98,6 +98,7 @@ struct Descriptor {
   uint64_t stack_pointer;
   int pipe_read_fd;
   int pipe_write_fd;
+  char pipe_initial_hex[512];
   int event_fd;
   bool has_eventfd_spec;
   char eventfd_spec[1024];
@@ -349,6 +350,14 @@ static void parse_pipe_resource(struct Descriptor *descriptor, char *fields) {
   }
   if (descriptor->pipe_write_fd == descriptor->pipe_read_fd) {
     refuse("target-guest-loader-invalid-fd", "pipe read/write fds must differ");
+  }
+  snprintf(scratch, sizeof(scratch), "%s", fields);
+  const char *initial_hex = find_token_value(scratch, "initialBytesHex");
+  if (initial_hex) {
+    if (strlen(initial_hex) >= sizeof(descriptor->pipe_initial_hex)) {
+      refuse("target-guest-loader-descriptor-invalid", "pipe initial bytes are too large");
+    }
+    snprintf(descriptor->pipe_initial_hex, sizeof(descriptor->pipe_initial_hex), "%s", initial_hex);
   }
   add_cloexec_if_requested(descriptor, fields, descriptor->pipe_read_fd);
 }
@@ -1190,6 +1199,10 @@ static int run_trampoline(const struct Options *opts, const struct Descriptor *d
   if (descriptor->pipe_write_fd >= 0) {
     push_arg(child_argv, &child_argc, "--synthetic-empty-pipe-write-fd");
     push_arg(child_argv, &child_argc, pipe_write_fd);
+  }
+  if (descriptor->pipe_initial_hex[0] != '\0') {
+    push_arg(child_argv, &child_argc, "--synthetic-empty-pipe-initial-hex");
+    push_arg(child_argv, &child_argc, descriptor->pipe_initial_hex);
   }
   if (descriptor->event_fd >= 0) {
     if (descriptor->has_eventfd_spec) {

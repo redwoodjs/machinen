@@ -9,8 +9,8 @@ makes a runtime/app family supported.
 Current profile inventory:
 
 - 11 `baseline-success` profiles;
-- 29 `graduated-support` profiles;
-- 157 `intentional-refusal` profiles;
+- 30 `graduated-support` profiles;
+- 162 `intentional-refusal` profiles;
 - 27 `permanent-refusal` profiles.
 
 ## Success contract
@@ -36,7 +36,9 @@ under `capabilities`. The families currently covered are:
 - regular files: active `read`, `pread64`, `readv`, `write`, `pwrite64`, and
   `writev`, plus one graduated duplicate-fd alias with shared open-file
   description semantics;
-- pipe pairs: empty pipe pair recreation with a known open peer and no waiters;
+- pipe pairs: empty pipe pair recreation with a known open peer and no waiters,
+  plus `pipe-buffered-bytes-v1-open-peer-no-waiters-bounded-payload` for one
+  bounded buffered payload with exact byte verification;
 - eventfd/timerfd: non-semaphore eventfd counter recreation, the
   `eventfd-counter-alias-v1-two-fds-nonsemaphore-no-waiters` subset for two fds
   sharing one target-owned eventfd open-file description, and disarmed or

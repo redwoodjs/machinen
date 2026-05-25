@@ -31,7 +31,7 @@ named by the target, and keep all broader/neighboring states refused.
 
 ## Next 50 targets
 
-1. **Pipe buffered bytes v1**
+1. [x] **Pipe buffered bytes v1**
    - Source refusals: `pipe-buffered-data-waiter-refusal`.
    - Accepted subset candidate: one pipe pair with bounded buffered payload,
      both peers open, no waiters, no aliases beyond the modeled fd table.
@@ -399,6 +399,70 @@ named by the target, and keep all broader/neighboring states refused.
       bytes and verifier across two restored threads.
     - Key negative neighbors: source pointer, DSO TLS relocation, rseq TLS
       conflict, stale thread pointer, cross-thread alias.
+
+## Progress record
+
+### Target 1: Pipe buffered bytes v1 — completed
+
+Graduated subset:
+`pipe-buffered-bytes-v1-open-peer-no-waiters-bounded-payload`. The accepted
+subset models exactly one pipe pair with both peers open, no waiters, no aliases
+beyond the modeled fd table, a bounded captured payload (`PIPEBUF` in the proof),
+and a target verifier that proves the read end is readable, consumes the exact
+bytes, and then proves it is no longer readable while the write peer remains
+open.
+
+Positive proof profile:
+
+- `pipe-buffered-bytes-recreate` — passed target-native arm64→amd64 proof in
+  41.656s with `migrationCompleted=true`, `descriptorGateCompleted=true`,
+  `targetVerifierResult=passed`, `targetStateConsumptionResult=passed`, and
+  `targetActiveSyscallRestoreResult=passed`.
+
+Negative neighboring-state profiles, all target-native and all passed with
+stable `kernel-state-unsupported` refusal and `migrationCompleted=false`:
+
+- `pipe-buffered-too-large-refusal` — 36.846s;
+- `pipe-buffered-missing-peer-refusal` — 35.750s;
+- `pipe-buffered-waiter-refusal` — 36.243s;
+- `pipe-buffered-alias-refusal` — 36.074s;
+- `pipe-buffered-stale-bytes-refusal` — 40.940s.
+
+Artifact hashes from the positive target-native run:
+
+- target restore descriptor on amd64 target:
+  `0625fd30b49717adec322cd50feb88644989d6447a1d8f866bbf92d91fb24226`;
+- target continuation on amd64 target:
+  `516f1d8f604b853509ac4750a77b73ec4186b9fef34c7005197cdb61322dabfe`;
+- local portable snapshot:
+  `6bbe9f0e97e68eab0a0ec0d209005a4ee5711911da7d7d6abb1271648d18ab39`;
+- local target restore summary:
+  `d36f9955bc968951f243fab3814a33701be05582270849388ddfb25593f308f9`.
+
+Target 1 focused validation:
+
+- proof profile schema validation — 0.027s;
+- focused unit tests — 4.061s;
+- refusal matrix with checked summaries — 4.929s, 189/189 refusal profiles passed;
+- foundation matrix with checked summaries — 5.866s, 230 profiles passed;
+- typecheck during implementation — 2.628s;
+- final `pnpm run format:check` — 0.698s;
+- final `pnpm run lint` — 0.235s;
+- final `pnpm run build:docs` — 1.685s;
+- final `pnpm run typecheck` — 2.348s;
+- final `NPM_CONFIG_USERCONFIG=/dev/null npx vitest run` — 27.197s;
+- final `pnpm exec fallow audit --changed-since origin/main` — 0.395s;
+- final `git diff --check` — 0.026s;
+- full smoke tests because target restore/trampoline behavior changed —
+  `MACHINEN_REMOTE_BUILDER=friend@100.126.46.90 pnpm smoke-tests`: 132.968s.
+
+Current proof inventory after Target 1:
+
+- 230 profiles total;
+- 41 expected success profiles;
+- 189 expected refusal profiles;
+- support status counts: 11 baseline success, 30 graduated support, 162
+  intentional refusal, 27 permanent refusal.
 
 ## Required graduation standard for each target
 

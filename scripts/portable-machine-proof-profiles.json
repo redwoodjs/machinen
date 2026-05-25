@@ -509,6 +509,198 @@
     ]
   },
   {
+    "name": "pipe-buffered-bytes-recreate",
+    "remoteSourceTarget": "pipe-buffered-bytes-recreate",
+    "description": "Target-native pipe pair recreation with one bounded buffered payload, open peer, no waiters, and exact byte verifier.",
+    "sourceFixture": "packages/microvm/assets/native-pipe-read-target.c",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "success",
+    "supportStatus": "graduated-support",
+    "unsafeStateFamily": "pipe-buffered-data-waiters",
+    "graduatedFromRefusalCode": "kernel-state-unsupported",
+    "acceptedSubset": "pipe-buffered-bytes-v1-open-peer-no-waiters-bounded-payload",
+    "unsafeVariants": [
+      "pipe-buffered-too-large-refusal",
+      "pipe-buffered-missing-peer-refusal",
+      "pipe-buffered-waiter-refusal",
+      "pipe-buffered-alias-refusal",
+      "pipe-buffered-stale-bytes-refusal",
+      "pipe-buffered-data-waiter-refusal"
+    ],
+    "expectedGates": [
+      "descriptor",
+      "verifier",
+      "state-consumption",
+      "resources",
+      "return-chain",
+      "frame",
+      "registers",
+      "tls",
+      "stack-window",
+      "private-memory",
+      "executable",
+      "signal",
+      "active-syscall",
+      "resume-path"
+    ],
+    "capabilities": [
+      "memory:private-rw",
+      "process:target-registers",
+      "process:target-tls",
+      "signal:blocked-mask",
+      "executable:target-native-continuation",
+      "fd:pipe-pair",
+      "fd:pipe-buffered-data",
+      "kernel:pipe-open-file-description"
+    ]
+  },
+  {
+    "name": "pipe-buffered-too-large-refusal",
+    "remoteSourceTarget": "pipe-buffered-too-large-refusal",
+    "description": "pipe buffered payloads above the bounded descriptor limit remain refused",
+    "sourceFixture": "target-native-negative:pipe-buffered-too-large-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "pipe-buffered-data-waiters",
+    "proofCategory": "target-native-negative-pipe-buffered-hardening",
+    "expectedRefusalCode": "kernel-state-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": true,
+    "refusesCapabilities": ["fd:pipe-buffered-data", "fd:pipe-buffered-too-large"],
+    "evidence": [
+      "target-native VM restore path returns stable refusal before migration completion"
+    ],
+    "refusalSupportContract": {
+      "currentRefusalCode": "kernel-state-unsupported",
+      "unsafeStateFamily": "pipe-buffered-data-waiters",
+      "graduationRequires": [
+        "pipe-buffered-bytes-v1 descriptor",
+        "target-native verifier gates",
+        "positive proof profile"
+      ]
+    }
+  },
+  {
+    "name": "pipe-buffered-missing-peer-refusal",
+    "remoteSourceTarget": "pipe-buffered-missing-peer-refusal",
+    "description": "pipe buffered data without a known open peer remains refused",
+    "sourceFixture": "target-native-negative:pipe-buffered-missing-peer-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "pipe-buffered-data-waiters",
+    "proofCategory": "target-native-negative-pipe-buffered-hardening",
+    "expectedRefusalCode": "kernel-state-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": true,
+    "refusesCapabilities": ["fd:pipe-buffered-data", "fd:pipe-missing-peer"],
+    "evidence": [
+      "target-native VM restore path returns stable refusal before migration completion"
+    ],
+    "refusalSupportContract": {
+      "currentRefusalCode": "kernel-state-unsupported",
+      "unsafeStateFamily": "pipe-buffered-data-waiters",
+      "graduationRequires": [
+        "pipe-buffered-bytes-v1 descriptor",
+        "target-native verifier gates",
+        "positive proof profile"
+      ]
+    }
+  },
+  {
+    "name": "pipe-buffered-waiter-refusal",
+    "remoteSourceTarget": "pipe-buffered-waiter-refusal",
+    "description": "pipe buffered data with waiters remains refused",
+    "sourceFixture": "target-native-negative:pipe-buffered-waiter-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "pipe-buffered-data-waiters",
+    "proofCategory": "target-native-negative-pipe-buffered-hardening",
+    "expectedRefusalCode": "kernel-state-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": true,
+    "refusesCapabilities": ["fd:pipe-buffered-data", "wait:pipe-waiter"],
+    "evidence": [
+      "target-native VM restore path returns stable refusal before migration completion"
+    ],
+    "refusalSupportContract": {
+      "currentRefusalCode": "kernel-state-unsupported",
+      "unsafeStateFamily": "pipe-buffered-data-waiters",
+      "graduationRequires": [
+        "pipe-buffered-bytes-v1 descriptor",
+        "target-native verifier gates",
+        "positive proof profile"
+      ]
+    }
+  },
+  {
+    "name": "pipe-buffered-alias-refusal",
+    "remoteSourceTarget": "pipe-buffered-alias-refusal",
+    "description": "pipe buffered data with unmodeled aliases remains refused",
+    "sourceFixture": "target-native-negative:pipe-buffered-alias-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "pipe-buffered-data-waiters",
+    "proofCategory": "target-native-negative-pipe-buffered-hardening",
+    "expectedRefusalCode": "kernel-state-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": true,
+    "refusesCapabilities": ["fd:pipe-buffered-data", "fd:pipe-alias-ambiguous"],
+    "evidence": [
+      "target-native VM restore path returns stable refusal before migration completion"
+    ],
+    "refusalSupportContract": {
+      "currentRefusalCode": "kernel-state-unsupported",
+      "unsafeStateFamily": "pipe-buffered-data-waiters",
+      "graduationRequires": [
+        "pipe-buffered-bytes-v1 descriptor",
+        "target-native verifier gates",
+        "positive proof profile"
+      ]
+    }
+  },
+  {
+    "name": "pipe-buffered-stale-bytes-refusal",
+    "remoteSourceTarget": "pipe-buffered-stale-bytes-refusal",
+    "description": "pipe buffered data with stale captured bytes remains refused",
+    "sourceFixture": "target-native-negative:pipe-buffered-stale-bytes-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "pipe-buffered-data-waiters",
+    "proofCategory": "target-native-negative-pipe-buffered-hardening",
+    "expectedRefusalCode": "kernel-state-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": true,
+    "refusesCapabilities": ["fd:pipe-buffered-data", "fd:pipe-stale-buffer"],
+    "evidence": [
+      "target-native VM restore path returns stable refusal before migration completion"
+    ],
+    "refusalSupportContract": {
+      "currentRefusalCode": "kernel-state-unsupported",
+      "unsafeStateFamily": "pipe-buffered-data-waiters",
+      "graduationRequires": [
+        "pipe-buffered-bytes-v1 descriptor",
+        "target-native verifier gates",
+        "positive proof profile"
+      ]
+    }
+  },
+  {
     "name": "timerfd-read",
     "remoteSourceTarget": "timerfd-read",
     "description": "One-shot timerfd read active-syscall proof with modeled remaining time.",

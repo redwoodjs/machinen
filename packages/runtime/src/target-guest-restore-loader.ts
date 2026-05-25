@@ -53,7 +53,13 @@ export type TargetGuestRestoreResourceRecipe =
       access: 0 | 1 | 2;
       closeOnExec?: boolean;
     }
-  | { kind: "synthetic-empty-pipe"; readFd: number; writeFd?: number; closeOnExec?: boolean }
+  | {
+      kind: "synthetic-empty-pipe";
+      readFd: number;
+      writeFd?: number;
+      initialBytesHex?: string;
+      closeOnExec?: boolean;
+    }
   | { kind: "synthetic-empty-eventfd"; fd: number; closeOnExec?: boolean }
   | {
       kind: "synthetic-eventfd";
@@ -516,6 +522,7 @@ const RESOURCE_RECIPE_PARSERS: Record<
     kind: "synthetic-empty-pipe",
     readFd: parseResourceInteger(fields, "readFd"),
     writeFd: optionalResourceInteger(fields, "writeFd"),
+    initialBytesHex: fields.get("initialBytesHex"),
     closeOnExec: parseResourceBoolean(fields, "closeOnExec"),
   }),
   "synthetic-empty-eventfd": (fields) =>
@@ -1267,6 +1274,9 @@ const RESOURCE_RECIPE_VALIDATORS = {
     assertFd(recipe.readFd, "readFd");
     assertOptionalFd(recipe.writeFd, "writeFd");
     assertDistinctPipeFds(recipe);
+    if (recipe.initialBytesHex !== undefined) {
+      assertHexBytes(recipe.initialBytesHex, "initialBytesHex");
+    }
   },
   "synthetic-empty-eventfd": validateSingleFdRecipe,
   "synthetic-eventfd": validateSyntheticEventfdRecipe,
@@ -2006,7 +2016,9 @@ function serializeResourceRecipe(recipe: TargetGuestRestoreResourceRecipe): stri
   }
   if (recipe.kind === "synthetic-empty-pipe") {
     const writeFd = recipe.writeFd === undefined ? "" : ` writeFd=${recipe.writeFd}`;
-    return `resource=synthetic-empty-pipe readFd=${recipe.readFd}${writeFd}${serializeCloseOnExec(recipe.closeOnExec)}`;
+    const initialBytes =
+      recipe.initialBytesHex === undefined ? "" : ` initialBytesHex=${recipe.initialBytesHex}`;
+    return `resource=synthetic-empty-pipe readFd=${recipe.readFd}${writeFd}${initialBytes}${serializeCloseOnExec(recipe.closeOnExec)}`;
   }
   if (recipe.kind === "synthetic-empty-eventfd") {
     return `resource=synthetic-empty-eventfd fd=${recipe.fd}${serializeCloseOnExec(recipe.closeOnExec)}`;
@@ -2397,10 +2409,17 @@ function pingSocketResourceSpec(
     .join(";");
 }
 
-function pipeResourceArgs(recipe: { readFd: number; writeFd?: number }): string[] {
+function pipeResourceArgs(recipe: {
+  readFd: number;
+  writeFd?: number;
+  initialBytesHex?: string;
+}): string[] {
   const args = ["--synthetic-empty-pipe-read-fd", String(recipe.readFd)];
   if (recipe.writeFd !== undefined) {
     args.push("--synthetic-empty-pipe-write-fd", String(recipe.writeFd));
+  }
+  if (recipe.initialBytesHex !== undefined) {
+    args.push("--synthetic-empty-pipe-initial-hex", recipe.initialBytesHex);
   }
   return args;
 }

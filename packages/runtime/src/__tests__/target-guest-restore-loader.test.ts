@@ -105,7 +105,13 @@ describe("target guest restore loader descriptor", () => {
           access: 0,
           closeOnExec: true,
         },
-        { kind: "synthetic-empty-pipe", readFd: 3, writeFd: 4, closeOnExec: false },
+        {
+          kind: "synthetic-empty-pipe",
+          readFd: 3,
+          writeFd: 4,
+          initialBytesHex: "50495045",
+          closeOnExec: false,
+        },
         {
           kind: "synthetic-eventfd",
           fd: 5,
@@ -220,6 +226,8 @@ describe("target guest restore loader descriptor", () => {
       "3",
       "--synthetic-empty-pipe-write-fd",
       "4",
+      "--synthetic-empty-pipe-initial-hex",
+      "50495045",
       "--synthetic-eventfd",
       "fd=5;initialValue=0x2a;duplicateFd=15",
       "--synthetic-timerfd",

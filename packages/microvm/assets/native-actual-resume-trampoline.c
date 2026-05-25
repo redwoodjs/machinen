@@ -240,6 +240,7 @@ struct Options {
   uint64_t timeout_seconds;
   int synthetic_empty_pipe_read_fd;
   int synthetic_empty_pipe_write_fd;
+  char synthetic_pipe_initial_hex[512];
   int synthetic_empty_eventfd;
   bool has_synthetic_eventfd;
   int synthetic_eventfd;
@@ -518,6 +519,7 @@ static bool native_step_has_value(const char *spec, const char *name);
 static void native_step_string(
     const char *spec, const char *name, char *out, size_t out_size, const char *label);
 static void print_target_refusal(const char *code, const char *reason);
+static void hex_to_bytes(const char *hex, uint8_t *out, size_t *out_len, size_t max_len);
 
 static struct Options parse_args(int argc, char **argv) {
   struct Options opts = {0};
@@ -734,6 +736,15 @@ static struct Options parse_args(int argc, char **argv) {
         exit(2);
       }
       opts.synthetic_empty_pipe_write_fd = (int)fd;
+    } else if (streq(argv[i], "--synthetic-empty-pipe-initial-hex")) {
+      if (++i >= argc) {
+        usage();
+      }
+      if (strlen(argv[i]) >= sizeof(opts.synthetic_pipe_initial_hex)) {
+        fprintf(stderr, "native-actual-resume-trampoline: synthetic pipe initial bytes are too large\n");
+        exit(2);
+      }
+      snprintf(opts.synthetic_pipe_initial_hex, sizeof(opts.synthetic_pipe_initial_hex), "%s", argv[i]);
     } else if (streq(argv[i], "--synthetic-eventfd")) {
       if (++i >= argc) {
         usage();
@@ -1300,7 +1311,7 @@ static void validate_translated_frame_options(const struct Options *opts) {
   }
 }
 
-static void install_synthetic_empty_pipe(int read_fd, int write_fd) {
+static void install_synthetic_empty_pipe(int read_fd, int write_fd, const char *initial_hex) {
   if (read_fd < 0) {
     return;
   }
@@ -1326,6 +1337,17 @@ static void install_synthetic_empty_pipe(int read_fd, int write_fd) {
       exit(1);
     }
     close(pipe_fds[1]);
+  }
+  if (initial_hex != NULL && initial_hex[0] != '\0') {
+    uint8_t initial[256];
+    size_t initial_len = 0;
+    hex_to_bytes(initial_hex, initial, &initial_len, sizeof(initial));
+    int write_target = write_fd >= 0 ? write_fd : pipe_fds[1];
+    ssize_t wrote = write(write_target, initial, initial_len);
+    if (wrote != (ssize_t)initial_len) {
+      fprintf(stderr, "native-actual-resume-trampoline: synthetic pipe initial write failed: %s\n", strerror(errno));
+      exit(1);
+    }
   }
   // Keep a write end open so the read end is not EOF/readable. This makes the
   // modeled one-fd ppoll proof timeout-driven instead of readiness-driven.
@@ -2704,7 +2726,7 @@ static void restore_native_fd_read_block(const char *spec, struct NativeActiveSy
     exit(2);
   }
   if (streq(resource, "synthetic-empty-pipe-read-end")) {
-    install_synthetic_empty_pipe((int)fd, -1);
+    install_synthetic_empty_pipe((int)fd, -1, NULL);
   } else if (streq(resource, "synthetic-empty-eventfd")) {
     if (count_bytes < 8u) {
       fprintf(stderr, "native-actual-resume-trampoline: native eventfd read count is unsupported\n");
@@ -3702,7 +3724,7 @@ int main(int argc, char **argv) {
 
   install_signal_handlers();
   install_synthetic_empty_pipe(
-      opts.synthetic_empty_pipe_read_fd, opts.synthetic_empty_pipe_write_fd);
+      opts.synthetic_empty_pipe_read_fd, opts.synthetic_empty_pipe_write_fd, opts.synthetic_pipe_initial_hex);
   install_synthetic_empty_eventfd(opts.synthetic_empty_eventfd);
   if (opts.has_synthetic_eventfd) {
     install_synthetic_eventfd_alias(
