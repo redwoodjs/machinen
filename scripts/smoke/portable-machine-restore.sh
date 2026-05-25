@@ -63,6 +63,7 @@ TIMINGS=()
 STATE="running"
 SKIP_REASON=""
 FAILURE=""
+REMOTE_PREFLIGHT_READY=0
 
 now_ms() {
   node -e 'process.stdout.write(String(Date.now()))'
@@ -99,6 +100,7 @@ try {
     descriptorMemoryEntryCount: result.descriptorMemoryEntryCount ?? 0,
     descriptorFdRecipeCount: result.descriptorFdRecipeCount ?? 0,
     descriptorResourceKinds: result.descriptorResourceKinds ?? [],
+    targetArch: result.targetArch ?? result.targetGuestArch ?? 'amd64',
     targetVerifierResult: result.targetVerifierResult ?? 'not-run',
     targetContinuationKind: result.targetContinuationKind ?? 'unknown',
     targetContinuationStatus: result.targetContinuationStatus ?? '',
@@ -135,10 +137,49 @@ try {
 NODE
 }
 
+remote_file_identity_json() {
+  local path=$1 out size sha kind
+  if [[ -z "$path" || $REMOTE_E2E -eq 0 || $DRY_RUN -eq 1 ]]; then
+    echo 'null'
+    return
+  fi
+  out=$(ssh "$AMD64_SSH" "if [ -f '$path' ]; then size=\$(stat -c %s '$path'); sha=\$(sha256sum '$path' | awk '{print \$1}'); kind=\$(file -b '$path'); printf '%s\t%s\t%s' \"\$size\" \"\$sha\" \"\$kind\"; else printf 'missing\t\t'; fi" 2>/dev/null || true)
+  IFS=$'\t' read -r size sha kind <<<"$out"
+  if [[ "$size" == "missing" || -z "$size" ]]; then
+    printf '{"path":"%s","exists":false}' "$(json_escape "$path")"
+    return
+  fi
+  printf '{"path":"%s","exists":true,"sizeBytes":%s,"sha256":"%s","file":"%s"}' "$(json_escape "$path")" "$size" "$(json_escape "$sha")" "$(json_escape "$kind")"
+}
+
+remote_preflight_details() {
+  local init_path="" exec_agent_path="" arch
+  if [[ $REMOTE_E2E -eq 0 || $DRY_RUN -eq 1 || $REMOTE_PREFLIGHT_READY -eq 0 ]]; then
+    echo 'null'
+    return
+  fi
+  if [[ -n "$AMD64_ASSETS_DIR" ]]; then
+    init_path="$AMD64_ASSETS_DIR/init"
+    exec_agent_path="$AMD64_ASSETS_DIR/exec-agent"
+  fi
+  arch=$(ssh "$AMD64_SSH" 'uname -m' 2>/dev/null || true)
+  printf '{"host":"%s","hostArch":"%s","kernel":%s,"rootfs":%s,"vmm":%s,"targetInit":%s,"targetExecAgent":%s,"targetContinuation":%s,"restoreDescriptor":%s}' \
+    "$(json_escape "$AMD64_SSH")" \
+    "$(json_escape "$arch")" \
+    "$(remote_file_identity_json "$AMD64_KERNEL")" \
+    "$(remote_file_identity_json "$TARGET_IMAGE")" \
+    "$(remote_file_identity_json "$AMD64_VMM")" \
+    "$(remote_file_identity_json "$init_path")" \
+    "$(remote_file_identity_json "$exec_agent_path")" \
+    "$(remote_file_identity_json "$REMOTE_TARGET_CODE")" \
+    "$(remote_file_identity_json "$REMOTE_PORTABLE_BUNDLE/target/combined-target-restore.desc")"
+}
+
 write_summary() {
-  local timings joined target_details
+  local timings joined target_details remote_preflight
   joined=$(IFS=,; echo "${TIMINGS[*]}")
   target_details=$(target_restore_details)
+  remote_preflight=$(remote_preflight_details)
   cat >"$SUMMARY" <<JSON_SUMMARY
 {
   "profile": "portable-machine-restore",
@@ -162,6 +203,7 @@ write_summary() {
   "remotePortableMachineBundle": "$(json_escape "$REMOTE_PORTABLE_BUNDLE")",
   "remoteTargetCodeFile": "$(json_escape "$REMOTE_TARGET_CODE")",
   "remoteSourceTarget": "$(json_escape "$REMOTE_SOURCE_TARGET")",
+  "remotePreflight": $remote_preflight,
   "targetRestore": $target_details,
   "timings": [$joined]
 }
@@ -231,6 +273,11 @@ preflight() {
       record_timing "preflight" "skipped" "$start" "amd64 repo or target image is missing on $AMD64_SSH"
       return 15
     fi
+    if ! ssh "$AMD64_SSH" "set -e; test \"\$(uname -m)\" = x86_64; command -v '$AMD64_PNPM'; command -v node; command -v cc; command -v file; command -v sha256sum; if [ -n '$AMD64_VMM' ]; then test -f '$AMD64_VMM'; file -b '$AMD64_VMM' | grep -Eq 'ELF.*x86-64'; fi; if [ -n '$AMD64_KERNEL' ]; then test -f '$AMD64_KERNEL'; fi; if [ -n '$AMD64_ASSETS_DIR' ]; then test -f '$AMD64_ASSETS_DIR/init'; test -f '$AMD64_ASSETS_DIR/exec-agent'; file -b '$AMD64_ASSETS_DIR/init' | grep -Eq 'ELF.*x86-64'; file -b '$AMD64_ASSETS_DIR/exec-agent' | grep -Eq 'ELF.*x86-64'; fi" >"$WORK/remote-preflight.stdout" 2>"$WORK/remote-preflight.stderr"; then
+      record_timing "preflight" "skipped" "$start" "amd64 remote preflight failed; expected x86_64 tools, VMM, kernel/rootfs, and guest helpers"
+      return 16
+    fi
+    REMOTE_PREFLIGHT_READY=1
   elif [[ $DRY_RUN -eq 0 ]]; then
     if [[ -z "$TARGET_IMAGE" || ! -f "$TARGET_IMAGE" ]]; then
       record_timing "preflight" "skipped" "$start" "PORTABLE_MACHINE_TARGET_VM_IMAGE or MACHINEN_TARGET_VM_IMAGE is required"
@@ -313,6 +360,9 @@ capture_remote_native_process_bundle() {
     packages/microvm/assets/native-file-pwrite-target.c \
     packages/microvm/assets/native-file-write-target.c \
     packages/microvm/assets/native-file-writev-target.c \
+    packages/microvm/assets/native-private-multi-range-file-target.c \
+    packages/microvm/assets/native-tcp-listener-target.c \
+    packages/microvm/assets/native-tcp-active-target.c \
     packages/microvm/assets/native-pipe-read-target.c \
     packages/microvm/assets/native-ppoll-timeout-target.c \
     packages/microvm/assets/native-timerfd-read-target.c \
@@ -355,6 +405,18 @@ capture_remote_native_process_bundle() {
     file-writev)
       target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-file-writev-target"
       target_detail="remote arm64 regular-file writev native-process bundle captured from $ARM64_SSH"
+      ;;
+    real-private-multi-range-file-recreate)
+      target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-private-multi-range-file-target"
+      target_detail="remote arm64 real private multi-range regular-file native-process bundle captured from $ARM64_SSH"
+      ;;
+    real-tcp-listener-recreate|real-tcp-listener-readiness-recreate)
+      target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-tcp-listener-target"
+      target_detail="remote arm64 real loopback tcp listener native-process bundle captured from $ARM64_SSH"
+      ;;
+    real-tcp-active-connection-transport-recreate)
+      target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-tcp-active-target"
+      target_detail="remote arm64 real active tcp stream native-process bundle captured from $ARM64_SSH"
       ;;
     timerfd-read)
       target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-timerfd-read-target"
@@ -423,9 +485,13 @@ capture_remote_native_process_bundle() {
     capture_command="'$ARM64_REMOTE_WORK/bin/machinen-native-process-capture' --output '$ARM64_REMOTE_WORK/capture/bundle' --target-arch amd64 --trace-syscall pwrite64 --trace-syscall-fd 41 -- '$target_binary'"
   elif [[ "$REMOTE_SOURCE_TARGET" == "file-writev" ]]; then
     capture_command="'$ARM64_REMOTE_WORK/bin/machinen-native-process-capture' --output '$ARM64_REMOTE_WORK/capture/bundle' --target-arch amd64 --trace-syscall writev --trace-syscall-fd 43 -- '$target_binary'"
+  elif [[ "$REMOTE_SOURCE_TARGET" == "real-private-multi-range-file-recreate" ]]; then
+    capture_command="'$ARM64_REMOTE_WORK/bin/machinen-native-process-capture' --output '$ARM64_REMOTE_WORK/capture/bundle' --target-arch amd64 --trace-syscall read --trace-syscall-fd 38 -- '$target_binary'"
+  elif [[ "$REMOTE_SOURCE_TARGET" == "real-tcp-listener-recreate" || "$REMOTE_SOURCE_TARGET" == "real-tcp-listener-readiness-recreate" || "$REMOTE_SOURCE_TARGET" == "real-tcp-active-connection-transport-recreate" ]]; then
+    capture_command="'$ARM64_REMOTE_WORK/bin/machinen-native-process-capture' --output '$ARM64_REMOTE_WORK/capture/bundle' --target-arch amd64 --trace-syscall read --trace-syscall-fd 38 -- '$target_binary'"
   fi
   ssh "$ARM64_SSH" \
-    "cd '$ARM64_REMOTE_WORK/repo' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-process-capture.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-process-capture' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-eventfd-read-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-eventfd-read-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-file-read-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-read-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-file-readv-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-readv-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-file-pread-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-pread-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-file-pwrite-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-pwrite-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-file-write-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-write-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-file-writev-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-writev-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-pipe-read-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-pipe-read-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-ppoll-timeout-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-ppoll-timeout-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-timerfd-read-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-timerfd-read-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror -pthread packages/microvm/assets/native-two-thread-ppoll-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-two-thread-ppoll-target' && $capture_command > '$ARM64_REMOTE_WORK/capture.log'"
+    "cd '$ARM64_REMOTE_WORK/repo' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-process-capture.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-process-capture' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-eventfd-read-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-eventfd-read-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-file-read-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-read-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-file-readv-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-readv-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-file-pread-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-pread-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-file-pwrite-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-pwrite-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-file-write-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-write-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-file-writev-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-writev-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-private-multi-range-file-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-private-multi-range-file-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-tcp-listener-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-tcp-listener-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-tcp-active-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-tcp-active-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-pipe-read-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-pipe-read-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-ppoll-timeout-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-ppoll-timeout-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-timerfd-read-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-timerfd-read-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror -pthread packages/microvm/assets/native-two-thread-ppoll-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-two-thread-ppoll-target' && $capture_command > '$ARM64_REMOTE_WORK/capture.log'"
   mkdir -p "$NATIVE_BUNDLE"
   ssh "$ARM64_SSH" "cat '$ARM64_REMOTE_WORK/capture.log'" >"$WORK/arm64-capture.log"
   ssh "$ARM64_SSH" "tar -czf - -C '$ARM64_REMOTE_WORK/capture/bundle' ." | \
@@ -490,7 +556,7 @@ run_target_restore() {
   elif [[ "$REMOTE_SOURCE_TARGET" == "target-auxv-at-random" ]]; then
     resource_model_args=(--include-target-auxv-at-random-proof)
     resource_model_args_text="${resource_model_args[*]}"
-  elif [[ "$REMOTE_SOURCE_TARGET" == "private-anonymous-data-range-recreate" ]]; then
+  elif [[ "$REMOTE_SOURCE_TARGET" == "private-anonymous-data-range-recreate" || "$REMOTE_SOURCE_TARGET" == "real-private-multi-range-file-recreate" ]]; then
     resource_model_args=(--include-private-layout-proof)
     resource_model_args_text="${resource_model_args[*]}"
   elif [[ "$REMOTE_SOURCE_TARGET" == "signal-mask-blocked-recreate" ]]; then
@@ -507,6 +573,15 @@ run_target_restore() {
     resource_model_args_text="${resource_model_args[*]}"
   elif [[ "$REMOTE_SOURCE_TARGET" == "signalfd-recreate" ]]; then
     resource_model_args=(--include-signalfd-proof)
+    resource_model_args_text="${resource_model_args[*]}"
+  elif [[ "$REMOTE_SOURCE_TARGET" == "real-tcp-listener-recreate" ]]; then
+    resource_model_args=(--include-tcp-listener-proof)
+    resource_model_args_text="${resource_model_args[*]}"
+  elif [[ "$REMOTE_SOURCE_TARGET" == "real-tcp-listener-readiness-recreate" ]]; then
+    resource_model_args=(--include-tcp-listener-readiness-proof)
+    resource_model_args_text="${resource_model_args[*]}"
+  elif [[ "$REMOTE_SOURCE_TARGET" == "real-tcp-active-connection-transport-recreate" ]]; then
+    resource_model_args=(--include-tcp-active-broker-proof)
     resource_model_args_text="${resource_model_args[*]}"
   fi
   if [[ $REMOTE_E2E -eq 1 ]]; then

@@ -109,6 +109,10 @@ struct Descriptor {
   int epoll_fds[MAX_FD_RECIPES];
   char epoll_specs[MAX_FD_RECIPES][1024];
   size_t epoll_count;
+  char tcp_listener_specs[MAX_FD_RECIPES][1024];
+  size_t tcp_listener_count;
+  char tcp_active_specs[MAX_FD_RECIPES][1024];
+  size_t tcp_active_count;
   int cloexec_fds[MAX_FD_RECIPES];
   size_t cloexec_fd_count;
   int close_fds[MAX_FD_RECIPES];
@@ -425,6 +429,30 @@ static void parse_epoll_resource(struct Descriptor *descriptor, char *fields) {
       sizeof(descriptor->epoll_specs[0]),
       fields);
   descriptor->epoll_count++;
+  add_cloexec_if_requested(descriptor, fields, fd);
+}
+
+static void parse_tcp_listener_resource(struct Descriptor *descriptor, char *fields) {
+  if (descriptor->tcp_listener_count >= MAX_FD_RECIPES) {
+    refuse("target-guest-loader-resource-unsupported", "too many tcp listener recipes");
+  }
+  int fd = parse_single_fd_resource(fields, "tcp listener fd is required");
+  fields_to_semicolon_spec(descriptor->tcp_listener_specs[descriptor->tcp_listener_count],
+      sizeof(descriptor->tcp_listener_specs[0]),
+      fields);
+  descriptor->tcp_listener_count++;
+  add_cloexec_if_requested(descriptor, fields, fd);
+}
+
+static void parse_tcp_active_resource(struct Descriptor *descriptor, char *fields) {
+  if (descriptor->tcp_active_count >= MAX_FD_RECIPES) {
+    refuse("target-guest-loader-resource-unsupported", "too many tcp active recipes");
+  }
+  int fd = parse_single_fd_resource(fields, "tcp active fd is required");
+  fields_to_semicolon_spec(descriptor->tcp_active_specs[descriptor->tcp_active_count],
+      sizeof(descriptor->tcp_active_specs[0]),
+      fields);
+  descriptor->tcp_active_count++;
   add_cloexec_if_requested(descriptor, fields, fd);
 }
 
@@ -801,6 +829,10 @@ static void parse_resource(struct Descriptor *descriptor, char *line) {
     parse_signalfd_resource(descriptor, line + strlen("resource=synthetic-signalfd"));
   } else if (starts_with(line, "resource=synthetic-epoll")) {
     parse_epoll_resource(descriptor, line + strlen("resource=synthetic-epoll"));
+  } else if (starts_with(line, "resource=synthetic-tcp-listener")) {
+    parse_tcp_listener_resource(descriptor, line + strlen("resource=synthetic-tcp-listener"));
+  } else if (starts_with(line, "resource=synthetic-tcp-active-broker")) {
+    parse_tcp_active_resource(descriptor, line + strlen("resource=synthetic-tcp-active-broker"));
   } else {
     refuse("target-guest-loader-resource-unsupported", "resource recipe is not supported");
   }
@@ -1147,6 +1179,14 @@ static int run_trampoline(const struct Options *opts, const struct Descriptor *d
   for (size_t i = 0; i < descriptor->epoll_count; i++) {
     push_arg(child_argv, &child_argc, "--synthetic-epoll");
     push_arg(child_argv, &child_argc, descriptor->epoll_specs[i]);
+  }
+  for (size_t i = 0; i < descriptor->tcp_listener_count; i++) {
+    push_arg(child_argv, &child_argc, "--synthetic-tcp-listener");
+    push_arg(child_argv, &child_argc, descriptor->tcp_listener_specs[i]);
+  }
+  for (size_t i = 0; i < descriptor->tcp_active_count; i++) {
+    push_arg(child_argv, &child_argc, "--synthetic-tcp-active-broker");
+    push_arg(child_argv, &child_argc, descriptor->tcp_active_specs[i]);
   }
   for (size_t i = 0; i < descriptor->cloexec_fd_count; i++) {
     push_arg(child_argv, &child_argc, "--set-cloexec-fd");

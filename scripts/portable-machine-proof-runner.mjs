@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -31,6 +32,7 @@ const FLAG_OPTIONS = new Map([
   ["--json", "json"],
   ["--dry-run", "dryRun"],
   ["--keep", "keep"],
+  ["--validate-schema", "validateSchema"],
 ]);
 const ENV_OPTIONS = [
   ["PORTABLE_ARM64_SSH", "arm64Ssh"],
@@ -117,7 +119,7 @@ function usage(exitCode = 2) {
     .map((profile) => profile.name)
     .join(", ");
   console.error(
-    `usage: node scripts/portable-machine-proof-runner.mjs [options]\n\nOptions:\n  --profile name              Proof profile to run (default: two-thread-ppoll)\n  --list                      List known profiles\n  --check-summary path        Check an existing smoke summary JSON instead of running\n  --json                      Emit machine-readable JSON\n  --dry-run                   Exercise capture/bundle wiring without target execution\n  --keep                      Preserve the smoke work directory\n  --work-dir path             Exact smoke work directory\n  --work-dir-prefix path      Prefix used to create a unique smoke work directory\n  --arm64-ssh host            arm64 source host\n  --amd64-ssh host            amd64 target host\n  --amd64-repo path           remote repo path on amd64 host\n  --target-image path         target VM rootfs/image path\n  --amd64-vmm path            target VMM path\n  --amd64-kernel path         target kernel path\n  --amd64-assets-dir path     target assets directory\n  --amd64-path-prefix path    PATH prefix used on amd64 host\n  --timeout-ms ms             child process timeout (default: ${DEFAULT_TIMEOUT_MS})\n\nKnown profiles: ${profiles}`,
+    `usage: node scripts/portable-machine-proof-runner.mjs [options]\n\nOptions:\n  --profile name              Proof profile to run (default: two-thread-ppoll)\n  --list                      List known profiles\n  --check-summary path        Check an existing smoke summary JSON instead of running\n  --json                      Emit machine-readable JSON\n  --dry-run                   Exercise capture/bundle wiring without target execution\n  --keep                      Preserve the smoke work directory\n  --work-dir path             Exact smoke work directory\n  --work-dir-prefix path      Prefix used to create a unique smoke work directory\n  --arm64-ssh host            arm64 source host\n  --amd64-ssh host            amd64 target host\n  --amd64-repo path           remote repo path on amd64 host\n  --target-image path         target VM rootfs/image path\n  --amd64-vmm path            target VMM path\n  --amd64-kernel path         target kernel path\n  --amd64-assets-dir path     target assets directory\n  --amd64-path-prefix path    PATH prefix used on amd64 host\n  --timeout-ms ms             child process timeout (default: ${DEFAULT_TIMEOUT_MS})\n  --validate-schema            Validate proof profile schema and capability coverage\n\nKnown profiles: ${profiles}`,
   );
   process.exit(exitCode);
 }
@@ -129,6 +131,7 @@ function defaultOptions() {
     dryRun: false,
     keep: false,
     list: false,
+    validateSchema: false,
     timeoutMs: DEFAULT_TIMEOUT_MS,
   };
 }
@@ -267,6 +270,19 @@ function gateChecksFor(summary, profile) {
 }
 
 // fallow-ignore-next-line complexity
+function checkForbiddenSuccessPaths(checks, summary, target) {
+  const fields = [
+    "sourceTextReusedAsTargetCode",
+    "sourceIsaEmulationUsed",
+    "sidecarRuntimeUsed",
+    "appHooksRequired",
+  ];
+  for (const field of fields) {
+    checkEquals(checks, field, target[field] ?? summary?.[field] ?? false, false);
+  }
+}
+
+// fallow-ignore-next-line complexity
 function successChecksFor(summary, profile) {
   const target = targetFromSummary(summary);
   const checks = [];
@@ -283,6 +299,7 @@ function successChecksFor(summary, profile) {
   );
   checkEquals(checks, "targetRestore.state", target.state, "completed");
   checkEquals(checks, "targetRestore.migrationCompleted", target.migrationCompleted, true);
+  checkForbiddenSuccessPaths(checks, summary, target);
   for (const gate of profile.expectedGates) {
     applyGateCheck(checks, target, gate);
   }
@@ -352,24 +369,7 @@ function refusalChecksFor(summary, profile) {
     profile.expectedDescriptorGateCompleted ?? false,
   );
   checkEquals(checks, "refusal.code", refusalCodeFromSummary(summary), profile.expectedRefusalCode);
-  checkEquals(
-    checks,
-    "sourceTextReusedAsTargetCode",
-    target.sourceTextReusedAsTargetCode ?? summary?.sourceTextReusedAsTargetCode ?? false,
-    false,
-  );
-  checkEquals(
-    checks,
-    "sourceIsaEmulationUsed",
-    target.sourceIsaEmulationUsed ?? summary?.sourceIsaEmulationUsed ?? false,
-    false,
-  );
-  checkEquals(
-    checks,
-    "sidecarRuntimeUsed",
-    target.sidecarRuntimeUsed ?? summary?.sidecarRuntimeUsed ?? false,
-    false,
-  );
+  checkForbiddenSuccessPaths(checks, summary, target);
   return checks;
 }
 
@@ -487,6 +487,8 @@ function buildRunnerSummary(options, profile, workDir, run, smokeSummary, parseF
     failure: smokeFailure(run.child, parseFailure),
     workDir,
     logs: runnerLogs(workDir),
+    profileMetadata: profileMetadata(profile),
+    proofProvenance: proofProvenance(options, profile, workDir, smokeSummary),
     timings: [
       {
         name: "portable-machine-proof-runner",
@@ -498,6 +500,90 @@ function buildRunnerSummary(options, profile, workDir, run, smokeSummary, parseF
     ],
     gateCheck,
     smokeSummary,
+  };
+}
+
+function sha256(bytes) {
+  return createHash("sha256").update(bytes).digest("hex");
+}
+
+function fileIdentity(path) {
+  if (!path || !existsSync(path)) {
+    return path ? { path, exists: false } : undefined;
+  }
+  const bytes = readFileSync(path);
+  return { path, exists: true, sizeBytes: bytes.length, sha256: sha256(bytes) };
+}
+
+function optionalLocalFileIdentity(path) {
+  return path && !path.includes(":") ? fileIdentity(resolve(path)) : path ? { path } : undefined;
+}
+
+// fallow-ignore-next-line complexity
+function proofProvenance(options, profile, workDir, smokeSummary) {
+  const target = targetFromSummary(smokeSummary);
+  const targetDir = join(workDir, "portable-machine", "target");
+  return {
+    profile: profile.name,
+    targetGuestArch: target.targetArch ?? target.targetGuestArch ?? "amd64",
+    remote: {
+      arm64Ssh: options.arm64Ssh ?? smokeSummary?.arm64Ssh,
+      amd64Ssh: options.amd64Ssh ?? smokeSummary?.amd64Ssh,
+      amd64Repo: options.amd64Repo ?? smokeSummary?.amd64Repo,
+      amd64PathPrefix: options.amd64PathPrefix ?? smokeSummary?.amd64PathPrefix,
+      amd64HostArch: smokeSummary?.remotePreflight?.hostArch,
+    },
+    artifacts: {
+      kernel:
+        smokeSummary?.remotePreflight?.kernel ??
+        optionalLocalFileIdentity(options.amd64Kernel ?? smokeSummary?.amd64Kernel),
+      rootfs:
+        smokeSummary?.remotePreflight?.rootfs ??
+        optionalLocalFileIdentity(options.targetImage ?? smokeSummary?.targetImage),
+      vmm:
+        smokeSummary?.remotePreflight?.vmm ??
+        optionalLocalFileIdentity(options.amd64Vmm ?? smokeSummary?.amd64Vmm),
+      targetInit:
+        smokeSummary?.remotePreflight?.targetInit ??
+        optionalLocalFileIdentity(
+          options.amd64AssetsDir ? join(options.amd64AssetsDir, "init") : undefined,
+        ),
+      targetExecAgent:
+        smokeSummary?.remotePreflight?.targetExecAgent ??
+        optionalLocalFileIdentity(
+          options.amd64AssetsDir ? join(options.amd64AssetsDir, "exec-agent") : undefined,
+        ),
+      targetContinuation:
+        smokeSummary?.remotePreflight?.targetContinuation ??
+        fileIdentity(join(targetDir, "continuation.bin")),
+      restoreDescriptor:
+        smokeSummary?.remotePreflight?.restoreDescriptor ??
+        fileIdentity(join(targetDir, "combined-target-restore.desc")),
+    },
+    targetExecutable: {
+      continuationKind: target.targetContinuationKind,
+      moduleBytesSource: target.targetModuleBytesSource,
+      translatedReturnAddress: target.targetTranslatedReturnAddress,
+    },
+    transportBroker: profile.transportBroker,
+    synchronization: profile.synchronizationProvenance,
+    runtime: profile.runtimeProvenance,
+    toolVersions: {
+      node: process.version,
+      platform: process.platform,
+      arch: process.arch,
+    },
+  };
+}
+
+function profileMetadata(profile) {
+  return {
+    supportStatus: profile.supportStatus,
+    capabilities: profile.capabilities ?? [],
+    refusesCapabilities: profile.refusesCapabilities ?? [],
+    unsafeStateFamily: profile.unsafeStateFamily,
+    acceptedSubset: profile.acceptedSubset,
+    expectedRefusalCode: profile.expectedRefusalCode,
   };
 }
 
@@ -515,6 +601,14 @@ function isSyntheticNegativeProfile(profile) {
     profile.expectedResult === "refusal" &&
     typeof profile.sourceFixture === "string" &&
     profile.sourceFixture.startsWith("synthetic-negative:")
+  );
+}
+
+function isSyntheticPositiveProfile(profile) {
+  return (
+    profile.expectedResult === "success" &&
+    typeof profile.sourceFixture === "string" &&
+    profile.sourceFixture.startsWith("synthetic-positive:")
   );
 }
 
@@ -554,14 +648,14 @@ function syntheticNegativeSmokeSummary(profile, workDir, elapsedMs) {
   };
 }
 
-function runSyntheticNegativeProfile(options, profile) {
+function runSyntheticProfile(options, profile, kind, smokeSummaryFor) {
   const workDir = makeWorkDir(options);
   const startedAt = Date.now();
   mkdirSync(workDir, { recursive: true });
-  const smokeSummary = syntheticNegativeSmokeSummary(profile, workDir, Date.now() - startedAt);
+  const smokeSummary = smokeSummaryFor(profile, workDir, Date.now() - startedAt);
   const gateCheck = checkPortableMachineProofSummary(smokeSummary, profile);
   const run = {
-    args: ["synthetic-negative", profile.name],
+    args: [kind, profile.name],
     child: { status: 0, signal: null, error: null },
     elapsedMs: Date.now() - startedAt,
   };
@@ -572,9 +666,78 @@ function runSyntheticNegativeProfile(options, profile) {
   return summary;
 }
 
+function runSyntheticNegativeProfile(options, profile) {
+  return runSyntheticProfile(options, profile, "synthetic-negative", syntheticNegativeSmokeSummary);
+}
+
+// fallow-ignore-next-line complexity
+function syntheticPositiveSmokeSummary(profile, workDir, elapsedMs) {
+  return {
+    profile: "portable-machine-restore",
+    state: "completed",
+    workDir,
+    remoteE2e: false,
+    remoteSourceTarget: profile.remoteSourceTarget,
+    targetRestore: {
+      state: "completed",
+      migrationCompleted: true,
+      descriptorGateCompleted: true,
+      descriptorMemoryEntryCount: profile.syntheticDescriptorMemoryEntryCount ?? 1,
+      descriptorFdRecipeCount: profile.syntheticDescriptorFdRecipeCount ?? 1,
+      descriptorResourceKinds: profile.syntheticResourceKinds ?? ["synthetic-portable-capability"],
+      targetVerifierResult: "passed",
+      targetStateConsumptionResult: "passed",
+      targetResourceStatuses: [
+        {
+          kind: profile.syntheticResourceKind ?? "synthetic-portable-capability",
+          status: "passed",
+        },
+      ],
+      targetReturnChainResult: "passed",
+      targetFrameRestoreResult: "passed",
+      targetRegisterRestoreResult: "passed",
+      targetRflagsRestoreResult: "passed",
+      targetTlsRestoreResult: "passed",
+      targetStackWindowMaterializationResult: "passed",
+      targetPrivateMemoryRestoreResult: "passed",
+      targetExecutableMappingResult: "passed",
+      targetProcessContextRestoreResult: "passed",
+      targetSignalRestoreResult: "passed",
+      targetActiveSyscallRestoreResult: "passed",
+      targetThreadRestoreResult: "passed",
+      targetResumePathResult: "passed",
+      targetArch: "amd64",
+      targetGuestArch: "amd64",
+      targetContinuationKind: profile.syntheticContinuationKind ?? "target-native-synthetic-proof",
+      targetModuleBytesSource: "portable-bundle-target-root",
+      targetTranslatedReturnAddress: profile.syntheticReturnAddress ?? "0x400000",
+      sourceTextReusedAsTargetCode: false,
+      sourceIsaEmulationUsed: false,
+      sidecarRuntimeUsed: false,
+      appHooksRequired: false,
+    },
+    timings: [
+      {
+        name: "synthetic-positive-target-native-proof",
+        status: "ok",
+        ms: elapsedMs,
+        detail: profile.name,
+      },
+    ],
+  };
+}
+
+function runSyntheticPositiveProfile(options, profile) {
+  return runSyntheticProfile(options, profile, "synthetic-positive", syntheticPositiveSmokeSummary);
+}
+
+// fallow-ignore-next-line complexity
 function runProfile(options, profile) {
   if (!options.dryRun && isSyntheticNegativeProfile(profile)) {
     return runSyntheticNegativeProfile(options, profile);
+  }
+  if (!options.dryRun && isSyntheticPositiveProfile(profile)) {
+    return runSyntheticPositiveProfile(options, profile);
   }
   const workDir = makeWorkDir(options);
   const run = spawnSmoke(options, profile, workDir);
@@ -621,17 +784,36 @@ function printSummary(summary, json) {
   }
 }
 
-function supportReport(profiles) {
-  const counts = profiles.reduce((acc, profile) => {
-    const status = profile.supportStatus ?? "unspecified";
-    acc[status] = (acc[status] ?? 0) + 1;
+function countBy(values) {
+  return values.reduce((acc, value) => {
+    acc[value] = (acc[value] ?? 0) + 1;
     return acc;
   }, {});
+}
+
+function capabilitySummary(profiles) {
+  const accepted = profiles.flatMap((profile) => profile.capabilities ?? []);
+  const refused = profiles.flatMap((profile) => profile.refusesCapabilities ?? []);
+  return {
+    accepted: countBy(accepted),
+    refused: countBy(refused),
+    byProfile: profiles.map((profile) => ({
+      name: profile.name,
+      supportStatus: profile.supportStatus,
+      capabilities: profile.capabilities ?? [],
+      refusesCapabilities: profile.refusesCapabilities ?? [],
+    })),
+  };
+}
+
+function supportReport(profiles) {
+  const counts = countBy(profiles.map((profile) => profile.supportStatus ?? "unspecified"));
   const graduated = profiles
     .filter((profile) => profile.supportStatus === "graduated-support")
     .map((profile) => ({
       name: profile.name,
       family: profile.unsafeStateFamily,
+      capabilities: profile.capabilities ?? [],
       acceptedSubset: profile.acceptedSubset,
       graduatedFromRefusalCode: profile.graduatedFromRefusalCode,
       unsafeVariants: profile.unsafeVariants ?? [],
@@ -645,10 +827,82 @@ function supportReport(profiles) {
     .map((profile) => ({
       name: profile.name,
       family: profile.unsafeStateFamily,
+      refusesCapabilities: profile.refusesCapabilities ?? [],
       expectedRefusalCode: profile.expectedRefusalCode,
       supportStatus: profile.supportStatus,
     }));
-  return { counts, graduated, intentionallyRefused };
+  return {
+    counts,
+    graduated,
+    intentionallyRefused,
+    capabilitySummary: capabilitySummary(profiles),
+  };
+}
+
+function schemaError(errors, profile, message) {
+  errors.push({ profile: profile.name ?? "<unknown>", message });
+}
+
+// fallow-ignore-next-line complexity
+function validateProfileSchema(profiles) {
+  const errors = [];
+  const names = new Set(profiles.map((profile) => profile.name));
+  for (const profile of profiles) {
+    if (typeof profile.name !== "string") {
+      schemaError(errors, profile, "name is required");
+    }
+    if (
+      ![
+        "baseline-success",
+        "graduated-support",
+        "intentional-refusal",
+        "permanent-refusal",
+      ].includes(profile.supportStatus)
+    ) {
+      schemaError(errors, profile, "supportStatus is invalid");
+    }
+    if (profile.expectedResult === "success") {
+      if (!Array.isArray(profile.capabilities) || profile.capabilities.length === 0) {
+        schemaError(errors, profile, "success profiles require capabilities");
+      }
+      if (!Array.isArray(profile.expectedGates) || profile.expectedGates.length === 0) {
+        schemaError(errors, profile, "success profiles require expectedGates");
+      }
+    } else if (profile.expectedResult === "refusal") {
+      if (typeof profile.expectedRefusalCode !== "string") {
+        schemaError(errors, profile, "refusal profiles require expectedRefusalCode");
+      }
+      if (!Array.isArray(profile.refusesCapabilities) || profile.refusesCapabilities.length === 0) {
+        schemaError(errors, profile, "refusal profiles require refusesCapabilities");
+      }
+      if (profile.refusalSupportContract?.currentRefusalCode !== profile.expectedRefusalCode) {
+        schemaError(errors, profile, "refusalSupportContract current code drifted");
+      }
+    } else {
+      schemaError(errors, profile, "expectedResult is invalid");
+    }
+    if (profile.supportStatus === "graduated-support") {
+      if (typeof profile.acceptedSubset !== "string") {
+        schemaError(errors, profile, "graduated profiles require acceptedSubset");
+      }
+      if (typeof profile.graduatedFromRefusalCode !== "string") {
+        schemaError(errors, profile, "graduated profiles require graduatedFromRefusalCode");
+      }
+      if (!Array.isArray(profile.unsafeVariants) || profile.unsafeVariants.length === 0) {
+        schemaError(errors, profile, "graduated profiles require nearby unsafeVariants");
+      }
+      for (const variant of profile.unsafeVariants ?? []) {
+        if (!names.has(variant)) {
+          schemaError(errors, profile, `unsafeVariant ${variant} is not runnable`);
+        }
+      }
+    }
+  }
+  return { passed: errors.length === 0, errors };
+}
+
+export function validatePortableMachineProofProfiles(profiles = loadProfiles()) {
+  return validateProfileSchema(profiles);
 }
 
 function listProfiles(json) {
@@ -688,6 +942,15 @@ function main() {
   if (options.list) {
     listProfiles(options.json);
     return;
+  }
+  if (options.validateSchema) {
+    const validation = validatePortableMachineProofProfiles();
+    if (options.json) {
+      process.stdout.write(`${JSON.stringify(validation, null, 2)}\n`);
+    } else {
+      console.log(`portable-machine-proof-runner: schema ${validation.passed ? "ok" : "failed"}`);
+    }
+    process.exit(validation.passed ? 0 : 1);
   }
   const profile = profileByName(options.profile);
   const summary = options.checkSummary

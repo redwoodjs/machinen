@@ -20,11 +20,14 @@
 #include <stdlib.h>
 #include <sched.h>
 #include <string.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
 #include <sys/auxv.h>
 #include <sys/epoll.h>
 #include <sys/eventfd.h>
 #include <sys/mman.h>
 #include <sys/signalfd.h>
+#include <sys/socket.h>
 #include <sys/syscall.h>
 #include <sys/timerfd.h>
 #include <sys/wait.h>
@@ -74,6 +77,9 @@ extern char **environ;
 #define STATE_CHECK_TIMERFD UINT64_C(0x40)
 #define STATE_CHECK_EPOLL UINT64_C(0x80)
 #define STATE_CHECK_SIGNALFD UINT64_C(0x100)
+#define STATE_CHECK_TCP_LISTENER UINT64_C(0x200)
+#define STATE_CHECK_TCP_READINESS UINT64_C(0x400)
+#define STATE_CHECK_TCP_ACTIVE UINT64_C(0x800)
 #define TRANSLATED_RETURN_MARKER UINT64_C(0x52455455524e4a50)
 #define TRANSLATED_FRAME_MARKER UINT64_C(0x4652414d45504153)
 #define TRANSLATED_RESUME_MARKER UINT64_C(0x524553554d455041)
@@ -239,6 +245,10 @@ struct Options {
   size_t synthetic_signalfd_count;
   struct NativeRestoreStepSpec synthetic_epolls[MAX_NATIVE_RESTORE_STEPS];
   size_t synthetic_epoll_count;
+  struct NativeRestoreStepSpec synthetic_tcp_listeners[MAX_NATIVE_RESTORE_STEPS];
+  size_t synthetic_tcp_listener_count;
+  struct NativeRestoreStepSpec synthetic_tcp_active_brokers[MAX_NATIVE_RESTORE_STEPS];
+  size_t synthetic_tcp_active_broker_count;
   int cloexec_fds[MAX_CLOEXEC_FDS];
   size_t cloexec_fd_count;
   struct MemoryMaterialization materialized_memory[MAX_MATERIALIZED_MAPPINGS];
@@ -284,6 +294,7 @@ static void usage(void) {
       "[--synthetic-empty-pipe-read-fd n] [--synthetic-empty-pipe-write-fd n] "
       "[--synthetic-empty-eventfd n] [--synthetic-eventfd spec] "
       "[--synthetic-timerfd n] [--synthetic-signalfd spec] [--synthetic-epoll spec] "
+      "[--synthetic-tcp-listener spec] [--synthetic-tcp-active-broker spec] "
       "[--set-cloexec-fd n] "
       "[--materialize-memory file:offset:target:size:perms] "
       "[--materialize-guard target:size] "
@@ -742,6 +753,16 @@ static struct Options parse_args(int argc, char **argv) {
         usage();
       }
       add_native_step(opts.synthetic_epolls, &opts.synthetic_epoll_count, argv[i], "synthetic-epoll");
+    } else if (streq(argv[i], "--synthetic-tcp-listener")) {
+      if (++i >= argc) {
+        usage();
+      }
+      add_native_step(opts.synthetic_tcp_listeners, &opts.synthetic_tcp_listener_count, argv[i], "synthetic-tcp-listener");
+    } else if (streq(argv[i], "--synthetic-tcp-active-broker")) {
+      if (++i >= argc) {
+        usage();
+      }
+      add_native_step(opts.synthetic_tcp_active_brokers, &opts.synthetic_tcp_active_broker_count, argv[i], "synthetic-tcp-active-broker");
     } else if (streq(argv[i], "--set-cloexec-fd")) {
       if (++i >= argc) {
         usage();
@@ -1272,6 +1293,7 @@ static void install_synthetic_empty_pipe(int read_fd, int write_fd) {
 
 static uint64_t native_step_u64(const char *spec, const char *name, const char *label);
 static bool native_step_has_value(const char *spec, const char *name);
+static const char *native_step_value(const char *spec, const char *name, char *scratch, size_t scratch_size);
 
 static void install_synthetic_timerfd_with_spec(int target_fd, const char *spec) {
   if (target_fd < 0) {
@@ -1434,6 +1456,150 @@ static void install_synthetic_epoll(const char *spec) {
 static void install_synthetic_epolls(const struct Options *opts) {
   for (size_t i = 0; i < opts->synthetic_epoll_count; i++) {
     install_synthetic_epoll(opts->synthetic_epolls[i].spec);
+  }
+}
+
+static void bind_loopback_listener(int fd, uint64_t port, uint64_t backlog, bool reuse_addr) {
+  if (reuse_addr) {
+    int yes = 1;
+    if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) != 0) {
+      fprintf(stderr, "native-actual-resume-trampoline: tcp listener setsockopt failed: %s\n", strerror(errno));
+      exit(1);
+    }
+  }
+  struct sockaddr_in addr = {0};
+  addr.sin_family = AF_INET;
+  addr.sin_port = htons((uint16_t)port);
+  addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+  if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)) != 0) {
+    fprintf(stderr, "native-actual-resume-trampoline: tcp listener bind failed: %s\n", strerror(errno));
+    exit(1);
+  }
+  if (listen(fd, (int)backlog) != 0) {
+    fprintf(stderr, "native-actual-resume-trampoline: tcp listener listen failed: %s\n", strerror(errno));
+    exit(1);
+  }
+}
+
+static int create_loopback_listener_from_spec(const char *spec, const char *label) {
+  uint64_t port = native_step_u64(spec, "port", label);
+  uint64_t backlog = native_step_u64(spec, "backlog", label);
+  uint64_t reuse_addr = native_step_has_value(spec, "reuseAddr") ? native_step_u64(spec, "reuseAddr", label) : 0;
+  if (port == 0 || port > 65535u || backlog == 0 || backlog > INT_MAX) {
+    fprintf(stderr, "native-actual-resume-trampoline: tcp listener spec is invalid\n");
+    exit(2);
+  }
+  int fd = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0);
+  if (fd < 0) {
+    fprintf(stderr, "native-actual-resume-trampoline: tcp listener socket failed: %s\n", strerror(errno));
+    exit(1);
+  }
+  bind_loopback_listener(fd, port, backlog, reuse_addr != 0);
+  return fd;
+}
+
+static void install_synthetic_tcp_listener(const char *spec) {
+  uint64_t target_fd = native_step_u64(spec, "fd", "synthetic-tcp-listener");
+  if (target_fd > 1024u) {
+    fprintf(stderr, "native-actual-resume-trampoline: tcp listener fd is invalid\n");
+    exit(2);
+  }
+  int fd = create_loopback_listener_from_spec(spec, "synthetic-tcp-listener");
+  if (fd != (int)target_fd) {
+    if (dup2(fd, (int)target_fd) < 0) {
+      fprintf(stderr, "native-actual-resume-trampoline: tcp listener dup2 failed: %s\n", strerror(errno));
+      exit(1);
+    }
+    close(fd);
+  }
+}
+
+static void install_synthetic_tcp_listeners(const struct Options *opts) {
+  for (size_t i = 0; i < opts->synthetic_tcp_listener_count; i++) {
+    install_synthetic_tcp_listener(opts->synthetic_tcp_listeners[i].spec);
+  }
+}
+
+static void hex_to_bytes(const char *hex, uint8_t *out, size_t *out_len, size_t max_len) {
+  size_t len = strlen(hex);
+  if ((len % 2u) != 0 || (len / 2u) > max_len) {
+    fprintf(stderr, "native-actual-resume-trampoline: hex byte string is invalid\n");
+    exit(2);
+  }
+  *out_len = len / 2u;
+  for (size_t i = 0; i < *out_len; i++) {
+    char byte_hex[3] = {hex[i * 2u], hex[i * 2u + 1u], '\0'};
+    out[i] = (uint8_t)strtoul(byte_hex, NULL, 16);
+  }
+}
+
+static int connect_loopback_client(uint64_t port) {
+  int fd = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0);
+  if (fd < 0) {
+    fprintf(stderr, "native-actual-resume-trampoline: tcp active socket failed: %s\n", strerror(errno));
+    exit(1);
+  }
+  struct sockaddr_in addr = {0};
+  addr.sin_family = AF_INET;
+  addr.sin_port = htons((uint16_t)port);
+  addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+  if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) != 0) {
+    fprintf(stderr, "native-actual-resume-trampoline: tcp active connect failed: %s\n", strerror(errno));
+    exit(1);
+  }
+  return fd;
+}
+
+static void install_synthetic_tcp_active_broker(const char *spec) {
+  uint64_t target_fd = native_step_u64(spec, "fd", "synthetic-tcp-active-broker");
+  uint64_t broker_fd = native_step_u64(spec, "brokerFd", "synthetic-tcp-active-broker");
+  uint64_t port = native_step_u64(spec, "port", "synthetic-tcp-active-broker");
+  if (target_fd > 1024u || broker_fd > 1024u || target_fd == broker_fd || port == 0 || port > 65535u) {
+    fprintf(stderr, "native-actual-resume-trampoline: tcp active broker spec is invalid\n");
+    exit(2);
+  }
+  char scratch[1024];
+  const char *initial_hex = native_step_value(spec, "initialPeerBytes", scratch, sizeof(scratch));
+  if (!initial_hex) {
+    fprintf(stderr, "native-actual-resume-trampoline: tcp active broker initial bytes are missing\n");
+    exit(2);
+  }
+  uint8_t initial[256];
+  size_t initial_len = 0;
+  hex_to_bytes(initial_hex, initial, &initial_len, sizeof(initial));
+  char listener_spec[256];
+  snprintf(listener_spec, sizeof(listener_spec), "fd=1023;port=%" PRIu64 ";backlog=1;reuseAddr=1", port);
+  int listener_fd = create_loopback_listener_from_spec(listener_spec, "synthetic-tcp-active-broker");
+  int client_fd = connect_loopback_client(port);
+  int peer_fd = accept4(listener_fd, NULL, NULL, SOCK_CLOEXEC);
+  if (peer_fd < 0) {
+    fprintf(stderr, "native-actual-resume-trampoline: tcp active accept failed: %s\n", strerror(errno));
+    exit(1);
+  }
+  close(listener_fd);
+  if (initial_len > 0 && write(peer_fd, initial, initial_len) != (ssize_t)initial_len) {
+    fprintf(stderr, "native-actual-resume-trampoline: tcp active seed write failed: %s\n", strerror(errno));
+    exit(1);
+  }
+  if (client_fd != (int)target_fd) {
+    if (dup2(client_fd, (int)target_fd) < 0) {
+      fprintf(stderr, "native-actual-resume-trampoline: tcp active client dup2 failed: %s\n", strerror(errno));
+      exit(1);
+    }
+    close(client_fd);
+  }
+  if (peer_fd != (int)broker_fd) {
+    if (dup2(peer_fd, (int)broker_fd) < 0) {
+      fprintf(stderr, "native-actual-resume-trampoline: tcp active broker dup2 failed: %s\n", strerror(errno));
+      exit(1);
+    }
+    close(peer_fd);
+  }
+}
+
+static void install_synthetic_tcp_active_brokers(const struct Options *opts) {
+  for (size_t i = 0; i < opts->synthetic_tcp_active_broker_count; i++) {
+    install_synthetic_tcp_active_broker(opts->synthetic_tcp_active_brokers[i].spec);
   }
 }
 
@@ -2694,6 +2860,17 @@ static uint64_t expected_state_consumption_mask(const struct Options *opts) {
   if (opts->synthetic_signalfd_count > 0) {
     mask |= STATE_CHECK_SIGNALFD;
   }
+  if (opts->synthetic_tcp_listener_count > 0) {
+    mask |= STATE_CHECK_TCP_LISTENER;
+  }
+  for (size_t i = 0; i < opts->synthetic_tcp_listener_count; i++) {
+    if (strstr(opts->synthetic_tcp_listeners[i].spec, "port=45322") != NULL) {
+      mask |= STATE_CHECK_TCP_READINESS;
+    }
+  }
+  if (opts->synthetic_tcp_active_broker_count > 0) {
+    mask |= STATE_CHECK_TCP_ACTIVE;
+  }
   return mask;
 }
 
@@ -2742,6 +2919,20 @@ static void print_state_consumption(const struct Options *opts) {
     printf(",");
     print_check_status("synthetic-signalfd", mask, STATE_CHECK_SIGNALFD);
   }
+  if (opts->synthetic_tcp_listener_count > 0) {
+    printf(",");
+    print_check_status("synthetic-tcp-listener", mask, STATE_CHECK_TCP_LISTENER);
+  }
+  for (size_t i = 0; i < opts->synthetic_tcp_listener_count; i++) {
+    if (strstr(opts->synthetic_tcp_listeners[i].spec, "port=45322") != NULL) {
+      printf(",");
+      print_check_status("synthetic-tcp-listener-readiness", mask, STATE_CHECK_TCP_READINESS);
+    }
+  }
+  if (opts->synthetic_tcp_active_broker_count > 0) {
+    printf(",");
+    print_check_status("synthetic-tcp-active-broker", mask, STATE_CHECK_TCP_ACTIVE);
+  }
   printf("],\"resourceStatuses\":[");
   print_check_status("inherit-stdio", mask, STATE_CHECK_STDIO);
   printf(",");
@@ -2761,6 +2952,20 @@ static void print_state_consumption(const struct Options *opts) {
   if (opts->synthetic_signalfd_count > 0) {
     printf(",");
     print_check_status("synthetic-signalfd", mask, STATE_CHECK_SIGNALFD);
+  }
+  if (opts->synthetic_tcp_listener_count > 0) {
+    printf(",");
+    print_check_status("synthetic-tcp-listener", mask, STATE_CHECK_TCP_LISTENER);
+  }
+  for (size_t i = 0; i < opts->synthetic_tcp_listener_count; i++) {
+    if (strstr(opts->synthetic_tcp_listeners[i].spec, "port=45322") != NULL) {
+      printf(",");
+      print_check_status("synthetic-tcp-listener-readiness", mask, STATE_CHECK_TCP_READINESS);
+    }
+  }
+  if (opts->synthetic_tcp_active_broker_count > 0) {
+    printf(",");
+    print_check_status("synthetic-tcp-active-broker", mask, STATE_CHECK_TCP_ACTIVE);
   }
   printf("]}");
 }
@@ -3123,6 +3328,8 @@ int main(int argc, char **argv) {
   install_synthetic_timerfd_with_spec(opts.synthetic_timerfd, opts.synthetic_timerfd_spec);
   install_synthetic_signalfds(&opts);
   install_synthetic_epolls(&opts);
+  install_synthetic_tcp_listeners(&opts);
+  install_synthetic_tcp_active_brokers(&opts);
   apply_cloexec_fds(&opts);
   consume_native_process_context_steps(&opts, &native_process_context_restore_state);
   apply_native_signal_restore_steps(&opts, &native_signal_restore_state);

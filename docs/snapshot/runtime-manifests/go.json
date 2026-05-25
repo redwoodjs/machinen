@@ -1,0 +1,148 @@
+{
+  "kind": "machinen.runtime-support-manifest",
+  "name": "go-planning-fixture",
+  "supportClaimed": false,
+  "runtime": {
+    "name": "go",
+    "version": "1.23.x",
+    "buildId": "go-fixture-build",
+    "implementation": "go"
+  },
+  "requiredCapabilities": [],
+  "positiveProofProfiles": {},
+  "semanticSections": [
+    "goroutine inventory",
+    "scheduler state",
+    "netpoll mapping",
+    "heap classification",
+    "timer/cgo/plugin/thread mapping"
+  ],
+  "stateClasses": [
+    {
+      "name": "goroutine scheduler",
+      "refusalCode": "runtime-worker-sync-model-missing"
+    },
+    {
+      "name": "netpoll active socket",
+      "refusalCode": "runtime-active-socket-without-transport"
+    },
+    {
+      "name": "cgo",
+      "refusalCode": "runtime-native-extension-opaque"
+    },
+    {
+      "name": "plugin native code",
+      "refusalCode": "runtime-source-owned-executable-code"
+    },
+    {
+      "name": "app hook",
+      "refusalCode": "runtime-app-hook-required"
+    },
+    {
+      "name": "source replay",
+      "refusalCode": "runtime-source-text-replay"
+    }
+  ],
+  "expectedGates": [
+    "runtime-identity",
+    "module-provenance",
+    "capability-coverage",
+    "refusal-codes"
+  ],
+  "refusalCases": [
+    {
+      "code": "runtime-native-extension-opaque",
+      "message": "opaque native extension/addon state has no portable model",
+      "migrationCompleted": false
+    },
+    {
+      "code": "runtime-opaque-vm-frame",
+      "message": "active runtime VM/interpreter frame is target-opaque",
+      "migrationCompleted": false
+    },
+    {
+      "code": "runtime-source-owned-executable-code",
+      "message": "JIT or source-owned executable code is refused",
+      "migrationCompleted": false
+    },
+    {
+      "code": "runtime-active-socket-without-transport",
+      "message": "active sockets require graduated socket/transport contracts",
+      "migrationCompleted": false
+    },
+    {
+      "code": "runtime-worker-sync-model-missing",
+      "message": "workers/threads require synchronization coverage",
+      "migrationCompleted": false
+    },
+    {
+      "code": "runtime-app-hook-required",
+      "message": "application hooks cannot be correctness paths",
+      "migrationCompleted": false
+    },
+    {
+      "code": "runtime-source-text-replay",
+      "message": "source text replay cannot become target code",
+      "migrationCompleted": false
+    },
+    {
+      "code": "runtime-module-identity-mismatch",
+      "message": "target module graph provenance mismatch",
+      "migrationCompleted": false
+    }
+  ],
+  "provenance": {
+    "targetRuntime": {
+      "path": "/usr/bin/go",
+      "sha256": "sha256-go-fixture",
+      "buildId": "go-fixture-build",
+      "architecture": "amd64",
+      "abi": "linux-gnu"
+    },
+    "loader": {
+      "path": "/lib64/ld-linux-x86-64.so.2",
+      "sha256": "sha256-loader-fixture"
+    },
+    "libc": {
+      "name": "glibc",
+      "version": "fixture",
+      "sha256": "sha256-libc-fixture"
+    },
+    "modules": [
+      {
+        "name": "go-fixture-module",
+        "identity": "go-module-fixture",
+        "sha256": "sha256-go-module-fixture"
+      }
+    ],
+    "toolVersions": {
+      "node": "v24.15.0"
+    }
+  },
+  "provenanceFailures": [
+    {
+      "code": "runtime-wrong-arch",
+      "migrationCompleted": false
+    },
+    {
+      "code": "runtime-stale-module-graph",
+      "migrationCompleted": false
+    },
+    {
+      "code": "runtime-missing-target-runtime",
+      "migrationCompleted": false
+    },
+    {
+      "code": "runtime-mismatched-libc",
+      "migrationCompleted": false
+    },
+    {
+      "code": "runtime-missing-loader",
+      "migrationCompleted": false
+    },
+    {
+      "code": "runtime-source-text-replay",
+      "migrationCompleted": false
+    }
+  ]
+}

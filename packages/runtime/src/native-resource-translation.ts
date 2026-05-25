@@ -34,6 +34,8 @@ export type NativeTargetFdTableEntryKind =
   | "synthetic-timerfd"
   | "synthetic-signalfd"
   | "synthetic-epoll"
+  | "synthetic-tcp-listener"
+  | "synthetic-tcp-active-broker"
   | "refused";
 
 export interface NativeTargetFdTableEntry {
@@ -181,6 +183,7 @@ function fdTableEntry(
   return entry ?? refusedFdTableEntry(resource, fdTableMissingRefusal(fd, resource));
 }
 
+// fallow-ignore-next-line complexity
 function fdTableEntryFromRecipe(
   fd: number,
   resource: NativeProcessResource,
@@ -196,7 +199,9 @@ function fdTableEntryFromRecipe(
     syntheticEventfdFdTableEntry(resource, recipe, closeOnExec) ??
     syntheticTimerfdFdTableEntry(resource, recipe, closeOnExec) ??
     syntheticSignalfdFdTableEntry(resource, recipe, closeOnExec) ??
-    syntheticEpollFdTableEntry(resource, recipe, closeOnExec, resources)
+    syntheticEpollFdTableEntry(resource, recipe, closeOnExec, resources) ??
+    syntheticTcpListenerFdTableEntry(resource, recipe, closeOnExec) ??
+    syntheticTcpActiveBrokerFdTableEntry(resource, recipe, closeOnExec)
   );
 }
 
@@ -679,6 +684,73 @@ function epollWatchRecipe(
   return { fd, events, data };
 }
 
+// fallow-ignore-next-line complexity
+function syntheticTcpListenerFdTableEntry(
+  resource: NativeProcessResource,
+  recipe: Record<string, unknown>,
+  closeOnExec: boolean,
+): NativeTargetFdTableEntry | undefined {
+  if (
+    resource.kind !== "socket" ||
+    (recipe.tcpListenerModel !== "loopback-listener-v1" &&
+      recipe.tcpListenerModel !== "loopback-listener-readiness-v1")
+  ) {
+    return undefined;
+  }
+  const port = typeof recipe.port === "number" ? recipe.port : undefined;
+  const backlog = typeof recipe.backlog === "number" ? recipe.backlog : undefined;
+  if (recipe.family !== "inet4" || recipe.bindAddress !== "127.0.0.1" || !port || !backlog) {
+    return refusedFdTableEntry(
+      resource,
+      resourceRefusalWithCode(resource, "target-socket-syscall-state-unsupported"),
+    );
+  }
+  return materializedFdTableEntry(resource, "synthetic-tcp-listener", closeOnExec, {
+    kind: "synthetic-tcp-listener",
+    fd: resource.fd!,
+    port,
+    backlog,
+    reuseAddr: recipe.reuseAddr === true,
+    closeOnExec,
+  });
+}
+
+// fallow-ignore-next-line complexity
+function syntheticTcpActiveBrokerFdTableEntry(
+  resource: NativeProcessResource,
+  recipe: Record<string, unknown>,
+  closeOnExec: boolean,
+): NativeTargetFdTableEntry | undefined {
+  if (resource.kind !== "socket" || recipe.tcpActiveConnectionModel !== "explicit-broker-v1") {
+    return undefined;
+  }
+  const port = typeof recipe.port === "number" ? recipe.port : undefined;
+  const brokerFd = typeof recipe.brokerFd === "number" ? recipe.brokerFd : undefined;
+  const initialPeerBytes =
+    typeof recipe.initialPeerBytes === "string" ? recipe.initialPeerBytes : undefined;
+  if (
+    recipe.family !== "inet4" ||
+    recipe.bindAddress !== "127.0.0.1" ||
+    !port ||
+    !brokerFd ||
+    !initialPeerBytes ||
+    recipe.brokerMode !== "target-loopback-peer"
+  ) {
+    return refusedFdTableEntry(
+      resource,
+      resourceRefusalWithCode(resource, "target-socket-syscall-state-unsupported"),
+    );
+  }
+  return materializedFdTableEntry(resource, "synthetic-tcp-active-broker", closeOnExec, {
+    kind: "synthetic-tcp-active-broker",
+    fd: resource.fd!,
+    brokerFd,
+    port,
+    initialPeerBytes,
+    closeOnExec,
+  });
+}
+
 function materializedFdTableEntry(
   resource: NativeProcessResource,
   kind: NativeTargetFdTableEntryKind,
@@ -904,6 +976,18 @@ function translateResource(
     };
   }
   if (resource.kind === "signalfd" && resource.recipe?.signalfdModel === "empty-queue-v1") {
+    return {
+      ...resource,
+      state: "recipe",
+      refusal: undefined,
+    };
+  }
+  if (
+    resource.kind === "socket" &&
+    (resource.recipe?.tcpListenerModel === "loopback-listener-v1" ||
+      resource.recipe?.tcpListenerModel === "loopback-listener-readiness-v1" ||
+      resource.recipe?.tcpActiveConnectionModel === "explicit-broker-v1")
+  ) {
     return {
       ...resource,
       state: "recipe",

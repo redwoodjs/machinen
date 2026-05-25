@@ -204,6 +204,7 @@ describe("portable machine proof runner", () => {
       traceSyscall: "writev",
       traceFd: 43,
       expectedResult: "success",
+      capabilities: expect.arrayContaining(["fd:regular-file", "syscall:active-writev"]),
     });
     expect(
       summary.profiles.find(
@@ -214,6 +215,7 @@ describe("portable machine proof runner", () => {
       supportStatus: "intentional-refusal",
       unsafeStateFamily: "socket",
       expectedRefusalCode: "target-socket-syscall-state-unsupported",
+      refusesCapabilities: expect.arrayContaining(["fd:socket", "network:active-connection"]),
       descriptorConsumptionExpected: false,
       refusalSupportContract: {
         currentRefusalCode: "target-socket-syscall-state-unsupported",
@@ -223,11 +225,11 @@ describe("portable machine proof runner", () => {
     expect(summary.supportReport).toMatchObject({
       counts: {
         "baseline-success": 11,
-        "graduated-support": 10,
-        "intentional-refusal": 32,
+        "graduated-support": 24,
+        "intentional-refusal": 99,
         "permanent-refusal": 3,
       },
-      graduated: [
+      graduated: expect.arrayContaining([
         expect.objectContaining({
           name: "eventfd-counter-recreate",
           acceptedSubset: "eventfd-counter-v1-nonsemaphore-no-waiters",
@@ -278,7 +280,42 @@ describe("portable machine proof runner", () => {
           acceptedSubset: "target-signal-mask-v1-blocked-mask-only",
           graduatedFromRefusalCode: "signal-state-unsupported",
         }),
-      ],
+        expect.objectContaining({
+          name: "tcp-listener-recreate",
+          acceptedSubset: "tcp-listener-v1:loopback-no-accepted-connections",
+          graduatedFromRefusalCode: "target-socket-syscall-state-unsupported",
+        }),
+        expect.objectContaining({
+          name: "futex-private-wait-wake-recreate",
+          acceptedSubset: "futex-private-v1:one-waiter-one-wake",
+          graduatedFromRefusalCode: "futex-state-unsupported",
+        }),
+        expect.objectContaining({
+          name: "real-private-multi-range-file-recreate",
+          acceptedSubset:
+            "real-private-layout-v2:multi-anonymous-data-ranges-with-guards-and-regular-file-fd",
+          graduatedFromRefusalCode: "mapping-permission-unsupported",
+        }),
+        expect.objectContaining({
+          name: "real-tcp-listener-recreate",
+          acceptedSubset: "real-tcp-listener-v1:loopback-no-accepted-connections",
+          graduatedFromRefusalCode: "target-socket-syscall-state-unsupported",
+        }),
+        expect.objectContaining({
+          name: "real-tcp-listener-readiness-recreate",
+          acceptedSubset: "real-tcp-listener-readiness-v1:no-queued-accept-target-probe",
+          graduatedFromRefusalCode: "target-socket-syscall-state-unsupported",
+        }),
+        expect.objectContaining({
+          name: "real-tcp-active-connection-transport-recreate",
+          acceptedSubset: "real-tcp-active-connection-v1:single-plain-stream-explicit-broker",
+          graduatedFromRefusalCode: "target-socket-syscall-state-unsupported",
+        }),
+      ]),
+      capabilitySummary: {
+        accepted: expect.objectContaining({ "fd:regular-file": 8 }),
+        refused: expect.objectContaining({ "fd:socket": 5 }),
+      },
     });
     expect(summary.supportReport.intentionallyRefused).toEqual(
       expect.arrayContaining([
@@ -288,6 +325,18 @@ describe("portable machine proof runner", () => {
         }),
       ]),
     );
+  });
+
+  it("validates profile schema and capability coverage", () => {
+    const result = spawnSync("node", [RUNNER, "--validate-schema", "--json"], {
+      cwd: REPO_ROOT,
+      encoding: "utf8",
+      env: SCRIPT_ENV,
+      timeout: 30_000,
+    });
+
+    expect(result.status, result.stderr).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual({ passed: true, errors: [] });
   });
 
   it("runs a named profile through dry-run smoke wiring without reporting success", () => {

@@ -73,22 +73,22 @@ proof profile.
 
 Tasks:
 
-- [ ] Add an app-neutral support-envelope doc that explains what is supported
+- [x] Add an app-neutral support-envelope doc that explains what is supported
       today, what is refused, and what is permanent refusal.
-- [ ] Summarize the accepted capability families from all baseline and graduated
+- [x] Summarize the accepted capability families from all baseline and graduated
       profiles: regular files, pipe pairs, eventfd/timerfd, readiness wait,
       signal mask, process context, private memory, threads, and active syscalls.
-- [ ] Summarize the refusal families that remain: sockets, active TCP
+- [x] Summarize the refusal families that remain: sockets, active TCP
       connections, futex/rseq, shared memory, epoll wait graphs, pending signals,
       restart ambiguity, native addons/opaque runtime state, and raw cross-ISA
       vmstate replay.
-- [ ] Clarify Goal 6 wording for readiness waits: blocked-mask-only signal
+- [x] Clarify Goal 6 wording for readiness waits: blocked-mask-only signal
       support graduated, but signal-mask-changing `ppoll`/wait semantics remain
       refused until their own verifier and ordering contract exists.
-- [ ] Document the difference between portable machine restore, native process
+- [x] Document the difference between portable machine restore, native process
       restore, runtime-level state restore, and application-specific hooks, which
       remain disallowed as success.
-- [ ] Add a short "how to read a refusal" section: exact code,
+- [x] Add a short "how to read a refusal" section: exact code,
       `migrationCompleted=false`, `descriptorGateCompleted=false` when the
       descriptor cannot be safely accepted, and no accidental target success.
 
@@ -101,22 +101,22 @@ Goal: make the proof ladder reproducible without hand-written shell loops.
 
 Tasks:
 
-- [ ] Add a matrix runner command that can run profiles by `supportStatus`, by
+- [x] Add a matrix runner command that can run profiles by `supportStatus`, by
       capability, by unsafe family, or by explicit profile list.
-- [ ] Add first-class matrix presets for baseline success, graduated support,
+- [x] Add first-class matrix presets for baseline success, graduated support,
       all positive profiles, the refusal matrix, and the Goal 6/7 full
       foundation matrix.
-- [ ] Emit one summary JSON containing profile counts, pass/fail state, timings,
+- [x] Emit one summary JSON containing profile counts, pass/fail state, timings,
       workdirs, refusal codes, target gates, and remote host details.
-- [ ] Make refusal matrices verify the full fail-closed contract:
+- [x] Make refusal matrices verify the full fail-closed contract:
       `migrationCompleted=false`, exact refusal code, no source text replay, no
       source-ISA emulation, and no sidecar success path.
-- [ ] Make positive matrices verify the full success contract:
+- [x] Make positive matrices verify the full success contract:
       `migrationCompleted=true`, `descriptorGateCompleted=true`, target-native
       completion, and every expected gate passed.
-- [ ] Add tests for matrix selection, summary shape, mixed pass/fail output, and
+- [x] Add tests for matrix selection, summary shape, mixed pass/fail output, and
       refusal-code drift.
-- [ ] Document the exact command lines and expected output for local synthetic
+- [x] Document the exact command lines and expected output for local synthetic
       refusal runs and remote arm64->amd64 target-native runs.
 
 Done when the final validation matrix used in goal files can be recreated with a
@@ -129,18 +129,18 @@ restore path for native-transparent success.
 
 Tasks:
 
-- [ ] Record target guest architecture, kernel path/hash, rootfs path/hash, VMM
+- [x] Record target guest architecture, kernel path/hash, rootfs path/hash, VMM
       path/hash, target init hash, target exec-agent hash, and tool versions in
       proof summaries.
-- [ ] Fail closed if the amd64 remote VMM is not a Linux x86_64 executable.
-- [ ] Fail closed if target guest `init` or `exec-agent` is missing, stale, or not
+- [x] Fail closed if the amd64 remote VMM is not a Linux x86_64 executable.
+- [x] Fail closed if target guest `init` or `exec-agent` is missing, stale, or not
       x86_64 for amd64 target proofs.
-- [ ] Record target continuation bytes hash and restore descriptor hash in every
+- [x] Record target continuation bytes hash and restore descriptor hash in every
       target-native proof summary.
-- [ ] Record target executable/module provenance for real utility continuations.
-- [ ] Add a remote preflight that checks the expected PATH/toolchain and reports
+- [x] Record target executable/module provenance for real utility continuations.
+- [x] Add a remote preflight that checks the expected PATH/toolchain and reports
       precise failure causes instead of allowing ambiguous proof failure.
-- [ ] Add tests or dry-run fixtures for wrong-arch VMM, wrong-arch guest helper,
+- [x] Add tests or dry-run fixtures for wrong-arch VMM, wrong-arch guest helper,
       missing kernel/rootfs, and stale remote repo paths.
 
 Done when remote arm64->amd64 proofs produce enough provenance to audit that the
@@ -153,18 +153,18 @@ names.
 
 Tasks:
 
-- [ ] Add a `capabilities` field to proof profiles for accepted state families
+- [x] Add a `capabilities` field to proof profiles for accepted state families
       such as `fd:regular-file`, `fd:eventfd`, `wait:poll`, `memory:private-rw`,
       `signal:blocked-mask`, `process:target-auxv`, and `thread:controlled`.
-- [ ] Add a `refusesCapabilities` or equivalent field for refusal profiles so
+- [x] Add a `refusesCapabilities` or equivalent field for refusal profiles so
       unsupported app states can be mapped to exact refusal codes.
-- [ ] Add schema validation for profile fields required by each `supportStatus`:
+- [x] Add schema validation for profile fields required by each `supportStatus`:
       accepted subset, old refusal code, unsafe variants, capabilities, expected
       gates, and graduation requirements.
-- [ ] Generate a capability summary from `scripts/portable-machine-proof-profiles.json`.
-- [ ] Add tests that every graduated profile has nearby unsafe variants and every
+- [x] Generate a capability summary from `scripts/portable-machine-proof-profiles.json`.
+- [x] Add tests that every graduated profile has nearby unsafe variants and every
       unsafe variant resolves to a runnable refusal profile.
-- [ ] Add docs showing how a future Node/Python/Go/JVM support claim maps its
+- [x] Add docs showing how a future Node/Python/Go/JVM support claim maps its
       runtime state to app-neutral capabilities before any runtime-specific work
       starts.
 
@@ -183,21 +183,21 @@ source text replay.
 
 Tasks:
 
-- [ ] Define a runtime-neutral adapter boundary with runtime/build identity,
+- [x] Define a runtime-neutral adapter boundary with runtime/build identity,
       portable semantic state sections, native resource requirements,
       target-native restore requirements, and refusal codes for opaque or unsafe
       runtime state.
-- [ ] Define common runtime state classes: heap graph, pending timers, async
+- [x] Define common runtime state classes: heap graph, pending timers, async
       continuations, module/build identity, native handles, worker/thread state,
       and opaque native extension state.
-- [ ] Define mandatory refusal cases for runtime adapters: unknown native
+- [x] Define mandatory refusal cases for runtime adapters: unknown native
       addon/extension state, active target-opaque VM/JIT frames, source-owned
       executable/JIT code, active sockets without a transport contract, worker
       threads without a synchronization model, and app hooks required for
       correctness.
-- [ ] Add a no-op/sample runtime adapter fixture that proves schema and refusal
+- [x] Add a no-op/sample runtime adapter fixture that proves schema and refusal
       behavior without claiming support for a real runtime.
-- [ ] Document how a future Node runtime track would consume the adapter boundary
+- [x] Document how a future Node runtime track would consume the adapter boundary
       after the app-neutral proof infrastructure exists.
 
 Done when runtime-specific goals can be written as consumers of a shared adapter
@@ -207,7 +207,10 @@ contract instead of inventing their own success/refusal semantics.
 
 Goal: keep the universal real-app blockers visible and prioritized.
 
-High-priority future support graduations:
+High-priority future support graduations (tracked backlog; not Goal 7 support claims):
+
+These remain unchecked because Goal 7 only makes the backlog visible and prioritized;
+graduating any one of them requires a future support-claim checklist.
 
 - [ ] listening TCP sockets with no active accepted connections;
 - [ ] active TCP connections with an explicit broker/transport contract;
@@ -236,16 +239,16 @@ Refusal boundaries that remain until explicitly graduated:
 
 Goal 7 is complete only when:
 
-- [ ] the current support envelope is documented and app-neutral;
-- [ ] proof matrices are runnable with one command and stable JSON output;
-- [ ] target-native provenance checks fail closed for wrong or ambiguous remote
+- [x] the current support envelope is documented and app-neutral;
+- [x] proof matrices are runnable with one command and stable JSON output;
+- [x] target-native provenance checks fail closed for wrong or ambiguous remote
       proof environments;
-- [ ] every proof profile is mapped to supported/refused capabilities;
-- [ ] runtime adapter boundaries are defined without claiming support for any one
+- [x] every proof profile is mapped to supported/refused capabilities;
+- [x] runtime adapter boundaries are defined without claiming support for any one
       runtime;
-- [ ] Goal 3/4/6 graduated profiles still pass remotely;
-- [ ] the original positive matrix still passes remotely;
-- [ ] the full refusal matrix still passes;
-- [ ] no new path uses source-ISA emulation, sidecar runtime success, app hooks,
+- [x] Goal 3/4/6 graduated profiles still pass remotely;
+- [x] the original positive matrix still passes remotely;
+- [x] the full refusal matrix still passes;
+- [x] no new path uses source-ISA emulation, sidecar runtime success, app hooks,
       or source text replay;
-- [ ] validation timings are recorded for every completed task.
+- [x] validation timings are recorded for every completed task.

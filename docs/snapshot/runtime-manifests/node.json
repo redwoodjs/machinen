@@ -1,0 +1,169 @@
+{
+  "kind": "machinen.runtime-support-manifest",
+  "name": "node-planning-fixture",
+  "supportClaimed": false,
+  "runtime": {
+    "name": "node",
+    "version": "22.x",
+    "buildId": "node-fixture-build",
+    "implementation": "node"
+  },
+  "requiredCapabilities": [],
+  "positiveProofProfiles": {},
+  "semanticSections": [
+    "runtime/build identity",
+    "module graph identity",
+    "heap classification",
+    "event-loop handle mapping",
+    "async continuation inventory"
+  ],
+  "stateClasses": [
+    {
+      "name": "timers",
+      "requiredCapability": "fd:timerfd"
+    },
+    {
+      "name": "fs fds",
+      "requiredCapability": "fd:regular-file"
+    },
+    {
+      "name": "listening socket",
+      "requiredCapability": "fd:tcp-listener"
+    },
+    {
+      "name": "active socket without transport",
+      "refusalCode": "runtime-active-socket-without-transport"
+    },
+    {
+      "name": "native addon",
+      "refusalCode": "runtime-native-extension-opaque"
+    },
+    {
+      "name": "jit frame",
+      "refusalCode": "runtime-source-owned-executable-code"
+    },
+    {
+      "name": "worker thread",
+      "refusalCode": "runtime-worker-sync-model-missing"
+    },
+    {
+      "name": "inspector debug state",
+      "refusalCode": "runtime-opaque-vm-frame"
+    },
+    {
+      "name": "app hook",
+      "refusalCode": "runtime-app-hook-required"
+    },
+    {
+      "name": "source text replay",
+      "refusalCode": "runtime-source-text-replay"
+    }
+  ],
+  "expectedGates": [
+    "runtime-identity",
+    "module-provenance",
+    "capability-coverage",
+    "refusal-codes"
+  ],
+  "refusalCases": [
+    {
+      "code": "runtime-native-extension-opaque",
+      "message": "opaque native extension/addon state has no portable model",
+      "migrationCompleted": false
+    },
+    {
+      "code": "runtime-opaque-vm-frame",
+      "message": "active runtime VM/interpreter frame is target-opaque",
+      "migrationCompleted": false
+    },
+    {
+      "code": "runtime-source-owned-executable-code",
+      "message": "JIT or source-owned executable code is refused",
+      "migrationCompleted": false
+    },
+    {
+      "code": "runtime-active-socket-without-transport",
+      "message": "active sockets require graduated socket/transport contracts",
+      "migrationCompleted": false
+    },
+    {
+      "code": "runtime-worker-sync-model-missing",
+      "message": "workers/threads require synchronization coverage",
+      "migrationCompleted": false
+    },
+    {
+      "code": "runtime-app-hook-required",
+      "message": "application hooks cannot be correctness paths",
+      "migrationCompleted": false
+    },
+    {
+      "code": "runtime-source-text-replay",
+      "message": "source text replay cannot become target code",
+      "migrationCompleted": false
+    },
+    {
+      "code": "runtime-module-identity-mismatch",
+      "message": "target module graph provenance mismatch",
+      "migrationCompleted": false
+    },
+    {
+      "code": "runtime-inspector-state-opaque",
+      "message": "inspector/debugger state is not portable",
+      "migrationCompleted": false
+    }
+  ],
+  "provenance": {
+    "targetRuntime": {
+      "path": "/usr/bin/node",
+      "sha256": "sha256-node-fixture",
+      "buildId": "node-fixture-build",
+      "architecture": "amd64",
+      "abi": "linux-gnu"
+    },
+    "loader": {
+      "path": "/lib64/ld-linux-x86-64.so.2",
+      "sha256": "sha256-loader-fixture"
+    },
+    "libc": {
+      "name": "glibc",
+      "version": "fixture",
+      "sha256": "sha256-libc-fixture"
+    },
+    "modules": [
+      {
+        "name": "node-fixture-module",
+        "identity": "node-module-fixture",
+        "sha256": "sha256-node-module-fixture"
+      }
+    ],
+    "toolVersions": {
+      "node": "v24.15.0"
+    }
+  },
+  "provenanceFailures": [
+    {
+      "code": "runtime-wrong-arch",
+      "migrationCompleted": false
+    },
+    {
+      "code": "runtime-stale-module-graph",
+      "migrationCompleted": false
+    },
+    {
+      "code": "runtime-missing-target-runtime",
+      "migrationCompleted": false
+    },
+    {
+      "code": "runtime-mismatched-libc",
+      "migrationCompleted": false
+    },
+    {
+      "code": "runtime-missing-loader",
+      "migrationCompleted": false
+    },
+    {
+      "code": "runtime-source-text-replay",
+      "migrationCompleted": false
+    }
+  ]
+}

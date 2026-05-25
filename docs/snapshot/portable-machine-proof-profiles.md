@@ -3,20 +3,30 @@
 The native cross-ISA VM proof has a checked-in profile matrix in
 [`scripts/portable-machine-proof-profiles.json`](../../scripts/portable-machine-proof-profiles.json).
 Each row names the remote source target, source fixture, optional traced syscall
-and fd, expected result, and target gates that must pass before automation may
-report success. The fail-closed refusal-code inventory lives in
+and fd, expected result, app-neutral `capabilities` or `refusesCapabilities`, and
+target gates that must pass before automation may report success. The fail-closed
+refusal-code inventory lives in
 [`native-fail-closed-refusal-inventory.md`](./native-fail-closed-refusal-inventory.md).
 
-Run the wrapper with:
+Validate profile schema and capability coverage with:
 
 ```sh
-pnpm portable-machine-proof-runner -- --profile file-readv --json
+pnpm --silent portable-machine-proof-runner -- --validate-schema --json
 ```
+
+Run one profile with:
+
+```sh
+pnpm --silent portable-machine-proof-runner -- --profile file-readv --json
+```
+
+Run matrices with the presets documented in
+[`proof-matrices.md`](./proof-matrices.md).
 
 For test or CI wiring that should not contact remotes or boot the target VM:
 
 ```sh
-pnpm portable-machine-proof-runner -- --profile file-readv --dry-run --json
+pnpm --silent portable-machine-proof-runner -- --profile file-readv --dry-run --json
 ```
 
 Dry runs exercise profile selection, synthetic capture/bundle creation, and JSON
@@ -50,7 +60,10 @@ Every profile also carries a support status:
   backlog support item.
 - `graduated-support`: a formerly refused family now has a positive target-native
   subset. These profiles must record `graduatedFromRefusalCode`, an
-  `acceptedSubset`, and unsafe variants that still refuse.
+  `acceptedSubset`, and unsafe variants that still refuse. Goal 8/9 declarative
+  profiles use `synthetic-positive:*` fixtures to exercise the same target gates
+  and provenance contract without accepting source-ISA emulation, runtime
+  sidecars, app hooks, or source text replay.
 
 Negative profiles set `expectedResult: "refusal"`. They are pass/fail checks for
 unsafe states, not accepted migrations. The runner treats a negative profile as
@@ -64,13 +77,29 @@ as success. A negative profile fails if the summary or target restore reaches
 Existing summaries can be checked without running the proof:
 
 ```sh
-pnpm portable-machine-proof-runner -- \
+pnpm --silent portable-machine-proof-runner -- \
   --profile file-writev \
   --check-summary /tmp/machinen-file-writev-e2e/summary.json \
   --json
 ```
 
 This exits non-zero if any required gate is missing or not `passed`.
+
+## Goal 8/9/11 graduated capability set
+
+The current graduated set also includes the Goal 8/9 app-neutral blockers and
+Goal 11 real workload proofs in
+[`goal-8-9-capability-graduations.md`](./goal-8-9-capability-graduations.md):
+`tcp-listener-recreate`, `real-tcp-listener-recreate`,
+`real-tcp-listener-readiness-recreate`,
+`real-tcp-active-connection-transport-recreate`, `private-multi-range-recreate`,
+`epoll-graph-recreate`, `file-backed-private-mapping-recreate`,
+`active-syscall-eintr-recreate`,
+`tcp-active-connection-transport-recreate`,
+`tcp-listener-readiness-recreate`, `futex-private-wait-wake-recreate`,
+`rseq-absent-or-target-registered-recreate`, and
+`shared-memory-contract-recreate`. Each positive profile has nearby refusal
+profiles in `unsafeVariants`.
 
 ## Refusal graduation checklist
 
@@ -110,7 +139,8 @@ passes. The accepted class includes:
   descriptor subset, the Goal 4 `eventfd-counter-v1` descriptor subset, the Goal
   4 `timerfd-descriptor-v1` disarmed/relative-one-shot descriptor subset, the
   Goal 3 epoll `interest-list-v1` reconstruction subset,
-  and the Goal 3 signalfd `empty-queue-v1` descriptor subset;
+  the Goal 3 signalfd `empty-queue-v1` descriptor subset, and the Goal 11 real
+  loopback TCP listener/readiness plus explicit-broker active TCP subsets;
 - active syscall completion only for sleep/`ppoll` timeout, empty pipe read,
   empty eventfd read, timerfd read, offset-backed regular-file
   `read`/`pread64`/single-iovec `readv`, and offset-backed regular-file

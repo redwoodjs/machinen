@@ -37,7 +37,23 @@ import {
 } from "../packages/runtime/src/target-guest-two-thread-restore.ts";
 import { FINAL_JUMP_EXPECTED_RETURN, FINAL_JUMP_RETURN_MARKER } from "./native-final-jump-utils.ts";
 
-interface Args {
+interface ProofVerifierFeatures {
+  includeEventfdCounterProof: boolean;
+  includeTimerfdDescriptorProof: boolean;
+  includePipePairProof: boolean;
+  includeEpollProof: boolean;
+  includeSignalfdProof: boolean;
+  includeReadinessEventfdPollProof: boolean;
+  includeRegularFileDuplicateFdProof: boolean;
+  includeTargetAuxvAtRandomProof: boolean;
+  includePrivateLayoutProof: boolean;
+  includeSignalMaskBlockedProof: boolean;
+  includeTcpListenerProof: boolean;
+  includeTcpListenerReadinessProof: boolean;
+  includeTcpActiveBrokerProof: boolean;
+}
+
+interface Args extends ProofVerifierFeatures {
   bundleDir?: string;
   targetCodeFile?: string;
   image?: string;
@@ -53,16 +69,6 @@ interface Args {
     | "apply-target-env-cwd"
     | "apply-target-visible-context"
     | "apply-target-initial-stack";
-  includeEventfdCounterProof: boolean;
-  includeTimerfdDescriptorProof: boolean;
-  includePipePairProof: boolean;
-  includeEpollProof: boolean;
-  includeSignalfdProof: boolean;
-  includeReadinessEventfdPollProof: boolean;
-  includeRegularFileDuplicateFdProof: boolean;
-  includeTargetAuxvAtRandomProof: boolean;
-  includePrivateLayoutProof: boolean;
-  includeSignalMaskBlockedProof: boolean;
 }
 
 interface TargetInvocation {
@@ -102,7 +108,7 @@ interface CombinedDescriptorPaths {
   mapping: NativeMemoryMapping;
 }
 
-interface CombinedDescriptorContext extends CombinedDescriptorPaths {
+interface CombinedDescriptorContext extends CombinedDescriptorPaths, ProofVerifierFeatures {
   targetThreadRestoreResult: "accepted";
   targetThreadRestoreThreadId: string;
   targetSignalBlockedMasks: string[];
@@ -114,16 +120,6 @@ interface CombinedDescriptorContext extends CombinedDescriptorPaths {
   targetProcessContextSteps: TargetGuestNativeRestoreStep[];
   activeFileReadProof?: ActiveFileReadProof;
   activeFileWriteProof?: ActiveFileWriteProof;
-  includeEventfdCounterProof: boolean;
-  includeTimerfdDescriptorProof: boolean;
-  includePipePairProof: boolean;
-  includeEpollProof: boolean;
-  includeSignalfdProof: boolean;
-  includeReadinessEventfdPollProof: boolean;
-  includeRegularFileDuplicateFdProof: boolean;
-  includeTargetAuxvAtRandomProof: boolean;
-  includePrivateLayoutProof: boolean;
-  includeSignalMaskBlockedProof: boolean;
 }
 
 interface ActiveFileReadProof {
@@ -184,6 +180,14 @@ const PROOF_TIMER_FD = 11;
 const PROOF_EPOLL_FD = 12;
 const PROOF_SIGNALFD_FD = 13;
 const PROOF_DUP_FILE_FD = 14;
+const PROOF_TCP_LISTENER_FD = 55;
+const PROOF_TCP_ACTIVE_FD = 56;
+const PROOF_TCP_BROKER_FD = 57;
+const PROOF_TCP_LISTENER_PORT = 45321;
+const PROOF_TCP_READINESS_PORT = 45322;
+const PROOF_TCP_ACTIVE_PORT = 45323;
+const PROOF_TCP_ACTIVE_INITIAL_BYTES = Buffer.from("PING");
+const PROOF_TCP_ACTIVE_REPLY_BYTES = Buffer.from("PONG");
 const PROOF_EPOLL_DATA = "0x45504f4c4c504153";
 const PROOF_EVENTFD_COUNTER = "0x2a";
 const PROOF_SIGNALFD_MASK = "0x200";
@@ -203,6 +207,9 @@ const STATE_CHECK_EVENTFD = 0x20;
 const STATE_CHECK_TIMERFD = 0x40;
 const STATE_CHECK_EPOLL = 0x80;
 const STATE_CHECK_SIGNALFD = 0x100;
+const STATE_CHECK_TCP_LISTENER = 0x200;
+const STATE_CHECK_TCP_READINESS = 0x400;
+const STATE_CHECK_TCP_ACTIVE = 0x800;
 const TRANSLATED_FRAME_MARKER = 0x4652414d45504153n;
 const TRANSLATED_RESUME_MARKER = 0x524553554d455041n;
 const TRANSLATED_FRAME_POINTER = "0x50000000ff80";
@@ -249,7 +256,8 @@ function usage(): never {
       "[--process-context-restore metadata-only|apply-target-env-cwd|apply-target-visible-context|apply-target-initial-stack] " +
       "[--include-eventfd-counter-proof] [--include-timerfd-descriptor-proof] [--include-pipe-pair-proof] [--include-epoll-proof] [--include-signalfd-proof] " +
       "[--include-readiness-eventfd-poll-proof] [--include-regular-file-duplicate-fd-proof] [--include-target-auxv-at-random-proof] " +
-      "[--include-private-layout-proof] [--include-signal-mask-blocked-proof] [--json]",
+      "[--include-private-layout-proof] [--include-signal-mask-blocked-proof] " +
+      "[--include-tcp-listener-proof] [--include-tcp-listener-readiness-proof] [--include-tcp-active-broker-proof] [--json]",
   );
   process.exit(2);
 }
@@ -281,6 +289,9 @@ function argsFromReader(read: (flag: string) => string | undefined, argv: string
     includeTargetAuxvAtRandomProof: argv.includes("--include-target-auxv-at-random-proof"),
     includePrivateLayoutProof: argv.includes("--include-private-layout-proof"),
     includeSignalMaskBlockedProof: argv.includes("--include-signal-mask-blocked-proof"),
+    includeTcpListenerProof: argv.includes("--include-tcp-listener-proof"),
+    includeTcpListenerReadinessProof: argv.includes("--include-tcp-listener-readiness-proof"),
+    includeTcpActiveBrokerProof: argv.includes("--include-tcp-active-broker-proof"),
   };
 }
 
@@ -397,6 +408,27 @@ function realUtilityPendingResults(invocation: TargetInvocation) {
     : {};
 }
 
+function proofVerifierFeaturesFromContext(
+  context: CombinedDescriptorContext,
+): ProofVerifierFeatures {
+  return {
+    includeEventfdCounterProof:
+      context.includeEventfdCounterProof || context.includeReadinessEventfdPollProof,
+    includeTimerfdDescriptorProof: context.includeTimerfdDescriptorProof,
+    includePipePairProof: context.includePipePairProof,
+    includeEpollProof: context.includeEpollProof,
+    includeSignalfdProof: context.includeSignalfdProof,
+    includeReadinessEventfdPollProof: context.includeReadinessEventfdPollProof,
+    includeRegularFileDuplicateFdProof: context.includeRegularFileDuplicateFdProof,
+    includeTargetAuxvAtRandomProof: context.includeTargetAuxvAtRandomProof,
+    includePrivateLayoutProof: context.includePrivateLayoutProof,
+    includeSignalMaskBlockedProof: context.includeSignalMaskBlockedProof,
+    includeTcpListenerProof: context.includeTcpListenerProof,
+    includeTcpListenerReadinessProof: context.includeTcpListenerReadinessProof,
+    includeTcpActiveBrokerProof: context.includeTcpActiveBrokerProof,
+  };
+}
+
 // fallow-ignore-next-line complexity
 function prepareCombinedDescriptor(
   args: Args,
@@ -415,16 +447,7 @@ function prepareCombinedDescriptor(
     context.activeFileReadProof,
     proofFdVerifierBytes(context),
     plan,
-    context.includeEventfdCounterProof || context.includeReadinessEventfdPollProof,
-    context.includeTimerfdDescriptorProof,
-    context.includePipePairProof,
-    context.includeEpollProof,
-    context.includeSignalfdProof,
-    context.includeReadinessEventfdPollProof,
-    context.includeRegularFileDuplicateFdProof,
-    context.includeTargetAuxvAtRandomProof,
-    context.includePrivateLayoutProof,
-    context.includeSignalMaskBlockedProof,
+    proofVerifierFeaturesFromContext(context),
   );
   if (isRestorePlan(targetContinuation)) {
     return targetContinuation;
@@ -531,6 +554,9 @@ function combinedDescriptorContext(
     includeTargetAuxvAtRandomProof: args.includeTargetAuxvAtRandomProof,
     includePrivateLayoutProof: args.includePrivateLayoutProof,
     includeSignalMaskBlockedProof: args.includeSignalMaskBlockedProof,
+    includeTcpListenerProof: args.includeTcpListenerProof,
+    includeTcpListenerReadinessProof: args.includeTcpListenerReadinessProof,
+    includeTcpActiveBrokerProof: args.includeTcpActiveBrokerProof,
   };
   return contextAfterPathCheck(plan, bundle.rootDir!, context);
 }
@@ -1205,16 +1231,7 @@ function prepareTargetContinuation(
   activeFileRead: ActiveFileReadProof | undefined,
   expectedFdBytes: Buffer,
   plan: ReturnType<typeof planPortableMachineVmRestoreProof>,
-  includeEventfdCounterProof: boolean,
-  includeTimerfdDescriptorProof: boolean,
-  includePipePairProof: boolean,
-  includeEpollProof: boolean,
-  includeSignalfdProof: boolean,
-  includeReadinessEventfdPollProof: boolean,
-  includeRegularFileDuplicateFdProof: boolean,
-  includeTargetAuxvAtRandomProof: boolean,
-  includePrivateLayoutProof: boolean,
-  includeSignalMaskBlockedProof: boolean,
+  features: ProofVerifierFeatures,
 ): PreparedTargetContinuation | ReturnType<typeof planPortableMachineVmRestoreProof> {
   const expectedMemoryByte = firstByte(memoryFile, mapping);
   return args.realUtilityContinuation
@@ -1224,16 +1241,7 @@ function prepareTargetContinuation(
         activeFileRead,
         expectedFdBytes,
         plan,
-        includeEventfdCounterProof,
-        includeTimerfdDescriptorProof,
-        includePipePairProof,
-        includeEpollProof,
-        includeSignalfdProof,
-        includeReadinessEventfdPollProof,
-        includeRegularFileDuplicateFdProof,
-        includeTargetAuxvAtRandomProof,
-        includePrivateLayoutProof,
-        includeSignalMaskBlockedProof,
+        features,
       )
     : {
         kind: "generated-verifier",
@@ -1241,16 +1249,7 @@ function prepareTargetContinuation(
           expectedMemoryByte,
           activeFileRead,
           expectedFdBytes,
-          includeEventfdCounterProof,
-          includeTimerfdDescriptorProof,
-          includePipePairProof,
-          includeEpollProof,
-          includeSignalfdProof,
-          includeReadinessEventfdPollProof,
-          includeRegularFileDuplicateFdProof,
-          includeTargetAuxvAtRandomProof,
-          includePrivateLayoutProof,
-          includeSignalMaskBlockedProof,
+          features,
         ),
       };
 }
@@ -1261,16 +1260,7 @@ function prepareRealUtilityContinuation(
   activeFileRead: ActiveFileReadProof | undefined,
   expectedFdBytes: Buffer,
   plan: ReturnType<typeof planPortableMachineVmRestoreProof>,
-  includeEventfdCounterProof: boolean,
-  includeTimerfdDescriptorProof: boolean,
-  includePipePairProof: boolean,
-  includeEpollProof: boolean,
-  includeSignalfdProof: boolean,
-  includeReadinessEventfdPollProof: boolean,
-  includeRegularFileDuplicateFdProof: boolean,
-  includeTargetAuxvAtRandomProof: boolean,
-  includePrivateLayoutProof: boolean,
-  includeSignalMaskBlockedProof: boolean,
+  features: ProofVerifierFeatures,
 ) {
   const targetRoot = join(targetDir, "real-utility-root");
   const modulePath = join(targetRoot, "usr/bin/realspin-code");
@@ -1279,16 +1269,7 @@ function prepareRealUtilityContinuation(
     expectedMemoryByte,
     activeFileRead,
     expectedFdBytes,
-    includeEventfdCounterProof,
-    includeTimerfdDescriptorProof,
-    includePipePairProof,
-    includeEpollProof,
-    includeSignalfdProof,
-    includeReadinessEventfdPollProof,
-    includeRegularFileDuplicateFdProof,
-    includeTargetAuxvAtRandomProof,
-    includePrivateLayoutProof,
-    includeSignalMaskBlockedProof,
+    features,
   );
   const moduleBytes = targetCode.bytes;
   writeFileSync(modulePath, moduleBytes);
@@ -1534,7 +1515,60 @@ function proofFdResources(context: CombinedDescriptorContext): NativeProcessReso
     proofTimerfdResource(context),
     ...epollProofResources(context),
     ...signalfdProofResources(context),
+    ...tcpProofResources(context),
   ];
+}
+
+// fallow-ignore-next-line complexity
+function tcpProofResources(context: CombinedDescriptorContext): NativeProcessResource[] {
+  const resources: NativeProcessResource[] = [];
+  if (context.includeTcpListenerProof || context.includeTcpListenerReadinessProof) {
+    const readiness = context.includeTcpListenerReadinessProof;
+    resources.push({
+      id: `fd:${PROOF_TCP_LISTENER_FD}:combined-proof-tcp-listener`,
+      kind: "socket" as const,
+      state: "recipe" as const,
+      fd: PROOF_TCP_LISTENER_FD,
+      path: `socket:[tcp-listener-${readiness ? PROOF_TCP_READINESS_PORT : PROOF_TCP_LISTENER_PORT}]`,
+      flags: ["octal:2"],
+      recipe: {
+        tcpListenerModel: readiness ? "loopback-listener-readiness-v1" : "loopback-listener-v1",
+        family: "inet4",
+        bindAddress: "127.0.0.1",
+        port: readiness ? PROOF_TCP_READINESS_PORT : PROOF_TCP_LISTENER_PORT,
+        backlog: 8,
+        reuseAddr: true,
+        acceptQueue: "empty",
+        acceptedConnections: "none",
+        bindPolicy: "exact-loopback-port",
+        readinessProbe: readiness ? "target-side-client" : "not-required",
+      },
+    });
+  }
+  if (context.includeTcpActiveBrokerProof) {
+    resources.push({
+      id: `fd:${PROOF_TCP_ACTIVE_FD}:combined-proof-tcp-active`,
+      kind: "socket" as const,
+      state: "recipe" as const,
+      fd: PROOF_TCP_ACTIVE_FD,
+      path: `socket:[tcp-active-${PROOF_TCP_ACTIVE_PORT}]`,
+      flags: ["octal:2"],
+      recipe: {
+        tcpActiveConnectionModel: "explicit-broker-v1",
+        family: "inet4",
+        bindAddress: "127.0.0.1",
+        port: PROOF_TCP_ACTIVE_PORT,
+        brokerFd: PROOF_TCP_BROKER_FD,
+        brokerMode: "target-loopback-peer",
+        brokerArch: "amd64",
+        initialPeerBytes: PROOF_TCP_ACTIVE_INITIAL_BYTES.toString("hex"),
+        expectedReplyBytes: PROOF_TCP_ACTIVE_REPLY_BYTES.toString("hex"),
+        halfClose: "none",
+        tlsState: "absent",
+      },
+    });
+  }
+  return resources;
 }
 
 function proofEventfdResource(context: CombinedDescriptorContext): NativeProcessResource {
@@ -1721,32 +1755,14 @@ function combinedProofTargetCode(
   expectedMemoryByte: number,
   activeFileRead: ActiveFileReadProof | undefined,
   expectedFdBytes: Buffer,
-  includeEventfdCounterProof: boolean,
-  includeTimerfdDescriptorProof: boolean,
-  includePipePairProof: boolean,
-  includeEpollProof: boolean,
-  includeSignalfdProof: boolean,
-  includeReadinessEventfdPollProof: boolean,
-  includeRegularFileDuplicateFdProof: boolean,
-  includeTargetAuxvAtRandomProof: boolean,
-  includePrivateLayoutProof: boolean,
-  includeSignalMaskBlockedProof: boolean,
+  features: ProofVerifierFeatures,
 ): Buffer {
   return proofStateVerifierTargetCode(
     expectedMemoryByte,
     "exit",
     activeFileRead,
     expectedFdBytes,
-    includeEventfdCounterProof,
-    includeTimerfdDescriptorProof,
-    includePipePairProof,
-    includeEpollProof,
-    includeSignalfdProof,
-    includeReadinessEventfdPollProof,
-    includeRegularFileDuplicateFdProof,
-    includeTargetAuxvAtRandomProof,
-    includePrivateLayoutProof,
-    includeSignalMaskBlockedProof,
+    features,
   ).bytes;
 }
 
@@ -1754,16 +1770,7 @@ function stateConsumingRealUtilityTargetCode(
   expectedMemoryByte: number,
   activeFileRead: ActiveFileReadProof | undefined,
   expectedFdBytes: Buffer,
-  includeEventfdCounterProof: boolean,
-  includeTimerfdDescriptorProof: boolean,
-  includePipePairProof: boolean,
-  includeEpollProof: boolean,
-  includeSignalfdProof: boolean,
-  includeReadinessEventfdPollProof: boolean,
-  includeRegularFileDuplicateFdProof: boolean,
-  includeTargetAuxvAtRandomProof: boolean,
-  includePrivateLayoutProof: boolean,
-  includeSignalMaskBlockedProof: boolean,
+  features: ProofVerifierFeatures,
 ): {
   bytes: Buffer;
   translatedReturnAddress: string;
@@ -1773,16 +1780,7 @@ function stateConsumingRealUtilityTargetCode(
     "return",
     activeFileRead,
     expectedFdBytes,
-    includeEventfdCounterProof,
-    includeTimerfdDescriptorProof,
-    includePipePairProof,
-    includeEpollProof,
-    includeSignalfdProof,
-    includeReadinessEventfdPollProof,
-    includeRegularFileDuplicateFdProof,
-    includeTargetAuxvAtRandomProof,
-    includePrivateLayoutProof,
-    includeSignalMaskBlockedProof,
+    features,
   );
   return {
     bytes: code.bytes,
@@ -1792,49 +1790,14 @@ function stateConsumingRealUtilityTargetCode(
 
 type ProofCompletionMode = "exit" | "return";
 
-// fallow-ignore-next-line complexity
-type ProofVerifierFeatures = {
-  includeEventfdCounterProof: boolean;
-  includeTimerfdDescriptorProof: boolean;
-  includePipePairProof: boolean;
-  includeEpollProof: boolean;
-  includeSignalfdProof: boolean;
-  includeReadinessEventfdPollProof: boolean;
-  includeRegularFileDuplicateFdProof: boolean;
-  includeTargetAuxvAtRandomProof: boolean;
-  includePrivateLayoutProof: boolean;
-  includeSignalMaskBlockedProof: boolean;
-};
-
 function proofStateVerifierTargetCode(
   expectedMemoryByte: number,
   completion: ProofCompletionMode,
   activeFileRead: ActiveFileReadProof | undefined,
   expectedFdBytes: Buffer,
-  includeEventfdCounterProof: boolean,
-  includeTimerfdDescriptorProof: boolean,
-  includePipePairProof: boolean,
-  includeEpollProof: boolean,
-  includeSignalfdProof: boolean,
-  includeReadinessEventfdPollProof: boolean,
-  includeRegularFileDuplicateFdProof: boolean,
-  includeTargetAuxvAtRandomProof: boolean,
-  includePrivateLayoutProof: boolean,
-  includeSignalMaskBlockedProof: boolean,
+  features: ProofVerifierFeatures,
 ): { bytes: Buffer; translatedReturnOffset: number } {
   const asm = new Amd64ProofAssembler();
-  const features: ProofVerifierFeatures = {
-    includeEventfdCounterProof,
-    includeTimerfdDescriptorProof,
-    includePipePairProof,
-    includeEpollProof,
-    includeSignalfdProof,
-    includeReadinessEventfdPollProof,
-    includeRegularFileDuplicateFdProof,
-    includeTargetAuxvAtRandomProof,
-    includePrivateLayoutProof,
-    includeSignalMaskBlockedProof,
-  };
   emitVerifierPrologue(asm, completion);
   emitMemoryVerifier(asm, completion, expectedMemoryByte, activeFileRead, features);
   emitDescriptorVerifier(asm, completion, expectedFdBytes, features);
@@ -1919,6 +1882,7 @@ function emitDescriptorVerifier(
   asm.markStateCheck(completion, STATE_CHECK_TIMERFD);
 }
 
+// fallow-ignore-next-line complexity
 function emitGraduatedResourceVerifier(
   asm: Amd64ProofAssembler,
   completion: ProofCompletionMode,
@@ -1934,6 +1898,23 @@ function emitGraduatedResourceVerifier(
   if (features.includeSignalfdProof) {
     asm.checkSignalfdSignal(PROOF_SIGNALFD_FD, BigInt(PROOF_SIGNALFD_MASK), SIGUSR1);
     asm.markStateCheck(completion, STATE_CHECK_SIGNALFD);
+  }
+  if (features.includeTcpListenerProof || features.includeTcpListenerReadinessProof) {
+    asm.checkTcpListener(PROOF_TCP_LISTENER_FD);
+    asm.markStateCheck(completion, STATE_CHECK_TCP_LISTENER);
+  }
+  if (features.includeTcpListenerReadinessProof) {
+    asm.checkTcpListenerReadiness(PROOF_TCP_LISTENER_FD, PROOF_TCP_READINESS_PORT);
+    asm.markStateCheck(completion, STATE_CHECK_TCP_READINESS);
+  }
+  if (features.includeTcpActiveBrokerProof) {
+    asm.checkTcpActiveBroker(
+      PROOF_TCP_ACTIVE_FD,
+      PROOF_TCP_BROKER_FD,
+      PROOF_TCP_ACTIVE_INITIAL_BYTES,
+      PROOF_TCP_ACTIVE_REPLY_BYTES,
+    );
+    asm.markStateCheck(completion, STATE_CHECK_TCP_ACTIVE);
   }
 }
 
@@ -2125,6 +2106,28 @@ class Amd64ProofAssembler {
     this.checkRaxImmediate(expectedData);
   }
 
+  checkTcpListener(fd: number): void {
+    this.checkFdOpen(fd);
+    this.getsockoptAcceptConn(fd, 0x50, 0x58);
+    this.loadU64FromRbxOffset(0x50);
+    this.checkRaxImmediate(1n);
+    this.pollStoredFd(fd, 0x60, 0x0001, 0);
+  }
+
+  checkTcpListenerReadiness(fd: number, port: number): void {
+    this.connectLoopbackClient(port, 0x70);
+    this.pollStoredFd(fd, 0x60, 0x0001, 1);
+    this.cmpWordRbxOffsetImm16(0x66, 0x0001);
+    this.jumpIfNotEqual();
+  }
+
+  checkTcpActiveBroker(fd: number, brokerFd: number, expected: Buffer, reply: Buffer): void {
+    this.readAndCheck(fd, expected);
+    this.storeBytesAtRbxOffset(0x50, reply);
+    this.writeFromRbxOffset(fd, 0x50, reply.length);
+    this.readAndCheck(brokerFd, reply);
+  }
+
   checkSignalfdSignal(fd: number, signalMask: bigint, signo: number): void {
     const maskOffset = 0x280;
     const bufferOffset = 0x290;
@@ -2303,6 +2306,24 @@ class Amd64ProofAssembler {
     this.pushU32(offset);
   }
 
+  private leaR10RbxOffset(offset: number): void {
+    if (offset <= 127) {
+      this.push(0x4c, 0x8d, 0x53, offset);
+      return;
+    }
+    this.push(0x4c, 0x8d, 0x93);
+    this.pushU32(offset);
+  }
+
+  private leaR8RbxOffset(offset: number): void {
+    if (offset <= 127) {
+      this.push(0x4c, 0x8d, 0x43, offset);
+      return;
+    }
+    this.push(0x4c, 0x8d, 0x83);
+    this.pushU32(offset);
+  }
+
   private lseek(fd: number, offset: number, whence: number): void {
     this.syscall(8);
     this.movFd(fd);
@@ -2318,6 +2339,54 @@ class Amd64ProofAssembler {
     this.pushU32(fd);
     this.push(0x66, 0xc7, 0x43, offset + 4, events & 0xff, (events >> 8) & 0xff);
     this.push(0x66, 0xc7, 0x43, offset + 6, 0x00, 0x00);
+  }
+
+  private getsockoptAcceptConn(fd: number, optvalOffset: number, optlenOffset: number): void {
+    this.storeU64AtRbxOffset(optvalOffset, 0n);
+    this.storeU64AtRbxOffset(optlenOffset, 4n);
+    this.syscall(55);
+    this.movFd(fd);
+    this.push(0xbe);
+    this.pushU32(1);
+    this.push(0xba);
+    this.pushU32(30);
+    this.leaR10RbxOffset(optvalOffset);
+    this.leaR8RbxOffset(optlenOffset);
+    this.push(0x0f, 0x05, 0x48, 0x85, 0xc0);
+    this.jumpIfSign();
+  }
+
+  private connectLoopbackClient(port: number, sockaddrOffset: number): void {
+    this.storeSockaddrIn(sockaddrOffset, port);
+    this.syscall(41);
+    this.push(0xbf);
+    this.pushU32(2);
+    this.push(0xbe);
+    this.pushU32(1 | 0x80000);
+    this.push(0x31, 0xd2, 0x0f, 0x05, 0x48, 0x85, 0xc0);
+    this.jumpIfSign();
+    this.push(0x48, 0x89, 0xc7);
+    this.syscall(42);
+    this.leaRsiRbxOffset(sockaddrOffset);
+    this.push(0xba);
+    this.pushU32(16);
+    this.push(0x0f, 0x05, 0x48, 0x85, 0xc0);
+    this.jumpIfSign();
+  }
+
+  private storeSockaddrIn(offset: number, port: number): void {
+    this.push(0x66, 0xc7, 0x43, offset, 0x02, 0x00);
+    const networkPortAsLe = ((port & 0xff) << 8) | ((port >> 8) & 0xff);
+    this.push(0x66, 0xc7, 0x43, offset + 2, networkPortAsLe & 0xff, (networkPortAsLe >> 8) & 0xff);
+    this.push(0xc7, 0x43, offset + 4);
+    this.pushU32(0x0100007f);
+    this.storeU64AtRbxOffset(offset + 8, 0n);
+  }
+
+  private storeBytesAtRbxOffset(offset: number, bytes: Buffer): void {
+    for (const [index, byte] of bytes.entries()) {
+      this.storeByteRbxOffset(offset + index, byte);
+    }
   }
 
   private cmpDwordRbxOffsetImm8(offset: number, value: number): void {

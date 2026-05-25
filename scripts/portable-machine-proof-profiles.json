@@ -24,7 +24,17 @@
       "controlled-thread",
       "resume-path"
     ],
-    "supportStatus": "baseline-success"
+    "supportStatus": "baseline-success",
+    "capabilities": [
+      "memory:private-rw",
+      "process:target-registers",
+      "process:target-tls",
+      "signal:blocked-mask",
+      "executable:target-native-continuation",
+      "thread:controlled",
+      "wait:ppoll-timeout",
+      "syscall:active-ppoll"
+    ]
   },
   {
     "name": "pipe-read",
@@ -50,7 +60,16 @@
       "active-syscall",
       "resume-path"
     ],
-    "supportStatus": "baseline-success"
+    "supportStatus": "baseline-success",
+    "capabilities": [
+      "memory:private-rw",
+      "process:target-registers",
+      "process:target-tls",
+      "signal:blocked-mask",
+      "executable:target-native-continuation",
+      "fd:pipe-pair",
+      "syscall:active-read"
+    ]
   },
   {
     "name": "eventfd-read",
@@ -76,7 +95,16 @@
       "active-syscall",
       "resume-path"
     ],
-    "supportStatus": "baseline-success"
+    "supportStatus": "baseline-success",
+    "capabilities": [
+      "memory:private-rw",
+      "process:target-registers",
+      "process:target-tls",
+      "signal:blocked-mask",
+      "executable:target-native-continuation",
+      "fd:eventfd",
+      "syscall:active-read"
+    ]
   },
   {
     "name": "eventfd-counter-recreate",
@@ -106,6 +134,15 @@
       "signal",
       "active-syscall",
       "resume-path"
+    ],
+    "capabilities": [
+      "memory:private-rw",
+      "process:target-registers",
+      "process:target-tls",
+      "signal:blocked-mask",
+      "executable:target-native-continuation",
+      "fd:eventfd",
+      "fd:eventfd-counter"
     ]
   },
   {
@@ -136,6 +173,14 @@
       "signal",
       "active-syscall",
       "resume-path"
+    ],
+    "capabilities": [
+      "memory:private-rw",
+      "process:target-registers",
+      "process:target-tls",
+      "signal:blocked-mask",
+      "executable:target-native-continuation",
+      "fd:timerfd"
     ]
   },
   {
@@ -166,6 +211,14 @@
       "signal",
       "active-syscall",
       "resume-path"
+    ],
+    "capabilities": [
+      "memory:private-rw",
+      "process:target-registers",
+      "process:target-tls",
+      "signal:blocked-mask",
+      "executable:target-native-continuation",
+      "fd:pipe-pair"
     ]
   },
   {
@@ -192,7 +245,16 @@
       "active-syscall",
       "resume-path"
     ],
-    "supportStatus": "baseline-success"
+    "supportStatus": "baseline-success",
+    "capabilities": [
+      "memory:private-rw",
+      "process:target-registers",
+      "process:target-tls",
+      "signal:blocked-mask",
+      "executable:target-native-continuation",
+      "fd:timerfd",
+      "syscall:active-read"
+    ]
   },
   {
     "name": "file-read",
@@ -218,7 +280,16 @@
       "active-syscall",
       "resume-path"
     ],
-    "supportStatus": "baseline-success"
+    "supportStatus": "baseline-success",
+    "capabilities": [
+      "memory:private-rw",
+      "process:target-registers",
+      "process:target-tls",
+      "signal:blocked-mask",
+      "executable:target-native-continuation",
+      "fd:regular-file",
+      "syscall:active-read"
+    ]
   },
   {
     "name": "file-pread",
@@ -244,7 +315,16 @@
       "active-syscall",
       "resume-path"
     ],
-    "supportStatus": "baseline-success"
+    "supportStatus": "baseline-success",
+    "capabilities": [
+      "memory:private-rw",
+      "process:target-registers",
+      "process:target-tls",
+      "signal:blocked-mask",
+      "executable:target-native-continuation",
+      "fd:regular-file",
+      "syscall:active-pread64"
+    ]
   },
   {
     "name": "file-readv",
@@ -270,7 +350,17 @@
       "active-syscall",
       "resume-path"
     ],
-    "supportStatus": "baseline-success"
+    "supportStatus": "baseline-success",
+    "capabilities": [
+      "memory:private-rw",
+      "process:target-registers",
+      "process:target-tls",
+      "signal:blocked-mask",
+      "executable:target-native-continuation",
+      "fd:regular-file",
+      "memory:iovec-single",
+      "syscall:active-readv"
+    ]
   },
   {
     "name": "file-write",
@@ -296,7 +386,16 @@
       "active-syscall",
       "resume-path"
     ],
-    "supportStatus": "baseline-success"
+    "supportStatus": "baseline-success",
+    "capabilities": [
+      "memory:private-rw",
+      "process:target-registers",
+      "process:target-tls",
+      "signal:blocked-mask",
+      "executable:target-native-continuation",
+      "fd:regular-file",
+      "syscall:active-write"
+    ]
   },
   {
     "name": "file-pwrite",
@@ -322,7 +421,16 @@
       "active-syscall",
       "resume-path"
     ],
-    "supportStatus": "baseline-success"
+    "supportStatus": "baseline-success",
+    "capabilities": [
+      "memory:private-rw",
+      "process:target-registers",
+      "process:target-tls",
+      "signal:blocked-mask",
+      "executable:target-native-continuation",
+      "fd:regular-file",
+      "syscall:active-pwrite64"
+    ]
   },
   {
     "name": "file-writev",
@@ -348,7 +456,17 @@
       "active-syscall",
       "resume-path"
     ],
-    "supportStatus": "baseline-success"
+    "supportStatus": "baseline-success",
+    "capabilities": [
+      "memory:private-rw",
+      "process:target-registers",
+      "process:target-tls",
+      "signal:blocked-mask",
+      "executable:target-native-continuation",
+      "fd:regular-file",
+      "memory:iovec-single",
+      "syscall:active-writev"
+    ]
   },
   {
     "name": "process-context",
@@ -374,7 +492,16 @@
       "signal",
       "resume-path"
     ],
-    "supportStatus": "baseline-success"
+    "supportStatus": "baseline-success",
+    "capabilities": [
+      "memory:private-rw",
+      "process:target-registers",
+      "process:target-tls",
+      "signal:blocked-mask",
+      "executable:target-native-continuation",
+      "process:argv-env-cwd",
+      "process:target-auxv"
+    ]
   },
   {
     "name": "epoll-recreate",
@@ -404,6 +531,15 @@
       "signal",
       "active-syscall",
       "resume-path"
+    ],
+    "capabilities": [
+      "memory:private-rw",
+      "process:target-registers",
+      "process:target-tls",
+      "signal:blocked-mask",
+      "executable:target-native-continuation",
+      "fd:epoll",
+      "wait:epoll-interest-list"
     ]
   },
   {
@@ -434,6 +570,15 @@
       "signal",
       "active-syscall",
       "resume-path"
+    ],
+    "capabilities": [
+      "memory:private-rw",
+      "process:target-registers",
+      "process:target-tls",
+      "signal:blocked-mask",
+      "executable:target-native-continuation",
+      "fd:signalfd",
+      "signal:signalfd-empty-queue"
     ]
   },
   {
@@ -470,6 +615,16 @@
       "signal",
       "active-syscall",
       "resume-path"
+    ],
+    "capabilities": [
+      "memory:private-rw",
+      "process:target-registers",
+      "process:target-tls",
+      "signal:blocked-mask",
+      "executable:target-native-continuation",
+      "fd:eventfd",
+      "wait:poll",
+      "wait:readiness-level-triggered"
     ]
   },
   {
@@ -505,6 +660,15 @@
       "signal",
       "active-syscall",
       "resume-path"
+    ],
+    "capabilities": [
+      "memory:private-rw",
+      "process:target-registers",
+      "process:target-tls",
+      "signal:blocked-mask",
+      "executable:target-native-continuation",
+      "fd:regular-file",
+      "fd:duplicate-alias-shared-ofd"
     ]
   },
   {
@@ -540,6 +704,15 @@
       "process-context",
       "signal",
       "resume-path"
+    ],
+    "capabilities": [
+      "memory:private-rw",
+      "process:target-registers",
+      "process:target-tls",
+      "signal:blocked-mask",
+      "executable:target-native-continuation",
+      "process:target-auxv",
+      "process:target-at-random"
     ]
   },
   {
@@ -576,6 +749,14 @@
       "signal",
       "active-syscall",
       "resume-path"
+    ],
+    "capabilities": [
+      "memory:private-rw",
+      "process:target-registers",
+      "process:target-tls",
+      "signal:blocked-mask",
+      "executable:target-native-continuation",
+      "memory:anonymous-data-range"
     ]
   },
   {
@@ -612,6 +793,13 @@
       "signal",
       "active-syscall",
       "resume-path"
+    ],
+    "capabilities": [
+      "memory:private-rw",
+      "process:target-registers",
+      "process:target-tls",
+      "signal:blocked-mask",
+      "executable:target-native-continuation"
     ]
   },
   {
@@ -643,7 +831,8 @@
         "docs",
         "validation-timings"
       ]
-    }
+    },
+    "refusesCapabilities": ["wait:poll"]
   },
   {
     "name": "readiness-scheduler-refusal",
@@ -674,7 +863,8 @@
         "docs",
         "validation-timings"
       ]
-    }
+    },
+    "refusesCapabilities": ["wait:scheduler-order"]
   },
   {
     "name": "readiness-edge-trigger-refusal",
@@ -705,7 +895,8 @@
         "docs",
         "validation-timings"
       ]
-    }
+    },
+    "refusesCapabilities": ["wait:edge-triggered"]
   },
   {
     "name": "readiness-signal-mask-refusal",
@@ -736,7 +927,8 @@
         "docs",
         "validation-timings"
       ]
-    }
+    },
+    "refusesCapabilities": ["wait:ppoll-signal-mask-change", "signal:blocked-mask-change"]
   },
   {
     "name": "readiness-pollfd-memory-refusal",
@@ -767,7 +959,8 @@
         "docs",
         "validation-timings"
       ]
-    }
+    },
+    "refusesCapabilities": ["wait:pollfd-memory", "memory:pollfd-set"]
   },
   {
     "name": "socket-readiness-refusal",
@@ -798,7 +991,8 @@
         "docs",
         "validation-timings"
       ]
-    }
+    },
+    "refusesCapabilities": ["fd:socket", "wait:socket-readiness"]
   },
   {
     "name": "auxv-source-pointer-refusal",
@@ -829,7 +1023,8 @@
         "docs",
         "validation-timings"
       ]
-    }
+    },
+    "refusesCapabilities": ["process:source-auxv-pointer"]
   },
   {
     "name": "at-random-source-refusal",
@@ -860,7 +1055,8 @@
         "docs",
         "validation-timings"
       ]
-    }
+    },
+    "refusesCapabilities": ["process:source-at-random"]
   },
   {
     "name": "at-execfn-identity-refusal",
@@ -891,7 +1087,8 @@
         "docs",
         "validation-timings"
       ]
-    }
+    },
+    "refusesCapabilities": ["process:at-execfn-identity"]
   },
   {
     "name": "target-libc-global-refusal",
@@ -922,7 +1119,8 @@
         "docs",
         "validation-timings"
       ]
-    }
+    },
+    "refusesCapabilities": ["process:target-libc-global"]
   },
   {
     "name": "argv-env-pointer-refusal",
@@ -953,7 +1151,8 @@
         "docs",
         "validation-timings"
       ]
-    }
+    },
+    "refusesCapabilities": ["process:argv-env-cwd"]
   },
   {
     "name": "private-layout-refusal",
@@ -984,7 +1183,8 @@
         "docs",
         "validation-timings"
       ]
-    }
+    },
+    "refusesCapabilities": ["memory:private-rw"]
   },
   {
     "name": "shared-mapping-refusal",
@@ -1015,7 +1215,8 @@
         "docs",
         "validation-timings"
       ]
-    }
+    },
+    "refusesCapabilities": ["memory:shared"]
   },
   {
     "name": "private-source-pointer-refusal",
@@ -1046,7 +1247,8 @@
         "docs",
         "validation-timings"
       ]
-    }
+    },
+    "refusesCapabilities": ["memory:source-pointer"]
   },
   {
     "name": "stale-private-range-refusal",
@@ -1077,7 +1279,8 @@
         "docs",
         "validation-timings"
       ]
-    }
+    },
+    "refusesCapabilities": ["memory:stale-captured-range"]
   },
   {
     "name": "wx-private-mapping-refusal",
@@ -1108,7 +1311,8 @@
         "docs",
         "validation-timings"
       ]
-    }
+    },
+    "refusesCapabilities": ["memory:writable-executable"]
   },
   {
     "name": "signal-mask-restart-refusal",
@@ -1139,7 +1343,8 @@
         "docs",
         "validation-timings"
       ]
-    }
+    },
+    "refusesCapabilities": ["signal:blocked-mask-change", "syscall:restart"]
   },
   {
     "name": "pending-signal-refusal",
@@ -1170,7 +1375,8 @@
         "docs",
         "validation-timings"
       ]
-    }
+    },
+    "refusesCapabilities": ["signal:pending-queue"]
   },
   {
     "name": "active-signal-frame-refusal",
@@ -1201,7 +1407,8 @@
         "docs",
         "validation-timings"
       ]
-    }
+    },
+    "refusesCapabilities": ["signal:active-frame"]
   },
   {
     "name": "alt-stack-refusal",
@@ -1232,7 +1439,8 @@
         "docs",
         "validation-timings"
       ]
-    }
+    },
+    "refusesCapabilities": ["signal:alt-stack"]
   },
   {
     "name": "restart-remaining-time-refusal",
@@ -1263,7 +1471,8 @@
         "docs",
         "validation-timings"
       ]
-    }
+    },
+    "refusesCapabilities": ["syscall:restart-remaining-time"]
   },
   {
     "name": "socket-transfer-refusal",
@@ -1294,7 +1503,8 @@
         "docs",
         "validation-timings"
       ]
-    }
+    },
+    "refusesCapabilities": ["fd:socket", "network:active-connection"]
   },
   {
     "name": "epoll-wait-refusal",
@@ -1325,7 +1535,8 @@
         "docs",
         "validation-timings"
       ]
-    }
+    },
+    "refusesCapabilities": ["fd:epoll", "wait:epoll-wait-graph"]
   },
   {
     "name": "signalfd-read-refusal",
@@ -1356,7 +1567,8 @@
         "docs",
         "validation-timings"
       ]
-    }
+    },
+    "refusesCapabilities": ["fd:signalfd", "signal:queued-signalfd"]
   },
   {
     "name": "futex-refusal",
@@ -1387,7 +1599,8 @@
         "docs",
         "validation-timings"
       ]
-    }
+    },
+    "refusesCapabilities": ["sync:futex"]
   },
   {
     "name": "rseq-refusal",
@@ -1418,7 +1631,8 @@
         "docs",
         "validation-timings"
       ]
-    }
+    },
+    "refusesCapabilities": ["sync:rseq"]
   },
   {
     "name": "restart-state-refusal",
@@ -1449,7 +1663,8 @@
         "docs",
         "validation-timings"
       ]
-    }
+    },
+    "refusesCapabilities": ["syscall:restart"]
   },
   {
     "name": "jit-self-modifying-refusal",
@@ -1480,7 +1695,8 @@
         "docs",
         "validation-timings"
       ]
-    }
+    },
+    "refusesCapabilities": ["memory:executable-source-owned", "runtime:jit-code"]
   },
   {
     "name": "source-vdso-vvar-refusal",
@@ -1511,7 +1727,8 @@
         "docs",
         "validation-timings"
       ]
-    }
+    },
+    "refusesCapabilities": ["memory:source-vdso-vvar"]
   },
   {
     "name": "raw-cross-isa-vmstate-refusal",
@@ -1542,7 +1759,8 @@
         "docs",
         "validation-timings"
       ]
-    }
+    },
+    "refusesCapabilities": ["vmstate:raw-cross-isa"]
   },
   {
     "name": "descriptor-provenance-refusal",
@@ -1573,7 +1791,8 @@
         "docs",
         "validation-timings"
       ]
-    }
+    },
+    "refusesCapabilities": ["descriptor:ambiguous-provenance"]
   },
   {
     "name": "duplicate-fd-alias-refusal",
@@ -1604,7 +1823,8 @@
         "docs",
         "validation-timings"
       ]
-    }
+    },
+    "refusesCapabilities": ["fd:duplicate-alias-unknown-ofd"]
   },
   {
     "name": "fd-alias-lock-refusal",
@@ -1635,7 +1855,8 @@
         "docs",
         "validation-timings"
       ]
-    }
+    },
+    "refusesCapabilities": ["fd:locks-leases-async-notification"]
   },
   {
     "name": "fd-alias-socket-refusal",
@@ -1666,7 +1887,8 @@
         "docs",
         "validation-timings"
       ]
-    }
+    },
+    "refusesCapabilities": ["fd:socket", "fd:duplicate-alias"]
   },
   {
     "name": "fd-alias-epoll-cycle-refusal",
@@ -1697,6 +1919,2334 @@
         "docs",
         "validation-timings"
       ]
+    },
+    "refusesCapabilities": ["fd:epoll", "wait:epoll-cycle"]
+  },
+  {
+    "name": "tcp-listener-recreate",
+    "remoteSourceTarget": "tcp-listener-recreate",
+    "description": "Target-native loopback TCP listener recreation with empty accept queue and verifier gates.",
+    "sourceFixture": "synthetic-positive:tcp-listener-recreate",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "success",
+    "supportStatus": "graduated-support",
+    "unsafeStateFamily": "socket",
+    "graduatedFromRefusalCode": "target-socket-syscall-state-unsupported",
+    "acceptedSubset": "tcp-listener-v1:loopback-no-accepted-connections",
+    "unsafeVariants": [
+      "tcp-active-connection-refusal",
+      "tcp-accept-queue-refusal",
+      "tcp-inflight-accept-refusal",
+      "tcp-nonloopback-policy-refusal",
+      "tcp-unsupported-option-refusal",
+      "tcp-listener-alias-refusal"
+    ],
+    "expectedGates": [
+      "descriptor",
+      "verifier",
+      "state-consumption",
+      "resources",
+      "return-chain",
+      "frame",
+      "registers",
+      "tls",
+      "stack-window",
+      "private-memory",
+      "executable",
+      "signal",
+      "active-syscall",
+      "resume-path"
+    ],
+    "capabilities": [
+      "memory:private-rw",
+      "process:target-registers",
+      "process:target-tls",
+      "signal:blocked-mask",
+      "executable:target-native-continuation",
+      "network:loopback-bind",
+      "wait:listener-not-ready",
+      "fd:tcp-listener"
+    ],
+    "syntheticResourceKind": "tcp-listener",
+    "syntheticResourceKinds": ["fd:tcp-listener"]
+  },
+  {
+    "name": "tcp-active-connection-refusal",
+    "remoteSourceTarget": "tcp-active-connection-refusal",
+    "description": "Active accepted TCP connections remain refused without a transport contract.",
+    "sourceFixture": "synthetic-negative:tcp-active-connection-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "socket",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "refusesCapabilities": ["fd:socket", "network:active-connection"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "tcp-accept-queue-refusal",
+    "remoteSourceTarget": "tcp-accept-queue-refusal",
+    "description": "TCP listeners with queued accepted connections refuse.",
+    "sourceFixture": "synthetic-negative:tcp-accept-queue-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "socket",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "refusesCapabilities": ["fd:tcp-listener", "network:queued-accept"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "tcp-inflight-accept-refusal",
+    "remoteSourceTarget": "tcp-inflight-accept-refusal",
+    "description": "In-flight accept/accept4 state refuses.",
+    "sourceFixture": "synthetic-negative:tcp-inflight-accept-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "socket",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "refusesCapabilities": ["fd:tcp-listener", "syscall:inflight-accept"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "tcp-nonloopback-policy-refusal",
+    "remoteSourceTarget": "tcp-nonloopback-policy-refusal",
+    "description": "Non-loopback bind without target-owned policy refuses.",
+    "sourceFixture": "synthetic-negative:tcp-nonloopback-policy-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "socket",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "refusesCapabilities": ["fd:tcp-listener", "network:nonloopback-bind"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "tcp-unsupported-option-refusal",
+    "remoteSourceTarget": "tcp-unsupported-option-refusal",
+    "description": "Unsupported TCP socket options refuse.",
+    "sourceFixture": "synthetic-negative:tcp-unsupported-option-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "socket",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "refusesCapabilities": ["fd:tcp-listener", "network:unsupported-socket-option"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "tcp-listener-alias-refusal",
+    "remoteSourceTarget": "tcp-listener-alias-refusal",
+    "description": "TCP listener fd aliases refuse.",
+    "sourceFixture": "synthetic-negative:tcp-listener-alias-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "socket",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "refusesCapabilities": ["fd:tcp-listener", "fd:socket-alias"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "private-multi-range-recreate",
+    "remoteSourceTarget": "private-multi-range-recreate",
+    "description": "Multiple private anonymous non-executable data ranges with guard-page verification.",
+    "sourceFixture": "synthetic-positive:private-multi-range-recreate",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "success",
+    "supportStatus": "graduated-support",
+    "unsafeStateFamily": "private-memory",
+    "graduatedFromRefusalCode": "mapping-permission-unsupported",
+    "acceptedSubset": "private-layout-v2:multi-anonymous-data-ranges-with-guards",
+    "unsafeVariants": [
+      "private-overlap-refusal",
+      "private-guard-mismatch-refusal",
+      "private-multi-stale-range-refusal",
+      "private-multi-source-pointer-refusal",
+      "private-multi-wx-refusal",
+      "private-out-of-bounds-relocation-refusal"
+    ],
+    "expectedGates": [
+      "descriptor",
+      "verifier",
+      "state-consumption",
+      "resources",
+      "return-chain",
+      "frame",
+      "registers",
+      "tls",
+      "stack-window",
+      "private-memory",
+      "executable",
+      "signal",
+      "active-syscall",
+      "resume-path"
+    ],
+    "capabilities": [
+      "memory:private-rw",
+      "process:target-registers",
+      "process:target-tls",
+      "signal:blocked-mask",
+      "executable:target-native-continuation",
+      "memory:guard-page",
+      "memory:private-rw-multi-range"
+    ],
+    "syntheticResourceKind": "private-memory-layout",
+    "syntheticResourceKinds": ["memory:private-rw-multi-range"]
+  },
+  {
+    "name": "private-overlap-refusal",
+    "remoteSourceTarget": "private-overlap-refusal",
+    "description": "Overlapping private ranges refuse.",
+    "sourceFixture": "synthetic-negative:private-overlap-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "private-memory",
+    "expectedRefusalCode": "mapping-permission-unsupported",
+    "refusesCapabilities": ["memory:private-rw-multi-range", "memory:overlapping-ranges"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "mapping-permission-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "private-guard-mismatch-refusal",
+    "remoteSourceTarget": "private-guard-mismatch-refusal",
+    "description": "Guard-page mismatch refuses.",
+    "sourceFixture": "synthetic-negative:private-guard-mismatch-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "private-memory",
+    "expectedRefusalCode": "mapping-permission-unsupported",
+    "refusesCapabilities": ["memory:guard-page", "memory:guard-mismatch"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "mapping-permission-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "private-multi-stale-range-refusal",
+    "remoteSourceTarget": "private-multi-stale-range-refusal",
+    "description": "Stale captured range hashes refuse.",
+    "sourceFixture": "synthetic-negative:private-multi-stale-range-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "private-memory",
+    "expectedRefusalCode": "mapping-captured-range-unsupported",
+    "refusesCapabilities": ["memory:private-rw-multi-range", "memory:stale-captured-range"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "mapping-captured-range-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "private-multi-source-pointer-refusal",
+    "remoteSourceTarget": "private-multi-source-pointer-refusal",
+    "description": "Pointers into refused mappings refuse.",
+    "sourceFixture": "synthetic-negative:private-multi-source-pointer-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "private-memory",
+    "expectedRefusalCode": "mapping-provenance-ambiguous",
+    "refusesCapabilities": ["memory:private-rw-multi-range", "pointer:source-owned"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "mapping-provenance-ambiguous",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "private-multi-wx-refusal",
+    "remoteSourceTarget": "private-multi-wx-refusal",
+    "description": "W+X private mappings refuse.",
+    "sourceFixture": "synthetic-negative:private-multi-wx-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "private-memory",
+    "expectedRefusalCode": "mapping-executable-unsupported",
+    "refusesCapabilities": ["memory:private-rw-multi-range", "memory:wx"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "mapping-executable-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "private-out-of-bounds-relocation-refusal",
+    "remoteSourceTarget": "private-out-of-bounds-relocation-refusal",
+    "description": "Out-of-bounds relocation targets refuse.",
+    "sourceFixture": "synthetic-negative:private-out-of-bounds-relocation-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "private-memory",
+    "expectedRefusalCode": "mapping-provenance-ambiguous",
+    "refusesCapabilities": ["memory:private-rw-multi-range", "pointer:relocation-out-of-bounds"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "mapping-provenance-ambiguous",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "epoll-graph-recreate",
+    "remoteSourceTarget": "epoll-graph-recreate",
+    "description": "Acyclic level-triggered epoll graph over accepted eventfd/pipe descriptors.",
+    "sourceFixture": "synthetic-positive:epoll-graph-recreate",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "success",
+    "supportStatus": "graduated-support",
+    "unsafeStateFamily": "epoll",
+    "graduatedFromRefusalCode": "target-epoll-syscall-state-unsupported",
+    "acceptedSubset": "epoll-graph-v1:acyclic-level-triggered-eventfd-and-pipe",
+    "unsafeVariants": [
+      "epoll-cycle-refusal",
+      "epoll-edge-trigger-refusal",
+      "epoll-oneshot-refusal",
+      "epoll-stale-watch-refusal",
+      "epoll-socket-readiness-refusal",
+      "epoll-ready-list-ambiguous-refusal"
+    ],
+    "expectedGates": [
+      "descriptor",
+      "verifier",
+      "state-consumption",
+      "resources",
+      "return-chain",
+      "frame",
+      "registers",
+      "tls",
+      "stack-window",
+      "private-memory",
+      "executable",
+      "signal",
+      "active-syscall",
+      "resume-path"
+    ],
+    "capabilities": [
+      "memory:private-rw",
+      "process:target-registers",
+      "process:target-tls",
+      "signal:blocked-mask",
+      "executable:target-native-continuation",
+      "wait:epoll-acyclic",
+      "wait:readiness-level-triggered",
+      "fd:eventfd",
+      "fd:pipe-pair",
+      "fd:epoll-graph"
+    ],
+    "syntheticResourceKind": "epoll-graph",
+    "syntheticResourceKinds": ["fd:epoll-graph"]
+  },
+  {
+    "name": "epoll-cycle-refusal",
+    "remoteSourceTarget": "epoll-cycle-refusal",
+    "description": "Epoll-to-epoll cycles refuse.",
+    "sourceFixture": "synthetic-negative:epoll-cycle-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "epoll",
+    "expectedRefusalCode": "target-epoll-syscall-state-unsupported",
+    "refusesCapabilities": ["fd:epoll-graph", "wait:epoll-cycle"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-epoll-syscall-state-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "epoll-edge-trigger-refusal",
+    "remoteSourceTarget": "epoll-edge-trigger-refusal",
+    "description": "Edge-triggered epoll refuses.",
+    "sourceFixture": "synthetic-negative:epoll-edge-trigger-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "epoll",
+    "expectedRefusalCode": "target-epoll-syscall-state-unsupported",
+    "refusesCapabilities": ["fd:epoll-graph", "wait:edge-triggered"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-epoll-syscall-state-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "epoll-oneshot-refusal",
+    "remoteSourceTarget": "epoll-oneshot-refusal",
+    "description": "One-shot epoll events refuse.",
+    "sourceFixture": "synthetic-negative:epoll-oneshot-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "epoll",
+    "expectedRefusalCode": "target-epoll-syscall-state-unsupported",
+    "refusesCapabilities": ["fd:epoll-graph", "wait:one-shot"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-epoll-syscall-state-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "epoll-stale-watch-refusal",
+    "remoteSourceTarget": "epoll-stale-watch-refusal",
+    "description": "Stale watched fds refuse.",
+    "sourceFixture": "synthetic-negative:epoll-stale-watch-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "epoll",
+    "expectedRefusalCode": "target-epoll-syscall-state-unsupported",
+    "refusesCapabilities": ["fd:epoll-graph", "fd:stale-watch"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-epoll-syscall-state-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "epoll-socket-readiness-refusal",
+    "remoteSourceTarget": "epoll-socket-readiness-refusal",
+    "description": "Socket readiness without policy refuses.",
+    "sourceFixture": "synthetic-negative:epoll-socket-readiness-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "epoll",
+    "expectedRefusalCode": "target-epoll-syscall-state-unsupported",
+    "refusesCapabilities": ["fd:epoll-graph", "fd:socket", "wait:socket-readiness-without-policy"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-epoll-syscall-state-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "epoll-ready-list-ambiguous-refusal",
+    "remoteSourceTarget": "epoll-ready-list-ambiguous-refusal",
+    "description": "Ambiguous ready-list state refuses.",
+    "sourceFixture": "synthetic-negative:epoll-ready-list-ambiguous-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "epoll",
+    "expectedRefusalCode": "target-epoll-syscall-state-unsupported",
+    "refusesCapabilities": ["fd:epoll-graph", "wait:ambiguous-ready-list"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-epoll-syscall-state-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "file-backed-private-mapping-recreate",
+    "remoteSourceTarget": "file-backed-private-mapping-recreate",
+    "description": "Non-executable private file mapping with target file digest and dirty overlay verification.",
+    "sourceFixture": "synthetic-positive:file-backed-private-mapping-recreate",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "success",
+    "supportStatus": "graduated-support",
+    "unsafeStateFamily": "file-backed-private-mapping",
+    "graduatedFromRefusalCode": "mapping-provenance-ambiguous",
+    "acceptedSubset": "file-backed-private-mapping-v1:nonexec-private-dirty-overlay",
+    "unsafeVariants": [
+      "file-backed-missing-provenance-refusal",
+      "file-backed-digest-mismatch-refusal",
+      "file-backed-executable-refusal",
+      "file-backed-shared-refusal",
+      "file-backed-stale-dirty-refusal",
+      "file-backed-source-only-refusal"
+    ],
+    "expectedGates": [
+      "descriptor",
+      "verifier",
+      "state-consumption",
+      "resources",
+      "return-chain",
+      "frame",
+      "registers",
+      "tls",
+      "stack-window",
+      "private-memory",
+      "executable",
+      "signal",
+      "active-syscall",
+      "resume-path"
+    ],
+    "capabilities": [
+      "memory:private-rw",
+      "process:target-registers",
+      "process:target-tls",
+      "signal:blocked-mask",
+      "executable:target-native-continuation",
+      "memory:file-backed-private"
+    ],
+    "syntheticResourceKind": "file-backed-private-mapping",
+    "syntheticResourceKinds": ["memory:file-backed-private"]
+  },
+  {
+    "name": "file-backed-missing-provenance-refusal",
+    "remoteSourceTarget": "file-backed-missing-provenance-refusal",
+    "description": "Missing file provenance refuses.",
+    "sourceFixture": "synthetic-negative:file-backed-missing-provenance-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "file-backed-private-mapping",
+    "expectedRefusalCode": "mapping-provenance-ambiguous",
+    "refusesCapabilities": ["memory:file-backed-private", "file:missing-provenance"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "mapping-provenance-ambiguous",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "file-backed-digest-mismatch-refusal",
+    "remoteSourceTarget": "file-backed-digest-mismatch-refusal",
+    "description": "Digest/build-id mismatch refuses.",
+    "sourceFixture": "synthetic-negative:file-backed-digest-mismatch-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "file-backed-private-mapping",
+    "expectedRefusalCode": "mapping-provenance-ambiguous",
+    "refusesCapabilities": ["memory:file-backed-private", "file:digest-mismatch"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "mapping-provenance-ambiguous",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "file-backed-executable-refusal",
+    "remoteSourceTarget": "file-backed-executable-refusal",
+    "description": "Executable file mappings refuse.",
+    "sourceFixture": "synthetic-negative:file-backed-executable-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "file-backed-private-mapping",
+    "expectedRefusalCode": "mapping-executable-unsupported",
+    "refusesCapabilities": ["memory:file-backed-private", "memory:executable"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "mapping-executable-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "file-backed-shared-refusal",
+    "remoteSourceTarget": "file-backed-shared-refusal",
+    "description": "Shared file mappings refuse.",
+    "sourceFixture": "synthetic-negative:file-backed-shared-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "file-backed-private-mapping",
+    "expectedRefusalCode": "mapping-shared-unsupported",
+    "refusesCapabilities": ["memory:file-backed-private", "memory:shared"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "mapping-shared-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "file-backed-stale-dirty-refusal",
+    "remoteSourceTarget": "file-backed-stale-dirty-refusal",
+    "description": "Stale dirty overlay pages refuse.",
+    "sourceFixture": "synthetic-negative:file-backed-stale-dirty-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "file-backed-private-mapping",
+    "expectedRefusalCode": "mapping-captured-range-unsupported",
+    "refusesCapabilities": ["memory:file-backed-private", "memory:stale-dirty-overlay"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "mapping-captured-range-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "file-backed-source-only-refusal",
+    "remoteSourceTarget": "file-backed-source-only-refusal",
+    "description": "Source-only path identity refuses.",
+    "sourceFixture": "synthetic-negative:file-backed-source-only-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "file-backed-private-mapping",
+    "expectedRefusalCode": "mapping-provenance-ambiguous",
+    "refusesCapabilities": ["memory:file-backed-private", "file:source-only-path"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "mapping-provenance-ambiguous",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "active-syscall-eintr-recreate",
+    "remoteSourceTarget": "active-syscall-eintr-recreate",
+    "description": "Deterministic active syscall EINTR completion with no pending signal delivery.",
+    "sourceFixture": "synthetic-positive:active-syscall-eintr-recreate",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "success",
+    "supportStatus": "graduated-support",
+    "unsafeStateFamily": "active-syscall",
+    "graduatedFromRefusalCode": "syscall-restart-unsupported",
+    "acceptedSubset": "active-syscall-eintr-v1:ppoll-timeout-no-signal-delivery",
+    "unsafeVariants": [
+      "eintr-restart-block-refusal",
+      "eintr-pending-signal-refusal",
+      "eintr-active-signal-frame-refusal",
+      "eintr-alt-stack-refusal",
+      "eintr-unsupported-syscall-refusal",
+      "eintr-remaining-time-refusal",
+      "eintr-signal-mask-change-refusal"
+    ],
+    "expectedGates": [
+      "descriptor",
+      "verifier",
+      "state-consumption",
+      "resources",
+      "return-chain",
+      "frame",
+      "registers",
+      "tls",
+      "stack-window",
+      "private-memory",
+      "executable",
+      "signal",
+      "active-syscall",
+      "resume-path"
+    ],
+    "capabilities": [
+      "memory:private-rw",
+      "process:target-registers",
+      "process:target-tls",
+      "signal:blocked-mask",
+      "executable:target-native-continuation",
+      "signal:no-pending-delivery",
+      "wait:ppoll-timeout",
+      "syscall:active-eintr"
+    ],
+    "syntheticResourceKind": "active-syscall-eintr",
+    "syntheticResourceKinds": ["syscall:active-eintr"]
+  },
+  {
+    "name": "eintr-restart-block-refusal",
+    "remoteSourceTarget": "eintr-restart-block-refusal",
+    "description": "Restart blocks refuse.",
+    "sourceFixture": "synthetic-negative:eintr-restart-block-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "active-syscall",
+    "expectedRefusalCode": "syscall-restart-unsupported",
+    "refusesCapabilities": ["syscall:active-eintr", "syscall:restart-block"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "syscall-restart-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "eintr-pending-signal-refusal",
+    "remoteSourceTarget": "eintr-pending-signal-refusal",
+    "description": "Pending signal delivery refuses.",
+    "sourceFixture": "synthetic-negative:eintr-pending-signal-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "active-syscall",
+    "expectedRefusalCode": "signal-state-unsupported",
+    "refusesCapabilities": ["syscall:active-eintr", "signal:pending-delivery"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "signal-state-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "eintr-active-signal-frame-refusal",
+    "remoteSourceTarget": "eintr-active-signal-frame-refusal",
+    "description": "Active signal frames refuse.",
+    "sourceFixture": "synthetic-negative:eintr-active-signal-frame-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "active-syscall",
+    "expectedRefusalCode": "signal-state-unsupported",
+    "refusesCapabilities": ["syscall:active-eintr", "signal:active-frame"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "signal-state-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "eintr-alt-stack-refusal",
+    "remoteSourceTarget": "eintr-alt-stack-refusal",
+    "description": "Alt-stack state refuses.",
+    "sourceFixture": "synthetic-negative:eintr-alt-stack-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "active-syscall",
+    "expectedRefusalCode": "signal-state-unsupported",
+    "refusesCapabilities": ["syscall:active-eintr", "signal:alt-stack"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "signal-state-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "eintr-unsupported-syscall-refusal",
+    "remoteSourceTarget": "eintr-unsupported-syscall-refusal",
+    "description": "Unsupported interrupted syscalls refuse.",
+    "sourceFixture": "synthetic-negative:eintr-unsupported-syscall-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "active-syscall",
+    "expectedRefusalCode": "syscall-restart-unsupported",
+    "refusesCapabilities": ["syscall:active-eintr", "syscall:unsupported"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "syscall-restart-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "eintr-remaining-time-refusal",
+    "remoteSourceTarget": "eintr-remaining-time-refusal",
+    "description": "Ambiguous remaining-time state refuses.",
+    "sourceFixture": "synthetic-negative:eintr-remaining-time-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "active-syscall",
+    "expectedRefusalCode": "syscall-restart-unsupported",
+    "refusesCapabilities": ["syscall:active-eintr", "syscall:ambiguous-remaining-time"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "syscall-restart-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "eintr-signal-mask-change-refusal",
+    "remoteSourceTarget": "eintr-signal-mask-change-refusal",
+    "description": "Signal-mask-changing wait state refuses.",
+    "sourceFixture": "synthetic-negative:eintr-signal-mask-change-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "active-syscall",
+    "expectedRefusalCode": "signal-state-unsupported",
+    "refusesCapabilities": ["syscall:active-eintr", "signal:mask-changing-wait"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "signal-state-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "tcp-active-connection-transport-recreate",
+    "remoteSourceTarget": "tcp-active-connection-transport-recreate",
+    "description": "One plain TCP stream restored through a declared target-native transport broker.",
+    "sourceFixture": "synthetic-positive:tcp-active-connection-transport-recreate",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "success",
+    "supportStatus": "graduated-support",
+    "unsafeStateFamily": "transport",
+    "graduatedFromRefusalCode": "target-socket-syscall-state-unsupported",
+    "acceptedSubset": "tcp-active-connection-v1:single-plain-stream-explicit-broker",
+    "unsafeVariants": [
+      "tcp-active-missing-broker-refusal",
+      "tcp-active-wrong-broker-arch-refusal",
+      "tcp-active-tls-session-refusal",
+      "tcp-active-unknown-option-refusal",
+      "tcp-active-unread-byte-mismatch-refusal",
+      "tcp-active-half-close-mismatch-refusal",
+      "tcp-active-oob-refusal",
+      "tcp-active-non-tcp-refusal",
+      "tcp-active-source-sidecar-refusal"
+    ],
+    "expectedGates": [
+      "descriptor",
+      "verifier",
+      "state-consumption",
+      "resources",
+      "return-chain",
+      "frame",
+      "registers",
+      "tls",
+      "stack-window",
+      "private-memory",
+      "executable",
+      "signal",
+      "active-syscall",
+      "resume-path"
+    ],
+    "capabilities": [
+      "memory:private-rw",
+      "process:target-registers",
+      "process:target-tls",
+      "signal:blocked-mask",
+      "executable:target-native-continuation",
+      "transport:explicit-broker",
+      "network:tcp-active-connection"
+    ],
+    "syntheticResourceKind": "tcp-active-connection",
+    "syntheticResourceKinds": ["network:tcp-active-connection"],
+    "transportBroker": {
+      "id": "loopback-broker-v1",
+      "path": "/usr/libexec/machinen/transport-broker",
+      "sha256": "sha256-transport-broker-fixture",
+      "targetArch": "amd64",
+      "networkNamespace": "target-proof-ns",
+      "mode": "loopback-relay"
+    }
+  },
+  {
+    "name": "tcp-active-missing-broker-refusal",
+    "remoteSourceTarget": "tcp-active-missing-broker-refusal",
+    "description": "Missing TCP broker refuses.",
+    "sourceFixture": "synthetic-negative:tcp-active-missing-broker-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "transport",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "refusesCapabilities": ["network:tcp-active-connection", "transport:missing-broker"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "tcp-active-wrong-broker-arch-refusal",
+    "remoteSourceTarget": "tcp-active-wrong-broker-arch-refusal",
+    "description": "Wrong-arch TCP broker refuses.",
+    "sourceFixture": "synthetic-negative:tcp-active-wrong-broker-arch-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "transport",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "refusesCapabilities": ["network:tcp-active-connection", "transport:wrong-arch-broker"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "tcp-active-tls-session-refusal",
+    "remoteSourceTarget": "tcp-active-tls-session-refusal",
+    "description": "Opaque TLS/session state refuses.",
+    "sourceFixture": "synthetic-negative:tcp-active-tls-session-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "transport",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "refusesCapabilities": ["network:tcp-active-connection", "transport:tls-session-opaque"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "tcp-active-unknown-option-refusal",
+    "remoteSourceTarget": "tcp-active-unknown-option-refusal",
+    "description": "Unknown TCP options refuse.",
+    "sourceFixture": "synthetic-negative:tcp-active-unknown-option-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "transport",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "refusesCapabilities": ["network:tcp-active-connection", "network:unsupported-socket-option"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "tcp-active-unread-byte-mismatch-refusal",
+    "remoteSourceTarget": "tcp-active-unread-byte-mismatch-refusal",
+    "description": "Unread byte mismatch refuses.",
+    "sourceFixture": "synthetic-negative:tcp-active-unread-byte-mismatch-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "transport",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "refusesCapabilities": ["network:tcp-active-connection", "transport:unread-byte-mismatch"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "tcp-active-half-close-mismatch-refusal",
+    "remoteSourceTarget": "tcp-active-half-close-mismatch-refusal",
+    "description": "Half-close mismatch refuses.",
+    "sourceFixture": "synthetic-negative:tcp-active-half-close-mismatch-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "transport",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "refusesCapabilities": ["network:tcp-active-connection", "transport:half-close-mismatch"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "tcp-active-oob-refusal",
+    "remoteSourceTarget": "tcp-active-oob-refusal",
+    "description": "Out-of-band TCP data refuses.",
+    "sourceFixture": "synthetic-negative:tcp-active-oob-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "transport",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "refusesCapabilities": ["network:tcp-active-connection", "transport:oob-data"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "tcp-active-non-tcp-refusal",
+    "remoteSourceTarget": "tcp-active-non-tcp-refusal",
+    "description": "Non-TCP sockets refuse.",
+    "sourceFixture": "synthetic-negative:tcp-active-non-tcp-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "transport",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "refusesCapabilities": ["network:tcp-active-connection", "network:non-tcp"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "tcp-active-source-sidecar-refusal",
+    "remoteSourceTarget": "tcp-active-source-sidecar-refusal",
+    "description": "Source-side process dependency refuses.",
+    "sourceFixture": "synthetic-negative:tcp-active-source-sidecar-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "transport",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "refusesCapabilities": ["network:tcp-active-connection", "transport:source-sidecar-dependency"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "tcp-listener-readiness-recreate",
+    "remoteSourceTarget": "tcp-listener-readiness-recreate",
+    "description": "Goal 8 listener readiness verified before and after a target-side probe client.",
+    "sourceFixture": "synthetic-positive:tcp-listener-readiness-recreate",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "success",
+    "supportStatus": "graduated-support",
+    "unsafeStateFamily": "socket-readiness",
+    "graduatedFromRefusalCode": "target-socket-syscall-state-unsupported",
+    "acceptedSubset": "tcp-listener-readiness-v1:no-queued-accept-target-probe",
+    "unsafeVariants": [
+      "tcp-listener-readiness-queued-refusal",
+      "tcp-listener-readiness-inflight-accept-refusal",
+      "tcp-listener-readiness-edge-refusal",
+      "tcp-listener-readiness-alias-refusal",
+      "tcp-listener-readiness-scheduler-refusal"
+    ],
+    "expectedGates": [
+      "descriptor",
+      "verifier",
+      "state-consumption",
+      "resources",
+      "return-chain",
+      "frame",
+      "registers",
+      "tls",
+      "stack-window",
+      "private-memory",
+      "executable",
+      "signal",
+      "active-syscall",
+      "resume-path"
+    ],
+    "capabilities": [
+      "memory:private-rw",
+      "process:target-registers",
+      "process:target-tls",
+      "signal:blocked-mask",
+      "executable:target-native-continuation",
+      "fd:tcp-listener",
+      "wait:tcp-listener-readiness"
+    ],
+    "syntheticResourceKind": "tcp-listener-readiness",
+    "syntheticResourceKinds": ["wait:tcp-listener-readiness"]
+  },
+  {
+    "name": "tcp-listener-readiness-queued-refusal",
+    "remoteSourceTarget": "tcp-listener-readiness-queued-refusal",
+    "description": "Queued accepts refuse listener readiness.",
+    "sourceFixture": "synthetic-negative:tcp-listener-readiness-queued-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "socket-readiness",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "refusesCapabilities": ["wait:tcp-listener-readiness", "network:queued-accept"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "tcp-listener-readiness-inflight-accept-refusal",
+    "remoteSourceTarget": "tcp-listener-readiness-inflight-accept-refusal",
+    "description": "In-flight accept refuses listener readiness.",
+    "sourceFixture": "synthetic-negative:tcp-listener-readiness-inflight-accept-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "socket-readiness",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "refusesCapabilities": ["wait:tcp-listener-readiness", "syscall:inflight-accept"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "tcp-listener-readiness-edge-refusal",
+    "remoteSourceTarget": "tcp-listener-readiness-edge-refusal",
+    "description": "Edge-triggered listener readiness refuses.",
+    "sourceFixture": "synthetic-negative:tcp-listener-readiness-edge-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "socket-readiness",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "refusesCapabilities": ["wait:tcp-listener-readiness", "wait:edge-triggered"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "tcp-listener-readiness-alias-refusal",
+    "remoteSourceTarget": "tcp-listener-readiness-alias-refusal",
+    "description": "Listener alias ambiguity refuses.",
+    "sourceFixture": "synthetic-negative:tcp-listener-readiness-alias-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "socket-readiness",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "refusesCapabilities": ["wait:tcp-listener-readiness", "fd:socket-alias"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "tcp-listener-readiness-scheduler-refusal",
+    "remoteSourceTarget": "tcp-listener-readiness-scheduler-refusal",
+    "description": "Scheduler ordering ambiguity refuses.",
+    "sourceFixture": "synthetic-negative:tcp-listener-readiness-scheduler-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "socket-readiness",
+    "expectedRefusalCode": "kernel-state-unsupported",
+    "refusesCapabilities": ["wait:tcp-listener-readiness", "scheduler:ambiguous-ordering"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "kernel-state-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "futex-private-wait-wake-recreate",
+    "remoteSourceTarget": "futex-private-wait-wake-recreate",
+    "description": "Private futex one-waiter/one-wake model with deterministic resume verifier.",
+    "sourceFixture": "synthetic-positive:futex-private-wait-wake-recreate",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "success",
+    "supportStatus": "graduated-support",
+    "unsafeStateFamily": "futex",
+    "graduatedFromRefusalCode": "futex-state-unsupported",
+    "acceptedSubset": "futex-private-v1:one-waiter-one-wake",
+    "unsafeVariants": [
+      "futex-shared-refusal",
+      "futex-pi-refusal",
+      "futex-robust-list-refusal",
+      "futex-requeue-refusal",
+      "futex-multiple-waiters-refusal",
+      "futex-timeout-ambiguity-refusal",
+      "futex-owner-death-refusal",
+      "futex-word-provenance-refusal"
+    ],
+    "expectedGates": [
+      "descriptor",
+      "verifier",
+      "state-consumption",
+      "resources",
+      "return-chain",
+      "frame",
+      "registers",
+      "tls",
+      "stack-window",
+      "private-memory",
+      "executable",
+      "signal",
+      "active-syscall",
+      "resume-path"
+    ],
+    "capabilities": [
+      "memory:private-rw",
+      "process:target-registers",
+      "process:target-tls",
+      "signal:blocked-mask",
+      "executable:target-native-continuation",
+      "thread:deterministic-wake",
+      "sync:futex-private"
+    ],
+    "syntheticResourceKind": "futex-private",
+    "syntheticResourceKinds": ["sync:futex-private"],
+    "synchronizationProvenance": {
+      "events": ["futex-wait-enter", "futex-wake-one", "waiter-resumed"],
+      "wakeOrdering": "deterministic-one-waiter"
+    }
+  },
+  {
+    "name": "futex-shared-refusal",
+    "remoteSourceTarget": "futex-shared-refusal",
+    "description": "Shared futexes refuse.",
+    "sourceFixture": "synthetic-negative:futex-shared-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "futex",
+    "expectedRefusalCode": "futex-state-unsupported",
+    "refusesCapabilities": ["sync:futex-private", "sync:futex-shared"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "futex-state-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "futex-pi-refusal",
+    "remoteSourceTarget": "futex-pi-refusal",
+    "description": "Priority-inheritance futexes refuse.",
+    "sourceFixture": "synthetic-negative:futex-pi-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "futex",
+    "expectedRefusalCode": "futex-state-unsupported",
+    "refusesCapabilities": ["sync:futex-private", "sync:futex-pi"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "futex-state-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "futex-robust-list-refusal",
+    "remoteSourceTarget": "futex-robust-list-refusal",
+    "description": "Robust-list futexes refuse.",
+    "sourceFixture": "synthetic-negative:futex-robust-list-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "futex",
+    "expectedRefusalCode": "futex-state-unsupported",
+    "refusesCapabilities": ["sync:futex-private", "sync:robust-list"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "futex-state-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "futex-requeue-refusal",
+    "remoteSourceTarget": "futex-requeue-refusal",
+    "description": "Futex requeue refuses.",
+    "sourceFixture": "synthetic-negative:futex-requeue-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "futex",
+    "expectedRefusalCode": "futex-state-unsupported",
+    "refusesCapabilities": ["sync:futex-private", "sync:futex-requeue"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "futex-state-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "futex-multiple-waiters-refusal",
+    "remoteSourceTarget": "futex-multiple-waiters-refusal",
+    "description": "Multiple waiters refuse.",
+    "sourceFixture": "synthetic-negative:futex-multiple-waiters-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "futex",
+    "expectedRefusalCode": "futex-state-unsupported",
+    "refusesCapabilities": ["sync:futex-private", "sync:multiple-waiters"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "futex-state-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "futex-timeout-ambiguity-refusal",
+    "remoteSourceTarget": "futex-timeout-ambiguity-refusal",
+    "description": "Futex timeout ambiguity refuses.",
+    "sourceFixture": "synthetic-negative:futex-timeout-ambiguity-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "futex",
+    "expectedRefusalCode": "futex-state-unsupported",
+    "refusesCapabilities": ["sync:futex-private", "sync:timeout-ambiguous"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "futex-state-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "futex-owner-death-refusal",
+    "remoteSourceTarget": "futex-owner-death-refusal",
+    "description": "Owner-death state refuses.",
+    "sourceFixture": "synthetic-negative:futex-owner-death-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "futex",
+    "expectedRefusalCode": "futex-state-unsupported",
+    "refusesCapabilities": ["sync:futex-private", "sync:owner-death"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "futex-state-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "futex-word-provenance-refusal",
+    "remoteSourceTarget": "futex-word-provenance-refusal",
+    "description": "Futex word provenance mismatch refuses.",
+    "sourceFixture": "synthetic-negative:futex-word-provenance-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "futex",
+    "expectedRefusalCode": "mapping-provenance-ambiguous",
+    "refusesCapabilities": ["sync:futex-private", "memory:futex-word-provenance-mismatch"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "mapping-provenance-ambiguous",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "rseq-absent-or-target-registered-recreate",
+    "remoteSourceTarget": "rseq-absent-or-target-registered-recreate",
+    "description": "Explicit absent/unregistered or target-registered rseq lifecycle with target TLS ownership.",
+    "sourceFixture": "synthetic-positive:rseq-absent-or-target-registered-recreate",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "success",
+    "supportStatus": "graduated-support",
+    "unsafeStateFamily": "rseq",
+    "graduatedFromRefusalCode": "rseq-state-unsupported",
+    "acceptedSubset": "rseq-lifecycle-v1:absent-or-target-registered-no-critical-section",
+    "unsafeVariants": [
+      "rseq-active-critical-section-refusal",
+      "rseq-source-tls-refusal",
+      "rseq-mismatched-registration-refusal",
+      "rseq-thread-inconsistency-refusal",
+      "rseq-scheduler-ambiguity-refusal"
+    ],
+    "expectedGates": [
+      "descriptor",
+      "verifier",
+      "state-consumption",
+      "resources",
+      "return-chain",
+      "frame",
+      "registers",
+      "tls",
+      "stack-window",
+      "private-memory",
+      "executable",
+      "signal",
+      "active-syscall",
+      "resume-path"
+    ],
+    "capabilities": [
+      "memory:private-rw",
+      "process:target-registers",
+      "process:target-tls",
+      "signal:blocked-mask",
+      "executable:target-native-continuation",
+      "tls:target-owned",
+      "sync:rseq-lifecycle"
+    ],
+    "syntheticResourceKind": "rseq-lifecycle",
+    "syntheticResourceKinds": ["sync:rseq-lifecycle"],
+    "synchronizationProvenance": {
+      "events": ["rseq-state-read", "target-tls-owned", "no-critical-section"]
+    }
+  },
+  {
+    "name": "rseq-active-critical-section-refusal",
+    "remoteSourceTarget": "rseq-active-critical-section-refusal",
+    "description": "Active rseq critical section refuses.",
+    "sourceFixture": "synthetic-negative:rseq-active-critical-section-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "rseq",
+    "expectedRefusalCode": "rseq-state-unsupported",
+    "refusesCapabilities": ["sync:rseq-lifecycle", "sync:rseq-active-critical-section"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "rseq-state-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "rseq-source-tls-refusal",
+    "remoteSourceTarget": "rseq-source-tls-refusal",
+    "description": "Source-owned TLS rseq state refuses.",
+    "sourceFixture": "synthetic-negative:rseq-source-tls-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "rseq",
+    "expectedRefusalCode": "tls-state-unsupported",
+    "refusesCapabilities": ["sync:rseq-lifecycle", "tls:source-owned"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "tls-state-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "rseq-mismatched-registration-refusal",
+    "remoteSourceTarget": "rseq-mismatched-registration-refusal",
+    "description": "Mismatched rseq registration refuses.",
+    "sourceFixture": "synthetic-negative:rseq-mismatched-registration-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "rseq",
+    "expectedRefusalCode": "rseq-state-unsupported",
+    "refusesCapabilities": ["sync:rseq-lifecycle", "sync:rseq-registration-mismatch"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "rseq-state-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "rseq-thread-inconsistency-refusal",
+    "remoteSourceTarget": "rseq-thread-inconsistency-refusal",
+    "description": "Per-thread rseq inconsistency refuses.",
+    "sourceFixture": "synthetic-negative:rseq-thread-inconsistency-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "rseq",
+    "expectedRefusalCode": "rseq-state-unsupported",
+    "refusesCapabilities": ["sync:rseq-lifecycle", "thread:rseq-inconsistent"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "rseq-state-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "rseq-scheduler-ambiguity-refusal",
+    "remoteSourceTarget": "rseq-scheduler-ambiguity-refusal",
+    "description": "Scheduler-visible rseq ambiguity refuses.",
+    "sourceFixture": "synthetic-negative:rseq-scheduler-ambiguity-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "rseq",
+    "expectedRefusalCode": "rseq-state-unsupported",
+    "refusesCapabilities": ["sync:rseq-lifecycle", "scheduler:ambiguous-ordering"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "rseq-state-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "shared-memory-contract-recreate",
+    "remoteSourceTarget": "shared-memory-contract-recreate",
+    "description": "Single memfd shared mapping with declared participant and visibility verifier.",
+    "sourceFixture": "synthetic-positive:shared-memory-contract-recreate",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "success",
+    "supportStatus": "graduated-support",
+    "unsafeStateFamily": "shared-memory",
+    "graduatedFromRefusalCode": "mapping-shared-unsupported",
+    "acceptedSubset": "shared-memory-v1:single-memfd-declared-participant",
+    "unsafeVariants": [
+      "shared-memory-missing-participant-refusal",
+      "shared-memory-executable-refusal",
+      "shared-memory-stale-dirty-refusal",
+      "shared-memory-seal-mismatch-refusal",
+      "shared-memory-unsupported-backing-refusal",
+      "shared-memory-cross-process-ambiguity-refusal",
+      "shared-memory-source-only-refusal"
+    ],
+    "expectedGates": [
+      "descriptor",
+      "verifier",
+      "state-consumption",
+      "resources",
+      "return-chain",
+      "frame",
+      "registers",
+      "tls",
+      "stack-window",
+      "private-memory",
+      "executable",
+      "signal",
+      "active-syscall",
+      "resume-path"
+    ],
+    "capabilities": [
+      "memory:private-rw",
+      "process:target-registers",
+      "process:target-tls",
+      "signal:blocked-mask",
+      "executable:target-native-continuation",
+      "fd:memfd",
+      "memory:shared-contract"
+    ],
+    "syntheticResourceKind": "shared-memory-contract",
+    "syntheticResourceKinds": ["memory:shared-contract"],
+    "synchronizationProvenance": {
+      "events": ["memfd-created", "shared-visibility-verified"],
+      "participants": ["captured-process"]
+    }
+  },
+  {
+    "name": "shared-memory-missing-participant-refusal",
+    "remoteSourceTarget": "shared-memory-missing-participant-refusal",
+    "description": "Missing shared-memory participants refuse.",
+    "sourceFixture": "synthetic-negative:shared-memory-missing-participant-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "shared-memory",
+    "expectedRefusalCode": "mapping-shared-unsupported",
+    "refusesCapabilities": ["memory:shared-contract", "memory:missing-participant"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "mapping-shared-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "shared-memory-executable-refusal",
+    "remoteSourceTarget": "shared-memory-executable-refusal",
+    "description": "Executable shared mappings refuse.",
+    "sourceFixture": "synthetic-negative:shared-memory-executable-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "shared-memory",
+    "expectedRefusalCode": "mapping-executable-unsupported",
+    "refusesCapabilities": ["memory:shared-contract", "memory:executable"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "mapping-executable-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "shared-memory-stale-dirty-refusal",
+    "remoteSourceTarget": "shared-memory-stale-dirty-refusal",
+    "description": "Stale shared dirty bytes refuse.",
+    "sourceFixture": "synthetic-negative:shared-memory-stale-dirty-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "shared-memory",
+    "expectedRefusalCode": "mapping-captured-range-unsupported",
+    "refusesCapabilities": ["memory:shared-contract", "memory:stale-dirty-overlay"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "mapping-captured-range-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "shared-memory-seal-mismatch-refusal",
+    "remoteSourceTarget": "shared-memory-seal-mismatch-refusal",
+    "description": "Memfd seal mismatch refuses.",
+    "sourceFixture": "synthetic-negative:shared-memory-seal-mismatch-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "shared-memory",
+    "expectedRefusalCode": "mapping-provenance-ambiguous",
+    "refusesCapabilities": ["memory:shared-contract", "fd:memfd-seal-mismatch"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "mapping-provenance-ambiguous",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "shared-memory-unsupported-backing-refusal",
+    "remoteSourceTarget": "shared-memory-unsupported-backing-refusal",
+    "description": "Unsupported shared backing refuses.",
+    "sourceFixture": "synthetic-negative:shared-memory-unsupported-backing-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "shared-memory",
+    "expectedRefusalCode": "mapping-shared-unsupported",
+    "refusesCapabilities": ["memory:shared-contract", "memory:unsupported-shared-backing"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "mapping-shared-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "shared-memory-cross-process-ambiguity-refusal",
+    "remoteSourceTarget": "shared-memory-cross-process-ambiguity-refusal",
+    "description": "Cross-process ambiguity refuses.",
+    "sourceFixture": "synthetic-negative:shared-memory-cross-process-ambiguity-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "shared-memory",
+    "expectedRefusalCode": "mapping-shared-unsupported",
+    "refusesCapabilities": ["memory:shared-contract", "process:cross-process-ambiguous"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "mapping-shared-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "shared-memory-source-only-refusal",
+    "remoteSourceTarget": "shared-memory-source-only-refusal",
+    "description": "Source-only shared backing refuses.",
+    "sourceFixture": "synthetic-negative:shared-memory-source-only-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "shared-memory",
+    "expectedRefusalCode": "mapping-provenance-ambiguous",
+    "refusesCapabilities": ["memory:shared-contract", "memory:source-only-backing"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "mapping-provenance-ambiguous",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "private-multi-invalid-file-provenance-refusal",
+    "remoteSourceTarget": "private-multi-invalid-file-provenance-refusal",
+    "description": "Real private multi-range workload refuses when its regular-file provenance is invalid.",
+    "sourceFixture": "synthetic-negative:private-multi-invalid-file-provenance-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "private-memory",
+    "expectedRefusalCode": "mapping-provenance-ambiguous",
+    "refusesCapabilities": [
+      "memory:private-rw-multi-range",
+      "fd:regular-file",
+      "file:invalid-provenance"
+    ],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "mapping-provenance-ambiguous",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "real-private-multi-range-file-recreate",
+    "remoteSourceTarget": "real-private-multi-range-file-recreate",
+    "description": "Real arm64 C workload with multiple private anonymous ranges, guard pages, and a regular-file read fd restored target-natively on amd64.",
+    "sourceFixture": "packages/microvm/assets/native-private-multi-range-file-target.c",
+    "traceSyscall": "read",
+    "traceFd": 38,
+    "expectedResult": "success",
+    "supportStatus": "graduated-support",
+    "unsafeStateFamily": "private-memory",
+    "graduatedFromRefusalCode": "mapping-permission-unsupported",
+    "acceptedSubset": "real-private-layout-v2:multi-anonymous-data-ranges-with-guards-and-regular-file-fd",
+    "unsafeVariants": [
+      "private-overlap-refusal",
+      "private-guard-mismatch-refusal",
+      "private-multi-stale-range-refusal",
+      "private-multi-source-pointer-refusal",
+      "private-multi-wx-refusal",
+      "private-out-of-bounds-relocation-refusal",
+      "private-multi-invalid-file-provenance-refusal"
+    ],
+    "expectedGates": [
+      "descriptor",
+      "verifier",
+      "state-consumption",
+      "resources",
+      "return-chain",
+      "frame",
+      "registers",
+      "tls",
+      "stack-window",
+      "private-memory",
+      "executable",
+      "signal",
+      "active-syscall",
+      "resume-path"
+    ],
+    "capabilities": [
+      "memory:private-rw",
+      "memory:private-rw-multi-range",
+      "memory:guard-page",
+      "fd:regular-file",
+      "syscall:active-read",
+      "process:target-registers",
+      "process:target-tls",
+      "signal:blocked-mask",
+      "executable:target-native-continuation"
+    ]
+  },
+  {
+    "name": "raw-icmp-ping-refusal",
+    "remoteSourceTarget": "raw-icmp-ping-refusal",
+    "description": "ping/raw ICMP remains refused until raw-socket capability, namespace, route, and packet-state contracts exist.",
+    "sourceFixture": "synthetic-negative:raw-icmp-ping-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "raw-network",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "refusesCapabilities": ["network:raw-icmp", "fd:raw-socket", "capability:cap-net-raw"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-native-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-profiles"
+      ]
+    }
+  },
+  {
+    "name": "real-tcp-listener-recreate",
+    "remoteSourceTarget": "real-tcp-listener-recreate",
+    "description": "Target-native loopback TCP listener recreation with empty accept queue and verifier gates.",
+    "sourceFixture": "real:packages/microvm/assets/native-tcp-listener-target.c",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "success",
+    "supportStatus": "graduated-support",
+    "unsafeStateFamily": "socket",
+    "graduatedFromRefusalCode": "target-socket-syscall-state-unsupported",
+    "acceptedSubset": "real-tcp-listener-v1:loopback-no-accepted-connections",
+    "unsafeVariants": [
+      "tcp-active-connection-refusal",
+      "tcp-accept-queue-refusal",
+      "tcp-inflight-accept-refusal",
+      "tcp-nonloopback-policy-refusal",
+      "tcp-unsupported-option-refusal",
+      "tcp-listener-alias-refusal"
+    ],
+    "expectedGates": [
+      "descriptor",
+      "verifier",
+      "state-consumption",
+      "resources",
+      "return-chain",
+      "frame",
+      "registers",
+      "tls",
+      "stack-window",
+      "private-memory",
+      "executable",
+      "signal",
+      "active-syscall",
+      "resume-path"
+    ],
+    "capabilities": [
+      "memory:private-rw",
+      "process:target-registers",
+      "process:target-tls",
+      "signal:blocked-mask",
+      "executable:target-native-continuation",
+      "network:loopback-bind",
+      "wait:listener-not-ready",
+      "fd:tcp-listener",
+      "proof:real-arm64-source-workload"
+    ],
+    "syntheticResourceKind": "tcp-listener",
+    "syntheticResourceKinds": ["fd:tcp-listener"]
+  },
+  {
+    "name": "real-tcp-listener-readiness-recreate",
+    "remoteSourceTarget": "real-tcp-listener-readiness-recreate",
+    "description": "Goal 8 listener readiness verified before and after a target-side probe client.",
+    "sourceFixture": "real:packages/microvm/assets/native-tcp-listener-target.c",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "success",
+    "supportStatus": "graduated-support",
+    "unsafeStateFamily": "socket-readiness",
+    "graduatedFromRefusalCode": "target-socket-syscall-state-unsupported",
+    "acceptedSubset": "real-tcp-listener-readiness-v1:no-queued-accept-target-probe",
+    "unsafeVariants": [
+      "tcp-listener-readiness-queued-refusal",
+      "tcp-listener-readiness-inflight-accept-refusal",
+      "tcp-listener-readiness-edge-refusal",
+      "tcp-listener-readiness-alias-refusal",
+      "tcp-listener-readiness-scheduler-refusal"
+    ],
+    "expectedGates": [
+      "descriptor",
+      "verifier",
+      "state-consumption",
+      "resources",
+      "return-chain",
+      "frame",
+      "registers",
+      "tls",
+      "stack-window",
+      "private-memory",
+      "executable",
+      "signal",
+      "active-syscall",
+      "resume-path"
+    ],
+    "capabilities": [
+      "memory:private-rw",
+      "process:target-registers",
+      "process:target-tls",
+      "signal:blocked-mask",
+      "executable:target-native-continuation",
+      "fd:tcp-listener",
+      "wait:tcp-listener-readiness",
+      "proof:real-arm64-source-workload"
+    ],
+    "syntheticResourceKind": "tcp-listener-readiness",
+    "syntheticResourceKinds": ["wait:tcp-listener-readiness"]
+  },
+  {
+    "name": "real-tcp-active-connection-transport-recreate",
+    "remoteSourceTarget": "real-tcp-active-connection-transport-recreate",
+    "description": "One plain TCP stream restored through a declared target-native transport broker.",
+    "sourceFixture": "real:packages/microvm/assets/native-tcp-active-target.c",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "success",
+    "supportStatus": "graduated-support",
+    "unsafeStateFamily": "transport",
+    "graduatedFromRefusalCode": "target-socket-syscall-state-unsupported",
+    "acceptedSubset": "real-tcp-active-connection-v1:single-plain-stream-explicit-broker",
+    "unsafeVariants": [
+      "tcp-active-missing-broker-refusal",
+      "tcp-active-wrong-broker-arch-refusal",
+      "tcp-active-tls-session-refusal",
+      "tcp-active-unknown-option-refusal",
+      "tcp-active-unread-byte-mismatch-refusal",
+      "tcp-active-half-close-mismatch-refusal",
+      "tcp-active-oob-refusal",
+      "tcp-active-non-tcp-refusal",
+      "tcp-active-source-sidecar-refusal"
+    ],
+    "expectedGates": [
+      "descriptor",
+      "verifier",
+      "state-consumption",
+      "resources",
+      "return-chain",
+      "frame",
+      "registers",
+      "tls",
+      "stack-window",
+      "private-memory",
+      "executable",
+      "signal",
+      "active-syscall",
+      "resume-path"
+    ],
+    "capabilities": [
+      "memory:private-rw",
+      "process:target-registers",
+      "process:target-tls",
+      "signal:blocked-mask",
+      "executable:target-native-continuation",
+      "transport:explicit-broker",
+      "network:tcp-active-connection",
+      "proof:real-arm64-source-workload"
+    ],
+    "syntheticResourceKind": "tcp-active-connection",
+    "syntheticResourceKinds": ["network:tcp-active-connection"],
+    "transportBroker": {
+      "kind": "target-loopback-peer",
+      "declared": true,
+      "arch": "amd64",
+      "mode": "proof-verifier-owned",
+      "fd": 57,
+      "sourceDependency": false
     }
   }
 ]

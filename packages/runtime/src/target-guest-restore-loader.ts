@@ -79,6 +79,22 @@ export type TargetGuestRestoreResourceRecipe =
       fd: number;
       watches: TargetGuestEpollWatchRecipe[];
       closeOnExec?: boolean;
+    }
+  | {
+      kind: "synthetic-tcp-listener";
+      fd: number;
+      port: number;
+      backlog: number;
+      reuseAddr?: boolean;
+      closeOnExec?: boolean;
+    }
+  | {
+      kind: "synthetic-tcp-active-broker";
+      fd: number;
+      brokerFd: number;
+      port: number;
+      initialPeerBytes: string;
+      closeOnExec?: boolean;
     };
 
 export type TargetGuestRestoreResumeMode = "translated-frame";
@@ -479,6 +495,8 @@ const RESOURCE_RECIPE_PARSERS: Record<
   "synthetic-timerfd": parseSyntheticTimerfdRecipe,
   "synthetic-signalfd": parseSyntheticSignalfdRecipe,
   "synthetic-epoll": parseSyntheticEpollRecipe,
+  "synthetic-tcp-listener": parseSyntheticTcpListenerRecipe,
+  "synthetic-tcp-active-broker": parseSyntheticTcpActiveBrokerRecipe,
 };
 
 function resourceFromFields(
@@ -581,6 +599,32 @@ function parseEpollWatch(fields: Map<string, string>, index: number): TargetGues
     fd: parseResourceInteger(fields, `watch${index}Fd`),
     events: parseResourceInteger(fields, `watch${index}Events`),
     data: requiredResourceField(fields, `watch${index}Data`),
+  };
+}
+
+function parseSyntheticTcpListenerRecipe(
+  fields: Map<string, string>,
+): TargetGuestRestoreResourceRecipe {
+  return {
+    kind: "synthetic-tcp-listener",
+    fd: parseResourceInteger(fields, "fd"),
+    port: parseResourceInteger(fields, "port"),
+    backlog: parseResourceInteger(fields, "backlog"),
+    reuseAddr: parseResourceBoolean(fields, "reuseAddr"),
+    closeOnExec: parseResourceBoolean(fields, "closeOnExec"),
+  };
+}
+
+function parseSyntheticTcpActiveBrokerRecipe(
+  fields: Map<string, string>,
+): TargetGuestRestoreResourceRecipe {
+  return {
+    kind: "synthetic-tcp-active-broker",
+    fd: parseResourceInteger(fields, "fd"),
+    brokerFd: parseResourceInteger(fields, "brokerFd"),
+    port: parseResourceInteger(fields, "port"),
+    initialPeerBytes: requiredResourceField(fields, "initialPeerBytes"),
+    closeOnExec: parseResourceBoolean(fields, "closeOnExec"),
   };
 }
 
@@ -1146,6 +1190,8 @@ const RESOURCE_RECIPE_VALIDATORS = {
   "synthetic-timerfd": validateSyntheticTimerfdRecipe,
   "synthetic-signalfd": validateSyntheticSignalfdRecipe,
   "synthetic-epoll": validateSyntheticEpollRecipe,
+  "synthetic-tcp-listener": validateSyntheticTcpListenerRecipe,
+  "synthetic-tcp-active-broker": validateSyntheticTcpActiveBrokerRecipe,
 };
 
 function validateResourceRecipe(
@@ -1243,6 +1289,39 @@ function validateSyntheticEpollRecipe(
   }
 }
 
+function validateSyntheticTcpListenerRecipe(
+  recipe: Extract<TargetGuestRestoreResourceRecipe, { kind: "synthetic-tcp-listener" }>,
+): void {
+  assertFd(recipe.fd, "fd");
+  assertTcpPort(recipe.port, "port");
+  assertPositive(recipe.backlog, "backlog");
+}
+
+function validateSyntheticTcpActiveBrokerRecipe(
+  recipe: Extract<TargetGuestRestoreResourceRecipe, { kind: "synthetic-tcp-active-broker" }>,
+): void {
+  assertFd(recipe.fd, "fd");
+  assertFd(recipe.brokerFd, "brokerFd");
+  assertTcpPort(recipe.port, "port");
+  assertHexBytes(recipe.initialPeerBytes, "initialPeerBytes");
+  if (recipe.fd === recipe.brokerFd) {
+    fail("target-guest-loader-invalid-fd", "active TCP fd and broker fd must differ");
+  }
+}
+
+function assertTcpPort(value: number, name: string): void {
+  assertPositive(value, name);
+  if (value > 65535) {
+    fail("target-guest-loader-descriptor-invalid", `${name} must be a TCP port`);
+  }
+}
+
+function assertHexBytes(value: string, name: string): void {
+  if (!/^(?:[0-9a-fA-F]{2})*$/.test(value)) {
+    fail("target-guest-loader-descriptor-invalid", `${name} must be even-length hex bytes`);
+  }
+}
+
 function assertUniqueResourceFds(resources: TargetGuestRestoreResourceRecipe[]): void {
   const owners = new Map<number, string>();
   for (const resource of resources) {
@@ -1262,6 +1341,9 @@ function assertUniqueResourceFds(resources: TargetGuestRestoreResourceRecipe[]):
 function resourceFds(resource: TargetGuestRestoreResourceRecipe): number[] {
   if (resource.kind === "synthetic-empty-pipe") {
     return resource.writeFd === undefined ? [resource.readFd] : [resource.readFd, resource.writeFd];
+  }
+  if (resource.kind === "synthetic-tcp-active-broker") {
+    return [resource.fd, resource.brokerFd];
   }
   return [resource.fd];
 }
@@ -1783,6 +1865,12 @@ function serializeResourceRecipe(recipe: TargetGuestRestoreResourceRecipe): stri
   if (recipe.kind === "synthetic-signalfd") {
     return `resource=synthetic-signalfd fd=${recipe.fd} signalMask=${recipe.signalMask} flags=${recipe.flags}${serializeCloseOnExec(recipe.closeOnExec)}`;
   }
+  if (recipe.kind === "synthetic-tcp-listener") {
+    return `resource=synthetic-tcp-listener fd=${recipe.fd} port=${recipe.port} backlog=${recipe.backlog} reuseAddr=${recipe.reuseAddr ? 1 : 0}${serializeCloseOnExec(recipe.closeOnExec)}`;
+  }
+  if (recipe.kind === "synthetic-tcp-active-broker") {
+    return `resource=synthetic-tcp-active-broker fd=${recipe.fd} brokerFd=${recipe.brokerFd} port=${recipe.port} initialPeerBytes=${recipe.initialPeerBytes}${serializeCloseOnExec(recipe.closeOnExec)}`;
+  }
   return `resource=synthetic-epoll fd=${recipe.fd} watchCount=${recipe.watches.length}${recipe.watches
     .flatMap((watch, index) => [
       `watch${index}Fd=${watch.fd}`,
@@ -1945,6 +2033,7 @@ function resumeRegisterArgs(registers: TargetGuestResumeRegisters | undefined): 
       ]);
 }
 
+// fallow-ignore-next-line complexity
 function resourceToTrampolineArgs(recipe: TargetGuestRestoreResourceRecipe): string[] {
   if (recipe.kind === "close-fd") {
     return [];
@@ -1983,9 +2072,23 @@ function resourceToTrampolineArgs(recipe: TargetGuestRestoreResourceRecipe): str
       ...closeOnExecArgs(recipe.fd, recipe.closeOnExec),
     ];
   }
+  if (recipe.kind === "synthetic-epoll") {
+    return [
+      "--synthetic-epoll",
+      epollResourceSpec(recipe),
+      ...closeOnExecArgs(recipe.fd, recipe.closeOnExec),
+    ];
+  }
+  if (recipe.kind === "synthetic-tcp-listener") {
+    return [
+      "--synthetic-tcp-listener",
+      tcpListenerResourceSpec(recipe),
+      ...closeOnExecArgs(recipe.fd, recipe.closeOnExec),
+    ];
+  }
   return [
-    "--synthetic-epoll",
-    epollResourceSpec(recipe),
+    "--synthetic-tcp-active-broker",
+    tcpActiveBrokerResourceSpec(recipe),
     ...closeOnExecArgs(recipe.fd, recipe.closeOnExec),
   ];
 }
@@ -2036,6 +2139,28 @@ function epollResourceSpec(
       `watch${index}Events=${watch.events}`,
       `watch${index}Data=${watch.data}`,
     ]),
+  ].join(";");
+}
+
+function tcpListenerResourceSpec(
+  recipe: Extract<TargetGuestRestoreResourceRecipe, { kind: "synthetic-tcp-listener" }>,
+): string {
+  return [
+    `fd=${recipe.fd}`,
+    `port=${recipe.port}`,
+    `backlog=${recipe.backlog}`,
+    `reuseAddr=${recipe.reuseAddr ? 1 : 0}`,
+  ].join(";");
+}
+
+function tcpActiveBrokerResourceSpec(
+  recipe: Extract<TargetGuestRestoreResourceRecipe, { kind: "synthetic-tcp-active-broker" }>,
+): string {
+  return [
+    `fd=${recipe.fd}`,
+    `brokerFd=${recipe.brokerFd}`,
+    `port=${recipe.port}`,
+    `initialPeerBytes=${recipe.initialPeerBytes}`,
   ].join(";");
 }
 
