@@ -10,8 +10,8 @@ Current profile inventory:
 
 - 11 `baseline-success` profiles;
 - 29 `graduated-support` profiles;
-- 181 `intentional-refusal` profiles;
-- 3 `permanent-refusal` profiles.
+- 157 `intentional-refusal` profiles;
+- 27 `permanent-refusal` profiles.
 
 ## Success contract
 
@@ -108,8 +108,9 @@ unsafe families are:
 - signal-mask-changing `ppoll`/wait semantics;
 - native addons, JIT/self-modifying code, and opaque runtime state;
 - source vDSO/vvar reuse and raw cross-ISA vmstate replay;
-- Goal 18/20 master-audit families that are intentionally refused until exact
-  descriptor/verifier gates exist: generic socket send/receive queues, UDP
+- Goal 18/20 master-audit families that are permanent broad-state refusals until
+  a future narrow subset supplies exact descriptor/verifier gates: generic socket
+  send/receive queues, UDP
   datagram queues, established TCP without the explicit broker, kqueue state,
   file locks/leases, mmap dirty aliasing, huge/special mappings, general
   SIMD/FPU and architecture-specific register state, dynamic linker state,
@@ -143,7 +144,9 @@ A refusal is passing behavior when it shows:
 
 - the exact expected refusal code;
 - `migrationCompleted=false`;
-- `descriptorGateCompleted=false` when the descriptor cannot be safely accepted;
+- `descriptorGateCompleted=false` when the descriptor cannot be safely accepted,
+  or `descriptorGateCompleted=true` followed by a target verifier refusal for
+  target-native permanent-refusal proofs;
 - no source text replay, no source-ISA emulation, and no sidecar success path;
 - no accidental target-native success.
 

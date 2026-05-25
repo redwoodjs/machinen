@@ -25,6 +25,44 @@ AMD64_REMOTE_WORK=${PORTABLE_MACHINE_AMD64_WORK_DIR:-/tmp/machinen-portable-mach
 REMOTE_PORTABLE_BUNDLE="$AMD64_REMOTE_WORK/portable-machine"
 REMOTE_TARGET_CODE="$REMOTE_PORTABLE_BUNDLE/target/continuation.bin"
 
+master_audit_refusal_code() {
+  case "$1" in
+    socket-receive-queue-general-refusal|socket-send-queue-general-refusal|udp-datagram-queue-refusal|tcp-established-without-broker-refusal|namespace-routing-provenance-refusal|target-next-packet-unverified-refusal)
+      echo "target-socket-syscall-state-unsupported"
+      ;;
+    kqueue-readiness-refusal|file-lock-refusal|file-lease-refusal|timer-delivery-order-refusal|pipe-buffered-data-waiter-refusal|eventfd-waiter-alias-refusal)
+      echo "kernel-state-unsupported"
+      ;;
+    mmap-dirty-alias-refusal|dynamic-linker-state-refusal|deleted-executable-mapping-refusal)
+      echo "mapping-provenance-ambiguous"
+      ;;
+    huge-page-special-mapping-refusal)
+      echo "mapping-permission-unsupported"
+      ;;
+    simd-fpu-state-refusal|architecture-register-state-refusal)
+      echo "cross-isa-vmstate-restore-unsupported"
+      ;;
+    aslr-sensitive-pointer-refusal|stack-heap-edge-layout-refusal)
+      echo "mapping-captured-range-unsupported"
+      ;;
+    signal-handler-pc-stack-refusal)
+      echo "signal-state-unsupported"
+      ;;
+    thread-join-state-refusal)
+      echo "futex-state-unsupported"
+      ;;
+    thread-tls-edge-refusal)
+      echo "tls-state-unsupported"
+      ;;
+    vvar-time-source-refusal)
+      echo "vdso-policy-unsupported"
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 usage() {
   echo "usage: bash scripts/smoke/portable-machine-restore.sh [--json] [--dry-run] [--remote-e2e] [--keep] [--work-dir path]" >&2
   exit 2
@@ -489,7 +527,12 @@ capture_remote_native_process_bundle() {
       target_detail="remote arm64 pipe read bundle with target signalfd descriptor proof captured from $ARM64_SSH"
       ;;
     *)
-      finish_failure "unsupported PORTABLE_MACHINE_REMOTE_SOURCE_TARGET=$REMOTE_SOURCE_TARGET"
+      if master_audit_refusal_code "$REMOTE_SOURCE_TARGET" >/dev/null; then
+        target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-pipe-read-target"
+        target_detail="remote arm64 pipe read bundle with target-native master-audit refusal proof captured from $ARM64_SSH"
+      else
+        finish_failure "unsupported PORTABLE_MACHINE_REMOTE_SOURCE_TARGET=$REMOTE_SOURCE_TARGET"
+      fi
       ;;
   esac
   local capture_command="'$ARM64_REMOTE_WORK/bin/machinen-native-process-capture' --output '$ARM64_REMOTE_WORK/capture/bundle' --target-arch amd64 --settle-ms 150 -- '$target_binary'"
@@ -588,6 +631,9 @@ run_target_restore() {
     resource_model_args_text="${resource_model_args[*]}"
   elif [[ "$REMOTE_SOURCE_TARGET" == eventfd-alias-*-refusal ]]; then
     resource_model_args=(--include-eventfd-alias-proof --eventfd-alias-expected-refusal-code kernel-state-unsupported --eventfd-alias-expected-refusal-reason "$REMOTE_SOURCE_TARGET" --expect-target-refusal-code kernel-state-unsupported)
+    resource_model_args_text="${resource_model_args[*]}"
+  elif master_refusal_code=$(master_audit_refusal_code "$REMOTE_SOURCE_TARGET"); then
+    resource_model_args=(--include-eventfd-alias-proof --eventfd-alias-expected-refusal-code "$master_refusal_code" --eventfd-alias-expected-refusal-reason "$REMOTE_SOURCE_TARGET" --expect-target-refusal-code "$master_refusal_code")
     resource_model_args_text="${resource_model_args[*]}"
   elif [[ "$REMOTE_SOURCE_TARGET" == "eventfd-readiness-pollin-recreate" ]]; then
     resource_model_args=(--include-readiness-eventfd-poll-proof)

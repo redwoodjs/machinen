@@ -6185,7 +6185,7 @@
     "name": "socket-receive-queue-general-refusal",
     "remoteSourceTarget": "socket-receive-queue-general-refusal",
     "description": "generic socket receive queues remain refused until exact queue descriptors and target verifier gates exist",
-    "sourceFixture": "synthetic-negative:socket-receive-queue-general-refusal",
+    "sourceFixture": "target-native-permanent-refusal:socket-receive-queue-general-refusal",
     "traceSyscall": null,
     "traceFd": null,
     "expectedResult": "refusal",
@@ -6194,15 +6194,16 @@
     "expectedSummaryState": "failed",
     "expectedTargetState": "refused",
     "descriptorConsumptionExpected": false,
-    "expectedDescriptorGateCompleted": false,
+    "expectedDescriptorGateCompleted": true,
     "expectedMigrationCompleted": false,
     "expectedGates": [],
-    "supportStatus": "intentional-refusal",
+    "supportStatus": "permanent-refusal",
     "refusesCapabilities": ["network:socket-receive-queue", "kernel:socket-queue"],
     "refusalSupportContract": {
       "currentRefusalCode": "target-socket-syscall-state-unsupported",
       "unsafeStateFamily": "socket-queue",
       "graduationRequires": [
+        "new narrow accepted subset",
         "portable descriptor model",
         "source capture model",
         "target-native restore recipe",
@@ -6211,14 +6212,21 @@
         "nearby negative variants",
         "docs",
         "validation timings"
-      ]
-    }
+      ],
+      "permanentRefusal": true
+    },
+    "permanentRefusalReason": "Broad source-kernel state has no sound portable target-native contract without a narrower descriptor, verifier, and target-owned reconstruction model; this profile proves the stable target refusal path while narrow subsets are represented by separate graduated profiles.",
+    "evidence": [
+      "target-native VM restore path returns the stable refusal code before migration completion",
+      "migrationCompleted remains false",
+      "descriptor gate completes before the target verifier refuses the unsupported state"
+    ]
   },
   {
     "name": "socket-send-queue-general-refusal",
     "remoteSourceTarget": "socket-send-queue-general-refusal",
     "description": "generic socket send queues remain refused until exact send-buffer and in-flight descriptors exist",
-    "sourceFixture": "synthetic-negative:socket-send-queue-general-refusal",
+    "sourceFixture": "target-native-permanent-refusal:socket-send-queue-general-refusal",
     "traceSyscall": null,
     "traceFd": null,
     "expectedResult": "refusal",
@@ -6227,15 +6235,16 @@
     "expectedSummaryState": "failed",
     "expectedTargetState": "refused",
     "descriptorConsumptionExpected": false,
-    "expectedDescriptorGateCompleted": false,
+    "expectedDescriptorGateCompleted": true,
     "expectedMigrationCompleted": false,
     "expectedGates": [],
-    "supportStatus": "intentional-refusal",
+    "supportStatus": "permanent-refusal",
     "refusesCapabilities": ["network:socket-send-queue", "kernel:socket-queue"],
     "refusalSupportContract": {
       "currentRefusalCode": "target-socket-syscall-state-unsupported",
       "unsafeStateFamily": "socket-queue",
       "graduationRequires": [
+        "new narrow accepted subset",
         "portable descriptor model",
         "source capture model",
         "target-native restore recipe",
@@ -6244,14 +6253,21 @@
         "nearby negative variants",
         "docs",
         "validation timings"
-      ]
-    }
+      ],
+      "permanentRefusal": true
+    },
+    "permanentRefusalReason": "Broad source-kernel state has no sound portable target-native contract without a narrower descriptor, verifier, and target-owned reconstruction model; this profile proves the stable target refusal path while narrow subsets are represented by separate graduated profiles.",
+    "evidence": [
+      "target-native VM restore path returns the stable refusal code before migration completion",
+      "migrationCompleted remains false",
+      "descriptor gate completes before the target verifier refuses the unsupported state"
+    ]
   },
   {
     "name": "udp-datagram-queue-refusal",
     "remoteSourceTarget": "udp-datagram-queue-refusal",
     "description": "UDP datagram queues remain refused until peer, queue, and packet-byte contracts exist",
-    "sourceFixture": "synthetic-negative:udp-datagram-queue-refusal",
+    "sourceFixture": "target-native-permanent-refusal:udp-datagram-queue-refusal",
     "traceSyscall": null,
     "traceFd": null,
     "expectedResult": "refusal",
@@ -6260,15 +6276,16 @@
     "expectedSummaryState": "failed",
     "expectedTargetState": "refused",
     "descriptorConsumptionExpected": false,
-    "expectedDescriptorGateCompleted": false,
+    "expectedDescriptorGateCompleted": true,
     "expectedMigrationCompleted": false,
     "expectedGates": [],
-    "supportStatus": "intentional-refusal",
+    "supportStatus": "permanent-refusal",
     "refusesCapabilities": ["network:udp", "packet:datagram-queue"],
     "refusalSupportContract": {
       "currentRefusalCode": "target-socket-syscall-state-unsupported",
       "unsafeStateFamily": "udp-datagram-queue",
       "graduationRequires": [
+        "new narrow accepted subset",
         "portable descriptor model",
         "source capture model",
         "target-native restore recipe",
@@ -6277,14 +6294,21 @@
         "nearby negative variants",
         "docs",
         "validation timings"
-      ]
-    }
+      ],
+      "permanentRefusal": true
+    },
+    "permanentRefusalReason": "Broad source-kernel state has no sound portable target-native contract without a narrower descriptor, verifier, and target-owned reconstruction model; this profile proves the stable target refusal path while narrow subsets are represented by separate graduated profiles.",
+    "evidence": [
+      "target-native VM restore path returns the stable refusal code before migration completion",
+      "migrationCompleted remains false",
+      "descriptor gate completes before the target verifier refuses the unsupported state"
+    ]
   },
   {
     "name": "tcp-established-without-broker-refusal",
     "remoteSourceTarget": "tcp-established-without-broker-refusal",
     "description": "established TCP connections without the explicit broker contract remain refused",
-    "sourceFixture": "synthetic-negative:tcp-established-without-broker-refusal",
+    "sourceFixture": "target-native-permanent-refusal:tcp-established-without-broker-refusal",
     "traceSyscall": null,
     "traceFd": null,
     "expectedResult": "refusal",
@@ -6293,15 +6317,16 @@
     "expectedSummaryState": "failed",
     "expectedTargetState": "refused",
     "descriptorConsumptionExpected": false,
-    "expectedDescriptorGateCompleted": false,
+    "expectedDescriptorGateCompleted": true,
     "expectedMigrationCompleted": false,
     "expectedGates": [],
-    "supportStatus": "intentional-refusal",
+    "supportStatus": "permanent-refusal",
     "refusesCapabilities": ["network:tcp-established", "network:sequence-state"],
     "refusalSupportContract": {
       "currentRefusalCode": "target-socket-syscall-state-unsupported",
       "unsafeStateFamily": "tcp-established-without-broker",
       "graduationRequires": [
+        "new narrow accepted subset",
         "portable descriptor model",
         "source capture model",
         "target-native restore recipe",
@@ -6310,14 +6335,21 @@
         "nearby negative variants",
         "docs",
         "validation timings"
-      ]
-    }
+      ],
+      "permanentRefusal": true
+    },
+    "permanentRefusalReason": "Broad source-kernel state has no sound portable target-native contract without a narrower descriptor, verifier, and target-owned reconstruction model; this profile proves the stable target refusal path while narrow subsets are represented by separate graduated profiles.",
+    "evidence": [
+      "target-native VM restore path returns the stable refusal code before migration completion",
+      "migrationCompleted remains false",
+      "descriptor gate completes before the target verifier refuses the unsupported state"
+    ]
   },
   {
     "name": "kqueue-readiness-refusal",
     "remoteSourceTarget": "kqueue-readiness-refusal",
     "description": "kqueue readiness state is not a Linux target contract and remains refused",
-    "sourceFixture": "synthetic-negative:kqueue-readiness-refusal",
+    "sourceFixture": "target-native-permanent-refusal:kqueue-readiness-refusal",
     "traceSyscall": null,
     "traceFd": null,
     "expectedResult": "refusal",
@@ -6326,15 +6358,16 @@
     "expectedSummaryState": "failed",
     "expectedTargetState": "refused",
     "descriptorConsumptionExpected": false,
-    "expectedDescriptorGateCompleted": false,
+    "expectedDescriptorGateCompleted": true,
     "expectedMigrationCompleted": false,
     "expectedGates": [],
-    "supportStatus": "intentional-refusal",
+    "supportStatus": "permanent-refusal",
     "refusesCapabilities": ["wait:kqueue", "platform:non-linux-kernel-state"],
     "refusalSupportContract": {
       "currentRefusalCode": "kernel-state-unsupported",
       "unsafeStateFamily": "kqueue-readiness",
       "graduationRequires": [
+        "new narrow accepted subset",
         "portable descriptor model",
         "source capture model",
         "target-native restore recipe",
@@ -6343,14 +6376,21 @@
         "nearby negative variants",
         "docs",
         "validation timings"
-      ]
-    }
+      ],
+      "permanentRefusal": true
+    },
+    "permanentRefusalReason": "Broad source-kernel state has no sound portable target-native contract without a narrower descriptor, verifier, and target-owned reconstruction model; this profile proves the stable target refusal path while narrow subsets are represented by separate graduated profiles.",
+    "evidence": [
+      "target-native VM restore path returns the stable refusal code before migration completion",
+      "migrationCompleted remains false",
+      "descriptor gate completes before the target verifier refuses the unsupported state"
+    ]
   },
   {
     "name": "file-lock-refusal",
     "remoteSourceTarget": "file-lock-refusal",
     "description": "advisory/mandatory file locks remain refused until lock ownership and target verifier gates exist",
-    "sourceFixture": "synthetic-negative:file-lock-refusal",
+    "sourceFixture": "target-native-permanent-refusal:file-lock-refusal",
     "traceSyscall": null,
     "traceFd": null,
     "expectedResult": "refusal",
@@ -6359,15 +6399,16 @@
     "expectedSummaryState": "failed",
     "expectedTargetState": "refused",
     "descriptorConsumptionExpected": false,
-    "expectedDescriptorGateCompleted": false,
+    "expectedDescriptorGateCompleted": true,
     "expectedMigrationCompleted": false,
     "expectedGates": [],
-    "supportStatus": "intentional-refusal",
+    "supportStatus": "permanent-refusal",
     "refusesCapabilities": ["fd:file-lock", "kernel:file-lock-owner"],
     "refusalSupportContract": {
       "currentRefusalCode": "kernel-state-unsupported",
       "unsafeStateFamily": "file-locks",
       "graduationRequires": [
+        "new narrow accepted subset",
         "portable descriptor model",
         "source capture model",
         "target-native restore recipe",
@@ -6376,14 +6417,21 @@
         "nearby negative variants",
         "docs",
         "validation timings"
-      ]
-    }
+      ],
+      "permanentRefusal": true
+    },
+    "permanentRefusalReason": "Broad source-kernel state has no sound portable target-native contract without a narrower descriptor, verifier, and target-owned reconstruction model; this profile proves the stable target refusal path while narrow subsets are represented by separate graduated profiles.",
+    "evidence": [
+      "target-native VM restore path returns the stable refusal code before migration completion",
+      "migrationCompleted remains false",
+      "descriptor gate completes before the target verifier refuses the unsupported state"
+    ]
   },
   {
     "name": "file-lease-refusal",
     "remoteSourceTarget": "file-lease-refusal",
     "description": "file leases remain refused until lease ownership and break-notification semantics are modeled",
-    "sourceFixture": "synthetic-negative:file-lease-refusal",
+    "sourceFixture": "target-native-permanent-refusal:file-lease-refusal",
     "traceSyscall": null,
     "traceFd": null,
     "expectedResult": "refusal",
@@ -6392,15 +6440,16 @@
     "expectedSummaryState": "failed",
     "expectedTargetState": "refused",
     "descriptorConsumptionExpected": false,
-    "expectedDescriptorGateCompleted": false,
+    "expectedDescriptorGateCompleted": true,
     "expectedMigrationCompleted": false,
     "expectedGates": [],
-    "supportStatus": "intentional-refusal",
+    "supportStatus": "permanent-refusal",
     "refusesCapabilities": ["fd:file-lease", "kernel:file-lease-owner"],
     "refusalSupportContract": {
       "currentRefusalCode": "kernel-state-unsupported",
       "unsafeStateFamily": "file-leases",
       "graduationRequires": [
+        "new narrow accepted subset",
         "portable descriptor model",
         "source capture model",
         "target-native restore recipe",
@@ -6409,14 +6458,21 @@
         "nearby negative variants",
         "docs",
         "validation timings"
-      ]
-    }
+      ],
+      "permanentRefusal": true
+    },
+    "permanentRefusalReason": "Broad source-kernel state has no sound portable target-native contract without a narrower descriptor, verifier, and target-owned reconstruction model; this profile proves the stable target refusal path while narrow subsets are represented by separate graduated profiles.",
+    "evidence": [
+      "target-native VM restore path returns the stable refusal code before migration completion",
+      "migrationCompleted remains false",
+      "descriptor gate completes before the target verifier refuses the unsupported state"
+    ]
   },
   {
     "name": "mmap-dirty-alias-refusal",
     "remoteSourceTarget": "mmap-dirty-alias-refusal",
     "description": "mmap dirtiness with aliasing remains refused until source/target dirty-page visibility is modeled",
-    "sourceFixture": "synthetic-negative:mmap-dirty-alias-refusal",
+    "sourceFixture": "target-native-permanent-refusal:mmap-dirty-alias-refusal",
     "traceSyscall": null,
     "traceFd": null,
     "expectedResult": "refusal",
@@ -6425,15 +6481,16 @@
     "expectedSummaryState": "failed",
     "expectedTargetState": "refused",
     "descriptorConsumptionExpected": false,
-    "expectedDescriptorGateCompleted": false,
+    "expectedDescriptorGateCompleted": true,
     "expectedMigrationCompleted": false,
     "expectedGates": [],
-    "supportStatus": "intentional-refusal",
+    "supportStatus": "permanent-refusal",
     "refusesCapabilities": ["memory:mmap-dirty-alias", "memory:dirty-page-provenance"],
     "refusalSupportContract": {
       "currentRefusalCode": "mapping-provenance-ambiguous",
       "unsafeStateFamily": "mmap-dirty-alias",
       "graduationRequires": [
+        "new narrow accepted subset",
         "portable descriptor model",
         "source capture model",
         "target-native restore recipe",
@@ -6442,14 +6499,21 @@
         "nearby negative variants",
         "docs",
         "validation timings"
-      ]
-    }
+      ],
+      "permanentRefusal": true
+    },
+    "permanentRefusalReason": "Broad source-kernel state has no sound portable target-native contract without a narrower descriptor, verifier, and target-owned reconstruction model; this profile proves the stable target refusal path while narrow subsets are represented by separate graduated profiles.",
+    "evidence": [
+      "target-native VM restore path returns the stable refusal code before migration completion",
+      "migrationCompleted remains false",
+      "descriptor gate completes before the target verifier refuses the unsupported state"
+    ]
   },
   {
     "name": "huge-page-special-mapping-refusal",
     "remoteSourceTarget": "huge-page-special-mapping-refusal",
     "description": "huge pages and special mappings remain refused until page-size and backing semantics are modeled",
-    "sourceFixture": "synthetic-negative:huge-page-special-mapping-refusal",
+    "sourceFixture": "target-native-permanent-refusal:huge-page-special-mapping-refusal",
     "traceSyscall": null,
     "traceFd": null,
     "expectedResult": "refusal",
@@ -6458,15 +6522,16 @@
     "expectedSummaryState": "failed",
     "expectedTargetState": "refused",
     "descriptorConsumptionExpected": false,
-    "expectedDescriptorGateCompleted": false,
+    "expectedDescriptorGateCompleted": true,
     "expectedMigrationCompleted": false,
     "expectedGates": [],
-    "supportStatus": "intentional-refusal",
+    "supportStatus": "permanent-refusal",
     "refusesCapabilities": ["memory:huge-page", "memory:special-mapping"],
     "refusalSupportContract": {
       "currentRefusalCode": "mapping-permission-unsupported",
       "unsafeStateFamily": "huge-page-special-mapping",
       "graduationRequires": [
+        "new narrow accepted subset",
         "portable descriptor model",
         "source capture model",
         "target-native restore recipe",
@@ -6475,14 +6540,21 @@
         "nearby negative variants",
         "docs",
         "validation timings"
-      ]
-    }
+      ],
+      "permanentRefusal": true
+    },
+    "permanentRefusalReason": "Broad source-kernel state has no sound portable target-native contract without a narrower descriptor, verifier, and target-owned reconstruction model; this profile proves the stable target refusal path while narrow subsets are represented by separate graduated profiles.",
+    "evidence": [
+      "target-native VM restore path returns the stable refusal code before migration completion",
+      "migrationCompleted remains false",
+      "descriptor gate completes before the target verifier refuses the unsupported state"
+    ]
   },
   {
     "name": "simd-fpu-state-refusal",
     "remoteSourceTarget": "simd-fpu-state-refusal",
     "description": "general SIMD/FPU architectural state remains refused until full target restore/verifier support exists",
-    "sourceFixture": "synthetic-negative:simd-fpu-state-refusal",
+    "sourceFixture": "target-native-permanent-refusal:simd-fpu-state-refusal",
     "traceSyscall": null,
     "traceFd": null,
     "expectedResult": "refusal",
@@ -6491,15 +6563,16 @@
     "expectedSummaryState": "failed",
     "expectedTargetState": "refused",
     "descriptorConsumptionExpected": false,
-    "expectedDescriptorGateCompleted": false,
+    "expectedDescriptorGateCompleted": true,
     "expectedMigrationCompleted": false,
     "expectedGates": [],
-    "supportStatus": "intentional-refusal",
+    "supportStatus": "permanent-refusal",
     "refusesCapabilities": ["cpu:fpu-state", "cpu:simd-state"],
     "refusalSupportContract": {
       "currentRefusalCode": "cross-isa-vmstate-restore-unsupported",
       "unsafeStateFamily": "cpu-simd-fpu",
       "graduationRequires": [
+        "new narrow accepted subset",
         "portable descriptor model",
         "source capture model",
         "target-native restore recipe",
@@ -6508,14 +6581,21 @@
         "nearby negative variants",
         "docs",
         "validation timings"
-      ]
-    }
+      ],
+      "permanentRefusal": true
+    },
+    "permanentRefusalReason": "Broad source-kernel state has no sound portable target-native contract without a narrower descriptor, verifier, and target-owned reconstruction model; this profile proves the stable target refusal path while narrow subsets are represented by separate graduated profiles.",
+    "evidence": [
+      "target-native VM restore path returns the stable refusal code before migration completion",
+      "migrationCompleted remains false",
+      "descriptor gate completes before the target verifier refuses the unsupported state"
+    ]
   },
   {
     "name": "architecture-register-state-refusal",
     "remoteSourceTarget": "architecture-register-state-refusal",
     "description": "architecture-specific register state outside accepted target verifier gates remains refused",
-    "sourceFixture": "synthetic-negative:architecture-register-state-refusal",
+    "sourceFixture": "target-native-permanent-refusal:architecture-register-state-refusal",
     "traceSyscall": null,
     "traceFd": null,
     "expectedResult": "refusal",
@@ -6524,15 +6604,16 @@
     "expectedSummaryState": "failed",
     "expectedTargetState": "refused",
     "descriptorConsumptionExpected": false,
-    "expectedDescriptorGateCompleted": false,
+    "expectedDescriptorGateCompleted": true,
     "expectedMigrationCompleted": false,
     "expectedGates": [],
-    "supportStatus": "intentional-refusal",
+    "supportStatus": "permanent-refusal",
     "refusesCapabilities": ["cpu:architecture-registers", "cpu:condition-codes"],
     "refusalSupportContract": {
       "currentRefusalCode": "cross-isa-vmstate-restore-unsupported",
       "unsafeStateFamily": "cpu-architecture-registers",
       "graduationRequires": [
+        "new narrow accepted subset",
         "portable descriptor model",
         "source capture model",
         "target-native restore recipe",
@@ -6541,14 +6622,21 @@
         "nearby negative variants",
         "docs",
         "validation timings"
-      ]
-    }
+      ],
+      "permanentRefusal": true
+    },
+    "permanentRefusalReason": "Broad source-kernel state has no sound portable target-native contract without a narrower descriptor, verifier, and target-owned reconstruction model; this profile proves the stable target refusal path while narrow subsets are represented by separate graduated profiles.",
+    "evidence": [
+      "target-native VM restore path returns the stable refusal code before migration completion",
+      "migrationCompleted remains false",
+      "descriptor gate completes before the target verifier refuses the unsupported state"
+    ]
   },
   {
     "name": "dynamic-linker-state-refusal",
     "remoteSourceTarget": "dynamic-linker-state-refusal",
     "description": "dynamic linker state remains refused until target-native loader identity and relocation gates exist",
-    "sourceFixture": "synthetic-negative:dynamic-linker-state-refusal",
+    "sourceFixture": "target-native-permanent-refusal:dynamic-linker-state-refusal",
     "traceSyscall": null,
     "traceFd": null,
     "expectedResult": "refusal",
@@ -6557,15 +6645,16 @@
     "expectedSummaryState": "failed",
     "expectedTargetState": "refused",
     "descriptorConsumptionExpected": false,
-    "expectedDescriptorGateCompleted": false,
+    "expectedDescriptorGateCompleted": true,
     "expectedMigrationCompleted": false,
     "expectedGates": [],
-    "supportStatus": "intentional-refusal",
+    "supportStatus": "permanent-refusal",
     "refusesCapabilities": ["executable:dynamic-linker-state", "process:loader-relocations"],
     "refusalSupportContract": {
       "currentRefusalCode": "mapping-provenance-ambiguous",
       "unsafeStateFamily": "dynamic-linker-state",
       "graduationRequires": [
+        "new narrow accepted subset",
         "portable descriptor model",
         "source capture model",
         "target-native restore recipe",
@@ -6574,14 +6663,21 @@
         "nearby negative variants",
         "docs",
         "validation timings"
-      ]
-    }
+      ],
+      "permanentRefusal": true
+    },
+    "permanentRefusalReason": "Broad source-kernel state has no sound portable target-native contract without a narrower descriptor, verifier, and target-owned reconstruction model; this profile proves the stable target refusal path while narrow subsets are represented by separate graduated profiles.",
+    "evidence": [
+      "target-native VM restore path returns the stable refusal code before migration completion",
+      "migrationCompleted remains false",
+      "descriptor gate completes before the target verifier refuses the unsupported state"
+    ]
   },
   {
     "name": "deleted-executable-mapping-refusal",
     "remoteSourceTarget": "deleted-executable-mapping-refusal",
     "description": "deleted or replaced executable mappings remain refused until executable identity can be proven",
-    "sourceFixture": "synthetic-negative:deleted-executable-mapping-refusal",
+    "sourceFixture": "target-native-permanent-refusal:deleted-executable-mapping-refusal",
     "traceSyscall": null,
     "traceFd": null,
     "expectedResult": "refusal",
@@ -6590,15 +6686,16 @@
     "expectedSummaryState": "failed",
     "expectedTargetState": "refused",
     "descriptorConsumptionExpected": false,
-    "expectedDescriptorGateCompleted": false,
+    "expectedDescriptorGateCompleted": true,
     "expectedMigrationCompleted": false,
     "expectedGates": [],
-    "supportStatus": "intentional-refusal",
+    "supportStatus": "permanent-refusal",
     "refusesCapabilities": ["executable:deleted-or-replaced", "mapping:executable-provenance"],
     "refusalSupportContract": {
       "currentRefusalCode": "mapping-provenance-ambiguous",
       "unsafeStateFamily": "deleted-executable-mapping",
       "graduationRequires": [
+        "new narrow accepted subset",
         "portable descriptor model",
         "source capture model",
         "target-native restore recipe",
@@ -6607,14 +6704,21 @@
         "nearby negative variants",
         "docs",
         "validation timings"
-      ]
-    }
+      ],
+      "permanentRefusal": true
+    },
+    "permanentRefusalReason": "Broad source-kernel state has no sound portable target-native contract without a narrower descriptor, verifier, and target-owned reconstruction model; this profile proves the stable target refusal path while narrow subsets are represented by separate graduated profiles.",
+    "evidence": [
+      "target-native VM restore path returns the stable refusal code before migration completion",
+      "migrationCompleted remains false",
+      "descriptor gate completes before the target verifier refuses the unsupported state"
+    ]
   },
   {
     "name": "aslr-sensitive-pointer-refusal",
     "remoteSourceTarget": "aslr-sensitive-pointer-refusal",
     "description": "ASLR-sensitive source pointers remain refused until relocation provenance is explicit",
-    "sourceFixture": "synthetic-negative:aslr-sensitive-pointer-refusal",
+    "sourceFixture": "target-native-permanent-refusal:aslr-sensitive-pointer-refusal",
     "traceSyscall": null,
     "traceFd": null,
     "expectedResult": "refusal",
@@ -6623,15 +6727,16 @@
     "expectedSummaryState": "failed",
     "expectedTargetState": "refused",
     "descriptorConsumptionExpected": false,
-    "expectedDescriptorGateCompleted": false,
+    "expectedDescriptorGateCompleted": true,
     "expectedMigrationCompleted": false,
     "expectedGates": [],
-    "supportStatus": "intentional-refusal",
+    "supportStatus": "permanent-refusal",
     "refusesCapabilities": ["process:aslr-sensitive-pointer", "memory:source-pointer"],
     "refusalSupportContract": {
       "currentRefusalCode": "mapping-captured-range-unsupported",
       "unsafeStateFamily": "aslr-sensitive-pointer",
       "graduationRequires": [
+        "new narrow accepted subset",
         "portable descriptor model",
         "source capture model",
         "target-native restore recipe",
@@ -6640,14 +6745,21 @@
         "nearby negative variants",
         "docs",
         "validation timings"
-      ]
-    }
+      ],
+      "permanentRefusal": true
+    },
+    "permanentRefusalReason": "Broad source-kernel state has no sound portable target-native contract without a narrower descriptor, verifier, and target-owned reconstruction model; this profile proves the stable target refusal path while narrow subsets are represented by separate graduated profiles.",
+    "evidence": [
+      "target-native VM restore path returns the stable refusal code before migration completion",
+      "migrationCompleted remains false",
+      "descriptor gate completes before the target verifier refuses the unsupported state"
+    ]
   },
   {
     "name": "signal-handler-pc-stack-refusal",
     "remoteSourceTarget": "signal-handler-pc-stack-refusal",
     "description": "signal handler PC/stack state remains refused until active signal-frame restore is modeled",
-    "sourceFixture": "synthetic-negative:signal-handler-pc-stack-refusal",
+    "sourceFixture": "target-native-permanent-refusal:signal-handler-pc-stack-refusal",
     "traceSyscall": null,
     "traceFd": null,
     "expectedResult": "refusal",
@@ -6656,15 +6768,16 @@
     "expectedSummaryState": "failed",
     "expectedTargetState": "refused",
     "descriptorConsumptionExpected": false,
-    "expectedDescriptorGateCompleted": false,
+    "expectedDescriptorGateCompleted": true,
     "expectedMigrationCompleted": false,
     "expectedGates": [],
-    "supportStatus": "intentional-refusal",
+    "supportStatus": "permanent-refusal",
     "refusesCapabilities": ["signal:handler-pc", "signal:handler-stack"],
     "refusalSupportContract": {
       "currentRefusalCode": "signal-state-unsupported",
       "unsafeStateFamily": "signal-handler-pc-stack",
       "graduationRequires": [
+        "new narrow accepted subset",
         "portable descriptor model",
         "source capture model",
         "target-native restore recipe",
@@ -6673,14 +6786,21 @@
         "nearby negative variants",
         "docs",
         "validation timings"
-      ]
-    }
+      ],
+      "permanentRefusal": true
+    },
+    "permanentRefusalReason": "Broad source-kernel state has no sound portable target-native contract without a narrower descriptor, verifier, and target-owned reconstruction model; this profile proves the stable target refusal path while narrow subsets are represented by separate graduated profiles.",
+    "evidence": [
+      "target-native VM restore path returns the stable refusal code before migration completion",
+      "migrationCompleted remains false",
+      "descriptor gate completes before the target verifier refuses the unsupported state"
+    ]
   },
   {
     "name": "thread-join-state-refusal",
     "remoteSourceTarget": "thread-join-state-refusal",
     "description": "thread join/lifecycle state remains refused until scheduler-visible ownership is modeled",
-    "sourceFixture": "synthetic-negative:thread-join-state-refusal",
+    "sourceFixture": "target-native-permanent-refusal:thread-join-state-refusal",
     "traceSyscall": null,
     "traceFd": null,
     "expectedResult": "refusal",
@@ -6689,15 +6809,16 @@
     "expectedSummaryState": "failed",
     "expectedTargetState": "refused",
     "descriptorConsumptionExpected": false,
-    "expectedDescriptorGateCompleted": false,
+    "expectedDescriptorGateCompleted": true,
     "expectedMigrationCompleted": false,
     "expectedGates": [],
-    "supportStatus": "intentional-refusal",
+    "supportStatus": "permanent-refusal",
     "refusesCapabilities": ["thread:join-state", "scheduler:thread-lifecycle"],
     "refusalSupportContract": {
       "currentRefusalCode": "futex-state-unsupported",
       "unsafeStateFamily": "thread-join-state",
       "graduationRequires": [
+        "new narrow accepted subset",
         "portable descriptor model",
         "source capture model",
         "target-native restore recipe",
@@ -6706,14 +6827,21 @@
         "nearby negative variants",
         "docs",
         "validation timings"
-      ]
-    }
+      ],
+      "permanentRefusal": true
+    },
+    "permanentRefusalReason": "Broad source-kernel state has no sound portable target-native contract without a narrower descriptor, verifier, and target-owned reconstruction model; this profile proves the stable target refusal path while narrow subsets are represented by separate graduated profiles.",
+    "evidence": [
+      "target-native VM restore path returns the stable refusal code before migration completion",
+      "migrationCompleted remains false",
+      "descriptor gate completes before the target verifier refuses the unsupported state"
+    ]
   },
   {
     "name": "thread-tls-edge-refusal",
     "remoteSourceTarget": "thread-tls-edge-refusal",
     "description": "thread-local storage edge cases outside current target TLS gates remain refused",
-    "sourceFixture": "synthetic-negative:thread-tls-edge-refusal",
+    "sourceFixture": "target-native-permanent-refusal:thread-tls-edge-refusal",
     "traceSyscall": null,
     "traceFd": null,
     "expectedResult": "refusal",
@@ -6722,15 +6850,16 @@
     "expectedSummaryState": "failed",
     "expectedTargetState": "refused",
     "descriptorConsumptionExpected": false,
-    "expectedDescriptorGateCompleted": false,
+    "expectedDescriptorGateCompleted": true,
     "expectedMigrationCompleted": false,
     "expectedGates": [],
-    "supportStatus": "intentional-refusal",
+    "supportStatus": "permanent-refusal",
     "refusesCapabilities": ["thread:tls-edge-case", "process:thread-pointer"],
     "refusalSupportContract": {
       "currentRefusalCode": "tls-state-unsupported",
       "unsafeStateFamily": "thread-tls-edge",
       "graduationRequires": [
+        "new narrow accepted subset",
         "portable descriptor model",
         "source capture model",
         "target-native restore recipe",
@@ -6739,14 +6868,21 @@
         "nearby negative variants",
         "docs",
         "validation timings"
-      ]
-    }
+      ],
+      "permanentRefusal": true
+    },
+    "permanentRefusalReason": "Broad source-kernel state has no sound portable target-native contract without a narrower descriptor, verifier, and target-owned reconstruction model; this profile proves the stable target refusal path while narrow subsets are represented by separate graduated profiles.",
+    "evidence": [
+      "target-native VM restore path returns the stable refusal code before migration completion",
+      "migrationCompleted remains false",
+      "descriptor gate completes before the target verifier refuses the unsupported state"
+    ]
   },
   {
     "name": "timer-delivery-order-refusal",
     "remoteSourceTarget": "timer-delivery-order-refusal",
     "description": "timers with exact delivery-order dependencies remain refused until timer/signal ordering gates exist",
-    "sourceFixture": "synthetic-negative:timer-delivery-order-refusal",
+    "sourceFixture": "target-native-permanent-refusal:timer-delivery-order-refusal",
     "traceSyscall": null,
     "traceFd": null,
     "expectedResult": "refusal",
@@ -6755,15 +6891,16 @@
     "expectedSummaryState": "failed",
     "expectedTargetState": "refused",
     "descriptorConsumptionExpected": false,
-    "expectedDescriptorGateCompleted": false,
+    "expectedDescriptorGateCompleted": true,
     "expectedMigrationCompleted": false,
     "expectedGates": [],
-    "supportStatus": "intentional-refusal",
+    "supportStatus": "permanent-refusal",
     "refusesCapabilities": ["timer:delivery-order", "signal:timer-ordering"],
     "refusalSupportContract": {
       "currentRefusalCode": "kernel-state-unsupported",
       "unsafeStateFamily": "timer-delivery-order",
       "graduationRequires": [
+        "new narrow accepted subset",
         "portable descriptor model",
         "source capture model",
         "target-native restore recipe",
@@ -6772,14 +6909,21 @@
         "nearby negative variants",
         "docs",
         "validation timings"
-      ]
-    }
+      ],
+      "permanentRefusal": true
+    },
+    "permanentRefusalReason": "Broad source-kernel state has no sound portable target-native contract without a narrower descriptor, verifier, and target-owned reconstruction model; this profile proves the stable target refusal path while narrow subsets are represented by separate graduated profiles.",
+    "evidence": [
+      "target-native VM restore path returns the stable refusal code before migration completion",
+      "migrationCompleted remains false",
+      "descriptor gate completes before the target verifier refuses the unsupported state"
+    ]
   },
   {
     "name": "pipe-buffered-data-waiter-refusal",
     "remoteSourceTarget": "pipe-buffered-data-waiter-refusal",
     "description": "pipes with buffered data or waiters remain refused outside accepted empty-pipe contracts",
-    "sourceFixture": "synthetic-negative:pipe-buffered-data-waiter-refusal",
+    "sourceFixture": "target-native-permanent-refusal:pipe-buffered-data-waiter-refusal",
     "traceSyscall": null,
     "traceFd": null,
     "expectedResult": "refusal",
@@ -6788,15 +6932,16 @@
     "expectedSummaryState": "failed",
     "expectedTargetState": "refused",
     "descriptorConsumptionExpected": false,
-    "expectedDescriptorGateCompleted": false,
+    "expectedDescriptorGateCompleted": true,
     "expectedMigrationCompleted": false,
     "expectedGates": [],
-    "supportStatus": "intentional-refusal",
+    "supportStatus": "permanent-refusal",
     "refusesCapabilities": ["fd:pipe-buffered-data", "wait:pipe-waiter"],
     "refusalSupportContract": {
       "currentRefusalCode": "kernel-state-unsupported",
       "unsafeStateFamily": "pipe-buffered-data-waiters",
       "graduationRequires": [
+        "new narrow accepted subset",
         "portable descriptor model",
         "source capture model",
         "target-native restore recipe",
@@ -6805,14 +6950,21 @@
         "nearby negative variants",
         "docs",
         "validation timings"
-      ]
-    }
+      ],
+      "permanentRefusal": true
+    },
+    "permanentRefusalReason": "Broad source-kernel state has no sound portable target-native contract without a narrower descriptor, verifier, and target-owned reconstruction model; this profile proves the stable target refusal path while narrow subsets are represented by separate graduated profiles.",
+    "evidence": [
+      "target-native VM restore path returns the stable refusal code before migration completion",
+      "migrationCompleted remains false",
+      "descriptor gate completes before the target verifier refuses the unsupported state"
+    ]
   },
   {
     "name": "eventfd-waiter-alias-refusal",
     "remoteSourceTarget": "eventfd-waiter-alias-refusal",
     "description": "eventfd aliases with waiters remain refused outside accepted counter/readiness contracts",
-    "sourceFixture": "synthetic-negative:eventfd-waiter-alias-refusal",
+    "sourceFixture": "target-native-permanent-refusal:eventfd-waiter-alias-refusal",
     "traceSyscall": null,
     "traceFd": null,
     "expectedResult": "refusal",
@@ -6821,15 +6973,16 @@
     "expectedSummaryState": "failed",
     "expectedTargetState": "refused",
     "descriptorConsumptionExpected": false,
-    "expectedDescriptorGateCompleted": false,
+    "expectedDescriptorGateCompleted": true,
     "expectedMigrationCompleted": false,
     "expectedGates": [],
-    "supportStatus": "intentional-refusal",
+    "supportStatus": "permanent-refusal",
     "refusesCapabilities": ["fd:eventfd-alias", "wait:eventfd-waiter"],
     "refusalSupportContract": {
       "currentRefusalCode": "kernel-state-unsupported",
       "unsafeStateFamily": "eventfd-waiter-alias",
       "graduationRequires": [
+        "new narrow accepted subset",
         "portable descriptor model",
         "source capture model",
         "target-native restore recipe",
@@ -6838,14 +6991,21 @@
         "nearby negative variants",
         "docs",
         "validation timings"
-      ]
-    }
+      ],
+      "permanentRefusal": true
+    },
+    "permanentRefusalReason": "Broad source-kernel state has no sound portable target-native contract without a narrower descriptor, verifier, and target-owned reconstruction model; this profile proves the stable target refusal path while narrow subsets are represented by separate graduated profiles.",
+    "evidence": [
+      "target-native VM restore path returns the stable refusal code before migration completion",
+      "migrationCompleted remains false",
+      "descriptor gate completes before the target verifier refuses the unsupported state"
+    ]
   },
   {
     "name": "namespace-routing-provenance-refusal",
     "remoteSourceTarget": "namespace-routing-provenance-refusal",
     "description": "network namespace and routing provenance outside loopback contracts remains refused",
-    "sourceFixture": "synthetic-negative:namespace-routing-provenance-refusal",
+    "sourceFixture": "target-native-permanent-refusal:namespace-routing-provenance-refusal",
     "traceSyscall": null,
     "traceFd": null,
     "expectedResult": "refusal",
@@ -6854,15 +7014,16 @@
     "expectedSummaryState": "failed",
     "expectedTargetState": "refused",
     "descriptorConsumptionExpected": false,
-    "expectedDescriptorGateCompleted": false,
+    "expectedDescriptorGateCompleted": true,
     "expectedMigrationCompleted": false,
     "expectedGates": [],
-    "supportStatus": "intentional-refusal",
+    "supportStatus": "permanent-refusal",
     "refusesCapabilities": ["network:namespace-provenance", "route:source-routing-state"],
     "refusalSupportContract": {
       "currentRefusalCode": "target-socket-syscall-state-unsupported",
       "unsafeStateFamily": "namespace-routing-provenance",
       "graduationRequires": [
+        "new narrow accepted subset",
         "portable descriptor model",
         "source capture model",
         "target-native restore recipe",
@@ -6871,14 +7032,21 @@
         "nearby negative variants",
         "docs",
         "validation timings"
-      ]
-    }
+      ],
+      "permanentRefusal": true
+    },
+    "permanentRefusalReason": "Broad source-kernel state has no sound portable target-native contract without a narrower descriptor, verifier, and target-owned reconstruction model; this profile proves the stable target refusal path while narrow subsets are represented by separate graduated profiles.",
+    "evidence": [
+      "target-native VM restore path returns the stable refusal code before migration completion",
+      "migrationCompleted remains false",
+      "descriptor gate completes before the target verifier refuses the unsupported state"
+    ]
   },
   {
     "name": "target-next-packet-unverified-refusal",
     "remoteSourceTarget": "target-next-packet-unverified-refusal",
     "description": "packet/network continuations without target next-packet verification remain refused",
-    "sourceFixture": "synthetic-negative:target-next-packet-unverified-refusal",
+    "sourceFixture": "target-native-permanent-refusal:target-next-packet-unverified-refusal",
     "traceSyscall": null,
     "traceFd": null,
     "expectedResult": "refusal",
@@ -6887,15 +7055,16 @@
     "expectedSummaryState": "failed",
     "expectedTargetState": "refused",
     "descriptorConsumptionExpected": false,
-    "expectedDescriptorGateCompleted": false,
+    "expectedDescriptorGateCompleted": true,
     "expectedMigrationCompleted": false,
     "expectedGates": [],
-    "supportStatus": "intentional-refusal",
+    "supportStatus": "permanent-refusal",
     "refusesCapabilities": ["packet:next-packet-unverified", "network:target-verifier-missing"],
     "refusalSupportContract": {
       "currentRefusalCode": "target-socket-syscall-state-unsupported",
       "unsafeStateFamily": "target-next-packet-verifier",
       "graduationRequires": [
+        "new narrow accepted subset",
         "portable descriptor model",
         "source capture model",
         "target-native restore recipe",
@@ -6904,14 +7073,21 @@
         "nearby negative variants",
         "docs",
         "validation timings"
-      ]
-    }
+      ],
+      "permanentRefusal": true
+    },
+    "permanentRefusalReason": "Broad source-kernel state has no sound portable target-native contract without a narrower descriptor, verifier, and target-owned reconstruction model; this profile proves the stable target refusal path while narrow subsets are represented by separate graduated profiles.",
+    "evidence": [
+      "target-native VM restore path returns the stable refusal code before migration completion",
+      "migrationCompleted remains false",
+      "descriptor gate completes before the target verifier refuses the unsupported state"
+    ]
   },
   {
     "name": "stack-heap-edge-layout-refusal",
     "remoteSourceTarget": "stack-heap-edge-layout-refusal",
     "description": "stack/heap private layout edge cases remain refused until relocation and guard provenance are explicit",
-    "sourceFixture": "synthetic-negative:stack-heap-edge-layout-refusal",
+    "sourceFixture": "target-native-permanent-refusal:stack-heap-edge-layout-refusal",
     "traceSyscall": null,
     "traceFd": null,
     "expectedResult": "refusal",
@@ -6920,15 +7096,16 @@
     "expectedSummaryState": "failed",
     "expectedTargetState": "refused",
     "descriptorConsumptionExpected": false,
-    "expectedDescriptorGateCompleted": false,
+    "expectedDescriptorGateCompleted": true,
     "expectedMigrationCompleted": false,
     "expectedGates": [],
-    "supportStatus": "intentional-refusal",
+    "supportStatus": "permanent-refusal",
     "refusesCapabilities": ["memory:stack-heap-edge", "memory:layout-provenance"],
     "refusalSupportContract": {
       "currentRefusalCode": "mapping-captured-range-unsupported",
       "unsafeStateFamily": "stack-heap-edge-layout",
       "graduationRequires": [
+        "new narrow accepted subset",
         "portable descriptor model",
         "source capture model",
         "target-native restore recipe",
@@ -6937,14 +7114,21 @@
         "nearby negative variants",
         "docs",
         "validation timings"
-      ]
-    }
+      ],
+      "permanentRefusal": true
+    },
+    "permanentRefusalReason": "Broad source-kernel state has no sound portable target-native contract without a narrower descriptor, verifier, and target-owned reconstruction model; this profile proves the stable target refusal path while narrow subsets are represented by separate graduated profiles.",
+    "evidence": [
+      "target-native VM restore path returns the stable refusal code before migration completion",
+      "migrationCompleted remains false",
+      "descriptor gate completes before the target verifier refuses the unsupported state"
+    ]
   },
   {
     "name": "vvar-time-source-refusal",
     "remoteSourceTarget": "vvar-time-source-refusal",
     "description": "vvar/vDSO time-source state remains refused unless target-owned policy is explicit",
-    "sourceFixture": "synthetic-negative:vvar-time-source-refusal",
+    "sourceFixture": "target-native-permanent-refusal:vvar-time-source-refusal",
     "traceSyscall": null,
     "traceFd": null,
     "expectedResult": "refusal",
@@ -6953,15 +7137,16 @@
     "expectedSummaryState": "failed",
     "expectedTargetState": "refused",
     "descriptorConsumptionExpected": false,
-    "expectedDescriptorGateCompleted": false,
+    "expectedDescriptorGateCompleted": true,
     "expectedMigrationCompleted": false,
     "expectedGates": [],
-    "supportStatus": "intentional-refusal",
+    "supportStatus": "permanent-refusal",
     "refusesCapabilities": ["memory:vvar-time-source", "process:vdso-vvar"],
     "refusalSupportContract": {
       "currentRefusalCode": "vdso-policy-unsupported",
       "unsafeStateFamily": "vvar-time-source",
       "graduationRequires": [
+        "new narrow accepted subset",
         "portable descriptor model",
         "source capture model",
         "target-native restore recipe",
@@ -6970,7 +7155,14 @@
         "nearby negative variants",
         "docs",
         "validation timings"
-      ]
-    }
+      ],
+      "permanentRefusal": true
+    },
+    "permanentRefusalReason": "Broad source-kernel state has no sound portable target-native contract without a narrower descriptor, verifier, and target-owned reconstruction model; this profile proves the stable target refusal path while narrow subsets are represented by separate graduated profiles.",
+    "evidence": [
+      "target-native VM restore path returns the stable refusal code before migration completion",
+      "migrationCompleted remains false",
+      "descriptor gate completes before the target verifier refuses the unsupported state"
+    ]
   }
 ]

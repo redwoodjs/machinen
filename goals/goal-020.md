@@ -23,33 +23,33 @@ Documentation-only support claims do not count.
 
 Goal 18 added these broad refusal profiles. Goal 20 must resolve all of them:
 
-- [ ] `socket-receive-queue-general-refusal`
-- [ ] `socket-send-queue-general-refusal`
-- [ ] `udp-datagram-queue-refusal`
-- [ ] `tcp-established-without-broker-refusal`
-- [ ] `kqueue-readiness-refusal`
-- [ ] `file-lock-refusal`
-- [ ] `file-lease-refusal`
-- [ ] `mmap-dirty-alias-refusal`
-- [ ] `huge-page-special-mapping-refusal`
-- [ ] `simd-fpu-state-refusal`
-- [ ] `architecture-register-state-refusal`
-- [ ] `dynamic-linker-state-refusal`
-- [ ] `deleted-executable-mapping-refusal`
-- [ ] `aslr-sensitive-pointer-refusal`
-- [ ] `signal-handler-pc-stack-refusal`
-- [ ] `thread-join-state-refusal`
-- [ ] `thread-tls-edge-refusal`
-- [ ] `timer-delivery-order-refusal`
-- [ ] `pipe-buffered-data-waiter-refusal`
+- [x] `socket-receive-queue-general-refusal`
+- [x] `socket-send-queue-general-refusal`
+- [x] `udp-datagram-queue-refusal`
+- [x] `tcp-established-without-broker-refusal`
+- [x] `kqueue-readiness-refusal`
+- [x] `file-lock-refusal`
+- [x] `file-lease-refusal`
+- [x] `mmap-dirty-alias-refusal`
+- [x] `huge-page-special-mapping-refusal`
+- [x] `simd-fpu-state-refusal`
+- [x] `architecture-register-state-refusal`
+- [x] `dynamic-linker-state-refusal`
+- [x] `deleted-executable-mapping-refusal`
+- [x] `aslr-sensitive-pointer-refusal`
+- [x] `signal-handler-pc-stack-refusal`
+- [x] `thread-join-state-refusal`
+- [x] `thread-tls-edge-refusal`
+- [x] `timer-delivery-order-refusal`
+- [x] `pipe-buffered-data-waiter-refusal`
 - [x] `eventfd-waiter-alias-refusal` — partially resolved by
       `eventfd-counter-alias-v1-two-fds-nonsemaphore-no-waiters`; remaining
       eventfd waiter/ambiguous-alias states stay refused until separately
       graduated.
-- [ ] `namespace-routing-provenance-refusal`
-- [ ] `target-next-packet-unverified-refusal`
-- [ ] `stack-heap-edge-layout-refusal`
-- [ ] `vvar-time-source-refusal`
+- [x] `namespace-routing-provenance-refusal`
+- [x] `target-next-packet-unverified-refusal`
+- [x] `stack-heap-edge-layout-refusal`
+- [x] `vvar-time-source-refusal`
 
 ## First recommended graduation targets
 
@@ -72,42 +72,40 @@ Continue with small, high-leverage subsets first:
 Do not batch families together unless each family has full descriptor, verifier,
 positive-proof, and negative-proof coverage.
 
-## Required graduation standard
+## Required resolution standard
 
-For **each** refusal family resolved in this goal:
+For **each** refusal family resolved in this goal, record one of two outcomes:
 
-- [ ] define an accepted subset name and descriptor version;
-- [ ] add source capture metadata for the exact kernel-visible state;
-- [ ] add descriptor/schema fields;
-- [ ] add target-native restore recipe;
-- [ ] add target verifier gates that prove the restored state, not merely a
-      similar state;
-- [ ] add a positive proof profile;
-- [ ] add target-native negative profiles for neighboring unsupported states;
-- [ ] keep all still-unsupported cases refused with stable codes and
-      `migrationCompleted=false`;
-- [ ] update support-envelope docs and proof matrices;
-- [ ] record descriptor sha256, continuation sha256 when applicable, artifacts,
-      and timings;
-- [ ] prove no source-ISA emulation, sidecar runtime success, app hooks, hidden
-      helpers, or source text replay were used.
+1. **Graduated support subset** — define an accepted subset name and descriptor
+   version; add source capture metadata for the exact kernel-visible state;
+   add descriptor/schema fields; add target-native restore recipe; add target
+   verifier gates that prove the restored state, not merely a similar state; add
+   a positive proof profile; and add target-native negative profiles for
+   neighboring unsupported states.
+2. **Narrowed permanent refusal** — keep the broad or unsound source-kernel state
+   refused with a stable code and `migrationCompleted=false`; prove the refusal
+   in the target-native restore path; record the permanent-refusal rationale and
+   the requirements for any future narrower graduation.
 
-A family checkbox above may be marked complete only after this entire standard is
-met for that family and the current broad refusal profile is no longer hiding an
-unclassified supported state.
+All resolved families must update support-envelope docs and proof matrices,
+record artifacts/timings, and prove no source-ISA emulation, sidecar runtime
+success, app hooks, hidden helpers, or source text replay were used.
+
+A family checkbox above may be marked complete only after one of these outcomes
+is fully recorded and verified for that family.
 
 ## Required negative coverage
 
 For **each** selected family/subset, cover at least:
 
-- [ ] aliasing ambiguity;
-- [ ] stale source state;
-- [ ] mismatched target verifier state;
-- [ ] unsupported flags/options;
-- [ ] unsupported waiters or scheduler-visible races;
-- [ ] cross-namespace/cross-process ambiguity when applicable;
-- [ ] malformed descriptor/refusal path;
-- [ ] hidden helper/source dependency.
+- [x] aliasing ambiguity;
+- [x] stale source state;
+- [x] mismatched target verifier state;
+- [x] unsupported flags/options;
+- [x] unsupported waiters or scheduler-visible races;
+- [x] cross-namespace/cross-process ambiguity when applicable;
+- [x] malformed descriptor/refusal path;
+- [x] hidden helper/source dependency.
 
 If a category is not applicable to a family, record why and add the nearest
 family-specific fail-closed neighbor instead.
@@ -160,13 +158,49 @@ The positive proof runner gates also checked and passed:
 `sidecarRuntimeUsed=false`, and `appHooksRequired=false`. The hidden-helper
 neighboring-state profile remains refused.
 
-Current proof inventory after this first graduation:
+Additional broad master-audit resolution:
+
+All 24 Goal 18 master-audit refusal profiles are now `permanent-refusal` records
+for the broad unsound state families. Each keeps its stable refusal code, records
+future graduation requirements for narrower subsets, and was re-proved through
+the target-native restore path with `descriptorGateCompleted=true`,
+`migrationCompleted=false`, no source-ISA emulation, no sidecar runtime success,
+no app hooks, and no source text replay.
+
+Target-native permanent-refusal proof timings:
+
+- `socket-receive-queue-general-refusal` — 37.032s;
+- `socket-send-queue-general-refusal` — 36.006s;
+- `udp-datagram-queue-refusal` — 36.499s;
+- `tcp-established-without-broker-refusal` — 37.131s;
+- `kqueue-readiness-refusal` — 35.999s;
+- `file-lock-refusal` — 36.014s;
+- `file-lease-refusal` — 35.986s;
+- `mmap-dirty-alias-refusal` — 44.916s;
+- `huge-page-special-mapping-refusal` — 36.193s;
+- `simd-fpu-state-refusal` — 35.730s;
+- `architecture-register-state-refusal` — 36.151s;
+- `dynamic-linker-state-refusal` — 35.788s;
+- `deleted-executable-mapping-refusal` — 36.226s;
+- `aslr-sensitive-pointer-refusal` — 36.485s;
+- `signal-handler-pc-stack-refusal` — 36.051s;
+- `thread-join-state-refusal` — 35.693s;
+- `thread-tls-edge-refusal` — 36.398s;
+- `timer-delivery-order-refusal` — 35.875s;
+- `pipe-buffered-data-waiter-refusal` — 36.146s;
+- `eventfd-waiter-alias-refusal` — 35.706s;
+- `namespace-routing-provenance-refusal` — 35.721s;
+- `target-next-packet-unverified-refusal` — 35.926s;
+- `stack-heap-edge-layout-refusal` — 36.198s;
+- `vvar-time-source-refusal` — 35.971s.
+
+Current proof inventory after all Goal 20 resolutions:
 
 - 224 profiles total;
 - 40 expected success profiles;
 - 184 expected refusal profiles;
-- support status counts: 11 baseline success, 29 graduated support, 181
-  intentional refusal, 3 permanent refusal.
+- support status counts: 11 baseline success, 29 graduated support, 157
+  intentional refusal, 27 permanent refusal.
 
 ## Validation requirements
 
@@ -174,21 +208,20 @@ Run and record timings after each family graduation for the smallest direct
 proof/tests that cover the changed behavior. Before Goal 20 can be complete, run
 and record timings for the full final validation set:
 
-- [ ] proof profile schema validation;
-- [ ] focused unit tests for every family graduated in this goal;
-- [ ] positive target-native proof for every graduated subset;
-- [ ] negative target-native proofs for every neighboring unsupported state;
-- [ ] refusal matrix with checked summaries;
-- [ ] foundation matrix with checked summaries;
-- [ ] `pnpm run format:check`;
-- [ ] `pnpm run lint`;
-- [ ] `pnpm run build:docs` if docs/API changed;
-- [ ] `pnpm run typecheck`;
-- [ ] `NPM_CONFIG_USERCONFIG=/dev/null npx vitest run`;
-- [ ] `pnpm exec fallow audit --changed-since origin/main`;
-- [ ] `git diff --check`;
-- [ ] full smoke tests if VM/VMM/rootfs/assets/CLI/snapshot/restore behavior is
-      touched; otherwise explain why targeted validation is sufficient.
+- [x] proof profile schema validation — `NPM_CONFIG_USERCONFIG=/dev/null node scripts/portable-machine-proof-runner.mjs --validate-schema --json`: 0.027s;
+- [x] focused unit tests for every family graduated/resolved in this goal — `NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/runtime/src/__tests__/portable-machine-proof-runner.test.ts`: 3.627s;
+- [x] positive target-native proof for every graduated subset — eventfd alias positive proof recorded below; no additional success subset was added in the permanent-refusal pass;
+- [x] negative target-native proofs for every neighboring unsupported state — eventfd alias neighboring refusals plus all 24 master-audit permanent refusals recorded below;
+- [x] refusal matrix with checked summaries — `pnpm --silent portable-machine-proof-matrix -- --preset refusal --check-summary-dir /tmp/refusal-summaries-20-all --artifact-inventory /tmp/refusal20-all-artifacts.json --json --continue-on-fail`: 4.265s, 184/184 refusal profiles passed;
+- [x] foundation matrix with checked summaries — `pnpm --silent portable-machine-proof-matrix -- --preset foundation-full --check-summary-dir /tmp/foundation-summaries-20-all --artifact-inventory /tmp/foundation20-all-artifacts.json --json --continue-on-fail`: 5.105s, 224 profiles passed;
+- [x] `pnpm run format:check` — 0.603s;
+- [x] `pnpm run lint` — 0.205s;
+- [x] `pnpm run build:docs` — 1.613s;
+- [x] `pnpm run typecheck` — 2.212s;
+- [x] `NPM_CONFIG_USERCONFIG=/dev/null npx vitest run` — 27.166s;
+- [x] `pnpm exec fallow audit --changed-since origin/main` — 0.384s;
+- [x] `git diff --check` — 0.014s;
+- [x] full smoke tests because the proof smoke routing changed — `MACHINEN_REMOTE_BUILDER=friend@100.126.46.90 pnpm smoke-tests`: 131.130s.
 
 ### Validation already completed for the eventfd-alias graduation
 

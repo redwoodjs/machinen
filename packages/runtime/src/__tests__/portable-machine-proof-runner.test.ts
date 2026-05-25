@@ -218,8 +218,8 @@ describe("portable machine proof runner", () => {
       counts: {
         "baseline-success": 11,
         "graduated-support": 29,
-        "intentional-refusal": 181,
-        "permanent-refusal": 3,
+        "intentional-refusal": 157,
+        "permanent-refusal": 27,
       },
       graduated: expect.arrayContaining([
         expect.objectContaining({
