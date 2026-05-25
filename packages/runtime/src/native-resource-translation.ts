@@ -855,6 +855,12 @@ function syntheticPingSocketFdTableEntry(
     gid,
     pingGroupRangeStart,
     pingGroupRangeEnd,
+    adoptCredentials:
+      typeof recipe.adoptCredentials === "boolean" ? recipe.adoptCredentials : undefined,
+    expectedRefusalCode:
+      typeof recipe.expectedRefusalCode === "string" ? recipe.expectedRefusalCode : undefined,
+    expectedRefusalReason:
+      typeof recipe.expectedRefusalReason === "string" ? recipe.expectedRefusalReason : undefined,
     closeOnExec,
   });
 }

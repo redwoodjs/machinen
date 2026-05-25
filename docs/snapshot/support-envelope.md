@@ -9,8 +9,8 @@ makes a runtime/app family supported.
 Current profile inventory:
 
 - 11 `baseline-success` profiles;
-- 26 `graduated-support` profiles;
-- 125 `intentional-refusal` profiles;
+- 27 `graduated-support` profiles;
+- 132 `intentional-refusal` profiles;
 - 3 `permanent-refusal` profiles.
 
 ## Success contract
@@ -63,7 +63,8 @@ under `capabilities`. The families currently covered are:
   empty in-flight/receive queues, and ICMP id/sequence verifier gates;
 - ping sockets: the narrow `ping-socket-v1:loopback-echo-no-inflight` subset for
   one IPv4 Linux `SOCK_DGRAM`/`IPPROTO_ICMP` loopback echo socket authorized by
-  target `ping_group_range` and uid/gid credential gates;
+  target `ping_group_range` and uid/gid credential gates, including the non-root
+  uid/gid `1000` proof;
 - synchronization: one private futex wait/wake, explicit rseq lifecycle, and one
   memfd shared-memory contract;
 - threads: the controlled two-thread ppoll proof with target thread-spawn gates
@@ -87,7 +88,9 @@ unsafe families are:
   permission, wrong uid/gid/group provenance, raw-socket capability confusion,
   wrong namespace, stale route, non-loopback destinations, id/sequence mismatch,
   in-flight/unread packet ambiguity, unsupported options, BPF filters, ICMPv6,
-  or hidden source-side helpers;
+  or hidden source-side helpers; distro `/usr/bin/ping` currently remains
+  refused because its captured active `recvmsg`/signal-timer wait is outside the
+  empty no-in-flight ping-socket contract;
 - futex/rseq and scheduler-visible synchronization outside the one-waiter,
   target-owned lifecycle contracts;
 - shared memory without a target sharing contract;

@@ -1,6 +1,6 @@
-# Goal 8/9/11/12/13 app-neutral capability graduations
+# Goal 8/9/11/12/13/14 app-neutral capability graduations
 
-Goals 8, 9, 11, 12, and 13 add app-neutral support subsets as proof-profile
+Goals 8, 9, 11, 12, 13, and 14 add app-neutral support subsets as proof-profile
 capabilities. A success claim remains valid only after target-native completion,
 descriptor consumption, verifier gates, no source-ISA emulation, no runtime
 sidecar success, no app hooks, and no source text replay.
@@ -71,6 +71,24 @@ ambiguous remaining time.
   non-loopback destination, id/sequence mismatch, in-flight packets, unread
   queues, unsupported options, BPF filters, `IP_HDRINCL`, ICMPv6, and hidden
   source-side dependency refused.
+
+## Goal 14 ping-socket hardening
+
+- `real-nonroot-ping-socket-loopback-recreate`: strengthens
+  `ping-socket-v1:loopback-echo-no-inflight` by proving a real arm64 workload
+  running as uid/gid `1000` can be restored into the amd64 VM after the target
+  verifier adopts those credentials and checks that gid `1000` is allowed by
+  target `net.ipv4.ping_group_range`.
+- `real-distro-ping-socket-loopback-recreate` is deliberately **not** claimed as
+  positive support yet. The arm64 distro `/usr/bin/ping` proof shows iputils
+  opens `AF_INET` / `SOCK_DGRAM` / `IPPROTO_ICMP` as non-root under
+  `ping_group_range`, but the live process is blocked in active `recvmsg` with
+  signal-timer behavior. That neighboring state remains refused with
+  `target-socket-syscall-state-unsupported` and `migrationCompleted=false` until
+  a future active recvmsg/packet-queue contract exists.
+- Target-native negative ping-socket profiles now run selected unsafe states
+  through the amd64 VM restore path and refuse with
+  `target-socket-syscall-state-unsupported` before migration completion.
 
 ## Goal 13 ping-socket graduation
 

@@ -4536,6 +4536,266 @@
     "syntheticResourceKinds": ["fd:ping-socket"]
   },
   {
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "requiresTargetNativeCompletion": true,
+    "name": "real-distro-ping-socket-loopback-recreate",
+    "remoteSourceTarget": "real-distro-ping-socket-loopback-recreate",
+    "description": "Real distro /usr/bin/ping opens a Linux ping socket as non-root, but its active recvmsg/signal-timer wait remains outside ping-socket-v1 restore and must refuse.",
+    "sourceFixture": "real:distro:/usr/bin/ping -i 10 127.0.0.1",
+    "unsafeStateFamily": "ping-socket",
+    "proofCategory": "graduated-ping-socket-hardening",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "refusesCapabilities": [
+      "workload:distro-ping",
+      "network:ping-socket",
+      "fd:ping-socket",
+      "syscall:active-recvmsg"
+    ],
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "active recvmsg/signal timer model for distro ping",
+        "target packet queue contract",
+        "positive distro ping proof profile"
+      ]
+    }
+  },
+  {
+    "expectedResult": "success",
+    "supportStatus": "graduated-support",
+    "acceptedSubset": "ping-socket-v1:loopback-echo-no-inflight",
+    "requiresTargetNativeCompletion": true,
+    "capabilities": [
+      "network:ping-socket-loopback",
+      "fd:ping-socket",
+      "credential:ping-group-range",
+      "credential:non-root",
+      "route:loopback",
+      "packet:icmp-empty-queue",
+      "memory:private-rw",
+      "process:target-registers",
+      "process:target-tls",
+      "signal:blocked-mask",
+      "executable:target-native-continuation",
+      "network-namespace:target-loopback",
+      "packet:icmp-echo-id-sequence",
+      "proof:real-arm64-source-workload"
+    ],
+    "syntheticResourceKind": "ping-socket-loopback",
+    "syntheticResourceKinds": ["fd:ping-socket"],
+    "name": "real-nonroot-ping-socket-loopback-recreate",
+    "remoteSourceTarget": "real-nonroot-ping-socket-loopback-recreate",
+    "description": "Target-native Linux ping socket recreation from a real arm64 non-root workload whose gid is allowed by ping_group_range.",
+    "sourceFixture": "real:packages/microvm/assets/native-ping-socket-target.c:nonroot",
+    "unsafeStateFamily": "ping-socket",
+    "proofCategory": "graduated-ping-socket-hardening",
+    "graduatedFromRefusalCode": "target-socket-syscall-state-unsupported",
+    "unsafeVariants": [
+      "ping-socket-missing-ping-group-refusal",
+      "ping-socket-credential-mismatch-refusal",
+      "ping-socket-raw-capability-confusion-refusal",
+      "ping-socket-wrong-namespace-refusal",
+      "ping-socket-stale-route-refusal",
+      "ping-socket-nonloopback-refusal",
+      "ping-socket-id-sequence-mismatch-refusal",
+      "ping-socket-inflight-packet-refusal",
+      "ping-socket-unread-queue-refusal",
+      "ping-socket-unsupported-option-refusal",
+      "ping-socket-bpf-filter-refusal",
+      "ping-socket-icmpv6-refusal",
+      "ping-socket-hidden-sidecar-refusal"
+    ],
+    "expectedGates": [
+      "descriptor",
+      "verifier",
+      "state-consumption",
+      "resources",
+      "return-chain",
+      "frame",
+      "registers",
+      "tls",
+      "stack-window",
+      "private-memory",
+      "executable",
+      "signal",
+      "active-syscall",
+      "resume-path"
+    ]
+  },
+  {
+    "name": "ping-socket-target-native-missing-ping-group-refusal",
+    "remoteSourceTarget": "ping-socket-target-native-missing-ping-group-refusal",
+    "description": "missing or disallowing target ping_group_range is refused by the target VM path",
+    "sourceFixture": "target-native-negative:ping-socket-target-native-missing-ping-group-refusal",
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": true,
+    "unsafeStateFamily": "ping-socket",
+    "proofCategory": "target-native-negative-hardening",
+    "refusesCapabilities": [
+      "network:ping-socket",
+      "fd:ping-socket",
+      "credential:ping-group-range-missing"
+    ],
+    "evidence": [
+      "target-native VM restore path returns stable refusal before migration completion"
+    ],
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "ping-socket-v1 portable descriptor",
+        "target-native VM negative proof",
+        "positive proof profile"
+      ]
+    }
+  },
+  {
+    "name": "ping-socket-target-native-credential-mismatch-refusal",
+    "remoteSourceTarget": "ping-socket-target-native-credential-mismatch-refusal",
+    "description": "uid/gid ping-socket credential mismatch is refused by the target VM path",
+    "sourceFixture": "target-native-negative:ping-socket-target-native-credential-mismatch-refusal",
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": true,
+    "unsafeStateFamily": "ping-socket",
+    "proofCategory": "target-native-negative-hardening",
+    "refusesCapabilities": ["network:ping-socket", "fd:ping-socket", "credential:uid-gid-mismatch"],
+    "evidence": [
+      "target-native VM restore path returns stable refusal before migration completion"
+    ],
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "ping-socket-v1 portable descriptor",
+        "target-native VM negative proof",
+        "positive proof profile"
+      ]
+    }
+  },
+  {
+    "name": "ping-socket-target-native-nonloopback-refusal",
+    "remoteSourceTarget": "ping-socket-target-native-nonloopback-refusal",
+    "description": "non-loopback ping-socket destination is refused by the target VM path",
+    "sourceFixture": "target-native-negative:ping-socket-target-native-nonloopback-refusal",
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": true,
+    "unsafeStateFamily": "ping-socket",
+    "proofCategory": "target-native-negative-hardening",
+    "refusesCapabilities": ["network:ping-socket", "fd:ping-socket", "network:icmp-nonloopback"],
+    "evidence": [
+      "target-native VM restore path returns stable refusal before migration completion"
+    ],
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "ping-socket-v1 portable descriptor",
+        "target-native VM negative proof",
+        "positive proof profile"
+      ]
+    }
+  },
+  {
+    "name": "ping-socket-target-native-queue-ambiguity-refusal",
+    "remoteSourceTarget": "ping-socket-target-native-queue-ambiguity-refusal",
+    "description": "in-flight or unread ping-socket packet ambiguity is refused by the target VM path",
+    "sourceFixture": "target-native-negative:ping-socket-target-native-queue-ambiguity-refusal",
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": true,
+    "unsafeStateFamily": "ping-socket",
+    "proofCategory": "target-native-negative-hardening",
+    "refusesCapabilities": [
+      "network:ping-socket",
+      "fd:ping-socket",
+      "packet:icmp-inflight",
+      "packet:icmp-unread-queue"
+    ],
+    "evidence": [
+      "target-native VM restore path returns stable refusal before migration completion"
+    ],
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "ping-socket-v1 portable descriptor",
+        "target-native VM negative proof",
+        "positive proof profile"
+      ]
+    }
+  },
+  {
+    "name": "ping-socket-target-native-unsupported-option-refusal",
+    "remoteSourceTarget": "ping-socket-target-native-unsupported-option-refusal",
+    "description": "unsupported ping-socket option or BPF/filter state is refused by the target VM path",
+    "sourceFixture": "target-native-negative:ping-socket-target-native-unsupported-option-refusal",
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": true,
+    "unsafeStateFamily": "ping-socket",
+    "proofCategory": "target-native-negative-hardening",
+    "refusesCapabilities": [
+      "network:ping-socket",
+      "fd:ping-socket",
+      "fd:ping-socket-unsupported-option",
+      "fd:ping-socket-bpf-filter"
+    ],
+    "evidence": [
+      "target-native VM restore path returns stable refusal before migration completion"
+    ],
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "ping-socket-v1 portable descriptor",
+        "target-native VM negative proof",
+        "positive proof profile"
+      ]
+    }
+  },
+  {
+    "name": "ping-socket-target-native-hidden-sidecar-refusal",
+    "remoteSourceTarget": "ping-socket-target-native-hidden-sidecar-refusal",
+    "description": "hidden source-side ping-socket dependency is refused by the target VM path",
+    "sourceFixture": "target-native-negative:ping-socket-target-native-hidden-sidecar-refusal",
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": true,
+    "unsafeStateFamily": "ping-socket",
+    "proofCategory": "target-native-negative-hardening",
+    "refusesCapabilities": ["network:ping-socket", "fd:ping-socket", "proof:hidden-source-sidecar"],
+    "evidence": [
+      "target-native VM restore path returns stable refusal before migration completion"
+    ],
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "ping-socket-v1 portable descriptor",
+        "target-native VM negative proof",
+        "positive proof profile"
+      ]
+    }
+  },
+  {
     "name": "ping-socket-missing-ping-group-refusal",
     "remoteSourceTarget": "ping-socket-missing-ping-group-refusal",
     "description": "missing or disallowed ping_group_range must refuse",

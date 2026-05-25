@@ -71,14 +71,9 @@ Allowed positive shapes for this goal:
 Add positive profiles only after their descriptor, restore recipe, and verifier
 paths exist.
 
-- [ ] `real-distro-ping-socket-loopback-recreate`
-  - Real arm64 distro `/bin/ping` workload.
-  - Restored into an amd64 VM.
-  - Uses target-native ping-socket behavior.
-  - Completes with `migrationCompleted=true` only after descriptor/resource
-    gates and target verifier gates pass.
+- [x] `real-distro-ping-socket-loopback-recreate` was exercised as a real arm64 distro `/usr/bin/ping` workload, but remains an intentional refusal instead of a positive support claim. It proves iputils opens a Linux ping socket as non-root, then refuses because the captured active `recvmsg`/signal-timer wait is outside `ping-socket-v1`.
 
-- [ ] `real-nonroot-ping-socket-loopback-recreate`
+- [x] `real-nonroot-ping-socket-loopback-recreate`
   - Real arm64 workload running as a non-root uid/gid.
   - Captured gid is inside the declared source policy and target
     `ping_group_range`.
@@ -94,12 +89,12 @@ make that explicit.
 Choose a small but representative hardening set from the Goal 13 neighboring
 refusals and run them through the target VM restore path. At minimum cover:
 
-- [ ] missing or disallowing target `ping_group_range`;
-- [ ] uid/gid or group-policy mismatch;
-- [ ] non-loopback destination;
-- [ ] in-flight packet ambiguity or unread queue ambiguity;
-- [ ] unsupported ping-socket option or BPF/filter state;
-- [ ] hidden source-side dependency.
+- [x] missing or disallowing target `ping_group_range`;
+- [x] uid/gid or group-policy mismatch;
+- [x] non-loopback destination;
+- [x] in-flight packet ambiguity or unread queue ambiguity;
+- [x] unsupported ping-socket option or BPF/filter state;
+- [x] hidden source-side dependency.
 
 Each negative VM proof must show:
 
@@ -113,23 +108,15 @@ Each negative VM proof must show:
 
 ## Tasks
 
-- [ ] Identify the source distro image/rootfs that supplies `/bin/ping` and
-      document its implementation mode.
-- [ ] Prove the source `/bin/ping` opens a Linux ping socket rather than a raw
-      socket for the chosen uid/gid and policy.
-- [ ] Add capture support for the distro `/bin/ping` workload without relying on
-      host execution of guest-only binaries.
-- [ ] Add non-root source execution in the arm64 proof environment with explicit
-      uid/gid and `ping_group_range` setup.
-- [ ] Ensure the target restore path verifies non-root uid/gid/group policy and
-      target `ping_group_range` before `migrationCompleted=true`.
-- [ ] Add or extend portable descriptor fields only if needed for real distro
-      ping; keep unsupported extra state fail-closed.
-- [ ] Add target-native VM negative proof plumbing for the selected refusal
-      profiles.
-- [ ] Update proof profiles, support docs, refusal inventory, and proof matrices
-      with the new positive and target-native negative coverage.
-- [ ] Record proof artifacts and timings in this goal file before completion.
+- [x] Identify the source distro image/rootfs that supplies `/bin/ping` and document its implementation mode.
+- [x] Prove the source `/bin/ping` opens a Linux ping socket rather than a raw socket for the chosen uid/gid and policy.
+- [x] Add capture support for the distro `/bin/ping` workload without relying on host execution of guest-only binaries.
+- [x] Add non-root source execution in the arm64 proof environment with explicit uid/gid and `ping_group_range` setup.
+- [x] Ensure the target restore path verifies non-root uid/gid/group policy and target `ping_group_range` before `migrationCompleted=true`.
+- [x] Add or extend portable descriptor fields only if needed for real distro ping; keep unsupported extra state fail-closed.
+- [x] Add target-native VM negative proof plumbing for the selected refusal profiles.
+- [x] Update proof profiles, support docs, refusal inventory, and proof matrices with the new positive and target-native negative coverage.
+- [x] Record proof artifacts and timings in this goal file before completion.
 
 ## Proof requirements
 
@@ -137,7 +124,9 @@ Done only when all are true:
 
 - A real arm64 distro `/bin/ping` ping-socket workload restores on amd64 with
   target-native completion, or this goal explicitly keeps distro ping unsupported
-  and does not claim the positive profile.
+  and does not claim the positive profile. **Completed as unsupported/refused:**
+  iputils `/usr/bin/ping` opens a ping socket as non-root, but active `recvmsg`
+  remains outside this subset and refuses with stable code.
 - A real arm64 non-root ping-socket workload restores on amd64 with target-native
   completion and explicit uid/gid/`ping_group_range` verifier gates.
 - `migrationCompleted=true` is set only after descriptor/resource gates and all
@@ -179,3 +168,53 @@ Goal 13 already proves one real C ping-socket fixture with uid/gid `0`. The next
 risk is that this success is too fixture-shaped. This goal closes that gap by
 proving a real distro `ping` shape, proving non-root credential policy, and
 turning selected ping-socket refusal cases into target-native VM proofs.
+
+## Completed proof
+
+- Non-root positive profile: `real-nonroot-ping-socket-loopback-recreate`.
+  - Source: real arm64 C ping-socket workload under uid/gid `1000` with source
+    `net.ipv4.ping_group_range=1000 1000` and `NET_RAW` dropped.
+  - Target: amd64 VM adopted uid/gid `1000`, verified target
+    `ping_group_range=0 2147483647`, recreated the ping socket with
+    target-native syscalls, and completed with `migrationCompleted=true`,
+    `descriptorGateCompleted=true`, and `synthetic-ping-socket` passed.
+- Distro ping profile: `real-distro-ping-socket-loopback-recreate`.
+  - Source: Ubuntu 24.04 arm64 `iputils-ping` at `/usr/bin/ping`, file capability
+    removed, run as uid/gid `1000` with source `ping_group_range=1000 1000` and
+    `NET_RAW` dropped.
+  - Proof: strace captured `socket(AF_INET, SOCK_DGRAM, IPPROTO_ICMP) = 3`,
+    followed by loopback `sendto`/`recvmsg`.
+  - Result: intentionally refused, not claimed as positive support, because the
+    live distro process is blocked in active `recvmsg`/signal-timer state.
+    Refusal code: `target-socket-syscall-state-unsupported`;
+    `migrationCompleted=false`.
+- Target-native negative VM proofs passed for:
+  - `ping-socket-target-native-missing-ping-group-refusal`;
+  - `ping-socket-target-native-credential-mismatch-refusal`;
+  - `ping-socket-target-native-nonloopback-refusal`;
+  - `ping-socket-target-native-queue-ambiguity-refusal`;
+  - `ping-socket-target-native-unsupported-option-refusal`;
+  - `ping-socket-target-native-hidden-sidecar-refusal`.
+
+## Validation timings
+
+- `real-nonroot-ping-socket-loopback-recreate`: 44.568s, passed.
+- `real-distro-ping-socket-loopback-recreate`: 27.627s, passed as intentional refusal.
+- `ping-socket-target-native-missing-ping-group-refusal`: 36.314s, passed.
+- `ping-socket-target-native-credential-mismatch-refusal`: 36.735s, passed.
+- `ping-socket-target-native-nonloopback-refusal`: 36.121s, passed.
+- `ping-socket-target-native-queue-ambiguity-refusal`: 36.380s, passed.
+- `ping-socket-target-native-unsupported-option-refusal`: 36.139s, passed.
+- `ping-socket-target-native-hidden-sidecar-refusal`: 36.383s, passed.
+- `pnpm --silent portable-machine-proof-runner -- --validate-schema --json`: 0.153s, passed.
+- `pnpm --silent portable-machine-proof-matrix -- --preset refusal --check-summary-dir /tmp/refusal-summaries-14-final --json --continue-on-fail`: 3.182s, passed (135 refusal profiles).
+- `pnpm --silent portable-machine-proof-matrix -- --preset foundation-full --check-summary-dir /tmp/foundation-summaries-14-final --json --continue-on-fail`: 4.033s, passed (173 profiles; 38 success, 135 refusal).
+- Focused Vitest (`portable-machine-proof-runner`, `target-guest-restore-loader`, `native-resource-translation`): 3.442s, passed.
+- Full unit tests (`NPM_CONFIG_USERCONFIG=/dev/null npx vitest run`): 26.962s, passed.
+- `pnpm run format:check`: 0.633s, passed.
+- `pnpm run lint`: 0.184s, passed.
+- `pnpm run build:docs`: 1.519s, passed.
+- `pnpm run typecheck`: 2.037s, passed.
+- `pnpm exec fallow audit --changed-since origin/main`: 0.346s, passed.
+- `git diff --check`: 0.045s, passed.
+- `MACHINEN_REMOTE_BUILDER=friend@100.126.46.90 pnpm smoke-tests`: 131.245s, passed.

@@ -35,7 +35,7 @@ reference the same refusal codes. The proof runner checks those summaries with
 `expectedResult: "refusal"`; a matching refusal is a pass only when migration did
 not complete.
 
-Goals 8, 9, 11, 12, and 13 graduate the app-neutral subsets documented in
+Goals 8, 9, 11, 12, 13, and 14 graduate the app-neutral subsets documented in
 [`goal-8-9-capability-graduations.md`](./goal-8-9-capability-graduations.md): a
 real private multi-range memory plus regular-file workload, TCP
 listeners, raw ICMP loopback echo, Linux ping-socket loopback echo, multiple private ranges with guards, acyclic

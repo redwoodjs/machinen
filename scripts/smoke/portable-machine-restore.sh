@@ -428,6 +428,18 @@ capture_remote_native_process_bundle() {
       target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-ping-socket-target"
       target_detail="remote arm64 real ping socket loopback native-process bundle captured from $ARM64_SSH"
       ;;
+    real-nonroot-ping-socket-loopback-recreate)
+      target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-ping-socket-target"
+      target_detail="remote arm64 non-root ping socket loopback native-process bundle captured from $ARM64_SSH"
+      ;;
+    real-distro-ping-socket-loopback-recreate)
+      target_binary="/usr/bin/ping"
+      target_detail="remote arm64 distro /usr/bin/ping socket loopback native-process bundle captured from $ARM64_SSH"
+      ;;
+    ping-socket-target-native-*-refusal)
+      target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-pipe-read-target"
+      target_detail="remote arm64 pipe read bundle with target-native ping socket refusal proof captured from $ARM64_SSH"
+      ;;
     timerfd-read)
       target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-timerfd-read-target"
       target_detail="remote arm64 timerfd read native-process bundle captured from $ARM64_SSH"
@@ -499,12 +511,20 @@ capture_remote_native_process_bundle() {
     capture_command="'$ARM64_REMOTE_WORK/bin/machinen-native-process-capture' --output '$ARM64_REMOTE_WORK/capture/bundle' --target-arch amd64 --trace-syscall read --trace-syscall-fd 38 -- '$target_binary'"
   elif [[ "$REMOTE_SOURCE_TARGET" == "real-tcp-listener-recreate" || "$REMOTE_SOURCE_TARGET" == "real-tcp-listener-readiness-recreate" || "$REMOTE_SOURCE_TARGET" == "real-tcp-active-connection-transport-recreate" || "$REMOTE_SOURCE_TARGET" == "real-raw-icmp-loopback-recreate" || "$REMOTE_SOURCE_TARGET" == "real-ping-socket-loopback-recreate" ]]; then
     capture_command="'$ARM64_REMOTE_WORK/bin/machinen-native-process-capture' --output '$ARM64_REMOTE_WORK/capture/bundle' --target-arch amd64 --trace-syscall read --trace-syscall-fd 38 -- '$target_binary'"
+  elif [[ "$REMOTE_SOURCE_TARGET" == "real-nonroot-ping-socket-loopback-recreate" ]]; then
+    capture_command="'$ARM64_REMOTE_WORK/bin/machinen-native-process-capture' --output '$ARM64_REMOTE_WORK/capture/bundle' --target-arch amd64 --trace-syscall read --trace-syscall-fd 38 -- setpriv --reuid 1000 --regid 1000 --clear-groups '$target_binary'"
+  elif [[ "$REMOTE_SOURCE_TARGET" == "real-distro-ping-socket-loopback-recreate" ]]; then
+    capture_command="'$ARM64_REMOTE_WORK/bin/machinen-native-process-capture' --output '$ARM64_REMOTE_WORK/capture/bundle' --target-arch amd64 --settle-ms 1200 -- setpriv --reuid 1000 --regid 1000 --clear-groups '$target_binary' -i 10 127.0.0.1"
   fi
   local remote_capture_command="$capture_command > '$ARM64_REMOTE_WORK/capture.log'"
   if [[ "$REMOTE_SOURCE_TARGET" == "real-raw-icmp-loopback-recreate" ]]; then
     remote_capture_command="docker run --rm --network host --cap-add NET_RAW --cap-add SYS_PTRACE --security-opt seccomp=unconfined -v '$ARM64_REMOTE_WORK':'$ARM64_REMOTE_WORK' -w '$ARM64_REMOTE_WORK/repo' ubuntu:24.04 sh -lc \"$capture_command > '$ARM64_REMOTE_WORK/capture.log' && chmod -R a+rX '$ARM64_REMOTE_WORK/capture' '$ARM64_REMOTE_WORK/capture.log'\""
   elif [[ "$REMOTE_SOURCE_TARGET" == "real-ping-socket-loopback-recreate" ]]; then
     remote_capture_command="docker run --rm --sysctl net.ipv4.ping_group_range='0 2147483647' --cap-drop NET_RAW --cap-add SYS_PTRACE --security-opt seccomp=unconfined -v '$ARM64_REMOTE_WORK':'$ARM64_REMOTE_WORK' -w '$ARM64_REMOTE_WORK/repo' ubuntu:24.04 sh -lc \"$capture_command > '$ARM64_REMOTE_WORK/capture.log' && chmod -R a+rX '$ARM64_REMOTE_WORK/capture' '$ARM64_REMOTE_WORK/capture.log'\""
+  elif [[ "$REMOTE_SOURCE_TARGET" == "real-nonroot-ping-socket-loopback-recreate" ]]; then
+    remote_capture_command="docker run --rm --sysctl net.ipv4.ping_group_range='1000 1000' --cap-drop NET_RAW --cap-add SYS_PTRACE --security-opt seccomp=unconfined -v '$ARM64_REMOTE_WORK':'$ARM64_REMOTE_WORK' -w '$ARM64_REMOTE_WORK/repo' ubuntu:24.04 sh -lc \"$capture_command > '$ARM64_REMOTE_WORK/capture.log' && chmod -R a+rX '$ARM64_REMOTE_WORK/capture' '$ARM64_REMOTE_WORK/capture.log'\""
+  elif [[ "$REMOTE_SOURCE_TARGET" == "real-distro-ping-socket-loopback-recreate" ]]; then
+    remote_capture_command="docker run --rm --sysctl net.ipv4.ping_group_range='1000 1000' --cap-drop NET_RAW --cap-add SYS_PTRACE --security-opt seccomp=unconfined -v '$ARM64_REMOTE_WORK':'$ARM64_REMOTE_WORK' -w '$ARM64_REMOTE_WORK/repo' ubuntu:24.04 sh -lc \"{ apt-get update >/dev/null && apt-get install -y --no-install-recommends iputils-ping strace util-linux libcap2-bin >/dev/null && setcap -r /usr/bin/ping || true; echo MACHINEN_DISTRO_PING_IMPL path=/usr/bin/ping; cat /proc/sys/net/ipv4/ping_group_range; timeout 3s setpriv --reuid 1000 --regid 1000 --clear-groups strace -f -e trace=socket,sendto,recvmsg -o /tmp/machinen-ping.strace /usr/bin/ping -i 10 127.0.0.1 >/tmp/machinen-ping.out 2>/tmp/machinen-ping.err || true; cat /tmp/machinen-ping.strace; $capture_command; } > '$ARM64_REMOTE_WORK/capture.log' && chmod -R a+rX '$ARM64_REMOTE_WORK/capture' '$ARM64_REMOTE_WORK/capture.log'\""
   fi
   ssh "$ARM64_SSH" \
     "cd '$ARM64_REMOTE_WORK/repo' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-process-capture.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-process-capture' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-eventfd-read-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-eventfd-read-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-file-read-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-read-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-file-readv-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-readv-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-file-pread-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-pread-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-file-pwrite-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-pwrite-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-file-write-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-write-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-file-writev-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-writev-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-private-multi-range-file-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-private-multi-range-file-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-tcp-listener-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-tcp-listener-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-tcp-active-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-tcp-active-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-raw-icmp-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-raw-icmp-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-ping-socket-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-ping-socket-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-pipe-read-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-pipe-read-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-ppoll-timeout-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-ppoll-timeout-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-timerfd-read-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-timerfd-read-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror -pthread packages/microvm/assets/native-two-thread-ppoll-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-two-thread-ppoll-target' && $remote_capture_command"
@@ -604,6 +624,13 @@ run_target_restore() {
     resource_model_args_text="${resource_model_args[*]}"
   elif [[ "$REMOTE_SOURCE_TARGET" == "real-ping-socket-loopback-recreate" ]]; then
     resource_model_args=(--include-ping-socket-proof)
+    resource_model_args_text="${resource_model_args[*]}"
+  elif [[ "$REMOTE_SOURCE_TARGET" == "real-nonroot-ping-socket-loopback-recreate" || "$REMOTE_SOURCE_TARGET" == "real-distro-ping-socket-loopback-recreate" ]]; then
+    resource_model_args=(--include-ping-socket-proof --ping-socket-uid 1000 --ping-socket-gid 1000 --ping-socket-range-start 0 --ping-socket-range-end 2147483647 --ping-socket-adopt-credentials)
+    resource_model_args_text="${resource_model_args[*]}"
+  elif [[ "$REMOTE_SOURCE_TARGET" == ping-socket-target-native-*-refusal ]]; then
+    local refusal_reason="$REMOTE_SOURCE_TARGET"
+    resource_model_args=(--include-ping-socket-proof --ping-socket-expected-refusal-code target-socket-syscall-state-unsupported --ping-socket-expected-refusal-reason "$refusal_reason" --expect-target-refusal-code target-socket-syscall-state-unsupported)
     resource_model_args_text="${resource_model_args[*]}"
   fi
   if [[ $REMOTE_E2E -eq 1 ]]; then

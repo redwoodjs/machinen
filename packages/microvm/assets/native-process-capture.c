@@ -1161,6 +1161,26 @@ static const char *syscall_name(long long number) {
     return "writev";
   }
 #endif
+#ifdef __NR_recvfrom
+  if (number == __NR_recvfrom) {
+    return "recvfrom";
+  }
+#endif
+#ifdef __NR_recvmsg
+  if (number == __NR_recvmsg) {
+    return "recvmsg";
+  }
+#endif
+#ifdef __NR_sendto
+  if (number == __NR_sendto) {
+    return "sendto";
+  }
+#endif
+#ifdef __NR_sendmsg
+  if (number == __NR_sendmsg) {
+    return "sendmsg";
+  }
+#endif
   return "unknown";
 }
 

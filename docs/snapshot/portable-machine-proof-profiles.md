@@ -85,15 +85,15 @@ pnpm --silent portable-machine-proof-runner -- \
 
 This exits non-zero if any required gate is missing or not `passed`.
 
-## Goal 8/9/11/12/13 graduated capability set
+## Goal 8/9/11/12/13/14 graduated capability set
 
 The current graduated set also includes the Goal 8/9 app-neutral blockers,
-Goal 11 real workload proofs, Goal 12 raw ICMP loopback proof, and Goal 13 ping-socket loopback proof in
+Goal 11 real workload proofs, Goal 12 raw ICMP loopback proof, Goal 13 ping-socket loopback proof, and Goal 14 non-root ping-socket proof in
 [`goal-8-9-capability-graduations.md`](./goal-8-9-capability-graduations.md):
 `tcp-listener-recreate`, `real-tcp-listener-recreate`,
 `real-tcp-listener-readiness-recreate`,
 `real-tcp-active-connection-transport-recreate`,
-`real-raw-icmp-loopback-recreate`, `real-ping-socket-loopback-recreate`, `private-multi-range-recreate`,
+`real-raw-icmp-loopback-recreate`, `real-ping-socket-loopback-recreate`, `real-nonroot-ping-socket-loopback-recreate`, `private-multi-range-recreate`,
 `epoll-graph-recreate`, `file-backed-private-mapping-recreate`,
 `active-syscall-eintr-recreate`,
 `tcp-active-connection-transport-recreate`,

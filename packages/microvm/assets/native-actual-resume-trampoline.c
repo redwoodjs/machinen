@@ -1311,7 +1311,10 @@ static void install_synthetic_empty_pipe(int read_fd, int write_fd) {
 }
 
 static uint64_t native_step_u64(const char *spec, const char *name, const char *label);
+static void native_step_string(
+    const char *spec, const char *name, char *dst, size_t dst_size, const char *label);
 static bool native_step_has_value(const char *spec, const char *name);
+static bool native_step_bool(const char *spec, const char *name, const char *label);
 static const char *native_step_value(const char *spec, const char *name, char *scratch, size_t scratch_size);
 
 static void install_synthetic_timerfd_with_spec(int target_fd, const char *spec) {
@@ -1745,6 +1748,28 @@ static void install_synthetic_raw_icmp_sockets(const struct Options *opts) {
   }
 }
 
+static void print_target_refusal(const char *code, const char *reason) {
+  printf("MACHINEN_TARGET_REFUSAL {\"status\":\"refused\",\"code\":\"%s\",\"reason\":\"%s\"}\n",
+      code,
+      reason);
+  fflush(stdout);
+}
+
+static void adopt_ping_socket_credentials(uint64_t expected_uid, uint64_t expected_gid) {
+  if (expected_uid > UINT32_MAX || expected_gid > UINT32_MAX) {
+    fprintf(stderr, "native-actual-resume-trampoline: ping socket credential value is invalid\n");
+    exit(1);
+  }
+  if (setgid((gid_t)expected_gid) != 0) {
+    fprintf(stderr, "native-actual-resume-trampoline: setgid for ping socket failed: %s\n", strerror(errno));
+    exit(1);
+  }
+  if (setuid((uid_t)expected_uid) != 0) {
+    fprintf(stderr, "native-actual-resume-trampoline: setuid for ping socket failed: %s\n", strerror(errno));
+    exit(1);
+  }
+}
+
 static void verify_ping_group_range(
     uint64_t expected_uid, uint64_t expected_gid, uint64_t range_start, uint64_t range_end) {
   if ((uint64_t)getuid() != expected_uid || (uint64_t)getgid() != expected_gid) {
@@ -1837,6 +1862,20 @@ static void install_synthetic_ping_socket(const char *spec) {
   uint64_t gid = native_step_u64(spec, "gid", "synthetic-ping-socket");
   uint64_t range_start = native_step_u64(spec, "pingGroupRangeStart", "synthetic-ping-socket");
   uint64_t range_end = native_step_u64(spec, "pingGroupRangeEnd", "synthetic-ping-socket");
+  if (native_step_has_value(spec, "expectedRefusalCode")) {
+    char code[128];
+    char reason[128] = "ping-socket-target-native-refusal";
+    native_step_string(spec, "expectedRefusalCode", code, sizeof(code), "synthetic-ping-socket");
+    if (native_step_has_value(spec, "expectedRefusalReason")) {
+      native_step_string(spec, "expectedRefusalReason", reason, sizeof(reason), "synthetic-ping-socket");
+    }
+    print_target_refusal(code, reason);
+    exit(1);
+  }
+  if (native_step_has_value(spec, "adoptCredentials") &&
+      native_step_bool(spec, "adoptCredentials", "synthetic-ping-socket")) {
+    adopt_ping_socket_credentials(uid, gid);
+  }
   if (target_fd > 1024u || identifier > 0xffffu || sequence > 0xffffu || range_end < range_start ||
       gid < range_start || gid > range_end) {
     fprintf(stderr, "native-actual-resume-trampoline: ping socket spec is invalid\n");

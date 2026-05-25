@@ -225,8 +225,8 @@ describe("portable machine proof runner", () => {
     expect(summary.supportReport).toMatchObject({
       counts: {
         "baseline-success": 11,
-        "graduated-support": 26,
-        "intentional-refusal": 125,
+        "graduated-support": 27,
+        "intentional-refusal": 132,
         "permanent-refusal": 3,
       },
       graduated: expect.arrayContaining([
@@ -318,6 +318,11 @@ describe("portable machine proof runner", () => {
         }),
         expect.objectContaining({
           name: "real-ping-socket-loopback-recreate",
+          acceptedSubset: "ping-socket-v1:loopback-echo-no-inflight",
+          graduatedFromRefusalCode: "target-socket-syscall-state-unsupported",
+        }),
+        expect.objectContaining({
+          name: "real-nonroot-ping-socket-loopback-recreate",
           acceptedSubset: "ping-socket-v1:loopback-echo-no-inflight",
           graduatedFromRefusalCode: "target-socket-syscall-state-unsupported",
         }),

@@ -112,6 +112,9 @@ export type TargetGuestRestoreResourceRecipe =
       gid: number;
       pingGroupRangeStart: number;
       pingGroupRangeEnd: number;
+      adoptCredentials?: boolean;
+      expectedRefusalCode?: string;
+      expectedRefusalReason?: string;
       closeOnExec?: boolean;
     };
 
@@ -672,6 +675,9 @@ function parseSyntheticPingSocketRecipe(
     gid: parseResourceInteger(fields, "gid"),
     pingGroupRangeStart: parseResourceInteger(fields, "pingGroupRangeStart"),
     pingGroupRangeEnd: parseResourceInteger(fields, "pingGroupRangeEnd"),
+    adoptCredentials: parseResourceBoolean(fields, "adoptCredentials"),
+    expectedRefusalCode: fields.get("expectedRefusalCode"),
+    expectedRefusalReason: fields.get("expectedRefusalReason"),
     closeOnExec: parseResourceBoolean(fields, "closeOnExec"),
   };
 }
@@ -1383,6 +1389,17 @@ function validateSyntheticPingSocketRecipe(
   if (recipe.gid < recipe.pingGroupRangeStart || recipe.gid > recipe.pingGroupRangeEnd) {
     fail("target-guest-loader-descriptor-invalid", "gid is outside ping_group_range");
   }
+  assertToken(recipe.expectedRefusalCode, "expectedRefusalCode");
+  assertToken(recipe.expectedRefusalReason, "expectedRefusalReason");
+}
+
+function assertToken(value: string | undefined, name: string): void {
+  if (value === undefined) {
+    return;
+  }
+  if (!/^[a-z0-9_.:-]+$/i.test(value)) {
+    fail("target-guest-loader-descriptor-invalid", `${name} contains unsupported characters`);
+  }
 }
 
 function assertIcmp16(value: number, name: string): void {
@@ -1958,7 +1975,7 @@ function serializeResourceRecipe(recipe: TargetGuestRestoreResourceRecipe): stri
     return `resource=synthetic-raw-icmp fd=${recipe.fd} identifier=${recipe.identifier} sequence=${recipe.sequence}${serializeCloseOnExec(recipe.closeOnExec)}`;
   }
   if (recipe.kind === "synthetic-ping-socket") {
-    return `resource=synthetic-ping-socket fd=${recipe.fd} identifier=${recipe.identifier} sequence=${recipe.sequence} uid=${recipe.uid} gid=${recipe.gid} pingGroupRangeStart=${recipe.pingGroupRangeStart} pingGroupRangeEnd=${recipe.pingGroupRangeEnd}${serializeCloseOnExec(recipe.closeOnExec)}`;
+    return `resource=synthetic-ping-socket fd=${recipe.fd} identifier=${recipe.identifier} sequence=${recipe.sequence} uid=${recipe.uid} gid=${recipe.gid} pingGroupRangeStart=${recipe.pingGroupRangeStart} pingGroupRangeEnd=${recipe.pingGroupRangeEnd}${serializeOptionalBoolean("adoptCredentials", recipe.adoptCredentials)}${serializeOptionalString("expectedRefusalCode", recipe.expectedRefusalCode)}${serializeOptionalString("expectedRefusalReason", recipe.expectedRefusalReason)}${serializeCloseOnExec(recipe.closeOnExec)}`;
   }
   return `resource=synthetic-epoll fd=${recipe.fd} watchCount=${recipe.watches.length}${recipe.watches
     .flatMap((watch, index) => [
@@ -1971,7 +1988,15 @@ function serializeResourceRecipe(recipe: TargetGuestRestoreResourceRecipe): stri
 }
 
 function serializeCloseOnExec(value: boolean | undefined): string {
-  return value === undefined ? "" : ` closeOnExec=${value ? "true" : "false"}`;
+  return serializeOptionalBoolean("closeOnExec", value);
+}
+
+function serializeOptionalBoolean(name: string, value: boolean | undefined): string {
+  return value === undefined ? "" : ` ${name}=${value ? "true" : "false"}`;
+}
+
+function serializeOptionalString(name: string, value: string | undefined): string {
+  return value === undefined ? "" : ` ${name}=${value}`;
 }
 
 function serializeMemoryEntry(entry: TargetGuestMemoryMaterializationEntry): string {
@@ -2286,7 +2311,18 @@ function pingSocketResourceSpec(
     `gid=${recipe.gid}`,
     `pingGroupRangeStart=${recipe.pingGroupRangeStart}`,
     `pingGroupRangeEnd=${recipe.pingGroupRangeEnd}`,
-  ].join(";");
+    recipe.adoptCredentials === undefined
+      ? undefined
+      : `adoptCredentials=${recipe.adoptCredentials ? "true" : "false"}`,
+    recipe.expectedRefusalCode === undefined
+      ? undefined
+      : `expectedRefusalCode=${recipe.expectedRefusalCode}`,
+    recipe.expectedRefusalReason === undefined
+      ? undefined
+      : `expectedRefusalReason=${recipe.expectedRefusalReason}`,
+  ]
+    .filter((field) => field !== undefined)
+    .join(";");
 }
 
 function pipeResourceArgs(recipe: { readFd: number; writeFd?: number }): string[] {

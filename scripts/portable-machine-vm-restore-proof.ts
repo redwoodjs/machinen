@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 import { createHash } from "node:crypto";
-import { spawnSync } from "node:child_process";
+import { spawnSync, type SpawnSyncReturns } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import {
@@ -71,6 +71,14 @@ interface Args extends ProofVerifierFeatures {
     | "apply-target-env-cwd"
     | "apply-target-visible-context"
     | "apply-target-initial-stack";
+  pingSocketUid: number;
+  pingSocketGid: number;
+  pingSocketRangeStart: number;
+  pingSocketRangeEnd: number;
+  pingSocketAdoptCredentials: boolean;
+  pingSocketExpectedRefusalCode?: string;
+  pingSocketExpectedRefusalReason?: string;
+  expectTargetRefusalCode?: string;
 }
 
 interface TargetInvocation {
@@ -111,6 +119,13 @@ interface CombinedDescriptorPaths {
 }
 
 interface CombinedDescriptorContext extends CombinedDescriptorPaths, ProofVerifierFeatures {
+  pingSocketUid: number;
+  pingSocketGid: number;
+  pingSocketRangeStart: number;
+  pingSocketRangeEnd: number;
+  pingSocketAdoptCredentials: boolean;
+  pingSocketExpectedRefusalCode?: string;
+  pingSocketExpectedRefusalReason?: string;
   targetThreadRestoreResult: "accepted";
   targetThreadRestoreThreadId: string;
   targetSignalBlockedMasks: string[];
@@ -272,7 +287,10 @@ function usage(): never {
       "[--include-readiness-eventfd-poll-proof] [--include-regular-file-duplicate-fd-proof] [--include-target-auxv-at-random-proof] " +
       "[--include-private-layout-proof] [--include-signal-mask-blocked-proof] " +
       "[--include-tcp-listener-proof] [--include-tcp-listener-readiness-proof] [--include-tcp-active-broker-proof] " +
-      "[--include-raw-icmp-proof] [--include-ping-socket-proof] [--json]",
+      "[--include-raw-icmp-proof] [--include-ping-socket-proof] [--ping-socket-uid n] [--ping-socket-gid n] " +
+      "[--ping-socket-range-start n] [--ping-socket-range-end n] [--ping-socket-adopt-credentials] " +
+      "[--ping-socket-expected-refusal-code code] [--ping-socket-expected-refusal-reason reason] " +
+      "[--expect-target-refusal-code code] [--json]",
   );
   process.exit(2);
 }
@@ -309,6 +327,20 @@ function argsFromReader(read: (flag: string) => string | undefined, argv: string
     includeTcpActiveBrokerProof: argv.includes("--include-tcp-active-broker-proof"),
     includeRawIcmpProof: argv.includes("--include-raw-icmp-proof"),
     includePingSocketProof: argv.includes("--include-ping-socket-proof"),
+    pingSocketUid: parseIntegerFlag(read("--ping-socket-uid"), PROOF_PING_SOCKET_UID),
+    pingSocketGid: parseIntegerFlag(read("--ping-socket-gid"), PROOF_PING_SOCKET_GID),
+    pingSocketRangeStart: parseIntegerFlag(
+      read("--ping-socket-range-start"),
+      PROOF_PING_GROUP_RANGE_START,
+    ),
+    pingSocketRangeEnd: parseIntegerFlag(
+      read("--ping-socket-range-end"),
+      PROOF_PING_GROUP_RANGE_END,
+    ),
+    pingSocketAdoptCredentials: argv.includes("--ping-socket-adopt-credentials"),
+    pingSocketExpectedRefusalCode: read("--ping-socket-expected-refusal-code"),
+    pingSocketExpectedRefusalReason: read("--ping-socket-expected-refusal-reason"),
+    expectTargetRefusalCode: read("--expect-target-refusal-code"),
   };
 }
 
@@ -318,6 +350,17 @@ const PROCESS_CONTEXT_RESTORE_MODES = [
   "apply-target-visible-context",
   "apply-target-initial-stack",
 ] as const;
+
+function parseIntegerFlag(value: string | undefined, fallback: number): number {
+  if (value === undefined) {
+    return fallback;
+  }
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed < 0) {
+    usage();
+  }
+  return parsed;
+}
 
 function parseProcessContextRestoreMode(value: string | undefined): Args["processContextRestore"] {
   if (value === undefined) {
@@ -578,6 +621,13 @@ function combinedDescriptorContext(
     includeTcpActiveBrokerProof: args.includeTcpActiveBrokerProof,
     includeRawIcmpProof: args.includeRawIcmpProof,
     includePingSocketProof: args.includePingSocketProof,
+    pingSocketUid: args.pingSocketUid,
+    pingSocketGid: args.pingSocketGid,
+    pingSocketRangeStart: args.pingSocketRangeStart,
+    pingSocketRangeEnd: args.pingSocketRangeEnd,
+    pingSocketAdoptCredentials: args.pingSocketAdoptCredentials,
+    pingSocketExpectedRefusalCode: args.pingSocketExpectedRefusalCode,
+    pingSocketExpectedRefusalReason: args.pingSocketExpectedRefusalReason,
   };
   return contextAfterPathCheck(plan, bundle.rootDir!, context);
 }
@@ -1641,10 +1691,13 @@ function pingSocketProofResources(context: CombinedDescriptorContext): NativePro
             protocol: "icmp",
             destination: "127.0.0.1",
             credentialPolicy: "target-ping-group-range",
-            uid: PROOF_PING_SOCKET_UID,
-            gid: PROOF_PING_SOCKET_GID,
-            pingGroupRangeStart: PROOF_PING_GROUP_RANGE_START,
-            pingGroupRangeEnd: PROOF_PING_GROUP_RANGE_END,
+            uid: context.pingSocketUid,
+            gid: context.pingSocketGid,
+            pingGroupRangeStart: context.pingSocketRangeStart,
+            pingGroupRangeEnd: context.pingSocketRangeEnd,
+            adoptCredentials: context.pingSocketAdoptCredentials,
+            expectedRefusalCode: context.pingSocketExpectedRefusalCode,
+            expectedRefusalReason: context.pingSocketExpectedRefusalReason,
             networkNamespace: "target-loopback",
             route: "loopback",
             identifier: PROOF_PING_SOCKET_IDENTIFIER,
@@ -2734,19 +2787,73 @@ function refusedPlan(
   return { ...plan, state: "refused", migrationCompleted: false, refusal: { code, message } };
 }
 
+function targetRefusedPlan(
+  plan: ReturnType<typeof planPortableMachineVmRestoreProof>,
+  code: string,
+  targetResult: {
+    descriptorGateCompleted?: boolean;
+    targetVerifierResult?: string;
+    stdout?: string;
+    stderr?: string;
+  },
+): ReturnType<typeof planPortableMachineVmRestoreProof> {
+  return {
+    ...plan,
+    state: "refused",
+    migrationCompleted: false,
+    descriptorGateCompleted: targetResult.descriptorGateCompleted === true,
+    targetVerifierResult: "failed",
+    refusal: {
+      code,
+      message: targetResult.stderr || targetResult.stdout || "target-native ping socket refusal",
+    },
+  };
+}
+
 function runTargetProof(
   args: Args,
   plan: ReturnType<typeof planPortableMachineVmRestoreProof>,
   invocation: TargetInvocation = {},
 ) {
   const target = spawnSync(process.execPath, targetCommand(args, invocation), targetSpawnOptions());
+  const failedTarget = targetProcessFailurePlan(plan, target);
+  if (failedTarget) {
+    return failedTarget;
+  }
+  const targetResult = JSON.parse(target.stdout);
+  return (
+    targetExpectedRefusalPlan(args, plan, targetResult) ??
+    completePortableMachineVmRestoreProof(plan, targetResult)
+  );
+}
+
+function targetProcessFailurePlan(
+  plan: ReturnType<typeof planPortableMachineVmRestoreProof>,
+  target: SpawnSyncReturns<string>,
+): ReturnType<typeof planPortableMachineVmRestoreProof> | undefined {
   return target.status === 0
-    ? completePortableMachineVmRestoreProof(plan, JSON.parse(target.stdout))
+    ? undefined
     : {
         ...plan,
         state: "refused" as const,
         refusal: { code: "target-vm-proof-failed", message: target.stderr || target.stdout },
       };
+}
+
+function targetExpectedRefusalPlan(
+  args: Args,
+  plan: ReturnType<typeof planPortableMachineVmRestoreProof>,
+  targetResult: {
+    exitCode?: number;
+    descriptorGateCompleted?: boolean;
+    targetVerifierResult?: string;
+    stdout?: string;
+    stderr?: string;
+  },
+): ReturnType<typeof planPortableMachineVmRestoreProof> | undefined {
+  return args.expectTargetRefusalCode && targetResult.exitCode !== 0
+    ? targetRefusedPlan(plan, args.expectTargetRefusalCode, targetResult)
+    : undefined;
 }
 
 function targetCommand(args: Args, invocation: TargetInvocation): string[] {
