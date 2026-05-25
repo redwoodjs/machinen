@@ -1,8 +1,8 @@
 # Goal 6: support graduation from proven refusal boundaries
 
-`goal-5.md` proved the next refusal frontier. This file is the implementation
+`goal-005.md` proved the next refusal frontier. This file is the implementation
 ledger for turning that frontier into real target-native support. Unlike
-`goal-5.md`, this goal cannot be completed by documenting refusals alone: each
+`goal-005.md`, this goal cannot be completed by documenting refusals alone: each
 track below must graduate at least one narrow success subset, keep unsafe
 neighbors refused, and prove the accepted subset with remote arm64->amd64 target
 execution.
@@ -39,7 +39,7 @@ refused.
 
 - Base each implementation task on `portable-snapshots`.
 - Use one issue, one branch, and one PR per support subset.
-- Start from one proven refusal profile/code from `goal-5.md`.
+- Start from one proven refusal profile/code from `goal-005.md`.
 - Do not mark a track complete with refusal-only work.
 - Prefer one narrow accepted subset over a broad model with hidden assumptions.
 - A support claim requires:

@@ -1,6 +1,6 @@
 # Goal 11.4: raw ICMP / ping portable contract
 
-Parent: [`goal-11.md`](./goal-11.md), Track 5.
+Parent: [`goal-011.md`](./goal-011.md), Track 5.
 
 ## Objective
 

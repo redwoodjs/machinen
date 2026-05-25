@@ -1,6 +1,6 @@
 # Goals 9-13: refusal-boundary graduation wave
 
-`goal-4.md` closed the Goals 4-8 ledger by proving the current refusal
+`goal-004.md` closed the Goals 4-8 ledger by proving the current refusal
 boundaries. This file combines the next wave into one roadmap so work stays
 ordered while each implementation task remains small, reviewed, and merged
 sequentially.

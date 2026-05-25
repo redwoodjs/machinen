@@ -1,6 +1,6 @@
 # Goal 11.1: real loopback TCP listener restore proof
 
-Parent: [`goal-11.md`](./goal-11.md), Track 2.
+Parent: [`goal-011.md`](./goal-011.md), Track 2.
 
 ## Objective
 

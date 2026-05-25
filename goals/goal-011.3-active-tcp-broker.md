@@ -1,7 +1,7 @@
 # Goal 11.3: explicit-broker active TCP stream proof
 
-Parent: [`goal-11.md`](./goal-11.md), Track 4. Depends on the listener/socket
-model from [`goal-11.1-tcp-listener.md`](./goal-11.1-tcp-listener.md).
+Parent: [`goal-011.md`](./goal-011.md), Track 4. Depends on the listener/socket
+model from [`goal-011.1-tcp-listener.md`](./goal-011.1-tcp-listener.md).
 
 ## Objective
 

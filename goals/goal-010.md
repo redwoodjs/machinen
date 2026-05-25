@@ -16,7 +16,7 @@ A runtime family becomes supported only for a named, narrow subset whose state i
 fully expressed by graduated app-neutral capabilities, restored by target-native
 recipes, verified by target gates, and bounded by exact refusal profiles.
 
-Concrete refusal-to-support substeps live in [`goal-10-solved.md`](./goal-10-solved.md).
+Concrete refusal-to-support substeps live in [`goal-010-solved.md`](./goal-010-solved.md).
 
 ## Baseline carried forward
 

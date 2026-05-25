@@ -1,6 +1,6 @@
 # Goal 13: Linux ping-socket portable snapshot contract
 
-Parent context: [`goal-12.md`](./goal-12.md) graduated the narrow raw ICMP
+Parent context: [`goal-012.md`](./goal-012.md) graduated the narrow raw ICMP
 loopback contract for `AF_INET` / `SOCK_RAW` / `IPPROTO_ICMP` with
 `CAP_NET_RAW`. This goal targets the common Linux ping-socket shape used by many
 `ping` implementations: `AF_INET` / `SOCK_DGRAM` / `IPPROTO_ICMP` authorized by

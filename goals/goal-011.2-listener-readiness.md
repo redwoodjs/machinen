@@ -1,7 +1,7 @@
 # Goal 11.2: listener readiness with target-side probe
 
-Parent: [`goal-11.md`](./goal-11.md), Track 3. Depends on
-[`goal-11.1-tcp-listener.md`](./goal-11.1-tcp-listener.md).
+Parent: [`goal-011.md`](./goal-011.md), Track 3. Depends on
+[`goal-011.1-tcp-listener.md`](./goal-011.1-tcp-listener.md).
 
 ## Objective
 

@@ -23,7 +23,7 @@ The accepted success path remains:
 - `migrationCompleted=true` only after target-native completion and all relevant
   target gates pass.
 
-Permanent refusal invariants from `goal-3.md` still apply unless a future project
+Permanent refusal invariants from `goal-003.md` still apply unless a future project
 goal explicitly changes them. In particular, raw cross-ISA `.vmstate` replay,
 source vDSO/vvar copying, source-ISA emulation, sidecar success paths, app hooks,
 source text replay, and ambiguous descriptor provenance remain refused.

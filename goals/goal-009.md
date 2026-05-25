@@ -18,7 +18,7 @@ because a transport or synchronization primitive is documented. A success claim
 requires portable state, target-native restore, gates, positive proofs, nearby
 negative profiles, and validation timings.
 
-Concrete refusal-to-support substeps live in [`goal-9-solved.md`](./goal-9-solved.md).
+Concrete refusal-to-support substeps live in [`goal-009-solved.md`](./goal-009-solved.md).
 
 ## Baseline carried forward
 

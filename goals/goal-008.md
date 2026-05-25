@@ -17,7 +17,7 @@ runtime may consume these capabilities later, but no runtime/app family becomes
 supported unless its state maps to graduated app-neutral capabilities and passes
 target-native proofs.
 
-Concrete refusal-to-support substeps live in [`goal-8-solved.md`](./goal-8-solved.md).
+Concrete refusal-to-support substeps live in [`goal-008-solved.md`](./goal-008-solved.md).
 
 ## Baseline carried forward
 

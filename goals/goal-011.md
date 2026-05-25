@@ -53,13 +53,13 @@ Recommended order, from safest to most externally stateful:
 
 The remaining ordered follow-up work is split into sub-goals:
 
-- [`goal-11.1-tcp-listener.md`](./goal-11.1-tcp-listener.md) — real loopback
+- [`goal-011.1-tcp-listener.md`](./goal-011.1-tcp-listener.md) — real loopback
   TCP listener restore proof.
-- [`goal-11.2-listener-readiness.md`](./goal-11.2-listener-readiness.md) —
+- [`goal-011.2-listener-readiness.md`](./goal-011.2-listener-readiness.md) —
   target-side probe readiness proof.
-- [`goal-11.3-active-tcp-broker.md`](./goal-11.3-active-tcp-broker.md) —
+- [`goal-011.3-active-tcp-broker.md`](./goal-011.3-active-tcp-broker.md) —
   explicit-broker active TCP stream proof.
-- [`goal-11.4-raw-icmp-contract.md`](./goal-11.4-raw-icmp-contract.md) — keep
+- [`goal-011.4-raw-icmp-contract.md`](./goal-011.4-raw-icmp-contract.md) — keep
   `ping` refused until a raw ICMP contract exists, or prove that full contract.
 
 ## Track 1: private multi-range memory + regular file fd
