@@ -7,6 +7,7 @@ node_modules/
 .fallow/
 dist/
 release-assets/
+release-assets-*/
 .build-stage/
 .kernel-build/
 .claude/scheduled_tasks.lock

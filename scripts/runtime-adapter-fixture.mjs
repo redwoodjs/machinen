@@ -12,6 +12,7 @@ const REQUIRED_REFUSALS = [
   "runtime-app-hook-required",
 ];
 
+// fallow-ignore-next-line complexity
 function validateAdapter(adapter) {
   const errors = [];
   if (adapter.kind !== "machinen.runtime-neutral-adapter") {

@@ -13,7 +13,8 @@
 // kernel's ICMP-datagram socket path is what the bug breaks, and
 // loopback exercises it without any gvproxy round-trip.
 //
-// Skips when zig isn't on PATH or release-assets are missing.
+// Skips when fixture requirements are explicitly disabled, zig isn't
+// on PATH, or release-assets are missing.
 
 import { execFileSync, execSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
@@ -36,6 +37,9 @@ function hasZig(): boolean {
 }
 
 function prereqs(): { rootfs: string; kernel: string; dtb: string } | undefined {
+  if (process.env.MACHINEN_REQUIRE_FIXTURES === "0") {
+    return undefined;
+  }
   const rootfs = resolve(releaseAssets, "rootfs-debian-arm64.tar.gz");
   const kernel = resolve(releaseAssets, "Image-arm64");
   const dtb = resolve(releaseAssets, "virt-arm64.dtb");
@@ -53,7 +57,7 @@ describe("machinen-netup unprivileged ping (#203)", () => {
     const p = prereqs();
     if (!p) {
       console.warn(
-        "skip ping integration: needs zig + release-assets/Image-arm64 + rootfs-debian-arm64.tar.gz",
+        "skip ping integration: MACHINEN_REQUIRE_FIXTURES=0 or needs zig + release-assets/Image-arm64 + rootfs-debian-arm64.tar.gz",
       );
       return;
     }

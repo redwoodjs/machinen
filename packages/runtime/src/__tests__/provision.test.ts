@@ -46,7 +46,9 @@ function findBootTestBinary(): string | undefined {
   return undefined;
 }
 
-function integrationPrereqs(): { binary: string; base: string } | undefined {
+function integrationPrereqs():
+  | { binary: string; base: string; kernel: string; dtb: string }
+  | undefined {
   const binary = findBootTestBinary();
   const base = resolve(releaseAssets, "rootfs-debian-arm64.tar.gz");
   const kernel = resolve(microvmRoot, "test-fixtures/Image");
@@ -54,7 +56,7 @@ function integrationPrereqs(): { binary: string; base: string } | undefined {
   if (!binary || !existsSync(base) || !existsSync(kernel) || !existsSync(dtb)) {
     return undefined;
   }
-  return { binary, base };
+  return { binary, base, kernel, dtb };
 }
 
 describe("provision", () => {
@@ -252,6 +254,8 @@ describe("provision", () => {
             MACHINEN_DEBUG: "1",
           },
           base: prereqs.base,
+          kernel: prereqs.kernel,
+          dtb: prereqs.dtb,
           install: async (vm) => {
             await vm.exec(
               "mkdir -p /warm && printf machinen-provision-ok > /warm/marker && chmod 0640 /warm/marker",
@@ -274,6 +278,8 @@ describe("provision", () => {
             MACHINEN_BOOT_TEST: "1",
           },
           image: result.imagePath,
+          kernel: prereqs.kernel,
+          dtb: prereqs.dtb,
           cmd: ["/exec-agent"],
           env: { PATH: "/usr/local/bin:/usr/bin:/bin:/sbin" },
           timeoutMs: null,

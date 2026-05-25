@@ -1,5 +1,21 @@
 # @machinen/runtime
 
+## 0.4.0
+
+### Minor Changes
+
+- 37cf5fa: Ship amd64 Linux/KVM guest support.
+
+  The release now publishes the `@machinen/native-x64-linux` host package and amd64 base assets (`bzImage-x86_64`, `rootfs-debian-amd64.tar.gz`, and the prebaked rootfs image). On amd64 Linux hosts, the CLI/runtime select amd64 guest assets by default and same-architecture amd64 snapshot/restore uses the vmstate path.
+
+- bd30262: Add opt-in nested virtualization for arm64 hosts.
+
+  `boot({ nested: true })` and `machinen boot --nested` now ask the VMM to expose EL2 to the guest. Linux/KVM uses `KVM_CAP_ARM_EL2` and `KVM_ARM_VCPU_HAS_EL2`; macOS uses Hypervisor.framework's EL2 VM config when available. The guest kernel config now builds KVM in so `/dev/kvm` can appear inside nested-capable guests, masks SVE/SME features that HVF cannot virtualize at EL2, and uses a nested-safe poweroff marker when PSCI terminates inside the L1 guest. Provider-level snapshots of nested-enabled VMs are refused until EL2 vmstate capture is fully audited. Docs now include a Firecracker guide, plus an example that boots an aarch64 Firecracker L2 inside machinen.
+
+### Patch Changes
+
+- ca23f28: Mix fresh host entropy into vmstate restores and expose vmstate smoke repros for timer, entropy, and socket contracts.
+
 ## 0.3.4
 
 ## 0.3.3

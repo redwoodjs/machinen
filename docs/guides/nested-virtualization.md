@@ -33,7 +33,7 @@ fails in a confusing way.
 | macOS 15+ on M3/M4-class Apple Silicon             | Supported path |
 | M1/M2 Macs                                         | Not supported  |
 | macOS before 15                                    | Not supported  |
-| x86_64 hosts                                       | Not supported  |
+| amd64 hosts                                        | Not supported  |
 | Cloud VMs that hide EL2 from the guest             | Not supported  |
 
 The runtime does a quick host check first. The VMM then does the real

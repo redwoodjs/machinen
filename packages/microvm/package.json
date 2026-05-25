@@ -1,8 +1,8 @@
 {
   "name": "@machinen/microvm",
-  "version": "0.3.4",
+  "version": "0.4.0",
   "private": true,
-  "description": "Zig-native arm64 microVM for machinen (HVF on darwin, KVM on Linux). Source-only workspace package; the built binary ships inside @machinen/native-arm64-{darwin,linux}.",
+  "description": "Zig-native microVM for machinen (HVF on Darwin arm64, KVM on Linux arm64/amd64). Source-only workspace package; built binaries ship inside @machinen/native-arm64-{darwin,linux} and @machinen/native-x64-linux.",
   "license": "FSL-1.1-MIT",
   "repository": {
     "type": "git",
