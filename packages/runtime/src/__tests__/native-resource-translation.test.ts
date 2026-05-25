@@ -32,6 +32,83 @@ describe("native resource translation", () => {
     });
   });
 
+  it("plans the raw-icmp-v1 loopback echo descriptor subset", () => {
+    const plan = planNativeTargetFdTable({
+      resources: [
+        {
+          id: "fd:58:raw-icmp",
+          kind: "raw-socket",
+          state: "captured",
+          fd: 58,
+          path: "socket:[raw-icmp]",
+          flags: ["octal:2"],
+          recipe: {
+            rawIcmpModel: "loopback-echo-v1",
+            family: "inet4",
+            socketType: "raw",
+            protocol: "icmp",
+            destination: "127.0.0.1",
+            capability: "cap-net-raw",
+            networkNamespace: "target-loopback",
+            route: "loopback",
+            identifier: 0x4d49,
+            sequence: 1,
+            inFlightPackets: "none",
+            receiveQueue: "empty",
+          },
+        },
+      ],
+    });
+
+    expect(plan.refusals).toEqual([]);
+    expect(plan.entries).toEqual([
+      expect.objectContaining({ targetFd: 58, kind: "synthetic-raw-icmp" }),
+    ]);
+    expect(plan.targetGuestResources).toEqual([
+      {
+        kind: "synthetic-raw-icmp",
+        fd: 58,
+        identifier: 0x4d49,
+        sequence: 1,
+        closeOnExec: false,
+      },
+    ]);
+  });
+
+  it("keeps unsafe raw-icmp-v1 variants fail-closed", () => {
+    const plan = planNativeTargetFdTable({
+      resources: [
+        {
+          id: "fd:58:raw-icmp",
+          kind: "raw-socket",
+          state: "captured",
+          fd: 58,
+          path: "socket:[raw-icmp]",
+          flags: ["octal:2"],
+          recipe: {
+            rawIcmpModel: "loopback-echo-v1",
+            family: "inet4",
+            socketType: "raw",
+            protocol: "icmp",
+            destination: "192.0.2.1",
+            capability: "cap-net-raw",
+            networkNamespace: "target-loopback",
+            route: "loopback",
+            identifier: 0x4d49,
+            sequence: 1,
+            inFlightPackets: "none",
+            receiveQueue: "empty",
+          },
+        },
+      ],
+    });
+
+    expect(plan.refusals).toEqual([
+      expect.objectContaining({ code: "target-socket-syscall-state-unsupported" }),
+    ]);
+    expect(plan.targetGuestResources).toEqual([]);
+  });
+
   it("uses host capabilities for raw sockets and PTYs", () => {
     const result = translateNativeResources({
       hostCapabilities: ["raw-socket", "pty"],

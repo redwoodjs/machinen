@@ -95,6 +95,13 @@ export type TargetGuestRestoreResourceRecipe =
       port: number;
       initialPeerBytes: string;
       closeOnExec?: boolean;
+    }
+  | {
+      kind: "synthetic-raw-icmp";
+      fd: number;
+      identifier: number;
+      sequence: number;
+      closeOnExec?: boolean;
     };
 
 export type TargetGuestRestoreResumeMode = "translated-frame";
@@ -497,6 +504,7 @@ const RESOURCE_RECIPE_PARSERS: Record<
   "synthetic-epoll": parseSyntheticEpollRecipe,
   "synthetic-tcp-listener": parseSyntheticTcpListenerRecipe,
   "synthetic-tcp-active-broker": parseSyntheticTcpActiveBrokerRecipe,
+  "synthetic-raw-icmp": parseSyntheticRawIcmpRecipe,
 };
 
 function resourceFromFields(
@@ -624,6 +632,18 @@ function parseSyntheticTcpActiveBrokerRecipe(
     brokerFd: parseResourceInteger(fields, "brokerFd"),
     port: parseResourceInteger(fields, "port"),
     initialPeerBytes: requiredResourceField(fields, "initialPeerBytes"),
+    closeOnExec: parseResourceBoolean(fields, "closeOnExec"),
+  };
+}
+
+function parseSyntheticRawIcmpRecipe(
+  fields: Map<string, string>,
+): TargetGuestRestoreResourceRecipe {
+  return {
+    kind: "synthetic-raw-icmp",
+    fd: parseResourceInteger(fields, "fd"),
+    identifier: parseResourceInteger(fields, "identifier"),
+    sequence: parseResourceInteger(fields, "sequence"),
     closeOnExec: parseResourceBoolean(fields, "closeOnExec"),
   };
 }
@@ -1192,6 +1212,7 @@ const RESOURCE_RECIPE_VALIDATORS = {
   "synthetic-epoll": validateSyntheticEpollRecipe,
   "synthetic-tcp-listener": validateSyntheticTcpListenerRecipe,
   "synthetic-tcp-active-broker": validateSyntheticTcpActiveBrokerRecipe,
+  "synthetic-raw-icmp": validateSyntheticRawIcmpRecipe,
 };
 
 function validateResourceRecipe(
@@ -1306,6 +1327,21 @@ function validateSyntheticTcpActiveBrokerRecipe(
   assertHexBytes(recipe.initialPeerBytes, "initialPeerBytes");
   if (recipe.fd === recipe.brokerFd) {
     fail("target-guest-loader-invalid-fd", "active TCP fd and broker fd must differ");
+  }
+}
+
+function validateSyntheticRawIcmpRecipe(
+  recipe: Extract<TargetGuestRestoreResourceRecipe, { kind: "synthetic-raw-icmp" }>,
+): void {
+  assertFd(recipe.fd, "fd");
+  assertIcmp16(recipe.identifier, "identifier");
+  assertIcmp16(recipe.sequence, "sequence");
+}
+
+function assertIcmp16(value: number, name: string): void {
+  assertNonNegative(value, name);
+  if (value > 0xffff) {
+    fail("target-guest-loader-descriptor-invalid", `${name} must fit in 16 bits`);
   }
 }
 
@@ -1871,6 +1907,9 @@ function serializeResourceRecipe(recipe: TargetGuestRestoreResourceRecipe): stri
   if (recipe.kind === "synthetic-tcp-active-broker") {
     return `resource=synthetic-tcp-active-broker fd=${recipe.fd} brokerFd=${recipe.brokerFd} port=${recipe.port} initialPeerBytes=${recipe.initialPeerBytes}${serializeCloseOnExec(recipe.closeOnExec)}`;
   }
+  if (recipe.kind === "synthetic-raw-icmp") {
+    return `resource=synthetic-raw-icmp fd=${recipe.fd} identifier=${recipe.identifier} sequence=${recipe.sequence}${serializeCloseOnExec(recipe.closeOnExec)}`;
+  }
   return `resource=synthetic-epoll fd=${recipe.fd} watchCount=${recipe.watches.length}${recipe.watches
     .flatMap((watch, index) => [
       `watch${index}Fd=${watch.fd}`,
@@ -2086,9 +2125,16 @@ function resourceToTrampolineArgs(recipe: TargetGuestRestoreResourceRecipe): str
       ...closeOnExecArgs(recipe.fd, recipe.closeOnExec),
     ];
   }
+  if (recipe.kind === "synthetic-tcp-active-broker") {
+    return [
+      "--synthetic-tcp-active-broker",
+      tcpActiveBrokerResourceSpec(recipe),
+      ...closeOnExecArgs(recipe.fd, recipe.closeOnExec),
+    ];
+  }
   return [
-    "--synthetic-tcp-active-broker",
-    tcpActiveBrokerResourceSpec(recipe),
+    "--synthetic-raw-icmp",
+    rawIcmpResourceSpec(recipe),
     ...closeOnExecArgs(recipe.fd, recipe.closeOnExec),
   ];
 }
@@ -2162,6 +2208,14 @@ function tcpActiveBrokerResourceSpec(
     `port=${recipe.port}`,
     `initialPeerBytes=${recipe.initialPeerBytes}`,
   ].join(";");
+}
+
+function rawIcmpResourceSpec(
+  recipe: Extract<TargetGuestRestoreResourceRecipe, { kind: "synthetic-raw-icmp" }>,
+): string {
+  return [`fd=${recipe.fd}`, `identifier=${recipe.identifier}`, `sequence=${recipe.sequence}`].join(
+    ";",
+  );
 }
 
 function pipeResourceArgs(recipe: { readFd: number; writeFd?: number }): string[] {

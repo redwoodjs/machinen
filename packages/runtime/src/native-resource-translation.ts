@@ -36,6 +36,7 @@ export type NativeTargetFdTableEntryKind =
   | "synthetic-epoll"
   | "synthetic-tcp-listener"
   | "synthetic-tcp-active-broker"
+  | "synthetic-raw-icmp"
   | "refused";
 
 export interface NativeTargetFdTableEntry {
@@ -201,7 +202,8 @@ function fdTableEntryFromRecipe(
     syntheticSignalfdFdTableEntry(resource, recipe, closeOnExec) ??
     syntheticEpollFdTableEntry(resource, recipe, closeOnExec, resources) ??
     syntheticTcpListenerFdTableEntry(resource, recipe, closeOnExec) ??
-    syntheticTcpActiveBrokerFdTableEntry(resource, recipe, closeOnExec)
+    syntheticTcpActiveBrokerFdTableEntry(resource, recipe, closeOnExec) ??
+    syntheticRawIcmpFdTableEntry(resource, recipe, closeOnExec)
   );
 }
 
@@ -751,6 +753,48 @@ function syntheticTcpActiveBrokerFdTableEntry(
   });
 }
 
+// fallow-ignore-next-line complexity
+function syntheticRawIcmpFdTableEntry(
+  resource: NativeProcessResource,
+  recipe: Record<string, unknown>,
+  closeOnExec: boolean,
+): NativeTargetFdTableEntry | undefined {
+  if (resource.kind !== "raw-socket" || recipe.rawIcmpModel !== "loopback-echo-v1") {
+    return undefined;
+  }
+  const identifier = typeof recipe.identifier === "number" ? recipe.identifier : undefined;
+  const sequence = typeof recipe.sequence === "number" ? recipe.sequence : undefined;
+  if (
+    recipe.family !== "inet4" ||
+    recipe.socketType !== "raw" ||
+    recipe.protocol !== "icmp" ||
+    recipe.destination !== "127.0.0.1" ||
+    recipe.capability !== "cap-net-raw" ||
+    recipe.networkNamespace !== "target-loopback" ||
+    recipe.route !== "loopback" ||
+    recipe.inFlightPackets !== "none" ||
+    recipe.receiveQueue !== "empty" ||
+    identifier === undefined ||
+    sequence === undefined ||
+    identifier < 0 ||
+    identifier > 0xffff ||
+    sequence < 0 ||
+    sequence > 0xffff
+  ) {
+    return refusedFdTableEntry(
+      resource,
+      resourceRefusalWithCode(resource, "target-socket-syscall-state-unsupported"),
+    );
+  }
+  return materializedFdTableEntry(resource, "synthetic-raw-icmp", closeOnExec, {
+    kind: "synthetic-raw-icmp",
+    fd: resource.fd!,
+    identifier,
+    sequence,
+    closeOnExec,
+  });
+}
+
 function materializedFdTableEntry(
   resource: NativeProcessResource,
   kind: NativeTargetFdTableEntryKind,
@@ -988,6 +1032,13 @@ function translateResource(
       resource.recipe?.tcpListenerModel === "loopback-listener-readiness-v1" ||
       resource.recipe?.tcpActiveConnectionModel === "explicit-broker-v1")
   ) {
+    return {
+      ...resource,
+      state: "recipe",
+      refusal: undefined,
+    };
+  }
+  if (resource.kind === "raw-socket" && resource.recipe?.rawIcmpModel === "loopback-echo-v1") {
     return {
       ...resource,
       state: "recipe",

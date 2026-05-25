@@ -1,9 +1,9 @@
-# Goal 8/9 app-neutral capability graduations
+# Goal 8/9/11/12 app-neutral capability graduations
 
-Goals 8 and 9 add app-neutral support subsets as proof-profile capabilities. A
-success claim remains valid only after target-native completion, descriptor
-consumption, verifier gates, no source-ISA emulation, no runtime sidecar success,
-no app hooks, and no source text replay.
+Goals 8, 9, 11, and 12 add app-neutral support subsets as proof-profile
+capabilities. A success claim remains valid only after target-native completion,
+descriptor consumption, verifier gates, no source-ISA emulation, no runtime
+sidecar success, no app hooks, and no source text replay.
 
 ## Goal 8 graduated subsets
 
@@ -56,6 +56,21 @@ ambiguous remaining time.
   (`real-tcp-active-connection-transport-recreate`): a real arm64 active TCP
   workload restored through a declared target-loopback peer broker; the target
   verifier proves unread bytes and reply delivery through that declared broker.
+
+## Goal 12 raw ICMP graduation
+
+- `raw-icmp-v1:loopback-echo-no-inflight`
+  (`real-raw-icmp-loopback-recreate`): a real arm64 raw ICMP workload captured
+  with `CAP_NET_RAW` inside declared proof infrastructure and restored as one
+  target-native amd64 raw ICMP socket. The descriptor is limited to IPv4
+  loopback, empty in-flight and receive queues, target-loopback namespace/route,
+  and ICMP id/sequence state. The target restore path opens the raw socket with
+  target `CAP_NET_RAW`, performs a loopback echo probe, and the verifier checks
+  the restored fd type/protocol plus state-consumption gates. Nearby profiles
+  keep missing capability, ping-group policy, wrong namespace, stale route,
+  non-loopback destination, id/sequence mismatch, in-flight packets, unread
+  queues, unsupported options, BPF filters, `IP_HDRINCL`, ICMPv6, and hidden
+  source-side dependency refused.
 
 ## Goal 9 graduated subsets
 

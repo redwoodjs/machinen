@@ -9,8 +9,8 @@ makes a runtime/app family supported.
 Current profile inventory:
 
 - 11 `baseline-success` profiles;
-- 24 `graduated-support` profiles;
-- 99 `intentional-refusal` profiles;
+- 25 `graduated-support` profiles;
+- 112 `intentional-refusal` profiles;
 - 3 `permanent-refusal` profiles.
 
 ## Success contract
@@ -58,6 +58,9 @@ under `capabilities`. The families currently covered are:
 - readiness/epoll: listener readiness probes, including the real
   `real-tcp-listener-readiness-recreate` target-side probe proof, and acyclic
   level-triggered epoll graphs over accepted descriptors;
+- raw ICMP: the narrow `raw-icmp-v1:loopback-echo-no-inflight` subset for one
+  IPv4 raw ICMP loopback echo socket with `CAP_NET_RAW`, target-loopback route,
+  empty in-flight/receive queues, and ICMP id/sequence verifier gates;
 - synchronization: one private futex wait/wake, explicit rseq lifecycle, and one
   memfd shared-memory contract;
 - threads: the controlled two-thread ppoll proof with target thread-spawn gates
@@ -70,8 +73,12 @@ under `capabilities`. The families currently covered are:
 Refusal profiles use `refusesCapabilities` and exact refusal codes. The remaining
 unsafe families are:
 
-- sockets and active TCP/network connections outside the Goal 8/9 listener or
-  explicit-broker contracts;
+- sockets and active TCP/network connections outside the Goal 8/9 listener,
+  explicit-broker, or Goal 12 raw-ICMP loopback contracts;
+- raw ICMP outside `raw-icmp-v1`, including missing capability, disallowed ping
+  group policy, wrong namespace, stale route, non-loopback destinations,
+  in-flight/unread packet ambiguity, unsupported socket options, BPF filters,
+  `IP_HDRINCL`, ICMPv6, or hidden source-side helpers;
 - futex/rseq and scheduler-visible synchronization outside the one-waiter,
   target-owned lifecycle contracts;
 - shared memory without a target sharing contract;

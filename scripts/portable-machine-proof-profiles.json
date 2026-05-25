@@ -4092,6 +4092,390 @@
     }
   },
   {
+    "name": "real-raw-icmp-loopback-recreate",
+    "remoteSourceTarget": "real-raw-icmp-loopback-recreate",
+    "description": "Target-native raw ICMP loopback echo socket recreation with CAP_NET_RAW and no in-flight packet state.",
+    "sourceFixture": "real:packages/microvm/assets/native-raw-icmp-target.c",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "success",
+    "supportStatus": "graduated-support",
+    "unsafeStateFamily": "raw-network",
+    "graduatedFromRefusalCode": "target-socket-syscall-state-unsupported",
+    "acceptedSubset": "raw-icmp-v1:loopback-echo-no-inflight",
+    "unsafeVariants": [
+      "raw-icmp-missing-capability-refusal",
+      "raw-icmp-ping-group-refusal",
+      "raw-icmp-wrong-namespace-refusal",
+      "raw-icmp-stale-route-refusal",
+      "raw-icmp-nonloopback-refusal",
+      "raw-icmp-id-sequence-mismatch-refusal",
+      "raw-icmp-inflight-packet-refusal",
+      "raw-icmp-unread-queue-refusal",
+      "raw-icmp-unsupported-option-refusal",
+      "raw-icmp-bpf-filter-refusal",
+      "raw-icmp-ip-hdrincl-refusal",
+      "raw-icmpv6-refusal",
+      "raw-icmp-hidden-sidecar-refusal"
+    ],
+    "expectedGates": [
+      "descriptor",
+      "verifier",
+      "state-consumption",
+      "resources",
+      "return-chain",
+      "frame",
+      "registers",
+      "tls",
+      "stack-window",
+      "private-memory",
+      "executable",
+      "signal",
+      "active-syscall",
+      "resume-path"
+    ],
+    "capabilities": [
+      "memory:private-rw",
+      "process:target-registers",
+      "process:target-tls",
+      "signal:blocked-mask",
+      "executable:target-native-continuation",
+      "network:raw-icmp-loopback",
+      "fd:raw-icmp-socket",
+      "capability:cap-net-raw",
+      "network-namespace:target-loopback",
+      "route:loopback",
+      "packet:icmp-echo-id-sequence",
+      "proof:real-arm64-source-workload"
+    ],
+    "syntheticResourceKind": "raw-icmp-loopback",
+    "syntheticResourceKinds": ["fd:raw-icmp-socket"]
+  },
+  {
+    "name": "raw-icmp-missing-capability-refusal",
+    "remoteSourceTarget": "raw-icmp-missing-capability-refusal",
+    "description": "missing CAP_NET_RAW must refuse",
+    "sourceFixture": "synthetic-negative:raw-icmp-missing-capability-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "raw-network",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "refusesCapabilities": ["network:raw-icmp", "fd:raw-socket", "capability:cap-net-raw-missing"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "raw-icmp-v1 portable descriptor",
+        "target capability or ping-socket policy gate",
+        "target namespace and route verifier",
+        "target packet verifier",
+        "positive proof profile"
+      ]
+    }
+  },
+  {
+    "name": "raw-icmp-ping-group-refusal",
+    "remoteSourceTarget": "raw-icmp-ping-group-refusal",
+    "description": "disallowed Linux ping_group_range policy must refuse",
+    "sourceFixture": "synthetic-negative:raw-icmp-ping-group-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "raw-network",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "refusesCapabilities": [
+      "network:raw-icmp",
+      "fd:raw-socket",
+      "capability:ping-group-disallowed"
+    ],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "raw-icmp-v1 portable descriptor",
+        "target capability or ping-socket policy gate",
+        "target namespace and route verifier",
+        "target packet verifier",
+        "positive proof profile"
+      ]
+    }
+  },
+  {
+    "name": "raw-icmp-wrong-namespace-refusal",
+    "remoteSourceTarget": "raw-icmp-wrong-namespace-refusal",
+    "description": "network namespace mismatch must refuse",
+    "sourceFixture": "synthetic-negative:raw-icmp-wrong-namespace-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "raw-network",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "refusesCapabilities": ["network:raw-icmp", "fd:raw-socket", "network-namespace:mismatch"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "raw-icmp-v1 portable descriptor",
+        "target capability or ping-socket policy gate",
+        "target namespace and route verifier",
+        "target packet verifier",
+        "positive proof profile"
+      ]
+    }
+  },
+  {
+    "name": "raw-icmp-stale-route-refusal",
+    "remoteSourceTarget": "raw-icmp-stale-route-refusal",
+    "description": "stale or unverifiable route provenance must refuse",
+    "sourceFixture": "synthetic-negative:raw-icmp-stale-route-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "raw-network",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "refusesCapabilities": ["network:raw-icmp", "fd:raw-socket", "route:stale"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "raw-icmp-v1 portable descriptor",
+        "target capability or ping-socket policy gate",
+        "target namespace and route verifier",
+        "target packet verifier",
+        "positive proof profile"
+      ]
+    }
+  },
+  {
+    "name": "raw-icmp-nonloopback-refusal",
+    "remoteSourceTarget": "raw-icmp-nonloopback-refusal",
+    "description": "non-loopback ICMP destinations remain unsupported",
+    "sourceFixture": "synthetic-negative:raw-icmp-nonloopback-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "raw-network",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "refusesCapabilities": ["network:raw-icmp", "fd:raw-socket", "network:raw-icmp-nonloopback"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "raw-icmp-v1 portable descriptor",
+        "target capability or ping-socket policy gate",
+        "target namespace and route verifier",
+        "target packet verifier",
+        "positive proof profile"
+      ]
+    }
+  },
+  {
+    "name": "raw-icmp-id-sequence-mismatch-refusal",
+    "remoteSourceTarget": "raw-icmp-id-sequence-mismatch-refusal",
+    "description": "ICMP id/sequence mismatch must refuse",
+    "sourceFixture": "synthetic-negative:raw-icmp-id-sequence-mismatch-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "raw-network",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "refusesCapabilities": [
+      "network:raw-icmp",
+      "fd:raw-socket",
+      "packet:icmp-id-sequence-mismatch"
+    ],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "raw-icmp-v1 portable descriptor",
+        "target capability or ping-socket policy gate",
+        "target namespace and route verifier",
+        "target packet verifier",
+        "positive proof profile"
+      ]
+    }
+  },
+  {
+    "name": "raw-icmp-inflight-packet-refusal",
+    "remoteSourceTarget": "raw-icmp-inflight-packet-refusal",
+    "description": "in-flight ICMP packets remain unsupported",
+    "sourceFixture": "synthetic-negative:raw-icmp-inflight-packet-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "raw-network",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "refusesCapabilities": ["network:raw-icmp", "fd:raw-socket", "packet:icmp-inflight"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "raw-icmp-v1 portable descriptor",
+        "target capability or ping-socket policy gate",
+        "target namespace and route verifier",
+        "target packet verifier",
+        "positive proof profile"
+      ]
+    }
+  },
+  {
+    "name": "raw-icmp-unread-queue-refusal",
+    "remoteSourceTarget": "raw-icmp-unread-queue-refusal",
+    "description": "unread raw ICMP packet queues remain unsupported",
+    "sourceFixture": "synthetic-negative:raw-icmp-unread-queue-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "raw-network",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "refusesCapabilities": ["network:raw-icmp", "fd:raw-socket", "packet:icmp-unread-queue"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "raw-icmp-v1 portable descriptor",
+        "target capability or ping-socket policy gate",
+        "target namespace and route verifier",
+        "target packet verifier",
+        "positive proof profile"
+      ]
+    }
+  },
+  {
+    "name": "raw-icmp-unsupported-option-refusal",
+    "remoteSourceTarget": "raw-icmp-unsupported-option-refusal",
+    "description": "unsupported raw socket options must refuse",
+    "sourceFixture": "synthetic-negative:raw-icmp-unsupported-option-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "raw-network",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "refusesCapabilities": [
+      "network:raw-icmp",
+      "fd:raw-socket",
+      "fd:raw-socket-unsupported-option"
+    ],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "raw-icmp-v1 portable descriptor",
+        "target capability or ping-socket policy gate",
+        "target namespace and route verifier",
+        "target packet verifier",
+        "positive proof profile"
+      ]
+    }
+  },
+  {
+    "name": "raw-icmp-bpf-filter-refusal",
+    "remoteSourceTarget": "raw-icmp-bpf-filter-refusal",
+    "description": "raw ICMP sockets with BPF/filter state must refuse",
+    "sourceFixture": "synthetic-negative:raw-icmp-bpf-filter-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "raw-network",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "refusesCapabilities": ["network:raw-icmp", "fd:raw-socket", "fd:raw-socket-bpf-filter"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "raw-icmp-v1 portable descriptor",
+        "target capability or ping-socket policy gate",
+        "target namespace and route verifier",
+        "target packet verifier",
+        "positive proof profile"
+      ]
+    }
+  },
+  {
+    "name": "raw-icmp-ip-hdrincl-refusal",
+    "remoteSourceTarget": "raw-icmp-ip-hdrincl-refusal",
+    "description": "IP_HDRINCL/raw IP crafting remains unsupported",
+    "sourceFixture": "synthetic-negative:raw-icmp-ip-hdrincl-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "raw-network",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "refusesCapabilities": ["network:raw-icmp", "fd:raw-socket", "fd:raw-socket-ip-hdrincl"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "raw-icmp-v1 portable descriptor",
+        "target capability or ping-socket policy gate",
+        "target namespace and route verifier",
+        "target packet verifier",
+        "positive proof profile"
+      ]
+    }
+  },
+  {
+    "name": "raw-icmpv6-refusal",
+    "remoteSourceTarget": "raw-icmpv6-refusal",
+    "description": "ICMPv6 is outside raw-icmp-v1",
+    "sourceFixture": "synthetic-negative:raw-icmpv6-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "raw-network",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "refusesCapabilities": ["network:raw-icmp", "fd:raw-socket", "network:raw-icmpv6"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "raw-icmp-v1 portable descriptor",
+        "target capability or ping-socket policy gate",
+        "target namespace and route verifier",
+        "target packet verifier",
+        "positive proof profile"
+      ]
+    }
+  },
+  {
+    "name": "raw-icmp-hidden-sidecar-refusal",
+    "remoteSourceTarget": "raw-icmp-hidden-sidecar-refusal",
+    "description": "hidden source-side network dependency must refuse",
+    "sourceFixture": "synthetic-negative:raw-icmp-hidden-sidecar-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "raw-network",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "refusesCapabilities": ["network:raw-icmp", "fd:raw-socket", "proof:hidden-source-sidecar"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "raw-icmp-v1 portable descriptor",
+        "target capability or ping-socket policy gate",
+        "target namespace and route verifier",
+        "target packet verifier",
+        "positive proof profile"
+      ]
+    }
+  },
+  {
     "name": "real-tcp-listener-recreate",
     "remoteSourceTarget": "real-tcp-listener-recreate",
     "description": "Target-native loopback TCP listener recreation with empty accept queue and verifier gates.",

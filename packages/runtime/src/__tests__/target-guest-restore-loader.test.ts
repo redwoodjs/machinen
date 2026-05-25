@@ -225,6 +225,30 @@ describe("target guest restore loader descriptor", () => {
     ]);
   });
 
+  it("serializes raw ICMP loopback resource recipes", () => {
+    const original = descriptor({
+      resources: [
+        {
+          kind: "synthetic-raw-icmp",
+          fd: 58,
+          identifier: 0x4d49,
+          sequence: 1,
+          closeOnExec: true,
+        },
+      ],
+    });
+
+    const text = serializeTargetGuestRestoreDescriptor(original);
+    const parsed = parseTargetGuestRestoreDescriptor(text);
+
+    expect(text).toContain("resource=synthetic-raw-icmp fd=58 identifier=19785 sequence=1");
+    expect(parsed).toEqual(original);
+    expect(buildNativeActualResumeTrampolineArgs(parsed)).toContain("--synthetic-raw-icmp");
+    expect(buildNativeActualResumeTrampolineArgs(parsed)).toContain(
+      "fd=58;identifier=19785;sequence=1",
+    );
+  });
+
   it("serializes memory materialization entries into trampoline args", () => {
     const parsed = parseTargetGuestRestoreDescriptor(
       serializeTargetGuestRestoreDescriptor(

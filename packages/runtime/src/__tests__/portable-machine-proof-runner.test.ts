@@ -225,8 +225,8 @@ describe("portable machine proof runner", () => {
     expect(summary.supportReport).toMatchObject({
       counts: {
         "baseline-success": 11,
-        "graduated-support": 24,
-        "intentional-refusal": 99,
+        "graduated-support": 25,
+        "intentional-refusal": 112,
         "permanent-refusal": 3,
       },
       graduated: expect.arrayContaining([
@@ -309,6 +309,11 @@ describe("portable machine proof runner", () => {
         expect.objectContaining({
           name: "real-tcp-active-connection-transport-recreate",
           acceptedSubset: "real-tcp-active-connection-v1:single-plain-stream-explicit-broker",
+          graduatedFromRefusalCode: "target-socket-syscall-state-unsupported",
+        }),
+        expect.objectContaining({
+          name: "real-raw-icmp-loopback-recreate",
+          acceptedSubset: "raw-icmp-v1:loopback-echo-no-inflight",
           graduatedFromRefusalCode: "target-socket-syscall-state-unsupported",
         }),
       ]),

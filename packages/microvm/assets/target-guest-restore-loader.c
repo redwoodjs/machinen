@@ -113,6 +113,8 @@ struct Descriptor {
   size_t tcp_listener_count;
   char tcp_active_specs[MAX_FD_RECIPES][1024];
   size_t tcp_active_count;
+  char raw_icmp_specs[MAX_FD_RECIPES][1024];
+  size_t raw_icmp_count;
   int cloexec_fds[MAX_FD_RECIPES];
   size_t cloexec_fd_count;
   int close_fds[MAX_FD_RECIPES];
@@ -453,6 +455,18 @@ static void parse_tcp_active_resource(struct Descriptor *descriptor, char *field
       sizeof(descriptor->tcp_active_specs[0]),
       fields);
   descriptor->tcp_active_count++;
+  add_cloexec_if_requested(descriptor, fields, fd);
+}
+
+static void parse_raw_icmp_resource(struct Descriptor *descriptor, char *fields) {
+  if (descriptor->raw_icmp_count >= MAX_FD_RECIPES) {
+    refuse("target-guest-loader-resource-unsupported", "too many raw icmp recipes");
+  }
+  int fd = parse_single_fd_resource(fields, "raw icmp fd is required");
+  fields_to_semicolon_spec(descriptor->raw_icmp_specs[descriptor->raw_icmp_count],
+      sizeof(descriptor->raw_icmp_specs[0]),
+      fields);
+  descriptor->raw_icmp_count++;
   add_cloexec_if_requested(descriptor, fields, fd);
 }
 
@@ -833,6 +847,8 @@ static void parse_resource(struct Descriptor *descriptor, char *line) {
     parse_tcp_listener_resource(descriptor, line + strlen("resource=synthetic-tcp-listener"));
   } else if (starts_with(line, "resource=synthetic-tcp-active-broker")) {
     parse_tcp_active_resource(descriptor, line + strlen("resource=synthetic-tcp-active-broker"));
+  } else if (starts_with(line, "resource=synthetic-raw-icmp")) {
+    parse_raw_icmp_resource(descriptor, line + strlen("resource=synthetic-raw-icmp"));
   } else {
     refuse("target-guest-loader-resource-unsupported", "resource recipe is not supported");
   }
@@ -1187,6 +1203,10 @@ static int run_trampoline(const struct Options *opts, const struct Descriptor *d
   for (size_t i = 0; i < descriptor->tcp_active_count; i++) {
     push_arg(child_argv, &child_argc, "--synthetic-tcp-active-broker");
     push_arg(child_argv, &child_argc, descriptor->tcp_active_specs[i]);
+  }
+  for (size_t i = 0; i < descriptor->raw_icmp_count; i++) {
+    push_arg(child_argv, &child_argc, "--synthetic-raw-icmp");
+    push_arg(child_argv, &child_argc, descriptor->raw_icmp_specs[i]);
   }
   for (size_t i = 0; i < descriptor->cloexec_fd_count; i++) {
     push_arg(child_argv, &child_argc, "--set-cloexec-fd");

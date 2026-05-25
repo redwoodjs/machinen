@@ -18,7 +18,7 @@ pnpm --silent portable-machine-proof-matrix -- --profile file-readv --profile so
 Presets:
 
 - `baseline-success` — the 11 original positive profiles;
-- `graduated-support` — the 24 graduated support profiles;
+- `graduated-support` — the 25 graduated support profiles;
 - `positive` / `all-positive` — all positive profiles;
 - `refusal` / `refusal-matrix` — all intentional and permanent refusals;
 - `foundation-full` / `goal-6-7-full-foundation` — all profiles.

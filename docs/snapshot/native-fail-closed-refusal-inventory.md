@@ -35,17 +35,19 @@ reference the same refusal codes. The proof runner checks those summaries with
 `expectedResult: "refusal"`; a matching refusal is a pass only when migration did
 not complete.
 
-Goals 8, 9, and 11 graduate the app-neutral subsets documented in
+Goals 8, 9, 11, and 12 graduate the app-neutral subsets documented in
 [`goal-8-9-capability-graduations.md`](./goal-8-9-capability-graduations.md): a
 real private multi-range memory plus regular-file workload, TCP
-listeners, multiple private ranges with guards, acyclic epoll graphs,
-file-backed private mappings, deterministic `EINTR`, explicit-broker active TCP
-streams, listener readiness probes, private futex wait/wake, rseq lifecycle, and
-shared-memory contracts. The neighboring unsafe profiles keep active or queued
-connections, socket option ambiguity, fd aliases, W+X/stale/shared/source-only
-memory, epoll cycles/edge/one-shot readiness, restart/signal ambiguity, missing
-brokers, TLS/session opacity, PI/robust/shared futexes, active rseq critical
-sections, and undeclared shared participants on the refusal codes in this table.
+listeners, raw ICMP loopback echo, multiple private ranges with guards, acyclic
+epoll graphs, file-backed private mappings, deterministic `EINTR`,
+explicit-broker active TCP streams, listener readiness probes, private futex
+wait/wake, rseq lifecycle, and shared-memory contracts. The neighboring unsafe
+profiles keep active or queued connections, raw ICMP without capability or route
+provenance, non-loopback ICMP, in-flight/unread ICMP packets, socket option
+ambiguity, fd aliases, W+X/stale/shared/source-only memory, epoll
+cycles/edge/one-shot readiness, restart/signal ambiguity, missing brokers,
+TLS/session opacity, PI/robust/shared futexes, active rseq critical sections,
+and undeclared shared participants on the refusal codes in this table.
 
 Goal 3 graduates only the epoll `interest-list-v1` subset to
 `epoll-recreate`; active waits, nested epoll, edge-triggered/one-shot delivery,

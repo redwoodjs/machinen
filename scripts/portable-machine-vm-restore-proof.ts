@@ -51,6 +51,7 @@ interface ProofVerifierFeatures {
   includeTcpListenerProof: boolean;
   includeTcpListenerReadinessProof: boolean;
   includeTcpActiveBrokerProof: boolean;
+  includeRawIcmpProof: boolean;
 }
 
 interface Args extends ProofVerifierFeatures {
@@ -183,6 +184,9 @@ const PROOF_DUP_FILE_FD = 14;
 const PROOF_TCP_LISTENER_FD = 55;
 const PROOF_TCP_ACTIVE_FD = 56;
 const PROOF_TCP_BROKER_FD = 57;
+const PROOF_RAW_ICMP_FD = 58;
+const PROOF_RAW_ICMP_IDENTIFIER = 0x4d49;
+const PROOF_RAW_ICMP_SEQUENCE = 1;
 const PROOF_TCP_LISTENER_PORT = 45321;
 const PROOF_TCP_READINESS_PORT = 45322;
 const PROOF_TCP_ACTIVE_PORT = 45323;
@@ -210,6 +214,7 @@ const STATE_CHECK_SIGNALFD = 0x100;
 const STATE_CHECK_TCP_LISTENER = 0x200;
 const STATE_CHECK_TCP_READINESS = 0x400;
 const STATE_CHECK_TCP_ACTIVE = 0x800;
+const STATE_CHECK_RAW_ICMP = 0x1000;
 const TRANSLATED_FRAME_MARKER = 0x4652414d45504153n;
 const TRANSLATED_RESUME_MARKER = 0x524553554d455041n;
 const TRANSLATED_FRAME_POINTER = "0x50000000ff80";
@@ -257,7 +262,8 @@ function usage(): never {
       "[--include-eventfd-counter-proof] [--include-timerfd-descriptor-proof] [--include-pipe-pair-proof] [--include-epoll-proof] [--include-signalfd-proof] " +
       "[--include-readiness-eventfd-poll-proof] [--include-regular-file-duplicate-fd-proof] [--include-target-auxv-at-random-proof] " +
       "[--include-private-layout-proof] [--include-signal-mask-blocked-proof] " +
-      "[--include-tcp-listener-proof] [--include-tcp-listener-readiness-proof] [--include-tcp-active-broker-proof] [--json]",
+      "[--include-tcp-listener-proof] [--include-tcp-listener-readiness-proof] [--include-tcp-active-broker-proof] " +
+      "[--include-raw-icmp-proof] [--json]",
   );
   process.exit(2);
 }
@@ -292,6 +298,7 @@ function argsFromReader(read: (flag: string) => string | undefined, argv: string
     includeTcpListenerProof: argv.includes("--include-tcp-listener-proof"),
     includeTcpListenerReadinessProof: argv.includes("--include-tcp-listener-readiness-proof"),
     includeTcpActiveBrokerProof: argv.includes("--include-tcp-active-broker-proof"),
+    includeRawIcmpProof: argv.includes("--include-raw-icmp-proof"),
   };
 }
 
@@ -426,6 +433,7 @@ function proofVerifierFeaturesFromContext(
     includeTcpListenerProof: context.includeTcpListenerProof,
     includeTcpListenerReadinessProof: context.includeTcpListenerReadinessProof,
     includeTcpActiveBrokerProof: context.includeTcpActiveBrokerProof,
+    includeRawIcmpProof: context.includeRawIcmpProof,
   };
 }
 
@@ -557,6 +565,7 @@ function combinedDescriptorContext(
     includeTcpListenerProof: args.includeTcpListenerProof,
     includeTcpListenerReadinessProof: args.includeTcpListenerReadinessProof,
     includeTcpActiveBrokerProof: args.includeTcpActiveBrokerProof,
+    includeRawIcmpProof: args.includeRawIcmpProof,
   };
   return contextAfterPathCheck(plan, bundle.rootDir!, context);
 }
@@ -1516,6 +1525,7 @@ function proofFdResources(context: CombinedDescriptorContext): NativeProcessReso
     ...epollProofResources(context),
     ...signalfdProofResources(context),
     ...tcpProofResources(context),
+    ...rawIcmpProofResources(context),
   ];
 }
 
@@ -1569,6 +1579,36 @@ function tcpProofResources(context: CombinedDescriptorContext): NativeProcessRes
     });
   }
   return resources;
+}
+
+function rawIcmpProofResources(context: CombinedDescriptorContext): NativeProcessResource[] {
+  return context.includeRawIcmpProof
+    ? [
+        {
+          id: `fd:${PROOF_RAW_ICMP_FD}:combined-proof-raw-icmp`,
+          kind: "raw-socket" as const,
+          state: "recipe" as const,
+          fd: PROOF_RAW_ICMP_FD,
+          path: "socket:[raw-icmp-loopback]",
+          flags: ["octal:2"],
+          recipe: {
+            rawIcmpModel: "loopback-echo-v1",
+            family: "inet4",
+            socketType: "raw",
+            protocol: "icmp",
+            destination: "127.0.0.1",
+            capability: "cap-net-raw",
+            networkNamespace: "target-loopback",
+            route: "loopback",
+            identifier: PROOF_RAW_ICMP_IDENTIFIER,
+            sequence: PROOF_RAW_ICMP_SEQUENCE,
+            inFlightPackets: "none",
+            receiveQueue: "empty",
+            socketOptions: "allowlisted-empty",
+          },
+        },
+      ]
+    : [];
 }
 
 function proofEventfdResource(context: CombinedDescriptorContext): NativeProcessResource {
@@ -1916,6 +1956,10 @@ function emitGraduatedResourceVerifier(
     );
     asm.markStateCheck(completion, STATE_CHECK_TCP_ACTIVE);
   }
+  if (features.includeRawIcmpProof) {
+    asm.checkRawIcmp(PROOF_RAW_ICMP_FD);
+    asm.markStateCheck(completion, STATE_CHECK_RAW_ICMP);
+  }
 }
 
 class Amd64ProofAssembler {
@@ -2126,6 +2170,16 @@ class Amd64ProofAssembler {
     this.storeBytesAtRbxOffset(0x50, reply);
     this.writeFromRbxOffset(fd, 0x50, reply.length);
     this.readAndCheck(brokerFd, reply);
+  }
+
+  checkRawIcmp(fd: number): void {
+    this.checkFdOpen(fd);
+    this.getsockoptInt(fd, 1, 3, 0x50, 0x58);
+    this.loadU64FromRbxOffset(0x50);
+    this.checkRaxImmediate(3n);
+    this.getsockoptInt(fd, 1, 38, 0x50, 0x58);
+    this.loadU64FromRbxOffset(0x50);
+    this.checkRaxImmediate(1n);
   }
 
   checkSignalfdSignal(fd: number, signalMask: bigint, signo: number): void {
@@ -2342,14 +2396,24 @@ class Amd64ProofAssembler {
   }
 
   private getsockoptAcceptConn(fd: number, optvalOffset: number, optlenOffset: number): void {
+    this.getsockoptInt(fd, 1, 30, optvalOffset, optlenOffset);
+  }
+
+  private getsockoptInt(
+    fd: number,
+    level: number,
+    option: number,
+    optvalOffset: number,
+    optlenOffset: number,
+  ): void {
     this.storeU64AtRbxOffset(optvalOffset, 0n);
     this.storeU64AtRbxOffset(optlenOffset, 4n);
     this.syscall(55);
     this.movFd(fd);
     this.push(0xbe);
-    this.pushU32(1);
+    this.pushU32(level);
     this.push(0xba);
-    this.pushU32(30);
+    this.pushU32(option);
     this.leaR10RbxOffset(optvalOffset);
     this.leaR8RbxOffset(optlenOffset);
     this.push(0x0f, 0x05, 0x48, 0x85, 0xc0);

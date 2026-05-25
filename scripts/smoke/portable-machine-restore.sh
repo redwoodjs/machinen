@@ -363,6 +363,7 @@ capture_remote_native_process_bundle() {
     packages/microvm/assets/native-private-multi-range-file-target.c \
     packages/microvm/assets/native-tcp-listener-target.c \
     packages/microvm/assets/native-tcp-active-target.c \
+    packages/microvm/assets/native-raw-icmp-target.c \
     packages/microvm/assets/native-pipe-read-target.c \
     packages/microvm/assets/native-ppoll-timeout-target.c \
     packages/microvm/assets/native-timerfd-read-target.c \
@@ -417,6 +418,10 @@ capture_remote_native_process_bundle() {
     real-tcp-active-connection-transport-recreate)
       target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-tcp-active-target"
       target_detail="remote arm64 real active tcp stream native-process bundle captured from $ARM64_SSH"
+      ;;
+    real-raw-icmp-loopback-recreate)
+      target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-raw-icmp-target"
+      target_detail="remote arm64 real raw ICMP loopback native-process bundle captured from $ARM64_SSH"
       ;;
     timerfd-read)
       target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-timerfd-read-target"
@@ -487,11 +492,15 @@ capture_remote_native_process_bundle() {
     capture_command="'$ARM64_REMOTE_WORK/bin/machinen-native-process-capture' --output '$ARM64_REMOTE_WORK/capture/bundle' --target-arch amd64 --trace-syscall writev --trace-syscall-fd 43 -- '$target_binary'"
   elif [[ "$REMOTE_SOURCE_TARGET" == "real-private-multi-range-file-recreate" ]]; then
     capture_command="'$ARM64_REMOTE_WORK/bin/machinen-native-process-capture' --output '$ARM64_REMOTE_WORK/capture/bundle' --target-arch amd64 --trace-syscall read --trace-syscall-fd 38 -- '$target_binary'"
-  elif [[ "$REMOTE_SOURCE_TARGET" == "real-tcp-listener-recreate" || "$REMOTE_SOURCE_TARGET" == "real-tcp-listener-readiness-recreate" || "$REMOTE_SOURCE_TARGET" == "real-tcp-active-connection-transport-recreate" ]]; then
+  elif [[ "$REMOTE_SOURCE_TARGET" == "real-tcp-listener-recreate" || "$REMOTE_SOURCE_TARGET" == "real-tcp-listener-readiness-recreate" || "$REMOTE_SOURCE_TARGET" == "real-tcp-active-connection-transport-recreate" || "$REMOTE_SOURCE_TARGET" == "real-raw-icmp-loopback-recreate" ]]; then
     capture_command="'$ARM64_REMOTE_WORK/bin/machinen-native-process-capture' --output '$ARM64_REMOTE_WORK/capture/bundle' --target-arch amd64 --trace-syscall read --trace-syscall-fd 38 -- '$target_binary'"
   fi
+  local remote_capture_command="$capture_command > '$ARM64_REMOTE_WORK/capture.log'"
+  if [[ "$REMOTE_SOURCE_TARGET" == "real-raw-icmp-loopback-recreate" ]]; then
+    remote_capture_command="docker run --rm --network host --cap-add NET_RAW --cap-add SYS_PTRACE --security-opt seccomp=unconfined -v '$ARM64_REMOTE_WORK':'$ARM64_REMOTE_WORK' -w '$ARM64_REMOTE_WORK/repo' ubuntu:24.04 sh -lc \"$capture_command > '$ARM64_REMOTE_WORK/capture.log' && chmod -R a+rX '$ARM64_REMOTE_WORK/capture' '$ARM64_REMOTE_WORK/capture.log'\""
+  fi
   ssh "$ARM64_SSH" \
-    "cd '$ARM64_REMOTE_WORK/repo' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-process-capture.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-process-capture' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-eventfd-read-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-eventfd-read-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-file-read-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-read-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-file-readv-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-readv-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-file-pread-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-pread-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-file-pwrite-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-pwrite-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-file-write-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-write-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-file-writev-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-writev-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-private-multi-range-file-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-private-multi-range-file-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-tcp-listener-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-tcp-listener-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-tcp-active-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-tcp-active-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-pipe-read-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-pipe-read-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-ppoll-timeout-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-ppoll-timeout-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-timerfd-read-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-timerfd-read-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror -pthread packages/microvm/assets/native-two-thread-ppoll-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-two-thread-ppoll-target' && $capture_command > '$ARM64_REMOTE_WORK/capture.log'"
+    "cd '$ARM64_REMOTE_WORK/repo' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-process-capture.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-process-capture' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-eventfd-read-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-eventfd-read-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-file-read-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-read-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-file-readv-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-readv-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-file-pread-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-pread-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-file-pwrite-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-pwrite-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-file-write-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-write-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-file-writev-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-writev-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-private-multi-range-file-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-private-multi-range-file-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-tcp-listener-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-tcp-listener-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-tcp-active-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-tcp-active-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-raw-icmp-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-raw-icmp-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-pipe-read-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-pipe-read-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-ppoll-timeout-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-ppoll-timeout-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-timerfd-read-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-timerfd-read-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror -pthread packages/microvm/assets/native-two-thread-ppoll-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-two-thread-ppoll-target' && $remote_capture_command"
   mkdir -p "$NATIVE_BUNDLE"
   ssh "$ARM64_SSH" "cat '$ARM64_REMOTE_WORK/capture.log'" >"$WORK/arm64-capture.log"
   ssh "$ARM64_SSH" "tar -czf - -C '$ARM64_REMOTE_WORK/capture/bundle' ." | \
@@ -582,6 +591,9 @@ run_target_restore() {
     resource_model_args_text="${resource_model_args[*]}"
   elif [[ "$REMOTE_SOURCE_TARGET" == "real-tcp-active-connection-transport-recreate" ]]; then
     resource_model_args=(--include-tcp-active-broker-proof)
+    resource_model_args_text="${resource_model_args[*]}"
+  elif [[ "$REMOTE_SOURCE_TARGET" == "real-raw-icmp-loopback-recreate" ]]; then
+    resource_model_args=(--include-raw-icmp-proof)
     resource_model_args_text="${resource_model_args[*]}"
   fi
   if [[ $REMOTE_E2E -eq 1 ]]; then

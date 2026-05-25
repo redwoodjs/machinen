@@ -22,6 +22,8 @@
 #include <string.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <netinet/ip.h>
+#include <netinet/ip_icmp.h>
 #include <sys/auxv.h>
 #include <sys/epoll.h>
 #include <sys/eventfd.h>
@@ -80,6 +82,7 @@ extern char **environ;
 #define STATE_CHECK_TCP_LISTENER UINT64_C(0x200)
 #define STATE_CHECK_TCP_READINESS UINT64_C(0x400)
 #define STATE_CHECK_TCP_ACTIVE UINT64_C(0x800)
+#define STATE_CHECK_RAW_ICMP UINT64_C(0x1000)
 #define TRANSLATED_RETURN_MARKER UINT64_C(0x52455455524e4a50)
 #define TRANSLATED_FRAME_MARKER UINT64_C(0x4652414d45504153)
 #define TRANSLATED_RESUME_MARKER UINT64_C(0x524553554d455041)
@@ -249,6 +252,8 @@ struct Options {
   size_t synthetic_tcp_listener_count;
   struct NativeRestoreStepSpec synthetic_tcp_active_brokers[MAX_NATIVE_RESTORE_STEPS];
   size_t synthetic_tcp_active_broker_count;
+  struct NativeRestoreStepSpec synthetic_raw_icmp[MAX_NATIVE_RESTORE_STEPS];
+  size_t synthetic_raw_icmp_count;
   int cloexec_fds[MAX_CLOEXEC_FDS];
   size_t cloexec_fd_count;
   struct MemoryMaterialization materialized_memory[MAX_MATERIALIZED_MAPPINGS];
@@ -295,7 +300,7 @@ static void usage(void) {
       "[--synthetic-empty-eventfd n] [--synthetic-eventfd spec] "
       "[--synthetic-timerfd n] [--synthetic-signalfd spec] [--synthetic-epoll spec] "
       "[--synthetic-tcp-listener spec] [--synthetic-tcp-active-broker spec] "
-      "[--set-cloexec-fd n] "
+      "[--synthetic-raw-icmp spec] [--set-cloexec-fd n] "
       "[--materialize-memory file:offset:target:size:perms] "
       "[--materialize-guard target:size] "
       "[--native-stack-window-write target:value:bytes:kind] "
@@ -763,6 +768,11 @@ static struct Options parse_args(int argc, char **argv) {
         usage();
       }
       add_native_step(opts.synthetic_tcp_active_brokers, &opts.synthetic_tcp_active_broker_count, argv[i], "synthetic-tcp-active-broker");
+    } else if (streq(argv[i], "--synthetic-raw-icmp")) {
+      if (++i >= argc) {
+        usage();
+      }
+      add_native_step(opts.synthetic_raw_icmp, &opts.synthetic_raw_icmp_count, argv[i], "synthetic-raw-icmp");
     } else if (streq(argv[i], "--set-cloexec-fd")) {
       if (++i >= argc) {
         usage();
@@ -1600,6 +1610,129 @@ static void install_synthetic_tcp_active_broker(const char *spec) {
 static void install_synthetic_tcp_active_brokers(const struct Options *opts) {
   for (size_t i = 0; i < opts->synthetic_tcp_active_broker_count; i++) {
     install_synthetic_tcp_active_broker(opts->synthetic_tcp_active_brokers[i].spec);
+  }
+}
+
+static uint16_t internet_checksum(const void *data, size_t len) {
+  const uint8_t *bytes = (const uint8_t *)data;
+  uint32_t sum = 0;
+  while (len > 1) {
+    sum += (uint16_t)((bytes[0] << 8) | bytes[1]);
+    bytes += 2;
+    len -= 2;
+  }
+  if (len != 0) {
+    sum += (uint16_t)(bytes[0] << 8);
+  }
+  while ((sum >> 16) != 0) {
+    sum = (sum & 0xffffu) + (sum >> 16);
+  }
+  return (uint16_t)(~sum & 0xffffu);
+}
+
+static void drain_raw_icmp_queue(int fd) {
+  for (int attempt = 0; attempt < 8; attempt++) {
+    struct pollfd pfd = {.fd = fd, .events = POLLIN};
+    int ready = poll(&pfd, 1, 0);
+    if (ready < 0) {
+      fprintf(stderr, "native-actual-resume-trampoline: raw icmp drain poll failed: %s\n", strerror(errno));
+      exit(1);
+    }
+    if (ready == 0) {
+      return;
+    }
+    uint8_t buffer[256];
+    ssize_t got = recv(fd, buffer, sizeof(buffer), MSG_DONTWAIT);
+    if (got < 0) {
+      if (errno == EAGAIN || errno == EWOULDBLOCK) {
+        return;
+      }
+      fprintf(stderr, "native-actual-resume-trampoline: raw icmp drain recv failed: %s\n", strerror(errno));
+      exit(1);
+    }
+  }
+  fprintf(stderr, "native-actual-resume-trampoline: raw icmp receive queue did not drain\n");
+  exit(1);
+}
+
+static void raw_icmp_probe(int fd, uint16_t identifier, uint16_t sequence) {
+  uint8_t packet[16] = {0};
+  struct icmphdr *icmp = (struct icmphdr *)packet;
+  icmp->type = ICMP_ECHO;
+  icmp->code = 0;
+  icmp->un.echo.id = htons(identifier);
+  icmp->un.echo.sequence = htons(sequence);
+  memcpy(packet + sizeof(*icmp), "MACHINEN", 8);
+  icmp->checksum = 0;
+  icmp->checksum = htons(internet_checksum(packet, sizeof(packet)));
+  struct sockaddr_in addr = {0};
+  addr.sin_family = AF_INET;
+  addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+  if (sendto(fd, packet, sizeof(packet), 0, (struct sockaddr *)&addr, sizeof(addr)) != (ssize_t)sizeof(packet)) {
+    fprintf(stderr, "native-actual-resume-trampoline: raw icmp sendto failed: %s\n", strerror(errno));
+    exit(1);
+  }
+  for (int attempt = 0; attempt < 8; attempt++) {
+    struct pollfd pfd = {.fd = fd, .events = POLLIN};
+    int ready = poll(&pfd, 1, 250);
+    if (ready < 0) {
+      fprintf(stderr, "native-actual-resume-trampoline: raw icmp poll failed: %s\n", strerror(errno));
+      exit(1);
+    }
+    if (ready == 0) {
+      continue;
+    }
+    uint8_t buffer[256];
+    ssize_t got = recv(fd, buffer, sizeof(buffer), 0);
+    if (got < 0) {
+      fprintf(stderr, "native-actual-resume-trampoline: raw icmp recv failed: %s\n", strerror(errno));
+      exit(1);
+    }
+    if (got < (ssize_t)(sizeof(struct iphdr) + sizeof(struct icmphdr))) {
+      continue;
+    }
+    struct iphdr *ip = (struct iphdr *)buffer;
+    size_t ip_header_len = (size_t)ip->ihl * 4u;
+    if (ip_header_len < sizeof(struct iphdr) || got < (ssize_t)(ip_header_len + sizeof(struct icmphdr))) {
+      continue;
+    }
+    struct icmphdr *reply = (struct icmphdr *)(buffer + ip_header_len);
+    if (reply->type == ICMP_ECHOREPLY && reply->code == 0 &&
+        ntohs(reply->un.echo.id) == identifier && ntohs(reply->un.echo.sequence) == sequence) {
+      drain_raw_icmp_queue(fd);
+      return;
+    }
+  }
+  fprintf(stderr, "native-actual-resume-trampoline: raw icmp loopback echo verifier timed out\n");
+  exit(1);
+}
+
+static void install_synthetic_raw_icmp(const char *spec) {
+  uint64_t target_fd = native_step_u64(spec, "fd", "synthetic-raw-icmp");
+  uint64_t identifier = native_step_u64(spec, "identifier", "synthetic-raw-icmp");
+  uint64_t sequence = native_step_u64(spec, "sequence", "synthetic-raw-icmp");
+  if (target_fd > 1024u || identifier > 0xffffu || sequence > 0xffffu) {
+    fprintf(stderr, "native-actual-resume-trampoline: raw icmp spec is invalid\n");
+    exit(2);
+  }
+  int fd = socket(AF_INET, SOCK_RAW | SOCK_CLOEXEC, IPPROTO_ICMP);
+  if (fd < 0) {
+    fprintf(stderr, "native-actual-resume-trampoline: raw icmp socket failed: %s\n", strerror(errno));
+    exit(1);
+  }
+  raw_icmp_probe(fd, (uint16_t)identifier, (uint16_t)sequence);
+  if (fd != (int)target_fd) {
+    if (dup2(fd, (int)target_fd) < 0) {
+      fprintf(stderr, "native-actual-resume-trampoline: raw icmp dup2 failed: %s\n", strerror(errno));
+      exit(1);
+    }
+    close(fd);
+  }
+}
+
+static void install_synthetic_raw_icmp_sockets(const struct Options *opts) {
+  for (size_t i = 0; i < opts->synthetic_raw_icmp_count; i++) {
+    install_synthetic_raw_icmp(opts->synthetic_raw_icmp[i].spec);
   }
 }
 
@@ -2871,6 +3004,9 @@ static uint64_t expected_state_consumption_mask(const struct Options *opts) {
   if (opts->synthetic_tcp_active_broker_count > 0) {
     mask |= STATE_CHECK_TCP_ACTIVE;
   }
+  if (opts->synthetic_raw_icmp_count > 0) {
+    mask |= STATE_CHECK_RAW_ICMP;
+  }
   return mask;
 }
 
@@ -2933,6 +3069,10 @@ static void print_state_consumption(const struct Options *opts) {
     printf(",");
     print_check_status("synthetic-tcp-active-broker", mask, STATE_CHECK_TCP_ACTIVE);
   }
+  if (opts->synthetic_raw_icmp_count > 0) {
+    printf(",");
+    print_check_status("synthetic-raw-icmp", mask, STATE_CHECK_RAW_ICMP);
+  }
   printf("],\"resourceStatuses\":[");
   print_check_status("inherit-stdio", mask, STATE_CHECK_STDIO);
   printf(",");
@@ -2966,6 +3106,10 @@ static void print_state_consumption(const struct Options *opts) {
   if (opts->synthetic_tcp_active_broker_count > 0) {
     printf(",");
     print_check_status("synthetic-tcp-active-broker", mask, STATE_CHECK_TCP_ACTIVE);
+  }
+  if (opts->synthetic_raw_icmp_count > 0) {
+    printf(",");
+    print_check_status("synthetic-raw-icmp", mask, STATE_CHECK_RAW_ICMP);
   }
   printf("]}");
 }
@@ -3330,6 +3474,7 @@ int main(int argc, char **argv) {
   install_synthetic_epolls(&opts);
   install_synthetic_tcp_listeners(&opts);
   install_synthetic_tcp_active_brokers(&opts);
+  install_synthetic_raw_icmp_sockets(&opts);
   apply_cloexec_fds(&opts);
   consume_native_process_context_steps(&opts, &native_process_context_restore_state);
   apply_native_signal_restore_steps(&opts, &native_signal_restore_state);
