@@ -37,6 +37,7 @@ export type NativeTargetFdTableEntryKind =
   | "synthetic-tcp-listener"
   | "synthetic-tcp-active-broker"
   | "synthetic-raw-icmp"
+  | "synthetic-ping-socket"
   | "refused";
 
 export interface NativeTargetFdTableEntry {
@@ -203,7 +204,8 @@ function fdTableEntryFromRecipe(
     syntheticEpollFdTableEntry(resource, recipe, closeOnExec, resources) ??
     syntheticTcpListenerFdTableEntry(resource, recipe, closeOnExec) ??
     syntheticTcpActiveBrokerFdTableEntry(resource, recipe, closeOnExec) ??
-    syntheticRawIcmpFdTableEntry(resource, recipe, closeOnExec)
+    syntheticRawIcmpFdTableEntry(resource, recipe, closeOnExec) ??
+    syntheticPingSocketFdTableEntry(resource, recipe, closeOnExec)
   );
 }
 
@@ -795,6 +797,68 @@ function syntheticRawIcmpFdTableEntry(
   });
 }
 
+// fallow-ignore-next-line complexity
+function syntheticPingSocketFdTableEntry(
+  resource: NativeProcessResource,
+  recipe: Record<string, unknown>,
+  closeOnExec: boolean,
+): NativeTargetFdTableEntry | undefined {
+  if (resource.kind !== "socket" || recipe.pingSocketModel !== "loopback-echo-v1") {
+    return undefined;
+  }
+  const identifier = typeof recipe.identifier === "number" ? recipe.identifier : undefined;
+  const sequence = typeof recipe.sequence === "number" ? recipe.sequence : undefined;
+  const uid = typeof recipe.uid === "number" ? recipe.uid : undefined;
+  const gid = typeof recipe.gid === "number" ? recipe.gid : undefined;
+  const pingGroupRangeStart =
+    typeof recipe.pingGroupRangeStart === "number" ? recipe.pingGroupRangeStart : undefined;
+  const pingGroupRangeEnd =
+    typeof recipe.pingGroupRangeEnd === "number" ? recipe.pingGroupRangeEnd : undefined;
+  if (
+    recipe.family !== "inet4" ||
+    recipe.socketType !== "dgram" ||
+    recipe.protocol !== "icmp" ||
+    recipe.destination !== "127.0.0.1" ||
+    recipe.credentialPolicy !== "target-ping-group-range" ||
+    recipe.networkNamespace !== "target-loopback" ||
+    recipe.route !== "loopback" ||
+    recipe.inFlightPackets !== "none" ||
+    recipe.receiveQueue !== "empty" ||
+    identifier === undefined ||
+    sequence === undefined ||
+    uid === undefined ||
+    gid === undefined ||
+    pingGroupRangeStart === undefined ||
+    pingGroupRangeEnd === undefined ||
+    identifier < 0 ||
+    identifier > 0xffff ||
+    sequence < 0 ||
+    sequence > 0xffff ||
+    uid < 0 ||
+    gid < 0 ||
+    pingGroupRangeStart < 0 ||
+    pingGroupRangeEnd < pingGroupRangeStart ||
+    gid < pingGroupRangeStart ||
+    gid > pingGroupRangeEnd
+  ) {
+    return refusedFdTableEntry(
+      resource,
+      resourceRefusalWithCode(resource, "target-socket-syscall-state-unsupported"),
+    );
+  }
+  return materializedFdTableEntry(resource, "synthetic-ping-socket", closeOnExec, {
+    kind: "synthetic-ping-socket",
+    fd: resource.fd!,
+    identifier,
+    sequence,
+    uid,
+    gid,
+    pingGroupRangeStart,
+    pingGroupRangeEnd,
+    closeOnExec,
+  });
+}
+
 function materializedFdTableEntry(
   resource: NativeProcessResource,
   kind: NativeTargetFdTableEntryKind,
@@ -1030,7 +1094,8 @@ function translateResource(
     resource.kind === "socket" &&
     (resource.recipe?.tcpListenerModel === "loopback-listener-v1" ||
       resource.recipe?.tcpListenerModel === "loopback-listener-readiness-v1" ||
-      resource.recipe?.tcpActiveConnectionModel === "explicit-broker-v1")
+      resource.recipe?.tcpActiveConnectionModel === "explicit-broker-v1" ||
+      resource.recipe?.pingSocketModel === "loopback-echo-v1")
   ) {
     return {
       ...resource,

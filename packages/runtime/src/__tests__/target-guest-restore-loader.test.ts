@@ -249,6 +249,36 @@ describe("target guest restore loader descriptor", () => {
     );
   });
 
+  it("serializes ping socket loopback resource recipes", () => {
+    const original = descriptor({
+      resources: [
+        {
+          kind: "synthetic-ping-socket",
+          fd: 59,
+          identifier: 0x4d50,
+          sequence: 2,
+          uid: 0,
+          gid: 0,
+          pingGroupRangeStart: 0,
+          pingGroupRangeEnd: 2147483647,
+          closeOnExec: true,
+        },
+      ],
+    });
+
+    const text = serializeTargetGuestRestoreDescriptor(original);
+    const parsed = parseTargetGuestRestoreDescriptor(text);
+
+    expect(text).toContain(
+      "resource=synthetic-ping-socket fd=59 identifier=19792 sequence=2 uid=0 gid=0 pingGroupRangeStart=0 pingGroupRangeEnd=2147483647",
+    );
+    expect(parsed).toEqual(original);
+    expect(buildNativeActualResumeTrampolineArgs(parsed)).toContain("--synthetic-ping-socket");
+    expect(buildNativeActualResumeTrampolineArgs(parsed)).toContain(
+      "fd=59;identifier=19792;sequence=2;uid=0;gid=0;pingGroupRangeStart=0;pingGroupRangeEnd=2147483647",
+    );
+  });
+
   it("serializes memory materialization entries into trampoline args", () => {
     const parsed = parseTargetGuestRestoreDescriptor(
       serializeTargetGuestRestoreDescriptor(

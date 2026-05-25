@@ -85,15 +85,15 @@ pnpm --silent portable-machine-proof-runner -- \
 
 This exits non-zero if any required gate is missing or not `passed`.
 
-## Goal 8/9/11/12 graduated capability set
+## Goal 8/9/11/12/13 graduated capability set
 
 The current graduated set also includes the Goal 8/9 app-neutral blockers,
-Goal 11 real workload proofs, and Goal 12 raw ICMP loopback proof in
+Goal 11 real workload proofs, Goal 12 raw ICMP loopback proof, and Goal 13 ping-socket loopback proof in
 [`goal-8-9-capability-graduations.md`](./goal-8-9-capability-graduations.md):
 `tcp-listener-recreate`, `real-tcp-listener-recreate`,
 `real-tcp-listener-readiness-recreate`,
 `real-tcp-active-connection-transport-recreate`,
-`real-raw-icmp-loopback-recreate`, `private-multi-range-recreate`,
+`real-raw-icmp-loopback-recreate`, `real-ping-socket-loopback-recreate`, `private-multi-range-recreate`,
 `epoll-graph-recreate`, `file-backed-private-mapping-recreate`,
 `active-syscall-eintr-recreate`,
 `tcp-active-connection-transport-recreate`,
@@ -142,7 +142,7 @@ passes. The accepted class includes:
   Goal 3 epoll `interest-list-v1` reconstruction subset,
   the Goal 3 signalfd `empty-queue-v1` descriptor subset, the Goal 11 real
   loopback TCP listener/readiness plus explicit-broker active TCP subsets, and
-  the Goal 12 raw ICMP loopback echo no-in-flight subset;
+  the Goal 12 raw ICMP loopback echo no-in-flight subset, and the Goal 13 Linux ping-socket loopback echo no-in-flight subset;
 - active syscall completion only for sleep/`ppoll` timeout, empty pipe read,
   empty eventfd read, timerfd read, offset-backed regular-file
   `read`/`pread64`/single-iovec `readv`, and offset-backed regular-file
@@ -151,7 +151,7 @@ passes. The accepted class includes:
   profile.
 
 Everything outside that class must fail closed with a stable refusal before
-`migrationCompleted=true`: raw ICMP outside `raw-icmp-v1` loopback echo,
+`migrationCompleted=true`: raw ICMP outside `raw-icmp-v1` loopback echo, ping sockets outside `ping-socket-v1` loopback echo,
 sockets without an explicit broker contract,
 epoll/signalfd state outside their graduated subsets, futex/rseq/general scheduler
 state beyond ordinary private-memory data copying, source vDSO/vvar copying,

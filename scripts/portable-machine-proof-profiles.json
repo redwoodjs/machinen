@@ -4070,7 +4070,7 @@
   {
     "name": "raw-icmp-ping-refusal",
     "remoteSourceTarget": "raw-icmp-ping-refusal",
-    "description": "ping/raw ICMP remains refused until raw-socket capability, namespace, route, and packet-state contracts exist.",
+    "description": "Broad ping/raw ICMP states remain refused unless they match the graduated raw-icmp-v1 or ping-socket-v1 loopback contracts.",
     "sourceFixture": "synthetic-negative:raw-icmp-ping-refusal",
     "traceSyscall": null,
     "traceFd": null,
@@ -4078,7 +4078,7 @@
     "supportStatus": "intentional-refusal",
     "unsafeStateFamily": "raw-network",
     "expectedRefusalCode": "target-socket-syscall-state-unsupported",
-    "refusesCapabilities": ["network:raw-icmp", "fd:raw-socket", "capability:cap-net-raw"],
+    "refusesCapabilities": ["network:icmp-unmodeled", "fd:socket", "packet:icmp-ambiguous"],
     "descriptorConsumptionExpected": false,
     "refusalSupportContract": {
       "currentRefusalCode": "target-socket-syscall-state-unsupported",
@@ -4469,6 +4469,390 @@
       "graduationRequires": [
         "raw-icmp-v1 portable descriptor",
         "target capability or ping-socket policy gate",
+        "target namespace and route verifier",
+        "target packet verifier",
+        "positive proof profile"
+      ]
+    }
+  },
+  {
+    "name": "real-ping-socket-loopback-recreate",
+    "remoteSourceTarget": "real-ping-socket-loopback-recreate",
+    "description": "Target-native Linux ping socket loopback echo recreation with ping_group_range credential gates and no in-flight packet state.",
+    "sourceFixture": "real:packages/microvm/assets/native-ping-socket-target.c",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "success",
+    "supportStatus": "graduated-support",
+    "unsafeStateFamily": "ping-socket",
+    "graduatedFromRefusalCode": "target-socket-syscall-state-unsupported",
+    "acceptedSubset": "ping-socket-v1:loopback-echo-no-inflight",
+    "unsafeVariants": [
+      "ping-socket-missing-ping-group-refusal",
+      "ping-socket-credential-mismatch-refusal",
+      "ping-socket-raw-capability-confusion-refusal",
+      "ping-socket-wrong-namespace-refusal",
+      "ping-socket-stale-route-refusal",
+      "ping-socket-nonloopback-refusal",
+      "ping-socket-id-sequence-mismatch-refusal",
+      "ping-socket-inflight-packet-refusal",
+      "ping-socket-unread-queue-refusal",
+      "ping-socket-unsupported-option-refusal",
+      "ping-socket-bpf-filter-refusal",
+      "ping-socket-icmpv6-refusal",
+      "ping-socket-hidden-sidecar-refusal"
+    ],
+    "expectedGates": [
+      "descriptor",
+      "verifier",
+      "state-consumption",
+      "resources",
+      "return-chain",
+      "frame",
+      "registers",
+      "tls",
+      "stack-window",
+      "private-memory",
+      "executable",
+      "signal",
+      "active-syscall",
+      "resume-path"
+    ],
+    "capabilities": [
+      "memory:private-rw",
+      "process:target-registers",
+      "process:target-tls",
+      "signal:blocked-mask",
+      "executable:target-native-continuation",
+      "network:ping-socket-loopback",
+      "fd:ping-socket",
+      "credential:ping-group-range",
+      "network-namespace:target-loopback",
+      "route:loopback",
+      "packet:icmp-echo-id-sequence",
+      "proof:real-arm64-source-workload"
+    ],
+    "syntheticResourceKind": "ping-socket-loopback",
+    "syntheticResourceKinds": ["fd:ping-socket"]
+  },
+  {
+    "name": "ping-socket-missing-ping-group-refusal",
+    "remoteSourceTarget": "ping-socket-missing-ping-group-refusal",
+    "description": "missing or disallowed ping_group_range must refuse",
+    "sourceFixture": "synthetic-negative:ping-socket-missing-ping-group-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "ping-socket",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "refusesCapabilities": [
+      "network:ping-socket",
+      "fd:ping-socket",
+      "credential:ping-group-disallowed"
+    ],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "ping-socket-v1 portable descriptor",
+        "target ping_group_range credential gate",
+        "target namespace and route verifier",
+        "target packet verifier",
+        "positive proof profile"
+      ]
+    }
+  },
+  {
+    "name": "ping-socket-credential-mismatch-refusal",
+    "remoteSourceTarget": "ping-socket-credential-mismatch-refusal",
+    "description": "uid/gid/group provenance outside the accepted ping_group_range must refuse",
+    "sourceFixture": "synthetic-negative:ping-socket-credential-mismatch-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "ping-socket",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "refusesCapabilities": ["network:ping-socket", "fd:ping-socket", "credential:uid-gid-mismatch"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "ping-socket-v1 portable descriptor",
+        "target ping_group_range credential gate",
+        "target namespace and route verifier",
+        "target packet verifier",
+        "positive proof profile"
+      ]
+    }
+  },
+  {
+    "name": "ping-socket-raw-capability-confusion-refusal",
+    "remoteSourceTarget": "ping-socket-raw-capability-confusion-refusal",
+    "description": "raw-socket CAP_NET_RAW state cannot satisfy the ping-socket credential contract",
+    "sourceFixture": "synthetic-negative:ping-socket-raw-capability-confusion-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "ping-socket",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "refusesCapabilities": ["network:ping-socket", "fd:raw-socket", "capability:cap-net-raw-only"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "ping-socket-v1 portable descriptor",
+        "target ping_group_range credential gate",
+        "target namespace and route verifier",
+        "target packet verifier",
+        "positive proof profile"
+      ]
+    }
+  },
+  {
+    "name": "ping-socket-wrong-namespace-refusal",
+    "remoteSourceTarget": "ping-socket-wrong-namespace-refusal",
+    "description": "network namespace mismatch must refuse for ping sockets",
+    "sourceFixture": "synthetic-negative:ping-socket-wrong-namespace-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "ping-socket",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "refusesCapabilities": ["network:ping-socket", "fd:ping-socket", "network-namespace:mismatch"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "ping-socket-v1 portable descriptor",
+        "target ping_group_range credential gate",
+        "target namespace and route verifier",
+        "target packet verifier",
+        "positive proof profile"
+      ]
+    }
+  },
+  {
+    "name": "ping-socket-stale-route-refusal",
+    "remoteSourceTarget": "ping-socket-stale-route-refusal",
+    "description": "stale or unverifiable ping-socket route provenance must refuse",
+    "sourceFixture": "synthetic-negative:ping-socket-stale-route-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "ping-socket",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "refusesCapabilities": ["network:ping-socket", "fd:ping-socket", "route:stale"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "ping-socket-v1 portable descriptor",
+        "target ping_group_range credential gate",
+        "target namespace and route verifier",
+        "target packet verifier",
+        "positive proof profile"
+      ]
+    }
+  },
+  {
+    "name": "ping-socket-nonloopback-refusal",
+    "remoteSourceTarget": "ping-socket-nonloopback-refusal",
+    "description": "non-loopback ping-socket destinations remain unsupported",
+    "sourceFixture": "synthetic-negative:ping-socket-nonloopback-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "ping-socket",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "refusesCapabilities": ["network:ping-socket", "fd:ping-socket", "network:icmp-nonloopback"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "ping-socket-v1 portable descriptor",
+        "target ping_group_range credential gate",
+        "target namespace and route verifier",
+        "target packet verifier",
+        "positive proof profile"
+      ]
+    }
+  },
+  {
+    "name": "ping-socket-id-sequence-mismatch-refusal",
+    "remoteSourceTarget": "ping-socket-id-sequence-mismatch-refusal",
+    "description": "ICMP id/sequence mismatch must refuse for ping sockets",
+    "sourceFixture": "synthetic-negative:ping-socket-id-sequence-mismatch-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "ping-socket",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "refusesCapabilities": [
+      "network:ping-socket",
+      "fd:ping-socket",
+      "packet:icmp-id-sequence-mismatch"
+    ],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "ping-socket-v1 portable descriptor",
+        "target ping_group_range credential gate",
+        "target namespace and route verifier",
+        "target packet verifier",
+        "positive proof profile"
+      ]
+    }
+  },
+  {
+    "name": "ping-socket-inflight-packet-refusal",
+    "remoteSourceTarget": "ping-socket-inflight-packet-refusal",
+    "description": "in-flight ping-socket packets remain unsupported",
+    "sourceFixture": "synthetic-negative:ping-socket-inflight-packet-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "ping-socket",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "refusesCapabilities": ["network:ping-socket", "fd:ping-socket", "packet:icmp-inflight"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "ping-socket-v1 portable descriptor",
+        "target ping_group_range credential gate",
+        "target namespace and route verifier",
+        "target packet verifier",
+        "positive proof profile"
+      ]
+    }
+  },
+  {
+    "name": "ping-socket-unread-queue-refusal",
+    "remoteSourceTarget": "ping-socket-unread-queue-refusal",
+    "description": "unread ping-socket packet queues remain unsupported",
+    "sourceFixture": "synthetic-negative:ping-socket-unread-queue-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "ping-socket",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "refusesCapabilities": ["network:ping-socket", "fd:ping-socket", "packet:icmp-unread-queue"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "ping-socket-v1 portable descriptor",
+        "target ping_group_range credential gate",
+        "target namespace and route verifier",
+        "target packet verifier",
+        "positive proof profile"
+      ]
+    }
+  },
+  {
+    "name": "ping-socket-unsupported-option-refusal",
+    "remoteSourceTarget": "ping-socket-unsupported-option-refusal",
+    "description": "unsupported ping-socket options must refuse",
+    "sourceFixture": "synthetic-negative:ping-socket-unsupported-option-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "ping-socket",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "refusesCapabilities": [
+      "network:ping-socket",
+      "fd:ping-socket",
+      "fd:ping-socket-unsupported-option"
+    ],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "ping-socket-v1 portable descriptor",
+        "target ping_group_range credential gate",
+        "target namespace and route verifier",
+        "target packet verifier",
+        "positive proof profile"
+      ]
+    }
+  },
+  {
+    "name": "ping-socket-bpf-filter-refusal",
+    "remoteSourceTarget": "ping-socket-bpf-filter-refusal",
+    "description": "ping sockets with BPF/filter state must refuse",
+    "sourceFixture": "synthetic-negative:ping-socket-bpf-filter-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "ping-socket",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "refusesCapabilities": ["network:ping-socket", "fd:ping-socket", "fd:ping-socket-bpf-filter"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "ping-socket-v1 portable descriptor",
+        "target ping_group_range credential gate",
+        "target namespace and route verifier",
+        "target packet verifier",
+        "positive proof profile"
+      ]
+    }
+  },
+  {
+    "name": "ping-socket-icmpv6-refusal",
+    "remoteSourceTarget": "ping-socket-icmpv6-refusal",
+    "description": "ICMPv6 is outside ping-socket-v1",
+    "sourceFixture": "synthetic-negative:ping-socket-icmpv6-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "ping-socket",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "refusesCapabilities": ["network:ping-socket", "fd:ping-socket", "network:icmpv6"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "ping-socket-v1 portable descriptor",
+        "target ping_group_range credential gate",
+        "target namespace and route verifier",
+        "target packet verifier",
+        "positive proof profile"
+      ]
+    }
+  },
+  {
+    "name": "ping-socket-hidden-sidecar-refusal",
+    "remoteSourceTarget": "ping-socket-hidden-sidecar-refusal",
+    "description": "hidden source-side network dependency must refuse for ping sockets",
+    "sourceFixture": "synthetic-negative:ping-socket-hidden-sidecar-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "ping-socket",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "refusesCapabilities": ["network:ping-socket", "fd:ping-socket", "proof:hidden-source-sidecar"],
+    "descriptorConsumptionExpected": false,
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "graduationRequires": [
+        "ping-socket-v1 portable descriptor",
+        "target ping_group_range credential gate",
         "target namespace and route verifier",
         "target packet verifier",
         "positive proof profile"

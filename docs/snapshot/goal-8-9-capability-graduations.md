@@ -1,6 +1,6 @@
-# Goal 8/9/11/12 app-neutral capability graduations
+# Goal 8/9/11/12/13 app-neutral capability graduations
 
-Goals 8, 9, 11, and 12 add app-neutral support subsets as proof-profile
+Goals 8, 9, 11, 12, and 13 add app-neutral support subsets as proof-profile
 capabilities. A success claim remains valid only after target-native completion,
 descriptor consumption, verifier gates, no source-ISA emulation, no runtime
 sidecar success, no app hooks, and no source text replay.
@@ -71,6 +71,24 @@ ambiguous remaining time.
   non-loopback destination, id/sequence mismatch, in-flight packets, unread
   queues, unsupported options, BPF filters, `IP_HDRINCL`, ICMPv6, and hidden
   source-side dependency refused.
+
+## Goal 13 ping-socket graduation
+
+- `ping-socket-v1:loopback-echo-no-inflight`
+  (`real-ping-socket-loopback-recreate`): a real arm64 Linux ping-socket
+  workload captured in a declared proof container with `NET_RAW` dropped and
+  `net.ipv4.ping_group_range` opened for the captured gid, restored as one
+  target-native amd64 `AF_INET`/`SOCK_DGRAM`/`IPPROTO_ICMP` socket. The
+  descriptor is limited to IPv4 loopback, empty in-flight and receive queues,
+  target-loopback namespace/route, uid/gid plus `ping_group_range` bounds, and
+  ICMP id/sequence state. The target restore path verifies credentials and the
+  target sysctl, opens the ping socket, performs a loopback echo probe, and the
+  verifier checks the restored fd type/protocol plus state-consumption gates.
+  Nearby profiles keep missing ping-group permission, uid/gid mismatch,
+  raw-socket capability confusion, wrong namespace, stale route, non-loopback
+  destination, id/sequence mismatch, in-flight packets, unread queues,
+  unsupported options, BPF filters, ICMPv6, and hidden source-side dependency
+  refused.
 
 ## Goal 9 graduated subsets
 

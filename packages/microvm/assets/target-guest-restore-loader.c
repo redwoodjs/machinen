@@ -115,6 +115,8 @@ struct Descriptor {
   size_t tcp_active_count;
   char raw_icmp_specs[MAX_FD_RECIPES][1024];
   size_t raw_icmp_count;
+  char ping_socket_specs[MAX_FD_RECIPES][1024];
+  size_t ping_socket_count;
   int cloexec_fds[MAX_FD_RECIPES];
   size_t cloexec_fd_count;
   int close_fds[MAX_FD_RECIPES];
@@ -467,6 +469,18 @@ static void parse_raw_icmp_resource(struct Descriptor *descriptor, char *fields)
       sizeof(descriptor->raw_icmp_specs[0]),
       fields);
   descriptor->raw_icmp_count++;
+  add_cloexec_if_requested(descriptor, fields, fd);
+}
+
+static void parse_ping_socket_resource(struct Descriptor *descriptor, char *fields) {
+  if (descriptor->ping_socket_count >= MAX_FD_RECIPES) {
+    refuse("target-guest-loader-resource-unsupported", "too many ping socket recipes");
+  }
+  int fd = parse_single_fd_resource(fields, "ping socket fd is required");
+  fields_to_semicolon_spec(descriptor->ping_socket_specs[descriptor->ping_socket_count],
+      sizeof(descriptor->ping_socket_specs[0]),
+      fields);
+  descriptor->ping_socket_count++;
   add_cloexec_if_requested(descriptor, fields, fd);
 }
 
@@ -849,6 +863,8 @@ static void parse_resource(struct Descriptor *descriptor, char *line) {
     parse_tcp_active_resource(descriptor, line + strlen("resource=synthetic-tcp-active-broker"));
   } else if (starts_with(line, "resource=synthetic-raw-icmp")) {
     parse_raw_icmp_resource(descriptor, line + strlen("resource=synthetic-raw-icmp"));
+  } else if (starts_with(line, "resource=synthetic-ping-socket")) {
+    parse_ping_socket_resource(descriptor, line + strlen("resource=synthetic-ping-socket"));
   } else {
     refuse("target-guest-loader-resource-unsupported", "resource recipe is not supported");
   }
@@ -1207,6 +1223,10 @@ static int run_trampoline(const struct Options *opts, const struct Descriptor *d
   for (size_t i = 0; i < descriptor->raw_icmp_count; i++) {
     push_arg(child_argv, &child_argc, "--synthetic-raw-icmp");
     push_arg(child_argv, &child_argc, descriptor->raw_icmp_specs[i]);
+  }
+  for (size_t i = 0; i < descriptor->ping_socket_count; i++) {
+    push_arg(child_argv, &child_argc, "--synthetic-ping-socket");
+    push_arg(child_argv, &child_argc, descriptor->ping_socket_specs[i]);
   }
   for (size_t i = 0; i < descriptor->cloexec_fd_count; i++) {
     push_arg(child_argv, &child_argc, "--set-cloexec-fd");

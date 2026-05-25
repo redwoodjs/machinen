@@ -102,6 +102,17 @@ export type TargetGuestRestoreResourceRecipe =
       identifier: number;
       sequence: number;
       closeOnExec?: boolean;
+    }
+  | {
+      kind: "synthetic-ping-socket";
+      fd: number;
+      identifier: number;
+      sequence: number;
+      uid: number;
+      gid: number;
+      pingGroupRangeStart: number;
+      pingGroupRangeEnd: number;
+      closeOnExec?: boolean;
     };
 
 export type TargetGuestRestoreResumeMode = "translated-frame";
@@ -505,6 +516,7 @@ const RESOURCE_RECIPE_PARSERS: Record<
   "synthetic-tcp-listener": parseSyntheticTcpListenerRecipe,
   "synthetic-tcp-active-broker": parseSyntheticTcpActiveBrokerRecipe,
   "synthetic-raw-icmp": parseSyntheticRawIcmpRecipe,
+  "synthetic-ping-socket": parseSyntheticPingSocketRecipe,
 };
 
 function resourceFromFields(
@@ -644,6 +656,22 @@ function parseSyntheticRawIcmpRecipe(
     fd: parseResourceInteger(fields, "fd"),
     identifier: parseResourceInteger(fields, "identifier"),
     sequence: parseResourceInteger(fields, "sequence"),
+    closeOnExec: parseResourceBoolean(fields, "closeOnExec"),
+  };
+}
+
+function parseSyntheticPingSocketRecipe(
+  fields: Map<string, string>,
+): TargetGuestRestoreResourceRecipe {
+  return {
+    kind: "synthetic-ping-socket",
+    fd: parseResourceInteger(fields, "fd"),
+    identifier: parseResourceInteger(fields, "identifier"),
+    sequence: parseResourceInteger(fields, "sequence"),
+    uid: parseResourceInteger(fields, "uid"),
+    gid: parseResourceInteger(fields, "gid"),
+    pingGroupRangeStart: parseResourceInteger(fields, "pingGroupRangeStart"),
+    pingGroupRangeEnd: parseResourceInteger(fields, "pingGroupRangeEnd"),
     closeOnExec: parseResourceBoolean(fields, "closeOnExec"),
   };
 }
@@ -1213,6 +1241,7 @@ const RESOURCE_RECIPE_VALIDATORS = {
   "synthetic-tcp-listener": validateSyntheticTcpListenerRecipe,
   "synthetic-tcp-active-broker": validateSyntheticTcpActiveBrokerRecipe,
   "synthetic-raw-icmp": validateSyntheticRawIcmpRecipe,
+  "synthetic-ping-socket": validateSyntheticPingSocketRecipe,
 };
 
 function validateResourceRecipe(
@@ -1336,6 +1365,24 @@ function validateSyntheticRawIcmpRecipe(
   assertFd(recipe.fd, "fd");
   assertIcmp16(recipe.identifier, "identifier");
   assertIcmp16(recipe.sequence, "sequence");
+}
+
+function validateSyntheticPingSocketRecipe(
+  recipe: Extract<TargetGuestRestoreResourceRecipe, { kind: "synthetic-ping-socket" }>,
+): void {
+  assertFd(recipe.fd, "fd");
+  assertIcmp16(recipe.identifier, "identifier");
+  assertIcmp16(recipe.sequence, "sequence");
+  assertNonNegative(recipe.uid, "uid");
+  assertNonNegative(recipe.gid, "gid");
+  assertNonNegative(recipe.pingGroupRangeStart, "pingGroupRangeStart");
+  assertNonNegative(recipe.pingGroupRangeEnd, "pingGroupRangeEnd");
+  if (recipe.pingGroupRangeEnd < recipe.pingGroupRangeStart) {
+    fail("target-guest-loader-descriptor-invalid", "ping_group_range bounds are invalid");
+  }
+  if (recipe.gid < recipe.pingGroupRangeStart || recipe.gid > recipe.pingGroupRangeEnd) {
+    fail("target-guest-loader-descriptor-invalid", "gid is outside ping_group_range");
+  }
 }
 
 function assertIcmp16(value: number, name: string): void {
@@ -1910,6 +1957,9 @@ function serializeResourceRecipe(recipe: TargetGuestRestoreResourceRecipe): stri
   if (recipe.kind === "synthetic-raw-icmp") {
     return `resource=synthetic-raw-icmp fd=${recipe.fd} identifier=${recipe.identifier} sequence=${recipe.sequence}${serializeCloseOnExec(recipe.closeOnExec)}`;
   }
+  if (recipe.kind === "synthetic-ping-socket") {
+    return `resource=synthetic-ping-socket fd=${recipe.fd} identifier=${recipe.identifier} sequence=${recipe.sequence} uid=${recipe.uid} gid=${recipe.gid} pingGroupRangeStart=${recipe.pingGroupRangeStart} pingGroupRangeEnd=${recipe.pingGroupRangeEnd}${serializeCloseOnExec(recipe.closeOnExec)}`;
+  }
   return `resource=synthetic-epoll fd=${recipe.fd} watchCount=${recipe.watches.length}${recipe.watches
     .flatMap((watch, index) => [
       `watch${index}Fd=${watch.fd}`,
@@ -2132,9 +2182,16 @@ function resourceToTrampolineArgs(recipe: TargetGuestRestoreResourceRecipe): str
       ...closeOnExecArgs(recipe.fd, recipe.closeOnExec),
     ];
   }
+  if (recipe.kind === "synthetic-raw-icmp") {
+    return [
+      "--synthetic-raw-icmp",
+      rawIcmpResourceSpec(recipe),
+      ...closeOnExecArgs(recipe.fd, recipe.closeOnExec),
+    ];
+  }
   return [
-    "--synthetic-raw-icmp",
-    rawIcmpResourceSpec(recipe),
+    "--synthetic-ping-socket",
+    pingSocketResourceSpec(recipe),
     ...closeOnExecArgs(recipe.fd, recipe.closeOnExec),
   ];
 }
@@ -2216,6 +2273,20 @@ function rawIcmpResourceSpec(
   return [`fd=${recipe.fd}`, `identifier=${recipe.identifier}`, `sequence=${recipe.sequence}`].join(
     ";",
   );
+}
+
+function pingSocketResourceSpec(
+  recipe: Extract<TargetGuestRestoreResourceRecipe, { kind: "synthetic-ping-socket" }>,
+): string {
+  return [
+    `fd=${recipe.fd}`,
+    `identifier=${recipe.identifier}`,
+    `sequence=${recipe.sequence}`,
+    `uid=${recipe.uid}`,
+    `gid=${recipe.gid}`,
+    `pingGroupRangeStart=${recipe.pingGroupRangeStart}`,
+    `pingGroupRangeEnd=${recipe.pingGroupRangeEnd}`,
+  ].join(";");
 }
 
 function pipeResourceArgs(recipe: { readFd: number; writeFd?: number }): string[] {

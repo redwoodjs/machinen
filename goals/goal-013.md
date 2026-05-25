@@ -19,7 +19,7 @@ no unread packet queue, and no unsupported socket options. Everything outside th
 exact contract must continue to refuse with stable codes and
 `migrationCompleted=false`.
 
-## Proposed accepted subset: `ping-socket-v1:loopback-echo-no-inflight`
+## Accepted subset: `ping-socket-v1:loopback-echo-no-inflight`
 
 - Exactly one IPv4 Linux ping socket: `AF_INET`, `SOCK_DGRAM`,
   `IPPROTO_ICMP`.
@@ -70,29 +70,15 @@ exact contract must continue to refuse with stable codes and
 
 ## Tasks
 
-- [ ] Add a real source fixture for a C ping-socket workload, or use a tightly
-      controlled distro `/bin/ping -c 1 127.0.0.1` proof if capture stability is
-      sufficient.
-- [ ] Decide and document whether the first positive proof uses the fixture,
-      distro `/bin/ping`, or both as separate profiles.
-- [ ] Capture/classify ping-socket resources and reject unsupported neighboring
-      states before descriptor/resource gates complete.
-- [ ] Emit `ping-socket-v1` portable descriptor fields for the exact accepted
-      loopback subset.
-- [ ] Add target-native recreation recipe with explicit target
-      `ping_group_range` and credential gates.
-- [ ] Add target verifier for loopback route, ICMP id/sequence, echo send/recv,
-      no packet queue ambiguity, allowed options, and no hidden source-side
-      dependency.
-- [ ] Add positive proof profile, tentatively `real-ping-socket-loopback-recreate`,
-      only after the full descriptor and verifier exist.
-- [ ] Keep neighboring negative profiles for: missing ping-group permission,
-      wrong uid/gid/group provenance, raw-socket-only capability confusion, wrong
-      namespace, stale route, non-loopback destination, id/sequence mismatch,
-      in-flight packet ambiguity, unread packet queue, unsupported socket
-      options, BPF/filter state, ICMPv6, and hidden sidecar/source dependency.
-- [ ] Update support matrices, refusal inventory, and proof matrix docs with the
-      exact accepted subset and refusal boundaries.
+- [x] Add a real source fixture for a C ping-socket workload (`packages/microvm/assets/native-ping-socket-target.c`).
+- [x] Decide and document that the first positive proof uses the fixture; distro `/bin/ping` remains future work unless capture stability is proven separately.
+- [x] Capture/classify ping-socket resources and reject unsupported neighboring states before descriptor/resource gates complete.
+- [x] Emit `ping-socket-v1` portable descriptor fields for the exact accepted loopback subset.
+- [x] Add target-native recreation recipe with explicit target `ping_group_range` and credential gates.
+- [x] Add target verifier for loopback route, ICMP id/sequence, echo send/recv, no packet queue ambiguity, allowed options, and no hidden source-side dependency.
+- [x] Add positive proof profile `real-ping-socket-loopback-recreate` after the full descriptor and verifier landed.
+- [x] Keep neighboring negative profiles for: missing ping-group permission, wrong uid/gid/group provenance, raw-socket-only capability confusion, wrong namespace, stale route, non-loopback destination, id/sequence mismatch, in-flight packet ambiguity, unread packet queue, unsupported socket options, BPF/filter state, ICMPv6, and hidden sidecar/source dependency.
+- [x] Update support matrices, refusal inventory, and proof matrix docs with the exact accepted subset and refusal boundaries.
 
 ## Proof requirements
 
@@ -136,7 +122,51 @@ Record timings for every command/proof:
 
 ## Starting boundary
 
-Goal 12 proves only the raw-socket `CAP_NET_RAW` loopback contract. Linux
-ping-socket state remains unsupported until this goal supplies an exact
-credential/range descriptor, target-native restore recipe, verifier, positive
-arm64->amd64 proof, and nearby fail-closed refusal profiles.
+This goal started from the Goal 12 boundary: only the raw-socket `CAP_NET_RAW`
+loopback contract was supported. Linux ping-socket state remained unsupported
+until this goal supplied an exact credential/range descriptor, target-native
+restore recipe, verifier, positive arm64->amd64 proof, and nearby fail-closed
+refusal profiles.
+
+## Completed proof
+
+- profile: `real-ping-socket-loopback-recreate`;
+- fixture: `packages/microvm/assets/native-ping-socket-target.c`;
+- accepted subset: `ping-socket-v1:loopback-echo-no-inflight`;
+- source socket flavor: IPv4 Linux ping socket (`AF_INET`, `SOCK_DGRAM`, `IPPROTO_ICMP`);
+- source capability environment: declared proof container on `friend@100.126.46.90` with `NET_RAW` dropped, `SYS_PTRACE` added for capture, and `net.ipv4.ping_group_range=0 2147483647`;
+- remote source: `friend@100.126.46.90` (`aarch64`);
+- remote target: `root@192.168.0.8` (`x86_64`);
+- target repo: `/tmp/machinen-goal13-current`;
+- target image: `/tmp/machinen-goal13-current/release-assets/rootfs-debian-amd64.tar.gz`;
+- VMM: `/tmp/machinen-goal13-current/packages/native-x64-linux/vmm/bin/machinen-vm`;
+- target kernel: `/tmp/machinen-goal13-current/release-assets/bzImage-x86_64`;
+- target ping socket fd: `59`;
+- ICMP identifier: `0x4d50`;
+- ICMP sequence: `2`;
+- credential/range gate: uid `0`, gid `0`, target `ping_group_range` `0 2147483647`;
+- continuation sha256: `e6cbb7b5bd72beb6633eba03b9e20eef1b097039a0839b9c658e5aaee2771134`;
+- descriptor sha256: `4b3cd43dfd50fb09531a3f849c892ad1106b377b4522135f4bbeb7bb56175c6a`;
+- validation timing: 45.748s, passed.
+
+The target restore result completed with `migrationCompleted=true`,
+`descriptorGateCompleted=true`, target verifier and state-consumption gates
+passed, `synthetic-ping-socket` resource status passed, the source/target probe
+code actively drained residual ICMP packets before claiming the empty-queue
+model, and no source-ISA emulation, runtime sidecar success, app hooks, source
+text replay, or hidden source-side network dependency.
+
+## Validation timings
+
+- Remote real proof (`real-ping-socket-loopback-recreate`): 45.748s, passed.
+- `pnpm --silent portable-machine-proof-runner -- --validate-schema --json`: 0.152s, passed.
+- `pnpm --silent portable-machine-proof-matrix -- --preset refusal --json --continue-on-fail`: 3.062s, passed (128 refusal profiles).
+- `pnpm --silent portable-machine-proof-matrix -- --preset foundation-full --check-summary-dir /tmp/foundation-summaries-13-final3 --json --continue-on-fail`: 3.777s, passed (165 profiles; 37 success, 128 refusal).
+- Full unit tests (`NPM_CONFIG_USERCONFIG=/dev/null npx vitest run`): 27.005s, passed.
+- `pnpm run format:check`: 0.626s, passed.
+- `pnpm run lint`: 0.206s, passed.
+- `pnpm run build:docs`: 1.531s, passed.
+- `pnpm run typecheck`: 2.250s, passed.
+- `pnpm exec fallow audit --changed-since origin/main`: 0.369s, passed with no changed-file issues.
+- `git diff --check`: 0.020s, passed.
+- `MACHINEN_REMOTE_BUILDER=friend@100.126.46.90 pnpm smoke-tests`: 129.463s, passed.

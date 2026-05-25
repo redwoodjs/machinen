@@ -32,6 +32,7 @@
 #include <sys/socket.h>
 #include <sys/syscall.h>
 #include <sys/timerfd.h>
+#include <sys/types.h>
 #include <sys/wait.h>
 #include <time.h>
 
@@ -83,6 +84,7 @@ extern char **environ;
 #define STATE_CHECK_TCP_READINESS UINT64_C(0x400)
 #define STATE_CHECK_TCP_ACTIVE UINT64_C(0x800)
 #define STATE_CHECK_RAW_ICMP UINT64_C(0x1000)
+#define STATE_CHECK_PING_SOCKET UINT64_C(0x2000)
 #define TRANSLATED_RETURN_MARKER UINT64_C(0x52455455524e4a50)
 #define TRANSLATED_FRAME_MARKER UINT64_C(0x4652414d45504153)
 #define TRANSLATED_RESUME_MARKER UINT64_C(0x524553554d455041)
@@ -254,6 +256,8 @@ struct Options {
   size_t synthetic_tcp_active_broker_count;
   struct NativeRestoreStepSpec synthetic_raw_icmp[MAX_NATIVE_RESTORE_STEPS];
   size_t synthetic_raw_icmp_count;
+  struct NativeRestoreStepSpec synthetic_ping_socket[MAX_NATIVE_RESTORE_STEPS];
+  size_t synthetic_ping_socket_count;
   int cloexec_fds[MAX_CLOEXEC_FDS];
   size_t cloexec_fd_count;
   struct MemoryMaterialization materialized_memory[MAX_MATERIALIZED_MAPPINGS];
@@ -300,7 +304,7 @@ static void usage(void) {
       "[--synthetic-empty-eventfd n] [--synthetic-eventfd spec] "
       "[--synthetic-timerfd n] [--synthetic-signalfd spec] [--synthetic-epoll spec] "
       "[--synthetic-tcp-listener spec] [--synthetic-tcp-active-broker spec] "
-      "[--synthetic-raw-icmp spec] [--set-cloexec-fd n] "
+      "[--synthetic-raw-icmp spec] [--synthetic-ping-socket spec] [--set-cloexec-fd n] "
       "[--materialize-memory file:offset:target:size:perms] "
       "[--materialize-guard target:size] "
       "[--native-stack-window-write target:value:bytes:kind] "
@@ -773,6 +777,11 @@ static struct Options parse_args(int argc, char **argv) {
         usage();
       }
       add_native_step(opts.synthetic_raw_icmp, &opts.synthetic_raw_icmp_count, argv[i], "synthetic-raw-icmp");
+    } else if (streq(argv[i], "--synthetic-ping-socket")) {
+      if (++i >= argc) {
+        usage();
+      }
+      add_native_step(opts.synthetic_ping_socket, &opts.synthetic_ping_socket_count, argv[i], "synthetic-ping-socket");
     } else if (streq(argv[i], "--set-cloexec-fd")) {
       if (++i >= argc) {
         usage();
@@ -1733,6 +1742,133 @@ static void install_synthetic_raw_icmp(const char *spec) {
 static void install_synthetic_raw_icmp_sockets(const struct Options *opts) {
   for (size_t i = 0; i < opts->synthetic_raw_icmp_count; i++) {
     install_synthetic_raw_icmp(opts->synthetic_raw_icmp[i].spec);
+  }
+}
+
+static void verify_ping_group_range(
+    uint64_t expected_uid, uint64_t expected_gid, uint64_t range_start, uint64_t range_end) {
+  if ((uint64_t)getuid() != expected_uid || (uint64_t)getgid() != expected_gid) {
+    fprintf(stderr,
+        "native-actual-resume-trampoline: ping socket credential mismatch uid=%llu gid=%llu\n",
+        (unsigned long long)getuid(),
+        (unsigned long long)getgid());
+    exit(1);
+  }
+  FILE *file = fopen("/proc/sys/net/ipv4/ping_group_range", "r");
+  if (!file) {
+    fprintf(stderr,
+        "native-actual-resume-trampoline: open ping_group_range failed: %s\n",
+        strerror(errno));
+    exit(1);
+  }
+  unsigned long long actual_start = 0;
+  unsigned long long actual_end = 0;
+  if (fscanf(file, "%llu%llu", &actual_start, &actual_end) != 2) {
+    fclose(file);
+    fprintf(stderr, "native-actual-resume-trampoline: ping_group_range parse failed\n");
+    exit(1);
+  }
+  fclose(file);
+  if (actual_start != range_start || actual_end != range_end || expected_gid < actual_start ||
+      expected_gid > actual_end) {
+    fprintf(stderr,
+        "native-actual-resume-trampoline: ping_group_range mismatch actual=%llu-%llu expected=%llu-%llu gid=%llu\n",
+        actual_start,
+        actual_end,
+        (unsigned long long)range_start,
+        (unsigned long long)range_end,
+        (unsigned long long)expected_gid);
+    exit(1);
+  }
+}
+
+static void ping_socket_probe(int fd, uint16_t identifier, uint16_t sequence) {
+  uint8_t packet[16] = {0};
+  struct icmphdr *icmp = (struct icmphdr *)packet;
+  icmp->type = ICMP_ECHO;
+  icmp->code = 0;
+  icmp->un.echo.id = htons(identifier);
+  icmp->un.echo.sequence = htons(sequence);
+  memcpy(packet + sizeof(*icmp), "PINGDGRM", 8);
+  icmp->checksum = 0;
+  icmp->checksum = htons(internet_checksum(packet, sizeof(packet)));
+  struct sockaddr_in addr = {0};
+  addr.sin_family = AF_INET;
+  addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+  if (sendto(fd, packet, sizeof(packet), 0, (struct sockaddr *)&addr, sizeof(addr)) != (ssize_t)sizeof(packet)) {
+    fprintf(stderr, "native-actual-resume-trampoline: ping socket sendto failed: %s\n", strerror(errno));
+    exit(1);
+  }
+  for (int attempt = 0; attempt < 8; attempt++) {
+    struct pollfd pfd = {.fd = fd, .events = POLLIN};
+    int ready = poll(&pfd, 1, 250);
+    if (ready < 0) {
+      fprintf(stderr, "native-actual-resume-trampoline: ping socket poll failed: %s\n", strerror(errno));
+      exit(1);
+    }
+    if (ready == 0) {
+      continue;
+    }
+    uint8_t buffer[256];
+    ssize_t got = recv(fd, buffer, sizeof(buffer), 0);
+    if (got < 0) {
+      fprintf(stderr, "native-actual-resume-trampoline: ping socket recv failed: %s\n", strerror(errno));
+      exit(1);
+    }
+    if (got < (ssize_t)sizeof(struct icmphdr)) {
+      continue;
+    }
+    struct icmphdr *reply = (struct icmphdr *)buffer;
+    if (reply->type == ICMP_ECHOREPLY && reply->code == 0 &&
+        ntohs(reply->un.echo.id) == identifier && ntohs(reply->un.echo.sequence) == sequence) {
+      drain_raw_icmp_queue(fd);
+      return;
+    }
+  }
+  fprintf(stderr, "native-actual-resume-trampoline: ping socket loopback echo verifier timed out\n");
+  exit(1);
+}
+
+static void install_synthetic_ping_socket(const char *spec) {
+  uint64_t target_fd = native_step_u64(spec, "fd", "synthetic-ping-socket");
+  uint64_t identifier = native_step_u64(spec, "identifier", "synthetic-ping-socket");
+  uint64_t sequence = native_step_u64(spec, "sequence", "synthetic-ping-socket");
+  uint64_t uid = native_step_u64(spec, "uid", "synthetic-ping-socket");
+  uint64_t gid = native_step_u64(spec, "gid", "synthetic-ping-socket");
+  uint64_t range_start = native_step_u64(spec, "pingGroupRangeStart", "synthetic-ping-socket");
+  uint64_t range_end = native_step_u64(spec, "pingGroupRangeEnd", "synthetic-ping-socket");
+  if (target_fd > 1024u || identifier > 0xffffu || sequence > 0xffffu || range_end < range_start ||
+      gid < range_start || gid > range_end) {
+    fprintf(stderr, "native-actual-resume-trampoline: ping socket spec is invalid\n");
+    exit(2);
+  }
+  verify_ping_group_range(uid, gid, range_start, range_end);
+  int fd = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, IPPROTO_ICMP);
+  if (fd < 0) {
+    fprintf(stderr, "native-actual-resume-trampoline: ping socket open failed: %s\n", strerror(errno));
+    exit(1);
+  }
+  struct sockaddr_in local = {0};
+  local.sin_family = AF_INET;
+  local.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+  local.sin_port = htons((uint16_t)identifier);
+  if (bind(fd, (struct sockaddr *)&local, sizeof(local)) != 0) {
+    fprintf(stderr, "native-actual-resume-trampoline: ping socket bind failed: %s\n", strerror(errno));
+    exit(1);
+  }
+  ping_socket_probe(fd, (uint16_t)identifier, (uint16_t)sequence);
+  if (fd != (int)target_fd) {
+    if (dup2(fd, (int)target_fd) < 0) {
+      fprintf(stderr, "native-actual-resume-trampoline: ping socket dup2 failed: %s\n", strerror(errno));
+      exit(1);
+    }
+    close(fd);
+  }
+}
+
+static void install_synthetic_ping_sockets(const struct Options *opts) {
+  for (size_t i = 0; i < opts->synthetic_ping_socket_count; i++) {
+    install_synthetic_ping_socket(opts->synthetic_ping_socket[i].spec);
   }
 }
 
@@ -3007,6 +3143,9 @@ static uint64_t expected_state_consumption_mask(const struct Options *opts) {
   if (opts->synthetic_raw_icmp_count > 0) {
     mask |= STATE_CHECK_RAW_ICMP;
   }
+  if (opts->synthetic_ping_socket_count > 0) {
+    mask |= STATE_CHECK_PING_SOCKET;
+  }
   return mask;
 }
 
@@ -3073,6 +3212,10 @@ static void print_state_consumption(const struct Options *opts) {
     printf(",");
     print_check_status("synthetic-raw-icmp", mask, STATE_CHECK_RAW_ICMP);
   }
+  if (opts->synthetic_ping_socket_count > 0) {
+    printf(",");
+    print_check_status("synthetic-ping-socket", mask, STATE_CHECK_PING_SOCKET);
+  }
   printf("],\"resourceStatuses\":[");
   print_check_status("inherit-stdio", mask, STATE_CHECK_STDIO);
   printf(",");
@@ -3110,6 +3253,10 @@ static void print_state_consumption(const struct Options *opts) {
   if (opts->synthetic_raw_icmp_count > 0) {
     printf(",");
     print_check_status("synthetic-raw-icmp", mask, STATE_CHECK_RAW_ICMP);
+  }
+  if (opts->synthetic_ping_socket_count > 0) {
+    printf(",");
+    print_check_status("synthetic-ping-socket", mask, STATE_CHECK_PING_SOCKET);
   }
   printf("]}");
 }
@@ -3475,6 +3622,7 @@ int main(int argc, char **argv) {
   install_synthetic_tcp_listeners(&opts);
   install_synthetic_tcp_active_brokers(&opts);
   install_synthetic_raw_icmp_sockets(&opts);
+  install_synthetic_ping_sockets(&opts);
   apply_cloexec_fds(&opts);
   consume_native_process_context_steps(&opts, &native_process_context_restore_state);
   apply_native_signal_restore_steps(&opts, &native_signal_restore_state);

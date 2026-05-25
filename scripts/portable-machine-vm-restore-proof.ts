@@ -52,6 +52,7 @@ interface ProofVerifierFeatures {
   includeTcpListenerReadinessProof: boolean;
   includeTcpActiveBrokerProof: boolean;
   includeRawIcmpProof: boolean;
+  includePingSocketProof: boolean;
 }
 
 interface Args extends ProofVerifierFeatures {
@@ -185,8 +186,15 @@ const PROOF_TCP_LISTENER_FD = 55;
 const PROOF_TCP_ACTIVE_FD = 56;
 const PROOF_TCP_BROKER_FD = 57;
 const PROOF_RAW_ICMP_FD = 58;
+const PROOF_PING_SOCKET_FD = 59;
 const PROOF_RAW_ICMP_IDENTIFIER = 0x4d49;
 const PROOF_RAW_ICMP_SEQUENCE = 1;
+const PROOF_PING_SOCKET_IDENTIFIER = 0x4d50;
+const PROOF_PING_SOCKET_SEQUENCE = 2;
+const PROOF_PING_SOCKET_UID = 0;
+const PROOF_PING_SOCKET_GID = 0;
+const PROOF_PING_GROUP_RANGE_START = 0;
+const PROOF_PING_GROUP_RANGE_END = 2147483647;
 const PROOF_TCP_LISTENER_PORT = 45321;
 const PROOF_TCP_READINESS_PORT = 45322;
 const PROOF_TCP_ACTIVE_PORT = 45323;
@@ -215,6 +223,7 @@ const STATE_CHECK_TCP_LISTENER = 0x200;
 const STATE_CHECK_TCP_READINESS = 0x400;
 const STATE_CHECK_TCP_ACTIVE = 0x800;
 const STATE_CHECK_RAW_ICMP = 0x1000;
+const STATE_CHECK_PING_SOCKET = 0x2000;
 const TRANSLATED_FRAME_MARKER = 0x4652414d45504153n;
 const TRANSLATED_RESUME_MARKER = 0x524553554d455041n;
 const TRANSLATED_FRAME_POINTER = "0x50000000ff80";
@@ -263,7 +272,7 @@ function usage(): never {
       "[--include-readiness-eventfd-poll-proof] [--include-regular-file-duplicate-fd-proof] [--include-target-auxv-at-random-proof] " +
       "[--include-private-layout-proof] [--include-signal-mask-blocked-proof] " +
       "[--include-tcp-listener-proof] [--include-tcp-listener-readiness-proof] [--include-tcp-active-broker-proof] " +
-      "[--include-raw-icmp-proof] [--json]",
+      "[--include-raw-icmp-proof] [--include-ping-socket-proof] [--json]",
   );
   process.exit(2);
 }
@@ -299,6 +308,7 @@ function argsFromReader(read: (flag: string) => string | undefined, argv: string
     includeTcpListenerReadinessProof: argv.includes("--include-tcp-listener-readiness-proof"),
     includeTcpActiveBrokerProof: argv.includes("--include-tcp-active-broker-proof"),
     includeRawIcmpProof: argv.includes("--include-raw-icmp-proof"),
+    includePingSocketProof: argv.includes("--include-ping-socket-proof"),
   };
 }
 
@@ -434,6 +444,7 @@ function proofVerifierFeaturesFromContext(
     includeTcpListenerReadinessProof: context.includeTcpListenerReadinessProof,
     includeTcpActiveBrokerProof: context.includeTcpActiveBrokerProof,
     includeRawIcmpProof: context.includeRawIcmpProof,
+    includePingSocketProof: context.includePingSocketProof,
   };
 }
 
@@ -566,6 +577,7 @@ function combinedDescriptorContext(
     includeTcpListenerReadinessProof: args.includeTcpListenerReadinessProof,
     includeTcpActiveBrokerProof: args.includeTcpActiveBrokerProof,
     includeRawIcmpProof: args.includeRawIcmpProof,
+    includePingSocketProof: args.includePingSocketProof,
   };
   return contextAfterPathCheck(plan, bundle.rootDir!, context);
 }
@@ -1526,6 +1538,7 @@ function proofFdResources(context: CombinedDescriptorContext): NativeProcessReso
     ...signalfdProofResources(context),
     ...tcpProofResources(context),
     ...rawIcmpProofResources(context),
+    ...pingSocketProofResources(context),
   ];
 }
 
@@ -1602,6 +1615,40 @@ function rawIcmpProofResources(context: CombinedDescriptorContext): NativeProces
             route: "loopback",
             identifier: PROOF_RAW_ICMP_IDENTIFIER,
             sequence: PROOF_RAW_ICMP_SEQUENCE,
+            inFlightPackets: "none",
+            receiveQueue: "empty",
+            socketOptions: "allowlisted-empty",
+          },
+        },
+      ]
+    : [];
+}
+
+function pingSocketProofResources(context: CombinedDescriptorContext): NativeProcessResource[] {
+  return context.includePingSocketProof
+    ? [
+        {
+          id: `fd:${PROOF_PING_SOCKET_FD}:combined-proof-ping-socket`,
+          kind: "socket" as const,
+          state: "recipe" as const,
+          fd: PROOF_PING_SOCKET_FD,
+          path: "socket:[ping-socket-loopback]",
+          flags: ["octal:2"],
+          recipe: {
+            pingSocketModel: "loopback-echo-v1",
+            family: "inet4",
+            socketType: "dgram",
+            protocol: "icmp",
+            destination: "127.0.0.1",
+            credentialPolicy: "target-ping-group-range",
+            uid: PROOF_PING_SOCKET_UID,
+            gid: PROOF_PING_SOCKET_GID,
+            pingGroupRangeStart: PROOF_PING_GROUP_RANGE_START,
+            pingGroupRangeEnd: PROOF_PING_GROUP_RANGE_END,
+            networkNamespace: "target-loopback",
+            route: "loopback",
+            identifier: PROOF_PING_SOCKET_IDENTIFIER,
+            sequence: PROOF_PING_SOCKET_SEQUENCE,
             inFlightPackets: "none",
             receiveQueue: "empty",
             socketOptions: "allowlisted-empty",
@@ -1960,6 +2007,10 @@ function emitGraduatedResourceVerifier(
     asm.checkRawIcmp(PROOF_RAW_ICMP_FD);
     asm.markStateCheck(completion, STATE_CHECK_RAW_ICMP);
   }
+  if (features.includePingSocketProof) {
+    asm.checkPingSocket(PROOF_PING_SOCKET_FD);
+    asm.markStateCheck(completion, STATE_CHECK_PING_SOCKET);
+  }
 }
 
 class Amd64ProofAssembler {
@@ -2173,10 +2224,18 @@ class Amd64ProofAssembler {
   }
 
   checkRawIcmp(fd: number): void {
+    this.checkInetIcmpSocket(fd, 3n);
+  }
+
+  checkPingSocket(fd: number): void {
+    this.checkInetIcmpSocket(fd, 2n);
+  }
+
+  private checkInetIcmpSocket(fd: number, socketType: bigint): void {
     this.checkFdOpen(fd);
     this.getsockoptInt(fd, 1, 3, 0x50, 0x58);
     this.loadU64FromRbxOffset(0x50);
-    this.checkRaxImmediate(3n);
+    this.checkRaxImmediate(socketType);
     this.getsockoptInt(fd, 1, 38, 0x50, 0x58);
     this.loadU64FromRbxOffset(0x50);
     this.checkRaxImmediate(1n);

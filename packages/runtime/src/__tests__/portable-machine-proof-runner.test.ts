@@ -225,8 +225,8 @@ describe("portable machine proof runner", () => {
     expect(summary.supportReport).toMatchObject({
       counts: {
         "baseline-success": 11,
-        "graduated-support": 25,
-        "intentional-refusal": 112,
+        "graduated-support": 26,
+        "intentional-refusal": 125,
         "permanent-refusal": 3,
       },
       graduated: expect.arrayContaining([
@@ -316,10 +316,15 @@ describe("portable machine proof runner", () => {
           acceptedSubset: "raw-icmp-v1:loopback-echo-no-inflight",
           graduatedFromRefusalCode: "target-socket-syscall-state-unsupported",
         }),
+        expect.objectContaining({
+          name: "real-ping-socket-loopback-recreate",
+          acceptedSubset: "ping-socket-v1:loopback-echo-no-inflight",
+          graduatedFromRefusalCode: "target-socket-syscall-state-unsupported",
+        }),
       ]),
       capabilitySummary: {
         accepted: expect.objectContaining({ "fd:regular-file": 8 }),
-        refused: expect.objectContaining({ "fd:socket": 5 }),
+        refused: expect.objectContaining({ "fd:socket": 6 }),
       },
     });
     expect(summary.supportReport.intentionallyRefused).toEqual(

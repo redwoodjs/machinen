@@ -85,7 +85,7 @@ describe("portable machine proof matrix", () => {
       kind: "machinen.portable-machine-proof-matrix",
       state: "completed",
       pass: true,
-      profileCounts: { total: 5 },
+      profileCounts: { total: 6 },
       schemaValidation: { passed: true },
     });
     expect(summary.selectedProfiles).toEqual([
@@ -94,6 +94,7 @@ describe("portable machine proof matrix", () => {
       "fd-alias-socket-refusal",
       "tcp-active-connection-refusal",
       "epoll-socket-readiness-refusal",
+      "raw-icmp-ping-refusal",
     ]);
     expect(summary.refusalCodes).toMatchObject({
       "socket-transfer-refusal": "target-socket-syscall-state-unsupported",

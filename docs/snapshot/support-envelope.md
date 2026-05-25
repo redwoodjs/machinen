@@ -9,8 +9,8 @@ makes a runtime/app family supported.
 Current profile inventory:
 
 - 11 `baseline-success` profiles;
-- 25 `graduated-support` profiles;
-- 112 `intentional-refusal` profiles;
+- 26 `graduated-support` profiles;
+- 125 `intentional-refusal` profiles;
 - 3 `permanent-refusal` profiles.
 
 ## Success contract
@@ -61,6 +61,9 @@ under `capabilities`. The families currently covered are:
 - raw ICMP: the narrow `raw-icmp-v1:loopback-echo-no-inflight` subset for one
   IPv4 raw ICMP loopback echo socket with `CAP_NET_RAW`, target-loopback route,
   empty in-flight/receive queues, and ICMP id/sequence verifier gates;
+- ping sockets: the narrow `ping-socket-v1:loopback-echo-no-inflight` subset for
+  one IPv4 Linux `SOCK_DGRAM`/`IPPROTO_ICMP` loopback echo socket authorized by
+  target `ping_group_range` and uid/gid credential gates;
 - synchronization: one private futex wait/wake, explicit rseq lifecycle, and one
   memfd shared-memory contract;
 - threads: the controlled two-thread ppoll proof with target thread-spawn gates
@@ -74,11 +77,17 @@ Refusal profiles use `refusesCapabilities` and exact refusal codes. The remainin
 unsafe families are:
 
 - sockets and active TCP/network connections outside the Goal 8/9 listener,
-  explicit-broker, or Goal 12 raw-ICMP loopback contracts;
-- raw ICMP outside `raw-icmp-v1`, including missing capability, disallowed ping
-  group policy, wrong namespace, stale route, non-loopback destinations,
-  in-flight/unread packet ambiguity, unsupported socket options, BPF filters,
-  `IP_HDRINCL`, ICMPv6, or hidden source-side helpers;
+  explicit-broker, Goal 12 raw-ICMP loopback, or Goal 13 ping-socket loopback
+  contracts;
+- raw ICMP outside `raw-icmp-v1`, including missing capability, wrong namespace,
+  stale route, non-loopback destinations, in-flight/unread packet ambiguity,
+  unsupported socket options, BPF filters, `IP_HDRINCL`, ICMPv6, or hidden
+  source-side helpers;
+- ping sockets outside `ping-socket-v1`, including missing `ping_group_range`
+  permission, wrong uid/gid/group provenance, raw-socket capability confusion,
+  wrong namespace, stale route, non-loopback destinations, id/sequence mismatch,
+  in-flight/unread packet ambiguity, unsupported options, BPF filters, ICMPv6,
+  or hidden source-side helpers;
 - futex/rseq and scheduler-visible synchronization outside the one-waiter,
   target-owned lifecycle contracts;
 - shared memory without a target sharing contract;

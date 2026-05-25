@@ -75,6 +75,101 @@ describe("native resource translation", () => {
     ]);
   });
 
+  it("plans the ping-socket-v1 loopback echo descriptor subset", () => {
+    const plan = planNativeTargetFdTable({
+      resources: [
+        {
+          id: "fd:59:ping-socket",
+          kind: "socket",
+          state: "captured",
+          fd: 59,
+          path: "socket:[ping-socket]",
+          flags: ["octal:2"],
+          recipe: {
+            pingSocketModel: "loopback-echo-v1",
+            family: "inet4",
+            socketType: "dgram",
+            protocol: "icmp",
+            destination: "127.0.0.1",
+            credentialPolicy: "target-ping-group-range",
+            uid: 0,
+            gid: 0,
+            pingGroupRangeStart: 0,
+            pingGroupRangeEnd: 2147483647,
+            networkNamespace: "target-loopback",
+            route: "loopback",
+            identifier: 0x4d50,
+            sequence: 2,
+            inFlightPackets: "none",
+            receiveQueue: "empty",
+          },
+        },
+      ],
+    });
+
+    expect(plan.refusals).toEqual([]);
+    expect(plan.entries).toEqual([
+      expect.objectContaining({ targetFd: 59, kind: "synthetic-ping-socket" }),
+    ]);
+    expect(plan.targetGuestResources).toEqual([
+      {
+        kind: "synthetic-ping-socket",
+        fd: 59,
+        identifier: 0x4d50,
+        sequence: 2,
+        uid: 0,
+        gid: 0,
+        pingGroupRangeStart: 0,
+        pingGroupRangeEnd: 2147483647,
+        closeOnExec: false,
+      },
+    ]);
+  });
+
+  it.each([
+    ["gid outside target ping_group_range", { gid: 10, pingGroupRangeEnd: 0 }],
+    ["wrong network namespace", { networkNamespace: "source-netns" }],
+    ["stale route provenance", { route: "source-route-cache" }],
+  ])("keeps unsafe ping-socket-v1 variants fail-closed: %s", (_name, override) => {
+    const recipe = {
+      pingSocketModel: "loopback-echo-v1",
+      family: "inet4",
+      socketType: "dgram",
+      protocol: "icmp",
+      destination: "127.0.0.1",
+      credentialPolicy: "target-ping-group-range",
+      uid: 0,
+      gid: 0,
+      pingGroupRangeStart: 0,
+      pingGroupRangeEnd: 2147483647,
+      networkNamespace: "target-loopback",
+      route: "loopback",
+      identifier: 0x4d50,
+      sequence: 2,
+      inFlightPackets: "none",
+      receiveQueue: "empty",
+      ...override,
+    };
+    const plan = planNativeTargetFdTable({
+      resources: [
+        {
+          id: "fd:59:ping-socket",
+          kind: "socket",
+          state: "captured",
+          fd: 59,
+          path: "socket:[ping-socket]",
+          flags: ["octal:2"],
+          recipe,
+        },
+      ],
+    });
+
+    expect(plan.refusals).toEqual([
+      expect.objectContaining({ code: "target-socket-syscall-state-unsupported" }),
+    ]);
+    expect(plan.targetGuestResources).toEqual([]);
+  });
+
   it("keeps unsafe raw-icmp-v1 variants fail-closed", () => {
     const plan = planNativeTargetFdTable({
       resources: [
