@@ -29,15 +29,153 @@ const PRESETS = {
     profiles.filter(
       (profile) => isRealWorkloadProfile(profile) && profile.expectedResult === "success",
     ),
-  goal21: (profiles) => profiles.filter((profile) => hasGoal21Capability(profile)),
+  goal21: (profiles) => profiles.filter((profile) => hasGoalCapability(profile, "goal21")),
   "goal21-positive": (profiles) =>
     profiles.filter(
-      (profile) => hasGoal21Capability(profile) && profile.expectedResult === "success",
+      (profile) => hasGoalCapability(profile, "goal21") && profile.expectedResult === "success",
     ),
   "goal21-refusal": (profiles) =>
     profiles.filter(
-      (profile) => hasGoal21Capability(profile) && profile.expectedResult === "refusal",
+      (profile) => hasGoalCapability(profile, "goal21") && profile.expectedResult === "refusal",
     ),
+  goal26: (profiles) => profiles.filter((profile) => hasGoalCapability(profile, "goal26")),
+  "goal26-positive": (profiles) =>
+    profiles.filter(
+      (profile) => hasGoalCapability(profile, "goal26") && profile.expectedResult === "success",
+    ),
+  "goal26-refusal": (profiles) =>
+    profiles.filter(
+      (profile) => hasGoalCapability(profile, "goal26") && profile.expectedResult === "refusal",
+    ),
+  node: (profiles) => profiles.filter((profile) => hasRuntimeCapability(profile, "node")),
+  "node-positive": (profiles) =>
+    profiles.filter(
+      (profile) => hasRuntimeCapability(profile, "node") && profile.expectedResult === "success",
+    ),
+  "node-refusal": (profiles) =>
+    profiles.filter(
+      (profile) => hasRuntimeCapability(profile, "node") && profile.expectedResult === "refusal",
+    ),
+  invalidation: (profiles) =>
+    profiles.filter((profile) => hasCapabilityPrefix(profile, "invalidation:")),
+  "invalidation-positive": (profiles) =>
+    profiles.filter(
+      (profile) =>
+        hasCapabilityPrefix(profile, "invalidation:") && profile.expectedResult === "success",
+    ),
+  "invalidation-refusal": (profiles) =>
+    profiles.filter(
+      (profile) =>
+        hasCapabilityPrefix(profile, "invalidation:") && profile.expectedResult === "refusal",
+    ),
+  "invalidation-work": (profiles) =>
+    profiles.filter(
+      (profile) => hasCapabilityPrefix(profile, "invalidation:") && hasRefreshSupport(profile),
+    ),
+  "invalidation-work-positive": (profiles) =>
+    profiles.filter(
+      (profile) =>
+        hasCapabilityPrefix(profile, "invalidation:") &&
+        hasRefreshSupport(profile) &&
+        profile.expectedResult === "success",
+    ),
+  "node-invalidation": (profiles) =>
+    profiles.filter((profile) => hasCapabilityPrefix(profile, "runtime:node:invalidation:")),
+  "node-invalidation-refusal": (profiles) =>
+    profiles.filter(
+      (profile) =>
+        hasCapabilityPrefix(profile, "runtime:node:invalidation:") &&
+        profile.expectedResult === "refusal",
+    ),
+  "node-invalidation-work": (profiles) =>
+    profiles.filter(
+      (profile) =>
+        hasCapabilityPrefix(profile, "runtime:node:invalidation:") && hasRefreshSupport(profile),
+    ),
+  "node-apps": (profiles) =>
+    profiles.filter((profile) => hasCapabilityPrefix(profile, "runtime:node:app:")),
+  "node-apps-supported": (profiles) =>
+    profiles.filter(
+      (profile) =>
+        hasCapabilityPrefix(profile, "runtime:node:app:") && profile.expectedResult === "success",
+    ),
+  "node-real-apps": (profiles) =>
+    profiles.filter((profile) => hasCapabilityPrefix(profile, "runtime:node:app:")),
+  "node-real-apps-positive": (profiles) =>
+    profiles.filter(
+      (profile) =>
+        hasCapabilityPrefix(profile, "runtime:node:app:") && profile.expectedResult === "success",
+    ),
+  "node-real-cli": (profiles) => profiles.filter((profile) => hasNodeApp(profile, "cli-script")),
+  "node-real-cjs": (profiles) =>
+    profiles.filter((profile) => hasNodeApp(profile, "commonjs-package")),
+  "node-real-esm": (profiles) => profiles.filter((profile) => hasNodeApp(profile, "esm-package")),
+  "node-real-timers-async": (profiles) =>
+    profiles.filter((profile) => hasNodeApp(profile, "timers-async")),
+  "node-real-fs-stdio": (profiles) => profiles.filter((profile) => hasNodeApp(profile, "fs-stdio")),
+  "node-real-http-tcp": (profiles) =>
+    profiles.filter((profile) => hasNodeApp(profile, "http-server")),
+  "node-real-udp-dns": (profiles) => profiles.filter((profile) => hasNodeApp(profile, "udp-dns")),
+  "node-real-worker": (profiles) =>
+    profiles.filter((profile) => hasNodeApp(profile, "worker-thread")),
+  "node-real-native-addon": (profiles) =>
+    profiles.filter((profile) => hasNodeApp(profile, "native-addon")),
+  "node-real-crypto-tls": (profiles) =>
+    profiles.filter((profile) => hasNodeApp(profile, "crypto-tls")),
+  "node-live": (profiles) =>
+    profiles.filter((profile) => hasCapabilityPrefix(profile, "runtime:node:app:")),
+  "node-live-positive": (profiles) =>
+    profiles.filter(
+      (profile) =>
+        hasCapabilityPrefix(profile, "runtime:node:app:") && profile.expectedResult === "success",
+    ),
+  "node-live-refusal": (profiles) =>
+    profiles.filter(
+      (profile) =>
+        hasCapabilityPrefix(profile, "runtime:node:live-refusal:") &&
+        profile.expectedResult === "refusal",
+    ),
+  "node-live-apps": (profiles) =>
+    profiles.filter((profile) => hasCapabilityPrefix(profile, "runtime:node:app:")),
+  "node-live-real-world": (profiles) =>
+    profiles.filter((profile) => hasCapabilityPrefix(profile, "runtime:node:app:")),
+  "node-live-local-to-proxmox": (profiles) =>
+    profiles.filter((profile) => hasCapabilityPrefix(profile, "runtime:node:app:")),
+  "node-live-remote-builder-to-proxmox": (profiles) =>
+    profiles.filter((profile) => hasCapabilityPrefix(profile, "runtime:node:app:")),
+  "node-blockers": (profiles) =>
+    profiles.filter((profile) => hasCapabilityPrefix(profile, "runtime:node:blocker:")),
+  "node-blockers-refusal": (profiles) =>
+    profiles.filter(
+      (profile) =>
+        hasCapabilityPrefix(profile, "runtime:node:blocker:") &&
+        profile.expectedResult === "refusal",
+    ),
+  "node-blockers-supported": (profiles) =>
+    profiles.filter(
+      (profile) =>
+        hasCapabilityPrefix(profile, "runtime:node:blocker:") &&
+        profile.expectedResult === "success",
+    ),
+  "node-native-addon": (profiles) =>
+    profiles.filter((profile) => hasNodeBlockerFamily(profile, "native-addon")),
+  "node-workers": (profiles) =>
+    profiles.filter((profile) => hasNodeBlockerFamily(profile, "workers")),
+  "node-async": (profiles) => profiles.filter((profile) => hasNodeBlockerFamily(profile, "async")),
+  "node-timers": (profiles) =>
+    profiles.filter((profile) => hasNodeBlockerFamily(profile, "timers")),
+  "node-network": (profiles) =>
+    profiles.filter((profile) => hasNodeBlockerFamily(profile, "network")),
+  "node-fs-stdio": (profiles) =>
+    profiles.filter((profile) => hasNodeBlockerFamily(profile, "fs-stdio")),
+  "node-v8-heap": (profiles) =>
+    profiles.filter((profile) => hasNodeBlockerFamily(profile, "v8-heap")),
+  "node-module-graph": (profiles) =>
+    profiles.filter((profile) => hasNodeBlockerFamily(profile, "module-graph")),
+  "node-process-signal": (profiles) =>
+    profiles.filter((profile) => hasNodeBlockerFamily(profile, "process-signal")),
+  "node-identity-invalidation": (profiles) =>
+    profiles.filter((profile) => hasNodeBlockerFamily(profile, "identity-invalidation")),
 };
 
 const PASS_THROUGH_OPTIONS = new Set([
@@ -191,10 +329,32 @@ function isRealWorkloadProfile(profile) {
   return profile.sourceFixture?.startsWith("real:") || profile.name.startsWith("real-");
 }
 
-function hasGoal21Capability(profile) {
+function hasGoalCapability(profile, goalPrefix) {
   return [...(profile.capabilities ?? []), ...(profile.refusesCapabilities ?? [])].some(
-    (capability) => capability.startsWith("goal21:"),
+    (capability) => capability.startsWith(`${goalPrefix}:`),
   );
+}
+
+function hasRuntimeCapability(profile, runtimeName) {
+  return hasCapabilityPrefix(profile, `runtime:${runtimeName}:`);
+}
+
+function hasCapabilityPrefix(profile, prefix) {
+  return [...(profile.capabilities ?? []), ...(profile.refusesCapabilities ?? [])].some(
+    (capability) => capability.startsWith(prefix),
+  );
+}
+
+function hasRefreshSupport(profile) {
+  return (profile.capabilities ?? []).some((capability) => capability.endsWith(":refresh"));
+}
+
+function hasNodeBlockerFamily(profile, family) {
+  return hasCapabilityPrefix(profile, `runtime:node:blocker:${family}`);
+}
+
+function hasNodeApp(profile, appName) {
+  return hasCapabilityPrefix(profile, `runtime:node:app:${appName}`);
 }
 
 function uniqProfiles(profiles) {
@@ -245,7 +405,15 @@ function selectProfiles(profiles, options) {
       selected.push(profile);
     }
   }
-  return uniqProfiles(selected.length > 0 ? selected : PRESETS["foundation-full"](profiles));
+  const hadExplicitSelection =
+    options.presets.length > 0 ||
+    options.supportStatuses.length > 0 ||
+    options.capabilities.length > 0 ||
+    options.unsafeFamilies.length > 0 ||
+    options.profiles.length > 0;
+  return uniqProfiles(
+    selected.length > 0 || hadExplicitSelection ? selected : PRESETS["foundation-full"](profiles),
+  );
 }
 
 function applyShard(profiles, shard) {

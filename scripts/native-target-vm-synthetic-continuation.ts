@@ -214,7 +214,7 @@ async function bootTargetVm(image: string) {
   return await boot({
     image: resolve(image),
     name: `target-vm-synthetic-${process.pid}`,
-    cmd: ["/bin/sleep", "infinity"],
+    cmd: ["/exec-agent"],
     snapshot: false,
     vmmEnv: {
       ...process.env,

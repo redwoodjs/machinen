@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -43,8 +43,10 @@ function baseManifest() {
 }
 
 describe("runtime support matrix", () => {
-  it("emits stable planning-only runtime and harness output", () => {
-    const result = spawnSync("node", [MATRIX, "--json"], {
+  it("emits stable runtime support and harness output", () => {
+    const dir = tempDir();
+    const summaryFile = join(dir, "runtime-summary.json");
+    const result = spawnSync("node", [MATRIX, "--summary", summaryFile], {
       cwd: REPO_ROOT,
       encoding: "utf8",
       env: SCRIPT_ENV,
@@ -52,12 +54,12 @@ describe("runtime support matrix", () => {
     });
 
     expect(result.status, result.stderr).toBe(0);
-    const summary = JSON.parse(result.stdout);
+    const summary = JSON.parse(readFileSync(summaryFile, "utf8"));
     expect(summary).toMatchObject({
       kind: "machinen.runtime-support-matrix",
       state: "completed",
       pass: true,
-      runtimeCounts: { total: 5, planningOnly: 5, supportedSubsets: 0, failed: 0 },
+      runtimeCounts: { total: 5, planningOnly: 4, supportedSubsets: 1, failed: 0 },
     });
     expect(
       summary.manifests.map((entry: { runtime: { name: string } }) => entry.runtime.name),
@@ -67,7 +69,15 @@ describe("runtime support matrix", () => {
         (entry: { runtime: { name: string } }) => entry.runtime.name === "node",
       ),
     ).toMatchObject({
-      supportClaimed: false,
+      supportClaimed: true,
+      state: "supported-subset",
+      requiredCapabilities: expect.arrayContaining([
+        "runtime:node:empty-event-loop",
+        "runtime:node:commonjs-module-graph",
+        "runtime:node:native-addons-napi",
+        "runtime:node:blocker:native-addon:support:n-api-addon-abi-identity-descriptor",
+        "runtime:node:blocker:workers:support:worker-lifecycle-descriptor",
+      ]),
       refusalProofs: expect.arrayContaining([
         expect.objectContaining({
           code: "runtime-native-extension-opaque",
@@ -76,6 +86,8 @@ describe("runtime support matrix", () => {
           sidecarRuntimeUsed: false,
         }),
         expect.objectContaining({ code: "runtime-source-text-replay" }),
+        expect.objectContaining({ code: "portable-descriptor-hash-mismatch" }),
+        expect.objectContaining({ code: "portable-node-version-mismatch" }),
       ]),
       provenance: {
         targetRuntime: expect.objectContaining({
@@ -84,13 +96,25 @@ describe("runtime support matrix", () => {
         }),
       },
     });
-    expect(summary.appHarnesses).toEqual([
-      expect.objectContaining({
-        harness: "planning-only-refusal-harness",
-        expectedResult: "refusal",
-        pass: true,
-      }),
-    ]);
+    expect(summary.appHarnesses).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          harness: "planning-only-refusal-harness",
+          expectedResult: "refusal",
+          pass: true,
+        }),
+        expect.objectContaining({
+          harness: "node-cli-script-support-harness",
+          expectedResult: "success",
+          pass: true,
+        }),
+        expect.objectContaining({
+          harness: "node-native-addon-support-harness",
+          expectedResult: "success",
+          pass: true,
+        }),
+      ]),
+    );
   });
 
   it("blocks ungraduated capabilities", () => {

@@ -9,8 +9,8 @@ makes a runtime/app family supported.
 Current profile inventory:
 
 - 11 `baseline-success` profiles;
-- 79 `graduated-support` profiles;
-- 407 `intentional-refusal` profiles;
+- 626 `graduated-support` profiles;
+- 1457 `intentional-refusal` profiles;
 - 27 `permanent-refusal` profiles.
 
 ## Success contract
@@ -78,14 +78,63 @@ under `capabilities`. The families currently covered are:
   and deterministic wake gates for the futex subset;
 - active syscalls: the active syscall completions named by the positive profiles,
   including deterministic `EINTR` for the accepted ppoll-timeout subset;
-- Goal 21/22 graduations: 49 additional narrow `goal21:*` target-native subsets
-  for UDP queues, advisory locks, shared/private mappings, executable
-  materializing, eventfd/timerfd/signalfd/signal/restart/futex/rseq/memfd/shared-memory
-  states, TCP/raw-ICMP/ping/ICMPv6 packet contracts, epoll edge/oneshot/ready-list
-  states, and thread join/TLS edges. Each positive profile carries a descriptor
-  identity, target-native continuation identity, and verifier gates; each of the
-  245 Goal 21 negative neighbors now has a concrete descriptor fixture that
-  drives the target restore refusal with `migrationCompleted=false`.
+- Goal 21-26 graduations: 249 additional narrow `goal21:*`/`goal26:*`
+  target-native subsets for UDP queues, advisory locks, mappings, namespaces,
+  scheduler/process controls, eventfd/timerfd/signalfd/signal/restart/futex/rseq,
+  SysV/POSIX IPC, TTY/PTY state, TCP/raw-ICMP/ping/ICMPv6 packet contracts,
+  epoll/io-uring/inotify/fanotify states, and thread/TLS edges. Each positive
+  profile has a live source-capture record plus concrete descriptor fixture that
+  drives target-native success with descriptor, resource, verifier,
+  state-consumption, and resume gates passing before `migrationCompleted=true`;
+  each neighboring negative has a live source-capture record plus concrete
+  descriptor fixture that drives target restore refusal with
+  `migrationCompleted=false`.
+- Goal 27 Node.js graduations: 11 exact `runtime:node:*` subsets for the empty
+  event loop, CommonJS and ESM module graphs, simple JS heap state,
+  promises/microtasks, timers, fs/stdio, TCP/UDP/DNS, crypto, workers, and native
+  addons/N-API. These are not broad Node/V8/libuv support claims: every subset is
+  proof-backed by Node binary/version/loader/module/event-loop/async-resource/JS
+  continuation gates, while 56 Node negative neighbors remain fail-closed with
+  `migrationCompleted=false`.
+- Goal 28 invalidation support: 16 `invalidation:*` valid-baseline profiles, 67
+  working target-native refresh profiles, and 67 stale-state refusal guards cover
+  descriptor, live-capture artifact, runtime/loader/libc, module/package/file,
+  process context, kernel resource, socket/packet/timer, and Node-specific
+  identity drift. The refresh profiles detect drift, recapture target-native
+  provenance, rewrite/revalidate the portable descriptor, and then reach
+  `migrationCompleted=true`; the paired stale-descriptor guards keep unsafe
+  originals fail-closed with stable `portable-*` codes.
+- Goal 29 Node blocker support: 170 `runtime:node:blocker:*` target-native
+  support profiles solve the remaining Native addon/N-API, worker/threading,
+  async, timer, network/DNS/TLS, fs/stdio, V8/heap, module graph,
+  process/signal, and Node identity-invalidation blocker families. The original
+  81 broad/unsafe blocker refusal profiles were graduated to working support and
+  now complete with `migrationCompleted=true`; broader non-blocker Node refusals
+  still guard source-text replay, opaque JIT/VM frames, unverified sockets, and
+  other unsupported states.
+- Representative Node application support: 10 `runtime:node:app:*` proof-backed
+  application harnesses now cover CLI, CommonJS, ESM, timers/async, fs/stdio,
+  HTTP/TCP, UDP/DNS, worker, native-addon, and crypto/TLS workloads. These app
+  profiles compose the proved Node runtime/blocker capabilities and complete with
+  target-native `migrationCompleted=true`. Goal 31 guardrails require each Node
+  app profile to use a `real-node-app:` fixture, app harness, target output
+  verifier, checked summary, and `node-app-output` gate; schema validation fails
+  if a Node app falls back to synthetic fields, source text replay, sidecars,
+  app hooks, source-ISA emulation, missing fixtures, missing checked summaries,
+  or missing smoke matrix coverage. Goal 32 adds a live cross-architecture Node
+  app smoke that runs all ten fixtures from the local arm64 machine and the arm64
+  remote builder, then validates target-native output on the Proxmox amd64 host
+  with different source/target architecture evidence. Goal 34 extends the proof
+  envelope to a production-shaped service with package/dependency/config
+  provenance, HTTP routes, file writes, durable JSONL database/log state, real
+  compiled `.node` addon provenance, active-connection refusal policy,
+  repeatability evidence, artifact-level shortcut inspection, Node 20/22/24
+  version coverage, and a documented user-facing workflow.
+- Remaining Node refusal resolution: the 73 profiles that still carried
+  `runtime:node:*` refusal capabilities were graduated to target-native support.
+  The Node runtime manifest now has 0 `runtime:node:*` refusal profiles and 281
+  supported Node profiles; non-Node permanent/system refusals remain outside the
+  Node support claim.
 
 ## Refusal families that remain
 

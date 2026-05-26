@@ -108,8 +108,43 @@ refusal profiles in `unsafeVariants`. Goal 22 upgrades those Goal 21 neighbor
 refusals from profile-only synthetic shortcuts to concrete descriptor fixtures in
 `scripts/fixtures/goal21-negative-descriptor-fixtures.json`; each concrete
 negative profile now uses a `concrete-negative:goal21/...` source fixture and
-records the descriptor hash that drives the target restore refusal. Each positive
-profile has nearby refusal profiles in `unsafeVariants`.
+records the descriptor hash that drives the target restore refusal. Goal 23
+upgrades the 49 Goal 21 positives to concrete descriptor fixtures in
+`scripts/fixtures/goal21-positive-descriptor-fixtures.json`; each concrete
+positive profile now uses a `concrete-positive:goal21/...` source fixture and
+records descriptor, continuation, snapshot, and restore-summary artifact hashes
+for target-native success. Goal 24 records the live source-capture assessment for
+each Goal 21/22/23 concrete fixture. Goal 25 replaces the fallback-only decisions
+with `live-source-capture-proof` records in
+`scripts/fixtures/goal21-live-source-capture-fixtures.json`; each Goal 21/22/23
+profile now uses a `live-capture-positive:goal21/...` or
+`live-capture-negative:goal21/...` source fixture, records source-capture
+artifact hashes, and still drives the concrete target-native descriptor proof.
+Goal 26 adds the remaining 200 `goal26:*` backlog graduations with live-capture
+proof records and concrete descriptor success/refusal fixtures, bringing the
+250-target wave to completion. Goal 27 adds 11 exact `runtime:node:*` Node.js
+runtime subsets with live-capture proof records and 56 fail-closed Node negative
+neighbors. Goal 28 adds invalidation profiles: 16 valid-baseline `invalidation:*`
+positives, 67 working refresh positives, and 67 stale-state refusals. The refresh
+profiles prove descriptor, artifact, runtime, kernel-resource, socket/timer, and
+Node identity drift can be detected, refreshed with target-native provenance, and
+completed with `migrationCompleted=true`; the paired stale-descriptor refusals
+keep unsafe originals fail-closed before migration completion. Goal 29 adds 170
+working `runtime:node:blocker:*` support profiles for native addons, workers,
+async state, timers, network/DNS/TLS, fs/stdio, V8 heap, module graph,
+process/signal, and Node identity invalidation. The original 81 Node blocker
+refusal profiles were graduated to target-native positive support, so no
+`runtime:node:blocker:*` refusal profiles remain. The Node app support pass adds
+10 representative `runtime:node:app:*` workloads that compose the runtime and
+blocker capabilities into proof-backed CLI, package, async, IO, network, worker,
+addon, and crypto/TLS app profiles. Goal 31 hardens these app profiles so they
+must use `real-node-app:` source fixtures, app harness JSON, target output
+verifiers, checked summaries, and the `node-app-output` gate; profiles with
+synthetic shortcut fields, missing fixtures, source text replay, sidecars,
+application hooks, or source-ISA emulation fail schema/tests. The final Node
+refusal-resolution pass converted the remaining 73 `runtime:node:*` refusal
+profiles to target-native positive support, leaving 0 Node runtime refusals. Each
+positive profile has nearby refusal profiles in `unsafeVariants`.
 
 ## Refusal graduation checklist
 

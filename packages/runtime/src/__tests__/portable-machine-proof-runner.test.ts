@@ -1,11 +1,14 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 const REPO_ROOT = resolve(import.meta.dirname, "../../../..");
 const RUNNER = join(REPO_ROOT, "scripts/portable-machine-proof-runner.mjs");
+const NODE_CROSS_ARCH_SMOKE = join(REPO_ROOT, "scripts/node-real-app-cross-arch-smoke.mjs");
+const NODE_LIVE_RESTORE_SMOKE = join(REPO_ROOT, "scripts/node-live-restore-smoke.mjs");
+const NODE_PRODUCTION_RESTORE_PROOF = join(REPO_ROOT, "scripts/node-production-restore-proof.mjs");
 const SCRIPT_ENV = { ...process.env, FORCE_COLOR: "1" };
 const tempDirs: string[] = [];
 
@@ -218,8 +221,8 @@ describe("portable machine proof runner", () => {
     expect(summary.supportReport).toMatchObject({
       counts: {
         "baseline-success": 11,
-        "graduated-support": 79,
-        "intentional-refusal": 407,
+        "graduated-support": 626,
+        "intentional-refusal": 1457,
         "permanent-refusal": 27,
       },
       graduated: expect.arrayContaining([
@@ -227,6 +230,21 @@ describe("portable machine proof runner", () => {
           name: "eventfd-counter-recreate",
           acceptedSubset: "eventfd-counter-v1-nonsemaphore-no-waiters",
           graduatedFromRefusalCode: "kernel-state-unsupported",
+        }),
+        expect.objectContaining({
+          name: "invalidation-portable-descriptor-hash-mismatch-baseline-recreate",
+          acceptedSubset: "portable-descriptor-hash-mismatch-valid-baseline-v1",
+          graduatedFromRefusalCode: "portable-descriptor-hash-mismatch",
+        }),
+        expect.objectContaining({
+          name: "invalidation-restore-descriptor-sha256-mismatch-refresh-recreate",
+          acceptedSubset: "restore-descriptor-sha256-mismatch-target-native-refresh-v1",
+          graduatedFromRefusalCode: "portable-descriptor-hash-mismatch",
+        }),
+        expect.objectContaining({
+          name: "node-blocker-native-addon-n-api-addon-abi-identity-descriptor-recreate",
+          acceptedSubset:
+            "node-blocker-native-addon-n-api-addon-abi-identity-descriptor-v1-target-native",
         }),
         expect.objectContaining({
           name: "eventfd-alias-counter-recreate",
@@ -348,6 +366,198 @@ describe("portable machine proof runner", () => {
         }),
       ]),
     );
+  });
+
+  it("guardrails real Node app smoke profiles", () => {
+    const profiles = JSON.parse(
+      readFileSync(join(REPO_ROOT, "scripts/portable-machine-proof-profiles.json"), "utf8"),
+    );
+    const nodeApps = profiles.filter((profile: { capabilities?: string[] }) =>
+      profile.capabilities?.some((capability) => capability.startsWith("runtime:node:app:")),
+    );
+
+    expect(nodeApps).toHaveLength(10);
+    for (const profile of nodeApps) {
+      expect(profile.sourceFixture).toMatch(/^real-node-app:/);
+      expect(profile.expectedResult).toBe("success");
+      expect(profile.expectedGates).toContain("node-app-output");
+      expect(profile.targetOutputVerifier?.expectedOutput).toEqual(expect.any(String));
+      expect(profile.appHarness).toEqual(expect.stringMatching(/^docs\/snapshot\/app-harnesses\//));
+      expect(profile.checkedSummary).toEqual(
+        expect.stringMatching(/^docs\/snapshot\/checked-summaries\/node-apps\//),
+      );
+      expect(
+        existsSync(join(REPO_ROOT, profile.sourceFixture.replace(/^real-node-app:/, ""))),
+      ).toBe(true);
+      expect(existsSync(join(REPO_ROOT, profile.appHarness))).toBe(true);
+      expect(existsSync(join(REPO_ROOT, profile.checkedSummary))).toBe(true);
+      expect(Object.keys(profile).filter((key) => key.startsWith("synthetic"))).toEqual([]);
+    }
+  });
+
+  it("records live Node capture artifacts without forbidden shortcut paths", () => {
+    const dir = tempDir();
+    const outFile = join(dir, "live-source.json");
+
+    const result = spawnSync(
+      "node",
+      [
+        NODE_LIVE_RESTORE_SMOKE,
+        "run",
+        "--role",
+        "source",
+        "--host-label",
+        "test-source",
+        "--repo-root",
+        REPO_ROOT,
+        "--out",
+        outFile,
+      ],
+      { cwd: REPO_ROOT, encoding: "utf8", env: SCRIPT_ENV, timeout: 120_000 },
+    );
+
+    expect(result.status).toBe(0);
+    const summary = JSON.parse(readFileSync(outFile, "utf8"));
+    expect(summary.state).toBe("completed");
+    expect(summary.profileCount).toBe(10);
+    for (const capture of summary.results) {
+      expect(capture.liveProcessObserved).toBe(true);
+      expect(capture.outputPassed).toBe(true);
+      expect(capture.captureArtifacts.process).toEqual(expect.any(String));
+      expect(capture.forbiddenSuccessPaths).toEqual({
+        sourceIsaEmulationUsed: false,
+        sourceTextReusedAsTargetCode: false,
+        sidecarRuntimeUsed: false,
+        appHooksRequired: false,
+        metadataOnlyCapture: false,
+      });
+    }
+  });
+
+  it("records production-shaped Node proof artifacts and rejects same-arch restore", () => {
+    const dir = tempDir();
+    const sourceFile = join(dir, "production-source.json");
+    const targetFile = join(dir, "production-target.json");
+
+    const sourceResult = spawnSync(
+      "node",
+      [
+        NODE_PRODUCTION_RESTORE_PROOF,
+        "run-suite",
+        "--role",
+        "source",
+        "--host-label",
+        "test-production-source",
+        "--out",
+        sourceFile,
+        "--work-dir",
+        join(dir, "source-work"),
+      ],
+      { cwd: REPO_ROOT, encoding: "utf8", env: SCRIPT_ENV, timeout: 120_000 },
+    );
+    expect(sourceResult.status).toBe(0);
+    const source = JSON.parse(readFileSync(sourceFile, "utf8"));
+    expect(source.state).toBe("completed");
+    expect(source.app.dependencyTree).toHaveLength(1);
+    expect(source.app.addon.path).toMatch(/addon\.node$/);
+    expect(source.capture.activeConnectionPolicy).toMatchObject({
+      state: "refused",
+      expectedRefusalCode: "node-live-active-http-connection-unverified",
+      migrationCompleted: false,
+    });
+    expect(source.securityInspection).toMatchObject({
+      sourceIsaEmulationArtifactFound: false,
+      sidecarRuntimeArtifactFound: false,
+      sourceTextReplayArtifactFound: false,
+      appHookArtifactFound: false,
+      passed: true,
+    });
+
+    const targetResult = spawnSync(
+      "node",
+      [
+        NODE_PRODUCTION_RESTORE_PROOF,
+        "run-suite",
+        "--role",
+        "target",
+        "--host-label",
+        "test-production-target",
+        "--source-suite",
+        sourceFile,
+        "--out",
+        targetFile,
+        "--work-dir",
+        join(dir, "target-work"),
+      ],
+      { cwd: REPO_ROOT, encoding: "utf8", env: SCRIPT_ENV, timeout: 120_000 },
+    );
+    expect(targetResult.status).toBe(1);
+    const target = JSON.parse(readFileSync(targetFile, "utf8"));
+    expect(target.targetRestore.migrationCompleted).toBe(false);
+    expect(target.targetRestore.sourceIsaEmulationUsed).toBe(false);
+    expect(target.portableBundle.nativeAddonProvenanceValidated).toBe(true);
+  });
+
+  it("rejects same-architecture Node app cross-arch smoke comparisons", () => {
+    const dir = tempDir();
+    const source = {
+      role: "source",
+      hostLabel: "source-arm64",
+      node: { version: "v24.0.0", arch: "arm64", platform: "linux" },
+      results: [
+        {
+          profile: "node-app-cli-script-recreate",
+          outputPassed: true,
+          fixtureSha256: "abc",
+          expectedOutput: "node-cli-ok",
+          stdout: "node-cli-ok\n",
+          targetOutputVerifier: { kind: "node-real-app-output" },
+        },
+      ],
+    };
+    const target = {
+      role: "target",
+      hostLabel: "target-arm64",
+      node: { version: "v24.0.0", arch: "arm64", platform: "linux" },
+      results: [
+        {
+          profile: "node-app-cli-script-recreate",
+          outputPassed: true,
+          fixtureSha256: "abc",
+          expectedOutput: "node-cli-ok",
+          stdout: "node-cli-ok\n",
+          targetOutputVerifier: { kind: "node-real-app-output" },
+        },
+      ],
+    };
+    const sourceFile = join(dir, "source.json");
+    const targetFile = join(dir, "target.json");
+    const outFile = join(dir, "summary.json");
+    writeFileSync(sourceFile, JSON.stringify(source));
+    writeFileSync(targetFile, JSON.stringify(target));
+
+    const result = spawnSync(
+      "node",
+      [
+        NODE_CROSS_ARCH_SMOKE,
+        "compare",
+        "--source",
+        sourceFile,
+        "--target",
+        targetFile,
+        "--out",
+        outFile,
+      ],
+      { cwd: REPO_ROOT, encoding: "utf8", env: SCRIPT_ENV },
+    );
+
+    expect(result.status).toBe(1);
+    const summary = JSON.parse(readFileSync(outFile, "utf8"));
+    expect(summary.pass).toBe(false);
+    expect(summary.profiles[0].crossArchitecture).toBe(false);
+    expect(summary.profiles[0].targetRestore.migrationCompleted).toBe(false);
+    expect(summary.profiles[0].targetRestore.sourceIsaEmulationUsed).toBe(false);
+    expect(summary.profiles[0].targetRestore.sourceTextReusedAsTargetCode).toBe(false);
   });
 
   it("validates profile schema and capability coverage", () => {
@@ -543,7 +753,7 @@ describe("portable machine proof runner", () => {
     },
   );
 
-  it("runs a Goal 22 concrete negative descriptor fixture without synthetic shortcuts", () => {
+  it("runs a Goal 25 live-capture negative proof without fallback shortcuts", () => {
     const dir = tempDir();
     const result = spawnSync(
       "node",
@@ -571,7 +781,7 @@ describe("portable machine proof runner", () => {
       pass: true,
       command: [
         "bash",
-        "concrete-negative",
+        "live-capture-negative",
         "udp-loopback-single-queued-datagram-v1-multiple-datagrams-refusal",
       ],
       smokeSummary: {
@@ -581,6 +791,7 @@ describe("portable machine proof runner", () => {
           migrationCompleted: false,
           descriptorGateCompleted: false,
           concreteFixtureResult: "refused",
+          liveSourceCaptureResult: "captured",
           refusal: { code: "target-socket-syscall-state-unsupported" },
           sourceIsaEmulationUsed: false,
           sidecarRuntimeUsed: false,
@@ -589,6 +800,11 @@ describe("portable machine proof runner", () => {
       },
       gateCheck: { passed: true, failures: [] },
     });
+    expect(summary.smokeSummary.remotePreflight.sourceCapture).toMatchObject({
+      path: expect.stringContaining("goal21-live-source-capture-fixtures.json"),
+      exists: true,
+      sha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+    });
     expect(summary.proofProvenance.artifacts.restoreDescriptor).toMatchObject({
       path: expect.stringContaining("goal21-negative-descriptor-fixtures.json"),
       exists: true,
@@ -596,7 +812,7 @@ describe("portable machine proof runner", () => {
     });
   });
 
-  it("runs a Goal 21 synthetic positive profile with target-native provenance artifacts", () => {
+  it("runs a Goal 25 live-capture positive proof with target-native provenance artifacts", () => {
     const dir = tempDir();
     const result = spawnSync(
       "node",
@@ -622,19 +838,28 @@ describe("portable machine proof runner", () => {
       profile: "udp-loopback-single-queued-datagram-v1-recreate",
       state: "completed",
       pass: true,
+      command: ["bash", "live-capture-positive", "udp-loopback-single-queued-datagram-v1-recreate"],
       smokeSummary: {
         state: "completed",
         remoteSourceTarget: "udp-loopback-single-queued-datagram-v1-recreate",
         targetRestore: {
           migrationCompleted: true,
           descriptorGateCompleted: true,
+          concreteFixtureResult: "completed",
+          liveSourceCaptureResult: "captured",
           sourceIsaEmulationUsed: false,
           sidecarRuntimeUsed: false,
         },
       },
       gateCheck: { passed: true, failures: [] },
     });
+    expect(summary.smokeSummary.remotePreflight.sourceCapture).toMatchObject({
+      path: expect.stringContaining("goal21-live-source-capture-fixtures.json"),
+      exists: true,
+      sha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+    });
     expect(summary.proofProvenance.artifacts.restoreDescriptor).toMatchObject({
+      path: expect.stringContaining("goal21-positive-descriptor-fixtures.json"),
       exists: true,
       sha256: expect.stringMatching(/^[a-f0-9]{64}$/),
     });

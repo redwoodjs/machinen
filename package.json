@@ -89,7 +89,11 @@
     "bench-net": "bash scripts/bench-net.sh",
     "bench-boot": "tsx scripts/bench-boot.ts",
     "validation:profile": "node scripts/validation-profile.mjs",
-    "proof-container-install": "bash scripts/proof-container-install.sh"
+    "proof-container-install": "bash scripts/proof-container-install.sh",
+    "smoke-node-real-app-cross-arch": "bash scripts/smoke/node-real-app-cross-arch.sh",
+    "smoke-node-live-restore": "bash scripts/smoke/node-live-restore.sh",
+    "smoke-node-production-restore": "bash scripts/smoke/node-production-restore.sh",
+    "smoke-node-production-repeatability": "bash scripts/smoke/node-production-repeatability.sh"
   },
   "devDependencies": {
     "@changesets/cli": "^2.30.0",

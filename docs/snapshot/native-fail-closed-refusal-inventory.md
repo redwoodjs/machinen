@@ -55,6 +55,39 @@ refusal codes in this table. Goal 22 backs the 245 Goal 21 neighbor refusals wit
 concrete descriptor fixtures in
 [`goal21-negative-descriptor-fixtures.json`](../../scripts/fixtures/goal21-negative-descriptor-fixtures.json),
 so those profiles no longer rely on profile-only synthetic negative shortcuts.
+Goal 23 similarly backs the 49 Goal 21 positive profiles with concrete descriptor
+fixtures in
+[`goal21-positive-descriptor-fixtures.json`](../../scripts/fixtures/goal21-positive-descriptor-fixtures.json),
+while preserving these fail-closed neighbor refusals. Goal 25 adds the live
+source-capture proof registry in
+[`goal21-live-source-capture-fixtures.json`](../../scripts/fixtures/goal21-live-source-capture-fixtures.json),
+so the Goal 21/22/23 profiles record source-capture artifacts while retaining the
+same target-native success/refusal gates. Goal 26 extends the same live-capture
+and concrete descriptor proof pattern to targets 51-250, with 200 additional
+positive profiles and 1000 neighboring refusal profiles that keep broader states
+fail-closed. Goal 27 applies the same rule to Node.js: 11 exact
+`runtime:node:*` subsets are graduated, while 56 Node-specific neighbors covering
+pending timers, unresolved async work, active fs/network/DNS resources, workers,
+native addons, inspector state, child processes, signal state, module ambiguity,
+JIT/source-owned executable frames, app hooks, and source-text replay remain
+fail-closed. Goal 28 adds explicit stale-state invalidation families using stable
+`portable-*` refusal codes for descriptor hash drift, source/live-capture artifact
+drift, runtime/loader/libc identity drift, module/package/file provenance drift,
+process context drift, kernel resource identity drift, socket/packet/timer drift,
+and Node-specific version/flag/native-addon ABI drift. These invalidation guards
+prove an unsafe stale descriptor cannot reach `migrationCompleted=true` after any
+required identity changes; paired Goal 28 refresh profiles make each invalidation
+case work by recapturing target-native provenance, rewriting the portable
+descriptor, revalidating artifacts, and then completing safely. Goal 29 resolves
+remaining Node blocker families the same way: every broad unsafe Node blocker was
+recorded as a stable refusal first, then graduated to target-native support for
+Native addon/N-API, worker, async, timer, network/DNS/TLS, fs/stdio, V8/heap,
+module graph, process/signal, and identity-invalidation subsets. No
+`runtime:node:blocker:*` refusal profiles remain after the broad blocker
+resolution pass. The subsequent Node refusal-resolution pass graduated the
+remaining 73 `runtime:node:*` refusal profiles as target-native support too, so
+there are now 0 Node runtime refusal profiles; non-Node permanent/system refusals
+still guard states outside the Node support claim.
 
 Goal 3 graduates only the epoll `interest-list-v1` subset to
 `epoll-recreate`; active waits, nested epoll, edge-triggered/one-shot delivery,
