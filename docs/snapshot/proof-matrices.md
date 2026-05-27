@@ -109,8 +109,8 @@ Presets:
   workers, drained channels, and deterministic timers;
 - `node scripts/portable-machine-proof-matrix.mjs --preset go-quiescent-runtime --check-summary-dir docs/snapshot/checked-summaries/go-quiescent-runtime --json`
   — Goal 42 checked-summary/refusal matrix for Go quiescent runtime claims;
-- `pnpm smoke-postgres-machinen-restore -- --keep --work-dir /tmp/goal43-postgres`
-  — Goal 43 real PostgreSQL-in-Machinen clean/quiesced snapshot/restore proof;
+- `pnpm smoke-postgres-cross-arch-restore -- --keep --work-dir /tmp/goal43-postgres-cross-arch`
+  — Goal 43 bidirectional arm64/amd64 PostgreSQL clean/quiesced logical restore proof;
 - `node scripts/portable-machine-proof-matrix.mjs --preset postgres-machinen --check-summary-dir docs/snapshot/checked-summaries/postgres-machinen --json`
   — Goal 43 checked-summary/refusal matrix for PostgreSQL claims;
 - `node-blockers`, `node-blockers-refusal`, `node-blockers-supported` — the Goal

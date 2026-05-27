@@ -150,9 +150,9 @@ under `capabilities`. The families currently covered are:
   while opaque/ambiguous states remain stable refusals. Goal 42 expands Go
   support to quiesced HTTP service recreation, drained worker pools, drained
   channels, and deterministic timers with bidirectional arm64/amd64 proof. Goal
-  43 proves a real PostgreSQL service inside Machinen for a clean, checkpointed,
-  quiesced `vmstate` snapshot/restore subset, with unsafe database states kept as
-  stable refusals.
+  43 proves PostgreSQL clean/quiesced logical restore bidirectionally across
+  arm64 and amd64 with target-native PostgreSQL, while unsafe database states and
+  physical data-directory cross-arch byte-copy remain stable refusals.
 - Remaining Node refusal resolution: the 73 profiles that still carried
   `runtime:node:*` refusal capabilities were graduated to target-native support.
   The Node runtime manifest now has 0 `runtime:node:*` refusal profiles and 281

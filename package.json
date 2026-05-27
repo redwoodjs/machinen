@@ -101,6 +101,7 @@
     "smoke-non-node-cross-arch": "bash scripts/smoke/non-node-cross-arch.sh",
     "smoke-goal40-hard-runtime-state": "bash scripts/smoke/goal40-hard-runtime-state.sh",
     "smoke-go-quiescent-runtime": "bash scripts/smoke/go-quiescent-runtime.sh",
+    "smoke-postgres-cross-arch-restore": "bash scripts/smoke/postgres-cross-arch-restore.sh",
     "smoke-postgres-machinen-restore": "bash scripts/smoke/postgres-machinen-restore.sh"
   },
   "devDependencies": {

@@ -227,7 +227,7 @@ describe("portable machine proof runner", () => {
       counts: {
         "baseline-success": 47,
         "graduated-support": 626,
-        "intentional-refusal": 1473,
+        "intentional-refusal": 1474,
         "permanent-refusal": 27,
       },
       graduated: expect.arrayContaining([
@@ -495,7 +495,7 @@ describe("portable machine proof runner", () => {
     expect(parsed.profileCounts.total).toBe(5);
   });
 
-  it("validates Goal 43 PostgreSQL Machinen checked-summary matrix", () => {
+  it("validates Goal 43 PostgreSQL cross-architecture checked-summary matrix", () => {
     const result = spawnSync(
       "node",
       [
@@ -513,7 +513,7 @@ describe("portable machine proof runner", () => {
     expect(result.status).toBe(0);
     const parsed = JSON.parse(result.stdout);
     expect(parsed.pass).toBe(true);
-    expect(parsed.profileCounts.total).toBe(9);
+    expect(parsed.profileCounts.total).toBe(10);
   });
 
   it("validates Goal 42 Go quiescent runtime checked-summary matrix", () => {

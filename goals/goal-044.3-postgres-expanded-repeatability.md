@@ -9,7 +9,7 @@ repeatable PostgreSQL state suite.
 
 ## Requirements
 
-- [ ] Reuse the Goal 43 PostgreSQL-in-Machinen harness as the base.
+- [ ] Reuse the Goal 43 PostgreSQL cross-architecture logical restore harness as the base.
 - [ ] Add repeatability runs for the clean/quiesced PostgreSQL restore path.
 - [ ] Expand the dataset: - multiple databases; - multiple schemas/tables; - indexes; - constraints; - sequences; - views or materialized views if feasible; - larger row counts.
 - [ ] Verify logical state after restore with deterministic SQL output.

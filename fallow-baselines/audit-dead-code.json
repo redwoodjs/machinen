@@ -3,7 +3,9 @@
     "packages/microvm/assets/invalidation-support-harness.mjs",
     "packages/microvm/assets/node-application-support-harness.mjs",
     "packages/microvm/assets/node-blocker-support-harness.mjs",
-    "packages/microvm/assets/node-runtime-support-harness.mjs"
+    "packages/microvm/assets/node-runtime-support-harness.mjs",
+    "scripts/fixtures/node-ecosystem-registry/packages/audited-conditional-exports/src/require.cjs",
+    "scripts/fixtures/node-ecosystem-registry/packages/audited-dual-package/src/index.cjs"
   ],
   "unused_exports": [],
   "unused_types": [],
@@ -13,8 +15,21 @@
   "unused_optional_dependencies": [],
   "unused_enum_members": [],
   "unused_class_members": [],
-  "unresolved_imports": [],
-  "unlisted_dependencies": [],
+  "unresolved_imports": [
+    "scripts/fixtures/node-ecosystem-registry/packages/audited-native-prebuild/src/index.mjs:../selected/addon.node"
+  ],
+  "unlisted_dependencies": [
+    "audited-conditional-exports",
+    "audited-dual-package",
+    "audited-native-prebuild",
+    "audited-optional-consumer",
+    "audited-optional-missing",
+    "audited-optional-present",
+    "audited-peer-consumer",
+    "audited-peer-provider",
+    "audited-transitive-a",
+    "audited-transitive-b"
+  ],
   "duplicate_exports": [],
   "type_only_dependencies": [],
   "test_only_dependencies": [],

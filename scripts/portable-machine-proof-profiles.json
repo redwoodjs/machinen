@@ -72092,18 +72092,18 @@
     }
   },
   {
-    "name": "postgres-clean-quiesced-vmstate-restore",
-    "remoteSourceTarget": "postgres-clean-quiesced-vmstate-restore",
-    "description": "Goal 43 PostgreSQL clean/quiesced vmstate snapshot/restore proof.",
-    "sourceFixture": "checked-runtime-complex:docs/snapshot/checked-summaries/postgres-machinen/postgres-clean-quiesced-vmstate-restore.json",
+    "name": "postgres-clean-quiesced-cross-arch-logical-restore",
+    "remoteSourceTarget": "postgres-clean-quiesced-cross-arch-logical-restore",
+    "description": "Goal 43 PostgreSQL clean/quiesced bidirectional arm64<->amd64 logical restore proof.",
+    "sourceFixture": "checked-runtime-complex:docs/snapshot/checked-summaries/postgres-machinen/postgres-clean-quiesced-cross-arch-logical-restore.json",
     "traceSyscall": null,
     "traceFd": null,
     "expectedResult": "success",
     "supportStatus": "baseline-success",
-    "unsafeStateFamily": "postgres:clean-quiesced",
+    "unsafeStateFamily": "postgres:clean-quiesced-cross-arch-logical",
     "expectedGates": ["descriptor", "resources", "verifier"],
-    "capabilities": ["runtime:postgres:goal43:clean-quiesced-vmstate-restore"],
-    "checkedSummary": "docs/snapshot/checked-summaries/postgres-machinen/postgres-clean-quiesced-vmstate-restore.json"
+    "capabilities": ["runtime:postgres:goal43:clean-quiesced-cross-arch-logical-restore"],
+    "checkedSummary": "docs/snapshot/checked-summaries/postgres-machinen/postgres-clean-quiesced-cross-arch-logical-restore.json"
   },
   {
     "name": "postgres-active-transaction-refusal",
@@ -72333,6 +72333,37 @@
         "target-native verifier",
         "WAL/checkpoint proof",
         "no active sessions/transactions",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "postgres-physical-data-dir-cross-arch-refusal",
+    "remoteSourceTarget": "postgres-physical-data-dir-cross-arch-refusal",
+    "description": "Goal 43 PostgreSQL stable refusal: physical data directory byte-copy across architectures.",
+    "sourceFixture": "target-native-negative:postgres-physical-data-dir-cross-arch-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "postgres:unsafe-neighbor",
+    "proofCategory": "goal43-postgres-refusal",
+    "expectedRefusalCode": "postgres-physical-data-dir-cross-arch-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": ["runtime:postgres:goal43:physical-data-dir-cross-arch"],
+    "evidence": [
+      "Goal 43 PostgreSQL support uses a target-neutral logical descriptor/dump, not raw physical data-directory or WAL byte-copy across architectures."
+    ],
+    "refusalSupportContract": {
+      "currentRefusalCode": "postgres-physical-data-dir-cross-arch-unsupported",
+      "unsafeStateFamily": "postgres:unsafe-neighbor",
+      "graduationRequires": [
+        "explicit PostgreSQL physical format compatibility proof",
+        "target-native verifier",
+        "WAL/checkpoint proof",
+        "extension/locale/collation compatibility proof",
         "no source-ISA/source-text/sidecar/app-hook shortcut"
       ]
     }
