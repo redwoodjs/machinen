@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -225,9 +225,9 @@ describe("portable machine proof runner", () => {
     });
     expect(summary.supportReport).toMatchObject({
       counts: {
-        "baseline-success": 47,
+        "baseline-success": 56,
         "graduated-support": 626,
-        "intentional-refusal": 1474,
+        "intentional-refusal": 1536,
         "permanent-refusal": 27,
       },
       graduated: expect.arrayContaining([
@@ -556,6 +556,107 @@ describe("portable machine proof runner", () => {
     const parsed = JSON.parse(result.stdout);
     expect(parsed.pass).toBe(true);
     expect(parsed.profileCounts.total).toBe(7);
+  });
+
+  it("validates Goal 41 hard runtime refusal checked-summary matrix", () => {
+    const summaryFile = join(tempDir(), "goal41-refusal-matrix.json");
+    const result = spawnSync(
+      "node",
+      [
+        PROOF_MATRIX,
+        "--preset",
+        "goal41-refusal",
+        "--check-summary-dir",
+        join(REPO_ROOT, "docs/snapshot/checked-summaries/goal41-refusals"),
+        "--summary",
+        summaryFile,
+      ],
+      { cwd: REPO_ROOT, encoding: "utf8", env: SCRIPT_ENV, timeout: 120_000 },
+    );
+    expect(result.status).toBe(0);
+    const parsed = JSON.parse(readFileSync(summaryFile, "utf8"));
+    expect(parsed.pass).toBe(true);
+    expect(parsed.profileCounts.total).toBe(21);
+  });
+
+  it("validates Goal 44 stateful services checked-summary matrix", () => {
+    const summaryFile = join(tempDir(), "stateful-services-matrix.json");
+    const result = spawnSync(
+      "node",
+      [
+        PROOF_MATRIX,
+        "--preset",
+        "stateful-services",
+        "--check-summary-dir",
+        join(REPO_ROOT, "docs/snapshot/checked-summaries/stateful-services"),
+        "--summary",
+        summaryFile,
+      ],
+      { cwd: REPO_ROOT, encoding: "utf8", env: SCRIPT_ENV, timeout: 120_000 },
+    );
+    expect(result.status).toBe(0);
+    const parsed = JSON.parse(readFileSync(summaryFile, "utf8"));
+    expect(parsed.pass).toBe(true);
+    expect(parsed.profileCounts.total).toBe(50);
+  });
+
+  it("records Goal 41 refusal UX metadata for every hard-runtime code", () => {
+    const dir = join(REPO_ROOT, "docs/snapshot/checked-summaries/goal41-refusals");
+    const summaries = readdirSync(dir)
+      .filter((file) => file.endsWith(".json"))
+      .map((file) => JSON.parse(readFileSync(join(dir, file), "utf8")));
+    expect(summaries).toHaveLength(21);
+    for (const summary of summaries) {
+      expect(summary.targetRestore).toMatchObject({
+        state: "refused",
+        migrationCompleted: false,
+        descriptorGateCompleted: false,
+      });
+      expect(summary.refusalUx).toMatchObject({
+        code: expect.any(String),
+        message: expect.any(String),
+        explanation: expect.any(String),
+        remediation: expect.any(String),
+        stableUntilPositiveProofGraduates: true,
+      });
+      expect(summary.refusalUx.graduationRequires.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("records Goal 44 stateful service provenance and refusal gates", () => {
+    const dir = join(REPO_ROOT, "docs/snapshot/checked-summaries/stateful-services");
+    const summaries = readdirSync(dir)
+      .filter((file) => file.endsWith(".json"))
+      .map((file) => JSON.parse(readFileSync(join(dir, file), "utf8")));
+    expect(summaries).toHaveLength(50);
+    const positives = summaries.filter((summary) => summary.state === "completed");
+    const refusals = summaries.filter((summary) => summary.state === "failed");
+    expect(positives).toHaveLength(9);
+    expect(refusals).toHaveLength(41);
+    for (const summary of positives) {
+      expect(summary.targetRestore).toMatchObject({
+        state: "completed",
+        migrationCompleted: true,
+        descriptorGateCompleted: true,
+        targetVerifierResult: "passed",
+      });
+      expect(summary.statefulServiceProof).toMatchObject({
+        architecture: expect.any(String),
+        targetVerifierOutputSha256: expect.any(String),
+        checkpointEvidence: expect.any(String),
+      });
+    }
+    for (const summary of refusals) {
+      expect(summary.targetRestore).toMatchObject({
+        state: "refused",
+        migrationCompleted: false,
+        descriptorGateCompleted: false,
+      });
+      expect(summary.statefulRefusalProof).toMatchObject({
+        code: summary.targetRestore.refusal.code,
+        remediation: expect.any(String),
+      });
+    }
   });
 
   it("validates non-Node cross-architecture checked-summary matrix", () => {

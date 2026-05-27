@@ -20,18 +20,18 @@ quiescent goroutine/channel/timer subset proven by Goals 39-40.
 
 ## Requirements
 
-- [ ] Add canonical refusal metadata for each code: message, explanation,
+- [x] Add canonical refusal metadata for each code: message, explanation,
       remediation, and graduation requirements.
-- [ ] Add fixtures covering: - runnable goroutine queue ambiguity; - parked goroutines; - channel send/receive waiters; - competing `select` cases; - timers with ambiguous wakeup ordering; - netpoll waiters; - runtime-private frames; - cgo-involved goroutines.
-- [ ] Assert every refusal reports `migrationCompleted=false` and target state
+- [x] Add fixtures covering: - runnable goroutine queue ambiguity; - parked goroutines; - channel send/receive waiters; - competing `select` cases; - timers with ambiguous wakeup ordering; - netpoll waiters; - runtime-private frames; - cgo-involved goroutines.
+- [x] Assert every refusal reports `migrationCompleted=false` and target state
       `refused`.
-- [ ] Assert the bounded quiescent subset continues to pass and stays distinct
+- [x] Assert the bounded quiescent subset continues to pass and stays distinct
       from arbitrary scheduler-state support.
-- [ ] Assert no source-ISA emulation, source text replay, sidecar runtime, app
+- [x] Assert no source-ISA emulation, source text replay, sidecar runtime, app
       hook, or metadata-only scheduler claim is accepted.
-- [ ] Document safe remediation: quiesce goroutines, drain channels, close
+- [x] Document safe remediation: quiesce goroutines, drain channels, close
       network waiters, avoid cgo, or use application-level restart/reconnect.
-- [ ] Add matrix coverage that fails on code drift or accidental support.
+- [x] Add matrix coverage that fails on code drift or accidental support.
 
 ## Completion criteria
 

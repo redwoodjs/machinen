@@ -715,6 +715,14 @@ function isCheckedRuntimeComplexProfile(profile) {
   );
 }
 
+function isCheckedSummaryProfile(profile) {
+  return (
+    typeof profile.sourceFixture === "string" &&
+    (profile.sourceFixture.startsWith("checked-refusal:") ||
+      profile.sourceFixture.startsWith("checked-stateful:"))
+  );
+}
+
 // fallow-ignore-next-line complexity
 function syntheticNegativeSmokeSummary(profile, workDir, elapsedMs) {
   const code = profile.expectedRefusalCode;
@@ -812,6 +820,10 @@ function runCheckedNodeEcosystemProfile(options, profile) {
 
 function runCheckedRuntimeComplexProfile(options, profile) {
   return runCheckedSummaryProfile(options, profile, "checked-runtime-complex");
+}
+
+function runGenericCheckedSummaryProfile(options, profile) {
+  return runCheckedSummaryProfile(options, profile, "checked-summary");
 }
 
 function loadGoal21NegativeFixtures() {
@@ -1243,6 +1255,9 @@ function runRealNodeAppProfile(options, profile) {
 
 // fallow-ignore-next-line complexity
 function runProfile(options, profile) {
+  if (!options.dryRun && isCheckedSummaryProfile(profile)) {
+    return runGenericCheckedSummaryProfile(options, profile);
+  }
   if (!options.dryRun && isCheckedRuntimeComplexProfile(profile)) {
     return runCheckedRuntimeComplexProfile(options, profile);
   }
@@ -1453,6 +1468,12 @@ function validateCheckedRuntimeComplexProfile(errors, profile) {
   }
 }
 
+function validateCheckedSummaryProfile(errors, profile) {
+  if (isCheckedSummaryProfile(profile)) {
+    validateCheckedNodeSummaryProfile(errors, profile, "generic checked");
+  }
+}
+
 // fallow-ignore-next-line complexity
 function validateRealNodeAppProfile(errors, profile) {
   const isNodeApp = (profile.capabilities ?? []).some((capability) =>
@@ -1580,6 +1601,7 @@ function validateProfileSchema(profiles) {
     validateCheckedNodeComplexProfile(errors, profile);
     validateCheckedNodeEcosystemProfile(errors, profile);
     validateCheckedRuntimeComplexProfile(errors, profile);
+    validateCheckedSummaryProfile(errors, profile);
   }
   return { passed: errors.length === 0, errors };
 }

@@ -104,6 +104,10 @@ Presets:
   opaque native extensions, and arbitrary Go scheduler state;
 - `node scripts/portable-machine-proof-matrix.mjs --preset goal40-hard-state --check-summary-dir docs/snapshot/checked-summaries/goal40-hard-state --json`
   — Goal 40 checked-summary/refusal matrix for hard runtime-state boundaries;
+- `pnpm smoke-hard-runtime-refusal-contract -- --keep --work-dir /tmp/goal41-refusals`
+  — Goal 41 user-facing hard-runtime refusal contract smoke;
+- `node scripts/portable-machine-proof-matrix.mjs --preset goal41-refusal --check-summary-dir docs/snapshot/checked-summaries/goal41-refusals --json`
+  — Goal 41 checked-summary matrix for stable hard-runtime refusals;
 - `pnpm smoke-go-quiescent-runtime -- --keep --work-dir /tmp/goal42-go --iterations 3`
   — Goal 42 bidirectional arm64/amd64 proof for Go quiesced HTTP, drained
   workers, drained channels, and deterministic timers;
@@ -113,6 +117,11 @@ Presets:
   — Goal 43 bidirectional arm64/amd64 PostgreSQL clean/quiesced logical restore proof;
 - `node scripts/portable-machine-proof-matrix.mjs --preset postgres-machinen --check-summary-dir docs/snapshot/checked-summaries/postgres-machinen --json`
   — Goal 43 checked-summary/refusal matrix for PostgreSQL claims;
+- `pnpm smoke-stateful-services-proof -- --keep --work-dir /tmp/goal44-stateful`
+  — Goal 44 Redis, SQLite, PostgreSQL, MariaDB, durable queue, and filesystem
+  stateful-services restore proof smoke;
+- `node scripts/portable-machine-proof-matrix.mjs --preset stateful-services --check-summary-dir docs/snapshot/checked-summaries/stateful-services --json`
+  — Goal 44 aggregate checked-summary/refusal matrix;
 - `node-blockers`, `node-blockers-refusal`, `node-blockers-supported` — the Goal
   29 Node blocker profiles. `node-blockers-refusal` is now empty after the 81
   broad blocker refusals were graduated; `node-blockers-supported` contains the

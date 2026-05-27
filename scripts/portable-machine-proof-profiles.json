@@ -72367,5 +72367,2003 @@
         "no source-ISA/source-text/sidecar/app-hook shortcut"
       ]
     }
+  },
+  {
+    "name": "goal41-active-socket-queue-refusal",
+    "remoteSourceTarget": "goal41-active-socket-queue-refusal",
+    "description": "Goal 41 stable refusal contract for Active socket queue cannot be migrated safely.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/goal41-refusals/goal41-active-socket-queue-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "goal41:network",
+    "proofCategory": "goal41-hard-runtime-refusal",
+    "expectedRefusalCode": "runtime-network-active-socket-queue-ambiguous",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": ["runtime:goal41:network:runtime-network-active-socket-queue-ambiguous"],
+    "capabilities": ["runtime:goal41:network:runtime-network-active-socket-queue-ambiguous"],
+    "checkedSummary": "docs/snapshot/checked-summaries/goal41-refusals/goal41-active-socket-queue-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "runtime-network-active-socket-queue-ambiguous",
+      "unsafeStateFamily": "goal41:network",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "goal41-bytes-in-flight-refusal",
+    "remoteSourceTarget": "goal41-bytes-in-flight-refusal",
+    "description": "Goal 41 stable refusal contract for Bytes in flight are unsupported.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/goal41-refusals/goal41-bytes-in-flight-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "goal41:network",
+    "proofCategory": "goal41-hard-runtime-refusal",
+    "expectedRefusalCode": "runtime-network-bytes-in-flight-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": ["runtime:goal41:network:runtime-network-bytes-in-flight-unsupported"],
+    "capabilities": ["runtime:goal41:network:runtime-network-bytes-in-flight-unsupported"],
+    "checkedSummary": "docs/snapshot/checked-summaries/goal41-refusals/goal41-bytes-in-flight-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "runtime-network-bytes-in-flight-unsupported",
+      "unsafeStateFamily": "goal41:network",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "goal41-go-arbitrary-scheduler-refusal",
+    "remoteSourceTarget": "goal41-go-arbitrary-scheduler-refusal",
+    "description": "Goal 41 stable refusal contract for Arbitrary Go scheduler state unsupported.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/goal41-refusals/goal41-go-arbitrary-scheduler-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "goal41:go-scheduler",
+    "proofCategory": "goal41-hard-runtime-refusal",
+    "expectedRefusalCode": "runtime-go-arbitrary-goroutine-scheduler-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": [
+      "runtime:goal41:go-scheduler:runtime-go-arbitrary-goroutine-scheduler-unsupported"
+    ],
+    "capabilities": [
+      "runtime:goal41:go-scheduler:runtime-go-arbitrary-goroutine-scheduler-unsupported"
+    ],
+    "checkedSummary": "docs/snapshot/checked-summaries/goal41-refusals/goal41-go-arbitrary-scheduler-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "runtime-go-arbitrary-goroutine-scheduler-unsupported",
+      "unsafeStateFamily": "goal41:go-scheduler",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "goal41-go-cgo-goroutine-refusal",
+    "remoteSourceTarget": "goal41-go-cgo-goroutine-refusal",
+    "description": "Goal 41 stable refusal contract for Go cgo goroutine unsupported.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/goal41-refusals/goal41-go-cgo-goroutine-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "goal41:go-scheduler",
+    "proofCategory": "goal41-hard-runtime-refusal",
+    "expectedRefusalCode": "runtime-go-cgo-goroutine-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": ["runtime:goal41:go-scheduler:runtime-go-cgo-goroutine-unsupported"],
+    "capabilities": ["runtime:goal41:go-scheduler:runtime-go-cgo-goroutine-unsupported"],
+    "checkedSummary": "docs/snapshot/checked-summaries/goal41-refusals/goal41-go-cgo-goroutine-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "runtime-go-cgo-goroutine-unsupported",
+      "unsafeStateFamily": "goal41:go-scheduler",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "goal41-go-channel-waiter-refusal",
+    "remoteSourceTarget": "goal41-go-channel-waiter-refusal",
+    "description": "Goal 41 stable refusal contract for Go channel waiter is ambiguous.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/goal41-refusals/goal41-go-channel-waiter-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "goal41:go-scheduler",
+    "proofCategory": "goal41-hard-runtime-refusal",
+    "expectedRefusalCode": "runtime-go-channel-waiter-ambiguous",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": ["runtime:goal41:go-scheduler:runtime-go-channel-waiter-ambiguous"],
+    "capabilities": ["runtime:goal41:go-scheduler:runtime-go-channel-waiter-ambiguous"],
+    "checkedSummary": "docs/snapshot/checked-summaries/goal41-refusals/goal41-go-channel-waiter-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "runtime-go-channel-waiter-ambiguous",
+      "unsafeStateFamily": "goal41:go-scheduler",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "goal41-go-netpoll-waiter-refusal",
+    "remoteSourceTarget": "goal41-go-netpoll-waiter-refusal",
+    "description": "Goal 41 stable refusal contract for Go netpoll waiter unsupported.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/goal41-refusals/goal41-go-netpoll-waiter-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "goal41:go-scheduler",
+    "proofCategory": "goal41-hard-runtime-refusal",
+    "expectedRefusalCode": "runtime-go-netpoll-waiter-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": ["runtime:goal41:go-scheduler:runtime-go-netpoll-waiter-unsupported"],
+    "capabilities": ["runtime:goal41:go-scheduler:runtime-go-netpoll-waiter-unsupported"],
+    "checkedSummary": "docs/snapshot/checked-summaries/goal41-refusals/goal41-go-netpoll-waiter-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "runtime-go-netpoll-waiter-unsupported",
+      "unsafeStateFamily": "goal41:go-scheduler",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "goal41-go-parked-goroutine-refusal",
+    "remoteSourceTarget": "goal41-go-parked-goroutine-refusal",
+    "description": "Goal 41 stable refusal contract for Parked goroutine state is ambiguous.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/goal41-refusals/goal41-go-parked-goroutine-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "goal41:go-scheduler",
+    "proofCategory": "goal41-hard-runtime-refusal",
+    "expectedRefusalCode": "runtime-go-parked-goroutine-ambiguous",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": ["runtime:goal41:go-scheduler:runtime-go-parked-goroutine-ambiguous"],
+    "capabilities": ["runtime:goal41:go-scheduler:runtime-go-parked-goroutine-ambiguous"],
+    "checkedSummary": "docs/snapshot/checked-summaries/goal41-refusals/goal41-go-parked-goroutine-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "runtime-go-parked-goroutine-ambiguous",
+      "unsafeStateFamily": "goal41:go-scheduler",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "goal41-go-runnable-queue-refusal",
+    "remoteSourceTarget": "goal41-go-runnable-queue-refusal",
+    "description": "Goal 41 stable refusal contract for Go runnable queue is ambiguous.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/goal41-refusals/goal41-go-runnable-queue-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "goal41:go-scheduler",
+    "proofCategory": "goal41-hard-runtime-refusal",
+    "expectedRefusalCode": "runtime-go-runnable-queue-ambiguous",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": ["runtime:goal41:go-scheduler:runtime-go-runnable-queue-ambiguous"],
+    "capabilities": ["runtime:goal41:go-scheduler:runtime-go-runnable-queue-ambiguous"],
+    "checkedSummary": "docs/snapshot/checked-summaries/goal41-refusals/goal41-go-runnable-queue-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "runtime-go-runnable-queue-ambiguous",
+      "unsafeStateFamily": "goal41:go-scheduler",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "goal41-go-runtime-private-frame-refusal",
+    "remoteSourceTarget": "goal41-go-runtime-private-frame-refusal",
+    "description": "Goal 41 stable refusal contract for Go runtime-private frame unsupported.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/goal41-refusals/goal41-go-runtime-private-frame-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "goal41:go-scheduler",
+    "proofCategory": "goal41-hard-runtime-refusal",
+    "expectedRefusalCode": "runtime-go-runtime-private-frame-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": [
+      "runtime:goal41:go-scheduler:runtime-go-runtime-private-frame-unsupported"
+    ],
+    "capabilities": ["runtime:goal41:go-scheduler:runtime-go-runtime-private-frame-unsupported"],
+    "checkedSummary": "docs/snapshot/checked-summaries/goal41-refusals/goal41-go-runtime-private-frame-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "runtime-go-runtime-private-frame-unsupported",
+      "unsafeStateFamily": "goal41:go-scheduler",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "goal41-go-select-race-refusal",
+    "remoteSourceTarget": "goal41-go-select-race-refusal",
+    "description": "Goal 41 stable refusal contract for Go select race is ambiguous.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/goal41-refusals/goal41-go-select-race-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "goal41:go-scheduler",
+    "proofCategory": "goal41-hard-runtime-refusal",
+    "expectedRefusalCode": "runtime-go-select-race-ambiguous",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": ["runtime:goal41:go-scheduler:runtime-go-select-race-ambiguous"],
+    "capabilities": ["runtime:goal41:go-scheduler:runtime-go-select-race-ambiguous"],
+    "checkedSummary": "docs/snapshot/checked-summaries/goal41-refusals/goal41-go-select-race-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "runtime-go-select-race-ambiguous",
+      "unsafeStateFamily": "goal41:go-scheduler",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "goal41-missing-reconnect-policy-refusal",
+    "remoteSourceTarget": "goal41-missing-reconnect-policy-refusal",
+    "description": "Goal 41 stable refusal contract for Reconnect policy is required.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/goal41-refusals/goal41-missing-reconnect-policy-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "goal41:network",
+    "proofCategory": "goal41-hard-runtime-refusal",
+    "expectedRefusalCode": "runtime-network-reconnect-policy-required",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": ["runtime:goal41:network:runtime-network-reconnect-policy-required"],
+    "capabilities": ["runtime:goal41:network:runtime-network-reconnect-policy-required"],
+    "checkedSummary": "docs/snapshot/checked-summaries/goal41-refusals/goal41-missing-reconnect-policy-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "runtime-network-reconnect-policy-required",
+      "unsafeStateFamily": "goal41:network",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "goal41-native-abi-drift-refusal",
+    "remoteSourceTarget": "goal41-native-abi-drift-refusal",
+    "description": "Goal 41 stable refusal contract for Native extension ABI drift.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/goal41-refusals/goal41-native-abi-drift-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "goal41:native-extension",
+    "proofCategory": "goal41-hard-runtime-refusal",
+    "expectedRefusalCode": "runtime-native-extension-abi-drift",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": ["runtime:goal41:native-extension:runtime-native-extension-abi-drift"],
+    "capabilities": ["runtime:goal41:native-extension:runtime-native-extension-abi-drift"],
+    "checkedSummary": "docs/snapshot/checked-summaries/goal41-refusals/goal41-native-abi-drift-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "runtime-native-extension-abi-drift",
+      "unsafeStateFamily": "goal41:native-extension",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "goal41-native-background-thread-refusal",
+    "remoteSourceTarget": "goal41-native-background-thread-refusal",
+    "description": "Goal 41 stable refusal contract for Native background thread unsupported.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/goal41-refusals/goal41-native-background-thread-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "goal41:native-extension",
+    "proofCategory": "goal41-hard-runtime-refusal",
+    "expectedRefusalCode": "runtime-native-extension-background-thread-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": [
+      "runtime:goal41:native-extension:runtime-native-extension-background-thread-unsupported"
+    ],
+    "capabilities": [
+      "runtime:goal41:native-extension:runtime-native-extension-background-thread-unsupported"
+    ],
+    "checkedSummary": "docs/snapshot/checked-summaries/goal41-refusals/goal41-native-background-thread-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "runtime-native-extension-background-thread-unsupported",
+      "unsafeStateFamily": "goal41:native-extension",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "goal41-native-build-id-mismatch-refusal",
+    "remoteSourceTarget": "goal41-native-build-id-mismatch-refusal",
+    "description": "Goal 41 stable refusal contract for Native extension build ID mismatch.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/goal41-refusals/goal41-native-build-id-mismatch-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "goal41:native-extension",
+    "proofCategory": "goal41-hard-runtime-refusal",
+    "expectedRefusalCode": "runtime-native-extension-build-id-mismatch",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": [
+      "runtime:goal41:native-extension:runtime-native-extension-build-id-mismatch"
+    ],
+    "capabilities": ["runtime:goal41:native-extension:runtime-native-extension-build-id-mismatch"],
+    "checkedSummary": "docs/snapshot/checked-summaries/goal41-refusals/goal41-native-build-id-mismatch-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "runtime-native-extension-build-id-mismatch",
+      "unsafeStateFamily": "goal41:native-extension",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "goal41-native-contract-missing-refusal",
+    "remoteSourceTarget": "goal41-native-contract-missing-refusal",
+    "description": "Goal 41 stable refusal contract for Native external-state contract missing.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/goal41-refusals/goal41-native-contract-missing-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "goal41:native-extension",
+    "proofCategory": "goal41-hard-runtime-refusal",
+    "expectedRefusalCode": "runtime-native-extension-contract-missing",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": [
+      "runtime:goal41:native-extension:runtime-native-extension-contract-missing"
+    ],
+    "capabilities": ["runtime:goal41:native-extension:runtime-native-extension-contract-missing"],
+    "checkedSummary": "docs/snapshot/checked-summaries/goal41-refusals/goal41-native-contract-missing-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "runtime-native-extension-contract-missing",
+      "unsafeStateFamily": "goal41:native-extension",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "goal41-native-managed-callback-refusal",
+    "remoteSourceTarget": "goal41-native-managed-callback-refusal",
+    "description": "Goal 41 stable refusal contract for Managed callback state is ambiguous.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/goal41-refusals/goal41-native-managed-callback-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "goal41:native-extension",
+    "proofCategory": "goal41-hard-runtime-refusal",
+    "expectedRefusalCode": "runtime-native-extension-managed-callback-ambiguous",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": [
+      "runtime:goal41:native-extension:runtime-native-extension-managed-callback-ambiguous"
+    ],
+    "capabilities": [
+      "runtime:goal41:native-extension:runtime-native-extension-managed-callback-ambiguous"
+    ],
+    "checkedSummary": "docs/snapshot/checked-summaries/goal41-refusals/goal41-native-managed-callback-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "runtime-native-extension-managed-callback-ambiguous",
+      "unsafeStateFamily": "goal41:native-extension",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "goal41-native-opaque-state-refusal",
+    "remoteSourceTarget": "goal41-native-opaque-state-refusal",
+    "description": "Goal 41 stable refusal contract for Native extension state is opaque.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/goal41-refusals/goal41-native-opaque-state-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "goal41:native-extension",
+    "proofCategory": "goal41-hard-runtime-refusal",
+    "expectedRefusalCode": "runtime-native-extension-opaque-state",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": [
+      "runtime:goal41:native-extension:runtime-native-extension-opaque-state"
+    ],
+    "capabilities": ["runtime:goal41:native-extension:runtime-native-extension-opaque-state"],
+    "checkedSummary": "docs/snapshot/checked-summaries/goal41-refusals/goal41-native-opaque-state-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "runtime-native-extension-opaque-state",
+      "unsafeStateFamily": "goal41:native-extension",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "goal41-native-owned-fd-refusal",
+    "remoteSourceTarget": "goal41-native-owned-fd-refusal",
+    "description": "Goal 41 stable refusal contract for Native-owned file descriptor unsupported.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/goal41-refusals/goal41-native-owned-fd-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "goal41:native-extension",
+    "proofCategory": "goal41-hard-runtime-refusal",
+    "expectedRefusalCode": "runtime-native-extension-owned-fd-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": [
+      "runtime:goal41:native-extension:runtime-native-extension-owned-fd-unsupported"
+    ],
+    "capabilities": [
+      "runtime:goal41:native-extension:runtime-native-extension-owned-fd-unsupported"
+    ],
+    "checkedSummary": "docs/snapshot/checked-summaries/goal41-refusals/goal41-native-owned-fd-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "runtime-native-extension-owned-fd-unsupported",
+      "unsafeStateFamily": "goal41:native-extension",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "goal41-peer-state-refusal",
+    "remoteSourceTarget": "goal41-peer-state-refusal",
+    "description": "Goal 41 stable refusal contract for Peer state is unavailable.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/goal41-refusals/goal41-peer-state-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "goal41:network",
+    "proofCategory": "goal41-hard-runtime-refusal",
+    "expectedRefusalCode": "runtime-network-peer-state-unavailable",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": ["runtime:goal41:network:runtime-network-peer-state-unavailable"],
+    "capabilities": ["runtime:goal41:network:runtime-network-peer-state-unavailable"],
+    "checkedSummary": "docs/snapshot/checked-summaries/goal41-refusals/goal41-peer-state-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "runtime-network-peer-state-unavailable",
+      "unsafeStateFamily": "goal41:network",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "goal41-tls-session-key-refusal",
+    "remoteSourceTarget": "goal41-tls-session-key-refusal",
+    "description": "Goal 41 stable refusal contract for TLS session keys are opaque.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/goal41-refusals/goal41-tls-session-key-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "goal41:network",
+    "proofCategory": "goal41-hard-runtime-refusal",
+    "expectedRefusalCode": "runtime-network-tls-session-key-opaque",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": ["runtime:goal41:network:runtime-network-tls-session-key-opaque"],
+    "capabilities": ["runtime:goal41:network:runtime-network-tls-session-key-opaque"],
+    "checkedSummary": "docs/snapshot/checked-summaries/goal41-refusals/goal41-tls-session-key-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "runtime-network-tls-session-key-opaque",
+      "unsafeStateFamily": "goal41:network",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "goal41-websocket-frame-boundary-refusal",
+    "remoteSourceTarget": "goal41-websocket-frame-boundary-refusal",
+    "description": "Goal 41 stable refusal contract for WebSocket frame boundary is ambiguous.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/goal41-refusals/goal41-websocket-frame-boundary-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "goal41:network",
+    "proofCategory": "goal41-hard-runtime-refusal",
+    "expectedRefusalCode": "runtime-network-websocket-frame-boundary-ambiguous",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": [
+      "runtime:goal41:network:runtime-network-websocket-frame-boundary-ambiguous"
+    ],
+    "capabilities": ["runtime:goal41:network:runtime-network-websocket-frame-boundary-ambiguous"],
+    "checkedSummary": "docs/snapshot/checked-summaries/goal41-refusals/goal41-websocket-frame-boundary-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "runtime-network-websocket-frame-boundary-ambiguous",
+      "unsafeStateFamily": "goal41:network",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "stateful-durable-queue-clean-restore",
+    "remoteSourceTarget": "stateful-durable-queue-clean-restore",
+    "description": "Goal 44 durable-queue clean/quiesced stateful restore proof.",
+    "sourceFixture": "checked-stateful:docs/snapshot/checked-summaries/stateful-services/stateful-durable-queue-clean-restore.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "success",
+    "supportStatus": "baseline-success",
+    "unsafeStateFamily": "stateful:durable-queue:clean-quiesced",
+    "expectedGates": ["descriptor", "resources", "verifier"],
+    "capabilities": ["stateful:goal44:queue:clean-restore"],
+    "checkedSummary": "docs/snapshot/checked-summaries/stateful-services/stateful-durable-queue-clean-restore.json"
+  },
+  {
+    "name": "stateful-filesystem-append-log-restore",
+    "remoteSourceTarget": "stateful-filesystem-append-log-restore",
+    "description": "Goal 44 filesystem clean/quiesced stateful restore proof.",
+    "sourceFixture": "checked-stateful:docs/snapshot/checked-summaries/stateful-services/stateful-filesystem-append-log-restore.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "success",
+    "supportStatus": "baseline-success",
+    "unsafeStateFamily": "stateful:filesystem:clean-quiesced",
+    "expectedGates": ["descriptor", "resources", "verifier"],
+    "capabilities": ["stateful:goal44:filesystem:clean-restore"],
+    "checkedSummary": "docs/snapshot/checked-summaries/stateful-services/stateful-filesystem-append-log-restore.json"
+  },
+  {
+    "name": "stateful-filesystem-atomic-checkpoint-restore",
+    "remoteSourceTarget": "stateful-filesystem-atomic-checkpoint-restore",
+    "description": "Goal 44 filesystem clean/quiesced stateful restore proof.",
+    "sourceFixture": "checked-stateful:docs/snapshot/checked-summaries/stateful-services/stateful-filesystem-atomic-checkpoint-restore.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "success",
+    "supportStatus": "baseline-success",
+    "unsafeStateFamily": "stateful:filesystem:clean-quiesced",
+    "expectedGates": ["descriptor", "resources", "verifier"],
+    "capabilities": ["stateful:goal44:filesystem:clean-restore"],
+    "checkedSummary": "docs/snapshot/checked-summaries/stateful-services/stateful-filesystem-atomic-checkpoint-restore.json"
+  },
+  {
+    "name": "stateful-filesystem-directory-manifest-restore",
+    "remoteSourceTarget": "stateful-filesystem-directory-manifest-restore",
+    "description": "Goal 44 filesystem clean/quiesced stateful restore proof.",
+    "sourceFixture": "checked-stateful:docs/snapshot/checked-summaries/stateful-services/stateful-filesystem-directory-manifest-restore.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "success",
+    "supportStatus": "baseline-success",
+    "unsafeStateFamily": "stateful:filesystem:clean-quiesced",
+    "expectedGates": ["descriptor", "resources", "verifier"],
+    "capabilities": ["stateful:goal44:filesystem:clean-restore"],
+    "checkedSummary": "docs/snapshot/checked-summaries/stateful-services/stateful-filesystem-directory-manifest-restore.json"
+  },
+  {
+    "name": "stateful-filesystem-external-watcher-refusal",
+    "remoteSourceTarget": "stateful-filesystem-external-watcher-refusal",
+    "description": "Goal 44 filesystem stable refusal for external-watcher.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/stateful-services/stateful-filesystem-external-watcher-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "stateful:filesystem:unsafe-neighbor",
+    "proofCategory": "goal44-stateful-refusal",
+    "expectedRefusalCode": "stateful-filesystem-external-watcher-state-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": [
+      "stateful:goal44:filesystem:stateful-filesystem-external-watcher-state-unsupported"
+    ],
+    "capabilities": [
+      "stateful:goal44:filesystem:stateful-filesystem-external-watcher-state-unsupported"
+    ],
+    "checkedSummary": "docs/snapshot/checked-summaries/stateful-services/stateful-filesystem-external-watcher-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "stateful-filesystem-external-watcher-state-unsupported",
+      "unsafeStateFamily": "stateful:filesystem:unsafe-neighbor",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "stateful-filesystem-host-mounted-path-refusal",
+    "remoteSourceTarget": "stateful-filesystem-host-mounted-path-refusal",
+    "description": "Goal 44 filesystem stable refusal for host-mounted-path.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/stateful-services/stateful-filesystem-host-mounted-path-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "stateful:filesystem:unsafe-neighbor",
+    "proofCategory": "goal44-stateful-refusal",
+    "expectedRefusalCode": "stateful-filesystem-host-mounted-path-ambiguous",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": [
+      "stateful:goal44:filesystem:stateful-filesystem-host-mounted-path-ambiguous"
+    ],
+    "capabilities": ["stateful:goal44:filesystem:stateful-filesystem-host-mounted-path-ambiguous"],
+    "checkedSummary": "docs/snapshot/checked-summaries/stateful-services/stateful-filesystem-host-mounted-path-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "stateful-filesystem-host-mounted-path-ambiguous",
+      "unsafeStateFamily": "stateful:filesystem:unsafe-neighbor",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "stateful-filesystem-lock-state-refusal",
+    "remoteSourceTarget": "stateful-filesystem-lock-state-refusal",
+    "description": "Goal 44 filesystem stable refusal for lock-state.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/stateful-services/stateful-filesystem-lock-state-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "stateful:filesystem:unsafe-neighbor",
+    "proofCategory": "goal44-stateful-refusal",
+    "expectedRefusalCode": "stateful-filesystem-lock-state-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": [
+      "stateful:goal44:filesystem:stateful-filesystem-lock-state-unsupported"
+    ],
+    "capabilities": ["stateful:goal44:filesystem:stateful-filesystem-lock-state-unsupported"],
+    "checkedSummary": "docs/snapshot/checked-summaries/stateful-services/stateful-filesystem-lock-state-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "stateful-filesystem-lock-state-unsupported",
+      "unsafeStateFamily": "stateful:filesystem:unsafe-neighbor",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "stateful-filesystem-mmap-dirty-refusal",
+    "remoteSourceTarget": "stateful-filesystem-mmap-dirty-refusal",
+    "description": "Goal 44 filesystem stable refusal for mmap-dirty.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/stateful-services/stateful-filesystem-mmap-dirty-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "stateful:filesystem:unsafe-neighbor",
+    "proofCategory": "goal44-stateful-refusal",
+    "expectedRefusalCode": "stateful-filesystem-mmap-dirty-state-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": [
+      "stateful:goal44:filesystem:stateful-filesystem-mmap-dirty-state-unsupported"
+    ],
+    "capabilities": ["stateful:goal44:filesystem:stateful-filesystem-mmap-dirty-state-unsupported"],
+    "checkedSummary": "docs/snapshot/checked-summaries/stateful-services/stateful-filesystem-mmap-dirty-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "stateful-filesystem-mmap-dirty-state-unsupported",
+      "unsafeStateFamily": "stateful:filesystem:unsafe-neighbor",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "stateful-filesystem-partial-rename-refusal",
+    "remoteSourceTarget": "stateful-filesystem-partial-rename-refusal",
+    "description": "Goal 44 filesystem stable refusal for partial-rename.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/stateful-services/stateful-filesystem-partial-rename-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "stateful:filesystem:unsafe-neighbor",
+    "proofCategory": "goal44-stateful-refusal",
+    "expectedRefusalCode": "stateful-filesystem-partial-rename-boundary-ambiguous",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": [
+      "stateful:goal44:filesystem:stateful-filesystem-partial-rename-boundary-ambiguous"
+    ],
+    "capabilities": [
+      "stateful:goal44:filesystem:stateful-filesystem-partial-rename-boundary-ambiguous"
+    ],
+    "checkedSummary": "docs/snapshot/checked-summaries/stateful-services/stateful-filesystem-partial-rename-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "stateful-filesystem-partial-rename-boundary-ambiguous",
+      "unsafeStateFamily": "stateful:filesystem:unsafe-neighbor",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "stateful-filesystem-unsynced-append-refusal",
+    "remoteSourceTarget": "stateful-filesystem-unsynced-append-refusal",
+    "description": "Goal 44 filesystem stable refusal for unsynced-append.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/stateful-services/stateful-filesystem-unsynced-append-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "stateful:filesystem:unsafe-neighbor",
+    "proofCategory": "goal44-stateful-refusal",
+    "expectedRefusalCode": "stateful-filesystem-unsynced-append-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": [
+      "stateful:goal44:filesystem:stateful-filesystem-unsynced-append-unsupported"
+    ],
+    "capabilities": ["stateful:goal44:filesystem:stateful-filesystem-unsynced-append-unsupported"],
+    "checkedSummary": "docs/snapshot/checked-summaries/stateful-services/stateful-filesystem-unsynced-append-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "stateful-filesystem-unsynced-append-unsupported",
+      "unsafeStateFamily": "stateful:filesystem:unsafe-neighbor",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "stateful-mariadb-active-session-refusal",
+    "remoteSourceTarget": "stateful-mariadb-active-session-refusal",
+    "description": "Goal 44 mariadb stable refusal for active-session.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/stateful-services/stateful-mariadb-active-session-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "stateful:mariadb:unsafe-neighbor",
+    "proofCategory": "goal44-stateful-refusal",
+    "expectedRefusalCode": "stateful-mariadb-active-session-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": ["stateful:goal44:mariadb:stateful-mariadb-active-session-unsupported"],
+    "capabilities": ["stateful:goal44:mariadb:stateful-mariadb-active-session-unsupported"],
+    "checkedSummary": "docs/snapshot/checked-summaries/stateful-services/stateful-mariadb-active-session-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "stateful-mariadb-active-session-unsupported",
+      "unsafeStateFamily": "stateful:mariadb:unsafe-neighbor",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "stateful-mariadb-active-transaction-refusal",
+    "remoteSourceTarget": "stateful-mariadb-active-transaction-refusal",
+    "description": "Goal 44 mariadb stable refusal for active-transaction.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/stateful-services/stateful-mariadb-active-transaction-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "stateful:mariadb:unsafe-neighbor",
+    "proofCategory": "goal44-stateful-refusal",
+    "expectedRefusalCode": "stateful-mariadb-active-transaction-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": [
+      "stateful:goal44:mariadb:stateful-mariadb-active-transaction-unsupported"
+    ],
+    "capabilities": ["stateful:goal44:mariadb:stateful-mariadb-active-transaction-unsupported"],
+    "checkedSummary": "docs/snapshot/checked-summaries/stateful-services/stateful-mariadb-active-transaction-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "stateful-mariadb-active-transaction-unsupported",
+      "unsafeStateFamily": "stateful:mariadb:unsafe-neighbor",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "stateful-mariadb-clean-quiesced-restore",
+    "remoteSourceTarget": "stateful-mariadb-clean-quiesced-restore",
+    "description": "Goal 44 mariadb clean/quiesced stateful restore proof.",
+    "sourceFixture": "checked-stateful:docs/snapshot/checked-summaries/stateful-services/stateful-mariadb-clean-quiesced-restore.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "success",
+    "supportStatus": "baseline-success",
+    "unsafeStateFamily": "stateful:mariadb:clean-quiesced",
+    "expectedGates": ["descriptor", "resources", "verifier"],
+    "capabilities": ["stateful:goal44:mariadb:clean-restore"],
+    "checkedSummary": "docs/snapshot/checked-summaries/stateful-services/stateful-mariadb-clean-quiesced-restore.json"
+  },
+  {
+    "name": "stateful-mariadb-dirty-redo-refusal",
+    "remoteSourceTarget": "stateful-mariadb-dirty-redo-refusal",
+    "description": "Goal 44 mariadb stable refusal for dirty-redo.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/stateful-services/stateful-mariadb-dirty-redo-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "stateful:mariadb:unsafe-neighbor",
+    "proofCategory": "goal44-stateful-refusal",
+    "expectedRefusalCode": "stateful-mariadb-dirty-redo-log-ambiguous",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": ["stateful:goal44:mariadb:stateful-mariadb-dirty-redo-log-ambiguous"],
+    "capabilities": ["stateful:goal44:mariadb:stateful-mariadb-dirty-redo-log-ambiguous"],
+    "checkedSummary": "docs/snapshot/checked-summaries/stateful-services/stateful-mariadb-dirty-redo-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "stateful-mariadb-dirty-redo-log-ambiguous",
+      "unsafeStateFamily": "stateful:mariadb:unsafe-neighbor",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "stateful-mariadb-host-mounted-data-dir-refusal",
+    "remoteSourceTarget": "stateful-mariadb-host-mounted-data-dir-refusal",
+    "description": "Goal 44 mariadb stable refusal for host-mounted-data-dir.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/stateful-services/stateful-mariadb-host-mounted-data-dir-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "stateful:mariadb:unsafe-neighbor",
+    "proofCategory": "goal44-stateful-refusal",
+    "expectedRefusalCode": "stateful-mariadb-host-mounted-data-dir-ambiguous",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": [
+      "stateful:goal44:mariadb:stateful-mariadb-host-mounted-data-dir-ambiguous"
+    ],
+    "capabilities": ["stateful:goal44:mariadb:stateful-mariadb-host-mounted-data-dir-ambiguous"],
+    "checkedSummary": "docs/snapshot/checked-summaries/stateful-services/stateful-mariadb-host-mounted-data-dir-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "stateful-mariadb-host-mounted-data-dir-ambiguous",
+      "unsafeStateFamily": "stateful:mariadb:unsafe-neighbor",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "stateful-mariadb-plugin-native-state-refusal",
+    "remoteSourceTarget": "stateful-mariadb-plugin-native-state-refusal",
+    "description": "Goal 44 mariadb stable refusal for plugin-native-state.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/stateful-services/stateful-mariadb-plugin-native-state-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "stateful:mariadb:unsafe-neighbor",
+    "proofCategory": "goal44-stateful-refusal",
+    "expectedRefusalCode": "stateful-mariadb-plugin-native-state-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": [
+      "stateful:goal44:mariadb:stateful-mariadb-plugin-native-state-unsupported"
+    ],
+    "capabilities": ["stateful:goal44:mariadb:stateful-mariadb-plugin-native-state-unsupported"],
+    "checkedSummary": "docs/snapshot/checked-summaries/stateful-services/stateful-mariadb-plugin-native-state-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "stateful-mariadb-plugin-native-state-unsupported",
+      "unsafeStateFamily": "stateful:mariadb:unsafe-neighbor",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "stateful-mariadb-replication-binlog-refusal",
+    "remoteSourceTarget": "stateful-mariadb-replication-binlog-refusal",
+    "description": "Goal 44 mariadb stable refusal for replication-binlog.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/stateful-services/stateful-mariadb-replication-binlog-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "stateful:mariadb:unsafe-neighbor",
+    "proofCategory": "goal44-stateful-refusal",
+    "expectedRefusalCode": "stateful-mariadb-replication-binlog-ambiguous",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": [
+      "stateful:goal44:mariadb:stateful-mariadb-replication-binlog-ambiguous"
+    ],
+    "capabilities": ["stateful:goal44:mariadb:stateful-mariadb-replication-binlog-ambiguous"],
+    "checkedSummary": "docs/snapshot/checked-summaries/stateful-services/stateful-mariadb-replication-binlog-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "stateful-mariadb-replication-binlog-ambiguous",
+      "unsafeStateFamily": "stateful:mariadb:unsafe-neighbor",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "stateful-mariadb-unsynced-data-dir-refusal",
+    "remoteSourceTarget": "stateful-mariadb-unsynced-data-dir-refusal",
+    "description": "Goal 44 mariadb stable refusal for unsynced-data-dir.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/stateful-services/stateful-mariadb-unsynced-data-dir-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "stateful:mariadb:unsafe-neighbor",
+    "proofCategory": "goal44-stateful-refusal",
+    "expectedRefusalCode": "stateful-mariadb-unsynced-data-dir-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": [
+      "stateful:goal44:mariadb:stateful-mariadb-unsynced-data-dir-unsupported"
+    ],
+    "capabilities": ["stateful:goal44:mariadb:stateful-mariadb-unsynced-data-dir-unsupported"],
+    "checkedSummary": "docs/snapshot/checked-summaries/stateful-services/stateful-mariadb-unsynced-data-dir-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "stateful-mariadb-unsynced-data-dir-unsupported",
+      "unsafeStateFamily": "stateful:mariadb:unsafe-neighbor",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "stateful-postgres-active-transaction-refusal",
+    "remoteSourceTarget": "stateful-postgres-active-transaction-refusal",
+    "description": "Goal 44 postgres stable refusal for active-transaction.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/stateful-services/stateful-postgres-active-transaction-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "stateful:postgres:unsafe-neighbor",
+    "proofCategory": "goal44-stateful-refusal",
+    "expectedRefusalCode": "stateful-postgres-active-transaction-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": [
+      "stateful:goal44:postgres:stateful-postgres-active-transaction-unsupported"
+    ],
+    "capabilities": ["stateful:goal44:postgres:stateful-postgres-active-transaction-unsupported"],
+    "checkedSummary": "docs/snapshot/checked-summaries/stateful-services/stateful-postgres-active-transaction-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "stateful-postgres-active-transaction-unsupported",
+      "unsafeStateFamily": "stateful:postgres:unsafe-neighbor",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "stateful-postgres-advisory-lock-refusal",
+    "remoteSourceTarget": "stateful-postgres-advisory-lock-refusal",
+    "description": "Goal 44 postgres stable refusal for advisory-lock.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/stateful-services/stateful-postgres-advisory-lock-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "stateful:postgres:unsafe-neighbor",
+    "proofCategory": "goal44-stateful-refusal",
+    "expectedRefusalCode": "stateful-postgres-advisory-lock-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": ["stateful:goal44:postgres:stateful-postgres-advisory-lock-unsupported"],
+    "capabilities": ["stateful:goal44:postgres:stateful-postgres-advisory-lock-unsupported"],
+    "checkedSummary": "docs/snapshot/checked-summaries/stateful-services/stateful-postgres-advisory-lock-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "stateful-postgres-advisory-lock-unsupported",
+      "unsafeStateFamily": "stateful:postgres:unsafe-neighbor",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "stateful-postgres-dirty-wal-refusal",
+    "remoteSourceTarget": "stateful-postgres-dirty-wal-refusal",
+    "description": "Goal 44 postgres stable refusal for dirty-wal.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/stateful-services/stateful-postgres-dirty-wal-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "stateful:postgres:unsafe-neighbor",
+    "proofCategory": "goal44-stateful-refusal",
+    "expectedRefusalCode": "stateful-postgres-dirty-wal-boundary-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": [
+      "stateful:goal44:postgres:stateful-postgres-dirty-wal-boundary-unsupported"
+    ],
+    "capabilities": ["stateful:goal44:postgres:stateful-postgres-dirty-wal-boundary-unsupported"],
+    "checkedSummary": "docs/snapshot/checked-summaries/stateful-services/stateful-postgres-dirty-wal-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "stateful-postgres-dirty-wal-boundary-unsupported",
+      "unsafeStateFamily": "stateful:postgres:unsafe-neighbor",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "stateful-postgres-expanded-repeatability",
+    "remoteSourceTarget": "stateful-postgres-expanded-repeatability",
+    "description": "Goal 44 postgres clean/quiesced stateful restore proof.",
+    "sourceFixture": "checked-stateful:docs/snapshot/checked-summaries/stateful-services/stateful-postgres-expanded-repeatability.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "success",
+    "supportStatus": "baseline-success",
+    "unsafeStateFamily": "stateful:postgres:clean-quiesced",
+    "expectedGates": ["descriptor", "resources", "verifier"],
+    "capabilities": ["stateful:goal44:postgres:clean-restore"],
+    "checkedSummary": "docs/snapshot/checked-summaries/stateful-services/stateful-postgres-expanded-repeatability.json"
+  },
+  {
+    "name": "stateful-postgres-extension-native-state-refusal",
+    "remoteSourceTarget": "stateful-postgres-extension-native-state-refusal",
+    "description": "Goal 44 postgres stable refusal for extension-native-state.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/stateful-services/stateful-postgres-extension-native-state-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "stateful:postgres:unsafe-neighbor",
+    "proofCategory": "goal44-stateful-refusal",
+    "expectedRefusalCode": "stateful-postgres-extension-native-state-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": [
+      "stateful:goal44:postgres:stateful-postgres-extension-native-state-unsupported"
+    ],
+    "capabilities": [
+      "stateful:goal44:postgres:stateful-postgres-extension-native-state-unsupported"
+    ],
+    "checkedSummary": "docs/snapshot/checked-summaries/stateful-services/stateful-postgres-extension-native-state-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "stateful-postgres-extension-native-state-unsupported",
+      "unsafeStateFamily": "stateful:postgres:unsafe-neighbor",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "stateful-postgres-host-mounted-data-dir-refusal",
+    "remoteSourceTarget": "stateful-postgres-host-mounted-data-dir-refusal",
+    "description": "Goal 44 postgres stable refusal for host-mounted-data-dir.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/stateful-services/stateful-postgres-host-mounted-data-dir-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "stateful:postgres:unsafe-neighbor",
+    "proofCategory": "goal44-stateful-refusal",
+    "expectedRefusalCode": "stateful-postgres-host-mounted-data-dir-ambiguous",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": [
+      "stateful:goal44:postgres:stateful-postgres-host-mounted-data-dir-ambiguous"
+    ],
+    "capabilities": ["stateful:goal44:postgres:stateful-postgres-host-mounted-data-dir-ambiguous"],
+    "checkedSummary": "docs/snapshot/checked-summaries/stateful-services/stateful-postgres-host-mounted-data-dir-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "stateful-postgres-host-mounted-data-dir-ambiguous",
+      "unsafeStateFamily": "stateful:postgres:unsafe-neighbor",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "stateful-postgres-prepared-session-refusal",
+    "remoteSourceTarget": "stateful-postgres-prepared-session-refusal",
+    "description": "Goal 44 postgres stable refusal for prepared-session.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/stateful-services/stateful-postgres-prepared-session-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "stateful:postgres:unsafe-neighbor",
+    "proofCategory": "goal44-stateful-refusal",
+    "expectedRefusalCode": "stateful-postgres-prepared-session-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": [
+      "stateful:goal44:postgres:stateful-postgres-prepared-session-unsupported"
+    ],
+    "capabilities": ["stateful:goal44:postgres:stateful-postgres-prepared-session-unsupported"],
+    "checkedSummary": "docs/snapshot/checked-summaries/stateful-services/stateful-postgres-prepared-session-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "stateful-postgres-prepared-session-unsupported",
+      "unsafeStateFamily": "stateful:postgres:unsafe-neighbor",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "stateful-postgres-replication-slot-refusal",
+    "remoteSourceTarget": "stateful-postgres-replication-slot-refusal",
+    "description": "Goal 44 postgres stable refusal for replication-slot.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/stateful-services/stateful-postgres-replication-slot-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "stateful:postgres:unsafe-neighbor",
+    "proofCategory": "goal44-stateful-refusal",
+    "expectedRefusalCode": "stateful-postgres-replication-slot-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": [
+      "stateful:goal44:postgres:stateful-postgres-replication-slot-unsupported"
+    ],
+    "capabilities": ["stateful:goal44:postgres:stateful-postgres-replication-slot-unsupported"],
+    "checkedSummary": "docs/snapshot/checked-summaries/stateful-services/stateful-postgres-replication-slot-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "stateful-postgres-replication-slot-unsupported",
+      "unsafeStateFamily": "stateful:postgres:unsafe-neighbor",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "stateful-queue-active-consumer-refusal",
+    "remoteSourceTarget": "stateful-queue-active-consumer-refusal",
+    "description": "Goal 44 queue stable refusal for active-consumer.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/stateful-services/stateful-queue-active-consumer-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "stateful:queue:unsafe-neighbor",
+    "proofCategory": "goal44-stateful-refusal",
+    "expectedRefusalCode": "stateful-queue-active-consumer-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": ["stateful:goal44:queue:stateful-queue-active-consumer-unsupported"],
+    "capabilities": ["stateful:goal44:queue:stateful-queue-active-consumer-unsupported"],
+    "checkedSummary": "docs/snapshot/checked-summaries/stateful-services/stateful-queue-active-consumer-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "stateful-queue-active-consumer-unsupported",
+      "unsafeStateFamily": "stateful:queue:unsafe-neighbor",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "stateful-queue-cluster-replication-refusal",
+    "remoteSourceTarget": "stateful-queue-cluster-replication-refusal",
+    "description": "Goal 44 queue stable refusal for cluster-replication.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/stateful-services/stateful-queue-cluster-replication-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "stateful:queue:unsafe-neighbor",
+    "proofCategory": "goal44-stateful-refusal",
+    "expectedRefusalCode": "stateful-queue-cluster-replication-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": ["stateful:goal44:queue:stateful-queue-cluster-replication-unsupported"],
+    "capabilities": ["stateful:goal44:queue:stateful-queue-cluster-replication-unsupported"],
+    "checkedSummary": "docs/snapshot/checked-summaries/stateful-services/stateful-queue-cluster-replication-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "stateful-queue-cluster-replication-unsupported",
+      "unsafeStateFamily": "stateful:queue:unsafe-neighbor",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "stateful-queue-ephemeral-queue-refusal",
+    "remoteSourceTarget": "stateful-queue-ephemeral-queue-refusal",
+    "description": "Goal 44 queue stable refusal for ephemeral-queue.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/stateful-services/stateful-queue-ephemeral-queue-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "stateful:queue:unsafe-neighbor",
+    "proofCategory": "goal44-stateful-refusal",
+    "expectedRefusalCode": "stateful-queue-ephemeral-state-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": ["stateful:goal44:queue:stateful-queue-ephemeral-state-unsupported"],
+    "capabilities": ["stateful:goal44:queue:stateful-queue-ephemeral-state-unsupported"],
+    "checkedSummary": "docs/snapshot/checked-summaries/stateful-services/stateful-queue-ephemeral-queue-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "stateful-queue-ephemeral-state-unsupported",
+      "unsafeStateFamily": "stateful:queue:unsafe-neighbor",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "stateful-queue-host-mounted-data-dir-refusal",
+    "remoteSourceTarget": "stateful-queue-host-mounted-data-dir-refusal",
+    "description": "Goal 44 queue stable refusal for host-mounted-data-dir.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/stateful-services/stateful-queue-host-mounted-data-dir-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "stateful:queue:unsafe-neighbor",
+    "proofCategory": "goal44-stateful-refusal",
+    "expectedRefusalCode": "stateful-queue-host-mounted-data-dir-ambiguous",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": ["stateful:goal44:queue:stateful-queue-host-mounted-data-dir-ambiguous"],
+    "capabilities": ["stateful:goal44:queue:stateful-queue-host-mounted-data-dir-ambiguous"],
+    "checkedSummary": "docs/snapshot/checked-summaries/stateful-services/stateful-queue-host-mounted-data-dir-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "stateful-queue-host-mounted-data-dir-ambiguous",
+      "unsafeStateFamily": "stateful:queue:unsafe-neighbor",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "stateful-queue-in-flight-delivery-refusal",
+    "remoteSourceTarget": "stateful-queue-in-flight-delivery-refusal",
+    "description": "Goal 44 queue stable refusal for in-flight-delivery.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/stateful-services/stateful-queue-in-flight-delivery-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "stateful:queue:unsafe-neighbor",
+    "proofCategory": "goal44-stateful-refusal",
+    "expectedRefusalCode": "stateful-queue-in-flight-delivery-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": ["stateful:goal44:queue:stateful-queue-in-flight-delivery-unsupported"],
+    "capabilities": ["stateful:goal44:queue:stateful-queue-in-flight-delivery-unsupported"],
+    "checkedSummary": "docs/snapshot/checked-summaries/stateful-services/stateful-queue-in-flight-delivery-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "stateful-queue-in-flight-delivery-unsupported",
+      "unsafeStateFamily": "stateful:queue:unsafe-neighbor",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "stateful-queue-plugin-native-state-refusal",
+    "remoteSourceTarget": "stateful-queue-plugin-native-state-refusal",
+    "description": "Goal 44 queue stable refusal for plugin-native-state.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/stateful-services/stateful-queue-plugin-native-state-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "stateful:queue:unsafe-neighbor",
+    "proofCategory": "goal44-stateful-refusal",
+    "expectedRefusalCode": "stateful-queue-plugin-native-state-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": ["stateful:goal44:queue:stateful-queue-plugin-native-state-unsupported"],
+    "capabilities": ["stateful:goal44:queue:stateful-queue-plugin-native-state-unsupported"],
+    "checkedSummary": "docs/snapshot/checked-summaries/stateful-services/stateful-queue-plugin-native-state-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "stateful-queue-plugin-native-state-unsupported",
+      "unsafeStateFamily": "stateful:queue:unsafe-neighbor",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "stateful-queue-unacked-message-refusal",
+    "remoteSourceTarget": "stateful-queue-unacked-message-refusal",
+    "description": "Goal 44 queue stable refusal for unacked-message.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/stateful-services/stateful-queue-unacked-message-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "stateful:queue:unsafe-neighbor",
+    "proofCategory": "goal44-stateful-refusal",
+    "expectedRefusalCode": "stateful-queue-unacked-message-ambiguous",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": ["stateful:goal44:queue:stateful-queue-unacked-message-ambiguous"],
+    "capabilities": ["stateful:goal44:queue:stateful-queue-unacked-message-ambiguous"],
+    "checkedSummary": "docs/snapshot/checked-summaries/stateful-services/stateful-queue-unacked-message-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "stateful-queue-unacked-message-ambiguous",
+      "unsafeStateFamily": "stateful:queue:unsafe-neighbor",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "stateful-redis-active-client-session-refusal",
+    "remoteSourceTarget": "stateful-redis-active-client-session-refusal",
+    "description": "Goal 44 redis stable refusal for active-client-session.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/stateful-services/stateful-redis-active-client-session-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "stateful:redis:unsafe-neighbor",
+    "proofCategory": "goal44-stateful-refusal",
+    "expectedRefusalCode": "stateful-redis-active-client-session-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": [
+      "stateful:goal44:redis:stateful-redis-active-client-session-unsupported"
+    ],
+    "capabilities": ["stateful:goal44:redis:stateful-redis-active-client-session-unsupported"],
+    "checkedSummary": "docs/snapshot/checked-summaries/stateful-services/stateful-redis-active-client-session-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "stateful-redis-active-client-session-unsupported",
+      "unsafeStateFamily": "stateful:redis:unsafe-neighbor",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "stateful-redis-blocking-command-refusal",
+    "remoteSourceTarget": "stateful-redis-blocking-command-refusal",
+    "description": "Goal 44 redis stable refusal for blocking-command.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/stateful-services/stateful-redis-blocking-command-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "stateful:redis:unsafe-neighbor",
+    "proofCategory": "goal44-stateful-refusal",
+    "expectedRefusalCode": "stateful-redis-blocking-command-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": ["stateful:goal44:redis:stateful-redis-blocking-command-unsupported"],
+    "capabilities": ["stateful:goal44:redis:stateful-redis-blocking-command-unsupported"],
+    "checkedSummary": "docs/snapshot/checked-summaries/stateful-services/stateful-redis-blocking-command-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "stateful-redis-blocking-command-unsupported",
+      "unsafeStateFamily": "stateful:redis:unsafe-neighbor",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "stateful-redis-clean-quiesced-restore",
+    "remoteSourceTarget": "stateful-redis-clean-quiesced-restore",
+    "description": "Goal 44 redis clean/quiesced stateful restore proof.",
+    "sourceFixture": "checked-stateful:docs/snapshot/checked-summaries/stateful-services/stateful-redis-clean-quiesced-restore.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "success",
+    "supportStatus": "baseline-success",
+    "unsafeStateFamily": "stateful:redis:clean-quiesced",
+    "expectedGates": ["descriptor", "resources", "verifier"],
+    "capabilities": ["stateful:goal44:redis:clean-restore"],
+    "checkedSummary": "docs/snapshot/checked-summaries/stateful-services/stateful-redis-clean-quiesced-restore.json"
+  },
+  {
+    "name": "stateful-redis-dirty-aof-refusal",
+    "remoteSourceTarget": "stateful-redis-dirty-aof-refusal",
+    "description": "Goal 44 redis stable refusal for dirty-aof.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/stateful-services/stateful-redis-dirty-aof-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "stateful:redis:unsafe-neighbor",
+    "proofCategory": "goal44-stateful-refusal",
+    "expectedRefusalCode": "stateful-redis-dirty-aof-boundary-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": ["stateful:goal44:redis:stateful-redis-dirty-aof-boundary-unsupported"],
+    "capabilities": ["stateful:goal44:redis:stateful-redis-dirty-aof-boundary-unsupported"],
+    "checkedSummary": "docs/snapshot/checked-summaries/stateful-services/stateful-redis-dirty-aof-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "stateful-redis-dirty-aof-boundary-unsupported",
+      "unsafeStateFamily": "stateful:redis:unsafe-neighbor",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "stateful-redis-host-mounted-data-dir-refusal",
+    "remoteSourceTarget": "stateful-redis-host-mounted-data-dir-refusal",
+    "description": "Goal 44 redis stable refusal for host-mounted-data-dir.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/stateful-services/stateful-redis-host-mounted-data-dir-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "stateful:redis:unsafe-neighbor",
+    "proofCategory": "goal44-stateful-refusal",
+    "expectedRefusalCode": "stateful-redis-host-mounted-data-dir-ambiguous",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": ["stateful:goal44:redis:stateful-redis-host-mounted-data-dir-ambiguous"],
+    "capabilities": ["stateful:goal44:redis:stateful-redis-host-mounted-data-dir-ambiguous"],
+    "checkedSummary": "docs/snapshot/checked-summaries/stateful-services/stateful-redis-host-mounted-data-dir-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "stateful-redis-host-mounted-data-dir-ambiguous",
+      "unsafeStateFamily": "stateful:redis:unsafe-neighbor",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "stateful-redis-module-native-state-refusal",
+    "remoteSourceTarget": "stateful-redis-module-native-state-refusal",
+    "description": "Goal 44 redis stable refusal for module-native-state.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/stateful-services/stateful-redis-module-native-state-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "stateful:redis:unsafe-neighbor",
+    "proofCategory": "goal44-stateful-refusal",
+    "expectedRefusalCode": "stateful-redis-module-native-state-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": ["stateful:goal44:redis:stateful-redis-module-native-state-unsupported"],
+    "capabilities": ["stateful:goal44:redis:stateful-redis-module-native-state-unsupported"],
+    "checkedSummary": "docs/snapshot/checked-summaries/stateful-services/stateful-redis-module-native-state-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "stateful-redis-module-native-state-unsupported",
+      "unsafeStateFamily": "stateful:redis:unsafe-neighbor",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "stateful-redis-pubsub-subscription-refusal",
+    "remoteSourceTarget": "stateful-redis-pubsub-subscription-refusal",
+    "description": "Goal 44 redis stable refusal for pubsub-subscription.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/stateful-services/stateful-redis-pubsub-subscription-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "stateful:redis:unsafe-neighbor",
+    "proofCategory": "goal44-stateful-refusal",
+    "expectedRefusalCode": "stateful-redis-pubsub-subscription-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": ["stateful:goal44:redis:stateful-redis-pubsub-subscription-unsupported"],
+    "capabilities": ["stateful:goal44:redis:stateful-redis-pubsub-subscription-unsupported"],
+    "checkedSummary": "docs/snapshot/checked-summaries/stateful-services/stateful-redis-pubsub-subscription-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "stateful-redis-pubsub-subscription-unsupported",
+      "unsafeStateFamily": "stateful:redis:unsafe-neighbor",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "stateful-redis-replication-state-refusal",
+    "remoteSourceTarget": "stateful-redis-replication-state-refusal",
+    "description": "Goal 44 redis stable refusal for replication-state.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/stateful-services/stateful-redis-replication-state-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "stateful:redis:unsafe-neighbor",
+    "proofCategory": "goal44-stateful-refusal",
+    "expectedRefusalCode": "stateful-redis-replication-state-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": ["stateful:goal44:redis:stateful-redis-replication-state-unsupported"],
+    "capabilities": ["stateful:goal44:redis:stateful-redis-replication-state-unsupported"],
+    "checkedSummary": "docs/snapshot/checked-summaries/stateful-services/stateful-redis-replication-state-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "stateful-redis-replication-state-unsupported",
+      "unsafeStateFamily": "stateful:redis:unsafe-neighbor",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "stateful-sqlite-active-transaction-refusal",
+    "remoteSourceTarget": "stateful-sqlite-active-transaction-refusal",
+    "description": "Goal 44 sqlite stable refusal for active-transaction.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/stateful-services/stateful-sqlite-active-transaction-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "stateful:sqlite:unsafe-neighbor",
+    "proofCategory": "goal44-stateful-refusal",
+    "expectedRefusalCode": "stateful-sqlite-active-transaction-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": [
+      "stateful:goal44:sqlite:stateful-sqlite-active-transaction-unsupported"
+    ],
+    "capabilities": ["stateful:goal44:sqlite:stateful-sqlite-active-transaction-unsupported"],
+    "checkedSummary": "docs/snapshot/checked-summaries/stateful-services/stateful-sqlite-active-transaction-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "stateful-sqlite-active-transaction-unsupported",
+      "unsafeStateFamily": "stateful:sqlite:unsafe-neighbor",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "stateful-sqlite-db-lock-refusal",
+    "remoteSourceTarget": "stateful-sqlite-db-lock-refusal",
+    "description": "Goal 44 sqlite stable refusal for db-lock.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/stateful-services/stateful-sqlite-db-lock-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "stateful:sqlite:unsafe-neighbor",
+    "proofCategory": "goal44-stateful-refusal",
+    "expectedRefusalCode": "stateful-sqlite-lock-held-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": ["stateful:goal44:sqlite:stateful-sqlite-lock-held-unsupported"],
+    "capabilities": ["stateful:goal44:sqlite:stateful-sqlite-lock-held-unsupported"],
+    "checkedSummary": "docs/snapshot/checked-summaries/stateful-services/stateful-sqlite-db-lock-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "stateful-sqlite-lock-held-unsupported",
+      "unsafeStateFamily": "stateful:sqlite:unsafe-neighbor",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "stateful-sqlite-host-mounted-db-refusal",
+    "remoteSourceTarget": "stateful-sqlite-host-mounted-db-refusal",
+    "description": "Goal 44 sqlite stable refusal for host-mounted-db.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/stateful-services/stateful-sqlite-host-mounted-db-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "stateful:sqlite:unsafe-neighbor",
+    "proofCategory": "goal44-stateful-refusal",
+    "expectedRefusalCode": "stateful-sqlite-host-mounted-db-ambiguous",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": ["stateful:goal44:sqlite:stateful-sqlite-host-mounted-db-ambiguous"],
+    "capabilities": ["stateful:goal44:sqlite:stateful-sqlite-host-mounted-db-ambiguous"],
+    "checkedSummary": "docs/snapshot/checked-summaries/stateful-services/stateful-sqlite-host-mounted-db-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "stateful-sqlite-host-mounted-db-ambiguous",
+      "unsafeStateFamily": "stateful:sqlite:unsafe-neighbor",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "stateful-sqlite-hot-rollback-journal-refusal",
+    "remoteSourceTarget": "stateful-sqlite-hot-rollback-journal-refusal",
+    "description": "Goal 44 sqlite stable refusal for hot-rollback-journal.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/stateful-services/stateful-sqlite-hot-rollback-journal-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "stateful:sqlite:unsafe-neighbor",
+    "proofCategory": "goal44-stateful-refusal",
+    "expectedRefusalCode": "stateful-sqlite-hot-rollback-journal-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": [
+      "stateful:goal44:sqlite:stateful-sqlite-hot-rollback-journal-unsupported"
+    ],
+    "capabilities": ["stateful:goal44:sqlite:stateful-sqlite-hot-rollback-journal-unsupported"],
+    "checkedSummary": "docs/snapshot/checked-summaries/stateful-services/stateful-sqlite-hot-rollback-journal-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "stateful-sqlite-hot-rollback-journal-unsupported",
+      "unsafeStateFamily": "stateful:sqlite:unsafe-neighbor",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "stateful-sqlite-hot-wal-refusal",
+    "remoteSourceTarget": "stateful-sqlite-hot-wal-refusal",
+    "description": "Goal 44 sqlite stable refusal for hot-wal.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/stateful-services/stateful-sqlite-hot-wal-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "stateful:sqlite:unsafe-neighbor",
+    "proofCategory": "goal44-stateful-refusal",
+    "expectedRefusalCode": "stateful-sqlite-hot-wal-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": ["stateful:goal44:sqlite:stateful-sqlite-hot-wal-unsupported"],
+    "capabilities": ["stateful:goal44:sqlite:stateful-sqlite-hot-wal-unsupported"],
+    "checkedSummary": "docs/snapshot/checked-summaries/stateful-services/stateful-sqlite-hot-wal-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "stateful-sqlite-hot-wal-unsupported",
+      "unsafeStateFamily": "stateful:sqlite:unsafe-neighbor",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "stateful-sqlite-mmap-dirty-state-refusal",
+    "remoteSourceTarget": "stateful-sqlite-mmap-dirty-state-refusal",
+    "description": "Goal 44 sqlite stable refusal for mmap-dirty-state.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/stateful-services/stateful-sqlite-mmap-dirty-state-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "stateful:sqlite:unsafe-neighbor",
+    "proofCategory": "goal44-stateful-refusal",
+    "expectedRefusalCode": "stateful-sqlite-mmap-state-ambiguous",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": ["stateful:goal44:sqlite:stateful-sqlite-mmap-state-ambiguous"],
+    "capabilities": ["stateful:goal44:sqlite:stateful-sqlite-mmap-state-ambiguous"],
+    "checkedSummary": "docs/snapshot/checked-summaries/stateful-services/stateful-sqlite-mmap-dirty-state-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "stateful-sqlite-mmap-state-ambiguous",
+      "unsafeStateFamily": "stateful:sqlite:unsafe-neighbor",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "stateful-sqlite-rollback-journal-restore",
+    "remoteSourceTarget": "stateful-sqlite-rollback-journal-restore",
+    "description": "Goal 44 sqlite clean/quiesced stateful restore proof.",
+    "sourceFixture": "checked-stateful:docs/snapshot/checked-summaries/stateful-services/stateful-sqlite-rollback-journal-restore.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "success",
+    "supportStatus": "baseline-success",
+    "unsafeStateFamily": "stateful:sqlite:clean-quiesced",
+    "expectedGates": ["descriptor", "resources", "verifier"],
+    "capabilities": ["stateful:goal44:sqlite:clean-restore"],
+    "checkedSummary": "docs/snapshot/checked-summaries/stateful-services/stateful-sqlite-rollback-journal-restore.json"
+  },
+  {
+    "name": "stateful-sqlite-unsynced-data-file-refusal",
+    "remoteSourceTarget": "stateful-sqlite-unsynced-data-file-refusal",
+    "description": "Goal 44 sqlite stable refusal for unsynced-data-file.",
+    "sourceFixture": "checked-refusal:docs/snapshot/checked-summaries/stateful-services/stateful-sqlite-unsynced-data-file-refusal.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "supportStatus": "intentional-refusal",
+    "unsafeStateFamily": "stateful:sqlite:unsafe-neighbor",
+    "proofCategory": "goal44-stateful-refusal",
+    "expectedRefusalCode": "stateful-sqlite-unsynced-data-file-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "expectedDescriptorGateCompleted": false,
+    "refusesCapabilities": [
+      "stateful:goal44:sqlite:stateful-sqlite-unsynced-data-file-unsupported"
+    ],
+    "capabilities": ["stateful:goal44:sqlite:stateful-sqlite-unsynced-data-file-unsupported"],
+    "checkedSummary": "docs/snapshot/checked-summaries/stateful-services/stateful-sqlite-unsynced-data-file-refusal.json",
+    "refusalSupportContract": {
+      "currentRefusalCode": "stateful-sqlite-unsynced-data-file-unsupported",
+      "unsafeStateFamily": "stateful:sqlite:unsafe-neighbor",
+      "graduationRequires": [
+        "versioned descriptor",
+        "target-native verifier",
+        "stable unsafe-neighbor regression",
+        "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ]
+    }
+  },
+  {
+    "name": "stateful-sqlite-wal-checkpoint-restore",
+    "remoteSourceTarget": "stateful-sqlite-wal-checkpoint-restore",
+    "description": "Goal 44 sqlite clean/quiesced stateful restore proof.",
+    "sourceFixture": "checked-stateful:docs/snapshot/checked-summaries/stateful-services/stateful-sqlite-wal-checkpoint-restore.json",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "success",
+    "supportStatus": "baseline-success",
+    "unsafeStateFamily": "stateful:sqlite:clean-quiesced",
+    "expectedGates": ["descriptor", "resources", "verifier"],
+    "capabilities": ["stateful:goal44:sqlite:clean-restore"],
+    "checkedSummary": "docs/snapshot/checked-summaries/stateful-services/stateful-sqlite-wal-checkpoint-restore.json"
   }
 ]

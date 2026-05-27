@@ -100,7 +100,9 @@
     "smoke-non-node-runtime-proof": "bash scripts/smoke/non-node-runtime-proof.sh",
     "smoke-non-node-cross-arch": "bash scripts/smoke/non-node-cross-arch.sh",
     "smoke-goal40-hard-runtime-state": "bash scripts/smoke/goal40-hard-runtime-state.sh",
+    "smoke-hard-runtime-refusal-contract": "bash scripts/smoke/hard-runtime-refusal-contract.sh",
     "smoke-go-quiescent-runtime": "bash scripts/smoke/go-quiescent-runtime.sh",
+    "smoke-stateful-services-proof": "bash scripts/smoke/stateful-services-proof.sh",
     "smoke-postgres-cross-arch-restore": "bash scripts/smoke/postgres-cross-arch-restore.sh",
     "smoke-postgres-machinen-restore": "bash scripts/smoke/postgres-machinen-restore.sh"
   },

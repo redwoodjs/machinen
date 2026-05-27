@@ -1,0 +1,49 @@
+{
+  "profile": "portable-machine-restore",
+  "state": "failed",
+  "remoteSourceTarget": "goal41-native-build-id-mismatch-refusal",
+  "targetRestore": {
+    "state": "refused",
+    "migrationCompleted": false,
+    "descriptorGateCompleted": false,
+    "targetVerifierResult": "not-run",
+    "refusal": {
+      "code": "runtime-native-extension-build-id-mismatch",
+      "message": "Native extension build ID mismatch"
+    },
+    "sourceTextReusedAsTargetCode": false,
+    "sourceIsaEmulationUsed": false,
+    "sidecarRuntimeUsed": false,
+    "appHooksRequired": false,
+    "metadataOnlyShortcutAccepted": false
+  },
+  "refusalUx": {
+    "code": "runtime-native-extension-build-id-mismatch",
+    "family": "native-extension",
+    "message": "Native extension build ID mismatch",
+    "explanation": "The target-native artifact identity differs from the captured build ID/digest.",
+    "affectedRuntimes": ["go", "jvm", "python", "ruby", "node"],
+    "currentBehavior": "stable refusal with migrationCompleted=false",
+    "remediation": "Disable opaque native state or provide a versioned native external-state contract with target-native reload/rebind verification.",
+    "graduationRequires": [
+      "binary path and digest",
+      "build ID or ABI identity",
+      "runtime ABI",
+      "target-native artifact",
+      "external-state contract version",
+      "reload/rebind verifier"
+    ],
+    "stableUntilPositiveProofGraduates": true
+  },
+  "securityInspection": {
+    "sourceIsaEmulationArtifactFound": false,
+    "sourceTextReplayArtifactFound": false,
+    "sidecarRuntimeArtifactFound": false,
+    "appHookArtifactFound": false,
+    "metadataOnlyShortcutAccepted": false,
+    "targetNativeExecutionRequired": true,
+    "passed": true
+  },
+  "proofDigest": "6316bd2b6c805302b5d0de9c24abf157c932ae4c6c587e188eb992948c26c976",
+  "timings": []
+}

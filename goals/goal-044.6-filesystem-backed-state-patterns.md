@@ -10,22 +10,22 @@ ambiguous.
 
 ## Requirements
 
-- [ ] Add audited filesystem-state fixtures and verifiers.
-- [ ] Prove append-only log restore: - fsynced append boundary; - deterministic replay verifier; - target manifest matches expected logical log state.
-- [ ] Prove atomic rename/checkpoint restore: - write temp file; - fsync temp; - atomic rename; - fsync parent directory; - target verifier confirms checkpoint state.
-- [ ] Prove directory manifest restore: - nested files; - content digests; - modes/ownership where supported; - target verifier output digest.
-- [ ] Add stable refusals for: - mmap-backed dirty state; - advisory/mandatory lock state; - unsynced append or temp file; - partial rename boundary; - host-mounted path with ambiguous flush/ownership; - external watcher/inotify state.
-- [ ] Reject source-ISA emulation, source text replay, sidecar runtime success,
+- [x] Add audited filesystem-state fixtures and verifiers.
+- [x] Prove append-only log restore: - fsynced append boundary; - deterministic replay verifier; - target manifest matches expected logical log state.
+- [x] Prove atomic rename/checkpoint restore: - write temp file; - fsync temp; - atomic rename; - fsync parent directory; - target verifier confirms checkpoint state.
+- [x] Prove directory manifest restore: - nested files; - content digests; - modes/ownership where supported; - target verifier output digest.
+- [x] Add stable refusals for: - mmap-backed dirty state; - advisory/mandatory lock state; - unsynced append or temp file; - partial rename boundary; - host-mounted path with ambiguous flush/ownership; - external watcher/inotify state.
+- [x] Reject source-ISA emulation, source text replay, sidecar runtime success,
       app hooks, and metadata-only continuation.
 
 ## Validation
 
-- [ ] Append-only log restore smoke.
-- [ ] Atomic rename/checkpoint restore smoke.
-- [ ] Directory manifest restore smoke.
-- [ ] Filesystem unsafe-neighbor refusal matrix.
-- [ ] Filesystem-state proof matrix preset.
-- [ ] Relevant static checks from Goal 44.
+- [x] Append-only log restore smoke.
+- [x] Atomic rename/checkpoint restore smoke.
+- [x] Directory manifest restore smoke.
+- [x] Filesystem unsafe-neighbor refusal matrix.
+- [x] Filesystem-state proof matrix preset.
+- [x] Relevant static checks from Goal 44.
 
 ## Completion criteria
 

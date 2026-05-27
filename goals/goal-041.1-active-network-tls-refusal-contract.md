@@ -19,14 +19,14 @@ portable transport and cryptographic-state contract.
 
 ## Requirements
 
-- [ ] Add canonical refusal metadata for each code: message, explanation,
+- [x] Add canonical refusal metadata for each code: message, explanation,
       remediation, and graduation requirements.
-- [ ] Add fixtures covering: - active TCP socket with unread inbound bytes; - bytes in flight; - HTTP keep-alive peer state; - WebSocket/framed stream boundary ambiguity; - TLS session keys and replay window opacity; - missing reconnect policy.
-- [ ] Assert every refusal reports: - `migrationCompleted=false`; - target state `refused`; - no target verifier success; - no source-ISA emulation; - no source text replay; - no sidecar runtime; - no app hook; - no metadata-only continuation.
-- [ ] Document safe remediation: close/drain sockets before snapshot, use
+- [x] Add fixtures covering: - active TCP socket with unread inbound bytes; - bytes in flight; - HTTP keep-alive peer state; - WebSocket/framed stream boundary ambiguity; - TLS session keys and replay window opacity; - missing reconnect policy.
+- [x] Assert every refusal reports: - `migrationCompleted=false`; - target state `refused`; - no target verifier success; - no source-ISA emulation; - no source text replay; - no sidecar runtime; - no app hook; - no metadata-only continuation.
+- [x] Document safe remediation: close/drain sockets before snapshot, use
       reconnect-after-restore policy, or provide an explicit future transport
       contract.
-- [ ] Add matrix coverage that fails on code drift or accidental support.
+- [x] Add matrix coverage that fails on code drift or accidental support.
 
 ## Completion criteria
 

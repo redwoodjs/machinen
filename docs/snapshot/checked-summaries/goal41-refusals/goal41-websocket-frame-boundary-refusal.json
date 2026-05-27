@@ -1,0 +1,47 @@
+{
+  "profile": "portable-machine-restore",
+  "state": "failed",
+  "remoteSourceTarget": "goal41-websocket-frame-boundary-refusal",
+  "targetRestore": {
+    "state": "refused",
+    "migrationCompleted": false,
+    "descriptorGateCompleted": false,
+    "targetVerifierResult": "not-run",
+    "refusal": {
+      "code": "runtime-network-websocket-frame-boundary-ambiguous",
+      "message": "WebSocket frame boundary is ambiguous"
+    },
+    "sourceTextReusedAsTargetCode": false,
+    "sourceIsaEmulationUsed": false,
+    "sidecarRuntimeUsed": false,
+    "appHooksRequired": false,
+    "metadataOnlyShortcutAccepted": false
+  },
+  "refusalUx": {
+    "code": "runtime-network-websocket-frame-boundary-ambiguous",
+    "family": "network",
+    "message": "WebSocket frame boundary is ambiguous",
+    "explanation": "Partial frames and peer parser state cannot be inferred from the local socket alone.",
+    "affectedRuntimes": ["node", "python", "ruby", "go", "jvm"],
+    "currentBehavior": "stable refusal with migrationCompleted=false",
+    "remediation": "Close or drain sockets before snapshot, or configure reconnect-after-restore with an explicit transport contract.",
+    "graduationRequires": [
+      "portable transport descriptor",
+      "peer-state contract",
+      "cryptographic/session verifier where applicable",
+      "target-native reconnect or replay proof"
+    ],
+    "stableUntilPositiveProofGraduates": true
+  },
+  "securityInspection": {
+    "sourceIsaEmulationArtifactFound": false,
+    "sourceTextReplayArtifactFound": false,
+    "sidecarRuntimeArtifactFound": false,
+    "appHookArtifactFound": false,
+    "metadataOnlyShortcutAccepted": false,
+    "targetNativeExecutionRequired": true,
+    "passed": true
+  },
+  "proofDigest": "10b3b4f129275399f0698d101efd286400356bd4426203e711acf7a721485229",
+  "timings": []
+}

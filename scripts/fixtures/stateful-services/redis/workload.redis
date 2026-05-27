@@ -1,0 +1,7 @@
+SET service:name machinen-redis
+SET counter 42
+HSET user:1 name Ada role engineer
+RPUSH jobs alpha beta gamma
+XADD events * type boot value 1
+XADD events * type checkpoint value 2
+SAVE

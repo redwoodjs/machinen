@@ -9,23 +9,23 @@ states, and refuse unsafe transactional or filesystem states.
 
 ## Requirements
 
-- [ ] Add audited SQLite fixtures with schema, seed data, workload, and verifier.
-- [ ] Prove rollback-journal mode clean restore.
-- [ ] Prove WAL mode clean checkpoint restore.
-- [ ] Verify indexes, constraints, transactions committed before snapshot, and
+- [x] Add audited SQLite fixtures with schema, seed data, workload, and verifier.
+- [x] Prove rollback-journal mode clean restore.
+- [x] Prove WAL mode clean checkpoint restore.
+- [x] Verify indexes, constraints, transactions committed before snapshot, and
       deterministic query output after restore.
-- [ ] Record provenance: - SQLite version; - database mode; - schema digest; - workload digest; - database/WAL/journal manifest digest; - verifier output digest.
-- [ ] Add stable refusals for: - active transaction; - hot WAL without checkpoint boundary; - hot rollback journal; - database lock held across snapshot; - mmap-backed state ambiguity; - unsynced data file; - host-mounted DB file ambiguity.
-- [ ] Reject source-ISA emulation, source text replay, sidecar runtime success,
+- [x] Record provenance: - SQLite version; - database mode; - schema digest; - workload digest; - database/WAL/journal manifest digest; - verifier output digest.
+- [x] Add stable refusals for: - active transaction; - hot WAL without checkpoint boundary; - hot rollback journal; - database lock held across snapshot; - mmap-backed state ambiguity; - unsynced data file; - host-mounted DB file ambiguity.
+- [x] Reject source-ISA emulation, source text replay, sidecar runtime success,
       app hooks, and metadata-only continuation.
 
 ## Validation
 
-- [ ] SQLite rollback-journal restore smoke.
-- [ ] SQLite WAL checkpoint restore smoke.
-- [ ] SQLite unsafe-neighbor refusal matrix.
-- [ ] SQLite proof matrix preset.
-- [ ] Relevant static checks from Goal 44.
+- [x] SQLite rollback-journal restore smoke.
+- [x] SQLite WAL checkpoint restore smoke.
+- [x] SQLite unsafe-neighbor refusal matrix.
+- [x] SQLite proof matrix preset.
+- [x] Relevant static checks from Goal 44.
 
 ## Completion criteria
 

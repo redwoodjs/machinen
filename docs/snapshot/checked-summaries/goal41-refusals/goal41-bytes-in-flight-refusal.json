@@ -1,0 +1,47 @@
+{
+  "profile": "portable-machine-restore",
+  "state": "failed",
+  "remoteSourceTarget": "goal41-bytes-in-flight-refusal",
+  "targetRestore": {
+    "state": "refused",
+    "migrationCompleted": false,
+    "descriptorGateCompleted": false,
+    "targetVerifierResult": "not-run",
+    "refusal": {
+      "code": "runtime-network-bytes-in-flight-unsupported",
+      "message": "Bytes in flight are unsupported"
+    },
+    "sourceTextReusedAsTargetCode": false,
+    "sourceIsaEmulationUsed": false,
+    "sidecarRuntimeUsed": false,
+    "appHooksRequired": false,
+    "metadataOnlyShortcutAccepted": false
+  },
+  "refusalUx": {
+    "code": "runtime-network-bytes-in-flight-unsupported",
+    "family": "network",
+    "message": "Bytes in flight are unsupported",
+    "explanation": "Packets already handed to the transport may be replayed, lost, or reordered after restore.",
+    "affectedRuntimes": ["node", "python", "ruby", "go", "jvm"],
+    "currentBehavior": "stable refusal with migrationCompleted=false",
+    "remediation": "Close or drain sockets before snapshot, or configure reconnect-after-restore with an explicit transport contract.",
+    "graduationRequires": [
+      "portable transport descriptor",
+      "peer-state contract",
+      "cryptographic/session verifier where applicable",
+      "target-native reconnect or replay proof"
+    ],
+    "stableUntilPositiveProofGraduates": true
+  },
+  "securityInspection": {
+    "sourceIsaEmulationArtifactFound": false,
+    "sourceTextReplayArtifactFound": false,
+    "sidecarRuntimeArtifactFound": false,
+    "appHookArtifactFound": false,
+    "metadataOnlyShortcutAccepted": false,
+    "targetNativeExecutionRequired": true,
+    "passed": true
+  },
+  "proofDigest": "4a017bb8f30c826d00f9f9cb0cfb6def8e9e92d284f27b542a8dc0a65e70f3fb",
+  "timings": []
+}

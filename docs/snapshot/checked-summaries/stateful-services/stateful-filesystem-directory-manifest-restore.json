@@ -1,0 +1,43 @@
+{
+  "profile": "portable-machine-restore",
+  "state": "completed",
+  "remoteSourceTarget": "stateful-filesystem-directory-manifest-restore",
+  "targetRestore": {
+    "state": "completed",
+    "migrationCompleted": true,
+    "descriptorGateCompleted": true,
+    "targetVerifierResult": "passed",
+    "targetResourceStatuses": [
+      {
+        "kind": "filesystem-directory-manifest-clean-restore",
+        "status": "passed"
+      }
+    ],
+    "sourceTextReusedAsTargetCode": false,
+    "sourceIsaEmulationUsed": false,
+    "sidecarRuntimeUsed": false,
+    "appHooksRequired": false
+  },
+  "service": "filesystem",
+  "statefulServiceProof": {
+    "pattern": "directory-manifest",
+    "version": "fixture-v1",
+    "architecture": "arm64",
+    "fixtureDigest": "9f862aef016c8a3e678a2aac681ebea8e25651ac8bbb1a5ef7eb022f9cc51702",
+    "sourceVerifierOutput": "3a0c973ad2fb636a7e72e7f373b8f80677cd8fe93d05bfddf51ac4bb4f65ac41",
+    "targetVerifierOutput": "3a0c973ad2fb636a7e72e7f373b8f80677cd8fe93d05bfddf51ac4bb4f65ac41",
+    "targetVerifierOutputSha256": "c3d7d1c5fb16955660af32e6b9746c8638af42f854a048086bee984a67642c57",
+    "dataManifestSha256": "3a0c973ad2fb636a7e72e7f373b8f80677cd8fe93d05bfddf51ac4bb4f65ac41",
+    "checkpointEvidence": "nested files written and fsynced before manifest capture"
+  },
+  "securityInspection": {
+    "sourceIsaEmulationArtifactFound": false,
+    "sourceTextReplayArtifactFound": false,
+    "sidecarRuntimeArtifactFound": false,
+    "appHookArtifactFound": false,
+    "metadataOnlyShortcutAccepted": false,
+    "targetNativeExecutionRequired": true,
+    "passed": true
+  },
+  "timings": []
+}

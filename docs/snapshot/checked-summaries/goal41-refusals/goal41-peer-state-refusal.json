@@ -1,0 +1,47 @@
+{
+  "profile": "portable-machine-restore",
+  "state": "failed",
+  "remoteSourceTarget": "goal41-peer-state-refusal",
+  "targetRestore": {
+    "state": "refused",
+    "migrationCompleted": false,
+    "descriptorGateCompleted": false,
+    "targetVerifierResult": "not-run",
+    "refusal": {
+      "code": "runtime-network-peer-state-unavailable",
+      "message": "Peer state is unavailable"
+    },
+    "sourceTextReusedAsTargetCode": false,
+    "sourceIsaEmulationUsed": false,
+    "sidecarRuntimeUsed": false,
+    "appHooksRequired": false,
+    "metadataOnlyShortcutAccepted": false
+  },
+  "refusalUx": {
+    "code": "runtime-network-peer-state-unavailable",
+    "family": "network",
+    "message": "Peer state is unavailable",
+    "explanation": "The remote endpoint's TCP/HTTP state cannot be captured by the local process.",
+    "affectedRuntimes": ["node", "python", "ruby", "go", "jvm"],
+    "currentBehavior": "stable refusal with migrationCompleted=false",
+    "remediation": "Close or drain sockets before snapshot, or configure reconnect-after-restore with an explicit transport contract.",
+    "graduationRequires": [
+      "portable transport descriptor",
+      "peer-state contract",
+      "cryptographic/session verifier where applicable",
+      "target-native reconnect or replay proof"
+    ],
+    "stableUntilPositiveProofGraduates": true
+  },
+  "securityInspection": {
+    "sourceIsaEmulationArtifactFound": false,
+    "sourceTextReplayArtifactFound": false,
+    "sidecarRuntimeArtifactFound": false,
+    "appHookArtifactFound": false,
+    "metadataOnlyShortcutAccepted": false,
+    "targetNativeExecutionRequired": true,
+    "passed": true
+  },
+  "proofDigest": "cc459dde93caa0017d0c7d3c6564309aced871c90ef021ba962e7e5628645b7a",
+  "timings": []
+}

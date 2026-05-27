@@ -1,0 +1,47 @@
+{
+  "profile": "portable-machine-restore",
+  "state": "failed",
+  "remoteSourceTarget": "goal41-go-select-race-refusal",
+  "targetRestore": {
+    "state": "refused",
+    "migrationCompleted": false,
+    "descriptorGateCompleted": false,
+    "targetVerifierResult": "not-run",
+    "refusal": {
+      "code": "runtime-go-select-race-ambiguous",
+      "message": "Go select race is ambiguous"
+    },
+    "sourceTextReusedAsTargetCode": false,
+    "sourceIsaEmulationUsed": false,
+    "sidecarRuntimeUsed": false,
+    "appHooksRequired": false,
+    "metadataOnlyShortcutAccepted": false
+  },
+  "refusalUx": {
+    "code": "runtime-go-select-race-ambiguous",
+    "family": "go-scheduler",
+    "message": "Go select race is ambiguous",
+    "explanation": "Competing select cases depend on scheduler timing not represented in the portable descriptor.",
+    "affectedRuntimes": ["go"],
+    "currentBehavior": "stable refusal with migrationCompleted=false",
+    "remediation": "Quiesce goroutines, drain channels, close netpoll waiters, avoid cgo, or restart at an application-level checkpoint.",
+    "graduationRequires": [
+      "runtime-versioned scheduler descriptor",
+      "target-native continuation boundary",
+      "quiescence/wakeup verifier",
+      "no runtime-private frame ambiguity"
+    ],
+    "stableUntilPositiveProofGraduates": true
+  },
+  "securityInspection": {
+    "sourceIsaEmulationArtifactFound": false,
+    "sourceTextReplayArtifactFound": false,
+    "sidecarRuntimeArtifactFound": false,
+    "appHookArtifactFound": false,
+    "metadataOnlyShortcutAccepted": false,
+    "targetNativeExecutionRequired": true,
+    "passed": true
+  },
+  "proofDigest": "3b9797c624866d4784bb19b2b16fed7c4327d62c4e0c78351203beb9988e579b",
+  "timings": []
+}

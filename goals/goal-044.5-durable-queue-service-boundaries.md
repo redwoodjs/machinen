@@ -18,20 +18,20 @@ Prefer a service available from local Debian packages or audited local assets:
 
 ## Requirements
 
-- [ ] Add audited queue fixtures with configuration, seed messages, workload, and
+- [x] Add audited queue fixtures with configuration, seed messages, workload, and
       verifier.
-- [ ] Prove a clean durable queue restore subset: - durable messages persisted; - no in-flight unacked delivery at snapshot; - consumers disconnected or quiesced; - target verifier confirms queue contents and ack state.
-- [ ] Record provenance: - service version; - architecture; - config digest; - workload digest; - persistence manifest; - verifier output digest.
-- [ ] Add stable refusals for: - in-flight delivery; - unacked message ambiguity; - active consumer session; - ephemeral queue/subscription state; - cluster/replication state; - plugin/native extension state; - host-mounted data directory ambiguity.
-- [ ] Reject source-ISA emulation, source text replay, sidecar runtime success,
+- [x] Prove a clean durable queue restore subset: - durable messages persisted; - no in-flight unacked delivery at snapshot; - consumers disconnected or quiesced; - target verifier confirms queue contents and ack state.
+- [x] Record provenance: - service version; - architecture; - config digest; - workload digest; - persistence manifest; - verifier output digest.
+- [x] Add stable refusals for: - in-flight delivery; - unacked message ambiguity; - active consumer session; - ephemeral queue/subscription state; - cluster/replication state; - plugin/native extension state; - host-mounted data directory ambiguity.
+- [x] Reject source-ISA emulation, source text replay, sidecar runtime success,
       app hooks, and metadata-only continuation.
 
 ## Validation
 
-- [ ] Durable queue clean restore smoke.
-- [ ] Durable queue unsafe-neighbor refusal matrix.
-- [ ] Durable queue proof matrix preset.
-- [ ] Relevant static checks from Goal 44.
+- [x] Durable queue clean restore smoke.
+- [x] Durable queue unsafe-neighbor refusal matrix.
+- [x] Durable queue proof matrix preset.
+- [x] Relevant static checks from Goal 44.
 
 ## Completion criteria
 

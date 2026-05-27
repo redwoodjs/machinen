@@ -20,17 +20,17 @@ absent, incomplete, or invalid.
 
 ## Requirements
 
-- [ ] Add canonical refusal metadata for each code: message, explanation,
+- [x] Add canonical refusal metadata for each code: message, explanation,
       remediation, and graduation requirements.
-- [ ] Add or harden fixtures for: - cgo C heap / pinned pointer state; - JNI global references / JVMTI-like agent state; - Ruby native gem retained `VALUE` state; - Python C-extension retained `PyObject` / capsule state; - native-owned file descriptors; - background native threads; - ABI or build-id drift; - missing explicit external-state contract.
-- [ ] Assert every refusal reports `migrationCompleted=false` and target state
+- [x] Add or harden fixtures for: - cgo C heap / pinned pointer state; - JNI global references / JVMTI-like agent state; - Ruby native gem retained `VALUE` state; - Python C-extension retained `PyObject` / capsule state; - native-owned file descriptors; - background native threads; - ABI or build-id drift; - missing explicit external-state contract.
+- [x] Assert every refusal reports `migrationCompleted=false` and target state
       `refused`.
-- [ ] Assert no source-ISA emulation, source text replay, sidecar runtime, app
+- [x] Assert no source-ISA emulation, source text replay, sidecar runtime, app
       hook, or metadata-only native-state claim is accepted.
-- [ ] Document future graduation requirements: binary path, digest, build ID or
+- [x] Document future graduation requirements: binary path, digest, build ID or
       ABI identity, runtime ABI, target-native artifact, external-state contract
       version, and reload/rebind verifier.
-- [ ] Add matrix coverage that fails on code drift or accidental support.
+- [x] Add matrix coverage that fails on code drift or accidental support.
 
 ## Completion criteria
 

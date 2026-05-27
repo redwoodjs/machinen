@@ -152,7 +152,10 @@ under `capabilities`. The families currently covered are:
   channels, and deterministic timers with bidirectional arm64/amd64 proof. Goal
   43 proves PostgreSQL clean/quiesced logical restore bidirectionally across
   arm64 and amd64 with target-native PostgreSQL, while unsafe database states and
-  physical data-directory cross-arch byte-copy remain stable refusals.
+  physical data-directory cross-arch byte-copy remain stable refusals. Goal 41
+  publishes durable user-facing refusal contracts for hard runtime states. Goal
+  44 adds a broad stateful-services matrix for Redis, SQLite, PostgreSQL,
+  MariaDB, durable queues, and filesystem-backed state patterns.
 - Remaining Node refusal resolution: the 73 profiles that still carried
   `runtime:node:*` refusal capabilities were graduated to target-native support.
   The Node runtime manifest now has 0 `runtime:node:*` refusal profiles and 281
@@ -166,7 +169,8 @@ unsafe families are:
 
 - sockets and active TCP/network connections outside the Goal 8/9 listener,
   explicit-broker, Goal 12 raw-ICMP loopback, or Goal 13 ping-socket loopback
-  contracts;
+  contracts; see `hard-runtime-refusal-catalog.md` for the Goal 41 stable
+  network/TLS refusal codes;
 - raw ICMP outside `raw-icmp-v1`, including missing capability, wrong namespace,
   stale route, non-loopback destinations, in-flight/unread packet ambiguity,
   unsupported socket options, BPF filters, `IP_HDRINCL`, ICMPv6, or hidden

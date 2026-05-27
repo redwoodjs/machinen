@@ -1,0 +1,47 @@
+{
+  "profile": "portable-machine-restore",
+  "state": "failed",
+  "remoteSourceTarget": "goal41-go-channel-waiter-refusal",
+  "targetRestore": {
+    "state": "refused",
+    "migrationCompleted": false,
+    "descriptorGateCompleted": false,
+    "targetVerifierResult": "not-run",
+    "refusal": {
+      "code": "runtime-go-channel-waiter-ambiguous",
+      "message": "Go channel waiter is ambiguous"
+    },
+    "sourceTextReusedAsTargetCode": false,
+    "sourceIsaEmulationUsed": false,
+    "sidecarRuntimeUsed": false,
+    "appHooksRequired": false,
+    "metadataOnlyShortcutAccepted": false
+  },
+  "refusalUx": {
+    "code": "runtime-go-channel-waiter-ambiguous",
+    "family": "go-scheduler",
+    "message": "Go channel waiter is ambiguous",
+    "explanation": "Send/receive queues cannot be recreated safely outside the bounded drained-channel subset.",
+    "affectedRuntimes": ["go"],
+    "currentBehavior": "stable refusal with migrationCompleted=false",
+    "remediation": "Quiesce goroutines, drain channels, close netpoll waiters, avoid cgo, or restart at an application-level checkpoint.",
+    "graduationRequires": [
+      "runtime-versioned scheduler descriptor",
+      "target-native continuation boundary",
+      "quiescence/wakeup verifier",
+      "no runtime-private frame ambiguity"
+    ],
+    "stableUntilPositiveProofGraduates": true
+  },
+  "securityInspection": {
+    "sourceIsaEmulationArtifactFound": false,
+    "sourceTextReplayArtifactFound": false,
+    "sidecarRuntimeArtifactFound": false,
+    "appHookArtifactFound": false,
+    "metadataOnlyShortcutAccepted": false,
+    "targetNativeExecutionRequired": true,
+    "passed": true
+  },
+  "proofDigest": "28d217e3f437e4bc976250b5b68d03d3473217ce803bb9115616d338a25ff042",
+  "timings": []
+}

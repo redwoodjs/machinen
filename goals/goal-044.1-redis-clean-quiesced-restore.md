@@ -9,21 +9,21 @@ stable refusals for unsafe Redis states.
 
 ## Requirements
 
-- [ ] Add an audited Redis fixture with configuration, seed data, workload, and
+- [x] Add an audited Redis fixture with configuration, seed data, workload, and
       verifier.
-- [ ] Cover persistence modes: - RDB snapshot; - AOF enabled with explicit fsync boundary; - clean shutdown/checkpoint evidence where applicable.
-- [ ] Prove logical data restoration after Machinen snapshot/restore: - strings; - hashes; - lists/streams where feasible; - TTL behavior if included in the support claim.
-- [ ] Record Redis provenance: - version; - architecture; - config digest; - RDB/AOF manifest digest; - workload digest; - verifier output digest.
-- [ ] Add stable refusals for: - active client session that must survive restore; - pub/sub subscriptions; - in-flight blocking commands; - dirty AOF without fsync boundary; - replication state; - module/native extension state; - host-mounted data dir ambiguity.
-- [ ] Reject source-ISA emulation, source text replay, sidecar runtime success,
+- [x] Cover persistence modes: - RDB snapshot; - AOF enabled with explicit fsync boundary; - clean shutdown/checkpoint evidence where applicable.
+- [x] Prove logical data restoration after Machinen snapshot/restore: - strings; - hashes; - lists/streams where feasible; - TTL behavior if included in the support claim.
+- [x] Record Redis provenance: - version; - architecture; - config digest; - RDB/AOF manifest digest; - workload digest; - verifier output digest.
+- [x] Add stable refusals for: - active client session that must survive restore; - pub/sub subscriptions; - in-flight blocking commands; - dirty AOF without fsync boundary; - replication state; - module/native extension state; - host-mounted data dir ambiguity.
+- [x] Reject source-ISA emulation, source text replay, sidecar runtime success,
       app hooks, and metadata-only continuation.
 
 ## Validation
 
-- [ ] Redis clean/quiesced restore smoke.
-- [ ] Redis unsafe-neighbor refusal matrix.
-- [ ] Redis proof matrix preset.
-- [ ] Relevant static checks from Goal 44.
+- [x] Redis clean/quiesced restore smoke.
+- [x] Redis unsafe-neighbor refusal matrix.
+- [x] Redis proof matrix preset.
+- [x] Relevant static checks from Goal 44.
 
 ## Completion criteria
 

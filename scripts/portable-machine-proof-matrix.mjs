@@ -281,6 +281,14 @@ const PRESETS = {
           "runtime:go:goal40:arbitrary-scheduler",
         ]),
     ),
+  "goal41-refusal": (profiles) =>
+    profiles.filter((profile) => hasAnyCapabilityPrefix(profile, ["runtime:goal41:"])),
+  "goal41-active-network-tls": (profiles) =>
+    profiles.filter((profile) => hasCapabilityPrefix(profile, "runtime:goal41:network:")),
+  "goal41-native-extension": (profiles) =>
+    profiles.filter((profile) => hasCapabilityPrefix(profile, "runtime:goal41:native-extension:")),
+  "goal41-go-scheduler": (profiles) =>
+    profiles.filter((profile) => hasCapabilityPrefix(profile, "runtime:goal41:go-scheduler:")),
   "go-quiescent-runtime": (profiles) =>
     profiles.filter((profile) => hasAnyCapabilityPrefix(profile, ["runtime:go:goal42:"])),
   "go-quiescent-positive": (profiles) =>
@@ -311,6 +319,30 @@ const PRESETS = {
         (profile.expectedResult === "refusal" &&
           hasAnyCapabilityPrefix(profile, ["runtime:postgres:goal43:"])),
     ),
+  "stateful-services": (profiles) =>
+    profiles.filter((profile) => hasCapabilityPrefix(profile, "stateful:goal44:")),
+  "stateful-services-positive": (profiles) =>
+    profiles.filter(
+      (profile) =>
+        profile.expectedResult === "success" && hasCapabilityPrefix(profile, "stateful:goal44:"),
+    ),
+  "stateful-services-refusal": (profiles) =>
+    profiles.filter(
+      (profile) =>
+        profile.expectedResult === "refusal" && hasCapabilityPrefix(profile, "stateful:goal44:"),
+    ),
+  "stateful-redis": (profiles) =>
+    profiles.filter((profile) => hasCapabilityPrefix(profile, "stateful:goal44:redis:")),
+  "stateful-sqlite": (profiles) =>
+    profiles.filter((profile) => hasCapabilityPrefix(profile, "stateful:goal44:sqlite:")),
+  "stateful-postgres": (profiles) =>
+    profiles.filter((profile) => hasCapabilityPrefix(profile, "stateful:goal44:postgres:")),
+  "stateful-mariadb": (profiles) =>
+    profiles.filter((profile) => hasCapabilityPrefix(profile, "stateful:goal44:mariadb:")),
+  "stateful-queue": (profiles) =>
+    profiles.filter((profile) => hasCapabilityPrefix(profile, "stateful:goal44:queue:")),
+  "stateful-filesystem": (profiles) =>
+    profiles.filter((profile) => hasCapabilityPrefix(profile, "stateful:goal44:filesystem:")),
   "node-blockers": (profiles) =>
     profiles.filter((profile) => hasCapabilityPrefix(profile, "runtime:node:blocker:")),
   "node-blockers-refusal": (profiles) =>
