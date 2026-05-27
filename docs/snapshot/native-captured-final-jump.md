@@ -25,7 +25,7 @@ proof must start from a real arm64 Linux capture.
 
 ## What it proves
 
-The source program in `packages/microvm/assets/native-final-jump-source.c` is not
+The source program in `packages/microvm/test-fixtures/proof-assets/native-final-jump-source.c` is not
 linked to Machinen and does not write a bundle. It only spins in user space with
 normal native state:
 

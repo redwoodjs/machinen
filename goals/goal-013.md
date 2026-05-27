@@ -70,7 +70,7 @@ exact contract must continue to refuse with stable codes and
 
 ## Tasks
 
-- [x] Add a real source fixture for a C ping-socket workload (`packages/microvm/assets/native-ping-socket-target.c`).
+- [x] Add a real source fixture for a C ping-socket workload (`packages/microvm/test-fixtures/proof-assets/native-ping-socket-target.c`).
 - [x] Decide and document that the first positive proof uses the fixture; distro `/bin/ping` remains future work unless capture stability is proven separately.
 - [x] Capture/classify ping-socket resources and reject unsupported neighboring states before descriptor/resource gates complete.
 - [x] Emit `ping-socket-v1` portable descriptor fields for the exact accepted loopback subset.
@@ -131,7 +131,7 @@ refusal profiles.
 ## Completed proof
 
 - profile: `real-ping-socket-loopback-recreate`;
-- fixture: `packages/microvm/assets/native-ping-socket-target.c`;
+- fixture: `packages/microvm/test-fixtures/proof-assets/native-ping-socket-target.c`;
 - accepted subset: `ping-socket-v1:loopback-echo-no-inflight`;
 - source socket flavor: IPv4 Linux ping socket (`AF_INET`, `SOCK_DGRAM`, `IPPROTO_ICMP`);
 - source capability environment: declared proof container on `friend@100.126.46.90` with `NET_RAW` dropped, `SYS_PTRACE` added for capture, and `net.ipv4.ping_group_range=0 2147483647`;

@@ -29,7 +29,7 @@ proof must start from a real arm64 Linux capture.
 ## What it proves
 
 The source and target program is
-`packages/microvm/assets/native-target-binary-continuation.c`.
+`packages/microvm/test-fixtures/proof-assets/native-target-binary-continuation.c`.
 
 The arm64 build is launched as a normal process and captured externally. It does
 not call Machinen and does not write a snapshot. At capture time:

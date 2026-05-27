@@ -15,7 +15,10 @@ import {
 } from "../target-guest-restore-loader.ts";
 
 const REPO_ROOT = resolve(import.meta.dirname, "../../../..");
-const LOADER_SOURCE = join(REPO_ROOT, "packages/microvm/assets/target-guest-restore-loader.c");
+const LOADER_SOURCE = join(
+  REPO_ROOT,
+  "packages/microvm/test-fixtures/proof-assets/target-guest-restore-loader.c",
+);
 const LOADER_PREFIX = "MACHINEN_TARGET_GUEST_RESTORE_LOADER ";
 const HAS_CC = spawnSync("cc", ["--version"], { stdio: "ignore" }).status === 0;
 

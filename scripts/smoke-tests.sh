@@ -21,8 +21,8 @@
 #   T5v    --mount-live :rw guest writes land on the host over virtio-fs — #332.
 #   T9v    filesystem-op battery over a virtio-fs live mount — #332.
 #   T4     --env propagates into the guest process env — #89.
-#   P1-P4  Base-rootfs contract (criu, portable proof workload,
-#          virtio modules, poweroff) — #77, #379.
+#   P1-P4  Base-rootfs/proof-fixture contract (criu, mounted portable
+#          proof workload, virtio modules, poweroff) — #77, #379.
 #   N1-N5  New #93 CLI surface: ls, exec, attach-unknown, completion,
 #          plus image-carries-cmd default.
 #   B0-B1  virtio-balloon free-page-reporting — #263.
@@ -1700,14 +1700,29 @@ else
 fi
 
 # ---- P4: portable proof workload prints deterministic state markers (#379) ----
-echo "P4: machinen boot -- portable proof checkpoint + restore loader"
+echo "P4: machinen boot -- mounted portable proof checkpoint + restore loader"
 P4_LOG="$FIXTURE/p4-portable-proof.log"
 P4_OUT="$FIXTURE/p4-portable-proof-out"
 mkdir -p "$P4_OUT"
 echo "portable-resource-marker" >"$P4_OUT/resource.txt"
+case "$GUEST_ARCH" in
+  arm64) P4_ZIG_TARGET="aarch64-linux-musl" ;;
+  amd64) P4_ZIG_TARGET="x86_64-linux-musl" ;;
+  *) fail "P4 — unknown guest arch $GUEST_ARCH" ;;
+esac
+zig cc "$ROOT/packages/microvm/test-fixtures/proof-assets/portable-proof-workload.c" \
+  -I "$ROOT/packages/microvm/test-fixtures/proof-assets" \
+  -target "$P4_ZIG_TARGET" \
+  -static \
+  -pthread \
+  -Os \
+  -o "$P4_OUT/machinen-portable-proof"
+cp "$ROOT/packages/microvm/test-fixtures/proof-assets/portable-restore-loader.sh" \
+  "$P4_OUT/machinen-portable-restore-proof"
+chmod +x "$P4_OUT/machinen-portable-proof" "$P4_OUT/machinen-portable-restore-proof"
 run_timeout 60 node "$CLI" boot \
   --mount-live "$P4_OUT:/mnt/portable-proof" \
-  -- /bin/sh -c '/usr/local/bin/machinen-portable-proof --restore-proof --resource-file /mnt/portable-proof/resource.txt --emit-bundle /mnt/portable-proof/bundle && /usr/local/bin/machinen-portable-restore-proof /mnt/portable-proof/bundle' \
+  -- /bin/sh -c '/mnt/portable-proof/machinen-portable-proof --restore-proof --resource-file /mnt/portable-proof/resource.txt --emit-bundle /mnt/portable-proof/bundle && /mnt/portable-proof/machinen-portable-restore-proof /mnt/portable-proof/bundle' \
   >"$P4_LOG" 2>&1 || true
 if node "$ROOT/scripts/portable-proof-compare.mjs" --expect-arch "$GUEST_ARCH" --require-restore --require-continue --bundle-dir "$P4_OUT/bundle" "$P4_LOG" >/dev/null; then
   pass "portable proof workload emitted a bundle and the restore loader replayed it"

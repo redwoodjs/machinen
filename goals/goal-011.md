@@ -261,7 +261,7 @@ Goal 11 is complete only when:
 Track 1 is the completed real workload proof for this goal:
 
 - profile: `real-private-multi-range-file-recreate`;
-- fixture: `packages/microvm/assets/native-private-multi-range-file-target.c`;
+- fixture: `packages/microvm/test-fixtures/proof-assets/native-private-multi-range-file-target.c`;
 - remote source: `friend@100.126.46.90` (`aarch64`);
 - remote target: `root@192.168.0.8` (`x86_64`);
 - target repo: `/tmp/machinen-goal11-current`;

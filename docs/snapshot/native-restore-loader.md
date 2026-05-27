@@ -18,7 +18,7 @@ pnpm native-restore-loader -- --out-dir /tmp/native-loader --keep --json
 
 ## What it proves
 
-The proof builds `packages/microvm/assets/native-restore-loader.c`, writes a
+The proof builds `packages/microvm/test-fixtures/proof-assets/native-restore-loader.c`, writes a
 synthetic native process image bundle, then asks the helper to:
 
 1. open `native-memory.bin`;

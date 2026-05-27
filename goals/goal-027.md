@@ -211,7 +211,7 @@ Implemented proof/profile artifacts:
 - 56 Node fail-closed live-capture negative profiles, covering all required
   unsupported states plus at least five negative neighbors for every graduated
   feature;
-- `packages/microvm/assets/node-runtime-support-harness.mjs` as the deterministic
+- `packages/microvm/test-fixtures/proof-assets/node-runtime-support-harness.mjs` as the deterministic
   Node source-capture fixture;
 - Node positive and negative concrete descriptor fixture records;
 - Node live source-capture registry records;

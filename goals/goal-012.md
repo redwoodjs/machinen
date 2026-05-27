@@ -64,7 +64,7 @@ to refuse with stable codes and `migrationCompleted=false`.
 
 ## Tasks
 
-- [x] Add a real source fixture for a small C ping/raw-ICMP workload (`packages/microvm/assets/native-raw-icmp-target.c`).
+- [x] Add a real source fixture for a small C ping/raw-ICMP workload (`packages/microvm/test-fixtures/proof-assets/native-raw-icmp-target.c`).
 - [x] Decide and document the first socket flavor: raw socket with `CAP_NET_RAW`; Linux ping sockets remain a neighboring refusal boundary.
 - [x] Capture/classify ICMP socket resources and reject unsupported neighboring states before descriptor/resource gates complete.
 - [x] Emit `raw-icmp-v1` portable descriptor fields for the exact accepted loopback subset.
@@ -126,7 +126,7 @@ ICMP states outside the completed `raw-icmp-v1` contract.
 ## Completed proof
 
 - profile: `real-raw-icmp-loopback-recreate`;
-- fixture: `packages/microvm/assets/native-raw-icmp-target.c`;
+- fixture: `packages/microvm/test-fixtures/proof-assets/native-raw-icmp-target.c`;
 - accepted subset: `raw-icmp-v1:loopback-echo-no-inflight`;
 - source socket flavor: IPv4 raw ICMP socket (`AF_INET`, `SOCK_RAW`, `IPPROTO_ICMP`) with `CAP_NET_RAW`;
 - source capability environment: declared proof container on `friend@100.126.46.90` with `NET_RAW` and `SYS_PTRACE`, used only to create/capture the real arm64 raw ICMP process;

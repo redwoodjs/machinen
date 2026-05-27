@@ -14,7 +14,10 @@ import {
 const MARKER = "MACHINEN_CONTROLLED_BINARY ";
 const FIXTURES = ["global", "heap", "stack", "continuation", "resource", "threads", "dwarf"];
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const SOURCE = join(REPO_ROOT, "packages/microvm/assets/controlled-binary-corpus.c");
+const SOURCE = join(
+  REPO_ROOT,
+  "packages/microvm/test-fixtures/proof-assets/controlled-binary-corpus.c",
+);
 const CROSS_TARGETS = [
   { arch: "arm64", triple: "aarch64-linux-musl", output: "machinen-controlled-corpus-linux-arm64" },
   { arch: "amd64", triple: "x86_64-linux-musl", output: "machinen-controlled-corpus-linux-amd64" },

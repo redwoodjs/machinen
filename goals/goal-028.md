@@ -220,7 +220,7 @@ concrete descriptors and forbidden success paths set to false.
 
 Implemented artifacts:
 
-- `packages/microvm/assets/invalidation-support-harness.mjs` deterministic
+- `packages/microvm/test-fixtures/proof-assets/invalidation-support-harness.mjs` deterministic
   invalidation source-capture fixture;
 - 16 invalidation valid-baseline concrete descriptor fixtures;
 - 67 invalidation refresh concrete descriptor fixtures that complete with

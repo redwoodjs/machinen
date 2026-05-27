@@ -76,7 +76,7 @@ Record timings for every command/proof:
 ## Completed proof
 
 - profile: `real-tcp-listener-recreate`;
-- fixture: `packages/microvm/assets/native-tcp-listener-target.c`;
+- fixture: `packages/microvm/test-fixtures/proof-assets/native-tcp-listener-target.c`;
 - remote source: `friend@100.126.46.90` (`aarch64`);
 - remote target: `root@192.168.0.8` (`x86_64`);
 - continuation sha256: `c61609289e6a5af6161115e71ac912839284fc21c1121711ec131f6de5dd87b1`;

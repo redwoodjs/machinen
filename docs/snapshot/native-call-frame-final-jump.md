@@ -31,7 +31,7 @@ proof must start from a real arm64 Linux capture.
 ## What it proves
 
 The source and target program is
-`packages/microvm/assets/native-call-frame-continuation.c`.
+`packages/microvm/test-fixtures/proof-assets/native-call-frame-continuation.c`.
 
 The arm64 source build is captured while:
 

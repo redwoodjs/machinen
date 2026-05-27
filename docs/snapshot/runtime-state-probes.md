@@ -6,7 +6,7 @@ The proof does not try to copy a Node or Bun heap. Instead, it builds a small ob
 
 ## Workloads
 
-The shared workload is `packages/microvm/assets/runtime-state-workload.mjs`.
+The shared workload is `packages/microvm/test-fixtures/proof-assets/runtime-state-workload.mjs`.
 
 It creates deterministic state:
 
@@ -52,5 +52,5 @@ pnpm runtime-state-probe
 Cross-ISA proof can be done by generating the Node bundle on arm64 and running the workload restore mode on amd64:
 
 ```sh
-node packages/microvm/assets/runtime-state-workload.mjs restore --bundle <bundle> --runtime node
+node packages/microvm/test-fixtures/proof-assets/runtime-state-workload.mjs restore --bundle <bundle> --runtime node
 ```

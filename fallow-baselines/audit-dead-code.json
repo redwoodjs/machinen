@@ -1,9 +1,9 @@
 {
   "unused_files": [
-    "packages/microvm/assets/invalidation-support-harness.mjs",
-    "packages/microvm/assets/node-application-support-harness.mjs",
-    "packages/microvm/assets/node-blocker-support-harness.mjs",
-    "packages/microvm/assets/node-runtime-support-harness.mjs",
+    "packages/microvm/test-fixtures/proof-assets/invalidation-support-harness.mjs",
+    "packages/microvm/test-fixtures/proof-assets/node-application-support-harness.mjs",
+    "packages/microvm/test-fixtures/proof-assets/node-blocker-support-harness.mjs",
+    "packages/microvm/test-fixtures/proof-assets/node-runtime-support-harness.mjs",
     "scripts/fixtures/node-ecosystem-registry/packages/audited-conditional-exports/src/require.cjs",
     "scripts/fixtures/node-ecosystem-registry/packages/audited-dual-package/src/index.cjs"
   ],

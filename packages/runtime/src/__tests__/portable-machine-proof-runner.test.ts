@@ -201,7 +201,7 @@ describe("portable machine proof runner", () => {
     expect(
       summary.profiles.find((profile: { name: string }) => profile.name === "file-writev"),
     ).toMatchObject({
-      sourceFixture: "packages/microvm/assets/native-file-writev-target.c",
+      sourceFixture: "packages/microvm/test-fixtures/proof-assets/native-file-writev-target.c",
       traceSyscall: "writev",
       traceFd: 43,
       expectedResult: "success",

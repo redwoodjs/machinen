@@ -14,96 +14,99 @@ import { runCommand } from "./proof-script-utils.mjs";
 export const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 export const CONTROLLED_SOURCE = join(
   REPO_ROOT,
-  "packages/microvm/assets/controlled-binary-corpus.c",
+  "packages/microvm/test-fixtures/proof-assets/controlled-binary-corpus.c",
 );
-export const CAPTURE_SOURCE = join(REPO_ROOT, "packages/microvm/assets/raw-process-capture.c");
+export const CAPTURE_SOURCE = join(
+  REPO_ROOT,
+  "packages/microvm/test-fixtures/proof-assets/raw-process-capture.c",
+);
 export const NATIVE_CAPTURE_SOURCE = join(
   REPO_ROOT,
-  "packages/microvm/assets/native-process-capture.c",
+  "packages/microvm/test-fixtures/proof-assets/native-process-capture.c",
 );
 export const NATIVE_CAPTURE_TARGET_SOURCE = join(
   REPO_ROOT,
-  "packages/microvm/assets/native-capture-target.c",
+  "packages/microvm/test-fixtures/proof-assets/native-capture-target.c",
 );
 export const NATIVE_MAPPING_POLICY_TARGET_SOURCE = join(
   REPO_ROOT,
-  "packages/microvm/assets/native-mapping-policy-target.c",
+  "packages/microvm/test-fixtures/proof-assets/native-mapping-policy-target.c",
 );
 export const NATIVE_MAPPING_MATERIALIZER_SOURCE = join(
   REPO_ROOT,
-  "packages/microvm/assets/native-mapping-materializer.c",
+  "packages/microvm/test-fixtures/proof-assets/native-mapping-materializer.c",
 );
 export const NATIVE_PIE_SHARED_MAIN_SOURCE = join(
   REPO_ROOT,
-  "packages/microvm/assets/native-pie-shared-main.c",
+  "packages/microvm/test-fixtures/proof-assets/native-pie-shared-main.c",
 );
 export const NATIVE_PIE_SHARED_LIB_SOURCE = join(
   REPO_ROOT,
-  "packages/microvm/assets/native-pie-shared-lib.c",
+  "packages/microvm/test-fixtures/proof-assets/native-pie-shared-lib.c",
 );
 export const NATIVE_RESTORE_LOADER_SOURCE = join(
   REPO_ROOT,
-  "packages/microvm/assets/native-restore-loader.c",
+  "packages/microvm/test-fixtures/proof-assets/native-restore-loader.c",
 );
 export const NATIVE_RESUME_TRAMPOLINE_SOURCE = join(
   REPO_ROOT,
-  "packages/microvm/assets/native-resume-trampoline.c",
+  "packages/microvm/test-fixtures/proof-assets/native-resume-trampoline.c",
 );
 export const NATIVE_ACTUAL_RESUME_TRAMPOLINE_SOURCE = join(
   REPO_ROOT,
-  "packages/microvm/assets/native-actual-resume-trampoline.c",
+  "packages/microvm/test-fixtures/proof-assets/native-actual-resume-trampoline.c",
 );
 export const TARGET_GUEST_RESTORE_LOADER_SOURCE = join(
   REPO_ROOT,
-  "packages/microvm/assets/target-guest-restore-loader.c",
+  "packages/microvm/test-fixtures/proof-assets/target-guest-restore-loader.c",
 );
 export const NATIVE_PPOLL_TIMEOUT_TARGET_SOURCE = join(
   REPO_ROOT,
-  "packages/microvm/assets/native-ppoll-timeout-target.c",
+  "packages/microvm/test-fixtures/proof-assets/native-ppoll-timeout-target.c",
 );
 export const NATIVE_PPOLL_PIPE_TIMEOUT_TARGET_SOURCE = join(
   REPO_ROOT,
-  "packages/microvm/assets/native-ppoll-pipe-timeout-target.c",
+  "packages/microvm/test-fixtures/proof-assets/native-ppoll-pipe-timeout-target.c",
 );
 export const NATIVE_PPOLL_EVENTFD_TIMEOUT_TARGET_SOURCE = join(
   REPO_ROOT,
-  "packages/microvm/assets/native-ppoll-eventfd-timeout-target.c",
+  "packages/microvm/test-fixtures/proof-assets/native-ppoll-eventfd-timeout-target.c",
 );
 export const NATIVE_PPOLL_TIMERFD_TIMEOUT_TARGET_SOURCE = join(
   REPO_ROOT,
-  "packages/microvm/assets/native-ppoll-timerfd-timeout-target.c",
+  "packages/microvm/test-fixtures/proof-assets/native-ppoll-timerfd-timeout-target.c",
 );
 export const NATIVE_FINAL_JUMP_SOURCE_TARGET_SOURCE = join(
   REPO_ROOT,
-  "packages/microvm/assets/native-final-jump-source.c",
+  "packages/microvm/test-fixtures/proof-assets/native-final-jump-source.c",
 );
 export const NATIVE_TARGET_BINARY_CONTINUATION_SOURCE = join(
   REPO_ROOT,
-  "packages/microvm/assets/native-target-binary-continuation.c",
+  "packages/microvm/test-fixtures/proof-assets/native-target-binary-continuation.c",
 );
 export const NATIVE_CALL_FRAME_CONTINUATION_SOURCE = join(
   REPO_ROOT,
-  "packages/microvm/assets/native-call-frame-continuation.c",
+  "packages/microvm/test-fixtures/proof-assets/native-call-frame-continuation.c",
 );
 export const NATIVE_DWARF_UNWIND_CONTINUATION_SOURCE = join(
   REPO_ROOT,
-  "packages/microvm/assets/native-dwarf-unwind-continuation.c",
+  "packages/microvm/test-fixtures/proof-assets/native-dwarf-unwind-continuation.c",
 );
 export const NATIVE_DEBUG_POINTER_CONTINUATION_SOURCE = join(
   REPO_ROOT,
-  "packages/microvm/assets/native-debug-pointer-continuation.c",
+  "packages/microvm/test-fixtures/proof-assets/native-debug-pointer-continuation.c",
 );
 export const NATIVE_HEAP_GRAPH_CONTINUATION_SOURCE = join(
   REPO_ROOT,
-  "packages/microvm/assets/native-heap-graph-continuation.c",
+  "packages/microvm/test-fixtures/proof-assets/native-heap-graph-continuation.c",
 );
 export const NATIVE_FILE_RESOURCE_CONTINUATION_SOURCE = join(
   REPO_ROOT,
-  "packages/microvm/assets/native-file-resource-continuation.c",
+  "packages/microvm/test-fixtures/proof-assets/native-file-resource-continuation.c",
 );
 export const NATIVE_NONFILE_RESOURCE_BOUNDARY_SOURCE = join(
   REPO_ROOT,
-  "packages/microvm/assets/native-nonfile-resource-boundary.c",
+  "packages/microvm/test-fixtures/proof-assets/native-nonfile-resource-boundary.c",
 );
 export const CONTROLLED_MARKER = "MACHINEN_CONTROLLED_BINARY ";
 export const NATIVE_PROCESS_IMAGE_BUNDLE_FILES = [

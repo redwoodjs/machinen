@@ -32,7 +32,7 @@ proof must start from a real arm64 Linux capture.
 ## What it proves
 
 The source and target program is
-`packages/microvm/assets/native-file-resource-continuation.c`.
+`packages/microvm/test-fixtures/proof-assets/native-file-resource-continuation.c`.
 
 The arm64 source build opens `native-file-resource.txt`, seeks to offset `9`, and
 stores the fd in page-aligned process state while:

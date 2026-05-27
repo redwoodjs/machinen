@@ -6,6 +6,11 @@ The one-command matrix runner is:
 pnpm --silent portable-machine-proof-matrix -- --preset foundation-full --json --summary ./proof-matrix.json
 ```
 
+Proof-only microVM fixture sources live under
+`packages/microvm/test-fixtures/proof-assets/`; production guest/base-image
+assets remain in `packages/microvm/assets/`. See
+[`proof-fixture-layout.md`](./proof-fixture-layout.md).
+
 Selection options can be combined:
 
 ```sh

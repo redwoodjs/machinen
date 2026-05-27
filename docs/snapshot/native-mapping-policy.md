@@ -15,7 +15,7 @@ On non-Linux hosts the proof skips because it needs `/proc/<pid>/maps`,
 ## What it proves
 
 The target program is
-`packages/microvm/assets/native-mapping-policy-target.c`. It creates a
+`packages/microvm/test-fixtures/proof-assets/native-mapping-policy-target.c`. It creates a
 `PROT_NONE` anonymous page and then spins as an unmodified native process. The
 external capturer stops it and emits a native process-image bundle.
 

@@ -865,7 +865,7 @@ artifact identities. The proof runner validates these live-capture records durin
 schema validation and emits source-capture provenance in proof summaries.
 
 A generic source fixture harness was added at
-`packages/microvm/assets/goal21-live-source-capture-harness.c` to provide real
+`packages/microvm/test-fixtures/proof-assets/goal21-live-source-capture-harness.c` to provide real
 syscall-backed live-state setup entry points for eventfd, timerfd, socket, and
 generic process-state families; each registry entry binds a profile to that
 source fixture and captured-state contract.

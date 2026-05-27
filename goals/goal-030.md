@@ -136,7 +136,7 @@ normal target-native restore gates with forbidden success paths set to false.
 
 Implemented artifacts:
 
-- `packages/microvm/assets/node-application-support-harness.mjs`;
+- `packages/microvm/test-fixtures/proof-assets/node-application-support-harness.mjs`;
 - 10 real Node app harnesses under `docs/snapshot/app-harnesses/`;
 - 10 `runtime:node:app:*` positive proof profiles;
 - 10 concrete positive descriptor fixture records;

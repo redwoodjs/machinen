@@ -377,7 +377,7 @@ these accepted contracts.
 
 Implemented artifacts:
 
-- `packages/microvm/assets/node-blocker-support-harness.mjs` deterministic Node
+- `packages/microvm/test-fixtures/proof-assets/node-blocker-support-harness.mjs` deterministic Node
   blocker source-capture fixture;
 - 81 former Node blocker refusal profiles converted to positive concrete
   descriptor fixtures;

@@ -69,7 +69,7 @@ Record timings for every command/proof:
 ## Completed proof
 
 - profile: `real-tcp-active-connection-transport-recreate`;
-- fixture: `packages/microvm/assets/native-tcp-active-target.c`;
+- fixture: `packages/microvm/test-fixtures/proof-assets/native-tcp-active-target.c`;
 - remote source: `friend@100.126.46.90` (`aarch64`);
 - remote target: `root@192.168.0.8` (`x86_64`);
 - declared broker: target-loopback peer, amd64, fd 57, proof-verifier-owned, no source dependency;
