@@ -51,6 +51,7 @@ export interface CleanServiceComponent {
   argv: string[];
   runtimeVersion: string;
   runtimePolicy?: CleanServiceRuntimePolicy;
+  kernelResources?: CleanServiceKernelResourceReport;
   guestPort: number;
   verifier: { kind: "http-get"; path: "/"; sha256: string; bytes: number };
   artifact: { path: string; sha256: string; bytes: number };
@@ -61,6 +62,14 @@ export interface CleanServiceComponent {
 export type CleanServiceCapture = CleanServiceManifest & {
   artifactBytesByPath: Record<string, Buffer>;
 };
+
+export interface CleanServiceKernelResourceReport {
+  decisionModel: "supported-irrelevant-refused";
+  supported: string[];
+  irrelevant: string[];
+  refused: string[];
+  summary: { supported: number; irrelevant: number; refused: number };
+}
 
 interface CleanServiceRefusal {
   code: string;
@@ -129,6 +138,7 @@ export const cleanServiceManifestSchema = {
           sourceCwd: { type: "string", minLength: 1 },
           argv: { type: "array", items: { type: "string" }, minItems: 1 },
           runtimeVersion: { type: "string" },
+          kernelResources: { type: "object", additionalProperties: true },
           runtimePolicy: {
             type: "object",
             required: ["compatibility", "provisioning", "remediation"],
@@ -379,6 +389,42 @@ export function normalizeCleanServiceRefusalCode(code: string): string {
     "python-native-extension-state-unsupported": "clean-service-native-extension-state-unsupported",
     "go-cgo-state-unsupported": "clean-service-native-extension-state-unsupported",
     "go-dynamic-binary-unsupported": "clean-service-native-extension-state-unsupported",
+    "node-open-fd-unsupported": "clean-service-open-fd-unsupported",
+    "python-open-fd-unsupported": "clean-service-open-fd-unsupported",
+    "go-open-fd-unsupported": "clean-service-open-fd-unsupported",
+    "node-deleted-open-file-unsupported": "clean-service-deleted-open-file-unsupported",
+    "python-deleted-open-file-unsupported": "clean-service-deleted-open-file-unsupported",
+    "go-deleted-open-file-unsupported": "clean-service-deleted-open-file-unsupported",
+    "node-unix-socket-unsupported": "clean-service-unix-socket-unsupported",
+    "python-unix-socket-unsupported": "clean-service-unix-socket-unsupported",
+    "go-unix-socket-unsupported": "clean-service-unix-socket-unsupported",
+    "node-unexpected-listener-unsupported": "clean-service-unexpected-listener-unsupported",
+    "python-unexpected-listener-unsupported": "clean-service-unexpected-listener-unsupported",
+    "go-unexpected-listener-unsupported": "clean-service-unexpected-listener-unsupported",
+    "node-epoll-state-unsupported": "clean-service-epoll-state-unsupported",
+    "python-epoll-state-unsupported": "clean-service-epoll-state-unsupported",
+    "go-epoll-state-unsupported": "clean-service-epoll-state-unsupported",
+    "node-eventfd-state-unsupported": "clean-service-eventfd-state-unsupported",
+    "python-eventfd-state-unsupported": "clean-service-eventfd-state-unsupported",
+    "go-eventfd-state-unsupported": "clean-service-eventfd-state-unsupported",
+    "node-timerfd-state-unsupported": "clean-service-timerfd-state-unsupported",
+    "python-timerfd-state-unsupported": "clean-service-timerfd-state-unsupported",
+    "go-timerfd-state-unsupported": "clean-service-timerfd-state-unsupported",
+    "node-signalfd-state-unsupported": "clean-service-signalfd-state-unsupported",
+    "python-signalfd-state-unsupported": "clean-service-signalfd-state-unsupported",
+    "go-signalfd-state-unsupported": "clean-service-signalfd-state-unsupported",
+    "node-shared-memory-unsupported": "clean-service-shared-memory-unsupported",
+    "python-shared-memory-unsupported": "clean-service-shared-memory-unsupported",
+    "go-shared-memory-unsupported": "clean-service-shared-memory-unsupported",
+    "node-mmapped-durable-state-unsupported": "clean-service-mmapped-durable-state-unsupported",
+    "python-mmapped-durable-state-unsupported": "clean-service-mmapped-durable-state-unsupported",
+    "go-mmapped-durable-state-unsupported": "clean-service-mmapped-durable-state-unsupported",
+    "node-process-topology-unsupported": "clean-service-process-topology-unsupported",
+    "python-process-topology-unsupported": "clean-service-process-topology-unsupported",
+    "go-process-topology-unsupported": "clean-service-process-topology-unsupported",
+    "node-mount-state-ambiguous": "clean-service-mount-state-ambiguous",
+    "python-mount-state-ambiguous": "clean-service-mount-state-ambiguous",
+    "go-mount-state-ambiguous": "clean-service-mount-state-ambiguous",
     "node-inspector-session-unsupported": "clean-service-runtime-private-state-unsupported",
     "python-thread-state-unsupported": "clean-service-runtime-private-state-unsupported",
     "go-executable-outside-root-unsupported": "clean-service-required-component-unsupported",
@@ -407,6 +453,18 @@ export function cleanServiceStableRefusalCodes(): string[] {
     "clean-service-runtime-identity-mismatch",
     "clean-service-runtime-policy-mismatch",
     "clean-service-host-mounted-state-ambiguous",
+    "clean-service-open-fd-unsupported",
+    "clean-service-deleted-open-file-unsupported",
+    "clean-service-unix-socket-unsupported",
+    "clean-service-unexpected-listener-unsupported",
+    "clean-service-epoll-state-unsupported",
+    "clean-service-eventfd-state-unsupported",
+    "clean-service-timerfd-state-unsupported",
+    "clean-service-signalfd-state-unsupported",
+    "clean-service-shared-memory-unsupported",
+    "clean-service-mmapped-durable-state-unsupported",
+    "clean-service-process-topology-unsupported",
+    "clean-service-mount-state-ambiguous",
     "clean-service-dirty-persistent-state-unsupported",
     "clean-service-native-extension-state-unsupported",
     "clean-service-runtime-private-state-unsupported",

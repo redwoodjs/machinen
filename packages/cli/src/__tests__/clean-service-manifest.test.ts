@@ -26,6 +26,13 @@ function manifest(componentOverrides: Record<string, unknown> = {}): CleanServic
         sourceCwd: "/opt/app",
         argv: ["node", "server.js"],
         runtimeVersion: "v24.11.1",
+        kernelResources: {
+          decisionModel: "supported-irrelevant-refused",
+          supported: ["clean-service-app-root-fd-captured"],
+          irrelevant: ["clean-service-stdio-fd-irrelevant"],
+          refused: [],
+          summary: { supported: 1, irrelevant: 1, refused: 0 },
+        },
         runtimePolicy: {
           compatibility: "exact-major-minor-patch-compatible",
           provisioning: "distro-package-set",
@@ -127,6 +134,12 @@ describe("clean-service runtime policy and refusal vocabulary", () => {
     );
     expect(normalizeCleanServiceRefusalCode("node-active-tcp-session-unsupported")).toBe(
       "clean-service-active-session-unsupported",
+    );
+    expect(normalizeCleanServiceRefusalCode("python-deleted-open-file-unsupported")).toBe(
+      "clean-service-deleted-open-file-unsupported",
+    );
+    expect(normalizeCleanServiceRefusalCode("go-dynamic-binary-unsupported")).toBe(
+      "clean-service-native-extension-state-unsupported",
     );
   });
 });

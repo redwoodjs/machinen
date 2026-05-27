@@ -2442,6 +2442,7 @@ function writeCleanServiceMeta(snapDir: string, manifest: CleanServiceManifest):
         artifactPath: component.artifact.path,
       },
       verifier: component.verifier,
+      kernelResources: component.kernelResources,
       refusalSemantics: {
         migrationCompleted: false,
         stableCodes: cleanServiceStableRefusalCodes(),

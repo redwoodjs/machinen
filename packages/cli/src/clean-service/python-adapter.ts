@@ -6,6 +6,7 @@ import {
   runtimePolicyFor,
   type CleanServiceCapture,
   type CleanServiceComponent,
+  type CleanServiceKernelResourceReport,
 } from "./manifest.ts";
 
 // fallow-ignore-next-line complexity
@@ -29,6 +30,7 @@ export async function inspectPortablePythonVm(
     pythonVersion?: string;
     guestPort?: number;
     verifier?: CleanServiceComponent["verifier"];
+    kernelResources?: CleanServiceKernelResourceReport;
     appTarBase64?: string;
   };
   if (parsed.refusal) {
@@ -57,6 +59,7 @@ export async function inspectPortablePythonVm(
         runtimePolicy: runtimePolicyFor("python"),
         guestPort: parsed.guestPort ?? guestPort,
         verifier: parsed.verifier!,
+        kernelResources: parsed.kernelResources,
         artifact: {
           path: artifactPath,
           sha256: opts.sha256Bytes(appBytes),
@@ -89,7 +92,10 @@ def read_cmdline(pid):
         return []
 
 def refusal(code, message):
-    print(json.dumps({'refusal': {'code': code, 'message': message}}))
+    payload = {'refusal': {'code': code, 'message': message}}
+    if 'kernel_resources' in globals():
+        payload['kernelResources'] = kernel_resources
+    print(json.dumps(payload))
     raise SystemExit(0)
 
 self_pid = str(os.getpid())
@@ -111,6 +117,14 @@ try:
     cwd = os.readlink(f"/proc/{found['pid']}/cwd")
 except OSError:
     raise SystemExit(2)
+kernel_resources = {'decisionModel': 'supported-irrelevant-refused', 'supported': [], 'irrelevant': [], 'refused': [], 'summary': {'supported': 0, 'irrelevant': 0, 'refused': 0}}
+def decision(kind, code):
+    kernel_resources[kind].append(code)
+    kernel_resources['summary'][kind] += 1
+
+def inside(path, root):
+    return path == root or path.startswith(root.rstrip('/') + '/')
+
 if cwd == '/mnt' or cwd.startswith('/mnt/'):
     refusal('python-host-mounted-state-ambiguous', 'Python cwd is on a host mount; dirty mounted state cannot be proven portable')
 try:
@@ -137,11 +151,42 @@ fd_dir = Path(f"/proc/{found['pid']}/fd")
 if fd_dir.exists():
     for fd in fd_dir.iterdir():
         try:
+            fd_num = int(fd.name)
             link = os.readlink(fd)
-        except OSError:
+        except Exception:
+            continue
+        if fd_num <= 2:
+            decision('irrelevant', 'clean-service-stdio-fd-irrelevant')
             continue
         if link.startswith('socket:[') and link.endswith(']'):
             socket_inodes.add(link[8:-1])
+            decision('supported', 'clean-service-socket-fd-modeled')
+            continue
+        if link.endswith(' (deleted)'):
+            refusal('python-deleted-open-file-unsupported', 'Deleted-but-open files are not portable clean-service state')
+        if link.startswith('pipe:['):
+            decision('supported', 'clean-service-runtime-pipe-recreated-by-startup')
+            continue
+        if link.startswith('fifo:['):
+            refusal('python-open-fd-unsupported', 'FIFOs require an explicit clean-service descriptor model')
+        if link == 'anon_inode:[eventpoll]':
+            decision('supported', 'clean-service-epoll-recreated-by-runtime-start')
+            continue
+        if link == 'anon_inode:[eventfd]':
+            decision('supported', 'clean-service-eventfd-recreated-by-runtime-start')
+            continue
+        if link == 'anon_inode:[timerfd]':
+            refusal('python-timerfd-state-unsupported', 'timerfd deadlines are not replayed by clean-service restore')
+        if link == 'anon_inode:[signalfd]':
+            refusal('python-signalfd-state-unsupported', 'signalfd and pending signal state are not modeled by clean-service restore')
+        if link.startswith('/') and inside(link, cwd):
+            decision('supported', 'clean-service-app-root-fd-captured')
+            continue
+        if link.startswith('/dev/'):
+            decision('irrelevant', 'clean-service-runtime-device-fd-irrelevant')
+            continue
+        if link.startswith('/'):
+            refusal('python-open-fd-unsupported', 'Open regular file outside the captured app root is not portable without provenance: ' + link)
 for net in ('/proc/net/tcp', '/proc/net/tcp6'):
     try:
         lines = Path(net).read_text().strip().splitlines()[1:]
@@ -149,8 +194,40 @@ for net in ('/proc/net/tcp', '/proc/net/tcp6'):
         continue
     for line in lines:
         cols = line.split()
-        if len(cols) > 9 and cols[9] in socket_inodes and cols[3] != '0A':
-            refusal('python-active-tcp-session-unsupported', 'Active TCP/TLS sessions are not portable in the Python clean-service subset yet')
+        if len(cols) > 9 and cols[9] in socket_inodes:
+            port = int(cols[1].split(':')[1], 16)
+            if cols[3] == '0A':
+                if port != ${guestPort}:
+                    refusal('python-unexpected-listener-unsupported', 'Listening socket is not declared by the clean-service verifier model')
+                decision('supported', 'clean-service-listener-rebound')
+            else:
+                refusal('python-active-tcp-session-unsupported', 'Active TCP/TLS sessions are not portable in the Python clean-service subset yet')
+try:
+    unix_lines = Path('/proc/net/unix').read_text().strip().splitlines()[1:]
+except Exception:
+    unix_lines = []
+for line in unix_lines:
+    cols = line.split()
+    if len(cols) > 6 and cols[6] in socket_inodes:
+        refusal('python-unix-socket-unsupported', 'Unix sockets require an explicit clean-service descriptor model')
+try:
+    map_lines = Path(f"/proc/{found['pid']}/maps").read_text().strip().splitlines()
+except Exception:
+    map_lines = []
+for line in map_lines:
+    cols = line.split()
+    if len(cols) < 6:
+        continue
+    perms = cols[1]
+    path = ' '.join(cols[5:])
+    if len(perms) > 3 and perms[1] == 'w' and perms[3] == 's':
+        refusal('python-shared-memory-unsupported', 'Writable shared mappings are not modeled by clean-service restore')
+    if any(part in path.lower() for part in ('/pg_wal/', '/wal/', 'sqlite', 'ib_logfile', '/mysql/', '/mariadb/')):
+        refusal('python-mmapped-durable-state-unsupported', 'Mmapped database or WAL files require a service-specific logical capture path')
+    if inside(path, cwd) and path.endswith(('.so', '.pyd')):
+        refusal('python-native-extension-state-unsupported', 'Python native extension state is architecture-specific and is not portable yet')
+    if path.startswith(('/lib/', '/usr/lib/', '/lib64/')):
+        decision('supported', 'clean-service-runtime-library-from-target-policy')
 try:
     body = subprocess.check_output(['curl', '-fsS', 'http://127.0.0.1:${guestPort}/'], text=False, timeout=5)
 except Exception:
@@ -166,6 +243,7 @@ out = {
     'pythonVersion': 'Python ' + sys.version.split()[0],
     'guestPort': ${guestPort},
     'verifier': {'kind': 'http-get', 'path': '/', 'sha256': hashlib.sha256(body).hexdigest(), 'bytes': len(body)},
+    'kernelResources': kernel_resources,
     'appTarBase64': app_b64,
 }
 print(json.dumps(out))

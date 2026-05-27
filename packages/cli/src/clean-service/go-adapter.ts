@@ -6,6 +6,7 @@ import {
   runtimePolicyFor,
   type CleanServiceCapture,
   type CleanServiceComponent,
+  type CleanServiceKernelResourceReport,
 } from "./manifest.ts";
 
 // fallow-ignore-next-line complexity
@@ -29,6 +30,7 @@ export async function inspectPortableGoVm(
     runtimeVersion?: string;
     guestPort?: number;
     verifier?: CleanServiceComponent["verifier"];
+    kernelResources?: CleanServiceKernelResourceReport;
     executableRelativePath?: string;
     appTarBase64?: string;
   };
@@ -58,6 +60,7 @@ export async function inspectPortableGoVm(
         runtimePolicy: runtimePolicyFor("go"),
         guestPort: parsed.guestPort ?? guestPort,
         verifier: parsed.verifier!,
+        kernelResources: parsed.kernelResources,
         artifact: {
           path: artifactPath,
           sha256: opts.sha256Bytes(appBytes),
@@ -107,10 +110,16 @@ cwd=$(readlink "/proc/$found_pid/cwd" 2>/dev/null || true)
 [ -n "$cwd" ] || exit 2
 case "$cwd" in /mnt|/mnt/*) refusal go-host-mounted-state-ambiguous 'Go cwd is on a host mount; dirty mounted state cannot be proven portable' ;; esac
 case "$found_exe" in "$cwd"/*) executable_relative=\${found_exe#"$cwd"/} ;; *) refusal go-executable-outside-root-unsupported 'Go executable must live inside the captured clean service root' ;; esac
-if command -v file >/dev/null 2>&1 && file "$found_exe" 2>/dev/null | grep -qi 'dynamically linked'; then
+if command -v readelf >/dev/null 2>&1; then
+  if readelf -l "$found_exe" 2>/dev/null | grep -q 'Requesting program interpreter'; then
+    refusal go-dynamic-binary-unsupported 'Go clean-service restore only supports statically linked target-native binaries without ELF PT_INTERP'
+  fi
+elif command -v file >/dev/null 2>&1 && file "$found_exe" 2>/dev/null | grep -qi 'dynamically linked'; then
   refusal go-dynamic-binary-unsupported 'Go clean-service restore only supports statically linked target-native binaries'
 fi
-if command -v strings >/dev/null 2>&1 && strings "$found_exe" 2>/dev/null | grep -q 'CGO_ENABLED=1'; then
+if command -v go >/dev/null 2>&1 && go version -m "$found_exe" 2>/dev/null | grep -q 'CGO_ENABLED=1'; then
+  refusal go-cgo-state-unsupported 'CGO/native library state is not portable in go-http-clean-root-v1'
+elif command -v strings >/dev/null 2>&1 && strings "$found_exe" 2>/dev/null | grep -q 'CGO_ENABLED=1'; then
   refusal go-cgo-state-unsupported 'CGO/native library state is not portable in go-http-clean-root-v1'
 fi
 for proc in /proc/[0-9]*; do
@@ -141,6 +150,7 @@ body_sha=$(sha256sum "$body_file" | awk '{print $1}')
 body_bytes=$(wc -c <"$body_file" | tr -d ' ')
 tar -C "$cwd" -czf "$tar_file" .
 app_b64=$(base64 <"$tar_file" | tr -d '\n')
+kernel_resources='{"decisionModel":"supported-irrelevant-refused","supported":["clean-service-go-static-elf-no-interpreter"],"irrelevant":[],"refused":[],"summary":{"supported":1,"irrelevant":0,"refused":0}}'
 runtime_version=static-go-binary
 if command -v strings >/dev/null 2>&1; then
   if strings "$found_exe" 2>/dev/null | grep -m1 '^go1\.' >/tmp/machinen-go-version.$$; then
@@ -158,6 +168,6 @@ tr '\0' '\n' <"/proc/$found_pid/cmdline" | while IFS= read -r arg; do
 done >/tmp/machinen-go-argv.$$
 argv_json="$argv_json$(cat /tmp/machinen-go-argv.$$)]"
 rm -f /tmp/machinen-go-argv.$$
-printf '{"sourceCwd":"%s","argv":%s,"runtimeVersion":"%s","guestPort":%s,"verifier":{"kind":"http-get","path":"/","sha256":"%s","bytes":%s},"executableRelativePath":"%s","appTarBase64":"%s"}\n' \
-  "$(printf '%s' "$cwd" | json_escape)" "$argv_json" "$(printf '%s' "$runtime_version" | json_escape)" "${guestPort}" "$body_sha" "$body_bytes" "$(printf '%s' "$executable_relative" | json_escape)" "$app_b64"`;
+printf '{"sourceCwd":"%s","argv":%s,"runtimeVersion":"%s","guestPort":%s,"verifier":{"kind":"http-get","path":"/","sha256":"%s","bytes":%s},"kernelResources":%s,"executableRelativePath":"%s","appTarBase64":"%s"}\n' \
+  "$(printf '%s' "$cwd" | json_escape)" "$argv_json" "$(printf '%s' "$runtime_version" | json_escape)" "${guestPort}" "$body_sha" "$body_bytes" "$kernel_resources" "$(printf '%s' "$executable_relative" | json_escape)" "$app_b64"`;
 }

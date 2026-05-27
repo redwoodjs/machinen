@@ -111,6 +111,7 @@
     "smoke-clean-service-python-product-snapshot-restore": "bash scripts/smoke/clean-service-python-product-snapshot-restore.sh",
     "smoke-clean-service-go-product-snapshot-restore": "bash scripts/smoke/clean-service-go-product-snapshot-restore.sh",
     "smoke-clean-service-cross-arch": "bash scripts/smoke/clean-service-cross-arch.sh",
+    "smoke-clean-service-kernel-state": "bash scripts/smoke/clean-service-kernel-state.sh",
     "product-portable-claim-matrix": "node scripts/product-portable-claim-matrix.mjs",
     "product-claim-registry-matrix": "node scripts/product-claim-registry-matrix.mjs"
   },
