@@ -25,6 +25,44 @@ AMD64_REMOTE_WORK=${PORTABLE_MACHINE_AMD64_WORK_DIR:-/tmp/machinen-portable-mach
 REMOTE_PORTABLE_BUNDLE="$AMD64_REMOTE_WORK/portable-machine"
 REMOTE_TARGET_CODE="$REMOTE_PORTABLE_BUNDLE/target/continuation.bin"
 
+master_audit_refusal_code() {
+  case "$1" in
+    socket-receive-queue-general-refusal|socket-send-queue-general-refusal|udp-datagram-queue-refusal|tcp-established-without-broker-refusal|namespace-routing-provenance-refusal|target-next-packet-unverified-refusal)
+      echo "target-socket-syscall-state-unsupported"
+      ;;
+    kqueue-readiness-refusal|file-lock-refusal|file-lease-refusal|timer-delivery-order-refusal|pipe-buffered-data-waiter-refusal|pipe-buffered-*-refusal|eventfd-waiter-alias-refusal)
+      echo "kernel-state-unsupported"
+      ;;
+    mmap-dirty-alias-refusal|dynamic-linker-state-refusal|deleted-executable-mapping-refusal)
+      echo "mapping-provenance-ambiguous"
+      ;;
+    huge-page-special-mapping-refusal)
+      echo "mapping-permission-unsupported"
+      ;;
+    simd-fpu-state-refusal|architecture-register-state-refusal)
+      echo "cross-isa-vmstate-restore-unsupported"
+      ;;
+    aslr-sensitive-pointer-refusal|stack-heap-edge-layout-refusal)
+      echo "mapping-captured-range-unsupported"
+      ;;
+    signal-handler-pc-stack-refusal)
+      echo "signal-state-unsupported"
+      ;;
+    thread-join-state-refusal)
+      echo "futex-state-unsupported"
+      ;;
+    thread-tls-edge-refusal)
+      echo "tls-state-unsupported"
+      ;;
+    vvar-time-source-refusal)
+      echo "vdso-policy-unsupported"
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 usage() {
   echo "usage: bash scripts/smoke/portable-machine-restore.sh [--json] [--dry-run] [--remote-e2e] [--keep] [--work-dir path]" >&2
   exit 2
@@ -352,21 +390,23 @@ capture_remote_native_process_bundle() {
   local start=$1
   ssh "$ARM64_SSH" "rm -rf '$ARM64_REMOTE_WORK' && mkdir -p '$ARM64_REMOTE_WORK/repo' '$ARM64_REMOTE_WORK/capture/bundle' '$ARM64_REMOTE_WORK/bin'"
   tar -czf - -C "$ROOT" \
-    packages/microvm/assets/native-process-capture.c \
-    packages/microvm/assets/native-eventfd-read-target.c \
-    packages/microvm/assets/native-file-read-target.c \
-    packages/microvm/assets/native-file-readv-target.c \
-    packages/microvm/assets/native-file-pread-target.c \
-    packages/microvm/assets/native-file-pwrite-target.c \
-    packages/microvm/assets/native-file-write-target.c \
-    packages/microvm/assets/native-file-writev-target.c \
-    packages/microvm/assets/native-private-multi-range-file-target.c \
-    packages/microvm/assets/native-tcp-listener-target.c \
-    packages/microvm/assets/native-tcp-active-target.c \
-    packages/microvm/assets/native-pipe-read-target.c \
-    packages/microvm/assets/native-ppoll-timeout-target.c \
-    packages/microvm/assets/native-timerfd-read-target.c \
-    packages/microvm/assets/native-two-thread-ppoll-target.c | \
+    packages/microvm/test-fixtures/proof-assets/native-process-capture.c \
+    packages/microvm/test-fixtures/proof-assets/native-eventfd-read-target.c \
+    packages/microvm/test-fixtures/proof-assets/native-file-read-target.c \
+    packages/microvm/test-fixtures/proof-assets/native-file-readv-target.c \
+    packages/microvm/test-fixtures/proof-assets/native-file-pread-target.c \
+    packages/microvm/test-fixtures/proof-assets/native-file-pwrite-target.c \
+    packages/microvm/test-fixtures/proof-assets/native-file-write-target.c \
+    packages/microvm/test-fixtures/proof-assets/native-file-writev-target.c \
+    packages/microvm/test-fixtures/proof-assets/native-private-multi-range-file-target.c \
+    packages/microvm/test-fixtures/proof-assets/native-tcp-listener-target.c \
+    packages/microvm/test-fixtures/proof-assets/native-tcp-active-target.c \
+    packages/microvm/test-fixtures/proof-assets/native-raw-icmp-target.c \
+    packages/microvm/test-fixtures/proof-assets/native-ping-socket-target.c \
+    packages/microvm/test-fixtures/proof-assets/native-pipe-read-target.c \
+    packages/microvm/test-fixtures/proof-assets/native-ppoll-timeout-target.c \
+    packages/microvm/test-fixtures/proof-assets/native-timerfd-read-target.c \
+    packages/microvm/test-fixtures/proof-assets/native-two-thread-ppoll-target.c | \
     ssh "$ARM64_SSH" "tar -xzf - -C '$ARM64_REMOTE_WORK/repo'"
   local target_binary target_detail
   case "$REMOTE_SOURCE_TARGET" in
@@ -418,6 +458,26 @@ capture_remote_native_process_bundle() {
       target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-tcp-active-target"
       target_detail="remote arm64 real active tcp stream native-process bundle captured from $ARM64_SSH"
       ;;
+    real-raw-icmp-loopback-recreate)
+      target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-raw-icmp-target"
+      target_detail="remote arm64 real raw ICMP loopback native-process bundle captured from $ARM64_SSH"
+      ;;
+    real-ping-socket-loopback-recreate)
+      target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-ping-socket-target"
+      target_detail="remote arm64 real ping socket loopback native-process bundle captured from $ARM64_SSH"
+      ;;
+    real-nonroot-ping-socket-loopback-recreate)
+      target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-ping-socket-target"
+      target_detail="remote arm64 non-root ping socket loopback native-process bundle captured from $ARM64_SSH"
+      ;;
+    real-distro-ping-socket-loopback-recreate)
+      target_binary="/usr/bin/ping"
+      target_detail="remote arm64 distro /usr/bin/ping socket loopback native-process bundle captured from $ARM64_SSH"
+      ;;
+    ping-socket-target-native-*-refusal|ping-socket-active-recvmsg-*-refusal)
+      target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-pipe-read-target"
+      target_detail="remote arm64 pipe read bundle with target-native ping socket refusal proof captured from $ARM64_SSH"
+      ;;
     timerfd-read)
       target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-timerfd-read-target"
       target_detail="remote arm64 timerfd read native-process bundle captured from $ARM64_SSH"
@@ -426,7 +486,7 @@ capture_remote_native_process_bundle() {
       target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-ppoll-timeout-target"
       target_detail="remote arm64 process-context native-process bundle captured from $ARM64_SSH"
       ;;
-    eventfd-counter-recreate)
+    eventfd-counter-recreate|eventfd-alias-counter-recreate|eventfd-alias-*-refusal)
       target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-pipe-read-target"
       target_detail="remote arm64 pipe read bundle with target eventfd counter descriptor proof captured from $ARM64_SSH"
       ;;
@@ -454,9 +514,9 @@ capture_remote_native_process_bundle() {
       target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-pipe-read-target"
       target_detail="remote arm64 pipe read bundle with target timerfd descriptor proof captured from $ARM64_SSH"
       ;;
-    pipe-pair-recreate)
+    pipe-pair-recreate|pipe-buffered-bytes-recreate)
       target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-pipe-read-target"
-      target_detail="remote arm64 pipe read bundle with target pipe pair descriptor proof captured from $ARM64_SSH"
+      target_detail="remote arm64 pipe read bundle with target pipe descriptor proof captured from $ARM64_SSH"
       ;;
     epoll-recreate)
       target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-pipe-read-target"
@@ -467,7 +527,12 @@ capture_remote_native_process_bundle() {
       target_detail="remote arm64 pipe read bundle with target signalfd descriptor proof captured from $ARM64_SSH"
       ;;
     *)
-      finish_failure "unsupported PORTABLE_MACHINE_REMOTE_SOURCE_TARGET=$REMOTE_SOURCE_TARGET"
+      if master_audit_refusal_code "$REMOTE_SOURCE_TARGET" >/dev/null; then
+        target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-pipe-read-target"
+        target_detail="remote arm64 pipe read bundle with target-native master-audit refusal proof captured from $ARM64_SSH"
+      else
+        finish_failure "unsupported PORTABLE_MACHINE_REMOTE_SOURCE_TARGET=$REMOTE_SOURCE_TARGET"
+      fi
       ;;
   esac
   local capture_command="'$ARM64_REMOTE_WORK/bin/machinen-native-process-capture' --output '$ARM64_REMOTE_WORK/capture/bundle' --target-arch amd64 --settle-ms 150 -- '$target_binary'"
@@ -487,11 +552,25 @@ capture_remote_native_process_bundle() {
     capture_command="'$ARM64_REMOTE_WORK/bin/machinen-native-process-capture' --output '$ARM64_REMOTE_WORK/capture/bundle' --target-arch amd64 --trace-syscall writev --trace-syscall-fd 43 -- '$target_binary'"
   elif [[ "$REMOTE_SOURCE_TARGET" == "real-private-multi-range-file-recreate" ]]; then
     capture_command="'$ARM64_REMOTE_WORK/bin/machinen-native-process-capture' --output '$ARM64_REMOTE_WORK/capture/bundle' --target-arch amd64 --trace-syscall read --trace-syscall-fd 38 -- '$target_binary'"
-  elif [[ "$REMOTE_SOURCE_TARGET" == "real-tcp-listener-recreate" || "$REMOTE_SOURCE_TARGET" == "real-tcp-listener-readiness-recreate" || "$REMOTE_SOURCE_TARGET" == "real-tcp-active-connection-transport-recreate" ]]; then
+  elif [[ "$REMOTE_SOURCE_TARGET" == "real-tcp-listener-recreate" || "$REMOTE_SOURCE_TARGET" == "real-tcp-listener-readiness-recreate" || "$REMOTE_SOURCE_TARGET" == "real-tcp-active-connection-transport-recreate" || "$REMOTE_SOURCE_TARGET" == "real-raw-icmp-loopback-recreate" || "$REMOTE_SOURCE_TARGET" == "real-ping-socket-loopback-recreate" ]]; then
     capture_command="'$ARM64_REMOTE_WORK/bin/machinen-native-process-capture' --output '$ARM64_REMOTE_WORK/capture/bundle' --target-arch amd64 --trace-syscall read --trace-syscall-fd 38 -- '$target_binary'"
+  elif [[ "$REMOTE_SOURCE_TARGET" == "real-nonroot-ping-socket-loopback-recreate" ]]; then
+    capture_command="'$ARM64_REMOTE_WORK/bin/machinen-native-process-capture' --output '$ARM64_REMOTE_WORK/capture/bundle' --target-arch amd64 --trace-syscall read --trace-syscall-fd 38 -- setpriv --reuid 1000 --regid 1000 --clear-groups '$target_binary'"
+  elif [[ "$REMOTE_SOURCE_TARGET" == "real-distro-ping-socket-loopback-recreate" ]]; then
+    capture_command="'$ARM64_REMOTE_WORK/bin/machinen-native-process-capture' --output '$ARM64_REMOTE_WORK/capture/bundle' --target-arch amd64 --settle-ms 1200 -- setpriv --reuid 1000 --regid 1000 --clear-groups '$target_binary' -i 10 127.0.0.1"
+  fi
+  local remote_capture_command="$capture_command > '$ARM64_REMOTE_WORK/capture.log'"
+  if [[ "$REMOTE_SOURCE_TARGET" == "real-raw-icmp-loopback-recreate" ]]; then
+    remote_capture_command="docker run --rm --network host --cap-add NET_RAW --cap-add SYS_PTRACE --security-opt seccomp=unconfined -v '$ARM64_REMOTE_WORK':'$ARM64_REMOTE_WORK' -w '$ARM64_REMOTE_WORK/repo' ubuntu:24.04 sh -lc \"$capture_command > '$ARM64_REMOTE_WORK/capture.log' && chmod -R a+rX '$ARM64_REMOTE_WORK/capture' '$ARM64_REMOTE_WORK/capture.log'\""
+  elif [[ "$REMOTE_SOURCE_TARGET" == "real-ping-socket-loopback-recreate" ]]; then
+    remote_capture_command="docker run --rm --sysctl net.ipv4.ping_group_range='0 2147483647' --cap-drop NET_RAW --cap-add SYS_PTRACE --security-opt seccomp=unconfined -v '$ARM64_REMOTE_WORK':'$ARM64_REMOTE_WORK' -w '$ARM64_REMOTE_WORK/repo' ubuntu:24.04 sh -lc \"$capture_command > '$ARM64_REMOTE_WORK/capture.log' && chmod -R a+rX '$ARM64_REMOTE_WORK/capture' '$ARM64_REMOTE_WORK/capture.log'\""
+  elif [[ "$REMOTE_SOURCE_TARGET" == "real-nonroot-ping-socket-loopback-recreate" ]]; then
+    remote_capture_command="docker run --rm --sysctl net.ipv4.ping_group_range='1000 1000' --cap-drop NET_RAW --cap-add SYS_PTRACE --security-opt seccomp=unconfined -v '$ARM64_REMOTE_WORK':'$ARM64_REMOTE_WORK' -w '$ARM64_REMOTE_WORK/repo' ubuntu:24.04 sh -lc \"$capture_command > '$ARM64_REMOTE_WORK/capture.log' && chmod -R a+rX '$ARM64_REMOTE_WORK/capture' '$ARM64_REMOTE_WORK/capture.log'\""
+  elif [[ "$REMOTE_SOURCE_TARGET" == "real-distro-ping-socket-loopback-recreate" ]]; then
+    remote_capture_command="if ! docker image inspect machinen-distro-ping-proof:ubuntu-24.04 >/dev/null 2>&1; then printf '%s\n' 'FROM ubuntu:24.04' 'RUN set -e; apt-get update >/dev/null; apt-get install -y --no-install-recommends iputils-ping strace util-linux libcap2-bin >/dev/null; setcap -r /usr/bin/ping || true; rm -rf /var/lib/apt/lists/*' | docker build -t machinen-distro-ping-proof:ubuntu-24.04 - >/dev/null; fi && docker run --rm --sysctl net.ipv4.ping_group_range='1000 1000' --cap-drop NET_RAW --cap-add SYS_PTRACE --security-opt seccomp=unconfined -v '$ARM64_REMOTE_WORK':'$ARM64_REMOTE_WORK' -w '$ARM64_REMOTE_WORK/repo' machinen-distro-ping-proof:ubuntu-24.04 sh -lc \"{ echo MACHINEN_DISTRO_PING_IMPL path=/usr/bin/ping image=machinen-distro-ping-proof:ubuntu-24.04; cat /proc/sys/net/ipv4/ping_group_range; timeout 3s setpriv --reuid 1000 --regid 1000 --clear-groups strace -f -e trace=socket,sendto,recvmsg -o /tmp/machinen-ping.strace /usr/bin/ping -i 10 127.0.0.1 >/tmp/machinen-ping.out 2>/tmp/machinen-ping.err || true; cat /tmp/machinen-ping.strace; $capture_command; } > '$ARM64_REMOTE_WORK/capture.log' && chmod -R a+rX '$ARM64_REMOTE_WORK/capture' '$ARM64_REMOTE_WORK/capture.log'\""
   fi
   ssh "$ARM64_SSH" \
-    "cd '$ARM64_REMOTE_WORK/repo' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-process-capture.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-process-capture' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-eventfd-read-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-eventfd-read-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-file-read-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-read-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-file-readv-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-readv-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-file-pread-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-pread-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-file-pwrite-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-pwrite-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-file-write-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-write-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-file-writev-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-writev-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-private-multi-range-file-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-private-multi-range-file-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-tcp-listener-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-tcp-listener-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-tcp-active-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-tcp-active-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-pipe-read-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-pipe-read-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-ppoll-timeout-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-ppoll-timeout-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-timerfd-read-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-timerfd-read-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror -pthread packages/microvm/assets/native-two-thread-ppoll-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-two-thread-ppoll-target' && $capture_command > '$ARM64_REMOTE_WORK/capture.log'"
+    "cd '$ARM64_REMOTE_WORK/repo' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/test-fixtures/proof-assets/native-process-capture.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-process-capture' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/test-fixtures/proof-assets/native-eventfd-read-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-eventfd-read-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/test-fixtures/proof-assets/native-file-read-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-read-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/test-fixtures/proof-assets/native-file-readv-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-readv-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/test-fixtures/proof-assets/native-file-pread-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-pread-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/test-fixtures/proof-assets/native-file-pwrite-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-pwrite-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/test-fixtures/proof-assets/native-file-write-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-write-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/test-fixtures/proof-assets/native-file-writev-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-writev-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/test-fixtures/proof-assets/native-private-multi-range-file-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-private-multi-range-file-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/test-fixtures/proof-assets/native-tcp-listener-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-tcp-listener-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/test-fixtures/proof-assets/native-tcp-active-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-tcp-active-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/test-fixtures/proof-assets/native-raw-icmp-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-raw-icmp-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/test-fixtures/proof-assets/native-ping-socket-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-ping-socket-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/test-fixtures/proof-assets/native-pipe-read-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-pipe-read-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/test-fixtures/proof-assets/native-ppoll-timeout-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-ppoll-timeout-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/test-fixtures/proof-assets/native-timerfd-read-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-timerfd-read-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror -pthread packages/microvm/test-fixtures/proof-assets/native-two-thread-ppoll-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-two-thread-ppoll-target' && $remote_capture_command"
   mkdir -p "$NATIVE_BUNDLE"
   ssh "$ARM64_SSH" "cat '$ARM64_REMOTE_WORK/capture.log'" >"$WORK/arm64-capture.log"
   ssh "$ARM64_SSH" "tar -czf - -C '$ARM64_REMOTE_WORK/capture/bundle' ." | \
@@ -547,6 +626,15 @@ run_target_restore() {
   if [[ "$REMOTE_SOURCE_TARGET" == "eventfd-counter-recreate" ]]; then
     resource_model_args=(--include-eventfd-counter-proof)
     resource_model_args_text="${resource_model_args[*]}"
+  elif [[ "$REMOTE_SOURCE_TARGET" == "eventfd-alias-counter-recreate" ]]; then
+    resource_model_args=(--include-eventfd-alias-proof)
+    resource_model_args_text="${resource_model_args[*]}"
+  elif [[ "$REMOTE_SOURCE_TARGET" == eventfd-alias-*-refusal ]]; then
+    resource_model_args=(--include-eventfd-alias-proof --eventfd-alias-expected-refusal-code kernel-state-unsupported --eventfd-alias-expected-refusal-reason "$REMOTE_SOURCE_TARGET" --expect-target-refusal-code kernel-state-unsupported)
+    resource_model_args_text="${resource_model_args[*]}"
+  elif master_refusal_code=$(master_audit_refusal_code "$REMOTE_SOURCE_TARGET"); then
+    resource_model_args=(--include-eventfd-alias-proof --eventfd-alias-expected-refusal-code "$master_refusal_code" --eventfd-alias-expected-refusal-reason "$REMOTE_SOURCE_TARGET" --expect-target-refusal-code "$master_refusal_code")
+    resource_model_args_text="${resource_model_args[*]}"
   elif [[ "$REMOTE_SOURCE_TARGET" == "eventfd-readiness-pollin-recreate" ]]; then
     resource_model_args=(--include-readiness-eventfd-poll-proof)
     resource_model_args_text="${resource_model_args[*]}"
@@ -568,6 +656,9 @@ run_target_restore() {
   elif [[ "$REMOTE_SOURCE_TARGET" == "pipe-pair-recreate" ]]; then
     resource_model_args=(--include-pipe-pair-proof)
     resource_model_args_text="${resource_model_args[*]}"
+  elif [[ "$REMOTE_SOURCE_TARGET" == "pipe-buffered-bytes-recreate" ]]; then
+    resource_model_args=(--include-pipe-buffered-proof)
+    resource_model_args_text="${resource_model_args[*]}"
   elif [[ "$REMOTE_SOURCE_TARGET" == "epoll-recreate" ]]; then
     resource_model_args=(--include-epoll-proof)
     resource_model_args_text="${resource_model_args[*]}"
@@ -582,6 +673,22 @@ run_target_restore() {
     resource_model_args_text="${resource_model_args[*]}"
   elif [[ "$REMOTE_SOURCE_TARGET" == "real-tcp-active-connection-transport-recreate" ]]; then
     resource_model_args=(--include-tcp-active-broker-proof)
+    resource_model_args_text="${resource_model_args[*]}"
+  elif [[ "$REMOTE_SOURCE_TARGET" == "real-raw-icmp-loopback-recreate" ]]; then
+    resource_model_args=(--include-raw-icmp-proof)
+    resource_model_args_text="${resource_model_args[*]}"
+  elif [[ "$REMOTE_SOURCE_TARGET" == "real-ping-socket-loopback-recreate" ]]; then
+    resource_model_args=(--include-ping-socket-proof)
+    resource_model_args_text="${resource_model_args[*]}"
+  elif [[ "$REMOTE_SOURCE_TARGET" == "real-nonroot-ping-socket-loopback-recreate" ]]; then
+    resource_model_args=(--include-ping-socket-proof --ping-socket-uid 1000 --ping-socket-gid 1000 --ping-socket-range-start 0 --ping-socket-range-end 2147483647 --ping-socket-adopt-credentials)
+    resource_model_args_text="${resource_model_args[*]}"
+  elif [[ "$REMOTE_SOURCE_TARGET" == "real-distro-ping-socket-loopback-recreate" ]]; then
+    resource_model_args=(--include-ping-socket-proof --ping-socket-uid 1000 --ping-socket-gid 1000 --ping-socket-range-start 0 --ping-socket-range-end 2147483647 --ping-socket-adopt-credentials --ping-socket-active-recvmsg-proof --ping-socket-active-recvmsg-source-fd 3)
+    resource_model_args_text="${resource_model_args[*]}"
+  elif [[ "$REMOTE_SOURCE_TARGET" == ping-socket-target-native-*-refusal || "$REMOTE_SOURCE_TARGET" == ping-socket-active-recvmsg-*-refusal ]]; then
+    local refusal_reason="$REMOTE_SOURCE_TARGET"
+    resource_model_args=(--include-ping-socket-proof --ping-socket-expected-refusal-code target-socket-syscall-state-unsupported --ping-socket-expected-refusal-reason "$refusal_reason" --expect-target-refusal-code target-socket-syscall-state-unsupported)
     resource_model_args_text="${resource_model_args[*]}"
   fi
   if [[ $REMOTE_E2E -eq 1 ]]; then

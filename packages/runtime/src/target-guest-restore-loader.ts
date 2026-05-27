@@ -53,9 +53,23 @@ export type TargetGuestRestoreResourceRecipe =
       access: 0 | 1 | 2;
       closeOnExec?: boolean;
     }
-  | { kind: "synthetic-empty-pipe"; readFd: number; writeFd?: number; closeOnExec?: boolean }
+  | {
+      kind: "synthetic-empty-pipe";
+      readFd: number;
+      writeFd?: number;
+      initialBytesHex?: string;
+      closeOnExec?: boolean;
+    }
   | { kind: "synthetic-empty-eventfd"; fd: number; closeOnExec?: boolean }
-  | { kind: "synthetic-eventfd"; fd: number; initialValue: string; closeOnExec?: boolean }
+  | {
+      kind: "synthetic-eventfd";
+      fd: number;
+      initialValue: string;
+      duplicateFd?: number;
+      expectedRefusalCode?: string;
+      expectedRefusalReason?: string;
+      closeOnExec?: boolean;
+    }
   | {
       kind: "synthetic-timerfd";
       fd: number;
@@ -94,6 +108,27 @@ export type TargetGuestRestoreResourceRecipe =
       brokerFd: number;
       port: number;
       initialPeerBytes: string;
+      closeOnExec?: boolean;
+    }
+  | {
+      kind: "synthetic-raw-icmp";
+      fd: number;
+      identifier: number;
+      sequence: number;
+      closeOnExec?: boolean;
+    }
+  | {
+      kind: "synthetic-ping-socket";
+      fd: number;
+      identifier: number;
+      sequence: number;
+      uid: number;
+      gid: number;
+      pingGroupRangeStart: number;
+      pingGroupRangeEnd: number;
+      adoptCredentials?: boolean;
+      expectedRefusalCode?: string;
+      expectedRefusalReason?: string;
       closeOnExec?: boolean;
     };
 
@@ -487,6 +522,7 @@ const RESOURCE_RECIPE_PARSERS: Record<
     kind: "synthetic-empty-pipe",
     readFd: parseResourceInteger(fields, "readFd"),
     writeFd: optionalResourceInteger(fields, "writeFd"),
+    initialBytesHex: fields.get("initialBytesHex"),
     closeOnExec: parseResourceBoolean(fields, "closeOnExec"),
   }),
   "synthetic-empty-eventfd": (fields) =>
@@ -497,6 +533,8 @@ const RESOURCE_RECIPE_PARSERS: Record<
   "synthetic-epoll": parseSyntheticEpollRecipe,
   "synthetic-tcp-listener": parseSyntheticTcpListenerRecipe,
   "synthetic-tcp-active-broker": parseSyntheticTcpActiveBrokerRecipe,
+  "synthetic-raw-icmp": parseSyntheticRawIcmpRecipe,
+  "synthetic-ping-socket": parseSyntheticPingSocketRecipe,
 };
 
 function resourceFromFields(
@@ -552,6 +590,9 @@ function parseSyntheticEventfdRecipe(
     kind: "synthetic-eventfd",
     fd: parseResourceInteger(fields, "fd"),
     initialValue: requiredResourceField(fields, "initialValue"),
+    duplicateFd: optionalResourceInteger(fields, "duplicateFd"),
+    expectedRefusalCode: fields.get("expectedRefusalCode"),
+    expectedRefusalReason: fields.get("expectedRefusalReason"),
     closeOnExec: parseResourceBoolean(fields, "closeOnExec"),
   };
 }
@@ -624,6 +665,37 @@ function parseSyntheticTcpActiveBrokerRecipe(
     brokerFd: parseResourceInteger(fields, "brokerFd"),
     port: parseResourceInteger(fields, "port"),
     initialPeerBytes: requiredResourceField(fields, "initialPeerBytes"),
+    closeOnExec: parseResourceBoolean(fields, "closeOnExec"),
+  };
+}
+
+function parseSyntheticRawIcmpRecipe(
+  fields: Map<string, string>,
+): TargetGuestRestoreResourceRecipe {
+  return {
+    kind: "synthetic-raw-icmp",
+    fd: parseResourceInteger(fields, "fd"),
+    identifier: parseResourceInteger(fields, "identifier"),
+    sequence: parseResourceInteger(fields, "sequence"),
+    closeOnExec: parseResourceBoolean(fields, "closeOnExec"),
+  };
+}
+
+function parseSyntheticPingSocketRecipe(
+  fields: Map<string, string>,
+): TargetGuestRestoreResourceRecipe {
+  return {
+    kind: "synthetic-ping-socket",
+    fd: parseResourceInteger(fields, "fd"),
+    identifier: parseResourceInteger(fields, "identifier"),
+    sequence: parseResourceInteger(fields, "sequence"),
+    uid: parseResourceInteger(fields, "uid"),
+    gid: parseResourceInteger(fields, "gid"),
+    pingGroupRangeStart: parseResourceInteger(fields, "pingGroupRangeStart"),
+    pingGroupRangeEnd: parseResourceInteger(fields, "pingGroupRangeEnd"),
+    adoptCredentials: parseResourceBoolean(fields, "adoptCredentials"),
+    expectedRefusalCode: fields.get("expectedRefusalCode"),
+    expectedRefusalReason: fields.get("expectedRefusalReason"),
     closeOnExec: parseResourceBoolean(fields, "closeOnExec"),
   };
 }
@@ -1069,6 +1141,24 @@ function parseNativeActiveSyscallStep(
       resumeMode: "defer-target-resume",
     };
   }
+  if (action === "restore-ping-socket-recvmsg-wait") {
+    return {
+      action,
+      threadId: requiredNativeField(fields, "threadId"),
+      fd: parseNativeInteger(fields, "fd"),
+      sourceFd: parseNativeInteger(fields, "sourceFd"),
+      messagePointer: requiredNativeField(fields, "messagePointer"),
+      iovLengthBytes: parseNativeInteger(fields, "iovLengthBytes"),
+      controlLengthBytes: parseNativeInteger(fields, "controlLengthBytes"),
+      receiveQueue: requiredNativeField(fields, "receiveQueue") as "empty",
+      inFlightPackets: requiredNativeField(fields, "inFlightPackets") as "none",
+      signalTimer: requiredNativeField(
+        fields,
+        "signalTimer",
+      ) as "no-pending-signal-frame-target-wait-preserved",
+      resumeMode: "defer-target-resume",
+    };
+  }
   return fail("target-guest-loader-descriptor-invalid", "unsupported native active-syscall action");
 }
 
@@ -1184,6 +1274,9 @@ const RESOURCE_RECIPE_VALIDATORS = {
     assertFd(recipe.readFd, "readFd");
     assertOptionalFd(recipe.writeFd, "writeFd");
     assertDistinctPipeFds(recipe);
+    if (recipe.initialBytesHex !== undefined) {
+      assertHexBytes(recipe.initialBytesHex, "initialBytesHex");
+    }
   },
   "synthetic-empty-eventfd": validateSingleFdRecipe,
   "synthetic-eventfd": validateSyntheticEventfdRecipe,
@@ -1192,6 +1285,8 @@ const RESOURCE_RECIPE_VALIDATORS = {
   "synthetic-epoll": validateSyntheticEpollRecipe,
   "synthetic-tcp-listener": validateSyntheticTcpListenerRecipe,
   "synthetic-tcp-active-broker": validateSyntheticTcpActiveBrokerRecipe,
+  "synthetic-raw-icmp": validateSyntheticRawIcmpRecipe,
+  "synthetic-ping-socket": validateSyntheticPingSocketRecipe,
 };
 
 function validateResourceRecipe(
@@ -1231,6 +1326,12 @@ function validateSyntheticEventfdRecipe(
   recipe: Extract<TargetGuestRestoreResourceRecipe, { kind: "synthetic-eventfd" }>,
 ): void {
   assertFd(recipe.fd, "fd");
+  if (recipe.duplicateFd !== undefined) {
+    assertFd(recipe.duplicateFd, "duplicateFd");
+    if (recipe.duplicateFd === recipe.fd) {
+      fail("target-guest-loader-descriptor-invalid", "eventfd duplicateFd must differ from fd");
+    }
+  }
   assertHexAddress(recipe.initialValue, "initialValue");
   const value = BigInt(recipe.initialValue);
   if (value > 0xfffffffffffffffen) {
@@ -1306,6 +1407,50 @@ function validateSyntheticTcpActiveBrokerRecipe(
   assertHexBytes(recipe.initialPeerBytes, "initialPeerBytes");
   if (recipe.fd === recipe.brokerFd) {
     fail("target-guest-loader-invalid-fd", "active TCP fd and broker fd must differ");
+  }
+}
+
+function validateSyntheticRawIcmpRecipe(
+  recipe: Extract<TargetGuestRestoreResourceRecipe, { kind: "synthetic-raw-icmp" }>,
+): void {
+  assertFd(recipe.fd, "fd");
+  assertIcmp16(recipe.identifier, "identifier");
+  assertIcmp16(recipe.sequence, "sequence");
+}
+
+function validateSyntheticPingSocketRecipe(
+  recipe: Extract<TargetGuestRestoreResourceRecipe, { kind: "synthetic-ping-socket" }>,
+): void {
+  assertFd(recipe.fd, "fd");
+  assertIcmp16(recipe.identifier, "identifier");
+  assertIcmp16(recipe.sequence, "sequence");
+  assertNonNegative(recipe.uid, "uid");
+  assertNonNegative(recipe.gid, "gid");
+  assertNonNegative(recipe.pingGroupRangeStart, "pingGroupRangeStart");
+  assertNonNegative(recipe.pingGroupRangeEnd, "pingGroupRangeEnd");
+  if (recipe.pingGroupRangeEnd < recipe.pingGroupRangeStart) {
+    fail("target-guest-loader-descriptor-invalid", "ping_group_range bounds are invalid");
+  }
+  if (recipe.gid < recipe.pingGroupRangeStart || recipe.gid > recipe.pingGroupRangeEnd) {
+    fail("target-guest-loader-descriptor-invalid", "gid is outside ping_group_range");
+  }
+  assertToken(recipe.expectedRefusalCode, "expectedRefusalCode");
+  assertToken(recipe.expectedRefusalReason, "expectedRefusalReason");
+}
+
+function assertToken(value: string | undefined, name: string): void {
+  if (value === undefined) {
+    return;
+  }
+  if (!/^[a-z0-9_.:-]+$/i.test(value)) {
+    fail("target-guest-loader-descriptor-invalid", `${name} contains unsupported characters`);
+  }
+}
+
+function assertIcmp16(value: number, name: string): void {
+  assertNonNegative(value, name);
+  if (value > 0xffff) {
+    fail("target-guest-loader-descriptor-invalid", `${name} must fit in 16 bits`);
   }
 }
 
@@ -1545,6 +1690,26 @@ function validateActiveSyscallRestoreStep(step: TargetGuestActiveSyscallRestoreS
       step.resource !== "synthetic-timerfd"
     ) {
       fail("target-guest-loader-invalid-continuation", "fd read resource is unsupported");
+    }
+    return;
+  }
+  if (step.action === "restore-ping-socket-recvmsg-wait") {
+    assertFd(step.fd, "fd");
+    assertFd(step.sourceFd, "sourceFd");
+    assertHexAddress(step.messagePointer, "messagePointer");
+    assertPositive(step.iovLengthBytes, "iovLengthBytes");
+    assertNonNegative(step.controlLengthBytes, "controlLengthBytes");
+    if (step.receiveQueue !== "empty" || step.inFlightPackets !== "none") {
+      fail(
+        "target-guest-loader-invalid-continuation",
+        "ping recvmsg wait must be empty/no-inflight",
+      );
+    }
+    if (step.signalTimer !== "no-pending-signal-frame-target-wait-preserved") {
+      fail(
+        "target-guest-loader-invalid-continuation",
+        "ping recvmsg signal timer policy is unsupported",
+      );
     }
     return;
   }
@@ -1851,13 +2016,15 @@ function serializeResourceRecipe(recipe: TargetGuestRestoreResourceRecipe): stri
   }
   if (recipe.kind === "synthetic-empty-pipe") {
     const writeFd = recipe.writeFd === undefined ? "" : ` writeFd=${recipe.writeFd}`;
-    return `resource=synthetic-empty-pipe readFd=${recipe.readFd}${writeFd}${serializeCloseOnExec(recipe.closeOnExec)}`;
+    const initialBytes =
+      recipe.initialBytesHex === undefined ? "" : ` initialBytesHex=${recipe.initialBytesHex}`;
+    return `resource=synthetic-empty-pipe readFd=${recipe.readFd}${writeFd}${initialBytes}${serializeCloseOnExec(recipe.closeOnExec)}`;
   }
   if (recipe.kind === "synthetic-empty-eventfd") {
     return `resource=synthetic-empty-eventfd fd=${recipe.fd}${serializeCloseOnExec(recipe.closeOnExec)}`;
   }
   if (recipe.kind === "synthetic-eventfd") {
-    return `resource=synthetic-eventfd fd=${recipe.fd} initialValue=${recipe.initialValue}${serializeCloseOnExec(recipe.closeOnExec)}`;
+    return `resource=synthetic-eventfd fd=${recipe.fd} initialValue=${recipe.initialValue}${serializeOptionalNumber("duplicateFd", recipe.duplicateFd)}${serializeOptionalString("expectedRefusalCode", recipe.expectedRefusalCode)}${serializeOptionalString("expectedRefusalReason", recipe.expectedRefusalReason)}${serializeCloseOnExec(recipe.closeOnExec)}`;
   }
   if (recipe.kind === "synthetic-timerfd") {
     return `resource=synthetic-timerfd ${timerfdResourceFields(recipe)}${serializeCloseOnExec(recipe.closeOnExec)}`;
@@ -1871,6 +2038,12 @@ function serializeResourceRecipe(recipe: TargetGuestRestoreResourceRecipe): stri
   if (recipe.kind === "synthetic-tcp-active-broker") {
     return `resource=synthetic-tcp-active-broker fd=${recipe.fd} brokerFd=${recipe.brokerFd} port=${recipe.port} initialPeerBytes=${recipe.initialPeerBytes}${serializeCloseOnExec(recipe.closeOnExec)}`;
   }
+  if (recipe.kind === "synthetic-raw-icmp") {
+    return `resource=synthetic-raw-icmp fd=${recipe.fd} identifier=${recipe.identifier} sequence=${recipe.sequence}${serializeCloseOnExec(recipe.closeOnExec)}`;
+  }
+  if (recipe.kind === "synthetic-ping-socket") {
+    return `resource=synthetic-ping-socket fd=${recipe.fd} identifier=${recipe.identifier} sequence=${recipe.sequence} uid=${recipe.uid} gid=${recipe.gid} pingGroupRangeStart=${recipe.pingGroupRangeStart} pingGroupRangeEnd=${recipe.pingGroupRangeEnd}${serializeOptionalBoolean("adoptCredentials", recipe.adoptCredentials)}${serializeOptionalString("expectedRefusalCode", recipe.expectedRefusalCode)}${serializeOptionalString("expectedRefusalReason", recipe.expectedRefusalReason)}${serializeCloseOnExec(recipe.closeOnExec)}`;
+  }
   return `resource=synthetic-epoll fd=${recipe.fd} watchCount=${recipe.watches.length}${recipe.watches
     .flatMap((watch, index) => [
       `watch${index}Fd=${watch.fd}`,
@@ -1882,7 +2055,19 @@ function serializeResourceRecipe(recipe: TargetGuestRestoreResourceRecipe): stri
 }
 
 function serializeCloseOnExec(value: boolean | undefined): string {
-  return value === undefined ? "" : ` closeOnExec=${value ? "true" : "false"}`;
+  return serializeOptionalBoolean("closeOnExec", value);
+}
+
+function serializeOptionalBoolean(name: string, value: boolean | undefined): string {
+  return value === undefined ? "" : ` ${name}=${value ? "true" : "false"}`;
+}
+
+function serializeOptionalString(name: string, value: string | undefined): string {
+  return value === undefined ? "" : ` ${name}=${value}`;
+}
+
+function serializeOptionalNumber(name: string, value: number | undefined): string {
+  return value === undefined ? "" : ` ${name}=${value}`;
 }
 
 function serializeMemoryEntry(entry: TargetGuestMemoryMaterializationEntry): string {
@@ -2010,6 +2195,9 @@ function serializeActiveSyscallStep(step: TargetGuestActiveSyscallRestoreStep): 
       : "";
     return `native=active-syscall action=${step.action} threadId=${step.threadId} fd=${step.fd} countBytes=${step.countBytes} resource=${step.resource}${remainingTime} resumeMode=${step.resumeMode}`;
   }
+  if (step.action === "restore-ping-socket-recvmsg-wait") {
+    return `native=active-syscall action=${step.action} threadId=${step.threadId} fd=${step.fd} sourceFd=${step.sourceFd} messagePointer=${step.messagePointer} iovLengthBytes=${step.iovLengthBytes} controlLengthBytes=${step.controlLengthBytes} receiveQueue=${step.receiveQueue} inFlightPackets=${step.inFlightPackets} signalTimer=${step.signalTimer} resumeMode=${step.resumeMode}`;
+  }
   const base = `native=active-syscall action=${step.action} threadId=${step.threadId} seconds=${step.remainingTime.seconds} nanoseconds=${step.remainingTime.nanoseconds} resumeMode=${step.resumeMode}`;
   return step.action === "rearm-sleep-timer"
     ? `${base} syscallName=${step.syscallName}`
@@ -2086,9 +2274,23 @@ function resourceToTrampolineArgs(recipe: TargetGuestRestoreResourceRecipe): str
       ...closeOnExecArgs(recipe.fd, recipe.closeOnExec),
     ];
   }
+  if (recipe.kind === "synthetic-tcp-active-broker") {
+    return [
+      "--synthetic-tcp-active-broker",
+      tcpActiveBrokerResourceSpec(recipe),
+      ...closeOnExecArgs(recipe.fd, recipe.closeOnExec),
+    ];
+  }
+  if (recipe.kind === "synthetic-raw-icmp") {
+    return [
+      "--synthetic-raw-icmp",
+      rawIcmpResourceSpec(recipe),
+      ...closeOnExecArgs(recipe.fd, recipe.closeOnExec),
+    ];
+  }
   return [
-    "--synthetic-tcp-active-broker",
-    tcpActiveBrokerResourceSpec(recipe),
+    "--synthetic-ping-socket",
+    pingSocketResourceSpec(recipe),
     ...closeOnExecArgs(recipe.fd, recipe.closeOnExec),
   ];
 }
@@ -2096,7 +2298,17 @@ function resourceToTrampolineArgs(recipe: TargetGuestRestoreResourceRecipe): str
 function eventfdResourceSpec(
   recipe: Extract<TargetGuestRestoreResourceRecipe, { kind: "synthetic-eventfd" }>,
 ): string {
-  return [`fd=${recipe.fd}`, `initialValue=${recipe.initialValue}`].join(";");
+  return [
+    `fd=${recipe.fd}`,
+    `initialValue=${recipe.initialValue}`,
+    ...optionalSemicolonField("duplicateFd", recipe.duplicateFd),
+    ...optionalSemicolonField("expectedRefusalCode", recipe.expectedRefusalCode),
+    ...optionalSemicolonField("expectedRefusalReason", recipe.expectedRefusalReason),
+  ].join(";");
+}
+
+function optionalSemicolonField(name: string, value: string | number | undefined): string[] {
+  return value === undefined ? [] : [`${name}=${value}`];
 }
 
 function timerfdResourceFields(
@@ -2164,10 +2376,50 @@ function tcpActiveBrokerResourceSpec(
   ].join(";");
 }
 
-function pipeResourceArgs(recipe: { readFd: number; writeFd?: number }): string[] {
+function rawIcmpResourceSpec(
+  recipe: Extract<TargetGuestRestoreResourceRecipe, { kind: "synthetic-raw-icmp" }>,
+): string {
+  return [`fd=${recipe.fd}`, `identifier=${recipe.identifier}`, `sequence=${recipe.sequence}`].join(
+    ";",
+  );
+}
+
+function pingSocketResourceSpec(
+  recipe: Extract<TargetGuestRestoreResourceRecipe, { kind: "synthetic-ping-socket" }>,
+): string {
+  return [
+    `fd=${recipe.fd}`,
+    `identifier=${recipe.identifier}`,
+    `sequence=${recipe.sequence}`,
+    `uid=${recipe.uid}`,
+    `gid=${recipe.gid}`,
+    `pingGroupRangeStart=${recipe.pingGroupRangeStart}`,
+    `pingGroupRangeEnd=${recipe.pingGroupRangeEnd}`,
+    recipe.adoptCredentials === undefined
+      ? undefined
+      : `adoptCredentials=${recipe.adoptCredentials ? "true" : "false"}`,
+    recipe.expectedRefusalCode === undefined
+      ? undefined
+      : `expectedRefusalCode=${recipe.expectedRefusalCode}`,
+    recipe.expectedRefusalReason === undefined
+      ? undefined
+      : `expectedRefusalReason=${recipe.expectedRefusalReason}`,
+  ]
+    .filter((field) => field !== undefined)
+    .join(";");
+}
+
+function pipeResourceArgs(recipe: {
+  readFd: number;
+  writeFd?: number;
+  initialBytesHex?: string;
+}): string[] {
   const args = ["--synthetic-empty-pipe-read-fd", String(recipe.readFd)];
   if (recipe.writeFd !== undefined) {
     args.push("--synthetic-empty-pipe-write-fd", String(recipe.writeFd));
+  }
+  if (recipe.initialBytesHex !== undefined) {
+    args.push("--synthetic-empty-pipe-initial-hex", recipe.initialBytesHex);
   }
   return args;
 }

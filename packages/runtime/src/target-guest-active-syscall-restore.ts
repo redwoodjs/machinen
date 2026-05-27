@@ -2,6 +2,7 @@ import type {
   NativeActiveSyscallClassificationResult,
   NativeActiveSyscallContinuation,
   NativeModeledFdReadTargetResource,
+  NativeModeledPingSocketRecvmsgState,
   NativeModeledPpollTargetResource,
 } from "./native-active-syscall-policy.ts";
 import type { NativeProcessImageRefusal } from "./native-process-image.ts";
@@ -47,6 +48,19 @@ export type TargetGuestActiveSyscallRestoreStep =
       countBytes: number;
       targetBufferPointer: string;
       fileOffset: number;
+      resumeMode: "defer-target-resume";
+    }
+  | {
+      action: "restore-ping-socket-recvmsg-wait";
+      threadId: string;
+      fd: number;
+      sourceFd: number;
+      messagePointer: string;
+      iovLengthBytes: number;
+      controlLengthBytes: number;
+      receiveQueue: NativeModeledPingSocketRecvmsgState["receiveQueue"];
+      inFlightPackets: NativeModeledPingSocketRecvmsgState["inFlightPackets"];
+      signalTimer: NativeModeledPingSocketRecvmsgState["signalTimer"];
       resumeMode: "defer-target-resume";
     };
 
@@ -97,6 +111,22 @@ function continuationStep(
       countBytes: write.countBytes,
       targetBufferPointer: write.targetBufferPointer,
       fileOffset: write.fileOffset,
+      resumeMode: "defer-target-resume",
+    };
+  }
+  if (continuation.syscallClass === "fd-blocking" && "pingSocketRecvmsg" in continuation.metadata) {
+    const recvmsg = continuation.metadata.pingSocketRecvmsg;
+    return {
+      action: "restore-ping-socket-recvmsg-wait",
+      threadId: continuation.threadId,
+      fd: recvmsg.targetFd,
+      sourceFd: recvmsg.sourceFd,
+      messagePointer: recvmsg.messagePointer,
+      iovLengthBytes: recvmsg.iovLengthBytes,
+      controlLengthBytes: recvmsg.controlLengthBytes,
+      receiveQueue: recvmsg.receiveQueue,
+      inFlightPackets: recvmsg.inFlightPackets,
+      signalTimer: recvmsg.signalTimer,
       resumeMode: "defer-target-resume",
     };
   }

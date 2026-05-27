@@ -1,0 +1,32 @@
+{
+  "profile": "portable-machine-restore",
+  "state": "failed",
+  "remoteSourceTarget": "postgres-streaming-replication-refusal",
+  "targetRestore": {
+    "state": "refused",
+    "migrationCompleted": false,
+    "descriptorGateCompleted": false,
+    "refusal": {
+      "code": "postgres-streaming-replication-unsupported",
+      "message": "hot standby or streaming replication connection"
+    },
+    "sourceTextReusedAsTargetCode": false,
+    "sourceIsaEmulationUsed": false,
+    "sidecarRuntimeUsed": false,
+    "appHooksRequired": false
+  },
+  "postgresRefusalProof": {
+    "code": "postgres-streaming-replication-unsupported",
+    "explanation": "hot standby or streaming replication connection",
+    "securityInspection": {
+      "sourceIsaEmulationArtifactFound": false,
+      "sourceTextReplayArtifactFound": false,
+      "sidecarRuntimeArtifactFound": false,
+      "appHookArtifactFound": false,
+      "metadataOnlyShortcutAccepted": false,
+      "targetNativeExecutionRequired": true,
+      "passed": true
+    }
+  },
+  "timings": []
+}

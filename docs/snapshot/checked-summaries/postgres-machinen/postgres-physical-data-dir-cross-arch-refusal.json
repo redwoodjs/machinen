@@ -1,0 +1,32 @@
+{
+  "profile": "portable-machine-restore",
+  "state": "failed",
+  "remoteSourceTarget": "postgres-physical-data-dir-cross-arch-refusal",
+  "targetRestore": {
+    "state": "refused",
+    "migrationCompleted": false,
+    "descriptorGateCompleted": false,
+    "refusal": {
+      "code": "postgres-physical-data-dir-cross-arch-unsupported",
+      "message": "PostgreSQL physical data directories and WAL are not the portable arm64<->amd64 restore unit; use the logical descriptor/dump restore proof."
+    },
+    "sourceTextReusedAsTargetCode": false,
+    "sourceIsaEmulationUsed": false,
+    "sidecarRuntimeUsed": false,
+    "appHooksRequired": false
+  },
+  "postgresRefusalProof": {
+    "code": "postgres-physical-data-dir-cross-arch-unsupported",
+    "explanation": "A raw PostgreSQL data directory carries physical storage/WAL/extension assumptions. Goal 43 supports clean logical PostgreSQL state restored into target-native PostgreSQL instead.",
+    "securityInspection": {
+      "sourceIsaEmulationArtifactFound": false,
+      "sourceTextReplayArtifactFound": false,
+      "sidecarRuntimeArtifactFound": false,
+      "appHookArtifactFound": false,
+      "metadataOnlyShortcutAccepted": false,
+      "targetNativeExecutionRequired": true,
+      "passed": true
+    }
+  },
+  "timings": []
+}

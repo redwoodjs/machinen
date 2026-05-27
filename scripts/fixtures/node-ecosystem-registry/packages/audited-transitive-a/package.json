@@ -1,0 +1,9 @@
+{
+  "name": "audited-transitive-a",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "src/index.mjs",
+  "dependencies": {
+    "audited-transitive-b": "1.0.0"
+  }
+}

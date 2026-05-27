@@ -1,0 +1,145 @@
+{
+  "profile": "portable-machine-restore",
+  "state": "completed",
+  "remoteSourceTarget": "go-service-runtime-policy",
+  "targetRestore": {
+    "state": "completed",
+    "migrationCompleted": true,
+    "descriptorGateCompleted": true,
+    "targetVerifierResult": "passed",
+    "targetResourceStatuses": [
+      {
+        "kind": "go-service-runtime",
+        "status": "passed"
+      }
+    ],
+    "sourceTextReusedAsTargetCode": false,
+    "sourceIsaEmulationUsed": false,
+    "sidecarRuntimeUsed": false,
+    "appHooksRequired": false
+  },
+  "nonNodeRuntimeProof": {
+    "summary": {
+      "jvm": "refused",
+      "python": "supported",
+      "ruby": "supported",
+      "go": "supported"
+    },
+    "supportClaimed": {
+      "jvm": false,
+      "python": true,
+      "ruby": true,
+      "go": true
+    },
+    "assertions": {
+      "jvmFailClosedOrSupported": true,
+      "pythonFailClosedOrSupported": true,
+      "rubyFailClosedOrSupported": true,
+      "goFailClosedOrSupported": true,
+      "noShortcutArtifacts": true
+    },
+    "runtimeDetail": {
+      "name": "go",
+      "hostArch": "arm64",
+      "platform": "darwin",
+      "release": "24.6.0",
+      "state": "supported",
+      "supportClaimed": true,
+      "version": "go version go1.26.2 darwin/arm64",
+      "fixture": "go-service-runtime-local-audited",
+      "moduleGraphSha256": "2b6dbaf6ee1e18e3250a7976aead3f6c164f5065381bf6afc595305d52b5a53d",
+      "outputSha256": "161e89fd87766805b5a118433592113b58a5bf0964f486709acfe84f6bf1901a",
+      "managedHazards": [
+        "goroutines",
+        "scheduler",
+        "channels",
+        "timers",
+        "netpoller",
+        "tls",
+        "cgo"
+      ],
+      "refusals": [
+        {
+          "name": "active-netpoller-socket",
+          "state": "refused",
+          "expectedRefusalCode": "runtime-go-active-netpoller-socket-unsupported",
+          "migrationCompleted": false,
+          "evidence": {}
+        },
+        {
+          "name": "channel-select-ambiguous",
+          "state": "refused",
+          "expectedRefusalCode": "runtime-go-channel-select-ambiguous",
+          "migrationCompleted": false,
+          "evidence": {}
+        },
+        {
+          "name": "tls-session",
+          "state": "refused",
+          "expectedRefusalCode": "runtime-go-tls-session-unsupported",
+          "migrationCompleted": false,
+          "evidence": {}
+        },
+        {
+          "name": "cgo-native-state",
+          "state": "refused",
+          "expectedRefusalCode": "runtime-go-cgo-state-unsupported",
+          "migrationCompleted": false,
+          "evidence": {}
+        }
+      ],
+      "targetRestore": {
+        "state": "completed",
+        "migrationCompleted": true,
+        "descriptorGateCompleted": true,
+        "targetVerifierResult": "passed",
+        "targetResourceStatuses": [
+          {
+            "kind": "go-service-runtime",
+            "status": "passed"
+          }
+        ],
+        "sourceTextReusedAsTargetCode": false,
+        "sourceIsaEmulationUsed": false,
+        "sidecarRuntimeUsed": false,
+        "appHooksRequired": false
+      },
+      "securityInspection": {
+        "sourceIsaEmulationArtifactFound": false,
+        "sourceTextReplayArtifactFound": false,
+        "sidecarRuntimeArtifactFound": false,
+        "appHookArtifactFound": false,
+        "targetNativeExecutionRequired": true,
+        "passed": true
+      }
+    },
+    "comparison": [
+      {
+        "runtime": "jvm",
+        "state": "refused",
+        "supportClaimed": false,
+        "fixture": "spring-style-service-local-audited",
+        "refusalCode": "runtime-jvm-fixture-failed"
+      },
+      {
+        "runtime": "python",
+        "state": "supported",
+        "supportClaimed": true,
+        "fixture": "django-celery-style-local-audited"
+      },
+      {
+        "runtime": "ruby",
+        "state": "supported",
+        "supportClaimed": true,
+        "fixture": "rails-puma-style-local-audited"
+      },
+      {
+        "runtime": "go",
+        "state": "supported",
+        "supportClaimed": true,
+        "fixture": "go-service-runtime-local-audited"
+      }
+    ]
+  },
+  "timings": []
+}

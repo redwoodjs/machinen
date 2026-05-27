@@ -1,15 +1,33 @@
 {
   "kind": "machinen.runtime-support-manifest",
   "name": "go-planning-fixture",
-  "supportClaimed": false,
+  "supportClaimed": true,
   "runtime": {
     "name": "go",
     "version": "1.23.x",
     "buildId": "go-fixture-build",
     "implementation": "go"
   },
-  "requiredCapabilities": [],
-  "positiveProofProfiles": {},
+  "requiredCapabilities": [
+    "runtime:go:goal38:service-local-audited",
+    "runtime:go:goal39:cross-arch-repeatable",
+    "runtime:go:goal40:scheduler-boundary-policy",
+    "runtime:go:goal42:quiescent-http",
+    "runtime:go:goal42:quiescent-worker",
+    "runtime:go:goal42:quiescent-channel",
+    "runtime:go:goal42:quiescent-timer",
+    "runtime:go:goal42:quiescent-suite"
+  ],
+  "positiveProofProfiles": {
+    "runtime:go:goal38:service-local-audited": ["go-service-runtime-policy"],
+    "runtime:go:goal39:cross-arch-repeatable": ["go-cross-arch-runtime-policy"],
+    "runtime:go:goal40:scheduler-boundary-policy": ["goal40-go-scheduler-boundary-policy"],
+    "runtime:go:goal42:quiescent-http": ["go-quiescent-http-cross-arch"],
+    "runtime:go:goal42:quiescent-worker": ["go-quiescent-worker-cross-arch"],
+    "runtime:go:goal42:quiescent-channel": ["go-quiescent-channel-cross-arch"],
+    "runtime:go:goal42:quiescent-timer": ["go-quiescent-timer-cross-arch"],
+    "runtime:go:goal42:quiescent-suite": ["go-quiescent-runtime-suite"]
+  },
   "semanticSections": [
     "goroutine inventory",
     "scheduler state",
@@ -144,5 +162,79 @@
       "code": "runtime-source-text-replay",
       "migrationCompleted": false
     }
-  ]
+  ],
+  "goal38NonNodeRuntimeProof": {
+    "claim": "goal38-non-node-runtime-support-or-refusal-v1",
+    "capability": "runtime:go:goal38:service-local-audited",
+    "proofProfile": "go-service-runtime-policy",
+    "supportClaimedForThisSubset": true,
+    "checkedSummary": "docs/snapshot/checked-summaries/non-node-runtimes/go-service-runtime-policy.json",
+    "shortcutPolicy": {
+      "sourceIsaEmulation": false,
+      "sourceTextReplay": false,
+      "sidecarRuntime": false,
+      "appHooks": false
+    }
+  },
+  "goal39CrossArchProof": {
+    "claim": "goal39-python-go-cross-arch-repeatability-v1",
+    "capability": "runtime:go:goal39:cross-arch-repeatable",
+    "proofProfile": "go-cross-arch-runtime-policy",
+    "checkedSummary": "docs/snapshot/checked-summaries/non-node-cross-arch/go-cross-arch-runtime-policy.json",
+    "routes": ["arm64-to-amd64", "amd64-to-arm64"],
+    "iterations": 3,
+    "shortcutPolicy": {
+      "sourceIsaEmulation": false,
+      "sourceTextReplay": false,
+      "sidecarRuntime": false,
+      "appHooks": false
+    }
+  },
+  "goal40HardRuntimeStateProof": {
+    "claim": "goal40-hard-runtime-state-boundaries-v1",
+    "checkedSummaries": [
+      "docs/snapshot/checked-summaries/goal40-hard-state/goal40-active-socket-tls-policy.json",
+      "docs/snapshot/checked-summaries/goal40-hard-state/goal40-native-extension-boundary-policy.json",
+      "docs/snapshot/checked-summaries/goal40-hard-state/goal40-go-scheduler-boundary-policy.json"
+    ],
+    "stableRefusalCodes": [
+      "runtime-network-active-socket-queue-ambiguous",
+      "runtime-network-tls-session-key-opaque",
+      "runtime-native-extension-opaque-state",
+      "runtime-go-arbitrary-goroutine-scheduler-unsupported"
+    ],
+    "shortcutPolicy": {
+      "sourceIsaEmulation": false,
+      "sourceTextReplay": false,
+      "sidecarRuntime": false,
+      "appHooks": false,
+      "metadataOnly": false
+    }
+  },
+  "goal42GoQuiescentRuntimeProof": {
+    "claim": "goal42-go-quiescent-runtime-expansion-v1",
+    "checkedSummaryDir": "docs/snapshot/checked-summaries/go-quiescent-runtime",
+    "supportedSubsets": [
+      "quiescent-http",
+      "quiescent-worker",
+      "quiescent-channel",
+      "quiescent-timer"
+    ],
+    "routes": ["arm64-to-amd64", "amd64-to-arm64"],
+    "iterations": 2,
+    "stableRefusalCodes": [
+      "runtime-go-netpoll-waiter-unsupported",
+      "runtime-go-channel-waiter-ambiguous",
+      "runtime-go-select-race-ambiguous",
+      "runtime-go-cgo-goroutine-unsupported",
+      "runtime-go-runtime-private-frame-unsupported"
+    ],
+    "shortcutPolicy": {
+      "sourceIsaEmulation": false,
+      "sourceTextReplay": false,
+      "sidecarRuntime": false,
+      "appHooks": false,
+      "metadataOnly": false
+    }
+  }
 }

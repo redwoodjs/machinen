@@ -19,7 +19,7 @@ source-ISA emulation would not prove the transparent native goal.
 
 ## What it proves
 
-The proof builds `packages/microvm/assets/native-resume-trampoline.c`, writes a
+The proof builds `packages/microvm/test-fixtures/proof-assets/native-resume-trampoline.c`, writes a
 controlled arm64 -> amd64 native process image, and asks the trampoline to:
 
 1. map the translated amd64 text page at its target virtual address;

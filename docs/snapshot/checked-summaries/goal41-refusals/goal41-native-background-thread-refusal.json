@@ -1,0 +1,49 @@
+{
+  "profile": "portable-machine-restore",
+  "state": "failed",
+  "remoteSourceTarget": "goal41-native-background-thread-refusal",
+  "targetRestore": {
+    "state": "refused",
+    "migrationCompleted": false,
+    "descriptorGateCompleted": false,
+    "targetVerifierResult": "not-run",
+    "refusal": {
+      "code": "runtime-native-extension-background-thread-unsupported",
+      "message": "Native background thread unsupported"
+    },
+    "sourceTextReusedAsTargetCode": false,
+    "sourceIsaEmulationUsed": false,
+    "sidecarRuntimeUsed": false,
+    "appHooksRequired": false,
+    "metadataOnlyShortcutAccepted": false
+  },
+  "refusalUx": {
+    "code": "runtime-native-extension-background-thread-unsupported",
+    "family": "native-extension",
+    "message": "Native background thread unsupported",
+    "explanation": "Thread stacks and synchronization state inside the extension are not modeled.",
+    "affectedRuntimes": ["go", "jvm", "python", "ruby", "node"],
+    "currentBehavior": "stable refusal with migrationCompleted=false",
+    "remediation": "Disable opaque native state or provide a versioned native external-state contract with target-native reload/rebind verification.",
+    "graduationRequires": [
+      "binary path and digest",
+      "build ID or ABI identity",
+      "runtime ABI",
+      "target-native artifact",
+      "external-state contract version",
+      "reload/rebind verifier"
+    ],
+    "stableUntilPositiveProofGraduates": true
+  },
+  "securityInspection": {
+    "sourceIsaEmulationArtifactFound": false,
+    "sourceTextReplayArtifactFound": false,
+    "sidecarRuntimeArtifactFound": false,
+    "appHookArtifactFound": false,
+    "metadataOnlyShortcutAccepted": false,
+    "targetNativeExecutionRequired": true,
+    "passed": true
+  },
+  "proofDigest": "efc5a2f2b3367c96161ed3080585871c67e2833f3b0d968cadb321d0474bdc3c",
+  "timings": []
+}

@@ -15,7 +15,10 @@ import {
 } from "../target-guest-restore-loader.ts";
 
 const REPO_ROOT = resolve(import.meta.dirname, "../../../..");
-const LOADER_SOURCE = join(REPO_ROOT, "packages/microvm/assets/target-guest-restore-loader.c");
+const LOADER_SOURCE = join(
+  REPO_ROOT,
+  "packages/microvm/test-fixtures/proof-assets/target-guest-restore-loader.c",
+);
 const LOADER_PREFIX = "MACHINEN_TARGET_GUEST_RESTORE_LOADER ";
 const HAS_CC = spawnSync("cc", ["--version"], { stdio: "ignore" }).status === 0;
 
@@ -105,8 +108,20 @@ describe("target guest restore loader descriptor", () => {
           access: 0,
           closeOnExec: true,
         },
-        { kind: "synthetic-empty-pipe", readFd: 3, writeFd: 4, closeOnExec: false },
-        { kind: "synthetic-eventfd", fd: 5, initialValue: "0x2a", closeOnExec: false },
+        {
+          kind: "synthetic-empty-pipe",
+          readFd: 3,
+          writeFd: 4,
+          initialBytesHex: "50495045",
+          closeOnExec: false,
+        },
+        {
+          kind: "synthetic-eventfd",
+          fd: 5,
+          initialValue: "0x2a",
+          duplicateFd: 15,
+          closeOnExec: false,
+        },
         {
           kind: "synthetic-timerfd",
           fd: 6,
@@ -214,8 +229,10 @@ describe("target guest restore loader descriptor", () => {
       "3",
       "--synthetic-empty-pipe-write-fd",
       "4",
+      "--synthetic-empty-pipe-initial-hex",
+      "50495045",
       "--synthetic-eventfd",
-      "fd=5;initialValue=0x2a",
+      "fd=5;initialValue=0x2a;duplicateFd=15",
       "--synthetic-timerfd",
       "fd=6;clockId=1;settimeFlags=0;valueSeconds=0;valueNanoseconds=0;intervalSeconds=0;intervalNanoseconds=0",
       "--synthetic-signalfd",
@@ -223,6 +240,60 @@ describe("target guest restore loader descriptor", () => {
       "--synthetic-epoll",
       "fd=8;watchCount=1;watch0Fd=5;watch0Events=1;watch0Data=0x45504f4c4c",
     ]);
+  });
+
+  it("serializes raw ICMP loopback resource recipes", () => {
+    const original = descriptor({
+      resources: [
+        {
+          kind: "synthetic-raw-icmp",
+          fd: 58,
+          identifier: 0x4d49,
+          sequence: 1,
+          closeOnExec: true,
+        },
+      ],
+    });
+
+    const text = serializeTargetGuestRestoreDescriptor(original);
+    const parsed = parseTargetGuestRestoreDescriptor(text);
+
+    expect(text).toContain("resource=synthetic-raw-icmp fd=58 identifier=19785 sequence=1");
+    expect(parsed).toEqual(original);
+    expect(buildNativeActualResumeTrampolineArgs(parsed)).toContain("--synthetic-raw-icmp");
+    expect(buildNativeActualResumeTrampolineArgs(parsed)).toContain(
+      "fd=58;identifier=19785;sequence=1",
+    );
+  });
+
+  it("serializes ping socket loopback resource recipes", () => {
+    const original = descriptor({
+      resources: [
+        {
+          kind: "synthetic-ping-socket",
+          fd: 59,
+          identifier: 0x4d50,
+          sequence: 2,
+          uid: 0,
+          gid: 0,
+          pingGroupRangeStart: 0,
+          pingGroupRangeEnd: 2147483647,
+          closeOnExec: true,
+        },
+      ],
+    });
+
+    const text = serializeTargetGuestRestoreDescriptor(original);
+    const parsed = parseTargetGuestRestoreDescriptor(text);
+
+    expect(text).toContain(
+      "resource=synthetic-ping-socket fd=59 identifier=19792 sequence=2 uid=0 gid=0 pingGroupRangeStart=0 pingGroupRangeEnd=2147483647",
+    );
+    expect(parsed).toEqual(original);
+    expect(buildNativeActualResumeTrampolineArgs(parsed)).toContain("--synthetic-ping-socket");
+    expect(buildNativeActualResumeTrampolineArgs(parsed)).toContain(
+      "fd=59;identifier=19792;sequence=2;uid=0;gid=0;pingGroupRangeStart=0;pingGroupRangeEnd=2147483647",
+    );
   });
 
   it("serializes memory materialization entries into trampoline args", () => {
@@ -448,6 +519,22 @@ describe("target guest restore loader descriptor", () => {
         },
       },
       {
+        section: "active-syscall" as const,
+        step: {
+          action: "restore-ping-socket-recvmsg-wait" as const,
+          threadId: "thread:1",
+          fd: 59,
+          sourceFd: 3,
+          messagePointer: "0x3100",
+          iovLengthBytes: 192,
+          controlLengthBytes: 56,
+          receiveQueue: "empty" as const,
+          inFlightPackets: "none" as const,
+          signalTimer: "no-pending-signal-frame-target-wait-preserved" as const,
+          resumeMode: "defer-target-resume" as const,
+        },
+      },
+      {
         section: "thread-spawn" as const,
         step: {
           action: "spawn-target-thread" as const,
@@ -496,6 +583,8 @@ describe("target guest restore loader descriptor", () => {
         "action=complete-fd-read-from-file;threadId=thread:1;fd=38;countBytes=4;targetBufferPointer=0x600000000100;fileOffset=7;resumeMode=defer-target-resume",
         "--native-active-syscall-step",
         "action=complete-fd-write-to-file;threadId=thread:1;fd=39;countBytes=4;targetBufferPointer=0x600000000180;fileOffset=11;resumeMode=defer-target-resume",
+        "--native-active-syscall-step",
+        "action=restore-ping-socket-recvmsg-wait;threadId=thread:1;fd=59;sourceFd=3;messagePointer=0x3100;iovLengthBytes=192;controlLengthBytes=56;receiveQueue=empty;inFlightPackets=none;signalTimer=no-pending-signal-frame-target-wait-preserved;resumeMode=defer-target-resume",
         "--native-thread-spawn-step",
         "action=spawn-target-thread;threadId=thread:2;stackBase=0x530000000000;stackLimit=0x530000010000;rip=0x700300000000;rsp=0x530000010000",
       ]),

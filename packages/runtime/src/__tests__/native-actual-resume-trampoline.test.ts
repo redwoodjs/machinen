@@ -5,7 +5,10 @@ import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const REPO_ROOT = resolve(import.meta.dirname, "../../../..");
-const SOURCE = join(REPO_ROOT, "packages/microvm/assets/native-actual-resume-trampoline.c");
+const SOURCE = join(
+  REPO_ROOT,
+  "packages/microvm/test-fixtures/proof-assets/native-actual-resume-trampoline.c",
+);
 const PREFIX = "MACHINEN_ACTUAL_RESUME_TRAMPOLINE ";
 
 function compileHelper(outDir: string) {

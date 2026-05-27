@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { copyFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { RUNTIME_STATE_WORKLOAD_MARKER } from "../packages/microvm/assets/runtime-state-workload.mjs";
+import { RUNTIME_STATE_WORKLOAD_MARKER } from "../packages/microvm/test-fixtures/proof-assets/runtime-state-workload.mjs";
 import {
   REPO_ROOT,
   bundleFileStats as sharedBundleFileStats,
@@ -21,7 +21,10 @@ import {
 
 const USAGE =
   "usage: node scripts/runtime-state-probe.mjs [verify] [--out-dir path] [--json] [--keep]";
-const WORKLOAD = join(REPO_ROOT, "packages/microvm/assets/runtime-state-workload.mjs");
+const WORKLOAD = join(
+  REPO_ROOT,
+  "packages/microvm/test-fixtures/proof-assets/runtime-state-workload.mjs",
+);
 const BUILD_ID = "4214214214214210";
 
 function main() {

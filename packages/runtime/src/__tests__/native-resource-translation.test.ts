@@ -32,6 +32,178 @@ describe("native resource translation", () => {
     });
   });
 
+  it("plans the raw-icmp-v1 loopback echo descriptor subset", () => {
+    const plan = planNativeTargetFdTable({
+      resources: [
+        {
+          id: "fd:58:raw-icmp",
+          kind: "raw-socket",
+          state: "captured",
+          fd: 58,
+          path: "socket:[raw-icmp]",
+          flags: ["octal:2"],
+          recipe: {
+            rawIcmpModel: "loopback-echo-v1",
+            family: "inet4",
+            socketType: "raw",
+            protocol: "icmp",
+            destination: "127.0.0.1",
+            capability: "cap-net-raw",
+            networkNamespace: "target-loopback",
+            route: "loopback",
+            identifier: 0x4d49,
+            sequence: 1,
+            inFlightPackets: "none",
+            receiveQueue: "empty",
+          },
+        },
+      ],
+    });
+
+    expect(plan.refusals).toEqual([]);
+    expect(plan.entries).toEqual([
+      expect.objectContaining({ targetFd: 58, kind: "synthetic-raw-icmp" }),
+    ]);
+    expect(plan.targetGuestResources).toEqual([
+      {
+        kind: "synthetic-raw-icmp",
+        fd: 58,
+        identifier: 0x4d49,
+        sequence: 1,
+        closeOnExec: false,
+      },
+    ]);
+  });
+
+  it("plans the ping-socket-v1 loopback echo descriptor subset", () => {
+    const plan = planNativeTargetFdTable({
+      resources: [
+        {
+          id: "fd:59:ping-socket",
+          kind: "socket",
+          state: "captured",
+          fd: 59,
+          path: "socket:[ping-socket]",
+          flags: ["octal:2"],
+          recipe: {
+            pingSocketModel: "loopback-echo-v1",
+            family: "inet4",
+            socketType: "dgram",
+            protocol: "icmp",
+            destination: "127.0.0.1",
+            credentialPolicy: "target-ping-group-range",
+            uid: 0,
+            gid: 0,
+            pingGroupRangeStart: 0,
+            pingGroupRangeEnd: 2147483647,
+            networkNamespace: "target-loopback",
+            route: "loopback",
+            identifier: 0x4d50,
+            sequence: 2,
+            inFlightPackets: "none",
+            receiveQueue: "empty",
+          },
+        },
+      ],
+    });
+
+    expect(plan.refusals).toEqual([]);
+    expect(plan.entries).toEqual([
+      expect.objectContaining({ targetFd: 59, kind: "synthetic-ping-socket" }),
+    ]);
+    expect(plan.targetGuestResources).toEqual([
+      {
+        kind: "synthetic-ping-socket",
+        fd: 59,
+        identifier: 0x4d50,
+        sequence: 2,
+        uid: 0,
+        gid: 0,
+        pingGroupRangeStart: 0,
+        pingGroupRangeEnd: 2147483647,
+        closeOnExec: false,
+      },
+    ]);
+  });
+
+  it.each([
+    ["gid outside target ping_group_range", { gid: 10, pingGroupRangeEnd: 0 }],
+    ["wrong network namespace", { networkNamespace: "source-netns" }],
+    ["stale route provenance", { route: "source-route-cache" }],
+  ])("keeps unsafe ping-socket-v1 variants fail-closed: %s", (_name, override) => {
+    const recipe = {
+      pingSocketModel: "loopback-echo-v1",
+      family: "inet4",
+      socketType: "dgram",
+      protocol: "icmp",
+      destination: "127.0.0.1",
+      credentialPolicy: "target-ping-group-range",
+      uid: 0,
+      gid: 0,
+      pingGroupRangeStart: 0,
+      pingGroupRangeEnd: 2147483647,
+      networkNamespace: "target-loopback",
+      route: "loopback",
+      identifier: 0x4d50,
+      sequence: 2,
+      inFlightPackets: "none",
+      receiveQueue: "empty",
+      ...override,
+    };
+    const plan = planNativeTargetFdTable({
+      resources: [
+        {
+          id: "fd:59:ping-socket",
+          kind: "socket",
+          state: "captured",
+          fd: 59,
+          path: "socket:[ping-socket]",
+          flags: ["octal:2"],
+          recipe,
+        },
+      ],
+    });
+
+    expect(plan.refusals).toEqual([
+      expect.objectContaining({ code: "target-socket-syscall-state-unsupported" }),
+    ]);
+    expect(plan.targetGuestResources).toEqual([]);
+  });
+
+  it("keeps unsafe raw-icmp-v1 variants fail-closed", () => {
+    const plan = planNativeTargetFdTable({
+      resources: [
+        {
+          id: "fd:58:raw-icmp",
+          kind: "raw-socket",
+          state: "captured",
+          fd: 58,
+          path: "socket:[raw-icmp]",
+          flags: ["octal:2"],
+          recipe: {
+            rawIcmpModel: "loopback-echo-v1",
+            family: "inet4",
+            socketType: "raw",
+            protocol: "icmp",
+            destination: "192.0.2.1",
+            capability: "cap-net-raw",
+            networkNamespace: "target-loopback",
+            route: "loopback",
+            identifier: 0x4d49,
+            sequence: 1,
+            inFlightPackets: "none",
+            receiveQueue: "empty",
+          },
+        },
+      ],
+    });
+
+    expect(plan.refusals).toEqual([
+      expect.objectContaining({ code: "target-socket-syscall-state-unsupported" }),
+    ]);
+    expect(plan.targetGuestResources).toEqual([]);
+  });
+
   it("uses host capabilities for raw sockets and PTYs", () => {
     const result = translateNativeResources({
       hostCapabilities: ["raw-socket", "pty"],
@@ -142,6 +314,36 @@ describe("native resource translation", () => {
     ]);
   });
 
+  it("plans an accepted pipe-buffered-bytes-v1 descriptor pair", () => {
+    const plan = planNativeTargetFdTable({
+      resources: [
+        pipePairResource(10, "read", {
+          pipeModel: "buffered-bytes-v1",
+          pipeBuffer: "bytes",
+          pipeBufferBytes: "50495045",
+          readiness: "readable",
+        }),
+        pipePairResource(12, "write", {
+          pipeModel: "buffered-bytes-v1",
+          pipeBuffer: "bytes",
+          pipeBufferBytes: "50495045",
+          readiness: "readable",
+        }),
+      ],
+    });
+
+    expect(plan.refusals).toEqual([]);
+    expect(plan.targetGuestResources).toEqual([
+      {
+        kind: "synthetic-empty-pipe",
+        readFd: 10,
+        writeFd: 12,
+        initialBytesHex: "50495045",
+        closeOnExec: false,
+      },
+    ]);
+  });
+
   it.each([
     {
       name: "unknown buffer",
@@ -178,7 +380,7 @@ describe("native resource translation", () => {
         pipePairResource(10, "read", { readiness: "readable" }),
         pipePairResource(12, "write"),
       ],
-      reason: "pipe readiness must be known not-readable",
+      reason: "pipe readiness does not match captured buffer state",
     },
     {
       name: "unsupported flags",
@@ -253,6 +455,39 @@ describe("native resource translation", () => {
     ]);
     expect(plan.targetGuestResources).toEqual([
       { kind: "synthetic-eventfd", fd: 11, initialValue: "0x2a", closeOnExec: false },
+    ]);
+  });
+
+  it("plans an accepted eventfd-counter-alias-v1 descriptor", () => {
+    const resources = [11, 12].map((fd) => ({
+      id: `fd:${fd}`,
+      kind: "eventfd" as const,
+      state: "captured" as const,
+      fd,
+      path: "anon_inode:[eventfd-alias-proof]",
+      flags: ["octal:2"],
+      recipe: {
+        eventfdModel: "counter-alias-v1",
+        eventfdCount: "0x2a",
+        eventfdSemaphore: 0,
+        eventfdWaiters: "none",
+      },
+    }));
+    const plan = planNativeTargetFdTable({ resources });
+
+    expect(plan.refusals).toEqual([]);
+    expect(plan.entries).toEqual([
+      expect.objectContaining({ targetFd: 11, kind: "synthetic-eventfd", action: "materialize" }),
+      expect.objectContaining({ targetFd: 12, kind: "synthetic-eventfd", action: "materialize" }),
+    ]);
+    expect(plan.targetGuestResources).toEqual([
+      {
+        kind: "synthetic-eventfd",
+        fd: 11,
+        duplicateFd: 12,
+        initialValue: "0x2a",
+        closeOnExec: false,
+      },
     ]);
   });
 

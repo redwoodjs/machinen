@@ -1,0 +1,21 @@
+{
+  "name": "audited-native-prebuild",
+  "version": "1.0.0",
+  "binary": {
+    "module_path": "prebuilds/{platform}-{arch}/napi-v{napi}-{libc}/addon.node",
+    "napi_versions": [
+      8,
+      9,
+      10
+    ]
+  },
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ],
+  "type": "module",
+  "main": "src/index.mjs"
+}

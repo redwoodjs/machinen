@@ -1,0 +1,24 @@
+{
+  "kind": "machinen.application-harness",
+  "name": "node-native-addon-support-harness",
+  "workload": {
+    "name": "node-native-addon",
+    "inputs": ["fixture"]
+  },
+  "runtimeManifest": "node-proof-backed-v1",
+  "requiredCapabilities": [
+    "runtime:node:app:native-addon",
+    "runtime:node:native-addons-napi",
+    "runtime:node:blocker:native-addon:support:positive-proof-for-at-least-one-n-api-addon-with-bounded-external-state"
+  ],
+  "expectedResult": "success",
+  "expectedTargetOutput": "node-addon-ok",
+  "correctnessHooks": [],
+  "successProhibitions": [
+    "app-hook-required",
+    "source-isa-execution",
+    "sidecar-runtime-success",
+    "source-text-replay"
+  ],
+  "positiveProofProfiles": ["node-app-native-addon-recreate"]
+}

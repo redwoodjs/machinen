@@ -29,7 +29,7 @@ proof must start from a real arm64 Linux capture.
 ## What it proves
 
 The source and target program is
-`packages/microvm/assets/native-heap-graph-continuation.c`.
+`packages/microvm/test-fixtures/proof-assets/native-heap-graph-continuation.c`.
 
 The arm64 source build creates this graph in ordinary process memory:
 

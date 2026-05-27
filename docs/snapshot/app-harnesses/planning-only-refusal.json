@@ -5,7 +5,7 @@
     "name": "runtime-planning-smoke",
     "inputs": ["fixture"]
   },
-  "runtimeManifest": "node-planning-fixture",
+  "runtimeManifest": "node-proof-backed-v1",
   "requiredCapabilities": ["fd:regular-file"],
   "expectedResult": "refusal",
   "expectedTargetOutput": null,

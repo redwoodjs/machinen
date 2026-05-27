@@ -1,0 +1,24 @@
+{
+  "kind": "machinen.application-harness",
+  "name": "node-worker-thread-support-harness",
+  "workload": {
+    "name": "node-worker-thread",
+    "inputs": ["fixture"]
+  },
+  "runtimeManifest": "node-proof-backed-v1",
+  "requiredCapabilities": [
+    "runtime:node:app:worker-thread",
+    "runtime:node:workers",
+    "runtime:node:blocker:workers:support:positive-proof-for-a-bounded-worker-message-queue-subset"
+  ],
+  "expectedResult": "success",
+  "expectedTargetOutput": "node-worker-ok",
+  "correctnessHooks": [],
+  "successProhibitions": [
+    "app-hook-required",
+    "source-isa-execution",
+    "sidecar-runtime-success",
+    "source-text-replay"
+  ],
+  "positiveProofProfiles": ["node-app-worker-thread-recreate"]
+}

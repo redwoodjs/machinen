@@ -25,9 +25,9 @@ WORK=$(mktemp -d)
 cleanup() { rm -rf "$WORK"; }
 trap cleanup EXIT
 
-mkdir -p "$WORK/work/packages/microvm/assets" "$WORK/work/scripts"
-cc -Wall -Wextra -pthread -I "$ROOT/packages/microvm/assets" \
-  "$ROOT/packages/microvm/assets/portable-proof-workload.c" \
+mkdir -p "$WORK/work/packages/microvm/test-fixtures/proof-assets" "$WORK/work/scripts"
+cc -Wall -Wextra -pthread -I "$ROOT/packages/microvm/test-fixtures/proof-assets" \
+  "$ROOT/packages/microvm/test-fixtures/proof-assets/portable-proof-workload.c" \
   -o "$WORK/portable-proof-arm64"
 
 echo "portable-resource-marker" >"$WORK/resource.txt"
@@ -39,9 +39,9 @@ echo "portable-resource-marker" >"$WORK/resource.txt"
   --emit-bundle "$WORK/work/bundle" \
   >"$WORK/work/source.log"
 
-cp "$ROOT/packages/microvm/assets/portable-checkpoint-abi.h" \
-   "$ROOT/packages/microvm/assets/portable-proof-workload.c" \
-   "$WORK/work/packages/microvm/assets/"
+cp "$ROOT/packages/microvm/test-fixtures/proof-assets/portable-checkpoint-abi.h" \
+   "$ROOT/packages/microvm/test-fixtures/proof-assets/portable-proof-workload.c" \
+   "$WORK/work/packages/microvm/test-fixtures/proof-assets/"
 cp "$ROOT/scripts/portable-proof-compare.mjs" "$WORK/work/scripts/"
 cp "$WORK/resource.txt" "$WORK/work/resource.txt"
 
@@ -51,8 +51,8 @@ tar --no-xattrs -czf - -C "$WORK/work" . |
 
 ssh "$PROXMOX_SSH" "pct exec '$PROXMOX_CT' -- docker run --rm -i -v /tmp/machinen-portable-cross:/work -w /work '$DOCKER_IMAGE' bash -s" <<'REMOTE'
 set -euo pipefail
-gcc -Wall -Wextra -pthread -I packages/microvm/assets \
-  packages/microvm/assets/portable-proof-workload.c \
+gcc -Wall -Wextra -pthread -I packages/microvm/test-fixtures/proof-assets \
+  packages/microvm/test-fixtures/proof-assets/portable-proof-workload.c \
   -o /tmp/machinen-portable-proof-amd64
 # The arm64 source bundle records the host temp path for the regular-file
 # resource. Rewrite it to the path available inside this amd64 target container.

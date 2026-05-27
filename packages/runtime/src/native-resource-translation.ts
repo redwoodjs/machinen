@@ -36,6 +36,8 @@ export type NativeTargetFdTableEntryKind =
   | "synthetic-epoll"
   | "synthetic-tcp-listener"
   | "synthetic-tcp-active-broker"
+  | "synthetic-raw-icmp"
+  | "synthetic-ping-socket"
   | "refused";
 
 export interface NativeTargetFdTableEntry {
@@ -196,12 +198,14 @@ function fdTableEntryFromRecipe(
     reopenFileFdTableEntry(fd, resource, recipe, closeOnExec) ??
     syntheticPipePairFdTableEntry(fd, resource, recipe, closeOnExec, resources) ??
     syntheticFdTableEntry(fd, resource, recipe, closeOnExec) ??
-    syntheticEventfdFdTableEntry(resource, recipe, closeOnExec) ??
+    syntheticEventfdFdTableEntry(resource, recipe, closeOnExec, resources) ??
     syntheticTimerfdFdTableEntry(resource, recipe, closeOnExec) ??
     syntheticSignalfdFdTableEntry(resource, recipe, closeOnExec) ??
     syntheticEpollFdTableEntry(resource, recipe, closeOnExec, resources) ??
     syntheticTcpListenerFdTableEntry(resource, recipe, closeOnExec) ??
-    syntheticTcpActiveBrokerFdTableEntry(resource, recipe, closeOnExec)
+    syntheticTcpActiveBrokerFdTableEntry(resource, recipe, closeOnExec) ??
+    syntheticRawIcmpFdTableEntry(resource, recipe, closeOnExec) ??
+    syntheticPingSocketFdTableEntry(resource, recipe, closeOnExec)
   );
 }
 
@@ -246,7 +250,10 @@ function syntheticPipePairFdTableEntry(
   closeOnExec: boolean,
   resources: NativeProcessResource[],
 ): NativeTargetFdTableEntry | undefined {
-  if (resource.kind !== "pipe" || recipe.pipeModel !== "empty-pair-v1") {
+  if (
+    resource.kind !== "pipe" ||
+    (recipe.pipeModel !== "empty-pair-v1" && recipe.pipeModel !== "buffered-bytes-v1")
+  ) {
     return undefined;
   }
   const pipeRecipe = normalizedPipePairRecipe(resource, resources);
@@ -257,6 +264,7 @@ function syntheticPipePairFdTableEntry(
     return materializedFdTableEntry(resource, "synthetic-empty-pipe-read-end", closeOnExec, {
       kind: "synthetic-empty-pipe",
       readFd: fd,
+      initialBytesHex: pipeRecipe.initialBytesHex,
       closeOnExec,
     });
   }
@@ -268,7 +276,10 @@ function syntheticPipePairFdTableEntry(
 function normalizedPipePairRecipe(
   resource: NativeProcessResource,
   resources: NativeProcessResource[],
-): { end: "read"; readFd: number } | { end: "write"; readFd: number } | NativeProcessImageRefusal {
+):
+  | { end: "read"; readFd: number; initialBytesHex?: string }
+  | { end: "write"; readFd: number }
+  | NativeProcessImageRefusal {
   if (!resource.path || resource.fd === undefined) {
     return pipePairRefusal(resource, "pipe pair requires fd and pipe identity");
   }
@@ -293,7 +304,7 @@ function normalizedPipePairRecipe(
     (candidate) =>
       candidate.kind === "pipe" &&
       candidate.path === resource.path &&
-      candidate.recipe?.pipeModel === "empty-pair-v1",
+      candidate.recipe?.pipeModel === resource.recipe?.pipeModel,
   );
   for (const peer of peers) {
     if (!PIPE_PAIR_SUPPORTED_FLAGS.has(nativeFdFlagBits(peer.flags))) {
@@ -320,34 +331,93 @@ function normalizedPipePairRecipe(
   if (readFd === undefined) {
     return pipePairRefusal(resource, "pipe pair read end is missing an fd");
   }
-  return access === 0 ? { end: "read", readFd } : { end: "write", readFd };
+  if (access !== 0) {
+    return { end: "write", readFd };
+  }
+  const initialBytesHex = pipePairInitialBytes(resource);
+  if (typeof initialBytesHex === "object") {
+    return initialBytesHex;
+  }
+  return { end: "read", readFd, initialBytesHex };
 }
 
 function pipePairModelRefusal(
   resource: NativeProcessResource,
 ): NativeProcessImageRefusal | undefined {
+  return (
+    pipeBufferModelRefusal(resource) ??
+    pipePeerModelRefusal(resource) ??
+    pipeReadinessModelRefusal(resource)
+  );
+}
+
+function pipeBufferModelRefusal(
+  resource: NativeProcessResource,
+): NativeProcessImageRefusal | undefined {
   const recipe = resource.recipe ?? {};
-  if (recipe.pipeBuffer !== "empty") {
-    return pipePairRefusal(resource, "pipe buffer must be known empty", {
-      pipeBuffer: recipe.pipeBuffer,
-    });
-  }
+  const expectedBuffer = recipe.pipeModel === "buffered-bytes-v1" ? "bytes" : "empty";
+  return recipe.pipeBuffer === expectedBuffer
+    ? undefined
+    : pipePairRefusal(
+        resource,
+        expectedBuffer === "bytes"
+          ? "pipe buffer must be captured bytes"
+          : "pipe buffer must be known empty",
+        { pipeBuffer: recipe.pipeBuffer },
+      );
+}
+
+function pipePeerModelRefusal(
+  resource: NativeProcessResource,
+): NativeProcessImageRefusal | undefined {
+  const recipe = resource.recipe ?? {};
   if (recipe.peerLifetime !== "open") {
     return pipePairRefusal(resource, "pipe peer lifetime must be known open", {
       peerLifetime: recipe.peerLifetime,
     });
   }
-  if (recipe.pipeWaiters !== "none") {
-    return pipePairRefusal(resource, "pipe waiters must be known empty", {
-      pipeWaiters: recipe.pipeWaiters,
+  return recipe.pipeWaiters === "none"
+    ? undefined
+    : pipePairRefusal(resource, "pipe waiters must be known empty", {
+        pipeWaiters: recipe.pipeWaiters,
+      });
+}
+
+function pipeReadinessModelRefusal(
+  resource: NativeProcessResource,
+): NativeProcessImageRefusal | undefined {
+  const recipe = resource.recipe ?? {};
+  const expectedReadiness = recipe.pipeModel === "buffered-bytes-v1" ? "readable" : "not-readable";
+  return recipe.readiness === expectedReadiness
+    ? undefined
+    : pipePairRefusal(resource, "pipe readiness does not match captured buffer state", {
+        readiness: recipe.readiness,
+        expectedReadiness,
+      });
+}
+
+function pipePairInitialBytes(
+  resource: NativeProcessResource,
+): string | undefined | NativeProcessImageRefusal {
+  const recipe = resource.recipe ?? {};
+  if (recipe.pipeModel !== "buffered-bytes-v1") {
+    return undefined;
+  }
+  if (
+    typeof recipe.pipeBufferBytes !== "string" ||
+    !/^(?:[0-9a-fA-F]{2})+$/.test(recipe.pipeBufferBytes)
+  ) {
+    return pipePairRefusal(resource, "pipe buffered bytes must be non-empty hex bytes", {
+      pipeBufferBytes: recipe.pipeBufferBytes,
     });
   }
-  if (recipe.readiness !== "not-readable") {
-    return pipePairRefusal(resource, "pipe readiness must be known not-readable", {
-      readiness: recipe.readiness,
+  if (recipe.pipeBufferBytes.length > 512) {
+    return pipePairRefusal(resource, "pipe buffered bytes exceed supported bound", {
+      byteLength: recipe.pipeBufferBytes.length / 2,
+      maxBytes: 256,
     });
   }
-  return undefined;
+  return recipe.pipeBufferBytes.toLowerCase();
 }
 
 function syntheticFdTableEntry(
@@ -386,8 +456,15 @@ function syntheticEventfdFdTableEntry(
   resource: NativeProcessResource,
   recipe: Record<string, unknown>,
   closeOnExec: boolean,
+  resources: NativeProcessResource[],
 ): NativeTargetFdTableEntry | undefined {
-  if (resource.kind !== "eventfd" || recipe.eventfdModel !== "counter-v1") {
+  if (resource.kind !== "eventfd") {
+    return undefined;
+  }
+  if (recipe.eventfdModel === "counter-alias-v1") {
+    return syntheticEventfdAliasFdTableEntry(resource, recipe, closeOnExec, resources);
+  }
+  if (recipe.eventfdModel !== "counter-v1") {
     return undefined;
   }
   const eventfdRecipe = normalizedEventfdCounterRecipe(resource, recipe);
@@ -398,8 +475,110 @@ function syntheticEventfdFdTableEntry(
     kind: "synthetic-eventfd",
     fd: resource.fd!,
     initialValue: eventfdRecipe.initialValue,
+    expectedRefusalCode: stringRecipeField(recipe, "expectedRefusalCode"),
+    expectedRefusalReason: stringRecipeField(recipe, "expectedRefusalReason"),
     closeOnExec,
   });
+}
+
+function syntheticEventfdAliasFdTableEntry(
+  resource: NativeProcessResource,
+  recipe: Record<string, unknown>,
+  closeOnExec: boolean,
+  resources: NativeProcessResource[],
+): NativeTargetFdTableEntry {
+  const eventfdRecipe = normalizedEventfdAliasRecipe(resource, recipe, resources);
+  if ("code" in eventfdRecipe) {
+    return refusedFdTableEntry(resource, eventfdRecipe);
+  }
+  const entry = materializedFdTableEntry(resource, "synthetic-eventfd", closeOnExec, {
+    kind: "synthetic-eventfd",
+    fd: eventfdRecipe.primaryFd,
+    initialValue: eventfdRecipe.initialValue,
+    duplicateFd: eventfdRecipe.duplicateFd,
+    expectedRefusalCode: stringRecipeField(recipe, "expectedRefusalCode"),
+    expectedRefusalReason: stringRecipeField(recipe, "expectedRefusalReason"),
+    closeOnExec,
+  });
+  return resource.fd === eventfdRecipe.primaryFd
+    ? entry
+    : {
+        ...entry,
+        targetGuestRecipe: undefined,
+        recipe: { ...entry.recipe, aliasPrimaryFd: eventfdRecipe.primaryFd },
+      };
+}
+
+function stringRecipeField(recipe: Record<string, unknown>, field: string): string | undefined {
+  return typeof recipe[field] === "string" ? recipe[field] : undefined;
+}
+
+function normalizedEventfdAliasRecipe(
+  resource: NativeProcessResource,
+  recipe: Record<string, unknown>,
+  resources: NativeProcessResource[],
+): { initialValue: string; primaryFd: number; duplicateFd: number } | NativeProcessImageRefusal {
+  const counter = normalizedEventfdCounterRecipe(resource, recipe);
+  if ("code" in counter) {
+    return counter;
+  }
+  const peers = eventfdAliasPeers(resource, resources);
+  if ("code" in peers) {
+    return peers;
+  }
+  for (const peer of peers) {
+    const refusal = validateEventfdAliasPeer(resource, peer, counter.initialValue);
+    if (refusal) {
+      return refusal;
+    }
+  }
+  const fds = peers.map((peer) => peer.fd!).sort((left, right) => left - right);
+  return { initialValue: counter.initialValue, primaryFd: fds[0]!, duplicateFd: fds[1]! };
+}
+
+function eventfdAliasPeers(
+  resource: NativeProcessResource,
+  resources: NativeProcessResource[],
+): NativeProcessResource[] | NativeProcessImageRefusal {
+  if (!resource.path || resource.fd === undefined) {
+    return eventfdRefusal(resource, "eventfd alias recipe requires fd and eventfd identity");
+  }
+  const peers = resources.filter(
+    (candidate) =>
+      candidate.kind === "eventfd" &&
+      candidate.path === resource.path &&
+      candidate.recipe?.eventfdModel === "counter-alias-v1",
+  );
+  return peers.length === 2 && peers.every((peer) => peer.fd !== undefined)
+    ? peers
+    : eventfdRefusal(resource, "eventfd alias recipe requires exactly two modeled fds", {
+        eventfdId: resource.path,
+        peerFds: peers.map((peer) => peer.fd),
+      });
+}
+
+function validateEventfdAliasPeer(
+  resource: NativeProcessResource,
+  peer: NativeProcessResource,
+  initialValue: string,
+): NativeProcessImageRefusal | undefined {
+  if (nativeFdFlagBits(peer.flags) !== 0o2) {
+    return eventfdRefusal(resource, "eventfd alias fd flags are unsupported", {
+      eventfdId: resource.path,
+      peerFd: peer.fd,
+      peerFlags: peer.flags,
+    });
+  }
+  const peerCounter = normalizedEventfdCounterRecipe(peer, peer.recipe ?? {});
+  if ("code" in peerCounter) {
+    return peerCounter;
+  }
+  return peerCounter.initialValue === initialValue
+    ? undefined
+    : eventfdRefusal(resource, "eventfd alias peers must share the same counter value", {
+        eventfdId: resource.path,
+        peerFd: peer.fd,
+      });
 }
 
 function normalizedEventfdCounterRecipe(
@@ -751,6 +930,120 @@ function syntheticTcpActiveBrokerFdTableEntry(
   });
 }
 
+// fallow-ignore-next-line complexity
+function syntheticRawIcmpFdTableEntry(
+  resource: NativeProcessResource,
+  recipe: Record<string, unknown>,
+  closeOnExec: boolean,
+): NativeTargetFdTableEntry | undefined {
+  if (resource.kind !== "raw-socket" || recipe.rawIcmpModel !== "loopback-echo-v1") {
+    return undefined;
+  }
+  const identifier = typeof recipe.identifier === "number" ? recipe.identifier : undefined;
+  const sequence = typeof recipe.sequence === "number" ? recipe.sequence : undefined;
+  if (
+    recipe.family !== "inet4" ||
+    recipe.socketType !== "raw" ||
+    recipe.protocol !== "icmp" ||
+    recipe.destination !== "127.0.0.1" ||
+    recipe.capability !== "cap-net-raw" ||
+    recipe.networkNamespace !== "target-loopback" ||
+    recipe.route !== "loopback" ||
+    recipe.inFlightPackets !== "none" ||
+    recipe.receiveQueue !== "empty" ||
+    identifier === undefined ||
+    sequence === undefined ||
+    identifier < 0 ||
+    identifier > 0xffff ||
+    sequence < 0 ||
+    sequence > 0xffff
+  ) {
+    return refusedFdTableEntry(
+      resource,
+      resourceRefusalWithCode(resource, "target-socket-syscall-state-unsupported"),
+    );
+  }
+  return materializedFdTableEntry(resource, "synthetic-raw-icmp", closeOnExec, {
+    kind: "synthetic-raw-icmp",
+    fd: resource.fd!,
+    identifier,
+    sequence,
+    closeOnExec,
+  });
+}
+
+// fallow-ignore-next-line complexity
+function syntheticPingSocketFdTableEntry(
+  resource: NativeProcessResource,
+  recipe: Record<string, unknown>,
+  closeOnExec: boolean,
+): NativeTargetFdTableEntry | undefined {
+  if (
+    resource.kind !== "socket" ||
+    (recipe.pingSocketModel !== "loopback-echo-v1" &&
+      recipe.pingSocketModel !== "loopback-echo-active-recvmsg-empty-queue-v2")
+  ) {
+    return undefined;
+  }
+  const identifier = typeof recipe.identifier === "number" ? recipe.identifier : undefined;
+  const sequence = typeof recipe.sequence === "number" ? recipe.sequence : undefined;
+  const uid = typeof recipe.uid === "number" ? recipe.uid : undefined;
+  const gid = typeof recipe.gid === "number" ? recipe.gid : undefined;
+  const pingGroupRangeStart =
+    typeof recipe.pingGroupRangeStart === "number" ? recipe.pingGroupRangeStart : undefined;
+  const pingGroupRangeEnd =
+    typeof recipe.pingGroupRangeEnd === "number" ? recipe.pingGroupRangeEnd : undefined;
+  if (
+    recipe.family !== "inet4" ||
+    recipe.socketType !== "dgram" ||
+    recipe.protocol !== "icmp" ||
+    recipe.destination !== "127.0.0.1" ||
+    recipe.credentialPolicy !== "target-ping-group-range" ||
+    recipe.networkNamespace !== "target-loopback" ||
+    recipe.route !== "loopback" ||
+    recipe.inFlightPackets !== "none" ||
+    recipe.receiveQueue !== "empty" ||
+    identifier === undefined ||
+    sequence === undefined ||
+    uid === undefined ||
+    gid === undefined ||
+    pingGroupRangeStart === undefined ||
+    pingGroupRangeEnd === undefined ||
+    identifier < 0 ||
+    identifier > 0xffff ||
+    sequence < 0 ||
+    sequence > 0xffff ||
+    uid < 0 ||
+    gid < 0 ||
+    pingGroupRangeStart < 0 ||
+    pingGroupRangeEnd < pingGroupRangeStart ||
+    gid < pingGroupRangeStart ||
+    gid > pingGroupRangeEnd
+  ) {
+    return refusedFdTableEntry(
+      resource,
+      resourceRefusalWithCode(resource, "target-socket-syscall-state-unsupported"),
+    );
+  }
+  return materializedFdTableEntry(resource, "synthetic-ping-socket", closeOnExec, {
+    kind: "synthetic-ping-socket",
+    fd: resource.fd!,
+    identifier,
+    sequence,
+    uid,
+    gid,
+    pingGroupRangeStart,
+    pingGroupRangeEnd,
+    adoptCredentials:
+      typeof recipe.adoptCredentials === "boolean" ? recipe.adoptCredentials : undefined,
+    expectedRefusalCode:
+      typeof recipe.expectedRefusalCode === "string" ? recipe.expectedRefusalCode : undefined,
+    expectedRefusalReason:
+      typeof recipe.expectedRefusalReason === "string" ? recipe.expectedRefusalReason : undefined,
+    closeOnExec,
+  });
+}
+
 function materializedFdTableEntry(
   resource: NativeProcessResource,
   kind: NativeTargetFdTableEntryKind,
@@ -899,7 +1192,11 @@ function translateResource(
       refusal: undefined,
     };
   }
-  if (resource.kind === "eventfd" && resource.recipe?.eventfdModel === "counter-v1") {
+  if (
+    resource.kind === "eventfd" &&
+    (resource.recipe?.eventfdModel === "counter-v1" ||
+      resource.recipe?.eventfdModel === "counter-alias-v1")
+  ) {
     return {
       ...resource,
       state: "recipe",
@@ -925,7 +1222,11 @@ function translateResource(
       refusal: undefined,
     };
   }
-  if (resource.kind === "pipe" && resource.recipe?.pipeModel === "empty-pair-v1") {
+  if (
+    resource.kind === "pipe" &&
+    (resource.recipe?.pipeModel === "empty-pair-v1" ||
+      resource.recipe?.pipeModel === "buffered-bytes-v1")
+  ) {
     return {
       ...resource,
       state: "recipe",
@@ -986,8 +1287,16 @@ function translateResource(
     resource.kind === "socket" &&
     (resource.recipe?.tcpListenerModel === "loopback-listener-v1" ||
       resource.recipe?.tcpListenerModel === "loopback-listener-readiness-v1" ||
-      resource.recipe?.tcpActiveConnectionModel === "explicit-broker-v1")
+      resource.recipe?.tcpActiveConnectionModel === "explicit-broker-v1" ||
+      resource.recipe?.pingSocketModel === "loopback-echo-v1")
   ) {
+    return {
+      ...resource,
+      state: "recipe",
+      refusal: undefined,
+    };
+  }
+  if (resource.kind === "raw-socket" && resource.recipe?.rawIcmpModel === "loopback-echo-v1") {
     return {
       ...resource,
       state: "recipe",

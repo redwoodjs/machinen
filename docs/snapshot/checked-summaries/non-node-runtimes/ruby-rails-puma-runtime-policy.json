@@ -1,0 +1,145 @@
+{
+  "profile": "portable-machine-restore",
+  "state": "completed",
+  "remoteSourceTarget": "ruby-rails-puma-runtime-policy",
+  "targetRestore": {
+    "state": "completed",
+    "migrationCompleted": true,
+    "descriptorGateCompleted": true,
+    "targetVerifierResult": "passed",
+    "targetResourceStatuses": [
+      {
+        "kind": "ruby-rails-puma-style",
+        "status": "passed"
+      }
+    ],
+    "sourceTextReusedAsTargetCode": false,
+    "sourceIsaEmulationUsed": false,
+    "sidecarRuntimeUsed": false,
+    "appHooksRequired": false
+  },
+  "nonNodeRuntimeProof": {
+    "summary": {
+      "jvm": "refused",
+      "python": "supported",
+      "ruby": "supported",
+      "go": "supported"
+    },
+    "supportClaimed": {
+      "jvm": false,
+      "python": true,
+      "ruby": true,
+      "go": true
+    },
+    "assertions": {
+      "jvmFailClosedOrSupported": true,
+      "pythonFailClosedOrSupported": true,
+      "rubyFailClosedOrSupported": true,
+      "goFailClosedOrSupported": true,
+      "noShortcutArtifacts": true
+    },
+    "runtimeDetail": {
+      "name": "ruby",
+      "hostArch": "arm64",
+      "platform": "darwin",
+      "release": "24.6.0",
+      "state": "supported",
+      "supportClaimed": true,
+      "version": "ruby 2.6.10p210 (2022-04-12 revision 67958) [universal.arm64e-darwin24]",
+      "fixture": "rails-puma-style-local-audited",
+      "gemGraphSha256": "6a0da6b6c2f6c94d558b0507c45dfa1a93208c6241f1fa601413f3df414abc4a",
+      "outputSha256": "dd8498cd48f48ceb882cf6e4dc77a884bb1a9e5b3099535e74005b1e887c2b8a",
+      "managedHazards": [
+        "object-heap",
+        "gc",
+        "autoload",
+        "gem-graph",
+        "threads",
+        "fibers",
+        "native-gems"
+      ],
+      "refusals": [
+        {
+          "name": "native-gem-state",
+          "state": "refused",
+          "expectedRefusalCode": "runtime-ruby-native-gem-unsupported",
+          "migrationCompleted": false,
+          "evidence": {}
+        },
+        {
+          "name": "bootsnap-cache-drift",
+          "state": "refused",
+          "expectedRefusalCode": "runtime-ruby-bootsnap-cache-drift",
+          "migrationCompleted": false,
+          "evidence": {}
+        },
+        {
+          "name": "autoload-ambiguity",
+          "state": "refused",
+          "expectedRefusalCode": "runtime-ruby-autoload-ambiguous",
+          "migrationCompleted": false,
+          "evidence": {}
+        },
+        {
+          "name": "open-db-transaction",
+          "state": "refused",
+          "expectedRefusalCode": "runtime-ruby-db-transaction-unsupported",
+          "migrationCompleted": false,
+          "evidence": {}
+        }
+      ],
+      "targetRestore": {
+        "state": "completed",
+        "migrationCompleted": true,
+        "descriptorGateCompleted": true,
+        "targetVerifierResult": "passed",
+        "targetResourceStatuses": [
+          {
+            "kind": "ruby-rails-puma-style",
+            "status": "passed"
+          }
+        ],
+        "sourceTextReusedAsTargetCode": false,
+        "sourceIsaEmulationUsed": false,
+        "sidecarRuntimeUsed": false,
+        "appHooksRequired": false
+      },
+      "securityInspection": {
+        "sourceIsaEmulationArtifactFound": false,
+        "sourceTextReplayArtifactFound": false,
+        "sidecarRuntimeArtifactFound": false,
+        "appHookArtifactFound": false,
+        "targetNativeExecutionRequired": true,
+        "passed": true
+      }
+    },
+    "comparison": [
+      {
+        "runtime": "jvm",
+        "state": "refused",
+        "supportClaimed": false,
+        "fixture": "spring-style-service-local-audited",
+        "refusalCode": "runtime-jvm-fixture-failed"
+      },
+      {
+        "runtime": "python",
+        "state": "supported",
+        "supportClaimed": true,
+        "fixture": "django-celery-style-local-audited"
+      },
+      {
+        "runtime": "ruby",
+        "state": "supported",
+        "supportClaimed": true,
+        "fixture": "rails-puma-style-local-audited"
+      },
+      {
+        "runtime": "go",
+        "state": "supported",
+        "supportClaimed": true,
+        "fixture": "go-service-runtime-local-audited"
+      }
+    ]
+  },
+  "timings": []
+}

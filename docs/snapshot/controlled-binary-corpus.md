@@ -2,7 +2,7 @@
 
 Issue #415 starts the next portable snapshot step: binaries we control, built for more than one CPU architecture.
 
-The fixture source is `packages/microvm/assets/controlled-binary-corpus.c`. It is a normal C program. It does not call `machinen_checkpoint` and does not write a portable bundle. Instead, it exposes stable symbols and prints deterministic observation markers so later work can practice external capture and semantic extraction.
+The fixture source is `packages/microvm/test-fixtures/proof-assets/controlled-binary-corpus.c`. It is a normal C program. It does not call `machinen_checkpoint` and does not write a portable bundle. Instead, it exposes stable symbols and prints deterministic observation markers so later work can practice external capture and semantic extraction.
 
 ## Fixtures
 

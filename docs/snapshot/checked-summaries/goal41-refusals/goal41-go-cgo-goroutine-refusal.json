@@ -1,0 +1,47 @@
+{
+  "profile": "portable-machine-restore",
+  "state": "failed",
+  "remoteSourceTarget": "goal41-go-cgo-goroutine-refusal",
+  "targetRestore": {
+    "state": "refused",
+    "migrationCompleted": false,
+    "descriptorGateCompleted": false,
+    "targetVerifierResult": "not-run",
+    "refusal": {
+      "code": "runtime-go-cgo-goroutine-unsupported",
+      "message": "Go cgo goroutine unsupported"
+    },
+    "sourceTextReusedAsTargetCode": false,
+    "sourceIsaEmulationUsed": false,
+    "sidecarRuntimeUsed": false,
+    "appHooksRequired": false,
+    "metadataOnlyShortcutAccepted": false
+  },
+  "refusalUx": {
+    "code": "runtime-go-cgo-goroutine-unsupported",
+    "family": "go-scheduler",
+    "message": "Go cgo goroutine unsupported",
+    "explanation": "cgo stacks and C-owned state need an explicit native-state contract.",
+    "affectedRuntimes": ["go"],
+    "currentBehavior": "stable refusal with migrationCompleted=false",
+    "remediation": "Quiesce goroutines, drain channels, close netpoll waiters, avoid cgo, or restart at an application-level checkpoint.",
+    "graduationRequires": [
+      "runtime-versioned scheduler descriptor",
+      "target-native continuation boundary",
+      "quiescence/wakeup verifier",
+      "no runtime-private frame ambiguity"
+    ],
+    "stableUntilPositiveProofGraduates": true
+  },
+  "securityInspection": {
+    "sourceIsaEmulationArtifactFound": false,
+    "sourceTextReplayArtifactFound": false,
+    "sidecarRuntimeArtifactFound": false,
+    "appHookArtifactFound": false,
+    "metadataOnlyShortcutAccepted": false,
+    "targetNativeExecutionRequired": true,
+    "passed": true
+  },
+  "proofDigest": "169e53aea8fa422285f7ba8a163b17f331188b901263f8c1b8aadbcde9601589",
+  "timings": []
+}

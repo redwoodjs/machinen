@@ -1,0 +1,56 @@
+{
+  "profile": "portable-machine-restore",
+  "state": "completed",
+  "remoteSourceTarget": "stateful-redis-clean-quiesced-restore",
+  "targetRestore": {
+    "state": "completed",
+    "migrationCompleted": true,
+    "descriptorGateCompleted": true,
+    "targetVerifierResult": "passed",
+    "targetResourceStatuses": [
+      {
+        "kind": "redis-rdb-aof-clean-restore",
+        "status": "passed"
+      }
+    ],
+    "sourceTextReusedAsTargetCode": false,
+    "sourceIsaEmulationUsed": false,
+    "sidecarRuntimeUsed": false,
+    "appHooksRequired": false
+  },
+  "service": "redis",
+  "statefulServiceProof": {
+    "service": "redis",
+    "version": "redis_version:7.4.9\r",
+    "architecture": "arm64",
+    "fixtureDigest": "b5b096c49a343545d011cdcb806c885ff1d8a3e5d31e9871aae260d447b017a9",
+    "configDigest": "055bc9e163ef13692efa59403aef0bfffc0bdbbe2d20bce48da80bb688091c5a",
+    "persistenceManifestSha256": "b25dedba5853e7fa130d25e66246b4bec0cf17d24d1c3ff875eac08f72ceea96",
+    "sourceVerifierOutput": {
+      "serviceName": "machinen-redis",
+      "counter": 42,
+      "user": ["name", "Ada", "role", "engineer"],
+      "jobs": ["alpha", "beta", "gamma"],
+      "streamLength": 2
+    },
+    "targetVerifierOutput": {
+      "serviceName": "machinen-redis",
+      "counter": 42,
+      "user": ["name", "Ada", "role", "engineer"],
+      "jobs": ["alpha", "beta", "gamma"],
+      "streamLength": 2
+    },
+    "targetVerifierOutputSha256": "ac2115734cb19f6487b03834cb1510dc213622de757cf9f7714cd6286d417f38",
+    "checkpointEvidence": "SAVE plus appendfsync always/BGREWRITEAOF before restore"
+  },
+  "securityInspection": {
+    "sourceIsaEmulationArtifactFound": false,
+    "sourceTextReplayArtifactFound": false,
+    "sidecarRuntimeArtifactFound": false,
+    "appHookArtifactFound": false,
+    "metadataOnlyShortcutAccepted": false,
+    "targetNativeExecutionRequired": true,
+    "passed": true
+  },
+  "timings": []
+}

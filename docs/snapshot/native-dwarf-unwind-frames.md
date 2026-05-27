@@ -25,7 +25,7 @@ MACHINEN_NATIVE_DWARF_UNWIND_SOURCE_BUNDLE=/path/to/source-bundle \
 ## What it proves
 
 The source/target program is
-`packages/microvm/assets/native-dwarf-unwind-continuation.c`.
+`packages/microvm/test-fixtures/proof-assets/native-dwarf-unwind-continuation.c`.
 
 The arm64 source function publishes CFI for its active frame:
 

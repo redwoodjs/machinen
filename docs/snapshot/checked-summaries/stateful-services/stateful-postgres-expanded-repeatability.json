@@ -1,0 +1,45 @@
+{
+  "profile": "portable-machine-restore",
+  "state": "completed",
+  "remoteSourceTarget": "stateful-postgres-expanded-repeatability",
+  "targetRestore": {
+    "state": "completed",
+    "migrationCompleted": true,
+    "descriptorGateCompleted": true,
+    "targetVerifierResult": "passed",
+    "targetResourceStatuses": [
+      {
+        "kind": "postgres-expanded-logical-restore",
+        "status": "passed"
+      }
+    ],
+    "sourceTextReusedAsTargetCode": false,
+    "sourceIsaEmulationUsed": false,
+    "sidecarRuntimeUsed": false,
+    "appHooksRequired": false
+  },
+  "service": "postgres",
+  "statefulServiceProof": {
+    "service": "postgres",
+    "version": "15.18 (Debian 15.18-1.pgdg12+1)",
+    "architecture": "arm64",
+    "initSqlSha256": "11a6254810d3b736f5797e6e2b224e2c615de92cb329512b2617f231d7d5c7d3",
+    "workloadSqlSha256": "44a4811f81be5f071b6d7ae65d8e924a0b079d927eade36337d9509e21018be0",
+    "dumpSha256": "5e56049be64c22ca84cef16d755f942789c85d7ff799586b9786c76ac8023744",
+    "sourceVerifierOutput": "You are now connected to database \"machinen_stateful_a\" as user \"postgres\".\n{\"database\" : \"machinen_stateful_a\", \"accountCount\" : 129, \"balanceSum\" : 25816, \"firstNames\" : [\"acct-1\",\"acct-2\",\"acct-3\"], \"hasExtra\" : true}\nYou are now connected to database \"machinen_stateful_b\" as user \"postgres\".\n{\"database\" : \"machinen_stateful_b\", \"eventCount\" : 65, \"hasCheckpoint\" : true}",
+    "targetVerifierOutput": "You are now connected to database \"machinen_stateful_a\" as user \"postgres\".\n{\"database\" : \"machinen_stateful_a\", \"accountCount\" : 129, \"balanceSum\" : 25816, \"firstNames\" : [\"acct-1\",\"acct-2\",\"acct-3\"], \"hasExtra\" : true}\nYou are now connected to database \"machinen_stateful_b\" as user \"postgres\".\n{\"database\" : \"machinen_stateful_b\", \"eventCount\" : 65, \"hasCheckpoint\" : true}",
+    "targetVerifierOutputSha256": "7f2604e8586b79e870fa964f6a248b32555163af083f47f70cab860aedc22a05",
+    "repeatabilityFingerprint": "7f2604e8586b79e870fa964f6a248b32555163af083f47f70cab860aedc22a05",
+    "checkpointEvidence": "CHECKPOINT in workload before logical dump"
+  },
+  "securityInspection": {
+    "sourceIsaEmulationArtifactFound": false,
+    "sourceTextReplayArtifactFound": false,
+    "sidecarRuntimeArtifactFound": false,
+    "appHookArtifactFound": false,
+    "metadataOnlyShortcutAccepted": false,
+    "targetNativeExecutionRequired": true,
+    "passed": true
+  },
+  "timings": []
+}

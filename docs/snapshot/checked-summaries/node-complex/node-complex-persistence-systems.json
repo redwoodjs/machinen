@@ -1,0 +1,39 @@
+{
+  "profile": "portable-machine-restore",
+  "state": "completed",
+  "remoteSourceTarget": "node-complex-persistence-systems",
+  "targetRestore": {
+    "state": "completed",
+    "migrationCompleted": true,
+    "descriptorGateCompleted": true,
+    "targetVerifierResult": "passed",
+    "targetResourceStatuses": [
+      {
+        "kind": "complex-persistence",
+        "status": "passed"
+      }
+    ],
+    "sourceTextReusedAsTargetCode": false,
+    "sourceIsaEmulationUsed": false,
+    "sidecarRuntimeUsed": false,
+    "appHooksRequired": false
+  },
+  "complexNodeProof": {
+    "routeCount": 8,
+    "completedRoutes": 8,
+    "versions": ["18", "20", "22", "24"],
+    "assertions": {
+      "frameworkApps": true,
+      "persistence": true,
+      "networking": true,
+      "topology": true,
+      "publishedNative": true,
+      "loadFailure": true,
+      "osRuntimeMatrix": true,
+      "bidirectional": true,
+      "noShortcutArtifacts": true
+    },
+    "assertion": "complex-persistence"
+  },
+  "timings": []
+}

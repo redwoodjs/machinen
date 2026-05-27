@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -85,7 +85,7 @@ describe("portable machine proof matrix", () => {
       kind: "machinen.portable-machine-proof-matrix",
       state: "completed",
       pass: true,
-      profileCounts: { total: 5 },
+      profileCounts: { total: 6 },
       schemaValidation: { passed: true },
     });
     expect(summary.selectedProfiles).toEqual([
@@ -94,6 +94,7 @@ describe("portable machine proof matrix", () => {
       "fd-alias-socket-refusal",
       "tcp-active-connection-refusal",
       "epoll-socket-readiness-refusal",
+      "raw-icmp-ping-refusal",
     ]);
     expect(summary.refusalCodes).toMatchObject({
       "socket-transfer-refusal": "target-socket-syscall-state-unsupported",
@@ -150,5 +151,48 @@ describe("portable machine proof matrix", () => {
     expect(summary.results[0].runnerSummary.gateCheck.failures).toEqual(
       expect.arrayContaining([expect.objectContaining({ label: "refusal.code" })]),
     );
+  });
+
+  it("supports sharded cached summaries and artifact inventory output", () => {
+    const dir = tempDir();
+    const inventoryPath = join(dir, "artifacts.json");
+    writeFileSync(join(dir, "file-write.json"), JSON.stringify(completedSummary(), null, 2));
+    writeFileSync(
+      join(dir, "file-read.json"),
+      JSON.stringify(completedSummary("file-read"), null, 2),
+    );
+    writeFileSync(
+      join(dir, "socket-transfer-refusal.json"),
+      JSON.stringify(refusedSummary(), null, 2),
+    );
+
+    const result = spawnSync(
+      "node",
+      [
+        MATRIX,
+        "--profile",
+        "file-write,file-read,socket-transfer-refusal",
+        "--summary-cache-dir",
+        dir,
+        "--artifact-inventory",
+        inventoryPath,
+        "--shard",
+        "2/2",
+        "--json",
+      ],
+      { cwd: REPO_ROOT, encoding: "utf8", env: SCRIPT_ENV, timeout: 60_000 },
+    );
+
+    expect(result.status, result.stderr).toBe(0);
+    expect(existsSync(inventoryPath)).toBe(true);
+    const summary = JSON.parse(result.stdout);
+    expect(summary.selectedProfiles).toEqual(["file-read"]);
+    expect(summary.shard).toMatchObject({ index: 1, count: 2, selectedBeforeShard: 3 });
+    expect(summary.summarySources).toEqual({ "file-read": "cache" });
+    expect(summary.artifactInventory.profiles["file-read"]).toEqual(
+      expect.arrayContaining([expect.objectContaining({ kind: "checked-summary" })]),
+    );
+    const inventory = JSON.parse(readFileSync(inventoryPath, "utf8"));
+    expect(inventory).toMatchObject({ kind: "machinen.portable-machine-proof-artifact-inventory" });
   });
 });

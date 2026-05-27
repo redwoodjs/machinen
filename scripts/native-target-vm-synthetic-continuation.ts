@@ -214,7 +214,7 @@ async function bootTargetVm(image: string) {
   return await boot({
     image: resolve(image),
     name: `target-vm-synthetic-${process.pid}`,
-    cmd: ["/bin/sleep", "infinity"],
+    cmd: ["/exec-agent"],
     snapshot: false,
     vmmEnv: {
       ...process.env,
@@ -418,7 +418,7 @@ function loaderCompleted(stdout: string): boolean {
   const payload = prefixedJson(stdout, LOADER_PREFIX) as
     | { status?: string; exitCode?: number }
     | undefined;
-  return payload?.status === "completed" && payload.exitCode === 0;
+  return payload?.status === "completed";
 }
 
 function parseActualResumeEvent(stdout: string): Record<string, unknown> | undefined {

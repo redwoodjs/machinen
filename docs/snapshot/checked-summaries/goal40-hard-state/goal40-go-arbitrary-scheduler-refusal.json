@@ -1,0 +1,19 @@
+{
+  "profile": "portable-machine-restore",
+  "state": "failed",
+  "remoteSourceTarget": "goal40-go-arbitrary-scheduler-refusal",
+  "targetRestore": {
+    "state": "refused",
+    "migrationCompleted": false,
+    "descriptorGateCompleted": false,
+    "refusal": {
+      "code": "runtime-go-arbitrary-goroutine-scheduler-unsupported",
+      "message": "goal40-go-arbitrary-scheduler-refusal stable Goal 40 refusal"
+    },
+    "sourceTextReusedAsTargetCode": false,
+    "sourceIsaEmulationUsed": false,
+    "sidecarRuntimeUsed": false,
+    "appHooksRequired": false
+  },
+  "timings": []
+}

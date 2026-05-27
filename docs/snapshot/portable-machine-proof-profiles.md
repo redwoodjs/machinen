@@ -60,10 +60,10 @@ Every profile also carries a support status:
   backlog support item.
 - `graduated-support`: a formerly refused family now has a positive target-native
   subset. These profiles must record `graduatedFromRefusalCode`, an
-  `acceptedSubset`, and unsafe variants that still refuse. Goal 8/9 declarative
-  profiles use `synthetic-positive:*` fixtures to exercise the same target gates
-  and provenance contract without accepting source-ISA emulation, runtime
-  sidecars, app hooks, or source text replay.
+  `acceptedSubset`, and unsafe variants that still refuse. Goal 8/9 and Goal 21
+  declarative profiles use `synthetic-positive:*` fixtures to exercise the same
+  target gates and provenance contract without accepting source-ISA emulation,
+  runtime sidecars, app hooks, or source text replay.
 
 Negative profiles set `expectedResult: "refusal"`. They are pass/fail checks for
 unsafe states, not accepted migrations. The runner treats a negative profile as
@@ -85,21 +85,66 @@ pnpm --silent portable-machine-proof-runner -- \
 
 This exits non-zero if any required gate is missing or not `passed`.
 
-## Goal 8/9/11 graduated capability set
+## Goal 8/9/11/12/13/14/15/21 graduated capability set
 
-The current graduated set also includes the Goal 8/9 app-neutral blockers and
-Goal 11 real workload proofs in
+The current graduated set also includes the Goal 8/9 app-neutral blockers,
+Goal 11 real workload proofs, Goal 12 raw ICMP loopback proof, Goal 13 ping-socket loopback proof, Goal 14 non-root ping-socket proof, and Goal 15 distro ping active recvmsg proof in
 [`goal-8-9-capability-graduations.md`](./goal-8-9-capability-graduations.md):
 `tcp-listener-recreate`, `real-tcp-listener-recreate`,
 `real-tcp-listener-readiness-recreate`,
-`real-tcp-active-connection-transport-recreate`, `private-multi-range-recreate`,
+`real-tcp-active-connection-transport-recreate`,
+`real-raw-icmp-loopback-recreate`, `real-ping-socket-loopback-recreate`,
+`real-nonroot-ping-socket-loopback-recreate`,
+`real-distro-ping-socket-loopback-recreate`, `private-multi-range-recreate`,
 `epoll-graph-recreate`, `file-backed-private-mapping-recreate`,
 `active-syscall-eintr-recreate`,
 `tcp-active-connection-transport-recreate`,
 `tcp-listener-readiness-recreate`, `futex-private-wait-wake-recreate`,
 `rseq-absent-or-target-registered-recreate`, and
-`shared-memory-contract-recreate`. Each positive profile has nearby refusal
-profiles in `unsafeVariants`.
+`shared-memory-contract-recreate`. Goal 21 adds 49 `goal21:*` target-native
+subset profiles for the next refusal-to-support targets; each has its own
+accepted subset, artifact hashes, verifier gates, and at least five nearby
+refusal profiles in `unsafeVariants`. Goal 22 upgrades those Goal 21 neighbor
+refusals from profile-only synthetic shortcuts to concrete descriptor fixtures in
+`scripts/fixtures/goal21-negative-descriptor-fixtures.json`; each concrete
+negative profile now uses a `concrete-negative:goal21/...` source fixture and
+records the descriptor hash that drives the target restore refusal. Goal 23
+upgrades the 49 Goal 21 positives to concrete descriptor fixtures in
+`scripts/fixtures/goal21-positive-descriptor-fixtures.json`; each concrete
+positive profile now uses a `concrete-positive:goal21/...` source fixture and
+records descriptor, continuation, snapshot, and restore-summary artifact hashes
+for target-native success. Goal 24 records the live source-capture assessment for
+each Goal 21/22/23 concrete fixture. Goal 25 replaces the fallback-only decisions
+with `live-source-capture-proof` records in
+`scripts/fixtures/goal21-live-source-capture-fixtures.json`; each Goal 21/22/23
+profile now uses a `live-capture-positive:goal21/...` or
+`live-capture-negative:goal21/...` source fixture, records source-capture
+artifact hashes, and still drives the concrete target-native descriptor proof.
+Goal 26 adds the remaining 200 `goal26:*` backlog graduations with live-capture
+proof records and concrete descriptor success/refusal fixtures, bringing the
+250-target wave to completion. Goal 27 adds 11 exact `runtime:node:*` Node.js
+runtime subsets with live-capture proof records and 56 fail-closed Node negative
+neighbors. Goal 28 adds invalidation profiles: 16 valid-baseline `invalidation:*`
+positives, 67 working refresh positives, and 67 stale-state refusals. The refresh
+profiles prove descriptor, artifact, runtime, kernel-resource, socket/timer, and
+Node identity drift can be detected, refreshed with target-native provenance, and
+completed with `migrationCompleted=true`; the paired stale-descriptor refusals
+keep unsafe originals fail-closed before migration completion. Goal 29 adds 170
+working `runtime:node:blocker:*` support profiles for native addons, workers,
+async state, timers, network/DNS/TLS, fs/stdio, V8 heap, module graph,
+process/signal, and Node identity invalidation. The original 81 Node blocker
+refusal profiles were graduated to target-native positive support, so no
+`runtime:node:blocker:*` refusal profiles remain. The Node app support pass adds
+10 representative `runtime:node:app:*` workloads that compose the runtime and
+blocker capabilities into proof-backed CLI, package, async, IO, network, worker,
+addon, and crypto/TLS app profiles. Goal 31 hardens these app profiles so they
+must use `real-node-app:` source fixtures, app harness JSON, target output
+verifiers, checked summaries, and the `node-app-output` gate; profiles with
+synthetic shortcut fields, missing fixtures, source text replay, sidecars,
+application hooks, or source-ISA emulation fail schema/tests. The final Node
+refusal-resolution pass converted the remaining 73 `runtime:node:*` refusal
+profiles to target-native positive support, leaving 0 Node runtime refusals. Each
+positive profile has nearby refusal profiles in `unsafeVariants`.
 
 ## Refusal graduation checklist
 
@@ -139,8 +184,11 @@ passes. The accepted class includes:
   descriptor subset, the Goal 4 `eventfd-counter-v1` descriptor subset, the Goal
   4 `timerfd-descriptor-v1` disarmed/relative-one-shot descriptor subset, the
   Goal 3 epoll `interest-list-v1` reconstruction subset,
-  the Goal 3 signalfd `empty-queue-v1` descriptor subset, and the Goal 11 real
-  loopback TCP listener/readiness plus explicit-broker active TCP subsets;
+  the Goal 3 signalfd `empty-queue-v1` descriptor subset, the Goal 11 real
+  loopback TCP listener/readiness plus explicit-broker active TCP subsets, and
+  the Goal 12 raw ICMP loopback echo no-in-flight subset, the Goal 13 Linux
+  ping-socket loopback echo no-in-flight subset, and the Goal 15 distro ping
+  active `recvmsg` empty-queue wait subset;
 - active syscall completion only for sleep/`ppoll` timeout, empty pipe read,
   empty eventfd read, timerfd read, offset-backed regular-file
   `read`/`pread64`/single-iovec `readv`, and offset-backed regular-file
@@ -149,11 +197,15 @@ passes. The accepted class includes:
   profile.
 
 Everything outside that class must fail closed with a stable refusal before
-`migrationCompleted=true`: sockets without an explicit broker contract,
+`migrationCompleted=true`: raw ICMP outside `raw-icmp-v1` loopback echo, ping
+sockets outside `ping-socket-v1`/`ping-socket-v2` loopback echo,
+sockets without an explicit broker contract,
 epoll/signalfd state outside their graduated subsets, futex/rseq/general scheduler
 state beyond ordinary private-memory data copying, source vDSO/vvar copying,
 source executable text reuse, JIT or
-self-modifying code without a target-native regeneration descriptor, pending
+self-modifying code without a target-native regeneration descriptor, active
+`recvmsg` packet-queue ambiguity outside the distro ping empty-queue contract,
+pending
 signals/active signal frames, raw cross-ISA
 `.vmstate` replay, missing provenance, malformed descriptors, or unsupported
 resource kinds. The proof is not a Node/Bun sidecar, source-ISA emulation, app

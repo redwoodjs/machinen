@@ -1,6 +1,6 @@
 # Fail-closed refusal inventory
 
-This inventory covers the refusal codes used by `goal-2.md`. Each code marks a
+This inventory covers the refusal codes used by [`goal-002.md`](../../goals/portable-snapshot-format/goal-002.md). Each code marks a
 state that must not reach `migrationCompleted=true` unless a later task replaces
 the refusal with an exact target-native model and proof profile.
 
@@ -35,17 +35,59 @@ reference the same refusal codes. The proof runner checks those summaries with
 `expectedResult: "refusal"`; a matching refusal is a pass only when migration did
 not complete.
 
-Goals 8, 9, and 11 graduate the app-neutral subsets documented in
-[`goal-8-9-capability-graduations.md`](./goal-8-9-capability-graduations.md): a
-real private multi-range memory plus regular-file workload, TCP
-listeners, multiple private ranges with guards, acyclic epoll graphs,
-file-backed private mappings, deterministic `EINTR`, explicit-broker active TCP
-streams, listener readiness probes, private futex wait/wake, rseq lifecycle, and
-shared-memory contracts. The neighboring unsafe profiles keep active or queued
-connections, socket option ambiguity, fd aliases, W+X/stale/shared/source-only
-memory, epoll cycles/edge/one-shot readiness, restart/signal ambiguity, missing
-brokers, TLS/session opacity, PI/robust/shared futexes, active rseq critical
-sections, and undeclared shared participants on the refusal codes in this table.
+Goals 8, 9, 11, 12, 13, 14, 15, and 21 graduate the app-neutral subsets documented in
+[`goal-8-9-capability-graduations.md`](./goal-8-9-capability-graduations.md) and
+[`goal-021.md`](../../goals/portable-snapshot-format/goal-021.md): a real private multi-range memory plus
+regular-file workload, TCP listeners, raw ICMP loopback echo, Linux ping-socket
+loopback echo, distro ping active `recvmsg` empty-queue wait, multiple private
+ranges with guards, acyclic epoll graphs, file-backed private mappings,
+deterministic `EINTR`, explicit-broker active TCP streams, listener readiness
+probes, private futex wait/wake, rseq lifecycle, shared-memory contracts, and the
+49 Goal 21 `goal21:*` narrow target-native subsets. The neighboring unsafe
+profiles keep active or queued connections, raw ICMP without capability or route
+provenance, ping sockets without credential/range provenance, non-loopback ICMP,
+in-flight/unread ICMP packets, active `recvmsg` queue/flag/signal ambiguity,
+socket option ambiguity, fd aliases, W+X/stale/shared/source-only memory, epoll
+cycles/edge/one-shot readiness, restart/signal ambiguity, missing brokers,
+TLS/session opacity, PI/robust/shared futexes, active rseq critical sections,
+undeclared shared participants, and every Goal 21 key negative neighbor on the
+refusal codes in this table. Goal 22 backs the 245 Goal 21 neighbor refusals with
+concrete descriptor fixtures in
+[`goal21-negative-descriptor-fixtures.json`](../../scripts/fixtures/goal21-negative-descriptor-fixtures.json),
+so those profiles no longer rely on profile-only synthetic negative shortcuts.
+Goal 23 similarly backs the 49 Goal 21 positive profiles with concrete descriptor
+fixtures in
+[`goal21-positive-descriptor-fixtures.json`](../../scripts/fixtures/goal21-positive-descriptor-fixtures.json),
+while preserving these fail-closed neighbor refusals. Goal 25 adds the live
+source-capture proof registry in
+[`goal21-live-source-capture-fixtures.json`](../../scripts/fixtures/goal21-live-source-capture-fixtures.json),
+so the Goal 21/22/23 profiles record source-capture artifacts while retaining the
+same target-native success/refusal gates. Goal 26 extends the same live-capture
+and concrete descriptor proof pattern to targets 51-250, with 200 additional
+positive profiles and 1000 neighboring refusal profiles that keep broader states
+fail-closed. Goal 27 applies the same rule to Node.js: 11 exact
+`runtime:node:*` subsets are graduated, while 56 Node-specific neighbors covering
+pending timers, unresolved async work, active fs/network/DNS resources, workers,
+native addons, inspector state, child processes, signal state, module ambiguity,
+JIT/source-owned executable frames, app hooks, and source-text replay remain
+fail-closed. Goal 28 adds explicit stale-state invalidation families using stable
+`portable-*` refusal codes for descriptor hash drift, source/live-capture artifact
+drift, runtime/loader/libc identity drift, module/package/file provenance drift,
+process context drift, kernel resource identity drift, socket/packet/timer drift,
+and Node-specific version/flag/native-addon ABI drift. These invalidation guards
+prove an unsafe stale descriptor cannot reach `migrationCompleted=true` after any
+required identity changes; paired Goal 28 refresh profiles make each invalidation
+case work by recapturing target-native provenance, rewriting the portable
+descriptor, revalidating artifacts, and then completing safely. Goal 29 resolves
+remaining Node blocker families the same way: every broad unsafe Node blocker was
+recorded as a stable refusal first, then graduated to target-native support for
+Native addon/N-API, worker, async, timer, network/DNS/TLS, fs/stdio, V8/heap,
+module graph, process/signal, and identity-invalidation subsets. No
+`runtime:node:blocker:*` refusal profiles remain after the broad blocker
+resolution pass. The subsequent Node refusal-resolution pass graduated the
+remaining 73 `runtime:node:*` refusal profiles as target-native support too, so
+there are now 0 Node runtime refusal profiles; non-Node permanent/system refusals
+still guard states outside the Node support claim.
 
 Goal 3 graduates only the epoll `interest-list-v1` subset to
 `epoll-recreate`; active waits, nested epoll, edge-triggered/one-shot delivery,
@@ -100,7 +142,7 @@ without exact remaining-time contracts stay on `signal-state-unsupported` or
 `syscall-restart-unsupported`; `signal-mask-restart-refusal` and
 `restart-state-refusal` guard those boundaries.
 
-`goal-5.md` adds granular proof profiles for the Goals 9-13 refusal wave.
+[`goal-005.md`](../../goals/portable-snapshot-format/goal-005.md) adds granular proof profiles for the Goals 9-13 refusal wave.
 Readiness wake ordering, edge/one-shot readiness, socket readiness,
 signal-mask-changing waits, and ambiguous pollfd/fd-set memory are refused by
 `readiness-scheduler-refusal`, `readiness-edge-trigger-refusal`,

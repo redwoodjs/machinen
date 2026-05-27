@@ -1,15 +1,17 @@
 {
   "kind": "machinen.runtime-support-manifest",
   "name": "ruby-planning-fixture",
-  "supportClaimed": false,
+  "supportClaimed": true,
   "runtime": {
     "name": "ruby",
     "version": "3.3.x",
     "buildId": "ruby-fixture-build",
     "implementation": "ruby"
   },
-  "requiredCapabilities": [],
-  "positiveProofProfiles": {},
+  "requiredCapabilities": ["runtime:ruby:goal38:rails-puma-local-audited"],
+  "positiveProofProfiles": {
+    "runtime:ruby:goal38:rails-puma-local-audited": ["ruby-rails-puma-runtime-policy"]
+  },
   "semanticSections": [
     "heap graph",
     "fiber inventory",
@@ -144,5 +146,39 @@
       "code": "runtime-source-text-replay",
       "migrationCompleted": false
     }
-  ]
+  ],
+  "goal38NonNodeRuntimeProof": {
+    "claim": "goal38-non-node-runtime-support-or-refusal-v1",
+    "capability": "runtime:ruby:goal38:rails-puma-local-audited",
+    "proofProfile": "ruby-rails-puma-runtime-policy",
+    "supportClaimedForThisSubset": true,
+    "checkedSummary": "docs/snapshot/checked-summaries/non-node-runtimes/ruby-rails-puma-runtime-policy.json",
+    "shortcutPolicy": {
+      "sourceIsaEmulation": false,
+      "sourceTextReplay": false,
+      "sidecarRuntime": false,
+      "appHooks": false
+    }
+  },
+  "goal40HardRuntimeStateProof": {
+    "claim": "goal40-hard-runtime-state-boundaries-v1",
+    "checkedSummaries": [
+      "docs/snapshot/checked-summaries/goal40-hard-state/goal40-active-socket-tls-policy.json",
+      "docs/snapshot/checked-summaries/goal40-hard-state/goal40-native-extension-boundary-policy.json",
+      "docs/snapshot/checked-summaries/goal40-hard-state/goal40-go-scheduler-boundary-policy.json"
+    ],
+    "stableRefusalCodes": [
+      "runtime-network-active-socket-queue-ambiguous",
+      "runtime-network-tls-session-key-opaque",
+      "runtime-native-extension-opaque-state",
+      "runtime-go-arbitrary-goroutine-scheduler-unsupported"
+    ],
+    "shortcutPolicy": {
+      "sourceIsaEmulation": false,
+      "sourceTextReplay": false,
+      "sidecarRuntime": false,
+      "appHooks": false,
+      "metadataOnly": false
+    }
+  }
 }

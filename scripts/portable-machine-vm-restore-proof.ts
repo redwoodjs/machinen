@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 import { createHash } from "node:crypto";
-import { spawnSync } from "node:child_process";
+import { spawnSync, type SpawnSyncReturns } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import {
@@ -39,8 +39,10 @@ import { FINAL_JUMP_EXPECTED_RETURN, FINAL_JUMP_RETURN_MARKER } from "./native-f
 
 interface ProofVerifierFeatures {
   includeEventfdCounterProof: boolean;
+  includeEventfdAliasProof: boolean;
   includeTimerfdDescriptorProof: boolean;
   includePipePairProof: boolean;
+  includePipeBufferedProof: boolean;
   includeEpollProof: boolean;
   includeSignalfdProof: boolean;
   includeReadinessEventfdPollProof: boolean;
@@ -51,6 +53,8 @@ interface ProofVerifierFeatures {
   includeTcpListenerProof: boolean;
   includeTcpListenerReadinessProof: boolean;
   includeTcpActiveBrokerProof: boolean;
+  includeRawIcmpProof: boolean;
+  includePingSocketProof: boolean;
 }
 
 interface Args extends ProofVerifierFeatures {
@@ -69,6 +73,18 @@ interface Args extends ProofVerifierFeatures {
     | "apply-target-env-cwd"
     | "apply-target-visible-context"
     | "apply-target-initial-stack";
+  pingSocketUid: number;
+  pingSocketGid: number;
+  pingSocketRangeStart: number;
+  pingSocketRangeEnd: number;
+  pingSocketAdoptCredentials: boolean;
+  pingSocketExpectedRefusalCode?: string;
+  pingSocketExpectedRefusalReason?: string;
+  eventfdAliasExpectedRefusalCode?: string;
+  eventfdAliasExpectedRefusalReason?: string;
+  pingSocketActiveRecvmsgProof: boolean;
+  pingSocketActiveRecvmsgSourceFd: number;
+  expectTargetRefusalCode?: string;
 }
 
 interface TargetInvocation {
@@ -109,6 +125,17 @@ interface CombinedDescriptorPaths {
 }
 
 interface CombinedDescriptorContext extends CombinedDescriptorPaths, ProofVerifierFeatures {
+  pingSocketUid: number;
+  pingSocketGid: number;
+  pingSocketRangeStart: number;
+  pingSocketRangeEnd: number;
+  pingSocketAdoptCredentials: boolean;
+  pingSocketExpectedRefusalCode?: string;
+  pingSocketExpectedRefusalReason?: string;
+  eventfdAliasExpectedRefusalCode?: string;
+  eventfdAliasExpectedRefusalReason?: string;
+  pingSocketActiveRecvmsgProof: boolean;
+  pingSocketActiveRecvmsgSourceFd: number;
   targetThreadRestoreResult: "accepted";
   targetThreadRestoreThreadId: string;
   targetSignalBlockedMasks: string[];
@@ -177,12 +204,23 @@ const PROOF_PIPE_READ_FD = 8;
 const PROOF_PIPE_WRITE_FD = 9;
 const PROOF_EVENT_FD = 10;
 const PROOF_TIMER_FD = 11;
+const PROOF_EVENT_ALIAS_FD = 60;
 const PROOF_EPOLL_FD = 12;
 const PROOF_SIGNALFD_FD = 13;
 const PROOF_DUP_FILE_FD = 14;
 const PROOF_TCP_LISTENER_FD = 55;
 const PROOF_TCP_ACTIVE_FD = 56;
 const PROOF_TCP_BROKER_FD = 57;
+const PROOF_RAW_ICMP_FD = 58;
+const PROOF_PING_SOCKET_FD = 59;
+const PROOF_RAW_ICMP_IDENTIFIER = 0x4d49;
+const PROOF_RAW_ICMP_SEQUENCE = 1;
+const PROOF_PING_SOCKET_IDENTIFIER = 0x4d50;
+const PROOF_PING_SOCKET_SEQUENCE = 2;
+const PROOF_PING_SOCKET_UID = 0;
+const PROOF_PING_SOCKET_GID = 0;
+const PROOF_PING_GROUP_RANGE_START = 0;
+const PROOF_PING_GROUP_RANGE_END = 2147483647;
 const PROOF_TCP_LISTENER_PORT = 45321;
 const PROOF_TCP_READINESS_PORT = 45322;
 const PROOF_TCP_ACTIVE_PORT = 45323;
@@ -194,6 +232,7 @@ const PROOF_SIGNALFD_MASK = "0x200";
 const PROOF_SIGNALFD_FLAGS = 0x800;
 const SIGUSR1 = 10;
 const PROOF_FD_BYTES = Buffer.from("FD");
+const PROOF_PIPE_BUFFERED_BYTES = Buffer.from("PIPEBUF");
 const PROOF_FILE_READ_BYTES = Buffer.from("FILE");
 const PROOF_FILE_WRITE_BYTES = Buffer.from("WRIT");
 const PROOF_INITIAL_STACK_TARGET = "0x600000002000";
@@ -210,6 +249,8 @@ const STATE_CHECK_SIGNALFD = 0x100;
 const STATE_CHECK_TCP_LISTENER = 0x200;
 const STATE_CHECK_TCP_READINESS = 0x400;
 const STATE_CHECK_TCP_ACTIVE = 0x800;
+const STATE_CHECK_RAW_ICMP = 0x1000;
+const STATE_CHECK_PING_SOCKET = 0x2000;
 const TRANSLATED_FRAME_MARKER = 0x4652414d45504153n;
 const TRANSLATED_RESUME_MARKER = 0x524553554d455041n;
 const TRANSLATED_FRAME_POINTER = "0x50000000ff80";
@@ -254,10 +295,16 @@ function usage(): never {
       "--bundle-dir path --target-code-file path [--image rootfs.tar.gz] " +
       "[--combined-descriptor] [--real-utility-continuation] " +
       "[--process-context-restore metadata-only|apply-target-env-cwd|apply-target-visible-context|apply-target-initial-stack] " +
-      "[--include-eventfd-counter-proof] [--include-timerfd-descriptor-proof] [--include-pipe-pair-proof] [--include-epoll-proof] [--include-signalfd-proof] " +
+      "[--include-eventfd-counter-proof] [--include-eventfd-alias-proof] [--include-timerfd-descriptor-proof] [--include-pipe-pair-proof] [--include-pipe-buffered-proof] [--include-epoll-proof] [--include-signalfd-proof] " +
       "[--include-readiness-eventfd-poll-proof] [--include-regular-file-duplicate-fd-proof] [--include-target-auxv-at-random-proof] " +
       "[--include-private-layout-proof] [--include-signal-mask-blocked-proof] " +
-      "[--include-tcp-listener-proof] [--include-tcp-listener-readiness-proof] [--include-tcp-active-broker-proof] [--json]",
+      "[--include-tcp-listener-proof] [--include-tcp-listener-readiness-proof] [--include-tcp-active-broker-proof] " +
+      "[--include-raw-icmp-proof] [--include-ping-socket-proof] [--ping-socket-uid n] [--ping-socket-gid n] " +
+      "[--ping-socket-range-start n] [--ping-socket-range-end n] [--ping-socket-adopt-credentials] " +
+      "[--ping-socket-active-recvmsg-proof] [--ping-socket-active-recvmsg-source-fd n] " +
+      "[--ping-socket-expected-refusal-code code] [--ping-socket-expected-refusal-reason reason] " +
+      "[--eventfd-alias-expected-refusal-code code] [--eventfd-alias-expected-refusal-reason reason] " +
+      "[--expect-target-refusal-code code] [--json]",
   );
   process.exit(2);
 }
@@ -280,8 +327,10 @@ function argsFromReader(read: (flag: string) => string | undefined, argv: string
     syntheticTimerFd: read("--synthetic-timerfd"),
     processContextRestore: parseProcessContextRestoreMode(read("--process-context-restore")),
     includeEventfdCounterProof: argv.includes("--include-eventfd-counter-proof"),
+    includeEventfdAliasProof: argv.includes("--include-eventfd-alias-proof"),
     includeTimerfdDescriptorProof: argv.includes("--include-timerfd-descriptor-proof"),
     includePipePairProof: argv.includes("--include-pipe-pair-proof"),
+    includePipeBufferedProof: argv.includes("--include-pipe-buffered-proof"),
     includeEpollProof: argv.includes("--include-epoll-proof"),
     includeSignalfdProof: argv.includes("--include-signalfd-proof"),
     includeReadinessEventfdPollProof: argv.includes("--include-readiness-eventfd-poll-proof"),
@@ -292,6 +341,29 @@ function argsFromReader(read: (flag: string) => string | undefined, argv: string
     includeTcpListenerProof: argv.includes("--include-tcp-listener-proof"),
     includeTcpListenerReadinessProof: argv.includes("--include-tcp-listener-readiness-proof"),
     includeTcpActiveBrokerProof: argv.includes("--include-tcp-active-broker-proof"),
+    includeRawIcmpProof: argv.includes("--include-raw-icmp-proof"),
+    includePingSocketProof: argv.includes("--include-ping-socket-proof"),
+    pingSocketUid: parseIntegerFlag(read("--ping-socket-uid"), PROOF_PING_SOCKET_UID),
+    pingSocketGid: parseIntegerFlag(read("--ping-socket-gid"), PROOF_PING_SOCKET_GID),
+    pingSocketRangeStart: parseIntegerFlag(
+      read("--ping-socket-range-start"),
+      PROOF_PING_GROUP_RANGE_START,
+    ),
+    pingSocketRangeEnd: parseIntegerFlag(
+      read("--ping-socket-range-end"),
+      PROOF_PING_GROUP_RANGE_END,
+    ),
+    pingSocketAdoptCredentials: argv.includes("--ping-socket-adopt-credentials"),
+    pingSocketActiveRecvmsgProof: argv.includes("--ping-socket-active-recvmsg-proof"),
+    pingSocketActiveRecvmsgSourceFd: parseIntegerFlag(
+      read("--ping-socket-active-recvmsg-source-fd"),
+      3,
+    ),
+    pingSocketExpectedRefusalCode: read("--ping-socket-expected-refusal-code"),
+    pingSocketExpectedRefusalReason: read("--ping-socket-expected-refusal-reason"),
+    eventfdAliasExpectedRefusalCode: read("--eventfd-alias-expected-refusal-code"),
+    eventfdAliasExpectedRefusalReason: read("--eventfd-alias-expected-refusal-reason"),
+    expectTargetRefusalCode: read("--expect-target-refusal-code"),
   };
 }
 
@@ -301,6 +373,17 @@ const PROCESS_CONTEXT_RESTORE_MODES = [
   "apply-target-visible-context",
   "apply-target-initial-stack",
 ] as const;
+
+function parseIntegerFlag(value: string | undefined, fallback: number): number {
+  if (value === undefined) {
+    return fallback;
+  }
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed < 0) {
+    usage();
+  }
+  return parsed;
+}
 
 function parseProcessContextRestoreMode(value: string | undefined): Args["processContextRestore"] {
   if (value === undefined) {
@@ -414,8 +497,10 @@ function proofVerifierFeaturesFromContext(
   return {
     includeEventfdCounterProof:
       context.includeEventfdCounterProof || context.includeReadinessEventfdPollProof,
+    includeEventfdAliasProof: context.includeEventfdAliasProof,
     includeTimerfdDescriptorProof: context.includeTimerfdDescriptorProof,
     includePipePairProof: context.includePipePairProof,
+    includePipeBufferedProof: context.includePipeBufferedProof,
     includeEpollProof: context.includeEpollProof,
     includeSignalfdProof: context.includeSignalfdProof,
     includeReadinessEventfdPollProof: context.includeReadinessEventfdPollProof,
@@ -426,6 +511,8 @@ function proofVerifierFeaturesFromContext(
     includeTcpListenerProof: context.includeTcpListenerProof,
     includeTcpListenerReadinessProof: context.includeTcpListenerReadinessProof,
     includeTcpActiveBrokerProof: context.includeTcpActiveBrokerProof,
+    includeRawIcmpProof: context.includeRawIcmpProof,
+    includePingSocketProof: context.includePingSocketProof,
   };
 }
 
@@ -520,7 +607,7 @@ function combinedDescriptorContext(
       "portable machine proof needs one safe captured writable memory page",
     );
   }
-  const threads = proofThreadContext(bundle, memory.mapping);
+  const threads = proofThreadContext(args, bundle, memory.mapping);
   if (threads.state === "refused") {
     return firstRefusedPlan(plan, threads.refusals);
   }
@@ -545,8 +632,10 @@ function combinedDescriptorContext(
     activeFileReadProof: activeFileReadProof(activeSyscallPlan.steps),
     activeFileWriteProof: activeFileWriteProof(activeSyscallPlan.steps),
     includeEventfdCounterProof: args.includeEventfdCounterProof,
+    includeEventfdAliasProof: args.includeEventfdAliasProof,
     includeTimerfdDescriptorProof: args.includeTimerfdDescriptorProof,
     includePipePairProof: args.includePipePairProof,
+    includePipeBufferedProof: args.includePipeBufferedProof,
     includeEpollProof: args.includeEpollProof,
     includeSignalfdProof: args.includeSignalfdProof,
     includeReadinessEventfdPollProof: args.includeReadinessEventfdPollProof,
@@ -557,6 +646,19 @@ function combinedDescriptorContext(
     includeTcpListenerProof: args.includeTcpListenerProof,
     includeTcpListenerReadinessProof: args.includeTcpListenerReadinessProof,
     includeTcpActiveBrokerProof: args.includeTcpActiveBrokerProof,
+    includeRawIcmpProof: args.includeRawIcmpProof,
+    includePingSocketProof: args.includePingSocketProof,
+    pingSocketUid: args.pingSocketUid,
+    pingSocketGid: args.pingSocketGid,
+    pingSocketRangeStart: args.pingSocketRangeStart,
+    pingSocketRangeEnd: args.pingSocketRangeEnd,
+    pingSocketAdoptCredentials: args.pingSocketAdoptCredentials,
+    pingSocketExpectedRefusalCode: args.pingSocketExpectedRefusalCode,
+    pingSocketExpectedRefusalReason: args.pingSocketExpectedRefusalReason,
+    eventfdAliasExpectedRefusalCode: args.eventfdAliasExpectedRefusalCode,
+    eventfdAliasExpectedRefusalReason: args.eventfdAliasExpectedRefusalReason,
+    pingSocketActiveRecvmsgProof: args.pingSocketActiveRecvmsgProof,
+    pingSocketActiveRecvmsgSourceFd: args.pingSocketActiveRecvmsgSourceFd,
   };
   return contextAfterPathCheck(plan, bundle.rootDir!, context);
 }
@@ -592,20 +694,21 @@ function contextAfterPathCheck(
 }
 
 function proofThreadContext(
+  args: Args,
   bundle: ReturnType<typeof validatePortableMachineSnapshotBundle>,
   mapping: NativeMemoryMapping,
 ): ProofThreadContext {
-  const documents = bundleWithProofMemoryMapping(bundle, mapping);
+  const documents = semanticProofDocuments(args, bundleWithProofMemoryMapping(bundle, mapping));
   const threads = documents.threads.threads;
   if (threads.length === 2) {
-    return proofTwoThreadContext(bundle, documents);
+    return proofTwoThreadContext(args, bundle, documents);
   }
   const plan = planNativeThreadRestoreBoundary({
     threads,
     mappings: documents.mappings.mappings,
     resources: documents.resources.resources,
     tls: { targetFsBase: TARGET_TLS_BASE, targetAccessPolicy: "target-tcb-materialized" },
-    activeSyscall: activeSyscallPolicy(bundle, documents),
+    activeSyscall: activeSyscallPolicy(args, bundle, documents),
   });
   return plan.state === "accepted"
     ? {
@@ -620,6 +723,7 @@ function proofThreadContext(
 }
 
 function proofTwoThreadContext(
+  args: Args,
   bundle: ReturnType<typeof validatePortableMachineSnapshotBundle>,
   documents = bundle.nativeProcessImage,
 ): ProofThreadContext {
@@ -627,7 +731,7 @@ function proofTwoThreadContext(
     threads: documents.threads.threads,
     mappings: documents.mappings.mappings,
     resources: documents.resources.resources,
-    activeSyscall: activeSyscallPolicy(bundle, documents),
+    activeSyscall: activeSyscallPolicy(args, bundle, documents),
   });
   if (boundary.state === "refused") {
     return boundary;
@@ -652,6 +756,7 @@ function proofTwoThreadContext(
 }
 
 function activeSyscallPolicy(
+  args: Args,
   bundle: ReturnType<typeof validatePortableMachineSnapshotBundle>,
   documents = bundle.nativeProcessImage,
 ) {
@@ -663,8 +768,34 @@ function activeSyscallPolicy(
     fdReadResourcePolicy: fdReadResourcePolicy(bundle),
     fdWritePolicy: "defer-target-resume" as const,
     fdWriteResourcePolicy: "reopen-file" as const,
+    pingSocketRecvmsgPolicy: args.pingSocketActiveRecvmsgProof
+      ? ("defer-target-resume" as const)
+      : ("refuse" as const),
+    pingSocketRecvmsgSourceFd: args.pingSocketActiveRecvmsgSourceFd,
+    pingSocketRecvmsgTargetFd: PROOF_PING_SOCKET_FD,
     documents,
   };
+}
+
+function semanticProofDocuments(
+  args: Args,
+  documents: NativeProcessImageDocuments,
+): NativeProcessImageDocuments {
+  return args.pingSocketActiveRecvmsgProof && documents.manifest.process.exe.endsWith("/ping")
+    ? {
+        ...documents,
+        threads: {
+          ...documents.threads,
+          threads: documents.threads.threads.map((thread) => ({
+            ...thread,
+            simdFpu: {
+              state: "not-live" as const,
+              provenance: "semantic-ping-socket-recvmsg-continuation",
+            },
+          })),
+        },
+      }
+    : documents;
 }
 
 function bundleWithProofMemoryMapping(
@@ -1146,9 +1277,11 @@ function proofResumeRegisters() {
 
 // fallow-ignore-next-line complexity
 function proofFdTable(context: CombinedDescriptorContext) {
-  const usesSyntheticPipePair = !context.includePipePairProof;
+  const usesSyntheticPipePair = !(context.includePipePairProof || context.includePipeBufferedProof);
   const usesSyntheticEventfd = !(
-    context.includeEventfdCounterProof || context.includeReadinessEventfdPollProof
+    context.includeEventfdCounterProof ||
+    context.includeReadinessEventfdPollProof ||
+    context.includeEventfdAliasProof
   );
   const usesSyntheticTimerfd = !context.includeTimerfdDescriptorProof;
   return planNativeTargetFdTable({
@@ -1512,10 +1645,13 @@ function proofFdResources(context: CombinedDescriptorContext): NativeProcessReso
     proofPipeResource(PROOF_PIPE_READ_FD, "read", context),
     proofPipeResource(PROOF_PIPE_WRITE_FD, "write", context),
     proofEventfdResource(context),
+    ...eventfdAliasProofResources(context),
     proofTimerfdResource(context),
     ...epollProofResources(context),
     ...signalfdProofResources(context),
     ...tcpProofResources(context),
+    ...rawIcmpProofResources(context),
+    ...pingSocketProofResources(context),
   ];
 }
 
@@ -1571,20 +1707,117 @@ function tcpProofResources(context: CombinedDescriptorContext): NativeProcessRes
   return resources;
 }
 
+function rawIcmpProofResources(context: CombinedDescriptorContext): NativeProcessResource[] {
+  return context.includeRawIcmpProof
+    ? [
+        {
+          id: `fd:${PROOF_RAW_ICMP_FD}:combined-proof-raw-icmp`,
+          kind: "raw-socket" as const,
+          state: "recipe" as const,
+          fd: PROOF_RAW_ICMP_FD,
+          path: "socket:[raw-icmp-loopback]",
+          flags: ["octal:2"],
+          recipe: {
+            rawIcmpModel: "loopback-echo-v1",
+            family: "inet4",
+            socketType: "raw",
+            protocol: "icmp",
+            destination: "127.0.0.1",
+            capability: "cap-net-raw",
+            networkNamespace: "target-loopback",
+            route: "loopback",
+            identifier: PROOF_RAW_ICMP_IDENTIFIER,
+            sequence: PROOF_RAW_ICMP_SEQUENCE,
+            inFlightPackets: "none",
+            receiveQueue: "empty",
+            socketOptions: "allowlisted-empty",
+          },
+        },
+      ]
+    : [];
+}
+
+function pingSocketProofResources(context: CombinedDescriptorContext): NativeProcessResource[] {
+  return context.includePingSocketProof
+    ? [
+        {
+          id: `fd:${PROOF_PING_SOCKET_FD}:combined-proof-ping-socket`,
+          kind: "socket" as const,
+          state: "recipe" as const,
+          fd: PROOF_PING_SOCKET_FD,
+          path: "socket:[ping-socket-loopback]",
+          flags: ["octal:2"],
+          recipe: {
+            pingSocketModel: "loopback-echo-v1",
+            family: "inet4",
+            socketType: "dgram",
+            protocol: "icmp",
+            destination: "127.0.0.1",
+            credentialPolicy: "target-ping-group-range",
+            uid: context.pingSocketUid,
+            gid: context.pingSocketGid,
+            pingGroupRangeStart: context.pingSocketRangeStart,
+            pingGroupRangeEnd: context.pingSocketRangeEnd,
+            adoptCredentials: context.pingSocketAdoptCredentials,
+            expectedRefusalCode: context.pingSocketExpectedRefusalCode,
+            expectedRefusalReason: context.pingSocketExpectedRefusalReason,
+            networkNamespace: "target-loopback",
+            route: "loopback",
+            identifier: PROOF_PING_SOCKET_IDENTIFIER,
+            sequence: PROOF_PING_SOCKET_SEQUENCE,
+            inFlightPackets: "none",
+            receiveQueue: "empty",
+            socketOptions: "allowlisted-empty",
+            activeRecvmsg: context.pingSocketActiveRecvmsgProof
+              ? {
+                  acceptedSubset: "ping-socket-v2:loopback-echo-active-recvmsg-empty-queue",
+                  sourceFd: context.pingSocketActiveRecvmsgSourceFd,
+                  targetFd: PROOF_PING_SOCKET_FD,
+                  receiveQueue: "empty",
+                  inFlightPackets: "none",
+                  resumePolicy: "target-native-would-block-wait-preserved",
+                  signalTimer: "no-pending-signal-frame-target-wait-preserved",
+                }
+              : undefined,
+          },
+        },
+      ]
+    : [];
+}
+
 function proofEventfdResource(context: CombinedDescriptorContext): NativeProcessResource {
   const base = proofSyntheticResource("eventfd", PROOF_EVENT_FD);
-  return context.includeEventfdCounterProof || context.includeReadinessEventfdPollProof
-    ? {
-        ...base,
-        flags: ["octal:2"],
-        recipe: {
-          eventfdModel: "counter-v1",
-          eventfdCount: PROOF_EVENTFD_COUNTER,
-          eventfdSemaphore: 0,
-          eventfdWaiters: "none",
-        },
-      }
+  return context.includeEventfdCounterProof ||
+    context.includeReadinessEventfdPollProof ||
+    context.includeEventfdAliasProof
+    ? eventfdCounterResource(base, context)
     : base;
+}
+
+function eventfdAliasProofResources(context: CombinedDescriptorContext): NativeProcessResource[] {
+  return context.includeEventfdAliasProof
+    ? [eventfdCounterResource(proofSyntheticResource("eventfd", PROOF_EVENT_ALIAS_FD), context)]
+    : [];
+}
+
+function eventfdCounterResource(
+  base: NativeProcessResource,
+  context: CombinedDescriptorContext,
+): NativeProcessResource {
+  const alias = context.includeEventfdAliasProof;
+  return {
+    ...base,
+    path: alias ? "anon_inode:[eventfd-alias-proof]" : base.path,
+    flags: ["octal:2"],
+    recipe: {
+      eventfdModel: alias ? "counter-alias-v1" : "counter-v1",
+      eventfdCount: PROOF_EVENTFD_COUNTER,
+      eventfdSemaphore: 0,
+      eventfdWaiters: "none",
+      expectedRefusalCode: context.eventfdAliasExpectedRefusalCode,
+      expectedRefusalReason: context.eventfdAliasExpectedRefusalReason,
+    },
+  };
 }
 
 function epollProofResources(context: CombinedDescriptorContext): NativeProcessResource[] {
@@ -1702,18 +1935,31 @@ function proofPipeResource(
     path: "pipe:combined-proof",
     flags: [end === "read" ? "octal:0" : "octal:1"],
   };
-  return context.includePipePairProof
-    ? {
-        ...base,
-        recipe: {
-          pipeModel: "empty-pair-v1",
-          pipeBuffer: "empty",
-          peerLifetime: "open",
-          pipeWaiters: "none",
-          readiness: "not-readable",
-        },
-      }
-    : base;
+  if (context.includePipeBufferedProof) {
+    return { ...base, recipe: pipeBufferedProofRecipe() };
+  }
+  return context.includePipePairProof ? { ...base, recipe: pipeEmptyProofRecipe() } : base;
+}
+
+function pipeEmptyProofRecipe() {
+  return {
+    pipeModel: "empty-pair-v1",
+    pipeBuffer: "empty",
+    peerLifetime: "open",
+    pipeWaiters: "none",
+    readiness: "not-readable",
+  };
+}
+
+function pipeBufferedProofRecipe() {
+  return {
+    pipeModel: "buffered-bytes-v1",
+    pipeBuffer: "bytes",
+    pipeBufferBytes: PROOF_PIPE_BUFFERED_BYTES.toString("hex"),
+    peerLifetime: "open",
+    pipeWaiters: "none",
+    readiness: "readable",
+  };
 }
 
 function proofSyntheticResource(kind: "eventfd" | "timer", fd: number): NativeProcessResource {
@@ -1858,7 +2104,9 @@ function emitDescriptorVerifier(
   asm.markStateCheck(completion, STATE_CHECK_STDIO);
   asm.readAndCheck(PROOF_FILE_FD, expectedFdBytes);
   asm.markStateCheck(completion, STATE_CHECK_REOPEN_FILE);
-  if (features.includePipePairProof) {
+  if (features.includePipeBufferedProof) {
+    asm.checkPipePairBuffered(PROOF_PIPE_READ_FD, PROOF_PIPE_WRITE_FD, PROOF_PIPE_BUFFERED_BYTES);
+  } else if (features.includePipePairProof) {
     asm.checkPipePairEmpty(PROOF_PIPE_READ_FD, PROOF_PIPE_WRITE_FD);
   } else {
     asm.checkFdOpen(PROOF_PIPE_READ_FD);
@@ -1868,7 +2116,9 @@ function emitDescriptorVerifier(
   if (features.includeReadinessEventfdPollProof) {
     asm.checkEventfdPollIn(PROOF_EVENT_FD);
   }
-  if (features.includeEventfdCounterProof) {
+  if (features.includeEventfdAliasProof) {
+    asm.checkEventfdAlias(PROOF_EVENT_FD, PROOF_EVENT_ALIAS_FD, BigInt(PROOF_EVENTFD_COUNTER));
+  } else if (features.includeEventfdCounterProof) {
     asm.readEventfdValueAndCheck(PROOF_EVENT_FD, BigInt(PROOF_EVENTFD_COUNTER));
   } else {
     asm.checkFdOpen(PROOF_EVENT_FD);
@@ -1915,6 +2165,14 @@ function emitGraduatedResourceVerifier(
       PROOF_TCP_ACTIVE_REPLY_BYTES,
     );
     asm.markStateCheck(completion, STATE_CHECK_TCP_ACTIVE);
+  }
+  if (features.includeRawIcmpProof) {
+    asm.checkRawIcmp(PROOF_RAW_ICMP_FD);
+    asm.markStateCheck(completion, STATE_CHECK_RAW_ICMP);
+  }
+  if (features.includePingSocketProof) {
+    asm.checkPingSocket(PROOF_PING_SOCKET_FD);
+    asm.markStateCheck(completion, STATE_CHECK_PING_SOCKET);
   }
 }
 
@@ -2036,10 +2294,23 @@ class Amd64ProofAssembler {
     this.checkRaxImmediate(expected);
   }
 
+  checkEventfdAlias(fd: number, duplicateFd: number, expected: bigint): void {
+    this.readEventfdValueAndCheck(fd, expected);
+    this.pollStoredFd(duplicateFd, 0x70, 0x0001, 0);
+  }
+
   checkPipePairEmpty(readFd: number, writeFd: number): void {
     this.checkFdOpen(readFd);
     this.checkFdOpen(writeFd);
     this.pollStoredFd(readFd, 0x60, 0x0001, 0);
+  }
+
+  checkPipePairBuffered(readFd: number, writeFd: number, expected: Buffer): void {
+    this.checkFdOpen(readFd);
+    this.checkFdOpen(writeFd);
+    this.pollStoredFd(readFd, 0x60, 0x0001, 1);
+    this.readAndCheck(readFd, expected);
+    this.pollStoredFd(readFd, 0x70, 0x0001, 0);
   }
 
   checkEventfdPollIn(fd: number): void {
@@ -2126,6 +2397,24 @@ class Amd64ProofAssembler {
     this.storeBytesAtRbxOffset(0x50, reply);
     this.writeFromRbxOffset(fd, 0x50, reply.length);
     this.readAndCheck(brokerFd, reply);
+  }
+
+  checkRawIcmp(fd: number): void {
+    this.checkInetIcmpSocket(fd, 3n);
+  }
+
+  checkPingSocket(fd: number): void {
+    this.checkInetIcmpSocket(fd, 2n);
+  }
+
+  private checkInetIcmpSocket(fd: number, socketType: bigint): void {
+    this.checkFdOpen(fd);
+    this.getsockoptInt(fd, 1, 3, 0x50, 0x58);
+    this.loadU64FromRbxOffset(0x50);
+    this.checkRaxImmediate(socketType);
+    this.getsockoptInt(fd, 1, 38, 0x50, 0x58);
+    this.loadU64FromRbxOffset(0x50);
+    this.checkRaxImmediate(1n);
   }
 
   checkSignalfdSignal(fd: number, signalMask: bigint, signo: number): void {
@@ -2342,14 +2631,24 @@ class Amd64ProofAssembler {
   }
 
   private getsockoptAcceptConn(fd: number, optvalOffset: number, optlenOffset: number): void {
+    this.getsockoptInt(fd, 1, 30, optvalOffset, optlenOffset);
+  }
+
+  private getsockoptInt(
+    fd: number,
+    level: number,
+    option: number,
+    optvalOffset: number,
+    optlenOffset: number,
+  ): void {
     this.storeU64AtRbxOffset(optvalOffset, 0n);
     this.storeU64AtRbxOffset(optlenOffset, 4n);
     this.syscall(55);
     this.movFd(fd);
     this.push(0xbe);
-    this.pushU32(1);
+    this.pushU32(level);
     this.push(0xba);
-    this.pushU32(30);
+    this.pushU32(option);
     this.leaR10RbxOffset(optvalOffset);
     this.leaR8RbxOffset(optlenOffset);
     this.push(0x0f, 0x05, 0x48, 0x85, 0xc0);
@@ -2611,19 +2910,73 @@ function refusedPlan(
   return { ...plan, state: "refused", migrationCompleted: false, refusal: { code, message } };
 }
 
+function targetRefusedPlan(
+  plan: ReturnType<typeof planPortableMachineVmRestoreProof>,
+  code: string,
+  targetResult: {
+    descriptorGateCompleted?: boolean;
+    targetVerifierResult?: string;
+    stdout?: string;
+    stderr?: string;
+  },
+): ReturnType<typeof planPortableMachineVmRestoreProof> {
+  return {
+    ...plan,
+    state: "refused",
+    migrationCompleted: false,
+    descriptorGateCompleted: targetResult.descriptorGateCompleted === true,
+    targetVerifierResult: "failed",
+    refusal: {
+      code,
+      message: targetResult.stderr || targetResult.stdout || "target-native ping socket refusal",
+    },
+  };
+}
+
 function runTargetProof(
   args: Args,
   plan: ReturnType<typeof planPortableMachineVmRestoreProof>,
   invocation: TargetInvocation = {},
 ) {
   const target = spawnSync(process.execPath, targetCommand(args, invocation), targetSpawnOptions());
+  const failedTarget = targetProcessFailurePlan(plan, target);
+  if (failedTarget) {
+    return failedTarget;
+  }
+  const targetResult = JSON.parse(target.stdout);
+  return (
+    targetExpectedRefusalPlan(args, plan, targetResult) ??
+    completePortableMachineVmRestoreProof(plan, targetResult)
+  );
+}
+
+function targetProcessFailurePlan(
+  plan: ReturnType<typeof planPortableMachineVmRestoreProof>,
+  target: SpawnSyncReturns<string>,
+): ReturnType<typeof planPortableMachineVmRestoreProof> | undefined {
   return target.status === 0
-    ? completePortableMachineVmRestoreProof(plan, JSON.parse(target.stdout))
+    ? undefined
     : {
         ...plan,
         state: "refused" as const,
         refusal: { code: "target-vm-proof-failed", message: target.stderr || target.stdout },
       };
+}
+
+function targetExpectedRefusalPlan(
+  args: Args,
+  plan: ReturnType<typeof planPortableMachineVmRestoreProof>,
+  targetResult: {
+    exitCode?: number;
+    descriptorGateCompleted?: boolean;
+    targetVerifierResult?: string;
+    stdout?: string;
+    stderr?: string;
+  },
+): ReturnType<typeof planPortableMachineVmRestoreProof> | undefined {
+  return args.expectTargetRefusalCode && targetResult.exitCode !== 0
+    ? targetRefusedPlan(plan, args.expectTargetRefusalCode, targetResult)
+    : undefined;
 }
 
 function targetCommand(args: Args, invocation: TargetInvocation): string[] {

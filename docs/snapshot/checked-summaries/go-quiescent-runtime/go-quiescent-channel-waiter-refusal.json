@@ -1,0 +1,19 @@
+{
+  "profile": "portable-machine-restore",
+  "state": "failed",
+  "remoteSourceTarget": "go-quiescent-channel-waiter-refusal",
+  "targetRestore": {
+    "state": "refused",
+    "migrationCompleted": false,
+    "descriptorGateCompleted": false,
+    "refusal": {
+      "code": "runtime-go-channel-waiter-ambiguous",
+      "message": "go-quiescent-channel-waiter-refusal remains outside Goal 42 Go quiescence contract"
+    },
+    "sourceTextReusedAsTargetCode": false,
+    "sourceIsaEmulationUsed": false,
+    "sidecarRuntimeUsed": false,
+    "appHooksRequired": false
+  },
+  "timings": []
+}

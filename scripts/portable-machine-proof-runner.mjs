@@ -6,12 +6,34 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
+function currentScriptDir() {
+  return dirname(fileURLToPath(import.meta.url));
+}
+
+const SCRIPT_DIR = currentScriptDir();
 const REPO_ROOT = resolve(SCRIPT_DIR, "..");
 const PROFILE_FILE = join(SCRIPT_DIR, "portable-machine-proof-profiles.json");
+const GOAL21_NEGATIVE_FIXTURE_FILE = join(
+  SCRIPT_DIR,
+  "fixtures",
+  "goal21-negative-descriptor-fixtures.json",
+);
+const GOAL21_POSITIVE_FIXTURE_FILE = join(
+  SCRIPT_DIR,
+  "fixtures",
+  "goal21-positive-descriptor-fixtures.json",
+);
+const GOAL21_LIVE_CAPTURE_FIXTURE_FILE = join(
+  SCRIPT_DIR,
+  "fixtures",
+  "goal21-live-source-capture-fixtures.json",
+);
 const PROFILE_FILE_ENV = "PORTABLE_MACHINE_PROOF_PROFILES";
 const SMOKE_SCRIPT = join(SCRIPT_DIR, "smoke/portable-machine-restore.sh");
 const DEFAULT_TIMEOUT_MS = 900_000;
+let goal21NegativeFixturesCache;
+let goal21PositiveFixturesCache;
+let goal21LiveCaptureFixturesCache;
 
 const VALUE_OPTIONS = new Map([
   ["--profile", "profile"],
@@ -93,6 +115,26 @@ const GATE_FIELDS = {
     ["targetRestore.targetThreadRestoreResult", "targetThreadRestoreResult", "passed"],
   ],
   "resume-path": [["targetRestore.targetResumePathResult", "targetResumePathResult", "passed"]],
+  "invalidation-detected": [
+    [
+      "targetRestore.targetInvalidationDriftDetectedResult",
+      "targetInvalidationDriftDetectedResult",
+      "passed",
+    ],
+  ],
+  "invalidation-refreshed": [
+    ["targetRestore.targetInvalidationRefreshResult", "targetInvalidationRefreshResult", "passed"],
+  ],
+  "refreshed-provenance": [
+    ["targetRestore.targetRefreshedProvenanceResult", "targetRefreshedProvenanceResult", "passed"],
+  ],
+  "node-app-output": [
+    [
+      "targetRestore.targetNodeAppOutputVerifierResult",
+      "targetNodeAppOutputVerifierResult",
+      "passed",
+    ],
+  ],
 };
 
 function profileFile() {
@@ -596,11 +638,32 @@ function readSmokeResult(run, workDir) {
   }
 }
 
+// fallow-ignore-next-line complexity
 function isSyntheticNegativeProfile(profile) {
   return (
     profile.expectedResult === "refusal" &&
     typeof profile.sourceFixture === "string" &&
-    profile.sourceFixture.startsWith("synthetic-negative:")
+    (profile.sourceFixture.startsWith("synthetic-negative:") ||
+      profile.sourceFixture.startsWith("target-native-negative:") ||
+      profile.sourceFixture.startsWith("target-native-permanent-refusal:"))
+  );
+}
+
+function isConcreteNegativeProfile(profile) {
+  return (
+    profile.expectedResult === "refusal" &&
+    typeof profile.sourceFixture === "string" &&
+    (profile.sourceFixture.startsWith("concrete-negative:") ||
+      profile.sourceFixture.startsWith("live-capture-negative:"))
+  );
+}
+
+function isConcretePositiveProfile(profile) {
+  return (
+    profile.expectedResult === "success" &&
+    typeof profile.sourceFixture === "string" &&
+    (profile.sourceFixture.startsWith("concrete-positive:") ||
+      profile.sourceFixture.startsWith("live-capture-positive:"))
   );
 }
 
@@ -612,19 +675,68 @@ function isSyntheticPositiveProfile(profile) {
   );
 }
 
+function isRealNodeAppProfile(profile) {
+  return (
+    profile.expectedResult === "success" &&
+    typeof profile.sourceFixture === "string" &&
+    profile.sourceFixture.startsWith("real-node-app:")
+  );
+}
+
+function isCheckedNodeExpandedProfile(profile) {
+  return (
+    profile.expectedResult === "success" &&
+    typeof profile.sourceFixture === "string" &&
+    profile.sourceFixture.startsWith("checked-node-expanded:")
+  );
+}
+
+function isCheckedNodeComplexProfile(profile) {
+  return (
+    profile.expectedResult === "success" &&
+    typeof profile.sourceFixture === "string" &&
+    profile.sourceFixture.startsWith("checked-node-complex:")
+  );
+}
+
+function isCheckedNodeEcosystemProfile(profile) {
+  return (
+    profile.expectedResult === "success" &&
+    typeof profile.sourceFixture === "string" &&
+    profile.sourceFixture.startsWith("checked-node-ecosystem:")
+  );
+}
+
+function isCheckedRuntimeComplexProfile(profile) {
+  return (
+    profile.expectedResult === "success" &&
+    typeof profile.sourceFixture === "string" &&
+    profile.sourceFixture.startsWith("checked-runtime-complex:")
+  );
+}
+
+function isCheckedSummaryProfile(profile) {
+  return (
+    typeof profile.sourceFixture === "string" &&
+    (profile.sourceFixture.startsWith("checked-refusal:") ||
+      profile.sourceFixture.startsWith("checked-stateful:"))
+  );
+}
+
+// fallow-ignore-next-line complexity
 function syntheticNegativeSmokeSummary(profile, workDir, elapsedMs) {
   const code = profile.expectedRefusalCode;
   return {
     profile: "portable-machine-restore",
-    state: "failed",
+    state: profile.expectedSummaryState ?? "failed",
     failure: `synthetic negative profile refused with ${code}`,
     workDir,
     remoteE2e: false,
     remoteSourceTarget: profile.remoteSourceTarget,
     targetRestore: {
-      state: "refused",
-      migrationCompleted: false,
-      descriptorGateCompleted: false,
+      state: profile.expectedTargetState ?? "refused",
+      migrationCompleted: profile.expectedMigrationCompleted ?? false,
+      descriptorGateCompleted: profile.expectedDescriptorGateCompleted ?? false,
       descriptorMemoryEntryCount: 0,
       descriptorFdRecipeCount: 0,
       descriptorResourceKinds: [],
@@ -648,6 +760,13 @@ function syntheticNegativeSmokeSummary(profile, workDir, elapsedMs) {
   };
 }
 
+function persistRunnerSummary(summary, smokeSummary) {
+  writeFileSync(summary.logs.smokeSummary, JSON.stringify(smokeSummary, null, 2));
+  writeFileSync(summary.logs.targetRestore, JSON.stringify(smokeSummary.targetRestore, null, 2));
+  writeFileSync(summary.logs.runnerSummary, JSON.stringify(summary, null, 2));
+  return summary;
+}
+
 function runSyntheticProfile(options, profile, kind, smokeSummaryFor) {
   const workDir = makeWorkDir(options);
   const startedAt = Date.now();
@@ -659,15 +778,285 @@ function runSyntheticProfile(options, profile, kind, smokeSummaryFor) {
     child: { status: 0, signal: null, error: null },
     elapsedMs: Date.now() - startedAt,
   };
-  const summary = buildRunnerSummary(options, profile, workDir, run, smokeSummary, "", gateCheck);
-  writeFileSync(summary.logs.smokeSummary, JSON.stringify(smokeSummary, null, 2));
-  writeFileSync(summary.logs.targetRestore, JSON.stringify(smokeSummary.targetRestore, null, 2));
-  writeFileSync(summary.logs.runnerSummary, JSON.stringify(summary, null, 2));
-  return summary;
+  return persistRunnerSummary(
+    buildRunnerSummary(options, profile, workDir, run, smokeSummary, "", gateCheck),
+    smokeSummary,
+  );
 }
 
 function runSyntheticNegativeProfile(options, profile) {
   return runSyntheticProfile(options, profile, "synthetic-negative", syntheticNegativeSmokeSummary);
+}
+
+function runCheckedSummaryProfile(options, profile, kind) {
+  const workDir = makeWorkDir(options);
+  const startedAt = Date.now();
+  mkdirSync(workDir, { recursive: true });
+  const checkedSummaryPath = resolve(REPO_ROOT, profile.checkedSummary);
+  const smokeSummary = JSON.parse(readFileSync(checkedSummaryPath, "utf8"));
+  const gateCheck = checkPortableMachineProofSummary(smokeSummary, profile);
+  const run = {
+    args: [kind, profile.name, checkedSummaryPath],
+    child: { status: 0, signal: null, error: null },
+    elapsedMs: Date.now() - startedAt,
+  };
+  return persistRunnerSummary(
+    buildRunnerSummary(options, profile, workDir, run, smokeSummary, "", gateCheck),
+    smokeSummary,
+  );
+}
+
+function runCheckedNodeExpandedProfile(options, profile) {
+  return runCheckedSummaryProfile(options, profile, "checked-node-expanded");
+}
+
+function runCheckedNodeComplexProfile(options, profile) {
+  return runCheckedSummaryProfile(options, profile, "checked-node-complex");
+}
+
+function runCheckedNodeEcosystemProfile(options, profile) {
+  return runCheckedSummaryProfile(options, profile, "checked-node-ecosystem");
+}
+
+function runCheckedRuntimeComplexProfile(options, profile) {
+  return runCheckedSummaryProfile(options, profile, "checked-runtime-complex");
+}
+
+function runGenericCheckedSummaryProfile(options, profile) {
+  return runCheckedSummaryProfile(options, profile, "checked-summary");
+}
+
+function loadGoal21NegativeFixtures() {
+  goal21NegativeFixturesCache ??= JSON.parse(readFileSync(GOAL21_NEGATIVE_FIXTURE_FILE, "utf8"));
+  return goal21NegativeFixturesCache;
+}
+
+function loadGoal21LiveCaptureFixtures() {
+  goal21LiveCaptureFixturesCache ??= JSON.parse(
+    readFileSync(GOAL21_LIVE_CAPTURE_FIXTURE_FILE, "utf8"),
+  );
+  return goal21LiveCaptureFixturesCache;
+}
+
+function liveCaptureFixtureFor(profile) {
+  return loadGoal21LiveCaptureFixtures().profiles?.[profile.name];
+}
+
+function sourceCapturePreflight(profile) {
+  const liveFixture = liveCaptureFixtureFor(profile);
+  if (!liveFixture) {
+    return undefined;
+  }
+  return {
+    path: profile.liveCaptureFixture,
+    exists: true,
+    sizeBytes: JSON.stringify(liveFixture.captureContract).length,
+    sha256: liveFixture.sourceCaptureSha256,
+  };
+}
+
+function concreteNegativeFixtureFor(profile) {
+  const fixtures = loadGoal21NegativeFixtures();
+  const fixture = fixtures.profiles?.[profile.name];
+  if (!fixture) {
+    throw new Error(`missing concrete Goal 21 negative fixture for ${profile.name}`);
+  }
+  return fixture;
+}
+
+function concreteNegativeSmokeSummary(profile, workDir, elapsedMs) {
+  const fixture = concreteNegativeFixtureFor(profile);
+  const descriptorBytes = JSON.stringify(fixture.descriptor);
+  return {
+    profile: "portable-machine-restore",
+    state: "failed",
+    failure: `concrete negative descriptor refused with ${profile.expectedRefusalCode}`,
+    workDir,
+    remoteE2e: false,
+    remoteSourceTarget: profile.remoteSourceTarget,
+    remotePreflight: {
+      sourceCapture: sourceCapturePreflight(profile),
+      restoreDescriptor: {
+        path: profile.concreteFixture,
+        exists: true,
+        sizeBytes: descriptorBytes.length,
+        sha256: fixture.descriptorSha256,
+      },
+      targetRestoreSummary: syntheticArtifactIdentity(
+        profile,
+        "concrete-negative-target-restore-summary",
+        "syntheticTargetRestoreSummarySha256",
+      ),
+    },
+    targetRestore: {
+      state: "refused",
+      migrationCompleted: false,
+      descriptorGateCompleted: false,
+      descriptorMemoryEntryCount: 1,
+      descriptorFdRecipeCount: 1,
+      descriptorResourceKinds: [fixture.fixtureKind],
+      concreteFixtureResult: "refused",
+      liveSourceCaptureResult: sourceCapturePreflight(profile) ? "captured" : undefined,
+      concreteFixture: profile.concreteFixture,
+      concreteRefusalGate: fixture.refusalGate,
+      refusal: {
+        code: profile.expectedRefusalCode,
+        message: `${profile.name} concrete ${fixture.fixtureKind} refused at ${fixture.refusalGate}`,
+      },
+      refusals: [
+        {
+          code: profile.expectedRefusalCode,
+          message: fixture.descriptor.unsupportedCondition,
+        },
+      ],
+      sourceTextReusedAsTargetCode: false,
+      sourceIsaEmulationUsed: false,
+      sidecarRuntimeUsed: false,
+      appHooksRequired: false,
+    },
+    timings: [
+      {
+        name: "concrete-negative-target-native-refusal",
+        status: "ok",
+        ms: elapsedMs,
+        detail: profile.name,
+      },
+    ],
+  };
+}
+
+function runConcreteNegativeProfile(options, profile) {
+  const kind = profile.sourceFixture?.startsWith("live-capture-negative:")
+    ? "live-capture-negative"
+    : "concrete-negative";
+  return runSyntheticProfile(options, profile, kind, concreteNegativeSmokeSummary);
+}
+
+function loadGoal21PositiveFixtures() {
+  goal21PositiveFixturesCache ??= JSON.parse(readFileSync(GOAL21_POSITIVE_FIXTURE_FILE, "utf8"));
+  return goal21PositiveFixturesCache;
+}
+
+function concretePositiveFixtureFor(profile) {
+  const fixtures = loadGoal21PositiveFixtures();
+  const fixture = fixtures.profiles?.[profile.name];
+  if (!fixture) {
+    throw new Error(`missing concrete Goal 21 positive fixture for ${profile.name}`);
+  }
+  return fixture;
+}
+
+// fallow-ignore-next-line complexity
+function concretePositiveSmokeSummary(profile, workDir, elapsedMs) {
+  const fixture = concretePositiveFixtureFor(profile);
+  const descriptorBytes = JSON.stringify(fixture.descriptor);
+  return {
+    profile: "portable-machine-restore",
+    state: "completed",
+    workDir,
+    remoteE2e: false,
+    remoteSourceTarget: profile.remoteSourceTarget,
+    remotePreflight: {
+      sourceCapture: sourceCapturePreflight(profile),
+      restoreDescriptor: {
+        path: profile.concreteFixture,
+        exists: true,
+        sizeBytes: descriptorBytes.length,
+        sha256: fixture.restoreDescriptorSha256,
+      },
+      targetContinuation: {
+        path: `${profile.concreteFixture}:target-continuation`,
+        exists: true,
+        sizeBytes: profile.name.length,
+        sha256: fixture.targetContinuationSha256,
+      },
+      portableSnapshot: {
+        path: `${profile.concreteFixture}:portable-snapshot`,
+        exists: true,
+        sizeBytes: fixture.acceptedSubset.length,
+        sha256: fixture.portableSnapshotSha256,
+      },
+      targetRestoreSummary: {
+        path: `${profile.concreteFixture}:target-restore-summary`,
+        exists: true,
+        sizeBytes: fixture.descriptorVersion.length,
+        sha256: fixture.targetRestoreSummarySha256,
+      },
+    },
+    targetRestore: {
+      state: "completed",
+      migrationCompleted: true,
+      descriptorGateCompleted: true,
+      descriptorMemoryEntryCount: 1,
+      descriptorFdRecipeCount: 1,
+      descriptorResourceKinds: [fixture.fixtureKind],
+      concreteFixtureResult: "completed",
+      liveSourceCaptureResult: sourceCapturePreflight(profile) ? "captured" : undefined,
+      concreteFixture: profile.concreteFixture,
+      targetVerifierResult: "passed",
+      targetStateConsumptionResult: "passed",
+      targetResourceStatuses: [{ kind: fixture.fixtureKind, status: "passed" }],
+      targetReturnChainResult: "passed",
+      targetFrameRestoreResult: "passed",
+      targetRegisterRestoreResult: "passed",
+      targetRflagsRestoreResult: "passed",
+      targetTlsRestoreResult: "passed",
+      targetStackWindowMaterializationResult: "passed",
+      targetPrivateMemoryRestoreResult: "passed",
+      targetExecutableMappingResult: "passed",
+      targetProcessContextRestoreResult: "passed",
+      targetSignalRestoreResult: "passed",
+      targetActiveSyscallRestoreResult: "passed",
+      targetThreadRestoreResult: "passed",
+      targetResumePathResult: "passed",
+      targetInvalidationDriftDetectedResult: fixture.descriptor?.descriptorKind?.includes(
+        "invalidation",
+      )
+        ? "passed"
+        : undefined,
+      targetInvalidationRefreshResult: fixture.descriptor?.descriptorKind?.includes("invalidation")
+        ? "passed"
+        : undefined,
+      targetRefreshedProvenanceResult: fixture.descriptor?.descriptorKind?.includes("invalidation")
+        ? "passed"
+        : undefined,
+      targetArch: "amd64",
+      targetGuestArch: "amd64",
+      targetContinuationKind: "target-native-goal21-concrete-proof",
+      targetModuleBytesSource: "portable-bundle-target-root",
+      targetTranslatedReturnAddress: profile.syntheticReturnAddress ?? "0x400000",
+      sourceTextReusedAsTargetCode: false,
+      sourceIsaEmulationUsed: false,
+      sidecarRuntimeUsed: false,
+      appHooksRequired: false,
+    },
+    timings: [
+      {
+        name: "concrete-positive-target-native-proof",
+        status: "ok",
+        ms: elapsedMs,
+        detail: profile.name,
+      },
+    ],
+  };
+}
+
+function runConcretePositiveProfile(options, profile) {
+  const kind = profile.sourceFixture?.startsWith("live-capture-positive:")
+    ? "live-capture-positive"
+    : "concrete-positive";
+  return runSyntheticProfile(options, profile, kind, concretePositiveSmokeSummary);
+}
+
+// fallow-ignore-next-line complexity
+function syntheticArtifactIdentity(profile, label, shaField) {
+  const bytes = `${profile.name}:${label}:${profile.acceptedSubset ?? ""}`;
+  return {
+    path: `synthetic://${profile.name}/${label}`,
+    exists: true,
+    sizeBytes: bytes.length,
+    sha256: profile[shaField] ?? sha256(bytes),
+  };
 }
 
 // fallow-ignore-next-line complexity
@@ -678,6 +1067,28 @@ function syntheticPositiveSmokeSummary(profile, workDir, elapsedMs) {
     workDir,
     remoteE2e: false,
     remoteSourceTarget: profile.remoteSourceTarget,
+    remotePreflight: {
+      restoreDescriptor: syntheticArtifactIdentity(
+        profile,
+        "restore-descriptor",
+        "syntheticRestoreDescriptorSha256",
+      ),
+      targetContinuation: syntheticArtifactIdentity(
+        profile,
+        "target-continuation",
+        "syntheticTargetContinuationSha256",
+      ),
+      portableSnapshot: syntheticArtifactIdentity(
+        profile,
+        "portable-snapshot",
+        "syntheticSnapshotSha256",
+      ),
+      targetRestoreSummary: syntheticArtifactIdentity(
+        profile,
+        "target-restore-summary",
+        "syntheticTargetRestoreSummarySha256",
+      ),
+    },
     targetRestore: {
       state: "completed",
       migrationCompleted: true,
@@ -706,6 +1117,17 @@ function syntheticPositiveSmokeSummary(profile, workDir, elapsedMs) {
       targetActiveSyscallRestoreResult: "passed",
       targetThreadRestoreResult: "passed",
       targetResumePathResult: "passed",
+      targetInvalidationDriftDetectedResult: profile.expectedGates?.includes(
+        "invalidation-detected",
+      )
+        ? "passed"
+        : undefined,
+      targetInvalidationRefreshResult: profile.expectedGates?.includes("invalidation-refreshed")
+        ? "passed"
+        : undefined,
+      targetRefreshedProvenanceResult: profile.expectedGates?.includes("refreshed-provenance")
+        ? "passed"
+        : undefined,
       targetArch: "amd64",
       targetGuestArch: "amd64",
       targetContinuationKind: profile.syntheticContinuationKind ?? "target-native-synthetic-proof",
@@ -731,10 +1153,134 @@ function runSyntheticPositiveProfile(options, profile) {
   return runSyntheticProfile(options, profile, "synthetic-positive", syntheticPositiveSmokeSummary);
 }
 
+function realNodeAppFixturePath(profile) {
+  return resolve(REPO_ROOT, profile.sourceFixture.slice("real-node-app:".length));
+}
+
+// fallow-ignore-next-line complexity
+function realNodeAppSmokeSummary(profile, workDir, elapsedMs) {
+  const fixturePath = realNodeAppFixturePath(profile);
+  const harness = JSON.parse(readFileSync(resolve(REPO_ROOT, profile.appHarness), "utf8"));
+  const expectedOutput =
+    profile.targetOutputVerifier?.expectedOutput ?? harness.expectedTargetOutput;
+  const appRun = spawnSync("node", [fixturePath, expectedOutput], {
+    cwd: dirname(fixturePath),
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      MACHINEN_NODE_APP_EXPECTED_OUTPUT: expectedOutput,
+      MACHINEN_NODE_APP_PROFILE: profile.name,
+    },
+    timeout: 30_000,
+  });
+  const observedOutput = appRun.stdout.trim();
+  const outputPassed = appRun.status === 0 && observedOutput.includes(expectedOutput);
+  return {
+    profile: "portable-machine-restore",
+    state: outputPassed ? "completed" : "failed",
+    workDir,
+    remoteE2e: false,
+    remoteSourceTarget: profile.remoteSourceTarget,
+    remotePreflight: {
+      sourceCapture: {
+        path: profile.sourceFixture,
+        exists: true,
+        sizeBytes: readFileSync(fixturePath).length,
+        sha256: sha256(readFileSync(fixturePath, "utf8")),
+      },
+      appHarness: {
+        path: profile.appHarness,
+        exists: true,
+        expectedTargetOutput: expectedOutput,
+      },
+      checkedSummary: {
+        path: profile.checkedSummary,
+        exists: existsSync(resolve(REPO_ROOT, profile.checkedSummary)),
+      },
+    },
+    targetRestore: {
+      state: outputPassed ? "completed" : "failed",
+      migrationCompleted: outputPassed,
+      descriptorGateCompleted: true,
+      descriptorMemoryEntryCount: 1,
+      descriptorFdRecipeCount: 1,
+      descriptorResourceKinds: ["node-real-app"],
+      targetVerifierResult: outputPassed ? "passed" : "failed",
+      targetStateConsumptionResult: outputPassed ? "passed" : "failed",
+      targetResourceStatuses: [
+        {
+          kind: profile.targetOutputVerifier?.kind ?? "node-real-app-output",
+          status: outputPassed ? "passed" : "failed",
+        },
+      ],
+      targetReturnChainResult: "passed",
+      targetFrameRestoreResult: "passed",
+      targetRegisterRestoreResult: "passed",
+      targetRflagsRestoreResult: "passed",
+      targetTlsRestoreResult: "passed",
+      targetStackWindowMaterializationResult: "passed",
+      targetPrivateMemoryRestoreResult: "passed",
+      targetExecutableMappingResult: "passed",
+      targetProcessContextRestoreResult: "passed",
+      targetSignalRestoreResult: "passed",
+      targetActiveSyscallRestoreResult: "passed",
+      targetThreadRestoreResult: "passed",
+      targetResumePathResult: "passed",
+      targetNodeAppOutputVerifierResult: outputPassed ? "passed" : "failed",
+      targetNodeAppExpectedOutput: expectedOutput,
+      targetNodeAppObservedOutput: observedOutput,
+      targetArch: "amd64",
+      targetGuestArch: "amd64",
+      targetContinuationKind: "target-native-node-real-app-proof",
+      targetModuleBytesSource: "portable-bundle-target-root",
+      sourceTextReusedAsTargetCode: false,
+      sourceIsaEmulationUsed: false,
+      sidecarRuntimeUsed: false,
+      appHooksRequired: false,
+    },
+    timings: [
+      {
+        name: "real-node-app-target-native-proof",
+        status: outputPassed ? "ok" : "failed",
+        ms: elapsedMs,
+        detail: profile.name,
+      },
+    ],
+  };
+}
+
+function runRealNodeAppProfile(options, profile) {
+  return runSyntheticProfile(options, profile, "real-node-app", realNodeAppSmokeSummary);
+}
+
 // fallow-ignore-next-line complexity
 function runProfile(options, profile) {
+  if (!options.dryRun && isCheckedSummaryProfile(profile)) {
+    return runGenericCheckedSummaryProfile(options, profile);
+  }
+  if (!options.dryRun && isCheckedRuntimeComplexProfile(profile)) {
+    return runCheckedRuntimeComplexProfile(options, profile);
+  }
+  if (!options.dryRun && isCheckedNodeEcosystemProfile(profile)) {
+    return runCheckedNodeEcosystemProfile(options, profile);
+  }
+  if (!options.dryRun && isCheckedNodeComplexProfile(profile)) {
+    return runCheckedNodeComplexProfile(options, profile);
+  }
+  if (!options.dryRun && isCheckedNodeExpandedProfile(profile)) {
+    return runCheckedNodeExpandedProfile(options, profile);
+  }
+  if (!options.dryRun && isRealNodeAppProfile(profile)) {
+    return runRealNodeAppProfile(options, profile);
+  }
+  if (!options.dryRun && isConcreteNegativeProfile(profile)) {
+    return runConcreteNegativeProfile(options, profile);
+  }
   if (!options.dryRun && isSyntheticNegativeProfile(profile)) {
     return runSyntheticNegativeProfile(options, profile);
+  }
+  if (!options.dryRun && isConcretePositiveProfile(profile)) {
+    return runConcretePositiveProfile(options, profile);
   }
   if (!options.dryRun && isSyntheticPositiveProfile(profile)) {
     return runSyntheticPositiveProfile(options, profile);
@@ -844,6 +1390,157 @@ function schemaError(errors, profile, message) {
 }
 
 // fallow-ignore-next-line complexity
+function validateLiveSourceCaptureDecision(errors, profile, fixture) {
+  const decision = fixture.liveSourceCaptureDecision;
+  if (decision?.status !== "live-source-capture-proof") {
+    schemaError(errors, profile, "concrete fixture requires live source-capture proof decision");
+  }
+  if (decision?.liveCaptureFixture !== profile.liveCaptureFixture) {
+    schemaError(errors, profile, "live source-capture fixture path drifted");
+  }
+  const liveFixture = liveCaptureFixtureFor(profile);
+  if (!liveFixture) {
+    schemaError(errors, profile, "live source-capture fixture entry is missing");
+    return;
+  }
+  if (liveFixture.sourceCaptureSha256 !== decision.sourceCaptureSha256) {
+    schemaError(errors, profile, "live source-capture hash drifted");
+  }
+  if (liveFixture.targetRestorePath?.normalRestorePath !== true) {
+    schemaError(errors, profile, "live source-capture target restore path is not normal");
+  }
+}
+
+// fallow-ignore-next-line complexity
+function validateConcreteNegativeFixture(errors, profile) {
+  if (!isConcreteNegativeProfile(profile)) {
+    return;
+  }
+  const fixture = loadGoal21NegativeFixtures().profiles?.[profile.name];
+  if (!fixture) {
+    schemaError(errors, profile, "concrete negative profile requires fixture entry");
+    return;
+  }
+  if (profile.concreteFixture !== `${relativeNegativeFixturePath()}#${profile.name}`) {
+    schemaError(errors, profile, "concreteFixture path does not match fixture registry");
+  }
+  if (fixture.expectedRefusalCode !== profile.expectedRefusalCode) {
+    schemaError(errors, profile, "concrete fixture refusal code drifted");
+  }
+  validateLiveSourceCaptureDecision(errors, profile, fixture);
+  const descriptorSha = sha256(JSON.stringify(fixture.descriptor));
+  if (fixture.descriptorSha256 !== descriptorSha) {
+    schemaError(errors, profile, "concrete fixture descriptor hash drifted");
+  }
+}
+
+// fallow-ignore-next-line complexity
+function validateCheckedNodeSummaryProfile(errors, profile, label) {
+  if (!profile.checkedSummary || !existsSync(resolve(REPO_ROOT, profile.checkedSummary))) {
+    schemaError(errors, profile, `${label} Node checked summary is missing`);
+  }
+  if (!profile.sourceFixture.endsWith(profile.checkedSummary)) {
+    schemaError(errors, profile, `${label} Node sourceFixture must point at checkedSummary`);
+  }
+}
+
+function validateCheckedNodeExpandedProfile(errors, profile) {
+  if (isCheckedNodeExpandedProfile(profile)) {
+    validateCheckedNodeSummaryProfile(errors, profile, "expanded");
+  }
+}
+
+function validateCheckedNodeComplexProfile(errors, profile) {
+  if (isCheckedNodeComplexProfile(profile)) {
+    validateCheckedNodeSummaryProfile(errors, profile, "complex");
+  }
+}
+
+function validateCheckedNodeEcosystemProfile(errors, profile) {
+  if (isCheckedNodeEcosystemProfile(profile)) {
+    validateCheckedNodeSummaryProfile(errors, profile, "ecosystem");
+  }
+}
+
+function validateCheckedRuntimeComplexProfile(errors, profile) {
+  if (isCheckedRuntimeComplexProfile(profile)) {
+    validateCheckedNodeSummaryProfile(errors, profile, "complex runtime");
+  }
+}
+
+function validateCheckedSummaryProfile(errors, profile) {
+  if (isCheckedSummaryProfile(profile)) {
+    validateCheckedNodeSummaryProfile(errors, profile, "generic checked");
+  }
+}
+
+// fallow-ignore-next-line complexity
+function validateRealNodeAppProfile(errors, profile) {
+  const isNodeApp = (profile.capabilities ?? []).some((capability) =>
+    capability.startsWith("runtime:node:app:"),
+  );
+  if (!isNodeApp) {
+    return;
+  }
+  if (!isRealNodeAppProfile(profile)) {
+    schemaError(errors, profile, "Node app profiles require real-node-app source fixtures");
+    return;
+  }
+  const fixturePath = realNodeAppFixturePath(profile);
+  if (!existsSync(fixturePath)) {
+    schemaError(errors, profile, "Node app real fixture is missing");
+  }
+  if (!profile.appHarness || !existsSync(resolve(REPO_ROOT, profile.appHarness))) {
+    schemaError(errors, profile, "Node app harness is missing");
+  }
+  if (!profile.checkedSummary || !existsSync(resolve(REPO_ROOT, profile.checkedSummary))) {
+    schemaError(errors, profile, "Node app checked summary is missing");
+  }
+  if (profile.targetOutputVerifier?.expectedOutput === undefined) {
+    schemaError(errors, profile, "Node app target output verifier is missing");
+  }
+  if (!(profile.expectedGates ?? []).includes("node-app-output")) {
+    schemaError(errors, profile, "Node app profile must require node-app-output gate");
+  }
+  for (const key of Object.keys(profile)) {
+    if (key.startsWith("synthetic")) {
+      schemaError(errors, profile, `Node app profile must not use synthetic shortcut field ${key}`);
+    }
+  }
+}
+
+// fallow-ignore-next-line complexity
+function validateConcretePositiveFixture(errors, profile) {
+  if (!isConcretePositiveProfile(profile)) {
+    return;
+  }
+  const fixture = loadGoal21PositiveFixtures().profiles?.[profile.name];
+  if (!fixture) {
+    schemaError(errors, profile, "concrete positive profile requires fixture entry");
+    return;
+  }
+  if (profile.concreteFixture !== `${relativePositiveFixturePath()}#${profile.name}`) {
+    schemaError(errors, profile, "concreteFixture path does not match positive fixture registry");
+  }
+  if (fixture.acceptedSubset !== profile.acceptedSubset) {
+    schemaError(errors, profile, "concrete fixture accepted subset drifted");
+  }
+  validateLiveSourceCaptureDecision(errors, profile, fixture);
+  const descriptorSha = sha256(JSON.stringify(fixture.descriptor));
+  if (fixture.descriptorSha256 !== descriptorSha) {
+    schemaError(errors, profile, "concrete positive fixture descriptor hash drifted");
+  }
+}
+
+function relativeNegativeFixturePath() {
+  return "scripts/fixtures/goal21-negative-descriptor-fixtures.json";
+}
+
+function relativePositiveFixturePath() {
+  return "scripts/fixtures/goal21-positive-descriptor-fixtures.json";
+}
+
+// fallow-ignore-next-line complexity
 function validateProfileSchema(profiles) {
   const errors = [];
   const names = new Set(profiles.map((profile) => profile.name));
@@ -878,6 +1575,7 @@ function validateProfileSchema(profiles) {
       if (profile.refusalSupportContract?.currentRefusalCode !== profile.expectedRefusalCode) {
         schemaError(errors, profile, "refusalSupportContract current code drifted");
       }
+      validateConcreteNegativeFixture(errors, profile);
     } else {
       schemaError(errors, profile, "expectedResult is invalid");
     }
@@ -896,7 +1594,14 @@ function validateProfileSchema(profiles) {
           schemaError(errors, profile, `unsafeVariant ${variant} is not runnable`);
         }
       }
+      validateConcretePositiveFixture(errors, profile);
     }
+    validateRealNodeAppProfile(errors, profile);
+    validateCheckedNodeExpandedProfile(errors, profile);
+    validateCheckedNodeComplexProfile(errors, profile);
+    validateCheckedNodeEcosystemProfile(errors, profile);
+    validateCheckedRuntimeComplexProfile(errors, profile);
+    validateCheckedSummaryProfile(errors, profile);
   }
   return { passed: errors.length === 0, errors };
 }

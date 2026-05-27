@@ -1,9 +1,9 @@
-# Goal 8/9 app-neutral capability graduations
+# Goal 8/9/11/12/13/14/15 app-neutral capability graduations
 
-Goals 8 and 9 add app-neutral support subsets as proof-profile capabilities. A
-success claim remains valid only after target-native completion, descriptor
-consumption, verifier gates, no source-ISA emulation, no runtime sidecar success,
-no app hooks, and no source text replay.
+Goals 8, 9, 11, 12, 13, 14, and 15 add app-neutral support subsets as proof-profile
+capabilities. A success claim remains valid only after target-native completion,
+descriptor consumption, verifier gates, no source-ISA emulation, no runtime
+sidecar success, no app hooks, and no source text replay.
 
 ## Goal 8 graduated subsets
 
@@ -56,6 +56,67 @@ ambiguous remaining time.
   (`real-tcp-active-connection-transport-recreate`): a real arm64 active TCP
   workload restored through a declared target-loopback peer broker; the target
   verifier proves unread bytes and reply delivery through that declared broker.
+
+## Goal 12 raw ICMP graduation
+
+- `raw-icmp-v1:loopback-echo-no-inflight`
+  (`real-raw-icmp-loopback-recreate`): a real arm64 raw ICMP workload captured
+  with `CAP_NET_RAW` inside declared proof infrastructure and restored as one
+  target-native amd64 raw ICMP socket. The descriptor is limited to IPv4
+  loopback, empty in-flight and receive queues, target-loopback namespace/route,
+  and ICMP id/sequence state. The target restore path opens the raw socket with
+  target `CAP_NET_RAW`, performs a loopback echo probe, and the verifier checks
+  the restored fd type/protocol plus state-consumption gates. Nearby profiles
+  keep missing capability, ping-group policy, wrong namespace, stale route,
+  non-loopback destination, id/sequence mismatch, in-flight packets, unread
+  queues, unsupported options, BPF filters, `IP_HDRINCL`, ICMPv6, and hidden
+  source-side dependency refused.
+
+## Goal 15 distro ping active recvmsg graduation
+
+- `ping-socket-v2:loopback-echo-active-recvmsg-empty-queue`
+  (`real-distro-ping-socket-loopback-recreate`): a real non-root Ubuntu
+  `iputils-ping` workload opens `AF_INET` / `SOCK_DGRAM` / `IPPROTO_ICMP`, sends
+  a loopback echo, consumes the first reply, and is captured blocked in active
+  `recvmsg`. The target restore path recreates the ping socket target-natively,
+  preserves the blocked recvmsg wait as an empty receive queue/no-in-flight echo
+  state, verifies the active-syscall gate, and completes with
+  `migrationCompleted=true`. Neighboring active `recvmsg` shapes for non-ping
+  fds, non-loopback destinations, unread queues, in-flight echo ambiguity,
+  unsupported signal/timer state, flags/control-message requirements,
+  unsupported options/filters, and hidden source helpers remain refused.
+
+## Goal 14 ping-socket hardening
+
+- `real-nonroot-ping-socket-loopback-recreate`: strengthens
+  `ping-socket-v1:loopback-echo-no-inflight` by proving a real arm64 workload
+  running as uid/gid `1000` can be restored into the amd64 VM after the target
+  verifier adopts those credentials and checks that gid `1000` is allowed by
+  target `net.ipv4.ping_group_range`.
+- Goal 14 also proved that distro `/usr/bin/ping` opens a Linux ping socket as
+  non-root under `ping_group_range`; Goal 15 graduates the active `recvmsg`
+  continuation that was still refused during Goal 14.
+- Target-native negative ping-socket profiles now run selected unsafe states
+  through the amd64 VM restore path and refuse with
+  `target-socket-syscall-state-unsupported` before migration completion.
+
+## Goal 13 ping-socket graduation
+
+- `ping-socket-v1:loopback-echo-no-inflight`
+  (`real-ping-socket-loopback-recreate`): a real arm64 Linux ping-socket
+  workload captured in a declared proof container with `NET_RAW` dropped and
+  `net.ipv4.ping_group_range` opened for the captured gid, restored as one
+  target-native amd64 `AF_INET`/`SOCK_DGRAM`/`IPPROTO_ICMP` socket. The
+  descriptor is limited to IPv4 loopback, empty in-flight and receive queues,
+  target-loopback namespace/route, uid/gid plus `ping_group_range` bounds, and
+  ICMP id/sequence state. The target restore path verifies credentials and the
+  target sysctl, opens the ping socket, performs a loopback echo probe, and the
+  verifier checks the restored fd type/protocol plus state-consumption gates.
+  Nearby profiles keep missing ping-group permission, uid/gid mismatch,
+  raw-socket capability confusion, wrong namespace, stale route, non-loopback
+  destination, id/sequence mismatch, in-flight packets, unread queues,
+  unsupported options, BPF filters, ICMPv6, and hidden source-side dependency
+  refused.
 
 ## Goal 9 graduated subsets
 

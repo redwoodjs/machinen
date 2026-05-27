@@ -1,0 +1,39 @@
+{
+  "profile": "portable-machine-restore",
+  "state": "completed",
+  "remoteSourceTarget": "node-app-commonjs-package-recreate",
+  "targetRestore": {
+    "state": "completed",
+    "migrationCompleted": true,
+    "descriptorGateCompleted": true,
+    "targetVerifierResult": "passed",
+    "targetStateConsumptionResult": "passed",
+    "targetResourceStatuses": [
+      {
+        "kind": "node-real-app-output",
+        "status": "passed"
+      }
+    ],
+    "targetReturnChainResult": "passed",
+    "targetFrameRestoreResult": "passed",
+    "targetRegisterRestoreResult": "passed",
+    "targetRflagsRestoreResult": "passed",
+    "targetTlsRestoreResult": "passed",
+    "targetStackWindowMaterializationResult": "passed",
+    "targetPrivateMemoryRestoreResult": "passed",
+    "targetExecutableMappingResult": "passed",
+    "targetProcessContextRestoreResult": "passed",
+    "targetSignalRestoreResult": "passed",
+    "targetActiveSyscallRestoreResult": "passed",
+    "targetThreadRestoreResult": "passed",
+    "targetResumePathResult": "passed",
+    "targetNodeAppOutputVerifierResult": "passed",
+    "targetNodeAppExpectedOutput": "node-cjs-ok",
+    "targetNodeAppObservedOutput": "node-cjs-ok",
+    "sourceTextReusedAsTargetCode": false,
+    "sourceIsaEmulationUsed": false,
+    "sidecarRuntimeUsed": false,
+    "appHooksRequired": false
+  },
+  "timings": []
+}

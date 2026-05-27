@@ -1,0 +1,47 @@
+{
+  "profile": "portable-machine-restore",
+  "state": "failed",
+  "remoteSourceTarget": "goal41-go-arbitrary-scheduler-refusal",
+  "targetRestore": {
+    "state": "refused",
+    "migrationCompleted": false,
+    "descriptorGateCompleted": false,
+    "targetVerifierResult": "not-run",
+    "refusal": {
+      "code": "runtime-go-arbitrary-goroutine-scheduler-unsupported",
+      "message": "Arbitrary Go scheduler state unsupported"
+    },
+    "sourceTextReusedAsTargetCode": false,
+    "sourceIsaEmulationUsed": false,
+    "sidecarRuntimeUsed": false,
+    "appHooksRequired": false,
+    "metadataOnlyShortcutAccepted": false
+  },
+  "refusalUx": {
+    "code": "runtime-go-arbitrary-goroutine-scheduler-unsupported",
+    "family": "go-scheduler",
+    "message": "Arbitrary Go scheduler state unsupported",
+    "explanation": "Runnable queues and runtime-private scheduler invariants are not portable state.",
+    "affectedRuntimes": ["go"],
+    "currentBehavior": "stable refusal with migrationCompleted=false",
+    "remediation": "Quiesce goroutines, drain channels, close netpoll waiters, avoid cgo, or restart at an application-level checkpoint.",
+    "graduationRequires": [
+      "runtime-versioned scheduler descriptor",
+      "target-native continuation boundary",
+      "quiescence/wakeup verifier",
+      "no runtime-private frame ambiguity"
+    ],
+    "stableUntilPositiveProofGraduates": true
+  },
+  "securityInspection": {
+    "sourceIsaEmulationArtifactFound": false,
+    "sourceTextReplayArtifactFound": false,
+    "sidecarRuntimeArtifactFound": false,
+    "appHookArtifactFound": false,
+    "metadataOnlyShortcutAccepted": false,
+    "targetNativeExecutionRequired": true,
+    "passed": true
+  },
+  "proofDigest": "5d900601f891356f8ed23042d2c8c0105c709783b0a67cc44fae95e06527af8f",
+  "timings": []
+}

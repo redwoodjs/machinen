@@ -108,6 +108,7 @@ export {
   classifyNativeThreadSyscall,
   modelNativeFdReadState,
   modelNativeFdWriteState,
+  modelNativePingSocketRecvmsgState,
   modelNativePpollTimeoutState,
   modelNativeSleepTimerState,
 } from "./native-active-syscall-policy.ts";
@@ -232,10 +233,13 @@ export type {
   NativeModeledFdReadTimerRemainingTime,
   NativeModeledFdWriteState,
   NativeModeledFdWriteTargetResource,
+  NativeModeledPingSocketRecvmsgState,
   NativeModeledPpollTimeoutRemainingTime,
   NativeModeledPpollTimeoutState,
   NativeModeledSleepTimerRemainingTime,
   NativeModeledSleepTimerState,
+  NativePingSocketRecvmsgModelResult,
+  NativePingSocketRecvmsgPolicy,
   NativePollTimeoutFdPolicy,
   NativePollTimeoutSyscallPolicy,
   NativeFdReadModelResult,
@@ -246,6 +250,7 @@ export type {
   NativeSleepTimerDuration,
   NativeSleepTimerModelResult,
   NativeSleepTimerSyscallPolicy,
+  NativeActivePingSocketRecvmsgContinuation,
 } from "./native-active-syscall-policy.ts";
 export type {
   NativeTargetModuleByteMaterialization,

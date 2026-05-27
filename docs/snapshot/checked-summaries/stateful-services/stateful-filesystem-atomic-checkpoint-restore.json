@@ -1,0 +1,50 @@
+{
+  "profile": "portable-machine-restore",
+  "state": "completed",
+  "remoteSourceTarget": "stateful-filesystem-atomic-checkpoint-restore",
+  "targetRestore": {
+    "state": "completed",
+    "migrationCompleted": true,
+    "descriptorGateCompleted": true,
+    "targetVerifierResult": "passed",
+    "targetResourceStatuses": [
+      {
+        "kind": "filesystem-atomic-checkpoint-clean-restore",
+        "status": "passed"
+      }
+    ],
+    "sourceTextReusedAsTargetCode": false,
+    "sourceIsaEmulationUsed": false,
+    "sidecarRuntimeUsed": false,
+    "appHooksRequired": false
+  },
+  "service": "filesystem",
+  "statefulServiceProof": {
+    "pattern": "atomic-rename-checkpoint",
+    "version": "fixture-v1",
+    "architecture": "arm64",
+    "sourceVerifierOutput": {
+      "version": 3,
+      "status": "clean",
+      "items": ["alpha", "beta", "gamma"]
+    },
+    "targetVerifierOutput": {
+      "version": 3,
+      "status": "clean",
+      "items": ["alpha", "beta", "gamma"]
+    },
+    "targetVerifierOutputSha256": "91c80bcf977902125f6d82b76e41c77b014503c3758ca652f41173c2412177db",
+    "dataManifestSha256": "3a0c973ad2fb636a7e72e7f373b8f80677cd8fe93d05bfddf51ac4bb4f65ac41",
+    "checkpointEvidence": "tmp fsync plus atomic rename before capture"
+  },
+  "securityInspection": {
+    "sourceIsaEmulationArtifactFound": false,
+    "sourceTextReplayArtifactFound": false,
+    "sidecarRuntimeArtifactFound": false,
+    "appHookArtifactFound": false,
+    "metadataOnlyShortcutAccepted": false,
+    "targetNativeExecutionRequired": true,
+    "passed": true
+  },
+  "timings": []
+}

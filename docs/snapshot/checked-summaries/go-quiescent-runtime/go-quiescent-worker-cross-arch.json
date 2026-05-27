@@ -1,0 +1,274 @@
+{
+  "profile": "portable-machine-restore",
+  "state": "completed",
+  "remoteSourceTarget": "go-quiescent-worker-cross-arch",
+  "targetRestore": {
+    "state": "completed",
+    "migrationCompleted": true,
+    "descriptorGateCompleted": true,
+    "targetVerifierResult": "passed",
+    "targetResourceStatuses": [
+      {
+        "kind": "go-quiescent-worker",
+        "status": "passed"
+      }
+    ],
+    "sourceTextReusedAsTargetCode": false,
+    "sourceIsaEmulationUsed": false,
+    "sidecarRuntimeUsed": false,
+    "appHooksRequired": false
+  },
+  "goQuiescentRuntimeProof": {
+    "sourceSummaryKind": "machinen.go-quiescent-runtime-proof",
+    "subset": "worker",
+    "detail": {
+      "worker": {
+        "subset": "worker",
+        "state": "supported",
+        "supportClaimed": true,
+        "iterations": 2,
+        "routes": [
+          {
+            "subset": "worker",
+            "route": "arm64-to-amd64",
+            "sourceHost": "friend@100.126.46.90",
+            "targetHost": "root@192.168.0.8",
+            "sourceArch": "arm64",
+            "targetArch": "amd64",
+            "sourceStable": true,
+            "targetStable": true,
+            "semanticFingerprintMatches": true,
+            "migrationCompleted": true,
+            "targetNativeExecution": true,
+            "sourceIsaEmulationUsed": false,
+            "sourceTextReusedAsTargetCode": false,
+            "sidecarRuntimeUsed": false,
+            "appHooksRequired": false
+          },
+          {
+            "subset": "worker",
+            "route": "amd64-to-arm64",
+            "sourceHost": "root@192.168.0.8",
+            "targetHost": "friend@100.126.46.90",
+            "sourceArch": "amd64",
+            "targetArch": "arm64",
+            "sourceStable": true,
+            "targetStable": true,
+            "semanticFingerprintMatches": true,
+            "migrationCompleted": true,
+            "targetNativeExecution": true,
+            "sourceIsaEmulationUsed": false,
+            "sourceTextReusedAsTargetCode": false,
+            "sidecarRuntimeUsed": false,
+            "appHooksRequired": false
+          }
+        ],
+        "hosts": {
+          "arm64": {
+            "host": "friend@100.126.46.90",
+            "remoteDir": "/tmp/machinen-go-quiescent-58913-01c085bc-arm64",
+            "arch": "arm64",
+            "result": {
+              "outputs": [
+                {
+                  "runtime": "go",
+                  "subset": "worker",
+                  "ok": true,
+                  "version": "go1.26.2",
+                  "arch": "arm64",
+                  "contract": {
+                    "cgoDisabled": true,
+                    "noActiveNetpollWaiters": true,
+                    "noBlockedChannelWaiters": true,
+                    "noPendingSelectRace": true,
+                    "noRuntimePrivateContinuation": true,
+                    "timersSerializable": true
+                  },
+                  "evidence": {
+                    "jobsChannelClosed": true,
+                    "workerResults": [1, 4, 9, 16],
+                    "workersJoined": true
+                  }
+                },
+                {
+                  "runtime": "go",
+                  "subset": "worker",
+                  "ok": true,
+                  "version": "go1.26.2",
+                  "arch": "arm64",
+                  "contract": {
+                    "cgoDisabled": true,
+                    "noActiveNetpollWaiters": true,
+                    "noBlockedChannelWaiters": true,
+                    "noPendingSelectRace": true,
+                    "noRuntimePrivateContinuation": true,
+                    "timersSerializable": true
+                  },
+                  "evidence": {
+                    "jobsChannelClosed": true,
+                    "workerResults": [1, 4, 9, 16],
+                    "workersJoined": true
+                  }
+                }
+              ],
+              "fingerprints": [
+                "250abb25c182371e83b1a258ea058cb26fb4ca92aefcbb9c294ebbb188b21e7c",
+                "250abb25c182371e83b1a258ea058cb26fb4ca92aefcbb9c294ebbb188b21e7c"
+              ],
+              "stable": true,
+              "fingerprint": "250abb25c182371e83b1a258ea058cb26fb4ca92aefcbb9c294ebbb188b21e7c"
+            }
+          },
+          "amd64": {
+            "host": "root@192.168.0.8",
+            "remoteDir": "/tmp/machinen-go-quiescent-58913-01c085bc-amd64",
+            "arch": "amd64",
+            "result": {
+              "outputs": [
+                {
+                  "runtime": "go",
+                  "subset": "worker",
+                  "ok": true,
+                  "version": "go1.26.2",
+                  "arch": "amd64",
+                  "contract": {
+                    "cgoDisabled": true,
+                    "noActiveNetpollWaiters": true,
+                    "noBlockedChannelWaiters": true,
+                    "noPendingSelectRace": true,
+                    "noRuntimePrivateContinuation": true,
+                    "timersSerializable": true
+                  },
+                  "evidence": {
+                    "jobsChannelClosed": true,
+                    "workerResults": [1, 4, 9, 16],
+                    "workersJoined": true
+                  }
+                },
+                {
+                  "runtime": "go",
+                  "subset": "worker",
+                  "ok": true,
+                  "version": "go1.26.2",
+                  "arch": "amd64",
+                  "contract": {
+                    "cgoDisabled": true,
+                    "noActiveNetpollWaiters": true,
+                    "noBlockedChannelWaiters": true,
+                    "noPendingSelectRace": true,
+                    "noRuntimePrivateContinuation": true,
+                    "timersSerializable": true
+                  },
+                  "evidence": {
+                    "jobsChannelClosed": true,
+                    "workerResults": [1, 4, 9, 16],
+                    "workersJoined": true
+                  }
+                }
+              ],
+              "fingerprints": [
+                "250abb25c182371e83b1a258ea058cb26fb4ca92aefcbb9c294ebbb188b21e7c",
+                "250abb25c182371e83b1a258ea058cb26fb4ca92aefcbb9c294ebbb188b21e7c"
+              ],
+              "stable": true,
+              "fingerprint": "250abb25c182371e83b1a258ea058cb26fb4ca92aefcbb9c294ebbb188b21e7c"
+            }
+          }
+        },
+        "quiescenceContract": {
+          "cgoDisabled": true,
+          "noActiveNetpollWaiters": true,
+          "noBlockedChannelWaiters": true,
+          "noPendingSelectRace": true,
+          "noRuntimePrivateContinuation": true,
+          "timersSerializable": true
+        },
+        "evidence": {
+          "jobsChannelClosed": true,
+          "workerResults": [1, 4, 9, 16],
+          "workersJoined": true
+        },
+        "targetRestore": {
+          "state": "completed",
+          "migrationCompleted": true,
+          "descriptorGateCompleted": true,
+          "targetVerifierResult": "passed",
+          "targetResourceStatuses": [
+            {
+              "kind": "go-quiescent-worker",
+              "status": "passed"
+            }
+          ],
+          "sourceTextReusedAsTargetCode": false,
+          "sourceIsaEmulationUsed": false,
+          "sidecarRuntimeUsed": false,
+          "appHooksRequired": false
+        },
+        "securityInspection": {
+          "sourceIsaEmulationArtifactFound": false,
+          "sourceTextReplayArtifactFound": false,
+          "sidecarRuntimeArtifactFound": false,
+          "appHookArtifactFound": false,
+          "metadataOnlyShortcutAccepted": false,
+          "targetNativeExecutionRequired": true,
+          "passed": true
+        }
+      }
+    },
+    "routes": [
+      {
+        "subset": "worker",
+        "route": "arm64-to-amd64",
+        "sourceHost": "friend@100.126.46.90",
+        "targetHost": "root@192.168.0.8",
+        "sourceArch": "arm64",
+        "targetArch": "amd64",
+        "sourceStable": true,
+        "targetStable": true,
+        "semanticFingerprintMatches": true,
+        "migrationCompleted": true,
+        "targetNativeExecution": true,
+        "sourceIsaEmulationUsed": false,
+        "sourceTextReusedAsTargetCode": false,
+        "sidecarRuntimeUsed": false,
+        "appHooksRequired": false
+      },
+      {
+        "subset": "worker",
+        "route": "amd64-to-arm64",
+        "sourceHost": "root@192.168.0.8",
+        "targetHost": "friend@100.126.46.90",
+        "sourceArch": "amd64",
+        "targetArch": "arm64",
+        "sourceStable": true,
+        "targetStable": true,
+        "semanticFingerprintMatches": true,
+        "migrationCompleted": true,
+        "targetNativeExecution": true,
+        "sourceIsaEmulationUsed": false,
+        "sourceTextReusedAsTargetCode": false,
+        "sidecarRuntimeUsed": false,
+        "appHooksRequired": false
+      }
+    ],
+    "refusalCodes": [
+      "runtime-go-netpoll-waiter-unsupported",
+      "runtime-go-channel-waiter-ambiguous",
+      "runtime-go-select-race-ambiguous",
+      "runtime-go-cgo-goroutine-unsupported",
+      "runtime-go-runtime-private-frame-unsupported",
+      "runtime-go-arbitrary-goroutine-scheduler-unsupported"
+    ],
+    "securityInspection": {
+      "sourceIsaEmulationArtifactFound": false,
+      "sourceTextReplayArtifactFound": false,
+      "sidecarRuntimeArtifactFound": false,
+      "appHookArtifactFound": false,
+      "metadataOnlyShortcutAccepted": false,
+      "targetNativeExecutionRequired": true,
+      "passed": true
+    },
+    "recommendation": "Go support can expand through explicit quiescence contracts; active netpoll, channel waiters, select races, cgo goroutines, and runtime-private frames remain refused."
+  },
+  "timings": []
+}

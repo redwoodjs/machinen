@@ -31,7 +31,7 @@ cat /tmp/native-capture/bundle/native-resources.json
 
 ## What the capturer records
 
-The C helper in `packages/microvm/assets/native-process-capture.c` can either
+The C helper in `packages/microvm/test-fixtures/proof-assets/native-process-capture.c` can either
 attach to an existing PID or launch an unmodified command and then attach to the
 child. The proof uses launch mode so Linux Yama `ptrace_scope=1` still allows the
 parent capturer to trace the child.
@@ -56,7 +56,7 @@ The bundle records:
 
 ## Proof target
 
-`packages/microvm/assets/native-capture-target.c` is intentionally small and
+`packages/microvm/test-fixtures/proof-assets/native-capture-target.c` is intentionally small and
 non-cooperative. It opens a resource file, seeks to offset `9`, prints a startup
 line, and spins in user space. It has no Machinen checkpoint ABI and never emits
 a bundle. All capture work happens in the external capturer.
