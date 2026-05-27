@@ -6,6 +6,7 @@ import { ParseError } from "@machinen/runtime";
 
 import { consumeLiveMount, consumePortForward, takeValue } from "./parse-run-args.ts";
 
+// fallow-ignore-next-line code-duplication
 interface ParsedRestoreArgs {
   /**
    * Positional args (the snapshot bundle directory). The CLI enforces
@@ -50,9 +51,20 @@ interface ParsedRestoreArgs {
     guest: string;
     mode: "ro" | "rw";
   }>;
+  /** Product portable restore target architecture for semantic bundles. */
+  targetArch?: "arm64" | "amd64";
+  /** File containing target-native verifier output for semantic bundles. */
+  targetVerifierOutput?: string;
 }
 
-type RestoreFlag = "lazy" | "name" | "image" | "liveMount" | "portForward";
+type RestoreFlag =
+  | "lazy"
+  | "name"
+  | "image"
+  | "liveMount"
+  | "portForward"
+  | "targetArch"
+  | "targetVerifierOutput";
 
 type RestoreFlagHandler = (
   state: RestoreParseState,
@@ -61,6 +73,7 @@ type RestoreFlagHandler = (
   index: number,
 ) => number;
 
+// fallow-ignore-next-line code-duplication
 interface RestoreParseState {
   positional: string[];
   name?: string;
@@ -68,6 +81,8 @@ interface RestoreParseState {
   portForward: Array<{ hostPort: number; guestPort: number }>;
   lazy: boolean;
   liveMounts: Array<{ host: string; guest: string; mode: "ro" | "rw" }>;
+  targetArch?: "arm64" | "amd64";
+  targetVerifierOutput?: string;
   seenLiveGuests: Set<string>;
   seenHostPorts: Set<number>;
 }
@@ -78,6 +93,8 @@ const RESTORE_VALUE_FLAGS = new Map<string, RestoreFlag>([
   ["--mount-live", "liveMount"],
   ["-p", "portForward"],
   ["--publish", "portForward"],
+  ["--target-arch", "targetArch"],
+  ["--target-verifier-output", "targetVerifierOutput"],
 ]);
 
 const RESTORE_BARE_FLAGS = new Map<string, RestoreFlag>([["--lazy", "lazy"]]);
@@ -88,6 +105,8 @@ const RESTORE_FLAG_HANDLERS: Record<RestoreFlag, RestoreFlagHandler> = {
   image: handleRestoreImage,
   liveMount: handleRestoreLiveMount,
   portForward: handleRestorePortForward,
+  targetArch: handleRestoreTargetArch,
+  targetVerifierOutput: handleRestoreTargetVerifierOutput,
 };
 
 export function parseRestoreArgs(argv: string[]): ParsedRestoreArgs {
@@ -136,6 +155,8 @@ function finishRestoreArgs(state: RestoreParseState): ParsedRestoreArgs {
     portForward: state.portForward,
     lazy: state.lazy,
     liveMounts: state.liveMounts,
+    targetArch: state.targetArch,
+    targetVerifierOutput: state.targetVerifierOutput,
   };
 }
 
@@ -170,6 +191,39 @@ function handleRestoreImage(
   const { spec, next } = takeRestoreValue(flag, args, index, "a value", "--image");
   assertRestoreFlagUnused(state.image !== undefined, "--image");
   state.image = spec;
+  return next;
+}
+
+function handleRestoreTargetArch(
+  state: RestoreParseState,
+  flag: string,
+  args: string[],
+  index: number,
+): number {
+  const { spec, next } = takeRestoreValue(flag, args, index, "arm64 or amd64", "--target-arch");
+  assertRestoreFlagUnused(state.targetArch !== undefined, "--target-arch");
+  if (spec !== "arm64" && spec !== "amd64") {
+    throw new ParseError("PARSE_FLAG_MALFORMED", "--target-arch must be arm64 or amd64");
+  }
+  state.targetArch = spec;
+  return next;
+}
+
+function handleRestoreTargetVerifierOutput(
+  state: RestoreParseState,
+  flag: string,
+  args: string[],
+  index: number,
+): number {
+  const { spec, next } = takeRestoreValue(
+    flag,
+    args,
+    index,
+    "a file path",
+    "--target-verifier-output",
+  );
+  assertRestoreFlagUnused(state.targetVerifierOutput !== undefined, "--target-verifier-output");
+  state.targetVerifierOutput = spec;
   return next;
 }
 

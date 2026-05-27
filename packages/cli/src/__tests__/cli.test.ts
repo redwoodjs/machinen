@@ -525,6 +525,17 @@ describe("parseRestoreArgs", () => {
     expect(b.image).toBe("./rootfs.tar.gz");
   });
 
+  it("captures portable product restore verifier flags", () => {
+    const parsed = parseRestoreArgs([
+      "./pg.portable",
+      "--target-arch",
+      "amd64",
+      "--target-verifier-output=./verify.txt",
+    ]);
+    expect(parsed.targetArch).toBe("amd64");
+    expect(parsed.targetVerifierOutput).toBe("./verify.txt");
+  });
+
   it("collects -p / --publish into portForward", () => {
     const parsed = parseRestoreArgs([
       "./warm",

@@ -127,6 +127,21 @@ Presets:
   stateful-services restore proof smoke;
 - `node scripts/portable-machine-proof-matrix.mjs --preset stateful-services --check-summary-dir docs/snapshot/checked-summaries/stateful-services --json`
   — Goal 44 aggregate checked-summary/refusal matrix;
+- `pnpm smoke-product-portable-postgres` — Goal 45 product smoke for the
+  implemented PostgreSQL logical descriptor path in both `arm64 -> amd64` and
+  `amd64 -> arm64` directions plus an active-transaction refusal through the
+  product CLI surface;
+- `pnpm product-portable-claim-matrix` — Goal 45 proof-vs-product claim
+  classification matrix. It fails if proof-only Goals 33-44 fixtures are
+  reported as implemented product support, or if the selected implemented subset
+  is missing;
+- `pnpm product-claim-registry-matrix` — Goal 46 global product-status matrix
+  for every portable-machine proof profile across Goals 1-44;
+- `pnpm smoke-product-support-discovery` — Goal 46 CLI/API discovery smoke for
+  Node.js, Go, Python/Ruby/JVM, stateful services, foundation/native,
+  native-Linux-resource, and network/ping/ICMP/socket families;
+- `pnpm smoke-clean-service-cross-arch` — Goal 49 reusable clean-service product
+  harness for Node/Python across `arm64 -> amd64` and `amd64 -> arm64` routes;
 - `node-blockers`, `node-blockers-refusal`, `node-blockers-supported` — the Goal
   29 Node blocker profiles. `node-blockers-refusal` is now empty after the 81
   broad blocker refusals were graduated; `node-blockers-supported` contains the

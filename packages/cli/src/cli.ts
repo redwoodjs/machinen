@@ -10,7 +10,8 @@
 //   machinen snapshot <name|pid> <out-dir>
 //   machinen attach <name|pid> [--shell <cmd>]   # PTY shell
 //   machinen repl   <name|pid>                   # per-line exec
-//   machinen install [--version <tag>]
+//   machinen capture postgres --out <dir> --dump <file> ...
+//   machinen support [--json] [--family <family>]
 //   machinen completion <bash|zsh|fish>
 //   machinen --version | -h | --help
 
@@ -25,6 +26,7 @@ import {
   renameSync,
   symlinkSync,
   unlinkSync,
+  writeFileSync,
 } from "node:fs";
 import { arch as osArch, homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -34,19 +36,51 @@ import { pipeline } from "node:stream/promises";
 import {
   attach,
   boot,
+  ProductPortablePostgresError,
+  buildProductClaimRegistry,
+  createProductPortablePostgresSnapshot,
+  filterProductClaimRegistry,
   formatMachinenError,
   isMachinenError,
+  isProductPortablePostgresBundle,
   list,
+  productPortablePostgresFileSha256,
+  productClaimFamilies,
+  productClaimStatuses,
   readHostRssBytesMulti,
   restore,
+  restoreProductPortablePostgresSnapshot,
   runGc,
   validatePid,
 } from "@machinen/runtime";
-import type { LogEvent, RegistryEntry, VmHandle } from "@machinen/runtime";
+import type {
+  LogEvent,
+  ProductClaimFamily,
+  ProductClaimStatus,
+  RegistryEntry,
+  VmHandle,
+} from "@machinen/runtime";
 import debugLib from "debug";
 
 import pkg from "../package.json" with { type: "json" };
 import { buildAgentContext } from "./agent-context.ts";
+import {
+  cleanServiceStableRefusalCodes,
+  type CleanServiceCapture,
+  type CleanServiceManifest,
+} from "./clean-service/manifest.ts";
+import {
+  cleanServiceFromNode,
+  inspectPortableNodeVm,
+  type PortableNodeSnapshotBundle,
+  type PortableNodeSnapshotCapture,
+} from "./clean-service/node-adapter.ts";
+import { inspectPortableGoVm } from "./clean-service/go-adapter.ts";
+import { inspectPortablePythonVm } from "./clean-service/python-adapter.ts";
+import {
+  cmdRestoreCleanService as restoreCleanServiceBundle,
+  shouldRestoreCleanService as shouldRestoreCleanServiceBundle,
+} from "./clean-service/restore.ts";
 import { appendFeedback, feedbackPath, postUpstream, readFeedback } from "./feedback.ts";
 import { formatMem } from "./format-mem.ts";
 import { formatPorts } from "./format-ports.ts";
@@ -264,8 +298,12 @@ async function fetchAssetText(name: string, tag: string): Promise<string> {
 }
 
 function sha256OfFile(path: string): string {
+  return sha256Bytes(readFileSync(path));
+}
+
+function sha256Bytes(bytes: Buffer | string): string {
   const hash = createHash("sha256");
-  hash.update(readFileSync(path));
+  hash.update(bytes);
   return hash.digest("hex");
 }
 
@@ -798,6 +836,7 @@ async function startBootVm(
   }
 }
 
+// fallow-ignore-next-line code-duplication
 function handleBootFailure(err: unknown, quiet: QuietRunState): never {
   quiet.filter?.flush();
   if (quiet.showHeadlines) {
@@ -927,13 +966,349 @@ function printInstallReady(result: InstallResult): void {
 
 type ParsedRestoreCommandArgs = ReturnType<typeof parseRestoreArgs>;
 
+type CapturePostgresOptions = {
+  json: boolean;
+  dryRun: boolean;
+  out?: string;
+  sourceArch?: "arm64" | "amd64";
+  targetArch?: "arm64" | "amd64";
+  dump?: string;
+  sourceVerifierOutput?: string;
+  postgresVersion?: string;
+  checkpointLsn?: string;
+  initSql?: string;
+  workloadSql?: string;
+  verifierSql?: string;
+  dataManifest?: string;
+  activeTransactions?: number;
+  activeSessions?: number;
+  dirtyWal?: boolean;
+  hostMountedDataDir?: boolean;
+  physicalDataDirCopy?: boolean;
+};
+
+// fallow-ignore-next-line complexity
+function cmdCapture(args: string[]): number {
+  const options = parseCapturePostgresArgs(args);
+  const required = [
+    ["--out", options.out],
+    ["--source-arch", options.sourceArch],
+    ["--target-arch", options.targetArch],
+    ["--dump", options.dump],
+    ["--source-verifier-output", options.sourceVerifierOutput],
+    ["--postgres-version", options.postgresVersion],
+    ["--checkpoint-lsn", options.checkpointLsn],
+  ] as const;
+  for (const [flag, value] of required) {
+    if (!value) {
+      die(`${captureUsage()}\nmissing required ${flag}`);
+    }
+  }
+  try {
+    const result = createProductPortablePostgresSnapshot({
+      outDir: options.out!,
+      sourceArch: options.sourceArch!,
+      targetArch: options.targetArch!,
+      logicalDumpPath: options.dump!,
+      sourceVerifierOutput: readFileSync(resolve(options.sourceVerifierOutput!), "utf8").trim(),
+      postgresVersion: options.postgresVersion!,
+      checkpointLsn: options.checkpointLsn!,
+      initSqlSha256: optionalFileSha256(options.initSql),
+      workloadSqlSha256: optionalFileSha256(options.workloadSql),
+      verifierSqlSha256: optionalFileSha256(options.verifierSql),
+      dataManifestSha256: optionalFileSha256(options.dataManifest),
+      activeTransactions: options.activeTransactions,
+      activeSessions: options.activeSessions,
+      dirtyWal: options.dirtyWal,
+      hostMountedDataDir: options.hostMountedDataDir,
+      physicalDataDirCopy: options.physicalDataDirCopy,
+      dryRun: options.dryRun,
+    });
+    if (options.json) {
+      emitJson({ schema_version: 1, ...result });
+    } else if (result.state === "completed") {
+      process.stderr.write(`captured portable postgres bundle: ${result.bundleDir}\n`);
+    } else {
+      process.stderr.write(
+        `refused portable postgres capture: ${result.refusal.expectedRefusalCode}\n`,
+      );
+    }
+    return result.state === "completed" ? 0 : 1;
+  } catch (err) {
+    handleProductPortablePostgresError(err, options.json);
+  }
+}
+
+// fallow-ignore-next-line complexity
+function parseCapturePostgresArgs(args: string[]): CapturePostgresOptions {
+  const { json, rest: withoutJson } = consumeJsonFlag(args);
+  const { dryRun, rest } = consumeDryRunFlag(withoutJson);
+  if (rest[0] !== "postgres") {
+    die(captureUsage());
+  }
+  const options: CapturePostgresOptions = { json, dryRun };
+  for (let index = 1; index < rest.length; index += 1) {
+    const arg = rest[index]!;
+    switch (arg) {
+      case "--out":
+        options.out = takeCaptureValue(rest, ++index, arg);
+        break;
+      case "--source-arch":
+        options.sourceArch = parseProductArch(takeCaptureValue(rest, ++index, arg), arg);
+        break;
+      case "--target-arch":
+        options.targetArch = parseProductArch(takeCaptureValue(rest, ++index, arg), arg);
+        break;
+      case "--dump":
+        options.dump = takeCaptureValue(rest, ++index, arg);
+        break;
+      case "--source-verifier-output":
+        options.sourceVerifierOutput = takeCaptureValue(rest, ++index, arg);
+        break;
+      case "--postgres-version":
+        options.postgresVersion = takeCaptureValue(rest, ++index, arg);
+        break;
+      case "--checkpoint-lsn":
+        options.checkpointLsn = takeCaptureValue(rest, ++index, arg);
+        break;
+      case "--init-sql":
+        options.initSql = takeCaptureValue(rest, ++index, arg);
+        break;
+      case "--workload-sql":
+        options.workloadSql = takeCaptureValue(rest, ++index, arg);
+        break;
+      case "--verifier-sql":
+        options.verifierSql = takeCaptureValue(rest, ++index, arg);
+        break;
+      case "--data-manifest":
+        options.dataManifest = takeCaptureValue(rest, ++index, arg);
+        break;
+      case "--active-transactions":
+        options.activeTransactions = parseNonNegativeInteger(
+          takeCaptureValue(rest, ++index, arg),
+          arg,
+        );
+        break;
+      case "--active-sessions":
+        options.activeSessions = parseNonNegativeInteger(takeCaptureValue(rest, ++index, arg), arg);
+        break;
+      case "--dirty-wal":
+        options.dirtyWal = true;
+        break;
+      case "--host-mounted-data-dir":
+        options.hostMountedDataDir = true;
+        break;
+      case "--physical-data-dir-copy":
+        options.physicalDataDirCopy = true;
+        break;
+      default:
+        die(`${captureUsage()}\nunknown argument: ${arg}`);
+    }
+  }
+  return options;
+}
+
+function captureUsage(): string {
+  return (
+    "usage: machinen capture postgres --out <dir> --source-arch <arm64|amd64> " +
+    "--target-arch <arm64|amd64> --dump <file> --source-verifier-output <file> " +
+    "--postgres-version <version> --checkpoint-lsn <lsn> [--json] [--dry-run]"
+  );
+}
+
+function takeCaptureValue(args: string[], index: number, flag: string): string {
+  const value = args[index];
+  if (!value || value.startsWith("-")) {
+    die(`${flag} requires a value`);
+  }
+  return value;
+}
+
+function parseProductArch(value: string, flag: string): "arm64" | "amd64" {
+  if (value === "arm64" || value === "amd64") {
+    return value;
+  }
+  die(`${flag} must be arm64 or amd64`);
+}
+
+function parseNonNegativeInteger(value: string, flag: string): number {
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed < 0) {
+    die(`${flag} must be a non-negative integer`);
+  }
+  return parsed;
+}
+
+function optionalFileSha256(path: string | undefined): string | undefined {
+  return path ? productPortablePostgresFileSha256(resolve(path)) : undefined;
+}
+
+type SupportOptions = {
+  json: boolean;
+  family?: ProductClaimFamily;
+  runtime?: string;
+  status?: ProductClaimStatus;
+  profile?: string;
+  resourceFamily?: string;
+  refusalCode?: string;
+};
+
+function cmdSupport(args: string[]): number {
+  const options = parseSupportArgs(args);
+  const registry = buildProductClaimRegistry(readProductProofProfilesForCli());
+  const entries = filterProductClaimRegistry(registry.entries, {
+    family: options.family,
+    runtime: options.runtime,
+    status: options.status,
+    profile: options.profile,
+    resourceFamily: options.resourceFamily,
+    refusalCode: options.refusalCode,
+  });
+  const payload = {
+    schema_version: 1,
+    kind: "machinen.product-support-status",
+    filters: {
+      family: options.family,
+      runtime: options.runtime,
+      status: options.status,
+      profile: options.profile,
+      resourceFamily: options.resourceFamily,
+      refusalCode: options.refusalCode,
+    },
+    summary: registry.summary,
+    count: entries.length,
+    entries,
+  };
+  if (options.json) {
+    emitJson(payload);
+    return 0;
+  }
+  process.stdout.write(formatSupportText(payload));
+  return 0;
+}
+
+// fallow-ignore-next-line complexity
+function parseSupportArgs(args: string[]): SupportOptions {
+  const { json, rest } = consumeJsonFlag(args);
+  const options: SupportOptions = { json };
+  for (let index = 0; index < rest.length; index += 1) {
+    const arg = rest[index]!;
+    switch (arg) {
+      case "--family":
+        options.family = parseSupportFamily(takeCaptureValue(rest, ++index, arg));
+        break;
+      case "--runtime":
+        options.runtime = takeCaptureValue(rest, ++index, arg);
+        break;
+      case "--status":
+        options.status = parseSupportStatus(takeCaptureValue(rest, ++index, arg));
+        break;
+      case "--profile":
+        options.profile = takeCaptureValue(rest, ++index, arg);
+        break;
+      case "--resource-family":
+        options.resourceFamily = takeCaptureValue(rest, ++index, arg);
+        break;
+      case "--refusal-code":
+        options.refusalCode = takeCaptureValue(rest, ++index, arg);
+        break;
+      default:
+        die(`${supportUsage()}\nunknown argument: ${arg}`);
+    }
+  }
+  return options;
+}
+
+function supportUsage(): string {
+  return (
+    "usage: machinen support [--family <family>] [--runtime <runtime>] " +
+    "[--status <status>] [--profile <name>] [--resource-family <family>] " +
+    "[--refusal-code <code>] [--json]"
+  );
+}
+
+function parseSupportFamily(value: string): ProductClaimFamily {
+  if ((productClaimFamilies as readonly string[]).includes(value)) {
+    return value as ProductClaimFamily;
+  }
+  die(`--family must be one of: ${productClaimFamilies.join(", ")}`);
+}
+
+function parseSupportStatus(value: string): ProductClaimStatus {
+  if ((productClaimStatuses as readonly string[]).includes(value)) {
+    return value as ProductClaimStatus;
+  }
+  die(`--status must be one of: ${productClaimStatuses.join(", ")}`);
+}
+
+function readProductProofProfilesForCli(): Array<Record<string, unknown> & { name: string }> {
+  const candidates = [
+    join(process.cwd(), "scripts/portable-machine-proof-profiles.json"),
+    join(
+      dirname(dirname(dirname(resolve(process.argv[1] ?? ".")))),
+      "scripts/portable-machine-proof-profiles.json",
+    ),
+  ];
+  const path = candidates.find((candidate) => existsSync(candidate));
+  if (!path) {
+    die("could not locate scripts/portable-machine-proof-profiles.json for support discovery");
+  }
+  const parsed = JSON.parse(readFileSync(path, "utf8")) as Array<
+    Record<string, unknown> & { name: string }
+  >;
+  return parsed;
+}
+
+function formatSupportText(payload: {
+  summary: ReturnType<typeof buildProductClaimRegistry>["summary"];
+  count: number;
+  entries: Array<ReturnType<typeof buildProductClaimRegistry>["entries"][number]>;
+}): string {
+  const lines = [
+    `product support claims: ${payload.count}/${payload.summary.total}`,
+    `implemented=${payload.summary.implementedProductSupport} refused=${payload.summary.stableProductRefusals} proof-only=${payload.summary.proofOnlyFixtures}`,
+  ];
+  for (const entry of payload.entries.slice(0, 25)) {
+    lines.push(
+      `${entry.name}\t${entry.family}\t${entry.productStatus}\t${entry.productRefusalCode ?? "-"}`,
+    );
+  }
+  if (payload.entries.length > 25) {
+    lines.push(`... ${payload.entries.length - 25} more; pass --json for the full registry`);
+  }
+  return `${lines.join("\n")}\n`;
+}
+
+// fallow-ignore-next-line complexity
 async function cmdRestore(args: string[]): Promise<number> {
   // `machinen restore <snap-dir> [--image <tarball>] [--name <name>]
   // [--lazy] [-p <hostPort>:<guestPort>]`. Restore is eager by
   // default; `--lazy` opts into the #266 CRIU lazy-pages path.
-  const parsed = parseRestoreCommandArgs(args);
+  const { json, rest } = consumeJsonFlag(args);
+  const parsed = parseRestoreCommandArgs(rest);
   validateRestoreCommandArgs(parsed);
   const snapDir = resolve(parsed.positional[0]!);
+  if (isProductPortablePostgresBundle(snapDir)) {
+    return cmdRestoreProductPortablePostgres(parsed, snapDir, json);
+  }
+  if (shouldRestoreCleanServiceBundle(snapDir, guestCpu)) {
+    return restoreCleanServiceBundle({
+      snapDir,
+      json,
+      name: parsed.name,
+      resolveCliBaseAssets,
+      guestCpu,
+      deriveBootName,
+      emitJson,
+      shellQuote,
+    });
+  }
+  if (shouldRestorePortableNode(snapDir)) {
+    return cmdRestorePortableNode(parsed, snapDir, json);
+  }
+  if (json) {
+    die("restore --json is only supported for product portable bundles");
+  }
   const paths = await resolveCliBaseAssets();
   const quiet = createRestoreQuietState(parsed, snapDir);
   const vm = await startRestoreVm(parsed, snapDir, paths, quiet);
@@ -959,8 +1334,223 @@ function restoreUsage(): string {
   return (
     "usage: machinen restore <snap-dir> [--image <tarball>] [--name <name>] " +
     "[--lazy] [-p <hostPort>:<guestPort>] " +
-    "[--mount-live <host>:<guest>[:<mode>]]"
+    "[--mount-live <host>:<guest>[:<mode>]]\n" +
+    "       machinen restore <portable-postgres-bundle> --target-arch <arm64|amd64> " +
+    "--target-verifier-output <file> [--json]"
   );
+}
+
+// fallow-ignore-next-line complexity
+function cmdRestoreProductPortablePostgres(
+  parsed: ParsedRestoreCommandArgs,
+  snapDir: string,
+  json: boolean,
+): number {
+  if (!parsed.targetArch || !parsed.targetVerifierOutput) {
+    die(restoreUsage());
+  }
+  try {
+    const summary = restoreProductPortablePostgresSnapshot({
+      bundleDir: snapDir,
+      targetArch: parsed.targetArch,
+      targetVerifierOutput: readFileSync(resolve(parsed.targetVerifierOutput), "utf8").trim(),
+    });
+    if (json) {
+      emitJson({ schema_version: 1, ...summary });
+    } else if (summary.migrationCompleted) {
+      process.stderr.write(`restored portable postgres bundle: ${snapDir}\n`);
+    } else {
+      process.stderr.write(
+        `refused portable postgres restore: ${summary.refusal?.expectedRefusalCode ?? "unknown"}\n`,
+      );
+    }
+    return summary.migrationCompleted ? 0 : 1;
+  } catch (err) {
+    handleProductPortablePostgresError(err, json);
+  }
+}
+
+function handleProductPortablePostgresError(err: unknown, json: boolean): never {
+  if (err instanceof ProductPortablePostgresError) {
+    if (json) {
+      emitJsonError(err.code, err.message);
+      process.exit(1);
+    }
+    die(err.message);
+  }
+  handleError(err);
+}
+
+function shouldRestorePortableNode(snapDir: string): boolean {
+  const manifestPath = join(snapDir, "portable-node.json");
+  if (!existsSync(manifestPath)) {
+    return false;
+  }
+  const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as PortableNodeSnapshotBundle;
+  return manifest.sourceArch !== guestCpu() || !existsSync(join(snapDir, "state.vmstate"));
+}
+
+// fallow-ignore-next-line complexity
+async function cmdRestorePortableNode(
+  parsed: ParsedRestoreCommandArgs,
+  snapDir: string,
+  json: boolean,
+): Promise<number> {
+  const started = Date.now();
+  const manifest = JSON.parse(
+    readFileSync(join(snapDir, "portable-node.json"), "utf8"),
+  ) as PortableNodeSnapshotBundle;
+  if (manifest.sourceArch === guestCpu()) {
+    return reportPortableNodeRestoreRefusal(
+      snapDir,
+      json,
+      manifest,
+      "node-target-architecture-mismatch",
+      "portable Node restore requires a destination architecture different from the source architecture; use vmstate restore for same-architecture bundles",
+      started,
+    );
+  }
+  const appTarPath = join(snapDir, manifest.appTar.path);
+  const appTar = readFileSync(appTarPath);
+  if (sha256Bytes(appTar) !== manifest.appTar.sha256) {
+    return reportPortableNodeRestoreRefusal(
+      snapDir,
+      json,
+      manifest,
+      "node-portable-app-digest-mismatch",
+      "portable Node app tarball digest does not match descriptor",
+      started,
+    );
+  }
+  const paths = await resolveCliBaseAssets();
+  const name = parsed.name ?? deriveBootName(snapDir);
+  const vm = await boot({
+    image: paths.defaultImagePath,
+    kernel: paths.kernelPath,
+    dtb: paths.dtbPath,
+    name,
+    detached: true,
+    cmd: ["sleep", "100000"],
+    timeoutMs: undefined,
+  }).catch(handleError);
+  try {
+    await vm.exec(
+      "export DEBIAN_FRONTEND=noninteractive; " +
+        "if ! command -v node >/dev/null 2>&1; then apt-get update && apt-get install -y --no-install-recommends nodejs curl ca-certificates; fi",
+      { execTimeoutMs: 180_000 },
+    );
+    const targetNode = await vm.execRaw("node --version", { execTimeoutMs: 5_000 });
+    if (targetNode.exitCode !== 0 || targetNode.stdout.trim() !== manifest.nodeVersion) {
+      return reportPortableNodeRestoreRefusal(
+        snapDir,
+        json,
+        manifest,
+        "node-source-target-version-mismatch",
+        `source Node ${manifest.nodeVersion} does not match target Node ${targetNode.stdout.trim() || "unavailable"}`,
+        started,
+      );
+    }
+    await vm.writeFile("/tmp/machinen-portable-node-app.tar.gz", appTar);
+    await vm.exec(
+      "rm -rf /opt/machinen-portable-node-app && mkdir -p /opt/machinen-portable-node-app && tar -xzf /tmp/machinen-portable-node-app.tar.gz -C /opt/machinen-portable-node-app",
+    );
+    await vm.exec(startPortableNodeCommand(manifest), { execTimeoutMs: 15_000 });
+    const verify = await vm.execRaw(verifyPortableNodeCommand(manifest), { execTimeoutMs: 30_000 });
+    if (verify.exitCode !== 0) {
+      return reportPortableNodeRestoreRefusal(
+        snapDir,
+        json,
+        manifest,
+        "node-target-verifier-mismatch",
+        verify.stderr || verify.stdout || "target verifier failed",
+        started,
+      );
+    }
+    const summary = portableNodeRestoreSummary(manifest, "completed", started, {
+      migrationCompleted: true,
+      targetVerifierResult: "passed",
+      restoredName: vm.name ?? name,
+    });
+    // fallow-ignore-next-line code-duplication
+    writeFileSync(
+      join(snapDir, "portable-node-restore-summary.json"),
+      `${JSON.stringify(summary, null, 2)}\n`,
+    );
+    if (json) {
+      emitJson({ schema_version: 1, ...summary });
+    } else {
+      process.stderr.write(`restored portable Node as: ${vm.name ?? name} (pid ${vm.pid})\n`);
+    }
+    return 0;
+  } finally {
+    await vm.detach();
+  }
+}
+
+function startPortableNodeCommand(manifest: PortableNodeSnapshotBundle): string {
+  const nodeIndex = manifest.argv.findIndex((arg) => /(^|\/)node(?:$|[0-9.-])/u.test(arg));
+  const nodeArgs = manifest.argv
+    .slice(nodeIndex + 1)
+    .map(shellQuote)
+    .join(" ");
+  return `cd /opt/machinen-portable-node-app && nohup node ${nodeArgs} >/tmp/machinen-portable-node.log 2>&1 &`;
+}
+
+function verifyPortableNodeCommand(manifest: PortableNodeSnapshotBundle): string {
+  return `for i in $(seq 1 80); do got=$(curl -fsS http://127.0.0.1:${manifest.guestPort}/ 2>/dev/null | sha256sum | awk '{print $1}') && test "$got" = ${shellQuote(manifest.verifier.sha256)} && exit 0; sleep 0.25; done; cat /tmp/machinen-portable-node.log 2>/dev/null; exit 1`;
+}
+
+function reportPortableNodeRestoreRefusal(
+  snapDir: string,
+  json: boolean,
+  manifest: PortableNodeSnapshotBundle,
+  code: string,
+  message: string,
+  started: number,
+): number {
+  const summary = portableNodeRestoreSummary(manifest, "refused", started, {
+    migrationCompleted: false,
+    targetVerifierResult: "failed",
+    refusal: { code, message },
+  });
+  // fallow-ignore-next-line code-duplication
+  writeFileSync(
+    join(snapDir, "portable-node-restore-summary.json"),
+    `${JSON.stringify(summary, null, 2)}\n`,
+  );
+  if (json) {
+    emitJson({ schema_version: 1, ...summary });
+  } else {
+    process.stderr.write(`refused portable Node restore: ${code}: ${message}\n`);
+  }
+  return 1;
+}
+
+function portableNodeRestoreSummary(
+  manifest: PortableNodeSnapshotBundle,
+  state: "completed" | "refused",
+  started: number,
+  extra: Record<string, unknown>,
+): Record<string, unknown> {
+  return {
+    kind: "machinen.portable-node-restore-summary",
+    formatVersion: 1,
+    runtime: "node",
+    subset: manifest.subset,
+    state,
+    sourceArch: manifest.sourceArch,
+    targetArch: guestCpu(),
+    elapsedMs: Date.now() - started,
+    sourceIsaEmulationUsed: false,
+    sourceTextReplayAcceptedAsRestore: false,
+    sidecarRuntimeUsed: false,
+    appHooksRequired: false,
+    ...extra,
+  };
+}
+
+function shellQuote(value: string): string {
+  return `'${value.replaceAll("'", `'\\''`)}'`;
 }
 
 function createRestoreQuietState(parsed: ParsedRestoreCommandArgs, snapDir: string): QuietRunState {
@@ -1033,6 +1623,7 @@ function optionalList<T>(items: T[]): T[] | undefined {
   return items;
 }
 
+// fallow-ignore-next-line code-duplication
 function handleRestoreFailure(err: unknown, quiet: QuietRunState): never {
   quiet.filter?.flush();
   if (quiet.showHeadlines) {
@@ -1757,16 +2348,30 @@ function reportSnapshotDryRun(entry: RegistryEntry, opts: SnapshotOptionsCli): v
   process.stdout.write(`would snapshot ${entryLabel(entry)} → ${opts.resolvedOutDir}${suffix}`);
 }
 
+// fallow-ignore-next-line complexity
 async function runSnapshot(opts: SnapshotOptionsCli): Promise<number> {
+  const entry = lookupEntry(opts.target);
   const vm = await attach(opts.target).catch(handleError);
   const quiet = createSnapshotQuietState(vm, opts);
   try {
+    const adapterOpts = { guestCpu, sha256Bytes };
+    const portableNode = await inspectPortableNodeVm(vm, entry, adapterOpts);
+    const cleanService = portableNode
+      ? cleanServiceFromNode(portableNode)
+      : ((await inspectPortablePythonVm(vm, entry, adapterOpts)) ??
+        (await inspectPortableGoVm(vm, entry, adapterOpts)));
     const res = await vm.snapshot({
       outDir: opts.resolvedOutDir,
       leaveRunning: opts.keepAlive,
       tcpClose: opts.keepAlive,
       onLog: snapshotOnLog(quiet),
     });
+    if (cleanService) {
+      writeCleanServiceSnapshot(res.snapDir, cleanService);
+    }
+    if (portableNode) {
+      writePortableNodeSnapshot(res.snapDir, portableNode);
+    }
     reportSnapshotSuccess(res.snapDir, res.elapsedMs, opts);
     return 0;
   } catch (err) {
@@ -1799,6 +2404,92 @@ function snapshotOnLog(quiet: QuietRunState): (evt: LogEvent) => void {
       process.stderr.write(evt.chunk);
     }
   };
+}
+
+function writeCleanServiceSnapshot(snapDir: string, bundle: CleanServiceCapture): void {
+  const { artifactBytesByPath, ...manifest } = bundle;
+  for (const [artifactPath, bytes] of Object.entries(artifactBytesByPath)) {
+    writeFileSync(join(snapDir, artifactPath), bytes);
+  }
+  writeFileSync(
+    join(snapDir, "portable-clean-service.json"),
+    `${JSON.stringify(manifest, null, 2)}\n`,
+  );
+  writeCleanServiceMeta(snapDir, manifest);
+}
+
+function writeCleanServiceMeta(snapDir: string, manifest: CleanServiceManifest): void {
+  const metaPath = join(snapDir, "meta.json");
+  if (!existsSync(metaPath)) {
+    return;
+  }
+  const meta = JSON.parse(readFileSync(metaPath, "utf8")) as Record<string, unknown>;
+  meta.portable = {
+    formatVersion: manifest.formatVersion,
+    contract: "machinen.clean-service-v1",
+    sourceArchitecture: manifest.sourceArch,
+    crossArchitectureRoutePolicy: manifest.routePolicy,
+    components: manifest.components.map((component) => ({
+      id: component.id,
+      runtime: component.runtime,
+      subset: component.subset,
+      detected: true,
+      captured: true,
+      refused: false,
+      provenance: component.provenance,
+      integrity: {
+        artifactSha256: component.artifact.sha256,
+        artifactPath: component.artifact.path,
+      },
+      verifier: component.verifier,
+      refusalSemantics: {
+        migrationCompleted: false,
+        stableCodes: cleanServiceStableRefusalCodes(),
+      },
+    })),
+    security: manifest.security,
+  };
+  writeFileSync(metaPath, `${JSON.stringify(meta, null, 2)}\n`);
+}
+
+function writePortableNodeSnapshot(snapDir: string, bundle: PortableNodeSnapshotCapture): void {
+  const { appTarBytes, ...manifest } = bundle;
+  writeFileSync(join(snapDir, "portable-node-app.tar.gz"), appTarBytes);
+  writeFileSync(join(snapDir, "portable-node.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+  const metaPath = join(snapDir, "meta.json");
+  if (existsSync(metaPath) && !existsSync(join(snapDir, "portable-clean-service.json"))) {
+    const meta = JSON.parse(readFileSync(metaPath, "utf8")) as Record<string, unknown>;
+    meta.portable = {
+      formatVersion: 1,
+      sourceArchitecture: manifest.sourceArch,
+      crossArchitectureRoutePolicy: "portable-components-when-target-arch-differs",
+      components: [
+        {
+          id: "nodejs:primary-http-service",
+          runtime: "nodejs",
+          subset: manifest.subset,
+          detected: true,
+          captured: true,
+          refused: false,
+          provenance: { sourceCwd: manifest.sourceCwd, argv: manifest.argv },
+          integrity: { appTarSha256: manifest.appTar.sha256 },
+          verifier: manifest.verifier,
+          refusalSemantics: {
+            migrationCompleted: false,
+            stableCodes: [
+              "node-inspector-session-unsupported",
+              "node-child-process-tree-unsupported",
+              "node-native-addon-abi-state-unsupported",
+              "node-host-mounted-state-ambiguous",
+              "node-active-tcp-session-unsupported",
+              "node-target-verifier-missing",
+            ],
+          },
+        },
+      ],
+    };
+    writeFileSync(metaPath, `${JSON.stringify(meta, null, 2)}\n`);
+  }
 }
 
 function reportSnapshotSuccess(snapDir: string, elapsedMs: number, opts: SnapshotOptionsCli): void {
@@ -2000,6 +2691,7 @@ async function startForkVm(vm: VmHandle, opts: ForkCommandOptions): Promise<VmHa
   }
 }
 
+// fallow-ignore-next-line code-duplication
 function handleForkFailure(err: unknown, quiet: QuietRunState): never {
   quiet.filter?.flush();
   if (quiet.showHeadlines) {
@@ -2454,7 +3146,7 @@ const BASH_COMPLETION = `# machinen bash completion — source this from ~/.bash
 _machinen_completion() {
   local cur prev words cword
   _init_completion || return
-  local cmds="boot restore install list ls ps exec snapshot fork attach repl gc stop feedback agent-context completion --version --help -h -v"
+  local cmds="boot capture support restore install list ls ps exec snapshot fork attach repl gc stop feedback agent-context completion --version --help -h -v"
   if [[ \${cword} -eq 1 ]]; then
     COMPREPLY=( $(compgen -W "\${cmds}" -- "\${cur}") )
     return
@@ -2482,7 +3174,7 @@ const ZSH_COMPLETION = `# machinen zsh completion — source this from ~/.zshrc,
 #   eval "$(machinen completion zsh)"
 _machinen() {
   local -a cmds
-  cmds=(boot restore install list ls ps exec snapshot fork attach repl gc stop feedback agent-context completion)
+  cmds=(boot capture support restore install list ls ps exec snapshot fork attach repl gc stop feedback agent-context completion)
   if (( CURRENT == 2 )); then
     _describe 'command' cmds
     return
@@ -2508,7 +3200,7 @@ compdef _machinen machinen mn
 
 const FISH_COMPLETION = `# machinen fish completion — source this from your config.fish, or:
 #   machinen completion fish | source
-set -l cmds boot restore install list ls ps exec snapshot fork attach repl gc stop feedback agent-context completion
+set -l cmds boot capture support restore install list ls ps exec snapshot fork attach repl gc stop feedback agent-context completion
 for bin in machinen mn
   complete -c $bin -f -n 'not __fish_seen_subcommand_from $cmds' -a "$cmds"
   for sub in exec snapshot fork attach repl stop
@@ -2622,6 +3314,20 @@ function printHelp(): void {
       `                                                 when the host supports it.\n` +
       `    -p <hostPort>:<guestPort>                    Forward host:hostPort → guest:guestPort.\n` +
       `\n` +
+      `  machinen capture postgres --out <dir> --source-arch <arm64|amd64>\n` +
+      `                    --target-arch <arm64|amd64> --dump <file>\n` +
+      `                    --source-verifier-output <file> --postgres-version <v>\n` +
+      `                    --checkpoint-lsn <lsn> [--json] [--dry-run]\n` +
+      `                                                 Capture the implemented portable\n` +
+      `                                                 PostgreSQL logical-state product\n` +
+      `                                                 bundle. Inputs are produced from a\n` +
+      `                                                 real Machinen source VM with pg_dump,\n` +
+      `                                                 CHECKPOINT, and verifier SQL.\n` +
+      `\n` +
+      `  machinen support [--family <family>] [--status <status>] [--json]\n` +
+      `                                                 Discover product support/refusal\n` +
+      `                                                 status for every proof profile.\n` +
+      `\n` +
       `  machinen restore <snap-dir> [--image <tar.gz>] [--name <name>] [-p ...]\n` +
       `                              [--mount-live <host>:<guest>[:<mode>]]\n` +
       `                                                 Restore a VM from a snapshot bundle.\n` +
@@ -2635,6 +3341,12 @@ function printHelp(): void {
       `                                                 NOT inherited from the source (host ports\n` +
       `                                                 are global), so pick host ports nothing\n` +
       `                                                 else is binding.\n` +
+      `  machinen restore <portable-postgres-bundle> --target-arch <arm64|amd64>\n` +
+      `                    --target-verifier-output <file> [--json]\n` +
+      `                                                 Complete the portable PostgreSQL\n` +
+      `                                                 product restore after importing the\n` +
+      `                                                 descriptor dump into target-native\n` +
+      `                                                 PostgreSQL and running verifier SQL.\n` +
       `\n` +
       `  machinen list  (alias: ls, ps)                 List running VMs (PID, NAME, UP,\n` +
       `                                                 PORTS, FORKED-FROM). Pass --json for\n` +
@@ -2707,7 +3419,8 @@ function printHelp(): void {
       `  --json                                         Emit machine-readable JSON to stdout.\n` +
       `                                                 Supported on: list, gc, install,\n` +
       `                                                 snapshot, stop, fork --detach,\n` +
-      `                                                 boot --detach, feedback, agent-context.\n` +
+      `                                                 boot --detach, support, feedback,\n` +
+      `                                                 agent-context.\n` +
       `  --dry-run                                      Preview a mutating command without\n` +
       `                                                 side effects. Supported on: gc, stop,\n` +
       `                                                 snapshot.\n` +
@@ -2720,6 +3433,11 @@ function printHelp(): void {
       `  machinen exec worker --tty -- vim /etc/passwd        # full-screen TUI in a PTY\n` +
       `  machinen snapshot worker ./warm                      # CRIU snapshot bundle\n` +
       `  machinen restore ./warm\n` +
+      `  machinen capture postgres --out ./pg.portable --source-arch arm64 --target-arch amd64 \\\n` +
+      `    --dump ./pg.dump --source-verifier-output ./verify.txt --postgres-version 15 \\\n` +
+      `    --checkpoint-lsn 0/16B6C50\n` +
+      `  machinen restore ./pg.portable --target-arch amd64 --target-verifier-output ./verify.txt\n` +
+      `  machinen support --family network-ping-socket --json\n` +
       `\n` +
       `Environment:\n` +
       `  MACHINEN_VMM                             Override the VMM binary path (dev)\n` +
@@ -2745,6 +3463,8 @@ type CommandHandler = (args: string[]) => number | Promise<number>;
 
 const COMMAND_HANDLERS = new Map<string, CommandHandler>([
   ["boot", cmdBoot],
+  ["capture", cmdCapture],
+  ["support", cmdSupport],
   ["restore", cmdRestore],
   ["install", cmdInstall],
   ["list", cmdLs],

@@ -486,6 +486,32 @@ export {
   validatePortableMachineSnapshotManifest,
 } from "./portable-machine-snapshot.ts";
 export {
+  PRODUCT_CLAIM_PROOF_ONLY_REFUSAL_CODE,
+  PRODUCT_CLAIM_REGISTRY_FORMAT_VERSION,
+  buildProductClaimRegistry,
+  filterProductClaimRegistry,
+  productClaimEntryFromProofProfile,
+  productClaimFamilies,
+  productClaimRefusalSummary,
+  productClaimStatuses,
+  summarizeProductClaimRegistry,
+} from "./product-claim-registry.ts";
+export {
+  PRODUCT_PORTABLE_POSTGRES_DUMP,
+  PRODUCT_PORTABLE_POSTGRES_FORMAT_VERSION,
+  PRODUCT_PORTABLE_POSTGRES_MANIFEST,
+  PRODUCT_PORTABLE_POSTGRES_REFUSAL,
+  PRODUCT_PORTABLE_POSTGRES_RESTORE_SUMMARY,
+  ProductPortablePostgresError,
+  createProductPortablePostgresSnapshot,
+  isProductPortablePostgresBundle,
+  productPortablePostgresArchitectures,
+  productPortablePostgresFileSha256,
+  productPortablePostgresRefusalCodes,
+  productPortablePostgresSupportLevels,
+  restoreProductPortablePostgresSnapshot,
+} from "./product-portable-postgres.ts";
+export {
   TARGET_GUEST_RESTORE_DESCRIPTOR_KIND,
   TargetGuestRestoreLoaderValidationError,
   buildNativeActualResumeTrampolineArgs,
@@ -519,6 +545,27 @@ export type {
   PortableMachineSnapshotRefusalCode,
   PortableMachineSnapshotRefusals,
 } from "./portable-machine-snapshot.ts";
+export type {
+  ProductClaimEntry,
+  ProductClaimFamily,
+  ProductClaimProofProfileInput,
+  ProductClaimRegistry,
+  ProductClaimRegistryFilter,
+  ProductClaimRegistrySummary,
+  ProductClaimStatus,
+} from "./product-claim-registry.ts";
+export type {
+  ProductPortablePostgresArchitecture,
+  ProductPortablePostgresCaptureInput,
+  ProductPortablePostgresCaptureResult,
+  ProductPortablePostgresClaimClassification,
+  ProductPortablePostgresDescriptor,
+  ProductPortablePostgresRefusal,
+  ProductPortablePostgresRefusalCode,
+  ProductPortablePostgresRestoreInput,
+  ProductPortablePostgresRestoreSummary,
+  ProductPortableSupportLevel,
+} from "./product-portable-postgres.ts";
 export type {
   TargetGuestEpollWatchRecipe,
   TargetGuestNativeRestoreStep,
