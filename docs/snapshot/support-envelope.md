@@ -129,7 +129,30 @@ under `capabilities`. The families currently covered are:
   provenance, HTTP routes, file writes, durable JSONL database/log state, real
   compiled `.node` addon provenance, active-connection refusal policy,
   repeatability evidence, artifact-level shortcut inspection, Node 20/22/24
-  version coverage, and a documented user-facing workflow.
+  version coverage, and a documented user-facing workflow. Goal 35 adds the
+  reverse amd64 -> arm64 route and expands the Node envelope with existing
+  process discovery, a narrow active HTTP/TCP preservation subset, child
+  process/IPC trees, inspector-state refusal policy, dirty persistent-state
+  semantics, and broader native addon/ABI provenance. Goal 36 expands the proof
+  envelope to complex framework-shaped apps, real persistence systems,
+  WebSocket/TLS/keep-alive networking, cluster/worker/supervisor topology,
+  published native package layouts, load/failure injection, and Node 18/20/22/24
+  bidirectional OS/runtime/architecture coverage. Goal 37 adds audited
+  third-party ecosystem-equivalent coverage without live third-party installs:
+  local registry fixtures, native prebuild layout simulation, lockfile/SBOM
+  provenance, no-network/no-scripts sandbox enforcement, and bidirectional
+  Node 18/20/22/24 app restore. Goal 38 begins non-Node exploration with
+  proof-or-refusal envelopes for JVM, Python, Ruby, and Go using audited local
+  fixtures and target-native shortcut guards. Goal 39 hardens Python and Go with
+  live bidirectional arm64/amd64 repeatability proofs. Goal 40 adds hard-state
+  boundaries for active sockets/TLS, opaque native extensions, and arbitrary Go
+  scheduler state: reconnect-only and bounded-quiescent subsets are supported,
+  while opaque/ambiguous states remain stable refusals. Goal 42 expands Go
+  support to quiesced HTTP service recreation, drained worker pools, drained
+  channels, and deterministic timers with bidirectional arm64/amd64 proof. Goal
+  43 proves a real PostgreSQL service inside Machinen for a clean, checkpointed,
+  quiesced `vmstate` snapshot/restore subset, with unsafe database states kept as
+  stable refusals.
 - Remaining Node refusal resolution: the 73 profiles that still carried
   `runtime:node:*` refusal capabilities were graduated to target-native support.
   The Node runtime manifest now has 0 `runtime:node:*` refusal profiles and 281

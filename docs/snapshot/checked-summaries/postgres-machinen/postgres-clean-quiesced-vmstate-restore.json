@@ -1,0 +1,184 @@
+{
+  "profile": "portable-machine-restore",
+  "state": "completed",
+  "remoteSourceTarget": "postgres-clean-quiesced-vmstate-restore",
+  "targetRestore": {
+    "state": "completed",
+    "migrationCompleted": true,
+    "descriptorGateCompleted": true,
+    "targetVerifierResult": "passed",
+    "targetResourceStatuses": [
+      {
+        "kind": "postgres-clean-quiesced-database",
+        "status": "passed"
+      }
+    ],
+    "sourceTextReusedAsTargetCode": false,
+    "sourceIsaEmulationUsed": false,
+    "sidecarRuntimeUsed": false,
+    "appHooksRequired": false
+  },
+  "postgresMachinenRestoreProof": {
+    "kind": "machinen.postgres-restore-proof",
+    "profile": "portable-machine-restore",
+    "state": "completed",
+    "runtime": "postgresql",
+    "host": {
+      "arch": "arm64",
+      "platform": "darwin",
+      "release": "24.6.0"
+    },
+    "machinen": {
+      "snapshotEngine": "vmstate",
+      "guestArch": "arm64",
+      "imageSha256": "7ae891ab5b9b61b949b303f1e083f7fa1c8ce9c117ba14392392466c445c94e0"
+    },
+    "postgres": {
+      "version": "15.18 (Debian 15.18-0+deb12u1)",
+      "architecture": "aarch64",
+      "initSqlSha256": "547b33a8809b41797ec9e0969af3009cb67ec811958723144965b800aa768350",
+      "workloadSqlSha256": "cee4f9dee7f03744b3c13e8d6536ff7a1220904aa24cd01410daf9d5833acef9",
+      "verifierSqlSha256": "1d4799aaf94829c9a6cfa11502992b916b111a620909dd6d0d337fbb1bf2171d",
+      "walCheckpointLsn": "0/2000188",
+      "activeTransactionsAtSnapshot": 0,
+      "dataDirectoryManifestSha256": "278ae2bbfd9bdc7519bec233c2f05fb1d0a44cc5086d8e1c2231b6796cf38d47",
+      "sourceVerifierOutput": "{\"database\" : \"machinen_pg\", \"rowCount\" : 4, \"valueSum\" : 105, \"payloads\" : [\"alpha\",\"beta\",\"gamma\",\"delta\"], \"values\" : [10,25,30,40]}",
+      "targetVerifierOutput": "{\"database\" : \"machinen_pg\", \"rowCount\" : 4, \"valueSum\" : 105, \"payloads\" : [\"alpha\",\"beta\",\"gamma\",\"delta\"], \"values\" : [10,25,30,40]}",
+      "targetVerifierOutputSha256": "5d1062188f302d75521800edc29b0a44e218e88699e27b98793afcefb28c3051"
+    },
+    "supportedSubset": {
+      "name": "postgres-clean-quiesced-checkpointed-vmstate",
+      "migrationCompleted": true,
+      "noActiveClientTransaction": true,
+      "walCheckpointed": true,
+      "dataDirectorySynced": true,
+      "targetNativeVerification": true,
+      "serviceRestorePolicy": "whole-VM vmstate restore of quiesced PostgreSQL service"
+    },
+    "refusals": [
+      {
+        "name": "active-client-transaction",
+        "state": "refused",
+        "expectedRefusalCode": "postgres-active-transaction-unsupported",
+        "migrationCompleted": false,
+        "descriptorGateCompleted": false,
+        "evidence": {},
+        "sourceIsaEmulationUsed": false,
+        "sourceTextReusedAsTargetCode": false,
+        "sidecarRuntimeUsed": false,
+        "appHooksRequired": false
+      },
+      {
+        "name": "active-client-session",
+        "state": "refused",
+        "expectedRefusalCode": "postgres-active-session-unsupported",
+        "migrationCompleted": false,
+        "descriptorGateCompleted": false,
+        "evidence": {},
+        "sourceIsaEmulationUsed": false,
+        "sourceTextReusedAsTargetCode": false,
+        "sidecarRuntimeUsed": false,
+        "appHooksRequired": false
+      },
+      {
+        "name": "dirty-uncheckpointed-wal",
+        "state": "refused",
+        "expectedRefusalCode": "postgres-dirty-wal-boundary-unsupported",
+        "migrationCompleted": false,
+        "descriptorGateCompleted": false,
+        "evidence": {},
+        "sourceIsaEmulationUsed": false,
+        "sourceTextReusedAsTargetCode": false,
+        "sidecarRuntimeUsed": false,
+        "appHooksRequired": false
+      },
+      {
+        "name": "torn-data-directory",
+        "state": "refused",
+        "expectedRefusalCode": "postgres-unsynced-data-directory-unsupported",
+        "migrationCompleted": false,
+        "descriptorGateCompleted": false,
+        "evidence": {},
+        "sourceIsaEmulationUsed": false,
+        "sourceTextReusedAsTargetCode": false,
+        "sidecarRuntimeUsed": false,
+        "appHooksRequired": false
+      },
+      {
+        "name": "replication-slot",
+        "state": "refused",
+        "expectedRefusalCode": "postgres-replication-slot-state-unsupported",
+        "migrationCompleted": false,
+        "descriptorGateCompleted": false,
+        "evidence": {},
+        "sourceIsaEmulationUsed": false,
+        "sourceTextReusedAsTargetCode": false,
+        "sidecarRuntimeUsed": false,
+        "appHooksRequired": false
+      },
+      {
+        "name": "streaming-replication",
+        "state": "refused",
+        "expectedRefusalCode": "postgres-streaming-replication-unsupported",
+        "migrationCompleted": false,
+        "descriptorGateCompleted": false,
+        "evidence": {},
+        "sourceIsaEmulationUsed": false,
+        "sourceTextReusedAsTargetCode": false,
+        "sidecarRuntimeUsed": false,
+        "appHooksRequired": false
+      },
+      {
+        "name": "external-extension",
+        "state": "refused",
+        "expectedRefusalCode": "postgres-extension-native-state-unsupported",
+        "migrationCompleted": false,
+        "descriptorGateCompleted": false,
+        "evidence": {},
+        "sourceIsaEmulationUsed": false,
+        "sourceTextReusedAsTargetCode": false,
+        "sidecarRuntimeUsed": false,
+        "appHooksRequired": false
+      },
+      {
+        "name": "host-mounted-data-dir",
+        "state": "refused",
+        "expectedRefusalCode": "postgres-host-mounted-data-dir-ambiguous",
+        "migrationCompleted": false,
+        "descriptorGateCompleted": false,
+        "evidence": {},
+        "sourceIsaEmulationUsed": false,
+        "sourceTextReusedAsTargetCode": false,
+        "sidecarRuntimeUsed": false,
+        "appHooksRequired": false
+      }
+    ],
+    "targetRestore": {
+      "state": "completed",
+      "migrationCompleted": true,
+      "descriptorGateCompleted": true,
+      "targetVerifierResult": "passed",
+      "targetResourceStatuses": [
+        {
+          "kind": "postgres-clean-quiesced-database",
+          "status": "passed"
+        }
+      ],
+      "sourceTextReusedAsTargetCode": false,
+      "sourceIsaEmulationUsed": false,
+      "sidecarRuntimeUsed": false,
+      "appHooksRequired": false
+    },
+    "securityInspection": {
+      "sourceIsaEmulationArtifactFound": false,
+      "sourceTextReplayArtifactFound": false,
+      "sidecarRuntimeArtifactFound": false,
+      "appHookArtifactFound": false,
+      "metadataOnlyShortcutAccepted": false,
+      "targetNativeExecutionRequired": true,
+      "passed": true
+    },
+    "timings": []
+  },
+  "timings": []
+}

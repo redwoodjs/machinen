@@ -1,15 +1,21 @@
 {
   "kind": "machinen.runtime-support-manifest",
   "name": "python-planning-fixture",
-  "supportClaimed": false,
+  "supportClaimed": true,
   "runtime": {
     "name": "python",
     "version": "3.12.x",
     "buildId": "python-fixture-build",
     "implementation": "cpython"
   },
-  "requiredCapabilities": [],
-  "positiveProofProfiles": {},
+  "requiredCapabilities": [
+    "runtime:python:goal38:django-celery-local-audited",
+    "runtime:python:goal39:cross-arch-repeatable"
+  ],
+  "positiveProofProfiles": {
+    "runtime:python:goal38:django-celery-local-audited": ["python-django-celery-runtime-policy"],
+    "runtime:python:goal39:cross-arch-repeatable": ["python-cross-arch-runtime-policy"]
+  },
   "semanticSections": [
     "runtime/build identity",
     "import graph identity",
@@ -160,5 +166,53 @@
       "code": "runtime-source-text-replay",
       "migrationCompleted": false
     }
-  ]
+  ],
+  "goal38NonNodeRuntimeProof": {
+    "claim": "goal38-non-node-runtime-support-or-refusal-v1",
+    "capability": "runtime:python:goal38:django-celery-local-audited",
+    "proofProfile": "python-django-celery-runtime-policy",
+    "supportClaimedForThisSubset": true,
+    "checkedSummary": "docs/snapshot/checked-summaries/non-node-runtimes/python-django-celery-runtime-policy.json",
+    "shortcutPolicy": {
+      "sourceIsaEmulation": false,
+      "sourceTextReplay": false,
+      "sidecarRuntime": false,
+      "appHooks": false
+    }
+  },
+  "goal39CrossArchProof": {
+    "claim": "goal39-python-go-cross-arch-repeatability-v1",
+    "capability": "runtime:python:goal39:cross-arch-repeatable",
+    "proofProfile": "python-cross-arch-runtime-policy",
+    "checkedSummary": "docs/snapshot/checked-summaries/non-node-cross-arch/python-cross-arch-runtime-policy.json",
+    "routes": ["arm64-to-amd64", "amd64-to-arm64"],
+    "iterations": 3,
+    "shortcutPolicy": {
+      "sourceIsaEmulation": false,
+      "sourceTextReplay": false,
+      "sidecarRuntime": false,
+      "appHooks": false
+    }
+  },
+  "goal40HardRuntimeStateProof": {
+    "claim": "goal40-hard-runtime-state-boundaries-v1",
+    "checkedSummaries": [
+      "docs/snapshot/checked-summaries/goal40-hard-state/goal40-active-socket-tls-policy.json",
+      "docs/snapshot/checked-summaries/goal40-hard-state/goal40-native-extension-boundary-policy.json",
+      "docs/snapshot/checked-summaries/goal40-hard-state/goal40-go-scheduler-boundary-policy.json"
+    ],
+    "stableRefusalCodes": [
+      "runtime-network-active-socket-queue-ambiguous",
+      "runtime-network-tls-session-key-opaque",
+      "runtime-native-extension-opaque-state",
+      "runtime-go-arbitrary-goroutine-scheduler-unsupported"
+    ],
+    "shortcutPolicy": {
+      "sourceIsaEmulation": false,
+      "sourceTextReplay": false,
+      "sidecarRuntime": false,
+      "appHooks": false,
+      "metadataOnly": false
+    }
+  }
 }

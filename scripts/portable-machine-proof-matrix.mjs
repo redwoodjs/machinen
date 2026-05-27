@@ -143,6 +143,174 @@ const PRESETS = {
     profiles.filter((profile) => hasCapabilityPrefix(profile, "runtime:node:app:")),
   "node-live-remote-builder-to-proxmox": (profiles) =>
     profiles.filter((profile) => hasCapabilityPrefix(profile, "runtime:node:app:")),
+  "node-expanded": (profiles) =>
+    profiles.filter((profile) => hasCapabilityPrefix(profile, "runtime:node:expanded:")),
+  "node-expanded-arbitrary-existing": (profiles) =>
+    profiles.filter((profile) =>
+      hasCapabilityPrefix(profile, "runtime:node:expanded:arbitrary-existing-processes"),
+    ),
+  "node-expanded-active-http-tcp": (profiles) =>
+    profiles.filter((profile) =>
+      hasCapabilityPrefix(profile, "runtime:node:expanded:active-http-tcp-preservation"),
+    ),
+  "node-expanded-child-process-ipc": (profiles) =>
+    profiles.filter((profile) =>
+      hasCapabilityPrefix(profile, "runtime:node:expanded:child-process-ipc-trees"),
+    ),
+  "node-expanded-inspector": (profiles) =>
+    profiles.filter((profile) =>
+      hasCapabilityPrefix(profile, "runtime:node:expanded:inspector-debugging-policy"),
+    ),
+  "node-expanded-dirty-state": (profiles) =>
+    profiles.filter((profile) =>
+      hasCapabilityPrefix(profile, "runtime:node:expanded:ambiguous-dirty-state-policy"),
+    ),
+  "node-expanded-native-addon-abi": (profiles) =>
+    profiles.filter((profile) =>
+      hasCapabilityPrefix(profile, "runtime:node:expanded:broad-native-addon-abi"),
+    ),
+  "node-expanded-amd64-to-arm64": (profiles) =>
+    profiles.filter((profile) =>
+      hasCapabilityPrefix(profile, "runtime:node:expanded:amd64-to-arm64-route"),
+    ),
+  "node-complex": (profiles) =>
+    profiles.filter((profile) => hasCapabilityPrefix(profile, "runtime:node:complex:")),
+  "node-complex-frameworks": (profiles) =>
+    profiles.filter((profile) =>
+      hasCapabilityPrefix(profile, "runtime:node:complex:framework-apps"),
+    ),
+  "node-complex-persistence": (profiles) =>
+    profiles.filter((profile) =>
+      hasCapabilityPrefix(profile, "runtime:node:complex:persistence-systems"),
+    ),
+  "node-complex-networking": (profiles) =>
+    profiles.filter((profile) =>
+      hasCapabilityPrefix(profile, "runtime:node:complex:websocket-tls-keepalive"),
+    ),
+  "node-complex-topology": (profiles) =>
+    profiles.filter((profile) =>
+      hasCapabilityPrefix(profile, "runtime:node:complex:cluster-worker-supervisor"),
+    ),
+  "node-complex-native": (profiles) =>
+    profiles.filter((profile) =>
+      hasCapabilityPrefix(profile, "runtime:node:complex:published-native-addons"),
+    ),
+  "node-complex-load-failure": (profiles) =>
+    profiles.filter((profile) =>
+      hasCapabilityPrefix(profile, "runtime:node:complex:load-failure-repeatability"),
+    ),
+  "node-complex-os-runtime": (profiles) =>
+    profiles.filter((profile) =>
+      hasCapabilityPrefix(profile, "runtime:node:complex:os-runtime-architecture"),
+    ),
+  "node-ecosystem": (profiles) =>
+    profiles.filter((profile) => hasCapabilityPrefix(profile, "runtime:node:ecosystem:")),
+  "node-ecosystem-local-registry": (profiles) =>
+    profiles.filter((profile) =>
+      hasCapabilityPrefix(profile, "runtime:node:ecosystem:local-audited-registry"),
+    ),
+  "node-ecosystem-native-prebuild": (profiles) =>
+    profiles.filter((profile) =>
+      hasCapabilityPrefix(profile, "runtime:node:ecosystem:native-prebuild-layout"),
+    ),
+  "node-ecosystem-lockfile-sbom": (profiles) =>
+    profiles.filter((profile) =>
+      hasCapabilityPrefix(profile, "runtime:node:ecosystem:lockfile-sbom-provenance"),
+    ),
+  "node-ecosystem-sandbox": (profiles) =>
+    profiles.filter((profile) =>
+      hasCapabilityPrefix(profile, "runtime:node:ecosystem:no-network-no-scripts-sandbox"),
+    ),
+  "node-ecosystem-app": (profiles) =>
+    profiles.filter((profile) =>
+      hasCapabilityPrefix(profile, "runtime:node:ecosystem:app-restore"),
+    ),
+  "non-node-runtimes": (profiles) =>
+    profiles.filter((profile) =>
+      hasAnyCapabilityPrefix(profile, [
+        "runtime:jvm:goal38:",
+        "runtime:python:goal38:",
+        "runtime:ruby:goal38:",
+        "runtime:go:goal38:",
+        "runtime:cross:goal38:",
+      ]),
+    ),
+  "runtime-jvm": (profiles) =>
+    profiles.filter((profile) => hasCapabilityPrefix(profile, "runtime:jvm:goal38:")),
+  "runtime-python": (profiles) =>
+    profiles.filter((profile) => hasCapabilityPrefix(profile, "runtime:python:goal38:")),
+  "runtime-ruby": (profiles) =>
+    profiles.filter((profile) => hasCapabilityPrefix(profile, "runtime:ruby:goal38:")),
+  "runtime-go": (profiles) =>
+    profiles.filter((profile) => hasCapabilityPrefix(profile, "runtime:go:goal38:")),
+  "runtime-cross-comparison": (profiles) =>
+    profiles.filter((profile) => hasCapabilityPrefix(profile, "runtime:cross:goal38:")),
+  "non-node-cross-arch": (profiles) =>
+    profiles.filter((profile) =>
+      hasAnyCapabilityPrefix(profile, [
+        "runtime:python:goal39:cross-arch",
+        "runtime:go:goal39:cross-arch",
+      ]),
+    ),
+  "runtime-python-cross-arch": (profiles) =>
+    profiles.filter((profile) => hasCapabilityPrefix(profile, "runtime:python:goal39:cross-arch")),
+  "runtime-go-cross-arch": (profiles) =>
+    profiles.filter((profile) => hasCapabilityPrefix(profile, "runtime:go:goal39:cross-arch")),
+  "goal40-hard-state": (profiles) =>
+    profiles.filter((profile) =>
+      hasAnyCapabilityPrefix(profile, [
+        "runtime:network:goal40:",
+        "runtime:native-extension:goal40:",
+        "runtime:go:goal40:",
+        "runtime:hard-state:goal40:",
+      ]),
+    ),
+  "goal40-active-socket-tls": (profiles) =>
+    profiles.filter((profile) => hasCapabilityPrefix(profile, "runtime:network:goal40:")),
+  "goal40-native-extension": (profiles) =>
+    profiles.filter((profile) => hasCapabilityPrefix(profile, "runtime:native-extension:goal40:")),
+  "goal40-go-scheduler": (profiles) =>
+    profiles.filter((profile) => hasCapabilityPrefix(profile, "runtime:go:goal40:")),
+  "goal40-refusal": (profiles) =>
+    profiles.filter(
+      (profile) =>
+        profile.proofCategory === "goal40-hard-runtime-state-refusal" ||
+        hasAnyCapabilityPrefix(profile, [
+          "runtime:network:goal40:",
+          "runtime:native-extension:goal40:",
+          "runtime:go:goal40:arbitrary-scheduler",
+        ]),
+    ),
+  "go-quiescent-runtime": (profiles) =>
+    profiles.filter((profile) => hasAnyCapabilityPrefix(profile, ["runtime:go:goal42:"])),
+  "go-quiescent-positive": (profiles) =>
+    profiles.filter(
+      (profile) =>
+        profile.expectedResult === "success" &&
+        hasAnyCapabilityPrefix(profile, ["runtime:go:goal42:"]),
+    ),
+  "go-quiescent-refusal": (profiles) =>
+    profiles.filter(
+      (profile) =>
+        profile.proofCategory === "goal42-go-quiescent-refusal" ||
+        (profile.expectedResult === "refusal" &&
+          hasAnyCapabilityPrefix(profile, ["runtime:go:goal42:"])),
+    ),
+  "postgres-machinen": (profiles) =>
+    profiles.filter((profile) => hasAnyCapabilityPrefix(profile, ["runtime:postgres:goal43:"])),
+  "postgres-machinen-positive": (profiles) =>
+    profiles.filter(
+      (profile) =>
+        profile.expectedResult === "success" &&
+        hasAnyCapabilityPrefix(profile, ["runtime:postgres:goal43:"]),
+    ),
+  "postgres-machinen-refusal": (profiles) =>
+    profiles.filter(
+      (profile) =>
+        profile.proofCategory === "goal43-postgres-refusal" ||
+        (profile.expectedResult === "refusal" &&
+          hasAnyCapabilityPrefix(profile, ["runtime:postgres:goal43:"])),
+    ),
   "node-blockers": (profiles) =>
     profiles.filter((profile) => hasCapabilityPrefix(profile, "runtime:node:blocker:")),
   "node-blockers-refusal": (profiles) =>
@@ -343,6 +511,10 @@ function hasCapabilityPrefix(profile, prefix) {
   return [...(profile.capabilities ?? []), ...(profile.refusesCapabilities ?? [])].some(
     (capability) => capability.startsWith(prefix),
   );
+}
+
+function hasAnyCapabilityPrefix(profile, prefixes) {
+  return prefixes.some((prefix) => hasCapabilityPrefix(profile, prefix));
 }
 
 function hasRefreshSupport(profile) {

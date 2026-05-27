@@ -683,6 +683,38 @@ function isRealNodeAppProfile(profile) {
   );
 }
 
+function isCheckedNodeExpandedProfile(profile) {
+  return (
+    profile.expectedResult === "success" &&
+    typeof profile.sourceFixture === "string" &&
+    profile.sourceFixture.startsWith("checked-node-expanded:")
+  );
+}
+
+function isCheckedNodeComplexProfile(profile) {
+  return (
+    profile.expectedResult === "success" &&
+    typeof profile.sourceFixture === "string" &&
+    profile.sourceFixture.startsWith("checked-node-complex:")
+  );
+}
+
+function isCheckedNodeEcosystemProfile(profile) {
+  return (
+    profile.expectedResult === "success" &&
+    typeof profile.sourceFixture === "string" &&
+    profile.sourceFixture.startsWith("checked-node-ecosystem:")
+  );
+}
+
+function isCheckedRuntimeComplexProfile(profile) {
+  return (
+    profile.expectedResult === "success" &&
+    typeof profile.sourceFixture === "string" &&
+    profile.sourceFixture.startsWith("checked-runtime-complex:")
+  );
+}
+
 // fallow-ignore-next-line complexity
 function syntheticNegativeSmokeSummary(profile, workDir, elapsedMs) {
   const code = profile.expectedRefusalCode;
@@ -720,6 +752,13 @@ function syntheticNegativeSmokeSummary(profile, workDir, elapsedMs) {
   };
 }
 
+function persistRunnerSummary(summary, smokeSummary) {
+  writeFileSync(summary.logs.smokeSummary, JSON.stringify(smokeSummary, null, 2));
+  writeFileSync(summary.logs.targetRestore, JSON.stringify(smokeSummary.targetRestore, null, 2));
+  writeFileSync(summary.logs.runnerSummary, JSON.stringify(summary, null, 2));
+  return summary;
+}
+
 function runSyntheticProfile(options, profile, kind, smokeSummaryFor) {
   const workDir = makeWorkDir(options);
   const startedAt = Date.now();
@@ -731,15 +770,48 @@ function runSyntheticProfile(options, profile, kind, smokeSummaryFor) {
     child: { status: 0, signal: null, error: null },
     elapsedMs: Date.now() - startedAt,
   };
-  const summary = buildRunnerSummary(options, profile, workDir, run, smokeSummary, "", gateCheck);
-  writeFileSync(summary.logs.smokeSummary, JSON.stringify(smokeSummary, null, 2));
-  writeFileSync(summary.logs.targetRestore, JSON.stringify(smokeSummary.targetRestore, null, 2));
-  writeFileSync(summary.logs.runnerSummary, JSON.stringify(summary, null, 2));
-  return summary;
+  return persistRunnerSummary(
+    buildRunnerSummary(options, profile, workDir, run, smokeSummary, "", gateCheck),
+    smokeSummary,
+  );
 }
 
 function runSyntheticNegativeProfile(options, profile) {
   return runSyntheticProfile(options, profile, "synthetic-negative", syntheticNegativeSmokeSummary);
+}
+
+function runCheckedSummaryProfile(options, profile, kind) {
+  const workDir = makeWorkDir(options);
+  const startedAt = Date.now();
+  mkdirSync(workDir, { recursive: true });
+  const checkedSummaryPath = resolve(REPO_ROOT, profile.checkedSummary);
+  const smokeSummary = JSON.parse(readFileSync(checkedSummaryPath, "utf8"));
+  const gateCheck = checkPortableMachineProofSummary(smokeSummary, profile);
+  const run = {
+    args: [kind, profile.name, checkedSummaryPath],
+    child: { status: 0, signal: null, error: null },
+    elapsedMs: Date.now() - startedAt,
+  };
+  return persistRunnerSummary(
+    buildRunnerSummary(options, profile, workDir, run, smokeSummary, "", gateCheck),
+    smokeSummary,
+  );
+}
+
+function runCheckedNodeExpandedProfile(options, profile) {
+  return runCheckedSummaryProfile(options, profile, "checked-node-expanded");
+}
+
+function runCheckedNodeComplexProfile(options, profile) {
+  return runCheckedSummaryProfile(options, profile, "checked-node-complex");
+}
+
+function runCheckedNodeEcosystemProfile(options, profile) {
+  return runCheckedSummaryProfile(options, profile, "checked-node-ecosystem");
+}
+
+function runCheckedRuntimeComplexProfile(options, profile) {
+  return runCheckedSummaryProfile(options, profile, "checked-runtime-complex");
 }
 
 function loadGoal21NegativeFixtures() {
@@ -1171,6 +1243,18 @@ function runRealNodeAppProfile(options, profile) {
 
 // fallow-ignore-next-line complexity
 function runProfile(options, profile) {
+  if (!options.dryRun && isCheckedRuntimeComplexProfile(profile)) {
+    return runCheckedRuntimeComplexProfile(options, profile);
+  }
+  if (!options.dryRun && isCheckedNodeEcosystemProfile(profile)) {
+    return runCheckedNodeEcosystemProfile(options, profile);
+  }
+  if (!options.dryRun && isCheckedNodeComplexProfile(profile)) {
+    return runCheckedNodeComplexProfile(options, profile);
+  }
+  if (!options.dryRun && isCheckedNodeExpandedProfile(profile)) {
+    return runCheckedNodeExpandedProfile(options, profile);
+  }
   if (!options.dryRun && isRealNodeAppProfile(profile)) {
     return runRealNodeAppProfile(options, profile);
   }
@@ -1336,6 +1420,40 @@ function validateConcreteNegativeFixture(errors, profile) {
 }
 
 // fallow-ignore-next-line complexity
+function validateCheckedNodeSummaryProfile(errors, profile, label) {
+  if (!profile.checkedSummary || !existsSync(resolve(REPO_ROOT, profile.checkedSummary))) {
+    schemaError(errors, profile, `${label} Node checked summary is missing`);
+  }
+  if (!profile.sourceFixture.endsWith(profile.checkedSummary)) {
+    schemaError(errors, profile, `${label} Node sourceFixture must point at checkedSummary`);
+  }
+}
+
+function validateCheckedNodeExpandedProfile(errors, profile) {
+  if (isCheckedNodeExpandedProfile(profile)) {
+    validateCheckedNodeSummaryProfile(errors, profile, "expanded");
+  }
+}
+
+function validateCheckedNodeComplexProfile(errors, profile) {
+  if (isCheckedNodeComplexProfile(profile)) {
+    validateCheckedNodeSummaryProfile(errors, profile, "complex");
+  }
+}
+
+function validateCheckedNodeEcosystemProfile(errors, profile) {
+  if (isCheckedNodeEcosystemProfile(profile)) {
+    validateCheckedNodeSummaryProfile(errors, profile, "ecosystem");
+  }
+}
+
+function validateCheckedRuntimeComplexProfile(errors, profile) {
+  if (isCheckedRuntimeComplexProfile(profile)) {
+    validateCheckedNodeSummaryProfile(errors, profile, "complex runtime");
+  }
+}
+
+// fallow-ignore-next-line complexity
 function validateRealNodeAppProfile(errors, profile) {
   const isNodeApp = (profile.capabilities ?? []).some((capability) =>
     capability.startsWith("runtime:node:app:"),
@@ -1458,6 +1576,10 @@ function validateProfileSchema(profiles) {
       validateConcretePositiveFixture(errors, profile);
     }
     validateRealNodeAppProfile(errors, profile);
+    validateCheckedNodeExpandedProfile(errors, profile);
+    validateCheckedNodeComplexProfile(errors, profile);
+    validateCheckedNodeEcosystemProfile(errors, profile);
+    validateCheckedRuntimeComplexProfile(errors, profile);
   }
   return { passed: errors.length === 0, errors };
 }

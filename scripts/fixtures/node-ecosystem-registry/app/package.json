@@ -1,0 +1,16 @@
+{
+  "name": "audited-ecosystem-app",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "audited-conditional-exports": "1.0.0",
+    "audited-dual-package": "1.0.0",
+    "audited-native-prebuild": "1.0.0",
+    "audited-optional-consumer": "1.0.0",
+    "audited-optional-present": "1.0.0",
+    "audited-peer-consumer": "1.0.0",
+    "audited-peer-provider": "2.0.0",
+    "audited-transitive-a": "1.0.0"
+  }
+}

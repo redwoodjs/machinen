@@ -67,6 +67,52 @@ Presets:
   target routes, and Node 20/22/24 version coverage;
 - `pnpm smoke-node-production-repeatability -- --keep --work-dir /tmp/machinen-node-production-repeat`
   — Goal 34 repeatability proof with a 100% pass-rate requirement;
+- `pnpm smoke-node-expanded-restore -- --keep --work-dir /tmp/machinen-node-expanded`
+  — Goal 35 expanded Node proof for arbitrary existing processes, active
+  HTTP/TCP preservation, child process/IPC trees, inspector policy, ambiguous
+  dirty-state policy, broad native addon/ABI coverage, and the amd64 -> arm64
+  route across Node 20/22/24;
+- `node scripts/portable-machine-proof-matrix.mjs --preset node-expanded --check-summary-dir docs/snapshot/checked-summaries/node-expanded --json`
+  — Goal 35 checked-summary matrix for the expanded Node claims;
+- `pnpm smoke-node-complex-restore -- --keep --work-dir /tmp/machinen-node-complex`
+  — Goal 36 complex Node proof for framework apps, real persistence, WebSocket
+  and TLS/keep-alive networking, cluster/worker/supervisor topology, published
+  native package layouts, concurrent load/failure injection, and Node 18/20/22/24
+  bidirectional architecture coverage;
+- `node scripts/portable-machine-proof-matrix.mjs --preset node-complex --check-summary-dir docs/snapshot/checked-summaries/node-complex --json`
+  — Goal 36 checked-summary matrix for complex Node claims;
+- `pnpm smoke-node-ecosystem-restore -- --keep --work-dir /tmp/machinen-node-ecosystem`
+  — Goal 37 audited third-party ecosystem-equivalent proof with local registry
+  fixtures, native prebuild layout simulation, lockfile/SBOM provenance,
+  no-network/no-scripts sandbox policy, and Node 18/20/22/24 bidirectional
+  architecture coverage without third-party installs;
+- `node scripts/portable-machine-proof-matrix.mjs --preset node-ecosystem --check-summary-dir docs/snapshot/checked-summaries/node-ecosystem --json`
+  — Goal 37 checked-summary matrix for audited no-install ecosystem claims;
+- `pnpm smoke-non-node-runtime-proof -- --keep --work-dir /tmp/machinen-non-node-runtime`
+  — Goal 38 non-Node runtime proof-or-refusal smoke for JVM/Spring-style,
+  Python Django/Celery-style, Ruby Rails/Puma-style, Go service/runtime, and the
+  cross-runtime comparison;
+- `node scripts/portable-machine-proof-matrix.mjs --preset non-node-runtimes --check-summary-dir docs/snapshot/checked-summaries/non-node-runtimes --json`
+  — Goal 38 checked-summary matrix for non-Node runtime claims;
+- `pnpm smoke-non-node-cross-arch -- --keep --work-dir /tmp/goal39-cross --iterations 3`
+  — Goal 39 live bidirectional arm64/amd64 repeatability proof for Python and
+  Go;
+- `node scripts/portable-machine-proof-matrix.mjs --preset non-node-cross-arch --check-summary-dir docs/snapshot/checked-summaries/non-node-cross-arch --json`
+  — Goal 39 checked-summary matrix for Python/Go cross-architecture claims;
+- `pnpm smoke-goal40-hard-runtime-state -- --keep --work-dir /tmp/goal40-hard-state`
+  — Goal 40 hard runtime-state support-or-refusal smoke for active sockets/TLS,
+  opaque native extensions, and arbitrary Go scheduler state;
+- `node scripts/portable-machine-proof-matrix.mjs --preset goal40-hard-state --check-summary-dir docs/snapshot/checked-summaries/goal40-hard-state --json`
+  — Goal 40 checked-summary/refusal matrix for hard runtime-state boundaries;
+- `pnpm smoke-go-quiescent-runtime -- --keep --work-dir /tmp/goal42-go --iterations 3`
+  — Goal 42 bidirectional arm64/amd64 proof for Go quiesced HTTP, drained
+  workers, drained channels, and deterministic timers;
+- `node scripts/portable-machine-proof-matrix.mjs --preset go-quiescent-runtime --check-summary-dir docs/snapshot/checked-summaries/go-quiescent-runtime --json`
+  — Goal 42 checked-summary/refusal matrix for Go quiescent runtime claims;
+- `pnpm smoke-postgres-machinen-restore -- --keep --work-dir /tmp/goal43-postgres`
+  — Goal 43 real PostgreSQL-in-Machinen clean/quiesced snapshot/restore proof;
+- `node scripts/portable-machine-proof-matrix.mjs --preset postgres-machinen --check-summary-dir docs/snapshot/checked-summaries/postgres-machinen --json`
+  — Goal 43 checked-summary/refusal matrix for PostgreSQL claims;
 - `node-blockers`, `node-blockers-refusal`, `node-blockers-supported` — the Goal
   29 Node blocker profiles. `node-blockers-refusal` is now empty after the 81
   broad blocker refusals were graduated; `node-blockers-supported` contains the

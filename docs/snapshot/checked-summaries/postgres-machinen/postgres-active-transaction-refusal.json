@@ -1,0 +1,32 @@
+{
+  "profile": "portable-machine-restore",
+  "state": "failed",
+  "remoteSourceTarget": "postgres-active-transaction-refusal",
+  "targetRestore": {
+    "state": "refused",
+    "migrationCompleted": false,
+    "descriptorGateCompleted": false,
+    "refusal": {
+      "code": "postgres-active-transaction-unsupported",
+      "message": "active client transaction at snapshot time"
+    },
+    "sourceTextReusedAsTargetCode": false,
+    "sourceIsaEmulationUsed": false,
+    "sidecarRuntimeUsed": false,
+    "appHooksRequired": false
+  },
+  "postgresRefusalProof": {
+    "code": "postgres-active-transaction-unsupported",
+    "explanation": "active client transaction at snapshot time",
+    "securityInspection": {
+      "sourceIsaEmulationArtifactFound": false,
+      "sourceTextReplayArtifactFound": false,
+      "sidecarRuntimeArtifactFound": false,
+      "appHookArtifactFound": false,
+      "metadataOnlyShortcutAccepted": false,
+      "targetNativeExecutionRequired": true,
+      "passed": true
+    }
+  },
+  "timings": []
+}

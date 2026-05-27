@@ -1,0 +1,14 @@
+lockfileVersion: '9.0'
+settings:
+  autoInstallPeers: false
+  ignoreScripts: true
+importers:
+  .:
+    dependencies:
+      audited-transitive-a:
+        specifier: 1.0.0
+        version: link:packages/audited-transitive-a
+      audited-native-prebuild:
+        specifier: 1.0.0
+        version: link:packages/audited-native-prebuild
+packages: {}

@@ -59,7 +59,7 @@ describe("runtime support matrix", () => {
       kind: "machinen.runtime-support-matrix",
       state: "completed",
       pass: true,
-      runtimeCounts: { total: 5, planningOnly: 4, supportedSubsets: 1, failed: 0 },
+      runtimeCounts: { total: 5, planningOnly: 1, supportedSubsets: 4, failed: 0 },
     });
     expect(
       summary.manifests.map((entry: { runtime: { name: string } }) => entry.runtime.name),

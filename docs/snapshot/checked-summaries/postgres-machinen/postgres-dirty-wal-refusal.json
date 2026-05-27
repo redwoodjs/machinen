@@ -1,0 +1,32 @@
+{
+  "profile": "portable-machine-restore",
+  "state": "failed",
+  "remoteSourceTarget": "postgres-dirty-wal-refusal",
+  "targetRestore": {
+    "state": "refused",
+    "migrationCompleted": false,
+    "descriptorGateCompleted": false,
+    "refusal": {
+      "code": "postgres-dirty-wal-boundary-unsupported",
+      "message": "dirty or uncheckpointed WAL without replay boundary"
+    },
+    "sourceTextReusedAsTargetCode": false,
+    "sourceIsaEmulationUsed": false,
+    "sidecarRuntimeUsed": false,
+    "appHooksRequired": false
+  },
+  "postgresRefusalProof": {
+    "code": "postgres-dirty-wal-boundary-unsupported",
+    "explanation": "dirty or uncheckpointed WAL without replay boundary",
+    "securityInspection": {
+      "sourceIsaEmulationArtifactFound": false,
+      "sourceTextReplayArtifactFound": false,
+      "sidecarRuntimeArtifactFound": false,
+      "appHookArtifactFound": false,
+      "metadataOnlyShortcutAccepted": false,
+      "targetNativeExecutionRequired": true,
+      "passed": true
+    }
+  },
+  "timings": []
+}

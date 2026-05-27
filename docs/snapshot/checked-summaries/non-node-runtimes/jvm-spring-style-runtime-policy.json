@@ -1,0 +1,177 @@
+{
+  "profile": "portable-machine-restore",
+  "state": "completed",
+  "remoteSourceTarget": "jvm-spring-style-runtime-policy",
+  "targetRestore": {
+    "state": "completed",
+    "migrationCompleted": true,
+    "descriptorGateCompleted": true,
+    "targetVerifierResult": "passed",
+    "targetResourceStatuses": [
+      {
+        "kind": "jvm-spring-style-service",
+        "status": "passed"
+      }
+    ],
+    "sourceTextReusedAsTargetCode": false,
+    "sourceIsaEmulationUsed": false,
+    "sidecarRuntimeUsed": false,
+    "appHooksRequired": false
+  },
+  "nonNodeRuntimeProof": {
+    "summary": {
+      "jvm": "refused",
+      "python": "supported",
+      "ruby": "supported",
+      "go": "supported"
+    },
+    "supportClaimed": {
+      "jvm": false,
+      "python": true,
+      "ruby": true,
+      "go": true
+    },
+    "assertions": {
+      "jvmFailClosedOrSupported": true,
+      "pythonFailClosedOrSupported": true,
+      "rubyFailClosedOrSupported": true,
+      "goFailClosedOrSupported": true,
+      "noShortcutArtifacts": true
+    },
+    "runtimeDetail": {
+      "name": "jvm",
+      "hostArch": "arm64",
+      "platform": "darwin",
+      "release": "24.6.0",
+      "state": "refused",
+      "supportClaimed": false,
+      "version": "The operation couldn\u2019t be completed. Unable to locate a Java Runtime. | Please visit http://www.java.com for information on installing Java.",
+      "fixture": "spring-style-service-local-audited",
+      "classpathSha256": "78cab2f159fde762f6693e3439e9ae36ad872e4708e666223952eeb6802126e5",
+      "outputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "managedHazards": ["heap", "gc", "jit", "classloader", "thread-pool", "jni", "jdbc"],
+      "refusal": {
+        "name": "jvm-fixture-failed",
+        "state": "refused",
+        "expectedRefusalCode": "runtime-jvm-fixture-failed",
+        "migrationCompleted": false,
+        "evidence": {
+          "compileStatus": 1,
+          "executeStatus": 1,
+          "stderr": "The operation couldn\u2019t be completed. Unable to locate a Java Runtime.\nPlease visit http://www.java.com for information on installing Java.\n\n"
+        }
+      },
+      "refusals": [
+        {
+          "name": "jvm-fixture-failed",
+          "state": "refused",
+          "expectedRefusalCode": "runtime-jvm-fixture-failed",
+          "migrationCompleted": false,
+          "evidence": {
+            "compileStatus": 1,
+            "executeStatus": 1,
+            "stderr": "The operation couldn\u2019t be completed. Unable to locate a Java Runtime.\nPlease visit http://www.java.com for information on installing Java.\n\n"
+          }
+        },
+        {
+          "name": "jit-code-cache",
+          "state": "refused",
+          "expectedRefusalCode": "runtime-jvm-jit-code-cache-unsupported",
+          "migrationCompleted": false,
+          "evidence": {}
+        },
+        {
+          "name": "classloader-drift",
+          "state": "refused",
+          "expectedRefusalCode": "runtime-jvm-classloader-drift",
+          "migrationCompleted": false,
+          "evidence": {}
+        },
+        {
+          "name": "parked-monitor-thread",
+          "state": "refused",
+          "expectedRefusalCode": "runtime-jvm-monitor-thread-unsupported",
+          "migrationCompleted": false,
+          "evidence": {}
+        },
+        {
+          "name": "jni-native-state",
+          "state": "refused",
+          "expectedRefusalCode": "runtime-jvm-jni-native-state-unsupported",
+          "migrationCompleted": false,
+          "evidence": {}
+        },
+        {
+          "name": "jdbc-open-session",
+          "state": "refused",
+          "expectedRefusalCode": "runtime-jvm-jdbc-session-unsupported",
+          "migrationCompleted": false,
+          "evidence": {}
+        }
+      ],
+      "targetRestore": {
+        "state": "refused",
+        "migrationCompleted": false,
+        "descriptorGateCompleted": false,
+        "targetVerifierResult": "refused",
+        "targetResourceStatuses": [
+          {
+            "kind": "jvm-spring-style-service",
+            "status": "refused"
+          }
+        ],
+        "refusal": {
+          "name": "jvm-fixture-failed",
+          "state": "refused",
+          "expectedRefusalCode": "runtime-jvm-fixture-failed",
+          "migrationCompleted": false,
+          "evidence": {
+            "compileStatus": 1,
+            "executeStatus": 1,
+            "stderr": "The operation couldn\u2019t be completed. Unable to locate a Java Runtime.\nPlease visit http://www.java.com for information on installing Java.\n\n"
+          }
+        },
+        "sourceTextReusedAsTargetCode": false,
+        "sourceIsaEmulationUsed": false,
+        "sidecarRuntimeUsed": false,
+        "appHooksRequired": false
+      },
+      "securityInspection": {
+        "sourceIsaEmulationArtifactFound": false,
+        "sourceTextReplayArtifactFound": false,
+        "sidecarRuntimeArtifactFound": false,
+        "appHookArtifactFound": false,
+        "targetNativeExecutionRequired": true,
+        "passed": true
+      }
+    },
+    "comparison": [
+      {
+        "runtime": "jvm",
+        "state": "refused",
+        "supportClaimed": false,
+        "fixture": "spring-style-service-local-audited",
+        "refusalCode": "runtime-jvm-fixture-failed"
+      },
+      {
+        "runtime": "python",
+        "state": "supported",
+        "supportClaimed": true,
+        "fixture": "django-celery-style-local-audited"
+      },
+      {
+        "runtime": "ruby",
+        "state": "supported",
+        "supportClaimed": true,
+        "fixture": "rails-puma-style-local-audited"
+      },
+      {
+        "runtime": "go",
+        "state": "supported",
+        "supportClaimed": true,
+        "fixture": "go-service-runtime-local-audited"
+      }
+    ]
+  },
+  "timings": []
+}

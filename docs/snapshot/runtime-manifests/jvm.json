@@ -144,5 +144,39 @@
       "code": "runtime-source-text-replay",
       "migrationCompleted": false
     }
-  ]
+  ],
+  "goal38NonNodeRuntimeProof": {
+    "claim": "goal38-non-node-runtime-support-or-refusal-v1",
+    "capability": "runtime:jvm:goal38:spring-style-refusal-policy",
+    "proofProfile": "jvm-spring-style-runtime-policy",
+    "supportClaimedForThisSubset": false,
+    "checkedSummary": "docs/snapshot/checked-summaries/non-node-runtimes/jvm-spring-style-runtime-policy.json",
+    "shortcutPolicy": {
+      "sourceIsaEmulation": false,
+      "sourceTextReplay": false,
+      "sidecarRuntime": false,
+      "appHooks": false
+    }
+  },
+  "goal40HardRuntimeStateProof": {
+    "claim": "goal40-hard-runtime-state-boundaries-v1",
+    "checkedSummaries": [
+      "docs/snapshot/checked-summaries/goal40-hard-state/goal40-active-socket-tls-policy.json",
+      "docs/snapshot/checked-summaries/goal40-hard-state/goal40-native-extension-boundary-policy.json",
+      "docs/snapshot/checked-summaries/goal40-hard-state/goal40-go-scheduler-boundary-policy.json"
+    ],
+    "stableRefusalCodes": [
+      "runtime-network-active-socket-queue-ambiguous",
+      "runtime-network-tls-session-key-opaque",
+      "runtime-native-extension-opaque-state",
+      "runtime-go-arbitrary-goroutine-scheduler-unsupported"
+    ],
+    "shortcutPolicy": {
+      "sourceIsaEmulation": false,
+      "sourceTextReplay": false,
+      "sidecarRuntime": false,
+      "appHooks": false,
+      "metadataOnly": false
+    }
+  }
 }

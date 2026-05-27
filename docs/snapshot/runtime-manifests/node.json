@@ -311,7 +311,26 @@
     "runtime:node:workers:neighbor:message-queue-ambiguous",
     "runtime:node:workers:neighbor:per-thread-runtime-mismatch",
     "runtime:node:workers:neighbor:shared-array-buffer-race",
-    "runtime:node:workers:neighbor:worker-thread"
+    "runtime:node:workers:neighbor:worker-thread",
+    "runtime:node:expanded:arbitrary-existing-processes",
+    "runtime:node:expanded:active-http-tcp-preservation",
+    "runtime:node:expanded:child-process-ipc-trees",
+    "runtime:node:expanded:inspector-debugging-policy",
+    "runtime:node:expanded:ambiguous-dirty-state-policy",
+    "runtime:node:expanded:broad-native-addon-abi",
+    "runtime:node:expanded:amd64-to-arm64-route",
+    "runtime:node:complex:framework-apps",
+    "runtime:node:complex:persistence-systems",
+    "runtime:node:complex:websocket-tls-keepalive",
+    "runtime:node:complex:cluster-worker-supervisor",
+    "runtime:node:complex:published-native-addons",
+    "runtime:node:complex:load-failure-repeatability",
+    "runtime:node:complex:os-runtime-architecture",
+    "runtime:node:ecosystem:local-audited-registry",
+    "runtime:node:ecosystem:native-prebuild-layout",
+    "runtime:node:ecosystem:lockfile-sbom-provenance",
+    "runtime:node:ecosystem:no-network-no-scripts-sandbox",
+    "runtime:node:ecosystem:app-restore"
   ],
   "positiveProofProfiles": {
     "runtime:node:empty-event-loop": [
@@ -1309,7 +1328,34 @@
     ],
     "runtime:node:invalidation:native-addon-external-state-contract-mismatch": [
       "invalidation-native-addon-external-state-contract-mismatch-refusal"
-    ]
+    ],
+    "runtime:node:expanded:arbitrary-existing-processes": [
+      "node-expanded-arbitrary-existing-processes"
+    ],
+    "runtime:node:expanded:active-http-tcp-preservation": [
+      "node-expanded-active-http-tcp-preservation"
+    ],
+    "runtime:node:expanded:child-process-ipc-trees": ["node-expanded-child-process-ipc-trees"],
+    "runtime:node:expanded:inspector-debugging-policy": [
+      "node-expanded-inspector-debugging-policy"
+    ],
+    "runtime:node:expanded:ambiguous-dirty-state-policy": [
+      "node-expanded-ambiguous-dirty-state-policy"
+    ],
+    "runtime:node:expanded:broad-native-addon-abi": ["node-expanded-broad-native-addon-abi"],
+    "runtime:node:expanded:amd64-to-arm64-route": ["node-expanded-amd64-to-arm64-route"],
+    "runtime:node:complex:framework-apps": ["node-complex-framework-apps"],
+    "runtime:node:complex:persistence-systems": ["node-complex-persistence-systems"],
+    "runtime:node:complex:websocket-tls-keepalive": ["node-complex-websocket-tls-keepalive"],
+    "runtime:node:complex:cluster-worker-supervisor": ["node-complex-cluster-worker-supervisor"],
+    "runtime:node:complex:published-native-addons": ["node-complex-published-native-addons"],
+    "runtime:node:complex:load-failure-repeatability": ["node-complex-load-failure-repeatability"],
+    "runtime:node:complex:os-runtime-architecture": ["node-complex-os-runtime-architecture"],
+    "runtime:node:ecosystem:local-audited-registry": ["node-ecosystem-local-registry"],
+    "runtime:node:ecosystem:native-prebuild-layout": ["node-ecosystem-native-prebuild"],
+    "runtime:node:ecosystem:lockfile-sbom-provenance": ["node-ecosystem-lockfile-sbom"],
+    "runtime:node:ecosystem:no-network-no-scripts-sandbox": ["node-ecosystem-sandbox-policy"],
+    "runtime:node:ecosystem:app-restore": ["node-ecosystem-app-restore"]
   },
   "supportedSubsets": [
     {
@@ -4516,5 +4562,93 @@
     "convertedProfiles": 73,
     "mode": "target-native-positive-support",
     "remainingRuntimeNodeRefusals": 0
+  },
+  "goal35ExpandedSupport": {
+    "claim": "expanded-node-cross-architecture-proof-backed-v1",
+    "routes": [
+      "amd64-node20-to-arm64-node20",
+      "amd64-node22-to-arm64-node22",
+      "amd64-node24-to-arm64-node24"
+    ],
+    "capabilities": [
+      "runtime:node:expanded:arbitrary-existing-processes",
+      "runtime:node:expanded:active-http-tcp-preservation",
+      "runtime:node:expanded:child-process-ipc-trees",
+      "runtime:node:expanded:inspector-debugging-policy",
+      "runtime:node:expanded:ambiguous-dirty-state-policy",
+      "runtime:node:expanded:broad-native-addon-abi",
+      "runtime:node:expanded:amd64-to-arm64-route"
+    ],
+    "checkedSummaries": "docs/snapshot/checked-summaries/node-expanded/",
+    "smoke": "scripts/smoke/node-expanded-restore.sh",
+    "shortcutPolicy": {
+      "sourceIsaEmulation": false,
+      "sourceTextReplay": false,
+      "sidecarRuntime": false,
+      "appHooks": false
+    }
+  },
+  "goal36ComplexSupport": {
+    "claim": "complex-node-cross-architecture-proof-backed-v1",
+    "routes": ["arm64-to-amd64", "amd64-to-arm64"],
+    "versions": ["18", "20", "22", "24"],
+    "capabilities": [
+      "runtime:node:complex:framework-apps",
+      "runtime:node:complex:persistence-systems",
+      "runtime:node:complex:websocket-tls-keepalive",
+      "runtime:node:complex:cluster-worker-supervisor",
+      "runtime:node:complex:published-native-addons",
+      "runtime:node:complex:load-failure-repeatability",
+      "runtime:node:complex:os-runtime-architecture"
+    ],
+    "checkedSummaries": "docs/snapshot/checked-summaries/node-complex/",
+    "smoke": "scripts/smoke/node-complex-restore.sh",
+    "shortcutPolicy": {
+      "sourceIsaEmulation": false,
+      "sourceTextReplay": false,
+      "sidecarRuntime": false,
+      "appHooks": false
+    }
+  },
+  "goal37AuditedEcosystemSupport": {
+    "claim": "audited-third-party-ecosystem-equivalent-no-install-v1",
+    "routes": ["arm64-to-amd64", "amd64-to-arm64"],
+    "versions": ["18", "20", "22", "24"],
+    "capabilities": [
+      "runtime:node:ecosystem:local-audited-registry",
+      "runtime:node:ecosystem:native-prebuild-layout",
+      "runtime:node:ecosystem:lockfile-sbom-provenance",
+      "runtime:node:ecosystem:no-network-no-scripts-sandbox",
+      "runtime:node:ecosystem:app-restore"
+    ],
+    "checkedSummaries": "docs/snapshot/checked-summaries/node-ecosystem/",
+    "smoke": "scripts/smoke/node-ecosystem-restore.sh",
+    "securityPolicy": {
+      "liveThirdPartyFetch": false,
+      "thirdPartyInstall": false,
+      "lifecycleScripts": false,
+      "userNpmConfig": false
+    }
+  },
+  "goal40HardRuntimeStateProof": {
+    "claim": "goal40-hard-runtime-state-boundaries-v1",
+    "checkedSummaries": [
+      "docs/snapshot/checked-summaries/goal40-hard-state/goal40-active-socket-tls-policy.json",
+      "docs/snapshot/checked-summaries/goal40-hard-state/goal40-native-extension-boundary-policy.json",
+      "docs/snapshot/checked-summaries/goal40-hard-state/goal40-go-scheduler-boundary-policy.json"
+    ],
+    "stableRefusalCodes": [
+      "runtime-network-active-socket-queue-ambiguous",
+      "runtime-network-tls-session-key-opaque",
+      "runtime-native-extension-opaque-state",
+      "runtime-go-arbitrary-goroutine-scheduler-unsupported"
+    ],
+    "shortcutPolicy": {
+      "sourceIsaEmulation": false,
+      "sourceTextReplay": false,
+      "sidecarRuntime": false,
+      "appHooks": false,
+      "metadataOnly": false
+    }
   }
 }

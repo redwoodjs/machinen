@@ -1,0 +1,6 @@
+{
+  "name": "audited-peer-provider",
+  "version": "2.0.0",
+  "type": "module",
+  "main": "src/index.mjs"
+}

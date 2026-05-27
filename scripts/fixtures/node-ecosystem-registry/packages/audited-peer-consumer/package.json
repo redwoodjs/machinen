@@ -1,0 +1,9 @@
+{
+  "name": "audited-peer-consumer",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "src/index.mjs",
+  "peerDependencies": {
+    "audited-peer-provider": "2.x"
+  }
+}

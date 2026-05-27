@@ -32,6 +32,7 @@
   ],
   "audit": {
     "healthBaseline": "fallow-baselines/audit-health.json",
-    "dupesBaseline": "fallow-baselines/audit-dupes.json"
+    "dupesBaseline": "fallow-baselines/audit-dupes.json",
+    "deadCodeBaseline": "fallow-baselines/audit-dead-code.json"
   }
 }

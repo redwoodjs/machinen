@@ -9,6 +9,11 @@ const RUNNER = join(REPO_ROOT, "scripts/portable-machine-proof-runner.mjs");
 const NODE_CROSS_ARCH_SMOKE = join(REPO_ROOT, "scripts/node-real-app-cross-arch-smoke.mjs");
 const NODE_LIVE_RESTORE_SMOKE = join(REPO_ROOT, "scripts/node-live-restore-smoke.mjs");
 const NODE_PRODUCTION_RESTORE_PROOF = join(REPO_ROOT, "scripts/node-production-restore-proof.mjs");
+const NODE_EXPANDED_RESTORE_PROOF = join(REPO_ROOT, "scripts/node-expanded-restore-proof.mjs");
+const NODE_COMPLEX_RESTORE_PROOF = join(REPO_ROOT, "scripts/node-complex-restore-proof.mjs");
+const NODE_ECOSYSTEM_RESTORE_PROOF = join(REPO_ROOT, "scripts/node-ecosystem-restore-proof.mjs");
+const NON_NODE_RUNTIME_PROOF = join(REPO_ROOT, "scripts/non-node-runtime-proof.mjs");
+const PROOF_MATRIX = join(REPO_ROOT, "scripts/portable-machine-proof-matrix.mjs");
 const SCRIPT_ENV = { ...process.env, FORCE_COLOR: "1" };
 const tempDirs: string[] = [];
 
@@ -220,9 +225,9 @@ describe("portable machine proof runner", () => {
     });
     expect(summary.supportReport).toMatchObject({
       counts: {
-        "baseline-success": 11,
+        "baseline-success": 47,
         "graduated-support": 626,
-        "intentional-refusal": 1457,
+        "intentional-refusal": 1473,
         "permanent-refusal": 27,
       },
       graduated: expect.arrayContaining([
@@ -432,6 +437,415 @@ describe("portable machine proof runner", () => {
         metadataOnlyCapture: false,
       });
     }
+  });
+
+  it("records non-Node runtime proof-or-refusal artifacts", () => {
+    const dir = tempDir();
+    const out = join(dir, "non-node.json");
+    const result = spawnSync(
+      "node",
+      [
+        NON_NODE_RUNTIME_PROOF,
+        "run-suite",
+        "--runtime",
+        "all",
+        "--host-label",
+        "test-non-node-runtime",
+        "--out",
+        out,
+        "--work-dir",
+        join(dir, "work"),
+      ],
+      { cwd: REPO_ROOT, encoding: "utf8", env: SCRIPT_ENV, timeout: 120_000 },
+    );
+    expect(result.status).toBe(0);
+    const summary = JSON.parse(readFileSync(out, "utf8"));
+    expect(summary.state).toBe("completed");
+    expect(["supported", "refused"]).toContain(summary.runtimes.jvm.state);
+    expect(["supported", "refused"]).toContain(summary.runtimes.python.state);
+    expect(["supported", "refused"]).toContain(summary.runtimes.ruby.state);
+    expect(["supported", "refused"]).toContain(summary.runtimes.go.state);
+    expect(summary.targetRestore).toMatchObject({
+      migrationCompleted: true,
+      sourceIsaEmulationUsed: false,
+      sidecarRuntimeUsed: false,
+      sourceTextReusedAsTargetCode: false,
+      appHooksRequired: false,
+    });
+  });
+
+  it("validates non-Node runtime checked-summary matrix", () => {
+    const result = spawnSync(
+      "node",
+      [
+        PROOF_MATRIX,
+        "--preset",
+        "non-node-runtimes",
+        "--check-summary-dir",
+        join(REPO_ROOT, "docs/snapshot/checked-summaries/non-node-runtimes"),
+        "--json",
+        "--summary",
+        join(tempDir(), "non-node-runtime-matrix.json"),
+      ],
+      { cwd: REPO_ROOT, encoding: "utf8", env: SCRIPT_ENV, timeout: 120_000 },
+    );
+    expect(result.status).toBe(0);
+    const parsed = JSON.parse(result.stdout);
+    expect(parsed.pass).toBe(true);
+    expect(parsed.profileCounts.total).toBe(5);
+  });
+
+  it("validates Goal 43 PostgreSQL Machinen checked-summary matrix", () => {
+    const result = spawnSync(
+      "node",
+      [
+        PROOF_MATRIX,
+        "--preset",
+        "postgres-machinen",
+        "--check-summary-dir",
+        join(REPO_ROOT, "docs/snapshot/checked-summaries/postgres-machinen"),
+        "--json",
+        "--summary",
+        join(tempDir(), "postgres-machinen-matrix.json"),
+      ],
+      { cwd: REPO_ROOT, encoding: "utf8", env: SCRIPT_ENV, timeout: 120_000 },
+    );
+    expect(result.status).toBe(0);
+    const parsed = JSON.parse(result.stdout);
+    expect(parsed.pass).toBe(true);
+    expect(parsed.profileCounts.total).toBe(9);
+  });
+
+  it("validates Goal 42 Go quiescent runtime checked-summary matrix", () => {
+    const result = spawnSync(
+      "node",
+      [
+        PROOF_MATRIX,
+        "--preset",
+        "go-quiescent-runtime",
+        "--check-summary-dir",
+        join(REPO_ROOT, "docs/snapshot/checked-summaries/go-quiescent-runtime"),
+        "--json",
+        "--summary",
+        join(tempDir(), "go-quiescent-runtime-matrix.json"),
+      ],
+      { cwd: REPO_ROOT, encoding: "utf8", env: SCRIPT_ENV, timeout: 120_000 },
+    );
+    expect(result.status).toBe(0);
+    const parsed = JSON.parse(result.stdout);
+    expect(parsed.pass).toBe(true);
+    expect(parsed.profileCounts.total).toBe(10);
+  });
+
+  it("validates Goal 40 hard runtime-state checked-summary matrix", () => {
+    const result = spawnSync(
+      "node",
+      [
+        PROOF_MATRIX,
+        "--preset",
+        "goal40-hard-state",
+        "--check-summary-dir",
+        join(REPO_ROOT, "docs/snapshot/checked-summaries/goal40-hard-state"),
+        "--json",
+        "--summary",
+        join(tempDir(), "goal40-hard-state-matrix.json"),
+      ],
+      { cwd: REPO_ROOT, encoding: "utf8", env: SCRIPT_ENV, timeout: 120_000 },
+    );
+    expect(result.status).toBe(0);
+    const parsed = JSON.parse(result.stdout);
+    expect(parsed.pass).toBe(true);
+    expect(parsed.profileCounts.total).toBe(7);
+  });
+
+  it("validates non-Node cross-architecture checked-summary matrix", () => {
+    const result = spawnSync(
+      "node",
+      [
+        PROOF_MATRIX,
+        "--preset",
+        "non-node-cross-arch",
+        "--check-summary-dir",
+        join(REPO_ROOT, "docs/snapshot/checked-summaries/non-node-cross-arch"),
+        "--json",
+        "--summary",
+        join(tempDir(), "non-node-cross-arch-matrix.json"),
+      ],
+      { cwd: REPO_ROOT, encoding: "utf8", env: SCRIPT_ENV, timeout: 120_000 },
+    );
+    expect(result.status).toBe(0);
+    const parsed = JSON.parse(result.stdout);
+    expect(parsed.pass).toBe(true);
+    expect(parsed.profileCounts.total).toBe(2);
+  });
+
+  it("records no-install ecosystem Node proof artifacts and rejects same-arch restore", () => {
+    const dir = tempDir();
+    const sourceFile = join(dir, "ecosystem-source.json");
+    const targetFile = join(dir, "ecosystem-target.json");
+
+    const sourceResult = spawnSync(
+      "node",
+      [
+        NODE_ECOSYSTEM_RESTORE_PROOF,
+        "run-suite",
+        "--role",
+        "source",
+        "--host-label",
+        "test-ecosystem-source",
+        "--out",
+        sourceFile,
+        "--work-dir",
+        join(dir, "source-work"),
+      ],
+      { cwd: REPO_ROOT, encoding: "utf8", env: SCRIPT_ENV, timeout: 120_000 },
+    );
+    expect(sourceResult.status).toBe(0);
+    const source = JSON.parse(readFileSync(sourceFile, "utf8"));
+    expect(source.state).toBe("completed");
+    expect(source.app.state).toBe("supported");
+    expect(source.nativePrebuild.state).toBe("supported");
+    expect(source.lockfile.state).toBe("supported");
+    expect(source.sandbox).toMatchObject({
+      networkAllowed: false,
+      lifecycleScriptsAllowed: false,
+      thirdPartyCodeAllowed: false,
+      packageManagerInvoked: false,
+      userConfigRead: false,
+    });
+    expect(source.lifecycle).toHaveLength(4);
+    expect(source.securityInspection).toMatchObject({
+      thirdPartyFetchUsed: false,
+      thirdPartyInstallUsed: false,
+      lifecycleScriptsExecuted: false,
+      sourceIsaEmulationArtifactFound: false,
+      passed: true,
+    });
+
+    const targetResult = spawnSync(
+      "node",
+      [
+        NODE_ECOSYSTEM_RESTORE_PROOF,
+        "run-suite",
+        "--role",
+        "target",
+        "--host-label",
+        "test-ecosystem-target",
+        "--source-suite",
+        sourceFile,
+        "--out",
+        targetFile,
+        "--work-dir",
+        join(dir, "target-work"),
+      ],
+      { cwd: REPO_ROOT, encoding: "utf8", env: SCRIPT_ENV, timeout: 120_000 },
+    );
+    expect(targetResult.status).toBe(1);
+    const target = JSON.parse(readFileSync(targetFile, "utf8"));
+    expect(target.route.crossArch).toBe(false);
+    expect(target.targetRestore.migrationCompleted).toBe(false);
+    expect(target.targetRestore.sourceIsaEmulationUsed).toBe(false);
+  });
+
+  it("validates no-install ecosystem Node checked-summary matrix", () => {
+    const result = spawnSync(
+      "node",
+      [
+        PROOF_MATRIX,
+        "--preset",
+        "node-ecosystem",
+        "--check-summary-dir",
+        join(REPO_ROOT, "docs/snapshot/checked-summaries/node-ecosystem"),
+        "--json",
+        "--summary",
+        join(tempDir(), "node-ecosystem-matrix.json"),
+      ],
+      { cwd: REPO_ROOT, encoding: "utf8", env: SCRIPT_ENV, timeout: 120_000 },
+    );
+    expect(result.status).toBe(0);
+    const parsed = JSON.parse(result.stdout);
+    expect(parsed.pass).toBe(true);
+    expect(parsed.profileCounts.total).toBe(5);
+  });
+
+  it("records complex Node proof artifacts and rejects same-arch restore", () => {
+    const dir = tempDir();
+    const sourceFile = join(dir, "complex-source.json");
+    const targetFile = join(dir, "complex-target.json");
+
+    const sourceResult = spawnSync(
+      "node",
+      [
+        NODE_COMPLEX_RESTORE_PROOF,
+        "run-suite",
+        "--role",
+        "source",
+        "--host-label",
+        "test-complex-source",
+        "--out",
+        sourceFile,
+        "--work-dir",
+        join(dir, "source-work"),
+      ],
+      { cwd: REPO_ROOT, encoding: "utf8", env: SCRIPT_ENV, timeout: 180_000 },
+    );
+    expect(sourceResult.status).toBe(0);
+    const source = JSON.parse(readFileSync(sourceFile, "utf8"));
+    expect(source.state).toBe("completed");
+    expect(source.framework.state).toBe("supported");
+    expect(["supported", "partial"]).toContain(source.persistence.state);
+    expect(source.networking.websocket.state).toBe("supported");
+    expect(source.topology.leakAudit).toMatchObject({ orphanedProcesses: 0, leakedSockets: 0 });
+    expect(source.publishedNative.state).toBe("supported");
+    expect(source.loadAndFailure.passRate).toBe(1);
+    expect(source.securityInspection).toMatchObject({
+      sourceIsaEmulationArtifactFound: false,
+      sidecarRuntimeArtifactFound: false,
+      sourceTextReplayArtifactFound: false,
+      appHookArtifactFound: false,
+      passed: true,
+    });
+
+    const targetResult = spawnSync(
+      "node",
+      [
+        NODE_COMPLEX_RESTORE_PROOF,
+        "run-suite",
+        "--role",
+        "target",
+        "--host-label",
+        "test-complex-target",
+        "--source-suite",
+        sourceFile,
+        "--out",
+        targetFile,
+        "--work-dir",
+        join(dir, "target-work"),
+      ],
+      { cwd: REPO_ROOT, encoding: "utf8", env: SCRIPT_ENV, timeout: 180_000 },
+    );
+    expect(targetResult.status).toBe(1);
+    const target = JSON.parse(readFileSync(targetFile, "utf8"));
+    expect(target.route.crossArch).toBe(false);
+    expect(target.targetRestore.migrationCompleted).toBe(false);
+    expect(target.targetRestore.sourceIsaEmulationUsed).toBe(false);
+  });
+
+  it("validates complex Node checked-summary matrix", () => {
+    const result = spawnSync(
+      "node",
+      [
+        PROOF_MATRIX,
+        "--preset",
+        "node-complex",
+        "--check-summary-dir",
+        join(REPO_ROOT, "docs/snapshot/checked-summaries/node-complex"),
+        "--json",
+        "--summary",
+        join(tempDir(), "node-complex-matrix.json"),
+      ],
+      { cwd: REPO_ROOT, encoding: "utf8", env: SCRIPT_ENV, timeout: 120_000 },
+    );
+    expect(result.status).toBe(0);
+    const parsed = JSON.parse(result.stdout);
+    expect(parsed.pass).toBe(true);
+    expect(parsed.profileCounts.total).toBe(7);
+  });
+
+  it("records expanded Node proof artifacts and rejects same-arch reverse-route restore", () => {
+    const dir = tempDir();
+    const sourceFile = join(dir, "expanded-source.json");
+    const targetFile = join(dir, "expanded-target.json");
+
+    const sourceResult = spawnSync(
+      "node",
+      [
+        NODE_EXPANDED_RESTORE_PROOF,
+        "run-suite",
+        "--role",
+        "source",
+        "--host-label",
+        "test-expanded-source",
+        "--out",
+        sourceFile,
+        "--work-dir",
+        join(dir, "source-work"),
+      ],
+      { cwd: REPO_ROOT, encoding: "utf8", env: SCRIPT_ENV, timeout: 120_000 },
+    );
+    expect(sourceResult.status).toBe(0);
+    const source = JSON.parse(readFileSync(sourceFile, "utf8"));
+    expect(source.state).toBe("completed");
+    expect(source.arbitraryExistingProcesses).toHaveLength(3);
+    expect(
+      source.arbitraryExistingProcesses.every(
+        (entry: { liveProcessObserved?: boolean }) => entry.liveProcessObserved !== false,
+      ),
+    ).toBe(true);
+    expect(source.activeTcp).toMatchObject({
+      state: "supported",
+      originalClientCompletedSameLogicalRequest: true,
+    });
+    expect(source.childProcess.ipcContinuityVerified).toBe(true);
+    expect(source.inspector.restorePolicy).toMatchObject({
+      state: "refused",
+      expectedRefusalCode: "node-inspector-session-active-unsupported",
+      migrationCompleted: false,
+    });
+    expect(source.dirtyState.noLostAcknowledgedWrites).toBe(true);
+    expect(source.nativeAddons.state).toBe("supported");
+    expect(source.securityInspection).toMatchObject({
+      sourceIsaEmulationArtifactFound: false,
+      sidecarRuntimeArtifactFound: false,
+      sourceTextReplayArtifactFound: false,
+      appHookArtifactFound: false,
+      passed: true,
+    });
+
+    const targetResult = spawnSync(
+      "node",
+      [
+        NODE_EXPANDED_RESTORE_PROOF,
+        "run-suite",
+        "--role",
+        "target",
+        "--host-label",
+        "test-expanded-target",
+        "--source-suite",
+        sourceFile,
+        "--out",
+        targetFile,
+        "--work-dir",
+        join(dir, "target-work"),
+      ],
+      { cwd: REPO_ROOT, encoding: "utf8", env: SCRIPT_ENV, timeout: 120_000 },
+    );
+    expect(targetResult.status).toBe(1);
+    const target = JSON.parse(readFileSync(targetFile, "utf8"));
+    expect(target.route.crossArch).toBe(false);
+    expect(target.targetRestore.migrationCompleted).toBe(false);
+    expect(target.targetRestore.sourceIsaEmulationUsed).toBe(false);
+  });
+
+  it("validates expanded Node checked-summary matrix", () => {
+    const result = spawnSync(
+      "node",
+      [
+        PROOF_MATRIX,
+        "--preset",
+        "node-expanded",
+        "--check-summary-dir",
+        join(REPO_ROOT, "docs/snapshot/checked-summaries/node-expanded"),
+        "--json",
+        "--summary",
+        join(tempDir(), "node-expanded-matrix.json"),
+      ],
+      { cwd: REPO_ROOT, encoding: "utf8", env: SCRIPT_ENV, timeout: 120_000 },
+    );
+    expect(result.status).toBe(0);
+    const parsed = JSON.parse(result.stdout);
+    expect(parsed.pass).toBe(true);
+    expect(parsed.profileCounts.total).toBe(7);
   });
 
   it("records production-shaped Node proof artifacts and rejects same-arch restore", () => {

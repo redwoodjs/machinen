@@ -1,0 +1,32 @@
+{
+  "profile": "portable-machine-restore",
+  "state": "failed",
+  "remoteSourceTarget": "postgres-active-session-refusal",
+  "targetRestore": {
+    "state": "refused",
+    "migrationCompleted": false,
+    "descriptorGateCompleted": false,
+    "refusal": {
+      "code": "postgres-active-session-unsupported",
+      "message": "active query/session that must survive restore"
+    },
+    "sourceTextReusedAsTargetCode": false,
+    "sourceIsaEmulationUsed": false,
+    "sidecarRuntimeUsed": false,
+    "appHooksRequired": false
+  },
+  "postgresRefusalProof": {
+    "code": "postgres-active-session-unsupported",
+    "explanation": "active query/session that must survive restore",
+    "securityInspection": {
+      "sourceIsaEmulationArtifactFound": false,
+      "sourceTextReplayArtifactFound": false,
+      "sidecarRuntimeArtifactFound": false,
+      "appHookArtifactFound": false,
+      "metadataOnlyShortcutAccepted": false,
+      "targetNativeExecutionRequired": true,
+      "passed": true
+    }
+  },
+  "timings": []
+}

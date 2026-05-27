@@ -1,0 +1,12 @@
+{
+  "name": "audited-conditional-exports",
+  "version": "1.0.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./src/import.mjs",
+      "require": "./src/require.cjs",
+      "default": "./src/import.mjs"
+    }
+  }
+}

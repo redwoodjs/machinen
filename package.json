@@ -93,7 +93,15 @@
     "smoke-node-real-app-cross-arch": "bash scripts/smoke/node-real-app-cross-arch.sh",
     "smoke-node-live-restore": "bash scripts/smoke/node-live-restore.sh",
     "smoke-node-production-restore": "bash scripts/smoke/node-production-restore.sh",
-    "smoke-node-production-repeatability": "bash scripts/smoke/node-production-repeatability.sh"
+    "smoke-node-production-repeatability": "bash scripts/smoke/node-production-repeatability.sh",
+    "smoke-node-expanded-restore": "bash scripts/smoke/node-expanded-restore.sh",
+    "smoke-node-complex-restore": "bash scripts/smoke/node-complex-restore.sh",
+    "smoke-node-ecosystem-restore": "bash scripts/smoke/node-ecosystem-restore.sh",
+    "smoke-non-node-runtime-proof": "bash scripts/smoke/non-node-runtime-proof.sh",
+    "smoke-non-node-cross-arch": "bash scripts/smoke/non-node-cross-arch.sh",
+    "smoke-goal40-hard-runtime-state": "bash scripts/smoke/goal40-hard-runtime-state.sh",
+    "smoke-go-quiescent-runtime": "bash scripts/smoke/go-quiescent-runtime.sh",
+    "smoke-postgres-machinen-restore": "bash scripts/smoke/postgres-machinen-restore.sh"
   },
   "devDependencies": {
     "@changesets/cli": "^2.30.0",
