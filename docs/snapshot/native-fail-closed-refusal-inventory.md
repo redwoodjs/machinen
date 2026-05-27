@@ -1,6 +1,6 @@
 # Fail-closed refusal inventory
 
-This inventory covers the refusal codes used by [`goal-002.md`](../../goals/goal-002.md). Each code marks a
+This inventory covers the refusal codes used by [`goal-002.md`](../../goals/portable-snapshot-format/goal-002.md). Each code marks a
 state that must not reach `migrationCompleted=true` unless a later task replaces
 the refusal with an exact target-native model and proof profile.
 
@@ -37,7 +37,7 @@ not complete.
 
 Goals 8, 9, 11, 12, 13, 14, 15, and 21 graduate the app-neutral subsets documented in
 [`goal-8-9-capability-graduations.md`](./goal-8-9-capability-graduations.md) and
-[`goal-021.md`](../../goals/goal-021.md): a real private multi-range memory plus
+[`goal-021.md`](../../goals/portable-snapshot-format/goal-021.md): a real private multi-range memory plus
 regular-file workload, TCP listeners, raw ICMP loopback echo, Linux ping-socket
 loopback echo, distro ping active `recvmsg` empty-queue wait, multiple private
 ranges with guards, acyclic epoll graphs, file-backed private mappings,
@@ -142,7 +142,7 @@ without exact remaining-time contracts stay on `signal-state-unsupported` or
 `syscall-restart-unsupported`; `signal-mask-restart-refusal` and
 `restart-state-refusal` guard those boundaries.
 
-[`goal-005.md`](../../goals/goal-005.md) adds granular proof profiles for the Goals 9-13 refusal wave.
+[`goal-005.md`](../../goals/portable-snapshot-format/goal-005.md) adds granular proof profiles for the Goals 9-13 refusal wave.
 Readiness wake ordering, edge/one-shot readiness, socket readiness,
 signal-mask-changing waits, and ambiguous pollfd/fd-set memory are refused by
 `readiness-scheduler-refusal`, `readiness-edge-trigger-refusal`,

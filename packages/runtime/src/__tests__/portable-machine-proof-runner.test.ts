@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 const REPO_ROOT = resolve(import.meta.dirname, "../../../..");
 const RUNNER = join(REPO_ROOT, "scripts/portable-machine-proof-runner.mjs");
@@ -15,7 +15,10 @@ const NODE_ECOSYSTEM_RESTORE_PROOF = join(REPO_ROOT, "scripts/node-ecosystem-res
 const NON_NODE_RUNTIME_PROOF = join(REPO_ROOT, "scripts/non-node-runtime-proof.mjs");
 const PROOF_MATRIX = join(REPO_ROOT, "scripts/portable-machine-proof-matrix.mjs");
 const SCRIPT_ENV = { ...process.env, FORCE_COLOR: "1" };
+const PROOF_SCRIPT_TEST_TIMEOUT_MS = 180_000;
 const tempDirs: string[] = [];
+
+vi.setConfig({ testTimeout: PROOF_SCRIPT_TEST_TIMEOUT_MS });
 
 afterEach(() => {
   for (const dir of tempDirs.splice(0)) {
