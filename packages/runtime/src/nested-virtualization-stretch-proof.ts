@@ -83,6 +83,7 @@ export function summarizeNestedVirtualizationStretchProofRows(
   };
 }
 
+// fallow-ignore-next-line complexity
 export function validateNestedVirtualizationStretchProofRows(
   rows: NestedVirtualizationStretchProofRow[],
 ): string[] {

@@ -473,6 +473,19 @@ export {
   validateNativeProcessImageDocuments,
 } from "./native-process-image.ts";
 export {
+  FINAL_CROSS_ARCH_CRIU_GAUNTLET_KIND,
+  FINAL_CROSS_ARCH_CRIU_GAUNTLET_ROW_KIND,
+  buildFinalCrossArchCriuGauntletRow,
+  finalCrossArchCriuGauntletClassifications,
+  finalCrossArchCriuTargetExecutions,
+  requiredFinalCrossArchCriuClaimIds,
+  stableGauntletDigest,
+  summarizeFinalCrossArchCriuGauntletRows,
+  validateFinalCrossArchCriuGauntletInvariants,
+  validateFinalCrossArchCriuGauntletRows,
+  validateFinalCrossArchCriuGauntletSchema,
+} from "./final-cross-arch-criu-gauntlet.ts";
+export {
   NESTED_VIRTUALIZATION_STRETCH_PROOF_KIND,
   buildNestedVirtualizationStretchProofRow,
   nestedVirtualizationStretchProofClassifications,
@@ -596,6 +609,13 @@ export {
   planPortableMachineTargetRestoreDescriptor,
   planPortableMachineVmRestoreProof,
 } from "./portable-machine-restore-proof.ts";
+export type {
+  FinalCrossArchCriuGauntletClassification,
+  FinalCrossArchCriuGauntletRow,
+  FinalCrossArchCriuGauntletRowInput,
+  FinalCrossArchCriuGauntletSummary,
+  FinalCrossArchCriuTargetExecution,
+} from "./final-cross-arch-criu-gauntlet.ts";
 export type { NestedVirtProbeHost, NestedVirtProbeResult } from "./nested-virt.ts";
 export type {
   NestedVirtualizationStretchProofClassification,

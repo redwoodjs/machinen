@@ -43,6 +43,25 @@
 - [`writeBootSnapshot`](#writebootsnapshot)
 - [`detachedLogRoot`](#detachedlogroot)
 
+### Final cross-arch CRIU gauntlet
+
+- [`FinalCrossArchCriuGauntletClassification`](#finalcrossarchcriugauntletclassification)
+- [`FinalCrossArchCriuGauntletRow`](#finalcrossarchcriugauntletrow)
+- [`FinalCrossArchCriuGauntletRowInput`](#finalcrossarchcriugauntletrowinput)
+- [`FinalCrossArchCriuGauntletSummary`](#finalcrossarchcriugauntletsummary)
+- [`FinalCrossArchCriuTargetExecution`](#finalcrossarchcriutargetexecution)
+- [`FINAL_CROSS_ARCH_CRIU_GAUNTLET_KIND`](#final_cross_arch_criu_gauntlet_kind)
+- [`FINAL_CROSS_ARCH_CRIU_GAUNTLET_ROW_KIND`](#final_cross_arch_criu_gauntlet_row_kind)
+- [`finalCrossArchCriuGauntletClassifications`](#finalcrossarchcriugauntletclassifications)
+- [`finalCrossArchCriuTargetExecutions`](#finalcrossarchcriutargetexecutions)
+- [`requiredFinalCrossArchCriuClaimIds`](#requiredfinalcrossarchcriuclaimids)
+- [`buildFinalCrossArchCriuGauntletRow`](#buildfinalcrossarchcriugauntletrow)
+- [`stableGauntletDigest`](#stablegauntletdigest)
+- [`summarizeFinalCrossArchCriuGauntletRows`](#summarizefinalcrossarchcriugauntletrows)
+- [`validateFinalCrossArchCriuGauntletInvariants`](#validatefinalcrossarchcriugauntletinvariants)
+- [`validateFinalCrossArchCriuGauntletRows`](#validatefinalcrossarchcriugauntletrows)
+- [`validateFinalCrossArchCriuGauntletSchema`](#validatefinalcrossarchcriugauntletschema)
+
 ### Nested virtualization stretch proof
 
 - [`NestedVirtProbeHost`](#nestedvirtprobehost)
@@ -2544,6 +2563,268 @@ How long to retry the UDS connect. Default 5s.
 > `optional` **excludes?**: `string`[]
 
 Forwarded to `tar --exclude=PATTERN`. Repeat per pattern.
+
+***
+
+### FinalCrossArchCriuGauntletRowInput
+
+#### Extended by
+
+- [`FinalCrossArchCriuGauntletRow`](#finalcrossarchcriugauntletrow)
+
+#### Properties
+
+##### claimId
+
+> **claimId**: `string`
+
+##### claimName
+
+> **claimName**: `string`
+
+##### classification
+
+> **classification**: `"product-supported"` \| `"proof-only-feasibility"` \| `"stretch-demo"` \| `"refused"` \| `"skipped"`
+
+##### sourceArch
+
+> **sourceArch**: `string`
+
+##### targetArch
+
+> **targetArch**: `string`
+
+##### hostArch
+
+> **hostArch**: `string`
+
+##### providerMode
+
+> **providerMode**: `string`
+
+##### targetExecution
+
+> **targetExecution**: `"native"` \| `"accelerated"` \| `"emulated"` \| `"not-applicable"`
+
+##### stateModel
+
+> **stateModel**: `string`
+
+##### stateDecisions
+
+> **stateDecisions**: `string`[]
+
+##### verifierCommand
+
+> **verifierCommand**: `string`
+
+##### verifierOutput
+
+> **verifierOutput**: `string`
+
+##### artifactDigests
+
+> **artifactDigests**: `Record`\<`string`, `string`\>
+
+##### provenance
+
+> **provenance**: `Record`\<`string`, `unknown`\>
+
+##### migrationCompleted
+
+> **migrationCompleted**: `boolean`
+
+##### refusalCode?
+
+> `optional` **refusalCode?**: `string`
+
+##### remediation?
+
+> `optional` **remediation?**: `string`
+
+***
+
+### FinalCrossArchCriuGauntletRow
+
+#### Extends
+
+- [`FinalCrossArchCriuGauntletRowInput`](#finalcrossarchcriugauntletrowinput)
+
+#### Properties
+
+##### claimId
+
+> **claimId**: `string`
+
+###### Inherited from
+
+[`FinalCrossArchCriuGauntletRowInput`](#finalcrossarchcriugauntletrowinput).[`claimId`](#claimid)
+
+##### claimName
+
+> **claimName**: `string`
+
+###### Inherited from
+
+[`FinalCrossArchCriuGauntletRowInput`](#finalcrossarchcriugauntletrowinput).[`claimName`](#claimname)
+
+##### classification
+
+> **classification**: `"product-supported"` \| `"proof-only-feasibility"` \| `"stretch-demo"` \| `"refused"` \| `"skipped"`
+
+###### Inherited from
+
+[`FinalCrossArchCriuGauntletRowInput`](#finalcrossarchcriugauntletrowinput).[`classification`](#classification-2)
+
+##### sourceArch
+
+> **sourceArch**: `string`
+
+###### Inherited from
+
+[`FinalCrossArchCriuGauntletRowInput`](#finalcrossarchcriugauntletrowinput).[`sourceArch`](#sourcearch-2)
+
+##### targetArch
+
+> **targetArch**: `string`
+
+###### Inherited from
+
+[`FinalCrossArchCriuGauntletRowInput`](#finalcrossarchcriugauntletrowinput).[`targetArch`](#targetarch-2)
+
+##### hostArch
+
+> **hostArch**: `string`
+
+###### Inherited from
+
+[`FinalCrossArchCriuGauntletRowInput`](#finalcrossarchcriugauntletrowinput).[`hostArch`](#hostarch)
+
+##### providerMode
+
+> **providerMode**: `string`
+
+###### Inherited from
+
+[`FinalCrossArchCriuGauntletRowInput`](#finalcrossarchcriugauntletrowinput).[`providerMode`](#providermode)
+
+##### targetExecution
+
+> **targetExecution**: `"native"` \| `"accelerated"` \| `"emulated"` \| `"not-applicable"`
+
+###### Inherited from
+
+[`FinalCrossArchCriuGauntletRowInput`](#finalcrossarchcriugauntletrowinput).[`targetExecution`](#targetexecution)
+
+##### stateModel
+
+> **stateModel**: `string`
+
+###### Inherited from
+
+[`FinalCrossArchCriuGauntletRowInput`](#finalcrossarchcriugauntletrowinput).[`stateModel`](#statemodel-2)
+
+##### stateDecisions
+
+> **stateDecisions**: `string`[]
+
+###### Inherited from
+
+[`FinalCrossArchCriuGauntletRowInput`](#finalcrossarchcriugauntletrowinput).[`stateDecisions`](#statedecisions)
+
+##### verifierCommand
+
+> **verifierCommand**: `string`
+
+###### Inherited from
+
+[`FinalCrossArchCriuGauntletRowInput`](#finalcrossarchcriugauntletrowinput).[`verifierCommand`](#verifiercommand)
+
+##### verifierOutput
+
+> **verifierOutput**: `string`
+
+###### Inherited from
+
+[`FinalCrossArchCriuGauntletRowInput`](#finalcrossarchcriugauntletrowinput).[`verifierOutput`](#verifieroutput-2)
+
+##### artifactDigests
+
+> **artifactDigests**: `Record`\<`string`, `string`\>
+
+###### Inherited from
+
+[`FinalCrossArchCriuGauntletRowInput`](#finalcrossarchcriugauntletrowinput).[`artifactDigests`](#artifactdigests)
+
+##### provenance
+
+> **provenance**: `Record`\<`string`, `unknown`\>
+
+###### Inherited from
+
+[`FinalCrossArchCriuGauntletRowInput`](#finalcrossarchcriugauntletrowinput).[`provenance`](#provenance)
+
+##### migrationCompleted
+
+> **migrationCompleted**: `boolean`
+
+###### Inherited from
+
+[`FinalCrossArchCriuGauntletRowInput`](#finalcrossarchcriugauntletrowinput).[`migrationCompleted`](#migrationcompleted-2)
+
+##### refusalCode?
+
+> `optional` **refusalCode?**: `string`
+
+###### Inherited from
+
+[`FinalCrossArchCriuGauntletRowInput`](#finalcrossarchcriugauntletrowinput).[`refusalCode`](#refusalcode-2)
+
+##### remediation?
+
+> `optional` **remediation?**: `string`
+
+###### Inherited from
+
+[`FinalCrossArchCriuGauntletRowInput`](#finalcrossarchcriugauntletrowinput).[`remediation`](#remediation-2)
+
+##### kind
+
+> **kind**: `"machinen.cross-arch-criu.final-proof-gauntlet-row"`
+
+***
+
+### FinalCrossArchCriuGauntletSummary
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.cross-arch-criu.final-proof-gauntlet"`
+
+##### state
+
+> **state**: `"completed"` \| `"failed"`
+
+##### pass
+
+> **pass**: `boolean`
+
+##### rowCount
+
+> **rowCount**: `number`
+
+##### rows
+
+> **rows**: [`FinalCrossArchCriuGauntletRow`](#finalcrossarchcriugauntletrow)[]
+
+##### byClassification
+
+> **byClassification**: `Record`\<[`FinalCrossArchCriuGauntletClassification`](#finalcrossarchcriugauntletclassification), `number`\>
+
+##### failures
+
+> **failures**: `string`[]
 
 ***
 
@@ -5705,7 +5986,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-13)
+[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-15)
 
 ##### buildId
 
@@ -5813,7 +6094,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-13)
+[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-15)
 
 ##### buildId
 
@@ -7608,7 +7889,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-28)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-30)
 
 ##### targetArch
 
@@ -7616,7 +7897,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`targetArch`](#targetarch-8)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`targetArch`](#targetarch-10)
 
 ##### entryAddress
 
@@ -8196,7 +8477,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-28)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-30)
 
 ##### targetArch
 
@@ -8204,7 +8485,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`targetArch`](#targetarch-8)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`targetArch`](#targetarch-10)
 
 ##### entryAddress
 
@@ -10104,7 +10385,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`classification`](#classification-5)
+[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`classification`](#classification-7)
 
 ##### l0HostArch
 
@@ -10136,7 +10417,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`providerMode`](#providermode)
+[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`providerMode`](#providermode-2)
 
 ##### accelerated
 
@@ -10168,7 +10449,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`refusalCode`](#refusalcode-5)
+[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`refusalCode`](#refusalcode-7)
 
 ##### remediation?
 
@@ -10176,7 +10457,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`remediation`](#remediation-4)
+[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`remediation`](#remediation-6)
 
 ##### snapshotForkRefusalCode
 
@@ -11253,7 +11534,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`sourceArch`](#sourcearch-6)
+[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`sourceArch`](#sourcearch-8)
 
 ##### targetArch
 
@@ -11261,7 +11542,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`targetArch`](#targetarch-17)
+[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`targetArch`](#targetarch-19)
 
 ##### machinenStateModel
 
@@ -11317,7 +11598,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`refusalCode`](#refusalcode-8)
+[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`refusalCode`](#refusalcode-10)
 
 ##### remediation?
 
@@ -11325,7 +11606,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`remediation`](#remediation-9)
+[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`remediation`](#remediation-11)
 
 ##### evidence?
 
@@ -11349,7 +11630,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Overrides
 
-[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`migrationCompleted`](#migrationcompleted-6)
+[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`migrationCompleted`](#migrationcompleted-8)
 
 ##### scope
 
@@ -12783,7 +13064,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`classification`](#classification-7)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`classification`](#classification-9)
 
 ##### sourceArch
 
@@ -12791,7 +13072,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`sourceArch`](#sourcearch-10)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`sourceArch`](#sourcearch-12)
 
 ##### targetArch
 
@@ -12799,7 +13080,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`targetArch`](#targetarch-22)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`targetArch`](#targetarch-24)
 
 ##### stateModel
 
@@ -12807,7 +13088,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`stateModel`](#statemodel-2)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`stateModel`](#statemodel-4)
 
 ##### artifactDigests
 
@@ -12815,7 +13096,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`artifactDigests`](#artifactdigests)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`artifactDigests`](#artifactdigests-2)
 
 ##### runtimeVersion
 
@@ -12831,7 +13112,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`verifierOutput`](#verifieroutput-6)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`verifierOutput`](#verifieroutput-8)
 
 ##### refusalCode?
 
@@ -12839,7 +13120,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`refusalCode`](#refusalcode-13)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`refusalCode`](#refusalcode-15)
 
 ##### remediation?
 
@@ -12847,7 +13128,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`remediation`](#remediation-11)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`remediation`](#remediation-13)
 
 ##### evidence?
 
@@ -12867,7 +13148,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Overrides
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`migrationCompleted`](#migrationcompleted-11)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`migrationCompleted`](#migrationcompleted-13)
 
 ##### scope
 
@@ -15859,6 +16140,18 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### FinalCrossArchCriuGauntletClassification
+
+> **FinalCrossArchCriuGauntletClassification** = *typeof* [`finalCrossArchCriuGauntletClassifications`](#finalcrossarchcriugauntletclassifications)\[`number`\]
+
+***
+
+### FinalCrossArchCriuTargetExecution
+
+> **FinalCrossArchCriuTargetExecution** = *typeof* [`finalCrossArchCriuTargetExecutions`](#finalcrossarchcriutargetexecutions)\[`number`\]
+
+***
+
 ### GuestCriuSubstrateProfile
 
 > **GuestCriuSubstrateProfile** = `"c-simple"` \| `"jvm-simple"`
@@ -17186,6 +17479,36 @@ Stream a tar of `guestPath` from the guest and untar into
 ###### Returns
 
 `Promise`\<`void`\>
+
+***
+
+### FINAL\_CROSS\_ARCH\_CRIU\_GAUNTLET\_KIND
+
+> `const` **FINAL\_CROSS\_ARCH\_CRIU\_GAUNTLET\_KIND**: `"machinen.cross-arch-criu.final-proof-gauntlet"`
+
+***
+
+### FINAL\_CROSS\_ARCH\_CRIU\_GAUNTLET\_ROW\_KIND
+
+> `const` **FINAL\_CROSS\_ARCH\_CRIU\_GAUNTLET\_ROW\_KIND**: `"machinen.cross-arch-criu.final-proof-gauntlet-row"`
+
+***
+
+### finalCrossArchCriuGauntletClassifications
+
+> `const` **finalCrossArchCriuGauntletClassifications**: readonly \[`"product-supported"`, `"proof-only-feasibility"`, `"stretch-demo"`, `"refused"`, `"skipped"`\]
+
+***
+
+### finalCrossArchCriuTargetExecutions
+
+> `const` **finalCrossArchCriuTargetExecutions**: readonly \[`"native"`, `"accelerated"`, `"emulated"`, `"not-applicable"`\]
+
+***
+
+### requiredFinalCrossArchCriuClaimIds
+
+> `const` **requiredFinalCrossArchCriuClaimIds**: readonly \[`"opposite-isa-vm-execution"`, `"postgres-bidirectional-logical-restore"`, `"postgres-unsafe-neighbor-refusals"`, `"sqlite-rollback-journal-restore"`, `"sqlite-wal-checkpoint-restore"`, `"sqlite-dirty-inflight-refusals"`, `"guest-criu-c-simple"`, `"guest-criu-jvm-simple"`, `"portable-snapshot-guest-criu-composition"`, `"runtime-confidence-c"`, `"runtime-confidence-java"`, `"advanced-linux-seccomp"`, `"advanced-linux-ebpf"`, `"advanced-linux-namespace-cgroup-capability"`, `"nested-virtualization-stretch-proof"`\]
 
 ***
 
@@ -18642,6 +18965,102 @@ library callers can adopt the same format if they want to.
 ##### err
 
 [`MachinenError`](#machinenerror)
+
+#### Returns
+
+`string`
+
+***
+
+### buildFinalCrossArchCriuGauntletRow()
+
+> **buildFinalCrossArchCriuGauntletRow**(`input`): [`FinalCrossArchCriuGauntletRow`](#finalcrossarchcriugauntletrow)
+
+#### Parameters
+
+##### input
+
+[`FinalCrossArchCriuGauntletRowInput`](#finalcrossarchcriugauntletrowinput)
+
+#### Returns
+
+[`FinalCrossArchCriuGauntletRow`](#finalcrossarchcriugauntletrow)
+
+***
+
+### summarizeFinalCrossArchCriuGauntletRows()
+
+> **summarizeFinalCrossArchCriuGauntletRows**(`rows`): [`FinalCrossArchCriuGauntletSummary`](#finalcrossarchcriugauntletsummary)
+
+#### Parameters
+
+##### rows
+
+[`FinalCrossArchCriuGauntletRow`](#finalcrossarchcriugauntletrow)[]
+
+#### Returns
+
+[`FinalCrossArchCriuGauntletSummary`](#finalcrossarchcriugauntletsummary)
+
+***
+
+### validateFinalCrossArchCriuGauntletRows()
+
+> **validateFinalCrossArchCriuGauntletRows**(`rows`): `string`[]
+
+#### Parameters
+
+##### rows
+
+[`FinalCrossArchCriuGauntletRow`](#finalcrossarchcriugauntletrow)[]
+
+#### Returns
+
+`string`[]
+
+***
+
+### validateFinalCrossArchCriuGauntletSchema()
+
+> **validateFinalCrossArchCriuGauntletSchema**(`rows`): `string`[]
+
+#### Parameters
+
+##### rows
+
+[`FinalCrossArchCriuGauntletRow`](#finalcrossarchcriugauntletrow)[]
+
+#### Returns
+
+`string`[]
+
+***
+
+### validateFinalCrossArchCriuGauntletInvariants()
+
+> **validateFinalCrossArchCriuGauntletInvariants**(`rows`): `string`[]
+
+#### Parameters
+
+##### rows
+
+[`FinalCrossArchCriuGauntletRow`](#finalcrossarchcriugauntletrow)[]
+
+#### Returns
+
+`string`[]
+
+***
+
+### stableGauntletDigest()
+
+> **stableGauntletDigest**(`value`): `string`
+
+#### Parameters
+
+##### value
+
+`unknown`
 
 #### Returns
 

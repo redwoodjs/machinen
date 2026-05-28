@@ -3,6 +3,14 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 WORKDIR="$(mktemp -d "${TMPDIR:-/tmp}/machinen-nested-virt.XXXXXX")"
+JSON=0
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --json) JSON=1; shift ;;
+    --work-dir) WORKDIR="$2"; mkdir -p "$WORKDIR"; shift 2 ;;
+    *) echo "usage: bash scripts/smoke/nested-virtualization-stretch-proof.sh [--json] [--work-dir path]" >&2; exit 2 ;;
+  esac
+done
 SUMMARY="$WORKDIR/summary.json"
 STDOUT="$WORKDIR/stdout.json"
 
@@ -32,4 +40,8 @@ if (row.classification === 'stretch-demo') {
 }
 NODE
 
-echo "nested-virtualization-stretch-proof: classification=$(node -e "const s=require(process.argv[1]); console.log(s.rows[0].classification)" "$SUMMARY") work=$WORKDIR"
+if [[ $JSON -eq 1 ]]; then
+  cat "$SUMMARY"
+else
+  echo "nested-virtualization-stretch-proof: classification=$(node -e "const s=require(process.argv[1]); console.log(s.rows[0].classification)" "$SUMMARY") work=$WORKDIR"
+fi

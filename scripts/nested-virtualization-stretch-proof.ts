@@ -46,6 +46,7 @@ function skippedRow(reason: string): NestedVirtualizationStretchProofRow {
   });
 }
 
+// fallow-ignore-next-line complexity
 async function runStretchProof(): Promise<NestedVirtualizationStretchProofRow> {
   const l1 = await probeL1Guest();
   const firecracker = await runFirecrackerExample();
@@ -87,6 +88,7 @@ async function runStretchProof(): Promise<NestedVirtualizationStretchProofRow> {
   });
 }
 
+// fallow-ignore-next-line complexity
 async function probeL1Guest(): Promise<{
   arch: string;
   acceleration: "kvm" | "missing";

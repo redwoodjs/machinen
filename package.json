@@ -115,6 +115,8 @@
     "smoke-advanced-linux-facility-probe": "bash scripts/smoke/advanced-linux-facility-probe.sh",
     "nested-virtualization-stretch-proof": "pnpm exec tsx scripts/nested-virtualization-stretch-proof.ts",
     "smoke-nested-virtualization-stretch-proof": "bash scripts/smoke/nested-virtualization-stretch-proof.sh",
+    "final-cross-arch-criu-gauntlet": "pnpm exec tsx scripts/final-cross-arch-criu-gauntlet.ts",
+    "smoke-final-cross-arch-criu-gauntlet": "bash scripts/smoke/final-cross-arch-criu-gauntlet.sh",
     "smoke-postgres-cross-arch-restore": "bash scripts/smoke/postgres-cross-arch-restore.sh",
     "smoke-postgres-machinen-restore": "bash scripts/smoke/postgres-machinen-restore.sh",
     "smoke-product-portable-postgres": "bash scripts/smoke/product-portable-postgres.sh",
