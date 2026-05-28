@@ -8,7 +8,7 @@ available, run the existing Firecracker nested guide to boot an L2 guest.
 
 ```json
 {
-  "kind": "machinen.cross-arch-criu.nested-virtualization-stretch-proof",
+  "kind": "machinen.architecture-portable-snapshot.nested-virtualization-stretch-proof",
   "classification": "stretch-demo",
   "l0HostArch": "arm64",
   "l1GuestArch": "aarch64",

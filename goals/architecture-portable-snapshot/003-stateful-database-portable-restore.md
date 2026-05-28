@@ -4,7 +4,7 @@ Parent: [`FINAL-GOAL.md`](./FINAL-GOAL.md)
 
 ## Motivation
 
-Stateful databases are the practical credibility bar for CRIU-like restore. A
+Stateful databases are the practical credibility bar for architecture-portable snapshot restore. A
 service can restart, but users care whether durable data, schema, indexes, and
 transaction boundaries survive honestly across architectures.
 
@@ -68,7 +68,7 @@ Refuse with stable wording for:
 
 Each row must include:
 
-- `kind: machinen.cross-arch-criu.stateful-database-restore`
+- `kind: machinen.architecture-portable-snapshot.stateful-database-restore`
 - `database: postgresql | sqlite`
 - `stateModel: logical-dump | checkpoint | rollback-journal | wal-checkpoint`
 - `sourceArch`

@@ -41,7 +41,7 @@ Required:
 
 Each row must include:
 
-- `kind: machinen.cross-arch-criu.nested-virtualization-stretch-proof`
+- `kind: machinen.architecture-portable-snapshot.nested-virtualization-stretch-proof`
 - `classification: stretch-demo | refused | skipped`
 - `l0HostArch`
 - `l1GuestArch`

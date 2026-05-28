@@ -3,13 +3,13 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import {
-  buildFinalCrossArchCriuGauntletRow,
-  requiredFinalCrossArchCriuClaimIds,
+  buildArchitecturePortableSnapshotGauntletRow,
+  requiredArchitecturePortableSnapshotClaimIds,
   stableGauntletDigest,
-  summarizeFinalCrossArchCriuGauntletRows,
-  type FinalCrossArchCriuGauntletClassification,
-  type FinalCrossArchCriuGauntletRow,
-  type FinalCrossArchCriuTargetExecution,
+  summarizeArchitecturePortableSnapshotGauntletRows,
+  type ArchitecturePortableSnapshotGauntletClassification,
+  type ArchitecturePortableSnapshotGauntletRow,
+  type ArchitecturePortableSnapshotTargetExecution,
 } from "../packages/runtime/src/index.ts";
 
 interface Args {
@@ -19,7 +19,8 @@ interface Args {
 
 type Json = Record<string, any>;
 
-const DEFAULT_OUT = "docs/snapshot/checked-summaries/cross-arch-criu/final-gauntlet.json";
+const DEFAULT_OUT =
+  "docs/snapshot/checked-summaries/architecture-portable-snapshot/final-gauntlet.json";
 
 function parseArgs(): Args {
   const args: Args = { out: DEFAULT_OUT, fixture: false };
@@ -39,7 +40,7 @@ function parseArgs(): Args {
 function main() {
   const args = parseArgs();
   const rows = args.fixture ? fixtureRows() : rowsFromLiveSmokes();
-  const summary = summarizeFinalCrossArchCriuGauntletRows(rows);
+  const summary = summarizeArchitecturePortableSnapshotGauntletRows(rows);
   const out = resolve(args.out);
   mkdirSync(dirname(out), { recursive: true });
   writeFileSync(out, `${JSON.stringify(summary, null, 2)}\n`);
@@ -49,7 +50,7 @@ function main() {
   }
 }
 
-function rowsFromLiveSmokes(): FinalCrossArchCriuGauntletRow[] {
+function rowsFromLiveSmokes(): ArchitecturePortableSnapshotGauntletRow[] {
   const opposite = smokeJson(
     "scripts/smoke/opposite-isa-vm-execution.sh",
     "opposite-isa-vm-execution-smoke",
@@ -58,13 +59,13 @@ function rowsFromLiveSmokes(): FinalCrossArchCriuGauntletRow[] {
     "scripts/smoke/stateful-database-portable-restore.sh",
     "stateful-database-restore-smoke",
   );
-  const guestCriu = smokeJson(
-    "scripts/smoke/guest-criu-substrate.sh",
-    "guest-criu-substrate-smoke",
+  const guestCheckpoint = smokeJson(
+    "scripts/smoke/guest-checkpoint-substrate.sh",
+    "guest-checkpoint-substrate-smoke",
   );
   const composition = smokeJson(
-    "scripts/smoke/portable-snapshot-guest-criu-composition.sh",
-    "portable-snapshot-guest-criu-composition-smoke",
+    "scripts/smoke/portable-snapshot-guest-checkpoint-composition.sh",
+    "portable-snapshot-guest-checkpoint-composition-smoke",
   );
   const runtime = smokeJson(
     "scripts/smoke/runtime-confidence-profile-matrix.sh",
@@ -86,8 +87,8 @@ function rowsFromLiveSmokes(): FinalCrossArchCriuGauntletRow[] {
     sqliteRollbackRow(db),
     sqliteWalRow(db),
     sqliteRefusalRow(db),
-    guestCriuRow(guestCriu, "c-simple"),
-    guestCriuRow(guestCriu, "jvm-simple"),
+    guestCheckpointRow(guestCheckpoint, "c-simple"),
+    guestCheckpointRow(guestCheckpoint, "jvm-simple"),
     compositionRow(composition),
     runtimeRow(runtime, "c"),
     runtimeRow(runtime, "java"),
@@ -112,7 +113,7 @@ function smokeJson(script: string, kindSuffix: string): Json {
 }
 
 function parseJsonObject(output: string, kindSuffix: string): Json {
-  const marker = `"kind": "machinen.cross-arch-criu.${kindSuffix}"`;
+  const marker = `"kind": "machinen.architecture-portable-snapshot.${kindSuffix}"`;
   const markerAt = output.indexOf(marker);
   if (markerAt < 0) {
     throw new Error(`missing JSON kind ${kindSuffix}`);
@@ -121,7 +122,7 @@ function parseJsonObject(output: string, kindSuffix: string): Json {
   return JSON.parse(output.slice(start));
 }
 
-function oppositeIsaRow(summary: Json): FinalCrossArchCriuGauntletRow {
+function oppositeIsaRow(summary: Json): ArchitecturePortableSnapshotGauntletRow {
   const route = summary.route;
   const classification = route.state === "completed" ? "proof-only-feasibility" : route.state;
   return row({
@@ -145,7 +146,7 @@ function oppositeIsaRow(summary: Json): FinalCrossArchCriuGauntletRow {
   });
 }
 
-function postgresRestoreRow(summary: Json): FinalCrossArchCriuGauntletRow {
+function postgresRestoreRow(summary: Json): ArchitecturePortableSnapshotGauntletRow {
   const rows = summary.rows.filter(
     (r: Json) => r.database === "postgresql" && r.state === "completed",
   );
@@ -158,7 +159,7 @@ function postgresRestoreRow(summary: Json): FinalCrossArchCriuGauntletRow {
   );
 }
 
-function postgresRefusalRow(summary: Json): FinalCrossArchCriuGauntletRow {
+function postgresRefusalRow(summary: Json): ArchitecturePortableSnapshotGauntletRow {
   const rows = summary.rows.filter(
     (r: Json) => r.database === "postgresql" && r.state === "refused",
   );
@@ -170,7 +171,7 @@ function postgresRefusalRow(summary: Json): FinalCrossArchCriuGauntletRow {
   );
 }
 
-function sqliteRollbackRow(summary: Json): FinalCrossArchCriuGauntletRow {
+function sqliteRollbackRow(summary: Json): ArchitecturePortableSnapshotGauntletRow {
   const rows = summary.rows.filter(
     (r: Json) =>
       r.database === "sqlite" && r.stateModel === "rollback-journal" && r.state === "completed",
@@ -184,7 +185,7 @@ function sqliteRollbackRow(summary: Json): FinalCrossArchCriuGauntletRow {
   );
 }
 
-function sqliteWalRow(summary: Json): FinalCrossArchCriuGauntletRow {
+function sqliteWalRow(summary: Json): ArchitecturePortableSnapshotGauntletRow {
   const rows = summary.rows.filter(
     (r: Json) =>
       r.database === "sqlite" && r.stateModel === "wal-checkpoint" && r.state === "completed",
@@ -198,7 +199,7 @@ function sqliteWalRow(summary: Json): FinalCrossArchCriuGauntletRow {
   );
 }
 
-function sqliteRefusalRow(summary: Json): FinalCrossArchCriuGauntletRow {
+function sqliteRefusalRow(summary: Json): ArchitecturePortableSnapshotGauntletRow {
   const rows = summary.rows.filter((r: Json) => r.database === "sqlite" && r.state === "refused");
   return aggregateRefusalRow(
     "sqlite-dirty-inflight-refusals",
@@ -214,7 +215,7 @@ function aggregateDatabaseRow(
   rows: Json[],
   stateModel: string,
   migrationCompleted: boolean,
-): FinalCrossArchCriuGauntletRow {
+): ArchitecturePortableSnapshotGauntletRow {
   return row({
     claimId,
     claimName,
@@ -228,7 +229,7 @@ function aggregateDatabaseRow(
     stateDecisions: [
       "logical-artifact-restored",
       "target-verifier-passed",
-      "raw-criu-image-not-used",
+      "raw-checkpoint-image-not-used",
     ],
     verifierCommand: "bash scripts/smoke/stateful-database-portable-restore.sh --json",
     verifierOutput: rows.map((r) => r.targetVerifierOutput).join(" | "),
@@ -243,7 +244,7 @@ function aggregateRefusalRow(
   claimName: string,
   rows: Json[],
   stateModel: string,
-): FinalCrossArchCriuGauntletRow {
+): ArchitecturePortableSnapshotGauntletRow {
   return row({
     claimId,
     claimName,
@@ -265,35 +266,40 @@ function aggregateRefusalRow(
   });
 }
 
-function guestCriuRow(summary: Json, profile: string): FinalCrossArchCriuGauntletRow {
+function guestCheckpointRow(
+  summary: Json,
+  profile: string,
+): ArchitecturePortableSnapshotGauntletRow {
   const r = summary.rows.find((row: Json) => row.profile === profile);
   return row({
-    claimId: profile === "c-simple" ? "guest-criu-c-simple" : "guest-criu-jvm-simple",
+    claimId: profile === "c-simple" ? "guest-checkpoint-c-simple" : "guest-checkpoint-jvm-simple",
     claimName:
-      profile === "c-simple" ? "guest CRIU simple C process" : "guest CRIU JVM process/refusal",
+      profile === "c-simple"
+        ? "guest checkpoint simple C process"
+        : "guest checkpoint JVM process/refusal",
     classification: r.state === "completed" ? "proof-only-feasibility" : r.state,
     sourceArch: r.guestArch,
     targetArch: r.guestArch,
     hostArch: hostArch(),
-    providerMode: "same-guest-same-isa-criu",
+    providerMode: "same-guest-same-isa-checkpoint",
     targetExecution: "native",
-    stateModel: "guest-criu-dump-restore",
-    stateDecisions: ["same-guest", "same-isa", "cross-isa-criu-replay-not-claimed"],
-    verifierCommand: `bash scripts/smoke/guest-criu-substrate.sh --profile ${profile} --json`,
+    stateModel: "guest-checkpoint-dump-restore",
+    stateDecisions: ["same-guest", "same-isa", "cross-isa-checkpoint-replay-not-claimed"],
+    verifierCommand: `bash scripts/smoke/guest-checkpoint-substrate.sh --profile ${profile} --json`,
     verifierOutput: r.verifierOutput || r.refusalCode,
     artifactDigests: digestMap(r),
-    provenance: { family: "guest-criu-substrate", profile },
+    provenance: { family: "guest-checkpoint-substrate", profile },
     migrationCompleted: r.state === "completed",
     refusalCode: r.refusalCode,
     remediation: r.remediation,
   });
 }
 
-function compositionRow(summary: Json): FinalCrossArchCriuGauntletRow {
+function compositionRow(summary: Json): ArchitecturePortableSnapshotGauntletRow {
   const r = summary.rows[0];
   return row({
-    claimId: "portable-snapshot-guest-criu-composition",
-    claimName: "portable snapshot plus guest CRIU composition",
+    claimId: "portable-snapshot-guest-checkpoint-composition",
+    claimName: "portable snapshot plus guest checkpoint composition",
     classification: r.state === "completed" ? "proof-only-feasibility" : r.state,
     sourceArch: r.sourceArch,
     targetArch: r.targetArch,
@@ -303,20 +309,20 @@ function compositionRow(summary: Json): FinalCrossArchCriuGauntletRow {
     stateModel: r.machinenStateModel,
     stateDecisions: [
       "same-arch-vmstate",
-      "guest-criu-artifact-readable",
-      "cross-isa-criu-replay-not-claimed",
+      "guest-checkpoint-artifact-readable",
+      "cross-isa-checkpoint-replay-not-claimed",
     ],
-    verifierCommand: "bash scripts/smoke/portable-snapshot-guest-criu-composition.sh --json",
-    verifierOutput: r.postRestoreGuestCriuVerifier,
-    artifactDigests: { storedCriuImageDigest: r.storedCriuImageDigest },
-    provenance: { family: "portable-snapshot-guest-criu-composition" },
+    verifierCommand: "bash scripts/smoke/portable-snapshot-guest-checkpoint-composition.sh --json",
+    verifierOutput: r.postRestoreGuestCheckpointVerifier,
+    artifactDigests: { storedCheckpointImageDigest: r.storedCheckpointImageDigest },
+    provenance: { family: "portable-snapshot-guest-checkpoint-composition" },
     migrationCompleted: r.migrationCompleted === true,
     refusalCode: r.refusalCode,
     remediation: r.remediation,
   });
 }
 
-function runtimeRow(summary: Json, runtime: "c" | "java"): FinalCrossArchCriuGauntletRow {
+function runtimeRow(summary: Json, runtime: "c" | "java"): ArchitecturePortableSnapshotGauntletRow {
   const rows = summary.rows.filter((r: Json) => r.runtime === runtime);
   const refused = rows.filter((r) => r.classification === "refused").length;
   return row({
@@ -367,7 +373,7 @@ function advancedFacilityRow(summary: Json, facility: string, claimId: string, c
   });
 }
 
-function advancedCombinedRow(summary: Json): FinalCrossArchCriuGauntletRow {
+function advancedCombinedRow(summary: Json): ArchitecturePortableSnapshotGauntletRow {
   const rows = summary.rows.filter((r: Json) =>
     ["namespace", "cgroup", "capability"].includes(r.facility),
   );
@@ -393,7 +399,7 @@ function advancedCombinedRow(summary: Json): FinalCrossArchCriuGauntletRow {
   });
 }
 
-function nestedRow(summary: Json): FinalCrossArchCriuGauntletRow {
+function nestedRow(summary: Json): ArchitecturePortableSnapshotGauntletRow {
   const r = summary.rows[0];
   return row({
     claimId: "nested-virtualization-stretch-proof",
@@ -421,17 +427,20 @@ function nestedRow(summary: Json): FinalCrossArchCriuGauntletRow {
 }
 
 function row(
-  input: Omit<Parameters<typeof buildFinalCrossArchCriuGauntletRow>[0], "classification"> & {
+  input: Omit<
+    Parameters<typeof buildArchitecturePortableSnapshotGauntletRow>[0],
+    "classification"
+  > & {
     classification: string;
   },
-): FinalCrossArchCriuGauntletRow {
-  return buildFinalCrossArchCriuGauntletRow({
+): ArchitecturePortableSnapshotGauntletRow {
+  return buildArchitecturePortableSnapshotGauntletRow({
     ...input,
-    classification: input.classification as FinalCrossArchCriuGauntletClassification,
+    classification: input.classification as ArchitecturePortableSnapshotGauntletClassification,
   });
 }
 
-function executionFrom(route: Json): FinalCrossArchCriuTargetExecution {
+function executionFrom(route: Json): ArchitecturePortableSnapshotTargetExecution {
   if (route.emulated) {
     return "emulated";
   }
@@ -458,8 +467,8 @@ function hostArch(): string {
   return process.arch;
 }
 
-function fixtureRows(): FinalCrossArchCriuGauntletRow[] {
-  return requiredFinalCrossArchCriuClaimIds.map((claimId) =>
+function fixtureRows(): ArchitecturePortableSnapshotGauntletRow[] {
+  return requiredArchitecturePortableSnapshotClaimIds.map((claimId) =>
     row({
       claimId,
       claimName: claimId,
@@ -474,7 +483,7 @@ function fixtureRows(): FinalCrossArchCriuGauntletRow[] {
       targetExecution: "native",
       stateModel: "fixture",
       stateDecisions: ["fixture-row"],
-      verifierCommand: "scripts/final-cross-arch-criu-gauntlet.ts --fixture",
+      verifierCommand: "scripts/architecture-portable-snapshot-gauntlet.ts --fixture",
       verifierOutput: "fixture ok",
       artifactDigests: { fixture: stableGauntletDigest(claimId) },
       provenance: { fixture: true },

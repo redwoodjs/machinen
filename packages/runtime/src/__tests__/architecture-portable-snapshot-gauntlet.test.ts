@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildFinalCrossArchCriuGauntletRow,
-  requiredFinalCrossArchCriuClaimIds,
-  summarizeFinalCrossArchCriuGauntletRows,
-  validateFinalCrossArchCriuGauntletInvariants,
-} from "../final-cross-arch-criu-gauntlet.ts";
+  buildArchitecturePortableSnapshotGauntletRow,
+  requiredArchitecturePortableSnapshotClaimIds,
+  summarizeArchitecturePortableSnapshotGauntletRows,
+  validateArchitecturePortableSnapshotGauntletInvariants,
+} from "../architecture-portable-snapshot-gauntlet.ts";
 
 function row(claimId: string, overrides = {}) {
-  return buildFinalCrossArchCriuGauntletRow({
+  return buildArchitecturePortableSnapshotGauntletRow({
     claimId,
     claimName: claimId,
     classification: "proof-only-feasibility",
@@ -27,38 +27,40 @@ function row(claimId: string, overrides = {}) {
   });
 }
 
-describe("final cross-arch CRIU gauntlet", () => {
+describe("architecture-portable snapshot gauntlet", () => {
   it("accepts one checked row per required claim", () => {
-    const rows = requiredFinalCrossArchCriuClaimIds.map((id) => row(id));
-    const summary = summarizeFinalCrossArchCriuGauntletRows(rows);
+    const rows = requiredArchitecturePortableSnapshotClaimIds.map((id) => row(id));
+    const summary = summarizeArchitecturePortableSnapshotGauntletRows(rows);
     expect(summary.pass).toBe(true);
-    expect(summary.rowCount).toBe(requiredFinalCrossArchCriuClaimIds.length);
+    expect(summary.rowCount).toBe(requiredArchitecturePortableSnapshotClaimIds.length);
   });
 
   it("fails when a required claim is absent", () => {
-    const summary = summarizeFinalCrossArchCriuGauntletRows([row("opposite-isa-vm-execution")]);
+    const summary = summarizeArchitecturePortableSnapshotGauntletRows([
+      row("opposite-isa-vm-execution"),
+    ]);
     expect(summary.pass).toBe(false);
     expect(summary.failures).toContain(
       "missing final gauntlet claim postgres-bidirectional-logical-restore",
     );
   });
 
-  it("rejects product-supported emulation and raw cross-ISA CRIU replay", () => {
-    const failures = validateFinalCrossArchCriuGauntletInvariants([
+  it("rejects product-supported emulation and raw source checkpoint replay", () => {
+    const failures = validateArchitecturePortableSnapshotGauntletInvariants([
       row("bad-product", {
         classification: "product-supported",
         targetExecution: "emulated",
-        stateDecisions: ["raw-cross-isa-criu-image-replay"],
+        stateDecisions: ["raw-cross-isa-checkpoint-image-replay"],
       }),
     ]);
     expect(failures).toContain("bad-product product-supported row is not target-native");
     expect(failures).toContain(
-      "bad-product reports raw cross-ISA CRIU image replay as product success",
+      "bad-product reports raw source checkpoint image replay as product success",
     );
   });
 
   it("rejects refused rows that report completed migration", () => {
-    const failures = validateFinalCrossArchCriuGauntletInvariants([
+    const failures = validateArchitecturePortableSnapshotGauntletInvariants([
       row("bad-refusal", {
         classification: "refused",
         migrationCompleted: true,

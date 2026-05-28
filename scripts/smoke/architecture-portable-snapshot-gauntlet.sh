@@ -12,7 +12,7 @@ while [[ $# -gt 0 ]]; do
     --json) JSON=1; shift ;;
     --full) FULL=1; shift ;;
     --work-dir) WORK="$2"; mkdir -p "$WORK"; shift 2 ;;
-    *) echo "usage: bash scripts/smoke/final-cross-arch-criu-gauntlet.sh [--json] [--full] [--work-dir path]" >&2; exit 2 ;;
+    *) echo "usage: bash scripts/smoke/architecture-portable-snapshot-gauntlet.sh [--json] [--full] [--work-dir path]" >&2; exit 2 ;;
   esac
 done
 
@@ -21,7 +21,7 @@ args=(--out "$WORK/final-gauntlet.json")
 if [[ $FULL -eq 0 ]]; then
   args+=(--fixture)
 fi
-pnpm run final-cross-arch-criu-gauntlet "${args[@]}" >"$WORK/stdout.json"
+pnpm run architecture-portable-snapshot-gauntlet "${args[@]}" >"$WORK/stdout.json"
 
 node --input-type=module - "$WORK/final-gauntlet.json" <<'NODE'
 import { readFileSync } from 'node:fs';
@@ -35,5 +35,5 @@ NODE
 if [[ $JSON -eq 1 ]]; then
   cat "$WORK/final-gauntlet.json"
 else
-  node -e "const s=require(process.argv[1]); console.log('final-cross-arch-criu-gauntlet: '+s.state+' rows='+s.rowCount+' work=$WORK')" "$WORK/final-gauntlet.json"
+  node -e "const s=require(process.argv[1]); console.log('architecture-portable-snapshot-gauntlet: '+s.state+' rows='+s.rowCount+' work=$WORK')" "$WORK/final-gauntlet.json"
 fi

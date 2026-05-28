@@ -1,12 +1,12 @@
 import { createHash } from "node:crypto";
 
-export const FINAL_CROSS_ARCH_CRIU_GAUNTLET_KIND =
-  "machinen.cross-arch-criu.final-proof-gauntlet" as const;
+export const ARCHITECTURE_PORTABLE_SNAPSHOT_GAUNTLET_KIND =
+  "machinen.architecture-portable-snapshot.final-proof-gauntlet" as const;
 
-export const FINAL_CROSS_ARCH_CRIU_GAUNTLET_ROW_KIND =
-  "machinen.cross-arch-criu.final-proof-gauntlet-row" as const;
+export const ARCHITECTURE_PORTABLE_SNAPSHOT_GAUNTLET_ROW_KIND =
+  "machinen.architecture-portable-snapshot.final-proof-gauntlet-row" as const;
 
-export const finalCrossArchCriuGauntletClassifications = [
+export const architecturePortableSnapshotGauntletClassifications = [
   "product-supported",
   "proof-only-feasibility",
   "stretch-demo",
@@ -14,26 +14,27 @@ export const finalCrossArchCriuGauntletClassifications = [
   "skipped",
 ] as const;
 
-export const finalCrossArchCriuTargetExecutions = [
+export const architecturePortableSnapshotTargetExecutions = [
   "native",
   "accelerated",
   "emulated",
   "not-applicable",
 ] as const;
 
-export type FinalCrossArchCriuGauntletClassification =
-  (typeof finalCrossArchCriuGauntletClassifications)[number];
-export type FinalCrossArchCriuTargetExecution = (typeof finalCrossArchCriuTargetExecutions)[number];
+export type ArchitecturePortableSnapshotGauntletClassification =
+  (typeof architecturePortableSnapshotGauntletClassifications)[number];
+export type ArchitecturePortableSnapshotTargetExecution =
+  (typeof architecturePortableSnapshotTargetExecutions)[number];
 
-export interface FinalCrossArchCriuGauntletRowInput {
+export interface ArchitecturePortableSnapshotGauntletRowInput {
   claimId: string;
   claimName: string;
-  classification: FinalCrossArchCriuGauntletClassification;
+  classification: ArchitecturePortableSnapshotGauntletClassification;
   sourceArch: string;
   targetArch: string;
   hostArch: string;
   providerMode: string;
-  targetExecution: FinalCrossArchCriuTargetExecution;
+  targetExecution: ArchitecturePortableSnapshotTargetExecution;
   stateModel: string;
   stateDecisions: string[];
   verifierCommand: string;
@@ -45,32 +46,32 @@ export interface FinalCrossArchCriuGauntletRowInput {
   remediation?: string;
 }
 
-export interface FinalCrossArchCriuGauntletRow extends FinalCrossArchCriuGauntletRowInput {
-  kind: typeof FINAL_CROSS_ARCH_CRIU_GAUNTLET_ROW_KIND;
+export interface ArchitecturePortableSnapshotGauntletRow extends ArchitecturePortableSnapshotGauntletRowInput {
+  kind: typeof ARCHITECTURE_PORTABLE_SNAPSHOT_GAUNTLET_ROW_KIND;
 }
 
-export interface FinalCrossArchCriuGauntletSummary {
-  kind: typeof FINAL_CROSS_ARCH_CRIU_GAUNTLET_KIND;
+export interface ArchitecturePortableSnapshotGauntletSummary {
+  kind: typeof ARCHITECTURE_PORTABLE_SNAPSHOT_GAUNTLET_KIND;
   state: "completed" | "failed";
   pass: boolean;
   rowCount: number;
-  rows: FinalCrossArchCriuGauntletRow[];
-  byClassification: Record<FinalCrossArchCriuGauntletClassification, number>;
+  rows: ArchitecturePortableSnapshotGauntletRow[];
+  byClassification: Record<ArchitecturePortableSnapshotGauntletClassification, number>;
   failures: string[];
 }
 
-export function buildFinalCrossArchCriuGauntletRow(
-  input: FinalCrossArchCriuGauntletRowInput,
-): FinalCrossArchCriuGauntletRow {
-  return { ...input, kind: FINAL_CROSS_ARCH_CRIU_GAUNTLET_ROW_KIND };
+export function buildArchitecturePortableSnapshotGauntletRow(
+  input: ArchitecturePortableSnapshotGauntletRowInput,
+): ArchitecturePortableSnapshotGauntletRow {
+  return { ...input, kind: ARCHITECTURE_PORTABLE_SNAPSHOT_GAUNTLET_ROW_KIND };
 }
 
-export function summarizeFinalCrossArchCriuGauntletRows(
-  rows: FinalCrossArchCriuGauntletRow[],
-): FinalCrossArchCriuGauntletSummary {
-  const failures = validateFinalCrossArchCriuGauntletRows(rows);
+export function summarizeArchitecturePortableSnapshotGauntletRows(
+  rows: ArchitecturePortableSnapshotGauntletRow[],
+): ArchitecturePortableSnapshotGauntletSummary {
+  const failures = validateArchitecturePortableSnapshotGauntletRows(rows);
   return {
-    kind: FINAL_CROSS_ARCH_CRIU_GAUNTLET_KIND,
+    kind: ARCHITECTURE_PORTABLE_SNAPSHOT_GAUNTLET_KIND,
     state: failures.length === 0 ? "completed" : "failed",
     pass: failures.length === 0,
     rowCount: rows.length,
@@ -80,32 +81,32 @@ export function summarizeFinalCrossArchCriuGauntletRows(
   };
 }
 
-export function validateFinalCrossArchCriuGauntletRows(
-  rows: FinalCrossArchCriuGauntletRow[],
+export function validateArchitecturePortableSnapshotGauntletRows(
+  rows: ArchitecturePortableSnapshotGauntletRow[],
 ): string[] {
   return [
-    ...validateFinalCrossArchCriuGauntletSchema(rows),
-    ...validateFinalCrossArchCriuGauntletInvariants(rows),
+    ...validateArchitecturePortableSnapshotGauntletSchema(rows),
+    ...validateArchitecturePortableSnapshotGauntletInvariants(rows),
   ];
 }
 
-export function validateFinalCrossArchCriuGauntletSchema(
-  rows: FinalCrossArchCriuGauntletRow[],
+export function validateArchitecturePortableSnapshotGauntletSchema(
+  rows: ArchitecturePortableSnapshotGauntletRow[],
 ): string[] {
   const failures: string[] = [];
-  for (const id of requiredFinalCrossArchCriuClaimIds) {
+  for (const id of requiredArchitecturePortableSnapshotClaimIds) {
     if (!rows.some((row) => row.claimId === id)) {
       failures.push(`missing final gauntlet claim ${id}`);
     }
   }
   for (const row of rows) {
-    failures.push(...validateFinalCrossArchCriuGauntletRowShape(row));
+    failures.push(...validateArchitecturePortableSnapshotGauntletRowShape(row));
   }
   return failures;
 }
 
-export function validateFinalCrossArchCriuGauntletInvariants(
-  rows: FinalCrossArchCriuGauntletRow[],
+export function validateArchitecturePortableSnapshotGauntletInvariants(
+  rows: ArchitecturePortableSnapshotGauntletRow[],
 ): string[] {
   const failures: string[] = [];
   for (const row of rows) {
@@ -122,16 +123,16 @@ export function validateFinalCrossArchCriuGauntletInvariants(
   return failures;
 }
 
-export const requiredFinalCrossArchCriuClaimIds = [
+export const requiredArchitecturePortableSnapshotClaimIds = [
   "opposite-isa-vm-execution",
   "postgres-bidirectional-logical-restore",
   "postgres-unsafe-neighbor-refusals",
   "sqlite-rollback-journal-restore",
   "sqlite-wal-checkpoint-restore",
   "sqlite-dirty-inflight-refusals",
-  "guest-criu-c-simple",
-  "guest-criu-jvm-simple",
-  "portable-snapshot-guest-criu-composition",
+  "guest-checkpoint-c-simple",
+  "guest-checkpoint-jvm-simple",
+  "portable-snapshot-guest-checkpoint-composition",
   "runtime-confidence-c",
   "runtime-confidence-java",
   "advanced-linux-seccomp",
@@ -140,14 +141,16 @@ export const requiredFinalCrossArchCriuClaimIds = [
   "nested-virtualization-stretch-proof",
 ] as const;
 
-function validateFinalCrossArchCriuGauntletRowShape(row: FinalCrossArchCriuGauntletRow): string[] {
+function validateArchitecturePortableSnapshotGauntletRowShape(
+  row: ArchitecturePortableSnapshotGauntletRow,
+): string[] {
   const failures: string[] = [];
   for (const field of requiredStringFields) {
     if (!row[field]) {
       failures.push(`${row.claimId || "<missing>"} missing ${field}`);
     }
   }
-  if (row.kind !== FINAL_CROSS_ARCH_CRIU_GAUNTLET_ROW_KIND) {
+  if (row.kind !== ARCHITECTURE_PORTABLE_SNAPSHOT_GAUNTLET_ROW_KIND) {
     failures.push(`${row.claimId} has wrong kind`);
   }
   if (row.stateDecisions.length === 0) {
@@ -178,15 +181,17 @@ const requiredStringFields = [
   "stateModel",
   "verifierCommand",
   "verifierOutput",
-] as const satisfies ReadonlyArray<keyof FinalCrossArchCriuGauntletRow>;
+] as const satisfies ReadonlyArray<keyof ArchitecturePortableSnapshotGauntletRow>;
 
-function validateProductSupportedGauntletRow(row: FinalCrossArchCriuGauntletRow): string[] {
+function validateProductSupportedGauntletRow(
+  row: ArchitecturePortableSnapshotGauntletRow,
+): string[] {
   const failures: string[] = [];
   if (row.targetExecution !== "native") {
     failures.push(`${row.claimId} product-supported row is not target-native`);
   }
-  if (row.stateDecisions.includes("raw-cross-isa-criu-image-replay")) {
-    failures.push(`${row.claimId} reports raw cross-ISA CRIU image replay as product success`);
+  if (row.stateDecisions.includes("raw-cross-isa-checkpoint-image-replay")) {
+    failures.push(`${row.claimId} reports raw source checkpoint image replay as product success`);
   }
   if (row.stateDecisions.includes("sidecar-runtime-used")) {
     failures.push(`${row.claimId} reports sidecar success as workload restore success`);
@@ -204,14 +209,14 @@ function validateProductSupportedGauntletRow(row: FinalCrossArchCriuGauntletRow)
 }
 
 function countByClassification(
-  rows: FinalCrossArchCriuGauntletRow[],
-): Record<FinalCrossArchCriuGauntletClassification, number> {
+  rows: ArchitecturePortableSnapshotGauntletRow[],
+): Record<ArchitecturePortableSnapshotGauntletClassification, number> {
   return Object.fromEntries(
-    finalCrossArchCriuGauntletClassifications.map((classification) => [
+    architecturePortableSnapshotGauntletClassifications.map((classification) => [
       classification,
       rows.filter((row) => row.classification === classification).length,
     ]),
-  ) as Record<FinalCrossArchCriuGauntletClassification, number>;
+  ) as Record<ArchitecturePortableSnapshotGauntletClassification, number>;
 }
 
 export function stableGauntletDigest(value: unknown): string {

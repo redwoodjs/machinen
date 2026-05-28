@@ -1,4 +1,4 @@
-# Final cross-arch CRIU checked gauntlet
+# Architecture-portable snapshot checked gauntlet
 
 The final gauntlet aggregates Goals 002-008 into one checked summary. It is a
 proof ledger, not a list of product-supported features.
@@ -8,7 +8,7 @@ proof ledger, not a list of product-supported features.
 The checked summary is written to:
 
 ```txt
-docs/snapshot/checked-summaries/cross-arch-criu/final-gauntlet.json
+docs/snapshot/checked-summaries/architecture-portable-snapshot/final-gauntlet.json
 ```
 
 Each row includes `claimId`, classification, source/target/host architecture,
@@ -33,7 +33,7 @@ turn into success.
 ## Global invariants
 
 The validator fails if any row reports unsupported source-ISA emulation, raw
-cross-ISA CRIU image replay, sidecar output, or metadata-only continuation as a
+cross-ISA checkpoint replay, sidecar output, or metadata-only continuation as a
 product restore success. It also fails if a refused/skipped row has
 `migrationCompleted=true`, or if a product-supported row lacks target-native
 verifier output, artifact digests, or provenance.
@@ -43,16 +43,16 @@ verifier output, artifact digests, or provenance.
 Fixture smoke:
 
 ```sh
-pnpm run smoke-final-cross-arch-criu-gauntlet
+pnpm run smoke-architecture-portable-snapshot-gauntlet
 ```
 
 Full checked gauntlet:
 
 ```sh
-pnpm run final-cross-arch-criu-gauntlet
+pnpm run architecture-portable-snapshot-gauntlet
 ```
 
 The full runner executes the component smokes for opposite-ISA execution,
-stateful database restore, guest CRIU, portable snapshot + guest CRIU
+stateful database restore, guest checkpoint, portable snapshot + guest checkpoint
 composition, runtime confidence, advanced Linux facilities, and nested
 virtualization, then rewrites `final-gauntlet.json`.

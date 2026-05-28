@@ -1,5 +1,5 @@
 export const ADVANCED_LINUX_FACILITY_PROBE_KIND =
-  "machinen.cross-arch-criu.advanced-linux-facility-probe" as const;
+  "machinen.architecture-portable-snapshot.advanced-linux-facility-probe" as const;
 
 export const advancedLinuxFacilityProbeFacilities = [
   "seccomp",
@@ -62,7 +62,7 @@ export interface AdvancedLinuxFacilityProbeRow extends AdvancedLinuxFacilityProb
 }
 
 export interface AdvancedLinuxFacilityProbeSummary {
-  kind: "machinen.cross-arch-criu.advanced-linux-facility-probe-matrix";
+  kind: "machinen.architecture-portable-snapshot.advanced-linux-facility-probe-matrix";
   state: "completed" | "failed";
   pass: boolean;
   rows: AdvancedLinuxFacilityProbeRow[];
@@ -90,7 +90,7 @@ export function summarizeAdvancedLinuxFacilityProbeRows(
 ): AdvancedLinuxFacilityProbeSummary {
   const failures = validateAdvancedLinuxFacilityProbeRows(rows);
   return {
-    kind: "machinen.cross-arch-criu.advanced-linux-facility-probe-matrix",
+    kind: "machinen.architecture-portable-snapshot.advanced-linux-facility-probe-matrix",
     state: failures.length === 0 ? "completed" : "failed",
     pass: failures.length === 0,
     rows,

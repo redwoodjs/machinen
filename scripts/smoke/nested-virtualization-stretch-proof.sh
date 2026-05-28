@@ -19,7 +19,7 @@ pnpm run nested-virtualization-stretch-proof >"$STDOUT"
 node - "$STDOUT" "$SUMMARY" <<'NODE'
 const { readFileSync, writeFileSync } = require('node:fs');
 const input = readFileSync(process.argv[2], 'utf8');
-const marker = '{\n  "kind": "machinen.cross-arch-criu.nested-virtualization-stretch-proof-summary"';
+const marker = '{\n  "kind": "machinen.architecture-portable-snapshot.nested-virtualization-stretch-proof-summary"';
 const start = input.lastIndexOf(marker);
 if (start < 0) throw new Error('missing JSON summary');
 const summary = JSON.parse(input.slice(start));
@@ -27,7 +27,7 @@ writeFileSync(process.argv[3], JSON.stringify(summary, null, 2));
 if (!summary.pass) throw new Error(`summary failed: ${summary.failures.join('; ')}`);
 if (summary.rowCount !== 1) throw new Error(`expected 1 row, saw ${summary.rowCount}`);
 const row = summary.rows[0];
-if (row.kind !== 'machinen.cross-arch-criu.nested-virtualization-stretch-proof') throw new Error('wrong row kind');
+if (row.kind !== 'machinen.architecture-portable-snapshot.nested-virtualization-stretch-proof') throw new Error('wrong row kind');
 if (!['stretch-demo', 'refused', 'skipped'].includes(row.classification)) throw new Error('bad classification');
 if (row.scope.productSupportClaimed) throw new Error('nested stretch row claimed product support');
 if (row.snapshotForkRefusalCode !== 'BOOT_VMSTATE_UNSUPPORTED') throw new Error('missing snapshot/fork refusal code');

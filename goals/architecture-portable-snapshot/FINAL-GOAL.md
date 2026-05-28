@@ -1,23 +1,23 @@
-# Final goal: Cross-architecture CRIU-like portable snapshot proof
+# Final goal: Architecture-portable snapshot proof
 
 ## North star
 
-Machinen should make cross-architecture restore feel like CRIU for real
-workloads: a user can move a running or stateful workload between `amd64` and
-`arm64`, get target-native execution on the destination, and see every
-user-visible discontinuity either preserved, recreated with defined semantics, or
-refused with clear remediation.
+Machinen should provide architecture-portable snapshots for real workloads: a
+user can move a running or stateful workload between `amd64` and `arm64`, get
+target-native execution on the destination, and see every user-visible
+discontinuity either preserved, recreated with defined semantics, or refused
+with clear remediation.
 
-This does **not** mean blindly replaying source-ISA VM memory or raw CRIU images
-on a different ISA. A restore only counts when Machinen uses an explicit portable
-state model, target-native reconstruction, and a target-native verifier. Source
-ISA emulation, sidecar success, metadata-only continuation, or raw cross-ISA CRIU
-image replay must not be counted as success unless that mode is explicitly
-labeled as a demo/emulation mode.
+This does **not** mean blindly replaying source-ISA VM memory or raw source
+checkpoint images on a different ISA. A restore only counts when Machinen uses an
+explicit portable state model, target-native reconstruction, and a target-native
+verifier. Source ISA emulation, sidecar success, metadata-only continuation, or
+raw cross-ISA source checkpoint image replay must not be counted as success
+unless that mode is explicitly labeled as a demo/emulation mode.
 
 ## Headline proof gauntlet
 
-These are the things we have to prove before the cross-architecture CRIU-like
+These are the things we have to prove before the architecture-portable snapshot
 claim feels credible.
 
 ### 1. Opposite-ISA VM execution
@@ -52,36 +52,36 @@ Prove that real stateful services survive the supported portable snapshot path.
 If SQLite or PostgreSQL can move across architectures without crashing or lying,
 that is the practical credibility bar.
 
-### 3. CRIU inside the VM
+### 3. Guest checkpoint substrate
 
 Prove that a Machinen guest exposes enough Linux checkpoint/restore substrate for
-CRIU to work on ordinary guest workloads.
+guest checkpoint tooling to work on ordinary guest workloads.
 
-- Run `/usr/sbin/criu check` or an equivalent scoped capability probe inside the
-  guest.
+- Run a scoped checkpoint capability probe inside the guest. The current fixture
+  uses `/usr/sbin/criu check` as one Linux tool-level probe.
 - Compile and run a simple C process in the guest.
-- Use CRIU in the guest to checkpoint and restore that C process.
+- Use checkpoint tooling in the guest to checkpoint and restore that C process.
 - Verify observable continuation after restore.
 - Run a small Java/JVM process in the guest.
-- Use CRIU in the guest to checkpoint and restore that JVM process, or fail
-  closed with a clear unsupported-state reason if the JVM profile is outside the
-  supported boundary.
-- Record CRIU version, kernel feature probes, process command, verifier output,
-  and restore logs.
+- Use checkpoint tooling in the guest to checkpoint and restore that JVM process,
+  or fail closed with a clear unsupported-state reason if the JVM profile is
+  outside the supported boundary.
+- Record checkpoint tool version, kernel feature probes, process command,
+  verifier output, and restore logs.
 
-This is a same-guest/same-ISA CRIU proof unless a future goal explicitly models
-cross-ISA process-state translation.
+This is a same-guest/same-ISA checkpoint proof unless a future goal explicitly
+models cross-ISA process-state translation.
 
-### 4. Portable snapshot plus guest CRIU composition
+### 4. Portable snapshot plus guest checkpoint composition
 
 Prove the two layers do not break each other.
 
-- Run a guest CRIU checkpoint/restore proof before a Machinen snapshot.
+- Run a guest checkpoint/restore proof before a Machinen snapshot.
 - Snapshot and restore the Machinen VM through the supported path.
-- Run the guest CRIU checkpoint/restore proof again after Machinen restore.
-- Verify a guest-created CRIU image remains readable after Machinen restore when
-  it lives on supported guest storage.
-- Do not claim that a source-ISA CRIU image can restore on a different ISA.
+- Run the guest checkpoint/restore proof again after Machinen restore.
+- Verify a guest-created checkpoint image remains readable after Machinen restore
+  when it lives on supported guest storage.
+- Do not claim that a source-ISA checkpoint image can restore on a different ISA.
 
 ### 5. C and Java runtime confidence
 
@@ -154,11 +154,11 @@ all of the following:
 - opposite-ISA VM execution works on the supported host matrix;
 - PostgreSQL and SQLite stateful workloads cross architectures through explicit
   portable state and target-native verification;
-- CRIU works inside the guest for at least a simple C process and either works or
+- Guest checkpointing works inside the VM for at least a simple C process and either works or
   fails closed for a JVM process;
-- guest CRIU still works across a Machinen snapshot/restore cycle;
+- guest checkpoint still works across a Machinen snapshot/restore cycle;
 - C and Java profiles are classified honestly;
 - seccomp and eBPF are either proven or refused with stable wording;
 - nested virtualization is demonstrated only as a clearly labeled stretch proof;
-- no unsupported source-ISA emulation, raw CRIU replay, sidecar success, or
+- no unsupported source-ISA emulation, raw checkpoint replay, sidecar success, or
   metadata-only continuation is reported as portable restore success.

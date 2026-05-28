@@ -64,7 +64,7 @@ describe("opposite-ISA VM execution summary", () => {
 
   it("completes when guest uname, guest ELF machine, and guest verifier agree", () => {
     expect(buildOppositeIsaVmExecutionSummary(completedEvidence)).toMatchObject({
-      kind: "machinen.cross-arch-criu.opposite-isa-vm-execution",
+      kind: "machinen.architecture-portable-snapshot.opposite-isa-vm-execution",
       hostArch: "arm64",
       guestArch: "amd64",
       state: "completed",

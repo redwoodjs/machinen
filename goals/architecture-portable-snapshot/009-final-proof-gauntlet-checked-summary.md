@@ -4,7 +4,7 @@ Parent: [`FINAL-GOAL.md`](./FINAL-GOAL.md)
 
 ## Motivation
 
-The final cross-architecture CRIU-like claim needs one machine-readable proof
+The final architecture-portable snapshot claim needs one machine-readable proof
 suite. Individual smokes are useful, but the product claim should be audited from
 a single checked summary with one row per claim.
 
@@ -23,9 +23,9 @@ The gauntlet must include rows for:
 - [x] SQLite rollback-journal restore;
 - [x] SQLite WAL-checkpoint restore;
 - [x] SQLite dirty/in-flight refusals;
-- [x] guest CRIU simple C process;
-- [x] guest CRIU JVM process or JVM refusal;
-- [x] portable snapshot plus guest CRIU composition;
+- [x] guest checkpoint simple C process;
+- [x] guest checkpoint JVM process or JVM refusal;
+- [x] portable snapshot plus guest checkpoint composition;
 - [x] C runtime confidence profiles;
 - [x] Java/JVM runtime confidence profiles;
 - [x] seccomp proof/refusal;
@@ -60,7 +60,7 @@ Each row must state:
 The gauntlet fails if:
 
 - [x] unsupported source-ISA emulation is reported as product restore success;
-- [x] raw cross-ISA CRIU image replay is reported as product restore success;
+- [x] raw source checkpoint image replay is reported as product restore success;
 - [x] sidecar success is reported as workload restore success;
 - [x] metadata-only continuation is reported as restore success;
 - [x] a refused row has `migrationCompleted=true`;
@@ -69,7 +69,7 @@ The gauntlet fails if:
 
 ## Output files
 
-- [x] `docs/snapshot/checked-summaries/cross-arch-criu/final-gauntlet.json`
+- [x] `docs/snapshot/checked-summaries/architecture-portable-snapshot/final-gauntlet.json`
 - [x] optional per-family checked summaries under the same directory
 - [x] docs explaining how to reproduce the gauntlet
 

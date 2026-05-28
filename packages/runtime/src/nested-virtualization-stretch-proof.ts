@@ -1,5 +1,5 @@
 export const NESTED_VIRTUALIZATION_STRETCH_PROOF_KIND =
-  "machinen.cross-arch-criu.nested-virtualization-stretch-proof" as const;
+  "machinen.architecture-portable-snapshot.nested-virtualization-stretch-proof" as const;
 
 export const nestedVirtualizationStretchProofClassifications = [
   "stretch-demo",
@@ -46,7 +46,7 @@ export interface NestedVirtualizationStretchProofRow extends NestedVirtualizatio
 }
 
 export interface NestedVirtualizationStretchProofSummary {
-  kind: "machinen.cross-arch-criu.nested-virtualization-stretch-proof-summary";
+  kind: "machinen.architecture-portable-snapshot.nested-virtualization-stretch-proof-summary";
   state: "completed" | "failed";
   pass: boolean;
   rows: NestedVirtualizationStretchProofRow[];
@@ -74,7 +74,7 @@ export function summarizeNestedVirtualizationStretchProofRows(
 ): NestedVirtualizationStretchProofSummary {
   const failures = validateNestedVirtualizationStretchProofRows(rows);
   return {
-    kind: "machinen.cross-arch-criu.nested-virtualization-stretch-proof-summary",
+    kind: "machinen.architecture-portable-snapshot.nested-virtualization-stretch-proof-summary",
     state: failures.length === 0 ? "completed" : "failed",
     pass: failures.length === 0,
     rows,

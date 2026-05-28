@@ -14,7 +14,7 @@ The smoke writes route summaries with:
 
 ```json
 {
-  "kind": "machinen.cross-arch-criu.opposite-isa-vm-execution",
+  "kind": "machinen.architecture-portable-snapshot.opposite-isa-vm-execution",
   "hostArch": "arm64",
   "guestArch": "amd64",
   "providerMode": "darwin-hvf-opposite-isa-unsupported",
