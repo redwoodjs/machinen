@@ -473,6 +473,15 @@ export {
   validateNativeProcessImageDocuments,
 } from "./native-process-image.ts";
 export {
+  OPPOSITE_ISA_VM_EXECUTION_KIND,
+  buildOppositeIsaVmExecutionSummary,
+  classifyOppositeIsaProviderRoute,
+  hostArchitectureFromNode,
+  normalizeGuestMachine,
+  oppositeGuestArchitecture,
+  oppositeIsaVmExecutionRefusalCodes,
+} from "./opposite-isa-vm-execution.ts";
+export {
   PORTABLE_MACHINE_SNAPSHOT_FILES,
   PORTABLE_MACHINE_SNAPSHOT_FORMAT_VERSION,
   PortableMachineSnapshotValidationError,
@@ -545,6 +554,14 @@ export {
   planPortableMachineTargetRestoreDescriptor,
   planPortableMachineVmRestoreProof,
 } from "./portable-machine-restore-proof.ts";
+export type {
+  OppositeIsaVmExecutionArch,
+  OppositeIsaVmExecutionEvidence,
+  OppositeIsaVmExecutionProviderRoute,
+  OppositeIsaVmExecutionRefusalCode,
+  OppositeIsaVmExecutionState,
+  OppositeIsaVmExecutionSummary,
+} from "./opposite-isa-vm-execution.ts";
 export type {
   PortableMachineSnapshotArchitecture,
   PortableMachineSnapshotDocuments,

@@ -43,6 +43,22 @@
 - [`writeBootSnapshot`](#writebootsnapshot)
 - [`detachedLogRoot`](#detachedlogroot)
 
+### Opposite-ISA VM execution
+
+- [`OppositeIsaVmExecutionArch`](#oppositeisavmexecutionarch)
+- [`OppositeIsaVmExecutionEvidence`](#oppositeisavmexecutionevidence)
+- [`OppositeIsaVmExecutionProviderRoute`](#oppositeisavmexecutionproviderroute)
+- [`OppositeIsaVmExecutionRefusalCode`](#oppositeisavmexecutionrefusalcode)
+- [`OppositeIsaVmExecutionState`](#oppositeisavmexecutionstate)
+- [`OppositeIsaVmExecutionSummary`](#oppositeisavmexecutionsummary)
+- [`OPPOSITE_ISA_VM_EXECUTION_KIND`](#opposite_isa_vm_execution_kind)
+- [`oppositeIsaVmExecutionRefusalCodes`](#oppositeisavmexecutionrefusalcodes)
+- [`buildOppositeIsaVmExecutionSummary`](#buildoppositeisavmexecutionsummary)
+- [`classifyOppositeIsaProviderRoute`](#classifyoppositeisaproviderroute)
+- [`hostArchitectureFromNode`](#hostarchitecturefromnode)
+- [`normalizeGuestMachine`](#normalizeguestmachine)
+- [`oppositeGuestArchitecture`](#oppositeguestarchitecture)
+
 ### Product claim registry
 
 - [`ProductClaimProofProfileInput`](#productclaimproofprofileinput)
@@ -9517,6 +9533,168 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ***
 
+### OppositeIsaVmExecutionProviderRoute
+
+#### Properties
+
+##### hostArch
+
+> **hostArch**: [`OppositeIsaVmExecutionArch`](#oppositeisavmexecutionarch)
+
+##### guestArch
+
+> **guestArch**: [`OppositeIsaVmExecutionArch`](#oppositeisavmexecutionarch)
+
+##### providerMode
+
+> **providerMode**: `string`
+
+##### accelerated
+
+> **accelerated**: `boolean`
+
+##### emulated
+
+> **emulated**: `boolean`
+
+##### available
+
+> **available**: `boolean`
+
+##### unavailableReason?
+
+> `optional` **unavailableReason?**: `"opposite-isa-provider-unavailable"` \| `"opposite-isa-assets-missing"` \| `"opposite-isa-not-opposite-route"` \| `"opposite-isa-boot-failed"` \| `"opposite-isa-guest-uname-mismatch"` \| `"opposite-isa-guest-elf-mismatch"` \| `"opposite-isa-verifier-incomplete"` \| `"opposite-isa-host-sidecar-output"`
+
+##### remediation?
+
+> `optional` **remediation?**: `string`
+
+***
+
+### OppositeIsaVmExecutionEvidence
+
+#### Properties
+
+##### hostArch
+
+> **hostArch**: [`OppositeIsaVmExecutionArch`](#oppositeisavmexecutionarch)
+
+##### guestArch
+
+> **guestArch**: [`OppositeIsaVmExecutionArch`](#oppositeisavmexecutionarch)
+
+##### providerMode
+
+> **providerMode**: `string`
+
+##### accelerated
+
+> **accelerated**: `boolean`
+
+##### emulated
+
+> **emulated**: `boolean`
+
+##### kernelVersion?
+
+> `optional` **kernelVersion?**: `string`
+
+##### rootfsDigest?
+
+> `optional` **rootfsDigest?**: `string`
+
+##### guestUnameMachine?
+
+> `optional` **guestUnameMachine?**: `string`
+
+##### guestElfMachine?
+
+> `optional` **guestElfMachine?**: `string`
+
+##### verifierOutput?
+
+> `optional` **verifierOutput?**: `string`
+
+##### verifierSource
+
+> **verifierSource**: `"unknown"` \| `"guest-exec"` \| `"host-sidecar"`
+
+##### routeAvailable?
+
+> `optional` **routeAvailable?**: `boolean`
+
+##### unavailableReason?
+
+> `optional` **unavailableReason?**: `"opposite-isa-provider-unavailable"` \| `"opposite-isa-assets-missing"` \| `"opposite-isa-not-opposite-route"` \| `"opposite-isa-boot-failed"` \| `"opposite-isa-guest-uname-mismatch"` \| `"opposite-isa-guest-elf-mismatch"` \| `"opposite-isa-verifier-incomplete"` \| `"opposite-isa-host-sidecar-output"`
+
+##### remediation?
+
+> `optional` **remediation?**: `string`
+
+***
+
+### OppositeIsaVmExecutionSummary
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.cross-arch-criu.opposite-isa-vm-execution"`
+
+##### hostArch
+
+> **hostArch**: [`OppositeIsaVmExecutionArch`](#oppositeisavmexecutionarch)
+
+##### guestArch
+
+> **guestArch**: [`OppositeIsaVmExecutionArch`](#oppositeisavmexecutionarch)
+
+##### providerMode
+
+> **providerMode**: `string`
+
+##### accelerated
+
+> **accelerated**: `boolean`
+
+##### emulated
+
+> **emulated**: `boolean`
+
+##### kernelVersion
+
+> **kernelVersion**: `string`
+
+##### rootfsDigest
+
+> **rootfsDigest**: `string`
+
+##### guestUnameMachine
+
+> **guestUnameMachine**: `string`
+
+##### guestElfMachine
+
+> **guestElfMachine**: `string`
+
+##### verifierOutput
+
+> **verifierOutput**: `string`
+
+##### state
+
+> **state**: [`OppositeIsaVmExecutionState`](#oppositeisavmexecutionstate)
+
+##### refusalCode?
+
+> `optional` **refusalCode?**: `"opposite-isa-provider-unavailable"` \| `"opposite-isa-assets-missing"` \| `"opposite-isa-not-opposite-route"` \| `"opposite-isa-boot-failed"` \| `"opposite-isa-guest-uname-mismatch"` \| `"opposite-isa-guest-elf-mismatch"` \| `"opposite-isa-verifier-incomplete"` \| `"opposite-isa-host-sidecar-output"`
+
+##### remediation?
+
+> `optional` **remediation?**: `string`
+
+***
+
 ### PortableMachineVmRestoreProofRequest
 
 #### Properties
@@ -15134,6 +15312,24 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### OppositeIsaVmExecutionRefusalCode
+
+> **OppositeIsaVmExecutionRefusalCode** = *typeof* [`oppositeIsaVmExecutionRefusalCodes`](#oppositeisavmexecutionrefusalcodes)\[`number`\]
+
+***
+
+### OppositeIsaVmExecutionArch
+
+> **OppositeIsaVmExecutionArch** = `"arm64"` \| `"amd64"` \| `"unknown"`
+
+***
+
+### OppositeIsaVmExecutionState
+
+> **OppositeIsaVmExecutionState** = `"completed"` \| `"refused"` \| `"skipped"`
+
+***
+
 ### PidStatus
 
 > **PidStatus** = `"alive"` \| `"dead"` \| `"recycled"`
@@ -16557,6 +16753,18 @@ loops; anything looser stops being a meaningful gate.
 ### NATIVE\_SYNTHETIC\_SLEEP\_SYSCALL\_FAILURE\_EXIT\_STATUS
 
 > `const` **NATIVE\_SYNTHETIC\_SLEEP\_SYSCALL\_FAILURE\_EXIT\_STATUS**: `111` = `NATIVE_SYNTHETIC_SLEEP_SYSCALL_RESTART_EXIT_STATUS`
+
+***
+
+### OPPOSITE\_ISA\_VM\_EXECUTION\_KIND
+
+> `const` **OPPOSITE\_ISA\_VM\_EXECUTION\_KIND**: `"machinen.cross-arch-criu.opposite-isa-vm-execution"`
+
+***
+
+### oppositeIsaVmExecutionRefusalCodes
+
+> `const` **oppositeIsaVmExecutionRefusalCodes**: readonly \[`"opposite-isa-provider-unavailable"`, `"opposite-isa-assets-missing"`, `"opposite-isa-not-opposite-route"`, `"opposite-isa-boot-failed"`, `"opposite-isa-guest-uname-mismatch"`, `"opposite-isa-guest-elf-mismatch"`, `"opposite-isa-verifier-incomplete"`, `"opposite-isa-host-sidecar-output"`\]
 
 ***
 
@@ -18647,6 +18855,104 @@ available.
 #### Returns
 
 `string`
+
+***
+
+### hostArchitectureFromNode()
+
+> **hostArchitectureFromNode**(`arch?`): [`OppositeIsaVmExecutionArch`](#oppositeisavmexecutionarch)
+
+#### Parameters
+
+##### arch?
+
+`string` = `...`
+
+#### Returns
+
+[`OppositeIsaVmExecutionArch`](#oppositeisavmexecutionarch)
+
+***
+
+### oppositeGuestArchitecture()
+
+> **oppositeGuestArchitecture**(`hostArch`): [`OppositeIsaVmExecutionArch`](#oppositeisavmexecutionarch)
+
+#### Parameters
+
+##### hostArch
+
+[`OppositeIsaVmExecutionArch`](#oppositeisavmexecutionarch)
+
+#### Returns
+
+[`OppositeIsaVmExecutionArch`](#oppositeisavmexecutionarch)
+
+***
+
+### normalizeGuestMachine()
+
+> **normalizeGuestMachine**(`value`): [`OppositeIsaVmExecutionArch`](#oppositeisavmexecutionarch)
+
+#### Parameters
+
+##### value
+
+`string`
+
+#### Returns
+
+[`OppositeIsaVmExecutionArch`](#oppositeisavmexecutionarch)
+
+***
+
+### classifyOppositeIsaProviderRoute()
+
+> **classifyOppositeIsaProviderRoute**(`input`): [`OppositeIsaVmExecutionProviderRoute`](#oppositeisavmexecutionproviderroute)
+
+#### Parameters
+
+##### input
+
+###### hostArch?
+
+[`OppositeIsaVmExecutionArch`](#oppositeisavmexecutionarch)
+
+###### guestArch
+
+[`OppositeIsaVmExecutionArch`](#oppositeisavmexecutionarch)
+
+###### platform?
+
+`Platform`
+
+###### hasKvm?
+
+`boolean`
+
+###### emulationAvailable?
+
+`boolean`
+
+#### Returns
+
+[`OppositeIsaVmExecutionProviderRoute`](#oppositeisavmexecutionproviderroute)
+
+***
+
+### buildOppositeIsaVmExecutionSummary()
+
+> **buildOppositeIsaVmExecutionSummary**(`evidence`): [`OppositeIsaVmExecutionSummary`](#oppositeisavmexecutionsummary)
+
+#### Parameters
+
+##### evidence
+
+[`OppositeIsaVmExecutionEvidence`](#oppositeisavmexecutionevidence)
+
+#### Returns
+
+[`OppositeIsaVmExecutionSummary`](#oppositeisavmexecutionsummary)
 
 ***
 
