@@ -43,6 +43,22 @@
 - [`writeBootSnapshot`](#writebootsnapshot)
 - [`detachedLogRoot`](#detachedlogroot)
 
+### Stateful database restore
+
+- [`StatefulDatabaseRestoreArch`](#statefuldatabaserestorearch)
+- [`StatefulDatabaseRestoreDatabase`](#statefuldatabaserestoredatabase)
+- [`StatefulDatabaseRestoreInput`](#statefuldatabaserestoreinput)
+- [`StatefulDatabaseRestoreRefusalCode`](#statefuldatabaserestorerefusalcode)
+- [`StatefulDatabaseRestoreState`](#statefuldatabaserestorestate)
+- [`StatefulDatabaseRestoreStateModel`](#statefuldatabaserestorestatemodel)
+- [`StatefulDatabaseRestoreSummary`](#statefuldatabaserestoresummary)
+- [`STATEFUL_DATABASE_RESTORE_KIND`](#stateful_database_restore_kind)
+- [`statefulDatabaseRestoreRefusalCodes`](#statefuldatabaserestorerefusalcodes)
+- [`buildStatefulDatabaseRestoreSummary`](#buildstatefuldatabaserestoresummary)
+- [`postgresLogicalRestoreInput`](#postgreslogicalrestoreinput)
+- [`sqliteRollbackJournalRestoreInput`](#sqliterollbackjournalrestoreinput)
+- [`sqliteWalCheckpointRestoreInput`](#sqlitewalcheckpointrestoreinput)
+
 ### Opposite-ISA VM execution
 
 - [`OppositeIsaVmExecutionArch`](#oppositeisavmexecutionarch)
@@ -10949,7 +10965,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### expectedRefusalCode
 
-> **expectedRefusalCode**: `"postgres-active-transaction-unsupported"` \| `"postgres-active-session-unsupported"` \| `"postgres-dirty-wal-boundary-unsupported"` \| `"postgres-host-mounted-data-dir-ambiguous"` \| `"postgres-physical-data-dir-cross-isa-unsupported"` \| `"postgres-target-arch-mismatch"` \| `"postgres-logical-dump-integrity-mismatch"` \| `"postgres-target-verifier-mismatch"` \| `"postgres-refused-source-state"`
+> **expectedRefusalCode**: `"postgres-active-transaction-unsupported"` \| `"postgres-active-session-unsupported"` \| `"postgres-dirty-wal-boundary-unsupported"` \| `"postgres-host-mounted-data-dir-ambiguous"` \| `"postgres-physical-data-dir-cross-isa-unsupported"` \| `"postgres-target-verifier-mismatch"` \| `"postgres-target-arch-mismatch"` \| `"postgres-logical-dump-integrity-mismatch"` \| `"postgres-refused-source-state"`
 
 ##### message
 
@@ -11701,6 +11717,190 @@ How long to keep retrying the UDS connect. Default 10s.
 > `optional` **retryMs?**: `number`
 
 Poll interval in ms while retrying. Default 250.
+
+***
+
+### StatefulDatabaseRestoreInput
+
+#### Properties
+
+##### database
+
+> **database**: [`StatefulDatabaseRestoreDatabase`](#statefuldatabaserestoredatabase)
+
+##### stateModel
+
+> **stateModel**: [`StatefulDatabaseRestoreStateModel`](#statefuldatabaserestorestatemodel)
+
+##### sourceArch
+
+> **sourceArch**: [`StatefulDatabaseRestoreArch`](#statefuldatabaserestorearch)
+
+##### targetArch
+
+> **targetArch**: [`StatefulDatabaseRestoreArch`](#statefuldatabaserestorearch)
+
+##### databaseVersion
+
+> **databaseVersion**: `string`
+
+##### artifactBytes
+
+> **artifactBytes**: `string` \| `Buffer`\<`ArrayBufferLike`\>
+
+##### logicalData
+
+> **logicalData**: `string` \| `Buffer`\<`ArrayBufferLike`\>
+
+##### sourceVerifierOutput
+
+> **sourceVerifierOutput**: `string`
+
+##### targetVerifierOutput
+
+> **targetVerifierOutput**: `string`
+
+##### postgres?
+
+> `optional` **postgres?**: `object`
+
+###### activeTransactions?
+
+> `optional` **activeTransactions?**: `number`
+
+###### activeSessions?
+
+> `optional` **activeSessions?**: `number`
+
+###### dirtyWal?
+
+> `optional` **dirtyWal?**: `boolean`
+
+###### hostMountedDataDir?
+
+> `optional` **hostMountedDataDir?**: `boolean`
+
+###### physicalDataDirCopy?
+
+> `optional` **physicalDataDirCopy?**: `boolean`
+
+###### extensionNativeState?
+
+> `optional` **extensionNativeState?**: `boolean`
+
+###### checkpointLsn?
+
+> `optional` **checkpointLsn?**: `string`
+
+##### sqlite?
+
+> `optional` **sqlite?**: `object`
+
+###### journalPolicy?
+
+> `optional` **journalPolicy?**: `"rollback-clean-close"` \| `"wal-checkpoint-truncate"`
+
+###### dirtyRollbackJournal?
+
+> `optional` **dirtyRollbackJournal?**: `boolean`
+
+###### dirtyWal?
+
+> `optional` **dirtyWal?**: `boolean`
+
+###### activeWriterTransaction?
+
+> `optional` **activeWriterTransaction?**: `boolean`
+
+###### mmapOrLockState?
+
+> `optional` **mmapOrLockState?**: `boolean`
+
+***
+
+### StatefulDatabaseRestoreSummary
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.cross-arch-criu.stateful-database-restore"`
+
+##### database
+
+> **database**: [`StatefulDatabaseRestoreDatabase`](#statefuldatabaserestoredatabase)
+
+##### stateModel
+
+> **stateModel**: [`StatefulDatabaseRestoreStateModel`](#statefuldatabaserestorestatemodel)
+
+##### sourceArch
+
+> **sourceArch**: [`StatefulDatabaseRestoreArch`](#statefuldatabaserestorearch)
+
+##### targetArch
+
+> **targetArch**: [`StatefulDatabaseRestoreArch`](#statefuldatabaserestorearch)
+
+##### databaseVersion
+
+> **databaseVersion**: `string`
+
+##### artifactDigest
+
+> **artifactDigest**: `string`
+
+##### logicalDataDigest
+
+> **logicalDataDigest**: `string`
+
+##### targetVerifierOutput
+
+> **targetVerifierOutput**: `string`
+
+##### migrationCompleted
+
+> **migrationCompleted**: `boolean`
+
+##### state
+
+> **state**: [`StatefulDatabaseRestoreState`](#statefuldatabaserestorestate)
+
+##### targetVerifierResult
+
+> **targetVerifierResult**: `"passed"` \| `"failed"` \| `"not-run"`
+
+##### refusalCode?
+
+> `optional` **refusalCode?**: `"postgres-active-transaction-unsupported"` \| `"postgres-active-session-unsupported"` \| `"postgres-dirty-wal-boundary-unsupported"` \| `"postgres-host-mounted-data-dir-ambiguous"` \| `"postgres-physical-data-dir-cross-isa-unsupported"` \| `"postgres-target-verifier-mismatch"` \| `"postgres-extension-native-state-unsupported"` \| `"sqlite-dirty-rollback-journal-unsupported"` \| `"sqlite-dirty-wal-checkpoint-unsupported"` \| `"sqlite-active-writer-transaction-unsupported"` \| `"sqlite-mmap-or-lock-state-unsupported"` \| `"sqlite-target-verifier-mismatch"`
+
+##### remediation?
+
+> `optional` **remediation?**: `string`
+
+##### evidence
+
+> **evidence**: `Record`\<`string`, `unknown`\>
+
+##### shortcutInspection
+
+> **shortcutInspection**: `object`
+
+###### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+###### sourceTextReusedAsTargetCode
+
+> **sourceTextReusedAsTargetCode**: `false`
+
+###### sidecarRuntimeUsed
+
+> **sidecarRuntimeUsed**: `false`
+
+###### metadataOnlyShortcutAccepted
+
+> **metadataOnlyShortcutAccepted**: `false`
 
 ***
 
@@ -15018,6 +15218,36 @@ Result of `validatePid` — easy to switch on at the call site.
 
 ***
 
+### StatefulDatabaseRestoreRefusalCode
+
+> **StatefulDatabaseRestoreRefusalCode** = *typeof* [`statefulDatabaseRestoreRefusalCodes`](#statefuldatabaserestorerefusalcodes)\[`number`\]
+
+***
+
+### StatefulDatabaseRestoreArch
+
+> **StatefulDatabaseRestoreArch** = `"arm64"` \| `"amd64"`
+
+***
+
+### StatefulDatabaseRestoreDatabase
+
+> **StatefulDatabaseRestoreDatabase** = `"postgresql"` \| `"sqlite"`
+
+***
+
+### StatefulDatabaseRestoreStateModel
+
+> **StatefulDatabaseRestoreStateModel** = `"logical-dump"` \| `"checkpoint"` \| `"rollback-journal"` \| `"wal-checkpoint"`
+
+***
+
+### StatefulDatabaseRestoreState
+
+> **StatefulDatabaseRestoreState** = `"completed"` \| `"refused"`
+
+***
+
 ### TargetGuestActiveSyscallRestoreStep
 
 > **TargetGuestActiveSyscallRestoreStep** = \{ `action`: `"rearm-sleep-timer"`; `threadId`: `string`; `syscallName`: `string`; `remainingTime`: \{ `seconds`: `string`; `nanoseconds`: `number`; \}; `resumeMode`: `"defer-target-resume"`; \} \| \{ `action`: `"rearm-ppoll-timeout"`; `threadId`: `string`; `remainingTime`: \{ `seconds`: `string`; `nanoseconds`: `number`; \}; `nfds`: `0` \| `1`; `resources`: [`NativeModeledPpollTargetResource`](#nativemodeledppolltargetresource)[]; `resumeMode`: `"defer-target-resume"`; \} \| \{ `action`: `"restore-fd-read-block"`; `threadId`: `string`; `fd`: `number`; `countBytes`: `number`; `resource`: `Exclude`\<[`NativeModeledFdReadTargetResource`](#nativemodeledfdreadtargetresource), `"reopened-offset-file"`\>; `remainingTime?`: \{ `seconds`: `string`; `nanoseconds`: `number`; \}; `resumeMode`: `"defer-target-resume"`; \} \| \{ `action`: `"complete-fd-read-from-file"`; `threadId`: `string`; `fd`: `number`; `countBytes`: `number`; `targetBufferPointer`: `string`; `fileOffset`: `number`; `resumeMode`: `"defer-target-resume"`; \} \| \{ `action`: `"complete-fd-write-to-file"`; `threadId`: `string`; `fd`: `number`; `countBytes`: `number`; `targetBufferPointer`: `string`; `fileOffset`: `number`; `resumeMode`: `"defer-target-resume"`; \} \| \{ `action`: `"restore-ping-socket-recvmsg-wait"`; `threadId`: `string`; `fd`: `number`; `sourceFd`: `number`; `messagePointer`: `string`; `iovLengthBytes`: `number`; `controlLengthBytes`: `number`; `receiveQueue`: [`NativeModeledPingSocketRecvmsgState`](#nativemodeledpingsocketrecvmsgstate)\[`"receiveQueue"`\]; `inFlightPackets`: [`NativeModeledPingSocketRecvmsgState`](#nativemodeledpingsocketrecvmsgstate)\[`"inFlightPackets"`\]; `signalTimer`: [`NativeModeledPingSocketRecvmsgState`](#nativemodeledpingsocketrecvmsgstate)\[`"signalTimer"`\]; `resumeMode`: `"defer-target-resume"`; \}
@@ -16772,6 +17002,18 @@ the guest agent skips entries that don't match.
 ###### Returns
 
 `Promise`\<`void`\>
+
+***
+
+### STATEFUL\_DATABASE\_RESTORE\_KIND
+
+> `const` **STATEFUL\_DATABASE\_RESTORE\_KIND**: `"machinen.cross-arch-criu.stateful-database-restore"`
+
+***
+
+### statefulDatabaseRestoreRefusalCodes
+
+> `const` **statefulDatabaseRestoreRefusalCodes**: readonly \[`"postgres-active-transaction-unsupported"`, `"postgres-active-session-unsupported"`, `"postgres-dirty-wal-boundary-unsupported"`, `"postgres-host-mounted-data-dir-ambiguous"`, `"postgres-physical-data-dir-cross-isa-unsupported"`, `"postgres-target-verifier-mismatch"`, `"postgres-extension-native-state-unsupported"`, `"sqlite-dirty-rollback-journal-unsupported"`, `"sqlite-dirty-wal-checkpoint-unsupported"`, `"sqlite-active-writer-transaction-unsupported"`, `"sqlite-mmap-or-lock-state-unsupported"`, `"sqlite-target-verifier-mismatch"`\]
 
 ***
 
@@ -19130,6 +19372,70 @@ resolve the binary through the same lookup chain.
 #### Returns
 
 `string`
+
+***
+
+### buildStatefulDatabaseRestoreSummary()
+
+> **buildStatefulDatabaseRestoreSummary**(`input`): [`StatefulDatabaseRestoreSummary`](#statefuldatabaserestoresummary)
+
+#### Parameters
+
+##### input
+
+[`StatefulDatabaseRestoreInput`](#statefuldatabaserestoreinput)
+
+#### Returns
+
+[`StatefulDatabaseRestoreSummary`](#statefuldatabaserestoresummary)
+
+***
+
+### postgresLogicalRestoreInput()
+
+> **postgresLogicalRestoreInput**(`input`): [`StatefulDatabaseRestoreInput`](#statefuldatabaserestoreinput)
+
+#### Parameters
+
+##### input
+
+`Omit`\<[`StatefulDatabaseRestoreInput`](#statefuldatabaserestoreinput), `"database"` \| `"stateModel"`\>
+
+#### Returns
+
+[`StatefulDatabaseRestoreInput`](#statefuldatabaserestoreinput)
+
+***
+
+### sqliteRollbackJournalRestoreInput()
+
+> **sqliteRollbackJournalRestoreInput**(`input`): [`StatefulDatabaseRestoreInput`](#statefuldatabaserestoreinput)
+
+#### Parameters
+
+##### input
+
+`Omit`\<[`StatefulDatabaseRestoreInput`](#statefuldatabaserestoreinput), `"database"` \| `"stateModel"`\>
+
+#### Returns
+
+[`StatefulDatabaseRestoreInput`](#statefuldatabaserestoreinput)
+
+***
+
+### sqliteWalCheckpointRestoreInput()
+
+> **sqliteWalCheckpointRestoreInput**(`input`): [`StatefulDatabaseRestoreInput`](#statefuldatabaserestoreinput)
+
+#### Parameters
+
+##### input
+
+`Omit`\<[`StatefulDatabaseRestoreInput`](#statefuldatabaserestoreinput), `"database"` \| `"stateModel"`\>
+
+#### Returns
+
+[`StatefulDatabaseRestoreInput`](#statefuldatabaserestoreinput)
 
 ***
 

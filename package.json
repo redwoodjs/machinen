@@ -104,6 +104,7 @@
     "smoke-hard-runtime-refusal-contract": "bash scripts/smoke/hard-runtime-refusal-contract.sh",
     "smoke-go-quiescent-runtime": "bash scripts/smoke/go-quiescent-runtime.sh",
     "smoke-stateful-services-proof": "bash scripts/smoke/stateful-services-proof.sh",
+    "smoke-stateful-database-portable-restore": "bash scripts/smoke/stateful-database-portable-restore.sh",
     "smoke-postgres-cross-arch-restore": "bash scripts/smoke/postgres-cross-arch-restore.sh",
     "smoke-postgres-machinen-restore": "bash scripts/smoke/postgres-machinen-restore.sh",
     "smoke-product-portable-postgres": "bash scripts/smoke/product-portable-postgres.sh",

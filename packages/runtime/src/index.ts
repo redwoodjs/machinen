@@ -473,6 +473,14 @@ export {
   validateNativeProcessImageDocuments,
 } from "./native-process-image.ts";
 export {
+  STATEFUL_DATABASE_RESTORE_KIND,
+  buildStatefulDatabaseRestoreSummary,
+  postgresLogicalRestoreInput,
+  sqliteRollbackJournalRestoreInput,
+  sqliteWalCheckpointRestoreInput,
+  statefulDatabaseRestoreRefusalCodes,
+} from "./stateful-database-restore.ts";
+export {
   OPPOSITE_ISA_VM_EXECUTION_KIND,
   buildOppositeIsaVmExecutionSummary,
   classifyOppositeIsaProviderRoute,
@@ -546,6 +554,15 @@ export {
   planPortableMachineTargetRestoreDescriptor,
   planPortableMachineVmRestoreProof,
 } from "./portable-machine-restore-proof.ts";
+export type {
+  StatefulDatabaseRestoreArch,
+  StatefulDatabaseRestoreDatabase,
+  StatefulDatabaseRestoreInput,
+  StatefulDatabaseRestoreRefusalCode,
+  StatefulDatabaseRestoreState,
+  StatefulDatabaseRestoreStateModel,
+  StatefulDatabaseRestoreSummary,
+} from "./stateful-database-restore.ts";
 export type {
   OppositeIsaVmExecutionArch,
   OppositeIsaVmExecutionEvidence,
