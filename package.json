@@ -111,6 +111,8 @@
     "smoke-portable-snapshot-guest-criu-composition": "bash scripts/smoke/portable-snapshot-guest-criu-composition.sh",
     "runtime-confidence-profile-matrix": "pnpm exec tsx scripts/runtime-confidence-profile-matrix.ts",
     "smoke-runtime-confidence-profile-matrix": "bash scripts/smoke/runtime-confidence-profile-matrix.sh",
+    "advanced-linux-facility-probe": "pnpm exec tsx scripts/advanced-linux-facility-probe.ts",
+    "smoke-advanced-linux-facility-probe": "bash scripts/smoke/advanced-linux-facility-probe.sh",
     "smoke-postgres-cross-arch-restore": "bash scripts/smoke/postgres-cross-arch-restore.sh",
     "smoke-postgres-machinen-restore": "bash scripts/smoke/postgres-machinen-restore.sh",
     "smoke-product-portable-postgres": "bash scripts/smoke/product-portable-postgres.sh",

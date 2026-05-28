@@ -25,6 +25,7 @@ Snapshot internals:
 - [guest CRIU substrate proof](./snapshot/guest-criu-substrate.md) — same-guest CRIU checks, C restore proof, and JVM refusal boundary
 - [portable snapshot plus guest CRIU composition](./snapshot/portable-snapshot-guest-criu-composition.md) — Machinen vmstate restore composed with guest CRIU artifacts
 - [C and Java runtime confidence profiles](./snapshot/runtime-confidence-profiles.md) — classified C/JVM support, proof-only, and refusal matrix
+- [advanced Linux facility probes](./snapshot/advanced-linux-facility-probes.md) — seccomp, eBPF, namespace, cgroup, and capability proof/refusal rows
 - [portable machine support envelope](./snapshot/support-envelope.md) — current app-neutral supported and refused capability families
 - [portable machine proof profiles](./snapshot/portable-machine-proof-profiles.md) — positive and negative proof profiles for target-native completion and fail-closed refusals
 - [portable proof matrices](./snapshot/proof-matrices.md) — one-command matrix presets and JSON summary shape

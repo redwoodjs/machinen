@@ -473,6 +473,15 @@ export {
   validateNativeProcessImageDocuments,
 } from "./native-process-image.ts";
 export {
+  ADVANCED_LINUX_FACILITY_PROBE_KIND,
+  advancedLinuxFacilityProbeClassifications,
+  advancedLinuxFacilityProbeFacilities,
+  advancedLinuxFacilityProbeRefusalCodes,
+  buildAdvancedLinuxFacilityProbeRow,
+  summarizeAdvancedLinuxFacilityProbeRows,
+  validateAdvancedLinuxFacilityProbeRows,
+} from "./advanced-linux-facility-probe.ts";
+export {
   RUNTIME_CONFIDENCE_PROFILE_KIND,
   buildRuntimeConfidenceProfileMatrix,
   buildRuntimeConfidenceProfileRow,
@@ -578,6 +587,15 @@ export {
   planPortableMachineTargetRestoreDescriptor,
   planPortableMachineVmRestoreProof,
 } from "./portable-machine-restore-proof.ts";
+export type {
+  AdvancedLinuxFacilityProbeClassification,
+  AdvancedLinuxFacilityProbeFacility,
+  AdvancedLinuxFacilityProbeInput,
+  AdvancedLinuxFacilityProbeRefusalCode,
+  AdvancedLinuxFacilityProbeRow,
+  AdvancedLinuxFacilityProbeStateModel,
+  AdvancedLinuxFacilityProbeSummary,
+} from "./advanced-linux-facility-probe.ts";
 export type {
   RuntimeConfidenceArch,
   RuntimeConfidenceClassification,

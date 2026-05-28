@@ -43,6 +43,23 @@
 - [`writeBootSnapshot`](#writebootsnapshot)
 - [`detachedLogRoot`](#detachedlogroot)
 
+### Advanced Linux facility probes
+
+- [`AdvancedLinuxFacilityProbeClassification`](#advancedlinuxfacilityprobeclassification)
+- [`AdvancedLinuxFacilityProbeFacility`](#advancedlinuxfacilityprobefacility)
+- [`AdvancedLinuxFacilityProbeInput`](#advancedlinuxfacilityprobeinput)
+- [`AdvancedLinuxFacilityProbeRefusalCode`](#advancedlinuxfacilityproberefusalcode)
+- [`AdvancedLinuxFacilityProbeRow`](#advancedlinuxfacilityproberow)
+- [`AdvancedLinuxFacilityProbeStateModel`](#advancedlinuxfacilityprobestatemodel)
+- [`AdvancedLinuxFacilityProbeSummary`](#advancedlinuxfacilityprobesummary)
+- [`ADVANCED_LINUX_FACILITY_PROBE_KIND`](#advanced_linux_facility_probe_kind)
+- [`advancedLinuxFacilityProbeClassifications`](#advancedlinuxfacilityprobeclassifications)
+- [`advancedLinuxFacilityProbeFacilities`](#advancedlinuxfacilityprobefacilities)
+- [`advancedLinuxFacilityProbeRefusalCodes`](#advancedlinuxfacilityproberefusalcodes)
+- [`buildAdvancedLinuxFacilityProbeRow`](#buildadvancedlinuxfacilityproberow)
+- [`summarizeAdvancedLinuxFacilityProbeRows`](#summarizeadvancedlinuxfacilityproberows)
+- [`validateAdvancedLinuxFacilityProbeRows`](#validateadvancedlinuxfacilityproberows)
+
 ### Runtime confidence profiles
 
 - [`RuntimeConfidenceArch`](#runtimeconfidencearch)
@@ -2051,6 +2068,216 @@ are dropped so a chatty SIGWINCH doesn't spam the bridge.
 `void`
 
 ## Interfaces
+
+### AdvancedLinuxFacilityProbeInput
+
+#### Extended by
+
+- [`AdvancedLinuxFacilityProbeRow`](#advancedlinuxfacilityproberow)
+
+#### Properties
+
+##### facility
+
+> **facility**: `"seccomp"` \| `"ebpf"` \| `"namespace"` \| `"cgroup"` \| `"capability"`
+
+##### stateModel
+
+> **stateModel**: [`AdvancedLinuxFacilityProbeStateModel`](#advancedlinuxfacilityprobestatemodel)
+
+##### sourceArch
+
+> **sourceArch**: `string`
+
+##### targetArch
+
+> **targetArch**: `string`
+
+##### kernelVersion
+
+> **kernelVersion**: `string`
+
+##### requiredCapabilities
+
+> **requiredCapabilities**: `string`[]
+
+##### verifierOutput
+
+> **verifierOutput**: `string`
+
+##### classification
+
+> **classification**: `"product-supported"` \| `"proof-only-feasibility"` \| `"stretch-demo"` \| `"refused"`
+
+##### migrationCompleted?
+
+> `optional` **migrationCompleted?**: `boolean`
+
+##### refusalCode?
+
+> `optional` **refusalCode?**: `"kernel-feature-unavailable"` \| `"insufficient-privileges"` \| `"unsafe-bpf-state-unsupported"` \| `"namespace-cgroup-mismatch"` \| `"capability-mismatch"` \| `"facility-verifier-ambiguous"`
+
+##### remediation?
+
+> `optional` **remediation?**: `string`
+
+##### evidence?
+
+> `optional` **evidence?**: `Record`\<`string`, `unknown`\>
+
+***
+
+### AdvancedLinuxFacilityProbeRow
+
+#### Extends
+
+- [`AdvancedLinuxFacilityProbeInput`](#advancedlinuxfacilityprobeinput)
+
+#### Properties
+
+##### facility
+
+> **facility**: `"seccomp"` \| `"ebpf"` \| `"namespace"` \| `"cgroup"` \| `"capability"`
+
+###### Inherited from
+
+[`AdvancedLinuxFacilityProbeInput`](#advancedlinuxfacilityprobeinput).[`facility`](#facility)
+
+##### stateModel
+
+> **stateModel**: [`AdvancedLinuxFacilityProbeStateModel`](#advancedlinuxfacilityprobestatemodel)
+
+###### Inherited from
+
+[`AdvancedLinuxFacilityProbeInput`](#advancedlinuxfacilityprobeinput).[`stateModel`](#statemodel)
+
+##### sourceArch
+
+> **sourceArch**: `string`
+
+###### Inherited from
+
+[`AdvancedLinuxFacilityProbeInput`](#advancedlinuxfacilityprobeinput).[`sourceArch`](#sourcearch)
+
+##### targetArch
+
+> **targetArch**: `string`
+
+###### Inherited from
+
+[`AdvancedLinuxFacilityProbeInput`](#advancedlinuxfacilityprobeinput).[`targetArch`](#targetarch)
+
+##### kernelVersion
+
+> **kernelVersion**: `string`
+
+###### Inherited from
+
+[`AdvancedLinuxFacilityProbeInput`](#advancedlinuxfacilityprobeinput).[`kernelVersion`](#kernelversion)
+
+##### requiredCapabilities
+
+> **requiredCapabilities**: `string`[]
+
+###### Inherited from
+
+[`AdvancedLinuxFacilityProbeInput`](#advancedlinuxfacilityprobeinput).[`requiredCapabilities`](#requiredcapabilities)
+
+##### verifierOutput
+
+> **verifierOutput**: `string`
+
+###### Inherited from
+
+[`AdvancedLinuxFacilityProbeInput`](#advancedlinuxfacilityprobeinput).[`verifierOutput`](#verifieroutput)
+
+##### classification
+
+> **classification**: `"product-supported"` \| `"proof-only-feasibility"` \| `"stretch-demo"` \| `"refused"`
+
+###### Inherited from
+
+[`AdvancedLinuxFacilityProbeInput`](#advancedlinuxfacilityprobeinput).[`classification`](#classification)
+
+##### refusalCode?
+
+> `optional` **refusalCode?**: `"kernel-feature-unavailable"` \| `"insufficient-privileges"` \| `"unsafe-bpf-state-unsupported"` \| `"namespace-cgroup-mismatch"` \| `"capability-mismatch"` \| `"facility-verifier-ambiguous"`
+
+###### Inherited from
+
+[`AdvancedLinuxFacilityProbeInput`](#advancedlinuxfacilityprobeinput).[`refusalCode`](#refusalcode)
+
+##### remediation?
+
+> `optional` **remediation?**: `string`
+
+###### Inherited from
+
+[`AdvancedLinuxFacilityProbeInput`](#advancedlinuxfacilityprobeinput).[`remediation`](#remediation)
+
+##### evidence?
+
+> `optional` **evidence?**: `Record`\<`string`, `unknown`\>
+
+###### Inherited from
+
+[`AdvancedLinuxFacilityProbeInput`](#advancedlinuxfacilityprobeinput).[`evidence`](#evidence)
+
+##### kind
+
+> **kind**: `"machinen.cross-arch-criu.advanced-linux-facility-probe"`
+
+##### migrationCompleted
+
+> **migrationCompleted**: `boolean`
+
+###### Overrides
+
+[`AdvancedLinuxFacilityProbeInput`](#advancedlinuxfacilityprobeinput).[`migrationCompleted`](#migrationcompleted)
+
+##### scope
+
+> **scope**: `object`
+
+###### productSupportClaimed
+
+> **productSupportClaimed**: `boolean`
+
+###### crossIsaKernelStateReplayClaimed
+
+> **crossIsaKernelStateReplayClaimed**: `false`
+
+***
+
+### AdvancedLinuxFacilityProbeSummary
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.cross-arch-criu.advanced-linux-facility-probe-matrix"`
+
+##### state
+
+> **state**: `"completed"` \| `"failed"`
+
+##### pass
+
+> **pass**: `boolean`
+
+##### rows
+
+> **rows**: [`AdvancedLinuxFacilityProbeRow`](#advancedlinuxfacilityproberow)[]
+
+##### rowCount
+
+> **rowCount**: `number`
+
+##### failures
+
+> **failures**: `string`[]
+
+***
 
 ### BalloonCounters
 
@@ -5461,7 +5688,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-11)
+[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-13)
 
 ##### buildId
 
@@ -5569,7 +5796,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-11)
+[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-13)
 
 ##### buildId
 
@@ -7364,7 +7591,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-26)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-28)
 
 ##### targetArch
 
@@ -7372,7 +7599,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`targetArch`](#targetarch-6)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`targetArch`](#targetarch-8)
 
 ##### entryAddress
 
@@ -7952,7 +8179,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-26)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-28)
 
 ##### targetArch
 
@@ -7960,7 +8187,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`targetArch`](#targetarch-6)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`targetArch`](#targetarch-8)
 
 ##### entryAddress
 
@@ -10703,7 +10930,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`sourceArch`](#sourcearch-4)
+[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`sourceArch`](#sourcearch-6)
 
 ##### targetArch
 
@@ -10711,7 +10938,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`targetArch`](#targetarch-15)
+[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`targetArch`](#targetarch-17)
 
 ##### machinenStateModel
 
@@ -10767,7 +10994,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`refusalCode`](#refusalcode-4)
+[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`refusalCode`](#refusalcode-6)
 
 ##### remediation?
 
@@ -10775,7 +11002,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`remediation`](#remediation-5)
+[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`remediation`](#remediation-7)
 
 ##### evidence?
 
@@ -10783,7 +11010,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`evidence`](#evidence-2)
+[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`evidence`](#evidence-4)
 
 ##### kind
 
@@ -10799,7 +11026,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Overrides
 
-[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`migrationCompleted`](#migrationcompleted-3)
+[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`migrationCompleted`](#migrationcompleted-5)
 
 ##### scope
 
@@ -11484,7 +11711,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### state
 
-> **state**: `"completed"` \| `"refused"`
+> **state**: `"refused"` \| `"completed"`
 
 ##### migrationCompleted
 
@@ -11500,7 +11727,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### targetState
 
-> **targetState**: `"completed"` \| `"refused"`
+> **targetState**: `"refused"` \| `"completed"`
 
 ##### targetVerifierResult
 
@@ -12159,7 +12386,7 @@ the breakdown shows up alongside the parent phase.
 
 ##### classification
 
-> **classification**: `"refused"` \| `"product-supported"` \| `"proof-only-feasibility"` \| `"stretch-demo"`
+> **classification**: `"product-supported"` \| `"proof-only-feasibility"` \| `"stretch-demo"` \| `"refused"`
 
 ##### sourceArch
 
@@ -12229,11 +12456,11 @@ the breakdown shows up alongside the parent phase.
 
 ##### classification
 
-> **classification**: `"refused"` \| `"product-supported"` \| `"proof-only-feasibility"` \| `"stretch-demo"`
+> **classification**: `"product-supported"` \| `"proof-only-feasibility"` \| `"stretch-demo"` \| `"refused"`
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`classification`](#classification-3)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`classification`](#classification-5)
 
 ##### sourceArch
 
@@ -12241,7 +12468,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`sourceArch`](#sourcearch-8)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`sourceArch`](#sourcearch-10)
 
 ##### targetArch
 
@@ -12249,7 +12476,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`targetArch`](#targetarch-20)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`targetArch`](#targetarch-22)
 
 ##### stateModel
 
@@ -12257,7 +12484,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`stateModel`](#statemodel)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`stateModel`](#statemodel-2)
 
 ##### artifactDigests
 
@@ -12281,7 +12508,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`verifierOutput`](#verifieroutput-4)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`verifierOutput`](#verifieroutput-6)
 
 ##### refusalCode?
 
@@ -12289,7 +12516,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`refusalCode`](#refusalcode-9)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`refusalCode`](#refusalcode-11)
 
 ##### remediation?
 
@@ -12297,7 +12524,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`remediation`](#remediation-7)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`remediation`](#remediation-9)
 
 ##### evidence?
 
@@ -12305,7 +12532,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`evidence`](#evidence-5)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`evidence`](#evidence-7)
 
 ##### kind
 
@@ -12317,7 +12544,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Overrides
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`migrationCompleted`](#migrationcompleted-8)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`migrationCompleted`](#migrationcompleted-10)
 
 ##### scope
 
@@ -15279,6 +15506,30 @@ Poll interval in ms while retrying. Default 250.
 
 ## Type Aliases
 
+### AdvancedLinuxFacilityProbeFacility
+
+> **AdvancedLinuxFacilityProbeFacility** = *typeof* [`advancedLinuxFacilityProbeFacilities`](#advancedlinuxfacilityprobefacilities)\[`number`\]
+
+***
+
+### AdvancedLinuxFacilityProbeClassification
+
+> **AdvancedLinuxFacilityProbeClassification** = *typeof* [`advancedLinuxFacilityProbeClassifications`](#advancedlinuxfacilityprobeclassifications)\[`number`\]
+
+***
+
+### AdvancedLinuxFacilityProbeRefusalCode
+
+> **AdvancedLinuxFacilityProbeRefusalCode** = *typeof* [`advancedLinuxFacilityProbeRefusalCodes`](#advancedlinuxfacilityproberefusalcodes)\[`number`\]
+
+***
+
+### AdvancedLinuxFacilityProbeStateModel
+
+> **AdvancedLinuxFacilityProbeStateModel** = `"preserved"` \| `"recreated"` \| `"proven-irrelevant"` \| `"refused"`
+
+***
+
 ### ErrorCode
 
 > **ErrorCode** = *typeof* [`ErrorCode`](#errorcode)\[keyof *typeof* [`ErrorCode`](#errorcode)\]
@@ -16141,6 +16392,30 @@ tarball-producing tool can pre-populate the lookup cache.
 > **SnapshotEngine** = `"criu"` \| `"vmstate"` \| `"portable"`
 
 ## Variables
+
+### ADVANCED\_LINUX\_FACILITY\_PROBE\_KIND
+
+> `const` **ADVANCED\_LINUX\_FACILITY\_PROBE\_KIND**: `"machinen.cross-arch-criu.advanced-linux-facility-probe"`
+
+***
+
+### advancedLinuxFacilityProbeFacilities
+
+> `const` **advancedLinuxFacilityProbeFacilities**: readonly \[`"seccomp"`, `"ebpf"`, `"namespace"`, `"cgroup"`, `"capability"`\]
+
+***
+
+### advancedLinuxFacilityProbeClassifications
+
+> `const` **advancedLinuxFacilityProbeClassifications**: readonly \[`"product-supported"`, `"proof-only-feasibility"`, `"stretch-demo"`, `"refused"`\]
+
+***
+
+### advancedLinuxFacilityProbeRefusalCodes
+
+> `const` **advancedLinuxFacilityProbeRefusalCodes**: readonly \[`"kernel-feature-unavailable"`, `"insufficient-privileges"`, `"unsafe-bpf-state-unsupported"`, `"namespace-cgroup-mismatch"`, `"capability-mismatch"`, `"facility-verifier-ambiguous"`\]
+
+***
 
 ### STATS\_FILE\_SIZE
 
@@ -17847,6 +18122,54 @@ the guest agent skips entries that don't match.
 `number`
 
 ## Functions
+
+### buildAdvancedLinuxFacilityProbeRow()
+
+> **buildAdvancedLinuxFacilityProbeRow**(`input`): [`AdvancedLinuxFacilityProbeRow`](#advancedlinuxfacilityproberow)
+
+#### Parameters
+
+##### input
+
+[`AdvancedLinuxFacilityProbeInput`](#advancedlinuxfacilityprobeinput)
+
+#### Returns
+
+[`AdvancedLinuxFacilityProbeRow`](#advancedlinuxfacilityproberow)
+
+***
+
+### summarizeAdvancedLinuxFacilityProbeRows()
+
+> **summarizeAdvancedLinuxFacilityProbeRows**(`rows`): [`AdvancedLinuxFacilityProbeSummary`](#advancedlinuxfacilityprobesummary)
+
+#### Parameters
+
+##### rows
+
+[`AdvancedLinuxFacilityProbeRow`](#advancedlinuxfacilityproberow)[]
+
+#### Returns
+
+[`AdvancedLinuxFacilityProbeSummary`](#advancedlinuxfacilityprobesummary)
+
+***
+
+### validateAdvancedLinuxFacilityProbeRows()
+
+> **validateAdvancedLinuxFacilityProbeRows**(`rows`): `string`[]
+
+#### Parameters
+
+##### rows
+
+[`AdvancedLinuxFacilityProbeRow`](#advancedlinuxfacilityproberow)[]
+
+#### Returns
+
+`string`[]
+
+***
 
 ### readBalloonStats()
 
