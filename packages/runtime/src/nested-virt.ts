@@ -5,7 +5,7 @@ import { BootError } from "./errors.ts";
 const UNSUPPORTED_MESSAGE =
   "nested virtualization needs Linux/arm64 KVM with EL2 support, or macOS 15+ on M3/M4-class Apple Silicon";
 
-interface NestedVirtProbeHost {
+export interface NestedVirtProbeHost {
   platform: NodeJS.Platform;
   arch: NodeJS.Architecture;
   existsSync(path: string): boolean;
@@ -13,7 +13,7 @@ interface NestedVirtProbeHost {
   execFileSync(file: string, args: string[]): string;
 }
 
-interface NestedVirtProbeResult {
+export interface NestedVirtProbeResult {
   supported: boolean;
   reason?: string;
 }
