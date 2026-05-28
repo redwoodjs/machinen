@@ -45,14 +45,18 @@
 
 ### Architecture-portable snapshot gauntlet
 
-- [`ArchitecturePortableSnapshotGauntletClassification`](#architectureportablesnapshotgauntletclassification)
+- [`ArchitecturePortableSnapshotGauntletEvidenceStatus`](#architectureportablesnapshotgauntletevidencestatus)
 - [`ArchitecturePortableSnapshotGauntletRow`](#architectureportablesnapshotgauntletrow)
 - [`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput)
 - [`ArchitecturePortableSnapshotGauntletSummary`](#architectureportablesnapshotgauntletsummary)
+- [`ArchitecturePortableSnapshotEvidenceCategory`](#architectureportablesnapshotevidencecategory)
+- [`ArchitecturePortableSnapshotProductSupport`](#architectureportablesnapshotproductsupport)
 - [`ArchitecturePortableSnapshotTargetExecution`](#architectureportablesnapshottargetexecution)
 - [`ARCHITECTURE_PORTABLE_SNAPSHOT_GAUNTLET_KIND`](#architecture_portable_snapshot_gauntlet_kind)
 - [`ARCHITECTURE_PORTABLE_SNAPSHOT_GAUNTLET_ROW_KIND`](#architecture_portable_snapshot_gauntlet_row_kind)
-- [`architecturePortableSnapshotGauntletClassifications`](#architectureportablesnapshotgauntletclassifications)
+- [`architecturePortableSnapshotGauntletEvidenceStatuses`](#architectureportablesnapshotgauntletevidencestatuses)
+- [`architecturePortableSnapshotEvidenceCategories`](#architectureportablesnapshotevidencecategories)
+- [`architecturePortableSnapshotProductSupportStates`](#architectureportablesnapshotproductsupportstates)
 - [`architecturePortableSnapshotTargetExecutions`](#architectureportablesnapshottargetexecutions)
 - [`requiredArchitecturePortableSnapshotClaimIds`](#requiredarchitectureportablesnapshotclaimids)
 - [`buildArchitecturePortableSnapshotGauntletRow`](#buildarchitectureportablesnapshotgauntletrow)
@@ -2389,9 +2393,9 @@ are dropped so a chatty SIGWINCH doesn't spam the bridge.
 
 > **claimName**: `string`
 
-##### classification
+##### evidenceStatus
 
-> **classification**: `"product-supported"` \| `"proof-only-feasibility"` \| `"stretch-demo"` \| `"refused"` \| `"skipped"`
+> **evidenceStatus**: `"stretch-demo"` \| `"support"` \| `"proof"` \| `"refusal"` \| `"skipped"`
 
 ##### sourceArch
 
@@ -2412,6 +2416,22 @@ are dropped so a chatty SIGWINCH doesn't spam the bridge.
 ##### targetExecution
 
 > **targetExecution**: `"native"` \| `"accelerated"` \| `"emulated"` \| `"not-applicable"`
+
+##### evidenceCategory
+
+> **evidenceCategory**: `"supported-semantic-restart"` \| `"supported-semantic-continuation"` \| `"runtime-aware-proof"` \| `"native/process-proof"` \| `"unsupported"`
+
+##### productSupport
+
+> **productSupport**: `"unsupported"` \| `"supported"` \| `"not-yet-supported"`
+
+##### implementationLevel
+
+> **implementationLevel**: `string`
+
+##### graduationTargetLevel
+
+> **graduationTargetLevel**: `string`
 
 ##### stateModel
 
@@ -2475,13 +2495,13 @@ are dropped so a chatty SIGWINCH doesn't spam the bridge.
 
 [`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`claimName`](#claimname)
 
-##### classification
+##### evidenceStatus
 
-> **classification**: `"product-supported"` \| `"proof-only-feasibility"` \| `"stretch-demo"` \| `"refused"` \| `"skipped"`
+> **evidenceStatus**: `"stretch-demo"` \| `"support"` \| `"proof"` \| `"refusal"` \| `"skipped"`
 
 ###### Inherited from
 
-[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`classification`](#classification-2)
+[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`evidenceStatus`](#evidencestatus)
 
 ##### sourceArch
 
@@ -2522,6 +2542,38 @@ are dropped so a chatty SIGWINCH doesn't spam the bridge.
 ###### Inherited from
 
 [`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`targetExecution`](#targetexecution)
+
+##### evidenceCategory
+
+> **evidenceCategory**: `"supported-semantic-restart"` \| `"supported-semantic-continuation"` \| `"runtime-aware-proof"` \| `"native/process-proof"` \| `"unsupported"`
+
+###### Inherited from
+
+[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`evidenceCategory`](#evidencecategory)
+
+##### productSupport
+
+> **productSupport**: `"unsupported"` \| `"supported"` \| `"not-yet-supported"`
+
+###### Inherited from
+
+[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`productSupport`](#productsupport)
+
+##### implementationLevel
+
+> **implementationLevel**: `string`
+
+###### Inherited from
+
+[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`implementationLevel`](#implementationlevel)
+
+##### graduationTargetLevel
+
+> **graduationTargetLevel**: `string`
+
+###### Inherited from
+
+[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`graduationTargetLevel`](#graduationtargetlevel)
 
 ##### stateModel
 
@@ -2625,9 +2677,9 @@ are dropped so a chatty SIGWINCH doesn't spam the bridge.
 
 > **rows**: [`ArchitecturePortableSnapshotGauntletRow`](#architectureportablesnapshotgauntletrow)[]
 
-##### byClassification
+##### byEvidenceStatus
 
-> **byClassification**: `Record`\<[`ArchitecturePortableSnapshotGauntletClassification`](#architectureportablesnapshotgauntletclassification), `number`\>
+> **byEvidenceStatus**: `Record`\<[`ArchitecturePortableSnapshotGauntletEvidenceStatus`](#architectureportablesnapshotgauntletevidencestatus), `number`\>
 
 ##### failures
 
@@ -5670,7 +5722,7 @@ by default when `output` is a TTY.
 
 ###### altStack.state
 
-> **state**: `"disabled"` \| `"unsupported"` \| `"enabled"`
+> **state**: `"unsupported"` \| `"disabled"` \| `"enabled"`
 
 ###### altStack.sp?
 
@@ -10443,7 +10495,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`classification`](#classification-7)
+[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`classification`](#classification-5)
 
 ##### l0HostArch
 
@@ -11889,7 +11941,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### expectedResult
 
-> **expectedResult**: `"unknown"` \| `"refusal"` \| `"success"`
+> **expectedResult**: `"refusal"` \| `"unknown"` \| `"success"`
 
 ##### sourceGoal?
 
@@ -13510,7 +13562,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`classification`](#classification-9)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`classification`](#classification-7)
 
 ##### sourceArch
 
@@ -16580,15 +16632,27 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
-### ArchitecturePortableSnapshotGauntletClassification
+### ArchitecturePortableSnapshotGauntletEvidenceStatus
 
-> **ArchitecturePortableSnapshotGauntletClassification** = *typeof* [`architecturePortableSnapshotGauntletClassifications`](#architectureportablesnapshotgauntletclassifications)\[`number`\]
+> **ArchitecturePortableSnapshotGauntletEvidenceStatus** = *typeof* [`architecturePortableSnapshotGauntletEvidenceStatuses`](#architectureportablesnapshotgauntletevidencestatuses)\[`number`\]
 
 ***
 
 ### ArchitecturePortableSnapshotTargetExecution
 
 > **ArchitecturePortableSnapshotTargetExecution** = *typeof* [`architecturePortableSnapshotTargetExecutions`](#architectureportablesnapshottargetexecutions)\[`number`\]
+
+***
+
+### ArchitecturePortableSnapshotEvidenceCategory
+
+> **ArchitecturePortableSnapshotEvidenceCategory** = *typeof* [`architecturePortableSnapshotEvidenceCategories`](#architectureportablesnapshotevidencecategories)\[`number`\]
+
+***
+
+### ArchitecturePortableSnapshotProductSupport
+
+> **ArchitecturePortableSnapshotProductSupport** = *typeof* [`architecturePortableSnapshotProductSupportStates`](#architectureportablesnapshotproductsupportstates)\[`number`\]
 
 ***
 
@@ -17533,9 +17597,9 @@ tarball-producing tool can pre-populate the lookup cache.
 
 ***
 
-### architecturePortableSnapshotGauntletClassifications
+### architecturePortableSnapshotGauntletEvidenceStatuses
 
-> `const` **architecturePortableSnapshotGauntletClassifications**: readonly \[`"product-supported"`, `"proof-only-feasibility"`, `"stretch-demo"`, `"refused"`, `"skipped"`\]
+> `const` **architecturePortableSnapshotGauntletEvidenceStatuses**: readonly \[`"support"`, `"proof"`, `"stretch-demo"`, `"refusal"`, `"skipped"`\]
 
 ***
 
@@ -17545,9 +17609,21 @@ tarball-producing tool can pre-populate the lookup cache.
 
 ***
 
+### architecturePortableSnapshotEvidenceCategories
+
+> `const` **architecturePortableSnapshotEvidenceCategories**: readonly \[`"supported-semantic-restart"`, `"supported-semantic-continuation"`, `"runtime-aware-proof"`, `"native/process-proof"`, `"unsupported"`\]
+
+***
+
+### architecturePortableSnapshotProductSupportStates
+
+> `const` **architecturePortableSnapshotProductSupportStates**: readonly \[`"supported"`, `"not-yet-supported"`, `"unsupported"`\]
+
+***
+
 ### requiredArchitecturePortableSnapshotClaimIds
 
-> `const` **requiredArchitecturePortableSnapshotClaimIds**: readonly \[`"opposite-isa-vm-execution"`, `"postgres-bidirectional-logical-restore"`, `"postgres-unsafe-neighbor-refusals"`, `"sqlite-rollback-journal-restore"`, `"sqlite-wal-checkpoint-restore"`, `"sqlite-dirty-inflight-refusals"`, `"guest-checkpoint-c-simple"`, `"guest-checkpoint-jvm-simple"`, `"portable-snapshot-guest-checkpoint-composition"`, `"runtime-confidence-c"`, `"runtime-confidence-java"`, `"advanced-linux-seccomp"`, `"advanced-linux-ebpf"`, `"advanced-linux-namespace-cgroup-capability"`, `"nested-virtualization-stretch-proof"`\]
+> `const` **requiredArchitecturePortableSnapshotClaimIds**: readonly \[`"opposite-isa-vm-execution"`, `"guest-checkpoint-c-simple"`, `"guest-checkpoint-jvm-simple"`, `"portable-snapshot-guest-checkpoint-composition"`, `"advanced-linux-seccomp"`, `"advanced-linux-ebpf"`, `"advanced-linux-namespace-cgroup-capability"`, `"nested-virtualization-stretch-proof"`, `"native-register-translation"`, `"native-stack-return-chain-translation"`, `"native-private-memory-materialization"`, `"native-executable-target-module-materialization"`, `"native-target-restore-loader"`, `"native-tls-simd-fpu-policy"`, `"native-signal-policy"`, `"native-active-syscall-policy"`, `"native-thread-policy"`, `"native-mapping-refusals"`, `"native-resource-refusals"`\]
 
 ***
 

@@ -476,7 +476,9 @@ export {
   ARCHITECTURE_PORTABLE_SNAPSHOT_GAUNTLET_KIND,
   ARCHITECTURE_PORTABLE_SNAPSHOT_GAUNTLET_ROW_KIND,
   buildArchitecturePortableSnapshotGauntletRow,
-  architecturePortableSnapshotGauntletClassifications,
+  architecturePortableSnapshotGauntletEvidenceStatuses,
+  architecturePortableSnapshotEvidenceCategories,
+  architecturePortableSnapshotProductSupportStates,
   architecturePortableSnapshotTargetExecutions,
   requiredArchitecturePortableSnapshotClaimIds,
   stableGauntletDigest,
@@ -618,10 +620,12 @@ export {
   planPortableMachineVmRestoreProof,
 } from "./portable-machine-restore-proof.ts";
 export type {
-  ArchitecturePortableSnapshotGauntletClassification,
+  ArchitecturePortableSnapshotGauntletEvidenceStatus,
   ArchitecturePortableSnapshotGauntletRow,
   ArchitecturePortableSnapshotGauntletRowInput,
   ArchitecturePortableSnapshotGauntletSummary,
+  ArchitecturePortableSnapshotEvidenceCategory,
+  ArchitecturePortableSnapshotProductSupport,
   ArchitecturePortableSnapshotTargetExecution,
 } from "./architecture-portable-snapshot-gauntlet.ts";
 export type { NestedVirtProbeHost, NestedVirtProbeResult } from "./nested-virt.ts";
