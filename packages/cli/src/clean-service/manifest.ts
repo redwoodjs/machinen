@@ -10,6 +10,18 @@ type CleanServiceRuntimeProvisioning =
   | "distro-package-set"
   | "bundled-runtime-layer";
 
+interface CleanServiceObservableStateDecision {
+  name: string;
+  decision:
+    | "preserved"
+    | "recreated"
+    | "drained"
+    | "dropped-irrelevant"
+    | "logically-restored"
+    | "refused";
+  rationale: string;
+}
+
 interface CleanServiceRuntimePolicy {
   compatibility: CleanServiceRuntimeCompatibility;
   provisioning: CleanServiceRuntimeProvisioning;
@@ -33,6 +45,7 @@ export interface CleanServiceManifest {
   sourceArch: CleanServiceArch;
   snapshotEngine: "vmstate" | "criu" | "unknown";
   routePolicy: "target-native-clean-service-when-target-arch-differs";
+  observableStateDecisions?: CleanServiceObservableStateDecision[];
   components: CleanServiceComponent[];
   security: {
     sourceIsaEmulationUsed: false;
@@ -105,6 +118,28 @@ export const cleanServiceManifestSchema = {
     sourceArch: { enum: ["arm64", "amd64"] },
     snapshotEngine: { enum: ["vmstate", "criu", "unknown"] },
     routePolicy: { const: "target-native-clean-service-when-target-arch-differs" },
+    observableStateDecisions: {
+      type: "array",
+      items: {
+        type: "object",
+        required: ["name", "decision", "rationale"],
+        additionalProperties: true,
+        properties: {
+          name: { type: "string", minLength: 1 },
+          decision: {
+            enum: [
+              "preserved",
+              "recreated",
+              "drained",
+              "dropped-irrelevant",
+              "logically-restored",
+              "refused",
+            ],
+          },
+          rationale: { type: "string", minLength: 1 },
+        },
+      },
+    },
     components: {
       type: "array",
       minItems: 1,
@@ -316,6 +351,27 @@ function isSupportedCleanServiceComponent(component: CleanServiceComponent): boo
     (component.runtime === "python" && component.subset === "python-http-clean-root-v1") ||
     (component.runtime === "go" && component.subset === "go-http-clean-root-v1")
   );
+}
+
+export function cleanServiceObservableStateDecisions(): CleanServiceObservableStateDecision[] {
+  return [
+    {
+      name: "app-root-artifact",
+      decision: "preserved",
+      rationale: "the captured service root is restored by digest-checked artifact bytes",
+    },
+    {
+      name: "service-process",
+      decision: "recreated",
+      rationale: "the target boots a target-native runtime and starts a new service process",
+    },
+    {
+      name: "active-client-sessions",
+      decision: "refused",
+      rationale:
+        "active sessions are outside the clean-service restart boundary until drained or modeled",
+    },
+  ];
 }
 
 export function cleanServiceSecurityAssertions(): CleanServiceManifest["security"] {

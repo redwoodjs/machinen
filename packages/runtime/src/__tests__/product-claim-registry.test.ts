@@ -18,9 +18,9 @@ describe("Goal 46 product claim registry", () => {
   it("classifies every portable-machine proof profile into a product status", () => {
     const registry = buildProductClaimRegistry(PROFILES);
 
-    expect(registry.entries).toHaveLength(PROFILES.length);
-    expect(registry.summary.total).toBe(PROFILES.length);
-    expect(registry.summary.implementedProductSupport).toBe(3);
+    expect(registry.entries).toHaveLength(PROFILES.length + 1);
+    expect(registry.summary.total).toBe(PROFILES.length + 1);
+    expect(registry.summary.implementedProductSupport).toBe(4);
     expect(
       registry.entries.filter((entry) => entry.productStatus === "implemented-product-support"),
     ).toEqual(
@@ -39,6 +39,13 @@ describe("Goal 46 product claim registry", () => {
           name: "go-cross-arch-runtime-policy",
           migrationCompleted: true,
           proofOnly: false,
+          supportLevel: "level-1-semantic-restart",
+        }),
+        expect.objectContaining({
+          name: "ping-sequence-counter-semantic-continuation-v1",
+          migrationCompleted: true,
+          proofOnly: false,
+          supportLevel: "level-2-semantic-continuation",
         }),
       ]),
     );

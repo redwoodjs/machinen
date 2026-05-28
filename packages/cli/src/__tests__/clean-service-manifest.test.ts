@@ -18,6 +18,13 @@ function manifest(componentOverrides: Record<string, unknown> = {}): CleanServic
     sourceArch: "arm64",
     snapshotEngine: "vmstate",
     routePolicy: "target-native-clean-service-when-target-arch-differs",
+    observableStateDecisions: [
+      {
+        name: "service-process",
+        decision: "recreated",
+        rationale: "target-native service process is recreated",
+      },
+    ],
     components: [
       {
         id: "nodejs:primary-http-service",
@@ -63,6 +70,9 @@ describe("clean-service manifest schema", () => {
     expect(
       cleanServiceManifestSchema.properties.components.items.properties.subset["x-knownSubsets"],
     ).toContain("go-http-clean-root-v1");
+    expect(
+      cleanServiceManifestSchema.properties.observableStateDecisions.items.properties.decision.enum,
+    ).toContain("logically-restored");
   });
 
   it("accepts current manifests with forward-compatible unknown properties", () => {

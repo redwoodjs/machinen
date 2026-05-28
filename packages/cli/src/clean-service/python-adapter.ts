@@ -1,6 +1,7 @@
 import type { RegistryEntry, VmHandle } from "@machinen/runtime";
 
 import {
+  cleanServiceObservableStateDecisions,
   cleanServiceSecurityAssertions,
   normalizeCleanServiceRefusal,
   runtimePolicyFor,
@@ -48,6 +49,7 @@ export async function inspectPortablePythonVm(
     sourceArch: opts.guestCpu(),
     snapshotEngine: "vmstate",
     routePolicy: "target-native-clean-service-when-target-arch-differs",
+    observableStateDecisions: cleanServiceObservableStateDecisions(),
     components: [
       {
         id: "python:primary-http-service",
