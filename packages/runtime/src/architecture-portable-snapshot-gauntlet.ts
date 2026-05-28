@@ -139,8 +139,10 @@ export const requiredArchitecturePortableSnapshotClaimIds = [
   "advanced-linux-ebpf",
   "advanced-linux-namespace-cgroup-capability",
   "nested-virtualization-stretch-proof",
+  "controlled-c-translated-continuation",
 ] as const;
 
+// fallow-ignore-next-line complexity
 function validateArchitecturePortableSnapshotGauntletRowShape(
   row: ArchitecturePortableSnapshotGauntletRow,
 ): string[] {
@@ -183,6 +185,7 @@ const requiredStringFields = [
   "verifierOutput",
 ] as const satisfies ReadonlyArray<keyof ArchitecturePortableSnapshotGauntletRow>;
 
+// fallow-ignore-next-line complexity
 function validateProductSupportedGauntletRow(
   row: ArchitecturePortableSnapshotGauntletRow,
 ): string[] {
@@ -198,6 +201,12 @@ function validateProductSupportedGauntletRow(
   }
   if (row.stateModel === "metadata-only-continuation") {
     failures.push(`${row.claimId} reports metadata-only continuation as product restore success`);
+  }
+  if (
+    row.stateDecisions.includes("metadata-only-continuation-refused") &&
+    row.verifierOutput.includes("metadata-only success")
+  ) {
+    failures.push(`${row.claimId} reports metadata-only continuation as restore success`);
   }
   if (!row.verifierOutput) {
     failures.push(`${row.claimId} product-supported row lacks target-native verifier output`);

@@ -2,7 +2,7 @@
   "kind": "machinen.architecture-portable-snapshot.final-proof-gauntlet",
   "state": "completed",
   "pass": true,
-  "rowCount": 15,
+  "rowCount": 16,
   "rows": [
     {
       "claimId": "opposite-isa-vm-execution",
@@ -172,9 +172,9 @@
       "stateModel": "guest-checkpoint-dump-restore",
       "stateDecisions": ["same-guest", "same-isa", "cross-isa-checkpoint-replay-not-claimed"],
       "verifierCommand": "bash scripts/smoke/guest-checkpoint-substrate.sh --profile c-simple --json",
-      "verifierOutput": "pre=8 post=16 restoredPid=770 tail=pid=770 counter=11;pid=770 counter=12;pid=770 counter=13;pid=770 counter=14;pid=770 counter=15;",
+      "verifierOutput": "pre=8 post=15 restoredPid=770 tail=pid=770 counter=10;pid=770 counter=11;pid=770 counter=12;pid=770 counter=13;pid=770 counter=14;",
       "artifactDigests": {
-        "summary": "65305e754c7847541eb819d2471f55a576d30bd4d4231afb737c0271328f2821"
+        "summary": "d4f4766467d2079b12e7490c443f04e91292da9d399d5fb20c9541ee13d56ab3"
       },
       "provenance": {
         "family": "guest-checkpoint-substrate",
@@ -224,9 +224,9 @@
         "cross-isa-checkpoint-replay-not-claimed"
       ],
       "verifierCommand": "bash scripts/smoke/portable-snapshot-guest-checkpoint-composition.sh --json",
-      "verifierOutput": "pre=8 post=15 restoredPid=850 tail=pid=850 counter=10;pid=850 counter=11;pid=850 counter=12;pid=850 counter=13;pid=850 counter=14;",
+      "verifierOutput": "pre=8 post=16 restoredPid=850 tail=pid=850 counter=11;pid=850 counter=12;pid=850 counter=13;pid=850 counter=14;pid=850 counter=15;",
       "artifactDigests": {
-        "storedCheckpointImageDigest": "1949a186f57556438d030cb23c263c69671c6caa2f3f5df417d895b9e8a58b97"
+        "storedCheckpointImageDigest": "8159a31270449a3875dc20ac338bda02a36ff1d2cdbd1f29d488fd6fa482f9f1"
       },
       "provenance": {
         "family": "portable-snapshot-guest-checkpoint-composition"
@@ -388,11 +388,45 @@
       },
       "migrationCompleted": false,
       "kind": "machinen.architecture-portable-snapshot.final-proof-gauntlet-row"
+    },
+    {
+      "claimId": "controlled-c-translated-continuation",
+      "claimName": "controlled C translated continuation",
+      "classification": "proof-only-feasibility",
+      "sourceArch": "arm64",
+      "targetArch": "amd64",
+      "hostArch": "arm64",
+      "providerMode": "ssh-real-target:root@192.168.0.8",
+      "targetExecution": "native",
+      "stateModel": "translated-controlled-continuation",
+      "stateDecisions": [
+        "architecture-portable-state-bundle",
+        "target-native-artifact-verified",
+        "source-isa-emulation-refused",
+        "raw-checkpoint-replay-refused",
+        "metadata-only-continuation-refused"
+      ],
+      "verifierCommand": "ssh root@192.168.0.8 sh /tmp/machinen-controlled-continuation-1779984042383-26472/architecture-portable-controlled-continuation-target-loader.sh /tmp/machinen-controlled-continuation-1779984042383-26472/bundle",
+      "verifierOutput": "controlled-c-continuation\nsourceArch=arm64\ntargetArch=amd64\ncapturedCounter=41\nrestoredCounter=42\ncontinuationLabel=safe-counter-v1\ntarget-native-continuation-ok\nloader-target-arch=amd64\ntargetArtifactDigest=c83736427b637562c212305b26e472464e219f02d829c37c5dc0b755d2a96bab\nsourceIsaEmulationUsed=false\nsidecarRuntimeUsed=false\nmetadataOnlyContinuation=false\nrawCheckpointImageReplayUsed=false",
+      "artifactDigests": {
+        "manifest": "5bfb3f21cf65e92c12896b8c74c7794b88e56eb5fd51fabbdd15765211ef2e10",
+        "state": "b9a02aec471e28fd08963dfa05c076ea512b6750c373d6d9c338d2fd5421be8e",
+        "refusals": "74cc07b8099f0abe1b45b783566305f1589ccd69ae57aef85b77a8cfd32a4a91",
+        "targetBinary": "c83736427b637562c212305b26e472464e219f02d829c37c5dc0b755d2a96bab"
+      },
+      "provenance": {
+        "mode": "live",
+        "targetSsh": "root@192.168.0.8",
+        "workDir": "/var/folders/jj/brzmsc2562zbwgzwbnjdnqp80000gn/T/machinen-controlled-continuation.7a7w77/run",
+        "remoteArch": "amd64"
+      },
+      "migrationCompleted": true,
+      "kind": "machinen.architecture-portable-snapshot.final-proof-gauntlet-row"
     }
   ],
   "byClassification": {
     "product-supported": 0,
-    "proof-only-feasibility": 7,
+    "proof-only-feasibility": 8,
     "stretch-demo": 1,
     "refused": 6,
     "skipped": 1

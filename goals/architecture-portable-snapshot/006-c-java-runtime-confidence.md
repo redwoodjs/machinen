@@ -1,7 +1,5 @@
 # Goal 006: C and Java runtime confidence profiles
 
-Parent: [`FINAL-GOAL.md`](./FINAL-GOAL.md)
-
 ## Motivation
 
 Shell commands and tiny HTTP services are not enough to make a architecture-portable snapshot claim

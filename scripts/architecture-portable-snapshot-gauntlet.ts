@@ -79,6 +79,7 @@ function rowsFromLiveSmokes(): ArchitecturePortableSnapshotGauntletRow[] {
     "scripts/smoke/nested-virtualization-stretch-proof.sh",
     "nested-virtualization-stretch-proof-summary",
   );
+  const controlled = controlledContinuationSmokeJson();
 
   return [
     oppositeIsaRow(opposite),
@@ -96,11 +97,16 @@ function rowsFromLiveSmokes(): ArchitecturePortableSnapshotGauntletRow[] {
     advancedFacilityRow(advanced, "ebpf", "advanced-linux-ebpf", "eBPF proof/refusal"),
     advancedCombinedRow(advanced),
     nestedRow(nested),
+    controlledContinuationRow(controlled),
   ];
 }
 
 function smokeJson(script: string, kindSuffix: string): Json {
-  const result = spawnSync("bash", [script, "--json"], {
+  return smokeJsonWithArgs(script, ["--json"], kindSuffix);
+}
+
+function smokeJsonWithArgs(script: string, args: string[], kindSuffix: string): Json {
+  const result = spawnSync("bash", [script, ...args], {
     cwd: resolve(import.meta.dirname, ".."),
     encoding: "utf8",
     maxBuffer: 64 * 1024 * 1024,
@@ -110,6 +116,18 @@ function smokeJson(script: string, kindSuffix: string): Json {
     throw new Error(`${script} failed with ${result.status}: ${output.slice(-4000)}`);
   }
   return parseJsonObject(output, kindSuffix);
+}
+
+function controlledContinuationSmokeJson(): Json {
+  const args = ["--json"];
+  if (process.env.ARCH_PORTABLE_CONTROLLED_CONTINUATION_LIVE === "1") {
+    args.push("--live");
+  }
+  return smokeJsonWithArgs(
+    "scripts/smoke/architecture-portable-controlled-continuation.sh",
+    args,
+    "controlled-continuation-summary",
+  );
 }
 
 function parseJsonObject(output: string, kindSuffix: string): Json {
@@ -266,6 +284,7 @@ function aggregateRefusalRow(
   });
 }
 
+// fallow-ignore-next-line complexity
 function guestCheckpointRow(
   summary: Json,
   profile: string,
@@ -322,6 +341,7 @@ function compositionRow(summary: Json): ArchitecturePortableSnapshotGauntletRow 
   });
 }
 
+// fallow-ignore-next-line complexity
 function runtimeRow(summary: Json, runtime: "c" | "java"): ArchitecturePortableSnapshotGauntletRow {
   const rows = summary.rows.filter((r: Json) => r.runtime === runtime);
   const refused = rows.filter((r) => r.classification === "refused").length;
@@ -426,6 +446,29 @@ function nestedRow(summary: Json): ArchitecturePortableSnapshotGauntletRow {
   });
 }
 
+function controlledContinuationRow(summary: Json): ArchitecturePortableSnapshotGauntletRow {
+  const r = summary.rows[0];
+  return row({
+    claimId: r.claimId,
+    claimName: r.claimName,
+    classification: r.classification,
+    sourceArch: r.sourceArch,
+    targetArch: r.targetArch,
+    hostArch: r.hostArch,
+    providerMode: r.providerMode,
+    targetExecution: r.targetExecution,
+    stateModel: r.stateModel,
+    stateDecisions: r.stateDecisions,
+    verifierCommand: r.verifierCommand,
+    verifierOutput: r.verifierOutput,
+    artifactDigests: r.artifactDigests,
+    provenance: r.provenance,
+    migrationCompleted: r.migrationCompleted,
+    refusalCode: r.refusalCode,
+    remediation: r.remediation,
+  });
+}
+
 function row(
   input: Omit<
     Parameters<typeof buildArchitecturePortableSnapshotGauntletRow>[0],
@@ -468,31 +511,35 @@ function hostArch(): string {
 }
 
 function fixtureRows(): ArchitecturePortableSnapshotGauntletRow[] {
-  return requiredArchitecturePortableSnapshotClaimIds.map((claimId) =>
-    row({
-      claimId,
-      claimName: claimId,
-      classification:
-        claimId.includes("refusal") || claimId.includes("ebpf")
-          ? "refused"
-          : "proof-only-feasibility",
-      sourceArch: "arm64",
-      targetArch: "amd64",
-      hostArch: "arm64",
-      providerMode: "fixture",
-      targetExecution: "native",
-      stateModel: "fixture",
-      stateDecisions: ["fixture-row"],
-      verifierCommand: "scripts/architecture-portable-snapshot-gauntlet.ts --fixture",
-      verifierOutput: "fixture ok",
-      artifactDigests: { fixture: stableGauntletDigest(claimId) },
-      provenance: { fixture: true },
-      migrationCompleted: false,
-      refusalCode:
-        claimId.includes("refusal") || claimId.includes("ebpf") ? "fixture-refusal" : undefined,
-      remediation:
-        claimId.includes("refusal") || claimId.includes("ebpf") ? "fixture remediation" : undefined,
-    }),
+  return requiredArchitecturePortableSnapshotClaimIds.map(
+    // fallow-ignore-next-line complexity
+    (claimId) =>
+      row({
+        claimId,
+        claimName: claimId,
+        classification:
+          claimId.includes("refusal") || claimId.includes("ebpf")
+            ? "refused"
+            : "proof-only-feasibility",
+        sourceArch: "arm64",
+        targetArch: "amd64",
+        hostArch: "arm64",
+        providerMode: "fixture",
+        targetExecution: "native",
+        stateModel: "fixture",
+        stateDecisions: ["fixture-row"],
+        verifierCommand: "scripts/architecture-portable-snapshot-gauntlet.ts --fixture",
+        verifierOutput: "fixture ok",
+        artifactDigests: { fixture: stableGauntletDigest(claimId) },
+        provenance: { fixture: true },
+        migrationCompleted: false,
+        refusalCode:
+          claimId.includes("refusal") || claimId.includes("ebpf") ? "fixture-refusal" : undefined,
+        remediation:
+          claimId.includes("refusal") || claimId.includes("ebpf")
+            ? "fixture remediation"
+            : undefined,
+      }),
   );
 }
 

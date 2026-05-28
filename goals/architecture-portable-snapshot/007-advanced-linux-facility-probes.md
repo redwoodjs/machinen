@@ -1,7 +1,5 @@
 # Goal 007: Advanced Linux facility probes
 
-Parent: [`FINAL-GOAL.md`](./FINAL-GOAL.md)
-
 ## Motivation
 
 Advanced Linux facilities are high-signal probes for whether Machinen's kernel

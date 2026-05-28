@@ -1,7 +1,5 @@
 # Goal 009: Final proof gauntlet checked summary
 
-Parent: [`FINAL-GOAL.md`](./FINAL-GOAL.md)
-
 ## Motivation
 
 The final architecture-portable snapshot claim needs one machine-readable proof

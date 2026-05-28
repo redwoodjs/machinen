@@ -1,7 +1,5 @@
 # Goal 003: Stateful database portable restore proof
 
-Parent: [`FINAL-GOAL.md`](./FINAL-GOAL.md)
-
 ## Motivation
 
 Stateful databases are the practical credibility bar for architecture-portable snapshot restore. A

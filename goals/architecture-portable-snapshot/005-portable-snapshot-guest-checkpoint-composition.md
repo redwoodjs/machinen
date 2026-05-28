@@ -1,7 +1,5 @@
 # Goal 005: Portable snapshot plus guest checkpoint composition proof
 
-Parent: [`FINAL-GOAL.md`](./FINAL-GOAL.md)
-
 ## Motivation
 
 Machinen's portable snapshot layer and in-guest checkpointing should not
