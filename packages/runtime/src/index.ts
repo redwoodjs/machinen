@@ -473,29 +473,6 @@ export {
   validateNativeProcessImageDocuments,
 } from "./native-process-image.ts";
 export {
-  ARCHITECTURE_PORTABLE_CONTROLLED_CONTINUATION_BUNDLE_FILES,
-  ARCHITECTURE_PORTABLE_CONTROLLED_CONTINUATION_FORMAT_VERSION,
-  ARCHITECTURE_PORTABLE_CONTROLLED_CONTINUATION_KIND,
-  buildArchitecturePortableControlledContinuationBundle,
-  buildArchitecturePortableControlledContinuationRow,
-  architecturePortableControlledContinuationClassifications,
-  architecturePortableControlledContinuationRefusalCodes,
-  controlledContinuationUnsupportedStateCategories,
-  defaultControlledContinuationUnsupportedStates,
-  fileSize,
-  normalizeControlledContinuationArch,
-  oppositeControlledContinuationArch,
-  readArchitecturePortableControlledContinuationBundle,
-  sha256File,
-  stableControlledContinuationDigest,
-  summarizeArchitecturePortableControlledContinuationRows,
-  validateArchitecturePortableControlledContinuationBundle,
-  validateArchitecturePortableControlledContinuationBundleShape,
-  validateArchitecturePortableControlledContinuationRow,
-  validateArchitecturePortableControlledContinuationRows,
-  writeArchitecturePortableControlledContinuationBundle,
-} from "./architecture-portable-controlled-continuation.ts";
-export {
   ARCHITECTURE_PORTABLE_SNAPSHOT_GAUNTLET_KIND,
   ARCHITECTURE_PORTABLE_SNAPSHOT_GAUNTLET_ROW_KIND,
   buildArchitecturePortableSnapshotGauntletRow,
@@ -640,19 +617,6 @@ export {
   planPortableMachineTargetRestoreDescriptor,
   planPortableMachineVmRestoreProof,
 } from "./portable-machine-restore-proof.ts";
-export type {
-  ArchitecturePortableControlledContinuationArch,
-  ArchitecturePortableControlledContinuationBundle,
-  ArchitecturePortableControlledContinuationBundleInput,
-  ArchitecturePortableControlledContinuationClassification,
-  ArchitecturePortableControlledContinuationManifest,
-  ArchitecturePortableControlledContinuationRefusalCode,
-  ArchitecturePortableControlledContinuationRow,
-  ArchitecturePortableControlledContinuationRowInput,
-  ArchitecturePortableControlledContinuationState,
-  ArchitecturePortableControlledContinuationSummary,
-  ArchitecturePortableControlledContinuationUnsupportedState,
-} from "./architecture-portable-controlled-continuation.ts";
 export type {
   ArchitecturePortableSnapshotGauntletClassification,
   ArchitecturePortableSnapshotGauntletRow,

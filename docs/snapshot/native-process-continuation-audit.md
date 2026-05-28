@@ -1,10 +1,9 @@
 # Native/process-continuation audit
 
 This audit reconciles the older native/process-continuation work with the newer
-portable snapshots roadmap. It corrects the impression that the
-controlled C counter proof is the beginning of process continuation work. It is
-not. It is a contract/gauntlet check layered on top of a much larger existing
-body of proof and product work.
+portable snapshots roadmap. It removes the misleading controlled-counter path
+from the active roadmap and centers the existing native, Node, runtime, and
+stateful-service proof/product work.
 
 ## Bottom line
 
@@ -74,8 +73,8 @@ product refusals with `migrationCompleted=false`.
 
 ## Existing Node/process restore evidence
 
-The older portable snapshot goals are much further along than the controlled C
-counter proof.
+The older portable snapshot goals already contain meaningful process-continuation
+evidence.
 
 ### Goal 33.3: minimal live Node VM restore
 
@@ -133,19 +132,14 @@ The repo also has checked summaries for:
 These are workload/runtime/state continuations or semantic restores. They should
 not be collapsed into arbitrary process continuation.
 
-## Why the controlled C counter felt worthless
+## Removed counter proof
 
-The controlled C counter proof is useful only as a strict contract check:
-
-- source and target ISA differ;
-- target execution is native;
-- bundle/provenance/digests exist;
-- target verifier output is required;
-- source emulation, raw replay, sidecar, and metadata-only shortcuts are refused;
-- `migrationCompleted=true` is gated on a live target-native opposite-ISA run.
-
-It does not translate a real process image. It should be treated as a guardrail,
-not a product milestone.
+The controlled C counter proof has been removed from the active roadmap and
+runtime surface. It duplicated stronger existing proof families and did not
+translate a real process image. The useful principles from that work — no source
+emulation, no raw replay, no sidecar success, no metadata-only success, and live
+target-native verification before completion — should be enforced against the
+existing stronger proof families instead of tracked as a separate counter proof.
 
 ## Actual remaining gaps
 
@@ -153,8 +147,7 @@ These are future productization gaps, not missing work for this audit.
 
 ### 1. Reconcile taxonomy
 
-- Add portable snapshot rows for the existing native/process proof families
-  instead of treating the counter as the only continuation row.
+- Add portable snapshot rows for the existing native/process proof families.
 - Distinguish semantic restart, semantic continuation, runtime-aware
   continuation, native/process proof fixture, stable refusal, and product support
   in one registry view.
