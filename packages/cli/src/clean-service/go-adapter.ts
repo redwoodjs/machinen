@@ -1,13 +1,28 @@
 import type { RegistryEntry, VmHandle } from "@machinen/runtime";
 
 import {
+  cleanServiceObservableStateDecisions,
   cleanServiceSecurityAssertions,
   normalizeCleanServiceRefusal,
   runtimePolicyFor,
-  type CleanServiceCapture,
-  type CleanServiceComponent,
-  type CleanServiceKernelResourceReport,
 } from "./manifest.ts";
+import type {
+  CleanServiceCapture,
+  CleanServiceComponent,
+  CleanServiceKernelResourceReport,
+} from "./manifest.ts";
+
+interface PortableGoProbePayload {
+  refusal?: { code: string; message: string };
+  sourceCwd?: string;
+  argv?: string[];
+  runtimeVersion?: string;
+  guestPort?: number;
+  verifier?: CleanServiceComponent["verifier"];
+  kernelResources?: CleanServiceKernelResourceReport;
+  executableRelativePath?: string;
+  appTarBase64?: string;
+}
 
 // fallow-ignore-next-line complexity
 export async function inspectPortableGoVm(
@@ -23,17 +38,7 @@ export async function inspectPortableGoVm(
     return undefined;
   }
   // fallow-ignore-next-line code-duplication
-  const parsed = JSON.parse(probe.stdout.trim()) as {
-    refusal?: { code: string; message: string };
-    sourceCwd?: string;
-    argv?: string[];
-    runtimeVersion?: string;
-    guestPort?: number;
-    verifier?: CleanServiceComponent["verifier"];
-    kernelResources?: CleanServiceKernelResourceReport;
-    executableRelativePath?: string;
-    appTarBase64?: string;
-  };
+  const parsed = JSON.parse(probe.stdout.trim()) as PortableGoProbePayload;
   if (parsed.refusal) {
     const refusal = normalizeCleanServiceRefusal(parsed.refusal);
     throw new Error(`SNAPSHOT_CLEAN_SERVICE_REFUSED ${refusal.code}: ${refusal.message}`);
@@ -49,6 +54,7 @@ export async function inspectPortableGoVm(
     sourceArch: opts.guestCpu(),
     snapshotEngine: "vmstate",
     routePolicy: "target-native-clean-service-when-target-arch-differs",
+    observableStateDecisions: cleanServiceObservableStateDecisions(),
     components: [
       {
         id: "go:primary-http-service",

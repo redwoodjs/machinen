@@ -29,6 +29,7 @@ Snapshot internals:
 - [nested virtualization stretch proof](./snapshot/nested-virtualization-stretch-proof.md) — Firecracker L2 demo classification with snapshot/fork refusal
 - [architecture-portable snapshot checked gauntlet](./snapshot/architecture-portable-snapshot-gauntlet.md) — aggregated Goals 002-008 proof ledger
 - [portable machine support envelope](./snapshot/support-envelope.md) — current app-neutral supported and refused capability families
+- [cross-architecture CRIU-like restore ladder](./snapshot/cross-arch-criu-like-restore.md) — product support levels, state decisions, and semantic ping continuation
 - [portable machine proof profiles](./snapshot/portable-machine-proof-profiles.md) — positive and negative proof profiles for target-native completion and fail-closed refusals
 - [portable proof matrices](./snapshot/proof-matrices.md) — one-command matrix presets and JSON summary shape
 - [runtime-neutral adapter boundary](./snapshot/runtime-adapter-boundary.md) — shared adapter contract for future runtime-specific tracks

@@ -8,13 +8,23 @@ import {
   productClaimFamilies,
   productClaimRefusalSummary,
   productClaimStatuses,
+  productSupportLevels,
 } from "../packages/runtime/dist/index.js";
 
 const PROFILE_FILE = resolve("scripts/portable-machine-proof-profiles.json");
+const VALUE_FLAGS = new Set([
+  "--family",
+  "--status",
+  "--runtime",
+  "--profile",
+  "--refusal-code",
+  "--level",
+  "--summary",
+]);
 
 function usage() {
   console.error(
-    "usage: node scripts/product-claim-registry-matrix.mjs [--family name] [--status status] [--runtime runtime] [--profile name] [--refusal-code code] [--summary file] [--json]",
+    "usage: node scripts/product-claim-registry-matrix.mjs [--family name] [--status status] [--runtime runtime] [--profile name] [--refusal-code code] [--level support-level] [--summary file] [--json]",
   );
   process.exit(2);
 }
@@ -29,16 +39,8 @@ function parseArgs(argv) {
       options.json = true;
       continue;
     }
-    if (
-      ["--family", "--status", "--runtime", "--profile", "--refusal-code", "--summary"].includes(
-        arg,
-      )
-    ) {
-      const value = argv[index + 1];
-      if (!value || value.startsWith("--")) {
-        usage();
-      }
-      options[arg.slice(2).replaceAll("-", "_")] = value;
+    if (VALUE_FLAGS.has(arg)) {
+      options[arg.slice(2).replaceAll("-", "_")] = valueAfterFlag(argv, index);
       index += 1;
       continue;
     }
@@ -50,7 +52,18 @@ function parseArgs(argv) {
   if (options.status && !productClaimStatuses.includes(options.status)) {
     usage();
   }
+  if (options.level && !productSupportLevels.includes(options.level)) {
+    usage();
+  }
   return options;
+}
+
+function valueAfterFlag(argv, index) {
+  const value = argv[index + 1];
+  if (!value || value.startsWith("--")) {
+    usage();
+  }
+  return value;
 }
 
 // fallow-ignore-next-line complexity
@@ -70,15 +83,25 @@ function validateRegistry(registry, selected) {
     "node-app-http-server-recreate",
     "python-cross-arch-runtime-policy",
     "go-cross-arch-runtime-policy",
+    "ping-sequence-counter-semantic-continuation-v1",
   ]) {
     if (!implementedNames.has(required)) {
       failures.push(`implemented product subset is missing: ${required}`);
     }
   }
-  if (implemented.length !== 3) {
+  if (implemented.length !== 4) {
     failures.push(
-      "implemented product support must be exactly the clean-service Node, Python, and Go routes",
+      "implemented product support must be exactly the clean-service Node, Python, Go routes and the semantic ping continuation route",
     );
+  }
+  if (
+    !implemented.some(
+      (entry) =>
+        entry.name === "ping-sequence-counter-semantic-continuation-v1" &&
+        entry.supportLevel === "level-2-semantic-continuation",
+    )
+  ) {
+    failures.push("implemented semantic ping profile is not reported as Level 2 support");
   }
   for (const entry of registry.entries) {
     if (
@@ -141,6 +164,7 @@ const selected = filterProductClaimRegistry(registry.entries, {
   status: options.status,
   profile: options.profile,
   refusalCode: options.refusal_code,
+  supportLevel: options.level,
 });
 const failures = validateRegistry(registry, selected);
 const summary = {
@@ -153,6 +177,7 @@ const summary = {
     status: options.status,
     profile: options.profile,
     refusalCode: options.refusal_code,
+    level: options.level,
   },
   registrySummary: registry.summary,
   selectedCount: selected.length,

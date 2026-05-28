@@ -6,12 +6,16 @@ answer to: "is this cross-architecture state implemented, refused, or only a
 proof fixture?"
 
 The registry deliberately does **not** turn proof-only fixtures into product
-support. As of Goal 49, implemented product support means the no-extra-flag
-`machinen snapshot <vm> <bundle>` / `machinen restore <bundle>` workflow is wired
-for that profile. The implemented clean-service subsets are:
+support. As of Goal 49, implemented clean-service product support means the
+no-extra-flag `machinen snapshot <vm> <bundle>` / `machinen restore <bundle>`
+workflow is wired for that profile. Goal 001 also adds the first implemented
+Level 2 semantic-continuation profile, which is descriptor-based rather than a
+whole-service restart. The implemented subsets are:
 
-- `node-app-http-server-recreate` — `node-http-clean-root-v1`
-- `python-cross-arch-runtime-policy` — `python-http-clean-root-v1`
+- `node-app-http-server-recreate` — `node-http-clean-root-v1` — `level-1-semantic-restart`
+- `python-cross-arch-runtime-policy` — `python-http-clean-root-v1` — `level-1-semantic-restart`
+- `go-cross-arch-runtime-policy` — `go-http-clean-root-v1` — `level-1-semantic-restart`
+- `ping-sequence-counter-semantic-continuation-v1` — `ping-sequence-counter-semantic-continuation-v1` — `level-2-semantic-continuation`
 
 The earlier PostgreSQL logical proof/capture route is not advertised here as
 implemented snapshot/restore product support until it is routed through the same
@@ -45,6 +49,8 @@ entry with:
 - `refusalCode` and `productRefusalCode`;
 - `migrationCompleted`;
 - `proofOnly`;
+- `supportLevel` and `supportLevelName`;
+- `observableStateDecisions` using preserved/recreated/drained/dropped/logically-restored/refused vocabulary;
 - `graduationRequirements`.
 
 ## Families
@@ -73,6 +79,7 @@ Use:
 ```sh
 pnpm run product-claim-registry-matrix
 pnpm run smoke-product-support-discovery
+pnpm run smoke-semantic-ping-continuation
 ```
 
 Checked summaries are stored under

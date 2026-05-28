@@ -11,7 +11,7 @@
 //   machinen attach <name|pid> [--shell <cmd>]   # PTY shell
 //   machinen repl   <name|pid>                   # per-line exec
 //   machinen capture postgres --out <dir> --dump <file> ...
-//   machinen support [--json] [--family <family>]
+//   machinen support [--json] [--family <family>] [--level <support-level>]
 //   machinen completion <bash|zsh|fish>
 //   machinen --version | -h | --help
 
@@ -47,6 +47,7 @@ import {
   productPortablePostgresFileSha256,
   productClaimFamilies,
   productClaimStatuses,
+  productSupportLevels,
   readHostRssBytesMulti,
   restore,
   restoreProductPortablePostgresSnapshot,
@@ -57,6 +58,7 @@ import type {
   LogEvent,
   ProductClaimFamily,
   ProductClaimStatus,
+  ProductSupportLevel,
   RegistryEntry,
   VmHandle,
 } from "@machinen/runtime";
@@ -1151,6 +1153,7 @@ type SupportOptions = {
   profile?: string;
   resourceFamily?: string;
   refusalCode?: string;
+  level?: ProductSupportLevel;
 };
 
 function cmdSupport(args: string[]): number {
@@ -1163,6 +1166,7 @@ function cmdSupport(args: string[]): number {
     profile: options.profile,
     resourceFamily: options.resourceFamily,
     refusalCode: options.refusalCode,
+    supportLevel: options.level,
   });
   const payload = {
     schema_version: 1,
@@ -1174,6 +1178,7 @@ function cmdSupport(args: string[]): number {
       profile: options.profile,
       resourceFamily: options.resourceFamily,
       refusalCode: options.refusalCode,
+      level: options.level,
     },
     summary: registry.summary,
     count: entries.length,
@@ -1212,6 +1217,9 @@ function parseSupportArgs(args: string[]): SupportOptions {
       case "--refusal-code":
         options.refusalCode = takeCaptureValue(rest, ++index, arg);
         break;
+      case "--level":
+        options.level = parseSupportLevel(takeCaptureValue(rest, ++index, arg));
+        break;
       default:
         die(`${supportUsage()}\nunknown argument: ${arg}`);
     }
@@ -1223,7 +1231,7 @@ function supportUsage(): string {
   return (
     "usage: machinen support [--family <family>] [--runtime <runtime>] " +
     "[--status <status>] [--profile <name>] [--resource-family <family>] " +
-    "[--refusal-code <code>] [--json]"
+    "[--refusal-code <code>] [--level <support-level>] [--json]"
   );
 }
 
@@ -1239,6 +1247,13 @@ function parseSupportStatus(value: string): ProductClaimStatus {
     return value as ProductClaimStatus;
   }
   die(`--status must be one of: ${productClaimStatuses.join(", ")}`);
+}
+
+function parseSupportLevel(value: string): ProductSupportLevel {
+  if ((productSupportLevels as readonly string[]).includes(value)) {
+    return value as ProductSupportLevel;
+  }
+  die(`--level must be one of: ${productSupportLevels.join(", ")}`);
 }
 
 function readProductProofProfilesForCli(): Array<Record<string, unknown> & { name: string }> {
@@ -1270,7 +1285,7 @@ function formatSupportText(payload: {
   ];
   for (const entry of payload.entries.slice(0, 25)) {
     lines.push(
-      `${entry.name}\t${entry.family}\t${entry.productStatus}\t${entry.productRefusalCode ?? "-"}`,
+      `${entry.name}\t${entry.family}\t${entry.supportLevel}\t${entry.productStatus}\t${entry.productRefusalCode ?? "-"}`,
     );
   }
   if (payload.entries.length > 25) {
@@ -3325,8 +3340,8 @@ function printHelp(): void {
       `                                                 real Machinen source VM with pg_dump,\n` +
       `                                                 CHECKPOINT, and verifier SQL.\n` +
       `\n` +
-      `  machinen support [--family <family>] [--status <status>] [--json]\n` +
-      `                                                 Discover product support/refusal\n` +
+      `  machinen support [--family <family>] [--status <status>] [--level <level>] [--json]\n` +
+      `                                                 Discover product support/refusal level\n` +
       `                                                 status for every proof profile.\n` +
       `\n` +
       `  machinen restore <snap-dir> [--image <tar.gz>] [--name <name>] [-p ...]\n` +

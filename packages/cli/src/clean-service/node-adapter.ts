@@ -1,6 +1,7 @@
 import type { RegistryEntry, VmHandle } from "@machinen/runtime";
 
 import {
+  cleanServiceObservableStateDecisions,
   cleanServiceSecurityAssertions,
   normalizeCleanServiceRefusal,
   runtimePolicyFor,
@@ -82,6 +83,7 @@ export function cleanServiceFromNode(bundle: PortableNodeSnapshotCapture): Clean
     sourceArch: bundle.sourceArch,
     snapshotEngine: "vmstate",
     routePolicy: "target-native-clean-service-when-target-arch-differs",
+    observableStateDecisions: cleanServiceObservableStateDecisions(),
     components: [
       {
         id: "nodejs:primary-http-service",

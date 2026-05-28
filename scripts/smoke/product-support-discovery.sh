@@ -33,12 +33,15 @@ node "$CLI" support --profile postgres-clean-quiesced-cross-arch-logical-restore
 node -e 'const fs=require("fs"); const data=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); const entry=data.entries[0]; if (!entry || entry.productStatus === "implemented-product-support" || entry.migrationCompleted !== false) throw new Error("postgres should not be advertised as implemented snapshot/restore support");' "$WORK/postgres.json"
 
 node "$CLI" support --profile node-app-http-server-recreate --json >"$WORK/node-implemented.json"
-node -e 'const fs=require("fs"); const data=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); const entry=data.entries[0]; if (!entry || entry.productStatus !== "implemented-product-support" || entry.migrationCompleted !== true) throw new Error("node product support not visible");' "$WORK/node-implemented.json"
+node -e 'const fs=require("fs"); const data=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); const entry=data.entries[0]; if (!entry || entry.productStatus !== "implemented-product-support" || entry.migrationCompleted !== true || entry.supportLevel !== "level-1-semantic-restart") throw new Error("node product support not visible as Level 1");' "$WORK/node-implemented.json"
 
 node "$CLI" support --profile python-cross-arch-runtime-policy --json >"$WORK/python-implemented.json"
 node -e 'const fs=require("fs"); const data=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); const entry=data.entries[0]; if (!entry || entry.productStatus !== "implemented-product-support" || entry.migrationCompleted !== true) throw new Error("python product support not visible");' "$WORK/python-implemented.json"
 node "$CLI" support --profile go-cross-arch-runtime-policy --json >"$WORK/go-implemented.json"
-node -e 'const fs=require("fs"); const data=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); const entry=data.entries[0]; if (!entry || entry.productStatus !== "implemented-product-support" || entry.migrationCompleted !== true) throw new Error("go product support not visible");' "$WORK/go-implemented.json"
+node -e 'const fs=require("fs"); const data=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); const entry=data.entries[0]; if (!entry || entry.productStatus !== "implemented-product-support" || entry.migrationCompleted !== true || entry.supportLevel !== "level-1-semantic-restart") throw new Error("go product support not visible as Level 1");' "$WORK/go-implemented.json"
+
+node "$CLI" support --level level-2-semantic-continuation --profile ping-sequence-counter-semantic-continuation-v1 --json >"$WORK/ping-level2.json"
+node -e 'const fs=require("fs"); const data=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); const entry=data.entries[0]; if (data.count !== 1 || !entry || entry.productStatus !== "implemented-product-support" || entry.supportLevel !== "level-2-semantic-continuation" || entry.migrationCompleted !== true) throw new Error("semantic ping Level 2 support not visible");' "$WORK/ping-level2.json"
 
 node "$CLI" support --status proof-only-fixture --json >"$WORK/proof-only.json"
 node -e 'const fs=require("fs"); const data=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if (data.count <= 0) throw new Error("no proof-only entries"); if (!data.entries.every((entry)=>entry.migrationCompleted === false && entry.proofOnly === true)) throw new Error("proof-only entry surfaced as support");' "$WORK/proof-only.json"

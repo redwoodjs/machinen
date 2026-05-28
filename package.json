@@ -121,6 +121,7 @@
     "smoke-postgres-machinen-restore": "bash scripts/smoke/postgres-machinen-restore.sh",
     "smoke-product-portable-postgres": "bash scripts/smoke/product-portable-postgres.sh",
     "smoke-product-support-discovery": "bash scripts/smoke/product-support-discovery.sh",
+    "smoke-semantic-ping-continuation": "bash scripts/smoke/semantic-ping-continuation.sh",
     "smoke-node-product-snapshot-restore": "bash scripts/smoke/node-product-snapshot-restore.sh",
     "smoke-clean-service-python-product-snapshot-restore": "bash scripts/smoke/clean-service-python-product-snapshot-restore.sh",
     "smoke-clean-service-go-product-snapshot-restore": "bash scripts/smoke/clean-service-go-product-snapshot-restore.sh",

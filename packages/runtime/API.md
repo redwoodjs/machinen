@@ -182,17 +182,37 @@
 - [`ProductClaimRegistry`](#productclaimregistry)
 - [`ProductClaimRegistrySummary`](#productclaimregistrysummary)
 - [`ProductClaimRegistryFilter`](#productclaimregistryfilter)
+- [`ProductClaimObservableStateDecision`](#productclaimobservablestatedecision)
 - [`ProductClaimStatus`](#productclaimstatus)
 - [`ProductClaimFamily`](#productclaimfamily)
+- [`ProductSupportLevel`](#productsupportlevel)
 - [`PRODUCT_CLAIM_REGISTRY_FORMAT_VERSION`](#product_claim_registry_format_version)
 - [`productClaimStatuses`](#productclaimstatuses)
 - [`productClaimFamilies`](#productclaimfamilies)
+- [`productSupportLevels`](#productsupportlevels)
 - [`PRODUCT_CLAIM_PROOF_ONLY_REFUSAL_CODE`](#product_claim_proof_only_refusal_code)
 - [`buildProductClaimRegistry`](#buildproductclaimregistry)
 - [`productClaimEntryFromProofProfile`](#productclaimentryfromproofprofile)
 - [`summarizeProductClaimRegistry`](#summarizeproductclaimregistry)
 - [`filterProductClaimRegistry`](#filterproductclaimregistry)
 - [`productClaimRefusalSummary`](#productclaimrefusalsummary)
+
+### Product semantic ping
+
+- [`ProductSemanticPingError`](#productsemanticpingerror)
+- [`ProductSemanticPingObservableStateDecision`](#productsemanticpingobservablestatedecision)
+- [`ProductSemanticPingDescriptorInput`](#productsemanticpingdescriptorinput)
+- [`ProductSemanticPingDescriptor`](#productsemanticpingdescriptor)
+- [`ProductSemanticPingRestoreSummary`](#productsemanticpingrestoresummary)
+- [`ProductSemanticPingRefusal`](#productsemanticpingrefusal)
+- [`ProductSemanticPingArchitecture`](#productsemanticpingarchitecture)
+- [`ProductSemanticPingStateDecision`](#productsemanticpingstatedecision)
+- [`ProductSemanticPingRefusalCode`](#productsemanticpingrefusalcode)
+- [`ProductSemanticPingContinuationResult`](#productsemanticpingcontinuationresult)
+- [`PRODUCT_SEMANTIC_PING_FORMAT_VERSION`](#product_semantic_ping_format_version)
+- [`productSemanticPingRefusalCodes`](#productsemanticpingrefusalcodes)
+- [`createProductSemanticPingContinuation`](#createproductsemanticpingcontinuation)
+- [`verifyProductSemanticPingContinuation`](#verifyproductsemanticpingcontinuation)
 
 ### Product portable PostgreSQL
 
@@ -1995,6 +2015,44 @@ Attach to `id`. Throws if id doesn't exist.
 ###### Returns
 
 [`ProductPortablePostgresError`](#productportablepostgreserror)
+
+###### Overrides
+
+`Error.constructor`
+
+#### Properties
+
+##### code
+
+> `readonly` **code**: `string`
+
+***
+
+### ProductSemanticPingError
+
+#### Extends
+
+- `Error`
+
+#### Constructors
+
+##### Constructor
+
+> **new ProductSemanticPingError**(`code`, `message`): [`ProductSemanticPingError`](#productsemanticpingerror)
+
+###### Parameters
+
+###### code
+
+`string`
+
+###### message
+
+`string`
+
+###### Returns
+
+[`ProductSemanticPingError`](#productsemanticpingerror)
 
 ###### Overrides
 
@@ -11705,6 +11763,24 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ***
 
+### ProductClaimObservableStateDecision
+
+#### Properties
+
+##### name
+
+> **name**: `string`
+
+##### decision
+
+> **decision**: `"refused"` \| `"preserved"` \| `"recreated"` \| `"drained"` \| `"dropped-irrelevant"` \| `"logically-restored"`
+
+##### rationale
+
+> **rationale**: `string`
+
+***
+
 ### ProductClaimProofProfileInput
 
 #### Properties
@@ -11761,6 +11837,14 @@ pids that aren't machinen-managed; those fall back to ps.
 
 > `optional` **sourceFixture?**: `string`
 
+##### productSupportLevel?
+
+> `optional` **productSupportLevel?**: `"level-0-fail-closed-discovery"` \| `"level-1-semantic-restart"` \| `"level-2-semantic-continuation"` \| `"level-3-runtime-aware-continuation"` \| `"level-4-kernel-resource-reconstruction"` \| `"level-5-cross-arch-process-continuation"`
+
+##### observableStateDecisions?
+
+> `optional` **observableStateDecisions?**: [`ProductClaimObservableStateDecision`](#productclaimobservablestatedecision)[]
+
 ***
 
 ### ProductClaimEntry
@@ -11790,6 +11874,14 @@ pids that aren't machinen-managed; those fall back to ps.
 ##### productStatus
 
 > **productStatus**: `"implemented-product-support"` \| `"stable-product-refusal"` \| `"proof-only-fixture"` \| `"obsolete-invalid-claim"`
+
+##### supportLevel
+
+> **supportLevel**: `"level-0-fail-closed-discovery"` \| `"level-1-semantic-restart"` \| `"level-2-semantic-continuation"` \| `"level-3-runtime-aware-continuation"` \| `"level-4-kernel-resource-reconstruction"` \| `"level-5-cross-arch-process-continuation"`
+
+##### supportLevelName
+
+> **supportLevelName**: `string`
 
 ##### proofStatus
 
@@ -11842,6 +11934,10 @@ pids that aren't machinen-managed; those fall back to ps.
 ##### graduationRequirements
 
 > **graduationRequirements**: `string`[]
+
+##### observableStateDecisions
+
+> **observableStateDecisions**: [`ProductClaimObservableStateDecision`](#productclaimobservablestatedecision)[]
 
 ##### message
 
@@ -11932,6 +12028,10 @@ pids that aren't machinen-managed; those fall back to ps.
 ##### refusalCode?
 
 > `optional` **refusalCode?**: `string`
+
+##### supportLevel?
+
+> `optional` **supportLevel?**: `"level-0-fail-closed-discovery"` \| `"level-1-semantic-restart"` \| `"level-2-semantic-continuation"` \| `"level-3-runtime-aware-continuation"` \| `"level-4-kernel-resource-reconstruction"` \| `"level-5-cross-arch-process-continuation"`
 
 ***
 
@@ -12372,6 +12472,352 @@ pids that aren't machinen-managed; those fall back to ps.
 ###### metadataOnlyShortcutAccepted
 
 > **metadataOnlyShortcutAccepted**: `false`
+
+***
+
+### ProductSemanticPingObservableStateDecision
+
+#### Properties
+
+##### name
+
+> **name**: `string`
+
+##### decision
+
+> **decision**: [`ProductSemanticPingStateDecision`](#productsemanticpingstatedecision)
+
+##### rationale
+
+> **rationale**: `string`
+
+***
+
+### ProductSemanticPingDescriptorInput
+
+#### Properties
+
+##### sourceArch
+
+> **sourceArch**: [`ProductSemanticPingArchitecture`](#productsemanticpingarchitecture)
+
+##### targetArch
+
+> **targetArch**: [`ProductSemanticPingArchitecture`](#productsemanticpingarchitecture)
+
+##### destination
+
+> **destination**: `string`
+
+##### intervalMs
+
+> **intervalMs**: `number`
+
+##### identifier
+
+> **identifier**: `number`
+
+##### nextSequence
+
+> **nextSequence**: `number`
+
+##### sent
+
+> **sent**: `number`
+
+##### received
+
+> **received**: `number`
+
+##### lost
+
+> **lost**: `number`
+
+##### receiveQueue
+
+> **receiveQueue**: `"empty"` \| `"unread-replies"`
+
+##### activeRecvmsg
+
+> **activeRecvmsg**: `boolean`
+
+##### rawSocketState?
+
+> `optional` **rawSocketState?**: `"none"` \| `"present"`
+
+##### verifierEchoReplies
+
+> **verifierEchoReplies**: `number`
+
+***
+
+### ProductSemanticPingDescriptor
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.product-semantic-ping-continuation"`
+
+##### formatVersion
+
+> **formatVersion**: `1`
+
+##### supportLevel
+
+> **supportLevel**: `"level-2-semantic-continuation"`
+
+##### profile
+
+> **profile**: `"ping-sequence-counter-semantic-continuation-v1"`
+
+##### source
+
+> **source**: `object`
+
+###### architecture
+
+> **architecture**: [`ProductSemanticPingArchitecture`](#productsemanticpingarchitecture)
+
+##### target
+
+> **target**: `object`
+
+###### architecture
+
+> **architecture**: [`ProductSemanticPingArchitecture`](#productsemanticpingarchitecture)
+
+##### workload
+
+> **workload**: `object`
+
+###### command
+
+> **command**: `"ping"`
+
+###### destination
+
+> **destination**: `string`
+
+###### intervalMs
+
+> **intervalMs**: `number`
+
+##### logicalState
+
+> **logicalState**: `object`
+
+###### identifier
+
+> **identifier**: `number`
+
+###### nextSequence
+
+> **nextSequence**: `number`
+
+###### sent
+
+> **sent**: `number`
+
+###### received
+
+> **received**: `number`
+
+###### lost
+
+> **lost**: `number`
+
+###### inFlightPacketPolicy
+
+> **inFlightPacketPolicy**: `"drop-and-count-lost"`
+
+##### observableStateDecisions
+
+> **observableStateDecisions**: [`ProductSemanticPingObservableStateDecision`](#productsemanticpingobservablestatedecision)[]
+
+##### gates
+
+> **gates**: `object`
+
+###### receiveQueueEmpty
+
+> **receiveQueueEmpty**: `true`
+
+###### activeRecvmsgAbsent
+
+> **activeRecvmsgAbsent**: `true`
+
+###### rawSocketKernelStateAbsent
+
+> **rawSocketKernelStateAbsent**: `true`
+
+###### targetNativeVerifierRequired
+
+> **targetNativeVerifierRequired**: `true`
+
+###### sourceIsaEmulationAllowed
+
+> **sourceIsaEmulationAllowed**: `false`
+
+###### sourceTextReplayAllowed
+
+> **sourceTextReplayAllowed**: `false`
+
+###### sidecarRuntimeAllowed
+
+> **sidecarRuntimeAllowed**: `false`
+
+###### metadataOnlyContinuationAllowed
+
+> **metadataOnlyContinuationAllowed**: `false`
+
+***
+
+### ProductSemanticPingRestoreSummary
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.product-semantic-ping-restore-summary"`
+
+##### formatVersion
+
+> **formatVersion**: `1`
+
+##### supportLevel
+
+> **supportLevel**: `"level-2-semantic-continuation"`
+
+##### profile
+
+> **profile**: `"ping-sequence-counter-semantic-continuation-v1"`
+
+##### state
+
+> **state**: `"completed"`
+
+##### migrationCompleted
+
+> **migrationCompleted**: `true`
+
+##### targetVerifierResult
+
+> **targetVerifierResult**: `"passed"`
+
+##### sourceArch
+
+> **sourceArch**: [`ProductSemanticPingArchitecture`](#productsemanticpingarchitecture)
+
+##### targetArch
+
+> **targetArch**: [`ProductSemanticPingArchitecture`](#productsemanticpingarchitecture)
+
+##### continuedState
+
+> **continuedState**: `object`
+
+###### identifier
+
+> **identifier**: `number`
+
+###### firstTargetSequence
+
+> **firstTargetSequence**: `number`
+
+###### sentBeforeRestore
+
+> **sentBeforeRestore**: `number`
+
+###### receivedBeforeRestore
+
+> **receivedBeforeRestore**: `number`
+
+###### lostBeforeRestore
+
+> **lostBeforeRestore**: `number`
+
+###### sentAfterVerifier
+
+> **sentAfterVerifier**: `number`
+
+###### receivedAfterVerifier
+
+> **receivedAfterVerifier**: `number`
+
+###### lostAfterVerifier
+
+> **lostAfterVerifier**: `number`
+
+##### observableStateDecisions
+
+> **observableStateDecisions**: [`ProductSemanticPingObservableStateDecision`](#productsemanticpingobservablestatedecision)[]
+
+##### shortcutInspection
+
+> **shortcutInspection**: `object`
+
+###### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+###### sourceTextReusedAsTargetCode
+
+> **sourceTextReusedAsTargetCode**: `false`
+
+###### sidecarRuntimeUsed
+
+> **sidecarRuntimeUsed**: `false`
+
+###### metadataOnlyShortcutAccepted
+
+> **metadataOnlyShortcutAccepted**: `false`
+
+***
+
+### ProductSemanticPingRefusal
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.product-semantic-ping-refusal"`
+
+##### formatVersion
+
+> **formatVersion**: `1`
+
+##### supportLevel
+
+> **supportLevel**: `"level-2-semantic-continuation"`
+
+##### profile
+
+> **profile**: `"ping-sequence-counter-semantic-continuation-v1"`
+
+##### state
+
+> **state**: `"refused"`
+
+##### migrationCompleted
+
+> **migrationCompleted**: `false`
+
+##### expectedRefusalCode
+
+> **expectedRefusalCode**: `"semantic-ping-unread-receive-queue-unsupported"` \| `"semantic-ping-source-target-arch-match"` \| `"semantic-ping-invalid-counter-state"` \| `"semantic-ping-active-recvmsg-unsupported"` \| `"semantic-ping-raw-socket-state-unsupported"` \| `"semantic-ping-target-verifier-failed"`
+
+##### message
+
+> **message**: `string`
+
+##### observableStateDecisions
+
+> **observableStateDecisions**: [`ProductSemanticPingObservableStateDecision`](#productsemanticpingobservablestatedecision)[]
+
+##### evidence
+
+> **evidence**: `Record`\<`string`, `unknown`\>
 
 ***
 
@@ -13056,7 +13502,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`profile`](#profile-3)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`profile`](#profile-6)
 
 ##### classification
 
@@ -13072,7 +13518,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`sourceArch`](#sourcearch-12)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`sourceArch`](#sourcearch-14)
 
 ##### targetArch
 
@@ -13080,7 +13526,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`targetArch`](#targetarch-24)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`targetArch`](#targetarch-26)
 
 ##### stateModel
 
@@ -13136,7 +13582,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`evidence`](#evidence-9)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`evidence`](#evidence-10)
 
 ##### kind
 
@@ -13148,7 +13594,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Overrides
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`migrationCompleted`](#migrationcompleted-13)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`migrationCompleted`](#migrationcompleted-15)
 
 ##### scope
 
@@ -14757,7 +15203,7 @@ kicks in: `<sourceName>/<fork.pid>`.
 
 ###### Overrides
 
-[`RestoreOptions`](#restoreoptions).[`name`](#name-14)
+[`RestoreOptions`](#restoreoptions).[`name`](#name-16)
 
 ##### portForward?
 
@@ -16770,6 +17216,12 @@ Result of `validatePid` — easy to switch on at the call site.
 
 ***
 
+### ProductSupportLevel
+
+> **ProductSupportLevel** = *typeof* [`productSupportLevels`](#productsupportlevels)\[`number`\]
+
+***
+
 ### ProductClaimStatus
 
 > **ProductClaimStatus** = *typeof* [`productClaimStatuses`](#productclaimstatuses)\[`number`\]
@@ -16803,6 +17255,30 @@ Result of `validatePid` — easy to switch on at the call site.
 ### ProductPortablePostgresCaptureResult
 
 > **ProductPortablePostgresCaptureResult** = \{ `state`: `"completed"`; `migrationCompleted`: `true`; `bundleDir`: `string`; `descriptor`: [`ProductPortablePostgresDescriptor`](#productportablepostgresdescriptor); `dryRun`: `boolean`; \} \| \{ `state`: `"refused"`; `migrationCompleted`: `false`; `bundleDir`: `string`; `refusal`: [`ProductPortablePostgresRefusal`](#productportablepostgresrefusal); `dryRun`: `boolean`; \}
+
+***
+
+### ProductSemanticPingRefusalCode
+
+> **ProductSemanticPingRefusalCode** = *typeof* [`productSemanticPingRefusalCodes`](#productsemanticpingrefusalcodes)\[`number`\]
+
+***
+
+### ProductSemanticPingArchitecture
+
+> **ProductSemanticPingArchitecture** = `"arm64"` \| `"amd64"`
+
+***
+
+### ProductSemanticPingStateDecision
+
+> **ProductSemanticPingStateDecision** = `"preserved"` \| `"recreated"` \| `"drained"` \| `"dropped-irrelevant"` \| `"logically-restored"` \| `"refused"`
+
+***
+
+### ProductSemanticPingContinuationResult
+
+> **ProductSemanticPingContinuationResult** = \{ `state`: `"completed"`; `migrationCompleted`: `true`; `descriptor`: [`ProductSemanticPingDescriptor`](#productsemanticpingdescriptor); `summary`: [`ProductSemanticPingRestoreSummary`](#productsemanticpingrestoresummary); \} \| \{ `state`: `"refused"`; `migrationCompleted`: `false`; `refusal`: [`ProductSemanticPingRefusal`](#productsemanticpingrefusal); \}
 
 ***
 
@@ -18616,6 +19092,12 @@ loops; anything looser stops being a meaningful gate.
 
 ***
 
+### productSupportLevels
+
+> `const` **productSupportLevels**: readonly \[`"level-0-fail-closed-discovery"`, `"level-1-semantic-restart"`, `"level-2-semantic-continuation"`, `"level-3-runtime-aware-continuation"`, `"level-4-kernel-resource-reconstruction"`, `"level-5-cross-arch-process-continuation"`\]
+
+***
+
 ### productClaimStatuses
 
 > `const` **productClaimStatuses**: readonly \[`"implemented-product-support"`, `"stable-product-refusal"`, `"proof-only-fixture"`, `"obsolete-invalid-claim"`\]
@@ -18679,6 +19161,18 @@ loops; anything looser stops being a meaningful gate.
 ### productPortablePostgresRefusalCodes
 
 > `const` **productPortablePostgresRefusalCodes**: readonly \[`"postgres-active-transaction-unsupported"`, `"postgres-active-session-unsupported"`, `"postgres-dirty-wal-boundary-unsupported"`, `"postgres-host-mounted-data-dir-ambiguous"`, `"postgres-physical-data-dir-cross-isa-unsupported"`, `"postgres-target-arch-mismatch"`, `"postgres-logical-dump-integrity-mismatch"`, `"postgres-target-verifier-mismatch"`, `"postgres-refused-source-state"`\]
+
+***
+
+### PRODUCT\_SEMANTIC\_PING\_FORMAT\_VERSION
+
+> `const` **PRODUCT\_SEMANTIC\_PING\_FORMAT\_VERSION**: `1`
+
+***
+
+### productSemanticPingRefusalCodes
+
+> `const` **productSemanticPingRefusalCodes**: readonly \[`"semantic-ping-source-target-arch-match"`, `"semantic-ping-invalid-counter-state"`, `"semantic-ping-unread-receive-queue-unsupported"`, `"semantic-ping-active-recvmsg-unsupported"`, `"semantic-ping-raw-socket-state-unsupported"`, `"semantic-ping-target-verifier-failed"`\]
 
 ***
 
@@ -21131,6 +21625,42 @@ readonly (`number` \| [`RssTarget`](#rsstarget))[]
 #### Returns
 
 `string`
+
+***
+
+### createProductSemanticPingContinuation()
+
+> **createProductSemanticPingContinuation**(`input`): [`ProductSemanticPingContinuationResult`](#productsemanticpingcontinuationresult)
+
+#### Parameters
+
+##### input
+
+[`ProductSemanticPingDescriptorInput`](#productsemanticpingdescriptorinput)
+
+#### Returns
+
+[`ProductSemanticPingContinuationResult`](#productsemanticpingcontinuationresult)
+
+***
+
+### verifyProductSemanticPingContinuation()
+
+> **verifyProductSemanticPingContinuation**(`descriptor`, `verifierEchoReplies`): [`ProductSemanticPingRestoreSummary`](#productsemanticpingrestoresummary)
+
+#### Parameters
+
+##### descriptor
+
+[`ProductSemanticPingDescriptor`](#productsemanticpingdescriptor)
+
+##### verifierEchoReplies
+
+`number`
+
+#### Returns
+
+[`ProductSemanticPingRestoreSummary`](#productsemanticpingrestoresummary)
 
 ***
 

@@ -566,8 +566,16 @@ export {
   productClaimFamilies,
   productClaimRefusalSummary,
   productClaimStatuses,
+  productSupportLevels,
   summarizeProductClaimRegistry,
 } from "./product-claim-registry.ts";
+export {
+  PRODUCT_SEMANTIC_PING_FORMAT_VERSION,
+  ProductSemanticPingError,
+  createProductSemanticPingContinuation,
+  productSemanticPingRefusalCodes,
+  verifyProductSemanticPingContinuation,
+} from "./product-semantic-ping.ts";
 export {
   PRODUCT_PORTABLE_POSTGRES_DUMP,
   PRODUCT_PORTABLE_POSTGRES_FORMAT_VERSION,
@@ -687,12 +695,25 @@ export type {
 export type {
   ProductClaimEntry,
   ProductClaimFamily,
+  ProductClaimObservableStateDecision,
   ProductClaimProofProfileInput,
   ProductClaimRegistry,
   ProductClaimRegistryFilter,
   ProductClaimRegistrySummary,
   ProductClaimStatus,
+  ProductSupportLevel,
 } from "./product-claim-registry.ts";
+export type {
+  ProductSemanticPingArchitecture,
+  ProductSemanticPingContinuationResult,
+  ProductSemanticPingDescriptor,
+  ProductSemanticPingDescriptorInput,
+  ProductSemanticPingObservableStateDecision,
+  ProductSemanticPingRefusal,
+  ProductSemanticPingRefusalCode,
+  ProductSemanticPingRestoreSummary,
+  ProductSemanticPingStateDecision,
+} from "./product-semantic-ping.ts";
 export type {
   ProductPortablePostgresArchitecture,
   ProductPortablePostgresCaptureInput,

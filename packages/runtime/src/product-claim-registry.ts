@@ -1,5 +1,15 @@
 export const PRODUCT_CLAIM_REGISTRY_FORMAT_VERSION = 1 as const;
 
+export const productSupportLevels = [
+  "level-0-fail-closed-discovery",
+  "level-1-semantic-restart",
+  "level-2-semantic-continuation",
+  "level-3-runtime-aware-continuation",
+  "level-4-kernel-resource-reconstruction",
+  "level-5-cross-arch-process-continuation",
+] as const;
+export type ProductSupportLevel = (typeof productSupportLevels)[number];
+
 export const productClaimStatuses = [
   "implemented-product-support",
   "stable-product-refusal",
@@ -23,6 +33,18 @@ export type ProductClaimFamily = (typeof productClaimFamilies)[number];
 
 export const PRODUCT_CLAIM_PROOF_ONLY_REFUSAL_CODE = "product-surface-not-implemented" as const;
 
+export interface ProductClaimObservableStateDecision {
+  name: string;
+  decision:
+    | "preserved"
+    | "recreated"
+    | "drained"
+    | "dropped-irrelevant"
+    | "logically-restored"
+    | "refused";
+  rationale: string;
+}
+
 export interface ProductClaimProofProfileInput {
   name: string;
   description?: string;
@@ -35,6 +57,8 @@ export interface ProductClaimProofProfileInput {
   refusalSupportContract?: { currentRefusalCode?: string; graduationRequires?: string[] };
   checkedSummary?: string;
   sourceFixture?: string;
+  productSupportLevel?: ProductSupportLevel;
+  observableStateDecisions?: ProductClaimObservableStateDecision[];
 }
 
 export interface ProductClaimEntry {
@@ -44,6 +68,8 @@ export interface ProductClaimEntry {
   resourceFamily?: string;
   architectureRoutes: Array<"arm64->amd64" | "amd64->arm64" | "amd64<->arm64">;
   productStatus: ProductClaimStatus;
+  supportLevel: ProductSupportLevel;
+  supportLevelName: string;
   proofStatus: string;
   expectedResult: "success" | "refusal" | "unknown";
   sourceGoal?: string;
@@ -57,6 +83,7 @@ export interface ProductClaimEntry {
   checkedSummary?: string;
   sourceFixture?: string;
   graduationRequirements: string[];
+  observableStateDecisions: ProductClaimObservableStateDecision[];
   message: string;
 }
 
@@ -84,13 +111,77 @@ export interface ProductClaimRegistryFilter {
   resourceFamily?: string;
   profile?: string;
   refusalCode?: string;
+  supportLevel?: ProductSupportLevel;
 }
 
 const IMPLEMENTED_PRODUCT_PROFILES = new Set([
   "node-app-http-server-recreate",
   "python-cross-arch-runtime-policy",
   "go-cross-arch-runtime-policy",
+  "ping-sequence-counter-semantic-continuation-v1",
 ]);
+
+const BUILTIN_PRODUCT_PROFILES: ProductClaimProofProfileInput[] = [
+  {
+    name: "ping-sequence-counter-semantic-continuation-v1",
+    description:
+      "Goal 001 Level 2 semantic continuation: ping resumes target-natively at a recorded sequence boundary with logical sent/received/lost counters and an explicit drop-and-count-lost in-flight packet policy.",
+    sourceFixture: "product-semantic-ping:ping-sequence-counter-semantic-continuation-v1",
+    expectedResult: "success",
+    supportStatus: "implemented-semantic-continuation",
+    productSupportLevel: "level-2-semantic-continuation",
+    unsafeStateFamily: "semantic-ping-sequence-counter-v1",
+    capabilities: [
+      "goal001:level-2-semantic-continuation",
+      "goal001:semantic-ping-sequence-counter-v1",
+      "goal001:target-native-verifier",
+    ],
+    observableStateDecisions: [
+      {
+        name: "destination",
+        decision: "preserved",
+        rationale: "the descriptor carries the destination into the target ping operation",
+      },
+      {
+        name: "identifier-and-next-sequence",
+        decision: "logically-restored",
+        rationale: "the target resumes at the next recorded sequence boundary",
+      },
+      {
+        name: "sent-received-lost-counters",
+        decision: "logically-restored",
+        rationale:
+          "counters are carried as logical integers and advanced only after target verifier replies",
+      },
+      {
+        name: "target-ping-process",
+        decision: "recreated",
+        rationale:
+          "the source process is not teleported; the target uses target-native ping semantics",
+      },
+      {
+        name: "receive-queue",
+        decision: "drained",
+        rationale: "the accepted profile requires no unread replies at the snapshot boundary",
+      },
+      {
+        name: "raw-socket-kernel-state",
+        decision: "refused",
+        rationale: "kernel-exact socket state is outside the Level 2 semantic descriptor",
+      },
+    ],
+    checkedSummary: "scripts/smoke/semantic-ping-continuation.sh",
+    refusalSupportContract: {
+      currentRefusalCode: "semantic-ping-unread-receive-queue-unsupported",
+      graduationRequires: [
+        "receive-queue-descriptor",
+        "active-recvmsg-model",
+        "raw-socket-target-recreate",
+        "live-icmp-vm-smoke",
+      ],
+    },
+  },
+];
 
 const FAMILY_RUNTIME: Record<ProductClaimFamily, string | undefined> = {
   postgresql: "postgresql",
@@ -107,7 +198,7 @@ const FAMILY_RUNTIME: Record<ProductClaimFamily, string | undefined> = {
 export function buildProductClaimRegistry(
   proofProfiles: ProductClaimProofProfileInput[],
 ): ProductClaimRegistry {
-  const entries = proofProfiles
+  const entries = [...proofProfiles, ...BUILTIN_PRODUCT_PROFILES]
     .map(productClaimEntryFromProofProfile)
     .sort((a, b) => a.name.localeCompare(b.name));
   return {
@@ -137,6 +228,7 @@ export function productClaimEntryFromProofProfile(
   const productRefusalCode = implemented
     ? undefined
     : (refusalCode ?? PRODUCT_CLAIM_PROOF_ONLY_REFUSAL_CODE);
+  const supportLevel = productSupportLevelForProfile(profile, productStatus);
   return {
     name: profile.name,
     family,
@@ -144,6 +236,8 @@ export function productClaimEntryFromProofProfile(
     resourceFamily: resourceFamilyForProfile(profile, family),
     architectureRoutes: ["amd64<->arm64"],
     productStatus,
+    supportLevel,
+    supportLevelName: productSupportLevelName(supportLevel),
     proofStatus: profile.supportStatus ?? "unknown",
     expectedResult,
     sourceGoal: sourceGoal(profile),
@@ -160,6 +254,8 @@ export function productClaimEntryFromProofProfile(
       ? []
       : (profile.refusalSupportContract?.graduationRequires ??
         defaultGraduationRequirements(profile)),
+    observableStateDecisions:
+      profile.observableStateDecisions ?? defaultObservableStateDecisions(profile, supportLevel),
     message: productClaimMessage(profile, productStatus, productRefusalCode),
   };
 }
@@ -218,6 +314,9 @@ export function filterProductClaimRegistry(
     ) {
       return false;
     }
+    if (filter.supportLevel && entry.supportLevel !== filter.supportLevel) {
+      return false;
+    }
     return true;
   });
 }
@@ -243,6 +342,81 @@ export function productClaimRefusalSummary(entry: ProductClaimEntry):
     message: entry.message,
     graduationRequirements: entry.graduationRequirements,
   };
+}
+
+// fallow-ignore-next-line complexity
+function productSupportLevelForProfile(
+  profile: ProductClaimProofProfileInput,
+  status: ProductClaimStatus,
+): ProductSupportLevel {
+  if (profile.productSupportLevel) {
+    return profile.productSupportLevel;
+  }
+  if (status !== "implemented-product-support") {
+    return "level-0-fail-closed-discovery";
+  }
+  if (profile.name === "ping-sequence-counter-semantic-continuation-v1") {
+    return "level-2-semantic-continuation";
+  }
+  return "level-1-semantic-restart";
+}
+
+function productSupportLevelName(level: ProductSupportLevel): string {
+  switch (level) {
+    case "level-0-fail-closed-discovery":
+      return "Level 0 — Fail-closed discovery";
+    case "level-1-semantic-restart":
+      return "Level 1 — Semantic restart";
+    case "level-2-semantic-continuation":
+      return "Level 2 — Semantic continuation";
+    case "level-3-runtime-aware-continuation":
+      return "Level 3 — Runtime-aware continuation";
+    case "level-4-kernel-resource-reconstruction":
+      return "Level 4 — Kernel-resource reconstruction";
+    case "level-5-cross-arch-process-continuation":
+      return "Level 5 — Cross-arch process continuation";
+  }
+}
+
+function defaultObservableStateDecisions(
+  profile: ProductClaimProofProfileInput,
+  level: ProductSupportLevel,
+): ProductClaimObservableStateDecision[] {
+  if (level === "level-1-semantic-restart") {
+    return [
+      {
+        name: "process",
+        decision: "recreated",
+        rationale: "clean-service product support starts a target-native process and verifies it",
+      },
+      {
+        name: "unsafe-kernel-state",
+        decision: "refused",
+        rationale: "state outside the clean-service contract refuses before success is reported",
+      },
+    ];
+  }
+  if (level === "level-2-semantic-continuation") {
+    return [
+      {
+        name: "logical-state",
+        decision: "logically-restored",
+        rationale: "selected user-visible state is carried through an explicit descriptor",
+      },
+      {
+        name: "kernel-private-state",
+        decision: "refused",
+        rationale: "kernel-exact state remains outside the Level 2 contract",
+      },
+    ];
+  }
+  return [
+    {
+      name: profile.unsafeStateFamily ?? profile.name,
+      decision: "refused",
+      rationale: "the product surface fails closed until this state has a modeled contract",
+    },
+  ];
 }
 
 // fallow-ignore-next-line complexity
@@ -401,6 +575,9 @@ function productClaimMessage(
   productRefusalCode: string | undefined,
 ): string {
   if (status === "implemented-product-support") {
+    if (profile.name === "ping-sequence-counter-semantic-continuation-v1") {
+      return "Implemented Level 2 semantic continuation for ping counters and sequence boundary with fail-closed queue/socket refusals.";
+    }
     return "Implemented product support with descriptor integrity checks and target-native verification.";
   }
   if (status === "stable-product-refusal") {

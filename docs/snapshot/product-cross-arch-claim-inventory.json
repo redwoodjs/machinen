@@ -4,7 +4,8 @@
   "implementedProductSubsets": [
     "node-http-clean-root-v1",
     "python-http-clean-root-v1",
-    "go-http-clean-root-v1"
+    "go-http-clean-root-v1",
+    "ping-sequence-counter-semantic-continuation-v1"
   ],
   "claims": [
     {
@@ -51,6 +52,13 @@
       "claim": "Hard runtime-state boundaries for active TLS, opaque native extension state, arbitrary Go scheduler state, JNI/cgo/native gems/C extensions, and refusal UX catalog",
       "supportLevel": "explicit-refusal",
       "notes": "These states remain refused by product support unless a future explicit portable contract and verifier graduates them."
+    },
+    {
+      "goal": "001",
+      "claim": "Ping sequence/counter semantic continuation across arm64 and amd64",
+      "supportLevel": "implemented-product-support",
+      "notes": "Level 2 semantic continuation is implemented for a descriptor-only ping profile: destination, identifier, next sequence, and sent/received/lost counters continue under a drop-and-count-lost in-flight policy; unread queues, active recvmsg, and raw socket kernel state refuse.",
+      "subset": "ping-sequence-counter-semantic-continuation-v1"
     },
     {
       "goal": "43",
