@@ -27,7 +27,7 @@ node --input-type=module - "$WORK/final-gauntlet.json" <<'NODE'
 import { readFileSync } from 'node:fs';
 const summary = JSON.parse(readFileSync(process.argv[2], 'utf8'));
 if (!summary.pass) throw new Error(`final gauntlet failed: ${summary.failures.join('; ')}`);
-if (summary.rowCount !== 15) throw new Error(`expected 15 rows, got ${summary.rowCount}`);
+if (summary.rowCount !== 16) throw new Error(`expected 16 rows, got ${summary.rowCount}`);
 if (summary.rows.some((row) => row.classification === 'product-supported')) throw new Error('fixture/final gauntlet unexpectedly claimed product support');
 if (summary.rows.some((row) => ['refused', 'skipped'].includes(row.classification) && row.migrationCompleted)) throw new Error('refused/skipped row migrated');
 NODE

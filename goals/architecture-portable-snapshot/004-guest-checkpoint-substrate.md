@@ -1,7 +1,5 @@
 # Goal 004: Guest checkpoint substrate proof
 
-Parent: [`FINAL-GOAL.md`](./FINAL-GOAL.md)
-
 ## Motivation
 
 Machinen should prove that its guest Linux environment exposes enough checkpoint

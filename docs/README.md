@@ -28,8 +28,9 @@ Snapshot internals:
 - [advanced Linux facility probes](./snapshot/advanced-linux-facility-probes.md) — seccomp, eBPF, namespace, cgroup, and capability proof/refusal rows
 - [nested virtualization stretch proof](./snapshot/nested-virtualization-stretch-proof.md) — Firecracker L2 demo classification with snapshot/fork refusal
 - [architecture-portable snapshot checked gauntlet](./snapshot/architecture-portable-snapshot-gauntlet.md) — aggregated Goals 002-008 proof ledger
+- [controlled C translated continuation](./snapshot/architecture-portable-controlled-continuation.md) — first target-native opposite-ISA continuation bundle proof
 - [portable machine support envelope](./snapshot/support-envelope.md) — current app-neutral supported and refused capability families
-- [cross-architecture CRIU-like restore ladder](./snapshot/cross-arch-criu-like-restore.md) — product support levels, state decisions, and semantic ping continuation
+- [architecture-portable snapshot restore ladder](./snapshot/architecture-portable-snapshot-restore-ladder.md) — product support levels, state decisions, and semantic ping continuation
 - [portable machine proof profiles](./snapshot/portable-machine-proof-profiles.md) — positive and negative proof profiles for target-native completion and fail-closed refusals
 - [portable proof matrices](./snapshot/proof-matrices.md) — one-command matrix presets and JSON summary shape
 - [runtime-neutral adapter boundary](./snapshot/runtime-adapter-boundary.md) — shared adapter contract for future runtime-specific tracks

@@ -1,7 +1,5 @@
 # Goal 008: Nested virtualization stretch proof
 
-Parent: [`FINAL-GOAL.md`](./FINAL-GOAL.md)
-
 ## Motivation
 
 Nested virtualization is a high-visibility demo, but it is not required for the

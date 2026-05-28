@@ -1,7 +1,5 @@
 # Goal 002: Opposite-ISA VM execution proof
 
-Parent: [`FINAL-GOAL.md`](./FINAL-GOAL.md)
-
 ## Motivation
 
 Before Machinen can credibly claim cross-architecture restore, it must prove it

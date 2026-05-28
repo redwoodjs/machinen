@@ -1,7 +1,8 @@
 # Architecture-portable snapshot checked gauntlet
 
-The final gauntlet aggregates Goals 002-008 into one checked summary. It is a
-proof ledger, not a list of product-supported features.
+The final gauntlet aggregates the architecture-portable snapshot proof rows into
+one checked summary. It is a proof ledger, not a list of product-supported
+features.
 
 ## Output
 
@@ -54,5 +55,7 @@ pnpm run architecture-portable-snapshot-gauntlet
 
 The full runner executes the component smokes for opposite-ISA execution,
 stateful database restore, guest checkpoint, portable snapshot + guest checkpoint
-composition, runtime confidence, advanced Linux facilities, and nested
-virtualization, then rewrites `final-gauntlet.json`.
+composition, runtime confidence, advanced Linux facilities, nested
+virtualization, and controlled C translated continuation, then rewrites
+`final-gauntlet.json`. Set `ARCH_PORTABLE_CONTROLLED_CONTINUATION_LIVE=1` to make
+the controlled continuation row use a real opposite-ISA SSH target.

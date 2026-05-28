@@ -1,4 +1,4 @@
-# Cross-architecture CRIU-like restore ladder
+# Architecture-portable snapshot restore ladder
 
 Machinen's north star is a restore that feels like the workload kept going. That
 is not a promise that raw VM memory or arbitrary Linux process state can move
@@ -22,7 +22,7 @@ The levels are:
 
 `productStatus` still says whether that profile is available through a product
 surface, refused, or only a proof fixture. `supportLevel` says where the profile
-sits on the CRIU-like ladder.
+sits on the architecture-portable snapshot ladder.
 
 Example discovery:
 
