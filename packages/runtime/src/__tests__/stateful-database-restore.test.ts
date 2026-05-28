@@ -31,7 +31,7 @@ const sqliteBase = {
 describe("stateful database portable restore summaries", () => {
   it("completes PostgreSQL logical restore in both architecture directions", () => {
     expect(buildStatefulDatabaseRestoreSummary(postgresLogicalRestoreInput(pgBase))).toMatchObject({
-      kind: "machinen.cross-arch-criu.stateful-database-restore",
+      kind: "machinen.architecture-portable-snapshot.stateful-database-restore",
       database: "postgresql",
       stateModel: "logical-dump",
       sourceArch: "arm64",

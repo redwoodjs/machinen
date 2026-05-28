@@ -10,7 +10,7 @@ Each proof row uses:
 
 ```json
 {
-  "kind": "machinen.cross-arch-criu.stateful-database-restore",
+  "kind": "machinen.architecture-portable-snapshot.stateful-database-restore",
   "database": "postgresql",
   "stateModel": "logical-dump",
   "sourceArch": "arm64",

@@ -37,7 +37,7 @@ else
     --json >"$WORK/opposite-route.stdout"
 fi
 
-node -e 'const fs=require("fs"); const s=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if (s.kind !== "machinen.cross-arch-criu.opposite-isa-vm-execution") throw new Error("wrong summary kind"); if (s.hostArch === s.guestArch) throw new Error("route was not opposite ISA"); if (!["completed","skipped"].includes(s.state)) throw new Error(`unexpected route state ${s.state}`); if (s.state === "completed" && (!s.guestUnameMachine || !s.guestElfMachine || !s.kernelVersion || !s.rootfsDigest)) throw new Error("completed route missing guest evidence"); if (s.state === "skipped" && (!s.refusalCode || !s.remediation)) throw new Error("skipped route missing stable refusal/remediation");' "$route_summary"
+node -e 'const fs=require("fs"); const s=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if (s.kind !== "machinen.architecture-portable-snapshot.opposite-isa-vm-execution") throw new Error("wrong summary kind"); if (s.hostArch === s.guestArch) throw new Error("route was not opposite ISA"); if (!["completed","skipped"].includes(s.state)) throw new Error(`unexpected route state ${s.state}`); if (s.state === "completed" && (!s.guestUnameMachine || !s.guestElfMachine || !s.kernelVersion || !s.rootfsDigest)) throw new Error("completed route missing guest evidence"); if (s.state === "skipped" && (!s.refusalCode || !s.remediation)) throw new Error("skipped route missing stable refusal/remediation");' "$route_summary"
 
 negative_summary="$WORK/host-sidecar-negative.json"
 if pnpm exec tsx "$ROOT/scripts/opposite-isa-vm-execution.ts" \
@@ -65,7 +65,7 @@ const route = JSON.parse(readFileSync(`${work}/opposite-route.json`, 'utf8'));
 const hostSidecar = JSON.parse(readFileSync(`${work}/host-sidecar-negative.json`, 'utf8'));
 const fixture = JSON.parse(readFileSync(`${work}/completed-fixture.json`, 'utf8'));
 const summary = {
-  kind: 'machinen.cross-arch-criu.opposite-isa-vm-execution-smoke',
+  kind: 'machinen.architecture-portable-snapshot.opposite-isa-vm-execution-smoke',
   state: route.state === 'refused' ? 'failed' : 'completed',
   liveRequested: process.env.OPPOSITE_ISA_VM_LIVE === '1',
   route,
