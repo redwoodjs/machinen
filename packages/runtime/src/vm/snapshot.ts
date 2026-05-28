@@ -4,7 +4,7 @@
 //
 // A snapshot is "the serialized state of a warm process tree plus
 // whatever filesystem state the warmup left behind." It lives as a
-// single ext4 disk image the guest writes CRIU images into.
+// single ext4 disk image the guest writes checkpoint images into.
 //
 // Production path: `vm.snapshot(outPath)` on a running VM — the caller
 // brings the VM to a warm state via `vm.exec()`, then snapshots it.
@@ -307,7 +307,7 @@ function prepareBundleRootDir(outDir: string): string {
   return snapDir;
 }
 
-// CRIU bundle: the root dir plus an `img/` subdir for the CRIU images.
+// CRIU bundle: the root dir plus an `img/` subdir for the checkpoint images.
 function prepareBundleDir(outDir: string): { snapDir: string; imgDir: string } {
   const snapDir = prepareBundleRootDir(outDir);
   const imgDir = join(snapDir, "img");
@@ -326,7 +326,7 @@ async function runDumpAndExtractTar(
   imgDir: string,
 ): Promise<DumpExtractResult> {
   // Spawn the host-side `tar x` that materializes the bundle. The
-  // dump script tars its CRIU image directory to stdout; we pump the
+  // dump script tars its checkpoint image directory to stdout; we pump the
   // bytes through this child's stdin. tar logs its own errors on
   // stderr (inherited) which surface in the user's terminal if the
   // stream is malformed.

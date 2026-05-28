@@ -226,7 +226,7 @@ const rows = [
 ];
 const failures = validateRows(rows);
 const summary = {
-  kind: "machinen.cross-arch-criu.stateful-database-restore-smoke",
+  kind: "machinen.architecture-portable-snapshot.stateful-database-restore-smoke",
   state: failures.length === 0 ? "completed" : "failed",
   pass: failures.length === 0,
   completedRows: rows.filter((row) => row.state === "completed").length,
