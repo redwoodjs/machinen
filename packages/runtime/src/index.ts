@@ -473,6 +473,78 @@ export {
   validateNativeProcessImageDocuments,
 } from "./native-process-image.ts";
 export {
+  ARCHITECTURE_PORTABLE_SNAPSHOT_GAUNTLET_KIND,
+  ARCHITECTURE_PORTABLE_SNAPSHOT_GAUNTLET_ROW_KIND,
+  buildArchitecturePortableSnapshotGauntletRow,
+  architecturePortableSnapshotGauntletClassifications,
+  architecturePortableSnapshotTargetExecutions,
+  requiredArchitecturePortableSnapshotClaimIds,
+  stableGauntletDigest,
+  summarizeArchitecturePortableSnapshotGauntletRows,
+  validateArchitecturePortableSnapshotGauntletInvariants,
+  validateArchitecturePortableSnapshotGauntletRows,
+  validateArchitecturePortableSnapshotGauntletSchema,
+} from "./architecture-portable-snapshot-gauntlet.ts";
+export {
+  NESTED_VIRTUALIZATION_STRETCH_PROOF_KIND,
+  buildNestedVirtualizationStretchProofRow,
+  nestedVirtualizationStretchProofClassifications,
+  nestedVirtualizationStretchProofRefusalCodes,
+  summarizeNestedVirtualizationStretchProofRows,
+  validateNestedVirtualizationStretchProofRows,
+} from "./nested-virtualization-stretch-proof.ts";
+export { probeNestedVirtualization } from "./nested-virt.ts";
+export {
+  ADVANCED_LINUX_FACILITY_PROBE_KIND,
+  advancedLinuxFacilityProbeClassifications,
+  advancedLinuxFacilityProbeFacilities,
+  advancedLinuxFacilityProbeRefusalCodes,
+  buildAdvancedLinuxFacilityProbeRow,
+  summarizeAdvancedLinuxFacilityProbeRows,
+  validateAdvancedLinuxFacilityProbeRows,
+} from "./advanced-linux-facility-probe.ts";
+export {
+  RUNTIME_CONFIDENCE_PROFILE_KIND,
+  buildRuntimeConfidenceProfileMatrix,
+  buildRuntimeConfidenceProfileRow,
+  runtimeConfidenceClassifications,
+  runtimeConfidenceProfileFixtures,
+  runtimeConfidenceRefusalCodes,
+  summarizeRuntimeConfidenceProfiles,
+  validateRuntimeConfidenceProfiles,
+} from "./runtime-confidence-profile.ts";
+export {
+  PORTABLE_SNAPSHOT_GUEST_CHECKPOINT_COMPOSITION_KIND,
+  buildPortableSnapshotGuestCheckpointCompositionRow,
+  portableSnapshotGuestCheckpointCompositionRefusalCodes,
+  summarizePortableSnapshotGuestCheckpointCompositionRows,
+  validatePortableSnapshotGuestCheckpointCompositionRows,
+} from "./portable-snapshot-guest-checkpoint-composition.ts";
+export {
+  GUEST_CHECKPOINT_SUBSTRATE_KIND,
+  buildGuestCheckpointSubstrateRow,
+  guestCheckpointSubstrateRefusalCodes,
+  summarizeGuestCheckpointSubstrateRows,
+  validateGuestCheckpointSubstrateRows,
+} from "./guest-checkpoint-substrate.ts";
+export {
+  STATEFUL_DATABASE_RESTORE_KIND,
+  buildStatefulDatabaseRestoreSummary,
+  postgresLogicalRestoreInput,
+  sqliteRollbackJournalRestoreInput,
+  sqliteWalCheckpointRestoreInput,
+  statefulDatabaseRestoreRefusalCodes,
+} from "./stateful-database-restore.ts";
+export {
+  OPPOSITE_ISA_VM_EXECUTION_KIND,
+  buildOppositeIsaVmExecutionSummary,
+  classifyOppositeIsaProviderRoute,
+  hostArchitectureFromNode,
+  normalizeGuestMachine,
+  oppositeGuestArchitecture,
+  oppositeIsaVmExecutionRefusalCodes,
+} from "./opposite-isa-vm-execution.ts";
+export {
   PORTABLE_MACHINE_SNAPSHOT_FILES,
   PORTABLE_MACHINE_SNAPSHOT_FORMAT_VERSION,
   PortableMachineSnapshotValidationError,
@@ -537,6 +609,73 @@ export {
   planPortableMachineTargetRestoreDescriptor,
   planPortableMachineVmRestoreProof,
 } from "./portable-machine-restore-proof.ts";
+export type {
+  ArchitecturePortableSnapshotGauntletClassification,
+  ArchitecturePortableSnapshotGauntletRow,
+  ArchitecturePortableSnapshotGauntletRowInput,
+  ArchitecturePortableSnapshotGauntletSummary,
+  ArchitecturePortableSnapshotTargetExecution,
+} from "./architecture-portable-snapshot-gauntlet.ts";
+export type { NestedVirtProbeHost, NestedVirtProbeResult } from "./nested-virt.ts";
+export type {
+  NestedVirtualizationStretchProofClassification,
+  NestedVirtualizationStretchProofInput,
+  NestedVirtualizationStretchProofRefusalCode,
+  NestedVirtualizationStretchProofRow,
+  NestedVirtualizationStretchProofSummary,
+} from "./nested-virtualization-stretch-proof.ts";
+export type {
+  AdvancedLinuxFacilityProbeClassification,
+  AdvancedLinuxFacilityProbeFacility,
+  AdvancedLinuxFacilityProbeInput,
+  AdvancedLinuxFacilityProbeRefusalCode,
+  AdvancedLinuxFacilityProbeRow,
+  AdvancedLinuxFacilityProbeStateModel,
+  AdvancedLinuxFacilityProbeSummary,
+} from "./advanced-linux-facility-probe.ts";
+export type {
+  RuntimeConfidenceArch,
+  RuntimeConfidenceClassification,
+  RuntimeConfidenceProfileInput,
+  RuntimeConfidenceProfileRow,
+  RuntimeConfidenceProfileSummary,
+  RuntimeConfidenceRefusalCode,
+  RuntimeConfidenceRuntime,
+  RuntimeConfidenceStateModel,
+} from "./runtime-confidence-profile.ts";
+export type {
+  PortableSnapshotGuestCheckpointCompositionInput,
+  PortableSnapshotGuestCheckpointCompositionRefusalCode,
+  PortableSnapshotGuestCheckpointCompositionRow,
+  PortableSnapshotGuestCheckpointCompositionState,
+  PortableSnapshotGuestCheckpointCompositionSummary,
+  PortableSnapshotGuestCheckpointMachinenStateModel,
+} from "./portable-snapshot-guest-checkpoint-composition.ts";
+export type {
+  GuestCheckpointSubstrateInput,
+  GuestCheckpointSubstrateProfile,
+  GuestCheckpointSubstrateRefusalCode,
+  GuestCheckpointSubstrateRow,
+  GuestCheckpointSubstrateState,
+  GuestCheckpointSubstrateSummary,
+} from "./guest-checkpoint-substrate.ts";
+export type {
+  StatefulDatabaseRestoreArch,
+  StatefulDatabaseRestoreDatabase,
+  StatefulDatabaseRestoreInput,
+  StatefulDatabaseRestoreRefusalCode,
+  StatefulDatabaseRestoreState,
+  StatefulDatabaseRestoreStateModel,
+  StatefulDatabaseRestoreSummary,
+} from "./stateful-database-restore.ts";
+export type {
+  OppositeIsaVmExecutionArch,
+  OppositeIsaVmExecutionEvidence,
+  OppositeIsaVmExecutionProviderRoute,
+  OppositeIsaVmExecutionRefusalCode,
+  OppositeIsaVmExecutionState,
+  OppositeIsaVmExecutionSummary,
+} from "./opposite-isa-vm-execution.ts";
 export type {
   PortableMachineSnapshotArchitecture,
   PortableMachineSnapshotDocuments,

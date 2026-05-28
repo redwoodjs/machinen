@@ -145,7 +145,7 @@ make ARCH=arm64 defconfig >/dev/null
 # without it (just emits a warning), but restore can hang attempting to
 # install pages via uffd. Built in.
 #
-# IPV6 — defconfig leaves this =m. CRIU restore walks IPv6 socket diag
+# IPV6 — defconfig leaves this =m. checkpoint restore walks IPv6 socket diag
 # during the network-restore phase even when the workload only used
 # IPv4, and a missing module here can hang the restore loop. Force =y
 # to match the rest of the boot-path drivers.

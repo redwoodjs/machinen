@@ -113,7 +113,7 @@ export interface VmHandle {
    * before booting through the normal vmstate restore path.
    *
    * With `MACHINEN_SNAPSHOT_ENGINE=criu`, this keeps the historical
-   * process-tree behavior: CRIU image files live under `<outDir>/img/`,
+   * process-tree behavior: checkpoint image files live under `<outDir>/img/`,
    * `opts.leaveRunning: true` keeps the source alive, and the default
    * destructive CRIU snapshot powers the source off after the dump.
    * With `MACHINEN_SNAPSHOT_ENGINE=portable`, snapshot currently
@@ -292,7 +292,7 @@ export interface SnapshotResult {
   /** Absolute path to the snapshot bundle directory. */
   snapDir: string;
   /**
-   * Absolute path to the CRIU image directory inside the bundle.
+   * Absolute path to the checkpoint image directory inside the bundle.
    * Set by the criu engine only; undefined for vmstate bundles.
    */
   imgDir?: string;
@@ -482,10 +482,10 @@ export interface ForkOptions extends Omit<RestoreOptions, "snapDir"> {
    */
   onLog?: OnLog;
   /**
-   * Opt into CRIU lazy-pages restore for the fork — the CRIU image directory
+   * Opt into CRIU lazy-pages restore for the fork — the checkpoint image directory
    * is mounted into the guest read-only via in-VMM virtio-fs and `criu restore
    * --lazy-pages` faults pages on demand. Default false: the runtime packs the
-   * CRIU image into a tar on `/dev/vdb` and the guest does an eager load.
+   * checkpoint image into a tar on `/dev/vdb` and the guest does an eager load.
    *
    * Lazy keeps fork RSS proportional to the pages the sibling actually
    * touches, not the full snapshot size. Worth setting when the source dumped
