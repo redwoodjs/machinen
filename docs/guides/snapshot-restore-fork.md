@@ -67,7 +67,7 @@ npx machinen stop counter
 
 If you opt into the legacy CRIU engine with `MACHINEN_SNAPSHOT_ENGINE=criu`,
 `machinen snapshot` is destructive unless you pass `--keep-alive`, and the
-bundle stores CRIU images under `img/` instead.
+bundle stores checkpoint images under `img/` instead.
 
 To move it:
 

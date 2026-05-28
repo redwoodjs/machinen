@@ -1,7 +1,7 @@
 # Portable snapshot bundle format
 
 Experimental portable snapshots are semantic process bundles, not exact VM
-state. They are intentionally separate from CRIU image bundles and
+state. They are intentionally separate from checkpoint image bundles and
 `state.vmstate` bundles.
 
 Bundle layout:

@@ -22,6 +22,12 @@ Snapshot internals:
 - [portable machine snapshot boundary](./snapshot/portable-machine-snapshot.md) — why raw cross-ISA vmstate replay refuses and what the target-ISA restore path requires
 - [opposite-ISA VM execution proof](./snapshot/opposite-isa-vm-execution.md) — host/guest route matrix, acceleration labels, and guest-side verifier contract
 - [stateful database portable restore](./snapshot/stateful-database-portable-restore.md) — PostgreSQL logical and SQLite journal/WAL Level 2 restore contracts
+- [guest checkpoint substrate proof](./snapshot/guest-checkpoint-substrate.md) — same-guest checkpoint checks, C restore proof, and JVM refusal boundary
+- [portable snapshot plus guest checkpoint composition](./snapshot/portable-snapshot-guest-checkpoint-composition.md) — Machinen vmstate restore composed with guest checkpoint artifacts
+- [C and Java runtime confidence profiles](./snapshot/runtime-confidence-profiles.md) — classified C/JVM support, proof-only, and refusal matrix
+- [advanced Linux facility probes](./snapshot/advanced-linux-facility-probes.md) — seccomp, eBPF, namespace, cgroup, and capability proof/refusal rows
+- [nested virtualization stretch proof](./snapshot/nested-virtualization-stretch-proof.md) — Firecracker L2 demo classification with snapshot/fork refusal
+- [architecture-portable snapshot checked gauntlet](./snapshot/architecture-portable-snapshot-gauntlet.md) — aggregated Goals 002-008 proof ledger
 - [portable machine support envelope](./snapshot/support-envelope.md) — current app-neutral supported and refused capability families
 - [portable machine proof profiles](./snapshot/portable-machine-proof-profiles.md) — positive and negative proof profiles for target-native completion and fail-closed refusals
 - [portable proof matrices](./snapshot/proof-matrices.md) — one-command matrix presets and JSON summary shape

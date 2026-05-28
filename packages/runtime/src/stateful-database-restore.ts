@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 
 export const STATEFUL_DATABASE_RESTORE_KIND =
-  "machinen.cross-arch-criu.stateful-database-restore" as const;
+  "machinen.architecture-portable-snapshot.stateful-database-restore" as const;
 
 export const statefulDatabaseRestoreRefusalCodes = [
   "postgres-active-transaction-unsupported",
@@ -258,6 +258,7 @@ function refused(
   return { code, remediation, verifierResult };
 }
 
+// fallow-ignore-next-line complexity
 function evidenceFor(input: StatefulDatabaseRestoreInput): Record<string, unknown> {
   if (input.database === "postgresql") {
     return {
