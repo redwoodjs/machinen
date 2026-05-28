@@ -31,7 +31,7 @@ function verifyNativeResourceTranslation() {
   if (result.resources[0]?.state !== "recipe") {
     throw new Error("regular file did not produce a restore recipe");
   }
-  if (result.refusals[0]?.code !== "resource-kind-unsupported") {
+  if (result.refusals[0]?.code !== "kernel-state-unsupported") {
     throw new Error("brokerless socket did not refuse precisely");
   }
   return { formatVersion: 1, result };

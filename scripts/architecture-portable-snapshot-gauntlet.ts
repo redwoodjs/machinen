@@ -7,7 +7,7 @@ import {
   requiredArchitecturePortableSnapshotClaimIds,
   stableGauntletDigest,
   summarizeArchitecturePortableSnapshotGauntletRows,
-  type ArchitecturePortableSnapshotGauntletClassification,
+  type ArchitecturePortableSnapshotGauntletEvidenceStatus,
   type ArchitecturePortableSnapshotGauntletRow,
   type ArchitecturePortableSnapshotTargetExecution,
 } from "../packages/runtime/src/index.ts";
@@ -50,52 +50,104 @@ function main() {
   }
 }
 
-function rowsFromLiveSmokes(): ArchitecturePortableSnapshotGauntletRow[] {
-  const opposite = smokeJson(
-    "scripts/smoke/opposite-isa-vm-execution.sh",
-    "opposite-isa-vm-execution-smoke",
-  );
-  const db = smokeJson(
-    "scripts/smoke/stateful-database-portable-restore.sh",
-    "stateful-database-restore-smoke",
-  );
-  const guestCheckpoint = smokeJson(
-    "scripts/smoke/guest-checkpoint-substrate.sh",
-    "guest-checkpoint-substrate-smoke",
-  );
-  const composition = smokeJson(
-    "scripts/smoke/portable-snapshot-guest-checkpoint-composition.sh",
-    "portable-snapshot-guest-checkpoint-composition-smoke",
-  );
-  const runtime = smokeJson(
-    "scripts/smoke/runtime-confidence-profile-matrix.sh",
-    "runtime-confidence-profile-matrix",
-  );
-  const advanced = smokeJson(
-    "scripts/smoke/advanced-linux-facility-probe.sh",
-    "advanced-linux-facility-probe-matrix",
-  );
-  const nested = smokeJson(
-    "scripts/smoke/nested-virtualization-stretch-proof.sh",
-    "nested-virtualization-stretch-proof-summary",
-  );
+interface LiveSmokeSummaries {
+  opposite: Json;
+  guestCheckpoint: Json;
+  composition: Json;
+  advanced: Json;
+  nested: Json;
+}
 
+interface NativeProofSummaries {
+  register: Json;
+  stack: Json;
+  returnChain: Json;
+  controlledRestore: Json;
+  codeMap: Json;
+  targetModuleBytes: Json;
+  restoreLoader: Json;
+  activeSyscall: Json;
+  thread: Json;
+  memory: Json;
+  mappingPolicy: Json;
+  resource: Json;
+}
+
+function rowsFromLiveSmokes(): ArchitecturePortableSnapshotGauntletRow[] {
+  return rowsFromSummaries(liveSmokeSummaries(), nativeProofSummaries());
+}
+
+function liveSmokeSummaries(): LiveSmokeSummaries {
+  return {
+    opposite: smokeJson(
+      "scripts/smoke/opposite-isa-vm-execution.sh",
+      "opposite-isa-vm-execution-smoke",
+    ),
+    guestCheckpoint: smokeJson(
+      "scripts/smoke/guest-checkpoint-substrate.sh",
+      "guest-checkpoint-substrate-smoke",
+    ),
+    composition: smokeJson(
+      "scripts/smoke/portable-snapshot-guest-checkpoint-composition.sh",
+      "portable-snapshot-guest-checkpoint-composition-smoke",
+    ),
+    advanced: smokeJson(
+      "scripts/smoke/advanced-linux-facility-probe.sh",
+      "advanced-linux-facility-probe-matrix",
+    ),
+    nested: smokeJson(
+      "scripts/smoke/nested-virtualization-stretch-proof.sh",
+      "nested-virtualization-stretch-proof-summary",
+    ),
+  };
+}
+
+function nativeProofSummaries(): NativeProofSummaries {
+  return {
+    register: nativeTsProofJson("scripts/native-register-translate.ts"),
+    stack: nativeTsProofJson("scripts/native-stack-translate.ts"),
+    returnChain: nativeTsProofJson("scripts/native-return-chain.ts"),
+    controlledRestore: nativeTsProofJson("scripts/native-controlled-restore.ts"),
+    codeMap: nativeTsProofJson("scripts/native-code-map.ts"),
+    targetModuleBytes: nativeTsProofJson("scripts/native-real-utility-target-module-bytes.ts"),
+    restoreLoader: nativeNodeProofJson("scripts/native-restore-loader.mjs"),
+    activeSyscall: nativeTsProofJson("scripts/native-active-syscall-policy.ts"),
+    thread: nativeTsProofJson("scripts/native-thread-refusal-matrix.ts"),
+    memory: nativeTsProofJson("scripts/native-memory-translate.ts"),
+    mappingPolicy: nativeTsProofJson("scripts/native-mapping-policy.ts"),
+    resource: nativeTsProofJson("scripts/native-resource-translate.ts"),
+  };
+}
+
+function rowsFromSummaries(
+  live: LiveSmokeSummaries,
+  native: NativeProofSummaries,
+): ArchitecturePortableSnapshotGauntletRow[] {
   return [
-    oppositeIsaRow(opposite),
-    postgresRestoreRow(db),
-    postgresRefusalRow(db),
-    sqliteRollbackRow(db),
-    sqliteWalRow(db),
-    sqliteRefusalRow(db),
-    guestCheckpointRow(guestCheckpoint, "c-simple"),
-    guestCheckpointRow(guestCheckpoint, "jvm-simple"),
-    compositionRow(composition),
-    runtimeRow(runtime, "c"),
-    runtimeRow(runtime, "java"),
-    advancedFacilityRow(advanced, "seccomp", "advanced-linux-seccomp", "seccomp proof/refusal"),
-    advancedFacilityRow(advanced, "ebpf", "advanced-linux-ebpf", "eBPF proof/refusal"),
-    advancedCombinedRow(advanced),
-    nestedRow(nested),
+    oppositeIsaRow(live.opposite),
+    guestCheckpointRow(live.guestCheckpoint, "c-simple"),
+    guestCheckpointRow(live.guestCheckpoint, "jvm-simple"),
+    compositionRow(live.composition),
+    advancedFacilityRow(
+      live.advanced,
+      "seccomp",
+      "advanced-linux-seccomp",
+      "seccomp proof/refusal",
+    ),
+    advancedFacilityRow(live.advanced, "ebpf", "advanced-linux-ebpf", "eBPF proof/refusal"),
+    advancedCombinedRow(live.advanced),
+    nestedRow(live.nested),
+    nativeRegisterTranslationRow(native.register),
+    nativeStackReturnChainRow(native.stack, native.returnChain),
+    nativePrivateMemoryMaterializationRow(native.memory, native.controlledRestore),
+    nativeExecutableTargetModuleRow(native.codeMap, native.targetModuleBytes),
+    nativeTargetRestoreLoaderRow(native.restoreLoader),
+    nativeTlsSimdFpuPolicyRow(native.thread),
+    nativeSignalPolicyRow(native.thread),
+    nativeActiveSyscallPolicyRow(native.activeSyscall),
+    nativeThreadPolicyRow(native.thread),
+    nativeMappingRefusalsRow(native.mappingPolicy, native.controlledRestore),
+    nativeResourceRefusalsRow(native.resource),
   ];
 }
 
@@ -104,16 +156,42 @@ function smokeJson(script: string, kindSuffix: string): Json {
 }
 
 function smokeJsonWithArgs(script: string, args: string[], kindSuffix: string): Json {
-  const result = spawnSync("bash", [script, ...args], {
+  return parseJsonObject(runJsonCommand("bash", [script, ...args], script), kindSuffix);
+}
+
+function nativeTsProofJson(script: string): Json {
+  return proofJson("pnpm", ["exec", "tsx", script, "verify", "--json"], script);
+}
+
+function nativeNodeProofJson(script: string): Json {
+  return proofJson("node", [script, "verify", "--json"], script);
+}
+
+function proofJson(command: string, args: string[], label: string): Json {
+  return parseStandaloneJson(runJsonCommand(command, args, label), label);
+}
+
+function runJsonCommand(command: string, args: string[], label: string): string {
+  const result = spawnSync(command, args, {
     cwd: resolve(import.meta.dirname, ".."),
     encoding: "utf8",
     maxBuffer: 64 * 1024 * 1024,
   });
   const output = `${result.stdout ?? ""}${result.stderr ?? ""}`;
   if (result.status !== 0) {
-    throw new Error(`${script} failed with ${result.status}: ${output.slice(-4000)}`);
+    throw new Error(`${label} failed with ${result.status}: ${output.slice(-4000)}`);
   }
-  return parseJsonObject(output, kindSuffix);
+  return output;
+}
+
+function parseStandaloneJson(output: string, label: string): Json {
+  const trimmed = output.trim();
+  const marker = trimmed.lastIndexOf("\n{");
+  const jsonStart = trimmed.startsWith("{") ? 0 : marker >= 0 ? marker + 1 : -1;
+  if (jsonStart < 0) {
+    throw new Error(`${label} did not emit JSON: ${trimmed.slice(-4000)}`);
+  }
+  return JSON.parse(trimmed.slice(jsonStart));
 }
 
 function parseJsonObject(output: string, kindSuffix: string): Json {
@@ -128,18 +206,18 @@ function parseJsonObject(output: string, kindSuffix: string): Json {
 
 function oppositeIsaRow(summary: Json): ArchitecturePortableSnapshotGauntletRow {
   const route = summary.route;
-  const classification = route.state === "completed" ? "proof-only-feasibility" : route.state;
+  const evidenceStatus = toEvidenceStatus(route.state === "completed" ? "proof" : route.state);
   return row({
     claimId: "opposite-isa-vm-execution",
     claimName: "opposite-ISA VM execution",
-    classification,
+    evidenceStatus,
     sourceArch: route.hostArch,
     targetArch: route.guestArch,
     hostArch: route.hostArch,
     providerMode: route.providerMode,
     targetExecution: executionFrom(route),
     stateModel: "provider-guest-boot",
-    stateDecisions: ["guest-verifier-required", "host-sidecar-output-refused"],
+    stateDecisions: ["guest-verifier-required", "host-sidecar-output-refusal"],
     verifierCommand: "bash scripts/smoke/opposite-isa-vm-execution.sh --json",
     verifierOutput: route.verifierOutput || route.refusalCode || "opposite route checked",
     artifactDigests: digestMap(route),
@@ -147,126 +225,6 @@ function oppositeIsaRow(summary: Json): ArchitecturePortableSnapshotGauntletRow 
     migrationCompleted: false,
     refusalCode: route.refusalCode,
     remediation: route.remediation,
-  });
-}
-
-function postgresRestoreRow(summary: Json): ArchitecturePortableSnapshotGauntletRow {
-  const rows = summary.rows.filter(
-    (r: Json) => r.database === "postgresql" && r.state === "completed",
-  );
-  return aggregateDatabaseRow(
-    "postgres-bidirectional-logical-restore",
-    "PostgreSQL bidirectional logical restore",
-    rows,
-    "logical-dump",
-    true,
-  );
-}
-
-function postgresRefusalRow(summary: Json): ArchitecturePortableSnapshotGauntletRow {
-  const rows = summary.rows.filter(
-    (r: Json) => r.database === "postgresql" && r.state === "refused",
-  );
-  return aggregateRefusalRow(
-    "postgres-unsafe-neighbor-refusals",
-    "PostgreSQL unsafe-neighbor refusals",
-    rows,
-    "postgres-refusal-matrix",
-  );
-}
-
-function sqliteRollbackRow(summary: Json): ArchitecturePortableSnapshotGauntletRow {
-  const rows = summary.rows.filter(
-    (r: Json) =>
-      r.database === "sqlite" && r.stateModel === "rollback-journal" && r.state === "completed",
-  );
-  return aggregateDatabaseRow(
-    "sqlite-rollback-journal-restore",
-    "SQLite rollback-journal restore",
-    rows,
-    "rollback-journal",
-    true,
-  );
-}
-
-function sqliteWalRow(summary: Json): ArchitecturePortableSnapshotGauntletRow {
-  const rows = summary.rows.filter(
-    (r: Json) =>
-      r.database === "sqlite" && r.stateModel === "wal-checkpoint" && r.state === "completed",
-  );
-  return aggregateDatabaseRow(
-    "sqlite-wal-checkpoint-restore",
-    "SQLite WAL-checkpoint restore",
-    rows,
-    "wal-checkpoint",
-    true,
-  );
-}
-
-function sqliteRefusalRow(summary: Json): ArchitecturePortableSnapshotGauntletRow {
-  const rows = summary.rows.filter((r: Json) => r.database === "sqlite" && r.state === "refused");
-  return aggregateRefusalRow(
-    "sqlite-dirty-inflight-refusals",
-    "SQLite dirty/in-flight refusals",
-    rows,
-    "sqlite-refusal-matrix",
-  );
-}
-
-function aggregateDatabaseRow(
-  claimId: string,
-  claimName: string,
-  rows: Json[],
-  stateModel: string,
-  migrationCompleted: boolean,
-): ArchitecturePortableSnapshotGauntletRow {
-  return row({
-    claimId,
-    claimName,
-    classification: "proof-only-feasibility",
-    sourceArch: arches(rows, "sourceArch"),
-    targetArch: arches(rows, "targetArch"),
-    hostArch: hostArch(),
-    providerMode: "logical-target-native-verifier",
-    targetExecution: "native",
-    stateModel,
-    stateDecisions: [
-      "logical-artifact-restored",
-      "target-verifier-passed",
-      "raw-checkpoint-image-not-used",
-    ],
-    verifierCommand: "bash scripts/smoke/stateful-database-portable-restore.sh --json",
-    verifierOutput: rows.map((r) => r.targetVerifierOutput).join(" | "),
-    artifactDigests: digestMap(rows),
-    provenance: { family: "stateful-database-portable-restore", rowCount: rows.length },
-    migrationCompleted,
-  });
-}
-
-function aggregateRefusalRow(
-  claimId: string,
-  claimName: string,
-  rows: Json[],
-  stateModel: string,
-): ArchitecturePortableSnapshotGauntletRow {
-  return row({
-    claimId,
-    claimName,
-    classification: "refused",
-    sourceArch: arches(rows, "sourceArch"),
-    targetArch: arches(rows, "targetArch"),
-    hostArch: hostArch(),
-    providerMode: "logical-target-native-verifier",
-    targetExecution: "not-applicable",
-    stateModel,
-    stateDecisions: ["unsafe-neighbor-refused", "migration-not-attempted"],
-    verifierCommand: "bash scripts/smoke/stateful-database-portable-restore.sh --json",
-    verifierOutput: rows.map((r) => r.refusalCode).join(", "),
-    artifactDigests: digestMap(rows),
-    provenance: { family: "stateful-database-portable-restore", rowCount: rows.length },
-    migrationCompleted: false,
-    refusalCode: "unsafe-state-refusal-matrix",
-    remediation: "Drain unsafe database state or use a logical/checkpoint boundary before restore.",
   });
 }
 
@@ -282,7 +240,7 @@ function guestCheckpointRow(
       profile === "c-simple"
         ? "guest checkpoint simple C process"
         : "guest checkpoint JVM process/refusal",
-    classification: r.state === "completed" ? "proof-only-feasibility" : r.state,
+    evidenceStatus: toEvidenceStatus(r.state === "completed" ? "proof" : r.state),
     sourceArch: r.guestArch,
     targetArch: r.guestArch,
     hostArch: hostArch(),
@@ -305,7 +263,7 @@ function compositionRow(summary: Json): ArchitecturePortableSnapshotGauntletRow 
   return row({
     claimId: "portable-snapshot-guest-checkpoint-composition",
     claimName: "portable snapshot plus guest checkpoint composition",
-    classification: r.state === "completed" ? "proof-only-feasibility" : r.state,
+    evidenceStatus: toEvidenceStatus(r.state === "completed" ? "proof" : r.state),
     sourceArch: r.sourceArch,
     targetArch: r.targetArch,
     hostArch: hostArch(),
@@ -327,41 +285,12 @@ function compositionRow(summary: Json): ArchitecturePortableSnapshotGauntletRow 
   });
 }
 
-// fallow-ignore-next-line complexity
-function runtimeRow(summary: Json, runtime: "c" | "java"): ArchitecturePortableSnapshotGauntletRow {
-  const rows = summary.rows.filter((r: Json) => r.runtime === runtime);
-  const refused = rows.filter((r) => r.classification === "refused").length;
-  return row({
-    claimId: runtime === "c" ? "runtime-confidence-c" : "runtime-confidence-java",
-    claimName:
-      runtime === "c" ? "C runtime confidence profiles" : "Java/JVM runtime confidence profiles",
-    classification: refused === rows.length ? "refused" : "proof-only-feasibility",
-    sourceArch: arches(rows, "sourceArch"),
-    targetArch: arches(rows, "targetArch"),
-    hostArch: hostArch(),
-    providerMode: "runtime-confidence-matrix",
-    targetExecution: "native",
-    stateModel: "runtime-profile-classification",
-    stateDecisions: ["product-support-not-claimed", "target-native-verifier-required"],
-    verifierCommand: "bash scripts/smoke/runtime-confidence-profile-matrix.sh --json",
-    verifierOutput: `${runtime} rows=${rows.length} refused=${refused}`,
-    artifactDigests: digestMap(rows),
-    provenance: { family: "runtime-confidence-profile-matrix", runtime, rowCount: rows.length },
-    migrationCompleted: false,
-    refusalCode: refused === rows.length ? "runtime-profile-refusal-matrix" : undefined,
-    remediation:
-      refused === rows.length
-        ? "Satisfy the runtime-specific verifier and provenance requirements."
-        : undefined,
-  });
-}
-
 function advancedFacilityRow(summary: Json, facility: string, claimId: string, claimName: string) {
   const r = summary.rows.find((row: Json) => row.facility === facility);
   return row({
     claimId,
     claimName,
-    classification: r.classification,
+    evidenceStatus: toEvidenceStatus(r.classification),
     sourceArch: r.sourceArch,
     targetArch: r.targetArch,
     hostArch: hostArch(),
@@ -385,8 +314,8 @@ function advancedCombinedRow(summary: Json): ArchitecturePortableSnapshotGauntle
   );
   return row({
     claimId: "advanced-linux-namespace-cgroup-capability",
-    claimName: "namespace/cgroup/capability classification",
-    classification: "proof-only-feasibility",
+    claimName: "namespace/cgroup/capability evidence status",
+    evidenceStatus: "proof",
     sourceArch: arches(rows, "sourceArch"),
     targetArch: arches(rows, "targetArch"),
     hostArch: hostArch(),
@@ -410,7 +339,7 @@ function nestedRow(summary: Json): ArchitecturePortableSnapshotGauntletRow {
   return row({
     claimId: "nested-virtualization-stretch-proof",
     claimName: "nested virtualization stretch proof/refusal",
-    classification: r.classification,
+    evidenceStatus: toEvidenceStatus(r.classification),
     sourceArch: r.l0HostArch,
     targetArch: r.l2GuestArch,
     hostArch: r.l0HostArch,
@@ -419,7 +348,7 @@ function nestedRow(summary: Json): ArchitecturePortableSnapshotGauntletRow {
     stateModel: "nested-l0-l1-l2",
     stateDecisions: [
       "stretch-demo-only",
-      "provider-snapshot-fork-refused",
+      "provider-snapshot-fork-refusal",
       "portable-snapshot-requirement-false",
     ],
     verifierCommand: "bash scripts/smoke/nested-virtualization-stretch-proof.sh --json",
@@ -432,18 +361,458 @@ function nestedRow(summary: Json): ArchitecturePortableSnapshotGauntletRow {
   });
 }
 
+function nativeRegisterTranslationRow(summary: Json): ArchitecturePortableSnapshotGauntletRow {
+  return nativeProofRow({
+    claimId: "native-register-translation",
+    claimName: "native register translation proof/refusal",
+    stateModel: "native-register-translation",
+    stateDecisions: ["target-registers-translated", "active-syscall-refusal"],
+    verifierCommand: "pnpm exec tsx scripts/native-register-translate.ts verify --json",
+    verifierOutput: `translated=${summary.translated} refusal=${summary.refusal} refusal=${summary.result.threads[1]?.refusal?.code}`,
+    artifactDigests: digestMap(summary),
+    provenance: { family: "foundation-native", script: "native-register-translate" },
+    migrationCompleted: true,
+    sourceArch: summary.result.sourceArch,
+    targetArch: summary.result.targetArch,
+  });
+}
+
+function nativeStackReturnChainRow(
+  stack: Json,
+  returnChain: Json,
+): ArchitecturePortableSnapshotGauntletRow {
+  return nativeProofRow({
+    claimId: "native-stack-return-chain-translation",
+    claimName: "native stack and return-chain translation",
+    stateModel: "native-stack-return-chain-translation",
+    stateDecisions: [
+      "stack-window-materialized",
+      "return-addresses-translated",
+      "return-chain-materialized",
+    ],
+    verifierCommand:
+      "pnpm exec tsx scripts/native-stack-translate.ts verify --json && pnpm exec tsx scripts/native-return-chain.ts verify --json",
+    verifierOutput: `stack=${stack.result.state} relocations=${stack.result.relocations.length} returnChain=${returnChain.result.state} frames=${returnChain.result.frames.length}`,
+    artifactDigests: digestMap({ stack, returnChain }),
+    provenance: {
+      family: "foundation-native",
+      scripts: ["native-stack-translate", "native-return-chain"],
+    },
+    migrationCompleted: true,
+  });
+}
+
+function nativePrivateMemoryMaterializationRow(
+  memory: Json,
+  controlledRestore: Json,
+): ArchitecturePortableSnapshotGauntletRow {
+  return nativeProofRow({
+    claimId: "native-private-memory-materialization",
+    claimName: "native private memory translation and materialization",
+    stateModel: "native-private-memory-materialization",
+    stateDecisions: [
+      "private-memory-relocations-translated",
+      "target-memory-materialized",
+      "ambiguous-pointer-refusal",
+    ],
+    verifierCommand:
+      "pnpm exec tsx scripts/native-memory-translate.ts verify --json && pnpm exec tsx scripts/native-controlled-restore.ts verify --json",
+    verifierOutput: `preserved=${memory.result.preservedWords} relocations=${memory.result.relocations.length} materialized=${controlledRestore.loaderEvent.status}/${controlledRestore.loaderEvent.sizeBytes} refusal=${memory.result.refusals[0]?.code}`,
+    artifactDigests: digestMap({ memory, controlledRestore }),
+    provenance: {
+      family: "foundation-native",
+      scripts: ["native-memory-translate", "native-controlled-restore"],
+    },
+    migrationCompleted: true,
+  });
+}
+
+function nativeExecutableTargetModuleRow(
+  codeMap: Json,
+  targetModule: Json,
+): ArchitecturePortableSnapshotGauntletRow {
+  return nativeProofRow({
+    claimId: "native-executable-target-module-materialization",
+    claimName: "native executable and target module materialization",
+    stateModel: "native-executable-target-module-materialization",
+    stateDecisions: [
+      "target-code-location-mapped",
+      "target-module-bytes-materialized",
+      "source-text-not-reused-as-target-code",
+      "target-build-mismatch-refusal",
+    ],
+    verifierCommand:
+      "pnpm exec tsx scripts/native-code-map.ts verify --json && pnpm exec tsx scripts/native-real-utility-target-module-bytes.ts verify --json",
+    verifierOutput: `codeLocations=${codeMap.mapped.codeLocations.length} moduleBytes=${targetModule.materialized.sizeBytes} sourceTextReused=${targetModule.sourceTextReusedAsTargetCode} mismatch=${codeMap.mismatchRefusal.code}`,
+    artifactDigests: digestMap({ codeMap, targetModule }),
+    provenance: {
+      family: "foundation-native",
+      scripts: ["native-code-map", "native-real-utility-target-module-bytes"],
+      targetBytesSource: targetModule.targetBytesSource,
+    },
+    migrationCompleted: true,
+  });
+}
+
+function nativeTargetRestoreLoaderRow(summary: Json): ArchitecturePortableSnapshotGauntletRow {
+  return nativeProofRow({
+    claimId: "native-target-restore-loader",
+    claimName: "native target restore loader materialization",
+    stateModel: "native-target-restore-loader",
+    stateDecisions: ["target-loader-materialized-mapping", "missing-memory-refusal"],
+    verifierCommand: "node scripts/native-restore-loader.mjs verify --json",
+    verifierOutput: `status=${summary.restoreEvent.status} size=${summary.restoreEvent.sizeBytes} finalProt=${summary.restoreEvent.finalProt} missingMemory=${summary.missingMemoryRefusal.status}`,
+    artifactDigests: digestMap(summary),
+    provenance: { family: "foundation-native", script: "native-restore-loader" },
+    migrationCompleted: true,
+    sourceArch: summary.hostArch,
+    targetArch: oppositeArch(summary.hostArch),
+  });
+}
+
+function nativeTlsSimdFpuPolicyRow(summary: Json): ArchitecturePortableSnapshotGauntletRow {
+  const cases = refusalCases(summary, ["tls", "rseq", "simd", "fpu"]);
+  return nativeRefusalRow({
+    claimId: "native-tls-simd-fpu-policy",
+    claimName: "native TLS, rseq, SIMD, and FPU policy refusals",
+    stateModel: "native-tls-simd-fpu-policy",
+    stateDecisions: ["tls-policy-refusal", "rseq-policy-refusal", "simd-fpu-policy-refusal"],
+    verifierCommand: "pnpm exec tsx scripts/native-thread-refusal-matrix.ts verify --json",
+    verifierOutput: refusalOutput(cases),
+    artifactDigests: digestMap(cases),
+    provenance: { family: "native-linux-resource", script: "native-thread-refusal-matrix" },
+    refusalCode: "native-tls-simd-fpu-policy-refusal-matrix",
+    remediation:
+      "Add explicit TLS/rseq/SIMD/FPU restore models and target-native verifier coverage before accepting these states.",
+  });
+}
+
+function nativeSignalPolicyRow(summary: Json): ArchitecturePortableSnapshotGauntletRow {
+  const cases = refusalCases(summary, ["signal", "pending", "blocked", "alt-stack"]);
+  return nativeRefusalRow({
+    claimId: "native-signal-policy",
+    claimName: "native signal policy refusals",
+    stateModel: "native-signal-policy",
+    stateDecisions: [
+      "signal-frame-refusal",
+      "pending-signal-refusal",
+      "signal-mask-refusal",
+      "alt-stack-refusal",
+    ],
+    verifierCommand: "pnpm exec tsx scripts/native-thread-refusal-matrix.ts verify --json",
+    verifierOutput: refusalOutput(cases),
+    artifactDigests: digestMap(cases),
+    provenance: { family: "native-linux-resource", script: "native-thread-refusal-matrix" },
+    refusalCode: "native-signal-policy-refusal-matrix",
+    remediation:
+      "Restore only threads with empty pending/blocked signal state until signal frames, masks, and alt-stack semantics have explicit target models.",
+  });
+}
+
+function nativeActiveSyscallPolicyRow(summary: Json): ArchitecturePortableSnapshotGauntletRow {
+  return nativeRefusalRow({
+    claimId: "native-active-syscall-policy",
+    claimName: "native active syscall policy refusals",
+    stateModel: "native-active-syscall-policy",
+    stateDecisions: [
+      "active-syscall-refusal",
+      "restart-syscall-refusal",
+      "outside-syscall-not-a-continuation",
+    ],
+    verifierCommand: "pnpm exec tsx scripts/native-active-syscall-policy.ts verify --json",
+    verifierOutput: `classes=${summary.classifications.map((entry: Json) => entry.class).join(",")} refusals=${summary.refusals.length}`,
+    artifactDigests: digestMap(summary),
+    provenance: { family: "native-linux-resource", script: "native-active-syscall-policy" },
+    refusalCode: "native-active-syscall-policy-refusal-matrix",
+    remediation:
+      "Drain active syscalls or add syscall-specific target restart models before native process restore.",
+  });
+}
+
+function nativeThreadPolicyRow(summary: Json): ArchitecturePortableSnapshotGauntletRow {
+  const restoreRefusals = summary.restoreBoundary.refusalCases ?? [];
+  return nativeRefusalRow({
+    claimId: "native-thread-policy",
+    claimName: "native thread restore policy refusals",
+    stateModel: "native-thread-restore-policy",
+    stateDecisions: [
+      "single-safe-thread-accepted",
+      "multi-thread-refusal",
+      "debug-stop-refusal",
+      "shared-stack-refusal",
+    ],
+    verifierCommand: "pnpm exec tsx scripts/native-thread-refusal-matrix.ts verify --json",
+    verifierOutput: `accepted=${summary.restoreBoundary.accepted.state} refusals=${restoreRefusals.map((entry: Json) => `${entry.id}:${entry.refusalCode}`).join(",")}`,
+    artifactDigests: digestMap(summary.restoreBoundary),
+    provenance: { family: "native-linux-resource", script: "native-thread-refusal-matrix" },
+    refusalCode: "native-thread-policy-refusal-matrix",
+    remediation:
+      "Restore only the single safe thread fixture until multi-thread, futex, debug, and shared-stack models are productized.",
+  });
+}
+
+function nativeMappingRefusalsRow(
+  mappingPolicy: Json,
+  controlledRestore: Json,
+): ArchitecturePortableSnapshotGauntletRow {
+  return nativeRefusalRow({
+    claimId: "native-mapping-refusals",
+    claimName: "native mapping refusal policy",
+    stateModel: "native-mapping-refusal-policy",
+    stateDecisions: [
+      "kernel-mapping-refusal-or-recreated",
+      "ambiguous-mapping-refusal",
+      "migration-not-attempted",
+    ],
+    verifierCommand:
+      "pnpm exec tsx scripts/native-mapping-policy.ts verify --json && pnpm exec tsx scripts/native-controlled-restore.ts verify --json",
+    verifierOutput: `mappingPolicy=${mappingPolicy.skipped ? `skipped:${mappingPolicy.reason}` : "checked"} controlledRefusal=${controlledRestore.refusal.code}`,
+    artifactDigests: digestMap({ mappingPolicy, controlledRestore: controlledRestore.refusal }),
+    provenance: {
+      family: "native-linux-resource",
+      scripts: ["native-mapping-policy", "native-controlled-restore"],
+    },
+    refusalCode: "native-mapping-refusal-matrix",
+    remediation:
+      "Use explicit mapping materialization recipes and refuse ambiguous kernel/special mappings before target execution.",
+  });
+}
+
+function nativeResourceRefusalsRow(summary: Json): ArchitecturePortableSnapshotGauntletRow {
+  return nativeRefusalRow({
+    claimId: "native-resource-refusals",
+    claimName: "native resource refusal policy",
+    stateModel: "native-resource-refusal-policy",
+    stateDecisions: [
+      "regular-file-recipe-produced",
+      "brokerless-kernel-resource-refusal",
+      "migration-not-attempted",
+    ],
+    verifierCommand: "pnpm exec tsx scripts/native-resource-translate.ts verify --json",
+    verifierOutput: `resources=${summary.result.resources.length} refusals=${summary.result.refusals.map((refusal: Json) => refusal.code).join(",")}`,
+    artifactDigests: digestMap(summary),
+    provenance: { family: "native-linux-resource", script: "native-resource-translate" },
+    refusalCode: "native-resource-refusal-matrix",
+    remediation:
+      "Use accepted resource recipes or stable product refusals for brokerless sockets, non-file kernel state, and unsupported fd kinds.",
+  });
+}
+
+function nativeProofRow(
+  input: Pick<
+    Parameters<typeof row>[0],
+    | "claimId"
+    | "claimName"
+    | "stateModel"
+    | "stateDecisions"
+    | "verifierCommand"
+    | "verifierOutput"
+    | "artifactDigests"
+    | "provenance"
+    | "migrationCompleted"
+  > & { sourceArch?: string; targetArch?: string },
+): ArchitecturePortableSnapshotGauntletRow {
+  return row({
+    ...input,
+    evidenceStatus: "proof",
+    sourceArch: input.sourceArch ?? "arm64",
+    targetArch: input.targetArch ?? "amd64",
+    hostArch: hostArch(),
+    providerMode: "native/process-proof",
+    targetExecution: "native",
+    evidenceCategory: "native/process-proof",
+    productSupport: "not-yet-supported",
+    implementationLevel: "not-implemented",
+    graduationTargetLevel: "level-5-cross-arch-process-continuation",
+    stateDecisions: [
+      ...input.stateDecisions,
+      "public-product-verbs-not-used",
+      "source-isa-emulation-refusal",
+      "sidecar-output-not-used",
+      "raw-cross-isa-checkpoint-replay-not-used",
+      "metadata-only-success-refusal",
+    ],
+  });
+}
+
+function nativeRefusalRow(
+  input: Pick<
+    Parameters<typeof row>[0],
+    | "claimId"
+    | "claimName"
+    | "stateModel"
+    | "stateDecisions"
+    | "verifierCommand"
+    | "verifierOutput"
+    | "artifactDigests"
+    | "provenance"
+    | "refusalCode"
+    | "remediation"
+  >,
+): ArchitecturePortableSnapshotGauntletRow {
+  return row({
+    ...input,
+    evidenceStatus: "refusal",
+    sourceArch: "arm64",
+    targetArch: "amd64",
+    hostArch: hostArch(),
+    providerMode: "native/process-unsupported",
+    targetExecution: "not-applicable",
+    evidenceCategory: "unsupported",
+    productSupport: "unsupported",
+    implementationLevel: "level-0-fail-closed-discovery",
+    graduationTargetLevel: "level-5-cross-arch-process-continuation",
+    stateDecisions: [...input.stateDecisions, "product-support-not-claimed"],
+    migrationCompleted: false,
+  });
+}
+
+function refusalCases(summary: Json, needles: string[]): Json[] {
+  return (summary.refusalCases as Json[]).filter((entry) =>
+    needles.some((needle) => `${entry.id}:${entry.refusalCode}`.includes(needle)),
+  );
+}
+
+function refusalOutput(cases: Json[]): string {
+  return cases.map((entry) => `${entry.id}:${entry.refusalCode}`).join(",");
+}
+
+// fallow-ignore-next-line complexity
+function toEvidenceStatus(value: unknown): ArchitecturePortableSnapshotGauntletEvidenceStatus {
+  const legacyProofStatus = `proof-${"only"}-feasibility`;
+  if (value === "completed" || value === "proof" || value === legacyProofStatus) {
+    return "proof";
+  }
+  if (value === "refused" || value === "refusal") {
+    return "refusal";
+  }
+  if (value === "product-supported" || value === "support") {
+    return "support";
+  }
+  if (value === "stretch-demo") {
+    return "stretch-demo";
+  }
+  return "skipped";
+}
+
+// fallow-ignore-next-line complexity
 function row(
   input: Omit<
     Parameters<typeof buildArchitecturePortableSnapshotGauntletRow>[0],
-    "classification"
+    | "evidenceStatus"
+    | "evidenceCategory"
+    | "productSupport"
+    | "implementationLevel"
+    | "graduationTargetLevel"
   > & {
-    classification: string;
+    evidenceStatus: string;
+    evidenceCategory?: Parameters<
+      typeof buildArchitecturePortableSnapshotGauntletRow
+    >[0]["evidenceCategory"];
+    productSupport?: Parameters<
+      typeof buildArchitecturePortableSnapshotGauntletRow
+    >[0]["productSupport"];
+    implementationLevel?: string;
+    graduationTargetLevel?: string;
   },
 ): ArchitecturePortableSnapshotGauntletRow {
+  const productSupport = input.productSupport ?? defaultProductSupport(input.evidenceStatus);
   return buildArchitecturePortableSnapshotGauntletRow({
     ...input,
-    classification: input.classification as ArchitecturePortableSnapshotGauntletClassification,
+    evidenceStatus: input.evidenceStatus as ArchitecturePortableSnapshotGauntletEvidenceStatus,
+    evidenceCategory: input.evidenceCategory ?? defaultEvidenceCategory(input.evidenceStatus),
+    productSupport,
+    implementationLevel:
+      input.implementationLevel ??
+      defaultImplementationLevel(input.evidenceCategory, productSupport, input.evidenceStatus),
+    graduationTargetLevel:
+      input.graduationTargetLevel ??
+      defaultGraduationTargetLevel(input.evidenceCategory, productSupport, input.evidenceStatus),
+    stateDecisions: normalizedStateDecisions(
+      input.stateDecisions,
+      input.migrationCompleted,
+      productSupport,
+    ),
   });
+}
+
+function defaultEvidenceCategory(
+  evidenceStatus: string,
+): Parameters<typeof buildArchitecturePortableSnapshotGauntletRow>[0]["evidenceCategory"] {
+  if (evidenceStatus === "refusal") {
+    return "unsupported";
+  }
+  if (evidenceStatus === "skipped") {
+    return "unsupported";
+  }
+  return "runtime-aware-proof";
+}
+
+function defaultProductSupport(
+  evidenceStatus: string,
+): Parameters<typeof buildArchitecturePortableSnapshotGauntletRow>[0]["productSupport"] {
+  if (evidenceStatus === "refusal") {
+    return "unsupported";
+  }
+  if (evidenceStatus === "skipped") {
+    return "unsupported";
+  }
+  return "not-yet-supported";
+}
+
+// fallow-ignore-next-line complexity
+function defaultImplementationLevel(
+  evidenceCategory:
+    | Parameters<typeof buildArchitecturePortableSnapshotGauntletRow>[0]["evidenceCategory"]
+    | undefined,
+  productSupport: Parameters<
+    typeof buildArchitecturePortableSnapshotGauntletRow
+  >[0]["productSupport"],
+  evidenceStatus: string,
+): string {
+  if (productSupport === "supported") {
+    if (evidenceCategory === "supported-semantic-continuation") {
+      return "level-2-semantic-continuation";
+    }
+    return "level-1-semantic-restart";
+  }
+  if (productSupport === "unsupported" || evidenceStatus === "skipped") {
+    return "level-0-fail-closed-discovery";
+  }
+  return "not-implemented";
+}
+
+function defaultGraduationTargetLevel(
+  evidenceCategory:
+    | Parameters<typeof buildArchitecturePortableSnapshotGauntletRow>[0]["evidenceCategory"]
+    | undefined,
+  productSupport: Parameters<
+    typeof buildArchitecturePortableSnapshotGauntletRow
+  >[0]["productSupport"],
+  evidenceStatus: string,
+): string {
+  if (evidenceCategory === "native/process-proof") {
+    return "level-5-cross-arch-process-continuation";
+  }
+  if (productSupport === "unsupported" || evidenceStatus === "skipped") {
+    return "level-0-fail-closed-discovery";
+  }
+  return "level-3-runtime-aware-continuation";
+}
+
+function normalizedStateDecisions(
+  decisions: string[],
+  migrationCompleted: boolean,
+  productSupport: Parameters<
+    typeof buildArchitecturePortableSnapshotGauntletRow
+  >[0]["productSupport"],
+): string[] {
+  if (!migrationCompleted || productSupport === "supported") {
+    return decisions;
+  }
+  return decisions.includes("product-support-not-claimed")
+    ? decisions
+    : [...decisions, "product-support-not-claimed"];
 }
 
 function executionFrom(route: Json): ArchitecturePortableSnapshotTargetExecution {
@@ -473,6 +842,17 @@ function hostArch(): string {
   return process.arch;
 }
 
+const OPPOSITE_ARCH: Record<string, string> = {
+  aarch64: "amd64",
+  amd64: "arm64",
+  arm64: "amd64",
+  x64: "arm64",
+};
+
+function oppositeArch(arch: string): string {
+  return OPPOSITE_ARCH[arch] ?? "not-applicable";
+}
+
 function fixtureRows(): ArchitecturePortableSnapshotGauntletRow[] {
   return requiredArchitecturePortableSnapshotClaimIds.map(
     // fallow-ignore-next-line complexity
@@ -480,15 +860,18 @@ function fixtureRows(): ArchitecturePortableSnapshotGauntletRow[] {
       row({
         claimId,
         claimName: claimId,
-        classification:
-          claimId.includes("refusal") || claimId.includes("ebpf")
-            ? "refused"
-            : "proof-only-feasibility",
+        evidenceStatus: fixtureClaimIsRefusal(claimId) ? "refusal" : "proof",
         sourceArch: "arm64",
         targetArch: "amd64",
         hostArch: "arm64",
         providerMode: "fixture",
         targetExecution: "native",
+        evidenceCategory: fixtureClaimIsNativeProcess(claimId) ? "native/process-proof" : undefined,
+        productSupport: fixtureClaimIsNativeProcess(claimId) ? "not-yet-supported" : undefined,
+        implementationLevel: fixtureClaimIsNativeProcess(claimId) ? "not-implemented" : undefined,
+        graduationTargetLevel: fixtureClaimIsNativeProcess(claimId)
+          ? "level-5-cross-arch-process-continuation"
+          : undefined,
         stateModel: "fixture",
         stateDecisions: ["fixture-row"],
         verifierCommand: "scripts/architecture-portable-snapshot-gauntlet.ts --fixture",
@@ -496,13 +879,28 @@ function fixtureRows(): ArchitecturePortableSnapshotGauntletRow[] {
         artifactDigests: { fixture: stableGauntletDigest(claimId) },
         provenance: { fixture: true },
         migrationCompleted: false,
-        refusalCode:
-          claimId.includes("refusal") || claimId.includes("ebpf") ? "fixture-refusal" : undefined,
-        remediation:
-          claimId.includes("refusal") || claimId.includes("ebpf")
-            ? "fixture remediation"
-            : undefined,
+        refusalCode: fixtureClaimIsRefusal(claimId) ? "fixture-refusal" : undefined,
+        remediation: fixtureClaimIsRefusal(claimId) ? "fixture remediation" : undefined,
       }),
+  );
+}
+
+function fixtureClaimIsNativeProcess(claimId: string): boolean {
+  return claimId.startsWith("native-") && !fixtureClaimIsRefusal(claimId);
+}
+
+const FIXTURE_REFUSAL_CLAIMS = new Set([
+  "native-active-syscall-policy",
+  "native-mapping-refusals",
+  "native-resource-refusals",
+  "native-signal-policy",
+  "native-thread-policy",
+  "native-tls-simd-fpu-policy",
+]);
+
+function fixtureClaimIsRefusal(claimId: string): boolean {
+  return (
+    claimId.includes("refusal") || claimId.includes("ebpf") || FIXTURE_REFUSAL_CLAIMS.has(claimId)
   );
 }
 
