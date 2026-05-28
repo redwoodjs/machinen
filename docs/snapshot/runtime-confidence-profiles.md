@@ -13,7 +13,7 @@ we call them product support. The classifications are:
 
 ```json
 {
-  "kind": "machinen.cross-arch-criu.runtime-confidence-profile",
+  "kind": "machinen.architecture-portable-snapshot.runtime-confidence-profile",
   "runtime": "c",
   "profile": "c-static-binary",
   "classification": "proof-only-feasibility",

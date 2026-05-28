@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 
 export const STATEFUL_DATABASE_RESTORE_KIND =
-  "machinen.cross-arch-criu.stateful-database-restore" as const;
+  "machinen.architecture-portable-snapshot.stateful-database-restore" as const;
 
 export const statefulDatabaseRestoreRefusalCodes = [
   "postgres-active-transaction-unsupported",

@@ -5,12 +5,12 @@ import { join, resolve } from "node:path";
 
 import {
   boot,
-  buildPortableSnapshotGuestCriuCompositionRow,
+  buildPortableSnapshotGuestCheckpointCompositionRow,
   resolveBaseDtb,
   resolveBaseKernel,
   resolveBaseRootfs,
   restore,
-  summarizePortableSnapshotGuestCriuCompositionRows,
+  summarizePortableSnapshotGuestCheckpointCompositionRows,
   type VmHandle,
 } from "../packages/runtime/src/index.ts";
 
@@ -21,10 +21,10 @@ interface Options {
   workDir?: string;
 }
 
-interface GuestCriuProof {
+interface GuestCheckpointProof {
   guestArch: string;
   kernelVersion: string;
-  criuVersion: string;
+  checkpointToolVersion: string;
   verifierOutput: string;
   imageDigest: string;
   checkpointLog: string;
@@ -36,7 +36,7 @@ interface GuestCriuProof {
 
 function usage(): never {
   console.error(
-    "usage: tsx scripts/portable-snapshot-guest-criu-composition.ts [--json] [--summary file] [--work-dir path] [--keep-work-dir]",
+    "usage: tsx scripts/portable-snapshot-guest-checkpoint-composition.ts [--json] [--summary file] [--work-dir path] [--keep-work-dir]",
   );
   process.exit(2);
 }
@@ -79,7 +79,7 @@ async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2));
   const workDir = options.workDir
     ? resolve(options.workDir)
-    : mkdtempSync(join(tmpdir(), "machinen-criu-composition."));
+    : mkdtempSync(join(tmpdir(), "machinen-checkpoint-composition."));
   const snapDir = join(workDir, "outer-vmstate-snapshot");
   const image = resolveBaseRootfs();
   const kernel = resolveBaseKernel();
@@ -89,11 +89,11 @@ async function main(): Promise<void> {
   try {
     source = await boot({ image, kernel, dtb, cmd: ["/bin/sleep", "900"], timeoutMs: null });
     await installGuestProofScript(source);
-    const pre = await runGuestCriuProof(source, "pre-snapshot");
+    const pre = await runGuestCheckpointProof(source, "pre-snapshot");
     const sourceArch = normalizeArch(pre.guestArch);
     const storedDigestBefore = await storedImageDigest(
       source,
-      "/tmp/machinen-criu-composition-pre-snapshot/img",
+      "/tmp/machinen-checkpoint-composition-pre-snapshot/img",
     );
     const snapshot = await source.snapshot({
       outDir: snapDir,
@@ -103,19 +103,19 @@ async function main(): Promise<void> {
     restored = await restore({ snapDir: snapshot.snapDir, image, kernel, dtb, timeoutMs: null });
     const storedDigestAfter = await storedImageDigest(
       restored,
-      "/tmp/machinen-criu-composition-pre-snapshot/img",
+      "/tmp/machinen-checkpoint-composition-pre-snapshot/img",
     );
     await installGuestProofScript(restored);
-    const post = await runGuestCriuProof(restored, "post-restore");
-    const row = buildPortableSnapshotGuestCriuCompositionRow({
+    const post = await runGuestCheckpointProof(restored, "post-restore");
+    const row = buildPortableSnapshotGuestCheckpointCompositionRow({
       sourceArch,
       targetArch: normalizeArch(post.guestArch),
       machinenStateModel: snapshot.engine === "vmstate" ? "same-arch-vmstate" : "other-supported",
-      guestCriuVersion: post.criuVersion,
-      preSnapshotGuestCriuVerifier: pre.verifierOutput,
-      postRestoreGuestCriuVerifier: post.verifierOutput,
-      storedCriuImageDigest: storedDigestBefore,
-      storedCriuImageReadableAfterRestore: storedDigestBefore === storedDigestAfter,
+      guestCheckpointVersion: post.checkpointToolVersion,
+      preSnapshotGuestCheckpointVerifier: pre.verifierOutput,
+      postRestoreGuestCheckpointVerifier: post.verifierOutput,
+      storedCheckpointImageDigest: storedDigestBefore,
+      storedCheckpointImageReadableAfterRestore: storedDigestBefore === storedDigestAfter,
       migrationCompleted: true,
       evidence: {
         snapshotEngine: snapshot.engine,
@@ -127,10 +127,10 @@ async function main(): Promise<void> {
         postRestoreLog: post.restoreLog,
         storedDigestBefore,
         storedDigestAfter,
-        storedCriuImagePath: "/tmp/machinen-criu-composition-pre-snapshot/img",
+        storedCheckpointImagePath: "/tmp/machinen-checkpoint-composition-pre-snapshot/img",
       },
     });
-    const summary = summarizePortableSnapshotGuestCriuCompositionRows([row]);
+    const summary = summarizePortableSnapshotGuestCheckpointCompositionRows([row]);
     writeSummary(summary, options);
     process.exitCode = summary.pass ? 0 : 1;
   } finally {
@@ -143,7 +143,7 @@ async function main(): Promise<void> {
 }
 
 function writeSummary(
-  summary: ReturnType<typeof summarizePortableSnapshotGuestCriuCompositionRows>,
+  summary: ReturnType<typeof summarizePortableSnapshotGuestCheckpointCompositionRows>,
   options: Options,
 ): void {
   const json = `${JSON.stringify(summary, null, 2)}\n`;
@@ -153,22 +153,24 @@ function writeSummary(
   process.stdout.write(
     options.json
       ? json
-      : `portable-snapshot-guest-criu-composition: ${summary.state} completed=${summary.completedRows} refused=${summary.refusedRows}\n`,
+      : `portable-snapshot-guest-checkpoint-composition: ${summary.state} completed=${summary.completedRows} refused=${summary.refusedRows}\n`,
   );
 }
 
 async function installGuestProofScript(vm: VmHandle): Promise<void> {
-  await vm.writeFile("/tmp/machinen-criu-composition-proof.sh", guestProofScript(), {
+  await vm.writeFile("/tmp/machinen-checkpoint-composition-proof.sh", guestProofScript(), {
     mode: 0o755,
   });
 }
 
-async function runGuestCriuProof(vm: VmHandle, label: string): Promise<GuestCriuProof> {
+async function runGuestCheckpointProof(vm: VmHandle, label: string): Promise<GuestCheckpointProof> {
   const safeLabel = label.replace(/[^A-Za-z0-9_.-]/g, "-");
-  const root = `/tmp/machinen-criu-composition-${safeLabel}`;
-  await vm.exec(`/tmp/machinen-criu-composition-proof.sh ${root}`, { execTimeoutMs: 300_000 });
+  const root = `/tmp/machinen-checkpoint-composition-${safeLabel}`;
+  await vm.exec(`/tmp/machinen-checkpoint-composition-proof.sh ${root}`, {
+    execTimeoutMs: 300_000,
+  });
   const result = await vm.exec(`cat ${root}/proof.json`, { execTimeoutMs: 30_000 });
-  return JSON.parse(result.stdout) as GuestCriuProof;
+  return JSON.parse(result.stdout) as GuestCheckpointProof;
 }
 
 async function storedImageDigest(vm: VmHandle, imageDir: string): Promise<string> {
@@ -249,7 +251,7 @@ image_digest=$(find "$root/img" -type f -print | sort | while IFS= read -r file;
 checkpoint_log="criu dump completed pid=$pid pre=$pre dumpLogBytes=$dump_bytes"
 restore_log="criu restore completed pid=$pid post=$post restoreLogBytes=$restore_bytes"
 kill "$pid" 2>/dev/null || true
-printf '{"guestArch":"%s","kernelVersion":"%s","criuVersion":"%s","verifierOutput":"pre=%s post=%s restoredPid=%s tail=%s","imageDigest":"%s","checkpointLog":"%s","restoreLog":"%s","preProgress":%s,"postRestoreProgress":%s,"restoredPid":%s}\n' \
+printf '{"guestArch":"%s","kernelVersion":"%s","checkpointToolVersion":"%s","verifierOutput":"pre=%s post=%s restoredPid=%s tail=%s","imageDigest":"%s","checkpointLog":"%s","restoreLog":"%s","preProgress":%s,"postRestoreProgress":%s,"restoredPid":%s}\n' \
   "$(uname -m)" "$(uname -r)" "$(criu --version | head -1)" \
   "$pre" "$post" "$pid" "$progress_tail" "$image_digest" "$checkpoint_log" "$restore_log" "$pre" "$post" "$pid" \
   >"$root/proof.json"

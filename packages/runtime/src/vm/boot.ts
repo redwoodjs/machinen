@@ -116,7 +116,7 @@ export interface BootOptions {
    *
    *   - `'<path>'` — caller-managed file. Used as-is (must exist).
    *     Used by `restore()` to attach a tar archive of the bundle's
-   *     CRIU images on `/dev/vdb`; the guest's
+   *     checkpoint images on `/dev/vdb`; the guest's
    *     `/sbin/machinen-restore` untars it and runs `criu restore`.
    *     The runtime synthesizes `cmd: ['/sbin/machinen-restore']` if
    *     no other cmd is given.

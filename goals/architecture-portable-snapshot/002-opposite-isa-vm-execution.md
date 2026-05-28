@@ -40,7 +40,7 @@ provider-specific mode.
 
 Each route summary must include:
 
-- `kind: machinen.cross-arch-criu.opposite-isa-vm-execution`
+- `kind: machinen.architecture-portable-snapshot.opposite-isa-vm-execution`
 - `hostArch`
 - `guestArch`
 - `providerMode`

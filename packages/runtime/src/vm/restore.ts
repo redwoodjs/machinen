@@ -1,6 +1,6 @@
 // Restore a microVM from a snapshot bundle produced by `vm.snapshot()`.
 // Handles bundle validation, image resolution, lazy-pagemap rewriting,
-// CRIU image delivery (eager tar on /dev/vdb vs. lazy virtio-fs mount),
+// checkpoint image delivery (eager tar on /dev/vdb vs. lazy virtio-fs mount),
 // mount-overlay re-attach, and the post-boot auto-name + hostname
 // patch-up.
 
@@ -82,10 +82,10 @@ export interface RestoreOptions extends Omit<BootOptions, "snapshot" | "image" |
    */
   name?: string;
   /**
-   * Opt into CRIU lazy-pages restore — the CRIU image directory is mounted
+   * Opt into CRIU lazy-pages restore — the checkpoint image directory is mounted
    * into the guest read-only via in-VMM virtio-fs and `criu restore
    * --lazy-pages` faults pages on demand (#266). Default false: the runtime
-   * packs the CRIU image into a tar on `/dev/vdb`, the guest's
+   * packs the checkpoint image into a tar on `/dev/vdb`, the guest's
    * `/sbin/machinen-restore` untars it into tmpfs, and CRIU does an eager
    * load.
    *
@@ -100,7 +100,7 @@ export interface RestoreOptions extends Omit<BootOptions, "snapshot" | "image" |
 /**
  * Restore a microVM from a snapshot bundle produced by
  * `vm.snapshot({ outDir })`. Reads the bundle's `meta.json` to
- * recover the source name, tars the CRIU image directory into a
+ * recover the source name, tars the checkpoint image directory into a
  * temporary archive, then `boot()`s with that archive attached as
  * the scratch block device — the guest's `/sbin/machinen-restore`
  * untars `/dev/vdb` into tmpfs and runs `criu restore` against the

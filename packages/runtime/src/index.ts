@@ -473,6 +473,19 @@ export {
   validateNativeProcessImageDocuments,
 } from "./native-process-image.ts";
 export {
+  ARCHITECTURE_PORTABLE_SNAPSHOT_GAUNTLET_KIND,
+  ARCHITECTURE_PORTABLE_SNAPSHOT_GAUNTLET_ROW_KIND,
+  buildArchitecturePortableSnapshotGauntletRow,
+  architecturePortableSnapshotGauntletClassifications,
+  architecturePortableSnapshotTargetExecutions,
+  requiredArchitecturePortableSnapshotClaimIds,
+  stableGauntletDigest,
+  summarizeArchitecturePortableSnapshotGauntletRows,
+  validateArchitecturePortableSnapshotGauntletInvariants,
+  validateArchitecturePortableSnapshotGauntletRows,
+  validateArchitecturePortableSnapshotGauntletSchema,
+} from "./architecture-portable-snapshot-gauntlet.ts";
+export {
   NESTED_VIRTUALIZATION_STRETCH_PROOF_KIND,
   buildNestedVirtualizationStretchProofRow,
   nestedVirtualizationStretchProofClassifications,
@@ -501,19 +514,19 @@ export {
   validateRuntimeConfidenceProfiles,
 } from "./runtime-confidence-profile.ts";
 export {
-  PORTABLE_SNAPSHOT_GUEST_CRIU_COMPOSITION_KIND,
-  buildPortableSnapshotGuestCriuCompositionRow,
-  portableSnapshotGuestCriuCompositionRefusalCodes,
-  summarizePortableSnapshotGuestCriuCompositionRows,
-  validatePortableSnapshotGuestCriuCompositionRows,
-} from "./portable-snapshot-guest-criu-composition.ts";
+  PORTABLE_SNAPSHOT_GUEST_CHECKPOINT_COMPOSITION_KIND,
+  buildPortableSnapshotGuestCheckpointCompositionRow,
+  portableSnapshotGuestCheckpointCompositionRefusalCodes,
+  summarizePortableSnapshotGuestCheckpointCompositionRows,
+  validatePortableSnapshotGuestCheckpointCompositionRows,
+} from "./portable-snapshot-guest-checkpoint-composition.ts";
 export {
-  GUEST_CRIU_SUBSTRATE_KIND,
-  buildGuestCriuSubstrateRow,
-  guestCriuSubstrateRefusalCodes,
-  summarizeGuestCriuSubstrateRows,
-  validateGuestCriuSubstrateRows,
-} from "./guest-criu-substrate.ts";
+  GUEST_CHECKPOINT_SUBSTRATE_KIND,
+  buildGuestCheckpointSubstrateRow,
+  guestCheckpointSubstrateRefusalCodes,
+  summarizeGuestCheckpointSubstrateRows,
+  validateGuestCheckpointSubstrateRows,
+} from "./guest-checkpoint-substrate.ts";
 export {
   STATEFUL_DATABASE_RESTORE_KIND,
   buildStatefulDatabaseRestoreSummary,
@@ -596,6 +609,13 @@ export {
   planPortableMachineTargetRestoreDescriptor,
   planPortableMachineVmRestoreProof,
 } from "./portable-machine-restore-proof.ts";
+export type {
+  ArchitecturePortableSnapshotGauntletClassification,
+  ArchitecturePortableSnapshotGauntletRow,
+  ArchitecturePortableSnapshotGauntletRowInput,
+  ArchitecturePortableSnapshotGauntletSummary,
+  ArchitecturePortableSnapshotTargetExecution,
+} from "./architecture-portable-snapshot-gauntlet.ts";
 export type { NestedVirtProbeHost, NestedVirtProbeResult } from "./nested-virt.ts";
 export type {
   NestedVirtualizationStretchProofClassification,
@@ -624,21 +644,21 @@ export type {
   RuntimeConfidenceStateModel,
 } from "./runtime-confidence-profile.ts";
 export type {
-  PortableSnapshotGuestCriuCompositionInput,
-  PortableSnapshotGuestCriuCompositionRefusalCode,
-  PortableSnapshotGuestCriuCompositionRow,
-  PortableSnapshotGuestCriuCompositionState,
-  PortableSnapshotGuestCriuCompositionSummary,
-  PortableSnapshotGuestCriuMachinenStateModel,
-} from "./portable-snapshot-guest-criu-composition.ts";
+  PortableSnapshotGuestCheckpointCompositionInput,
+  PortableSnapshotGuestCheckpointCompositionRefusalCode,
+  PortableSnapshotGuestCheckpointCompositionRow,
+  PortableSnapshotGuestCheckpointCompositionState,
+  PortableSnapshotGuestCheckpointCompositionSummary,
+  PortableSnapshotGuestCheckpointMachinenStateModel,
+} from "./portable-snapshot-guest-checkpoint-composition.ts";
 export type {
-  GuestCriuSubstrateInput,
-  GuestCriuSubstrateProfile,
-  GuestCriuSubstrateRefusalCode,
-  GuestCriuSubstrateRow,
-  GuestCriuSubstrateState,
-  GuestCriuSubstrateSummary,
-} from "./guest-criu-substrate.ts";
+  GuestCheckpointSubstrateInput,
+  GuestCheckpointSubstrateProfile,
+  GuestCheckpointSubstrateRefusalCode,
+  GuestCheckpointSubstrateRow,
+  GuestCheckpointSubstrateState,
+  GuestCheckpointSubstrateSummary,
+} from "./guest-checkpoint-substrate.ts";
 export type {
   StatefulDatabaseRestoreArch,
   StatefulDatabaseRestoreDatabase,

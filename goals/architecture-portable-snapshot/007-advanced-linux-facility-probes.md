@@ -48,7 +48,7 @@ refused.
 
 Each row must include:
 
-- `kind: machinen.cross-arch-criu.advanced-linux-facility-probe`
+- `kind: machinen.architecture-portable-snapshot.advanced-linux-facility-probe`
 - `facility: seccomp | ebpf | namespace | cgroup | capability`
 - `stateModel`
 - `sourceArch`

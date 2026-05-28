@@ -3,6 +3,14 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 WORKDIR="$(mktemp -d "${TMPDIR:-/tmp}/machinen-nested-virt.XXXXXX")"
+JSON=0
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --json) JSON=1; shift ;;
+    --work-dir) WORKDIR="$2"; mkdir -p "$WORKDIR"; shift 2 ;;
+    *) echo "usage: bash scripts/smoke/nested-virtualization-stretch-proof.sh [--json] [--work-dir path]" >&2; exit 2 ;;
+  esac
+done
 SUMMARY="$WORKDIR/summary.json"
 STDOUT="$WORKDIR/stdout.json"
 
@@ -11,7 +19,7 @@ pnpm run nested-virtualization-stretch-proof >"$STDOUT"
 node - "$STDOUT" "$SUMMARY" <<'NODE'
 const { readFileSync, writeFileSync } = require('node:fs');
 const input = readFileSync(process.argv[2], 'utf8');
-const marker = '{\n  "kind": "machinen.cross-arch-criu.nested-virtualization-stretch-proof-summary"';
+const marker = '{\n  "kind": "machinen.architecture-portable-snapshot.nested-virtualization-stretch-proof-summary"';
 const start = input.lastIndexOf(marker);
 if (start < 0) throw new Error('missing JSON summary');
 const summary = JSON.parse(input.slice(start));
@@ -19,7 +27,7 @@ writeFileSync(process.argv[3], JSON.stringify(summary, null, 2));
 if (!summary.pass) throw new Error(`summary failed: ${summary.failures.join('; ')}`);
 if (summary.rowCount !== 1) throw new Error(`expected 1 row, saw ${summary.rowCount}`);
 const row = summary.rows[0];
-if (row.kind !== 'machinen.cross-arch-criu.nested-virtualization-stretch-proof') throw new Error('wrong row kind');
+if (row.kind !== 'machinen.architecture-portable-snapshot.nested-virtualization-stretch-proof') throw new Error('wrong row kind');
 if (!['stretch-demo', 'refused', 'skipped'].includes(row.classification)) throw new Error('bad classification');
 if (row.scope.productSupportClaimed) throw new Error('nested stretch row claimed product support');
 if (row.snapshotForkRefusalCode !== 'BOOT_VMSTATE_UNSUPPORTED') throw new Error('missing snapshot/fork refusal code');
@@ -32,4 +40,8 @@ if (row.classification === 'stretch-demo') {
 }
 NODE
 
-echo "nested-virtualization-stretch-proof: classification=$(node -e "const s=require(process.argv[1]); console.log(s.rows[0].classification)" "$SUMMARY") work=$WORKDIR"
+if [[ $JSON -eq 1 ]]; then
+  cat "$SUMMARY"
+else
+  echo "nested-virtualization-stretch-proof: classification=$(node -e "const s=require(process.argv[1]); console.log(s.rows[0].classification)" "$SUMMARY") work=$WORKDIR"
+fi

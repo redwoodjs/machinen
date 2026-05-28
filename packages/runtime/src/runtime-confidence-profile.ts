@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 
 export const RUNTIME_CONFIDENCE_PROFILE_KIND =
-  "machinen.cross-arch-criu.runtime-confidence-profile" as const;
+  "machinen.architecture-portable-snapshot.runtime-confidence-profile" as const;
 
 export const runtimeConfidenceClassifications = [
   "product-supported",
@@ -60,7 +60,7 @@ export interface RuntimeConfidenceProfileRow extends RuntimeConfidenceProfileInp
 }
 
 export interface RuntimeConfidenceProfileSummary {
-  kind: "machinen.cross-arch-criu.runtime-confidence-profile-matrix";
+  kind: "machinen.architecture-portable-snapshot.runtime-confidence-profile-matrix";
   state: "completed" | "failed";
   pass: boolean;
   rows: RuntimeConfidenceProfileRow[];
@@ -95,7 +95,7 @@ export function summarizeRuntimeConfidenceProfiles(
 ): RuntimeConfidenceProfileSummary {
   const failures = validateRuntimeConfidenceProfiles(rows);
   return {
-    kind: "machinen.cross-arch-criu.runtime-confidence-profile-matrix",
+    kind: "machinen.architecture-portable-snapshot.runtime-confidence-profile-matrix",
     state: failures.length === 0 ? "completed" : "failed",
     pass: failures.length === 0,
     rows,

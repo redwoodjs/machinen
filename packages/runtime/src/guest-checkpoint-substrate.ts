@@ -1,72 +1,76 @@
-export const GUEST_CRIU_SUBSTRATE_KIND = "machinen.cross-arch-criu.guest-criu-substrate" as const;
+export const GUEST_CHECKPOINT_SUBSTRATE_KIND =
+  "machinen.architecture-portable-snapshot.guest-checkpoint-substrate" as const;
 
-export const guestCriuSubstrateRefusalCodes = [
-  "guest-criu-check-unavailable",
-  "c-criu-dump-restore-failed",
+export const guestCheckpointSubstrateRefusalCodes = [
+  "guest-checkpoint-check-unavailable",
+  "c-checkpoint-dump-restore-failed",
   "jvm-runtime-unavailable",
-  "jvm-criu-runtime-state-unsupported",
-  "jvm-criu-dump-restore-failed",
+  "jvm-checkpoint-runtime-state-unsupported",
+  "jvm-checkpoint-dump-restore-failed",
 ] as const;
 
-export type GuestCriuSubstrateProfile = "c-simple" | "jvm-simple";
-export type GuestCriuSubstrateState = "completed" | "refused" | "skipped";
-export type GuestCriuSubstrateRefusalCode = (typeof guestCriuSubstrateRefusalCodes)[number];
+export type GuestCheckpointSubstrateProfile = "c-simple" | "jvm-simple";
+export type GuestCheckpointSubstrateState = "completed" | "refused" | "skipped";
+export type GuestCheckpointSubstrateRefusalCode =
+  (typeof guestCheckpointSubstrateRefusalCodes)[number];
 
-export interface GuestCriuSubstrateInput {
+export interface GuestCheckpointSubstrateInput {
   guestArch: string;
   kernelVersion: string;
-  criuVersion: string;
+  checkpointToolVersion: string;
   kernelFeatureProbeOutput: string;
-  profile: GuestCriuSubstrateProfile;
+  profile: GuestCheckpointSubstrateProfile;
   checkpointLog: string;
   restoreLog: string;
   verifierOutput: string;
-  state?: GuestCriuSubstrateState;
-  refusalCode?: GuestCriuSubstrateRefusalCode;
+  state?: GuestCheckpointSubstrateState;
+  refusalCode?: GuestCheckpointSubstrateRefusalCode;
   remediation?: string;
   evidence?: Record<string, unknown>;
 }
 
-export interface GuestCriuSubstrateRow {
-  kind: typeof GUEST_CRIU_SUBSTRATE_KIND;
+export interface GuestCheckpointSubstrateRow {
+  kind: typeof GUEST_CHECKPOINT_SUBSTRATE_KIND;
   guestArch: string;
   kernelVersion: string;
-  criuVersion: string;
+  checkpointToolVersion: string;
   kernelFeatureProbeOutput: string;
-  profile: GuestCriuSubstrateProfile;
+  profile: GuestCheckpointSubstrateProfile;
   checkpointLog: string;
   restoreLog: string;
   verifierOutput: string;
-  state: GuestCriuSubstrateState;
-  refusalCode?: GuestCriuSubstrateRefusalCode;
+  state: GuestCheckpointSubstrateState;
+  refusalCode?: GuestCheckpointSubstrateRefusalCode;
   remediation?: string;
   evidence: Record<string, unknown>;
   scope: {
     sameGuest: true;
     sameIsa: true;
-    crossIsaCriuReplay: false;
+    crossIsaCheckpointReplay: false;
     sourceIsaEmulationUsed: false;
   };
 }
 
-export interface GuestCriuSubstrateSummary {
-  kind: "machinen.cross-arch-criu.guest-criu-substrate-smoke";
+export interface GuestCheckpointSubstrateSummary {
+  kind: "machinen.architecture-portable-snapshot.guest-checkpoint-substrate-smoke";
   state: "completed" | "failed";
   pass: boolean;
-  rows: GuestCriuSubstrateRow[];
+  rows: GuestCheckpointSubstrateRow[];
   completedRows: number;
   refusedRows: number;
   skippedRows: number;
   failures: string[];
 }
 
-export function buildGuestCriuSubstrateRow(input: GuestCriuSubstrateInput): GuestCriuSubstrateRow {
+export function buildGuestCheckpointSubstrateRow(
+  input: GuestCheckpointSubstrateInput,
+): GuestCheckpointSubstrateRow {
   const state = input.state ?? (input.refusalCode ? "refused" : "completed");
   return {
-    kind: GUEST_CRIU_SUBSTRATE_KIND,
+    kind: GUEST_CHECKPOINT_SUBSTRATE_KIND,
     guestArch: input.guestArch,
     kernelVersion: input.kernelVersion,
-    criuVersion: input.criuVersion,
+    checkpointToolVersion: input.checkpointToolVersion,
     kernelFeatureProbeOutput: input.kernelFeatureProbeOutput,
     profile: input.profile,
     checkpointLog: input.checkpointLog,
@@ -79,18 +83,18 @@ export function buildGuestCriuSubstrateRow(input: GuestCriuSubstrateInput): Gues
     scope: {
       sameGuest: true,
       sameIsa: true,
-      crossIsaCriuReplay: false,
+      crossIsaCheckpointReplay: false,
       sourceIsaEmulationUsed: false,
     },
   };
 }
 
-export function summarizeGuestCriuSubstrateRows(
-  rows: GuestCriuSubstrateRow[],
-): GuestCriuSubstrateSummary {
-  const failures = validateGuestCriuSubstrateRows(rows);
+export function summarizeGuestCheckpointSubstrateRows(
+  rows: GuestCheckpointSubstrateRow[],
+): GuestCheckpointSubstrateSummary {
+  const failures = validateGuestCheckpointSubstrateRows(rows);
   return {
-    kind: "machinen.cross-arch-criu.guest-criu-substrate-smoke",
+    kind: "machinen.architecture-portable-snapshot.guest-checkpoint-substrate-smoke",
     state: failures.length === 0 ? "completed" : "failed",
     pass: failures.length === 0,
     rows,
@@ -102,17 +106,21 @@ export function summarizeGuestCriuSubstrateRows(
 }
 
 // fallow-ignore-next-line complexity
-export function validateGuestCriuSubstrateRows(rows: GuestCriuSubstrateRow[]): string[] {
+export function validateGuestCheckpointSubstrateRows(
+  rows: GuestCheckpointSubstrateRow[],
+): string[] {
   const failures: string[] = [];
   if (rows.length === 0) {
-    failures.push("guest CRIU substrate summary has no rows");
+    failures.push("guest checkpoint substrate summary has no rows");
   }
   for (const row of rows) {
-    if (row.kind !== GUEST_CRIU_SUBSTRATE_KIND) {
+    if (row.kind !== GUEST_CHECKPOINT_SUBSTRATE_KIND) {
       failures.push(`${row.profile} row has wrong kind`);
     }
-    if (!row.guestArch || !row.kernelVersion || !row.criuVersion) {
-      failures.push(`${row.profile} row is missing guest architecture, kernel, or CRIU version`);
+    if (!row.guestArch || !row.kernelVersion || !row.checkpointToolVersion) {
+      failures.push(
+        `${row.profile} row is missing guest architecture, kernel, or checkpoint tool version`,
+      );
     }
     if (!row.kernelFeatureProbeOutput) {
       failures.push(`${row.profile} row is missing kernel feature probe output`);
@@ -133,9 +141,9 @@ export function validateGuestCriuSubstrateRows(rows: GuestCriuSubstrateRow[]): s
         failures.push(`${row.profile} verifier did not prove post-restore progress`);
       }
     }
-    if (row.scope.crossIsaCriuReplay || row.scope.sourceIsaEmulationUsed) {
+    if (row.scope.crossIsaCheckpointReplay || row.scope.sourceIsaEmulationUsed) {
       failures.push(
-        `${row.profile} row incorrectly claims cross-ISA CRIU replay or source emulation`,
+        `${row.profile} row incorrectly claims cross-ISA checkpoint replay or source emulation`,
       );
     }
   }
