@@ -473,6 +473,16 @@ export {
   validateNativeProcessImageDocuments,
 } from "./native-process-image.ts";
 export {
+  RUNTIME_CONFIDENCE_PROFILE_KIND,
+  buildRuntimeConfidenceProfileMatrix,
+  buildRuntimeConfidenceProfileRow,
+  runtimeConfidenceClassifications,
+  runtimeConfidenceProfileFixtures,
+  runtimeConfidenceRefusalCodes,
+  summarizeRuntimeConfidenceProfiles,
+  validateRuntimeConfidenceProfiles,
+} from "./runtime-confidence-profile.ts";
+export {
   PORTABLE_SNAPSHOT_GUEST_CRIU_COMPOSITION_KIND,
   buildPortableSnapshotGuestCriuCompositionRow,
   portableSnapshotGuestCriuCompositionRefusalCodes,
@@ -568,6 +578,16 @@ export {
   planPortableMachineTargetRestoreDescriptor,
   planPortableMachineVmRestoreProof,
 } from "./portable-machine-restore-proof.ts";
+export type {
+  RuntimeConfidenceArch,
+  RuntimeConfidenceClassification,
+  RuntimeConfidenceProfileInput,
+  RuntimeConfidenceProfileRow,
+  RuntimeConfidenceProfileSummary,
+  RuntimeConfidenceRefusalCode,
+  RuntimeConfidenceRuntime,
+  RuntimeConfidenceStateModel,
+} from "./runtime-confidence-profile.ts";
 export type {
   PortableSnapshotGuestCriuCompositionInput,
   PortableSnapshotGuestCriuCompositionRefusalCode,

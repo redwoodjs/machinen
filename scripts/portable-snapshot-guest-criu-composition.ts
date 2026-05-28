@@ -41,6 +41,7 @@ function usage(): never {
   process.exit(2);
 }
 
+// fallow-ignore-next-line complexity
 function parseArgs(argv: string[]): Options {
   const pending = [...argv];
   const options: Options = { json: false, keepWorkDir: false };
@@ -73,6 +74,7 @@ function requiredValue(value: string | undefined): string {
   return value;
 }
 
+// fallow-ignore-next-line complexity
 async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2));
   const workDir = options.workDir
@@ -175,6 +177,7 @@ async function storedImageDigest(vm: VmHandle, imageDir: string): Promise<string
   return result.stdout.trim();
 }
 
+// fallow-ignore-next-line complexity
 function normalizeArch(guestArch: string): string {
   if (guestArch === "aarch64" || guestArch === "arm64") {
     return "arm64";

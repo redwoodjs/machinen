@@ -24,6 +24,7 @@ Snapshot internals:
 - [stateful database portable restore](./snapshot/stateful-database-portable-restore.md) — PostgreSQL logical and SQLite journal/WAL Level 2 restore contracts
 - [guest CRIU substrate proof](./snapshot/guest-criu-substrate.md) — same-guest CRIU checks, C restore proof, and JVM refusal boundary
 - [portable snapshot plus guest CRIU composition](./snapshot/portable-snapshot-guest-criu-composition.md) — Machinen vmstate restore composed with guest CRIU artifacts
+- [C and Java runtime confidence profiles](./snapshot/runtime-confidence-profiles.md) — classified C/JVM support, proof-only, and refusal matrix
 - [portable machine support envelope](./snapshot/support-envelope.md) — current app-neutral supported and refused capability families
 - [portable machine proof profiles](./snapshot/portable-machine-proof-profiles.md) — positive and negative proof profiles for target-native completion and fail-closed refusals
 - [portable proof matrices](./snapshot/proof-matrices.md) — one-command matrix presets and JSON summary shape

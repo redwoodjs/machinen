@@ -91,6 +91,7 @@ export function summarizePortableSnapshotGuestCriuCompositionRows(
   };
 }
 
+// fallow-ignore-next-line complexity
 export function validatePortableSnapshotGuestCriuCompositionRows(
   rows: PortableSnapshotGuestCriuCompositionRow[],
 ): string[] {

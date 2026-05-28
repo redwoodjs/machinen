@@ -43,6 +43,25 @@
 - [`writeBootSnapshot`](#writebootsnapshot)
 - [`detachedLogRoot`](#detachedlogroot)
 
+### Runtime confidence profiles
+
+- [`RuntimeConfidenceArch`](#runtimeconfidencearch)
+- [`RuntimeConfidenceClassification`](#runtimeconfidenceclassification)
+- [`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput)
+- [`RuntimeConfidenceProfileRow`](#runtimeconfidenceprofilerow)
+- [`RuntimeConfidenceProfileSummary`](#runtimeconfidenceprofilesummary)
+- [`RuntimeConfidenceRefusalCode`](#runtimeconfidencerefusalcode)
+- [`RuntimeConfidenceRuntime`](#runtimeconfidenceruntime)
+- [`RuntimeConfidenceStateModel`](#runtimeconfidencestatemodel)
+- [`RUNTIME_CONFIDENCE_PROFILE_KIND`](#runtime_confidence_profile_kind)
+- [`runtimeConfidenceClassifications`](#runtimeconfidenceclassifications)
+- [`runtimeConfidenceRefusalCodes`](#runtimeconfidencerefusalcodes)
+- [`buildRuntimeConfidenceProfileMatrix`](#buildruntimeconfidenceprofilematrix)
+- [`buildRuntimeConfidenceProfileRow`](#buildruntimeconfidenceprofilerow)
+- [`runtimeConfidenceProfileFixtures`](#runtimeconfidenceprofilefixtures)
+- [`summarizeRuntimeConfidenceProfiles`](#summarizeruntimeconfidenceprofiles)
+- [`validateRuntimeConfidenceProfiles`](#validateruntimeconfidenceprofiles)
+
 ### Portable snapshot + guest CRIU composition
 
 - [`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput)
@@ -12122,6 +12141,240 @@ the breakdown shows up alongside the parent phase.
 
 ***
 
+### RuntimeConfidenceProfileInput
+
+#### Extended by
+
+- [`RuntimeConfidenceProfileRow`](#runtimeconfidenceprofilerow)
+
+#### Properties
+
+##### runtime
+
+> **runtime**: [`RuntimeConfidenceRuntime`](#runtimeconfidenceruntime)
+
+##### profile
+
+> **profile**: `string`
+
+##### classification
+
+> **classification**: `"refused"` \| `"product-supported"` \| `"proof-only-feasibility"` \| `"stretch-demo"`
+
+##### sourceArch
+
+> **sourceArch**: [`RuntimeConfidenceArch`](#runtimeconfidencearch)
+
+##### targetArch
+
+> **targetArch**: [`RuntimeConfidenceArch`](#runtimeconfidencearch)
+
+##### stateModel
+
+> **stateModel**: [`RuntimeConfidenceStateModel`](#runtimeconfidencestatemodel)
+
+##### artifactDigests
+
+> **artifactDigests**: `Record`\<`string`, `string`\>
+
+##### runtimeVersion
+
+> **runtimeVersion**: `string`
+
+##### verifierOutput
+
+> **verifierOutput**: `string`
+
+##### migrationCompleted?
+
+> `optional` **migrationCompleted?**: `boolean`
+
+##### refusalCode?
+
+> `optional` **refusalCode?**: `"active-sockets-unsupported"` \| `"native-library-ambiguity"` \| `"unmodeled-signal-or-timer-state"` \| `"jvm-private-jit-state-unsupported"` \| `"unsupported-process-topology"` \| `"source-target-abi-mismatch"` \| `"missing-target-runtime-or-dynamic-library-provenance"` \| `"target-verifier-missing-or-ambiguous"`
+
+##### remediation?
+
+> `optional` **remediation?**: `string`
+
+##### evidence?
+
+> `optional` **evidence?**: `Record`\<`string`, `unknown`\>
+
+***
+
+### RuntimeConfidenceProfileRow
+
+#### Extends
+
+- [`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput)
+
+#### Properties
+
+##### runtime
+
+> **runtime**: [`RuntimeConfidenceRuntime`](#runtimeconfidenceruntime)
+
+###### Inherited from
+
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`runtime`](#runtime-5)
+
+##### profile
+
+> **profile**: `string`
+
+###### Inherited from
+
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`profile`](#profile-3)
+
+##### classification
+
+> **classification**: `"refused"` \| `"product-supported"` \| `"proof-only-feasibility"` \| `"stretch-demo"`
+
+###### Inherited from
+
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`classification`](#classification-3)
+
+##### sourceArch
+
+> **sourceArch**: [`RuntimeConfidenceArch`](#runtimeconfidencearch)
+
+###### Inherited from
+
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`sourceArch`](#sourcearch-8)
+
+##### targetArch
+
+> **targetArch**: [`RuntimeConfidenceArch`](#runtimeconfidencearch)
+
+###### Inherited from
+
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`targetArch`](#targetarch-20)
+
+##### stateModel
+
+> **stateModel**: [`RuntimeConfidenceStateModel`](#runtimeconfidencestatemodel)
+
+###### Inherited from
+
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`stateModel`](#statemodel)
+
+##### artifactDigests
+
+> **artifactDigests**: `Record`\<`string`, `string`\>
+
+###### Inherited from
+
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`artifactDigests`](#artifactdigests)
+
+##### runtimeVersion
+
+> **runtimeVersion**: `string`
+
+###### Inherited from
+
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`runtimeVersion`](#runtimeversion)
+
+##### verifierOutput
+
+> **verifierOutput**: `string`
+
+###### Inherited from
+
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`verifierOutput`](#verifieroutput-4)
+
+##### refusalCode?
+
+> `optional` **refusalCode?**: `"active-sockets-unsupported"` \| `"native-library-ambiguity"` \| `"unmodeled-signal-or-timer-state"` \| `"jvm-private-jit-state-unsupported"` \| `"unsupported-process-topology"` \| `"source-target-abi-mismatch"` \| `"missing-target-runtime-or-dynamic-library-provenance"` \| `"target-verifier-missing-or-ambiguous"`
+
+###### Inherited from
+
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`refusalCode`](#refusalcode-9)
+
+##### remediation?
+
+> `optional` **remediation?**: `string`
+
+###### Inherited from
+
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`remediation`](#remediation-7)
+
+##### evidence?
+
+> `optional` **evidence?**: `Record`\<`string`, `unknown`\>
+
+###### Inherited from
+
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`evidence`](#evidence-5)
+
+##### kind
+
+> **kind**: `"machinen.cross-arch-criu.runtime-confidence-profile"`
+
+##### migrationCompleted
+
+> **migrationCompleted**: `boolean`
+
+###### Overrides
+
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`migrationCompleted`](#migrationcompleted-8)
+
+##### scope
+
+> **scope**: `object`
+
+###### targetNativeVerifierRequired
+
+> **targetNativeVerifierRequired**: `true`
+
+###### crossIsaRegisterReplayClaimed
+
+> **crossIsaRegisterReplayClaimed**: `false`
+
+###### productSupportClaimed
+
+> **productSupportClaimed**: `boolean`
+
+***
+
+### RuntimeConfidenceProfileSummary
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.cross-arch-criu.runtime-confidence-profile-matrix"`
+
+##### state
+
+> **state**: `"completed"` \| `"failed"`
+
+##### pass
+
+> **pass**: `boolean`
+
+##### rows
+
+> **rows**: [`RuntimeConfidenceProfileRow`](#runtimeconfidenceprofilerow)[]
+
+##### rowCount
+
+> **rowCount**: `number`
+
+##### byRuntime
+
+> **byRuntime**: `Record`\<[`RuntimeConfidenceRuntime`](#runtimeconfidenceruntime), `number`\>
+
+##### byClassification
+
+> **byClassification**: `Record`\<[`RuntimeConfidenceClassification`](#runtimeconfidenceclassification), `number`\>
+
+##### failures
+
+> **failures**: `string`[]
+
+***
+
 ### VsockSecretsOptions
 
 #### Properties
@@ -15674,6 +15927,36 @@ Result of `validatePid` — easy to switch on at the call site.
 
 ***
 
+### RuntimeConfidenceRuntime
+
+> **RuntimeConfidenceRuntime** = `"c"` \| `"java"`
+
+***
+
+### RuntimeConfidenceClassification
+
+> **RuntimeConfidenceClassification** = *typeof* [`runtimeConfidenceClassifications`](#runtimeconfidenceclassifications)\[`number`\]
+
+***
+
+### RuntimeConfidenceRefusalCode
+
+> **RuntimeConfidenceRefusalCode** = *typeof* [`runtimeConfidenceRefusalCodes`](#runtimeconfidencerefusalcodes)\[`number`\]
+
+***
+
+### RuntimeConfidenceStateModel
+
+> **RuntimeConfidenceStateModel** = `"preserved"` \| `"recreated"` \| `"drained"` \| `"dropped-irrelevant"` \| `"logically-restored"` \| `"refused"`
+
+***
+
+### RuntimeConfidenceArch
+
+> **RuntimeConfidenceArch** = `"arm64"` \| `"amd64"`
+
+***
+
 ### StatefulDatabaseRestoreRefusalCode
 
 > **StatefulDatabaseRestoreRefusalCode** = *typeof* [`statefulDatabaseRestoreRefusalCodes`](#statefuldatabaserestorerefusalcodes)\[`number`\]
@@ -17445,6 +17728,24 @@ loops; anything looser stops being a meaningful gate.
 ### productPortablePostgresRefusalCodes
 
 > `const` **productPortablePostgresRefusalCodes**: readonly \[`"postgres-active-transaction-unsupported"`, `"postgres-active-session-unsupported"`, `"postgres-dirty-wal-boundary-unsupported"`, `"postgres-host-mounted-data-dir-ambiguous"`, `"postgres-physical-data-dir-cross-isa-unsupported"`, `"postgres-target-arch-mismatch"`, `"postgres-logical-dump-integrity-mismatch"`, `"postgres-target-verifier-mismatch"`, `"postgres-refused-source-state"`\]
+
+***
+
+### RUNTIME\_CONFIDENCE\_PROFILE\_KIND
+
+> `const` **RUNTIME\_CONFIDENCE\_PROFILE\_KIND**: `"machinen.cross-arch-criu.runtime-confidence-profile"`
+
+***
+
+### runtimeConfidenceClassifications
+
+> `const` **runtimeConfidenceClassifications**: readonly \[`"product-supported"`, `"proof-only-feasibility"`, `"stretch-demo"`, `"refused"`\]
+
+***
+
+### runtimeConfidenceRefusalCodes
+
+> `const` **runtimeConfidenceRefusalCodes**: readonly \[`"active-sockets-unsupported"`, `"native-library-ambiguity"`, `"unmodeled-signal-or-timer-state"`, `"jvm-private-jit-state-unsupported"`, `"unsupported-process-topology"`, `"source-target-abi-mismatch"`, `"missing-target-runtime-or-dynamic-library-provenance"`, `"target-verifier-missing-or-ambiguous"`\]
 
 ***
 
@@ -19948,6 +20249,74 @@ resolve the binary through the same lookup chain.
 #### Returns
 
 `string`
+
+***
+
+### buildRuntimeConfidenceProfileRow()
+
+> **buildRuntimeConfidenceProfileRow**(`input`): [`RuntimeConfidenceProfileRow`](#runtimeconfidenceprofilerow)
+
+#### Parameters
+
+##### input
+
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput)
+
+#### Returns
+
+[`RuntimeConfidenceProfileRow`](#runtimeconfidenceprofilerow)
+
+***
+
+### buildRuntimeConfidenceProfileMatrix()
+
+> **buildRuntimeConfidenceProfileMatrix**(): [`RuntimeConfidenceProfileSummary`](#runtimeconfidenceprofilesummary)
+
+#### Returns
+
+[`RuntimeConfidenceProfileSummary`](#runtimeconfidenceprofilesummary)
+
+***
+
+### summarizeRuntimeConfidenceProfiles()
+
+> **summarizeRuntimeConfidenceProfiles**(`rows`): [`RuntimeConfidenceProfileSummary`](#runtimeconfidenceprofilesummary)
+
+#### Parameters
+
+##### rows
+
+[`RuntimeConfidenceProfileRow`](#runtimeconfidenceprofilerow)[]
+
+#### Returns
+
+[`RuntimeConfidenceProfileSummary`](#runtimeconfidenceprofilesummary)
+
+***
+
+### validateRuntimeConfidenceProfiles()
+
+> **validateRuntimeConfidenceProfiles**(`rows`): `string`[]
+
+#### Parameters
+
+##### rows
+
+[`RuntimeConfidenceProfileRow`](#runtimeconfidenceprofilerow)[]
+
+#### Returns
+
+`string`[]
+
+***
+
+### runtimeConfidenceProfileFixtures()
+
+> **runtimeConfidenceProfileFixtures**(): [`RuntimeConfidenceProfileRow`](#runtimeconfidenceprofilerow)[]
+
+#### Returns
+
+[`RuntimeConfidenceProfileRow`](#runtimeconfidenceprofilerow)[]
 
 ***
 
