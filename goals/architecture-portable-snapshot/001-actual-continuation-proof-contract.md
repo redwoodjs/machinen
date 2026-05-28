@@ -27,122 +27,122 @@ turns that contract into the reusable bar for future profiles and product work.
 
 A successful actual continuation must satisfy all of these requirements:
 
-- [ ] Source and target ISA differ.
-- [ ] Target execution is native.
-- [ ] State comes from an architecture-portable snapshot bundle.
-- [ ] The target process continues from captured state.
-- [ ] Source-ISA emulation is refused and cannot count as success.
-- [ ] Raw checkpoint replay is refused and cannot count as success.
-- [ ] Sidecar-only output is refused and cannot count as success.
-- [ ] Metadata-only continuation is refused and cannot count as success.
-- [ ] Unsupported state is refused, not ignored.
-- [ ] `migrationCompleted=true` is allowed only after a live opposite-ISA
+- [x] Source and target ISA differ.
+- [x] Target execution is native.
+- [x] State comes from an architecture-portable snapshot bundle.
+- [x] The target process continues from captured state.
+- [x] Source-ISA emulation is refused and cannot count as success.
+- [x] Raw checkpoint replay is refused and cannot count as success.
+- [x] Sidecar-only output is refused and cannot count as success.
+- [x] Metadata-only continuation is refused and cannot count as success.
+- [x] Unsupported state is refused, not ignored.
+- [x] `migrationCompleted=true` is allowed only after a live opposite-ISA
       target-native proof.
 
 ## Implementation checklist
 
 ### 1. Opposite-ISA boundary
 
-- [ ] Every continuation row records `sourceArch` and `targetArch`.
-- [ ] Validation fails when `sourceArch === targetArch` for completed
+- [x] Every continuation row records `sourceArch` and `targetArch`.
+- [x] Validation fails when `sourceArch === targetArch` for completed
       continuations.
-- [ ] Same-ISA rows are allowed only as fixtures, same-ISA restore claims, or
+- [x] Same-ISA rows are allowed only as fixtures, same-ISA restore claims, or
       refusals.
-- [ ] Docs explain the distinction between same-ISA restore and
+- [x] Docs explain the distinction between same-ISA restore and
       architecture-portable continuation.
 
 ### 2. Target-native execution
 
-- [ ] Every completed continuation row records `targetExecution: native`.
-- [ ] Validation rejects `migrationCompleted=true` with emulated, skipped,
+- [x] Every completed continuation row records `targetExecution: native`.
+- [x] Validation rejects `migrationCompleted=true` with emulated, skipped,
       refused, or not-applicable execution.
-- [ ] Target-side evidence identifies the target machine architecture.
-- [ ] Emulated routes stay classified as diagnostics, refusals, skips, or
+- [x] Target-side evidence identifies the target machine architecture.
+- [x] Emulated routes stay classified as diagnostics, refusals, skips, or
       proof-only non-continuation evidence.
 
 ### 3. Portable snapshot bundle source of truth
 
-- [ ] Define the required bundle file list in code.
-- [ ] Bundle includes manifest, state payload, target artifact provenance,
+- [x] Define the required bundle file list in code.
+- [x] Bundle includes manifest, state payload, target artifact provenance,
       verifier contract, refusal records, and stable digests.
-- [ ] Include stable digests for every restore-affecting file, including
+- [x] Include stable digests for every restore-affecting file, including
       `target.env` or its replacement.
-- [ ] Bundle validation fails closed on missing, malformed, or tampered files.
-- [ ] Restore code consumes the bundle as the source of continuation state, not
+- [x] Bundle validation fails closed on missing, malformed, or tampered files.
+- [x] Restore code consumes the bundle as the source of continuation state, not
       host-side defaults.
 
 ### 4. Target process advances from captured state
 
-- [ ] Source capture records a verifier-observable state value.
-- [ ] Target restore passes that captured state to a target-native process.
-- [ ] Target verifier output includes both captured state and restored/next
+- [x] Source capture records a verifier-observable state value.
+- [x] Target restore passes that captured state to a target-native process.
+- [x] Target verifier output includes both captured state and restored/next
       state.
-- [ ] Validation fails if the target ignores captured state.
-- [ ] Validation fails if the target reports the wrong next state.
+- [x] Validation fails if the target ignores captured state.
+- [x] Validation fails if the target reports the wrong next state.
 
 ### 5. Source-ISA emulation refusal
 
-- [ ] Bundle and row metadata expose whether source-ISA emulation was used.
-- [ ] The emulation flag must be false for success.
-- [ ] Validation rejects completed rows that used source-ISA emulation.
-- [ ] Negative smoke or fixture coverage proves emulation-marked evidence cannot
+- [x] Bundle and row metadata expose whether source-ISA emulation was used.
+- [x] The emulation flag must be false for success.
+- [x] Validation rejects completed rows that used source-ISA emulation.
+- [x] Negative smoke or fixture coverage proves emulation-marked evidence cannot
       set `migrationCompleted=true`.
 
 ### 6. Raw checkpoint replay refusal
 
-- [ ] Bundle and row metadata expose whether raw checkpoint replay was used.
-- [ ] The raw replay flag must be false for success.
-- [ ] Validation rejects completed rows that replay raw source checkpoint images.
-- [ ] Guest checkpoint artifacts remain proof inputs only unless translated or
+- [x] Bundle and row metadata expose whether raw checkpoint replay was used.
+- [x] The raw replay flag must be false for success.
+- [x] Validation rejects completed rows that replay raw source checkpoint images.
+- [x] Guest checkpoint artifacts remain proof inputs only unless translated or
       logically restored.
 
 ### 7. Sidecar-only output refusal
 
-- [ ] Successful rows identify the target-side verifier command/output path.
-- [ ] Sidecar-only output is classified as refused.
-- [ ] Validation rejects sidecar-only evidence with `migrationCompleted=true`.
-- [ ] Negative smoke proves sidecar output receives a stable refusal code.
+- [x] Successful rows identify the target-side verifier command/output path.
+- [x] Sidecar-only output is classified as refused.
+- [x] Validation rejects sidecar-only evidence with `migrationCompleted=true`.
+- [x] Negative smoke proves sidecar output receives a stable refusal code.
 
 ### 8. Metadata-only shortcut refusal
 
-- [ ] Successful rows include target process verifier output.
-- [ ] Metadata-only continuation is classified as refused.
-- [ ] Validation rejects `migrationCompleted=true` without target verifier
+- [x] Successful rows include target process verifier output.
+- [x] Metadata-only continuation is classified as refused.
+- [x] Validation rejects `migrationCompleted=true` without target verifier
       evidence.
-- [ ] Negative smoke proves metadata-only success receives a stable refusal code.
+- [x] Negative smoke proves metadata-only success receives a stable refusal code.
 
 ### 9. Unsupported-state refusal inventory
 
-- [ ] Define required unsupported-state categories for continuation profiles.
-- [ ] Each profile includes an unsupported-state inventory.
-- [ ] Unsupported categories carry stable refusal codes and remediation.
-- [ ] Validation fails if required state categories are missing.
-- [ ] Docs list continued, recreated, ignored-as-irrelevant, and refused state
+- [x] Define required unsupported-state categories for continuation profiles.
+- [x] Each profile includes an unsupported-state inventory.
+- [x] Unsupported categories carry stable refusal codes and remediation.
+- [x] Validation fails if required state categories are missing.
+- [x] Docs list continued, recreated, ignored-as-irrelevant, and refused state
       separately.
 
 ### 10. Live migration completion gate
 
-- [ ] Fixture/local-only runs always keep `migrationCompleted=false`.
-- [ ] Live runs require opposite ISA, target-native execution, and target verifier
+- [x] Fixture/local-only runs always keep `migrationCompleted=false`.
+- [x] Live runs require opposite ISA, target-native execution, and target verifier
       output.
-- [ ] Refused, skipped, emulated, sidecar-only, metadata-only, and raw-replay rows
+- [x] Refused, skipped, emulated, sidecar-only, metadata-only, and raw-replay rows
       never set `migrationCompleted=true`.
-- [ ] Final gauntlet stores live proof evidence for any completed migration row.
+- [x] Final gauntlet stores live proof evidence for any completed migration row.
 
 ## Validation checklist
 
 Run and record timings for the smallest checks that cover the implemented work:
 
-- [ ] `pnpm run format:check`
-- [ ] `pnpm run lint`
-- [ ] `pnpm run build:docs` when public APIs or docs change
-- [ ] `pnpm run typecheck`
-- [ ] Targeted Vitest for changed validators/smokes, or full
+- [x] `pnpm run format:check`
+- [x] `pnpm run lint`
+- [x] `pnpm run build:docs` when public APIs or docs change
+- [x] `pnpm run typecheck`
+- [x] Targeted Vitest for changed validators/smokes, or full
       `NPM_CONFIG_USERCONFIG=/dev/null npx vitest run` when broad behavior
       changes
-- [ ] Relevant fixture/negative smokes
-- [ ] Live opposite-ISA smoke when `migrationCompleted=true` behavior changes
-- [ ] `pnpm exec fallow audit --changed-since origin/main`
+- [x] Relevant fixture/negative smokes
+- [x] Live opposite-ISA smoke when `migrationCompleted=true` behavior changes
+- [x] `pnpm exec fallow audit --changed-since origin/main`
 
 ## Completion criteria
 

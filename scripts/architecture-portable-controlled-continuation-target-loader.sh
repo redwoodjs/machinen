@@ -29,6 +29,10 @@ if [ "${SOURCE_ISA_EMULATION_USED:-1}" != 0 ] || [ "${SIDECAR_RUNTIME_USED:-1}" 
   echo "target-loader-refusal=forbidden-shortcut" >&2
   exit 12
 fi
+if [ -z "${TARGET_ARTIFACT_PROVENANCE_SHA256:-}" ]; then
+  echo "target-loader-refusal=bundle-invalid missing target artifact provenance" >&2
+  exit 12
+fi
 binary="$bundle_dir/$TARGET_BINARY_REL"
 if [ ! -x "$binary" ]; then
   echo "target-loader-refusal=bundle-invalid missing target binary" >&2
@@ -47,6 +51,7 @@ fi
 printf '%s\n' "$output"
 printf 'loader-target-arch=%s\n' "$actual_arch"
 printf 'targetArtifactDigest=%s\n' "$actual_digest"
+printf 'targetArtifactProvenanceDigest=%s\n' "$TARGET_ARTIFACT_PROVENANCE_SHA256"
 printf 'sourceIsaEmulationUsed=false\nsidecarRuntimeUsed=false\nmetadataOnlyContinuation=false\nrawCheckpointImageReplayUsed=false\n'
 if ! printf '%s\n' "$output" | grep -q 'target-native-continuation-ok'; then
   echo "target-loader-refusal=target-verifier-failed missing marker" >&2

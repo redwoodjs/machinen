@@ -70,4 +70,37 @@ describe("architecture-portable snapshot gauntlet", () => {
     ]);
     expect(failures).toContain("bad-refusal refused row has migrationCompleted=true");
   });
+
+  it("enforces the actual continuation proof contract for completed rows", () => {
+    const failures = validateArchitecturePortableSnapshotGauntletInvariants([
+      row("controlled-c-translated-continuation", {
+        sourceArch: "arm64",
+        targetArch: "arm64",
+        targetExecution: "emulated",
+        stateModel: "translated-controlled-continuation",
+        stateDecisions: [
+          "architecture-portable-state-bundle",
+          "sidecar-runtime-used",
+          "source-isa-emulation-used",
+          "raw-cross-isa-checkpoint-image-replay",
+        ],
+        verifierOutput: "metadata-only success",
+        artifactDigests: { manifest: "sha256:manifest" },
+        provenance: { mode: "fixture" },
+        migrationCompleted: true,
+      }),
+    ]);
+    expect(failures).toEqual(
+      expect.arrayContaining([
+        "controlled-c-translated-continuation completed continuation is not opposite-ISA",
+        "controlled-c-translated-continuation completed continuation is not target-native",
+        "controlled-c-translated-continuation completed continuation lacks target verifier marker",
+        "controlled-c-translated-continuation completed continuation lacks live target provenance",
+        "controlled-c-translated-continuation completed continuation missing targetEnv digest",
+        "controlled-c-translated-continuation reports sidecar success as continuation success",
+        "controlled-c-translated-continuation reports source-ISA emulation as continuation success",
+        "controlled-c-translated-continuation reports raw checkpoint replay as continuation success",
+      ]),
+    );
+  });
 });

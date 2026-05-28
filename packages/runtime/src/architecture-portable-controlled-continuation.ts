@@ -7,6 +7,23 @@ export const ARCHITECTURE_PORTABLE_CONTROLLED_CONTINUATION_KIND =
 
 export const ARCHITECTURE_PORTABLE_CONTROLLED_CONTINUATION_FORMAT_VERSION = 1 as const;
 
+export const ARCHITECTURE_PORTABLE_CONTROLLED_CONTINUATION_BUNDLE_FILES = [
+  "manifest.json",
+  "state.json",
+  "refusals.json",
+  "target.env",
+] as const;
+
+export const controlledContinuationUnsupportedStateCategories = [
+  "file",
+  "socket",
+  "thread",
+  "signal",
+  "timer",
+  "dynamic-library",
+  "runtime-private",
+] as const;
+
 export const architecturePortableControlledContinuationClassifications = [
   "proof-only-feasibility",
   "refused",
@@ -31,16 +48,11 @@ export type ArchitecturePortableControlledContinuationRefusalCode =
 export type ArchitecturePortableControlledContinuationArch = "arm64" | "amd64";
 
 export interface ArchitecturePortableControlledContinuationUnsupportedState {
-  category:
-    | "file"
-    | "socket"
-    | "thread"
-    | "signal"
-    | "timer"
-    | "dynamic-library"
-    | "runtime-private";
+  category: (typeof controlledContinuationUnsupportedStateCategories)[number];
   decision: "refused";
   reason: string;
+  refusalCode: "unsupported-state";
+  remediation: string;
 }
 
 export interface ArchitecturePortableControlledContinuationBundleInput {
@@ -110,7 +122,7 @@ export interface ArchitecturePortableControlledContinuationRowInput {
   targetArch: ArchitecturePortableControlledContinuationArch;
   hostArch: string;
   providerMode: string;
-  targetExecution: "native" | "not-applicable";
+  targetExecution: "native" | "emulated" | "not-applicable";
   verifierCommand: string;
   verifierOutput: string;
   artifactDigests: Record<string, string>;
@@ -162,8 +174,10 @@ export function buildArchitecturePortableControlledContinuationBundle(
     input.unsupportedStates ?? defaultControlledContinuationUnsupportedStates();
   const artifactDigests = {
     targetBinary: input.targetBinarySha256,
-    state: stableControlledContinuationDigest(state),
-    unsupportedStates: stableControlledContinuationDigest(unsupportedStates),
+    state: sha256Text(jsonText(state)),
+    refusals: sha256Text(jsonText(unsupportedStates)),
+    targetEnv: sha256Text(targetEnvFromValues(input, state)),
+    targetArtifactProvenance: stableControlledContinuationDigest(input.targetBinaryProvenance),
     sourceCapture: stableControlledContinuationDigest(input.sourceVerifierOutput),
   };
   return {
@@ -227,7 +241,7 @@ export function readArchitecturePortableControlledContinuationBundle(
 
 export function validateArchitecturePortableControlledContinuationBundle(dir: string): string[] {
   const failures: string[] = [];
-  for (const file of ["manifest.json", "state.json", "refusals.json", "target.env"]) {
+  for (const file of ARCHITECTURE_PORTABLE_CONTROLLED_CONTINUATION_BUNDLE_FILES) {
     if (!existsSync(join(dir, file))) {
       failures.push(`missing bundle file ${file}`);
     }
@@ -248,6 +262,7 @@ export function validateArchitecturePortableControlledContinuationBundle(dir: st
   } else if (sha256File(targetPath) !== bundle.manifest.targetArtifact.sha256) {
     failures.push("target artifact digest mismatch");
   }
+  failures.push(...validateBundleFileDigests(dir, bundle));
   return failures;
 }
 
@@ -290,12 +305,24 @@ export function validateArchitecturePortableControlledContinuationBundleShape(
   if (!manifest.targetArtifact.relativePath || !manifest.targetArtifact.sha256) {
     failures.push("manifest target artifact is incomplete");
   }
+  if (!hasRequiredTargetArtifactProvenance(manifest.targetArtifact.provenance)) {
+    failures.push("manifest target artifact provenance is incomplete");
+  }
+  const missingCategories = controlledContinuationUnsupportedStateCategories.filter(
+    (category) => !unsupportedStates.some((item) => item.category === category),
+  );
+  for (const category of missingCategories) {
+    failures.push(`unsupported state inventory missing ${category}`);
+  }
   if (unsupportedStates.length === 0) {
     failures.push("unsupported state refusal inventory is empty");
   }
   for (const item of unsupportedStates) {
     if (item.decision !== "refused" || !item.reason) {
       failures.push(`unsupported state ${item.category} is missing refusal reason`);
+    }
+    if (item.refusalCode !== "unsupported-state" || !item.remediation) {
+      failures.push(`unsupported state ${item.category} is missing refusal code or remediation`);
     }
   }
   return failures;
@@ -362,15 +389,20 @@ export function validateArchitecturePortableControlledContinuationRow(
   if (row.kind !== ARCHITECTURE_PORTABLE_CONTROLLED_CONTINUATION_KIND) {
     failures.push("controlled continuation row has wrong kind");
   }
-  if (row.sourceArch === row.targetArch) {
-    failures.push("controlled continuation row must be opposite-ISA");
-  }
-  if (row.classification === "proof-only-feasibility" && row.migrationCompleted) {
+  if (row.migrationCompleted) {
+    if (row.sourceArch === row.targetArch) {
+      failures.push("completed controlled continuation must be opposite-ISA");
+    }
     if (row.targetExecution !== "native") {
       failures.push("completed controlled continuation must be target-native");
     }
     if (!row.verifierOutput.includes("target-native-continuation-ok")) {
       failures.push("completed controlled continuation lacks target verifier marker");
+    }
+    failures.push(...validateCompletedVerifierOutput(row));
+    failures.push(...validateCompletedArtifactDigests(row));
+    if (row.provenance.mode !== "live") {
+      failures.push("completed controlled continuation must come from a live target proof");
     }
   }
   if (
@@ -400,30 +432,140 @@ export function validateArchitecturePortableControlledContinuationRow(
 
 export function defaultControlledContinuationUnsupportedStates(): ArchitecturePortableControlledContinuationUnsupportedState[] {
   return [
-    { category: "file", decision: "refused", reason: "no open file descriptor state is modeled" },
-    {
-      category: "socket",
-      decision: "refused",
-      reason: "active sockets are outside the controlled C profile",
-    },
-    {
-      category: "thread",
-      decision: "refused",
-      reason: "only a single controlled thread is accepted",
-    },
-    { category: "signal", decision: "refused", reason: "pending signal state is not modeled" },
-    { category: "timer", decision: "refused", reason: "timerfd/deadline state is not modeled" },
-    {
-      category: "dynamic-library",
-      decision: "refused",
-      reason: "target artifact must be provenance-checked",
-    },
-    {
-      category: "runtime-private",
-      decision: "refused",
-      reason: "no runtime-private state is accepted",
-    },
+    unsupportedState(
+      "file",
+      "no open file descriptor state is modeled",
+      "Close or model file descriptor state before continuation.",
+    ),
+    unsupportedState(
+      "socket",
+      "active sockets are outside the controlled C profile",
+      "Drain, reconnect, or explicitly model sockets before continuation.",
+    ),
+    unsupportedState(
+      "thread",
+      "only a single controlled thread is accepted",
+      "Reach a single-threaded safe point or add thread-state modeling.",
+    ),
+    unsupportedState(
+      "signal",
+      "pending signal state is not modeled",
+      "Drain or explicitly model pending signals before continuation.",
+    ),
+    unsupportedState(
+      "timer",
+      "timerfd/deadline state is not modeled",
+      "Cancel, recreate, or explicitly model timer state before continuation.",
+    ),
+    unsupportedState(
+      "dynamic-library",
+      "target artifact must be provenance-checked",
+      "Use a fully provenance-checked target artifact or model dynamic library state.",
+    ),
+    unsupportedState(
+      "runtime-private",
+      "no runtime-private state is accepted",
+      "Use a runtime adapter that exposes portable state at a safe point.",
+    ),
   ];
+}
+
+function validateBundleFileDigests(
+  dir: string,
+  bundle: ArchitecturePortableControlledContinuationBundle,
+): string[] {
+  const expected = bundle.manifest.artifactDigests;
+  const checks = [
+    ["state", join(dir, "state.json")],
+    ["refusals", join(dir, "refusals.json")],
+    ["targetEnv", join(dir, "target.env")],
+  ] as const;
+  const failures: string[] = [];
+  for (const [name, path] of checks) {
+    if (!expected[name]) {
+      failures.push(`manifest artifactDigests missing ${name}`);
+    } else if (sha256File(path) !== expected[name]) {
+      failures.push(`${name} digest mismatch`);
+    }
+  }
+  if (
+    expected.targetArtifactProvenance !==
+    stableControlledContinuationDigest(bundle.manifest.targetArtifact.provenance)
+  ) {
+    failures.push("target artifact provenance digest mismatch");
+  }
+  return failures;
+}
+
+function hasRequiredTargetArtifactProvenance(provenance: Record<string, unknown>): boolean {
+  return ["compiler", "target", "sourceSha256", "targetBinaryBytes"].every((field) =>
+    Boolean(provenance[field]),
+  );
+}
+
+function validateCompletedVerifierOutput(
+  row: ArchitecturePortableControlledContinuationRow,
+): string[] {
+  const parsed = parseVerifierOutput(row.verifierOutput);
+  const failures: string[] = [];
+  if (parsed.sourceArch !== row.sourceArch) {
+    failures.push("completed controlled continuation verifier sourceArch mismatch");
+  }
+  if (parsed.targetArch !== row.targetArch) {
+    failures.push("completed controlled continuation verifier targetArch mismatch");
+  }
+  if (parsed.capturedCounter === undefined || parsed.restoredCounter === undefined) {
+    failures.push("completed controlled continuation lacks captured/restored counter evidence");
+  } else if (parsed.restoredCounter !== parsed.capturedCounter + 1) {
+    failures.push("completed controlled continuation did not advance from captured state");
+  }
+  return failures;
+}
+
+function validateCompletedArtifactDigests(
+  row: ArchitecturePortableControlledContinuationRow,
+): string[] {
+  const required = ["manifest", "state", "refusals", "targetEnv", "targetBinary"];
+  return required
+    .filter((name) => !row.artifactDigests[name])
+    .map((name) => `completed controlled continuation missing ${name} digest`);
+}
+
+function parseVerifierOutput(output: string): {
+  sourceArch?: string;
+  targetArch?: string;
+  capturedCounter?: number;
+  restoredCounter?: number;
+} {
+  const values = new Map<string, string>();
+  for (const line of output.split(/\r?\n/)) {
+    const [key, ...rest] = line.split("=");
+    if (rest.length > 0) {
+      values.set(key, rest.join("="));
+    }
+  }
+  return {
+    sourceArch: values.get("sourceArch"),
+    targetArch: values.get("targetArch"),
+    capturedCounter: numberFrom(values.get("capturedCounter")),
+    restoredCounter: numberFrom(values.get("restoredCounter")),
+  };
+}
+
+function numberFrom(value: string | undefined): number | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function unsupportedState(
+  category: ArchitecturePortableControlledContinuationUnsupportedState["category"],
+  reason: string,
+  remediation: string,
+): ArchitecturePortableControlledContinuationUnsupportedState {
+  return { category, decision: "refused", reason, refusalCode: "unsupported-state", remediation };
 }
 
 export function normalizeControlledContinuationArch(
@@ -455,20 +597,54 @@ export function sha256File(path: string): string {
 }
 
 function writeJson(path: string, value: unknown): void {
-  writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o644 });
+  writeFileSync(path, jsonText(value), { mode: 0o644 });
+}
+
+function jsonText(value: unknown): string {
+  return `${JSON.stringify(value, null, 2)}\n`;
+}
+
+function sha256Text(value: string): string {
+  return createHash("sha256").update(value).digest("hex");
 }
 
 function targetEnv(bundle: ArchitecturePortableControlledContinuationBundle): string {
   const manifest = bundle.manifest;
   const state = bundle.state;
+  return targetEnvFromValues(
+    {
+      sourceArch: manifest.sourceArch,
+      targetArch: manifest.targetArch,
+      continuationLabel: state.continuationLabel,
+      targetBinaryRelativePath: manifest.targetArtifact.relativePath,
+      targetBinarySha256: manifest.targetArtifact.sha256,
+      targetBinaryProvenance: manifest.targetArtifact.provenance,
+    },
+    state,
+  );
+}
+
+function targetEnvFromValues(
+  input: Pick<
+    ArchitecturePortableControlledContinuationBundleInput,
+    | "sourceArch"
+    | "targetArch"
+    | "continuationLabel"
+    | "targetBinaryRelativePath"
+    | "targetBinarySha256"
+    | "targetBinaryProvenance"
+  >,
+  state: ArchitecturePortableControlledContinuationState,
+): string {
   return [
-    `SOURCE_ARCH=${shellQuote(manifest.sourceArch)}`,
-    `TARGET_ARCH=${shellQuote(manifest.targetArch)}`,
+    `SOURCE_ARCH=${shellQuote(input.sourceArch)}`,
+    `TARGET_ARCH=${shellQuote(input.targetArch)}`,
     `CAPTURED_COUNTER=${shellQuote(String(state.capturedCounter))}`,
     `NEXT_COUNTER=${shellQuote(String(state.nextCounter))}`,
     `CONTINUATION_LABEL=${shellQuote(state.continuationLabel)}`,
-    `TARGET_BINARY_REL=${shellQuote(manifest.targetArtifact.relativePath)}`,
-    `TARGET_BINARY_SHA256=${shellQuote(manifest.targetArtifact.sha256)}`,
+    `TARGET_BINARY_REL=${shellQuote(input.targetBinaryRelativePath)}`,
+    `TARGET_BINARY_SHA256=${shellQuote(input.targetBinarySha256)}`,
+    `TARGET_ARTIFACT_PROVENANCE_SHA256=${shellQuote(stableControlledContinuationDigest(input.targetBinaryProvenance))}`,
     "SOURCE_ISA_EMULATION_USED=0",
     "SIDECAR_RUNTIME_USED=0",
     "METADATA_ONLY_CONTINUATION=0",
