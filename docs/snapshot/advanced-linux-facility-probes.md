@@ -8,7 +8,7 @@ turning any of them into product support.
 
 ```json
 {
-  "kind": "machinen.cross-arch-criu.advanced-linux-facility-probe",
+  "kind": "machinen.architecture-portable-snapshot.advanced-linux-facility-probe",
   "facility": "seccomp",
   "stateModel": "recreated",
   "classification": "proof-only-feasibility",

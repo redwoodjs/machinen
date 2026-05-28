@@ -23,7 +23,7 @@ describe("advanced Linux facility probe summaries", () => {
         classification: "proof-only-feasibility",
       }),
     ).toMatchObject({
-      kind: "machinen.cross-arch-criu.advanced-linux-facility-probe",
+      kind: "machinen.architecture-portable-snapshot.advanced-linux-facility-probe",
       facility: "seccomp",
       classification: "proof-only-feasibility",
       migrationCompleted: false,

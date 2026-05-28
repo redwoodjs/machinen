@@ -1,7 +1,7 @@
 import { arch as osArch, platform as osPlatform } from "node:os";
 
 export const OPPOSITE_ISA_VM_EXECUTION_KIND =
-  "machinen.cross-arch-criu.opposite-isa-vm-execution" as const;
+  "machinen.architecture-portable-snapshot.opposite-isa-vm-execution" as const;
 
 export const oppositeIsaVmExecutionRefusalCodes = [
   "opposite-isa-provider-unavailable",

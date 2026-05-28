@@ -1,32 +1,34 @@
-# Goal 004: CRIU inside the guest substrate proof
+# Goal 004: Guest checkpoint substrate proof
 
 Parent: [`FINAL-GOAL.md`](./FINAL-GOAL.md)
 
 ## Motivation
 
 Machinen should prove that its guest Linux environment exposes enough checkpoint
-and restore substrate for ordinary in-guest CRIU workflows. This does not claim
-cross-ISA process-state translation. It proves that the guest/kernel surface is
-credible.
+and restore substrate for ordinary in-guest checkpoint workflows. This does not
+claim cross-ISA process-state translation. It proves that the guest/kernel
+surface is credible.
 
 ## Objective
 
-Run CRIU inside a Machinen guest and prove same-guest/same-ISA checkpoint/restore
-for ordinary workloads.
+Run a scoped checkpoint tool inside a Machinen guest and prove same-guest,
+same-ISA checkpoint/restore for ordinary workloads. The current fixture uses the
+Linux `criu` command as that tool; the product claim is architecture-portable
+snapshotting, not compatibility with any one checkpoint file format.
 
 Minimum profiles:
 
 - simple C process;
 - small Java/JVM process or service, with a clear refusal if unsupported.
 
-## Required CRIU substrate proof
+## Required checkpoint substrate proof
 
 - [x] Run `/usr/sbin/criu check` or an equivalent scoped capability probe inside
       the guest.
-- [x] Record CRIU version.
+- [x] Record checkpoint tool version.
 - [x] Record kernel feature probe output.
 - [x] Compile and run a simple C process inside the guest.
-- [x] Checkpoint and restore the C process with in-guest CRIU.
+- [x] Checkpoint and restore the C process with the in-guest checkpoint tool.
 - [x] Verify observable continuation after restore.
 - [x] Run a small Java/JVM process inside the guest.
 - [x] Checkpoint/restore the JVM process, or refuse with a clear unsupported-state
@@ -36,8 +38,8 @@ Minimum profiles:
 ## C profile requirements
 
 - [x] Process emits pre-checkpoint progress.
-- [x] CRIU checkpoint captures it.
-- [x] CRIU restore resumes it.
+- [x] The checkpoint tool captures it.
+- [x] The checkpoint restore resumes it.
 - [x] Verifier proves post-restore progress is from the restored process.
 
 ## JVM profile requirements
@@ -52,10 +54,10 @@ One of:
 
 Each row must include:
 
-- `kind: machinen.cross-arch-criu.guest-criu-substrate`
+- `kind: machinen.architecture-portable-snapshot.guest-checkpoint-substrate`
 - `guestArch`
 - `kernelVersion`
-- `criuVersion`
+- `checkpointToolVersion`
 - `profile: c-simple | jvm-simple`
 - `checkpointLog`
 - `restoreLog`
@@ -65,13 +67,14 @@ Each row must include:
 
 ## Non-goals
 
-- Do not claim that a source-ISA CRIU image restores on a different ISA.
+- Do not claim that a source-ISA checkpoint image restores on a different ISA.
 - Do not count source-ISA emulation as target-native process continuation.
-- Do not silently accept JVM-private/JIT/thread state if CRIU cannot support it.
+- Do not silently accept JVM-private/JIT/thread state if the checkpoint tool
+  cannot support it.
 
 ## Tests and smokes
 
-- [x] In-guest CRIU check smoke.
+- [x] In-guest checkpoint check smoke.
 - [x] C checkpoint/restore smoke.
 - [x] JVM checkpoint/restore-or-refusal smoke.
 - [x] Unit tests for checked summary classification.
@@ -79,16 +82,16 @@ Each row must include:
 ## Documentation
 
 - [x] Explain same-guest/same-ISA scope.
-- [x] Explain why guest CRIU substrate is useful for the larger cross-arch goal.
-- [x] Document CRIU/JVM refusal boundaries.
+- [x] Explain why guest checkpoint substrate is useful for the larger cross-arch goal.
+- [x] Document checkpoint/JVM refusal boundaries.
 
 ## Validation
 
 Run and record timing for:
 
-- [x] guest CRIU substrate smoke;
-- [x] C CRIU smoke;
-- [x] JVM CRIU smoke/refusal;
+- [x] guest checkpoint substrate smoke;
+- [x] C checkpoint smoke;
+- [x] JVM checkpoint smoke/refusal;
 - [x] relevant unit tests;
 - [x] `pnpm run format:check`;
 - [x] `pnpm run lint`;
