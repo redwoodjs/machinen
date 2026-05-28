@@ -4,7 +4,7 @@ Parent: [`FINAL-GOAL.md`](./FINAL-GOAL.md)
 
 ## Motivation
 
-Shell commands and tiny HTTP services are not enough to make a CRIU-like claim
+Shell commands and tiny HTTP services are not enough to make a architecture-portable snapshot claim
 credible. C exposes native ABI and kernel-resource boundaries. Java/JVM exposes a
 heavy runtime with threads, mappings, class metadata, JIT state, and many loaded
 files. Passing or honestly refusing these profiles tells us whether the model is
@@ -49,7 +49,7 @@ dropped-irrelevant, logically-restored, or refused.
 
 Each row must include:
 
-- `kind: machinen.cross-arch-criu.runtime-confidence-profile`
+- `kind: machinen.architecture-portable-snapshot.runtime-confidence-profile`
 - `runtime: c | java`
 - `profile`
 - `classification`

@@ -43,6 +43,59 @@
 - [`writeBootSnapshot`](#writebootsnapshot)
 - [`detachedLogRoot`](#detachedlogroot)
 
+### Architecture-portable snapshot gauntlet
+
+- [`ArchitecturePortableSnapshotGauntletClassification`](#architectureportablesnapshotgauntletclassification)
+- [`ArchitecturePortableSnapshotGauntletRow`](#architectureportablesnapshotgauntletrow)
+- [`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput)
+- [`ArchitecturePortableSnapshotGauntletSummary`](#architectureportablesnapshotgauntletsummary)
+- [`ArchitecturePortableSnapshotTargetExecution`](#architectureportablesnapshottargetexecution)
+- [`ARCHITECTURE_PORTABLE_SNAPSHOT_GAUNTLET_KIND`](#architecture_portable_snapshot_gauntlet_kind)
+- [`ARCHITECTURE_PORTABLE_SNAPSHOT_GAUNTLET_ROW_KIND`](#architecture_portable_snapshot_gauntlet_row_kind)
+- [`architecturePortableSnapshotGauntletClassifications`](#architectureportablesnapshotgauntletclassifications)
+- [`architecturePortableSnapshotTargetExecutions`](#architectureportablesnapshottargetexecutions)
+- [`requiredArchitecturePortableSnapshotClaimIds`](#requiredarchitectureportablesnapshotclaimids)
+- [`buildArchitecturePortableSnapshotGauntletRow`](#buildarchitectureportablesnapshotgauntletrow)
+- [`stableGauntletDigest`](#stablegauntletdigest)
+- [`summarizeArchitecturePortableSnapshotGauntletRows`](#summarizearchitectureportablesnapshotgauntletrows)
+- [`validateArchitecturePortableSnapshotGauntletInvariants`](#validatearchitectureportablesnapshotgauntletinvariants)
+- [`validateArchitecturePortableSnapshotGauntletRows`](#validatearchitectureportablesnapshotgauntletrows)
+- [`validateArchitecturePortableSnapshotGauntletSchema`](#validatearchitectureportablesnapshotgauntletschema)
+
+### Nested virtualization stretch proof
+
+- [`NestedVirtProbeHost`](#nestedvirtprobehost)
+- [`NestedVirtProbeResult`](#nestedvirtproberesult)
+- [`NestedVirtualizationStretchProofClassification`](#nestedvirtualizationstretchproofclassification)
+- [`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput)
+- [`NestedVirtualizationStretchProofRefusalCode`](#nestedvirtualizationstretchproofrefusalcode)
+- [`NestedVirtualizationStretchProofRow`](#nestedvirtualizationstretchproofrow)
+- [`NestedVirtualizationStretchProofSummary`](#nestedvirtualizationstretchproofsummary)
+- [`NESTED_VIRTUALIZATION_STRETCH_PROOF_KIND`](#nested_virtualization_stretch_proof_kind)
+- [`nestedVirtualizationStretchProofClassifications`](#nestedvirtualizationstretchproofclassifications)
+- [`nestedVirtualizationStretchProofRefusalCodes`](#nestedvirtualizationstretchproofrefusalcodes)
+- [`buildNestedVirtualizationStretchProofRow`](#buildnestedvirtualizationstretchproofrow)
+- [`probeNestedVirtualization`](#probenestedvirtualization)
+- [`summarizeNestedVirtualizationStretchProofRows`](#summarizenestedvirtualizationstretchproofrows)
+- [`validateNestedVirtualizationStretchProofRows`](#validatenestedvirtualizationstretchproofrows)
+
+### Advanced Linux facility probes
+
+- [`AdvancedLinuxFacilityProbeClassification`](#advancedlinuxfacilityprobeclassification)
+- [`AdvancedLinuxFacilityProbeFacility`](#advancedlinuxfacilityprobefacility)
+- [`AdvancedLinuxFacilityProbeInput`](#advancedlinuxfacilityprobeinput)
+- [`AdvancedLinuxFacilityProbeRefusalCode`](#advancedlinuxfacilityproberefusalcode)
+- [`AdvancedLinuxFacilityProbeRow`](#advancedlinuxfacilityproberow)
+- [`AdvancedLinuxFacilityProbeStateModel`](#advancedlinuxfacilityprobestatemodel)
+- [`AdvancedLinuxFacilityProbeSummary`](#advancedlinuxfacilityprobesummary)
+- [`ADVANCED_LINUX_FACILITY_PROBE_KIND`](#advanced_linux_facility_probe_kind)
+- [`advancedLinuxFacilityProbeClassifications`](#advancedlinuxfacilityprobeclassifications)
+- [`advancedLinuxFacilityProbeFacilities`](#advancedlinuxfacilityprobefacilities)
+- [`advancedLinuxFacilityProbeRefusalCodes`](#advancedlinuxfacilityproberefusalcodes)
+- [`buildAdvancedLinuxFacilityProbeRow`](#buildadvancedlinuxfacilityproberow)
+- [`summarizeAdvancedLinuxFacilityProbeRows`](#summarizeadvancedlinuxfacilityproberows)
+- [`validateAdvancedLinuxFacilityProbeRows`](#validateadvancedlinuxfacilityproberows)
+
 ### Runtime confidence profiles
 
 - [`RuntimeConfidenceArch`](#runtimeconfidencearch)
@@ -62,33 +115,33 @@
 - [`summarizeRuntimeConfidenceProfiles`](#summarizeruntimeconfidenceprofiles)
 - [`validateRuntimeConfidenceProfiles`](#validateruntimeconfidenceprofiles)
 
-### Portable snapshot + guest CRIU composition
+### Portable snapshot + guest checkpoint composition
 
-- [`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput)
-- [`PortableSnapshotGuestCriuCompositionRefusalCode`](#portablesnapshotguestcriucompositionrefusalcode)
-- [`PortableSnapshotGuestCriuCompositionRow`](#portablesnapshotguestcriucompositionrow)
-- [`PortableSnapshotGuestCriuCompositionState`](#portablesnapshotguestcriucompositionstate)
-- [`PortableSnapshotGuestCriuCompositionSummary`](#portablesnapshotguestcriucompositionsummary)
-- [`PortableSnapshotGuestCriuMachinenStateModel`](#portablesnapshotguestcriumachinenstatemodel)
-- [`PORTABLE_SNAPSHOT_GUEST_CRIU_COMPOSITION_KIND`](#portable_snapshot_guest_criu_composition_kind)
-- [`portableSnapshotGuestCriuCompositionRefusalCodes`](#portablesnapshotguestcriucompositionrefusalcodes)
-- [`buildPortableSnapshotGuestCriuCompositionRow`](#buildportablesnapshotguestcriucompositionrow)
-- [`summarizePortableSnapshotGuestCriuCompositionRows`](#summarizeportablesnapshotguestcriucompositionrows)
-- [`validatePortableSnapshotGuestCriuCompositionRows`](#validateportablesnapshotguestcriucompositionrows)
+- [`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput)
+- [`PortableSnapshotGuestCheckpointCompositionRefusalCode`](#portablesnapshotguestcheckpointcompositionrefusalcode)
+- [`PortableSnapshotGuestCheckpointCompositionRow`](#portablesnapshotguestcheckpointcompositionrow)
+- [`PortableSnapshotGuestCheckpointCompositionState`](#portablesnapshotguestcheckpointcompositionstate)
+- [`PortableSnapshotGuestCheckpointCompositionSummary`](#portablesnapshotguestcheckpointcompositionsummary)
+- [`PortableSnapshotGuestCheckpointMachinenStateModel`](#portablesnapshotguestcheckpointmachinenstatemodel)
+- [`PORTABLE_SNAPSHOT_GUEST_CHECKPOINT_COMPOSITION_KIND`](#portable_snapshot_guest_checkpoint_composition_kind)
+- [`portableSnapshotGuestCheckpointCompositionRefusalCodes`](#portablesnapshotguestcheckpointcompositionrefusalcodes)
+- [`buildPortableSnapshotGuestCheckpointCompositionRow`](#buildportablesnapshotguestcheckpointcompositionrow)
+- [`summarizePortableSnapshotGuestCheckpointCompositionRows`](#summarizeportablesnapshotguestcheckpointcompositionrows)
+- [`validatePortableSnapshotGuestCheckpointCompositionRows`](#validateportablesnapshotguestcheckpointcompositionrows)
 
-### Guest CRIU substrate
+### Guest checkpoint substrate
 
-- [`GuestCriuSubstrateInput`](#guestcriusubstrateinput)
-- [`GuestCriuSubstrateProfile`](#guestcriusubstrateprofile)
-- [`GuestCriuSubstrateRefusalCode`](#guestcriusubstraterefusalcode)
-- [`GuestCriuSubstrateRow`](#guestcriusubstraterow)
-- [`GuestCriuSubstrateState`](#guestcriusubstratestate)
-- [`GuestCriuSubstrateSummary`](#guestcriusubstratesummary)
-- [`GUEST_CRIU_SUBSTRATE_KIND`](#guest_criu_substrate_kind)
-- [`guestCriuSubstrateRefusalCodes`](#guestcriusubstraterefusalcodes)
-- [`buildGuestCriuSubstrateRow`](#buildguestcriusubstraterow)
-- [`summarizeGuestCriuSubstrateRows`](#summarizeguestcriusubstraterows)
-- [`validateGuestCriuSubstrateRows`](#validateguestcriusubstraterows)
+- [`GuestCheckpointSubstrateInput`](#guestcheckpointsubstrateinput)
+- [`GuestCheckpointSubstrateProfile`](#guestcheckpointsubstrateprofile)
+- [`GuestCheckpointSubstrateRefusalCode`](#guestcheckpointsubstraterefusalcode)
+- [`GuestCheckpointSubstrateRow`](#guestcheckpointsubstraterow)
+- [`GuestCheckpointSubstrateState`](#guestcheckpointsubstratestate)
+- [`GuestCheckpointSubstrateSummary`](#guestcheckpointsubstratesummary)
+- [`GUEST_CHECKPOINT_SUBSTRATE_KIND`](#guest_checkpoint_substrate_kind)
+- [`guestCheckpointSubstrateRefusalCodes`](#guestcheckpointsubstraterefusalcodes)
+- [`buildGuestCheckpointSubstrateRow`](#buildguestcheckpointsubstraterow)
+- [`summarizeGuestCheckpointSubstrateRows`](#summarizeguestcheckpointsubstraterows)
+- [`validateGuestCheckpointSubstrateRows`](#validateguestcheckpointsubstraterows)
 
 ### Stateful database restore
 
@@ -2052,6 +2105,478 @@ are dropped so a chatty SIGWINCH doesn't spam the bridge.
 
 ## Interfaces
 
+### AdvancedLinuxFacilityProbeInput
+
+#### Extended by
+
+- [`AdvancedLinuxFacilityProbeRow`](#advancedlinuxfacilityproberow)
+
+#### Properties
+
+##### facility
+
+> **facility**: `"seccomp"` \| `"ebpf"` \| `"namespace"` \| `"cgroup"` \| `"capability"`
+
+##### stateModel
+
+> **stateModel**: [`AdvancedLinuxFacilityProbeStateModel`](#advancedlinuxfacilityprobestatemodel)
+
+##### sourceArch
+
+> **sourceArch**: `string`
+
+##### targetArch
+
+> **targetArch**: `string`
+
+##### kernelVersion
+
+> **kernelVersion**: `string`
+
+##### requiredCapabilities
+
+> **requiredCapabilities**: `string`[]
+
+##### verifierOutput
+
+> **verifierOutput**: `string`
+
+##### classification
+
+> **classification**: `"product-supported"` \| `"proof-only-feasibility"` \| `"stretch-demo"` \| `"refused"`
+
+##### migrationCompleted?
+
+> `optional` **migrationCompleted?**: `boolean`
+
+##### refusalCode?
+
+> `optional` **refusalCode?**: `"kernel-feature-unavailable"` \| `"insufficient-privileges"` \| `"unsafe-bpf-state-unsupported"` \| `"namespace-cgroup-mismatch"` \| `"capability-mismatch"` \| `"facility-verifier-ambiguous"`
+
+##### remediation?
+
+> `optional` **remediation?**: `string`
+
+##### evidence?
+
+> `optional` **evidence?**: `Record`\<`string`, `unknown`\>
+
+***
+
+### AdvancedLinuxFacilityProbeRow
+
+#### Extends
+
+- [`AdvancedLinuxFacilityProbeInput`](#advancedlinuxfacilityprobeinput)
+
+#### Properties
+
+##### facility
+
+> **facility**: `"seccomp"` \| `"ebpf"` \| `"namespace"` \| `"cgroup"` \| `"capability"`
+
+###### Inherited from
+
+[`AdvancedLinuxFacilityProbeInput`](#advancedlinuxfacilityprobeinput).[`facility`](#facility)
+
+##### stateModel
+
+> **stateModel**: [`AdvancedLinuxFacilityProbeStateModel`](#advancedlinuxfacilityprobestatemodel)
+
+###### Inherited from
+
+[`AdvancedLinuxFacilityProbeInput`](#advancedlinuxfacilityprobeinput).[`stateModel`](#statemodel)
+
+##### sourceArch
+
+> **sourceArch**: `string`
+
+###### Inherited from
+
+[`AdvancedLinuxFacilityProbeInput`](#advancedlinuxfacilityprobeinput).[`sourceArch`](#sourcearch)
+
+##### targetArch
+
+> **targetArch**: `string`
+
+###### Inherited from
+
+[`AdvancedLinuxFacilityProbeInput`](#advancedlinuxfacilityprobeinput).[`targetArch`](#targetarch)
+
+##### kernelVersion
+
+> **kernelVersion**: `string`
+
+###### Inherited from
+
+[`AdvancedLinuxFacilityProbeInput`](#advancedlinuxfacilityprobeinput).[`kernelVersion`](#kernelversion)
+
+##### requiredCapabilities
+
+> **requiredCapabilities**: `string`[]
+
+###### Inherited from
+
+[`AdvancedLinuxFacilityProbeInput`](#advancedlinuxfacilityprobeinput).[`requiredCapabilities`](#requiredcapabilities)
+
+##### verifierOutput
+
+> **verifierOutput**: `string`
+
+###### Inherited from
+
+[`AdvancedLinuxFacilityProbeInput`](#advancedlinuxfacilityprobeinput).[`verifierOutput`](#verifieroutput)
+
+##### classification
+
+> **classification**: `"product-supported"` \| `"proof-only-feasibility"` \| `"stretch-demo"` \| `"refused"`
+
+###### Inherited from
+
+[`AdvancedLinuxFacilityProbeInput`](#advancedlinuxfacilityprobeinput).[`classification`](#classification)
+
+##### refusalCode?
+
+> `optional` **refusalCode?**: `"kernel-feature-unavailable"` \| `"insufficient-privileges"` \| `"unsafe-bpf-state-unsupported"` \| `"namespace-cgroup-mismatch"` \| `"capability-mismatch"` \| `"facility-verifier-ambiguous"`
+
+###### Inherited from
+
+[`AdvancedLinuxFacilityProbeInput`](#advancedlinuxfacilityprobeinput).[`refusalCode`](#refusalcode)
+
+##### remediation?
+
+> `optional` **remediation?**: `string`
+
+###### Inherited from
+
+[`AdvancedLinuxFacilityProbeInput`](#advancedlinuxfacilityprobeinput).[`remediation`](#remediation)
+
+##### evidence?
+
+> `optional` **evidence?**: `Record`\<`string`, `unknown`\>
+
+###### Inherited from
+
+[`AdvancedLinuxFacilityProbeInput`](#advancedlinuxfacilityprobeinput).[`evidence`](#evidence)
+
+##### kind
+
+> **kind**: `"machinen.architecture-portable-snapshot.advanced-linux-facility-probe"`
+
+##### migrationCompleted
+
+> **migrationCompleted**: `boolean`
+
+###### Overrides
+
+[`AdvancedLinuxFacilityProbeInput`](#advancedlinuxfacilityprobeinput).[`migrationCompleted`](#migrationcompleted)
+
+##### scope
+
+> **scope**: `object`
+
+###### productSupportClaimed
+
+> **productSupportClaimed**: `boolean`
+
+###### crossIsaKernelStateReplayClaimed
+
+> **crossIsaKernelStateReplayClaimed**: `false`
+
+***
+
+### AdvancedLinuxFacilityProbeSummary
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.architecture-portable-snapshot.advanced-linux-facility-probe-matrix"`
+
+##### state
+
+> **state**: `"completed"` \| `"failed"`
+
+##### pass
+
+> **pass**: `boolean`
+
+##### rows
+
+> **rows**: [`AdvancedLinuxFacilityProbeRow`](#advancedlinuxfacilityproberow)[]
+
+##### rowCount
+
+> **rowCount**: `number`
+
+##### failures
+
+> **failures**: `string`[]
+
+***
+
+### ArchitecturePortableSnapshotGauntletRowInput
+
+#### Extended by
+
+- [`ArchitecturePortableSnapshotGauntletRow`](#architectureportablesnapshotgauntletrow)
+
+#### Properties
+
+##### claimId
+
+> **claimId**: `string`
+
+##### claimName
+
+> **claimName**: `string`
+
+##### classification
+
+> **classification**: `"product-supported"` \| `"proof-only-feasibility"` \| `"stretch-demo"` \| `"refused"` \| `"skipped"`
+
+##### sourceArch
+
+> **sourceArch**: `string`
+
+##### targetArch
+
+> **targetArch**: `string`
+
+##### hostArch
+
+> **hostArch**: `string`
+
+##### providerMode
+
+> **providerMode**: `string`
+
+##### targetExecution
+
+> **targetExecution**: `"native"` \| `"accelerated"` \| `"emulated"` \| `"not-applicable"`
+
+##### stateModel
+
+> **stateModel**: `string`
+
+##### stateDecisions
+
+> **stateDecisions**: `string`[]
+
+##### verifierCommand
+
+> **verifierCommand**: `string`
+
+##### verifierOutput
+
+> **verifierOutput**: `string`
+
+##### artifactDigests
+
+> **artifactDigests**: `Record`\<`string`, `string`\>
+
+##### provenance
+
+> **provenance**: `Record`\<`string`, `unknown`\>
+
+##### migrationCompleted
+
+> **migrationCompleted**: `boolean`
+
+##### refusalCode?
+
+> `optional` **refusalCode?**: `string`
+
+##### remediation?
+
+> `optional` **remediation?**: `string`
+
+***
+
+### ArchitecturePortableSnapshotGauntletRow
+
+#### Extends
+
+- [`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput)
+
+#### Properties
+
+##### claimId
+
+> **claimId**: `string`
+
+###### Inherited from
+
+[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`claimId`](#claimid)
+
+##### claimName
+
+> **claimName**: `string`
+
+###### Inherited from
+
+[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`claimName`](#claimname)
+
+##### classification
+
+> **classification**: `"product-supported"` \| `"proof-only-feasibility"` \| `"stretch-demo"` \| `"refused"` \| `"skipped"`
+
+###### Inherited from
+
+[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`classification`](#classification-2)
+
+##### sourceArch
+
+> **sourceArch**: `string`
+
+###### Inherited from
+
+[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`sourceArch`](#sourcearch-2)
+
+##### targetArch
+
+> **targetArch**: `string`
+
+###### Inherited from
+
+[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`targetArch`](#targetarch-2)
+
+##### hostArch
+
+> **hostArch**: `string`
+
+###### Inherited from
+
+[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`hostArch`](#hostarch)
+
+##### providerMode
+
+> **providerMode**: `string`
+
+###### Inherited from
+
+[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`providerMode`](#providermode)
+
+##### targetExecution
+
+> **targetExecution**: `"native"` \| `"accelerated"` \| `"emulated"` \| `"not-applicable"`
+
+###### Inherited from
+
+[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`targetExecution`](#targetexecution)
+
+##### stateModel
+
+> **stateModel**: `string`
+
+###### Inherited from
+
+[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`stateModel`](#statemodel-2)
+
+##### stateDecisions
+
+> **stateDecisions**: `string`[]
+
+###### Inherited from
+
+[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`stateDecisions`](#statedecisions)
+
+##### verifierCommand
+
+> **verifierCommand**: `string`
+
+###### Inherited from
+
+[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`verifierCommand`](#verifiercommand)
+
+##### verifierOutput
+
+> **verifierOutput**: `string`
+
+###### Inherited from
+
+[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`verifierOutput`](#verifieroutput-2)
+
+##### artifactDigests
+
+> **artifactDigests**: `Record`\<`string`, `string`\>
+
+###### Inherited from
+
+[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`artifactDigests`](#artifactdigests)
+
+##### provenance
+
+> **provenance**: `Record`\<`string`, `unknown`\>
+
+###### Inherited from
+
+[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`provenance`](#provenance)
+
+##### migrationCompleted
+
+> **migrationCompleted**: `boolean`
+
+###### Inherited from
+
+[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`migrationCompleted`](#migrationcompleted-2)
+
+##### refusalCode?
+
+> `optional` **refusalCode?**: `string`
+
+###### Inherited from
+
+[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`refusalCode`](#refusalcode-2)
+
+##### remediation?
+
+> `optional` **remediation?**: `string`
+
+###### Inherited from
+
+[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`remediation`](#remediation-2)
+
+##### kind
+
+> **kind**: `"machinen.architecture-portable-snapshot.final-proof-gauntlet-row"`
+
+***
+
+### ArchitecturePortableSnapshotGauntletSummary
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.architecture-portable-snapshot.final-proof-gauntlet"`
+
+##### state
+
+> **state**: `"completed"` \| `"failed"`
+
+##### pass
+
+> **pass**: `boolean`
+
+##### rowCount
+
+> **rowCount**: `number`
+
+##### rows
+
+> **rows**: [`ArchitecturePortableSnapshotGauntletRow`](#architectureportablesnapshotgauntletrow)[]
+
+##### byClassification
+
+> **byClassification**: `Record`\<[`ArchitecturePortableSnapshotGauntletClassification`](#architectureportablesnapshotgauntletclassification), `number`\>
+
+##### failures
+
+> **failures**: `string`[]
+
+***
+
 ### BalloonCounters
 
 #### Properties
@@ -2361,7 +2886,7 @@ registry). Used by `machinen stop` after killing a specific VM.
 
 ***
 
-### GuestCriuSubstrateInput
+### GuestCheckpointSubstrateInput
 
 #### Properties
 
@@ -2373,9 +2898,9 @@ registry). Used by `machinen stop` after killing a specific VM.
 
 > **kernelVersion**: `string`
 
-##### criuVersion
+##### checkpointToolVersion
 
-> **criuVersion**: `string`
+> **checkpointToolVersion**: `string`
 
 ##### kernelFeatureProbeOutput
 
@@ -2383,7 +2908,7 @@ registry). Used by `machinen stop` after killing a specific VM.
 
 ##### profile
 
-> **profile**: [`GuestCriuSubstrateProfile`](#guestcriusubstrateprofile)
+> **profile**: [`GuestCheckpointSubstrateProfile`](#guestcheckpointsubstrateprofile)
 
 ##### checkpointLog
 
@@ -2399,11 +2924,11 @@ registry). Used by `machinen stop` after killing a specific VM.
 
 ##### state?
 
-> `optional` **state?**: [`GuestCriuSubstrateState`](#guestcriusubstratestate)
+> `optional` **state?**: [`GuestCheckpointSubstrateState`](#guestcheckpointsubstratestate)
 
 ##### refusalCode?
 
-> `optional` **refusalCode?**: `"guest-criu-check-unavailable"` \| `"c-criu-dump-restore-failed"` \| `"jvm-runtime-unavailable"` \| `"jvm-criu-runtime-state-unsupported"` \| `"jvm-criu-dump-restore-failed"`
+> `optional` **refusalCode?**: `"guest-checkpoint-check-unavailable"` \| `"c-checkpoint-dump-restore-failed"` \| `"jvm-runtime-unavailable"` \| `"jvm-checkpoint-runtime-state-unsupported"` \| `"jvm-checkpoint-dump-restore-failed"`
 
 ##### remediation?
 
@@ -2415,13 +2940,13 @@ registry). Used by `machinen stop` after killing a specific VM.
 
 ***
 
-### GuestCriuSubstrateRow
+### GuestCheckpointSubstrateRow
 
 #### Properties
 
 ##### kind
 
-> **kind**: `"machinen.cross-arch-criu.guest-criu-substrate"`
+> **kind**: `"machinen.architecture-portable-snapshot.guest-checkpoint-substrate"`
 
 ##### guestArch
 
@@ -2431,9 +2956,9 @@ registry). Used by `machinen stop` after killing a specific VM.
 
 > **kernelVersion**: `string`
 
-##### criuVersion
+##### checkpointToolVersion
 
-> **criuVersion**: `string`
+> **checkpointToolVersion**: `string`
 
 ##### kernelFeatureProbeOutput
 
@@ -2441,7 +2966,7 @@ registry). Used by `machinen stop` after killing a specific VM.
 
 ##### profile
 
-> **profile**: [`GuestCriuSubstrateProfile`](#guestcriusubstrateprofile)
+> **profile**: [`GuestCheckpointSubstrateProfile`](#guestcheckpointsubstrateprofile)
 
 ##### checkpointLog
 
@@ -2457,11 +2982,11 @@ registry). Used by `machinen stop` after killing a specific VM.
 
 ##### state
 
-> **state**: [`GuestCriuSubstrateState`](#guestcriusubstratestate)
+> **state**: [`GuestCheckpointSubstrateState`](#guestcheckpointsubstratestate)
 
 ##### refusalCode?
 
-> `optional` **refusalCode?**: `"guest-criu-check-unavailable"` \| `"c-criu-dump-restore-failed"` \| `"jvm-runtime-unavailable"` \| `"jvm-criu-runtime-state-unsupported"` \| `"jvm-criu-dump-restore-failed"`
+> `optional` **refusalCode?**: `"guest-checkpoint-check-unavailable"` \| `"c-checkpoint-dump-restore-failed"` \| `"jvm-runtime-unavailable"` \| `"jvm-checkpoint-runtime-state-unsupported"` \| `"jvm-checkpoint-dump-restore-failed"`
 
 ##### remediation?
 
@@ -2483,9 +3008,9 @@ registry). Used by `machinen stop` after killing a specific VM.
 
 > **sameIsa**: `true`
 
-###### crossIsaCriuReplay
+###### crossIsaCheckpointReplay
 
-> **crossIsaCriuReplay**: `false`
+> **crossIsaCheckpointReplay**: `false`
 
 ###### sourceIsaEmulationUsed
 
@@ -2493,13 +3018,13 @@ registry). Used by `machinen stop` after killing a specific VM.
 
 ***
 
-### GuestCriuSubstrateSummary
+### GuestCheckpointSubstrateSummary
 
 #### Properties
 
 ##### kind
 
-> **kind**: `"machinen.cross-arch-criu.guest-criu-substrate-smoke"`
+> **kind**: `"machinen.architecture-portable-snapshot.guest-checkpoint-substrate-smoke"`
 
 ##### state
 
@@ -2511,7 +3036,7 @@ registry). Used by `machinen stop` after killing a specific VM.
 
 ##### rows
 
-> **rows**: [`GuestCriuSubstrateRow`](#guestcriusubstraterow)[]
+> **rows**: [`GuestCheckpointSubstrateRow`](#guestcheckpointsubstraterow)[]
 
 ##### completedRows
 
@@ -5461,7 +5986,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-11)
+[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-15)
 
 ##### buildId
 
@@ -5569,7 +6094,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-11)
+[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-15)
 
 ##### buildId
 
@@ -7364,7 +7889,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-26)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-30)
 
 ##### targetArch
 
@@ -7372,7 +7897,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`targetArch`](#targetarch-6)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`targetArch`](#targetarch-10)
 
 ##### entryAddress
 
@@ -7952,7 +8477,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-26)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-30)
 
 ##### targetArch
 
@@ -7960,7 +8485,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`targetArch`](#targetarch-6)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`targetArch`](#targetarch-10)
 
 ##### entryAddress
 
@@ -9708,6 +10233,312 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ***
 
+### NestedVirtProbeHost
+
+#### Properties
+
+##### platform
+
+> **platform**: `Platform`
+
+##### arch
+
+> **arch**: `Architecture`
+
+#### Methods
+
+##### existsSync()
+
+> **existsSync**(`path`): `boolean`
+
+###### Parameters
+
+###### path
+
+`string`
+
+###### Returns
+
+`boolean`
+
+##### readText()
+
+> **readText**(`path`): `string`
+
+###### Parameters
+
+###### path
+
+`string`
+
+###### Returns
+
+`string`
+
+##### execFileSync()
+
+> **execFileSync**(`file`, `args`): `string`
+
+###### Parameters
+
+###### file
+
+`string`
+
+###### args
+
+`string`[]
+
+###### Returns
+
+`string`
+
+***
+
+### NestedVirtProbeResult
+
+#### Properties
+
+##### supported
+
+> **supported**: `boolean`
+
+##### reason?
+
+> `optional` **reason?**: `string`
+
+***
+
+### NestedVirtualizationStretchProofInput
+
+#### Extended by
+
+- [`NestedVirtualizationStretchProofRow`](#nestedvirtualizationstretchproofrow)
+
+#### Properties
+
+##### classification
+
+> **classification**: `"stretch-demo"` \| `"refused"` \| `"skipped"`
+
+##### l0HostArch
+
+> **l0HostArch**: `string`
+
+##### l1GuestArch
+
+> **l1GuestArch**: `string`
+
+##### l2GuestArch
+
+> **l2GuestArch**: `string`
+
+##### providerMode
+
+> **providerMode**: `string`
+
+##### accelerated
+
+> **accelerated**: `boolean`
+
+##### emulated
+
+> **emulated**: `boolean`
+
+##### nestedVerifierOutput
+
+> **nestedVerifierOutput**: `string`
+
+##### refusalCode?
+
+> `optional` **refusalCode?**: `"nested-virtualization-unavailable"` \| `"nested-smoke-failed"` \| `"nested-verifier-ambiguous"` \| `"nested-snapshot-fork-unsafe"`
+
+##### remediation?
+
+> `optional` **remediation?**: `string`
+
+##### snapshotForkRefusalCode
+
+> **snapshotForkRefusalCode**: `string`
+
+##### snapshotForkRemediation
+
+> **snapshotForkRemediation**: `string`
+
+##### evidence?
+
+> `optional` **evidence?**: `Record`\<`string`, `unknown`\>
+
+***
+
+### NestedVirtualizationStretchProofRow
+
+#### Extends
+
+- [`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput)
+
+#### Properties
+
+##### classification
+
+> **classification**: `"stretch-demo"` \| `"refused"` \| `"skipped"`
+
+###### Inherited from
+
+[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`classification`](#classification-7)
+
+##### l0HostArch
+
+> **l0HostArch**: `string`
+
+###### Inherited from
+
+[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`l0HostArch`](#l0hostarch)
+
+##### l1GuestArch
+
+> **l1GuestArch**: `string`
+
+###### Inherited from
+
+[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`l1GuestArch`](#l1guestarch)
+
+##### l2GuestArch
+
+> **l2GuestArch**: `string`
+
+###### Inherited from
+
+[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`l2GuestArch`](#l2guestarch)
+
+##### providerMode
+
+> **providerMode**: `string`
+
+###### Inherited from
+
+[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`providerMode`](#providermode-2)
+
+##### accelerated
+
+> **accelerated**: `boolean`
+
+###### Inherited from
+
+[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`accelerated`](#accelerated)
+
+##### emulated
+
+> **emulated**: `boolean`
+
+###### Inherited from
+
+[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`emulated`](#emulated)
+
+##### nestedVerifierOutput
+
+> **nestedVerifierOutput**: `string`
+
+###### Inherited from
+
+[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`nestedVerifierOutput`](#nestedverifieroutput)
+
+##### refusalCode?
+
+> `optional` **refusalCode?**: `"nested-virtualization-unavailable"` \| `"nested-smoke-failed"` \| `"nested-verifier-ambiguous"` \| `"nested-snapshot-fork-unsafe"`
+
+###### Inherited from
+
+[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`refusalCode`](#refusalcode-7)
+
+##### remediation?
+
+> `optional` **remediation?**: `string`
+
+###### Inherited from
+
+[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`remediation`](#remediation-6)
+
+##### snapshotForkRefusalCode
+
+> **snapshotForkRefusalCode**: `string`
+
+###### Inherited from
+
+[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`snapshotForkRefusalCode`](#snapshotforkrefusalcode)
+
+##### snapshotForkRemediation
+
+> **snapshotForkRemediation**: `string`
+
+###### Inherited from
+
+[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`snapshotForkRemediation`](#snapshotforkremediation)
+
+##### evidence?
+
+> `optional` **evidence?**: `Record`\<`string`, `unknown`\>
+
+###### Inherited from
+
+[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`evidence`](#evidence-4)
+
+##### kind
+
+> **kind**: `"machinen.architecture-portable-snapshot.nested-virtualization-stretch-proof"`
+
+##### migrationCompleted
+
+> **migrationCompleted**: `false`
+
+##### scope
+
+> **scope**: `object`
+
+###### productSupportClaimed
+
+> **productSupportClaimed**: `false`
+
+###### portableSnapshotRequirement
+
+> **portableSnapshotRequirement**: `false`
+
+###### providerSnapshotForkSafe
+
+> **providerSnapshotForkSafe**: `false`
+
+***
+
+### NestedVirtualizationStretchProofSummary
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.architecture-portable-snapshot.nested-virtualization-stretch-proof-summary"`
+
+##### state
+
+> **state**: `"completed"` \| `"failed"`
+
+##### pass
+
+> **pass**: `boolean`
+
+##### rows
+
+> **rows**: [`NestedVirtualizationStretchProofRow`](#nestedvirtualizationstretchproofrow)[]
+
+##### rowCount
+
+> **rowCount**: `number`
+
+##### failures
+
+> **failures**: `string`[]
+
+***
+
 ### OppositeIsaVmExecutionProviderRoute
 
 #### Properties
@@ -9814,7 +10645,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ##### kind
 
-> **kind**: `"machinen.cross-arch-criu.opposite-isa-vm-execution"`
+> **kind**: `"machinen.architecture-portable-snapshot.opposite-isa-vm-execution"`
 
 ##### hostArch
 
@@ -10631,11 +11462,11 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ***
 
-### PortableSnapshotGuestCriuCompositionInput
+### PortableSnapshotGuestCheckpointCompositionInput
 
 #### Extended by
 
-- [`PortableSnapshotGuestCriuCompositionRow`](#portablesnapshotguestcriucompositionrow)
+- [`PortableSnapshotGuestCheckpointCompositionRow`](#portablesnapshotguestcheckpointcompositionrow)
 
 #### Properties
 
@@ -10649,27 +11480,27 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ##### machinenStateModel
 
-> **machinenStateModel**: [`PortableSnapshotGuestCriuMachinenStateModel`](#portablesnapshotguestcriumachinenstatemodel)
+> **machinenStateModel**: [`PortableSnapshotGuestCheckpointMachinenStateModel`](#portablesnapshotguestcheckpointmachinenstatemodel)
 
-##### guestCriuVersion
+##### guestCheckpointVersion
 
-> **guestCriuVersion**: `string`
+> **guestCheckpointVersion**: `string`
 
-##### preSnapshotGuestCriuVerifier
+##### preSnapshotGuestCheckpointVerifier
 
-> **preSnapshotGuestCriuVerifier**: `string`
+> **preSnapshotGuestCheckpointVerifier**: `string`
 
-##### postRestoreGuestCriuVerifier
+##### postRestoreGuestCheckpointVerifier
 
-> **postRestoreGuestCriuVerifier**: `string`
+> **postRestoreGuestCheckpointVerifier**: `string`
 
-##### storedCriuImageDigest
+##### storedCheckpointImageDigest
 
-> **storedCriuImageDigest**: `string`
+> **storedCheckpointImageDigest**: `string`
 
-##### storedCriuImageReadableAfterRestore
+##### storedCheckpointImageReadableAfterRestore
 
-> **storedCriuImageReadableAfterRestore**: `boolean`
+> **storedCheckpointImageReadableAfterRestore**: `boolean`
 
 ##### migrationCompleted?
 
@@ -10677,7 +11508,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ##### refusalCode?
 
-> `optional` **refusalCode?**: `"guest-criu-capability-unavailable"` \| `"guest-criu-storage-unsupported-or-dirty"` \| `"cross-isa-criu-image-restore-unsupported"` \| `"machinen-restore-path-unsupported"` \| `"composition-verifier-missing-or-ambiguous"` \| `"stored-criu-image-unreadable-after-restore"`
+> `optional` **refusalCode?**: `"guest-checkpoint-capability-unavailable"` \| `"guest-checkpoint-storage-unsupported-or-dirty"` \| `"cross-isa-checkpoint-image-restore-unsupported"` \| `"machinen-restore-path-unsupported"` \| `"composition-verifier-missing-or-ambiguous"` \| `"stored-checkpoint-image-unreadable-after-restore"`
 
 ##### remediation?
 
@@ -10689,11 +11520,11 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ***
 
-### PortableSnapshotGuestCriuCompositionRow
+### PortableSnapshotGuestCheckpointCompositionRow
 
 #### Extends
 
-- [`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput)
+- [`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput)
 
 #### Properties
 
@@ -10703,7 +11534,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`sourceArch`](#sourcearch-4)
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`sourceArch`](#sourcearch-8)
 
 ##### targetArch
 
@@ -10711,63 +11542,63 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`targetArch`](#targetarch-15)
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`targetArch`](#targetarch-19)
 
 ##### machinenStateModel
 
-> **machinenStateModel**: [`PortableSnapshotGuestCriuMachinenStateModel`](#portablesnapshotguestcriumachinenstatemodel)
+> **machinenStateModel**: [`PortableSnapshotGuestCheckpointMachinenStateModel`](#portablesnapshotguestcheckpointmachinenstatemodel)
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`machinenStateModel`](#machinenstatemodel)
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`machinenStateModel`](#machinenstatemodel)
 
-##### guestCriuVersion
+##### guestCheckpointVersion
 
-> **guestCriuVersion**: `string`
-
-###### Inherited from
-
-[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`guestCriuVersion`](#guestcriuversion)
-
-##### preSnapshotGuestCriuVerifier
-
-> **preSnapshotGuestCriuVerifier**: `string`
+> **guestCheckpointVersion**: `string`
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`preSnapshotGuestCriuVerifier`](#presnapshotguestcriuverifier)
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`guestCheckpointVersion`](#guestcheckpointversion)
 
-##### postRestoreGuestCriuVerifier
+##### preSnapshotGuestCheckpointVerifier
 
-> **postRestoreGuestCriuVerifier**: `string`
-
-###### Inherited from
-
-[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`postRestoreGuestCriuVerifier`](#postrestoreguestcriuverifier)
-
-##### storedCriuImageDigest
-
-> **storedCriuImageDigest**: `string`
+> **preSnapshotGuestCheckpointVerifier**: `string`
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`storedCriuImageDigest`](#storedcriuimagedigest)
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`preSnapshotGuestCheckpointVerifier`](#presnapshotguestcheckpointverifier)
 
-##### storedCriuImageReadableAfterRestore
+##### postRestoreGuestCheckpointVerifier
 
-> **storedCriuImageReadableAfterRestore**: `boolean`
+> **postRestoreGuestCheckpointVerifier**: `string`
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`storedCriuImageReadableAfterRestore`](#storedcriuimagereadableafterrestore)
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`postRestoreGuestCheckpointVerifier`](#postrestoreguestcheckpointverifier)
+
+##### storedCheckpointImageDigest
+
+> **storedCheckpointImageDigest**: `string`
+
+###### Inherited from
+
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`storedCheckpointImageDigest`](#storedcheckpointimagedigest)
+
+##### storedCheckpointImageReadableAfterRestore
+
+> **storedCheckpointImageReadableAfterRestore**: `boolean`
+
+###### Inherited from
+
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`storedCheckpointImageReadableAfterRestore`](#storedcheckpointimagereadableafterrestore)
 
 ##### refusalCode?
 
-> `optional` **refusalCode?**: `"guest-criu-capability-unavailable"` \| `"guest-criu-storage-unsupported-or-dirty"` \| `"cross-isa-criu-image-restore-unsupported"` \| `"machinen-restore-path-unsupported"` \| `"composition-verifier-missing-or-ambiguous"` \| `"stored-criu-image-unreadable-after-restore"`
+> `optional` **refusalCode?**: `"guest-checkpoint-capability-unavailable"` \| `"guest-checkpoint-storage-unsupported-or-dirty"` \| `"cross-isa-checkpoint-image-restore-unsupported"` \| `"machinen-restore-path-unsupported"` \| `"composition-verifier-missing-or-ambiguous"` \| `"stored-checkpoint-image-unreadable-after-restore"`
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`refusalCode`](#refusalcode-4)
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`refusalCode`](#refusalcode-10)
 
 ##### remediation?
 
@@ -10775,7 +11606,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`remediation`](#remediation-5)
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`remediation`](#remediation-11)
 
 ##### evidence?
 
@@ -10783,15 +11614,15 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`evidence`](#evidence-2)
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`evidence`](#evidence-6)
 
 ##### kind
 
-> **kind**: `"machinen.cross-arch-criu.portable-snapshot-guest-criu-composition"`
+> **kind**: `"machinen.architecture-portable-snapshot.portable-snapshot-guest-checkpoint-composition"`
 
 ##### state
 
-> **state**: [`PortableSnapshotGuestCriuCompositionState`](#portablesnapshotguestcriucompositionstate)
+> **state**: [`PortableSnapshotGuestCheckpointCompositionState`](#portablesnapshotguestcheckpointcompositionstate)
 
 ##### migrationCompleted
 
@@ -10799,19 +11630,19 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Overrides
 
-[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`migrationCompleted`](#migrationcompleted-3)
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`migrationCompleted`](#migrationcompleted-8)
 
 ##### scope
 
 > **scope**: `object`
 
-###### guestCriuSameIsaOnly
+###### guestCheckpointSameIsaOnly
 
-> **guestCriuSameIsaOnly**: `true`
+> **guestCheckpointSameIsaOnly**: `true`
 
-###### crossIsaCriuImageRestoreClaimed
+###### crossIsaCheckpointImageRestoreClaimed
 
-> **crossIsaCriuImageRestoreClaimed**: `false`
+> **crossIsaCheckpointImageRestoreClaimed**: `false`
 
 ###### machinenRestoreRequired
 
@@ -10819,13 +11650,13 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ***
 
-### PortableSnapshotGuestCriuCompositionSummary
+### PortableSnapshotGuestCheckpointCompositionSummary
 
 #### Properties
 
 ##### kind
 
-> **kind**: `"machinen.cross-arch-criu.portable-snapshot-guest-criu-composition-smoke"`
+> **kind**: `"machinen.architecture-portable-snapshot.portable-snapshot-guest-checkpoint-composition-smoke"`
 
 ##### state
 
@@ -10837,7 +11668,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ##### rows
 
-> **rows**: [`PortableSnapshotGuestCriuCompositionRow`](#portablesnapshotguestcriucompositionrow)[]
+> **rows**: [`PortableSnapshotGuestCheckpointCompositionRow`](#portablesnapshotguestcheckpointcompositionrow)[]
 
 ##### completedRows
 
@@ -11484,7 +12315,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### state
 
-> **state**: `"completed"` \| `"refused"`
+> **state**: `"refused"` \| `"completed"`
 
 ##### migrationCompleted
 
@@ -11500,7 +12331,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### targetState
 
-> **targetState**: `"completed"` \| `"refused"`
+> **targetState**: `"refused"` \| `"completed"`
 
 ##### targetVerifierResult
 
@@ -12159,7 +12990,7 @@ the breakdown shows up alongside the parent phase.
 
 ##### classification
 
-> **classification**: `"refused"` \| `"product-supported"` \| `"proof-only-feasibility"` \| `"stretch-demo"`
+> **classification**: `"product-supported"` \| `"proof-only-feasibility"` \| `"stretch-demo"` \| `"refused"`
 
 ##### sourceArch
 
@@ -12229,11 +13060,11 @@ the breakdown shows up alongside the parent phase.
 
 ##### classification
 
-> **classification**: `"refused"` \| `"product-supported"` \| `"proof-only-feasibility"` \| `"stretch-demo"`
+> **classification**: `"product-supported"` \| `"proof-only-feasibility"` \| `"stretch-demo"` \| `"refused"`
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`classification`](#classification-3)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`classification`](#classification-9)
 
 ##### sourceArch
 
@@ -12241,7 +13072,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`sourceArch`](#sourcearch-8)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`sourceArch`](#sourcearch-12)
 
 ##### targetArch
 
@@ -12249,7 +13080,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`targetArch`](#targetarch-20)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`targetArch`](#targetarch-24)
 
 ##### stateModel
 
@@ -12257,7 +13088,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`stateModel`](#statemodel)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`stateModel`](#statemodel-4)
 
 ##### artifactDigests
 
@@ -12265,7 +13096,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`artifactDigests`](#artifactdigests)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`artifactDigests`](#artifactdigests-2)
 
 ##### runtimeVersion
 
@@ -12281,7 +13112,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`verifierOutput`](#verifieroutput-4)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`verifierOutput`](#verifieroutput-8)
 
 ##### refusalCode?
 
@@ -12289,7 +13120,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`refusalCode`](#refusalcode-9)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`refusalCode`](#refusalcode-15)
 
 ##### remediation?
 
@@ -12297,7 +13128,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`remediation`](#remediation-7)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`remediation`](#remediation-13)
 
 ##### evidence?
 
@@ -12305,11 +13136,11 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`evidence`](#evidence-5)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`evidence`](#evidence-9)
 
 ##### kind
 
-> **kind**: `"machinen.cross-arch-criu.runtime-confidence-profile"`
+> **kind**: `"machinen.architecture-portable-snapshot.runtime-confidence-profile"`
 
 ##### migrationCompleted
 
@@ -12317,7 +13148,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Overrides
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`migrationCompleted`](#migrationcompleted-8)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`migrationCompleted`](#migrationcompleted-13)
 
 ##### scope
 
@@ -12343,7 +13174,7 @@ the breakdown shows up alongside the parent phase.
 
 ##### kind
 
-> **kind**: `"machinen.cross-arch-criu.runtime-confidence-profile-matrix"`
+> **kind**: `"machinen.architecture-portable-snapshot.runtime-confidence-profile-matrix"`
 
 ##### state
 
@@ -12497,7 +13328,7 @@ Poll interval in ms while retrying. Default 250.
 
 ##### kind
 
-> **kind**: `"machinen.cross-arch-criu.stateful-database-restore"`
+> **kind**: `"machinen.architecture-portable-snapshot.stateful-database-restore"`
 
 ##### database
 
@@ -13369,7 +14200,7 @@ parent pointers and materializes a flat vmstate/rootdisk pair
 before booting through the normal vmstate restore path.
 
 With `MACHINEN_SNAPSHOT_ENGINE=criu`, this keeps the historical
-process-tree behavior: CRIU image files live under `<outDir>/img/`,
+process-tree behavior: checkpoint image files live under `<outDir>/img/`,
 `opts.leaveRunning: true` keeps the source alive, and the default
 destructive CRIU snapshot powers the source off after the dump.
 With `MACHINEN_SNAPSHOT_ENGINE=portable`, snapshot currently
@@ -13626,7 +14457,7 @@ Absolute path to the snapshot bundle directory.
 
 > `optional` **imgDir?**: `string`
 
-Absolute path to the CRIU image directory inside the bundle.
+Absolute path to the checkpoint image directory inside the bundle.
 Set by the criu engine only; undefined for vmstate bundles.
 
 ##### vmstatePath?
@@ -13982,10 +14813,10 @@ Streaming log callback for the snapshot half. Same shape as
 
 > `optional` **lazy?**: `boolean`
 
-Opt into CRIU lazy-pages restore for the fork — the CRIU image directory
+Opt into CRIU lazy-pages restore for the fork — the checkpoint image directory
 is mounted into the guest read-only via in-VMM virtio-fs and `criu restore
 --lazy-pages` faults pages on demand. Default false: the runtime packs the
-CRIU image into a tar on `/dev/vdb` and the guest does an eager load.
+checkpoint image into a tar on `/dev/vdb` and the guest does an eager load.
 
 Lazy keeps fork RSS proportional to the pages the sibling actually
 touches, not the full snapshot size. Worth setting when the source dumped
@@ -14478,7 +15309,7 @@ pre-#114 layouts) so this VM can be CRIU-snapshotted later via
 
   - `'<path>'` — caller-managed file. Used as-is (must exist).
     Used by `restore()` to attach a tar archive of the bundle's
-    CRIU images on `/dev/vdb`; the guest's
+    checkpoint images on `/dev/vdb`; the guest's
     `/sbin/machinen-restore` untars it and runs `criu restore`.
     The runtime synthesizes `cmd: ['/sbin/machinen-restore']` if
     no other cmd is given.
@@ -15247,10 +16078,10 @@ unique under the source's namespace.
 
 > `optional` **lazy?**: `boolean`
 
-Opt into CRIU lazy-pages restore — the CRIU image directory is mounted
+Opt into CRIU lazy-pages restore — the checkpoint image directory is mounted
 into the guest read-only via in-VMM virtio-fs and `criu restore
 --lazy-pages` faults pages on demand (#266). Default false: the runtime
-packs the CRIU image into a tar on `/dev/vdb`, the guest's
+packs the checkpoint image into a tar on `/dev/vdb`, the guest's
 `/sbin/machinen-restore` untars it into tmpfs, and CRIU does an eager
 load.
 
@@ -15279,27 +16110,63 @@ Poll interval in ms while retrying. Default 250.
 
 ## Type Aliases
 
+### AdvancedLinuxFacilityProbeFacility
+
+> **AdvancedLinuxFacilityProbeFacility** = *typeof* [`advancedLinuxFacilityProbeFacilities`](#advancedlinuxfacilityprobefacilities)\[`number`\]
+
+***
+
+### AdvancedLinuxFacilityProbeClassification
+
+> **AdvancedLinuxFacilityProbeClassification** = *typeof* [`advancedLinuxFacilityProbeClassifications`](#advancedlinuxfacilityprobeclassifications)\[`number`\]
+
+***
+
+### AdvancedLinuxFacilityProbeRefusalCode
+
+> **AdvancedLinuxFacilityProbeRefusalCode** = *typeof* [`advancedLinuxFacilityProbeRefusalCodes`](#advancedlinuxfacilityproberefusalcodes)\[`number`\]
+
+***
+
+### AdvancedLinuxFacilityProbeStateModel
+
+> **AdvancedLinuxFacilityProbeStateModel** = `"preserved"` \| `"recreated"` \| `"proven-irrelevant"` \| `"refused"`
+
+***
+
+### ArchitecturePortableSnapshotGauntletClassification
+
+> **ArchitecturePortableSnapshotGauntletClassification** = *typeof* [`architecturePortableSnapshotGauntletClassifications`](#architectureportablesnapshotgauntletclassifications)\[`number`\]
+
+***
+
+### ArchitecturePortableSnapshotTargetExecution
+
+> **ArchitecturePortableSnapshotTargetExecution** = *typeof* [`architecturePortableSnapshotTargetExecutions`](#architectureportablesnapshottargetexecutions)\[`number`\]
+
+***
+
 ### ErrorCode
 
 > **ErrorCode** = *typeof* [`ErrorCode`](#errorcode)\[keyof *typeof* [`ErrorCode`](#errorcode)\]
 
 ***
 
-### GuestCriuSubstrateProfile
+### GuestCheckpointSubstrateProfile
 
-> **GuestCriuSubstrateProfile** = `"c-simple"` \| `"jvm-simple"`
-
-***
-
-### GuestCriuSubstrateState
-
-> **GuestCriuSubstrateState** = `"completed"` \| `"refused"` \| `"skipped"`
+> **GuestCheckpointSubstrateProfile** = `"c-simple"` \| `"jvm-simple"`
 
 ***
 
-### GuestCriuSubstrateRefusalCode
+### GuestCheckpointSubstrateState
 
-> **GuestCriuSubstrateRefusalCode** = *typeof* [`guestCriuSubstrateRefusalCodes`](#guestcriusubstraterefusalcodes)\[`number`\]
+> **GuestCheckpointSubstrateState** = `"completed"` \| `"refused"` \| `"skipped"`
+
+***
+
+### GuestCheckpointSubstrateRefusalCode
+
+> **GuestCheckpointSubstrateRefusalCode** = *typeof* [`guestCheckpointSubstrateRefusalCodes`](#guestcheckpointsubstraterefusalcodes)\[`number`\]
 
 ***
 
@@ -15757,6 +16624,18 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NestedVirtualizationStretchProofClassification
+
+> **NestedVirtualizationStretchProofClassification** = *typeof* [`nestedVirtualizationStretchProofClassifications`](#nestedvirtualizationstretchproofclassifications)\[`number`\]
+
+***
+
+### NestedVirtualizationStretchProofRefusalCode
+
+> **NestedVirtualizationStretchProofRefusalCode** = *typeof* [`nestedVirtualizationStretchProofRefusalCodes`](#nestedvirtualizationstretchproofrefusalcodes)\[`number`\]
+
+***
+
 ### OppositeIsaVmExecutionRefusalCode
 
 > **OppositeIsaVmExecutionRefusalCode** = *typeof* [`oppositeIsaVmExecutionRefusalCodes`](#oppositeisavmexecutionrefusalcodes)\[`number`\]
@@ -15873,21 +16752,21 @@ Result of `validatePid` — easy to switch on at the call site.
 
 ***
 
-### PortableSnapshotGuestCriuCompositionRefusalCode
+### PortableSnapshotGuestCheckpointCompositionRefusalCode
 
-> **PortableSnapshotGuestCriuCompositionRefusalCode** = *typeof* [`portableSnapshotGuestCriuCompositionRefusalCodes`](#portablesnapshotguestcriucompositionrefusalcodes)\[`number`\]
-
-***
-
-### PortableSnapshotGuestCriuCompositionState
-
-> **PortableSnapshotGuestCriuCompositionState** = `"completed"` \| `"refused"` \| `"skipped"`
+> **PortableSnapshotGuestCheckpointCompositionRefusalCode** = *typeof* [`portableSnapshotGuestCheckpointCompositionRefusalCodes`](#portablesnapshotguestcheckpointcompositionrefusalcodes)\[`number`\]
 
 ***
 
-### PortableSnapshotGuestCriuMachinenStateModel
+### PortableSnapshotGuestCheckpointCompositionState
 
-> **PortableSnapshotGuestCriuMachinenStateModel** = `"same-arch-vmstate"` \| `"cross-arch-semantic-restore"` \| `"unsupported-cross-isa-criu-replay"` \| `"other-supported"`
+> **PortableSnapshotGuestCheckpointCompositionState** = `"completed"` \| `"refused"` \| `"skipped"`
+
+***
+
+### PortableSnapshotGuestCheckpointMachinenStateModel
+
+> **PortableSnapshotGuestCheckpointMachinenStateModel** = `"same-arch-vmstate"` \| `"cross-arch-semantic-restore"` \| `"unsupported-cross-isa-checkpoint-replay"` \| `"other-supported"`
 
 ***
 
@@ -16141,6 +17020,60 @@ tarball-producing tool can pre-populate the lookup cache.
 > **SnapshotEngine** = `"criu"` \| `"vmstate"` \| `"portable"`
 
 ## Variables
+
+### ADVANCED\_LINUX\_FACILITY\_PROBE\_KIND
+
+> `const` **ADVANCED\_LINUX\_FACILITY\_PROBE\_KIND**: `"machinen.architecture-portable-snapshot.advanced-linux-facility-probe"`
+
+***
+
+### advancedLinuxFacilityProbeFacilities
+
+> `const` **advancedLinuxFacilityProbeFacilities**: readonly \[`"seccomp"`, `"ebpf"`, `"namespace"`, `"cgroup"`, `"capability"`\]
+
+***
+
+### advancedLinuxFacilityProbeClassifications
+
+> `const` **advancedLinuxFacilityProbeClassifications**: readonly \[`"product-supported"`, `"proof-only-feasibility"`, `"stretch-demo"`, `"refused"`\]
+
+***
+
+### advancedLinuxFacilityProbeRefusalCodes
+
+> `const` **advancedLinuxFacilityProbeRefusalCodes**: readonly \[`"kernel-feature-unavailable"`, `"insufficient-privileges"`, `"unsafe-bpf-state-unsupported"`, `"namespace-cgroup-mismatch"`, `"capability-mismatch"`, `"facility-verifier-ambiguous"`\]
+
+***
+
+### ARCHITECTURE\_PORTABLE\_SNAPSHOT\_GAUNTLET\_KIND
+
+> `const` **ARCHITECTURE\_PORTABLE\_SNAPSHOT\_GAUNTLET\_KIND**: `"machinen.architecture-portable-snapshot.final-proof-gauntlet"`
+
+***
+
+### ARCHITECTURE\_PORTABLE\_SNAPSHOT\_GAUNTLET\_ROW\_KIND
+
+> `const` **ARCHITECTURE\_PORTABLE\_SNAPSHOT\_GAUNTLET\_ROW\_KIND**: `"machinen.architecture-portable-snapshot.final-proof-gauntlet-row"`
+
+***
+
+### architecturePortableSnapshotGauntletClassifications
+
+> `const` **architecturePortableSnapshotGauntletClassifications**: readonly \[`"product-supported"`, `"proof-only-feasibility"`, `"stretch-demo"`, `"refused"`, `"skipped"`\]
+
+***
+
+### architecturePortableSnapshotTargetExecutions
+
+> `const` **architecturePortableSnapshotTargetExecutions**: readonly \[`"native"`, `"accelerated"`, `"emulated"`, `"not-applicable"`\]
+
+***
+
+### requiredArchitecturePortableSnapshotClaimIds
+
+> `const` **requiredArchitecturePortableSnapshotClaimIds**: readonly \[`"opposite-isa-vm-execution"`, `"postgres-bidirectional-logical-restore"`, `"postgres-unsafe-neighbor-refusals"`, `"sqlite-rollback-journal-restore"`, `"sqlite-wal-checkpoint-restore"`, `"sqlite-dirty-inflight-refusals"`, `"guest-checkpoint-c-simple"`, `"guest-checkpoint-jvm-simple"`, `"portable-snapshot-guest-checkpoint-composition"`, `"runtime-confidence-c"`, `"runtime-confidence-java"`, `"advanced-linux-seccomp"`, `"advanced-linux-ebpf"`, `"advanced-linux-namespace-cgroup-capability"`, `"nested-virtualization-stretch-proof"`\]
+
+***
 
 ### STATS\_FILE\_SIZE
 
@@ -16579,15 +17512,15 @@ Stream a tar of `guestPath` from the guest and untar into
 
 ***
 
-### GUEST\_CRIU\_SUBSTRATE\_KIND
+### GUEST\_CHECKPOINT\_SUBSTRATE\_KIND
 
-> `const` **GUEST\_CRIU\_SUBSTRATE\_KIND**: `"machinen.cross-arch-criu.guest-criu-substrate"`
+> `const` **GUEST\_CHECKPOINT\_SUBSTRATE\_KIND**: `"machinen.architecture-portable-snapshot.guest-checkpoint-substrate"`
 
 ***
 
-### guestCriuSubstrateRefusalCodes
+### guestCheckpointSubstrateRefusalCodes
 
-> `const` **guestCriuSubstrateRefusalCodes**: readonly \[`"guest-criu-check-unavailable"`, `"c-criu-dump-restore-failed"`, `"jvm-runtime-unavailable"`, `"jvm-criu-runtime-state-unsupported"`, `"jvm-criu-dump-restore-failed"`\]
+> `const` **guestCheckpointSubstrateRefusalCodes**: readonly \[`"guest-checkpoint-check-unavailable"`, `"c-checkpoint-dump-restore-failed"`, `"jvm-runtime-unavailable"`, `"jvm-checkpoint-runtime-state-unsupported"`, `"jvm-checkpoint-dump-restore-failed"`\]
 
 ***
 
@@ -17261,9 +18194,27 @@ loops; anything looser stops being a meaningful gate.
 
 ***
 
+### NESTED\_VIRTUALIZATION\_STRETCH\_PROOF\_KIND
+
+> `const` **NESTED\_VIRTUALIZATION\_STRETCH\_PROOF\_KIND**: `"machinen.architecture-portable-snapshot.nested-virtualization-stretch-proof"`
+
+***
+
+### nestedVirtualizationStretchProofClassifications
+
+> `const` **nestedVirtualizationStretchProofClassifications**: readonly \[`"stretch-demo"`, `"refused"`, `"skipped"`\]
+
+***
+
+### nestedVirtualizationStretchProofRefusalCodes
+
+> `const` **nestedVirtualizationStretchProofRefusalCodes**: readonly \[`"nested-virtualization-unavailable"`, `"nested-smoke-failed"`, `"nested-verifier-ambiguous"`, `"nested-snapshot-fork-unsafe"`\]
+
+***
+
 ### OPPOSITE\_ISA\_VM\_EXECUTION\_KIND
 
-> `const` **OPPOSITE\_ISA\_VM\_EXECUTION\_KIND**: `"machinen.cross-arch-criu.opposite-isa-vm-execution"`
+> `const` **OPPOSITE\_ISA\_VM\_EXECUTION\_KIND**: `"machinen.architecture-portable-snapshot.opposite-isa-vm-execution"`
 
 ***
 
@@ -17647,15 +18598,15 @@ loops; anything looser stops being a meaningful gate.
 
 ***
 
-### PORTABLE\_SNAPSHOT\_GUEST\_CRIU\_COMPOSITION\_KIND
+### PORTABLE\_SNAPSHOT\_GUEST\_CHECKPOINT\_COMPOSITION\_KIND
 
-> `const` **PORTABLE\_SNAPSHOT\_GUEST\_CRIU\_COMPOSITION\_KIND**: `"machinen.cross-arch-criu.portable-snapshot-guest-criu-composition"`
+> `const` **PORTABLE\_SNAPSHOT\_GUEST\_CHECKPOINT\_COMPOSITION\_KIND**: `"machinen.architecture-portable-snapshot.portable-snapshot-guest-checkpoint-composition"`
 
 ***
 
-### portableSnapshotGuestCriuCompositionRefusalCodes
+### portableSnapshotGuestCheckpointCompositionRefusalCodes
 
-> `const` **portableSnapshotGuestCriuCompositionRefusalCodes**: readonly \[`"guest-criu-capability-unavailable"`, `"guest-criu-storage-unsupported-or-dirty"`, `"cross-isa-criu-image-restore-unsupported"`, `"machinen-restore-path-unsupported"`, `"composition-verifier-missing-or-ambiguous"`, `"stored-criu-image-unreadable-after-restore"`\]
+> `const` **portableSnapshotGuestCheckpointCompositionRefusalCodes**: readonly \[`"guest-checkpoint-capability-unavailable"`, `"guest-checkpoint-storage-unsupported-or-dirty"`, `"cross-isa-checkpoint-image-restore-unsupported"`, `"machinen-restore-path-unsupported"`, `"composition-verifier-missing-or-ambiguous"`, `"stored-checkpoint-image-unreadable-after-restore"`\]
 
 ***
 
@@ -17733,7 +18684,7 @@ loops; anything looser stops being a meaningful gate.
 
 ### RUNTIME\_CONFIDENCE\_PROFILE\_KIND
 
-> `const` **RUNTIME\_CONFIDENCE\_PROFILE\_KIND**: `"machinen.cross-arch-criu.runtime-confidence-profile"`
+> `const` **RUNTIME\_CONFIDENCE\_PROFILE\_KIND**: `"machinen.architecture-portable-snapshot.runtime-confidence-profile"`
 
 ***
 
@@ -17788,7 +18739,7 @@ the guest agent skips entries that don't match.
 
 ### STATEFUL\_DATABASE\_RESTORE\_KIND
 
-> `const` **STATEFUL\_DATABASE\_RESTORE\_KIND**: `"machinen.cross-arch-criu.stateful-database-restore"`
+> `const` **STATEFUL\_DATABASE\_RESTORE\_KIND**: `"machinen.architecture-portable-snapshot.stateful-database-restore"`
 
 ***
 
@@ -17847,6 +18798,150 @@ the guest agent skips entries that don't match.
 `number`
 
 ## Functions
+
+### buildAdvancedLinuxFacilityProbeRow()
+
+> **buildAdvancedLinuxFacilityProbeRow**(`input`): [`AdvancedLinuxFacilityProbeRow`](#advancedlinuxfacilityproberow)
+
+#### Parameters
+
+##### input
+
+[`AdvancedLinuxFacilityProbeInput`](#advancedlinuxfacilityprobeinput)
+
+#### Returns
+
+[`AdvancedLinuxFacilityProbeRow`](#advancedlinuxfacilityproberow)
+
+***
+
+### summarizeAdvancedLinuxFacilityProbeRows()
+
+> **summarizeAdvancedLinuxFacilityProbeRows**(`rows`): [`AdvancedLinuxFacilityProbeSummary`](#advancedlinuxfacilityprobesummary)
+
+#### Parameters
+
+##### rows
+
+[`AdvancedLinuxFacilityProbeRow`](#advancedlinuxfacilityproberow)[]
+
+#### Returns
+
+[`AdvancedLinuxFacilityProbeSummary`](#advancedlinuxfacilityprobesummary)
+
+***
+
+### validateAdvancedLinuxFacilityProbeRows()
+
+> **validateAdvancedLinuxFacilityProbeRows**(`rows`): `string`[]
+
+#### Parameters
+
+##### rows
+
+[`AdvancedLinuxFacilityProbeRow`](#advancedlinuxfacilityproberow)[]
+
+#### Returns
+
+`string`[]
+
+***
+
+### buildArchitecturePortableSnapshotGauntletRow()
+
+> **buildArchitecturePortableSnapshotGauntletRow**(`input`): [`ArchitecturePortableSnapshotGauntletRow`](#architectureportablesnapshotgauntletrow)
+
+#### Parameters
+
+##### input
+
+[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput)
+
+#### Returns
+
+[`ArchitecturePortableSnapshotGauntletRow`](#architectureportablesnapshotgauntletrow)
+
+***
+
+### summarizeArchitecturePortableSnapshotGauntletRows()
+
+> **summarizeArchitecturePortableSnapshotGauntletRows**(`rows`): [`ArchitecturePortableSnapshotGauntletSummary`](#architectureportablesnapshotgauntletsummary)
+
+#### Parameters
+
+##### rows
+
+[`ArchitecturePortableSnapshotGauntletRow`](#architectureportablesnapshotgauntletrow)[]
+
+#### Returns
+
+[`ArchitecturePortableSnapshotGauntletSummary`](#architectureportablesnapshotgauntletsummary)
+
+***
+
+### validateArchitecturePortableSnapshotGauntletRows()
+
+> **validateArchitecturePortableSnapshotGauntletRows**(`rows`): `string`[]
+
+#### Parameters
+
+##### rows
+
+[`ArchitecturePortableSnapshotGauntletRow`](#architectureportablesnapshotgauntletrow)[]
+
+#### Returns
+
+`string`[]
+
+***
+
+### validateArchitecturePortableSnapshotGauntletSchema()
+
+> **validateArchitecturePortableSnapshotGauntletSchema**(`rows`): `string`[]
+
+#### Parameters
+
+##### rows
+
+[`ArchitecturePortableSnapshotGauntletRow`](#architectureportablesnapshotgauntletrow)[]
+
+#### Returns
+
+`string`[]
+
+***
+
+### validateArchitecturePortableSnapshotGauntletInvariants()
+
+> **validateArchitecturePortableSnapshotGauntletInvariants**(`rows`): `string`[]
+
+#### Parameters
+
+##### rows
+
+[`ArchitecturePortableSnapshotGauntletRow`](#architectureportablesnapshotgauntletrow)[]
+
+#### Returns
+
+`string`[]
+
+***
+
+### stableGauntletDigest()
+
+> **stableGauntletDigest**(`value`): `string`
+
+#### Parameters
+
+##### value
+
+`unknown`
+
+#### Returns
+
+`string`
+
+***
 
 ### readBalloonStats()
 
@@ -17993,47 +19088,47 @@ result per entry processed (live entries are skipped silently).
 
 ***
 
-### buildGuestCriuSubstrateRow()
+### buildGuestCheckpointSubstrateRow()
 
-> **buildGuestCriuSubstrateRow**(`input`): [`GuestCriuSubstrateRow`](#guestcriusubstraterow)
+> **buildGuestCheckpointSubstrateRow**(`input`): [`GuestCheckpointSubstrateRow`](#guestcheckpointsubstraterow)
 
 #### Parameters
 
 ##### input
 
-[`GuestCriuSubstrateInput`](#guestcriusubstrateinput)
+[`GuestCheckpointSubstrateInput`](#guestcheckpointsubstrateinput)
 
 #### Returns
 
-[`GuestCriuSubstrateRow`](#guestcriusubstraterow)
+[`GuestCheckpointSubstrateRow`](#guestcheckpointsubstraterow)
 
 ***
 
-### summarizeGuestCriuSubstrateRows()
+### summarizeGuestCheckpointSubstrateRows()
 
-> **summarizeGuestCriuSubstrateRows**(`rows`): [`GuestCriuSubstrateSummary`](#guestcriusubstratesummary)
+> **summarizeGuestCheckpointSubstrateRows**(`rows`): [`GuestCheckpointSubstrateSummary`](#guestcheckpointsubstratesummary)
 
 #### Parameters
 
 ##### rows
 
-[`GuestCriuSubstrateRow`](#guestcriusubstraterow)[]
+[`GuestCheckpointSubstrateRow`](#guestcheckpointsubstraterow)[]
 
 #### Returns
 
-[`GuestCriuSubstrateSummary`](#guestcriusubstratesummary)
+[`GuestCheckpointSubstrateSummary`](#guestcheckpointsubstratesummary)
 
 ***
 
-### validateGuestCriuSubstrateRows()
+### validateGuestCheckpointSubstrateRows()
 
-> **validateGuestCriuSubstrateRows**(`rows`): `string`[]
+> **validateGuestCheckpointSubstrateRows**(`rows`): `string`[]
 
 #### Parameters
 
 ##### rows
 
-[`GuestCriuSubstrateRow`](#guestcriusubstraterow)[]
+[`GuestCheckpointSubstrateRow`](#guestcheckpointsubstraterow)[]
 
 #### Returns
 
@@ -19435,6 +20530,70 @@ available.
 
 ***
 
+### probeNestedVirtualization()
+
+> **probeNestedVirtualization**(`host?`): [`NestedVirtProbeResult`](#nestedvirtproberesult)
+
+#### Parameters
+
+##### host?
+
+[`NestedVirtProbeHost`](#nestedvirtprobehost) = `...`
+
+#### Returns
+
+[`NestedVirtProbeResult`](#nestedvirtproberesult)
+
+***
+
+### buildNestedVirtualizationStretchProofRow()
+
+> **buildNestedVirtualizationStretchProofRow**(`input`): [`NestedVirtualizationStretchProofRow`](#nestedvirtualizationstretchproofrow)
+
+#### Parameters
+
+##### input
+
+[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput)
+
+#### Returns
+
+[`NestedVirtualizationStretchProofRow`](#nestedvirtualizationstretchproofrow)
+
+***
+
+### summarizeNestedVirtualizationStretchProofRows()
+
+> **summarizeNestedVirtualizationStretchProofRows**(`rows`): [`NestedVirtualizationStretchProofSummary`](#nestedvirtualizationstretchproofsummary)
+
+#### Parameters
+
+##### rows
+
+[`NestedVirtualizationStretchProofRow`](#nestedvirtualizationstretchproofrow)[]
+
+#### Returns
+
+[`NestedVirtualizationStretchProofSummary`](#nestedvirtualizationstretchproofsummary)
+
+***
+
+### validateNestedVirtualizationStretchProofRows()
+
+> **validateNestedVirtualizationStretchProofRows**(`rows`): `string`[]
+
+#### Parameters
+
+##### rows
+
+[`NestedVirtualizationStretchProofRow`](#nestedvirtualizationstretchproofrow)[]
+
+#### Returns
+
+`string`[]
+
+***
+
 ### hostArchitectureFromNode()
 
 > **hostArchitectureFromNode**(`arch?`): [`OppositeIsaVmExecutionArch`](#oppositeisavmexecutionarch)
@@ -19712,47 +20871,47 @@ behaviour we had before.
 
 ***
 
-### buildPortableSnapshotGuestCriuCompositionRow()
+### buildPortableSnapshotGuestCheckpointCompositionRow()
 
-> **buildPortableSnapshotGuestCriuCompositionRow**(`input`): [`PortableSnapshotGuestCriuCompositionRow`](#portablesnapshotguestcriucompositionrow)
+> **buildPortableSnapshotGuestCheckpointCompositionRow**(`input`): [`PortableSnapshotGuestCheckpointCompositionRow`](#portablesnapshotguestcheckpointcompositionrow)
 
 #### Parameters
 
 ##### input
 
-[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput)
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput)
 
 #### Returns
 
-[`PortableSnapshotGuestCriuCompositionRow`](#portablesnapshotguestcriucompositionrow)
+[`PortableSnapshotGuestCheckpointCompositionRow`](#portablesnapshotguestcheckpointcompositionrow)
 
 ***
 
-### summarizePortableSnapshotGuestCriuCompositionRows()
+### summarizePortableSnapshotGuestCheckpointCompositionRows()
 
-> **summarizePortableSnapshotGuestCriuCompositionRows**(`rows`): [`PortableSnapshotGuestCriuCompositionSummary`](#portablesnapshotguestcriucompositionsummary)
+> **summarizePortableSnapshotGuestCheckpointCompositionRows**(`rows`): [`PortableSnapshotGuestCheckpointCompositionSummary`](#portablesnapshotguestcheckpointcompositionsummary)
 
 #### Parameters
 
 ##### rows
 
-[`PortableSnapshotGuestCriuCompositionRow`](#portablesnapshotguestcriucompositionrow)[]
+[`PortableSnapshotGuestCheckpointCompositionRow`](#portablesnapshotguestcheckpointcompositionrow)[]
 
 #### Returns
 
-[`PortableSnapshotGuestCriuCompositionSummary`](#portablesnapshotguestcriucompositionsummary)
+[`PortableSnapshotGuestCheckpointCompositionSummary`](#portablesnapshotguestcheckpointcompositionsummary)
 
 ***
 
-### validatePortableSnapshotGuestCriuCompositionRows()
+### validatePortableSnapshotGuestCheckpointCompositionRows()
 
-> **validatePortableSnapshotGuestCriuCompositionRows**(`rows`): `string`[]
+> **validatePortableSnapshotGuestCheckpointCompositionRows**(`rows`): `string`[]
 
 #### Parameters
 
 ##### rows
 
-[`PortableSnapshotGuestCriuCompositionRow`](#portablesnapshotguestcriucompositionrow)[]
+[`PortableSnapshotGuestCheckpointCompositionRow`](#portablesnapshotguestcheckpointcompositionrow)[]
 
 #### Returns
 
@@ -20885,7 +22044,7 @@ none was baked).
 
 Restore a microVM from a snapshot bundle produced by
 `vm.snapshot({ outDir })`. Reads the bundle's `meta.json` to
-recover the source name, tars the CRIU image directory into a
+recover the source name, tars the checkpoint image directory into a
 temporary archive, then `boot()`s with that archive attached as
 the scratch block device — the guest's `/sbin/machinen-restore`
 untars `/dev/vdb` into tmpfs and runs `criu restore` against the
