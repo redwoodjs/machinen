@@ -79,7 +79,6 @@ function rowsFromLiveSmokes(): ArchitecturePortableSnapshotGauntletRow[] {
     "scripts/smoke/nested-virtualization-stretch-proof.sh",
     "nested-virtualization-stretch-proof-summary",
   );
-  const controlled = controlledContinuationSmokeJson();
 
   return [
     oppositeIsaRow(opposite),
@@ -97,7 +96,6 @@ function rowsFromLiveSmokes(): ArchitecturePortableSnapshotGauntletRow[] {
     advancedFacilityRow(advanced, "ebpf", "advanced-linux-ebpf", "eBPF proof/refusal"),
     advancedCombinedRow(advanced),
     nestedRow(nested),
-    controlledContinuationRow(controlled),
   ];
 }
 
@@ -116,18 +114,6 @@ function smokeJsonWithArgs(script: string, args: string[], kindSuffix: string): 
     throw new Error(`${script} failed with ${result.status}: ${output.slice(-4000)}`);
   }
   return parseJsonObject(output, kindSuffix);
-}
-
-function controlledContinuationSmokeJson(): Json {
-  const args = ["--json"];
-  if (process.env.ARCH_PORTABLE_CONTROLLED_CONTINUATION_LIVE === "1") {
-    args.push("--live");
-  }
-  return smokeJsonWithArgs(
-    "scripts/smoke/architecture-portable-controlled-continuation.sh",
-    args,
-    "controlled-continuation-summary",
-  );
 }
 
 function parseJsonObject(output: string, kindSuffix: string): Json {
@@ -441,29 +427,6 @@ function nestedRow(summary: Json): ArchitecturePortableSnapshotGauntletRow {
     artifactDigests: digestMap(r),
     provenance: { family: "nested-virtualization-stretch-proof" },
     migrationCompleted: false,
-    refusalCode: r.refusalCode,
-    remediation: r.remediation,
-  });
-}
-
-function controlledContinuationRow(summary: Json): ArchitecturePortableSnapshotGauntletRow {
-  const r = summary.rows[0];
-  return row({
-    claimId: r.claimId,
-    claimName: r.claimName,
-    classification: r.classification,
-    sourceArch: r.sourceArch,
-    targetArch: r.targetArch,
-    hostArch: r.hostArch,
-    providerMode: r.providerMode,
-    targetExecution: r.targetExecution,
-    stateModel: r.stateModel,
-    stateDecisions: r.stateDecisions,
-    verifierCommand: r.verifierCommand,
-    verifierOutput: r.verifierOutput,
-    artifactDigests: r.artifactDigests,
-    provenance: r.provenance,
-    migrationCompleted: r.migrationCompleted,
     refusalCode: r.refusalCode,
     remediation: r.remediation,
   });

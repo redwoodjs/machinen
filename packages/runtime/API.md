@@ -43,41 +43,6 @@
 - [`writeBootSnapshot`](#writebootsnapshot)
 - [`detachedLogRoot`](#detachedlogroot)
 
-### Controlled C translated continuation
-
-- [`ArchitecturePortableControlledContinuationArch`](#architectureportablecontrolledcontinuationarch)
-- [`ArchitecturePortableControlledContinuationBundle`](#architectureportablecontrolledcontinuationbundle)
-- [`ArchitecturePortableControlledContinuationBundleInput`](#architectureportablecontrolledcontinuationbundleinput)
-- [`ArchitecturePortableControlledContinuationClassification`](#architectureportablecontrolledcontinuationclassification)
-- [`ArchitecturePortableControlledContinuationManifest`](#architectureportablecontrolledcontinuationmanifest)
-- [`ArchitecturePortableControlledContinuationRefusalCode`](#architectureportablecontrolledcontinuationrefusalcode)
-- [`ArchitecturePortableControlledContinuationRow`](#architectureportablecontrolledcontinuationrow)
-- [`ArchitecturePortableControlledContinuationRowInput`](#architectureportablecontrolledcontinuationrowinput)
-- [`ArchitecturePortableControlledContinuationState`](#architectureportablecontrolledcontinuationstate)
-- [`ArchitecturePortableControlledContinuationSummary`](#architectureportablecontrolledcontinuationsummary)
-- [`ArchitecturePortableControlledContinuationUnsupportedState`](#architectureportablecontrolledcontinuationunsupportedstate)
-- [`ARCHITECTURE_PORTABLE_CONTROLLED_CONTINUATION_BUNDLE_FILES`](#architecture_portable_controlled_continuation_bundle_files)
-- [`ARCHITECTURE_PORTABLE_CONTROLLED_CONTINUATION_FORMAT_VERSION`](#architecture_portable_controlled_continuation_format_version)
-- [`ARCHITECTURE_PORTABLE_CONTROLLED_CONTINUATION_KIND`](#architecture_portable_controlled_continuation_kind)
-- [`architecturePortableControlledContinuationClassifications`](#architectureportablecontrolledcontinuationclassifications)
-- [`architecturePortableControlledContinuationRefusalCodes`](#architectureportablecontrolledcontinuationrefusalcodes)
-- [`buildArchitecturePortableControlledContinuationBundle`](#buildarchitectureportablecontrolledcontinuationbundle)
-- [`buildArchitecturePortableControlledContinuationRow`](#buildarchitectureportablecontrolledcontinuationrow)
-- [`controlledContinuationUnsupportedStateCategories`](#controlledcontinuationunsupportedstatecategories)
-- [`defaultControlledContinuationUnsupportedStates`](#defaultcontrolledcontinuationunsupportedstates)
-- [`fileSize`](#filesize)
-- [`normalizeControlledContinuationArch`](#normalizecontrolledcontinuationarch)
-- [`oppositeControlledContinuationArch`](#oppositecontrolledcontinuationarch)
-- [`readArchitecturePortableControlledContinuationBundle`](#readarchitectureportablecontrolledcontinuationbundle)
-- [`sha256File`](#sha256file)
-- [`stableControlledContinuationDigest`](#stablecontrolledcontinuationdigest)
-- [`summarizeArchitecturePortableControlledContinuationRows`](#summarizearchitectureportablecontrolledcontinuationrows)
-- [`validateArchitecturePortableControlledContinuationBundle`](#validatearchitectureportablecontrolledcontinuationbundle)
-- [`validateArchitecturePortableControlledContinuationBundleShape`](#validatearchitectureportablecontrolledcontinuationbundleshape)
-- [`validateArchitecturePortableControlledContinuationRow`](#validatearchitectureportablecontrolledcontinuationrow)
-- [`validateArchitecturePortableControlledContinuationRows`](#validatearchitectureportablecontrolledcontinuationrows)
-- [`writeArchitecturePortableControlledContinuationBundle`](#writearchitectureportablecontrolledcontinuationbundle)
-
 ### Architecture-portable snapshot gauntlet
 
 - [`ArchitecturePortableSnapshotGauntletClassification`](#architectureportablesnapshotgauntletclassification)
@@ -2408,482 +2373,6 @@ are dropped so a chatty SIGWINCH doesn't spam the bridge.
 
 ***
 
-### ArchitecturePortableControlledContinuationUnsupportedState
-
-#### Properties
-
-##### category
-
-> **category**: `"file"` \| `"socket"` \| `"thread"` \| `"signal"` \| `"timer"` \| `"dynamic-library"` \| `"runtime-private"`
-
-##### decision
-
-> **decision**: `"refused"`
-
-##### reason
-
-> **reason**: `string`
-
-##### refusalCode
-
-> **refusalCode**: `"unsupported-state"`
-
-##### remediation
-
-> **remediation**: `string`
-
-***
-
-### ArchitecturePortableControlledContinuationBundleInput
-
-#### Properties
-
-##### sourceArch
-
-> **sourceArch**: [`ArchitecturePortableControlledContinuationArch`](#architectureportablecontrolledcontinuationarch)
-
-##### targetArch
-
-> **targetArch**: [`ArchitecturePortableControlledContinuationArch`](#architectureportablecontrolledcontinuationarch)
-
-##### capturedCounter
-
-> **capturedCounter**: `number`
-
-##### continuationLabel
-
-> **continuationLabel**: `string`
-
-##### sourceVerifierOutput
-
-> **sourceVerifierOutput**: `string`
-
-##### targetBinaryRelativePath
-
-> **targetBinaryRelativePath**: `string`
-
-##### targetBinarySha256
-
-> **targetBinarySha256**: `string`
-
-##### targetBinaryProvenance
-
-> **targetBinaryProvenance**: `Record`\<`string`, `unknown`\>
-
-##### verifierCommand
-
-> **verifierCommand**: `string`
-
-##### unsupportedStates?
-
-> `optional` **unsupportedStates?**: [`ArchitecturePortableControlledContinuationUnsupportedState`](#architectureportablecontrolledcontinuationunsupportedstate)[]
-
-***
-
-### ArchitecturePortableControlledContinuationManifest
-
-#### Properties
-
-##### kind
-
-> **kind**: `"machinen.architecture-portable-snapshot.controlled-continuation"`
-
-##### formatVersion
-
-> **formatVersion**: `1`
-
-##### stateModel
-
-> **stateModel**: `"translated-controlled-continuation"`
-
-##### workloadProfile
-
-> **workloadProfile**: `"controlled-c-counter"`
-
-##### sourceArch
-
-> **sourceArch**: [`ArchitecturePortableControlledContinuationArch`](#architectureportablecontrolledcontinuationarch)
-
-##### targetArch
-
-> **targetArch**: [`ArchitecturePortableControlledContinuationArch`](#architectureportablecontrolledcontinuationarch)
-
-##### targetExecution
-
-> **targetExecution**: `"native"`
-
-##### continuation
-
-> **continuation**: `object`
-
-###### label
-
-> **label**: `string`
-
-###### safePoint
-
-> **safePoint**: `"counter-after-observed-line"`
-
-###### capturedCounter
-
-> **capturedCounter**: `number`
-
-###### nextCounter
-
-> **nextCounter**: `number`
-
-##### sourceCapture
-
-> **sourceCapture**: `object`
-
-###### verifierOutput
-
-> **verifierOutput**: `string`
-
-##### targetArtifact
-
-> **targetArtifact**: `object`
-
-###### relativePath
-
-> **relativePath**: `string`
-
-###### sha256
-
-> **sha256**: `string`
-
-###### provenance
-
-> **provenance**: `Record`\<`string`, `unknown`\>
-
-##### verifier
-
-> **verifier**: `object`
-
-###### command
-
-> **command**: `string`
-
-###### expectedMarker
-
-> **expectedMarker**: `"target-native-continuation-ok"`
-
-##### shortcuts
-
-> **shortcuts**: `object`
-
-###### sourceIsaEmulationUsed
-
-> **sourceIsaEmulationUsed**: `false`
-
-###### sourceTextReusedAsTargetCode
-
-> **sourceTextReusedAsTargetCode**: `false`
-
-###### sidecarRuntimeUsed
-
-> **sidecarRuntimeUsed**: `false`
-
-###### metadataOnlyContinuation
-
-> **metadataOnlyContinuation**: `false`
-
-###### rawCheckpointImageReplayUsed
-
-> **rawCheckpointImageReplayUsed**: `false`
-
-##### artifactDigests
-
-> **artifactDigests**: `Record`\<`string`, `string`\>
-
-***
-
-### ArchitecturePortableControlledContinuationState
-
-#### Properties
-
-##### continuationLabel
-
-> **continuationLabel**: `string`
-
-##### capturedCounter
-
-> **capturedCounter**: `number`
-
-##### nextCounter
-
-> **nextCounter**: `number`
-
-***
-
-### ArchitecturePortableControlledContinuationBundle
-
-#### Properties
-
-##### manifest
-
-> **manifest**: [`ArchitecturePortableControlledContinuationManifest`](#architectureportablecontrolledcontinuationmanifest)
-
-##### state
-
-> **state**: [`ArchitecturePortableControlledContinuationState`](#architectureportablecontrolledcontinuationstate)
-
-##### unsupportedStates
-
-> **unsupportedStates**: [`ArchitecturePortableControlledContinuationUnsupportedState`](#architectureportablecontrolledcontinuationunsupportedstate)[]
-
-***
-
-### ArchitecturePortableControlledContinuationRowInput
-
-#### Extended by
-
-- [`ArchitecturePortableControlledContinuationRow`](#architectureportablecontrolledcontinuationrow)
-
-#### Properties
-
-##### classification
-
-> **classification**: `"proof-only-feasibility"` \| `"refused"` \| `"skipped"`
-
-##### sourceArch
-
-> **sourceArch**: [`ArchitecturePortableControlledContinuationArch`](#architectureportablecontrolledcontinuationarch)
-
-##### targetArch
-
-> **targetArch**: [`ArchitecturePortableControlledContinuationArch`](#architectureportablecontrolledcontinuationarch)
-
-##### hostArch
-
-> **hostArch**: `string`
-
-##### providerMode
-
-> **providerMode**: `string`
-
-##### targetExecution
-
-> **targetExecution**: `"native"` \| `"emulated"` \| `"not-applicable"`
-
-##### verifierCommand
-
-> **verifierCommand**: `string`
-
-##### verifierOutput
-
-> **verifierOutput**: `string`
-
-##### artifactDigests
-
-> **artifactDigests**: `Record`\<`string`, `string`\>
-
-##### provenance
-
-> **provenance**: `Record`\<`string`, `unknown`\>
-
-##### migrationCompleted
-
-> **migrationCompleted**: `boolean`
-
-##### refusalCode?
-
-> `optional` **refusalCode?**: `"target-unavailable"` \| `"bundle-invalid"` \| `"target-arch-mismatch"` \| `"target-artifact-digest-mismatch"` \| `"target-verifier-failed"` \| `"sidecar-output-refused"` \| `"metadata-only-continuation-refused"` \| `"unsupported-state"`
-
-##### remediation?
-
-> `optional` **remediation?**: `string`
-
-***
-
-### ArchitecturePortableControlledContinuationRow
-
-#### Extends
-
-- [`ArchitecturePortableControlledContinuationRowInput`](#architectureportablecontrolledcontinuationrowinput)
-
-#### Properties
-
-##### classification
-
-> **classification**: `"proof-only-feasibility"` \| `"refused"` \| `"skipped"`
-
-###### Inherited from
-
-[`ArchitecturePortableControlledContinuationRowInput`](#architectureportablecontrolledcontinuationrowinput).[`classification`](#classification-2)
-
-##### sourceArch
-
-> **sourceArch**: [`ArchitecturePortableControlledContinuationArch`](#architectureportablecontrolledcontinuationarch)
-
-###### Inherited from
-
-[`ArchitecturePortableControlledContinuationRowInput`](#architectureportablecontrolledcontinuationrowinput).[`sourceArch`](#sourcearch-4)
-
-##### targetArch
-
-> **targetArch**: [`ArchitecturePortableControlledContinuationArch`](#architectureportablecontrolledcontinuationarch)
-
-###### Inherited from
-
-[`ArchitecturePortableControlledContinuationRowInput`](#architectureportablecontrolledcontinuationrowinput).[`targetArch`](#targetarch-4)
-
-##### hostArch
-
-> **hostArch**: `string`
-
-###### Inherited from
-
-[`ArchitecturePortableControlledContinuationRowInput`](#architectureportablecontrolledcontinuationrowinput).[`hostArch`](#hostarch)
-
-##### providerMode
-
-> **providerMode**: `string`
-
-###### Inherited from
-
-[`ArchitecturePortableControlledContinuationRowInput`](#architectureportablecontrolledcontinuationrowinput).[`providerMode`](#providermode)
-
-##### targetExecution
-
-> **targetExecution**: `"native"` \| `"emulated"` \| `"not-applicable"`
-
-###### Inherited from
-
-[`ArchitecturePortableControlledContinuationRowInput`](#architectureportablecontrolledcontinuationrowinput).[`targetExecution`](#targetexecution-1)
-
-##### verifierCommand
-
-> **verifierCommand**: `string`
-
-###### Inherited from
-
-[`ArchitecturePortableControlledContinuationRowInput`](#architectureportablecontrolledcontinuationrowinput).[`verifierCommand`](#verifiercommand-1)
-
-##### verifierOutput
-
-> **verifierOutput**: `string`
-
-###### Inherited from
-
-[`ArchitecturePortableControlledContinuationRowInput`](#architectureportablecontrolledcontinuationrowinput).[`verifierOutput`](#verifieroutput-2)
-
-##### artifactDigests
-
-> **artifactDigests**: `Record`\<`string`, `string`\>
-
-###### Inherited from
-
-[`ArchitecturePortableControlledContinuationRowInput`](#architectureportablecontrolledcontinuationrowinput).[`artifactDigests`](#artifactdigests-1)
-
-##### provenance
-
-> **provenance**: `Record`\<`string`, `unknown`\>
-
-###### Inherited from
-
-[`ArchitecturePortableControlledContinuationRowInput`](#architectureportablecontrolledcontinuationrowinput).[`provenance`](#provenance)
-
-##### migrationCompleted
-
-> **migrationCompleted**: `boolean`
-
-###### Inherited from
-
-[`ArchitecturePortableControlledContinuationRowInput`](#architectureportablecontrolledcontinuationrowinput).[`migrationCompleted`](#migrationcompleted-2)
-
-##### refusalCode?
-
-> `optional` **refusalCode?**: `"target-unavailable"` \| `"bundle-invalid"` \| `"target-arch-mismatch"` \| `"target-artifact-digest-mismatch"` \| `"target-verifier-failed"` \| `"sidecar-output-refused"` \| `"metadata-only-continuation-refused"` \| `"unsupported-state"`
-
-###### Inherited from
-
-[`ArchitecturePortableControlledContinuationRowInput`](#architectureportablecontrolledcontinuationrowinput).[`refusalCode`](#refusalcode-3)
-
-##### remediation?
-
-> `optional` **remediation?**: `string`
-
-###### Inherited from
-
-[`ArchitecturePortableControlledContinuationRowInput`](#architectureportablecontrolledcontinuationrowinput).[`remediation`](#remediation-3)
-
-##### kind
-
-> **kind**: `"machinen.architecture-portable-snapshot.controlled-continuation"`
-
-##### claimId
-
-> **claimId**: `"controlled-c-translated-continuation"`
-
-##### claimName
-
-> **claimName**: `"controlled C translated continuation"`
-
-##### stateModel
-
-> **stateModel**: `"translated-controlled-continuation"`
-
-##### stateDecisions
-
-> **stateDecisions**: \[`"architecture-portable-state-bundle"`, `"target-native-artifact-verified"`, `"source-isa-emulation-refused"`, `"raw-checkpoint-replay-refused"`, `"metadata-only-continuation-refused"`\]
-
-##### scope
-
-> **scope**: `object`
-
-###### arbitraryProcessRestoreClaimed
-
-> **arbitraryProcessRestoreClaimed**: `false`
-
-###### rawCheckpointReplayClaimed
-
-> **rawCheckpointReplayClaimed**: `false`
-
-###### sourceIsaEmulationUsed
-
-> **sourceIsaEmulationUsed**: `false`
-
-###### sidecarRuntimeUsed
-
-> **sidecarRuntimeUsed**: `false`
-
-###### metadataOnlyContinuation
-
-> **metadataOnlyContinuation**: `false`
-
-***
-
-### ArchitecturePortableControlledContinuationSummary
-
-#### Properties
-
-##### kind
-
-> **kind**: `"machinen.architecture-portable-snapshot.controlled-continuation-summary"`
-
-##### state
-
-> **state**: `"completed"` \| `"failed"`
-
-##### pass
-
-> **pass**: `boolean`
-
-##### rows
-
-> **rows**: [`ArchitecturePortableControlledContinuationRow`](#architectureportablecontrolledcontinuationrow)[]
-
-##### rowCount
-
-> **rowCount**: `number`
-
-##### failures
-
-> **failures**: `string`[]
-
-***
-
 ### ArchitecturePortableSnapshotGauntletRowInput
 
 #### Extended by
@@ -2922,7 +2411,7 @@ are dropped so a chatty SIGWINCH doesn't spam the bridge.
 
 ##### targetExecution
 
-> **targetExecution**: `"native"` \| `"emulated"` \| `"not-applicable"` \| `"accelerated"`
+> **targetExecution**: `"native"` \| `"accelerated"` \| `"emulated"` \| `"not-applicable"`
 
 ##### stateModel
 
@@ -2976,7 +2465,7 @@ are dropped so a chatty SIGWINCH doesn't spam the bridge.
 
 ###### Inherited from
 
-[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`claimId`](#claimid-1)
+[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`claimId`](#claimid)
 
 ##### claimName
 
@@ -2984,7 +2473,7 @@ are dropped so a chatty SIGWINCH doesn't spam the bridge.
 
 ###### Inherited from
 
-[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`claimName`](#claimname-1)
+[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`claimName`](#claimname)
 
 ##### classification
 
@@ -2992,7 +2481,7 @@ are dropped so a chatty SIGWINCH doesn't spam the bridge.
 
 ###### Inherited from
 
-[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`classification`](#classification-4)
+[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`classification`](#classification-2)
 
 ##### sourceArch
 
@@ -3000,7 +2489,7 @@ are dropped so a chatty SIGWINCH doesn't spam the bridge.
 
 ###### Inherited from
 
-[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`sourceArch`](#sourcearch-6)
+[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`sourceArch`](#sourcearch-2)
 
 ##### targetArch
 
@@ -3008,7 +2497,7 @@ are dropped so a chatty SIGWINCH doesn't spam the bridge.
 
 ###### Inherited from
 
-[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`targetArch`](#targetarch-6)
+[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`targetArch`](#targetarch-2)
 
 ##### hostArch
 
@@ -3016,7 +2505,7 @@ are dropped so a chatty SIGWINCH doesn't spam the bridge.
 
 ###### Inherited from
 
-[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`hostArch`](#hostarch-2)
+[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`hostArch`](#hostarch)
 
 ##### providerMode
 
@@ -3024,15 +2513,15 @@ are dropped so a chatty SIGWINCH doesn't spam the bridge.
 
 ###### Inherited from
 
-[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`providerMode`](#providermode-2)
+[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`providerMode`](#providermode)
 
 ##### targetExecution
 
-> **targetExecution**: `"native"` \| `"emulated"` \| `"not-applicable"` \| `"accelerated"`
+> **targetExecution**: `"native"` \| `"accelerated"` \| `"emulated"` \| `"not-applicable"`
 
 ###### Inherited from
 
-[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`targetExecution`](#targetexecution-3)
+[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`targetExecution`](#targetexecution)
 
 ##### stateModel
 
@@ -3040,7 +2529,7 @@ are dropped so a chatty SIGWINCH doesn't spam the bridge.
 
 ###### Inherited from
 
-[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`stateModel`](#statemodel-4)
+[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`stateModel`](#statemodel-2)
 
 ##### stateDecisions
 
@@ -3048,7 +2537,7 @@ are dropped so a chatty SIGWINCH doesn't spam the bridge.
 
 ###### Inherited from
 
-[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`stateDecisions`](#statedecisions-1)
+[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`stateDecisions`](#statedecisions)
 
 ##### verifierCommand
 
@@ -3056,7 +2545,7 @@ are dropped so a chatty SIGWINCH doesn't spam the bridge.
 
 ###### Inherited from
 
-[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`verifierCommand`](#verifiercommand-3)
+[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`verifierCommand`](#verifiercommand)
 
 ##### verifierOutput
 
@@ -3064,7 +2553,7 @@ are dropped so a chatty SIGWINCH doesn't spam the bridge.
 
 ###### Inherited from
 
-[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`verifierOutput`](#verifieroutput-4)
+[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`verifierOutput`](#verifieroutput-2)
 
 ##### artifactDigests
 
@@ -3072,7 +2561,7 @@ are dropped so a chatty SIGWINCH doesn't spam the bridge.
 
 ###### Inherited from
 
-[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`artifactDigests`](#artifactdigests-3)
+[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`artifactDigests`](#artifactdigests)
 
 ##### provenance
 
@@ -3080,7 +2569,7 @@ are dropped so a chatty SIGWINCH doesn't spam the bridge.
 
 ###### Inherited from
 
-[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`provenance`](#provenance-2)
+[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`provenance`](#provenance)
 
 ##### migrationCompleted
 
@@ -3088,7 +2577,7 @@ are dropped so a chatty SIGWINCH doesn't spam the bridge.
 
 ###### Inherited from
 
-[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`migrationCompleted`](#migrationcompleted-4)
+[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`migrationCompleted`](#migrationcompleted-2)
 
 ##### refusalCode?
 
@@ -3096,7 +2585,7 @@ are dropped so a chatty SIGWINCH doesn't spam the bridge.
 
 ###### Inherited from
 
-[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`refusalCode`](#refusalcode-5)
+[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`refusalCode`](#refusalcode-2)
 
 ##### remediation?
 
@@ -3104,7 +2593,7 @@ are dropped so a chatty SIGWINCH doesn't spam the bridge.
 
 ###### Inherited from
 
-[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`remediation`](#remediation-5)
+[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`remediation`](#remediation-2)
 
 ##### kind
 
@@ -5126,7 +4615,7 @@ by default when `output` is a TTY.
 
 ##### targetArch
 
-> **targetArch**: `"arm64"` \| `"amd64"`
+> **targetArch**: `"amd64"` \| `"arm64"`
 
 ##### targetRoot?
 
@@ -5175,7 +4664,7 @@ by default when `output` is a TTY.
 
 ##### arch?
 
-> `optional` **arch?**: `"arm64"` \| `"amd64"`
+> `optional` **arch?**: `"amd64"` \| `"arm64"`
 
 ##### kind
 
@@ -5811,7 +5300,7 @@ by default when `output` is a TTY.
 
 ###### sourceArch
 
-> **sourceArch**: `"arm64"` \| `"amd64"`
+> **sourceArch**: `"amd64"` \| `"arm64"`
 
 ###### pid?
 
@@ -5831,7 +5320,7 @@ by default when `output` is a TTY.
 
 ###### arch
 
-> **arch**: `"arm64"` \| `"amd64"`
+> **arch**: `"amd64"` \| `"arm64"`
 
 ###### abi
 
@@ -6411,11 +5900,11 @@ by default when `output` is a TTY.
 
 ##### sourceArch
 
-> **sourceArch**: `"arm64"` \| `"amd64"`
+> **sourceArch**: `"amd64"` \| `"arm64"`
 
 ##### targetArch
 
-> **targetArch**: `"arm64"` \| `"amd64"`
+> **targetArch**: `"amd64"` \| `"arm64"`
 
 ##### codeLocations
 
@@ -6543,7 +6032,7 @@ by default when `output` is a TTY.
 
 ##### arch?
 
-> `optional` **arch?**: `"arm64"` \| `"amd64"`
+> `optional` **arch?**: `"amd64"` \| `"arm64"`
 
 ###### Inherited from
 
@@ -6555,7 +6044,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-18)
+[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-15)
 
 ##### buildId
 
@@ -6651,7 +6140,7 @@ by default when `output` is a TTY.
 
 ##### arch?
 
-> `optional` **arch?**: `"arm64"` \| `"amd64"`
+> `optional` **arch?**: `"amd64"` \| `"arm64"`
 
 ###### Inherited from
 
@@ -6663,7 +6152,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-18)
+[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-15)
 
 ##### buildId
 
@@ -6897,7 +6386,7 @@ by default when `output` is a TTY.
 
 ##### targetArch
 
-> **targetArch**: `"arm64"` \| `"amd64"`
+> **targetArch**: `"amd64"` \| `"arm64"`
 
 ##### targetModules
 
@@ -7061,11 +6550,11 @@ by default when `output` is a TTY.
 
 ##### sourceArch
 
-> **sourceArch**: `"arm64"` \| `"amd64"`
+> **sourceArch**: `"amd64"` \| `"arm64"`
 
 ##### targetArch
 
-> **targetArch**: `"arm64"` \| `"amd64"`
+> **targetArch**: `"amd64"` \| `"arm64"`
 
 ##### threads
 
@@ -7113,11 +6602,11 @@ by default when `output` is a TTY.
 
 ##### sourceArch
 
-> **sourceArch**: `"arm64"` \| `"amd64"`
+> **sourceArch**: `"amd64"` \| `"arm64"`
 
 ##### targetArch
 
-> **targetArch**: `"arm64"` \| `"amd64"`
+> **targetArch**: `"amd64"` \| `"arm64"`
 
 ##### threads
 
@@ -8458,7 +7947,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-33)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-30)
 
 ##### targetArch
 
@@ -8466,7 +7955,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`targetArch`](#targetarch-14)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`targetArch`](#targetarch-10)
 
 ##### entryAddress
 
@@ -9046,7 +8535,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-33)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-30)
 
 ##### targetArch
 
@@ -9054,7 +8543,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`targetArch`](#targetarch-14)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`targetArch`](#targetarch-10)
 
 ##### entryAddress
 
@@ -10532,11 +10021,11 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ##### sourceArch
 
-> **sourceArch**: `"arm64"` \| `"amd64"`
+> **sourceArch**: `"amd64"` \| `"arm64"`
 
 ##### targetArch
 
-> **targetArch**: `"arm64"` \| `"amd64"`
+> **targetArch**: `"amd64"` \| `"arm64"`
 
 ##### sourceThreadPointer?
 
@@ -10574,7 +10063,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ##### targetArch?
 
-> `optional` **targetArch?**: `"arm64"` \| `"amd64"`
+> `optional` **targetArch?**: `"amd64"` \| `"arm64"`
 
 ##### targetFsBase?
 
@@ -10954,7 +10443,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`classification`](#classification-9)
+[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`classification`](#classification-7)
 
 ##### l0HostArch
 
@@ -10986,7 +10475,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`providerMode`](#providermode-4)
+[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`providerMode`](#providermode-2)
 
 ##### accelerated
 
@@ -11018,7 +10507,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`refusalCode`](#refusalcode-10)
+[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`refusalCode`](#refusalcode-7)
 
 ##### remediation?
 
@@ -11026,7 +10515,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`remediation`](#remediation-9)
+[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`remediation`](#remediation-6)
 
 ##### snapshotForkRefusalCode
 
@@ -11963,7 +11452,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### guestArch
 
-> **guestArch**: `"arm64"` \| `"amd64"`
+> **guestArch**: `"amd64"` \| `"arm64"`
 
 ###### vmstate
 
@@ -11995,7 +11484,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### guestArch
 
-> **guestArch**: `"arm64"` \| `"amd64"`
+> **guestArch**: `"amd64"` \| `"arm64"`
 
 ###### mode
 
@@ -12103,7 +11592,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`sourceArch`](#sourcearch-12)
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`sourceArch`](#sourcearch-8)
 
 ##### targetArch
 
@@ -12111,7 +11600,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`targetArch`](#targetarch-23)
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`targetArch`](#targetarch-19)
 
 ##### machinenStateModel
 
@@ -12167,7 +11656,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`refusalCode`](#refusalcode-13)
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`refusalCode`](#refusalcode-10)
 
 ##### remediation?
 
@@ -12175,7 +11664,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`remediation`](#remediation-14)
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`remediation`](#remediation-11)
 
 ##### evidence?
 
@@ -12199,7 +11688,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Overrides
 
-[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`migrationCompleted`](#migrationcompleted-10)
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`migrationCompleted`](#migrationcompleted-8)
 
 ##### scope
 
@@ -12586,11 +12075,11 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### sourceArch
 
-> **sourceArch**: `"arm64"` \| `"amd64"`
+> **sourceArch**: `"amd64"` \| `"arm64"`
 
 ##### targetArch
 
-> **targetArch**: `"arm64"` \| `"amd64"`
+> **targetArch**: `"amd64"` \| `"arm64"`
 
 ##### logicalDumpPath
 
@@ -12688,7 +12177,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ###### architecture
 
-> **architecture**: `"arm64"` \| `"amd64"`
+> **architecture**: `"amd64"` \| `"arm64"`
 
 ###### postgresVersion
 
@@ -12716,7 +12205,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ###### architecture
 
-> **architecture**: `"arm64"` \| `"amd64"`
+> **architecture**: `"amd64"` \| `"arm64"`
 
 ##### artifacts
 
@@ -12888,7 +12377,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### targetArch
 
-> **targetArch**: `"arm64"` \| `"amd64"`
+> **targetArch**: `"amd64"` \| `"arm64"`
 
 ##### targetVerifierOutput
 
@@ -12934,11 +12423,11 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### sourceArch?
 
-> `optional` **sourceArch?**: `"arm64"` \| `"amd64"`
+> `optional` **sourceArch?**: `"amd64"` \| `"arm64"`
 
 ##### targetArch
 
-> **targetArch**: `"arm64"` \| `"amd64"`
+> **targetArch**: `"amd64"` \| `"arm64"`
 
 ##### targetState
 
@@ -14021,7 +13510,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`classification`](#classification-11)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`classification`](#classification-9)
 
 ##### sourceArch
 
@@ -14029,7 +13518,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`sourceArch`](#sourcearch-18)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`sourceArch`](#sourcearch-14)
 
 ##### targetArch
 
@@ -14037,7 +13526,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`targetArch`](#targetarch-30)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`targetArch`](#targetarch-26)
 
 ##### stateModel
 
@@ -14045,7 +13534,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`stateModel`](#statemodel-6)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`stateModel`](#statemodel-4)
 
 ##### artifactDigests
 
@@ -14053,7 +13542,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`artifactDigests`](#artifactdigests-5)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`artifactDigests`](#artifactdigests-2)
 
 ##### runtimeVersion
 
@@ -14069,7 +13558,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`verifierOutput`](#verifieroutput-10)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`verifierOutput`](#verifieroutput-8)
 
 ##### refusalCode?
 
@@ -14077,7 +13566,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`refusalCode`](#refusalcode-18)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`refusalCode`](#refusalcode-15)
 
 ##### remediation?
 
@@ -14085,7 +13574,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`remediation`](#remediation-16)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`remediation`](#remediation-13)
 
 ##### evidence?
 
@@ -14105,7 +13594,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Overrides
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`migrationCompleted`](#migrationcompleted-17)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`migrationCompleted`](#migrationcompleted-15)
 
 ##### scope
 
@@ -15474,7 +14963,7 @@ VMM backend that wrote `state.vmstate`.
 
 ##### guestArch?
 
-> `optional` **guestArch?**: `"arm64"` \| `"amd64"` \| `"unknown"`
+> `optional` **guestArch?**: `"amd64"` \| `"arm64"` \| `"unknown"`
 
 Guest CPU architecture captured in `state.vmstate`; restore must match.
 
@@ -17091,24 +16580,6 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
-### ArchitecturePortableControlledContinuationClassification
-
-> **ArchitecturePortableControlledContinuationClassification** = *typeof* [`architecturePortableControlledContinuationClassifications`](#architectureportablecontrolledcontinuationclassifications)\[`number`\]
-
-***
-
-### ArchitecturePortableControlledContinuationRefusalCode
-
-> **ArchitecturePortableControlledContinuationRefusalCode** = *typeof* [`architecturePortableControlledContinuationRefusalCodes`](#architectureportablecontrolledcontinuationrefusalcodes)\[`number`\]
-
-***
-
-### ArchitecturePortableControlledContinuationArch
-
-> **ArchitecturePortableControlledContinuationArch** = `"arm64"` \| `"amd64"`
-
-***
-
 ### ArchitecturePortableSnapshotGauntletClassification
 
 > **ArchitecturePortableSnapshotGauntletClassification** = *typeof* [`architecturePortableSnapshotGauntletClassifications`](#architectureportablesnapshotgauntletclassifications)\[`number`\]
@@ -18050,42 +17521,6 @@ tarball-producing tool can pre-populate the lookup cache.
 
 ***
 
-### ARCHITECTURE\_PORTABLE\_CONTROLLED\_CONTINUATION\_KIND
-
-> `const` **ARCHITECTURE\_PORTABLE\_CONTROLLED\_CONTINUATION\_KIND**: `"machinen.architecture-portable-snapshot.controlled-continuation"`
-
-***
-
-### ARCHITECTURE\_PORTABLE\_CONTROLLED\_CONTINUATION\_FORMAT\_VERSION
-
-> `const` **ARCHITECTURE\_PORTABLE\_CONTROLLED\_CONTINUATION\_FORMAT\_VERSION**: `1`
-
-***
-
-### ARCHITECTURE\_PORTABLE\_CONTROLLED\_CONTINUATION\_BUNDLE\_FILES
-
-> `const` **ARCHITECTURE\_PORTABLE\_CONTROLLED\_CONTINUATION\_BUNDLE\_FILES**: readonly \[`"manifest.json"`, `"state.json"`, `"refusals.json"`, `"target.env"`\]
-
-***
-
-### controlledContinuationUnsupportedStateCategories
-
-> `const` **controlledContinuationUnsupportedStateCategories**: readonly \[`"file"`, `"socket"`, `"thread"`, `"signal"`, `"timer"`, `"dynamic-library"`, `"runtime-private"`\]
-
-***
-
-### architecturePortableControlledContinuationClassifications
-
-> `const` **architecturePortableControlledContinuationClassifications**: readonly \[`"proof-only-feasibility"`, `"refused"`, `"skipped"`\]
-
-***
-
-### architecturePortableControlledContinuationRefusalCodes
-
-> `const` **architecturePortableControlledContinuationRefusalCodes**: readonly \[`"target-unavailable"`, `"bundle-invalid"`, `"target-arch-mismatch"`, `"target-artifact-digest-mismatch"`, `"target-verifier-failed"`, `"sidecar-output-refused"`, `"metadata-only-continuation-refused"`, `"unsupported-state"`\]
-
-***
-
 ### ARCHITECTURE\_PORTABLE\_SNAPSHOT\_GAUNTLET\_KIND
 
 > `const` **ARCHITECTURE\_PORTABLE\_SNAPSHOT\_GAUNTLET\_KIND**: `"machinen.architecture-portable-snapshot.final-proof-gauntlet"`
@@ -18112,7 +17547,7 @@ tarball-producing tool can pre-populate the lookup cache.
 
 ### requiredArchitecturePortableSnapshotClaimIds
 
-> `const` **requiredArchitecturePortableSnapshotClaimIds**: readonly \[`"opposite-isa-vm-execution"`, `"postgres-bidirectional-logical-restore"`, `"postgres-unsafe-neighbor-refusals"`, `"sqlite-rollback-journal-restore"`, `"sqlite-wal-checkpoint-restore"`, `"sqlite-dirty-inflight-refusals"`, `"guest-checkpoint-c-simple"`, `"guest-checkpoint-jvm-simple"`, `"portable-snapshot-guest-checkpoint-composition"`, `"runtime-confidence-c"`, `"runtime-confidence-java"`, `"advanced-linux-seccomp"`, `"advanced-linux-ebpf"`, `"advanced-linux-namespace-cgroup-capability"`, `"nested-virtualization-stretch-proof"`, `"controlled-c-translated-continuation"`\]
+> `const` **requiredArchitecturePortableSnapshotClaimIds**: readonly \[`"opposite-isa-vm-execution"`, `"postgres-bidirectional-logical-restore"`, `"postgres-unsafe-neighbor-refusals"`, `"sqlite-rollback-journal-restore"`, `"sqlite-wal-checkpoint-restore"`, `"sqlite-dirty-inflight-refusals"`, `"guest-checkpoint-c-simple"`, `"guest-checkpoint-jvm-simple"`, `"portable-snapshot-guest-checkpoint-composition"`, `"runtime-confidence-c"`, `"runtime-confidence-java"`, `"advanced-linux-seccomp"`, `"advanced-linux-ebpf"`, `"advanced-linux-namespace-cgroup-capability"`, `"nested-virtualization-stretch-proof"`\]
 
 ***
 
@@ -19903,244 +19338,6 @@ the guest agent skips entries that don't match.
 #### Returns
 
 `string`[]
-
-***
-
-### buildArchitecturePortableControlledContinuationBundle()
-
-> **buildArchitecturePortableControlledContinuationBundle**(`input`): [`ArchitecturePortableControlledContinuationBundle`](#architectureportablecontrolledcontinuationbundle)
-
-#### Parameters
-
-##### input
-
-[`ArchitecturePortableControlledContinuationBundleInput`](#architectureportablecontrolledcontinuationbundleinput)
-
-#### Returns
-
-[`ArchitecturePortableControlledContinuationBundle`](#architectureportablecontrolledcontinuationbundle)
-
-***
-
-### writeArchitecturePortableControlledContinuationBundle()
-
-> **writeArchitecturePortableControlledContinuationBundle**(`dir`, `bundle`): `void`
-
-#### Parameters
-
-##### dir
-
-`string`
-
-##### bundle
-
-[`ArchitecturePortableControlledContinuationBundle`](#architectureportablecontrolledcontinuationbundle)
-
-#### Returns
-
-`void`
-
-***
-
-### readArchitecturePortableControlledContinuationBundle()
-
-> **readArchitecturePortableControlledContinuationBundle**(`dir`): [`ArchitecturePortableControlledContinuationBundle`](#architectureportablecontrolledcontinuationbundle)
-
-#### Parameters
-
-##### dir
-
-`string`
-
-#### Returns
-
-[`ArchitecturePortableControlledContinuationBundle`](#architectureportablecontrolledcontinuationbundle)
-
-***
-
-### validateArchitecturePortableControlledContinuationBundle()
-
-> **validateArchitecturePortableControlledContinuationBundle**(`dir`): `string`[]
-
-#### Parameters
-
-##### dir
-
-`string`
-
-#### Returns
-
-`string`[]
-
-***
-
-### validateArchitecturePortableControlledContinuationBundleShape()
-
-> **validateArchitecturePortableControlledContinuationBundleShape**(`bundle`): `string`[]
-
-#### Parameters
-
-##### bundle
-
-[`ArchitecturePortableControlledContinuationBundle`](#architectureportablecontrolledcontinuationbundle)
-
-#### Returns
-
-`string`[]
-
-***
-
-### buildArchitecturePortableControlledContinuationRow()
-
-> **buildArchitecturePortableControlledContinuationRow**(`input`): [`ArchitecturePortableControlledContinuationRow`](#architectureportablecontrolledcontinuationrow)
-
-#### Parameters
-
-##### input
-
-[`ArchitecturePortableControlledContinuationRowInput`](#architectureportablecontrolledcontinuationrowinput)
-
-#### Returns
-
-[`ArchitecturePortableControlledContinuationRow`](#architectureportablecontrolledcontinuationrow)
-
-***
-
-### summarizeArchitecturePortableControlledContinuationRows()
-
-> **summarizeArchitecturePortableControlledContinuationRows**(`rows`): [`ArchitecturePortableControlledContinuationSummary`](#architectureportablecontrolledcontinuationsummary)
-
-#### Parameters
-
-##### rows
-
-[`ArchitecturePortableControlledContinuationRow`](#architectureportablecontrolledcontinuationrow)[]
-
-#### Returns
-
-[`ArchitecturePortableControlledContinuationSummary`](#architectureportablecontrolledcontinuationsummary)
-
-***
-
-### validateArchitecturePortableControlledContinuationRows()
-
-> **validateArchitecturePortableControlledContinuationRows**(`rows`): `string`[]
-
-#### Parameters
-
-##### rows
-
-[`ArchitecturePortableControlledContinuationRow`](#architectureportablecontrolledcontinuationrow)[]
-
-#### Returns
-
-`string`[]
-
-***
-
-### validateArchitecturePortableControlledContinuationRow()
-
-> **validateArchitecturePortableControlledContinuationRow**(`row`): `string`[]
-
-#### Parameters
-
-##### row
-
-[`ArchitecturePortableControlledContinuationRow`](#architectureportablecontrolledcontinuationrow)
-
-#### Returns
-
-`string`[]
-
-***
-
-### defaultControlledContinuationUnsupportedStates()
-
-> **defaultControlledContinuationUnsupportedStates**(): [`ArchitecturePortableControlledContinuationUnsupportedState`](#architectureportablecontrolledcontinuationunsupportedstate)[]
-
-#### Returns
-
-[`ArchitecturePortableControlledContinuationUnsupportedState`](#architectureportablecontrolledcontinuationunsupportedstate)[]
-
-***
-
-### normalizeControlledContinuationArch()
-
-> **normalizeControlledContinuationArch**(`value`): [`ArchitecturePortableControlledContinuationArch`](#architectureportablecontrolledcontinuationarch) \| `"unknown"`
-
-#### Parameters
-
-##### value
-
-`string`
-
-#### Returns
-
-[`ArchitecturePortableControlledContinuationArch`](#architectureportablecontrolledcontinuationarch) \| `"unknown"`
-
-***
-
-### oppositeControlledContinuationArch()
-
-> **oppositeControlledContinuationArch**(`sourceArch`): [`ArchitecturePortableControlledContinuationArch`](#architectureportablecontrolledcontinuationarch)
-
-#### Parameters
-
-##### sourceArch
-
-[`ArchitecturePortableControlledContinuationArch`](#architectureportablecontrolledcontinuationarch)
-
-#### Returns
-
-[`ArchitecturePortableControlledContinuationArch`](#architectureportablecontrolledcontinuationarch)
-
-***
-
-### stableControlledContinuationDigest()
-
-> **stableControlledContinuationDigest**(`value`): `string`
-
-#### Parameters
-
-##### value
-
-`unknown`
-
-#### Returns
-
-`string`
-
-***
-
-### sha256File()
-
-> **sha256File**(`path`): `string`
-
-#### Parameters
-
-##### path
-
-`string`
-
-#### Returns
-
-`string`
-
-***
-
-### fileSize()
-
-> **fileSize**(`path`): `number`
-
-#### Parameters
-
-##### path
-
-`string`
-
-#### Returns
-
-`number`
 
 ***
 

@@ -117,8 +117,6 @@
     "smoke-nested-virtualization-stretch-proof": "bash scripts/smoke/nested-virtualization-stretch-proof.sh",
     "architecture-portable-snapshot-gauntlet": "pnpm exec tsx scripts/architecture-portable-snapshot-gauntlet.ts",
     "smoke-architecture-portable-snapshot-gauntlet": "bash scripts/smoke/architecture-portable-snapshot-gauntlet.sh",
-    "architecture-portable-controlled-continuation": "pnpm exec tsx scripts/architecture-portable-controlled-continuation-capture.ts",
-    "smoke-architecture-portable-controlled-continuation": "bash scripts/smoke/architecture-portable-controlled-continuation.sh",
     "smoke-postgres-cross-arch-restore": "bash scripts/smoke/postgres-cross-arch-restore.sh",
     "smoke-postgres-machinen-restore": "bash scripts/smoke/postgres-machinen-restore.sh",
     "smoke-product-portable-postgres": "bash scripts/smoke/product-portable-postgres.sh",

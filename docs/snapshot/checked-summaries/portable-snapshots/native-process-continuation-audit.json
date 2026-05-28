@@ -10,25 +10,11 @@
       "go-http-clean-root-v1",
       "ping-sequence-counter-semantic-continuation-v1"
     ],
-    "controlledCounterClassification": "contract-guardrail",
     "arbitraryLinuxProcessContinuation": "not-supported",
-    "primaryGap": "taxonomy-and-productization-reconciliation"
+    "primaryGap": "taxonomy-and-productization-reconciliation",
+    "removedEvidence": ["controlled-c-translated-continuation"]
   },
   "evidenceFamilies": [
-    {
-      "id": "controlled-c-translated-continuation",
-      "classification": "contract-guardrail",
-      "productStatus": "proof-only-feasibility",
-      "processContinuationStatus": "logical-safe-point-continuation-only",
-      "migrationCompleted": true,
-      "publicSnapshotRestoreSurface": false,
-      "evidencePaths": [
-        "docs/snapshot/checked-summaries/architecture-portable-snapshot/final-gauntlet.json",
-        "packages/runtime/src/architecture-portable-controlled-continuation.ts",
-        "scripts/architecture-portable-controlled-continuation-capture.ts"
-      ],
-      "notes": "Useful as a proof-contract guardrail. It does not translate a real source process image."
-    },
     {
       "id": "native-process-foundations",
       "classification": "native/process-continuation-proof-and-refusal-foundation",
@@ -135,6 +121,12 @@
     }
   ],
   "remainingGaps": [
+    {
+      "family": "removed-counter-proof",
+      "missing": [
+        "No further action; controlled C counter proof was removed because it duplicated stronger existing evidence and was not a meaningful process-continuation milestone"
+      ]
+    },
     {
       "family": "taxonomy",
       "missing": [

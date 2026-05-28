@@ -14,9 +14,9 @@ to productize them.
 ## Motivation
 
 The repo already contains substantial process-continuation work under the older
-`portable-snapshot-format` roadmap. Recent controlled-counter work is useful as a
-contract guardrail, but it should not make the roadmap look like it is starting
-from zero.
+`portable-snapshot-format` roadmap. The controlled-counter path was misleading as
+a roadmap milestone and has been removed; the roadmap should build on existing
+native, Node, runtime, and stateful-service evidence instead.
 
 This goal aligns the portable snapshots roadmap with the existing
 native, Node, runtime, stateful-service, and product-claim evidence.
@@ -47,8 +47,8 @@ native, Node, runtime, stateful-service, and product-claim evidence.
       and which depend on side proof scripts or checked summaries.
 - [x] Identify which existing proofs are meaningful process-continuation evidence
       versus workload-level semantic restore.
-- [x] Update docs so controlled C counter is described as a contract guardrail,
-      not the first meaningful continuation milestone.
+- [x] Remove the controlled C counter from the active roadmap/runtime surface and
+      update docs so it is not treated as a meaningful continuation milestone.
 
 ## Product gap analysis
 

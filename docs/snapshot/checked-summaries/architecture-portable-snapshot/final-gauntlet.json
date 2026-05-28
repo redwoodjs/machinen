@@ -2,7 +2,7 @@
   "kind": "machinen.architecture-portable-snapshot.final-proof-gauntlet",
   "state": "completed",
   "pass": true,
-  "rowCount": 16,
+  "rowCount": 15,
   "rows": [
     {
       "claimId": "opposite-isa-vm-execution",
@@ -172,9 +172,9 @@
       "stateModel": "guest-checkpoint-dump-restore",
       "stateDecisions": ["same-guest", "same-isa", "cross-isa-checkpoint-replay-not-claimed"],
       "verifierCommand": "bash scripts/smoke/guest-checkpoint-substrate.sh --profile c-simple --json",
-      "verifierOutput": "pre=8 post=16 restoredPid=776 tail=pid=776 counter=11;pid=776 counter=12;pid=776 counter=13;pid=776 counter=14;pid=776 counter=15;",
+      "verifierOutput": "pre=8 post=16 restoredPid=770 tail=pid=770 counter=11;pid=770 counter=12;pid=770 counter=13;pid=770 counter=14;pid=770 counter=15;",
       "artifactDigests": {
-        "summary": "6b635166730223df4ffa6aea3adca4148d6933b1af707d9d6e1420039626e495"
+        "summary": "c5d3f07eb1c2d4f0ed7d8c582b7bc7f2d16ac03fbecd90ad368e9983334ac204"
       },
       "provenance": {
         "family": "guest-checkpoint-substrate",
@@ -224,9 +224,9 @@
         "cross-isa-checkpoint-replay-not-claimed"
       ],
       "verifierCommand": "bash scripts/smoke/portable-snapshot-guest-checkpoint-composition.sh --json",
-      "verifierOutput": "pre=8 post=16 restoredPid=851 tail=pid=851 counter=11;pid=851 counter=12;pid=851 counter=13;pid=851 counter=14;pid=851 counter=15;",
+      "verifierOutput": "pre=8 post=16 restoredPid=850 tail=pid=850 counter=11;pid=850 counter=12;pid=850 counter=13;pid=850 counter=14;pid=850 counter=15;",
       "artifactDigests": {
-        "storedCheckpointImageDigest": "3670fa2b2d4d849d193d17d4f1569f62ce80981d8d597f982e2fde63d4280799"
+        "storedCheckpointImageDigest": "c2d22fc568699c497f9e3987314456105c011f873fd178fed2a06bce3c18cf93"
       },
       "provenance": {
         "family": "portable-snapshot-guest-checkpoint-composition"
@@ -388,46 +388,11 @@
       },
       "migrationCompleted": false,
       "kind": "machinen.architecture-portable-snapshot.final-proof-gauntlet-row"
-    },
-    {
-      "claimId": "controlled-c-translated-continuation",
-      "claimName": "controlled C translated continuation",
-      "classification": "proof-only-feasibility",
-      "sourceArch": "arm64",
-      "targetArch": "amd64",
-      "hostArch": "arm64",
-      "providerMode": "ssh-real-target:root@192.168.0.8",
-      "targetExecution": "native",
-      "stateModel": "translated-controlled-continuation",
-      "stateDecisions": [
-        "architecture-portable-state-bundle",
-        "target-native-artifact-verified",
-        "source-isa-emulation-refused",
-        "raw-checkpoint-replay-refused",
-        "metadata-only-continuation-refused"
-      ],
-      "verifierCommand": "ssh root@192.168.0.8 sh /tmp/machinen-controlled-continuation-1779990001992-32300/architecture-portable-controlled-continuation-target-loader.sh /tmp/machinen-controlled-continuation-1779990001992-32300/bundle",
-      "verifierOutput": "controlled-c-continuation\nsourceArch=arm64\ntargetArch=amd64\ncapturedCounter=41\nrestoredCounter=42\ncontinuationLabel=safe-counter-v1\ntarget-native-continuation-ok\nloader-target-arch=amd64\ntargetArtifactDigest=c83736427b637562c212305b26e472464e219f02d829c37c5dc0b755d2a96bab\ntargetArtifactProvenanceDigest=7ead7b157db7a6e661f018065529a0a03b510c704808f8dd19a8ecd5f5e2f097\nsourceIsaEmulationUsed=false\nsidecarRuntimeUsed=false\nmetadataOnlyContinuation=false\nrawCheckpointImageReplayUsed=false",
-      "artifactDigests": {
-        "manifest": "a915f8eadd55aca94d65a8337b5c6eb85e54529a46d2cfb1769881c43436e9fa",
-        "state": "b9a02aec471e28fd08963dfa05c076ea512b6750c373d6d9c338d2fd5421be8e",
-        "refusals": "50013c9295b3377d22cb31c193199b71d1a9ce948df41093e825427897518c37",
-        "targetEnv": "98fe7fe2c5f98e3d1e388f91f93df0c908937026eaccd36c703476d120173380",
-        "targetBinary": "c83736427b637562c212305b26e472464e219f02d829c37c5dc0b755d2a96bab"
-      },
-      "provenance": {
-        "mode": "live",
-        "targetSsh": "root@192.168.0.8",
-        "workDir": "/var/folders/jj/brzmsc2562zbwgzwbnjdnqp80000gn/T/machinen-controlled-continuation.SDO5sD/run",
-        "remoteArch": "amd64"
-      },
-      "migrationCompleted": true,
-      "kind": "machinen.architecture-portable-snapshot.final-proof-gauntlet-row"
     }
   ],
   "byClassification": {
     "product-supported": 0,
-    "proof-only-feasibility": 8,
+    "proof-only-feasibility": 7,
     "stretch-demo": 1,
     "refused": 6,
     "skipped": 1

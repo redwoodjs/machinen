@@ -3,7 +3,7 @@
 Archived goals:
 
 - First portable snapshots roadmap pass:
-  `goals/archive/portable-snapshots-001-010/`
+  `archived/portable-snapshots-001-009/`
 
 Parent roadmap issue: https://github.com/redwoodjs/machinen/issues/810
 

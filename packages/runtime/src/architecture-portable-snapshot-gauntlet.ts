@@ -119,9 +119,6 @@ export function validateArchitecturePortableSnapshotGauntletInvariants(
     if (row.classification === "skipped" && row.migrationCompleted) {
       failures.push(`${row.claimId} skipped row has migrationCompleted=true`);
     }
-    if (isActualContinuationRow(row)) {
-      failures.push(...validateActualContinuationGauntletRow(row));
-    }
   }
   return failures;
 }
@@ -142,7 +139,6 @@ export const requiredArchitecturePortableSnapshotClaimIds = [
   "advanced-linux-ebpf",
   "advanced-linux-namespace-cgroup-capability",
   "nested-virtualization-stretch-proof",
-  "controlled-c-translated-continuation",
 ] as const;
 
 // fallow-ignore-next-line complexity
@@ -216,56 +212,6 @@ function validateProductSupportedGauntletRow(
   }
   if (Object.keys(row.artifactDigests).length === 0 || Object.keys(row.provenance).length === 0) {
     failures.push(`${row.claimId} product-supported row lacks artifact digests or provenance`);
-  }
-  return failures;
-}
-
-function isActualContinuationRow(row: ArchitecturePortableSnapshotGauntletRow): boolean {
-  return (
-    row.stateDecisions.includes("architecture-portable-state-bundle") ||
-    row.stateModel === "translated-controlled-continuation" ||
-    row.claimId === "controlled-c-translated-continuation"
-  );
-}
-
-// fallow-ignore-next-line complexity
-function validateActualContinuationGauntletRow(
-  row: ArchitecturePortableSnapshotGauntletRow,
-): string[] {
-  const failures: string[] = [];
-  if (row.migrationCompleted) {
-    if (row.sourceArch === row.targetArch) {
-      failures.push(`${row.claimId} completed continuation is not opposite-ISA`);
-    }
-    if (row.targetExecution !== "native") {
-      failures.push(`${row.claimId} completed continuation is not target-native`);
-    }
-    if (!row.verifierOutput.includes("target-native-continuation-ok")) {
-      failures.push(`${row.claimId} completed continuation lacks target verifier marker`);
-    }
-    if (row.provenance["mode"] !== "live") {
-      failures.push(`${row.claimId} completed continuation lacks live target provenance`);
-    }
-    for (const digest of ["manifest", "state", "refusals", "targetEnv", "targetBinary"]) {
-      if (!row.artifactDigests[digest]) {
-        failures.push(`${row.claimId} completed continuation missing ${digest} digest`);
-      }
-    }
-  }
-  if (row.stateDecisions.includes("sidecar-runtime-used") && row.migrationCompleted) {
-    failures.push(`${row.claimId} reports sidecar success as continuation success`);
-  }
-  if (row.stateDecisions.includes("source-isa-emulation-used") && row.migrationCompleted) {
-    failures.push(`${row.claimId} reports source-ISA emulation as continuation success`);
-  }
-  if (
-    row.stateDecisions.includes("raw-cross-isa-checkpoint-image-replay") &&
-    row.migrationCompleted
-  ) {
-    failures.push(`${row.claimId} reports raw checkpoint replay as continuation success`);
-  }
-  if (row.stateModel === "metadata-only-continuation" && row.migrationCompleted) {
-    failures.push(`${row.claimId} reports metadata-only continuation as continuation success`);
   }
   return failures;
 }

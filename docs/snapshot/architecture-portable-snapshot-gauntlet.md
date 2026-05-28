@@ -55,7 +55,5 @@ pnpm run architecture-portable-snapshot-gauntlet
 
 The full runner executes the component smokes for opposite-ISA execution,
 stateful database restore, guest checkpoint, portable snapshot + guest checkpoint
-composition, runtime confidence, advanced Linux facilities, nested
-virtualization, and controlled C translated continuation, then rewrites
-`final-gauntlet.json`. Set `ARCH_PORTABLE_CONTROLLED_CONTINUATION_LIVE=1` to make
-the controlled continuation row use a real opposite-ISA SSH target.
+composition, runtime confidence, advanced Linux facilities, and nested
+virtualization, then rewrites `final-gauntlet.json`.
