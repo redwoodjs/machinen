@@ -120,9 +120,122 @@ export const COMMANDS: CommandSpec[] = [
     jsonEnvelope: '{"schema_version": 1, "pid": <int>, "name": <string|null>, "detached": <bool>}',
   },
   {
+    name: "capture",
+    summary: "Capture an implemented portable product-state bundle.",
+    jsonOutput: true,
+    mutating: true,
+    positionals: [
+      {
+        name: "runtime",
+        description: "Portable product runtime to capture. Currently only 'postgres'.",
+      },
+    ],
+    flags: [
+      { name: "--out", type: "string", description: "Directory to write the product bundle." },
+      {
+        name: "--source-arch",
+        type: "enum",
+        values: ["arm64", "amd64"],
+        description: "Architecture where the source PostgreSQL state was captured.",
+      },
+      {
+        name: "--target-arch",
+        type: "enum",
+        values: ["arm64", "amd64"],
+        description: "Architecture where the descriptor will be restored.",
+      },
+      { name: "--dump", type: "string", description: "Logical pg_dump artifact." },
+      {
+        name: "--source-verifier-output",
+        type: "string",
+        description: "File containing source verifier SQL output.",
+      },
+      { name: "--postgres-version", type: "string", description: "Source PostgreSQL version." },
+      { name: "--checkpoint-lsn", type: "string", description: "Recorded clean checkpoint LSN." },
+      { name: "--init-sql", type: "string", description: "Optional audited init SQL file." },
+      { name: "--workload-sql", type: "string", description: "Optional workload SQL file." },
+      { name: "--verifier-sql", type: "string", description: "Optional verifier SQL file." },
+      { name: "--data-manifest", type: "string", description: "Optional data manifest file." },
+      {
+        name: "--active-transactions",
+        type: "integer",
+        description: "Non-zero value refuses capture with postgres-active-transaction-unsupported.",
+      },
+      {
+        name: "--active-sessions",
+        type: "integer",
+        description: "Non-zero value refuses capture with postgres-active-session-unsupported.",
+      },
+      {
+        name: "--dirty-wal",
+        type: "boolean",
+        description: "Refuse dirty WAL without a recorded checkpoint boundary.",
+      },
+      {
+        name: "--host-mounted-data-dir",
+        type: "boolean",
+        description: "Refuse ambiguous host-mounted PostgreSQL data directories.",
+      },
+      {
+        name: "--physical-data-dir-copy",
+        type: "boolean",
+        description: "Refuse physical data-directory/WAL byte-copy across ISAs.",
+      },
+      { name: "--dry-run", type: "boolean", description: "Validate without writing the bundle." },
+      { name: "--json", type: "boolean", description: "Emit the capture result as JSON." },
+    ],
+    jsonEnvelope:
+      '{"schema_version": 1, "state": "completed|refused", "migrationCompleted": <bool>, "bundleDir": <path>, "descriptor|refusal": {...}}',
+  },
+  {
+    name: "support",
+    summary: "Discover product support/refusal status for proof profiles.",
+    jsonOutput: true,
+    flags: [
+      {
+        name: "--family",
+        type: "enum",
+        values: [
+          "postgresql",
+          "nodejs",
+          "go",
+          "python-ruby-jvm",
+          "stateful-services",
+          "foundation-native",
+          "native-linux-resource",
+          "network-ping-socket",
+          "unknown",
+        ],
+        description: "Filter by product claim family.",
+      },
+      { name: "--runtime", type: "string", description: "Filter by runtime label." },
+      {
+        name: "--status",
+        type: "enum",
+        values: [
+          "implemented-product-support",
+          "stable-product-refusal",
+          "proof-only-fixture",
+          "obsolete-invalid-claim",
+        ],
+        description: "Filter by product status.",
+      },
+      { name: "--profile", type: "string", description: "Filter by exact proof profile name." },
+      {
+        name: "--resource-family",
+        type: "string",
+        description: "Filter by resource or unsafe-state family.",
+      },
+      { name: "--refusal-code", type: "string", description: "Filter by refusal code." },
+      { name: "--json", type: "boolean", description: "Emit the full registry result as JSON." },
+    ],
+    jsonEnvelope:
+      '{"schema_version": 1, "kind": "machinen.product-support-status", "summary": {...}, "entries": [...] }',
+  },
+  {
     name: "restore",
-    summary: "Restore a VM from a snapshot bundle.",
-    jsonOutput: false,
+    summary: "Restore a VM from a snapshot bundle, or complete a portable product restore.",
+    jsonOutput: true,
     flags: [
       { name: "--name", type: "string", description: "Register the restored VM under this name." },
       {
@@ -150,7 +263,25 @@ export const COMMANDS: CommandSpec[] = [
         description:
           "Override a recorded live-share mount's host/mode (#273). Each entry's <guest> must match a guest path recorded in the bundle's meta.liveMounts.",
       },
+      {
+        name: "--target-arch",
+        type: "enum",
+        values: ["arm64", "amd64"],
+        description: "Target architecture for portable PostgreSQL product bundles.",
+      },
+      {
+        name: "--target-verifier-output",
+        type: "string",
+        description: "Target-native verifier output for portable PostgreSQL product bundles.",
+      },
+      {
+        name: "--json",
+        type: "boolean",
+        description: "Emit the portable product restore result as JSON.",
+      },
     ],
+    jsonEnvelope:
+      '{"schema_version": 1, "state": "completed|refused", "migrationCompleted": <bool>, "targetVerifierResult": "passed|failed|not-run"}',
   },
   {
     name: "list",

@@ -1,0 +1,80 @@
+{
+  "kind": "machinen.product-cross-arch-claim-inventory",
+  "formatVersion": 1,
+  "implementedProductSubsets": [
+    "node-http-clean-root-v1",
+    "python-http-clean-root-v1",
+    "go-http-clean-root-v1"
+  ],
+  "claims": [
+    {
+      "goal": "33",
+      "claim": "Live Node fixture bundle generation and minimal VM restore",
+      "supportLevel": "proof-only-fixture",
+      "notes": "Proven by live Node fixtures; not surfaced as Goal 45 product support."
+    },
+    {
+      "goal": "34-37",
+      "claim": "Node production, expanded, complex, and ecosystem cross-architecture restore envelopes",
+      "supportLevel": "implemented-product-support",
+      "notes": "Goal 49 keeps the clean Node HTTP service subset productized through the shared clean-service contract using machinen snapshot <vm> <bundle> and machinen restore <bundle> with no runtime-specific flags.",
+      "subset": "node-http-clean-root-v1"
+    },
+    {
+      "goal": "33-37 refusals",
+      "claim": "Node unsafe neighbors: active ambiguous sockets, child/IPC trees outside contract, inspector sessions, native addon ABI drift, dirty persistent state, package provenance drift, lifecycle/network install ambiguity",
+      "supportLevel": "explicit-refusal",
+      "notes": "Stable refusal codes remain authoritative and must keep migrationCompleted=false."
+    },
+    {
+      "goal": "38",
+      "claim": "JVM, Python, Ruby, and Go service runtime envelopes",
+      "supportLevel": "implemented-product-support",
+      "notes": "Goal 49 productizes the clean Python HTTP service subset through the shared clean-service contract using machinen snapshot <vm> <bundle> and machinen restore <bundle> with no runtime-specific flags; Ruby/JVM portions remain proof-only until separately graduated.",
+      "subset": "python-http-clean-root-v1"
+    },
+    {
+      "goal": "39",
+      "claim": "Go static HTTP clean-service cross-architecture restore",
+      "supportLevel": "implemented-product-support",
+      "notes": "Goal 49 adds go-http-clean-root-v1 for statically linked Go HTTP services with cgo and dynamic linkage refused.",
+      "subset": "go-http-clean-root-v1"
+    },
+    {
+      "goal": "39-42",
+      "claim": "Go quiescent runtime support expansion",
+      "supportLevel": "proof-only-fixture",
+      "notes": "Quiescent goroutine/channel/timer proof remains a fixture-level support envelope."
+    },
+    {
+      "goal": "40-41",
+      "claim": "Hard runtime-state boundaries for active TLS, opaque native extension state, arbitrary Go scheduler state, JNI/cgo/native gems/C extensions, and refusal UX catalog",
+      "supportLevel": "explicit-refusal",
+      "notes": "These states remain refused by product support unless a future explicit portable contract and verifier graduates them."
+    },
+    {
+      "goal": "43",
+      "claim": "PostgreSQL clean/quiesced logical restore arm64 -> amd64 and amd64 -> arm64",
+      "supportLevel": "proof-only-fixture",
+      "notes": "Goal 45 productized this through a separate capture-style workflow; it is not advertised as implemented Goal 47 snapshot/restore support until it uses machinen snapshot <vm> <bundle> without extra runtime flags."
+    },
+    {
+      "goal": "43 refusals",
+      "claim": "PostgreSQL active transaction/session, dirty WAL, torn data directory, replication, external extension/native plugin, host-mounted data directory, and physical data-directory/WAL byte-copy",
+      "supportLevel": "explicit-refusal",
+      "notes": "Product capture/restore keeps active transaction/session, dirty WAL, host-mounted data-dir, and physical copy refusals stable; broader PostgreSQL refusal profiles remain proof-matrix refusals."
+    },
+    {
+      "goal": "44",
+      "claim": "Redis, SQLite, expanded PostgreSQL, MySQL/MariaDB, durable queue, and filesystem-backed stateful service matrices",
+      "supportLevel": "proof-only-fixture",
+      "notes": "Stateful-service matrix remains proof evidence except for the selected PostgreSQL logical subset productized in Goal 45."
+    },
+    {
+      "goal": "44 refusals",
+      "claim": "Stateful service unsafe neighbors: active clients, hot WAL/journals, redo/AOF ambiguity, replication/plugin state, mmap/lock/unsynced host-mounted filesystem ambiguity",
+      "supportLevel": "explicit-refusal",
+      "notes": "Fail-closed semantics and migrationCompleted=false remain required for product paths."
+    }
+  ]
+}

@@ -28,9 +28,11 @@ const ALLOWED_VERBS = new Set([
   "stop",
   "install",
   "completion",
+  "support",
   // domain
   "boot",
   "restore",
+  "capture",
   "exec",
   "snapshot",
   "fork",
@@ -163,6 +165,16 @@ describe("flag conventions", () => {
         (f) => f.name === "--dry-run" || (f.aliases ?? []).includes("--dry-run"),
       );
       expect(hasDryRun, `${cmd.name}: mutating but no --dry-run flag declared`).toBe(true);
+    }
+  });
+
+  it("snapshot/restore product portability does not require runtime-specific workflow flags", () => {
+    for (const name of ["snapshot", "restore"]) {
+      const cmd = COMMANDS.find((candidate) => candidate.name === name);
+      expect(cmd, `${name} command missing`).toBeDefined();
+      const flags = new Set(cmd?.flags.map((flag) => flag.name));
+      expect(flags.has("--portable"), `${name}: must not expose --portable`).toBe(false);
+      expect(flags.has("--runtime"), `${name}: must not expose --runtime`).toBe(false);
     }
   });
 

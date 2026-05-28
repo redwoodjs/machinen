@@ -182,6 +182,11 @@ function waitForTargetGuestBoot(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 1000));
 }
 
+function nonEmptyEnv(name: string): string | undefined {
+  const value = process.env[name];
+  return value && value.length > 0 ? value : undefined;
+}
+
 function skipReason(args: Args): string | undefined {
   return firstReason([
     hostSkipReason(),
@@ -213,8 +218,17 @@ function missingOptionalFileReason(path: string | undefined, label: string): str
 async function bootTargetVm(image: string) {
   return await boot({
     image: resolve(image),
+    kernel: nonEmptyEnv("MACHINEN_KERNEL"),
+    dtb: nonEmptyEnv("MACHINEN_DTB"),
+    binary: nonEmptyEnv("MACHINEN_VMM"),
     name: `target-vm-synthetic-${process.pid}`,
-    cmd: ["/exec-agent"],
+    // Boot through the normal supervisor path instead of making
+    // /exec-agent the init command directly. Real rootfs images expose
+    // the guest exec agent as /sbin/machinen-exec-agent under the
+    // supervisor; /exec-agent is an initramfs/test-fixture shortcut and
+    // is not guaranteed to exist after switch_root on amd64 release
+    // rootfs images.
+    cmd: ["sleep", "100000"],
     snapshot: false,
     vmmEnv: {
       ...process.env,

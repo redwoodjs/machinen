@@ -278,15 +278,57 @@ finish_failure() {
   exit 1
 }
 
+is_local_arm64_source() {
+  [[ "$ARM64_SSH" == "local" || "$ARM64_SSH" == "this-machine" ]]
+}
+
 check_ssh() {
   local label=$1 host=$2 start
   start=$(now_ms)
+  if [[ "$label" == "arm64-remote" ]] && is_local_arm64_source; then
+    case "$(uname -s):$(uname -m)" in
+      Darwin:arm64|Linux:aarch64|Linux:arm64)
+        record_timing "$label" "ok" "$start" "local arm64 source"
+        return 0
+        ;;
+      *)
+        record_timing "$label" "skipped" "$start" "local source is not arm64"
+        return 1
+        ;;
+    esac
+  fi
   if ssh -o BatchMode=yes -o ConnectTimeout=5 "$host" 'true' >/dev/null 2>&1; then
     record_timing "$label" "ok" "$start" "$host reachable"
     return 0
   fi
   record_timing "$label" "skipped" "$start" "$host unreachable"
   return 1
+}
+
+arm64_run() {
+  if is_local_arm64_source; then
+    bash -lc "$1"
+  else
+    ssh "$ARM64_SSH" "$1"
+  fi
+}
+
+arm64_extract_repo_tar() {
+  if is_local_arm64_source; then
+    tar -xzf - -C "$ARM64_REMOTE_WORK/repo"
+  else
+    ssh "$ARM64_SSH" "tar -xzf - -C '$ARM64_REMOTE_WORK/repo'"
+  fi
+}
+
+arm64_copy_bundle_to_host() {
+  if is_local_arm64_source; then
+    cat "$ARM64_REMOTE_WORK/capture.log" >"$WORK/arm64-capture.log"
+    tar -czf - -C "$ARM64_REMOTE_WORK/capture/bundle" . | tar -xzf - -C "$NATIVE_BUNDLE"
+  else
+    ssh "$ARM64_SSH" "cat '$ARM64_REMOTE_WORK/capture.log'" >"$WORK/arm64-capture.log"
+    ssh "$ARM64_SSH" "tar -czf - -C '$ARM64_REMOTE_WORK/capture/bundle' ." | tar -xzf - -C "$NATIVE_BUNDLE"
+  fi
 }
 
 preflight() {
@@ -388,7 +430,7 @@ NODE
 
 capture_remote_native_process_bundle() {
   local start=$1
-  ssh "$ARM64_SSH" "rm -rf '$ARM64_REMOTE_WORK' && mkdir -p '$ARM64_REMOTE_WORK/repo' '$ARM64_REMOTE_WORK/capture/bundle' '$ARM64_REMOTE_WORK/bin'"
+  arm64_run "rm -rf '$ARM64_REMOTE_WORK' && mkdir -p '$ARM64_REMOTE_WORK/repo' '$ARM64_REMOTE_WORK/capture/bundle' '$ARM64_REMOTE_WORK/bin'"
   tar -czf - -C "$ROOT" \
     packages/microvm/test-fixtures/proof-assets/native-process-capture.c \
     packages/microvm/test-fixtures/proof-assets/native-eventfd-read-target.c \
@@ -407,7 +449,7 @@ capture_remote_native_process_bundle() {
     packages/microvm/test-fixtures/proof-assets/native-ppoll-timeout-target.c \
     packages/microvm/test-fixtures/proof-assets/native-timerfd-read-target.c \
     packages/microvm/test-fixtures/proof-assets/native-two-thread-ppoll-target.c | \
-    ssh "$ARM64_SSH" "tar -xzf - -C '$ARM64_REMOTE_WORK/repo'"
+    arm64_extract_repo_tar
   local target_binary target_detail
   case "$REMOTE_SOURCE_TARGET" in
     two-thread-ppoll)
@@ -569,12 +611,10 @@ capture_remote_native_process_bundle() {
   elif [[ "$REMOTE_SOURCE_TARGET" == "real-distro-ping-socket-loopback-recreate" ]]; then
     remote_capture_command="if ! docker image inspect machinen-distro-ping-proof:ubuntu-24.04 >/dev/null 2>&1; then printf '%s\n' 'FROM ubuntu:24.04' 'RUN set -e; apt-get update >/dev/null; apt-get install -y --no-install-recommends iputils-ping strace util-linux libcap2-bin >/dev/null; setcap -r /usr/bin/ping || true; rm -rf /var/lib/apt/lists/*' | docker build -t machinen-distro-ping-proof:ubuntu-24.04 - >/dev/null; fi && docker run --rm --sysctl net.ipv4.ping_group_range='1000 1000' --cap-drop NET_RAW --cap-add SYS_PTRACE --security-opt seccomp=unconfined -v '$ARM64_REMOTE_WORK':'$ARM64_REMOTE_WORK' -w '$ARM64_REMOTE_WORK/repo' machinen-distro-ping-proof:ubuntu-24.04 sh -lc \"{ echo MACHINEN_DISTRO_PING_IMPL path=/usr/bin/ping image=machinen-distro-ping-proof:ubuntu-24.04; cat /proc/sys/net/ipv4/ping_group_range; timeout 3s setpriv --reuid 1000 --regid 1000 --clear-groups strace -f -e trace=socket,sendto,recvmsg -o /tmp/machinen-ping.strace /usr/bin/ping -i 10 127.0.0.1 >/tmp/machinen-ping.out 2>/tmp/machinen-ping.err || true; cat /tmp/machinen-ping.strace; $capture_command; } > '$ARM64_REMOTE_WORK/capture.log' && chmod -R a+rX '$ARM64_REMOTE_WORK/capture' '$ARM64_REMOTE_WORK/capture.log'\""
   fi
-  ssh "$ARM64_SSH" \
+  arm64_run \
     "cd '$ARM64_REMOTE_WORK/repo' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/test-fixtures/proof-assets/native-process-capture.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-process-capture' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/test-fixtures/proof-assets/native-eventfd-read-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-eventfd-read-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/test-fixtures/proof-assets/native-file-read-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-read-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/test-fixtures/proof-assets/native-file-readv-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-readv-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/test-fixtures/proof-assets/native-file-pread-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-pread-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/test-fixtures/proof-assets/native-file-pwrite-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-pwrite-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/test-fixtures/proof-assets/native-file-write-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-write-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/test-fixtures/proof-assets/native-file-writev-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-writev-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/test-fixtures/proof-assets/native-private-multi-range-file-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-private-multi-range-file-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/test-fixtures/proof-assets/native-tcp-listener-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-tcp-listener-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/test-fixtures/proof-assets/native-tcp-active-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-tcp-active-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/test-fixtures/proof-assets/native-raw-icmp-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-raw-icmp-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/test-fixtures/proof-assets/native-ping-socket-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-ping-socket-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/test-fixtures/proof-assets/native-pipe-read-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-pipe-read-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/test-fixtures/proof-assets/native-ppoll-timeout-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-ppoll-timeout-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/test-fixtures/proof-assets/native-timerfd-read-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-timerfd-read-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror -pthread packages/microvm/test-fixtures/proof-assets/native-two-thread-ppoll-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-two-thread-ppoll-target' && $remote_capture_command"
   mkdir -p "$NATIVE_BUNDLE"
-  ssh "$ARM64_SSH" "cat '$ARM64_REMOTE_WORK/capture.log'" >"$WORK/arm64-capture.log"
-  ssh "$ARM64_SSH" "tar -czf - -C '$ARM64_REMOTE_WORK/capture/bundle' ." | \
-    tar -xzf - -C "$NATIVE_BUNDLE"
+  arm64_copy_bundle_to_host
   record_timing "capture" "ok" "$start" "$target_detail"
 }
 

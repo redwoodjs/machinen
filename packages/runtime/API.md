@@ -43,6 +43,51 @@
 - [`writeBootSnapshot`](#writebootsnapshot)
 - [`detachedLogRoot`](#detachedlogroot)
 
+### Product claim registry
+
+- [`ProductClaimProofProfileInput`](#productclaimproofprofileinput)
+- [`ProductClaimEntry`](#productclaimentry)
+- [`ProductClaimRegistry`](#productclaimregistry)
+- [`ProductClaimRegistrySummary`](#productclaimregistrysummary)
+- [`ProductClaimRegistryFilter`](#productclaimregistryfilter)
+- [`ProductClaimStatus`](#productclaimstatus)
+- [`ProductClaimFamily`](#productclaimfamily)
+- [`PRODUCT_CLAIM_REGISTRY_FORMAT_VERSION`](#product_claim_registry_format_version)
+- [`productClaimStatuses`](#productclaimstatuses)
+- [`productClaimFamilies`](#productclaimfamilies)
+- [`PRODUCT_CLAIM_PROOF_ONLY_REFUSAL_CODE`](#product_claim_proof_only_refusal_code)
+- [`buildProductClaimRegistry`](#buildproductclaimregistry)
+- [`productClaimEntryFromProofProfile`](#productclaimentryfromproofprofile)
+- [`summarizeProductClaimRegistry`](#summarizeproductclaimregistry)
+- [`filterProductClaimRegistry`](#filterproductclaimregistry)
+- [`productClaimRefusalSummary`](#productclaimrefusalsummary)
+
+### Product portable PostgreSQL
+
+- [`ProductPortablePostgresError`](#productportablepostgreserror)
+- [`ProductPortablePostgresClaimClassification`](#productportablepostgresclaimclassification)
+- [`ProductPortablePostgresCaptureInput`](#productportablepostgrescaptureinput)
+- [`ProductPortablePostgresDescriptor`](#productportablepostgresdescriptor)
+- [`ProductPortablePostgresRefusal`](#productportablepostgresrefusal)
+- [`ProductPortablePostgresRestoreInput`](#productportablepostgresrestoreinput)
+- [`ProductPortablePostgresRestoreSummary`](#productportablepostgresrestoresummary)
+- [`ProductPortablePostgresArchitecture`](#productportablepostgresarchitecture)
+- [`ProductPortableSupportLevel`](#productportablesupportlevel)
+- [`ProductPortablePostgresRefusalCode`](#productportablepostgresrefusalcode)
+- [`ProductPortablePostgresCaptureResult`](#productportablepostgrescaptureresult)
+- [`PRODUCT_PORTABLE_POSTGRES_FORMAT_VERSION`](#product_portable_postgres_format_version)
+- [`PRODUCT_PORTABLE_POSTGRES_MANIFEST`](#product_portable_postgres_manifest)
+- [`PRODUCT_PORTABLE_POSTGRES_REFUSAL`](#product_portable_postgres_refusal)
+- [`PRODUCT_PORTABLE_POSTGRES_RESTORE_SUMMARY`](#product_portable_postgres_restore_summary)
+- [`PRODUCT_PORTABLE_POSTGRES_DUMP`](#product_portable_postgres_dump)
+- [`productPortablePostgresArchitectures`](#productportablepostgresarchitectures)
+- [`productPortablePostgresSupportLevels`](#productportablepostgressupportlevels)
+- [`productPortablePostgresRefusalCodes`](#productportablepostgresrefusalcodes)
+- [`createProductPortablePostgresSnapshot`](#createproductportablepostgressnapshot)
+- [`restoreProductPortablePostgresSnapshot`](#restoreproductportablepostgressnapshot)
+- [`isProductPortablePostgresBundle`](#isproductportablepostgresbundle)
+- [`productPortablePostgresFileSha256`](#productportablepostgresfilesha256)
+
 ### Native process images
 
 - [`NativeProcessImageValidationError`](#nativeprocessimagevalidationerror)
@@ -1790,6 +1835,44 @@ Attach to `id`. Throws if id doesn't exist.
 ###### Overrides
 
 `Error.constructor`
+
+***
+
+### ProductPortablePostgresError
+
+#### Extends
+
+- `Error`
+
+#### Constructors
+
+##### Constructor
+
+> **new ProductPortablePostgresError**(`code`, `message`): [`ProductPortablePostgresError`](#productportablepostgreserror)
+
+###### Parameters
+
+###### code
+
+`string`
+
+###### message
+
+`string`
+
+###### Returns
+
+[`ProductPortablePostgresError`](#productportablepostgreserror)
+
+###### Overrides
+
+`Error.constructor`
+
+#### Properties
+
+##### code
+
+> `readonly` **code**: `string`
 
 ***
 
@@ -10158,6 +10241,676 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ***
 
+### ProductClaimProofProfileInput
+
+#### Properties
+
+##### name
+
+> **name**: `string`
+
+##### description?
+
+> `optional` **description?**: `string`
+
+##### expectedResult?
+
+> `optional` **expectedResult?**: `string`
+
+##### supportStatus?
+
+> `optional` **supportStatus?**: `string`
+
+##### unsafeStateFamily?
+
+> `optional` **unsafeStateFamily?**: `string`
+
+##### expectedRefusalCode?
+
+> `optional` **expectedRefusalCode?**: `string`
+
+##### capabilities?
+
+> `optional` **capabilities?**: `string`[]
+
+##### refusesCapabilities?
+
+> `optional` **refusesCapabilities?**: `string`[]
+
+##### refusalSupportContract?
+
+> `optional` **refusalSupportContract?**: `object`
+
+###### currentRefusalCode?
+
+> `optional` **currentRefusalCode?**: `string`
+
+###### graduationRequires?
+
+> `optional` **graduationRequires?**: `string`[]
+
+##### checkedSummary?
+
+> `optional` **checkedSummary?**: `string`
+
+##### sourceFixture?
+
+> `optional` **sourceFixture?**: `string`
+
+***
+
+### ProductClaimEntry
+
+#### Properties
+
+##### name
+
+> **name**: `string`
+
+##### family
+
+> **family**: `"unknown"` \| `"postgresql"` \| `"nodejs"` \| `"go"` \| `"python-ruby-jvm"` \| `"stateful-services"` \| `"foundation-native"` \| `"native-linux-resource"` \| `"network-ping-socket"`
+
+##### runtime?
+
+> `optional` **runtime?**: `string`
+
+##### resourceFamily?
+
+> `optional` **resourceFamily?**: `string`
+
+##### architectureRoutes
+
+> **architectureRoutes**: (`"arm64->amd64"` \| `"amd64->arm64"` \| `"amd64<->arm64"`)[]
+
+##### productStatus
+
+> **productStatus**: `"implemented-product-support"` \| `"stable-product-refusal"` \| `"proof-only-fixture"` \| `"obsolete-invalid-claim"`
+
+##### proofStatus
+
+> **proofStatus**: `string`
+
+##### expectedResult
+
+> **expectedResult**: `"unknown"` \| `"refusal"` \| `"success"`
+
+##### sourceGoal?
+
+> `optional` **sourceGoal?**: `string`
+
+##### unsafeStateFamily?
+
+> `optional` **unsafeStateFamily?**: `string`
+
+##### refusalCode?
+
+> `optional` **refusalCode?**: `string`
+
+##### productRefusalCode?
+
+> `optional` **productRefusalCode?**: `string`
+
+##### migrationCompleted
+
+> **migrationCompleted**: `boolean`
+
+##### descriptorRequired
+
+> **descriptorRequired**: `boolean`
+
+##### targetNativeVerifierRequired
+
+> **targetNativeVerifierRequired**: `boolean`
+
+##### proofOnly
+
+> **proofOnly**: `boolean`
+
+##### checkedSummary?
+
+> `optional` **checkedSummary?**: `string`
+
+##### sourceFixture?
+
+> `optional` **sourceFixture?**: `string`
+
+##### graduationRequirements
+
+> **graduationRequirements**: `string`[]
+
+##### message
+
+> **message**: `string`
+
+***
+
+### ProductClaimRegistry
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.product-claim-registry"`
+
+##### formatVersion
+
+> **formatVersion**: `1`
+
+##### entries
+
+> **entries**: [`ProductClaimEntry`](#productclaimentry)[]
+
+##### summary
+
+> **summary**: [`ProductClaimRegistrySummary`](#productclaimregistrysummary-1)
+
+***
+
+### ProductClaimRegistrySummary
+
+#### Properties
+
+##### total
+
+> **total**: `number`
+
+##### byStatus
+
+> **byStatus**: `Record`\<[`ProductClaimStatus`](#productclaimstatus), `number`\>
+
+##### byFamily
+
+> **byFamily**: `Record`\<[`ProductClaimFamily`](#productclaimfamily), `number`\>
+
+##### implementedProductSupport
+
+> **implementedProductSupport**: `number`
+
+##### stableProductRefusals
+
+> **stableProductRefusals**: `number`
+
+##### proofOnlyFixtures
+
+> **proofOnlyFixtures**: `number`
+
+##### obsoleteInvalidClaims
+
+> **obsoleteInvalidClaims**: `number`
+
+***
+
+### ProductClaimRegistryFilter
+
+#### Properties
+
+##### status?
+
+> `optional` **status?**: `"implemented-product-support"` \| `"stable-product-refusal"` \| `"proof-only-fixture"` \| `"obsolete-invalid-claim"`
+
+##### family?
+
+> `optional` **family?**: `"unknown"` \| `"postgresql"` \| `"nodejs"` \| `"go"` \| `"python-ruby-jvm"` \| `"stateful-services"` \| `"foundation-native"` \| `"native-linux-resource"` \| `"network-ping-socket"`
+
+##### runtime?
+
+> `optional` **runtime?**: `string`
+
+##### resourceFamily?
+
+> `optional` **resourceFamily?**: `string`
+
+##### profile?
+
+> `optional` **profile?**: `string`
+
+##### refusalCode?
+
+> `optional` **refusalCode?**: `string`
+
+***
+
+### ProductPortablePostgresClaimClassification
+
+#### Properties
+
+##### goal
+
+> **goal**: `string`
+
+##### claim
+
+> **claim**: `string`
+
+##### supportLevel
+
+> **supportLevel**: `"implemented-product-support"` \| `"proof-only-fixture"` \| `"obsolete-invalid-claim"` \| `"explicit-refusal"`
+
+##### subset?
+
+> `optional` **subset?**: `string`
+
+##### refusalCode?
+
+> `optional` **refusalCode?**: `string`
+
+##### notes
+
+> **notes**: `string`
+
+***
+
+### ProductPortablePostgresCaptureInput
+
+#### Properties
+
+##### outDir
+
+> **outDir**: `string`
+
+##### sourceArch
+
+> **sourceArch**: `"amd64"` \| `"arm64"`
+
+##### targetArch
+
+> **targetArch**: `"amd64"` \| `"arm64"`
+
+##### logicalDumpPath
+
+> **logicalDumpPath**: `string`
+
+##### sourceVerifierOutput
+
+> **sourceVerifierOutput**: `string`
+
+##### postgresVersion
+
+> **postgresVersion**: `string`
+
+##### checkpointLsn
+
+> **checkpointLsn**: `string`
+
+##### initSqlSha256?
+
+> `optional` **initSqlSha256?**: `string`
+
+##### workloadSqlSha256?
+
+> `optional` **workloadSqlSha256?**: `string`
+
+##### verifierSqlSha256?
+
+> `optional` **verifierSqlSha256?**: `string`
+
+##### dataManifestSha256?
+
+> `optional` **dataManifestSha256?**: `string`
+
+##### activeTransactions?
+
+> `optional` **activeTransactions?**: `number`
+
+##### activeSessions?
+
+> `optional` **activeSessions?**: `number`
+
+##### dirtyWal?
+
+> `optional` **dirtyWal?**: `boolean`
+
+##### hostMountedDataDir?
+
+> `optional` **hostMountedDataDir?**: `boolean`
+
+##### physicalDataDirCopy?
+
+> `optional` **physicalDataDirCopy?**: `boolean`
+
+##### dryRun?
+
+> `optional` **dryRun?**: `boolean`
+
+***
+
+### ProductPortablePostgresDescriptor
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.product-portable-snapshot"`
+
+##### formatVersion
+
+> **formatVersion**: `1`
+
+##### supportLevel
+
+> **supportLevel**: `"implemented-product-support"`
+
+##### subset
+
+> **subset**: `"postgres-clean-quiesced-logical-v1"`
+
+##### runtime
+
+> **runtime**: `"postgresql"`
+
+##### captureSurface
+
+> **captureSurface**: `"machinen capture postgres"`
+
+##### restoreSurface
+
+> **restoreSurface**: `"machinen restore <bundle> --target-arch <arch> --target-verifier-output <file>"`
+
+##### source
+
+> **source**: `object`
+
+###### architecture
+
+> **architecture**: `"amd64"` \| `"arm64"`
+
+###### postgresVersion
+
+> **postgresVersion**: `string`
+
+###### host
+
+> **host**: `object`
+
+###### host.arch
+
+> **arch**: `string`
+
+###### host.platform
+
+> **platform**: `string`
+
+###### host.release
+
+> **release**: `string`
+
+##### target
+
+> **target**: `object`
+
+###### architecture
+
+> **architecture**: `"amd64"` \| `"arm64"`
+
+##### artifacts
+
+> **artifacts**: `object`
+
+###### logicalDump
+
+> **logicalDump**: `object`
+
+###### logicalDump.path
+
+> **path**: `"postgres.logical.dump"`
+
+###### logicalDump.sha256
+
+> **sha256**: `string`
+
+###### logicalDump.bytes
+
+> **bytes**: `number`
+
+##### provenance
+
+> **provenance**: `object`
+
+###### checkpointLsn
+
+> **checkpointLsn**: `string`
+
+###### initSqlSha256?
+
+> `optional` **initSqlSha256?**: `string`
+
+###### workloadSqlSha256?
+
+> `optional` **workloadSqlSha256?**: `string`
+
+###### verifierSqlSha256?
+
+> `optional` **verifierSqlSha256?**: `string`
+
+###### dataManifestSha256?
+
+> `optional` **dataManifestSha256?**: `string`
+
+###### sourceVerifierOutputSha256
+
+> **sourceVerifierOutputSha256**: `string`
+
+##### gates
+
+> **gates**: `object`
+
+###### noActiveClientTransaction
+
+> **noActiveClientTransaction**: `true`
+
+###### noActiveClientSession
+
+> **noActiveClientSession**: `true`
+
+###### walCheckpointed
+
+> **walCheckpointed**: `true`
+
+###### logicalDumpIsPortableUnit
+
+> **logicalDumpIsPortableUnit**: `true`
+
+###### targetNativeVerificationRequired
+
+> **targetNativeVerificationRequired**: `true`
+
+###### sourceIsaEmulationAllowed
+
+> **sourceIsaEmulationAllowed**: `false`
+
+###### sourceTextReplayAllowed
+
+> **sourceTextReplayAllowed**: `false`
+
+###### sidecarRuntimeAllowed
+
+> **sidecarRuntimeAllowed**: `false`
+
+###### appHooksAllowed
+
+> **appHooksAllowed**: `false`
+
+###### metadataOnlyContinuationAllowed
+
+> **metadataOnlyContinuationAllowed**: `false`
+
+##### sourceVerifierOutput
+
+> **sourceVerifierOutput**: `string`
+
+***
+
+### ProductPortablePostgresRefusal
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.product-portable-snapshot-refusal"`
+
+##### formatVersion
+
+> **formatVersion**: `1`
+
+##### runtime
+
+> **runtime**: `"postgresql"`
+
+##### supportLevel
+
+> **supportLevel**: `"explicit-refusal"`
+
+##### state
+
+> **state**: `"refused"`
+
+##### migrationCompleted
+
+> **migrationCompleted**: `false`
+
+##### expectedRefusalCode
+
+> **expectedRefusalCode**: `"postgres-active-transaction-unsupported"` \| `"postgres-active-session-unsupported"` \| `"postgres-dirty-wal-boundary-unsupported"` \| `"postgres-host-mounted-data-dir-ambiguous"` \| `"postgres-physical-data-dir-cross-isa-unsupported"` \| `"postgres-target-arch-mismatch"` \| `"postgres-logical-dump-integrity-mismatch"` \| `"postgres-target-verifier-mismatch"` \| `"postgres-refused-source-state"`
+
+##### message
+
+> **message**: `string`
+
+##### evidence
+
+> **evidence**: `Record`\<`string`, `unknown`\>
+
+##### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+##### sourceTextReusedAsTargetCode
+
+> **sourceTextReusedAsTargetCode**: `false`
+
+##### sidecarRuntimeUsed
+
+> **sidecarRuntimeUsed**: `false`
+
+##### appHooksRequired
+
+> **appHooksRequired**: `false`
+
+##### metadataOnlyShortcutAccepted
+
+> **metadataOnlyShortcutAccepted**: `false`
+
+***
+
+### ProductPortablePostgresRestoreInput
+
+#### Properties
+
+##### bundleDir
+
+> **bundleDir**: `string`
+
+##### targetArch
+
+> **targetArch**: `"amd64"` \| `"arm64"`
+
+##### targetVerifierOutput
+
+> **targetVerifierOutput**: `string`
+
+##### dryRun?
+
+> `optional` **dryRun?**: `boolean`
+
+***
+
+### ProductPortablePostgresRestoreSummary
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.product-portable-restore-summary"`
+
+##### formatVersion
+
+> **formatVersion**: `1`
+
+##### runtime
+
+> **runtime**: `"postgresql"`
+
+##### subset
+
+> **subset**: `"postgres-clean-quiesced-logical-v1"`
+
+##### supportLevel
+
+> **supportLevel**: `"implemented-product-support"`
+
+##### state
+
+> **state**: `"refused"` \| `"completed"`
+
+##### migrationCompleted
+
+> **migrationCompleted**: `boolean`
+
+##### sourceArch?
+
+> `optional` **sourceArch?**: `"amd64"` \| `"arm64"`
+
+##### targetArch
+
+> **targetArch**: `"amd64"` \| `"arm64"`
+
+##### targetState
+
+> **targetState**: `"refused"` \| `"completed"`
+
+##### targetVerifierResult
+
+> **targetVerifierResult**: `"passed"` \| `"failed"` \| `"not-run"`
+
+##### descriptorSha256?
+
+> `optional` **descriptorSha256?**: `string`
+
+##### targetVerifierOutputSha256?
+
+> `optional` **targetVerifierOutputSha256?**: `string`
+
+##### refusal?
+
+> `optional` **refusal?**: [`ProductPortablePostgresRefusal`](#productportablepostgresrefusal)
+
+##### shortcutInspection
+
+> **shortcutInspection**: `object`
+
+###### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+###### sourceTextReusedAsTargetCode
+
+> **sourceTextReusedAsTargetCode**: `false`
+
+###### sidecarRuntimeUsed
+
+> **sidecarRuntimeUsed**: `false`
+
+###### appHooksRequired
+
+> **appHooksRequired**: `false`
+
+###### metadataOnlyShortcutAccepted
+
+> **metadataOnlyShortcutAccepted**: `false`
+
+***
+
 ### ProvisionOptions
 
 #### Properties
@@ -12122,7 +12875,7 @@ kicks in: `<sourceName>/<fork.pid>`.
 
 ###### Overrides
 
-[`RestoreOptions`](#restoreoptions).[`name`](#name-12)
+[`RestoreOptions`](#restoreoptions).[`name`](#name-14)
 
 ##### portForward?
 
@@ -14033,6 +14786,42 @@ Result of `validatePid` — easy to switch on at the call site.
 
 ***
 
+### ProductClaimStatus
+
+> **ProductClaimStatus** = *typeof* [`productClaimStatuses`](#productclaimstatuses)\[`number`\]
+
+***
+
+### ProductClaimFamily
+
+> **ProductClaimFamily** = *typeof* [`productClaimFamilies`](#productclaimfamilies)\[`number`\]
+
+***
+
+### ProductPortablePostgresArchitecture
+
+> **ProductPortablePostgresArchitecture** = *typeof* [`productPortablePostgresArchitectures`](#productportablepostgresarchitectures)\[`number`\]
+
+***
+
+### ProductPortableSupportLevel
+
+> **ProductPortableSupportLevel** = *typeof* [`productPortablePostgresSupportLevels`](#productportablepostgressupportlevels)\[`number`\]
+
+***
+
+### ProductPortablePostgresRefusalCode
+
+> **ProductPortablePostgresRefusalCode** = *typeof* [`productPortablePostgresRefusalCodes`](#productportablepostgresrefusalcodes)\[`number`\]
+
+***
+
+### ProductPortablePostgresCaptureResult
+
+> **ProductPortablePostgresCaptureResult** = \{ `state`: `"completed"`; `migrationCompleted`: `true`; `bundleDir`: `string`; `descriptor`: [`ProductPortablePostgresDescriptor`](#productportablepostgresdescriptor); `dryRun`: `boolean`; \} \| \{ `state`: `"refused"`; `migrationCompleted`: `false`; `bundleDir`: `string`; `refusal`: [`ProductPortablePostgresRefusal`](#productportablepostgresrefusal); `dryRun`: `boolean`; \}
+
+***
+
 ### TargetGuestActiveSyscallRestoreStep
 
 > **TargetGuestActiveSyscallRestoreStep** = \{ `action`: `"rearm-sleep-timer"`; `threadId`: `string`; `syscallName`: `string`; `remainingTime`: \{ `seconds`: `string`; `nanoseconds`: `number`; \}; `resumeMode`: `"defer-target-resume"`; \} \| \{ `action`: `"rearm-ppoll-timeout"`; `threadId`: `string`; `remainingTime`: \{ `seconds`: `string`; `nanoseconds`: `number`; \}; `nfds`: `0` \| `1`; `resources`: [`NativeModeledPpollTargetResource`](#nativemodeledppolltargetresource)[]; `resumeMode`: `"defer-target-resume"`; \} \| \{ `action`: `"restore-fd-read-block"`; `threadId`: `string`; `fd`: `number`; `countBytes`: `number`; `resource`: `Exclude`\<[`NativeModeledFdReadTargetResource`](#nativemodeledfdreadtargetresource), `"reopened-offset-file"`\>; `remainingTime?`: \{ `seconds`: `string`; `nanoseconds`: `number`; \}; `resumeMode`: `"defer-target-resume"`; \} \| \{ `action`: `"complete-fd-read-from-file"`; `threadId`: `string`; `fd`: `number`; `countBytes`: `number`; `targetBufferPointer`: `string`; `fileOffset`: `number`; `resumeMode`: `"defer-target-resume"`; \} \| \{ `action`: `"complete-fd-write-to-file"`; `threadId`: `string`; `fd`: `number`; `countBytes`: `number`; `targetBufferPointer`: `string`; `fileOffset`: `number`; `resumeMode`: `"defer-target-resume"`; \} \| \{ `action`: `"restore-ping-socket-recvmsg-wait"`; `threadId`: `string`; `fd`: `number`; `sourceFd`: `number`; `messagePointer`: `string`; `iovLengthBytes`: `number`; `controlLengthBytes`: `number`; `receiveQueue`: [`NativeModeledPingSocketRecvmsgState`](#nativemodeledpingsocketrecvmsgstate)\[`"receiveQueue"`\]; `inFlightPackets`: [`NativeModeledPingSocketRecvmsgState`](#nativemodeledpingsocketrecvmsgstate)\[`"inFlightPackets"`\]; `signalTimer`: [`NativeModeledPingSocketRecvmsgState`](#nativemodeledpingsocketrecvmsgstate)\[`"signalTimer"`\]; `resumeMode`: `"defer-target-resume"`; \}
@@ -15666,6 +16455,78 @@ loops; anything looser stops being a meaningful gate.
 ###### properties.refusals.properties.refusals.items.properties.detail.type
 
 > `readonly` **type**: `"object"` = `"object"`
+
+***
+
+### PRODUCT\_CLAIM\_REGISTRY\_FORMAT\_VERSION
+
+> `const` **PRODUCT\_CLAIM\_REGISTRY\_FORMAT\_VERSION**: `1`
+
+***
+
+### productClaimStatuses
+
+> `const` **productClaimStatuses**: readonly \[`"implemented-product-support"`, `"stable-product-refusal"`, `"proof-only-fixture"`, `"obsolete-invalid-claim"`\]
+
+***
+
+### productClaimFamilies
+
+> `const` **productClaimFamilies**: readonly \[`"postgresql"`, `"nodejs"`, `"go"`, `"python-ruby-jvm"`, `"stateful-services"`, `"foundation-native"`, `"native-linux-resource"`, `"network-ping-socket"`, `"unknown"`\]
+
+***
+
+### PRODUCT\_CLAIM\_PROOF\_ONLY\_REFUSAL\_CODE
+
+> `const` **PRODUCT\_CLAIM\_PROOF\_ONLY\_REFUSAL\_CODE**: `"product-surface-not-implemented"`
+
+***
+
+### PRODUCT\_PORTABLE\_POSTGRES\_FORMAT\_VERSION
+
+> `const` **PRODUCT\_PORTABLE\_POSTGRES\_FORMAT\_VERSION**: `1`
+
+***
+
+### PRODUCT\_PORTABLE\_POSTGRES\_MANIFEST
+
+> `const` **PRODUCT\_PORTABLE\_POSTGRES\_MANIFEST**: `"portable-product.json"`
+
+***
+
+### PRODUCT\_PORTABLE\_POSTGRES\_REFUSAL
+
+> `const` **PRODUCT\_PORTABLE\_POSTGRES\_REFUSAL**: `"portable-product-refusal.json"`
+
+***
+
+### PRODUCT\_PORTABLE\_POSTGRES\_RESTORE\_SUMMARY
+
+> `const` **PRODUCT\_PORTABLE\_POSTGRES\_RESTORE\_SUMMARY**: `"restore-summary.json"`
+
+***
+
+### PRODUCT\_PORTABLE\_POSTGRES\_DUMP
+
+> `const` **PRODUCT\_PORTABLE\_POSTGRES\_DUMP**: `"postgres.logical.dump"`
+
+***
+
+### productPortablePostgresArchitectures
+
+> `const` **productPortablePostgresArchitectures**: readonly \[`"arm64"`, `"amd64"`\]
+
+***
+
+### productPortablePostgresSupportLevels
+
+> `const` **productPortablePostgresSupportLevels**: readonly \[`"proof-only-fixture"`, `"implemented-product-support"`, `"explicit-refusal"`, `"obsolete-invalid-claim"`\]
+
+***
+
+### productPortablePostgresRefusalCodes
+
+> `const` **productPortablePostgresRefusalCodes**: readonly \[`"postgres-active-transaction-unsupported"`, `"postgres-active-session-unsupported"`, `"postgres-dirty-wal-boundary-unsupported"`, `"postgres-host-mounted-data-dir-ambiguous"`, `"postgres-physical-data-dir-cross-isa-unsupported"`, `"postgres-target-arch-mismatch"`, `"postgres-logical-dump-integrity-mismatch"`, `"postgres-target-verifier-mismatch"`, `"postgres-refused-source-state"`\]
 
 ***
 
@@ -17514,6 +18375,178 @@ readonly (`number` \| [`RssTarget`](#rsstarget))[]
 #### Returns
 
 `Map`\<`number`, `number`\>
+
+***
+
+### buildProductClaimRegistry()
+
+> **buildProductClaimRegistry**(`proofProfiles`): [`ProductClaimRegistry`](#productclaimregistry)
+
+#### Parameters
+
+##### proofProfiles
+
+[`ProductClaimProofProfileInput`](#productclaimproofprofileinput)[]
+
+#### Returns
+
+[`ProductClaimRegistry`](#productclaimregistry)
+
+***
+
+### productClaimEntryFromProofProfile()
+
+> **productClaimEntryFromProofProfile**(`profile`): [`ProductClaimEntry`](#productclaimentry)
+
+#### Parameters
+
+##### profile
+
+[`ProductClaimProofProfileInput`](#productclaimproofprofileinput)
+
+#### Returns
+
+[`ProductClaimEntry`](#productclaimentry)
+
+***
+
+### summarizeProductClaimRegistry()
+
+> **summarizeProductClaimRegistry**(`entries`): [`ProductClaimRegistrySummary`](#productclaimregistrysummary-1)
+
+#### Parameters
+
+##### entries
+
+[`ProductClaimEntry`](#productclaimentry)[]
+
+#### Returns
+
+[`ProductClaimRegistrySummary`](#productclaimregistrysummary-1)
+
+***
+
+### filterProductClaimRegistry()
+
+> **filterProductClaimRegistry**(`entries`, `filter`): [`ProductClaimEntry`](#productclaimentry)[]
+
+#### Parameters
+
+##### entries
+
+[`ProductClaimEntry`](#productclaimentry)[]
+
+##### filter
+
+[`ProductClaimRegistryFilter`](#productclaimregistryfilter)
+
+#### Returns
+
+[`ProductClaimEntry`](#productclaimentry)[]
+
+***
+
+### productClaimRefusalSummary()
+
+> **productClaimRefusalSummary**(`entry`): `object`
+
+#### Parameters
+
+##### entry
+
+[`ProductClaimEntry`](#productclaimentry)
+
+#### Returns
+
+`object`
+
+##### state
+
+> **state**: `"refused"`
+
+##### targetState
+
+> **targetState**: `"refused"`
+
+##### migrationCompleted
+
+> **migrationCompleted**: `false`
+
+##### expectedRefusalCode
+
+> **expectedRefusalCode**: `string`
+
+##### message
+
+> **message**: `string`
+
+##### graduationRequirements
+
+> **graduationRequirements**: `string`[]
+
+***
+
+### createProductPortablePostgresSnapshot()
+
+> **createProductPortablePostgresSnapshot**(`input`): [`ProductPortablePostgresCaptureResult`](#productportablepostgrescaptureresult)
+
+#### Parameters
+
+##### input
+
+[`ProductPortablePostgresCaptureInput`](#productportablepostgrescaptureinput)
+
+#### Returns
+
+[`ProductPortablePostgresCaptureResult`](#productportablepostgrescaptureresult)
+
+***
+
+### restoreProductPortablePostgresSnapshot()
+
+> **restoreProductPortablePostgresSnapshot**(`input`): [`ProductPortablePostgresRestoreSummary`](#productportablepostgresrestoresummary)
+
+#### Parameters
+
+##### input
+
+[`ProductPortablePostgresRestoreInput`](#productportablepostgresrestoreinput)
+
+#### Returns
+
+[`ProductPortablePostgresRestoreSummary`](#productportablepostgresrestoresummary)
+
+***
+
+### isProductPortablePostgresBundle()
+
+> **isProductPortablePostgresBundle**(`dir`): `boolean`
+
+#### Parameters
+
+##### dir
+
+`string`
+
+#### Returns
+
+`boolean`
+
+***
+
+### productPortablePostgresFileSha256()
+
+> **productPortablePostgresFileSha256**(`path`): `string`
+
+#### Parameters
+
+##### path
+
+`string`
+
+#### Returns
+
+`string`
 
 ***
 

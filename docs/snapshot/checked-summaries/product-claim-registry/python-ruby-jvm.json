@@ -1,0 +1,144 @@
+{
+  "kind": "machinen.product-claim-registry-matrix",
+  "state": "completed",
+  "pass": true,
+  "filters": {
+    "family": "python-ruby-jvm"
+  },
+  "registrySummary": {
+    "total": 2245,
+    "byStatus": {
+      "implemented-product-support": 1,
+      "stable-product-refusal": 1563,
+      "proof-only-fixture": 681,
+      "obsolete-invalid-claim": 0
+    },
+    "byFamily": {
+      "postgresql": 18,
+      "nodejs": 300,
+      "go": 35,
+      "python-ruby-jvm": 4,
+      "stateful-services": 26,
+      "foundation-native": 127,
+      "native-linux-resource": 302,
+      "network-ping-socket": 536,
+      "unknown": 897
+    },
+    "implementedProductSupport": 1,
+    "stableProductRefusals": 1563,
+    "proofOnlyFixtures": 681,
+    "obsoleteInvalidClaims": 0
+  },
+  "selectedCount": 4,
+  "selectedSample": [
+    {
+      "name": "jvm-spring-style-runtime-policy",
+      "family": "python-ruby-jvm",
+      "runtime": "jvm",
+      "resourceFamily": "non-node-runtime",
+      "architectureRoutes": ["amd64<->arm64"],
+      "productStatus": "proof-only-fixture",
+      "proofStatus": "baseline-success",
+      "expectedResult": "success",
+      "sourceGoal": "goal-38",
+      "unsafeStateFamily": "non-node-runtime:jvm-spring-style-service",
+      "productRefusalCode": "product-surface-not-implemented",
+      "migrationCompleted": false,
+      "descriptorRequired": false,
+      "targetNativeVerifierRequired": false,
+      "proofOnly": true,
+      "checkedSummary": "docs/snapshot/checked-summaries/non-node-runtimes/jvm-spring-style-runtime-policy.json",
+      "sourceFixture": "checked-runtime-complex:docs/snapshot/checked-summaries/non-node-runtimes/jvm-spring-style-runtime-policy.json",
+      "graduationRequirements": [
+        "product-descriptor-contract",
+        "product-capture-surface",
+        "product-restore-surface",
+        "target-native-verifier",
+        "proof-vs-product-regression-test"
+      ],
+      "message": "Proof-only fixture retained for regression coverage; no product capture/restore surface is implemented, so product restore is refused."
+    },
+    {
+      "name": "python-cross-arch-runtime-policy",
+      "family": "python-ruby-jvm",
+      "runtime": "python",
+      "resourceFamily": "non-node-cross-arch",
+      "architectureRoutes": ["amd64<->arm64"],
+      "productStatus": "proof-only-fixture",
+      "proofStatus": "baseline-success",
+      "expectedResult": "success",
+      "sourceGoal": "goal-39",
+      "unsafeStateFamily": "non-node-cross-arch:python",
+      "productRefusalCode": "product-surface-not-implemented",
+      "migrationCompleted": false,
+      "descriptorRequired": false,
+      "targetNativeVerifierRequired": false,
+      "proofOnly": true,
+      "checkedSummary": "docs/snapshot/checked-summaries/non-node-cross-arch/python-cross-arch-runtime-policy.json",
+      "sourceFixture": "checked-runtime-complex:docs/snapshot/checked-summaries/non-node-cross-arch/python-cross-arch-runtime-policy.json",
+      "graduationRequirements": [
+        "product-descriptor-contract",
+        "product-capture-surface",
+        "product-restore-surface",
+        "target-native-verifier",
+        "proof-vs-product-regression-test"
+      ],
+      "message": "Proof-only fixture retained for regression coverage; no product capture/restore surface is implemented, so product restore is refused."
+    },
+    {
+      "name": "python-django-celery-runtime-policy",
+      "family": "python-ruby-jvm",
+      "runtime": "python",
+      "resourceFamily": "non-node-runtime",
+      "architectureRoutes": ["amd64<->arm64"],
+      "productStatus": "proof-only-fixture",
+      "proofStatus": "baseline-success",
+      "expectedResult": "success",
+      "sourceGoal": "goal-38",
+      "unsafeStateFamily": "non-node-runtime:python-django-celery-style",
+      "productRefusalCode": "product-surface-not-implemented",
+      "migrationCompleted": false,
+      "descriptorRequired": false,
+      "targetNativeVerifierRequired": false,
+      "proofOnly": true,
+      "checkedSummary": "docs/snapshot/checked-summaries/non-node-runtimes/python-django-celery-runtime-policy.json",
+      "sourceFixture": "checked-runtime-complex:docs/snapshot/checked-summaries/non-node-runtimes/python-django-celery-runtime-policy.json",
+      "graduationRequirements": [
+        "product-descriptor-contract",
+        "product-capture-surface",
+        "product-restore-surface",
+        "target-native-verifier",
+        "proof-vs-product-regression-test"
+      ],
+      "message": "Proof-only fixture retained for regression coverage; no product capture/restore surface is implemented, so product restore is refused."
+    },
+    {
+      "name": "ruby-rails-puma-runtime-policy",
+      "family": "python-ruby-jvm",
+      "runtime": "ruby",
+      "resourceFamily": "non-node-runtime",
+      "architectureRoutes": ["amd64<->arm64"],
+      "productStatus": "proof-only-fixture",
+      "proofStatus": "baseline-success",
+      "expectedResult": "success",
+      "sourceGoal": "goal-38",
+      "unsafeStateFamily": "non-node-runtime:ruby-rails-puma-style",
+      "productRefusalCode": "product-surface-not-implemented",
+      "migrationCompleted": false,
+      "descriptorRequired": false,
+      "targetNativeVerifierRequired": false,
+      "proofOnly": true,
+      "checkedSummary": "docs/snapshot/checked-summaries/non-node-runtimes/ruby-rails-puma-runtime-policy.json",
+      "sourceFixture": "checked-runtime-complex:docs/snapshot/checked-summaries/non-node-runtimes/ruby-rails-puma-runtime-policy.json",
+      "graduationRequirements": [
+        "product-descriptor-contract",
+        "product-capture-surface",
+        "product-restore-surface",
+        "target-native-verifier",
+        "proof-vs-product-regression-test"
+      ],
+      "message": "Proof-only fixture retained for regression coverage; no product capture/restore surface is implemented, so product restore is refused."
+    }
+  ],
+  "failures": []
+}
