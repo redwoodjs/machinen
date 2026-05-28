@@ -32,6 +32,7 @@ Snapshot internals:
 - [portable machine support envelope](./snapshot/support-envelope.md) — current app-neutral supported and refused capability families
 - [architecture-portable snapshot restore ladder](./snapshot/architecture-portable-snapshot-restore-ladder.md) — product support levels, state decisions, and semantic ping continuation
 - [Level 4/5 graduation matrix](./snapshot/level4-graduation-matrix.md) — checked Goal 002 path from ping Level 4 through Node Level 5 readiness
+- [Goal 003 ping Level 4 socket graduation](./snapshot/level4-ping-socket-graduation.md) — proof/refusal slice for raw/datagram ICMP socket reconstruction
 - [portable machine proof profiles](./snapshot/portable-machine-proof-profiles.md) — positive and negative proof profiles for target-native completion and fail-closed refusals
 - [portable proof matrices](./snapshot/proof-matrices.md) — one-command matrix presets and JSON summary shape
 - [runtime-neutral adapter boundary](./snapshot/runtime-adapter-boundary.md) — shared adapter contract for future runtime-specific tracks

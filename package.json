@@ -129,7 +129,8 @@
     "smoke-clean-service-kernel-state": "bash scripts/smoke/clean-service-kernel-state.sh",
     "product-portable-claim-matrix": "node scripts/product-portable-claim-matrix.mjs",
     "product-claim-registry-matrix": "node scripts/product-claim-registry-matrix.mjs",
-    "level4-graduation-matrix": "pnpm exec tsx scripts/level4-graduation-matrix.ts"
+    "level4-graduation-matrix": "pnpm exec tsx scripts/level4-graduation-matrix.ts",
+    "level4-ping-socket-graduation": "pnpm exec tsx scripts/level4-ping-socket-graduation.ts"
   },
   "devDependencies": {
     "@changesets/cli": "^2.30.0",
