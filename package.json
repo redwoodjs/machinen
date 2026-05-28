@@ -85,6 +85,7 @@
     "smoke-vmstate-entropy": "bash scripts/smoke/vmstate/entropy.sh",
     "smoke-vmstate-sockets": "bash scripts/smoke/vmstate/sockets.sh",
     "smoke-portable-cross-isa": "bash scripts/smoke/portable-cross-isa.sh",
+    "smoke-opposite-isa-vm-execution": "bash scripts/smoke/opposite-isa-vm-execution.sh",
     "smoke-portable-machine-restore": "bash scripts/smoke/portable-machine-restore.sh",
     "bench-net": "bash scripts/bench-net.sh",
     "bench-boot": "tsx scripts/bench-boot.ts",
