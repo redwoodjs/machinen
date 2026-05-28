@@ -43,6 +43,23 @@
 - [`writeBootSnapshot`](#writebootsnapshot)
 - [`detachedLogRoot`](#detachedlogroot)
 
+### Nested virtualization stretch proof
+
+- [`NestedVirtProbeHost`](#nestedvirtprobehost)
+- [`NestedVirtProbeResult`](#nestedvirtproberesult)
+- [`NestedVirtualizationStretchProofClassification`](#nestedvirtualizationstretchproofclassification)
+- [`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput)
+- [`NestedVirtualizationStretchProofRefusalCode`](#nestedvirtualizationstretchproofrefusalcode)
+- [`NestedVirtualizationStretchProofRow`](#nestedvirtualizationstretchproofrow)
+- [`NestedVirtualizationStretchProofSummary`](#nestedvirtualizationstretchproofsummary)
+- [`NESTED_VIRTUALIZATION_STRETCH_PROOF_KIND`](#nested_virtualization_stretch_proof_kind)
+- [`nestedVirtualizationStretchProofClassifications`](#nestedvirtualizationstretchproofclassifications)
+- [`nestedVirtualizationStretchProofRefusalCodes`](#nestedvirtualizationstretchproofrefusalcodes)
+- [`buildNestedVirtualizationStretchProofRow`](#buildnestedvirtualizationstretchproofrow)
+- [`probeNestedVirtualization`](#probenestedvirtualization)
+- [`summarizeNestedVirtualizationStretchProofRows`](#summarizenestedvirtualizationstretchproofrows)
+- [`validateNestedVirtualizationStretchProofRows`](#validatenestedvirtualizationstretchproofrows)
+
 ### Advanced Linux facility probes
 
 - [`AdvancedLinuxFacilityProbeClassification`](#advancedlinuxfacilityprobeclassification)
@@ -9935,6 +9952,312 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ***
 
+### NestedVirtProbeHost
+
+#### Properties
+
+##### platform
+
+> **platform**: `Platform`
+
+##### arch
+
+> **arch**: `Architecture`
+
+#### Methods
+
+##### existsSync()
+
+> **existsSync**(`path`): `boolean`
+
+###### Parameters
+
+###### path
+
+`string`
+
+###### Returns
+
+`boolean`
+
+##### readText()
+
+> **readText**(`path`): `string`
+
+###### Parameters
+
+###### path
+
+`string`
+
+###### Returns
+
+`string`
+
+##### execFileSync()
+
+> **execFileSync**(`file`, `args`): `string`
+
+###### Parameters
+
+###### file
+
+`string`
+
+###### args
+
+`string`[]
+
+###### Returns
+
+`string`
+
+***
+
+### NestedVirtProbeResult
+
+#### Properties
+
+##### supported
+
+> **supported**: `boolean`
+
+##### reason?
+
+> `optional` **reason?**: `string`
+
+***
+
+### NestedVirtualizationStretchProofInput
+
+#### Extended by
+
+- [`NestedVirtualizationStretchProofRow`](#nestedvirtualizationstretchproofrow)
+
+#### Properties
+
+##### classification
+
+> **classification**: `"stretch-demo"` \| `"refused"` \| `"skipped"`
+
+##### l0HostArch
+
+> **l0HostArch**: `string`
+
+##### l1GuestArch
+
+> **l1GuestArch**: `string`
+
+##### l2GuestArch
+
+> **l2GuestArch**: `string`
+
+##### providerMode
+
+> **providerMode**: `string`
+
+##### accelerated
+
+> **accelerated**: `boolean`
+
+##### emulated
+
+> **emulated**: `boolean`
+
+##### nestedVerifierOutput
+
+> **nestedVerifierOutput**: `string`
+
+##### refusalCode?
+
+> `optional` **refusalCode?**: `"nested-virtualization-unavailable"` \| `"nested-smoke-failed"` \| `"nested-verifier-ambiguous"` \| `"nested-snapshot-fork-unsafe"`
+
+##### remediation?
+
+> `optional` **remediation?**: `string`
+
+##### snapshotForkRefusalCode
+
+> **snapshotForkRefusalCode**: `string`
+
+##### snapshotForkRemediation
+
+> **snapshotForkRemediation**: `string`
+
+##### evidence?
+
+> `optional` **evidence?**: `Record`\<`string`, `unknown`\>
+
+***
+
+### NestedVirtualizationStretchProofRow
+
+#### Extends
+
+- [`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput)
+
+#### Properties
+
+##### classification
+
+> **classification**: `"stretch-demo"` \| `"refused"` \| `"skipped"`
+
+###### Inherited from
+
+[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`classification`](#classification-5)
+
+##### l0HostArch
+
+> **l0HostArch**: `string`
+
+###### Inherited from
+
+[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`l0HostArch`](#l0hostarch)
+
+##### l1GuestArch
+
+> **l1GuestArch**: `string`
+
+###### Inherited from
+
+[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`l1GuestArch`](#l1guestarch)
+
+##### l2GuestArch
+
+> **l2GuestArch**: `string`
+
+###### Inherited from
+
+[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`l2GuestArch`](#l2guestarch)
+
+##### providerMode
+
+> **providerMode**: `string`
+
+###### Inherited from
+
+[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`providerMode`](#providermode)
+
+##### accelerated
+
+> **accelerated**: `boolean`
+
+###### Inherited from
+
+[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`accelerated`](#accelerated)
+
+##### emulated
+
+> **emulated**: `boolean`
+
+###### Inherited from
+
+[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`emulated`](#emulated)
+
+##### nestedVerifierOutput
+
+> **nestedVerifierOutput**: `string`
+
+###### Inherited from
+
+[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`nestedVerifierOutput`](#nestedverifieroutput)
+
+##### refusalCode?
+
+> `optional` **refusalCode?**: `"nested-virtualization-unavailable"` \| `"nested-smoke-failed"` \| `"nested-verifier-ambiguous"` \| `"nested-snapshot-fork-unsafe"`
+
+###### Inherited from
+
+[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`refusalCode`](#refusalcode-5)
+
+##### remediation?
+
+> `optional` **remediation?**: `string`
+
+###### Inherited from
+
+[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`remediation`](#remediation-4)
+
+##### snapshotForkRefusalCode
+
+> **snapshotForkRefusalCode**: `string`
+
+###### Inherited from
+
+[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`snapshotForkRefusalCode`](#snapshotforkrefusalcode)
+
+##### snapshotForkRemediation
+
+> **snapshotForkRemediation**: `string`
+
+###### Inherited from
+
+[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`snapshotForkRemediation`](#snapshotforkremediation)
+
+##### evidence?
+
+> `optional` **evidence?**: `Record`\<`string`, `unknown`\>
+
+###### Inherited from
+
+[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`evidence`](#evidence-4)
+
+##### kind
+
+> **kind**: `"machinen.cross-arch-criu.nested-virtualization-stretch-proof"`
+
+##### migrationCompleted
+
+> **migrationCompleted**: `false`
+
+##### scope
+
+> **scope**: `object`
+
+###### productSupportClaimed
+
+> **productSupportClaimed**: `false`
+
+###### portableSnapshotRequirement
+
+> **portableSnapshotRequirement**: `false`
+
+###### providerSnapshotForkSafe
+
+> **providerSnapshotForkSafe**: `false`
+
+***
+
+### NestedVirtualizationStretchProofSummary
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.cross-arch-criu.nested-virtualization-stretch-proof-summary"`
+
+##### state
+
+> **state**: `"completed"` \| `"failed"`
+
+##### pass
+
+> **pass**: `boolean`
+
+##### rows
+
+> **rows**: [`NestedVirtualizationStretchProofRow`](#nestedvirtualizationstretchproofrow)[]
+
+##### rowCount
+
+> **rowCount**: `number`
+
+##### failures
+
+> **failures**: `string`[]
+
+***
+
 ### OppositeIsaVmExecutionProviderRoute
 
 #### Properties
@@ -10994,7 +11317,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`refusalCode`](#refusalcode-6)
+[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`refusalCode`](#refusalcode-8)
 
 ##### remediation?
 
@@ -11002,7 +11325,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`remediation`](#remediation-7)
+[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`remediation`](#remediation-9)
 
 ##### evidence?
 
@@ -11010,7 +11333,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`evidence`](#evidence-4)
+[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`evidence`](#evidence-6)
 
 ##### kind
 
@@ -11026,7 +11349,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Overrides
 
-[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`migrationCompleted`](#migrationcompleted-5)
+[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`migrationCompleted`](#migrationcompleted-6)
 
 ##### scope
 
@@ -12460,7 +12783,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`classification`](#classification-5)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`classification`](#classification-7)
 
 ##### sourceArch
 
@@ -12516,7 +12839,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`refusalCode`](#refusalcode-11)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`refusalCode`](#refusalcode-13)
 
 ##### remediation?
 
@@ -12524,7 +12847,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`remediation`](#remediation-9)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`remediation`](#remediation-11)
 
 ##### evidence?
 
@@ -12532,7 +12855,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`evidence`](#evidence-7)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`evidence`](#evidence-9)
 
 ##### kind
 
@@ -12544,7 +12867,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Overrides
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`migrationCompleted`](#migrationcompleted-10)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`migrationCompleted`](#migrationcompleted-11)
 
 ##### scope
 
@@ -16008,6 +16331,18 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NestedVirtualizationStretchProofClassification
+
+> **NestedVirtualizationStretchProofClassification** = *typeof* [`nestedVirtualizationStretchProofClassifications`](#nestedvirtualizationstretchproofclassifications)\[`number`\]
+
+***
+
+### NestedVirtualizationStretchProofRefusalCode
+
+> **NestedVirtualizationStretchProofRefusalCode** = *typeof* [`nestedVirtualizationStretchProofRefusalCodes`](#nestedvirtualizationstretchproofrefusalcodes)\[`number`\]
+
+***
+
 ### OppositeIsaVmExecutionRefusalCode
 
 > **OppositeIsaVmExecutionRefusalCode** = *typeof* [`oppositeIsaVmExecutionRefusalCodes`](#oppositeisavmexecutionrefusalcodes)\[`number`\]
@@ -17533,6 +17868,24 @@ loops; anything looser stops being a meaningful gate.
 ### NATIVE\_SYNTHETIC\_SLEEP\_SYSCALL\_FAILURE\_EXIT\_STATUS
 
 > `const` **NATIVE\_SYNTHETIC\_SLEEP\_SYSCALL\_FAILURE\_EXIT\_STATUS**: `111` = `NATIVE_SYNTHETIC_SLEEP_SYSCALL_RESTART_EXIT_STATUS`
+
+***
+
+### NESTED\_VIRTUALIZATION\_STRETCH\_PROOF\_KIND
+
+> `const` **NESTED\_VIRTUALIZATION\_STRETCH\_PROOF\_KIND**: `"machinen.cross-arch-criu.nested-virtualization-stretch-proof"`
+
+***
+
+### nestedVirtualizationStretchProofClassifications
+
+> `const` **nestedVirtualizationStretchProofClassifications**: readonly \[`"stretch-demo"`, `"refused"`, `"skipped"`\]
+
+***
+
+### nestedVirtualizationStretchProofRefusalCodes
+
+> `const` **nestedVirtualizationStretchProofRefusalCodes**: readonly \[`"nested-virtualization-unavailable"`, `"nested-smoke-failed"`, `"nested-verifier-ambiguous"`, `"nested-snapshot-fork-unsafe"`\]
 
 ***
 
@@ -19755,6 +20108,70 @@ available.
 #### Returns
 
 `string`
+
+***
+
+### probeNestedVirtualization()
+
+> **probeNestedVirtualization**(`host?`): [`NestedVirtProbeResult`](#nestedvirtproberesult)
+
+#### Parameters
+
+##### host?
+
+[`NestedVirtProbeHost`](#nestedvirtprobehost) = `...`
+
+#### Returns
+
+[`NestedVirtProbeResult`](#nestedvirtproberesult)
+
+***
+
+### buildNestedVirtualizationStretchProofRow()
+
+> **buildNestedVirtualizationStretchProofRow**(`input`): [`NestedVirtualizationStretchProofRow`](#nestedvirtualizationstretchproofrow)
+
+#### Parameters
+
+##### input
+
+[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput)
+
+#### Returns
+
+[`NestedVirtualizationStretchProofRow`](#nestedvirtualizationstretchproofrow)
+
+***
+
+### summarizeNestedVirtualizationStretchProofRows()
+
+> **summarizeNestedVirtualizationStretchProofRows**(`rows`): [`NestedVirtualizationStretchProofSummary`](#nestedvirtualizationstretchproofsummary)
+
+#### Parameters
+
+##### rows
+
+[`NestedVirtualizationStretchProofRow`](#nestedvirtualizationstretchproofrow)[]
+
+#### Returns
+
+[`NestedVirtualizationStretchProofSummary`](#nestedvirtualizationstretchproofsummary)
+
+***
+
+### validateNestedVirtualizationStretchProofRows()
+
+> **validateNestedVirtualizationStretchProofRows**(`rows`): `string`[]
+
+#### Parameters
+
+##### rows
+
+[`NestedVirtualizationStretchProofRow`](#nestedvirtualizationstretchproofrow)[]
+
+#### Returns
+
+`string`[]
 
 ***
 

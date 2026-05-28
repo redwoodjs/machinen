@@ -473,6 +473,15 @@ export {
   validateNativeProcessImageDocuments,
 } from "./native-process-image.ts";
 export {
+  NESTED_VIRTUALIZATION_STRETCH_PROOF_KIND,
+  buildNestedVirtualizationStretchProofRow,
+  nestedVirtualizationStretchProofClassifications,
+  nestedVirtualizationStretchProofRefusalCodes,
+  summarizeNestedVirtualizationStretchProofRows,
+  validateNestedVirtualizationStretchProofRows,
+} from "./nested-virtualization-stretch-proof.ts";
+export { probeNestedVirtualization } from "./nested-virt.ts";
+export {
   ADVANCED_LINUX_FACILITY_PROBE_KIND,
   advancedLinuxFacilityProbeClassifications,
   advancedLinuxFacilityProbeFacilities,
@@ -587,6 +596,14 @@ export {
   planPortableMachineTargetRestoreDescriptor,
   planPortableMachineVmRestoreProof,
 } from "./portable-machine-restore-proof.ts";
+export type { NestedVirtProbeHost, NestedVirtProbeResult } from "./nested-virt.ts";
+export type {
+  NestedVirtualizationStretchProofClassification,
+  NestedVirtualizationStretchProofInput,
+  NestedVirtualizationStretchProofRefusalCode,
+  NestedVirtualizationStretchProofRow,
+  NestedVirtualizationStretchProofSummary,
+} from "./nested-virtualization-stretch-proof.ts";
 export type {
   AdvancedLinuxFacilityProbeClassification,
   AdvancedLinuxFacilityProbeFacility,

@@ -96,65 +96,104 @@ async function runGuestProbe(vm: VmHandle): Promise<GuestProbe> {
   return JSON.parse(result.stdout) as GuestProbe;
 }
 
+type AdvancedProbeBase = { sourceArch: string; targetArch: string; kernelVersion: string };
+
 function buildRows(probe: GuestProbe, arch: string): AdvancedLinuxFacilityProbeRow[] {
   const base = { sourceArch: arch, targetArch: arch, kernelVersion: probe.kernelVersion };
-  const seccompPassed = probe.seccompVerifier.includes("EPERM-after=true");
   return [
-    buildAdvancedLinuxFacilityProbeRow({
+    seccompRow(base, probe.seccompVerifier),
+    ebpfRow(base, probe.bpfPolicy),
+    namespaceRow(base, probe.namespaceVerifier),
+    cgroupRow(base, probe.cgroupVerifier),
+    capabilityRow(base, probe.capabilityVerifier, probe.effectiveCapsHex),
+  ];
+}
+
+function seccompRow(
+  base: AdvancedProbeBase,
+  verifierOutput: string,
+): AdvancedLinuxFacilityProbeRow {
+  if (verifierOutput.includes("EPERM-after=true")) {
+    return buildAdvancedLinuxFacilityProbeRow({
       ...base,
       facility: "seccomp",
-      stateModel: seccompPassed ? "recreated" : "refused",
+      stateModel: "recreated",
       requiredCapabilities: [],
-      verifierOutput: probe.seccompVerifier,
-      classification: seccompPassed ? "proof-only-feasibility" : "refused",
-      refusalCode: seccompPassed
-        ? undefined
-        : "facility-verifier-ambiguous",
-      remediation: seccompPassed
-        ? undefined
-        : "Run on a kernel that permits installing a minimal seccomp filter and record the verifier result.",
+      verifierOutput,
+      classification: "proof-only-feasibility",
       evidence: { expectedBlockedSyscall: "getppid" },
-    }),
-    buildAdvancedLinuxFacilityProbeRow({
-      ...base,
-      facility: "ebpf",
-      stateModel: "refused",
-      requiredCapabilities: ["CAP_BPF", "CAP_SYS_ADMIN"],
-      verifierOutput: probe.bpfPolicy,
-      classification: "refused",
-      refusalCode: "insufficient-privileges",
-      remediation:
-        "Run a bounded eBPF fixture in a guest with CAP_BPF/CAP_SYS_ADMIN and record pinned-map/program cleanup before accepting BPF state.",
-      evidence: { policy: probe.bpfPolicy },
-    }),
-    buildAdvancedLinuxFacilityProbeRow({
-      ...base,
-      facility: "namespace",
-      stateModel: "recreated",
-      requiredCapabilities: [],
-      verifierOutput: probe.namespaceVerifier,
-      classification: "proof-only-feasibility",
-      evidence: { namespaceIdentity: probe.namespaceVerifier },
-    }),
-    buildAdvancedLinuxFacilityProbeRow({
-      ...base,
-      facility: "cgroup",
-      stateModel: "recreated",
-      requiredCapabilities: [],
-      verifierOutput: probe.cgroupVerifier,
-      classification: "proof-only-feasibility",
-      evidence: { cgroupMembership: probe.cgroupVerifier },
-    }),
-    buildAdvancedLinuxFacilityProbeRow({
-      ...base,
-      facility: "capability",
-      stateModel: "proven-irrelevant",
-      requiredCapabilities: [],
-      verifierOutput: probe.capabilityVerifier,
-      classification: "proof-only-feasibility",
-      evidence: { effectiveCapsHex: probe.effectiveCapsHex },
-    }),
-  ];
+    });
+  }
+  return buildAdvancedLinuxFacilityProbeRow({
+    ...base,
+    facility: "seccomp",
+    stateModel: "refused",
+    requiredCapabilities: [],
+    verifierOutput,
+    classification: "refused",
+    refusalCode: "facility-verifier-ambiguous",
+    remediation:
+      "Run on a kernel that permits installing a minimal seccomp filter and record the verifier result.",
+    evidence: { expectedBlockedSyscall: "getppid" },
+  });
+}
+
+function ebpfRow(base: AdvancedProbeBase, verifierOutput: string): AdvancedLinuxFacilityProbeRow {
+  return buildAdvancedLinuxFacilityProbeRow({
+    ...base,
+    facility: "ebpf",
+    stateModel: "refused",
+    requiredCapabilities: ["CAP_BPF", "CAP_SYS_ADMIN"],
+    verifierOutput,
+    classification: "refused",
+    refusalCode: "insufficient-privileges",
+    remediation:
+      "Run a bounded eBPF fixture in a guest with CAP_BPF/CAP_SYS_ADMIN and record pinned-map/program cleanup before accepting BPF state.",
+    evidence: { policy: verifierOutput },
+  });
+}
+
+function namespaceRow(
+  base: AdvancedProbeBase,
+  verifierOutput: string,
+): AdvancedLinuxFacilityProbeRow {
+  return buildAdvancedLinuxFacilityProbeRow({
+    ...base,
+    facility: "namespace",
+    stateModel: "recreated",
+    requiredCapabilities: [],
+    verifierOutput,
+    classification: "proof-only-feasibility",
+    evidence: { namespaceIdentity: verifierOutput },
+  });
+}
+
+function cgroupRow(base: AdvancedProbeBase, verifierOutput: string): AdvancedLinuxFacilityProbeRow {
+  return buildAdvancedLinuxFacilityProbeRow({
+    ...base,
+    facility: "cgroup",
+    stateModel: "recreated",
+    requiredCapabilities: [],
+    verifierOutput,
+    classification: "proof-only-feasibility",
+    evidence: { cgroupMembership: verifierOutput },
+  });
+}
+
+function capabilityRow(
+  base: AdvancedProbeBase,
+  verifierOutput: string,
+  effectiveCapsHex: string,
+): AdvancedLinuxFacilityProbeRow {
+  return buildAdvancedLinuxFacilityProbeRow({
+    ...base,
+    facility: "capability",
+    stateModel: "proven-irrelevant",
+    requiredCapabilities: [],
+    verifierOutput,
+    classification: "proof-only-feasibility",
+    evidence: { effectiveCapsHex },
+  });
 }
 
 function normalizeArch(value: string): string {
