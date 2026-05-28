@@ -473,12 +473,14 @@ export {
   validateNativeProcessImageDocuments,
 } from "./native-process-image.ts";
 export {
+  ARCHITECTURE_PORTABLE_CONTROLLED_CONTINUATION_BUNDLE_FILES,
   ARCHITECTURE_PORTABLE_CONTROLLED_CONTINUATION_FORMAT_VERSION,
   ARCHITECTURE_PORTABLE_CONTROLLED_CONTINUATION_KIND,
   buildArchitecturePortableControlledContinuationBundle,
   buildArchitecturePortableControlledContinuationRow,
   architecturePortableControlledContinuationClassifications,
   architecturePortableControlledContinuationRefusalCodes,
+  controlledContinuationUnsupportedStateCategories,
   defaultControlledContinuationUnsupportedStates,
   fileSize,
   normalizeControlledContinuationArch,

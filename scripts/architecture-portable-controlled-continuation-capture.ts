@@ -348,6 +348,7 @@ function artifactDigests(bundleDir: string): Record<string, string> {
     manifest: sha256File(join(bundleDir, "manifest.json")),
     state: sha256File(join(bundleDir, "state.json")),
     refusals: sha256File(join(bundleDir, "refusals.json")),
+    targetEnv: sha256File(join(bundleDir, "target.env")),
     targetBinary: sha256File(
       join(bundleDir, "target", `controlled-counter-${readTargetArch(bundleDir)}`),
     ),

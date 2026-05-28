@@ -56,12 +56,14 @@
 - [`ArchitecturePortableControlledContinuationState`](#architectureportablecontrolledcontinuationstate)
 - [`ArchitecturePortableControlledContinuationSummary`](#architectureportablecontrolledcontinuationsummary)
 - [`ArchitecturePortableControlledContinuationUnsupportedState`](#architectureportablecontrolledcontinuationunsupportedstate)
+- [`ARCHITECTURE_PORTABLE_CONTROLLED_CONTINUATION_BUNDLE_FILES`](#architecture_portable_controlled_continuation_bundle_files)
 - [`ARCHITECTURE_PORTABLE_CONTROLLED_CONTINUATION_FORMAT_VERSION`](#architecture_portable_controlled_continuation_format_version)
 - [`ARCHITECTURE_PORTABLE_CONTROLLED_CONTINUATION_KIND`](#architecture_portable_controlled_continuation_kind)
 - [`architecturePortableControlledContinuationClassifications`](#architectureportablecontrolledcontinuationclassifications)
 - [`architecturePortableControlledContinuationRefusalCodes`](#architectureportablecontrolledcontinuationrefusalcodes)
 - [`buildArchitecturePortableControlledContinuationBundle`](#buildarchitectureportablecontrolledcontinuationbundle)
 - [`buildArchitecturePortableControlledContinuationRow`](#buildarchitectureportablecontrolledcontinuationrow)
+- [`controlledContinuationUnsupportedStateCategories`](#controlledcontinuationunsupportedstatecategories)
 - [`defaultControlledContinuationUnsupportedStates`](#defaultcontrolledcontinuationunsupportedstates)
 - [`fileSize`](#filesize)
 - [`normalizeControlledContinuationArch`](#normalizecontrolledcontinuationarch)
@@ -2422,6 +2424,14 @@ are dropped so a chatty SIGWINCH doesn't spam the bridge.
 
 > **reason**: `string`
 
+##### refusalCode
+
+> **refusalCode**: `"unsupported-state"`
+
+##### remediation
+
+> **remediation**: `string`
+
 ***
 
 ### ArchitecturePortableControlledContinuationBundleInput
@@ -2654,7 +2664,7 @@ are dropped so a chatty SIGWINCH doesn't spam the bridge.
 
 ##### targetExecution
 
-> **targetExecution**: `"native"` \| `"not-applicable"`
+> **targetExecution**: `"native"` \| `"emulated"` \| `"not-applicable"`
 
 ##### verifierCommand
 
@@ -2736,7 +2746,7 @@ are dropped so a chatty SIGWINCH doesn't spam the bridge.
 
 ##### targetExecution
 
-> **targetExecution**: `"native"` \| `"not-applicable"`
+> **targetExecution**: `"native"` \| `"emulated"` \| `"not-applicable"`
 
 ###### Inherited from
 
@@ -2788,7 +2798,7 @@ are dropped so a chatty SIGWINCH doesn't spam the bridge.
 
 ###### Inherited from
 
-[`ArchitecturePortableControlledContinuationRowInput`](#architectureportablecontrolledcontinuationrowinput).[`refusalCode`](#refusalcode-2)
+[`ArchitecturePortableControlledContinuationRowInput`](#architectureportablecontrolledcontinuationrowinput).[`refusalCode`](#refusalcode-3)
 
 ##### remediation?
 
@@ -2796,7 +2806,7 @@ are dropped so a chatty SIGWINCH doesn't spam the bridge.
 
 ###### Inherited from
 
-[`ArchitecturePortableControlledContinuationRowInput`](#architectureportablecontrolledcontinuationrowinput).[`remediation`](#remediation-2)
+[`ArchitecturePortableControlledContinuationRowInput`](#architectureportablecontrolledcontinuationrowinput).[`remediation`](#remediation-3)
 
 ##### kind
 
@@ -2912,7 +2922,7 @@ are dropped so a chatty SIGWINCH doesn't spam the bridge.
 
 ##### targetExecution
 
-> **targetExecution**: `"native"` \| `"not-applicable"` \| `"accelerated"` \| `"emulated"`
+> **targetExecution**: `"native"` \| `"emulated"` \| `"not-applicable"` \| `"accelerated"`
 
 ##### stateModel
 
@@ -3018,7 +3028,7 @@ are dropped so a chatty SIGWINCH doesn't spam the bridge.
 
 ##### targetExecution
 
-> **targetExecution**: `"native"` \| `"not-applicable"` \| `"accelerated"` \| `"emulated"`
+> **targetExecution**: `"native"` \| `"emulated"` \| `"not-applicable"` \| `"accelerated"`
 
 ###### Inherited from
 
@@ -3086,7 +3096,7 @@ are dropped so a chatty SIGWINCH doesn't spam the bridge.
 
 ###### Inherited from
 
-[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`refusalCode`](#refusalcode-4)
+[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`refusalCode`](#refusalcode-5)
 
 ##### remediation?
 
@@ -3094,7 +3104,7 @@ are dropped so a chatty SIGWINCH doesn't spam the bridge.
 
 ###### Inherited from
 
-[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`remediation`](#remediation-4)
+[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`remediation`](#remediation-5)
 
 ##### kind
 
@@ -11008,7 +11018,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`refusalCode`](#refusalcode-9)
+[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`refusalCode`](#refusalcode-10)
 
 ##### remediation?
 
@@ -11016,7 +11026,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`remediation`](#remediation-8)
+[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`remediation`](#remediation-9)
 
 ##### snapshotForkRefusalCode
 
@@ -12157,7 +12167,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`refusalCode`](#refusalcode-12)
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`refusalCode`](#refusalcode-13)
 
 ##### remediation?
 
@@ -12165,7 +12175,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`remediation`](#remediation-13)
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`remediation`](#remediation-14)
 
 ##### evidence?
 
@@ -14067,7 +14077,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`refusalCode`](#refusalcode-17)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`refusalCode`](#refusalcode-18)
 
 ##### remediation?
 
@@ -14075,7 +14085,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`remediation`](#remediation-15)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`remediation`](#remediation-16)
 
 ##### evidence?
 
@@ -18049,6 +18059,18 @@ tarball-producing tool can pre-populate the lookup cache.
 ### ARCHITECTURE\_PORTABLE\_CONTROLLED\_CONTINUATION\_FORMAT\_VERSION
 
 > `const` **ARCHITECTURE\_PORTABLE\_CONTROLLED\_CONTINUATION\_FORMAT\_VERSION**: `1`
+
+***
+
+### ARCHITECTURE\_PORTABLE\_CONTROLLED\_CONTINUATION\_BUNDLE\_FILES
+
+> `const` **ARCHITECTURE\_PORTABLE\_CONTROLLED\_CONTINUATION\_BUNDLE\_FILES**: readonly \[`"manifest.json"`, `"state.json"`, `"refusals.json"`, `"target.env"`\]
+
+***
+
+### controlledContinuationUnsupportedStateCategories
+
+> `const` **controlledContinuationUnsupportedStateCategories**: readonly \[`"file"`, `"socket"`, `"thread"`, `"signal"`, `"timer"`, `"dynamic-library"`, `"runtime-private"`\]
 
 ***
 
