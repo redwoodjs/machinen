@@ -167,6 +167,7 @@ function sqliteRefusalRows(): StatefulDatabaseRestoreSummary[] {
     );
 }
 
+// fallow-ignore-next-line complexity
 function validateRows(rows: StatefulDatabaseRestoreSummary[]): string[] {
   const failures: string[] = [];
   const completed = rows.filter((row) => row.state === "completed");

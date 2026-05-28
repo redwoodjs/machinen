@@ -473,6 +473,13 @@ export {
   validateNativeProcessImageDocuments,
 } from "./native-process-image.ts";
 export {
+  GUEST_CRIU_SUBSTRATE_KIND,
+  buildGuestCriuSubstrateRow,
+  guestCriuSubstrateRefusalCodes,
+  summarizeGuestCriuSubstrateRows,
+  validateGuestCriuSubstrateRows,
+} from "./guest-criu-substrate.ts";
+export {
   STATEFUL_DATABASE_RESTORE_KIND,
   buildStatefulDatabaseRestoreSummary,
   postgresLogicalRestoreInput,
@@ -554,6 +561,14 @@ export {
   planPortableMachineTargetRestoreDescriptor,
   planPortableMachineVmRestoreProof,
 } from "./portable-machine-restore-proof.ts";
+export type {
+  GuestCriuSubstrateInput,
+  GuestCriuSubstrateProfile,
+  GuestCriuSubstrateRefusalCode,
+  GuestCriuSubstrateRow,
+  GuestCriuSubstrateState,
+  GuestCriuSubstrateSummary,
+} from "./guest-criu-substrate.ts";
 export type {
   StatefulDatabaseRestoreArch,
   StatefulDatabaseRestoreDatabase,

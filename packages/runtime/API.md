@@ -43,6 +43,20 @@
 - [`writeBootSnapshot`](#writebootsnapshot)
 - [`detachedLogRoot`](#detachedlogroot)
 
+### Guest CRIU substrate
+
+- [`GuestCriuSubstrateInput`](#guestcriusubstrateinput)
+- [`GuestCriuSubstrateProfile`](#guestcriusubstrateprofile)
+- [`GuestCriuSubstrateRefusalCode`](#guestcriusubstraterefusalcode)
+- [`GuestCriuSubstrateRow`](#guestcriusubstraterow)
+- [`GuestCriuSubstrateState`](#guestcriusubstratestate)
+- [`GuestCriuSubstrateSummary`](#guestcriusubstratesummary)
+- [`GUEST_CRIU_SUBSTRATE_KIND`](#guest_criu_substrate_kind)
+- [`guestCriuSubstrateRefusalCodes`](#guestcriusubstraterefusalcodes)
+- [`buildGuestCriuSubstrateRow`](#buildguestcriusubstraterow)
+- [`summarizeGuestCriuSubstrateRows`](#summarizeguestcriusubstraterows)
+- [`validateGuestCriuSubstrateRows`](#validateguestcriusubstraterows)
+
 ### Stateful database restore
 
 - [`StatefulDatabaseRestoreArch`](#statefuldatabaserestorearch)
@@ -2311,6 +2325,176 @@ or registry. Used by `machinen gc --dry-run` and tests.
 
 Only act on this single entry (skip everything else in the
 registry). Used by `machinen stop` after killing a specific VM.
+
+***
+
+### GuestCriuSubstrateInput
+
+#### Properties
+
+##### guestArch
+
+> **guestArch**: `string`
+
+##### kernelVersion
+
+> **kernelVersion**: `string`
+
+##### criuVersion
+
+> **criuVersion**: `string`
+
+##### kernelFeatureProbeOutput
+
+> **kernelFeatureProbeOutput**: `string`
+
+##### profile
+
+> **profile**: [`GuestCriuSubstrateProfile`](#guestcriusubstrateprofile)
+
+##### checkpointLog
+
+> **checkpointLog**: `string`
+
+##### restoreLog
+
+> **restoreLog**: `string`
+
+##### verifierOutput
+
+> **verifierOutput**: `string`
+
+##### state?
+
+> `optional` **state?**: [`GuestCriuSubstrateState`](#guestcriusubstratestate)
+
+##### refusalCode?
+
+> `optional` **refusalCode?**: `"guest-criu-check-unavailable"` \| `"c-criu-dump-restore-failed"` \| `"jvm-runtime-unavailable"` \| `"jvm-criu-runtime-state-unsupported"` \| `"jvm-criu-dump-restore-failed"`
+
+##### remediation?
+
+> `optional` **remediation?**: `string`
+
+##### evidence?
+
+> `optional` **evidence?**: `Record`\<`string`, `unknown`\>
+
+***
+
+### GuestCriuSubstrateRow
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.cross-arch-criu.guest-criu-substrate"`
+
+##### guestArch
+
+> **guestArch**: `string`
+
+##### kernelVersion
+
+> **kernelVersion**: `string`
+
+##### criuVersion
+
+> **criuVersion**: `string`
+
+##### kernelFeatureProbeOutput
+
+> **kernelFeatureProbeOutput**: `string`
+
+##### profile
+
+> **profile**: [`GuestCriuSubstrateProfile`](#guestcriusubstrateprofile)
+
+##### checkpointLog
+
+> **checkpointLog**: `string`
+
+##### restoreLog
+
+> **restoreLog**: `string`
+
+##### verifierOutput
+
+> **verifierOutput**: `string`
+
+##### state
+
+> **state**: [`GuestCriuSubstrateState`](#guestcriusubstratestate)
+
+##### refusalCode?
+
+> `optional` **refusalCode?**: `"guest-criu-check-unavailable"` \| `"c-criu-dump-restore-failed"` \| `"jvm-runtime-unavailable"` \| `"jvm-criu-runtime-state-unsupported"` \| `"jvm-criu-dump-restore-failed"`
+
+##### remediation?
+
+> `optional` **remediation?**: `string`
+
+##### evidence
+
+> **evidence**: `Record`\<`string`, `unknown`\>
+
+##### scope
+
+> **scope**: `object`
+
+###### sameGuest
+
+> **sameGuest**: `true`
+
+###### sameIsa
+
+> **sameIsa**: `true`
+
+###### crossIsaCriuReplay
+
+> **crossIsaCriuReplay**: `false`
+
+###### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+***
+
+### GuestCriuSubstrateSummary
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.cross-arch-criu.guest-criu-substrate-smoke"`
+
+##### state
+
+> **state**: `"completed"` \| `"failed"`
+
+##### pass
+
+> **pass**: `boolean`
+
+##### rows
+
+> **rows**: [`GuestCriuSubstrateRow`](#guestcriusubstraterow)[]
+
+##### completedRows
+
+> **completedRows**: `number`
+
+##### refusedRows
+
+> **refusedRows**: `number`
+
+##### skippedRows
+
+> **skippedRows**: `number`
+
+##### failures
+
+> **failures**: `string`[]
 
 ***
 
@@ -4954,7 +5138,7 @@ by default when `output` is a TTY.
 
 ##### state
 
-> **state**: `"unsupported"` \| `"captured"` \| `"recipe"` \| `"refused"`
+> **state**: `"refused"` \| `"unsupported"` \| `"captured"` \| `"recipe"`
 
 ##### fd?
 
@@ -5244,7 +5428,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-9)
+[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-11)
 
 ##### buildId
 
@@ -5352,7 +5536,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-9)
+[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-11)
 
 ##### buildId
 
@@ -7147,7 +7331,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-24)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-26)
 
 ##### targetArch
 
@@ -7735,7 +7919,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-24)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-26)
 
 ##### targetArch
 
@@ -9681,7 +9865,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ##### status
 
-> **status**: `"passed"` \| `"failed"`
+> **status**: `"failed"` \| `"passed"`
 
 ***
 
@@ -11045,7 +11229,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### state
 
-> **state**: `"refused"` \| `"completed"`
+> **state**: `"completed"` \| `"refused"`
 
 ##### migrationCompleted
 
@@ -11061,11 +11245,11 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### targetState
 
-> **targetState**: `"refused"` \| `"completed"`
+> **targetState**: `"completed"` \| `"refused"`
 
 ##### targetVerifierResult
 
-> **targetVerifierResult**: `"passed"` \| `"failed"` \| `"not-run"`
+> **targetVerifierResult**: `"failed"` \| `"passed"` \| `"not-run"`
 
 ##### descriptorSha256?
 
@@ -11868,7 +12052,7 @@ Poll interval in ms while retrying. Default 250.
 
 ##### targetVerifierResult
 
-> **targetVerifierResult**: `"passed"` \| `"failed"` \| `"not-run"`
+> **targetVerifierResult**: `"failed"` \| `"passed"` \| `"not-run"`
 
 ##### refusalCode?
 
@@ -14612,6 +14796,24 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### GuestCriuSubstrateProfile
+
+> **GuestCriuSubstrateProfile** = `"c-simple"` \| `"jvm-simple"`
+
+***
+
+### GuestCriuSubstrateState
+
+> **GuestCriuSubstrateState** = `"completed"` \| `"refused"` \| `"skipped"`
+
+***
+
+### GuestCriuSubstrateRefusalCode
+
+> **GuestCriuSubstrateRefusalCode** = *typeof* [`guestCriuSubstrateRefusalCodes`](#guestcriusubstraterefusalcodes)\[`number`\]
+
+***
+
 ### LogEvent
 
 > **LogEvent** = [`ChunkLogEvent`](#chunklogevent) \| [`PhaseLogEvent`](#phaselogevent)
@@ -15837,6 +16039,18 @@ Stream a tar of `guestPath` from the guest and untar into
 ###### Returns
 
 `Promise`\<`void`\>
+
+***
+
+### GUEST\_CRIU\_SUBSTRATE\_KIND
+
+> `const` **GUEST\_CRIU\_SUBSTRATE\_KIND**: `"machinen.cross-arch-criu.guest-criu-substrate"`
+
+***
+
+### guestCriuSubstrateRefusalCodes
+
+> `const` **guestCriuSubstrateRefusalCodes**: readonly \[`"guest-criu-check-unavailable"`, `"c-criu-dump-restore-failed"`, `"jvm-runtime-unavailable"`, `"jvm-criu-runtime-state-unsupported"`, `"jvm-criu-dump-restore-failed"`\]
 
 ***
 
@@ -17209,6 +17423,54 @@ result per entry processed (live entries are skipped silently).
 #### Returns
 
 [`GcResult`](#gcresult)[]
+
+***
+
+### buildGuestCriuSubstrateRow()
+
+> **buildGuestCriuSubstrateRow**(`input`): [`GuestCriuSubstrateRow`](#guestcriusubstraterow)
+
+#### Parameters
+
+##### input
+
+[`GuestCriuSubstrateInput`](#guestcriusubstrateinput)
+
+#### Returns
+
+[`GuestCriuSubstrateRow`](#guestcriusubstraterow)
+
+***
+
+### summarizeGuestCriuSubstrateRows()
+
+> **summarizeGuestCriuSubstrateRows**(`rows`): [`GuestCriuSubstrateSummary`](#guestcriusubstratesummary)
+
+#### Parameters
+
+##### rows
+
+[`GuestCriuSubstrateRow`](#guestcriusubstraterow)[]
+
+#### Returns
+
+[`GuestCriuSubstrateSummary`](#guestcriusubstratesummary)
+
+***
+
+### validateGuestCriuSubstrateRows()
+
+> **validateGuestCriuSubstrateRows**(`rows`): `string`[]
+
+#### Parameters
+
+##### rows
+
+[`GuestCriuSubstrateRow`](#guestcriusubstraterow)[]
+
+#### Returns
+
+`string`[]
 
 ***
 
