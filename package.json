@@ -128,7 +128,8 @@
     "smoke-clean-service-cross-arch": "bash scripts/smoke/clean-service-cross-arch.sh",
     "smoke-clean-service-kernel-state": "bash scripts/smoke/clean-service-kernel-state.sh",
     "product-portable-claim-matrix": "node scripts/product-portable-claim-matrix.mjs",
-    "product-claim-registry-matrix": "node scripts/product-claim-registry-matrix.mjs"
+    "product-claim-registry-matrix": "node scripts/product-claim-registry-matrix.mjs",
+    "level4-graduation-matrix": "pnpm exec tsx scripts/level4-graduation-matrix.ts"
   },
   "devDependencies": {
     "@changesets/cli": "^2.30.0",

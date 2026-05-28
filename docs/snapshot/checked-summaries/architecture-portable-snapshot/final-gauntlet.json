@@ -2,19 +2,19 @@
   "kind": "machinen.architecture-portable-snapshot.final-proof-gauntlet",
   "state": "completed",
   "pass": true,
-  "rowCount": 15,
+  "rowCount": 19,
   "rows": [
     {
       "claimId": "opposite-isa-vm-execution",
       "claimName": "opposite-ISA VM execution",
-      "classification": "skipped",
+      "evidenceStatus": "skipped",
       "sourceArch": "arm64",
       "targetArch": "amd64",
       "hostArch": "arm64",
       "providerMode": "darwin-hvf-opposite-isa-unsupported",
       "targetExecution": "not-applicable",
       "stateModel": "provider-guest-boot",
-      "stateDecisions": ["guest-verifier-required", "host-sidecar-output-refused"],
+      "stateDecisions": ["guest-verifier-required", "host-sidecar-output-refusal"],
       "verifierCommand": "bash scripts/smoke/opposite-isa-vm-execution.sh --json",
       "verifierOutput": "opposite-isa-provider-unavailable",
       "artifactDigests": {
@@ -27,166 +27,48 @@
       "migrationCompleted": false,
       "refusalCode": "opposite-isa-provider-unavailable",
       "remediation": "Re-run with --live on a host/provider that supports the requested opposite-ISA guest route.",
-      "kind": "machinen.architecture-portable-snapshot.final-proof-gauntlet-row"
-    },
-    {
-      "claimId": "postgres-bidirectional-logical-restore",
-      "claimName": "PostgreSQL bidirectional logical restore",
-      "classification": "proof-only-feasibility",
-      "sourceArch": "arm64<->amd64",
-      "targetArch": "amd64<->arm64",
-      "hostArch": "arm64",
-      "providerMode": "logical-target-native-verifier",
-      "targetExecution": "native",
-      "stateModel": "logical-dump",
-      "stateDecisions": [
-        "logical-artifact-restored",
-        "target-verifier-passed",
-        "raw-checkpoint-image-not-used"
-      ],
-      "verifierCommand": "bash scripts/smoke/stateful-database-portable-restore.sh --json",
-      "verifierOutput": "postgres verifier: events=2 values=alpha,beta indexes=2 | postgres verifier: events=2 values=alpha,beta indexes=2",
-      "artifactDigests": {
-        "summary": "60f92f51cfafd08cd8f749f70d56874a1d9d48b92bc06624b16a3d4f28adaf14"
-      },
-      "provenance": {
-        "family": "stateful-database-portable-restore",
-        "rowCount": 2
-      },
-      "migrationCompleted": true,
-      "kind": "machinen.architecture-portable-snapshot.final-proof-gauntlet-row"
-    },
-    {
-      "claimId": "postgres-unsafe-neighbor-refusals",
-      "claimName": "PostgreSQL unsafe-neighbor refusals",
-      "classification": "refused",
-      "sourceArch": "arm64",
-      "targetArch": "amd64",
-      "hostArch": "arm64",
-      "providerMode": "logical-target-native-verifier",
-      "targetExecution": "not-applicable",
-      "stateModel": "postgres-refusal-matrix",
-      "stateDecisions": ["unsafe-neighbor-refused", "migration-not-attempted"],
-      "verifierCommand": "bash scripts/smoke/stateful-database-portable-restore.sh --json",
-      "verifierOutput": "postgres-active-transaction-unsupported, postgres-active-session-unsupported, postgres-dirty-wal-boundary-unsupported, postgres-host-mounted-data-dir-ambiguous, postgres-physical-data-dir-cross-isa-unsupported, postgres-extension-native-state-unsupported, postgres-target-verifier-mismatch",
-      "artifactDigests": {
-        "summary": "53220d25f1e6cbbd4b5317f67037d7c8eed5c95adc347430f5d2daa6245f2b0a"
-      },
-      "provenance": {
-        "family": "stateful-database-portable-restore",
-        "rowCount": 7
-      },
-      "migrationCompleted": false,
-      "refusalCode": "unsafe-state-refusal-matrix",
-      "remediation": "Drain unsafe database state or use a logical/checkpoint boundary before restore.",
-      "kind": "machinen.architecture-portable-snapshot.final-proof-gauntlet-row"
-    },
-    {
-      "claimId": "sqlite-rollback-journal-restore",
-      "claimName": "SQLite rollback-journal restore",
-      "classification": "proof-only-feasibility",
-      "sourceArch": "arm64",
-      "targetArch": "amd64",
-      "hostArch": "arm64",
-      "providerMode": "logical-target-native-verifier",
-      "targetExecution": "native",
-      "stateModel": "rollback-journal",
-      "stateDecisions": [
-        "logical-artifact-restored",
-        "target-verifier-passed",
-        "raw-checkpoint-image-not-used"
-      ],
-      "verifierCommand": "bash scripts/smoke/stateful-database-portable-restore.sh --json",
-      "verifierOutput": "sqlite verifier: items=2 names=alpha,beta indexes=1",
-      "artifactDigests": {
-        "summary": "19b1c47aa7177daaf4ced3ba77060e837255ff252acf0d81c39954f7444542bd"
-      },
-      "provenance": {
-        "family": "stateful-database-portable-restore",
-        "rowCount": 1
-      },
-      "migrationCompleted": true,
-      "kind": "machinen.architecture-portable-snapshot.final-proof-gauntlet-row"
-    },
-    {
-      "claimId": "sqlite-wal-checkpoint-restore",
-      "claimName": "SQLite WAL-checkpoint restore",
-      "classification": "proof-only-feasibility",
-      "sourceArch": "amd64",
-      "targetArch": "arm64",
-      "hostArch": "arm64",
-      "providerMode": "logical-target-native-verifier",
-      "targetExecution": "native",
-      "stateModel": "wal-checkpoint",
-      "stateDecisions": [
-        "logical-artifact-restored",
-        "target-verifier-passed",
-        "raw-checkpoint-image-not-used"
-      ],
-      "verifierCommand": "bash scripts/smoke/stateful-database-portable-restore.sh --json",
-      "verifierOutput": "sqlite verifier: items=2 names=alpha,beta indexes=1",
-      "artifactDigests": {
-        "summary": "da955c2734c6f0582950ea96cdeafbf23351982189d8e0634ebc712fdde922c7"
-      },
-      "provenance": {
-        "family": "stateful-database-portable-restore",
-        "rowCount": 1
-      },
-      "migrationCompleted": true,
-      "kind": "machinen.architecture-portable-snapshot.final-proof-gauntlet-row"
-    },
-    {
-      "claimId": "sqlite-dirty-inflight-refusals",
-      "claimName": "SQLite dirty/in-flight refusals",
-      "classification": "refused",
-      "sourceArch": "arm64",
-      "targetArch": "amd64",
-      "hostArch": "arm64",
-      "providerMode": "logical-target-native-verifier",
-      "targetExecution": "not-applicable",
-      "stateModel": "sqlite-refusal-matrix",
-      "stateDecisions": ["unsafe-neighbor-refused", "migration-not-attempted"],
-      "verifierCommand": "bash scripts/smoke/stateful-database-portable-restore.sh --json",
-      "verifierOutput": "sqlite-dirty-rollback-journal-unsupported, sqlite-dirty-wal-checkpoint-unsupported, sqlite-active-writer-transaction-unsupported, sqlite-mmap-or-lock-state-unsupported, sqlite-target-verifier-mismatch",
-      "artifactDigests": {
-        "summary": "bd623da15be9e65ec2cb7298436fcdedd1c5cae4fa05f82e2c6d8a312784faea"
-      },
-      "provenance": {
-        "family": "stateful-database-portable-restore",
-        "rowCount": 5
-      },
-      "migrationCompleted": false,
-      "refusalCode": "unsafe-state-refusal-matrix",
-      "remediation": "Drain unsafe database state or use a logical/checkpoint boundary before restore.",
+      "evidenceCategory": "unsupported",
+      "productSupport": "unsupported",
+      "implementationLevel": "level-0-fail-closed-discovery",
+      "graduationTargetLevel": "level-0-fail-closed-discovery",
       "kind": "machinen.architecture-portable-snapshot.final-proof-gauntlet-row"
     },
     {
       "claimId": "guest-checkpoint-c-simple",
       "claimName": "guest checkpoint simple C process",
-      "classification": "proof-only-feasibility",
+      "evidenceStatus": "proof",
       "sourceArch": "aarch64",
       "targetArch": "aarch64",
       "hostArch": "arm64",
       "providerMode": "same-guest-same-isa-checkpoint",
       "targetExecution": "native",
       "stateModel": "guest-checkpoint-dump-restore",
-      "stateDecisions": ["same-guest", "same-isa", "cross-isa-checkpoint-replay-not-claimed"],
+      "stateDecisions": [
+        "same-guest",
+        "same-isa",
+        "cross-isa-checkpoint-replay-not-claimed",
+        "product-support-not-claimed"
+      ],
       "verifierCommand": "bash scripts/smoke/guest-checkpoint-substrate.sh --profile c-simple --json",
-      "verifierOutput": "pre=8 post=16 restoredPid=770 tail=pid=770 counter=11;pid=770 counter=12;pid=770 counter=13;pid=770 counter=14;pid=770 counter=15;",
+      "verifierOutput": "pre=8 post=16 restoredPid=767 tail=pid=767 counter=11;pid=767 counter=12;pid=767 counter=13;pid=767 counter=14;pid=767 counter=15;",
       "artifactDigests": {
-        "summary": "c5d3f07eb1c2d4f0ed7d8c582b7bc7f2d16ac03fbecd90ad368e9983334ac204"
+        "summary": "1d11aee21c88d819ff453de2dba7935292265719c30f42519dd565a93987960a"
       },
       "provenance": {
         "family": "guest-checkpoint-substrate",
         "profile": "c-simple"
       },
       "migrationCompleted": true,
+      "evidenceCategory": "runtime-aware-proof",
+      "productSupport": "not-yet-supported",
+      "implementationLevel": "not-implemented",
+      "graduationTargetLevel": "level-3-runtime-aware-continuation",
       "kind": "machinen.architecture-portable-snapshot.final-proof-gauntlet-row"
     },
     {
       "claimId": "guest-checkpoint-jvm-simple",
       "claimName": "guest checkpoint JVM process/refusal",
-      "classification": "refused",
+      "evidenceStatus": "refusal",
       "sourceArch": "aarch64",
       "targetArch": "aarch64",
       "hostArch": "arm64",
@@ -206,12 +88,16 @@
       "migrationCompleted": false,
       "refusalCode": "jvm-runtime-unavailable",
       "remediation": "Install a supported JVM in the guest image, then run the JVM checkpoint profile and require its verifier to pass.",
+      "evidenceCategory": "unsupported",
+      "productSupport": "unsupported",
+      "implementationLevel": "level-0-fail-closed-discovery",
+      "graduationTargetLevel": "level-0-fail-closed-discovery",
       "kind": "machinen.architecture-portable-snapshot.final-proof-gauntlet-row"
     },
     {
       "claimId": "portable-snapshot-guest-checkpoint-composition",
       "claimName": "portable snapshot plus guest checkpoint composition",
-      "classification": "proof-only-feasibility",
+      "evidenceStatus": "proof",
       "sourceArch": "arm64",
       "targetArch": "arm64",
       "hostArch": "arm64",
@@ -221,73 +107,28 @@
       "stateDecisions": [
         "same-arch-vmstate",
         "guest-checkpoint-artifact-readable",
-        "cross-isa-checkpoint-replay-not-claimed"
+        "cross-isa-checkpoint-replay-not-claimed",
+        "product-support-not-claimed"
       ],
       "verifierCommand": "bash scripts/smoke/portable-snapshot-guest-checkpoint-composition.sh --json",
-      "verifierOutput": "pre=8 post=16 restoredPid=850 tail=pid=850 counter=11;pid=850 counter=12;pid=850 counter=13;pid=850 counter=14;pid=850 counter=15;",
+      "verifierOutput": "pre=8 post=16 restoredPid=851 tail=pid=851 counter=11;pid=851 counter=12;pid=851 counter=13;pid=851 counter=14;pid=851 counter=15;",
       "artifactDigests": {
-        "storedCheckpointImageDigest": "c2d22fc568699c497f9e3987314456105c011f873fd178fed2a06bce3c18cf93"
+        "storedCheckpointImageDigest": "efce7926fb2117ed783f3a831b8b1b53c650ed84500025bf41a68265366bdeef"
       },
       "provenance": {
         "family": "portable-snapshot-guest-checkpoint-composition"
       },
       "migrationCompleted": true,
-      "kind": "machinen.architecture-portable-snapshot.final-proof-gauntlet-row"
-    },
-    {
-      "claimId": "runtime-confidence-c",
-      "claimName": "C runtime confidence profiles",
-      "classification": "proof-only-feasibility",
-      "sourceArch": "arm64<->amd64",
-      "targetArch": "amd64<->arm64",
-      "hostArch": "arm64",
-      "providerMode": "runtime-confidence-matrix",
-      "targetExecution": "native",
-      "stateModel": "runtime-profile-classification",
-      "stateDecisions": ["product-support-not-claimed", "target-native-verifier-required"],
-      "verifierCommand": "bash scripts/smoke/runtime-confidence-profile-matrix.sh --json",
-      "verifierOutput": "c rows=12 refused=8",
-      "artifactDigests": {
-        "summary": "7280699140d9f7fcef2ae2cae254402d6ab3578204e9fd8144594c31ebfbfcba"
-      },
-      "provenance": {
-        "family": "runtime-confidence-profile-matrix",
-        "runtime": "c",
-        "rowCount": 12
-      },
-      "migrationCompleted": false,
-      "kind": "machinen.architecture-portable-snapshot.final-proof-gauntlet-row"
-    },
-    {
-      "claimId": "runtime-confidence-java",
-      "claimName": "Java/JVM runtime confidence profiles",
-      "classification": "refused",
-      "sourceArch": "arm64<->amd64",
-      "targetArch": "amd64<->arm64",
-      "hostArch": "arm64",
-      "providerMode": "runtime-confidence-matrix",
-      "targetExecution": "native",
-      "stateModel": "runtime-profile-classification",
-      "stateDecisions": ["product-support-not-claimed", "target-native-verifier-required"],
-      "verifierCommand": "bash scripts/smoke/runtime-confidence-profile-matrix.sh --json",
-      "verifierOutput": "java rows=2 refused=2",
-      "artifactDigests": {
-        "summary": "51f549096468e1d94345214a509530b6563494087d8d934c171a13f995fee0e2"
-      },
-      "provenance": {
-        "family": "runtime-confidence-profile-matrix",
-        "runtime": "java",
-        "rowCount": 2
-      },
-      "migrationCompleted": false,
-      "refusalCode": "runtime-profile-refusal-matrix",
-      "remediation": "Satisfy the runtime-specific verifier and provenance requirements.",
+      "evidenceCategory": "runtime-aware-proof",
+      "productSupport": "not-yet-supported",
+      "implementationLevel": "not-implemented",
+      "graduationTargetLevel": "level-3-runtime-aware-continuation",
       "kind": "machinen.architecture-portable-snapshot.final-proof-gauntlet-row"
     },
     {
       "claimId": "advanced-linux-seccomp",
       "claimName": "seccomp proof/refusal",
-      "classification": "refused",
+      "evidenceStatus": "refusal",
       "sourceArch": "arm64",
       "targetArch": "arm64",
       "hostArch": "arm64",
@@ -310,12 +151,16 @@
       "migrationCompleted": false,
       "refusalCode": "facility-verifier-ambiguous",
       "remediation": "Run on a kernel that permits installing a minimal seccomp filter and record the verifier result.",
+      "evidenceCategory": "unsupported",
+      "productSupport": "unsupported",
+      "implementationLevel": "level-0-fail-closed-discovery",
+      "graduationTargetLevel": "level-0-fail-closed-discovery",
       "kind": "machinen.architecture-portable-snapshot.final-proof-gauntlet-row"
     },
     {
       "claimId": "advanced-linux-ebpf",
       "claimName": "eBPF proof/refusal",
-      "classification": "refused",
+      "evidenceStatus": "refusal",
       "sourceArch": "arm64",
       "targetArch": "arm64",
       "hostArch": "arm64",
@@ -338,12 +183,16 @@
       "migrationCompleted": false,
       "refusalCode": "insufficient-privileges",
       "remediation": "Run a bounded eBPF fixture in a guest with CAP_BPF/CAP_SYS_ADMIN and record pinned-map/program cleanup before accepting BPF state.",
+      "evidenceCategory": "unsupported",
+      "productSupport": "unsupported",
+      "implementationLevel": "level-0-fail-closed-discovery",
+      "graduationTargetLevel": "level-0-fail-closed-discovery",
       "kind": "machinen.architecture-portable-snapshot.final-proof-gauntlet-row"
     },
     {
       "claimId": "advanced-linux-namespace-cgroup-capability",
-      "claimName": "namespace/cgroup/capability classification",
-      "classification": "proof-only-feasibility",
+      "claimName": "namespace/cgroup/capability evidence status",
+      "evidenceStatus": "proof",
       "sourceArch": "arm64",
       "targetArch": "arm64",
       "hostArch": "arm64",
@@ -361,12 +210,16 @@
         "facilities": ["namespace", "cgroup", "capability"]
       },
       "migrationCompleted": false,
+      "evidenceCategory": "runtime-aware-proof",
+      "productSupport": "not-yet-supported",
+      "implementationLevel": "not-implemented",
+      "graduationTargetLevel": "level-3-runtime-aware-continuation",
       "kind": "machinen.architecture-portable-snapshot.final-proof-gauntlet-row"
     },
     {
       "claimId": "nested-virtualization-stretch-proof",
       "claimName": "nested virtualization stretch proof/refusal",
-      "classification": "stretch-demo",
+      "evidenceStatus": "stretch-demo",
       "sourceArch": "arm64",
       "targetArch": "aarch64",
       "hostArch": "arm64",
@@ -375,7 +228,7 @@
       "stateModel": "nested-l0-l1-l2",
       "stateDecisions": [
         "stretch-demo-only",
-        "provider-snapshot-fork-refused",
+        "provider-snapshot-fork-refusal",
         "portable-snapshot-requirement-false"
       ],
       "verifierCommand": "bash scripts/smoke/nested-virtualization-stretch-proof.sh --json",
@@ -387,14 +240,409 @@
         "family": "nested-virtualization-stretch-proof"
       },
       "migrationCompleted": false,
+      "evidenceCategory": "runtime-aware-proof",
+      "productSupport": "not-yet-supported",
+      "implementationLevel": "not-implemented",
+      "graduationTargetLevel": "level-3-runtime-aware-continuation",
+      "kind": "machinen.architecture-portable-snapshot.final-proof-gauntlet-row"
+    },
+    {
+      "claimId": "native-register-translation",
+      "claimName": "native register translation proof/refusal",
+      "stateModel": "native-register-translation",
+      "stateDecisions": [
+        "target-registers-translated",
+        "active-syscall-refusal",
+        "public-product-verbs-not-used",
+        "source-isa-emulation-refusal",
+        "sidecar-output-not-used",
+        "raw-cross-isa-checkpoint-replay-not-used",
+        "metadata-only-success-refusal",
+        "product-support-not-claimed"
+      ],
+      "verifierCommand": "pnpm exec tsx scripts/native-register-translate.ts verify --json",
+      "verifierOutput": "translated=1 refusal=undefined refusal=active-syscall",
+      "artifactDigests": {
+        "summary": "c6646363e062270201c8207d9cbc1502f355a34918b06f8b93013ba36cd1bbb4"
+      },
+      "provenance": {
+        "family": "foundation-native",
+        "script": "native-register-translate"
+      },
+      "migrationCompleted": true,
+      "sourceArch": "arm64",
+      "targetArch": "amd64",
+      "evidenceStatus": "proof",
+      "hostArch": "arm64",
+      "providerMode": "native/process-proof",
+      "targetExecution": "native",
+      "evidenceCategory": "native/process-proof",
+      "productSupport": "not-yet-supported",
+      "implementationLevel": "not-implemented",
+      "graduationTargetLevel": "level-5-cross-arch-process-continuation",
+      "kind": "machinen.architecture-portable-snapshot.final-proof-gauntlet-row"
+    },
+    {
+      "claimId": "native-stack-return-chain-translation",
+      "claimName": "native stack and return-chain translation",
+      "stateModel": "native-stack-return-chain-translation",
+      "stateDecisions": [
+        "stack-window-materialized",
+        "return-addresses-translated",
+        "return-chain-materialized",
+        "public-product-verbs-not-used",
+        "source-isa-emulation-refusal",
+        "sidecar-output-not-used",
+        "raw-cross-isa-checkpoint-replay-not-used",
+        "metadata-only-success-refusal",
+        "product-support-not-claimed"
+      ],
+      "verifierCommand": "pnpm exec tsx scripts/native-stack-translate.ts verify --json && pnpm exec tsx scripts/native-return-chain.ts verify --json",
+      "verifierOutput": "stack=materialized relocations=2 returnChain=materialized frames=2",
+      "artifactDigests": {
+        "summary": "9ecd4b33157fd8763c257cb390b1335f3654a53eb0f5d5933e3ed6f40acd7494"
+      },
+      "provenance": {
+        "family": "foundation-native",
+        "scripts": ["native-stack-translate", "native-return-chain"]
+      },
+      "migrationCompleted": true,
+      "evidenceStatus": "proof",
+      "sourceArch": "arm64",
+      "targetArch": "amd64",
+      "hostArch": "arm64",
+      "providerMode": "native/process-proof",
+      "targetExecution": "native",
+      "evidenceCategory": "native/process-proof",
+      "productSupport": "not-yet-supported",
+      "implementationLevel": "not-implemented",
+      "graduationTargetLevel": "level-5-cross-arch-process-continuation",
+      "kind": "machinen.architecture-portable-snapshot.final-proof-gauntlet-row"
+    },
+    {
+      "claimId": "native-private-memory-materialization",
+      "claimName": "native private memory translation and materialization",
+      "stateModel": "native-private-memory-materialization",
+      "stateDecisions": [
+        "private-memory-relocations-translated",
+        "target-memory-materialized",
+        "ambiguous-pointer-refusal",
+        "public-product-verbs-not-used",
+        "source-isa-emulation-refusal",
+        "sidecar-output-not-used",
+        "raw-cross-isa-checkpoint-replay-not-used",
+        "metadata-only-success-refusal",
+        "product-support-not-claimed"
+      ],
+      "verifierCommand": "pnpm exec tsx scripts/native-memory-translate.ts verify --json && pnpm exec tsx scripts/native-controlled-restore.ts verify --json",
+      "verifierOutput": "preserved=1 relocations=1 materialized=materialized/4096 refusal=pointer-ambiguous",
+      "artifactDigests": {
+        "summary": "0eaf3f5c768885d8a1bd630878799179041f5a53559e78736d191eb43a0fe578"
+      },
+      "provenance": {
+        "family": "foundation-native",
+        "scripts": ["native-memory-translate", "native-controlled-restore"]
+      },
+      "migrationCompleted": true,
+      "evidenceStatus": "proof",
+      "sourceArch": "arm64",
+      "targetArch": "amd64",
+      "hostArch": "arm64",
+      "providerMode": "native/process-proof",
+      "targetExecution": "native",
+      "evidenceCategory": "native/process-proof",
+      "productSupport": "not-yet-supported",
+      "implementationLevel": "not-implemented",
+      "graduationTargetLevel": "level-5-cross-arch-process-continuation",
+      "kind": "machinen.architecture-portable-snapshot.final-proof-gauntlet-row"
+    },
+    {
+      "claimId": "native-executable-target-module-materialization",
+      "claimName": "native executable and target module materialization",
+      "stateModel": "native-executable-target-module-materialization",
+      "stateDecisions": [
+        "target-code-location-mapped",
+        "target-module-bytes-materialized",
+        "source-text-not-reused-as-target-code",
+        "target-build-mismatch-refusal",
+        "public-product-verbs-not-used",
+        "source-isa-emulation-refusal",
+        "sidecar-output-not-used",
+        "raw-cross-isa-checkpoint-replay-not-used",
+        "metadata-only-success-refusal",
+        "product-support-not-claimed"
+      ],
+      "verifierCommand": "pnpm exec tsx scripts/native-code-map.ts verify --json && pnpm exec tsx scripts/native-real-utility-target-module-bytes.ts verify --json",
+      "verifierOutput": "codeLocations=1 moduleBytes=128 sourceTextReused=false mismatch=target-build-mismatch",
+      "artifactDigests": {
+        "summary": "649d5a4db2014a760b8f0e200f4a695951ca44f912305fb89a3ad4037326bd48"
+      },
+      "provenance": {
+        "family": "foundation-native",
+        "scripts": ["native-code-map", "native-real-utility-target-module-bytes"],
+        "targetBytesSource": "explicit-target-root"
+      },
+      "migrationCompleted": true,
+      "evidenceStatus": "proof",
+      "sourceArch": "arm64",
+      "targetArch": "amd64",
+      "hostArch": "arm64",
+      "providerMode": "native/process-proof",
+      "targetExecution": "native",
+      "evidenceCategory": "native/process-proof",
+      "productSupport": "not-yet-supported",
+      "implementationLevel": "not-implemented",
+      "graduationTargetLevel": "level-5-cross-arch-process-continuation",
+      "kind": "machinen.architecture-portable-snapshot.final-proof-gauntlet-row"
+    },
+    {
+      "claimId": "native-target-restore-loader",
+      "claimName": "native target restore loader materialization",
+      "stateModel": "native-target-restore-loader",
+      "stateDecisions": [
+        "target-loader-materialized-mapping",
+        "missing-memory-refusal",
+        "public-product-verbs-not-used",
+        "source-isa-emulation-refusal",
+        "sidecar-output-not-used",
+        "raw-cross-isa-checkpoint-replay-not-used",
+        "metadata-only-success-refusal",
+        "product-support-not-claimed"
+      ],
+      "verifierCommand": "node scripts/native-restore-loader.mjs verify --json",
+      "verifierOutput": "status=materialized size=4096 finalProt=r missingMemory=1",
+      "artifactDigests": {
+        "summary": "2cc1b5f78ad94ff829f147d96dd73dc367c7fa919abe9af6aac7de49d82a4cf2"
+      },
+      "provenance": {
+        "family": "foundation-native",
+        "script": "native-restore-loader"
+      },
+      "migrationCompleted": true,
+      "sourceArch": "arm64",
+      "targetArch": "amd64",
+      "evidenceStatus": "proof",
+      "hostArch": "arm64",
+      "providerMode": "native/process-proof",
+      "targetExecution": "native",
+      "evidenceCategory": "native/process-proof",
+      "productSupport": "not-yet-supported",
+      "implementationLevel": "not-implemented",
+      "graduationTargetLevel": "level-5-cross-arch-process-continuation",
+      "kind": "machinen.architecture-portable-snapshot.final-proof-gauntlet-row"
+    },
+    {
+      "claimId": "native-tls-simd-fpu-policy",
+      "claimName": "native TLS, rseq, SIMD, and FPU policy refusals",
+      "stateModel": "native-tls-simd-fpu-policy",
+      "stateDecisions": [
+        "tls-policy-refusal",
+        "rseq-policy-refusal",
+        "simd-fpu-policy-refusal",
+        "product-support-not-claimed"
+      ],
+      "verifierCommand": "pnpm exec tsx scripts/native-thread-refusal-matrix.ts verify --json",
+      "verifierOutput": "rseq-captured:rseq-state-unsupported,rseq-unsupported:rseq-state-unsupported",
+      "artifactDigests": {
+        "summary": "2d7dae8abba26d33f3b40ff92a42a9391eac3532e7e8c5eea8f832b5e513497f"
+      },
+      "provenance": {
+        "family": "native-linux-resource",
+        "script": "native-thread-refusal-matrix"
+      },
+      "refusalCode": "native-tls-simd-fpu-policy-refusal-matrix",
+      "remediation": "Add explicit TLS/rseq/SIMD/FPU restore models and target-native verifier coverage before accepting these states.",
+      "evidenceStatus": "refusal",
+      "sourceArch": "arm64",
+      "targetArch": "amd64",
+      "hostArch": "arm64",
+      "providerMode": "native/process-unsupported",
+      "targetExecution": "not-applicable",
+      "evidenceCategory": "unsupported",
+      "productSupport": "unsupported",
+      "implementationLevel": "level-0-fail-closed-discovery",
+      "graduationTargetLevel": "level-5-cross-arch-process-continuation",
+      "migrationCompleted": false,
+      "kind": "machinen.architecture-portable-snapshot.final-proof-gauntlet-row"
+    },
+    {
+      "claimId": "native-signal-policy",
+      "claimName": "native signal policy refusals",
+      "stateModel": "native-signal-policy",
+      "stateDecisions": [
+        "signal-frame-refusal",
+        "pending-signal-refusal",
+        "signal-mask-refusal",
+        "alt-stack-refusal",
+        "product-support-not-claimed"
+      ],
+      "verifierCommand": "pnpm exec tsx scripts/native-thread-refusal-matrix.ts verify --json",
+      "verifierOutput": "signal-frame:signal-frame-active,pending-signal-mask:signal-state-unsupported,blocked-signal-mask:signal-state-unsupported,alt-stack:signal-state-unsupported",
+      "artifactDigests": {
+        "summary": "a8ec3aaa701a6636c0a3652011c885614673c8d0f1df4f3badbc3cd712e19b95"
+      },
+      "provenance": {
+        "family": "native-linux-resource",
+        "script": "native-thread-refusal-matrix"
+      },
+      "refusalCode": "native-signal-policy-refusal-matrix",
+      "remediation": "Restore only threads with empty pending/blocked signal state until signal frames, masks, and alt-stack semantics have explicit target models.",
+      "evidenceStatus": "refusal",
+      "sourceArch": "arm64",
+      "targetArch": "amd64",
+      "hostArch": "arm64",
+      "providerMode": "native/process-unsupported",
+      "targetExecution": "not-applicable",
+      "evidenceCategory": "unsupported",
+      "productSupport": "unsupported",
+      "implementationLevel": "level-0-fail-closed-discovery",
+      "graduationTargetLevel": "level-5-cross-arch-process-continuation",
+      "migrationCompleted": false,
+      "kind": "machinen.architecture-portable-snapshot.final-proof-gauntlet-row"
+    },
+    {
+      "claimId": "native-active-syscall-policy",
+      "claimName": "native active syscall policy refusals",
+      "stateModel": "native-active-syscall-policy",
+      "stateDecisions": [
+        "active-syscall-refusal",
+        "restart-syscall-refusal",
+        "outside-syscall-not-a-continuation",
+        "product-support-not-claimed"
+      ],
+      "verifierCommand": "pnpm exec tsx scripts/native-active-syscall-policy.ts verify --json",
+      "verifierOutput": "classes=outside-syscall,sleep-timer,fd-blocking,restart,unknown-active refusals=4",
+      "artifactDigests": {
+        "summary": "dfff658875caa75987e34c41961dae41deacd59df057c8f6f0e21d9456dd94bd"
+      },
+      "provenance": {
+        "family": "native-linux-resource",
+        "script": "native-active-syscall-policy"
+      },
+      "refusalCode": "native-active-syscall-policy-refusal-matrix",
+      "remediation": "Drain active syscalls or add syscall-specific target restart models before native process restore.",
+      "evidenceStatus": "refusal",
+      "sourceArch": "arm64",
+      "targetArch": "amd64",
+      "hostArch": "arm64",
+      "providerMode": "native/process-unsupported",
+      "targetExecution": "not-applicable",
+      "evidenceCategory": "unsupported",
+      "productSupport": "unsupported",
+      "implementationLevel": "level-0-fail-closed-discovery",
+      "graduationTargetLevel": "level-5-cross-arch-process-continuation",
+      "migrationCompleted": false,
+      "kind": "machinen.architecture-portable-snapshot.final-proof-gauntlet-row"
+    },
+    {
+      "claimId": "native-thread-policy",
+      "claimName": "native thread restore policy refusals",
+      "stateModel": "native-thread-restore-policy",
+      "stateDecisions": [
+        "single-safe-thread-accepted",
+        "multi-thread-refusal",
+        "debug-stop-refusal",
+        "shared-stack-refusal",
+        "product-support-not-claimed"
+      ],
+      "verifierCommand": "pnpm exec tsx scripts/native-thread-refusal-matrix.ts verify --json",
+      "verifierOutput": "accepted=accepted refusals=multi-thread:thread-state-unsupported,futex-wait:futex-state-unsupported,active-futex-syscall:futex-state-unsupported,signal-delivery-stop:signal-state-unsupported,ptrace-debug:thread-state-unsupported,shared-stack:mapping-shared-unsupported,unknown-tls:tls-state-unsupported,wrong-tls-source-register:tls-state-unsupported,unsupported-target-segment-bases:tls-state-unsupported,ambiguous-registers:thread-state-unsupported,missing-simd-fpu-state:simd-fpu-state-unsupported,live-simd-fpu-state:simd-fpu-state-unsupported,partial-simd-fpu-subset:simd-fpu-state-unsupported,unsupported-simd-fpu-state:simd-fpu-state-unsupported",
+      "artifactDigests": {
+        "summary": "079ed93bc0d19356e9a1bbb80cd8cc4005c2cbb82a8eccb05558dd433450d81c"
+      },
+      "provenance": {
+        "family": "native-linux-resource",
+        "script": "native-thread-refusal-matrix"
+      },
+      "refusalCode": "native-thread-policy-refusal-matrix",
+      "remediation": "Restore only the single safe thread fixture until multi-thread, futex, debug, and shared-stack models are productized.",
+      "evidenceStatus": "refusal",
+      "sourceArch": "arm64",
+      "targetArch": "amd64",
+      "hostArch": "arm64",
+      "providerMode": "native/process-unsupported",
+      "targetExecution": "not-applicable",
+      "evidenceCategory": "unsupported",
+      "productSupport": "unsupported",
+      "implementationLevel": "level-0-fail-closed-discovery",
+      "graduationTargetLevel": "level-5-cross-arch-process-continuation",
+      "migrationCompleted": false,
+      "kind": "machinen.architecture-portable-snapshot.final-proof-gauntlet-row"
+    },
+    {
+      "claimId": "native-mapping-refusals",
+      "claimName": "native mapping refusal policy",
+      "stateModel": "native-mapping-refusal-policy",
+      "stateDecisions": [
+        "kernel-mapping-refusal-or-recreated",
+        "ambiguous-mapping-refusal",
+        "migration-not-attempted",
+        "product-support-not-claimed"
+      ],
+      "verifierCommand": "pnpm exec tsx scripts/native-mapping-policy.ts verify --json && pnpm exec tsx scripts/native-controlled-restore.ts verify --json",
+      "verifierOutput": "mappingPolicy=skipped:mapping policy capture uses Linux /proc maps controlledRefusal=mapping-ambiguous",
+      "artifactDigests": {
+        "summary": "ce29612dd84c8d9f15685272d3d1619e353a82ea52e3a307194a02829d487729"
+      },
+      "provenance": {
+        "family": "native-linux-resource",
+        "scripts": ["native-mapping-policy", "native-controlled-restore"]
+      },
+      "refusalCode": "native-mapping-refusal-matrix",
+      "remediation": "Use explicit mapping materialization recipes and refuse ambiguous kernel/special mappings before target execution.",
+      "evidenceStatus": "refusal",
+      "sourceArch": "arm64",
+      "targetArch": "amd64",
+      "hostArch": "arm64",
+      "providerMode": "native/process-unsupported",
+      "targetExecution": "not-applicable",
+      "evidenceCategory": "unsupported",
+      "productSupport": "unsupported",
+      "implementationLevel": "level-0-fail-closed-discovery",
+      "graduationTargetLevel": "level-5-cross-arch-process-continuation",
+      "migrationCompleted": false,
+      "kind": "machinen.architecture-portable-snapshot.final-proof-gauntlet-row"
+    },
+    {
+      "claimId": "native-resource-refusals",
+      "claimName": "native resource refusal policy",
+      "stateModel": "native-resource-refusal-policy",
+      "stateDecisions": [
+        "regular-file-recipe-produced",
+        "brokerless-kernel-resource-refusal",
+        "migration-not-attempted",
+        "product-support-not-claimed"
+      ],
+      "verifierCommand": "pnpm exec tsx scripts/native-resource-translate.ts verify --json",
+      "verifierOutput": "resources=2 refusals=kernel-state-unsupported",
+      "artifactDigests": {
+        "summary": "f203871ff9b0efca81f62036cf2025c39414d888297eaa767a8204286e1021b5"
+      },
+      "provenance": {
+        "family": "native-linux-resource",
+        "script": "native-resource-translate"
+      },
+      "refusalCode": "native-resource-refusal-matrix",
+      "remediation": "Use accepted resource recipes or stable product refusals for brokerless sockets, non-file kernel state, and unsupported fd kinds.",
+      "evidenceStatus": "refusal",
+      "sourceArch": "arm64",
+      "targetArch": "amd64",
+      "hostArch": "arm64",
+      "providerMode": "native/process-unsupported",
+      "targetExecution": "not-applicable",
+      "evidenceCategory": "unsupported",
+      "productSupport": "unsupported",
+      "implementationLevel": "level-0-fail-closed-discovery",
+      "graduationTargetLevel": "level-5-cross-arch-process-continuation",
+      "migrationCompleted": false,
       "kind": "machinen.architecture-portable-snapshot.final-proof-gauntlet-row"
     }
   ],
-  "byClassification": {
-    "product-supported": 0,
-    "proof-only-feasibility": 7,
+  "byEvidenceStatus": {
+    "support": 0,
+    "proof": 8,
     "stretch-demo": 1,
-    "refused": 6,
+    "refusal": 9,
     "skipped": 1
   },
   "failures": []
