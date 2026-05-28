@@ -473,6 +473,13 @@ export {
   validateNativeProcessImageDocuments,
 } from "./native-process-image.ts";
 export {
+  PORTABLE_SNAPSHOT_GUEST_CRIU_COMPOSITION_KIND,
+  buildPortableSnapshotGuestCriuCompositionRow,
+  portableSnapshotGuestCriuCompositionRefusalCodes,
+  summarizePortableSnapshotGuestCriuCompositionRows,
+  validatePortableSnapshotGuestCriuCompositionRows,
+} from "./portable-snapshot-guest-criu-composition.ts";
+export {
   GUEST_CRIU_SUBSTRATE_KIND,
   buildGuestCriuSubstrateRow,
   guestCriuSubstrateRefusalCodes,
@@ -561,6 +568,14 @@ export {
   planPortableMachineTargetRestoreDescriptor,
   planPortableMachineVmRestoreProof,
 } from "./portable-machine-restore-proof.ts";
+export type {
+  PortableSnapshotGuestCriuCompositionInput,
+  PortableSnapshotGuestCriuCompositionRefusalCode,
+  PortableSnapshotGuestCriuCompositionRow,
+  PortableSnapshotGuestCriuCompositionState,
+  PortableSnapshotGuestCriuCompositionSummary,
+  PortableSnapshotGuestCriuMachinenStateModel,
+} from "./portable-snapshot-guest-criu-composition.ts";
 export type {
   GuestCriuSubstrateInput,
   GuestCriuSubstrateProfile,

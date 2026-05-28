@@ -43,6 +43,7 @@ function usage(): never {
   process.exit(2);
 }
 
+// fallow-ignore-next-line complexity
 function parseArgs(argv: string[]): Options {
   const pending = [...argv];
   const options: Options = { json: false, profile: "all" };
@@ -89,6 +90,7 @@ function renderSummary(
   return `guest-criu-substrate: ${summary.state} completed=${summary.completedRows} refused=${summary.refusedRows}\n`;
 }
 
+// fallow-ignore-next-line complexity
 async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2));
   const vm = await boot({

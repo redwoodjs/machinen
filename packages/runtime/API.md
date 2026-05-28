@@ -43,6 +43,20 @@
 - [`writeBootSnapshot`](#writebootsnapshot)
 - [`detachedLogRoot`](#detachedlogroot)
 
+### Portable snapshot + guest CRIU composition
+
+- [`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput)
+- [`PortableSnapshotGuestCriuCompositionRefusalCode`](#portablesnapshotguestcriucompositionrefusalcode)
+- [`PortableSnapshotGuestCriuCompositionRow`](#portablesnapshotguestcriucompositionrow)
+- [`PortableSnapshotGuestCriuCompositionState`](#portablesnapshotguestcriucompositionstate)
+- [`PortableSnapshotGuestCriuCompositionSummary`](#portablesnapshotguestcriucompositionsummary)
+- [`PortableSnapshotGuestCriuMachinenStateModel`](#portablesnapshotguestcriumachinenstatemodel)
+- [`PORTABLE_SNAPSHOT_GUEST_CRIU_COMPOSITION_KIND`](#portable_snapshot_guest_criu_composition_kind)
+- [`portableSnapshotGuestCriuCompositionRefusalCodes`](#portablesnapshotguestcriucompositionrefusalcodes)
+- [`buildPortableSnapshotGuestCriuCompositionRow`](#buildportablesnapshotguestcriucompositionrow)
+- [`summarizePortableSnapshotGuestCriuCompositionRows`](#summarizeportablesnapshotguestcriucompositionrows)
+- [`validatePortableSnapshotGuestCriuCompositionRows`](#validateportablesnapshotguestcriucompositionrows)
+
 ### Guest CRIU substrate
 
 - [`GuestCriuSubstrateInput`](#guestcriusubstrateinput)
@@ -10598,6 +10612,228 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ***
 
+### PortableSnapshotGuestCriuCompositionInput
+
+#### Extended by
+
+- [`PortableSnapshotGuestCriuCompositionRow`](#portablesnapshotguestcriucompositionrow)
+
+#### Properties
+
+##### sourceArch
+
+> **sourceArch**: `string`
+
+##### targetArch
+
+> **targetArch**: `string`
+
+##### machinenStateModel
+
+> **machinenStateModel**: [`PortableSnapshotGuestCriuMachinenStateModel`](#portablesnapshotguestcriumachinenstatemodel)
+
+##### guestCriuVersion
+
+> **guestCriuVersion**: `string`
+
+##### preSnapshotGuestCriuVerifier
+
+> **preSnapshotGuestCriuVerifier**: `string`
+
+##### postRestoreGuestCriuVerifier
+
+> **postRestoreGuestCriuVerifier**: `string`
+
+##### storedCriuImageDigest
+
+> **storedCriuImageDigest**: `string`
+
+##### storedCriuImageReadableAfterRestore
+
+> **storedCriuImageReadableAfterRestore**: `boolean`
+
+##### migrationCompleted?
+
+> `optional` **migrationCompleted?**: `boolean`
+
+##### refusalCode?
+
+> `optional` **refusalCode?**: `"guest-criu-capability-unavailable"` \| `"guest-criu-storage-unsupported-or-dirty"` \| `"cross-isa-criu-image-restore-unsupported"` \| `"machinen-restore-path-unsupported"` \| `"composition-verifier-missing-or-ambiguous"` \| `"stored-criu-image-unreadable-after-restore"`
+
+##### remediation?
+
+> `optional` **remediation?**: `string`
+
+##### evidence?
+
+> `optional` **evidence?**: `Record`\<`string`, `unknown`\>
+
+***
+
+### PortableSnapshotGuestCriuCompositionRow
+
+#### Extends
+
+- [`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput)
+
+#### Properties
+
+##### sourceArch
+
+> **sourceArch**: `string`
+
+###### Inherited from
+
+[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`sourceArch`](#sourcearch-4)
+
+##### targetArch
+
+> **targetArch**: `string`
+
+###### Inherited from
+
+[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`targetArch`](#targetarch-15)
+
+##### machinenStateModel
+
+> **machinenStateModel**: [`PortableSnapshotGuestCriuMachinenStateModel`](#portablesnapshotguestcriumachinenstatemodel)
+
+###### Inherited from
+
+[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`machinenStateModel`](#machinenstatemodel)
+
+##### guestCriuVersion
+
+> **guestCriuVersion**: `string`
+
+###### Inherited from
+
+[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`guestCriuVersion`](#guestcriuversion)
+
+##### preSnapshotGuestCriuVerifier
+
+> **preSnapshotGuestCriuVerifier**: `string`
+
+###### Inherited from
+
+[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`preSnapshotGuestCriuVerifier`](#presnapshotguestcriuverifier)
+
+##### postRestoreGuestCriuVerifier
+
+> **postRestoreGuestCriuVerifier**: `string`
+
+###### Inherited from
+
+[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`postRestoreGuestCriuVerifier`](#postrestoreguestcriuverifier)
+
+##### storedCriuImageDigest
+
+> **storedCriuImageDigest**: `string`
+
+###### Inherited from
+
+[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`storedCriuImageDigest`](#storedcriuimagedigest)
+
+##### storedCriuImageReadableAfterRestore
+
+> **storedCriuImageReadableAfterRestore**: `boolean`
+
+###### Inherited from
+
+[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`storedCriuImageReadableAfterRestore`](#storedcriuimagereadableafterrestore)
+
+##### refusalCode?
+
+> `optional` **refusalCode?**: `"guest-criu-capability-unavailable"` \| `"guest-criu-storage-unsupported-or-dirty"` \| `"cross-isa-criu-image-restore-unsupported"` \| `"machinen-restore-path-unsupported"` \| `"composition-verifier-missing-or-ambiguous"` \| `"stored-criu-image-unreadable-after-restore"`
+
+###### Inherited from
+
+[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`refusalCode`](#refusalcode-4)
+
+##### remediation?
+
+> `optional` **remediation?**: `string`
+
+###### Inherited from
+
+[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`remediation`](#remediation-5)
+
+##### evidence?
+
+> `optional` **evidence?**: `Record`\<`string`, `unknown`\>
+
+###### Inherited from
+
+[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`evidence`](#evidence-2)
+
+##### kind
+
+> **kind**: `"machinen.cross-arch-criu.portable-snapshot-guest-criu-composition"`
+
+##### state
+
+> **state**: [`PortableSnapshotGuestCriuCompositionState`](#portablesnapshotguestcriucompositionstate)
+
+##### migrationCompleted
+
+> **migrationCompleted**: `boolean`
+
+###### Overrides
+
+[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput).[`migrationCompleted`](#migrationcompleted-3)
+
+##### scope
+
+> **scope**: `object`
+
+###### guestCriuSameIsaOnly
+
+> **guestCriuSameIsaOnly**: `true`
+
+###### crossIsaCriuImageRestoreClaimed
+
+> **crossIsaCriuImageRestoreClaimed**: `false`
+
+###### machinenRestoreRequired
+
+> **machinenRestoreRequired**: `true`
+
+***
+
+### PortableSnapshotGuestCriuCompositionSummary
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.cross-arch-criu.portable-snapshot-guest-criu-composition-smoke"`
+
+##### state
+
+> **state**: `"completed"` \| `"failed"`
+
+##### pass
+
+> **pass**: `boolean`
+
+##### rows
+
+> **rows**: [`PortableSnapshotGuestCriuCompositionRow`](#portablesnapshotguestcriucompositionrow)[]
+
+##### completedRows
+
+> **completedRows**: `number`
+
+##### refusedRows
+
+> **refusedRows**: `number`
+
+##### failures
+
+> **failures**: `string`[]
+
+***
+
 ### RssTarget
 
 A pid plus the absolute path to its stats file (when available).
@@ -15384,6 +15620,24 @@ Result of `validatePid` — easy to switch on at the call site.
 
 ***
 
+### PortableSnapshotGuestCriuCompositionRefusalCode
+
+> **PortableSnapshotGuestCriuCompositionRefusalCode** = *typeof* [`portableSnapshotGuestCriuCompositionRefusalCodes`](#portablesnapshotguestcriucompositionrefusalcodes)\[`number`\]
+
+***
+
+### PortableSnapshotGuestCriuCompositionState
+
+> **PortableSnapshotGuestCriuCompositionState** = `"completed"` \| `"refused"` \| `"skipped"`
+
+***
+
+### PortableSnapshotGuestCriuMachinenStateModel
+
+> **PortableSnapshotGuestCriuMachinenStateModel** = `"same-arch-vmstate"` \| `"cross-arch-semantic-restore"` \| `"unsupported-cross-isa-criu-replay"` \| `"other-supported"`
+
+***
+
 ### ProductClaimStatus
 
 > **ProductClaimStatus** = *typeof* [`productClaimStatuses`](#productclaimstatuses)\[`number`\]
@@ -17107,6 +17361,18 @@ loops; anything looser stops being a meaningful gate.
 ###### properties.refusals.properties.refusals.items.properties.detail.type
 
 > `readonly` **type**: `"object"` = `"object"`
+
+***
+
+### PORTABLE\_SNAPSHOT\_GUEST\_CRIU\_COMPOSITION\_KIND
+
+> `const` **PORTABLE\_SNAPSHOT\_GUEST\_CRIU\_COMPOSITION\_KIND**: `"machinen.cross-arch-criu.portable-snapshot-guest-criu-composition"`
+
+***
+
+### portableSnapshotGuestCriuCompositionRefusalCodes
+
+> `const` **portableSnapshotGuestCriuCompositionRefusalCodes**: readonly \[`"guest-criu-capability-unavailable"`, `"guest-criu-storage-unsupported-or-dirty"`, `"cross-isa-criu-image-restore-unsupported"`, `"machinen-restore-path-unsupported"`, `"composition-verifier-missing-or-ambiguous"`, `"stored-criu-image-unreadable-after-restore"`\]
 
 ***
 
@@ -19142,6 +19408,54 @@ behaviour we had before.
 #### Returns
 
 [`PortableMachineSnapshotManifest`](#portablemachinesnapshotmanifest)
+
+***
+
+### buildPortableSnapshotGuestCriuCompositionRow()
+
+> **buildPortableSnapshotGuestCriuCompositionRow**(`input`): [`PortableSnapshotGuestCriuCompositionRow`](#portablesnapshotguestcriucompositionrow)
+
+#### Parameters
+
+##### input
+
+[`PortableSnapshotGuestCriuCompositionInput`](#portablesnapshotguestcriucompositioninput)
+
+#### Returns
+
+[`PortableSnapshotGuestCriuCompositionRow`](#portablesnapshotguestcriucompositionrow)
+
+***
+
+### summarizePortableSnapshotGuestCriuCompositionRows()
+
+> **summarizePortableSnapshotGuestCriuCompositionRows**(`rows`): [`PortableSnapshotGuestCriuCompositionSummary`](#portablesnapshotguestcriucompositionsummary)
+
+#### Parameters
+
+##### rows
+
+[`PortableSnapshotGuestCriuCompositionRow`](#portablesnapshotguestcriucompositionrow)[]
+
+#### Returns
+
+[`PortableSnapshotGuestCriuCompositionSummary`](#portablesnapshotguestcriucompositionsummary)
+
+***
+
+### validatePortableSnapshotGuestCriuCompositionRows()
+
+> **validatePortableSnapshotGuestCriuCompositionRows**(`rows`): `string`[]
+
+#### Parameters
+
+##### rows
+
+[`PortableSnapshotGuestCriuCompositionRow`](#portablesnapshotguestcriucompositionrow)[]
+
+#### Returns
+
+`string`[]
 
 ***
 

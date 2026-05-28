@@ -108,6 +108,7 @@
     "smoke-guest-criu-substrate": "bash scripts/smoke/guest-criu-substrate.sh",
     "smoke-guest-criu-c": "bash scripts/smoke/guest-criu-substrate.sh --profile c-simple",
     "smoke-guest-criu-jvm": "bash scripts/smoke/guest-criu-substrate.sh --profile jvm-simple",
+    "smoke-portable-snapshot-guest-criu-composition": "bash scripts/smoke/portable-snapshot-guest-criu-composition.sh",
     "smoke-postgres-cross-arch-restore": "bash scripts/smoke/postgres-cross-arch-restore.sh",
     "smoke-postgres-machinen-restore": "bash scripts/smoke/postgres-machinen-restore.sh",
     "smoke-product-portable-postgres": "bash scripts/smoke/product-portable-postgres.sh",

@@ -101,6 +101,7 @@ export function summarizeGuestCriuSubstrateRows(
   };
 }
 
+// fallow-ignore-next-line complexity
 export function validateGuestCriuSubstrateRows(rows: GuestCriuSubstrateRow[]): string[] {
   const failures: string[] = [];
   if (rows.length === 0) {
