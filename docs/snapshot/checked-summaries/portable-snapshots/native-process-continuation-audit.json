@@ -1,0 +1,177 @@
+{
+  "kind": "machinen.portable-snapshots.native-process-continuation-audit",
+  "formatVersion": 1,
+  "state": "completed",
+  "pass": true,
+  "summary": {
+    "productSupportedSubsets": [
+      "node-http-clean-root-v1",
+      "python-http-clean-root-v1",
+      "go-http-clean-root-v1",
+      "ping-sequence-counter-semantic-continuation-v1"
+    ],
+    "controlledCounterClassification": "contract-guardrail",
+    "arbitraryLinuxProcessContinuation": "not-supported",
+    "primaryGap": "taxonomy-and-productization-reconciliation"
+  },
+  "evidenceFamilies": [
+    {
+      "id": "controlled-c-translated-continuation",
+      "classification": "contract-guardrail",
+      "productStatus": "proof-only-feasibility",
+      "processContinuationStatus": "logical-safe-point-continuation-only",
+      "migrationCompleted": true,
+      "publicSnapshotRestoreSurface": false,
+      "evidencePaths": [
+        "docs/snapshot/checked-summaries/architecture-portable-snapshot/final-gauntlet.json",
+        "packages/runtime/src/architecture-portable-controlled-continuation.ts",
+        "scripts/architecture-portable-controlled-continuation-capture.ts"
+      ],
+      "notes": "Useful as a proof-contract guardrail. It does not translate a real source process image."
+    },
+    {
+      "id": "native-process-foundations",
+      "classification": "native/process-continuation-proof-and-refusal-foundation",
+      "productStatus": "mixed-proof-only-and-stable-refusal",
+      "processContinuationStatus": "substantial-foundation-not-arbitrary-product-support",
+      "migrationCompleted": "varies-by-profile",
+      "publicSnapshotRestoreSurface": false,
+      "evidencePaths": [
+        "packages/runtime/src/native-register-translation.ts",
+        "packages/runtime/src/native-stack-translation.ts",
+        "packages/runtime/src/native-memory-translation.ts",
+        "packages/runtime/src/native-return-chain.ts",
+        "packages/runtime/src/native-machine-restore-descriptor.ts",
+        "scripts/native-actual-real-utility-continuation.ts",
+        "docs/snapshot/checked-summaries/product-claim-registry/foundation-native.json",
+        "docs/snapshot/checked-summaries/product-claim-registry/native-linux-resource.json"
+      ],
+      "notes": "Existing native machinery covers registers, stack, memory, mappings, return chains, target modules, resources, active syscalls, signals, TLS, SIMD/FPU policy, and thread boundaries. Product registry keeps most positive profiles proof-only and unsafe neighbors refused."
+    },
+    {
+      "id": "minimal-live-node-vm-restore",
+      "classification": "proof-only-live-target-proof",
+      "productStatus": "proof-only-fixture",
+      "processContinuationStatus": "meaningful-node-process-continuation-evidence-for-claimed-subset",
+      "migrationCompleted": true,
+      "descriptorGateCompleted": true,
+      "publicSnapshotRestoreSurface": false,
+      "evidencePaths": [
+        "goals/portable-snapshot-format/goal-033.3-minimal-live-node-vm-restore.md",
+        "goals/portable-snapshot-format/goal-033.md"
+      ],
+      "notes": "Completed live Node capture -> portable bundle -> Proxmox amd64 VM restore/resume with gates for registers, TLS, stack window, private memory, executable, process context, signal, active syscall, controlled thread, resume path, and Node output."
+    },
+    {
+      "id": "arbitrary-existing-node-processes",
+      "classification": "proof-only-live-target-proof",
+      "productStatus": "proof-only-fixture-for-process-depth; clean-service-subset-product-supported",
+      "processContinuationStatus": "meaningful-existing-node-process-evidence-for-claimed-subset",
+      "migrationCompleted": true,
+      "descriptorGateCompleted": true,
+      "publicSnapshotRestoreSurface": false,
+      "evidencePaths": [
+        "goals/portable-snapshot-format/goal-035.1-arbitrary-existing-node-processes.md",
+        "docs/snapshot/checked-summaries/node-expanded/node-expanded-arbitrary-existing-processes.json"
+      ],
+      "notes": "Existing Node process discovery/capture/restore proof exists with target-native execution and unsafe-neighbor refusals. It still needs taxonomy/product-surface reconciliation before broader process claims."
+    },
+    {
+      "id": "clean-service-product-support",
+      "classification": "product-supported-semantic-restart",
+      "productStatus": "implemented-product-support",
+      "processContinuationStatus": "workload-continuation-not-process-image-continuation",
+      "migrationCompleted": true,
+      "publicSnapshotRestoreSurface": true,
+      "evidencePaths": [
+        "docs/snapshot/product-claim-registry.md",
+        "docs/snapshot/product-cross-arch-claim-inventory.json",
+        "packages/cli/src/clean-service/manifest.ts"
+      ],
+      "notes": "Node, Python, and Go clean HTTP service subsets are product-supported through machinen snapshot/restore; they are semantic restart/reconstruction paths."
+    },
+    {
+      "id": "ping-semantic-continuation",
+      "classification": "product-supported-semantic-continuation",
+      "productStatus": "implemented-product-support",
+      "processContinuationStatus": "semantic-continuation-not-raw-socket-process-continuation",
+      "migrationCompleted": true,
+      "publicSnapshotRestoreSurface": true,
+      "evidencePaths": [
+        "docs/snapshot/product-claim-registry.md",
+        "docs/snapshot/product-cross-arch-claim-inventory.json",
+        "packages/runtime/src/product-semantic-ping.ts"
+      ],
+      "notes": "Ping sequence/counter descriptor continues user-visible state. Raw socket kernel/process state remains refused."
+    },
+    {
+      "id": "stateful-services-and-databases",
+      "classification": "logical-restore-and-stable-refusal-matrix",
+      "productStatus": "mixed-proof-only-and-stable-refusal",
+      "processContinuationStatus": "database-logical-state-not-live-database-process-continuation",
+      "migrationCompleted": "true-for-clean-logical-proofs; false-for-unsafe-neighbors",
+      "publicSnapshotRestoreSurface": "not-for-postgresql-logical-proof-until-routed-through-normal-verbs",
+      "evidencePaths": [
+        "docs/snapshot/checked-summaries/stateful-services/",
+        "goals/portable-snapshot-format/goal-043.md",
+        "goals/portable-snapshot-format/goal-044.md",
+        "docs/snapshot/product-cross-arch-claim-inventory.json"
+      ],
+      "notes": "Databases have logical/stateful restore proof and refusals. Live database process continuation is not supported."
+    },
+    {
+      "id": "go-python-runtime-proofs",
+      "classification": "runtime-aware-workload-continuation-proof-and-product-clean-service-support",
+      "productStatus": "clean-service-subsets-supported; deeper-runtime-proofs-proof-only",
+      "processContinuationStatus": "runtime/workload-continuation-not-arbitrary-process-image-continuation",
+      "migrationCompleted": true,
+      "publicSnapshotRestoreSurface": "true-for-clean-service-subsets",
+      "evidencePaths": [
+        "docs/snapshot/checked-summaries/non-node-cross-arch/",
+        "docs/snapshot/checked-summaries/go-quiescent-runtime/",
+        "docs/snapshot/product-cross-arch-claim-inventory.json"
+      ],
+      "notes": "Go/Python have product clean-service subsets and proof-only deeper runtime evidence. Ruby/JVM remain proof-only/refused until graduated."
+    }
+  ],
+  "remainingGaps": [
+    {
+      "family": "taxonomy",
+      "missing": [
+        "Single registry view distinguishing semantic restart, semantic continuation, runtime-aware continuation, native/process proof, stable refusal, and product support",
+        "Consistent interpretation of migrationCompleted=true across old and new summaries",
+        "Architecture/portable snapshot gauntlet rows for existing native/process evidence"
+      ]
+    },
+    {
+      "family": "nodejs",
+      "missing": [
+        "Decision on whether Goal 33.3/35 process-depth proofs remain proof-only or feed product support",
+        "If productized: route process-depth proofs through public no-runtime-flag machinen snapshot/restore",
+        "Keep Node/V8/libuv/native-addon/socket unsafe neighbors refused with stable product codes"
+      ]
+    },
+    {
+      "family": "ping",
+      "missing": [
+        "Clarify product docs: sequence/counter continuation is supported; raw socket/process state is not",
+        "Keep unread queues, active recvmsg, and raw socket kernel state refused"
+      ]
+    },
+    {
+      "family": "databases",
+      "missing": [
+        "Route any claimed PostgreSQL logical support through public machinen snapshot/restore before product advertising",
+        "Do not claim live database process continuation"
+      ]
+    },
+    {
+      "family": "native-process",
+      "missing": [
+        "Product descriptor and CLI/API integration for selected native proof profile",
+        "End-to-end target-native validation through product surface",
+        "Explicit support/refusal matrix for each process-state dimension"
+      ]
+    }
+  ]
+}
