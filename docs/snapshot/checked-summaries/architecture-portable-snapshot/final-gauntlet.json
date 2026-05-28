@@ -1,0 +1,401 @@
+{
+  "kind": "machinen.architecture-portable-snapshot.final-proof-gauntlet",
+  "state": "completed",
+  "pass": true,
+  "rowCount": 15,
+  "rows": [
+    {
+      "claimId": "opposite-isa-vm-execution",
+      "claimName": "opposite-ISA VM execution",
+      "classification": "skipped",
+      "sourceArch": "arm64",
+      "targetArch": "amd64",
+      "hostArch": "arm64",
+      "providerMode": "darwin-hvf-opposite-isa-unsupported",
+      "targetExecution": "not-applicable",
+      "stateModel": "provider-guest-boot",
+      "stateDecisions": ["guest-verifier-required", "host-sidecar-output-refused"],
+      "verifierCommand": "bash scripts/smoke/opposite-isa-vm-execution.sh --json",
+      "verifierOutput": "opposite-isa-provider-unavailable",
+      "artifactDigests": {
+        "summary": "39bddc1ce87559e3f59b98a7a0f201113f0581632365efa2c11ef4e83a9b57d8"
+      },
+      "provenance": {
+        "family": "opposite-isa-vm-execution",
+        "liveRequested": false
+      },
+      "migrationCompleted": false,
+      "refusalCode": "opposite-isa-provider-unavailable",
+      "remediation": "Re-run with --live on a host/provider that supports the requested opposite-ISA guest route.",
+      "kind": "machinen.architecture-portable-snapshot.final-proof-gauntlet-row"
+    },
+    {
+      "claimId": "postgres-bidirectional-logical-restore",
+      "claimName": "PostgreSQL bidirectional logical restore",
+      "classification": "proof-only-feasibility",
+      "sourceArch": "arm64<->amd64",
+      "targetArch": "amd64<->arm64",
+      "hostArch": "arm64",
+      "providerMode": "logical-target-native-verifier",
+      "targetExecution": "native",
+      "stateModel": "logical-dump",
+      "stateDecisions": [
+        "logical-artifact-restored",
+        "target-verifier-passed",
+        "raw-checkpoint-image-not-used"
+      ],
+      "verifierCommand": "bash scripts/smoke/stateful-database-portable-restore.sh --json",
+      "verifierOutput": "postgres verifier: events=2 values=alpha,beta indexes=2 | postgres verifier: events=2 values=alpha,beta indexes=2",
+      "artifactDigests": {
+        "summary": "60f92f51cfafd08cd8f749f70d56874a1d9d48b92bc06624b16a3d4f28adaf14"
+      },
+      "provenance": {
+        "family": "stateful-database-portable-restore",
+        "rowCount": 2
+      },
+      "migrationCompleted": true,
+      "kind": "machinen.architecture-portable-snapshot.final-proof-gauntlet-row"
+    },
+    {
+      "claimId": "postgres-unsafe-neighbor-refusals",
+      "claimName": "PostgreSQL unsafe-neighbor refusals",
+      "classification": "refused",
+      "sourceArch": "arm64",
+      "targetArch": "amd64",
+      "hostArch": "arm64",
+      "providerMode": "logical-target-native-verifier",
+      "targetExecution": "not-applicable",
+      "stateModel": "postgres-refusal-matrix",
+      "stateDecisions": ["unsafe-neighbor-refused", "migration-not-attempted"],
+      "verifierCommand": "bash scripts/smoke/stateful-database-portable-restore.sh --json",
+      "verifierOutput": "postgres-active-transaction-unsupported, postgres-active-session-unsupported, postgres-dirty-wal-boundary-unsupported, postgres-host-mounted-data-dir-ambiguous, postgres-physical-data-dir-cross-isa-unsupported, postgres-extension-native-state-unsupported, postgres-target-verifier-mismatch",
+      "artifactDigests": {
+        "summary": "53220d25f1e6cbbd4b5317f67037d7c8eed5c95adc347430f5d2daa6245f2b0a"
+      },
+      "provenance": {
+        "family": "stateful-database-portable-restore",
+        "rowCount": 7
+      },
+      "migrationCompleted": false,
+      "refusalCode": "unsafe-state-refusal-matrix",
+      "remediation": "Drain unsafe database state or use a logical/checkpoint boundary before restore.",
+      "kind": "machinen.architecture-portable-snapshot.final-proof-gauntlet-row"
+    },
+    {
+      "claimId": "sqlite-rollback-journal-restore",
+      "claimName": "SQLite rollback-journal restore",
+      "classification": "proof-only-feasibility",
+      "sourceArch": "arm64",
+      "targetArch": "amd64",
+      "hostArch": "arm64",
+      "providerMode": "logical-target-native-verifier",
+      "targetExecution": "native",
+      "stateModel": "rollback-journal",
+      "stateDecisions": [
+        "logical-artifact-restored",
+        "target-verifier-passed",
+        "raw-checkpoint-image-not-used"
+      ],
+      "verifierCommand": "bash scripts/smoke/stateful-database-portable-restore.sh --json",
+      "verifierOutput": "sqlite verifier: items=2 names=alpha,beta indexes=1",
+      "artifactDigests": {
+        "summary": "19b1c47aa7177daaf4ced3ba77060e837255ff252acf0d81c39954f7444542bd"
+      },
+      "provenance": {
+        "family": "stateful-database-portable-restore",
+        "rowCount": 1
+      },
+      "migrationCompleted": true,
+      "kind": "machinen.architecture-portable-snapshot.final-proof-gauntlet-row"
+    },
+    {
+      "claimId": "sqlite-wal-checkpoint-restore",
+      "claimName": "SQLite WAL-checkpoint restore",
+      "classification": "proof-only-feasibility",
+      "sourceArch": "amd64",
+      "targetArch": "arm64",
+      "hostArch": "arm64",
+      "providerMode": "logical-target-native-verifier",
+      "targetExecution": "native",
+      "stateModel": "wal-checkpoint",
+      "stateDecisions": [
+        "logical-artifact-restored",
+        "target-verifier-passed",
+        "raw-checkpoint-image-not-used"
+      ],
+      "verifierCommand": "bash scripts/smoke/stateful-database-portable-restore.sh --json",
+      "verifierOutput": "sqlite verifier: items=2 names=alpha,beta indexes=1",
+      "artifactDigests": {
+        "summary": "da955c2734c6f0582950ea96cdeafbf23351982189d8e0634ebc712fdde922c7"
+      },
+      "provenance": {
+        "family": "stateful-database-portable-restore",
+        "rowCount": 1
+      },
+      "migrationCompleted": true,
+      "kind": "machinen.architecture-portable-snapshot.final-proof-gauntlet-row"
+    },
+    {
+      "claimId": "sqlite-dirty-inflight-refusals",
+      "claimName": "SQLite dirty/in-flight refusals",
+      "classification": "refused",
+      "sourceArch": "arm64",
+      "targetArch": "amd64",
+      "hostArch": "arm64",
+      "providerMode": "logical-target-native-verifier",
+      "targetExecution": "not-applicable",
+      "stateModel": "sqlite-refusal-matrix",
+      "stateDecisions": ["unsafe-neighbor-refused", "migration-not-attempted"],
+      "verifierCommand": "bash scripts/smoke/stateful-database-portable-restore.sh --json",
+      "verifierOutput": "sqlite-dirty-rollback-journal-unsupported, sqlite-dirty-wal-checkpoint-unsupported, sqlite-active-writer-transaction-unsupported, sqlite-mmap-or-lock-state-unsupported, sqlite-target-verifier-mismatch",
+      "artifactDigests": {
+        "summary": "bd623da15be9e65ec2cb7298436fcdedd1c5cae4fa05f82e2c6d8a312784faea"
+      },
+      "provenance": {
+        "family": "stateful-database-portable-restore",
+        "rowCount": 5
+      },
+      "migrationCompleted": false,
+      "refusalCode": "unsafe-state-refusal-matrix",
+      "remediation": "Drain unsafe database state or use a logical/checkpoint boundary before restore.",
+      "kind": "machinen.architecture-portable-snapshot.final-proof-gauntlet-row"
+    },
+    {
+      "claimId": "guest-checkpoint-c-simple",
+      "claimName": "guest checkpoint simple C process",
+      "classification": "proof-only-feasibility",
+      "sourceArch": "aarch64",
+      "targetArch": "aarch64",
+      "hostArch": "arm64",
+      "providerMode": "same-guest-same-isa-checkpoint",
+      "targetExecution": "native",
+      "stateModel": "guest-checkpoint-dump-restore",
+      "stateDecisions": ["same-guest", "same-isa", "cross-isa-checkpoint-replay-not-claimed"],
+      "verifierCommand": "bash scripts/smoke/guest-checkpoint-substrate.sh --profile c-simple --json",
+      "verifierOutput": "pre=8 post=16 restoredPid=770 tail=pid=770 counter=11;pid=770 counter=12;pid=770 counter=13;pid=770 counter=14;pid=770 counter=15;",
+      "artifactDigests": {
+        "summary": "65305e754c7847541eb819d2471f55a576d30bd4d4231afb737c0271328f2821"
+      },
+      "provenance": {
+        "family": "guest-checkpoint-substrate",
+        "profile": "c-simple"
+      },
+      "migrationCompleted": true,
+      "kind": "machinen.architecture-portable-snapshot.final-proof-gauntlet-row"
+    },
+    {
+      "claimId": "guest-checkpoint-jvm-simple",
+      "claimName": "guest checkpoint JVM process/refusal",
+      "classification": "refused",
+      "sourceArch": "aarch64",
+      "targetArch": "aarch64",
+      "hostArch": "arm64",
+      "providerMode": "same-guest-same-isa-checkpoint",
+      "targetExecution": "native",
+      "stateModel": "guest-checkpoint-dump-restore",
+      "stateDecisions": ["same-guest", "same-isa", "cross-isa-checkpoint-replay-not-claimed"],
+      "verifierCommand": "bash scripts/smoke/guest-checkpoint-substrate.sh --profile jvm-simple --json",
+      "verifierOutput": "command -v java produced no path",
+      "artifactDigests": {
+        "summary": "be29fbba5b920f04b4a2d50e1f896afa7e987c5e8df5fb9d6f8e621f88e39c34"
+      },
+      "provenance": {
+        "family": "guest-checkpoint-substrate",
+        "profile": "jvm-simple"
+      },
+      "migrationCompleted": false,
+      "refusalCode": "jvm-runtime-unavailable",
+      "remediation": "Install a supported JVM in the guest image, then run the JVM checkpoint profile and require its verifier to pass.",
+      "kind": "machinen.architecture-portable-snapshot.final-proof-gauntlet-row"
+    },
+    {
+      "claimId": "portable-snapshot-guest-checkpoint-composition",
+      "claimName": "portable snapshot plus guest checkpoint composition",
+      "classification": "proof-only-feasibility",
+      "sourceArch": "arm64",
+      "targetArch": "arm64",
+      "hostArch": "arm64",
+      "providerMode": "same-arch-vmstate",
+      "targetExecution": "native",
+      "stateModel": "same-arch-vmstate",
+      "stateDecisions": [
+        "same-arch-vmstate",
+        "guest-checkpoint-artifact-readable",
+        "cross-isa-checkpoint-replay-not-claimed"
+      ],
+      "verifierCommand": "bash scripts/smoke/portable-snapshot-guest-checkpoint-composition.sh --json",
+      "verifierOutput": "pre=8 post=15 restoredPid=850 tail=pid=850 counter=10;pid=850 counter=11;pid=850 counter=12;pid=850 counter=13;pid=850 counter=14;",
+      "artifactDigests": {
+        "storedCheckpointImageDigest": "1949a186f57556438d030cb23c263c69671c6caa2f3f5df417d895b9e8a58b97"
+      },
+      "provenance": {
+        "family": "portable-snapshot-guest-checkpoint-composition"
+      },
+      "migrationCompleted": true,
+      "kind": "machinen.architecture-portable-snapshot.final-proof-gauntlet-row"
+    },
+    {
+      "claimId": "runtime-confidence-c",
+      "claimName": "C runtime confidence profiles",
+      "classification": "proof-only-feasibility",
+      "sourceArch": "arm64<->amd64",
+      "targetArch": "amd64<->arm64",
+      "hostArch": "arm64",
+      "providerMode": "runtime-confidence-matrix",
+      "targetExecution": "native",
+      "stateModel": "runtime-profile-classification",
+      "stateDecisions": ["product-support-not-claimed", "target-native-verifier-required"],
+      "verifierCommand": "bash scripts/smoke/runtime-confidence-profile-matrix.sh --json",
+      "verifierOutput": "c rows=12 refused=8",
+      "artifactDigests": {
+        "summary": "7280699140d9f7fcef2ae2cae254402d6ab3578204e9fd8144594c31ebfbfcba"
+      },
+      "provenance": {
+        "family": "runtime-confidence-profile-matrix",
+        "runtime": "c",
+        "rowCount": 12
+      },
+      "migrationCompleted": false,
+      "kind": "machinen.architecture-portable-snapshot.final-proof-gauntlet-row"
+    },
+    {
+      "claimId": "runtime-confidence-java",
+      "claimName": "Java/JVM runtime confidence profiles",
+      "classification": "refused",
+      "sourceArch": "arm64<->amd64",
+      "targetArch": "amd64<->arm64",
+      "hostArch": "arm64",
+      "providerMode": "runtime-confidence-matrix",
+      "targetExecution": "native",
+      "stateModel": "runtime-profile-classification",
+      "stateDecisions": ["product-support-not-claimed", "target-native-verifier-required"],
+      "verifierCommand": "bash scripts/smoke/runtime-confidence-profile-matrix.sh --json",
+      "verifierOutput": "java rows=2 refused=2",
+      "artifactDigests": {
+        "summary": "51f549096468e1d94345214a509530b6563494087d8d934c171a13f995fee0e2"
+      },
+      "provenance": {
+        "family": "runtime-confidence-profile-matrix",
+        "runtime": "java",
+        "rowCount": 2
+      },
+      "migrationCompleted": false,
+      "refusalCode": "runtime-profile-refusal-matrix",
+      "remediation": "Satisfy the runtime-specific verifier and provenance requirements.",
+      "kind": "machinen.architecture-portable-snapshot.final-proof-gauntlet-row"
+    },
+    {
+      "claimId": "advanced-linux-seccomp",
+      "claimName": "seccomp proof/refusal",
+      "classification": "refused",
+      "sourceArch": "arm64",
+      "targetArch": "arm64",
+      "hostArch": "arm64",
+      "providerMode": "same-guest-kernel-facility-probe",
+      "targetExecution": "native",
+      "stateModel": "refused",
+      "stateDecisions": [
+        "product-support-not-claimed",
+        "cross-isa-kernel-state-replay-not-claimed"
+      ],
+      "verifierCommand": "bash scripts/smoke/advanced-linux-facility-probe.sh --json",
+      "verifierOutput": "seccomp: Invalid argument;",
+      "artifactDigests": {
+        "summary": "54dfaf2c94d2ea71444c1af13586d766826381e2c2ca4decc807521d79a8525b"
+      },
+      "provenance": {
+        "family": "advanced-linux-facility-probe",
+        "facility": "seccomp"
+      },
+      "migrationCompleted": false,
+      "refusalCode": "facility-verifier-ambiguous",
+      "remediation": "Run on a kernel that permits installing a minimal seccomp filter and record the verifier result.",
+      "kind": "machinen.architecture-portable-snapshot.final-proof-gauntlet-row"
+    },
+    {
+      "claimId": "advanced-linux-ebpf",
+      "claimName": "eBPF proof/refusal",
+      "classification": "refused",
+      "sourceArch": "arm64",
+      "targetArch": "arm64",
+      "hostArch": "arm64",
+      "providerMode": "same-guest-kernel-facility-probe",
+      "targetExecution": "native",
+      "stateModel": "refused",
+      "stateDecisions": [
+        "product-support-not-claimed",
+        "cross-isa-kernel-state-replay-not-claimed"
+      ],
+      "verifierCommand": "bash scripts/smoke/advanced-linux-facility-probe.sh --json",
+      "verifierOutput": "unprivileged_bpf_disabled=2; bpftool=missing; CapEff=000001ffffffffff",
+      "artifactDigests": {
+        "summary": "9cdf21ecd4d29b627d77d8d55f0f9399826a12e8b40781175e67a3bf564ccee4"
+      },
+      "provenance": {
+        "family": "advanced-linux-facility-probe",
+        "facility": "ebpf"
+      },
+      "migrationCompleted": false,
+      "refusalCode": "insufficient-privileges",
+      "remediation": "Run a bounded eBPF fixture in a guest with CAP_BPF/CAP_SYS_ADMIN and record pinned-map/program cleanup before accepting BPF state.",
+      "kind": "machinen.architecture-portable-snapshot.final-proof-gauntlet-row"
+    },
+    {
+      "claimId": "advanced-linux-namespace-cgroup-capability",
+      "claimName": "namespace/cgroup/capability classification",
+      "classification": "proof-only-feasibility",
+      "sourceArch": "arm64",
+      "targetArch": "arm64",
+      "hostArch": "arm64",
+      "providerMode": "same-guest-kernel-facility-probe",
+      "targetExecution": "native",
+      "stateModel": "namespace:recreated,cgroup:recreated,capability:proven-irrelevant",
+      "stateDecisions": ["recreate-or-prove-irrelevant", "product-support-not-claimed"],
+      "verifierCommand": "bash scripts/smoke/advanced-linux-facility-probe.sh --json",
+      "verifierOutput": "namespace=ipc=ipc:[4026531839] mnt=mnt:[4026531841] net=net:[4026531840] pid=pid:[4026531836] user=user:[4026531837] uts=uts:[4026531838] cgroup=cgroup:[4026531835] time=time:[4026531834]  | cgroup=empty-cgroup-membership | capability=CapEff=000001ffffffffff CapPrm=000001ffffffffff NoNewPrivs=0",
+      "artifactDigests": {
+        "summary": "586d59c05b55f1e9fafefd37227f2c0da2303df0ae6cdb820a12612f4c673bbf"
+      },
+      "provenance": {
+        "family": "advanced-linux-facility-probe",
+        "facilities": ["namespace", "cgroup", "capability"]
+      },
+      "migrationCompleted": false,
+      "kind": "machinen.architecture-portable-snapshot.final-proof-gauntlet-row"
+    },
+    {
+      "claimId": "nested-virtualization-stretch-proof",
+      "claimName": "nested virtualization stretch proof/refusal",
+      "classification": "stretch-demo",
+      "sourceArch": "arm64",
+      "targetArch": "aarch64",
+      "hostArch": "arm64",
+      "providerMode": "darwin-hvf -> guest-kvm -> firecracker-kvm",
+      "targetExecution": "accelerated",
+      "stateModel": "nested-l0-l1-l2",
+      "stateDecisions": [
+        "stretch-demo-only",
+        "provider-snapshot-fork-refused",
+        "portable-snapshot-requirement-false"
+      ],
+      "verifierCommand": "bash scripts/smoke/nested-virtualization-stretch-proof.sh --json",
+      "verifierOutput": "supervisor: starting cmd=/bin/sh -lc printf 'l1-arch=%s\\n' \"$(uname -m)\"; if [ -c /dev/kvm ]; then echo l1-acceleration=kvm; else echo l1-acceleration=missing; exit 7; fi; l1-arch=aarch64; l1-acceleration=kvm; hello from firecracker L2 on aarch64\r; firecracker-nested-ok\r; Firecracker ran inside machinen nested KVM.",
+      "artifactDigests": {
+        "summary": "7654a168b28c8485309aeb055d8629ee2377dd716952593ed777e782019bd0c7"
+      },
+      "provenance": {
+        "family": "nested-virtualization-stretch-proof"
+      },
+      "migrationCompleted": false,
+      "kind": "machinen.architecture-portable-snapshot.final-proof-gauntlet-row"
+    }
+  ],
+  "byClassification": {
+    "product-supported": 0,
+    "proof-only-feasibility": 7,
+    "stretch-demo": 1,
+    "refused": 6,
+    "skipped": 1
+  },
+  "failures": []
+}

@@ -26,7 +26,7 @@
 # S4 and S5 exercise lazy-pages restore, a criu-only feature, and are
 # gated to the criu engine iteration. S6 exercises --mount-live, served
 # since #332/#338 by an in-VMM virtio-fs device, and runs for BOTH
-# engines: CRIU checkpoints that device with the rest of the guest,
+# engines: checkpoints that device with the rest of the guest,
 # and the vmstate engine now captures each virtio-fs slot's transport
 # state plus its host-side FUSE backend state.
 
@@ -69,7 +69,7 @@ case "$GUEST_ARCH" in
     DTB_ASSET=""
     ROOTFS_ASSET="rootfs-debian-amd64.tar.gz"
     # x86_64 support targets the default whole-VM vmstate engine. The
-    # legacy in-guest CRIU process-tree backend still has x86 tty/session
+    # legacy in-guest checkpoint process-tree backend still has x86 tty/session
     # edge cases, so don't gate x86 VM snapshot support on it here.
     SNAPSHOT_ENGINES=(vmstate)
     ;;
@@ -430,7 +430,7 @@ for ENGINE in "${SNAPSHOT_ENGINES[@]}"; do
     S1_SCRATCH="$FIXTURE/s1-scratch-$ENGINE.img"
     S1_RESTORE_LOG="$FIXTURE/s1-restore-$ENGINE.log"
 
-    # 256 MB sparse scratch disk. CRIU images for a minimal shell fit
+    # 256 MB sparse scratch disk. checkpoint images for a minimal shell fit
     # well under a MB; the rest stays unallocated on disk.
     truncate -s 256M "$S1_SCRATCH"
 
@@ -1028,7 +1028,7 @@ for ENGINE in "${SNAPSHOT_ENGINES[@]}"; do
       S5_SNAP_DIR="$FIXTURE/s5-snap-$ENGINE"
       S5_DIRTY_MIB=2048
 
-      # Scratch holds the criu image directory in-guest before it's
+      # Scratch holds the checkpoint image directory in-guest before it's
       # streamed over vsock. 2 GiB of dirty anon → pages-*.img alone is
       # ~2 GiB, plus criu's bookkeeping. Sparse, so 8 GiB ceiling costs
       # nothing until written.
@@ -1192,7 +1192,7 @@ for ENGINE in "${SNAPSHOT_ENGINES[@]}"; do
   #      independent guest — both can write to the same host dir
   #      (concurrent-writer semantics are the user's to manage).
   # ----------------------------------------------------------------
-  # S6 runs for BOTH engines. CRIU checkpoints the whole virtio-fs
+  # S6 runs for BOTH engines. checkpoints the whole virtio-fs
   # device along with the rest of the guest, so `--mount-live` rides
   # through the dump untouched. The vmstate engine's snapshot set
   # (`virtioDevices()`) now includes the virtio-fs slots, and a
