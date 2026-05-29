@@ -39,12 +39,14 @@ import {
   ProductLevel4EventfdError,
   ProductLevel4PingSocketError,
   ProductLevel4PipeError,
+  ProductLevel4TcpListenerError,
   ProductLevel4TimerfdError,
   ProductPortablePostgresError,
   buildProductClaimRegistry,
   createProductLevel4EventfdSnapshot,
   createProductLevel4PingSocketSnapshot,
   createProductLevel4PipeSnapshot,
+  createProductLevel4TcpListenerSnapshot,
   createProductLevel4TimerfdSnapshot,
   createProductPortablePostgresSnapshot,
   filterProductClaimRegistry,
@@ -53,6 +55,7 @@ import {
   isProductLevel4EventfdBundle,
   isProductLevel4PingSocketBundle,
   isProductLevel4PipeBundle,
+  isProductLevel4TcpListenerBundle,
   isProductLevel4TimerfdBundle,
   isProductPortablePostgresBundle,
   list,
@@ -65,6 +68,7 @@ import {
   restoreProductLevel4EventfdSnapshot,
   restoreProductLevel4PingSocketSnapshot,
   restoreProductLevel4PipeSnapshot,
+  restoreProductLevel4TcpListenerSnapshot,
   restoreProductLevel4TimerfdSnapshot,
   restoreProductPortablePostgresSnapshot,
   runGc,
@@ -80,6 +84,8 @@ import type {
   ProductLevel4PingSocketRestoreSummary,
   ProductLevel4PipeDescriptor,
   ProductLevel4PipeRestoreSummary,
+  ProductLevel4TcpListenerDescriptor,
+  ProductLevel4TcpListenerRestoreSummary,
   ProductLevel4TimerfdDescriptor,
   ProductLevel4TimerfdRestoreSummary,
   ProductSupportLevel,
@@ -1021,6 +1027,24 @@ type CapturePostgresOptions = {
   physicalDataDirCopy?: boolean;
 };
 
+type CaptureTcpListenerOptions = {
+  json: boolean;
+  dryRun: boolean;
+  out?: string;
+  sourceArch?: "arm64" | "amd64";
+  targetArch?: "arm64" | "amd64";
+  sourceVerifierOutput?: string;
+  bindAddress?: string;
+  port?: number;
+  backlog?: number;
+  noReuseaddr?: boolean;
+  acceptQueue?: "empty" | "non-empty" | "unknown";
+  activeConnections?: boolean;
+  unsupportedOptions?: boolean;
+  partialIo?: boolean;
+  activeSyscall?: boolean;
+};
+
 type CaptureTimerfdOptions = {
   json: boolean;
   dryRun: boolean;
@@ -1108,6 +1132,9 @@ function cmdCapture(args: string[]): number {
   if (rest[0] === "timerfd") {
     return cmdCaptureTimerfd({ json, dryRun, rest });
   }
+  if (rest[0] === "tcp-listener") {
+    return cmdCaptureTcpListener({ json, dryRun, rest });
+  }
   if (rest[0] === "ping-socket") {
     return cmdCapturePingSocket({ json, dryRun, rest });
   }
@@ -1150,6 +1177,42 @@ function cmdCapturePostgres(input: { json: boolean; dryRun: boolean; rest: strin
     return reportProductCaptureResult(options.json, result, "postgres");
   } catch (err) {
     handleProductPortablePostgresError(err, options.json);
+  }
+}
+
+// fallow-ignore-next-line complexity
+function cmdCaptureTcpListener(input: { json: boolean; dryRun: boolean; rest: string[] }): number {
+  const options = parseCaptureTcpListenerArgs(input);
+  const required = [
+    ["--out", options.out],
+    ["--source-arch", options.sourceArch],
+    ["--target-arch", options.targetArch],
+    ["--source-verifier-output", options.sourceVerifierOutput],
+    ["--bind-address", options.bindAddress],
+    ["--port", options.port],
+    ["--backlog", options.backlog],
+  ] as const;
+  assertCaptureRequired(required);
+  try {
+    const result = createProductLevel4TcpListenerSnapshot({
+      outDir: options.out!,
+      sourceArch: options.sourceArch!,
+      targetArch: options.targetArch!,
+      sourceVerifierOutput: readFileSync(resolve(options.sourceVerifierOutput!), "utf8").trim(),
+      bindAddress: options.bindAddress!,
+      port: options.port!,
+      backlog: options.backlog!,
+      reuseAddr: options.noReuseaddr ? false : true,
+      acceptQueue: options.acceptQueue,
+      activeConnections: options.activeConnections,
+      unsupportedOptions: options.unsupportedOptions,
+      partialIo: options.partialIo,
+      activeSyscall: options.activeSyscall,
+      dryRun: options.dryRun,
+    });
+    return reportProductCaptureResult(options.json, result, "tcp-listener");
+  } catch (err) {
+    handleProductLevel4TcpListenerError(err, options.json);
   }
 }
 
@@ -1353,6 +1416,14 @@ function consumeCommonProductCaptureOption(
   }
 }
 
+function parseCaptureTcpListenerArgs(input: {
+  json: boolean;
+  dryRun: boolean;
+  rest: string[];
+}): CaptureTcpListenerOptions {
+  return parseProductCaptureArgs(input, consumeTcpListenerCaptureOption);
+}
+
 function parseCaptureTimerfdArgs(input: {
   json: boolean;
   dryRun: boolean;
@@ -1424,6 +1495,46 @@ function parseProductCaptureArgs<
     index = nextIndex;
   }
   return options;
+}
+
+// fallow-ignore-next-line complexity
+function consumeTcpListenerCaptureOption(
+  options: CaptureTcpListenerOptions,
+  rest: string[],
+  index: number,
+  arg: string,
+): number | undefined {
+  switch (arg) {
+    case "--bind-address":
+      options.bindAddress = takeCaptureValue(rest, index + 1, arg);
+      return index + 1;
+    case "--port":
+      options.port = parseTcpPort(takeCaptureValue(rest, index + 1, arg), arg);
+      return index + 1;
+    case "--backlog":
+      options.backlog = parseTcpBacklog(takeCaptureValue(rest, index + 1, arg), arg);
+      return index + 1;
+    case "--accept-queue":
+      options.acceptQueue = parseTcpAcceptQueue(takeCaptureValue(rest, index + 1, arg), arg);
+      return index + 1;
+    case "--no-reuseaddr":
+      options.noReuseaddr = true;
+      return index;
+    case "--active-connections":
+      options.activeConnections = true;
+      return index;
+    case "--unsupported-options":
+      options.unsupportedOptions = true;
+      return index;
+    case "--partial-io":
+      options.partialIo = true;
+      return index;
+    case "--active-syscall":
+      options.activeSyscall = true;
+      return index;
+    default:
+      return undefined;
+  }
 }
 
 // fallow-ignore-next-line complexity
@@ -1652,6 +1763,9 @@ function captureUsage(): string {
     "       machinen capture timerfd --out <dir> --source-arch <arm64|amd64> " +
     "--target-arch <arm64|amd64> --source-verifier-output <file> " +
     "--remaining-ms <n> [--json] [--dry-run]\n" +
+    "       machinen capture tcp-listener --out <dir> --source-arch <arm64|amd64> " +
+    "--target-arch <arm64|amd64> --source-verifier-output <file> " +
+    "--bind-address 127.0.0.1 --port <n> --backlog <n> [--json] [--dry-run]\n" +
     "       machinen capture ping-socket --out <dir> --source-arch <arm64|amd64> " +
     "--target-arch <arm64|amd64> --socket-kind <ping-dgram-icmp|raw-icmp> " +
     "--source-verifier-output <file> --echo-id <n> --echo-seq <n> [--json] [--dry-run]"
@@ -1678,6 +1792,29 @@ function parseTimerfdClock(value: string, flag: string): "monotonic" | "realtime
     return value;
   }
   die(`${flag} must be monotonic or realtime`);
+}
+
+function parseTcpPort(value: string, flag: string): number {
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed <= 0 || parsed > 65_535) {
+    die(`${flag} must be an integer between 1 and 65535`);
+  }
+  return parsed;
+}
+
+function parseTcpBacklog(value: string, flag: string): number {
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed <= 0 || parsed > 128) {
+    die(`${flag} must be an integer between 1 and 128`);
+  }
+  return parsed;
+}
+
+function parseTcpAcceptQueue(value: string, flag: string): "empty" | "non-empty" | "unknown" {
+  if (value === "empty" || value === "non-empty" || value === "unknown") {
+    return value;
+  }
+  die(`${flag} must be empty, non-empty, or unknown`);
 }
 
 function parsePositiveInteger(value: string, flag: string): number {
@@ -1975,6 +2112,8 @@ function restoreUsage(): string {
     "[--target-verifier-output <file>] [--json]\n" +
     "       machinen restore <portable-timerfd-bundle> --target-arch <arm64|amd64> " +
     "[--target-verifier-output <file>] [--json]\n" +
+    "       machinen restore <portable-tcp-listener-bundle> --target-arch <arm64|amd64> " +
+    "[--target-verifier-output <file>] [--json]\n" +
     "       machinen restore <portable-ping-socket-bundle> --target-arch <arm64|amd64> " +
     "[--target-verifier-output <file>] [--json]"
   );
@@ -2009,6 +2148,23 @@ function cmdRestoreProductPortablePostgres(
     handleProductPortablePostgresError(err, json);
   }
 }
+
+type TcpListenerPortableRestoreValidation =
+  | {
+      ok: true;
+      descriptor: ProductLevel4TcpListenerDescriptor;
+      summary: ProductLevel4TcpListenerRestoreSummary;
+    }
+  | {
+      ok: false;
+      descriptor?: ProductLevel4TcpListenerDescriptor;
+      summary: ProductLevel4TcpListenerRestoreSummary;
+    };
+
+type TcpListenerPortableRestorePlan = PortableRestoreWorkloadPlan & {
+  descriptor: ProductLevel4TcpListenerDescriptor;
+  summary: ProductLevel4TcpListenerRestoreSummary;
+};
 
 type TimerfdPortableRestoreValidation =
   | {
@@ -2092,6 +2248,21 @@ type PortableRestoreWorkloadPlan = {
   buildDetachedSummary: (input: { vm: VmHandle; elapsedMs: number }) => Record<string, unknown>;
 };
 
+const tcpListenerPortableRestoreAdapter = {
+  profile: "tcp-listener-v1-loopback-empty-accept-queue",
+  detect: isProductLevel4TcpListenerBundle,
+  validate: validateTcpListenerPortableRestore,
+  plan: planTcpListenerPortableRestore,
+  foregroundRestore: foregroundTcpListenerPortableRestore,
+  detachedRestore: detachedTcpListenerPortableRestore,
+  verify: verifyTcpListenerPortableRestore,
+  refuse: refuseTcpListenerPortableRestore,
+} satisfies PortableRestoreAdapter<
+  TcpListenerPortableRestoreValidation,
+  TcpListenerPortableRestorePlan,
+  Record<string, unknown>
+>;
+
 const timerfdPortableRestoreAdapter = {
   profile: "timerfd-relative-oneshot-v1-monotonic",
   detect: isProductLevel4TimerfdBundle,
@@ -2157,6 +2328,7 @@ const portableRestoreAdapters = [
   eventfdPortableRestoreAdapter,
   pipePortableRestoreAdapter,
   timerfdPortableRestoreAdapter,
+  tcpListenerPortableRestoreAdapter,
 ] as const satisfies readonly RegisteredPortableRestoreAdapter[];
 
 function detectPortableRestoreAdapter(
@@ -2190,6 +2362,100 @@ async function cmdRestorePortableAdapter(
   } catch (err) {
     handlePortableRestoreAdapterError(err, json);
   }
+}
+
+function validateTcpListenerPortableRestore({
+  parsed,
+  snapDir,
+}: PortableRestoreValidationInput): TcpListenerPortableRestoreValidation {
+  if (!parsed.targetArch) {
+    die(restoreUsage());
+  }
+  const descriptor = readProductLevel4TcpListenerDescriptor(snapDir);
+  const verifierOutput = parsed.targetVerifierOutput
+    ? readFileSync(resolve(parsed.targetVerifierOutput), "utf8").trim()
+    : descriptor.sourceVerifierOutput;
+  const summary = restoreProductLevel4TcpListenerSnapshot({
+    bundleDir: snapDir,
+    targetArch: parsed.targetArch,
+    targetVerifierOutput: verifierOutput,
+  });
+  if (!summary.migrationCompleted) {
+    return { ok: false, descriptor, summary };
+  }
+  return { ok: true, descriptor, summary };
+}
+
+function planTcpListenerPortableRestore({
+  parsed,
+  snapDir,
+  validation,
+}: PortableRestorePlanInput<TcpListenerPortableRestoreValidation>): TcpListenerPortableRestorePlan {
+  if (!validation.ok) {
+    throw new ProductLevel4TcpListenerError(
+      "TCP_LISTENER_RESTORE_PLAN_REFUSED",
+      "cannot plan a refused TCP listener portable restore",
+    );
+  }
+  assertLocalTcpListenerRestoreTargetArch(parsed.targetArch);
+  const descriptor = validation.descriptor;
+  const name = parsed.name ?? deriveBootName(snapDir);
+  return {
+    descriptor,
+    summary: validation.summary,
+    name,
+    descriptorGuestPath: "/tmp/machinen-restored-tcp-listener-descriptor.json",
+    descriptorText: JSON.stringify(descriptor, null, 2),
+    workloadLabel: "restored TCP listener",
+    foregroundCommand: foregroundRestoredTcpListenerCommand(descriptor),
+    detachedCommand: startRestoredTcpListenerCommand(descriptor),
+    verifyCommand: verifyRestoredTcpListenerCommand(descriptor),
+    summaryPath: join(snapDir, "portable-tcp-listener-target-vm-restore-summary.json"),
+    buildDetachedSummary: ({ vm, elapsedMs }) =>
+      buildTcpListenerDetachedRestoreSummary({
+        descriptor,
+        summary: validation.summary,
+        vm,
+        name,
+        elapsedMs,
+      }),
+  };
+}
+
+function foregroundTcpListenerPortableRestore({
+  plan,
+}: PortableRestoreExecutionInput<TcpListenerPortableRestorePlan>): Promise<number> {
+  return runPortableForegroundRestore(plan);
+}
+
+function detachedTcpListenerPortableRestore({
+  plan,
+}: PortableRestoreExecutionInput<TcpListenerPortableRestorePlan>): Promise<
+  Record<string, unknown>
+> {
+  return runPortableDetachedRestore(plan, tcpListenerPortableRestoreAdapter);
+}
+
+async function verifyTcpListenerPortableRestore({
+  vm,
+  plan,
+}: PortableRestoreVerifyInput<TcpListenerPortableRestorePlan>): Promise<void> {
+  const verify = await vm.execRaw(plan.verifyCommand, { execTimeoutMs: 20_000 });
+  if (verify.exitCode !== 0) {
+    throw new ProductLevel4TcpListenerError(
+      "TCP_LISTENER_TARGET_VM_VERIFIER_FAILED",
+      verify.stderr || verify.stdout || "target VM TCP listener verifier failed",
+    );
+  }
+}
+
+function refuseTcpListenerPortableRestore({
+  json,
+  snapDir,
+  validation,
+}: PortableRestoreRefusalInput<TcpListenerPortableRestoreValidation>): number {
+  reportProductLevel4TcpListenerRestoreSummary(snapDir, json, validation.summary);
+  return 1;
 }
 
 function validateTimerfdPortableRestore({
@@ -2560,6 +2826,28 @@ function refusePingPortableRestore({
   return 1;
 }
 
+function readProductLevel4TcpListenerDescriptor(
+  snapDir: string,
+): ProductLevel4TcpListenerDescriptor {
+  return JSON.parse(
+    readFileSync(join(snapDir, "portable-tcp-listener.json"), "utf8"),
+  ) as ProductLevel4TcpListenerDescriptor;
+}
+
+function reportProductLevel4TcpListenerRestoreSummary(
+  snapDir: string,
+  json: boolean,
+  summary: ProductLevel4TcpListenerRestoreSummary,
+): void {
+  if (json) {
+    emitJson({ schema_version: 1, ...summary });
+  } else {
+    process.stderr.write(
+      `refused portable TCP listener restore: ${summary.refusal?.expectedRefusalCode ?? "unknown"}\n`,
+    );
+  }
+}
+
 function readProductLevel4TimerfdDescriptor(snapDir: string): ProductLevel4TimerfdDescriptor {
   return JSON.parse(
     readFileSync(join(snapDir, "portable-timerfd.json"), "utf8"),
@@ -2721,6 +3009,41 @@ async function runPortableDetachedRestore(
   }
 }
 
+function buildTcpListenerDetachedRestoreSummary(input: {
+  descriptor: ProductLevel4TcpListenerDescriptor;
+  summary: ProductLevel4TcpListenerRestoreSummary;
+  vm: VmHandle;
+  name: string;
+  elapsedMs: number;
+}): Record<string, unknown> {
+  const { descriptor, summary, vm, name, elapsedMs } = input;
+  const targetVmFields = {
+    targetVerifierResult: "passed",
+    targetVmStarted: true,
+    restoredName: vm.name ?? name,
+    restoredPid: vm.pid,
+  };
+  return {
+    ...summary,
+    ...targetVmFields,
+    outputLogPath: descriptor.continuation.outputLogPath,
+    targetTcpListenerProcess: "running",
+    targetOutputObserved: true,
+    continuationSemantics: {
+      family: descriptor.listener.family,
+      protocol: descriptor.listener.protocol,
+      bindAddress: descriptor.listener.bindAddress,
+      port: descriptor.listener.port,
+      backlog: descriptor.listener.backlog,
+      reuseAddr: descriptor.listener.reuseAddr,
+      acceptQueue: descriptor.listener.acceptQueue,
+      listenerPolicy: descriptor.continuation.listenerPolicy,
+      acceptQueuePolicy: descriptor.continuation.acceptQueuePolicy,
+    },
+    elapsedMs,
+  };
+}
+
 function buildTimerfdDetachedRestoreSummary(input: {
   descriptor: ProductLevel4TimerfdDescriptor;
   summary: ProductLevel4TimerfdRestoreSummary;
@@ -2851,6 +3174,63 @@ function buildPingDetachedRestoreSummary(input: {
     },
     elapsedMs,
   };
+}
+
+function assertLocalTcpListenerRestoreTargetArch(targetArch: string | undefined): void {
+  if (targetArch !== guestCpu()) {
+    throw new ProductLevel4TcpListenerError(
+      "TCP_LISTENER_TARGET_GUEST_ARCH_MISMATCH",
+      `target arch ${targetArch} requires restoring on a ${targetArch} Machinen guest host; current guest arch is ${guestCpu()}`,
+    );
+  }
+}
+
+function foregroundRestoredTcpListenerCommand(
+  descriptor: ProductLevel4TcpListenerDescriptor,
+): string {
+  return (
+    "echo $$ >/tmp/machinen-restored-tcp-listener.pid; exec " +
+    restoredTcpListenerPerlCommand(descriptor)
+  );
+}
+
+function startRestoredTcpListenerCommand(descriptor: ProductLevel4TcpListenerDescriptor): string {
+  const logPath = descriptor.continuation.outputLogPath;
+  return (
+    `rm -f ${shellQuote(logPath)} /tmp/machinen-restored-tcp-listener.pid; ` +
+    `( exec ${restoredTcpListenerPerlCommand(descriptor)} ) >${shellQuote(logPath)} 2>&1 & ` +
+    "echo $! >/tmp/machinen-restored-tcp-listener.pid"
+  );
+}
+
+function restoredTcpListenerPerlCommand(descriptor: ProductLevel4TcpListenerDescriptor): string {
+  return `perl -e ${shellQuote(restoredTcpListenerPerlProgram(descriptor))}`;
+}
+
+function restoredTcpListenerPerlProgram(descriptor: ProductLevel4TcpListenerDescriptor): string {
+  return [
+    "use strict; use warnings; $|=1; use Socket qw(AF_INET SOCK_STREAM SOL_SOCKET SO_REUSEADDR inet_aton sockaddr_in);",
+    'socket(my $srv, AF_INET, SOCK_STREAM, 0) or die "socket: $!\\n";',
+    'setsockopt($srv, SOL_SOCKET, SO_REUSEADDR, pack("i", 1)) or die "setsockopt reuseaddr: $!\\n";',
+    `my $addr = ${perlStringLiteral(descriptor.listener.bindAddress)}; my $port = ${descriptor.listener.port}; my $backlog = ${descriptor.listener.backlog};`,
+    'bind($srv, sockaddr_in($port, inet_aton($addr))) or die "bind: $!\\n";',
+    'listen($srv, $backlog) or die "listen: $!\\n";',
+    'print "MACHINEN_TCP_LISTENER_RESTORED family=inet protocol=tcp bind=$addr:$port backlog=$backlog acceptQueue=empty reuseaddr=true fd=" . fileno($srv) . "\\n";',
+    "my $alive = 0;",
+    "$SIG{TERM} = sub { exit 0; };",
+    'while (1) { sleep 1; $alive++; print "MACHINEN_TCP_LISTENER_ALIVE bind=$addr:$port tick=$alive\\n"; }',
+  ].join(" ");
+}
+
+function verifyRestoredTcpListenerCommand(descriptor: ProductLevel4TcpListenerDescriptor): string {
+  const logPath = descriptor.continuation.outputLogPath;
+  return [
+    "pid=$(cat /tmp/machinen-restored-tcp-listener.pid 2>/dev/null || true)",
+    '[ -n "$pid" ] && [ -d "/proc/$pid" ] || exit 2',
+    `for i in $(seq 1 20); do grep -q 'MACHINEN_TCP_LISTENER_RESTORED family=inet protocol=tcp bind=${descriptor.listener.bindAddress}:${descriptor.listener.port} backlog=${descriptor.listener.backlog}' ${shellQuote(logPath)} && exit 0; sleep 0.5; done`,
+    `cat ${shellQuote(logPath)} 2>/dev/null`,
+    "exit 3",
+  ].join("; ");
 }
 
 function assertLocalTimerfdRestoreTargetArch(targetArch: string | undefined): void {
@@ -3116,11 +3496,13 @@ function isPortableRestoreProductError(
   | ProductLevel4EventfdError
   | ProductLevel4PingSocketError
   | ProductLevel4PipeError
+  | ProductLevel4TcpListenerError
   | ProductLevel4TimerfdError {
   const constructors = [
     ProductLevel4EventfdError,
     ProductLevel4PingSocketError,
     ProductLevel4PipeError,
+    ProductLevel4TcpListenerError,
     ProductLevel4TimerfdError,
   ];
   return constructors.some((errorConstructor) => err instanceof errorConstructor);
@@ -3142,6 +3524,13 @@ function handleProductPortablePostgresError(err: unknown, json: boolean): never 
       process.exit(1);
     }
     die(err.message);
+  }
+  handleError(err);
+}
+
+function handleProductLevel4TcpListenerError(err: unknown, json: boolean): never {
+  if (err instanceof ProductLevel4TcpListenerError) {
+    reportKnownProductError(err, json);
   }
   handleError(err);
 }
@@ -3348,6 +3737,10 @@ function portableNodeRestoreSummary(
     appHooksRequired: false,
     ...extra,
   };
+}
+
+function perlStringLiteral(value: string): string {
+  return `q(${value.replaceAll(")", "\\)")})`;
 }
 
 function shellQuote(value: string): string {
@@ -5146,6 +5539,13 @@ function printHelp(): void {
       `                                                 relative one-shot timerfd descriptor.\n` +
       `                                                 Unread expirations, periodic timers,\n` +
       `                                                 absolute timers, and active reads refuse.\n` +
+      `  machinen capture tcp-listener --out <dir> --source-arch <arm64|amd64>\n` +
+      `                    --target-arch <arm64|amd64> --source-verifier-output <file>\n` +
+      `                    --bind-address 127.0.0.1 --port <n> --backlog <n> [--json]\n` +
+      `                                                 Capture the implemented narrow Level 4\n` +
+      `                                                 loopback TCP listener descriptor.\n` +
+      `                                                 Active connections, accept queues,\n` +
+      `                                                 partial IO, and active syscalls refuse.\n` +
       `  machinen capture ping-socket --out <dir> --source-arch <arm64|amd64>\n` +
       `                    --target-arch <arm64|amd64> --socket-kind <ping-dgram-icmp|raw-icmp>\n` +
       `                    --source-verifier-output <file> --echo-id <n> --echo-seq <n> [--json]\n` +
@@ -5187,6 +5587,10 @@ function printHelp(): void {
       `                    [--target-verifier-output <file>] [--json]\n` +
       `                                                 Boot a target VM and recreate the narrow\n` +
       `                                                 Level 4 timerfd target-natively.\n` +
+      `  machinen restore <portable-tcp-listener-bundle> --target-arch <arm64|amd64>\n` +
+      `                    [--target-verifier-output <file>] [--json]\n` +
+      `                                                 Boot a target VM and recreate the narrow\n` +
+      `                                                 Level 4 TCP listener target-natively.\n` +
       `  machinen restore <portable-ping-socket-bundle> --target-arch <arm64|amd64>\n` +
       `                    [--target-verifier-output <file>] [--json]\n` +
       `                                                 Boot a target VM and continue the narrow\n` +
@@ -5290,6 +5694,9 @@ function printHelp(): void {
       `  machinen capture timerfd --out ./timerfd.portable --source-arch arm64 --target-arch amd64 \\\n` +
       `    --source-verifier-output ./timerfd.verify --remaining-ms 60000\n` +
       `  machinen restore ./timerfd.portable --target-arch amd64 --json\n` +
+      `  machinen capture tcp-listener --out ./tcp.portable --source-arch arm64 --target-arch amd64 \\\n` +
+      `    --source-verifier-output ./tcp.verify --bind-address 127.0.0.1 --port 18080 --backlog 16\n` +
+      `  machinen restore ./tcp.portable --target-arch amd64 --json\n` +
       `  machinen capture ping-socket --out ./ping.portable --source-arch arm64 --target-arch amd64 \\\n` +
       `    --socket-kind ping-dgram-icmp --source-verifier-output ./ping.verify --echo-id 7 --echo-seq 1\n` +
       `  machinen restore ./ping.portable --target-arch amd64 --json\n` +

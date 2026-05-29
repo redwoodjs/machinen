@@ -18,9 +18,9 @@ describe("Goal 46 product claim registry", () => {
   it("classifies every portable-machine proof profile into a product status", () => {
     const registry = buildProductClaimRegistry(PROFILES);
 
-    expect(registry.entries).toHaveLength(PROFILES.length + 4);
-    expect(registry.summary.total).toBe(PROFILES.length + 4);
-    expect(registry.summary.implementedProductSupport).toBe(7);
+    expect(registry.entries).toHaveLength(PROFILES.length + 5);
+    expect(registry.summary.total).toBe(PROFILES.length + 5);
+    expect(registry.summary.implementedProductSupport).toBe(8);
     expect(
       registry.entries.filter((entry) => entry.productStatus === "implemented-product-support"),
     ).toEqual(
@@ -64,6 +64,13 @@ describe("Goal 46 product claim registry", () => {
         expect.objectContaining({
           name: "timerfd-relative-oneshot-v1-monotonic",
           family: "native-linux-resource",
+          migrationCompleted: true,
+          proofOnly: false,
+          supportLevel: "level-4-kernel-resource-reconstruction",
+        }),
+        expect.objectContaining({
+          name: "tcp-listener-v1-loopback-empty-accept-queue",
+          family: "network-ping-socket",
           migrationCompleted: true,
           proofOnly: false,
           supportLevel: "level-4-kernel-resource-reconstruction",

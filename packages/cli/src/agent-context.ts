@@ -128,7 +128,7 @@ export const COMMANDS: CommandSpec[] = [
       {
         name: "runtime",
         description:
-          "Portable product runtime to capture: 'postgres', 'eventfd', 'pipe', 'timerfd', or 'ping-socket'.",
+          "Portable product runtime to capture: 'postgres', 'eventfd', 'pipe', 'timerfd', 'tcp-listener', or 'ping-socket'.",
       },
     ],
     flags: [
@@ -147,6 +147,43 @@ export const COMMANDS: CommandSpec[] = [
       },
       { name: "--dump", type: "string", description: "Logical pg_dump artifact (postgres)." },
       { name: "--counter", type: "string", description: "Eventfd counter value (eventfd)." },
+      {
+        name: "--bind-address",
+        type: "string",
+        description: "TCP listener bind address; only 127.0.0.1 is supported.",
+      },
+      { name: "--port", type: "integer", description: "Static TCP listener port." },
+      {
+        name: "--backlog",
+        type: "integer",
+        description: "Explicit TCP listen backlog, 1 through 128.",
+      },
+      {
+        name: "--accept-queue",
+        type: "enum",
+        values: ["empty", "non-empty", "unknown"],
+        description: "TCP listener accept queue; anything other than empty refuses.",
+      },
+      {
+        name: "--no-reuseaddr",
+        type: "boolean",
+        description: "Refuse missing TCP SO_REUSEADDR option.",
+      },
+      {
+        name: "--active-connections",
+        type: "boolean",
+        description: "Refuse active TCP connections for listener-only restore.",
+      },
+      {
+        name: "--unsupported-options",
+        type: "boolean",
+        description: "Refuse unsupported TCP socket options.",
+      },
+      {
+        name: "--partial-io",
+        type: "boolean",
+        description: "Refuse partial TCP send/receive state.",
+      },
       {
         name: "--remaining-ms",
         type: "integer",
@@ -221,7 +258,7 @@ export const COMMANDS: CommandSpec[] = [
       {
         name: "--active-syscall",
         type: "boolean",
-        description: "Refuse active eventfd/pipe syscall state.",
+        description: "Refuse active eventfd/pipe/TCP listener syscall state.",
       },
       {
         name: "--active-read",
