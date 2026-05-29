@@ -27,6 +27,7 @@ import { SnapshotError } from "../errors.ts";
 import type { VsockExecOptions, VsockExecResult } from "../exec.ts";
 import type { OnLog } from "../log.ts";
 import { PhaseTimer } from "../phase-timer.ts";
+import { snapshotPortableMachinePingWorkload } from "../portable-machine-transport.ts";
 import { reflinkCopy } from "../reflink.ts";
 import type {
   SnapshotMeta,
@@ -199,16 +200,10 @@ export async function performSnapshot(
 }
 
 function performSnapshotPortable(
-  _ctx: SnapshotContext,
-  _opts: SnapshotOptions,
+  ctx: SnapshotContext,
+  opts: SnapshotOptions,
 ): Promise<SnapshotResult> {
-  throw new SnapshotError(
-    "SNAPSHOT_PORTABLE_UNSUPPORTED",
-    "vm.snapshot: portable snapshot engine is experimental and has no checkpoint implementation yet.\n" +
-      "  Portable snapshots are semantic process bundles for future cross-ISA restore,\n" +
-      "  separate from .vmstate and CRIU. Use MACHINEN_SNAPSHOT_ENGINE=vmstate\n" +
-      "  or MACHINEN_SNAPSHOT_ENGINE=criu for supported workloads today.",
-  );
+  return snapshotPortableMachinePingWorkload(ctx, opts.outDir);
 }
 
 async function performSnapshotCriu(

@@ -84,21 +84,20 @@ const level2 = filterProductClaimRegistry(registry.entries, {
   supportLevel: 'level-2-semantic-continuation',
   profile: 'ping-sequence-counter-semantic-continuation-v1',
 });
-if (level2.length !== 1) throw new Error(`support discovery selected ${level2.length} Level 2 profiles`);
-if (level2[0].productStatus !== 'implemented-product-support') throw new Error('Level 2 ping is not implemented product support');
-writeFileSync(join(work, 'support-discovery.json'), `${JSON.stringify(level2[0], null, 2)}\n`);
+if (level2.some((entry) => entry.productStatus === 'implemented-product-support')) {
+  throw new Error('Level 2 ping is still implemented product support');
+}
+writeFileSync(join(work, 'support-discovery.json'), `${JSON.stringify(level2, null, 2)}\n`);
 NODE
 
 node "$ROOT/scripts/product-claim-registry-matrix.mjs" \
-  --level level-2-semantic-continuation \
-  --profile ping-sequence-counter-semantic-continuation-v1 \
-  --summary "$WORK/product-claim-registry-level2.json"
+  --summary "$WORK/product-claim-registry-global.json"
 
 node "$ROOT/packages/cli/dist/cli.js" support \
   --level level-2-semantic-continuation \
   --profile ping-sequence-counter-semantic-continuation-v1 \
   --json >"$WORK/cli-support-level2.json"
 
-node -e 'const fs=require("fs"); const data=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if (data.count !== 1) throw new Error(`expected one Level 2 entry, got ${data.count}`); const entry=data.entries[0]; if (entry.supportLevel !== "level-2-semantic-continuation" || entry.productStatus !== "implemented-product-support") throw new Error("CLI support did not report implemented Level 2 ping");' "$WORK/cli-support-level2.json"
+node -e 'const fs=require("fs"); const data=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if (data.entries.some((entry)=>entry.productStatus === "implemented-product-support" || entry.migrationCompleted === true)) throw new Error("CLI still reports implemented Level 2 ping");' "$WORK/cli-support-level2.json"
 
-echo "semantic ping continuation smoke passed: $WORK"
+echo "semantic ping helper smoke passed without product support: $WORK"

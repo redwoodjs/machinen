@@ -18,16 +18,20 @@ pnpm run level4-ping-socket-graduation
 
 ## Product boundary
 
-Existing ping product support stays Level 2:
+Historical Goal 003 proof-mode boundary:
 
-| Row                                       | Product support     | Implementation level            | Meaning                                                                                  |
-| ----------------------------------------- | ------------------- | ------------------------------- | ---------------------------------------------------------------------------------------- |
-| `ping-level2-semantic-product-boundary`   | `supported`         | `level-2-semantic-continuation` | Logical ping sequence/counter continuation remains the only supported ping product path. |
-| `ping-level4-socket-reconstruction-proof` | `not-yet-supported` | `not-implemented`               | Raw/datagram ICMP socket reconstruction is proof evidence only.                          |
+| Row                                       | Product support     | Implementation level            | Meaning                                                                                                |
+| ----------------------------------------- | ------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `ping-level2-semantic-product-boundary`   | `supported`         | `level-2-semantic-continuation` | At Goal 003 time, logical ping sequence/counter continuation was the only supported ping product path. |
+| `ping-level4-socket-reconstruction-proof` | `not-yet-supported` | `not-implemented`               | At Goal 003 time, raw/datagram ICMP socket reconstruction was proof evidence only.                     |
 
 `migrationCompleted=true` on the Level 4 proof row means the proof verifier and
-resource planner completed. It does not mean Level 4 ping socket snapshots are
-product-supported.
+resource planner completed. It did not mean Level 4 ping socket snapshots were
+product-supported at Goal 003 time.
+
+Current state: Goal 011 retires the Level 2 ping product claim and makes
+`ping-level4-socket-reconstruction-v1` the supported portable machine Level 4
+ping route through `machinen snapshot` / `machinen restore`.
 
 ## Accepted proof descriptor
 
@@ -68,7 +72,6 @@ Every refusal row keeps `productSupport=unsupported`,
 
 ## Graduation gate
 
-Ping Level 4 can move from proof to support only after the descriptor is routed
-through public `machinen snapshot` / `machinen restore` verbs, target recreation
-is verified end-to-end, and every unsafe neighbor above remains checked as a
-refusal.
+Satisfied by Goal 011 for the narrow portable machine workload: the descriptor
+is routed through public `machinen snapshot` / `machinen restore` verbs, target
+recreation is verified, and unsafe neighbors remain checked refusals.

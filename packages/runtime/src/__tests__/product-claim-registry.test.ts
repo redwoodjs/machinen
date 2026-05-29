@@ -42,13 +42,20 @@ describe("Goal 46 product claim registry", () => {
           supportLevel: "level-1-semantic-restart",
         }),
         expect.objectContaining({
-          name: "ping-sequence-counter-semantic-continuation-v1",
+          name: "ping-level4-socket-reconstruction-v1",
           migrationCompleted: true,
           proofOnly: false,
-          supportLevel: "level-2-semantic-continuation",
+          supportLevel: "level-4-kernel-resource-reconstruction",
         }),
       ]),
     );
+    expect(
+      registry.entries.some(
+        (entry) =>
+          entry.name === "ping-sequence-counter-semantic-continuation-v1" &&
+          entry.productStatus === "implemented-product-support",
+      ),
+    ).toBe(false);
     expect(registry.summary.stableProductRefusals).toBeGreaterThan(0);
     expect(registry.summary.proofOnlyFixtures).toBeGreaterThan(0);
   });

@@ -127,7 +127,7 @@ export const COMMANDS: CommandSpec[] = [
     positionals: [
       {
         name: "runtime",
-        description: "Portable product runtime to capture. Currently only 'postgres'.",
+        description: "Portable product runtime to capture: 'postgres' or 'ping-socket'.",
       },
     ],
     flags: [
@@ -136,7 +136,7 @@ export const COMMANDS: CommandSpec[] = [
         name: "--source-arch",
         type: "enum",
         values: ["arm64", "amd64"],
-        description: "Architecture where the source PostgreSQL state was captured.",
+        description: "Architecture where the source product state was captured.",
       },
       {
         name: "--target-arch",
@@ -144,13 +144,21 @@ export const COMMANDS: CommandSpec[] = [
         values: ["arm64", "amd64"],
         description: "Architecture where the descriptor will be restored.",
       },
-      { name: "--dump", type: "string", description: "Logical pg_dump artifact." },
+      { name: "--dump", type: "string", description: "Logical pg_dump artifact (postgres)." },
       {
         name: "--source-verifier-output",
         type: "string",
-        description: "File containing source verifier SQL output.",
+        description: "File containing source verifier output.",
       },
       { name: "--postgres-version", type: "string", description: "Source PostgreSQL version." },
+      {
+        name: "--socket-kind",
+        type: "enum",
+        values: ["ping-dgram-icmp", "raw-icmp"],
+        description: "Ping Level 4 socket kind (ping-socket).",
+      },
+      { name: "--echo-id", type: "integer", description: "ICMP echo identifier (ping-socket)." },
+      { name: "--echo-seq", type: "integer", description: "ICMP echo sequence (ping-socket)." },
       { name: "--checkpoint-lsn", type: "string", description: "Recorded clean checkpoint LSN." },
       { name: "--init-sql", type: "string", description: "Optional audited init SQL file." },
       { name: "--workload-sql", type: "string", description: "Optional workload SQL file." },
@@ -267,12 +275,12 @@ export const COMMANDS: CommandSpec[] = [
         name: "--target-arch",
         type: "enum",
         values: ["arm64", "amd64"],
-        description: "Target architecture for portable PostgreSQL product bundles.",
+        description: "Target architecture for portable product bundles.",
       },
       {
         name: "--target-verifier-output",
         type: "string",
-        description: "Target-native verifier output for portable PostgreSQL product bundles.",
+        description: "Target-native verifier output for portable product bundles.",
       },
       {
         name: "--json",

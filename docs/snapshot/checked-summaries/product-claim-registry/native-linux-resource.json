@@ -6,11 +6,11 @@
     "family": "native-linux-resource"
   },
   "registrySummary": {
-    "total": 2245,
+    "total": 2246,
     "byStatus": {
-      "implemented-product-support": 1,
+      "implemented-product-support": 4,
       "stable-product-refusal": 1563,
-      "proof-only-fixture": 681,
+      "proof-only-fixture": 679,
       "obsolete-invalid-claim": 0
     },
     "byFamily": {
@@ -21,12 +21,12 @@
       "stateful-services": 26,
       "foundation-native": 127,
       "native-linux-resource": 302,
-      "network-ping-socket": 536,
+      "network-ping-socket": 537,
       "unknown": 897
     },
-    "implementedProductSupport": 1,
+    "implementedProductSupport": 4,
     "stableProductRefusals": 1563,
-    "proofOnlyFixtures": 681,
+    "proofOnlyFixtures": 679,
     "obsoleteInvalidClaims": 0
   },
   "selectedCount": 302,
@@ -37,6 +37,8 @@
       "resourceFamily": "eventfd-alias",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "stable-product-refusal",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "intentional-refusal",
       "expectedResult": "refusal",
       "unsafeStateFamily": "eventfd-alias",
@@ -52,6 +54,13 @@
         "target-native verifier gates",
         "positive proof profile"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "eventfd-alias",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Product restore is refused with kernel-state-unsupported; the proof/refusal profile remains fail-closed with migrationCompleted=false."
     },
     {
@@ -60,6 +69,8 @@
       "resourceFamily": "eventfd-alias",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "stable-product-refusal",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "intentional-refusal",
       "expectedResult": "refusal",
       "unsafeStateFamily": "eventfd-alias",
@@ -75,6 +86,13 @@
         "target-native verifier gates",
         "positive proof profile"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "eventfd-alias",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Product restore is refused with kernel-state-unsupported; the proof/refusal profile remains fail-closed with migrationCompleted=false."
     },
     {
@@ -83,6 +101,8 @@
       "resourceFamily": "eventfd-alias",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "stable-product-refusal",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "intentional-refusal",
       "expectedResult": "refusal",
       "unsafeStateFamily": "eventfd-alias",
@@ -98,6 +118,13 @@
         "target-native verifier gates",
         "positive proof profile"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "eventfd-alias",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Product restore is refused with kernel-state-unsupported; the proof/refusal profile remains fail-closed with migrationCompleted=false."
     },
     {
@@ -106,6 +133,8 @@
       "resourceFamily": "eventfd-alias",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "stable-product-refusal",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "intentional-refusal",
       "expectedResult": "refusal",
       "unsafeStateFamily": "eventfd-alias",
@@ -121,6 +150,13 @@
         "target-native verifier gates",
         "positive proof profile"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "eventfd-alias",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Product restore is refused with kernel-state-unsupported; the proof/refusal profile remains fail-closed with migrationCompleted=false."
     },
     {
@@ -129,6 +165,8 @@
       "resourceFamily": "eventfd-alias",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "stable-product-refusal",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "intentional-refusal",
       "expectedResult": "refusal",
       "unsafeStateFamily": "eventfd-alias",
@@ -144,6 +182,13 @@
         "target-native verifier gates",
         "positive proof profile"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "eventfd-alias",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Product restore is refused with kernel-state-unsupported; the proof/refusal profile remains fail-closed with migrationCompleted=false."
     },
     {
@@ -152,6 +197,8 @@
       "resourceFamily": "eventfd-alias",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "stable-product-refusal",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "intentional-refusal",
       "expectedResult": "refusal",
       "unsafeStateFamily": "eventfd-alias",
@@ -167,6 +214,13 @@
         "target-native verifier gates",
         "positive proof profile"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "eventfd-alias",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Product restore is refused with kernel-state-unsupported; the proof/refusal profile remains fail-closed with migrationCompleted=false."
     },
     {
@@ -175,6 +229,8 @@
       "resourceFamily": "eventfd-alias",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "stable-product-refusal",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "intentional-refusal",
       "expectedResult": "refusal",
       "unsafeStateFamily": "eventfd-alias",
@@ -190,6 +246,13 @@
         "target-native verifier gates",
         "positive proof profile"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "eventfd-alias",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Product restore is refused with kernel-state-unsupported; the proof/refusal profile remains fail-closed with migrationCompleted=false."
     },
     {
@@ -198,6 +261,8 @@
       "resourceFamily": "eventfd-alias",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "stable-product-refusal",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "intentional-refusal",
       "expectedResult": "refusal",
       "unsafeStateFamily": "eventfd-alias",
@@ -213,6 +278,13 @@
         "target-native verifier gates",
         "positive proof profile"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "eventfd-alias",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Product restore is refused with kernel-state-unsupported; the proof/refusal profile remains fail-closed with migrationCompleted=false."
     },
     {
@@ -221,6 +293,8 @@
       "resourceFamily": "eventfd-blocked-reader-v1",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "stable-product-refusal",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "intentional-refusal",
       "expectedResult": "refusal",
       "sourceGoal": "goal-21",
@@ -238,6 +312,13 @@
         "target-gates",
         "neighbor-specific-verifier"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "eventfd-blocked-reader-v1:alias-waiter",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Product restore is refused with kernel-state-unsupported; the proof/refusal profile remains fail-closed with migrationCompleted=false."
     },
     {
@@ -246,6 +327,8 @@
       "resourceFamily": "eventfd-blocked-reader-v1",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "stable-product-refusal",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "intentional-refusal",
       "expectedResult": "refusal",
       "sourceGoal": "goal-21",
@@ -263,6 +346,13 @@
         "target-gates",
         "neighbor-specific-verifier"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "eventfd-blocked-reader-v1:multiple-waiters",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Product restore is refused with kernel-state-unsupported; the proof/refusal profile remains fail-closed with migrationCompleted=false."
     },
     {
@@ -271,6 +361,8 @@
       "resourceFamily": "eventfd-blocked-reader-v1",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "stable-product-refusal",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "intentional-refusal",
       "expectedResult": "refusal",
       "sourceGoal": "goal-21",
@@ -288,6 +380,13 @@
         "target-gates",
         "neighbor-specific-verifier"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "eventfd-blocked-reader-v1:nonzero-counter-race",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Product restore is refused with kernel-state-unsupported; the proof/refusal profile remains fail-closed with migrationCompleted=false."
     },
     {
@@ -296,6 +395,8 @@
       "resourceFamily": "eventfd-blocked-reader-v1",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "stable-product-refusal",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "intentional-refusal",
       "expectedResult": "refusal",
       "sourceGoal": "goal-21",
@@ -313,6 +414,13 @@
         "target-gates",
         "neighbor-specific-verifier"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "eventfd-blocked-reader-v1:scheduler-ambiguity",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Product restore is refused with kernel-state-unsupported; the proof/refusal profile remains fail-closed with migrationCompleted=false."
     },
     {
@@ -321,6 +429,8 @@
       "resourceFamily": "eventfd-blocked-reader-v1",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "stable-product-refusal",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "intentional-refusal",
       "expectedResult": "refusal",
       "sourceGoal": "goal-21",
@@ -338,6 +448,13 @@
         "target-gates",
         "neighbor-specific-verifier"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "eventfd-blocked-reader-v1:semaphore-waiter",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Product restore is refused with kernel-state-unsupported; the proof/refusal profile remains fail-closed with migrationCompleted=false."
     },
     {
@@ -346,6 +463,8 @@
       "resourceFamily": "eventfd-nonblocking-counter-v1",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "stable-product-refusal",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "intentional-refusal",
       "expectedResult": "refusal",
       "sourceGoal": "goal-21",
@@ -363,6 +482,13 @@
         "target-gates",
         "neighbor-specific-verifier"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "eventfd-nonblocking-counter-v1:alias-ambiguity",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Product restore is refused with kernel-state-unsupported; the proof/refusal profile remains fail-closed with migrationCompleted=false."
     },
     {
@@ -371,6 +497,8 @@
       "resourceFamily": "eventfd-nonblocking-counter-v1",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "stable-product-refusal",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "intentional-refusal",
       "expectedResult": "refusal",
       "sourceGoal": "goal-21",
@@ -388,6 +516,13 @@
         "target-gates",
         "neighbor-specific-verifier"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "eventfd-nonblocking-counter-v1:blocked-reader",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Product restore is refused with kernel-state-unsupported; the proof/refusal profile remains fail-closed with migrationCompleted=false."
     },
     {
@@ -396,6 +531,8 @@
       "resourceFamily": "eventfd-nonblocking-counter-v1",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "stable-product-refusal",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "intentional-refusal",
       "expectedResult": "refusal",
       "sourceGoal": "goal-21",
@@ -413,6 +550,13 @@
         "target-gates",
         "neighbor-specific-verifier"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "eventfd-nonblocking-counter-v1:close-on-exec-mismatch",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Product restore is refused with kernel-state-unsupported; the proof/refusal profile remains fail-closed with migrationCompleted=false."
     },
     {
@@ -421,6 +565,8 @@
       "resourceFamily": "eventfd-nonblocking-counter-v1",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "stable-product-refusal",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "intentional-refusal",
       "expectedResult": "refusal",
       "sourceGoal": "goal-21",
@@ -438,6 +584,13 @@
         "target-gates",
         "neighbor-specific-verifier"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "eventfd-nonblocking-counter-v1:semaphore-mode",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Product restore is refused with kernel-state-unsupported; the proof/refusal profile remains fail-closed with migrationCompleted=false."
     },
     {
@@ -446,6 +599,8 @@
       "resourceFamily": "eventfd-nonblocking-counter-v1",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "stable-product-refusal",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "intentional-refusal",
       "expectedResult": "refusal",
       "sourceGoal": "goal-21",
@@ -463,6 +618,13 @@
         "target-gates",
         "neighbor-specific-verifier"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "eventfd-nonblocking-counter-v1:stale-counter",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Product restore is refused with kernel-state-unsupported; the proof/refusal profile remains fail-closed with migrationCompleted=false."
     },
     {
@@ -471,6 +633,8 @@
       "resourceFamily": "eventfd-semaphore-single-counter-v1",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "stable-product-refusal",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "intentional-refusal",
       "expectedResult": "refusal",
       "sourceGoal": "goal-21",
@@ -488,6 +652,13 @@
         "target-gates",
         "neighbor-specific-verifier"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "eventfd-semaphore-single-counter-v1:aliases",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Product restore is refused with kernel-state-unsupported; the proof/refusal profile remains fail-closed with migrationCompleted=false."
     },
     {
@@ -496,6 +667,8 @@
       "resourceFamily": "eventfd-semaphore-single-counter-v1",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "stable-product-refusal",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "intentional-refusal",
       "expectedResult": "refusal",
       "sourceGoal": "goal-21",
@@ -512,6 +685,13 @@
         "descriptor-gate",
         "target-gates",
         "neighbor-specific-verifier"
+      ],
+      "observableStateDecisions": [
+        {
+          "name": "eventfd-semaphore-single-counter-v1:stale-counter",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
       ],
       "message": "Product restore is refused with kernel-state-unsupported; the proof/refusal profile remains fail-closed with migrationCompleted=false."
     }

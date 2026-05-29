@@ -116,9 +116,9 @@ export interface VmHandle {
    * process-tree behavior: checkpoint image files live under `<outDir>/img/`,
    * `opts.leaveRunning: true` keeps the source alive, and the default
    * destructive CRIU snapshot powers the source off after the dump.
-   * With `MACHINEN_SNAPSHOT_ENGINE=portable`, snapshot currently
-   * refuses with an experimental/unsupported-workload error; the
-   * semantic cross-ISA checkpoint implementation has not landed yet.
+   * With `MACHINEN_SNAPSHOT_ENGINE=portable`, snapshot writes a
+   * Level 4 portable machine bundle for the supported ping socket
+   * workload subset and refuses other/unsafe states fail-closed.
    *
    * `mount-lower.sqfs` and `mount-upper.img` are reflinked from the
    * runtime's per-VM materialization (#272), so on APFS / btrfs / xfs

@@ -244,6 +244,29 @@
 - [`isProductPortablePostgresBundle`](#isproductportablepostgresbundle)
 - [`productPortablePostgresFileSha256`](#productportablepostgresfilesha256)
 
+### Product Level 4 ping socket
+
+- [`ProductLevel4PingSocketError`](#productlevel4pingsocketerror)
+- [`ProductLevel4PingSocketCaptureInput`](#productlevel4pingsocketcaptureinput)
+- [`ProductLevel4PingSocketDescriptor`](#productlevel4pingsocketdescriptor)
+- [`ProductLevel4PingSocketRefusal`](#productlevel4pingsocketrefusal)
+- [`ProductLevel4PingSocketRestoreInput`](#productlevel4pingsocketrestoreinput)
+- [`ProductLevel4PingSocketRestoreSummary`](#productlevel4pingsocketrestoresummary)
+- [`ProductLevel4PingSocketArchitecture`](#productlevel4pingsocketarchitecture)
+- [`ProductLevel4PingSocketKind`](#productlevel4pingsocketkind)
+- [`ProductLevel4PingSocketRefusalCode`](#productlevel4pingsocketrefusalcode)
+- [`ProductLevel4PingSocketCaptureResult`](#productlevel4pingsocketcaptureresult)
+- [`PRODUCT_LEVEL4_PING_SOCKET_FORMAT_VERSION`](#product_level4_ping_socket_format_version)
+- [`PRODUCT_LEVEL4_PING_SOCKET_MANIFEST`](#product_level4_ping_socket_manifest)
+- [`PRODUCT_LEVEL4_PING_SOCKET_REFUSAL`](#product_level4_ping_socket_refusal)
+- [`PRODUCT_LEVEL4_PING_SOCKET_RESTORE_SUMMARY`](#product_level4_ping_socket_restore_summary)
+- [`productLevel4PingSocketArchitectures`](#productlevel4pingsocketarchitectures)
+- [`productLevel4PingSocketKinds`](#productlevel4pingsocketkinds)
+- [`productLevel4PingSocketRefusalCodes`](#productlevel4pingsocketrefusalcodes)
+- [`createProductLevel4PingSocketSnapshot`](#createproductlevel4pingsocketsnapshot)
+- [`isProductLevel4PingSocketBundle`](#isproductlevel4pingsocketbundle)
+- [`restoreProductLevel4PingSocketSnapshot`](#restoreproductlevel4pingsocketsnapshot)
+
 ### Native process images
 
 - [`NativeProcessImageValidationError`](#nativeprocessimagevalidationerror)
@@ -1991,6 +2014,44 @@ Attach to `id`. Throws if id doesn't exist.
 ###### Overrides
 
 `Error.constructor`
+
+***
+
+### ProductLevel4PingSocketError
+
+#### Extends
+
+- `Error`
+
+#### Constructors
+
+##### Constructor
+
+> **new ProductLevel4PingSocketError**(`code`, `message`): [`ProductLevel4PingSocketError`](#productlevel4pingsocketerror)
+
+###### Parameters
+
+###### code
+
+`string`
+
+###### message
+
+`string`
+
+###### Returns
+
+[`ProductLevel4PingSocketError`](#productlevel4pingsocketerror)
+
+###### Overrides
+
+`Error.constructor`
+
+#### Properties
+
+##### code
+
+> `readonly` **code**: `string`
 
 ***
 
@@ -5758,7 +5819,7 @@ by default when `output` is a TTY.
 
 ###### rseq.state
 
-> **state**: `"unsupported"` \| `"absent"` \| `"captured"`
+> **state**: `"unsupported"` \| `"captured"` \| `"absent"`
 
 ###### rseq.refusal?
 
@@ -11891,7 +11952,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### productSupportLevel?
 
-> `optional` **productSupportLevel?**: `"level-0-fail-closed-discovery"` \| `"level-1-semantic-restart"` \| `"level-2-semantic-continuation"` \| `"level-3-runtime-aware-continuation"` \| `"level-4-kernel-resource-reconstruction"` \| `"level-5-cross-arch-process-continuation"`
+> `optional` **productSupportLevel?**: `"level-4-kernel-resource-reconstruction"` \| `"level-0-fail-closed-discovery"` \| `"level-1-semantic-restart"` \| `"level-2-semantic-continuation"` \| `"level-3-runtime-aware-continuation"` \| `"level-5-cross-arch-process-continuation"`
 
 ##### observableStateDecisions?
 
@@ -11909,7 +11970,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### family
 
-> **family**: `"unknown"` \| `"postgresql"` \| `"nodejs"` \| `"go"` \| `"python-ruby-jvm"` \| `"stateful-services"` \| `"foundation-native"` \| `"native-linux-resource"` \| `"network-ping-socket"`
+> **family**: `"network-ping-socket"` \| `"unknown"` \| `"postgresql"` \| `"nodejs"` \| `"go"` \| `"python-ruby-jvm"` \| `"stateful-services"` \| `"foundation-native"` \| `"native-linux-resource"`
 
 ##### runtime?
 
@@ -11929,7 +11990,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### supportLevel
 
-> **supportLevel**: `"level-0-fail-closed-discovery"` \| `"level-1-semantic-restart"` \| `"level-2-semantic-continuation"` \| `"level-3-runtime-aware-continuation"` \| `"level-4-kernel-resource-reconstruction"` \| `"level-5-cross-arch-process-continuation"`
+> **supportLevel**: `"level-4-kernel-resource-reconstruction"` \| `"level-0-fail-closed-discovery"` \| `"level-1-semantic-restart"` \| `"level-2-semantic-continuation"` \| `"level-3-runtime-aware-continuation"` \| `"level-5-cross-arch-process-continuation"`
 
 ##### supportLevelName
 
@@ -12063,7 +12124,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### family?
 
-> `optional` **family?**: `"unknown"` \| `"postgresql"` \| `"nodejs"` \| `"go"` \| `"python-ruby-jvm"` \| `"stateful-services"` \| `"foundation-native"` \| `"native-linux-resource"` \| `"network-ping-socket"`
+> `optional` **family?**: `"network-ping-socket"` \| `"unknown"` \| `"postgresql"` \| `"nodejs"` \| `"go"` \| `"python-ruby-jvm"` \| `"stateful-services"` \| `"foundation-native"` \| `"native-linux-resource"`
 
 ##### runtime?
 
@@ -12083,7 +12144,441 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### supportLevel?
 
-> `optional` **supportLevel?**: `"level-0-fail-closed-discovery"` \| `"level-1-semantic-restart"` \| `"level-2-semantic-continuation"` \| `"level-3-runtime-aware-continuation"` \| `"level-4-kernel-resource-reconstruction"` \| `"level-5-cross-arch-process-continuation"`
+> `optional` **supportLevel?**: `"level-4-kernel-resource-reconstruction"` \| `"level-0-fail-closed-discovery"` \| `"level-1-semantic-restart"` \| `"level-2-semantic-continuation"` \| `"level-3-runtime-aware-continuation"` \| `"level-5-cross-arch-process-continuation"`
+
+***
+
+### ProductLevel4PingSocketCaptureInput
+
+#### Properties
+
+##### outDir
+
+> **outDir**: `string`
+
+##### sourceArch
+
+> **sourceArch**: `"amd64"` \| `"arm64"`
+
+##### targetArch
+
+> **targetArch**: `"amd64"` \| `"arm64"`
+
+##### socketKind
+
+> **socketKind**: `"ping-dgram-icmp"` \| `"raw-icmp"`
+
+##### sourceVerifierOutput
+
+> **sourceVerifierOutput**: `string`
+
+##### echoIdentifier
+
+> **echoIdentifier**: `number`
+
+##### echoSequence
+
+> **echoSequence**: `number`
+
+##### destination?
+
+> `optional` **destination?**: `"127.0.0.1"`
+
+##### intervalMs?
+
+> `optional` **intervalMs?**: `number`
+
+##### outputLogPath?
+
+> `optional` **outputLogPath?**: `"/tmp/machinen-restored-ping.log"`
+
+##### sequencePolicy?
+
+> `optional` **sequencePolicy?**: `"continue-at-next-supported-boundary"`
+
+##### route
+
+> **route**: `"loopback"`
+
+##### namespace
+
+> **namespace**: `"target-loopback"`
+
+##### credential?
+
+> `optional` **credential?**: `"ping-group-range"` \| `"cap-net-raw"`
+
+##### activeRecvmsg?
+
+> `optional` **activeRecvmsg?**: `boolean`
+
+##### unreadReceiveQueue?
+
+> `optional` **unreadReceiveQueue?**: `boolean`
+
+##### inflightPackets?
+
+> `optional` **inflightPackets?**: `boolean`
+
+##### ambiguousRouteOrNamespace?
+
+> `optional` **ambiguousRouteOrNamespace?**: `boolean`
+
+##### missingCredentialOrCapability?
+
+> `optional` **missingCredentialOrCapability?**: `boolean`
+
+##### unsupportedRawSocketOption?
+
+> `optional` **unsupportedRawSocketOption?**: `boolean`
+
+##### dryRun?
+
+> `optional` **dryRun?**: `boolean`
+
+***
+
+### ProductLevel4PingSocketDescriptor
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.product-level4-ping-socket"`
+
+##### formatVersion
+
+> **formatVersion**: `1`
+
+##### supportLevel
+
+> **supportLevel**: `"implemented-product-support"`
+
+##### subset
+
+> **subset**: `"ping-level4-socket-reconstruction-v1"`
+
+##### implementationLevel
+
+> **implementationLevel**: `"level-4-kernel-resource-reconstruction"`
+
+##### runtime
+
+> **runtime**: `"network-ping-socket"`
+
+##### captureSurface
+
+> **captureSurface**: `"machinen capture ping-socket"`
+
+##### restoreSurface
+
+> **restoreSurface**: `"machinen restore <bundle> --target-arch <arch> [--target-verifier-output <file>]"`
+
+##### source
+
+> **source**: `object`
+
+###### architecture
+
+> **architecture**: `"amd64"` \| `"arm64"`
+
+###### host
+
+> **host**: `object`
+
+###### host.arch
+
+> **arch**: `string`
+
+###### host.platform
+
+> **platform**: `string`
+
+###### host.release
+
+> **release**: `string`
+
+##### target
+
+> **target**: `object`
+
+###### architecture
+
+> **architecture**: `"amd64"` \| `"arm64"`
+
+##### socket
+
+> **socket**: `object`
+
+###### kind
+
+> **kind**: `"ping-dgram-icmp"` \| `"raw-icmp"`
+
+###### route
+
+> **route**: `"loopback"`
+
+###### namespace
+
+> **namespace**: `"target-loopback"`
+
+###### credential
+
+> **credential**: `"ping-group-range"` \| `"cap-net-raw"`
+
+###### echoIdentifier
+
+> **echoIdentifier**: `number`
+
+###### echoSequence
+
+> **echoSequence**: `number`
+
+##### continuation
+
+> **continuation**: `object`
+
+###### destination
+
+> **destination**: `"127.0.0.1"`
+
+###### intervalMs
+
+> **intervalMs**: `number`
+
+###### outputLogPath
+
+> **outputLogPath**: `"/tmp/machinen-restored-ping.log"`
+
+###### sequencePolicy
+
+> **sequencePolicy**: `"continue-at-next-supported-boundary"`
+
+###### idPolicy
+
+> **idPolicy**: `"descriptor-preserved-when-target-ping-supports-it"`
+
+###### textOutputSequencePolicy
+
+> **textOutputSequencePolicy**: `"target-ping-may-renumber-text-sequence"`
+
+##### gates
+
+> **gates**: `object`
+
+###### emptyReceiveQueueRequired
+
+> **emptyReceiveQueueRequired**: `true`
+
+###### noInflightPacketsRequired
+
+> **noInflightPacketsRequired**: `true`
+
+###### noActiveRecvmsgRequired
+
+> **noActiveRecvmsgRequired**: `true`
+
+###### unambiguousRouteAndNamespaceRequired
+
+> **unambiguousRouteAndNamespaceRequired**: `true`
+
+###### credentialOrCapabilityMappingRequired
+
+> **credentialOrCapabilityMappingRequired**: `true`
+
+###### unsupportedRawSocketOptionsRefused
+
+> **unsupportedRawSocketOptionsRefused**: `true`
+
+###### targetNativeVerificationRequired
+
+> **targetNativeVerificationRequired**: `true`
+
+###### sourceIsaEmulationAllowed
+
+> **sourceIsaEmulationAllowed**: `false`
+
+###### sourceTextReplayAllowed
+
+> **sourceTextReplayAllowed**: `false`
+
+###### sidecarRuntimeAllowed
+
+> **sidecarRuntimeAllowed**: `false`
+
+###### metadataOnlyContinuationAllowed
+
+> **metadataOnlyContinuationAllowed**: `false`
+
+##### sourceVerifierOutput
+
+> **sourceVerifierOutput**: `string`
+
+##### sourceVerifierOutputSha256
+
+> **sourceVerifierOutputSha256**: `string`
+
+***
+
+### ProductLevel4PingSocketRefusal
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.product-level4-ping-socket-refusal"`
+
+##### formatVersion
+
+> **formatVersion**: `1`
+
+##### runtime
+
+> **runtime**: `"network-ping-socket"`
+
+##### supportLevel
+
+> **supportLevel**: `"explicit-refusal"`
+
+##### state
+
+> **state**: `"refused"`
+
+##### migrationCompleted
+
+> **migrationCompleted**: `false`
+
+##### expectedRefusalCode
+
+> **expectedRefusalCode**: `"ping-socket-active-recvmsg-unsupported"` \| `"ping-socket-unread-receive-queue-unsupported"` \| `"ping-socket-inflight-packets-unsupported"` \| `"ping-socket-ambiguous-route-or-namespace"` \| `"ping-socket-missing-credential-or-capability"` \| `"ping-socket-unsupported-raw-socket-option"` \| `"ping-socket-source-target-arch-match"` \| `"ping-socket-target-arch-mismatch"` \| `"ping-socket-target-verifier-mismatch"`
+
+##### message
+
+> **message**: `string`
+
+##### evidence
+
+> **evidence**: `Record`\<`string`, `unknown`\>
+
+##### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+##### sourceTextReusedAsTargetCode
+
+> **sourceTextReusedAsTargetCode**: `false`
+
+##### sidecarRuntimeUsed
+
+> **sidecarRuntimeUsed**: `false`
+
+##### metadataOnlyShortcutAccepted
+
+> **metadataOnlyShortcutAccepted**: `false`
+
+***
+
+### ProductLevel4PingSocketRestoreInput
+
+#### Properties
+
+##### bundleDir
+
+> **bundleDir**: `string`
+
+##### targetArch
+
+> **targetArch**: `"amd64"` \| `"arm64"`
+
+##### targetVerifierOutput
+
+> **targetVerifierOutput**: `string`
+
+##### dryRun?
+
+> `optional` **dryRun?**: `boolean`
+
+***
+
+### ProductLevel4PingSocketRestoreSummary
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.product-level4-ping-socket-restore-summary"`
+
+##### formatVersion
+
+> **formatVersion**: `1`
+
+##### runtime
+
+> **runtime**: `"network-ping-socket"`
+
+##### subset
+
+> **subset**: `"ping-level4-socket-reconstruction-v1"`
+
+##### supportLevel
+
+> **supportLevel**: `"implemented-product-support"`
+
+##### implementationLevel
+
+> **implementationLevel**: `"level-4-kernel-resource-reconstruction"`
+
+##### state
+
+> **state**: `"refused"` \| `"completed"`
+
+##### migrationCompleted
+
+> **migrationCompleted**: `boolean`
+
+##### sourceArch?
+
+> `optional` **sourceArch?**: `"amd64"` \| `"arm64"`
+
+##### targetArch
+
+> **targetArch**: `"amd64"` \| `"arm64"`
+
+##### targetVerifierResult
+
+> **targetVerifierResult**: `"failed"` \| `"passed"` \| `"not-run"`
+
+##### descriptorSha256?
+
+> `optional` **descriptorSha256?**: `string`
+
+##### targetVerifierOutputSha256?
+
+> `optional` **targetVerifierOutputSha256?**: `string`
+
+##### refusal?
+
+> `optional` **refusal?**: [`ProductLevel4PingSocketRefusal`](#productlevel4pingsocketrefusal)
+
+##### shortcutInspection
+
+> **shortcutInspection**: `object`
+
+###### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+###### sourceTextReusedAsTargetCode
+
+> **sourceTextReusedAsTargetCode**: `false`
+
+###### sidecarRuntimeUsed
+
+> **sidecarRuntimeUsed**: `false`
+
+###### metadataOnlyShortcutAccepted
+
+> **metadataOnlyShortcutAccepted**: `false`
 
 ***
 
@@ -12101,7 +12596,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### supportLevel
 
-> **supportLevel**: `"implemented-product-support"` \| `"proof-only-fixture"` \| `"obsolete-invalid-claim"` \| `"explicit-refusal"`
+> **supportLevel**: `"implemented-product-support"` \| `"explicit-refusal"` \| `"proof-only-fixture"` \| `"obsolete-invalid-claim"`
 
 ##### subset?
 
@@ -12857,7 +13352,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### expectedRefusalCode
 
-> **expectedRefusalCode**: `"semantic-ping-unread-receive-queue-unsupported"` \| `"semantic-ping-source-target-arch-match"` \| `"semantic-ping-invalid-counter-state"` \| `"semantic-ping-active-recvmsg-unsupported"` \| `"semantic-ping-raw-socket-state-unsupported"` \| `"semantic-ping-target-verifier-failed"`
+> **expectedRefusalCode**: `"semantic-ping-source-target-arch-match"` \| `"semantic-ping-invalid-counter-state"` \| `"semantic-ping-unread-receive-queue-unsupported"` \| `"semantic-ping-active-recvmsg-unsupported"` \| `"semantic-ping-raw-socket-state-unsupported"` \| `"semantic-ping-target-verifier-failed"`
 
 ##### message
 
@@ -13546,7 +14041,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`runtime`](#runtime-5)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`runtime`](#runtime-8)
 
 ##### profile
 
@@ -13570,7 +14065,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`sourceArch`](#sourcearch-14)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`sourceArch`](#sourcearch-16)
 
 ##### targetArch
 
@@ -13578,7 +14073,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`targetArch`](#targetarch-26)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`targetArch`](#targetarch-29)
 
 ##### stateModel
 
@@ -13634,7 +14129,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`evidence`](#evidence-10)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`evidence`](#evidence-11)
 
 ##### kind
 
@@ -13646,7 +14141,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Overrides
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`migrationCompleted`](#migrationcompleted-15)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`migrationCompleted`](#migrationcompleted-17)
 
 ##### scope
 
@@ -14701,9 +15196,9 @@ With `MACHINEN_SNAPSHOT_ENGINE=criu`, this keeps the historical
 process-tree behavior: checkpoint image files live under `<outDir>/img/`,
 `opts.leaveRunning: true` keeps the source alive, and the default
 destructive CRIU snapshot powers the source off after the dump.
-With `MACHINEN_SNAPSHOT_ENGINE=portable`, snapshot currently
-refuses with an experimental/unsupported-workload error; the
-semantic cross-ISA checkpoint implementation has not landed yet.
+With `MACHINEN_SNAPSHOT_ENGINE=portable`, snapshot writes a
+Level 4 portable machine bundle for the supported ping socket
+workload subset and refuses other/unsafe states fail-closed.
 
 `mount-lower.sqfs` and `mount-upper.img` are reflinked from the
 runtime's per-VM materialization (#272), so on APFS / btrfs / xfs
@@ -17298,6 +17793,30 @@ Result of `validatePid` — easy to switch on at the call site.
 
 ***
 
+### ProductLevel4PingSocketArchitecture
+
+> **ProductLevel4PingSocketArchitecture** = *typeof* [`productLevel4PingSocketArchitectures`](#productlevel4pingsocketarchitectures)\[`number`\]
+
+***
+
+### ProductLevel4PingSocketKind
+
+> **ProductLevel4PingSocketKind** = *typeof* [`productLevel4PingSocketKinds`](#productlevel4pingsocketkinds)\[`number`\]
+
+***
+
+### ProductLevel4PingSocketRefusalCode
+
+> **ProductLevel4PingSocketRefusalCode** = *typeof* [`productLevel4PingSocketRefusalCodes`](#productlevel4pingsocketrefusalcodes)\[`number`\]
+
+***
+
+### ProductLevel4PingSocketCaptureResult
+
+> **ProductLevel4PingSocketCaptureResult** = \{ `state`: `"completed"`; `migrationCompleted`: `true`; `bundleDir`: `string`; `descriptor`: [`ProductLevel4PingSocketDescriptor`](#productlevel4pingsocketdescriptor); `dryRun`: `boolean`; \} \| \{ `state`: `"refused"`; `migrationCompleted`: `false`; `bundleDir`: `string`; `refusal`: [`ProductLevel4PingSocketRefusal`](#productlevel4pingsocketrefusal); `dryRun`: `boolean`; \}
+
+***
+
 ### ProductPortablePostgresArchitecture
 
 > **ProductPortablePostgresArchitecture** = *typeof* [`productPortablePostgresArchitectures`](#productportablepostgresarchitectures)\[`number`\]
@@ -17782,6 +18301,10 @@ tarball-producing tool can pre-populate the lookup cache.
 ##### SNAPSHOT\_PORTABLE\_UNSUPPORTED
 
 > `readonly` **SNAPSHOT\_PORTABLE\_UNSUPPORTED**: `"SNAPSHOT_PORTABLE_UNSUPPORTED"` = `"SNAPSHOT_PORTABLE_UNSUPPORTED"`
+
+##### SNAPSHOT\_PORTABLE\_REFUSED
+
+> `readonly` **SNAPSHOT\_PORTABLE\_REFUSED**: `"SNAPSHOT_PORTABLE_REFUSED"` = `"SNAPSHOT_PORTABLE_REFUSED"`
 
 ##### PROVISION\_BASE\_NOT\_FOUND
 
@@ -19189,6 +19712,48 @@ loops; anything looser stops being a meaningful gate.
 ### PRODUCT\_CLAIM\_PROOF\_ONLY\_REFUSAL\_CODE
 
 > `const` **PRODUCT\_CLAIM\_PROOF\_ONLY\_REFUSAL\_CODE**: `"product-surface-not-implemented"`
+
+***
+
+### PRODUCT\_LEVEL4\_PING\_SOCKET\_FORMAT\_VERSION
+
+> `const` **PRODUCT\_LEVEL4\_PING\_SOCKET\_FORMAT\_VERSION**: `1`
+
+***
+
+### PRODUCT\_LEVEL4\_PING\_SOCKET\_MANIFEST
+
+> `const` **PRODUCT\_LEVEL4\_PING\_SOCKET\_MANIFEST**: `"portable-ping-socket.json"`
+
+***
+
+### PRODUCT\_LEVEL4\_PING\_SOCKET\_REFUSAL
+
+> `const` **PRODUCT\_LEVEL4\_PING\_SOCKET\_REFUSAL**: `"portable-ping-socket-refusal.json"`
+
+***
+
+### PRODUCT\_LEVEL4\_PING\_SOCKET\_RESTORE\_SUMMARY
+
+> `const` **PRODUCT\_LEVEL4\_PING\_SOCKET\_RESTORE\_SUMMARY**: `"portable-ping-socket-restore-summary.json"`
+
+***
+
+### productLevel4PingSocketArchitectures
+
+> `const` **productLevel4PingSocketArchitectures**: readonly \[`"arm64"`, `"amd64"`\]
+
+***
+
+### productLevel4PingSocketKinds
+
+> `const` **productLevel4PingSocketKinds**: readonly \[`"ping-dgram-icmp"`, `"raw-icmp"`\]
+
+***
+
+### productLevel4PingSocketRefusalCodes
+
+> `const` **productLevel4PingSocketRefusalCodes**: readonly \[`"ping-socket-active-recvmsg-unsupported"`, `"ping-socket-unread-receive-queue-unsupported"`, `"ping-socket-inflight-packets-unsupported"`, `"ping-socket-ambiguous-route-or-namespace"`, `"ping-socket-missing-credential-or-capability"`, `"ping-socket-unsupported-raw-socket-option"`, `"ping-socket-source-target-arch-match"`, `"ping-socket-target-arch-mismatch"`, `"ping-socket-target-verifier-mismatch"`\]
 
 ***
 
@@ -21637,6 +22202,54 @@ readonly (`number` \| [`RssTarget`](#rsstarget))[]
 ##### graduationRequirements
 
 > **graduationRequirements**: `string`[]
+
+***
+
+### createProductLevel4PingSocketSnapshot()
+
+> **createProductLevel4PingSocketSnapshot**(`input`): [`ProductLevel4PingSocketCaptureResult`](#productlevel4pingsocketcaptureresult)
+
+#### Parameters
+
+##### input
+
+[`ProductLevel4PingSocketCaptureInput`](#productlevel4pingsocketcaptureinput)
+
+#### Returns
+
+[`ProductLevel4PingSocketCaptureResult`](#productlevel4pingsocketcaptureresult)
+
+***
+
+### isProductLevel4PingSocketBundle()
+
+> **isProductLevel4PingSocketBundle**(`bundleDir`): `boolean`
+
+#### Parameters
+
+##### bundleDir
+
+`string`
+
+#### Returns
+
+`boolean`
+
+***
+
+### restoreProductLevel4PingSocketSnapshot()
+
+> **restoreProductLevel4PingSocketSnapshot**(`input`): [`ProductLevel4PingSocketRestoreSummary`](#productlevel4pingsocketrestoresummary)
+
+#### Parameters
+
+##### input
+
+[`ProductLevel4PingSocketRestoreInput`](#productlevel4pingsocketrestoreinput)
+
+#### Returns
+
+[`ProductLevel4PingSocketRestoreSummary`](#productlevel4pingsocketrestoresummary)
 
 ***
 

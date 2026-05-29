@@ -6,11 +6,11 @@
     "family": "network-ping-socket"
   },
   "registrySummary": {
-    "total": 2245,
+    "total": 2246,
     "byStatus": {
-      "implemented-product-support": 1,
+      "implemented-product-support": 4,
       "stable-product-refusal": 1563,
-      "proof-only-fixture": 681,
+      "proof-only-fixture": 679,
       "obsolete-invalid-claim": 0
     },
     "byFamily": {
@@ -21,15 +21,15 @@
       "stateful-services": 26,
       "foundation-native": 127,
       "native-linux-resource": 302,
-      "network-ping-socket": 536,
+      "network-ping-socket": 537,
       "unknown": 897
     },
-    "implementedProductSupport": 1,
+    "implementedProductSupport": 4,
     "stableProductRefusals": 1563,
-    "proofOnlyFixtures": 681,
+    "proofOnlyFixtures": 679,
     "obsoleteInvalidClaims": 0
   },
-  "selectedCount": 536,
+  "selectedCount": 537,
   "selectedSample": [
     {
       "name": "active-accept-syscall-v1-listener-alias-refusal",
@@ -37,6 +37,8 @@
       "resourceFamily": "active-accept-syscall-v1",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "stable-product-refusal",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "intentional-refusal",
       "expectedResult": "refusal",
       "sourceGoal": "goal-21",
@@ -54,6 +56,13 @@
         "target-gates",
         "neighbor-specific-verifier"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "active-accept-syscall-v1:listener-alias",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Product restore is refused with target-socket-syscall-state-unsupported; the proof/refusal profile remains fail-closed with migrationCompleted=false."
     },
     {
@@ -62,6 +71,8 @@
       "resourceFamily": "active-accept-syscall-v1",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "stable-product-refusal",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "intentional-refusal",
       "expectedResult": "refusal",
       "sourceGoal": "goal-21",
@@ -79,6 +90,13 @@
         "target-gates",
         "neighbor-specific-verifier"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "active-accept-syscall-v1:multiple-waiters",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Product restore is refused with target-socket-syscall-state-unsupported; the proof/refusal profile remains fail-closed with migrationCompleted=false."
     },
     {
@@ -87,6 +105,8 @@
       "resourceFamily": "active-accept-syscall-v1",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "stable-product-refusal",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "intentional-refusal",
       "expectedResult": "refusal",
       "sourceGoal": "goal-21",
@@ -104,6 +124,13 @@
         "target-gates",
         "neighbor-specific-verifier"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "active-accept-syscall-v1:nonblocking-accept",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Product restore is refused with target-socket-syscall-state-unsupported; the proof/refusal profile remains fail-closed with migrationCompleted=false."
     },
     {
@@ -112,6 +139,8 @@
       "resourceFamily": "active-accept-syscall-v1",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "stable-product-refusal",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "intentional-refusal",
       "expectedResult": "refusal",
       "sourceGoal": "goal-21",
@@ -129,6 +158,13 @@
         "target-gates",
         "neighbor-specific-verifier"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "active-accept-syscall-v1:queued-connection-race",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Product restore is refused with target-socket-syscall-state-unsupported; the proof/refusal profile remains fail-closed with migrationCompleted=false."
     },
     {
@@ -137,6 +173,8 @@
       "resourceFamily": "active-accept-syscall-v1",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "proof-only-fixture",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "graduated-support",
       "expectedResult": "success",
       "sourceGoal": "goal-21",
@@ -154,6 +192,13 @@
         "target-native-verifier",
         "proof-vs-product-regression-test"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "active-accept-syscall-v1",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Proof-only fixture retained for regression coverage; no product capture/restore surface is implemented, so product restore is refused."
     },
     {
@@ -162,6 +207,8 @@
       "resourceFamily": "active-accept-syscall-v1",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "stable-product-refusal",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "intentional-refusal",
       "expectedResult": "refusal",
       "sourceGoal": "goal-21",
@@ -179,6 +226,13 @@
         "target-gates",
         "neighbor-specific-verifier"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "active-accept-syscall-v1:signal-interruption",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Product restore is refused with target-socket-syscall-state-unsupported; the proof/refusal profile remains fail-closed with migrationCompleted=false."
     },
     {
@@ -187,6 +241,8 @@
       "resourceFamily": "active-signal-frame-deterministic-return-v1",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "proof-only-fixture",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "graduated-support",
       "expectedResult": "success",
       "sourceGoal": "goal-21",
@@ -204,6 +260,13 @@
         "target-native-verifier",
         "proof-vs-product-regression-test"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "active-signal-frame-deterministic-return-v1",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Proof-only fixture retained for regression coverage; no product capture/restore surface is implemented, so product restore is refused."
     },
     {
@@ -212,6 +275,8 @@
       "resourceFamily": "active-syscall",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "proof-only-fixture",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "graduated-support",
       "expectedResult": "success",
       "unsafeStateFamily": "active-syscall",
@@ -228,6 +293,13 @@
         "target-native-verifier",
         "proof-vs-product-regression-test"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "active-syscall",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Proof-only fixture retained for regression coverage; no product capture/restore surface is implemented, so product restore is refused."
     },
     {
@@ -236,6 +308,8 @@
       "resourceFamily": "cpu-architecture-registers",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "stable-product-refusal",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "permanent-refusal",
       "expectedResult": "refusal",
       "unsafeStateFamily": "cpu-architecture-registers",
@@ -257,6 +331,13 @@
         "docs",
         "validation timings"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "cpu-architecture-registers",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Product restore is refused with cross-isa-vmstate-restore-unsupported; the proof/refusal profile remains fail-closed with migrationCompleted=false."
     },
     {
@@ -265,6 +346,8 @@
       "resourceFamily": "clean-map-shared-regular-file-mapping-v1",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "stable-product-refusal",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "intentional-refusal",
       "expectedResult": "refusal",
       "sourceGoal": "goal-21",
@@ -282,6 +365,13 @@
         "target-gates",
         "neighbor-specific-verifier"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "clean-map-shared-regular-file-mapping-v1:dirty-shared-page",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Product restore is refused with mapping-shared-unsupported; the proof/refusal profile remains fail-closed with migrationCompleted=false."
     },
     {
@@ -290,6 +380,8 @@
       "resourceFamily": "clean-map-shared-regular-file-mapping-v1",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "stable-product-refusal",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "intentional-refusal",
       "expectedResult": "refusal",
       "sourceGoal": "goal-21",
@@ -307,6 +399,13 @@
         "target-gates",
         "neighbor-specific-verifier"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "clean-map-shared-regular-file-mapping-v1:executable-mapping",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Product restore is refused with mapping-shared-unsupported; the proof/refusal profile remains fail-closed with migrationCompleted=false."
     },
     {
@@ -315,6 +414,8 @@
       "resourceFamily": "clean-map-shared-regular-file-mapping-v1",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "stable-product-refusal",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "intentional-refusal",
       "expectedResult": "refusal",
       "sourceGoal": "goal-21",
@@ -332,6 +433,13 @@
         "target-gates",
         "neighbor-specific-verifier"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "clean-map-shared-regular-file-mapping-v1:missing-participant",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Product restore is refused with mapping-shared-unsupported; the proof/refusal profile remains fail-closed with migrationCompleted=false."
     },
     {
@@ -340,6 +448,8 @@
       "resourceFamily": "clean-map-shared-regular-file-mapping-v1",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "proof-only-fixture",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "graduated-support",
       "expectedResult": "success",
       "sourceGoal": "goal-21",
@@ -357,6 +467,13 @@
         "target-native-verifier",
         "proof-vs-product-regression-test"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "clean-map-shared-regular-file-mapping-v1",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Proof-only fixture retained for regression coverage; no product capture/restore surface is implemented, so product restore is refused."
     },
     {
@@ -365,6 +482,8 @@
       "resourceFamily": "clean-map-shared-regular-file-mapping-v1",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "stable-product-refusal",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "intentional-refusal",
       "expectedResult": "refusal",
       "sourceGoal": "goal-21",
@@ -382,6 +501,13 @@
         "target-gates",
         "neighbor-specific-verifier"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "clean-map-shared-regular-file-mapping-v1:stale-digest",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Product restore is refused with mapping-shared-unsupported; the proof/refusal profile remains fail-closed with migrationCompleted=false."
     },
     {
@@ -390,6 +516,8 @@
       "resourceFamily": "clean-map-shared-regular-file-mapping-v1",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "stable-product-refusal",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "intentional-refusal",
       "expectedResult": "refusal",
       "sourceGoal": "goal-21",
@@ -407,6 +535,13 @@
         "target-gates",
         "neighbor-specific-verifier"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "clean-map-shared-regular-file-mapping-v1:writable-mapping",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Product restore is refused with mapping-shared-unsupported; the proof/refusal profile remains fail-closed with migrationCompleted=false."
     },
     {
@@ -415,6 +550,8 @@
       "resourceFamily": "deleted-executable-by-content-addressed-copy-v1",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "proof-only-fixture",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "graduated-support",
       "expectedResult": "success",
       "sourceGoal": "goal-21",
@@ -432,6 +569,13 @@
         "target-native-verifier",
         "proof-vs-product-regression-test"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "deleted-executable-by-content-addressed-copy-v1",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Proof-only fixture retained for regression coverage; no product capture/restore surface is implemented, so product restore is refused."
     },
     {
@@ -440,6 +584,8 @@
       "resourceFamily": "deleted-executable-mapping",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "stable-product-refusal",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "permanent-refusal",
       "expectedResult": "refusal",
       "unsafeStateFamily": "deleted-executable-mapping",
@@ -461,6 +607,13 @@
         "docs",
         "validation timings"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "deleted-executable-mapping",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Product restore is refused with mapping-provenance-ambiguous; the proof/refusal profile remains fail-closed with migrationCompleted=false."
     },
     {
@@ -469,6 +622,8 @@
       "resourceFamily": "dirty-map-private-file-alias-v1",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "stable-product-refusal",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "intentional-refusal",
       "expectedResult": "refusal",
       "sourceGoal": "goal-21",
@@ -486,6 +641,13 @@
         "target-gates",
         "neighbor-specific-verifier"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "dirty-map-private-file-alias-v1:overlapping-dirty-ranges",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Product restore is refused with mapping-provenance-ambiguous; the proof/refusal profile remains fail-closed with migrationCompleted=false."
     },
     {
@@ -494,6 +656,8 @@
       "resourceFamily": "dirty-map-private-file-alias-v1",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "proof-only-fixture",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "graduated-support",
       "expectedResult": "success",
       "sourceGoal": "goal-21",
@@ -511,6 +675,13 @@
         "target-native-verifier",
         "proof-vs-product-regression-test"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "dirty-map-private-file-alias-v1",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Proof-only fixture retained for regression coverage; no product capture/restore surface is implemented, so product restore is refused."
     },
     {
@@ -519,6 +690,8 @@
       "resourceFamily": "distro-ping-ppoll-transition-v3",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "stable-product-refusal",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "intentional-refusal",
       "expectedResult": "refusal",
       "sourceGoal": "goal-21",
@@ -535,6 +708,13 @@
         "descriptor-gate",
         "target-gates",
         "neighbor-specific-verifier"
+      ],
+      "observableStateDecisions": [
+        {
+          "name": "distro-ping-ppoll-transition-v3:control-message-ambiguity",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
       ],
       "message": "Product restore is refused with target-socket-syscall-state-unsupported; the proof/refusal profile remains fail-closed with migrationCompleted=false."
     }

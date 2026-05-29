@@ -5,7 +5,7 @@
     "node-http-clean-root-v1",
     "python-http-clean-root-v1",
     "go-http-clean-root-v1",
-    "ping-sequence-counter-semantic-continuation-v1"
+    "ping-level4-socket-reconstruction-v1"
   ],
   "claims": [
     {
@@ -56,9 +56,16 @@
     {
       "goal": "001",
       "claim": "Ping sequence/counter semantic continuation across arm64 and amd64",
-      "supportLevel": "implemented-product-support",
-      "notes": "Level 2 semantic continuation is implemented for a descriptor-only ping profile: destination, identifier, next sequence, and sent/received/lost counters continue under a drop-and-count-lost in-flight policy; unread queues, active recvmsg, and raw socket kernel state refuse.",
+      "supportLevel": "obsolete-invalid-claim",
+      "notes": "Retired as product support by Goal 011. Ping product support now goes through the portable machine Level 4 socket reconstruction path instead of a ping-specific Level 2 semantic continuation.",
       "subset": "ping-sequence-counter-semantic-continuation-v1"
+    },
+    {
+      "goal": "010",
+      "claim": "Ping/raw ICMP socket Level 4 reconstruction across arm64 and amd64",
+      "supportLevel": "implemented-product-support",
+      "notes": "Narrow Level 4 product route through the portable machine snapshot path for datagram ping sockets and raw ICMP sockets with empty receive queues, no in-flight packets, no active recvmsg, unambiguous loopback route/namespace, credential/capability mapping, and target-native verifier evidence.",
+      "subset": "ping-level4-socket-reconstruction-v1"
     },
     {
       "goal": "43",

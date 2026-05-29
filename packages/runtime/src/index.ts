@@ -594,6 +594,19 @@ export {
   restoreProductPortablePostgresSnapshot,
 } from "./product-portable-postgres.ts";
 export {
+  PRODUCT_LEVEL4_PING_SOCKET_FORMAT_VERSION,
+  PRODUCT_LEVEL4_PING_SOCKET_MANIFEST,
+  PRODUCT_LEVEL4_PING_SOCKET_REFUSAL,
+  PRODUCT_LEVEL4_PING_SOCKET_RESTORE_SUMMARY,
+  ProductLevel4PingSocketError,
+  createProductLevel4PingSocketSnapshot,
+  isProductLevel4PingSocketBundle,
+  productLevel4PingSocketArchitectures,
+  productLevel4PingSocketKinds,
+  productLevel4PingSocketRefusalCodes,
+  restoreProductLevel4PingSocketSnapshot,
+} from "./product-level4-ping-socket.ts";
+export {
   TARGET_GUEST_RESTORE_DESCRIPTOR_KIND,
   TargetGuestRestoreLoaderValidationError,
   buildNativeActualResumeTrampolineArgs,
@@ -730,6 +743,17 @@ export type {
   ProductPortablePostgresRestoreSummary,
   ProductPortableSupportLevel,
 } from "./product-portable-postgres.ts";
+export type {
+  ProductLevel4PingSocketArchitecture,
+  ProductLevel4PingSocketCaptureInput,
+  ProductLevel4PingSocketCaptureResult,
+  ProductLevel4PingSocketDescriptor,
+  ProductLevel4PingSocketKind,
+  ProductLevel4PingSocketRefusal,
+  ProductLevel4PingSocketRefusalCode,
+  ProductLevel4PingSocketRestoreInput,
+  ProductLevel4PingSocketRestoreSummary,
+} from "./product-level4-ping-socket.ts";
 export type {
   TargetGuestEpollWatchRecipe,
   TargetGuestNativeRestoreStep,

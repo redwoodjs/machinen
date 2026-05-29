@@ -6,11 +6,11 @@
     "family": "python-ruby-jvm"
   },
   "registrySummary": {
-    "total": 2245,
+    "total": 2246,
     "byStatus": {
-      "implemented-product-support": 1,
+      "implemented-product-support": 4,
       "stable-product-refusal": 1563,
-      "proof-only-fixture": 681,
+      "proof-only-fixture": 679,
       "obsolete-invalid-claim": 0
     },
     "byFamily": {
@@ -21,12 +21,12 @@
       "stateful-services": 26,
       "foundation-native": 127,
       "native-linux-resource": 302,
-      "network-ping-socket": 536,
+      "network-ping-socket": 537,
       "unknown": 897
     },
-    "implementedProductSupport": 1,
+    "implementedProductSupport": 4,
     "stableProductRefusals": 1563,
-    "proofOnlyFixtures": 681,
+    "proofOnlyFixtures": 679,
     "obsoleteInvalidClaims": 0
   },
   "selectedCount": 4,
@@ -38,6 +38,8 @@
       "resourceFamily": "non-node-runtime",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "proof-only-fixture",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "baseline-success",
       "expectedResult": "success",
       "sourceGoal": "goal-38",
@@ -56,6 +58,13 @@
         "target-native-verifier",
         "proof-vs-product-regression-test"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "non-node-runtime:jvm-spring-style-service",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Proof-only fixture retained for regression coverage; no product capture/restore surface is implemented, so product restore is refused."
     },
     {
@@ -64,26 +73,33 @@
       "runtime": "python",
       "resourceFamily": "non-node-cross-arch",
       "architectureRoutes": ["amd64<->arm64"],
-      "productStatus": "proof-only-fixture",
+      "productStatus": "implemented-product-support",
+      "supportLevel": "level-1-semantic-restart",
+      "supportLevelName": "Level 1 — Semantic restart",
       "proofStatus": "baseline-success",
       "expectedResult": "success",
       "sourceGoal": "goal-39",
       "unsafeStateFamily": "non-node-cross-arch:python",
-      "productRefusalCode": "product-surface-not-implemented",
-      "migrationCompleted": false,
-      "descriptorRequired": false,
-      "targetNativeVerifierRequired": false,
-      "proofOnly": true,
+      "migrationCompleted": true,
+      "descriptorRequired": true,
+      "targetNativeVerifierRequired": true,
+      "proofOnly": false,
       "checkedSummary": "docs/snapshot/checked-summaries/non-node-cross-arch/python-cross-arch-runtime-policy.json",
       "sourceFixture": "checked-runtime-complex:docs/snapshot/checked-summaries/non-node-cross-arch/python-cross-arch-runtime-policy.json",
-      "graduationRequirements": [
-        "product-descriptor-contract",
-        "product-capture-surface",
-        "product-restore-surface",
-        "target-native-verifier",
-        "proof-vs-product-regression-test"
+      "graduationRequirements": [],
+      "observableStateDecisions": [
+        {
+          "name": "process",
+          "decision": "recreated",
+          "rationale": "clean-service product support starts a target-native process and verifies it"
+        },
+        {
+          "name": "unsafe-kernel-state",
+          "decision": "refused",
+          "rationale": "state outside the clean-service contract refuses before success is reported"
+        }
       ],
-      "message": "Proof-only fixture retained for regression coverage; no product capture/restore surface is implemented, so product restore is refused."
+      "message": "Implemented product support with descriptor integrity checks and target-native verification."
     },
     {
       "name": "python-django-celery-runtime-policy",
@@ -92,6 +108,8 @@
       "resourceFamily": "non-node-runtime",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "proof-only-fixture",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "baseline-success",
       "expectedResult": "success",
       "sourceGoal": "goal-38",
@@ -110,6 +128,13 @@
         "target-native-verifier",
         "proof-vs-product-regression-test"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "non-node-runtime:python-django-celery-style",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Proof-only fixture retained for regression coverage; no product capture/restore surface is implemented, so product restore is refused."
     },
     {
@@ -119,6 +144,8 @@
       "resourceFamily": "non-node-runtime",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "proof-only-fixture",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "baseline-success",
       "expectedResult": "success",
       "sourceGoal": "goal-38",
@@ -136,6 +163,13 @@
         "product-restore-surface",
         "target-native-verifier",
         "proof-vs-product-regression-test"
+      ],
+      "observableStateDecisions": [
+        {
+          "name": "non-node-runtime:ruby-rails-puma-style",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
       ],
       "message": "Proof-only fixture retained for regression coverage; no product capture/restore surface is implemented, so product restore is refused."
     }

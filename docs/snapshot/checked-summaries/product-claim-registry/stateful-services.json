@@ -6,11 +6,11 @@
     "family": "stateful-services"
   },
   "registrySummary": {
-    "total": 2245,
+    "total": 2246,
     "byStatus": {
-      "implemented-product-support": 1,
+      "implemented-product-support": 4,
       "stable-product-refusal": 1563,
-      "proof-only-fixture": 681,
+      "proof-only-fixture": 679,
       "obsolete-invalid-claim": 0
     },
     "byFamily": {
@@ -21,12 +21,12 @@
       "stateful-services": 26,
       "foundation-native": 127,
       "native-linux-resource": 302,
-      "network-ping-socket": 536,
+      "network-ping-socket": 537,
       "unknown": 897
     },
-    "implementedProductSupport": 1,
+    "implementedProductSupport": 4,
     "stableProductRefusals": 1563,
-    "proofOnlyFixtures": 681,
+    "proofOnlyFixtures": 679,
     "obsoleteInvalidClaims": 0
   },
   "selectedCount": 26,
@@ -38,6 +38,8 @@
       "resourceFamily": "stateful",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "proof-only-fixture",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "baseline-success",
       "expectedResult": "success",
       "sourceGoal": "goal-44",
@@ -56,6 +58,13 @@
         "target-native-verifier",
         "proof-vs-product-regression-test"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "stateful:durable-queue:clean-quiesced",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Proof-only fixture retained for regression coverage; no product capture/restore surface is implemented, so product restore is refused."
     },
     {
@@ -65,6 +74,8 @@
       "resourceFamily": "stateful",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "stable-product-refusal",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "intentional-refusal",
       "expectedResult": "refusal",
       "sourceGoal": "goal-44",
@@ -83,6 +94,13 @@
         "stable unsafe-neighbor regression",
         "no source-ISA/source-text/sidecar/app-hook shortcut"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "stateful:mariadb:unsafe-neighbor",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Product restore is refused with stateful-mariadb-active-session-unsupported; the proof/refusal profile remains fail-closed with migrationCompleted=false."
     },
     {
@@ -92,6 +110,8 @@
       "resourceFamily": "stateful",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "stable-product-refusal",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "intentional-refusal",
       "expectedResult": "refusal",
       "sourceGoal": "goal-44",
@@ -110,6 +130,13 @@
         "stable unsafe-neighbor regression",
         "no source-ISA/source-text/sidecar/app-hook shortcut"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "stateful:mariadb:unsafe-neighbor",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Product restore is refused with stateful-mariadb-active-transaction-unsupported; the proof/refusal profile remains fail-closed with migrationCompleted=false."
     },
     {
@@ -119,6 +146,8 @@
       "resourceFamily": "stateful",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "proof-only-fixture",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "baseline-success",
       "expectedResult": "success",
       "sourceGoal": "goal-44",
@@ -137,6 +166,13 @@
         "target-native-verifier",
         "proof-vs-product-regression-test"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "stateful:mariadb:clean-quiesced",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Proof-only fixture retained for regression coverage; no product capture/restore surface is implemented, so product restore is refused."
     },
     {
@@ -146,6 +182,8 @@
       "resourceFamily": "stateful",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "stable-product-refusal",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "intentional-refusal",
       "expectedResult": "refusal",
       "sourceGoal": "goal-44",
@@ -164,6 +202,13 @@
         "stable unsafe-neighbor regression",
         "no source-ISA/source-text/sidecar/app-hook shortcut"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "stateful:mariadb:unsafe-neighbor",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Product restore is refused with stateful-mariadb-dirty-redo-log-ambiguous; the proof/refusal profile remains fail-closed with migrationCompleted=false."
     },
     {
@@ -173,6 +218,8 @@
       "resourceFamily": "stateful",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "stable-product-refusal",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "intentional-refusal",
       "expectedResult": "refusal",
       "sourceGoal": "goal-44",
@@ -191,6 +238,13 @@
         "stable unsafe-neighbor regression",
         "no source-ISA/source-text/sidecar/app-hook shortcut"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "stateful:mariadb:unsafe-neighbor",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Product restore is refused with stateful-mariadb-host-mounted-data-dir-ambiguous; the proof/refusal profile remains fail-closed with migrationCompleted=false."
     },
     {
@@ -200,6 +254,8 @@
       "resourceFamily": "stateful",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "stable-product-refusal",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "intentional-refusal",
       "expectedResult": "refusal",
       "sourceGoal": "goal-44",
@@ -218,6 +274,13 @@
         "stable unsafe-neighbor regression",
         "no source-ISA/source-text/sidecar/app-hook shortcut"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "stateful:mariadb:unsafe-neighbor",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Product restore is refused with stateful-mariadb-plugin-native-state-unsupported; the proof/refusal profile remains fail-closed with migrationCompleted=false."
     },
     {
@@ -227,6 +290,8 @@
       "resourceFamily": "stateful",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "stable-product-refusal",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "intentional-refusal",
       "expectedResult": "refusal",
       "sourceGoal": "goal-44",
@@ -245,6 +310,13 @@
         "stable unsafe-neighbor regression",
         "no source-ISA/source-text/sidecar/app-hook shortcut"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "stateful:mariadb:unsafe-neighbor",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Product restore is refused with stateful-mariadb-replication-binlog-ambiguous; the proof/refusal profile remains fail-closed with migrationCompleted=false."
     },
     {
@@ -254,6 +326,8 @@
       "resourceFamily": "stateful",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "stable-product-refusal",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "intentional-refusal",
       "expectedResult": "refusal",
       "sourceGoal": "goal-44",
@@ -272,6 +346,13 @@
         "stable unsafe-neighbor regression",
         "no source-ISA/source-text/sidecar/app-hook shortcut"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "stateful:mariadb:unsafe-neighbor",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Product restore is refused with stateful-mariadb-unsynced-data-dir-unsupported; the proof/refusal profile remains fail-closed with migrationCompleted=false."
     },
     {
@@ -281,6 +362,8 @@
       "resourceFamily": "stateful",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "stable-product-refusal",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "intentional-refusal",
       "expectedResult": "refusal",
       "sourceGoal": "goal-44",
@@ -299,6 +382,13 @@
         "stable unsafe-neighbor regression",
         "no source-ISA/source-text/sidecar/app-hook shortcut"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "stateful:redis:unsafe-neighbor",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Product restore is refused with stateful-redis-active-client-session-unsupported; the proof/refusal profile remains fail-closed with migrationCompleted=false."
     },
     {
@@ -308,6 +398,8 @@
       "resourceFamily": "stateful",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "stable-product-refusal",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "intentional-refusal",
       "expectedResult": "refusal",
       "sourceGoal": "goal-44",
@@ -326,6 +418,13 @@
         "stable unsafe-neighbor regression",
         "no source-ISA/source-text/sidecar/app-hook shortcut"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "stateful:redis:unsafe-neighbor",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Product restore is refused with stateful-redis-blocking-command-unsupported; the proof/refusal profile remains fail-closed with migrationCompleted=false."
     },
     {
@@ -335,6 +434,8 @@
       "resourceFamily": "stateful",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "proof-only-fixture",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "baseline-success",
       "expectedResult": "success",
       "sourceGoal": "goal-44",
@@ -353,6 +454,13 @@
         "target-native-verifier",
         "proof-vs-product-regression-test"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "stateful:redis:clean-quiesced",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Proof-only fixture retained for regression coverage; no product capture/restore surface is implemented, so product restore is refused."
     },
     {
@@ -362,6 +470,8 @@
       "resourceFamily": "stateful",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "stable-product-refusal",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "intentional-refusal",
       "expectedResult": "refusal",
       "sourceGoal": "goal-44",
@@ -380,6 +490,13 @@
         "stable unsafe-neighbor regression",
         "no source-ISA/source-text/sidecar/app-hook shortcut"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "stateful:redis:unsafe-neighbor",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Product restore is refused with stateful-redis-dirty-aof-boundary-unsupported; the proof/refusal profile remains fail-closed with migrationCompleted=false."
     },
     {
@@ -389,6 +506,8 @@
       "resourceFamily": "stateful",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "stable-product-refusal",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "intentional-refusal",
       "expectedResult": "refusal",
       "sourceGoal": "goal-44",
@@ -407,6 +526,13 @@
         "stable unsafe-neighbor regression",
         "no source-ISA/source-text/sidecar/app-hook shortcut"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "stateful:redis:unsafe-neighbor",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Product restore is refused with stateful-redis-host-mounted-data-dir-ambiguous; the proof/refusal profile remains fail-closed with migrationCompleted=false."
     },
     {
@@ -416,6 +542,8 @@
       "resourceFamily": "stateful",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "stable-product-refusal",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "intentional-refusal",
       "expectedResult": "refusal",
       "sourceGoal": "goal-44",
@@ -434,6 +562,13 @@
         "stable unsafe-neighbor regression",
         "no source-ISA/source-text/sidecar/app-hook shortcut"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "stateful:redis:unsafe-neighbor",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Product restore is refused with stateful-redis-module-native-state-unsupported; the proof/refusal profile remains fail-closed with migrationCompleted=false."
     },
     {
@@ -443,6 +578,8 @@
       "resourceFamily": "stateful",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "stable-product-refusal",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "intentional-refusal",
       "expectedResult": "refusal",
       "sourceGoal": "goal-44",
@@ -461,6 +598,13 @@
         "stable unsafe-neighbor regression",
         "no source-ISA/source-text/sidecar/app-hook shortcut"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "stateful:redis:unsafe-neighbor",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Product restore is refused with stateful-redis-pubsub-subscription-unsupported; the proof/refusal profile remains fail-closed with migrationCompleted=false."
     },
     {
@@ -470,6 +614,8 @@
       "resourceFamily": "stateful",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "stable-product-refusal",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "intentional-refusal",
       "expectedResult": "refusal",
       "sourceGoal": "goal-44",
@@ -488,6 +634,13 @@
         "stable unsafe-neighbor regression",
         "no source-ISA/source-text/sidecar/app-hook shortcut"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "stateful:redis:unsafe-neighbor",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Product restore is refused with stateful-redis-replication-state-unsupported; the proof/refusal profile remains fail-closed with migrationCompleted=false."
     },
     {
@@ -497,6 +650,8 @@
       "resourceFamily": "stateful",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "stable-product-refusal",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "intentional-refusal",
       "expectedResult": "refusal",
       "sourceGoal": "goal-44",
@@ -515,6 +670,13 @@
         "stable unsafe-neighbor regression",
         "no source-ISA/source-text/sidecar/app-hook shortcut"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "stateful:sqlite:unsafe-neighbor",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Product restore is refused with stateful-sqlite-active-transaction-unsupported; the proof/refusal profile remains fail-closed with migrationCompleted=false."
     },
     {
@@ -524,6 +686,8 @@
       "resourceFamily": "stateful",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "stable-product-refusal",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "intentional-refusal",
       "expectedResult": "refusal",
       "sourceGoal": "goal-44",
@@ -542,6 +706,13 @@
         "stable unsafe-neighbor regression",
         "no source-ISA/source-text/sidecar/app-hook shortcut"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "stateful:sqlite:unsafe-neighbor",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Product restore is refused with stateful-sqlite-lock-held-unsupported; the proof/refusal profile remains fail-closed with migrationCompleted=false."
     },
     {
@@ -551,6 +722,8 @@
       "resourceFamily": "stateful",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "stable-product-refusal",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "intentional-refusal",
       "expectedResult": "refusal",
       "sourceGoal": "goal-44",
@@ -568,6 +741,13 @@
         "target-native verifier",
         "stable unsafe-neighbor regression",
         "no source-ISA/source-text/sidecar/app-hook shortcut"
+      ],
+      "observableStateDecisions": [
+        {
+          "name": "stateful:sqlite:unsafe-neighbor",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
       ],
       "message": "Product restore is refused with stateful-sqlite-host-mounted-db-ambiguous; the proof/refusal profile remains fail-closed with migrationCompleted=false."
     }

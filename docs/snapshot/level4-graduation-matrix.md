@@ -26,6 +26,7 @@ phase:
 4. [`goals/007.md`](../../goals/007.md) — TCP listener-only Level 4 reconstruction.
 5. [`goals/008.md`](../../goals/008.md) — Node event-loop resources mapped onto Level 4 primitives.
 6. [`goals/009.md`](../../goals/009.md) — A selected Node Level 5 product subset only after Level 4 resources exist.
+7. [`goals/011.md`](../../goals/011.md) — Ping becomes the first Level 4 portable machine snapshot workload.
 
 Do not start with active TCP continuation, arbitrary Node process productization,
 JVM Level 5, arbitrary Go goroutine/process continuation, live database process
@@ -75,12 +76,10 @@ The matrix keeps theory and product behavior separate:
   that are not product support use `not-implemented`.
 - `graduationTargetLevel` is the level the proof or refusal is about.
 
-Existing semantic ping remains `productSupport=supported` with
-`implementationLevel=level-2-semantic-continuation` by design. New ping socket
-reconstruction is `evidenceStatus=proof`, `productSupport=not-yet-supported`,
-`implementationLevel=not-implemented`, and
-`graduationTargetLevel=level-4-kernel-resource-reconstruction`. Ping is the first
-best candidate to graduate, but it is explicitly not graduated yet.
+Goal 011 retires semantic Level 2 ping as product support and graduates
+`ping-level4-socket-reconstruction-v1` as the first Level 4 portable machine
+snapshot workload. The Goal 003 proof row remains historical proof evidence;
+the product claim now lives on the portable-machine snapshot path.
 
 Pipes, eventfd, timerfd, TCP listener, Node event-loop, and selected Node Level 5
 rows are proof/planning evidence plus refusal rows. They do not create new

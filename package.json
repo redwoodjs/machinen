@@ -122,6 +122,7 @@
     "smoke-product-portable-postgres": "bash scripts/smoke/product-portable-postgres.sh",
     "smoke-product-support-discovery": "bash scripts/smoke/product-support-discovery.sh",
     "smoke-semantic-ping-continuation": "bash scripts/smoke/semantic-ping-continuation.sh",
+    "smoke-portable-ping-machine": "bash scripts/smoke/portable-ping-machine.sh",
     "smoke-node-product-snapshot-restore": "bash scripts/smoke/node-product-snapshot-restore.sh",
     "smoke-clean-service-python-product-snapshot-restore": "bash scripts/smoke/clean-service-python-product-snapshot-restore.sh",
     "smoke-clean-service-go-product-snapshot-restore": "bash scripts/smoke/clean-service-go-product-snapshot-restore.sh",
@@ -130,7 +131,9 @@
     "product-portable-claim-matrix": "node scripts/product-portable-claim-matrix.mjs",
     "product-claim-registry-matrix": "node scripts/product-claim-registry-matrix.mjs",
     "level4-graduation-matrix": "pnpm exec tsx scripts/level4-graduation-matrix.ts",
-    "level4-ping-socket-graduation": "pnpm exec tsx scripts/level4-ping-socket-graduation.ts"
+    "level4-ping-socket-graduation": "pnpm exec tsx scripts/level4-ping-socket-graduation.ts",
+    "level4-ping-socket-product": "pnpm exec tsx scripts/level4-ping-socket-product.ts",
+    "level4-ping-machine-workload": "pnpm exec tsx scripts/level4-ping-machine-workload.ts"
   },
   "devDependencies": {
     "@changesets/cli": "^2.30.0",

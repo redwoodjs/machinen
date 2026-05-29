@@ -83,7 +83,7 @@ function validateRegistry(registry, selected) {
     "node-app-http-server-recreate",
     "python-cross-arch-runtime-policy",
     "go-cross-arch-runtime-policy",
-    "ping-sequence-counter-semantic-continuation-v1",
+    "ping-level4-socket-reconstruction-v1",
   ]) {
     if (!implementedNames.has(required)) {
       failures.push(`implemented product subset is missing: ${required}`);
@@ -91,17 +91,20 @@ function validateRegistry(registry, selected) {
   }
   if (implemented.length !== 4) {
     failures.push(
-      "implemented product support must be exactly the clean-service Node, Python, Go routes and the semantic ping continuation route",
+      "implemented product support must be exactly the clean-service Node, Python, Go routes and the portable-machine Level 4 ping socket route",
     );
+  }
+  if (implemented.some((entry) => entry.supportLevel === "level-2-semantic-continuation")) {
+    failures.push("Level 2 semantic ping must not be reported as implemented product support");
   }
   if (
     !implemented.some(
       (entry) =>
-        entry.name === "ping-sequence-counter-semantic-continuation-v1" &&
-        entry.supportLevel === "level-2-semantic-continuation",
+        entry.name === "ping-level4-socket-reconstruction-v1" &&
+        entry.supportLevel === "level-4-kernel-resource-reconstruction",
     )
   ) {
-    failures.push("implemented semantic ping profile is not reported as Level 2 support");
+    failures.push("implemented ping socket profile is not reported as Level 4 support");
   }
   for (const entry of registry.entries) {
     if (
