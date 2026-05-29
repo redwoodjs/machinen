@@ -158,6 +158,22 @@
       "evidenceStatus": "refusal"
     },
     {
+      "code": "node-level5-active-tcp-unsupported",
+      "message": "active TCP streams and in-flight network I/O are refused",
+      "migrationCompleted": false,
+      "productSupport": "unsupported",
+      "implementationLevel": "level-0-fail-closed-discovery",
+      "evidenceStatus": "refusal"
+    },
+    {
+      "code": "node-level5-worker-thread-unsupported",
+      "message": "Node worker threads are refused until worker lifecycle and thread state are modeled",
+      "migrationCompleted": false,
+      "productSupport": "unsupported",
+      "implementationLevel": "level-0-fail-closed-discovery",
+      "evidenceStatus": "refusal"
+    },
+    {
       "code": "node-level5-multithread-unsupported",
       "message": "multi-thread Node state is refused for this selected proof subset",
       "migrationCompleted": false,
@@ -252,6 +268,24 @@
       "evidenceStatus": "refusal"
     },
     {
+      "code": "node-level5-active-tcp-unsupported",
+      "unsafeNeighbor": "active-tcp",
+      "message": "active TCP streams and in-flight network I/O are refused",
+      "migrationCompleted": false,
+      "productSupport": "unsupported",
+      "implementationLevel": "level-0-fail-closed-discovery",
+      "evidenceStatus": "refusal"
+    },
+    {
+      "code": "node-level5-worker-thread-unsupported",
+      "unsafeNeighbor": "worker-threads",
+      "message": "Node worker threads are refused until worker lifecycle and thread state are modeled",
+      "migrationCompleted": false,
+      "productSupport": "unsupported",
+      "implementationLevel": "level-0-fail-closed-discovery",
+      "evidenceStatus": "refusal"
+    },
+    {
       "code": "node-level5-multithread-unsupported",
       "unsafeNeighbor": "multithread",
       "message": "multi-thread Node state is refused for this selected proof subset",
@@ -327,7 +361,7 @@
     "required": 7,
     "present": 7,
     "missing": 0,
-    "refusalCount": 11,
+    "refusalCount": 13,
     "proofReady": true
   }
 }

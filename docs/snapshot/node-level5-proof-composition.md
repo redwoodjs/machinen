@@ -62,6 +62,8 @@ The composition keeps unsafe Level 5 neighbors fail-closed:
 - SIMD/FPU;
 - active signal frames and pending signal queues;
 - active syscalls and restart blocks;
+- active TCP streams and in-flight network I/O;
+- Node worker threads;
 - multi-thread state;
 - unsupported memory mappings;
 - unsupported kernel resources;

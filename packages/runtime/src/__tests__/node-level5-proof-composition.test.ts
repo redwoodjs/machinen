@@ -75,6 +75,8 @@ describe("Node Level 5 proof composition", () => {
       "simd-fpu",
       "active-signals",
       "active-syscalls",
+      "active-tcp",
+      "worker-threads",
       "multithread",
       "unsupported-memory-mappings",
       "unsupported-kernel-resources",

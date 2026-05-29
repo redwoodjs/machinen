@@ -48,6 +48,8 @@
     "node-level5-simd-fpu-unsupported",
     "node-level5-signal-frame-unsupported",
     "node-level5-active-syscall-unsupported",
+    "node-level5-active-tcp-unsupported",
+    "node-level5-worker-thread-unsupported",
     "node-level5-multithread-unsupported",
     "node-level5-memory-mapping-unsupported",
     "node-level5-kernel-resource-unsupported",
