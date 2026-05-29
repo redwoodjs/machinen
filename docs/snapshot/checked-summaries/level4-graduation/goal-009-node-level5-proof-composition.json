@@ -21,8 +21,8 @@
   "proofRunArtifact": "docs/snapshot/checked-summaries/level4-graduation/goal-009-proof-run.json",
   "targetSideContinuationArtifact": "docs/snapshot/checked-summaries/level4-graduation/goal-009-target-side-continuation.json",
   "publicVerbRouting": {
-    "snapshotWrites": "node-level5-proof-composition.json",
-    "restoreSummary": "node-level5-proof-restore-summary.json",
+    "snapshotWrites": "node-level5-proof-composition.json and node-level5-runtime-profile.json",
+    "restoreSummary": "node-level5-proof-restore-summary.json or node-level5-runtime-profile-restore-summary.json",
     "restoreRefusal": "node-level5-proof-only-not-product",
     "proofVerifierRunsByDefault": true,
     "proofVerifierCompatibilityFlag": "--verify-proof-only",

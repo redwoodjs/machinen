@@ -120,6 +120,7 @@ import {
   detectLevel5RestoreAdapter,
   restoreLevel5RuntimeBundle,
   writeNodeLevel5ProofCompositionSnapshot,
+  writeNodeLevel5RuntimeProfileSnapshot,
 } from "./level5-runtime-adapters.ts";
 import { parseForkArgs } from "./parse-fork-args.ts";
 import type {
@@ -4601,6 +4602,7 @@ async function runSnapshot(opts: SnapshotOptionsCli): Promise<number> {
     if (portableNode) {
       writePortableNodeSnapshot(res.snapDir, portableNode);
       writeNodeLevel5ProofCompositionSnapshot(res.snapDir, portableNode);
+      writeNodeLevel5RuntimeProfileSnapshot(res.snapDir, portableNode);
     }
     reportSnapshotSuccess(res.snapDir, res.elapsedMs, opts);
     return 0;

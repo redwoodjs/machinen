@@ -32,6 +32,18 @@
 - [`createLevel5RuntimeAdapterRegistry`](#createlevel5runtimeadapterregistry)
 - [`level5SubstrateRefusalCodes`](#level5substraterefusalcodes)
 
+### Node Level 5 HTTP profile
+
+- [`NodeLevel5HttpProfileCapture`](#nodelevel5httpprofilecapture)
+- [`NodeLevel5HttpProfileCaptureInput`](#nodelevel5httpprofilecaptureinput)
+- [`NodeLevel5HttpProfileRefusal`](#nodelevel5httpprofilerefusal)
+- [`NodeLevel5HttpProfileRefusalCode`](#nodelevel5httpprofilerefusalcode)
+- [`NODE_LEVEL5_HTTP_PROFILE_FORMAT_VERSION`](#node_level5_http_profile_format_version)
+- [`NODE_LEVEL5_HTTP_PROFILE_NAME`](#node_level5_http_profile_name)
+- [`buildNodeLevel5HttpProfileCapture`](#buildnodelevel5httpprofilecapture)
+- [`nodeLevel5HttpProfileRefusalCodes`](#nodelevel5httpprofilerefusalcodes)
+- [`nodeLevel5HttpProfileRefusalRows`](#nodelevel5httpprofilerefusalrows)
+
 ### Node Level 5 proof composition
 
 - [`NodeLevel5ProofComposition`](#nodelevel5proofcomposition)
@@ -11841,6 +11853,308 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ***
 
+### NodeLevel5HttpProfileRefusal
+
+#### Properties
+
+##### code
+
+> **code**: `"node-level5-http-arbitrary-v8-heap-native-stack-unsupported"` \| `"node-level5-http-native-addon-unsupported"` \| `"node-level5-http-worker-thread-unsupported"` \| `"node-level5-http-inspector-unsupported"` \| `"node-level5-http-active-request-unsupported"` \| `"node-level5-http-active-tcp-stream-unsupported"` \| `"node-level5-http-active-syscall-unsupported"` \| `"node-level5-http-unsupported-timer-async-handle"` \| `"node-level5-http-unsupported-module-runtime-state"` \| `"node-level5-http-target-native-node-missing"` \| `"node-level5-http-source-isa-emulation-forbidden"` \| `"node-level5-http-sidecar-output-forbidden"` \| `"node-level5-http-metadata-only-success-forbidden"`
+
+##### unsafeNeighbor
+
+> **unsafeNeighbor**: `"metadata-only-success"` \| `"active-syscall"` \| `"arbitrary-v8-heap-native-stack"` \| `"native-addon"` \| `"worker-thread"` \| `"inspector-debug"` \| `"active-request"` \| `"active-tcp-stream"` \| `"unsupported-timer-async-handle"` \| `"unsupported-module-runtime-state"` \| `"missing-target-native-node"` \| `"source-isa-emulation"` \| `"sidecar-output"`
+
+##### message
+
+> **message**: `string`
+
+##### evidenceStatus
+
+> **evidenceStatus**: `"refusal"`
+
+##### productSupport
+
+> **productSupport**: `"unsupported"`
+
+##### implementationLevel
+
+> **implementationLevel**: `"level-0-fail-closed-discovery"`
+
+##### graduationTargetLevel
+
+> **graduationTargetLevel**: `"level-5-cross-arch-process-continuation"`
+
+##### migrationCompleted
+
+> **migrationCompleted**: `false`
+
+***
+
+### NodeLevel5HttpProfileCaptureInput
+
+#### Properties
+
+##### sourceArch
+
+> **sourceArch**: `string`
+
+##### nodeVersion
+
+> **nodeVersion**: `string`
+
+##### sourceCwd
+
+> **sourceCwd**: `string`
+
+##### argv
+
+> **argv**: `string`[]
+
+##### guestPort
+
+> **guestPort**: `number`
+
+##### verifier
+
+> **verifier**: `object`
+
+###### kind
+
+> **kind**: `string`
+
+###### path
+
+> **path**: `string`
+
+###### sha256
+
+> **sha256**: `string`
+
+###### bytes
+
+> **bytes**: `number`
+
+##### eventLoopResources?
+
+> `optional` **eventLoopResources?**: `unknown`
+
+##### kernelResources?
+
+> `optional` **kernelResources?**: `unknown`
+
+***
+
+### NodeLevel5HttpProfileCapture
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.node-level5-runtime-profile"`
+
+##### formatVersion
+
+> **formatVersion**: `1`
+
+##### sourceGoal
+
+> **sourceGoal**: `"021"`
+
+##### evidenceStatus
+
+> **evidenceStatus**: `"proof"`
+
+##### productSupport
+
+> **productSupport**: `"not-yet-supported"`
+
+##### implementationLevel
+
+> **implementationLevel**: `"not-implemented"`
+
+##### graduationTargetLevel
+
+> **graduationTargetLevel**: `"level-5-cross-arch-process-continuation"`
+
+##### migrationCompleted
+
+> **migrationCompleted**: `false`
+
+##### runtimeFamily
+
+> **runtimeFamily**: `"node"`
+
+##### profile
+
+> **profile**: `"node-v8-libuv-single-thread-http-v1"`
+
+##### sourceArch
+
+> **sourceArch**: `string`
+
+##### runtimeIdentity
+
+> **runtimeIdentity**: `object`
+
+###### executable
+
+> **executable**: `"node"`
+
+###### version
+
+> **version**: `string`
+
+###### targetNativeRuntimeRequired
+
+> **targetNativeRuntimeRequired**: `true`
+
+##### processModel
+
+> **processModel**: `object`
+
+###### processCount
+
+> **processCount**: `1`
+
+###### threadModel
+
+> **threadModel**: `"single-thread-required"`
+
+###### activeSyscallsAllowed
+
+> **activeSyscallsAllowed**: `false`
+
+###### activeRequestsAllowed
+
+> **activeRequestsAllowed**: `false`
+
+###### activeTcpStreamsAllowed
+
+> **activeTcpStreamsAllowed**: `false`
+
+##### moduleIdentity
+
+> **moduleIdentity**: `object`
+
+###### sourceCwd
+
+> **sourceCwd**: `string`
+
+###### argv
+
+> **argv**: `string`[]
+
+###### entrypoint
+
+> **entrypoint**: `string`
+
+###### unsupportedModuleStateAllowed
+
+> **unsupportedModuleStateAllowed**: `false`
+
+##### selectedV8State
+
+> **selectedV8State**: `object`
+
+###### stateModel
+
+> **stateModel**: `"bounded-profile-roots-only"`
+
+###### arbitraryHeapContinuationAllowed
+
+> **arbitraryHeapContinuationAllowed**: `false`
+
+###### arbitraryNativeStackContinuationAllowed
+
+> **arbitraryNativeStackContinuationAllowed**: `false`
+
+##### libuv
+
+> **libuv**: `object`
+
+###### handleInventory
+
+> **handleInventory**: `unknown`
+
+###### timersAsyncHandlesPolicy
+
+> **timersAsyncHandlesPolicy**: `"refuse-unless-modeled"`
+
+##### kernelResources
+
+> **kernelResources**: `object`
+
+###### inventory
+
+> **inventory**: `unknown`
+
+###### httpListeners
+
+> **httpListeners**: `object`[]
+
+##### verifier
+
+> **verifier**: `object`
+
+###### kind
+
+> **kind**: `string`
+
+###### path
+
+> **path**: `string`
+
+###### sha256
+
+> **sha256**: `string`
+
+###### bytes
+
+> **bytes**: `number`
+
+##### gates
+
+> **gates**: `object`
+
+###### sourceIsaEmulationAllowed
+
+> **sourceIsaEmulationAllowed**: `false`
+
+###### sidecarOutputAllowed
+
+> **sidecarOutputAllowed**: `false`
+
+###### metadataOnlySuccessAllowed
+
+> **metadataOnlySuccessAllowed**: `false`
+
+###### targetNativeNodeRequired
+
+> **targetNativeNodeRequired**: `true`
+
+##### refusals
+
+> **refusals**: [`NodeLevel5HttpProfileRefusal`](#nodelevel5httpprofilerefusal)[]
+
+##### summary
+
+> **summary**: `object`
+
+###### profileReady
+
+> **profileReady**: `true`
+
+###### targetNativeContinuationRequired
+
+> **targetNativeContinuationRequired**: `true`
+
+###### productSupportBlockedUntilActualWorkloadContinuation
+
+> **productSupportBlockedUntilActualWorkloadContinuation**: `true`
+
+***
+
 ### NodeLevel5ProofIngredient
 
 #### Properties
@@ -11997,7 +12311,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`code`](#code-17)
+[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`code`](#code-18)
 
 ##### message
 
@@ -12005,7 +12319,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`message`](#message-4)
+[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`message`](#message-5)
 
 ##### migrationCompleted
 
@@ -12013,7 +12327,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`migrationCompleted`](#migrationcompleted-12)
+[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`migrationCompleted`](#migrationcompleted-14)
 
 ##### productSupport
 
@@ -12021,7 +12335,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`productSupport`](#productsupport-8)
+[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`productSupport`](#productsupport-10)
 
 ##### implementationLevel
 
@@ -12029,7 +12343,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`implementationLevel`](#implementationlevel-8)
+[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`implementationLevel`](#implementationlevel-10)
 
 ##### evidenceStatus
 
@@ -12037,11 +12351,11 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`evidenceStatus`](#evidencestatus-9)
+[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`evidenceStatus`](#evidencestatus-11)
 
 ##### unsafeNeighbor
 
-> **unsafeNeighbor**: `"tls-rseq"` \| `"simd-fpu"` \| `"active-signals"` \| `"active-syscalls"` \| `"active-tcp"` \| `"worker-threads"` \| `"multithread"` \| `"unsupported-memory-mappings"` \| `"unsupported-kernel-resources"` \| `"native-addon-abi"` \| `"inspector-debug"` \| `"unsupported-v8-libuv-state"` \| `"arbitrary-heap-stack-continuation"`
+> **unsafeNeighbor**: `"inspector-debug"` \| `"tls-rseq"` \| `"simd-fpu"` \| `"active-signals"` \| `"active-syscalls"` \| `"active-tcp"` \| `"worker-threads"` \| `"multithread"` \| `"unsupported-memory-mappings"` \| `"unsupported-kernel-resources"` \| `"native-addon-abi"` \| `"unsupported-v8-libuv-state"` \| `"arbitrary-heap-stack-continuation"`
 
 ***
 
@@ -13330,7 +13644,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`sourceArch`](#sourcearch-11)
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`sourceArch`](#sourcearch-13)
 
 ##### targetArch
 
@@ -13426,7 +13740,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Overrides
 
-[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`migrationCompleted`](#migrationcompleted-16)
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`migrationCompleted`](#migrationcompleted-18)
 
 ##### scope
 
@@ -17310,7 +17624,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`profile`](#profile-11)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`profile`](#profile-12)
 
 ##### classification
 
@@ -17326,7 +17640,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`sourceArch`](#sourcearch-27)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`sourceArch`](#sourcearch-29)
 
 ##### targetArch
 
@@ -17402,7 +17716,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Overrides
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`migrationCompleted`](#migrationcompleted-33)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`migrationCompleted`](#migrationcompleted-35)
 
 ##### scope
 
@@ -20944,6 +21258,12 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NodeLevel5HttpProfileRefusalCode
+
+> **NodeLevel5HttpProfileRefusalCode** = *typeof* [`nodeLevel5HttpProfileRefusalCodes`](#nodelevel5httpprofilerefusalcodes)\[`number`\]
+
+***
+
 ### NodeLevel5ProofIngredientName
 
 > **NodeLevel5ProofIngredientName** = *typeof* [`nodeLevel5ProofIngredientNames`](#nodelevel5proofingredientnames)\[`number`\]
@@ -22683,6 +23003,24 @@ loops; anything looser stops being a meaningful gate.
 ### nestedVirtualizationStretchProofRefusalCodes
 
 > `const` **nestedVirtualizationStretchProofRefusalCodes**: readonly \[`"nested-virtualization-unavailable"`, `"nested-smoke-failed"`, `"nested-verifier-ambiguous"`, `"nested-snapshot-fork-unsafe"`\]
+
+***
+
+### NODE\_LEVEL5\_HTTP\_PROFILE\_FORMAT\_VERSION
+
+> `const` **NODE\_LEVEL5\_HTTP\_PROFILE\_FORMAT\_VERSION**: `1`
+
+***
+
+### NODE\_LEVEL5\_HTTP\_PROFILE\_NAME
+
+> `const` **NODE\_LEVEL5\_HTTP\_PROFILE\_NAME**: `"node-v8-libuv-single-thread-http-v1"`
+
+***
+
+### nodeLevel5HttpProfileRefusalCodes
+
+> `const` **nodeLevel5HttpProfileRefusalCodes**: readonly \[`"node-level5-http-arbitrary-v8-heap-native-stack-unsupported"`, `"node-level5-http-native-addon-unsupported"`, `"node-level5-http-worker-thread-unsupported"`, `"node-level5-http-inspector-unsupported"`, `"node-level5-http-active-request-unsupported"`, `"node-level5-http-active-tcp-stream-unsupported"`, `"node-level5-http-active-syscall-unsupported"`, `"node-level5-http-unsupported-timer-async-handle"`, `"node-level5-http-unsupported-module-runtime-state"`, `"node-level5-http-target-native-node-missing"`, `"node-level5-http-source-isa-emulation-forbidden"`, `"node-level5-http-sidecar-output-forbidden"`, `"node-level5-http-metadata-only-success-forbidden"`\]
 
 ***
 
@@ -25375,6 +25713,32 @@ available.
 #### Returns
 
 `string`[]
+
+***
+
+### buildNodeLevel5HttpProfileCapture()
+
+> **buildNodeLevel5HttpProfileCapture**(`input`): [`NodeLevel5HttpProfileCapture`](#nodelevel5httpprofilecapture)
+
+#### Parameters
+
+##### input
+
+[`NodeLevel5HttpProfileCaptureInput`](#nodelevel5httpprofilecaptureinput)
+
+#### Returns
+
+[`NodeLevel5HttpProfileCapture`](#nodelevel5httpprofilecapture)
+
+***
+
+### nodeLevel5HttpProfileRefusalRows()
+
+> **nodeLevel5HttpProfileRefusalRows**(): [`NodeLevel5HttpProfileRefusal`](#nodelevel5httpprofilerefusal)[]
+
+#### Returns
+
+[`NodeLevel5HttpProfileRefusal`](#nodelevel5httpprofilerefusal)[]
 
 ***
 

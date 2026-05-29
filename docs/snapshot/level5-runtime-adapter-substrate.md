@@ -31,11 +31,15 @@ Proof rows remain `productSupport=not-yet-supported`. Refusal rows remain `produ
 
 ## Public routing
 
-The CLI now has a Level 5 adapter registry. The existing selected Node Level 5 proof path is represented by the `node-level5-proof-runtime-adapter` profile:
+The CLI now has a Level 5 adapter registry. The first Node runtime profile is represented by `node-level5-http-runtime-adapter`:
+
+`node-v8-libuv-single-thread-http-v1`
+
+The older selected Node proof composition remains available through `node-level5-proof-runtime-adapter`:
 
 `node-http-clean-root-v1-with-level4-event-loop-map`
 
-`machinen snapshot` writes the Node proof composition through the adapter-compatible capture path. `machinen restore` detects `node-level5-proof-composition.json` through the registry, runs the target-native proof verifier by default, and still returns the proof-only `node-level5-proof-only-not-product` refusal unless proof automation explicitly allows exit code 0.
+`machinen snapshot` writes both the Node proof composition and the Node runtime profile through adapter-compatible capture paths. `machinen restore` detects `node-level5-runtime-profile.json` or `node-level5-proof-composition.json` through the registry, runs the target-native proof verifier by default, and still returns a proof-only refusal unless proof automation explicitly allows exit code 0.
 
 ## Stable substrate refusals
 

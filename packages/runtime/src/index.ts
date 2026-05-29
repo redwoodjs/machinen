@@ -138,6 +138,13 @@ export {
   runNodeLevel5TargetSideProof,
 } from "./node-level5-target-side-proof.ts";
 export {
+  NODE_LEVEL5_HTTP_PROFILE_FORMAT_VERSION,
+  NODE_LEVEL5_HTTP_PROFILE_NAME,
+  buildNodeLevel5HttpProfileCapture,
+  nodeLevel5HttpProfileRefusalCodes,
+  nodeLevel5HttpProfileRefusalRows,
+} from "./node-level5-http-profile.ts";
+export {
   NODE_LEVEL5_PROOF_COMPOSITION_FORMAT_VERSION,
   buildNodeLevel5ProofComposition,
   nodeLevel5ProofIngredientNames,
@@ -157,6 +164,12 @@ export type {
   NodeLevel5TargetSideProof,
   NodeLevel5TargetSideProofInput,
 } from "./node-level5-target-side-proof.ts";
+export type {
+  NodeLevel5HttpProfileCapture,
+  NodeLevel5HttpProfileCaptureInput,
+  NodeLevel5HttpProfileRefusal,
+  NodeLevel5HttpProfileRefusalCode,
+} from "./node-level5-http-profile.ts";
 export type {
   NodeLevel5ProofComposition,
   NodeLevel5ProofCompositionInput,
