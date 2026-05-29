@@ -28,6 +28,14 @@
   ],
   "registeredAdapters": [
     {
+      "id": "node-level5-http-runtime-adapter",
+      "runtimeFamily": "node",
+      "supportedProfiles": ["node-v8-libuv-single-thread-http-v1"],
+      "graduationTargetLevel": "level-5-cross-arch-process-continuation",
+      "productSupport": "not-yet-supported",
+      "migrationCompleted": false
+    },
+    {
       "id": "node-level5-proof-runtime-adapter",
       "runtimeFamily": "node",
       "supportedProfiles": ["node-http-clean-root-v1-with-level4-event-loop-map"],
@@ -37,15 +45,15 @@
     }
   ],
   "publicRouting": {
-    "snapshotDispatch": "writeNodeLevel5ProofCompositionSnapshot uses the adapter-compatible capture path",
-    "restoreDispatch": "detectLevel5RestoreAdapter routes node-level5-proof-composition.json through the Level 5 registry",
+    "snapshotDispatch": "writeNodeLevel5ProofCompositionSnapshot and writeNodeLevel5RuntimeProfileSnapshot use adapter-compatible capture paths",
+    "restoreDispatch": "detectLevel5RestoreAdapter routes node-level5-runtime-profile.json or node-level5-proof-composition.json through the Level 5 registry",
     "restoreSummaryFields": [
       "level5AdapterId",
       "level5AdapterRegistryRouted",
       "targetProofVerifierRanByDefault",
       "targetProof"
     ],
-    "defaultRefusal": "node-level5-proof-only-not-product",
+    "defaultRefusal": "node-level5-http-profile-proof-only-not-product or node-level5-proof-only-not-product",
     "defaultMigrationCompleted": false
   },
   "shortcutGates": {

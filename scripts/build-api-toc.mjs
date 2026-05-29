@@ -57,6 +57,17 @@ const TOC = {
     "createLevel5RuntimeAdapterRegistry",
     "level5SubstrateRefusalCodes",
   ],
+  "Node Level 5 HTTP profile": [
+    "NodeLevel5HttpProfileCapture",
+    "NodeLevel5HttpProfileCaptureInput",
+    "NodeLevel5HttpProfileRefusal",
+    "NodeLevel5HttpProfileRefusalCode",
+    "NODE_LEVEL5_HTTP_PROFILE_FORMAT_VERSION",
+    "NODE_LEVEL5_HTTP_PROFILE_NAME",
+    "buildNodeLevel5HttpProfileCapture",
+    "nodeLevel5HttpProfileRefusalCodes",
+    "nodeLevel5HttpProfileRefusalRows",
+  ],
   "Node Level 5 proof composition": [
     "NodeLevel5ProofComposition",
     "NodeLevel5ProofCompositionInput",

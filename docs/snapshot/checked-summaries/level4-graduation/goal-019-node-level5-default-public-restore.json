@@ -3,9 +3,11 @@
   "goal": "019",
   "status": "default-public-restore-proof-only",
   "selectedSubset": "node-http-clean-root-v1-with-level4-event-loop-map",
+  "level5RuntimeProfile": "node-v8-libuv-single-thread-http-v1",
   "publicWorkflow": ["machinen snapshot <node-app>", "machinen restore <snapshot>"],
   "snapshotArtifact": "node-level5-proof-composition.json",
-  "restoreSummaryArtifact": "node-level5-proof-restore-summary.json",
+  "runtimeProfileArtifact": "node-level5-runtime-profile.json",
+  "restoreSummaryArtifact": "node-level5-proof-restore-summary.json or node-level5-runtime-profile-restore-summary.json",
   "targetProofArtifact": "node-level5-target-proof.json",
   "restoreBehavior": {
     "targetProofVerifierRunsByDefault": true,

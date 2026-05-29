@@ -54,7 +54,7 @@ The default public restore behavior is recorded in `docs/snapshot/checked-summar
 
 ## Public verb routing
 
-Selected Node snapshots now write `node-level5-proof-composition.json` next to the portable Node bundle. `machinen restore` detects that file, runs the target-side proof verifier by default, writes `node-level5-proof-restore-summary.json`, and returns the stable `node-level5-proof-only-not-product` refusal. Non-JSON restore output prints a concise proof-verifier line so the target-native Node continuation evidence is visible. `--allow-proof-only-success` is only for proof automation: it may return exit code 0 for a passed proof, but it does not change `productSupport=not-yet-supported`, `implementationLevel=not-implemented`, or `migrationCompleted=false`.
+Selected Node snapshots now write `node-level5-proof-composition.json` and the Goal 021 `node-level5-runtime-profile.json` next to the portable Node bundle. `machinen restore` detects those files through the Level 5 adapter registry, runs the target-side proof verifier by default, writes a proof/profile restore summary, and returns a stable proof-only refusal. Non-JSON restore output prints a concise proof-verifier line so the target-native Node continuation evidence is visible. `--allow-proof-only-success` is only for proof automation: it may return exit code 0 for a passed proof, but it does not change `productSupport=not-yet-supported`, `implementationLevel=not-implemented`, or `migrationCompleted=false`.
 
 ## Refusals
 
