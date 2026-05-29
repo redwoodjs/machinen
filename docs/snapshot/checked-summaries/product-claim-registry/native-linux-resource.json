@@ -6,9 +6,9 @@
     "family": "native-linux-resource"
   },
   "registrySummary": {
-    "total": 2247,
+    "total": 2248,
     "byStatus": {
-      "implemented-product-support": 5,
+      "implemented-product-support": 6,
       "stable-product-refusal": 1563,
       "proof-only-fixture": 679,
       "obsolete-invalid-claim": 0
@@ -20,16 +20,16 @@
       "python-ruby-jvm": 4,
       "stateful-services": 26,
       "foundation-native": 127,
-      "native-linux-resource": 303,
+      "native-linux-resource": 304,
       "network-ping-socket": 537,
       "unknown": 897
     },
-    "implementedProductSupport": 5,
+    "implementedProductSupport": 6,
     "stableProductRefusals": 1563,
     "proofOnlyFixtures": 679,
     "obsoleteInvalidClaims": 0
   },
-  "selectedCount": 303,
+  "selectedCount": 304,
   "selectedSample": [
     {
       "name": "eventfd-alias-cross-process-refusal",

@@ -6,7 +6,8 @@
     "python-http-clean-root-v1",
     "go-http-clean-root-v1",
     "ping-level4-socket-reconstruction-v1",
-    "eventfd-counter-v1-nonsemaphore-no-waiters"
+    "eventfd-counter-v1-nonsemaphore-no-waiters",
+    "pipe-pair-v1-empty-no-waiters"
   ],
   "claims": [
     {
@@ -74,6 +75,13 @@
       "supportLevel": "implemented-product-support",
       "notes": "Narrow Level 4 product route through the generic portable restore adapter path for bounded nonzero eventfd counters with semaphore mode off, waiters known empty, no aliases, close-on-exec only, and target-native verifier evidence.",
       "subset": "eventfd-counter-v1-nonsemaphore-no-waiters"
+    },
+    {
+      "goal": "016",
+      "claim": "Empty pipe pair Level 4 reconstruction across arm64 and amd64",
+      "supportLevel": "implemented-product-support",
+      "notes": "Narrow Level 4 product route through the generic portable restore adapter path for empty pipe pairs with exactly one read end and one write end, open peer lifetime, no waiters, known not-readable readiness, close-on-exec only, and target-native verifier evidence.",
+      "subset": "pipe-pair-v1-empty-no-waiters"
     },
     {
       "goal": "43",

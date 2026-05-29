@@ -38,16 +38,19 @@ import {
   boot,
   ProductLevel4EventfdError,
   ProductLevel4PingSocketError,
+  ProductLevel4PipeError,
   ProductPortablePostgresError,
   buildProductClaimRegistry,
   createProductLevel4EventfdSnapshot,
   createProductLevel4PingSocketSnapshot,
+  createProductLevel4PipeSnapshot,
   createProductPortablePostgresSnapshot,
   filterProductClaimRegistry,
   formatMachinenError,
   isMachinenError,
   isProductLevel4EventfdBundle,
   isProductLevel4PingSocketBundle,
+  isProductLevel4PipeBundle,
   isProductPortablePostgresBundle,
   list,
   productPortablePostgresFileSha256,
@@ -58,6 +61,7 @@ import {
   restore,
   restoreProductLevel4EventfdSnapshot,
   restoreProductLevel4PingSocketSnapshot,
+  restoreProductLevel4PipeSnapshot,
   restoreProductPortablePostgresSnapshot,
   runGc,
   validatePid,
@@ -70,6 +74,8 @@ import type {
   ProductLevel4EventfdRestoreSummary,
   ProductLevel4PingSocketDescriptor,
   ProductLevel4PingSocketRestoreSummary,
+  ProductLevel4PipeDescriptor,
+  ProductLevel4PipeRestoreSummary,
   ProductSupportLevel,
   RegistryEntry,
   VmHandle,
@@ -1009,6 +1015,25 @@ type CapturePostgresOptions = {
   physicalDataDirCopy?: boolean;
 };
 
+type CapturePipeOptions = {
+  json: boolean;
+  dryRun: boolean;
+  out?: string;
+  sourceArch?: "arm64" | "amd64";
+  targetArch?: "arm64" | "amd64";
+  sourceVerifierOutput?: string;
+  readFd?: number;
+  writeFd?: number;
+  buffer?: "empty" | "bytes" | "unknown";
+  bufferedBytesHex?: string;
+  peerLifetime?: "open" | "closed" | "unknown";
+  waiters?: "none" | "unknown";
+  readiness?: "not-readable" | "readable" | "unknown";
+  noCloexec?: boolean;
+  nonblocking?: boolean;
+  activeSyscall?: boolean;
+};
+
 type CaptureEventfdOptions = {
   json: boolean;
   dryRun: boolean;
@@ -1043,6 +1068,7 @@ type CapturePingSocketOptions = {
   unsupportedRawSocketOption?: boolean;
 };
 
+// fallow-ignore-next-line complexity
 function cmdCapture(args: string[]): number {
   const { json, rest: withoutJson } = consumeJsonFlag(args);
   const { dryRun, rest } = consumeDryRunFlag(withoutJson);
@@ -1051,6 +1077,9 @@ function cmdCapture(args: string[]): number {
   }
   if (rest[0] === "eventfd") {
     return cmdCaptureEventfd({ json, dryRun, rest });
+  }
+  if (rest[0] === "pipe") {
+    return cmdCapturePipe({ json, dryRun, rest });
   }
   if (rest[0] === "ping-socket") {
     return cmdCapturePingSocket({ json, dryRun, rest });
@@ -1094,6 +1123,42 @@ function cmdCapturePostgres(input: { json: boolean; dryRun: boolean; rest: strin
     return reportProductCaptureResult(options.json, result, "postgres");
   } catch (err) {
     handleProductPortablePostgresError(err, options.json);
+  }
+}
+
+// fallow-ignore-next-line complexity
+function cmdCapturePipe(input: { json: boolean; dryRun: boolean; rest: string[] }): number {
+  const options = parseCapturePipeArgs(input);
+  const required = [
+    ["--out", options.out],
+    ["--source-arch", options.sourceArch],
+    ["--target-arch", options.targetArch],
+    ["--source-verifier-output", options.sourceVerifierOutput],
+    ["--read-fd", options.readFd],
+    ["--write-fd", options.writeFd],
+  ] as const;
+  assertCaptureRequired(required);
+  try {
+    const result = createProductLevel4PipeSnapshot({
+      outDir: options.out!,
+      sourceArch: options.sourceArch!,
+      targetArch: options.targetArch!,
+      sourceVerifierOutput: readFileSync(resolve(options.sourceVerifierOutput!), "utf8").trim(),
+      readFd: options.readFd!,
+      writeFd: options.writeFd!,
+      buffer: options.buffer,
+      bufferedBytesHex: options.bufferedBytesHex,
+      peerLifetime: options.peerLifetime,
+      waiters: options.waiters,
+      readiness: options.readiness,
+      closeOnExec: options.noCloexec ? false : true,
+      nonblocking: options.nonblocking,
+      activeSyscall: options.activeSyscall,
+      dryRun: options.dryRun,
+    });
+    return reportProductCaptureResult(options.json, result, "pipe");
+  } catch (err) {
+    handleProductLevel4PipeError(err, options.json);
   }
 }
 
@@ -1227,6 +1292,14 @@ function consumeCommonProductCaptureOption(
   }
 }
 
+function parseCapturePipeArgs(input: {
+  json: boolean;
+  dryRun: boolean;
+  rest: string[];
+}): CapturePipeOptions {
+  return parseProductCaptureArgs(input, consumePipeCaptureOption);
+}
+
 function parseCaptureEventfdArgs(input: {
   json: boolean;
   dryRun: boolean;
@@ -1282,6 +1355,49 @@ function parseProductCaptureArgs<
     index = nextIndex;
   }
   return options;
+}
+
+// fallow-ignore-next-line complexity
+function consumePipeCaptureOption(
+  options: CapturePipeOptions,
+  rest: string[],
+  index: number,
+  arg: string,
+): number | undefined {
+  switch (arg) {
+    case "--read-fd":
+      options.readFd = parsePipeFd(takeCaptureValue(rest, index + 1, arg), arg);
+      return index + 1;
+    case "--write-fd":
+      options.writeFd = parsePipeFd(takeCaptureValue(rest, index + 1, arg), arg);
+      return index + 1;
+    case "--buffer":
+      options.buffer = parsePipeBuffer(takeCaptureValue(rest, index + 1, arg), arg);
+      return index + 1;
+    case "--buffered-bytes-hex":
+      options.bufferedBytesHex = takeCaptureValue(rest, index + 1, arg);
+      return index + 1;
+    case "--peer-lifetime":
+      options.peerLifetime = parsePipePeerLifetime(takeCaptureValue(rest, index + 1, arg), arg);
+      return index + 1;
+    case "--waiters":
+      options.waiters = parseEventfdWaiters(takeCaptureValue(rest, index + 1, arg), arg);
+      return index + 1;
+    case "--readiness":
+      options.readiness = parsePipeReadiness(takeCaptureValue(rest, index + 1, arg), arg);
+      return index + 1;
+    case "--no-cloexec":
+      options.noCloexec = true;
+      return index;
+    case "--nonblocking":
+      options.nonblocking = true;
+      return index;
+    case "--active-syscall":
+      options.activeSyscall = true;
+      return index;
+    default:
+      return undefined;
+  }
 }
 
 // fallow-ignore-next-line complexity
@@ -1418,6 +1534,9 @@ function captureUsage(): string {
     "       machinen capture eventfd --out <dir> --source-arch <arm64|amd64> " +
     "--target-arch <arm64|amd64> --source-verifier-output <file> --counter <n> " +
     "[--json] [--dry-run]\n" +
+    "       machinen capture pipe --out <dir> --source-arch <arm64|amd64> " +
+    "--target-arch <arm64|amd64> --source-verifier-output <file> " +
+    "--read-fd <n> --write-fd <n> [--json] [--dry-run]\n" +
     "       machinen capture ping-socket --out <dir> --source-arch <arm64|amd64> " +
     "--target-arch <arm64|amd64> --socket-kind <ping-dgram-icmp|raw-icmp> " +
     "--source-verifier-output <file> --echo-id <n> --echo-seq <n> [--json] [--dry-run]"
@@ -1437,6 +1556,35 @@ function parseProductArch(value: string, flag: string): "arm64" | "amd64" {
     return value;
   }
   die(`${flag} must be arm64 or amd64`);
+}
+
+function parsePipeFd(value: string, flag: string): number {
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed < 0 || parsed > 1024) {
+    die(`${flag} must be an integer between 0 and 1024`);
+  }
+  return parsed;
+}
+
+function parsePipeBuffer(value: string, flag: string): "empty" | "bytes" | "unknown" {
+  if (value === "empty" || value === "bytes" || value === "unknown") {
+    return value;
+  }
+  die(`${flag} must be empty, bytes, or unknown`);
+}
+
+function parsePipePeerLifetime(value: string, flag: string): "open" | "closed" | "unknown" {
+  if (value === "open" || value === "closed" || value === "unknown") {
+    return value;
+  }
+  die(`${flag} must be open, closed, or unknown`);
+}
+
+function parsePipeReadiness(value: string, flag: string): "not-readable" | "readable" | "unknown" {
+  if (value === "not-readable" || value === "readable" || value === "unknown") {
+    return value;
+  }
+  die(`${flag} must be not-readable, readable, or unknown`);
 }
 
 function parseEventfdWaiters(value: string, flag: string): "none" | "unknown" {
@@ -1693,6 +1841,8 @@ function restoreUsage(): string {
     "--target-verifier-output <file> [--json]\n" +
     "       machinen restore <portable-eventfd-bundle> --target-arch <arm64|amd64> " +
     "[--target-verifier-output <file>] [--json]\n" +
+    "       machinen restore <portable-pipe-bundle> --target-arch <arm64|amd64> " +
+    "[--target-verifier-output <file>] [--json]\n" +
     "       machinen restore <portable-ping-socket-bundle> --target-arch <arm64|amd64> " +
     "[--target-verifier-output <file>] [--json]"
   );
@@ -1727,6 +1877,23 @@ function cmdRestoreProductPortablePostgres(
     handleProductPortablePostgresError(err, json);
   }
 }
+
+type PipePortableRestoreValidation =
+  | {
+      ok: true;
+      descriptor: ProductLevel4PipeDescriptor;
+      summary: ProductLevel4PipeRestoreSummary;
+    }
+  | {
+      ok: false;
+      descriptor?: ProductLevel4PipeDescriptor;
+      summary: ProductLevel4PipeRestoreSummary;
+    };
+
+type PipePortableRestorePlan = PortableRestoreWorkloadPlan & {
+  descriptor: ProductLevel4PipeDescriptor;
+  summary: ProductLevel4PipeRestoreSummary;
+};
 
 type EventfdPortableRestoreValidation =
   | {
@@ -1776,6 +1943,21 @@ type PortableRestoreWorkloadPlan = {
   buildDetachedSummary: (input: { vm: VmHandle; elapsedMs: number }) => Record<string, unknown>;
 };
 
+const pipePortableRestoreAdapter = {
+  profile: "pipe-pair-v1-empty-no-waiters",
+  detect: isProductLevel4PipeBundle,
+  validate: validatePipePortableRestore,
+  plan: planPipePortableRestore,
+  foregroundRestore: foregroundPipePortableRestore,
+  detachedRestore: detachedPipePortableRestore,
+  verify: verifyPipePortableRestore,
+  refuse: refusePipePortableRestore,
+} satisfies PortableRestoreAdapter<
+  PipePortableRestoreValidation,
+  PipePortableRestorePlan,
+  Record<string, unknown>
+>;
+
 const eventfdPortableRestoreAdapter = {
   profile: "eventfd-counter-v1-nonsemaphore-no-waiters",
   detect: isProductLevel4EventfdBundle,
@@ -1809,6 +1991,7 @@ const pingPortableRestoreAdapter = {
 const portableRestoreAdapters = [
   pingPortableRestoreAdapter,
   eventfdPortableRestoreAdapter,
+  pipePortableRestoreAdapter,
 ] as const satisfies readonly RegisteredPortableRestoreAdapter[];
 
 function detectPortableRestoreAdapter(
@@ -1842,6 +2025,98 @@ async function cmdRestorePortableAdapter(
   } catch (err) {
     handlePortableRestoreAdapterError(err, json);
   }
+}
+
+function validatePipePortableRestore({
+  parsed,
+  snapDir,
+}: PortableRestoreValidationInput): PipePortableRestoreValidation {
+  if (!parsed.targetArch) {
+    die(restoreUsage());
+  }
+  const descriptor = readProductLevel4PipeDescriptor(snapDir);
+  const verifierOutput = parsed.targetVerifierOutput
+    ? readFileSync(resolve(parsed.targetVerifierOutput), "utf8").trim()
+    : descriptor.sourceVerifierOutput;
+  const summary = restoreProductLevel4PipeSnapshot({
+    bundleDir: snapDir,
+    targetArch: parsed.targetArch,
+    targetVerifierOutput: verifierOutput,
+  });
+  if (!summary.migrationCompleted) {
+    return { ok: false, descriptor, summary };
+  }
+  return { ok: true, descriptor, summary };
+}
+
+function planPipePortableRestore({
+  parsed,
+  snapDir,
+  validation,
+}: PortableRestorePlanInput<PipePortableRestoreValidation>): PipePortableRestorePlan {
+  if (!validation.ok) {
+    throw new ProductLevel4PipeError(
+      "PIPE_RESTORE_PLAN_REFUSED",
+      "cannot plan a refused pipe portable restore",
+    );
+  }
+  assertLocalPipeRestoreTargetArch(parsed.targetArch);
+  const descriptor = validation.descriptor;
+  const name = parsed.name ?? deriveBootName(snapDir);
+  return {
+    descriptor,
+    summary: validation.summary,
+    name,
+    descriptorGuestPath: "/tmp/machinen-restored-pipe-descriptor.json",
+    descriptorText: JSON.stringify(descriptor, null, 2),
+    workloadLabel: "restored pipe",
+    foregroundCommand: foregroundRestoredPipeCommand(descriptor),
+    detachedCommand: startRestoredPipeCommand(descriptor),
+    verifyCommand: verifyRestoredPipeCommand(descriptor),
+    summaryPath: join(snapDir, "portable-pipe-target-vm-restore-summary.json"),
+    buildDetachedSummary: ({ vm, elapsedMs }) =>
+      buildPipeDetachedRestoreSummary({
+        descriptor,
+        summary: validation.summary,
+        vm,
+        name,
+        elapsedMs,
+      }),
+  };
+}
+
+function foregroundPipePortableRestore({
+  plan,
+}: PortableRestoreExecutionInput<PipePortableRestorePlan>): Promise<number> {
+  return runPortableForegroundRestore(plan);
+}
+
+function detachedPipePortableRestore({
+  plan,
+}: PortableRestoreExecutionInput<PipePortableRestorePlan>): Promise<Record<string, unknown>> {
+  return runPortableDetachedRestore(plan, pipePortableRestoreAdapter);
+}
+
+async function verifyPipePortableRestore({
+  vm,
+  plan,
+}: PortableRestoreVerifyInput<PipePortableRestorePlan>): Promise<void> {
+  const verify = await vm.execRaw(plan.verifyCommand, { execTimeoutMs: 20_000 });
+  if (verify.exitCode !== 0) {
+    throw new ProductLevel4PipeError(
+      "PIPE_TARGET_VM_VERIFIER_FAILED",
+      verify.stderr || verify.stdout || "target VM pipe verifier failed",
+    );
+  }
+}
+
+function refusePipePortableRestore({
+  json,
+  snapDir,
+  validation,
+}: PortableRestoreRefusalInput<PipePortableRestoreValidation>): number {
+  reportProductLevel4PipeRestoreSummary(snapDir, json, validation.summary);
+  return 1;
 }
 
 function validateEventfdPortableRestore({
@@ -2028,6 +2303,26 @@ function refusePingPortableRestore({
   return 1;
 }
 
+function readProductLevel4PipeDescriptor(snapDir: string): ProductLevel4PipeDescriptor {
+  return JSON.parse(
+    readFileSync(join(snapDir, "portable-pipe.json"), "utf8"),
+  ) as ProductLevel4PipeDescriptor;
+}
+
+function reportProductLevel4PipeRestoreSummary(
+  snapDir: string,
+  json: boolean,
+  summary: ProductLevel4PipeRestoreSummary,
+): void {
+  if (json) {
+    emitJson({ schema_version: 1, ...summary });
+  } else {
+    process.stderr.write(
+      `refused portable pipe restore: ${summary.refusal?.expectedRefusalCode ?? "unknown"}\n`,
+    );
+  }
+}
+
 function readProductLevel4EventfdDescriptor(snapDir: string): ProductLevel4EventfdDescriptor {
   return JSON.parse(
     readFileSync(join(snapDir, "portable-eventfd.json"), "utf8"),
@@ -2149,6 +2444,38 @@ async function runPortableDetachedRestore(
   }
 }
 
+function buildPipeDetachedRestoreSummary(input: {
+  descriptor: ProductLevel4PipeDescriptor;
+  summary: ProductLevel4PipeRestoreSummary;
+  vm: VmHandle;
+  name: string;
+  elapsedMs: number;
+}): Record<string, unknown> {
+  const { descriptor, summary, vm, name, elapsedMs } = input;
+  return {
+    ...summary,
+    targetVerifierResult: "passed",
+    targetVmStarted: true,
+    restoredName: vm.name ?? name,
+    restoredPid: vm.pid,
+    outputLogPath: descriptor.continuation.outputLogPath,
+    targetPipeProcess: "running",
+    targetOutputObserved: true,
+    continuationSemantics: {
+      readFd: descriptor.pipe.readFd,
+      writeFd: descriptor.pipe.writeFd,
+      buffer: descriptor.pipe.buffer,
+      peerLifetime: descriptor.pipe.peerLifetime,
+      waiters: descriptor.pipe.waiters,
+      readiness: descriptor.pipe.readiness,
+      closeOnExec: descriptor.pipe.closeOnExec,
+      pipePolicy: descriptor.continuation.pipePolicy,
+      readinessPolicy: descriptor.continuation.readinessPolicy,
+    },
+    elapsedMs,
+  };
+}
+
 function buildEventfdDetachedRestoreSummary(input: {
   descriptor: ProductLevel4EventfdDescriptor;
   summary: ProductLevel4EventfdRestoreSummary;
@@ -2213,6 +2540,61 @@ function buildPingDetachedRestoreSummary(input: {
     },
     elapsedMs,
   };
+}
+
+function assertLocalPipeRestoreTargetArch(targetArch: string | undefined): void {
+  if (targetArch !== guestCpu()) {
+    throw new ProductLevel4PipeError(
+      "PIPE_TARGET_GUEST_ARCH_MISMATCH",
+      `target arch ${targetArch} requires restoring on a ${targetArch} Machinen guest host; current guest arch is ${guestCpu()}`,
+    );
+  }
+}
+
+function foregroundRestoredPipeCommand(descriptor: ProductLevel4PipeDescriptor): string {
+  return "echo $$ >/tmp/machinen-restored-pipe.pid; exec " + restoredPipePerlCommand(descriptor);
+}
+
+function startRestoredPipeCommand(descriptor: ProductLevel4PipeDescriptor): string {
+  const logPath = descriptor.continuation.outputLogPath;
+  return (
+    `rm -f ${shellQuote(logPath)} /tmp/machinen-restored-pipe.pid; ` +
+    `( exec ${restoredPipePerlCommand(descriptor)} ) >${shellQuote(logPath)} 2>&1 & ` +
+    "echo $! >/tmp/machinen-restored-pipe.pid"
+  );
+}
+
+function restoredPipePerlCommand(descriptor: ProductLevel4PipeDescriptor): string {
+  return `perl -e ${shellQuote(restoredPipePerlProgram(descriptor))}`;
+}
+
+function restoredPipePerlProgram(descriptor: ProductLevel4PipeDescriptor): string {
+  return [
+    "use strict; use warnings; $|=1; use Fcntl qw(F_GETFD F_SETFD FD_CLOEXEC);",
+    'pipe(my $read, my $write) or die "pipe: $!\\n";',
+    'fcntl($read, F_SETFD, FD_CLOEXEC) or die "pipe read cloexec: $!\\n";',
+    'fcntl($write, F_SETFD, FD_CLOEXEC) or die "pipe write cloexec: $!\\n";',
+    'my $rin = ""; vec($rin, fileno($read), 1) = 1;',
+    "my $ready = select(my $rout = $rin, undef, undef, 0);",
+    'die "pipe read end unexpectedly readable\\n" if $ready != 0;',
+    `my $source_read_fd = ${descriptor.pipe.readFd};`,
+    `my $source_write_fd = ${descriptor.pipe.writeFd};`,
+    'print "MACHINEN_PIPE_RESTORED readFd=$source_read_fd writeFd=$source_write_fd targetReadFd=" . fileno($read) . " targetWriteFd=" . fileno($write) . " buffer=empty peer=open waiters=none readiness=not-readable flags=cloexec\\n";',
+    "my $alive = 0;",
+    "$SIG{TERM} = sub { exit 0; };",
+    'while (1) { sleep 1; $alive++; print "MACHINEN_PIPE_ALIVE buffer=empty tick=$alive\\n"; }',
+  ].join(" ");
+}
+
+function verifyRestoredPipeCommand(descriptor: ProductLevel4PipeDescriptor): string {
+  const logPath = descriptor.continuation.outputLogPath;
+  return [
+    "pid=$(cat /tmp/machinen-restored-pipe.pid 2>/dev/null || true)",
+    '[ -n "$pid" ] && [ -d "/proc/$pid" ] || exit 2',
+    `for i in $(seq 1 20); do grep -q 'MACHINEN_PIPE_RESTORED readFd=${descriptor.pipe.readFd} writeFd=${descriptor.pipe.writeFd}' ${shellQuote(logPath)} && exit 0; sleep 0.5; done`,
+    `cat ${shellQuote(logPath)} 2>/dev/null`,
+    "exit 3",
+  ].join("; ");
 }
 
 function assertLocalEventfdRestoreTargetArch(targetArch: string | undefined): void {
@@ -2350,7 +2732,11 @@ function handlePortableRestoreAdapterError(err: unknown, json: boolean): never {
 }
 
 function portableRestoreAdapterError(err: unknown): { code: string; message: string } | undefined {
-  if (err instanceof ProductLevel4EventfdError || err instanceof ProductLevel4PingSocketError) {
+  if (
+    err instanceof ProductLevel4EventfdError ||
+    err instanceof ProductLevel4PingSocketError ||
+    err instanceof ProductLevel4PipeError
+  ) {
     return { code: err.code, message: err.message };
   }
   return undefined;
@@ -2372,6 +2758,13 @@ function handleProductPortablePostgresError(err: unknown, json: boolean): never 
       process.exit(1);
     }
     die(err.message);
+  }
+  handleError(err);
+}
+
+function handleProductLevel4PipeError(err: unknown, json: boolean): never {
+  if (err instanceof ProductLevel4PipeError) {
+    reportKnownProductError(err, json);
   }
   handleError(err);
 }
@@ -4348,6 +4741,13 @@ function printHelp(): void {
       `                                                 eventfd counter descriptor. Unsafe\n` +
       `                                                 waiters, aliases, semaphore mode, and\n` +
       `                                                 active syscalls refuse fail-closed.\n` +
+      `  machinen capture pipe --out <dir> --source-arch <arm64|amd64>\n` +
+      `                    --target-arch <arm64|amd64> --source-verifier-output <file>\n` +
+      `                    --read-fd <n> --write-fd <n> [--json]\n` +
+      `                                                 Capture the implemented narrow Level 4\n` +
+      `                                                 empty pipe pair descriptor. Buffered\n` +
+      `                                                 bytes, waiters, closed peers, and\n` +
+      `                                                 active syscalls refuse fail-closed.\n` +
       `  machinen capture ping-socket --out <dir> --source-arch <arm64|amd64>\n` +
       `                    --target-arch <arm64|amd64> --socket-kind <ping-dgram-icmp|raw-icmp>\n` +
       `                    --source-verifier-output <file> --echo-id <n> --echo-seq <n> [--json]\n` +
@@ -4381,6 +4781,10 @@ function printHelp(): void {
       `                    [--target-verifier-output <file>] [--json]\n` +
       `                                                 Boot a target VM and recreate the narrow\n` +
       `                                                 Level 4 eventfd counter target-natively.\n` +
+      `  machinen restore <portable-pipe-bundle> --target-arch <arm64|amd64>\n` +
+      `                    [--target-verifier-output <file>] [--json]\n` +
+      `                                                 Boot a target VM and recreate the narrow\n` +
+      `                                                 Level 4 pipe pair target-natively.\n` +
       `  machinen restore <portable-ping-socket-bundle> --target-arch <arm64|amd64>\n` +
       `                    [--target-verifier-output <file>] [--json]\n` +
       `                                                 Boot a target VM and continue the narrow\n` +
@@ -4478,6 +4882,9 @@ function printHelp(): void {
       `  machinen capture eventfd --out ./eventfd.portable --source-arch arm64 --target-arch amd64 \\\n` +
       `    --source-verifier-output ./eventfd.verify --counter 42\n` +
       `  machinen restore ./eventfd.portable --target-arch amd64 --json\n` +
+      `  machinen capture pipe --out ./pipe.portable --source-arch arm64 --target-arch amd64 \\\n` +
+      `    --source-verifier-output ./pipe.verify --read-fd 10 --write-fd 12\n` +
+      `  machinen restore ./pipe.portable --target-arch amd64 --json\n` +
       `  machinen capture ping-socket --out ./ping.portable --source-arch arm64 --target-arch amd64 \\\n` +
       `    --socket-kind ping-dgram-icmp --source-verifier-output ./ping.verify --echo-id 7 --echo-seq 1\n` +
       `  machinen restore ./ping.portable --target-arch amd64 --json\n` +

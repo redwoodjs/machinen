@@ -19,6 +19,7 @@ Goal files are grouped by cohort so proof records for each project stay together
 - [`013.md`](./013.md) — Boot a target VM and continue Level 4 ping on restore.
 - [`014.md`](./014.md) — Extract a generic portable restore adapter interface.
 - [`015.md`](./015.md) — Add eventfd as the second portable restore adapter/resource.
+- [`016.md`](./016.md) — Add pipes as the third portable restore adapter/resource.
 
 ## Cohorts
 

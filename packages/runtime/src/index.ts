@@ -594,6 +594,18 @@ export {
   restoreProductPortablePostgresSnapshot,
 } from "./product-portable-postgres.ts";
 export {
+  PRODUCT_LEVEL4_PIPE_FORMAT_VERSION,
+  PRODUCT_LEVEL4_PIPE_MANIFEST,
+  PRODUCT_LEVEL4_PIPE_REFUSAL,
+  PRODUCT_LEVEL4_PIPE_RESTORE_SUMMARY,
+  ProductLevel4PipeError,
+  createProductLevel4PipeSnapshot,
+  isProductLevel4PipeBundle,
+  productLevel4PipeArchitectures,
+  productLevel4PipeRefusalCodes,
+  restoreProductLevel4PipeSnapshot,
+} from "./product-level4-pipe.ts";
+export {
   PRODUCT_LEVEL4_EVENTFD_FORMAT_VERSION,
   PRODUCT_LEVEL4_EVENTFD_MANIFEST,
   PRODUCT_LEVEL4_EVENTFD_REFUSAL,
@@ -755,6 +767,16 @@ export type {
   ProductPortablePostgresRestoreSummary,
   ProductPortableSupportLevel,
 } from "./product-portable-postgres.ts";
+export type {
+  ProductLevel4PipeArchitecture,
+  ProductLevel4PipeCaptureInput,
+  ProductLevel4PipeCaptureResult,
+  ProductLevel4PipeDescriptor,
+  ProductLevel4PipeRefusal,
+  ProductLevel4PipeRefusalCode,
+  ProductLevel4PipeRestoreInput,
+  ProductLevel4PipeRestoreSummary,
+} from "./product-level4-pipe.ts";
 export type {
   ProductLevel4EventfdArchitecture,
   ProductLevel4EventfdCaptureInput,

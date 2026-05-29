@@ -85,14 +85,15 @@ function validateRegistry(registry, selected) {
     "go-cross-arch-runtime-policy",
     "ping-level4-socket-reconstruction-v1",
     "eventfd-counter-v1-nonsemaphore-no-waiters",
+    "pipe-pair-v1-empty-no-waiters",
   ]) {
     if (!implementedNames.has(required)) {
       failures.push(`implemented product subset is missing: ${required}`);
     }
   }
-  if (implemented.length !== 5) {
+  if (implemented.length !== 6) {
     failures.push(
-      "implemented product support must be exactly the clean-service Node, Python, Go routes and the portable-machine Level 4 ping and eventfd routes",
+      "implemented product support must be exactly the clean-service Node, Python, Go routes and the portable-machine Level 4 ping, eventfd, and pipe routes",
     );
   }
   if (implemented.some((entry) => entry.supportLevel === "level-2-semantic-continuation")) {
@@ -115,6 +116,15 @@ function validateRegistry(registry, selected) {
     )
   ) {
     failures.push("implemented eventfd profile is not reported as Level 4 support");
+  }
+  if (
+    !implemented.some(
+      (entry) =>
+        entry.name === "pipe-pair-v1-empty-no-waiters" &&
+        entry.supportLevel === "level-4-kernel-resource-reconstruction",
+    )
+  ) {
+    failures.push("implemented pipe profile is not reported as Level 4 support");
   }
   for (const entry of registry.entries) {
     if (

@@ -3,9 +3,9 @@
   "inventory": "/Users/peterp/gh/redwoodjs/machinen/docs/snapshot/product-cross-arch-claim-inventory.json",
   "implementedSubset": "node-http-clean-root-v1",
   "totals": {
-    "claims": 14,
+    "claims": 15,
     "proofOnly": 4,
-    "implementedProduct": 5,
+    "implementedProduct": 6,
     "explicitRefusal": 4,
     "obsoleteOrInvalid": 1
   },
