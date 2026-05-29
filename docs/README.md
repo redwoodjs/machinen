@@ -37,6 +37,7 @@ Snapshot internals:
 - [Goal 011/012/013 ping Level 4 portable machine workload](./snapshot/level4-ping-machine-workload.md) — `machinen snapshot` / `machinen restore` support, auto-inspection, and target-VM continuation for a running loopback ping
 - [Goal 015 eventfd Level 4 portable restore](./snapshot/level4-eventfd-portable-restore.md) — second portable restore adapter and narrow target-native eventfd counter reconstruction
 - [Goal 016 pipe Level 4 portable restore](./snapshot/level4-pipe-portable-restore.md) — third portable restore adapter and narrow target-native empty pipe pair reconstruction
+- [Goal 017 timerfd Level 4 portable restore](./snapshot/level4-timerfd-portable-restore.md) — fourth portable restore adapter and narrow target-native relative one-shot timerfd reconstruction
 - [portable machine proof profiles](./snapshot/portable-machine-proof-profiles.md) — positive and negative proof profiles for target-native completion and fail-closed refusals
 - [portable proof matrices](./snapshot/proof-matrices.md) — one-command matrix presets and JSON summary shape
 - [runtime-neutral adapter boundary](./snapshot/runtime-adapter-boundary.md) — shared adapter contract for future runtime-specific tracks

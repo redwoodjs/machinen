@@ -244,6 +244,27 @@
 - [`isProductPortablePostgresBundle`](#isproductportablepostgresbundle)
 - [`productPortablePostgresFileSha256`](#productportablepostgresfilesha256)
 
+### Product Level 4 timerfd
+
+- [`ProductLevel4TimerfdError`](#productlevel4timerfderror)
+- [`ProductLevel4TimerfdCaptureInput`](#productlevel4timerfdcaptureinput)
+- [`ProductLevel4TimerfdDescriptor`](#productlevel4timerfddescriptor)
+- [`ProductLevel4TimerfdRefusal`](#productlevel4timerfdrefusal)
+- [`ProductLevel4TimerfdRestoreInput`](#productlevel4timerfdrestoreinput)
+- [`ProductLevel4TimerfdRestoreSummary`](#productlevel4timerfdrestoresummary)
+- [`ProductLevel4TimerfdArchitecture`](#productlevel4timerfdarchitecture)
+- [`ProductLevel4TimerfdRefusalCode`](#productlevel4timerfdrefusalcode)
+- [`ProductLevel4TimerfdCaptureResult`](#productlevel4timerfdcaptureresult)
+- [`PRODUCT_LEVEL4_TIMERFD_FORMAT_VERSION`](#product_level4_timerfd_format_version)
+- [`PRODUCT_LEVEL4_TIMERFD_MANIFEST`](#product_level4_timerfd_manifest)
+- [`PRODUCT_LEVEL4_TIMERFD_REFUSAL`](#product_level4_timerfd_refusal)
+- [`PRODUCT_LEVEL4_TIMERFD_RESTORE_SUMMARY`](#product_level4_timerfd_restore_summary)
+- [`productLevel4TimerfdArchitectures`](#productlevel4timerfdarchitectures)
+- [`productLevel4TimerfdRefusalCodes`](#productlevel4timerfdrefusalcodes)
+- [`createProductLevel4TimerfdSnapshot`](#createproductlevel4timerfdsnapshot)
+- [`isProductLevel4TimerfdBundle`](#isproductlevel4timerfdbundle)
+- [`restoreProductLevel4TimerfdSnapshot`](#restoreproductlevel4timerfdsnapshot)
+
 ### Product Level 4 pipe
 
 - [`ProductLevel4PipeError`](#productlevel4pipeerror)
@@ -2160,6 +2181,44 @@ Attach to `id`. Throws if id doesn't exist.
 ###### Returns
 
 [`ProductLevel4PipeError`](#productlevel4pipeerror)
+
+###### Overrides
+
+`Error.constructor`
+
+#### Properties
+
+##### code
+
+> `readonly` **code**: `string`
+
+***
+
+### ProductLevel4TimerfdError
+
+#### Extends
+
+- `Error`
+
+#### Constructors
+
+##### Constructor
+
+> **new ProductLevel4TimerfdError**(`code`, `message`): [`ProductLevel4TimerfdError`](#productlevel4timerfderror)
+
+###### Parameters
+
+###### code
+
+`string`
+
+###### message
+
+`string`
+
+###### Returns
+
+[`ProductLevel4TimerfdError`](#productlevel4timerfderror)
 
 ###### Overrides
 
@@ -13508,6 +13567,412 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ***
 
+### ProductLevel4TimerfdCaptureInput
+
+#### Properties
+
+##### outDir
+
+> **outDir**: `string`
+
+##### sourceArch
+
+> **sourceArch**: `"amd64"` \| `"arm64"`
+
+##### targetArch
+
+> **targetArch**: `"amd64"` \| `"arm64"`
+
+##### sourceVerifierOutput
+
+> **sourceVerifierOutput**: `string`
+
+##### remainingMs
+
+> **remainingMs**: `number`
+
+##### clock?
+
+> `optional` **clock?**: `"monotonic"` \| `"realtime"`
+
+##### intervalMs?
+
+> `optional` **intervalMs?**: `number`
+
+##### absolute?
+
+> `optional` **absolute?**: `boolean`
+
+##### cancelOnSet?
+
+> `optional` **cancelOnSet?**: `boolean`
+
+##### unreadExpirations?
+
+> `optional` **unreadExpirations?**: `number`
+
+##### closeOnExec?
+
+> `optional` **closeOnExec?**: `boolean`
+
+##### nonblocking?
+
+> `optional` **nonblocking?**: `boolean`
+
+##### activeRead?
+
+> `optional` **activeRead?**: `boolean`
+
+##### outputLogPath?
+
+> `optional` **outputLogPath?**: `"/tmp/machinen-restored-timerfd.log"`
+
+##### dryRun?
+
+> `optional` **dryRun?**: `boolean`
+
+***
+
+### ProductLevel4TimerfdDescriptor
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.product-level4-timerfd"`
+
+##### formatVersion
+
+> **formatVersion**: `1`
+
+##### supportLevel
+
+> **supportLevel**: `"implemented-product-support"`
+
+##### subset
+
+> **subset**: `"timerfd-relative-oneshot-v1-monotonic"`
+
+##### implementationLevel
+
+> **implementationLevel**: `"level-4-kernel-resource-reconstruction"`
+
+##### runtime
+
+> **runtime**: `"native-linux-resource"`
+
+##### captureSurface
+
+> **captureSurface**: `"machinen capture timerfd"`
+
+##### restoreSurface
+
+> **restoreSurface**: `"machinen restore <bundle> --target-arch <arch> [--target-verifier-output <file>]"`
+
+##### source
+
+> **source**: `object`
+
+###### architecture
+
+> **architecture**: `"amd64"` \| `"arm64"`
+
+###### host
+
+> **host**: `object`
+
+###### host.arch
+
+> **arch**: `string`
+
+###### host.platform
+
+> **platform**: `string`
+
+###### host.release
+
+> **release**: `string`
+
+##### target
+
+> **target**: `object`
+
+###### architecture
+
+> **architecture**: `"amd64"` \| `"arm64"`
+
+##### timerfd
+
+> **timerfd**: `object`
+
+###### clock
+
+> **clock**: `"monotonic"`
+
+###### mode
+
+> **mode**: `"relative"`
+
+###### remainingMs
+
+> **remainingMs**: `number`
+
+###### intervalMs
+
+> **intervalMs**: `0`
+
+###### unreadExpirations
+
+> **unreadExpirations**: `0`
+
+###### closeOnExec
+
+> **closeOnExec**: `true`
+
+###### nonblocking
+
+> **nonblocking**: `false`
+
+###### cancelOnSet
+
+> **cancelOnSet**: `false`
+
+##### continuation
+
+> **continuation**: `object`
+
+###### outputLogPath
+
+> **outputLogPath**: `"/tmp/machinen-restored-timerfd.log"`
+
+###### timerPolicy
+
+> **timerPolicy**: `"target-native-relative-oneshot-timerfd-recreated"`
+
+###### expirationPolicy
+
+> **expirationPolicy**: `"no-unread-expirations-preserved"`
+
+##### gates
+
+> **gates**: `object`
+
+###### monotonicClockRequired
+
+> **monotonicClockRequired**: `true`
+
+###### relativeOneShotRequired
+
+> **relativeOneShotRequired**: `true`
+
+###### boundedRemainingTimeRequired
+
+> **boundedRemainingTimeRequired**: `true`
+
+###### noUnreadExpirationsRequired
+
+> **noUnreadExpirationsRequired**: `true`
+
+###### onlyCloseOnExecFlagSupported
+
+> **onlyCloseOnExecFlagSupported**: `true`
+
+###### noActiveTimerfdReadRequired
+
+> **noActiveTimerfdReadRequired**: `true`
+
+###### targetNativeVerificationRequired
+
+> **targetNativeVerificationRequired**: `true`
+
+###### sourceIsaEmulationAllowed
+
+> **sourceIsaEmulationAllowed**: `false`
+
+###### sourceTextReplayAllowed
+
+> **sourceTextReplayAllowed**: `false`
+
+###### sidecarRuntimeAllowed
+
+> **sidecarRuntimeAllowed**: `false`
+
+###### metadataOnlyContinuationAllowed
+
+> **metadataOnlyContinuationAllowed**: `false`
+
+##### sourceVerifierOutput
+
+> **sourceVerifierOutput**: `string`
+
+##### sourceVerifierOutputSha256
+
+> **sourceVerifierOutputSha256**: `string`
+
+***
+
+### ProductLevel4TimerfdRefusal
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.product-level4-timerfd-refusal"`
+
+##### formatVersion
+
+> **formatVersion**: `1`
+
+##### runtime
+
+> **runtime**: `"native-linux-resource"`
+
+##### supportLevel
+
+> **supportLevel**: `"explicit-refusal"`
+
+##### state
+
+> **state**: `"refused"`
+
+##### migrationCompleted
+
+> **migrationCompleted**: `false`
+
+##### expectedRefusalCode
+
+> **expectedRefusalCode**: `"timerfd-unread-expirations-unsupported"` \| `"timerfd-source-target-arch-match"` \| `"timerfd-target-arch-mismatch"` \| `"timerfd-target-verifier-mismatch"` \| `"timerfd-remaining-time-out-of-range"` \| `"timerfd-periodic-unsupported"` \| `"timerfd-absolute-unsupported"` \| `"timerfd-cancel-on-set-unsupported"` \| `"timerfd-clock-unsupported"` \| `"timerfd-unsupported-flags"` \| `"timerfd-active-read-unsupported"`
+
+##### message
+
+> **message**: `string`
+
+##### evidence
+
+> **evidence**: `Record`\<`string`, `unknown`\>
+
+##### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+##### sourceTextReusedAsTargetCode
+
+> **sourceTextReusedAsTargetCode**: `false`
+
+##### sidecarRuntimeUsed
+
+> **sidecarRuntimeUsed**: `false`
+
+##### metadataOnlyShortcutAccepted
+
+> **metadataOnlyShortcutAccepted**: `false`
+
+***
+
+### ProductLevel4TimerfdRestoreInput
+
+#### Properties
+
+##### bundleDir
+
+> **bundleDir**: `string`
+
+##### targetArch
+
+> **targetArch**: `"amd64"` \| `"arm64"`
+
+##### targetVerifierOutput
+
+> **targetVerifierOutput**: `string`
+
+##### dryRun?
+
+> `optional` **dryRun?**: `boolean`
+
+***
+
+### ProductLevel4TimerfdRestoreSummary
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.product-level4-timerfd-restore-summary"`
+
+##### formatVersion
+
+> **formatVersion**: `1`
+
+##### runtime
+
+> **runtime**: `"native-linux-resource"`
+
+##### subset
+
+> **subset**: `"timerfd-relative-oneshot-v1-monotonic"`
+
+##### supportLevel
+
+> **supportLevel**: `"implemented-product-support"`
+
+##### implementationLevel
+
+> **implementationLevel**: `"level-4-kernel-resource-reconstruction"`
+
+##### state
+
+> **state**: `"refused"` \| `"completed"`
+
+##### migrationCompleted
+
+> **migrationCompleted**: `boolean`
+
+##### sourceArch?
+
+> `optional` **sourceArch?**: `"amd64"` \| `"arm64"`
+
+##### targetArch
+
+> **targetArch**: `"amd64"` \| `"arm64"`
+
+##### targetVerifierResult
+
+> **targetVerifierResult**: `"failed"` \| `"passed"` \| `"not-run"`
+
+##### descriptorSha256?
+
+> `optional` **descriptorSha256?**: `string`
+
+##### targetVerifierOutputSha256?
+
+> `optional` **targetVerifierOutputSha256?**: `string`
+
+##### refusal?
+
+> `optional` **refusal?**: [`ProductLevel4TimerfdRefusal`](#productlevel4timerfdrefusal)
+
+##### shortcutInspection
+
+> **shortcutInspection**: `object`
+
+###### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+###### sourceTextReusedAsTargetCode
+
+> **sourceTextReusedAsTargetCode**: `false`
+
+###### sidecarRuntimeUsed
+
+> **sidecarRuntimeUsed**: `false`
+
+###### metadataOnlyShortcutAccepted
+
+> **metadataOnlyShortcutAccepted**: `false`
+
+***
+
 ### ProductPortablePostgresClaimClassification
 
 #### Properties
@@ -14967,7 +15432,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`runtime`](#runtime-14)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`runtime`](#runtime-17)
 
 ##### profile
 
@@ -14991,7 +15456,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`sourceArch`](#sourcearch-20)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`sourceArch`](#sourcearch-22)
 
 ##### targetArch
 
@@ -14999,7 +15464,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`targetArch`](#targetarch-35)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`targetArch`](#targetarch-38)
 
 ##### stateModel
 
@@ -15055,7 +15520,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`evidence`](#evidence-13)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`evidence`](#evidence-14)
 
 ##### kind
 
@@ -15067,7 +15532,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Overrides
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`migrationCompleted`](#migrationcompleted-21)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`migrationCompleted`](#migrationcompleted-23)
 
 ##### scope
 
@@ -18779,6 +19244,24 @@ Result of `validatePid` — easy to switch on at the call site.
 
 ***
 
+### ProductLevel4TimerfdArchitecture
+
+> **ProductLevel4TimerfdArchitecture** = *typeof* [`productLevel4TimerfdArchitectures`](#productlevel4timerfdarchitectures)\[`number`\]
+
+***
+
+### ProductLevel4TimerfdRefusalCode
+
+> **ProductLevel4TimerfdRefusalCode** = *typeof* [`productLevel4TimerfdRefusalCodes`](#productlevel4timerfdrefusalcodes)\[`number`\]
+
+***
+
+### ProductLevel4TimerfdCaptureResult
+
+> **ProductLevel4TimerfdCaptureResult** = \{ `state`: `"completed"`; `migrationCompleted`: `true`; `bundleDir`: `string`; `descriptor`: [`ProductLevel4TimerfdDescriptor`](#productlevel4timerfddescriptor); `dryRun`: `boolean`; \} \| \{ `state`: `"refused"`; `migrationCompleted`: `false`; `bundleDir`: `string`; `refusal`: [`ProductLevel4TimerfdRefusal`](#productlevel4timerfdrefusal); `dryRun`: `boolean`; \}
+
+***
+
 ### ProductPortablePostgresArchitecture
 
 > **ProductPortablePostgresArchitecture** = *typeof* [`productPortablePostgresArchitectures`](#productportablepostgresarchitectures)\[`number`\]
@@ -20788,6 +21271,42 @@ loops; anything looser stops being a meaningful gate.
 ### productLevel4PipeRefusalCodes
 
 > `const` **productLevel4PipeRefusalCodes**: readonly \[`"pipe-source-target-arch-match"`, `"pipe-target-arch-mismatch"`, `"pipe-target-verifier-mismatch"`, `"pipe-fd-pair-invalid"`, `"pipe-buffered-data-unsupported"`, `"pipe-peer-lifetime-unsupported"`, `"pipe-waiters-unsupported"`, `"pipe-readiness-unsupported"`, `"pipe-unsupported-flags"`, `"pipe-active-syscall-unsupported"`\]
+
+***
+
+### PRODUCT\_LEVEL4\_TIMERFD\_FORMAT\_VERSION
+
+> `const` **PRODUCT\_LEVEL4\_TIMERFD\_FORMAT\_VERSION**: `1`
+
+***
+
+### PRODUCT\_LEVEL4\_TIMERFD\_MANIFEST
+
+> `const` **PRODUCT\_LEVEL4\_TIMERFD\_MANIFEST**: `"portable-timerfd.json"`
+
+***
+
+### PRODUCT\_LEVEL4\_TIMERFD\_REFUSAL
+
+> `const` **PRODUCT\_LEVEL4\_TIMERFD\_REFUSAL**: `"portable-timerfd-refusal.json"`
+
+***
+
+### PRODUCT\_LEVEL4\_TIMERFD\_RESTORE\_SUMMARY
+
+> `const` **PRODUCT\_LEVEL4\_TIMERFD\_RESTORE\_SUMMARY**: `"portable-timerfd-restore-summary.json"`
+
+***
+
+### productLevel4TimerfdArchitectures
+
+> `const` **productLevel4TimerfdArchitectures**: readonly \[`"arm64"`, `"amd64"`\]
+
+***
+
+### productLevel4TimerfdRefusalCodes
+
+> `const` **productLevel4TimerfdRefusalCodes**: readonly \[`"timerfd-source-target-arch-match"`, `"timerfd-target-arch-mismatch"`, `"timerfd-target-verifier-mismatch"`, `"timerfd-remaining-time-out-of-range"`, `"timerfd-unread-expirations-unsupported"`, `"timerfd-periodic-unsupported"`, `"timerfd-absolute-unsupported"`, `"timerfd-cancel-on-set-unsupported"`, `"timerfd-clock-unsupported"`, `"timerfd-unsupported-flags"`, `"timerfd-active-read-unsupported"`\]
 
 ***
 
@@ -23380,6 +23899,54 @@ readonly (`number` \| [`RssTarget`](#rsstarget))[]
 #### Returns
 
 [`ProductLevel4PipeRestoreSummary`](#productlevel4piperestoresummary)
+
+***
+
+### createProductLevel4TimerfdSnapshot()
+
+> **createProductLevel4TimerfdSnapshot**(`input`): [`ProductLevel4TimerfdCaptureResult`](#productlevel4timerfdcaptureresult)
+
+#### Parameters
+
+##### input
+
+[`ProductLevel4TimerfdCaptureInput`](#productlevel4timerfdcaptureinput)
+
+#### Returns
+
+[`ProductLevel4TimerfdCaptureResult`](#productlevel4timerfdcaptureresult)
+
+***
+
+### isProductLevel4TimerfdBundle()
+
+> **isProductLevel4TimerfdBundle**(`bundleDir`): `boolean`
+
+#### Parameters
+
+##### bundleDir
+
+`string`
+
+#### Returns
+
+`boolean`
+
+***
+
+### restoreProductLevel4TimerfdSnapshot()
+
+> **restoreProductLevel4TimerfdSnapshot**(`input`): [`ProductLevel4TimerfdRestoreSummary`](#productlevel4timerfdrestoresummary)
+
+#### Parameters
+
+##### input
+
+[`ProductLevel4TimerfdRestoreInput`](#productlevel4timerfdrestoreinput)
+
+#### Returns
+
+[`ProductLevel4TimerfdRestoreSummary`](#productlevel4timerfdrestoresummary)
 
 ***
 

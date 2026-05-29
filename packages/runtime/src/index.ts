@@ -594,6 +594,18 @@ export {
   restoreProductPortablePostgresSnapshot,
 } from "./product-portable-postgres.ts";
 export {
+  PRODUCT_LEVEL4_TIMERFD_FORMAT_VERSION,
+  PRODUCT_LEVEL4_TIMERFD_MANIFEST,
+  PRODUCT_LEVEL4_TIMERFD_REFUSAL,
+  PRODUCT_LEVEL4_TIMERFD_RESTORE_SUMMARY,
+  ProductLevel4TimerfdError,
+  createProductLevel4TimerfdSnapshot,
+  isProductLevel4TimerfdBundle,
+  productLevel4TimerfdArchitectures,
+  productLevel4TimerfdRefusalCodes,
+  restoreProductLevel4TimerfdSnapshot,
+} from "./product-level4-timerfd.ts";
+export {
   PRODUCT_LEVEL4_PIPE_FORMAT_VERSION,
   PRODUCT_LEVEL4_PIPE_MANIFEST,
   PRODUCT_LEVEL4_PIPE_REFUSAL,
@@ -767,6 +779,16 @@ export type {
   ProductPortablePostgresRestoreSummary,
   ProductPortableSupportLevel,
 } from "./product-portable-postgres.ts";
+export type {
+  ProductLevel4TimerfdArchitecture,
+  ProductLevel4TimerfdCaptureInput,
+  ProductLevel4TimerfdCaptureResult,
+  ProductLevel4TimerfdDescriptor,
+  ProductLevel4TimerfdRefusal,
+  ProductLevel4TimerfdRefusalCode,
+  ProductLevel4TimerfdRestoreInput,
+  ProductLevel4TimerfdRestoreSummary,
+} from "./product-level4-timerfd.ts";
 export type {
   ProductLevel4PipeArchitecture,
   ProductLevel4PipeCaptureInput,

@@ -107,6 +107,7 @@ function implementedSubsets(primarySubset) {
         "ping-level4-socket-reconstruction-v1",
         "eventfd-counter-v1-nonsemaphore-no-waiters",
         "pipe-pair-v1-empty-no-waiters",
+        "timerfd-relative-oneshot-v1-monotonic",
       ]
     : [primarySubset];
 }
