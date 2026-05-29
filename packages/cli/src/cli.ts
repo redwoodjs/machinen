@@ -1626,11 +1626,7 @@ async function bootProductLevel4PingForegroundTargetVm(
   let interrupted = false;
   const onSigint = () => {
     interrupted = true;
-    void vm
-      .execRaw(
-        'pid=$(cat /tmp/machinen-restored-ping.pid 2>/dev/null || true); [ -n "$pid" ] && kill -INT "$pid" 2>/dev/null || true',
-      )
-      .catch(() => undefined);
+    void vm.kill().catch(() => undefined);
   };
   process.on("SIGINT", onSigint);
   try {
@@ -1638,11 +1634,18 @@ async function bootProductLevel4PingForegroundTargetVm(
       "/tmp/machinen-restored-ping-descriptor.json",
       JSON.stringify(descriptor, null, 2),
     );
-    const result = await vm.execRaw(foregroundRestoredPingCommand(descriptor), {
-      onStdout: (chunk) => process.stdout.write(chunk),
-      onStderr: (chunk) => process.stderr.write(chunk),
-      execTimeoutMs: null,
-    });
+    const result = await vm
+      .execRaw(foregroundRestoredPingCommand(descriptor), {
+        onStdout: (chunk) => process.stdout.write(chunk),
+        onStderr: (chunk) => process.stderr.write(chunk),
+        execTimeoutMs: null,
+      })
+      .catch((err: unknown) => {
+        if (interrupted) {
+          return { exitCode: 130 };
+        }
+        throw err;
+      });
     return interrupted ? 130 : result.exitCode;
   } finally {
     process.off("SIGINT", onSigint);
