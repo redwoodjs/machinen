@@ -18,9 +18,9 @@ describe("Goal 46 product claim registry", () => {
   it("classifies every portable-machine proof profile into a product status", () => {
     const registry = buildProductClaimRegistry(PROFILES);
 
-    expect(registry.entries).toHaveLength(PROFILES.length + 3);
-    expect(registry.summary.total).toBe(PROFILES.length + 3);
-    expect(registry.summary.implementedProductSupport).toBe(6);
+    expect(registry.entries).toHaveLength(PROFILES.length + 4);
+    expect(registry.summary.total).toBe(PROFILES.length + 4);
+    expect(registry.summary.implementedProductSupport).toBe(7);
     expect(
       registry.entries.filter((entry) => entry.productStatus === "implemented-product-support"),
     ).toEqual(
@@ -56,6 +56,13 @@ describe("Goal 46 product claim registry", () => {
         }),
         expect.objectContaining({
           name: "pipe-pair-v1-empty-no-waiters",
+          family: "native-linux-resource",
+          migrationCompleted: true,
+          proofOnly: false,
+          supportLevel: "level-4-kernel-resource-reconstruction",
+        }),
+        expect.objectContaining({
+          name: "timerfd-relative-oneshot-v1-monotonic",
           family: "native-linux-resource",
           migrationCompleted: true,
           proofOnly: false,

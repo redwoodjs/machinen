@@ -121,9 +121,59 @@ const IMPLEMENTED_PRODUCT_PROFILES = new Set([
   "ping-level4-socket-reconstruction-v1",
   "eventfd-counter-v1-nonsemaphore-no-waiters",
   "pipe-pair-v1-empty-no-waiters",
+  "timerfd-relative-oneshot-v1-monotonic",
 ]);
 
 const BUILTIN_PRODUCT_PROFILES: ProductClaimProofProfileInput[] = [
+  {
+    name: "timerfd-relative-oneshot-v1-monotonic",
+    description:
+      "Goal 017 portable restore adapter product route: reconstruct a CLOCK_MONOTONIC relative one-shot timerfd when remaining time is bounded, there are no unread expirations, no periodic interval, flags are limited to close-on-exec, and no timerfd read syscall is active.",
+    sourceFixture: "portable-restore-adapter:timerfd-relative-oneshot-v1-monotonic",
+    expectedResult: "success",
+    supportStatus: "implemented-product-support",
+    productSupportLevel: "level-4-kernel-resource-reconstruction",
+    unsafeStateFamily: "timerfd-relative-oneshot",
+    capabilities: [
+      "goal017:portable-restore-adapter",
+      "goal017:level-4-kernel-resource-reconstruction",
+      "fd:timerfd",
+      "timerfd:clock-monotonic",
+      "timerfd:relative-oneshot",
+      "timerfd:bounded-remaining-time",
+      "timerfd:no-unread-expirations",
+      "timerfd:close-on-exec",
+      "goal017:target-native-verifier",
+    ],
+    observableStateDecisions: [
+      {
+        name: "timerfd-object",
+        decision: "recreated",
+        rationale: "the target creates a fresh Linux timerfd instead of replaying source text",
+      },
+      {
+        name: "remaining-time",
+        decision: "preserved",
+        rationale:
+          "the descriptor carries a bounded relative remaining time and the target verifier observes it",
+      },
+      {
+        name: "unread-expirations",
+        decision: "refused",
+        rationale: "unread expirations must be zero for this first product boundary",
+      },
+      {
+        name: "periodic-interval",
+        decision: "refused",
+        rationale: "periodic timers are refused until interval semantics are modeled",
+      },
+    ],
+    checkedSummary: "docs/snapshot/checked-summaries/level4-graduation/goal-017.json",
+    refusalSupportContract: {
+      currentRefusalCode: "timerfd-unread-expirations-unsupported",
+      graduationRequires: [],
+    },
+  },
   {
     name: "pipe-pair-v1-empty-no-waiters",
     description:

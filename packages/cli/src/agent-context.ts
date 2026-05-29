@@ -128,7 +128,7 @@ export const COMMANDS: CommandSpec[] = [
       {
         name: "runtime",
         description:
-          "Portable product runtime to capture: 'postgres', 'eventfd', 'pipe', or 'ping-socket'.",
+          "Portable product runtime to capture: 'postgres', 'eventfd', 'pipe', 'timerfd', or 'ping-socket'.",
       },
     ],
     flags: [
@@ -147,6 +147,33 @@ export const COMMANDS: CommandSpec[] = [
       },
       { name: "--dump", type: "string", description: "Logical pg_dump artifact (postgres)." },
       { name: "--counter", type: "string", description: "Eventfd counter value (eventfd)." },
+      {
+        name: "--remaining-ms",
+        type: "integer",
+        description: "Relative remaining timer duration in milliseconds (timerfd).",
+      },
+      {
+        name: "--clock",
+        type: "enum",
+        values: ["monotonic", "realtime"],
+        description: "Timerfd clock; anything other than monotonic refuses.",
+      },
+      {
+        name: "--interval-ms",
+        type: "integer",
+        description: "Timerfd interval; any non-zero value refuses.",
+      },
+      {
+        name: "--unread-expirations",
+        type: "integer",
+        description: "Timerfd unread expirations; any non-zero value refuses.",
+      },
+      { name: "--absolute", type: "boolean", description: "Refuse absolute timerfd mode." },
+      {
+        name: "--cancel-on-set",
+        type: "boolean",
+        description: "Refuse timerfd cancel-on-set state.",
+      },
       { name: "--read-fd", type: "integer", description: "Source pipe read-end fd (pipe)." },
       { name: "--write-fd", type: "integer", description: "Source pipe write-end fd (pipe)." },
       {
@@ -189,12 +216,17 @@ export const COMMANDS: CommandSpec[] = [
       {
         name: "--nonblocking",
         type: "boolean",
-        description: "Refuse unsupported eventfd/pipe nonblocking flag.",
+        description: "Refuse unsupported eventfd/pipe/timerfd nonblocking flag.",
       },
       {
         name: "--active-syscall",
         type: "boolean",
         description: "Refuse active eventfd/pipe syscall state.",
+      },
+      {
+        name: "--active-read",
+        type: "boolean",
+        description: "Refuse active timerfd read syscall state.",
       },
       {
         name: "--source-verifier-output",

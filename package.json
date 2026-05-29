@@ -125,6 +125,7 @@
     "smoke-portable-ping-machine": "bash scripts/smoke/portable-ping-machine.sh",
     "smoke-portable-eventfd": "bash scripts/smoke/portable-eventfd.sh",
     "smoke-portable-pipe": "bash scripts/smoke/portable-pipe.sh",
+    "smoke-portable-timerfd": "bash scripts/smoke/portable-timerfd.sh",
     "smoke-node-product-snapshot-restore": "bash scripts/smoke/node-product-snapshot-restore.sh",
     "smoke-clean-service-python-product-snapshot-restore": "bash scripts/smoke/clean-service-python-product-snapshot-restore.sh",
     "smoke-clean-service-go-product-snapshot-restore": "bash scripts/smoke/clean-service-go-product-snapshot-restore.sh",

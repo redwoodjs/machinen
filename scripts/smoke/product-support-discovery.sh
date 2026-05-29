@@ -52,6 +52,9 @@ node -e 'const fs=require("fs"); const data=JSON.parse(fs.readFileSync(process.a
 node "$CLI" support --level level-4-kernel-resource-reconstruction --profile pipe-pair-v1-empty-no-waiters --json >"$WORK/pipe-level4.json"
 node -e 'const fs=require("fs"); const data=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); const entry=data.entries[0]; if (data.count !== 1 || !entry || entry.productStatus !== "implemented-product-support" || entry.supportLevel !== "level-4-kernel-resource-reconstruction" || entry.migrationCompleted !== true || entry.family !== "native-linux-resource") throw new Error("pipe Level 4 product support not visible");' "$WORK/pipe-level4.json"
 
+node "$CLI" support --level level-4-kernel-resource-reconstruction --profile timerfd-relative-oneshot-v1-monotonic --json >"$WORK/timerfd-level4.json"
+node -e 'const fs=require("fs"); const data=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); const entry=data.entries[0]; if (data.count !== 1 || !entry || entry.productStatus !== "implemented-product-support" || entry.supportLevel !== "level-4-kernel-resource-reconstruction" || entry.migrationCompleted !== true || entry.family !== "native-linux-resource") throw new Error("timerfd Level 4 product support not visible");' "$WORK/timerfd-level4.json"
+
 node "$CLI" support --status proof-only-fixture --json >"$WORK/proof-only.json"
 node -e 'const fs=require("fs"); const data=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if (data.count <= 0) throw new Error("no proof-only entries"); if (!data.entries.every((entry)=>entry.migrationCompleted === false && entry.proofOnly === true)) throw new Error("proof-only entry surfaced as support");' "$WORK/proof-only.json"
 

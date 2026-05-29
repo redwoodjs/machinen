@@ -1,0 +1,55 @@
+{
+  "kind": "machinen.level4-timerfd-portable-restore-adapter",
+  "goal": "017",
+  "profile": "timerfd-relative-oneshot-v1-monotonic",
+  "adapterContract": [
+    "detect",
+    "validate",
+    "plan",
+    "foregroundRestore",
+    "detachedRestore",
+    "verify",
+    "refuse"
+  ],
+  "adapterRegistry": [
+    "ping-level4-socket-reconstruction-v1",
+    "eventfd-counter-v1-nonsemaphore-no-waiters",
+    "pipe-pair-v1-empty-no-waiters",
+    "timerfd-relative-oneshot-v1-monotonic"
+  ],
+  "bundleMarker": "portable-timerfd.json",
+  "implementationLevel": "level-4-kernel-resource-reconstruction",
+  "productSupport": "implemented-product-support",
+  "evidenceStatus": "product",
+  "supportedBoundary": {
+    "clock": "monotonic",
+    "mode": "relative-oneshot",
+    "remainingMs": "bounded-positive",
+    "intervalMs": 0,
+    "unreadExpirations": 0,
+    "flags": ["cloexec"],
+    "targetNativeVerificationRequired": true
+  },
+  "stableRefusals": [
+    "timerfd-remaining-time-out-of-range",
+    "timerfd-unread-expirations-unsupported",
+    "timerfd-periodic-unsupported",
+    "timerfd-absolute-unsupported",
+    "timerfd-cancel-on-set-unsupported",
+    "timerfd-clock-unsupported",
+    "timerfd-unsupported-flags",
+    "timerfd-active-read-unsupported",
+    "timerfd-target-arch-mismatch",
+    "timerfd-target-verifier-mismatch"
+  ],
+  "genericRestoreMechanics": [
+    "boot-target-vm",
+    "write-descriptor",
+    "attach-foreground-workload",
+    "run-detached-workload",
+    "verify-target-continuation",
+    "write-detached-summary",
+    "stop-target-vm-on-foreground-interrupt"
+  ],
+  "smoke": "scripts/smoke/portable-timerfd.sh"
+}

@@ -198,7 +198,7 @@ describe("flag conventions", () => {
 });
 
 describe("portable restore adapter convention", () => {
-  it("defines the reusable adapter hooks and registers ping/eventfd/pipe adapters", () => {
+  it("defines the reusable adapter hooks and registers ping/eventfd/pipe/timerfd adapters", () => {
     for (const hook of [
       "detect",
       "validate",
@@ -213,8 +213,9 @@ describe("portable restore adapter convention", () => {
     expect(CLI_SRC).toContain("const pingPortableRestoreAdapter");
     expect(CLI_SRC).toContain("const eventfdPortableRestoreAdapter");
     expect(CLI_SRC).toContain("const pipePortableRestoreAdapter");
+    expect(CLI_SRC).toContain("const timerfdPortableRestoreAdapter");
     expect(CLI_SRC).toMatch(
-      /const portableRestoreAdapters = \[\s*pingPortableRestoreAdapter,\s*eventfdPortableRestoreAdapter,\s*pipePortableRestoreAdapter,/,
+      /const portableRestoreAdapters = \[\s*pingPortableRestoreAdapter,\s*eventfdPortableRestoreAdapter,\s*pipePortableRestoreAdapter,\s*timerfdPortableRestoreAdapter,/,
     );
     expect(CLI_SRC).toContain("detectPortableRestoreAdapter(snapDir)");
   });
