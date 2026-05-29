@@ -79,9 +79,7 @@ async function probePortableMachinePingDescriptor(
   if (descriptorProbe.exitCode === 0) {
     return descriptorProbe;
   }
-  const autoProbe = await ctx.execRaw(
-    autoInspectPingDescriptorCommand(portableTargetArchOverride()),
-  );
+  const autoProbe = await retryAutoInspectPingDescriptor(ctx, portableTargetArchOverride());
   if (autoProbe.exitCode === 0) {
     return autoProbe;
   }
@@ -92,6 +90,31 @@ async function probePortableMachinePingDescriptor(
       `${PORTABLE_MACHINE_PING_GUEST_DESCRIPTOR_PATHS.join(", ")} in the guest. ` +
       `Auto-inspection failed: ${autoProbe.stderr.trim() || descriptorProbe.stderr.trim()}`,
   );
+}
+
+async function retryAutoInspectPingDescriptor(
+  ctx: SnapshotContext,
+  targetArch: "arm64" | "amd64" | undefined,
+): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+  let last = await ctx.execRaw(autoInspectPingDescriptorCommand(targetArch));
+  for (let attempt = 0; attempt < 20 && isTransientPingInspectionMiss(last); attempt += 1) {
+    await sleep(250);
+    last = await ctx.execRaw(autoInspectPingDescriptorCommand(targetArch));
+  }
+  return last;
+}
+
+function isTransientPingInspectionMiss(result: { stderr: string; exitCode: number }): boolean {
+  if (result.exitCode === 0) {
+    return false;
+  }
+  return /expected exactly one ping process, found 0|ping process has no socket fd|no ping\/raw ICMP socket belonging to ping process was found/.test(
+    result.stderr,
+  );
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolveSleep) => setTimeout(resolveSleep, ms));
 }
 
 function readExistingPingDescriptorCommand(): string {
