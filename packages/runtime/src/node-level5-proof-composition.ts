@@ -17,6 +17,8 @@ export const nodeLevel5ProofRefusalCodes = [
   "node-level5-simd-fpu-unsupported",
   "node-level5-signal-frame-unsupported",
   "node-level5-active-syscall-unsupported",
+  "node-level5-active-tcp-unsupported",
+  "node-level5-worker-thread-unsupported",
   "node-level5-multithread-unsupported",
   "node-level5-memory-mapping-unsupported",
   "node-level5-kernel-resource-unsupported",
@@ -76,6 +78,8 @@ export interface NodeLevel5ProofRefusalMatrixRow extends NodeLevel5ProofComposit
     | "simd-fpu"
     | "active-signals"
     | "active-syscalls"
+    | "active-tcp"
+    | "worker-threads"
     | "multithread"
     | "unsupported-memory-mappings"
     | "unsupported-kernel-resources"
@@ -243,6 +247,8 @@ const nodeLevel5ProofUnsafeNeighbors: Record<
   "node-level5-simd-fpu-unsupported": "simd-fpu",
   "node-level5-signal-frame-unsupported": "active-signals",
   "node-level5-active-syscall-unsupported": "active-syscalls",
+  "node-level5-active-tcp-unsupported": "active-tcp",
+  "node-level5-worker-thread-unsupported": "worker-threads",
   "node-level5-multithread-unsupported": "multithread",
   "node-level5-memory-mapping-unsupported": "unsupported-memory-mappings",
   "node-level5-kernel-resource-unsupported": "unsupported-kernel-resources",
@@ -266,6 +272,9 @@ const nodeLevel5ProofRefusalMessages: Record<NodeLevel5ProofRefusalCode, string>
   "node-level5-signal-frame-unsupported":
     "active signal frames and pending signal queues are refused",
   "node-level5-active-syscall-unsupported": "active syscalls and restart blocks are refused",
+  "node-level5-active-tcp-unsupported": "active TCP streams and in-flight network I/O are refused",
+  "node-level5-worker-thread-unsupported":
+    "Node worker threads are refused until worker lifecycle and thread state are modeled",
   "node-level5-multithread-unsupported":
     "multi-thread Node state is refused for this selected proof subset",
   "node-level5-memory-mapping-unsupported": "unsupported memory mappings are refused",

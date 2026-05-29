@@ -40,6 +40,8 @@ describe("Node Level 5 proof runner artifact", () => {
           expect.objectContaining({ unsafeNeighbor: "simd-fpu" }),
           expect.objectContaining({ unsafeNeighbor: "active-signals" }),
           expect.objectContaining({ unsafeNeighbor: "active-syscalls" }),
+          expect.objectContaining({ unsafeNeighbor: "active-tcp" }),
+          expect.objectContaining({ unsafeNeighbor: "worker-threads" }),
           expect.objectContaining({ unsafeNeighbor: "multithread" }),
           expect.objectContaining({ unsafeNeighbor: "native-addon-abi" }),
           expect.objectContaining({ unsafeNeighbor: "inspector-debug" }),

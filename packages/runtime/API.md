@@ -11058,7 +11058,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ##### code
 
-> **code**: `"node-level5-tls-rseq-unsupported"` \| `"node-level5-simd-fpu-unsupported"` \| `"node-level5-signal-frame-unsupported"` \| `"node-level5-active-syscall-unsupported"` \| `"node-level5-multithread-unsupported"` \| `"node-level5-memory-mapping-unsupported"` \| `"node-level5-kernel-resource-unsupported"` \| `"node-level5-native-addon-abi-unsupported"` \| `"node-level5-inspector-unsupported"` \| `"node-level5-v8-libuv-state-unsupported"` \| `"node-level5-arbitrary-heap-stack-continuation-refused"`
+> **code**: `"node-level5-tls-rseq-unsupported"` \| `"node-level5-simd-fpu-unsupported"` \| `"node-level5-signal-frame-unsupported"` \| `"node-level5-active-syscall-unsupported"` \| `"node-level5-active-tcp-unsupported"` \| `"node-level5-worker-thread-unsupported"` \| `"node-level5-multithread-unsupported"` \| `"node-level5-memory-mapping-unsupported"` \| `"node-level5-kernel-resource-unsupported"` \| `"node-level5-native-addon-abi-unsupported"` \| `"node-level5-inspector-unsupported"` \| `"node-level5-v8-libuv-state-unsupported"` \| `"node-level5-arbitrary-heap-stack-continuation-refused"`
 
 ##### message
 
@@ -11118,7 +11118,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ##### code
 
-> **code**: `"node-level5-tls-rseq-unsupported"` \| `"node-level5-simd-fpu-unsupported"` \| `"node-level5-signal-frame-unsupported"` \| `"node-level5-active-syscall-unsupported"` \| `"node-level5-multithread-unsupported"` \| `"node-level5-memory-mapping-unsupported"` \| `"node-level5-kernel-resource-unsupported"` \| `"node-level5-native-addon-abi-unsupported"` \| `"node-level5-inspector-unsupported"` \| `"node-level5-v8-libuv-state-unsupported"` \| `"node-level5-arbitrary-heap-stack-continuation-refused"`
+> **code**: `"node-level5-tls-rseq-unsupported"` \| `"node-level5-simd-fpu-unsupported"` \| `"node-level5-signal-frame-unsupported"` \| `"node-level5-active-syscall-unsupported"` \| `"node-level5-active-tcp-unsupported"` \| `"node-level5-worker-thread-unsupported"` \| `"node-level5-multithread-unsupported"` \| `"node-level5-memory-mapping-unsupported"` \| `"node-level5-kernel-resource-unsupported"` \| `"node-level5-native-addon-abi-unsupported"` \| `"node-level5-inspector-unsupported"` \| `"node-level5-v8-libuv-state-unsupported"` \| `"node-level5-arbitrary-heap-stack-continuation-refused"`
 
 ###### Inherited from
 
@@ -11166,7 +11166,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ##### unsafeNeighbor
 
-> **unsafeNeighbor**: `"tls-rseq"` \| `"simd-fpu"` \| `"active-signals"` \| `"active-syscalls"` \| `"multithread"` \| `"unsupported-memory-mappings"` \| `"unsupported-kernel-resources"` \| `"native-addon-abi"` \| `"inspector-debug"` \| `"unsupported-v8-libuv-state"` \| `"arbitrary-heap-stack-continuation"`
+> **unsafeNeighbor**: `"tls-rseq"` \| `"simd-fpu"` \| `"active-signals"` \| `"active-syscalls"` \| `"active-tcp"` \| `"worker-threads"` \| `"multithread"` \| `"unsupported-memory-mappings"` \| `"unsupported-kernel-resources"` \| `"native-addon-abi"` \| `"inspector-debug"` \| `"unsupported-v8-libuv-state"` \| `"arbitrary-heap-stack-continuation"`
 
 ***
 
@@ -21771,7 +21771,7 @@ loops; anything looser stops being a meaningful gate.
 
 ### nodeLevel5ProofRefusalCodes
 
-> `const` **nodeLevel5ProofRefusalCodes**: readonly \[`"node-level5-tls-rseq-unsupported"`, `"node-level5-simd-fpu-unsupported"`, `"node-level5-signal-frame-unsupported"`, `"node-level5-active-syscall-unsupported"`, `"node-level5-multithread-unsupported"`, `"node-level5-memory-mapping-unsupported"`, `"node-level5-kernel-resource-unsupported"`, `"node-level5-native-addon-abi-unsupported"`, `"node-level5-inspector-unsupported"`, `"node-level5-v8-libuv-state-unsupported"`, `"node-level5-arbitrary-heap-stack-continuation-refused"`\]
+> `const` **nodeLevel5ProofRefusalCodes**: readonly \[`"node-level5-tls-rseq-unsupported"`, `"node-level5-simd-fpu-unsupported"`, `"node-level5-signal-frame-unsupported"`, `"node-level5-active-syscall-unsupported"`, `"node-level5-active-tcp-unsupported"`, `"node-level5-worker-thread-unsupported"`, `"node-level5-multithread-unsupported"`, `"node-level5-memory-mapping-unsupported"`, `"node-level5-kernel-resource-unsupported"`, `"node-level5-native-addon-abi-unsupported"`, `"node-level5-inspector-unsupported"`, `"node-level5-v8-libuv-state-unsupported"`, `"node-level5-arbitrary-heap-stack-continuation-refused"`\]
 
 ***
 
