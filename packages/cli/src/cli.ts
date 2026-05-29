@@ -1619,15 +1619,35 @@ async function bootProductLevel4PingForegroundTargetVm(
     kernel: paths.kernelPath,
     dtb: paths.dtbPath,
     name,
-    detached: false,
-    cmd: ["sh", "-c", foregroundRestoredPingCommand(descriptor)],
+    detached: true,
+    cmd: ["sleep", "100000"],
     timeoutMs: undefined,
   });
-  return runAttachedVmSession(vm, {
-    filter: null,
-    buffer: new RingBuffer(),
-    preReadyExitSummary: (code) => `portable ping restore ${name} exited ${code}`,
-  });
+  let interrupted = false;
+  const onSigint = () => {
+    interrupted = true;
+    void vm
+      .execRaw(
+        'pid=$(cat /tmp/machinen-restored-ping.pid 2>/dev/null || true); [ -n "$pid" ] && kill -INT "$pid" 2>/dev/null || true',
+      )
+      .catch(() => undefined);
+  };
+  process.on("SIGINT", onSigint);
+  try {
+    await vm.writeFile(
+      "/tmp/machinen-restored-ping-descriptor.json",
+      JSON.stringify(descriptor, null, 2),
+    );
+    const result = await vm.execRaw(foregroundRestoredPingCommand(descriptor), {
+      onStdout: (chunk) => process.stdout.write(chunk),
+      onStderr: (chunk) => process.stderr.write(chunk),
+      execTimeoutMs: null,
+    });
+    return interrupted ? 130 : result.exitCode;
+  } finally {
+    process.off("SIGINT", onSigint);
+    await vm.kill().catch(() => undefined);
+  }
 }
 
 async function bootProductLevel4PingTargetVm(
@@ -1716,9 +1736,7 @@ function assertLocalPingRestoreTargetArch(targetArch: string | undefined): void 
 function foregroundRestoredPingCommand(descriptor: ProductLevel4PingSocketDescriptor): string {
   const destination = descriptor.continuation?.destination ?? "127.0.0.1";
   const intervalSeconds = formatPingIntervalSeconds(descriptor.continuation?.intervalMs ?? 1000);
-  const descriptorText = JSON.stringify(descriptor, null, 2);
   return (
-    `printf '%s\\n' ${shellQuote(descriptorText)} >/tmp/machinen-restored-ping-descriptor.json; ` +
     "echo $$ >/tmp/machinen-restored-ping.pid; " +
     `exec /usr/bin/ping -i ${intervalSeconds} ${shellQuote(destination)}`
   );
