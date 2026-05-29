@@ -14,9 +14,15 @@ The product claim is no longer a ping-specific Level 2 semantic continuation. Pr
 ```sh
 MACHINEN_SNAPSHOT_ENGINE=portable machinen snapshot <vm> ./ping.portable
 machinen restore ./ping.portable \
+  --target-arch amd64
+```
+
+Without `--json`, restore uses the normal attached restore mechanics: the target VM runs restored `ping` in the foreground and streams its output to your terminal. With `--json`, restore runs detached, returns the restored VM name/pid, and you can inspect the live log:
+
+```sh
+machinen restore ./ping.portable \
   --target-arch amd64 \
   --json
-
 machinen exec <restored-name> -- cat /tmp/machinen-restored-ping.log
 ```
 

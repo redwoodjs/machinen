@@ -1574,14 +1574,11 @@ async function cmdRestoreProductLevel4PingSocket(
       reportProductLevel4PingSocketRestoreSummary(snapDir, json, summary);
       return 1;
     }
-    const vmSummary = await bootProductLevel4PingTargetVm(parsed, snapDir, descriptor, summary);
-    if (json) {
-      emitJson({ schema_version: 1, ...vmSummary });
-    } else {
-      process.stderr.write(
-        `restored portable ping as: ${vmSummary.restoredName} (pid ${vmSummary.restoredPid})\n`,
-      );
+    if (!json) {
+      return bootProductLevel4PingForegroundTargetVm(parsed, snapDir, descriptor);
     }
+    const vmSummary = await bootProductLevel4PingTargetVm(parsed, snapDir, descriptor, summary);
+    emitJson({ schema_version: 1, ...vmSummary });
     return 0;
   } catch (err) {
     handleProductLevel4PingSocketError(err, json);
@@ -1608,6 +1605,31 @@ function reportProductLevel4PingSocketRestoreSummary(
   }
 }
 
+async function bootProductLevel4PingForegroundTargetVm(
+  parsed: ParsedRestoreCommandArgs,
+  snapDir: string,
+  descriptor: ProductLevel4PingSocketDescriptor,
+): Promise<number> {
+  assertLocalPingRestoreTargetArch(parsed.targetArch);
+  const paths = await resolveCliBaseAssets();
+  const name = parsed.name ?? deriveBootName(snapDir);
+  process.stderr.write(`restoring portable ping as foreground VM: ${name}\n`);
+  const vm = await boot({
+    image: paths.defaultImagePath,
+    kernel: paths.kernelPath,
+    dtb: paths.dtbPath,
+    name,
+    detached: false,
+    cmd: ["sh", "-c", foregroundRestoredPingCommand(descriptor)],
+    timeoutMs: undefined,
+  });
+  return runAttachedVmSession(vm, {
+    filter: null,
+    buffer: new RingBuffer(),
+    preReadyExitSummary: (code) => `portable ping restore ${name} exited ${code}`,
+  });
+}
+
 async function bootProductLevel4PingTargetVm(
   parsed: ParsedRestoreCommandArgs,
   snapDir: string,
@@ -1615,12 +1637,7 @@ async function bootProductLevel4PingTargetVm(
   summary: ProductLevel4PingSocketRestoreSummary,
 ): Promise<Record<string, unknown>> {
   const started = Date.now();
-  if (parsed.targetArch !== guestCpu()) {
-    throw new ProductLevel4PingSocketError(
-      "PING_SOCKET_TARGET_GUEST_ARCH_MISMATCH",
-      `target arch ${parsed.targetArch} requires restoring on a ${parsed.targetArch} Machinen guest host; current guest arch is ${guestCpu()}`,
-    );
-  }
+  assertLocalPingRestoreTargetArch(parsed.targetArch);
   const paths = await resolveCliBaseAssets();
   const name = parsed.name ?? deriveBootName(snapDir);
   const vm = await boot({
@@ -1685,6 +1702,26 @@ async function bootProductLevel4PingTargetVm(
       await vm.kill().catch(() => undefined);
     }
   }
+}
+
+function assertLocalPingRestoreTargetArch(targetArch: string | undefined): void {
+  if (targetArch !== guestCpu()) {
+    throw new ProductLevel4PingSocketError(
+      "PING_SOCKET_TARGET_GUEST_ARCH_MISMATCH",
+      `target arch ${targetArch} requires restoring on a ${targetArch} Machinen guest host; current guest arch is ${guestCpu()}`,
+    );
+  }
+}
+
+function foregroundRestoredPingCommand(descriptor: ProductLevel4PingSocketDescriptor): string {
+  const destination = descriptor.continuation?.destination ?? "127.0.0.1";
+  const intervalSeconds = formatPingIntervalSeconds(descriptor.continuation?.intervalMs ?? 1000);
+  const descriptorText = JSON.stringify(descriptor, null, 2);
+  return (
+    `printf '%s\\n' ${shellQuote(descriptorText)} >/tmp/machinen-restored-ping-descriptor.json; ` +
+    "echo $$ >/tmp/machinen-restored-ping.pid; " +
+    `exec /usr/bin/ping -i ${intervalSeconds} ${shellQuote(destination)}`
+  );
 }
 
 function startRestoredPingCommand(descriptor: ProductLevel4PingSocketDescriptor): string {
