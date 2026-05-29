@@ -2,6 +2,36 @@
 
 ## Contents
 
+### Level 5 runtime adapter substrate
+
+- [`Level5AdapterDetectInput`](#level5adapterdetectinput)
+- [`Level5AdapterDetection`](#level5adapterdetection)
+- [`Level5AdapterOperation`](#level5adapteroperation)
+- [`Level5ArchitectureMetadata`](#level5architecturemetadata)
+- [`Level5ArtifactEnvelope`](#level5artifactenvelope)
+- [`Level5EvidenceStatus`](#level5evidencestatus)
+- [`Level5GraduationTargetLevel`](#level5graduationtargetlevel)
+- [`Level5ImplementationLevel`](#level5implementationlevel)
+- [`Level5ProductSupport`](#level5productsupport)
+- [`Level5QuiesceResult`](#level5quiesceresult)
+- [`Level5RefusalEnvelope`](#level5refusalenvelope)
+- [`Level5RestorePlan`](#level5restoreplan)
+- [`Level5RuntimeAdapter`](#level5runtimeadapter)
+- [`Level5RuntimeAdapterMatch`](#level5runtimeadaptermatch)
+- [`Level5RuntimeAdapterRegistry`](#level5runtimeadapterregistry)
+- [`Level5RuntimeAdapterRegistrySummary`](#level5runtimeadapterregistrysummary)
+- [`Level5RuntimeFamily`](#level5runtimefamily)
+- [`Level5StatusFields`](#level5statusfields)
+- [`Level5SubstrateRefusalCode`](#level5substraterefusalcode)
+- [`Level5ValidationResult`](#level5validationresult)
+- [`Level5VerifierEvidence`](#level5verifierevidence)
+- [`LEVEL5_RUNTIME_ADAPTER_SUBSTRATE_FORMAT_VERSION`](#level5_runtime_adapter_substrate_format_version)
+- [`buildLevel5ProofOnlyStatus`](#buildlevel5proofonlystatus)
+- [`buildLevel5RefusalEnvelope`](#buildlevel5refusalenvelope)
+- [`buildLevel5RuntimeAdapterRegistrySummary`](#buildlevel5runtimeadapterregistrysummary)
+- [`createLevel5RuntimeAdapterRegistry`](#createlevel5runtimeadapterregistry)
+- [`level5SubstrateRefusalCodes`](#level5substraterefusalcodes)
+
 ### Node Level 5 proof composition
 
 - [`NodeLevel5ProofComposition`](#nodelevel5proofcomposition)
@@ -3514,6 +3544,851 @@ Pluggable for tests; defaults to [readHostTotalBytes](#readhosttotalbytes).
 
 ***
 
+### Level5StatusFields
+
+#### Extended by
+
+- [`Level5ArtifactEnvelope`](#level5artifactenvelope)
+- [`Level5RefusalEnvelope`](#level5refusalenvelope)
+- [`Level5RuntimeAdapterRegistrySummary`](#level5runtimeadapterregistrysummary-1)
+- [`Level5VerifierEvidence`](#level5verifierevidence)
+
+#### Properties
+
+##### evidenceStatus
+
+> **evidenceStatus**: [`Level5EvidenceStatus`](#level5evidencestatus)
+
+##### productSupport
+
+> **productSupport**: [`Level5ProductSupport`](#level5productsupport)
+
+##### implementationLevel
+
+> **implementationLevel**: [`Level5ImplementationLevel`](#level5implementationlevel)
+
+##### graduationTargetLevel
+
+> **graduationTargetLevel**: `"level-5-cross-arch-process-continuation"`
+
+##### migrationCompleted
+
+> **migrationCompleted**: `boolean`
+
+***
+
+### Level5ArchitectureMetadata
+
+#### Extended by
+
+- [`Level5ArtifactEnvelope`](#level5artifactenvelope)
+
+#### Properties
+
+##### sourceArch?
+
+> `optional` **sourceArch?**: `string`
+
+##### targetArch?
+
+> `optional` **targetArch?**: `string`
+
+***
+
+### Level5ArtifactEnvelope
+
+#### Extends
+
+- [`Level5StatusFields`](#level5statusfields).[`Level5ArchitectureMetadata`](#level5architecturemetadata)
+
+#### Extended by
+
+- [`Level5RestorePlan`](#level5restoreplan)
+
+#### Properties
+
+##### evidenceStatus
+
+> **evidenceStatus**: [`Level5EvidenceStatus`](#level5evidencestatus)
+
+###### Inherited from
+
+[`Level5StatusFields`](#level5statusfields).[`evidenceStatus`](#evidencestatus-2)
+
+##### productSupport
+
+> **productSupport**: [`Level5ProductSupport`](#level5productsupport)
+
+###### Inherited from
+
+[`Level5StatusFields`](#level5statusfields).[`productSupport`](#productsupport-2)
+
+##### implementationLevel
+
+> **implementationLevel**: [`Level5ImplementationLevel`](#level5implementationlevel)
+
+###### Inherited from
+
+[`Level5StatusFields`](#level5statusfields).[`implementationLevel`](#implementationlevel-2)
+
+##### graduationTargetLevel
+
+> **graduationTargetLevel**: `"level-5-cross-arch-process-continuation"`
+
+###### Inherited from
+
+[`Level5StatusFields`](#level5statusfields).[`graduationTargetLevel`](#graduationtargetlevel-2)
+
+##### migrationCompleted
+
+> **migrationCompleted**: `boolean`
+
+###### Inherited from
+
+[`Level5StatusFields`](#level5statusfields).[`migrationCompleted`](#migrationcompleted-4)
+
+##### sourceArch?
+
+> `optional` **sourceArch?**: `string`
+
+###### Inherited from
+
+[`Level5ArchitectureMetadata`](#level5architecturemetadata).[`sourceArch`](#sourcearch-4)
+
+##### targetArch?
+
+> `optional` **targetArch?**: `string`
+
+###### Inherited from
+
+[`Level5ArchitectureMetadata`](#level5architecturemetadata).[`targetArch`](#targetarch-4)
+
+##### kind
+
+> **kind**: `string`
+
+##### formatVersion
+
+> **formatVersion**: `number`
+
+##### adapterId
+
+> **adapterId**: `string`
+
+##### runtimeFamily
+
+> **runtimeFamily**: `string`
+
+##### profile
+
+> **profile**: `string`
+
+***
+
+### Level5AdapterDetectInput
+
+#### Properties
+
+##### operation
+
+> **operation**: [`Level5AdapterOperation`](#level5adapteroperation)
+
+##### snapDir?
+
+> `optional` **snapDir?**: `string`
+
+##### bundleFiles?
+
+> `optional` **bundleFiles?**: `string`[]
+
+##### runtimeFamily?
+
+> `optional` **runtimeFamily?**: `string`
+
+##### profile?
+
+> `optional` **profile?**: `string`
+
+##### artifactKind?
+
+> `optional` **artifactKind?**: `string`
+
+***
+
+### Level5AdapterDetection
+
+#### Properties
+
+##### matched
+
+> **matched**: `boolean`
+
+##### adapterId
+
+> **adapterId**: `string`
+
+##### runtimeFamily
+
+> **runtimeFamily**: `string`
+
+##### profile?
+
+> `optional` **profile?**: `string`
+
+##### reason
+
+> **reason**: `string`
+
+***
+
+### Level5QuiesceResult
+
+#### Properties
+
+##### state
+
+> **state**: `"refused"` \| `"quiesced"`
+
+##### refusals
+
+> **refusals**: [`Level5RefusalEnvelope`](#level5refusalenvelope)[]
+
+***
+
+### Level5ValidationResult
+
+#### Properties
+
+##### state
+
+> **state**: `"refused"` \| `"passed"`
+
+##### refusals
+
+> **refusals**: [`Level5RefusalEnvelope`](#level5refusalenvelope)[]
+
+***
+
+### Level5RestorePlan
+
+#### Extends
+
+- [`Level5ArtifactEnvelope`](#level5artifactenvelope)
+
+#### Properties
+
+##### evidenceStatus
+
+> **evidenceStatus**: [`Level5EvidenceStatus`](#level5evidencestatus)
+
+###### Inherited from
+
+[`Level5ArtifactEnvelope`](#level5artifactenvelope).[`evidenceStatus`](#evidencestatus-3)
+
+##### productSupport
+
+> **productSupport**: [`Level5ProductSupport`](#level5productsupport)
+
+###### Inherited from
+
+[`Level5ArtifactEnvelope`](#level5artifactenvelope).[`productSupport`](#productsupport-3)
+
+##### implementationLevel
+
+> **implementationLevel**: [`Level5ImplementationLevel`](#level5implementationlevel)
+
+###### Inherited from
+
+[`Level5ArtifactEnvelope`](#level5artifactenvelope).[`implementationLevel`](#implementationlevel-3)
+
+##### graduationTargetLevel
+
+> **graduationTargetLevel**: `"level-5-cross-arch-process-continuation"`
+
+###### Inherited from
+
+[`Level5ArtifactEnvelope`](#level5artifactenvelope).[`graduationTargetLevel`](#graduationtargetlevel-3)
+
+##### migrationCompleted
+
+> **migrationCompleted**: `boolean`
+
+###### Inherited from
+
+[`Level5ArtifactEnvelope`](#level5artifactenvelope).[`migrationCompleted`](#migrationcompleted-5)
+
+##### sourceArch?
+
+> `optional` **sourceArch?**: `string`
+
+###### Inherited from
+
+[`Level5ArtifactEnvelope`](#level5artifactenvelope).[`sourceArch`](#sourcearch-5)
+
+##### targetArch?
+
+> `optional` **targetArch?**: `string`
+
+###### Inherited from
+
+[`Level5ArtifactEnvelope`](#level5artifactenvelope).[`targetArch`](#targetarch-5)
+
+##### formatVersion
+
+> **formatVersion**: `number`
+
+###### Inherited from
+
+[`Level5ArtifactEnvelope`](#level5artifactenvelope).[`formatVersion`](#formatversion)
+
+##### adapterId
+
+> **adapterId**: `string`
+
+###### Inherited from
+
+[`Level5ArtifactEnvelope`](#level5artifactenvelope).[`adapterId`](#adapterid)
+
+##### runtimeFamily
+
+> **runtimeFamily**: `string`
+
+###### Inherited from
+
+[`Level5ArtifactEnvelope`](#level5artifactenvelope).[`runtimeFamily`](#runtimefamily)
+
+##### profile
+
+> **profile**: `string`
+
+###### Inherited from
+
+[`Level5ArtifactEnvelope`](#level5artifactenvelope).[`profile`](#profile-2)
+
+##### kind
+
+> **kind**: `"machinen.level5-restore-plan"`
+
+###### Overrides
+
+[`Level5ArtifactEnvelope`](#level5artifactenvelope).[`kind`](#kind-6)
+
+##### planState
+
+> **planState**: `"refused"` \| `"planned"`
+
+##### steps
+
+> **steps**: `string`[]
+
+##### refusals
+
+> **refusals**: [`Level5RefusalEnvelope`](#level5refusalenvelope)[]
+
+***
+
+### Level5VerifierEvidence
+
+#### Extends
+
+- [`Level5StatusFields`](#level5statusfields)
+
+#### Properties
+
+##### evidenceStatus
+
+> **evidenceStatus**: [`Level5EvidenceStatus`](#level5evidencestatus)
+
+###### Inherited from
+
+[`Level5StatusFields`](#level5statusfields).[`evidenceStatus`](#evidencestatus-2)
+
+##### productSupport
+
+> **productSupport**: [`Level5ProductSupport`](#level5productsupport)
+
+###### Inherited from
+
+[`Level5StatusFields`](#level5statusfields).[`productSupport`](#productsupport-2)
+
+##### implementationLevel
+
+> **implementationLevel**: [`Level5ImplementationLevel`](#level5implementationlevel)
+
+###### Inherited from
+
+[`Level5StatusFields`](#level5statusfields).[`implementationLevel`](#implementationlevel-2)
+
+##### graduationTargetLevel
+
+> **graduationTargetLevel**: `"level-5-cross-arch-process-continuation"`
+
+###### Inherited from
+
+[`Level5StatusFields`](#level5statusfields).[`graduationTargetLevel`](#graduationtargetlevel-2)
+
+##### migrationCompleted
+
+> **migrationCompleted**: `boolean`
+
+###### Inherited from
+
+[`Level5StatusFields`](#level5statusfields).[`migrationCompleted`](#migrationcompleted-4)
+
+##### kind
+
+> **kind**: `string`
+
+##### status
+
+> **status**: `"failed"` \| `"passed"` \| `"not-run"`
+
+##### targetNativeExecution
+
+> **targetNativeExecution**: `boolean`
+
+##### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `boolean`
+
+##### sidecarOutputUsed
+
+> **sidecarOutputUsed**: `boolean`
+
+##### metadataOnlySuccess
+
+> **metadataOnlySuccess**: `boolean`
+
+##### message
+
+> **message**: `string`
+
+***
+
+### Level5RefusalEnvelope
+
+#### Extends
+
+- [`Level5StatusFields`](#level5statusfields)
+
+#### Properties
+
+##### evidenceStatus
+
+> **evidenceStatus**: [`Level5EvidenceStatus`](#level5evidencestatus)
+
+###### Inherited from
+
+[`Level5StatusFields`](#level5statusfields).[`evidenceStatus`](#evidencestatus-2)
+
+##### productSupport
+
+> **productSupport**: [`Level5ProductSupport`](#level5productsupport)
+
+###### Inherited from
+
+[`Level5StatusFields`](#level5statusfields).[`productSupport`](#productsupport-2)
+
+##### implementationLevel
+
+> **implementationLevel**: [`Level5ImplementationLevel`](#level5implementationlevel)
+
+###### Inherited from
+
+[`Level5StatusFields`](#level5statusfields).[`implementationLevel`](#implementationlevel-2)
+
+##### graduationTargetLevel
+
+> **graduationTargetLevel**: `"level-5-cross-arch-process-continuation"`
+
+###### Inherited from
+
+[`Level5StatusFields`](#level5statusfields).[`graduationTargetLevel`](#graduationtargetlevel-2)
+
+##### migrationCompleted
+
+> **migrationCompleted**: `boolean`
+
+###### Inherited from
+
+[`Level5StatusFields`](#level5statusfields).[`migrationCompleted`](#migrationcompleted-4)
+
+##### kind
+
+> **kind**: `"machinen.level5-refusal"`
+
+##### code
+
+> **code**: `string`
+
+##### message
+
+> **message**: `string`
+
+##### adapterId?
+
+> `optional` **adapterId?**: `string`
+
+##### runtimeFamily?
+
+> `optional` **runtimeFamily?**: `string`
+
+##### profile?
+
+> `optional` **profile?**: `string`
+
+##### stable
+
+> **stable**: `true`
+
+***
+
+### Level5RuntimeAdapter
+
+#### Type Parameters
+
+##### SnapshotContext
+
+`SnapshotContext` = `unknown`
+
+##### CaptureArtifact
+
+`CaptureArtifact` = `unknown`
+
+##### RestoreContext
+
+`RestoreContext` = `unknown`
+
+##### Plan
+
+`Plan` *extends* [`Level5RestorePlan`](#level5restoreplan) = [`Level5RestorePlan`](#level5restoreplan)
+
+##### RestoreResult
+
+`RestoreResult` = `unknown`
+
+##### VerifyEvidence
+
+`VerifyEvidence` *extends* [`Level5VerifierEvidence`](#level5verifierevidence) = [`Level5VerifierEvidence`](#level5verifierevidence)
+
+#### Properties
+
+##### id
+
+> **id**: `string`
+
+##### runtimeFamily
+
+> **runtimeFamily**: `string`
+
+##### supportedProfiles
+
+> **supportedProfiles**: readonly `string`[]
+
+##### graduationTargetLevel
+
+> **graduationTargetLevel**: `"level-5-cross-arch-process-continuation"`
+
+#### Methods
+
+##### detect()
+
+> **detect**(`input`): [`Level5AdapterDetection`](#level5adapterdetection)
+
+###### Parameters
+
+###### input
+
+[`Level5AdapterDetectInput`](#level5adapterdetectinput)
+
+###### Returns
+
+[`Level5AdapterDetection`](#level5adapterdetection)
+
+##### quiesce()
+
+> **quiesce**(`input`): [`Level5QuiesceResult`](#level5quiesceresult) \| `Promise`\<[`Level5QuiesceResult`](#level5quiesceresult)\>
+
+###### Parameters
+
+###### input
+
+`SnapshotContext`
+
+###### Returns
+
+[`Level5QuiesceResult`](#level5quiesceresult) \| `Promise`\<[`Level5QuiesceResult`](#level5quiesceresult)\>
+
+##### capture()
+
+> **capture**(`input`): `CaptureArtifact` \| `Promise`\<`CaptureArtifact`\>
+
+###### Parameters
+
+###### input
+
+`SnapshotContext`
+
+###### Returns
+
+`CaptureArtifact` \| `Promise`\<`CaptureArtifact`\>
+
+##### validate()
+
+> **validate**(`input`): [`Level5ValidationResult`](#level5validationresult) \| `Promise`\<[`Level5ValidationResult`](#level5validationresult)\>
+
+###### Parameters
+
+###### input
+
+`CaptureArtifact` \| `RestoreContext`
+
+###### Returns
+
+[`Level5ValidationResult`](#level5validationresult) \| `Promise`\<[`Level5ValidationResult`](#level5validationresult)\>
+
+##### planRestore()
+
+> **planRestore**(`input`): `Plan` \| `Promise`\<`Plan`\>
+
+###### Parameters
+
+###### input
+
+`RestoreContext`
+
+###### Returns
+
+`Plan` \| `Promise`\<`Plan`\>
+
+##### restoreTargetNative()
+
+> **restoreTargetNative**(`input`): `RestoreResult` \| `Promise`\<`RestoreResult`\>
+
+###### Parameters
+
+###### input
+
+`Plan`
+
+###### Returns
+
+`RestoreResult` \| `Promise`\<`RestoreResult`\>
+
+##### verify()
+
+> **verify**(`input`): `VerifyEvidence` \| `Promise`\<`VerifyEvidence`\>
+
+###### Parameters
+
+###### input
+
+`RestoreResult`
+
+###### Returns
+
+`VerifyEvidence` \| `Promise`\<`VerifyEvidence`\>
+
+##### refuse()
+
+> **refuse**(`input`): [`Level5RefusalEnvelope`](#level5refusalenvelope)
+
+###### Parameters
+
+###### input
+
+###### code
+
+`string`
+
+###### message
+
+`string`
+
+###### profile?
+
+`string`
+
+###### Returns
+
+[`Level5RefusalEnvelope`](#level5refusalenvelope)
+
+***
+
+### Level5RuntimeAdapterMatch
+
+#### Type Parameters
+
+##### Adapter
+
+`Adapter` *extends* [`Level5RuntimeAdapter`](#level5runtimeadapter) = [`Level5RuntimeAdapter`](#level5runtimeadapter)
+
+#### Properties
+
+##### adapter
+
+> **adapter**: `Adapter`
+
+##### detection
+
+> **detection**: [`Level5AdapterDetection`](#level5adapterdetection)
+
+***
+
+### Level5RuntimeAdapterRegistry
+
+#### Type Parameters
+
+##### Adapter
+
+`Adapter` *extends* [`Level5RuntimeAdapter`](#level5runtimeadapter) = [`Level5RuntimeAdapter`](#level5runtimeadapter)
+
+#### Properties
+
+##### adapters
+
+> **adapters**: readonly `Adapter`[]
+
+#### Methods
+
+##### detect()
+
+> **detect**(`input`): [`Level5RuntimeAdapterMatch`](#level5runtimeadaptermatch)\<`Adapter`\>
+
+###### Parameters
+
+###### input
+
+[`Level5AdapterDetectInput`](#level5adapterdetectinput)
+
+###### Returns
+
+[`Level5RuntimeAdapterMatch`](#level5runtimeadaptermatch)\<`Adapter`\>
+
+##### refuseUnsupported()
+
+> **refuseUnsupported**(`input`): [`Level5RefusalEnvelope`](#level5refusalenvelope)
+
+###### Parameters
+
+###### input
+
+###### code?
+
+`"level5-runtime-family-unsupported"` \| `"level5-runtime-profile-unsupported"` \| `"level5-target-native-runtime-missing"` \| `"level5-source-target-arch-unsupported"` \| `"level5-source-isa-emulation-forbidden"` \| `"level5-sidecar-output-forbidden"` \| `"level5-metadata-only-success-forbidden"` \| `"level5-active-syscall-unsupported"` \| `"level5-active-tcp-stream-unsupported"` \| `"level5-thread-state-unsupported"` \| `"level5-kernel-resource-unsupported"` \| `"level5-runtime-heap-stack-unsupported"`
+
+###### message
+
+`string`
+
+###### runtimeFamily?
+
+`string`
+
+###### profile?
+
+`string`
+
+###### Returns
+
+[`Level5RefusalEnvelope`](#level5refusalenvelope)
+
+##### summary()
+
+> **summary**(): [`Level5RuntimeAdapterRegistrySummary`](#level5runtimeadapterregistrysummary-1)
+
+###### Returns
+
+[`Level5RuntimeAdapterRegistrySummary`](#level5runtimeadapterregistrysummary-1)
+
+***
+
+### Level5RuntimeAdapterRegistrySummary
+
+#### Extends
+
+- [`Level5StatusFields`](#level5statusfields)
+
+#### Properties
+
+##### evidenceStatus
+
+> **evidenceStatus**: [`Level5EvidenceStatus`](#level5evidencestatus)
+
+###### Inherited from
+
+[`Level5StatusFields`](#level5statusfields).[`evidenceStatus`](#evidencestatus-2)
+
+##### productSupport
+
+> **productSupport**: [`Level5ProductSupport`](#level5productsupport)
+
+###### Inherited from
+
+[`Level5StatusFields`](#level5statusfields).[`productSupport`](#productsupport-2)
+
+##### implementationLevel
+
+> **implementationLevel**: [`Level5ImplementationLevel`](#level5implementationlevel)
+
+###### Inherited from
+
+[`Level5StatusFields`](#level5statusfields).[`implementationLevel`](#implementationlevel-2)
+
+##### graduationTargetLevel
+
+> **graduationTargetLevel**: `"level-5-cross-arch-process-continuation"`
+
+###### Inherited from
+
+[`Level5StatusFields`](#level5statusfields).[`graduationTargetLevel`](#graduationtargetlevel-2)
+
+##### migrationCompleted
+
+> **migrationCompleted**: `boolean`
+
+###### Inherited from
+
+[`Level5StatusFields`](#level5statusfields).[`migrationCompleted`](#migrationcompleted-4)
+
+##### kind
+
+> **kind**: `"machinen.level5-runtime-adapter-registry-summary"`
+
+##### formatVersion
+
+> **formatVersion**: `1`
+
+##### adapterCount
+
+> **adapterCount**: `number`
+
+##### adapters
+
+> **adapters**: `object`[]
+
+###### id
+
+> **id**: `string`
+
+###### runtimeFamily
+
+> **runtimeFamily**: `string`
+
+###### supportedProfiles
+
+> **supportedProfiles**: readonly `string`[]
+
+###### graduationTargetLevel
+
+> **graduationTargetLevel**: `"level-5-cross-arch-process-continuation"`
+
+##### stableRefusalCodes
+
+> **stableRefusalCodes**: readonly (`"level5-runtime-family-unsupported"` \| `"level5-runtime-profile-unsupported"` \| `"level5-target-native-runtime-missing"` \| `"level5-source-target-arch-unsupported"` \| `"level5-source-isa-emulation-forbidden"` \| `"level5-sidecar-output-forbidden"` \| `"level5-metadata-only-success-forbidden"` \| `"level5-active-syscall-unsupported"` \| `"level5-active-tcp-stream-unsupported"` \| `"level5-thread-state-unsupported"` \| `"level5-kernel-resource-unsupported"` \| `"level5-runtime-heap-stack-unsupported"`)[]
+
+***
+
 ### ChunkLogEvent
 
 #### Properties
@@ -6381,7 +7256,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`id`](#id-1)
+[`NativeCodeModule`](#nativecodemodule).[`id`](#id-2)
 
 ##### logicalName
 
@@ -6413,7 +7288,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-15)
+[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-20)
 
 ##### buildId
 
@@ -6489,7 +7364,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`id`](#id-1)
+[`NativeCodeModule`](#nativecodemodule).[`id`](#id-2)
 
 ##### logicalName
 
@@ -6521,7 +7396,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-15)
+[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-20)
 
 ##### buildId
 
@@ -7303,7 +8178,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeReturnChainFrame`](#nativereturnchainframe).[`id`](#id-10)
+[`NativeReturnChainFrame`](#nativereturnchainframe).[`id`](#id-11)
 
 ##### unwindId
 
@@ -8316,7 +9191,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-30)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-35)
 
 ##### targetArch
 
@@ -8324,7 +9199,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`targetArch`](#targetarch-10)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`targetArch`](#targetarch-13)
 
 ##### entryAddress
 
@@ -8412,7 +9287,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`sourceIsaEmulationUsed`](#sourceisaemulationused-2)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`sourceIsaEmulationUsed`](#sourceisaemulationused-3)
 
 ##### sidecarRuntimeUsed
 
@@ -8904,7 +9779,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-30)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-35)
 
 ##### targetArch
 
@@ -8912,7 +9787,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`targetArch`](#targetarch-10)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`targetArch`](#targetarch-13)
 
 ##### entryAddress
 
@@ -9000,7 +9875,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`sourceIsaEmulationUsed`](#sourceisaemulationused-2)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`sourceIsaEmulationUsed`](#sourceisaemulationused-3)
 
 ##### sidecarRuntimeUsed
 
@@ -11122,7 +11997,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`code`](#code-16)
+[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`code`](#code-17)
 
 ##### message
 
@@ -11130,7 +12005,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`message`](#message-2)
+[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`message`](#message-4)
 
 ##### migrationCompleted
 
@@ -11138,7 +12013,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`migrationCompleted`](#migrationcompleted-6)
+[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`migrationCompleted`](#migrationcompleted-12)
 
 ##### productSupport
 
@@ -11146,7 +12021,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`productSupport`](#productsupport-2)
+[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`productSupport`](#productsupport-8)
 
 ##### implementationLevel
 
@@ -11154,7 +12029,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`implementationLevel`](#implementationlevel-2)
+[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`implementationLevel`](#implementationlevel-8)
 
 ##### evidenceStatus
 
@@ -11162,7 +12037,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`evidenceStatus`](#evidencestatus-3)
+[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`evidenceStatus`](#evidencestatus-9)
 
 ##### unsafeNeighbor
 
@@ -12455,7 +13330,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`sourceArch`](#sourcearch-8)
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`sourceArch`](#sourcearch-11)
 
 ##### targetArch
 
@@ -12463,7 +13338,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`targetArch`](#targetarch-19)
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`targetArch`](#targetarch-22)
 
 ##### machinenStateModel
 
@@ -12551,7 +13426,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Overrides
 
-[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`migrationCompleted`](#migrationcompleted-10)
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`migrationCompleted`](#migrationcompleted-16)
 
 ##### scope
 
@@ -12702,7 +13577,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### productSupportLevel?
 
-> `optional` **productSupportLevel?**: `"level-4-kernel-resource-reconstruction"` \| `"level-5-cross-arch-process-continuation"` \| `"level-0-fail-closed-discovery"` \| `"level-1-semantic-restart"` \| `"level-2-semantic-continuation"` \| `"level-3-runtime-aware-continuation"`
+> `optional` **productSupportLevel?**: `"level-4-kernel-resource-reconstruction"` \| `"level-0-fail-closed-discovery"` \| `"level-5-cross-arch-process-continuation"` \| `"level-1-semantic-restart"` \| `"level-2-semantic-continuation"` \| `"level-3-runtime-aware-continuation"`
 
 ##### observableStateDecisions?
 
@@ -12720,7 +13595,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### family
 
-> **family**: `"network-ping-socket"` \| `"unknown"` \| `"postgresql"` \| `"nodejs"` \| `"go"` \| `"python-ruby-jvm"` \| `"stateful-services"` \| `"foundation-native"` \| `"native-linux-resource"`
+> **family**: `"network-ping-socket"` \| `"unknown"` \| `"go"` \| `"postgresql"` \| `"nodejs"` \| `"python-ruby-jvm"` \| `"stateful-services"` \| `"foundation-native"` \| `"native-linux-resource"`
 
 ##### runtime?
 
@@ -12740,7 +13615,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### supportLevel
 
-> **supportLevel**: `"level-4-kernel-resource-reconstruction"` \| `"level-5-cross-arch-process-continuation"` \| `"level-0-fail-closed-discovery"` \| `"level-1-semantic-restart"` \| `"level-2-semantic-continuation"` \| `"level-3-runtime-aware-continuation"`
+> **supportLevel**: `"level-4-kernel-resource-reconstruction"` \| `"level-0-fail-closed-discovery"` \| `"level-5-cross-arch-process-continuation"` \| `"level-1-semantic-restart"` \| `"level-2-semantic-continuation"` \| `"level-3-runtime-aware-continuation"`
 
 ##### supportLevelName
 
@@ -12874,7 +13749,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### family?
 
-> `optional` **family?**: `"network-ping-socket"` \| `"unknown"` \| `"postgresql"` \| `"nodejs"` \| `"go"` \| `"python-ruby-jvm"` \| `"stateful-services"` \| `"foundation-native"` \| `"native-linux-resource"`
+> `optional` **family?**: `"network-ping-socket"` \| `"unknown"` \| `"go"` \| `"postgresql"` \| `"nodejs"` \| `"python-ruby-jvm"` \| `"stateful-services"` \| `"foundation-native"` \| `"native-linux-resource"`
 
 ##### runtime?
 
@@ -12894,7 +13769,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### supportLevel?
 
-> `optional` **supportLevel?**: `"level-4-kernel-resource-reconstruction"` \| `"level-5-cross-arch-process-continuation"` \| `"level-0-fail-closed-discovery"` \| `"level-1-semantic-restart"` \| `"level-2-semantic-continuation"` \| `"level-3-runtime-aware-continuation"`
+> `optional` **supportLevel?**: `"level-4-kernel-resource-reconstruction"` \| `"level-0-fail-closed-discovery"` \| `"level-5-cross-arch-process-continuation"` \| `"level-1-semantic-restart"` \| `"level-2-semantic-continuation"` \| `"level-3-runtime-aware-continuation"`
 
 ***
 
@@ -16435,7 +17310,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`profile`](#profile-6)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`profile`](#profile-11)
 
 ##### classification
 
@@ -16451,7 +17326,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`sourceArch`](#sourcearch-24)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`sourceArch`](#sourcearch-27)
 
 ##### targetArch
 
@@ -16459,7 +17334,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`targetArch`](#targetarch-41)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`targetArch`](#targetarch-44)
 
 ##### stateModel
 
@@ -16527,7 +17402,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Overrides
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`migrationCompleted`](#migrationcompleted-27)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`migrationCompleted`](#migrationcompleted-33)
 
 ##### scope
 
@@ -19561,6 +20436,48 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### Level5EvidenceStatus
+
+> **Level5EvidenceStatus** = `"proof"` \| `"support"` \| `"refusal"`
+
+***
+
+### Level5ProductSupport
+
+> **Level5ProductSupport** = `"supported"` \| `"not-yet-supported"` \| `"unsupported"`
+
+***
+
+### Level5ImplementationLevel
+
+> **Level5ImplementationLevel** = `"not-implemented"` \| `"level-0-fail-closed-discovery"` \| `"level-5-cross-arch-process-continuation-substrate"` \| `"level-5-cross-arch-process-continuation"`
+
+***
+
+### Level5GraduationTargetLevel
+
+> **Level5GraduationTargetLevel** = `"level-5-cross-arch-process-continuation"`
+
+***
+
+### Level5AdapterOperation
+
+> **Level5AdapterOperation** = `"snapshot"` \| `"restore"`
+
+***
+
+### Level5RuntimeFamily
+
+> **Level5RuntimeFamily** = `"node"` \| `"go"` \| `"jvm"` \| `"python"` \| `"ruby"` \| `"native"` \| `string`
+
+***
+
+### Level5SubstrateRefusalCode
+
+> **Level5SubstrateRefusalCode** = *typeof* [`level5SubstrateRefusalCodes`](#level5substraterefusalcodes)\[`number`\]
+
+***
+
 ### LogEvent
 
 > **LogEvent** = [`ChunkLogEvent`](#chunklogevent) \| [`PhaseLogEvent`](#phaselogevent)
@@ -21086,6 +22003,18 @@ Smoke-test rationale: a host running `pnpm smoke-tests` sees
 five sequential VMs leave it with ~1 GiB free in steady state.
 Anything stricter than this default trips on real-world dev
 loops; anything looser stops being a meaningful gate.
+
+***
+
+### LEVEL5\_RUNTIME\_ADAPTER\_SUBSTRATE\_FORMAT\_VERSION
+
+> `const` **LEVEL5\_RUNTIME\_ADAPTER\_SUBSTRATE\_FORMAT\_VERSION**: `1`
+
+***
+
+### level5SubstrateRefusalCodes
+
+> `const` **level5SubstrateRefusalCodes**: readonly \[`"level5-runtime-family-unsupported"`, `"level5-runtime-profile-unsupported"`, `"level5-target-native-runtime-missing"`, `"level5-source-target-arch-unsupported"`, `"level5-source-isa-emulation-forbidden"`, `"level5-sidecar-output-forbidden"`, `"level5-metadata-only-success-forbidden"`, `"level5-active-syscall-unsupported"`, `"level5-active-tcp-stream-unsupported"`, `"level5-thread-state-unsupported"`, `"level5-kernel-resource-unsupported"`, `"level5-runtime-heap-stack-unsupported"`\]
 
 ***
 
@@ -22965,6 +23894,88 @@ retry policy.
 #### Returns
 
 `Promise`\<`void`\>
+
+***
+
+### createLevel5RuntimeAdapterRegistry()
+
+> **createLevel5RuntimeAdapterRegistry**\<`Adapter`\>(`adapters`): [`Level5RuntimeAdapterRegistry`](#level5runtimeadapterregistry)\<`Adapter`\>
+
+#### Type Parameters
+
+##### Adapter
+
+`Adapter` *extends* [`Level5RuntimeAdapter`](#level5runtimeadapter)\<`unknown`, `unknown`, `unknown`, [`Level5RestorePlan`](#level5restoreplan), `unknown`, [`Level5VerifierEvidence`](#level5verifierevidence)\>
+
+#### Parameters
+
+##### adapters
+
+readonly `Adapter`[]
+
+#### Returns
+
+[`Level5RuntimeAdapterRegistry`](#level5runtimeadapterregistry)\<`Adapter`\>
+
+***
+
+### buildLevel5RefusalEnvelope()
+
+> **buildLevel5RefusalEnvelope**(`input`): [`Level5RefusalEnvelope`](#level5refusalenvelope)
+
+#### Parameters
+
+##### input
+
+###### code
+
+`string`
+
+###### message
+
+`string`
+
+###### adapterId?
+
+`string`
+
+###### runtimeFamily?
+
+`string`
+
+###### profile?
+
+`string`
+
+#### Returns
+
+[`Level5RefusalEnvelope`](#level5refusalenvelope)
+
+***
+
+### buildLevel5ProofOnlyStatus()
+
+> **buildLevel5ProofOnlyStatus**(): [`Level5StatusFields`](#level5statusfields)
+
+#### Returns
+
+[`Level5StatusFields`](#level5statusfields)
+
+***
+
+### buildLevel5RuntimeAdapterRegistrySummary()
+
+> **buildLevel5RuntimeAdapterRegistrySummary**(`adapters`): [`Level5RuntimeAdapterRegistrySummary`](#level5runtimeadapterregistrysummary-1)
+
+#### Parameters
+
+##### adapters
+
+readonly `Pick`\<[`Level5RuntimeAdapter`](#level5runtimeadapter)\<`unknown`, `unknown`, `unknown`, [`Level5RestorePlan`](#level5restoreplan), `unknown`, [`Level5VerifierEvidence`](#level5verifierevidence)\>, `"graduationTargetLevel"` \| `"id"` \| `"runtimeFamily"` \| `"supportedProfiles"`\>[]
+
+#### Returns
+
+[`Level5RuntimeAdapterRegistrySummary`](#level5runtimeadapterregistrysummary-1)
 
 ***
 

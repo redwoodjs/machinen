@@ -31,6 +31,8 @@ describe("Node Level 5 default public restore proof", () => {
         implementationLevel: "not-implemented",
         migrationCompleted: false,
         restoreRoutedThroughPublicVerb: true,
+        level5AdapterId: "node-level5-proof-runtime-adapter",
+        level5AdapterRegistryRouted: true,
         targetProofVerifierRanByDefault: true,
         refusal: { code: "node-level5-proof-only-not-product" },
         targetProof: {
@@ -44,6 +46,7 @@ describe("Node Level 5 default public restore proof", () => {
       expect(
         JSON.parse(readFileSync(join(dir, "node-level5-proof-restore-summary.json"), "utf8")),
       ).toMatchObject({
+        level5AdapterRegistryRouted: true,
         targetProofVerifierRanByDefault: true,
         targetProof: { targetVerifierObservedActualNodeContinuation: true },
       });

@@ -23,6 +23,9 @@ Goal files are grouped by cohort so proof records for each project stay together
 - [`017.md`](./017.md) — Add timerfd as the fourth portable restore adapter/resource.
 - [`018.md`](./018.md) — Add TCP listener as the fifth portable restore adapter/resource.
 - [`019.md`](./019.md) — Make selected Node Level 5 proof run by default on public restore.
+- [`020.md`](./020.md) — Define the generic Level 5 runtime adapter substrate.
+- [`021.md`](./021.md) — Build the first Node/V8/libuv single-thread HTTP runtime adapter profile.
+- [`022.md`](./022.md) — Prove the real cross-arch quickstart fixture through the Node Level 5 adapter.
 
 ## Cohorts
 

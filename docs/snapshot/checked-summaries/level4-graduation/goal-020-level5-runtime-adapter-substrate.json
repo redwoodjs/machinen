@@ -1,0 +1,71 @@
+{
+  "kind": "machinen.level5-runtime-adapter-substrate-summary",
+  "goal": "020",
+  "status": "implemented-substrate-proof",
+  "formatVersion": 1,
+  "evidenceStatus": "proof",
+  "productSupport": "not-yet-supported",
+  "implementationLevel": "level-5-cross-arch-process-continuation-substrate",
+  "graduationTargetLevel": "level-5-cross-arch-process-continuation",
+  "migrationCompleted": false,
+  "substrateOwns": [
+    "public snapshot/restore adapter dispatch",
+    "artifact status field separation",
+    "source/target architecture metadata contract",
+    "Level 4 resource descriptor composition points",
+    "target-native verifier evidence contract",
+    "stable fail-closed refusal envelopes"
+  ],
+  "adapterContract": [
+    "detect",
+    "quiesce",
+    "capture",
+    "validate",
+    "planRestore",
+    "restoreTargetNative",
+    "verify",
+    "refuse"
+  ],
+  "registeredAdapters": [
+    {
+      "id": "node-level5-proof-runtime-adapter",
+      "runtimeFamily": "node",
+      "supportedProfiles": ["node-http-clean-root-v1-with-level4-event-loop-map"],
+      "graduationTargetLevel": "level-5-cross-arch-process-continuation",
+      "productSupport": "not-yet-supported",
+      "migrationCompleted": false
+    }
+  ],
+  "publicRouting": {
+    "snapshotDispatch": "writeNodeLevel5ProofCompositionSnapshot uses the adapter-compatible capture path",
+    "restoreDispatch": "detectLevel5RestoreAdapter routes node-level5-proof-composition.json through the Level 5 registry",
+    "restoreSummaryFields": [
+      "level5AdapterId",
+      "level5AdapterRegistryRouted",
+      "targetProofVerifierRanByDefault",
+      "targetProof"
+    ],
+    "defaultRefusal": "node-level5-proof-only-not-product",
+    "defaultMigrationCompleted": false
+  },
+  "shortcutGates": {
+    "sourceIsaEmulationAllowed": false,
+    "sidecarOutputAllowed": false,
+    "metadataOnlySuccessAllowed": false,
+    "rawVmstateReplayAcceptedAsLevel5": false
+  },
+  "stableRefusalCodes": [
+    "level5-runtime-family-unsupported",
+    "level5-runtime-profile-unsupported",
+    "level5-target-native-runtime-missing",
+    "level5-source-target-arch-unsupported",
+    "level5-source-isa-emulation-forbidden",
+    "level5-sidecar-output-forbidden",
+    "level5-metadata-only-success-forbidden",
+    "level5-active-syscall-unsupported",
+    "level5-active-tcp-stream-unsupported",
+    "level5-thread-state-unsupported",
+    "level5-kernel-resource-unsupported",
+    "level5-runtime-heap-stack-unsupported"
+  ]
+}
