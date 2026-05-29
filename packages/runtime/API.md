@@ -12360,7 +12360,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ###### textOutputSequencePolicy
 
-> **textOutputSequencePolicy**: `"target-ping-may-renumber-text-sequence"`
+> **textOutputSequencePolicy**: `"machinen-helper-renders-descriptor-sequence"`
 
 ##### gates
 
