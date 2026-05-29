@@ -2,6 +2,19 @@
 
 ## Contents
 
+### Node Level 5 proof composition
+
+- [`NodeLevel5ProofComposition`](#nodelevel5proofcomposition)
+- [`NodeLevel5ProofCompositionInput`](#nodelevel5proofcompositioninput)
+- [`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal)
+- [`NodeLevel5ProofIngredient`](#nodelevel5proofingredient)
+- [`NodeLevel5ProofIngredientName`](#nodelevel5proofingredientname)
+- [`NodeLevel5ProofRefusalCode`](#nodelevel5proofrefusalcode)
+- [`NODE_LEVEL5_PROOF_COMPOSITION_FORMAT_VERSION`](#node_level5_proof_composition_format_version)
+- [`buildNodeLevel5ProofComposition`](#buildnodelevel5proofcomposition)
+- [`nodeLevel5ProofIngredientNames`](#nodelevel5proofingredientnames)
+- [`nodeLevel5ProofRefusalCodes`](#nodelevel5proofrefusalcodes)
+
 ### Boot a VM
 
 - [`boot`](#boot)
@@ -10946,6 +10959,174 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ***
 
+### NodeLevel5ProofIngredient
+
+#### Properties
+
+##### name
+
+> **name**: `"register-translation"` \| `"stack-return-chain-translation"` \| `"private-memory-materialization"` \| `"executable-target-module-materialization"` \| `"target-restore-loader"` \| `"level4-event-loop-resource-map"` \| `"target-native-verifier"`
+
+##### evidenceStatus
+
+> **evidenceStatus**: `"proof"` \| `"checked"` \| `"missing"`
+
+##### checkedSummary?
+
+> `optional` **checkedSummary?**: `string`
+
+##### notes
+
+> **notes**: `string`
+
+***
+
+### NodeLevel5ProofCompositionInput
+
+#### Properties
+
+##### eventLoopResourceMapPresent
+
+> **eventLoopResourceMapPresent**: `boolean`
+
+##### targetNativeVerifierPresent
+
+> **targetNativeVerifierPresent**: `boolean`
+
+##### checkedSummaries?
+
+> `optional` **checkedSummaries?**: `Partial`\<`Record`\<[`NodeLevel5ProofIngredientName`](#nodelevel5proofingredientname), `string`\>\>
+
+***
+
+### NodeLevel5ProofCompositionRefusal
+
+#### Properties
+
+##### code
+
+> **code**: `"node-level5-tls-rseq-unsupported"` \| `"node-level5-simd-fpu-unsupported"` \| `"node-level5-signal-frame-unsupported"` \| `"node-level5-active-syscall-unsupported"` \| `"node-level5-multithread-unsupported"` \| `"node-level5-memory-mapping-unsupported"` \| `"node-level5-kernel-resource-unsupported"` \| `"node-level5-native-addon-abi-unsupported"` \| `"node-level5-inspector-unsupported"` \| `"node-level5-v8-libuv-state-unsupported"` \| `"node-level5-arbitrary-heap-stack-continuation-refused"`
+
+##### message
+
+> **message**: `string`
+
+##### migrationCompleted
+
+> **migrationCompleted**: `false`
+
+##### productSupport
+
+> **productSupport**: `"unsupported"`
+
+##### implementationLevel
+
+> **implementationLevel**: `"level-0-fail-closed-discovery"`
+
+##### evidenceStatus
+
+> **evidenceStatus**: `"refusal"`
+
+***
+
+### NodeLevel5ProofComposition
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.node-level5-proof-composition"`
+
+##### formatVersion
+
+> **formatVersion**: `1`
+
+##### sourceGoal
+
+> **sourceGoal**: `"009"`
+
+##### evidenceStatus
+
+> **evidenceStatus**: `"proof"`
+
+##### productSupport
+
+> **productSupport**: `"not-yet-supported"`
+
+##### implementationLevel
+
+> **implementationLevel**: `"not-implemented"`
+
+##### graduationTargetLevel
+
+> **graduationTargetLevel**: `"level-5-cross-arch-process-continuation"`
+
+##### selectedSubset
+
+> **selectedSubset**: `"node-http-clean-root-v1-with-level4-event-loop-map"`
+
+##### requiredIngredients
+
+> **requiredIngredients**: [`NodeLevel5ProofIngredient`](#nodelevel5proofingredient)[]
+
+##### refusals
+
+> **refusals**: [`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal)[]
+
+##### gates
+
+> **gates**: `object`
+
+###### arbitraryV8HeapContinuationAllowed
+
+> **arbitraryV8HeapContinuationAllowed**: `false`
+
+###### arbitraryNativeStackContinuationAllowed
+
+> **arbitraryNativeStackContinuationAllowed**: `false`
+
+###### sourceIsaEmulationAllowed
+
+> **sourceIsaEmulationAllowed**: `false`
+
+###### sidecarRuntimeAllowed
+
+> **sidecarRuntimeAllowed**: `false`
+
+###### metadataOnlyContinuationAllowed
+
+> **metadataOnlyContinuationAllowed**: `false`
+
+###### publicProductVerbRequiredBeforeSupport
+
+> **publicProductVerbRequiredBeforeSupport**: `true`
+
+##### summary
+
+> **summary**: `object`
+
+###### required
+
+> **required**: `number`
+
+###### present
+
+> **present**: `number`
+
+###### missing
+
+> **missing**: `number`
+
+###### refusalCount
+
+> **refusalCount**: `number`
+
+###### proofReady
+
+> **proofReady**: `boolean`
+
+***
+
 ### OppositeIsaVmExecutionProviderRoute
 
 #### Properties
@@ -12037,7 +12218,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Overrides
 
-[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`migrationCompleted`](#migrationcompleted-8)
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`migrationCompleted`](#migrationcompleted-9)
 
 ##### scope
 
@@ -12188,7 +12369,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### productSupportLevel?
 
-> `optional` **productSupportLevel?**: `"level-4-kernel-resource-reconstruction"` \| `"level-0-fail-closed-discovery"` \| `"level-1-semantic-restart"` \| `"level-2-semantic-continuation"` \| `"level-3-runtime-aware-continuation"` \| `"level-5-cross-arch-process-continuation"`
+> `optional` **productSupportLevel?**: `"level-4-kernel-resource-reconstruction"` \| `"level-0-fail-closed-discovery"` \| `"level-5-cross-arch-process-continuation"` \| `"level-1-semantic-restart"` \| `"level-2-semantic-continuation"` \| `"level-3-runtime-aware-continuation"`
 
 ##### observableStateDecisions?
 
@@ -12226,7 +12407,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### supportLevel
 
-> **supportLevel**: `"level-4-kernel-resource-reconstruction"` \| `"level-0-fail-closed-discovery"` \| `"level-1-semantic-restart"` \| `"level-2-semantic-continuation"` \| `"level-3-runtime-aware-continuation"` \| `"level-5-cross-arch-process-continuation"`
+> **supportLevel**: `"level-4-kernel-resource-reconstruction"` \| `"level-0-fail-closed-discovery"` \| `"level-5-cross-arch-process-continuation"` \| `"level-1-semantic-restart"` \| `"level-2-semantic-continuation"` \| `"level-3-runtime-aware-continuation"`
 
 ##### supportLevelName
 
@@ -12380,7 +12561,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### supportLevel?
 
-> `optional` **supportLevel?**: `"level-4-kernel-resource-reconstruction"` \| `"level-0-fail-closed-discovery"` \| `"level-1-semantic-restart"` \| `"level-2-semantic-continuation"` \| `"level-3-runtime-aware-continuation"` \| `"level-5-cross-arch-process-continuation"`
+> `optional` **supportLevel?**: `"level-4-kernel-resource-reconstruction"` \| `"level-0-fail-closed-discovery"` \| `"level-5-cross-arch-process-continuation"` \| `"level-1-semantic-restart"` \| `"level-2-semantic-continuation"` \| `"level-3-runtime-aware-continuation"`
 
 ***
 
@@ -16013,7 +16194,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Overrides
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`migrationCompleted`](#migrationcompleted-25)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`migrationCompleted`](#migrationcompleted-26)
 
 ##### scope
 
@@ -17622,7 +17803,7 @@ kicks in: `<sourceName>/<fork.pid>`.
 
 ###### Overrides
 
-[`RestoreOptions`](#restoreoptions).[`name`](#name-16)
+[`RestoreOptions`](#restoreoptions).[`name`](#name-17)
 
 ##### portForward?
 
@@ -19513,6 +19694,18 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NodeLevel5ProofIngredientName
+
+> **NodeLevel5ProofIngredientName** = *typeof* [`nodeLevel5ProofIngredientNames`](#nodelevel5proofingredientnames)\[`number`\]
+
+***
+
+### NodeLevel5ProofRefusalCode
+
+> **NodeLevel5ProofRefusalCode** = *typeof* [`nodeLevel5ProofRefusalCodes`](#nodelevel5proofrefusalcodes)\[`number`\]
+
+***
+
 ### OppositeIsaVmExecutionRefusalCode
 
 > **OppositeIsaVmExecutionRefusalCode** = *typeof* [`oppositeIsaVmExecutionRefusalCodes`](#oppositeisavmexecutionrefusalcodes)\[`number`\]
@@ -21228,6 +21421,24 @@ loops; anything looser stops being a meaningful gate.
 ### nestedVirtualizationStretchProofRefusalCodes
 
 > `const` **nestedVirtualizationStretchProofRefusalCodes**: readonly \[`"nested-virtualization-unavailable"`, `"nested-smoke-failed"`, `"nested-verifier-ambiguous"`, `"nested-snapshot-fork-unsafe"`\]
+
+***
+
+### NODE\_LEVEL5\_PROOF\_COMPOSITION\_FORMAT\_VERSION
+
+> `const` **NODE\_LEVEL5\_PROOF\_COMPOSITION\_FORMAT\_VERSION**: `1`
+
+***
+
+### nodeLevel5ProofIngredientNames
+
+> `const` **nodeLevel5ProofIngredientNames**: readonly \[`"register-translation"`, `"stack-return-chain-translation"`, `"private-memory-materialization"`, `"executable-target-module-materialization"`, `"target-restore-loader"`, `"level4-event-loop-resource-map"`, `"target-native-verifier"`\]
+
+***
+
+### nodeLevel5ProofRefusalCodes
+
+> `const` **nodeLevel5ProofRefusalCodes**: readonly \[`"node-level5-tls-rseq-unsupported"`, `"node-level5-simd-fpu-unsupported"`, `"node-level5-signal-frame-unsupported"`, `"node-level5-active-syscall-unsupported"`, `"node-level5-multithread-unsupported"`, `"node-level5-memory-mapping-unsupported"`, `"node-level5-kernel-resource-unsupported"`, `"node-level5-native-addon-abi-unsupported"`, `"node-level5-inspector-unsupported"`, `"node-level5-v8-libuv-state-unsupported"`, `"node-level5-arbitrary-heap-stack-continuation-refused"`\]
 
 ***
 
@@ -23814,6 +24025,22 @@ available.
 #### Returns
 
 `string`[]
+
+***
+
+### buildNodeLevel5ProofComposition()
+
+> **buildNodeLevel5ProofComposition**(`input`): [`NodeLevel5ProofComposition`](#nodelevel5proofcomposition)
+
+#### Parameters
+
+##### input
+
+[`NodeLevel5ProofCompositionInput`](#nodelevel5proofcompositioninput)
+
+#### Returns
+
+[`NodeLevel5ProofComposition`](#nodelevel5proofcomposition)
 
 ***
 

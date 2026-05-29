@@ -102,6 +102,12 @@ export type {
   WriteFileOptions,
 } from "./vm-handle.ts";
 export type { SnapshotEngine } from "./vm/snapshot-engine.ts";
+export {
+  NODE_LEVEL5_PROOF_COMPOSITION_FORMAT_VERSION,
+  buildNodeLevel5ProofComposition,
+  nodeLevel5ProofIngredientNames,
+  nodeLevel5ProofRefusalCodes,
+} from "./node-level5-proof-composition.ts";
 export { buildNativeCodeMap } from "./native-code-map.ts";
 export {
   classifyNativeActiveSyscalls,
@@ -112,6 +118,14 @@ export {
   modelNativePpollTimeoutState,
   modelNativeSleepTimerState,
 } from "./native-active-syscall-policy.ts";
+export type {
+  NodeLevel5ProofComposition,
+  NodeLevel5ProofCompositionInput,
+  NodeLevel5ProofCompositionRefusal,
+  NodeLevel5ProofIngredient,
+  NodeLevel5ProofIngredientName,
+  NodeLevel5ProofRefusalCode,
+} from "./node-level5-proof-composition.ts";
 export type {
   NativeCodeMapRequest,
   NativeCodeMapResult,
