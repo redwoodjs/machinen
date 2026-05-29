@@ -24,7 +24,8 @@
     "snapshotWrites": "node-level5-proof-composition.json",
     "restoreSummary": "node-level5-proof-restore-summary.json",
     "restoreRefusal": "node-level5-proof-only-not-product",
-    "proofVerifierFlag": "--verify-proof-only",
+    "proofVerifierRunsByDefault": true,
+    "proofVerifierCompatibilityFlag": "--verify-proof-only",
     "proofAutomationSuccessFlag": "--allow-proof-only-success",
     "migrationCompleted": false
   },

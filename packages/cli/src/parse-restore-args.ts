@@ -55,7 +55,7 @@ export interface ParsedRestoreCommandArgs {
   targetArch?: "arm64" | "amd64";
   /** File containing target-native verifier output for semantic bundles. */
   targetVerifierOutput?: string;
-  /** Run the Node Level 5 proof-only verifier path when restoring a proof bundle. */
+  /** Compatibility flag; Node Level 5 proof bundles now run the verifier by default. */
   verifyProofOnly?: boolean;
   /** Return 0 for a passed proof-only verifier while still reporting proof-only status. */
   allowProofOnlySuccess?: boolean;

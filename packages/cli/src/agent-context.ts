@@ -403,6 +403,18 @@ export const COMMANDS: CommandSpec[] = [
         description: "Target-native verifier output for portable product bundles.",
       },
       {
+        name: "--verify-proof-only",
+        type: "boolean",
+        description:
+          "Compatibility flag for Node Level 5 proof bundles; the target-side proof verifier now runs by default.",
+      },
+      {
+        name: "--allow-proof-only-success",
+        type: "boolean",
+        description:
+          "Return exit code 0 when the Node Level 5 proof-only verifier passes, while still reporting not-yet-supported product status.",
+      },
+      {
         name: "--json",
         type: "boolean",
         description: "Emit the portable product restore result as JSON.",

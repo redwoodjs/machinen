@@ -2125,7 +2125,7 @@ function restoreUsage(): string {
     "[--target-verifier-output <file>] [--json]\n" +
     "       machinen restore <portable-ping-socket-bundle> --target-arch <arm64|amd64> " +
     "[--target-verifier-output <file>] [--json]\n" +
-    "       machinen restore <node-level5-proof-bundle> [--verify-proof-only] " +
+    "       machinen restore <node-level5-proof-bundle> " +
     "[--allow-proof-only-success] [--json]"
   );
 }
@@ -3595,9 +3595,7 @@ async function cmdRestoreNodeLevel5ProofComposition(
   const proof = JSON.parse(
     readFileSync(join(snapDir, NODE_LEVEL5_PROOF_COMPOSITION_FILE), "utf8"),
   ) as NodeLevel5ProofComposition;
-  const targetProof = parsed.verifyProofOnly
-    ? await runNodeLevel5RestoreProofOnlyVerifier(snapDir)
-    : undefined;
+  const targetProof = await runNodeLevel5RestoreProofOnlyVerifier(snapDir);
   const summary = {
     kind: "machinen.node-level5-proof-restore-summary",
     sourceKind: proof.kind,
@@ -3607,6 +3605,8 @@ async function cmdRestoreNodeLevel5ProofComposition(
     graduationTargetLevel: proof.graduationTargetLevel,
     migrationCompleted: false,
     restoreRoutedThroughPublicVerb: true,
+    targetProofVerifierRanByDefault: true,
+    targetProofVerifierRequestedByFlag: parsed.verifyProofOnly === true,
     refusal: {
       code: "node-level5-proof-only-not-product",
       message:
@@ -3623,9 +3623,12 @@ async function cmdRestoreNodeLevel5ProofComposition(
   if (json) {
     emitJson({ schema_version: 1, ...summary });
   } else {
+    process.stderr.write(
+      `Node Level 5 proof verifier: ${targetProof.status}; target-native Node continuation observed=${targetProof.targetVerifierObservedActualNodeContinuation}; noSourceIsaEmulation=${targetProof.noSourceIsaEmulation}; noSidecarOutput=${targetProof.noSidecarOutput}; noMetadataOnlySuccess=${targetProof.noMetadataOnlySuccess}\n`,
+    );
     process.stderr.write(`${summary.refusal.message}\n`);
   }
-  return parsed.allowProofOnlySuccess && targetProof?.status === "passed" ? 0 : 1;
+  return parsed.allowProofOnlySuccess && targetProof.status === "passed" ? 0 : 1;
 }
 
 async function runNodeLevel5RestoreProofOnlyVerifier(

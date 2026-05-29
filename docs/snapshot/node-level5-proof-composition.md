@@ -50,9 +50,11 @@ pnpm node-level5-proof-composition -- \
 
 That fixture starts a small target-native Node HTTP app, captures a continuation token, asks the target-side harness to fetch `/continuation`, and records verifier output from the running Node process.
 
+The default public restore behavior is recorded in `docs/snapshot/checked-summaries/level4-graduation/goal-019-node-level5-default-public-restore.json`.
+
 ## Public verb routing
 
-Selected Node snapshots now write `node-level5-proof-composition.json` next to the portable Node bundle. `machinen restore` detects that file and writes `node-level5-proof-restore-summary.json`, but returns the stable `node-level5-proof-only-not-product` refusal. This proves the public route is wired without claiming product restore support.
+Selected Node snapshots now write `node-level5-proof-composition.json` next to the portable Node bundle. `machinen restore` detects that file, runs the target-side proof verifier by default, writes `node-level5-proof-restore-summary.json`, and returns the stable `node-level5-proof-only-not-product` refusal. Non-JSON restore output prints a concise proof-verifier line so the target-native Node continuation evidence is visible. `--allow-proof-only-success` is only for proof automation: it may return exit code 0 for a passed proof, but it does not change `productSupport=not-yet-supported`, `implementationLevel=not-implemented`, or `migrationCompleted=false`.
 
 ## Refusals
 
