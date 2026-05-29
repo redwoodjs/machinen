@@ -42,9 +42,7 @@ import {
   ProductLevel4TcpListenerError,
   ProductLevel4TimerfdError,
   ProductPortablePostgresError,
-  buildNodeLevel5ProofComposition,
   buildProductClaimRegistry,
-  runNodeLevel5TargetSideProof,
   createProductLevel4EventfdSnapshot,
   createProductLevel4PingSocketSnapshot,
   createProductLevel4PipeSnapshot,
@@ -78,8 +76,6 @@ import {
 } from "@machinen/runtime";
 import type {
   LogEvent,
-  NodeLevel5ProofComposition,
-  NodeLevel5TargetProofEvidence,
   ProductClaimFamily,
   ProductClaimStatus,
   ProductLevel4EventfdDescriptor,
@@ -120,6 +116,11 @@ import {
 import { appendFeedback, feedbackPath, postUpstream, readFeedback } from "./feedback.ts";
 import { formatMem } from "./format-mem.ts";
 import { formatPorts } from "./format-ports.ts";
+import {
+  detectLevel5RestoreAdapter,
+  restoreLevel5RuntimeBundle,
+  writeNodeLevel5ProofCompositionSnapshot,
+} from "./level5-runtime-adapters.ts";
 import { parseForkArgs } from "./parse-fork-args.ts";
 import type {
   PortableRestoreAdapter,
@@ -150,8 +151,6 @@ const VERSION = pkg.version;
 // where the tag ends and the asset path begins). Keep the shape
 // `runtime-v<semver>`.
 const RELEASE_TAG = `runtime-v${VERSION}`;
-const NODE_LEVEL5_PROOF_COMPOSITION_FILE = "node-level5-proof-composition.json";
-const NODE_LEVEL5_PROOF_RESTORE_SUMMARY_FILE = "node-level5-proof-restore-summary.json";
 // Base assets ship as GitHub Releases on the public companion repo so
 // the CLI can fetch them anonymously over plain HTTPS. The source repo
 // is private; only the release artifacts go here.
@@ -3583,70 +3582,28 @@ function handleProductLevel4PingSocketError(err: unknown, json: boolean): never 
 }
 
 function isNodeLevel5ProofCompositionBundle(snapDir: string): boolean {
-  return existsSync(join(snapDir, NODE_LEVEL5_PROOF_COMPOSITION_FILE));
+  return detectLevel5RestoreAdapter(snapDir) !== undefined;
 }
 
-// fallow-ignore-next-line complexity
 async function cmdRestoreNodeLevel5ProofComposition(
   snapDir: string,
   json: boolean,
   parsed: ParsedRestoreCommandArgs,
 ): Promise<number> {
-  const proof = JSON.parse(
-    readFileSync(join(snapDir, NODE_LEVEL5_PROOF_COMPOSITION_FILE), "utf8"),
-  ) as NodeLevel5ProofComposition;
-  const targetProof = await runNodeLevel5RestoreProofOnlyVerifier(snapDir);
-  const summary = {
-    kind: "machinen.node-level5-proof-restore-summary",
-    sourceKind: proof.kind,
-    evidenceStatus: proof.evidenceStatus,
-    productSupport: proof.productSupport,
-    implementationLevel: proof.implementationLevel,
-    graduationTargetLevel: proof.graduationTargetLevel,
-    migrationCompleted: false,
-    restoreRoutedThroughPublicVerb: true,
-    targetProofVerifierRanByDefault: true,
-    targetProofVerifierRequestedByFlag: parsed.verifyProofOnly === true,
-    refusal: {
-      code: "node-level5-proof-only-not-product",
-      message:
-        "Node Level 5 proof composition is routed through machinen restore, but it is not product restore support yet",
-    },
-    gates: proof.gates,
-    summary: proof.summary,
-    ...(targetProof ? { targetProof } : {}),
-  };
-  writeFileSync(
-    join(snapDir, NODE_LEVEL5_PROOF_RESTORE_SUMMARY_FILE),
-    `${JSON.stringify(summary, null, 2)}\n`,
-  );
+  const result = await restoreLevel5RuntimeBundle(snapDir, {
+    verifyProofOnly: parsed.verifyProofOnly,
+    allowProofOnlySuccess: parsed.allowProofOnlySuccess,
+  });
   if (json) {
-    emitJson({ schema_version: 1, ...summary });
+    emitJson({ schema_version: 1, ...result.summary });
   } else {
+    const targetProof = result.summary.targetProof;
     process.stderr.write(
       `Node Level 5 proof verifier: ${targetProof.status}; target-native Node continuation observed=${targetProof.targetVerifierObservedActualNodeContinuation}; noSourceIsaEmulation=${targetProof.noSourceIsaEmulation}; noSidecarOutput=${targetProof.noSidecarOutput}; noMetadataOnlySuccess=${targetProof.noMetadataOnlySuccess}\n`,
     );
-    process.stderr.write(`${summary.refusal.message}\n`);
+    process.stderr.write(`${result.summary.refusal.message}\n`);
   }
-  return parsed.allowProofOnlySuccess && targetProof.status === "passed" ? 0 : 1;
-}
-
-async function runNodeLevel5RestoreProofOnlyVerifier(
-  snapDir: string,
-): Promise<NodeLevel5TargetProofEvidence> {
-  const proofPath = join(snapDir, "node-level5-target-proof.json");
-  const proof = await runNodeLevel5TargetSideProof({ outPath: proofPath });
-  return {
-    path: proofPath,
-    status: "passed",
-    kind: proof.kind,
-    noSourceIsaEmulation: proof.assertions.sourceIsaEmulationUsed === false,
-    noSidecarOutput: proof.assertions.sidecarOutputUsed === false,
-    noMetadataOnlySuccess: proof.assertions.metadataOnlySuccess === false,
-    targetVerifierObservedActualNodeContinuation:
-      proof.assertions.targetVerifierObservedActualNodeContinuation === true,
-    message: "restore proof-only verifier observed actual target-native Node continuation",
-  };
+  return result.exitCode;
 }
 
 function shouldRestorePortableNode(snapDir: string): boolean {
@@ -4724,26 +4681,6 @@ function writeCleanServiceMeta(snapDir: string, manifest: CleanServiceManifest):
     security: manifest.security,
   };
   writeFileSync(metaPath, `${JSON.stringify(meta, null, 2)}\n`);
-}
-
-function writeNodeLevel5ProofCompositionSnapshot(
-  snapDir: string,
-  bundle: PortableNodeSnapshotCapture,
-): void {
-  const proof = buildNodeLevel5ProofComposition({
-    eventLoopResourceMapPresent: bundle.eventLoopResources !== undefined,
-    targetNativeVerifierPresent: false,
-    checkedSummaries: {
-      "level4-event-loop-resource-map":
-        "docs/snapshot/checked-summaries/level4-graduation/goal-008-node-event-loop-resource-map.json",
-      "target-native-verifier":
-        "docs/snapshot/checked-summaries/level4-graduation/goal-009-proof-run.json",
-    },
-  });
-  writeFileSync(
-    join(snapDir, NODE_LEVEL5_PROOF_COMPOSITION_FILE),
-    `${JSON.stringify(proof, null, 2)}\n`,
-  );
 }
 
 function writePortableNodeSnapshot(snapDir: string, bundle: PortableNodeSnapshotCapture): void {

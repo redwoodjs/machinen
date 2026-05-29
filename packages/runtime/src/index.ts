@@ -48,7 +48,38 @@ export type {
 } from "./mountdisk-img.ts";
 export { bootSnapshotPath, detachedLogRoot, writeBootSnapshot } from "./detached-log.ts";
 export { validatePid } from "./pid-validate.ts";
+export {
+  LEVEL5_RUNTIME_ADAPTER_SUBSTRATE_FORMAT_VERSION,
+  buildLevel5ProofOnlyStatus,
+  buildLevel5RefusalEnvelope,
+  buildLevel5RuntimeAdapterRegistrySummary,
+  createLevel5RuntimeAdapterRegistry,
+  level5SubstrateRefusalCodes,
+} from "./level5-runtime-adapter.ts";
 export type { PidStatus } from "./pid-validate.ts";
+export type {
+  Level5AdapterDetectInput,
+  Level5AdapterDetection,
+  Level5AdapterOperation,
+  Level5ArchitectureMetadata,
+  Level5ArtifactEnvelope,
+  Level5EvidenceStatus,
+  Level5GraduationTargetLevel,
+  Level5ImplementationLevel,
+  Level5ProductSupport,
+  Level5QuiesceResult,
+  Level5RefusalEnvelope,
+  Level5RestorePlan,
+  Level5RuntimeAdapter,
+  Level5RuntimeAdapterMatch,
+  Level5RuntimeAdapterRegistry,
+  Level5RuntimeAdapterRegistrySummary,
+  Level5RuntimeFamily,
+  Level5StatusFields,
+  Level5SubstrateRefusalCode,
+  Level5ValidationResult,
+  Level5VerifierEvidence,
+} from "./level5-runtime-adapter.ts";
 export { runGc } from "./gc.ts";
 export type { GcResult, RunGcOptions } from "./gc.ts";
 export { list, registryRoot } from "./registry.ts";

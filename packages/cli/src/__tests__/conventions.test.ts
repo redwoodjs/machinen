@@ -17,6 +17,10 @@ const PORTABLE_RESTORE_ADAPTER_SRC = readFileSync(
   join(SRC_DIR, "..", "portable-restore-adapter.ts"),
   "utf8",
 );
+const LEVEL5_RUNTIME_ADAPTER_SRC = readFileSync(
+  join(SRC_DIR, "..", "level5-runtime-adapters.ts"),
+  "utf8",
+);
 
 // Verbs that match Cloudflare's posted convention plus this CLI's
 // domain verbs. Anything outside this set has to be justified per
@@ -225,12 +229,15 @@ describe("portable restore adapter convention", () => {
 describe("Node Level 5 public proof routing", () => {
   it("routes selected proof capture through snapshot and refuses restore as proof-only", () => {
     expect(CLI_SRC).toContain("writeNodeLevel5ProofCompositionSnapshot(res.snapDir, portableNode)");
-    expect(CLI_SRC).toContain("NODE_LEVEL5_PROOF_COMPOSITION_FILE");
+    expect(LEVEL5_RUNTIME_ADAPTER_SRC).toContain("NODE_LEVEL5_PROOF_COMPOSITION_FILE");
     expect(CLI_SRC).toContain("isNodeLevel5ProofCompositionBundle(snapDir)");
-    expect(CLI_SRC).toContain("node-level5-proof-only-not-product");
-    expect(CLI_SRC).toContain("restoreRoutedThroughPublicVerb: true");
-    expect(CLI_SRC).toContain("targetProofVerifierRanByDefault: true");
-    expect(CLI_SRC).toContain("runNodeLevel5RestoreProofOnlyVerifier");
+    expect(CLI_SRC).toContain("detectLevel5RestoreAdapter(snapDir)");
+    expect(LEVEL5_RUNTIME_ADAPTER_SRC).toContain("node-level5-proof-only-not-product");
+    expect(LEVEL5_RUNTIME_ADAPTER_SRC).toContain("restoreRoutedThroughPublicVerb: true");
+    expect(CLI_SRC).toContain("restoreLevel5RuntimeBundle");
+    expect(LEVEL5_RUNTIME_ADAPTER_SRC).toContain("level5AdapterRegistryRouted");
+    expect(LEVEL5_RUNTIME_ADAPTER_SRC).toContain("targetProofVerifierRanByDefault: true");
+    expect(LEVEL5_RUNTIME_ADAPTER_SRC).toContain("runNodeLevel5RestoreProofOnlyVerifier");
     expect(CLI_SRC).toContain("--allow-proof-only-success");
   });
 });
