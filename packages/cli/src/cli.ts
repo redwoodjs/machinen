@@ -42,6 +42,7 @@ import {
   ProductLevel4TcpListenerError,
   ProductLevel4TimerfdError,
   ProductPortablePostgresError,
+  buildNodeLevel5ProofComposition,
   buildProductClaimRegistry,
   createProductLevel4EventfdSnapshot,
   createProductLevel4PingSocketSnapshot,
@@ -76,6 +77,7 @@ import {
 } from "@machinen/runtime";
 import type {
   LogEvent,
+  NodeLevel5ProofComposition,
   ProductClaimFamily,
   ProductClaimStatus,
   ProductLevel4EventfdDescriptor,
@@ -146,6 +148,8 @@ const VERSION = pkg.version;
 // where the tag ends and the asset path begins). Keep the shape
 // `runtime-v<semver>`.
 const RELEASE_TAG = `runtime-v${VERSION}`;
+const NODE_LEVEL5_PROOF_COMPOSITION_FILE = "node-level5-proof-composition.json";
+const NODE_LEVEL5_PROOF_RESTORE_SUMMARY_FILE = "node-level5-proof-restore-summary.json";
 // Base assets ship as GitHub Releases on the public companion repo so
 // the CLI can fetch them anonymously over plain HTTPS. The source repo
 // is private; only the release artifacts go here.
@@ -2060,6 +2064,9 @@ async function cmdRestore(args: string[]): Promise<number> {
   if (isProductPortablePostgresBundle(snapDir)) {
     return cmdRestoreProductPortablePostgres(parsed, snapDir, json);
   }
+  if (isNodeLevel5ProofCompositionBundle(snapDir)) {
+    return cmdRestoreNodeLevel5ProofComposition(snapDir, json);
+  }
   if (shouldRestoreCleanServiceBundle(snapDir, guestCpu)) {
     return restoreCleanServiceBundle({
       snapDir,
@@ -3571,6 +3578,43 @@ function handleProductLevel4PingSocketError(err: unknown, json: boolean): never 
   handleError(err);
 }
 
+function isNodeLevel5ProofCompositionBundle(snapDir: string): boolean {
+  return existsSync(join(snapDir, NODE_LEVEL5_PROOF_COMPOSITION_FILE));
+}
+
+function cmdRestoreNodeLevel5ProofComposition(snapDir: string, json: boolean): number {
+  const proof = JSON.parse(
+    readFileSync(join(snapDir, NODE_LEVEL5_PROOF_COMPOSITION_FILE), "utf8"),
+  ) as NodeLevel5ProofComposition;
+  const summary = {
+    kind: "machinen.node-level5-proof-restore-summary",
+    sourceKind: proof.kind,
+    evidenceStatus: proof.evidenceStatus,
+    productSupport: proof.productSupport,
+    implementationLevel: proof.implementationLevel,
+    graduationTargetLevel: proof.graduationTargetLevel,
+    migrationCompleted: false,
+    restoreRoutedThroughPublicVerb: true,
+    refusal: {
+      code: "node-level5-proof-only-not-product",
+      message:
+        "Node Level 5 proof composition is routed through machinen restore, but it is not product restore support yet",
+    },
+    gates: proof.gates,
+    summary: proof.summary,
+  };
+  writeFileSync(
+    join(snapDir, NODE_LEVEL5_PROOF_RESTORE_SUMMARY_FILE),
+    `${JSON.stringify(summary, null, 2)}\n`,
+  );
+  if (json) {
+    emitJson({ schema_version: 1, ...summary });
+  } else {
+    process.stderr.write(`${summary.refusal.message}\n`);
+  }
+  return 1;
+}
+
 function shouldRestorePortableNode(snapDir: string): boolean {
   const manifestPath = join(snapDir, "portable-node.json");
   if (!existsSync(manifestPath)) {
@@ -4565,6 +4609,7 @@ async function runSnapshot(opts: SnapshotOptionsCli): Promise<number> {
     }
     if (portableNode) {
       writePortableNodeSnapshot(res.snapDir, portableNode);
+      writeNodeLevel5ProofCompositionSnapshot(res.snapDir, portableNode);
     }
     reportSnapshotSuccess(res.snapDir, res.elapsedMs, opts);
     return 0;
@@ -4645,6 +4690,26 @@ function writeCleanServiceMeta(snapDir: string, manifest: CleanServiceManifest):
     security: manifest.security,
   };
   writeFileSync(metaPath, `${JSON.stringify(meta, null, 2)}\n`);
+}
+
+function writeNodeLevel5ProofCompositionSnapshot(
+  snapDir: string,
+  bundle: PortableNodeSnapshotCapture,
+): void {
+  const proof = buildNodeLevel5ProofComposition({
+    eventLoopResourceMapPresent: bundle.eventLoopResources !== undefined,
+    targetNativeVerifierPresent: false,
+    checkedSummaries: {
+      "level4-event-loop-resource-map":
+        "docs/snapshot/checked-summaries/level4-graduation/goal-008-node-event-loop-resource-map.json",
+      "target-native-verifier":
+        "docs/snapshot/checked-summaries/level4-graduation/goal-009-proof-run.json",
+    },
+  });
+  writeFileSync(
+    join(snapDir, NODE_LEVEL5_PROOF_COMPOSITION_FILE),
+    `${JSON.stringify(proof, null, 2)}\n`,
+  );
 }
 
 function writePortableNodeSnapshot(snapDir: string, bundle: PortableNodeSnapshotCapture): void {

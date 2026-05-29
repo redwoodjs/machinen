@@ -50,6 +50,29 @@ export interface NodeLevel5ProofCompositionRefusal {
   evidenceStatus: "refusal";
 }
 
+export interface NodeLevel5ProofEvidenceCheck {
+  name: NodeLevel5ProofIngredientName;
+  path: string;
+  requiredFragments: string[];
+  status: "passed" | "missing" | "failed";
+  message: string;
+}
+
+export interface NodeLevel5ProofRefusalMatrixRow extends NodeLevel5ProofCompositionRefusal {
+  unsafeNeighbor:
+    | "tls-rseq"
+    | "simd-fpu"
+    | "active-signals"
+    | "active-syscalls"
+    | "multithread"
+    | "unsupported-memory-mappings"
+    | "unsupported-kernel-resources"
+    | "native-addon-abi"
+    | "inspector-debug"
+    | "unsupported-v8-libuv-state"
+    | "arbitrary-heap-stack-continuation";
+}
+
 export interface NodeLevel5ProofComposition {
   kind: "machinen.node-level5-proof-composition";
   formatVersion: typeof NODE_LEVEL5_PROOF_COMPOSITION_FORMAT_VERSION;
@@ -60,7 +83,10 @@ export interface NodeLevel5ProofComposition {
   graduationTargetLevel: "level-5-cross-arch-process-continuation";
   selectedSubset: "node-http-clean-root-v1-with-level4-event-loop-map";
   requiredIngredients: NodeLevel5ProofIngredient[];
+  evidenceChecks?: NodeLevel5ProofEvidenceCheck[];
+  proofRunner?: "scripts/node-level5-proof-composition.ts";
   refusals: NodeLevel5ProofCompositionRefusal[];
+  refusalMatrix: NodeLevel5ProofRefusalMatrixRow[];
   gates: {
     arbitraryV8HeapContinuationAllowed: false;
     arbitraryNativeStackContinuationAllowed: false;
@@ -79,7 +105,10 @@ export interface NodeLevel5ProofComposition {
 }
 
 export function buildNodeLevel5ProofComposition(
-  input: NodeLevel5ProofCompositionInput,
+  input: NodeLevel5ProofCompositionInput & {
+    evidenceChecks?: NodeLevel5ProofEvidenceCheck[];
+    proofRunner?: "scripts/node-level5-proof-composition.ts";
+  },
 ): NodeLevel5ProofComposition {
   const requiredIngredients = nodeLevel5ProofIngredientNames.map((name) =>
     nodeLevel5ProofIngredient(name, input),
@@ -87,7 +116,8 @@ export function buildNodeLevel5ProofComposition(
   const present = requiredIngredients.filter(
     (ingredient) => ingredient.evidenceStatus !== "missing",
   );
-  const refusals = nodeLevel5ProofRefusalCodes.map(nodeLevel5ProofRefusal);
+  const refusalMatrix = nodeLevel5ProofRefusalCodes.map(nodeLevel5ProofRefusalMatrixRow);
+  const refusals = refusalMatrix.map(({ unsafeNeighbor: _unsafeNeighbor, ...refusal }) => refusal);
   return {
     kind: "machinen.node-level5-proof-composition",
     formatVersion: NODE_LEVEL5_PROOF_COMPOSITION_FORMAT_VERSION,
@@ -98,7 +128,10 @@ export function buildNodeLevel5ProofComposition(
     graduationTargetLevel: "level-5-cross-arch-process-continuation",
     selectedSubset: "node-http-clean-root-v1-with-level4-event-loop-map",
     requiredIngredients,
+    ...(input.evidenceChecks ? { evidenceChecks: input.evidenceChecks } : {}),
+    ...(input.proofRunner ? { proofRunner: input.proofRunner } : {}),
     refusals,
+    refusalMatrix,
     gates: {
       arbitraryV8HeapContinuationAllowed: false,
       arbitraryNativeStackContinuationAllowed: false,
@@ -134,11 +167,12 @@ function nodeLevel5ProofIngredient(
   };
 }
 
-function nodeLevel5ProofRefusal(
+function nodeLevel5ProofRefusalMatrixRow(
   code: NodeLevel5ProofRefusalCode,
-): NodeLevel5ProofCompositionRefusal {
+): NodeLevel5ProofRefusalMatrixRow {
   return {
     code,
+    unsafeNeighbor: nodeLevel5ProofUnsafeNeighbor(code),
     message: nodeLevel5ProofRefusalMessage(code),
     migrationCompleted: false,
     productSupport: "unsupported",
@@ -183,6 +217,29 @@ function ingredientNotes(name: NodeLevel5ProofIngredientName): string {
     case "target-native-verifier":
       return "verifier evidence must come from target-side process continuation";
   }
+}
+
+const nodeLevel5ProofUnsafeNeighbors: Record<
+  NodeLevel5ProofRefusalCode,
+  NodeLevel5ProofRefusalMatrixRow["unsafeNeighbor"]
+> = {
+  "node-level5-tls-rseq-unsupported": "tls-rseq",
+  "node-level5-simd-fpu-unsupported": "simd-fpu",
+  "node-level5-signal-frame-unsupported": "active-signals",
+  "node-level5-active-syscall-unsupported": "active-syscalls",
+  "node-level5-multithread-unsupported": "multithread",
+  "node-level5-memory-mapping-unsupported": "unsupported-memory-mappings",
+  "node-level5-kernel-resource-unsupported": "unsupported-kernel-resources",
+  "node-level5-native-addon-abi-unsupported": "native-addon-abi",
+  "node-level5-inspector-unsupported": "inspector-debug",
+  "node-level5-v8-libuv-state-unsupported": "unsupported-v8-libuv-state",
+  "node-level5-arbitrary-heap-stack-continuation-refused": "arbitrary-heap-stack-continuation",
+};
+
+function nodeLevel5ProofUnsafeNeighbor(
+  code: NodeLevel5ProofRefusalCode,
+): NodeLevel5ProofRefusalMatrixRow["unsafeNeighbor"] {
+  return nodeLevel5ProofUnsafeNeighbors[code];
 }
 
 const nodeLevel5ProofRefusalMessages: Record<NodeLevel5ProofRefusalCode, string> = {

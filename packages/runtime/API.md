@@ -7,7 +7,9 @@
 - [`NodeLevel5ProofComposition`](#nodelevel5proofcomposition)
 - [`NodeLevel5ProofCompositionInput`](#nodelevel5proofcompositioninput)
 - [`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal)
+- [`NodeLevel5ProofEvidenceCheck`](#nodelevel5proofevidencecheck)
 - [`NodeLevel5ProofIngredient`](#nodelevel5proofingredient)
+- [`NodeLevel5ProofRefusalMatrixRow`](#nodelevel5proofrefusalmatrixrow)
 - [`NodeLevel5ProofIngredientName`](#nodelevel5proofingredientname)
 - [`NodeLevel5ProofRefusalCode`](#nodelevel5proofrefusalcode)
 - [`NODE_LEVEL5_PROOF_COMPOSITION_FORMAT_VERSION`](#node_level5_proof_composition_format_version)
@@ -11001,6 +11003,10 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ### NodeLevel5ProofCompositionRefusal
 
+#### Extended by
+
+- [`NodeLevel5ProofRefusalMatrixRow`](#nodelevel5proofrefusalmatrixrow)
+
 #### Properties
 
 ##### code
@@ -11026,6 +11032,94 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 ##### evidenceStatus
 
 > **evidenceStatus**: `"refusal"`
+
+***
+
+### NodeLevel5ProofEvidenceCheck
+
+#### Properties
+
+##### name
+
+> **name**: `"register-translation"` \| `"stack-return-chain-translation"` \| `"private-memory-materialization"` \| `"executable-target-module-materialization"` \| `"target-restore-loader"` \| `"level4-event-loop-resource-map"` \| `"target-native-verifier"`
+
+##### path
+
+> **path**: `string`
+
+##### requiredFragments
+
+> **requiredFragments**: `string`[]
+
+##### status
+
+> **status**: `"failed"` \| `"passed"` \| `"missing"`
+
+##### message
+
+> **message**: `string`
+
+***
+
+### NodeLevel5ProofRefusalMatrixRow
+
+#### Extends
+
+- [`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal)
+
+#### Properties
+
+##### code
+
+> **code**: `"node-level5-tls-rseq-unsupported"` \| `"node-level5-simd-fpu-unsupported"` \| `"node-level5-signal-frame-unsupported"` \| `"node-level5-active-syscall-unsupported"` \| `"node-level5-multithread-unsupported"` \| `"node-level5-memory-mapping-unsupported"` \| `"node-level5-kernel-resource-unsupported"` \| `"node-level5-native-addon-abi-unsupported"` \| `"node-level5-inspector-unsupported"` \| `"node-level5-v8-libuv-state-unsupported"` \| `"node-level5-arbitrary-heap-stack-continuation-refused"`
+
+###### Inherited from
+
+[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`code`](#code-16)
+
+##### message
+
+> **message**: `string`
+
+###### Inherited from
+
+[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`message`](#message-1)
+
+##### migrationCompleted
+
+> **migrationCompleted**: `false`
+
+###### Inherited from
+
+[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`migrationCompleted`](#migrationcompleted-6)
+
+##### productSupport
+
+> **productSupport**: `"unsupported"`
+
+###### Inherited from
+
+[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`productSupport`](#productsupport-2)
+
+##### implementationLevel
+
+> **implementationLevel**: `"level-0-fail-closed-discovery"`
+
+###### Inherited from
+
+[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`implementationLevel`](#implementationlevel-2)
+
+##### evidenceStatus
+
+> **evidenceStatus**: `"refusal"`
+
+###### Inherited from
+
+[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`evidenceStatus`](#evidencestatus-3)
+
+##### unsafeNeighbor
+
+> **unsafeNeighbor**: `"tls-rseq"` \| `"simd-fpu"` \| `"active-signals"` \| `"active-syscalls"` \| `"multithread"` \| `"unsupported-memory-mappings"` \| `"unsupported-kernel-resources"` \| `"native-addon-abi"` \| `"inspector-debug"` \| `"unsupported-v8-libuv-state"` \| `"arbitrary-heap-stack-continuation"`
 
 ***
 
@@ -11069,9 +11163,21 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 > **requiredIngredients**: [`NodeLevel5ProofIngredient`](#nodelevel5proofingredient)[]
 
+##### evidenceChecks?
+
+> `optional` **evidenceChecks?**: [`NodeLevel5ProofEvidenceCheck`](#nodelevel5proofevidencecheck)[]
+
+##### proofRunner?
+
+> `optional` **proofRunner?**: `"scripts/node-level5-proof-composition.ts"`
+
 ##### refusals
 
 > **refusals**: [`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal)[]
+
+##### refusalMatrix
+
+> **refusalMatrix**: [`NodeLevel5ProofRefusalMatrixRow`](#nodelevel5proofrefusalmatrixrow)[]
 
 ##### gates
 
@@ -12218,7 +12324,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Overrides
 
-[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`migrationCompleted`](#migrationcompleted-9)
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`migrationCompleted`](#migrationcompleted-10)
 
 ##### scope
 
@@ -16194,7 +16300,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Overrides
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`migrationCompleted`](#migrationcompleted-26)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`migrationCompleted`](#migrationcompleted-27)
 
 ##### scope
 
@@ -17803,7 +17909,7 @@ kicks in: `<sourceName>/<fork.pid>`.
 
 ###### Overrides
 
-[`RestoreOptions`](#restoreoptions).[`name`](#name-17)
+[`RestoreOptions`](#restoreoptions).[`name`](#name-18)
 
 ##### portForward?
 
@@ -24036,7 +24142,7 @@ available.
 
 ##### input
 
-[`NodeLevel5ProofCompositionInput`](#nodelevel5proofcompositioninput)
+[`NodeLevel5ProofCompositionInput`](#nodelevel5proofcompositioninput) & `object`
 
 #### Returns
 

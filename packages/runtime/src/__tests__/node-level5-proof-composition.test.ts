@@ -70,6 +70,19 @@ describe("Node Level 5 proof composition", () => {
       targetNativeVerifierPresent: true,
     });
 
+    expect(composition.refusalMatrix.map((row) => row.unsafeNeighbor)).toEqual([
+      "tls-rseq",
+      "simd-fpu",
+      "active-signals",
+      "active-syscalls",
+      "multithread",
+      "unsupported-memory-mappings",
+      "unsupported-kernel-resources",
+      "native-addon-abi",
+      "inspector-debug",
+      "unsupported-v8-libuv-state",
+      "arbitrary-heap-stack-continuation",
+    ]);
     expect(composition.refusals).toEqual(
       expect.arrayContaining([
         expect.objectContaining({

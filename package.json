@@ -73,6 +73,7 @@
     "native-boundary-check": "tsx scripts/native-boundary-check.ts verify",
     "portable-machine-snapshot": "tsx scripts/portable-machine-snapshot.ts verify",
     "native-target-vm-synthetic-continuation": "tsx scripts/native-target-vm-synthetic-continuation.ts verify",
+    "node-level5-proof-composition": "tsx scripts/node-level5-proof-composition.ts verify",
     "portable-machine-vm-restore-proof": "tsx scripts/portable-machine-vm-restore-proof.ts verify",
     "portable-machine-proof-runner": "node scripts/portable-machine-proof-runner.mjs",
     "portable-machine-proof-matrix": "node scripts/portable-machine-proof-matrix.mjs",

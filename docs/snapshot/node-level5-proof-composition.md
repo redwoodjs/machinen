@@ -29,6 +29,20 @@ The composition requires:
 
 The proof is not ready unless the Level 4 event-loop map and target-native verifier are both present.
 
+## Proof runner
+
+Run the checked proof runner with:
+
+```sh
+pnpm node-level5-proof-composition -- --out docs/snapshot/checked-summaries/level4-graduation/goal-009-proof-run.json
+```
+
+The runner emits a real `machinen.node-level5-proof-composition` artifact. It reads the native register, stack/return-chain, memory materialization, restore-loader, Goal 008 event-loop map, and target-native verifier evidence before marking the proof ready.
+
+## Public verb routing
+
+Selected Node snapshots now write `node-level5-proof-composition.json` next to the portable Node bundle. `machinen restore` detects that file and writes `node-level5-proof-restore-summary.json`, but returns the stable `node-level5-proof-only-not-product` refusal. This proves the public route is wired without claiming product restore support.
+
 ## Refusals
 
 The composition keeps unsafe Level 5 neighbors fail-closed:

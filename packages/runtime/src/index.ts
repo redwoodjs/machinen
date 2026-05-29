@@ -122,7 +122,9 @@ export type {
   NodeLevel5ProofComposition,
   NodeLevel5ProofCompositionInput,
   NodeLevel5ProofCompositionRefusal,
+  NodeLevel5ProofEvidenceCheck,
   NodeLevel5ProofIngredient,
+  NodeLevel5ProofRefusalMatrixRow,
   NodeLevel5ProofIngredientName,
   NodeLevel5ProofRefusalCode,
 } from "./node-level5-proof-composition.ts";
