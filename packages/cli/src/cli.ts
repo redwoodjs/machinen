@@ -1611,14 +1611,30 @@ async function bootProductLevel4PingForegroundTargetVm(
   descriptor: ProductLevel4PingSocketDescriptor,
 ): Promise<number> {
   assertLocalPingRestoreTargetArch(parsed.targetArch);
+  return runPortableForegroundRestore({
+    name: parsed.name ?? deriveBootName(snapDir),
+    descriptorGuestPath: "/tmp/machinen-restored-ping-descriptor.json",
+    descriptorText: JSON.stringify(descriptor, null, 2),
+    workloadLabel: "restored ping",
+    command: foregroundRestoredPingCommand(descriptor),
+  });
+}
+
+async function runPortableForegroundRestore(input: {
+  name: string;
+  descriptorGuestPath: string;
+  descriptorText: string;
+  workloadLabel: string;
+  command: string;
+}): Promise<number> {
   const paths = await resolveCliBaseAssets();
-  const name = parsed.name ?? deriveBootName(snapDir);
-  process.stderr.write(`restoring portable ping as foreground VM: ${name}\n`);
+  process.stderr.write(`restoring portable workload as foreground VM: ${input.name}\n`);
+  process.stderr.write("booting target VM...\n");
   const vm = await boot({
     image: paths.defaultImagePath,
     kernel: paths.kernelPath,
     dtb: paths.dtbPath,
-    name,
+    name: input.name,
     detached: true,
     cmd: ["sleep", "100000"],
     timeoutMs: undefined,
@@ -1626,16 +1642,18 @@ async function bootProductLevel4PingForegroundTargetVm(
   let interrupted = false;
   const onSigint = () => {
     interrupted = true;
-    void vm.kill().catch(() => undefined);
+    process.stderr.write("\nportable restore interrupted; stopping target VM...\n");
+    void vm
+      .kill()
+      .catch(() => undefined)
+      .finally(() => process.exit(130));
   };
   process.on("SIGINT", onSigint);
   try {
-    await vm.writeFile(
-      "/tmp/machinen-restored-ping-descriptor.json",
-      JSON.stringify(descriptor, null, 2),
-    );
+    process.stderr.write(`target VM ready; attaching ${input.workloadLabel}...\n`);
+    await vm.writeFile(input.descriptorGuestPath, input.descriptorText);
     const result = await vm
-      .execRaw(foregroundRestoredPingCommand(descriptor), {
+      .execRaw(input.command, {
         onStdout: (chunk) => process.stdout.write(chunk),
         onStderr: (chunk) => process.stderr.write(chunk),
         execTimeoutMs: null,
@@ -1737,22 +1755,32 @@ function assertLocalPingRestoreTargetArch(targetArch: string | undefined): void 
 }
 
 function foregroundRestoredPingCommand(descriptor: ProductLevel4PingSocketDescriptor): string {
-  const destination = descriptor.continuation?.destination ?? "127.0.0.1";
-  const intervalSeconds = formatPingIntervalSeconds(descriptor.continuation?.intervalMs ?? 1000);
-  return (
-    "echo $$ >/tmp/machinen-restored-ping.pid; " +
-    `exec /usr/bin/ping -i ${intervalSeconds} ${shellQuote(destination)}`
-  );
+  return "echo $$ >/tmp/machinen-restored-ping.pid; " + restoredPingLoopCommand(descriptor);
 }
 
 function startRestoredPingCommand(descriptor: ProductLevel4PingSocketDescriptor): string {
-  const destination = descriptor.continuation?.destination ?? "127.0.0.1";
-  const intervalSeconds = formatPingIntervalSeconds(descriptor.continuation?.intervalMs ?? 1000);
   const logPath = descriptor.continuation?.outputLogPath ?? "/tmp/machinen-restored-ping.log";
   return (
     `rm -f ${shellQuote(logPath)} /tmp/machinen-restored-ping.pid; ` +
-    `nohup /usr/bin/ping -i ${intervalSeconds} ${shellQuote(destination)} >${shellQuote(logPath)} 2>&1 & ` +
+    `( ${restoredPingLoopCommand(descriptor)} ) >${shellQuote(logPath)} 2>&1 & ` +
     "echo $! >/tmp/machinen-restored-ping.pid"
+  );
+}
+
+function restoredPingLoopCommand(descriptor: ProductLevel4PingSocketDescriptor): string {
+  const destination = descriptor.continuation?.destination ?? "127.0.0.1";
+  const intervalSeconds = formatPingIntervalSeconds(descriptor.continuation?.intervalMs ?? 1000);
+  return (
+    "printed_header=0; " +
+    "while :; do " +
+    'if [ "$printed_header" = 0 ]; then ' +
+    `/usr/bin/ping -c 1 -W 1 ${shellQuote(destination)} | sed -n '/^PING /p;/bytes from/p'; ` +
+    "printed_header=1; " +
+    "else " +
+    `/usr/bin/ping -c 1 -W 1 ${shellQuote(destination)} | sed -n '/bytes from/p'; ` +
+    "fi; " +
+    `sleep ${intervalSeconds}; ` +
+    "done"
   );
 }
 
