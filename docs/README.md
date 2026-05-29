@@ -40,7 +40,7 @@ Snapshot internals:
 - [Goal 017 timerfd Level 4 portable restore](./snapshot/level4-timerfd-portable-restore.md) — fourth portable restore adapter and narrow target-native relative one-shot timerfd reconstruction
 - [Goal 018 TCP listener Level 4 portable restore](./snapshot/level4-tcp-listener-portable-restore.md) — fifth portable restore adapter and narrow target-native loopback listener reconstruction
 - [Goal 008 Node event-loop Level 4 resource map](./snapshot/level4-node-event-loop-resource-map.md) — planning map from Node/libuv handles to generic Level 4 descriptors and refusals
-- [Goal 009 Node Level 5 proof composition](./snapshot/node-level5-proof-composition.md) — selected Node proof path composed from native/process evidence and the Goal 008 Level 4 resource map
+- [Goal 009/019 Node Level 5 proof composition](./snapshot/node-level5-proof-composition.md) — selected Node proof path composed from native/process evidence, the Goal 008 Level 4 resource map, and default public restore proof evidence
 - [portable machine proof profiles](./snapshot/portable-machine-proof-profiles.md) — positive and negative proof profiles for target-native completion and fail-closed refusals
 - [portable proof matrices](./snapshot/proof-matrices.md) — one-command matrix presets and JSON summary shape
 - [runtime-neutral adapter boundary](./snapshot/runtime-adapter-boundary.md) — shared adapter contract for future runtime-specific tracks

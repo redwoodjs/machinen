@@ -22,6 +22,7 @@ Goal files are grouped by cohort so proof records for each project stay together
 - [`016.md`](./016.md) — Add pipes as the third portable restore adapter/resource.
 - [`017.md`](./017.md) — Add timerfd as the fourth portable restore adapter/resource.
 - [`018.md`](./018.md) — Add TCP listener as the fifth portable restore adapter/resource.
+- [`019.md`](./019.md) — Make selected Node Level 5 proof run by default on public restore.
 
 ## Cohorts
 
