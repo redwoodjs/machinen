@@ -128,7 +128,7 @@ export const COMMANDS: CommandSpec[] = [
       {
         name: "runtime",
         description:
-          "Portable product runtime to capture: 'postgres', 'eventfd', or 'ping-socket'.",
+          "Portable product runtime to capture: 'postgres', 'eventfd', 'pipe', or 'ping-socket'.",
       },
     ],
     flags: [
@@ -147,12 +147,37 @@ export const COMMANDS: CommandSpec[] = [
       },
       { name: "--dump", type: "string", description: "Logical pg_dump artifact (postgres)." },
       { name: "--counter", type: "string", description: "Eventfd counter value (eventfd)." },
+      { name: "--read-fd", type: "integer", description: "Source pipe read-end fd (pipe)." },
+      { name: "--write-fd", type: "integer", description: "Source pipe write-end fd (pipe)." },
+      {
+        name: "--buffer",
+        type: "enum",
+        values: ["empty", "bytes", "unknown"],
+        description: "Pipe buffer state; anything other than empty refuses.",
+      },
+      {
+        name: "--buffered-bytes-hex",
+        type: "string",
+        description: "Buffered pipe bytes; currently refuses for pipe.",
+      },
+      {
+        name: "--peer-lifetime",
+        type: "enum",
+        values: ["open", "closed", "unknown"],
+        description: "Pipe peer lifetime; anything other than open refuses.",
+      },
+      {
+        name: "--readiness",
+        type: "enum",
+        values: ["not-readable", "readable", "unknown"],
+        description: "Pipe readiness; anything other than not-readable refuses.",
+      },
       { name: "--semaphore", type: "boolean", description: "Refuse semaphore-mode eventfd." },
       {
         name: "--waiters",
         type: "enum",
         values: ["none", "unknown"],
-        description: "Eventfd waiter state; anything other than none refuses.",
+        description: "Eventfd/pipe waiter state; anything other than none refuses.",
       },
       {
         name: "--aliases",
@@ -164,12 +189,12 @@ export const COMMANDS: CommandSpec[] = [
       {
         name: "--nonblocking",
         type: "boolean",
-        description: "Refuse unsupported eventfd nonblocking flag.",
+        description: "Refuse unsupported eventfd/pipe nonblocking flag.",
       },
       {
         name: "--active-syscall",
         type: "boolean",
-        description: "Refuse active eventfd syscall state.",
+        description: "Refuse active eventfd/pipe syscall state.",
       },
       {
         name: "--source-verifier-output",

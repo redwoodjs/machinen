@@ -120,9 +120,60 @@ const IMPLEMENTED_PRODUCT_PROFILES = new Set([
   "go-cross-arch-runtime-policy",
   "ping-level4-socket-reconstruction-v1",
   "eventfd-counter-v1-nonsemaphore-no-waiters",
+  "pipe-pair-v1-empty-no-waiters",
 ]);
 
 const BUILTIN_PRODUCT_PROFILES: ProductClaimProofProfileInput[] = [
+  {
+    name: "pipe-pair-v1-empty-no-waiters",
+    description:
+      "Goal 016 portable restore adapter product route: reconstruct an empty target-native pipe pair when there is exactly one read end and one write end, peer lifetime is known open, waiters are known empty, readiness is known not-readable, flags are limited to close-on-exec, and no pipe syscall is active.",
+    sourceFixture: "portable-restore-adapter:pipe-pair-v1-empty-no-waiters",
+    expectedResult: "success",
+    supportStatus: "implemented-product-support",
+    productSupportLevel: "level-4-kernel-resource-reconstruction",
+    unsafeStateFamily: "pipe-pair",
+    capabilities: [
+      "goal016:portable-restore-adapter",
+      "goal016:level-4-kernel-resource-reconstruction",
+      "fd:pipe-read-end",
+      "fd:pipe-write-end",
+      "pipe:empty-buffer",
+      "pipe:peer-open",
+      "pipe:no-waiters",
+      "pipe:not-readable",
+      "pipe:close-on-exec",
+      "goal016:target-native-verifier",
+    ],
+    observableStateDecisions: [
+      {
+        name: "pipe-pair",
+        decision: "recreated",
+        rationale: "the target creates a fresh Linux pipe pair instead of replaying source text",
+      },
+      {
+        name: "pipe-buffer",
+        decision: "preserved",
+        rationale: "the supported product boundary preserves the observed empty-buffer state",
+      },
+      {
+        name: "pipe-waiters",
+        decision: "refused",
+        rationale: "waiters must be known empty for this first product boundary",
+      },
+      {
+        name: "pipe-buffered-bytes",
+        decision: "refused",
+        rationale:
+          "buffered bytes are refused until a later adapter models byte replay and ordering",
+      },
+    ],
+    checkedSummary: "docs/snapshot/checked-summaries/level4-graduation/goal-016.json",
+    refusalSupportContract: {
+      currentRefusalCode: "pipe-waiters-unsupported",
+      graduationRequires: [],
+    },
+  },
   {
     name: "eventfd-counter-v1-nonsemaphore-no-waiters",
     description:

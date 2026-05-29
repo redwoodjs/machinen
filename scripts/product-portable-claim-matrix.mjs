@@ -106,6 +106,7 @@ function implementedSubsets(primarySubset) {
         "go-http-clean-root-v1",
         "ping-level4-socket-reconstruction-v1",
         "eventfd-counter-v1-nonsemaphore-no-waiters",
+        "pipe-pair-v1-empty-no-waiters",
       ]
     : [primarySubset];
 }

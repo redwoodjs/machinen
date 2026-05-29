@@ -244,6 +244,27 @@
 - [`isProductPortablePostgresBundle`](#isproductportablepostgresbundle)
 - [`productPortablePostgresFileSha256`](#productportablepostgresfilesha256)
 
+### Product Level 4 pipe
+
+- [`ProductLevel4PipeError`](#productlevel4pipeerror)
+- [`ProductLevel4PipeCaptureInput`](#productlevel4pipecaptureinput)
+- [`ProductLevel4PipeDescriptor`](#productlevel4pipedescriptor)
+- [`ProductLevel4PipeRefusal`](#productlevel4piperefusal)
+- [`ProductLevel4PipeRestoreInput`](#productlevel4piperestoreinput)
+- [`ProductLevel4PipeRestoreSummary`](#productlevel4piperestoresummary)
+- [`ProductLevel4PipeArchitecture`](#productlevel4pipearchitecture)
+- [`ProductLevel4PipeRefusalCode`](#productlevel4piperefusalcode)
+- [`ProductLevel4PipeCaptureResult`](#productlevel4pipecaptureresult)
+- [`PRODUCT_LEVEL4_PIPE_FORMAT_VERSION`](#product_level4_pipe_format_version)
+- [`PRODUCT_LEVEL4_PIPE_MANIFEST`](#product_level4_pipe_manifest)
+- [`PRODUCT_LEVEL4_PIPE_REFUSAL`](#product_level4_pipe_refusal)
+- [`PRODUCT_LEVEL4_PIPE_RESTORE_SUMMARY`](#product_level4_pipe_restore_summary)
+- [`productLevel4PipeArchitectures`](#productlevel4pipearchitectures)
+- [`productLevel4PipeRefusalCodes`](#productlevel4piperefusalcodes)
+- [`createProductLevel4PipeSnapshot`](#createproductlevel4pipesnapshot)
+- [`isProductLevel4PipeBundle`](#isproductlevel4pipebundle)
+- [`restoreProductLevel4PipeSnapshot`](#restoreproductlevel4pipesnapshot)
+
 ### Product Level 4 eventfd
 
 - [`ProductLevel4EventfdError`](#productlevel4eventfderror)
@@ -2101,6 +2122,44 @@ Attach to `id`. Throws if id doesn't exist.
 ###### Returns
 
 [`ProductLevel4PingSocketError`](#productlevel4pingsocketerror)
+
+###### Overrides
+
+`Error.constructor`
+
+#### Properties
+
+##### code
+
+> `readonly` **code**: `string`
+
+***
+
+### ProductLevel4PipeError
+
+#### Extends
+
+- `Error`
+
+#### Constructors
+
+##### Constructor
+
+> **new ProductLevel4PipeError**(`code`, `message`): [`ProductLevel4PipeError`](#productlevel4pipeerror)
+
+###### Parameters
+
+###### code
+
+`string`
+
+###### message
+
+`string`
+
+###### Returns
+
+[`ProductLevel4PipeError`](#productlevel4pipeerror)
 
 ###### Overrides
 
@@ -13035,6 +13094,420 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ***
 
+### ProductLevel4PipeCaptureInput
+
+#### Properties
+
+##### outDir
+
+> **outDir**: `string`
+
+##### sourceArch
+
+> **sourceArch**: `"amd64"` \| `"arm64"`
+
+##### targetArch
+
+> **targetArch**: `"amd64"` \| `"arm64"`
+
+##### sourceVerifierOutput
+
+> **sourceVerifierOutput**: `string`
+
+##### readFd
+
+> **readFd**: `number`
+
+##### writeFd
+
+> **writeFd**: `number`
+
+##### buffer?
+
+> `optional` **buffer?**: `"bytes"` \| `"unknown"` \| `"empty"`
+
+##### bufferedBytesHex?
+
+> `optional` **bufferedBytesHex?**: `string`
+
+##### peerLifetime?
+
+> `optional` **peerLifetime?**: `"unknown"` \| `"open"` \| `"closed"`
+
+##### waiters?
+
+> `optional` **waiters?**: `"none"` \| `"unknown"`
+
+##### readiness?
+
+> `optional` **readiness?**: `"readable"` \| `"unknown"` \| `"not-readable"`
+
+##### closeOnExec?
+
+> `optional` **closeOnExec?**: `boolean`
+
+##### nonblocking?
+
+> `optional` **nonblocking?**: `boolean`
+
+##### activeSyscall?
+
+> `optional` **activeSyscall?**: `boolean`
+
+##### outputLogPath?
+
+> `optional` **outputLogPath?**: `"/tmp/machinen-restored-pipe.log"`
+
+##### dryRun?
+
+> `optional` **dryRun?**: `boolean`
+
+***
+
+### ProductLevel4PipeDescriptor
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.product-level4-pipe"`
+
+##### formatVersion
+
+> **formatVersion**: `1`
+
+##### supportLevel
+
+> **supportLevel**: `"implemented-product-support"`
+
+##### subset
+
+> **subset**: `"pipe-pair-v1-empty-no-waiters"`
+
+##### implementationLevel
+
+> **implementationLevel**: `"level-4-kernel-resource-reconstruction"`
+
+##### runtime
+
+> **runtime**: `"native-linux-resource"`
+
+##### captureSurface
+
+> **captureSurface**: `"machinen capture pipe"`
+
+##### restoreSurface
+
+> **restoreSurface**: `"machinen restore <bundle> --target-arch <arch> [--target-verifier-output <file>]"`
+
+##### source
+
+> **source**: `object`
+
+###### architecture
+
+> **architecture**: `"amd64"` \| `"arm64"`
+
+###### host
+
+> **host**: `object`
+
+###### host.arch
+
+> **arch**: `string`
+
+###### host.platform
+
+> **platform**: `string`
+
+###### host.release
+
+> **release**: `string`
+
+##### target
+
+> **target**: `object`
+
+###### architecture
+
+> **architecture**: `"amd64"` \| `"arm64"`
+
+##### pipe
+
+> **pipe**: `object`
+
+###### readFd
+
+> **readFd**: `number`
+
+###### writeFd
+
+> **writeFd**: `number`
+
+###### buffer
+
+> **buffer**: `"empty"`
+
+###### peerLifetime
+
+> **peerLifetime**: `"open"`
+
+###### waiters
+
+> **waiters**: `"none"`
+
+###### readiness
+
+> **readiness**: `"not-readable"`
+
+###### closeOnExec
+
+> **closeOnExec**: `true`
+
+###### nonblocking
+
+> **nonblocking**: `false`
+
+##### continuation
+
+> **continuation**: `object`
+
+###### outputLogPath
+
+> **outputLogPath**: `"/tmp/machinen-restored-pipe.log"`
+
+###### pipePolicy
+
+> **pipePolicy**: `"target-native-empty-pipe-pair-recreated"`
+
+###### readinessPolicy
+
+> **readinessPolicy**: `"empty-pipe-read-end-not-readable"`
+
+##### gates
+
+> **gates**: `object`
+
+###### exactlyOneReadAndWriteEndRequired
+
+> **exactlyOneReadAndWriteEndRequired**: `true`
+
+###### emptyBufferRequired
+
+> **emptyBufferRequired**: `true`
+
+###### peerLifetimeOpenRequired
+
+> **peerLifetimeOpenRequired**: `true`
+
+###### noWaitersRequired
+
+> **noWaitersRequired**: `true`
+
+###### notReadableReadinessRequired
+
+> **notReadableReadinessRequired**: `true`
+
+###### onlyCloseOnExecFlagSupported
+
+> **onlyCloseOnExecFlagSupported**: `true`
+
+###### noActivePipeSyscallRequired
+
+> **noActivePipeSyscallRequired**: `true`
+
+###### targetNativeVerificationRequired
+
+> **targetNativeVerificationRequired**: `true`
+
+###### sourceIsaEmulationAllowed
+
+> **sourceIsaEmulationAllowed**: `false`
+
+###### sourceTextReplayAllowed
+
+> **sourceTextReplayAllowed**: `false`
+
+###### sidecarRuntimeAllowed
+
+> **sidecarRuntimeAllowed**: `false`
+
+###### metadataOnlyContinuationAllowed
+
+> **metadataOnlyContinuationAllowed**: `false`
+
+##### sourceVerifierOutput
+
+> **sourceVerifierOutput**: `string`
+
+##### sourceVerifierOutputSha256
+
+> **sourceVerifierOutputSha256**: `string`
+
+***
+
+### ProductLevel4PipeRefusal
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.product-level4-pipe-refusal"`
+
+##### formatVersion
+
+> **formatVersion**: `1`
+
+##### runtime
+
+> **runtime**: `"native-linux-resource"`
+
+##### supportLevel
+
+> **supportLevel**: `"explicit-refusal"`
+
+##### state
+
+> **state**: `"refused"`
+
+##### migrationCompleted
+
+> **migrationCompleted**: `false`
+
+##### expectedRefusalCode
+
+> **expectedRefusalCode**: `"pipe-waiters-unsupported"` \| `"pipe-source-target-arch-match"` \| `"pipe-target-arch-mismatch"` \| `"pipe-target-verifier-mismatch"` \| `"pipe-fd-pair-invalid"` \| `"pipe-buffered-data-unsupported"` \| `"pipe-peer-lifetime-unsupported"` \| `"pipe-readiness-unsupported"` \| `"pipe-unsupported-flags"` \| `"pipe-active-syscall-unsupported"`
+
+##### message
+
+> **message**: `string`
+
+##### evidence
+
+> **evidence**: `Record`\<`string`, `unknown`\>
+
+##### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+##### sourceTextReusedAsTargetCode
+
+> **sourceTextReusedAsTargetCode**: `false`
+
+##### sidecarRuntimeUsed
+
+> **sidecarRuntimeUsed**: `false`
+
+##### metadataOnlyShortcutAccepted
+
+> **metadataOnlyShortcutAccepted**: `false`
+
+***
+
+### ProductLevel4PipeRestoreInput
+
+#### Properties
+
+##### bundleDir
+
+> **bundleDir**: `string`
+
+##### targetArch
+
+> **targetArch**: `"amd64"` \| `"arm64"`
+
+##### targetVerifierOutput
+
+> **targetVerifierOutput**: `string`
+
+##### dryRun?
+
+> `optional` **dryRun?**: `boolean`
+
+***
+
+### ProductLevel4PipeRestoreSummary
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.product-level4-pipe-restore-summary"`
+
+##### formatVersion
+
+> **formatVersion**: `1`
+
+##### runtime
+
+> **runtime**: `"native-linux-resource"`
+
+##### subset
+
+> **subset**: `"pipe-pair-v1-empty-no-waiters"`
+
+##### supportLevel
+
+> **supportLevel**: `"implemented-product-support"`
+
+##### implementationLevel
+
+> **implementationLevel**: `"level-4-kernel-resource-reconstruction"`
+
+##### state
+
+> **state**: `"refused"` \| `"completed"`
+
+##### migrationCompleted
+
+> **migrationCompleted**: `boolean`
+
+##### sourceArch?
+
+> `optional` **sourceArch?**: `"amd64"` \| `"arm64"`
+
+##### targetArch
+
+> **targetArch**: `"amd64"` \| `"arm64"`
+
+##### targetVerifierResult
+
+> **targetVerifierResult**: `"failed"` \| `"passed"` \| `"not-run"`
+
+##### descriptorSha256?
+
+> `optional` **descriptorSha256?**: `string`
+
+##### targetVerifierOutputSha256?
+
+> `optional` **targetVerifierOutputSha256?**: `string`
+
+##### refusal?
+
+> `optional` **refusal?**: [`ProductLevel4PipeRefusal`](#productlevel4piperefusal)
+
+##### shortcutInspection
+
+> **shortcutInspection**: `object`
+
+###### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+###### sourceTextReusedAsTargetCode
+
+> **sourceTextReusedAsTargetCode**: `false`
+
+###### sidecarRuntimeUsed
+
+> **sidecarRuntimeUsed**: `false`
+
+###### metadataOnlyShortcutAccepted
+
+> **metadataOnlyShortcutAccepted**: `false`
+
+***
+
 ### ProductPortablePostgresClaimClassification
 
 #### Properties
@@ -14494,7 +14967,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`runtime`](#runtime-11)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`runtime`](#runtime-14)
 
 ##### profile
 
@@ -14518,7 +14991,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`sourceArch`](#sourcearch-18)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`sourceArch`](#sourcearch-20)
 
 ##### targetArch
 
@@ -14526,7 +14999,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`targetArch`](#targetarch-32)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`targetArch`](#targetarch-35)
 
 ##### stateModel
 
@@ -14582,7 +15055,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`evidence`](#evidence-12)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`evidence`](#evidence-13)
 
 ##### kind
 
@@ -14594,7 +15067,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Overrides
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`migrationCompleted`](#migrationcompleted-19)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`migrationCompleted`](#migrationcompleted-21)
 
 ##### scope
 
@@ -18288,6 +18761,24 @@ Result of `validatePid` — easy to switch on at the call site.
 
 ***
 
+### ProductLevel4PipeArchitecture
+
+> **ProductLevel4PipeArchitecture** = *typeof* [`productLevel4PipeArchitectures`](#productlevel4pipearchitectures)\[`number`\]
+
+***
+
+### ProductLevel4PipeRefusalCode
+
+> **ProductLevel4PipeRefusalCode** = *typeof* [`productLevel4PipeRefusalCodes`](#productlevel4piperefusalcodes)\[`number`\]
+
+***
+
+### ProductLevel4PipeCaptureResult
+
+> **ProductLevel4PipeCaptureResult** = \{ `state`: `"completed"`; `migrationCompleted`: `true`; `bundleDir`: `string`; `descriptor`: [`ProductLevel4PipeDescriptor`](#productlevel4pipedescriptor); `dryRun`: `boolean`; \} \| \{ `state`: `"refused"`; `migrationCompleted`: `false`; `bundleDir`: `string`; `refusal`: [`ProductLevel4PipeRefusal`](#productlevel4piperefusal); `dryRun`: `boolean`; \}
+
+***
+
 ### ProductPortablePostgresArchitecture
 
 > **ProductPortablePostgresArchitecture** = *typeof* [`productPortablePostgresArchitectures`](#productportablepostgresarchitectures)\[`number`\]
@@ -20261,6 +20752,42 @@ loops; anything looser stops being a meaningful gate.
 ### productLevel4PingSocketRefusalCodes
 
 > `const` **productLevel4PingSocketRefusalCodes**: readonly \[`"ping-socket-active-recvmsg-unsupported"`, `"ping-socket-unread-receive-queue-unsupported"`, `"ping-socket-inflight-packets-unsupported"`, `"ping-socket-ambiguous-route-or-namespace"`, `"ping-socket-missing-credential-or-capability"`, `"ping-socket-unsupported-raw-socket-option"`, `"ping-socket-source-target-arch-match"`, `"ping-socket-target-arch-mismatch"`, `"ping-socket-target-verifier-mismatch"`\]
+
+***
+
+### PRODUCT\_LEVEL4\_PIPE\_FORMAT\_VERSION
+
+> `const` **PRODUCT\_LEVEL4\_PIPE\_FORMAT\_VERSION**: `1`
+
+***
+
+### PRODUCT\_LEVEL4\_PIPE\_MANIFEST
+
+> `const` **PRODUCT\_LEVEL4\_PIPE\_MANIFEST**: `"portable-pipe.json"`
+
+***
+
+### PRODUCT\_LEVEL4\_PIPE\_REFUSAL
+
+> `const` **PRODUCT\_LEVEL4\_PIPE\_REFUSAL**: `"portable-pipe-refusal.json"`
+
+***
+
+### PRODUCT\_LEVEL4\_PIPE\_RESTORE\_SUMMARY
+
+> `const` **PRODUCT\_LEVEL4\_PIPE\_RESTORE\_SUMMARY**: `"portable-pipe-restore-summary.json"`
+
+***
+
+### productLevel4PipeArchitectures
+
+> `const` **productLevel4PipeArchitectures**: readonly \[`"arm64"`, `"amd64"`\]
+
+***
+
+### productLevel4PipeRefusalCodes
+
+> `const` **productLevel4PipeRefusalCodes**: readonly \[`"pipe-source-target-arch-match"`, `"pipe-target-arch-mismatch"`, `"pipe-target-verifier-mismatch"`, `"pipe-fd-pair-invalid"`, `"pipe-buffered-data-unsupported"`, `"pipe-peer-lifetime-unsupported"`, `"pipe-waiters-unsupported"`, `"pipe-readiness-unsupported"`, `"pipe-unsupported-flags"`, `"pipe-active-syscall-unsupported"`\]
 
 ***
 
@@ -22805,6 +23332,54 @@ readonly (`number` \| [`RssTarget`](#rsstarget))[]
 #### Returns
 
 [`ProductLevel4PingSocketRestoreSummary`](#productlevel4pingsocketrestoresummary)
+
+***
+
+### createProductLevel4PipeSnapshot()
+
+> **createProductLevel4PipeSnapshot**(`input`): [`ProductLevel4PipeCaptureResult`](#productlevel4pipecaptureresult)
+
+#### Parameters
+
+##### input
+
+[`ProductLevel4PipeCaptureInput`](#productlevel4pipecaptureinput)
+
+#### Returns
+
+[`ProductLevel4PipeCaptureResult`](#productlevel4pipecaptureresult)
+
+***
+
+### isProductLevel4PipeBundle()
+
+> **isProductLevel4PipeBundle**(`bundleDir`): `boolean`
+
+#### Parameters
+
+##### bundleDir
+
+`string`
+
+#### Returns
+
+`boolean`
+
+***
+
+### restoreProductLevel4PipeSnapshot()
+
+> **restoreProductLevel4PipeSnapshot**(`input`): [`ProductLevel4PipeRestoreSummary`](#productlevel4piperestoresummary)
+
+#### Parameters
+
+##### input
+
+[`ProductLevel4PipeRestoreInput`](#productlevel4piperestoreinput)
+
+#### Returns
+
+[`ProductLevel4PipeRestoreSummary`](#productlevel4piperestoresummary)
 
 ***
 
