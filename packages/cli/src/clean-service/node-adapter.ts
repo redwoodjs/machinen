@@ -7,6 +7,7 @@ import {
   runtimePolicyFor,
   type CleanServiceCapture,
   type CleanServiceKernelResourceReport,
+  type CleanServiceNodeEventLoopResources,
 } from "./manifest.ts";
 
 export interface PortableNodeSnapshotBundle {
@@ -21,6 +22,7 @@ export interface PortableNodeSnapshotBundle {
   guestPort: number;
   verifier: { kind: "http-get"; path: "/"; sha256: string; bytes: number };
   kernelResources?: CleanServiceKernelResourceReport;
+  eventLoopResources?: CleanServiceNodeEventLoopResources;
   appTar: { path: "portable-node-app.tar.gz"; sha256: string; bytes: number };
   refusals: [];
 }
@@ -65,6 +67,7 @@ export async function inspectPortableNodeVm(
     guestPort: parsed.guestPort,
     verifier: parsed.verifier,
     kernelResources: parsed.kernelResources,
+    eventLoopResources: parsed.eventLoopResources,
     appTar: {
       path: "portable-node-app.tar.gz",
       sha256: opts.sha256Bytes(appBytes),
@@ -96,6 +99,7 @@ export function cleanServiceFromNode(bundle: PortableNodeSnapshotCapture): Clean
         guestPort: bundle.guestPort,
         verifier: bundle.verifier,
         kernelResources: bundle.kernelResources,
+        eventLoopResources: bundle.eventLoopResources,
         artifact: { ...bundle.appTar, path: artifactPath },
         provenance: {
           sourceCwd: bundle.sourceCwd,
@@ -141,19 +145,41 @@ if (cwd === '/mnt' || cwd.startsWith('/mnt/')) {
   console.log(JSON.stringify({ refusal: { code: 'node-host-mounted-state-ambiguous', message: 'Node cwd is on a host mount; dirty mounted state cannot be proven portable' } }));
   process.exit(0);
 }
+const eventLoopResources = {
+  kind: 'machinen.node-event-loop-level4-resource-map',
+  formatVersion: 1,
+  sourceGoal: '008',
+  evidenceStatus: 'planning',
+  productSupport: 'not-yet-supported',
+  implementationLevel: 'not-implemented',
+  graduationTargetLevel: 'level-4-kernel-resource-reconstruction',
+  genericResources: [],
+  refusals: [],
+  summary: { mapped: 0, refused: 0 }
+};
+function mapLevel4Resource(resource) { eventLoopResources.genericResources.push(resource); eventLoopResources.summary.mapped += 1; }
+function eventLoopRefusal(code, message, genericProfile) {
+  const refusal = { code, message, migrationCompleted: false, productSupport: 'unsupported', implementationLevel: 'level-0-fail-closed-discovery' };
+  if (genericProfile) refusal.genericProfile = genericProfile;
+  eventLoopResources.refusals.push(refusal);
+  eventLoopResources.summary.refused += 1;
+  return { code, message };
+}
 const child = pids.find((pid) => pid !== found.pid && existsSync('/proc/' + pid + '/stat') && readFileSync('/proc/' + pid + '/stat', 'utf8').split(' ')[3] === found.pid);
 if (child) {
-  console.log(JSON.stringify({ refusal: { code: 'node-child-process-tree-unsupported', message: 'Node child process or IPC trees are not portable yet' } }));
+  const refusal = eventLoopRefusal('node-child-process-tree-unsupported', 'Node child process or IPC trees are not portable yet');
+  console.log(JSON.stringify({ refusal, eventLoopResources }));
   process.exit(0);
 }
 const nativeAddon = sh("find " + JSON.stringify(cwd) + " -type f -name '*.node' -print -quit 2>/dev/null || true");
 if (nativeAddon) {
-  console.log(JSON.stringify({ refusal: { code: 'node-native-addon-abi-state-unsupported', message: 'Native addon state is architecture-specific and is not portable yet' } }));
+  const refusal = eventLoopRefusal('node-native-addon-abi-state-unsupported', 'Native addon state is architecture-specific and is not portable yet');
+  console.log(JSON.stringify({ refusal, eventLoopResources }));
   process.exit(0);
 }
 const kernelResources = { decisionModel: 'supported-irrelevant-refused', supported: [], irrelevant: [], refused: [], summary: { supported: 0, irrelevant: 0, refused: 0 } };
 function decision(kind, code, message) { kernelResources[kind].push(code); kernelResources.summary[kind] += 1; return { code, message }; }
-function refuse(code, message) { const refusal = decision('refused', code, message); console.log(JSON.stringify({ refusal, kernelResources })); process.exit(0); }
+function refuse(code, message, genericProfile) { const refusal = decision('refused', code, message); eventLoopRefusal(code, message, genericProfile); console.log(JSON.stringify({ refusal, kernelResources, eventLoopResources })); process.exit(0); }
 function inside(path, root) { return path === root || path.startsWith(root.replace(/\/+$/, '') + '/'); }
 const socketInodes = new Set();
 for (const fd of readdirSync('/proc/' + found.pid + '/fd')) {
@@ -164,11 +190,12 @@ for (const fd of readdirSync('/proc/' + found.pid + '/fd')) {
     const match = /^socket:\[(\d+)\]$/.exec(link);
     if (match) { socketInodes.add(match[1]); decision('supported', 'clean-service-socket-fd-modeled', 'socket fd will be evaluated by socket table inspection'); continue; }
     if (link.endsWith(' (deleted)')) refuse('node-deleted-open-file-unsupported', 'Deleted-but-open files are not portable clean-service state');
-    if (link.startsWith('pipe:[')) { decision('supported', 'clean-service-runtime-pipe-recreated-by-startup', 'runtime pipe fd is recreated by target-native process startup'); continue; }
+    if (link.startsWith('pipe:[')) { decision('supported', 'clean-service-runtime-pipe-recreated-by-startup', 'runtime pipe fd is recreated by target-native process startup'); mapLevel4Resource({ kind: 'pipe', libuvHandle: 'uv_pipe_t/runtime', genericProfile: 'pipe-pair-v1-empty-no-waiters', decision: 'mapped-to-target-runtime-startup', details: { fd: fdNum, policy: 'target runtime recreates internal pipe handles; user-visible pipes require the generic pipe descriptor' } }); continue; }
     if (link.startsWith('fifo:[')) refuse('node-open-fd-unsupported', 'FIFOs require an explicit clean-service descriptor model');
     if (link === 'anon_inode:[eventpoll]') { decision('supported', 'clean-service-epoll-recreated-by-runtime-start', 'epoll fd is recreated by target-native runtime startup'); continue; }
-    if (link === 'anon_inode:[eventfd]') { decision('supported', 'clean-service-eventfd-recreated-by-runtime-start', 'eventfd is recreated by target-native runtime startup'); continue; }
-    if (link === 'anon_inode:[timerfd]') refuse('node-timerfd-state-unsupported', 'timerfd deadlines are not replayed by clean-service restore');
+    if (link === 'anon_inode:[eventfd]') { decision('supported', 'clean-service-eventfd-recreated-by-runtime-start', 'eventfd is recreated by target-native runtime startup'); mapLevel4Resource({ kind: 'eventfd', libuvHandle: 'uv_async_t/event-loop-wakeup', genericProfile: 'eventfd-counter-v1-nonsemaphore-no-waiters', decision: 'mapped-to-target-runtime-startup', details: { fd: fdNum, policy: 'target runtime recreates async wakeup eventfd; captured counters/waiters require the generic eventfd descriptor' } }); continue; }
+    if (link === 'anon_inode:[timerfd]') refuse('node-timerfd-state-unsupported', 'timerfd deadlines are not replayed by clean-service restore', 'timerfd-relative-oneshot-v1-monotonic');
+    if (link === 'anon_inode:inotify' || link === 'anon_inode:[inotify]') refuse('node-fs-watcher-unsupported', 'Node/libuv fs watcher state requires an explicit generic descriptor before it can be portable');
     if (link === 'anon_inode:[signalfd]') refuse('node-signalfd-state-unsupported', 'signalfd and pending signal state are not modeled by clean-service restore');
     if (link.startsWith('/') && inside(link, cwd)) { decision('supported', 'clean-service-app-root-fd-captured', 'open file is inside the captured app root'); continue; }
     if (link.startsWith('/dev/')) { decision('irrelevant', 'clean-service-runtime-device-fd-irrelevant', 'runtime device fd is recreated by target-native startup'); continue; }
@@ -182,10 +209,11 @@ for (const net of ['/proc/net/tcp', '/proc/net/tcp6']) {
     if (!socketInodes.has(cols[9])) continue;
     const port = Number.parseInt(cols[1].split(':')[1], 16);
     if (cols[3] === '0A') {
-      if (port !== ${guestPort}) refuse('node-unexpected-listener-unsupported', 'Listening socket is not declared by the clean-service verifier model');
+      if (port !== ${guestPort}) refuse('node-unexpected-listener-unsupported', 'Listening socket is not declared by the clean-service verifier model', 'tcp-listener-v1-loopback-empty-accept-queue');
       decision('supported', 'clean-service-listener-rebound', 'expected listener socket will be rebound by target-native service start');
+      mapLevel4Resource({ kind: 'tcp-listener', libuvHandle: 'uv_tcp_t/server', genericProfile: 'tcp-listener-v1-loopback-empty-accept-queue', decision: 'mapped-to-generic-level4-descriptor', details: { family: 'inet', protocol: 'tcp', bindAddress: '127.0.0.1', port, backlog: 'requires-node-verifier', acceptQueue: 'empty', activeConnections: false, descriptorSource: 'goals/007.md generic TCP listener descriptor' } });
     } else {
-      refuse('node-active-tcp-session-unsupported', 'Active TCP/TLS sessions are not portable in the Node HTTP subset yet');
+      refuse('node-active-tcp-session-unsupported', 'Active TCP/TLS sessions are not portable in the Node HTTP subset yet', 'tcp-listener-v1-loopback-empty-accept-queue');
     }
   }
 }
@@ -227,6 +255,7 @@ const out = {
   guestPort: ${guestPort},
   verifier: { kind: 'http-get', path: '/', sha256: createHash('sha256').update(body).digest('hex'), bytes: Buffer.byteLength(body) },
   kernelResources,
+  eventLoopResources,
   refusals: [],
   appTarBase64
 };

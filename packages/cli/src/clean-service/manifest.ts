@@ -1,3 +1,5 @@
+import type { NodeEventLoopLevel4ResourceMap } from "./node-event-loop-resource-map.ts";
+
 type CleanServiceArch = "arm64" | "amd64";
 type CleanServiceRuntime = "node" | "python" | "go";
 type CleanServiceSubset =
@@ -56,6 +58,8 @@ export interface CleanServiceManifest {
   };
 }
 
+export type CleanServiceNodeEventLoopResources = NodeEventLoopLevel4ResourceMap;
+
 export interface CleanServiceComponent {
   id: string;
   runtime: CleanServiceRuntime;
@@ -65,6 +69,7 @@ export interface CleanServiceComponent {
   runtimeVersion: string;
   runtimePolicy?: CleanServiceRuntimePolicy;
   kernelResources?: CleanServiceKernelResourceReport;
+  eventLoopResources?: CleanServiceNodeEventLoopResources;
   guestPort: number;
   verifier: { kind: "http-get"; path: "/"; sha256: string; bytes: number };
   artifact: { path: string; sha256: string; bytes: number };
@@ -174,6 +179,7 @@ export const cleanServiceManifestSchema = {
           argv: { type: "array", items: { type: "string" }, minItems: 1 },
           runtimeVersion: { type: "string" },
           kernelResources: { type: "object", additionalProperties: true },
+          eventLoopResources: { type: "object", additionalProperties: true },
           runtimePolicy: {
             type: "object",
             required: ["compatibility", "provisioning", "remediation"],
