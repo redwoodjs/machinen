@@ -8,20 +8,21 @@ proof fixture?"
 The registry deliberately does **not** turn proof-only fixtures into product
 support. As of Goal 49, implemented clean-service product support means the
 no-extra-flag `machinen snapshot <vm> <bundle>` / `machinen restore <bundle>`
-workflow is wired for that profile. Goal 001 also adds the first implemented
-Level 2 semantic-continuation profile, which is descriptor-based rather than a
-whole-service restart. The implemented subsets are:
+workflow is wired for that profile. Goal 011 retires the earlier ping-specific
+Level 2 semantic-continuation claim as product support and makes ping's product
+route a portable machine Level 4 socket descriptor through `machinen snapshot`
+and `machinen restore`. The implemented subsets are:
 
 - `node-app-http-server-recreate` — `node-http-clean-root-v1` — `level-1-semantic-restart`
 - `python-cross-arch-runtime-policy` — `python-http-clean-root-v1` — `level-1-semantic-restart`
 - `go-cross-arch-runtime-policy` — `go-http-clean-root-v1` — `level-1-semantic-restart`
-- `ping-sequence-counter-semantic-continuation-v1` — `ping-sequence-counter-semantic-continuation-v1` — `level-2-semantic-continuation`
+- `ping-level4-socket-reconstruction-v1` — `ping-level4-socket-reconstruction-v1` — `level-4-kernel-resource-reconstruction`
 
 The earlier PostgreSQL logical proof/capture route is not advertised here as
 implemented snapshot/restore product support until it is routed through the same
 verbs. Other positive proof profiles are surfaced as `proof-only-fixture` with
 the product refusal code `product-surface-not-implemented` until a product
-snapshot/restore descriptor, integrity contract, and target-native verifier are
+capture/snapshot descriptor, restore contract, integrity contract, and target-native verifier are
 implemented.
 
 Every proof/refusal profile is surfaced as `stable-product-refusal` with its
@@ -79,7 +80,7 @@ Use:
 ```sh
 pnpm run product-claim-registry-matrix
 pnpm run smoke-product-support-discovery
-pnpm run smoke-semantic-ping-continuation
+pnpm run smoke-semantic-ping-continuation # verifies the retired helper is not product support
 ```
 
 Checked summaries are stored under

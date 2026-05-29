@@ -41,7 +41,10 @@ node "$CLI" support --profile go-cross-arch-runtime-policy --json >"$WORK/go-imp
 node -e 'const fs=require("fs"); const data=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); const entry=data.entries[0]; if (!entry || entry.productStatus !== "implemented-product-support" || entry.migrationCompleted !== true || entry.supportLevel !== "level-1-semantic-restart") throw new Error("go product support not visible as Level 1");' "$WORK/go-implemented.json"
 
 node "$CLI" support --level level-2-semantic-continuation --profile ping-sequence-counter-semantic-continuation-v1 --json >"$WORK/ping-level2.json"
-node -e 'const fs=require("fs"); const data=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); const entry=data.entries[0]; if (data.count !== 1 || !entry || entry.productStatus !== "implemented-product-support" || entry.supportLevel !== "level-2-semantic-continuation" || entry.migrationCompleted !== true) throw new Error("semantic ping Level 2 support not visible");' "$WORK/ping-level2.json"
+node -e 'const fs=require("fs"); const data=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if (data.entries.some((entry)=>entry.productStatus === "implemented-product-support" || entry.migrationCompleted === true)) throw new Error("semantic ping Level 2 is still advertised as product support");' "$WORK/ping-level2.json"
+
+node "$CLI" support --level level-4-kernel-resource-reconstruction --profile ping-level4-socket-reconstruction-v1 --json >"$WORK/ping-level4.json"
+node -e 'const fs=require("fs"); const data=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); const entry=data.entries[0]; if (data.count !== 1 || !entry || entry.productStatus !== "implemented-product-support" || entry.supportLevel !== "level-4-kernel-resource-reconstruction" || entry.migrationCompleted !== true || entry.family !== "network-ping-socket") throw new Error("ping Level 4 socket product support not visible");' "$WORK/ping-level4.json"
 
 node "$CLI" support --status proof-only-fixture --json >"$WORK/proof-only.json"
 node -e 'const fs=require("fs"); const data=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if (data.count <= 0) throw new Error("no proof-only entries"); if (!data.entries.every((entry)=>entry.migrationCompleted === false && entry.proofOnly === true)) throw new Error("proof-only entry surfaced as support");' "$WORK/proof-only.json"

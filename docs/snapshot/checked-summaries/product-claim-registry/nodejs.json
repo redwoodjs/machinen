@@ -6,11 +6,11 @@
     "family": "nodejs"
   },
   "registrySummary": {
-    "total": 2245,
+    "total": 2246,
     "byStatus": {
-      "implemented-product-support": 1,
+      "implemented-product-support": 4,
       "stable-product-refusal": 1563,
-      "proof-only-fixture": 681,
+      "proof-only-fixture": 679,
       "obsolete-invalid-claim": 0
     },
     "byFamily": {
@@ -21,12 +21,12 @@
       "stateful-services": 26,
       "foundation-native": 127,
       "native-linux-resource": 302,
-      "network-ping-socket": 536,
+      "network-ping-socket": 537,
       "unknown": 897
     },
-    "implementedProductSupport": 1,
+    "implementedProductSupport": 4,
     "stableProductRefusals": 1563,
-    "proofOnlyFixtures": 681,
+    "proofOnlyFixtures": 679,
     "obsoleteInvalidClaims": 0
   },
   "selectedCount": 300,
@@ -38,6 +38,8 @@
       "resourceFamily": "invalidation",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "proof-only-fixture",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "graduated-support",
       "expectedResult": "success",
       "sourceGoal": "goal-28",
@@ -55,6 +57,13 @@
         "target-native-verifier",
         "proof-vs-product-regression-test"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "invalidation:async-resource-inventory-mismatch:refresh",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Proof-only fixture retained for regression coverage; no product capture/restore surface is implemented, so product restore is refused."
     },
     {
@@ -64,6 +73,8 @@
       "resourceFamily": "node",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "proof-only-fixture",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "graduated-support",
       "expectedResult": "success",
       "sourceGoal": "goal-28",
@@ -81,6 +92,13 @@
         "target-native-verifier",
         "proof-vs-product-regression-test"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "node:former-refusal:invalidation-async-resource-inventory-mismatch-refusal:solved",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Proof-only fixture retained for regression coverage; no product capture/restore surface is implemented, so product restore is refused."
     },
     {
@@ -90,6 +108,8 @@
       "resourceFamily": "invalidation",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "proof-only-fixture",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "graduated-support",
       "expectedResult": "success",
       "sourceGoal": "goal-28",
@@ -107,6 +127,13 @@
         "target-native-verifier",
         "proof-vs-product-regression-test"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "invalidation:commonjs-module-cache-digest-mismatch:refresh",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Proof-only fixture retained for regression coverage; no product capture/restore surface is implemented, so product restore is refused."
     },
     {
@@ -116,6 +143,8 @@
       "resourceFamily": "node",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "proof-only-fixture",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "graduated-support",
       "expectedResult": "success",
       "sourceGoal": "goal-28",
@@ -133,6 +162,13 @@
         "target-native-verifier",
         "proof-vs-product-regression-test"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "node:former-refusal:invalidation-commonjs-module-cache-digest-mismatch-refusal:solved",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Proof-only fixture retained for regression coverage; no product capture/restore surface is implemented, so product restore is refused."
     },
     {
@@ -142,6 +178,8 @@
       "resourceFamily": "invalidation",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "proof-only-fixture",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "graduated-support",
       "expectedResult": "success",
       "sourceGoal": "goal-28",
@@ -159,6 +197,13 @@
         "target-native-verifier",
         "proof-vs-product-regression-test"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "invalidation:esm-module-map-url-mismatch:refresh",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Proof-only fixture retained for regression coverage; no product capture/restore surface is implemented, so product restore is refused."
     },
     {
@@ -168,6 +213,8 @@
       "resourceFamily": "node",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "proof-only-fixture",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "graduated-support",
       "expectedResult": "success",
       "sourceGoal": "goal-28",
@@ -185,6 +232,13 @@
         "target-native-verifier",
         "proof-vs-product-regression-test"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "node:former-refusal:invalidation-esm-module-map-url-mismatch-refusal:solved",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Proof-only fixture retained for regression coverage; no product capture/restore surface is implemented, so product restore is refused."
     },
     {
@@ -194,6 +248,8 @@
       "resourceFamily": "invalidation",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "proof-only-fixture",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "graduated-support",
       "expectedResult": "success",
       "sourceGoal": "goal-28",
@@ -211,6 +267,13 @@
         "target-native-verifier",
         "proof-vs-product-regression-test"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "invalidation:event-loop-handle-inventory-mismatch:refresh",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Proof-only fixture retained for regression coverage; no product capture/restore surface is implemented, so product restore is refused."
     },
     {
@@ -220,6 +283,8 @@
       "resourceFamily": "node",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "proof-only-fixture",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "graduated-support",
       "expectedResult": "success",
       "sourceGoal": "goal-28",
@@ -237,6 +302,13 @@
         "target-native-verifier",
         "proof-vs-product-regression-test"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "node:former-refusal:invalidation-event-loop-handle-inventory-mismatch-refusal:solved",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Proof-only fixture retained for regression coverage; no product capture/restore surface is implemented, so product restore is refused."
     },
     {
@@ -246,6 +318,8 @@
       "resourceFamily": "invalidation",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "proof-only-fixture",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "graduated-support",
       "expectedResult": "success",
       "sourceGoal": "goal-28",
@@ -263,6 +337,13 @@
         "target-native-verifier",
         "proof-vs-product-regression-test"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "invalidation:js-continuation-verifier-mismatch:refresh",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Proof-only fixture retained for regression coverage; no product capture/restore surface is implemented, so product restore is refused."
     },
     {
@@ -272,6 +353,8 @@
       "resourceFamily": "node",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "proof-only-fixture",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "graduated-support",
       "expectedResult": "success",
       "sourceGoal": "goal-28",
@@ -289,6 +372,13 @@
         "target-native-verifier",
         "proof-vs-product-regression-test"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "node:former-refusal:invalidation-js-continuation-verifier-mismatch-refusal:solved",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Proof-only fixture retained for regression coverage; no product capture/restore surface is implemented, so product restore is refused."
     },
     {
@@ -298,6 +388,8 @@
       "resourceFamily": "invalidation",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "proof-only-fixture",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "graduated-support",
       "expectedResult": "success",
       "sourceGoal": "goal-28",
@@ -315,6 +407,13 @@
         "target-native-verifier",
         "proof-vs-product-regression-test"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "invalidation:libuv-version-mismatch:refresh",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Proof-only fixture retained for regression coverage; no product capture/restore surface is implemented, so product restore is refused."
     },
     {
@@ -324,6 +423,8 @@
       "resourceFamily": "node",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "proof-only-fixture",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "graduated-support",
       "expectedResult": "success",
       "sourceGoal": "goal-28",
@@ -341,6 +442,13 @@
         "target-native-verifier",
         "proof-vs-product-regression-test"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "node:former-refusal:invalidation-libuv-version-mismatch-refusal:solved",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Proof-only fixture retained for regression coverage; no product capture/restore surface is implemented, so product restore is refused."
     },
     {
@@ -350,6 +458,8 @@
       "resourceFamily": "invalidation",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "proof-only-fixture",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "graduated-support",
       "expectedResult": "success",
       "sourceGoal": "goal-28",
@@ -367,6 +477,13 @@
         "target-native-verifier",
         "proof-vs-product-regression-test"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "invalidation:napi-version-mismatch:refresh",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Proof-only fixture retained for regression coverage; no product capture/restore surface is implemented, so product restore is refused."
     },
     {
@@ -376,6 +493,8 @@
       "resourceFamily": "node",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "proof-only-fixture",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "graduated-support",
       "expectedResult": "success",
       "sourceGoal": "goal-28",
@@ -393,6 +512,13 @@
         "target-native-verifier",
         "proof-vs-product-regression-test"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "node:former-refusal:invalidation-napi-version-mismatch-refusal:solved",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Proof-only fixture retained for regression coverage; no product capture/restore surface is implemented, so product restore is refused."
     },
     {
@@ -402,6 +528,8 @@
       "resourceFamily": "invalidation",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "proof-only-fixture",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "graduated-support",
       "expectedResult": "success",
       "sourceGoal": "goal-28",
@@ -419,6 +547,13 @@
         "target-native-verifier",
         "proof-vs-product-regression-test"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "invalidation:native-addon-binary-digest-mismatch:refresh",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Proof-only fixture retained for regression coverage; no product capture/restore surface is implemented, so product restore is refused."
     },
     {
@@ -428,6 +563,8 @@
       "resourceFamily": "node",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "proof-only-fixture",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "graduated-support",
       "expectedResult": "success",
       "sourceGoal": "goal-28",
@@ -445,6 +582,13 @@
         "target-native-verifier",
         "proof-vs-product-regression-test"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "node:former-refusal:invalidation-native-addon-binary-digest-mismatch-refusal:solved",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Proof-only fixture retained for regression coverage; no product capture/restore surface is implemented, so product restore is refused."
     },
     {
@@ -454,6 +598,8 @@
       "resourceFamily": "invalidation",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "proof-only-fixture",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "graduated-support",
       "expectedResult": "success",
       "sourceGoal": "goal-28",
@@ -471,6 +617,13 @@
         "target-native-verifier",
         "proof-vs-product-regression-test"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "invalidation:native-addon-external-state-contract-mismatch:refresh",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Proof-only fixture retained for regression coverage; no product capture/restore surface is implemented, so product restore is refused."
     },
     {
@@ -480,6 +633,8 @@
       "resourceFamily": "node",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "proof-only-fixture",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "graduated-support",
       "expectedResult": "success",
       "sourceGoal": "goal-28",
@@ -497,6 +652,13 @@
         "target-native-verifier",
         "proof-vs-product-regression-test"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "node:former-refusal:invalidation-native-addon-external-state-contract-mismatch-refusal:solved",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Proof-only fixture retained for regression coverage; no product capture/restore surface is implemented, so product restore is refused."
     },
     {
@@ -506,6 +668,8 @@
       "resourceFamily": "invalidation",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "proof-only-fixture",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "graduated-support",
       "expectedResult": "success",
       "sourceGoal": "goal-28",
@@ -523,6 +687,13 @@
         "target-native-verifier",
         "proof-vs-product-regression-test"
       ],
+      "observableStateDecisions": [
+        {
+          "name": "invalidation:node-binary-sha256-build-id-mismatch:refresh",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
+      ],
       "message": "Proof-only fixture retained for regression coverage; no product capture/restore surface is implemented, so product restore is refused."
     },
     {
@@ -532,6 +703,8 @@
       "resourceFamily": "node",
       "architectureRoutes": ["amd64<->arm64"],
       "productStatus": "proof-only-fixture",
+      "supportLevel": "level-0-fail-closed-discovery",
+      "supportLevelName": "Level 0 — Fail-closed discovery",
       "proofStatus": "graduated-support",
       "expectedResult": "success",
       "sourceGoal": "goal-28",
@@ -548,6 +721,13 @@
         "product-restore-surface",
         "target-native-verifier",
         "proof-vs-product-regression-test"
+      ],
+      "observableStateDecisions": [
+        {
+          "name": "node:former-refusal:invalidation-node-binary-sha256-build-id-mismatch-refusal:solved",
+          "decision": "refused",
+          "rationale": "the product surface fails closed until this state has a modeled contract"
+        }
       ],
       "message": "Proof-only fixture retained for regression coverage; no product capture/restore surface is implemented, so product restore is refused."
     }

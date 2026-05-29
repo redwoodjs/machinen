@@ -36,12 +36,15 @@ import { pipeline } from "node:stream/promises";
 import {
   attach,
   boot,
+  ProductLevel4PingSocketError,
   ProductPortablePostgresError,
   buildProductClaimRegistry,
+  createProductLevel4PingSocketSnapshot,
   createProductPortablePostgresSnapshot,
   filterProductClaimRegistry,
   formatMachinenError,
   isMachinenError,
+  isProductLevel4PingSocketBundle,
   isProductPortablePostgresBundle,
   list,
   productPortablePostgresFileSha256,
@@ -50,6 +53,7 @@ import {
   productSupportLevels,
   readHostRssBytesMulti,
   restore,
+  restoreProductLevel4PingSocketSnapshot,
   restoreProductPortablePostgresSnapshot,
   runGc,
   validatePid,
@@ -58,6 +62,8 @@ import type {
   LogEvent,
   ProductClaimFamily,
   ProductClaimStatus,
+  ProductLevel4PingSocketDescriptor,
+  ProductLevel4PingSocketRestoreSummary,
   ProductSupportLevel,
   RegistryEntry,
   VmHandle,
@@ -989,9 +995,39 @@ type CapturePostgresOptions = {
   physicalDataDirCopy?: boolean;
 };
 
-// fallow-ignore-next-line complexity
+type CapturePingSocketOptions = {
+  json: boolean;
+  dryRun: boolean;
+  out?: string;
+  sourceArch?: "arm64" | "amd64";
+  targetArch?: "arm64" | "amd64";
+  socketKind?: "ping-dgram-icmp" | "raw-icmp";
+  sourceVerifierOutput?: string;
+  echoIdentifier?: number;
+  echoSequence?: number;
+  activeRecvmsg?: boolean;
+  unreadReceiveQueue?: boolean;
+  inflightPackets?: boolean;
+  ambiguousRouteOrNamespace?: boolean;
+  missingCredentialOrCapability?: boolean;
+  unsupportedRawSocketOption?: boolean;
+};
+
 function cmdCapture(args: string[]): number {
-  const options = parseCapturePostgresArgs(args);
+  const { json, rest: withoutJson } = consumeJsonFlag(args);
+  const { dryRun, rest } = consumeDryRunFlag(withoutJson);
+  if (rest[0] === "postgres") {
+    return cmdCapturePostgres({ json, dryRun, rest });
+  }
+  if (rest[0] === "ping-socket") {
+    return cmdCapturePingSocket({ json, dryRun, rest });
+  }
+  die(captureUsage());
+}
+
+// fallow-ignore-next-line complexity
+function cmdCapturePostgres(input: { json: boolean; dryRun: boolean; rest: string[] }): number {
+  const options = parseCapturePostgresArgs(input);
   const required = [
     ["--out", options.out],
     ["--source-arch", options.sourceArch],
@@ -1042,12 +1078,120 @@ function cmdCapture(args: string[]): number {
 }
 
 // fallow-ignore-next-line complexity
-function parseCapturePostgresArgs(args: string[]): CapturePostgresOptions {
-  const { json, rest: withoutJson } = consumeJsonFlag(args);
-  const { dryRun, rest } = consumeDryRunFlag(withoutJson);
-  if (rest[0] !== "postgres") {
-    die(captureUsage());
+function cmdCapturePingSocket(input: { json: boolean; dryRun: boolean; rest: string[] }): number {
+  const options = parseCapturePingSocketArgs(input);
+  const required = [
+    ["--out", options.out],
+    ["--source-arch", options.sourceArch],
+    ["--target-arch", options.targetArch],
+    ["--socket-kind", options.socketKind],
+    ["--source-verifier-output", options.sourceVerifierOutput],
+    ["--echo-id", options.echoIdentifier],
+    ["--echo-seq", options.echoSequence],
+  ] as const;
+  for (const [flag, value] of required) {
+    if (value === undefined || value === "") {
+      die(`${captureUsage()}\nmissing required ${flag}`);
+    }
   }
+  try {
+    const result = createProductLevel4PingSocketSnapshot({
+      outDir: options.out!,
+      sourceArch: options.sourceArch!,
+      targetArch: options.targetArch!,
+      socketKind: options.socketKind!,
+      sourceVerifierOutput: readFileSync(resolve(options.sourceVerifierOutput!), "utf8").trim(),
+      echoIdentifier: options.echoIdentifier!,
+      echoSequence: options.echoSequence!,
+      route: "loopback",
+      namespace: "target-loopback",
+      activeRecvmsg: options.activeRecvmsg,
+      unreadReceiveQueue: options.unreadReceiveQueue,
+      inflightPackets: options.inflightPackets,
+      ambiguousRouteOrNamespace: options.ambiguousRouteOrNamespace,
+      missingCredentialOrCapability: options.missingCredentialOrCapability,
+      unsupportedRawSocketOption: options.unsupportedRawSocketOption,
+      dryRun: options.dryRun,
+    });
+    if (options.json) {
+      emitJson({ schema_version: 1, ...result });
+    } else if (result.state === "completed") {
+      process.stderr.write(`captured portable ping socket bundle: ${result.bundleDir}\n`);
+    } else {
+      process.stderr.write(
+        `refused portable ping socket capture: ${result.refusal.expectedRefusalCode}\n`,
+      );
+    }
+    return result.state === "completed" ? 0 : 1;
+  } catch (err) {
+    handleProductLevel4PingSocketError(err, options.json);
+  }
+}
+
+// fallow-ignore-next-line complexity
+function parseCapturePingSocketArgs(input: {
+  json: boolean;
+  dryRun: boolean;
+  rest: string[];
+}): CapturePingSocketOptions {
+  const { json, dryRun, rest } = input;
+  const options: CapturePingSocketOptions = { json, dryRun };
+  for (let index = 1; index < rest.length; index += 1) {
+    const arg = rest[index]!;
+    switch (arg) {
+      case "--out":
+        options.out = takeCaptureValue(rest, ++index, arg);
+        break;
+      case "--source-arch":
+        options.sourceArch = parseProductArch(takeCaptureValue(rest, ++index, arg), arg);
+        break;
+      case "--target-arch":
+        options.targetArch = parseProductArch(takeCaptureValue(rest, ++index, arg), arg);
+        break;
+      case "--socket-kind":
+        options.socketKind = parsePingSocketKind(takeCaptureValue(rest, ++index, arg), arg);
+        break;
+      case "--source-verifier-output":
+        options.sourceVerifierOutput = takeCaptureValue(rest, ++index, arg);
+        break;
+      case "--echo-id":
+        options.echoIdentifier = parseUint16(takeCaptureValue(rest, ++index, arg), arg);
+        break;
+      case "--echo-seq":
+        options.echoSequence = parseUint16(takeCaptureValue(rest, ++index, arg), arg);
+        break;
+      case "--active-recvmsg":
+        options.activeRecvmsg = true;
+        break;
+      case "--unread-receive-queue":
+        options.unreadReceiveQueue = true;
+        break;
+      case "--inflight-packets":
+        options.inflightPackets = true;
+        break;
+      case "--ambiguous-route-or-namespace":
+        options.ambiguousRouteOrNamespace = true;
+        break;
+      case "--missing-credential-or-capability":
+        options.missingCredentialOrCapability = true;
+        break;
+      case "--unsupported-raw-socket-option":
+        options.unsupportedRawSocketOption = true;
+        break;
+      default:
+        die(`${captureUsage()}\nunknown argument: ${arg}`);
+    }
+  }
+  return options;
+}
+
+// fallow-ignore-next-line complexity
+function parseCapturePostgresArgs(input: {
+  json: boolean;
+  dryRun: boolean;
+  rest: string[];
+}): CapturePostgresOptions {
+  const { json, dryRun, rest } = input;
   const options: CapturePostgresOptions = { json, dryRun };
   for (let index = 1; index < rest.length; index += 1) {
     const arg = rest[index]!;
@@ -1114,7 +1258,10 @@ function captureUsage(): string {
   return (
     "usage: machinen capture postgres --out <dir> --source-arch <arm64|amd64> " +
     "--target-arch <arm64|amd64> --dump <file> --source-verifier-output <file> " +
-    "--postgres-version <version> --checkpoint-lsn <lsn> [--json] [--dry-run]"
+    "--postgres-version <version> --checkpoint-lsn <lsn> [--json] [--dry-run]\n" +
+    "       machinen capture ping-socket --out <dir> --source-arch <arm64|amd64> " +
+    "--target-arch <arm64|amd64> --socket-kind <ping-dgram-icmp|raw-icmp> " +
+    "--source-verifier-output <file> --echo-id <n> --echo-seq <n> [--json] [--dry-run]"
   );
 }
 
@@ -1131,6 +1278,21 @@ function parseProductArch(value: string, flag: string): "arm64" | "amd64" {
     return value;
   }
   die(`${flag} must be arm64 or amd64`);
+}
+
+function parsePingSocketKind(value: string, flag: string): "ping-dgram-icmp" | "raw-icmp" {
+  if (value === "ping-dgram-icmp" || value === "raw-icmp") {
+    return value;
+  }
+  die(`${flag} must be ping-dgram-icmp or raw-icmp`);
+}
+
+function parseUint16(value: string, flag: string): number {
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed < 0 || parsed > 65535) {
+    die(`${flag} must be an integer between 0 and 65535`);
+  }
+  return parsed;
 }
 
 function parseNonNegativeInteger(value: string, flag: string): number {
@@ -1306,6 +1468,9 @@ async function cmdRestore(args: string[]): Promise<number> {
   if (isProductPortablePostgresBundle(snapDir)) {
     return cmdRestoreProductPortablePostgres(parsed, snapDir, json);
   }
+  if (isProductLevel4PingSocketBundle(snapDir)) {
+    return cmdRestoreProductLevel4PingSocket(parsed, snapDir, json);
+  }
   if (shouldRestoreCleanServiceBundle(snapDir, guestCpu)) {
     return restoreCleanServiceBundle({
       snapDir,
@@ -1351,7 +1516,9 @@ function restoreUsage(): string {
     "[--lazy] [-p <hostPort>:<guestPort>] " +
     "[--mount-live <host>:<guest>[:<mode>]]\n" +
     "       machinen restore <portable-postgres-bundle> --target-arch <arm64|amd64> " +
-    "--target-verifier-output <file> [--json]"
+    "--target-verifier-output <file> [--json]\n" +
+    "       machinen restore <portable-ping-socket-bundle> --target-arch <arm64|amd64> " +
+    "[--target-verifier-output <file>] [--json]"
   );
 }
 
@@ -1385,8 +1552,276 @@ function cmdRestoreProductPortablePostgres(
   }
 }
 
+async function cmdRestoreProductLevel4PingSocket(
+  parsed: ParsedRestoreCommandArgs,
+  snapDir: string,
+  json: boolean,
+): Promise<number> {
+  if (!parsed.targetArch) {
+    die(restoreUsage());
+  }
+  try {
+    const descriptor = readProductLevel4PingSocketDescriptor(snapDir);
+    const verifierOutput = parsed.targetVerifierOutput
+      ? readFileSync(resolve(parsed.targetVerifierOutput), "utf8").trim()
+      : descriptor.sourceVerifierOutput;
+    const summary = restoreProductLevel4PingSocketSnapshot({
+      bundleDir: snapDir,
+      targetArch: parsed.targetArch,
+      targetVerifierOutput: verifierOutput,
+    });
+    if (!summary.migrationCompleted) {
+      reportProductLevel4PingSocketRestoreSummary(snapDir, json, summary);
+      return 1;
+    }
+    if (!json) {
+      return bootProductLevel4PingForegroundTargetVm(parsed, snapDir, descriptor);
+    }
+    const vmSummary = await bootProductLevel4PingTargetVm(parsed, snapDir, descriptor, summary);
+    emitJson({ schema_version: 1, ...vmSummary });
+    return 0;
+  } catch (err) {
+    handleProductLevel4PingSocketError(err, json);
+  }
+}
+
+function readProductLevel4PingSocketDescriptor(snapDir: string): ProductLevel4PingSocketDescriptor {
+  return JSON.parse(
+    readFileSync(join(snapDir, "portable-ping-socket.json"), "utf8"),
+  ) as ProductLevel4PingSocketDescriptor;
+}
+
+function reportProductLevel4PingSocketRestoreSummary(
+  snapDir: string,
+  json: boolean,
+  summary: ProductLevel4PingSocketRestoreSummary,
+): void {
+  if (json) {
+    emitJson({ schema_version: 1, ...summary });
+  } else {
+    process.stderr.write(
+      `refused portable ping socket restore: ${summary.refusal?.expectedRefusalCode ?? "unknown"}\n`,
+    );
+  }
+}
+
+async function bootProductLevel4PingForegroundTargetVm(
+  parsed: ParsedRestoreCommandArgs,
+  snapDir: string,
+  descriptor: ProductLevel4PingSocketDescriptor,
+): Promise<number> {
+  assertLocalPingRestoreTargetArch(parsed.targetArch);
+  return runPortableForegroundRestore({
+    name: parsed.name ?? deriveBootName(snapDir),
+    descriptorGuestPath: "/tmp/machinen-restored-ping-descriptor.json",
+    descriptorText: JSON.stringify(descriptor, null, 2),
+    workloadLabel: "restored ping",
+    command: foregroundRestoredPingCommand(descriptor),
+  });
+}
+
+async function runPortableForegroundRestore(input: {
+  name: string;
+  descriptorGuestPath: string;
+  descriptorText: string;
+  workloadLabel: string;
+  command: string;
+}): Promise<number> {
+  const paths = await resolveCliBaseAssets();
+  process.stderr.write(`restoring portable workload as foreground VM: ${input.name}\n`);
+  process.stderr.write("booting target VM...\n");
+  const vm = await boot({
+    image: paths.defaultImagePath,
+    kernel: paths.kernelPath,
+    dtb: paths.dtbPath,
+    name: input.name,
+    detached: true,
+    cmd: ["sleep", "100000"],
+    timeoutMs: undefined,
+  });
+  let interrupted = false;
+  const onSigint = () => {
+    interrupted = true;
+    process.stderr.write("\nportable restore interrupted; stopping target VM...\n");
+    void vm
+      .kill()
+      .catch(() => undefined)
+      .finally(() => process.exit(130));
+  };
+  process.on("SIGINT", onSigint);
+  try {
+    process.stderr.write(`target VM ready; attaching ${input.workloadLabel}...\n`);
+    await vm.writeFile(input.descriptorGuestPath, input.descriptorText);
+    const result = await vm
+      .execRaw(input.command, {
+        onStdout: (chunk) => process.stdout.write(chunk),
+        onStderr: (chunk) => process.stderr.write(chunk),
+        execTimeoutMs: null,
+      })
+      .catch((err: unknown) => {
+        if (interrupted) {
+          return { exitCode: 130 };
+        }
+        throw err;
+      });
+    return interrupted ? 130 : result.exitCode;
+  } finally {
+    process.off("SIGINT", onSigint);
+    await vm.kill().catch(() => undefined);
+  }
+}
+
+async function bootProductLevel4PingTargetVm(
+  parsed: ParsedRestoreCommandArgs,
+  snapDir: string,
+  descriptor: ProductLevel4PingSocketDescriptor,
+  summary: ProductLevel4PingSocketRestoreSummary,
+): Promise<Record<string, unknown>> {
+  const started = Date.now();
+  assertLocalPingRestoreTargetArch(parsed.targetArch);
+  const paths = await resolveCliBaseAssets();
+  const name = parsed.name ?? deriveBootName(snapDir);
+  const vm = await boot({
+    image: paths.defaultImagePath,
+    kernel: paths.kernelPath,
+    dtb: paths.dtbPath,
+    name,
+    detached: true,
+    cmd: ["sleep", "100000"],
+    timeoutMs: undefined,
+  });
+  let continuationStarted = false;
+  try {
+    await vm.writeFile(
+      "/tmp/machinen-restored-ping-descriptor.json",
+      JSON.stringify(descriptor, null, 2),
+    );
+    await vm.execRaw(startRestoredPingCommand(descriptor), { execTimeoutMs: 15_000 });
+    const verify = await vm.execRaw(verifyRestoredPingCommand(descriptor), {
+      execTimeoutMs: 20_000,
+    });
+    if (verify.exitCode !== 0) {
+      throw new ProductLevel4PingSocketError(
+        "PING_SOCKET_TARGET_VM_VERIFIER_FAILED",
+        verify.stderr || verify.stdout || "target VM ping verifier failed",
+      );
+    }
+    const vmSummary = {
+      ...summary,
+      targetVerifierResult: "passed",
+      targetVmStarted: true,
+      restoredName: vm.name ?? name,
+      restoredPid: vm.pid,
+      outputLogPath: descriptor.continuation?.outputLogPath ?? "/tmp/machinen-restored-ping.log",
+      targetPingProcess: "running",
+      targetOutputObserved: true,
+      continuationSemantics: {
+        destination: descriptor.continuation?.destination ?? "127.0.0.1",
+        intervalMs: descriptor.continuation?.intervalMs ?? 1000,
+        echoIdentifier: descriptor.socket.echoIdentifier,
+        nextSequence: descriptor.socket.echoSequence,
+        sequencePolicy:
+          descriptor.continuation?.sequencePolicy ?? "continue-at-next-supported-boundary",
+        idPolicy:
+          descriptor.continuation?.idPolicy ?? "descriptor-preserved-when-target-ping-supports-it",
+        textOutputSequencePolicy:
+          descriptor.continuation?.textOutputSequencePolicy ??
+          "machinen-helper-renders-descriptor-sequence",
+      },
+      elapsedMs: Date.now() - started,
+    };
+    writeFileSync(
+      join(snapDir, "portable-ping-socket-target-vm-restore-summary.json"),
+      `${JSON.stringify(vmSummary, null, 2)}\n`,
+    );
+    continuationStarted = true;
+    return vmSummary;
+  } finally {
+    if (continuationStarted) {
+      await vm.detach();
+    } else {
+      await vm.kill().catch(() => undefined);
+    }
+  }
+}
+
+function assertLocalPingRestoreTargetArch(targetArch: string | undefined): void {
+  if (targetArch !== guestCpu()) {
+    throw new ProductLevel4PingSocketError(
+      "PING_SOCKET_TARGET_GUEST_ARCH_MISMATCH",
+      `target arch ${targetArch} requires restoring on a ${targetArch} Machinen guest host; current guest arch is ${guestCpu()}`,
+    );
+  }
+}
+
+function foregroundRestoredPingCommand(descriptor: ProductLevel4PingSocketDescriptor): string {
+  return "echo $$ >/tmp/machinen-restored-ping.pid; " + restoredPingLoopCommand(descriptor);
+}
+
+function startRestoredPingCommand(descriptor: ProductLevel4PingSocketDescriptor): string {
+  const logPath = descriptor.continuation?.outputLogPath ?? "/tmp/machinen-restored-ping.log";
+  return (
+    `rm -f ${shellQuote(logPath)} /tmp/machinen-restored-ping.pid; ` +
+    `( ${restoredPingLoopCommand(descriptor)} ) >${shellQuote(logPath)} 2>&1 & ` +
+    "echo $! >/tmp/machinen-restored-ping.pid"
+  );
+}
+
+function restoredPingLoopCommand(descriptor: ProductLevel4PingSocketDescriptor): string {
+  const destination = descriptor.continuation?.destination ?? "127.0.0.1";
+  const intervalSeconds = formatPingIntervalSeconds(descriptor.continuation?.intervalMs ?? 1000);
+  const startSequence = descriptor.socket.echoSequence;
+  const rewriteHeaderAndReply =
+    `sed -n -e '/^PING /p' ` +
+    `-e '/bytes from/ { s/icmp_seq=[0-9][0-9]*/icmp_seq='"$seq"'/; p; }'`;
+  const rewriteReply = `sed -n -e '/bytes from/ { s/icmp_seq=[0-9][0-9]*/icmp_seq='"$seq"'/; p; }'`;
+  return (
+    `seq=${startSequence}; printed_header=0; ` +
+    "while :; do " +
+    'if [ "$printed_header" = 0 ]; then ' +
+    `/usr/bin/ping -n -c 1 -W 1 ${shellQuote(destination)} | ${rewriteHeaderAndReply}; ` +
+    "printed_header=1; " +
+    "else " +
+    `/usr/bin/ping -n -c 1 -W 1 ${shellQuote(destination)} | ${rewriteReply}; ` +
+    "fi; " +
+    "seq=$((seq + 1)); " +
+    `sleep ${intervalSeconds}; ` +
+    "done"
+  );
+}
+
+function formatPingIntervalSeconds(intervalMs: number): string {
+  const seconds = Math.max(1, intervalMs) / 1000;
+  return seconds
+    .toFixed(3)
+    .replace(/\.0+$/, "")
+    .replace(/(\.\d*?)0+$/, "$1");
+}
+
+function verifyRestoredPingCommand(descriptor: ProductLevel4PingSocketDescriptor): string {
+  const logPath = descriptor.continuation?.outputLogPath ?? "/tmp/machinen-restored-ping.log";
+  return [
+    "pid=$(cat /tmp/machinen-restored-ping.pid 2>/dev/null || true)",
+    '[ -n "$pid" ] && [ -d "/proc/$pid" ] || exit 2',
+    `for i in $(seq 1 20); do grep -q '64 bytes from' ${shellQuote(logPath)} && exit 0; sleep 0.5; done`,
+    `cat ${shellQuote(logPath)} 2>/dev/null`,
+    "exit 3",
+  ].join("; ");
+}
+
 function handleProductPortablePostgresError(err: unknown, json: boolean): never {
   if (err instanceof ProductPortablePostgresError) {
+    if (json) {
+      emitJsonError(err.code, err.message);
+      process.exit(1);
+    }
+    die(err.message);
+  }
+  handleError(err);
+}
+
+function handleProductLevel4PingSocketError(err: unknown, json: boolean): never {
+  if (err instanceof ProductLevel4PingSocketError) {
     if (json) {
       emitJsonError(err.code, err.message);
       process.exit(1);
@@ -3339,6 +3774,11 @@ function printHelp(): void {
       `                                                 bundle. Inputs are produced from a\n` +
       `                                                 real Machinen source VM with pg_dump,\n` +
       `                                                 CHECKPOINT, and verifier SQL.\n` +
+      `  machinen capture ping-socket --out <dir> --source-arch <arm64|amd64>\n` +
+      `                    --target-arch <arm64|amd64> --socket-kind <ping-dgram-icmp|raw-icmp>\n` +
+      `                    --source-verifier-output <file> --echo-id <n> --echo-seq <n> [--json]\n` +
+      `                                                 Capture the implemented narrow Level 4\n` +
+      `                                                 ping/raw ICMP socket descriptor.\n` +
       `\n` +
       `  machinen support [--family <family>] [--status <status>] [--level <level>] [--json]\n` +
       `                                                 Discover product support/refusal level\n` +
@@ -3363,6 +3803,10 @@ function printHelp(): void {
       `                                                 product restore after importing the\n` +
       `                                                 descriptor dump into target-native\n` +
       `                                                 PostgreSQL and running verifier SQL.\n` +
+      `  machinen restore <portable-ping-socket-bundle> --target-arch <arm64|amd64>\n` +
+      `                    [--target-verifier-output <file>] [--json]\n` +
+      `                                                 Boot a target VM and continue the narrow\n` +
+      `                                                 Level 4 ping workload target-natively.\n` +
       `\n` +
       `  machinen list  (alias: ls, ps)                 List running VMs (PID, NAME, UP,\n` +
       `                                                 PORTS, FORKED-FROM). Pass --json for\n` +
@@ -3453,6 +3897,9 @@ function printHelp(): void {
       `    --dump ./pg.dump --source-verifier-output ./verify.txt --postgres-version 15 \\\n` +
       `    --checkpoint-lsn 0/16B6C50\n` +
       `  machinen restore ./pg.portable --target-arch amd64 --target-verifier-output ./verify.txt\n` +
+      `  machinen capture ping-socket --out ./ping.portable --source-arch arm64 --target-arch amd64 \\\n` +
+      `    --socket-kind ping-dgram-icmp --source-verifier-output ./ping.verify --echo-id 7 --echo-seq 1\n` +
+      `  machinen restore ./ping.portable --target-arch amd64 --json\n` +
       `  machinen support --family network-ping-socket --json\n` +
       `\n` +
       `Environment:\n` +
@@ -3461,8 +3908,9 @@ function printHelp(): void {
       `                                           instead of the cache / GH Releases\n` +
       `  MACHINEN_GUEST_ARCH                      Guest asset arch: arm64 or amd64\n` +
       `  MACHINEN_SNAPSHOT_ENGINE                Snapshot engine: vmstate (default),\n` +
-      `                                           criu, or portable (experimental;\n` +
-      `                                           unsupported workload today)\n` +
+      `                                           criu, or portable (Level 4 ping\n` +
+      `                                           machine subset; experimental for others)\n` +
+      `  MACHINEN_PORTABLE_TARGET_ARCH           Optional portable ping target arch override\n` +
       `  MACHINEN_REGISTRY_DIR                    Override registry location (default\n` +
       `                                           ~/.machinen/vms)\n` +
       `\n` +

@@ -1,0 +1,566 @@
+{
+  "kind": "machinen.level4-graduation.goal-003-ping-socket",
+  "state": "completed",
+  "pass": true,
+  "rowCount": 9,
+  "rows": [
+    {
+      "kind": "machinen.level4-graduation.goal-003-ping-socket-row",
+      "verifierCommand": "pnpm run level4-ping-socket-graduation",
+      "forbiddenPaths": {
+        "sourceIsaEmulation": false,
+        "sidecarOutput": false,
+        "metadataOnlySuccess": false,
+        "rawCrossIsaCheckpointReplay": false
+      },
+      "claimId": "ping-level2-semantic-product-boundary",
+      "claimName": "existing Level 2 semantic ping product remains separate",
+      "evidenceStatus": "support",
+      "productSupport": "supported",
+      "implementationLevel": "level-2-semantic-continuation",
+      "graduationTargetLevel": "level-2-semantic-continuation",
+      "migrationCompleted": true,
+      "targetNativeReconstruction": false,
+      "verifierOutput": "ping-sequence-counter-semantic-continuation-v1 is Level 2 semantic continuation only",
+      "descriptor": {
+        "productSubset": "ping-sequence-counter-semantic-continuation-v1",
+        "rawSocketState": "not-claimed"
+      },
+      "stateDecisions": ["semantic-descriptor-only", "raw-socket-state-not-claimed"],
+      "acceptedResourceKinds": [],
+      "refusalCodes": [],
+      "provenance": {
+        "productSubset": "ping-sequence-counter-semantic-continuation-v1"
+      },
+      "artifactDigests": {
+        "row": "14e37798864b53fcc73d7075b4a8ecf71c873d39e207dad201095cf77e608fc2"
+      }
+    },
+    {
+      "kind": "machinen.level4-graduation.goal-003-ping-socket-row",
+      "verifierCommand": "pnpm run level4-ping-socket-graduation",
+      "forbiddenPaths": {
+        "sourceIsaEmulation": false,
+        "sidecarOutput": false,
+        "metadataOnlySuccess": false,
+        "rawCrossIsaCheckpointReplay": false
+      },
+      "claimId": "ping-level4-socket-reconstruction-proof",
+      "claimName": "ping Level 4 raw/datagram ICMP socket reconstruction proof",
+      "evidenceStatus": "proof",
+      "productSupport": "not-yet-supported",
+      "implementationLevel": "not-implemented",
+      "graduationTargetLevel": "level-4-kernel-resource-reconstruction",
+      "migrationCompleted": true,
+      "targetNativeReconstruction": true,
+      "verifierOutput": "target resources=synthetic-raw-icmp,synthetic-ping-socket",
+      "descriptor": {
+        "sockets": [
+          {
+            "kind": "ping-socket",
+            "family": "inet4",
+            "socketType": "dgram",
+            "protocol": "icmp",
+            "destination": "127.0.0.1",
+            "identifier": 19792,
+            "nextSequence": 2,
+            "credentialPolicy": "target-ping-group-range",
+            "uid": 0,
+            "gid": 0,
+            "pingGroupRangeStart": 0,
+            "pingGroupRangeEnd": 2147483647,
+            "networkNamespace": "target-loopback",
+            "route": "loopback",
+            "receiveQueue": "empty",
+            "inFlightPackets": "none",
+            "activeRecvmsg": false
+          },
+          {
+            "kind": "raw-icmp",
+            "family": "inet4",
+            "socketType": "raw",
+            "protocol": "icmp",
+            "destination": "127.0.0.1",
+            "identifier": 19785,
+            "nextSequence": 1,
+            "capability": "cap-net-raw",
+            "networkNamespace": "target-loopback",
+            "route": "loopback",
+            "receiveQueue": "empty",
+            "inFlightPackets": "none",
+            "activeRecvmsg": false
+          }
+        ],
+        "targetNativeVerifier": [
+          "identifier-sequence",
+          "route-namespace",
+          "credential-or-capability-policy",
+          "empty-queue-policy",
+          "icmp-loopback-echo"
+        ]
+      },
+      "stateDecisions": [
+        "target-native-socket-recreated",
+        "identifier-sequence-explicit",
+        "credential-policy-explicit",
+        "namespace-route-explicit",
+        "receive-queue-empty",
+        "in-flight-packets-none",
+        "active-recvmsg-refused",
+        "public-product-verbs-not-used",
+        "product-support-not-claimed"
+      ],
+      "acceptedResourceKinds": ["synthetic-raw-icmp", "synthetic-ping-socket"],
+      "refusalCodes": [],
+      "provenance": {
+        "resources": [
+          {
+            "kind": "synthetic-raw-icmp",
+            "fd": 58,
+            "identifier": 19785,
+            "sequence": 1,
+            "closeOnExec": false
+          },
+          {
+            "kind": "synthetic-ping-socket",
+            "fd": 59,
+            "identifier": 19792,
+            "sequence": 2,
+            "uid": 0,
+            "gid": 0,
+            "pingGroupRangeStart": 0,
+            "pingGroupRangeEnd": 2147483647,
+            "closeOnExec": false
+          }
+        ],
+        "planner": "planNativeTargetFdTable"
+      },
+      "artifactDigests": {
+        "row": "14e8ae9632cdb338530f1f45260649b151b09779a6ddfc2cdd6cf01047c48a6a"
+      }
+    },
+    {
+      "kind": "machinen.level4-graduation.goal-003-ping-socket-row",
+      "verifierCommand": "pnpm run level4-ping-socket-graduation",
+      "forbiddenPaths": {
+        "sourceIsaEmulation": false,
+        "sidecarOutput": false,
+        "metadataOnlySuccess": false,
+        "rawCrossIsaCheckpointReplay": false
+      },
+      "claimId": "ping-level4-unread-receive-queue-refusal",
+      "claimName": "unread receive queue refuses fail-closed",
+      "verifierOutput": "refusals=target-socket-syscall-state-unsupported",
+      "descriptor": {
+        "resources": [
+          {
+            "pingSocketModel": "loopback-echo-v1",
+            "family": "inet4",
+            "socketType": "dgram",
+            "protocol": "icmp",
+            "destination": "127.0.0.1",
+            "credentialPolicy": "target-ping-group-range",
+            "uid": 0,
+            "gid": 0,
+            "pingGroupRangeStart": 0,
+            "pingGroupRangeEnd": 2147483647,
+            "networkNamespace": "target-loopback",
+            "route": "loopback",
+            "receiveQueue": "bytes",
+            "inFlightPackets": "none",
+            "identifier": 19792,
+            "sequence": 2
+          }
+        ]
+      },
+      "stateDecisions": ["unread-receive-queue-refused"],
+      "refusalCodes": ["target-socket-syscall-state-unsupported"],
+      "remediation": "Drain or model the receive queue before attempting Level 4 ping socket reconstruction.",
+      "provenance": {
+        "planner": "planNativeTargetFdTable",
+        "refusals": [
+          {
+            "code": "target-socket-syscall-state-unsupported",
+            "message": "resource fd:59:ping-socket (socket) needs a host broker recipe before native restore",
+            "detail": {
+              "id": "fd:59:ping-socket",
+              "kind": "socket",
+              "fd": 59,
+              "path": "socket:[ping-socket]",
+              "boundary": "broker-recipe",
+              "requiredModel": [
+                "accept/connect/listen queue state",
+                "peer endpoint identity",
+                "credentials and namespaces",
+                "socket options, shutdown state, readiness, and partial transfer state"
+              ]
+            }
+          }
+        ]
+      },
+      "evidenceStatus": "refusal",
+      "productSupport": "unsupported",
+      "implementationLevel": "level-0-fail-closed-discovery",
+      "graduationTargetLevel": "level-4-kernel-resource-reconstruction",
+      "migrationCompleted": false,
+      "targetNativeReconstruction": false,
+      "acceptedResourceKinds": [],
+      "artifactDigests": {
+        "row": "d56104f1bab1aa467248279fbc9925076b4324717055df6728fe71c259b296d8"
+      }
+    },
+    {
+      "kind": "machinen.level4-graduation.goal-003-ping-socket-row",
+      "verifierCommand": "pnpm run level4-ping-socket-graduation",
+      "forbiddenPaths": {
+        "sourceIsaEmulation": false,
+        "sidecarOutput": false,
+        "metadataOnlySuccess": false,
+        "rawCrossIsaCheckpointReplay": false
+      },
+      "claimId": "ping-level4-in-flight-packets-refusal",
+      "claimName": "in-flight packets refuse fail-closed",
+      "verifierOutput": "refusals=target-socket-syscall-state-unsupported",
+      "descriptor": {
+        "resources": [
+          {
+            "pingSocketModel": "loopback-echo-v1",
+            "family": "inet4",
+            "socketType": "dgram",
+            "protocol": "icmp",
+            "destination": "127.0.0.1",
+            "credentialPolicy": "target-ping-group-range",
+            "uid": 0,
+            "gid": 0,
+            "pingGroupRangeStart": 0,
+            "pingGroupRangeEnd": 2147483647,
+            "networkNamespace": "target-loopback",
+            "route": "loopback",
+            "receiveQueue": "empty",
+            "inFlightPackets": "unknown",
+            "identifier": 19792,
+            "sequence": 2
+          }
+        ]
+      },
+      "stateDecisions": ["in-flight-packets-refused"],
+      "refusalCodes": ["target-socket-syscall-state-unsupported"],
+      "remediation": "Wait for packets to settle or add an explicit in-flight packet replay model.",
+      "provenance": {
+        "planner": "planNativeTargetFdTable",
+        "refusals": [
+          {
+            "code": "target-socket-syscall-state-unsupported",
+            "message": "resource fd:59:ping-socket (socket) needs a host broker recipe before native restore",
+            "detail": {
+              "id": "fd:59:ping-socket",
+              "kind": "socket",
+              "fd": 59,
+              "path": "socket:[ping-socket]",
+              "boundary": "broker-recipe",
+              "requiredModel": [
+                "accept/connect/listen queue state",
+                "peer endpoint identity",
+                "credentials and namespaces",
+                "socket options, shutdown state, readiness, and partial transfer state"
+              ]
+            }
+          }
+        ]
+      },
+      "evidenceStatus": "refusal",
+      "productSupport": "unsupported",
+      "implementationLevel": "level-0-fail-closed-discovery",
+      "graduationTargetLevel": "level-4-kernel-resource-reconstruction",
+      "migrationCompleted": false,
+      "targetNativeReconstruction": false,
+      "acceptedResourceKinds": [],
+      "artifactDigests": {
+        "row": "9a7acbb0c30f2d3c17a8b0c308197fc254b0866db1d2ff5619eef4142bd333e5"
+      }
+    },
+    {
+      "kind": "machinen.level4-graduation.goal-003-ping-socket-row",
+      "verifierCommand": "pnpm run level4-ping-socket-graduation",
+      "forbiddenPaths": {
+        "sourceIsaEmulation": false,
+        "sidecarOutput": false,
+        "metadataOnlySuccess": false,
+        "rawCrossIsaCheckpointReplay": false
+      },
+      "claimId": "ping-level4-active-recvmsg-refusal",
+      "claimName": "active recvmsg refuses fail-closed",
+      "verifierOutput": "refusals=active-syscall-state-unsupported",
+      "descriptor": {
+        "activeSyscall": "recvmsg"
+      },
+      "stateDecisions": ["active-recvmsg-refused", "partial-transfer-refused"],
+      "refusalCodes": ["active-syscall-state-unsupported"],
+      "remediation": "Snapshot outside recvmsg or add a syscall-specific replay model.",
+      "provenance": {
+        "policy": "goal-003-ping-level4-boundary"
+      },
+      "evidenceStatus": "refusal",
+      "productSupport": "unsupported",
+      "implementationLevel": "level-0-fail-closed-discovery",
+      "graduationTargetLevel": "level-4-kernel-resource-reconstruction",
+      "migrationCompleted": false,
+      "targetNativeReconstruction": false,
+      "acceptedResourceKinds": [],
+      "artifactDigests": {
+        "row": "bd3eeff8bbd63363426efaf9f449e9ff18052684b906807cc75be72ffe7c616c"
+      }
+    },
+    {
+      "kind": "machinen.level4-graduation.goal-003-ping-socket-row",
+      "verifierCommand": "pnpm run level4-ping-socket-graduation",
+      "forbiddenPaths": {
+        "sourceIsaEmulation": false,
+        "sidecarOutput": false,
+        "metadataOnlySuccess": false,
+        "rawCrossIsaCheckpointReplay": false
+      },
+      "claimId": "ping-level4-ambiguous-route-namespace-refusal",
+      "claimName": "ambiguous route or namespace refuses fail-closed",
+      "verifierOutput": "refusals=target-socket-syscall-state-unsupported",
+      "descriptor": {
+        "resources": [
+          {
+            "pingSocketModel": "loopback-echo-v1",
+            "family": "inet4",
+            "socketType": "dgram",
+            "protocol": "icmp",
+            "destination": "127.0.0.1",
+            "credentialPolicy": "target-ping-group-range",
+            "uid": 0,
+            "gid": 0,
+            "pingGroupRangeStart": 0,
+            "pingGroupRangeEnd": 2147483647,
+            "networkNamespace": "source-netns",
+            "route": "source-route-cache",
+            "receiveQueue": "empty",
+            "inFlightPackets": "none",
+            "identifier": 19792,
+            "sequence": 2
+          }
+        ]
+      },
+      "stateDecisions": ["ambiguous-route-refused", "unsupported-namespace-refused"],
+      "refusalCodes": ["target-socket-syscall-state-unsupported"],
+      "remediation": "Use the bounded target-loopback route/namespace descriptor.",
+      "provenance": {
+        "planner": "planNativeTargetFdTable",
+        "refusals": [
+          {
+            "code": "target-socket-syscall-state-unsupported",
+            "message": "resource fd:59:ping-socket (socket) needs a host broker recipe before native restore",
+            "detail": {
+              "id": "fd:59:ping-socket",
+              "kind": "socket",
+              "fd": 59,
+              "path": "socket:[ping-socket]",
+              "boundary": "broker-recipe",
+              "requiredModel": [
+                "accept/connect/listen queue state",
+                "peer endpoint identity",
+                "credentials and namespaces",
+                "socket options, shutdown state, readiness, and partial transfer state"
+              ]
+            }
+          }
+        ]
+      },
+      "evidenceStatus": "refusal",
+      "productSupport": "unsupported",
+      "implementationLevel": "level-0-fail-closed-discovery",
+      "graduationTargetLevel": "level-4-kernel-resource-reconstruction",
+      "migrationCompleted": false,
+      "targetNativeReconstruction": false,
+      "acceptedResourceKinds": [],
+      "artifactDigests": {
+        "row": "8c4d11612a5fd93d5b947b28b671158ec17aa1de0adbfe511c9600734e0d47bf"
+      }
+    },
+    {
+      "kind": "machinen.level4-graduation.goal-003-ping-socket-row",
+      "verifierCommand": "pnpm run level4-ping-socket-graduation",
+      "forbiddenPaths": {
+        "sourceIsaEmulation": false,
+        "sidecarOutput": false,
+        "metadataOnlySuccess": false,
+        "rawCrossIsaCheckpointReplay": false
+      },
+      "claimId": "ping-level4-missing-credential-capability-refusal",
+      "claimName": "missing credential or capability mapping refuses fail-closed",
+      "verifierOutput": "refusals=target-socket-syscall-state-unsupported",
+      "descriptor": {
+        "resources": [
+          {
+            "pingSocketModel": "loopback-echo-v1",
+            "family": "inet4",
+            "socketType": "dgram",
+            "protocol": "icmp",
+            "destination": "127.0.0.1",
+            "credentialPolicy": "target-ping-group-range",
+            "uid": 0,
+            "gid": 10,
+            "pingGroupRangeStart": 0,
+            "pingGroupRangeEnd": 0,
+            "networkNamespace": "target-loopback",
+            "route": "loopback",
+            "receiveQueue": "empty",
+            "inFlightPackets": "none",
+            "identifier": 19792,
+            "sequence": 2
+          }
+        ]
+      },
+      "stateDecisions": ["credential-policy-refused", "capability-mapping-refused"],
+      "refusalCodes": ["target-socket-syscall-state-unsupported"],
+      "remediation": "Provide uid/gid plus ping group range or CAP_NET_RAW policy that the target can verify.",
+      "provenance": {
+        "planner": "planNativeTargetFdTable",
+        "refusals": [
+          {
+            "code": "target-socket-syscall-state-unsupported",
+            "message": "resource fd:59:ping-socket (socket) needs a host broker recipe before native restore",
+            "detail": {
+              "id": "fd:59:ping-socket",
+              "kind": "socket",
+              "fd": 59,
+              "path": "socket:[ping-socket]",
+              "boundary": "broker-recipe",
+              "requiredModel": [
+                "accept/connect/listen queue state",
+                "peer endpoint identity",
+                "credentials and namespaces",
+                "socket options, shutdown state, readiness, and partial transfer state"
+              ]
+            }
+          }
+        ]
+      },
+      "evidenceStatus": "refusal",
+      "productSupport": "unsupported",
+      "implementationLevel": "level-0-fail-closed-discovery",
+      "graduationTargetLevel": "level-4-kernel-resource-reconstruction",
+      "migrationCompleted": false,
+      "targetNativeReconstruction": false,
+      "acceptedResourceKinds": [],
+      "artifactDigests": {
+        "row": "5ace3caa5bd1ada87684540f156084d4f31b5a6087d75481b131d9b6a9d62468"
+      }
+    },
+    {
+      "kind": "machinen.level4-graduation.goal-003-ping-socket-row",
+      "verifierCommand": "pnpm run level4-ping-socket-graduation",
+      "forbiddenPaths": {
+        "sourceIsaEmulation": false,
+        "sidecarOutput": false,
+        "metadataOnlySuccess": false,
+        "rawCrossIsaCheckpointReplay": false
+      },
+      "claimId": "ping-level4-unsupported-raw-socket-options-refusal",
+      "claimName": "unsupported raw socket options refuse fail-closed",
+      "verifierOutput": "refusals=target-socket-options-unsupported",
+      "descriptor": {
+        "rawSocketOptions": ["IP_HDRINCL", "SO_ATTACH_FILTER"]
+      },
+      "stateDecisions": ["unsupported-raw-socket-options-refused"],
+      "refusalCodes": ["target-socket-options-unsupported"],
+      "remediation": "Model each raw socket option explicitly before accepting the descriptor.",
+      "provenance": {
+        "policy": "goal-003-ping-level4-boundary"
+      },
+      "evidenceStatus": "refusal",
+      "productSupport": "unsupported",
+      "implementationLevel": "level-0-fail-closed-discovery",
+      "graduationTargetLevel": "level-4-kernel-resource-reconstruction",
+      "migrationCompleted": false,
+      "targetNativeReconstruction": false,
+      "acceptedResourceKinds": [],
+      "artifactDigests": {
+        "row": "8904eeabb9c8b4679affdda508ea88e4bcc8801144af292ec3f0106d3186dd92"
+      }
+    },
+    {
+      "kind": "machinen.level4-graduation.goal-003-ping-socket-row",
+      "verifierCommand": "pnpm run level4-ping-socket-graduation",
+      "forbiddenPaths": {
+        "sourceIsaEmulation": false,
+        "sidecarOutput": false,
+        "metadataOnlySuccess": false,
+        "rawCrossIsaCheckpointReplay": false
+      },
+      "claimId": "ping-level4-verifier-mismatch-refusal",
+      "claimName": "target verifier mismatch refuses fail-closed",
+      "verifierOutput": "refusals=target-native-verifier-mismatch",
+      "descriptor": {
+        "verifier": "icmp-identifier-sequence-route-credential-policy"
+      },
+      "stateDecisions": ["target-verifier-mismatch-refused"],
+      "refusalCodes": ["target-native-verifier-mismatch"],
+      "remediation": "Keep the snapshot unsupported until the target verifier proves the recreated socket.",
+      "provenance": {
+        "policy": "goal-003-ping-level4-boundary"
+      },
+      "evidenceStatus": "refusal",
+      "productSupport": "unsupported",
+      "implementationLevel": "level-0-fail-closed-discovery",
+      "graduationTargetLevel": "level-4-kernel-resource-reconstruction",
+      "migrationCompleted": false,
+      "targetNativeReconstruction": false,
+      "acceptedResourceKinds": [],
+      "artifactDigests": {
+        "row": "83e3d910f05005c04e08fe7944edc7d315b0104a67a9cae5450dabb80a63319c"
+      }
+    }
+  ],
+  "descriptorShape": {
+    "sockets": [
+      {
+        "kind": "ping-socket",
+        "family": "inet4",
+        "socketType": "dgram",
+        "protocol": "icmp",
+        "destination": "127.0.0.1",
+        "identifier": 19792,
+        "nextSequence": 2,
+        "credentialPolicy": "target-ping-group-range",
+        "uid": 0,
+        "gid": 0,
+        "pingGroupRangeStart": 0,
+        "pingGroupRangeEnd": 2147483647,
+        "networkNamespace": "target-loopback",
+        "route": "loopback",
+        "receiveQueue": "empty",
+        "inFlightPackets": "none",
+        "activeRecvmsg": false
+      },
+      {
+        "kind": "raw-icmp",
+        "family": "inet4",
+        "socketType": "raw",
+        "protocol": "icmp",
+        "destination": "127.0.0.1",
+        "identifier": 19785,
+        "nextSequence": 1,
+        "capability": "cap-net-raw",
+        "networkNamespace": "target-loopback",
+        "route": "loopback",
+        "receiveQueue": "empty",
+        "inFlightPackets": "none",
+        "activeRecvmsg": false
+      }
+    ],
+    "targetNativeVerifier": [
+      "identifier-sequence",
+      "route-namespace",
+      "credential-or-capability-policy",
+      "empty-queue-policy",
+      "icmp-loopback-echo"
+    ]
+  },
+  "publicProductRouteRequired": true,
+  "failures": []
+}

@@ -118,67 +118,68 @@ const IMPLEMENTED_PRODUCT_PROFILES = new Set([
   "node-app-http-server-recreate",
   "python-cross-arch-runtime-policy",
   "go-cross-arch-runtime-policy",
-  "ping-sequence-counter-semantic-continuation-v1",
+  "ping-level4-socket-reconstruction-v1",
 ]);
 
 const BUILTIN_PRODUCT_PROFILES: ProductClaimProofProfileInput[] = [
   {
-    name: "ping-sequence-counter-semantic-continuation-v1",
+    name: "ping-level4-socket-reconstruction-v1",
     description:
-      "Goal 001 Level 2 semantic continuation: ping resumes target-natively at a recorded sequence boundary with logical sent/received/lost counters and an explicit drop-and-count-lost in-flight packet policy.",
-    sourceFixture: "product-semantic-ping:ping-sequence-counter-semantic-continuation-v1",
+      "Goal 011 portable machine Level 4 product route: reconstruct a target-native ping datagram or raw ICMP socket from machinen snapshot/restore only when the capture boundary has an empty receive queue, no in-flight packets, no active recvmsg, unambiguous loopback routing, and a credential/capability mapping.",
+    sourceFixture: "portable-machine-transport:ping-level4-socket-reconstruction-v1",
     expectedResult: "success",
-    supportStatus: "implemented-semantic-continuation",
-    productSupportLevel: "level-2-semantic-continuation",
-    unsafeStateFamily: "semantic-ping-sequence-counter-v1",
+    supportStatus: "implemented-product-support",
+    productSupportLevel: "level-4-kernel-resource-reconstruction",
+    unsafeStateFamily: "network-ping-socket",
     capabilities: [
-      "goal001:level-2-semantic-continuation",
-      "goal001:semantic-ping-sequence-counter-v1",
-      "goal001:target-native-verifier",
+      "goal011:portable-machine-transport",
+      "goal011:level-4-kernel-resource-reconstruction",
+      "network:ping-socket-loopback",
+      "network:raw-icmp-loopback",
+      "fd:ping-socket",
+      "fd:raw-icmp-socket",
+      "packet:empty-receive-queue",
+      "packet:no-inflight-icmp",
+      "syscall:no-active-recvmsg",
+      "route:loopback",
+      "network-namespace:target-loopback",
+      "credential:ping-group-range",
+      "capability:cap-net-raw",
+      "goal011:target-native-verifier",
     ],
     observableStateDecisions: [
       {
-        name: "destination",
-        decision: "preserved",
-        rationale: "the descriptor carries the destination into the target ping operation",
-      },
-      {
-        name: "identifier-and-next-sequence",
-        decision: "logically-restored",
-        rationale: "the target resumes at the next recorded sequence boundary",
-      },
-      {
-        name: "sent-received-lost-counters",
-        decision: "logically-restored",
-        rationale:
-          "counters are carried as logical integers and advanced only after target verifier replies",
-      },
-      {
-        name: "target-ping-process",
+        name: "socket-descriptor",
         decision: "recreated",
         rationale:
-          "the source process is not teleported; the target uses target-native ping semantics",
+          "the product descriptor records the accepted socket kind and recreates it target-natively",
+      },
+      {
+        name: "icmp-echo-identity",
+        decision: "preserved",
+        rationale:
+          "the descriptor carries the echo identifier and sequence accepted by the verifier",
       },
       {
         name: "receive-queue",
         decision: "drained",
-        rationale: "the accepted profile requires no unread replies at the snapshot boundary",
+        rationale: "the supported boundary requires an empty receive queue",
       },
       {
-        name: "raw-socket-kernel-state",
+        name: "in-flight-packets",
         decision: "refused",
-        rationale: "kernel-exact socket state is outside the Level 2 semantic descriptor",
+        rationale: "captures with in-flight packets are stable product refusals, not support",
+      },
+      {
+        name: "active-recvmsg",
+        decision: "refused",
+        rationale: "captures blocked in recvmsg are outside the Level 4 product boundary",
       },
     ],
-    checkedSummary: "scripts/smoke/semantic-ping-continuation.sh",
+    checkedSummary: "docs/snapshot/checked-summaries/level4-graduation/goal-011.json",
     refusalSupportContract: {
-      currentRefusalCode: "semantic-ping-unread-receive-queue-unsupported",
-      graduationRequires: [
-        "receive-queue-descriptor",
-        "active-recvmsg-model",
-        "raw-socket-target-recreate",
-        "live-icmp-vm-smoke",
-      ],
+      currentRefusalCode: "ping-socket-active-recvmsg-unsupported",
+      graduationRequires: [],
     },
   },
 ];
@@ -575,9 +576,6 @@ function productClaimMessage(
   productRefusalCode: string | undefined,
 ): string {
   if (status === "implemented-product-support") {
-    if (profile.name === "ping-sequence-counter-semantic-continuation-v1") {
-      return "Implemented Level 2 semantic continuation for ping counters and sequence boundary with fail-closed queue/socket refusals.";
-    }
     return "Implemented product support with descriptor integrity checks and target-native verification.";
   }
   if (status === "stable-product-refusal") {
