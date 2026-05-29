@@ -127,7 +127,8 @@ export const COMMANDS: CommandSpec[] = [
     positionals: [
       {
         name: "runtime",
-        description: "Portable product runtime to capture: 'postgres' or 'ping-socket'.",
+        description:
+          "Portable product runtime to capture: 'postgres', 'eventfd', or 'ping-socket'.",
       },
     ],
     flags: [
@@ -145,6 +146,31 @@ export const COMMANDS: CommandSpec[] = [
         description: "Architecture where the descriptor will be restored.",
       },
       { name: "--dump", type: "string", description: "Logical pg_dump artifact (postgres)." },
+      { name: "--counter", type: "string", description: "Eventfd counter value (eventfd)." },
+      { name: "--semaphore", type: "boolean", description: "Refuse semaphore-mode eventfd." },
+      {
+        name: "--waiters",
+        type: "enum",
+        values: ["none", "unknown"],
+        description: "Eventfd waiter state; anything other than none refuses.",
+      },
+      {
+        name: "--aliases",
+        type: "enum",
+        values: ["none", "present", "unknown"],
+        description: "Eventfd alias state; anything other than none refuses.",
+      },
+      { name: "--no-cloexec", type: "boolean", description: "Refuse missing close-on-exec flag." },
+      {
+        name: "--nonblocking",
+        type: "boolean",
+        description: "Refuse unsupported eventfd nonblocking flag.",
+      },
+      {
+        name: "--active-syscall",
+        type: "boolean",
+        description: "Refuse active eventfd syscall state.",
+      },
       {
         name: "--source-verifier-output",
         type: "string",

@@ -211,7 +211,10 @@ describe("portable restore adapter convention", () => {
       expect(PORTABLE_RESTORE_ADAPTER_SRC).toContain(`${hook}(`);
     }
     expect(CLI_SRC).toContain("const pingPortableRestoreAdapter");
-    expect(CLI_SRC).toContain("const portableRestoreAdapters = [pingPortableRestoreAdapter]");
+    expect(CLI_SRC).toContain("const eventfdPortableRestoreAdapter");
+    expect(CLI_SRC).toMatch(
+      /const portableRestoreAdapters = \[\s*pingPortableRestoreAdapter,\s*eventfdPortableRestoreAdapter,/,
+    );
     expect(CLI_SRC).toContain("detectPortableRestoreAdapter(snapDir)");
   });
 });

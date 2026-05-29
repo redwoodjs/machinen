@@ -2,7 +2,7 @@ import type { VmHandle } from "@machinen/runtime";
 
 import type { ParsedRestoreCommandArgs } from "./parse-restore-args.ts";
 
-export interface PortableRestoreAdapter<Validation, Plan, DetachedSummary> {
+export interface PortableRestoreAdapter<Validation extends { ok: boolean }, Plan, DetachedSummary> {
   readonly profile: string;
   detect(bundleDir: string): boolean;
   validate(input: PortableRestoreValidationInput): Validation;

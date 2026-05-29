@@ -105,6 +105,7 @@ function implementedSubsets(primarySubset) {
         "python-http-clean-root-v1",
         "go-http-clean-root-v1",
         "ping-level4-socket-reconstruction-v1",
+        "eventfd-counter-v1-nonsemaphore-no-waiters",
       ]
     : [primarySubset];
 }

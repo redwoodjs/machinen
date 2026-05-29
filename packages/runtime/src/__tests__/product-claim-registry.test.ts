@@ -18,9 +18,9 @@ describe("Goal 46 product claim registry", () => {
   it("classifies every portable-machine proof profile into a product status", () => {
     const registry = buildProductClaimRegistry(PROFILES);
 
-    expect(registry.entries).toHaveLength(PROFILES.length + 1);
-    expect(registry.summary.total).toBe(PROFILES.length + 1);
-    expect(registry.summary.implementedProductSupport).toBe(4);
+    expect(registry.entries).toHaveLength(PROFILES.length + 2);
+    expect(registry.summary.total).toBe(PROFILES.length + 2);
+    expect(registry.summary.implementedProductSupport).toBe(5);
     expect(
       registry.entries.filter((entry) => entry.productStatus === "implemented-product-support"),
     ).toEqual(
@@ -43,6 +43,13 @@ describe("Goal 46 product claim registry", () => {
         }),
         expect.objectContaining({
           name: "ping-level4-socket-reconstruction-v1",
+          migrationCompleted: true,
+          proofOnly: false,
+          supportLevel: "level-4-kernel-resource-reconstruction",
+        }),
+        expect.objectContaining({
+          name: "eventfd-counter-v1-nonsemaphore-no-waiters",
+          family: "native-linux-resource",
           migrationCompleted: true,
           proofOnly: false,
           supportLevel: "level-4-kernel-resource-reconstruction",

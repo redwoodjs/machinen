@@ -123,6 +123,7 @@
     "smoke-product-support-discovery": "bash scripts/smoke/product-support-discovery.sh",
     "smoke-semantic-ping-continuation": "bash scripts/smoke/semantic-ping-continuation.sh",
     "smoke-portable-ping-machine": "bash scripts/smoke/portable-ping-machine.sh",
+    "smoke-portable-eventfd": "bash scripts/smoke/portable-eventfd.sh",
     "smoke-node-product-snapshot-restore": "bash scripts/smoke/node-product-snapshot-restore.sh",
     "smoke-clean-service-python-product-snapshot-restore": "bash scripts/smoke/clean-service-python-product-snapshot-restore.sh",
     "smoke-clean-service-go-product-snapshot-restore": "bash scripts/smoke/clean-service-go-product-snapshot-restore.sh",

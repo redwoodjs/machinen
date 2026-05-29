@@ -46,6 +46,9 @@ node -e 'const fs=require("fs"); const data=JSON.parse(fs.readFileSync(process.a
 node "$CLI" support --level level-4-kernel-resource-reconstruction --profile ping-level4-socket-reconstruction-v1 --json >"$WORK/ping-level4.json"
 node -e 'const fs=require("fs"); const data=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); const entry=data.entries[0]; if (data.count !== 1 || !entry || entry.productStatus !== "implemented-product-support" || entry.supportLevel !== "level-4-kernel-resource-reconstruction" || entry.migrationCompleted !== true || entry.family !== "network-ping-socket") throw new Error("ping Level 4 socket product support not visible");' "$WORK/ping-level4.json"
 
+node "$CLI" support --level level-4-kernel-resource-reconstruction --profile eventfd-counter-v1-nonsemaphore-no-waiters --json >"$WORK/eventfd-level4.json"
+node -e 'const fs=require("fs"); const data=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); const entry=data.entries[0]; if (data.count !== 1 || !entry || entry.productStatus !== "implemented-product-support" || entry.supportLevel !== "level-4-kernel-resource-reconstruction" || entry.migrationCompleted !== true || entry.family !== "native-linux-resource") throw new Error("eventfd Level 4 product support not visible");' "$WORK/eventfd-level4.json"
+
 node "$CLI" support --status proof-only-fixture --json >"$WORK/proof-only.json"
 node -e 'const fs=require("fs"); const data=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if (data.count <= 0) throw new Error("no proof-only entries"); if (!data.entries.every((entry)=>entry.migrationCompleted === false && entry.proofOnly === true)) throw new Error("proof-only entry surfaced as support");' "$WORK/proof-only.json"
 

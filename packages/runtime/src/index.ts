@@ -594,6 +594,18 @@ export {
   restoreProductPortablePostgresSnapshot,
 } from "./product-portable-postgres.ts";
 export {
+  PRODUCT_LEVEL4_EVENTFD_FORMAT_VERSION,
+  PRODUCT_LEVEL4_EVENTFD_MANIFEST,
+  PRODUCT_LEVEL4_EVENTFD_REFUSAL,
+  PRODUCT_LEVEL4_EVENTFD_RESTORE_SUMMARY,
+  ProductLevel4EventfdError,
+  createProductLevel4EventfdSnapshot,
+  isProductLevel4EventfdBundle,
+  productLevel4EventfdArchitectures,
+  productLevel4EventfdRefusalCodes,
+  restoreProductLevel4EventfdSnapshot,
+} from "./product-level4-eventfd.ts";
+export {
   PRODUCT_LEVEL4_PING_SOCKET_FORMAT_VERSION,
   PRODUCT_LEVEL4_PING_SOCKET_MANIFEST,
   PRODUCT_LEVEL4_PING_SOCKET_REFUSAL,
@@ -743,6 +755,16 @@ export type {
   ProductPortablePostgresRestoreSummary,
   ProductPortableSupportLevel,
 } from "./product-portable-postgres.ts";
+export type {
+  ProductLevel4EventfdArchitecture,
+  ProductLevel4EventfdCaptureInput,
+  ProductLevel4EventfdCaptureResult,
+  ProductLevel4EventfdDescriptor,
+  ProductLevel4EventfdRefusal,
+  ProductLevel4EventfdRefusalCode,
+  ProductLevel4EventfdRestoreInput,
+  ProductLevel4EventfdRestoreSummary,
+} from "./product-level4-eventfd.ts";
 export type {
   ProductLevel4PingSocketArchitecture,
   ProductLevel4PingSocketCaptureInput,

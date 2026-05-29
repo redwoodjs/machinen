@@ -6,9 +6,9 @@
     "family": "nodejs"
   },
   "registrySummary": {
-    "total": 2246,
+    "total": 2247,
     "byStatus": {
-      "implemented-product-support": 4,
+      "implemented-product-support": 5,
       "stable-product-refusal": 1563,
       "proof-only-fixture": 679,
       "obsolete-invalid-claim": 0
@@ -20,11 +20,11 @@
       "python-ruby-jvm": 4,
       "stateful-services": 26,
       "foundation-native": 127,
-      "native-linux-resource": 302,
+      "native-linux-resource": 303,
       "network-ping-socket": 537,
       "unknown": 897
     },
-    "implementedProductSupport": 4,
+    "implementedProductSupport": 5,
     "stableProductRefusals": 1563,
     "proofOnlyFixtures": 679,
     "obsoleteInvalidClaims": 0
