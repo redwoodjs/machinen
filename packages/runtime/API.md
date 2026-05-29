@@ -244,6 +244,27 @@
 - [`isProductPortablePostgresBundle`](#isproductportablepostgresbundle)
 - [`productPortablePostgresFileSha256`](#productportablepostgresfilesha256)
 
+### Product Level 4 eventfd
+
+- [`ProductLevel4EventfdError`](#productlevel4eventfderror)
+- [`ProductLevel4EventfdCaptureInput`](#productlevel4eventfdcaptureinput)
+- [`ProductLevel4EventfdDescriptor`](#productlevel4eventfddescriptor)
+- [`ProductLevel4EventfdRefusal`](#productlevel4eventfdrefusal)
+- [`ProductLevel4EventfdRestoreInput`](#productlevel4eventfdrestoreinput)
+- [`ProductLevel4EventfdRestoreSummary`](#productlevel4eventfdrestoresummary)
+- [`ProductLevel4EventfdArchitecture`](#productlevel4eventfdarchitecture)
+- [`ProductLevel4EventfdRefusalCode`](#productlevel4eventfdrefusalcode)
+- [`ProductLevel4EventfdCaptureResult`](#productlevel4eventfdcaptureresult)
+- [`PRODUCT_LEVEL4_EVENTFD_FORMAT_VERSION`](#product_level4_eventfd_format_version)
+- [`PRODUCT_LEVEL4_EVENTFD_MANIFEST`](#product_level4_eventfd_manifest)
+- [`PRODUCT_LEVEL4_EVENTFD_REFUSAL`](#product_level4_eventfd_refusal)
+- [`PRODUCT_LEVEL4_EVENTFD_RESTORE_SUMMARY`](#product_level4_eventfd_restore_summary)
+- [`productLevel4EventfdArchitectures`](#productlevel4eventfdarchitectures)
+- [`productLevel4EventfdRefusalCodes`](#productlevel4eventfdrefusalcodes)
+- [`createProductLevel4EventfdSnapshot`](#createproductlevel4eventfdsnapshot)
+- [`isProductLevel4EventfdBundle`](#isproductlevel4eventfdbundle)
+- [`restoreProductLevel4EventfdSnapshot`](#restoreproductlevel4eventfdsnapshot)
+
 ### Product Level 4 ping socket
 
 - [`ProductLevel4PingSocketError`](#productlevel4pingsocketerror)
@@ -2014,6 +2035,44 @@ Attach to `id`. Throws if id doesn't exist.
 ###### Overrides
 
 `Error.constructor`
+
+***
+
+### ProductLevel4EventfdError
+
+#### Extends
+
+- `Error`
+
+#### Constructors
+
+##### Constructor
+
+> **new ProductLevel4EventfdError**(`code`, `message`): [`ProductLevel4EventfdError`](#productlevel4eventfderror)
+
+###### Parameters
+
+###### code
+
+`string`
+
+###### message
+
+`string`
+
+###### Returns
+
+[`ProductLevel4EventfdError`](#productlevel4eventfderror)
+
+###### Overrides
+
+`Error.constructor`
+
+#### Properties
+
+##### code
+
+> `readonly` **code**: `string`
 
 ***
 
@@ -12148,6 +12207,400 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ***
 
+### ProductLevel4EventfdCaptureInput
+
+#### Properties
+
+##### outDir
+
+> **outDir**: `string`
+
+##### sourceArch
+
+> **sourceArch**: `"amd64"` \| `"arm64"`
+
+##### targetArch
+
+> **targetArch**: `"amd64"` \| `"arm64"`
+
+##### sourceVerifierOutput
+
+> **sourceVerifierOutput**: `string`
+
+##### counter
+
+> **counter**: `string` \| `number`
+
+##### closeOnExec?
+
+> `optional` **closeOnExec?**: `boolean`
+
+##### nonblocking?
+
+> `optional` **nonblocking?**: `boolean`
+
+##### semaphore?
+
+> `optional` **semaphore?**: `boolean`
+
+##### waiters?
+
+> `optional` **waiters?**: `"none"` \| `"unknown"`
+
+##### aliases?
+
+> `optional` **aliases?**: `"none"` \| `"unknown"` \| `"present"`
+
+##### activeSyscall?
+
+> `optional` **activeSyscall?**: `boolean`
+
+##### outputLogPath?
+
+> `optional` **outputLogPath?**: `"/tmp/machinen-restored-eventfd.log"`
+
+##### dryRun?
+
+> `optional` **dryRun?**: `boolean`
+
+***
+
+### ProductLevel4EventfdDescriptor
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.product-level4-eventfd"`
+
+##### formatVersion
+
+> **formatVersion**: `1`
+
+##### supportLevel
+
+> **supportLevel**: `"implemented-product-support"`
+
+##### subset
+
+> **subset**: `"eventfd-counter-v1-nonsemaphore-no-waiters"`
+
+##### implementationLevel
+
+> **implementationLevel**: `"level-4-kernel-resource-reconstruction"`
+
+##### runtime
+
+> **runtime**: `"native-linux-resource"`
+
+##### captureSurface
+
+> **captureSurface**: `"machinen capture eventfd"`
+
+##### restoreSurface
+
+> **restoreSurface**: `"machinen restore <bundle> --target-arch <arch> [--target-verifier-output <file>]"`
+
+##### source
+
+> **source**: `object`
+
+###### architecture
+
+> **architecture**: `"amd64"` \| `"arm64"`
+
+###### host
+
+> **host**: `object`
+
+###### host.arch
+
+> **arch**: `string`
+
+###### host.platform
+
+> **platform**: `string`
+
+###### host.release
+
+> **release**: `string`
+
+##### target
+
+> **target**: `object`
+
+###### architecture
+
+> **architecture**: `"amd64"` \| `"arm64"`
+
+##### eventfd
+
+> **eventfd**: `object`
+
+###### counter
+
+> **counter**: `string`
+
+###### semaphore
+
+> **semaphore**: `false`
+
+###### waiters
+
+> **waiters**: `"none"`
+
+###### aliases
+
+> **aliases**: `"none"`
+
+###### closeOnExec
+
+> **closeOnExec**: `true`
+
+###### nonblocking
+
+> **nonblocking**: `false`
+
+###### readiness
+
+> **readiness**: `"readable"`
+
+##### continuation
+
+> **continuation**: `object`
+
+###### outputLogPath
+
+> **outputLogPath**: `"/tmp/machinen-restored-eventfd.log"`
+
+###### counterPolicy
+
+> **counterPolicy**: `"target-native-eventfd-counter-recreated"`
+
+###### readinessPolicy
+
+> **readinessPolicy**: `"counter-nonzero-pollin"`
+
+##### gates
+
+> **gates**: `object`
+
+###### boundedNonzeroCounterRequired
+
+> **boundedNonzeroCounterRequired**: `true`
+
+###### noSemaphoreModeRequired
+
+> **noSemaphoreModeRequired**: `true`
+
+###### noWaitersRequired
+
+> **noWaitersRequired**: `true`
+
+###### noAliasesRequired
+
+> **noAliasesRequired**: `true`
+
+###### onlyCloseOnExecFlagSupported
+
+> **onlyCloseOnExecFlagSupported**: `true`
+
+###### noActiveEventfdSyscallRequired
+
+> **noActiveEventfdSyscallRequired**: `true`
+
+###### targetNativeVerificationRequired
+
+> **targetNativeVerificationRequired**: `true`
+
+###### sourceIsaEmulationAllowed
+
+> **sourceIsaEmulationAllowed**: `false`
+
+###### sourceTextReplayAllowed
+
+> **sourceTextReplayAllowed**: `false`
+
+###### sidecarRuntimeAllowed
+
+> **sidecarRuntimeAllowed**: `false`
+
+###### metadataOnlyContinuationAllowed
+
+> **metadataOnlyContinuationAllowed**: `false`
+
+##### sourceVerifierOutput
+
+> **sourceVerifierOutput**: `string`
+
+##### sourceVerifierOutputSha256
+
+> **sourceVerifierOutputSha256**: `string`
+
+***
+
+### ProductLevel4EventfdRefusal
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.product-level4-eventfd-refusal"`
+
+##### formatVersion
+
+> **formatVersion**: `1`
+
+##### runtime
+
+> **runtime**: `"native-linux-resource"`
+
+##### supportLevel
+
+> **supportLevel**: `"explicit-refusal"`
+
+##### state
+
+> **state**: `"refused"`
+
+##### migrationCompleted
+
+> **migrationCompleted**: `false`
+
+##### expectedRefusalCode
+
+> **expectedRefusalCode**: `"eventfd-waiters-unsupported"` \| `"eventfd-source-target-arch-match"` \| `"eventfd-target-arch-mismatch"` \| `"eventfd-target-verifier-mismatch"` \| `"eventfd-counter-out-of-range"` \| `"eventfd-semaphore-unsupported"` \| `"eventfd-alias-unsupported"` \| `"eventfd-unsupported-flags"` \| `"eventfd-active-syscall-unsupported"`
+
+##### message
+
+> **message**: `string`
+
+##### evidence
+
+> **evidence**: `Record`\<`string`, `unknown`\>
+
+##### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+##### sourceTextReusedAsTargetCode
+
+> **sourceTextReusedAsTargetCode**: `false`
+
+##### sidecarRuntimeUsed
+
+> **sidecarRuntimeUsed**: `false`
+
+##### metadataOnlyShortcutAccepted
+
+> **metadataOnlyShortcutAccepted**: `false`
+
+***
+
+### ProductLevel4EventfdRestoreInput
+
+#### Properties
+
+##### bundleDir
+
+> **bundleDir**: `string`
+
+##### targetArch
+
+> **targetArch**: `"amd64"` \| `"arm64"`
+
+##### targetVerifierOutput
+
+> **targetVerifierOutput**: `string`
+
+##### dryRun?
+
+> `optional` **dryRun?**: `boolean`
+
+***
+
+### ProductLevel4EventfdRestoreSummary
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.product-level4-eventfd-restore-summary"`
+
+##### formatVersion
+
+> **formatVersion**: `1`
+
+##### runtime
+
+> **runtime**: `"native-linux-resource"`
+
+##### subset
+
+> **subset**: `"eventfd-counter-v1-nonsemaphore-no-waiters"`
+
+##### supportLevel
+
+> **supportLevel**: `"implemented-product-support"`
+
+##### implementationLevel
+
+> **implementationLevel**: `"level-4-kernel-resource-reconstruction"`
+
+##### state
+
+> **state**: `"refused"` \| `"completed"`
+
+##### migrationCompleted
+
+> **migrationCompleted**: `boolean`
+
+##### sourceArch?
+
+> `optional` **sourceArch?**: `"amd64"` \| `"arm64"`
+
+##### targetArch
+
+> **targetArch**: `"amd64"` \| `"arm64"`
+
+##### targetVerifierResult
+
+> **targetVerifierResult**: `"failed"` \| `"passed"` \| `"not-run"`
+
+##### descriptorSha256?
+
+> `optional` **descriptorSha256?**: `string`
+
+##### targetVerifierOutputSha256?
+
+> `optional` **targetVerifierOutputSha256?**: `string`
+
+##### refusal?
+
+> `optional` **refusal?**: [`ProductLevel4EventfdRefusal`](#productlevel4eventfdrefusal)
+
+##### shortcutInspection
+
+> **shortcutInspection**: `object`
+
+###### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+###### sourceTextReusedAsTargetCode
+
+> **sourceTextReusedAsTargetCode**: `false`
+
+###### sidecarRuntimeUsed
+
+> **sidecarRuntimeUsed**: `false`
+
+###### metadataOnlyShortcutAccepted
+
+> **metadataOnlyShortcutAccepted**: `false`
+
+***
+
 ### ProductLevel4PingSocketCaptureInput
 
 #### Properties
@@ -14041,7 +14494,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`runtime`](#runtime-8)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`runtime`](#runtime-11)
 
 ##### profile
 
@@ -14065,7 +14518,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`sourceArch`](#sourcearch-16)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`sourceArch`](#sourcearch-18)
 
 ##### targetArch
 
@@ -14073,7 +14526,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`targetArch`](#targetarch-29)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`targetArch`](#targetarch-32)
 
 ##### stateModel
 
@@ -14129,7 +14582,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`evidence`](#evidence-11)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`evidence`](#evidence-12)
 
 ##### kind
 
@@ -14141,7 +14594,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Overrides
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`migrationCompleted`](#migrationcompleted-17)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`migrationCompleted`](#migrationcompleted-19)
 
 ##### scope
 
@@ -17793,6 +18246,24 @@ Result of `validatePid` — easy to switch on at the call site.
 
 ***
 
+### ProductLevel4EventfdArchitecture
+
+> **ProductLevel4EventfdArchitecture** = *typeof* [`productLevel4EventfdArchitectures`](#productlevel4eventfdarchitectures)\[`number`\]
+
+***
+
+### ProductLevel4EventfdRefusalCode
+
+> **ProductLevel4EventfdRefusalCode** = *typeof* [`productLevel4EventfdRefusalCodes`](#productlevel4eventfdrefusalcodes)\[`number`\]
+
+***
+
+### ProductLevel4EventfdCaptureResult
+
+> **ProductLevel4EventfdCaptureResult** = \{ `state`: `"completed"`; `migrationCompleted`: `true`; `bundleDir`: `string`; `descriptor`: [`ProductLevel4EventfdDescriptor`](#productlevel4eventfddescriptor); `dryRun`: `boolean`; \} \| \{ `state`: `"refused"`; `migrationCompleted`: `false`; `bundleDir`: `string`; `refusal`: [`ProductLevel4EventfdRefusal`](#productlevel4eventfdrefusal); `dryRun`: `boolean`; \}
+
+***
+
 ### ProductLevel4PingSocketArchitecture
 
 > **ProductLevel4PingSocketArchitecture** = *typeof* [`productLevel4PingSocketArchitectures`](#productlevel4pingsocketarchitectures)\[`number`\]
@@ -19712,6 +20183,42 @@ loops; anything looser stops being a meaningful gate.
 ### PRODUCT\_CLAIM\_PROOF\_ONLY\_REFUSAL\_CODE
 
 > `const` **PRODUCT\_CLAIM\_PROOF\_ONLY\_REFUSAL\_CODE**: `"product-surface-not-implemented"`
+
+***
+
+### PRODUCT\_LEVEL4\_EVENTFD\_FORMAT\_VERSION
+
+> `const` **PRODUCT\_LEVEL4\_EVENTFD\_FORMAT\_VERSION**: `1`
+
+***
+
+### PRODUCT\_LEVEL4\_EVENTFD\_MANIFEST
+
+> `const` **PRODUCT\_LEVEL4\_EVENTFD\_MANIFEST**: `"portable-eventfd.json"`
+
+***
+
+### PRODUCT\_LEVEL4\_EVENTFD\_REFUSAL
+
+> `const` **PRODUCT\_LEVEL4\_EVENTFD\_REFUSAL**: `"portable-eventfd-refusal.json"`
+
+***
+
+### PRODUCT\_LEVEL4\_EVENTFD\_RESTORE\_SUMMARY
+
+> `const` **PRODUCT\_LEVEL4\_EVENTFD\_RESTORE\_SUMMARY**: `"portable-eventfd-restore-summary.json"`
+
+***
+
+### productLevel4EventfdArchitectures
+
+> `const` **productLevel4EventfdArchitectures**: readonly \[`"arm64"`, `"amd64"`\]
+
+***
+
+### productLevel4EventfdRefusalCodes
+
+> `const` **productLevel4EventfdRefusalCodes**: readonly \[`"eventfd-source-target-arch-match"`, `"eventfd-target-arch-mismatch"`, `"eventfd-target-verifier-mismatch"`, `"eventfd-counter-out-of-range"`, `"eventfd-semaphore-unsupported"`, `"eventfd-waiters-unsupported"`, `"eventfd-alias-unsupported"`, `"eventfd-unsupported-flags"`, `"eventfd-active-syscall-unsupported"`\]
 
 ***
 
@@ -22202,6 +22709,54 @@ readonly (`number` \| [`RssTarget`](#rsstarget))[]
 ##### graduationRequirements
 
 > **graduationRequirements**: `string`[]
+
+***
+
+### createProductLevel4EventfdSnapshot()
+
+> **createProductLevel4EventfdSnapshot**(`input`): [`ProductLevel4EventfdCaptureResult`](#productlevel4eventfdcaptureresult)
+
+#### Parameters
+
+##### input
+
+[`ProductLevel4EventfdCaptureInput`](#productlevel4eventfdcaptureinput)
+
+#### Returns
+
+[`ProductLevel4EventfdCaptureResult`](#productlevel4eventfdcaptureresult)
+
+***
+
+### isProductLevel4EventfdBundle()
+
+> **isProductLevel4EventfdBundle**(`bundleDir`): `boolean`
+
+#### Parameters
+
+##### bundleDir
+
+`string`
+
+#### Returns
+
+`boolean`
+
+***
+
+### restoreProductLevel4EventfdSnapshot()
+
+> **restoreProductLevel4EventfdSnapshot**(`input`): [`ProductLevel4EventfdRestoreSummary`](#productlevel4eventfdrestoresummary)
+
+#### Parameters
+
+##### input
+
+[`ProductLevel4EventfdRestoreInput`](#productlevel4eventfdrestoreinput)
+
+#### Returns
+
+[`ProductLevel4EventfdRestoreSummary`](#productlevel4eventfdrestoresummary)
 
 ***
 

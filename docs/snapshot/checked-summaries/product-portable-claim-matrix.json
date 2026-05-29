@@ -1,0 +1,14 @@
+{
+  "kind": "machinen.product-portable-claim-matrix",
+  "inventory": "/Users/peterp/gh/redwoodjs/machinen/docs/snapshot/product-cross-arch-claim-inventory.json",
+  "implementedSubset": "node-http-clean-root-v1",
+  "totals": {
+    "claims": 14,
+    "proofOnly": 4,
+    "implementedProduct": 5,
+    "explicitRefusal": 4,
+    "obsoleteOrInvalid": 1
+  },
+  "passed": true,
+  "failures": []
+}

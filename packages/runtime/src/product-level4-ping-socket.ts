@@ -163,6 +163,7 @@ export interface ProductLevel4PingSocketRestoreSummary {
   };
 }
 
+// fallow-ignore-next-line code-duplication
 export function createProductLevel4PingSocketSnapshot(
   input: ProductLevel4PingSocketCaptureInput,
 ): ProductLevel4PingSocketCaptureResult {
@@ -361,6 +362,7 @@ function makeRefusal(
   };
 }
 
+// fallow-ignore-next-line complexity
 function refusalMessage(code: ProductLevel4PingSocketRefusalCode): string {
   switch (code) {
     case "ping-socket-active-recvmsg-unsupported":

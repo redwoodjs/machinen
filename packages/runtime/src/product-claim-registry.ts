@@ -119,9 +119,59 @@ const IMPLEMENTED_PRODUCT_PROFILES = new Set([
   "python-cross-arch-runtime-policy",
   "go-cross-arch-runtime-policy",
   "ping-level4-socket-reconstruction-v1",
+  "eventfd-counter-v1-nonsemaphore-no-waiters",
 ]);
 
 const BUILTIN_PRODUCT_PROFILES: ProductClaimProofProfileInput[] = [
+  {
+    name: "eventfd-counter-v1-nonsemaphore-no-waiters",
+    description:
+      "Goal 015 portable restore adapter product route: reconstruct a bounded nonzero eventfd counter target-natively when semaphore mode is off, waiters are known empty, aliases are absent, flags are limited to close-on-exec, and no eventfd syscall is active.",
+    sourceFixture: "portable-restore-adapter:eventfd-counter-v1-nonsemaphore-no-waiters",
+    expectedResult: "success",
+    supportStatus: "implemented-product-support",
+    productSupportLevel: "level-4-kernel-resource-reconstruction",
+    unsafeStateFamily: "eventfd-counter",
+    capabilities: [
+      "goal015:portable-restore-adapter",
+      "goal015:level-4-kernel-resource-reconstruction",
+      "fd:eventfd",
+      "eventfd:bounded-nonzero-counter",
+      "eventfd:non-semaphore",
+      "eventfd:no-waiters",
+      "eventfd:no-aliases",
+      "eventfd:close-on-exec",
+      "goal015:target-native-verifier",
+    ],
+    observableStateDecisions: [
+      {
+        name: "eventfd-counter",
+        decision: "preserved",
+        rationale:
+          "the product descriptor carries the bounded counter and verifies the target-native eventfd reports it",
+      },
+      {
+        name: "eventfd-object",
+        decision: "recreated",
+        rationale: "the target creates a fresh Linux eventfd instead of replaying source text",
+      },
+      {
+        name: "eventfd-waiters",
+        decision: "refused",
+        rationale: "waiters must be known empty for this first product boundary",
+      },
+      {
+        name: "eventfd-aliases",
+        decision: "refused",
+        rationale: "aliases are refused until a later adapter models duplicate fd semantics",
+      },
+    ],
+    checkedSummary: "docs/snapshot/checked-summaries/level4-graduation/goal-015.json",
+    refusalSupportContract: {
+      currentRefusalCode: "eventfd-waiters-unsupported",
+      graduationRequires: [],
+    },
+  },
   {
     name: "ping-level4-socket-reconstruction-v1",
     description:

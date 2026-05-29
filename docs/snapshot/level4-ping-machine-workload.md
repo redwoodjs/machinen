@@ -63,3 +63,4 @@ Checked summaries:
 - `docs/snapshot/checked-summaries/level4-graduation/goal-011.json`
 - `docs/snapshot/checked-summaries/level4-graduation/goal-012.json`
 - `docs/snapshot/checked-summaries/level4-graduation/goal-013.json`
+- `docs/snapshot/checked-summaries/level4-graduation/goal-014.json`

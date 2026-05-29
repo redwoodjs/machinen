@@ -5,7 +5,8 @@
     "node-http-clean-root-v1",
     "python-http-clean-root-v1",
     "go-http-clean-root-v1",
-    "ping-level4-socket-reconstruction-v1"
+    "ping-level4-socket-reconstruction-v1",
+    "eventfd-counter-v1-nonsemaphore-no-waiters"
   ],
   "claims": [
     {
@@ -66,6 +67,13 @@
       "supportLevel": "implemented-product-support",
       "notes": "Narrow Level 4 product route through the portable machine snapshot path for datagram ping sockets and raw ICMP sockets with empty receive queues, no in-flight packets, no active recvmsg, unambiguous loopback route/namespace, credential/capability mapping, and target-native verifier evidence.",
       "subset": "ping-level4-socket-reconstruction-v1"
+    },
+    {
+      "goal": "015",
+      "claim": "Eventfd counter Level 4 reconstruction across arm64 and amd64",
+      "supportLevel": "implemented-product-support",
+      "notes": "Narrow Level 4 product route through the generic portable restore adapter path for bounded nonzero eventfd counters with semaphore mode off, waiters known empty, no aliases, close-on-exec only, and target-native verifier evidence.",
+      "subset": "eventfd-counter-v1-nonsemaphore-no-waiters"
     },
     {
       "goal": "43",

@@ -11,8 +11,8 @@ import {
 import type { SnapshotResult } from "./vm-handle.ts";
 import type { SnapshotContext } from "./vm/snapshot.ts";
 
-export const PORTABLE_MACHINE_TRANSPORT_MANIFEST = "portable-machine-transport.json" as const;
-export const PORTABLE_MACHINE_PING_GUEST_DESCRIPTOR_PATHS = [
+const PORTABLE_MACHINE_TRANSPORT_MANIFEST = "portable-machine-transport.json" as const;
+const PORTABLE_MACHINE_PING_GUEST_DESCRIPTOR_PATHS = [
   "/run/machinen/portable-ping-socket.json",
   "/tmp/machinen-portable-ping-socket.json",
 ] as const;
