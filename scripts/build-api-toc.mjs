@@ -28,6 +28,18 @@ const API_PATH = process.argv[2] ?? "packages/runtime/API.md";
 // the list of H3 headers (i.e. symbol names) typedoc emits for that
 // category. Plain function/type names map 1:1 to typedoc's H3 text.
 const TOC = {
+  "Node Level 5 proof composition": [
+    "NodeLevel5ProofComposition",
+    "NodeLevel5ProofCompositionInput",
+    "NodeLevel5ProofCompositionRefusal",
+    "NodeLevel5ProofIngredient",
+    "NodeLevel5ProofIngredientName",
+    "NodeLevel5ProofRefusalCode",
+    "NODE_LEVEL5_PROOF_COMPOSITION_FORMAT_VERSION",
+    "buildNodeLevel5ProofComposition",
+    "nodeLevel5ProofIngredientNames",
+    "nodeLevel5ProofRefusalCodes",
+  ],
   "Boot a VM": [
     "boot",
     "BootOptions",
