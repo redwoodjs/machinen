@@ -4,13 +4,18 @@ import { dirname, resolve } from "node:path";
 
 import {
   buildNodeLevel5ProofComposition,
+  runNodeLevel5TargetSideProof,
   type NodeLevel5ProofEvidenceCheck,
   type NodeLevel5ProofIngredientName,
+  type NodeLevel5TargetProofEvidence,
+  type NodeLevel5TargetSideProof,
 } from "../packages/runtime/src/index.ts";
 
 interface Args {
   out: string;
   json: boolean;
+  includeTargetProof: boolean;
+  targetProof?: string;
 }
 
 const DEFAULT_OUT = "docs/snapshot/checked-summaries/level4-graduation/goal-009-proof-run.json";
@@ -67,7 +72,7 @@ const evidenceRequirements: Array<{
 
 // fallow-ignore-next-line complexity
 function parseArgs(argv: string[]): Args {
-  const args: Args = { out: DEFAULT_OUT, json: false };
+  const args: Args = { out: DEFAULT_OUT, json: false, includeTargetProof: false };
   for (let index = 2; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "verify" || arg === "--") {
@@ -75,6 +80,15 @@ function parseArgs(argv: string[]): Args {
     }
     if (arg === "--json") {
       args.json = true;
+      continue;
+    }
+    if (arg === "--include-target-proof") {
+      args.includeTargetProof = true;
+      continue;
+    }
+    if (arg === "--target-proof") {
+      args.targetProof = argv[++index] ?? fail("--target-proof requires a value");
+      args.includeTargetProof = true;
       continue;
     }
     if (arg === "--out") {
@@ -86,17 +100,20 @@ function parseArgs(argv: string[]): Args {
   return args;
 }
 
-function main(): void {
+// fallow-ignore-next-line complexity
+async function main(): Promise<void> {
   const args = parseArgs(process.argv);
   const evidenceChecks = evidenceRequirements.map(checkEvidence);
   const checkedSummaries = Object.fromEntries(
     evidenceRequirements.map((requirement) => [requirement.name, requirement.path]),
   ) as Partial<Record<NodeLevel5ProofIngredientName, string>>;
+  const targetProof = args.includeTargetProof ? await resolveTargetProof(args) : undefined;
   const composition = buildNodeLevel5ProofComposition({
     eventLoopResourceMapPresent: evidencePassed("level4-event-loop-resource-map", evidenceChecks),
     targetNativeVerifierPresent: evidencePassed("target-native-verifier", evidenceChecks),
     checkedSummaries,
     evidenceChecks,
+    ...(targetProof ? { targetProof } : {}),
     proofRunner: "scripts/node-level5-proof-composition.ts",
   });
   const out = resolve(args.out);
@@ -112,6 +129,54 @@ function main(): void {
   if (!composition.summary.proofReady) {
     process.exitCode = 1;
   }
+}
+
+async function resolveTargetProof(args: Args): Promise<NodeLevel5TargetProofEvidence> {
+  const proofPath = args.targetProof
+    ? resolve(args.targetProof)
+    : resolve(
+        "docs/snapshot/checked-summaries/level4-graduation/goal-009-target-side-continuation.json",
+      );
+  if (!args.targetProof || !existsSync(proofPath)) {
+    await runNodeLevel5TargetSideProof({ outPath: proofPath });
+  }
+  return readTargetProofEvidence(proofPath);
+}
+
+// fallow-ignore-next-line complexity
+function readTargetProofEvidence(path: string): NodeLevel5TargetProofEvidence {
+  if (!existsSync(path)) {
+    return {
+      path,
+      status: "missing",
+      noSourceIsaEmulation: false,
+      noSidecarOutput: false,
+      noMetadataOnlySuccess: false,
+      targetVerifierObservedActualNodeContinuation: false,
+      message: "target proof artifact is missing",
+    };
+  }
+  const proof = JSON.parse(readFileSync(path, "utf8")) as NodeLevel5TargetSideProof;
+  const passed =
+    proof.kind === "machinen.node-level5-target-side-continuation-proof" &&
+    proof.assertions.sourceIsaEmulationUsed === false &&
+    proof.assertions.sidecarOutputUsed === false &&
+    proof.assertions.metadataOnlySuccess === false &&
+    proof.assertions.targetVerifierObservedActualNodeContinuation === true &&
+    proof.summary.targetOutputVerified === true;
+  return {
+    path,
+    status: passed ? "passed" : "failed",
+    kind: proof.kind,
+    noSourceIsaEmulation: proof.assertions.sourceIsaEmulationUsed === false,
+    noSidecarOutput: proof.assertions.sidecarOutputUsed === false,
+    noMetadataOnlySuccess: proof.assertions.metadataOnlySuccess === false,
+    targetVerifierObservedActualNodeContinuation:
+      proof.assertions.targetVerifierObservedActualNodeContinuation === true,
+    message: passed
+      ? "target proof observed actual target-native Node continuation"
+      : "target proof artifact did not satisfy shortcut gates",
+  };
 }
 
 function checkEvidence(
@@ -159,4 +224,4 @@ function fail(message: string): never {
   throw new Error(message);
 }
 
-main();
+await main();

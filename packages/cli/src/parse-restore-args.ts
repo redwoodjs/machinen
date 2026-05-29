@@ -55,6 +55,10 @@ export interface ParsedRestoreCommandArgs {
   targetArch?: "arm64" | "amd64";
   /** File containing target-native verifier output for semantic bundles. */
   targetVerifierOutput?: string;
+  /** Run the Node Level 5 proof-only verifier path when restoring a proof bundle. */
+  verifyProofOnly?: boolean;
+  /** Return 0 for a passed proof-only verifier while still reporting proof-only status. */
+  allowProofOnlySuccess?: boolean;
 }
 
 type RestoreFlag =
@@ -64,7 +68,9 @@ type RestoreFlag =
   | "liveMount"
   | "portForward"
   | "targetArch"
-  | "targetVerifierOutput";
+  | "targetVerifierOutput"
+  | "verifyProofOnly"
+  | "allowProofOnlySuccess";
 
 type RestoreFlagHandler = (
   state: RestoreParseState,
@@ -83,6 +89,8 @@ interface RestoreParseState {
   liveMounts: Array<{ host: string; guest: string; mode: "ro" | "rw" }>;
   targetArch?: "arm64" | "amd64";
   targetVerifierOutput?: string;
+  verifyProofOnly?: boolean;
+  allowProofOnlySuccess?: boolean;
   seenLiveGuests: Set<string>;
   seenHostPorts: Set<number>;
 }
@@ -97,7 +105,11 @@ const RESTORE_VALUE_FLAGS = new Map<string, RestoreFlag>([
   ["--target-verifier-output", "targetVerifierOutput"],
 ]);
 
-const RESTORE_BARE_FLAGS = new Map<string, RestoreFlag>([["--lazy", "lazy"]]);
+const RESTORE_BARE_FLAGS = new Map<string, RestoreFlag>([
+  ["--lazy", "lazy"],
+  ["--verify-proof-only", "verifyProofOnly"],
+  ["--allow-proof-only-success", "allowProofOnlySuccess"],
+]);
 
 const RESTORE_FLAG_HANDLERS: Record<RestoreFlag, RestoreFlagHandler> = {
   lazy: handleRestoreLazy,
@@ -107,6 +119,8 @@ const RESTORE_FLAG_HANDLERS: Record<RestoreFlag, RestoreFlagHandler> = {
   portForward: handleRestorePortForward,
   targetArch: handleRestoreTargetArch,
   targetVerifierOutput: handleRestoreTargetVerifierOutput,
+  verifyProofOnly: handleRestoreVerifyProofOnly,
+  allowProofOnlySuccess: handleRestoreAllowProofOnlySuccess,
 };
 
 export function parseRestoreArgs(argv: string[]): ParsedRestoreCommandArgs {
@@ -157,6 +171,8 @@ function finishRestoreArgs(state: RestoreParseState): ParsedRestoreCommandArgs {
     liveMounts: state.liveMounts,
     targetArch: state.targetArch,
     targetVerifierOutput: state.targetVerifierOutput,
+    verifyProofOnly: state.verifyProofOnly,
+    allowProofOnlySuccess: state.allowProofOnlySuccess,
   };
 }
 
@@ -192,6 +208,26 @@ function handleRestoreImage(
   assertRestoreFlagUnused(state.image !== undefined, "--image");
   state.image = spec;
   return next;
+}
+
+function handleRestoreVerifyProofOnly(
+  state: RestoreParseState,
+  _flag: string,
+  _args: string[],
+  index: number,
+): number {
+  state.verifyProofOnly = true;
+  return index;
+}
+
+function handleRestoreAllowProofOnlySuccess(
+  state: RestoreParseState,
+  _flag: string,
+  _args: string[],
+  index: number,
+): number {
+  state.allowProofOnlySuccess = true;
+  return index;
 }
 
 function handleRestoreTargetArch(

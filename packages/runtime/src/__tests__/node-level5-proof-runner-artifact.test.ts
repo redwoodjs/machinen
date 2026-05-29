@@ -50,4 +50,41 @@ describe("Node Level 5 proof runner artifact", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it("optionally includes a concrete target-native continuation proof", () => {
+    const dir = mkdtempSync(join(tmpdir(), "machinen-node-level5-proof-target-"));
+    try {
+      const out = join(dir, "proof.json");
+      const targetProof = join(dir, "target-proof.json");
+      execFileSync(
+        "pnpm",
+        [
+          "exec",
+          "tsx",
+          "scripts/node-level5-proof-composition.ts",
+          "verify",
+          "--out",
+          out,
+          "--include-target-proof",
+          "--target-proof",
+          targetProof,
+        ],
+        { encoding: "utf8" },
+      );
+      const artifact = JSON.parse(readFileSync(out, "utf8"));
+      expect(artifact.targetProof).toMatchObject({
+        status: "passed",
+        noSourceIsaEmulation: true,
+        noSidecarOutput: true,
+        noMetadataOnlySuccess: true,
+        targetVerifierObservedActualNodeContinuation: true,
+      });
+      expect(JSON.parse(readFileSync(targetProof, "utf8"))).toMatchObject({
+        targetOutput: { targetNativeExecution: true },
+        assertions: { targetVerifierObservedActualNodeContinuation: true },
+      });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });

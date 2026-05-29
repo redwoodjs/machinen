@@ -39,6 +39,18 @@ export interface NodeLevel5ProofCompositionInput {
   eventLoopResourceMapPresent: boolean;
   targetNativeVerifierPresent: boolean;
   checkedSummaries?: Partial<Record<NodeLevel5ProofIngredientName, string>>;
+  targetProof?: NodeLevel5TargetProofEvidence;
+}
+
+export interface NodeLevel5TargetProofEvidence {
+  path: string;
+  status: "passed" | "missing" | "failed" | "not-run";
+  kind?: "machinen.node-level5-target-side-continuation-proof";
+  noSourceIsaEmulation: boolean;
+  noSidecarOutput: boolean;
+  noMetadataOnlySuccess: boolean;
+  targetVerifierObservedActualNodeContinuation: boolean;
+  message: string;
 }
 
 export interface NodeLevel5ProofCompositionRefusal {
@@ -84,6 +96,7 @@ export interface NodeLevel5ProofComposition {
   selectedSubset: "node-http-clean-root-v1-with-level4-event-loop-map";
   requiredIngredients: NodeLevel5ProofIngredient[];
   evidenceChecks?: NodeLevel5ProofEvidenceCheck[];
+  targetProof?: NodeLevel5TargetProofEvidence;
   proofRunner?: "scripts/node-level5-proof-composition.ts";
   refusals: NodeLevel5ProofCompositionRefusal[];
   refusalMatrix: NodeLevel5ProofRefusalMatrixRow[];
@@ -129,6 +142,7 @@ export function buildNodeLevel5ProofComposition(
     selectedSubset: "node-http-clean-root-v1-with-level4-event-loop-map",
     requiredIngredients,
     ...(input.evidenceChecks ? { evidenceChecks: input.evidenceChecks } : {}),
+    ...(input.targetProof ? { targetProof: input.targetProof } : {}),
     ...(input.proofRunner ? { proofRunner: input.proofRunner } : {}),
     refusals,
     refusalMatrix,
@@ -145,7 +159,9 @@ export function buildNodeLevel5ProofComposition(
       present: present.length,
       missing: requiredIngredients.length - present.length,
       refusalCount: refusals.length,
-      proofReady: present.length === requiredIngredients.length,
+      proofReady:
+        present.length === requiredIngredients.length &&
+        (input.targetProof === undefined || input.targetProof.status === "passed"),
     },
   };
 }

@@ -17,11 +17,15 @@
     "target-native-verifier"
   ],
   "proofRunner": "scripts/node-level5-proof-composition.ts",
+  "proofRunnerMode": "--include-target-proof",
   "proofRunArtifact": "docs/snapshot/checked-summaries/level4-graduation/goal-009-proof-run.json",
+  "targetSideContinuationArtifact": "docs/snapshot/checked-summaries/level4-graduation/goal-009-target-side-continuation.json",
   "publicVerbRouting": {
     "snapshotWrites": "node-level5-proof-composition.json",
     "restoreSummary": "node-level5-proof-restore-summary.json",
     "restoreRefusal": "node-level5-proof-only-not-product",
+    "proofVerifierFlag": "--verify-proof-only",
+    "proofAutomationSuccessFlag": "--allow-proof-only-success",
     "migrationCompleted": false
   },
   "composesWith": [
@@ -36,6 +40,7 @@
     "sourceIsaEmulationAllowed": false,
     "sidecarRuntimeAllowed": false,
     "metadataOnlyContinuationAllowed": false,
+    "targetVerifierObservedActualNodeContinuation": true,
     "publicProductVerbRequiredBeforeSupport": true
   },
   "stableRefusals": [
