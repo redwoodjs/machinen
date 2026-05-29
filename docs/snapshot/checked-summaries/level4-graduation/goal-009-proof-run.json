@@ -113,6 +113,16 @@
       "message": "evidence file contains the required fragments"
     }
   ],
+  "targetProof": {
+    "path": "/Users/peterp/gh/redwoodjs/machinen/docs/snapshot/checked-summaries/level4-graduation/goal-009-target-side-continuation.json",
+    "status": "passed",
+    "kind": "machinen.node-level5-target-side-continuation-proof",
+    "noSourceIsaEmulation": true,
+    "noSidecarOutput": true,
+    "noMetadataOnlySuccess": true,
+    "targetVerifierObservedActualNodeContinuation": true,
+    "message": "target proof observed actual target-native Node continuation"
+  },
   "proofRunner": "scripts/node-level5-proof-composition.ts",
   "refusals": [
     {

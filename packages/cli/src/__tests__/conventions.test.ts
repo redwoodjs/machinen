@@ -229,6 +229,9 @@ describe("Node Level 5 public proof routing", () => {
     expect(CLI_SRC).toContain("isNodeLevel5ProofCompositionBundle(snapDir)");
     expect(CLI_SRC).toContain("node-level5-proof-only-not-product");
     expect(CLI_SRC).toContain("restoreRoutedThroughPublicVerb: true");
+    expect(CLI_SRC).toContain("--verify-proof-only");
+    expect(CLI_SRC).toContain("runNodeLevel5RestoreProofOnlyVerifier");
+    expect(CLI_SRC).toContain("--allow-proof-only-success");
   });
 });
 

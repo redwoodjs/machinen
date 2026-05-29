@@ -44,6 +44,7 @@ import {
   ProductPortablePostgresError,
   buildNodeLevel5ProofComposition,
   buildProductClaimRegistry,
+  runNodeLevel5TargetSideProof,
   createProductLevel4EventfdSnapshot,
   createProductLevel4PingSocketSnapshot,
   createProductLevel4PipeSnapshot,
@@ -78,6 +79,7 @@ import {
 import type {
   LogEvent,
   NodeLevel5ProofComposition,
+  NodeLevel5TargetProofEvidence,
   ProductClaimFamily,
   ProductClaimStatus,
   ProductLevel4EventfdDescriptor,
@@ -2065,7 +2067,7 @@ async function cmdRestore(args: string[]): Promise<number> {
     return cmdRestoreProductPortablePostgres(parsed, snapDir, json);
   }
   if (isNodeLevel5ProofCompositionBundle(snapDir)) {
-    return cmdRestoreNodeLevel5ProofComposition(snapDir, json);
+    return await cmdRestoreNodeLevel5ProofComposition(snapDir, json, parsed);
   }
   if (shouldRestoreCleanServiceBundle(snapDir, guestCpu)) {
     return restoreCleanServiceBundle({
@@ -2122,7 +2124,9 @@ function restoreUsage(): string {
     "       machinen restore <portable-tcp-listener-bundle> --target-arch <arm64|amd64> " +
     "[--target-verifier-output <file>] [--json]\n" +
     "       machinen restore <portable-ping-socket-bundle> --target-arch <arm64|amd64> " +
-    "[--target-verifier-output <file>] [--json]"
+    "[--target-verifier-output <file>] [--json]\n" +
+    "       machinen restore <node-level5-proof-bundle> [--verify-proof-only] " +
+    "[--allow-proof-only-success] [--json]"
   );
 }
 
@@ -3582,10 +3586,18 @@ function isNodeLevel5ProofCompositionBundle(snapDir: string): boolean {
   return existsSync(join(snapDir, NODE_LEVEL5_PROOF_COMPOSITION_FILE));
 }
 
-function cmdRestoreNodeLevel5ProofComposition(snapDir: string, json: boolean): number {
+// fallow-ignore-next-line complexity
+async function cmdRestoreNodeLevel5ProofComposition(
+  snapDir: string,
+  json: boolean,
+  parsed: ParsedRestoreCommandArgs,
+): Promise<number> {
   const proof = JSON.parse(
     readFileSync(join(snapDir, NODE_LEVEL5_PROOF_COMPOSITION_FILE), "utf8"),
   ) as NodeLevel5ProofComposition;
+  const targetProof = parsed.verifyProofOnly
+    ? await runNodeLevel5RestoreProofOnlyVerifier(snapDir)
+    : undefined;
   const summary = {
     kind: "machinen.node-level5-proof-restore-summary",
     sourceKind: proof.kind,
@@ -3602,6 +3614,7 @@ function cmdRestoreNodeLevel5ProofComposition(snapDir: string, json: boolean): n
     },
     gates: proof.gates,
     summary: proof.summary,
+    ...(targetProof ? { targetProof } : {}),
   };
   writeFileSync(
     join(snapDir, NODE_LEVEL5_PROOF_RESTORE_SUMMARY_FILE),
@@ -3612,7 +3625,25 @@ function cmdRestoreNodeLevel5ProofComposition(snapDir: string, json: boolean): n
   } else {
     process.stderr.write(`${summary.refusal.message}\n`);
   }
-  return 1;
+  return parsed.allowProofOnlySuccess && targetProof?.status === "passed" ? 0 : 1;
+}
+
+async function runNodeLevel5RestoreProofOnlyVerifier(
+  snapDir: string,
+): Promise<NodeLevel5TargetProofEvidence> {
+  const proofPath = join(snapDir, "node-level5-target-proof.json");
+  const proof = await runNodeLevel5TargetSideProof({ outPath: proofPath });
+  return {
+    path: proofPath,
+    status: "passed",
+    kind: proof.kind,
+    noSourceIsaEmulation: proof.assertions.sourceIsaEmulationUsed === false,
+    noSidecarOutput: proof.assertions.sidecarOutputUsed === false,
+    noMetadataOnlySuccess: proof.assertions.metadataOnlySuccess === false,
+    targetVerifierObservedActualNodeContinuation:
+      proof.assertions.targetVerifierObservedActualNodeContinuation === true,
+    message: "restore proof-only verifier observed actual target-native Node continuation",
+  };
 }
 
 function shouldRestorePortableNode(snapDir: string): boolean {

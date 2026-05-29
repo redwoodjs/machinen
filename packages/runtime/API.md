@@ -12,10 +12,15 @@
 - [`NodeLevel5ProofRefusalMatrixRow`](#nodelevel5proofrefusalmatrixrow)
 - [`NodeLevel5ProofIngredientName`](#nodelevel5proofingredientname)
 - [`NodeLevel5ProofRefusalCode`](#nodelevel5proofrefusalcode)
+- [`NodeLevel5TargetProofEvidence`](#nodelevel5targetproofevidence)
+- [`NodeLevel5TargetSideProof`](#nodelevel5targetsideproof)
+- [`NodeLevel5TargetSideProofInput`](#nodelevel5targetsideproofinput)
 - [`NODE_LEVEL5_PROOF_COMPOSITION_FORMAT_VERSION`](#node_level5_proof_composition_format_version)
+- [`NODE_LEVEL5_TARGET_SIDE_PROOF_FORMAT_VERSION`](#node_level5_target_side_proof_format_version)
 - [`buildNodeLevel5ProofComposition`](#buildnodelevel5proofcomposition)
 - [`nodeLevel5ProofIngredientNames`](#nodelevel5proofingredientnames)
 - [`nodeLevel5ProofRefusalCodes`](#nodelevel5proofrefusalcodes)
+- [`runNodeLevel5TargetSideProof`](#runnodelevel5targetsideproof)
 
 ### Boot a VM
 
@@ -10999,6 +11004,48 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 > `optional` **checkedSummaries?**: `Partial`\<`Record`\<[`NodeLevel5ProofIngredientName`](#nodelevel5proofingredientname), `string`\>\>
 
+##### targetProof?
+
+> `optional` **targetProof?**: [`NodeLevel5TargetProofEvidence`](#nodelevel5targetproofevidence)
+
+***
+
+### NodeLevel5TargetProofEvidence
+
+#### Properties
+
+##### path
+
+> **path**: `string`
+
+##### status
+
+> **status**: `"failed"` \| `"passed"` \| `"not-run"` \| `"missing"`
+
+##### kind?
+
+> `optional` **kind?**: `"machinen.node-level5-target-side-continuation-proof"`
+
+##### noSourceIsaEmulation
+
+> **noSourceIsaEmulation**: `boolean`
+
+##### noSidecarOutput
+
+> **noSidecarOutput**: `boolean`
+
+##### noMetadataOnlySuccess
+
+> **noMetadataOnlySuccess**: `boolean`
+
+##### targetVerifierObservedActualNodeContinuation
+
+> **targetVerifierObservedActualNodeContinuation**: `boolean`
+
+##### message
+
+> **message**: `string`
+
 ***
 
 ### NodeLevel5ProofCompositionRefusal
@@ -11083,7 +11130,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`message`](#message-1)
+[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`message`](#message-2)
 
 ##### migrationCompleted
 
@@ -11167,6 +11214,10 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 > `optional` **evidenceChecks?**: [`NodeLevel5ProofEvidenceCheck`](#nodelevel5proofevidencecheck)[]
 
+##### targetProof?
+
+> `optional` **targetProof?**: [`NodeLevel5TargetProofEvidence`](#nodelevel5targetproofevidence)
+
 ##### proofRunner?
 
 > `optional` **proofRunner?**: `"scripts/node-level5-proof-composition.ts"`
@@ -11230,6 +11281,182 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 ###### proofReady
 
 > **proofReady**: `boolean`
+
+***
+
+### NodeLevel5TargetSideProofInput
+
+#### Properties
+
+##### outPath?
+
+> `optional` **outPath?**: `string`
+
+##### token?
+
+> `optional` **token?**: `string`
+
+##### keepWorkspace?
+
+> `optional` **keepWorkspace?**: `boolean`
+
+***
+
+### NodeLevel5TargetSideProof
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.node-level5-target-side-continuation-proof"`
+
+##### formatVersion
+
+> **formatVersion**: `1`
+
+##### sourceGoal
+
+> **sourceGoal**: `"009"`
+
+##### evidenceStatus
+
+> **evidenceStatus**: `"proof"`
+
+##### productSupport
+
+> **productSupport**: `"not-yet-supported"`
+
+##### implementationLevel
+
+> **implementationLevel**: `"not-implemented"`
+
+##### graduationTargetLevel
+
+> **graduationTargetLevel**: `"level-5-cross-arch-process-continuation"`
+
+##### fixture
+
+> **fixture**: `object`
+
+###### kind
+
+> **kind**: `"small-node-http-app"`
+
+###### appPath
+
+> **appPath**: `string`
+
+###### appSha256
+
+> **appSha256**: `string`
+
+##### capture
+
+> **capture**: `object`
+
+###### selectedProofState
+
+> **selectedProofState**: `object`
+
+###### selectedProofState.continuationToken
+
+> **continuationToken**: `string`
+
+###### selectedProofState.route
+
+> **route**: `"/continuation"`
+
+###### selectedProofState.expectedRuntime
+
+> **expectedRuntime**: `"node"`
+
+##### restoreHarness
+
+> **restoreHarness**: `object`
+
+###### kind
+
+> **kind**: `"target-side-node-http-proof-harness"`
+
+###### targetNativeExecution
+
+> **targetNativeExecution**: `true`
+
+###### verifierRequestPath
+
+> **verifierRequestPath**: `"/continuation"`
+
+##### targetOutput
+
+> **targetOutput**: `object`
+
+###### kind
+
+> **kind**: `"machinen.node-level5-target-output"`
+
+###### continuationToken
+
+> **continuationToken**: `string`
+
+###### runtime
+
+> **runtime**: `"node"`
+
+###### processArch
+
+> **processArch**: `string`
+
+###### execPath
+
+> **execPath**: `string`
+
+###### pid
+
+> **pid**: `number`
+
+###### targetNativeExecution
+
+> **targetNativeExecution**: `true`
+
+##### assertions
+
+> **assertions**: `object`
+
+###### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+###### sidecarOutputUsed
+
+> **sidecarOutputUsed**: `false`
+
+###### metadataOnlySuccess
+
+> **metadataOnlySuccess**: `false`
+
+###### targetVerifierObservedActualNodeContinuation
+
+> **targetVerifierObservedActualNodeContinuation**: `true`
+
+##### summary
+
+> **summary**: `object`
+
+###### state
+
+> **state**: `"completed"`
+
+###### migrationCompleted
+
+> **migrationCompleted**: `false`
+
+###### proofOnly
+
+> **proofOnly**: `true`
+
+###### targetOutputVerified
+
+> **targetOutputVerified**: `true`
 
 ***
 
@@ -12475,7 +12702,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### productSupportLevel?
 
-> `optional` **productSupportLevel?**: `"level-4-kernel-resource-reconstruction"` \| `"level-0-fail-closed-discovery"` \| `"level-5-cross-arch-process-continuation"` \| `"level-1-semantic-restart"` \| `"level-2-semantic-continuation"` \| `"level-3-runtime-aware-continuation"`
+> `optional` **productSupportLevel?**: `"level-4-kernel-resource-reconstruction"` \| `"level-5-cross-arch-process-continuation"` \| `"level-0-fail-closed-discovery"` \| `"level-1-semantic-restart"` \| `"level-2-semantic-continuation"` \| `"level-3-runtime-aware-continuation"`
 
 ##### observableStateDecisions?
 
@@ -12513,7 +12740,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### supportLevel
 
-> **supportLevel**: `"level-4-kernel-resource-reconstruction"` \| `"level-0-fail-closed-discovery"` \| `"level-5-cross-arch-process-continuation"` \| `"level-1-semantic-restart"` \| `"level-2-semantic-continuation"` \| `"level-3-runtime-aware-continuation"`
+> **supportLevel**: `"level-4-kernel-resource-reconstruction"` \| `"level-5-cross-arch-process-continuation"` \| `"level-0-fail-closed-discovery"` \| `"level-1-semantic-restart"` \| `"level-2-semantic-continuation"` \| `"level-3-runtime-aware-continuation"`
 
 ##### supportLevelName
 
@@ -12667,7 +12894,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### supportLevel?
 
-> `optional` **supportLevel?**: `"level-4-kernel-resource-reconstruction"` \| `"level-0-fail-closed-discovery"` \| `"level-5-cross-arch-process-continuation"` \| `"level-1-semantic-restart"` \| `"level-2-semantic-continuation"` \| `"level-3-runtime-aware-continuation"`
+> `optional` **supportLevel?**: `"level-4-kernel-resource-reconstruction"` \| `"level-5-cross-arch-process-continuation"` \| `"level-0-fail-closed-discovery"` \| `"level-1-semantic-restart"` \| `"level-2-semantic-continuation"` \| `"level-3-runtime-aware-continuation"`
 
 ***
 
@@ -21548,6 +21775,12 @@ loops; anything looser stops being a meaningful gate.
 
 ***
 
+### NODE\_LEVEL5\_TARGET\_SIDE\_PROOF\_FORMAT\_VERSION
+
+> `const` **NODE\_LEVEL5\_TARGET\_SIDE\_PROOF\_FORMAT\_VERSION**: `1`
+
+***
+
 ### OPPOSITE\_ISA\_VM\_EXECUTION\_KIND
 
 > `const` **OPPOSITE\_ISA\_VM\_EXECUTION\_KIND**: `"machinen.architecture-portable-snapshot.opposite-isa-vm-execution"`
@@ -24147,6 +24380,22 @@ available.
 #### Returns
 
 [`NodeLevel5ProofComposition`](#nodelevel5proofcomposition)
+
+***
+
+### runNodeLevel5TargetSideProof()
+
+> **runNodeLevel5TargetSideProof**(`input?`): `Promise`\<[`NodeLevel5TargetSideProof`](#nodelevel5targetsideproof)\>
+
+#### Parameters
+
+##### input?
+
+[`NodeLevel5TargetSideProofInput`](#nodelevel5targetsideproofinput) = `{}`
+
+#### Returns
+
+`Promise`\<[`NodeLevel5TargetSideProof`](#nodelevel5targetsideproof)\>
 
 ***
 

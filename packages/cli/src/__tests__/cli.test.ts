@@ -536,6 +536,16 @@ describe("parseRestoreArgs", () => {
     expect(parsed.targetVerifierOutput).toBe("./verify.txt");
   });
 
+  it("captures Node Level 5 proof-only restore flags", () => {
+    const parsed = parseRestoreArgs([
+      "./node-proof",
+      "--verify-proof-only",
+      "--allow-proof-only-success",
+    ]);
+    expect(parsed.verifyProofOnly).toBe(true);
+    expect(parsed.allowProofOnlySuccess).toBe(true);
+  });
+
   it("collects -p / --publish into portForward", () => {
     const parsed = parseRestoreArgs([
       "./warm",

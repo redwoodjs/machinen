@@ -103,6 +103,10 @@ export type {
 } from "./vm-handle.ts";
 export type { SnapshotEngine } from "./vm/snapshot-engine.ts";
 export {
+  NODE_LEVEL5_TARGET_SIDE_PROOF_FORMAT_VERSION,
+  runNodeLevel5TargetSideProof,
+} from "./node-level5-target-side-proof.ts";
+export {
   NODE_LEVEL5_PROOF_COMPOSITION_FORMAT_VERSION,
   buildNodeLevel5ProofComposition,
   nodeLevel5ProofIngredientNames,
@@ -119,12 +123,17 @@ export {
   modelNativeSleepTimerState,
 } from "./native-active-syscall-policy.ts";
 export type {
+  NodeLevel5TargetSideProof,
+  NodeLevel5TargetSideProofInput,
+} from "./node-level5-target-side-proof.ts";
+export type {
   NodeLevel5ProofComposition,
   NodeLevel5ProofCompositionInput,
   NodeLevel5ProofCompositionRefusal,
   NodeLevel5ProofEvidenceCheck,
   NodeLevel5ProofIngredient,
   NodeLevel5ProofRefusalMatrixRow,
+  NodeLevel5TargetProofEvidence,
   NodeLevel5ProofIngredientName,
   NodeLevel5ProofRefusalCode,
 } from "./node-level5-proof-composition.ts";
