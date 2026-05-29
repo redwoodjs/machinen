@@ -7,7 +7,7 @@ import { ParseError } from "@machinen/runtime";
 import { consumeLiveMount, consumePortForward, takeValue } from "./parse-run-args.ts";
 
 // fallow-ignore-next-line code-duplication
-interface ParsedRestoreArgs {
+export interface ParsedRestoreCommandArgs {
   /**
    * Positional args (the snapshot bundle directory). The CLI enforces
    * exactly one — kept as an array here to match the parseRunArgs
@@ -109,7 +109,7 @@ const RESTORE_FLAG_HANDLERS: Record<RestoreFlag, RestoreFlagHandler> = {
   targetVerifierOutput: handleRestoreTargetVerifierOutput,
 };
 
-export function parseRestoreArgs(argv: string[]): ParsedRestoreArgs {
+export function parseRestoreArgs(argv: string[]): ParsedRestoreCommandArgs {
   const state = newRestoreParseState();
 
   for (let i = 0; i < argv.length; i++) {
@@ -147,7 +147,7 @@ function restoreFlagFor(arg: string): RestoreFlag | undefined {
   return RESTORE_BARE_FLAGS.get(arg) ?? RESTORE_VALUE_FLAGS.get(arg);
 }
 
-function finishRestoreArgs(state: RestoreParseState): ParsedRestoreArgs {
+function finishRestoreArgs(state: RestoreParseState): ParsedRestoreCommandArgs {
   return {
     positional: state.positional,
     name: state.name,

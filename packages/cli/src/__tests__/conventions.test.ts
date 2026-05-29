@@ -13,6 +13,10 @@ import { COMMANDS, EXIT_CODES, SCHEMA_VERSION, buildAgentContext } from "../agen
 
 const SRC_DIR = dirname(fileURLToPath(import.meta.url));
 const CLI_SRC = readFileSync(join(SRC_DIR, "..", "cli.ts"), "utf8");
+const PORTABLE_RESTORE_ADAPTER_SRC = readFileSync(
+  join(SRC_DIR, "..", "portable-restore-adapter.ts"),
+  "utf8",
+);
 
 // Verbs that match Cloudflare's posted convention plus this CLI's
 // domain verbs. Anything outside this set has to be justified per
@@ -190,6 +194,25 @@ describe("flag conventions", () => {
         ).toBe(true);
       }
     }
+  });
+});
+
+describe("portable restore adapter convention", () => {
+  it("defines the reusable adapter hooks and registers ping as the first adapter", () => {
+    for (const hook of [
+      "detect",
+      "validate",
+      "plan",
+      "foregroundRestore",
+      "detachedRestore",
+      "verify",
+      "refuse",
+    ]) {
+      expect(PORTABLE_RESTORE_ADAPTER_SRC).toContain(`${hook}(`);
+    }
+    expect(CLI_SRC).toContain("const pingPortableRestoreAdapter");
+    expect(CLI_SRC).toContain("const portableRestoreAdapters = [pingPortableRestoreAdapter]");
+    expect(CLI_SRC).toContain("detectPortableRestoreAdapter(snapDir)");
   });
 });
 

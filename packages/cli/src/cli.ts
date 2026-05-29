@@ -93,6 +93,14 @@ import { appendFeedback, feedbackPath, postUpstream, readFeedback } from "./feed
 import { formatMem } from "./format-mem.ts";
 import { formatPorts } from "./format-ports.ts";
 import { parseForkArgs } from "./parse-fork-args.ts";
+import type {
+  PortableRestoreAdapter,
+  PortableRestoreExecutionInput,
+  PortableRestorePlanInput,
+  PortableRestoreRefusalInput,
+  PortableRestoreValidationInput,
+  PortableRestoreVerifyInput,
+} from "./portable-restore-adapter.ts";
 import { parseRestoreArgs } from "./parse-restore-args.ts";
 import { parseRunArgs } from "./parse-run-args.ts";
 import { extractTarget, type Target } from "./parse-target.ts";
@@ -1037,11 +1045,7 @@ function cmdCapturePostgres(input: { json: boolean; dryRun: boolean; rest: strin
     ["--postgres-version", options.postgresVersion],
     ["--checkpoint-lsn", options.checkpointLsn],
   ] as const;
-  for (const [flag, value] of required) {
-    if (!value) {
-      die(`${captureUsage()}\nmissing required ${flag}`);
-    }
-  }
+  assertCaptureRequired(required);
   try {
     const result = createProductPortablePostgresSnapshot({
       outDir: options.out!,
@@ -1062,16 +1066,7 @@ function cmdCapturePostgres(input: { json: boolean; dryRun: boolean; rest: strin
       physicalDataDirCopy: options.physicalDataDirCopy,
       dryRun: options.dryRun,
     });
-    if (options.json) {
-      emitJson({ schema_version: 1, ...result });
-    } else if (result.state === "completed") {
-      process.stderr.write(`captured portable postgres bundle: ${result.bundleDir}\n`);
-    } else {
-      process.stderr.write(
-        `refused portable postgres capture: ${result.refusal.expectedRefusalCode}\n`,
-      );
-    }
-    return result.state === "completed" ? 0 : 1;
+    return reportProductCaptureResult(options.json, result, "postgres");
   } catch (err) {
     handleProductPortablePostgresError(err, options.json);
   }
@@ -1089,11 +1084,7 @@ function cmdCapturePingSocket(input: { json: boolean; dryRun: boolean; rest: str
     ["--echo-id", options.echoIdentifier],
     ["--echo-seq", options.echoSequence],
   ] as const;
-  for (const [flag, value] of required) {
-    if (value === undefined || value === "") {
-      die(`${captureUsage()}\nmissing required ${flag}`);
-    }
-  }
+  assertCaptureRequired(required);
   try {
     const result = createProductLevel4PingSocketSnapshot({
       outDir: options.out!,
@@ -1113,145 +1104,211 @@ function cmdCapturePingSocket(input: { json: boolean; dryRun: boolean; rest: str
       unsupportedRawSocketOption: options.unsupportedRawSocketOption,
       dryRun: options.dryRun,
     });
-    if (options.json) {
-      emitJson({ schema_version: 1, ...result });
-    } else if (result.state === "completed") {
-      process.stderr.write(`captured portable ping socket bundle: ${result.bundleDir}\n`);
-    } else {
-      process.stderr.write(
-        `refused portable ping socket capture: ${result.refusal.expectedRefusalCode}\n`,
-      );
-    }
-    return result.state === "completed" ? 0 : 1;
+    return reportProductCaptureResult(options.json, result, "ping socket");
   } catch (err) {
     handleProductLevel4PingSocketError(err, options.json);
   }
 }
 
+function assertCaptureRequired(required: ReadonlyArray<readonly [string, unknown]>): void {
+  for (const [flag, value] of required) {
+    if (value === undefined || value === "") {
+      die(`${captureUsage()}\nmissing required ${flag}`);
+    }
+  }
+}
+
 // fallow-ignore-next-line complexity
+function reportProductCaptureResult(
+  json: boolean,
+  result: {
+    state: "completed" | "refused";
+    bundleDir: string;
+    refusal?: { expectedRefusalCode: string };
+  },
+  label: string,
+): number {
+  if (json) {
+    emitJson({ schema_version: 1, ...result });
+  } else if (result.state === "completed") {
+    process.stderr.write(`captured portable ${label} bundle: ${result.bundleDir}\n`);
+  } else {
+    process.stderr.write(
+      `refused portable ${label} capture: ${result.refusal?.expectedRefusalCode ?? "unknown"}\n`,
+    );
+  }
+  return result.state === "completed" ? 0 : 1;
+}
+
+// fallow-ignore-next-line complexity
+function consumeCommonProductCaptureOption(
+  options: {
+    out?: string;
+    sourceArch?: "arm64" | "amd64";
+    targetArch?: "arm64" | "amd64";
+    sourceVerifierOutput?: string;
+  },
+  rest: string[],
+  index: number,
+  arg: string,
+): number | undefined {
+  switch (arg) {
+    case "--out":
+      options.out = takeCaptureValue(rest, index + 1, arg);
+      return index + 1;
+    case "--source-arch":
+      options.sourceArch = parseProductArch(takeCaptureValue(rest, index + 1, arg), arg);
+      return index + 1;
+    case "--target-arch":
+      options.targetArch = parseProductArch(takeCaptureValue(rest, index + 1, arg), arg);
+      return index + 1;
+    case "--source-verifier-output":
+      options.sourceVerifierOutput = takeCaptureValue(rest, index + 1, arg);
+      return index + 1;
+    default:
+      return undefined;
+  }
+}
+
 function parseCapturePingSocketArgs(input: {
   json: boolean;
   dryRun: boolean;
   rest: string[];
 }): CapturePingSocketOptions {
-  const { json, dryRun, rest } = input;
-  const options: CapturePingSocketOptions = { json, dryRun };
-  for (let index = 1; index < rest.length; index += 1) {
-    const arg = rest[index]!;
-    switch (arg) {
-      case "--out":
-        options.out = takeCaptureValue(rest, ++index, arg);
-        break;
-      case "--source-arch":
-        options.sourceArch = parseProductArch(takeCaptureValue(rest, ++index, arg), arg);
-        break;
-      case "--target-arch":
-        options.targetArch = parseProductArch(takeCaptureValue(rest, ++index, arg), arg);
-        break;
-      case "--socket-kind":
-        options.socketKind = parsePingSocketKind(takeCaptureValue(rest, ++index, arg), arg);
-        break;
-      case "--source-verifier-output":
-        options.sourceVerifierOutput = takeCaptureValue(rest, ++index, arg);
-        break;
-      case "--echo-id":
-        options.echoIdentifier = parseUint16(takeCaptureValue(rest, ++index, arg), arg);
-        break;
-      case "--echo-seq":
-        options.echoSequence = parseUint16(takeCaptureValue(rest, ++index, arg), arg);
-        break;
-      case "--active-recvmsg":
-        options.activeRecvmsg = true;
-        break;
-      case "--unread-receive-queue":
-        options.unreadReceiveQueue = true;
-        break;
-      case "--inflight-packets":
-        options.inflightPackets = true;
-        break;
-      case "--ambiguous-route-or-namespace":
-        options.ambiguousRouteOrNamespace = true;
-        break;
-      case "--missing-credential-or-capability":
-        options.missingCredentialOrCapability = true;
-        break;
-      case "--unsupported-raw-socket-option":
-        options.unsupportedRawSocketOption = true;
-        break;
-      default:
-        die(`${captureUsage()}\nunknown argument: ${arg}`);
-    }
-  }
-  return options;
+  return parseProductCaptureArgs(input, consumePingCaptureOption);
 }
 
-// fallow-ignore-next-line complexity
 function parseCapturePostgresArgs(input: {
   json: boolean;
   dryRun: boolean;
   rest: string[];
 }): CapturePostgresOptions {
+  return parseProductCaptureArgs(input, consumePostgresCaptureOption);
+}
+
+function parseProductCaptureArgs<
+  T extends {
+    json: boolean;
+    dryRun: boolean;
+    out?: string;
+    sourceArch?: "arm64" | "amd64";
+    targetArch?: "arm64" | "amd64";
+    sourceVerifierOutput?: string;
+  },
+>(
+  input: { json: boolean; dryRun: boolean; rest: string[] },
+  consumeSpecificOption: (
+    options: T,
+    rest: string[],
+    index: number,
+    arg: string,
+  ) => number | undefined,
+): T {
   const { json, dryRun, rest } = input;
-  const options: CapturePostgresOptions = { json, dryRun };
+  const options = { json, dryRun } as T;
   for (let index = 1; index < rest.length; index += 1) {
     const arg = rest[index]!;
-    switch (arg) {
-      case "--out":
-        options.out = takeCaptureValue(rest, ++index, arg);
-        break;
-      case "--source-arch":
-        options.sourceArch = parseProductArch(takeCaptureValue(rest, ++index, arg), arg);
-        break;
-      case "--target-arch":
-        options.targetArch = parseProductArch(takeCaptureValue(rest, ++index, arg), arg);
-        break;
-      case "--dump":
-        options.dump = takeCaptureValue(rest, ++index, arg);
-        break;
-      case "--source-verifier-output":
-        options.sourceVerifierOutput = takeCaptureValue(rest, ++index, arg);
-        break;
-      case "--postgres-version":
-        options.postgresVersion = takeCaptureValue(rest, ++index, arg);
-        break;
-      case "--checkpoint-lsn":
-        options.checkpointLsn = takeCaptureValue(rest, ++index, arg);
-        break;
-      case "--init-sql":
-        options.initSql = takeCaptureValue(rest, ++index, arg);
-        break;
-      case "--workload-sql":
-        options.workloadSql = takeCaptureValue(rest, ++index, arg);
-        break;
-      case "--verifier-sql":
-        options.verifierSql = takeCaptureValue(rest, ++index, arg);
-        break;
-      case "--data-manifest":
-        options.dataManifest = takeCaptureValue(rest, ++index, arg);
-        break;
-      case "--active-transactions":
-        options.activeTransactions = parseNonNegativeInteger(
-          takeCaptureValue(rest, ++index, arg),
-          arg,
-        );
-        break;
-      case "--active-sessions":
-        options.activeSessions = parseNonNegativeInteger(takeCaptureValue(rest, ++index, arg), arg);
-        break;
-      case "--dirty-wal":
-        options.dirtyWal = true;
-        break;
-      case "--host-mounted-data-dir":
-        options.hostMountedDataDir = true;
-        break;
-      case "--physical-data-dir-copy":
-        options.physicalDataDirCopy = true;
-        break;
-      default:
-        die(`${captureUsage()}\nunknown argument: ${arg}`);
+    const nextIndex =
+      consumeCommonProductCaptureOption(options, rest, index, arg) ??
+      consumeSpecificOption(options, rest, index, arg);
+    if (nextIndex === undefined) {
+      die(`${captureUsage()}\nunknown argument: ${arg}`);
     }
+    index = nextIndex;
   }
   return options;
+}
+
+// fallow-ignore-next-line complexity
+function consumePingCaptureOption(
+  options: CapturePingSocketOptions,
+  rest: string[],
+  index: number,
+  arg: string,
+): number | undefined {
+  switch (arg) {
+    case "--socket-kind":
+      options.socketKind = parsePingSocketKind(takeCaptureValue(rest, index + 1, arg), arg);
+      return index + 1;
+    case "--echo-id":
+      options.echoIdentifier = parseUint16(takeCaptureValue(rest, index + 1, arg), arg);
+      return index + 1;
+    case "--echo-seq":
+      options.echoSequence = parseUint16(takeCaptureValue(rest, index + 1, arg), arg);
+      return index + 1;
+    case "--active-recvmsg":
+      options.activeRecvmsg = true;
+      return index;
+    case "--unread-receive-queue":
+      options.unreadReceiveQueue = true;
+      return index;
+    case "--inflight-packets":
+      options.inflightPackets = true;
+      return index;
+    case "--ambiguous-route-or-namespace":
+      options.ambiguousRouteOrNamespace = true;
+      return index;
+    case "--missing-credential-or-capability":
+      options.missingCredentialOrCapability = true;
+      return index;
+    case "--unsupported-raw-socket-option":
+      options.unsupportedRawSocketOption = true;
+      return index;
+    default:
+      return undefined;
+  }
+}
+
+// fallow-ignore-next-line complexity
+function consumePostgresCaptureOption(
+  options: CapturePostgresOptions,
+  rest: string[],
+  index: number,
+  arg: string,
+): number | undefined {
+  switch (arg) {
+    case "--dump":
+      options.dump = takeCaptureValue(rest, index + 1, arg);
+      return index + 1;
+    case "--postgres-version":
+      options.postgresVersion = takeCaptureValue(rest, index + 1, arg);
+      return index + 1;
+    case "--checkpoint-lsn":
+      options.checkpointLsn = takeCaptureValue(rest, index + 1, arg);
+      return index + 1;
+    case "--init-sql":
+      options.initSql = takeCaptureValue(rest, index + 1, arg);
+      return index + 1;
+    case "--workload-sql":
+      options.workloadSql = takeCaptureValue(rest, index + 1, arg);
+      return index + 1;
+    case "--verifier-sql":
+      options.verifierSql = takeCaptureValue(rest, index + 1, arg);
+      return index + 1;
+    case "--data-manifest":
+      options.dataManifest = takeCaptureValue(rest, index + 1, arg);
+      return index + 1;
+    case "--active-transactions":
+      options.activeTransactions = parseNonNegativeInteger(
+        takeCaptureValue(rest, index + 1, arg),
+        arg,
+      );
+      return index + 1;
+    case "--active-sessions":
+      options.activeSessions = parseNonNegativeInteger(takeCaptureValue(rest, index + 1, arg), arg);
+      return index + 1;
+    case "--dirty-wal":
+      options.dirtyWal = true;
+      return index;
+    case "--host-mounted-data-dir":
+      options.hostMountedDataDir = true;
+      return index;
+    case "--physical-data-dir-copy":
+      options.physicalDataDirCopy = true;
+      return index;
+    default:
+      return undefined;
+  }
 }
 
 function captureUsage(): string {
@@ -1465,11 +1522,12 @@ async function cmdRestore(args: string[]): Promise<number> {
   const parsed = parseRestoreCommandArgs(rest);
   validateRestoreCommandArgs(parsed);
   const snapDir = resolve(parsed.positional[0]!);
+  const portableAdapter = detectPortableRestoreAdapter(snapDir);
+  if (portableAdapter) {
+    return cmdRestorePortableAdapter(portableAdapter, parsed, snapDir, json);
+  }
   if (isProductPortablePostgresBundle(snapDir)) {
     return cmdRestoreProductPortablePostgres(parsed, snapDir, json);
-  }
-  if (isProductLevel4PingSocketBundle(snapDir)) {
-    return cmdRestoreProductLevel4PingSocket(parsed, snapDir, json);
   }
   if (shouldRestoreCleanServiceBundle(snapDir, guestCpu)) {
     return restoreCleanServiceBundle({
@@ -1552,7 +1610,61 @@ function cmdRestoreProductPortablePostgres(
   }
 }
 
-async function cmdRestoreProductLevel4PingSocket(
+type PingPortableRestoreValidation =
+  | {
+      ok: true;
+      descriptor: ProductLevel4PingSocketDescriptor;
+      summary: ProductLevel4PingSocketRestoreSummary;
+    }
+  | {
+      ok: false;
+      descriptor?: ProductLevel4PingSocketDescriptor;
+      summary: ProductLevel4PingSocketRestoreSummary;
+    };
+
+type PingPortableRestorePlan = PortableRestoreWorkloadPlan & {
+  descriptor: ProductLevel4PingSocketDescriptor;
+  summary: ProductLevel4PingSocketRestoreSummary;
+};
+
+type PortableRestoreWorkloadPlan = {
+  name: string;
+  descriptorGuestPath: string;
+  descriptorText: string;
+  workloadLabel: string;
+  foregroundCommand: string;
+  detachedCommand: string;
+  verifyCommand: string;
+  summaryPath: string;
+  buildDetachedSummary: (input: { vm: VmHandle; elapsedMs: number }) => Record<string, unknown>;
+};
+
+const pingPortableRestoreAdapter = {
+  profile: "ping-level4-socket-reconstruction-v1",
+  detect: isProductLevel4PingSocketBundle,
+  validate: validatePingPortableRestore,
+  plan: planPingPortableRestore,
+  foregroundRestore: foregroundPingPortableRestore,
+  detachedRestore: detachedPingPortableRestore,
+  verify: verifyPingPortableRestore,
+  refuse: refusePingPortableRestore,
+} satisfies PortableRestoreAdapter<
+  PingPortableRestoreValidation,
+  PingPortableRestorePlan,
+  Record<string, unknown>
+>;
+
+const portableRestoreAdapters = [pingPortableRestoreAdapter] as const;
+
+function detectPortableRestoreAdapter(
+  snapDir: string,
+): (typeof portableRestoreAdapters)[number] | undefined {
+  return portableRestoreAdapters.find((adapter) => adapter.detect(snapDir));
+}
+
+// fallow-ignore-next-line complexity
+async function cmdRestorePortableAdapter(
+  adapter: (typeof portableRestoreAdapters)[number],
   parsed: ParsedRestoreCommandArgs,
   snapDir: string,
   json: boolean,
@@ -1561,28 +1673,112 @@ async function cmdRestoreProductLevel4PingSocket(
     die(restoreUsage());
   }
   try {
-    const descriptor = readProductLevel4PingSocketDescriptor(snapDir);
-    const verifierOutput = parsed.targetVerifierOutput
-      ? readFileSync(resolve(parsed.targetVerifierOutput), "utf8").trim()
-      : descriptor.sourceVerifierOutput;
-    const summary = restoreProductLevel4PingSocketSnapshot({
-      bundleDir: snapDir,
-      targetArch: parsed.targetArch,
-      targetVerifierOutput: verifierOutput,
-    });
-    if (!summary.migrationCompleted) {
-      reportProductLevel4PingSocketRestoreSummary(snapDir, json, summary);
-      return 1;
+    const validation = adapter.validate({ parsed, snapDir, json });
+    if (!validation.ok) {
+      return adapter.refuse({ parsed, snapDir, json, validation });
     }
+    const plan = adapter.plan({ parsed, snapDir, json, validation });
     if (!json) {
-      return bootProductLevel4PingForegroundTargetVm(parsed, snapDir, descriptor);
+      return await adapter.foregroundRestore({ parsed, snapDir, json, plan });
     }
-    const vmSummary = await bootProductLevel4PingTargetVm(parsed, snapDir, descriptor, summary);
-    emitJson({ schema_version: 1, ...vmSummary });
+    const summary = await adapter.detachedRestore({ parsed, snapDir, json, plan });
+    emitJson({ schema_version: 1, ...summary });
     return 0;
   } catch (err) {
-    handleProductLevel4PingSocketError(err, json);
+    handlePortableRestoreAdapterError(err, json);
   }
+}
+
+function validatePingPortableRestore({
+  parsed,
+  snapDir,
+}: PortableRestoreValidationInput): PingPortableRestoreValidation {
+  if (!parsed.targetArch) {
+    die(restoreUsage());
+  }
+  const descriptor = readProductLevel4PingSocketDescriptor(snapDir);
+  const verifierOutput = parsed.targetVerifierOutput
+    ? readFileSync(resolve(parsed.targetVerifierOutput), "utf8").trim()
+    : descriptor.sourceVerifierOutput;
+  const summary = restoreProductLevel4PingSocketSnapshot({
+    bundleDir: snapDir,
+    targetArch: parsed.targetArch,
+    targetVerifierOutput: verifierOutput,
+  });
+  if (!summary.migrationCompleted) {
+    return { ok: false, descriptor, summary };
+  }
+  return { ok: true, descriptor, summary };
+}
+
+function planPingPortableRestore({
+  parsed,
+  snapDir,
+  validation,
+}: PortableRestorePlanInput<PingPortableRestoreValidation>): PingPortableRestorePlan {
+  if (!validation.ok) {
+    throw new ProductLevel4PingSocketError(
+      "PING_SOCKET_RESTORE_PLAN_REFUSED",
+      "cannot plan a refused ping portable restore",
+    );
+  }
+  assertLocalPingRestoreTargetArch(parsed.targetArch);
+  const descriptor = validation.descriptor;
+  const name = parsed.name ?? deriveBootName(snapDir);
+  return {
+    descriptor,
+    summary: validation.summary,
+    name,
+    descriptorGuestPath: "/tmp/machinen-restored-ping-descriptor.json",
+    descriptorText: JSON.stringify(descriptor, null, 2),
+    workloadLabel: "restored ping",
+    foregroundCommand: foregroundRestoredPingCommand(descriptor),
+    detachedCommand: startRestoredPingCommand(descriptor),
+    verifyCommand: verifyRestoredPingCommand(descriptor),
+    summaryPath: join(snapDir, "portable-ping-socket-target-vm-restore-summary.json"),
+    buildDetachedSummary: ({ vm, elapsedMs }) =>
+      buildPingDetachedRestoreSummary({
+        descriptor,
+        summary: validation.summary,
+        vm,
+        name,
+        elapsedMs,
+      }),
+  };
+}
+
+function foregroundPingPortableRestore({
+  plan,
+}: PortableRestoreExecutionInput<PingPortableRestorePlan>): Promise<number> {
+  return runPortableForegroundRestore(plan);
+}
+
+function detachedPingPortableRestore({
+  plan,
+}: PortableRestoreExecutionInput<PingPortableRestorePlan>): Promise<Record<string, unknown>> {
+  return runPortableDetachedRestore(plan, pingPortableRestoreAdapter);
+}
+
+async function verifyPingPortableRestore({
+  vm,
+  plan,
+}: PortableRestoreVerifyInput<PingPortableRestorePlan>): Promise<void> {
+  const verify = await vm.execRaw(plan.verifyCommand, { execTimeoutMs: 20_000 });
+  if (verify.exitCode !== 0) {
+    throw new ProductLevel4PingSocketError(
+      "PING_SOCKET_TARGET_VM_VERIFIER_FAILED",
+      verify.stderr || verify.stdout || "target VM ping verifier failed",
+    );
+  }
+}
+
+function refusePingPortableRestore({
+  json,
+  snapDir,
+  validation,
+}: PortableRestoreRefusalInput<PingPortableRestoreValidation>): number {
+  reportProductLevel4PingSocketRestoreSummary(snapDir, json, validation.summary);
+  return 1;
 }
 
 function readProductLevel4PingSocketDescriptor(snapDir: string): ProductLevel4PingSocketDescriptor {
@@ -1605,28 +1801,7 @@ function reportProductLevel4PingSocketRestoreSummary(
   }
 }
 
-async function bootProductLevel4PingForegroundTargetVm(
-  parsed: ParsedRestoreCommandArgs,
-  snapDir: string,
-  descriptor: ProductLevel4PingSocketDescriptor,
-): Promise<number> {
-  assertLocalPingRestoreTargetArch(parsed.targetArch);
-  return runPortableForegroundRestore({
-    name: parsed.name ?? deriveBootName(snapDir),
-    descriptorGuestPath: "/tmp/machinen-restored-ping-descriptor.json",
-    descriptorText: JSON.stringify(descriptor, null, 2),
-    workloadLabel: "restored ping",
-    command: foregroundRestoredPingCommand(descriptor),
-  });
-}
-
-async function runPortableForegroundRestore(input: {
-  name: string;
-  descriptorGuestPath: string;
-  descriptorText: string;
-  workloadLabel: string;
-  command: string;
-}): Promise<number> {
+async function runPortableForegroundRestore(input: PortableRestoreWorkloadPlan): Promise<number> {
   const paths = await resolveCliBaseAssets();
   process.stderr.write(`restoring portable workload as foreground VM: ${input.name}\n`);
   process.stderr.write("booting target VM...\n");
@@ -1653,7 +1828,7 @@ async function runPortableForegroundRestore(input: {
     process.stderr.write(`target VM ready; attaching ${input.workloadLabel}...\n`);
     await vm.writeFile(input.descriptorGuestPath, input.descriptorText);
     const result = await vm
-      .execRaw(input.command, {
+      .execRaw(input.foregroundCommand, {
         onStdout: (chunk) => process.stdout.write(chunk),
         onStderr: (chunk) => process.stderr.write(chunk),
         execTimeoutMs: null,
@@ -1671,71 +1846,33 @@ async function runPortableForegroundRestore(input: {
   }
 }
 
-async function bootProductLevel4PingTargetVm(
-  parsed: ParsedRestoreCommandArgs,
-  snapDir: string,
-  descriptor: ProductLevel4PingSocketDescriptor,
-  summary: ProductLevel4PingSocketRestoreSummary,
+async function runPortableDetachedRestore(
+  plan: PortableRestoreWorkloadPlan,
+  adapter: Pick<
+    PortableRestoreAdapter<unknown, PortableRestoreWorkloadPlan, Record<string, unknown>>,
+    "verify"
+  >,
 ): Promise<Record<string, unknown>> {
   const started = Date.now();
-  assertLocalPingRestoreTargetArch(parsed.targetArch);
   const paths = await resolveCliBaseAssets();
-  const name = parsed.name ?? deriveBootName(snapDir);
   const vm = await boot({
     image: paths.defaultImagePath,
     kernel: paths.kernelPath,
     dtb: paths.dtbPath,
-    name,
+    name: plan.name,
     detached: true,
     cmd: ["sleep", "100000"],
     timeoutMs: undefined,
   });
   let continuationStarted = false;
   try {
-    await vm.writeFile(
-      "/tmp/machinen-restored-ping-descriptor.json",
-      JSON.stringify(descriptor, null, 2),
-    );
-    await vm.execRaw(startRestoredPingCommand(descriptor), { execTimeoutMs: 15_000 });
-    const verify = await vm.execRaw(verifyRestoredPingCommand(descriptor), {
-      execTimeoutMs: 20_000,
-    });
-    if (verify.exitCode !== 0) {
-      throw new ProductLevel4PingSocketError(
-        "PING_SOCKET_TARGET_VM_VERIFIER_FAILED",
-        verify.stderr || verify.stdout || "target VM ping verifier failed",
-      );
-    }
-    const vmSummary = {
-      ...summary,
-      targetVerifierResult: "passed",
-      targetVmStarted: true,
-      restoredName: vm.name ?? name,
-      restoredPid: vm.pid,
-      outputLogPath: descriptor.continuation?.outputLogPath ?? "/tmp/machinen-restored-ping.log",
-      targetPingProcess: "running",
-      targetOutputObserved: true,
-      continuationSemantics: {
-        destination: descriptor.continuation?.destination ?? "127.0.0.1",
-        intervalMs: descriptor.continuation?.intervalMs ?? 1000,
-        echoIdentifier: descriptor.socket.echoIdentifier,
-        nextSequence: descriptor.socket.echoSequence,
-        sequencePolicy:
-          descriptor.continuation?.sequencePolicy ?? "continue-at-next-supported-boundary",
-        idPolicy:
-          descriptor.continuation?.idPolicy ?? "descriptor-preserved-when-target-ping-supports-it",
-        textOutputSequencePolicy:
-          descriptor.continuation?.textOutputSequencePolicy ??
-          "machinen-helper-renders-descriptor-sequence",
-      },
-      elapsedMs: Date.now() - started,
-    };
-    writeFileSync(
-      join(snapDir, "portable-ping-socket-target-vm-restore-summary.json"),
-      `${JSON.stringify(vmSummary, null, 2)}\n`,
-    );
+    await vm.writeFile(plan.descriptorGuestPath, plan.descriptorText);
+    await vm.execRaw(plan.detachedCommand, { execTimeoutMs: 15_000 });
+    await adapter.verify({ vm, plan });
+    const summary = plan.buildDetachedSummary({ vm, elapsedMs: Date.now() - started });
+    writeFileSync(plan.summaryPath, `${JSON.stringify(summary, null, 2)}\n`);
     continuationStarted = true;
-    return vmSummary;
+    return summary;
   } finally {
     if (continuationStarted) {
       await vm.detach();
@@ -1743,6 +1880,41 @@ async function bootProductLevel4PingTargetVm(
       await vm.kill().catch(() => undefined);
     }
   }
+}
+
+// fallow-ignore-next-line complexity
+function buildPingDetachedRestoreSummary(input: {
+  descriptor: ProductLevel4PingSocketDescriptor;
+  summary: ProductLevel4PingSocketRestoreSummary;
+  vm: VmHandle;
+  name: string;
+  elapsedMs: number;
+}): Record<string, unknown> {
+  const { descriptor, summary, vm, name, elapsedMs } = input;
+  return {
+    ...summary,
+    targetVerifierResult: "passed",
+    targetVmStarted: true,
+    restoredName: vm.name ?? name,
+    restoredPid: vm.pid,
+    outputLogPath: descriptor.continuation?.outputLogPath ?? "/tmp/machinen-restored-ping.log",
+    targetPingProcess: "running",
+    targetOutputObserved: true,
+    continuationSemantics: {
+      destination: descriptor.continuation?.destination ?? "127.0.0.1",
+      intervalMs: descriptor.continuation?.intervalMs ?? 1000,
+      echoIdentifier: descriptor.socket.echoIdentifier,
+      nextSequence: descriptor.socket.echoSequence,
+      sequencePolicy:
+        descriptor.continuation?.sequencePolicy ?? "continue-at-next-supported-boundary",
+      idPolicy:
+        descriptor.continuation?.idPolicy ?? "descriptor-preserved-when-target-ping-supports-it",
+      textOutputSequencePolicy:
+        descriptor.continuation?.textOutputSequencePolicy ??
+        "machinen-helper-renders-descriptor-sequence",
+    },
+    elapsedMs,
+  };
 }
 
 function assertLocalPingRestoreTargetArch(targetArch: string | undefined): void {
@@ -1767,6 +1939,7 @@ function startRestoredPingCommand(descriptor: ProductLevel4PingSocketDescriptor)
   );
 }
 
+// fallow-ignore-next-line complexity
 function restoredPingLoopCommand(descriptor: ProductLevel4PingSocketDescriptor): string {
   const destination = descriptor.continuation?.destination ?? "127.0.0.1";
   const intervalSeconds = formatPingIntervalSeconds(descriptor.continuation?.intervalMs ?? 1000);
@@ -1809,6 +1982,19 @@ function verifyRestoredPingCommand(descriptor: ProductLevel4PingSocketDescriptor
   ].join("; ");
 }
 
+// fallow-ignore-next-line code-duplication
+function handlePortableRestoreAdapterError(err: unknown, json: boolean): never {
+  if (err instanceof ProductLevel4PingSocketError) {
+    if (json) {
+      emitJsonError(err.code, err.message);
+      process.exit(1);
+    }
+    die(err.message);
+  }
+  handleError(err);
+}
+
+// fallow-ignore-next-line code-duplication
 function handleProductPortablePostgresError(err: unknown, json: boolean): never {
   if (err instanceof ProductPortablePostgresError) {
     if (json) {
