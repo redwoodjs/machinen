@@ -8,7 +8,8 @@
     "ping-level4-socket-reconstruction-v1",
     "eventfd-counter-v1-nonsemaphore-no-waiters",
     "pipe-pair-v1-empty-no-waiters",
-    "timerfd-relative-oneshot-v1-monotonic"
+    "timerfd-relative-oneshot-v1-monotonic",
+    "tcp-listener-v1-loopback-empty-accept-queue"
   ],
   "claims": [
     {
@@ -90,6 +91,13 @@
       "supportLevel": "implemented-product-support",
       "notes": "Narrow Level 4 product route through the generic portable restore adapter path for CLOCK_MONOTONIC relative one-shot timerfds with bounded remaining time, no unread expirations, no interval, close-on-exec only, and target-native verifier evidence.",
       "subset": "timerfd-relative-oneshot-v1-monotonic"
+    },
+    {
+      "goal": "018",
+      "claim": "Loopback TCP listener-only Level 4 reconstruction across arm64 and amd64",
+      "supportLevel": "implemented-product-support",
+      "notes": "Narrow Level 4 product route through the generic portable restore adapter path for 127.0.0.1 TCP listeners with static port, explicit backlog, empty accept queue, SO_REUSEADDR, no active connections, and target-native verifier evidence.",
+      "subset": "tcp-listener-v1-loopback-empty-accept-queue"
     },
     {
       "goal": "43",

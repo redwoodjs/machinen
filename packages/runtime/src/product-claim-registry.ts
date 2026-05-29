@@ -122,9 +122,59 @@ const IMPLEMENTED_PRODUCT_PROFILES = new Set([
   "eventfd-counter-v1-nonsemaphore-no-waiters",
   "pipe-pair-v1-empty-no-waiters",
   "timerfd-relative-oneshot-v1-monotonic",
+  "tcp-listener-v1-loopback-empty-accept-queue",
 ]);
 
 const BUILTIN_PRODUCT_PROFILES: ProductClaimProofProfileInput[] = [
+  {
+    name: "tcp-listener-v1-loopback-empty-accept-queue",
+    description:
+      "Goal 018 portable restore adapter product route: reconstruct a loopback TCP listener when bind address, port, backlog, and reuseaddr are explicit, the accept queue is empty, and there are no active TCP connections or socket syscalls.",
+    sourceFixture: "portable-restore-adapter:tcp-listener-v1-loopback-empty-accept-queue",
+    expectedResult: "success",
+    supportStatus: "implemented-product-support",
+    productSupportLevel: "level-4-kernel-resource-reconstruction",
+    unsafeStateFamily: "tcp-listener",
+    capabilities: [
+      "goal018:portable-restore-adapter",
+      "goal018:level-4-kernel-resource-reconstruction",
+      "fd:tcp-listener",
+      "tcp:loopback-bind",
+      "tcp:static-port",
+      "tcp:explicit-backlog",
+      "tcp:empty-accept-queue",
+      "tcp:no-active-connections",
+      "tcp:reuseaddr",
+      "goal018:target-native-verifier",
+    ],
+    observableStateDecisions: [
+      {
+        name: "listener-socket",
+        decision: "recreated",
+        rationale: "the target creates a fresh Linux TCP socket and calls bind/listen",
+      },
+      {
+        name: "bind-address-port",
+        decision: "preserved",
+        rationale: "the descriptor carries the loopback address and static port",
+      },
+      {
+        name: "accept-queue",
+        decision: "refused",
+        rationale: "non-empty or unknown accept queues are refused for this listener-only boundary",
+      },
+      {
+        name: "active-connections",
+        decision: "refused",
+        rationale: "active TCP streams are not part of listener-only reconstruction",
+      },
+    ],
+    checkedSummary: "docs/snapshot/checked-summaries/level4-graduation/goal-018.json",
+    refusalSupportContract: {
+      currentRefusalCode: "tcp-listener-active-connections-unsupported",
+      graduationRequires: [],
+    },
+  },
   {
     name: "timerfd-relative-oneshot-v1-monotonic",
     description:

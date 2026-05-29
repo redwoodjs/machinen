@@ -244,6 +244,27 @@
 - [`isProductPortablePostgresBundle`](#isproductportablepostgresbundle)
 - [`productPortablePostgresFileSha256`](#productportablepostgresfilesha256)
 
+### Product Level 4 TCP listener
+
+- [`ProductLevel4TcpListenerError`](#productlevel4tcplistenererror)
+- [`ProductLevel4TcpListenerCaptureInput`](#productlevel4tcplistenercaptureinput)
+- [`ProductLevel4TcpListenerDescriptor`](#productlevel4tcplistenerdescriptor)
+- [`ProductLevel4TcpListenerRefusal`](#productlevel4tcplistenerrefusal)
+- [`ProductLevel4TcpListenerRestoreInput`](#productlevel4tcplistenerrestoreinput)
+- [`ProductLevel4TcpListenerRestoreSummary`](#productlevel4tcplistenerrestoresummary)
+- [`ProductLevel4TcpListenerArchitecture`](#productlevel4tcplistenerarchitecture)
+- [`ProductLevel4TcpListenerRefusalCode`](#productlevel4tcplistenerrefusalcode)
+- [`ProductLevel4TcpListenerCaptureResult`](#productlevel4tcplistenercaptureresult)
+- [`PRODUCT_LEVEL4_TCP_LISTENER_FORMAT_VERSION`](#product_level4_tcp_listener_format_version)
+- [`PRODUCT_LEVEL4_TCP_LISTENER_MANIFEST`](#product_level4_tcp_listener_manifest)
+- [`PRODUCT_LEVEL4_TCP_LISTENER_REFUSAL`](#product_level4_tcp_listener_refusal)
+- [`PRODUCT_LEVEL4_TCP_LISTENER_RESTORE_SUMMARY`](#product_level4_tcp_listener_restore_summary)
+- [`productLevel4TcpListenerArchitectures`](#productlevel4tcplistenerarchitectures)
+- [`productLevel4TcpListenerRefusalCodes`](#productlevel4tcplistenerrefusalcodes)
+- [`createProductLevel4TcpListenerSnapshot`](#createproductlevel4tcplistenersnapshot)
+- [`isProductLevel4TcpListenerBundle`](#isproductlevel4tcplistenerbundle)
+- [`restoreProductLevel4TcpListenerSnapshot`](#restoreproductlevel4tcplistenersnapshot)
+
 ### Product Level 4 timerfd
 
 - [`ProductLevel4TimerfdError`](#productlevel4timerfderror)
@@ -2181,6 +2202,44 @@ Attach to `id`. Throws if id doesn't exist.
 ###### Returns
 
 [`ProductLevel4PipeError`](#productlevel4pipeerror)
+
+###### Overrides
+
+`Error.constructor`
+
+#### Properties
+
+##### code
+
+> `readonly` **code**: `string`
+
+***
+
+### ProductLevel4TcpListenerError
+
+#### Extends
+
+- `Error`
+
+#### Constructors
+
+##### Constructor
+
+> **new ProductLevel4TcpListenerError**(`code`, `message`): [`ProductLevel4TcpListenerError`](#productlevel4tcplistenererror)
+
+###### Parameters
+
+###### code
+
+`string`
+
+###### message
+
+`string`
+
+###### Returns
+
+[`ProductLevel4TcpListenerError`](#productlevel4tcplistenererror)
 
 ###### Overrides
 
@@ -13567,6 +13626,428 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ***
 
+### ProductLevel4TcpListenerCaptureInput
+
+#### Properties
+
+##### outDir
+
+> **outDir**: `string`
+
+##### sourceArch
+
+> **sourceArch**: `"amd64"` \| `"arm64"`
+
+##### targetArch
+
+> **targetArch**: `"amd64"` \| `"arm64"`
+
+##### sourceVerifierOutput
+
+> **sourceVerifierOutput**: `string`
+
+##### bindAddress
+
+> **bindAddress**: `string`
+
+##### port
+
+> **port**: `number`
+
+##### backlog
+
+> **backlog**: `number`
+
+##### reuseAddr?
+
+> `optional` **reuseAddr?**: `boolean`
+
+##### acceptQueue?
+
+> `optional` **acceptQueue?**: `"unknown"` \| `"empty"` \| `"non-empty"`
+
+##### activeConnections?
+
+> `optional` **activeConnections?**: `boolean`
+
+##### unsupportedOptions?
+
+> `optional` **unsupportedOptions?**: `boolean`
+
+##### partialIo?
+
+> `optional` **partialIo?**: `boolean`
+
+##### activeSyscall?
+
+> `optional` **activeSyscall?**: `boolean`
+
+##### outputLogPath?
+
+> `optional` **outputLogPath?**: `"/tmp/machinen-restored-tcp-listener.log"`
+
+##### dryRun?
+
+> `optional` **dryRun?**: `boolean`
+
+***
+
+### ProductLevel4TcpListenerDescriptor
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.product-level4-tcp-listener"`
+
+##### formatVersion
+
+> **formatVersion**: `1`
+
+##### supportLevel
+
+> **supportLevel**: `"implemented-product-support"`
+
+##### subset
+
+> **subset**: `"tcp-listener-v1-loopback-empty-accept-queue"`
+
+##### implementationLevel
+
+> **implementationLevel**: `"level-4-kernel-resource-reconstruction"`
+
+##### runtime
+
+> **runtime**: `"native-linux-resource"`
+
+##### captureSurface
+
+> **captureSurface**: `"machinen capture tcp-listener"`
+
+##### restoreSurface
+
+> **restoreSurface**: `"machinen restore <bundle> --target-arch <arch> [--target-verifier-output <file>]"`
+
+##### source
+
+> **source**: `object`
+
+###### architecture
+
+> **architecture**: `"amd64"` \| `"arm64"`
+
+###### host
+
+> **host**: `object`
+
+###### host.arch
+
+> **arch**: `string`
+
+###### host.platform
+
+> **platform**: `string`
+
+###### host.release
+
+> **release**: `string`
+
+##### target
+
+> **target**: `object`
+
+###### architecture
+
+> **architecture**: `"amd64"` \| `"arm64"`
+
+##### listener
+
+> **listener**: `object`
+
+###### family
+
+> **family**: `"inet"`
+
+###### socketType
+
+> **socketType**: `"stream"`
+
+###### protocol
+
+> **protocol**: `"tcp"`
+
+###### bindAddress
+
+> **bindAddress**: `"127.0.0.1"`
+
+###### port
+
+> **port**: `number`
+
+###### backlog
+
+> **backlog**: `number`
+
+###### reuseAddr
+
+> **reuseAddr**: `true`
+
+###### acceptQueue
+
+> **acceptQueue**: `"empty"`
+
+###### activeConnections
+
+> **activeConnections**: `false`
+
+###### partialIo
+
+> **partialIo**: `false`
+
+##### continuation
+
+> **continuation**: `object`
+
+###### outputLogPath
+
+> **outputLogPath**: `"/tmp/machinen-restored-tcp-listener.log"`
+
+###### listenerPolicy
+
+> **listenerPolicy**: `"target-native-loopback-tcp-listener-recreated"`
+
+###### acceptQueuePolicy
+
+> **acceptQueuePolicy**: `"empty-accept-queue-only"`
+
+##### gates
+
+> **gates**: `object`
+
+###### loopbackBindRequired
+
+> **loopbackBindRequired**: `true`
+
+###### staticPortRequired
+
+> **staticPortRequired**: `true`
+
+###### explicitBacklogRequired
+
+> **explicitBacklogRequired**: `true`
+
+###### emptyAcceptQueueRequired
+
+> **emptyAcceptQueueRequired**: `true`
+
+###### noActiveConnectionsRequired
+
+> **noActiveConnectionsRequired**: `true`
+
+###### supportedSocketOptionsRequired
+
+> **supportedSocketOptionsRequired**: `true`
+
+###### noPartialIoRequired
+
+> **noPartialIoRequired**: `true`
+
+###### noActiveSyscallRequired
+
+> **noActiveSyscallRequired**: `true`
+
+###### targetNativeVerificationRequired
+
+> **targetNativeVerificationRequired**: `true`
+
+###### sourceIsaEmulationAllowed
+
+> **sourceIsaEmulationAllowed**: `false`
+
+###### sourceTextReplayAllowed
+
+> **sourceTextReplayAllowed**: `false`
+
+###### sidecarRuntimeAllowed
+
+> **sidecarRuntimeAllowed**: `false`
+
+###### metadataOnlyContinuationAllowed
+
+> **metadataOnlyContinuationAllowed**: `false`
+
+##### sourceVerifierOutput
+
+> **sourceVerifierOutput**: `string`
+
+##### sourceVerifierOutputSha256
+
+> **sourceVerifierOutputSha256**: `string`
+
+***
+
+### ProductLevel4TcpListenerRefusal
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.product-level4-tcp-listener-refusal"`
+
+##### formatVersion
+
+> **formatVersion**: `1`
+
+##### runtime
+
+> **runtime**: `"native-linux-resource"`
+
+##### supportLevel
+
+> **supportLevel**: `"explicit-refusal"`
+
+##### state
+
+> **state**: `"refused"`
+
+##### migrationCompleted
+
+> **migrationCompleted**: `false`
+
+##### expectedRefusalCode
+
+> **expectedRefusalCode**: `"tcp-listener-active-connections-unsupported"` \| `"tcp-listener-source-target-arch-match"` \| `"tcp-listener-target-arch-mismatch"` \| `"tcp-listener-target-verifier-mismatch"` \| `"tcp-listener-address-unsupported"` \| `"tcp-listener-port-invalid"` \| `"tcp-listener-backlog-out-of-range"` \| `"tcp-listener-accept-queue-unsupported"` \| `"tcp-listener-unsupported-options"` \| `"tcp-listener-partial-io-unsupported"` \| `"tcp-listener-active-syscall-unsupported"`
+
+##### message
+
+> **message**: `string`
+
+##### evidence
+
+> **evidence**: `Record`\<`string`, `unknown`\>
+
+##### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+##### sourceTextReusedAsTargetCode
+
+> **sourceTextReusedAsTargetCode**: `false`
+
+##### sidecarRuntimeUsed
+
+> **sidecarRuntimeUsed**: `false`
+
+##### metadataOnlyShortcutAccepted
+
+> **metadataOnlyShortcutAccepted**: `false`
+
+***
+
+### ProductLevel4TcpListenerRestoreInput
+
+#### Properties
+
+##### bundleDir
+
+> **bundleDir**: `string`
+
+##### targetArch
+
+> **targetArch**: `"amd64"` \| `"arm64"`
+
+##### targetVerifierOutput
+
+> **targetVerifierOutput**: `string`
+
+##### dryRun?
+
+> `optional` **dryRun?**: `boolean`
+
+***
+
+### ProductLevel4TcpListenerRestoreSummary
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.product-level4-tcp-listener-restore-summary"`
+
+##### formatVersion
+
+> **formatVersion**: `1`
+
+##### runtime
+
+> **runtime**: `"native-linux-resource"`
+
+##### subset
+
+> **subset**: `"tcp-listener-v1-loopback-empty-accept-queue"`
+
+##### supportLevel
+
+> **supportLevel**: `"implemented-product-support"`
+
+##### implementationLevel
+
+> **implementationLevel**: `"level-4-kernel-resource-reconstruction"`
+
+##### state
+
+> **state**: `"refused"` \| `"completed"`
+
+##### migrationCompleted
+
+> **migrationCompleted**: `boolean`
+
+##### sourceArch?
+
+> `optional` **sourceArch?**: `"amd64"` \| `"arm64"`
+
+##### targetArch
+
+> **targetArch**: `"amd64"` \| `"arm64"`
+
+##### targetVerifierResult
+
+> **targetVerifierResult**: `"failed"` \| `"passed"` \| `"not-run"`
+
+##### descriptorSha256?
+
+> `optional` **descriptorSha256?**: `string`
+
+##### targetVerifierOutputSha256?
+
+> `optional` **targetVerifierOutputSha256?**: `string`
+
+##### refusal?
+
+> `optional` **refusal?**: [`ProductLevel4TcpListenerRefusal`](#productlevel4tcplistenerrefusal)
+
+##### shortcutInspection
+
+> **shortcutInspection**: `object`
+
+###### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+###### sourceTextReusedAsTargetCode
+
+> **sourceTextReusedAsTargetCode**: `false`
+
+###### sidecarRuntimeUsed
+
+> **sidecarRuntimeUsed**: `false`
+
+###### metadataOnlyShortcutAccepted
+
+> **metadataOnlyShortcutAccepted**: `false`
+
+***
+
 ### ProductLevel4TimerfdCaptureInput
 
 #### Properties
@@ -15432,7 +15913,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`runtime`](#runtime-17)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`runtime`](#runtime-20)
 
 ##### profile
 
@@ -15456,7 +15937,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`sourceArch`](#sourcearch-22)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`sourceArch`](#sourcearch-24)
 
 ##### targetArch
 
@@ -15464,7 +15945,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`targetArch`](#targetarch-38)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`targetArch`](#targetarch-41)
 
 ##### stateModel
 
@@ -15520,7 +16001,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`evidence`](#evidence-14)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`evidence`](#evidence-15)
 
 ##### kind
 
@@ -15532,7 +16013,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Overrides
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`migrationCompleted`](#migrationcompleted-23)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`migrationCompleted`](#migrationcompleted-25)
 
 ##### scope
 
@@ -19244,6 +19725,24 @@ Result of `validatePid` — easy to switch on at the call site.
 
 ***
 
+### ProductLevel4TcpListenerArchitecture
+
+> **ProductLevel4TcpListenerArchitecture** = *typeof* [`productLevel4TcpListenerArchitectures`](#productlevel4tcplistenerarchitectures)\[`number`\]
+
+***
+
+### ProductLevel4TcpListenerRefusalCode
+
+> **ProductLevel4TcpListenerRefusalCode** = *typeof* [`productLevel4TcpListenerRefusalCodes`](#productlevel4tcplistenerrefusalcodes)\[`number`\]
+
+***
+
+### ProductLevel4TcpListenerCaptureResult
+
+> **ProductLevel4TcpListenerCaptureResult** = \{ `state`: `"completed"`; `migrationCompleted`: `true`; `bundleDir`: `string`; `descriptor`: [`ProductLevel4TcpListenerDescriptor`](#productlevel4tcplistenerdescriptor); `dryRun`: `boolean`; \} \| \{ `state`: `"refused"`; `migrationCompleted`: `false`; `bundleDir`: `string`; `refusal`: [`ProductLevel4TcpListenerRefusal`](#productlevel4tcplistenerrefusal); `dryRun`: `boolean`; \}
+
+***
+
 ### ProductLevel4TimerfdArchitecture
 
 > **ProductLevel4TimerfdArchitecture** = *typeof* [`productLevel4TimerfdArchitectures`](#productlevel4timerfdarchitectures)\[`number`\]
@@ -21271,6 +21770,42 @@ loops; anything looser stops being a meaningful gate.
 ### productLevel4PipeRefusalCodes
 
 > `const` **productLevel4PipeRefusalCodes**: readonly \[`"pipe-source-target-arch-match"`, `"pipe-target-arch-mismatch"`, `"pipe-target-verifier-mismatch"`, `"pipe-fd-pair-invalid"`, `"pipe-buffered-data-unsupported"`, `"pipe-peer-lifetime-unsupported"`, `"pipe-waiters-unsupported"`, `"pipe-readiness-unsupported"`, `"pipe-unsupported-flags"`, `"pipe-active-syscall-unsupported"`\]
+
+***
+
+### PRODUCT\_LEVEL4\_TCP\_LISTENER\_FORMAT\_VERSION
+
+> `const` **PRODUCT\_LEVEL4\_TCP\_LISTENER\_FORMAT\_VERSION**: `1`
+
+***
+
+### PRODUCT\_LEVEL4\_TCP\_LISTENER\_MANIFEST
+
+> `const` **PRODUCT\_LEVEL4\_TCP\_LISTENER\_MANIFEST**: `"portable-tcp-listener.json"`
+
+***
+
+### PRODUCT\_LEVEL4\_TCP\_LISTENER\_REFUSAL
+
+> `const` **PRODUCT\_LEVEL4\_TCP\_LISTENER\_REFUSAL**: `"portable-tcp-listener-refusal.json"`
+
+***
+
+### PRODUCT\_LEVEL4\_TCP\_LISTENER\_RESTORE\_SUMMARY
+
+> `const` **PRODUCT\_LEVEL4\_TCP\_LISTENER\_RESTORE\_SUMMARY**: `"portable-tcp-listener-restore-summary.json"`
+
+***
+
+### productLevel4TcpListenerArchitectures
+
+> `const` **productLevel4TcpListenerArchitectures**: readonly \[`"arm64"`, `"amd64"`\]
+
+***
+
+### productLevel4TcpListenerRefusalCodes
+
+> `const` **productLevel4TcpListenerRefusalCodes**: readonly \[`"tcp-listener-source-target-arch-match"`, `"tcp-listener-target-arch-mismatch"`, `"tcp-listener-target-verifier-mismatch"`, `"tcp-listener-address-unsupported"`, `"tcp-listener-port-invalid"`, `"tcp-listener-backlog-out-of-range"`, `"tcp-listener-active-connections-unsupported"`, `"tcp-listener-accept-queue-unsupported"`, `"tcp-listener-unsupported-options"`, `"tcp-listener-partial-io-unsupported"`, `"tcp-listener-active-syscall-unsupported"`\]
 
 ***
 
@@ -23899,6 +24434,54 @@ readonly (`number` \| [`RssTarget`](#rsstarget))[]
 #### Returns
 
 [`ProductLevel4PipeRestoreSummary`](#productlevel4piperestoresummary)
+
+***
+
+### createProductLevel4TcpListenerSnapshot()
+
+> **createProductLevel4TcpListenerSnapshot**(`input`): [`ProductLevel4TcpListenerCaptureResult`](#productlevel4tcplistenercaptureresult)
+
+#### Parameters
+
+##### input
+
+[`ProductLevel4TcpListenerCaptureInput`](#productlevel4tcplistenercaptureinput)
+
+#### Returns
+
+[`ProductLevel4TcpListenerCaptureResult`](#productlevel4tcplistenercaptureresult)
+
+***
+
+### isProductLevel4TcpListenerBundle()
+
+> **isProductLevel4TcpListenerBundle**(`bundleDir`): `boolean`
+
+#### Parameters
+
+##### bundleDir
+
+`string`
+
+#### Returns
+
+`boolean`
+
+***
+
+### restoreProductLevel4TcpListenerSnapshot()
+
+> **restoreProductLevel4TcpListenerSnapshot**(`input`): [`ProductLevel4TcpListenerRestoreSummary`](#productlevel4tcplistenerrestoresummary)
+
+#### Parameters
+
+##### input
+
+[`ProductLevel4TcpListenerRestoreInput`](#productlevel4tcplistenerrestoreinput)
+
+#### Returns
+
+[`ProductLevel4TcpListenerRestoreSummary`](#productlevel4tcplistenerrestoresummary)
 
 ***
 

@@ -21,6 +21,7 @@ Goal files are grouped by cohort so proof records for each project stay together
 - [`015.md`](./015.md) — Add eventfd as the second portable restore adapter/resource.
 - [`016.md`](./016.md) — Add pipes as the third portable restore adapter/resource.
 - [`017.md`](./017.md) — Add timerfd as the fourth portable restore adapter/resource.
+- [`018.md`](./018.md) — Add TCP listener as the fifth portable restore adapter/resource.
 
 ## Cohorts
 

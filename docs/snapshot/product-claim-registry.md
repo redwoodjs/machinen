@@ -14,7 +14,8 @@ route a portable machine Level 4 socket descriptor through `machinen snapshot`
 and `machinen restore`. Goal 015 adds eventfd as the second Level 4 portable
 restore adapter/resource. Goal 016 adds pipes as the third Level 4 portable
 restore adapter/resource. Goal 017 adds timerfd as the fourth Level 4 portable
-restore adapter/resource. The implemented subsets are:
+restore adapter/resource. Goal 018 adds TCP listener-only sockets as the fifth
+Level 4 portable restore adapter/resource. The implemented subsets are:
 
 - `node-app-http-server-recreate` — `node-http-clean-root-v1` — `level-1-semantic-restart`
 - `python-cross-arch-runtime-policy` — `python-http-clean-root-v1` — `level-1-semantic-restart`
@@ -23,6 +24,7 @@ restore adapter/resource. The implemented subsets are:
 - `eventfd-counter-v1-nonsemaphore-no-waiters` — `eventfd-counter-v1-nonsemaphore-no-waiters` — `level-4-kernel-resource-reconstruction`
 - `pipe-pair-v1-empty-no-waiters` — `pipe-pair-v1-empty-no-waiters` — `level-4-kernel-resource-reconstruction`
 - `timerfd-relative-oneshot-v1-monotonic` — `timerfd-relative-oneshot-v1-monotonic` — `level-4-kernel-resource-reconstruction`
+- `tcp-listener-v1-loopback-empty-accept-queue` — `tcp-listener-v1-loopback-empty-accept-queue` — `level-4-kernel-resource-reconstruction`
 
 The earlier PostgreSQL logical proof/capture route is not advertised here as
 implemented snapshot/restore product support until it is routed through the same

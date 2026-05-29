@@ -594,6 +594,18 @@ export {
   restoreProductPortablePostgresSnapshot,
 } from "./product-portable-postgres.ts";
 export {
+  PRODUCT_LEVEL4_TCP_LISTENER_FORMAT_VERSION,
+  PRODUCT_LEVEL4_TCP_LISTENER_MANIFEST,
+  PRODUCT_LEVEL4_TCP_LISTENER_REFUSAL,
+  PRODUCT_LEVEL4_TCP_LISTENER_RESTORE_SUMMARY,
+  ProductLevel4TcpListenerError,
+  createProductLevel4TcpListenerSnapshot,
+  isProductLevel4TcpListenerBundle,
+  productLevel4TcpListenerArchitectures,
+  productLevel4TcpListenerRefusalCodes,
+  restoreProductLevel4TcpListenerSnapshot,
+} from "./product-level4-tcp-listener.ts";
+export {
   PRODUCT_LEVEL4_TIMERFD_FORMAT_VERSION,
   PRODUCT_LEVEL4_TIMERFD_MANIFEST,
   PRODUCT_LEVEL4_TIMERFD_REFUSAL,
@@ -779,6 +791,16 @@ export type {
   ProductPortablePostgresRestoreSummary,
   ProductPortableSupportLevel,
 } from "./product-portable-postgres.ts";
+export type {
+  ProductLevel4TcpListenerArchitecture,
+  ProductLevel4TcpListenerCaptureInput,
+  ProductLevel4TcpListenerCaptureResult,
+  ProductLevel4TcpListenerDescriptor,
+  ProductLevel4TcpListenerRefusal,
+  ProductLevel4TcpListenerRefusalCode,
+  ProductLevel4TcpListenerRestoreInput,
+  ProductLevel4TcpListenerRestoreSummary,
+} from "./product-level4-tcp-listener.ts";
 export type {
   ProductLevel4TimerfdArchitecture,
   ProductLevel4TimerfdCaptureInput,

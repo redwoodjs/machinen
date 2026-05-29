@@ -21,7 +21,7 @@ describe("Goal 47 proof-vs-product claim matrix", () => {
     const parsed = JSON.parse(readFileSync(summary, "utf8"));
     expect(parsed.passed).toBe(true);
     expect(parsed.implementedSubset).toBe("node-http-clean-root-v1");
-    expect(parsed.totals.implementedProduct).toBe(7);
+    expect(parsed.totals.implementedProduct).toBe(8);
     expect(parsed.totals.proofOnly).toBeGreaterThan(0);
     expect(parsed.totals.explicitRefusal).toBeGreaterThan(0);
   });
