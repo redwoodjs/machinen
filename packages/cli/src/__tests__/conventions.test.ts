@@ -222,6 +222,16 @@ describe("portable restore adapter convention", () => {
   });
 });
 
+describe("Node Level 5 public proof routing", () => {
+  it("routes selected proof capture through snapshot and refuses restore as proof-only", () => {
+    expect(CLI_SRC).toContain("writeNodeLevel5ProofCompositionSnapshot(res.snapDir, portableNode)");
+    expect(CLI_SRC).toContain("NODE_LEVEL5_PROOF_COMPOSITION_FILE");
+    expect(CLI_SRC).toContain("isNodeLevel5ProofCompositionBundle(snapDir)");
+    expect(CLI_SRC).toContain("node-level5-proof-only-not-product");
+    expect(CLI_SRC).toContain("restoreRoutedThroughPublicVerb: true");
+  });
+});
+
 describe("schema vs implementation", () => {
   it("dispatch in cli.ts handles every documented command", () => {
     // Naive but catches drift: if we add a command to the schema, we

@@ -1,7 +1,7 @@
 {
   "kind": "machinen.node-level5-proof-composition-summary",
   "goal": "009",
-  "status": "started",
+  "status": "proof-runner-wired",
   "selectedSubset": "node-http-clean-root-v1-with-level4-event-loop-map",
   "evidenceStatus": "proof",
   "productSupport": "not-yet-supported",
@@ -16,6 +16,14 @@
     "level4-event-loop-resource-map",
     "target-native-verifier"
   ],
+  "proofRunner": "scripts/node-level5-proof-composition.ts",
+  "proofRunArtifact": "docs/snapshot/checked-summaries/level4-graduation/goal-009-proof-run.json",
+  "publicVerbRouting": {
+    "snapshotWrites": "node-level5-proof-composition.json",
+    "restoreSummary": "node-level5-proof-restore-summary.json",
+    "restoreRefusal": "node-level5-proof-only-not-product",
+    "migrationCompleted": false
+  },
   "composesWith": [
     "docs/snapshot/checked-summaries/level4-graduation/goal-008-node-event-loop-resource-map.json",
     "docs/snapshot/checked-summaries/architecture-portable-snapshot/final-gauntlet.json",
