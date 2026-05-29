@@ -1,41 +1,16 @@
 # Goal 37.2: Native prebuild layout simulation
 
-Parent: [Goal 37](./goal-037.md).
+> **Status: archived proof history.** This detailed goal was summarized during the snapshot/Level 5 docs cleanup.
 
-## Objective
+Audited ecosystem-equivalent Node proof. Not active product evidence.
 
-Model native npm package prebuild complexity without using third-party native
-binaries or install-script generated artifacts.
+Why the details were removed:
 
-## Requirements
+- old wording made proof/runtime-profile work look like active product support;
+- Level 5 product work must use captured source process state and target-native reconstruction;
+- runtime profiles, selected-state descriptors, app-output comparisons, sidecars, source-text replay, source-ISA emulation, and metadata-only success are not acceptable product paths.
 
-- [x] Add local native-package fixtures that mimic prebuild layouts such as
-      `prebuilds/linux-x64`, `prebuilds/linux-arm64`, ABI-tagged paths, libc
-      splits, and optional binary packages.
-- [x] Build tiny audited target-native `.node` artifacts from local source only.
-- [x] Verify target artifact selection by Node version, N-API/modules ABI, arch,
-      libc, platform, and package metadata.
-- [x] Refuse wrong architecture, wrong ABI, missing artifact, postinstall-created
-      unknown binary, unsupported libc, and opaque native state.
-- [x] Record artifact hashes, file identity, ABI metadata, and refusal codes in
-      checked summaries.
+See the consolidated summary: [./historical-goals-030-044.md](./historical-goals-030-044.md).
+See the parent tombstone: [./goal-037.md](./goal-037.md).
 
-## Validation
-
-- [x] Native prebuild layout simulation smoke.
-- [x] ABI/arch/libc/missing-artifact refusal matrix.
-- [x] Target-native `.node` behavior verification.
-- [x] Artifact inspection proving no source-ISA emulation or third-party binary
-      reuse.
-- [x] Relevant static checks from Goal 37.
-
-## Completion criteria
-
-Complete when native prebuild complexity is modeled with audited local artifacts
-and unsupported native states refuse deterministically.
-
-## Completion note
-
-Completed as part of umbrella Goal 37. See
-[Goal 37 completion validation record](./goal-037.md#completion-validation-record)
-for implementation and validation evidence.
+If future work needs this area, create a new goal that cites the relevant lesson from the summary and restates the product/proof boundary explicitly.

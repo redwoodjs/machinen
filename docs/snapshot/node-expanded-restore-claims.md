@@ -1,5 +1,7 @@
 # Expanded Node cross-architecture restore claims
 
+> **Status: archived.** The old expanded Node runtime-profile route is no longer active smoke or product evidence. Use `pnpm run archive-node-expanded-restore` only with this status in mind.
+
 Goal 35 records the proof envelope for the Node.js claims that Goal 34 did not
 make. The validated route is amd64 source capture to arm64 target-native restore
 for Node 20, 22, and 24, with no source-ISA emulation, source text replay,
@@ -8,7 +10,7 @@ sidecar runtime, or app restore hooks.
 ## Validated command
 
 ```bash
-pnpm smoke-node-expanded-restore -- --keep --work-dir /tmp/machinen-node-expanded
+pnpm run archive-node-expanded-restore -- --keep --work-dir /tmp/machinen-node-expanded
 ```
 
 The smoke runs on:

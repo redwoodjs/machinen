@@ -1,5 +1,7 @@
 # Production Node restore workflow
 
+> **Status: archived.** The old production-shaped Node runtime-profile route is no longer active smoke or product evidence. Use `pnpm run archive-node-production-restore` only with this status in mind.
+
 Goal 34 validates a production-shaped Node portable restore workflow. The proof
 app is intentionally small but includes the app features we need to guard:
 package metadata, a local dependency, config, HTTP routes, file writes, a JSONL
@@ -8,7 +10,7 @@ SQLite-like durable store, and a real compiled `.node` N-API addon.
 ## Run the production-shaped proof
 
 ```bash
-pnpm smoke-node-production-restore -- --keep --work-dir /tmp/machinen-node-production
+pnpm run archive-node-production-restore -- --keep --work-dir /tmp/machinen-node-production
 ```
 
 The command captures/restores these routes:
@@ -30,7 +32,7 @@ Each target route verifies:
 ## Repeatability
 
 ```bash
-pnpm smoke-node-production-repeatability -- --keep --work-dir /tmp/machinen-node-production-repeat
+pnpm run archive-node-production-repeatability -- --keep --work-dir /tmp/machinen-node-production-repeat
 ```
 
 The repeatability wrapper runs the production restore proof repeatedly with a

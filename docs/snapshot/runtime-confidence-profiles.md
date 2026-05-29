@@ -74,5 +74,5 @@ or JNI/native library state across architectures.
 ## Running
 
 ```sh
-pnpm run smoke-runtime-confidence-profile-matrix
+pnpm run proof-runtime-confidence-profile-matrix
 ```

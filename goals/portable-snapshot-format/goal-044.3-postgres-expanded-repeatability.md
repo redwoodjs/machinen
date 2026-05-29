@@ -1,33 +1,16 @@
 # Goal 44.3: PostgreSQL expanded repeatability
 
-Parent: [Goal 44](./goal-044.md).
+> **Status: proof/audit only.** This detailed goal was summarized during the snapshot/Level 5 docs cleanup.
 
-## Objective
+Stateful service proof matrix. Keep clean/quiesced boundaries and refusal taxonomy.
 
-Expand Goal 43's PostgreSQL proof from one clean/quiesced fixture to a broader
-repeatable PostgreSQL state suite.
+Why the details were removed:
 
-## Requirements
+- old wording made proof/runtime-profile work look like active product support;
+- Level 5 product work must use captured source process state and target-native reconstruction;
+- runtime profiles, selected-state descriptors, app-output comparisons, sidecars, source-text replay, source-ISA emulation, and metadata-only success are not acceptable product paths.
 
-- [x] Reuse the Goal 43 PostgreSQL cross-architecture logical restore harness as the base.
-- [x] Add repeatability runs for the clean/quiesced PostgreSQL restore path.
-- [x] Expand the dataset: - multiple databases; - multiple schemas/tables; - indexes; - constraints; - sequences; - views or materialized views if feasible; - larger row counts.
-- [x] Verify logical state after restore with deterministic SQL output.
-- [x] Record provenance for every run: PostgreSQL version, SQL digests, data
-      manifest, WAL/checkpoint evidence, verifier digest, and repeatability
-      fingerprint.
-- [x] Add or harden stable refusals for: - prepared statement/session state; - advisory locks; - active transaction; - dirty WAL; - replication slots/logical decoding; - host-mounted data directory ambiguity; - extension/native plugin state.
-- [x] Reject source-ISA emulation, source text replay, sidecar runtime success,
-      app hooks, and metadata-only continuation.
+See the consolidated summary: [./historical-goals-030-044.md](./historical-goals-030-044.md).
+See the parent tombstone: [./goal-044.md](./goal-044.md).
 
-## Validation
-
-- [x] PostgreSQL expanded repeatability smoke.
-- [x] PostgreSQL expanded unsafe-neighbor refusal matrix.
-- [x] PostgreSQL expanded proof matrix preset.
-- [x] Relevant static checks from Goal 44.
-
-## Completion criteria
-
-Complete when PostgreSQL has repeatable, broader logical-state restore proof and
-stable refusals for additional database-specific unsafe states.
+If future work needs this area, create a new goal that cites the relevant lesson from the summary and restates the product/proof boundary explicitly.

@@ -91,5 +91,5 @@ product support unless the outer Machinen restore path is product-supported.
 ## Running
 
 ```sh
-pnpm run smoke-portable-snapshot-guest-checkpoint-composition
+pnpm run proof-portable-snapshot-guest-checkpoint-composition
 ```

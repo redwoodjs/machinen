@@ -1,43 +1,16 @@
 # Goal 36.4: Cluster, worker, and supervisor process topology
 
-Parent: [Goal 36](./goal-036.md).
+> **Status: archived proof history.** This detailed goal was summarized during the snapshot/Level 5 docs cleanup.
 
-## Objective
+Complex Node app/runtime-profile proof suite. Not active product evidence.
 
-Prove restore behavior for Node apps with multiple workers and external
-supervision patterns.
+Why the details were removed:
 
-## Requirements
+- old wording made proof/runtime-profile work look like active product support;
+- Level 5 product work must use captured source process state and target-native reconstruction;
+- runtime profiles, selected-state descriptors, app-output comparisons, sidecars, source-text replay, source-ISA emulation, and metadata-only success are not acceptable product paths.
 
-- [x] Add Node `cluster` fixture with multiple workers, shared listening socket,
-      worker lifecycle state, and request distribution evidence.
-- [x] Add worker-thread/process hybrid fixture with message channels and
-      backpressure boundaries.
-- [x] Add PM2/systemd-like supervisor fixture or faithful local equivalent with
-      restart policy, health checks, and process group handling.
-- [x] Capture and restore supported topology state without orphaned processes,
-      duplicate workers, leaked sockets, or lost IPC messages.
-- [x] Refuse detached process groups outside the restore boundary, supervisor
-      state that cannot be reconciled, active worker replacement races,
-      ambiguous shared sockets, and unknown child executable provenance.
-- [x] Audit process tables and open resources after restore and refusal.
+See the consolidated summary: [./historical-goals-030-044.md](./historical-goals-030-044.md).
+See the parent tombstone: [./goal-036.md](./goal-036.md).
 
-## Validation
-
-- [x] Cluster restore/refusal smoke.
-- [x] Worker-thread/process hybrid smoke.
-- [x] Supervisor topology smoke.
-- [x] Orphan/leak/resource audit.
-- [x] Topology checked summaries and matrix presets.
-- [x] Relevant static checks from Goal 36.
-
-## Completion criteria
-
-Complete when supported cluster/worker/supervisor topologies restore without
-resource leaks and unsupported topologies fail closed.
-
-## Completion note
-
-Completed as part of umbrella Goal 36. See
-[Goal 36 completion validation record](./goal-036.md#completion-validation-record)
-for implementation and validation evidence.
+If future work needs this area, create a new goal that cites the relevant lesson from the summary and restates the product/proof boundary explicitly.

@@ -17,7 +17,7 @@ Proper Node Level 5 requires:
 
 ### 1. Source process memory/runtime inspection
 
-Implemented for the first narrow proof. `pnpm run smoke-node-proper-level5-proof` boots a real Node counter VM, hits `{ "count": 1 }` and `{ "count": 2 }`, externally stops the process with `SIGSTOP`, captures `/proc/<pid>` state, dumps accepted small writable mappings from `/proc/<pid>/mem`, records fds/socket state, emits an IR/refusal summary, starts target-native Node, recovers count `2` from raw captured memory bytes, materializes equivalent JS/libuv state, and proves the target returns `{ "count": 3 }`.
+Implemented for the first narrow proof. `pnpm run proof-node-proper-level5-proof` boots a real Node counter VM, hits `{ "count": 1 }` and `{ "count": 2 }`, externally stops the process with `SIGSTOP`, captures `/proc/<pid>` state, dumps accepted small writable mappings from `/proc/<pid>/mem`, records fds/socket state, emits an IR/refusal summary, starts target-native Node, recovers count `2` from raw captured memory bytes, materializes equivalent JS/libuv state, and proves the target returns `{ "count": 3 }`.
 
 The inspection target is source Node process state:
 
@@ -73,6 +73,6 @@ It is useful regression evidence, not Level 5 product support.
 - Goal definition: `goals/023.md`
 - Source process inspection start: `packages/runtime/src/node-proper-level5-source-inspection.ts`
 - Live source-state translation/materialization proof: `scripts/smoke/node-proper-level5-source-capture.sh`
-- Public proof command: `pnpm run smoke-node-proper-level5-proof`
+- Public proof command: `pnpm run proof-node-proper-level5-proof`
 - Harness proof: `docs/snapshot/node-level5-real-cross-arch-quickstart-fixture.md`
 - Checked start summary: `docs/snapshot/checked-summaries/level4-graduation/goal-023-proper-node-level5-track.json`

@@ -1,26 +1,16 @@
 # Goal 41.4: Refusal UX, docs, and upgrade path
 
-Parent: [Goal 41](./goal-041.md).
+> **Status: proof/audit only.** This detailed goal was summarized during the snapshot/Level 5 docs cleanup.
 
-## Objective
+Hard runtime-state refusal UX/contract audit. Keep stable refusal codes.
 
-Make hard runtime-state refusals understandable and actionable for users, while
-recording exactly what future proof is required to graduate each refusal into
-support.
+Why the details were removed:
 
-## Requirements
+- old wording made proof/runtime-profile work look like active product support;
+- Level 5 product work must use captured source process state and target-native reconstruction;
+- runtime profiles, selected-state descriptors, app-output comparisons, sidecars, source-text replay, source-ISA emulation, and metadata-only success are not acceptable product paths.
 
-- [x] Publish a stable refusal catalog for Goal 40/41 states with: - code; - short message; - detailed explanation; - affected runtimes; - current behavior; - remediation; - graduation requirements.
-- [x] Add user-facing guidance for common outcomes: - close or drain sockets before snapshot; - configure reconnect-after-restore; - avoid opaque native extension state; - provide explicit native external-state contracts; - quiesce Go goroutines and channel waiters; - avoid cgo for portable Go restore.
-- [x] Ensure proof summaries expose enough data for CLI/API surfaces to show the
-      refusal reason without parsing ad-hoc text.
-- [x] Ensure docs distinguish stable refusals from backlog/support promises.
-- [x] Link the catalog from support-envelope and proof-matrix documentation.
-- [x] Add tests or matrix assertions that refusal UX metadata is present for each
-      Goal 41 code.
+See the consolidated summary: [./historical-goals-030-044.md](./historical-goals-030-044.md).
+See the parent tombstone: [./goal-041.md](./goal-041.md).
 
-## Completion criteria
-
-Complete when users can see why each hard runtime state was refused, what they
-can do today, and exactly what proof would be required before Machinen could
-claim support.
+If future work needs this area, create a new goal that cites the relevant lesson from the summary and restates the product/proof boundary explicitly.

@@ -1,12 +1,14 @@
 # Non-Node cross-architecture restore hardening
 
+> **Status: archived.** The old non-Node cross-architecture runtime-profile route is no longer active smoke or product evidence. Use `pnpm run archive-non-node-cross-arch` only with this status in mind.
+
 Goal 39 strengthens the Goal 38 non-Node envelope for Python and Go with live,
 repeatable, target-native `arm64 <-> amd64` proofs.
 
 ## Validated command
 
 ```bash
-pnpm smoke-non-node-cross-arch -- --keep --work-dir /tmp/goal39-cross --iterations 3
+pnpm run archive-non-node-cross-arch -- --keep --work-dir /tmp/goal39-cross --iterations 3
 ```
 
 Default hosts:

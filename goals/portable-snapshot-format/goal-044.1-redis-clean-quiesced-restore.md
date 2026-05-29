@@ -1,31 +1,16 @@
 # Goal 44.1: Redis clean/quiesced restore
 
-Parent: [Goal 44](./goal-044.md).
+> **Status: proof/audit only.** This detailed goal was summarized during the snapshot/Level 5 docs cleanup.
 
-## Objective
+Stateful service proof matrix. Keep clean/quiesced boundaries and refusal taxonomy.
 
-Prove a clean/quiesced Redis snapshot/restore subset inside Machinen and define
-stable refusals for unsafe Redis states.
+Why the details were removed:
 
-## Requirements
+- old wording made proof/runtime-profile work look like active product support;
+- Level 5 product work must use captured source process state and target-native reconstruction;
+- runtime profiles, selected-state descriptors, app-output comparisons, sidecars, source-text replay, source-ISA emulation, and metadata-only success are not acceptable product paths.
 
-- [x] Add an audited Redis fixture with configuration, seed data, workload, and
-      verifier.
-- [x] Cover persistence modes: - RDB snapshot; - AOF enabled with explicit fsync boundary; - clean shutdown/checkpoint evidence where applicable.
-- [x] Prove logical data restoration after Machinen snapshot/restore: - strings; - hashes; - lists/streams where feasible; - TTL behavior if included in the support claim.
-- [x] Record Redis provenance: - version; - architecture; - config digest; - RDB/AOF manifest digest; - workload digest; - verifier output digest.
-- [x] Add stable refusals for: - active client session that must survive restore; - pub/sub subscriptions; - in-flight blocking commands; - dirty AOF without fsync boundary; - replication state; - module/native extension state; - host-mounted data dir ambiguity.
-- [x] Reject source-ISA emulation, source text replay, sidecar runtime success,
-      app hooks, and metadata-only continuation.
+See the consolidated summary: [./historical-goals-030-044.md](./historical-goals-030-044.md).
+See the parent tombstone: [./goal-044.md](./goal-044.md).
 
-## Validation
-
-- [x] Redis clean/quiesced restore smoke.
-- [x] Redis unsafe-neighbor refusal matrix.
-- [x] Redis proof matrix preset.
-- [x] Relevant static checks from Goal 44.
-
-## Completion criteria
-
-Complete when Redis has a verified clean/quiesced restore subset and all unsafe
-neighbors are stable refusals.
+If future work needs this area, create a new goal that cites the relevant lesson from the summary and restates the product/proof boundary explicitly.

@@ -1,34 +1,16 @@
 # Goal 41.1: Active network/TLS refusal contract
 
-Parent: [Goal 41](./goal-041.md).
+> **Status: proof/audit only.** This detailed goal was summarized during the snapshot/Level 5 docs cleanup.
 
-## Objective
+Hard runtime-state refusal UX/contract audit. Keep stable refusal codes.
 
-Make Goal 40 active socket/TLS refusals stable, explicit, and regression-tested.
-These states remain unsupported unless a future positive proof provides a full
-portable transport and cryptographic-state contract.
+Why the details were removed:
 
-## Stable refusal codes
+- old wording made proof/runtime-profile work look like active product support;
+- Level 5 product work must use captured source process state and target-native reconstruction;
+- runtime profiles, selected-state descriptors, app-output comparisons, sidecars, source-text replay, source-ISA emulation, and metadata-only success are not acceptable product paths.
 
-- `runtime-network-active-socket-queue-ambiguous`
-- `runtime-network-peer-state-unavailable`
-- `runtime-network-bytes-in-flight-unsupported`
-- `runtime-network-tls-session-key-opaque`
-- `runtime-network-websocket-frame-boundary-ambiguous`
-- `runtime-network-reconnect-policy-required`
+See the consolidated summary: [./historical-goals-030-044.md](./historical-goals-030-044.md).
+See the parent tombstone: [./goal-041.md](./goal-041.md).
 
-## Requirements
-
-- [x] Add canonical refusal metadata for each code: message, explanation,
-      remediation, and graduation requirements.
-- [x] Add fixtures covering: - active TCP socket with unread inbound bytes; - bytes in flight; - HTTP keep-alive peer state; - WebSocket/framed stream boundary ambiguity; - TLS session keys and replay window opacity; - missing reconnect policy.
-- [x] Assert every refusal reports: - `migrationCompleted=false`; - target state `refused`; - no target verifier success; - no source-ISA emulation; - no source text replay; - no sidecar runtime; - no app hook; - no metadata-only continuation.
-- [x] Document safe remediation: close/drain sockets before snapshot, use
-      reconnect-after-restore policy, or provide an explicit future transport
-      contract.
-- [x] Add matrix coverage that fails on code drift or accidental support.
-
-## Completion criteria
-
-Complete when each active network/TLS refusal has durable checked summaries,
-proof profiles, docs, and regression tests.
+If future work needs this area, create a new goal that cites the relevant lesson from the summary and restates the product/proof boundary explicitly.

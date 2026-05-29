@@ -15,8 +15,10 @@ Then dive deeper:
 - [Nested virtualization](./guides/nested-virtualization.md) — opt-in `/dev/kvm` inside a VM
 - [Run Firecracker inside machinen](./guides/firecracker.md) — boot an aarch64 L2 microVM with nested KVM
 
-Snapshot internals:
+Snapshot docs:
 
+- [Snapshot documentation status](./snapshot/README.md) — product vs proof vs archived snapshot docs
+- [Level 5 product roadmap](./snapshot/level5-product-roadmap.md) — proper captured-process Level 5 path and forbidden shortcuts
 - [vmstate specification](./snapshot/vmstate-specification.md) — whole-VM snapshot file format and saved state
 - [vmstate portability policy](./snapshot/vmstate-portability.md) — restore invariants and cross-HVF/KVM policy
 - [portable machine snapshot boundary](./snapshot/portable-machine-snapshot.md) — why raw cross-ISA vmstate replay refuses and what the target-ISA restore path requires
@@ -41,8 +43,8 @@ Snapshot internals:
 - [Goal 018 TCP listener Level 4 portable restore](./snapshot/level4-tcp-listener-portable-restore.md) — fifth portable restore adapter and narrow target-native loopback listener reconstruction
 - [Goal 008 Node event-loop Level 4 resource map](./snapshot/level4-node-event-loop-resource-map.md) — planning map from Node/libuv handles to generic Level 4 descriptors and refusals
 - [Goal 009/019 Node Level 5 proof composition](./snapshot/node-level5-proof-composition.md) — selected Node proof path composed from native/process evidence, the Goal 008 Level 4 resource map, and default public restore proof evidence
-- [Goal 020 Level 5 runtime adapter substrate](./snapshot/level5-runtime-adapter-substrate.md) — generic adapter contract and registry for runtime-family Level 5 continuation paths
-- [Goal 021 Node Level 5 HTTP profile](./snapshot/node-level5-http-profile.md) — proof-only Node/V8/libuv single-thread HTTP runtime adapter profile
+- [Goal 020 Level 5 runtime adapter substrate](./snapshot/level5-runtime-adapter-substrate.md) — historical proof-only runtime-profile substrate, not the product Level 5 path
+- [Goal 021 Node Level 5 HTTP profile](./snapshot/node-level5-http-profile.md) — historical proof-only Node/V8/libuv runtime profile, not product support
 - [Goal 022 selected-state cross-arch quickstart harness](./snapshot/node-level5-real-cross-arch-quickstart-fixture.md) — public snapshot/restore harness proof, not Level 5 product support
 - [Proper Node Level 5 without runtime profiles](./snapshot/proper-node-level5-without-runtime-profiles.md) — acceptance contract and first real Node Level 5 track
 - [portable machine proof profiles](./snapshot/portable-machine-proof-profiles.md) — positive and negative proof profiles for target-native completion and fail-closed refusals

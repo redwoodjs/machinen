@@ -1,40 +1,16 @@
 # Goal 39: Python and Go non-Node cross-architecture proof hardening
 
-Parent context: Goal 38 established local audited support-or-refusal envelopes
-for JVM, Python, Ruby, and Go. Goal 39 strengthens the two runtimes with the
-best current proof footing: Python and Go.
+> **Status: archived proof history.** This detailed goal was summarized during the snapshot/Level 5 docs cleanup.
 
-## Objective
+Python/Go cross-architecture runtime-profile hardening. Not active product evidence.
 
-Add repeatable bidirectional `arm64 <-> amd64` target-native proofs for Python
-Django/Celery-style and Go service/runtime fixtures without broadening claims to
-unsupported states.
+Why the details were removed:
 
-## Requirements
+- old wording made proof/runtime-profile work look like active product support;
+- Level 5 product work must use captured source process state and target-native reconstruction;
+- runtime profiles, selected-state descriptors, app-output comparisons, sidecars, source-text replay, source-ISA emulation, and metadata-only success are not acceptable product paths.
 
-- [x] Run Python on real arm64 and amd64 hosts with an audited local
-      Django/Celery-style fixture.
-- [x] Run Go on real arm64 and amd64 hosts using target-native static no-cgo
-      Linux binaries built from the audited fixture.
-- [x] Cover both `arm64 -> amd64` and `amd64 -> arm64` routes.
-- [x] Repeat each host execution enough times to prove stable semantic
-      fingerprints.
-- [x] Keep shortcut guards explicit: no source-ISA emulation, source text replay
-      shortcut, sidecar runtime, or app hook success.
-- [x] Publish checked summaries, proof profiles, runtime manifest updates,
-      matrix presets, smoke script, and user-facing documentation.
-- [x] Keep JVM and Ruby expansion out of scope except as documented next steps.
+See the consolidated summary: [./historical-goals-030-044.md](./historical-goals-030-044.md).
+See the parent tombstone: [./goal-039.md](./goal-039.md).
 
-## Validation
-
-- [x] `pnpm smoke-non-node-cross-arch -- --keep --work-dir /tmp/goal39-cross --iterations 3`
-- [x] `node scripts/portable-machine-proof-matrix.mjs --preset non-node-cross-arch --check-summary-dir docs/snapshot/checked-summaries/non-node-cross-arch --json`
-- [x] Full static checks and focused tests from the completion record.
-
-## Completion record
-
-Completed with `scripts/non-node-cross-arch-proof.mjs`,
-`scripts/smoke/non-node-cross-arch.sh`, checked summaries in
-`docs/snapshot/checked-summaries/non-node-cross-arch/`, Python/Go runtime
-manifest updates, and matrix presets `non-node-cross-arch`,
-`runtime-python-cross-arch`, and `runtime-go-cross-arch`.
+If future work needs this area, create a new goal that cites the relevant lesson from the summary and restates the product/proof boundary explicitly.

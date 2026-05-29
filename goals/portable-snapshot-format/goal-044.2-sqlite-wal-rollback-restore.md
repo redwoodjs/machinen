@@ -1,33 +1,16 @@
 # Goal 44.2: SQLite WAL and rollback journal restore
 
-Parent: [Goal 44](./goal-044.md).
+> **Status: proof/audit only.** This detailed goal was summarized during the snapshot/Level 5 docs cleanup.
 
-## Objective
+Stateful service proof matrix. Keep clean/quiesced boundaries and refusal taxonomy.
 
-Prove SQLite database restore for clean rollback-journal and WAL/checkpoint
-states, and refuse unsafe transactional or filesystem states.
+Why the details were removed:
 
-## Requirements
+- old wording made proof/runtime-profile work look like active product support;
+- Level 5 product work must use captured source process state and target-native reconstruction;
+- runtime profiles, selected-state descriptors, app-output comparisons, sidecars, source-text replay, source-ISA emulation, and metadata-only success are not acceptable product paths.
 
-- [x] Add audited SQLite fixtures with schema, seed data, workload, and verifier.
-- [x] Prove rollback-journal mode clean restore.
-- [x] Prove WAL mode clean checkpoint restore.
-- [x] Verify indexes, constraints, transactions committed before snapshot, and
-      deterministic query output after restore.
-- [x] Record provenance: - SQLite version; - database mode; - schema digest; - workload digest; - database/WAL/journal manifest digest; - verifier output digest.
-- [x] Add stable refusals for: - active transaction; - hot WAL without checkpoint boundary; - hot rollback journal; - database lock held across snapshot; - mmap-backed state ambiguity; - unsynced data file; - host-mounted DB file ambiguity.
-- [x] Reject source-ISA emulation, source text replay, sidecar runtime success,
-      app hooks, and metadata-only continuation.
+See the consolidated summary: [./historical-goals-030-044.md](./historical-goals-030-044.md).
+See the parent tombstone: [./goal-044.md](./goal-044.md).
 
-## Validation
-
-- [x] SQLite rollback-journal restore smoke.
-- [x] SQLite WAL checkpoint restore smoke.
-- [x] SQLite unsafe-neighbor refusal matrix.
-- [x] SQLite proof matrix preset.
-- [x] Relevant static checks from Goal 44.
-
-## Completion criteria
-
-Complete when SQLite has verified clean restore for rollback-journal and WAL
-checkpoint states, with stable refusals for unsafe neighbors.
+If future work needs this area, create a new goal that cites the relevant lesson from the summary and restates the product/proof boundary explicitly.

@@ -1,31 +1,16 @@
 # Goal 44.4: MySQL/MariaDB clean restore
 
-Parent: [Goal 44](./goal-044.md).
+> **Status: proof/audit only.** This detailed goal was summarized during the snapshot/Level 5 docs cleanup.
 
-## Objective
+Stateful service proof matrix. Keep clean/quiesced boundaries and refusal taxonomy.
 
-Prove a clean/quiesced MySQL or MariaDB snapshot/restore subset inside Machinen
-and define stable refusals for unsafe InnoDB and replication states.
+Why the details were removed:
 
-## Requirements
+- old wording made proof/runtime-profile work look like active product support;
+- Level 5 product work must use captured source process state and target-native reconstruction;
+- runtime profiles, selected-state descriptors, app-output comparisons, sidecars, source-text replay, source-ISA emulation, and metadata-only success are not acceptable product paths.
 
-- [x] Choose MySQL or MariaDB based on the locally available Debian package and
-      document the exact version.
-- [x] Add audited SQL fixtures with schema, seed data, workload, and verifier.
-- [x] Prove a clean InnoDB checkpointed restore path: - no active transaction; - dirty pages flushed or checkpointed; - redo/binlog boundary recorded; - target logical verifier passes.
-- [x] Record provenance: - server version; - architecture; - config digest; - SQL fixture/workload digests; - data directory manifest; - redo/binlog checkpoint evidence; - target verifier output digest.
-- [x] Add stable refusals for: - active transaction; - active client session; - dirty redo-log ambiguity; - binary log / replication state ambiguity; - plugin/native extension state; - torn or unsynced data directory; - host-mounted data directory ambiguity.
-- [x] Reject source-ISA emulation, source text replay, sidecar runtime success,
-      app hooks, and metadata-only continuation.
+See the consolidated summary: [./historical-goals-030-044.md](./historical-goals-030-044.md).
+See the parent tombstone: [./goal-044.md](./goal-044.md).
 
-## Validation
-
-- [x] MySQL/MariaDB clean/quiesced restore smoke.
-- [x] MySQL/MariaDB unsafe-neighbor refusal matrix.
-- [x] MySQL/MariaDB proof matrix preset.
-- [x] Relevant static checks from Goal 44.
-
-## Completion criteria
-
-Complete when MySQL or MariaDB has a verified clean/quiesced restore subset and
-stable refusals for unsafe neighbors.
+If future work needs this area, create a new goal that cites the relevant lesson from the summary and restates the product/proof boundary explicitly.

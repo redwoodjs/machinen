@@ -52,7 +52,7 @@ Presets:
   `node-real-timers-async`, `node-real-fs-stdio`, `node-real-http-tcp`,
   `node-real-udp-dns`, `node-real-worker`, `node-real-native-addon`, and
   `node-real-crypto-tls` — individual real Node application smoke workloads;
-- `pnpm smoke-node-real-app-cross-arch -- --source all --json` — live
+- `pnpm run archive-node-real-app-cross-arch -- --source all --json` — live
   cross-architecture Node app smoke across the local arm64 source, the arm64
   remote builder source, and the Proxmox amd64 target. It executes all ten real
   Node app fixtures on each source, executes them again on the amd64 target, and
@@ -65,69 +65,69 @@ Presets:
   `node-live-refusal` is intentionally empty unless a future live refusal profile
   is promoted into the checked-in profile inventory because Goal 33's live smoke
   records unsafe-neighbor refusals in the live route summary;
-- `pnpm smoke-node-production-restore -- --keep --work-dir /tmp/machinen-node-production`
+- `pnpm run archive-node-production-restore -- --keep --work-dir /tmp/machinen-node-production`
   — Goal 34 production-shaped Node proof with dependencies, config, HTTP routes,
   file writes, durable JSONL database/log state, real compiled `.node` addon
   provenance, local arm64 and remote-builder arm64 source routes, Proxmox amd64
   target routes, and Node 20/22/24 version coverage;
-- `pnpm smoke-node-production-repeatability -- --keep --work-dir /tmp/machinen-node-production-repeat`
+- `pnpm run archive-node-production-repeatability -- --keep --work-dir /tmp/machinen-node-production-repeat`
   — Goal 34 repeatability proof with a 100% pass-rate requirement;
-- `pnpm smoke-node-expanded-restore -- --keep --work-dir /tmp/machinen-node-expanded`
+- `pnpm run archive-node-expanded-restore -- --keep --work-dir /tmp/machinen-node-expanded`
   — Goal 35 expanded Node proof for arbitrary existing processes, active
   HTTP/TCP preservation, child process/IPC trees, inspector policy, ambiguous
   dirty-state policy, broad native addon/ABI coverage, and the amd64 -> arm64
   route across Node 20/22/24;
 - `node scripts/portable-machine-proof-matrix.mjs --preset node-expanded --check-summary-dir docs/snapshot/checked-summaries/node-expanded --json`
   — Goal 35 checked-summary matrix for the expanded Node claims;
-- `pnpm smoke-node-complex-restore -- --keep --work-dir /tmp/machinen-node-complex`
+- `pnpm run archive-node-complex-restore -- --keep --work-dir /tmp/machinen-node-complex`
   — Goal 36 complex Node proof for framework apps, real persistence, WebSocket
   and TLS/keep-alive networking, cluster/worker/supervisor topology, published
   native package layouts, concurrent load/failure injection, and Node 18/20/22/24
   bidirectional architecture coverage;
 - `node scripts/portable-machine-proof-matrix.mjs --preset node-complex --check-summary-dir docs/snapshot/checked-summaries/node-complex --json`
   — Goal 36 checked-summary matrix for complex Node claims;
-- `pnpm smoke-node-ecosystem-restore -- --keep --work-dir /tmp/machinen-node-ecosystem`
+- `pnpm run archive-node-ecosystem-restore -- --keep --work-dir /tmp/machinen-node-ecosystem`
   — Goal 37 audited third-party ecosystem-equivalent proof with local registry
   fixtures, native prebuild layout simulation, lockfile/SBOM provenance,
   no-network/no-scripts sandbox policy, and Node 18/20/22/24 bidirectional
   architecture coverage without third-party installs;
 - `node scripts/portable-machine-proof-matrix.mjs --preset node-ecosystem --check-summary-dir docs/snapshot/checked-summaries/node-ecosystem --json`
   — Goal 37 checked-summary matrix for audited no-install ecosystem claims;
-- `pnpm smoke-non-node-runtime-proof -- --keep --work-dir /tmp/machinen-non-node-runtime`
+- `pnpm run proof-non-node-runtime -- --keep --work-dir /tmp/machinen-non-node-runtime`
   — Goal 38 non-Node runtime proof-or-refusal smoke for JVM/Spring-style,
   Python Django/Celery-style, Ruby Rails/Puma-style, Go service/runtime, and the
   cross-runtime comparison;
 - `node scripts/portable-machine-proof-matrix.mjs --preset non-node-runtimes --check-summary-dir docs/snapshot/checked-summaries/non-node-runtimes --json`
   — Goal 38 checked-summary matrix for non-Node runtime claims;
-- `pnpm smoke-non-node-cross-arch -- --keep --work-dir /tmp/goal39-cross --iterations 3`
+- `pnpm run archive-non-node-cross-arch -- --keep --work-dir /tmp/goal39-cross --iterations 3`
   — Goal 39 live bidirectional arm64/amd64 repeatability proof for Python and
   Go;
 - `node scripts/portable-machine-proof-matrix.mjs --preset non-node-cross-arch --check-summary-dir docs/snapshot/checked-summaries/non-node-cross-arch --json`
   — Goal 39 checked-summary matrix for Python/Go cross-architecture claims;
-- `pnpm smoke-goal40-hard-runtime-state -- --keep --work-dir /tmp/goal40-hard-state`
+- `pnpm run proof-goal40-hard-runtime-state -- --keep --work-dir /tmp/goal40-hard-state`
   — Goal 40 hard runtime-state support-or-refusal smoke for active sockets/TLS,
   opaque native extensions, and arbitrary Go scheduler state;
 - `node scripts/portable-machine-proof-matrix.mjs --preset goal40-hard-state --check-summary-dir docs/snapshot/checked-summaries/goal40-hard-state --json`
   — Goal 40 checked-summary/refusal matrix for hard runtime-state boundaries;
-- `pnpm smoke-hard-runtime-refusal-contract -- --keep --work-dir /tmp/goal41-refusals`
+- `pnpm run proof-hard-runtime-refusal-contract -- --keep --work-dir /tmp/goal41-refusals`
   — Goal 41 user-facing hard-runtime refusal contract smoke;
 - `node scripts/portable-machine-proof-matrix.mjs --preset goal41-refusal --check-summary-dir docs/snapshot/checked-summaries/goal41-refusals --json`
   — Goal 41 checked-summary matrix for stable hard-runtime refusals;
-- `pnpm smoke-go-quiescent-runtime -- --keep --work-dir /tmp/goal42-go --iterations 3`
+- `pnpm run archive-go-quiescent-runtime -- --keep --work-dir /tmp/goal42-go --iterations 3`
   — Goal 42 bidirectional arm64/amd64 proof for Go quiesced HTTP, drained
   workers, drained channels, and deterministic timers;
 - `node scripts/portable-machine-proof-matrix.mjs --preset go-quiescent-runtime --check-summary-dir docs/snapshot/checked-summaries/go-quiescent-runtime --json`
   — Goal 42 checked-summary/refusal matrix for Go quiescent runtime claims;
-- `pnpm smoke-postgres-cross-arch-restore -- --keep --work-dir /tmp/goal43-postgres-cross-arch`
+- `pnpm run proof-postgres-cross-arch-restore -- --keep --work-dir /tmp/goal43-postgres-cross-arch`
   — Goal 43 bidirectional arm64/amd64 PostgreSQL clean/quiesced logical restore proof;
 - `node scripts/portable-machine-proof-matrix.mjs --preset postgres-machinen --check-summary-dir docs/snapshot/checked-summaries/postgres-machinen --json`
   — Goal 43 checked-summary/refusal matrix for PostgreSQL claims;
-- `pnpm smoke-stateful-services-proof -- --keep --work-dir /tmp/goal44-stateful`
+- `pnpm run proof-stateful-services -- --keep --work-dir /tmp/goal44-stateful`
   — Goal 44 Redis, SQLite, PostgreSQL, MariaDB, durable queue, and filesystem
   stateful-services restore proof smoke;
 - `node scripts/portable-machine-proof-matrix.mjs --preset stateful-services --check-summary-dir docs/snapshot/checked-summaries/stateful-services --json`
   — Goal 44 aggregate checked-summary/refusal matrix;
-- `pnpm smoke-product-portable-postgres` — Goal 45 product smoke for the
+- `pnpm run smoke-product-portable-postgres` — Goal 45 product smoke for the
   implemented PostgreSQL logical descriptor path in both `arm64 -> amd64` and
   `amd64 -> arm64` directions plus an active-transaction refusal through the
   product CLI surface;
@@ -137,10 +137,10 @@ Presets:
   is missing;
 - `pnpm product-claim-registry-matrix` — Goal 46 global product-status matrix
   for every portable-machine proof profile across Goals 1-44;
-- `pnpm smoke-product-support-discovery` — Goal 46 CLI/API discovery smoke for
+- `pnpm run smoke-product-support-discovery` — Goal 46 CLI/API discovery smoke for
   Node.js, Go, Python/Ruby/JVM, stateful services, foundation/native,
   native-Linux-resource, and network/ping/ICMP/socket families;
-- `pnpm smoke-clean-service-cross-arch` — Goal 49 reusable clean-service product
+- `pnpm run smoke-clean-service-cross-arch` — Goal 49 reusable clean-service product
   harness for Node/Python across `arm64 -> amd64` and `amd64 -> arm64` routes;
 - `node-blockers`, `node-blockers-refusal`, `node-blockers-supported` — the Goal
   29 Node blocker profiles. `node-blockers-refusal` is now empty after the 81

@@ -1,38 +1,16 @@
 # Goal 34.2: Real compiled native addon provenance
 
-Parent: [Goal 34](./goal-034.md).
+> **Status: archived proof history.** This detailed goal was summarized during the snapshot/Level 5 docs cleanup.
 
-## Objective
+Production-shaped Node runtime-profile proof envelope. Not active smoke/product evidence.
 
-Prove native addon support with an actual compiled `.node` artifact and
-target-side ABI/provenance checks, not only a modeled N-API profile.
+Why the details were removed:
 
-## Requirements
+- old wording made proof/runtime-profile work look like active product support;
+- Level 5 product work must use captured source process state and target-native reconstruction;
+- runtime profiles, selected-state descriptors, app-output comparisons, sidecars, source-text replay, source-ISA emulation, and metadata-only success are not acceptable product paths.
 
-- [x] Add a real N-API/native addon fixture that builds a `.node` artifact.
-- [x] Build or obtain the source-side addon artifact on arm64.
-- [x] Build or obtain the target-side addon artifact on amd64.
-- [x] Record Node module ABI, N-API version, platform, architecture, compiler,
-      source hash, and binary hash provenance.
-- [x] Refuse ABI mismatch or stale compiled artifact with a stable code.
-- [x] Restore and verify target-side addon behavior after restore.
-- [x] Ensure no source `.node` binary is replayed on the target architecture.
+See the consolidated summary: [./historical-goals-030-044.md](./historical-goals-030-044.md).
+See the parent tombstone: [./goal-034.md](./goal-034.md).
 
-## Validation
-
-- [x] Native addon compiled-artifact restore/provenance smoke.
-- [x] ABI mismatch refusal test.
-- [x] Artifact hash drift refusal test.
-- [x] Checked summaries for both arm64 source routes.
-- [x] Relevant static checks from Goal 34.
-
-## Completion criteria
-
-Complete when a real compiled native addon is restored with target-safe ABI
-provenance, and stale/mismatched addon states refuse safely.
-
-## Completion note
-
-Completed as part of umbrella Goal 34. See
-[Goal 34 completion validation record](./goal-034.md#completion-validation-record)
-for implementation and validation evidence.
+If future work needs this area, create a new goal that cites the relevant lesson from the summary and restates the product/proof boundary explicitly.

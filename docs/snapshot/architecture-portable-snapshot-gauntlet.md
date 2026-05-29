@@ -94,7 +94,7 @@ lacks target-native verifier output, artifact digests, or provenance.
 Fixture smoke:
 
 ```sh
-pnpm run smoke-architecture-portable-snapshot-gauntlet
+pnpm run proof-architecture-portable-snapshot-gauntlet
 ```
 
 Full checked gauntlet:

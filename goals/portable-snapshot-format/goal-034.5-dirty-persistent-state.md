@@ -1,39 +1,16 @@
 # Goal 34.5: Dirty persistent state semantics
 
-Parent: [Goal 34](./goal-034.md).
+> **Status: archived proof history.** This detailed goal was summarized during the snapshot/Level 5 docs cleanup.
 
-## Objective
+Production-shaped Node runtime-profile proof envelope. Not active smoke/product evidence.
 
-Prove dirty persistent state semantics for Node apps across capture and restore,
-including open files, logs, and SQLite-style local database state.
+Why the details were removed:
 
-## Requirements
+- old wording made proof/runtime-profile work look like active product support;
+- Level 5 product work must use captured source process state and target-native reconstruction;
+- runtime profiles, selected-state descriptors, app-output comparisons, sidecars, source-text replay, source-ISA emulation, and metadata-only success are not acceptable product paths.
 
-- [x] Add a workload with an open file descriptor and pending/dirty writes.
-- [x] Add a workload with append-only log state.
-- [x] Add a SQLite or equivalent durable local database workload.
-- [x] Capture while state is dirty or recently written.
-- [x] Restore on Proxmox amd64.
-- [x] Verify post-restore file/log/database contents and durability semantics.
-- [x] Record file identity, offsets, fsync/durability policy, and descriptor
-      provenance.
-- [x] Refuse ambiguous dirty state with a stable code.
+See the consolidated summary: [./historical-goals-030-044.md](./historical-goals-030-044.md).
+See the parent tombstone: [./goal-034.md](./goal-034.md).
 
-## Validation
-
-- [x] Dirty persistent state restore smoke.
-- [x] File identity drift refusal test.
-- [x] Dirty-state ambiguity refusal test.
-- [x] Checked summaries for both source routes.
-- [x] Relevant static checks from Goal 34.
-
-## Completion criteria
-
-Complete when open file/log/database semantics are verified after restore or
-ambiguous states fail closed with stable refusal codes.
-
-## Completion note
-
-Completed as part of umbrella Goal 34. See
-[Goal 34 completion validation record](./goal-034.md#completion-validation-record)
-for implementation and validation evidence.
+If future work needs this area, create a new goal that cites the relevant lesson from the summary and restates the product/proof boundary explicitly.

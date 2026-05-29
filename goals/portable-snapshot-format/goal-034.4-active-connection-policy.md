@@ -1,39 +1,16 @@
 # Goal 34.4: Active HTTP/TCP connection policy
 
-Parent: [Goal 34](./goal-034.md).
+> **Status: archived proof history.** This detailed goal was summarized during the snapshot/Level 5 docs cleanup.
 
-## Objective
+Production-shaped Node runtime-profile proof envelope. Not active smoke/product evidence.
 
-Define and prove the active HTTP/TCP connection policy for live Node restore:
-either safe restore of active connections or stable refusal for unsupported active
-connection state.
+Why the details were removed:
 
-## Requirements
+- old wording made proof/runtime-profile work look like active product support;
+- Level 5 product work must use captured source process state and target-native reconstruction;
+- runtime profiles, selected-state descriptors, app-output comparisons, sidecars, source-text replay, source-ISA emulation, and metadata-only success are not acceptable product paths.
 
-- [x] Add an active HTTP/TCP connection fixture.
-- [x] Capture while a connection is open/in-flight.
-- [x] Decide support vs refusal based on verifiable socket/packet/state
-      provenance.
-- [x] If supported, restore and verify the active connection after restore.
-- [x] If refused, return a stable refusal code with `migrationCompleted=false`.
-- [x] Ensure queued packet, TLS session, half-closed, and peer identity states are
-      covered as support or refusal.
+See the consolidated summary: [./historical-goals-030-044.md](./historical-goals-030-044.md).
+See the parent tombstone: [./goal-034.md](./goal-034.md).
 
-## Validation
-
-- [x] Active connection restore-or-refusal smoke.
-- [x] Refusal tests for unverified packets and ambiguous peer state.
-- [x] Checked summaries for both source routes.
-- [x] Full refusal matrix impact if new refusal profiles are added.
-- [x] Relevant static checks from Goal 34.
-
-## Completion criteria
-
-Complete when active HTTP/TCP connection behavior is explicitly supported or
-refused with stable codes and verified summaries.
-
-## Completion note
-
-Completed as part of umbrella Goal 34. See
-[Goal 34 completion validation record](./goal-034.md#completion-validation-record)
-for implementation and validation evidence.
+If future work needs this area, create a new goal that cites the relevant lesson from the summary and restates the product/proof boundary explicitly.

@@ -28,6 +28,11 @@ subsets are:
 - `timerfd-relative-oneshot-v1-monotonic` — `timerfd-relative-oneshot-v1-monotonic` — `level-4-kernel-resource-reconstruction`
 - `tcp-listener-v1-loopback-empty-accept-queue` — `tcp-listener-v1-loopback-empty-accept-queue` — `level-4-kernel-resource-reconstruction`
 
+There is currently no Level 5 product support entry. Historical Node/runtime
+profile and live-app proof suites remain proof-only or archived until a captured
+source process state implementation is routed through the public product surface
+and advertised by this registry.
+
 The earlier PostgreSQL logical proof/capture route is not advertised here as
 implemented snapshot/restore product support until it is routed through the same
 verbs. Other positive proof profiles are surfaced as `proof-only-fixture` with

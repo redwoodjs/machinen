@@ -1,12 +1,14 @@
 # PostgreSQL cross-architecture restore claims
 
+> **Status: proof-audit.** This is proof evidence only unless the product claim registry advertises a product route. Use `pnpm run proof-postgres-cross-arch-restore` only with this status in mind.
+
 Goal 43 proves a narrow PostgreSQL portable restore envelope using real
 PostgreSQL on both architectures.
 
 ## Validated command
 
 ```bash
-pnpm smoke-postgres-cross-arch-restore -- --keep --work-dir /tmp/goal43-postgres-cross-arch
+pnpm run proof-postgres-cross-arch-restore -- --keep --work-dir /tmp/goal43-postgres-cross-arch
 ```
 
 By default the smoke uses the local MacBook Docker host as the arm64 source or

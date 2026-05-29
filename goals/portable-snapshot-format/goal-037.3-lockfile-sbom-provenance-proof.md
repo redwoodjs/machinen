@@ -1,39 +1,16 @@
 # Goal 37.3: Lockfile and SBOM provenance proof
 
-Parent: [Goal 37](./goal-037.md).
+> **Status: archived proof history.** This detailed goal was summarized during the snapshot/Level 5 docs cleanup.
 
-## Objective
+Audited ecosystem-equivalent Node proof. Not active product evidence.
 
-Prove package provenance using lockfile and SBOM metadata without contacting a
-registry or running third-party install scripts.
+Why the details were removed:
 
-## Requirements
+- old wording made proof/runtime-profile work look like active product support;
+- Level 5 product work must use captured source process state and target-native reconstruction;
+- runtime profiles, selected-state descriptors, app-output comparisons, sidecars, source-text replay, source-ISA emulation, and metadata-only success are not acceptable product paths.
 
-- [x] Generate or check in lockfile fixtures for the local audited registry.
-- [x] Generate or check in SBOM/provenance fixtures with package hashes,
-      dependency graph edges, native artifact hashes, and policy decisions.
-- [x] Verify package graph integrity, package hash integrity, native artifact
-      integrity, and runtime manifest consistency.
-- [x] Refuse lockfile drift, missing package hashes, unexpected dependency edges,
-      native artifact digest drift, and unresolved optional/peer dependency
-      ambiguity.
-- [x] Add checked summaries for positive provenance and negative drift cases.
+See the consolidated summary: [./historical-goals-030-044.md](./historical-goals-030-044.md).
+See the parent tombstone: [./goal-037.md](./goal-037.md).
 
-## Validation
-
-- [x] Lockfile/SBOM positive provenance smoke.
-- [x] Lockfile/package/native digest drift refusal matrix.
-- [x] Optional/peer ambiguity refusal tests.
-- [x] Runtime manifest and docs updated.
-- [x] Relevant static checks from Goal 37.
-
-## Completion criteria
-
-Complete when lockfile and SBOM provenance are verified offline and every drift
-case refuses with a stable code.
-
-## Completion note
-
-Completed as part of umbrella Goal 37. See
-[Goal 37 completion validation record](./goal-037.md#completion-validation-record)
-for implementation and validation evidence.
+If future work needs this area, create a new goal that cites the relevant lesson from the summary and restates the product/proof boundary explicitly.

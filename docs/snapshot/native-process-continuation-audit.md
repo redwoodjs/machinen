@@ -37,15 +37,20 @@ These are advertised in `docs/snapshot/product-claim-registry.md` and
 `docs/snapshot/product-cross-arch-claim-inventory.json` as implemented product
 support:
 
-| Subset                                           | Level                         | Notes                                                                                  |
-| ------------------------------------------------ | ----------------------------- | -------------------------------------------------------------------------------------- |
-| `node-http-clean-root-v1`                        | Level 1 semantic restart      | Clean Node HTTP service through `machinen snapshot` / `machinen restore`.              |
-| `python-http-clean-root-v1`                      | Level 1 semantic restart      | Clean Python HTTP service through the clean-service contract.                          |
-| `go-http-clean-root-v1`                          | Level 1 semantic restart      | Clean static Go HTTP service with cgo/dynamic linkage refused.                         |
-| `ping-sequence-counter-semantic-continuation-v1` | Level 2 semantic continuation | Descriptor-based ping sequence/counter continuation; raw socket state remains refused. |
+| Subset                                        | Level                                  | Notes                                                                     |
+| --------------------------------------------- | -------------------------------------- | ------------------------------------------------------------------------- |
+| `node-http-clean-root-v1`                     | Level 1 semantic restart               | Clean Node HTTP service through `machinen snapshot` / `machinen restore`. |
+| `python-http-clean-root-v1`                   | Level 1 semantic restart               | Clean Python HTTP service through the clean-service contract.             |
+| `go-http-clean-root-v1`                       | Level 1 semantic restart               | Clean static Go HTTP service with cgo/dynamic linkage refused.            |
+| `ping-level4-socket-reconstruction-v1`        | Level 4 kernel-resource reconstruction | Narrow ping socket descriptor route through portable machine restore.     |
+| `eventfd-counter-v1-nonsemaphore-no-waiters`  | Level 4 kernel-resource reconstruction | Narrow eventfd counter reconstruction.                                    |
+| `pipe-pair-v1-empty-no-waiters`               | Level 4 kernel-resource reconstruction | Narrow empty pipe pair reconstruction.                                    |
+| `timerfd-relative-oneshot-v1-monotonic`       | Level 4 kernel-resource reconstruction | Narrow relative one-shot timerfd reconstruction.                          |
+| `tcp-listener-v1-loopback-empty-accept-queue` | Level 4 kernel-resource reconstruction | Narrow loopback listener with empty accept queue.                         |
 
-These are product-supported workload continuation paths, not arbitrary Linux
-process-image continuation.
+These are product-supported workload/resource continuation paths, not arbitrary
+Linux process-image continuation. There is no current Level 5 product support
+entry.
 
 ## Existing proof-only process/native work
 
@@ -73,8 +78,10 @@ product refusals with `migrationCompleted=false`.
 
 ## Existing Node/process restore evidence
 
-The older portable snapshot goals already contain meaningful process-continuation
-evidence.
+The older portable snapshot goals contain useful proof history, but the Node live
+and runtime-profile routes are archived from the active smoke surface. Treat them
+as fixture ideas and refusal evidence, not product support and not completed
+Level 5 product implementation.
 
 ### Goal 33.3: minimal live Node VM restore
 

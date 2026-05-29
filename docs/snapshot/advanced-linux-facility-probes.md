@@ -68,5 +68,5 @@ BPF program unless a future controlled privileged fixture is added.
 ## Running
 
 ```sh
-pnpm run smoke-advanced-linux-facility-probe
+pnpm run proof-advanced-linux-facility-probe
 ```

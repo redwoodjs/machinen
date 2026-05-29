@@ -1,40 +1,16 @@
 # Goal 37.4: No-network/no-scripts sandbox enforcement
 
-Parent: [Goal 37](./goal-037.md).
+> **Status: archived proof history.** This detailed goal was summarized during the snapshot/Level 5 docs cleanup.
 
-## Objective
+Audited ecosystem-equivalent Node proof. Not active product evidence.
 
-Prove the third-party ecosystem-equivalent suite cannot fetch packages, run
-lifecycle scripts, or execute opaque third-party install behavior.
+Why the details were removed:
 
-## Requirements
+- old wording made proof/runtime-profile work look like active product support;
+- Level 5 product work must use captured source process state and target-native reconstruction;
+- runtime profiles, selected-state descriptors, app-output comparisons, sidecars, source-text replay, source-ISA emulation, and metadata-only success are not acceptable product paths.
 
-- [x] Run package proof commands with network disabled or an explicit no-network
-      guard.
-- [x] Enforce ignore-scripts/no-lifecycle behavior for package resolution.
-- [x] Add fixtures that attempt network access or lifecycle script execution and
-      verify they are refused before execution.
-- [x] Record sandbox environment, package-manager config, and denial evidence in
-      proof summaries.
-- [x] Ensure the suite never reads user npm config, tokens, or registry auth.
-- [x] Add stable refusal codes for network access, lifecycle scripts, opaque
-      postinstall artifacts, and registry auth requirements.
+See the consolidated summary: [./historical-goals-030-044.md](./historical-goals-030-044.md).
+See the parent tombstone: [./goal-037.md](./goal-037.md).
 
-## Validation
-
-- [x] No-network enforcement smoke.
-- [x] No-scripts/lifecycle refusal tests.
-- [x] User config/auth isolation test.
-- [x] Sandbox evidence appears in checked summaries.
-- [x] Relevant static checks from Goal 37.
-
-## Completion criteria
-
-Complete when the suite proves package ecosystem complexity while remaining
-offline, no-scripts, and isolated from user package-manager credentials.
-
-## Completion note
-
-Completed as part of umbrella Goal 37. See
-[Goal 37 completion validation record](./goal-037.md#completion-validation-record)
-for implementation and validation evidence.
+If future work needs this area, create a new goal that cites the relevant lesson from the summary and restates the product/proof boundary explicitly.
