@@ -82,7 +82,7 @@ export interface ProductLevel4PingSocketDescriptor {
     outputLogPath: "/tmp/machinen-restored-ping.log";
     sequencePolicy: "continue-at-next-supported-boundary";
     idPolicy: "descriptor-preserved-when-target-ping-supports-it";
-    textOutputSequencePolicy: "target-ping-may-renumber-text-sequence";
+    textOutputSequencePolicy: "machinen-helper-renders-descriptor-sequence";
   };
   gates: {
     emptyReceiveQueueRequired: true;
@@ -218,7 +218,7 @@ export function createProductLevel4PingSocketSnapshot(
       outputLogPath: input.outputLogPath ?? "/tmp/machinen-restored-ping.log",
       sequencePolicy: input.sequencePolicy ?? "continue-at-next-supported-boundary",
       idPolicy: "descriptor-preserved-when-target-ping-supports-it",
-      textOutputSequencePolicy: "target-ping-may-renumber-text-sequence",
+      textOutputSequencePolicy: "machinen-helper-renders-descriptor-sequence",
     },
     gates: {
       emptyReceiveQueueRequired: true,

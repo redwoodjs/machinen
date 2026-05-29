@@ -1726,7 +1726,7 @@ async function bootProductLevel4PingTargetVm(
           descriptor.continuation?.idPolicy ?? "descriptor-preserved-when-target-ping-supports-it",
         textOutputSequencePolicy:
           descriptor.continuation?.textOutputSequencePolicy ??
-          "target-ping-may-renumber-text-sequence",
+          "machinen-helper-renders-descriptor-sequence",
       },
       elapsedMs: Date.now() - started,
     };
@@ -1770,15 +1770,21 @@ function startRestoredPingCommand(descriptor: ProductLevel4PingSocketDescriptor)
 function restoredPingLoopCommand(descriptor: ProductLevel4PingSocketDescriptor): string {
   const destination = descriptor.continuation?.destination ?? "127.0.0.1";
   const intervalSeconds = formatPingIntervalSeconds(descriptor.continuation?.intervalMs ?? 1000);
+  const startSequence = descriptor.socket.echoSequence;
+  const rewriteHeaderAndReply =
+    `sed -n -e '/^PING /p' ` +
+    `-e '/bytes from/ { s/icmp_seq=[0-9][0-9]*/icmp_seq='"$seq"'/; p; }'`;
+  const rewriteReply = `sed -n -e '/bytes from/ { s/icmp_seq=[0-9][0-9]*/icmp_seq='"$seq"'/; p; }'`;
   return (
-    "printed_header=0; " +
+    `seq=${startSequence}; printed_header=0; ` +
     "while :; do " +
     'if [ "$printed_header" = 0 ]; then ' +
-    `/usr/bin/ping -c 1 -W 1 ${shellQuote(destination)} | sed -n '/^PING /p;/bytes from/p'; ` +
+    `/usr/bin/ping -n -c 1 -W 1 ${shellQuote(destination)} | ${rewriteHeaderAndReply}; ` +
     "printed_header=1; " +
     "else " +
-    `/usr/bin/ping -c 1 -W 1 ${shellQuote(destination)} | sed -n '/bytes from/p'; ` +
+    `/usr/bin/ping -n -c 1 -W 1 ${shellQuote(destination)} | ${rewriteReply}; ` +
     "fi; " +
+    "seq=$((seq + 1)); " +
     `sleep ${intervalSeconds}; ` +
     "done"
   );

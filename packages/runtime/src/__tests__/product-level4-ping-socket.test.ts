@@ -45,7 +45,7 @@ describe("product Level 4 ping socket bundle", () => {
         outputLogPath: "/tmp/machinen-restored-ping.log",
         sequencePolicy: "continue-at-next-supported-boundary",
         idPolicy: "descriptor-preserved-when-target-ping-supports-it",
-        textOutputSequencePolicy: "target-ping-may-renumber-text-sequence",
+        textOutputSequencePolicy: "machinen-helper-renders-descriptor-sequence",
       });
       expect(descriptor.gates.noActiveRecvmsgRequired).toBe(true);
       const restore = restoreProductLevel4PingSocketSnapshot({
