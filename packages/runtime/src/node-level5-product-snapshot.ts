@@ -129,10 +129,16 @@ export type NodeLevel5ProductRestoreLaunchReport = {
 export type NodeLevel5ProductBehavioralVerifierReport = {
   kind: typeof NODE_LEVEL5_PRODUCT_BEHAVIORAL_VERIFIER_REPORT_KIND;
   accepted: boolean;
-  verifier: "target-native-http-loopback";
+  verifier: "target-native-http-loopback" | "target-native-app-route";
   executable: string;
   appDir: string;
-  expectedBody: "machinen-node-level5-behavior-ok";
+  routePath: string;
+  expectedStatus: number;
+  actualStatus?: number;
+  expectedBody: string;
+  actualBody?: string;
+  expectedHeaders?: Record<string, string>;
+  actualHeaders?: Record<string, string>;
   exitCode: number | null;
   signal: NodeJS.Signals | null;
   targetNativeNodeVerified: boolean;
@@ -530,18 +536,35 @@ function buildBehavioralVerifierReport(
 ): NodeLevel5ProductBehavioralVerifierReport {
   const executable = launchReport.executable;
   const appDir = targetIdentity.appDir ?? process.cwd();
-  const verifier = spawnSync(executable, ["-e", behavioralVerifierScript()], {
+  const config = readBehavioralVerifierConfig(appDir);
+  const verifier = spawnSync(executable, ["-e", behavioralVerifierScript(config)], {
     cwd: existsSync(appDir) ? appDir : undefined,
     encoding: "utf8",
-    timeout: 5000,
+    timeout: 7000,
   });
+  return behavioralVerifierReportBase(executable, appDir, config, verifier);
+}
+
+function behavioralVerifierReportBase(
+  executable: string,
+  appDir: string,
+  config: NodeLevel5ProductBehavioralVerifierConfig,
+  verifier: ReturnType<typeof spawnSync>,
+): NodeLevel5ProductBehavioralVerifierReport {
+  const result = parseBehavioralVerifierOutput(verifier.stdout);
   return {
     kind: NODE_LEVEL5_PRODUCT_BEHAVIORAL_VERIFIER_REPORT_KIND,
     accepted: verifier.status === 0,
-    verifier: "target-native-http-loopback",
+    verifier: config.entry ? "target-native-app-route" : "target-native-http-loopback",
     executable,
     appDir,
-    expectedBody: "machinen-node-level5-behavior-ok",
+    routePath: config.path,
+    expectedStatus: config.expectedStatus,
+    actualStatus: result.actualStatus,
+    expectedBody: config.expectedBody,
+    actualBody: result.actualBody,
+    expectedHeaders: config.expectedHeaders,
+    actualHeaders: result.actualHeaders,
     exitCode: verifier.status,
     signal: verifier.signal,
     targetNativeNodeVerified: verifier.status === 0,
@@ -555,24 +578,103 @@ function buildBehavioralVerifierReport(
   };
 }
 
-function behavioralVerifierScript(): string {
+type NodeLevel5ProductBehavioralVerifierConfig = {
+  entry?: string;
+  path: string;
+  expectedStatus: number;
+  expectedBody: string;
+  expectedHeaders?: Record<string, string>;
+};
+
+function readBehavioralVerifierConfig(appDir: string): NodeLevel5ProductBehavioralVerifierConfig {
+  const path = join(appDir, "machinen-node-level5-behavior.json");
+  if (!existsSync(path)) {
+    return {
+      path: "/",
+      expectedStatus: 200,
+      expectedBody: "machinen-node-level5-behavior-ok",
+    };
+  }
+  const parsed = JSON.parse(
+    readFileSync(path, "utf8"),
+  ) as Partial<NodeLevel5ProductBehavioralVerifierConfig>;
+  return {
+    entry: typeof parsed.entry === "string" ? parsed.entry : undefined,
+    path: typeof parsed.path === "string" ? parsed.path : "/",
+    expectedStatus: typeof parsed.expectedStatus === "number" ? parsed.expectedStatus : 200,
+    expectedBody: typeof parsed.expectedBody === "string" ? parsed.expectedBody : "",
+    expectedHeaders: parsed.expectedHeaders,
+  };
+}
+
+function behavioralVerifierScript(config: NodeLevel5ProductBehavioralVerifierConfig): string {
+  return config.entry
+    ? appRouteBehavioralVerifierScript(config)
+    : loopbackBehavioralVerifierScript(config);
+}
+
+function loopbackBehavioralVerifierScript(
+  config: NodeLevel5ProductBehavioralVerifierConfig,
+): string {
   return `
 const http = require("node:http");
-const expected = "machinen-node-level5-behavior-ok";
-const server = http.createServer((_request, response) => response.end(expected));
+const expectedBody = ${JSON.stringify(config.expectedBody)};
+const server = http.createServer((_request, response) => response.end(expectedBody));
 server.listen(0, "127.0.0.1", () => {
   const address = server.address();
-  http.get({ host: "127.0.0.1", port: address.port, path: "/" }, (response) => {
-    let body = "";
-    response.setEncoding("utf8");
-    response.on("data", (chunk) => { body += chunk; });
-    response.on("end", () => {
-      server.close(() => process.exit(body === expected ? 0 : 1));
+  http.get({ host: "127.0.0.1", port: address.port, path: ${JSON.stringify(config.path)} }, (response) => {
+    collect(response, (body) => {
+      const result = { actualStatus: response.statusCode, actualBody: body, actualHeaders: response.headers };
+      console.log(JSON.stringify(result));
+      server.close(() => process.exit(response.statusCode === ${config.expectedStatus} && body === expectedBody ? 0 : 1));
     });
   }).on("error", () => server.close(() => process.exit(1)));
 });
+function collect(response, done) { let body = ""; response.setEncoding("utf8"); response.on("data", (chunk) => { body += chunk; }); response.on("end", () => done(body)); }
 setTimeout(() => server.close(() => process.exit(1)), 3000);
 `;
+}
+
+function appRouteBehavioralVerifierScript(
+  config: NodeLevel5ProductBehavioralVerifierConfig,
+): string {
+  return `
+const { spawn } = require("node:child_process");
+const http = require("node:http");
+const port = String(31000 + Math.floor(Math.random() * 1000));
+const child = spawn(process.execPath, [${JSON.stringify(config.entry)}], { cwd: process.cwd(), env: { ...process.env, PORT: port }, stdio: "ignore" });
+setTimeout(() => {
+  http.get({ host: "127.0.0.1", port: Number(port), path: ${JSON.stringify(config.path)} }, (response) => {
+    collect(response, (body) => {
+      const result = { actualStatus: response.statusCode, actualBody: body, actualHeaders: response.headers };
+      console.log(JSON.stringify(result));
+      child.kill("SIGTERM");
+      const headersOk = ${JSON.stringify(config.expectedHeaders ?? {})};
+      const headerMatch = Object.entries(headersOk).every(([key, value]) => String(response.headers[key.toLowerCase()] ?? "") === value);
+      process.exit(response.statusCode === ${config.expectedStatus} && body === ${JSON.stringify(config.expectedBody)} && headerMatch ? 0 : 1);
+    });
+  }).on("error", () => { child.kill("SIGTERM"); process.exit(1); });
+}, 300);
+function collect(response, done) { let body = ""; response.setEncoding("utf8"); response.on("data", (chunk) => { body += chunk; }); response.on("end", () => done(body)); }
+setTimeout(() => { child.kill("SIGTERM"); process.exit(1); }, 5000);
+`;
+}
+
+function parseBehavioralVerifierOutput(stdout: string | Buffer | null | undefined): {
+  actualStatus?: number;
+  actualBody?: string;
+  actualHeaders?: Record<string, string>;
+} {
+  try {
+    const parsed = JSON.parse(String(stdout ?? "").trim()) as {
+      actualStatus?: number;
+      actualBody?: string;
+      actualHeaders?: Record<string, string>;
+    };
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
 }
 
 function buildRestoreLaunchReport(
