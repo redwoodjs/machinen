@@ -1,0 +1,12 @@
+{
+  "kind": "machinen.node-level5-product-support-80-hardening-proof-summary",
+  "proof": "334",
+  "goal": "Backward compatibility audit",
+  "result": "Older support tiers remain valid after 80%.",
+  "status": "node-product-support-80-hardened",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "tiersStillValid": [20, 50, 65, 80],
+  "regressionDetected": false
+}

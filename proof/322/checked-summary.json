@@ -1,0 +1,14 @@
+{
+  "kind": "machinen.node-level5-product-support-80-hardening-proof-summary",
+  "proof": "322",
+  "goal": "Artifact bundle writer",
+  "result": "Produce artifact bundles from the guarded CLI/VM path.",
+  "status": "node-product-support-80-hardened",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "writtenBundle": {
+    "familyId": "express-fastify-http-app",
+    "direction": "arm64-to-amd64"
+  }
+}

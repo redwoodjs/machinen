@@ -1,0 +1,30 @@
+{
+  "kind": "machinen.node-level5-product-support-80-hardening-proof-summary",
+  "proof": "325",
+  "goal": "amd64→arm64 retained artifacts",
+  "result": "Retain concrete artifacts for all 17 families.",
+  "status": "node-product-support-80-hardened",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "direction": "amd64-to-arm64",
+  "retainedFamilies": [
+    "idle-http-listener",
+    "timer-service",
+    "plain-js-heap",
+    "readonly-file-stdio",
+    "pipes-streams-idle",
+    "http-keepalive-idle-pool",
+    "completed-microtask-checkpoint",
+    "promise-async-closure-graph",
+    "commonjs-esm-module-cache",
+    "json-config-data-heap-graph",
+    "graceful-shutdown-lifecycle",
+    "active-async-idle-boundary",
+    "tls-boundary-policy",
+    "child-process-boundary",
+    "express-fastify-http-app",
+    "dependency-heavy-app",
+    "streams-files-mixed-app"
+  ]
+}
