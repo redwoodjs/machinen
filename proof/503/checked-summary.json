@@ -9,10 +9,7 @@
   "nodeProductSupportClaimed": 80,
   "broadNodeProductSupportClaimed": 20,
   "arbitraryProcessCrossArchRestoreClaimed": 0,
-  "productSurface": [
-    "machinen snapshot node <pid> --out <dir>",
-    "machinen restore <snapshot>"
-  ],
+  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
   "captureReportKind": "machinen.node-level5-product-capture-report",
   "direction": "arm64-to-amd64"
 }
