@@ -1,0 +1,62 @@
+{
+  "kind": "machinen.node-proper-level5-broad-80-proof-summary",
+  "proof": "152",
+  "title": "Real guarded restore command path behind feature flag",
+  "block": "Experimental product boundary",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "accepted": {
+    "proof": "152",
+    "title": "Real guarded restore command path behind feature flag",
+    "block": "Experimental product boundary",
+    "targetStarted": false,
+    "gatesPassed": true,
+    "artifactDigest": "5e617167fd29087873e51f860b30b4d31b4ecb3dcc19538e210d4a831acc7bae",
+    "productSupportClaimed": false,
+    "broadLevel5ImplementationClaimed": false
+  },
+  "gates": [
+    {
+      "name": "capture-evidence",
+      "evidence": "real-record-shaped-input",
+      "passed": true
+    },
+    {
+      "name": "native-or-target-gate",
+      "evidence": "checked-before-target-start",
+      "passed": true
+    },
+    {
+      "name": "translated-continuation-boundary",
+      "evidence": "target-native-reconstruction-no-raw-copy",
+      "passed": true
+    }
+  ],
+  "refusedRows": [
+    {
+      "id": "missing-real-evidence",
+      "expectedCode": "node-proper-level5-guarded-restore-refused",
+      "actualCode": "node-proper-level5-guarded-restore-refused",
+      "targetStarted": false
+    },
+    {
+      "id": "shortcut-raw-copy",
+      "expectedCode": "node-proper-level5-raw-source-state-copy-refused",
+      "actualCode": "node-proper-level5-raw-source-state-copy-refused",
+      "targetStarted": false
+    },
+    {
+      "id": "product-claim",
+      "expectedCode": "node-proper-level5-product-claim-refused",
+      "actualCode": "node-proper-level5-product-claim-refused",
+      "targetStarted": false
+    }
+  ],
+  "assertions": {
+    "guardedRestoreCommandPathExercised": true,
+    "targetDidNotStartBeforeVerification": true,
+    "rawSourceStateCopyRefused": true,
+    "productSupportClaimRefused": true
+  }
+}
