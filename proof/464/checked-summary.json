@@ -1,0 +1,12 @@
+{
+  "kind": "machinen.node-level5-product-capture-materialization-proof-summary",
+  "proof": "464",
+  "goal": "Product capture report schema",
+  "result": "Snapshot retains product-generated capture evidence linked from the manifest.",
+  "status": "node-product-support-80-product-capture-materialization",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
+  "detectorReportSha256Matches": true
+}
