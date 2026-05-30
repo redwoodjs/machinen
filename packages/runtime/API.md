@@ -125,6 +125,19 @@
 - [`createNodeLevel5DeclaredSubsetCapture`](#createnodelevel5declaredsubsetcapture)
 - [`restoreNodeLevel5DeclaredSubset`](#restorenodelevel5declaredsubset)
 - [`isNodeLevel5DeclaredSubsetManifest`](#isnodelevel5declaredsubsetmanifest)
+- [`NodeLevel5AppCorpusGate`](#nodelevel5appcorpusgate)
+- [`NodeLevel5ReadinessGate`](#nodelevel5readinessgate)
+- [`NodeLevel5ReadinessGateStatus`](#nodelevel5readinessgatestatus)
+- [`NodeLevel5ReadinessMatrix`](#nodelevel5readinessmatrix)
+- [`NodeLevel5UnsupportedNeighborGate`](#nodelevel5unsupportedneighborgate)
+- [`NODE_LEVEL5_READINESS_MATRIX_KIND`](#node_level5_readiness_matrix_kind)
+- [`NODE_LEVEL5_READINESS_MATRIX_VERSION`](#node_level5_readiness_matrix_version)
+- [`assertNodeLevel5ReadinessMatrixComplete`](#assertnodelevel5readinessmatrixcomplete)
+- [`nodeLevel5AppCorpusGates`](#nodelevel5appcorpusgates)
+- [`nodeLevel5FinalAuditGates`](#nodelevel5finalauditgates)
+- [`nodeLevel5NarrowProductReadinessGates`](#nodelevel5narrowproductreadinessgates)
+- [`nodeLevel5ReadinessMatrix`](#nodelevel5readinessmatrix)
+- [`nodeLevel5UnsupportedNeighborGates`](#nodelevel5unsupportedneighborgates)
 
 ### Boot a VM
 
@@ -22232,6 +22245,160 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NodeLevel5ReadinessGateStatus
+
+> **NodeLevel5ReadinessGateStatus** = `"passed"` \| `"refused"` \| `"documented"`
+
+***
+
+### NodeLevel5ReadinessGate
+
+> **NodeLevel5ReadinessGate** = `object`
+
+#### Properties
+
+##### id
+
+> **id**: `string`
+
+##### family
+
+> **family**: `"narrow-product"` \| `"broad-proof"` \| `"final-audit"`
+
+##### title
+
+> **title**: `string`
+
+##### status
+
+> **status**: [`NodeLevel5ReadinessGateStatus`](#nodelevel5readinessgatestatus)
+
+##### artifact
+
+> **artifact**: `string`
+
+##### productSupportClaimed
+
+> **productSupportClaimed**: `false`
+
+##### broadProductSupportClaimed
+
+> **broadProductSupportClaimed**: `false`
+
+***
+
+### NodeLevel5UnsupportedNeighborGate
+
+> **NodeLevel5UnsupportedNeighborGate** = [`NodeLevel5ReadinessGate`](#nodelevel5readinessgate) & `object`
+
+#### Type Declaration
+
+##### refusalCode
+
+> **refusalCode**: `string`
+
+##### targetStarted
+
+> **targetStarted**: `false`
+
+##### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+##### rawCpuRestoreUsed
+
+> **rawCpuRestoreUsed**: `false`
+
+***
+
+### NodeLevel5AppCorpusGate
+
+> **NodeLevel5AppCorpusGate** = [`NodeLevel5ReadinessGate`](#nodelevel5readinessgate) & `object`
+
+#### Type Declaration
+
+##### appFamily
+
+> **appFamily**: `string`
+
+##### direction
+
+> **direction**: `"arm64-to-amd64"` \| `"amd64-to-arm64"` \| `"both"`
+
+##### repeatabilityRuns
+
+> **repeatabilityRuns**: `number`
+
+***
+
+### NodeLevel5ReadinessMatrix
+
+> **NodeLevel5ReadinessMatrix** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_READINESS_MATRIX_KIND`](#node_level5_readiness_matrix_kind)
+
+##### version
+
+> **version**: *typeof* [`NODE_LEVEL5_READINESS_MATRIX_VERSION`](#node_level5_readiness_matrix_version)
+
+##### status
+
+> **status**: `"proof-matrix-complete-product-support-not-claimed"`
+
+##### declaredSubsetCoverage
+
+> **declaredSubsetCoverage**: `100`
+
+##### narrowExperimentalProductReadiness
+
+> **narrowExperimentalProductReadiness**: `100`
+
+##### broadNodeProofReadiness
+
+> **broadNodeProofReadiness**: `100`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `0`
+
+##### arbitraryProcessCrossArchRestore
+
+> **arbitraryProcessCrossArchRestore**: `5`
+
+##### productSupportClaimed
+
+> **productSupportClaimed**: `false`
+
+##### broadLevel5ImplementationClaimed
+
+> **broadLevel5ImplementationClaimed**: `false`
+
+##### narrowProductGates
+
+> **narrowProductGates**: readonly [`NodeLevel5ReadinessGate`](#nodelevel5readinessgate)[]
+
+##### unsupportedNeighborGates
+
+> **unsupportedNeighborGates**: readonly [`NodeLevel5UnsupportedNeighborGate`](#nodelevel5unsupportedneighborgate)[]
+
+##### appCorpusGates
+
+> **appCorpusGates**: readonly [`NodeLevel5AppCorpusGate`](#nodelevel5appcorpusgate)[]
+
+##### repeatabilityGates
+
+> **repeatabilityGates**: readonly [`NodeLevel5ReadinessGate`](#nodelevel5readinessgate)[]
+
+##### finalAuditGates
+
+> **finalAuditGates**: readonly [`NodeLevel5ReadinessGate`](#nodelevel5readinessgate)[]
+
+***
+
 ### NodeProperLevel5HttpStatePolicyRefusalCode
 
 > **NodeProperLevel5HttpStatePolicyRefusalCode** = `"node-proper-level5-http-active-request-unsupported"` \| `"node-proper-level5-http-partial-read-unsupported"` \| `"node-proper-level5-http-partial-write-unsupported"` \| `"node-proper-level5-http-ambiguous-connection-state"`
@@ -24089,6 +24256,48 @@ loops; anything looser stops being a meaningful gate.
 ### nodeLevel5ProofRefusalCodes
 
 > `const` **nodeLevel5ProofRefusalCodes**: readonly \[`"node-level5-tls-rseq-unsupported"`, `"node-level5-simd-fpu-unsupported"`, `"node-level5-signal-frame-unsupported"`, `"node-level5-active-syscall-unsupported"`, `"node-level5-active-tcp-unsupported"`, `"node-level5-worker-thread-unsupported"`, `"node-level5-multithread-unsupported"`, `"node-level5-memory-mapping-unsupported"`, `"node-level5-kernel-resource-unsupported"`, `"node-level5-native-addon-abi-unsupported"`, `"node-level5-inspector-unsupported"`, `"node-level5-v8-libuv-state-unsupported"`, `"node-level5-arbitrary-heap-stack-continuation-refused"`\]
+
+***
+
+### NODE\_LEVEL5\_READINESS\_MATRIX\_KIND
+
+> `const` **NODE\_LEVEL5\_READINESS\_MATRIX\_KIND**: `"machinen.node-level5-readiness-matrix"` = `"machinen.node-level5-readiness-matrix"`
+
+***
+
+### NODE\_LEVEL5\_READINESS\_MATRIX\_VERSION
+
+> `const` **NODE\_LEVEL5\_READINESS\_MATRIX\_VERSION**: `1` = `1`
+
+***
+
+### nodeLevel5NarrowProductReadinessGates
+
+> `const` **nodeLevel5NarrowProductReadinessGates**: readonly [`NodeLevel5ReadinessGate`](#nodelevel5readinessgate)[]
+
+***
+
+### nodeLevel5UnsupportedNeighborGates
+
+> `const` **nodeLevel5UnsupportedNeighborGates**: readonly [`NodeLevel5UnsupportedNeighborGate`](#nodelevel5unsupportedneighborgate)[]
+
+***
+
+### nodeLevel5AppCorpusGates
+
+> `const` **nodeLevel5AppCorpusGates**: readonly [`NodeLevel5AppCorpusGate`](#nodelevel5appcorpusgate)[]
+
+***
+
+### nodeLevel5FinalAuditGates
+
+> `const` **nodeLevel5FinalAuditGates**: readonly [`NodeLevel5ReadinessGate`](#nodelevel5readinessgate)[]
+
+***
+
+### nodeLevel5ReadinessMatrix
+
+> `const` **nodeLevel5ReadinessMatrix**: [`NodeLevel5ReadinessMatrix`](#nodelevel5readinessmatrix)
 
 ***
 
@@ -26899,6 +27108,22 @@ available.
 #### Returns
 
 [`NodeLevel5ProofComposition`](#nodelevel5proofcomposition)
+
+***
+
+### assertNodeLevel5ReadinessMatrixComplete()
+
+> **assertNodeLevel5ReadinessMatrixComplete**(`matrix?`): `boolean`
+
+#### Parameters
+
+##### matrix?
+
+[`NodeLevel5ReadinessMatrix`](#nodelevel5readinessmatrix) = `nodeLevel5ReadinessMatrix`
+
+#### Returns
+
+`boolean`
 
 ***
 

@@ -1,0 +1,31 @@
+{
+  "kind": "machinen.node-level5-readiness-proof-summary",
+  "proof": "199",
+  "title": "raw CPU restore remains refused on every cross-architecture lane",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "gateId": "raw-cpu-restore",
+  "gate": {
+    "productSupportClaimed": false,
+    "broadProductSupportClaimed": false,
+    "status": "refused",
+    "targetStarted": false,
+    "sourceIsaEmulationUsed": false,
+    "rawCpuRestoreUsed": false,
+    "id": "raw-cpu-restore",
+    "family": "broad-proof",
+    "title": "raw CPU restore remains refused on every cross-architecture lane",
+    "artifact": "proof/199/checked-summary.json",
+    "refusalCode": "node-level5-declared-subset-raw-cpu-restore-refused"
+  },
+  "readiness": {
+    "broadNodeProofReadiness": 100
+  },
+  "assertions": {
+    "refusedBeforeTargetStart": true,
+    "rawCpuRestoreNotUsed": true,
+    "sourceIsaEmulationNotUsed": true,
+    "broadProductSupportNotClaimed": true
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "kind": "machinen.node-level5-readiness-proof-summary",
+  "proof": "195",
+  "title": "TLS socket state is refused outside the declared subset",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "gateId": "tls-socket-state",
+  "gate": {
+    "productSupportClaimed": false,
+    "broadProductSupportClaimed": false,
+    "status": "refused",
+    "targetStarted": false,
+    "sourceIsaEmulationUsed": false,
+    "rawCpuRestoreUsed": false,
+    "id": "tls-socket-state",
+    "family": "broad-proof",
+    "title": "TLS socket state is refused outside the declared subset",
+    "artifact": "proof/195/checked-summary.json",
+    "refusalCode": "node-level5-tls-socket-state-refused"
+  },
+  "readiness": {
+    "broadNodeProofReadiness": 100
+  },
+  "assertions": {
+    "refusedBeforeTargetStart": true,
+    "rawCpuRestoreNotUsed": true,
+    "sourceIsaEmulationNotUsed": true,
+    "broadProductSupportNotClaimed": true
+  }
+}

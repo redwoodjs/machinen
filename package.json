@@ -104,6 +104,7 @@
     "smoke-portable-tcp-listener": "bash scripts/smoke/portable-tcp-listener.sh",
     "smoke-node-product-snapshot-restore": "bash scripts/smoke/node-product-snapshot-restore.sh",
     "proof-node-level5-http-harness-proof": "bash scripts/smoke/node-level5-http-harness-proof.sh",
+    "proof-node-level5-declared-subset-readiness": "bash scripts/smoke/node-level5-declared-subset-readiness.sh",
     "proof-node-proper-level5-source-capture": "bash scripts/smoke/node-proper-level5-source-capture.sh",
     "proof-node-proper-level5-proof": "bash scripts/smoke/node-proper-level5-source-capture.sh",
     "smoke-clean-service-python-product-snapshot-restore": "bash scripts/smoke/clean-service-python-product-snapshot-restore.sh",
