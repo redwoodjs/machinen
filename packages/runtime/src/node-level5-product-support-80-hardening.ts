@@ -1,5 +1,6 @@
+import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 
 import {
   nodeLevel5ProductSupport20Matrix,
@@ -49,6 +50,9 @@ export type NodeLevel5ProductSupport80ArtifactVerification = {
   rawCpuRestoreUsed: boolean;
   sourceIsaEmulationUsed: boolean;
   metadataOnlySuccessAccepted: boolean;
+  manifestSchemaVerified: boolean;
+  artifactHashesVerified: boolean;
+  retentionComplete: boolean;
 };
 
 export type NodeLevel5ProductSupport80UnsupportedDetector = NodeLevel5ProductUnsupportedNeighbor & {
@@ -139,10 +143,19 @@ export function verifyNodeLevel5ProductSupport80ArtifactBundle(
   bundle: NodeLevel5ProductSupport80ArtifactBundle,
 ): NodeLevel5ProductSupport80ArtifactVerification {
   const checkedPaths = bundlePaths(bundle);
+  const manifest = readArtifactJson(bundle.manifestPath);
+  assertManifestMatchesBundle(bundle, manifest);
+  const artifactHashesVerified = verifyArtifactHashes(bundle, manifest);
   const filesPresent = checkedPaths.every((path) => readFileSync(path, "utf8").length > 0);
+  const retentionComplete = bundleArtifactEntries(bundle).every((entry) => {
+    readArtifactJson(entry.path);
+    return Boolean(readArtifactHashes(manifest)[entry.name]);
+  });
   return {
     accepted:
       filesPresent &&
+      artifactHashesVerified &&
+      retentionComplete &&
       bundle.evidence.targetNativeNodeVerified &&
       bundle.evidence.behavioralVerifierPassed &&
       !bundle.evidence.rawCpuRestoreUsed &&
@@ -156,6 +169,9 @@ export function verifyNodeLevel5ProductSupport80ArtifactBundle(
     rawCpuRestoreUsed: bundle.evidence.rawCpuRestoreUsed,
     sourceIsaEmulationUsed: bundle.evidence.sourceIsaEmulationUsed,
     metadataOnlySuccessAccepted: bundle.evidence.metadataOnlySuccessAccepted,
+    manifestSchemaVerified: true,
+    artifactHashesVerified,
+    retentionComplete,
   };
 }
 
@@ -200,15 +216,121 @@ function buildBundle(
 
 function writeBundleArtifacts(bundle: NodeLevel5ProductSupport80ArtifactBundle): void {
   const payload = {
+    kind: "machinen.node-level5-product-support-80-artifact",
+    version: bundle.version,
     familyId: bundle.familyId,
     direction: bundle.direction,
     evidence: bundle.evidence,
     nodeProductSupportClaimed: 80,
     broadNodeProductSupportClaimed: 20,
+    arbitraryProcessCrossArchRestoreClaimed: 0,
   };
-  for (const path of bundlePaths(bundle)) {
-    writeFileSync(path, `${JSON.stringify(payload, null, 2)}\n`);
+  for (const entry of bundleArtifactEntries(bundle)) {
+    writeFileSync(entry.path, `${JSON.stringify({ ...payload, artifact: entry.name }, null, 2)}\n`);
   }
+  writeFileSync(
+    bundle.manifestPath,
+    `${JSON.stringify(
+      {
+        kind: bundle.kind,
+        version: bundle.version,
+        familyId: bundle.familyId,
+        direction: bundle.direction,
+        evidence: bundle.evidence,
+        nodeProductSupportClaimed: 80,
+        broadNodeProductSupportClaimed: 20,
+        arbitraryProcessCrossArchRestoreClaimed: 0,
+        artifactHashes: Object.fromEntries(
+          bundleArtifactEntries(bundle).map((entry) => [entry.name, sha256File(entry.path)]),
+        ),
+        retention: {
+          requiredArtifacts: bundleArtifactEntries(bundle).map((entry) => entry.name),
+          complete: true,
+        },
+      },
+      null,
+      2,
+    )}\n`,
+  );
+}
+
+function bundleArtifactEntries(
+  bundle: NodeLevel5ProductSupport80ArtifactBundle,
+): readonly { name: string; path: string }[] {
+  return [
+    { name: basename(bundle.captureSummaryPath), path: bundle.captureSummaryPath },
+    { name: basename(bundle.restoreSummaryPath), path: bundle.restoreSummaryPath },
+    { name: basename(bundle.targetLogPath), path: bundle.targetLogPath },
+    { name: basename(bundle.targetNativeVerifierPath), path: bundle.targetNativeVerifierPath },
+    { name: basename(bundle.behavioralVerifierPath), path: bundle.behavioralVerifierPath },
+    { name: basename(bundle.refusalRowsPath), path: bundle.refusalRowsPath },
+    { name: basename(bundle.versionInfoPath), path: bundle.versionInfoPath },
+    { name: basename(bundle.triageBundlePath), path: bundle.triageBundlePath },
+  ];
+}
+
+function readArtifactJson(path: string): Record<string, unknown> {
+  const parsed = JSON.parse(readFileSync(path, "utf8")) as unknown;
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error(`Node Level 5 artifact is not a JSON object: ${path}`);
+  }
+  return parsed as Record<string, unknown>;
+}
+
+function assertManifestMatchesBundle(
+  bundle: NodeLevel5ProductSupport80ArtifactBundle,
+  manifest: Record<string, unknown>,
+): void {
+  if (manifest.kind !== NODE_LEVEL5_PRODUCT_SUPPORT_80_ARTIFACT_BUNDLE_KIND) {
+    throw new Error("Node Level 5 artifact manifest kind is not supported");
+  }
+  if (manifest.version !== NODE_LEVEL5_PRODUCT_SUPPORT_80_VERSION) {
+    throw new Error(`Node Level 5 artifact manifest version is not supported: ${manifest.version}`);
+  }
+  if (manifest.familyId !== bundle.familyId) {
+    throw new Error(`Node Level 5 artifact family mismatch: ${manifest.familyId}`);
+  }
+  if (manifest.direction !== bundle.direction) {
+    throw new Error(`Node Level 5 artifact direction mismatch: ${manifest.direction}`);
+  }
+  if (manifest.nodeProductSupportClaimed !== 80) {
+    throw new Error("Node Level 5 artifact overclaims Node product support");
+  }
+  if (manifest.broadNodeProductSupportClaimed !== 20) {
+    throw new Error("Node Level 5 artifact overclaims broad Node product support");
+  }
+  if (manifest.arbitraryProcessCrossArchRestoreClaimed !== 0) {
+    throw new Error("Node Level 5 artifact overclaims arbitrary process cross-arch restore");
+  }
+}
+
+function verifyArtifactHashes(
+  bundle: NodeLevel5ProductSupport80ArtifactBundle,
+  manifest: Record<string, unknown>,
+): boolean {
+  const hashes = readArtifactHashes(manifest);
+  return bundleArtifactEntries(bundle).every((entry) => {
+    const expected = hashes[entry.name];
+    if (!expected) {
+      throw new Error(`Node Level 5 artifact hash missing: ${entry.name}`);
+    }
+    if (expected !== sha256File(entry.path)) {
+      throw new Error(`Node Level 5 artifact hash mismatch: ${entry.name}`);
+    }
+    return true;
+  });
+}
+
+function readArtifactHashes(manifest: Record<string, unknown>): Record<string, string> {
+  const hashes = manifest.artifactHashes;
+  if (!hashes || typeof hashes !== "object" || Array.isArray(hashes)) {
+    throw new Error("Node Level 5 artifact manifest is missing artifact hashes");
+  }
+  return hashes as Record<string, string>;
+}
+
+function sha256File(path: string): string {
+  return createHash("sha256").update(readFileSync(path)).digest("hex");
 }
 
 function bundlePaths(bundle: NodeLevel5ProductSupport80ArtifactBundle): readonly string[] {

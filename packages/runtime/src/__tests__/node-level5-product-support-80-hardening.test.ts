@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -38,8 +38,26 @@ describe("Node Level 5 80% hardening", () => {
         rawCpuRestoreUsed: false,
         sourceIsaEmulationUsed: false,
         metadataOnlySuccessAccepted: false,
+        manifestSchemaVerified: true,
+        artifactHashesVerified: true,
+        retentionComplete: true,
       });
       expect(verification.checkedPaths.length).toBe(9);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses tampered retained artifact content", () => {
+    const dir = mkdtempSync(join(tmpdir(), "machinen-node80-hardening-tamper-"));
+    try {
+      const bundle = createNodeLevel5ProductSupport80ArtifactBundle({
+        outDir: dir,
+        familyId: "express-fastify-http-app",
+        direction: "arm64-to-amd64",
+      });
+      writeFileSync(bundle.targetLogPath, '{"tampered":true}\n');
+      expect(() => verifyNodeLevel5ProductSupport80ArtifactBundle(bundle)).toThrow(/hash mismatch/);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

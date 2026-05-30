@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -51,7 +51,63 @@ describe("Node Level 5 product commands", () => {
         targetNativeNodeVerified: true,
         rawCpuRestoreUsed: false,
         sourceIsaEmulationUsed: false,
+        artifactHashesVerified: true,
+        retentionComplete: true,
       });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("uses retained artifact evidence for release gates", () => {
+    const dir = mkdtempSync(join(tmpdir(), "machinen-node80-cli-retained-"));
+    try {
+      const write = runCli([
+        "node-level5",
+        "artifacts",
+        "write",
+        "--out",
+        dir,
+        "--family",
+        "express-fastify-http-app",
+        "--direction",
+        "arm64-to-amd64",
+        "--json",
+      ]);
+      const artifactRoot = JSON.parse(write.stdout).bundle.artifactRoot;
+      const releaseGate = runCli([
+        "node-level5",
+        "release-gate",
+        "--root",
+        artifactRoot,
+        "--family",
+        "express-fastify-http-app",
+        "--direction",
+        "arm64-to-amd64",
+        "--json",
+      ]);
+      expect(releaseGate.status).toBe(0);
+      expect(JSON.parse(releaseGate.stdout)).toMatchObject({
+        accepted: true,
+        retainedArtifact: { accepted: true, artifactHashesVerified: true },
+      });
+
+      const targetLog = join(artifactRoot, "target.log");
+      writeFileSync(targetLog, `${readFileSync(targetLog, "utf8")}\n`);
+      const tampered = runCli([
+        "node-level5",
+        "artifacts",
+        "verify",
+        "--root",
+        artifactRoot,
+        "--family",
+        "express-fastify-http-app",
+        "--direction",
+        "arm64-to-amd64",
+        "--json",
+      ]);
+      expect(tampered.status).toBe(1);
+      expect(JSON.parse(tampered.stdout).message).toContain("hash mismatch");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

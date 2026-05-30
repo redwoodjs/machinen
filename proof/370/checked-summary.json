@@ -1,0 +1,11 @@
+{
+  "kind": "machinen.node-level5-retained-artifact-proof-summary",
+  "proof": "370",
+  "goal": "Human-readable verify report",
+  "result": "Operators get stable human verify output.",
+  "status": 0,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "humanOutput": "accepted node-level5 command"
+}

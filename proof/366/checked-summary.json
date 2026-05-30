@@ -1,0 +1,13 @@
+{
+  "kind": "machinen.node-level5-retained-artifact-proof-summary",
+  "proof": "366",
+  "goal": "Cross-arch direction mismatch refusal",
+  "result": "Requested direction must match retained manifest direction.",
+  "status": "node-product-support-80-retained-artifact-ingestion",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "refused": true,
+  "code": "node-level5-artifact-bundle-invalid",
+  "expectedMessageSeen": true
+}

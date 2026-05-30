@@ -22,13 +22,18 @@ machinen node-level5 artifacts verify \
   --json
 ```
 
-Verification checks the manifest, capture summary, restore summary, target log, target-native verifier, behavioral verifier, refusal rows, version info, and triage bundle.
+Verification checks the manifest, capture summary, restore summary, target log, target-native verifier, behavioral verifier, refusal rows, version info, and triage bundle. The manifest is version-gated and records SHA-256 hashes for every retained artifact except itself; verification refuses missing files, corrupt JSON, family/direction mismatches, unsupported schema versions, and tampered files.
 
 ## Inspect registries
 
 ```sh
 machinen node-level5 claims --json
 machinen node-level5 detectors --json
+machinen node-level5 release-gate \
+  --root ./node-level5-artifacts/express-fastify-http-app/arm64-to-amd64 \
+  --family express-fastify-http-app \
+  --direction arm64-to-amd64 \
+  --json
 ```
 
 The claim registry remains:
@@ -52,3 +57,7 @@ machinen node-level5 abi-check \
 ```
 
 Unknown Node/V8/libuv ABI values refuse before target start.
+
+## Retained artifact safety
+
+Imported artifact roots must not contain path traversal segments such as `..`. The verifier ignores artifact paths from the manifest and uses the product-defined file names under the supplied root. This keeps retained bundle ingestion tied to the declared artifact directory instead of allowing a bundle to point the verifier at arbitrary host paths.

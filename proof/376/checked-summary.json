@@ -1,0 +1,15 @@
+{
+  "kind": "machinen.node-level5-retained-artifact-proof-summary",
+  "proof": "376",
+  "goal": "Backward compatibility with 341–360 commands",
+  "result": "Existing artifact write/verify workflow remains compatible.",
+  "status": "node-product-support-80-retained-artifact-ingestion",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "accepted": true,
+  "familyId": "express-fastify-http-app",
+  "direction": "arm64-to-amd64",
+  "artifactHashesVerified": true,
+  "retentionComplete": true
+}

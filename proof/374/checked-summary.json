@@ -1,0 +1,25 @@
+{
+  "kind": "machinen.node-level5-retained-artifact-proof-summary",
+  "proof": "374",
+  "goal": "Claim registry linked to bundle evidence",
+  "result": "Claim output can include retained bundle verification.",
+  "status": "node-product-support-80-retained-artifact-ingestion",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "claimRegistry": {
+    "kind": "machinen.node-level5-product-support-80-hardening",
+    "status": "node-product-support-80-hardened",
+    "declaredSubsetExperimentalProductSupportClaimed": 100,
+    "nodeProductSupportTiers": [20, 50, 65, 80],
+    "nodeProductSupportClaimed": 80,
+    "broadNodeProductSupportClaimed": 20,
+    "arbitraryProcessCrossArchRestoreClaimed": 0,
+    "realVmCrossArchEvidenceRequired": true,
+    "artifactRetentionDays": 30,
+    "flakeBudgetPercent": 0,
+    "supportedFamilyCount": 17,
+    "unsupportedDetectorCount": 23
+  },
+  "retainedArtifactAccepted": true
+}

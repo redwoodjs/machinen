@@ -1,0 +1,10 @@
+{
+  "kind": "machinen.node-level5-retained-artifact-proof-summary",
+  "proof": "378",
+  "goal": "No overclaim audit",
+  "result": "Retained ingestion keeps Node 80, broad 20, arbitrary process 0.",
+  "status": "node-product-support-80-retained-artifact-ingestion",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0
+}

@@ -1,0 +1,12 @@
+{
+  "kind": "machinen.node-level5-retained-artifact-proof-summary",
+  "proof": "377",
+  "goal": "Security boundary audit for imported bundles",
+  "result": "Path traversal roots refuse before artifact verification.",
+  "status": "node-product-support-80-retained-artifact-ingestion",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "refused": true,
+  "messageIncludesTraversal": true
+}
