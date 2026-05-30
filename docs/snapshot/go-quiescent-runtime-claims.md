@@ -1,5 +1,7 @@
 # Go quiescent runtime support expansion
 
+> **Status: archived.** The old Go quiescent runtime-profile route is no longer active smoke or product evidence. Use `pnpm run archive-go-quiescent-runtime` only with this status in mind.
+
 Goal 42 expands Go support beyond the minimal Goal 40 scheduler boundary. It
 supports only explicitly quiescent, target-native, no-cgo states and keeps unsafe
 scheduler/netpoll neighbors refused.
@@ -7,7 +9,7 @@ scheduler/netpoll neighbors refused.
 ## Validated command
 
 ```bash
-pnpm smoke-go-quiescent-runtime -- --keep --work-dir /tmp/goal42-go --iterations 3
+pnpm run archive-go-quiescent-runtime -- --keep --work-dir /tmp/goal42-go --iterations 3
 ```
 
 Default route hosts:

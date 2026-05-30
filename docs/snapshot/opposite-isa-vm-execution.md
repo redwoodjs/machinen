@@ -78,7 +78,7 @@ checks the executed ELF machine matches the requested guest architecture.
 ## Running the smoke
 
 ```sh
-pnpm run smoke-opposite-isa-vm-execution
+pnpm run proof-opposite-isa-vm-execution
 ```
 
 By default the smoke is safe on all hosts. It classifies the current host's
@@ -88,7 +88,7 @@ It also runs a completed guest-exec fixture and a negative host-sidecar fixture.
 To attempt a real boot on a provider that supports the route:
 
 ```sh
-OPPOSITE_ISA_VM_LIVE=1 pnpm run smoke-opposite-isa-vm-execution
+OPPOSITE_ISA_VM_LIVE=1 pnpm run proof-opposite-isa-vm-execution
 ```
 
 If assets are missing, the route summary uses `opposite-isa-assets-missing` with

@@ -1,73 +1,16 @@
 # Goal 33.1: Live Node capture harness
 
-Parent: [Goal 33](./goal-033.md) — full live Node.js portable snapshot/restore
-proof.
+> **Status: archived proof history.** This detailed goal was summarized during the snapshot/Level 5 docs cleanup.
 
-## Objective
+Live Node runtime-profile proof push. Must be rebuilt around captured process state before product use.
 
-Build the live Node process capture foundation. Completion means the local arm64
-machine and the arm64 remote builder can start long-running real Node workloads,
-capture real process state from those running processes, and emit audited capture
-artifacts without using synthetic metadata as a success path.
+Why the details were removed:
 
-## Scope
+- old wording made proof/runtime-profile work look like active product support;
+- Level 5 product work must use captured source process state and target-native reconstruction;
+- runtime profiles, selected-state descriptors, app-output comparisons, sidecars, source-text replay, source-ISA emulation, and metadata-only success are not acceptable product paths.
 
-This phase does not require amd64 VM restore. It proves the source-side live
-capture path only.
+See the consolidated summary: [./historical-goals-030-044.md](./historical-goals-030-044.md).
+See the parent tombstone: [./goal-033.md](./goal-033.md).
 
-## Requirements
-
-- [x] Add a live Node capture smoke command.
-- [x] Support source routes:
-  - [x] local arm64;
-  - [x] remote-builder arm64.
-- [x] Start every workload as a long-running Node process before capture.
-- [x] Capture from the running process with the native/process capture path.
-- [x] Record source architecture and host identity.
-- [x] Record Node version, module ABI, V8, libuv, OpenSSL, and platform identity.
-- [x] Record argv/env/cwd.
-- [x] Record package/module graph provenance.
-- [x] Record file descriptors and active libuv handles.
-- [x] Record worker/thread state where present.
-- [x] Record workload-specific resources for the ten existing app classes.
-- [x] Emit capture artifact hashes for process docs, memory, resources, and logs.
-- [x] Fail closed if capture falls back to metadata-only proof.
-- [x] Fail closed if source ISA emulation, source text replay, sidecars, or app
-      hooks are required for capture success.
-
-## App classes
-
-- [x] CLI script.
-- [x] CommonJS package.
-- [x] ESM package.
-- [x] timers/async.
-- [x] fs/stdio.
-- [x] HTTP/TCP server.
-- [x] UDP/DNS.
-- [x] worker thread.
-- [x] native addon / N-API.
-- [x] crypto/TLS.
-
-## Tests and validation
-
-- [x] Focused unit tests for capture manifest/schema validation.
-- [x] Local arm64 live Node capture smoke.
-- [x] Remote-builder arm64 live Node capture smoke.
-- [x] `pnpm run format:check`.
-- [x] `pnpm run lint`.
-- [x] `pnpm run typecheck`.
-- [x] Focused Vitest coverage.
-- [x] `pnpm exec fallow audit --changed-since origin/main`.
-- [x] `git diff --check`.
-
-## Completion criteria
-
-Goal 33.1 is complete when both arm64 source routes produce real live-process
-capture artifacts for the required Node app classes and all metadata-only or
-shortcut capture paths fail closed.
-
-## Completion note
-
-Completed as part of umbrella Goal 33 one-shot execution. See
-[Goal 33 completion validation record](./goal-033.md#goal-33-completion-validation-record)
-for route-level and final validation evidence.
+If future work needs this area, create a new goal that cites the relevant lesson from the summary and restates the product/proof boundary explicitly.

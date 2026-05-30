@@ -1,5 +1,7 @@
 # Non-Node complex runtime restore claims
 
+> **Status: proof-audit.** This is proof/refusal evidence only, not product snapshot/restore support. Use `pnpm run proof-non-node-runtime` only with this status in mind.
+
 Goal 38 starts cautious, proof-backed exploration outside Node.js. It does not
 claim broad JVM/Python/Ruby/Go portability. It records concrete local audited
 support-or-refusal envelopes with target-native summaries and stable refusal
@@ -8,7 +10,7 @@ codes.
 ## Validated command
 
 ```bash
-pnpm smoke-non-node-runtime-proof -- --keep --work-dir /tmp/machinen-non-node-runtime
+pnpm run proof-non-node-runtime -- --keep --work-dir /tmp/machinen-non-node-runtime
 ```
 
 ## Current results

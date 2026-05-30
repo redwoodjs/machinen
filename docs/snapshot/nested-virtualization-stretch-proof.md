@@ -64,5 +64,5 @@ instead.
 ## Running
 
 ```sh
-pnpm run smoke-nested-virtualization-stretch-proof
+pnpm run proof-nested-virtualization-stretch
 ```

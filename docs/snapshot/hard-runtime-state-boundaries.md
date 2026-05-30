@@ -6,7 +6,7 @@ outside the broad support envelope unless a narrow policy is explicitly proven.
 ## Validated command
 
 ```bash
-pnpm smoke-goal40-hard-runtime-state -- --keep --work-dir /tmp/goal40-hard-state
+pnpm run proof-goal40-hard-runtime-state -- --keep --work-dir /tmp/goal40-hard-state
 ```
 
 ## Active sockets and TLS sessions

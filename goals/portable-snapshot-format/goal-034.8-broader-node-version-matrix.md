@@ -1,39 +1,16 @@
 # Goal 34.8: Broader Node version matrix
 
-Parent: [Goal 34](./goal-034.md).
+> **Status: archived proof history.** This detailed goal was summarized during the snapshot/Level 5 docs cleanup.
 
-## Objective
+Production-shaped Node runtime-profile proof envelope. Not active smoke/product evidence.
 
-Prove or refuse Node.js version coverage beyond the current version used by the
-live smoke. At minimum, cover Node 20, Node 22, and Node 24.
+Why the details were removed:
 
-## Requirements
+- old wording made proof/runtime-profile work look like active product support;
+- Level 5 product work must use captured source process state and target-native reconstruction;
+- runtime profiles, selected-state descriptors, app-output comparisons, sidecars, source-text replay, source-ISA emulation, and metadata-only success are not acceptable product paths.
 
-- [x] Add version-parametric live Node restore smoke support.
-- [x] Run Node 20 source and target version checks.
-- [x] Run Node 22 source and target version checks.
-- [x] Run Node 24 source and target version checks.
-- [x] Record V8, libuv, OpenSSL, module ABI, and N-API identities per version.
-- [x] Define compatibility/refusal policy for source/target version mismatches.
-- [x] Refuse unsupported version or ABI mismatches with stable codes.
-- [x] Document exact version ranges supported.
+See the consolidated summary: [./historical-goals-030-044.md](./historical-goals-030-044.md).
+See the parent tombstone: [./goal-034.md](./goal-034.md).
 
-## Validation
-
-- [x] Node 20 live restore or stable refusal.
-- [x] Node 22 live restore or stable refusal.
-- [x] Node 24 live restore or stable refusal.
-- [x] Version mismatch refusal tests.
-- [x] Runtime manifest/docs update.
-- [x] Relevant static checks from Goal 34.
-
-## Completion criteria
-
-Complete when Node 20/22/24 are each supported or refused with explicit,
-validated V8/libuv/OpenSSL/module ABI policy.
-
-## Completion note
-
-Completed as part of umbrella Goal 34. See
-[Goal 34 completion validation record](./goal-034.md#completion-validation-record)
-for implementation and validation evidence.
+If future work needs this area, create a new goal that cites the relevant lesson from the summary and restates the product/proof boundary explicitly.

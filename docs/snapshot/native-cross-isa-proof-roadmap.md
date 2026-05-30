@@ -303,7 +303,7 @@ Then run the relevant remote proof pair:
 1. arm64 capture/modeling proof on `friend@100.126.46.90`;
 2. amd64 target execution proof on `root@192.168.0.8` / CT `111` when reachable.
 
-Run `pnpm smoke-portable-machine-restore` when the change touches portable
+Run `pnpm run proof-portable-machine-restore --` when the change touches portable
 machine bundle layout, target-guest loader descriptors, target VM restore wiring,
 or VM-level portable cross-ISA restore behavior. Run full `pnpm smoke-tests` only
 when the change touches VM lifecycle, rootfs, boot/exec/mount, snapshot/restore,

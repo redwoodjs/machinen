@@ -1,41 +1,16 @@
 # Goal 37.5: Ecosystem-equivalent app restore smoke
 
-Parent: [Goal 37](./goal-037.md).
+> **Status: archived proof history.** This detailed goal was summarized during the snapshot/Level 5 docs cleanup.
 
-## Objective
+Audited ecosystem-equivalent Node proof. Not active product evidence.
 
-Restore a Node app that uses the audited local package registry fixtures across
-both architecture directions and Node 18/20/22/24.
+Why the details were removed:
 
-## Requirements
+- old wording made proof/runtime-profile work look like active product support;
+- Level 5 product work must use captured source process state and target-native reconstruction;
+- runtime profiles, selected-state descriptors, app-output comparisons, sidecars, source-text replay, source-ISA emulation, and metadata-only success are not acceptable product paths.
 
-- [x] Build an ecosystem-equivalent app that imports/uses the local audited
-      packages, including transitive, peer, optional, conditional export,
-      ESM/CJS, and native prebuild fixtures.
-- [x] Capture and restore the app target-natively in both architecture
-      directions: arm64 -> amd64 and amd64 -> arm64.
-- [x] Cover Node 18, 20, 22, and 24.
-- [x] Verify app output, dependency graph, native artifact selection, lockfile
-      provenance, SBOM provenance, and sandbox policy after restore.
-- [x] Prove no source-ISA emulation, source text replay, sidecar runtime,
-      app restore hooks, live third-party fetches, or lifecycle scripts are used.
-- [x] Add checked summaries, matrix presets, runtime manifest entries, and docs.
+See the consolidated summary: [./historical-goals-030-044.md](./historical-goals-030-044.md).
+See the parent tombstone: [./goal-037.md](./goal-037.md).
 
-## Validation
-
-- [x] Ecosystem-equivalent app bidirectional Node 18/20/22/24 smoke.
-- [x] Target-native app output verifier.
-- [x] Security/sandbox artifact inspection.
-- [x] Node matrix and foundation matrix include the new profiles.
-- [x] Relevant static checks and full smoke tests from Goal 37.
-
-## Completion criteria
-
-Complete when the ecosystem-equivalent app restores across the required routes
-and versions using only audited local package fixtures and offline provenance.
-
-## Completion note
-
-Completed as part of umbrella Goal 37. See
-[Goal 37 completion validation record](./goal-037.md#completion-validation-record)
-for implementation and validation evidence.
+If future work needs this area, create a new goal that cites the relevant lesson from the summary and restates the product/proof boundary explicitly.

@@ -1,5 +1,7 @@
 # Audited Node ecosystem proof without third-party installs
 
+> **Status: archived.** The old Node ecosystem runtime-profile route is no longer active smoke or product evidence. Use `pnpm run archive-node-ecosystem-restore` only with this status in mind.
+
 Goal 37 expands third-party ecosystem realism without fetching, installing, or
 executing untrusted packages. All package fixtures live under
 `scripts/fixtures/node-ecosystem-registry/` and are small, audited, local source
@@ -8,7 +10,7 @@ files.
 ## Validated command
 
 ```bash
-pnpm smoke-node-ecosystem-restore -- --keep --work-dir /tmp/machinen-node-ecosystem
+pnpm run archive-node-ecosystem-restore -- --keep --work-dir /tmp/machinen-node-ecosystem
 ```
 
 The smoke validates both architecture directions across Node 18, 20, 22, and 24:

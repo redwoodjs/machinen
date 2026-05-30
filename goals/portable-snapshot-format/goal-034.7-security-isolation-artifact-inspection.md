@@ -1,38 +1,16 @@
 # Goal 34.7: Security and isolation artifact inspection
 
-Parent: [Goal 34](./goal-034.md).
+> **Status: archived proof history.** This detailed goal was summarized during the snapshot/Level 5 docs cleanup.
 
-## Objective
+Production-shaped Node runtime-profile proof envelope. Not active smoke/product evidence.
 
-Strengthen anti-shortcut proof from summary booleans to artifact inspection. The
-support claim must prove no source-ISA emulation, sidecars, source text replay,
-or app hooks were used to fake success.
+Why the details were removed:
 
-## Requirements
+- old wording made proof/runtime-profile work look like active product support;
+- Level 5 product work must use captured source process state and target-native reconstruction;
+- runtime profiles, selected-state descriptors, app-output comparisons, sidecars, source-text replay, source-ISA emulation, and metadata-only success are not acceptable product paths.
 
-- [x] Inspect source capture artifacts for source ISA emulation markers.
-- [x] Inspect target restore artifacts for sidecar runtimes.
-- [x] Inspect target bundles to ensure source text is not reused as target code.
-- [x] Inspect app runtime configuration for hooks or loader shims.
-- [x] Verify target binaries/artifacts are target-native amd64 where required.
-- [x] Add failure fixtures that attempt each forbidden shortcut.
-- [x] Refuse each shortcut with a stable code.
+See the consolidated summary: [./historical-goals-030-044.md](./historical-goals-030-044.md).
+See the parent tombstone: [./goal-034.md](./goal-034.md).
 
-## Validation
-
-- [x] Security/isolation artifact inspection tests.
-- [x] Negative shortcut fixtures for emulation, sidecar, source replay, and app
-      hooks.
-- [x] Checked summaries showing refusal or artifact-inspection pass.
-- [x] Relevant static checks from Goal 34.
-
-## Completion criteria
-
-Complete when artifact inspection, not only summary fields, proves shortcut paths
-are absent or refused.
-
-## Completion note
-
-Completed as part of umbrella Goal 34. See
-[Goal 34 completion validation record](./goal-034.md#completion-validation-record)
-for implementation and validation evidence.
+If future work needs this area, create a new goal that cites the relevant lesson from the summary and restates the product/proof boundary explicitly.

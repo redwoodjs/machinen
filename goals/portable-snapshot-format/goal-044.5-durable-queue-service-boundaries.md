@@ -1,39 +1,16 @@
 # Goal 44.5: Durable queue service boundaries
 
-Parent: [Goal 44](./goal-044.md).
+> **Status: proof/audit only.** This detailed goal was summarized during the snapshot/Level 5 docs cleanup.
 
-## Objective
+Stateful service proof matrix. Keep clean/quiesced boundaries and refusal taxonomy.
 
-Prove at least one durable queue service clean restore subset and define stable
-refusals for in-flight delivery and consumer/session ambiguity.
+Why the details were removed:
 
-## Candidate services
+- old wording made proof/runtime-profile work look like active product support;
+- Level 5 product work must use captured source process state and target-native reconstruction;
+- runtime profiles, selected-state descriptors, app-output comparisons, sidecars, source-text replay, source-ISA emulation, and metadata-only success are not acceptable product paths.
 
-Prefer a service available from local Debian packages or audited local assets:
+See the consolidated summary: [./historical-goals-030-044.md](./historical-goals-030-044.md).
+See the parent tombstone: [./goal-044.md](./goal-044.md).
 
-- NATS JetStream if feasible;
-- RabbitMQ if package/runtime cost is acceptable;
-- a smaller durable queue fixture if it can faithfully represent queue
-  persistence and ack boundaries.
-
-## Requirements
-
-- [x] Add audited queue fixtures with configuration, seed messages, workload, and
-      verifier.
-- [x] Prove a clean durable queue restore subset: - durable messages persisted; - no in-flight unacked delivery at snapshot; - consumers disconnected or quiesced; - target verifier confirms queue contents and ack state.
-- [x] Record provenance: - service version; - architecture; - config digest; - workload digest; - persistence manifest; - verifier output digest.
-- [x] Add stable refusals for: - in-flight delivery; - unacked message ambiguity; - active consumer session; - ephemeral queue/subscription state; - cluster/replication state; - plugin/native extension state; - host-mounted data directory ambiguity.
-- [x] Reject source-ISA emulation, source text replay, sidecar runtime success,
-      app hooks, and metadata-only continuation.
-
-## Validation
-
-- [x] Durable queue clean restore smoke.
-- [x] Durable queue unsafe-neighbor refusal matrix.
-- [x] Durable queue proof matrix preset.
-- [x] Relevant static checks from Goal 44.
-
-## Completion criteria
-
-Complete when at least one durable queue has a verified clean restore subset and
-stable refusals for in-flight or ambiguous queue states.
+If future work needs this area, create a new goal that cites the relevant lesson from the summary and restates the product/proof boundary explicitly.

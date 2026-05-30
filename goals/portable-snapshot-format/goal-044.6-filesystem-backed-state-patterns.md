@@ -1,33 +1,16 @@
 # Goal 44.6: Filesystem-backed state patterns
 
-Parent: [Goal 44](./goal-044.md).
+> **Status: proof/audit only.** This detailed goal was summarized during the snapshot/Level 5 docs cleanup.
 
-## Objective
+Stateful service proof matrix. Keep clean/quiesced boundaries and refusal taxonomy.
 
-Prove portable restore patterns for common filesystem-backed application state,
-and refuse unsafe file states where flush, locking, mmap, or host ownership is
-ambiguous.
+Why the details were removed:
 
-## Requirements
+- old wording made proof/runtime-profile work look like active product support;
+- Level 5 product work must use captured source process state and target-native reconstruction;
+- runtime profiles, selected-state descriptors, app-output comparisons, sidecars, source-text replay, source-ISA emulation, and metadata-only success are not acceptable product paths.
 
-- [x] Add audited filesystem-state fixtures and verifiers.
-- [x] Prove append-only log restore: - fsynced append boundary; - deterministic replay verifier; - target manifest matches expected logical log state.
-- [x] Prove atomic rename/checkpoint restore: - write temp file; - fsync temp; - atomic rename; - fsync parent directory; - target verifier confirms checkpoint state.
-- [x] Prove directory manifest restore: - nested files; - content digests; - modes/ownership where supported; - target verifier output digest.
-- [x] Add stable refusals for: - mmap-backed dirty state; - advisory/mandatory lock state; - unsynced append or temp file; - partial rename boundary; - host-mounted path with ambiguous flush/ownership; - external watcher/inotify state.
-- [x] Reject source-ISA emulation, source text replay, sidecar runtime success,
-      app hooks, and metadata-only continuation.
+See the consolidated summary: [./historical-goals-030-044.md](./historical-goals-030-044.md).
+See the parent tombstone: [./goal-044.md](./goal-044.md).
 
-## Validation
-
-- [x] Append-only log restore smoke.
-- [x] Atomic rename/checkpoint restore smoke.
-- [x] Directory manifest restore smoke.
-- [x] Filesystem unsafe-neighbor refusal matrix.
-- [x] Filesystem-state proof matrix preset.
-- [x] Relevant static checks from Goal 44.
-
-## Completion criteria
-
-Complete when common filesystem-backed state patterns have verified clean restore
-proofs and unsafe file states are stable refusals.
+If future work needs this area, create a new goal that cites the relevant lesson from the summary and restates the product/proof boundary explicitly.

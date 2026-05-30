@@ -96,7 +96,7 @@ processes; it proves one small C counter and a stable JVM refusal boundary.
 ## Running
 
 ```sh
-pnpm run smoke-guest-checkpoint-substrate
-pnpm run smoke-guest-checkpoint-c
-pnpm run smoke-guest-checkpoint-jvm
+pnpm run proof-guest-checkpoint-substrate
+pnpm run proof-guest-checkpoint-c
+pnpm run proof-guest-checkpoint-jvm
 ```

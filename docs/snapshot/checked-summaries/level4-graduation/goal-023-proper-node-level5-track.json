@@ -22,7 +22,7 @@
     "module": "packages/runtime/src/node-proper-level5-source-inspection.ts",
     "tests": "packages/runtime/src/__tests__/node-proper-level5-source-inspection.test.ts",
     "proofSmoke": "scripts/smoke/node-proper-level5-source-capture.sh",
-    "proofCommand": "pnpm run smoke-node-proper-level5-proof",
+    "proofCommand": "pnpm run proof-node-proper-level5-proof",
     "proofSmokeVerified": true,
     "capturesProcMapsAsSourceProcessState": true,
     "capturesThreadRegisterState": true,

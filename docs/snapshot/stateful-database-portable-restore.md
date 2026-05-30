@@ -112,7 +112,7 @@ are required.
 ## Running the smoke
 
 ```sh
-pnpm run smoke-stateful-database-portable-restore
+pnpm run proof-stateful-database-portable-restore
 ```
 
 The smoke writes a summary with four completed rows and twelve refusal rows.

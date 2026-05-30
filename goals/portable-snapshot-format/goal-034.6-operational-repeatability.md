@@ -1,35 +1,16 @@
 # Goal 34.6: Operational repeatability and flake detection
 
-Parent: [Goal 34](./goal-034.md).
+> **Status: archived proof history.** This detailed goal was summarized during the snapshot/Level 5 docs cleanup.
 
-## Objective
+Production-shaped Node runtime-profile proof envelope. Not active smoke/product evidence.
 
-Prove the live Node restore workflow is repeatable and not a one-off pass.
+Why the details were removed:
 
-## Requirements
+- old wording made proof/runtime-profile work look like active product support;
+- Level 5 product work must use captured source process state and target-native reconstruction;
+- runtime profiles, selected-state descriptors, app-output comparisons, sidecars, source-text replay, source-ISA emulation, and metadata-only success are not acceptable product paths.
 
-- [x] Add a repeatability runner for the live Node restore smoke.
-- [x] Run enough iterations to expose obvious flakes.
-- [x] Record per-iteration route, timing, profile counts, and failures.
-- [x] Preserve failure artifacts for any failed iteration.
-- [x] Add threshold policy for acceptable pass rate; default should be 100% for
-      required support claims.
-- [x] Make repeatability results easy to run locally and on dedicated hosts.
+See the consolidated summary: [./historical-goals-030-044.md](./historical-goals-030-044.md).
+See the parent tombstone: [./goal-034.md](./goal-034.md).
 
-## Validation
-
-- [x] Repeatability batch run for live Node restore.
-- [x] Test that a failed iteration fails the batch summary.
-- [x] Timing and artifact retention proof.
-- [x] Relevant static checks from Goal 34.
-
-## Completion criteria
-
-Complete when repeated live Node restore runs pass according to the threshold and
-failure reporting is validated.
-
-## Completion note
-
-Completed as part of umbrella Goal 34. See
-[Goal 34 completion validation record](./goal-034.md#completion-validation-record)
-for implementation and validation evidence.
+If future work needs this area, create a new goal that cites the relevant lesson from the summary and restates the product/proof boundary explicitly.

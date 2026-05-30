@@ -101,7 +101,7 @@ bundle and runs the target proof on the current host:
 
 ```bash
 PORTABLE_MACHINE_TARGET_VM_IMAGE=/path/to/rootfs-amd64.tar.gz \
-  pnpm --silent smoke-portable-machine-restore -- --json
+  pnpm --silent run proof-portable-machine-restore -- --json
 ```
 
 Issue #594 adds an opt-in remote e2e mode:
@@ -109,7 +109,7 @@ Issue #594 adds an opt-in remote e2e mode:
 ```bash
 PORTABLE_AMD64_REPO=/path/to/machinen/on/amd64 \
 PORTABLE_MACHINE_TARGET_VM_IMAGE=/path/to/rootfs-amd64.tar.gz \
-  pnpm --silent smoke-portable-machine-restore -- --remote-e2e --json --keep
+  pnpm --silent run proof-portable-machine-restore -- --remote-e2e --json --keep
 ```
 
 Remote e2e mode captures the native-process bundle on `PORTABLE_ARM64_SSH`

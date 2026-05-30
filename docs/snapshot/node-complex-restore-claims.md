@@ -1,10 +1,12 @@
 # Complex Node restore claims
 
+> **Status: archived.** The old complex Node runtime-profile route is no longer active smoke or product evidence. Use `pnpm run archive-node-complex-restore` only with this status in mind.
+
 Goal 36 expands the Node portable restore proof from bounded proof apps to a more
 complex real-world application suite. The validated command is:
 
 ```bash
-pnpm smoke-node-complex-restore -- --keep --work-dir /tmp/machinen-node-complex
+pnpm run archive-node-complex-restore -- --keep --work-dir /tmp/machinen-node-complex
 ```
 
 The smoke validates both architecture directions for Node 18, 20, 22, and 24:

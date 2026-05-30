@@ -1,5 +1,7 @@
 # Stateful services restore claims
 
+> **Status: proof-audit.** This is proof/refusal evidence only unless the product claim registry advertises a product route. Use `pnpm run proof-stateful-services` only with this status in mind.
+
 Goal 44 adds a broad stateful-services proof matrix. Supported states are clean,
 quiesced persistence artifacts verified by target-native logical checks. Unsafe
 neighboring states remain stable refusals.
@@ -7,7 +9,7 @@ neighboring states remain stable refusals.
 ## Validated smoke
 
 ```bash
-pnpm smoke-stateful-services-proof -- --keep --work-dir /tmp/goal44-stateful
+pnpm run proof-stateful-services -- --keep --work-dir /tmp/goal44-stateful
 ```
 
 The smoke writes checked summaries to a work directory. The committed summaries

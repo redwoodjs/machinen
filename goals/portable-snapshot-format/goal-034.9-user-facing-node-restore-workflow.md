@@ -1,41 +1,16 @@
 # Goal 34.9: User-facing Node restore workflow
 
-Parent: [Goal 34](./goal-034.md).
+> **Status: archived proof history.** This detailed goal was summarized during the snapshot/Level 5 docs cleanup.
 
-## Objective
+Production-shaped Node runtime-profile proof envelope. Not active smoke/product evidence.
 
-Provide and validate a user-facing workflow that takes a user's Node app,
-snapshots it, restores it on amd64, and verifies it.
+Why the details were removed:
 
-## Requirements
+- old wording made proof/runtime-profile work look like active product support;
+- Level 5 product work must use captured source process state and target-native reconstruction;
+- runtime profiles, selected-state descriptors, app-output comparisons, sidecars, source-text replay, source-ISA emulation, and metadata-only success are not acceptable product paths.
 
-- [x] Define the user-facing command or documented command sequence.
-- [x] Accept a Node app path, package metadata, start command, and verifier.
-- [x] Capture the app as a live process.
-- [x] Generate the portable bundle.
-- [x] Restore on amd64 target.
-- [x] Run post-restore verifier.
-- [x] Surface stable, understandable refusal codes when unsupported state is
-      found.
-- [x] Document prerequisites, source/target host setup, limitations, and artifact
-      locations.
-- [x] Add an end-to-end example using the production-shaped service from Goal
-      34.1.
+See the consolidated summary: [./historical-goals-030-044.md](./historical-goals-030-044.md).
+See the parent tombstone: [./goal-034.md](./goal-034.md).
 
-## Validation
-
-- [x] User-facing workflow smoke.
-- [x] Docs command copy/paste validation.
-- [x] Failure-mode validation for unsupported app states.
-- [x] Relevant static checks from Goal 34.
-
-## Completion criteria
-
-Complete when a user can follow documented commands to snapshot, restore, and
-verify a Node app on amd64, and the workflow has automated smoke coverage.
-
-## Completion note
-
-Completed as part of umbrella Goal 34. See
-[Goal 34 completion validation record](./goal-034.md#completion-validation-record)
-for implementation and validation evidence.
+If future work needs this area, create a new goal that cites the relevant lesson from the summary and restates the product/proof boundary explicitly.

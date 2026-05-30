@@ -1,39 +1,16 @@
 # Goal 38.3: Ruby Rails/Puma-style envelope
 
-Parent: [Goal 38](./goal-038.md).
+> **Status: proof/audit only.** This detailed goal was summarized during the snapshot/Level 5 docs cleanup.
 
-## Objective
+Non-Node runtime envelope exploration. Keep refusal taxonomy; not product support.
 
-Evaluate Ruby Rails/Puma-style portable restore behavior with audited local
-fixtures and stable refusal boundaries for dynamic Ruby runtime state.
+Why the details were removed:
 
-## Requirements
+- old wording made proof/runtime-profile work look like active product support;
+- Level 5 product work must use captured source process state and target-native reconstruction;
+- runtime profiles, selected-state descriptors, app-output comparisons, sidecars, source-text replay, source-ISA emulation, and metadata-only success are not acceptable product paths.
 
-- [x] Add an audited local Ruby fixture with Rails-like routing, ActiveRecord-like
-      persistence, Puma-style threaded request handling, autoloading, and cache
-      behavior.
-- [x] Record Ruby version, architecture, gem graph, autoload/load path state,
-      object heap/GC policy, fiber/thread state, native gem boundary, and
-      database/session policy.
-- [x] Support or refuse Bootsnap/cache drift, autoloading ambiguity, native gem
-      state, thread/fiber scheduler state, open DB transactions, and file locks.
-- [x] Prove target-native restore for supported subsets or stable refusal with
-      `migrationCompleted=false`.
-- [x] Avoid live third-party gem installs unless separately approved.
+See the consolidated summary: [./historical-goals-030-044.md](./historical-goals-030-044.md).
+See the parent tombstone: [./goal-038.md](./goal-038.md).
 
-## Validation
-
-- [x] Ruby Rails/Puma-style support-or-refusal smoke.
-- [x] Ruby unsafe-neighbor refusal matrix.
-- [x] Runtime manifest and checked summaries.
-- [x] No-third-party-install sandbox evidence.
-- [x] Relevant static checks from Goal 38.
-
-## Completion criteria
-
-Complete when Ruby Rails/Puma-style behavior is either proven for a concrete
-subset or fail-closed with stable gem/autoload/thread/native refusal codes.
-
-## Completion record
-
-Completed with `scripts/non-node-runtime-proof.mjs`, `scripts/smoke/non-node-runtime-proof.sh`, non-Node checked summaries, runtime manifest updates, proof profiles, matrix presets, and user guidance in `docs/snapshot/non-node-runtime-restore-claims.md`. Final validation passed on 2026-05-25.
+If future work needs this area, create a new goal that cites the relevant lesson from the summary and restates the product/proof boundary explicitly.
