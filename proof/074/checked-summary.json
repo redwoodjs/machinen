@@ -1,0 +1,34 @@
+{
+  "kind": "machinen.node-proper-level5-proof-074-summary",
+  "proof": "074",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "accepted": {
+    "threadsCaptured": 4,
+    "wholeProcessAccepted": true,
+    "descriptor": "node-process-all-threads-idle-v1"
+  },
+  "refusedRows": [
+    {
+      "id": "one-running-thread",
+      "expectedCode": "node-proper-level5-live-procfs-process-running-thread",
+      "actualCode": "node-proper-level5-live-procfs-process-running-thread",
+      "targetStarted": false
+    },
+    {
+      "id": "unknown-helper-thread",
+      "expectedCode": "node-proper-level5-live-procfs-process-unknown-helper",
+      "actualCode": "node-proper-level5-live-procfs-process-unknown-helper",
+      "targetStarted": false
+    }
+  ],
+  "assertions": {
+    "proofOnly": true,
+    "acceptedPathVerified": true,
+    "refusedRowsStopBeforeTargetStart": true,
+    "noSourceIsaEmulation": true,
+    "noRawCpuCopy": true,
+    "noMetadataOnlySuccess": true
+  }
+}
