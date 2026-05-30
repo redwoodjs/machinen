@@ -1,0 +1,17 @@
+{
+  "kind": "machinen.node-level5-restore-launcher-proof-summary",
+  "proof": "592",
+  "goal": "Launch refusal boundaries",
+  "result": "Launch evidence refuses unsafe shortcuts and missing/tampered retained evidence.",
+  "status": "node-product-support-80-restore-launcher",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": [
+    "machinen snapshot node <pid> --out <dir>",
+    "machinen restore <snapshot>"
+  ],
+  "finalProductSurface": "restore <snapshot>",
+  "launchReportRetained": true,
+  "claimsRemain": "80/20/0"
+}
