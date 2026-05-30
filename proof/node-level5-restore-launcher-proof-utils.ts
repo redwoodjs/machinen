@@ -187,7 +187,10 @@ function launchPayload(kind: string): Record<string, unknown> {
   const workflow = snapshotRestoreWorkflow();
   const report = workflow.restore.launchReport;
   if (kind === "launch-app-root") {
-    return { appDir: report.appDir, appDirExists: existsSync(report.appDir) };
+    return {
+      appDirRetained: typeof report.appDir === "string",
+      appDirExists: existsSync(report.appDir),
+    };
   }
   if (kind === "launch-exit-code") {
     return { exitCode: report.exitCode };
@@ -248,7 +251,7 @@ function auditOrContractPayload(kind: string): Record<string, unknown> {
     return { kind: restore.launchReport.kind };
   }
   if (kind === "launch-report-path") {
-    return { launchReportPath: restore.launchReportPath };
+    return { launchReportPathWritten: existsSync(restore.launchReportPath) };
   }
   if (kind === "launch-report-accepted") {
     return { launchAccepted: restore.launchReport.accepted };

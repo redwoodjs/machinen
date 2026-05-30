@@ -8,6 +8,6 @@
   "broadNodeProductSupportClaimed": 20,
   "arbitraryProcessCrossArchRestoreClaimed": 0,
   "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
-  "appDir": "/private/var/folders/jj/brzmsc2562zbwgzwbnjdnqp80000gn/T/machinen-node-level5-launcher-app-gqVwdV",
+  "appDirRetained": true,
   "appDirExists": false
 }
