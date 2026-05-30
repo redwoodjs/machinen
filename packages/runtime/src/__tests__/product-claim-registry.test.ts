@@ -18,8 +18,8 @@ describe("Goal 46 product claim registry", () => {
   it("classifies every portable-machine proof profile into a product status", () => {
     const registry = buildProductClaimRegistry(PROFILES);
 
-    expect(registry.entries).toHaveLength(PROFILES.length + 5);
-    expect(registry.summary.total).toBe(PROFILES.length + 5);
+    expect(registry.entries).toHaveLength(PROFILES.length + 6);
+    expect(registry.summary.total).toBe(PROFILES.length + 6);
     expect(registry.summary.implementedProductSupport).toBe(8);
     expect(
       registry.entries.filter((entry) => entry.productStatus === "implemented-product-support"),
@@ -84,6 +84,16 @@ describe("Goal 46 product claim registry", () => {
           entry.productStatus === "implemented-product-support",
       ),
     ).toBe(false);
+    expect(
+      registry.entries.find((entry) => entry.name === "node-v8-libuv-single-thread-http-v1"),
+    ).toMatchObject({
+      family: "nodejs",
+      productStatus: "proof-only-fixture",
+      migrationCompleted: false,
+      proofOnly: true,
+      supportLevel: "level-0-fail-closed-discovery",
+      sourceFixture: "machinen-snapshot-restore:node-http-counter-selected-state-v1",
+    });
     expect(registry.summary.stableProductRefusals).toBeGreaterThan(0);
     expect(registry.summary.proofOnlyFixtures).toBeGreaterThan(0);
   });

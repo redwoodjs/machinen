@@ -1,0 +1,72 @@
+{
+  "kind": "machinen.node-level5-real-cross-arch-quickstart-fixture-summary",
+  "goal": "022",
+  "status": "selected-state-reconstruction-harness-proof",
+  "profile": "node-v8-libuv-single-thread-http-v1",
+  "runtimeFamily": "node",
+  "adapterId": "node-level5-http-runtime-adapter",
+  "sourceArchitecture": "amd64",
+  "targetArchitecture": "arm64",
+  "evidenceStatus": "proof",
+  "productSupport": "not-yet-supported",
+  "implementationLevel": "not-implemented",
+  "graduationTargetLevel": "level-5-cross-arch-process-continuation",
+  "migrationCompleted": false,
+  "productClaim": {
+    "registryRow": "node-v8-libuv-single-thread-http-v1",
+    "sourceFixture": "machinen-snapshot-restore:node-http-counter-selected-state-v1",
+    "productStatus": "proof-only-fixture"
+  },
+  "ciSmoke": "scripts/smoke/node-level5-http-harness-proof.sh",
+  "classification": {
+    "label": "selected-state reconstruction / harness proof",
+    "notLevel5ProductSupport": true,
+    "reason": "the input is an app-specific selected-state descriptor, not reconstructed captured source process/runtime/native state",
+    "broadNodeSupport": "unsupported",
+    "unsupportedVariantsRefuseWithMigrationCompletedFalse": true
+  },
+  "publicWorkflow": [
+    "machinen snapshot counter ./counter.snap",
+    "machinen restore ./counter.snap -p 3000:3000",
+    "curl target:3000"
+  ],
+  "sourceObservation": {
+    "beforeSnapshotRequests": [{ "response": { "count": 1 } }, { "response": { "count": 2 } }],
+    "snapshotCaptureState": {
+      "kind": "node-http-counter-selected-state-v1",
+      "captureMethod": "http-root-json-next-count",
+      "observedNextCount": 3,
+      "restoredInitialCount": 2
+    }
+  },
+  "targetContinuation": {
+    "sourceArchitecture": "amd64",
+    "targetArchitecture": "arm64",
+    "targetRuntime": "node",
+    "targetNativeExecution": true,
+    "servedContinuedBehavior": true,
+    "firstUserRequestAfterRestore": { "response": { "count": 3 } },
+    "restoreSummaryArtifact": "node-level5-runtime-profile-restore-summary.json",
+    "targetProofArtifact": "node-level5-target-proof.json"
+  },
+  "shortcutGates": {
+    "sourceIsaEmulationUsed": false,
+    "sidecarOutputUsed": false,
+    "metadataOnlySuccess": false
+  },
+  "stableRefusalsPreserved": [
+    "node-level5-http-arbitrary-v8-heap-native-stack-unsupported",
+    "node-level5-http-native-addon-unsupported",
+    "node-level5-http-worker-thread-unsupported",
+    "node-level5-http-inspector-unsupported",
+    "node-level5-http-active-request-unsupported",
+    "node-level5-http-active-tcp-stream-unsupported",
+    "node-level5-http-active-syscall-unsupported",
+    "node-level5-http-unsupported-timer-async-handle",
+    "node-level5-http-unsupported-module-runtime-state",
+    "node-level5-http-target-native-node-missing",
+    "node-level5-http-source-isa-emulation-forbidden",
+    "node-level5-http-sidecar-output-forbidden",
+    "node-level5-http-metadata-only-success-forbidden"
+  ]
+}

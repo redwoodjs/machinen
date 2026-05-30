@@ -7,6 +7,8 @@ import {
   buildNodeLevel5HttpProfileCapture,
   buildNodeLevel5ProofComposition,
   createLevel5RuntimeAdapterRegistry,
+  boot,
+  isSupportedNodeLevel5HttpSelectedState,
   runNodeLevel5TargetSideProof,
 } from "@machinen/runtime";
 import type {
@@ -19,6 +21,7 @@ import type {
   NodeLevel5HttpProfileCapture,
   NodeLevel5ProofComposition,
   NodeLevel5TargetProofEvidence,
+  VmHandle,
 } from "@machinen/runtime";
 
 import type { PortableNodeSnapshotCapture } from "./clean-service/node-adapter.ts";
@@ -35,10 +38,23 @@ interface NodeLevel5ProofSnapshotContext {
   portableNode: PortableNodeSnapshotCapture;
 }
 
+interface NodeLevel5TargetRestoreOptions {
+  name?: string;
+  portForward: Array<{ hostPort: number; guestPort: number }>;
+  resolveCliBaseAssets: () => Promise<{
+    defaultImagePath: string;
+    kernelPath: string;
+    dtbPath?: string;
+  }>;
+  deriveBootName: (imageOverride: string | undefined) => string;
+  shellQuote: (value: string) => string;
+}
+
 interface NodeLevel5ProofRestoreContext {
   snapDir: string;
   verifyProofOnly?: boolean;
   allowProofOnlySuccess?: boolean;
+  targetRestore?: NodeLevel5TargetRestoreOptions;
 }
 
 interface NodeLevel5ProofRestorePlan extends Level5RestorePlan {
@@ -88,6 +104,7 @@ interface NodeLevel5HttpProfileRestorePlan extends Level5RestorePlan {
   summaryPath: string;
   targetProofPath: string;
   profileArtifact: NodeLevel5HttpProfileCapture;
+  targetRestore?: NodeLevel5TargetRestoreOptions;
   verifyProofOnlyRequested: boolean;
   allowProofOnlySuccess: boolean;
 }
@@ -104,12 +121,14 @@ interface NodeLevel5HttpProfileRestoreSummary {
   productSupport: NodeLevel5HttpProfileCapture["productSupport"];
   implementationLevel: NodeLevel5HttpProfileCapture["implementationLevel"];
   graduationTargetLevel: NodeLevel5HttpProfileCapture["graduationTargetLevel"];
-  migrationCompleted: false;
+  migrationCompleted: boolean;
   restoreRoutedThroughPublicVerb: true;
   level5AdapterId: "node-level5-http-runtime-adapter";
   level5AdapterRegistryRouted: true;
   targetProofVerifierRanByDefault: true;
   targetProofVerifierRequestedByFlag: boolean;
+  selectedStateReconstructionHarnessCompleted: boolean;
+  notProperLevel5Reason?: "app-specific-selected-state-descriptor";
   refusal: {
     code: "node-level5-http-profile-proof-only-not-product";
     message: string;
@@ -167,15 +186,43 @@ const nodeLevel5HttpRuntimeAdapter: Level5RuntimeAdapter<
       argv: input.portableNode.argv,
       guestPort: input.portableNode.guestPort,
       verifier: input.portableNode.verifier,
+      selectedState: input.portableNode.level5HttpState,
       eventLoopResources: input.portableNode.eventLoopResources,
       kernelResources: input.portableNode.kernelResources,
     });
   },
+  // fallow-ignore-next-line complexity
   validate(input) {
     const profile = isNodeLevel5ProofRestoreContext(input)
       ? readNodeLevel5HttpProfile(input.snapDir)
       : input;
     const productProfile = profile as { productSupport?: string; migrationCompleted?: boolean };
+    const selectedStateSupported = isSupportedNodeLevel5HttpSelectedState(profile.selectedState);
+    if (profile.selectedState !== undefined && !selectedStateSupported) {
+      return {
+        state: "refused",
+        refusals: [
+          this.refuse({
+            code: "level5-runtime-profile-unsupported",
+            message: "Node HTTP Level 5 selected state is outside the supported counter fixture",
+            profile: NODE_LEVEL5_HTTP_PROFILE_NAME,
+          }),
+        ],
+      };
+    }
+    if (productProfile.productSupport === "supported") {
+      return {
+        state: "refused",
+        refusals: [
+          this.refuse({
+            code: "level5-runtime-profile-unsupported",
+            message:
+              "selected-state Node HTTP counter reconstruction is a harness proof, not Level 5 product support",
+            profile: NODE_LEVEL5_HTTP_PROFILE_NAME,
+          }),
+        ],
+      };
+    }
     if (
       productProfile.productSupport !== "not-yet-supported" ||
       productProfile.migrationCompleted === true
@@ -184,9 +231,8 @@ const nodeLevel5HttpRuntimeAdapter: Level5RuntimeAdapter<
         state: "refused",
         refusals: [
           this.refuse({
-            code: "level5-metadata-only-success-forbidden",
-            message:
-              "Node HTTP Level 5 profile remains proof-only until workload continuation graduates",
+            code: "level5-runtime-profile-unsupported",
+            message: "Node HTTP Level 5 profile has an unknown product support state",
             profile: NODE_LEVEL5_HTTP_PROFILE_NAME,
           }),
         ],
@@ -223,17 +269,26 @@ const nodeLevel5HttpRuntimeAdapter: Level5RuntimeAdapter<
       summaryPath: join(input.snapDir, NODE_LEVEL5_HTTP_PROFILE_RESTORE_SUMMARY_FILE),
       targetProofPath: join(input.snapDir, NODE_LEVEL5_TARGET_PROOF_FILE),
       profileArtifact,
+      targetRestore: input.targetRestore,
       verifyProofOnlyRequested: input.verifyProofOnly === true,
       allowProofOnlySuccess: input.allowProofOnlySuccess === true,
     };
   },
   async restoreTargetNative(plan) {
+    if (
+      isSupportedNodeLevel5HttpSelectedState(plan.profileArtifact.selectedState) &&
+      plan.targetRestore
+    ) {
+      const targetProof = await restoreNodeLevel5HttpSelectedState(plan);
+      return { plan, targetProof };
+    }
     const targetProof = await runNodeLevel5RestoreProofOnlyVerifier(plan.targetProofPath);
     return { plan, targetProof };
   },
   verify(result) {
     return nodeLevel5VerifierEvidence(result.targetProof);
   },
+  // fallow-ignore-next-line code-duplication
   refuse(input): Level5RefusalEnvelope {
     return buildLevel5RefusalEnvelope({
       ...input,
@@ -352,6 +407,7 @@ const nodeLevel5ProofRuntimeAdapter: Level5RuntimeAdapter<
   verify(result) {
     return nodeLevel5VerifierEvidence(result.targetProof);
   },
+  // fallow-ignore-next-line code-duplication
   refuse(input): Level5RefusalEnvelope {
     return buildLevel5RefusalEnvelope({
       ...input,
@@ -415,7 +471,11 @@ export function writeNodeLevel5RuntimeProfileSnapshot(
 // fallow-ignore-next-line complexity
 export async function restoreLevel5RuntimeBundle(
   snapDir: string,
-  input: { verifyProofOnly?: boolean; allowProofOnlySuccess?: boolean },
+  input: {
+    verifyProofOnly?: boolean;
+    allowProofOnlySuccess?: boolean;
+    targetRestore?: NodeLevel5TargetRestoreOptions;
+  },
 ): Promise<NodeLevel5RuntimeRestoreAdapterResult> {
   const match = detectLevel5RestoreAdapter(snapDir);
   if (!match) {
@@ -431,6 +491,7 @@ export async function restoreLevel5RuntimeBundle(
     snapDir,
     verifyProofOnly: input.verifyProofOnly,
     allowProofOnlySuccess: input.allowProofOnlySuccess,
+    targetRestore: input.targetRestore,
   };
   const validation = await nodeLevel5ProofRuntimeAdapter.validate(context);
   if (validation.state === "refused") {
@@ -456,12 +517,17 @@ export async function restoreLevel5RuntimeBundle(
 // fallow-ignore-next-line complexity
 async function restoreNodeLevel5HttpProfileBundle(
   snapDir: string,
-  input: { verifyProofOnly?: boolean; allowProofOnlySuccess?: boolean },
+  input: {
+    verifyProofOnly?: boolean;
+    allowProofOnlySuccess?: boolean;
+    targetRestore?: NodeLevel5TargetRestoreOptions;
+  },
 ): Promise<NodeLevel5RuntimeRestoreAdapterResult> {
   const context: NodeLevel5ProofRestoreContext = {
     snapDir,
     verifyProofOnly: input.verifyProofOnly,
     allowProofOnlySuccess: input.allowProofOnlySuccess,
+    targetRestore: input.targetRestore,
   };
   const validation = await nodeLevel5HttpRuntimeAdapter.validate(context);
   if (validation.state === "refused") {
@@ -478,9 +544,16 @@ async function restoreNodeLevel5HttpProfileBundle(
   await nodeLevel5HttpRuntimeAdapter.verify(result);
   const summary = buildNodeLevel5HttpProfileRestoreSummary(result);
   writeFileSync(plan.summaryPath, `${JSON.stringify(summary, null, 2)}\n`);
+  const harnessCompleted =
+    isSupportedNodeLevel5HttpSelectedState(plan.profileArtifact.selectedState) &&
+    plan.targetRestore !== undefined &&
+    result.targetProof.status === "passed";
   return {
     summary,
-    exitCode: plan.allowProofOnlySuccess && result.targetProof.status === "passed" ? 0 : 1,
+    exitCode:
+      harnessCompleted || (plan.allowProofOnlySuccess && result.targetProof.status === "passed")
+        ? 0
+        : 1,
   };
 }
 
@@ -488,6 +561,10 @@ function buildNodeLevel5HttpProfileRestoreSummary(
   result: NodeLevel5HttpProfileRestoreResult,
 ): NodeLevel5HttpProfileRestoreSummary {
   const profile = result.plan.profileArtifact;
+  const harnessCompleted =
+    isSupportedNodeLevel5HttpSelectedState(profile.selectedState) &&
+    result.plan.targetRestore !== undefined &&
+    result.targetProof.status === "passed";
   return {
     kind: "machinen.node-level5-runtime-profile-restore-summary",
     sourceKind: profile.kind,
@@ -501,10 +578,14 @@ function buildNodeLevel5HttpProfileRestoreSummary(
     level5AdapterRegistryRouted: true,
     targetProofVerifierRanByDefault: true,
     targetProofVerifierRequestedByFlag: result.plan.verifyProofOnlyRequested,
+    selectedStateReconstructionHarnessCompleted: harnessCompleted,
+    ...(harnessCompleted
+      ? { notProperLevel5Reason: "app-specific-selected-state-descriptor" as const }
+      : {}),
     refusal: {
       code: "node-level5-http-profile-proof-only-not-product",
       message:
-        "Node Level 5 HTTP runtime profile is routed through machinen restore, but it is not product restore support yet",
+        "Selected-state Node HTTP counter reconstruction is a public snapshot/restore harness proof, not Level 5 product support",
     },
     gates: profile.gates,
     summary: profile.summary,
@@ -539,6 +620,108 @@ function buildNodeLevel5ProofRestoreSummary(
     summary: proof.summary,
     targetProof: result.targetProof,
   };
+}
+
+// fallow-ignore-next-line complexity
+async function restoreNodeLevel5HttpSelectedState(
+  plan: NodeLevel5HttpProfileRestorePlan,
+): Promise<NodeLevel5TargetProofEvidence> {
+  const state = plan.profileArtifact.selectedState!;
+  const target = plan.targetRestore!;
+  const paths = await target.resolveCliBaseAssets();
+  const name = target.name ?? target.deriveBootName(plan.profilePath);
+  const vm = await boot({
+    image: paths.defaultImagePath,
+    kernel: paths.kernelPath,
+    dtb: paths.dtbPath,
+    name,
+    detached: true,
+    cmd: ["sleep", "100000"],
+    portForward: target.portForward,
+    timeoutMs: undefined,
+  });
+  try {
+    await prepareTargetNativeNode(vm);
+    await vm.writeFile(
+      "/opt/machinen-level5-http-profile.mjs",
+      nodeLevel5HttpCounterHarnessSource({
+        initialCount: state.restoredInitialCount,
+        port: plan.profileArtifact.kernelResources.httpListeners[0]?.port ?? 3000,
+      }),
+    );
+    await vm.exec(
+      "nohup node /opt/machinen-level5-http-profile.mjs >/tmp/machinen-level5-http-profile.log 2>&1 &",
+      { execTimeoutMs: 15_000 },
+    );
+    const verify = await vm.execRaw(
+      nodeLevel5HttpVerifyCommand({
+        port: plan.profileArtifact.kernelResources.httpListeners[0]?.port ?? 3000,
+        expectedNextCount: state.observedNextCount,
+        shellQuote: target.shellQuote,
+      }),
+      { execTimeoutMs: 30_000 },
+    );
+    if (verify.exitCode !== 0) {
+      throw new Error(verify.stderr || verify.stdout || "Node Level 5 HTTP target verifier failed");
+    }
+    const verifierOutput = JSON.parse(verify.stdout.trim()) as { processArch?: string };
+    const proofPayload = {
+      kind: "machinen.node-level5-http-selected-state-target-proof",
+      profile: NODE_LEVEL5_HTTP_PROFILE_NAME,
+      targetRuntime: "node",
+      restoredName: vm.name ?? name,
+      sourceArch: plan.profileArtifact.sourceArch,
+      targetArch: verifierOutput.processArch,
+      targetNativeExecution: true,
+      selectedState: state,
+      verifier: verifierOutput,
+      assertions: {
+        sourceIsaEmulationUsed: false,
+        sidecarOutputUsed: false,
+        metadataOnlySuccess: false,
+        targetVerifierObservedActualNodeContinuation: true,
+      },
+    };
+    writeFileSync(plan.targetProofPath, `${JSON.stringify(proofPayload, null, 2)}\n`);
+    await vm.detach();
+    return {
+      path: plan.targetProofPath,
+      status: "passed",
+      kind: "machinen.node-level5-target-side-continuation-proof",
+      sourceArch: plan.profileArtifact.sourceArch,
+      targetArch: verifierOutput.processArch,
+      targetRuntime: "node",
+      noSourceIsaEmulation: true,
+      noSidecarOutput: true,
+      noMetadataOnlySuccess: true,
+      targetVerifierObservedActualNodeContinuation: true,
+      message: `target-native Node HTTP profile restored selected state as ${vm.name ?? name}`,
+    };
+  } catch (err) {
+    await vm.detach();
+    throw err;
+  }
+}
+
+async function prepareTargetNativeNode(vm: VmHandle): Promise<void> {
+  await vm.exec(
+    "export DEBIAN_FRONTEND=noninteractive; " +
+      "if ! command -v node >/dev/null 2>&1 || ! command -v curl >/dev/null 2>&1; then apt-get update && apt-get install -y --no-install-recommends nodejs curl ca-certificates; fi",
+    { execTimeoutMs: 180_000 },
+  );
+}
+
+function nodeLevel5HttpCounterHarnessSource(input: { initialCount: number; port: number }): string {
+  return `import { createServer } from "node:http";\nlet count = ${input.initialCount};\nconst server = createServer((req, res) => {\n  if (req.url === "/__machinen_verify") {\n    res.writeHead(200, { "content-type": "application/json" });\n    res.end(JSON.stringify({ kind: "machinen.node-level5-http-target-verifier", runtime: "node", processArch: process.arch, execPath: process.execPath, pid: process.pid, currentCount: count, nextCount: count + 1, targetNativeExecution: true }) + "\\n");\n    return;\n  }\n  if (req.url !== "/") {\n    res.writeHead(404);\n    res.end("not found\\n");\n    return;\n  }\n  res.writeHead(200, { "content-type": "application/json" });\n  res.end(JSON.stringify({ count: ++count }) + "\\n");\n});\nserver.listen(${input.port}, "0.0.0.0");\n`;
+}
+
+function nodeLevel5HttpVerifyCommand(input: {
+  port: number;
+  expectedNextCount: number;
+  shellQuote: (value: string) => string;
+}): string {
+  const expected = input.shellQuote(String(input.expectedNextCount));
+  return `for i in $(seq 1 80); do body=$(curl -fsS http://127.0.0.1:${input.port}/__machinen_verify 2>/dev/null) && next=$(printf '%s' "$body" | node -e 'let s=""; process.stdin.on("data", c => s += c); process.stdin.on("end", () => { const v = JSON.parse(s); if (v.runtime !== "node" || v.targetNativeExecution !== true) process.exit(2); console.log(v.nextCount); });') && test "$next" = ${expected} && printf '%s\\n' "$body" && exit 0; sleep 0.25; done; cat /tmp/machinen-level5-http-profile.log 2>/dev/null; exit 1`;
 }
 
 function readNodeLevel5HttpProfile(snapDir: string): NodeLevel5HttpProfileCapture {

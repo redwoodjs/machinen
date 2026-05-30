@@ -43,6 +43,8 @@ Snapshot internals:
 - [Goal 009/019 Node Level 5 proof composition](./snapshot/node-level5-proof-composition.md) — selected Node proof path composed from native/process evidence, the Goal 008 Level 4 resource map, and default public restore proof evidence
 - [Goal 020 Level 5 runtime adapter substrate](./snapshot/level5-runtime-adapter-substrate.md) — generic adapter contract and registry for runtime-family Level 5 continuation paths
 - [Goal 021 Node Level 5 HTTP profile](./snapshot/node-level5-http-profile.md) — proof-only Node/V8/libuv single-thread HTTP runtime adapter profile
+- [Goal 022 selected-state cross-arch quickstart harness](./snapshot/node-level5-real-cross-arch-quickstart-fixture.md) — public snapshot/restore harness proof, not Level 5 product support
+- [Proper Node Level 5 without runtime profiles](./snapshot/proper-node-level5-without-runtime-profiles.md) — acceptance contract and first real Node Level 5 track
 - [portable machine proof profiles](./snapshot/portable-machine-proof-profiles.md) — positive and negative proof profiles for target-native completion and fail-closed refusals
 - [portable proof matrices](./snapshot/proof-matrices.md) — one-command matrix presets and JSON summary shape
 - [runtime-neutral adapter boundary](./snapshot/runtime-adapter-boundary.md) — shared adapter contract for future runtime-specific tracks

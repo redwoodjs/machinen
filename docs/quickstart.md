@@ -84,10 +84,19 @@ The third `curl` returns `{ count: 3 }` because it's the same process —
 it just resumed on a different host. Same heap, same TCP listener, same
 counter. The Node runtime never noticed the move.
 
-A constraint to know about: the guest architecture has to match. arm64 to
-arm64 works, and amd64 to amd64 works on amd64 Linux/KVM. arm64 to amd64 does
-not — vmstate restores actual machine-code register state, and that doesn't
+A constraint to know about: the default vmstate engine needs matching guest
+architectures. arm64 to arm64 works, and amd64 to amd64 works on amd64
+Linux/KVM. General arm64 to amd64 vmstate restore is not supported because
+vmstate restores actual machine-code register state, and that doesn't
 translate.
+
+There is one narrower cross-architecture harness proof for this exact kind of
+Node HTTP counter: the `node-v8-libuv-single-thread-http-v1` profile captures
+selected counter state and restores it into target-native Node. This is useful
+as a public `snapshot` / `restore` smoke fixture, but it is not Level 5 product
+support because it uses an app-specific selected-state descriptor. Broad Node
+state is still unsupported. See
+[Node Level 5 real cross-arch quickstart fixture](./snapshot/node-level5-real-cross-arch-quickstart-fixture.md).
 
 ## Where to go next
 

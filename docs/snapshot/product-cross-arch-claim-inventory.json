@@ -26,6 +26,13 @@
       "subset": "node-http-clean-root-v1"
     },
     {
+      "goal": "022",
+      "claim": "Node/V8/libuv single-thread HTTP counter selected-state reconstruction harness",
+      "supportLevel": "proof-only-fixture",
+      "notes": "Harness proof only: snapshot captures the app-specific node-http-counter-selected-state-v1 descriptor and restore verifies target-native Node serves the continued count. This is not Level 5 product support because it does not reconstruct captured source process/runtime/native state.",
+      "subset": "node-http-counter-selected-state-v1"
+    },
+    {
       "goal": "33-37 refusals",
       "claim": "Node unsafe neighbors: active ambiguous sockets, child/IPC trees outside contract, inspector sessions, native addon ABI drift, dirty persistent state, package provenance drift, lifecycle/network install ambiguity",
       "supportLevel": "explicit-refusal",

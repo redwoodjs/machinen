@@ -32,15 +32,36 @@
 - [`createLevel5RuntimeAdapterRegistry`](#createlevel5runtimeadapterregistry)
 - [`level5SubstrateRefusalCodes`](#level5substraterefusalcodes)
 
+### Proper Node Level 5 source-state inspection
+
+- [`NodeProperLevel5MapKind`](#nodeproperlevel5mapkind)
+- [`NodeProperLevel5ProcMapEntry`](#nodeproperlevel5procmapentry)
+- [`NodeProperLevel5SourceInspectionInput`](#nodeproperlevel5sourceinspectioninput)
+- [`NodeProperLevel5SourceInspectionSummary`](#nodeproperlevel5sourceinspectionsummary)
+- [`NodeProperLevel5V8ClosureRecoveryRefusal`](#nodeproperlevel5v8closurerecoveryrefusal)
+- [`NodeProperLevel5V8ClosureCounterCellCandidate`](#nodeproperlevel5v8closurecountercellcandidate)
+- [`NodeProperLevel5RawMemoryFragment`](#nodeproperlevel5rawmemoryfragment)
+- [`NodeProperLevel5RawV8ContextSmiRecoveryResult`](#nodeproperlevel5rawv8contextsmirecoveryresult)
+- [`NodeProperLevel5V8ClosureRecoveryResult`](#nodeproperlevel5v8closurerecoveryresult)
+- [`NodeProperLevel5V8ClosureRecoveryRefusalCode`](#nodeproperlevel5v8closurerecoveryrefusalcode)
+- [`NODE_PROPER_LEVEL5_SOURCE_INSPECTION_KIND`](#node_proper_level5_source_inspection_kind)
+- [`NODE_PROPER_LEVEL5_V8_CLOSURE_RECOVERY_KIND`](#node_proper_level5_v8_closure_recovery_kind)
+- [`parseNodeProperLevel5ProcMaps`](#parsenodeproperlevel5procmaps)
+- [`recoverNodeProperLevel5RawV8ContextSmiCounter`](#recovernodeproperlevel5rawv8contextsmicounter)
+- [`recoverNodeProperLevel5V8ClosureCounterCell`](#recovernodeproperlevel5v8closurecountercell)
+- [`summarizeNodeProperLevel5SourceInspection`](#summarizenodeproperlevel5sourceinspection)
+
 ### Node Level 5 HTTP profile
 
 - [`NodeLevel5HttpProfileCapture`](#nodelevel5httpprofilecapture)
 - [`NodeLevel5HttpProfileCaptureInput`](#nodelevel5httpprofilecaptureinput)
 - [`NodeLevel5HttpProfileRefusal`](#nodelevel5httpprofilerefusal)
 - [`NodeLevel5HttpProfileRefusalCode`](#nodelevel5httpprofilerefusalcode)
+- [`NodeLevel5HttpProfileSelectedState`](#nodelevel5httpprofileselectedstate)
 - [`NODE_LEVEL5_HTTP_PROFILE_FORMAT_VERSION`](#node_level5_http_profile_format_version)
 - [`NODE_LEVEL5_HTTP_PROFILE_NAME`](#node_level5_http_profile_name)
 - [`buildNodeLevel5HttpProfileCapture`](#buildnodelevel5httpprofilecapture)
+- [`isSupportedNodeLevel5HttpSelectedState`](#issupportednodelevel5httpselectedstate)
 - [`nodeLevel5HttpProfileRefusalCodes`](#nodelevel5httpprofilerefusalcodes)
 - [`nodeLevel5HttpProfileRefusalRows`](#nodelevel5httpprofilerefusalrows)
 
@@ -5924,7 +5945,7 @@ by default when `output` is a TTY.
 
 ##### kind
 
-> **kind**: `"unknown"` \| `"vdso"` \| `"executable"` \| `"pie-executable"` \| `"shared-object"`
+> **kind**: `"unknown"` \| `"vdso"` \| `"executable"` \| `"shared-object"` \| `"pie-executable"`
 
 ##### buildId
 
@@ -7296,7 +7317,7 @@ by default when `output` is a TTY.
 
 ##### kind
 
-> **kind**: `"unknown"` \| `"vdso"` \| `"executable"` \| `"pie-executable"` \| `"shared-object"`
+> **kind**: `"unknown"` \| `"vdso"` \| `"executable"` \| `"shared-object"` \| `"pie-executable"`
 
 ###### Inherited from
 
@@ -7404,7 +7425,7 @@ by default when `output` is a TTY.
 
 ##### kind
 
-> **kind**: `"unknown"` \| `"vdso"` \| `"executable"` \| `"pie-executable"` \| `"shared-object"`
+> **kind**: `"unknown"` \| `"vdso"` \| `"executable"` \| `"shared-object"` \| `"pie-executable"`
 
 ###### Inherited from
 
@@ -11891,6 +11912,36 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ***
 
+### NodeLevel5HttpProfileSelectedState
+
+#### Properties
+
+##### kind
+
+> **kind**: `"node-http-counter-selected-state-v1"`
+
+##### route
+
+> **route**: `"/"`
+
+##### captureMethod
+
+> **captureMethod**: `"http-root-json-next-count"`
+
+##### observedNextCount
+
+> **observedNextCount**: `number`
+
+##### restoredInitialCount
+
+> **restoredInitialCount**: `number`
+
+##### expectedFirstTargetBody
+
+> **expectedFirstTargetBody**: `string`
+
+***
+
 ### NodeLevel5HttpProfileCaptureInput
 
 #### Properties
@@ -11935,6 +11986,10 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 > **bytes**: `number`
 
+##### selectedState?
+
+> `optional` **selectedState?**: [`NodeLevel5HttpProfileSelectedState`](#nodelevel5httpprofileselectedstate)
+
 ##### eventLoopResources?
 
 > `optional` **eventLoopResources?**: `unknown`
@@ -11959,7 +12014,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ##### sourceGoal
 
-> **sourceGoal**: `"021"`
+> **sourceGoal**: `"021"` \| `"022"`
 
 ##### evidenceStatus
 
@@ -12113,6 +12168,10 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 > **bytes**: `number`
 
+##### selectedState?
+
+> `optional` **selectedState?**: [`NodeLevel5HttpProfileSelectedState`](#nodelevel5httpprofileselectedstate)
+
 ##### gates
 
 > **gates**: `object`
@@ -12149,9 +12208,17 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 > **targetNativeContinuationRequired**: `true`
 
-###### productSupportBlockedUntilActualWorkloadContinuation
+###### productSupportBlockedUntilActualRuntimeStateContinuation
 
-> **productSupportBlockedUntilActualWorkloadContinuation**: `true`
+> **productSupportBlockedUntilActualRuntimeStateContinuation**: `true`
+
+###### selectedStateReconstructionHarness
+
+> **selectedStateReconstructionHarness**: `boolean`
+
+###### notProperLevel5Reason
+
+> **notProperLevel5Reason**: `"app-specific-selected-state-descriptor"` \| `"no-selected-state"`
 
 ***
 
@@ -12214,6 +12281,18 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 ##### kind?
 
 > `optional` **kind?**: `"machinen.node-level5-target-side-continuation-proof"`
+
+##### sourceArch?
+
+> `optional` **sourceArch?**: `string`
+
+##### targetArch?
+
+> `optional` **targetArch?**: `string`
+
+##### targetRuntime?
+
+> `optional` **targetRuntime?**: `string`
 
 ##### noSourceIsaEmulation
 
@@ -12646,6 +12725,310 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 ###### targetOutputVerified
 
 > **targetOutputVerified**: `true`
+
+***
+
+### NodeProperLevel5ProcMapEntry
+
+#### Properties
+
+##### start
+
+> **start**: `bigint`
+
+##### end
+
+> **end**: `bigint`
+
+##### permissions
+
+> **permissions**: `string`
+
+##### offset
+
+> **offset**: `bigint`
+
+##### device
+
+> **device**: `string`
+
+##### inode
+
+> **inode**: `string`
+
+##### path?
+
+> `optional` **path?**: `string`
+
+##### kind
+
+> **kind**: [`NodeProperLevel5MapKind`](#nodeproperlevel5mapkind)
+
+***
+
+### NodeProperLevel5SourceInspectionInput
+
+#### Properties
+
+##### procMaps
+
+> **procMaps**: `string`
+
+##### cmdline?
+
+> `optional` **cmdline?**: `string`[]
+
+##### fdTargets?
+
+> `optional` **fdTargets?**: `string`[]
+
+***
+
+### NodeProperLevel5SourceInspectionSummary
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.node-proper-level5-source-inspection"`
+
+##### goal
+
+> **goal**: `"023"`
+
+##### productSupport
+
+> **productSupport**: `"not-yet-supported"`
+
+##### implementationLevel
+
+> **implementationLevel**: `"first-proof-only"`
+
+##### graduationTargetLevel
+
+> **graduationTargetLevel**: `"level-5-cross-arch-process-continuation"`
+
+##### migrationCompleted
+
+> **migrationCompleted**: `true`
+
+##### runtimeLevelProfilesUsed
+
+> **runtimeLevelProfilesUsed**: `false`
+
+##### checkpointRestoreSubstrateUsed
+
+> **checkpointRestoreSubstrateUsed**: `false`
+
+##### appSpecificSelectedStateUsed
+
+> **appSpecificSelectedStateUsed**: `false`
+
+##### maps
+
+> **maps**: `object`
+
+###### total
+
+> **total**: `number`
+
+###### executableFiles
+
+> **executableFiles**: `number`
+
+###### sharedObjects
+
+> **sharedObjects**: `number`
+
+###### heaps
+
+> **heaps**: `number`
+
+###### stacks
+
+> **stacks**: `number`
+
+###### anonymousRw
+
+> **anonymousRw**: `number`
+
+###### anonymousExecutable
+
+> **anonymousExecutable**: `number`
+
+##### completedRecoveries
+
+> **completedRecoveries**: `string`[]
+
+##### proofCommand
+
+> **proofCommand**: `"pnpm run smoke-node-proper-level5-proof"`
+
+##### firstProofTarget
+
+> **firstProofTarget**: `object`
+
+###### singleThreadNode
+
+> **singleThreadNode**: `true`
+
+###### nativeAddonsAllowed
+
+> **nativeAddonsAllowed**: `false`
+
+###### workersAllowed
+
+> **workersAllowed**: `false`
+
+###### httpListeners
+
+> **httpListeners**: `1`
+
+###### stateSource
+
+> **stateSource**: `"reconstructed-runtime-native-state"`
+
+###### targetResponse
+
+> **targetResponse**: `object`
+
+###### targetResponse.count
+
+> **count**: `3`
+
+***
+
+### NodeProperLevel5V8ClosureRecoveryRefusal
+
+#### Properties
+
+##### code
+
+> **code**: [`NodeProperLevel5V8ClosureRecoveryRefusalCode`](#nodeproperlevel5v8closurerecoveryrefusalcode)
+
+##### message
+
+> **message**: `string`
+
+***
+
+### NodeProperLevel5V8ClosureCounterCellCandidate
+
+#### Properties
+
+##### closureNode
+
+> **closureNode**: `number`
+
+##### closureName
+
+> **closureName**: `string`
+
+##### contextNode
+
+> **contextNode**: `number`
+
+##### variableName
+
+> **variableName**: `string`
+
+##### cellNode
+
+> **cellNode**: `number`
+
+##### cellType
+
+> **cellType**: `string`
+
+##### cellName
+
+> **cellName**: `string`
+
+##### evidence
+
+> **evidence**: `string`[]
+
+***
+
+### NodeProperLevel5RawMemoryFragment
+
+#### Properties
+
+##### bytes
+
+> **bytes**: `Uint8Array`
+
+##### startAddress
+
+> **startAddress**: `bigint`
+
+##### bytesPath?
+
+> `optional` **bytesPath?**: `string`
+
+***
+
+### NodeProperLevel5RawV8ContextSmiRecoveryResult
+
+#### Properties
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### value?
+
+> `optional` **value?**: `number`
+
+##### anchorTaggedAddress?
+
+> `optional` **anchorTaggedAddress?**: `string`
+
+##### anchorBytesPath?
+
+> `optional` **anchorBytesPath?**: `string`
+
+##### contextBytesPath?
+
+> `optional` **contextBytesPath?**: `string`
+
+##### contextSlotOffset?
+
+> `optional` **contextSlotOffset?**: `number`
+
+##### smiEncoding?
+
+> `optional` **smiEncoding?**: `"v8-pointer-compressed-smi32"` \| `"v8-tagged-smi64"`
+
+##### refusals
+
+> **refusals**: [`NodeProperLevel5V8ClosureRecoveryRefusal`](#nodeproperlevel5v8closurerecoveryrefusal)[]
+
+***
+
+### NodeProperLevel5V8ClosureRecoveryResult
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.node-proper-level5-v8-closure-recovery"`
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### variableName
+
+> **variableName**: `string`
+
+##### candidates
+
+> **candidates**: [`NodeProperLevel5V8ClosureCounterCellCandidate`](#nodeproperlevel5v8closurecountercellcandidate)[]
+
+##### refusals
+
+> **refusals**: [`NodeProperLevel5V8ClosureRecoveryRefusal`](#nodeproperlevel5v8closurerecoveryrefusal)[]
 
 ***
 
@@ -13644,7 +14027,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`sourceArch`](#sourcearch-13)
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`sourceArch`](#sourcearch-14)
 
 ##### targetArch
 
@@ -13652,7 +14035,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`targetArch`](#targetarch-22)
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`targetArch`](#targetarch-23)
 
 ##### machinenStateModel
 
@@ -13724,7 +14107,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`evidence`](#evidence-6)
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`evidence`](#evidence-7)
 
 ##### kind
 
@@ -13740,7 +14123,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Overrides
 
-[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`migrationCompleted`](#migrationcompleted-18)
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`migrationCompleted`](#migrationcompleted-19)
 
 ##### scope
 
@@ -17640,7 +18023,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`sourceArch`](#sourcearch-29)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`sourceArch`](#sourcearch-30)
 
 ##### targetArch
 
@@ -17648,7 +18031,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`targetArch`](#targetarch-44)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`targetArch`](#targetarch-45)
 
 ##### stateModel
 
@@ -17704,7 +18087,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`evidence`](#evidence-15)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`evidence`](#evidence-16)
 
 ##### kind
 
@@ -17716,7 +18099,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Overrides
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`migrationCompleted`](#migrationcompleted-35)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`migrationCompleted`](#migrationcompleted-36)
 
 ##### scope
 
@@ -21276,6 +21659,18 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NodeProperLevel5MapKind
+
+> **NodeProperLevel5MapKind** = `"executable-file"` \| `"shared-object"` \| `"heap"` \| `"stack"` \| `"anonymous-rw"` \| `"anonymous-executable"` \| `"special"` \| `"other"`
+
+***
+
+### NodeProperLevel5V8ClosureRecoveryRefusalCode
+
+> **NodeProperLevel5V8ClosureRecoveryRefusalCode** = `"node-proper-level5-v8-heap-snapshot-malformed"` \| `"node-proper-level5-v8-counter-closure-context-missing"` \| `"node-proper-level5-v8-counter-cell-primitive-smi-not-addressable"` \| `"node-proper-level5-v8-counter-cell-ambiguous"`
+
+***
+
 ### OppositeIsaVmExecutionRefusalCode
 
 > **OppositeIsaVmExecutionRefusalCode** = *typeof* [`oppositeIsaVmExecutionRefusalCodes`](#oppositeisavmexecutionrefusalcodes)\[`number`\]
@@ -23045,6 +23440,18 @@ loops; anything looser stops being a meaningful gate.
 ### NODE\_LEVEL5\_TARGET\_SIDE\_PROOF\_FORMAT\_VERSION
 
 > `const` **NODE\_LEVEL5\_TARGET\_SIDE\_PROOF\_FORMAT\_VERSION**: `1`
+
+***
+
+### NODE\_PROPER\_LEVEL5\_SOURCE\_INSPECTION\_KIND
+
+> `const` **NODE\_PROPER\_LEVEL5\_SOURCE\_INSPECTION\_KIND**: `"machinen.node-proper-level5-source-inspection"`
+
+***
+
+### NODE\_PROPER\_LEVEL5\_V8\_CLOSURE\_RECOVERY\_KIND
+
+> `const` **NODE\_PROPER\_LEVEL5\_V8\_CLOSURE\_RECOVERY\_KIND**: `"machinen.node-proper-level5-v8-closure-recovery"`
 
 ***
 
@@ -25732,6 +26139,22 @@ available.
 
 ***
 
+### isSupportedNodeLevel5HttpSelectedState()
+
+> **isSupportedNodeLevel5HttpSelectedState**(`selectedState`): `selectedState is NodeLevel5HttpProfileSelectedState`
+
+#### Parameters
+
+##### selectedState
+
+[`NodeLevel5HttpProfileSelectedState`](#nodelevel5httpprofileselectedstate)
+
+#### Returns
+
+`selectedState is NodeLevel5HttpProfileSelectedState`
+
+***
+
 ### nodeLevel5HttpProfileRefusalRows()
 
 > **nodeLevel5HttpProfileRefusalRows**(): [`NodeLevel5HttpProfileRefusal`](#nodelevel5httpprofilerefusal)[]
@@ -25771,6 +26194,94 @@ available.
 #### Returns
 
 `Promise`\<[`NodeLevel5TargetSideProof`](#nodelevel5targetsideproof)\>
+
+***
+
+### parseNodeProperLevel5ProcMaps()
+
+> **parseNodeProperLevel5ProcMaps**(`text`): [`NodeProperLevel5ProcMapEntry`](#nodeproperlevel5procmapentry)[]
+
+#### Parameters
+
+##### text
+
+`string`
+
+#### Returns
+
+[`NodeProperLevel5ProcMapEntry`](#nodeproperlevel5procmapentry)[]
+
+***
+
+### summarizeNodeProperLevel5SourceInspection()
+
+> **summarizeNodeProperLevel5SourceInspection**(`input`): [`NodeProperLevel5SourceInspectionSummary`](#nodeproperlevel5sourceinspectionsummary)
+
+#### Parameters
+
+##### input
+
+[`NodeProperLevel5SourceInspectionInput`](#nodeproperlevel5sourceinspectioninput)
+
+#### Returns
+
+[`NodeProperLevel5SourceInspectionSummary`](#nodeproperlevel5sourceinspectionsummary)
+
+***
+
+### recoverNodeProperLevel5RawV8ContextSmiCounter()
+
+> **recoverNodeProperLevel5RawV8ContextSmiCounter**(`fragments`, `options`): [`NodeProperLevel5RawV8ContextSmiRecoveryResult`](#nodeproperlevel5rawv8contextsmirecoveryresult)
+
+#### Parameters
+
+##### fragments
+
+[`NodeProperLevel5RawMemoryFragment`](#nodeproperlevel5rawmemoryfragment)[]
+
+##### options
+
+###### anchor
+
+`string`
+
+###### expectedValue?
+
+`number`
+
+###### searchRadiusBytes?
+
+`number`
+
+#### Returns
+
+[`NodeProperLevel5RawV8ContextSmiRecoveryResult`](#nodeproperlevel5rawv8contextsmirecoveryresult)
+
+***
+
+### recoverNodeProperLevel5V8ClosureCounterCell()
+
+> **recoverNodeProperLevel5V8ClosureCounterCell**(`heapSnapshot`, `options?`): [`NodeProperLevel5V8ClosureRecoveryResult`](#nodeproperlevel5v8closurerecoveryresult)
+
+#### Parameters
+
+##### heapSnapshot
+
+`unknown`
+
+##### options?
+
+###### variableName?
+
+`string`
+
+###### closureNameIncludes?
+
+`string`
+
+#### Returns
+
+[`NodeProperLevel5V8ClosureRecoveryResult`](#nodeproperlevel5v8closurerecoveryresult)
 
 ***
 

@@ -102,6 +102,17 @@ function validateRegistry(registry, selected) {
     failures.push("Level 2 semantic ping must not be reported as implemented product support");
   }
   if (
+    registry.entries.some(
+      (entry) =>
+        entry.name === "node-v8-libuv-single-thread-http-v1" &&
+        (entry.productStatus === "implemented-product-support" || entry.migrationCompleted),
+    )
+  ) {
+    failures.push(
+      "selected-state Node HTTP counter harness must not be reported as product support",
+    );
+  }
+  if (
     !implemented.some(
       (entry) =>
         entry.name === "ping-level4-socket-reconstruction-v1" &&
