@@ -1,0 +1,23 @@
+{
+  "kind": "machinen.node-level5-retained-artifact-proof-summary",
+  "proof": "361",
+  "goal": "Retained bundle import contract",
+  "result": "Accepted retained bundle shape is explicit and versioned.",
+  "status": "node-product-support-80-retained-artifact-ingestion",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "acceptedBundleShape": "<root>/<family>/<direction>",
+  "requiredArtifacts": [
+    "manifest.json",
+    "capture-summary.json",
+    "restore-summary.json",
+    "target.log",
+    "target-native-verifier.json",
+    "behavioral-verifier.json",
+    "refusal-rows.json",
+    "version-info.json",
+    "triage-bundle.json"
+  ],
+  "schemaVersioned": true
+}

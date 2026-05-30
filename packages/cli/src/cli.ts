@@ -1920,27 +1920,13 @@ function cmdNodeLevel5(args: string[]): number {
     return cmdNodeLevel5Artifacts(rest.slice(1), json);
   }
   if (rest[0] === "detectors") {
-    return reportNodeLevel5ProductCommand(json, {
-      accepted: true,
-      kind: "machinen.node-level5-detector-registry-summary",
-      detectors: nodeLevel5ProductSupport80UnsupportedDetectors,
-    });
+    return cmdNodeLevel5Detectors(rest.slice(1), json);
   }
   if (rest[0] === "claims") {
-    return reportNodeLevel5ProductCommand(json, {
-      accepted: true,
-      kind: "machinen.node-level5-claim-registry-summary",
-      claimRegistry: nodeLevel5ProductSupport80ClaimRegistry,
-    });
+    return cmdNodeLevel5Claims(rest.slice(1), json);
   }
   if (rest[0] === "release-gate") {
-    return reportNodeLevel5ProductCommand(json, {
-      accepted: true,
-      kind: "machinen.node-level5-release-gate-summary",
-      nodeProductSupportClaimed: 80,
-      broadNodeProductSupportClaimed: 20,
-      arbitraryProcessCrossArchRestoreClaimed: 0,
-    });
+    return cmdNodeLevel5ReleaseGate(rest.slice(1), json);
   }
   if (rest[0] === "abi-check") {
     return cmdNodeLevel5AbiCheck(rest.slice(1), json);
@@ -1968,14 +1954,15 @@ function cmdNodeLevel5Artifacts(args: string[], json: boolean): number {
       die("machinen node-level5 artifacts verify requires --root, --family, and --direction");
     }
     try {
-      const bundle = loadNodeLevel5ProductSupport80ArtifactBundle({
-        artifactRoot: resolve(options.root),
-        familyId: options.family,
-        direction: options.direction,
-      });
-      return reportNodeLevel5ProductCommand(json, {
-        ...verifyNodeLevel5ProductSupport80ArtifactBundle(bundle),
-      });
+      assertSafeNodeLevel5ArtifactRootPath(options.root);
+      return reportNodeLevel5ProductCommand(
+        json,
+        verifyNodeLevel5RetainedArtifact({
+          root: options.root,
+          family: options.family,
+          direction: options.direction,
+        }),
+      );
     } catch (error) {
       return reportNodeLevel5ProductCommand(json, {
         accepted: false,
@@ -1985,6 +1972,85 @@ function cmdNodeLevel5Artifacts(args: string[], json: boolean): number {
     }
   }
   die(nodeLevel5Usage());
+}
+
+function cmdNodeLevel5Detectors(args: string[], json: boolean): number {
+  const artifact = readOptionalNodeLevel5RetainedArtifact(args);
+  return reportNodeLevel5ProductCommand(json, {
+    accepted: true,
+    kind: "machinen.node-level5-detector-registry-summary",
+    detectors: nodeLevel5ProductSupport80UnsupportedDetectors,
+    retainedArtifact: artifact,
+  });
+}
+
+function cmdNodeLevel5Claims(args: string[], json: boolean): number {
+  const artifact = readOptionalNodeLevel5RetainedArtifact(args);
+  return reportNodeLevel5ProductCommand(json, {
+    accepted: true,
+    kind: "machinen.node-level5-claim-registry-summary",
+    claimRegistry: nodeLevel5ProductSupport80ClaimRegistry,
+    retainedArtifact: artifact,
+  });
+}
+
+function cmdNodeLevel5ReleaseGate(args: string[], json: boolean): number {
+  const artifact = readOptionalNodeLevel5RetainedArtifact(args);
+  const accepted = artifact ? artifact.accepted === true : true;
+  return reportNodeLevel5ProductCommand(json, {
+    accepted,
+    kind: "machinen.node-level5-release-gate-summary",
+    nodeProductSupportClaimed: 80,
+    broadNodeProductSupportClaimed: 20,
+    arbitraryProcessCrossArchRestoreClaimed: 0,
+    retainedArtifact: artifact,
+  });
+}
+
+// fallow-ignore-next-line complexity
+function readOptionalNodeLevel5RetainedArtifact(
+  args: string[],
+): Record<string, unknown> | undefined {
+  if (args.length === 0) {
+    return undefined;
+  }
+  try {
+    const options = parseNodeLevel5ArtifactArgs(args);
+    if (!options.root || !options.family || !options.direction) {
+      die(
+        "machinen node-level5 retained artifact commands require --root, --family, and --direction",
+      );
+    }
+    assertSafeNodeLevel5ArtifactRootPath(options.root);
+    return verifyNodeLevel5RetainedArtifact({
+      root: options.root,
+      family: options.family,
+      direction: options.direction,
+    });
+  } catch (error) {
+    return {
+      accepted: false,
+      code: "node-level5-artifact-bundle-invalid",
+      message: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+function verifyNodeLevel5RetainedArtifact(
+  options: Required<Pick<NodeLevel5ArtifactCliOptions, "root" | "family" | "direction">>,
+): Record<string, unknown> {
+  const bundle = loadNodeLevel5ProductSupport80ArtifactBundle({
+    artifactRoot: resolve(options.root),
+    familyId: options.family,
+    direction: options.direction,
+  });
+  return verifyNodeLevel5ProductSupport80ArtifactBundle(bundle);
+}
+
+function assertSafeNodeLevel5ArtifactRootPath(path: string): void {
+  if (path.split(/[\\/]+/u).includes("..")) {
+    throw new Error("Node Level 5 artifact root must not contain path traversal segments");
+  }
 }
 
 // fallow-ignore-next-line complexity

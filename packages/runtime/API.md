@@ -22913,6 +22913,18 @@ Poll interval in ms while retrying. Default 250.
 
 > **metadataOnlySuccessAccepted**: `boolean`
 
+##### manifestSchemaVerified
+
+> **manifestSchemaVerified**: `boolean`
+
+##### artifactHashesVerified
+
+> **artifactHashesVerified**: `boolean`
+
+##### retentionComplete
+
+> **retentionComplete**: `boolean`
+
 ***
 
 ### NodeLevel5ProductSupport80UnsupportedDetector
