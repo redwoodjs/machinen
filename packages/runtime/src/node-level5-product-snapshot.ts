@@ -23,6 +23,8 @@ export const NODE_LEVEL5_PRODUCT_RESTORE_MATERIALIZATION_REPORT_KIND =
   "machinen.node-level5-product-restore-materialization-report";
 export const NODE_LEVEL5_PRODUCT_RESTORE_LAUNCH_REPORT_KIND =
   "machinen.node-level5-product-restore-launch-report";
+export const NODE_LEVEL5_PRODUCT_BEHAVIORAL_VERIFIER_REPORT_KIND =
+  "machinen.node-level5-product-behavioral-verifier-report";
 export const DEFAULT_NODE_LEVEL5_PRODUCT_SNAPSHOT_DIRECTION = "arm64-to-amd64";
 
 export type NodeLevel5ProductSnapshotDirection = "arm64-to-amd64" | "amd64-to-arm64";
@@ -124,6 +126,25 @@ export type NodeLevel5ProductRestoreLaunchReport = {
   arbitraryProcessCrossArchRestoreClaimed: 0;
 };
 
+export type NodeLevel5ProductBehavioralVerifierReport = {
+  kind: typeof NODE_LEVEL5_PRODUCT_BEHAVIORAL_VERIFIER_REPORT_KIND;
+  accepted: boolean;
+  verifier: "target-native-http-loopback";
+  executable: string;
+  appDir: string;
+  expectedBody: "machinen-node-level5-behavior-ok";
+  exitCode: number | null;
+  signal: NodeJS.Signals | null;
+  targetNativeNodeVerified: boolean;
+  translatedContinuationRequired: true;
+  rawCpuRestoreUsed: false;
+  sourceIsaEmulationUsed: false;
+  metadataOnlySuccessAccepted: false;
+  nodeProductSupportClaimed: 80;
+  broadNodeProductSupportClaimed: 20;
+  arbitraryProcessCrossArchRestoreClaimed: 0;
+};
+
 export type NodeLevel5ProductSnapshotManifest = {
   kind: typeof NODE_LEVEL5_PRODUCT_SNAPSHOT_KIND;
   version: typeof NODE_LEVEL5_PRODUCT_SNAPSHOT_VERSION;
@@ -175,6 +196,8 @@ export type NodeLevel5ProductRestoreSummary = {
   launchReportPath: string;
   launchReport: NodeLevel5ProductRestoreLaunchReport;
   launchReportVerified: boolean;
+  behavioralVerifierReportPath: string;
+  behavioralVerifierReport: NodeLevel5ProductBehavioralVerifierReport;
   targetNativeNodeVerified: boolean;
   behavioralVerifierPassed: boolean;
   artifactHashesVerified: boolean;
@@ -271,6 +294,15 @@ export function restoreNodeLevel5ProductSnapshot(input: {
   const launchReport = buildRestoreLaunchReport(targetIdentity);
   const launchReportPath = join(input.snapshotDir, "node-level5-restore-launch-report.json");
   writeFileSync(launchReportPath, `${JSON.stringify(launchReport, null, 2)}\n`);
+  const behavioralVerifierReport = buildBehavioralVerifierReport(targetIdentity, launchReport);
+  const behavioralVerifierReportPath = join(
+    input.snapshotDir,
+    "node-level5-behavioral-verifier-report.json",
+  );
+  writeFileSync(
+    behavioralVerifierReportPath,
+    `${JSON.stringify(behavioralVerifierReport, null, 2)}\n`,
+  );
   return {
     kind: "machinen.node-level5-product-restore-summary",
     accepted:
@@ -278,7 +310,8 @@ export function restoreNodeLevel5ProductSnapshot(input: {
       detectorReportVerified &&
       targetIdentityVerified &&
       captureReportVerified &&
-      launchReport.accepted,
+      launchReport.accepted &&
+      behavioralVerifierReport.accepted,
     snapshotDir: input.snapshotDir,
     manifestPath: manifestPathFor(input.snapshotDir),
     familyId: manifest.familyId,
@@ -291,9 +324,12 @@ export function restoreNodeLevel5ProductSnapshot(input: {
     launchReportPath,
     launchReport,
     launchReportVerified: launchReport.accepted,
+    behavioralVerifierReportPath,
+    behavioralVerifierReport,
     targetNativeNodeVerified:
       verification.targetNativeNodeVerified && launchReport.targetNativeNodeVerified,
-    behavioralVerifierPassed: verification.behavioralVerifierPassed,
+    behavioralVerifierPassed:
+      verification.behavioralVerifierPassed && behavioralVerifierReport.accepted,
     artifactHashesVerified: verification.artifactHashesVerified,
     retentionComplete: verification.retentionComplete,
     translatedContinuationRequired: true,
@@ -486,6 +522,57 @@ function buildCaptureReport(
     broadNodeProductSupportClaimed: 20,
     arbitraryProcessCrossArchRestoreClaimed: 0,
   };
+}
+
+function buildBehavioralVerifierReport(
+  targetIdentity: NodeLevel5ProductTargetIdentity,
+  launchReport: NodeLevel5ProductRestoreLaunchReport,
+): NodeLevel5ProductBehavioralVerifierReport {
+  const executable = launchReport.executable;
+  const appDir = targetIdentity.appDir ?? process.cwd();
+  const verifier = spawnSync(executable, ["-e", behavioralVerifierScript()], {
+    cwd: existsSync(appDir) ? appDir : undefined,
+    encoding: "utf8",
+    timeout: 5000,
+  });
+  return {
+    kind: NODE_LEVEL5_PRODUCT_BEHAVIORAL_VERIFIER_REPORT_KIND,
+    accepted: verifier.status === 0,
+    verifier: "target-native-http-loopback",
+    executable,
+    appDir,
+    expectedBody: "machinen-node-level5-behavior-ok",
+    exitCode: verifier.status,
+    signal: verifier.signal,
+    targetNativeNodeVerified: verifier.status === 0,
+    translatedContinuationRequired: true,
+    rawCpuRestoreUsed: false,
+    sourceIsaEmulationUsed: false,
+    metadataOnlySuccessAccepted: false,
+    nodeProductSupportClaimed: 80,
+    broadNodeProductSupportClaimed: 20,
+    arbitraryProcessCrossArchRestoreClaimed: 0,
+  };
+}
+
+function behavioralVerifierScript(): string {
+  return `
+const http = require("node:http");
+const expected = "machinen-node-level5-behavior-ok";
+const server = http.createServer((_request, response) => response.end(expected));
+server.listen(0, "127.0.0.1", () => {
+  const address = server.address();
+  http.get({ host: "127.0.0.1", port: address.port, path: "/" }, (response) => {
+    let body = "";
+    response.setEncoding("utf8");
+    response.on("data", (chunk) => { body += chunk; });
+    response.on("end", () => {
+      server.close(() => process.exit(body === expected ? 0 : 1));
+    });
+  }).on("error", () => server.close(() => process.exit(1)));
+});
+setTimeout(() => server.close(() => process.exit(1)), 3000);
+`;
 }
 
 function buildRestoreLaunchReport(

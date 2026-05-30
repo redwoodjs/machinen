@@ -192,6 +192,7 @@
 - [`nodeLevel5ProductSupport80ClaimRegistry`](#nodelevel5productsupport80claimregistry)
 - [`nodeLevel5ProductSupport80UnsupportedDetectors`](#nodelevel5productsupport80unsupporteddetectors)
 - [`verifyNodeLevel5ProductSupport80ArtifactBundle`](#verifynodelevel5productsupport80artifactbundle)
+- [`NodeLevel5ProductBehavioralVerifierReport`](#nodelevel5productbehavioralverifierreport)
 - [`NodeLevel5ProductCaptureReport`](#nodelevel5productcapturereport)
 - [`NodeLevel5ProductDetectorReport`](#nodelevel5productdetectorreport)
 - [`NodeLevel5ProductRestoreLaunchReport`](#nodelevel5productrestorelaunchreport)
@@ -204,6 +205,7 @@
 - [`NodeLevel5ProductSnapshotSummary`](#nodelevel5productsnapshotsummary)
 - [`NodeLevel5ProductTargetIdentity`](#nodelevel5producttargetidentity)
 - [`DEFAULT_NODE_LEVEL5_PRODUCT_SNAPSHOT_DIRECTION`](#default_node_level5_product_snapshot_direction)
+- [`NODE_LEVEL5_PRODUCT_BEHAVIORAL_VERIFIER_REPORT_KIND`](#node_level5_product_behavioral_verifier_report_kind)
 - [`NODE_LEVEL5_PRODUCT_CAPTURE_REPORT_KIND`](#node_level5_product_capture_report_kind)
 - [`NODE_LEVEL5_PRODUCT_DETECTOR_REPORT_KIND`](#node_level5_product_detector_report_kind)
 - [`NODE_LEVEL5_PRODUCT_RESTORE_LAUNCH_REPORT_KIND`](#node_level5_product_restore_launch_report_kind)
@@ -22642,6 +22644,78 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NodeLevel5ProductBehavioralVerifierReport
+
+> **NodeLevel5ProductBehavioralVerifierReport** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_PRODUCT_BEHAVIORAL_VERIFIER_REPORT_KIND`](#node_level5_product_behavioral_verifier_report_kind)
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### verifier
+
+> **verifier**: `"target-native-http-loopback"`
+
+##### executable
+
+> **executable**: `string`
+
+##### appDir
+
+> **appDir**: `string`
+
+##### expectedBody
+
+> **expectedBody**: `"machinen-node-level5-behavior-ok"`
+
+##### exitCode
+
+> **exitCode**: `number` \| `null`
+
+##### signal
+
+> **signal**: `NodeJS.Signals` \| `null`
+
+##### targetNativeNodeVerified
+
+> **targetNativeNodeVerified**: `boolean`
+
+##### translatedContinuationRequired
+
+> **translatedContinuationRequired**: `true`
+
+##### rawCpuRestoreUsed
+
+> **rawCpuRestoreUsed**: `false`
+
+##### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+##### metadataOnlySuccessAccepted
+
+> **metadataOnlySuccessAccepted**: `false`
+
+##### nodeProductSupportClaimed
+
+> **nodeProductSupportClaimed**: `80`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `20`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
+
+***
+
 ### NodeLevel5ProductSnapshotManifest
 
 > **NodeLevel5ProductSnapshotManifest** = `object`
@@ -22839,6 +22913,14 @@ Poll interval in ms while retrying. Default 250.
 ##### launchReportVerified
 
 > **launchReportVerified**: `boolean`
+
+##### behavioralVerifierReportPath
+
+> **behavioralVerifierReportPath**: `string`
+
+##### behavioralVerifierReport
+
+> **behavioralVerifierReport**: [`NodeLevel5ProductBehavioralVerifierReport`](#nodelevel5productbehavioralverifierreport)
 
 ##### targetNativeNodeVerified
 
@@ -25887,6 +25969,12 @@ loops; anything looser stops being a meaningful gate.
 ### NODE\_LEVEL5\_PRODUCT\_RESTORE\_LAUNCH\_REPORT\_KIND
 
 > `const` **NODE\_LEVEL5\_PRODUCT\_RESTORE\_LAUNCH\_REPORT\_KIND**: `"machinen.node-level5-product-restore-launch-report"` = `"machinen.node-level5-product-restore-launch-report"`
+
+***
+
+### NODE\_LEVEL5\_PRODUCT\_BEHAVIORAL\_VERIFIER\_REPORT\_KIND
+
+> `const` **NODE\_LEVEL5\_PRODUCT\_BEHAVIORAL\_VERIFIER\_REPORT\_KIND**: `"machinen.node-level5-product-behavioral-verifier-report"` = `"machinen.node-level5-product-behavioral-verifier-report"`
 
 ***
 

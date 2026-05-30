@@ -1,0 +1,12 @@
+{
+  "kind": "machinen.node-level5-behavioral-verifier-proof-summary",
+  "proof": "605",
+  "goal": "Behavioral verifier contract",
+  "result": "Restore reports target-native HTTP behavioral verification.",
+  "status": "node-product-support-80-behavioral-verifier",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
+  "verifier": "target-native-http-loopback"
+}
