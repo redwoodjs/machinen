@@ -36,6 +36,18 @@ machinen restore node-level5 \
 
 Both commands emit machine-readable summaries with `--json`.
 
+## Readiness gates
+
+The declared subset has a 100% readiness gate only for this narrow experimental path. The gate is made from:
+
+- Bidirectional guarded CLI capture/restore evidence for `arm64 -> amd64` and `amd64 -> arm64` manifests.
+- CI-style artifact retention for manifests, summaries, and refusal rows.
+- Stable public refusal codes for unsafe neighbors.
+- Public docs that keep the support boundary visible.
+- A final audit that keeps broad Node product support claimed at `0%`.
+
+The broader Node proof matrix is also allowed to reach 100% only as a proof matrix: unsupported V8, libuv, worker/thread, native-addon, Wasm, active-request, raw-CPU, and source-ISA-emulation neighbors must refuse before target start.
+
 ## Product boundary
 
 This path is a guarded experimental candidate. It does not claim broad Node Level 5 support, and it does not claim arbitrary process cross-architecture restore.

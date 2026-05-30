@@ -183,6 +183,16 @@ export {
   nodeLevel5DeclaredSubsetSupportMatrix,
   restoreNodeLevel5DeclaredSubset,
 } from "./node-level5-declared-subset.ts";
+export {
+  NODE_LEVEL5_READINESS_MATRIX_KIND,
+  NODE_LEVEL5_READINESS_MATRIX_VERSION,
+  assertNodeLevel5ReadinessMatrixComplete,
+  nodeLevel5AppCorpusGates,
+  nodeLevel5FinalAuditGates,
+  nodeLevel5NarrowProductReadinessGates,
+  nodeLevel5ReadinessMatrix,
+  nodeLevel5UnsupportedNeighborGates,
+} from "./node-level5-readiness-matrix.ts";
 export { buildNativeCodeMap } from "./native-code-map.ts";
 export {
   classifyNativeActiveSyscalls,
@@ -261,6 +271,13 @@ export type {
   NodeLevel5DeclaredSubsetSupportMatrix,
   RestoreNodeLevel5DeclaredSubsetInput,
 } from "./node-level5-declared-subset.ts";
+export type {
+  NodeLevel5AppCorpusGate,
+  NodeLevel5ReadinessGate,
+  NodeLevel5ReadinessGateStatus,
+  NodeLevel5ReadinessMatrix,
+  NodeLevel5UnsupportedNeighborGate,
+} from "./node-level5-readiness-matrix.ts";
 export type {
   NativeCodeMapRequest,
   NativeCodeMapResult,
