@@ -4,6 +4,10 @@
 
 Replace the controlled JS target loader with a lower-level target-native materializer. This is **not** runtime-aware snapshot/restore, not a Node profile, and not app-level import/export. The target must rebuild enough V8/libuv state through native target mechanisms.
 
+## Track objective
+
+The actual goal is to replace fixture-specific JS target loaders with a target-native materializer that consumes portable source-state IR and raw evidence. This is still semantic reconstruction, not raw VM or process restore. The proof must fail closed until native V8/libuv materialization can rebuild the target state without app export/import, selected-state descriptors, source ISA emulation, or sidecar replay.
+
 ## Proof folder
 
 All implementation notes, fixtures, and smoke tests for this proof should live under `proof/029/`. The proof smoke test may be written in TypeScript, for example `proof/029/smoke.ts`, with an optional `proof/029/smoke.sh` compatibility wrapper. Do not add root `package.json` scripts for this proof; run proof-local TypeScript smokes directly with `pnpm exec tsx proof/029/smoke.ts`.

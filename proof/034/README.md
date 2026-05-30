@@ -4,6 +4,10 @@
 
 Translate a captured source continuation into a target-native continuation descriptor. This is not copying arm64 registers into amd64, and not source ISA emulation. It is a proof that known safe source PCs/registers/stack facts can become a target-native landing plan.
 
+## Track objective
+
+The actual goal is an architecture-neutral continuation descriptor derived from captured source machine/process state. The target should land in an equivalent target-native continuation, not copy source registers or execute source ISA bytes. This is the bridge from semantic reconstruction toward real continuation.
+
 ## Proof folder
 
 All implementation notes, fixtures, and smoke tests for this proof should live under `proof/034/`. The proof smoke test may be written in TypeScript, for example `proof/034/smoke.ts`, with an optional `proof/034/smoke.sh` compatibility wrapper. Do not add root `package.json` scripts for this proof; run proof-local TypeScript smokes directly with `pnpm exec tsx proof/034/smoke.ts`.

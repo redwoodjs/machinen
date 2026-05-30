@@ -4,6 +4,10 @@
 
 Move beyond selected useful memory fragments. Capture a complete inventory of the Node process image: mappings, bytes policy, registers, thread state, stack ranges, TLS hints, signal state, fd table, and kernel resources. This is still a proof bundle, not product support.
 
+## Track objective
+
+The actual goal is to make the source-state bundle honest about the whole process image while still restoring only supported semantic state. Every captured mapping, thread, and fd should be classified as translated, recreated, copied as evidence, or refused. A complete inventory is evidence for future restore work; it is not a claim that the full process image is restorable.
+
 ## Proof folder
 
 All implementation notes, fixtures, and smoke tests for this proof should live under `proof/031/`. The proof smoke test may be written in TypeScript, for example `proof/031/smoke.ts`, with an optional `proof/031/smoke.sh` compatibility wrapper. Do not add root `package.json` scripts for this proof; run proof-local TypeScript smokes directly with `pnpm exec tsx proof/031/smoke.ts`.

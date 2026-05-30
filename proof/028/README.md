@@ -4,6 +4,10 @@
 
 Run the proper Node Level 5 proof across architectures. This is **not** runtime-aware snapshot/restore, not source ISA emulation, and not a metadata-only cross-arch claim. The target must run target-native Node and reconstruct state from portable source-state IR.
 
+## Track objective
+
+The object being captured/restored in this proof track is a **portable source-state IR plus raw evidence**, not a full VM snapshot or raw process image. The success condition is target-native semantic reconstruction: recover the source Node counter from captured V8 memory evidence and make an opposite-architecture target return the next value. CPU registers, the full V8 heap, and the complete source process image remain outside the claim unless a later proof explicitly implements them.
+
 ## Proof folder
 
 All implementation notes, fixtures, and smoke tests for this proof should live under `proof/028/`. The proof smoke test may be written in TypeScript, for example `proof/028/smoke.ts`, with an optional `proof/028/smoke.sh` compatibility wrapper. Do not add root `package.json` scripts for this proof; run proof-local TypeScript smokes directly with `pnpm exec tsx proof/028/smoke.ts`.

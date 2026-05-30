@@ -4,6 +4,10 @@
 
 Expand from tiny V8 state shapes to a small heap graph translator. The proof should recover multiple linked plain objects, arrays, strings, and closure context cells from captured V8 memory, then rebuild equivalent target-native objects. Unsupported V8 shapes must refuse.
 
+## Track objective
+
+The actual goal is to grow the semantic state that can be translated from raw V8 memory evidence into target-native V8 objects. This is heap graph reconstruction for supported shapes, not a byte-for-byte V8 heap restore. Unsupported maps, elements kinds, strings, or object shapes must refuse.
+
 ## Proof folder
 
 All implementation notes, fixtures, and smoke tests for this proof should live under `proof/033/`. The proof smoke test may be written in TypeScript, for example `proof/033/smoke.ts`, with an optional `proof/033/smoke.sh` compatibility wrapper. Do not add root `package.json` scripts for this proof; run proof-local TypeScript smokes directly with `pnpm exec tsx proof/033/smoke.ts`.

@@ -4,6 +4,10 @@
 
 Classify where each source thread stopped. The proof must distinguish safe event-loop wait points from unsafe JavaScript, V8, native, syscall, GC, or HTTP parser continuations. Unsupported states must refuse before any target materialization.
 
+## Track objective
+
+The actual goal is to decide whether a captured source point is safe for target-native semantic reconstruction. Accepted rows get continuation descriptors; unsafe rows refuse. This classifier prevents raw registers, stacks, active callbacks, or syscalls from being treated as restored just because they were captured.
+
 ## Proof folder
 
 All implementation notes, fixtures, and smoke tests for this proof should live under `proof/032/`. The proof smoke test may be written in TypeScript, for example `proof/032/smoke.ts`, with an optional `proof/032/smoke.sh` compatibility wrapper. Do not add root `package.json` scripts for this proof; run proof-local TypeScript smokes directly with `pnpm exec tsx proof/032/smoke.ts`.

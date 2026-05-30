@@ -4,6 +4,10 @@
 
 Replace process-only `SIGSTOP` capture with whole-VM pause capture for the proper Node proof track. This is **not** full restore by itself. It is a cleaner external quiesce point so process memory, registers, `/proc`, fd tables, and socket state are captured from one frozen machine instant.
 
+## Track objective
+
+The actual goal is a cleaner capture boundary for the same source-state IR path. VM pause should make capture more atomic, but it does not turn the proof into full VM restore. The target still reconstructs only supported state target-natively, and unsafe active state still refuses.
+
 ## Proof folder
 
 All implementation notes, fixtures, and smoke tests for this proof should live under `proof/030/`. The proof smoke test may be written in TypeScript, for example `proof/030/smoke.ts`, with an optional `proof/030/smoke.sh` compatibility wrapper. Do not add root `package.json` scripts for this proof; run proof-local TypeScript smokes directly with `pnpm exec tsx proof/030/smoke.ts`.

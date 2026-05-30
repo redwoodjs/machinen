@@ -4,6 +4,10 @@
 
 Build a gauntlet of unsafe source states and prove they fail closed. This protects the move toward CPU/register/heap continuation by making unsupported states explicit instead of accidentally treating metadata as success.
 
+## Track objective
+
+The actual goal is to protect the proof track from false success. The gauntlet should prove that unsupported captured state refuses before target materialization, while supported quiescent state still reconstructs target-natively. Refusal evidence is part of the proof, not a failure of the product path.
+
 ## Proof folder
 
 All implementation notes, fixtures, and smoke tests for this proof should live under `proof/036/`. The proof smoke test may be written in TypeScript, for example `proof/036/smoke.ts`, with an optional `proof/036/smoke.sh` compatibility wrapper. Do not add root `package.json` scripts for this proof; run proof-local TypeScript smokes directly with `pnpm exec tsx proof/036/smoke.ts`.
