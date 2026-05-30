@@ -1,0 +1,29 @@
+{
+  "kind": "machinen.node-proper-level5-repeatability-negative-gauntlet-summary",
+  "proof": "089",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "runCount": 5,
+  "stableDigest": "1c891dc7c3ccca2f646a44ff4a6eaaefd40e21bd4b455f3db98b7a521fa1228b",
+  "negativeCases": [
+    "missing-v8-bytes",
+    "tampered-bundle-digest",
+    "unsafe-thread",
+    "source-isa-emulation",
+    "product-claim",
+    "resource-unread-bytes"
+  ],
+  "ciProofLane": {
+    "name": "proof-local-translated-continuation-repeatability-lane",
+    "workflowFileChanged": false,
+    "agentCiRequired": false,
+    "commands": ["pnpm exec tsx proof/089/smoke.ts", "pnpm run format:check", "pnpm run lint"]
+  },
+  "assertions": {
+    "repeatabilityStableAcrossRuns": true,
+    "negativeGauntletNeverStartsTarget": true,
+    "ciLaneDocumentedWithoutWorkflowChange": true,
+    "noAgentCiRunRequired": true
+  }
+}

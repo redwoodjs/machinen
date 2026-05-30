@@ -1,0 +1,51 @@
+{
+  "kind": "machinen.node-proper-level5-native-real-artifact-assembler-verifier-summary",
+  "proof": "088",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "assembler": {
+    "accepted": true,
+    "targetStarted": false,
+    "nativeAssemblerRan": true,
+    "sectionCount": 5,
+    "productSupportClaimed": false
+  },
+  "verifier": {
+    "accepted": true,
+    "structuredJsonParsed": true,
+    "targetStarted": false,
+    "sourceArchitecture": "arm64",
+    "targetArchitecture": "amd64",
+    "count": 2,
+    "graphTotal": 2,
+    "productSupportClaimed": false,
+    "broadLevel5ImplementationClaimed": false
+  },
+  "target": {
+    "count": 3,
+    "graphTotal": 3,
+    "nativeAssemblerRan": true,
+    "nativeVerifierRan": true
+  },
+  "refusedRows": [
+    {
+      "id": "missing-real-artifacts",
+      "expectedCode": "node-proper-level5-native-assembler-artifact-missing",
+      "actualCode": "node-proper-level5-native-assembler-artifact-missing",
+      "targetStarted": false
+    },
+    {
+      "id": "product-claim",
+      "expectedCode": "node-proper-level5-structured-json-product-claim-refused",
+      "actualCode": "node-proper-level5-structured-json-product-claim-refused",
+      "targetStarted": false
+    }
+  ],
+  "assertions": {
+    "nativeAssemblerConsumedRealArtifacts": true,
+    "nativeVerifierConsumedRealArtifactBundle": true,
+    "targetReturnedNextState": true,
+    "invalidInputsRefuseBeforeTargetStart": true
+  }
+}

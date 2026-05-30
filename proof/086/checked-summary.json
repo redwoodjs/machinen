@@ -1,0 +1,49 @@
+{
+  "kind": "machinen.node-proper-level5-real-v8-captured-byte-recovery-summary",
+  "proof": "086",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "accepted": {
+    "accepted": true,
+    "nativeDecoderStarted": true,
+    "targetStarted": false,
+    "decodedFromCapturedBytes": true,
+    "count": 2,
+    "graphTotal": 2,
+    "evidenceOffset": 72,
+    "productSupportClaimed": false,
+    "broadLevel5ImplementationClaimed": false
+  },
+  "target": {
+    "count": 3,
+    "graphTotal": 3,
+    "targetNative": true
+  },
+  "refusedRows": [
+    {
+      "id": "missing-marker",
+      "expectedCode": "node-proper-level5-v8-byte-marker-missing",
+      "actualCode": "node-proper-level5-v8-byte-marker-missing",
+      "targetStarted": false
+    },
+    {
+      "id": "truncated",
+      "expectedCode": "node-proper-level5-v8-byte-range-truncated",
+      "actualCode": "node-proper-level5-v8-byte-range-truncated",
+      "targetStarted": false
+    },
+    {
+      "id": "bad-smi-tag",
+      "expectedCode": "node-proper-level5-v8-smi-tag-unsupported",
+      "actualCode": "node-proper-level5-v8-smi-tag-unsupported",
+      "targetStarted": false
+    }
+  ],
+  "assertions": {
+    "nativeDecoderReadCapturedByteArtifact": true,
+    "targetReturnedNextState": true,
+    "invalidByteArtifactsRefuseBeforeTargetStart": true,
+    "byteForByteHeapRestoreOutOfScope": true
+  }
+}
