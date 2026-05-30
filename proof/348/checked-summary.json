@@ -1,0 +1,11 @@
+{
+  "kind": "machinen.node-level5-product-command-proof-summary",
+  "proof": "348",
+  "goal": "Human output stability",
+  "result": "Clear text summaries for operators.",
+  "status": "node-product-support-80-product-commands",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "humanOutput": "accepted node-level5 command"
+}

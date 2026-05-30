@@ -1,0 +1,13 @@
+{
+  "kind": "machinen.node-level5-product-command-proof-summary",
+  "proof": "343",
+  "goal": "CLI artifact bundle verifier",
+  "result": "CLI verifies retained evidence bundle.",
+  "status": "node-product-support-80-product-commands",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "familyId": "express-fastify-http-app",
+  "direction": "arm64-to-amd64",
+  "verificationAccepted": true
+}

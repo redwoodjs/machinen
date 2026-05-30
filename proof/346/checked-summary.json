@@ -1,0 +1,17 @@
+{
+  "kind": "machinen.node-level5-product-command-proof-summary",
+  "proof": "346",
+  "goal": "CLI release gate command",
+  "result": "One CLI command validates Node 80 hardening.",
+  "status": "node-product-support-80-product-commands",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "releaseGate": {
+    "accepted": true,
+    "kind": "machinen.node-level5-release-gate-summary",
+    "nodeProductSupportClaimed": 80,
+    "broadNodeProductSupportClaimed": 20,
+    "arbitraryProcessCrossArchRestoreClaimed": 0
+  }
+}

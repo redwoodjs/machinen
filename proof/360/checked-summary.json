@@ -1,0 +1,15 @@
+{
+  "kind": "machinen.node-level5-product-command-proof-summary",
+  "proof": "360",
+  "goal": "Final product-command audit",
+  "result": "Node 80/broad 20 with executable artifact commands.",
+  "status": "node-product-support-80-product-commands",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "finalClaim": {
+    "nodeProductSupportClaimed": 80,
+    "broadNodeProductSupportClaimed": 20,
+    "executableArtifactCommands": true
+  }
+}
