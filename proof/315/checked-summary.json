@@ -1,0 +1,21 @@
+{
+  "kind": "machinen.node-level5-product-support-80-proof-summary",
+  "proof": "315",
+  "goal": "Negative real app corpus",
+  "result": "Workers/addons/Wasm/TLS active state refuse.",
+  "status": "experimental-node-product-support-80",
+  "nodeProductSupportClaimed": 80,
+  "nodeProductSupportScope": "seventeen-service-app-and-boundary-families",
+  "previousNodeProductSupportClaimed": 65,
+  "newNodeProductSupportClaimed": 15,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "negativeRealAppCorpus": [
+    "worker-thread-product-boundary",
+    "native-addon-product-boundary",
+    "wasm-external-memory-product-boundary",
+    "tls-active-state",
+    "active-async-in-flight",
+    "child-process-live-state"
+  ]
+}

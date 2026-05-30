@@ -1,0 +1,15 @@
+{
+  "kind": "machinen.node-level5-product-support-80-proof-summary",
+  "proof": "317",
+  "goal": "Release checklist",
+  "result": "What must pass before 80%.",
+  "status": "experimental-node-product-support-80",
+  "nodeProductSupportClaimed": 80,
+  "nodeProductSupportScope": "seventeen-service-app-and-boundary-families",
+  "previousNodeProductSupportClaimed": 65,
+  "newNodeProductSupportClaimed": 15,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "checklistMentionsRealVmEvidence": true,
+  "checklistMentionsBroad20": true
+}
