@@ -1,0 +1,49 @@
+{
+  "kind": "machinen.node-proper-level5-zig-guest-capture-records-summary",
+  "proof": "096",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "requiredRecords": [
+    "process.json",
+    "maps.json",
+    "fd-table.json",
+    "threads.json",
+    "tcp.json",
+    "v8-memory.bin"
+  ],
+  "validation": {
+    "accepted": true,
+    "code": "accepted"
+  },
+  "decoded": {
+    "accepted": true,
+    "nativeDecoderStarted": true,
+    "targetStarted": false,
+    "decodedFromCapturedBytes": true,
+    "count": 2,
+    "graphTotal": 2,
+    "evidenceOffset": 73,
+    "productSupportClaimed": false,
+    "broadLevel5ImplementationClaimed": false
+  },
+  "target": {
+    "count": 3,
+    "graphTotal": 3,
+    "targetNative": true
+  },
+  "refusedRows": [
+    {
+      "id": "missing-record",
+      "expectedCode": "node-proper-level5-real-zig-guest-capture-process.json-missing",
+      "actualCode": "node-proper-level5-real-zig-guest-capture-process.json-missing",
+      "targetStarted": false
+    }
+  ],
+  "assertions": {
+    "zigGuestCaptureToolEmittedRecords": true,
+    "memoryBytesDecodedNatively": true,
+    "targetReturnedNextState": true,
+    "invalidRecordsRefuseBeforeTargetStart": true
+  }
+}
