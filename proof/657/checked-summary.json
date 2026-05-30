@@ -1,0 +1,13 @@
+{
+  "kind": "machinen.node-level5-product-behavioral-verifier-report",
+  "proof": "657",
+  "goal": "Route/body/header/status verifier reports",
+  "result": "Behavioral reports retain route, body, header, and status evidence.",
+  "status": "node-product-support-80-real-app-behavioral-corpus",
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
+  "verifier": "target-native-app-route"
+}
