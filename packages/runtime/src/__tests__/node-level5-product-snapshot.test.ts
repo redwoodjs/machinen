@@ -33,7 +33,10 @@ describe("Node Level 5 product snapshot facade", () => {
         familyId: "express-fastify-http-app",
         detectedFramework: "express",
       });
-      const summary = createNodeLevel5ProductSnapshot({ outDir, appDir: source });
+      const summary = createNodeLevel5ProductSnapshot({
+        outDir,
+        target: { target: "api", targetKind: "name", runtime: "node", appDir: source },
+      });
       expect(summary.accepted).toBe(true);
       expect(summary.manifest).toMatchObject({
         nodeProductSupportClaimed: 80,
@@ -46,6 +49,7 @@ describe("Node Level 5 product snapshot facade", () => {
       expect(isNodeLevel5ProductSnapshotBundle(outDir)).toBe(true);
       expect(restoreNodeLevel5ProductSnapshot({ snapshotDir: outDir })).toMatchObject({
         accepted: true,
+        targetIdentityVerified: true,
         detectorReportVerified: true,
         familyId: "express-fastify-http-app",
         direction: "arm64-to-amd64",
@@ -64,7 +68,12 @@ describe("Node Level 5 product snapshot facade", () => {
     const outDir = mkdtempSync(join(tmpdir(), "machinen-node-product-refusal-"));
     const source = appDir({ workerThreads: true });
     try {
-      expect(createNodeLevel5ProductSnapshot({ outDir, appDir: source })).toMatchObject({
+      expect(
+        createNodeLevel5ProductSnapshot({
+          outDir,
+          target: { target: "api", targetKind: "name", runtime: "node", appDir: source },
+        }),
+      ).toMatchObject({
         accepted: false,
         refusal: { code: "node-level5-worker-thread-refused" },
       });

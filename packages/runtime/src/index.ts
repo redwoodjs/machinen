@@ -242,6 +242,7 @@ export {
   DEFAULT_NODE_LEVEL5_PRODUCT_SNAPSHOT_DIRECTION,
   NODE_LEVEL5_PRODUCT_DETECTOR_REPORT_KIND,
   NODE_LEVEL5_PRODUCT_SNAPSHOT_KIND,
+  NODE_LEVEL5_PRODUCT_TARGET_IDENTITY_KIND,
   NODE_LEVEL5_PRODUCT_SNAPSHOT_VERSION,
   createNodeLevel5ProductSnapshot,
   detectNodeLevel5ProductSnapshotApp,
@@ -370,6 +371,7 @@ export type {
   NodeLevel5ProductSnapshotRefusal,
   NodeLevel5ProductSnapshotRefusalCode,
   NodeLevel5ProductSnapshotSummary,
+  NodeLevel5ProductTargetIdentity,
 } from "./node-level5-product-snapshot.ts";
 export type {
   NativeCodeMapRequest,
