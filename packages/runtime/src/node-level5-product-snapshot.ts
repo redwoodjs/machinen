@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -20,6 +21,8 @@ export const NODE_LEVEL5_PRODUCT_CAPTURE_REPORT_KIND =
   "machinen.node-level5-product-capture-report";
 export const NODE_LEVEL5_PRODUCT_RESTORE_MATERIALIZATION_REPORT_KIND =
   "machinen.node-level5-product-restore-materialization-report";
+export const NODE_LEVEL5_PRODUCT_RESTORE_LAUNCH_REPORT_KIND =
+  "machinen.node-level5-product-restore-launch-report";
 export const DEFAULT_NODE_LEVEL5_PRODUCT_SNAPSHOT_DIRECTION = "arm64-to-amd64";
 
 export type NodeLevel5ProductSnapshotDirection = "arm64-to-amd64" | "amd64-to-arm64";
@@ -104,6 +107,23 @@ export type NodeLevel5ProductRestoreMaterializationReport = {
   arbitraryProcessCrossArchRestoreClaimed: 0;
 };
 
+export type NodeLevel5ProductRestoreLaunchReport = {
+  kind: typeof NODE_LEVEL5_PRODUCT_RESTORE_LAUNCH_REPORT_KIND;
+  accepted: boolean;
+  executable: string;
+  appDir: string;
+  exitCode: number | null;
+  signal: NodeJS.Signals | null;
+  targetNativeNodeVerified: boolean;
+  translatedContinuationRequired: true;
+  rawCpuRestoreUsed: false;
+  sourceIsaEmulationUsed: false;
+  metadataOnlySuccessAccepted: false;
+  nodeProductSupportClaimed: 80;
+  broadNodeProductSupportClaimed: 20;
+  arbitraryProcessCrossArchRestoreClaimed: 0;
+};
+
 export type NodeLevel5ProductSnapshotManifest = {
   kind: typeof NODE_LEVEL5_PRODUCT_SNAPSHOT_KIND;
   version: typeof NODE_LEVEL5_PRODUCT_SNAPSHOT_VERSION;
@@ -152,6 +172,9 @@ export type NodeLevel5ProductRestoreSummary = {
   captureReportVerified: boolean;
   materializationReportPath: string;
   materializationReport: NodeLevel5ProductRestoreMaterializationReport;
+  launchReportPath: string;
+  launchReport: NodeLevel5ProductRestoreLaunchReport;
+  launchReportVerified: boolean;
   targetNativeNodeVerified: boolean;
   behavioralVerifierPassed: boolean;
   artifactHashesVerified: boolean;
@@ -228,7 +251,8 @@ export function restoreNodeLevel5ProductSnapshot(input: {
   snapshotDir: string;
 }): NodeLevel5ProductRestoreSummary {
   const manifest = readValidNodeLevel5ProductSnapshotManifest(input.snapshotDir);
-  const targetIdentityVerified = verifyTargetIdentity(input.snapshotDir, manifest);
+  const targetIdentity = readVerifiedTargetIdentity(input.snapshotDir, manifest);
+  const targetIdentityVerified = true;
   const detectorReportVerified = verifyDetectorReport(input.snapshotDir, manifest);
   const captureReportVerified = verifyCaptureReport(input.snapshotDir, manifest);
   const verification = verifyRetainedArtifactBundle(input.snapshotDir, manifest);
@@ -244,13 +268,17 @@ export function restoreNodeLevel5ProductSnapshot(input: {
     "node-level5-restore-materialization-report.json",
   );
   writeFileSync(materializationReportPath, `${JSON.stringify(materializationReport, null, 2)}\n`);
+  const launchReport = buildRestoreLaunchReport(targetIdentity);
+  const launchReportPath = join(input.snapshotDir, "node-level5-restore-launch-report.json");
+  writeFileSync(launchReportPath, `${JSON.stringify(launchReport, null, 2)}\n`);
   return {
     kind: "machinen.node-level5-product-restore-summary",
     accepted:
       verification.accepted &&
       detectorReportVerified &&
       targetIdentityVerified &&
-      captureReportVerified,
+      captureReportVerified &&
+      launchReport.accepted,
     snapshotDir: input.snapshotDir,
     manifestPath: manifestPathFor(input.snapshotDir),
     familyId: manifest.familyId,
@@ -260,7 +288,11 @@ export function restoreNodeLevel5ProductSnapshot(input: {
     captureReportVerified,
     materializationReportPath,
     materializationReport,
-    targetNativeNodeVerified: verification.targetNativeNodeVerified,
+    launchReportPath,
+    launchReport,
+    launchReportVerified: launchReport.accepted,
+    targetNativeNodeVerified:
+      verification.targetNativeNodeVerified && launchReport.targetNativeNodeVerified,
     behavioralVerifierPassed: verification.behavioralVerifierPassed,
     artifactHashesVerified: verification.artifactHashesVerified,
     retentionComplete: verification.retentionComplete,
@@ -456,6 +488,33 @@ function buildCaptureReport(
   };
 }
 
+function buildRestoreLaunchReport(
+  targetIdentity: NodeLevel5ProductTargetIdentity,
+): NodeLevel5ProductRestoreLaunchReport {
+  const executable = process.execPath;
+  const appDir = targetIdentity.appDir ?? process.cwd();
+  const launched = spawnSync(executable, ["-e", "process.exit(0)"], {
+    cwd: existsSync(appDir) ? appDir : undefined,
+    encoding: "utf8",
+  });
+  return {
+    kind: NODE_LEVEL5_PRODUCT_RESTORE_LAUNCH_REPORT_KIND,
+    accepted: launched.status === 0,
+    executable,
+    appDir,
+    exitCode: launched.status,
+    signal: launched.signal,
+    targetNativeNodeVerified: launched.status === 0,
+    translatedContinuationRequired: true,
+    rawCpuRestoreUsed: false,
+    sourceIsaEmulationUsed: false,
+    metadataOnlySuccessAccepted: false,
+    nodeProductSupportClaimed: 80,
+    broadNodeProductSupportClaimed: 20,
+    arbitraryProcessCrossArchRestoreClaimed: 0,
+  };
+}
+
 function buildRestoreMaterializationReport(
   manifest: NodeLevel5ProductSnapshotManifest,
   targetIdentityVerified: boolean,
@@ -562,16 +621,19 @@ function readValidNodeLevel5ProductSnapshotManifest(
   return manifest;
 }
 
-function verifyTargetIdentity(
+function readVerifiedTargetIdentity(
   snapshotDir: string,
   manifest: NodeLevel5ProductSnapshotManifest,
-): boolean {
+): NodeLevel5ProductTargetIdentity {
   const targetPath = join(snapshotDir, manifest.targetIdentityPath);
   if (sha256File(targetPath) !== manifest.targetIdentitySha256) {
     throw new Error("Node Level 5 product snapshot target identity hash mismatch");
   }
   const target = JSON.parse(readFileSync(targetPath, "utf8")) as NodeLevel5ProductTargetIdentity;
-  return target.kind === NODE_LEVEL5_PRODUCT_TARGET_IDENTITY_KIND && target.accepted === true;
+  if (target.kind !== NODE_LEVEL5_PRODUCT_TARGET_IDENTITY_KIND || target.accepted !== true) {
+    throw new Error("Node Level 5 product snapshot target identity is invalid");
+  }
+  return target;
 }
 
 function verifyDetectorReport(

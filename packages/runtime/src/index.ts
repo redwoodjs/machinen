@@ -242,6 +242,7 @@ export {
   DEFAULT_NODE_LEVEL5_PRODUCT_SNAPSHOT_DIRECTION,
   NODE_LEVEL5_PRODUCT_CAPTURE_REPORT_KIND,
   NODE_LEVEL5_PRODUCT_DETECTOR_REPORT_KIND,
+  NODE_LEVEL5_PRODUCT_RESTORE_LAUNCH_REPORT_KIND,
   NODE_LEVEL5_PRODUCT_RESTORE_MATERIALIZATION_REPORT_KIND,
   NODE_LEVEL5_PRODUCT_SNAPSHOT_KIND,
   NODE_LEVEL5_PRODUCT_TARGET_IDENTITY_KIND,
@@ -368,6 +369,7 @@ export type {
 export type {
   NodeLevel5ProductCaptureReport,
   NodeLevel5ProductDetectorReport,
+  NodeLevel5ProductRestoreLaunchReport,
   NodeLevel5ProductRestoreMaterializationReport,
   NodeLevel5ProductRestoreSummary,
   NodeLevel5ProductSnapshotDirection,
