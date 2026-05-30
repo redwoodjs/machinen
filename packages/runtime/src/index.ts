@@ -210,6 +210,15 @@ export {
   nodeLevel5ProductSupport50Matrix,
   nodeLevel5ProductSupport50NewFamilies,
 } from "./node-level5-product-support-50.ts";
+export {
+  NODE_LEVEL5_PRODUCT_SUPPORT_65_KIND,
+  NODE_LEVEL5_PRODUCT_SUPPORT_65_VERSION,
+  assertNodeLevel5ProductSupport65MatrixComplete,
+  nodeLevel5ProductSupport65ExpandedUnsupportedNeighbors,
+  nodeLevel5ProductSupport65Families,
+  nodeLevel5ProductSupport65Matrix,
+  nodeLevel5ProductSupport65NewFamilies,
+} from "./node-level5-product-support-65.ts";
 export { buildNativeCodeMap } from "./native-code-map.ts";
 export {
   classifyNativeActiveSyscalls,
@@ -307,6 +316,11 @@ export type {
   NodeLevel5ProductSupport50FamilyId,
   NodeLevel5ProductSupport50Matrix,
 } from "./node-level5-product-support-50.ts";
+export type {
+  NodeLevel5ProductSupport65Family,
+  NodeLevel5ProductSupport65FamilyId,
+  NodeLevel5ProductSupport65Matrix,
+} from "./node-level5-product-support-65.ts";
 export type {
   NativeCodeMapRequest,
   NativeCodeMapResult,
