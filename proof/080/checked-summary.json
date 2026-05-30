@@ -1,0 +1,43 @@
+{
+  "kind": "machinen.node-proper-level5-proof-080-summary",
+  "proof": "080",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "accepted": {
+    "guestCaptureSection": true,
+    "v8DecoderSection": true,
+    "threadClassifierSection": true,
+    "resourceEmitterSection": true,
+    "count": 3,
+    "graphTotal": 3
+  },
+  "refusedRows": [
+    {
+      "id": "missing-v8-section",
+      "expectedCode": "node-proper-level5-e2e-v8-section-missing",
+      "actualCode": "node-proper-level5-e2e-v8-section-missing",
+      "targetStarted": false
+    },
+    {
+      "id": "missing-resource-section",
+      "expectedCode": "node-proper-level5-e2e-resource-section-missing",
+      "actualCode": "node-proper-level5-e2e-resource-section-missing",
+      "targetStarted": false
+    },
+    {
+      "id": "stale-thread-section",
+      "expectedCode": "node-proper-level5-e2e-thread-section-stale",
+      "actualCode": "node-proper-level5-e2e-thread-section-stale",
+      "targetStarted": false
+    }
+  ],
+  "assertions": {
+    "proofOnly": true,
+    "acceptedPathVerified": true,
+    "refusedRowsStopBeforeTargetStart": true,
+    "noSourceIsaEmulation": true,
+    "noRawCpuCopy": true,
+    "noMetadataOnlySuccess": true
+  }
+}
