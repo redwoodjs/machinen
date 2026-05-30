@@ -1,0 +1,16 @@
+{
+  "kind": "machinen.node-level5-product-support-80-proof-summary",
+  "proof": "302",
+  "goal": "TLS active-state refusal/reconstruction audit",
+  "result": "Clarifies TLS boundary.",
+  "status": "experimental-node-product-support-80",
+  "nodeProductSupportClaimed": 80,
+  "nodeProductSupportScope": "seventeen-service-app-and-boundary-families",
+  "previousNodeProductSupportClaimed": 65,
+  "newNodeProductSupportClaimed": 15,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "boundary": "TLS active-state refusal/reconstruction audit",
+  "refusedBeforeTargetStart": true,
+  "reconstructionScopeLimited": true
+}
