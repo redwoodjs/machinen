@@ -1,0 +1,22 @@
+{
+  "kind": "machinen.node-level5-product-support-80-hardening-proof-summary",
+  "proof": "321",
+  "goal": "Real artifact bundle schema",
+  "result": "Make the VM evidence bundle schema concrete and reusable.",
+  "status": "node-product-support-80-hardened",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "artifactFields": [
+    "manifestPath",
+    "captureSummaryPath",
+    "restoreSummaryPath",
+    "targetLogPath",
+    "targetNativeVerifierPath",
+    "behavioralVerifierPath",
+    "refusalRowsPath",
+    "versionInfoPath",
+    "triageBundlePath"
+  ],
+  "reusableSchema": true
+}

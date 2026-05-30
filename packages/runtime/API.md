@@ -180,6 +180,17 @@
 - [`nodeLevel5ProductSupport80Families`](#nodelevel5productsupport80families)
 - [`nodeLevel5ProductSupport80Matrix`](#nodelevel5productsupport80matrix)
 - [`nodeLevel5ProductSupport80NewFamilies`](#nodelevel5productsupport80newfamilies)
+- [`NodeLevel5ProductSupport80ArtifactBundle`](#nodelevel5productsupport80artifactbundle)
+- [`NodeLevel5ProductSupport80ArtifactVerification`](#nodelevel5productsupport80artifactverification)
+- [`NodeLevel5ProductSupport80ClaimRegistry`](#nodelevel5productsupport80claimregistry)
+- [`NodeLevel5ProductSupport80UnsupportedDetector`](#nodelevel5productsupport80unsupporteddetector)
+- [`NODE_LEVEL5_PRODUCT_SUPPORT_80_ARTIFACT_BUNDLE_KIND`](#node_level5_product_support_80_artifact_bundle_kind)
+- [`NODE_LEVEL5_PRODUCT_SUPPORT_80_HARDENING_KIND`](#node_level5_product_support_80_hardening_kind)
+- [`assertNodeLevel5ProductSupport80HardeningComplete`](#assertnodelevel5productsupport80hardeningcomplete)
+- [`createNodeLevel5ProductSupport80ArtifactBundle`](#createnodelevel5productsupport80artifactbundle)
+- [`nodeLevel5ProductSupport80ClaimRegistry`](#nodelevel5productsupport80claimregistry)
+- [`nodeLevel5ProductSupport80UnsupportedDetectors`](#nodelevel5productsupport80unsupporteddetectors)
+- [`verifyNodeLevel5ProductSupport80ArtifactBundle`](#verifynodelevel5productsupport80artifactbundle)
 
 ### Boot a VM
 
@@ -14451,7 +14462,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`evidence`](#evidence-9)
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`evidence`](#evidence-10)
 
 ##### kind
 
@@ -18431,7 +18442,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`evidence`](#evidence-18)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`evidence`](#evidence-19)
 
 ##### kind
 
@@ -22791,6 +22802,194 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NodeLevel5ProductSupport80ArtifactBundle
+
+> **NodeLevel5ProductSupport80ArtifactBundle** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_PRODUCT_SUPPORT_80_ARTIFACT_BUNDLE_KIND`](#node_level5_product_support_80_artifact_bundle_kind)
+
+##### version
+
+> **version**: *typeof* [`NODE_LEVEL5_PRODUCT_SUPPORT_80_VERSION`](#node_level5_product_support_80_version)
+
+##### familyId
+
+> **familyId**: [`NodeLevel5ProductSupport80FamilyId`](#nodelevel5productsupport80familyid)
+
+##### direction
+
+> **direction**: `"arm64-to-amd64"` \| `"amd64-to-arm64"`
+
+##### artifactRoot
+
+> **artifactRoot**: `string`
+
+##### manifestPath
+
+> **manifestPath**: `string`
+
+##### captureSummaryPath
+
+> **captureSummaryPath**: `string`
+
+##### restoreSummaryPath
+
+> **restoreSummaryPath**: `string`
+
+##### targetLogPath
+
+> **targetLogPath**: `string`
+
+##### targetNativeVerifierPath
+
+> **targetNativeVerifierPath**: `string`
+
+##### behavioralVerifierPath
+
+> **behavioralVerifierPath**: `string`
+
+##### refusalRowsPath
+
+> **refusalRowsPath**: `string`
+
+##### versionInfoPath
+
+> **versionInfoPath**: `string`
+
+##### triageBundlePath
+
+> **triageBundlePath**: `string`
+
+##### evidence
+
+> **evidence**: [`NodeLevel5RealVmCrossArchEvidence`](#nodelevel5realvmcrossarchevidence)
+
+***
+
+### NodeLevel5ProductSupport80ArtifactVerification
+
+> **NodeLevel5ProductSupport80ArtifactVerification** = `object`
+
+#### Properties
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### familyId
+
+> **familyId**: [`NodeLevel5ProductSupport80FamilyId`](#nodelevel5productsupport80familyid)
+
+##### direction
+
+> **direction**: `"arm64-to-amd64"` \| `"amd64-to-arm64"`
+
+##### checkedPaths
+
+> **checkedPaths**: readonly `string`[]
+
+##### targetNativeNodeVerified
+
+> **targetNativeNodeVerified**: `boolean`
+
+##### behavioralVerifierPassed
+
+> **behavioralVerifierPassed**: `boolean`
+
+##### rawCpuRestoreUsed
+
+> **rawCpuRestoreUsed**: `boolean`
+
+##### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `boolean`
+
+##### metadataOnlySuccessAccepted
+
+> **metadataOnlySuccessAccepted**: `boolean`
+
+***
+
+### NodeLevel5ProductSupport80UnsupportedDetector
+
+> **NodeLevel5ProductSupport80UnsupportedDetector** = [`NodeLevel5ProductUnsupportedNeighbor`](#nodelevel5productunsupportedneighbor) & `object`
+
+#### Type Declaration
+
+##### detector
+
+> **detector**: `string`
+
+##### stable
+
+> **stable**: `true`
+
+##### artifactRequired
+
+> **artifactRequired**: `true`
+
+***
+
+### NodeLevel5ProductSupport80ClaimRegistry
+
+> **NodeLevel5ProductSupport80ClaimRegistry** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_PRODUCT_SUPPORT_80_HARDENING_KIND`](#node_level5_product_support_80_hardening_kind)
+
+##### status
+
+> **status**: `"node-product-support-80-hardened"`
+
+##### declaredSubsetExperimentalProductSupportClaimed
+
+> **declaredSubsetExperimentalProductSupportClaimed**: `100`
+
+##### nodeProductSupportTiers
+
+> **nodeProductSupportTiers**: readonly \[`20`, `50`, `65`, `80`\]
+
+##### nodeProductSupportClaimed
+
+> **nodeProductSupportClaimed**: `80`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `20`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
+
+##### realVmCrossArchEvidenceRequired
+
+> **realVmCrossArchEvidenceRequired**: `true`
+
+##### artifactRetentionDays
+
+> **artifactRetentionDays**: `30`
+
+##### flakeBudgetPercent
+
+> **flakeBudgetPercent**: `0`
+
+##### supportedFamilyCount
+
+> **supportedFamilyCount**: `17`
+
+##### unsupportedDetectorCount
+
+> **unsupportedDetectorCount**: `number`
+
+***
+
 ### NodeLevel5ProductSupport80FamilyId
 
 > **NodeLevel5ProductSupport80FamilyId** = [`NodeLevel5ProductSupport65Family`](#nodelevel5productsupport65family)\[`"id"`\] \| `"express-fastify-http-app"` \| `"dependency-heavy-app"` \| `"streams-files-mixed-app"`
@@ -25140,6 +25339,30 @@ loops; anything looser stops being a meaningful gate.
 ### nodeLevel5ProductSupport65Matrix
 
 > `const` **nodeLevel5ProductSupport65Matrix**: [`NodeLevel5ProductSupport65Matrix`](#nodelevel5productsupport65matrix)
+
+***
+
+### NODE\_LEVEL5\_PRODUCT\_SUPPORT\_80\_ARTIFACT\_BUNDLE\_KIND
+
+> `const` **NODE\_LEVEL5\_PRODUCT\_SUPPORT\_80\_ARTIFACT\_BUNDLE\_KIND**: `"machinen.node-level5-product-support-80-artifact-bundle"` = `"machinen.node-level5-product-support-80-artifact-bundle"`
+
+***
+
+### NODE\_LEVEL5\_PRODUCT\_SUPPORT\_80\_HARDENING\_KIND
+
+> `const` **NODE\_LEVEL5\_PRODUCT\_SUPPORT\_80\_HARDENING\_KIND**: `"machinen.node-level5-product-support-80-hardening"` = `"machinen.node-level5-product-support-80-hardening"`
+
+***
+
+### nodeLevel5ProductSupport80UnsupportedDetectors
+
+> `const` **nodeLevel5ProductSupport80UnsupportedDetectors**: readonly [`NodeLevel5ProductSupport80UnsupportedDetector`](#nodelevel5productsupport80unsupporteddetector)[]
+
+***
+
+### nodeLevel5ProductSupport80ClaimRegistry
+
+> `const` **nodeLevel5ProductSupport80ClaimRegistry**: [`NodeLevel5ProductSupport80ClaimRegistry`](#nodelevel5productsupport80claimregistry)
 
 ***
 
@@ -28074,6 +28297,58 @@ available.
 ##### matrix?
 
 [`NodeLevel5ProductSupport65Matrix`](#nodelevel5productsupport65matrix) = `nodeLevel5ProductSupport65Matrix`
+
+#### Returns
+
+`boolean`
+
+***
+
+### createNodeLevel5ProductSupport80ArtifactBundle()
+
+> **createNodeLevel5ProductSupport80ArtifactBundle**(`input`): [`NodeLevel5ProductSupport80ArtifactBundle`](#nodelevel5productsupport80artifactbundle)
+
+#### Parameters
+
+##### input
+
+###### outDir
+
+`string`
+
+###### familyId
+
+[`NodeLevel5ProductSupport80FamilyId`](#nodelevel5productsupport80familyid)
+
+###### direction
+
+`"arm64-to-amd64"` \| `"amd64-to-arm64"`
+
+#### Returns
+
+[`NodeLevel5ProductSupport80ArtifactBundle`](#nodelevel5productsupport80artifactbundle)
+
+***
+
+### verifyNodeLevel5ProductSupport80ArtifactBundle()
+
+> **verifyNodeLevel5ProductSupport80ArtifactBundle**(`bundle`): [`NodeLevel5ProductSupport80ArtifactVerification`](#nodelevel5productsupport80artifactverification)
+
+#### Parameters
+
+##### bundle
+
+[`NodeLevel5ProductSupport80ArtifactBundle`](#nodelevel5productsupport80artifactbundle)
+
+#### Returns
+
+[`NodeLevel5ProductSupport80ArtifactVerification`](#nodelevel5productsupport80artifactverification)
+
+***
+
+### assertNodeLevel5ProductSupport80HardeningComplete()
+
+> **assertNodeLevel5ProductSupport80HardeningComplete**(): `boolean`
 
 #### Returns
 
