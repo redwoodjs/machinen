@@ -49,13 +49,21 @@
 - [`NodeProperLevel5LibuvTimerRecoveryRefusal`](#nodeproperlevel5libuvtimerrecoveryrefusal)
 - [`NodeProperLevel5LibuvTimerRecoveryRefusalCode`](#nodeproperlevel5libuvtimerrecoveryrefusalcode)
 - [`NodeProperLevel5LibuvTimerRecoveryResult`](#nodeproperlevel5libuvtimerrecoveryresult)
+- [`NodeProperLevel5V8ObjectCandidate`](#nodeproperlevel5v8objectcandidate)
+- [`NodeProperLevel5V8ObjectMemoryFragment`](#nodeproperlevel5v8objectmemoryfragment)
+- [`NodeProperLevel5V8ObjectRecoveryOptions`](#nodeproperlevel5v8objectrecoveryoptions)
+- [`NodeProperLevel5V8ObjectRecoveryRefusal`](#nodeproperlevel5v8objectrecoveryrefusal)
+- [`NodeProperLevel5V8ObjectRecoveryRefusalCode`](#nodeproperlevel5v8objectrecoveryrefusalcode)
+- [`NodeProperLevel5V8ObjectRecoveryResult`](#nodeproperlevel5v8objectrecoveryresult)
 - [`NODE_PROPER_LEVEL5_SOURCE_INSPECTION_KIND`](#node_proper_level5_source_inspection_kind)
 - [`NODE_PROPER_LEVEL5_V8_CLOSURE_RECOVERY_KIND`](#node_proper_level5_v8_closure_recovery_kind)
 - [`NODE_PROPER_LEVEL5_LIBUV_TIMER_RECOVERY_KIND`](#node_proper_level5_libuv_timer_recovery_kind)
+- [`NODE_PROPER_LEVEL5_V8_OBJECT_RECOVERY_KIND`](#node_proper_level5_v8_object_recovery_kind)
 - [`parseNodeProperLevel5ProcMaps`](#parsenodeproperlevel5procmaps)
 - [`recoverNodeProperLevel5RawV8ContextSmiCounter`](#recovernodeproperlevel5rawv8contextsmicounter)
 - [`recoverNodeProperLevel5V8ClosureCounterCell`](#recovernodeproperlevel5v8closurecountercell)
 - [`recoverNodeProperLevel5LibuvTimerEvidence`](#recovernodeproperlevel5libuvtimerevidence)
+- [`recoverNodeProperLevel5V8ObjectStateEvidence`](#recovernodeproperlevel5v8objectstateevidence)
 - [`summarizeNodeProperLevel5SourceInspection`](#summarizenodeproperlevel5sourceinspection)
 
 ### Node Level 5 HTTP profile
@@ -13119,6 +13127,108 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ***
 
+### NodeProperLevel5V8ObjectRecoveryRefusal
+
+#### Properties
+
+##### code
+
+> **code**: [`NodeProperLevel5V8ObjectRecoveryRefusalCode`](#nodeproperlevel5v8objectrecoveryrefusalcode)
+
+##### message
+
+> **message**: `string`
+
+***
+
+### NodeProperLevel5V8ObjectMemoryFragment
+
+#### Properties
+
+##### bytes
+
+> **bytes**: `Uint8Array`
+
+##### bytesPath?
+
+> `optional` **bytesPath?**: `string`
+
+***
+
+### NodeProperLevel5V8ObjectCandidate
+
+#### Properties
+
+##### anchor
+
+> **anchor**: `string`
+
+##### bytesPath?
+
+> `optional` **bytesPath?**: `string`
+
+##### offset
+
+> **offset**: `number`
+
+##### total
+
+> **total**: `number`
+
+##### history
+
+> **history**: `number`[]
+
+##### evidence
+
+> **evidence**: `string`[]
+
+***
+
+### NodeProperLevel5V8ObjectRecoveryResult
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.node-proper-level5-v8-object-recovery"`
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### candidates
+
+> **candidates**: [`NodeProperLevel5V8ObjectCandidate`](#nodeproperlevel5v8objectcandidate)[]
+
+##### refusals
+
+> **refusals**: [`NodeProperLevel5V8ObjectRecoveryRefusal`](#nodeproperlevel5v8objectrecoveryrefusal)[]
+
+***
+
+### NodeProperLevel5V8ObjectRecoveryOptions
+
+#### Properties
+
+##### anchor
+
+> **anchor**: `string`
+
+##### expectedTotal
+
+> **expectedTotal**: `number`
+
+##### expectedHistory
+
+> **expectedHistory**: `number`[]
+
+##### unsupportedShape?
+
+> `optional` **unsupportedShape?**: [`NodeProperLevel5V8ObjectRecoveryRefusalCode`](#nodeproperlevel5v8objectrecoveryrefusalcode)
+
+***
+
 ### OppositeIsaVmExecutionProviderRoute
 
 #### Properties
@@ -14194,7 +14304,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`evidence`](#evidence-8)
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`evidence`](#evidence-9)
 
 ##### kind
 
@@ -18174,7 +18284,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`evidence`](#evidence-17)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`evidence`](#evidence-18)
 
 ##### kind
 
@@ -21764,6 +21874,12 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NodeProperLevel5V8ObjectRecoveryRefusalCode
+
+> **NodeProperLevel5V8ObjectRecoveryRefusalCode** = `"node-proper-level5-v8-object-state-missing"` \| `"node-proper-level5-v8-object-state-ambiguous"` \| `"node-proper-level5-v8-object-hidden-class-unsupported"` \| `"node-proper-level5-v8-object-sparse-array-unsupported"` \| `"node-proper-level5-v8-object-accessor-unsupported"` \| `"node-proper-level5-v8-object-proxy-unsupported"` \| `"node-proper-level5-v8-object-symbol-key-unsupported"` \| `"node-proper-level5-v8-object-external-string-unsupported"` \| `"node-proper-level5-v8-object-elements-kind-unsupported"`
+
+***
+
 ### OppositeIsaVmExecutionRefusalCode
 
 > **OppositeIsaVmExecutionRefusalCode** = *typeof* [`oppositeIsaVmExecutionRefusalCodes`](#oppositeisavmexecutionrefusalcodes)\[`number`\]
@@ -23551,6 +23667,12 @@ loops; anything looser stops being a meaningful gate.
 ### NODE\_PROPER\_LEVEL5\_V8\_CLOSURE\_RECOVERY\_KIND
 
 > `const` **NODE\_PROPER\_LEVEL5\_V8\_CLOSURE\_RECOVERY\_KIND**: `"machinen.node-proper-level5-v8-closure-recovery"`
+
+***
+
+### NODE\_PROPER\_LEVEL5\_V8\_OBJECT\_RECOVERY\_KIND
+
+> `const` **NODE\_PROPER\_LEVEL5\_V8\_OBJECT\_RECOVERY\_KIND**: `"machinen.node-proper-level5-v8-object-recovery"`
 
 ***
 
@@ -26411,6 +26533,26 @@ available.
 #### Returns
 
 [`NodeProperLevel5V8ClosureRecoveryResult`](#nodeproperlevel5v8closurerecoveryresult)
+
+***
+
+### recoverNodeProperLevel5V8ObjectStateEvidence()
+
+> **recoverNodeProperLevel5V8ObjectStateEvidence**(`fragments`, `options`): [`NodeProperLevel5V8ObjectRecoveryResult`](#nodeproperlevel5v8objectrecoveryresult)
+
+#### Parameters
+
+##### fragments
+
+[`NodeProperLevel5V8ObjectMemoryFragment`](#nodeproperlevel5v8objectmemoryfragment)[]
+
+##### options
+
+[`NodeProperLevel5V8ObjectRecoveryOptions`](#nodeproperlevel5v8objectrecoveryoptions)
+
+#### Returns
+
+[`NodeProperLevel5V8ObjectRecoveryResult`](#nodeproperlevel5v8objectrecoveryresult)
 
 ***
 

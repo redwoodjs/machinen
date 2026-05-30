@@ -16,6 +16,7 @@
     "ignore": [
       "**/__tests__/**",
       "**/*.{test,spec}.{js,jsx,ts,tsx,mjs,cjs}",
+      "proof/**",
       "scripts/native-dwarf-pointer-classification.ts"
     ]
   },
@@ -23,6 +24,7 @@
     "ignore": [
       "**/__tests__/**",
       "**/*.{test,spec}.{js,jsx,ts,tsx,mjs,cjs}",
+      "proof/**",
       "scripts/native-dwarf-pointer-classification.ts"
     ]
   },

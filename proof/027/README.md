@@ -12,8 +12,11 @@ All implementation notes, fixtures, and smoke tests for this proof should live u
 
 Teach the proper Node Level 5 proof to distinguish quiescent HTTP listener state from active request/connection state. First, fail closed for active requests. Then support idle keep-alive sockets when their state is fully understood.
 
+Proof 027 should also replace the proof-local Perl guest capture program with a Zig guest capture tool, so process, socket, and memory capture logic moves into the systems language we expect to keep growing.
+
 ## Tasks
 
+- Convert the proof-local guest capture program to Zig before extending the capture surface.
 - Capture TCP listener state and accepted socket/fd state from `/proc` and kernel tables.
 - Detect active HTTP requests, partial reads/writes, pending response bytes, and active libuv stream callbacks.
 - Add stable refusal codes for active or ambiguous request state.
