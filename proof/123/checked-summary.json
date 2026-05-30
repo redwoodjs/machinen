@@ -1,0 +1,39 @@
+{
+  "kind": "machinen.node-proper-level5-bidirectional-cross-arch-e2e-summary",
+  "proof": "123",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "lanes": [
+    {
+      "id": "arm64-to-amd64",
+      "source": "arm64",
+      "target": "amd64",
+      "count": 3,
+      "targetNativeNodeUsed": true,
+      "sourceIsaEmulationUsed": false
+    },
+    {
+      "id": "amd64-to-arm64",
+      "source": "amd64",
+      "target": "arm64",
+      "count": 3,
+      "targetNativeNodeUsed": true,
+      "sourceIsaEmulationUsed": false
+    }
+  ],
+  "refusedRows": [
+    {
+      "id": "source-isa-emulation",
+      "expectedCode": "node-proper-level5-bidirectional-source-isa-emulation-refused",
+      "actualCode": "node-proper-level5-bidirectional-source-isa-emulation-refused",
+      "targetStarted": false
+    }
+  ],
+  "assertions": {
+    "arm64ToAmd64LaneRan": true,
+    "amd64ToArm64LaneRan": true,
+    "bothLanesReturnedNextState": true,
+    "noSourceIsaEmulation": true
+  }
+}

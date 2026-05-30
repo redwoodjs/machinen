@@ -1,0 +1,51 @@
+{
+  "kind": "machinen.node-proper-level5-broad-support-readiness-matrix",
+  "proof": "125",
+  "scope": "proof-only-harness-not-product-support",
+  "status": "candidate-not-supported",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "readiness": {
+    "proofArchitectureRoadmap": 94,
+    "refusalDiscipline": 90,
+    "v8HeapStateRecovery": 72,
+    "libuvEventLoopRecovery": 62,
+    "resourceReconstruction": 62,
+    "threadAndProcessSafety": 65,
+    "realCrossArchEndToEnd": 72,
+    "cliDocsProductization": 65,
+    "repeatabilityCiConfidence": 62,
+    "narrowExperimentalProductSupport": 72,
+    "broadNodeLevel5Support": 50,
+    "arbitraryProcessCrossArchRestore": 4
+  },
+  "supportedCandidateSubset": {
+    "node": "22.x",
+    "v8": "12.x pointer-compressed",
+    "state": [
+      "idle event loop",
+      "selected strings/objects/arrays/closures",
+      "timers",
+      "TCP listeners",
+      "stdio",
+      "readonly files",
+      "pipes"
+    ],
+    "unsupported": [
+      "worker threads",
+      "active requests",
+      "pending microtasks",
+      "custom signal handlers",
+      "external memory",
+      "Wasm modules",
+      "raw CPU restore"
+    ]
+  },
+  "remainingBeforeProductClaim": [
+    "Move proof-local CLIs into guarded product command plumbing.",
+    "Run real guest capture inside VM lifecycle smoke tests.",
+    "Expand V8 heap decoding beyond the cataloged tiny subset.",
+    "Run bidirectional lanes in CI-like automation on real builders.",
+    "Publish stable user docs and refusal error registry."
+  ]
+}

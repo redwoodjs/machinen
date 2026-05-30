@@ -1,0 +1,48 @@
+{
+  "kind": "machinen.node-proper-level5-process-metadata-summary",
+  "proof": "118",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "accepted": {
+    "accepted": true,
+    "targetStarted": false,
+    "targetMetadata": {
+      "cwd": "/app/service",
+      "env": {
+        "NODE_ENV": "production",
+        "PORT": "3000"
+      },
+      "stdio": ["pipe", "pipe", "inherit"],
+      "signals": {
+        "SIGPIPE": "ignored",
+        "SIGTERM": "default"
+      }
+    }
+  },
+  "refusedRows": [
+    {
+      "id": "bad-cwd",
+      "expectedCode": "node-proper-level5-process-cwd-outside-root-refused",
+      "actualCode": "node-proper-level5-process-cwd-outside-root-refused",
+      "targetStarted": false
+    },
+    {
+      "id": "custom-signal",
+      "expectedCode": "node-proper-level5-custom-signal-handler-refused",
+      "actualCode": "node-proper-level5-custom-signal-handler-refused",
+      "targetStarted": false
+    },
+    {
+      "id": "bad-env",
+      "expectedCode": "node-proper-level5-env-unsafe-key-refused",
+      "actualCode": "node-proper-level5-env-unsafe-key-refused",
+      "targetStarted": false
+    }
+  ],
+  "assertions": {
+    "processMetadataCaptured": true,
+    "cwdEnvStdioSignalsTranslated": true,
+    "unsafeMetadataRefusesBeforeTargetStart": true
+  }
+}
