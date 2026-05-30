@@ -1,0 +1,12 @@
+{
+  "kind": "machinen.node-level5-retained-artifact-proof-summary",
+  "proof": "371",
+  "goal": "JSON verify report schema",
+  "result": "Automation gets stable JSON verify output.",
+  "status": "node-product-support-80-retained-artifact-ingestion",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "accepted": true,
+  "fields": ["accepted", "familyId", "direction", "checkedPaths", "artifactHashesVerified"]
+}
