@@ -49,6 +49,7 @@ import {
   createProductLevel4TcpListenerSnapshot,
   createProductLevel4TimerfdSnapshot,
   createNodeLevel5DeclaredSubsetCapture,
+  createNodeLevel5ProductSnapshot,
   createNodeLevel5ProductSupport80ArtifactBundle,
   createProductPortablePostgresSnapshot,
   filterProductClaimRegistry,
@@ -59,6 +60,7 @@ import {
   isProductLevel4PipeBundle,
   isProductLevel4TcpListenerBundle,
   isProductLevel4TimerfdBundle,
+  isNodeLevel5ProductSnapshotBundle,
   isProductPortablePostgresBundle,
   loadNodeLevel5ProductSupport80ArtifactBundle,
   list,
@@ -71,6 +73,7 @@ import {
   readHostRssBytesMulti,
   restore,
   restoreNodeLevel5DeclaredSubset,
+  restoreNodeLevel5ProductSnapshot,
   verifyNodeLevel5ProductSupport80ArtifactBundle,
   restoreProductLevel4EventfdSnapshot,
   restoreProductLevel4PingSocketSnapshot,
@@ -1906,6 +1909,10 @@ function reportNodeLevel5DeclaredSubsetSummary<TSummary extends NodeLevel5Declar
   return summary.accepted ? 0 : 1;
 }
 
+type NodeLevel5ProductSnapshotCliOptions = {
+  out?: string;
+};
+
 type NodeLevel5ArtifactCliOptions = {
   out?: string;
   root?: string;
@@ -2445,6 +2452,9 @@ async function cmdRestore(args: string[]): Promise<number> {
   if (portableAdapter) {
     return cmdRestorePortableAdapter(portableAdapter, parsed, snapDir, json);
   }
+  if (isNodeLevel5ProductSnapshotBundle(snapDir)) {
+    return cmdRestoreNodeLevel5ProductSnapshot(snapDir, json);
+  }
   if (isProductPortablePostgresBundle(snapDir)) {
     return cmdRestoreProductPortablePostgres(parsed, snapDir, json);
   }
@@ -2474,6 +2484,39 @@ async function cmdRestore(args: string[]): Promise<number> {
   const vm = await startRestoreVm(parsed, snapDir, paths, quiet);
   reportRestoreSuccess(vm, quiet);
   return runRestoreAttachedSession(vm, quiet);
+}
+
+function cmdRestoreNodeLevel5ProductSnapshot(snapDir: string, json: boolean): number {
+  try {
+    return reportNodeLevel5ProductSnapshotRestore(
+      restoreNodeLevel5ProductSnapshot({ snapshotDir: snapDir }),
+      json,
+    );
+  } catch (error) {
+    return reportNodeLevel5ProductSnapshotRestoreError(error, json);
+  }
+}
+
+function reportNodeLevel5ProductSnapshotRestore(
+  summary: ReturnType<typeof restoreNodeLevel5ProductSnapshot>,
+  json: boolean,
+): number {
+  if (json) {
+    emitJson(summary);
+  } else {
+    process.stdout.write(`restored node snapshot: ${summary.familyId} ${summary.direction}\n`);
+  }
+  return summary.accepted ? 0 : 1;
+}
+
+function reportNodeLevel5ProductSnapshotRestoreError(error: unknown, json: boolean): number {
+  const message = error instanceof Error ? error.message : String(error);
+  if (json) {
+    emitJsonError("node-level5-product-snapshot-invalid", message);
+  } else {
+    process.stderr.write(`machinen restore: ${message}\n`);
+  }
+  return 1;
 }
 
 function parseRestoreCommandArgs(args: string[]): ParsedRestoreCommandArgs {
@@ -4918,11 +4961,47 @@ function restorePtyRawMode(wasRaw: boolean): void {
 }
 
 async function cmdSnapshot(args: string[]): Promise<number> {
+  if (isNodeLevel5ProductSnapshotCommand(args)) {
+    return cmdSnapshotNodeLevel5Product(args);
+  }
   const opts = parseSnapshotOptions(args);
   if (opts.dryRun) {
     return snapshotDryRun(opts);
   }
   return runSnapshot(opts);
+}
+
+function isNodeLevel5ProductSnapshotCommand(args: string[]): boolean {
+  return args.some((arg) => arg === "node") && args.some((arg) => arg === "--out");
+}
+
+function cmdSnapshotNodeLevel5Product(args: string[]): number {
+  const { json, rest } = consumeJsonFlag(args);
+  const options = parseNodeLevel5ProductSnapshotArgs(rest.filter((arg) => arg !== "node"));
+  if (!options.out) {
+    die("usage: machinen snapshot node --out <dir> [--json]");
+  }
+  const summary = createNodeLevel5ProductSnapshot({ outDir: resolve(options.out) });
+  if (json) {
+    emitJson(summary);
+  } else {
+    process.stdout.write(`snapshot written: ${summary.snapshotDir}\n`);
+  }
+  return 0;
+}
+
+function parseNodeLevel5ProductSnapshotArgs(args: string[]): NodeLevel5ProductSnapshotCliOptions {
+  const outFlag = args.indexOf("--out");
+  if (outFlag === -1) {
+    return {};
+  }
+  const out = takeCaptureValue(args, outFlag + 1, "--out");
+  const consumed = new Set([outFlag, outFlag + 1]);
+  const unknown = args.find((_, index) => !consumed.has(index));
+  if (unknown) {
+    die(`unknown snapshot node argument: ${unknown}`);
+  }
+  return { out };
 }
 
 interface SnapshotOptionsCli {
@@ -4961,7 +5040,9 @@ function consumeKeepAliveFlag(args: string[]): { keepAlive: boolean; rest: strin
 
 function parseSnapshotOutDir(args: string[]): string {
   if (args.length === 0) {
-    die("usage: machinen snapshot <name|pid> <out-dir> [--keep-alive] [--dry-run] [--json]");
+    die(
+      "usage: machinen snapshot <name|pid> <out-dir> [--keep-alive] [--dry-run] [--json]\n       machinen snapshot node --out <dir> [--json]",
+    );
   }
   if (args.length > 1) {
     die(`unknown argument: ${args[1]}`);

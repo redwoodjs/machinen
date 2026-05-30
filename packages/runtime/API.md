@@ -192,6 +192,17 @@
 - [`nodeLevel5ProductSupport80ClaimRegistry`](#nodelevel5productsupport80claimregistry)
 - [`nodeLevel5ProductSupport80UnsupportedDetectors`](#nodelevel5productsupport80unsupporteddetectors)
 - [`verifyNodeLevel5ProductSupport80ArtifactBundle`](#verifynodelevel5productsupport80artifactbundle)
+- [`NodeLevel5ProductRestoreSummary`](#nodelevel5productrestoresummary)
+- [`NodeLevel5ProductSnapshotDirection`](#nodelevel5productsnapshotdirection)
+- [`NodeLevel5ProductSnapshotManifest`](#nodelevel5productsnapshotmanifest)
+- [`NodeLevel5ProductSnapshotSummary`](#nodelevel5productsnapshotsummary)
+- [`DEFAULT_NODE_LEVEL5_PRODUCT_SNAPSHOT_DIRECTION`](#default_node_level5_product_snapshot_direction)
+- [`DEFAULT_NODE_LEVEL5_PRODUCT_SNAPSHOT_FAMILY`](#default_node_level5_product_snapshot_family)
+- [`NODE_LEVEL5_PRODUCT_SNAPSHOT_KIND`](#node_level5_product_snapshot_kind)
+- [`NODE_LEVEL5_PRODUCT_SNAPSHOT_VERSION`](#node_level5_product_snapshot_version)
+- [`createNodeLevel5ProductSnapshot`](#createnodelevel5productsnapshot)
+- [`isNodeLevel5ProductSnapshotBundle`](#isnodelevel5productsnapshotbundle)
+- [`restoreNodeLevel5ProductSnapshot`](#restorenodelevel5productsnapshot)
 
 ### Boot a VM
 
@@ -22287,6 +22298,180 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NodeLevel5ProductSnapshotDirection
+
+> **NodeLevel5ProductSnapshotDirection** = `"arm64-to-amd64"` \| `"amd64-to-arm64"`
+
+***
+
+### NodeLevel5ProductSnapshotManifest
+
+> **NodeLevel5ProductSnapshotManifest** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_PRODUCT_SNAPSHOT_KIND`](#node_level5_product_snapshot_kind)
+
+##### version
+
+> **version**: *typeof* [`NODE_LEVEL5_PRODUCT_SNAPSHOT_VERSION`](#node_level5_product_snapshot_version)
+
+##### status
+
+> **status**: `"node-product-support-80"`
+
+##### familyId
+
+> **familyId**: [`NodeLevel5ProductSupport80FamilyId`](#nodelevel5productsupport80familyid)
+
+##### direction
+
+> **direction**: [`NodeLevel5ProductSnapshotDirection`](#nodelevel5productsnapshotdirection)
+
+##### artifactRoot
+
+> **artifactRoot**: `string`
+
+##### artifactBundleKind
+
+> **artifactBundleKind**: `"machinen.node-level5-product-support-80-artifact-bundle"`
+
+##### translatedContinuationRequired
+
+> **translatedContinuationRequired**: `true`
+
+##### targetNativeNodeRequired
+
+> **targetNativeNodeRequired**: `true`
+
+##### rawCpuRestoreSupported
+
+> **rawCpuRestoreSupported**: `false`
+
+##### sourceIsaEmulationSupported
+
+> **sourceIsaEmulationSupported**: `false`
+
+##### appCheckpointHooksRequired
+
+> **appCheckpointHooksRequired**: `false`
+
+##### nodeProductSupportClaimed
+
+> **nodeProductSupportClaimed**: `80`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `20`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
+
+***
+
+### NodeLevel5ProductSnapshotSummary
+
+> **NodeLevel5ProductSnapshotSummary** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.node-level5-product-snapshot-summary"`
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### snapshotDir
+
+> **snapshotDir**: `string`
+
+##### manifestPath
+
+> **manifestPath**: `string`
+
+##### manifest
+
+> **manifest**: [`NodeLevel5ProductSnapshotManifest`](#nodelevel5productsnapshotmanifest)
+
+***
+
+### NodeLevel5ProductRestoreSummary
+
+> **NodeLevel5ProductRestoreSummary** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.node-level5-product-restore-summary"`
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### snapshotDir
+
+> **snapshotDir**: `string`
+
+##### manifestPath
+
+> **manifestPath**: `string`
+
+##### familyId
+
+> **familyId**: [`NodeLevel5ProductSupport80FamilyId`](#nodelevel5productsupport80familyid)
+
+##### direction
+
+> **direction**: [`NodeLevel5ProductSnapshotDirection`](#nodelevel5productsnapshotdirection)
+
+##### targetNativeNodeVerified
+
+> **targetNativeNodeVerified**: `boolean`
+
+##### behavioralVerifierPassed
+
+> **behavioralVerifierPassed**: `boolean`
+
+##### artifactHashesVerified
+
+> **artifactHashesVerified**: `boolean`
+
+##### retentionComplete
+
+> **retentionComplete**: `boolean`
+
+##### translatedContinuationRequired
+
+> **translatedContinuationRequired**: `true`
+
+##### rawCpuRestoreUsed
+
+> **rawCpuRestoreUsed**: `false`
+
+##### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+##### nodeProductSupportClaimed
+
+> **nodeProductSupportClaimed**: `80`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `20`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
+
+***
+
 ### NodeLevel5ProductSupportFamilyId
 
 > **NodeLevel5ProductSupportFamilyId** = `"idle-http-listener"` \| `"timer-service"` \| `"plain-js-heap"` \| `"readonly-file-stdio"` \| `"pipes-streams-idle"`
@@ -25250,6 +25435,30 @@ loops; anything looser stops being a meaningful gate.
 ### nodeLevel5HttpProfileRefusalCodes
 
 > `const` **nodeLevel5HttpProfileRefusalCodes**: readonly \[`"node-level5-http-arbitrary-v8-heap-native-stack-unsupported"`, `"node-level5-http-native-addon-unsupported"`, `"node-level5-http-worker-thread-unsupported"`, `"node-level5-http-inspector-unsupported"`, `"node-level5-http-active-request-unsupported"`, `"node-level5-http-active-tcp-stream-unsupported"`, `"node-level5-http-active-syscall-unsupported"`, `"node-level5-http-unsupported-timer-async-handle"`, `"node-level5-http-unsupported-module-runtime-state"`, `"node-level5-http-target-native-node-missing"`, `"node-level5-http-source-isa-emulation-forbidden"`, `"node-level5-http-sidecar-output-forbidden"`, `"node-level5-http-metadata-only-success-forbidden"`\]
+
+***
+
+### NODE\_LEVEL5\_PRODUCT\_SNAPSHOT\_KIND
+
+> `const` **NODE\_LEVEL5\_PRODUCT\_SNAPSHOT\_KIND**: `"machinen.node-level5-product-snapshot"` = `"machinen.node-level5-product-snapshot"`
+
+***
+
+### NODE\_LEVEL5\_PRODUCT\_SNAPSHOT\_VERSION
+
+> `const` **NODE\_LEVEL5\_PRODUCT\_SNAPSHOT\_VERSION**: `1` = `1`
+
+***
+
+### DEFAULT\_NODE\_LEVEL5\_PRODUCT\_SNAPSHOT\_FAMILY
+
+> `const` **DEFAULT\_NODE\_LEVEL5\_PRODUCT\_SNAPSHOT\_FAMILY**: `"express-fastify-http-app"` = `"express-fastify-http-app"`
+
+***
+
+### DEFAULT\_NODE\_LEVEL5\_PRODUCT\_SNAPSHOT\_DIRECTION
+
+> `const` **DEFAULT\_NODE\_LEVEL5\_PRODUCT\_SNAPSHOT\_DIRECTION**: `"arm64-to-amd64"` = `"arm64-to-amd64"`
 
 ***
 
@@ -28266,6 +28475,66 @@ available.
 #### Returns
 
 [`NodeLevel5HttpProfileRefusal`](#nodelevel5httpprofilerefusal)[]
+
+***
+
+### createNodeLevel5ProductSnapshot()
+
+> **createNodeLevel5ProductSnapshot**(`input`): [`NodeLevel5ProductSnapshotSummary`](#nodelevel5productsnapshotsummary)
+
+#### Parameters
+
+##### input
+
+###### outDir
+
+`string`
+
+###### familyId?
+
+[`NodeLevel5ProductSupport80FamilyId`](#nodelevel5productsupport80familyid)
+
+###### direction?
+
+[`NodeLevel5ProductSnapshotDirection`](#nodelevel5productsnapshotdirection)
+
+#### Returns
+
+[`NodeLevel5ProductSnapshotSummary`](#nodelevel5productsnapshotsummary)
+
+***
+
+### isNodeLevel5ProductSnapshotBundle()
+
+> **isNodeLevel5ProductSnapshotBundle**(`snapshotDir`): `boolean`
+
+#### Parameters
+
+##### snapshotDir
+
+`string`
+
+#### Returns
+
+`boolean`
+
+***
+
+### restoreNodeLevel5ProductSnapshot()
+
+> **restoreNodeLevel5ProductSnapshot**(`input`): [`NodeLevel5ProductRestoreSummary`](#nodelevel5productrestoresummary)
+
+#### Parameters
+
+##### input
+
+###### snapshotDir
+
+`string`
+
+#### Returns
+
+[`NodeLevel5ProductRestoreSummary`](#nodelevel5productrestoresummary)
 
 ***
 

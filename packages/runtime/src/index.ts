@@ -238,6 +238,15 @@ export {
   nodeLevel5ProductSupport80UnsupportedDetectors,
   verifyNodeLevel5ProductSupport80ArtifactBundle,
 } from "./node-level5-product-support-80-hardening.ts";
+export {
+  DEFAULT_NODE_LEVEL5_PRODUCT_SNAPSHOT_DIRECTION,
+  DEFAULT_NODE_LEVEL5_PRODUCT_SNAPSHOT_FAMILY,
+  NODE_LEVEL5_PRODUCT_SNAPSHOT_KIND,
+  NODE_LEVEL5_PRODUCT_SNAPSHOT_VERSION,
+  createNodeLevel5ProductSnapshot,
+  isNodeLevel5ProductSnapshotBundle,
+  restoreNodeLevel5ProductSnapshot,
+} from "./node-level5-product-snapshot.ts";
 export { buildNativeCodeMap } from "./native-code-map.ts";
 export {
   classifyNativeActiveSyscalls,
@@ -352,6 +361,12 @@ export type {
   NodeLevel5ProductSupport80ClaimRegistry,
   NodeLevel5ProductSupport80UnsupportedDetector,
 } from "./node-level5-product-support-80-hardening.ts";
+export type {
+  NodeLevel5ProductRestoreSummary,
+  NodeLevel5ProductSnapshotDirection,
+  NodeLevel5ProductSnapshotManifest,
+  NodeLevel5ProductSnapshotSummary,
+} from "./node-level5-product-snapshot.ts";
 export type {
   NativeCodeMapRequest,
   NativeCodeMapResult,

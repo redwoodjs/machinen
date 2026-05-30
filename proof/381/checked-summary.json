@@ -1,0 +1,12 @@
+{
+  "kind": "machinen.node-level5-product-snapshot-proof-summary",
+  "proof": "381",
+  "goal": "Product snapshot command contract",
+  "result": "Node Level 5 uses machinen snapshot node as product surface.",
+  "status": "node-product-support-80-snapshot-restore-facade",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": ["machinen snapshot node", "machinen restore <snapshot>"],
+  "command": "machinen snapshot node --out <dir>"
+}
