@@ -1,0 +1,13 @@
+{
+  "kind": "machinen.node-level5-product-snapshot-proof-summary",
+  "proof": "383",
+  "goal": "No experimental flag required",
+  "result": "Snapshot/restore facade accepts without --experimental-node-level5.",
+  "status": "node-product-support-80-snapshot-restore-facade",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": ["machinen snapshot node", "machinen restore <snapshot>"],
+  "experimentalFlagRequired": false,
+  "snapshotAccepted": true
+}

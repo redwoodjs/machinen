@@ -1,0 +1,12 @@
+{
+  "kind": "machinen.node-level5-product-snapshot-proof-summary",
+  "proof": "390",
+  "goal": "Human snapshot output",
+  "result": "Snapshot has stable human output.",
+  "status": 0,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": ["machinen snapshot node", "machinen restore <snapshot>"],
+  "humanOutputIncludesSnapshotWritten": true
+}

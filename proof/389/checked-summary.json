@@ -1,0 +1,12 @@
+{
+  "kind": "machinen.node-level5-product-snapshot-proof-summary",
+  "proof": "389",
+  "goal": "Diagnostic commands remain secondary",
+  "result": "node-level5 diagnostics still exist but are not primary UX.",
+  "status": "node-product-support-80-snapshot-restore-facade",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": ["machinen snapshot node", "machinen restore <snapshot>"],
+  "diagnosticCommandStillAvailable": true
+}

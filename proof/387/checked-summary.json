@@ -1,0 +1,14 @@
+{
+  "kind": "machinen.node-level5-product-snapshot-proof-summary",
+  "proof": "387",
+  "goal": "Translated continuation boundary",
+  "result": "Snapshot manifest requires translated continuation, not raw CPU restore.",
+  "status": "node-product-support-80-snapshot-restore-facade",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": ["machinen snapshot node", "machinen restore <snapshot>"],
+  "translatedContinuationRequired": true,
+  "rawCpuRestoreSupported": false,
+  "sourceIsaEmulationSupported": false
+}

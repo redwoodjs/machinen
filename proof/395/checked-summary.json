@@ -1,0 +1,13 @@
+{
+  "kind": "machinen.node-level5-product-snapshot-proof-summary",
+  "proof": "395",
+  "goal": "Tampered snapshot refusal",
+  "result": "Restore refuses tampered retained artifact content.",
+  "status": "node-product-support-80-snapshot-restore-facade",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": ["machinen snapshot node", "machinen restore <snapshot>"],
+  "refused": true,
+  "messageIncludesHashMismatch": true
+}
