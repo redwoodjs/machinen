@@ -1,0 +1,62 @@
+{
+  "kind": "machinen.node-proper-level5-broad-80-proof-summary",
+  "proof": "144",
+  "title": "Closure-heavy app with arrays/objects/strings",
+  "block": "Real app suite",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "accepted": {
+    "proof": "144",
+    "title": "Closure-heavy app with arrays/objects/strings",
+    "block": "Real app suite",
+    "targetStarted": false,
+    "gatesPassed": true,
+    "artifactDigest": "61d8981ae4b35bf872e01392468149deb71141045ea8224819df7fe410a3b95b",
+    "productSupportClaimed": false,
+    "broadLevel5ImplementationClaimed": false
+  },
+  "gates": [
+    {
+      "name": "capture-evidence",
+      "evidence": "real-record-shaped-input",
+      "passed": true
+    },
+    {
+      "name": "native-or-target-gate",
+      "evidence": "checked-before-target-start",
+      "passed": true
+    },
+    {
+      "name": "translated-continuation-boundary",
+      "evidence": "target-native-reconstruction-no-raw-copy",
+      "passed": true
+    }
+  ],
+  "refusedRows": [
+    {
+      "id": "missing-real-evidence",
+      "expectedCode": "node-proper-level5-real-app-closure-graph-refused",
+      "actualCode": "node-proper-level5-real-app-closure-graph-refused",
+      "targetStarted": false
+    },
+    {
+      "id": "shortcut-raw-copy",
+      "expectedCode": "node-proper-level5-raw-source-state-copy-refused",
+      "actualCode": "node-proper-level5-raw-source-state-copy-refused",
+      "targetStarted": false
+    },
+    {
+      "id": "product-claim",
+      "expectedCode": "node-proper-level5-product-claim-refused",
+      "actualCode": "node-proper-level5-product-claim-refused",
+      "targetStarted": false
+    }
+  ],
+  "assertions": {
+    "closureHeavyGraphAppContinued": true,
+    "targetDidNotStartBeforeVerification": true,
+    "rawSourceStateCopyRefused": true,
+    "productSupportClaimRefused": true
+  }
+}
