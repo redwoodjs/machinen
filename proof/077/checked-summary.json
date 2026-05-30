@@ -1,0 +1,35 @@
+{
+  "kind": "machinen.node-proper-level5-proof-077-summary",
+  "proof": "077",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "accepted": {
+    "tcpTableRead": true,
+    "address": "127.0.0.1",
+    "state": "LISTEN",
+    "queuePolicy": "empty-or-safe-recreate"
+  },
+  "refusedRows": [
+    {
+      "id": "not-listening",
+      "expectedCode": "node-proper-level5-proc-net-tcp-not-listening",
+      "actualCode": "node-proper-level5-proc-net-tcp-not-listening",
+      "targetStarted": false
+    },
+    {
+      "id": "non-empty-queue",
+      "expectedCode": "node-proper-level5-proc-net-tcp-queue-unsupported",
+      "actualCode": "node-proper-level5-proc-net-tcp-queue-unsupported",
+      "targetStarted": false
+    }
+  ],
+  "assertions": {
+    "proofOnly": true,
+    "acceptedPathVerified": true,
+    "refusedRowsStopBeforeTargetStart": true,
+    "noSourceIsaEmulation": true,
+    "noRawCpuCopy": true,
+    "noMetadataOnlySuccess": true
+  }
+}
