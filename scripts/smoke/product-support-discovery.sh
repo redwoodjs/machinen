@@ -58,6 +58,9 @@ node -e 'const fs=require("fs"); const data=JSON.parse(fs.readFileSync(process.a
 node "$CLI" support --level level-4-kernel-resource-reconstruction --profile tcp-listener-v1-loopback-empty-accept-queue --json >"$WORK/tcp-listener-level4.json"
 node -e 'const fs=require("fs"); const data=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); const entry=data.entries[0]; if (data.count !== 1 || !entry || entry.productStatus !== "implemented-product-support" || entry.supportLevel !== "level-4-kernel-resource-reconstruction" || entry.migrationCompleted !== true || entry.family !== "network-ping-socket") throw new Error("TCP listener Level 4 product support not visible");' "$WORK/tcp-listener-level4.json"
 
+node "$CLI" support --profile node-v8-libuv-single-thread-http-v1 --json >"$WORK/node-selected-state-harness.json"
+node -e 'const fs=require("fs"); const data=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); const entry=data.entries[0]; if (data.count !== 1 || !entry || entry.productStatus !== "proof-only-fixture" || entry.migrationCompleted !== false || entry.proofOnly !== true || entry.family !== "nodejs" || entry.sourceFixture !== "machinen-snapshot-restore:node-http-counter-selected-state-v1") throw new Error("Node selected-state harness was surfaced as product support");' "$WORK/node-selected-state-harness.json"
+
 node "$CLI" support --status proof-only-fixture --json >"$WORK/proof-only.json"
 node -e 'const fs=require("fs"); const data=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if (data.count <= 0) throw new Error("no proof-only entries"); if (!data.entries.every((entry)=>entry.migrationCompleted === false && entry.proofOnly === true)) throw new Error("proof-only entry surfaced as support");' "$WORK/proof-only.json"
 

@@ -1,12 +1,12 @@
 # Node Level 5 single-thread HTTP profile
 
-Goal 021 adds the first Node runtime adapter profile on top of the generic Level 5 substrate.
+Goal 021 added the first Node runtime adapter profile on top of the generic Level 5 substrate. Goal 022 adds a selected-state reconstruction harness for the quickstart counter, but it is not Level 5 product support.
 
 Profile:
 
 `node-v8-libuv-single-thread-http-v1`
 
-This is a runtime-level profile, not a quickstart-app-specific shortcut. It is still proof-only until a future goal proves actual workload continuation and productizes the profile.
+This is a runtime-level profile, not broad arbitrary Node support. The safe `node-http-counter-selected-state-v1` counter fixture is a proof/harness only because it uses an app-specific selected-state descriptor; profile captures without that selected state remain proof-only/refused for product restore.
 
 ## Supported shape
 
@@ -37,7 +37,7 @@ The profile artifact records Node runtime identity, argv/cwd/entrypoint, selecte
 
 `machinen restore` routes bundles containing `node-level5-runtime-profile.json` through `node-level5-http-runtime-adapter`. Restore runs the target-side Node verifier and writes `node-level5-runtime-profile-restore-summary.json`.
 
-The status remains proof-only:
+For the selected-state counter fixture, restore can complete the harness and leave target-native Node serving `{ "count": 3 }`, but the status remains proof-only:
 
 ```json
 {
@@ -72,6 +72,7 @@ Every refusal keeps `productSupport=unsupported` and `migrationCompleted=false`.
 
 - Runtime profile model: `packages/runtime/src/node-level5-http-profile.ts`
 - CLI adapter: `packages/cli/src/level5-runtime-adapters.ts`
-- Checked summary: `docs/snapshot/checked-summaries/level4-graduation/goal-021-node-level5-http-profile.json`
+- Goal 021 checked summary: `docs/snapshot/checked-summaries/level4-graduation/goal-021-node-level5-http-profile.json`
+- Goal 022 selected-state harness checked summary: `docs/snapshot/checked-summaries/level4-graduation/goal-022-real-cross-arch-quickstart-fixture.json`
 - Runtime tests: `packages/runtime/src/__tests__/node-level5-http-profile.test.ts`
 - CLI restore test: `packages/cli/src/__tests__/node-level5-default-proof-restore.test.ts`

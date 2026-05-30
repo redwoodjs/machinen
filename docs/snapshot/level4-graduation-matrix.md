@@ -25,7 +25,7 @@ phase:
 3. [`goals/006.md`](../../goals/006.md) — timerfd Level 4 primitive.
 4. [`goals/007.md`](../../goals/007.md) — TCP listener-only Level 4 reconstruction.
 5. [`goals/008.md`](../../goals/008.md) — Node event-loop resources mapped onto Level 4 primitives.
-6. [`goals/009.md`](../../goals/009.md) — A selected Node Level 5 product subset only after Level 4 resources exist.
+6. [`goals/009.md`](../../goals/009.md) — selected Node Level 5 proof composition only; runtime-profile or selected-state harnesses must not be productized as snapshot/restore support.
 7. [`goals/011.md`](../../goals/011.md) — Ping becomes the first Level 4 portable machine snapshot workload.
 
 Do not start with active TCP continuation, arbitrary Node process productization,

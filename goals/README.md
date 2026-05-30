@@ -25,7 +25,8 @@ Goal files are grouped by cohort so proof records for each project stay together
 - [`019.md`](./019.md) — Make selected Node Level 5 proof run by default on public restore.
 - [`020.md`](./020.md) — Define the generic Level 5 runtime adapter substrate.
 - [`021.md`](./021.md) — Build the first Node/V8/libuv single-thread HTTP runtime adapter profile.
-- [`022.md`](./022.md) — Prove the real cross-arch quickstart fixture through the Node Level 5 adapter.
+- [`022.md`](./022.md) — Keep the cross-arch quickstart as a selected-state harness proof, not Level 5 product support.
+- [`023.md`](./023.md) — Proper Node Level 5 without runtime profiles or checkpoint substrate.
 
 ## Cohorts
 

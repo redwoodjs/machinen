@@ -6,27 +6,27 @@
     "family": "foundation-native"
   },
   "registrySummary": {
-    "total": 2248,
+    "total": 2251,
     "byStatus": {
-      "implemented-product-support": 6,
+      "implemented-product-support": 8,
       "stable-product-refusal": 1563,
-      "proof-only-fixture": 679,
+      "proof-only-fixture": 680,
       "obsolete-invalid-claim": 0
     },
     "byFamily": {
       "postgresql": 18,
-      "nodejs": 300,
+      "nodejs": 301,
       "go": 35,
       "python-ruby-jvm": 4,
       "stateful-services": 26,
       "foundation-native": 127,
-      "native-linux-resource": 304,
-      "network-ping-socket": 537,
+      "native-linux-resource": 305,
+      "network-ping-socket": 538,
       "unknown": 897
     },
-    "implementedProductSupport": 6,
+    "implementedProductSupport": 8,
     "stableProductRefusals": 1563,
-    "proofOnlyFixtures": 679,
+    "proofOnlyFixtures": 680,
     "obsoleteInvalidClaims": 0
   },
   "selectedCount": 127,

@@ -1,4 +1,8 @@
-import type { RegistryEntry, VmHandle } from "@machinen/runtime";
+import type {
+  NodeLevel5HttpProfileSelectedState,
+  RegistryEntry,
+  VmHandle,
+} from "@machinen/runtime";
 
 import {
   cleanServiceObservableStateDecisions,
@@ -23,6 +27,7 @@ export interface PortableNodeSnapshotBundle {
   verifier: { kind: "http-get"; path: "/"; sha256: string; bytes: number };
   kernelResources?: CleanServiceKernelResourceReport;
   eventLoopResources?: CleanServiceNodeEventLoopResources;
+  level5HttpState?: NodeLevel5HttpProfileSelectedState;
   appTar: { path: "portable-node-app.tar.gz"; sha256: string; bytes: number };
   refusals: [];
 }
@@ -68,6 +73,7 @@ export async function inspectPortableNodeVm(
     verifier: parsed.verifier,
     kernelResources: parsed.kernelResources,
     eventLoopResources: parsed.eventLoopResources,
+    level5HttpState: parsed.level5HttpState,
     appTar: {
       path: "portable-node-app.tar.gz",
       sha256: opts.sha256Bytes(appBytes),
@@ -242,6 +248,22 @@ try {
   console.log(JSON.stringify({ refusal: { code: 'node-target-verifier-missing', message: 'Node HTTP root verifier on the detected service port did not succeed' } }));
   process.exit(0);
 }
+function selectedLevel5HttpState(body) {
+  try {
+    const parsed = JSON.parse(body);
+    if (!Number.isSafeInteger(parsed.count) || parsed.count < 1) return undefined;
+    return {
+      kind: 'node-http-counter-selected-state-v1',
+      route: '/',
+      captureMethod: 'http-root-json-next-count',
+      observedNextCount: parsed.count,
+      restoredInitialCount: parsed.count - 1,
+      expectedFirstTargetBody: JSON.stringify({ count: parsed.count }) + '\n'
+    };
+  } catch {
+    return undefined;
+  }
+}
 const appTarBase64 = execSync("tar -C " + JSON.stringify(cwd) + " -czf - . | base64 | tr -d '\\n'", { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
 const out = {
   kind: 'machinen.portable-node-snapshot',
@@ -256,6 +278,7 @@ const out = {
   verifier: { kind: 'http-get', path: '/', sha256: createHash('sha256').update(body).digest('hex'), bytes: Buffer.byteLength(body) },
   kernelResources,
   eventLoopResources,
+  level5HttpState: selectedLevel5HttpState(body),
   refusals: [],
   appTarBase64
 };

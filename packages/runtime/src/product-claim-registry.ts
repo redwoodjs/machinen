@@ -127,6 +127,66 @@ const IMPLEMENTED_PRODUCT_PROFILES = new Set([
 
 const BUILTIN_PRODUCT_PROFILES: ProductClaimProofProfileInput[] = [
   {
+    name: "node-v8-libuv-single-thread-http-v1",
+    description:
+      "Goal 022 selected-state reconstruction harness proof: restore only the quickstart Node HTTP counter fixture across architectures. This is not Level 5 product support because the input is an app-specific selected-state descriptor, not reconstructed source process/runtime/native state.",
+    sourceFixture: "machinen-snapshot-restore:node-http-counter-selected-state-v1",
+    expectedResult: "success",
+    supportStatus: "selected-state-reconstruction-harness-proof",
+    unsafeStateFamily: "node-http-counter-selected-state",
+    capabilities: [
+      "goal022:machinen-snapshot",
+      "goal022:machinen-restore",
+      "goal022:selected-state-reconstruction-harness",
+      "runtime:node",
+      "node:http-single-thread",
+      "node:selected-state-counter",
+      "http:root-json-counter",
+      "network:tcp-listener-empty-accept-queue",
+      "target:target-native-node",
+      "gate:no-source-isa-emulation",
+      "gate:no-sidecar-output",
+      "gate:no-metadata-only-success",
+    ],
+    refusesCapabilities: [
+      "node:arbitrary-v8-heap-native-stack",
+      "node:native-addon",
+      "node:worker-thread",
+      "node:inspector-debug",
+      "node:active-request",
+      "node:active-tcp-stream",
+      "node:active-syscall",
+      "node:unsupported-v8-libuv-state",
+      "node:missing-target-native-node",
+    ],
+    observableStateDecisions: [
+      {
+        name: "counter-value",
+        decision: "preserved",
+        rationale:
+          "snapshot records a bounded app-specific selected-state counter descriptor and restore seeds target-native Node so the first target request returns the next count; this is harness evidence, not Level 5 product support",
+      },
+      {
+        name: "node-process",
+        decision: "recreated",
+        rationale: "restore starts a target-native Node process for the harness proof",
+      },
+      {
+        name: "tcp-listener",
+        decision: "recreated",
+        rationale: "restore recreates an empty HTTP listener on the target",
+      },
+      {
+        name: "broad-node-runtime-state",
+        decision: "refused",
+        rationale:
+          "arbitrary V8 heap/native stack, native addons, workers, inspector/debug state, active requests, active TCP streams, active syscalls, and unsupported V8/libuv state remain outside the product boundary",
+      },
+    ],
+    checkedSummary:
+      "docs/snapshot/checked-summaries/level4-graduation/goal-022-real-cross-arch-quickstart-fixture.json",
+  },
+  {
     name: "tcp-listener-v1-loopback-empty-accept-queue",
     description:
       "Goal 018 portable restore adapter product route: reconstruct a loopback TCP listener when bind address, port, backlog, and reuseaddr are explicit, the accept queue is empty, and there are no active TCP connections or socket syscalls.",

@@ -43,6 +43,19 @@ command plus any dependent checks.
 - Package manager is pnpm (pinned via `packageManager` in package.json).
 - The user authenticates via OAuth (`gh auth login`), never API keys.
 
+## Snapshot/restore architecture
+
+- Never implement snapshot/restore as runtime-level profiles (Node/V8/libuv,
+  Python runtime profiles, JVM runtime profiles, etc.). Runtime profile routes
+  are not an acceptable product path for Machinen snapshot/restore.
+- Cross-architecture snapshot/restore work must be based on captured source
+  machine/process state and target-native reconstruction/translation of that
+  state, not app-exported state, checkpoint hooks, selected-state descriptors,
+  sidecar replay, source-ISA emulation, or metadata-only success.
+- Harnesses may exist as regression proofs, but they must be labeled as harness
+  proofs and must not claim product support, Level 5 implementation, or broad
+  runtime support.
+
 ## arm64 builds
 
 When a step needs to run inside a `linux/arm64` docker image (rootfs,

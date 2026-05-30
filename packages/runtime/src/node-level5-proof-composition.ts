@@ -48,6 +48,9 @@ export interface NodeLevel5TargetProofEvidence {
   path: string;
   status: "passed" | "missing" | "failed" | "not-run";
   kind?: "machinen.node-level5-target-side-continuation-proof";
+  sourceArch?: string;
+  targetArch?: string;
+  targetRuntime?: string;
   noSourceIsaEmulation: boolean;
   noSidecarOutput: boolean;
   noMetadataOnlySuccess: boolean;

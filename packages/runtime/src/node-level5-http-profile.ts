@@ -43,6 +43,15 @@ export interface NodeLevel5HttpProfileRefusal {
   migrationCompleted: false;
 }
 
+export interface NodeLevel5HttpProfileSelectedState {
+  kind: "node-http-counter-selected-state-v1";
+  route: "/";
+  captureMethod: "http-root-json-next-count";
+  observedNextCount: number;
+  restoredInitialCount: number;
+  expectedFirstTargetBody: string;
+}
+
 export interface NodeLevel5HttpProfileCaptureInput {
   sourceArch: "arm64" | "amd64" | string;
   nodeVersion: string;
@@ -50,6 +59,7 @@ export interface NodeLevel5HttpProfileCaptureInput {
   argv: string[];
   guestPort: number;
   verifier: { kind: string; path: string; sha256: string; bytes: number };
+  selectedState?: NodeLevel5HttpProfileSelectedState;
   eventLoopResources?: unknown;
   kernelResources?: unknown;
 }
@@ -57,7 +67,7 @@ export interface NodeLevel5HttpProfileCaptureInput {
 export interface NodeLevel5HttpProfileCapture {
   kind: "machinen.node-level5-runtime-profile";
   formatVersion: typeof NODE_LEVEL5_HTTP_PROFILE_FORMAT_VERSION;
-  sourceGoal: "021";
+  sourceGoal: "021" | "022";
   evidenceStatus: "proof";
   productSupport: "not-yet-supported";
   implementationLevel: "not-implemented";
@@ -103,6 +113,7 @@ export interface NodeLevel5HttpProfileCapture {
     }>;
   };
   verifier: NodeLevel5HttpProfileCaptureInput["verifier"];
+  selectedState?: NodeLevel5HttpProfileSelectedState;
   gates: {
     sourceIsaEmulationAllowed: false;
     sidecarOutputAllowed: false;
@@ -113,7 +124,9 @@ export interface NodeLevel5HttpProfileCapture {
   summary: {
     profileReady: true;
     targetNativeContinuationRequired: true;
-    productSupportBlockedUntilActualWorkloadContinuation: true;
+    productSupportBlockedUntilActualRuntimeStateContinuation: true;
+    selectedStateReconstructionHarness: boolean;
+    notProperLevel5Reason: "app-specific-selected-state-descriptor" | "no-selected-state";
   };
 }
 
@@ -121,10 +134,11 @@ export interface NodeLevel5HttpProfileCapture {
 export function buildNodeLevel5HttpProfileCapture(
   input: NodeLevel5HttpProfileCaptureInput,
 ): NodeLevel5HttpProfileCapture {
+  const selectedStateSupported = isSupportedNodeLevel5HttpSelectedState(input.selectedState);
   return {
     kind: "machinen.node-level5-runtime-profile",
     formatVersion: NODE_LEVEL5_HTTP_PROFILE_FORMAT_VERSION,
-    sourceGoal: "021",
+    sourceGoal: selectedStateSupported ? "022" : "021",
     evidenceStatus: "proof",
     productSupport: "not-yet-supported",
     implementationLevel: "not-implemented",
@@ -172,6 +186,7 @@ export function buildNodeLevel5HttpProfileCapture(
       ],
     },
     verifier: input.verifier,
+    ...(input.selectedState ? { selectedState: input.selectedState } : {}),
     gates: {
       sourceIsaEmulationAllowed: false,
       sidecarOutputAllowed: false,
@@ -182,9 +197,29 @@ export function buildNodeLevel5HttpProfileCapture(
     summary: {
       profileReady: true,
       targetNativeContinuationRequired: true,
-      productSupportBlockedUntilActualWorkloadContinuation: true,
+      productSupportBlockedUntilActualRuntimeStateContinuation: true,
+      selectedStateReconstructionHarness: selectedStateSupported,
+      notProperLevel5Reason: selectedStateSupported
+        ? "app-specific-selected-state-descriptor"
+        : "no-selected-state",
     },
   };
+}
+
+export function isSupportedNodeLevel5HttpSelectedState(
+  selectedState: NodeLevel5HttpProfileSelectedState | undefined,
+): selectedState is NodeLevel5HttpProfileSelectedState {
+  return (
+    selectedState?.kind === "node-http-counter-selected-state-v1" &&
+    selectedState.route === "/" &&
+    selectedState.captureMethod === "http-root-json-next-count" &&
+    Number.isSafeInteger(selectedState.observedNextCount) &&
+    Number.isSafeInteger(selectedState.restoredInitialCount) &&
+    selectedState.restoredInitialCount >= 0 &&
+    selectedState.observedNextCount === selectedState.restoredInitialCount + 1 &&
+    selectedState.expectedFirstTargetBody ===
+      `${JSON.stringify({ count: selectedState.observedNextCount })}\n`
+  );
 }
 
 export function nodeLevel5HttpProfileRefusalRows(): NodeLevel5HttpProfileRefusal[] {

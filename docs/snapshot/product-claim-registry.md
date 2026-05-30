@@ -15,7 +15,9 @@ and `machinen restore`. Goal 015 adds eventfd as the second Level 4 portable
 restore adapter/resource. Goal 016 adds pipes as the third Level 4 portable
 restore adapter/resource. Goal 017 adds timerfd as the fourth Level 4 portable
 restore adapter/resource. Goal 018 adds TCP listener-only sockets as the fifth
-Level 4 portable restore adapter/resource. The implemented subsets are:
+Level 4 portable restore adapter/resource. Goal 022 is explicitly only a
+selected-state harness proof and is not listed as product support. The implemented
+subsets are:
 
 - `node-app-http-server-recreate` — `node-http-clean-root-v1` — `level-1-semantic-restart`
 - `python-cross-arch-runtime-policy` — `python-http-clean-root-v1` — `level-1-semantic-restart`

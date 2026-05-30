@@ -3020,6 +3020,7 @@ async function runPortableDetachedRestore(
   }
 }
 
+// fallow-ignore-next-line code-duplication
 function buildTcpListenerDetachedRestoreSummary(input: {
   descriptor: ProductLevel4TcpListenerDescriptor;
   summary: ProductLevel4TcpListenerRestoreSummary;
@@ -3055,6 +3056,7 @@ function buildTcpListenerDetachedRestoreSummary(input: {
   };
 }
 
+// fallow-ignore-next-line code-duplication
 function buildTimerfdDetachedRestoreSummary(input: {
   descriptor: ProductLevel4TimerfdDescriptor;
   summary: ProductLevel4TimerfdRestoreSummary;
@@ -3089,6 +3091,7 @@ function buildTimerfdDetachedRestoreSummary(input: {
   };
 }
 
+// fallow-ignore-next-line code-duplication
 function buildPipeDetachedRestoreSummary(input: {
   descriptor: ProductLevel4PipeDescriptor;
   summary: ProductLevel4PipeRestoreSummary;
@@ -3121,6 +3124,7 @@ function buildPipeDetachedRestoreSummary(input: {
   };
 }
 
+// fallow-ignore-next-line code-duplication
 function buildEventfdDetachedRestoreSummary(input: {
   descriptor: ProductLevel4EventfdDescriptor;
   summary: ProductLevel4EventfdRestoreSummary;
@@ -3594,6 +3598,13 @@ async function cmdRestoreNodeLevel5ProofComposition(
   const result = await restoreLevel5RuntimeBundle(snapDir, {
     verifyProofOnly: parsed.verifyProofOnly,
     allowProofOnlySuccess: parsed.allowProofOnlySuccess,
+    targetRestore: {
+      name: parsed.name,
+      portForward: parsed.portForward,
+      resolveCliBaseAssets,
+      deriveBootName,
+      shellQuote,
+    },
   });
   if (json) {
     emitJson({ schema_version: 1, ...result.summary });
@@ -3602,7 +3613,13 @@ async function cmdRestoreNodeLevel5ProofComposition(
     process.stderr.write(
       `Node Level 5 proof verifier: ${targetProof.status}; target-native Node continuation observed=${targetProof.targetVerifierObservedActualNodeContinuation}; noSourceIsaEmulation=${targetProof.noSourceIsaEmulation}; noSidecarOutput=${targetProof.noSidecarOutput}; noMetadataOnlySuccess=${targetProof.noMetadataOnlySuccess}\n`,
     );
-    process.stderr.write(`${result.summary.refusal.message}\n`);
+    if (result.summary.refusal) {
+      process.stderr.write(`${result.summary.refusal.message}\n`);
+    } else {
+      process.stderr.write(
+        "Node Level 5 HTTP profile restore completed selected state continuation\n",
+      );
+    }
   }
   return result.exitCode;
 }

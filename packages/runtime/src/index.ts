@@ -141,9 +141,20 @@ export {
   NODE_LEVEL5_HTTP_PROFILE_FORMAT_VERSION,
   NODE_LEVEL5_HTTP_PROFILE_NAME,
   buildNodeLevel5HttpProfileCapture,
+  isSupportedNodeLevel5HttpSelectedState,
   nodeLevel5HttpProfileRefusalCodes,
   nodeLevel5HttpProfileRefusalRows,
 } from "./node-level5-http-profile.ts";
+export {
+  NODE_PROPER_LEVEL5_SOURCE_INSPECTION_KIND,
+  parseNodeProperLevel5ProcMaps,
+  summarizeNodeProperLevel5SourceInspection,
+} from "./node-proper-level5-source-inspection.ts";
+export {
+  NODE_PROPER_LEVEL5_V8_CLOSURE_RECOVERY_KIND,
+  recoverNodeProperLevel5RawV8ContextSmiCounter,
+  recoverNodeProperLevel5V8ClosureCounterCell,
+} from "./node-proper-level5-v8-closure-recovery.ts";
 export {
   NODE_LEVEL5_PROOF_COMPOSITION_FORMAT_VERSION,
   buildNodeLevel5ProofComposition,
@@ -169,7 +180,22 @@ export type {
   NodeLevel5HttpProfileCaptureInput,
   NodeLevel5HttpProfileRefusal,
   NodeLevel5HttpProfileRefusalCode,
+  NodeLevel5HttpProfileSelectedState,
 } from "./node-level5-http-profile.ts";
+export type {
+  NodeProperLevel5MapKind,
+  NodeProperLevel5ProcMapEntry,
+  NodeProperLevel5SourceInspectionInput,
+  NodeProperLevel5SourceInspectionSummary,
+} from "./node-proper-level5-source-inspection.ts";
+export type {
+  NodeProperLevel5RawMemoryFragment,
+  NodeProperLevel5RawV8ContextSmiRecoveryResult,
+  NodeProperLevel5V8ClosureCounterCellCandidate,
+  NodeProperLevel5V8ClosureRecoveryRefusal,
+  NodeProperLevel5V8ClosureRecoveryRefusalCode,
+  NodeProperLevel5V8ClosureRecoveryResult,
+} from "./node-proper-level5-v8-closure-recovery.ts";
 export type {
   NodeLevel5ProofComposition,
   NodeLevel5ProofCompositionInput,
