@@ -9,6 +9,7 @@ const cliPath = join(repoRoot, "packages/cli/src/cli.ts");
 const tsxLoaderPath = join(repoRoot, "node_modules/tsx/dist/loader.mjs");
 const family = "express-fastify-http-app";
 const direction = "arm64-to-amd64";
+const targetName = "api";
 
 type ProofDefinition = { goal: string; result: string; kind: string };
 
@@ -129,7 +130,7 @@ export function runNodeLevel5ProductDetectionProof(proof: string): void {
     nodeProductSupportClaimed: 80,
     broadNodeProductSupportClaimed: 20,
     arbitraryProcessCrossArchRestoreClaimed: 0,
-    productSurface: ["machinen snapshot node", "machinen restore <snapshot>"],
+    productSurface: ["machinen snapshot node <name|pid>", "machinen restore <snapshot>"],
     ...payload(definition.kind),
   };
   writeOrAssertSummary(proof, checkedSummary);
@@ -205,7 +206,7 @@ function payload(kind: string): Record<string, unknown> {
   if (kind === "human") {
     const appDir = supportedAppDir({ activeRequests: true });
     const outDir = tempDir();
-    const result = runCli(["snapshot", "node", "--out", outDir], appDir);
+    const result = runCli(["snapshot", "node", targetName, "--out", outDir], appDir);
     cleanup(appDir, outDir);
     return {
       refused: result.status === 1,
@@ -223,7 +224,7 @@ function payload(kind: string): Record<string, unknown> {
     const appDir = supportedAppDir();
     const outDir = tempDir();
     const result = runCli(
-      ["snapshot", "node", "--out", outDir, "--family", family, "--json"],
+      ["snapshot", "node", targetName, "--out", outDir, "--family", family, "--json"],
       appDir,
     );
     cleanup(appDir, outDir);
@@ -303,7 +304,11 @@ function snapshotWorkflow(): Record<string, any> {
   const appDir = supportedAppDir();
   const outDir = tempDir();
   try {
-    const snapshot = cliJson(["snapshot", "node", "--out", outDir, "--json"], 0, appDir);
+    const snapshot = cliJson(
+      ["snapshot", "node", targetName, "--out", outDir, "--json"],
+      0,
+      appDir,
+    );
     const restore = cliJson(["restore", outDir, "--json"]);
     return { snapshot, restore };
   } finally {
@@ -314,7 +319,7 @@ function snapshotWorkflow(): Record<string, any> {
 function refusedFromApp(appDir: string, code: string): Record<string, any> {
   const outDir = tempDir();
   try {
-    const result = runCli(["snapshot", "node", "--out", outDir, "--json"], appDir);
+    const result = runCli(["snapshot", "node", targetName, "--out", outDir, "--json"], appDir);
     if (result.status !== 1) {
       throw new Error(
         `expected refusal ${code}: ${result.status} ${result.stdout} ${result.stderr}`,
@@ -334,7 +339,7 @@ function tamperDetectorReport(): Record<string, unknown> {
   const appDir = supportedAppDir();
   const outDir = tempDir();
   try {
-    cliJson(["snapshot", "node", "--out", outDir, "--json"], 0, appDir);
+    cliJson(["snapshot", "node", targetName, "--out", outDir, "--json"], 0, appDir);
     writeFileSync(join(outDir, "node-level5-detector-report.json"), '{"tampered":true}\n');
     const result = runCli(["restore", outDir, "--json"]);
     const output = JSON.parse(result.stdout || result.stderr);
@@ -354,6 +359,10 @@ function supportedAppDir(marker?: Record<string, unknown>): string {
     join(appDir, "package.json"),
     `${JSON.stringify({ name: "supported", dependencies: { express: "^4.0.0" } }, null, 2)}\n`,
   );
+  writeFileSync(
+    join(appDir, "machinen-node-level5-targets.json"),
+    `${JSON.stringify({ targets: { [targetName]: { runtime: "node", appDir } } }, null, 2)}\n`,
+  );
   if (marker) {
     writeFileSync(
       join(appDir, "machinen-node-level5-detector.json"),
@@ -368,6 +377,10 @@ function unsupportedAppDir(): string {
   writeFileSync(
     join(appDir, "package.json"),
     `${JSON.stringify({ name: "unknown", dependencies: {} }, null, 2)}\n`,
+  );
+  writeFileSync(
+    join(appDir, "machinen-node-level5-targets.json"),
+    `${JSON.stringify({ targets: { [targetName]: { runtime: "node", appDir } } }, null, 2)}\n`,
   );
   return appDir;
 }

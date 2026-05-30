@@ -1,0 +1,13 @@
+{
+  "kind": "machinen.node-level5-target-bound-proof-summary",
+  "proof": "424",
+  "goal": "Node process identity evidence",
+  "result": "Snapshot retains Node target identity evidence.",
+  "status": "node-product-support-80-target-bound-snapshot",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": ["machinen snapshot node <name|pid>", "machinen restore <snapshot>"],
+  "targetIdentityRetained": true,
+  "target": "api"
+}

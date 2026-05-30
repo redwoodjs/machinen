@@ -3,13 +3,13 @@
 Node Level 5 support now uses the product-shaped surface first:
 
 ```sh
-machinen snapshot node \
+machinen snapshot node api \
   --out ./node-snapshot
 
 machinen restore ./node-snapshot
 ```
 
-This path does not require an experimental Node Level 5 flag. `snapshot node` detects the current app directory before capture. It accepts the supported idle HTTP app shape and refuses unsupported Node state before writing a snapshot.
+This path does not require an experimental Node Level 5 flag. `snapshot node <name|pid>` resolves target metadata before capture. It accepts the supported idle HTTP app shape and refuses non-Node targets, missing app roots, or unsupported Node state before writing a snapshot.
 
 The detector report is retained inside the snapshot and verified during restore. The path still keeps the support boundary narrow:
 

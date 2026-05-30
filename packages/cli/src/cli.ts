@@ -1911,6 +1911,13 @@ function reportNodeLevel5DeclaredSubsetSummary<TSummary extends NodeLevel5Declar
 
 type NodeLevel5ProductSnapshotCliOptions = {
   out?: string;
+  target?: Target;
+};
+
+type NodeLevel5ProductSnapshotTargetMetadata = {
+  runtime?: "node" | "unknown";
+  appDir?: string;
+  pid?: number;
 };
 
 type NodeLevel5ArtifactCliOptions = {
@@ -4978,13 +4985,13 @@ function isNodeLevel5ProductSnapshotCommand(args: string[]): boolean {
 function cmdSnapshotNodeLevel5Product(args: string[]): number {
   const { json, rest } = consumeJsonFlag(args);
   const options = parseNodeLevel5ProductSnapshotArgs(rest.filter((arg) => arg !== "node"));
-  if (!options.out) {
-    die("usage: machinen snapshot node --out <dir> [--json]");
+  if (!options.out || !options.target) {
+    die("usage: machinen snapshot node <name|pid> --out <dir> [--json]");
   }
   return reportNodeLevel5ProductSnapshot(
     createNodeLevel5ProductSnapshot({
       outDir: resolve(options.out),
-      appDir: process.cwd(),
+      target: resolveNodeLevel5ProductSnapshotTarget(options.target),
     }),
     json,
   );
@@ -5015,15 +5022,64 @@ function writeNodeLevel5ProductSnapshotHumanSummary(
 function parseNodeLevel5ProductSnapshotArgs(args: string[]): NodeLevel5ProductSnapshotCliOptions {
   const outFlag = args.indexOf("--out");
   if (outFlag === -1) {
-    return {};
+    return parseNodeLevel5ProductSnapshotTargetOnly(args);
   }
   const out = takeCaptureValue(args, outFlag + 1, "--out");
-  const consumed = new Set([outFlag, outFlag + 1]);
-  const unknown = args.find((_, index) => !consumed.has(index));
-  if (unknown) {
-    die(`unknown snapshot node argument: ${unknown}`);
+  const positional = args.filter((_, index) => index !== outFlag && index !== outFlag + 1);
+  return { out, target: parseNodeLevel5ProductSnapshotTargetOnly(positional).target };
+}
+
+function parseNodeLevel5ProductSnapshotTargetOnly(
+  args: string[],
+): Pick<NodeLevel5ProductSnapshotCliOptions, "target"> {
+  if (args.length === 0) {
+    return {};
   }
-  return { out };
+  if (args.length > 1) {
+    die(`unknown snapshot node argument: ${args[1]}`);
+  }
+  return { target: /^[0-9]+$/.test(args[0]!) ? { pid: Number(args[0]) } : { name: args[0]! } };
+}
+
+function resolveNodeLevel5ProductSnapshotTarget(target: Target) {
+  const targetName = nodeLevel5ProductSnapshotTargetName(target);
+  const metadata = readNodeLevel5ProductSnapshotTargetMetadata(targetName);
+  return {
+    target: targetName,
+    targetKind: nodeLevel5ProductSnapshotTargetKind(target),
+    runtime: metadata?.runtime ?? ("unknown" as const),
+    appDir: metadata?.appDir,
+    pid: nodeLevel5ProductSnapshotTargetPid(target, metadata),
+    registryMatched: Boolean(lookupEntry(target)),
+  };
+}
+
+function nodeLevel5ProductSnapshotTargetName(target: Target): string {
+  return "name" in target ? target.name : String(target.pid);
+}
+
+function nodeLevel5ProductSnapshotTargetKind(target: Target): "name" | "pid" {
+  return "name" in target ? "name" : "pid";
+}
+
+function nodeLevel5ProductSnapshotTargetPid(
+  target: Target,
+  metadata: NodeLevel5ProductSnapshotTargetMetadata | undefined,
+): number | undefined {
+  return "pid" in target ? target.pid : metadata?.pid;
+}
+
+function readNodeLevel5ProductSnapshotTargetMetadata(
+  target: string,
+): NodeLevel5ProductSnapshotTargetMetadata | undefined {
+  const path = join(process.cwd(), "machinen-node-level5-targets.json");
+  if (!existsSync(path)) {
+    return undefined;
+  }
+  const parsed = JSON.parse(readFileSync(path, "utf8")) as {
+    targets?: Record<string, NodeLevel5ProductSnapshotTargetMetadata>;
+  };
+  return parsed.targets?.[target];
 }
 
 interface SnapshotOptionsCli {
@@ -5063,7 +5119,7 @@ function consumeKeepAliveFlag(args: string[]): { keepAlive: boolean; rest: strin
 function parseSnapshotOutDir(args: string[]): string {
   if (args.length === 0) {
     die(
-      "usage: machinen snapshot <name|pid> <out-dir> [--keep-alive] [--dry-run] [--json]\n       machinen snapshot node --out <dir> [--json]",
+      "usage: machinen snapshot <name|pid> <out-dir> [--keep-alive] [--dry-run] [--json]\n       machinen snapshot node <name|pid> --out <dir> [--json]",
     );
   }
   if (args.length > 1) {

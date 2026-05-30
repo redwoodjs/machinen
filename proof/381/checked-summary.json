@@ -8,5 +8,5 @@
   "broadNodeProductSupportClaimed": 20,
   "arbitraryProcessCrossArchRestoreClaimed": 0,
   "productSurface": ["machinen snapshot node", "machinen restore <snapshot>"],
-  "command": "machinen snapshot node --out <dir>"
+  "command": "machinen snapshot node <name|pid> --out <dir>"
 }

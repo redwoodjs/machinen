@@ -199,9 +199,11 @@
 - [`NodeLevel5ProductSnapshotRefusal`](#nodelevel5productsnapshotrefusal)
 - [`NodeLevel5ProductSnapshotRefusalCode`](#nodelevel5productsnapshotrefusalcode)
 - [`NodeLevel5ProductSnapshotSummary`](#nodelevel5productsnapshotsummary)
+- [`NodeLevel5ProductTargetIdentity`](#nodelevel5producttargetidentity)
 - [`DEFAULT_NODE_LEVEL5_PRODUCT_SNAPSHOT_DIRECTION`](#default_node_level5_product_snapshot_direction)
 - [`NODE_LEVEL5_PRODUCT_DETECTOR_REPORT_KIND`](#node_level5_product_detector_report_kind)
 - [`NODE_LEVEL5_PRODUCT_SNAPSHOT_KIND`](#node_level5_product_snapshot_kind)
+- [`NODE_LEVEL5_PRODUCT_TARGET_IDENTITY_KIND`](#node_level5_product_target_identity_kind)
 - [`NODE_LEVEL5_PRODUCT_SNAPSHOT_VERSION`](#node_level5_product_snapshot_version)
 - [`createNodeLevel5ProductSnapshot`](#createnodelevel5productsnapshot)
 - [`detectNodeLevel5ProductSnapshotApp`](#detectnodelevel5productsnapshotapp)
@@ -18370,7 +18372,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`runtime`](#runtime-20)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`runtime`](#runtime-21)
 
 ##### profile
 
@@ -22310,7 +22312,7 @@ Poll interval in ms while retrying. Default 250.
 
 ### NodeLevel5ProductSnapshotRefusalCode
 
-> **NodeLevel5ProductSnapshotRefusalCode** = `"node-level5-unsupported-app-refused"` \| `"node-level5-active-request-refused"` \| `"node-level5-worker-thread-refused"` \| `"node-level5-native-addon-refused"` \| `"node-level5-wasm-external-memory-refused"` \| `"node-level5-tls-active-state-refused"` \| `"node-level5-child-process-live-state-refused"` \| `"node-level5-filesystem-watcher-refused"`
+> **NodeLevel5ProductSnapshotRefusalCode** = `"node-level5-non-node-target-refused"` \| `"node-level5-target-app-root-missing"` \| `"node-level5-unsupported-app-refused"` \| `"node-level5-active-request-refused"` \| `"node-level5-worker-thread-refused"` \| `"node-level5-native-addon-refused"` \| `"node-level5-wasm-external-memory-refused"` \| `"node-level5-tls-active-state-refused"` \| `"node-level5-child-process-live-state-refused"` \| `"node-level5-filesystem-watcher-refused"`
 
 ***
 
@@ -22327,6 +22329,50 @@ Poll interval in ms while retrying. Default 250.
 ##### message
 
 > **message**: `string`
+
+***
+
+### NodeLevel5ProductTargetIdentity
+
+> **NodeLevel5ProductTargetIdentity** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_PRODUCT_TARGET_IDENTITY_KIND`](#node_level5_product_target_identity_kind)
+
+##### target
+
+> **target**: `string`
+
+##### targetKind
+
+> **targetKind**: `"pid"` \| `"name"` \| `"current-directory"`
+
+##### runtime
+
+> **runtime**: `"node"` \| `"unknown"`
+
+##### appDir?
+
+> `optional` **appDir?**: `string`
+
+##### pid?
+
+> `optional` **pid?**: `number`
+
+##### registryMatched
+
+> **registryMatched**: `boolean`
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### refusal?
+
+> `optional` **refusal?**: [`NodeLevel5ProductSnapshotRefusal`](#nodelevel5productsnapshotrefusal)
 
 ***
 
@@ -22416,6 +22462,14 @@ Poll interval in ms while retrying. Default 250.
 
 > **detectorReportSha256**: `string`
 
+##### targetIdentityPath
+
+> **targetIdentityPath**: `"node-level5-target-identity.json"`
+
+##### targetIdentitySha256
+
+> **targetIdentitySha256**: `string`
+
 ##### artifactBundleKind
 
 > **artifactBundleKind**: `"machinen.node-level5-product-support-80-artifact-bundle"`
@@ -22480,9 +22534,13 @@ Poll interval in ms while retrying. Default 250.
 
 > `optional` **manifest?**: [`NodeLevel5ProductSnapshotManifest`](#nodelevel5productsnapshotmanifest)
 
-##### detectorReport
+##### targetIdentity
 
-> **detectorReport**: [`NodeLevel5ProductDetectorReport`](#nodelevel5productdetectorreport)
+> **targetIdentity**: [`NodeLevel5ProductTargetIdentity`](#nodelevel5producttargetidentity)
+
+##### detectorReport?
+
+> `optional` **detectorReport?**: [`NodeLevel5ProductDetectorReport`](#nodelevel5productdetectorreport)
 
 ##### refusal?
 
@@ -22519,6 +22577,10 @@ Poll interval in ms while retrying. Default 250.
 ##### direction
 
 > **direction**: [`NodeLevel5ProductSnapshotDirection`](#nodelevel5productsnapshotdirection)
+
+##### targetIdentityVerified
+
+> **targetIdentityVerified**: `boolean`
 
 ##### detectorReportVerified
 
@@ -25547,6 +25609,12 @@ loops; anything looser stops being a meaningful gate.
 ### NODE\_LEVEL5\_PRODUCT\_DETECTOR\_REPORT\_KIND
 
 > `const` **NODE\_LEVEL5\_PRODUCT\_DETECTOR\_REPORT\_KIND**: `"machinen.node-level5-product-detector-report"` = `"machinen.node-level5-product-detector-report"`
+
+***
+
+### NODE\_LEVEL5\_PRODUCT\_TARGET\_IDENTITY\_KIND
+
+> `const` **NODE\_LEVEL5\_PRODUCT\_TARGET\_IDENTITY\_KIND**: `"machinen.node-level5-product-target-identity"` = `"machinen.node-level5-product-target-identity"`
 
 ***
 
@@ -28587,6 +28655,10 @@ available.
 ###### appDir?
 
 `string`
+
+###### target?
+
+`Partial`\<[`NodeLevel5ProductTargetIdentity`](#nodelevel5producttargetidentity)\> & `object`
 
 ###### direction?
 

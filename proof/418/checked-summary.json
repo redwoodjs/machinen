@@ -7,5 +7,5 @@
   "nodeProductSupportClaimed": 80,
   "broadNodeProductSupportClaimed": 20,
   "arbitraryProcessCrossArchRestoreClaimed": 0,
-  "productSurface": ["machinen snapshot node", "machinen restore <snapshot>"]
+  "productSurface": ["machinen snapshot node <name|pid>", "machinen restore <snapshot>"]
 }

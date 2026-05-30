@@ -21,6 +21,10 @@ function appDir(marker?: Record<string, unknown>) {
     join(dir, "package.json"),
     `${JSON.stringify({ name: "supported", dependencies: { express: "^4.0.0" } }, null, 2)}\n`,
   );
+  writeFileSync(
+    join(dir, "machinen-node-level5-targets.json"),
+    `${JSON.stringify({ targets: { api: { runtime: "node", appDir: dir } } }, null, 2)}\n`,
+  );
   if (marker) {
     writeFileSync(join(dir, "machinen-node-level5-detector.json"), `${JSON.stringify(marker)}\n`);
   }
@@ -32,7 +36,7 @@ describe("Node Level 5 product snapshot CLI", () => {
     const dir = mkdtempSync(join(tmpdir(), "machinen-node-product-cli-"));
     const source = appDir();
     try {
-      const snapshot = runCli(["snapshot", "node", "--out", dir, "--json"], source);
+      const snapshot = runCli(["snapshot", "node", "api", "--out", dir, "--json"], source);
       expect(snapshot.status).toBe(0);
       expect(JSON.parse(snapshot.stdout)).toMatchObject({
         accepted: true,
@@ -64,7 +68,7 @@ describe("Node Level 5 product snapshot CLI", () => {
     const dir = mkdtempSync(join(tmpdir(), "machinen-node-product-cli-refused-"));
     const source = appDir({ activeRequests: true });
     try {
-      const snapshot = runCli(["snapshot", "node", "--out", dir, "--json"], source);
+      const snapshot = runCli(["snapshot", "node", "api", "--out", dir, "--json"], source);
       expect(snapshot.status).toBe(1);
       expect(JSON.parse(snapshot.stdout)).toMatchObject({
         accepted: false,

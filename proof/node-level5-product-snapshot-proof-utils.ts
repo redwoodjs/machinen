@@ -140,7 +140,7 @@ export function runNodeLevel5ProductSnapshotProof(proof: string): void {
 // fallow-ignore-next-line complexity
 function payload(kind: string): Record<string, unknown> {
   if (kind === "snapshot-contract") {
-    return { command: "machinen snapshot node --out <dir>" };
+    return { command: "machinen snapshot node <name|pid> --out <dir>" };
   }
   if (kind === "restore-contract") {
     return {
@@ -228,7 +228,7 @@ function payload(kind: string): Record<string, unknown> {
     const dir = tempDir();
     const appDir = supportedAppDir();
     const result = runCli(
-      ["snapshot", "node", "--out", dir, "--family", "unknown-family", "--json"],
+      ["snapshot", "node", "api", "--out", dir, "--family", "unknown-family", "--json"],
       appDir,
     );
     rmSync(dir, { recursive: true, force: true });
@@ -334,7 +334,7 @@ function writeSnapshot(): { dir: string; appDir: string; snapshot: Record<string
 }
 
 function snapshotArgs(dir: string, json: boolean): string[] {
-  const args = ["snapshot", "node", "--out", dir];
+  const args = ["snapshot", "node", "api", "--out", dir];
   if (json) {
     args.push("--json");
   }
@@ -350,6 +350,10 @@ function supportedAppDir(): string {
   writeFileSync(
     join(appDir, "package.json"),
     `${JSON.stringify({ name: "supported", dependencies: { express: "^4.0.0" } }, null, 2)}\n`,
+  );
+  writeFileSync(
+    join(appDir, "machinen-node-level5-targets.json"),
+    `${JSON.stringify({ targets: { api: { runtime: "node", appDir } } }, null, 2)}\n`,
   );
   return appDir;
 }
