@@ -1,0 +1,31 @@
+{
+  "kind": "machinen.node-proper-level5-candidate-support-matrix",
+  "proof": "090",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "candidateSubset": {
+    "runtime": "node",
+    "workload": "idle-http-listener-with-small-supported-v8-heap-and-safe-resources",
+    "sourceArchitecture": "arm64",
+    "targetArchitecture": "amd64",
+    "status": "candidate-not-supported",
+    "requiredGates": [
+      "real-v8-captured-byte-recovery",
+      "real-cross-arch-end-to-end-pipeline",
+      "native-verifier-assembler-over-real-artifacts",
+      "repeatability-negative-gauntlet",
+      "cli-docs-support-matrix"
+    ]
+  },
+  "publicCli": {
+    "command": "none",
+    "hiddenProofCommand": "private-proof-only-translated-continuation",
+    "requiresProofOnlyFlag": true,
+    "publicSupportAdvertised": false
+  },
+  "docs": {
+    "publicDocsAdvertiseSupport": false,
+    "proofDocsMustSayProofOnly": true
+  }
+}
