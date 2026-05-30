@@ -192,7 +192,9 @@
 - [`nodeLevel5ProductSupport80ClaimRegistry`](#nodelevel5productsupport80claimregistry)
 - [`nodeLevel5ProductSupport80UnsupportedDetectors`](#nodelevel5productsupport80unsupporteddetectors)
 - [`verifyNodeLevel5ProductSupport80ArtifactBundle`](#verifynodelevel5productsupport80artifactbundle)
+- [`NodeLevel5ProductCaptureReport`](#nodelevel5productcapturereport)
 - [`NodeLevel5ProductDetectorReport`](#nodelevel5productdetectorreport)
+- [`NodeLevel5ProductRestoreMaterializationReport`](#nodelevel5productrestorematerializationreport)
 - [`NodeLevel5ProductRestoreSummary`](#nodelevel5productrestoresummary)
 - [`NodeLevel5ProductSnapshotDirection`](#nodelevel5productsnapshotdirection)
 - [`NodeLevel5ProductSnapshotManifest`](#nodelevel5productsnapshotmanifest)
@@ -201,7 +203,9 @@
 - [`NodeLevel5ProductSnapshotSummary`](#nodelevel5productsnapshotsummary)
 - [`NodeLevel5ProductTargetIdentity`](#nodelevel5producttargetidentity)
 - [`DEFAULT_NODE_LEVEL5_PRODUCT_SNAPSHOT_DIRECTION`](#default_node_level5_product_snapshot_direction)
+- [`NODE_LEVEL5_PRODUCT_CAPTURE_REPORT_KIND`](#node_level5_product_capture_report_kind)
 - [`NODE_LEVEL5_PRODUCT_DETECTOR_REPORT_KIND`](#node_level5_product_detector_report_kind)
+- [`NODE_LEVEL5_PRODUCT_RESTORE_MATERIALIZATION_REPORT_KIND`](#node_level5_product_restore_materialization_report_kind)
 - [`NODE_LEVEL5_PRODUCT_SNAPSHOT_KIND`](#node_level5_product_snapshot_kind)
 - [`NODE_LEVEL5_PRODUCT_TARGET_IDENTITY_KIND`](#node_level5_product_target_identity_kind)
 - [`NODE_LEVEL5_PRODUCT_SNAPSHOT_VERSION`](#node_level5_product_snapshot_version)
@@ -22432,6 +22436,146 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NodeLevel5ProductCaptureReport
+
+> **NodeLevel5ProductCaptureReport** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_PRODUCT_CAPTURE_REPORT_KIND`](#node_level5_product_capture_report_kind)
+
+##### accepted
+
+> **accepted**: `true`
+
+##### productCommandPath
+
+> **productCommandPath**: `"machinen snapshot node <pid> --out <dir>"`
+
+##### familyId
+
+> **familyId**: [`NodeLevel5ProductSupport80FamilyId`](#nodelevel5productsupport80familyid)
+
+##### direction
+
+> **direction**: [`NodeLevel5ProductSnapshotDirection`](#nodelevel5productsnapshotdirection)
+
+##### targetIdentitySha256
+
+> **targetIdentitySha256**: `string`
+
+##### detectorReportSha256
+
+> **detectorReportSha256**: `string`
+
+##### artifactRoot
+
+> **artifactRoot**: `string`
+
+##### translatedContinuationRequired
+
+> **translatedContinuationRequired**: `true`
+
+##### targetNativeNodeRequired
+
+> **targetNativeNodeRequired**: `true`
+
+##### rawCpuRestoreCaptured
+
+> **rawCpuRestoreCaptured**: `false`
+
+##### sourceIsaEmulationCaptured
+
+> **sourceIsaEmulationCaptured**: `false`
+
+##### metadataOnlySuccessAccepted
+
+> **metadataOnlySuccessAccepted**: `false`
+
+##### nodeProductSupportClaimed
+
+> **nodeProductSupportClaimed**: `80`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `20`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
+
+***
+
+### NodeLevel5ProductRestoreMaterializationReport
+
+> **NodeLevel5ProductRestoreMaterializationReport** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_PRODUCT_RESTORE_MATERIALIZATION_REPORT_KIND`](#node_level5_product_restore_materialization_report_kind)
+
+##### accepted
+
+> **accepted**: `true`
+
+##### familyId
+
+> **familyId**: [`NodeLevel5ProductSupport80FamilyId`](#nodelevel5productsupport80familyid)
+
+##### direction
+
+> **direction**: [`NodeLevel5ProductSnapshotDirection`](#nodelevel5productsnapshotdirection)
+
+##### captureReportVerified
+
+> **captureReportVerified**: `boolean`
+
+##### targetIdentityVerified
+
+> **targetIdentityVerified**: `boolean`
+
+##### detectorReportVerified
+
+> **detectorReportVerified**: `boolean`
+
+##### targetNativeNodeVerified
+
+> **targetNativeNodeVerified**: `boolean`
+
+##### translatedContinuationRequired
+
+> **translatedContinuationRequired**: `true`
+
+##### rawCpuRestoreUsed
+
+> **rawCpuRestoreUsed**: `false`
+
+##### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+##### metadataOnlySuccessAccepted
+
+> **metadataOnlySuccessAccepted**: `false`
+
+##### nodeProductSupportClaimed
+
+> **nodeProductSupportClaimed**: `80`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `20`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
+
+***
+
 ### NodeLevel5ProductSnapshotManifest
 
 > **NodeLevel5ProductSnapshotManifest** = `object`
@@ -22477,6 +22621,14 @@ Poll interval in ms while retrying. Default 250.
 ##### targetIdentitySha256
 
 > **targetIdentitySha256**: `string`
+
+##### captureReportPath
+
+> **captureReportPath**: `"node-level5-product-capture-report.json"`
+
+##### captureReportSha256
+
+> **captureReportSha256**: `string`
 
 ##### artifactBundleKind
 
@@ -22550,6 +22702,10 @@ Poll interval in ms while retrying. Default 250.
 
 > `optional` **detectorReport?**: [`NodeLevel5ProductDetectorReport`](#nodelevel5productdetectorreport)
 
+##### captureReport?
+
+> `optional` **captureReport?**: [`NodeLevel5ProductCaptureReport`](#nodelevel5productcapturereport)
+
 ##### refusal?
 
 > `optional` **refusal?**: [`NodeLevel5ProductSnapshotRefusal`](#nodelevel5productsnapshotrefusal)
@@ -22593,6 +22749,18 @@ Poll interval in ms while retrying. Default 250.
 ##### detectorReportVerified
 
 > **detectorReportVerified**: `boolean`
+
+##### captureReportVerified
+
+> **captureReportVerified**: `boolean`
+
+##### materializationReportPath
+
+> **materializationReportPath**: `string`
+
+##### materializationReport
+
+> **materializationReport**: [`NodeLevel5ProductRestoreMaterializationReport`](#nodelevel5productrestorematerializationreport)
 
 ##### targetNativeNodeVerified
 
@@ -25623,6 +25791,18 @@ loops; anything looser stops being a meaningful gate.
 ### NODE\_LEVEL5\_PRODUCT\_TARGET\_IDENTITY\_KIND
 
 > `const` **NODE\_LEVEL5\_PRODUCT\_TARGET\_IDENTITY\_KIND**: `"machinen.node-level5-product-target-identity"` = `"machinen.node-level5-product-target-identity"`
+
+***
+
+### NODE\_LEVEL5\_PRODUCT\_CAPTURE\_REPORT\_KIND
+
+> `const` **NODE\_LEVEL5\_PRODUCT\_CAPTURE\_REPORT\_KIND**: `"machinen.node-level5-product-capture-report"` = `"machinen.node-level5-product-capture-report"`
+
+***
+
+### NODE\_LEVEL5\_PRODUCT\_RESTORE\_MATERIALIZATION\_REPORT\_KIND
+
+> `const` **NODE\_LEVEL5\_PRODUCT\_RESTORE\_MATERIALIZATION\_REPORT\_KIND**: `"machinen.node-level5-product-restore-materialization-report"` = `"machinen.node-level5-product-restore-materialization-report"`
 
 ***
 
