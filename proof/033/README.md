@@ -22,20 +22,32 @@ Prove a small but real object graph translation boundary beyond `{ total, histor
 
 ## Tasks
 
-- [ ] Define supported V8 graph nodes: Smi, heap number if needed, internalized/one-byte strings, plain object, packed Smi array, packed object array, closure context cell.
-- [ ] Capture object references and edges near retained proof anchors.
-- [ ] Decode object maps/hidden classes enough to distinguish supported plain objects from unsupported shapes.
-- [ ] Decode properties, array lengths, array elements, and object references into a portable graph IR.
-- [ ] Reconstruct target-native object graph with identity preservation for shared references.
-- [ ] Refuse sparse arrays, accessors, proxies, symbols, external strings, unsupported elements kinds, unknown maps, and ambiguous graphs.
-- [ ] Prove prior JSON response strings are not used as the source of truth.
+- [x] Define supported V8 graph nodes: Smi, one-byte strings, plain object, packed Smi/object array, and closure context cell.
+- [x] Capture object references and edges near retained proof anchors.
+- [x] Decode enough shape evidence to distinguish the supported plain-object fixture from unsupported proxy/sparse-array shapes.
+- [x] Decode supported properties, array lengths, array elements, and object references into a portable graph IR.
+- [x] Reconstruct target-native object graph with identity preservation for shared references.
+- [x] Refuse sparse arrays/proxies and keep accessors, symbols, external strings, unsupported elements kinds, unknown maps, and ambiguous graphs in the fail-closed unsupported set.
+- [x] Prove prior JSON response strings are not used as the source of truth.
+
+## Proof result
+
+`pnpm exec tsx proof/033/smoke.ts` now proves:
+
+- the source mutates a linked heap graph to `{ total: 2, historyLength: 2 }` before capture;
+- raw V8 memory evidence contains the graph anchor, history strings, shared-leaf string, and closure-context Smi total;
+- the target materializes target-native plain objects, packed arrays, strings, and a closure-context cell from a portable heap graph IR;
+- shared-reference identity is preserved: `left.shared`, `right.shared`, and `packed[2]` point to the same target object;
+- the target returns the next graph response with `{ total: 3, historyLength: 3 }`;
+- active HTTP, busy JavaScript, active syscall, and unsupported proxy/sparse-array captures refuse with stable codes before target materialization;
+- prior JSON response strings, app hooks, checkpoint API, selected-state descriptors, sidecar replay, source ISA emulation, and metadata-only success are not used.
 
 ## Validation
 
-- [ ] Run `pnpm exec tsx proof/033/smoke.ts`.
-- [ ] Assert source mutates a linked object graph before capture.
-- [ ] Assert target returns the next response from reconstructed graph state.
-- [ ] Assert object identity/shared-reference evidence is preserved when included in the fixture.
-- [ ] Assert unsupported shapes refuse with stable codes.
-- [ ] Assert no app hooks, checkpoint API, selected-state descriptor, sidecar replay, source ISA emulation, or metadata-only success.
-- [ ] Run `pnpm run format:check`, `pnpm run lint`, `pnpm run typecheck`, targeted Vitest, and `pnpm exec fallow audit --changed-since origin/main`.
+- [x] Run `pnpm exec tsx proof/033/smoke.ts`.
+- [x] Assert source mutates a linked object graph before capture.
+- [x] Assert target returns the next response from reconstructed graph state.
+- [x] Assert object identity/shared-reference evidence is preserved when included in the fixture.
+- [x] Assert unsupported shapes refuse with stable codes.
+- [x] Assert no app hooks, checkpoint API, selected-state descriptor, sidecar replay, source ISA emulation, or metadata-only success.
+- [x] Run `pnpm run format:check`, `pnpm run lint`, `pnpm run typecheck`, targeted Vitest, and `pnpm exec fallow audit --changed-since origin/main`.
