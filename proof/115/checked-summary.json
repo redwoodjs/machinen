@@ -1,0 +1,41 @@
+{
+  "kind": "machinen.node-proper-level5-http-timer-e2e-summary",
+  "proof": "115",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "accepted": {
+    "accepted": true,
+    "targetStarted": false
+  },
+  "target": {
+    "first": {
+      "count": 3,
+      "timerTicks": 6
+    },
+    "second": {
+      "count": 4,
+      "timerTicks": 7
+    },
+    "targetNativeHttpUsed": true
+  },
+  "refusedRows": [
+    {
+      "id": "active-listener",
+      "expectedCode": "node-proper-level5-http-listener-not-idle",
+      "actualCode": "node-proper-level5-http-listener-not-idle",
+      "targetStarted": false
+    },
+    {
+      "id": "active-timer",
+      "expectedCode": "node-proper-level5-http-timer-active-callback-refused",
+      "actualCode": "node-proper-level5-http-timer-active-callback-refused",
+      "targetStarted": false
+    }
+  ],
+  "assertions": {
+    "httpTimerAppReturnedNextObservableBehavior": true,
+    "targetNativeHttpUsed": true,
+    "activeNeighborsRefuseBeforeTargetStart": true
+  }
+}
