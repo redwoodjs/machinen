@@ -1,0 +1,14 @@
+{
+  "kind": "machinen.node-level5-product-snapshot-proof-summary",
+  "proof": "394",
+  "goal": "Family selector hidden",
+  "result": "The product snapshot facade refuses diagnostic family selectors.",
+  "status": "node-product-support-80-snapshot-restore-facade",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": ["machinen snapshot node", "machinen restore <snapshot>"],
+  "refused": true,
+  "familySelectorExposed": false,
+  "messageIncludesUnknownArgument": true
+}
