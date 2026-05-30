@@ -1,0 +1,36 @@
+{
+  "kind": "machinen.node-proper-level5-proof-071-summary",
+  "proof": "071",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "accepted": {
+    "guestMemoryMapRead": true,
+    "byteOffset": "0x1200",
+    "decodedCount": 2,
+    "count": 3,
+    "graphTotal": 3
+  },
+  "refusedRows": [
+    {
+      "id": "missing-map",
+      "expectedCode": "node-proper-level5-v8-guest-memory-map-missing",
+      "actualCode": "node-proper-level5-v8-guest-memory-map-missing",
+      "targetStarted": false
+    },
+    {
+      "id": "unsupported-tag",
+      "expectedCode": "node-proper-level5-v8-guest-memory-tag-unsupported",
+      "actualCode": "node-proper-level5-v8-guest-memory-tag-unsupported",
+      "targetStarted": false
+    }
+  ],
+  "assertions": {
+    "proofOnly": true,
+    "acceptedPathVerified": true,
+    "refusedRowsStopBeforeTargetStart": true,
+    "noSourceIsaEmulation": true,
+    "noRawCpuCopy": true,
+    "noMetadataOnlySuccess": true
+  }
+}
