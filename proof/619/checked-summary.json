@@ -1,0 +1,15 @@
+{
+  "kind": "machinen.node-level5-behavioral-verifier-proof-summary",
+  "proof": "619",
+  "goal": "Retained behavioral verifier report",
+  "result": "Restore retains behavioral verifier evidence and summary fields.",
+  "status": "node-product-support-80-behavioral-verifier",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": [
+    "machinen snapshot node <pid> --out <dir>",
+    "machinen restore <snapshot>"
+  ],
+  "behavioralVerifierPassed": true
+}
