@@ -1,0 +1,25 @@
+{
+  "kind": "machinen.node-proper-level5-cross-arch-composed-bundle-summary",
+  "proof": "041",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "sourceArchitecture": "arm64",
+  "targetArchitecture": "amd64",
+  "target": {
+    "count": 3,
+    "graphTotal": 3,
+    "leftSharedIsRightShared": true,
+    "packedSharedIsSame": true,
+    "listenerOpen": true,
+    "timerRepeatMs": 100
+  },
+  "assertions": {
+    "sourceAndTargetArchitecturesDiffer": true,
+    "targetNativeNodeUsed": true,
+    "targetReturnedNextState": true,
+    "sourceCpuStateEvidenceOnly": true,
+    "noSourceIsaEmulation": true,
+    "noForbiddenShortcutUsed": true
+  }
+}
