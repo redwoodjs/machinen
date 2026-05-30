@@ -1,0 +1,12 @@
+{
+  "kind": "machinen.node-level5-product-command-proof-summary",
+  "proof": "356",
+  "goal": "Backward compatibility",
+  "result": "Existing guarded capture/restore commands still work.",
+  "status": "node-product-support-80-product-commands",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "captureAccepted": true,
+  "restoreAccepted": true
+}
