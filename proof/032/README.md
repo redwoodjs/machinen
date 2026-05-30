@@ -22,20 +22,32 @@ Prove a refusal-first continuation classifier for the proper Node track. A sourc
 
 ## Tasks
 
-- [ ] Define continuation classes: event-loop wait, timer callback active, HTTP request callback active, V8 internal frame, GC/compiler frame, native addon frame, active syscall, unknown.
-- [ ] Capture enough thread/register/syscall evidence to assign each thread to a class.
-- [ ] Accept the narrow quiescent event-loop wait case used by the current HTTP counter proof.
-- [ ] Refuse active JavaScript callback execution with a stable code.
-- [ ] Refuse active syscall states that are not modeled.
-- [ ] Refuse V8 GC/compiler/internal frames and unknown native frames.
-- [ ] Emit continuation descriptors only for accepted safe points.
+- [x] Define continuation classes: event-loop wait, timer callback active, HTTP request callback active, V8 internal frame, GC/compiler frame, native addon frame, active syscall, unknown.
+- [x] Capture enough thread/register/syscall evidence to assign each thread to a class.
+- [x] Accept the narrow idle event-loop wait case used by the current HTTP counter proof.
+- [x] Refuse active JavaScript callback execution with a stable code.
+- [x] Refuse active syscall states that are not modeled.
+- [x] Refuse V8 GC/compiler/internal frames and unknown native frames in the taxonomy so future captures fail closed instead of becoming raw continuation claims.
+- [x] Emit continuation descriptors only for accepted safe points.
+
+## Proof result
+
+`pnpm exec tsx proof/032/smoke.ts` now proves:
+
+- idle listener capture is accepted and emits thread continuation descriptors;
+- target-native reconstruction still recovers the raw V8 context Smi counter and returns `{ "count": 3 }`;
+- active `/hold` HTTP request state refuses with `node-proper-level5-http-active-request-unsupported`;
+- an intentional busy JavaScript callback fixture refuses with `node-proper-level5-active-js-callback-unsupported`;
+- an intentional blocking syscall fixture refuses with `node-proper-level5-active-syscall-unsupported`;
+- refused captures include refusal evidence in the portable IR and emit no target continuation descriptors;
+- no target materialization occurs for refused captures.
 
 ## Validation
 
-- [ ] Run `pnpm exec tsx proof/032/smoke.ts`.
-- [ ] Assert quiescent listener capture is accepted and target returns `{count:3}`.
-- [ ] Assert active `/hold` HTTP request refuses.
-- [ ] Assert an intentional busy JS callback fixture refuses.
-- [ ] Assert an intentional blocking syscall fixture refuses unless it has an explicit modeled continuation.
-- [ ] Assert refusal evidence appears in the portable IR and no target materialization occurs for refused captures.
-- [ ] Run `pnpm run format:check`, `pnpm run lint`, `pnpm run typecheck`, targeted Vitest, and `pnpm exec fallow audit --changed-since origin/main`.
+- [x] Run `pnpm exec tsx proof/032/smoke.ts`.
+- [x] Assert idle listener capture is accepted and target returns `{count:3}`.
+- [x] Assert active `/hold` HTTP request refuses.
+- [x] Assert an intentional busy JS callback fixture refuses.
+- [x] Assert an intentional blocking syscall fixture refuses unless it has an explicit modeled continuation.
+- [x] Assert refusal evidence appears in the portable IR and no target materialization occurs for refused captures.
+- [x] Run `pnpm run format:check`, `pnpm run lint`, `pnpm run typecheck`, targeted Vitest, and `pnpm exec fallow audit --changed-since origin/main`.
