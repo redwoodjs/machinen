@@ -1,0 +1,208 @@
+{
+  "kind": "machinen.node-proper-level5-product-boundary-audit-066-084-summary",
+  "proof": "085",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "auditedProofs": [
+    "066",
+    "067",
+    "068",
+    "069",
+    "070",
+    "071",
+    "072",
+    "073",
+    "074",
+    "075",
+    "076",
+    "077",
+    "078",
+    "079",
+    "080",
+    "081",
+    "082",
+    "083",
+    "084"
+  ],
+  "rows": [
+    {
+      "proof": "066",
+      "claimStatus": "proof-only",
+      "productSupportClaimed": false,
+      "broadLevel5ImplementationClaimed": false,
+      "hasBoundaryLanguage": true,
+      "forbiddenMatches": [],
+      "accepted": true
+    },
+    {
+      "proof": "067",
+      "claimStatus": "proof-only",
+      "productSupportClaimed": false,
+      "broadLevel5ImplementationClaimed": false,
+      "hasBoundaryLanguage": true,
+      "forbiddenMatches": [],
+      "accepted": true
+    },
+    {
+      "proof": "068",
+      "claimStatus": "proof-only",
+      "productSupportClaimed": false,
+      "broadLevel5ImplementationClaimed": false,
+      "hasBoundaryLanguage": true,
+      "forbiddenMatches": [],
+      "accepted": true
+    },
+    {
+      "proof": "069",
+      "claimStatus": "proof-only",
+      "productSupportClaimed": false,
+      "broadLevel5ImplementationClaimed": false,
+      "hasBoundaryLanguage": true,
+      "forbiddenMatches": [],
+      "accepted": true
+    },
+    {
+      "proof": "070",
+      "claimStatus": "proof-only",
+      "productSupportClaimed": false,
+      "broadLevel5ImplementationClaimed": false,
+      "hasBoundaryLanguage": true,
+      "forbiddenMatches": [],
+      "accepted": true
+    },
+    {
+      "proof": "071",
+      "claimStatus": "proof-only",
+      "productSupportClaimed": false,
+      "broadLevel5ImplementationClaimed": false,
+      "hasBoundaryLanguage": true,
+      "forbiddenMatches": [],
+      "accepted": true
+    },
+    {
+      "proof": "072",
+      "claimStatus": "proof-only",
+      "productSupportClaimed": false,
+      "broadLevel5ImplementationClaimed": false,
+      "hasBoundaryLanguage": true,
+      "forbiddenMatches": [],
+      "accepted": true
+    },
+    {
+      "proof": "073",
+      "claimStatus": "proof-only",
+      "productSupportClaimed": false,
+      "broadLevel5ImplementationClaimed": false,
+      "hasBoundaryLanguage": true,
+      "forbiddenMatches": [],
+      "accepted": true
+    },
+    {
+      "proof": "074",
+      "claimStatus": "proof-only",
+      "productSupportClaimed": false,
+      "broadLevel5ImplementationClaimed": false,
+      "hasBoundaryLanguage": true,
+      "forbiddenMatches": [],
+      "accepted": true
+    },
+    {
+      "proof": "075",
+      "claimStatus": "proof-only",
+      "productSupportClaimed": false,
+      "broadLevel5ImplementationClaimed": false,
+      "hasBoundaryLanguage": true,
+      "forbiddenMatches": [],
+      "accepted": true
+    },
+    {
+      "proof": "076",
+      "claimStatus": "proof-only",
+      "productSupportClaimed": false,
+      "broadLevel5ImplementationClaimed": false,
+      "hasBoundaryLanguage": true,
+      "forbiddenMatches": [],
+      "accepted": true
+    },
+    {
+      "proof": "077",
+      "claimStatus": "proof-only",
+      "productSupportClaimed": false,
+      "broadLevel5ImplementationClaimed": false,
+      "hasBoundaryLanguage": true,
+      "forbiddenMatches": [],
+      "accepted": true
+    },
+    {
+      "proof": "078",
+      "claimStatus": "proof-only",
+      "productSupportClaimed": false,
+      "broadLevel5ImplementationClaimed": false,
+      "hasBoundaryLanguage": true,
+      "forbiddenMatches": [],
+      "accepted": true
+    },
+    {
+      "proof": "079",
+      "claimStatus": "proof-only",
+      "productSupportClaimed": false,
+      "broadLevel5ImplementationClaimed": false,
+      "hasBoundaryLanguage": true,
+      "forbiddenMatches": [],
+      "accepted": true
+    },
+    {
+      "proof": "080",
+      "claimStatus": "proof-only",
+      "productSupportClaimed": false,
+      "broadLevel5ImplementationClaimed": false,
+      "hasBoundaryLanguage": true,
+      "forbiddenMatches": [],
+      "accepted": true
+    },
+    {
+      "proof": "081",
+      "claimStatus": "proof-only",
+      "productSupportClaimed": false,
+      "broadLevel5ImplementationClaimed": false,
+      "hasBoundaryLanguage": true,
+      "forbiddenMatches": [],
+      "accepted": true
+    },
+    {
+      "proof": "082",
+      "claimStatus": "proof-only",
+      "productSupportClaimed": false,
+      "broadLevel5ImplementationClaimed": false,
+      "hasBoundaryLanguage": true,
+      "forbiddenMatches": [],
+      "accepted": true
+    },
+    {
+      "proof": "083",
+      "claimStatus": "proof-only",
+      "productSupportClaimed": false,
+      "broadLevel5ImplementationClaimed": false,
+      "hasBoundaryLanguage": true,
+      "forbiddenMatches": [],
+      "accepted": true
+    },
+    {
+      "proof": "084",
+      "claimStatus": "proof-only",
+      "productSupportClaimed": false,
+      "broadLevel5ImplementationClaimed": false,
+      "hasBoundaryLanguage": true,
+      "forbiddenMatches": [],
+      "accepted": true
+    }
+  ],
+  "publicDocsAudited": ["README.md", "docs/README.md", "docs/quickstart.md"],
+  "assertions": {
+    "noAuditedProofClaimsProductSupport": true,
+    "noAuditedProofClaimsBroadLevel5": true,
+    "publicDocsDoNotAdvertiseBroadSupport": true,
+    "rawCrossArchCpuRestoreStillNotClaimed": true
+  }
+}
