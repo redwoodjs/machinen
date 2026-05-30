@@ -1,0 +1,15 @@
+{
+  "kind": "machinen.node-level5-restore-launcher-proof-summary",
+  "proof": "563",
+  "goal": "Restore launcher contract",
+  "result": "Restore writes and verifies a target-native Node launch report.",
+  "status": "node-product-support-80-restore-launcher",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": [
+    "machinen snapshot node <pid> --out <dir>",
+    "machinen restore <snapshot>"
+  ],
+  "metadataOnlySuccessAccepted": false
+}
