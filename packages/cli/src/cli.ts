@@ -48,6 +48,7 @@ import {
   createProductLevel4PipeSnapshot,
   createProductLevel4TcpListenerSnapshot,
   createProductLevel4TimerfdSnapshot,
+  createNodeLevel5DeclaredSubsetCapture,
   createProductPortablePostgresSnapshot,
   filterProductClaimRegistry,
   formatMachinenError,
@@ -65,6 +66,7 @@ import {
   productSupportLevels,
   readHostRssBytesMulti,
   restore,
+  restoreNodeLevel5DeclaredSubset,
   restoreProductLevel4EventfdSnapshot,
   restoreProductLevel4PingSocketSnapshot,
   restoreProductLevel4PipeSnapshot,
@@ -1144,7 +1146,38 @@ function cmdCapture(args: string[]): number {
   if (rest[0] === "ping-socket") {
     return cmdCapturePingSocket({ json, dryRun, rest });
   }
+  if (rest[0] === "node-level5") {
+    return cmdCaptureNodeLevel5DeclaredSubset({ json, dryRun, rest });
+  }
   die(captureUsage());
+}
+
+// fallow-ignore-next-line complexity code-duplication
+function cmdCaptureNodeLevel5DeclaredSubset(input: {
+  json: boolean;
+  dryRun: boolean;
+  rest: string[];
+}): number {
+  const options = parseNodeLevel5DeclaredSubsetCaptureArgs(input.rest.slice(1));
+  if (!options.out) {
+    reportNodeLevel5DeclaredSubsetCliRefusal(
+      input.json,
+      "node-level5-declared-subset-output-required",
+      "machinen capture node-level5 requires --out <dir>",
+    );
+  }
+  const summary = createNodeLevel5DeclaredSubsetCapture({
+    outDir: options.out,
+    sourceArch: options.sourceArch,
+    targetArch: options.targetArch,
+    experimental: options.experimental,
+    productSupportClaimed: options.productSupportClaimed,
+    dryRun: input.dryRun,
+  });
+  return reportNodeLevel5DeclaredSubsetSummary(input.json, summary, {
+    accepted: (value) => `captured experimental node-level5 manifest: ${value.manifestPath}\n`,
+    refused: (value) => `refused experimental node-level5 capture: ${value.refusal?.code}\n`,
+  });
 }
 
 // fallow-ignore-next-line complexity
@@ -1755,6 +1788,118 @@ function consumePostgresCaptureOption(
   }
 }
 
+type NodeLevel5DeclaredSubsetCliOptions = {
+  out: string;
+  manifest: string;
+  sourceArch: "arm64" | "amd64";
+  targetArch: "arm64" | "amd64";
+  experimental: boolean;
+  productSupportClaimed: boolean;
+  rawCpuRestore: boolean;
+};
+
+function parseNodeLevel5DeclaredSubsetCaptureArgs(
+  args: string[],
+): Pick<
+  NodeLevel5DeclaredSubsetCliOptions,
+  "out" | "sourceArch" | "targetArch" | "experimental" | "productSupportClaimed"
+> {
+  return parseNodeLevel5DeclaredSubsetCliArgs(args, "capture");
+}
+
+function parseNodeLevel5DeclaredSubsetRestoreArgs(
+  args: string[],
+): Pick<
+  NodeLevel5DeclaredSubsetCliOptions,
+  "manifest" | "experimental" | "productSupportClaimed" | "rawCpuRestore"
+> {
+  return parseNodeLevel5DeclaredSubsetCliArgs(args, "restore");
+}
+
+// fallow-ignore-next-line complexity
+function parseNodeLevel5DeclaredSubsetCliArgs(
+  args: string[],
+  mode: "capture" | "restore",
+): NodeLevel5DeclaredSubsetCliOptions {
+  const options = defaultNodeLevel5DeclaredSubsetCliOptions();
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index]!;
+    if (arg === "--experimental-node-level5") {
+      options.experimental = true;
+    } else if (arg === "--claim-product-support") {
+      options.productSupportClaimed = true;
+    } else if (mode === "capture" && arg === "--out") {
+      options.out = takeCaptureValue(args, (index += 1), "--out");
+    } else if (mode === "capture" && arg === "--source-arch") {
+      options.sourceArch = parseProductArch(
+        takeCaptureValue(args, (index += 1), "--source-arch"),
+        "--source-arch",
+      );
+    } else if (mode === "capture" && arg === "--target-arch") {
+      options.targetArch = parseProductArch(
+        takeCaptureValue(args, (index += 1), "--target-arch"),
+        "--target-arch",
+      );
+    } else if (mode === "restore" && arg === "--raw-cpu-restore") {
+      options.rawCpuRestore = true;
+    } else if (mode === "restore" && arg === "--manifest") {
+      options.manifest = takeCaptureValue(args, (index += 1), "--manifest");
+    } else if (mode === "restore" && !arg.startsWith("-") && !options.manifest) {
+      options.manifest = arg;
+    } else {
+      die(`unknown node-level5 ${mode} argument: ${arg}`);
+    }
+  }
+  return options;
+}
+
+function defaultNodeLevel5DeclaredSubsetCliOptions(): NodeLevel5DeclaredSubsetCliOptions {
+  return {
+    out: "",
+    manifest: "",
+    sourceArch: "arm64",
+    targetArch: "amd64",
+    experimental: false,
+    productSupportClaimed: false,
+    rawCpuRestore: false,
+  };
+}
+
+function reportNodeLevel5DeclaredSubsetCliRefusal(
+  json: boolean,
+  code: string,
+  message: string,
+): never {
+  if (json) {
+    emitJsonError(code, message);
+  } else {
+    process.stderr.write(`machinen: ${message} (${code})\n`);
+  }
+  process.exit(1);
+}
+
+type NodeLevel5DeclaredSubsetCliSummary = {
+  accepted: boolean;
+  manifestPath?: string;
+  refusal?: { code: string };
+};
+
+function reportNodeLevel5DeclaredSubsetSummary<TSummary extends NodeLevel5DeclaredSubsetCliSummary>(
+  json: boolean,
+  summary: TSummary,
+  messages: {
+    accepted: (summary: TSummary) => string;
+    refused: (summary: TSummary) => string;
+  },
+): number {
+  if (json) {
+    emitJson(summary);
+  } else {
+    process.stderr.write(summary.accepted ? messages.accepted(summary) : messages.refused(summary));
+  }
+  return summary.accepted ? 0 : 1;
+}
+
 function captureUsage(): string {
   return (
     "usage: machinen capture postgres --out <dir> --source-arch <arm64|amd64> " +
@@ -1774,7 +1919,9 @@ function captureUsage(): string {
     "--bind-address 127.0.0.1 --port <n> --backlog <n> [--json] [--dry-run]\n" +
     "       machinen capture ping-socket --out <dir> --source-arch <arm64|amd64> " +
     "--target-arch <arm64|amd64> --socket-kind <ping-dgram-icmp|raw-icmp> " +
-    "--source-verifier-output <file> --echo-id <n> --echo-seq <n> [--json] [--dry-run]"
+    "--source-verifier-output <file> --echo-id <n> --echo-seq <n> [--json] [--dry-run]\n" +
+    "       machinen capture node-level5 --experimental-node-level5 --out <dir> " +
+    "[--source-arch <arm64|amd64>] [--target-arch <arm64|amd64>] [--json] [--dry-run]"
   );
 }
 
@@ -2050,12 +2197,38 @@ function formatSupportText(payload: {
   return `${lines.join("\n")}\n`;
 }
 
+// fallow-ignore-next-line complexity code-duplication
+function cmdRestoreNodeLevel5DeclaredSubset(input: { json: boolean; rest: string[] }): number {
+  const options = parseNodeLevel5DeclaredSubsetRestoreArgs(input.rest);
+  if (!options.manifest) {
+    reportNodeLevel5DeclaredSubsetCliRefusal(
+      input.json,
+      "node-level5-declared-subset-manifest-required",
+      "machinen restore node-level5 requires <manifest> or --manifest <file>",
+    );
+  }
+  const summary = restoreNodeLevel5DeclaredSubset({
+    manifestPath: resolve(options.manifest),
+    experimental: options.experimental,
+    rawCpuRestore: options.rawCpuRestore,
+    productSupportClaimed: options.productSupportClaimed,
+  });
+  return reportNodeLevel5DeclaredSubsetSummary(input.json, summary, {
+    accepted: (value) =>
+      `accepted experimental node-level5 restore manifest: ${value.manifestPath}\n`,
+    refused: (value) => `refused experimental node-level5 restore: ${value.refusal?.code}\n`,
+  });
+}
+
 // fallow-ignore-next-line complexity
 async function cmdRestore(args: string[]): Promise<number> {
   // `machinen restore <snap-dir> [--image <tarball>] [--name <name>]
   // [--lazy] [-p <hostPort>:<guestPort>]`. Restore is eager by
   // default; `--lazy` opts into the #266 CRIU lazy-pages path.
   const { json, rest } = consumeJsonFlag(args);
+  if (rest[0] === "node-level5") {
+    return cmdRestoreNodeLevel5DeclaredSubset({ json, rest: rest.slice(1) });
+  }
   const parsed = parseRestoreCommandArgs(rest);
   validateRestoreCommandArgs(parsed);
   const snapDir = resolve(parsed.positional[0]!);
@@ -2126,7 +2299,8 @@ function restoreUsage(): string {
     "       machinen restore <portable-ping-socket-bundle> --target-arch <arm64|amd64> " +
     "[--target-verifier-output <file>] [--json]\n" +
     "       machinen restore <node-level5-proof-bundle> " +
-    "[--allow-proof-only-success] [--json]"
+    "[--allow-proof-only-success] [--json]\n" +
+    "       machinen restore node-level5 --experimental-node-level5 <manifest> [--json]"
   );
 }
 
@@ -3020,6 +3194,48 @@ async function runPortableDetachedRestore(
   }
 }
 
+function buildDetachedRestoreTargetVmFields(input: { vm: VmHandle; name: string }) {
+  return {
+    targetVerifierResult: "passed",
+    targetVmStarted: true,
+    restoredName: input.vm.name ?? input.name,
+    restoredPid: input.vm.pid,
+    targetOutputObserved: true,
+  };
+}
+
+function buildDetachedRestoreSummaryBase(input: {
+  summary: object;
+  vm: VmHandle;
+  name: string;
+  outputLogPath: string;
+  processField: string;
+  elapsedMs: number;
+}): Record<string, unknown> {
+  return {
+    ...input.summary,
+    ...buildDetachedRestoreTargetVmFields({ vm: input.vm, name: input.name }),
+    outputLogPath: input.outputLogPath,
+    [input.processField]: "running",
+    elapsedMs: input.elapsedMs,
+  };
+}
+
+function buildDetachedRestoreSummaryWithSemantics(input: {
+  summary: object;
+  vm: VmHandle;
+  name: string;
+  outputLogPath: string;
+  processField: string;
+  elapsedMs: number;
+  continuationSemantics: Record<string, unknown>;
+}): Record<string, unknown> {
+  return {
+    ...buildDetachedRestoreSummaryBase(input),
+    continuationSemantics: input.continuationSemantics,
+  };
+}
+
 // fallow-ignore-next-line code-duplication
 function buildTcpListenerDetachedRestoreSummary(input: {
   descriptor: ProductLevel4TcpListenerDescriptor;
@@ -3029,18 +3245,13 @@ function buildTcpListenerDetachedRestoreSummary(input: {
   elapsedMs: number;
 }): Record<string, unknown> {
   const { descriptor, summary, vm, name, elapsedMs } = input;
-  const targetVmFields = {
-    targetVerifierResult: "passed",
-    targetVmStarted: true,
-    restoredName: vm.name ?? name,
-    restoredPid: vm.pid,
-  };
-  return {
-    ...summary,
-    ...targetVmFields,
+  return buildDetachedRestoreSummaryWithSemantics({
+    summary,
+    vm,
+    name,
+    elapsedMs,
     outputLogPath: descriptor.continuation.outputLogPath,
-    targetTcpListenerProcess: "running",
-    targetOutputObserved: true,
+    processField: "targetTcpListenerProcess",
     continuationSemantics: {
       family: descriptor.listener.family,
       protocol: descriptor.listener.protocol,
@@ -3052,8 +3263,7 @@ function buildTcpListenerDetachedRestoreSummary(input: {
       listenerPolicy: descriptor.continuation.listenerPolicy,
       acceptQueuePolicy: descriptor.continuation.acceptQueuePolicy,
     },
-    elapsedMs,
-  };
+  });
 }
 
 // fallow-ignore-next-line code-duplication
@@ -3065,18 +3275,13 @@ function buildTimerfdDetachedRestoreSummary(input: {
   elapsedMs: number;
 }): Record<string, unknown> {
   const { descriptor, summary, vm, name, elapsedMs } = input;
-  const targetVmFields = {
-    targetVerifierResult: "passed",
-    targetVmStarted: true,
-    restoredName: vm.name ?? name,
-    restoredPid: vm.pid,
-  };
-  return {
-    ...summary,
-    ...targetVmFields,
+  return buildDetachedRestoreSummaryWithSemantics({
+    summary,
+    vm,
+    name,
+    elapsedMs,
     outputLogPath: descriptor.continuation.outputLogPath,
-    targetTimerfdProcess: "running",
-    targetOutputObserved: true,
+    processField: "targetTimerfdProcess",
     continuationSemantics: {
       clock: descriptor.timerfd.clock,
       mode: descriptor.timerfd.mode,
@@ -3087,8 +3292,7 @@ function buildTimerfdDetachedRestoreSummary(input: {
       timerPolicy: descriptor.continuation.timerPolicy,
       expirationPolicy: descriptor.continuation.expirationPolicy,
     },
-    elapsedMs,
-  };
+  });
 }
 
 // fallow-ignore-next-line code-duplication
@@ -3100,15 +3304,13 @@ function buildPipeDetachedRestoreSummary(input: {
   elapsedMs: number;
 }): Record<string, unknown> {
   const { descriptor, summary, vm, name, elapsedMs } = input;
-  return {
-    ...summary,
-    targetVerifierResult: "passed",
-    targetVmStarted: true,
-    restoredName: vm.name ?? name,
-    restoredPid: vm.pid,
+  return buildDetachedRestoreSummaryWithSemantics({
+    summary,
+    vm,
+    name,
+    elapsedMs,
     outputLogPath: descriptor.continuation.outputLogPath,
-    targetPipeProcess: "running",
-    targetOutputObserved: true,
+    processField: "targetPipeProcess",
     continuationSemantics: {
       readFd: descriptor.pipe.readFd,
       writeFd: descriptor.pipe.writeFd,
@@ -3120,8 +3322,7 @@ function buildPipeDetachedRestoreSummary(input: {
       pipePolicy: descriptor.continuation.pipePolicy,
       readinessPolicy: descriptor.continuation.readinessPolicy,
     },
-    elapsedMs,
-  };
+  });
 }
 
 // fallow-ignore-next-line code-duplication
@@ -3133,15 +3334,13 @@ function buildEventfdDetachedRestoreSummary(input: {
   elapsedMs: number;
 }): Record<string, unknown> {
   const { descriptor, summary, vm, name, elapsedMs } = input;
-  return {
-    ...summary,
-    targetVerifierResult: "passed",
-    targetVmStarted: true,
-    restoredName: vm.name ?? name,
-    restoredPid: vm.pid,
+  return buildDetachedRestoreSummaryWithSemantics({
+    summary,
+    vm,
+    name,
+    elapsedMs,
     outputLogPath: descriptor.continuation.outputLogPath,
-    targetEventfdProcess: "running",
-    targetOutputObserved: true,
+    processField: "targetEventfdProcess",
     continuationSemantics: {
       counter: descriptor.eventfd.counter,
       semaphore: descriptor.eventfd.semaphore,
@@ -3152,8 +3351,7 @@ function buildEventfdDetachedRestoreSummary(input: {
       counterPolicy: descriptor.continuation.counterPolicy,
       readinessPolicy: descriptor.continuation.readinessPolicy,
     },
-    elapsedMs,
-  };
+  });
 }
 
 // fallow-ignore-next-line complexity
@@ -3165,15 +3363,13 @@ function buildPingDetachedRestoreSummary(input: {
   elapsedMs: number;
 }): Record<string, unknown> {
   const { descriptor, summary, vm, name, elapsedMs } = input;
-  return {
-    ...summary,
-    targetVerifierResult: "passed",
-    targetVmStarted: true,
-    restoredName: vm.name ?? name,
-    restoredPid: vm.pid,
+  return buildDetachedRestoreSummaryWithSemantics({
+    summary,
+    vm,
+    name,
+    elapsedMs,
     outputLogPath: descriptor.continuation?.outputLogPath ?? "/tmp/machinen-restored-ping.log",
-    targetPingProcess: "running",
-    targetOutputObserved: true,
+    processField: "targetPingProcess",
     continuationSemantics: {
       destination: descriptor.continuation?.destination ?? "127.0.0.1",
       intervalMs: descriptor.continuation?.intervalMs ?? 1000,
@@ -3187,8 +3383,7 @@ function buildPingDetachedRestoreSummary(input: {
         descriptor.continuation?.textOutputSequencePolicy ??
         "machinen-helper-renders-descriptor-sequence",
     },
-    elapsedMs,
-  };
+  });
 }
 
 function assertLocalTcpListenerRestoreTargetArch(targetArch: string | undefined): void {
