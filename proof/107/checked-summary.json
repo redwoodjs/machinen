@@ -1,0 +1,47 @@
+{
+  "kind": "machinen.node-proper-level5-multi-binding-closure-summary",
+  "proof": "107",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "accepted": {
+    "accepted": true,
+    "targetStarted": false,
+    "environment": {
+      "count": 2,
+      "label": "alpha",
+      "enabled": true
+    }
+  },
+  "target": {
+    "count": 3,
+    "label": "alpha:resumed",
+    "enabled": true,
+    "targetNative": true
+  },
+  "refusedRows": [
+    {
+      "id": "bad-build",
+      "expectedCode": "node-proper-level5-closure-build-unsupported",
+      "actualCode": "node-proper-level5-closure-build-unsupported",
+      "targetStarted": false
+    },
+    {
+      "id": "active-stack",
+      "expectedCode": "node-proper-level5-closure-active-stack-refused",
+      "actualCode": "node-proper-level5-closure-active-stack-refused",
+      "targetStarted": false
+    },
+    {
+      "id": "incomplete-env",
+      "expectedCode": "node-proper-level5-closure-environment-incomplete",
+      "actualCode": "node-proper-level5-closure-environment-incomplete",
+      "targetStarted": false
+    }
+  ],
+  "assertions": {
+    "multiBindingClosureEnvironmentRecovered": true,
+    "targetReconstructedClosureState": true,
+    "activeStackRefusedBeforeTargetStart": true
+  }
+}
