@@ -1,0 +1,22 @@
+{
+  "kind": "machinen.node-level5-product-support-20-proof-summary",
+  "proof": "226",
+  "goal": "Define Node product support coverage matrix",
+  "result": "Introduces 5 families × 4% each.",
+  "status": "experimental-node-product-support-20",
+  "nodeProductSupportClaimed": 20,
+  "nodeProductSupportScope": "five-idle-service-families",
+  "declaredSubsetExperimentalProductSupportClaimed": 100,
+  "broadNodeProductSupportClaimed": 0,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "families": [
+    "idle-http-listener",
+    "timer-service",
+    "plain-js-heap",
+    "readonly-file-stdio",
+    "pipes-streams-idle"
+  ],
+  "familyCoveragePercent": 4,
+  "totalFamilies": 5,
+  "matrixComplete": true
+}
