@@ -1,0 +1,20 @@
+{
+  "kind": "machinen.node-proper-level5-ci-style-repeatability-summary",
+  "proof": "124",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "automationLane": "repeat proof/115 and proof/123 twice and compare normalized artifacts",
+  "artifactDiff": {
+    "changed": false,
+    "firstDigest": "fe32a2c8f3a24a5c82f367389331fdf950642f5f9fc4828aa5bef58d044cdc33",
+    "secondDigest": "fe32a2c8f3a24a5c82f367389331fdf950642f5f9fc4828aa5bef58d044cdc33",
+    "checkedProofs": ["115", "123"]
+  },
+  "assertions": {
+    "ciStyleRepeatabilityLaneRan": true,
+    "artifactDigestsStable": true,
+    "repeatedProofsRemainProofOnly": true,
+    "productSupportNotClaimed": true
+  }
+}
