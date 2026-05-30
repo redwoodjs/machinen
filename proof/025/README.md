@@ -10,7 +10,7 @@ All implementation notes, fixtures, and smoke tests for this proof should live u
 
 ## Status
 
-Implemented by `proof/025/smoke.ts` and run directly with `pnpm exec tsx proof/025/smoke.ts`. The source app, capture program, and target loader live beside it as proof-local fixture files.
+Implemented by `proof/025/smoke.ts` and run directly with `pnpm exec tsx proof/025/smoke.ts`. The source app, Zig guest capture tool, and target loader live beside it as proof-local fixture files.
 
 ## Goal
 
@@ -32,7 +32,7 @@ Extend the current Node HTTP counter proof so the source also has one `setInterv
 
 - source Node returns `{ "count": 1 }`, `{ "count": 2 }`;
 - source timer state is observed before capture;
-- capture is external (`SIGSTOP`) and records `/proc`, memory, fd/socket, V8, and timer evidence;
+- capture is external (`SIGSTOP`) using `proof/025/guest-capture.zig` and records `/proc`, memory, fd/socket, V8, and timer evidence;
 - target-native Node reconstructs count from a raw V8 context Smi slot;
 - target-native Node reconstructs timer ticks from raw captured timer context state;
 - target returns `{ "count": 3 }` and its reconstructed timer keeps ticking.

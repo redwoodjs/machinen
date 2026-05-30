@@ -55,15 +55,21 @@
 - [`NodeProperLevel5V8ObjectRecoveryRefusal`](#nodeproperlevel5v8objectrecoveryrefusal)
 - [`NodeProperLevel5V8ObjectRecoveryRefusalCode`](#nodeproperlevel5v8objectrecoveryrefusalcode)
 - [`NodeProperLevel5V8ObjectRecoveryResult`](#nodeproperlevel5v8objectrecoveryresult)
+- [`NodeProperLevel5HttpStatePolicyInput`](#nodeproperlevel5httpstatepolicyinput)
+- [`NodeProperLevel5HttpStatePolicyRefusal`](#nodeproperlevel5httpstatepolicyrefusal)
+- [`NodeProperLevel5HttpStatePolicyRefusalCode`](#nodeproperlevel5httpstatepolicyrefusalcode)
+- [`NodeProperLevel5HttpStatePolicyResult`](#nodeproperlevel5httpstatepolicyresult)
 - [`NODE_PROPER_LEVEL5_SOURCE_INSPECTION_KIND`](#node_proper_level5_source_inspection_kind)
 - [`NODE_PROPER_LEVEL5_V8_CLOSURE_RECOVERY_KIND`](#node_proper_level5_v8_closure_recovery_kind)
 - [`NODE_PROPER_LEVEL5_LIBUV_TIMER_RECOVERY_KIND`](#node_proper_level5_libuv_timer_recovery_kind)
 - [`NODE_PROPER_LEVEL5_V8_OBJECT_RECOVERY_KIND`](#node_proper_level5_v8_object_recovery_kind)
+- [`NODE_PROPER_LEVEL5_HTTP_STATE_POLICY_KIND`](#node_proper_level5_http_state_policy_kind)
 - [`parseNodeProperLevel5ProcMaps`](#parsenodeproperlevel5procmaps)
 - [`recoverNodeProperLevel5RawV8ContextSmiCounter`](#recovernodeproperlevel5rawv8contextsmicounter)
 - [`recoverNodeProperLevel5V8ClosureCounterCell`](#recovernodeproperlevel5v8closurecountercell)
 - [`recoverNodeProperLevel5LibuvTimerEvidence`](#recovernodeproperlevel5libuvtimerevidence)
 - [`recoverNodeProperLevel5V8ObjectStateEvidence`](#recovernodeproperlevel5v8objectstateevidence)
+- [`classifyNodeProperLevel5HttpStatePolicy`](#classifynodeproperlevel5httpstatepolicy)
 - [`summarizeNodeProperLevel5SourceInspection`](#summarizenodeproperlevel5sourceinspection)
 
 ### Node Level 5 HTTP profile
@@ -12743,6 +12749,72 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ***
 
+### NodeProperLevel5HttpStatePolicyRefusal
+
+#### Properties
+
+##### code
+
+> **code**: [`NodeProperLevel5HttpStatePolicyRefusalCode`](#nodeproperlevel5httpstatepolicyrefusalcode)
+
+##### message
+
+> **message**: `string`
+
+***
+
+### NodeProperLevel5HttpStatePolicyInput
+
+#### Properties
+
+##### activeRequestDetected?
+
+> `optional` **activeRequestDetected?**: `boolean`
+
+##### partialReadDetected?
+
+> `optional` **partialReadDetected?**: `boolean`
+
+##### partialWriteDetected?
+
+> `optional` **partialWriteDetected?**: `boolean`
+
+##### ambiguousConnectionState?
+
+> `optional` **ambiguousConnectionState?**: `boolean`
+
+##### idleKeepAliveSockets?
+
+> `optional` **idleKeepAliveSockets?**: `number`
+
+***
+
+### NodeProperLevel5HttpStatePolicyResult
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.node-proper-level5-http-state-policy"`
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### activeRequestPolicy
+
+> **activeRequestPolicy**: `"refuse-active-request"` \| `"no-active-request-detected"`
+
+##### idleKeepAlivePolicy
+
+> **idleKeepAlivePolicy**: `"none-detected"` \| `"safe-close-and-recreate-idle-connections-on-target"`
+
+##### refusals
+
+> **refusals**: [`NodeProperLevel5HttpStatePolicyRefusal`](#nodeproperlevel5httpstatepolicyrefusal)[]
+
+***
+
 ### NodeProperLevel5LibuvTimerRecoveryRefusal
 
 #### Properties
@@ -21856,6 +21928,12 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NodeProperLevel5HttpStatePolicyRefusalCode
+
+> **NodeProperLevel5HttpStatePolicyRefusalCode** = `"node-proper-level5-http-active-request-unsupported"` \| `"node-proper-level5-http-partial-read-unsupported"` \| `"node-proper-level5-http-partial-write-unsupported"` \| `"node-proper-level5-http-ambiguous-connection-state"`
+
+***
+
 ### NodeProperLevel5LibuvTimerRecoveryRefusalCode
 
 > **NodeProperLevel5LibuvTimerRecoveryRefusalCode** = `"node-proper-level5-libuv-timer-missing"` \| `"node-proper-level5-libuv-timer-ambiguous"` \| `"node-proper-level5-libuv-timer-callback-active-unsupported"`
@@ -23649,6 +23727,12 @@ loops; anything looser stops being a meaningful gate.
 ### NODE\_LEVEL5\_TARGET\_SIDE\_PROOF\_FORMAT\_VERSION
 
 > `const` **NODE\_LEVEL5\_TARGET\_SIDE\_PROOF\_FORMAT\_VERSION**: `1`
+
+***
+
+### NODE\_PROPER\_LEVEL5\_HTTP\_STATE\_POLICY\_KIND
+
+> `const` **NODE\_PROPER\_LEVEL5\_HTTP\_STATE\_POLICY\_KIND**: `"machinen.node-proper-level5-http-state-policy"`
 
 ***
 
@@ -26415,6 +26499,22 @@ available.
 #### Returns
 
 `Promise`\<[`NodeLevel5TargetSideProof`](#nodelevel5targetsideproof)\>
+
+***
+
+### classifyNodeProperLevel5HttpStatePolicy()
+
+> **classifyNodeProperLevel5HttpStatePolicy**(`input`): [`NodeProperLevel5HttpStatePolicyResult`](#nodeproperlevel5httpstatepolicyresult)
+
+#### Parameters
+
+##### input
+
+[`NodeProperLevel5HttpStatePolicyInput`](#nodeproperlevel5httpstatepolicyinput)
+
+#### Returns
+
+[`NodeProperLevel5HttpStatePolicyResult`](#nodeproperlevel5httpstatepolicyresult)
 
 ***
 
