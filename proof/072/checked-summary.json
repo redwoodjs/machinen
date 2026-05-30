@@ -1,0 +1,35 @@
+{
+  "kind": "machinen.node-proper-level5-proof-072-summary",
+  "proof": "072",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "accepted": {
+    "graphEdgesDecoded": 3,
+    "mapProvenanceRecords": 3,
+    "count": 3,
+    "graphTotal": 3
+  },
+  "refusedRows": [
+    {
+      "id": "missing-map-provenance",
+      "expectedCode": "node-proper-level5-v8-map-provenance-missing",
+      "actualCode": "node-proper-level5-v8-map-provenance-missing",
+      "targetStarted": false
+    },
+    {
+      "id": "conflicting-map-provenance",
+      "expectedCode": "node-proper-level5-v8-map-provenance-conflict",
+      "actualCode": "node-proper-level5-v8-map-provenance-conflict",
+      "targetStarted": false
+    }
+  ],
+  "assertions": {
+    "proofOnly": true,
+    "acceptedPathVerified": true,
+    "refusedRowsStopBeforeTargetStart": true,
+    "noSourceIsaEmulation": true,
+    "noRawCpuCopy": true,
+    "noMetadataOnlySuccess": true
+  }
+}
