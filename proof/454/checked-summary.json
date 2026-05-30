@@ -1,0 +1,13 @@
+{
+  "kind": "machinen.node-level5-real-introspection-proof-summary",
+  "proof": "454",
+  "goal": "Human introspection refusal",
+  "result": "Human output explains introspection refusal.",
+  "status": "node-product-support-80-real-target-introspection",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
+  "refused": true,
+  "mentionsNonNode": true
+}
