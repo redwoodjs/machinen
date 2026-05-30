@@ -1,0 +1,11 @@
+{
+  "kind": "machinen.node-level5-product-support-80-hardening-proof-summary",
+  "proof": "338",
+  "goal": "Local smoke wrapper",
+  "result": "One smoke command runs 80% support validation.",
+  "status": "node-product-support-80-hardened",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "localSmokeWrapper": "scripts/smoke/node-level5-product-support-80-hardening.sh"
+}
