@@ -1,0 +1,35 @@
+{
+  "kind": "machinen.node-level5-readiness-proof-summary",
+  "proof": "184",
+  "title": "public docs and support matrix boundary gate",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "gateId": "docs-public-boundary",
+  "gate": {
+    "productSupportClaimed": false,
+    "broadProductSupportClaimed": false,
+    "id": "docs-public-boundary",
+    "family": "narrow-product",
+    "title": "public docs boundary for the declared experimental subset",
+    "status": "documented",
+    "artifact": "docs/snapshot/node-level5-declared-subset.md"
+  },
+  "evidence": {
+    "guardedCliPathCovered": true,
+    "unsafeRestoreRefusedBeforeTargetStart": true,
+    "docsMentionBroadSupportBoundary": true,
+    "docsMatrixAt100": true,
+    "broadProductSupportClaimed": 0
+  },
+  "readiness": {
+    "declaredSubsetCoverage": 100,
+    "narrowExperimentalProductReadiness": 100
+  },
+  "assertions": {
+    "narrowExperimentalProductReadinessAt100": true,
+    "broadProductSupportNotClaimed": true,
+    "guardedCliPathCovered": true,
+    "unsafeRestoreRefusedBeforeTargetStart": true
+  }
+}
