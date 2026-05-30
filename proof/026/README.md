@@ -10,7 +10,7 @@ All implementation notes, fixtures, and smoke tests for this proof should live u
 
 ## Status
 
-Implemented by `proof/026/smoke.ts` and run directly with `pnpm exec tsx proof/026/smoke.ts`. The source app, guest capture program, and target loader live beside it as proof-local fixture files.
+Implemented by `proof/026/smoke.ts` and run directly with `pnpm exec tsx proof/026/smoke.ts`. The source app, Zig guest capture tool, and target loader live beside it as proof-local fixture files.
 
 ## Goal
 
@@ -31,7 +31,7 @@ Extend the Node proof from a single counter cell to an object such as `{ total, 
 `pnpm exec tsx proof/026/smoke.ts` now proves:
 
 - source Node returns `{ "total": 1, "history": [1] }`, then `{ "total": 2, "history": [1, 2] }`;
-- capture is external (`SIGSTOP`) and records `/proc`, memory, fd/socket, V8, and object-state evidence;
+- capture is external (`SIGSTOP`) using `proof/026/guest-capture.zig` and records `/proc`, memory, fd/socket, V8, and object-state evidence;
 - target-native Node reconstructs `total` and `history` from raw V8 object/context Smi slots near the retained object-state anchor;
 - target returns `{ "total": 3, "history": [1, 2, 3] }` from reconstructed state;
 - prior JSON response strings are recorded only as shortcut-refusal evidence, not as the recovery source of truth.

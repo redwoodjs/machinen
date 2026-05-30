@@ -164,6 +164,10 @@ export {
   recoverNodeProperLevel5V8ObjectStateEvidence,
 } from "./node-proper-level5-v8-object-recovery.ts";
 export {
+  NODE_PROPER_LEVEL5_HTTP_STATE_POLICY_KIND,
+  classifyNodeProperLevel5HttpStatePolicy,
+} from "./node-proper-level5-http-state-policy.ts";
+export {
   NODE_LEVEL5_PROOF_COMPOSITION_FORMAT_VERSION,
   buildNodeLevel5ProofComposition,
   nodeLevel5ProofIngredientNames,
@@ -219,6 +223,12 @@ export type {
   NodeProperLevel5V8ObjectRecoveryRefusalCode,
   NodeProperLevel5V8ObjectRecoveryResult,
 } from "./node-proper-level5-v8-object-recovery.ts";
+export type {
+  NodeProperLevel5HttpStatePolicyInput,
+  NodeProperLevel5HttpStatePolicyRefusal,
+  NodeProperLevel5HttpStatePolicyRefusalCode,
+  NodeProperLevel5HttpStatePolicyResult,
+} from "./node-proper-level5-http-state-policy.ts";
 export type {
   NodeLevel5ProofComposition,
   NodeLevel5ProofCompositionInput,

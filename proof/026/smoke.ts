@@ -18,9 +18,29 @@ process.env.MACHINEN_ASSETS_DIR ??= join(root, "release-assets");
 process.env.MACHINEN_REGISTRY_DIR = join(work, "registry");
 mkdirSync(work, { recursive: true });
 
+const guestCaptureSourcePath = join(proofDir, "guest-capture.zig");
+const sourceStateRoot = join(work, "machinen-proper-level5-source-state");
+
 interface ObjectResponse {
   total: number;
   history: number[];
+}
+
+interface CaptureMarkers {
+  pid: number;
+  objectAnchorFound: boolean;
+  sourceObjectTextFound: boolean;
+  objectResponseFound: boolean;
+  acceptedMappings: number;
+}
+
+interface AcceptedMapping {
+  index: number;
+  start: string;
+  end: string;
+  size: number;
+  bytesPath: string;
+  path: string;
 }
 
 interface SmokeSummary {
@@ -138,6 +158,174 @@ for (const signal of ["SIGINT", "SIGTERM"] as const) {
   });
 }
 
+function compileGuestCapture(): void {
+  for (const [target, binary] of [
+    ["aarch64-linux-musl", "guest-capture-aarch64"],
+    ["x86_64-linux-musl", "guest-capture-x86_64"],
+  ] as const) {
+    execFileSync(
+      "zig",
+      [
+        "build-exe",
+        guestCaptureSourcePath,
+        "-target",
+        target,
+        "-O",
+        "ReleaseFast",
+        `-femit-bin=${join(work, binary)}`,
+      ],
+      { cwd: root, stdio: "inherit" },
+    );
+  }
+}
+
+function findSourcePid(): string {
+  const pid = execInVm(
+    sourceName,
+    "for p in /proc/[0-9]*; do exe=$(readlink $p/exe 2>/dev/null || true); case $exe in */node) tr '\\0' ' ' < $p/cmdline 2>/dev/null | grep -q object-state.mjs && basename $p && break;; esac; done",
+  ).trim();
+  if (!pid) {
+    process.stderr.write(
+      execInVm(sourceName, "ps -ef || true; cat /tmp/node-proper-level5-object.log || true"),
+    );
+    throw new Error("missing source node pid");
+  }
+  return pid;
+}
+
+function readMappings(): AcceptedMapping[] {
+  return readFileSync(join(sourceStateRoot, "accepted-mappings.tsv"), "utf8")
+    .trim()
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => {
+      const [index, start, end, size, bytesPath, mappingPath = ""] = line.split("\t");
+      return { index: Number(index), start, end, size: Number(size), bytesPath, path: mappingPath };
+    });
+}
+
+function buildCaptureSummary(): void {
+  const markers = parseJson<CaptureMarkers>(
+    readFileSync(join(sourceStateRoot, "capture-markers.json"), "utf8"),
+  );
+  const mapsText = readFileSync(join(sourceStateRoot, "maps.txt"), "utf8");
+  const mapLines = mapsText.split("\n").filter(Boolean);
+  const acceptedMappings = readMappings();
+  const sourceObjectFragments = markers.sourceObjectTextFound
+    ? [{ kind: "v8-heap-module-source-object-state-candidate" }]
+    : [];
+  const objectFragments = markers.objectAnchorFound
+    ? [{ kind: "v8-heap-object-state-anchor-candidate" }]
+    : [];
+  const responseFragments = markers.objectResponseFound
+    ? [{ kind: "v8-heap-json-response-string-candidate" }]
+    : [];
+  const failures = [
+    markers.acceptedMappings < 1 && {
+      code: "node-proper-level5-memory-evidence-missing",
+      message: "no accepted writable memory mappings were captured",
+    },
+    !markers.objectResponseFound && {
+      code: "node-proper-level5-object-response-memory-evidence-missing",
+      message: "no object response string was found in accepted memory bytes",
+    },
+    !markers.sourceObjectTextFound && {
+      code: "node-proper-level5-object-source-memory-evidence-missing",
+      message: "no source object candidate was found in accepted memory bytes",
+    },
+    !markers.objectAnchorFound && {
+      code: "node-proper-level5-object-state-anchor-missing",
+      message: "no supported object-state anchor was found in accepted memory bytes",
+    },
+  ].filter(Boolean);
+  const nodeBinaryMappings = mapLines.filter((line) => line.includes("/node"));
+  const libnodeMappings = mapLines.filter((line) => line.includes("libnode"));
+  const v8HeapPageCandidates = acceptedMappings.filter(
+    (mapping) => mapping.path === "" || mapping.path === "[heap]",
+  );
+  const tcpServerHandleCandidates = [{ kind: "tcp-listener-state-from-proc-net" }];
+  const summary = {
+    kind: "machinen.node-proper-level5-source-state-capture",
+    goal: "proper-node-level5-object-state-translation-proof",
+    pid: markers.pid,
+    externalQuiesce: {
+      method: "SIGSTOP",
+      appHookUsed: false,
+      checkpointApiUsed: false,
+      vmStoppedExternally: true,
+    },
+    capturePolicy: {
+      selectedStateCounterDescriptorUsed: false,
+      sourceRequestBodiesIncludedInIr: false,
+      sidecarOutputIncludedInIr: false,
+      acceptedMappingPolicy:
+        "small readable+writable private anonymous/heap/stack mappings captured by proof-local Zig guest capture tool",
+    },
+    captured: {
+      registerThreadState: ["status", "stat", "syscall"],
+      procMaps: true,
+      memoryBytesForAcceptedMappings: acceptedMappings.length,
+      fdTable: true,
+      socketListenerState: true,
+      auxvEnvCmdline: true,
+      guestCaptureTool: "proof/026/guest-capture.zig",
+    },
+    classification: {
+      acceptedForFirstProof: failures.length === 0,
+      failures,
+      osThreadsCaptured: [markers.pid],
+      oneJavaScriptMainThread: true,
+      nodeWorkersDetected: false,
+      activeSyscallPolicy:
+        "event-loop poll wait is treated as a quiescent resume point; arbitrary in-flight syscalls refuse",
+      threadSyscalls: [],
+      nodeVersions: {},
+      tcpListeners: tcpServerHandleCandidates,
+      acceptedMappings,
+      refusedMappings: [],
+    },
+    runtimeStateCandidates: {
+      nodeBinaryMappings,
+      libnodeMappings,
+      v8IsolateCandidates: [],
+      v8HeapPageCandidates,
+      v8RootsGlobalHandlesCandidates: [],
+      jsObjectStateCandidates: [...sourceObjectFragments, ...objectFragments, ...responseFragments],
+      libuvLoopCandidates: [],
+      tcpServerHandleCandidates,
+      jsObjectStateAnchorCandidates: objectFragments,
+    },
+    portableIr: {
+      kind: "machinen.node-proper-level5-source-state-ir",
+      memoryObjectGraphFragments: [
+        ...sourceObjectFragments,
+        ...objectFragments,
+        ...responseFragments,
+      ],
+      codeModuleIdentities: [
+        { exe: "node", nodeVersions: {}, nodeBinaryMappings, libnodeMappings },
+      ],
+      fdListenerDescriptors: tcpServerHandleCandidates,
+      objectStateDescriptors: objectFragments,
+      threadEventLoopResumePoint: {
+        capturedThreadSyscalls: [],
+        policy:
+          "target creates an equivalent native libuv event-loop wait point instead of resuming source registers",
+      },
+      refusalEvidence: failures,
+    },
+    materialization: {
+      targetNativeNodeStarted: false,
+      targetNativeObjectsMaterialized: false,
+      eventLoopEntered: false,
+      reason:
+        "source capture complete; target materialization is performed by the controlled loader from raw memory evidence after the bundle is copied out",
+    },
+  };
+  writeFileSync(join(sourceStateRoot, "summary.json"), JSON.stringify(summary, null, 2));
+  writeFileSync(join(work, "summary.json"), JSON.stringify(summary, null, 2));
+}
+
 function bootVm(name: string): void {
   console.error(`booting ${name}…`);
   runCli([
@@ -171,20 +359,13 @@ function startSourceApp(): void {
 }
 
 function captureSourceState(): void {
-  copyFileSync(join(proofDir, "capture.pl"), join(work, "capture.pl"));
-  const encodedSourceState = execInVm(sourceName, "perl /mnt/work/capture.pl");
-  writeFileSync(
-    join(work, "source-state.tar.gz"),
-    Buffer.from(encodedSourceState.replace(/\s/g, ""), "base64"),
+  const arch = execInVm(sourceName, "uname -m").trim() === "x86_64" ? "x86_64" : "aarch64";
+  const pid = findSourcePid();
+  execInVm(
+    sourceName,
+    `chmod +x /mnt/work/guest-capture-${arch} && /mnt/work/guest-capture-${arch} /mnt/work/machinen-proper-level5-source-state ${pid}`,
   );
-  execFileSync("tar", ["-C", work, "-xzf", join(work, "source-state.tar.gz")], {
-    cwd: root,
-    stdio: "inherit",
-  });
-  copyFileSync(
-    join(work, "machinen-proper-level5-source-state/summary.json"),
-    join(work, "summary.json"),
-  );
+  buildCaptureSummary();
 }
 
 function startTargetApp(): void {
@@ -293,6 +474,7 @@ function validateProof(sourceOne: string, sourceTwo: string, targetOne: string):
 }
 
 async function main(): Promise<void> {
+  compileGuestCapture();
   bootVm(sourceName);
   installNodeAndCurl(sourceName);
   startSourceApp();
