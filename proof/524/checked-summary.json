@@ -1,0 +1,19 @@
+{
+  "kind": "machinen.node-level5-cross-arch-release-corpus-proof-summary",
+  "proof": "524",
+  "goal": "Cross-arch retained verification",
+  "result": "Target identity, detector, capture, artifact, and materialization evidence verify together.",
+  "status": "node-product-support-80-cross-arch-release-corpus",
+  "harnessProof": true,
+  "productSupportClaimed": false,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": [
+    "machinen snapshot node <pid> --out <dir>",
+    "machinen restore <snapshot>"
+  ],
+  "priorProofRange": "461-500",
+  "retainedProofRange": "517-523",
+  "passing": true
+}
