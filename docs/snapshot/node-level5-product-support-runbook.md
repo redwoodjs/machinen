@@ -1,6 +1,6 @@
 # Node Level 5 product support runbook
 
-This runbook applies to the 20% Node product support tier: five idle service families only.
+This runbook applies to the 20% and 50% Node product support tiers. The 50% tier covers eleven declared service families only.
 
 ## Collect artifacts
 
@@ -31,5 +31,7 @@ Common supported-boundary refusals include:
 ## Escalation boundary
 
 Treat a failure as a product bug only when it is inside one of the five supported idle service families, uses the pinned runtime versions, and has retained artifacts.
+
+For the 50% tier, also collect the compatibility matrix row and release-checklist evidence for the reported family.
 
 Treat everything else as unsupported unless the product support matrix is expanded.
