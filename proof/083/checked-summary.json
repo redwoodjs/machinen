@@ -1,0 +1,42 @@
+{
+  "kind": "machinen.node-proper-level5-proof-083-summary",
+  "proof": "083",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "accepted": {
+    "proofOnlyStartFlag": true,
+    "allGatesPassed": true,
+    "targetStarted": true,
+    "count": 3,
+    "graphTotal": 3
+  },
+  "refusedRows": [
+    {
+      "id": "dry-run-only",
+      "expectedCode": "node-proper-level5-cli-target-start-flag-required",
+      "actualCode": "node-proper-level5-cli-target-start-flag-required",
+      "targetStarted": false
+    },
+    {
+      "id": "gate-failed",
+      "expectedCode": "node-proper-level5-cli-target-start-gate-refused",
+      "actualCode": "node-proper-level5-cli-target-start-gate-refused",
+      "targetStarted": false
+    },
+    {
+      "id": "product-claim",
+      "expectedCode": "node-proper-level5-cli-target-start-product-claim-refused",
+      "actualCode": "node-proper-level5-cli-target-start-product-claim-refused",
+      "targetStarted": false
+    }
+  ],
+  "assertions": {
+    "proofOnly": true,
+    "acceptedPathVerified": true,
+    "refusedRowsStopBeforeTargetStart": true,
+    "noSourceIsaEmulation": true,
+    "noRawCpuCopy": true,
+    "noMetadataOnlySuccess": true
+  }
+}
