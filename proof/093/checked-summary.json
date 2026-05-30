@@ -1,0 +1,57 @@
+{
+  "kind": "machinen.node-proper-level5-native-process-resource-verifier-summary",
+  "proof": "093",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "accepted": {
+    "accepted": true,
+    "nativeVerifierStarted": true,
+    "targetStarted": false,
+    "allThreadsSafe": true,
+    "resourcesSafe": true,
+    "sourceHandleCopied": false,
+    "productSupportClaimed": false,
+    "broadLevel5ImplementationClaimed": false
+  },
+  "refusedRows": [
+    {
+      "id": "unsafe-thread",
+      "expectedCode": "node-proper-level5-native-thread-set-unsafe",
+      "actualCode": "node-proper-level5-native-thread-set-unsafe",
+      "section": "threads",
+      "field": "allThreadsSafe",
+      "targetStarted": false
+    },
+    {
+      "id": "unsafe-resource",
+      "expectedCode": "node-proper-level5-native-resource-set-unsafe",
+      "actualCode": "node-proper-level5-native-resource-set-unsafe",
+      "section": "resources",
+      "field": "resourcesSafe",
+      "targetStarted": false
+    },
+    {
+      "id": "source-handle-copy",
+      "expectedCode": "node-proper-level5-native-source-handle-copy-refused",
+      "actualCode": "node-proper-level5-native-source-handle-copy-refused",
+      "section": "resources",
+      "field": "sourceHandleCopied",
+      "targetStarted": false
+    },
+    {
+      "id": "missing-continuation",
+      "expectedCode": "node-proper-level5-native-continuation-descriptor-missing",
+      "actualCode": "node-proper-level5-native-continuation-descriptor-missing",
+      "section": "threads",
+      "field": "continuationDescriptor",
+      "targetStarted": false
+    }
+  ],
+  "assertions": {
+    "nativeVerifierChecksWholeThreadSet": true,
+    "nativeVerifierChecksResourceSet": true,
+    "typedRefusalReportsIncludeSectionAndField": true,
+    "refusedRowsStopBeforeTargetStart": true
+  }
+}
