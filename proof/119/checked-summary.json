@@ -1,0 +1,41 @@
+{
+  "kind": "machinen.node-proper-level5-native-kernel-resource-verifier-summary",
+  "proof": "119",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "accepted": {
+    "accepted": true,
+    "nativeKernelResourceVerifierStarted": true,
+    "targetStarted": false,
+    "resourceCount": 4,
+    "productSupportClaimed": false,
+    "broadLevel5ImplementationClaimed": false
+  },
+  "refusedRows": [
+    {
+      "id": "unsafe",
+      "expectedCode": "node-proper-level5-native-kernel-resource-unsafe",
+      "actualCode": "node-proper-level5-native-kernel-resource-unsafe",
+      "targetStarted": false
+    },
+    {
+      "id": "source-copy",
+      "expectedCode": "node-proper-level5-native-kernel-source-handle-copy-refused",
+      "actualCode": "node-proper-level5-native-kernel-source-handle-copy-refused",
+      "targetStarted": false
+    },
+    {
+      "id": "unknown",
+      "expectedCode": "node-proper-level5-native-kernel-resource-kind-unsupported",
+      "actualCode": "node-proper-level5-native-kernel-resource-kind-unsupported",
+      "targetStarted": false
+    }
+  ],
+  "assertions": {
+    "nativeKernelResourceVerifierRan": true,
+    "kernelResourceRecordsAccepted": true,
+    "unsafeResourcesRefuseBeforeTargetStart": true,
+    "sourceHandlesNotCopied": true
+  }
+}
