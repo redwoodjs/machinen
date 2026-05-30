@@ -1,0 +1,15 @@
+{
+  "kind": "machinen.node-level5-restore-launcher-proof-summary",
+  "proof": "572",
+  "goal": "Target-native Node executable discovery",
+  "result": "Restore uses the local target-native Node executable for launch proof.",
+  "status": "node-product-support-80-restore-launcher",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": [
+    "machinen snapshot node <pid> --out <dir>",
+    "machinen restore <snapshot>"
+  ],
+  "targetNativeNodeVerified": true
+}
