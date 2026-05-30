@@ -156,6 +156,10 @@ export {
   recoverNodeProperLevel5V8ClosureCounterCell,
 } from "./node-proper-level5-v8-closure-recovery.ts";
 export {
+  NODE_PROPER_LEVEL5_LIBUV_TIMER_RECOVERY_KIND,
+  recoverNodeProperLevel5LibuvTimerEvidence,
+} from "./node-proper-level5-libuv-timer-recovery.ts";
+export {
   NODE_LEVEL5_PROOF_COMPOSITION_FORMAT_VERSION,
   buildNodeLevel5ProofComposition,
   nodeLevel5ProofIngredientNames,
@@ -196,6 +200,13 @@ export type {
   NodeProperLevel5V8ClosureRecoveryRefusalCode,
   NodeProperLevel5V8ClosureRecoveryResult,
 } from "./node-proper-level5-v8-closure-recovery.ts";
+export type {
+  NodeProperLevel5LibuvTimerCandidate,
+  NodeProperLevel5LibuvTimerMemoryFragment,
+  NodeProperLevel5LibuvTimerRecoveryRefusal,
+  NodeProperLevel5LibuvTimerRecoveryRefusalCode,
+  NodeProperLevel5LibuvTimerRecoveryResult,
+} from "./node-proper-level5-libuv-timer-recovery.ts";
 export type {
   NodeLevel5ProofComposition,
   NodeLevel5ProofCompositionInput,
