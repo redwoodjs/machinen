@@ -8,6 +8,10 @@ Replace process-only `SIGSTOP` capture with whole-VM pause capture for the prope
 
 The actual goal is a cleaner capture boundary for the same source-state IR path. VM pause should make capture more atomic, but it does not turn the proof into full VM restore. The target still reconstructs only supported state target-natively, and unsafe active state still refuses.
 
+## Translated continuation north star
+
+The goal of this proof track is **translated continuation**. Capture source machine/process/runtime state, classify the stopped continuation, translate it into an architecture-neutral continuation descriptor, then materialize an equivalent target-native continuation. Source registers, stacks, PCs, heap bytes, and kernel resources are evidence for translation; they are not raw bytes to copy into the target, especially across architectures.
+
 ## Proof folder
 
 All implementation notes, fixtures, and smoke tests for this proof should live under `proof/030/`. The proof smoke test may be written in TypeScript, for example `proof/030/smoke.ts`, with an optional `proof/030/smoke.sh` compatibility wrapper. Do not add root `package.json` scripts for this proof; run proof-local TypeScript smokes directly with `pnpm exec tsx proof/030/smoke.ts`.

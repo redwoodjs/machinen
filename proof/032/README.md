@@ -8,6 +8,10 @@ Classify where each source thread stopped. The proof must distinguish safe event
 
 The actual goal is to decide whether a captured source point is safe for target-native semantic reconstruction. Accepted rows get continuation descriptors; unsafe rows refuse. This classifier prevents raw registers, stacks, active callbacks, or syscalls from being treated as restored just because they were captured.
 
+## Translated continuation north star
+
+The goal of this proof track is **translated continuation**. Capture source machine/process/runtime state, classify the stopped continuation, translate it into an architecture-neutral continuation descriptor, then materialize an equivalent target-native continuation. Source registers, stacks, PCs, heap bytes, and kernel resources are evidence for translation; they are not raw bytes to copy into the target, especially across architectures.
+
 ## Proof folder
 
 All implementation notes, fixtures, and smoke tests for this proof should live under `proof/032/`. The proof smoke test may be written in TypeScript, for example `proof/032/smoke.ts`, with an optional `proof/032/smoke.sh` compatibility wrapper. Do not add root `package.json` scripts for this proof; run proof-local TypeScript smokes directly with `pnpm exec tsx proof/032/smoke.ts`.

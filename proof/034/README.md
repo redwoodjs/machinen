@@ -8,6 +8,10 @@ Translate a captured source continuation into a target-native continuation descr
 
 The actual goal is an architecture-neutral continuation descriptor derived from captured source machine/process state. The target should land in an equivalent target-native continuation, not copy source registers or execute source ISA bytes. This is the bridge from semantic reconstruction toward real continuation.
 
+## Translated continuation north star
+
+The goal of this proof track is **translated continuation**. Capture source machine/process/runtime state, classify the stopped continuation, translate it into an architecture-neutral continuation descriptor, then materialize an equivalent target-native continuation. Source registers, stacks, PCs, heap bytes, and kernel resources are evidence for translation; they are not raw bytes to copy into the target, especially across architectures.
+
 ## Proof folder
 
 All implementation notes, fixtures, and smoke tests for this proof should live under `proof/034/`. The proof smoke test may be written in TypeScript, for example `proof/034/smoke.ts`, with an optional `proof/034/smoke.sh` compatibility wrapper. Do not add root `package.json` scripts for this proof; run proof-local TypeScript smokes directly with `pnpm exec tsx proof/034/smoke.ts`.
