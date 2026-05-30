@@ -1,0 +1,13 @@
+{
+  "kind": "machinen.node-level5-product-command-proof-summary",
+  "proof": "355",
+  "goal": "Operator workflow E2E",
+  "result": "Capture artifact → verify artifact → inspect claim registry.",
+  "status": "node-product-support-80-product-commands",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "familyId": "express-fastify-http-app",
+  "direction": "arm64-to-amd64",
+  "verificationAccepted": true
+}
