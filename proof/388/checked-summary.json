@@ -1,0 +1,14 @@
+{
+  "kind": "machinen.node-level5-product-snapshot-proof-summary",
+  "proof": "388",
+  "goal": "Target-native restore boundary",
+  "result": "Restore summary requires target-native Node evidence.",
+  "status": "node-product-support-80-snapshot-restore-facade",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": ["machinen snapshot node", "machinen restore <snapshot>"],
+  "targetNativeNodeVerified": true,
+  "sourceIsaEmulationUsed": false,
+  "rawCpuRestoreUsed": false
+}
