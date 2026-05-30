@@ -173,6 +173,16 @@ export {
   nodeLevel5ProofIngredientNames,
   nodeLevel5ProofRefusalCodes,
 } from "./node-level5-proof-composition.ts";
+export {
+  NODE_LEVEL5_DECLARED_SUBSET_FORMAT_VERSION,
+  NODE_LEVEL5_DECLARED_SUBSET_MANIFEST,
+  NODE_LEVEL5_DECLARED_SUBSET_RESTORE_SUMMARY,
+  createNodeLevel5DeclaredSubsetCapture,
+  isNodeLevel5DeclaredSubsetManifest,
+  nodeLevel5DeclaredSubsetRefusalCodes,
+  nodeLevel5DeclaredSubsetSupportMatrix,
+  restoreNodeLevel5DeclaredSubset,
+} from "./node-level5-declared-subset.ts";
 export { buildNativeCodeMap } from "./native-code-map.ts";
 export {
   classifyNativeActiveSyscalls,
@@ -240,6 +250,17 @@ export type {
   NodeLevel5ProofIngredientName,
   NodeLevel5ProofRefusalCode,
 } from "./node-level5-proof-composition.ts";
+export type {
+  CreateNodeLevel5DeclaredSubsetCaptureInput,
+  NodeLevel5DeclaredSubsetArchitecture,
+  NodeLevel5DeclaredSubsetCaptureSummary,
+  NodeLevel5DeclaredSubsetManifest,
+  NodeLevel5DeclaredSubsetRefusal,
+  NodeLevel5DeclaredSubsetRefusalCode,
+  NodeLevel5DeclaredSubsetRestoreSummary,
+  NodeLevel5DeclaredSubsetSupportMatrix,
+  RestoreNodeLevel5DeclaredSubsetInput,
+} from "./node-level5-declared-subset.ts";
 export type {
   NativeCodeMapRequest,
   NativeCodeMapResult,

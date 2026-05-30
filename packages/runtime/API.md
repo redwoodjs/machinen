@@ -106,6 +106,26 @@
 - [`nodeLevel5ProofRefusalCodes`](#nodelevel5proofrefusalcodes)
 - [`runNodeLevel5TargetSideProof`](#runnodelevel5targetsideproof)
 
+### Node Level 5 declared subset
+
+- [`NodeLevel5DeclaredSubsetRefusalCode`](#nodelevel5declaredsubsetrefusalcode)
+- [`NodeLevel5DeclaredSubsetArchitecture`](#nodelevel5declaredsubsetarchitecture)
+- [`NodeLevel5DeclaredSubsetRefusal`](#nodelevel5declaredsubsetrefusal)
+- [`NodeLevel5DeclaredSubsetSupportMatrix`](#nodelevel5declaredsubsetsupportmatrix)
+- [`CreateNodeLevel5DeclaredSubsetCaptureInput`](#createnodelevel5declaredsubsetcaptureinput)
+- [`NodeLevel5DeclaredSubsetManifest`](#nodelevel5declaredsubsetmanifest)
+- [`NodeLevel5DeclaredSubsetCaptureSummary`](#nodelevel5declaredsubsetcapturesummary)
+- [`RestoreNodeLevel5DeclaredSubsetInput`](#restorenodelevel5declaredsubsetinput)
+- [`NodeLevel5DeclaredSubsetRestoreSummary`](#nodelevel5declaredsubsetrestoresummary)
+- [`NODE_LEVEL5_DECLARED_SUBSET_FORMAT_VERSION`](#node_level5_declared_subset_format_version)
+- [`NODE_LEVEL5_DECLARED_SUBSET_MANIFEST`](#node_level5_declared_subset_manifest)
+- [`NODE_LEVEL5_DECLARED_SUBSET_RESTORE_SUMMARY`](#node_level5_declared_subset_restore_summary)
+- [`nodeLevel5DeclaredSubsetRefusalCodes`](#nodelevel5declaredsubsetrefusalcodes)
+- [`nodeLevel5DeclaredSubsetSupportMatrix`](#nodelevel5declaredsubsetsupportmatrix)
+- [`createNodeLevel5DeclaredSubsetCapture`](#createnodelevel5declaredsubsetcapture)
+- [`restoreNodeLevel5DeclaredSubset`](#restorenodelevel5declaredsubset)
+- [`isNodeLevel5DeclaredSubsetManifest`](#isnodelevel5declaredsubsetmanifest)
+
 ### Boot a VM
 
 - [`boot`](#boot)
@@ -12411,7 +12431,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`code`](#code-18)
+[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`code`](#code-19)
 
 ##### message
 
@@ -12419,7 +12439,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`message`](#message-5)
+[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`message`](#message-6)
 
 ##### migrationCompleted
 
@@ -14296,7 +14316,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`sourceArch`](#sourcearch-14)
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`sourceArch`](#sourcearch-16)
 
 ##### targetArch
 
@@ -14304,7 +14324,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`targetArch`](#targetarch-23)
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`targetArch`](#targetarch-25)
 
 ##### machinenStateModel
 
@@ -18292,7 +18312,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`sourceArch`](#sourcearch-30)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`sourceArch`](#sourcearch-32)
 
 ##### targetArch
 
@@ -18300,7 +18320,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`targetArch`](#targetarch-45)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`targetArch`](#targetarch-47)
 
 ##### stateModel
 
@@ -21910,6 +21930,290 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NodeLevel5DeclaredSubsetRefusalCode
+
+> **NodeLevel5DeclaredSubsetRefusalCode** = *typeof* [`nodeLevel5DeclaredSubsetRefusalCodes`](#nodelevel5declaredsubsetrefusalcodes)\[keyof *typeof* [`nodeLevel5DeclaredSubsetRefusalCodes`](#nodelevel5declaredsubsetrefusalcodes)\]
+
+***
+
+### NodeLevel5DeclaredSubsetArchitecture
+
+> **NodeLevel5DeclaredSubsetArchitecture** = `"arm64"` \| `"amd64"`
+
+***
+
+### NodeLevel5DeclaredSubsetRefusal
+
+> **NodeLevel5DeclaredSubsetRefusal** = `object`
+
+#### Properties
+
+##### code
+
+> **code**: [`NodeLevel5DeclaredSubsetRefusalCode`](#nodelevel5declaredsubsetrefusalcode)
+
+##### message
+
+> **message**: `string`
+
+***
+
+### NodeLevel5DeclaredSubsetSupportMatrix
+
+> **NodeLevel5DeclaredSubsetSupportMatrix** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.node-level5-declared-subset-support-matrix"`
+
+##### formatVersion
+
+> **formatVersion**: *typeof* [`NODE_LEVEL5_DECLARED_SUBSET_FORMAT_VERSION`](#node_level5_declared_subset_format_version)
+
+##### status
+
+> **status**: `"experimental-candidate-not-supported"`
+
+##### productSupportClaimed
+
+> **productSupportClaimed**: `false`
+
+##### broadLevel5ImplementationClaimed
+
+> **broadLevel5ImplementationClaimed**: `false`
+
+##### declaredSubsetCoverage
+
+> **declaredSubsetCoverage**: `100`
+
+##### node
+
+> **node**: `"22.x"`
+
+##### v8
+
+> **v8**: `"12.x pointer-compressed"`
+
+##### libuv
+
+> **libuv**: `"supported idle handles only"`
+
+##### supportedStateFamilies
+
+> **supportedStateFamilies**: readonly `string`[]
+
+##### unsupportedStateFamilies
+
+> **unsupportedStateFamilies**: readonly `string`[]
+
+##### refusalCodes
+
+> **refusalCodes**: *typeof* [`nodeLevel5DeclaredSubsetRefusalCodes`](#nodelevel5declaredsubsetrefusalcodes)
+
+***
+
+### CreateNodeLevel5DeclaredSubsetCaptureInput
+
+> **CreateNodeLevel5DeclaredSubsetCaptureInput** = `object`
+
+#### Properties
+
+##### outDir
+
+> **outDir**: `string`
+
+##### sourceArch
+
+> **sourceArch**: [`NodeLevel5DeclaredSubsetArchitecture`](#nodelevel5declaredsubsetarchitecture)
+
+##### targetArch
+
+> **targetArch**: [`NodeLevel5DeclaredSubsetArchitecture`](#nodelevel5declaredsubsetarchitecture)
+
+##### experimental
+
+> **experimental**: `boolean`
+
+##### productSupportClaimed?
+
+> `optional` **productSupportClaimed?**: `boolean`
+
+##### dryRun?
+
+> `optional` **dryRun?**: `boolean`
+
+***
+
+### NodeLevel5DeclaredSubsetManifest
+
+> **NodeLevel5DeclaredSubsetManifest** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_DECLARED_SUBSET_MANIFEST`](#node_level5_declared_subset_manifest)
+
+##### formatVersion
+
+> **formatVersion**: *typeof* [`NODE_LEVEL5_DECLARED_SUBSET_FORMAT_VERSION`](#node_level5_declared_subset_format_version)
+
+##### status
+
+> **status**: `"experimental-candidate-not-supported"`
+
+##### productSupportClaimed
+
+> **productSupportClaimed**: `false`
+
+##### broadLevel5ImplementationClaimed
+
+> **broadLevel5ImplementationClaimed**: `false`
+
+##### sourceArch
+
+> **sourceArch**: [`NodeLevel5DeclaredSubsetArchitecture`](#nodelevel5declaredsubsetarchitecture)
+
+##### targetArch
+
+> **targetArch**: [`NodeLevel5DeclaredSubsetArchitecture`](#nodelevel5declaredsubsetarchitecture)
+
+##### translatedContinuationRequired
+
+> **translatedContinuationRequired**: `true`
+
+##### rawCpuRestoreSupported
+
+> **rawCpuRestoreSupported**: `false`
+
+##### supportMatrix
+
+> **supportMatrix**: [`NodeLevel5DeclaredSubsetSupportMatrix`](#nodelevel5declaredsubsetsupportmatrix)
+
+***
+
+### NodeLevel5DeclaredSubsetCaptureSummary
+
+> **NodeLevel5DeclaredSubsetCaptureSummary** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.node-level5-declared-subset-capture-summary"`
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### manifestPath?
+
+> `optional` **manifestPath?**: `string`
+
+##### manifest?
+
+> `optional` **manifest?**: [`NodeLevel5DeclaredSubsetManifest`](#nodelevel5declaredsubsetmanifest)
+
+##### dryRun
+
+> **dryRun**: `boolean`
+
+##### targetStarted
+
+> **targetStarted**: `false`
+
+##### productSupportClaimed
+
+> **productSupportClaimed**: `false`
+
+##### broadLevel5ImplementationClaimed
+
+> **broadLevel5ImplementationClaimed**: `false`
+
+##### refusal?
+
+> `optional` **refusal?**: [`NodeLevel5DeclaredSubsetRefusal`](#nodelevel5declaredsubsetrefusal)
+
+***
+
+### RestoreNodeLevel5DeclaredSubsetInput
+
+> **RestoreNodeLevel5DeclaredSubsetInput** = `object`
+
+#### Properties
+
+##### manifestPath
+
+> **manifestPath**: `string`
+
+##### experimental
+
+> **experimental**: `boolean`
+
+##### rawCpuRestore?
+
+> `optional` **rawCpuRestore?**: `boolean`
+
+##### productSupportClaimed?
+
+> `optional` **productSupportClaimed?**: `boolean`
+
+##### dryRun?
+
+> `optional` **dryRun?**: `boolean`
+
+***
+
+### NodeLevel5DeclaredSubsetRestoreSummary
+
+> **NodeLevel5DeclaredSubsetRestoreSummary** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_DECLARED_SUBSET_RESTORE_SUMMARY`](#node_level5_declared_subset_restore_summary)
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### manifestPath
+
+> **manifestPath**: `string`
+
+##### dryRun
+
+> **dryRun**: `boolean`
+
+##### targetStarted
+
+> **targetStarted**: `false`
+
+##### translatedContinuationRequired
+
+> **translatedContinuationRequired**: `true`
+
+##### targetNativeNodeRequired
+
+> **targetNativeNodeRequired**: `true`
+
+##### productSupportClaimed
+
+> **productSupportClaimed**: `false`
+
+##### broadLevel5ImplementationClaimed
+
+> **broadLevel5ImplementationClaimed**: `false`
+
+##### refusal?
+
+> `optional` **refusal?**: [`NodeLevel5DeclaredSubsetRefusal`](#nodelevel5declaredsubsetrefusal)
+
+***
+
 ### NodeLevel5HttpProfileRefusalCode
 
 > **NodeLevel5HttpProfileRefusalCode** = *typeof* [`nodeLevel5HttpProfileRefusalCodes`](#nodelevel5httpprofilerefusalcodes)\[`number`\]
@@ -23685,6 +23989,70 @@ loops; anything looser stops being a meaningful gate.
 ### nestedVirtualizationStretchProofRefusalCodes
 
 > `const` **nestedVirtualizationStretchProofRefusalCodes**: readonly \[`"nested-virtualization-unavailable"`, `"nested-smoke-failed"`, `"nested-verifier-ambiguous"`, `"nested-snapshot-fork-unsafe"`\]
+
+***
+
+### NODE\_LEVEL5\_DECLARED\_SUBSET\_FORMAT\_VERSION
+
+> `const` **NODE\_LEVEL5\_DECLARED\_SUBSET\_FORMAT\_VERSION**: `1` = `1`
+
+***
+
+### NODE\_LEVEL5\_DECLARED\_SUBSET\_MANIFEST
+
+> `const` **NODE\_LEVEL5\_DECLARED\_SUBSET\_MANIFEST**: `"machinen.node-level5-declared-subset-manifest"` = `"machinen.node-level5-declared-subset-manifest"`
+
+***
+
+### NODE\_LEVEL5\_DECLARED\_SUBSET\_RESTORE\_SUMMARY
+
+> `const` **NODE\_LEVEL5\_DECLARED\_SUBSET\_RESTORE\_SUMMARY**: `"machinen.node-level5-declared-subset-restore-summary"` = `"machinen.node-level5-declared-subset-restore-summary"`
+
+***
+
+### nodeLevel5DeclaredSubsetRefusalCodes
+
+> `const` **nodeLevel5DeclaredSubsetRefusalCodes**: `object`
+
+#### Type Declaration
+
+##### experimentalFlagRequired
+
+> `readonly` **experimentalFlagRequired**: `"node-level5-declared-subset-experimental-flag-required"` = `"node-level5-declared-subset-experimental-flag-required"`
+
+##### outputRequired
+
+> `readonly` **outputRequired**: `"node-level5-declared-subset-output-required"` = `"node-level5-declared-subset-output-required"`
+
+##### manifestRequired
+
+> `readonly` **manifestRequired**: `"node-level5-declared-subset-manifest-required"` = `"node-level5-declared-subset-manifest-required"`
+
+##### manifestMissing
+
+> `readonly` **manifestMissing**: `"node-level5-declared-subset-manifest-missing"` = `"node-level5-declared-subset-manifest-missing"`
+
+##### manifestInvalid
+
+> `readonly` **manifestInvalid**: `"node-level5-declared-subset-manifest-invalid"` = `"node-level5-declared-subset-manifest-invalid"`
+
+##### rawCpuRestoreRefused
+
+> `readonly` **rawCpuRestoreRefused**: `"node-level5-declared-subset-raw-cpu-restore-refused"` = `"node-level5-declared-subset-raw-cpu-restore-refused"`
+
+##### unsupportedNeighborRefused
+
+> `readonly` **unsupportedNeighborRefused**: `"node-level5-declared-subset-unsupported-neighbor-refused"` = `"node-level5-declared-subset-unsupported-neighbor-refused"`
+
+##### productClaimRefused
+
+> `readonly` **productClaimRefused**: `"node-level5-declared-subset-product-claim-refused"` = `"node-level5-declared-subset-product-claim-refused"`
+
+***
+
+### nodeLevel5DeclaredSubsetSupportMatrix
+
+> `const` **nodeLevel5DeclaredSubsetSupportMatrix**: [`NodeLevel5DeclaredSubsetSupportMatrix`](#nodelevel5declaredsubsetsupportmatrix)
 
 ***
 
@@ -26425,6 +26793,54 @@ available.
 #### Returns
 
 `string`[]
+
+***
+
+### createNodeLevel5DeclaredSubsetCapture()
+
+> **createNodeLevel5DeclaredSubsetCapture**(`input`): [`NodeLevel5DeclaredSubsetCaptureSummary`](#nodelevel5declaredsubsetcapturesummary)
+
+#### Parameters
+
+##### input
+
+[`CreateNodeLevel5DeclaredSubsetCaptureInput`](#createnodelevel5declaredsubsetcaptureinput)
+
+#### Returns
+
+[`NodeLevel5DeclaredSubsetCaptureSummary`](#nodelevel5declaredsubsetcapturesummary)
+
+***
+
+### restoreNodeLevel5DeclaredSubset()
+
+> **restoreNodeLevel5DeclaredSubset**(`input`): [`NodeLevel5DeclaredSubsetRestoreSummary`](#nodelevel5declaredsubsetrestoresummary)
+
+#### Parameters
+
+##### input
+
+[`RestoreNodeLevel5DeclaredSubsetInput`](#restorenodelevel5declaredsubsetinput)
+
+#### Returns
+
+[`NodeLevel5DeclaredSubsetRestoreSummary`](#nodelevel5declaredsubsetrestoresummary)
+
+***
+
+### isNodeLevel5DeclaredSubsetManifest()
+
+> **isNodeLevel5DeclaredSubsetManifest**(`value`): `value is NodeLevel5DeclaredSubsetManifest`
+
+#### Parameters
+
+##### value
+
+`unknown`
+
+#### Returns
+
+`value is NodeLevel5DeclaredSubsetManifest`
 
 ***
 
