@@ -1,0 +1,79 @@
+{
+  "kind": "machinen.node-proper-level5-broad-support-readiness-audit-summary",
+  "proof": "125",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "auditedProofs": [
+    "106",
+    "107",
+    "108",
+    "109",
+    "110",
+    "111",
+    "112",
+    "113",
+    "114",
+    "115",
+    "116",
+    "117",
+    "118",
+    "119",
+    "120",
+    "121",
+    "122",
+    "123",
+    "124"
+  ],
+  "matrixStatus": "candidate-not-supported",
+  "readiness": {
+    "proofArchitectureRoadmap": 94,
+    "refusalDiscipline": 90,
+    "v8HeapStateRecovery": 72,
+    "libuvEventLoopRecovery": 62,
+    "resourceReconstruction": 62,
+    "threadAndProcessSafety": 65,
+    "realCrossArchEndToEnd": 72,
+    "cliDocsProductization": 65,
+    "repeatabilityCiConfidence": 62,
+    "narrowExperimentalProductSupport": 72,
+    "broadNodeLevel5Support": 50,
+    "arbitraryProcessCrossArchRestore": 4
+  },
+  "supportedCandidateSubset": {
+    "node": "22.x",
+    "v8": "12.x pointer-compressed",
+    "state": [
+      "idle event loop",
+      "selected strings/objects/arrays/closures",
+      "timers",
+      "TCP listeners",
+      "stdio",
+      "readonly files",
+      "pipes"
+    ],
+    "unsupported": [
+      "worker threads",
+      "active requests",
+      "pending microtasks",
+      "custom signal handlers",
+      "external memory",
+      "Wasm modules",
+      "raw CPU restore"
+    ]
+  },
+  "remainingBeforeProductClaim": [
+    "Move proof-local CLIs into guarded product command plumbing.",
+    "Run real guest capture inside VM lifecycle smoke tests.",
+    "Expand V8 heap decoding beyond the cataloged tiny subset.",
+    "Run bidirectional lanes in CI-like automation on real builders.",
+    "Publish stable user docs and refusal error registry."
+  ],
+  "assertions": {
+    "auditedProofsRemainProofOnly": true,
+    "supportMatrixRemainsCandidateNotSupported": true,
+    "broadNodeLevel5EstimatedAt50Percent": true,
+    "publicExperimentalDocsKeepBoundaryLanguage": true,
+    "arbitraryProcessRestoreStillNotSupported": true
+  }
+}
