@@ -1,0 +1,11 @@
+{
+  "kind": "machinen.node-level5-restore-launcher-proof-summary",
+  "proof": "599",
+  "goal": "Restore launcher final audit",
+  "result": "Restore launcher composes with capture/materialization and keeps claims unchanged.",
+  "status": "node-product-support-80-restore-launcher",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"]
+}

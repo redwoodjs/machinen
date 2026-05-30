@@ -11,7 +11,7 @@ machinen restore ./node-snapshot
 
 This path does not require an experimental Node Level 5 flag. `snapshot node <name|pid>` resolves a target, inspects live process evidence for pid targets, discovers the process cwd as the app root, then runs the Node Level 5 detector before capture. It accepts the supported idle HTTP app shape and refuses non-Node targets, missing app roots, or unsupported Node state before writing a snapshot.
 
-The detector report, target identity report, and product capture report are retained inside the snapshot and verified during restore. Restore also writes a target-native materialization report that records the accepted restore boundary without raw CPU restore, source ISA emulation, or metadata-only success. The product path no longer depends on `machinen-node-level5-targets.json`; proof fixtures now use real pid introspection for the target-bound path. The path still keeps the support boundary narrow:
+The detector report, target identity report, and product capture report are retained inside the snapshot and verified during restore. Restore also writes a target-native materialization report and a launch report that proves the target-native Node executable can start for the restored app root. Both reports keep the boundary clear: no raw CPU restore, source ISA emulation, or metadata-only success. The product path no longer depends on `machinen-node-level5-targets.json`; proof fixtures now use real pid introspection for the target-bound path. The path still keeps the support boundary narrow:
 
 - Node product support: 80%.
 - Broad Node product support: 20%.
