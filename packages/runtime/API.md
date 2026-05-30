@@ -169,6 +169,17 @@
 - [`nodeLevel5ProductSupport65Families`](#nodelevel5productsupport65families)
 - [`nodeLevel5ProductSupport65Matrix`](#nodelevel5productsupport65matrix)
 - [`nodeLevel5ProductSupport65NewFamilies`](#nodelevel5productsupport65newfamilies)
+- [`NodeLevel5ProductSupport80Family`](#nodelevel5productsupport80family)
+- [`NodeLevel5ProductSupport80FamilyId`](#nodelevel5productsupport80familyid)
+- [`NodeLevel5ProductSupport80Matrix`](#nodelevel5productsupport80matrix)
+- [`NodeLevel5RealVmCrossArchEvidence`](#nodelevel5realvmcrossarchevidence)
+- [`NODE_LEVEL5_PRODUCT_SUPPORT_80_KIND`](#node_level5_product_support_80_kind)
+- [`NODE_LEVEL5_PRODUCT_SUPPORT_80_VERSION`](#node_level5_product_support_80_version)
+- [`assertNodeLevel5ProductSupport80MatrixComplete`](#assertnodelevel5productsupport80matrixcomplete)
+- [`nodeLevel5ProductSupport80ExpandedUnsupportedNeighbors`](#nodelevel5productsupport80expandedunsupportedneighbors)
+- [`nodeLevel5ProductSupport80Families`](#nodelevel5productsupport80families)
+- [`nodeLevel5ProductSupport80Matrix`](#nodelevel5productsupport80matrix)
+- [`nodeLevel5ProductSupport80NewFamilies`](#nodelevel5productsupport80newfamilies)
 
 ### Boot a VM
 
@@ -22780,6 +22791,248 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NodeLevel5ProductSupport80FamilyId
+
+> **NodeLevel5ProductSupport80FamilyId** = [`NodeLevel5ProductSupport65Family`](#nodelevel5productsupport65family)\[`"id"`\] \| `"express-fastify-http-app"` \| `"dependency-heavy-app"` \| `"streams-files-mixed-app"`
+
+***
+
+### NodeLevel5RealVmCrossArchEvidence
+
+> **NodeLevel5RealVmCrossArchEvidence** = `object`
+
+#### Properties
+
+##### familyId
+
+> **familyId**: [`NodeLevel5ProductSupport80FamilyId`](#nodelevel5productsupport80familyid)
+
+##### direction
+
+> **direction**: [`NodeLevel5ProductSupportDirection`](#nodelevel5productsupportdirection)
+
+##### substrate
+
+> **substrate**: `"machinen-real-vm-cross-arch"`
+
+##### artifactBundle
+
+> **artifactBundle**: `string`
+
+##### manifestVerified
+
+> **manifestVerified**: `true`
+
+##### captureSummaryVerified
+
+> **captureSummaryVerified**: `true`
+
+##### restoreSummaryVerified
+
+> **restoreSummaryVerified**: `true`
+
+##### targetLogsVerified
+
+> **targetLogsVerified**: `true`
+
+##### targetNativeNodeVerified
+
+> **targetNativeNodeVerified**: `true`
+
+##### behavioralVerifierPassed
+
+> **behavioralVerifierPassed**: `true`
+
+##### rawCpuRestoreUsed
+
+> **rawCpuRestoreUsed**: `false`
+
+##### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+##### metadataOnlySuccessAccepted
+
+> **metadataOnlySuccessAccepted**: `false`
+
+***
+
+### NodeLevel5ProductSupport80Family
+
+> **NodeLevel5ProductSupport80Family** = `object`
+
+#### Properties
+
+##### id
+
+> **id**: [`NodeLevel5ProductSupport80FamilyId`](#nodelevel5productsupport80familyid)
+
+##### title
+
+> **title**: `string`
+
+##### coveragePercent
+
+> **coveragePercent**: `4` \| `5`
+
+##### status
+
+> **status**: `"experimental-supported"`
+
+##### included
+
+> **included**: readonly `string`[]
+
+##### excluded
+
+> **excluded**: readonly `string`[]
+
+##### contractArtifact
+
+> **contractArtifact**: `string`
+
+##### e2eArtifact
+
+> **e2eArtifact**: `string`
+
+##### directions
+
+> **directions**: readonly [`NodeLevel5ProductSupportDirection`](#nodelevel5productsupportdirection)[]
+
+##### realVmCrossArchEvidence
+
+> **realVmCrossArchEvidence**: readonly [`NodeLevel5RealVmCrossArchEvidence`](#nodelevel5realvmcrossarchevidence)[]
+
+##### targetNativeVerified
+
+> **targetNativeVerified**: `true`
+
+##### productSupportClaimed
+
+> **productSupportClaimed**: `true`
+
+##### broadNodeFacilityAddressed
+
+> **broadNodeFacilityAddressed**: `boolean`
+
+***
+
+### NodeLevel5ProductSupport80Matrix
+
+> **NodeLevel5ProductSupport80Matrix** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_PRODUCT_SUPPORT_80_KIND`](#node_level5_product_support_80_kind)
+
+##### version
+
+> **version**: *typeof* [`NODE_LEVEL5_PRODUCT_SUPPORT_80_VERSION`](#node_level5_product_support_80_version)
+
+##### status
+
+> **status**: `"experimental-node-product-support-80"`
+
+##### nodeProductSupportClaimed
+
+> **nodeProductSupportClaimed**: `80`
+
+##### nodeProductSupportScope
+
+> **nodeProductSupportScope**: `"seventeen-service-app-and-boundary-families"`
+
+##### previousNodeProductSupportClaimed
+
+> **previousNodeProductSupportClaimed**: `65`
+
+##### newNodeProductSupportClaimed
+
+> **newNodeProductSupportClaimed**: `15`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `20`
+
+##### broadNodeProductSupportScope
+
+> **broadNodeProductSupportScope**: `"real-app-corpus-plus-selected-hard-facility-boundaries"`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
+
+##### node
+
+> **node**: `"22.x"`
+
+##### v8
+
+> **v8**: `"12.x pointer-compressed"`
+
+##### libuv
+
+> **libuv**: `"supported idle handles plus selected hard-facility boundaries"`
+
+##### families
+
+> **families**: readonly [`NodeLevel5ProductSupport80Family`](#nodelevel5productsupport80family)[]
+
+##### expandedUnsupportedNeighbors
+
+> **expandedUnsupportedNeighbors**: readonly [`NodeLevel5ProductUnsupportedNeighbor`](#nodelevel5productunsupportedneighbor)[]
+
+##### positiveRealAppCorpus
+
+> **positiveRealAppCorpus**: readonly `string`[]
+
+##### negativeRealAppCorpus
+
+> **negativeRealAppCorpus**: readonly `string`[]
+
+##### repeatabilityRuns
+
+> **repeatabilityRuns**: `30`
+
+##### flakeBudgetPercent
+
+> **flakeBudgetPercent**: `0`
+
+##### artifactRetention
+
+> **artifactRetention**: readonly `string`[]
+
+##### safety
+
+> **safety**: `object`
+
+###### rawCpuRestoreSupported
+
+> **rawCpuRestoreSupported**: `false`
+
+###### sourceIsaEmulationSupported
+
+> **sourceIsaEmulationSupported**: `false`
+
+###### appCheckpointHooksRequired
+
+> **appCheckpointHooksRequired**: `false`
+
+###### targetNativeNodeRequired
+
+> **targetNativeNodeRequired**: `true`
+
+###### metadataOnlySuccessAccepted
+
+> **metadataOnlySuccessAccepted**: `false`
+
+###### broadNodeSupportIsPartial
+
+> **broadNodeSupportIsPartial**: `true`
+
+***
+
 ### NodeLevel5ProofIngredientName
 
 > **NodeLevel5ProofIngredientName** = *typeof* [`nodeLevel5ProofIngredientNames`](#nodelevel5proofingredientnames)\[`number`\]
@@ -24887,6 +25140,42 @@ loops; anything looser stops being a meaningful gate.
 ### nodeLevel5ProductSupport65Matrix
 
 > `const` **nodeLevel5ProductSupport65Matrix**: [`NodeLevel5ProductSupport65Matrix`](#nodelevel5productsupport65matrix)
+
+***
+
+### NODE\_LEVEL5\_PRODUCT\_SUPPORT\_80\_KIND
+
+> `const` **NODE\_LEVEL5\_PRODUCT\_SUPPORT\_80\_KIND**: `"machinen.node-level5-product-support-80"` = `"machinen.node-level5-product-support-80"`
+
+***
+
+### NODE\_LEVEL5\_PRODUCT\_SUPPORT\_80\_VERSION
+
+> `const` **NODE\_LEVEL5\_PRODUCT\_SUPPORT\_80\_VERSION**: `1` = `1`
+
+***
+
+### nodeLevel5ProductSupport80NewFamilies
+
+> `const` **nodeLevel5ProductSupport80NewFamilies**: readonly [`NodeLevel5ProductSupport80Family`](#nodelevel5productsupport80family)[]
+
+***
+
+### nodeLevel5ProductSupport80Families
+
+> `const` **nodeLevel5ProductSupport80Families**: readonly [`NodeLevel5ProductSupport80Family`](#nodelevel5productsupport80family)[]
+
+***
+
+### nodeLevel5ProductSupport80ExpandedUnsupportedNeighbors
+
+> `const` **nodeLevel5ProductSupport80ExpandedUnsupportedNeighbors**: readonly [`NodeLevel5ProductUnsupportedNeighbor`](#nodelevel5productunsupportedneighbor)[]
+
+***
+
+### nodeLevel5ProductSupport80Matrix
+
+> `const` **nodeLevel5ProductSupport80Matrix**: [`NodeLevel5ProductSupport80Matrix`](#nodelevel5productsupport80matrix)
 
 ***
 
@@ -27785,6 +28074,22 @@ available.
 ##### matrix?
 
 [`NodeLevel5ProductSupport65Matrix`](#nodelevel5productsupport65matrix) = `nodeLevel5ProductSupport65Matrix`
+
+#### Returns
+
+`boolean`
+
+***
+
+### assertNodeLevel5ProductSupport80MatrixComplete()
+
+> **assertNodeLevel5ProductSupport80MatrixComplete**(`matrix?`): `boolean`
+
+#### Parameters
+
+##### matrix?
+
+[`NodeLevel5ProductSupport80Matrix`](#nodelevel5productsupport80matrix) = `nodeLevel5ProductSupport80Matrix`
 
 #### Returns
 
