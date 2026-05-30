@@ -1,0 +1,49 @@
+{
+  "kind": "machinen.node-proper-level5-v8-build-gated-object-recovery-summary",
+  "proof": "092",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "acceptedGraphIr": {
+    "kind": "machinen.v8-build-gated-object-graph-ir",
+    "buildId": "node-22-v8-12-pointer-compressed-little",
+    "total": 2,
+    "history": [1, 2],
+    "sharedReferenceIdentityPreserved": true,
+    "recoveredFromCapturedBytes": true,
+    "appExportImportUsed": false
+  },
+  "target": {
+    "total": 3,
+    "history": [1, 2, 3],
+    "sharedReferenceIdentityPreserved": true,
+    "targetNative": true
+  },
+  "refusedRows": [
+    {
+      "id": "bad-v8-major",
+      "expectedCode": "node-proper-level5-v8-build-identity-unsupported",
+      "actualCode": "node-proper-level5-v8-build-identity-unsupported",
+      "targetStarted": false
+    },
+    {
+      "id": "no-pointer-compression",
+      "expectedCode": "node-proper-level5-v8-encoding-unsupported",
+      "actualCode": "node-proper-level5-v8-encoding-unsupported",
+      "targetStarted": false
+    },
+    {
+      "id": "bad-map",
+      "expectedCode": "node-proper-level5-v8-object-map-unsupported",
+      "actualCode": "node-proper-level5-v8-object-map-unsupported",
+      "targetStarted": false
+    }
+  ],
+  "assertions": {
+    "supportedNodeV8BuildGateRequired": true,
+    "objectRecoveredFromCapturedBytes": true,
+    "targetReturnedNextObjectState": true,
+    "unsupportedBuildsAndMapsRefuse": true,
+    "noAppExportImportUsed": true
+  }
+}
