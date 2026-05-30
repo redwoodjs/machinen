@@ -1,0 +1,15 @@
+{
+  "kind": "machinen.node-level5-behavioral-verifier-proof-summary",
+  "proof": "615",
+  "goal": "Restored HTTP app probe",
+  "result": "Target-native Node serves and probes an HTTP loopback response.",
+  "status": "node-product-support-80-behavioral-verifier",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": [
+    "machinen snapshot node <pid> --out <dir>",
+    "machinen restore <snapshot>"
+  ],
+  "translatedContinuationRequired": true
+}
