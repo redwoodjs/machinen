@@ -1,0 +1,45 @@
+{
+  "kind": "machinen.node-proper-level5-real-arm64-vm-amd64-composed-summary",
+  "proof": "049",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "sourceArchitecture": "arm64",
+  "targetArchitecture": "amd64",
+  "target": {
+    "processArch": "amd64",
+    "count": 3,
+    "graphTotal": 3,
+    "targetNativeNodeUsed": true,
+    "sourceArm64CodeExecuted": false,
+    "listenerMaterialized": true,
+    "timerMaterialized": true
+  },
+  "refusedRows": [
+    {
+      "id": "same-arch",
+      "expectedCode": "node-proper-level5-real-cross-arch-required",
+      "actualCode": "node-proper-level5-real-cross-arch-required",
+      "targetStarted": false
+    },
+    {
+      "id": "missing-verifier",
+      "expectedCode": "node-proper-level5-native-verifier-required",
+      "actualCode": "node-proper-level5-native-verifier-required",
+      "targetStarted": false
+    },
+    {
+      "id": "source-isa-emulation",
+      "expectedCode": "node-proper-level5-real-cross-arch-shortcut-refused",
+      "actualCode": "node-proper-level5-real-cross-arch-shortcut-refused",
+      "targetStarted": false
+    }
+  ],
+  "assertions": {
+    "sourceAndTargetArchitecturesDiffer": true,
+    "nativeVerifierRunsBeforeMaterialization": true,
+    "targetReturnedNextState": true,
+    "noSourceArm64CodeExecutedOnTarget": true,
+    "noForbiddenShortcutUsed": true
+  }
+}
