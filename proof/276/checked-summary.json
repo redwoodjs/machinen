@@ -1,0 +1,17 @@
+{
+  "kind": "machinen.node-level5-product-support-65-proof-summary",
+  "proof": "276",
+  "goal": "Define Node product support 65% matrix",
+  "result": "Extends 50% matrix with 3 hard-facility boundary families × 5%.",
+  "status": "experimental-node-product-support-65",
+  "nodeProductSupportClaimed": 65,
+  "nodeProductSupportScope": "fourteen-service-and-boundary-families",
+  "previousNodeProductSupportClaimed": 50,
+  "newNodeProductSupportClaimed": 15,
+  "broadNodeProductSupportClaimed": 5,
+  "broadNodeProductSupportScope": "selected-hard-facility-boundaries",
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "matrixComplete": true,
+  "totalFamilies": 14,
+  "newFamilies": ["active-async-idle-boundary", "tls-boundary-policy", "child-process-boundary"]
+}

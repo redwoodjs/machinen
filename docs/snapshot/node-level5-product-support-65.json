@@ -1,0 +1,13 @@
+{
+  "kind": "machinen.node-level5-product-support-65",
+  "version": 1,
+  "status": "experimental-node-product-support-65",
+  "nodeProductSupportClaimed": 65,
+  "nodeProductSupportScope": "fourteen-service-and-boundary-families",
+  "previousNodeProductSupportClaimed": 50,
+  "newNodeProductSupportClaimed": 15,
+  "broadNodeProductSupportClaimed": 5,
+  "broadNodeProductSupportScope": "selected-hard-facility-boundaries",
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "newFamilies": ["active-async-idle-boundary", "tls-boundary-policy", "child-process-boundary"]
+}
