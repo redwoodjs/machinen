@@ -1,0 +1,13 @@
+{
+  "kind": "machinen.node-level5-product-support-80-hardening-proof-summary",
+  "proof": "331",
+  "goal": "Version/ABI enforcement",
+  "result": "Runtime refuses unknown Node/V8/libuv ABI, not just docs.",
+  "status": "node-product-support-80-hardened",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "node": "22.x",
+  "v8": "12.x pointer-compressed",
+  "unknownAbiRefused": true
+}
