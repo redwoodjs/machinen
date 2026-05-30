@@ -240,7 +240,9 @@ export {
 } from "./node-level5-product-support-80-hardening.ts";
 export {
   DEFAULT_NODE_LEVEL5_PRODUCT_SNAPSHOT_DIRECTION,
+  NODE_LEVEL5_PRODUCT_CAPTURE_REPORT_KIND,
   NODE_LEVEL5_PRODUCT_DETECTOR_REPORT_KIND,
+  NODE_LEVEL5_PRODUCT_RESTORE_MATERIALIZATION_REPORT_KIND,
   NODE_LEVEL5_PRODUCT_SNAPSHOT_KIND,
   NODE_LEVEL5_PRODUCT_TARGET_IDENTITY_KIND,
   NODE_LEVEL5_PRODUCT_SNAPSHOT_VERSION,
@@ -364,7 +366,9 @@ export type {
   NodeLevel5ProductSupport80UnsupportedDetector,
 } from "./node-level5-product-support-80-hardening.ts";
 export type {
+  NodeLevel5ProductCaptureReport,
   NodeLevel5ProductDetectorReport,
+  NodeLevel5ProductRestoreMaterializationReport,
   NodeLevel5ProductRestoreSummary,
   NodeLevel5ProductSnapshotDirection,
   NodeLevel5ProductSnapshotManifest,

@@ -1,0 +1,12 @@
+{
+  "kind": "machinen.node-level5-product-capture-materialization-proof-summary",
+  "proof": "475",
+  "goal": "Capture report verification",
+  "result": "Restore verifies capture report hashes and refuses tampered capture evidence.",
+  "status": "node-product-support-80-product-capture-materialization",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
+  "diagnosticClaimsAccepted": true
+}

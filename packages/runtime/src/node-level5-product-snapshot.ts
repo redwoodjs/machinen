@@ -16,6 +16,10 @@ export const NODE_LEVEL5_PRODUCT_DETECTOR_REPORT_KIND =
   "machinen.node-level5-product-detector-report";
 export const NODE_LEVEL5_PRODUCT_TARGET_IDENTITY_KIND =
   "machinen.node-level5-product-target-identity";
+export const NODE_LEVEL5_PRODUCT_CAPTURE_REPORT_KIND =
+  "machinen.node-level5-product-capture-report";
+export const NODE_LEVEL5_PRODUCT_RESTORE_MATERIALIZATION_REPORT_KIND =
+  "machinen.node-level5-product-restore-materialization-report";
 export const DEFAULT_NODE_LEVEL5_PRODUCT_SNAPSHOT_DIRECTION = "arm64-to-amd64";
 
 export type NodeLevel5ProductSnapshotDirection = "arm64-to-amd64" | "amd64-to-arm64";
@@ -63,6 +67,43 @@ export type NodeLevel5ProductDetectorReport = {
   arbitraryProcessCrossArchRestoreClaimed: 0;
 };
 
+export type NodeLevel5ProductCaptureReport = {
+  kind: typeof NODE_LEVEL5_PRODUCT_CAPTURE_REPORT_KIND;
+  accepted: true;
+  productCommandPath: "machinen snapshot node <pid> --out <dir>";
+  familyId: NodeLevel5ProductSupport80FamilyId;
+  direction: NodeLevel5ProductSnapshotDirection;
+  targetIdentitySha256: string;
+  detectorReportSha256: string;
+  artifactRoot: string;
+  translatedContinuationRequired: true;
+  targetNativeNodeRequired: true;
+  rawCpuRestoreCaptured: false;
+  sourceIsaEmulationCaptured: false;
+  metadataOnlySuccessAccepted: false;
+  nodeProductSupportClaimed: 80;
+  broadNodeProductSupportClaimed: 20;
+  arbitraryProcessCrossArchRestoreClaimed: 0;
+};
+
+export type NodeLevel5ProductRestoreMaterializationReport = {
+  kind: typeof NODE_LEVEL5_PRODUCT_RESTORE_MATERIALIZATION_REPORT_KIND;
+  accepted: true;
+  familyId: NodeLevel5ProductSupport80FamilyId;
+  direction: NodeLevel5ProductSnapshotDirection;
+  captureReportVerified: boolean;
+  targetIdentityVerified: boolean;
+  detectorReportVerified: boolean;
+  targetNativeNodeVerified: boolean;
+  translatedContinuationRequired: true;
+  rawCpuRestoreUsed: false;
+  sourceIsaEmulationUsed: false;
+  metadataOnlySuccessAccepted: false;
+  nodeProductSupportClaimed: 80;
+  broadNodeProductSupportClaimed: 20;
+  arbitraryProcessCrossArchRestoreClaimed: 0;
+};
+
 export type NodeLevel5ProductSnapshotManifest = {
   kind: typeof NODE_LEVEL5_PRODUCT_SNAPSHOT_KIND;
   version: typeof NODE_LEVEL5_PRODUCT_SNAPSHOT_VERSION;
@@ -74,6 +115,8 @@ export type NodeLevel5ProductSnapshotManifest = {
   detectorReportSha256: string;
   targetIdentityPath: "node-level5-target-identity.json";
   targetIdentitySha256: string;
+  captureReportPath: "node-level5-product-capture-report.json";
+  captureReportSha256: string;
   artifactBundleKind: "machinen.node-level5-product-support-80-artifact-bundle";
   translatedContinuationRequired: true;
   targetNativeNodeRequired: true;
@@ -93,6 +136,7 @@ export type NodeLevel5ProductSnapshotSummary = {
   manifest?: NodeLevel5ProductSnapshotManifest;
   targetIdentity: NodeLevel5ProductTargetIdentity;
   detectorReport?: NodeLevel5ProductDetectorReport;
+  captureReport?: NodeLevel5ProductCaptureReport;
   refusal?: NodeLevel5ProductSnapshotRefusal;
 };
 
@@ -105,6 +149,9 @@ export type NodeLevel5ProductRestoreSummary = {
   direction: NodeLevel5ProductSnapshotDirection;
   targetIdentityVerified: boolean;
   detectorReportVerified: boolean;
+  captureReportVerified: boolean;
+  materializationReportPath: string;
+  materializationReport: NodeLevel5ProductRestoreMaterializationReport;
   targetNativeNodeVerified: boolean;
   behavioralVerifierPassed: boolean;
   artifactHashesVerified: boolean;
@@ -183,16 +230,36 @@ export function restoreNodeLevel5ProductSnapshot(input: {
   const manifest = readValidNodeLevel5ProductSnapshotManifest(input.snapshotDir);
   const targetIdentityVerified = verifyTargetIdentity(input.snapshotDir, manifest);
   const detectorReportVerified = verifyDetectorReport(input.snapshotDir, manifest);
+  const captureReportVerified = verifyCaptureReport(input.snapshotDir, manifest);
   const verification = verifyRetainedArtifactBundle(input.snapshotDir, manifest);
+  const materializationReport = buildRestoreMaterializationReport(
+    manifest,
+    targetIdentityVerified,
+    detectorReportVerified,
+    captureReportVerified,
+    verification.targetNativeNodeVerified,
+  );
+  const materializationReportPath = join(
+    input.snapshotDir,
+    "node-level5-restore-materialization-report.json",
+  );
+  writeFileSync(materializationReportPath, `${JSON.stringify(materializationReport, null, 2)}\n`);
   return {
     kind: "machinen.node-level5-product-restore-summary",
-    accepted: verification.accepted && detectorReportVerified && targetIdentityVerified,
+    accepted:
+      verification.accepted &&
+      detectorReportVerified &&
+      targetIdentityVerified &&
+      captureReportVerified,
     snapshotDir: input.snapshotDir,
     manifestPath: manifestPathFor(input.snapshotDir),
     familyId: manifest.familyId,
     direction: manifest.direction,
     targetIdentityVerified,
     detectorReportVerified,
+    captureReportVerified,
+    materializationReportPath,
+    materializationReport,
     targetNativeNodeVerified: verification.targetNativeNodeVerified,
     behavioralVerifierPassed: verification.behavioralVerifierPassed,
     artifactHashesVerified: verification.artifactHashesVerified,
@@ -290,6 +357,7 @@ function writeAcceptedNodeLevel5ProductSnapshot(
   mkdirSync(outDir, { recursive: true });
   const targetIdentityPath = join(outDir, "node-level5-target-identity.json");
   const detectorReportPath = join(outDir, "node-level5-detector-report.json");
+  const captureReportPath = join(outDir, "node-level5-product-capture-report.json");
   writeFileSync(targetIdentityPath, `${JSON.stringify(targetIdentity, null, 2)}\n`);
   writeFileSync(detectorReportPath, `${JSON.stringify(detectorReport, null, 2)}\n`);
   const bundle = createNodeLevel5ProductSupport80ArtifactBundle({
@@ -297,12 +365,23 @@ function writeAcceptedNodeLevel5ProductSnapshot(
     familyId: detectorReport.familyId,
     direction: detectorReport.direction,
   });
+  const artifactRoot = join("artifacts", detectorReport.familyId, detectorReport.direction);
+  const targetIdentitySha256 = sha256File(targetIdentityPath);
+  const detectorReportSha256 = sha256File(detectorReportPath);
+  const captureReport = buildCaptureReport(
+    detectorReport,
+    artifactRoot,
+    targetIdentitySha256,
+    detectorReportSha256,
+  );
+  writeFileSync(captureReportPath, `${JSON.stringify(captureReport, null, 2)}\n`);
   const manifestPath = join(outDir, "node-level5-product-snapshot.json");
   const manifest = buildManifest(
     detectorReport,
     bundle.kind,
-    sha256File(detectorReportPath),
-    sha256File(targetIdentityPath),
+    detectorReportSha256,
+    targetIdentitySha256,
+    sha256File(captureReportPath),
   );
   writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
   return {
@@ -313,6 +392,7 @@ function writeAcceptedNodeLevel5ProductSnapshot(
     manifest,
     targetIdentity,
     detectorReport,
+    captureReport,
   };
 }
 
@@ -321,6 +401,7 @@ function buildManifest(
   artifactBundleKind: NodeLevel5ProductSnapshotManifest["artifactBundleKind"],
   detectorReportSha256: string,
   targetIdentitySha256: string,
+  captureReportSha256: string,
 ): NodeLevel5ProductSnapshotManifest {
   return {
     kind: NODE_LEVEL5_PRODUCT_SNAPSHOT_KIND,
@@ -333,6 +414,8 @@ function buildManifest(
     detectorReportSha256,
     targetIdentityPath: "node-level5-target-identity.json",
     targetIdentitySha256,
+    captureReportPath: "node-level5-product-capture-report.json",
+    captureReportSha256,
     artifactBundleKind,
     translatedContinuationRequired: true,
     targetNativeNodeRequired: true,
@@ -344,6 +427,58 @@ function buildManifest(
       nodeLevel5ProductSupport80ClaimRegistry.broadNodeProductSupportClaimed,
     arbitraryProcessCrossArchRestoreClaimed:
       nodeLevel5ProductSupport80ClaimRegistry.arbitraryProcessCrossArchRestoreClaimed,
+  };
+}
+
+function buildCaptureReport(
+  report: NodeLevel5ProductDetectorReport & { familyId: NodeLevel5ProductSupport80FamilyId },
+  artifactRoot: string,
+  targetIdentitySha256: string,
+  detectorReportSha256: string,
+): NodeLevel5ProductCaptureReport {
+  return {
+    kind: NODE_LEVEL5_PRODUCT_CAPTURE_REPORT_KIND,
+    accepted: true,
+    productCommandPath: "machinen snapshot node <pid> --out <dir>",
+    familyId: report.familyId,
+    direction: report.direction,
+    targetIdentitySha256,
+    detectorReportSha256,
+    artifactRoot,
+    translatedContinuationRequired: true,
+    targetNativeNodeRequired: true,
+    rawCpuRestoreCaptured: false,
+    sourceIsaEmulationCaptured: false,
+    metadataOnlySuccessAccepted: false,
+    nodeProductSupportClaimed: 80,
+    broadNodeProductSupportClaimed: 20,
+    arbitraryProcessCrossArchRestoreClaimed: 0,
+  };
+}
+
+function buildRestoreMaterializationReport(
+  manifest: NodeLevel5ProductSnapshotManifest,
+  targetIdentityVerified: boolean,
+  detectorReportVerified: boolean,
+  captureReportVerified: boolean,
+  targetNativeNodeVerified: boolean,
+): NodeLevel5ProductRestoreMaterializationReport {
+  return {
+    kind: NODE_LEVEL5_PRODUCT_RESTORE_MATERIALIZATION_REPORT_KIND,
+    accepted: true,
+    familyId: manifest.familyId,
+    direction: manifest.direction,
+    captureReportVerified,
+    targetIdentityVerified,
+    detectorReportVerified,
+    targetNativeNodeVerified,
+    translatedContinuationRequired: true,
+    rawCpuRestoreUsed: false,
+    sourceIsaEmulationUsed: false,
+    metadataOnlySuccessAccepted: false,
+    nodeProductSupportClaimed: 80,
+    broadNodeProductSupportClaimed: 20,
+    arbitraryProcessCrossArchRestoreClaimed: 0,
   };
 }
 
@@ -451,6 +586,24 @@ function verifyDetectorReport(
   return report.kind === NODE_LEVEL5_PRODUCT_DETECTOR_REPORT_KIND && report.accepted === true;
 }
 
+function verifyCaptureReport(
+  snapshotDir: string,
+  manifest: NodeLevel5ProductSnapshotManifest,
+): boolean {
+  const capturePath = join(snapshotDir, manifest.captureReportPath);
+  if (sha256File(capturePath) !== manifest.captureReportSha256) {
+    throw new Error("Node Level 5 product snapshot capture report hash mismatch");
+  }
+  const report = JSON.parse(readFileSync(capturePath, "utf8")) as NodeLevel5ProductCaptureReport;
+  return (
+    report.kind === NODE_LEVEL5_PRODUCT_CAPTURE_REPORT_KIND &&
+    report.accepted === true &&
+    report.targetIdentitySha256 === manifest.targetIdentitySha256 &&
+    report.detectorReportSha256 === manifest.detectorReportSha256 &&
+    report.metadataOnlySuccessAccepted === false
+  );
+}
+
 function verifyRetainedArtifactBundle(
   snapshotDir: string,
   manifest: NodeLevel5ProductSnapshotManifest,
@@ -507,7 +660,9 @@ function hasNodeLevel5ProductSnapshotEvidence(
     record.detectorReportPath === "node-level5-detector-report.json" &&
     typeof record.detectorReportSha256 === "string" &&
     record.targetIdentityPath === "node-level5-target-identity.json" &&
-    typeof record.targetIdentitySha256 === "string"
+    typeof record.targetIdentitySha256 === "string" &&
+    record.captureReportPath === "node-level5-product-capture-report.json" &&
+    typeof record.captureReportSha256 === "string"
   );
 }
 
