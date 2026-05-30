@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -197,7 +197,9 @@ function payload(kind: string): Record<string, unknown> {
   if (kind === "human-snapshot") {
     const dir = tempDir();
     const appDir = supportedAppDir();
-    const result = runCli(snapshotArgs(dir, false), appDir);
+    const child = spawnNodeTarget(appDir);
+    const result = runCli(snapshotArgs(dir, false, child.pid), appDir);
+    stopNodeTarget(child);
     rmSync(dir, { recursive: true, force: true });
     rmSync(appDir, { recursive: true, force: true });
     return {
@@ -208,6 +210,7 @@ function payload(kind: string): Record<string, unknown> {
   if (kind === "human-restore") {
     const workflow = writeSnapshot();
     const result = runCli(["restore", workflow.dir]);
+    stopNodeTarget(workflow.child);
     rmSync(workflow.dir, { recursive: true, force: true });
     rmSync(workflow.appDir, { recursive: true, force: true });
     return { status: result.status, humanOutput: result.stdout.trim() };
@@ -228,7 +231,7 @@ function payload(kind: string): Record<string, unknown> {
     const dir = tempDir();
     const appDir = supportedAppDir();
     const result = runCli(
-      ["snapshot", "node", "api", "--out", dir, "--family", "unknown-family", "--json"],
+      ["snapshot", "node", "999999", "--out", dir, "--family", "unknown-family", "--json"],
       appDir,
     );
     rmSync(dir, { recursive: true, force: true });
@@ -247,6 +250,7 @@ function payload(kind: string): Record<string, unknown> {
     );
     const result = runCli(["restore", workflow.dir, "--json"]);
     const output = JSON.parse(result.stdout || result.stderr);
+    stopNodeTarget(workflow.child);
     rmSync(workflow.dir, { recursive: true, force: true });
     rmSync(workflow.appDir, { recursive: true, force: true });
     const message = output.message ?? output.error?.message ?? "";
@@ -322,19 +326,31 @@ function snapshotRestore(): Record<string, any> {
   try {
     return { snapshot: workflow.snapshot, restore: cliJson(["restore", workflow.dir, "--json"]) };
   } finally {
+    stopNodeTarget(workflow.child);
     rmSync(workflow.dir, { recursive: true, force: true });
     rmSync(workflow.appDir, { recursive: true, force: true });
   }
 }
 
-function writeSnapshot(): { dir: string; appDir: string; snapshot: Record<string, any> } {
+function writeSnapshot(): {
+  dir: string;
+  appDir: string;
+  child: ChildProcess;
+  snapshot: Record<string, any>;
+} {
   const dir = tempDir();
   const appDir = supportedAppDir();
-  return { dir, appDir, snapshot: cliJson(snapshotArgs(dir, true), 0, appDir) };
+  const child = spawnNodeTarget(appDir);
+  try {
+    return { dir, appDir, child, snapshot: cliJson(snapshotArgs(dir, true, child.pid), 0, appDir) };
+  } catch (error) {
+    stopNodeTarget(child);
+    throw error;
+  }
 }
 
-function snapshotArgs(dir: string, json: boolean): string[] {
-  const args = ["snapshot", "node", "api", "--out", dir];
+function snapshotArgs(dir: string, json: boolean, pid: number | undefined): string[] {
+  const args = ["snapshot", "node", String(pid), "--out", dir];
   if (json) {
     args.push("--json");
   }
@@ -345,15 +361,22 @@ function tempDir(): string {
   return mkdtempSync(join(tmpdir(), "machinen-node-level5-product-snapshot-"));
 }
 
+function spawnNodeTarget(cwd: string): ChildProcess {
+  return spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], {
+    cwd,
+    stdio: "ignore",
+  });
+}
+
+function stopNodeTarget(child: ChildProcess): void {
+  child.kill("SIGTERM");
+}
+
 function supportedAppDir(): string {
   const appDir = mkdtempSync(join(tmpdir(), "machinen-node-level5-product-app-"));
   writeFileSync(
     join(appDir, "package.json"),
     `${JSON.stringify({ name: "supported", dependencies: { express: "^4.0.0" } }, null, 2)}\n`,
-  );
-  writeFileSync(
-    join(appDir, "machinen-node-level5-targets.json"),
-    `${JSON.stringify({ targets: { api: { runtime: "node", appDir } } }, null, 2)}\n`,
   );
   return appDir;
 }

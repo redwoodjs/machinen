@@ -43,6 +43,8 @@ export type NodeLevel5ProductTargetIdentity = {
   runtime: "node" | "unknown";
   appDir?: string;
   pid?: number;
+  executable?: string;
+  argv?: string;
   registryMatched: boolean;
   accepted: boolean;
   refusal?: NodeLevel5ProductSnapshotRefusal;
@@ -236,6 +238,8 @@ function buildTargetIdentity(input: {
     runtime: "node",
     appDir: target.appDir,
     pid: target.pid,
+    executable: target.executable,
+    argv: target.argv,
     registryMatched: target.registryMatched === true,
     accepted: true,
   };
@@ -252,6 +256,8 @@ function refusedTargetIdentity(
     runtime: target.runtime ?? "unknown",
     appDir: target.appDir,
     pid: target.pid,
+    executable: target.executable,
+    argv: target.argv,
     registryMatched: target.registryMatched === true,
     accepted: false,
     refusal: { code, message: `${code} before Node Level 5 snapshot` },

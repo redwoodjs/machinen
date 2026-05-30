@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -9,7 +9,6 @@ const cliPath = join(repoRoot, "packages/cli/src/cli.ts");
 const tsxLoaderPath = join(repoRoot, "node_modules/tsx/dist/loader.mjs");
 const family = "express-fastify-http-app";
 const direction = "arm64-to-amd64";
-const targetName = "api";
 
 type ProofDefinition = { goal: string; result: string; kind: string };
 
@@ -206,7 +205,9 @@ function payload(kind: string): Record<string, unknown> {
   if (kind === "human") {
     const appDir = supportedAppDir({ activeRequests: true });
     const outDir = tempDir();
-    const result = runCli(["snapshot", "node", targetName, "--out", outDir], appDir);
+    const child = spawnNodeTarget(appDir);
+    const result = runCli(["snapshot", "node", String(child.pid), "--out", outDir], appDir);
+    stopNodeTarget(child);
     cleanup(appDir, outDir);
     return {
       refused: result.status === 1,
@@ -223,10 +224,12 @@ function payload(kind: string): Record<string, unknown> {
   if (kind === "no-knobs") {
     const appDir = supportedAppDir();
     const outDir = tempDir();
+    const child = spawnNodeTarget(appDir);
     const result = runCli(
-      ["snapshot", "node", targetName, "--out", outDir, "--family", family, "--json"],
+      ["snapshot", "node", String(child.pid), "--out", outDir, "--family", family, "--json"],
       appDir,
     );
+    stopNodeTarget(child);
     cleanup(appDir, outDir);
     return { refused: result.status === 1, familySelectorExposed: false };
   }
@@ -303,23 +306,29 @@ function supportedDetectorSummary(report: Record<string, any>): Record<string, u
 function snapshotWorkflow(): Record<string, any> {
   const appDir = supportedAppDir();
   const outDir = tempDir();
+  const child = spawnNodeTarget(appDir);
   try {
     const snapshot = cliJson(
-      ["snapshot", "node", targetName, "--out", outDir, "--json"],
+      ["snapshot", "node", String(child.pid), "--out", outDir, "--json"],
       0,
       appDir,
     );
     const restore = cliJson(["restore", outDir, "--json"]);
     return { snapshot, restore };
   } finally {
+    stopNodeTarget(child);
     cleanup(appDir, outDir);
   }
 }
 
 function refusedFromApp(appDir: string, code: string): Record<string, any> {
   const outDir = tempDir();
+  const child = spawnNodeTarget(appDir);
   try {
-    const result = runCli(["snapshot", "node", targetName, "--out", outDir, "--json"], appDir);
+    const result = runCli(
+      ["snapshot", "node", String(child.pid), "--out", outDir, "--json"],
+      appDir,
+    );
     if (result.status !== 1) {
       throw new Error(
         `expected refusal ${code}: ${result.status} ${result.stdout} ${result.stderr}`,
@@ -331,6 +340,7 @@ function refusedFromApp(appDir: string, code: string): Record<string, any> {
     }
     return { accepted: output.accepted, refusal: output.refusal };
   } finally {
+    stopNodeTarget(child);
     cleanup(appDir, outDir);
   }
 }
@@ -338,8 +348,9 @@ function refusedFromApp(appDir: string, code: string): Record<string, any> {
 function tamperDetectorReport(): Record<string, unknown> {
   const appDir = supportedAppDir();
   const outDir = tempDir();
+  const child = spawnNodeTarget(appDir);
   try {
-    cliJson(["snapshot", "node", targetName, "--out", outDir, "--json"], 0, appDir);
+    cliJson(["snapshot", "node", String(child.pid), "--out", outDir, "--json"], 0, appDir);
     writeFileSync(join(outDir, "node-level5-detector-report.json"), '{"tampered":true}\n');
     const result = runCli(["restore", outDir, "--json"]);
     const output = JSON.parse(result.stdout || result.stderr);
@@ -349,6 +360,7 @@ function tamperDetectorReport(): Record<string, unknown> {
       messageIncludesDetectorHash: message.includes("detector report hash mismatch"),
     };
   } finally {
+    stopNodeTarget(child);
     cleanup(appDir, outDir);
   }
 }
@@ -358,10 +370,6 @@ function supportedAppDir(marker?: Record<string, unknown>): string {
   writeFileSync(
     join(appDir, "package.json"),
     `${JSON.stringify({ name: "supported", dependencies: { express: "^4.0.0" } }, null, 2)}\n`,
-  );
-  writeFileSync(
-    join(appDir, "machinen-node-level5-targets.json"),
-    `${JSON.stringify({ targets: { [targetName]: { runtime: "node", appDir } } }, null, 2)}\n`,
   );
   if (marker) {
     writeFileSync(
@@ -378,11 +386,18 @@ function unsupportedAppDir(): string {
     join(appDir, "package.json"),
     `${JSON.stringify({ name: "unknown", dependencies: {} }, null, 2)}\n`,
   );
-  writeFileSync(
-    join(appDir, "machinen-node-level5-targets.json"),
-    `${JSON.stringify({ targets: { [targetName]: { runtime: "node", appDir } } }, null, 2)}\n`,
-  );
   return appDir;
+}
+
+function spawnNodeTarget(cwd: string): ChildProcess {
+  return spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], {
+    cwd,
+    stdio: "ignore",
+  });
+}
+
+function stopNodeTarget(child: ChildProcess): void {
+  child.kill("SIGTERM");
 }
 
 function tempDir(prefix = "machinen-node-level5-detection-"): string {

@@ -15,6 +15,7 @@
 //   machinen completion <bash|zsh|fish>
 //   machinen --version | -h | --help
 
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
   createWriteStream,
@@ -1918,6 +1919,8 @@ type NodeLevel5ProductSnapshotTargetMetadata = {
   runtime?: "node" | "unknown";
   appDir?: string;
   pid?: number;
+  argv?: string;
+  executable?: string;
 };
 
 type NodeLevel5ArtifactCliOptions = {
@@ -5042,16 +5045,24 @@ function parseNodeLevel5ProductSnapshotTargetOnly(
 }
 
 function resolveNodeLevel5ProductSnapshotTarget(target: Target) {
-  const targetName = nodeLevel5ProductSnapshotTargetName(target);
-  const metadata = readNodeLevel5ProductSnapshotTargetMetadata(targetName);
+  const entry = lookupEntry(target);
+  const pid = nodeLevel5ProductSnapshotTargetPid(target, entry);
   return {
-    target: targetName,
+    target: nodeLevel5ProductSnapshotTargetName(target),
     targetKind: nodeLevel5ProductSnapshotTargetKind(target),
-    runtime: metadata?.runtime ?? ("unknown" as const),
-    appDir: metadata?.appDir,
-    pid: nodeLevel5ProductSnapshotTargetPid(target, metadata),
-    registryMatched: Boolean(lookupEntry(target)),
+    pid,
+    registryMatched: Boolean(entry),
+    ...nodeLevel5ProductSnapshotTargetEvidence(pid),
   };
+}
+
+function nodeLevel5ProductSnapshotTargetEvidence(
+  pid: number | undefined,
+): NodeLevel5ProductSnapshotTargetMetadata {
+  if (!pid) {
+    return { runtime: "unknown" };
+  }
+  return inspectNodeLevel5ProductSnapshotPid(pid);
 }
 
 function nodeLevel5ProductSnapshotTargetName(target: Target): string {
@@ -5064,22 +5075,52 @@ function nodeLevel5ProductSnapshotTargetKind(target: Target): "name" | "pid" {
 
 function nodeLevel5ProductSnapshotTargetPid(
   target: Target,
-  metadata: NodeLevel5ProductSnapshotTargetMetadata | undefined,
+  entry: RegistryEntry | undefined,
 ): number | undefined {
-  return "pid" in target ? target.pid : metadata?.pid;
+  return "pid" in target ? target.pid : entry?.pid;
 }
 
-function readNodeLevel5ProductSnapshotTargetMetadata(
-  target: string,
-): NodeLevel5ProductSnapshotTargetMetadata | undefined {
-  const path = join(process.cwd(), "machinen-node-level5-targets.json");
-  if (!existsSync(path)) {
+function inspectNodeLevel5ProductSnapshotPid(pid: number): NodeLevel5ProductSnapshotTargetMetadata {
+  const executable = readProcessField(pid, "comm");
+  const argv = readProcessField(pid, "args");
+  return {
+    runtime: isNodeLevel5ProductSnapshotNodeProcess(executable, argv) ? "node" : "unknown",
+    appDir: readProcessCwd(pid),
+    pid,
+    executable,
+    argv,
+  };
+}
+
+function readProcessField(pid: number, field: "comm" | "args"): string | undefined {
+  try {
+    return execFileSync("ps", ["-p", String(pid), "-o", `${field}=`], {
+      encoding: "utf8",
+    }).trim();
+  } catch {
     return undefined;
   }
-  const parsed = JSON.parse(readFileSync(path, "utf8")) as {
-    targets?: Record<string, NodeLevel5ProductSnapshotTargetMetadata>;
-  };
-  return parsed.targets?.[target];
+}
+
+function readProcessCwd(pid: number): string | undefined {
+  try {
+    const output = execFileSync("lsof", ["-a", "-p", String(pid), "-d", "cwd", "-Fn"], {
+      encoding: "utf8",
+    });
+    return output
+      .split("\n")
+      .find((line) => line.startsWith("n"))
+      ?.slice(1);
+  } catch {
+    return undefined;
+  }
+}
+
+function isNodeLevel5ProductSnapshotNodeProcess(
+  executable: string | undefined,
+  argv: string | undefined,
+): boolean {
+  return /(^|\/)node(?:$|\s)/u.test(executable ?? "") || /(^|\s)node(?:$|\s)/u.test(argv ?? "");
 }
 
 interface SnapshotOptionsCli {
