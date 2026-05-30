@@ -1,0 +1,58 @@
+{
+  "kind": "machinen.node-proper-level5-v8-captured-byte-decoder-summary",
+  "proof": "060",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "decodedGraphIr": {
+    "kind": "machinen.v8-captured-byte-decoded-ir",
+    "count": 2,
+    "graphTotal": 2,
+    "sharedIdentityPreserved": true,
+    "source": "captured-memory-bytes",
+    "byteForByteHeapRestore": false
+  },
+  "target": {
+    "count": 3,
+    "graphTotal": 3,
+    "identity": true
+  },
+  "refusedRows": [
+    {
+      "id": "dictionary",
+      "expectedCode": "node-proper-level5-v8-captured-dictionary-object-unsupported",
+      "actualCode": "node-proper-level5-v8-captured-dictionary-object-unsupported",
+      "targetStarted": false
+    },
+    {
+      "id": "accessor",
+      "expectedCode": "node-proper-level5-v8-captured-accessor-unsupported",
+      "actualCode": "node-proper-level5-v8-captured-accessor-unsupported",
+      "targetStarted": false
+    },
+    {
+      "id": "externalString",
+      "expectedCode": "node-proper-level5-v8-captured-external-string-unsupported",
+      "actualCode": "node-proper-level5-v8-captured-external-string-unsupported",
+      "targetStarted": false
+    },
+    {
+      "id": "typedArray",
+      "expectedCode": "node-proper-level5-v8-captured-typed-array-unsupported",
+      "actualCode": "node-proper-level5-v8-captured-typed-array-unsupported",
+      "targetStarted": false
+    },
+    {
+      "id": "proxy",
+      "expectedCode": "node-proper-level5-v8-captured-proxy-unsupported",
+      "actualCode": "node-proper-level5-v8-captured-proxy-unsupported",
+      "targetStarted": false
+    }
+  ],
+  "assertions": {
+    "decodedFromCapturedBytes": true,
+    "targetReturnedNextState": true,
+    "unsupportedCapturedShapesRefused": true,
+    "byteForByteHeapRestoreOutOfScope": true
+  }
+}
