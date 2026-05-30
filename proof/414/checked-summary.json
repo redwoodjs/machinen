@@ -1,0 +1,16 @@
+{
+  "kind": "machinen.node-level5-product-detection-proof-summary",
+  "proof": "414",
+  "goal": "JSON refusal output",
+  "result": "JSON snapshot refusal schema is stable.",
+  "status": "node-product-support-80-snapshot-detection",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": ["machinen snapshot node", "machinen restore <snapshot>"],
+  "accepted": false,
+  "refusal": {
+    "code": "node-level5-active-request-refused",
+    "message": "node-level5-active-request-refused before Node Level 5 snapshot"
+  }
+}
