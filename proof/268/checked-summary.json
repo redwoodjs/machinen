@@ -1,0 +1,16 @@
+{
+  "kind": "machinen.node-level5-product-support-50-proof-summary",
+  "proof": "268",
+  "goal": "Support runbook update",
+  "result": "User docs for 50% scope and refusals.",
+  "status": "experimental-node-product-support-50",
+  "nodeProductSupportClaimed": 50,
+  "nodeProductSupportScope": "eleven-service-families",
+  "previousNodeProductSupportClaimed": 20,
+  "newNodeProductSupportClaimed": 30,
+  "broadNodeProductSupportClaimed": 0,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "runbookMentions50Tier": true,
+  "runbookMentionsArtifacts": true,
+  "runbookMentionsEscalation": true
+}

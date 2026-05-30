@@ -1,0 +1,26 @@
+{
+  "kind": "machinen.node-level5-product-support-50-proof-summary",
+  "proof": "272",
+  "goal": "Positive app corpus",
+  "result": "Real positive examples for supported service families.",
+  "status": "experimental-node-product-support-50",
+  "nodeProductSupportClaimed": 50,
+  "nodeProductSupportScope": "eleven-service-families",
+  "previousNodeProductSupportClaimed": 20,
+  "newNodeProductSupportClaimed": 30,
+  "broadNodeProductSupportClaimed": 0,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "positiveAppCorpus": [
+    "idle-http-listener",
+    "timer-service",
+    "plain-js-heap",
+    "readonly-file-stdio",
+    "pipes-streams-idle",
+    "http-keepalive-idle-pool",
+    "completed-microtask-checkpoint",
+    "promise-async-closure-graph",
+    "commonjs-esm-module-cache",
+    "json-config-data-heap-graph",
+    "graceful-shutdown-lifecycle"
+  ]
+}

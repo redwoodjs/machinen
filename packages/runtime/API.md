@@ -149,6 +149,16 @@
 - [`nodeLevel5ProductSupport20Families`](#nodelevel5productsupport20families)
 - [`nodeLevel5ProductSupport20Matrix`](#nodelevel5productsupport20matrix)
 - [`nodeLevel5ProductUnsupportedNeighbors`](#nodelevel5productunsupportedneighbors)
+- [`NodeLevel5ProductSupport50Family`](#nodelevel5productsupport50family)
+- [`NodeLevel5ProductSupport50FamilyId`](#nodelevel5productsupport50familyid)
+- [`NodeLevel5ProductSupport50Matrix`](#nodelevel5productsupport50matrix)
+- [`NODE_LEVEL5_PRODUCT_SUPPORT_50_KIND`](#node_level5_product_support_50_kind)
+- [`NODE_LEVEL5_PRODUCT_SUPPORT_50_VERSION`](#node_level5_product_support_50_version)
+- [`assertNodeLevel5ProductSupport50MatrixComplete`](#assertnodelevel5productsupport50matrixcomplete)
+- [`nodeLevel5ProductSupport50ExpandedUnsupportedNeighbors`](#nodelevel5productsupport50expandedunsupportedneighbors)
+- [`nodeLevel5ProductSupport50Families`](#nodelevel5productsupport50families)
+- [`nodeLevel5ProductSupport50Matrix`](#nodelevel5productsupport50matrix)
+- [`nodeLevel5ProductSupport50NewFamilies`](#nodelevel5productsupport50newfamilies)
 
 ### Boot a VM
 
@@ -22424,6 +22434,172 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NodeLevel5ProductSupport50FamilyId
+
+> **NodeLevel5ProductSupport50FamilyId** = [`NodeLevel5ProductSupportFamily`](#nodelevel5productsupportfamily)\[`"id"`\] \| `"http-keepalive-idle-pool"` \| `"completed-microtask-checkpoint"` \| `"promise-async-closure-graph"` \| `"commonjs-esm-module-cache"` \| `"json-config-data-heap-graph"` \| `"graceful-shutdown-lifecycle"`
+
+***
+
+### NodeLevel5ProductSupport50Family
+
+> **NodeLevel5ProductSupport50Family** = `object`
+
+#### Properties
+
+##### id
+
+> **id**: [`NodeLevel5ProductSupport50FamilyId`](#nodelevel5productsupport50familyid)
+
+##### title
+
+> **title**: `string`
+
+##### coveragePercent
+
+> **coveragePercent**: `4` \| `5`
+
+##### status
+
+> **status**: `"experimental-supported"`
+
+##### included
+
+> **included**: readonly `string`[]
+
+##### excluded
+
+> **excluded**: readonly `string`[]
+
+##### contractArtifact
+
+> **contractArtifact**: `string`
+
+##### e2eArtifact
+
+> **e2eArtifact**: `string`
+
+##### directions
+
+> **directions**: readonly [`NodeLevel5ProductSupportDirection`](#nodelevel5productsupportdirection)[]
+
+##### targetNativeVerified
+
+> **targetNativeVerified**: `true`
+
+##### productSupportClaimed
+
+> **productSupportClaimed**: `true`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `false`
+
+***
+
+### NodeLevel5ProductSupport50Matrix
+
+> **NodeLevel5ProductSupport50Matrix** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_PRODUCT_SUPPORT_50_KIND`](#node_level5_product_support_50_kind)
+
+##### version
+
+> **version**: *typeof* [`NODE_LEVEL5_PRODUCT_SUPPORT_50_VERSION`](#node_level5_product_support_50_version)
+
+##### status
+
+> **status**: `"experimental-node-product-support-50"`
+
+##### nodeProductSupportClaimed
+
+> **nodeProductSupportClaimed**: `50`
+
+##### nodeProductSupportScope
+
+> **nodeProductSupportScope**: `"eleven-service-families"`
+
+##### previousNodeProductSupportClaimed
+
+> **previousNodeProductSupportClaimed**: `20`
+
+##### newNodeProductSupportClaimed
+
+> **newNodeProductSupportClaimed**: `30`
+
+##### declaredSubsetExperimentalProductSupportClaimed
+
+> **declaredSubsetExperimentalProductSupportClaimed**: `100`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `0`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
+
+##### node
+
+> **node**: `"22.x"`
+
+##### v8
+
+> **v8**: `"12.x pointer-compressed"`
+
+##### libuv
+
+> **libuv**: `"supported idle handles only"`
+
+##### families
+
+> **families**: readonly [`NodeLevel5ProductSupport50Family`](#nodelevel5productsupport50family)[]
+
+##### expandedUnsupportedNeighbors
+
+> **expandedUnsupportedNeighbors**: readonly [`NodeLevel5ProductUnsupportedNeighbor`](#nodelevel5productunsupportedneighbor)[]
+
+##### positiveAppCorpus
+
+> **positiveAppCorpus**: readonly `string`[]
+
+##### negativeAppCorpus
+
+> **negativeAppCorpus**: readonly `string`[]
+
+##### repeatabilityRuns
+
+> **repeatabilityRuns**: `20`
+
+##### safety
+
+> **safety**: `object`
+
+###### rawCpuRestoreSupported
+
+> **rawCpuRestoreSupported**: `false`
+
+###### sourceIsaEmulationSupported
+
+> **sourceIsaEmulationSupported**: `false`
+
+###### appCheckpointHooksRequired
+
+> **appCheckpointHooksRequired**: `false`
+
+###### targetNativeNodeRequired
+
+> **targetNativeNodeRequired**: `true`
+
+###### metadataOnlySuccessAccepted
+
+> **metadataOnlySuccessAccepted**: `false`
+
+***
+
 ### NodeLevel5ProofIngredientName
 
 > **NodeLevel5ProofIngredientName** = *typeof* [`nodeLevel5ProofIngredientNames`](#nodelevel5proofingredientnames)\[`number`\]
@@ -24459,6 +24635,42 @@ loops; anything looser stops being a meaningful gate.
 ### nodeLevel5ProductSupport20Matrix
 
 > `const` **nodeLevel5ProductSupport20Matrix**: [`NodeLevel5ProductSupport20Matrix`](#nodelevel5productsupport20matrix)
+
+***
+
+### NODE\_LEVEL5\_PRODUCT\_SUPPORT\_50\_KIND
+
+> `const` **NODE\_LEVEL5\_PRODUCT\_SUPPORT\_50\_KIND**: `"machinen.node-level5-product-support-50"` = `"machinen.node-level5-product-support-50"`
+
+***
+
+### NODE\_LEVEL5\_PRODUCT\_SUPPORT\_50\_VERSION
+
+> `const` **NODE\_LEVEL5\_PRODUCT\_SUPPORT\_50\_VERSION**: `1` = `1`
+
+***
+
+### nodeLevel5ProductSupport50NewFamilies
+
+> `const` **nodeLevel5ProductSupport50NewFamilies**: readonly [`NodeLevel5ProductSupport50Family`](#nodelevel5productsupport50family)[]
+
+***
+
+### nodeLevel5ProductSupport50Families
+
+> `const` **nodeLevel5ProductSupport50Families**: readonly [`NodeLevel5ProductSupport50Family`](#nodelevel5productsupport50family)[]
+
+***
+
+### nodeLevel5ProductSupport50ExpandedUnsupportedNeighbors
+
+> `const` **nodeLevel5ProductSupport50ExpandedUnsupportedNeighbors**: readonly [`NodeLevel5ProductUnsupportedNeighbor`](#nodelevel5productunsupportedneighbor)[]
+
+***
+
+### nodeLevel5ProductSupport50Matrix
+
+> `const` **nodeLevel5ProductSupport50Matrix**: [`NodeLevel5ProductSupport50Matrix`](#nodelevel5productsupport50matrix)
 
 ***
 
@@ -27325,6 +27537,22 @@ available.
 ##### matrix?
 
 [`NodeLevel5ProductSupport20Matrix`](#nodelevel5productsupport20matrix) = `nodeLevel5ProductSupport20Matrix`
+
+#### Returns
+
+`boolean`
+
+***
+
+### assertNodeLevel5ProductSupport50MatrixComplete()
+
+> **assertNodeLevel5ProductSupport50MatrixComplete**(`matrix?`): `boolean`
+
+#### Parameters
+
+##### matrix?
+
+[`NodeLevel5ProductSupport50Matrix`](#nodelevel5productsupport50matrix) = `nodeLevel5ProductSupport50Matrix`
 
 #### Returns
 

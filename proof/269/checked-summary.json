@@ -1,0 +1,15 @@
+{
+  "kind": "machinen.node-level5-product-support-50-proof-summary",
+  "proof": "269",
+  "goal": "Compatibility matrix",
+  "result": "Shows supported vs refused Node facilities.",
+  "status": "experimental-node-product-support-50",
+  "nodeProductSupportClaimed": 50,
+  "nodeProductSupportScope": "eleven-service-families",
+  "previousNodeProductSupportClaimed": 20,
+  "newNodeProductSupportClaimed": 30,
+  "broadNodeProductSupportClaimed": 0,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "supportedRowsPresent": true,
+  "refusedRowsPresent": true
+}

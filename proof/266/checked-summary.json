@@ -1,0 +1,17 @@
+{
+  "kind": "machinen.node-level5-product-support-50-proof-summary",
+  "proof": "266",
+  "goal": "Version policy update",
+  "result": "Pins Node/V8/libuv and refuses unknown versions.",
+  "status": "experimental-node-product-support-50",
+  "nodeProductSupportClaimed": 50,
+  "nodeProductSupportScope": "eleven-service-families",
+  "previousNodeProductSupportClaimed": 20,
+  "newNodeProductSupportClaimed": 30,
+  "broadNodeProductSupportClaimed": 0,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "node": "22.x",
+  "v8": "12.x pointer-compressed",
+  "libuv": "supported idle handles only",
+  "unknownVersionsRefuse": true
+}
