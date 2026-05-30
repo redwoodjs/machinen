@@ -44,11 +44,18 @@
 - [`NodeProperLevel5RawV8ContextSmiRecoveryResult`](#nodeproperlevel5rawv8contextsmirecoveryresult)
 - [`NodeProperLevel5V8ClosureRecoveryResult`](#nodeproperlevel5v8closurerecoveryresult)
 - [`NodeProperLevel5V8ClosureRecoveryRefusalCode`](#nodeproperlevel5v8closurerecoveryrefusalcode)
+- [`NodeProperLevel5LibuvTimerCandidate`](#nodeproperlevel5libuvtimercandidate)
+- [`NodeProperLevel5LibuvTimerMemoryFragment`](#nodeproperlevel5libuvtimermemoryfragment)
+- [`NodeProperLevel5LibuvTimerRecoveryRefusal`](#nodeproperlevel5libuvtimerrecoveryrefusal)
+- [`NodeProperLevel5LibuvTimerRecoveryRefusalCode`](#nodeproperlevel5libuvtimerrecoveryrefusalcode)
+- [`NodeProperLevel5LibuvTimerRecoveryResult`](#nodeproperlevel5libuvtimerrecoveryresult)
 - [`NODE_PROPER_LEVEL5_SOURCE_INSPECTION_KIND`](#node_proper_level5_source_inspection_kind)
 - [`NODE_PROPER_LEVEL5_V8_CLOSURE_RECOVERY_KIND`](#node_proper_level5_v8_closure_recovery_kind)
+- [`NODE_PROPER_LEVEL5_LIBUV_TIMER_RECOVERY_KIND`](#node_proper_level5_libuv_timer_recovery_kind)
 - [`parseNodeProperLevel5ProcMaps`](#parsenodeproperlevel5procmaps)
 - [`recoverNodeProperLevel5RawV8ContextSmiCounter`](#recovernodeproperlevel5rawv8contextsmicounter)
 - [`recoverNodeProperLevel5V8ClosureCounterCell`](#recovernodeproperlevel5v8closurecountercell)
+- [`recoverNodeProperLevel5LibuvTimerEvidence`](#recovernodeproperlevel5libuvtimerevidence)
 - [`summarizeNodeProperLevel5SourceInspection`](#summarizenodeproperlevel5sourceinspection)
 
 ### Node Level 5 HTTP profile
@@ -12728,6 +12735,86 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ***
 
+### NodeProperLevel5LibuvTimerRecoveryRefusal
+
+#### Properties
+
+##### code
+
+> **code**: [`NodeProperLevel5LibuvTimerRecoveryRefusalCode`](#nodeproperlevel5libuvtimerrecoveryrefusalcode)
+
+##### message
+
+> **message**: `string`
+
+***
+
+### NodeProperLevel5LibuvTimerMemoryFragment
+
+#### Properties
+
+##### bytes
+
+> **bytes**: `Uint8Array`
+
+##### bytesPath?
+
+> `optional` **bytesPath?**: `string`
+
+##### startAddress?
+
+> `optional` **startAddress?**: `bigint`
+
+***
+
+### NodeProperLevel5LibuvTimerCandidate
+
+#### Properties
+
+##### anchor
+
+> **anchor**: `string`
+
+##### bytesPath?
+
+> `optional` **bytesPath?**: `string`
+
+##### offset
+
+> **offset**: `number`
+
+##### evidence
+
+> **evidence**: `string`[]
+
+***
+
+### NodeProperLevel5LibuvTimerRecoveryResult
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.node-proper-level5-libuv-timer-recovery"`
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### timerCount
+
+> **timerCount**: `number`
+
+##### candidates
+
+> **candidates**: [`NodeProperLevel5LibuvTimerCandidate`](#nodeproperlevel5libuvtimercandidate)[]
+
+##### refusals
+
+> **refusals**: [`NodeProperLevel5LibuvTimerRecoveryRefusal`](#nodeproperlevel5libuvtimerrecoveryrefusal)[]
+
+***
+
 ### NodeProperLevel5ProcMapEntry
 
 #### Properties
@@ -14107,7 +14194,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`evidence`](#evidence-7)
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`evidence`](#evidence-8)
 
 ##### kind
 
@@ -18087,7 +18174,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`evidence`](#evidence-16)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`evidence`](#evidence-17)
 
 ##### kind
 
@@ -21659,6 +21746,12 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NodeProperLevel5LibuvTimerRecoveryRefusalCode
+
+> **NodeProperLevel5LibuvTimerRecoveryRefusalCode** = `"node-proper-level5-libuv-timer-missing"` \| `"node-proper-level5-libuv-timer-ambiguous"` \| `"node-proper-level5-libuv-timer-callback-active-unsupported"`
+
+***
+
 ### NodeProperLevel5MapKind
 
 > **NodeProperLevel5MapKind** = `"executable-file"` \| `"shared-object"` \| `"heap"` \| `"stack"` \| `"anonymous-rw"` \| `"anonymous-executable"` \| `"special"` \| `"other"`
@@ -23440,6 +23533,12 @@ loops; anything looser stops being a meaningful gate.
 ### NODE\_LEVEL5\_TARGET\_SIDE\_PROOF\_FORMAT\_VERSION
 
 > `const` **NODE\_LEVEL5\_TARGET\_SIDE\_PROOF\_FORMAT\_VERSION**: `1`
+
+***
+
+### NODE\_PROPER\_LEVEL5\_LIBUV\_TIMER\_RECOVERY\_KIND
+
+> `const` **NODE\_PROPER\_LEVEL5\_LIBUV\_TIMER\_RECOVERY\_KIND**: `"machinen.node-proper-level5-libuv-timer-recovery"`
 
 ***
 
@@ -26194,6 +26293,36 @@ available.
 #### Returns
 
 `Promise`\<[`NodeLevel5TargetSideProof`](#nodelevel5targetsideproof)\>
+
+***
+
+### recoverNodeProperLevel5LibuvTimerEvidence()
+
+> **recoverNodeProperLevel5LibuvTimerEvidence**(`fragments`, `options`): [`NodeProperLevel5LibuvTimerRecoveryResult`](#nodeproperlevel5libuvtimerrecoveryresult)
+
+#### Parameters
+
+##### fragments
+
+[`NodeProperLevel5LibuvTimerMemoryFragment`](#nodeproperlevel5libuvtimermemoryfragment)[]
+
+##### options
+
+###### anchor
+
+`string`
+
+###### callbackName?
+
+`string`
+
+###### activeCallbackDetected?
+
+`boolean`
+
+#### Returns
+
+[`NodeProperLevel5LibuvTimerRecoveryResult`](#nodeproperlevel5libuvtimerrecoveryresult)
 
 ***
 

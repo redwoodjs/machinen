@@ -3,6 +3,8 @@
   "entry": [
     "scripts/*.ts",
     "scripts/*.mjs",
+    "proof/*/smoke.ts",
+    "proof/*/*.mjs",
     "packages/runtime/src/bin/*.ts",
     "packages/microvm/test-fixtures/assets/*.{js,ts,mjs}",
     "examples/**/rootfs/**/*.{js,mjs,ts}",
