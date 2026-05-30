@@ -22,20 +22,31 @@ Prove a refusal-first matrix for the proper Node continuation track. Every unsaf
 
 ## Tasks
 
-- [ ] Define refusal fixtures for active HTTP request, partial request body, partial response write, idle keep-alive ambiguity, active JS callback, active syscall, V8 GC/compiler frame, worker thread, native addon, multiple isolates, unsupported V8 object shape, unknown libuv handle, and architecture mismatch.
-- [ ] Add stable refusal codes for every fixture.
-- [ ] Ensure refused captures never start the target materializer.
-- [ ] Ensure accepted quiescent fixtures still reconstruct target-native state.
-- [ ] Emit a checked summary that separates accepted proof rows from refused rows.
-- [ ] Assert no row claims product support or broad Level 5 implementation.
-- [ ] Assert no forbidden shortcut is used in accepted or refused rows.
+- [x] Define refusal fixtures for active HTTP request, partial request body, partial response write, idle keep-alive ambiguity, active JS callback, active syscall, V8 GC/compiler frame, worker thread, native addon, multiple isolates, unsupported V8 object shape, unknown libuv handle, and architecture mismatch.
+- [x] Add stable refusal codes for every fixture.
+- [x] Ensure refused captures never start the target materializer.
+- [x] Ensure accepted idle fixtures still reconstruct target-native state.
+- [x] Emit a checked summary that separates accepted proof rows from refused rows.
+- [x] Assert no row claims product support or broad Level 5 implementation.
+- [x] Assert no forbidden shortcut is used in accepted or refused rows.
+
+## Proof result
+
+`pnpm exec tsx proof/036/smoke.ts` now proves:
+
+- all 13 unsafe fixtures refuse with stable codes;
+- refused rows do not start target materialization;
+- the accepted idle row still materializes target-native state and returns `{ "count": 3 }`;
+- `proof/036/checked-summary.json` separates accepted rows from refused rows;
+- the checked summary is explicitly proof-only and claims no product support or broad Level 5 implementation;
+- no app hook, checkpoint API, selected-state descriptor, source ISA emulation, sidecar replay, or metadata-only success is used by any row.
 
 ## Validation
 
-- [ ] Run `pnpm exec tsx proof/036/smoke.ts`.
-- [ ] Assert every unsafe fixture refuses with the expected stable code.
-- [ ] Assert no refused fixture starts target materialization.
-- [ ] Assert the accepted quiescent fixture still returns `{count:3}`.
-- [ ] Assert checked summary taxonomy remains proof-only and not product support.
-- [ ] Assert no app hooks, checkpoint API, selected-state descriptor, source ISA emulation, sidecar replay, or metadata-only success.
-- [ ] Run `pnpm run format:check`, `pnpm run lint`, `pnpm run typecheck`, targeted Vitest, and `pnpm exec fallow audit --changed-since origin/main`.
+- [x] Run `pnpm exec tsx proof/036/smoke.ts`.
+- [x] Assert every unsafe fixture refuses with the expected stable code.
+- [x] Assert no refused fixture starts target materialization.
+- [x] Assert the accepted idle fixture still returns `{count:3}`.
+- [x] Assert checked summary taxonomy remains proof-only and not product support.
+- [x] Assert no app hooks, checkpoint API, selected-state descriptor, source ISA emulation, sidecar replay, or metadata-only success.
+- [x] Run `pnpm run format:check`, `pnpm run lint`, `pnpm run typecheck`, targeted Vitest, and `pnpm exec fallow audit --changed-since origin/main`.
