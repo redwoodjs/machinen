@@ -1,0 +1,13 @@
+{
+  "kind": "machinen.node-level5-product-snapshot-proof-summary",
+  "proof": "384",
+  "goal": "Snapshot writes retained evidence",
+  "result": "Snapshot creates manifest plus retained artifact bundle.",
+  "status": "node-product-support-80-snapshot-restore-facade",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": ["machinen snapshot node", "machinen restore <snapshot>"],
+  "manifestWritten": true,
+  "artifactRoot": "artifacts/express-fastify-http-app/arm64-to-amd64"
+}
