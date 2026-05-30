@@ -233,6 +233,7 @@ export {
   NODE_LEVEL5_PRODUCT_SUPPORT_80_HARDENING_KIND,
   assertNodeLevel5ProductSupport80HardeningComplete,
   createNodeLevel5ProductSupport80ArtifactBundle,
+  loadNodeLevel5ProductSupport80ArtifactBundle,
   nodeLevel5ProductSupport80ClaimRegistry,
   nodeLevel5ProductSupport80UnsupportedDetectors,
   verifyNodeLevel5ProductSupport80ArtifactBundle,

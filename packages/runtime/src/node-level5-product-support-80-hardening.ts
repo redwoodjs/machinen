@@ -117,6 +117,24 @@ export function createNodeLevel5ProductSupport80ArtifactBundle(input: {
   return bundle;
 }
 
+export function loadNodeLevel5ProductSupport80ArtifactBundle(input: {
+  artifactRoot: string;
+  familyId: NodeLevel5ProductSupport80FamilyId;
+  direction: "arm64-to-amd64" | "amd64-to-arm64";
+}): NodeLevel5ProductSupport80ArtifactBundle {
+  const family = nodeLevel5ProductSupport80Families.find((entry) => entry.id === input.familyId);
+  if (!family) {
+    throw new Error(`unknown Node Level 5 80% family: ${input.familyId}`);
+  }
+  const evidence = family.realVmCrossArchEvidence.find(
+    (entry) => entry.direction === input.direction,
+  );
+  if (!evidence) {
+    throw new Error(`missing ${input.direction} evidence for ${input.familyId}`);
+  }
+  return buildBundle(input.artifactRoot, input.familyId, input.direction, evidence);
+}
+
 export function verifyNodeLevel5ProductSupport80ArtifactBundle(
   bundle: NodeLevel5ProductSupport80ArtifactBundle,
 ): NodeLevel5ProductSupport80ArtifactVerification {

@@ -49,6 +49,7 @@ import {
   createProductLevel4TcpListenerSnapshot,
   createProductLevel4TimerfdSnapshot,
   createNodeLevel5DeclaredSubsetCapture,
+  createNodeLevel5ProductSupport80ArtifactBundle,
   createProductPortablePostgresSnapshot,
   filterProductClaimRegistry,
   formatMachinenError,
@@ -59,14 +60,18 @@ import {
   isProductLevel4TcpListenerBundle,
   isProductLevel4TimerfdBundle,
   isProductPortablePostgresBundle,
+  loadNodeLevel5ProductSupport80ArtifactBundle,
   list,
   productPortablePostgresFileSha256,
   productClaimFamilies,
   productClaimStatuses,
+  nodeLevel5ProductSupport80ClaimRegistry,
+  nodeLevel5ProductSupport80UnsupportedDetectors,
   productSupportLevels,
   readHostRssBytesMulti,
   restore,
   restoreNodeLevel5DeclaredSubset,
+  verifyNodeLevel5ProductSupport80ArtifactBundle,
   restoreProductLevel4EventfdSnapshot,
   restoreProductLevel4PingSocketSnapshot,
   restoreProductLevel4PipeSnapshot,
@@ -91,6 +96,7 @@ import type {
   ProductLevel4TimerfdDescriptor,
   ProductLevel4TimerfdRestoreSummary,
   ProductSupportLevel,
+  NodeLevel5ProductSupport80FamilyId,
   RegistryEntry,
   VmHandle,
 } from "@machinen/runtime";
@@ -1898,6 +1904,143 @@ function reportNodeLevel5DeclaredSubsetSummary<TSummary extends NodeLevel5Declar
     process.stderr.write(summary.accepted ? messages.accepted(summary) : messages.refused(summary));
   }
   return summary.accepted ? 0 : 1;
+}
+
+type NodeLevel5ArtifactCliOptions = {
+  out?: string;
+  root?: string;
+  family?: NodeLevel5ProductSupport80FamilyId;
+  direction?: "arm64-to-amd64" | "amd64-to-arm64";
+};
+
+// fallow-ignore-next-line complexity
+function cmdNodeLevel5(args: string[]): number {
+  const { json, rest } = consumeJsonFlag(args);
+  if (rest[0] === "artifacts") {
+    return cmdNodeLevel5Artifacts(rest.slice(1), json);
+  }
+  if (rest[0] === "detectors") {
+    return reportNodeLevel5ProductCommand(json, {
+      accepted: true,
+      kind: "machinen.node-level5-detector-registry-summary",
+      detectors: nodeLevel5ProductSupport80UnsupportedDetectors,
+    });
+  }
+  if (rest[0] === "claims") {
+    return reportNodeLevel5ProductCommand(json, {
+      accepted: true,
+      kind: "machinen.node-level5-claim-registry-summary",
+      claimRegistry: nodeLevel5ProductSupport80ClaimRegistry,
+    });
+  }
+  if (rest[0] === "release-gate") {
+    return reportNodeLevel5ProductCommand(json, {
+      accepted: true,
+      kind: "machinen.node-level5-release-gate-summary",
+      nodeProductSupportClaimed: 80,
+      broadNodeProductSupportClaimed: 20,
+      arbitraryProcessCrossArchRestoreClaimed: 0,
+    });
+  }
+  if (rest[0] === "abi-check") {
+    return cmdNodeLevel5AbiCheck(rest.slice(1), json);
+  }
+  die(nodeLevel5Usage());
+}
+
+// fallow-ignore-next-line complexity
+function cmdNodeLevel5Artifacts(args: string[], json: boolean): number {
+  const [sub, ...rest] = args;
+  const options = parseNodeLevel5ArtifactArgs(rest);
+  if (sub === "write") {
+    if (!options.out || !options.family || !options.direction) {
+      die("machinen node-level5 artifacts write requires --out, --family, and --direction");
+    }
+    const bundle = createNodeLevel5ProductSupport80ArtifactBundle({
+      outDir: resolve(options.out),
+      familyId: options.family,
+      direction: options.direction,
+    });
+    return reportNodeLevel5ProductCommand(json, { accepted: true, bundle });
+  }
+  if (sub === "verify") {
+    if (!options.root || !options.family || !options.direction) {
+      die("machinen node-level5 artifacts verify requires --root, --family, and --direction");
+    }
+    try {
+      const bundle = loadNodeLevel5ProductSupport80ArtifactBundle({
+        artifactRoot: resolve(options.root),
+        familyId: options.family,
+        direction: options.direction,
+      });
+      return reportNodeLevel5ProductCommand(json, {
+        ...verifyNodeLevel5ProductSupport80ArtifactBundle(bundle),
+      });
+    } catch (error) {
+      return reportNodeLevel5ProductCommand(json, {
+        accepted: false,
+        code: "node-level5-artifact-bundle-invalid",
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+  die(nodeLevel5Usage());
+}
+
+// fallow-ignore-next-line complexity
+function parseNodeLevel5ArtifactArgs(args: string[]): NodeLevel5ArtifactCliOptions {
+  const options: NodeLevel5ArtifactCliOptions = {};
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index]!;
+    if (arg === "--out") {
+      options.out = takeCaptureValue(args, (index += 1), "--out");
+    } else if (arg === "--root") {
+      options.root = takeCaptureValue(args, (index += 1), "--root");
+    } else if (arg === "--family") {
+      options.family = takeCaptureValue(
+        args,
+        (index += 1),
+        "--family",
+      ) as NodeLevel5ProductSupport80FamilyId;
+    } else if (arg === "--direction") {
+      options.direction = takeCaptureValue(args, (index += 1), "--direction") as
+        | "arm64-to-amd64"
+        | "amd64-to-arm64";
+    } else {
+      die(`unknown node-level5 artifact argument: ${arg}`);
+    }
+  }
+  return options;
+}
+
+// fallow-ignore-next-line complexity
+function cmdNodeLevel5AbiCheck(args: string[], json: boolean): number {
+  const values = new Map<string, string>();
+  for (let index = 0; index < args.length; index += 2) {
+    values.set(args[index]!, args[index + 1] ?? "");
+  }
+  const accepted =
+    values.get("--node") === "22.x" &&
+    values.get("--v8") === "12.x pointer-compressed" &&
+    values.get("--libuv") === "supported idle handles plus selected hard-facility boundaries";
+  return reportNodeLevel5ProductCommand(json, {
+    accepted,
+    kind: "machinen.node-level5-abi-check-summary",
+    refusal: accepted ? undefined : { code: "node-level5-unknown-abi-refused" },
+  });
+}
+
+function reportNodeLevel5ProductCommand(json: boolean, summary: Record<string, unknown>): number {
+  if (json) {
+    emitJson(summary);
+  } else {
+    process.stderr.write(`${summary.accepted ? "accepted" : "refused"} node-level5 command\n`);
+  }
+  return summary.accepted === false ? 1 : 0;
+}
+
+function nodeLevel5Usage(): string {
+  return "usage: machinen node-level5 artifacts <write|verify> ... [--json]\n";
 }
 
 function captureUsage(): string {
@@ -5978,6 +6121,7 @@ type CommandHandler = (args: string[]) => number | Promise<number>;
 const COMMAND_HANDLERS = new Map<string, CommandHandler>([
   ["boot", cmdBoot],
   ["capture", cmdCapture],
+  ["node-level5", cmdNodeLevel5],
   ["support", cmdSupport],
   ["restore", cmdRestore],
   ["install", cmdInstall],

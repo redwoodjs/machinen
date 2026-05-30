@@ -188,6 +188,7 @@
 - [`NODE_LEVEL5_PRODUCT_SUPPORT_80_HARDENING_KIND`](#node_level5_product_support_80_hardening_kind)
 - [`assertNodeLevel5ProductSupport80HardeningComplete`](#assertnodelevel5productsupport80hardeningcomplete)
 - [`createNodeLevel5ProductSupport80ArtifactBundle`](#createnodelevel5productsupport80artifactbundle)
+- [`loadNodeLevel5ProductSupport80ArtifactBundle`](#loadnodelevel5productsupport80artifactbundle)
 - [`nodeLevel5ProductSupport80ClaimRegistry`](#nodelevel5productsupport80claimregistry)
 - [`nodeLevel5ProductSupport80UnsupportedDetectors`](#nodelevel5productsupport80unsupporteddetectors)
 - [`verifyNodeLevel5ProductSupport80ArtifactBundle`](#verifynodelevel5productsupport80artifactbundle)
@@ -28313,6 +28314,32 @@ available.
 ##### input
 
 ###### outDir
+
+`string`
+
+###### familyId
+
+[`NodeLevel5ProductSupport80FamilyId`](#nodelevel5productsupport80familyid)
+
+###### direction
+
+`"arm64-to-amd64"` \| `"amd64-to-arm64"`
+
+#### Returns
+
+[`NodeLevel5ProductSupport80ArtifactBundle`](#nodelevel5productsupport80artifactbundle)
+
+***
+
+### loadNodeLevel5ProductSupport80ArtifactBundle()
+
+> **loadNodeLevel5ProductSupport80ArtifactBundle**(`input`): [`NodeLevel5ProductSupport80ArtifactBundle`](#nodelevel5productsupport80artifactbundle)
+
+#### Parameters
+
+##### input
+
+###### artifactRoot
 
 `string`
 
