@@ -1,0 +1,35 @@
+{
+  "kind": "machinen.node-proper-level5-proof-068-summary",
+  "proof": "068",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "accepted": {
+    "nativeVerifierRan": true,
+    "canonicalDigestsComputed": true,
+    "bundleDigestComputed": true,
+    "targetStarted": false
+  },
+  "refusedRows": [
+    {
+      "id": "section-tamper",
+      "expectedCode": "node-proper-level5-native-digest-section-mismatch",
+      "actualCode": "node-proper-level5-native-digest-section-mismatch",
+      "targetStarted": false
+    },
+    {
+      "id": "bundle-tamper",
+      "expectedCode": "node-proper-level5-native-digest-bundle-mismatch",
+      "actualCode": "node-proper-level5-native-digest-bundle-mismatch",
+      "targetStarted": false
+    }
+  ],
+  "assertions": {
+    "proofOnly": true,
+    "acceptedPathVerified": true,
+    "refusedRowsStopBeforeTargetStart": true,
+    "noSourceIsaEmulation": true,
+    "noRawCpuCopy": true,
+    "noMetadataOnlySuccess": true
+  }
+}
