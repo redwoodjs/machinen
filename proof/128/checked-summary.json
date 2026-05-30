@@ -1,0 +1,62 @@
+{
+  "kind": "machinen.node-proper-level5-broad-80-proof-summary",
+  "proof": "128",
+  "title": "Decode real plain object properties from hidden-class/map evidence",
+  "block": "Real V8 plain object decoding",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "accepted": {
+    "proof": "128",
+    "title": "Decode real plain object properties from hidden-class/map evidence",
+    "block": "Real V8 plain object decoding",
+    "targetStarted": false,
+    "gatesPassed": true,
+    "artifactDigest": "7a7227b973015e463257c5d77dc613fe040be56bc8d68f79581cffa74a476c4d",
+    "productSupportClaimed": false,
+    "broadLevel5ImplementationClaimed": false
+  },
+  "gates": [
+    {
+      "name": "capture-evidence",
+      "evidence": "real-record-shaped-input",
+      "passed": true
+    },
+    {
+      "name": "native-or-target-gate",
+      "evidence": "checked-before-target-start",
+      "passed": true
+    },
+    {
+      "name": "translated-continuation-boundary",
+      "evidence": "target-native-reconstruction-no-raw-copy",
+      "passed": true
+    }
+  ],
+  "refusedRows": [
+    {
+      "id": "missing-real-evidence",
+      "expectedCode": "node-proper-level5-v8-plain-object-map-refused",
+      "actualCode": "node-proper-level5-v8-plain-object-map-refused",
+      "targetStarted": false
+    },
+    {
+      "id": "shortcut-raw-copy",
+      "expectedCode": "node-proper-level5-raw-source-state-copy-refused",
+      "actualCode": "node-proper-level5-raw-source-state-copy-refused",
+      "targetStarted": false
+    },
+    {
+      "id": "product-claim",
+      "expectedCode": "node-proper-level5-product-claim-refused",
+      "actualCode": "node-proper-level5-product-claim-refused",
+      "targetStarted": false
+    }
+  ],
+  "assertions": {
+    "plainObjectPropertiesDecodedFromMapEvidence": true,
+    "targetDidNotStartBeforeVerification": true,
+    "rawSourceStateCopyRefused": true,
+    "productSupportClaimRefused": true
+  }
+}
