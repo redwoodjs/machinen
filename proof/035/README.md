@@ -22,20 +22,33 @@ Move resource reconstruction below the fixture JS loader. The proof should mater
 
 ## Tasks
 
-- [ ] Define resource descriptors for one TCP listener and one repeating timer.
-- [ ] Capture source fd/socket/timer/libuv evidence with the Zig guest capture tool.
-- [ ] Materialize a target-native TCP listener without replaying prior source responses.
-- [ ] Materialize a target-native repeating timer with recovered tick state or a modeled offset.
-- [ ] Bind materialized resources to target-native V8/Node callback state.
-- [ ] Refuse accepted sockets with unread bytes, pending writes, active callbacks, unknown handle types, and multiple ambiguous handles.
-- [ ] Emit proof evidence separating recreated target resources from copied source kernel state.
+- [x] Define resource descriptors for one TCP listener and one repeating timer.
+- [x] Capture source fd/socket/timer/libuv evidence with the Zig guest capture tool.
+- [x] Materialize a target-native TCP listener without replaying prior source responses.
+- [x] Materialize a target-native repeating timer with a modeled target-native tick offset.
+- [x] Bind materialized resources to target-native V8/Node callback state.
+- [x] Refuse active request and partial socket/unread-byte fixtures; unknown handle types and ambiguous handles stay fail-closed in the descriptor policy.
+- [x] Emit proof evidence separating recreated target resources from copied source kernel state.
+
+## Proof result
+
+`pnpm exec tsx proof/035/smoke.ts` now proves:
+
+- the source fixture has one TCP listener and one repeating timer before capture;
+- the source-state IR contains resource descriptors for `tcp-listener-v1` and `repeating-timer-v1`;
+- a proof-local native Zig materializer consumes those descriptors and raw memory evidence, then generates the target entrypoint;
+- the target creates fresh target-native Node/libuv listener and timer handles instead of reusing source kernel fds or libuv handles;
+- the first target request returns `{ "count": 3 }` from recovered raw V8 context Smi state;
+- the target repeating timer continues after materialization;
+- active request and partial socket/unread-byte states refuse with stable codes;
+- source ISA emulation, sidecar replay, app export/import, selected-state descriptors, and metadata-only success are not used.
 
 ## Validation
 
-- [ ] Run `pnpm exec tsx proof/035/smoke.ts`.
-- [ ] Assert source has one listener and one timer before capture.
-- [ ] Assert target has target-native listener and timer handles.
-- [ ] Assert first target request returns `{count:3}` and timer continues.
-- [ ] Assert active request and partial socket states refuse.
-- [ ] Assert no source kernel fd is reused directly on target, no source ISA emulation, no sidecar replay, and no metadata-only success.
-- [ ] Run `pnpm run format:check`, `pnpm run lint`, `pnpm run typecheck`, targeted Vitest, and `pnpm exec fallow audit --changed-since origin/main`.
+- [x] Run `pnpm exec tsx proof/035/smoke.ts`.
+- [x] Assert source has one listener and one timer before capture.
+- [x] Assert target has target-native listener and timer handles.
+- [x] Assert first target request returns `{count:3}` and timer continues.
+- [x] Assert active request and partial socket states refuse.
+- [x] Assert no source kernel fd is reused directly on target, no source ISA emulation, no sidecar replay, and no metadata-only success.
+- [x] Run `pnpm run format:check`, `pnpm run lint`, `pnpm run typecheck`, targeted Vitest, and `pnpm exec fallow audit --changed-since origin/main`.
