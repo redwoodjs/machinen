@@ -1,0 +1,12 @@
+{
+  "kind": "machinen.node-level5-product-detection-proof-summary",
+  "proof": "417",
+  "goal": "Existing artifact commands still work",
+  "result": "Diagnostics remain compatible with artifact verification.",
+  "status": "node-product-support-80-snapshot-detection",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": ["machinen snapshot node", "machinen restore <snapshot>"],
+  "diagnosticVerifyAccepted": true
+}

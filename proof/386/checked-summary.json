@@ -3,7 +3,7 @@
   "proof": "386",
   "goal": "Product manifest claim boundary",
   "result": "Snapshot manifest keeps Node 80, broad 20, arbitrary process 0.",
-  "status": "node-product-support-80",
+  "status": "node-product-support-80-snapshot-restore-facade",
   "nodeProductSupportClaimed": 80,
   "broadNodeProductSupportClaimed": 20,
   "arbitraryProcessCrossArchRestoreClaimed": 0,

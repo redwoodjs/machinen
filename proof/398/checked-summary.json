@@ -3,7 +3,7 @@
   "proof": "398",
   "goal": "No overclaim product audit",
   "result": "Product surface keeps 80 / 20 / 0 claims.",
-  "status": "node-product-support-80",
+  "status": "node-product-support-80-snapshot-restore-facade",
   "nodeProductSupportClaimed": 80,
   "broadNodeProductSupportClaimed": 20,
   "arbitraryProcessCrossArchRestoreClaimed": 0,

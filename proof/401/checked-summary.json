@@ -1,0 +1,13 @@
+{
+  "kind": "machinen.node-level5-product-detection-proof-summary",
+  "proof": "401",
+  "goal": "Node snapshot detection contract",
+  "result": "snapshot node inspects app evidence before capture.",
+  "status": "node-product-support-80-snapshot-detection",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": ["machinen snapshot node", "machinen restore <snapshot>"],
+  "detectorInputs": ["package.json", "machinen-node-level5-detector.json"],
+  "familySelectorExposed": false
+}

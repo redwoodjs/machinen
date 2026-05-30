@@ -1,0 +1,11 @@
+{
+  "kind": "machinen.node-level5-product-detection-proof-summary",
+  "proof": "418",
+  "goal": "No-overclaim audit",
+  "result": "Detection keeps Node 80, broad 20, arbitrary process 0.",
+  "status": "node-product-support-80-snapshot-detection",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": ["machinen snapshot node", "machinen restore <snapshot>"]
+}

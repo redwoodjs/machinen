@@ -4981,13 +4981,35 @@ function cmdSnapshotNodeLevel5Product(args: string[]): number {
   if (!options.out) {
     die("usage: machinen snapshot node --out <dir> [--json]");
   }
-  const summary = createNodeLevel5ProductSnapshot({ outDir: resolve(options.out) });
+  return reportNodeLevel5ProductSnapshot(
+    createNodeLevel5ProductSnapshot({
+      outDir: resolve(options.out),
+      appDir: process.cwd(),
+    }),
+    json,
+  );
+}
+
+function reportNodeLevel5ProductSnapshot(
+  summary: ReturnType<typeof createNodeLevel5ProductSnapshot>,
+  json: boolean,
+): number {
   if (json) {
     emitJson(summary);
-  } else {
-    process.stdout.write(`snapshot written: ${summary.snapshotDir}\n`);
+    return summary.accepted ? 0 : 1;
   }
-  return 0;
+  writeNodeLevel5ProductSnapshotHumanSummary(summary);
+  return summary.accepted ? 0 : 1;
+}
+
+function writeNodeLevel5ProductSnapshotHumanSummary(
+  summary: ReturnType<typeof createNodeLevel5ProductSnapshot>,
+): void {
+  if (summary.accepted) {
+    process.stdout.write(`snapshot written: ${summary.snapshotDir}\n`);
+    return;
+  }
+  process.stderr.write(`machinen snapshot node: ${summary.refusal?.message}\n`);
 }
 
 function parseNodeLevel5ProductSnapshotArgs(args: string[]): NodeLevel5ProductSnapshotCliOptions {

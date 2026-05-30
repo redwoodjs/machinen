@@ -1,0 +1,14 @@
+{
+  "kind": "machinen.node-level5-product-detection-proof-summary",
+  "proof": "420",
+  "goal": "Final detection audit",
+  "result": "Product facade detects/refuses instead of selecting a family manually.",
+  "status": "node-product-support-80-snapshot-detection",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": ["machinen snapshot node", "machinen restore <snapshot>"],
+  "finalProductSurface": "snapshot/restore",
+  "detectorOwnedByProduct": true,
+  "diagnosticSelectorsHidden": true
+}
