@@ -2,7 +2,7 @@
 
 ## TL;DR
 
-Move beyond selected useful memory fragments. Capture a complete inventory of the Node process image: mappings, bytes policy, registers, thread state, stack ranges, TLS hints, signal state, fd table, and kernel resources. This is still a proof bundle, not product support.
+Move beyond selected useful memory fragments. Capture a full inventory of the Node process image: mappings, bytes policy, thread state, syscall/register evidence where available, stack hints, signal state, fd table, and kernel resources. This is still a proof bundle, not product support.
 
 ## Track objective
 
@@ -22,20 +22,32 @@ Produce a source-state bundle that is rich enough to explain every source thread
 
 ## Tasks
 
-- [ ] Extend the Zig guest capture tool to enumerate every process memory mapping.
-- [ ] Record per-mapping policy: captured bytes, recreated target mapping, file-backed identity, guard/special mapping, or refused.
-- [ ] Capture per-thread status, stat, syscall, stack range, and register evidence where available.
-- [ ] Capture signal masks, pending signals, process credentials, auxv, cmdline, environ, cwd/root/exe links, and namespace hints.
-- [ ] Capture fd table with resource classes: regular file, pipe, socket, eventfd, timerfd, epoll, anon inode, unknown.
-- [ ] Emit a portable process-image inventory JSON with stable refusal codes for unknown resources.
-- [ ] Keep the target reconstruction narrow and target-native; do not claim raw full-process restore.
+- [x] Extend the Zig guest capture tool to enumerate every process memory mapping.
+- [x] Record per-mapping policy: captured bytes, recreated target mapping, file-backed identity, guard/special mapping, or refused.
+- [x] Capture per-thread status, stat, syscall/register evidence where available, and stack-range policy hints.
+- [x] Capture signal masks, pending signals, process credentials, auxv, cmdline, environ, cwd/root/exe links, and namespace hints.
+- [x] Capture fd table with resource classes: regular file/device, pipe, socket, eventfd, timerfd, epoll, anon inode, unknown.
+- [x] Emit a portable process-image inventory JSON with stable refusal codes for unknown resources.
+- [x] Keep the target reconstruction narrow and target-native; do not claim raw full-process restore.
+
+## Proof result
+
+`pnpm exec tsx proof/031/smoke.ts` now proves:
+
+- every `/proc/<pid>/maps` row has a policy in `process-image-inventory.json`;
+- every `/proc/<pid>/task/*` thread has status/stat/syscall evidence or a stable refusal code;
+- every fd has a resource class and an inventory policy;
+- process links, namespace hints, auxv, cmdline, environ, signal masks, credentials, TCP tables, and fd tables are part of the source-state bundle;
+- idle target-native continuation still recovers the raw V8 context Smi counter and returns `{ "count": 3 }`;
+- active in-flight HTTP request state still refuses;
+- the proof does not claim raw full-process restore or product support.
 
 ## Validation
 
-- [ ] Run `pnpm exec tsx proof/031/smoke.ts`.
-- [ ] Assert every `/proc/<pid>/maps` row has a mapping policy in the inventory.
-- [ ] Assert every `/proc/<pid>/task/*` thread has a thread-state row.
-- [ ] Assert every fd has a resource classification or a refusal.
-- [ ] Assert quiescent target-native continuation still returns `{count:3}`.
-- [ ] Assert no product support claim, no source ISA emulation, no app export/import, no checkpoint API, and no metadata-only success.
-- [ ] Run `pnpm run format:check`, `pnpm run lint`, `pnpm run typecheck`, targeted Vitest, and `pnpm exec fallow audit --changed-since origin/main`.
+- [x] Run `pnpm exec tsx proof/031/smoke.ts`.
+- [x] Assert every `/proc/<pid>/maps` row has a mapping policy in the inventory.
+- [x] Assert every `/proc/<pid>/task/*` thread has a thread-state row.
+- [x] Assert every fd has a resource classification or a refusal.
+- [x] Assert idle target-native continuation still returns `{count:3}`.
+- [x] Assert no product support claim, no source ISA emulation, no app export/import, no checkpoint API, and no metadata-only success.
+- [x] Run `pnpm run format:check`, `pnpm run lint`, `pnpm run typecheck`, targeted Vitest, and `pnpm exec fallow audit --changed-since origin/main`.
