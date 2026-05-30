@@ -1,0 +1,30 @@
+{
+  "kind": "machinen.node-level5-readiness-proof-summary",
+  "proof": "209",
+  "title": "bidirectional repeatability over the declared corpus",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "gateId": "bidirectional-repeatability",
+  "gate": {
+    "productSupportClaimed": false,
+    "broadProductSupportClaimed": false,
+    "id": "bidirectional-repeatability",
+    "family": "broad-proof",
+    "title": "bidirectional repeatability over the declared corpus",
+    "status": "passed",
+    "artifact": "proof/209/checked-summary.json",
+    "appFamily": "declared-corpus-repeatability",
+    "direction": "both",
+    "repeatabilityRuns": 20
+  },
+  "readiness": {
+    "broadNodeProofReadiness": 100
+  },
+  "assertions": {
+    "appCorpusGateCovered": true,
+    "bidirectionalLaneCovered": true,
+    "repeatabilityAtLeastTenRuns": true,
+    "broadProductSupportNotClaimed": true
+  }
+}
