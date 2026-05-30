@@ -192,15 +192,19 @@
 - [`nodeLevel5ProductSupport80ClaimRegistry`](#nodelevel5productsupport80claimregistry)
 - [`nodeLevel5ProductSupport80UnsupportedDetectors`](#nodelevel5productsupport80unsupporteddetectors)
 - [`verifyNodeLevel5ProductSupport80ArtifactBundle`](#verifynodelevel5productsupport80artifactbundle)
+- [`NodeLevel5ProductDetectorReport`](#nodelevel5productdetectorreport)
 - [`NodeLevel5ProductRestoreSummary`](#nodelevel5productrestoresummary)
 - [`NodeLevel5ProductSnapshotDirection`](#nodelevel5productsnapshotdirection)
 - [`NodeLevel5ProductSnapshotManifest`](#nodelevel5productsnapshotmanifest)
+- [`NodeLevel5ProductSnapshotRefusal`](#nodelevel5productsnapshotrefusal)
+- [`NodeLevel5ProductSnapshotRefusalCode`](#nodelevel5productsnapshotrefusalcode)
 - [`NodeLevel5ProductSnapshotSummary`](#nodelevel5productsnapshotsummary)
 - [`DEFAULT_NODE_LEVEL5_PRODUCT_SNAPSHOT_DIRECTION`](#default_node_level5_product_snapshot_direction)
-- [`DEFAULT_NODE_LEVEL5_PRODUCT_SNAPSHOT_FAMILY`](#default_node_level5_product_snapshot_family)
+- [`NODE_LEVEL5_PRODUCT_DETECTOR_REPORT_KIND`](#node_level5_product_detector_report_kind)
 - [`NODE_LEVEL5_PRODUCT_SNAPSHOT_KIND`](#node_level5_product_snapshot_kind)
 - [`NODE_LEVEL5_PRODUCT_SNAPSHOT_VERSION`](#node_level5_product_snapshot_version)
 - [`createNodeLevel5ProductSnapshot`](#createnodelevel5productsnapshot)
+- [`detectNodeLevel5ProductSnapshotApp`](#detectnodelevel5productsnapshotapp)
 - [`isNodeLevel5ProductSnapshotBundle`](#isnodelevel5productsnapshotbundle)
 - [`restoreNodeLevel5ProductSnapshot`](#restorenodelevel5productsnapshot)
 
@@ -12509,7 +12513,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`code`](#code-19)
+[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`code`](#code-20)
 
 ##### message
 
@@ -12517,7 +12521,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`message`](#message-6)
+[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`message`](#message-7)
 
 ##### migrationCompleted
 
@@ -22304,6 +22308,76 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NodeLevel5ProductSnapshotRefusalCode
+
+> **NodeLevel5ProductSnapshotRefusalCode** = `"node-level5-unsupported-app-refused"` \| `"node-level5-active-request-refused"` \| `"node-level5-worker-thread-refused"` \| `"node-level5-native-addon-refused"` \| `"node-level5-wasm-external-memory-refused"` \| `"node-level5-tls-active-state-refused"` \| `"node-level5-child-process-live-state-refused"` \| `"node-level5-filesystem-watcher-refused"`
+
+***
+
+### NodeLevel5ProductSnapshotRefusal
+
+> **NodeLevel5ProductSnapshotRefusal** = `object`
+
+#### Properties
+
+##### code
+
+> **code**: [`NodeLevel5ProductSnapshotRefusalCode`](#nodelevel5productsnapshotrefusalcode)
+
+##### message
+
+> **message**: `string`
+
+***
+
+### NodeLevel5ProductDetectorReport
+
+> **NodeLevel5ProductDetectorReport** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_PRODUCT_DETECTOR_REPORT_KIND`](#node_level5_product_detector_report_kind)
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### appDir
+
+> **appDir**: `string`
+
+##### familyId?
+
+> `optional` **familyId?**: [`NodeLevel5ProductSupport80FamilyId`](#nodelevel5productsupport80familyid)
+
+##### direction
+
+> **direction**: [`NodeLevel5ProductSnapshotDirection`](#nodelevel5productsnapshotdirection)
+
+##### detectedFramework?
+
+> `optional` **detectedFramework?**: `"express"` \| `"fastify"`
+
+##### refusal?
+
+> `optional` **refusal?**: [`NodeLevel5ProductSnapshotRefusal`](#nodelevel5productsnapshotrefusal)
+
+##### nodeProductSupportClaimed
+
+> **nodeProductSupportClaimed**: `80`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `20`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
+
+***
+
 ### NodeLevel5ProductSnapshotManifest
 
 > **NodeLevel5ProductSnapshotManifest** = `object`
@@ -22333,6 +22407,14 @@ Poll interval in ms while retrying. Default 250.
 ##### artifactRoot
 
 > **artifactRoot**: `string`
+
+##### detectorReportPath
+
+> **detectorReportPath**: `"node-level5-detector-report.json"`
+
+##### detectorReportSha256
+
+> **detectorReportSha256**: `string`
 
 ##### artifactBundleKind
 
@@ -22390,13 +22472,21 @@ Poll interval in ms while retrying. Default 250.
 
 > **snapshotDir**: `string`
 
-##### manifestPath
+##### manifestPath?
 
-> **manifestPath**: `string`
+> `optional` **manifestPath?**: `string`
 
-##### manifest
+##### manifest?
 
-> **manifest**: [`NodeLevel5ProductSnapshotManifest`](#nodelevel5productsnapshotmanifest)
+> `optional` **manifest?**: [`NodeLevel5ProductSnapshotManifest`](#nodelevel5productsnapshotmanifest)
+
+##### detectorReport
+
+> **detectorReport**: [`NodeLevel5ProductDetectorReport`](#nodelevel5productdetectorreport)
+
+##### refusal?
+
+> `optional` **refusal?**: [`NodeLevel5ProductSnapshotRefusal`](#nodelevel5productsnapshotrefusal)
 
 ***
 
@@ -22429,6 +22519,10 @@ Poll interval in ms while retrying. Default 250.
 ##### direction
 
 > **direction**: [`NodeLevel5ProductSnapshotDirection`](#nodelevel5productsnapshotdirection)
+
+##### detectorReportVerified
+
+> **detectorReportVerified**: `boolean`
 
 ##### targetNativeNodeVerified
 
@@ -25450,9 +25544,9 @@ loops; anything looser stops being a meaningful gate.
 
 ***
 
-### DEFAULT\_NODE\_LEVEL5\_PRODUCT\_SNAPSHOT\_FAMILY
+### NODE\_LEVEL5\_PRODUCT\_DETECTOR\_REPORT\_KIND
 
-> `const` **DEFAULT\_NODE\_LEVEL5\_PRODUCT\_SNAPSHOT\_FAMILY**: `"express-fastify-http-app"` = `"express-fastify-http-app"`
+> `const` **NODE\_LEVEL5\_PRODUCT\_DETECTOR\_REPORT\_KIND**: `"machinen.node-level5-product-detector-report"` = `"machinen.node-level5-product-detector-report"`
 
 ***
 
@@ -28490,9 +28584,9 @@ available.
 
 `string`
 
-###### familyId?
+###### appDir?
 
-[`NodeLevel5ProductSupport80FamilyId`](#nodelevel5productsupport80familyid)
+`string`
 
 ###### direction?
 
@@ -28501,6 +28595,28 @@ available.
 #### Returns
 
 [`NodeLevel5ProductSnapshotSummary`](#nodelevel5productsnapshotsummary)
+
+***
+
+### detectNodeLevel5ProductSnapshotApp()
+
+> **detectNodeLevel5ProductSnapshotApp**(`input`): [`NodeLevel5ProductDetectorReport`](#nodelevel5productdetectorreport)
+
+#### Parameters
+
+##### input
+
+###### appDir
+
+`string`
+
+###### direction?
+
+[`NodeLevel5ProductSnapshotDirection`](#nodelevel5productsnapshotdirection)
+
+#### Returns
+
+[`NodeLevel5ProductDetectorReport`](#nodelevel5productdetectorreport)
 
 ***
 

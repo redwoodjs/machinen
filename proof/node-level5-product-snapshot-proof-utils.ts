@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const cliPath = join(repoRoot, "packages/cli/src/cli.ts");
+const tsxLoaderPath = join(repoRoot, "node_modules/tsx/dist/loader.mjs");
 const family = "express-fastify-http-app";
 const direction = "arm64-to-amd64";
 
@@ -169,7 +170,7 @@ function payload(kind: string): Record<string, unknown> {
     };
   }
   if (kind === "claims" || kind === "overclaim") {
-    return snapshotRestore().snapshot.manifest;
+    return productManifestBoundary(snapshotRestore().snapshot.manifest);
   }
   if (kind === "translation") {
     const manifest = snapshotRestore().snapshot.manifest;
@@ -195,8 +196,10 @@ function payload(kind: string): Record<string, unknown> {
   }
   if (kind === "human-snapshot") {
     const dir = tempDir();
-    const result = runCli(snapshotArgs(dir, false));
+    const appDir = supportedAppDir();
+    const result = runCli(snapshotArgs(dir, false), appDir);
     rmSync(dir, { recursive: true, force: true });
+    rmSync(appDir, { recursive: true, force: true });
     return {
       status: result.status,
       humanOutputIncludesSnapshotWritten: result.stdout.includes("snapshot written"),
@@ -206,6 +209,7 @@ function payload(kind: string): Record<string, unknown> {
     const workflow = writeSnapshot();
     const result = runCli(["restore", workflow.dir]);
     rmSync(workflow.dir, { recursive: true, force: true });
+    rmSync(workflow.appDir, { recursive: true, force: true });
     return { status: result.status, humanOutput: result.stdout.trim() };
   }
   if (kind === "json-snapshot") {
@@ -222,16 +226,13 @@ function payload(kind: string): Record<string, unknown> {
   }
   if (kind === "unsupported-family") {
     const dir = tempDir();
-    const result = runCli([
-      "snapshot",
-      "node",
-      "--out",
-      dir,
-      "--family",
-      "unknown-family",
-      "--json",
-    ]);
+    const appDir = supportedAppDir();
+    const result = runCli(
+      ["snapshot", "node", "--out", dir, "--family", "unknown-family", "--json"],
+      appDir,
+    );
     rmSync(dir, { recursive: true, force: true });
+    rmSync(appDir, { recursive: true, force: true });
     return {
       refused: result.status === 1,
       familySelectorExposed: false,
@@ -247,6 +248,7 @@ function payload(kind: string): Record<string, unknown> {
     const result = runCli(["restore", workflow.dir, "--json"]);
     const output = JSON.parse(result.stdout || result.stderr);
     rmSync(workflow.dir, { recursive: true, force: true });
+    rmSync(workflow.appDir, { recursive: true, force: true });
     const message = output.message ?? output.error?.message ?? "";
     return {
       refused: result.status === 1,
@@ -299,18 +301,36 @@ function payload(kind: string): Record<string, unknown> {
   };
 }
 
+function productManifestBoundary(manifest: Record<string, any>): Record<string, unknown> {
+  return {
+    kind: manifest.kind,
+    version: manifest.version,
+    familyId: manifest.familyId,
+    direction: manifest.direction,
+    artifactRoot: manifest.artifactRoot,
+    artifactBundleKind: manifest.artifactBundleKind,
+    translatedContinuationRequired: manifest.translatedContinuationRequired,
+    targetNativeNodeRequired: manifest.targetNativeNodeRequired,
+    rawCpuRestoreSupported: manifest.rawCpuRestoreSupported,
+    sourceIsaEmulationSupported: manifest.sourceIsaEmulationSupported,
+    appCheckpointHooksRequired: manifest.appCheckpointHooksRequired,
+  };
+}
+
 function snapshotRestore(): Record<string, any> {
   const workflow = writeSnapshot();
   try {
     return { snapshot: workflow.snapshot, restore: cliJson(["restore", workflow.dir, "--json"]) };
   } finally {
     rmSync(workflow.dir, { recursive: true, force: true });
+    rmSync(workflow.appDir, { recursive: true, force: true });
   }
 }
 
-function writeSnapshot(): { dir: string; snapshot: Record<string, any> } {
+function writeSnapshot(): { dir: string; appDir: string; snapshot: Record<string, any> } {
   const dir = tempDir();
-  return { dir, snapshot: cliJson(snapshotArgs(dir, true)) };
+  const appDir = supportedAppDir();
+  return { dir, appDir, snapshot: cliJson(snapshotArgs(dir, true), 0, appDir) };
 }
 
 function snapshotArgs(dir: string, json: boolean): string[] {
@@ -325,8 +345,17 @@ function tempDir(): string {
   return mkdtempSync(join(tmpdir(), "machinen-node-level5-product-snapshot-"));
 }
 
-function cliJson(args: string[], expectedStatus = 0): Record<string, any> {
-  const result = runCli(args);
+function supportedAppDir(): string {
+  const appDir = mkdtempSync(join(tmpdir(), "machinen-node-level5-product-app-"));
+  writeFileSync(
+    join(appDir, "package.json"),
+    `${JSON.stringify({ name: "supported", dependencies: { express: "^4.0.0" } }, null, 2)}\n`,
+  );
+  return appDir;
+}
+
+function cliJson(args: string[], expectedStatus = 0, cwd = repoRoot): Record<string, any> {
+  const result = runCli(args, cwd);
   if (result.status !== expectedStatus) {
     throw new Error(
       `CLI failed ${args.join(" ")}: ${result.status} ${result.stdout} ${result.stderr}`,
@@ -335,9 +364,9 @@ function cliJson(args: string[], expectedStatus = 0): Record<string, any> {
   return JSON.parse(result.stdout);
 }
 
-function runCli(args: string[]) {
-  return spawnSync(process.execPath, ["--import", "tsx", cliPath, ...args], {
-    cwd: repoRoot,
+function runCli(args: string[], cwd = repoRoot) {
+  return spawnSync(process.execPath, ["--import", tsxLoaderPath, cliPath, ...args], {
+    cwd,
     encoding: "utf8",
   });
 }
