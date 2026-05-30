@@ -1,0 +1,13 @@
+{
+  "kind": "machinen.node-level5-real-introspection-proof-summary",
+  "proof": "455",
+  "goal": "Selectors still hidden",
+  "result": "Family/direction remain diagnostic-only, not product UX.",
+  "status": "node-product-support-80-real-target-introspection",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
+  "refused": true,
+  "diagnosticSelectorsHidden": true
+}

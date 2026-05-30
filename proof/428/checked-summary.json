@@ -8,9 +8,9 @@
   "broadNodeProductSupportClaimed": 20,
   "arbitraryProcessCrossArchRestoreClaimed": 0,
   "productSurface": ["machinen snapshot node <name|pid>", "machinen restore <snapshot>"],
-  "accepted": false,
+  "refusedByRuntimeContract": true,
   "refusal": {
-    "code": "node-level5-target-app-root-missing",
-    "message": "node-level5-target-app-root-missing before Node Level 5 snapshot"
-  }
+    "code": "node-level5-target-app-root-missing"
+  },
+  "productIntrospectionRequiresAppRoot": true
 }

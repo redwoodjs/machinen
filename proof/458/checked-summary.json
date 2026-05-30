@@ -1,0 +1,14 @@
+{
+  "kind": "machinen.node-level5-real-introspection-proof-summary",
+  "proof": "458",
+  "goal": "Regression over target binding",
+  "result": "Detection, target binding, and introspection compose.",
+  "status": "node-product-support-80-real-target-introspection",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
+  "priorProofRange": "401-440",
+  "realIntrospectionProofRange": "441-457",
+  "passing": true
+}

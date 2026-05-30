@@ -3,15 +3,15 @@
 Node Level 5 support now uses the product-shaped surface first:
 
 ```sh
-machinen snapshot node api \
+machinen snapshot node <pid> \
   --out ./node-snapshot
 
 machinen restore ./node-snapshot
 ```
 
-This path does not require an experimental Node Level 5 flag. `snapshot node <name|pid>` resolves target metadata before capture. It accepts the supported idle HTTP app shape and refuses non-Node targets, missing app roots, or unsupported Node state before writing a snapshot.
+This path does not require an experimental Node Level 5 flag. `snapshot node <name|pid>` resolves a target, inspects live process evidence for pid targets, discovers the process cwd as the app root, then runs the Node Level 5 detector before capture. It accepts the supported idle HTTP app shape and refuses non-Node targets, missing app roots, or unsupported Node state before writing a snapshot.
 
-The detector report is retained inside the snapshot and verified during restore. The path still keeps the support boundary narrow:
+The detector report and target identity report are retained inside the snapshot and verified during restore. The product path no longer depends on `machinen-node-level5-targets.json`; proof fixtures now use real pid introspection for the target-bound path. The path still keeps the support boundary narrow:
 
 - Node product support: 80%.
 - Broad Node product support: 20%.

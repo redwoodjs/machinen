@@ -9,5 +9,6 @@
   "arbitraryProcessCrossArchRestoreClaimed": 0,
   "productSurface": ["machinen snapshot node <name|pid>", "machinen restore <snapshot>"],
   "targetIdentityRetained": true,
-  "target": "api"
+  "targetKind": "pid",
+  "targetCaptured": true
 }

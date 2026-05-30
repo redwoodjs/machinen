@@ -1,0 +1,14 @@
+{
+  "kind": "machinen.node-level5-real-introspection-proof-summary",
+  "proof": "445",
+  "goal": "Detector from introspected app root",
+  "result": "Supported package detection runs from the discovered cwd.",
+  "status": "node-product-support-80-real-target-introspection",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
+  "accepted": true,
+  "familyId": "express-fastify-http-app",
+  "detectedFramework": "express"
+}

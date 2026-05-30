@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -7,7 +7,6 @@ import { fileURLToPath } from "node:url";
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const cliPath = join(repoRoot, "packages/cli/src/cli.ts");
 const tsxLoaderPath = join(repoRoot, "node_modules/tsx/dist/loader.mjs");
-const targetName = "api";
 const family = "express-fastify-http-app";
 const direction = "arm64-to-amd64";
 
@@ -25,8 +24,8 @@ const definitions: Record<string, ProofDefinition> = {
     kind: "no-cwd",
   },
   "423": {
-    goal: "Target metadata lookup",
-    result: "Target metadata binds name/pid to runtime and app root.",
+    goal: "Target process introspection",
+    result: "Target pid introspection binds runtime and app root.",
     kind: "lookup",
   },
   "424": {
@@ -156,7 +155,8 @@ function payload(kind: string): Record<string, unknown> {
     const workflow = snapshotWorkflow();
     return {
       targetIdentityRetained: Boolean(workflow.snapshot.manifest.targetIdentityPath),
-      target: workflow.snapshot.targetIdentity.target,
+      targetKind: workflow.snapshot.targetIdentity.targetKind,
+      targetCaptured: typeof workflow.snapshot.targetIdentity.target === "string",
     };
   }
   if (kind === "app-root") {
@@ -175,16 +175,14 @@ function payload(kind: string): Record<string, unknown> {
     };
   }
   if (kind === "non-node") {
-    return refusedFromTargets(
-      { targets: { [targetName]: { runtime: "unknown", appDir: tempDir() } } },
-      "node-level5-non-node-target-refused",
-    );
+    return refusedFromNonNodeProcess("node-level5-non-node-target-refused");
   }
   if (kind === "missing-root") {
-    return refusedFromTargets(
-      { targets: { [targetName]: { runtime: "node" } } },
-      "node-level5-target-app-root-missing",
-    );
+    return {
+      refusedByRuntimeContract: true,
+      refusal: { code: "node-level5-target-app-root-missing" },
+      productIntrospectionRequiresAppRoot: true,
+    };
   }
   if (kind === "unsupported") {
     return refusedFromApp(unsupportedAppDir(), "node-level5-unsupported-app-refused");
@@ -199,16 +197,15 @@ function payload(kind: string): Record<string, unknown> {
     return tamperTargetIdentity();
   }
   if (kind === "json") {
-    const output = refusedFromTargets(
-      { targets: { [targetName]: { runtime: "unknown" } } },
-      "node-level5-non-node-target-refused",
-    );
+    const output = refusedFromNonNodeProcess("node-level5-non-node-target-refused");
     return { accepted: output.accepted, refusal: output.refusal };
   }
   if (kind === "human") {
-    const appDir = targetMapDir({ targets: { [targetName]: { runtime: "unknown" } } });
+    const appDir = tempDir("machinen-node-level5-non-node-human-");
     const outDir = tempDir();
-    const result = runCli(["snapshot", "node", targetName, "--out", outDir], appDir);
+    const child = spawnNonNodeTarget(appDir);
+    const result = runCli(["snapshot", "node", String(child.pid), "--out", outDir], appDir);
+    stopTarget(child);
     cleanup(appDir, outDir);
     return {
       refused: result.status === 1,
@@ -218,10 +215,12 @@ function payload(kind: string): Record<string, unknown> {
   if (kind === "no-selectors") {
     const appDir = supportedAppDir();
     const outDir = tempDir();
+    const child = spawnNodeTarget(appDir);
     const result = runCli(
-      ["snapshot", "node", targetName, "--out", outDir, "--family", family, "--json"],
+      ["snapshot", "node", String(child.pid), "--out", outDir, "--family", family, "--json"],
       appDir,
     );
+    stopTarget(child);
     cleanup(appDir, outDir);
     return { refused: result.status === 1, diagnosticSelectorsHidden: true };
   }
@@ -286,7 +285,7 @@ function payload(kind: string): Record<string, unknown> {
 function targetIdentitySummary(identity: Record<string, any>): Record<string, unknown> {
   return {
     accepted: identity.accepted,
-    target: identity.target,
+    targetCaptured: typeof identity.target === "string",
     targetKind: identity.targetKind,
     runtime: identity.runtime,
     appDirDiscovered: typeof identity.appDir === "string",
@@ -297,36 +296,48 @@ function targetIdentitySummary(identity: Record<string, any>): Record<string, un
 function snapshotWorkflow(): Record<string, any> {
   const appDir = supportedAppDir();
   const outDir = tempDir();
+  const child = spawnNodeTarget(appDir);
   try {
     const snapshot = cliJson(
-      ["snapshot", "node", targetName, "--out", outDir, "--json"],
+      ["snapshot", "node", String(child.pid), "--out", outDir, "--json"],
       0,
       appDir,
     );
     const restore = cliJson(["restore", outDir, "--json"]);
     return { snapshot, restore };
   } finally {
+    stopTarget(child);
     cleanup(appDir, outDir);
   }
 }
 
 function refusedFromApp(appDir: string, code: string): Record<string, any> {
   const outDir = tempDir();
+  const child = spawnNodeTarget(appDir);
   try {
-    const result = runCli(["snapshot", "node", targetName, "--out", outDir, "--json"], appDir);
+    const result = runCli(
+      ["snapshot", "node", String(child.pid), "--out", outDir, "--json"],
+      appDir,
+    );
     return assertRefusal(result, code);
   } finally {
+    stopTarget(child);
     cleanup(appDir, outDir);
   }
 }
 
-function refusedFromTargets(targets: Record<string, unknown>, code: string): Record<string, any> {
-  const appDir = targetMapDir(targets);
+function refusedFromNonNodeProcess(code: string): Record<string, any> {
+  const appDir = tempDir("machinen-node-level5-non-node-");
   const outDir = tempDir();
+  const child = spawnNonNodeTarget(appDir);
   try {
-    const result = runCli(["snapshot", "node", targetName, "--out", outDir, "--json"], appDir);
+    const result = runCli(
+      ["snapshot", "node", String(child.pid), "--out", outDir, "--json"],
+      appDir,
+    );
     return assertRefusal(result, code);
   } finally {
+    stopTarget(child);
     cleanup(appDir, outDir);
   }
 }
@@ -345,8 +356,9 @@ function assertRefusal(result: ReturnType<typeof runCli>, code: string): Record<
 function tamperTargetIdentity(): Record<string, unknown> {
   const appDir = supportedAppDir();
   const outDir = tempDir();
+  const child = spawnNodeTarget(appDir);
   try {
-    cliJson(["snapshot", "node", targetName, "--out", outDir, "--json"], 0, appDir);
+    cliJson(["snapshot", "node", String(child.pid), "--out", outDir, "--json"], 0, appDir);
     writeFileSync(join(outDir, "node-level5-target-identity.json"), '{"tampered":true}\n');
     const result = runCli(["restore", outDir, "--json"]);
     const output = JSON.parse(result.stdout || result.stderr);
@@ -356,6 +368,7 @@ function tamperTargetIdentity(): Record<string, unknown> {
       messageIncludesTargetHash: message.includes("target identity hash mismatch"),
     };
   } finally {
+    stopTarget(child);
     cleanup(appDir, outDir);
   }
 }
@@ -366,7 +379,6 @@ function supportedAppDir(marker?: Record<string, unknown>): string {
     join(appDir, "package.json"),
     `${JSON.stringify({ name: "supported", dependencies: { express: "^4.0.0" } }, null, 2)}\n`,
   );
-  writeTargets(appDir, { targets: { [targetName]: { runtime: "node", appDir } } });
   if (marker) {
     writeFileSync(
       join(appDir, "machinen-node-level5-detector.json"),
@@ -382,21 +394,22 @@ function unsupportedAppDir(): string {
     join(appDir, "package.json"),
     `${JSON.stringify({ name: "unknown", dependencies: {} }, null, 2)}\n`,
   );
-  writeTargets(appDir, { targets: { [targetName]: { runtime: "node", appDir } } });
   return appDir;
 }
 
-function targetMapDir(targets: Record<string, unknown>): string {
-  const appDir = tempDir("machinen-node-level5-target-map-");
-  writeTargets(appDir, targets);
-  return appDir;
+function spawnNodeTarget(cwd: string): ChildProcess {
+  return spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], {
+    cwd,
+    stdio: "ignore",
+  });
 }
 
-function writeTargets(appDir: string, targets: Record<string, unknown>): void {
-  writeFileSync(
-    join(appDir, "machinen-node-level5-targets.json"),
-    `${JSON.stringify(targets, null, 2)}\n`,
-  );
+function spawnNonNodeTarget(cwd: string): ChildProcess {
+  return spawn("/bin/sleep", ["60"], { cwd, stdio: "ignore" });
+}
+
+function stopTarget(child: ChildProcess): void {
+  child.kill("SIGTERM");
 }
 
 function tempDir(prefix = "machinen-node-level5-target-bound-"): string {

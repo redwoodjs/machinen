@@ -22362,6 +22362,14 @@ Poll interval in ms while retrying. Default 250.
 
 > `optional` **pid?**: `number`
 
+##### executable?
+
+> `optional` **executable?**: `string`
+
+##### argv?
+
+> `optional` **argv?**: `string`
+
 ##### registryMatched
 
 > **registryMatched**: `boolean`

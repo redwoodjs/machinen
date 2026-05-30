@@ -1,0 +1,11 @@
+{
+  "kind": "machinen.node-level5-real-introspection-proof-summary",
+  "proof": "457",
+  "goal": "No-overclaim audit",
+  "result": "Real introspection keeps 80 / 20 / 0 claims.",
+  "status": "node-product-support-80-real-target-introspection",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"]
+}

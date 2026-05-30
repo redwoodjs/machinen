@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -21,22 +21,34 @@ function appDir(marker?: Record<string, unknown>) {
     join(dir, "package.json"),
     `${JSON.stringify({ name: "supported", dependencies: { express: "^4.0.0" } }, null, 2)}\n`,
   );
-  writeFileSync(
-    join(dir, "machinen-node-level5-targets.json"),
-    `${JSON.stringify({ targets: { api: { runtime: "node", appDir: dir } } }, null, 2)}\n`,
-  );
   if (marker) {
     writeFileSync(join(dir, "machinen-node-level5-detector.json"), `${JSON.stringify(marker)}\n`);
   }
   return dir;
 }
 
+function spawnNodeTarget(cwd: string): ChildProcess {
+  return spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], {
+    cwd,
+    stdio: "ignore",
+  });
+}
+
+function stopNodeTarget(child: ChildProcess): void {
+  child.kill("SIGTERM");
+}
+
 describe("Node Level 5 product snapshot CLI", () => {
   it("uses snapshot and restore as the product surface", () => {
     const dir = mkdtempSync(join(tmpdir(), "machinen-node-product-cli-"));
     const source = appDir();
+    let child: ChildProcess | undefined;
     try {
-      const snapshot = runCli(["snapshot", "node", "api", "--out", dir, "--json"], source);
+      child = spawnNodeTarget(source);
+      const snapshot = runCli(
+        ["snapshot", "node", String(child.pid), "--out", dir, "--json"],
+        source,
+      );
       expect(snapshot.status).toBe(0);
       expect(JSON.parse(snapshot.stdout)).toMatchObject({
         accepted: true,
@@ -59,6 +71,9 @@ describe("Node Level 5 product snapshot CLI", () => {
         retentionComplete: true,
       });
     } finally {
+      if (child) {
+        stopNodeTarget(child);
+      }
       rmSync(dir, { recursive: true, force: true });
       rmSync(source, { recursive: true, force: true });
     }
@@ -67,14 +82,22 @@ describe("Node Level 5 product snapshot CLI", () => {
   it("refuses unsupported app shapes before snapshot", () => {
     const dir = mkdtempSync(join(tmpdir(), "machinen-node-product-cli-refused-"));
     const source = appDir({ activeRequests: true });
+    let child: ChildProcess | undefined;
     try {
-      const snapshot = runCli(["snapshot", "node", "api", "--out", dir, "--json"], source);
+      child = spawnNodeTarget(source);
+      const snapshot = runCli(
+        ["snapshot", "node", String(child.pid), "--out", dir, "--json"],
+        source,
+      );
       expect(snapshot.status).toBe(1);
       expect(JSON.parse(snapshot.stdout)).toMatchObject({
         accepted: false,
         refusal: { code: "node-level5-active-request-refused" },
       });
     } finally {
+      if (child) {
+        stopNodeTarget(child);
+      }
       rmSync(dir, { recursive: true, force: true });
       rmSync(source, { recursive: true, force: true });
     }
