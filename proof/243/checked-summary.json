@@ -1,0 +1,19 @@
+{
+  "kind": "machinen.node-level5-product-support-20-proof-summary",
+  "proof": "243",
+  "goal": "Security audit",
+  "result": "No raw CPU restore, no source ISA emulation, no app hooks.",
+  "status": "experimental-node-product-support-20",
+  "nodeProductSupportClaimed": 20,
+  "nodeProductSupportScope": "five-idle-service-families",
+  "declaredSubsetExperimentalProductSupportClaimed": 100,
+  "broadNodeProductSupportClaimed": 0,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "safety": {
+    "rawCpuRestoreSupported": false,
+    "sourceIsaEmulationSupported": false,
+    "appCheckpointHooksRequired": false,
+    "targetNativeNodeRequired": true
+  },
+  "unsupportedNeighborsRefuseBeforeTargetStart": true
+}

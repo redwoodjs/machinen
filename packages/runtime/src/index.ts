@@ -193,6 +193,14 @@ export {
   nodeLevel5ReadinessMatrix,
   nodeLevel5UnsupportedNeighborGates,
 } from "./node-level5-readiness-matrix.ts";
+export {
+  NODE_LEVEL5_PRODUCT_SUPPORT_20_KIND,
+  NODE_LEVEL5_PRODUCT_SUPPORT_20_VERSION,
+  assertNodeLevel5ProductSupport20MatrixComplete,
+  nodeLevel5ProductSupport20Families,
+  nodeLevel5ProductSupport20Matrix,
+  nodeLevel5ProductUnsupportedNeighbors,
+} from "./node-level5-product-support-20.ts";
 export { buildNativeCodeMap } from "./native-code-map.ts";
 export {
   classifyNativeActiveSyscalls,
@@ -278,6 +286,13 @@ export type {
   NodeLevel5ReadinessMatrix,
   NodeLevel5UnsupportedNeighborGate,
 } from "./node-level5-readiness-matrix.ts";
+export type {
+  NodeLevel5ProductSupport20Matrix,
+  NodeLevel5ProductSupportDirection,
+  NodeLevel5ProductSupportFamily,
+  NodeLevel5ProductSupportFamilyId,
+  NodeLevel5ProductUnsupportedNeighbor,
+} from "./node-level5-product-support-20.ts";
 export type {
   NativeCodeMapRequest,
   NativeCodeMapResult,

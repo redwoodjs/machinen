@@ -138,6 +138,17 @@
 - [`nodeLevel5NarrowProductReadinessGates`](#nodelevel5narrowproductreadinessgates)
 - [`nodeLevel5ReadinessMatrix`](#nodelevel5readinessmatrix)
 - [`nodeLevel5UnsupportedNeighborGates`](#nodelevel5unsupportedneighborgates)
+- [`NodeLevel5ProductSupport20Matrix`](#nodelevel5productsupport20matrix)
+- [`NodeLevel5ProductSupportDirection`](#nodelevel5productsupportdirection)
+- [`NodeLevel5ProductSupportFamily`](#nodelevel5productsupportfamily)
+- [`NodeLevel5ProductSupportFamilyId`](#nodelevel5productsupportfamilyid)
+- [`NodeLevel5ProductUnsupportedNeighbor`](#nodelevel5productunsupportedneighbor)
+- [`NODE_LEVEL5_PRODUCT_SUPPORT_20_KIND`](#node_level5_product_support_20_kind)
+- [`NODE_LEVEL5_PRODUCT_SUPPORT_20_VERSION`](#node_level5_product_support_20_version)
+- [`assertNodeLevel5ProductSupport20MatrixComplete`](#assertnodelevel5productsupport20matrixcomplete)
+- [`nodeLevel5ProductSupport20Families`](#nodelevel5productsupport20families)
+- [`nodeLevel5ProductSupport20Matrix`](#nodelevel5productsupport20matrix)
+- [`nodeLevel5ProductUnsupportedNeighbors`](#nodelevel5productunsupportedneighbors)
 
 ### Boot a VM
 
@@ -14393,7 +14404,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`refusalCode`](#refusalcode-10)
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`refusalCode`](#refusalcode-11)
 
 ##### remediation?
 
@@ -18373,7 +18384,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`refusalCode`](#refusalcode-15)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`refusalCode`](#refusalcode-16)
 
 ##### remediation?
 
@@ -22233,6 +22244,186 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NodeLevel5ProductSupportFamilyId
+
+> **NodeLevel5ProductSupportFamilyId** = `"idle-http-listener"` \| `"timer-service"` \| `"plain-js-heap"` \| `"readonly-file-stdio"` \| `"pipes-streams-idle"`
+
+***
+
+### NodeLevel5ProductSupportDirection
+
+> **NodeLevel5ProductSupportDirection** = `"arm64-to-amd64"` \| `"amd64-to-arm64"`
+
+***
+
+### NodeLevel5ProductSupportFamily
+
+> **NodeLevel5ProductSupportFamily** = `object`
+
+#### Properties
+
+##### id
+
+> **id**: [`NodeLevel5ProductSupportFamilyId`](#nodelevel5productsupportfamilyid)
+
+##### title
+
+> **title**: `string`
+
+##### coveragePercent
+
+> **coveragePercent**: `4`
+
+##### status
+
+> **status**: `"experimental-supported"`
+
+##### included
+
+> **included**: readonly `string`[]
+
+##### excluded
+
+> **excluded**: readonly `string`[]
+
+##### contractArtifact
+
+> **contractArtifact**: `string`
+
+##### e2eArtifact
+
+> **e2eArtifact**: `string`
+
+##### directions
+
+> **directions**: readonly [`NodeLevel5ProductSupportDirection`](#nodelevel5productsupportdirection)[]
+
+##### targetNativeVerified
+
+> **targetNativeVerified**: `true`
+
+##### productSupportClaimed
+
+> **productSupportClaimed**: `true`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `false`
+
+***
+
+### NodeLevel5ProductUnsupportedNeighbor
+
+> **NodeLevel5ProductUnsupportedNeighbor** = `object`
+
+#### Properties
+
+##### id
+
+> **id**: `string`
+
+##### refusalCode
+
+> **refusalCode**: `string`
+
+##### targetStarted
+
+> **targetStarted**: `false`
+
+##### rawCpuRestoreUsed
+
+> **rawCpuRestoreUsed**: `false`
+
+##### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+##### productSupportClaimed
+
+> **productSupportClaimed**: `false`
+
+***
+
+### NodeLevel5ProductSupport20Matrix
+
+> **NodeLevel5ProductSupport20Matrix** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_PRODUCT_SUPPORT_20_KIND`](#node_level5_product_support_20_kind)
+
+##### version
+
+> **version**: *typeof* [`NODE_LEVEL5_PRODUCT_SUPPORT_20_VERSION`](#node_level5_product_support_20_version)
+
+##### status
+
+> **status**: `"experimental-node-product-support-20"`
+
+##### nodeProductSupportClaimed
+
+> **nodeProductSupportClaimed**: `20`
+
+##### nodeProductSupportScope
+
+> **nodeProductSupportScope**: `"five-idle-service-families"`
+
+##### declaredSubsetExperimentalProductSupportClaimed
+
+> **declaredSubsetExperimentalProductSupportClaimed**: `100`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `0`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
+
+##### node
+
+> **node**: `"22.x"`
+
+##### v8
+
+> **v8**: `"12.x pointer-compressed"`
+
+##### libuv
+
+> **libuv**: `"supported idle handles only"`
+
+##### families
+
+> **families**: readonly [`NodeLevel5ProductSupportFamily`](#nodelevel5productsupportfamily)[]
+
+##### unsupportedNeighbors
+
+> **unsupportedNeighbors**: readonly [`NodeLevel5ProductUnsupportedNeighbor`](#nodelevel5productunsupportedneighbor)[]
+
+##### safety
+
+> **safety**: `object`
+
+###### rawCpuRestoreSupported
+
+> **rawCpuRestoreSupported**: `false`
+
+###### sourceIsaEmulationSupported
+
+> **sourceIsaEmulationSupported**: `false`
+
+###### appCheckpointHooksRequired
+
+> **appCheckpointHooksRequired**: `false`
+
+###### targetNativeNodeRequired
+
+> **targetNativeNodeRequired**: `true`
+
+***
+
 ### NodeLevel5ProofIngredientName
 
 > **NodeLevel5ProofIngredientName** = *typeof* [`nodeLevel5ProofIngredientNames`](#nodelevel5proofingredientnames)\[`number`\]
@@ -24238,6 +24429,36 @@ loops; anything looser stops being a meaningful gate.
 ### nodeLevel5HttpProfileRefusalCodes
 
 > `const` **nodeLevel5HttpProfileRefusalCodes**: readonly \[`"node-level5-http-arbitrary-v8-heap-native-stack-unsupported"`, `"node-level5-http-native-addon-unsupported"`, `"node-level5-http-worker-thread-unsupported"`, `"node-level5-http-inspector-unsupported"`, `"node-level5-http-active-request-unsupported"`, `"node-level5-http-active-tcp-stream-unsupported"`, `"node-level5-http-active-syscall-unsupported"`, `"node-level5-http-unsupported-timer-async-handle"`, `"node-level5-http-unsupported-module-runtime-state"`, `"node-level5-http-target-native-node-missing"`, `"node-level5-http-source-isa-emulation-forbidden"`, `"node-level5-http-sidecar-output-forbidden"`, `"node-level5-http-metadata-only-success-forbidden"`\]
+
+***
+
+### NODE\_LEVEL5\_PRODUCT\_SUPPORT\_20\_KIND
+
+> `const` **NODE\_LEVEL5\_PRODUCT\_SUPPORT\_20\_KIND**: `"machinen.node-level5-product-support-20"` = `"machinen.node-level5-product-support-20"`
+
+***
+
+### NODE\_LEVEL5\_PRODUCT\_SUPPORT\_20\_VERSION
+
+> `const` **NODE\_LEVEL5\_PRODUCT\_SUPPORT\_20\_VERSION**: `1` = `1`
+
+***
+
+### nodeLevel5ProductSupport20Families
+
+> `const` **nodeLevel5ProductSupport20Families**: readonly [`NodeLevel5ProductSupportFamily`](#nodelevel5productsupportfamily)[]
+
+***
+
+### nodeLevel5ProductUnsupportedNeighbors
+
+> `const` **nodeLevel5ProductUnsupportedNeighbors**: readonly [`NodeLevel5ProductUnsupportedNeighbor`](#nodelevel5productunsupportedneighbor)[]
+
+***
+
+### nodeLevel5ProductSupport20Matrix
+
+> `const` **nodeLevel5ProductSupport20Matrix**: [`NodeLevel5ProductSupport20Matrix`](#nodelevel5productsupport20matrix)
 
 ***
 
@@ -27092,6 +27313,22 @@ available.
 #### Returns
 
 [`NodeLevel5HttpProfileRefusal`](#nodelevel5httpprofilerefusal)[]
+
+***
+
+### assertNodeLevel5ProductSupport20MatrixComplete()
+
+> **assertNodeLevel5ProductSupport20MatrixComplete**(`matrix?`): `boolean`
+
+#### Parameters
+
+##### matrix?
+
+[`NodeLevel5ProductSupport20Matrix`](#nodelevel5productsupport20matrix) = `nodeLevel5ProductSupport20Matrix`
+
+#### Returns
+
+`boolean`
 
 ***
 

@@ -1,0 +1,53 @@
+{
+  "kind": "machinen.node-level5-product-support-20-proof-summary",
+  "proof": "230",
+  "goal": "Timer service real E2E",
+  "result": "Adds 4%.",
+  "status": "experimental-node-product-support-20",
+  "nodeProductSupportClaimed": 20,
+  "nodeProductSupportScope": "five-idle-service-families",
+  "declaredSubsetExperimentalProductSupportClaimed": 100,
+  "broadNodeProductSupportClaimed": 0,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "family": {
+    "id": "timer-service",
+    "title": "Timer service",
+    "included": ["idle timers", "known remaining time", "known interval state"],
+    "excluded": ["active timer callbacks", "pending microtasks"],
+    "contractArtifact": "proof/229/checked-summary.json",
+    "e2eArtifact": "proof/230/checked-summary.json",
+    "coveragePercent": 4,
+    "status": "experimental-supported",
+    "directions": ["arm64-to-amd64", "amd64-to-arm64"],
+    "targetNativeVerified": true,
+    "productSupportClaimed": true,
+    "broadNodeProductSupportClaimed": false
+  },
+  "e2e": {
+    "familyId": "timer-service",
+    "coverageAdded": 4,
+    "lanes": [
+      {
+        "familyId": "timer-service",
+        "sourceArch": "arm64",
+        "targetArch": "amd64",
+        "captureAccepted": true,
+        "restoreAccepted": true,
+        "translatedContinuationRequired": true,
+        "productSupportClaimed": true,
+        "broadNodeProductSupportClaimed": 0
+      },
+      {
+        "familyId": "timer-service",
+        "sourceArch": "amd64",
+        "targetArch": "arm64",
+        "captureAccepted": true,
+        "restoreAccepted": true,
+        "translatedContinuationRequired": true,
+        "productSupportClaimed": true,
+        "broadNodeProductSupportClaimed": 0
+      }
+    ],
+    "targetNativeVerified": true
+  }
+}
