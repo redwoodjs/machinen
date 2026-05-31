@@ -1,0 +1,14 @@
+{
+  "kind": "machinen.node-level5-app-support-release-bundle-proof-summary",
+  "proof": "1058",
+  "goal": "Proof-only refused app row reconciliation",
+  "result": "Unsafe live-state rows remain refused before snapshot across Express/Fastify directions.",
+  "status": "node-product-support-80-proof-only-release-bundle",
+  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <dir>"],
+  "proofOnly": true,
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "frameworks": ["express", "fastify"]
+}

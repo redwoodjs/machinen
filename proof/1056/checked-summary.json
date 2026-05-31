@@ -1,0 +1,14 @@
+{
+  "kind": "machinen.node-level5-app-support-release-bundle-proof-summary",
+  "proof": "1056",
+  "goal": "Proof-only supported app row reconciliation",
+  "result": "Supported fixture, template, installed, and feature rows remain scoped to idle HTTP apps.",
+  "status": "node-product-support-80-proof-only-release-bundle",
+  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <dir>"],
+  "proofOnly": true,
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "allRowsHaveLimitations": true
+}
