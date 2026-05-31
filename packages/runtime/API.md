@@ -22815,7 +22815,7 @@ Poll interval in ms while retrying. Default 250.
 
 ### NodeLevel5ProductSnapshotRefusalCode
 
-> **NodeLevel5ProductSnapshotRefusalCode** = `"node-level5-non-node-target-refused"` \| `"node-level5-target-app-root-missing"` \| `"node-level5-unsupported-app-refused"` \| `"node-level5-active-request-refused"` \| `"node-level5-worker-thread-refused"` \| `"node-level5-native-addon-refused"` \| `"node-level5-wasm-external-memory-refused"` \| `"node-level5-tls-active-state-refused"` \| `"node-level5-child-process-live-state-refused"` \| `"node-level5-filesystem-watcher-refused"` \| `"node-level5-websocket-live-state-refused"`
+> **NodeLevel5ProductSnapshotRefusalCode** = `"node-level5-non-node-target-refused"` \| `"node-level5-target-app-root-missing"` \| `"node-level5-unsupported-app-refused"` \| `"node-level5-active-request-refused"` \| `"node-level5-worker-thread-refused"` \| `"node-level5-native-addon-refused"` \| `"node-level5-wasm-external-memory-refused"` \| `"node-level5-tls-active-state-refused"` \| `"node-level5-child-process-live-state-refused"` \| `"node-level5-filesystem-watcher-refused"` \| `"node-level5-websocket-live-state-refused"` \| `"node-level5-db-connection-live-state-refused"` \| `"node-level5-redis-queue-live-state-refused"` \| `"node-level5-outbound-http-live-socket-refused"` \| `"node-level5-http2-live-session-refused"` \| `"node-level5-sse-live-stream-refused"` \| `"node-level5-open-writable-file-refused"` \| `"node-level5-timer-background-task-refused"` \| `"node-level5-cluster-mode-refused"`
 
 ***
 
@@ -24715,7 +24715,7 @@ Poll interval in ms while retrying. Default 250.
 
 ### NodeLevel5RealAppRefusalMarker
 
-> **NodeLevel5RealAppRefusalMarker** = `"activeRequests"` \| `"workerThreads"` \| `"nativeAddons"` \| `"wasmExternalMemory"` \| `"tlsActiveState"` \| `"childProcesses"` \| `"filesystemWatchers"` \| `"websockets"`
+> **NodeLevel5RealAppRefusalMarker** = `"activeRequests"` \| `"workerThreads"` \| `"nativeAddons"` \| `"wasmExternalMemory"` \| `"tlsActiveState"` \| `"childProcesses"` \| `"filesystemWatchers"` \| `"websockets"` \| `"dbConnections"` \| `"redisQueueConnections"` \| `"outboundHttpSockets"` \| `"http2Sessions"` \| `"serverSentEvents"` \| `"openWritableFiles"` \| `"timersIntervals"` \| `"clusterMode"`
 
 ***
 

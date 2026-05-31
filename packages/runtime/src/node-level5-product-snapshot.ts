@@ -39,7 +39,15 @@ export type NodeLevel5ProductSnapshotRefusalCode =
   | "node-level5-tls-active-state-refused"
   | "node-level5-child-process-live-state-refused"
   | "node-level5-filesystem-watcher-refused"
-  | "node-level5-websocket-live-state-refused";
+  | "node-level5-websocket-live-state-refused"
+  | "node-level5-db-connection-live-state-refused"
+  | "node-level5-redis-queue-live-state-refused"
+  | "node-level5-outbound-http-live-socket-refused"
+  | "node-level5-http2-live-session-refused"
+  | "node-level5-sse-live-stream-refused"
+  | "node-level5-open-writable-file-refused"
+  | "node-level5-timer-background-task-refused"
+  | "node-level5-cluster-mode-refused";
 
 export type NodeLevel5ProductSnapshotRefusal = {
   code: NodeLevel5ProductSnapshotRefusalCode;
@@ -775,7 +783,15 @@ function detectNodeLevel5ProductSnapshotRefusal(
     markerRefusal(markers.tlsActiveState, "node-level5-tls-active-state-refused") ??
     markerRefusal(markers.childProcesses, "node-level5-child-process-live-state-refused") ??
     markerRefusal(markers.filesystemWatchers, "node-level5-filesystem-watcher-refused") ??
-    markerRefusal(markers.websockets, "node-level5-websocket-live-state-refused")
+    markerRefusal(markers.websockets, "node-level5-websocket-live-state-refused") ??
+    markerRefusal(markers.dbConnections, "node-level5-db-connection-live-state-refused") ??
+    markerRefusal(markers.redisQueueConnections, "node-level5-redis-queue-live-state-refused") ??
+    markerRefusal(markers.outboundHttpSockets, "node-level5-outbound-http-live-socket-refused") ??
+    markerRefusal(markers.http2Sessions, "node-level5-http2-live-session-refused") ??
+    markerRefusal(markers.serverSentEvents, "node-level5-sse-live-stream-refused") ??
+    markerRefusal(markers.openWritableFiles, "node-level5-open-writable-file-refused") ??
+    markerRefusal(markers.timersIntervals, "node-level5-timer-background-task-refused") ??
+    markerRefusal(markers.clusterMode, "node-level5-cluster-mode-refused")
   );
 }
 

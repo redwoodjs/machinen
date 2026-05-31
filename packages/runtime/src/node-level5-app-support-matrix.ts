@@ -635,6 +635,54 @@ function refusalMarkers(): RefusalMarker[] {
       reason: "live websocket state",
       feature: "externalNetwork",
     },
+    {
+      id: "db-connections",
+      appName: "DB connection app",
+      reason: "live DB connection state",
+      feature: "externalNetwork",
+    },
+    {
+      id: "redis-queue-connections",
+      appName: "Redis/queue connection app",
+      reason: "live Redis or queue client connection state",
+      feature: "externalNetwork",
+    },
+    {
+      id: "outbound-http-sockets",
+      appName: "outbound HTTP keepalive app",
+      reason: "live outbound HTTP socket state",
+      feature: "externalNetwork",
+    },
+    {
+      id: "http2-sessions",
+      appName: "HTTP/2 session app",
+      reason: "live HTTP/2 session state",
+      feature: "externalNetwork",
+    },
+    {
+      id: "server-sent-events",
+      appName: "server-sent events app",
+      reason: "live SSE stream state",
+      feature: "externalNetwork",
+    },
+    {
+      id: "open-writable-files",
+      appName: "open writable file app",
+      reason: "live writable file descriptor state",
+      feature: "backgroundTasks",
+    },
+    {
+      id: "timers-intervals",
+      appName: "timer/interval background task app",
+      reason: "live timer or interval background task state",
+      feature: "backgroundTasks",
+    },
+    {
+      id: "cluster-mode",
+      appName: "cluster mode app",
+      reason: "cluster or multi-process Node state",
+      feature: "backgroundTasks",
+    },
   ];
 }
 

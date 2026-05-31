@@ -31,6 +31,14 @@ const refusalCases: RefusalCase[] = [
   ["childProcesses", "node-level5-child-process-live-state-refused"],
   ["filesystemWatchers", "node-level5-filesystem-watcher-refused"],
   ["websockets", "node-level5-websocket-live-state-refused"],
+  ["dbConnections", "node-level5-db-connection-live-state-refused"],
+  ["redisQueueConnections", "node-level5-redis-queue-live-state-refused"],
+  ["outboundHttpSockets", "node-level5-outbound-http-live-socket-refused"],
+  ["http2Sessions", "node-level5-http2-live-session-refused"],
+  ["serverSentEvents", "node-level5-sse-live-stream-refused"],
+  ["openWritableFiles", "node-level5-open-writable-file-refused"],
+  ["timersIntervals", "node-level5-timer-background-task-refused"],
+  ["clusterMode", "node-level5-cluster-mode-refused"],
 ];
 
 type RefusalCase = [NodeLevel5RealAppRefusalMarker, NodeLevel5ProductSnapshotRefusalCode];
