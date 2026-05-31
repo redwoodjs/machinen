@@ -1,0 +1,13 @@
+{
+  "kind": "machinen.node-level5-refusal-expansion-proof-summary",
+  "proof": "1002",
+  "goal": "Refusal expansion generator contract",
+  "result": "The refusal corpus retains expanded unsafe app-state refusals before snapshot.",
+  "status": "node-product-support-80-refusal-expansion",
+  "productSurface": ["machinen snapshot node <pid> --out <dir>"],
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "accepted": true
+}

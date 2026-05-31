@@ -19,7 +19,7 @@ describe("Node Level 5 app support matrix", () => {
       broadNodeProductSupportClaimed: 20,
       arbitraryProcessCrossArchRestoreClaimed: 0,
     });
-    expect(matrix.rowCount).toBe(38);
+    expect(matrix.rowCount).toBe(54);
     expect(matrix.rows.map((row) => row.id)).toEqual(
       expect.arrayContaining([
         "express-fixture-product-run",
@@ -30,6 +30,8 @@ describe("Node Level 5 app support matrix", () => {
         "fastify-native-addons",
         "express-installed-json-response",
         "fastify-background-tasks-not-proven",
+        "express-db-connections",
+        "fastify-cluster-mode",
       ]),
     );
   });
@@ -72,12 +74,15 @@ describe("Node Level 5 app support matrix", () => {
   it("marks unsupported live-state app rows as refused before snapshot", () => {
     const rows = refusedNodeLevel5AppSupportRows();
 
-    expect(rows).toHaveLength(16);
+    expect(rows).toHaveLength(32);
     expect(rows.every((row) => row.status === "refused")).toBe(true);
     expect(rows.every((row) => row.productBehavior === "refuse-before-snapshot")).toBe(true);
     expect(rows.every((row) => row.evidence.kind === "refusal-corpus")).toBe(true);
     expect(
       rows.find((row) => row.id === "express-websockets")?.featureAssessment.externalNetwork,
+    ).toBe("refused");
+    expect(
+      rows.find((row) => row.id === "fastify-cluster-mode")?.featureAssessment.backgroundTasks,
     ).toBe("refused");
   });
 

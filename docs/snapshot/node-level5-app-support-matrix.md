@@ -36,25 +36,33 @@ machinen restore <dir>
 
 These rows are based on particular Express/Fastify refusal apps. Product behavior is **refuse before snapshot**.
 
-| Feature / state      | Frameworks      |  Status | Evidence       |
-| -------------------- | --------------- | ------: | -------------- |
-| Active request       | Express/Fastify | Refused | Proofs 761–800 |
-| Worker thread        | Express/Fastify | Refused | Proofs 761–800 |
-| Native addon         | Express/Fastify | Refused | Proofs 761–800 |
-| Wasm/external memory | Express/Fastify | Refused | Proofs 761–800 |
-| TLS active state     | Express/Fastify | Refused | Proofs 761–800 |
-| Child process        | Express/Fastify | Refused | Proofs 761–800 |
-| Filesystem watcher   | Express/Fastify | Refused | Proofs 761–800 |
-| Websocket            | Express/Fastify | Refused | Proofs 761–800 |
+| Feature / state      | Frameworks      |  Status | Evidence         |
+| -------------------- | --------------- | ------: | ---------------- |
+| Active request       | Express/Fastify | Refused | Proofs 761–800   |
+| Worker thread        | Express/Fastify | Refused | Proofs 761–800   |
+| Native addon         | Express/Fastify | Refused | Proofs 761–800   |
+| Wasm/external memory | Express/Fastify | Refused | Proofs 761–800   |
+| TLS active state     | Express/Fastify | Refused | Proofs 761–800   |
+| Child process        | Express/Fastify | Refused | Proofs 761–800   |
+| Filesystem watcher   | Express/Fastify | Refused | Proofs 761–800   |
+| Websocket            | Express/Fastify | Refused | Proofs 761–800   |
+| DB connection        | Express/Fastify | Refused | Proofs 1001–1040 |
+| Redis/queue client   | Express/Fastify | Refused | Proofs 1001–1040 |
+| Outbound HTTP socket | Express/Fastify | Refused | Proofs 1001–1040 |
+| HTTP/2 session       | Express/Fastify | Refused | Proofs 1001–1040 |
+| SSE stream           | Express/Fastify | Refused | Proofs 1001–1040 |
+| Open writable file   | Express/Fastify | Refused | Proofs 1001–1040 |
+| Timer/interval task  | Express/Fastify | Refused | Proofs 1001–1040 |
+| Cluster mode         | Express/Fastify | Refused | Proofs 1001–1040 |
 
 ## Not-proven feature gaps
 
 These rows are intentionally visible in the matrix as `not-proven`; they are not support claims.
 
-| Feature gap               | Frameworks      |     Status | Next evidence needed                   |
-| ------------------------- | --------------- | ---------: | -------------------------------------- |
-| External network / DB app | Express/Fastify | Not proven | Detector/refusal policy before support |
-| Background task app       | Express/Fastify | Not proven | Detector/refusal policy before support |
+| Feature gap                    | Frameworks      |     Status | Next evidence needed                       |
+| ------------------------------ | --------------- | ---------: | ------------------------------------------ |
+| Safe external reconnect policy | Express/Fastify | Not proven | Reconstruction design before support       |
+| Background task continuation   | Express/Fastify | Not proven | Timer/scheduler state model before support |
 
 ## Boundaries
 
