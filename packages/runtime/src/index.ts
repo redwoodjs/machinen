@@ -239,6 +239,14 @@ export {
   verifyNodeLevel5ProductSupport80ArtifactBundle,
 } from "./node-level5-product-support-80-hardening.ts";
 export {
+  NODE_LEVEL5_REAL_APP_CORPUS_REPORT_KIND,
+  NODE_LEVEL5_REAL_APP_CORPUS_REPORT_VERSION,
+  createNodeLevel5RealAppCorpusReport,
+  loadNodeLevel5RealAppCorpusReport,
+  verifyNodeLevel5RealAppCorpusReport,
+  writeNodeLevel5RealAppCorpusReport,
+} from "./node-level5-real-app-corpus.ts";
+export {
   DEFAULT_NODE_LEVEL5_PRODUCT_SNAPSHOT_DIRECTION,
   NODE_LEVEL5_PRODUCT_BEHAVIORAL_VERIFIER_REPORT_KIND,
   NODE_LEVEL5_PRODUCT_CAPTURE_REPORT_KIND,
@@ -367,6 +375,12 @@ export type {
   NodeLevel5ProductSupport80ClaimRegistry,
   NodeLevel5ProductSupport80UnsupportedDetector,
 } from "./node-level5-product-support-80-hardening.ts";
+export type {
+  NodeLevel5RealAppCorpusFramework,
+  NodeLevel5RealAppCorpusReport,
+  NodeLevel5RealAppCorpusRow,
+  NodeLevel5RealAppCorpusVerification,
+} from "./node-level5-real-app-corpus.ts";
 export type {
   NodeLevel5ProductBehavioralVerifierReport,
   NodeLevel5ProductCaptureReport,

@@ -64,6 +64,7 @@ import {
   isNodeLevel5ProductSnapshotBundle,
   isProductPortablePostgresBundle,
   loadNodeLevel5ProductSupport80ArtifactBundle,
+  loadNodeLevel5RealAppCorpusReport,
   list,
   productPortablePostgresFileSha256,
   productClaimFamilies,
@@ -76,6 +77,7 @@ import {
   restoreNodeLevel5DeclaredSubset,
   restoreNodeLevel5ProductSnapshot,
   verifyNodeLevel5ProductSupport80ArtifactBundle,
+  verifyNodeLevel5RealAppCorpusReport,
   restoreProductLevel4EventfdSnapshot,
   restoreProductLevel4PingSocketSnapshot,
   restoreProductLevel4PipeSnapshot,
@@ -2012,8 +2014,16 @@ function cmdNodeLevel5Claims(args: string[], json: boolean): number {
 }
 
 function cmdNodeLevel5ReleaseGate(args: string[], json: boolean): number {
-  const artifact = readOptionalNodeLevel5RetainedArtifact(args);
-  const accepted = artifact ? artifact.accepted === true : true;
+  const corpus = readOptionalNodeLevel5RealAppCorpus(args);
+  const artifactArgs = args.filter(
+    (arg, index) =>
+      arg !== "--include-real-app-corpus" &&
+      arg !== "--corpus-report" &&
+      args[index - 1] !== "--corpus-report",
+  );
+  const artifact = readOptionalNodeLevel5RetainedArtifact(artifactArgs);
+  const accepted =
+    (artifact ? artifact.accepted === true : true) && (corpus ? corpus.accepted === true : true);
   return reportNodeLevel5ProductCommand(json, {
     accepted,
     kind: "machinen.node-level5-release-gate-summary",
@@ -2021,7 +2031,31 @@ function cmdNodeLevel5ReleaseGate(args: string[], json: boolean): number {
     broadNodeProductSupportClaimed: 20,
     arbitraryProcessCrossArchRestoreClaimed: 0,
     retainedArtifact: artifact,
+    realAppCorpus: corpus,
   });
+}
+
+function readOptionalNodeLevel5RealAppCorpus(args: string[]): Record<string, unknown> | undefined {
+  if (!args.includes("--include-real-app-corpus")) {
+    return undefined;
+  }
+  const reportFlag = args.indexOf("--corpus-report");
+  if (reportFlag === -1 || !args[reportFlag + 1]) {
+    die(
+      "machinen node-level5 release-gate --include-real-app-corpus requires --corpus-report <file>",
+    );
+  }
+  try {
+    return verifyNodeLevel5RealAppCorpusReport(
+      loadNodeLevel5RealAppCorpusReport(resolve(args[reportFlag + 1]!)),
+    );
+  } catch (error) {
+    return {
+      accepted: false,
+      code: "node-level5-real-app-corpus-invalid",
+      message: error instanceof Error ? error.message : String(error),
+    };
+  }
 }
 
 // fallow-ignore-next-line complexity

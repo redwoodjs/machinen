@@ -192,6 +192,16 @@
 - [`nodeLevel5ProductSupport80ClaimRegistry`](#nodelevel5productsupport80claimregistry)
 - [`nodeLevel5ProductSupport80UnsupportedDetectors`](#nodelevel5productsupport80unsupporteddetectors)
 - [`verifyNodeLevel5ProductSupport80ArtifactBundle`](#verifynodelevel5productsupport80artifactbundle)
+- [`NodeLevel5RealAppCorpusFramework`](#nodelevel5realappcorpusframework)
+- [`NodeLevel5RealAppCorpusReport`](#nodelevel5realappcorpusreport)
+- [`NodeLevel5RealAppCorpusRow`](#nodelevel5realappcorpusrow)
+- [`NodeLevel5RealAppCorpusVerification`](#nodelevel5realappcorpusverification)
+- [`NODE_LEVEL5_REAL_APP_CORPUS_REPORT_KIND`](#node_level5_real_app_corpus_report_kind)
+- [`NODE_LEVEL5_REAL_APP_CORPUS_REPORT_VERSION`](#node_level5_real_app_corpus_report_version)
+- [`createNodeLevel5RealAppCorpusReport`](#createnodelevel5realappcorpusreport)
+- [`loadNodeLevel5RealAppCorpusReport`](#loadnodelevel5realappcorpusreport)
+- [`verifyNodeLevel5RealAppCorpusReport`](#verifynodelevel5realappcorpusreport)
+- [`writeNodeLevel5RealAppCorpusReport`](#writenodelevel5realappcorpusreport)
 - [`NodeLevel5ProductBehavioralVerifierReport`](#nodelevel5productbehavioralverifierreport)
 - [`NodeLevel5ProductCaptureReport`](#nodelevel5productcapturereport)
 - [`NodeLevel5ProductDetectorReport`](#nodelevel5productdetectorreport)
@@ -24112,6 +24122,156 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NodeLevel5RealAppCorpusFramework
+
+> **NodeLevel5RealAppCorpusFramework** = `"express"` \| `"fastify"`
+
+***
+
+### NodeLevel5RealAppCorpusRow
+
+> **NodeLevel5RealAppCorpusRow** = `object`
+
+#### Properties
+
+##### framework
+
+> **framework**: [`NodeLevel5RealAppCorpusFramework`](#nodelevel5realappcorpusframework)
+
+##### direction
+
+> **direction**: [`NodeLevel5ProductSnapshotDirection`](#nodelevel5productsnapshotdirection)
+
+##### routePath
+
+> **routePath**: `string`
+
+##### expectedStatus
+
+> **expectedStatus**: `number`
+
+##### actualStatus
+
+> **actualStatus**: `number`
+
+##### expectedBody
+
+> **expectedBody**: `string`
+
+##### actualBody
+
+> **actualBody**: `string`
+
+##### expectedHeaders
+
+> **expectedHeaders**: `Record`\<`string`, `string`\>
+
+##### actualHeaders
+
+> **actualHeaders**: `Record`\<`string`, `string`\>
+
+##### snapshotAccepted
+
+> **snapshotAccepted**: `boolean`
+
+##### restoreAccepted
+
+> **restoreAccepted**: `boolean`
+
+##### behavioralVerifierPassed
+
+> **behavioralVerifierPassed**: `boolean`
+
+##### targetNativeNodeVerified
+
+> **targetNativeNodeVerified**: `boolean`
+
+***
+
+### NodeLevel5RealAppCorpusReport
+
+> **NodeLevel5RealAppCorpusReport** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_REAL_APP_CORPUS_REPORT_KIND`](#node_level5_real_app_corpus_report_kind)
+
+##### version
+
+> **version**: *typeof* [`NODE_LEVEL5_REAL_APP_CORPUS_REPORT_VERSION`](#node_level5_real_app_corpus_report_version)
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### rowCount
+
+> **rowCount**: `number`
+
+##### rowsSha256
+
+> **rowsSha256**: `string`
+
+##### rows
+
+> **rows**: [`NodeLevel5RealAppCorpusRow`](#nodelevel5realappcorpusrow)[]
+
+##### harnessProof
+
+> **harnessProof**: `true`
+
+##### nodeProductSupportClaimed
+
+> **nodeProductSupportClaimed**: `80`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `20`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
+
+***
+
+### NodeLevel5RealAppCorpusVerification
+
+> **NodeLevel5RealAppCorpusVerification** = `object`
+
+#### Properties
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### kind
+
+> **kind**: `"machinen.node-level5-real-app-corpus-verification"`
+
+##### rowCount
+
+> **rowCount**: `number`
+
+##### rowsSha256Verified
+
+> **rowsSha256Verified**: `boolean`
+
+##### nodeProductSupportClaimed
+
+> **nodeProductSupportClaimed**: `80`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `20`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
+
+***
+
 ### NodeProperLevel5HttpStatePolicyRefusalCode
 
 > **NodeProperLevel5HttpStatePolicyRefusalCode** = `"node-proper-level5-http-active-request-unsupported"` \| `"node-proper-level5-http-partial-read-unsupported"` \| `"node-proper-level5-http-partial-write-unsupported"` \| `"node-proper-level5-http-ambiguous-connection-state"`
@@ -26227,6 +26387,18 @@ loops; anything looser stops being a meaningful gate.
 ### nodeLevel5ReadinessMatrix
 
 > `const` **nodeLevel5ReadinessMatrix**: [`NodeLevel5ReadinessMatrix`](#nodelevel5readinessmatrix)
+
+***
+
+### NODE\_LEVEL5\_REAL\_APP\_CORPUS\_REPORT\_KIND
+
+> `const` **NODE\_LEVEL5\_REAL\_APP\_CORPUS\_REPORT\_KIND**: `"machinen.node-level5-real-app-corpus-report"` = `"machinen.node-level5-real-app-corpus-report"`
+
+***
+
+### NODE\_LEVEL5\_REAL\_APP\_CORPUS\_REPORT\_VERSION
+
+> `const` **NODE\_LEVEL5\_REAL\_APP\_CORPUS\_REPORT\_VERSION**: `1` = `1`
 
 ***
 
@@ -29281,6 +29453,76 @@ available.
 #### Returns
 
 `boolean`
+
+***
+
+### createNodeLevel5RealAppCorpusReport()
+
+> **createNodeLevel5RealAppCorpusReport**(`rows`): [`NodeLevel5RealAppCorpusReport`](#nodelevel5realappcorpusreport)
+
+#### Parameters
+
+##### rows
+
+[`NodeLevel5RealAppCorpusRow`](#nodelevel5realappcorpusrow)[]
+
+#### Returns
+
+[`NodeLevel5RealAppCorpusReport`](#nodelevel5realappcorpusreport)
+
+***
+
+### writeNodeLevel5RealAppCorpusReport()
+
+> **writeNodeLevel5RealAppCorpusReport**(`input`): [`NodeLevel5RealAppCorpusReport`](#nodelevel5realappcorpusreport)
+
+#### Parameters
+
+##### input
+
+###### path
+
+`string`
+
+###### rows
+
+[`NodeLevel5RealAppCorpusRow`](#nodelevel5realappcorpusrow)[]
+
+#### Returns
+
+[`NodeLevel5RealAppCorpusReport`](#nodelevel5realappcorpusreport)
+
+***
+
+### verifyNodeLevel5RealAppCorpusReport()
+
+> **verifyNodeLevel5RealAppCorpusReport**(`report`): [`NodeLevel5RealAppCorpusVerification`](#nodelevel5realappcorpusverification)
+
+#### Parameters
+
+##### report
+
+[`NodeLevel5RealAppCorpusReport`](#nodelevel5realappcorpusreport)
+
+#### Returns
+
+[`NodeLevel5RealAppCorpusVerification`](#nodelevel5realappcorpusverification)
+
+***
+
+### loadNodeLevel5RealAppCorpusReport()
+
+> **loadNodeLevel5RealAppCorpusReport**(`path`): [`NodeLevel5RealAppCorpusReport`](#nodelevel5realappcorpusreport)
+
+#### Parameters
+
+##### path
+
+`string`
+
+#### Returns
+
+[`NodeLevel5RealAppCorpusReport`](#nodelevel5realappcorpusreport)
 
 ***
 

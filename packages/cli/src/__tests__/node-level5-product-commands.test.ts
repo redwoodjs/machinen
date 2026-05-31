@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -108,6 +109,59 @@ describe("Node Level 5 product commands", () => {
       ]);
       expect(tampered.status).toBe(1);
       expect(JSON.parse(tampered.stdout).message).toContain("hash mismatch");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("uses retained real-app corpus evidence for release gates", () => {
+    const dir = mkdtempSync(join(tmpdir(), "machinen-node80-cli-corpus-"));
+    try {
+      const rows = [
+        {
+          framework: "express",
+          direction: "arm64-to-amd64",
+          routePath: "/express/health",
+          expectedStatus: 200,
+          actualStatus: 200,
+          expectedBody: "express-ok",
+          actualBody: "express-ok",
+          expectedHeaders: { "x-machinen-fixture": "express" },
+          actualHeaders: { "x-machinen-fixture": "express" },
+          snapshotAccepted: true,
+          restoreAccepted: true,
+          behavioralVerifierPassed: true,
+          targetNativeNodeVerified: true,
+        },
+      ];
+      const report = {
+        kind: "machinen.node-level5-real-app-corpus-report",
+        version: 1,
+        accepted: true,
+        rowCount: rows.length,
+        rowsSha256: createHash("sha256").update(JSON.stringify(rows)).digest("hex"),
+        rows,
+        harnessProof: true,
+        nodeProductSupportClaimed: 80,
+        broadNodeProductSupportClaimed: 20,
+        arbitraryProcessCrossArchRestoreClaimed: 0,
+      };
+      const reportPath = join(dir, "node-level5-real-app-corpus-report.json");
+      writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
+
+      const releaseGate = runCli([
+        "node-level5",
+        "release-gate",
+        "--include-real-app-corpus",
+        "--corpus-report",
+        reportPath,
+        "--json",
+      ]);
+      expect(releaseGate.status).toBe(0);
+      expect(JSON.parse(releaseGate.stdout)).toMatchObject({
+        accepted: true,
+        realAppCorpus: { accepted: true, rowCount: 1, rowsSha256Verified: true },
+      });
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
