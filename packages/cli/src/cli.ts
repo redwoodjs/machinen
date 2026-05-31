@@ -2036,26 +2036,38 @@ function cmdNodeLevel5ReleaseGate(args: string[], json: boolean): number {
 }
 
 function readOptionalNodeLevel5RealAppCorpus(args: string[]): Record<string, unknown> | undefined {
+  const path = nodeLevel5RealAppCorpusReportPath(args);
+  return path ? verifyNodeLevel5RealAppCorpusPath(path) : undefined;
+}
+
+function nodeLevel5RealAppCorpusReportPath(args: string[]): string | undefined {
   if (!args.includes("--include-real-app-corpus")) {
     return undefined;
   }
   const reportFlag = args.indexOf("--corpus-report");
-  if (reportFlag === -1 || !args[reportFlag + 1]) {
+  const path = reportFlag === -1 ? undefined : args[reportFlag + 1];
+  if (!path) {
     die(
       "machinen node-level5 release-gate --include-real-app-corpus requires --corpus-report <file>",
     );
   }
+  return path;
+}
+
+function verifyNodeLevel5RealAppCorpusPath(path: string): Record<string, unknown> {
   try {
-    return verifyNodeLevel5RealAppCorpusReport(
-      loadNodeLevel5RealAppCorpusReport(resolve(args[reportFlag + 1]!)),
-    );
+    return verifyNodeLevel5RealAppCorpusReport(loadNodeLevel5RealAppCorpusReport(resolve(path)));
   } catch (error) {
-    return {
-      accepted: false,
-      code: "node-level5-real-app-corpus-invalid",
-      message: error instanceof Error ? error.message : String(error),
-    };
+    return invalidNodeLevel5RealAppCorpus(error);
   }
+}
+
+function invalidNodeLevel5RealAppCorpus(error: unknown): Record<string, unknown> {
+  return {
+    accepted: false,
+    code: "node-level5-real-app-corpus-invalid",
+    message: error instanceof Error ? error.message : String(error),
+  };
 }
 
 // fallow-ignore-next-line complexity
