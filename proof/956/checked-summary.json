@@ -1,0 +1,16 @@
+{
+  "kind": "machinen.node-level5-app-support-matrix-dimensions-proof-summary",
+  "proof": "956",
+  "goal": "Support matrix dimensions final audit",
+  "result": "Feature dimensions preserve the app-specific support boundary and keep claims unchanged.",
+  "status": "not-claimed",
+  "productSurface": [
+    "machinen node-level5 support-matrix --json"
+  ],
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "id": "arbitrary-node-process",
+  "reason": "broad Node state translation is not proven by the app corpus"
+}
