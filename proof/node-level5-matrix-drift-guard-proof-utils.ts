@@ -9,10 +9,12 @@ import {
 } from "../packages/runtime/src/node-level5-app-support-matrix.ts";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const expectedStatusCounts = { supported: 64, refused: 32, "not-proven": 4 };
+const expectedStatusCounts = { supported: 68, refused: 42, "not-proven": 4 };
 const expectedSupportedIds = [
   "express-fixture-product-run",
   "express-generator-router",
+  "express-generic-vm-cjs",
+  "express-generic-vm-esm",
   "express-installed-config-json-read",
   "express-installed-configured-prefix",
   "express-installed-cookie-read",
@@ -44,6 +46,8 @@ const expectedSupportedIds = [
   "express-installed-status-code",
   "express-official-hello-world",
   "fastify-fixture-product-run",
+  "fastify-generic-vm-cjs",
+  "fastify-generic-vm-esm",
   "fastify-installed-config-json-read",
   "fastify-installed-configured-prefix",
   "fastify-installed-cookie-read",
@@ -88,6 +92,11 @@ const expectedRefusalSuffixes = [
   "cluster-mode",
   "db-connections",
   "filesystem-watchers",
+  "generic-vm-active-requests",
+  "generic-vm-child-processes",
+  "generic-vm-native-addons",
+  "generic-vm-tls-active-state",
+  "generic-vm-worker-threads",
   "http2-sessions",
   "native-addons",
   "open-writable-files",

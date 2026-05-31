@@ -243,7 +243,11 @@ function refusedPayload(kind: string): Record<string, unknown> {
     };
   }
   if (kind === "refused-evidence") {
-    return { allRefusalCorpus: rows.every((row) => row.evidence.kind === "refusal-corpus") };
+    return {
+      allRefusalCorpus: rows.every((row) =>
+        ["refusal-corpus", "generic-vm-detected-corpus"].includes(row.evidence.kind),
+      ),
+    };
   }
   if (kind === "refused-express-fastify") {
     return { frameworks: unique(rows.map((row) => row.framework)) };

@@ -67,6 +67,7 @@ import {
   loadNodeLevel5ProductSupport80ArtifactBundle,
   loadNodeLevel5RealAppCorpusReport,
   loadNodeLevel5RealAppRefusalCorpusReport,
+  loadNodeLevel5GenericVmCorpusReport,
   loadNodeLevel5InstalledThirdPartyAppCorpusReport,
   loadNodeLevel5ThirdPartyAppCorpusReport,
   list,
@@ -83,6 +84,7 @@ import {
   verifyNodeLevel5ProductSupport80ArtifactBundle,
   verifyNodeLevel5RealAppCorpusReport,
   verifyNodeLevel5RealAppRefusalCorpusReport,
+  verifyNodeLevel5GenericVmCorpusReport,
   verifyNodeLevel5InstalledThirdPartyAppCorpusReport,
   verifyNodeLevel5ThirdPartyAppCorpusReport,
   restoreProductLevel4EventfdSnapshot,
@@ -2042,6 +2044,7 @@ function cmdNodeLevel5ReleaseGate(args: string[], json: boolean): number {
   const refusalCorpus = readOptionalNodeLevel5RealAppRefusalCorpus(args);
   const thirdPartyAppCorpus = readOptionalNodeLevel5ThirdPartyAppCorpus(args);
   const installedThirdPartyAppCorpus = readOptionalNodeLevel5InstalledThirdPartyAppCorpus(args);
+  const genericVmCorpus = readOptionalNodeLevel5GenericVmCorpus(args);
   const artifact = readOptionalNodeLevel5RetainedArtifact(nodeLevel5ReleaseGateArtifactArgs(args));
   const accepted = [
     artifact,
@@ -2049,6 +2052,7 @@ function cmdNodeLevel5ReleaseGate(args: string[], json: boolean): number {
     refusalCorpus,
     thirdPartyAppCorpus,
     installedThirdPartyAppCorpus,
+    genericVmCorpus,
   ].every((item) => (item ? item.accepted === true : true));
   return reportNodeLevel5ProductCommand(json, {
     accepted,
@@ -2061,6 +2065,7 @@ function cmdNodeLevel5ReleaseGate(args: string[], json: boolean): number {
     realAppRefusalCorpus: refusalCorpus,
     thirdPartyAppCorpus,
     installedThirdPartyAppCorpus,
+    genericVmCorpus,
   });
 }
 
@@ -2069,16 +2074,19 @@ const nodeLevel5ReleaseGateReportFlags = new Set([
   "--include-refusal-corpus",
   "--include-third-party-app-corpus",
   "--include-installed-third-party-app-corpus",
+  "--include-generic-vm-corpus",
   "--corpus-report",
   "--refusal-corpus-report",
   "--third-party-app-corpus-report",
   "--installed-third-party-app-corpus-report",
+  "--generic-vm-corpus-report",
 ]);
 const nodeLevel5ReleaseGateReportValueFlags = new Set([
   "--corpus-report",
   "--refusal-corpus-report",
   "--third-party-app-corpus-report",
   "--installed-third-party-app-corpus-report",
+  "--generic-vm-corpus-report",
 ]);
 
 function nodeLevel5ReleaseGateArtifactArgs(args: string[]): string[] {
@@ -2219,6 +2227,37 @@ function verifyNodeLevel5InstalledThirdPartyAppCorpusPath(path: string): Record<
   }
 }
 
+function readOptionalNodeLevel5GenericVmCorpus(
+  args: string[],
+): Record<string, unknown> | undefined {
+  const path = nodeLevel5GenericVmCorpusReportPath(args);
+  return path ? verifyNodeLevel5GenericVmCorpusPath(path) : undefined;
+}
+
+function nodeLevel5GenericVmCorpusReportPath(args: string[]): string | undefined {
+  if (!args.includes("--include-generic-vm-corpus")) {
+    return undefined;
+  }
+  const reportFlag = args.indexOf("--generic-vm-corpus-report");
+  const path = reportFlag === -1 ? undefined : args[reportFlag + 1];
+  if (!path) {
+    die(
+      "machinen node-level5 release-gate --include-generic-vm-corpus requires --generic-vm-corpus-report <file>",
+    );
+  }
+  return path;
+}
+
+function verifyNodeLevel5GenericVmCorpusPath(path: string): Record<string, unknown> {
+  try {
+    return verifyNodeLevel5GenericVmCorpusReport(
+      loadNodeLevel5GenericVmCorpusReport(resolve(path)),
+    );
+  } catch (error) {
+    return invalidNodeLevel5ReleaseReport("node-level5-generic-vm-corpus-invalid", error);
+  }
+}
+
 function invalidNodeLevel5ReleaseReport(code: string, error: unknown): Record<string, unknown> {
   return {
     accepted: false,
@@ -2328,7 +2367,8 @@ function reportNodeLevel5ProductCommand(json: boolean, summary: Record<string, u
 function nodeLevel5Usage(): string {
   return (
     "usage: machinen node-level5 artifacts <write|verify> ... [--json]\n" +
-    "       machinen node-level5 support-matrix [--json]\n"
+    "       machinen node-level5 support-matrix [--json]\n" +
+    "       machinen node-level5 release-gate [--include-generic-vm-corpus --generic-vm-corpus-report <file>] [--json]\n"
   );
 }
 
@@ -2674,23 +2714,25 @@ async function cmdRestore(args: string[]): Promise<number> {
   if (isProductPortablePostgresBundle(snapDir)) {
     return cmdRestoreProductPortablePostgres(parsed, snapDir, json);
   }
-  if (isNodeLevel5ProofCompositionBundle(snapDir)) {
-    return await cmdRestoreNodeLevel5ProofComposition(snapDir, json, parsed);
-  }
-  if (shouldRestoreCleanServiceBundle(snapDir, guestCpu)) {
-    return restoreCleanServiceBundle({
-      snapDir,
-      json,
-      name: parsed.name,
-      resolveCliBaseAssets,
-      guestCpu,
-      deriveBootName,
-      emitJson,
-      shellQuote,
-    });
-  }
-  if (shouldRestorePortableNode(snapDir)) {
-    return cmdRestorePortableNode(parsed, snapDir, json);
+  if (!shouldPreferVmstateRestore(snapDir)) {
+    if (isNodeLevel5ProofCompositionBundle(snapDir)) {
+      return await cmdRestoreNodeLevel5ProofComposition(snapDir, json, parsed);
+    }
+    if (shouldRestoreCleanServiceBundle(snapDir, guestCpu)) {
+      return restoreCleanServiceBundle({
+        snapDir,
+        json,
+        name: parsed.name,
+        resolveCliBaseAssets,
+        guestCpu,
+        deriveBootName,
+        emitJson,
+        shellQuote,
+      });
+    }
+    if (shouldRestorePortableNode(snapDir)) {
+      return cmdRestorePortableNode(parsed, snapDir, json);
+    }
   }
   if (json) {
     die("restore --json is only supported for product portable bundles");
@@ -4284,6 +4326,18 @@ async function cmdRestoreNodeLevel5ProofComposition(
     }
   }
   return result.exitCode;
+}
+
+function shouldPreferVmstateRestore(snapDir: string): boolean {
+  if (!existsSync(join(snapDir, "state.vmstate"))) {
+    return false;
+  }
+  const manifestPath = join(snapDir, "portable-node.json");
+  if (!existsSync(manifestPath)) {
+    return true;
+  }
+  const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as PortableNodeSnapshotBundle;
+  return manifest.sourceArch === guestCpu();
 }
 
 function shouldRestorePortableNode(snapDir: string): boolean {

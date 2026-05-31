@@ -34,7 +34,14 @@ machinen node-level5 release-gate \
   --family express-fastify-http-app \
   --direction arm64-to-amd64 \
   --json
+
+machinen node-level5 release-gate \
+  --include-generic-vm-corpus \
+  --generic-vm-corpus-report ./node-level5-generic-vm-corpus-report.json \
+  --json
 ```
+
+The generic VM corpus gate records candidate 85 / 25 / 0 evidence only and keeps `claimChangeAllowed: false`.
 
 The claim registry remains:
 

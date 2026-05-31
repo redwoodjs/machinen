@@ -18,7 +18,7 @@ This milestone defines what must be true before Machinen can raise the current N
 | Broad Node product support                   |              25% | Add broader ecosystem evidence without weakening refusal boundaries.                    |
 | Arbitrary process cross-architecture restore |               0% | Stay at zero. No arbitrary process claim is allowed.                                    |
 
-This is a candidate target only. The claim does not change until every gate below is implemented, retained, and release-gated.
+This is a candidate target only. The claim does not change until every gate below is implemented, retained, and release-gated. Current implementation work may add candidate corpus rows and release-gate wiring, but those rows keep `claimChangeAllowed: false` until the evidence gates all pass.
 
 ## Milestone family: detected Node VM workload
 
@@ -81,8 +81,9 @@ Before changing any claim constants or claim registry values:
 3. Add positive and negative rows to the support matrix.
 4. Add drift guards for the new counts and row IDs.
 5. Add a VM smoke that boots a Node workload, snapshots the VM with generic `--out`, restores the snapshot, and verifies behavior.
-6. Run format, lint, docs build, typecheck, Vitest, focused Node Level 5 smokes, full VM smoke, and `fallow audit --changed-since origin/main`.
-7. Only then update claim values to `85 / 25 / 0`.
+6. Keep release-gate summaries explicit about candidate evidence (`genericVmCorpus`) and retain `80 / 20 / 0` in all claim fields until the claim-change PR.
+7. Run format, lint, docs build, typecheck, Vitest, focused Node Level 5 smokes, full VM smoke, and `fallow audit --changed-since origin/main`.
+8. Only then update claim values to `85 / 25 / 0`.
 
 ## Non-goals
 

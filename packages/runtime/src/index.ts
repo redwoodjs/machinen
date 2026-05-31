@@ -1348,3 +1348,21 @@ export { readHostRssBytes, readHostRssBytesMulti } from "./proc-rss.ts";
 export type { RssTarget } from "./proc-rss.ts";
 export { readBalloonStats, STATS_FILE_SIZE } from "./balloon-stats.ts";
 export type { BalloonCounters } from "./balloon-stats.ts";
+
+export {
+  NODE_LEVEL5_GENERIC_VM_CORPUS_REPORT_KIND,
+  NODE_LEVEL5_GENERIC_VM_CORPUS_REPORT_VERSION,
+  createNodeLevel5GenericVmCorpusReport,
+  loadNodeLevel5GenericVmCorpusReport,
+  verifyNodeLevel5GenericVmCorpusReport,
+  writeNodeLevel5GenericVmCorpusReport,
+} from "./node-level5-generic-vm-corpus.ts";
+export type {
+  NodeLevel5GenericVmCorpusReport,
+  NodeLevel5GenericVmCorpusRow,
+  NodeLevel5GenericVmCorpusVerification,
+  NodeLevel5GenericVmModuleSystem,
+  NodeLevel5GenericVmPositiveRow,
+  NodeLevel5GenericVmRefusalMarker,
+  NodeLevel5GenericVmRefusalRow,
+} from "./node-level5-generic-vm-corpus.ts";
