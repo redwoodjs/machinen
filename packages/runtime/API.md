@@ -22679,7 +22679,7 @@ Poll interval in ms while retrying. Default 250.
 
 ### NodeLevel5InstalledThirdPartyAppSource
 
-> **NodeLevel5InstalledThirdPartyAppSource** = `"express-installed-hello-world"` \| `"express-installed-router"` \| `"fastify-installed-getting-started"` \| `"fastify-installed-plugin-route"`
+> **NodeLevel5InstalledThirdPartyAppSource** = `"express-installed-hello-world"` \| `"express-installed-router"` \| `"express-installed-json-response"` \| `"express-installed-route-params"` \| `"express-installed-query-string"` \| `"express-installed-static-asset"` \| `"fastify-installed-getting-started"` \| `"fastify-installed-plugin-route"` \| `"fastify-installed-json-response"` \| `"fastify-installed-route-params"` \| `"fastify-installed-query-string"` \| `"fastify-installed-static-asset"`
 
 ***
 

@@ -11,18 +11,26 @@ machinen restore <dir>
 
 ## Current app rows
 
-| App row                               | Framework |    Status | Route  | Response | Middleware | Async | Product behavior   | Evidence       |
-| ------------------------------------- | --------- | --------: | ------ | -------- | ---------- | ----: | ------------------ | -------------- |
-| Express fixture product-run app       | Express   | Supported | simple | text     | none       |    no | snapshot + restore | Proofs 721–760 |
-| Fastify fixture product-run app       | Fastify   | Supported | simple | text     | none       |    no | snapshot + restore | Proofs 721–760 |
-| Express official hello-world template | Express   | Supported | simple | text     | none       |    no | snapshot + restore | Proofs 801–840 |
-| Express generator router template     | Express   | Supported | router | text     | pure JS    |    no | snapshot + restore | Proofs 801–840 |
-| Fastify getting-started template      | Fastify   | Supported | simple | text     | none       |   yes | snapshot + restore | Proofs 801–840 |
-| Fastify plugin-route template         | Fastify   | Supported | plugin | text     | pure JS    |   yes | snapshot + restore | Proofs 801–840 |
-| Installed Express hello-world app     | Express   | Supported | simple | text     | none       |    no | snapshot + restore | Proofs 841–880 |
-| Installed Express router app          | Express   | Supported | router | text     | pure JS    |    no | snapshot + restore | Proofs 841–880 |
-| Installed Fastify getting-started app | Fastify   | Supported | simple | text     | none       |   yes | snapshot + restore | Proofs 841–880 |
-| Installed Fastify plugin-route app    | Fastify   | Supported | plugin | text     | pure JS    |   yes | snapshot + restore | Proofs 841–880 |
+| App row                               | Framework |    Status | Route  | Response | Middleware | Async | Product behavior   | Evidence        |
+| ------------------------------------- | --------- | --------: | ------ | -------- | ---------- | ----: | ------------------ | --------------- |
+| Express fixture product-run app       | Express   | Supported | simple | text     | none       |    no | snapshot + restore | Proofs 721–760  |
+| Fastify fixture product-run app       | Fastify   | Supported | simple | text     | none       |    no | snapshot + restore | Proofs 721–760  |
+| Express official hello-world template | Express   | Supported | simple | text     | none       |    no | snapshot + restore | Proofs 801–840  |
+| Express generator router template     | Express   | Supported | router | text     | pure JS    |    no | snapshot + restore | Proofs 801–840  |
+| Fastify getting-started template      | Fastify   | Supported | simple | text     | none       |   yes | snapshot + restore | Proofs 801–840  |
+| Fastify plugin-route template         | Fastify   | Supported | plugin | text     | pure JS    |   yes | snapshot + restore | Proofs 801–840  |
+| Installed Express hello-world app     | Express   | Supported | simple | text     | none       |    no | snapshot + restore | Proofs 841–880  |
+| Installed Express router app          | Express   | Supported | router | text     | pure JS    |    no | snapshot + restore | Proofs 841–880  |
+| Installed Express JSON response app   | Express   | Supported | simple | JSON     | none       |    no | snapshot + restore | Proofs 961–1000 |
+| Installed Express route params app    | Express   | Supported | simple | text     | none       |    no | snapshot + restore | Proofs 961–1000 |
+| Installed Express query string app    | Express   | Supported | simple | text     | none       |    no | snapshot + restore | Proofs 961–1000 |
+| Installed Express static asset app    | Express   | Supported | simple | text     | pure JS    |    no | snapshot + restore | Proofs 961–1000 |
+| Installed Fastify getting-started app | Fastify   | Supported | simple | text     | none       |   yes | snapshot + restore | Proofs 841–880  |
+| Installed Fastify plugin-route app    | Fastify   | Supported | plugin | text     | pure JS    |   yes | snapshot + restore | Proofs 841–880  |
+| Installed Fastify JSON response app   | Fastify   | Supported | simple | JSON     | none       |   yes | snapshot + restore | Proofs 961–1000 |
+| Installed Fastify route params app    | Fastify   | Supported | simple | text     | none       |   yes | snapshot + restore | Proofs 961–1000 |
+| Installed Fastify query string app    | Fastify   | Supported | simple | text     | none       |   yes | snapshot + restore | Proofs 961–1000 |
+| Installed Fastify static asset app    | Fastify   | Supported | simple | text     | pure JS    |   yes | snapshot + restore | Proofs 961–1000 |
 
 ## Refused app rows
 
@@ -45,10 +53,6 @@ These rows are intentionally visible in the matrix as `not-proven`; they are not
 
 | Feature gap               | Frameworks      |     Status | Next evidence needed                   |
 | ------------------------- | --------------- | ---------: | -------------------------------------- |
-| JSON response app         | Express/Fastify | Not proven | Product corpus row + behavioral report |
-| Dynamic route params app  | Express/Fastify | Not proven | Product corpus row + behavioral report |
-| Query string app          | Express/Fastify | Not proven | Product corpus row + behavioral report |
-| Static asset app          | Express/Fastify | Not proven | Product corpus row + filesystem checks |
 | External network / DB app | Express/Fastify | Not proven | Detector/refusal policy before support |
 | Background task app       | Express/Fastify | Not proven | Detector/refusal policy before support |
 

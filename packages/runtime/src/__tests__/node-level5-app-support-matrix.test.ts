@@ -28,7 +28,7 @@ describe("Node Level 5 app support matrix", () => {
         "fastify-installed-plugin-route",
         "express-websockets",
         "fastify-native-addons",
-        "express-json-response-not-proven",
+        "express-installed-json-response",
         "fastify-background-tasks-not-proven",
       ]),
     );
@@ -37,7 +37,7 @@ describe("Node Level 5 app support matrix", () => {
   it("marks positive app rows supported only for the declared idle HTTP subset", () => {
     const rows = supportedNodeLevel5AppSupportRows();
 
-    expect(rows).toHaveLength(10);
+    expect(rows).toHaveLength(18);
     expect(rows.every((row) => row.status === "supported")).toBe(true);
     expect(rows.every((row) => row.supportScope === "declared-subset-idle-http")).toBe(true);
     expect(rows.every((row) => row.directions.includes("arm64-to-amd64"))).toBe(true);
@@ -51,6 +51,9 @@ describe("Node Level 5 app support matrix", () => {
     const rows = supportedNodeLevel5AppSupportRows();
     const fastifyPlugin = rows.find((row) => row.id === "fastify-installed-plugin-route");
     const expressRouter = rows.find((row) => row.id === "express-installed-router");
+    const expressJson = rows.find((row) => row.id === "express-installed-json-response");
+    const fastifyQuery = rows.find((row) => row.id === "fastify-installed-query-string");
+    const expressStatic = rows.find((row) => row.id === "express-installed-static-asset");
 
     expect(fastifyPlugin?.features).toMatchObject({
       asyncHandler: true,
@@ -61,6 +64,9 @@ describe("Node Level 5 app support matrix", () => {
     expect(fastifyPlugin?.featureAssessment.asyncHandler).toBe("supported");
     expect(expressRouter?.features.route).toBe("router-route");
     expect(expressRouter?.featureAssessment.params).toBe("not-proven");
+    expect(expressJson?.featureAssessment.response).toBe("supported");
+    expect(fastifyQuery?.featureAssessment.query).toBe("supported");
+    expect(expressStatic?.featureAssessment.staticAssets).toBe("supported");
   });
 
   it("marks unsupported live-state app rows as refused before snapshot", () => {
@@ -78,12 +84,15 @@ describe("Node Level 5 app support matrix", () => {
   it("keeps unproven feature dimensions visible without turning them into claims", () => {
     const rows = notProvenNodeLevel5AppSupportRows();
 
-    expect(rows).toHaveLength(12);
+    expect(rows).toHaveLength(4);
     expect(rows.every((row) => row.status === "not-proven")).toBe(true);
     expect(rows.every((row) => row.productBehavior === "not-proven")).toBe(true);
     expect(rows.every((row) => row.evidence.kind === "matrix-gap")).toBe(true);
     expect(rows.map((row) => row.id)).toEqual(
-      expect.arrayContaining(["express-query-not-proven", "fastify-static-assets-not-proven"]),
+      expect.arrayContaining([
+        "express-external-network-not-proven",
+        "fastify-background-tasks-not-proven",
+      ]),
     );
   });
 
