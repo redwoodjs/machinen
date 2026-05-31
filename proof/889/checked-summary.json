@@ -13,9 +13,6 @@
   "nodeProductSupportClaimed": 80,
   "broadNodeProductSupportClaimed": 20,
   "arbitraryProcessCrossArchRestoreClaimed": 0,
-  "ids": [
-    "express-fixture-product-run",
-    "fastify-fixture-product-run"
-  ],
+  "ids": ["express-fixture-product-run", "fastify-fixture-product-run"],
   "allPresent": true
 }

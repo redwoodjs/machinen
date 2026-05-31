@@ -13,9 +13,6 @@
   "nodeProductSupportClaimed": 80,
   "broadNodeProductSupportClaimed": 20,
   "arbitraryProcessCrossArchRestoreClaimed": 0,
-  "ids": [
-    "express-official-hello-world",
-    "fastify-plugin-route"
-  ],
+  "ids": ["express-official-hello-world", "fastify-plugin-route"],
   "allPresent": true
 }
