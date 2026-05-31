@@ -1,4 +1,3 @@
-import { spawn, type ChildProcess } from "node:child_process";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -19,7 +18,12 @@ import {
   nodeLevel5RealAppCorpusDirections,
   nodeLevel5RealAppCorpusFrameworks,
   parseNodeLevel5RealAppCorpusOutArgs,
+  nodeLevel5HttpServerSourceForRoutes,
   runNodeLevel5RealAppCorpusCliJson,
+  runNodeLevel5SnapshotRestoreForApp,
+  selectedNodeLevel5BehavioralHeaders,
+  spawnNodeLevel5RealAppCorpusTarget,
+  stopNodeLevel5RealAppCorpusTarget,
   writeNodeLevel5RealAppFixturePackageJson,
 } from "./node-level5-real-app-corpus-script-utils.ts";
 
@@ -99,20 +103,17 @@ function runFixtureProductCommands(
 ): NodeLevel5RealAppCorpusRow {
   const appDir = fixtureAppDir(outDir, framework, direction);
   const snapshotDir = join(outDir, "snapshots", framework, direction);
-  const child = spawnTarget(appDir);
+  const child = spawnNodeLevel5RealAppCorpusTarget(appDir);
   try {
-    const snapshot = runNodeLevel5RealAppCorpusCliJson(
-      ["snapshot", "node", String(child.pid), "--out", snapshotDir, "--json"],
-      { cwd: appDir, direction },
-    ) as NodeLevel5ProductSnapshotSummary;
-    const restore = runNodeLevel5RealAppCorpusCliJson([
-      "restore",
+    const { snapshot, restore } = runNodeLevel5SnapshotRestoreForApp({
+      child,
+      appDir,
       snapshotDir,
-      "--json",
-    ]) as NodeLevel5ProductRestoreSummary;
+      direction,
+    });
     return rowFromProductRun(framework, direction, snapshot, restore);
   } finally {
-    stopTarget(child);
+    stopNodeLevel5RealAppCorpusTarget(child);
   }
 }
 
@@ -132,7 +133,7 @@ function rowFromProductRun(
     expectedBody: report.expectedBody,
     actualBody: verifierBody(report),
     expectedHeaders: report.expectedHeaders ?? {},
-    actualHeaders: selectedHeaders(report),
+    actualHeaders: selectedNodeLevel5BehavioralHeaders(report),
     snapshotAccepted: snapshot.accepted,
     restoreAccepted: restore.accepted,
     behavioralVerifierPassed: restore.behavioralVerifierPassed,
@@ -153,18 +154,6 @@ function productRunTargetNativeVerified(
   report: NodeLevel5ProductBehavioralVerifierReport,
 ): boolean {
   return restore.targetNativeNodeVerified && report.targetNativeNodeVerified;
-}
-
-function selectedHeaders(
-  report: NodeLevel5ProductBehavioralVerifierReport,
-): Record<string, string> {
-  const actual = report.actualHeaders ?? {};
-  return Object.fromEntries(
-    Object.keys(report.expectedHeaders ?? {}).map((key) => [
-      key,
-      String(actual[key.toLowerCase()] ?? ""),
-    ]),
-  );
 }
 
 function fixtureAppDir(
@@ -209,34 +198,11 @@ function behaviorConfig(framework: NodeLevel5RealAppCorpusFramework): Record<str
 }
 
 function serverSource(input: ReturnType<typeof fixture>): string {
-  return `
-import http from "node:http";
-const port = Number(process.env.PORT ?? "0");
-const route = ${JSON.stringify(input.route)};
-const body = ${JSON.stringify(input.body)};
-const server = http.createServer((request, response) => {
-  if (request.url !== route) {
-    response.writeHead(404);
-    response.end("not-found");
-    return;
-  }
-  response.writeHead(${input.status}, { "x-machinen-fixture": ${JSON.stringify(input.headerValue)} });
-  response.end(body);
-});
-server.listen(port, "127.0.0.1");
-`;
-}
-
-function spawnTarget(cwd: string): ChildProcess {
-  return spawn(process.execPath, ["server.mjs"], {
-    cwd,
-    env: { ...process.env, PORT: "0" },
-    stdio: "ignore",
+  return nodeLevel5HttpServerSourceForRoutes({
+    headerName: "x-machinen-fixture",
+    headerValue: input.headerValue,
+    routes: [{ path: input.route, body: input.body }],
   });
-}
-
-function stopTarget(child: ChildProcess): void {
-  child.kill("SIGTERM");
 }
 
 function parseArgs(args: string[]): { outDir: string; json: boolean } {

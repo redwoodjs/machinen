@@ -1,0 +1,17 @@
+{
+  "kind": "machinen.node-level5-app-support-matrix-proof-summary",
+  "proof": "918",
+  "goal": "Support matrix final audit",
+  "result": "The app support matrix composes existing corpus evidence without broadening claims.",
+  "status": "node-product-support-80-app-support-matrix",
+  "productSurface": [
+    "machinen node-level5 support-matrix --json",
+    "machinen snapshot node <pid> --out <dir>",
+    "machinen restore <snapshot>"
+  ],
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "cliSurface": "machinen node-level5 support-matrix --json"
+}

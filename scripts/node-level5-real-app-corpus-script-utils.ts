@@ -1,10 +1,15 @@
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync, type ChildProcess, type SpawnSyncReturns } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import type { NodeLevel5ProductSnapshotDirection } from "../packages/runtime/src/node-level5-product-snapshot.ts";
+import type {
+  NodeLevel5ProductBehavioralVerifierReport,
+  NodeLevel5ProductRestoreSummary,
+  NodeLevel5ProductSnapshotDirection,
+  NodeLevel5ProductSnapshotSummary,
+} from "../packages/runtime/src/node-level5-product-snapshot.ts";
 import type { NodeLevel5RealAppCorpusFramework } from "../packages/runtime/src/node-level5-real-app-corpus.ts";
 
 export const nodeLevel5RealAppCorpusRepoRoot = resolve(
@@ -56,7 +61,7 @@ export function runNodeLevel5RealAppCorpusCliJson(
 function runNodeLevel5RealAppCorpusCli(
   args: string[],
   options: { cwd?: string; direction?: NodeLevel5ProductSnapshotDirection },
-): ReturnType<typeof spawnSync> {
+): SpawnSyncReturns<string> {
   return spawnSync(
     process.execPath,
     ["--import", nodeLevel5RealAppCorpusTsxLoaderPath, nodeLevel5RealAppCorpusCliPath, ...args],
@@ -70,7 +75,7 @@ function runNodeLevel5RealAppCorpusCli(
 
 function assertNodeLevel5RealAppCorpusCliStatus(
   args: string[],
-  result: ReturnType<typeof spawnSync>,
+  result: SpawnSyncReturns<string>,
   expectedStatus: number,
 ): void {
   if (result.status !== expectedStatus) {
@@ -86,6 +91,74 @@ function nodeLevel5RealAppCorpusCliEnv(
   return direction
     ? { ...process.env, MACHINEN_NODE_LEVEL5_PRODUCT_SNAPSHOT_DIRECTION: direction }
     : { ...process.env };
+}
+
+export function runNodeLevel5SnapshotRestoreForApp(input: {
+  child: ChildProcess;
+  appDir: string;
+  snapshotDir: string;
+  direction: NodeLevel5ProductSnapshotDirection;
+}): {
+  snapshot: NodeLevel5ProductSnapshotSummary;
+  restore: NodeLevel5ProductRestoreSummary;
+} {
+  const snapshot = runNodeLevel5RealAppCorpusCliJson(
+    ["snapshot", "node", String(input.child.pid), "--out", input.snapshotDir, "--json"],
+    { cwd: input.appDir, direction: input.direction },
+  ) as NodeLevel5ProductSnapshotSummary;
+  const restore = runNodeLevel5RealAppCorpusCliJson([
+    "restore",
+    input.snapshotDir,
+    "--json",
+  ]) as NodeLevel5ProductRestoreSummary;
+  return { snapshot, restore };
+}
+
+export function selectedNodeLevel5BehavioralHeaders(
+  report: NodeLevel5ProductBehavioralVerifierReport,
+): Record<string, string> {
+  const actual = report.actualHeaders ?? {};
+  return Object.fromEntries(
+    Object.keys(report.expectedHeaders ?? {}).map((key) => [
+      key,
+      String(actual[key.toLowerCase()] ?? ""),
+    ]),
+  );
+}
+
+export function nodeLevel5HttpServerSourceForRoutes(input: {
+  headerName: string;
+  headerValue: string;
+  routes: Array<{ path: string; body: string }>;
+}): string {
+  return `
+import http from "node:http";
+const port = Number(process.env.PORT ?? "0");
+const routes = new Map(${JSON.stringify(input.routes.map((route) => [route.path, route.body]))});
+const server = http.createServer((request, response) => {
+  const body = routes.get(request.url ?? "");
+  if (!body) {
+    response.writeHead(404);
+    response.end("not-found");
+    return;
+  }
+  response.writeHead(200, { [${JSON.stringify(input.headerName)}]: ${JSON.stringify(input.headerValue)} });
+  response.end(body);
+});
+server.listen(port, "127.0.0.1");
+`;
+}
+
+export function spawnNodeLevel5RealAppCorpusTarget(cwd: string): ChildProcess {
+  return spawn(process.execPath, ["server.mjs"], {
+    cwd,
+    env: { ...process.env, PORT: "0" },
+    stdio: "ignore",
+  });
+}
+
+export function stopNodeLevel5RealAppCorpusTarget(child: ChildProcess): void {
+  child.kill("SIGTERM");
 }
 
 export function isNodeLevel5RealAppCorpusMain(metaUrl: string): boolean {

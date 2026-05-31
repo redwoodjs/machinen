@@ -17,7 +17,15 @@
     "tlsActiveState",
     "childProcesses",
     "filesystemWatchers",
-    "websockets"
+    "websockets",
+    "dbConnections",
+    "redisQueueConnections",
+    "outboundHttpSockets",
+    "http2Sessions",
+    "serverSentEvents",
+    "openWritableFiles",
+    "timersIntervals",
+    "clusterMode"
   ],
   "refusedBeforeSnapshot": true
 }

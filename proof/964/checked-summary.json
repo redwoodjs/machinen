@@ -1,0 +1,13 @@
+{
+  "kind": "machinen.node-level5-installed-feature-corpus-proof-summary",
+  "proof": "964",
+  "goal": "Installed feature corpus generator contract",
+  "result": "The installed corpus now includes selected feature app rows and release-gates them.",
+  "status": "node-product-support-80-installed-feature-corpus",
+  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "installedThirdPartyAppReportWritten": true
+}
