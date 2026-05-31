@@ -1,0 +1,14 @@
+{
+  "kind": "machinen.node-level5-installed-feature-corpus-proof-summary",
+  "proof": "987",
+  "goal": "Feature support matrix reconciliation",
+  "result": "The app support matrix marks proven feature rows supported and leaves hard gaps unclaimed.",
+  "status": "supported",
+  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "feature": "query",
+  "rowCount": 2
+}

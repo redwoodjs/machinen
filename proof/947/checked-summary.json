@@ -1,0 +1,15 @@
+{
+  "kind": "machinen.node-level5-app-support-matrix-dimensions-proof-summary",
+  "proof": "947",
+  "goal": "Not-proven app feature gaps",
+  "result": "The matrix exposes unproven app features without turning them into support claims.",
+  "status": "node-product-support-80-app-support-matrix-dimensions",
+  "productSurface": ["machinen node-level5 support-matrix --json"],
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "id": "query",
+  "rowCount": 0,
+  "allNotProven": true
+}

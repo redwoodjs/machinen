@@ -242,6 +242,7 @@ export {
   NODE_LEVEL5_APP_SUPPORT_MATRIX_KIND,
   NODE_LEVEL5_APP_SUPPORT_MATRIX_VERSION,
   buildNodeLevel5AppSupportMatrix,
+  notProvenNodeLevel5AppSupportRows,
   refusedNodeLevel5AppSupportRows,
   supportedNodeLevel5AppSupportRows,
 } from "./node-level5-app-support-matrix.ts";
@@ -411,10 +412,17 @@ export type {
   NodeLevel5AppSupportDirection,
   NodeLevel5AppSupportEvidence,
   NodeLevel5AppSupportEvidenceKind,
+  NodeLevel5AppSupportFeatureAssessment,
+  NodeLevel5AppSupportFeatureName,
+  NodeLevel5AppSupportFeatureStatus,
+  NodeLevel5AppSupportFeatures,
   NodeLevel5AppSupportFramework,
+  NodeLevel5AppSupportMiddlewareFeature,
   NodeLevel5AppSupportMatrix,
   NodeLevel5AppSupportMatrixRow,
   NodeLevel5AppSupportProductBehavior,
+  NodeLevel5AppSupportResponseFeature,
+  NodeLevel5AppSupportRouteFeature,
   NodeLevel5AppSupportStatus,
 } from "./node-level5-app-support-matrix.ts";
 export type { NodeLevel5CorpusHttpEvidence } from "./node-level5-corpus-common.ts";

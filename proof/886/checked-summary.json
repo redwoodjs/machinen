@@ -13,5 +13,5 @@
   "nodeProductSupportClaimed": 80,
   "broadNodeProductSupportClaimed": 20,
   "arbitraryProcessCrossArchRestoreClaimed": 0,
-  "statuses": ["refused", "supported"]
+  "statuses": ["not-proven", "refused", "supported"]
 }
