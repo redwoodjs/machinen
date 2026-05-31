@@ -87,6 +87,8 @@ export type NodeLevel5ProductTargetIdentity = {
   refusal?: NodeLevel5ProductSnapshotRefusal;
 };
 
+export type NodeLevel5ProductDetectedFeature = "safe-idle-timer";
+
 export type NodeLevel5ProductDetectorReport = {
   kind: typeof NODE_LEVEL5_PRODUCT_DETECTOR_REPORT_KIND;
   accepted: boolean;
@@ -94,6 +96,7 @@ export type NodeLevel5ProductDetectorReport = {
   familyId?: NodeLevel5ProductSupport80FamilyId;
   direction: NodeLevel5ProductSnapshotDirection;
   detectedFramework?: "express" | "fastify";
+  detectedFeatures?: NodeLevel5ProductDetectedFeature[];
   refusal?: NodeLevel5ProductSnapshotRefusal;
   nodeProductSupportClaimed: 80;
   broadNodeProductSupportClaimed: 20;
@@ -293,6 +296,7 @@ export function detectNodeLevel5ProductSnapshotApp(input: {
     accepted: true,
     familyId: "express-fastify-http-app",
     detectedFramework: framework,
+    detectedFeatures: detectNodeLevel5ProductSnapshotFeatures(input.appDir),
   });
 }
 
@@ -762,7 +766,12 @@ function detectorReportBase(
   appDir: string,
   direction: NodeLevel5ProductSnapshotDirection,
   fields: Pick<NodeLevel5ProductDetectorReport, "accepted"> &
-    Partial<Pick<NodeLevel5ProductDetectorReport, "familyId" | "detectedFramework" | "refusal">>,
+    Partial<
+      Pick<
+        NodeLevel5ProductDetectorReport,
+        "familyId" | "detectedFramework" | "detectedFeatures" | "refusal"
+      >
+    >,
 ): NodeLevel5ProductDetectorReport {
   return {
     kind: NODE_LEVEL5_PRODUCT_DETECTOR_REPORT_KIND,
@@ -773,6 +782,13 @@ function detectorReportBase(
     arbitraryProcessCrossArchRestoreClaimed: 0,
     ...fields,
   };
+}
+
+function detectNodeLevel5ProductSnapshotFeatures(
+  appDir: string,
+): NodeLevel5ProductDetectedFeature[] {
+  const markers = readDetectorMarkers(appDir);
+  return markers.safeIdleTimer === true ? ["safe-idle-timer"] : [];
 }
 
 function detectSupportedFramework(appDir: string): "express" | "fastify" | undefined {

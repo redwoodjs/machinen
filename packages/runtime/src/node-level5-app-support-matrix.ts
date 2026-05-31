@@ -232,6 +232,12 @@ function installedRows(): NodeLevel5AppSupportMatrixRow[] {
       framework: "express",
       features: staticAssetFeatures(false),
     }),
+    installedIdleTimerRow({
+      id: "express-installed-idle-timer",
+      appName: "Installed Express idle timer app",
+      framework: "express",
+      features: idleTimerFeatures(false),
+    }),
     installedRow({
       id: "fastify-installed-getting-started",
       appName: "Installed Fastify getting-started app",
@@ -267,6 +273,12 @@ function installedRows(): NodeLevel5AppSupportMatrixRow[] {
       appName: "Installed Fastify static asset app",
       framework: "fastify",
       features: staticAssetFeatures(true),
+    }),
+    installedIdleTimerRow({
+      id: "fastify-installed-idle-timer",
+      appName: "Installed Fastify idle timer app",
+      framework: "fastify",
+      features: idleTimerFeatures(true),
     }),
   ];
 }
@@ -319,6 +331,15 @@ function installedFeatureRow(input: {
   features: NodeLevel5AppSupportFeatures;
 }): NodeLevel5AppSupportMatrixRow {
   return installedSupportRow(input, "961-1000");
+}
+
+function installedIdleTimerRow(input: {
+  id: string;
+  appName: string;
+  framework: NodeLevel5AppSupportFramework;
+  features: NodeLevel5AppSupportFeatures;
+}): NodeLevel5AppSupportMatrixRow {
+  return installedSupportRow(input, "1121-1160");
 }
 
 function installedSupportRow(
@@ -473,6 +494,14 @@ function staticAssetFeatures(asyncHandler: boolean): NodeLevel5AppSupportFeature
     ...baseFeatures({ route: "simple-route", response: "text", middleware: "pure-js" }),
     asyncHandler,
     staticAssets: true,
+  };
+}
+
+function idleTimerFeatures(asyncHandler: boolean): NodeLevel5AppSupportFeatures {
+  return {
+    ...baseFeatures({ route: "simple-route", response: "text", middleware: "none" }),
+    asyncHandler,
+    backgroundTasks: true,
   };
 }
 

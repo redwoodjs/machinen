@@ -278,6 +278,7 @@ const TOC = {
     "writeNodeLevel5RealAppCorpusReport",
     "NodeLevel5ProductBehavioralVerifierReport",
     "NodeLevel5ProductCaptureReport",
+    "NodeLevel5ProductDetectedFeature",
     "NodeLevel5ProductDetectorReport",
     "NodeLevel5ProductRestoreLaunchReport",
     "NodeLevel5ProductRestoreMaterializationReport",

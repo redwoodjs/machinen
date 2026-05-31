@@ -257,6 +257,7 @@
 - [`writeNodeLevel5RealAppCorpusReport`](#writenodelevel5realappcorpusreport)
 - [`NodeLevel5ProductBehavioralVerifierReport`](#nodelevel5productbehavioralverifierreport)
 - [`NodeLevel5ProductCaptureReport`](#nodelevel5productcapturereport)
+- [`NodeLevel5ProductDetectedFeature`](#nodelevel5productdetectedfeature)
 - [`NodeLevel5ProductDetectorReport`](#nodelevel5productdetectorreport)
 - [`NodeLevel5ProductRestoreLaunchReport`](#nodelevel5productrestorelaunchreport)
 - [`NodeLevel5ProductRestoreMaterializationReport`](#nodelevel5productrestorematerializationreport)
@@ -22679,7 +22680,7 @@ Poll interval in ms while retrying. Default 250.
 
 ### NodeLevel5InstalledThirdPartyAppSource
 
-> **NodeLevel5InstalledThirdPartyAppSource** = `"express-installed-hello-world"` \| `"express-installed-router"` \| `"express-installed-json-response"` \| `"express-installed-route-params"` \| `"express-installed-query-string"` \| `"express-installed-static-asset"` \| `"fastify-installed-getting-started"` \| `"fastify-installed-plugin-route"` \| `"fastify-installed-json-response"` \| `"fastify-installed-route-params"` \| `"fastify-installed-query-string"` \| `"fastify-installed-static-asset"`
+> **NodeLevel5InstalledThirdPartyAppSource** = `"express-installed-hello-world"` \| `"express-installed-router"` \| `"express-installed-json-response"` \| `"express-installed-route-params"` \| `"express-installed-query-string"` \| `"express-installed-static-asset"` \| `"express-installed-idle-timer"` \| `"fastify-installed-getting-started"` \| `"fastify-installed-plugin-route"` \| `"fastify-installed-json-response"` \| `"fastify-installed-route-params"` \| `"fastify-installed-query-string"` \| `"fastify-installed-static-asset"` \| `"fastify-installed-idle-timer"`
 
 ***
 
@@ -22887,6 +22888,12 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NodeLevel5ProductDetectedFeature
+
+> **NodeLevel5ProductDetectedFeature** = `"safe-idle-timer"`
+
+***
+
 ### NodeLevel5ProductDetectorReport
 
 > **NodeLevel5ProductDetectorReport** = `object`
@@ -22916,6 +22923,10 @@ Poll interval in ms while retrying. Default 250.
 ##### detectedFramework?
 
 > `optional` **detectedFramework?**: `"express"` \| `"fastify"`
+
+##### detectedFeatures?
+
+> `optional` **detectedFeatures?**: [`NodeLevel5ProductDetectedFeature`](#nodelevel5productdetectedfeature)[]
 
 ##### refusal?
 

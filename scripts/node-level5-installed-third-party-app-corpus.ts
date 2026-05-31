@@ -141,6 +141,18 @@ const installedThirdPartyApps: InstalledThirdPartyAppDefinition[] = [
     serverSource: expressStaticAssetSource,
   },
   {
+    appName: "express-installed-idle-timer",
+    source: "express-installed-idle-timer",
+    framework: "express",
+    routePath: "/timer/status",
+    body: "installed express idle timer active",
+    headerValue: "express-installed-idle-timer",
+    installedPackage: "express",
+    installedPackageVersion: installedThirdPartyPackageVersions.express,
+    dependencies: { express: `^${installedThirdPartyPackageVersions.express}` },
+    serverSource: expressIdleTimerSource,
+  },
+  {
     appName: "fastify-installed-getting-started",
     source: "fastify-installed-getting-started",
     framework: "fastify",
@@ -199,6 +211,18 @@ const installedThirdPartyApps: InstalledThirdPartyAppDefinition[] = [
     installedPackageVersion: installedThirdPartyPackageVersions.fastify,
     dependencies: { fastify: `^${installedThirdPartyPackageVersions.fastify}` },
     serverSource: fastifyStaticAssetSource,
+  },
+  {
+    appName: "fastify-installed-idle-timer",
+    source: "fastify-installed-idle-timer",
+    framework: "fastify",
+    routePath: "/timer/status",
+    body: "installed fastify idle timer active",
+    headerValue: "fastify-installed-idle-timer",
+    installedPackage: "fastify",
+    installedPackageVersion: installedThirdPartyPackageVersions.fastify,
+    dependencies: { fastify: `^${installedThirdPartyPackageVersions.fastify}` },
+    serverSource: fastifyIdleTimerSource,
   },
   {
     appName: "fastify-installed-plugin-route",
@@ -311,6 +335,7 @@ function appDirFor(
   );
   linkInstalledNodeModules(appDir);
   writeStaticAssetFixture(appDir, app);
+  writeSafeIdleTimerDetectorFixture(appDir, app);
   writeFileSync(join(appDir, "server.mjs"), app.serverSource(app));
   writeFileSync(
     join(appDir, "machinen-node-level5-behavior.json"),
@@ -326,6 +351,19 @@ function writeStaticAssetFixture(appDir: string, app: InstalledThirdPartyAppDefi
   const publicDir = join(appDir, "public");
   mkdirSync(publicDir, { recursive: true });
   writeFileSync(join(publicDir, "message.txt"), app.body);
+}
+
+function writeSafeIdleTimerDetectorFixture(
+  appDir: string,
+  app: InstalledThirdPartyAppDefinition,
+): void {
+  if (!app.source.endsWith("idle-timer")) {
+    return;
+  }
+  writeFileSync(
+    join(appDir, "machinen-node-level5-detector.json"),
+    `${JSON.stringify({ safeIdleTimer: true }, null, 2)}\n`,
+  );
 }
 
 function linkInstalledNodeModules(appDir: string): void {
@@ -472,6 +510,22 @@ app.listen(port, "127.0.0.1");
 `;
 }
 
+function expressIdleTimerSource(app: InstalledThirdPartyAppDefinition): string {
+  return `
+import express from "express";
+const app = express();
+const port = Number(process.env.PORT ?? "0");
+let ticks = 0;
+const timer = setInterval(() => { ticks += 1; }, 25);
+timer.unref();
+app.get(${JSON.stringify(app.routePath)}, (_request, response) => {
+  response.set("x-machinen-installed-third-party-app", ${JSON.stringify(app.headerValue)});
+  response.status(200).send(ticks > 0 ? ${JSON.stringify(app.body)} : "timer-not-active");
+});
+app.listen(port, "127.0.0.1");
+`;
+}
+
 function fastifyGettingStartedSource(app: InstalledThirdPartyAppDefinition): string {
   return `
 import Fastify from "fastify";
@@ -533,6 +587,22 @@ const port = Number(process.env.PORT ?? "0");
 server.get(${JSON.stringify(app.routePath)}, async (_request, reply) => {
   reply.header("x-machinen-installed-third-party-app", ${JSON.stringify(app.headerValue)});
   return await readFile("public/message.txt", "utf8");
+});
+await server.listen({ port, host: "127.0.0.1" });
+`;
+}
+
+function fastifyIdleTimerSource(app: InstalledThirdPartyAppDefinition): string {
+  return `
+import Fastify from "fastify";
+const server = Fastify({ logger: false });
+const port = Number(process.env.PORT ?? "0");
+let ticks = 0;
+const timer = setInterval(() => { ticks += 1; }, 25);
+timer.unref();
+server.get(${JSON.stringify(app.routePath)}, async (_request, reply) => {
+  reply.header("x-machinen-installed-third-party-app", ${JSON.stringify(app.headerValue)});
+  return ticks > 0 ? ${JSON.stringify(app.body)} : "timer-not-active";
 });
 await server.listen({ port, host: "127.0.0.1" });
 `;

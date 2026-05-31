@@ -19,7 +19,7 @@ describe("Node Level 5 app support matrix", () => {
       broadNodeProductSupportClaimed: 20,
       arbitraryProcessCrossArchRestoreClaimed: 0,
     });
-    expect(matrix.rowCount).toBe(54);
+    expect(matrix.rowCount).toBe(56);
     expect(matrix.rows.map((row) => row.id)).toEqual(
       expect.arrayContaining([
         "express-fixture-product-run",
@@ -32,6 +32,7 @@ describe("Node Level 5 app support matrix", () => {
         "fastify-background-tasks-not-proven",
         "express-db-connections",
         "fastify-cluster-mode",
+        "express-installed-idle-timer",
       ]),
     );
   });
@@ -39,7 +40,7 @@ describe("Node Level 5 app support matrix", () => {
   it("marks positive app rows supported only for the declared idle HTTP subset", () => {
     const rows = supportedNodeLevel5AppSupportRows();
 
-    expect(rows).toHaveLength(18);
+    expect(rows).toHaveLength(20);
     expect(rows.every((row) => row.status === "supported")).toBe(true);
     expect(rows.every((row) => row.supportScope === "declared-subset-idle-http")).toBe(true);
     expect(rows.every((row) => row.directions.includes("arm64-to-amd64"))).toBe(true);
@@ -56,6 +57,7 @@ describe("Node Level 5 app support matrix", () => {
     const expressJson = rows.find((row) => row.id === "express-installed-json-response");
     const fastifyQuery = rows.find((row) => row.id === "fastify-installed-query-string");
     const expressStatic = rows.find((row) => row.id === "express-installed-static-asset");
+    const fastifyIdleTimer = rows.find((row) => row.id === "fastify-installed-idle-timer");
 
     expect(fastifyPlugin?.features).toMatchObject({
       asyncHandler: true,
@@ -69,6 +71,7 @@ describe("Node Level 5 app support matrix", () => {
     expect(expressJson?.featureAssessment.response).toBe("supported");
     expect(fastifyQuery?.featureAssessment.query).toBe("supported");
     expect(expressStatic?.featureAssessment.staticAssets).toBe("supported");
+    expect(fastifyIdleTimer?.featureAssessment.backgroundTasks).toBe("supported");
   });
 
   it("marks unsupported live-state app rows as refused before snapshot", () => {
