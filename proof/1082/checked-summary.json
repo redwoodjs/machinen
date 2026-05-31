@@ -1,0 +1,14 @@
+{
+  "kind": "machinen.node-level5-matrix-drift-guard-proof-summary",
+  "proof": "1082",
+  "goal": "Matrix row identity drift guard",
+  "result": "Matrix row IDs and counts stay stable.",
+  "status": "node-product-support-80-proof-only-matrix-drift-guard",
+  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <dir>"],
+  "proofOnly": true,
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "rowCount": 54
+}
