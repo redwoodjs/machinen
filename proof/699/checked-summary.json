@@ -1,0 +1,13 @@
+{
+  "kind": "machinen.node-level5-real-app-corpus-release-gate-proof-summary",
+  "proof": "699",
+  "goal": "Retained corpus report verification",
+  "result": "Corpus hashes, missing files, and tamper cases are checked.",
+  "status": "node-product-support-80-real-app-corpus-release-gate",
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
+  "accepted": false
+}
