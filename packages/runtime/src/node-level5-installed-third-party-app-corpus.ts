@@ -20,13 +20,15 @@ export type NodeLevel5InstalledThirdPartyAppSource =
   | "express-installed-query-string"
   | "express-installed-static-asset"
   | "express-installed-idle-timer"
+  | "express-installed-safe-outbound-reconnect"
   | "fastify-installed-getting-started"
   | "fastify-installed-plugin-route"
   | "fastify-installed-json-response"
   | "fastify-installed-route-params"
   | "fastify-installed-query-string"
   | "fastify-installed-static-asset"
-  | "fastify-installed-idle-timer";
+  | "fastify-installed-idle-timer"
+  | "fastify-installed-safe-outbound-reconnect";
 
 export type NodeLevel5InstalledThirdPartyAppCorpusRow = NodeLevel5CorpusHttpEvidence & {
   appName: string;

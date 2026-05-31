@@ -82,6 +82,24 @@ describe("Node Level 5 product snapshot facade", () => {
     }
   });
 
+  it("detects selected safe outbound reconnect without accepting live outbound sockets", () => {
+    const source = appDir({ safeOutboundHttpReconnect: true });
+    const unsafe = appDir({ outboundHttpSockets: true });
+    try {
+      expect(detectNodeLevel5ProductSnapshotApp({ appDir: source })).toMatchObject({
+        accepted: true,
+        detectedFeatures: ["safe-outbound-http-reconnect"],
+      });
+      expect(detectNodeLevel5ProductSnapshotApp({ appDir: unsafe })).toMatchObject({
+        accepted: false,
+        refusal: { code: "node-level5-outbound-http-live-socket-refused" },
+      });
+    } finally {
+      rmSync(source, { recursive: true, force: true });
+      rmSync(unsafe, { recursive: true, force: true });
+    }
+  });
+
   it("refuses websocket live state before snapshot", () => {
     const outDir = mkdtempSync(join(tmpdir(), "machinen-node-product-websocket-refusal-"));
     const source = appDir({ websockets: true });

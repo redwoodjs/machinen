@@ -11,28 +11,30 @@ machinen restore <dir>
 
 ## Current app rows
 
-| App row                               | Framework |    Status | Route  | Response | Middleware | Async | Product behavior   | Evidence         |
-| ------------------------------------- | --------- | --------: | ------ | -------- | ---------- | ----: | ------------------ | ---------------- |
-| Express fixture product-run app       | Express   | Supported | simple | text     | none       |    no | snapshot + restore | Proofs 721–760   |
-| Fastify fixture product-run app       | Fastify   | Supported | simple | text     | none       |    no | snapshot + restore | Proofs 721–760   |
-| Express official hello-world template | Express   | Supported | simple | text     | none       |    no | snapshot + restore | Proofs 801–840   |
-| Express generator router template     | Express   | Supported | router | text     | pure JS    |    no | snapshot + restore | Proofs 801–840   |
-| Fastify getting-started template      | Fastify   | Supported | simple | text     | none       |   yes | snapshot + restore | Proofs 801–840   |
-| Fastify plugin-route template         | Fastify   | Supported | plugin | text     | pure JS    |   yes | snapshot + restore | Proofs 801–840   |
-| Installed Express hello-world app     | Express   | Supported | simple | text     | none       |    no | snapshot + restore | Proofs 841–880   |
-| Installed Express router app          | Express   | Supported | router | text     | pure JS    |    no | snapshot + restore | Proofs 841–880   |
-| Installed Express JSON response app   | Express   | Supported | simple | JSON     | none       |    no | snapshot + restore | Proofs 961–1000  |
-| Installed Express route params app    | Express   | Supported | simple | text     | none       |    no | snapshot + restore | Proofs 961–1000  |
-| Installed Express query string app    | Express   | Supported | simple | text     | none       |    no | snapshot + restore | Proofs 961–1000  |
-| Installed Express static asset app    | Express   | Supported | simple | text     | pure JS    |    no | snapshot + restore | Proofs 961–1000  |
-| Installed Express idle timer app      | Express   | Supported | simple | text     | none       |    no | snapshot + restore | Proofs 1121–1160 |
-| Installed Fastify getting-started app | Fastify   | Supported | simple | text     | none       |   yes | snapshot + restore | Proofs 841–880   |
-| Installed Fastify plugin-route app    | Fastify   | Supported | plugin | text     | pure JS    |   yes | snapshot + restore | Proofs 841–880   |
-| Installed Fastify JSON response app   | Fastify   | Supported | simple | JSON     | none       |   yes | snapshot + restore | Proofs 961–1000  |
-| Installed Fastify route params app    | Fastify   | Supported | simple | text     | none       |   yes | snapshot + restore | Proofs 961–1000  |
-| Installed Fastify query string app    | Fastify   | Supported | simple | text     | none       |   yes | snapshot + restore | Proofs 961–1000  |
-| Installed Fastify static asset app    | Fastify   | Supported | simple | text     | pure JS    |   yes | snapshot + restore | Proofs 961–1000  |
-| Installed Fastify idle timer app      | Fastify   | Supported | simple | text     | none       |   yes | snapshot + restore | Proofs 1121–1160 |
+| App row                                       | Framework |    Status | Route  | Response | Middleware | Async | Product behavior   | Evidence         |
+| --------------------------------------------- | --------- | --------: | ------ | -------- | ---------- | ----: | ------------------ | ---------------- |
+| Express fixture product-run app               | Express   | Supported | simple | text     | none       |    no | snapshot + restore | Proofs 721–760   |
+| Fastify fixture product-run app               | Fastify   | Supported | simple | text     | none       |    no | snapshot + restore | Proofs 721–760   |
+| Express official hello-world template         | Express   | Supported | simple | text     | none       |    no | snapshot + restore | Proofs 801–840   |
+| Express generator router template             | Express   | Supported | router | text     | pure JS    |    no | snapshot + restore | Proofs 801–840   |
+| Fastify getting-started template              | Fastify   | Supported | simple | text     | none       |   yes | snapshot + restore | Proofs 801–840   |
+| Fastify plugin-route template                 | Fastify   | Supported | plugin | text     | pure JS    |   yes | snapshot + restore | Proofs 801–840   |
+| Installed Express hello-world app             | Express   | Supported | simple | text     | none       |    no | snapshot + restore | Proofs 841–880   |
+| Installed Express router app                  | Express   | Supported | router | text     | pure JS    |    no | snapshot + restore | Proofs 841–880   |
+| Installed Express JSON response app           | Express   | Supported | simple | JSON     | none       |    no | snapshot + restore | Proofs 961–1000  |
+| Installed Express route params app            | Express   | Supported | simple | text     | none       |    no | snapshot + restore | Proofs 961–1000  |
+| Installed Express query string app            | Express   | Supported | simple | text     | none       |    no | snapshot + restore | Proofs 961–1000  |
+| Installed Express static asset app            | Express   | Supported | simple | text     | pure JS    |    no | snapshot + restore | Proofs 961–1000  |
+| Installed Express idle timer app              | Express   | Supported | simple | text     | none       |    no | snapshot + restore | Proofs 1121–1160 |
+| Installed Express safe outbound reconnect app | Express   | Supported | simple | text     | none       |    no | snapshot + restore | Proofs 1161–1200 |
+| Installed Fastify getting-started app         | Fastify   | Supported | simple | text     | none       |   yes | snapshot + restore | Proofs 841–880   |
+| Installed Fastify plugin-route app            | Fastify   | Supported | plugin | text     | pure JS    |   yes | snapshot + restore | Proofs 841–880   |
+| Installed Fastify JSON response app           | Fastify   | Supported | simple | JSON     | none       |   yes | snapshot + restore | Proofs 961–1000  |
+| Installed Fastify route params app            | Fastify   | Supported | simple | text     | none       |   yes | snapshot + restore | Proofs 961–1000  |
+| Installed Fastify query string app            | Fastify   | Supported | simple | text     | none       |   yes | snapshot + restore | Proofs 961–1000  |
+| Installed Fastify static asset app            | Fastify   | Supported | simple | text     | pure JS    |   yes | snapshot + restore | Proofs 961–1000  |
+| Installed Fastify idle timer app              | Fastify   | Supported | simple | text     | none       |   yes | snapshot + restore | Proofs 1121–1160 |
+| Installed Fastify safe outbound reconnect app | Fastify   | Supported | simple | text     | none       |   yes | snapshot + restore | Proofs 1161–1200 |
 
 ## Refused app rows
 
@@ -50,7 +52,7 @@ These rows are based on particular Express/Fastify refusal apps. Product behavio
 | Websocket                  | Express/Fastify | Refused | Proofs 761–800   |
 | DB connection              | Express/Fastify | Refused | Proofs 1001–1040 |
 | Redis/queue client         | Express/Fastify | Refused | Proofs 1001–1040 |
-| Outbound HTTP socket       | Express/Fastify | Refused | Proofs 1001–1040 |
+| Live outbound HTTP socket  | Express/Fastify | Refused | Proofs 1001–1040 |
 | HTTP/2 session             | Express/Fastify | Refused | Proofs 1001–1040 |
 | SSE stream                 | Express/Fastify | Refused | Proofs 1001–1040 |
 | Open writable file         | Express/Fastify | Refused | Proofs 1001–1040 |
@@ -61,10 +63,10 @@ These rows are based on particular Express/Fastify refusal apps. Product behavio
 
 These rows are intentionally visible in the matrix as `not-proven`; they are not support claims.
 
-| Feature gap                               | Frameworks      |     Status | Next evidence needed                                  |
-| ----------------------------------------- | --------------- | ---------: | ----------------------------------------------------- |
-| Safe external reconnect policy            | Express/Fastify | Not proven | Reconstruction design before support                  |
-| General background scheduler continuation | Express/Fastify | Not proven | Scheduler state model beyond selected idle timer rows |
+| Feature gap                               | Frameworks      |     Status | Next evidence needed                                     |
+| ----------------------------------------- | --------------- | ---------: | -------------------------------------------------------- |
+| General external reconnect/session policy | Express/Fastify | Not proven | Reconstruction design beyond selected safe outbound rows |
+| General background scheduler continuation | Express/Fastify | Not proven | Scheduler state model beyond selected idle timer rows    |
 
 ## Boundaries
 

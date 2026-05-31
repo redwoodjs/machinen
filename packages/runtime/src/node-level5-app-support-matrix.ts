@@ -238,6 +238,12 @@ function installedRows(): NodeLevel5AppSupportMatrixRow[] {
       framework: "express",
       features: idleTimerFeatures(false),
     }),
+    installedSafeOutboundReconnectRow({
+      id: "express-installed-safe-outbound-reconnect",
+      appName: "Installed Express safe outbound reconnect app",
+      framework: "express",
+      features: safeOutboundReconnectFeatures(false),
+    }),
     installedRow({
       id: "fastify-installed-getting-started",
       appName: "Installed Fastify getting-started app",
@@ -279,6 +285,12 @@ function installedRows(): NodeLevel5AppSupportMatrixRow[] {
       appName: "Installed Fastify idle timer app",
       framework: "fastify",
       features: idleTimerFeatures(true),
+    }),
+    installedSafeOutboundReconnectRow({
+      id: "fastify-installed-safe-outbound-reconnect",
+      appName: "Installed Fastify safe outbound reconnect app",
+      framework: "fastify",
+      features: safeOutboundReconnectFeatures(true),
     }),
   ];
 }
@@ -340,6 +352,15 @@ function installedIdleTimerRow(input: {
   features: NodeLevel5AppSupportFeatures;
 }): NodeLevel5AppSupportMatrixRow {
   return installedSupportRow(input, "1121-1160");
+}
+
+function installedSafeOutboundReconnectRow(input: {
+  id: string;
+  appName: string;
+  framework: NodeLevel5AppSupportFramework;
+  features: NodeLevel5AppSupportFeatures;
+}): NodeLevel5AppSupportMatrixRow {
+  return installedSupportRow(input, "1161-1200");
 }
 
 function installedSupportRow(
@@ -502,6 +523,14 @@ function idleTimerFeatures(asyncHandler: boolean): NodeLevel5AppSupportFeatures 
     ...baseFeatures({ route: "simple-route", response: "text", middleware: "none" }),
     asyncHandler,
     backgroundTasks: true,
+  };
+}
+
+function safeOutboundReconnectFeatures(asyncHandler: boolean): NodeLevel5AppSupportFeatures {
+  return {
+    ...baseFeatures({ route: "simple-route", response: "text", middleware: "none" }),
+    asyncHandler,
+    externalNetwork: true,
   };
 }
 

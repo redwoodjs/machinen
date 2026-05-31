@@ -22680,7 +22680,7 @@ Poll interval in ms while retrying. Default 250.
 
 ### NodeLevel5InstalledThirdPartyAppSource
 
-> **NodeLevel5InstalledThirdPartyAppSource** = `"express-installed-hello-world"` \| `"express-installed-router"` \| `"express-installed-json-response"` \| `"express-installed-route-params"` \| `"express-installed-query-string"` \| `"express-installed-static-asset"` \| `"express-installed-idle-timer"` \| `"fastify-installed-getting-started"` \| `"fastify-installed-plugin-route"` \| `"fastify-installed-json-response"` \| `"fastify-installed-route-params"` \| `"fastify-installed-query-string"` \| `"fastify-installed-static-asset"` \| `"fastify-installed-idle-timer"`
+> **NodeLevel5InstalledThirdPartyAppSource** = `"express-installed-hello-world"` \| `"express-installed-router"` \| `"express-installed-json-response"` \| `"express-installed-route-params"` \| `"express-installed-query-string"` \| `"express-installed-static-asset"` \| `"express-installed-idle-timer"` \| `"express-installed-safe-outbound-reconnect"` \| `"fastify-installed-getting-started"` \| `"fastify-installed-plugin-route"` \| `"fastify-installed-json-response"` \| `"fastify-installed-route-params"` \| `"fastify-installed-query-string"` \| `"fastify-installed-static-asset"` \| `"fastify-installed-idle-timer"` \| `"fastify-installed-safe-outbound-reconnect"`
 
 ***
 
@@ -22890,7 +22890,7 @@ Poll interval in ms while retrying. Default 250.
 
 ### NodeLevel5ProductDetectedFeature
 
-> **NodeLevel5ProductDetectedFeature** = `"safe-idle-timer"`
+> **NodeLevel5ProductDetectedFeature** = `"safe-idle-timer"` \| `"safe-outbound-http-reconnect"`
 
 ***
 

@@ -153,6 +153,18 @@ const installedThirdPartyApps: InstalledThirdPartyAppDefinition[] = [
     serverSource: expressIdleTimerSource,
   },
   {
+    appName: "express-installed-safe-outbound-reconnect",
+    source: "express-installed-safe-outbound-reconnect",
+    framework: "express",
+    routePath: "/outbound/status",
+    body: "installed express safe outbound reconnect active",
+    headerValue: "express-installed-safe-outbound-reconnect",
+    installedPackage: "express",
+    installedPackageVersion: installedThirdPartyPackageVersions.express,
+    dependencies: { express: `^${installedThirdPartyPackageVersions.express}` },
+    serverSource: expressSafeOutboundReconnectSource,
+  },
+  {
     appName: "fastify-installed-getting-started",
     source: "fastify-installed-getting-started",
     framework: "fastify",
@@ -223,6 +235,18 @@ const installedThirdPartyApps: InstalledThirdPartyAppDefinition[] = [
     installedPackageVersion: installedThirdPartyPackageVersions.fastify,
     dependencies: { fastify: `^${installedThirdPartyPackageVersions.fastify}` },
     serverSource: fastifyIdleTimerSource,
+  },
+  {
+    appName: "fastify-installed-safe-outbound-reconnect",
+    source: "fastify-installed-safe-outbound-reconnect",
+    framework: "fastify",
+    routePath: "/outbound/status",
+    body: "installed fastify safe outbound reconnect active",
+    headerValue: "fastify-installed-safe-outbound-reconnect",
+    installedPackage: "fastify",
+    installedPackageVersion: installedThirdPartyPackageVersions.fastify,
+    dependencies: { fastify: `^${installedThirdPartyPackageVersions.fastify}` },
+    serverSource: fastifySafeOutboundReconnectSource,
   },
   {
     appName: "fastify-installed-plugin-route",
@@ -336,6 +360,7 @@ function appDirFor(
   linkInstalledNodeModules(appDir);
   writeStaticAssetFixture(appDir, app);
   writeSafeIdleTimerDetectorFixture(appDir, app);
+  writeSafeOutboundReconnectDetectorFixture(appDir, app);
   writeFileSync(join(appDir, "server.mjs"), app.serverSource(app));
   writeFileSync(
     join(appDir, "machinen-node-level5-behavior.json"),
@@ -357,12 +382,30 @@ function writeSafeIdleTimerDetectorFixture(
   appDir: string,
   app: InstalledThirdPartyAppDefinition,
 ): void {
-  if (!app.source.endsWith("idle-timer")) {
+  writeDetectorFixture(appDir, app, "idle-timer", { safeIdleTimer: true });
+}
+
+function writeSafeOutboundReconnectDetectorFixture(
+  appDir: string,
+  app: InstalledThirdPartyAppDefinition,
+): void {
+  writeDetectorFixture(appDir, app, "safe-outbound-reconnect", {
+    safeOutboundHttpReconnect: true,
+  });
+}
+
+function writeDetectorFixture(
+  appDir: string,
+  app: InstalledThirdPartyAppDefinition,
+  sourceSuffix: string,
+  markers: Record<string, boolean>,
+): void {
+  if (!app.source.endsWith(sourceSuffix)) {
     return;
   }
   writeFileSync(
     join(appDir, "machinen-node-level5-detector.json"),
-    `${JSON.stringify({ safeIdleTimer: true }, null, 2)}\n`,
+    `${JSON.stringify(markers, null, 2)}\n`,
   );
 }
 
@@ -526,6 +569,31 @@ app.listen(port, "127.0.0.1");
 `;
 }
 
+function expressSafeOutboundReconnectSource(app: InstalledThirdPartyAppDefinition): string {
+  return `
+import http from "node:http";
+import express from "express";
+const app = express();
+const port = Number(process.env.PORT ?? "0");
+const upstream = http.createServer((_request, response) => {
+  response.end(${JSON.stringify(app.body)});
+});
+upstream.listen(0, "127.0.0.1", () => {
+  const upstreamPort = upstream.address().port;
+  app.get(${JSON.stringify(app.routePath)}, (_request, response) => {
+    response.set("x-machinen-installed-third-party-app", ${JSON.stringify(app.headerValue)});
+    http.get({ host: "127.0.0.1", port: upstreamPort, path: "/upstream", agent: false }, (upstreamResponse) => {
+      let body = "";
+      upstreamResponse.setEncoding("utf8");
+      upstreamResponse.on("data", (chunk) => { body += chunk; });
+      upstreamResponse.on("end", () => response.status(200).send(body));
+    }).on("error", () => response.status(502).send("outbound-error"));
+  });
+  app.listen(port, "127.0.0.1");
+});
+`;
+}
+
 function fastifyGettingStartedSource(app: InstalledThirdPartyAppDefinition): string {
   return `
 import Fastify from "fastify";
@@ -603,6 +671,32 @@ timer.unref();
 server.get(${JSON.stringify(app.routePath)}, async (_request, reply) => {
   reply.header("x-machinen-installed-third-party-app", ${JSON.stringify(app.headerValue)});
   return ticks > 0 ? ${JSON.stringify(app.body)} : "timer-not-active";
+});
+await server.listen({ port, host: "127.0.0.1" });
+`;
+}
+
+function fastifySafeOutboundReconnectSource(app: InstalledThirdPartyAppDefinition): string {
+  return `
+import http from "node:http";
+import Fastify from "fastify";
+const server = Fastify({ logger: false });
+const port = Number(process.env.PORT ?? "0");
+const upstream = http.createServer((_request, response) => {
+  response.end(${JSON.stringify(app.body)});
+});
+await new Promise((resolve) => upstream.listen(0, "127.0.0.1", resolve));
+const upstreamPort = upstream.address().port;
+server.get(${JSON.stringify(app.routePath)}, async (_request, reply) => {
+  reply.header("x-machinen-installed-third-party-app", ${JSON.stringify(app.headerValue)});
+  return await new Promise((resolve) => {
+    http.get({ host: "127.0.0.1", port: upstreamPort, path: "/upstream", agent: false }, (upstreamResponse) => {
+      let body = "";
+      upstreamResponse.setEncoding("utf8");
+      upstreamResponse.on("data", (chunk) => { body += chunk; });
+      upstreamResponse.on("end", () => resolve(body));
+    }).on("error", () => resolve("outbound-error"));
+  });
 });
 await server.listen({ port, host: "127.0.0.1" });
 `;

@@ -87,7 +87,7 @@ export type NodeLevel5ProductTargetIdentity = {
   refusal?: NodeLevel5ProductSnapshotRefusal;
 };
 
-export type NodeLevel5ProductDetectedFeature = "safe-idle-timer";
+export type NodeLevel5ProductDetectedFeature = "safe-idle-timer" | "safe-outbound-http-reconnect";
 
 export type NodeLevel5ProductDetectorReport = {
   kind: typeof NODE_LEVEL5_PRODUCT_DETECTOR_REPORT_KIND;
@@ -788,7 +788,14 @@ function detectNodeLevel5ProductSnapshotFeatures(
   appDir: string,
 ): NodeLevel5ProductDetectedFeature[] {
   const markers = readDetectorMarkers(appDir);
-  return markers.safeIdleTimer === true ? ["safe-idle-timer"] : [];
+  const features: NodeLevel5ProductDetectedFeature[] = [];
+  if (markers.safeIdleTimer === true) {
+    features.push("safe-idle-timer");
+  }
+  if (markers.safeOutboundHttpReconnect === true) {
+    features.push("safe-outbound-http-reconnect");
+  }
+  return features;
 }
 
 function detectSupportedFramework(appDir: string): "express" | "fastify" | undefined {
