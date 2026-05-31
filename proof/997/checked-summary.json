@@ -1,0 +1,22 @@
+{
+  "kind": "machinen.node-level5-installed-feature-corpus-proof-summary",
+  "proof": "997",
+  "goal": "Installed feature corpus final audit",
+  "result": "Feature support expands selected app rows without broadening arbitrary Node claims.",
+  "status": "node-product-support-80-installed-feature-corpus",
+  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "appRows": [
+    "express-installed-json-response",
+    "express-installed-query-string",
+    "express-installed-route-params",
+    "express-installed-static-asset",
+    "fastify-installed-json-response",
+    "fastify-installed-query-string",
+    "fastify-installed-route-params",
+    "fastify-installed-static-asset"
+  ]
+}
