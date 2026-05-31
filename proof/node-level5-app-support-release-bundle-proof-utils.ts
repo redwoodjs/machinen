@@ -27,6 +27,12 @@ const featureNames: NodeLevel5AppSupportFeatureName[] = [
 const expectedProofRanges = [
   "1121-1160",
   "1161-1200",
+  "1201-1240",
+  "1241-1280",
+  "1281-1320",
+  "1321-1360",
+  "1361-1400",
+  "1401-1420",
   "721-760",
   "761-800",
   "801-840",
@@ -458,8 +464,8 @@ function writeOrAssertSummary(proof: string, checkedSummary: Record<string, unkn
 
 function validateExpectedBundleConstants(summary: Record<string, unknown>): void {
   const bundle = buildProofBundle();
-  if (bundle.rowCount !== 58) {
-    throw new Error(`expected 58 app support matrix rows, got ${bundle.rowCount}`);
+  if (bundle.rowCount !== 100) {
+    throw new Error(`expected 100 app support matrix rows, got ${bundle.rowCount}`);
   }
   if (JSON.stringify(bundle.proofRanges) !== JSON.stringify(expectedProofRanges)) {
     throw new Error(`unexpected proof ranges: ${bundle.proofRanges.join(",")}`);

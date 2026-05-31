@@ -19,7 +19,7 @@ describe("Node Level 5 app support matrix", () => {
       broadNodeProductSupportClaimed: 20,
       arbitraryProcessCrossArchRestoreClaimed: 0,
     });
-    expect(matrix.rowCount).toBe(58);
+    expect(matrix.rowCount).toBe(100);
     expect(matrix.rows.map((row) => row.id)).toEqual(
       expect.arrayContaining([
         "express-fixture-product-run",
@@ -34,6 +34,16 @@ describe("Node Level 5 app support matrix", () => {
         "fastify-cluster-mode",
         "express-installed-idle-timer",
         "fastify-installed-safe-outbound-reconnect",
+        "express-installed-post-json-body",
+        "fastify-installed-delete-route",
+        "express-installed-redirect",
+        "fastify-installed-response-header",
+        "express-installed-error-handler",
+        "fastify-installed-hook-chain",
+        "express-installed-static-cache-header",
+        "fastify-installed-configured-prefix",
+        "express-installed-health-check",
+        "fastify-installed-health-check",
       ]),
     );
   });
@@ -41,7 +51,7 @@ describe("Node Level 5 app support matrix", () => {
   it("marks positive app rows supported only for the declared idle HTTP subset", () => {
     const rows = supportedNodeLevel5AppSupportRows();
 
-    expect(rows).toHaveLength(22);
+    expect(rows).toHaveLength(64);
     expect(rows.every((row) => row.status === "supported")).toBe(true);
     expect(rows.every((row) => row.supportScope === "declared-subset-idle-http")).toBe(true);
     expect(rows.every((row) => row.directions.includes("arm64-to-amd64"))).toBe(true);
@@ -62,6 +72,7 @@ describe("Node Level 5 app support matrix", () => {
     const expressOutbound = rows.find(
       (row) => row.id === "express-installed-safe-outbound-reconnect",
     );
+    const expressPostBody = rows.find((row) => row.id === "express-installed-post-json-body");
 
     expect(fastifyPlugin?.features).toMatchObject({
       asyncHandler: true,
@@ -77,6 +88,7 @@ describe("Node Level 5 app support matrix", () => {
     expect(expressStatic?.featureAssessment.staticAssets).toBe("supported");
     expect(fastifyIdleTimer?.featureAssessment.backgroundTasks).toBe("supported");
     expect(expressOutbound?.featureAssessment.externalNetwork).toBe("supported");
+    expect(expressPostBody?.featureAssessment.middleware).toBe("supported");
   });
 
   it("marks unsupported live-state app rows as refused before snapshot", () => {

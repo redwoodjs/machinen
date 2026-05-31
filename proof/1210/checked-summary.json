@@ -1,0 +1,13 @@
+{
+  "kind": "machinen.node-level5-http-request-shape-proof-summary",
+  "proof": "1210",
+  "goal": "HTTP request-shape product-run evidence",
+  "result": "Selected Express/Fastify request-shape rows pass snapshot, restore, and behavior checks.",
+  "status": "node-product-support-80-http-request-shape-product-slice",
+  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "allRestoreAccepted": true
+}

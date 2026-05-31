@@ -27,6 +27,27 @@ machinen restore <dir>
 | Installed Express static asset app            | Express   | Supported | simple | text     | pure JS    |    no | snapshot + restore | Proofs 961–1000  |
 | Installed Express idle timer app              | Express   | Supported | simple | text     | none       |    no | snapshot + restore | Proofs 1121–1160 |
 | Installed Express safe outbound reconnect app | Express   | Supported | simple | text     | none       |    no | snapshot + restore | Proofs 1161–1200 |
+| Installed Express POST JSON body app          | Express   | Supported | simple | text     | pure JS    |    no | snapshot + restore | Proofs 1201–1240 |
+| Installed Express custom request header app   | Express   | Supported | simple | text     | none       |    no | snapshot + restore | Proofs 1201–1240 |
+| Installed Express PUT route app               | Express   | Supported | simple | text     | none       |    no | snapshot + restore | Proofs 1201–1240 |
+| Installed Express DELETE route app            | Express   | Supported | simple | text     | none       |    no | snapshot + restore | Proofs 1201–1240 |
+| Installed Express cookie read app             | Express   | Supported | simple | text     | none       |    no | snapshot + restore | Proofs 1241–1280 |
+| Installed Express status code app             | Express   | Supported | simple | text     | none       |    no | snapshot + restore | Proofs 1241–1280 |
+| Installed Express redirect response app       | Express   | Supported | simple | text     | none       |    no | snapshot + restore | Proofs 1241–1280 |
+| Installed Express response header app         | Express   | Supported | simple | text     | none       |    no | snapshot + restore | Proofs 1241–1280 |
+| Installed Express middleware chain app        | Express   | Supported | simple | text     | pure JS    |    no | snapshot + restore | Proofs 1281–1320 |
+| Installed Express not-found handler app       | Express   | Supported | simple | text     | pure JS    |    no | snapshot + restore | Proofs 1281–1320 |
+| Installed Express error handler app           | Express   | Supported | simple | text     | pure JS    |    no | snapshot + restore | Proofs 1281–1320 |
+| Installed Express request ID propagation app  | Express   | Supported | simple | text     | pure JS    |    no | snapshot + restore | Proofs 1281–1320 |
+| Installed Express nested router app           | Express   | Supported | router | text     | pure JS    |    no | snapshot + restore | Proofs 1321–1360 |
+| Installed Express optional param app          | Express   | Supported | simple | text     | none       |    no | snapshot + restore | Proofs 1321–1360 |
+| Installed Express multi-route app             | Express   | Supported | router | text     | pure JS    |    no | snapshot + restore | Proofs 1321–1360 |
+| Installed Express static cache header app     | Express   | Supported | simple | text     | pure JS    |    no | snapshot + restore | Proofs 1321–1360 |
+| Installed Express env read app                | Express   | Supported | simple | text     | none       |    no | snapshot + restore | Proofs 1361–1400 |
+| Installed Express config JSON read app        | Express   | Supported | simple | text     | none       |    no | snapshot + restore | Proofs 1361–1400 |
+| Installed Express feature flag env app        | Express   | Supported | simple | text     | none       |    no | snapshot + restore | Proofs 1361–1400 |
+| Installed Express configured prefix app       | Express   | Supported | router | text     | pure JS    |    no | snapshot + restore | Proofs 1361–1400 |
+| Installed Express health-check app            | Express   | Supported | simple | text     | none       |    no | snapshot + restore | Proofs 1401–1420 |
 | Installed Fastify getting-started app         | Fastify   | Supported | simple | text     | none       |   yes | snapshot + restore | Proofs 841–880   |
 | Installed Fastify plugin-route app            | Fastify   | Supported | plugin | text     | pure JS    |   yes | snapshot + restore | Proofs 841–880   |
 | Installed Fastify JSON response app           | Fastify   | Supported | simple | JSON     | none       |   yes | snapshot + restore | Proofs 961–1000  |
@@ -35,6 +56,27 @@ machinen restore <dir>
 | Installed Fastify static asset app            | Fastify   | Supported | simple | text     | pure JS    |   yes | snapshot + restore | Proofs 961–1000  |
 | Installed Fastify idle timer app              | Fastify   | Supported | simple | text     | none       |   yes | snapshot + restore | Proofs 1121–1160 |
 | Installed Fastify safe outbound reconnect app | Fastify   | Supported | simple | text     | none       |   yes | snapshot + restore | Proofs 1161–1200 |
+| Installed Fastify POST JSON body app          | Fastify   | Supported | simple | text     | pure JS    |   yes | snapshot + restore | Proofs 1201–1240 |
+| Installed Fastify custom request header app   | Fastify   | Supported | simple | text     | none       |   yes | snapshot + restore | Proofs 1201–1240 |
+| Installed Fastify PUT route app               | Fastify   | Supported | simple | text     | none       |   yes | snapshot + restore | Proofs 1201–1240 |
+| Installed Fastify DELETE route app            | Fastify   | Supported | simple | text     | none       |   yes | snapshot + restore | Proofs 1201–1240 |
+| Installed Fastify cookie read app             | Fastify   | Supported | simple | text     | none       |   yes | snapshot + restore | Proofs 1241–1280 |
+| Installed Fastify status code app             | Fastify   | Supported | simple | text     | none       |   yes | snapshot + restore | Proofs 1241–1280 |
+| Installed Fastify redirect response app       | Fastify   | Supported | simple | text     | none       |   yes | snapshot + restore | Proofs 1241–1280 |
+| Installed Fastify response header app         | Fastify   | Supported | simple | text     | none       |   yes | snapshot + restore | Proofs 1241–1280 |
+| Installed Fastify hook chain app              | Fastify   | Supported | simple | text     | pure JS    |   yes | snapshot + restore | Proofs 1281–1320 |
+| Installed Fastify not-found handler app       | Fastify   | Supported | simple | text     | pure JS    |   yes | snapshot + restore | Proofs 1281–1320 |
+| Installed Fastify error handler app           | Fastify   | Supported | simple | text     | pure JS    |   yes | snapshot + restore | Proofs 1281–1320 |
+| Installed Fastify request ID propagation app  | Fastify   | Supported | simple | text     | pure JS    |   yes | snapshot + restore | Proofs 1281–1320 |
+| Installed Fastify prefix route app            | Fastify   | Supported | router | text     | pure JS    |   yes | snapshot + restore | Proofs 1321–1360 |
+| Installed Fastify optional param app          | Fastify   | Supported | simple | text     | none       |   yes | snapshot + restore | Proofs 1321–1360 |
+| Installed Fastify multi-route app             | Fastify   | Supported | router | text     | none       |   yes | snapshot + restore | Proofs 1321–1360 |
+| Installed Fastify static cache header app     | Fastify   | Supported | simple | text     | pure JS    |   yes | snapshot + restore | Proofs 1321–1360 |
+| Installed Fastify env read app                | Fastify   | Supported | simple | text     | none       |   yes | snapshot + restore | Proofs 1361–1400 |
+| Installed Fastify config JSON read app        | Fastify   | Supported | simple | text     | none       |   yes | snapshot + restore | Proofs 1361–1400 |
+| Installed Fastify feature flag env app        | Fastify   | Supported | simple | text     | none       |   yes | snapshot + restore | Proofs 1361–1400 |
+| Installed Fastify configured prefix app       | Fastify   | Supported | router | text     | none       |   yes | snapshot + restore | Proofs 1361–1400 |
+| Installed Fastify health-check app            | Fastify   | Supported | simple | text     | none       |   yes | snapshot + restore | Proofs 1401–1420 |
 
 ## Refused app rows
 

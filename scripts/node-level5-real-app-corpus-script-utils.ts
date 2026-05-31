@@ -1,6 +1,5 @@
 import { spawn, spawnSync, type ChildProcess, type SpawnSyncReturns } from "node:child_process";
-import { writeFileSync } from "node:fs";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -152,9 +151,14 @@ server.listen(port, "127.0.0.1");
 export function spawnNodeLevel5RealAppCorpusTarget(cwd: string): ChildProcess {
   return spawn(process.execPath, ["server.mjs"], {
     cwd,
-    env: { ...process.env, PORT: "0" },
+    env: { ...process.env, ...readNodeLevel5RealAppEnvFixture(cwd), PORT: "0" },
     stdio: "ignore",
   });
+}
+
+function readNodeLevel5RealAppEnvFixture(cwd: string): Record<string, string> {
+  const path = join(cwd, "machinen-node-level5-env.json");
+  return existsSync(path) ? (JSON.parse(readFileSync(path, "utf8")) as Record<string, string>) : {};
 }
 
 export function stopNodeLevel5RealAppCorpusTarget(child: ChildProcess): void {

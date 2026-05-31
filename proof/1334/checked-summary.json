@@ -1,0 +1,22 @@
+{
+  "kind": "machinen.node-level5-static-routing-variant-proof-summary",
+  "proof": "1334",
+  "goal": "static/routing variant product-run evidence",
+  "result": "Selected Express/Fastify nested/prefix, optional-param, multi-route, and static-cache rows pass snapshot, restore, and behavior checks.",
+  "status": "node-product-support-80-static-routing-variant-product-slice",
+  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "bodies": [
+    "installed express multi route two",
+    "installed express nested router user 42",
+    "installed express optional param machinen",
+    "installed express static cache header",
+    "installed fastify multi route two",
+    "installed fastify optional param machinen",
+    "installed fastify prefix route user 42",
+    "installed fastify static cache header"
+  ]
+}

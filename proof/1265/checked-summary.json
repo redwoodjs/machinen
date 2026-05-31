@@ -1,0 +1,22 @@
+{
+  "kind": "machinen.node-level5-http-response-shape-proof-summary",
+  "proof": "1265",
+  "goal": "HTTP response-shape boundary preservation",
+  "result": "Arbitrary Express/Fastify apps and broad app/process support remain unclaimed.",
+  "status": "node-product-support-80-http-response-shape-product-slice",
+  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "supportedResponseShapeSources": [
+    "express-installed-cookie-read",
+    "express-installed-status-code",
+    "express-installed-redirect",
+    "express-installed-response-header",
+    "fastify-installed-cookie-read",
+    "fastify-installed-status-code",
+    "fastify-installed-redirect",
+    "fastify-installed-response-header"
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "kind": "machinen.node-level5-http-request-shape-proof-summary",
+  "proof": "1223",
+  "goal": "HTTP request-shape support matrix reconciliation",
+  "result": "Only selected request-shape rows are supported while unsafe live states remain refused.",
+  "status": "node-product-support-80-http-request-shape-product-slice",
+  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "proofRanges": ["1201-1240"]
+}

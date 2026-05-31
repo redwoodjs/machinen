@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { closeSync, mkdtempSync, openSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -9,9 +9,19 @@ import { describe, expect, it } from "vitest";
 const CLI = resolve("packages/cli/src/cli.ts");
 
 function runCli(args: string[]) {
-  return spawnSync(process.execPath, ["--import", "tsx", CLI, ...args], {
-    encoding: "utf8",
-  });
+  const dir = mkdtempSync(join(tmpdir(), "machinen-node-level5-cli-test-"));
+  const stdoutPath = join(dir, "stdout.txt");
+  const fd = openSync(stdoutPath, "w");
+  try {
+    const result = spawnSync(process.execPath, ["--import", "tsx", CLI, ...args], {
+      encoding: "utf8",
+      stdio: ["ignore", fd, "pipe"],
+    });
+    closeSync(fd);
+    return { ...result, stdout: readFileSync(stdoutPath, "utf8") };
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 }
 
 describe("Node Level 5 product commands", () => {
@@ -283,7 +293,7 @@ describe("Node Level 5 product commands", () => {
     expect(JSON.parse(supportMatrix.stdout)).toMatchObject({
       accepted: true,
       kind: "machinen.node-level5-app-support-matrix",
-      rowCount: 58,
+      rowCount: 100,
       rows: expect.arrayContaining([
         expect.objectContaining({
           id: "express-installed-hello-world",
@@ -298,6 +308,15 @@ describe("Node Level 5 product commands", () => {
           id: "express-installed-safe-outbound-reconnect",
           status: "supported",
         }),
+        expect.objectContaining({ id: "express-installed-post-json-body", status: "supported" }),
+        expect.objectContaining({ id: "express-installed-redirect", status: "supported" }),
+        expect.objectContaining({ id: "express-installed-error-handler", status: "supported" }),
+        expect.objectContaining({
+          id: "express-installed-static-cache-header",
+          status: "supported",
+        }),
+        expect.objectContaining({ id: "fastify-installed-configured-prefix", status: "supported" }),
+        expect.objectContaining({ id: "express-installed-health-check", status: "supported" }),
         expect.objectContaining({
           id: "express-external-network-not-proven",
           status: "not-proven",

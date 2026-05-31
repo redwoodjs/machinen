@@ -1,0 +1,22 @@
+{
+  "kind": "machinen.node-level5-safe-config-proof-summary",
+  "proof": "1374",
+  "goal": "safe env/config product-run evidence",
+  "result": "Selected Express/Fastify env, config JSON, feature-flag, and configured-prefix rows pass snapshot, restore, and behavior checks.",
+  "status": "node-product-support-80-safe-config-product-slice",
+  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "bodies": [
+    "installed express config json express-config",
+    "installed express configured prefix ok",
+    "installed express env express-env",
+    "installed express feature flag express-enabled",
+    "installed fastify config json fastify-config",
+    "installed fastify configured prefix ok",
+    "installed fastify env fastify-env",
+    "installed fastify feature flag fastify-enabled"
+  ]
+}

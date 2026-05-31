@@ -613,6 +613,9 @@ function behavioralVerifierReportBase(
 type NodeLevel5ProductBehavioralVerifierConfig = {
   entry?: string;
   path: string;
+  method: string;
+  requestBody?: string;
+  requestHeaders?: Record<string, string>;
   expectedStatus: number;
   expectedBody: string;
   expectedHeaders?: Record<string, string>;
@@ -623,6 +626,7 @@ function readBehavioralVerifierConfig(appDir: string): NodeLevel5ProductBehavior
   if (!existsSync(path)) {
     return {
       path: "/",
+      method: "GET",
       expectedStatus: 200,
       expectedBody: "machinen-node-level5-behavior-ok",
     };
@@ -633,6 +637,9 @@ function readBehavioralVerifierConfig(appDir: string): NodeLevel5ProductBehavior
   return {
     entry: typeof parsed.entry === "string" ? parsed.entry : undefined,
     path: typeof parsed.path === "string" ? parsed.path : "/",
+    method: typeof parsed.method === "string" ? parsed.method : "GET",
+    requestBody: typeof parsed.requestBody === "string" ? parsed.requestBody : undefined,
+    requestHeaders: parsed.requestHeaders,
     expectedStatus: typeof parsed.expectedStatus === "number" ? parsed.expectedStatus : 200,
     expectedBody: typeof parsed.expectedBody === "string" ? parsed.expectedBody : "",
     expectedHeaders: parsed.expectedHeaders,
@@ -672,11 +679,15 @@ function appRouteBehavioralVerifierScript(
 ): string {
   return `
 const { spawn } = require("node:child_process");
+const { existsSync, readFileSync } = require("node:fs");
 const http = require("node:http");
 const port = String(31000 + Math.floor(Math.random() * 1000));
-const child = spawn(process.execPath, [${JSON.stringify(config.entry)}], { cwd: process.cwd(), env: { ...process.env, PORT: port }, stdio: "ignore" });
+const envPath = "machinen-node-level5-env.json";
+const appEnv = existsSync(envPath) ? JSON.parse(readFileSync(envPath, "utf8")) : {};
+const child = spawn(process.execPath, [${JSON.stringify(config.entry)}], { cwd: process.cwd(), env: { ...process.env, ...appEnv, PORT: port }, stdio: "ignore" });
 setTimeout(() => {
-  http.get({ host: "127.0.0.1", port: Number(port), path: ${JSON.stringify(config.path)} }, (response) => {
+  const requestBody = ${JSON.stringify(config.requestBody ?? "")};
+  const request = http.request({ host: "127.0.0.1", port: Number(port), path: ${JSON.stringify(config.path)}, method: ${JSON.stringify(config.method)}, headers: ${JSON.stringify(config.requestHeaders ?? {})} }, (response) => {
     collect(response, (body) => {
       const result = { actualStatus: response.statusCode, actualBody: body, actualHeaders: response.headers };
       console.log(JSON.stringify(result));
@@ -685,7 +696,10 @@ setTimeout(() => {
       const headerMatch = Object.entries(headersOk).every(([key, value]) => String(response.headers[key.toLowerCase()] ?? "") === value);
       process.exit(response.statusCode === ${config.expectedStatus} && body === ${JSON.stringify(config.expectedBody)} && headerMatch ? 0 : 1);
     });
-  }).on("error", () => { child.kill("SIGTERM"); process.exit(1); });
+  });
+  request.on("error", () => { child.kill("SIGTERM"); process.exit(1); });
+  if (requestBody) request.write(requestBody);
+  request.end();
 }, 300);
 function collect(response, done) { let body = ""; response.setEncoding("utf8"); response.on("data", (chunk) => { body += chunk; }); response.on("end", () => done(body)); }
 setTimeout(() => { child.kill("SIGTERM"); process.exit(1); }, 5000);
