@@ -1,6 +1,10 @@
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 
+import {
+  isNodeLevel5CorpusHttpEvidenceAccepted,
+  type NodeLevel5CorpusHttpEvidence,
+} from "./node-level5-corpus-common.ts";
 import type { NodeLevel5ProductSnapshotDirection } from "./node-level5-product-snapshot.ts";
 import type { NodeLevel5RealAppCorpusFramework } from "./node-level5-real-app-corpus.ts";
 
@@ -14,22 +18,11 @@ export type NodeLevel5ThirdPartyAppSource =
   | "fastify-official-getting-started"
   | "fastify-plugin-route";
 
-export type NodeLevel5ThirdPartyAppCorpusRow = {
+export type NodeLevel5ThirdPartyAppCorpusRow = NodeLevel5CorpusHttpEvidence & {
   appName: string;
   source: NodeLevel5ThirdPartyAppSource;
   framework: NodeLevel5RealAppCorpusFramework;
   direction: NodeLevel5ProductSnapshotDirection;
-  routePath: string;
-  expectedStatus: number;
-  actualStatus: number;
-  expectedBody: string;
-  actualBody: string;
-  expectedHeaders: Record<string, string>;
-  actualHeaders: Record<string, string>;
-  snapshotAccepted: boolean;
-  restoreAccepted: boolean;
-  behavioralVerifierPassed: boolean;
-  targetNativeNodeVerified: boolean;
   declaredSubset: true;
   unsupportedStateDetected: false;
 };
@@ -114,15 +107,9 @@ export function loadNodeLevel5ThirdPartyAppCorpusReport(
 
 function isAcceptedThirdPartyAppCorpusRow(row: NodeLevel5ThirdPartyAppCorpusRow): boolean {
   return (
-    row.snapshotAccepted &&
-    row.restoreAccepted &&
-    row.behavioralVerifierPassed &&
-    row.targetNativeNodeVerified &&
+    isNodeLevel5CorpusHttpEvidenceAccepted(row) &&
     row.declaredSubset === true &&
-    row.unsupportedStateDetected === false &&
-    row.actualStatus === row.expectedStatus &&
-    row.actualBody === row.expectedBody &&
-    Object.entries(row.expectedHeaders).every(([key, value]) => row.actualHeaders[key] === value)
+    row.unsupportedStateDetected === false
   );
 }
 

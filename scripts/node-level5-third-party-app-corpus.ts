@@ -1,4 +1,3 @@
-import { spawn, type ChildProcess } from "node:child_process";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -19,7 +18,12 @@ import {
   isNodeLevel5RealAppCorpusMain,
   nodeLevel5RealAppCorpusDirections,
   parseNodeLevel5RealAppCorpusOutArgs,
+  nodeLevel5HttpServerSourceForRoutes,
   runNodeLevel5RealAppCorpusCliJson,
+  runNodeLevel5SnapshotRestoreForApp,
+  selectedNodeLevel5BehavioralHeaders,
+  spawnNodeLevel5RealAppCorpusTarget,
+  stopNodeLevel5RealAppCorpusTarget,
   writeNodeLevel5RealAppFixturePackageJson,
 } from "./node-level5-real-app-corpus-script-utils.ts";
 
@@ -146,20 +150,17 @@ function runAppProductCommands(
 ): NodeLevel5ThirdPartyAppCorpusRow {
   const appDir = appDirFor(outDir, app, direction);
   const snapshotDir = join(outDir, "snapshots", app.appName, direction);
-  const child = spawnTarget(appDir);
+  const child = spawnNodeLevel5RealAppCorpusTarget(appDir);
   try {
-    const snapshot = runNodeLevel5RealAppCorpusCliJson(
-      ["snapshot", "node", String(child.pid), "--out", snapshotDir, "--json"],
-      { cwd: appDir, direction },
-    ) as NodeLevel5ProductSnapshotSummary;
-    const restore = runNodeLevel5RealAppCorpusCliJson([
-      "restore",
+    const { snapshot, restore } = runNodeLevel5SnapshotRestoreForApp({
+      child,
+      appDir,
       snapshotDir,
-      "--json",
-    ]) as NodeLevel5ProductRestoreSummary;
+      direction,
+    });
     return rowFromProductRun(app, direction, snapshot, restore);
   } finally {
-    stopTarget(child);
+    stopNodeLevel5RealAppCorpusTarget(child);
   }
 }
 
@@ -193,18 +194,33 @@ function rowFromProductRun(
     direction,
     routePath: report.routePath,
     expectedStatus: report.expectedStatus,
-    actualStatus: report.actualStatus ?? 0,
+    actualStatus: verifierStatus(report),
     expectedBody: report.expectedBody,
-    actualBody: report.actualBody ?? "",
+    actualBody: verifierBody(report),
     expectedHeaders: report.expectedHeaders ?? {},
-    actualHeaders: selectedHeaders(report),
+    actualHeaders: selectedNodeLevel5BehavioralHeaders(report),
     snapshotAccepted: snapshot.accepted,
     restoreAccepted: restore.accepted,
     behavioralVerifierPassed: restore.behavioralVerifierPassed,
-    targetNativeNodeVerified: restore.targetNativeNodeVerified && report.targetNativeNodeVerified,
+    targetNativeNodeVerified: productRunTargetNativeVerified(restore, report),
     declaredSubset: true,
     unsupportedStateDetected: false,
   };
+}
+
+function verifierStatus(report: NodeLevel5ProductBehavioralVerifierReport): number {
+  return report.actualStatus ?? 0;
+}
+
+function verifierBody(report: NodeLevel5ProductBehavioralVerifierReport): string {
+  return report.actualBody ?? "";
+}
+
+function productRunTargetNativeVerified(
+  restore: NodeLevel5ProductRestoreSummary,
+  report: NodeLevel5ProductBehavioralVerifierReport,
+): boolean {
+  return restore.targetNativeNodeVerified && report.targetNativeNodeVerified;
 }
 
 function behaviorConfig(app: ThirdPartyAppDefinition): Record<string, unknown> {
@@ -215,18 +231,6 @@ function behaviorConfig(app: ThirdPartyAppDefinition): Record<string, unknown> {
     expectedBody: app.body,
     expectedHeaders: { "x-machinen-third-party-app": app.headerValue },
   };
-}
-
-function selectedHeaders(
-  report: NodeLevel5ProductBehavioralVerifierReport,
-): Record<string, string> {
-  const actual = report.actualHeaders ?? {};
-  return Object.fromEntries(
-    Object.keys(report.expectedHeaders ?? {}).map((key) => [
-      key,
-      String(actual[key.toLowerCase()] ?? ""),
-    ]),
-  );
 }
 
 function simpleHttpServerSource(app: ThirdPartyAppDefinition): string {
@@ -251,34 +255,11 @@ function serverSourceForRoutes(
   app: ThirdPartyAppDefinition,
   routes: Array<{ path: string; body: string }>,
 ): string {
-  return `
-import http from "node:http";
-const port = Number(process.env.PORT ?? "0");
-const routes = new Map(${JSON.stringify(routes.map((route) => [route.path, route.body]))});
-const server = http.createServer((request, response) => {
-  const body = routes.get(request.url ?? "");
-  if (!body) {
-    response.writeHead(404);
-    response.end("not-found");
-    return;
-  }
-  response.writeHead(200, { "x-machinen-third-party-app": ${JSON.stringify(app.headerValue)} });
-  response.end(body);
-});
-server.listen(port, "127.0.0.1");
-`;
-}
-
-function spawnTarget(cwd: string): ChildProcess {
-  return spawn(process.execPath, ["server.mjs"], {
-    cwd,
-    env: { ...process.env, PORT: "0" },
-    stdio: "ignore",
+  return nodeLevel5HttpServerSourceForRoutes({
+    headerName: "x-machinen-third-party-app",
+    headerValue: app.headerValue,
+    routes,
   });
-}
-
-function stopTarget(child: ChildProcess): void {
-  child.kill("SIGTERM");
 }
 
 function parseArgs(args: string[]): { outDir: string; json: boolean } {
