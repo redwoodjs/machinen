@@ -121,16 +121,31 @@ function rowFromProductRun(
     direction,
     routePath: report.routePath,
     expectedStatus: report.expectedStatus,
-    actualStatus: report.actualStatus ?? 0,
+    actualStatus: verifierStatus(report),
     expectedBody: report.expectedBody,
-    actualBody: report.actualBody ?? "",
+    actualBody: verifierBody(report),
     expectedHeaders: report.expectedHeaders ?? {},
     actualHeaders: selectedHeaders(report),
     snapshotAccepted: snapshot.accepted,
     restoreAccepted: restore.accepted,
     behavioralVerifierPassed: restore.behavioralVerifierPassed,
-    targetNativeNodeVerified: restore.targetNativeNodeVerified && report.targetNativeNodeVerified,
+    targetNativeNodeVerified: productRunTargetNativeVerified(restore, report),
   };
+}
+
+function verifierStatus(report: NodeLevel5ProductBehavioralVerifierReport): number {
+  return report.actualStatus ?? 0;
+}
+
+function verifierBody(report: NodeLevel5ProductBehavioralVerifierReport): string {
+  return report.actualBody ?? "";
+}
+
+function productRunTargetNativeVerified(
+  restore: NodeLevel5ProductRestoreSummary,
+  report: NodeLevel5ProductBehavioralVerifierReport,
+): boolean {
+  return restore.targetNativeNodeVerified && report.targetNativeNodeVerified;
 }
 
 function selectedHeaders(
