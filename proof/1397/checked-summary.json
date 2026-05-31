@@ -1,0 +1,13 @@
+{
+  "kind": "machinen.node-level5-safe-config-proof-summary",
+  "proof": "1397",
+  "goal": "safe env/config final audit",
+  "result": "The new support slice uses target-native safe env/config verification without changing 80/20/0 claims.",
+  "status": "node-product-support-80-safe-config-product-slice",
+  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "translatedContinuationRequired": true
+}

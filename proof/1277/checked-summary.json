@@ -1,0 +1,13 @@
+{
+  "kind": "machinen.node-level5-http-response-shape-proof-summary",
+  "proof": "1277",
+  "goal": "HTTP response-shape final audit",
+  "result": "The new support slice uses target-native response-shape verification without changing 80/20/0 claims.",
+  "status": "node-product-support-80-http-response-shape-product-slice",
+  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "translatedContinuationRequired": true
+}

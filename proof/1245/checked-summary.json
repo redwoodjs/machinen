@@ -1,0 +1,22 @@
+{
+  "kind": "machinen.node-level5-http-response-shape-proof-summary",
+  "proof": "1245",
+  "goal": "HTTP response-shape product corpus generator",
+  "result": "The installed product corpus includes selected HTTP response-shape apps.",
+  "status": "node-product-support-80-http-response-shape-product-slice",
+  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "sources": [
+    "express-installed-cookie-read",
+    "express-installed-redirect",
+    "express-installed-response-header",
+    "express-installed-status-code",
+    "fastify-installed-cookie-read",
+    "fastify-installed-redirect",
+    "fastify-installed-response-header",
+    "fastify-installed-status-code"
+  ]
+}

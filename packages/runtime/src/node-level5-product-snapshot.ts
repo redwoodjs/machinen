@@ -87,6 +87,8 @@ export type NodeLevel5ProductTargetIdentity = {
   refusal?: NodeLevel5ProductSnapshotRefusal;
 };
 
+export type NodeLevel5ProductDetectedFeature = "safe-idle-timer" | "safe-outbound-http-reconnect";
+
 export type NodeLevel5ProductDetectorReport = {
   kind: typeof NODE_LEVEL5_PRODUCT_DETECTOR_REPORT_KIND;
   accepted: boolean;
@@ -94,6 +96,7 @@ export type NodeLevel5ProductDetectorReport = {
   familyId?: NodeLevel5ProductSupport80FamilyId;
   direction: NodeLevel5ProductSnapshotDirection;
   detectedFramework?: "express" | "fastify";
+  detectedFeatures?: NodeLevel5ProductDetectedFeature[];
   refusal?: NodeLevel5ProductSnapshotRefusal;
   nodeProductSupportClaimed: 80;
   broadNodeProductSupportClaimed: 20;
@@ -293,6 +296,7 @@ export function detectNodeLevel5ProductSnapshotApp(input: {
     accepted: true,
     familyId: "express-fastify-http-app",
     detectedFramework: framework,
+    detectedFeatures: detectNodeLevel5ProductSnapshotFeatures(input.appDir),
   });
 }
 
@@ -609,6 +613,9 @@ function behavioralVerifierReportBase(
 type NodeLevel5ProductBehavioralVerifierConfig = {
   entry?: string;
   path: string;
+  method: string;
+  requestBody?: string;
+  requestHeaders?: Record<string, string>;
   expectedStatus: number;
   expectedBody: string;
   expectedHeaders?: Record<string, string>;
@@ -619,6 +626,7 @@ function readBehavioralVerifierConfig(appDir: string): NodeLevel5ProductBehavior
   if (!existsSync(path)) {
     return {
       path: "/",
+      method: "GET",
       expectedStatus: 200,
       expectedBody: "machinen-node-level5-behavior-ok",
     };
@@ -629,6 +637,9 @@ function readBehavioralVerifierConfig(appDir: string): NodeLevel5ProductBehavior
   return {
     entry: typeof parsed.entry === "string" ? parsed.entry : undefined,
     path: typeof parsed.path === "string" ? parsed.path : "/",
+    method: typeof parsed.method === "string" ? parsed.method : "GET",
+    requestBody: typeof parsed.requestBody === "string" ? parsed.requestBody : undefined,
+    requestHeaders: parsed.requestHeaders,
     expectedStatus: typeof parsed.expectedStatus === "number" ? parsed.expectedStatus : 200,
     expectedBody: typeof parsed.expectedBody === "string" ? parsed.expectedBody : "",
     expectedHeaders: parsed.expectedHeaders,
@@ -668,11 +679,15 @@ function appRouteBehavioralVerifierScript(
 ): string {
   return `
 const { spawn } = require("node:child_process");
+const { existsSync, readFileSync } = require("node:fs");
 const http = require("node:http");
 const port = String(31000 + Math.floor(Math.random() * 1000));
-const child = spawn(process.execPath, [${JSON.stringify(config.entry)}], { cwd: process.cwd(), env: { ...process.env, PORT: port }, stdio: "ignore" });
+const envPath = "machinen-node-level5-env.json";
+const appEnv = existsSync(envPath) ? JSON.parse(readFileSync(envPath, "utf8")) : {};
+const child = spawn(process.execPath, [${JSON.stringify(config.entry)}], { cwd: process.cwd(), env: { ...process.env, ...appEnv, PORT: port }, stdio: "ignore" });
 setTimeout(() => {
-  http.get({ host: "127.0.0.1", port: Number(port), path: ${JSON.stringify(config.path)} }, (response) => {
+  const requestBody = ${JSON.stringify(config.requestBody ?? "")};
+  const request = http.request({ host: "127.0.0.1", port: Number(port), path: ${JSON.stringify(config.path)}, method: ${JSON.stringify(config.method)}, headers: ${JSON.stringify(config.requestHeaders ?? {})} }, (response) => {
     collect(response, (body) => {
       const result = { actualStatus: response.statusCode, actualBody: body, actualHeaders: response.headers };
       console.log(JSON.stringify(result));
@@ -681,7 +696,10 @@ setTimeout(() => {
       const headerMatch = Object.entries(headersOk).every(([key, value]) => String(response.headers[key.toLowerCase()] ?? "") === value);
       process.exit(response.statusCode === ${config.expectedStatus} && body === ${JSON.stringify(config.expectedBody)} && headerMatch ? 0 : 1);
     });
-  }).on("error", () => { child.kill("SIGTERM"); process.exit(1); });
+  });
+  request.on("error", () => { child.kill("SIGTERM"); process.exit(1); });
+  if (requestBody) request.write(requestBody);
+  request.end();
 }, 300);
 function collect(response, done) { let body = ""; response.setEncoding("utf8"); response.on("data", (chunk) => { body += chunk; }); response.on("end", () => done(body)); }
 setTimeout(() => { child.kill("SIGTERM"); process.exit(1); }, 5000);
@@ -762,7 +780,12 @@ function detectorReportBase(
   appDir: string,
   direction: NodeLevel5ProductSnapshotDirection,
   fields: Pick<NodeLevel5ProductDetectorReport, "accepted"> &
-    Partial<Pick<NodeLevel5ProductDetectorReport, "familyId" | "detectedFramework" | "refusal">>,
+    Partial<
+      Pick<
+        NodeLevel5ProductDetectorReport,
+        "familyId" | "detectedFramework" | "detectedFeatures" | "refusal"
+      >
+    >,
 ): NodeLevel5ProductDetectorReport {
   return {
     kind: NODE_LEVEL5_PRODUCT_DETECTOR_REPORT_KIND,
@@ -773,6 +796,20 @@ function detectorReportBase(
     arbitraryProcessCrossArchRestoreClaimed: 0,
     ...fields,
   };
+}
+
+function detectNodeLevel5ProductSnapshotFeatures(
+  appDir: string,
+): NodeLevel5ProductDetectedFeature[] {
+  const markers = readDetectorMarkers(appDir);
+  const features: NodeLevel5ProductDetectedFeature[] = [];
+  if (markers.safeIdleTimer === true) {
+    features.push("safe-idle-timer");
+  }
+  if (markers.safeOutboundHttpReconnect === true) {
+    features.push("safe-outbound-http-reconnect");
+  }
+  return features;
 }
 
 function detectSupportedFramework(appDir: string): "express" | "fastify" | undefined {

@@ -1,0 +1,13 @@
+{
+  "kind": "machinen.node-level5-idle-timer-continuation-proof-summary",
+  "proof": "1159",
+  "goal": "Idle timer final audit",
+  "result": "The new support slice uses translated target-native reconstruction without changing 80/20/0 claims.",
+  "status": "node-product-support-80-idle-timer-continuation-product-slice",
+  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "rawCpuRestoreUsed": false
+}

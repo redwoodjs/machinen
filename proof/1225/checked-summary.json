@@ -1,0 +1,22 @@
+{
+  "kind": "machinen.node-level5-http-request-shape-proof-summary",
+  "proof": "1225",
+  "goal": "HTTP request-shape boundary preservation",
+  "result": "Arbitrary Express/Fastify apps and broad app/process support remain unclaimed.",
+  "status": "node-product-support-80-http-request-shape-product-slice",
+  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "supportedRequestShapeSources": [
+    "express-installed-post-json-body",
+    "express-installed-custom-header",
+    "express-installed-put-route",
+    "express-installed-delete-route",
+    "fastify-installed-post-json-body",
+    "fastify-installed-custom-header",
+    "fastify-installed-put-route",
+    "fastify-installed-delete-route"
+  ]
+}

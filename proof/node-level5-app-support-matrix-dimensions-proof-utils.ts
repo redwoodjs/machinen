@@ -1,5 +1,14 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  closeSync,
+  existsSync,
+  mkdtempSync,
+  openSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -350,17 +359,23 @@ function coversBothDirections(row: Row): boolean {
 }
 
 function cliMatrix(): Row {
-  const result = spawnSync(
-    process.execPath,
-    ["--import", tsxLoaderPath, cliPath, "node-level5", "support-matrix", "--json"],
-    { cwd: repoRoot, encoding: "utf8" },
-  );
-  if (result.status !== 0) {
-    throw new Error(
-      `support matrix CLI failed: ${result.status} ${result.stdout} ${result.stderr}`,
+  const dir = mkdtempSync(join(tmpdir(), "machinen-node-level5-matrix-cli-"));
+  const outputPath = join(dir, "matrix.json");
+  const fd = openSync(outputPath, "w");
+  try {
+    const result = spawnSync(
+      process.execPath,
+      ["--import", tsxLoaderPath, cliPath, "node-level5", "support-matrix", "--json"],
+      { cwd: repoRoot, encoding: "utf8", stdio: ["ignore", fd, "pipe"] },
     );
+    if (result.status !== 0) {
+      throw new Error(`support matrix CLI failed: ${result.status} ${result.stderr}`);
+    }
+    closeSync(fd);
+    return JSON.parse(readFileSync(outputPath, "utf8"));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
   }
-  return JSON.parse(result.stdout);
 }
 
 function featureNames(): string[] {

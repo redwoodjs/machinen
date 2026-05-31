@@ -10,5 +10,5 @@
   "arbitraryProcessCrossArchRestoreClaimed": 0,
   "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
   "productRunCorpusProofRange": "721-760",
-  "installedThirdPartyRows": 24
+  "installedThirdPartyRows": 116
 }

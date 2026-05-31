@@ -1,0 +1,14 @@
+{
+  "kind": "machinen.node-level5-idle-timer-continuation-proof-summary",
+  "proof": "1146",
+  "goal": "Idle timer boundary preservation",
+  "result": "General background schedulers and broad app/process support remain unclaimed.",
+  "status": "not-claimed",
+  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "id": "arbitrary-express-app",
+  "reason": "only listed Express fixture/template/installed app rows are supported today"
+}

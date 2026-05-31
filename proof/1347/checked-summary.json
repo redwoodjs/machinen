@@ -1,0 +1,14 @@
+{
+  "kind": "machinen.node-level5-static-routing-variant-proof-summary",
+  "proof": "1347",
+  "goal": "static/routing variant boundary preservation",
+  "result": "Arbitrary Express/Fastify apps and broad app/process support remain unclaimed.",
+  "status": "not-claimed",
+  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "id": "arbitrary-fastify-app",
+  "reason": "only listed Fastify fixture/template/installed app rows are supported today"
+}

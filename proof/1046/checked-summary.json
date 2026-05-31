@@ -10,8 +10,8 @@
   "nodeProductSupportClaimed": 80,
   "broadNodeProductSupportClaimed": 20,
   "arbitraryProcessCrossArchRestoreClaimed": 0,
-  "matrix": "be91b32aeb86686be2a293ecd3ca4ed0438db18decd00a2aea4d877c84232724",
-  "supportedRows": "6823480b6b7038b77ecd0eddbe3eab267d7f23c7da595dee5ce8b93a035ec26d",
+  "matrix": "39af373c5995027bb0ff6bb062aa6e35e27bf91f09b20f907cafa76cb4830830",
+  "supportedRows": "94a7d53eddb8311c868dcc56bfaae307e8cfe55bbd684fafc902a3f9d7d7c5f4",
   "refusedRows": "857ca9b76dba4ff0073273b277788281ca7a4f3d51a0d94dc794d42e0077a9b3",
   "notProvenRows": "169dd8080b2c7461fa498cf4487c39962e3f112430bd091215fcb9307644d4f4",
   "boundaries": "e50944a936ea7048b5357c4d7ea6ab3282be942fc9463bc921c67cd18ac0b792"

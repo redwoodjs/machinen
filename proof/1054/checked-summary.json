@@ -11,7 +11,21 @@
   "broadNodeProductSupportClaimed": 20,
   "arbitraryProcessCrossArchRestoreClaimed": 0,
   "jsonRows": ["express-installed-json-response", "fastify-installed-json-response"],
-  "paramsRows": ["express-installed-route-params", "fastify-installed-route-params"],
+  "paramsRows": [
+    "express-installed-delete-route",
+    "express-installed-optional-param",
+    "express-installed-put-route",
+    "express-installed-route-params",
+    "fastify-installed-delete-route",
+    "fastify-installed-optional-param",
+    "fastify-installed-put-route",
+    "fastify-installed-route-params"
+  ],
   "queryRows": ["express-installed-query-string", "fastify-installed-query-string"],
-  "staticAssetRows": ["express-installed-static-asset", "fastify-installed-static-asset"]
+  "staticAssetRows": [
+    "express-installed-static-asset",
+    "express-installed-static-cache-header",
+    "fastify-installed-static-asset",
+    "fastify-installed-static-cache-header"
+  ]
 }

@@ -453,6 +453,7 @@ export type {
 export type {
   NodeLevel5ProductBehavioralVerifierReport,
   NodeLevel5ProductCaptureReport,
+  NodeLevel5ProductDetectedFeature,
   NodeLevel5ProductDetectorReport,
   NodeLevel5ProductRestoreLaunchReport,
   NodeLevel5ProductRestoreMaterializationReport,

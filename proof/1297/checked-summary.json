@@ -1,0 +1,13 @@
+{
+  "kind": "machinen.node-level5-middleware-error-handling-proof-summary",
+  "proof": "1297",
+  "goal": "middleware/error-handling support matrix reconciliation",
+  "result": "Only selected middleware/error-handling rows are supported while unsafe live states remain refused.",
+  "status": "node-product-support-80-middleware-error-handling-product-slice",
+  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "rowCount": 100
+}
