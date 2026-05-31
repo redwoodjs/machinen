@@ -48,7 +48,16 @@ export function runNodeLevel5RealAppCorpusCliJson(
     expectedStatus?: number;
   } = {},
 ): Record<string, any> {
-  const result = spawnSync(
+  const result = runNodeLevel5RealAppCorpusCli(args, options);
+  assertNodeLevel5RealAppCorpusCliStatus(args, result, options.expectedStatus ?? 0);
+  return JSON.parse(result.stdout || result.stderr);
+}
+
+function runNodeLevel5RealAppCorpusCli(
+  args: string[],
+  options: { cwd?: string; direction?: NodeLevel5ProductSnapshotDirection },
+): ReturnType<typeof spawnSync> {
+  return spawnSync(
     process.execPath,
     ["--import", nodeLevel5RealAppCorpusTsxLoaderPath, nodeLevel5RealAppCorpusCliPath, ...args],
     {
@@ -57,13 +66,18 @@ export function runNodeLevel5RealAppCorpusCliJson(
       encoding: "utf8",
     },
   );
-  const expectedStatus = options.expectedStatus ?? 0;
+}
+
+function assertNodeLevel5RealAppCorpusCliStatus(
+  args: string[],
+  result: ReturnType<typeof spawnSync>,
+  expectedStatus: number,
+): void {
   if (result.status !== expectedStatus) {
     throw new Error(
       `CLI failed ${args.join(" ")}: ${result.status} ${result.stdout} ${result.stderr}`,
     );
   }
-  return JSON.parse(result.stdout || result.stderr);
 }
 
 function nodeLevel5RealAppCorpusCliEnv(
