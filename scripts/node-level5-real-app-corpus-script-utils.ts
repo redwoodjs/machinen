@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { spawnSync, type SpawnSyncReturns } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -56,7 +56,7 @@ export function runNodeLevel5RealAppCorpusCliJson(
 function runNodeLevel5RealAppCorpusCli(
   args: string[],
   options: { cwd?: string; direction?: NodeLevel5ProductSnapshotDirection },
-): ReturnType<typeof spawnSync> {
+): SpawnSyncReturns<string> {
   return spawnSync(
     process.execPath,
     ["--import", nodeLevel5RealAppCorpusTsxLoaderPath, nodeLevel5RealAppCorpusCliPath, ...args],
@@ -70,7 +70,7 @@ function runNodeLevel5RealAppCorpusCli(
 
 function assertNodeLevel5RealAppCorpusCliStatus(
   args: string[],
-  result: ReturnType<typeof spawnSync>,
+  result: SpawnSyncReturns<string>,
   expectedStatus: number,
 ): void {
   if (result.status !== expectedStatus) {

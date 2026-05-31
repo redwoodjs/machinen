@@ -192,6 +192,16 @@
 - [`nodeLevel5ProductSupport80ClaimRegistry`](#nodelevel5productsupport80claimregistry)
 - [`nodeLevel5ProductSupport80UnsupportedDetectors`](#nodelevel5productsupport80unsupporteddetectors)
 - [`verifyNodeLevel5ProductSupport80ArtifactBundle`](#verifynodelevel5productsupport80artifactbundle)
+- [`NodeLevel5ThirdPartyAppCorpusReport`](#nodelevel5thirdpartyappcorpusreport)
+- [`NodeLevel5ThirdPartyAppCorpusRow`](#nodelevel5thirdpartyappcorpusrow)
+- [`NodeLevel5ThirdPartyAppCorpusVerification`](#nodelevel5thirdpartyappcorpusverification)
+- [`NodeLevel5ThirdPartyAppSource`](#nodelevel5thirdpartyappsource)
+- [`NODE_LEVEL5_THIRD_PARTY_APP_CORPUS_REPORT_KIND`](#node_level5_third_party_app_corpus_report_kind)
+- [`NODE_LEVEL5_THIRD_PARTY_APP_CORPUS_REPORT_VERSION`](#node_level5_third_party_app_corpus_report_version)
+- [`createNodeLevel5ThirdPartyAppCorpusReport`](#createnodelevel5thirdpartyappcorpusreport)
+- [`loadNodeLevel5ThirdPartyAppCorpusReport`](#loadnodelevel5thirdpartyappcorpusreport)
+- [`verifyNodeLevel5ThirdPartyAppCorpusReport`](#verifynodelevel5thirdpartyappcorpusreport)
+- [`writeNodeLevel5ThirdPartyAppCorpusReport`](#writenodelevel5thirdpartyappcorpusreport)
 - [`NodeLevel5RealAppRefusalCorpusReport`](#nodelevel5realapprefusalcorpusreport)
 - [`NodeLevel5RealAppRefusalCorpusRow`](#nodelevel5realapprefusalcorpusrow)
 - [`NodeLevel5RealAppRefusalCorpusVerification`](#nodelevel5realapprefusalcorpusverification)
@@ -24428,6 +24438,172 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NodeLevel5ThirdPartyAppSource
+
+> **NodeLevel5ThirdPartyAppSource** = `"express-official-hello-world"` \| `"express-generator-router"` \| `"fastify-official-getting-started"` \| `"fastify-plugin-route"`
+
+***
+
+### NodeLevel5ThirdPartyAppCorpusRow
+
+> **NodeLevel5ThirdPartyAppCorpusRow** = `object`
+
+#### Properties
+
+##### appName
+
+> **appName**: `string`
+
+##### source
+
+> **source**: [`NodeLevel5ThirdPartyAppSource`](#nodelevel5thirdpartyappsource)
+
+##### framework
+
+> **framework**: [`NodeLevel5RealAppCorpusFramework`](#nodelevel5realappcorpusframework)
+
+##### direction
+
+> **direction**: [`NodeLevel5ProductSnapshotDirection`](#nodelevel5productsnapshotdirection)
+
+##### routePath
+
+> **routePath**: `string`
+
+##### expectedStatus
+
+> **expectedStatus**: `number`
+
+##### actualStatus
+
+> **actualStatus**: `number`
+
+##### expectedBody
+
+> **expectedBody**: `string`
+
+##### actualBody
+
+> **actualBody**: `string`
+
+##### expectedHeaders
+
+> **expectedHeaders**: `Record`\<`string`, `string`\>
+
+##### actualHeaders
+
+> **actualHeaders**: `Record`\<`string`, `string`\>
+
+##### snapshotAccepted
+
+> **snapshotAccepted**: `boolean`
+
+##### restoreAccepted
+
+> **restoreAccepted**: `boolean`
+
+##### behavioralVerifierPassed
+
+> **behavioralVerifierPassed**: `boolean`
+
+##### targetNativeNodeVerified
+
+> **targetNativeNodeVerified**: `boolean`
+
+##### declaredSubset
+
+> **declaredSubset**: `true`
+
+##### unsupportedStateDetected
+
+> **unsupportedStateDetected**: `false`
+
+***
+
+### NodeLevel5ThirdPartyAppCorpusReport
+
+> **NodeLevel5ThirdPartyAppCorpusReport** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_THIRD_PARTY_APP_CORPUS_REPORT_KIND`](#node_level5_third_party_app_corpus_report_kind)
+
+##### version
+
+> **version**: *typeof* [`NODE_LEVEL5_THIRD_PARTY_APP_CORPUS_REPORT_VERSION`](#node_level5_third_party_app_corpus_report_version)
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### rowCount
+
+> **rowCount**: `number`
+
+##### rowsSha256
+
+> **rowsSha256**: `string`
+
+##### rows
+
+> **rows**: [`NodeLevel5ThirdPartyAppCorpusRow`](#nodelevel5thirdpartyappcorpusrow)[]
+
+##### harnessProof
+
+> **harnessProof**: `true`
+
+##### nodeProductSupportClaimed
+
+> **nodeProductSupportClaimed**: `80`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `20`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
+
+***
+
+### NodeLevel5ThirdPartyAppCorpusVerification
+
+> **NodeLevel5ThirdPartyAppCorpusVerification** = `object`
+
+#### Properties
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### kind
+
+> **kind**: `"machinen.node-level5-third-party-app-corpus-verification"`
+
+##### rowCount
+
+> **rowCount**: `number`
+
+##### rowsSha256Verified
+
+> **rowsSha256Verified**: `boolean`
+
+##### nodeProductSupportClaimed
+
+> **nodeProductSupportClaimed**: `80`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `20`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
+
+***
+
 ### NodeProperLevel5HttpStatePolicyRefusalCode
 
 > **NodeProperLevel5HttpStatePolicyRefusalCode** = `"node-proper-level5-http-active-request-unsupported"` \| `"node-proper-level5-http-partial-read-unsupported"` \| `"node-proper-level5-http-partial-write-unsupported"` \| `"node-proper-level5-http-ambiguous-connection-state"`
@@ -26573,6 +26749,18 @@ loops; anything looser stops being a meaningful gate.
 ### NODE\_LEVEL5\_TARGET\_SIDE\_PROOF\_FORMAT\_VERSION
 
 > `const` **NODE\_LEVEL5\_TARGET\_SIDE\_PROOF\_FORMAT\_VERSION**: `1`
+
+***
+
+### NODE\_LEVEL5\_THIRD\_PARTY\_APP\_CORPUS\_REPORT\_KIND
+
+> `const` **NODE\_LEVEL5\_THIRD\_PARTY\_APP\_CORPUS\_REPORT\_KIND**: `"machinen.node-level5-third-party-app-corpus-report"` = `"machinen.node-level5-third-party-app-corpus-report"`
+
+***
+
+### NODE\_LEVEL5\_THIRD\_PARTY\_APP\_CORPUS\_REPORT\_VERSION
+
+> `const` **NODE\_LEVEL5\_THIRD\_PARTY\_APP\_CORPUS\_REPORT\_VERSION**: `1` = `1`
 
 ***
 
@@ -29777,6 +29965,76 @@ available.
 #### Returns
 
 `Promise`\<[`NodeLevel5TargetSideProof`](#nodelevel5targetsideproof)\>
+
+***
+
+### createNodeLevel5ThirdPartyAppCorpusReport()
+
+> **createNodeLevel5ThirdPartyAppCorpusReport**(`rows`): [`NodeLevel5ThirdPartyAppCorpusReport`](#nodelevel5thirdpartyappcorpusreport)
+
+#### Parameters
+
+##### rows
+
+[`NodeLevel5ThirdPartyAppCorpusRow`](#nodelevel5thirdpartyappcorpusrow)[]
+
+#### Returns
+
+[`NodeLevel5ThirdPartyAppCorpusReport`](#nodelevel5thirdpartyappcorpusreport)
+
+***
+
+### writeNodeLevel5ThirdPartyAppCorpusReport()
+
+> **writeNodeLevel5ThirdPartyAppCorpusReport**(`input`): [`NodeLevel5ThirdPartyAppCorpusReport`](#nodelevel5thirdpartyappcorpusreport)
+
+#### Parameters
+
+##### input
+
+###### path
+
+`string`
+
+###### rows
+
+[`NodeLevel5ThirdPartyAppCorpusRow`](#nodelevel5thirdpartyappcorpusrow)[]
+
+#### Returns
+
+[`NodeLevel5ThirdPartyAppCorpusReport`](#nodelevel5thirdpartyappcorpusreport)
+
+***
+
+### verifyNodeLevel5ThirdPartyAppCorpusReport()
+
+> **verifyNodeLevel5ThirdPartyAppCorpusReport**(`report`): [`NodeLevel5ThirdPartyAppCorpusVerification`](#nodelevel5thirdpartyappcorpusverification)
+
+#### Parameters
+
+##### report
+
+[`NodeLevel5ThirdPartyAppCorpusReport`](#nodelevel5thirdpartyappcorpusreport)
+
+#### Returns
+
+[`NodeLevel5ThirdPartyAppCorpusVerification`](#nodelevel5thirdpartyappcorpusverification)
+
+***
+
+### loadNodeLevel5ThirdPartyAppCorpusReport()
+
+> **loadNodeLevel5ThirdPartyAppCorpusReport**(`path`): [`NodeLevel5ThirdPartyAppCorpusReport`](#nodelevel5thirdpartyappcorpusreport)
+
+#### Parameters
+
+##### path
+
+`string`
+
+#### Returns
+
+[`NodeLevel5ThirdPartyAppCorpusReport`](#nodelevel5thirdpartyappcorpusreport)
 
 ***
 

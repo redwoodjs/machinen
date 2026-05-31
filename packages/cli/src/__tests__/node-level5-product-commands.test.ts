@@ -219,6 +219,63 @@ describe("Node Level 5 product commands", () => {
     }
   });
 
+  it("uses retained third-party app corpus evidence for release gates", () => {
+    const dir = mkdtempSync(join(tmpdir(), "machinen-node80-cli-third-party-corpus-"));
+    try {
+      const rows = [
+        {
+          appName: "express-official-hello-world",
+          source: "express-official-hello-world",
+          framework: "express",
+          direction: "arm64-to-amd64",
+          routePath: "/",
+          expectedStatus: 200,
+          actualStatus: 200,
+          expectedBody: "hello",
+          actualBody: "hello",
+          expectedHeaders: { "x-machinen-third-party-app": "express-official-hello-world" },
+          actualHeaders: { "x-machinen-third-party-app": "express-official-hello-world" },
+          snapshotAccepted: true,
+          restoreAccepted: true,
+          behavioralVerifierPassed: true,
+          targetNativeNodeVerified: true,
+          declaredSubset: true,
+          unsupportedStateDetected: false,
+        },
+      ];
+      const report = {
+        kind: "machinen.node-level5-third-party-app-corpus-report",
+        version: 1,
+        accepted: true,
+        rowCount: rows.length,
+        rowsSha256: createHash("sha256").update(JSON.stringify(rows)).digest("hex"),
+        rows,
+        harnessProof: true,
+        nodeProductSupportClaimed: 80,
+        broadNodeProductSupportClaimed: 20,
+        arbitraryProcessCrossArchRestoreClaimed: 0,
+      };
+      const reportPath = join(dir, "node-level5-third-party-app-corpus-report.json");
+      writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
+
+      const releaseGate = runCli([
+        "node-level5",
+        "release-gate",
+        "--include-third-party-app-corpus",
+        "--third-party-app-corpus-report",
+        reportPath,
+        "--json",
+      ]);
+      expect(releaseGate.status).toBe(0);
+      expect(JSON.parse(releaseGate.stdout)).toMatchObject({
+        accepted: true,
+        thirdPartyAppCorpus: { accepted: true, rowCount: 1, rowsSha256Verified: true },
+      });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it("prints claims and refuses unknown ABI", () => {
     const claims = runCli(["node-level5", "claims", "--json"]);
     expect(claims.status).toBe(0);
