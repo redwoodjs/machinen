@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -108,6 +109,259 @@ describe("Node Level 5 product commands", () => {
       ]);
       expect(tampered.status).toBe(1);
       expect(JSON.parse(tampered.stdout).message).toContain("hash mismatch");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("uses retained real-app corpus evidence for release gates", () => {
+    const dir = mkdtempSync(join(tmpdir(), "machinen-node80-cli-corpus-"));
+    try {
+      const rows = [
+        {
+          framework: "express",
+          direction: "arm64-to-amd64",
+          routePath: "/express/health",
+          expectedStatus: 200,
+          actualStatus: 200,
+          expectedBody: "express-ok",
+          actualBody: "express-ok",
+          expectedHeaders: { "x-machinen-fixture": "express" },
+          actualHeaders: { "x-machinen-fixture": "express" },
+          snapshotAccepted: true,
+          restoreAccepted: true,
+          behavioralVerifierPassed: true,
+          targetNativeNodeVerified: true,
+        },
+      ];
+      const report = {
+        kind: "machinen.node-level5-real-app-corpus-report",
+        version: 1,
+        accepted: true,
+        rowCount: rows.length,
+        rowsSha256: createHash("sha256").update(JSON.stringify(rows)).digest("hex"),
+        rows,
+        harnessProof: true,
+        nodeProductSupportClaimed: 80,
+        broadNodeProductSupportClaimed: 20,
+        arbitraryProcessCrossArchRestoreClaimed: 0,
+      };
+      const reportPath = join(dir, "node-level5-real-app-corpus-report.json");
+      writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
+
+      const releaseGate = runCli([
+        "node-level5",
+        "release-gate",
+        "--include-real-app-corpus",
+        "--corpus-report",
+        reportPath,
+        "--json",
+      ]);
+      expect(releaseGate.status).toBe(0);
+      expect(JSON.parse(releaseGate.stdout)).toMatchObject({
+        accepted: true,
+        realAppCorpus: { accepted: true, rowCount: 1, rowsSha256Verified: true },
+      });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("uses retained real-app refusal corpus evidence for release gates", () => {
+    const dir = mkdtempSync(join(tmpdir(), "machinen-node80-cli-refusal-corpus-"));
+    try {
+      const rows = [
+        {
+          framework: "express",
+          direction: "arm64-to-amd64",
+          marker: "workerThreads",
+          expectedRefusalCode: "node-level5-worker-thread-refused",
+          actualRefusalCode: "node-level5-worker-thread-refused",
+          snapshotAccepted: false,
+          snapshotManifestWritten: false,
+          refusedBeforeSnapshot: true,
+          productCommandPath: "machinen snapshot node <pid> --out <dir>",
+          rawCpuRestoreUsed: false,
+          sourceIsaEmulationUsed: false,
+          metadataOnlySuccessAccepted: false,
+        },
+      ];
+      const report = {
+        kind: "machinen.node-level5-real-app-refusal-corpus-report",
+        version: 1,
+        accepted: true,
+        rowCount: rows.length,
+        rowsSha256: createHash("sha256").update(JSON.stringify(rows)).digest("hex"),
+        rows,
+        harnessProof: true,
+        nodeProductSupportClaimed: 80,
+        broadNodeProductSupportClaimed: 20,
+        arbitraryProcessCrossArchRestoreClaimed: 0,
+      };
+      const reportPath = join(dir, "node-level5-real-app-refusal-corpus-report.json");
+      writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
+
+      const releaseGate = runCli([
+        "node-level5",
+        "release-gate",
+        "--include-refusal-corpus",
+        "--refusal-corpus-report",
+        reportPath,
+        "--json",
+      ]);
+      expect(releaseGate.status).toBe(0);
+      expect(JSON.parse(releaseGate.stdout)).toMatchObject({
+        accepted: true,
+        realAppRefusalCorpus: { accepted: true, rowCount: 1, rowsSha256Verified: true },
+      });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("uses retained third-party app corpus evidence for release gates", () => {
+    const dir = mkdtempSync(join(tmpdir(), "machinen-node80-cli-third-party-corpus-"));
+    try {
+      const rows = [
+        {
+          appName: "express-official-hello-world",
+          source: "express-official-hello-world",
+          framework: "express",
+          direction: "arm64-to-amd64",
+          routePath: "/",
+          expectedStatus: 200,
+          actualStatus: 200,
+          expectedBody: "hello",
+          actualBody: "hello",
+          expectedHeaders: { "x-machinen-third-party-app": "express-official-hello-world" },
+          actualHeaders: { "x-machinen-third-party-app": "express-official-hello-world" },
+          snapshotAccepted: true,
+          restoreAccepted: true,
+          behavioralVerifierPassed: true,
+          targetNativeNodeVerified: true,
+          declaredSubset: true,
+          unsupportedStateDetected: false,
+        },
+      ];
+      const report = {
+        kind: "machinen.node-level5-third-party-app-corpus-report",
+        version: 1,
+        accepted: true,
+        rowCount: rows.length,
+        rowsSha256: createHash("sha256").update(JSON.stringify(rows)).digest("hex"),
+        rows,
+        harnessProof: true,
+        nodeProductSupportClaimed: 80,
+        broadNodeProductSupportClaimed: 20,
+        arbitraryProcessCrossArchRestoreClaimed: 0,
+      };
+      const reportPath = join(dir, "node-level5-third-party-app-corpus-report.json");
+      writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
+
+      const releaseGate = runCli([
+        "node-level5",
+        "release-gate",
+        "--include-third-party-app-corpus",
+        "--third-party-app-corpus-report",
+        reportPath,
+        "--json",
+      ]);
+      expect(releaseGate.status).toBe(0);
+      expect(JSON.parse(releaseGate.stdout)).toMatchObject({
+        accepted: true,
+        thirdPartyAppCorpus: { accepted: true, rowCount: 1, rowsSha256Verified: true },
+      });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("prints the app-based support matrix", () => {
+    const supportMatrix = runCli(["node-level5", "support-matrix", "--json"]);
+
+    expect(supportMatrix.status).toBe(0);
+    expect(JSON.parse(supportMatrix.stdout)).toMatchObject({
+      accepted: true,
+      kind: "machinen.node-level5-app-support-matrix",
+      rowCount: 54,
+      rows: expect.arrayContaining([
+        expect.objectContaining({
+          id: "express-installed-hello-world",
+          status: "supported",
+          features: expect.objectContaining({ route: "simple-route", response: "text" }),
+        }),
+        expect.objectContaining({ id: "fastify-websockets", status: "refused" }),
+        expect.objectContaining({ id: "express-db-connections", status: "refused" }),
+        expect.objectContaining({ id: "express-installed-json-response", status: "supported" }),
+        expect.objectContaining({
+          id: "express-external-network-not-proven",
+          status: "not-proven",
+        }),
+      ]),
+      boundaries: expect.arrayContaining([
+        expect.objectContaining({ id: "arbitrary-node-process", status: "not-claimed" }),
+      ]),
+    });
+  });
+
+  it("uses retained installed third-party app corpus evidence for release gates", () => {
+    const dir = mkdtempSync(join(tmpdir(), "machinen-node80-cli-installed-third-party-corpus-"));
+    try {
+      const rows = [
+        {
+          appName: "express-installed-hello-world",
+          source: "express-installed-hello-world",
+          framework: "express",
+          direction: "arm64-to-amd64",
+          installedPackage: "express",
+          installedPackageVersion: "5.2.1",
+          routePath: "/",
+          expectedStatus: 200,
+          actualStatus: 200,
+          expectedBody: "hello",
+          actualBody: "hello",
+          expectedHeaders: {
+            "x-machinen-installed-third-party-app": "express-installed-hello-world",
+          },
+          actualHeaders: {
+            "x-machinen-installed-third-party-app": "express-installed-hello-world",
+          },
+          snapshotAccepted: true,
+          restoreAccepted: true,
+          behavioralVerifierPassed: true,
+          targetNativeNodeVerified: true,
+          declaredSubset: true,
+          unsupportedStateDetected: false,
+        },
+      ];
+      const report = {
+        kind: "machinen.node-level5-installed-third-party-app-corpus-report",
+        version: 1,
+        accepted: true,
+        rowCount: rows.length,
+        rowsSha256: createHash("sha256").update(JSON.stringify(rows)).digest("hex"),
+        rows,
+        harnessProof: true,
+        nodeProductSupportClaimed: 80,
+        broadNodeProductSupportClaimed: 20,
+        arbitraryProcessCrossArchRestoreClaimed: 0,
+      };
+      const reportPath = join(dir, "node-level5-installed-third-party-app-corpus-report.json");
+      writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
+
+      const releaseGate = runCli([
+        "node-level5",
+        "release-gate",
+        "--include-installed-third-party-app-corpus",
+        "--installed-third-party-app-corpus-report",
+        reportPath,
+        "--json",
+      ]);
+      expect(releaseGate.status).toBe(0);
+      expect(JSON.parse(releaseGate.stdout)).toMatchObject({
+        accepted: true,
+        installedThirdPartyAppCorpus: { accepted: true, rowCount: 1, rowsSha256Verified: true },
+      });
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
