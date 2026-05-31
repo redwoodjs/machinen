@@ -5,10 +5,12 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CLI="$ROOT/packages/cli/dist/cli.js"
 WORK="${WORK_DIR:-$(mktemp -d "${TMPDIR:-/tmp}/machinen-node-level5-vm-detected.XXXXXX")}"
 NAME="node-level5-detected-$$"
+RESTORED="node-level5-detected-restored-$$"
 mkdir -p "$WORK"
 
 cleanup() {
   node "$CLI" stop "$NAME" >/dev/null 2>&1 || true
+  node "$CLI" stop "$RESTORED" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
@@ -37,4 +39,16 @@ test -f "$WORK/snap/portable-clean-service.json"
 test -f "$WORK/snap/clean-service-node-primary.tar.gz"
 node -e 'const fs=require("fs"); const p=process.argv[1]; const m=JSON.parse(fs.readFileSync(p,"utf8")); if (m.runtime !== "node" || m.subset !== "node-http-clean-root-v1" || m.sourceCwd !== "/opt/machinen-node-level5-detected") throw new Error("generic VM snapshot did not retain detected Node workload");' "$WORK/snap/portable-node.json"
 
-echo "node level5 VM-detected generic snapshot smoke passed: $WORK"
+node "$CLI" restore "$WORK/snap" --name "$RESTORED" >"$WORK/restore.log" 2>&1 &
+RESTORE_PID=$!
+for i in $(seq 1 80); do
+  if node "$CLI" exec "$RESTORED" -- true >/dev/null 2>&1; then
+    break
+  fi
+  sleep 0.25
+done
+node "$CLI" exec "$RESTORED" -- "for i in \$(seq 1 80); do curl -fsS http://127.0.0.1:3000/ | grep -q machinen-node-level5-detected-v1 && exit 0; sleep 0.25; done; cat /tmp/node-level5-detected.log; exit 1"
+kill -TERM "$RESTORE_PID" >/dev/null 2>&1 || true
+wait "$RESTORE_PID" >/dev/null 2>&1 || true
+
+echo "node level5 VM-detected generic snapshot+restore smoke passed: $WORK"

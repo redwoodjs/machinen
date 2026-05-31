@@ -7,6 +7,7 @@ export type NodeLevel5AppSupportEvidenceKind =
   | "fixture-product-run-corpus"
   | "template-corpus"
   | "installed-package-corpus"
+  | "generic-vm-detected-corpus"
   | "refusal-corpus"
   | "matrix-gap";
 export type NodeLevel5AppSupportProductBehavior =
@@ -108,13 +109,16 @@ type RefusalMarker = {
 };
 
 const directions: NodeLevel5AppSupportDirection[] = ["arm64-to-amd64", "amd64-to-arm64"];
+const supportedFrameworks: NodeLevel5AppSupportFramework[] = ["express", "fastify"];
 
 export function buildNodeLevel5AppSupportMatrix(): NodeLevel5AppSupportMatrix {
   const rows = [
     ...fixtureRows(),
     ...templateRows(),
     ...installedRows(),
+    ...genericVmDetectedRows(),
     ...refusalRows(),
+    ...genericVmRefusalRows(),
     ...notProvenRows(),
   ];
   return {
@@ -751,11 +755,80 @@ function notProvenRow(
   };
 }
 
+function genericVmDetectedRows(): NodeLevel5AppSupportMatrixRow[] {
+  return [
+    genericVmDetectedRow("express-generic-vm-cjs", "Express generic VM CJS app", "express"),
+    genericVmDetectedRow("express-generic-vm-esm", "Express generic VM ESM app", "express"),
+    genericVmDetectedRow("fastify-generic-vm-cjs", "Fastify generic VM CJS app", "fastify"),
+    genericVmDetectedRow("fastify-generic-vm-esm", "Fastify generic VM ESM app", "fastify"),
+  ];
+}
+
+function genericVmDetectedRow(
+  id: string,
+  appName: string,
+  framework: NodeLevel5AppSupportFramework,
+): NodeLevel5AppSupportMatrixRow {
+  return supportedRow({
+    id,
+    appName,
+    framework,
+    evidence: genericVmEvidence(),
+    supportedAppShape: "detected Node workload inside a generic VM snapshot",
+    features: simpleTextFeatures(),
+    limitations: [
+      "candidate 85/25/0 milestone evidence only; claim remains 80/20/0",
+      "Node workload must be detected inside a Machinen VM",
+      ...commonPositiveLimitations(),
+    ],
+  });
+}
+
+function genericVmRefusalRows(): NodeLevel5AppSupportMatrixRow[] {
+  const markers = refusalMarkers().filter((marker) =>
+    [
+      "active-requests",
+      "worker-threads",
+      "native-addons",
+      "tls-active-state",
+      "child-processes",
+    ].includes(marker.id),
+  );
+  return supportedFrameworks.flatMap((framework) =>
+    markers.map((marker) => genericVmRefusalRow(framework, marker)),
+  );
+}
+
+function genericVmRefusalRow(
+  framework: NodeLevel5AppSupportFramework,
+  marker: RefusalMarker,
+): NodeLevel5AppSupportMatrixRow {
+  return {
+    ...refusalRow(framework, marker),
+    id: `${framework}-generic-vm-${marker.id}`,
+    appName: `${framework} generic VM ${marker.appName}`,
+    evidence: genericVmEvidence(),
+    limitations: [
+      "generic VM detected milestone refusal row",
+      "snapshot must be refused before manifest write",
+      "restore is not attempted",
+    ],
+  };
+}
+
 function productRunEvidence(): NodeLevel5AppSupportEvidence {
   return {
     kind: "fixture-product-run-corpus",
     proofRange: "721-760",
     corpusReport: "node-level5-real-app-corpus-report.json",
+  };
+}
+
+function genericVmEvidence(): NodeLevel5AppSupportEvidence {
+  return {
+    kind: "generic-vm-detected-corpus",
+    proofRange: "next-85-candidate",
+    corpusReport: "node-level5-generic-vm-corpus-report.json",
   };
 }
 

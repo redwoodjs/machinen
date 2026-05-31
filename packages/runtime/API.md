@@ -225,6 +225,19 @@
 - [`loadNodeLevel5InstalledThirdPartyAppCorpusReport`](#loadnodelevel5installedthirdpartyappcorpusreport)
 - [`verifyNodeLevel5InstalledThirdPartyAppCorpusReport`](#verifynodelevel5installedthirdpartyappcorpusreport)
 - [`writeNodeLevel5InstalledThirdPartyAppCorpusReport`](#writenodelevel5installedthirdpartyappcorpusreport)
+- [`NodeLevel5GenericVmModuleSystem`](#nodelevel5genericvmmodulesystem)
+- [`NodeLevel5GenericVmRefusalMarker`](#nodelevel5genericvmrefusalmarker)
+- [`NodeLevel5GenericVmPositiveRow`](#nodelevel5genericvmpositiverow)
+- [`NodeLevel5GenericVmRefusalRow`](#nodelevel5genericvmrefusalrow)
+- [`NodeLevel5GenericVmCorpusRow`](#nodelevel5genericvmcorpusrow)
+- [`NodeLevel5GenericVmCorpusReport`](#nodelevel5genericvmcorpusreport)
+- [`NodeLevel5GenericVmCorpusVerification`](#nodelevel5genericvmcorpusverification)
+- [`NODE_LEVEL5_GENERIC_VM_CORPUS_REPORT_KIND`](#node_level5_generic_vm_corpus_report_kind)
+- [`NODE_LEVEL5_GENERIC_VM_CORPUS_REPORT_VERSION`](#node_level5_generic_vm_corpus_report_version)
+- [`createNodeLevel5GenericVmCorpusReport`](#createnodelevel5genericvmcorpusreport)
+- [`writeNodeLevel5GenericVmCorpusReport`](#writenodelevel5genericvmcorpusreport)
+- [`verifyNodeLevel5GenericVmCorpusReport`](#verifynodelevel5genericvmcorpusreport)
+- [`loadNodeLevel5GenericVmCorpusReport`](#loadnodelevel5genericvmcorpusreport)
 - [`NodeLevel5ThirdPartyAppCorpusReport`](#nodelevel5thirdpartyappcorpusreport)
 - [`NodeLevel5ThirdPartyAppCorpusRow`](#nodelevel5thirdpartyappcorpusrow)
 - [`NodeLevel5ThirdPartyAppCorpusVerification`](#nodelevel5thirdpartyappcorpusverification)
@@ -22100,7 +22113,7 @@ Poll interval in ms while retrying. Default 250.
 
 ### NodeLevel5AppSupportEvidenceKind
 
-> **NodeLevel5AppSupportEvidenceKind** = `"fixture-product-run-corpus"` \| `"template-corpus"` \| `"installed-package-corpus"` \| `"refusal-corpus"` \| `"matrix-gap"`
+> **NodeLevel5AppSupportEvidenceKind** = `"fixture-product-run-corpus"` \| `"template-corpus"` \| `"installed-package-corpus"` \| `"generic-vm-detected-corpus"` \| `"refusal-corpus"` \| `"matrix-gap"`
 
 ***
 
@@ -22669,6 +22682,284 @@ Poll interval in ms while retrying. Default 250.
 ##### refusal?
 
 > `optional` **refusal?**: [`NodeLevel5DeclaredSubsetRefusal`](#nodelevel5declaredsubsetrefusal)
+
+***
+
+### NodeLevel5GenericVmModuleSystem
+
+> **NodeLevel5GenericVmModuleSystem** = `"cjs"` \| `"esm"`
+
+***
+
+### NodeLevel5GenericVmRefusalMarker
+
+> **NodeLevel5GenericVmRefusalMarker** = `"activeRequests"` \| `"workerThreads"` \| `"nativeAddons"` \| `"tlsActiveState"` \| `"childProcesses"`
+
+***
+
+### NodeLevel5GenericVmPositiveRow
+
+> **NodeLevel5GenericVmPositiveRow** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: `"positive"`
+
+##### id
+
+> **id**: `string`
+
+##### framework
+
+> **framework**: [`NodeLevel5RealAppCorpusFramework`](#nodelevel5realappcorpusframework)
+
+##### moduleSystem
+
+> **moduleSystem**: [`NodeLevel5GenericVmModuleSystem`](#nodelevel5genericvmmodulesystem)
+
+##### direction
+
+> **direction**: [`NodeLevel5ProductSnapshotDirection`](#nodelevel5productsnapshotdirection)
+
+##### productCommandPath
+
+> **productCommandPath**: `"machinen snapshot <vm-name> --out <dir>; machinen restore <dir>"`
+
+##### wholeVmSnapshot
+
+> **wholeVmSnapshot**: `true`
+
+##### nodeDetectedInsideVm
+
+> **nodeDetectedInsideVm**: `true`
+
+##### hostPidProductTargetingUsed
+
+> **hostPidProductTargetingUsed**: `false`
+
+##### nodeOnlyProductSelectorUsed
+
+> **nodeOnlyProductSelectorUsed**: `false`
+
+##### snapshotAccepted
+
+> **snapshotAccepted**: `true`
+
+##### restoreAccepted
+
+> **restoreAccepted**: `true`
+
+##### behaviorVerified
+
+> **behaviorVerified**: `true`
+
+##### targetNativeNodeVerified
+
+> **targetNativeNodeVerified**: `true`
+
+##### rawCpuRestoreUsed
+
+> **rawCpuRestoreUsed**: `false`
+
+##### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+##### metadataOnlySuccessAccepted
+
+> **metadataOnlySuccessAccepted**: `false`
+
+***
+
+### NodeLevel5GenericVmRefusalRow
+
+> **NodeLevel5GenericVmRefusalRow** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: `"refusal"`
+
+##### id
+
+> **id**: `string`
+
+##### framework
+
+> **framework**: [`NodeLevel5RealAppCorpusFramework`](#nodelevel5realappcorpusframework)
+
+##### marker
+
+> **marker**: [`NodeLevel5GenericVmRefusalMarker`](#nodelevel5genericvmrefusalmarker)
+
+##### direction
+
+> **direction**: [`NodeLevel5ProductSnapshotDirection`](#nodelevel5productsnapshotdirection)
+
+##### productCommandPath
+
+> **productCommandPath**: `"machinen snapshot <vm-name> --out <dir>"`
+
+##### expectedRefusalCode
+
+> **expectedRefusalCode**: [`NodeLevel5ProductSnapshotRefusalCode`](#nodelevel5productsnapshotrefusalcode)
+
+##### actualRefusalCode
+
+> **actualRefusalCode**: [`NodeLevel5ProductSnapshotRefusalCode`](#nodelevel5productsnapshotrefusalcode)
+
+##### snapshotAccepted
+
+> **snapshotAccepted**: `false`
+
+##### restoreAttempted
+
+> **restoreAttempted**: `false`
+
+##### refusedBeforeSnapshot
+
+> **refusedBeforeSnapshot**: `true`
+
+##### rawCpuRestoreUsed
+
+> **rawCpuRestoreUsed**: `false`
+
+##### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+##### metadataOnlySuccessAccepted
+
+> **metadataOnlySuccessAccepted**: `false`
+
+***
+
+### NodeLevel5GenericVmCorpusRow
+
+> **NodeLevel5GenericVmCorpusRow** = [`NodeLevel5GenericVmPositiveRow`](#nodelevel5genericvmpositiverow) \| [`NodeLevel5GenericVmRefusalRow`](#nodelevel5genericvmrefusalrow)
+
+***
+
+### NodeLevel5GenericVmCorpusReport
+
+> **NodeLevel5GenericVmCorpusReport** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_GENERIC_VM_CORPUS_REPORT_KIND`](#node_level5_generic_vm_corpus_report_kind)
+
+##### version
+
+> **version**: *typeof* [`NODE_LEVEL5_GENERIC_VM_CORPUS_REPORT_VERSION`](#node_level5_generic_vm_corpus_report_version)
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### rowCount
+
+> **rowCount**: `number`
+
+##### positiveRowCount
+
+> **positiveRowCount**: `number`
+
+##### refusalRowCount
+
+> **refusalRowCount**: `number`
+
+##### rowsSha256
+
+> **rowsSha256**: `string`
+
+##### rows
+
+> **rows**: [`NodeLevel5GenericVmCorpusRow`](#nodelevel5genericvmcorpusrow)[]
+
+##### claimChangeAllowed
+
+> **claimChangeAllowed**: `false`
+
+##### candidateNodeProductSupportClaimed
+
+> **candidateNodeProductSupportClaimed**: `85`
+
+##### candidateBroadNodeProductSupportClaimed
+
+> **candidateBroadNodeProductSupportClaimed**: `25`
+
+##### nodeProductSupportClaimed
+
+> **nodeProductSupportClaimed**: `80`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `20`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
+
+***
+
+### NodeLevel5GenericVmCorpusVerification
+
+> **NodeLevel5GenericVmCorpusVerification** = `object`
+
+#### Properties
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### kind
+
+> **kind**: `"machinen.node-level5-generic-vm-corpus-verification"`
+
+##### rowCount
+
+> **rowCount**: `number`
+
+##### positiveRowCount
+
+> **positiveRowCount**: `number`
+
+##### refusalRowCount
+
+> **refusalRowCount**: `number`
+
+##### rowsSha256Verified
+
+> **rowsSha256Verified**: `boolean`
+
+##### claimChangeAllowed
+
+> **claimChangeAllowed**: `false`
+
+##### candidateNodeProductSupportClaimed
+
+> **candidateNodeProductSupportClaimed**: `85`
+
+##### candidateBroadNodeProductSupportClaimed
+
+> **candidateBroadNodeProductSupportClaimed**: `25`
+
+##### nodeProductSupportClaimed
+
+> **nodeProductSupportClaimed**: `80`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `20`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
 
 ***
 
@@ -26828,6 +27119,18 @@ loops; anything looser stops being a meaningful gate.
 
 ***
 
+### NODE\_LEVEL5\_GENERIC\_VM\_CORPUS\_REPORT\_KIND
+
+> `const` **NODE\_LEVEL5\_GENERIC\_VM\_CORPUS\_REPORT\_KIND**: `"machinen.node-level5-generic-vm-corpus-report"` = `"machinen.node-level5-generic-vm-corpus-report"`
+
+***
+
+### NODE\_LEVEL5\_GENERIC\_VM\_CORPUS\_REPORT\_VERSION
+
+> `const` **NODE\_LEVEL5\_GENERIC\_VM\_CORPUS\_REPORT\_VERSION**: `1` = `1`
+
+***
+
 ### NODE\_LEVEL5\_HTTP\_PROFILE\_FORMAT\_VERSION
 
 > `const` **NODE\_LEVEL5\_HTTP\_PROFILE\_FORMAT\_VERSION**: `1`
@@ -29959,6 +30262,76 @@ available.
 #### Returns
 
 `value is NodeLevel5DeclaredSubsetManifest`
+
+***
+
+### createNodeLevel5GenericVmCorpusReport()
+
+> **createNodeLevel5GenericVmCorpusReport**(`rows`): [`NodeLevel5GenericVmCorpusReport`](#nodelevel5genericvmcorpusreport)
+
+#### Parameters
+
+##### rows
+
+[`NodeLevel5GenericVmCorpusRow`](#nodelevel5genericvmcorpusrow)[]
+
+#### Returns
+
+[`NodeLevel5GenericVmCorpusReport`](#nodelevel5genericvmcorpusreport)
+
+***
+
+### writeNodeLevel5GenericVmCorpusReport()
+
+> **writeNodeLevel5GenericVmCorpusReport**(`input`): [`NodeLevel5GenericVmCorpusReport`](#nodelevel5genericvmcorpusreport)
+
+#### Parameters
+
+##### input
+
+###### path
+
+`string`
+
+###### rows
+
+[`NodeLevel5GenericVmCorpusRow`](#nodelevel5genericvmcorpusrow)[]
+
+#### Returns
+
+[`NodeLevel5GenericVmCorpusReport`](#nodelevel5genericvmcorpusreport)
+
+***
+
+### verifyNodeLevel5GenericVmCorpusReport()
+
+> **verifyNodeLevel5GenericVmCorpusReport**(`report`): [`NodeLevel5GenericVmCorpusVerification`](#nodelevel5genericvmcorpusverification)
+
+#### Parameters
+
+##### report
+
+[`NodeLevel5GenericVmCorpusReport`](#nodelevel5genericvmcorpusreport)
+
+#### Returns
+
+[`NodeLevel5GenericVmCorpusVerification`](#nodelevel5genericvmcorpusverification)
+
+***
+
+### loadNodeLevel5GenericVmCorpusReport()
+
+> **loadNodeLevel5GenericVmCorpusReport**(`path`): [`NodeLevel5GenericVmCorpusReport`](#nodelevel5genericvmcorpusreport)
+
+#### Parameters
+
+##### path
+
+`string`
+
+#### Returns
+
+[`NodeLevel5GenericVmCorpusReport`](#nodelevel5genericvmcorpusreport)
 
 ***
 

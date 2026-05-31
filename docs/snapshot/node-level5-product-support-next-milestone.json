@@ -11,6 +11,11 @@
     "broadNodeProductSupportClaimed": 25,
     "arbitraryProcessCrossArchRestoreClaimed": 0
   },
+  "candidateCorpus": {
+    "releaseGateField": "genericVmCorpus",
+    "report": "node-level5-generic-vm-corpus-report.json",
+    "claimChangeAllowed": false
+  },
   "productCommandPath": "machinen snapshot <vm-name> --out <dir>; machinen restore <dir>",
   "nodeDetectedInsideVm": true,
   "hostPidProductTargetingAllowed": false,

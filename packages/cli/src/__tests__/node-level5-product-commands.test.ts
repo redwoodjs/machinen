@@ -177,6 +177,83 @@ describe("Node Level 5 product commands", () => {
     }
   });
 
+  it("uses retained generic VM corpus evidence for release gates", () => {
+    const dir = mkdtempSync(join(tmpdir(), "machinen-node80-cli-generic-vm-corpus-"));
+    try {
+      const rows = [
+        {
+          kind: "positive",
+          id: "express-cjs-arm64-to-amd64",
+          framework: "express",
+          moduleSystem: "cjs",
+          direction: "arm64-to-amd64",
+          productCommandPath: "machinen snapshot <vm-name> --out <dir>; machinen restore <dir>",
+          wholeVmSnapshot: true,
+          nodeDetectedInsideVm: true,
+          hostPidProductTargetingUsed: false,
+          nodeOnlyProductSelectorUsed: false,
+          snapshotAccepted: true,
+          restoreAccepted: true,
+          behaviorVerified: true,
+          targetNativeNodeVerified: true,
+          rawCpuRestoreUsed: false,
+          sourceIsaEmulationUsed: false,
+          metadataOnlySuccessAccepted: false,
+        },
+        {
+          kind: "refusal",
+          id: "express-worker-refusal-arm64-to-amd64",
+          framework: "express",
+          marker: "workerThreads",
+          direction: "arm64-to-amd64",
+          productCommandPath: "machinen snapshot <vm-name> --out <dir>",
+          expectedRefusalCode: "node-level5-worker-thread-refused",
+          actualRefusalCode: "node-level5-worker-thread-refused",
+          snapshotAccepted: false,
+          restoreAttempted: false,
+          refusedBeforeSnapshot: true,
+          rawCpuRestoreUsed: false,
+          sourceIsaEmulationUsed: false,
+          metadataOnlySuccessAccepted: false,
+        },
+      ];
+      const report = {
+        kind: "machinen.node-level5-generic-vm-corpus-report",
+        version: 1,
+        accepted: true,
+        rowCount: rows.length,
+        positiveRowCount: 1,
+        refusalRowCount: 1,
+        rowsSha256: createHash("sha256").update(JSON.stringify(rows)).digest("hex"),
+        rows,
+        claimChangeAllowed: false,
+        candidateNodeProductSupportClaimed: 85,
+        candidateBroadNodeProductSupportClaimed: 25,
+        nodeProductSupportClaimed: 80,
+        broadNodeProductSupportClaimed: 20,
+        arbitraryProcessCrossArchRestoreClaimed: 0,
+      };
+      const reportPath = join(dir, "node-level5-generic-vm-corpus-report.json");
+      writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
+
+      const releaseGate = runCli([
+        "node-level5",
+        "release-gate",
+        "--include-generic-vm-corpus",
+        "--generic-vm-corpus-report",
+        reportPath,
+        "--json",
+      ]);
+      expect(releaseGate.status).toBe(0);
+      expect(JSON.parse(releaseGate.stdout)).toMatchObject({
+        accepted: true,
+        genericVmCorpus: { accepted: true, rowCount: 2, rowsSha256Verified: true },
+      });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it("uses retained real-app refusal corpus evidence for release gates", () => {
     const dir = mkdtempSync(join(tmpdir(), "machinen-node80-cli-refusal-corpus-"));
     try {
@@ -293,7 +370,7 @@ describe("Node Level 5 product commands", () => {
     expect(JSON.parse(supportMatrix.stdout)).toMatchObject({
       accepted: true,
       kind: "machinen.node-level5-app-support-matrix",
-      rowCount: 100,
+      rowCount: 114,
       rows: expect.arrayContaining([
         expect.objectContaining({
           id: "express-installed-hello-world",
@@ -303,6 +380,9 @@ describe("Node Level 5 product commands", () => {
         expect.objectContaining({ id: "fastify-websockets", status: "refused" }),
         expect.objectContaining({ id: "express-db-connections", status: "refused" }),
         expect.objectContaining({ id: "express-installed-json-response", status: "supported" }),
+        expect.objectContaining({ id: "express-generic-vm-cjs", status: "supported" }),
+        expect.objectContaining({ id: "fastify-generic-vm-esm", status: "supported" }),
+        expect.objectContaining({ id: "express-generic-vm-active-requests", status: "refused" }),
         expect.objectContaining({ id: "fastify-installed-idle-timer", status: "supported" }),
         expect.objectContaining({
           id: "express-installed-safe-outbound-reconnect",

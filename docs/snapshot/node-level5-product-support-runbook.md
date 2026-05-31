@@ -38,4 +38,6 @@ For the 65% tier, identify whether the case is an active async idle boundary, TL
 
 For the 80% tier, also identify the selected app row, real-app corpus row, refusal-corpus row, or support-matrix row that covers the report. The product path is `machinen snapshot <vm-name> --out <dir>` followed by `machinen restore <dir>`; Node support is detected inside the VM.
 
+For the candidate 85 / 25 / 0 milestone, retain the `genericVmCorpus` release-gate report from `scripts/smoke/node-level5-generic-vm-corpus.sh` and the VM restore/probe log from `scripts/smoke/node-level5-vm-detected-product-snapshot.sh`. These are candidate artifacts only; they do not raise the claim registry while `claimChangeAllowed` remains `false`.
+
 Treat everything else as unsupported unless the product support matrix is expanded and the claim registry is intentionally raised.

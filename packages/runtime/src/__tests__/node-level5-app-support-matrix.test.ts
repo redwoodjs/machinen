@@ -19,7 +19,7 @@ describe("Node Level 5 app support matrix", () => {
       broadNodeProductSupportClaimed: 20,
       arbitraryProcessCrossArchRestoreClaimed: 0,
     });
-    expect(matrix.rowCount).toBe(100);
+    expect(matrix.rowCount).toBe(114);
     expect(matrix.rows.map((row) => row.id)).toEqual(
       expect.arrayContaining([
         "express-fixture-product-run",
@@ -44,6 +44,9 @@ describe("Node Level 5 app support matrix", () => {
         "fastify-installed-configured-prefix",
         "express-installed-health-check",
         "fastify-installed-health-check",
+        "express-generic-vm-cjs",
+        "fastify-generic-vm-esm",
+        "express-generic-vm-worker-threads",
       ]),
     );
   });
@@ -51,13 +54,18 @@ describe("Node Level 5 app support matrix", () => {
   it("marks positive app rows supported only for the declared idle HTTP subset", () => {
     const rows = supportedNodeLevel5AppSupportRows();
 
-    expect(rows).toHaveLength(64);
+    expect(rows).toHaveLength(68);
     expect(rows.every((row) => row.status === "supported")).toBe(true);
     expect(rows.every((row) => row.supportScope === "declared-subset-idle-http")).toBe(true);
     expect(rows.every((row) => row.directions.includes("arm64-to-amd64"))).toBe(true);
     expect(rows.every((row) => row.directions.includes("amd64-to-arm64"))).toBe(true);
     expect(new Set(rows.map((row) => row.evidence.kind))).toEqual(
-      new Set(["fixture-product-run-corpus", "template-corpus", "installed-package-corpus"]),
+      new Set([
+        "fixture-product-run-corpus",
+        "template-corpus",
+        "installed-package-corpus",
+        "generic-vm-detected-corpus",
+      ]),
     );
   });
 
@@ -94,10 +102,14 @@ describe("Node Level 5 app support matrix", () => {
   it("marks unsupported live-state app rows as refused before snapshot", () => {
     const rows = refusedNodeLevel5AppSupportRows();
 
-    expect(rows).toHaveLength(32);
+    expect(rows).toHaveLength(42);
     expect(rows.every((row) => row.status === "refused")).toBe(true);
     expect(rows.every((row) => row.productBehavior === "refuse-before-snapshot")).toBe(true);
-    expect(rows.every((row) => row.evidence.kind === "refusal-corpus")).toBe(true);
+    expect(
+      rows.every((row) =>
+        ["refusal-corpus", "generic-vm-detected-corpus"].includes(row.evidence.kind),
+      ),
+    ).toBe(true);
     expect(
       rows.find((row) => row.id === "express-websockets")?.featureAssessment.externalNetwork,
     ).toBe("refused");
