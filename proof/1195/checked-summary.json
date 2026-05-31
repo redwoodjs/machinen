@@ -1,0 +1,13 @@
+{
+  "kind": "machinen.node-level5-safe-outbound-reconnect-proof-summary",
+  "proof": "1195",
+  "goal": "Safe outbound reconnect final audit",
+  "result": "The new support slice uses target-native reconnect behavior without changing 80/20/0 claims.",
+  "status": "node-product-support-80-safe-outbound-reconnect-product-slice",
+  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "matrixRows": 58
+}
