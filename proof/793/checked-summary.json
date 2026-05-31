@@ -1,0 +1,16 @@
+{
+  "kind": "machinen.node-level5-real-app-refusal-corpus-proof-summary",
+  "proof": "793",
+  "goal": "Refusal corpus final no-overclaim audit",
+  "result": "Unsupported-state refusals narrow the support boundary without broad claims.",
+  "status": "node-product-support-80-real-app-refusal-corpus",
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": ["machinen snapshot node <pid> --out <dir>"],
+  "generatorRange": "761-768",
+  "markerRange": "769-776",
+  "gateRange": "785-792",
+  "passing": true
+}

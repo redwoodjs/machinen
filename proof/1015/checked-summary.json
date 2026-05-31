@@ -1,0 +1,17 @@
+{
+  "kind": "machinen.node-level5-refusal-expansion-proof-summary",
+  "proof": "1015",
+  "goal": "External/network refusal markers",
+  "result": "DB, queue, outbound HTTP, HTTP/2, and SSE state refuse before snapshot.",
+  "status": "node-product-support-80-refusal-expansion",
+  "productSurface": ["machinen snapshot node <pid> --out <dir>"],
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "group": "external",
+  "rowCount": 20,
+  "frameworks": ["express", "fastify"],
+  "directions": ["amd64-to-arm64", "arm64-to-amd64"],
+  "allExpectedCodesMatched": true
+}

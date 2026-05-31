@@ -1,0 +1,18 @@
+{
+  "kind": "machinen.node-level5-third-party-app-corpus-proof-summary",
+  "proof": "815",
+  "goal": "Third-party Express/Fastify app rows",
+  "result": "Declared-subset third-party app templates are retained across both directions.",
+  "status": "node-product-support-80-third-party-app-corpus",
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
+  "sources": [
+    "express-generator-router",
+    "express-official-hello-world",
+    "fastify-official-getting-started",
+    "fastify-plugin-route"
+  ]
+}

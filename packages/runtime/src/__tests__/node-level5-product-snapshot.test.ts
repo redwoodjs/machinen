@@ -64,6 +64,25 @@ describe("Node Level 5 product snapshot facade", () => {
     }
   });
 
+  it("refuses websocket live state before snapshot", () => {
+    const outDir = mkdtempSync(join(tmpdir(), "machinen-node-product-websocket-refusal-"));
+    const source = appDir({ websockets: true });
+    try {
+      expect(
+        createNodeLevel5ProductSnapshot({
+          outDir,
+          target: { target: "api", targetKind: "name", runtime: "node", appDir: source },
+        }),
+      ).toMatchObject({
+        accepted: false,
+        refusal: { code: "node-level5-websocket-live-state-refused" },
+      });
+    } finally {
+      rmSync(outDir, { recursive: true, force: true });
+      rmSync(source, { recursive: true, force: true });
+    }
+  });
+
   it("refuses active unsupported Node state before snapshot", () => {
     const outDir = mkdtempSync(join(tmpdir(), "machinen-node-product-refusal-"));
     const source = appDir({ workerThreads: true });

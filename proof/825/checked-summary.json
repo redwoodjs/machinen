@@ -1,0 +1,14 @@
+{
+  "kind": "machinen.node-level5-third-party-app-corpus-proof-summary",
+  "proof": "825",
+  "goal": "Third-party app release-gate checks",
+  "result": "The release gate accepts generated reports and rejects missing or tampered reports.",
+  "status": "node-product-support-80-third-party-app-corpus",
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
+  "accepted": true,
+  "hasThirdPartyCorpus": true
+}
