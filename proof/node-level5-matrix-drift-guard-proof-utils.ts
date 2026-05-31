@@ -9,7 +9,7 @@ import {
 } from "../packages/runtime/src/node-level5-app-support-matrix.ts";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const expectedStatusCounts = { supported: 20, refused: 32, "not-proven": 4 };
+const expectedStatusCounts = { supported: 22, refused: 32, "not-proven": 4 };
 const expectedSupportedIds = [
   "express-fixture-product-run",
   "express-generator-router",
@@ -19,6 +19,7 @@ const expectedSupportedIds = [
   "express-installed-query-string",
   "express-installed-route-params",
   "express-installed-router",
+  "express-installed-safe-outbound-reconnect",
   "express-installed-static-asset",
   "express-official-hello-world",
   "fastify-fixture-product-run",
@@ -28,6 +29,7 @@ const expectedSupportedIds = [
   "fastify-installed-plugin-route",
   "fastify-installed-query-string",
   "fastify-installed-route-params",
+  "fastify-installed-safe-outbound-reconnect",
   "fastify-installed-static-asset",
   "fastify-official-getting-started",
   "fastify-plugin-route",

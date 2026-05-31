@@ -19,6 +19,7 @@
     "express-installed-query-string",
     "express-installed-route-params",
     "express-installed-router",
+    "express-installed-safe-outbound-reconnect",
     "express-installed-static-asset",
     "express-official-hello-world",
     "fastify-fixture-product-run",
@@ -28,6 +29,7 @@
     "fastify-installed-plugin-route",
     "fastify-installed-query-string",
     "fastify-installed-route-params",
+    "fastify-installed-safe-outbound-reconnect",
     "fastify-installed-static-asset",
     "fastify-official-getting-started",
     "fastify-plugin-route"

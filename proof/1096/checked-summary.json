@@ -10,5 +10,10 @@
   "nodeProductSupportClaimed": 80,
   "broadNodeProductSupportClaimed": 20,
   "arbitraryProcessCrossArchRestoreClaimed": 0,
-  "liveStateRowsSupported": ["express-installed-idle-timer", "fastify-installed-idle-timer"]
+  "liveStateRowsSupported": [
+    "express-installed-idle-timer",
+    "express-installed-safe-outbound-reconnect",
+    "fastify-installed-idle-timer",
+    "fastify-installed-safe-outbound-reconnect"
+  ]
 }
