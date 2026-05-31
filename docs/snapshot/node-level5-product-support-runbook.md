@@ -1,6 +1,6 @@
 # Node Level 5 product support runbook
 
-This runbook applies to the 20%, 50%, and 65% Node product support tiers. The 65% tier covers fourteen declared service and boundary families only.
+This runbook applies to the 20%, 50%, 65%, and 80% Node product support tiers. The current shipped claim is 80% Node product support, 20% broad Node product support, and 0% arbitrary process cross-architecture restore. The next candidate milestone is documented in [Node Level 5 next claim milestone](./node-level5-product-support-next-milestone.md), but it is not claimed yet.
 
 ## Collect artifacts
 
@@ -30,10 +30,12 @@ Common supported-boundary refusals include:
 
 ## Escalation boundary
 
-Treat a failure as a product bug only when it is inside one of the five supported idle service families, uses the pinned runtime versions, and has retained artifacts.
+Treat a failure as a product bug only when it is inside a supported matrix row, uses the public VM-first snapshot path, and has retained artifacts.
 
 For the 50% tier, also collect the compatibility matrix row and release-checklist evidence for the reported family.
 
 For the 65% tier, identify whether the case is an active async idle boundary, TLS boundary policy, or child process boundary issue. Live TLS migration, in-flight async work, and live child process continuation remain unsupported.
 
-Treat everything else as unsupported unless the product support matrix is expanded.
+For the 80% tier, also identify the selected app row, real-app corpus row, refusal-corpus row, or support-matrix row that covers the report. The product path is `machinen snapshot <vm-name> --out <dir>` followed by `machinen restore <dir>`; Node support is detected inside the VM.
+
+Treat everything else as unsupported unless the product support matrix is expanded and the claim registry is intentionally raised.

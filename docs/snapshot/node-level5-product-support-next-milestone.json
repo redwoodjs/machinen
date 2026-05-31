@@ -1,0 +1,41 @@
+{
+  "kind": "machinen.node-level5-product-support-next-milestone",
+  "status": "candidate-not-claimed",
+  "current": {
+    "nodeProductSupportClaimed": 80,
+    "broadNodeProductSupportClaimed": 20,
+    "arbitraryProcessCrossArchRestoreClaimed": 0
+  },
+  "candidateTarget": {
+    "nodeProductSupportClaimed": 85,
+    "broadNodeProductSupportClaimed": 25,
+    "arbitraryProcessCrossArchRestoreClaimed": 0
+  },
+  "productCommandPath": "machinen snapshot <vm-name> --out <dir>; machinen restore <dir>",
+  "nodeDetectedInsideVm": true,
+  "hostPidProductTargetingAllowed": false,
+  "hostPidHarnessEnv": "MACHINEN_NODE_LEVEL5_ALLOW_HOST_PID_SNAPSHOT=1",
+  "requiredDirections": ["arm64-to-amd64", "amd64-to-arm64"],
+  "requiredPositiveEvidence": [
+    "generic-vm-snapshot-command",
+    "whole-vm-capture",
+    "node-workload-detected-inside-vm",
+    "target-native-restore-verification",
+    "retained-artifact-bundle",
+    "zero-flake-repeatability"
+  ],
+  "requiredRefusalEvidence": [
+    "host-pid-product-targeting-refused-or-hidden",
+    "node-only-product-selector-not-public",
+    "active-request-refused",
+    "worker-thread-refused",
+    "native-addon-refused",
+    "wasm-external-memory-refused",
+    "tls-active-state-refused",
+    "child-process-refused",
+    "source-isa-emulation-refused",
+    "raw-cpu-restore-refused",
+    "metadata-only-success-refused"
+  ],
+  "claimChangeAllowed": false
+}
