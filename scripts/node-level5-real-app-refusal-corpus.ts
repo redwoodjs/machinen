@@ -1,7 +1,6 @@
-import { spawn, spawnSync, type ChildProcess } from "node:child_process";
+import { spawn, type ChildProcess } from "node:child_process";
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 
 import {
   verifyNodeLevel5RealAppRefusalCorpusReport,
@@ -15,12 +14,14 @@ import type {
   NodeLevel5ProductSnapshotSummary,
 } from "../packages/runtime/src/node-level5-product-snapshot.ts";
 import type { NodeLevel5RealAppCorpusFramework } from "../packages/runtime/src/node-level5-real-app-corpus.ts";
-
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const cliPath = join(repoRoot, "packages/cli/src/cli.ts");
-const tsxLoaderPath = join(repoRoot, "node_modules/tsx/dist/loader.mjs");
-const directions: NodeLevel5ProductSnapshotDirection[] = ["arm64-to-amd64", "amd64-to-arm64"];
-const frameworks: NodeLevel5RealAppCorpusFramework[] = ["express", "fastify"];
+import {
+  isNodeLevel5RealAppCorpusMain,
+  nodeLevel5RealAppCorpusDirections,
+  nodeLevel5RealAppCorpusFrameworks,
+  parseNodeLevel5RealAppCorpusOutArgs,
+  runNodeLevel5RealAppCorpusCliJson,
+  writeNodeLevel5RealAppFixturePackageJson,
+} from "./node-level5-real-app-corpus-script-utils.ts";
 const refusalCases: RefusalCase[] = [
   ["activeRequests", "node-level5-active-request-refused"],
   ["workerThreads", "node-level5-worker-thread-refused"],
@@ -63,8 +64,8 @@ function main(): void {
 export function generateRefusalCorpus(outDir: string): RefusalCorpusSummary {
   rmSync(outDir, { recursive: true, force: true });
   mkdirSync(outDir, { recursive: true });
-  const rows = frameworks.flatMap((framework) =>
-    directions.flatMap((direction) =>
+  const rows = nodeLevel5RealAppCorpusFrameworks.flatMap((framework) =>
+    nodeLevel5RealAppCorpusDirections.flatMap((direction) =>
       refusalCases.map((refusalCase) =>
         runRefusalProductCommand(outDir, framework, direction, refusalCase),
       ),
@@ -73,7 +74,7 @@ export function generateRefusalCorpus(outDir: string): RefusalCorpusSummary {
   const refusalReportPath = join(outDir, "node-level5-real-app-refusal-corpus-report.json");
   const report = writeNodeLevel5RealAppRefusalCorpusReport({ path: refusalReportPath, rows });
   const refusalVerification = verifyNodeLevel5RealAppRefusalCorpusReport(report);
-  const releaseGate = cliJson([
+  const releaseGate = runNodeLevel5RealAppCorpusCliJson([
     "node-level5",
     "release-gate",
     "--include-refusal-corpus",
@@ -126,31 +127,10 @@ function runSnapshotExpectRefusal(
   snapshotDir: string,
   direction: NodeLevel5ProductSnapshotDirection,
 ): NodeLevel5ProductSnapshotSummary {
-  const result = spawnSync(
-    process.execPath,
-    [
-      "--import",
-      tsxLoaderPath,
-      cliPath,
-      "snapshot",
-      "node",
-      String(child.pid),
-      "--out",
-      snapshotDir,
-      "--json",
-    ],
-    {
-      cwd,
-      env: { ...process.env, MACHINEN_NODE_LEVEL5_PRODUCT_SNAPSHOT_DIRECTION: direction },
-      encoding: "utf8",
-    },
-  );
-  if (result.status !== 1) {
-    throw new Error(
-      `snapshot unexpectedly accepted: ${result.status} ${result.stdout} ${result.stderr}`,
-    );
-  }
-  return JSON.parse(result.stdout) as NodeLevel5ProductSnapshotSummary;
+  return runNodeLevel5RealAppCorpusCliJson(
+    ["snapshot", "node", String(child.pid), "--out", snapshotDir, "--json"],
+    { cwd, direction, expectedStatus: 1 },
+  ) as NodeLevel5ProductSnapshotSummary;
 }
 
 function refusalRow(
@@ -198,21 +178,13 @@ function fixtureAppDir(
 ): string {
   const appDir = join(outDir, "fixtures", `${framework}-${direction}-${marker}`);
   mkdirSync(appDir, { recursive: true });
-  writePackageJson(appDir, framework);
+  writeNodeLevel5RealAppFixturePackageJson(appDir, framework, "refusal-fixture");
   writeFileSync(join(appDir, "server.mjs"), serverSource());
   writeFileSync(
     join(appDir, "machinen-node-level5-detector.json"),
     `${JSON.stringify({ [marker]: true }, null, 2)}\n`,
   );
   return appDir;
-}
-
-function writePackageJson(appDir: string, framework: NodeLevel5RealAppCorpusFramework): void {
-  const dependencies = framework === "express" ? { express: "^4.0.0" } : { fastify: "^4.0.0" };
-  writeFileSync(
-    join(appDir, "package.json"),
-    `${JSON.stringify({ name: `${framework}-refusal-fixture`, dependencies }, null, 2)}\n`,
-  );
 }
 
 function serverSource(): string {
@@ -229,32 +201,13 @@ function stopTarget(child: ChildProcess): void {
   child.kill("SIGTERM");
 }
 
-function cliJson(args: string[]): Record<string, any> {
-  const result = spawnSync(process.execPath, ["--import", tsxLoaderPath, cliPath, ...args], {
-    cwd: repoRoot,
-    encoding: "utf8",
-  });
-  if (result.status !== 0) {
-    throw new Error(
-      `CLI failed ${args.join(" ")}: ${result.status} ${result.stdout} ${result.stderr}`,
-    );
-  }
-  return JSON.parse(result.stdout);
-}
-
 function parseArgs(args: string[]): { outDir: string; json: boolean } {
-  const outFlag = args.indexOf("--out");
-  const outDir = outFlag === -1 ? undefined : args[outFlag + 1];
-  if (!outDir) {
-    throw new Error("usage: node-level5-real-app-refusal-corpus --out <dir> [--json]");
-  }
-  return { outDir: resolve(outDir), json: args.includes("--json") };
+  return parseNodeLevel5RealAppCorpusOutArgs(
+    args,
+    "usage: node-level5-real-app-refusal-corpus --out <dir> [--json]",
+  );
 }
 
-if (
-  process.argv[1] &&
-  existsSync(process.argv[1]) &&
-  resolve(process.argv[1]) === fileURLToPath(import.meta.url)
-) {
+if (isNodeLevel5RealAppCorpusMain(import.meta.url)) {
   main();
 }

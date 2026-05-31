@@ -2035,18 +2035,25 @@ function cmdNodeLevel5ReleaseGate(args: string[], json: boolean): number {
   });
 }
 
+const nodeLevel5ReleaseGateReportFlags = new Set([
+  "--include-real-app-corpus",
+  "--include-refusal-corpus",
+  "--corpus-report",
+  "--refusal-corpus-report",
+]);
+const nodeLevel5ReleaseGateReportValueFlags = new Set([
+  "--corpus-report",
+  "--refusal-corpus-report",
+]);
+
 function nodeLevel5ReleaseGateArtifactArgs(args: string[]): string[] {
   return args.filter((arg, index) => !isNodeLevel5ReleaseGateReportArg(args, arg, index));
 }
 
 function isNodeLevel5ReleaseGateReportArg(args: string[], arg: string, index: number): boolean {
   return (
-    arg === "--include-real-app-corpus" ||
-    arg === "--include-refusal-corpus" ||
-    arg === "--corpus-report" ||
-    arg === "--refusal-corpus-report" ||
-    args[index - 1] === "--corpus-report" ||
-    args[index - 1] === "--refusal-corpus-report"
+    nodeLevel5ReleaseGateReportFlags.has(arg) ||
+    nodeLevel5ReleaseGateReportValueFlags.has(args[index - 1] ?? "")
   );
 }
 

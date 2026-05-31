@@ -1,7 +1,6 @@
-import { spawn, spawnSync, type ChildProcess } from "node:child_process";
-import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { spawn, type ChildProcess } from "node:child_process";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 
 import {
   verifyNodeLevel5RealAppCorpusReport,
@@ -15,12 +14,14 @@ import type {
   NodeLevel5ProductSnapshotDirection,
   NodeLevel5ProductSnapshotSummary,
 } from "../packages/runtime/src/node-level5-product-snapshot.ts";
-
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const cliPath = join(repoRoot, "packages/cli/src/cli.ts");
-const tsxLoaderPath = join(repoRoot, "node_modules/tsx/dist/loader.mjs");
-const directions: NodeLevel5ProductSnapshotDirection[] = ["arm64-to-amd64", "amd64-to-arm64"];
-const frameworks: NodeLevel5RealAppCorpusFramework[] = ["express", "fastify"];
+import {
+  isNodeLevel5RealAppCorpusMain,
+  nodeLevel5RealAppCorpusDirections,
+  nodeLevel5RealAppCorpusFrameworks,
+  parseNodeLevel5RealAppCorpusOutArgs,
+  runNodeLevel5RealAppCorpusCliJson,
+  writeNodeLevel5RealAppFixturePackageJson,
+} from "./node-level5-real-app-corpus-script-utils.ts";
 
 type ProductRunCorpusSummary = {
   kind: "machinen.node-level5-real-app-product-run-corpus-summary";
@@ -52,13 +53,15 @@ function main(): void {
 export function generateProductRunCorpus(outDir: string): ProductRunCorpusSummary {
   rmSync(outDir, { recursive: true, force: true });
   mkdirSync(outDir, { recursive: true });
-  const rows = frameworks.flatMap((framework) =>
-    directions.map((direction) => runFixtureProductCommands(outDir, framework, direction)),
+  const rows = nodeLevel5RealAppCorpusFrameworks.flatMap((framework) =>
+    nodeLevel5RealAppCorpusDirections.map((direction) =>
+      runFixtureProductCommands(outDir, framework, direction),
+    ),
   );
   const corpusReportPath = join(outDir, "node-level5-real-app-corpus-report.json");
   const corpusReport = writeNodeLevel5RealAppCorpusReport({ path: corpusReportPath, rows });
   const corpusVerification = verifyNodeLevel5RealAppCorpusReport(corpusReport);
-  const releaseGate = cliJson([
+  const releaseGate = runNodeLevel5RealAppCorpusCliJson([
     "node-level5",
     "release-gate",
     "--include-real-app-corpus",
@@ -98,11 +101,15 @@ function runFixtureProductCommands(
   const snapshotDir = join(outDir, "snapshots", framework, direction);
   const child = spawnTarget(appDir);
   try {
-    const snapshot = cliJson(
+    const snapshot = runNodeLevel5RealAppCorpusCliJson(
       ["snapshot", "node", String(child.pid), "--out", snapshotDir, "--json"],
       { cwd: appDir, direction },
     ) as NodeLevel5ProductSnapshotSummary;
-    const restore = cliJson(["restore", snapshotDir, "--json"]) as NodeLevel5ProductRestoreSummary;
+    const restore = runNodeLevel5RealAppCorpusCliJson([
+      "restore",
+      snapshotDir,
+      "--json",
+    ]) as NodeLevel5ProductRestoreSummary;
     return rowFromProductRun(framework, direction, snapshot, restore);
   } finally {
     stopTarget(child);
@@ -167,7 +174,7 @@ function fixtureAppDir(
 ): string {
   const appDir = join(outDir, "fixtures", `${framework}-${direction}`);
   mkdirSync(appDir, { recursive: true });
-  writePackageJson(appDir, framework);
+  writeNodeLevel5RealAppFixturePackageJson(appDir, framework, "product-run-fixture");
   writeFileSync(join(appDir, "server.mjs"), serverSource(fixture(framework)));
   writeFileSync(
     join(appDir, "machinen-node-level5-behavior.json"),
@@ -201,14 +208,6 @@ function behaviorConfig(framework: NodeLevel5RealAppCorpusFramework): Record<str
   };
 }
 
-function writePackageJson(appDir: string, framework: NodeLevel5RealAppCorpusFramework): void {
-  const dependencies = framework === "express" ? { express: "^4.0.0" } : { fastify: "^4.0.0" };
-  writeFileSync(
-    join(appDir, "package.json"),
-    `${JSON.stringify({ name: `${framework}-product-run-fixture`, dependencies }, null, 2)}\n`,
-  );
-}
-
 function serverSource(input: ReturnType<typeof fixture>): string {
   return `
 import http from "node:http";
@@ -240,40 +239,13 @@ function stopTarget(child: ChildProcess): void {
   child.kill("SIGTERM");
 }
 
-function cliJson(
-  args: string[],
-  options: { cwd?: string; direction?: NodeLevel5ProductSnapshotDirection } = {},
-): Record<string, any> {
-  const env = { ...process.env };
-  if (options.direction) {
-    env.MACHINEN_NODE_LEVEL5_PRODUCT_SNAPSHOT_DIRECTION = options.direction;
-  }
-  const result = spawnSync(process.execPath, ["--import", tsxLoaderPath, cliPath, ...args], {
-    cwd: options.cwd ?? repoRoot,
-    env,
-    encoding: "utf8",
-  });
-  if (result.status !== 0) {
-    throw new Error(
-      `CLI failed ${args.join(" ")}: ${result.status} ${result.stdout} ${result.stderr}`,
-    );
-  }
-  return JSON.parse(result.stdout);
-}
-
 function parseArgs(args: string[]): { outDir: string; json: boolean } {
-  const outFlag = args.indexOf("--out");
-  const outDir = outFlag === -1 ? undefined : args[outFlag + 1];
-  if (!outDir) {
-    throw new Error("usage: node-level5-real-app-product-run-corpus --out <dir> [--json]");
-  }
-  return { outDir: resolve(outDir), json: args.includes("--json") };
+  return parseNodeLevel5RealAppCorpusOutArgs(
+    args,
+    "usage: node-level5-real-app-product-run-corpus --out <dir> [--json]",
+  );
 }
 
-if (
-  process.argv[1] &&
-  existsSync(process.argv[1]) &&
-  resolve(process.argv[1]) === fileURLToPath(import.meta.url)
-) {
+if (isNodeLevel5RealAppCorpusMain(import.meta.url)) {
   main();
 }
