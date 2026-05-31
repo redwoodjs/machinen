@@ -188,59 +188,102 @@ export const nodeLevel5ProductSupport80Matrix: NodeLevel5ProductSupport80Matrix 
   },
 };
 
-// fallow-ignore-next-line complexity
 export function assertNodeLevel5ProductSupport80MatrixComplete(
   matrix: NodeLevel5ProductSupport80Matrix = nodeLevel5ProductSupport80Matrix,
 ): boolean {
-  const coverage = matrix.families.reduce((sum, family) => sum + family.coveragePercent, 0);
+  return [
+    productSupport80ClaimsComplete(matrix),
+    productSupport80FamiliesComplete(matrix),
+    productSupport80RefusalsComplete(matrix),
+    productSupport80CorpusComplete(matrix),
+    productSupport80SafetyComplete(matrix),
+  ].every(Boolean);
+}
+
+function productSupport80ClaimsComplete(matrix: NodeLevel5ProductSupport80Matrix): boolean {
   return (
     matrix.nodeProductSupportClaimed === 80 &&
     matrix.previousNodeProductSupportClaimed === 65 &&
     matrix.newNodeProductSupportClaimed === 15 &&
     matrix.broadNodeProductSupportClaimed === 20 &&
-    coverage === 80 &&
+    matrix.arbitraryProcessCrossArchRestoreClaimed === 0
+  );
+}
+
+function productSupport80FamiliesComplete(matrix: NodeLevel5ProductSupport80Matrix): boolean {
+  return (
+    totalProductSupport80Coverage(matrix) === 80 &&
     matrix.families.length === 17 &&
     matrix.families.every((family) => family.realVmCrossArchEvidence.length === 2) &&
     matrix.families.every((family) =>
       family.realVmCrossArchEvidence.every(isNodeLevel5RealVmCrossArchEvidenceComplete),
-    ) &&
-    matrix.expandedUnsupportedNeighbors.every(
-      (neighbor) =>
-        neighbor.targetStarted === false &&
-        neighbor.rawCpuRestoreUsed === false &&
-        neighbor.sourceIsaEmulationUsed === false &&
-        neighbor.productSupportClaimed === false,
-    ) &&
-    matrix.positiveRealAppCorpus.length === 3 &&
-    matrix.negativeRealAppCorpus.length === 6 &&
-    matrix.repeatabilityRuns >= 30 &&
-    matrix.flakeBudgetPercent === 0 &&
-    matrix.arbitraryProcessCrossArchRestoreClaimed === 0 &&
-    matrix.safety.rawCpuRestoreSupported === false &&
-    matrix.safety.sourceIsaEmulationSupported === false &&
-    matrix.safety.appCheckpointHooksRequired === false &&
-    matrix.safety.targetNativeNodeRequired === true &&
-    matrix.safety.metadataOnlySuccessAccepted === false &&
-    matrix.safety.broadNodeSupportIsPartial === true
+    )
   );
 }
 
-// fallow-ignore-next-line complexity
+function productSupport80RefusalsComplete(matrix: NodeLevel5ProductSupport80Matrix): boolean {
+  return matrix.expandedUnsupportedNeighbors.every(isUnsupportedNeighborRefusalComplete);
+}
+
+function productSupport80CorpusComplete(matrix: NodeLevel5ProductSupport80Matrix): boolean {
+  return (
+    matrix.positiveRealAppCorpus.length === 3 &&
+    matrix.negativeRealAppCorpus.length === 6 &&
+    matrix.repeatabilityRuns >= 30 &&
+    matrix.flakeBudgetPercent === 0
+  );
+}
+
+function productSupport80SafetyComplete(matrix: NodeLevel5ProductSupport80Matrix): boolean {
+  const expectedSafety = {
+    rawCpuRestoreSupported: false,
+    sourceIsaEmulationSupported: false,
+    appCheckpointHooksRequired: false,
+    targetNativeNodeRequired: true,
+    metadataOnlySuccessAccepted: false,
+    broadNodeSupportIsPartial: true,
+  };
+  return Object.entries(expectedSafety).every(
+    ([key, value]) => matrix.safety[key as keyof typeof expectedSafety] === value,
+  );
+}
+
+function totalProductSupport80Coverage(matrix: NodeLevel5ProductSupport80Matrix): number {
+  return matrix.families.reduce((sum, family) => sum + family.coveragePercent, 0);
+}
+
+function isUnsupportedNeighborRefusalComplete(
+  neighbor: NodeLevel5ProductUnsupportedNeighbor,
+): boolean {
+  return (
+    neighbor.targetStarted === false &&
+    neighbor.rawCpuRestoreUsed === false &&
+    neighbor.sourceIsaEmulationUsed === false &&
+    neighbor.productSupportClaimed === false
+  );
+}
+
 function isNodeLevel5RealVmCrossArchEvidenceComplete(
   evidence: NodeLevel5RealVmCrossArchEvidence,
 ): boolean {
-  return (
-    evidence.substrate === "machinen-real-vm-cross-arch" &&
-    evidence.manifestVerified === true &&
-    evidence.captureSummaryVerified === true &&
-    evidence.restoreSummaryVerified === true &&
-    evidence.targetLogsVerified === true &&
-    evidence.targetNativeNodeVerified === true &&
-    evidence.behavioralVerifierPassed === true &&
-    evidence.rawCpuRestoreUsed === false &&
-    evidence.sourceIsaEmulationUsed === false &&
-    evidence.metadataOnlySuccessAccepted === false
+  return Object.entries(expectedRealVmEvidenceFields()).every(
+    ([key, value]) => evidence[key as keyof NodeLevel5RealVmCrossArchEvidence] === value,
   );
+}
+
+function expectedRealVmEvidenceFields(): Partial<NodeLevel5RealVmCrossArchEvidence> {
+  return {
+    substrate: "machinen-real-vm-cross-arch",
+    manifestVerified: true,
+    captureSummaryVerified: true,
+    restoreSummaryVerified: true,
+    targetLogsVerified: true,
+    targetNativeNodeVerified: true,
+    behavioralVerifierPassed: true,
+    rawCpuRestoreUsed: false,
+    sourceIsaEmulationUsed: false,
+    metadataOnlySuccessAccepted: false,
+  };
 }
 
 function productFamily80(input: {
