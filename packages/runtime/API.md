@@ -192,6 +192,7 @@
 - [`nodeLevel5ProductSupport80ClaimRegistry`](#nodelevel5productsupport80claimregistry)
 - [`nodeLevel5ProductSupport80UnsupportedDetectors`](#nodelevel5productsupport80unsupporteddetectors)
 - [`verifyNodeLevel5ProductSupport80ArtifactBundle`](#verifynodelevel5productsupport80artifactbundle)
+- [`NodeLevel5CorpusHttpEvidence`](#nodelevel5corpushttpevidence)
 - [`NodeLevel5ThirdPartyAppCorpusReport`](#nodelevel5thirdpartyappcorpusreport)
 - [`NodeLevel5ThirdPartyAppCorpusRow`](#nodelevel5thirdpartyappcorpusrow)
 - [`NodeLevel5ThirdPartyAppCorpusVerification`](#nodelevel5thirdpartyappcorpusverification)
@@ -22052,6 +22053,58 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NodeLevel5CorpusHttpEvidence
+
+> **NodeLevel5CorpusHttpEvidence** = `object`
+
+#### Properties
+
+##### routePath
+
+> **routePath**: `string`
+
+##### expectedStatus
+
+> **expectedStatus**: `number`
+
+##### actualStatus
+
+> **actualStatus**: `number`
+
+##### expectedBody
+
+> **expectedBody**: `string`
+
+##### actualBody
+
+> **actualBody**: `string`
+
+##### expectedHeaders
+
+> **expectedHeaders**: `Record`\<`string`, `string`\>
+
+##### actualHeaders
+
+> **actualHeaders**: `Record`\<`string`, `string`\>
+
+##### snapshotAccepted
+
+> **snapshotAccepted**: `boolean`
+
+##### restoreAccepted
+
+> **restoreAccepted**: `boolean`
+
+##### behavioralVerifierPassed
+
+> **behavioralVerifierPassed**: `boolean`
+
+##### targetNativeNodeVerified
+
+> **targetNativeNodeVerified**: `boolean`
+
+***
+
 ### NodeLevel5DeclaredSubsetRefusalCode
 
 > **NodeLevel5DeclaredSubsetRefusalCode** = *typeof* [`nodeLevel5DeclaredSubsetRefusalCodes`](#nodelevel5declaredsubsetrefusalcodes)\[keyof *typeof* [`nodeLevel5DeclaredSubsetRefusalCodes`](#nodelevel5declaredsubsetrefusalcodes)\]
@@ -24150,9 +24203,9 @@ Poll interval in ms while retrying. Default 250.
 
 ### NodeLevel5RealAppCorpusRow
 
-> **NodeLevel5RealAppCorpusRow** = `object`
+> **NodeLevel5RealAppCorpusRow** = [`NodeLevel5CorpusHttpEvidence`](#nodelevel5corpushttpevidence) & `object`
 
-#### Properties
+#### Type Declaration
 
 ##### framework
 
@@ -24161,50 +24214,6 @@ Poll interval in ms while retrying. Default 250.
 ##### direction
 
 > **direction**: [`NodeLevel5ProductSnapshotDirection`](#nodelevel5productsnapshotdirection)
-
-##### routePath
-
-> **routePath**: `string`
-
-##### expectedStatus
-
-> **expectedStatus**: `number`
-
-##### actualStatus
-
-> **actualStatus**: `number`
-
-##### expectedBody
-
-> **expectedBody**: `string`
-
-##### actualBody
-
-> **actualBody**: `string`
-
-##### expectedHeaders
-
-> **expectedHeaders**: `Record`\<`string`, `string`\>
-
-##### actualHeaders
-
-> **actualHeaders**: `Record`\<`string`, `string`\>
-
-##### snapshotAccepted
-
-> **snapshotAccepted**: `boolean`
-
-##### restoreAccepted
-
-> **restoreAccepted**: `boolean`
-
-##### behavioralVerifierPassed
-
-> **behavioralVerifierPassed**: `boolean`
-
-##### targetNativeNodeVerified
-
-> **targetNativeNodeVerified**: `boolean`
 
 ***
 
@@ -24446,9 +24455,9 @@ Poll interval in ms while retrying. Default 250.
 
 ### NodeLevel5ThirdPartyAppCorpusRow
 
-> **NodeLevel5ThirdPartyAppCorpusRow** = `object`
+> **NodeLevel5ThirdPartyAppCorpusRow** = [`NodeLevel5CorpusHttpEvidence`](#nodelevel5corpushttpevidence) & `object`
 
-#### Properties
+#### Type Declaration
 
 ##### appName
 
@@ -24465,50 +24474,6 @@ Poll interval in ms while retrying. Default 250.
 ##### direction
 
 > **direction**: [`NodeLevel5ProductSnapshotDirection`](#nodelevel5productsnapshotdirection)
-
-##### routePath
-
-> **routePath**: `string`
-
-##### expectedStatus
-
-> **expectedStatus**: `number`
-
-##### actualStatus
-
-> **actualStatus**: `number`
-
-##### expectedBody
-
-> **expectedBody**: `string`
-
-##### actualBody
-
-> **actualBody**: `string`
-
-##### expectedHeaders
-
-> **expectedHeaders**: `Record`\<`string`, `string`\>
-
-##### actualHeaders
-
-> **actualHeaders**: `Record`\<`string`, `string`\>
-
-##### snapshotAccepted
-
-> **snapshotAccepted**: `boolean`
-
-##### restoreAccepted
-
-> **restoreAccepted**: `boolean`
-
-##### behavioralVerifierPassed
-
-> **behavioralVerifierPassed**: `boolean`
-
-##### targetNativeNodeVerified
-
-> **targetNativeNodeVerified**: `boolean`
 
 ##### declaredSubset
 

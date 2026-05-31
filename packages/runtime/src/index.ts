@@ -391,6 +391,7 @@ export type {
   NodeLevel5ProductSupport80ClaimRegistry,
   NodeLevel5ProductSupport80UnsupportedDetector,
 } from "./node-level5-product-support-80-hardening.ts";
+export type { NodeLevel5CorpusHttpEvidence } from "./node-level5-corpus-common.ts";
 export type {
   NodeLevel5ThirdPartyAppCorpusReport,
   NodeLevel5ThirdPartyAppCorpusRow,
