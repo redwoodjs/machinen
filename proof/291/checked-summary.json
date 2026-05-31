@@ -1,0 +1,24 @@
+{
+  "kind": "machinen.node-level5-product-support-80-proof-summary",
+  "proof": "291",
+  "goal": "Real VM cross-arch evidence contract",
+  "result": "Defines required artifact bundle for each supported family.",
+  "status": "experimental-node-product-support-80",
+  "nodeProductSupportClaimed": 80,
+  "nodeProductSupportScope": "seventeen-service-app-and-boundary-families",
+  "previousNodeProductSupportClaimed": 65,
+  "newNodeProductSupportClaimed": 15,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "matrixComplete": true,
+  "artifactRetention": [
+    "manifest",
+    "capture-summary",
+    "restore-summary",
+    "target-log",
+    "target-native-verifier",
+    "refusal-row",
+    "version-info",
+    "triage-bundle"
+  ]
+}

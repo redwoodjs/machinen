@@ -1,0 +1,32 @@
+{
+  "kind": "machinen.node-proper-level5-provenance-chain-digest-lock-summary",
+  "proof": "063",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "stages": ["capture", "bundle", "verifier", "cli"],
+  "accepted": {
+    "accepted": true,
+    "code": "accepted"
+  },
+  "refusedRows": [
+    {
+      "id": "tampered-signature",
+      "expectedCode": "node-proper-level5-provenance-chain-signature-refused",
+      "actualCode": "node-proper-level5-provenance-chain-signature-refused",
+      "targetStarted": false
+    },
+    {
+      "id": "broken-link",
+      "expectedCode": "node-proper-level5-provenance-chain-link-refused",
+      "actualCode": "node-proper-level5-provenance-chain-link-refused",
+      "targetStarted": false
+    }
+  ],
+  "assertions": {
+    "captureToBundleToVerifierToCliLocked": true,
+    "tamperingRefuses": true,
+    "brokenLinksRefuse": true,
+    "noProductSupportClaimed": true
+  }
+}

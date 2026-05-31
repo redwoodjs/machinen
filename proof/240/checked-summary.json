@@ -1,0 +1,20 @@
+{
+  "kind": "machinen.node-level5-product-support-20-proof-summary",
+  "proof": "240",
+  "goal": "CI lane + artifact retention",
+  "result": "Product support lane retained in CI.",
+  "status": "experimental-node-product-support-20",
+  "nodeProductSupportClaimed": 20,
+  "nodeProductSupportScope": "five-idle-service-families",
+  "declaredSubsetExperimentalProductSupportClaimed": 100,
+  "broadNodeProductSupportClaimed": 0,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "smokeScript": "scripts/smoke/node-level5-product-support-20.sh",
+  "retainedArtifacts": [
+    "manifest",
+    "capture-summary",
+    "restore-summary",
+    "refusal-summary",
+    "version-info"
+  ]
+}

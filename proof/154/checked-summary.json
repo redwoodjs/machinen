@@ -1,0 +1,62 @@
+{
+  "kind": "machinen.node-proper-level5-broad-80-proof-summary",
+  "proof": "154",
+  "title": "Docs/support matrix for exact supported subset",
+  "block": "Experimental product boundary",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "accepted": {
+    "proof": "154",
+    "title": "Docs/support matrix for exact supported subset",
+    "block": "Experimental product boundary",
+    "targetStarted": false,
+    "gatesPassed": true,
+    "artifactDigest": "f424f9993f1527a6255de50177c65c0e59e62289c33a4f461a08f62038b85345",
+    "productSupportClaimed": false,
+    "broadLevel5ImplementationClaimed": false
+  },
+  "gates": [
+    {
+      "name": "capture-evidence",
+      "evidence": "real-record-shaped-input",
+      "passed": true
+    },
+    {
+      "name": "native-or-target-gate",
+      "evidence": "checked-before-target-start",
+      "passed": true
+    },
+    {
+      "name": "translated-continuation-boundary",
+      "evidence": "target-native-reconstruction-no-raw-copy",
+      "passed": true
+    }
+  ],
+  "refusedRows": [
+    {
+      "id": "missing-real-evidence",
+      "expectedCode": "node-proper-level5-supported-subset-docs-refused",
+      "actualCode": "node-proper-level5-supported-subset-docs-refused",
+      "targetStarted": false
+    },
+    {
+      "id": "shortcut-raw-copy",
+      "expectedCode": "node-proper-level5-raw-source-state-copy-refused",
+      "actualCode": "node-proper-level5-raw-source-state-copy-refused",
+      "targetStarted": false
+    },
+    {
+      "id": "product-claim",
+      "expectedCode": "node-proper-level5-product-claim-refused",
+      "actualCode": "node-proper-level5-product-claim-refused",
+      "targetStarted": false
+    }
+  ],
+  "assertions": {
+    "exactSupportedSubsetDocumented": true,
+    "targetDidNotStartBeforeVerification": true,
+    "rawSourceStateCopyRefused": true,
+    "productSupportClaimRefused": true
+  }
+}

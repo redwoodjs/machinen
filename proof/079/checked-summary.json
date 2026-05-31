@@ -1,0 +1,40 @@
+{
+  "kind": "machinen.node-proper-level5-proof-079-summary",
+  "proof": "079",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "accepted": {
+    "nativeResourceVerifierRan": true,
+    "resourceDescriptorsAccepted": 4,
+    "targetStarted": false
+  },
+  "refusedRows": [
+    {
+      "id": "bad-resource-schema",
+      "expectedCode": "node-proper-level5-resource-verifier-schema-refused",
+      "actualCode": "node-proper-level5-resource-verifier-schema-refused",
+      "targetStarted": false
+    },
+    {
+      "id": "missing-refusal-policy",
+      "expectedCode": "node-proper-level5-resource-verifier-policy-missing",
+      "actualCode": "node-proper-level5-resource-verifier-policy-missing",
+      "targetStarted": false
+    },
+    {
+      "id": "source-handle-copy",
+      "expectedCode": "node-proper-level5-resource-verifier-source-handle-copy",
+      "actualCode": "node-proper-level5-resource-verifier-source-handle-copy",
+      "targetStarted": false
+    }
+  ],
+  "assertions": {
+    "proofOnly": true,
+    "acceptedPathVerified": true,
+    "refusedRowsStopBeforeTargetStart": true,
+    "noSourceIsaEmulation": true,
+    "noRawCpuCopy": true,
+    "noMetadataOnlySuccess": true
+  }
+}

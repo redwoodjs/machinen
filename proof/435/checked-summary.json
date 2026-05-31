@@ -1,0 +1,13 @@
+{
+  "kind": "machinen.node-level5-target-bound-proof-summary",
+  "proof": "435",
+  "goal": "No diagnostic selectors",
+  "result": "Product target-bound UX still hides family/direction selectors.",
+  "status": "node-product-support-80-target-bound-snapshot",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": ["machinen snapshot node <name|pid>", "machinen restore <snapshot>"],
+  "refused": true,
+  "diagnosticSelectorsHidden": true
+}

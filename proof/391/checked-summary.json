@@ -1,0 +1,12 @@
+{
+  "kind": "machinen.node-level5-product-snapshot-proof-summary",
+  "proof": "391",
+  "goal": "Human restore output",
+  "result": "Restore has stable human output.",
+  "status": 0,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": ["machinen snapshot node", "machinen restore <snapshot>"],
+  "humanOutput": "restored node snapshot: express-fastify-http-app arm64-to-amd64"
+}

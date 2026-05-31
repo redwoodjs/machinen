@@ -15,6 +15,7 @@
 //   machinen completion <bash|zsh|fish>
 //   machinen --version | -h | --help
 
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
   createWriteStream,
@@ -42,12 +43,16 @@ import {
   ProductLevel4TcpListenerError,
   ProductLevel4TimerfdError,
   ProductPortablePostgresError,
+  buildNodeLevel5AppSupportMatrix,
   buildProductClaimRegistry,
   createProductLevel4EventfdSnapshot,
   createProductLevel4PingSocketSnapshot,
   createProductLevel4PipeSnapshot,
   createProductLevel4TcpListenerSnapshot,
   createProductLevel4TimerfdSnapshot,
+  createNodeLevel5DeclaredSubsetCapture,
+  createNodeLevel5ProductSnapshot,
+  createNodeLevel5ProductSupport80ArtifactBundle,
   createProductPortablePostgresSnapshot,
   filterProductClaimRegistry,
   formatMachinenError,
@@ -57,14 +62,29 @@ import {
   isProductLevel4PipeBundle,
   isProductLevel4TcpListenerBundle,
   isProductLevel4TimerfdBundle,
+  isNodeLevel5ProductSnapshotBundle,
   isProductPortablePostgresBundle,
+  loadNodeLevel5ProductSupport80ArtifactBundle,
+  loadNodeLevel5RealAppCorpusReport,
+  loadNodeLevel5RealAppRefusalCorpusReport,
+  loadNodeLevel5InstalledThirdPartyAppCorpusReport,
+  loadNodeLevel5ThirdPartyAppCorpusReport,
   list,
   productPortablePostgresFileSha256,
   productClaimFamilies,
   productClaimStatuses,
+  nodeLevel5ProductSupport80ClaimRegistry,
+  nodeLevel5ProductSupport80UnsupportedDetectors,
   productSupportLevels,
   readHostRssBytesMulti,
   restore,
+  restoreNodeLevel5DeclaredSubset,
+  restoreNodeLevel5ProductSnapshot,
+  verifyNodeLevel5ProductSupport80ArtifactBundle,
+  verifyNodeLevel5RealAppCorpusReport,
+  verifyNodeLevel5RealAppRefusalCorpusReport,
+  verifyNodeLevel5InstalledThirdPartyAppCorpusReport,
+  verifyNodeLevel5ThirdPartyAppCorpusReport,
   restoreProductLevel4EventfdSnapshot,
   restoreProductLevel4PingSocketSnapshot,
   restoreProductLevel4PipeSnapshot,
@@ -89,6 +109,8 @@ import type {
   ProductLevel4TimerfdDescriptor,
   ProductLevel4TimerfdRestoreSummary,
   ProductSupportLevel,
+  NodeLevel5ProductSnapshotDirection,
+  NodeLevel5ProductSupport80FamilyId,
   RegistryEntry,
   VmHandle,
 } from "@machinen/runtime";
@@ -1144,7 +1166,38 @@ function cmdCapture(args: string[]): number {
   if (rest[0] === "ping-socket") {
     return cmdCapturePingSocket({ json, dryRun, rest });
   }
+  if (rest[0] === "node-level5") {
+    return cmdCaptureNodeLevel5DeclaredSubset({ json, dryRun, rest });
+  }
   die(captureUsage());
+}
+
+// fallow-ignore-next-line complexity code-duplication
+function cmdCaptureNodeLevel5DeclaredSubset(input: {
+  json: boolean;
+  dryRun: boolean;
+  rest: string[];
+}): number {
+  const options = parseNodeLevel5DeclaredSubsetCaptureArgs(input.rest.slice(1));
+  if (!options.out) {
+    reportNodeLevel5DeclaredSubsetCliRefusal(
+      input.json,
+      "node-level5-declared-subset-output-required",
+      "machinen capture node-level5 requires --out <dir>",
+    );
+  }
+  const summary = createNodeLevel5DeclaredSubsetCapture({
+    outDir: options.out,
+    sourceArch: options.sourceArch,
+    targetArch: options.targetArch,
+    experimental: options.experimental,
+    productSupportClaimed: options.productSupportClaimed,
+    dryRun: input.dryRun,
+  });
+  return reportNodeLevel5DeclaredSubsetSummary(input.json, summary, {
+    accepted: (value) => `captured experimental node-level5 manifest: ${value.manifestPath}\n`,
+    refused: (value) => `refused experimental node-level5 capture: ${value.refusal?.code}\n`,
+  });
 }
 
 // fallow-ignore-next-line complexity
@@ -1755,6 +1808,525 @@ function consumePostgresCaptureOption(
   }
 }
 
+type NodeLevel5DeclaredSubsetCliOptions = {
+  out: string;
+  manifest: string;
+  sourceArch: "arm64" | "amd64";
+  targetArch: "arm64" | "amd64";
+  experimental: boolean;
+  productSupportClaimed: boolean;
+  rawCpuRestore: boolean;
+};
+
+function parseNodeLevel5DeclaredSubsetCaptureArgs(
+  args: string[],
+): Pick<
+  NodeLevel5DeclaredSubsetCliOptions,
+  "out" | "sourceArch" | "targetArch" | "experimental" | "productSupportClaimed"
+> {
+  return parseNodeLevel5DeclaredSubsetCliArgs(args, "capture");
+}
+
+function parseNodeLevel5DeclaredSubsetRestoreArgs(
+  args: string[],
+): Pick<
+  NodeLevel5DeclaredSubsetCliOptions,
+  "manifest" | "experimental" | "productSupportClaimed" | "rawCpuRestore"
+> {
+  return parseNodeLevel5DeclaredSubsetCliArgs(args, "restore");
+}
+
+// fallow-ignore-next-line complexity
+function parseNodeLevel5DeclaredSubsetCliArgs(
+  args: string[],
+  mode: "capture" | "restore",
+): NodeLevel5DeclaredSubsetCliOptions {
+  const options = defaultNodeLevel5DeclaredSubsetCliOptions();
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index]!;
+    if (arg === "--experimental-node-level5") {
+      options.experimental = true;
+    } else if (arg === "--claim-product-support") {
+      options.productSupportClaimed = true;
+    } else if (mode === "capture" && arg === "--out") {
+      options.out = takeCaptureValue(args, (index += 1), "--out");
+    } else if (mode === "capture" && arg === "--source-arch") {
+      options.sourceArch = parseProductArch(
+        takeCaptureValue(args, (index += 1), "--source-arch"),
+        "--source-arch",
+      );
+    } else if (mode === "capture" && arg === "--target-arch") {
+      options.targetArch = parseProductArch(
+        takeCaptureValue(args, (index += 1), "--target-arch"),
+        "--target-arch",
+      );
+    } else if (mode === "restore" && arg === "--raw-cpu-restore") {
+      options.rawCpuRestore = true;
+    } else if (mode === "restore" && arg === "--manifest") {
+      options.manifest = takeCaptureValue(args, (index += 1), "--manifest");
+    } else if (mode === "restore" && !arg.startsWith("-") && !options.manifest) {
+      options.manifest = arg;
+    } else {
+      die(`unknown node-level5 ${mode} argument: ${arg}`);
+    }
+  }
+  return options;
+}
+
+function defaultNodeLevel5DeclaredSubsetCliOptions(): NodeLevel5DeclaredSubsetCliOptions {
+  return {
+    out: "",
+    manifest: "",
+    sourceArch: "arm64",
+    targetArch: "amd64",
+    experimental: false,
+    productSupportClaimed: false,
+    rawCpuRestore: false,
+  };
+}
+
+function reportNodeLevel5DeclaredSubsetCliRefusal(
+  json: boolean,
+  code: string,
+  message: string,
+): never {
+  if (json) {
+    emitJsonError(code, message);
+  } else {
+    process.stderr.write(`machinen: ${message} (${code})\n`);
+  }
+  process.exit(1);
+}
+
+type NodeLevel5DeclaredSubsetCliSummary = {
+  accepted: boolean;
+  manifestPath?: string;
+  refusal?: { code: string };
+};
+
+function reportNodeLevel5DeclaredSubsetSummary<TSummary extends NodeLevel5DeclaredSubsetCliSummary>(
+  json: boolean,
+  summary: TSummary,
+  messages: {
+    accepted: (summary: TSummary) => string;
+    refused: (summary: TSummary) => string;
+  },
+): number {
+  if (json) {
+    emitJson(summary);
+  } else {
+    process.stderr.write(summary.accepted ? messages.accepted(summary) : messages.refused(summary));
+  }
+  return summary.accepted ? 0 : 1;
+}
+
+type NodeLevel5ProductSnapshotCliOptions = {
+  out?: string;
+  target?: Target;
+};
+
+type NodeLevel5ProductSnapshotTargetMetadata = {
+  runtime?: "node" | "unknown";
+  appDir?: string;
+  pid?: number;
+  argv?: string;
+  executable?: string;
+};
+
+type NodeLevel5ArtifactCliOptions = {
+  out?: string;
+  root?: string;
+  family?: NodeLevel5ProductSupport80FamilyId;
+  direction?: "arm64-to-amd64" | "amd64-to-arm64";
+};
+
+// fallow-ignore-next-line complexity
+function cmdNodeLevel5(args: string[]): number {
+  const { json, rest } = consumeJsonFlag(args);
+  if (rest[0] === "artifacts") {
+    return cmdNodeLevel5Artifacts(rest.slice(1), json);
+  }
+  if (rest[0] === "detectors") {
+    return cmdNodeLevel5Detectors(rest.slice(1), json);
+  }
+  if (rest[0] === "claims") {
+    return cmdNodeLevel5Claims(rest.slice(1), json);
+  }
+  if (rest[0] === "support-matrix") {
+    return cmdNodeLevel5SupportMatrix(rest.slice(1), json);
+  }
+  if (rest[0] === "release-gate") {
+    return cmdNodeLevel5ReleaseGate(rest.slice(1), json);
+  }
+  if (rest[0] === "abi-check") {
+    return cmdNodeLevel5AbiCheck(rest.slice(1), json);
+  }
+  die(nodeLevel5Usage());
+}
+
+// fallow-ignore-next-line complexity
+function cmdNodeLevel5Artifacts(args: string[], json: boolean): number {
+  const [sub, ...rest] = args;
+  const options = parseNodeLevel5ArtifactArgs(rest);
+  if (sub === "write") {
+    if (!options.out || !options.family || !options.direction) {
+      die("machinen node-level5 artifacts write requires --out, --family, and --direction");
+    }
+    const bundle = createNodeLevel5ProductSupport80ArtifactBundle({
+      outDir: resolve(options.out),
+      familyId: options.family,
+      direction: options.direction,
+    });
+    return reportNodeLevel5ProductCommand(json, { accepted: true, bundle });
+  }
+  if (sub === "verify") {
+    if (!options.root || !options.family || !options.direction) {
+      die("machinen node-level5 artifacts verify requires --root, --family, and --direction");
+    }
+    try {
+      assertSafeNodeLevel5ArtifactRootPath(options.root);
+      return reportNodeLevel5ProductCommand(
+        json,
+        verifyNodeLevel5RetainedArtifact({
+          root: options.root,
+          family: options.family,
+          direction: options.direction,
+        }),
+      );
+    } catch (error) {
+      return reportNodeLevel5ProductCommand(json, {
+        accepted: false,
+        code: "node-level5-artifact-bundle-invalid",
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+  die(nodeLevel5Usage());
+}
+
+function cmdNodeLevel5Detectors(args: string[], json: boolean): number {
+  const artifact = readOptionalNodeLevel5RetainedArtifact(args);
+  return reportNodeLevel5ProductCommand(json, {
+    accepted: true,
+    kind: "machinen.node-level5-detector-registry-summary",
+    detectors: nodeLevel5ProductSupport80UnsupportedDetectors,
+    retainedArtifact: artifact,
+  });
+}
+
+function cmdNodeLevel5Claims(args: string[], json: boolean): number {
+  const artifact = readOptionalNodeLevel5RetainedArtifact(args);
+  return reportNodeLevel5ProductCommand(json, {
+    accepted: true,
+    kind: "machinen.node-level5-claim-registry-summary",
+    claimRegistry: nodeLevel5ProductSupport80ClaimRegistry,
+    retainedArtifact: artifact,
+  });
+}
+
+function cmdNodeLevel5SupportMatrix(args: string[], json: boolean): number {
+  const artifact = readOptionalNodeLevel5RetainedArtifact(args);
+  return reportNodeLevel5ProductCommand(json, {
+    ...buildNodeLevel5AppSupportMatrix(),
+    retainedArtifact: artifact,
+  });
+}
+
+function cmdNodeLevel5ReleaseGate(args: string[], json: boolean): number {
+  const corpus = readOptionalNodeLevel5RealAppCorpus(args);
+  const refusalCorpus = readOptionalNodeLevel5RealAppRefusalCorpus(args);
+  const thirdPartyAppCorpus = readOptionalNodeLevel5ThirdPartyAppCorpus(args);
+  const installedThirdPartyAppCorpus = readOptionalNodeLevel5InstalledThirdPartyAppCorpus(args);
+  const artifact = readOptionalNodeLevel5RetainedArtifact(nodeLevel5ReleaseGateArtifactArgs(args));
+  const accepted = [
+    artifact,
+    corpus,
+    refusalCorpus,
+    thirdPartyAppCorpus,
+    installedThirdPartyAppCorpus,
+  ].every((item) => (item ? item.accepted === true : true));
+  return reportNodeLevel5ProductCommand(json, {
+    accepted,
+    kind: "machinen.node-level5-release-gate-summary",
+    nodeProductSupportClaimed: 80,
+    broadNodeProductSupportClaimed: 20,
+    arbitraryProcessCrossArchRestoreClaimed: 0,
+    retainedArtifact: artifact,
+    realAppCorpus: corpus,
+    realAppRefusalCorpus: refusalCorpus,
+    thirdPartyAppCorpus,
+    installedThirdPartyAppCorpus,
+  });
+}
+
+const nodeLevel5ReleaseGateReportFlags = new Set([
+  "--include-real-app-corpus",
+  "--include-refusal-corpus",
+  "--include-third-party-app-corpus",
+  "--include-installed-third-party-app-corpus",
+  "--corpus-report",
+  "--refusal-corpus-report",
+  "--third-party-app-corpus-report",
+  "--installed-third-party-app-corpus-report",
+]);
+const nodeLevel5ReleaseGateReportValueFlags = new Set([
+  "--corpus-report",
+  "--refusal-corpus-report",
+  "--third-party-app-corpus-report",
+  "--installed-third-party-app-corpus-report",
+]);
+
+function nodeLevel5ReleaseGateArtifactArgs(args: string[]): string[] {
+  return args.filter((arg, index) => !isNodeLevel5ReleaseGateReportArg(args, arg, index));
+}
+
+function isNodeLevel5ReleaseGateReportArg(args: string[], arg: string, index: number): boolean {
+  return (
+    nodeLevel5ReleaseGateReportFlags.has(arg) ||
+    nodeLevel5ReleaseGateReportValueFlags.has(args[index - 1] ?? "")
+  );
+}
+
+function readOptionalNodeLevel5RealAppCorpus(args: string[]): Record<string, unknown> | undefined {
+  const path = nodeLevel5RealAppCorpusReportPath(args);
+  return path ? verifyNodeLevel5RealAppCorpusPath(path) : undefined;
+}
+
+function nodeLevel5RealAppCorpusReportPath(args: string[]): string | undefined {
+  if (!args.includes("--include-real-app-corpus")) {
+    return undefined;
+  }
+  const reportFlag = args.indexOf("--corpus-report");
+  const path = reportFlag === -1 ? undefined : args[reportFlag + 1];
+  if (!path) {
+    die(
+      "machinen node-level5 release-gate --include-real-app-corpus requires --corpus-report <file>",
+    );
+  }
+  return path;
+}
+
+function verifyNodeLevel5RealAppCorpusPath(path: string): Record<string, unknown> {
+  try {
+    return verifyNodeLevel5RealAppCorpusReport(loadNodeLevel5RealAppCorpusReport(resolve(path)));
+  } catch (error) {
+    return invalidNodeLevel5RealAppCorpus(error);
+  }
+}
+
+function invalidNodeLevel5RealAppCorpus(error: unknown): Record<string, unknown> {
+  return invalidNodeLevel5ReleaseReport("node-level5-real-app-corpus-invalid", error);
+}
+
+function readOptionalNodeLevel5RealAppRefusalCorpus(
+  args: string[],
+): Record<string, unknown> | undefined {
+  const path = nodeLevel5RealAppRefusalCorpusReportPath(args);
+  return path ? verifyNodeLevel5RealAppRefusalCorpusPath(path) : undefined;
+}
+
+function nodeLevel5RealAppRefusalCorpusReportPath(args: string[]): string | undefined {
+  if (!args.includes("--include-refusal-corpus")) {
+    return undefined;
+  }
+  const reportFlag = args.indexOf("--refusal-corpus-report");
+  const path = reportFlag === -1 ? undefined : args[reportFlag + 1];
+  if (!path) {
+    die(
+      "machinen node-level5 release-gate --include-refusal-corpus requires --refusal-corpus-report <file>",
+    );
+  }
+  return path;
+}
+
+function verifyNodeLevel5RealAppRefusalCorpusPath(path: string): Record<string, unknown> {
+  try {
+    return verifyNodeLevel5RealAppRefusalCorpusReport(
+      loadNodeLevel5RealAppRefusalCorpusReport(resolve(path)),
+    );
+  } catch (error) {
+    return invalidNodeLevel5ReleaseReport("node-level5-real-app-refusal-corpus-invalid", error);
+  }
+}
+
+function readOptionalNodeLevel5ThirdPartyAppCorpus(
+  args: string[],
+): Record<string, unknown> | undefined {
+  const path = nodeLevel5ThirdPartyAppCorpusReportPath(args);
+  return path ? verifyNodeLevel5ThirdPartyAppCorpusPath(path) : undefined;
+}
+
+function nodeLevel5ThirdPartyAppCorpusReportPath(args: string[]): string | undefined {
+  if (!args.includes("--include-third-party-app-corpus")) {
+    return undefined;
+  }
+  const reportFlag = args.indexOf("--third-party-app-corpus-report");
+  const path = reportFlag === -1 ? undefined : args[reportFlag + 1];
+  if (!path) {
+    die(
+      "machinen node-level5 release-gate --include-third-party-app-corpus requires --third-party-app-corpus-report <file>",
+    );
+  }
+  return path;
+}
+
+function verifyNodeLevel5ThirdPartyAppCorpusPath(path: string): Record<string, unknown> {
+  try {
+    return verifyNodeLevel5ThirdPartyAppCorpusReport(
+      loadNodeLevel5ThirdPartyAppCorpusReport(resolve(path)),
+    );
+  } catch (error) {
+    return invalidNodeLevel5ReleaseReport("node-level5-third-party-app-corpus-invalid", error);
+  }
+}
+
+function readOptionalNodeLevel5InstalledThirdPartyAppCorpus(
+  args: string[],
+): Record<string, unknown> | undefined {
+  const path = nodeLevel5InstalledThirdPartyAppCorpusReportPath(args);
+  return path ? verifyNodeLevel5InstalledThirdPartyAppCorpusPath(path) : undefined;
+}
+
+function nodeLevel5InstalledThirdPartyAppCorpusReportPath(args: string[]): string | undefined {
+  if (!args.includes("--include-installed-third-party-app-corpus")) {
+    return undefined;
+  }
+  const reportFlag = args.indexOf("--installed-third-party-app-corpus-report");
+  const path = reportFlag === -1 ? undefined : args[reportFlag + 1];
+  if (!path) {
+    die(
+      "machinen node-level5 release-gate --include-installed-third-party-app-corpus requires --installed-third-party-app-corpus-report <file>",
+    );
+  }
+  return path;
+}
+
+function verifyNodeLevel5InstalledThirdPartyAppCorpusPath(path: string): Record<string, unknown> {
+  try {
+    return verifyNodeLevel5InstalledThirdPartyAppCorpusReport(
+      loadNodeLevel5InstalledThirdPartyAppCorpusReport(resolve(path)),
+    );
+  } catch (error) {
+    return invalidNodeLevel5ReleaseReport(
+      "node-level5-installed-third-party-app-corpus-invalid",
+      error,
+    );
+  }
+}
+
+function invalidNodeLevel5ReleaseReport(code: string, error: unknown): Record<string, unknown> {
+  return {
+    accepted: false,
+    code,
+    message: error instanceof Error ? error.message : String(error),
+  };
+}
+
+// fallow-ignore-next-line complexity
+function readOptionalNodeLevel5RetainedArtifact(
+  args: string[],
+): Record<string, unknown> | undefined {
+  if (args.length === 0) {
+    return undefined;
+  }
+  try {
+    const options = parseNodeLevel5ArtifactArgs(args);
+    if (!options.root || !options.family || !options.direction) {
+      die(
+        "machinen node-level5 retained artifact commands require --root, --family, and --direction",
+      );
+    }
+    assertSafeNodeLevel5ArtifactRootPath(options.root);
+    return verifyNodeLevel5RetainedArtifact({
+      root: options.root,
+      family: options.family,
+      direction: options.direction,
+    });
+  } catch (error) {
+    return {
+      accepted: false,
+      code: "node-level5-artifact-bundle-invalid",
+      message: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+function verifyNodeLevel5RetainedArtifact(
+  options: Required<Pick<NodeLevel5ArtifactCliOptions, "root" | "family" | "direction">>,
+): Record<string, unknown> {
+  const bundle = loadNodeLevel5ProductSupport80ArtifactBundle({
+    artifactRoot: resolve(options.root),
+    familyId: options.family,
+    direction: options.direction,
+  });
+  return verifyNodeLevel5ProductSupport80ArtifactBundle(bundle);
+}
+
+function assertSafeNodeLevel5ArtifactRootPath(path: string): void {
+  if (path.split(/[\\/]+/u).includes("..")) {
+    throw new Error("Node Level 5 artifact root must not contain path traversal segments");
+  }
+}
+
+// fallow-ignore-next-line complexity
+function parseNodeLevel5ArtifactArgs(args: string[]): NodeLevel5ArtifactCliOptions {
+  const options: NodeLevel5ArtifactCliOptions = {};
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index]!;
+    if (arg === "--out") {
+      options.out = takeCaptureValue(args, (index += 1), "--out");
+    } else if (arg === "--root") {
+      options.root = takeCaptureValue(args, (index += 1), "--root");
+    } else if (arg === "--family") {
+      options.family = takeCaptureValue(
+        args,
+        (index += 1),
+        "--family",
+      ) as NodeLevel5ProductSupport80FamilyId;
+    } else if (arg === "--direction") {
+      options.direction = takeCaptureValue(args, (index += 1), "--direction") as
+        | "arm64-to-amd64"
+        | "amd64-to-arm64";
+    } else {
+      die(`unknown node-level5 artifact argument: ${arg}`);
+    }
+  }
+  return options;
+}
+
+// fallow-ignore-next-line complexity
+function cmdNodeLevel5AbiCheck(args: string[], json: boolean): number {
+  const values = new Map<string, string>();
+  for (let index = 0; index < args.length; index += 2) {
+    values.set(args[index]!, args[index + 1] ?? "");
+  }
+  const accepted =
+    values.get("--node") === "22.x" &&
+    values.get("--v8") === "12.x pointer-compressed" &&
+    values.get("--libuv") === "supported idle handles plus selected hard-facility boundaries";
+  return reportNodeLevel5ProductCommand(json, {
+    accepted,
+    kind: "machinen.node-level5-abi-check-summary",
+    refusal: accepted ? undefined : { code: "node-level5-unknown-abi-refused" },
+  });
+}
+
+function reportNodeLevel5ProductCommand(json: boolean, summary: Record<string, unknown>): number {
+  if (json) {
+    emitJson(summary);
+  } else {
+    process.stderr.write(`${summary.accepted ? "accepted" : "refused"} node-level5 command\n`);
+  }
+  return summary.accepted === false ? 1 : 0;
+}
+
+function nodeLevel5Usage(): string {
+  return (
+    "usage: machinen node-level5 artifacts <write|verify> ... [--json]\n" +
+    "       machinen node-level5 support-matrix [--json]\n"
+  );
+}
+
 function captureUsage(): string {
   return (
     "usage: machinen capture postgres --out <dir> --source-arch <arm64|amd64> " +
@@ -1774,7 +2346,9 @@ function captureUsage(): string {
     "--bind-address 127.0.0.1 --port <n> --backlog <n> [--json] [--dry-run]\n" +
     "       machinen capture ping-socket --out <dir> --source-arch <arm64|amd64> " +
     "--target-arch <arm64|amd64> --socket-kind <ping-dgram-icmp|raw-icmp> " +
-    "--source-verifier-output <file> --echo-id <n> --echo-seq <n> [--json] [--dry-run]"
+    "--source-verifier-output <file> --echo-id <n> --echo-seq <n> [--json] [--dry-run]\n" +
+    "       machinen capture node-level5 --experimental-node-level5 --out <dir> " +
+    "[--source-arch <arm64|amd64>] [--target-arch <arm64|amd64>] [--json] [--dry-run]"
   );
 }
 
@@ -2050,18 +2624,47 @@ function formatSupportText(payload: {
   return `${lines.join("\n")}\n`;
 }
 
+// fallow-ignore-next-line complexity code-duplication
+function cmdRestoreNodeLevel5DeclaredSubset(input: { json: boolean; rest: string[] }): number {
+  const options = parseNodeLevel5DeclaredSubsetRestoreArgs(input.rest);
+  if (!options.manifest) {
+    reportNodeLevel5DeclaredSubsetCliRefusal(
+      input.json,
+      "node-level5-declared-subset-manifest-required",
+      "machinen restore node-level5 requires <manifest> or --manifest <file>",
+    );
+  }
+  const summary = restoreNodeLevel5DeclaredSubset({
+    manifestPath: resolve(options.manifest),
+    experimental: options.experimental,
+    rawCpuRestore: options.rawCpuRestore,
+    productSupportClaimed: options.productSupportClaimed,
+  });
+  return reportNodeLevel5DeclaredSubsetSummary(input.json, summary, {
+    accepted: (value) =>
+      `accepted experimental node-level5 restore manifest: ${value.manifestPath}\n`,
+    refused: (value) => `refused experimental node-level5 restore: ${value.refusal?.code}\n`,
+  });
+}
+
 // fallow-ignore-next-line complexity
 async function cmdRestore(args: string[]): Promise<number> {
   // `machinen restore <snap-dir> [--image <tarball>] [--name <name>]
   // [--lazy] [-p <hostPort>:<guestPort>]`. Restore is eager by
   // default; `--lazy` opts into the #266 CRIU lazy-pages path.
   const { json, rest } = consumeJsonFlag(args);
+  if (rest[0] === "node-level5") {
+    return cmdRestoreNodeLevel5DeclaredSubset({ json, rest: rest.slice(1) });
+  }
   const parsed = parseRestoreCommandArgs(rest);
   validateRestoreCommandArgs(parsed);
   const snapDir = resolve(parsed.positional[0]!);
   const portableAdapter = detectPortableRestoreAdapter(snapDir);
   if (portableAdapter) {
     return cmdRestorePortableAdapter(portableAdapter, parsed, snapDir, json);
+  }
+  if (isNodeLevel5ProductSnapshotBundle(snapDir)) {
+    return cmdRestoreNodeLevel5ProductSnapshot(snapDir, json);
   }
   if (isProductPortablePostgresBundle(snapDir)) {
     return cmdRestoreProductPortablePostgres(parsed, snapDir, json);
@@ -2092,6 +2695,39 @@ async function cmdRestore(args: string[]): Promise<number> {
   const vm = await startRestoreVm(parsed, snapDir, paths, quiet);
   reportRestoreSuccess(vm, quiet);
   return runRestoreAttachedSession(vm, quiet);
+}
+
+function cmdRestoreNodeLevel5ProductSnapshot(snapDir: string, json: boolean): number {
+  try {
+    return reportNodeLevel5ProductSnapshotRestore(
+      restoreNodeLevel5ProductSnapshot({ snapshotDir: snapDir }),
+      json,
+    );
+  } catch (error) {
+    return reportNodeLevel5ProductSnapshotRestoreError(error, json);
+  }
+}
+
+function reportNodeLevel5ProductSnapshotRestore(
+  summary: ReturnType<typeof restoreNodeLevel5ProductSnapshot>,
+  json: boolean,
+): number {
+  if (json) {
+    emitJson(summary);
+  } else {
+    process.stdout.write(`restored node snapshot: ${summary.familyId} ${summary.direction}\n`);
+  }
+  return summary.accepted ? 0 : 1;
+}
+
+function reportNodeLevel5ProductSnapshotRestoreError(error: unknown, json: boolean): number {
+  const message = error instanceof Error ? error.message : String(error);
+  if (json) {
+    emitJsonError("node-level5-product-snapshot-invalid", message);
+  } else {
+    process.stderr.write(`machinen restore: ${message}\n`);
+  }
+  return 1;
 }
 
 function parseRestoreCommandArgs(args: string[]): ParsedRestoreCommandArgs {
@@ -2126,7 +2762,8 @@ function restoreUsage(): string {
     "       machinen restore <portable-ping-socket-bundle> --target-arch <arm64|amd64> " +
     "[--target-verifier-output <file>] [--json]\n" +
     "       machinen restore <node-level5-proof-bundle> " +
-    "[--allow-proof-only-success] [--json]"
+    "[--allow-proof-only-success] [--json]\n" +
+    "       machinen restore node-level5 --experimental-node-level5 <manifest> [--json]"
   );
 }
 
@@ -3020,6 +3657,48 @@ async function runPortableDetachedRestore(
   }
 }
 
+function buildDetachedRestoreTargetVmFields(input: { vm: VmHandle; name: string }) {
+  return {
+    targetVerifierResult: "passed",
+    targetVmStarted: true,
+    restoredName: input.vm.name ?? input.name,
+    restoredPid: input.vm.pid,
+    targetOutputObserved: true,
+  };
+}
+
+function buildDetachedRestoreSummaryBase(input: {
+  summary: object;
+  vm: VmHandle;
+  name: string;
+  outputLogPath: string;
+  processField: string;
+  elapsedMs: number;
+}): Record<string, unknown> {
+  return {
+    ...input.summary,
+    ...buildDetachedRestoreTargetVmFields({ vm: input.vm, name: input.name }),
+    outputLogPath: input.outputLogPath,
+    [input.processField]: "running",
+    elapsedMs: input.elapsedMs,
+  };
+}
+
+function buildDetachedRestoreSummaryWithSemantics(input: {
+  summary: object;
+  vm: VmHandle;
+  name: string;
+  outputLogPath: string;
+  processField: string;
+  elapsedMs: number;
+  continuationSemantics: Record<string, unknown>;
+}): Record<string, unknown> {
+  return {
+    ...buildDetachedRestoreSummaryBase(input),
+    continuationSemantics: input.continuationSemantics,
+  };
+}
+
 // fallow-ignore-next-line code-duplication
 function buildTcpListenerDetachedRestoreSummary(input: {
   descriptor: ProductLevel4TcpListenerDescriptor;
@@ -3029,18 +3708,13 @@ function buildTcpListenerDetachedRestoreSummary(input: {
   elapsedMs: number;
 }): Record<string, unknown> {
   const { descriptor, summary, vm, name, elapsedMs } = input;
-  const targetVmFields = {
-    targetVerifierResult: "passed",
-    targetVmStarted: true,
-    restoredName: vm.name ?? name,
-    restoredPid: vm.pid,
-  };
-  return {
-    ...summary,
-    ...targetVmFields,
+  return buildDetachedRestoreSummaryWithSemantics({
+    summary,
+    vm,
+    name,
+    elapsedMs,
     outputLogPath: descriptor.continuation.outputLogPath,
-    targetTcpListenerProcess: "running",
-    targetOutputObserved: true,
+    processField: "targetTcpListenerProcess",
     continuationSemantics: {
       family: descriptor.listener.family,
       protocol: descriptor.listener.protocol,
@@ -3052,8 +3726,7 @@ function buildTcpListenerDetachedRestoreSummary(input: {
       listenerPolicy: descriptor.continuation.listenerPolicy,
       acceptQueuePolicy: descriptor.continuation.acceptQueuePolicy,
     },
-    elapsedMs,
-  };
+  });
 }
 
 // fallow-ignore-next-line code-duplication
@@ -3065,18 +3738,13 @@ function buildTimerfdDetachedRestoreSummary(input: {
   elapsedMs: number;
 }): Record<string, unknown> {
   const { descriptor, summary, vm, name, elapsedMs } = input;
-  const targetVmFields = {
-    targetVerifierResult: "passed",
-    targetVmStarted: true,
-    restoredName: vm.name ?? name,
-    restoredPid: vm.pid,
-  };
-  return {
-    ...summary,
-    ...targetVmFields,
+  return buildDetachedRestoreSummaryWithSemantics({
+    summary,
+    vm,
+    name,
+    elapsedMs,
     outputLogPath: descriptor.continuation.outputLogPath,
-    targetTimerfdProcess: "running",
-    targetOutputObserved: true,
+    processField: "targetTimerfdProcess",
     continuationSemantics: {
       clock: descriptor.timerfd.clock,
       mode: descriptor.timerfd.mode,
@@ -3087,8 +3755,7 @@ function buildTimerfdDetachedRestoreSummary(input: {
       timerPolicy: descriptor.continuation.timerPolicy,
       expirationPolicy: descriptor.continuation.expirationPolicy,
     },
-    elapsedMs,
-  };
+  });
 }
 
 // fallow-ignore-next-line code-duplication
@@ -3100,15 +3767,13 @@ function buildPipeDetachedRestoreSummary(input: {
   elapsedMs: number;
 }): Record<string, unknown> {
   const { descriptor, summary, vm, name, elapsedMs } = input;
-  return {
-    ...summary,
-    targetVerifierResult: "passed",
-    targetVmStarted: true,
-    restoredName: vm.name ?? name,
-    restoredPid: vm.pid,
+  return buildDetachedRestoreSummaryWithSemantics({
+    summary,
+    vm,
+    name,
+    elapsedMs,
     outputLogPath: descriptor.continuation.outputLogPath,
-    targetPipeProcess: "running",
-    targetOutputObserved: true,
+    processField: "targetPipeProcess",
     continuationSemantics: {
       readFd: descriptor.pipe.readFd,
       writeFd: descriptor.pipe.writeFd,
@@ -3120,8 +3785,7 @@ function buildPipeDetachedRestoreSummary(input: {
       pipePolicy: descriptor.continuation.pipePolicy,
       readinessPolicy: descriptor.continuation.readinessPolicy,
     },
-    elapsedMs,
-  };
+  });
 }
 
 // fallow-ignore-next-line code-duplication
@@ -3133,15 +3797,13 @@ function buildEventfdDetachedRestoreSummary(input: {
   elapsedMs: number;
 }): Record<string, unknown> {
   const { descriptor, summary, vm, name, elapsedMs } = input;
-  return {
-    ...summary,
-    targetVerifierResult: "passed",
-    targetVmStarted: true,
-    restoredName: vm.name ?? name,
-    restoredPid: vm.pid,
+  return buildDetachedRestoreSummaryWithSemantics({
+    summary,
+    vm,
+    name,
+    elapsedMs,
     outputLogPath: descriptor.continuation.outputLogPath,
-    targetEventfdProcess: "running",
-    targetOutputObserved: true,
+    processField: "targetEventfdProcess",
     continuationSemantics: {
       counter: descriptor.eventfd.counter,
       semaphore: descriptor.eventfd.semaphore,
@@ -3152,8 +3814,7 @@ function buildEventfdDetachedRestoreSummary(input: {
       counterPolicy: descriptor.continuation.counterPolicy,
       readinessPolicy: descriptor.continuation.readinessPolicy,
     },
-    elapsedMs,
-  };
+  });
 }
 
 // fallow-ignore-next-line complexity
@@ -3165,15 +3826,13 @@ function buildPingDetachedRestoreSummary(input: {
   elapsedMs: number;
 }): Record<string, unknown> {
   const { descriptor, summary, vm, name, elapsedMs } = input;
-  return {
-    ...summary,
-    targetVerifierResult: "passed",
-    targetVmStarted: true,
-    restoredName: vm.name ?? name,
-    restoredPid: vm.pid,
+  return buildDetachedRestoreSummaryWithSemantics({
+    summary,
+    vm,
+    name,
+    elapsedMs,
     outputLogPath: descriptor.continuation?.outputLogPath ?? "/tmp/machinen-restored-ping.log",
-    targetPingProcess: "running",
-    targetOutputObserved: true,
+    processField: "targetPingProcess",
     continuationSemantics: {
       destination: descriptor.continuation?.destination ?? "127.0.0.1",
       intervalMs: descriptor.continuation?.intervalMs ?? 1000,
@@ -3187,8 +3846,7 @@ function buildPingDetachedRestoreSummary(input: {
         descriptor.continuation?.textOutputSequencePolicy ??
         "machinen-helper-renders-descriptor-sequence",
     },
-    elapsedMs,
-  };
+  });
 }
 
 function assertLocalTcpListenerRestoreTargetArch(targetArch: string | undefined): void {
@@ -4514,11 +5172,172 @@ function restorePtyRawMode(wasRaw: boolean): void {
 }
 
 async function cmdSnapshot(args: string[]): Promise<number> {
+  if (isNodeLevel5ProductSnapshotCommand(args)) {
+    return cmdSnapshotNodeLevel5Product(args);
+  }
   const opts = parseSnapshotOptions(args);
   if (opts.dryRun) {
     return snapshotDryRun(opts);
   }
   return runSnapshot(opts);
+}
+
+function isNodeLevel5ProductSnapshotCommand(args: string[]): boolean {
+  return args.some((arg) => arg === "node") && args.some((arg) => arg === "--out");
+}
+
+function cmdSnapshotNodeLevel5Product(args: string[]): number {
+  const { json, rest } = consumeJsonFlag(args);
+  const options = parseNodeLevel5ProductSnapshotArgs(rest.filter((arg) => arg !== "node"));
+  if (!options.out || !options.target) {
+    die("usage: machinen snapshot node <name|pid> --out <dir> [--json]");
+  }
+  return reportNodeLevel5ProductSnapshot(
+    createNodeLevel5ProductSnapshot({
+      outDir: resolve(options.out),
+      target: resolveNodeLevel5ProductSnapshotTarget(options.target),
+      direction: nodeLevel5ProductSnapshotDirectionOverride(),
+    }),
+    json,
+  );
+}
+
+function nodeLevel5ProductSnapshotDirectionOverride():
+  | NodeLevel5ProductSnapshotDirection
+  | undefined {
+  const direction = process.env.MACHINEN_NODE_LEVEL5_PRODUCT_SNAPSHOT_DIRECTION;
+  if (!direction) {
+    return undefined;
+  }
+  if (direction === "arm64-to-amd64" || direction === "amd64-to-arm64") {
+    return direction;
+  }
+  die(
+    "invalid MACHINEN_NODE_LEVEL5_PRODUCT_SNAPSHOT_DIRECTION; expected arm64-to-amd64 or amd64-to-arm64",
+  );
+}
+
+function reportNodeLevel5ProductSnapshot(
+  summary: ReturnType<typeof createNodeLevel5ProductSnapshot>,
+  json: boolean,
+): number {
+  if (json) {
+    emitJson(summary);
+    return summary.accepted ? 0 : 1;
+  }
+  writeNodeLevel5ProductSnapshotHumanSummary(summary);
+  return summary.accepted ? 0 : 1;
+}
+
+function writeNodeLevel5ProductSnapshotHumanSummary(
+  summary: ReturnType<typeof createNodeLevel5ProductSnapshot>,
+): void {
+  if (summary.accepted) {
+    process.stdout.write(`snapshot written: ${summary.snapshotDir}\n`);
+    return;
+  }
+  process.stderr.write(`machinen snapshot node: ${summary.refusal?.message}\n`);
+}
+
+function parseNodeLevel5ProductSnapshotArgs(args: string[]): NodeLevel5ProductSnapshotCliOptions {
+  const outFlag = args.indexOf("--out");
+  if (outFlag === -1) {
+    return parseNodeLevel5ProductSnapshotTargetOnly(args);
+  }
+  const out = takeCaptureValue(args, outFlag + 1, "--out");
+  const positional = args.filter((_, index) => index !== outFlag && index !== outFlag + 1);
+  return { out, target: parseNodeLevel5ProductSnapshotTargetOnly(positional).target };
+}
+
+function parseNodeLevel5ProductSnapshotTargetOnly(
+  args: string[],
+): Pick<NodeLevel5ProductSnapshotCliOptions, "target"> {
+  if (args.length === 0) {
+    return {};
+  }
+  if (args.length > 1) {
+    die(`unknown snapshot node argument: ${args[1]}`);
+  }
+  return { target: /^[0-9]+$/.test(args[0]!) ? { pid: Number(args[0]) } : { name: args[0]! } };
+}
+
+function resolveNodeLevel5ProductSnapshotTarget(target: Target) {
+  const entry = lookupEntry(target);
+  const pid = nodeLevel5ProductSnapshotTargetPid(target, entry);
+  return {
+    target: nodeLevel5ProductSnapshotTargetName(target),
+    targetKind: nodeLevel5ProductSnapshotTargetKind(target),
+    pid,
+    registryMatched: Boolean(entry),
+    ...nodeLevel5ProductSnapshotTargetEvidence(pid),
+  };
+}
+
+function nodeLevel5ProductSnapshotTargetEvidence(
+  pid: number | undefined,
+): NodeLevel5ProductSnapshotTargetMetadata {
+  if (!pid) {
+    return { runtime: "unknown" };
+  }
+  return inspectNodeLevel5ProductSnapshotPid(pid);
+}
+
+function nodeLevel5ProductSnapshotTargetName(target: Target): string {
+  return "name" in target ? target.name : String(target.pid);
+}
+
+function nodeLevel5ProductSnapshotTargetKind(target: Target): "name" | "pid" {
+  return "name" in target ? "name" : "pid";
+}
+
+function nodeLevel5ProductSnapshotTargetPid(
+  target: Target,
+  entry: RegistryEntry | undefined,
+): number | undefined {
+  return "pid" in target ? target.pid : entry?.pid;
+}
+
+function inspectNodeLevel5ProductSnapshotPid(pid: number): NodeLevel5ProductSnapshotTargetMetadata {
+  const executable = readProcessField(pid, "comm");
+  const argv = readProcessField(pid, "args");
+  return {
+    runtime: isNodeLevel5ProductSnapshotNodeProcess(executable, argv) ? "node" : "unknown",
+    appDir: readProcessCwd(pid),
+    pid,
+    executable,
+    argv,
+  };
+}
+
+function readProcessField(pid: number, field: "comm" | "args"): string | undefined {
+  try {
+    return execFileSync("ps", ["-p", String(pid), "-o", `${field}=`], {
+      encoding: "utf8",
+    }).trim();
+  } catch {
+    return undefined;
+  }
+}
+
+function readProcessCwd(pid: number): string | undefined {
+  try {
+    const output = execFileSync("lsof", ["-a", "-p", String(pid), "-d", "cwd", "-Fn"], {
+      encoding: "utf8",
+    });
+    return output
+      .split("\n")
+      .find((line) => line.startsWith("n"))
+      ?.slice(1);
+  } catch {
+    return undefined;
+  }
+}
+
+function isNodeLevel5ProductSnapshotNodeProcess(
+  executable: string | undefined,
+  argv: string | undefined,
+): boolean {
+  return /(^|\/)node(?:$|\s)/u.test(executable ?? "") || /(^|\s)node(?:$|\s)/u.test(argv ?? "");
 }
 
 interface SnapshotOptionsCli {
@@ -4557,7 +5376,9 @@ function consumeKeepAliveFlag(args: string[]): { keepAlive: boolean; rest: strin
 
 function parseSnapshotOutDir(args: string[]): string {
   if (args.length === 0) {
-    die("usage: machinen snapshot <name|pid> <out-dir> [--keep-alive] [--dry-run] [--json]");
+    die(
+      "usage: machinen snapshot <name|pid> <out-dir> [--keep-alive] [--dry-run] [--json]\n       machinen snapshot node <name|pid> --out <dir> [--json]",
+    );
   }
   if (args.length > 1) {
     die(`unknown argument: ${args[1]}`);
@@ -5783,6 +6604,7 @@ type CommandHandler = (args: string[]) => number | Promise<number>;
 const COMMAND_HANDLERS = new Map<string, CommandHandler>([
   ["boot", cmdBoot],
   ["capture", cmdCapture],
+  ["node-level5", cmdNodeLevel5],
   ["support", cmdSupport],
   ["restore", cmdRestore],
   ["install", cmdInstall],

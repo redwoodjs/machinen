@@ -1,0 +1,14 @@
+{
+  "kind": "machinen.node-level5-product-path-proof-summary",
+  "proof": "171",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "gate": "product-path-171",
+  "assertions": {
+    "guardedProductPathGateCovered": true,
+    "declaredSubsetStill100Percent": true,
+    "rawCpuRestoreHasStableRefusal": true,
+    "productSupportNotClaimed": true
+  }
+}

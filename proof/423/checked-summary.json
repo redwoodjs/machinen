@@ -1,0 +1,17 @@
+{
+  "kind": "machinen.node-level5-target-bound-proof-summary",
+  "proof": "423",
+  "goal": "Target process introspection",
+  "result": "Target pid introspection binds runtime and app root.",
+  "status": "node-product-support-80-target-bound-snapshot",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": ["machinen snapshot node <name|pid>", "machinen restore <snapshot>"],
+  "accepted": true,
+  "targetCaptured": true,
+  "targetKind": "pid",
+  "runtime": "node",
+  "appDirDiscovered": true,
+  "registryMatched": false
+}

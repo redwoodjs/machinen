@@ -1,0 +1,88 @@
+{
+  "kind": "machinen.node-proper-level5-translated-bundle-integrity-summary",
+  "proof": "038",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "acceptedRow": {
+    "id": "valid-bundle",
+    "materializerStarted": true,
+    "targetMaterialized": true,
+    "accepted": true
+  },
+  "target": {
+    "count": 3,
+    "graphTotal": 3,
+    "leftSharedIsRightShared": true,
+    "packedSharedIsSame": true,
+    "listenerOpen": true,
+    "timerRepeatMs": 100,
+    "timerTicks": 0
+  },
+  "refusedRows": [
+    {
+      "id": "missing-heap-graph",
+      "materializerStarted": false,
+      "targetMaterialized": false,
+      "accepted": false,
+      "code": "node-proper-level5-bundle-heap-graph-missing"
+    },
+    {
+      "id": "architecture-mismatch",
+      "materializerStarted": false,
+      "targetMaterialized": false,
+      "accepted": false,
+      "code": "node-proper-level5-bundle-architecture-mismatch"
+    },
+    {
+      "id": "raw-cpu-copy",
+      "materializerStarted": false,
+      "targetMaterialized": false,
+      "accepted": false,
+      "code": "node-proper-level5-bundle-raw-cpu-copy-forbidden"
+    },
+    {
+      "id": "source-fd-reuse",
+      "materializerStarted": false,
+      "targetMaterialized": false,
+      "accepted": false,
+      "code": "node-proper-level5-bundle-source-fd-reuse-forbidden"
+    },
+    {
+      "id": "stale-digest",
+      "materializerStarted": false,
+      "targetMaterialized": false,
+      "accepted": false,
+      "code": "node-proper-level5-bundle-digest-mismatch"
+    },
+    {
+      "id": "product-claim",
+      "materializerStarted": false,
+      "targetMaterialized": false,
+      "accepted": false,
+      "code": "node-proper-level5-bundle-product-claim-forbidden"
+    },
+    {
+      "id": "shortcut",
+      "materializerStarted": false,
+      "targetMaterialized": false,
+      "accepted": false,
+      "code": "node-proper-level5-bundle-forbidden-shortcut"
+    },
+    {
+      "id": "missing-refusal-policy",
+      "materializerStarted": false,
+      "targetMaterialized": false,
+      "accepted": false,
+      "code": "node-proper-level5-bundle-refusal-policy-missing"
+    }
+  ],
+  "assertions": {
+    "validBundleAccepted": true,
+    "targetReturnedNextState": true,
+    "allTamperedBundlesRefused": true,
+    "noRefusedBundleStartedMaterializer": true,
+    "noProductSupportClaimed": true,
+    "noForbiddenShortcutAccepted": true
+  }
+}

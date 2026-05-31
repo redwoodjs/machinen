@@ -173,6 +173,126 @@ export {
   nodeLevel5ProofIngredientNames,
   nodeLevel5ProofRefusalCodes,
 } from "./node-level5-proof-composition.ts";
+export {
+  NODE_LEVEL5_DECLARED_SUBSET_FORMAT_VERSION,
+  NODE_LEVEL5_DECLARED_SUBSET_MANIFEST,
+  NODE_LEVEL5_DECLARED_SUBSET_RESTORE_SUMMARY,
+  createNodeLevel5DeclaredSubsetCapture,
+  isNodeLevel5DeclaredSubsetManifest,
+  nodeLevel5DeclaredSubsetRefusalCodes,
+  nodeLevel5DeclaredSubsetSupportMatrix,
+  restoreNodeLevel5DeclaredSubset,
+} from "./node-level5-declared-subset.ts";
+export {
+  NODE_LEVEL5_READINESS_MATRIX_KIND,
+  NODE_LEVEL5_READINESS_MATRIX_VERSION,
+  assertNodeLevel5ReadinessMatrixComplete,
+  nodeLevel5AppCorpusGates,
+  nodeLevel5FinalAuditGates,
+  nodeLevel5NarrowProductReadinessGates,
+  nodeLevel5ReadinessMatrix,
+  nodeLevel5UnsupportedNeighborGates,
+} from "./node-level5-readiness-matrix.ts";
+export {
+  NODE_LEVEL5_PRODUCT_SUPPORT_20_KIND,
+  NODE_LEVEL5_PRODUCT_SUPPORT_20_VERSION,
+  assertNodeLevel5ProductSupport20MatrixComplete,
+  nodeLevel5ProductSupport20Families,
+  nodeLevel5ProductSupport20Matrix,
+  nodeLevel5ProductUnsupportedNeighbors,
+} from "./node-level5-product-support-20.ts";
+export {
+  NODE_LEVEL5_PRODUCT_SUPPORT_50_KIND,
+  NODE_LEVEL5_PRODUCT_SUPPORT_50_VERSION,
+  assertNodeLevel5ProductSupport50MatrixComplete,
+  nodeLevel5ProductSupport50ExpandedUnsupportedNeighbors,
+  nodeLevel5ProductSupport50Families,
+  nodeLevel5ProductSupport50Matrix,
+  nodeLevel5ProductSupport50NewFamilies,
+} from "./node-level5-product-support-50.ts";
+export {
+  NODE_LEVEL5_PRODUCT_SUPPORT_65_KIND,
+  NODE_LEVEL5_PRODUCT_SUPPORT_65_VERSION,
+  assertNodeLevel5ProductSupport65MatrixComplete,
+  nodeLevel5ProductSupport65ExpandedUnsupportedNeighbors,
+  nodeLevel5ProductSupport65Families,
+  nodeLevel5ProductSupport65Matrix,
+  nodeLevel5ProductSupport65NewFamilies,
+} from "./node-level5-product-support-65.ts";
+export {
+  NODE_LEVEL5_PRODUCT_SUPPORT_80_KIND,
+  NODE_LEVEL5_PRODUCT_SUPPORT_80_VERSION,
+  assertNodeLevel5ProductSupport80MatrixComplete,
+  nodeLevel5ProductSupport80ExpandedUnsupportedNeighbors,
+  nodeLevel5ProductSupport80Families,
+  nodeLevel5ProductSupport80Matrix,
+  nodeLevel5ProductSupport80NewFamilies,
+} from "./node-level5-product-support-80.ts";
+export {
+  NODE_LEVEL5_PRODUCT_SUPPORT_80_ARTIFACT_BUNDLE_KIND,
+  NODE_LEVEL5_PRODUCT_SUPPORT_80_HARDENING_KIND,
+  assertNodeLevel5ProductSupport80HardeningComplete,
+  createNodeLevel5ProductSupport80ArtifactBundle,
+  loadNodeLevel5ProductSupport80ArtifactBundle,
+  nodeLevel5ProductSupport80ClaimRegistry,
+  nodeLevel5ProductSupport80UnsupportedDetectors,
+  verifyNodeLevel5ProductSupport80ArtifactBundle,
+} from "./node-level5-product-support-80-hardening.ts";
+export {
+  NODE_LEVEL5_APP_SUPPORT_MATRIX_KIND,
+  NODE_LEVEL5_APP_SUPPORT_MATRIX_VERSION,
+  buildNodeLevel5AppSupportMatrix,
+  notProvenNodeLevel5AppSupportRows,
+  refusedNodeLevel5AppSupportRows,
+  supportedNodeLevel5AppSupportRows,
+} from "./node-level5-app-support-matrix.ts";
+export {
+  NODE_LEVEL5_INSTALLED_THIRD_PARTY_APP_CORPUS_REPORT_KIND,
+  NODE_LEVEL5_INSTALLED_THIRD_PARTY_APP_CORPUS_REPORT_VERSION,
+  createNodeLevel5InstalledThirdPartyAppCorpusReport,
+  loadNodeLevel5InstalledThirdPartyAppCorpusReport,
+  verifyNodeLevel5InstalledThirdPartyAppCorpusReport,
+  writeNodeLevel5InstalledThirdPartyAppCorpusReport,
+} from "./node-level5-installed-third-party-app-corpus.ts";
+export {
+  NODE_LEVEL5_THIRD_PARTY_APP_CORPUS_REPORT_KIND,
+  NODE_LEVEL5_THIRD_PARTY_APP_CORPUS_REPORT_VERSION,
+  createNodeLevel5ThirdPartyAppCorpusReport,
+  loadNodeLevel5ThirdPartyAppCorpusReport,
+  verifyNodeLevel5ThirdPartyAppCorpusReport,
+  writeNodeLevel5ThirdPartyAppCorpusReport,
+} from "./node-level5-third-party-app-corpus.ts";
+export {
+  NODE_LEVEL5_REAL_APP_REFUSAL_CORPUS_REPORT_KIND,
+  NODE_LEVEL5_REAL_APP_REFUSAL_CORPUS_REPORT_VERSION,
+  createNodeLevel5RealAppRefusalCorpusReport,
+  loadNodeLevel5RealAppRefusalCorpusReport,
+  verifyNodeLevel5RealAppRefusalCorpusReport,
+  writeNodeLevel5RealAppRefusalCorpusReport,
+} from "./node-level5-real-app-refusal-corpus.ts";
+export {
+  NODE_LEVEL5_REAL_APP_CORPUS_REPORT_KIND,
+  NODE_LEVEL5_REAL_APP_CORPUS_REPORT_VERSION,
+  createNodeLevel5RealAppCorpusReport,
+  loadNodeLevel5RealAppCorpusReport,
+  verifyNodeLevel5RealAppCorpusReport,
+  writeNodeLevel5RealAppCorpusReport,
+} from "./node-level5-real-app-corpus.ts";
+export {
+  DEFAULT_NODE_LEVEL5_PRODUCT_SNAPSHOT_DIRECTION,
+  NODE_LEVEL5_PRODUCT_BEHAVIORAL_VERIFIER_REPORT_KIND,
+  NODE_LEVEL5_PRODUCT_CAPTURE_REPORT_KIND,
+  NODE_LEVEL5_PRODUCT_DETECTOR_REPORT_KIND,
+  NODE_LEVEL5_PRODUCT_RESTORE_LAUNCH_REPORT_KIND,
+  NODE_LEVEL5_PRODUCT_RESTORE_MATERIALIZATION_REPORT_KIND,
+  NODE_LEVEL5_PRODUCT_SNAPSHOT_KIND,
+  NODE_LEVEL5_PRODUCT_TARGET_IDENTITY_KIND,
+  NODE_LEVEL5_PRODUCT_SNAPSHOT_VERSION,
+  createNodeLevel5ProductSnapshot,
+  detectNodeLevel5ProductSnapshotApp,
+  isNodeLevel5ProductSnapshotBundle,
+  restoreNodeLevel5ProductSnapshot,
+} from "./node-level5-product-snapshot.ts";
 export { buildNativeCodeMap } from "./native-code-map.ts";
 export {
   classifyNativeActiveSyscalls,
@@ -240,6 +360,111 @@ export type {
   NodeLevel5ProofIngredientName,
   NodeLevel5ProofRefusalCode,
 } from "./node-level5-proof-composition.ts";
+export type {
+  CreateNodeLevel5DeclaredSubsetCaptureInput,
+  NodeLevel5DeclaredSubsetArchitecture,
+  NodeLevel5DeclaredSubsetCaptureSummary,
+  NodeLevel5DeclaredSubsetManifest,
+  NodeLevel5DeclaredSubsetRefusal,
+  NodeLevel5DeclaredSubsetRefusalCode,
+  NodeLevel5DeclaredSubsetRestoreSummary,
+  NodeLevel5DeclaredSubsetSupportMatrix,
+  RestoreNodeLevel5DeclaredSubsetInput,
+} from "./node-level5-declared-subset.ts";
+export type {
+  NodeLevel5AppCorpusGate,
+  NodeLevel5ReadinessGate,
+  NodeLevel5ReadinessGateStatus,
+  NodeLevel5ReadinessMatrix,
+  NodeLevel5UnsupportedNeighborGate,
+} from "./node-level5-readiness-matrix.ts";
+export type {
+  NodeLevel5ProductSupport20Matrix,
+  NodeLevel5ProductSupportDirection,
+  NodeLevel5ProductSupportFamily,
+  NodeLevel5ProductSupportFamilyId,
+  NodeLevel5ProductUnsupportedNeighbor,
+} from "./node-level5-product-support-20.ts";
+export type {
+  NodeLevel5ProductSupport50Family,
+  NodeLevel5ProductSupport50FamilyId,
+  NodeLevel5ProductSupport50Matrix,
+} from "./node-level5-product-support-50.ts";
+export type {
+  NodeLevel5ProductSupport65Family,
+  NodeLevel5ProductSupport65FamilyId,
+  NodeLevel5ProductSupport65Matrix,
+} from "./node-level5-product-support-65.ts";
+export type {
+  NodeLevel5ProductSupport80Family,
+  NodeLevel5ProductSupport80FamilyId,
+  NodeLevel5ProductSupport80Matrix,
+  NodeLevel5RealVmCrossArchEvidence,
+} from "./node-level5-product-support-80.ts";
+export type {
+  NodeLevel5ProductSupport80ArtifactBundle,
+  NodeLevel5ProductSupport80ArtifactVerification,
+  NodeLevel5ProductSupport80ClaimRegistry,
+  NodeLevel5ProductSupport80UnsupportedDetector,
+} from "./node-level5-product-support-80-hardening.ts";
+export type {
+  NodeLevel5AppSupportBoundary,
+  NodeLevel5AppSupportDirection,
+  NodeLevel5AppSupportEvidence,
+  NodeLevel5AppSupportEvidenceKind,
+  NodeLevel5AppSupportFeatureAssessment,
+  NodeLevel5AppSupportFeatureName,
+  NodeLevel5AppSupportFeatureStatus,
+  NodeLevel5AppSupportFeatures,
+  NodeLevel5AppSupportFramework,
+  NodeLevel5AppSupportMiddlewareFeature,
+  NodeLevel5AppSupportMatrix,
+  NodeLevel5AppSupportMatrixRow,
+  NodeLevel5AppSupportProductBehavior,
+  NodeLevel5AppSupportResponseFeature,
+  NodeLevel5AppSupportRouteFeature,
+  NodeLevel5AppSupportStatus,
+} from "./node-level5-app-support-matrix.ts";
+export type { NodeLevel5CorpusHttpEvidence } from "./node-level5-corpus-common.ts";
+export type {
+  NodeLevel5InstalledThirdPartyAppCorpusReport,
+  NodeLevel5InstalledThirdPartyAppCorpusRow,
+  NodeLevel5InstalledThirdPartyAppCorpusVerification,
+  NodeLevel5InstalledThirdPartyAppSource,
+} from "./node-level5-installed-third-party-app-corpus.ts";
+export type {
+  NodeLevel5ThirdPartyAppCorpusReport,
+  NodeLevel5ThirdPartyAppCorpusRow,
+  NodeLevel5ThirdPartyAppCorpusVerification,
+  NodeLevel5ThirdPartyAppSource,
+} from "./node-level5-third-party-app-corpus.ts";
+export type {
+  NodeLevel5RealAppRefusalCorpusReport,
+  NodeLevel5RealAppRefusalCorpusRow,
+  NodeLevel5RealAppRefusalCorpusVerification,
+  NodeLevel5RealAppRefusalMarker,
+} from "./node-level5-real-app-refusal-corpus.ts";
+export type {
+  NodeLevel5RealAppCorpusFramework,
+  NodeLevel5RealAppCorpusReport,
+  NodeLevel5RealAppCorpusRow,
+  NodeLevel5RealAppCorpusVerification,
+} from "./node-level5-real-app-corpus.ts";
+export type {
+  NodeLevel5ProductBehavioralVerifierReport,
+  NodeLevel5ProductCaptureReport,
+  NodeLevel5ProductDetectedFeature,
+  NodeLevel5ProductDetectorReport,
+  NodeLevel5ProductRestoreLaunchReport,
+  NodeLevel5ProductRestoreMaterializationReport,
+  NodeLevel5ProductRestoreSummary,
+  NodeLevel5ProductSnapshotDirection,
+  NodeLevel5ProductSnapshotManifest,
+  NodeLevel5ProductSnapshotRefusal,
+  NodeLevel5ProductSnapshotRefusalCode,
+  NodeLevel5ProductSnapshotSummary,
+  NodeLevel5ProductTargetIdentity,
+} from "./node-level5-product-snapshot.ts";
 export type {
   NativeCodeMapRequest,
   NativeCodeMapResult,

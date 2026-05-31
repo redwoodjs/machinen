@@ -22,20 +22,32 @@ Prove the first narrow cross-architecture continuation descriptor for a safe Nod
 
 ## Tasks
 
-- [ ] Capture source PC/register/syscall/thread evidence at a known safe event-loop wait point.
-- [ ] Resolve source code location to a semantic continuation class, not a raw target PC.
-- [ ] Emit an architecture-neutral continuation descriptor for `node-libuv-event-loop-wait-v1`.
-- [ ] Map the descriptor to a target-native landing plan on the opposite architecture.
-- [ ] Prove the target does not execute source ISA bytes and does not emulate source code.
-- [ ] Refuse unknown PCs, active JS frames, V8 internal frames, and unsupported native frames.
-- [ ] Keep app state reconstruction separate from continuation landing evidence.
+- [x] Capture source PC/register/syscall/thread evidence at a known safe event-loop wait point.
+- [x] Resolve source code location to a semantic continuation class, not a raw target PC.
+- [x] Emit an architecture-neutral continuation descriptor for `node-libuv-event-loop-wait-v1`.
+- [x] Map the descriptor to a target-native landing plan on the opposite architecture.
+- [x] Prove the target does not execute source ISA bytes and does not emulate source code.
+- [x] Refuse unknown PCs, active JS frames, V8 internal frames, and unsupported native frames in the descriptor policy so they fail closed instead of becoming raw continuation claims.
+- [x] Keep app state reconstruction separate from continuation landing evidence.
+
+## Proof result
+
+`pnpm exec tsx proof/034/smoke.ts` now proves:
+
+- the source VM runs on arm64 and the target runs target-native amd64;
+- source thread/status/stat/syscall evidence is captured as evidence for translation;
+- the source continuation is classified as `node-libuv-event-loop-wait-v1`;
+- the portable IR carries an architecture-neutral continuation descriptor with raw source PC/register/stack copy disabled;
+- the target maps that descriptor to a target-native Node/libuv event-loop landing plan;
+- target-native reconstruction still recovers the counter from raw V8 context Smi evidence and returns `{ "count": 3 }`;
+- no source ISA bytes are executed, no source ISA emulation is used, and app state reconstruction stays separate from continuation landing evidence.
 
 ## Validation
 
-- [ ] Run `pnpm exec tsx proof/034/smoke.ts`.
-- [ ] Assert source and target architectures differ.
-- [ ] Assert source continuation class is `node-libuv-event-loop-wait-v1`.
-- [ ] Assert target enters a target-native event loop path and returns `{count:3}`.
-- [ ] Assert source raw registers are not copied as target registers across architectures.
-- [ ] Assert no source ISA emulation, no sidecar replay, no metadata-only success, and no app export/import.
-- [ ] Run `pnpm run format:check`, `pnpm run lint`, `pnpm run typecheck`, targeted Vitest, and `pnpm exec fallow audit --changed-since origin/main`.
+- [x] Run `pnpm exec tsx proof/034/smoke.ts`.
+- [x] Assert source and target architectures differ.
+- [x] Assert source continuation class is `node-libuv-event-loop-wait-v1`.
+- [x] Assert target enters a target-native event loop path and returns `{count:3}`.
+- [x] Assert source raw registers are not copied as target registers across architectures.
+- [x] Assert no source ISA emulation, no sidecar replay, no metadata-only success, and no app export/import.
+- [x] Run `pnpm run format:check`, `pnpm run lint`, `pnpm run typecheck`, targeted Vitest, and `pnpm exec fallow audit --changed-since origin/main`.

@@ -1,0 +1,21 @@
+{
+  "kind": "machinen.node-level5-product-snapshot",
+  "proof": "386",
+  "goal": "Product manifest claim boundary",
+  "result": "Snapshot manifest keeps Node 80, broad 20, arbitrary process 0.",
+  "status": "node-product-support-80-snapshot-restore-facade",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": ["machinen snapshot node", "machinen restore <snapshot>"],
+  "version": 1,
+  "familyId": "express-fastify-http-app",
+  "direction": "arm64-to-amd64",
+  "artifactRoot": "artifacts/express-fastify-http-app/arm64-to-amd64",
+  "artifactBundleKind": "machinen.node-level5-product-support-80-artifact-bundle",
+  "translatedContinuationRequired": true,
+  "targetNativeNodeRequired": true,
+  "rawCpuRestoreSupported": false,
+  "sourceIsaEmulationSupported": false,
+  "appCheckpointHooksRequired": false
+}

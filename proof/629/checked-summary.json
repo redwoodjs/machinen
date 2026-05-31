@@ -1,0 +1,12 @@
+{
+  "kind": "machinen.node-level5-behavioral-verifier-proof-summary",
+  "proof": "629",
+  "goal": "Behavioral verifier refusal boundaries",
+  "result": "Behavioral verification refuses unsafe shortcuts and tampered retained evidence.",
+  "status": "node-product-support-80-behavioral-verifier",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
+  "rawCpuRestoreUsed": false
+}

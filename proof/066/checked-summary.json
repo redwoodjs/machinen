@@ -1,0 +1,37 @@
+{
+  "kind": "machinen.node-proper-level5-proof-066-summary",
+  "proof": "066",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "accepted": {
+    "guestCaptureRan": true,
+    "sectionsEmitted": 5,
+    "sourceArchitecture": "arm64",
+    "targetArchitecture": "amd64",
+    "count": 3,
+    "graphTotal": 3
+  },
+  "refusedRows": [
+    {
+      "id": "missing-heap-artifact",
+      "expectedCode": "node-proper-level5-guest-capture-heap-artifact-missing",
+      "actualCode": "node-proper-level5-guest-capture-heap-artifact-missing",
+      "targetStarted": false
+    },
+    {
+      "id": "stale-thread-artifact",
+      "expectedCode": "node-proper-level5-guest-capture-artifact-stale",
+      "actualCode": "node-proper-level5-guest-capture-artifact-stale",
+      "targetStarted": false
+    }
+  ],
+  "assertions": {
+    "proofOnly": true,
+    "acceptedPathVerified": true,
+    "refusedRowsStopBeforeTargetStart": true,
+    "noSourceIsaEmulation": true,
+    "noRawCpuCopy": true,
+    "noMetadataOnlySuccess": true
+  }
+}

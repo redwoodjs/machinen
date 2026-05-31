@@ -1,0 +1,76 @@
+{
+  "kind": "machinen.node-proper-level5-resource-descriptor-expansion-summary",
+  "proof": "043",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "supportedDescriptors": [
+    {
+      "id": "listener",
+      "kind": "tcp-listener-v1"
+    },
+    {
+      "id": "timer",
+      "kind": "repeating-timer-v1"
+    },
+    {
+      "id": "timeout",
+      "kind": "pending-timeout-v1"
+    },
+    {
+      "id": "eventfd",
+      "kind": "eventfd-counter-v1"
+    }
+  ],
+  "target": {
+    "count": 3,
+    "timerTicks": 2,
+    "eventfdValue": 8
+  },
+  "refusedRows": [
+    {
+      "id": "connected-unread",
+      "expectedCode": "node-proper-level5-connected-socket-unread-bytes-unsupported",
+      "actualCode": "node-proper-level5-connected-socket-unread-bytes-unsupported",
+      "materializerStarted": false
+    },
+    {
+      "id": "pending-write",
+      "expectedCode": "node-proper-level5-pending-write-unsupported",
+      "actualCode": "node-proper-level5-pending-write-unsupported",
+      "materializerStarted": false
+    },
+    {
+      "id": "epoll",
+      "expectedCode": "node-proper-level5-epoll-resource-unsupported",
+      "actualCode": "node-proper-level5-epoll-resource-unsupported",
+      "materializerStarted": false
+    },
+    {
+      "id": "fs-watcher",
+      "expectedCode": "node-proper-level5-fs-watcher-resource-unsupported",
+      "actualCode": "node-proper-level5-fs-watcher-resource-unsupported",
+      "materializerStarted": false
+    },
+    {
+      "id": "dns-request",
+      "expectedCode": "node-proper-level5-dns-request-resource-unsupported",
+      "actualCode": "node-proper-level5-dns-request-resource-unsupported",
+      "materializerStarted": false
+    },
+    {
+      "id": "source-fd-copy",
+      "expectedCode": "node-proper-level5-resource-source-handle-copy-forbidden",
+      "actualCode": "node-proper-level5-resource-source-handle-copy-forbidden",
+      "materializerStarted": false
+    }
+  ],
+  "assertions": {
+    "supportedResourcesMaterializedTargetNatively": true,
+    "unsupportedResourcesRefused": true,
+    "sourceKernelFdsNotReused": true,
+    "sourceLibuvHandlesNotCopied": true,
+    "noSourceIsaEmulation": true,
+    "noMetadataOnlySuccess": true
+  }
+}

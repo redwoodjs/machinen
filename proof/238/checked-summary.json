@@ -1,0 +1,35 @@
+{
+  "kind": "machinen.node-level5-product-support-20-proof-summary",
+  "proof": "238",
+  "goal": "Bidirectional cross-arch lane",
+  "result": "arm64→amd64 and amd64→arm64 for all 5 families.",
+  "status": "experimental-node-product-support-20",
+  "nodeProductSupportClaimed": 20,
+  "nodeProductSupportScope": "five-idle-service-families",
+  "declaredSubsetExperimentalProductSupportClaimed": 100,
+  "broadNodeProductSupportClaimed": 0,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "families": [
+    {
+      "id": "idle-http-listener",
+      "directions": ["arm64-to-amd64", "amd64-to-arm64"]
+    },
+    {
+      "id": "timer-service",
+      "directions": ["arm64-to-amd64", "amd64-to-arm64"]
+    },
+    {
+      "id": "plain-js-heap",
+      "directions": ["arm64-to-amd64", "amd64-to-arm64"]
+    },
+    {
+      "id": "readonly-file-stdio",
+      "directions": ["arm64-to-amd64", "amd64-to-arm64"]
+    },
+    {
+      "id": "pipes-streams-idle",
+      "directions": ["arm64-to-amd64", "amd64-to-arm64"]
+    }
+  ],
+  "allFamiliesBidirectional": true
+}

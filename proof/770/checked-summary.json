@@ -1,0 +1,16 @@
+{
+  "kind": "machinen.node-level5-real-app-refusal-corpus-proof-summary",
+  "proof": "770",
+  "goal": "Unsupported-state markers refuse before snapshot",
+  "result": "Each declared unsupported state has a stable refusal code.",
+  "status": "node-product-support-80-real-app-refusal-corpus",
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": ["machinen snapshot node <pid> --out <dir>"],
+  "marker": "workerThreads",
+  "rowCount": 4,
+  "allExpectedCodesMatched": true,
+  "expectedRefusalCodes": ["node-level5-worker-thread-refused"]
+}

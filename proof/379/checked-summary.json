@@ -1,0 +1,13 @@
+{
+  "kind": "machinen.node-level5-retained-artifact-proof-summary",
+  "proof": "379",
+  "goal": "Regression proof over 321–378",
+  "result": "Hardening, product commands, and retained ingestion compose.",
+  "status": "node-product-support-80-retained-artifact-ingestion",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "priorProofRange": "321-360",
+  "retainedIngestionProofRange": "361-378",
+  "passing": true
+}

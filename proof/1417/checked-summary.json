@@ -1,0 +1,13 @@
+{
+  "kind": "machinen.node-level5-final-health-check-proof-summary",
+  "proof": "1417",
+  "goal": "final health-check audit",
+  "result": "The final two rows use target-native verification without changing 80/20/0 claims.",
+  "status": "node-product-support-80-final-health-check-product-slice",
+  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "installedCorpusRows": 116
+}

@@ -1,0 +1,13 @@
+{
+  "kind": "machinen.node-level5-static-routing-variant-proof-summary",
+  "proof": "1332",
+  "goal": "static/routing variant product-run evidence",
+  "result": "Selected Express/Fastify nested/prefix, optional-param, multi-route, and static-cache rows pass snapshot, restore, and behavior checks.",
+  "status": "node-product-support-80-static-routing-variant-product-slice",
+  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "allTargetNativeNodeVerified": true
+}

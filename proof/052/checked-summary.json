@@ -1,0 +1,89 @@
+{
+  "kind": "machinen.node-proper-level5-expanded-resource-descriptor-summary",
+  "proof": "052",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "supportedDescriptors": [
+    "tcp-listener-v1",
+    "repeating-timer-v1",
+    "pending-timeout-v1",
+    "eventfd-counter-v1",
+    "idle-handle-v1",
+    "prepare-handle-v1",
+    "check-handle-v1",
+    "pipe-listener-v1"
+  ],
+  "target": {
+    "targetNativeHandlesCreated": 8,
+    "sourceKernelObjectsReused": false,
+    "sourceLibuvHandlesCopied": false,
+    "listenerOpen": true,
+    "timerTicks": 2,
+    "eventfdValue": 8,
+    "pipeListenerOpen": true
+  },
+  "refusedRows": [
+    {
+      "id": "source-fd-copy",
+      "expectedCode": "node-proper-level5-source-resource-copy-forbidden",
+      "actualCode": "node-proper-level5-source-resource-copy-forbidden",
+      "targetStarted": false
+    },
+    {
+      "id": "source-libuv-copy",
+      "expectedCode": "node-proper-level5-source-resource-copy-forbidden",
+      "actualCode": "node-proper-level5-source-resource-copy-forbidden",
+      "targetStarted": false
+    },
+    {
+      "id": "unread-bytes",
+      "expectedCode": "node-proper-level5-resource-unread-bytes-unsupported",
+      "actualCode": "node-proper-level5-resource-unread-bytes-unsupported",
+      "targetStarted": false
+    },
+    {
+      "id": "pending-writes",
+      "expectedCode": "node-proper-level5-resource-pending-writes-unsupported",
+      "actualCode": "node-proper-level5-resource-pending-writes-unsupported",
+      "targetStarted": false
+    },
+    {
+      "id": "partial-transfer",
+      "expectedCode": "node-proper-level5-resource-partial-transfer-unsupported",
+      "actualCode": "node-proper-level5-resource-partial-transfer-unsupported",
+      "targetStarted": false
+    },
+    {
+      "id": "epoll",
+      "expectedCode": "node-proper-level5-epoll-ambiguity-unsupported",
+      "actualCode": "node-proper-level5-epoll-ambiguity-unsupported",
+      "targetStarted": false
+    },
+    {
+      "id": "fs-watcher",
+      "expectedCode": "node-proper-level5-fs-watcher-resource-unsupported",
+      "actualCode": "node-proper-level5-fs-watcher-resource-unsupported",
+      "targetStarted": false
+    },
+    {
+      "id": "dns-request",
+      "expectedCode": "node-proper-level5-dns-request-resource-unsupported",
+      "actualCode": "node-proper-level5-dns-request-resource-unsupported",
+      "targetStarted": false
+    },
+    {
+      "id": "missing-provenance",
+      "expectedCode": "node-proper-level5-resource-provenance-missing",
+      "actualCode": "node-proper-level5-resource-provenance-missing",
+      "targetStarted": false
+    }
+  ],
+  "assertions": {
+    "supportedResourcesMaterializedTargetNatively": true,
+    "unsupportedResourcesRefused": true,
+    "noSourceKernelObjectReused": true,
+    "noSourceLibuvHandleCopied": true,
+    "appStateSeparateFromResources": true
+  }
+}

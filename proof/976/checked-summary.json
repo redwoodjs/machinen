@@ -1,0 +1,16 @@
+{
+  "kind": "machinen.node-level5-installed-feature-corpus-proof-summary",
+  "proof": "976",
+  "goal": "Installed Express/Fastify feature rows",
+  "result": "JSON, params, query, and static asset rows exist for Express and Fastify.",
+  "status": "node-product-support-80-installed-feature-corpus",
+  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "source": "fastify-installed-static-asset",
+  "rowCount": 2,
+  "directions": ["amd64-to-arm64", "arm64-to-amd64"],
+  "allAccepted": true
+}

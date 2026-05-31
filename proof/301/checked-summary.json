@@ -1,0 +1,31 @@
+{
+  "kind": "machinen.node-level5-product-support-80-proof-summary",
+  "proof": "301",
+  "goal": "Wasm/external memory refusal boundary",
+  "result": "Adds broad refusal evidence.",
+  "status": "experimental-node-product-support-80",
+  "nodeProductSupportClaimed": 80,
+  "nodeProductSupportScope": "seventeen-service-app-and-boundary-families",
+  "previousNodeProductSupportClaimed": 65,
+  "newNodeProductSupportClaimed": 15,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "refusedNeighbors": [
+    {
+      "id": "wasm",
+      "refusalCode": "node-level5-wasm-refused",
+      "targetStarted": false,
+      "rawCpuRestoreUsed": false,
+      "sourceIsaEmulationUsed": false,
+      "productSupportClaimed": false
+    },
+    {
+      "id": "wasm-external-memory-product-boundary",
+      "refusalCode": "node-level5-wasm-external-memory-product-refused",
+      "targetStarted": false,
+      "rawCpuRestoreUsed": false,
+      "sourceIsaEmulationUsed": false,
+      "productSupportClaimed": false
+    }
+  ]
+}

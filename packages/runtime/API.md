@@ -106,6 +106,182 @@
 - [`nodeLevel5ProofRefusalCodes`](#nodelevel5proofrefusalcodes)
 - [`runNodeLevel5TargetSideProof`](#runnodelevel5targetsideproof)
 
+### Node Level 5 declared subset
+
+- [`NodeLevel5DeclaredSubsetRefusalCode`](#nodelevel5declaredsubsetrefusalcode)
+- [`NodeLevel5DeclaredSubsetArchitecture`](#nodelevel5declaredsubsetarchitecture)
+- [`NodeLevel5DeclaredSubsetRefusal`](#nodelevel5declaredsubsetrefusal)
+- [`NodeLevel5DeclaredSubsetSupportMatrix`](#nodelevel5declaredsubsetsupportmatrix)
+- [`CreateNodeLevel5DeclaredSubsetCaptureInput`](#createnodelevel5declaredsubsetcaptureinput)
+- [`NodeLevel5DeclaredSubsetManifest`](#nodelevel5declaredsubsetmanifest)
+- [`NodeLevel5DeclaredSubsetCaptureSummary`](#nodelevel5declaredsubsetcapturesummary)
+- [`RestoreNodeLevel5DeclaredSubsetInput`](#restorenodelevel5declaredsubsetinput)
+- [`NodeLevel5DeclaredSubsetRestoreSummary`](#nodelevel5declaredsubsetrestoresummary)
+- [`NODE_LEVEL5_DECLARED_SUBSET_FORMAT_VERSION`](#node_level5_declared_subset_format_version)
+- [`NODE_LEVEL5_DECLARED_SUBSET_MANIFEST`](#node_level5_declared_subset_manifest)
+- [`NODE_LEVEL5_DECLARED_SUBSET_RESTORE_SUMMARY`](#node_level5_declared_subset_restore_summary)
+- [`nodeLevel5DeclaredSubsetRefusalCodes`](#nodelevel5declaredsubsetrefusalcodes)
+- [`nodeLevel5DeclaredSubsetSupportMatrix`](#nodelevel5declaredsubsetsupportmatrix)
+- [`createNodeLevel5DeclaredSubsetCapture`](#createnodelevel5declaredsubsetcapture)
+- [`restoreNodeLevel5DeclaredSubset`](#restorenodelevel5declaredsubset)
+- [`isNodeLevel5DeclaredSubsetManifest`](#isnodelevel5declaredsubsetmanifest)
+- [`NodeLevel5AppCorpusGate`](#nodelevel5appcorpusgate)
+- [`NodeLevel5ReadinessGate`](#nodelevel5readinessgate)
+- [`NodeLevel5ReadinessGateStatus`](#nodelevel5readinessgatestatus)
+- [`NodeLevel5ReadinessMatrix`](#nodelevel5readinessmatrix)
+- [`NodeLevel5UnsupportedNeighborGate`](#nodelevel5unsupportedneighborgate)
+- [`NODE_LEVEL5_READINESS_MATRIX_KIND`](#node_level5_readiness_matrix_kind)
+- [`NODE_LEVEL5_READINESS_MATRIX_VERSION`](#node_level5_readiness_matrix_version)
+- [`assertNodeLevel5ReadinessMatrixComplete`](#assertnodelevel5readinessmatrixcomplete)
+- [`nodeLevel5AppCorpusGates`](#nodelevel5appcorpusgates)
+- [`nodeLevel5FinalAuditGates`](#nodelevel5finalauditgates)
+- [`nodeLevel5NarrowProductReadinessGates`](#nodelevel5narrowproductreadinessgates)
+- [`nodeLevel5ReadinessMatrix`](#nodelevel5readinessmatrix)
+- [`nodeLevel5UnsupportedNeighborGates`](#nodelevel5unsupportedneighborgates)
+- [`NodeLevel5ProductSupport20Matrix`](#nodelevel5productsupport20matrix)
+- [`NodeLevel5ProductSupportDirection`](#nodelevel5productsupportdirection)
+- [`NodeLevel5ProductSupportFamily`](#nodelevel5productsupportfamily)
+- [`NodeLevel5ProductSupportFamilyId`](#nodelevel5productsupportfamilyid)
+- [`NodeLevel5ProductUnsupportedNeighbor`](#nodelevel5productunsupportedneighbor)
+- [`NODE_LEVEL5_PRODUCT_SUPPORT_20_KIND`](#node_level5_product_support_20_kind)
+- [`NODE_LEVEL5_PRODUCT_SUPPORT_20_VERSION`](#node_level5_product_support_20_version)
+- [`assertNodeLevel5ProductSupport20MatrixComplete`](#assertnodelevel5productsupport20matrixcomplete)
+- [`nodeLevel5ProductSupport20Families`](#nodelevel5productsupport20families)
+- [`nodeLevel5ProductSupport20Matrix`](#nodelevel5productsupport20matrix)
+- [`nodeLevel5ProductUnsupportedNeighbors`](#nodelevel5productunsupportedneighbors)
+- [`NodeLevel5ProductSupport50Family`](#nodelevel5productsupport50family)
+- [`NodeLevel5ProductSupport50FamilyId`](#nodelevel5productsupport50familyid)
+- [`NodeLevel5ProductSupport50Matrix`](#nodelevel5productsupport50matrix)
+- [`NODE_LEVEL5_PRODUCT_SUPPORT_50_KIND`](#node_level5_product_support_50_kind)
+- [`NODE_LEVEL5_PRODUCT_SUPPORT_50_VERSION`](#node_level5_product_support_50_version)
+- [`assertNodeLevel5ProductSupport50MatrixComplete`](#assertnodelevel5productsupport50matrixcomplete)
+- [`nodeLevel5ProductSupport50ExpandedUnsupportedNeighbors`](#nodelevel5productsupport50expandedunsupportedneighbors)
+- [`nodeLevel5ProductSupport50Families`](#nodelevel5productsupport50families)
+- [`nodeLevel5ProductSupport50Matrix`](#nodelevel5productsupport50matrix)
+- [`nodeLevel5ProductSupport50NewFamilies`](#nodelevel5productsupport50newfamilies)
+- [`NodeLevel5ProductSupport65Family`](#nodelevel5productsupport65family)
+- [`NodeLevel5ProductSupport65FamilyId`](#nodelevel5productsupport65familyid)
+- [`NodeLevel5ProductSupport65Matrix`](#nodelevel5productsupport65matrix)
+- [`NODE_LEVEL5_PRODUCT_SUPPORT_65_KIND`](#node_level5_product_support_65_kind)
+- [`NODE_LEVEL5_PRODUCT_SUPPORT_65_VERSION`](#node_level5_product_support_65_version)
+- [`assertNodeLevel5ProductSupport65MatrixComplete`](#assertnodelevel5productsupport65matrixcomplete)
+- [`nodeLevel5ProductSupport65ExpandedUnsupportedNeighbors`](#nodelevel5productsupport65expandedunsupportedneighbors)
+- [`nodeLevel5ProductSupport65Families`](#nodelevel5productsupport65families)
+- [`nodeLevel5ProductSupport65Matrix`](#nodelevel5productsupport65matrix)
+- [`nodeLevel5ProductSupport65NewFamilies`](#nodelevel5productsupport65newfamilies)
+- [`NodeLevel5ProductSupport80Family`](#nodelevel5productsupport80family)
+- [`NodeLevel5ProductSupport80FamilyId`](#nodelevel5productsupport80familyid)
+- [`NodeLevel5ProductSupport80Matrix`](#nodelevel5productsupport80matrix)
+- [`NodeLevel5RealVmCrossArchEvidence`](#nodelevel5realvmcrossarchevidence)
+- [`NODE_LEVEL5_PRODUCT_SUPPORT_80_KIND`](#node_level5_product_support_80_kind)
+- [`NODE_LEVEL5_PRODUCT_SUPPORT_80_VERSION`](#node_level5_product_support_80_version)
+- [`assertNodeLevel5ProductSupport80MatrixComplete`](#assertnodelevel5productsupport80matrixcomplete)
+- [`nodeLevel5ProductSupport80ExpandedUnsupportedNeighbors`](#nodelevel5productsupport80expandedunsupportedneighbors)
+- [`nodeLevel5ProductSupport80Families`](#nodelevel5productsupport80families)
+- [`nodeLevel5ProductSupport80Matrix`](#nodelevel5productsupport80matrix)
+- [`nodeLevel5ProductSupport80NewFamilies`](#nodelevel5productsupport80newfamilies)
+- [`NodeLevel5ProductSupport80ArtifactBundle`](#nodelevel5productsupport80artifactbundle)
+- [`NodeLevel5ProductSupport80ArtifactVerification`](#nodelevel5productsupport80artifactverification)
+- [`NodeLevel5ProductSupport80ClaimRegistry`](#nodelevel5productsupport80claimregistry)
+- [`NodeLevel5ProductSupport80UnsupportedDetector`](#nodelevel5productsupport80unsupporteddetector)
+- [`NODE_LEVEL5_PRODUCT_SUPPORT_80_ARTIFACT_BUNDLE_KIND`](#node_level5_product_support_80_artifact_bundle_kind)
+- [`NODE_LEVEL5_PRODUCT_SUPPORT_80_HARDENING_KIND`](#node_level5_product_support_80_hardening_kind)
+- [`assertNodeLevel5ProductSupport80HardeningComplete`](#assertnodelevel5productsupport80hardeningcomplete)
+- [`createNodeLevel5ProductSupport80ArtifactBundle`](#createnodelevel5productsupport80artifactbundle)
+- [`loadNodeLevel5ProductSupport80ArtifactBundle`](#loadnodelevel5productsupport80artifactbundle)
+- [`nodeLevel5ProductSupport80ClaimRegistry`](#nodelevel5productsupport80claimregistry)
+- [`nodeLevel5ProductSupport80UnsupportedDetectors`](#nodelevel5productsupport80unsupporteddetectors)
+- [`verifyNodeLevel5ProductSupport80ArtifactBundle`](#verifynodelevel5productsupport80artifactbundle)
+- [`NodeLevel5AppSupportBoundary`](#nodelevel5appsupportboundary)
+- [`NodeLevel5AppSupportDirection`](#nodelevel5appsupportdirection)
+- [`NodeLevel5AppSupportEvidence`](#nodelevel5appsupportevidence)
+- [`NodeLevel5AppSupportEvidenceKind`](#nodelevel5appsupportevidencekind)
+- [`NodeLevel5AppSupportFeatureAssessment`](#nodelevel5appsupportfeatureassessment)
+- [`NodeLevel5AppSupportFeatureName`](#nodelevel5appsupportfeaturename)
+- [`NodeLevel5AppSupportFeatureStatus`](#nodelevel5appsupportfeaturestatus)
+- [`NodeLevel5AppSupportFeatures`](#nodelevel5appsupportfeatures)
+- [`NodeLevel5AppSupportFramework`](#nodelevel5appsupportframework)
+- [`NodeLevel5AppSupportMatrix`](#nodelevel5appsupportmatrix)
+- [`NodeLevel5AppSupportMatrixRow`](#nodelevel5appsupportmatrixrow)
+- [`NodeLevel5AppSupportMiddlewareFeature`](#nodelevel5appsupportmiddlewarefeature)
+- [`NodeLevel5AppSupportProductBehavior`](#nodelevel5appsupportproductbehavior)
+- [`NodeLevel5AppSupportResponseFeature`](#nodelevel5appsupportresponsefeature)
+- [`NodeLevel5AppSupportRouteFeature`](#nodelevel5appsupportroutefeature)
+- [`NodeLevel5AppSupportStatus`](#nodelevel5appsupportstatus)
+- [`NODE_LEVEL5_APP_SUPPORT_MATRIX_KIND`](#node_level5_app_support_matrix_kind)
+- [`NODE_LEVEL5_APP_SUPPORT_MATRIX_VERSION`](#node_level5_app_support_matrix_version)
+- [`buildNodeLevel5AppSupportMatrix`](#buildnodelevel5appsupportmatrix)
+- [`notProvenNodeLevel5AppSupportRows`](#notprovennodelevel5appsupportrows)
+- [`refusedNodeLevel5AppSupportRows`](#refusednodelevel5appsupportrows)
+- [`supportedNodeLevel5AppSupportRows`](#supportednodelevel5appsupportrows)
+- [`NodeLevel5CorpusHttpEvidence`](#nodelevel5corpushttpevidence)
+- [`NodeLevel5InstalledThirdPartyAppCorpusReport`](#nodelevel5installedthirdpartyappcorpusreport)
+- [`NodeLevel5InstalledThirdPartyAppCorpusRow`](#nodelevel5installedthirdpartyappcorpusrow)
+- [`NodeLevel5InstalledThirdPartyAppCorpusVerification`](#nodelevel5installedthirdpartyappcorpusverification)
+- [`NodeLevel5InstalledThirdPartyAppSource`](#nodelevel5installedthirdpartyappsource)
+- [`NODE_LEVEL5_INSTALLED_THIRD_PARTY_APP_CORPUS_REPORT_KIND`](#node_level5_installed_third_party_app_corpus_report_kind)
+- [`NODE_LEVEL5_INSTALLED_THIRD_PARTY_APP_CORPUS_REPORT_VERSION`](#node_level5_installed_third_party_app_corpus_report_version)
+- [`createNodeLevel5InstalledThirdPartyAppCorpusReport`](#createnodelevel5installedthirdpartyappcorpusreport)
+- [`loadNodeLevel5InstalledThirdPartyAppCorpusReport`](#loadnodelevel5installedthirdpartyappcorpusreport)
+- [`verifyNodeLevel5InstalledThirdPartyAppCorpusReport`](#verifynodelevel5installedthirdpartyappcorpusreport)
+- [`writeNodeLevel5InstalledThirdPartyAppCorpusReport`](#writenodelevel5installedthirdpartyappcorpusreport)
+- [`NodeLevel5ThirdPartyAppCorpusReport`](#nodelevel5thirdpartyappcorpusreport)
+- [`NodeLevel5ThirdPartyAppCorpusRow`](#nodelevel5thirdpartyappcorpusrow)
+- [`NodeLevel5ThirdPartyAppCorpusVerification`](#nodelevel5thirdpartyappcorpusverification)
+- [`NodeLevel5ThirdPartyAppSource`](#nodelevel5thirdpartyappsource)
+- [`NODE_LEVEL5_THIRD_PARTY_APP_CORPUS_REPORT_KIND`](#node_level5_third_party_app_corpus_report_kind)
+- [`NODE_LEVEL5_THIRD_PARTY_APP_CORPUS_REPORT_VERSION`](#node_level5_third_party_app_corpus_report_version)
+- [`createNodeLevel5ThirdPartyAppCorpusReport`](#createnodelevel5thirdpartyappcorpusreport)
+- [`loadNodeLevel5ThirdPartyAppCorpusReport`](#loadnodelevel5thirdpartyappcorpusreport)
+- [`verifyNodeLevel5ThirdPartyAppCorpusReport`](#verifynodelevel5thirdpartyappcorpusreport)
+- [`writeNodeLevel5ThirdPartyAppCorpusReport`](#writenodelevel5thirdpartyappcorpusreport)
+- [`NodeLevel5RealAppRefusalCorpusReport`](#nodelevel5realapprefusalcorpusreport)
+- [`NodeLevel5RealAppRefusalCorpusRow`](#nodelevel5realapprefusalcorpusrow)
+- [`NodeLevel5RealAppRefusalCorpusVerification`](#nodelevel5realapprefusalcorpusverification)
+- [`NodeLevel5RealAppRefusalMarker`](#nodelevel5realapprefusalmarker)
+- [`NODE_LEVEL5_REAL_APP_REFUSAL_CORPUS_REPORT_KIND`](#node_level5_real_app_refusal_corpus_report_kind)
+- [`NODE_LEVEL5_REAL_APP_REFUSAL_CORPUS_REPORT_VERSION`](#node_level5_real_app_refusal_corpus_report_version)
+- [`createNodeLevel5RealAppRefusalCorpusReport`](#createnodelevel5realapprefusalcorpusreport)
+- [`loadNodeLevel5RealAppRefusalCorpusReport`](#loadnodelevel5realapprefusalcorpusreport)
+- [`verifyNodeLevel5RealAppRefusalCorpusReport`](#verifynodelevel5realapprefusalcorpusreport)
+- [`writeNodeLevel5RealAppRefusalCorpusReport`](#writenodelevel5realapprefusalcorpusreport)
+- [`NodeLevel5RealAppCorpusFramework`](#nodelevel5realappcorpusframework)
+- [`NodeLevel5RealAppCorpusReport`](#nodelevel5realappcorpusreport)
+- [`NodeLevel5RealAppCorpusRow`](#nodelevel5realappcorpusrow)
+- [`NodeLevel5RealAppCorpusVerification`](#nodelevel5realappcorpusverification)
+- [`NODE_LEVEL5_REAL_APP_CORPUS_REPORT_KIND`](#node_level5_real_app_corpus_report_kind)
+- [`NODE_LEVEL5_REAL_APP_CORPUS_REPORT_VERSION`](#node_level5_real_app_corpus_report_version)
+- [`createNodeLevel5RealAppCorpusReport`](#createnodelevel5realappcorpusreport)
+- [`loadNodeLevel5RealAppCorpusReport`](#loadnodelevel5realappcorpusreport)
+- [`verifyNodeLevel5RealAppCorpusReport`](#verifynodelevel5realappcorpusreport)
+- [`writeNodeLevel5RealAppCorpusReport`](#writenodelevel5realappcorpusreport)
+- [`NodeLevel5ProductBehavioralVerifierReport`](#nodelevel5productbehavioralverifierreport)
+- [`NodeLevel5ProductCaptureReport`](#nodelevel5productcapturereport)
+- [`NodeLevel5ProductDetectedFeature`](#nodelevel5productdetectedfeature)
+- [`NodeLevel5ProductDetectorReport`](#nodelevel5productdetectorreport)
+- [`NodeLevel5ProductRestoreLaunchReport`](#nodelevel5productrestorelaunchreport)
+- [`NodeLevel5ProductRestoreMaterializationReport`](#nodelevel5productrestorematerializationreport)
+- [`NodeLevel5ProductRestoreSummary`](#nodelevel5productrestoresummary)
+- [`NodeLevel5ProductSnapshotDirection`](#nodelevel5productsnapshotdirection)
+- [`NodeLevel5ProductSnapshotManifest`](#nodelevel5productsnapshotmanifest)
+- [`NodeLevel5ProductSnapshotRefusal`](#nodelevel5productsnapshotrefusal)
+- [`NodeLevel5ProductSnapshotRefusalCode`](#nodelevel5productsnapshotrefusalcode)
+- [`NodeLevel5ProductSnapshotSummary`](#nodelevel5productsnapshotsummary)
+- [`NodeLevel5ProductTargetIdentity`](#nodelevel5producttargetidentity)
+- [`DEFAULT_NODE_LEVEL5_PRODUCT_SNAPSHOT_DIRECTION`](#default_node_level5_product_snapshot_direction)
+- [`NODE_LEVEL5_PRODUCT_BEHAVIORAL_VERIFIER_REPORT_KIND`](#node_level5_product_behavioral_verifier_report_kind)
+- [`NODE_LEVEL5_PRODUCT_CAPTURE_REPORT_KIND`](#node_level5_product_capture_report_kind)
+- [`NODE_LEVEL5_PRODUCT_DETECTOR_REPORT_KIND`](#node_level5_product_detector_report_kind)
+- [`NODE_LEVEL5_PRODUCT_RESTORE_LAUNCH_REPORT_KIND`](#node_level5_product_restore_launch_report_kind)
+- [`NODE_LEVEL5_PRODUCT_RESTORE_MATERIALIZATION_REPORT_KIND`](#node_level5_product_restore_materialization_report_kind)
+- [`NODE_LEVEL5_PRODUCT_SNAPSHOT_KIND`](#node_level5_product_snapshot_kind)
+- [`NODE_LEVEL5_PRODUCT_TARGET_IDENTITY_KIND`](#node_level5_product_target_identity_kind)
+- [`NODE_LEVEL5_PRODUCT_SNAPSHOT_VERSION`](#node_level5_product_snapshot_version)
+- [`createNodeLevel5ProductSnapshot`](#createnodelevel5productsnapshot)
+- [`detectNodeLevel5ProductSnapshotApp`](#detectnodelevel5productsnapshotapp)
+- [`isNodeLevel5ProductSnapshotBundle`](#isnodelevel5productsnapshotbundle)
+- [`restoreNodeLevel5ProductSnapshot`](#restorenodelevel5productsnapshot)
+
 ### Boot a VM
 
 - [`boot`](#boot)
@@ -12411,7 +12587,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`code`](#code-18)
+[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`code`](#code-20)
 
 ##### message
 
@@ -12419,7 +12595,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`message`](#message-5)
+[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`message`](#message-7)
 
 ##### migrationCompleted
 
@@ -14296,7 +14472,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`sourceArch`](#sourcearch-14)
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`sourceArch`](#sourcearch-16)
 
 ##### targetArch
 
@@ -14304,7 +14480,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`targetArch`](#targetarch-23)
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`targetArch`](#targetarch-25)
 
 ##### machinenStateModel
 
@@ -14360,7 +14536,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`refusalCode`](#refusalcode-10)
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`refusalCode`](#refusalcode-11)
 
 ##### remediation?
 
@@ -14376,7 +14552,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`evidence`](#evidence-9)
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`evidence`](#evidence-11)
 
 ##### kind
 
@@ -18268,7 +18444,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`runtime`](#runtime-20)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`runtime`](#runtime-21)
 
 ##### profile
 
@@ -18292,7 +18468,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`sourceArch`](#sourcearch-30)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`sourceArch`](#sourcearch-32)
 
 ##### targetArch
 
@@ -18300,7 +18476,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`targetArch`](#targetarch-45)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`targetArch`](#targetarch-47)
 
 ##### stateModel
 
@@ -18340,7 +18516,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`refusalCode`](#refusalcode-15)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`refusalCode`](#refusalcode-16)
 
 ##### remediation?
 
@@ -18356,7 +18532,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`evidence`](#evidence-18)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`evidence`](#evidence-20)
 
 ##### kind
 
@@ -21910,9 +22086,2369 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NodeLevel5AppSupportStatus
+
+> **NodeLevel5AppSupportStatus** = `"supported"` \| `"refused"` \| `"not-proven"`
+
+***
+
+### NodeLevel5AppSupportFramework
+
+> **NodeLevel5AppSupportFramework** = `"express"` \| `"fastify"`
+
+***
+
+### NodeLevel5AppSupportEvidenceKind
+
+> **NodeLevel5AppSupportEvidenceKind** = `"fixture-product-run-corpus"` \| `"template-corpus"` \| `"installed-package-corpus"` \| `"refusal-corpus"` \| `"matrix-gap"`
+
+***
+
+### NodeLevel5AppSupportProductBehavior
+
+> **NodeLevel5AppSupportProductBehavior** = `"machinen snapshot node <pid> --out <dir>; machinen restore <dir>"` \| `"refuse-before-snapshot"` \| `"not-proven"`
+
+***
+
+### NodeLevel5AppSupportDirection
+
+> **NodeLevel5AppSupportDirection** = `"arm64-to-amd64"` \| `"amd64-to-arm64"`
+
+***
+
+### NodeLevel5AppSupportRouteFeature
+
+> **NodeLevel5AppSupportRouteFeature** = `"simple-route"` \| `"router-route"` \| `"plugin-route"` \| `"unsupported-live-state"` \| `"not-proven"`
+
+***
+
+### NodeLevel5AppSupportResponseFeature
+
+> **NodeLevel5AppSupportResponseFeature** = `"text"` \| `"json"` \| `"not-proven"`
+
+***
+
+### NodeLevel5AppSupportMiddlewareFeature
+
+> **NodeLevel5AppSupportMiddlewareFeature** = `"none"` \| `"pure-js"` \| `"not-proven"`
+
+***
+
+### NodeLevel5AppSupportFeatureName
+
+> **NodeLevel5AppSupportFeatureName** = `"route"` \| `"response"` \| `"middleware"` \| `"asyncHandler"` \| `"params"` \| `"query"` \| `"staticAssets"` \| `"externalNetwork"` \| `"backgroundTasks"`
+
+***
+
+### NodeLevel5AppSupportFeatureStatus
+
+> **NodeLevel5AppSupportFeatureStatus** = `"supported"` \| `"refused"` \| `"not-proven"`
+
+***
+
+### NodeLevel5AppSupportFeatures
+
+> **NodeLevel5AppSupportFeatures** = `object`
+
+#### Properties
+
+##### route
+
+> **route**: [`NodeLevel5AppSupportRouteFeature`](#nodelevel5appsupportroutefeature)
+
+##### response
+
+> **response**: [`NodeLevel5AppSupportResponseFeature`](#nodelevel5appsupportresponsefeature)
+
+##### middleware
+
+> **middleware**: [`NodeLevel5AppSupportMiddlewareFeature`](#nodelevel5appsupportmiddlewarefeature)
+
+##### asyncHandler
+
+> **asyncHandler**: `boolean`
+
+##### params
+
+> **params**: `boolean`
+
+##### query
+
+> **query**: `boolean`
+
+##### staticAssets
+
+> **staticAssets**: `boolean`
+
+##### externalNetwork
+
+> **externalNetwork**: `boolean`
+
+##### backgroundTasks
+
+> **backgroundTasks**: `boolean`
+
+***
+
+### NodeLevel5AppSupportFeatureAssessment
+
+> **NodeLevel5AppSupportFeatureAssessment** = `Record`\<[`NodeLevel5AppSupportFeatureName`](#nodelevel5appsupportfeaturename), [`NodeLevel5AppSupportFeatureStatus`](#nodelevel5appsupportfeaturestatus)\>
+
+***
+
+### NodeLevel5AppSupportEvidence
+
+> **NodeLevel5AppSupportEvidence** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: [`NodeLevel5AppSupportEvidenceKind`](#nodelevel5appsupportevidencekind)
+
+##### proofRange
+
+> **proofRange**: `string`
+
+##### corpusReport
+
+> **corpusReport**: `string`
+
+***
+
+### NodeLevel5AppSupportMatrixRow
+
+> **NodeLevel5AppSupportMatrixRow** = `object`
+
+#### Properties
+
+##### id
+
+> **id**: `string`
+
+##### appName
+
+> **appName**: `string`
+
+##### framework
+
+> **framework**: [`NodeLevel5AppSupportFramework`](#nodelevel5appsupportframework)
+
+##### status
+
+> **status**: [`NodeLevel5AppSupportStatus`](#nodelevel5appsupportstatus)
+
+##### productBehavior
+
+> **productBehavior**: [`NodeLevel5AppSupportProductBehavior`](#nodelevel5appsupportproductbehavior)
+
+##### supportScope
+
+> **supportScope**: `"declared-subset-idle-http"` \| `"unsupported-live-state"` \| `"not-proven-gap"`
+
+##### directions
+
+> **directions**: [`NodeLevel5AppSupportDirection`](#nodelevel5appsupportdirection)[]
+
+##### evidence
+
+> **evidence**: [`NodeLevel5AppSupportEvidence`](#nodelevel5appsupportevidence)
+
+##### supportedAppShape
+
+> **supportedAppShape**: `string`
+
+##### features
+
+> **features**: [`NodeLevel5AppSupportFeatures`](#nodelevel5appsupportfeatures)
+
+##### featureAssessment
+
+> **featureAssessment**: [`NodeLevel5AppSupportFeatureAssessment`](#nodelevel5appsupportfeatureassessment)
+
+##### limitations
+
+> **limitations**: `string`[]
+
+***
+
+### NodeLevel5AppSupportBoundary
+
+> **NodeLevel5AppSupportBoundary** = `object`
+
+#### Properties
+
+##### id
+
+> **id**: `string`
+
+##### status
+
+> **status**: `"not-claimed"` \| `"out-of-scope"`
+
+##### reason
+
+> **reason**: `string`
+
+***
+
+### NodeLevel5AppSupportMatrix
+
+> **NodeLevel5AppSupportMatrix** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_APP_SUPPORT_MATRIX_KIND`](#node_level5_app_support_matrix_kind)
+
+##### version
+
+> **version**: *typeof* [`NODE_LEVEL5_APP_SUPPORT_MATRIX_VERSION`](#node_level5_app_support_matrix_version)
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### rowCount
+
+> **rowCount**: `number`
+
+##### rows
+
+> **rows**: [`NodeLevel5AppSupportMatrixRow`](#nodelevel5appsupportmatrixrow)[]
+
+##### boundaries
+
+> **boundaries**: [`NodeLevel5AppSupportBoundary`](#nodelevel5appsupportboundary)[]
+
+##### nodeProductSupportClaimed
+
+> **nodeProductSupportClaimed**: `80`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `20`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
+
+***
+
+### NodeLevel5CorpusHttpEvidence
+
+> **NodeLevel5CorpusHttpEvidence** = `object`
+
+#### Properties
+
+##### routePath
+
+> **routePath**: `string`
+
+##### expectedStatus
+
+> **expectedStatus**: `number`
+
+##### actualStatus
+
+> **actualStatus**: `number`
+
+##### expectedBody
+
+> **expectedBody**: `string`
+
+##### actualBody
+
+> **actualBody**: `string`
+
+##### expectedHeaders
+
+> **expectedHeaders**: `Record`\<`string`, `string`\>
+
+##### actualHeaders
+
+> **actualHeaders**: `Record`\<`string`, `string`\>
+
+##### snapshotAccepted
+
+> **snapshotAccepted**: `boolean`
+
+##### restoreAccepted
+
+> **restoreAccepted**: `boolean`
+
+##### behavioralVerifierPassed
+
+> **behavioralVerifierPassed**: `boolean`
+
+##### targetNativeNodeVerified
+
+> **targetNativeNodeVerified**: `boolean`
+
+***
+
+### NodeLevel5DeclaredSubsetRefusalCode
+
+> **NodeLevel5DeclaredSubsetRefusalCode** = *typeof* [`nodeLevel5DeclaredSubsetRefusalCodes`](#nodelevel5declaredsubsetrefusalcodes)\[keyof *typeof* [`nodeLevel5DeclaredSubsetRefusalCodes`](#nodelevel5declaredsubsetrefusalcodes)\]
+
+***
+
+### NodeLevel5DeclaredSubsetArchitecture
+
+> **NodeLevel5DeclaredSubsetArchitecture** = `"arm64"` \| `"amd64"`
+
+***
+
+### NodeLevel5DeclaredSubsetRefusal
+
+> **NodeLevel5DeclaredSubsetRefusal** = `object`
+
+#### Properties
+
+##### code
+
+> **code**: [`NodeLevel5DeclaredSubsetRefusalCode`](#nodelevel5declaredsubsetrefusalcode)
+
+##### message
+
+> **message**: `string`
+
+***
+
+### NodeLevel5DeclaredSubsetSupportMatrix
+
+> **NodeLevel5DeclaredSubsetSupportMatrix** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.node-level5-declared-subset-support-matrix"`
+
+##### formatVersion
+
+> **formatVersion**: *typeof* [`NODE_LEVEL5_DECLARED_SUBSET_FORMAT_VERSION`](#node_level5_declared_subset_format_version)
+
+##### status
+
+> **status**: `"experimental-candidate-not-supported"`
+
+##### productSupportClaimed
+
+> **productSupportClaimed**: `false`
+
+##### broadLevel5ImplementationClaimed
+
+> **broadLevel5ImplementationClaimed**: `false`
+
+##### declaredSubsetCoverage
+
+> **declaredSubsetCoverage**: `100`
+
+##### node
+
+> **node**: `"22.x"`
+
+##### v8
+
+> **v8**: `"12.x pointer-compressed"`
+
+##### libuv
+
+> **libuv**: `"supported idle handles only"`
+
+##### supportedStateFamilies
+
+> **supportedStateFamilies**: readonly `string`[]
+
+##### unsupportedStateFamilies
+
+> **unsupportedStateFamilies**: readonly `string`[]
+
+##### refusalCodes
+
+> **refusalCodes**: *typeof* [`nodeLevel5DeclaredSubsetRefusalCodes`](#nodelevel5declaredsubsetrefusalcodes)
+
+***
+
+### CreateNodeLevel5DeclaredSubsetCaptureInput
+
+> **CreateNodeLevel5DeclaredSubsetCaptureInput** = `object`
+
+#### Properties
+
+##### outDir
+
+> **outDir**: `string`
+
+##### sourceArch
+
+> **sourceArch**: [`NodeLevel5DeclaredSubsetArchitecture`](#nodelevel5declaredsubsetarchitecture)
+
+##### targetArch
+
+> **targetArch**: [`NodeLevel5DeclaredSubsetArchitecture`](#nodelevel5declaredsubsetarchitecture)
+
+##### experimental
+
+> **experimental**: `boolean`
+
+##### productSupportClaimed?
+
+> `optional` **productSupportClaimed?**: `boolean`
+
+##### dryRun?
+
+> `optional` **dryRun?**: `boolean`
+
+***
+
+### NodeLevel5DeclaredSubsetManifest
+
+> **NodeLevel5DeclaredSubsetManifest** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_DECLARED_SUBSET_MANIFEST`](#node_level5_declared_subset_manifest)
+
+##### formatVersion
+
+> **formatVersion**: *typeof* [`NODE_LEVEL5_DECLARED_SUBSET_FORMAT_VERSION`](#node_level5_declared_subset_format_version)
+
+##### status
+
+> **status**: `"experimental-candidate-not-supported"`
+
+##### productSupportClaimed
+
+> **productSupportClaimed**: `false`
+
+##### broadLevel5ImplementationClaimed
+
+> **broadLevel5ImplementationClaimed**: `false`
+
+##### sourceArch
+
+> **sourceArch**: [`NodeLevel5DeclaredSubsetArchitecture`](#nodelevel5declaredsubsetarchitecture)
+
+##### targetArch
+
+> **targetArch**: [`NodeLevel5DeclaredSubsetArchitecture`](#nodelevel5declaredsubsetarchitecture)
+
+##### translatedContinuationRequired
+
+> **translatedContinuationRequired**: `true`
+
+##### rawCpuRestoreSupported
+
+> **rawCpuRestoreSupported**: `false`
+
+##### supportMatrix
+
+> **supportMatrix**: [`NodeLevel5DeclaredSubsetSupportMatrix`](#nodelevel5declaredsubsetsupportmatrix)
+
+***
+
+### NodeLevel5DeclaredSubsetCaptureSummary
+
+> **NodeLevel5DeclaredSubsetCaptureSummary** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.node-level5-declared-subset-capture-summary"`
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### manifestPath?
+
+> `optional` **manifestPath?**: `string`
+
+##### manifest?
+
+> `optional` **manifest?**: [`NodeLevel5DeclaredSubsetManifest`](#nodelevel5declaredsubsetmanifest)
+
+##### dryRun
+
+> **dryRun**: `boolean`
+
+##### targetStarted
+
+> **targetStarted**: `false`
+
+##### productSupportClaimed
+
+> **productSupportClaimed**: `false`
+
+##### broadLevel5ImplementationClaimed
+
+> **broadLevel5ImplementationClaimed**: `false`
+
+##### refusal?
+
+> `optional` **refusal?**: [`NodeLevel5DeclaredSubsetRefusal`](#nodelevel5declaredsubsetrefusal)
+
+***
+
+### RestoreNodeLevel5DeclaredSubsetInput
+
+> **RestoreNodeLevel5DeclaredSubsetInput** = `object`
+
+#### Properties
+
+##### manifestPath
+
+> **manifestPath**: `string`
+
+##### experimental
+
+> **experimental**: `boolean`
+
+##### rawCpuRestore?
+
+> `optional` **rawCpuRestore?**: `boolean`
+
+##### productSupportClaimed?
+
+> `optional` **productSupportClaimed?**: `boolean`
+
+##### dryRun?
+
+> `optional` **dryRun?**: `boolean`
+
+***
+
+### NodeLevel5DeclaredSubsetRestoreSummary
+
+> **NodeLevel5DeclaredSubsetRestoreSummary** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_DECLARED_SUBSET_RESTORE_SUMMARY`](#node_level5_declared_subset_restore_summary)
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### manifestPath
+
+> **manifestPath**: `string`
+
+##### dryRun
+
+> **dryRun**: `boolean`
+
+##### targetStarted
+
+> **targetStarted**: `false`
+
+##### translatedContinuationRequired
+
+> **translatedContinuationRequired**: `true`
+
+##### targetNativeNodeRequired
+
+> **targetNativeNodeRequired**: `true`
+
+##### productSupportClaimed
+
+> **productSupportClaimed**: `false`
+
+##### broadLevel5ImplementationClaimed
+
+> **broadLevel5ImplementationClaimed**: `false`
+
+##### refusal?
+
+> `optional` **refusal?**: [`NodeLevel5DeclaredSubsetRefusal`](#nodelevel5declaredsubsetrefusal)
+
+***
+
 ### NodeLevel5HttpProfileRefusalCode
 
 > **NodeLevel5HttpProfileRefusalCode** = *typeof* [`nodeLevel5HttpProfileRefusalCodes`](#nodelevel5httpprofilerefusalcodes)\[`number`\]
+
+***
+
+### NodeLevel5InstalledThirdPartyAppSource
+
+> **NodeLevel5InstalledThirdPartyAppSource** = `"express-installed-hello-world"` \| `"express-installed-router"` \| `"express-installed-json-response"` \| `"express-installed-route-params"` \| `"express-installed-query-string"` \| `"express-installed-static-asset"` \| `"express-installed-idle-timer"` \| `"express-installed-safe-outbound-reconnect"` \| `"express-installed-post-json-body"` \| `"express-installed-custom-header"` \| `"express-installed-put-route"` \| `"express-installed-delete-route"` \| `"express-installed-cookie-read"` \| `"express-installed-status-code"` \| `"express-installed-redirect"` \| `"express-installed-response-header"` \| `"express-installed-middleware-chain"` \| `"express-installed-not-found"` \| `"express-installed-error-handler"` \| `"express-installed-request-id"` \| `"express-installed-nested-router"` \| `"express-installed-optional-param"` \| `"express-installed-multi-route"` \| `"express-installed-static-cache-header"` \| `"express-installed-env-read"` \| `"express-installed-config-json-read"` \| `"express-installed-feature-flag-env"` \| `"express-installed-configured-prefix"` \| `"express-installed-health-check"` \| `"fastify-installed-getting-started"` \| `"fastify-installed-plugin-route"` \| `"fastify-installed-json-response"` \| `"fastify-installed-route-params"` \| `"fastify-installed-query-string"` \| `"fastify-installed-static-asset"` \| `"fastify-installed-idle-timer"` \| `"fastify-installed-safe-outbound-reconnect"` \| `"fastify-installed-post-json-body"` \| `"fastify-installed-custom-header"` \| `"fastify-installed-put-route"` \| `"fastify-installed-delete-route"` \| `"fastify-installed-cookie-read"` \| `"fastify-installed-status-code"` \| `"fastify-installed-redirect"` \| `"fastify-installed-response-header"` \| `"fastify-installed-hook-chain"` \| `"fastify-installed-not-found"` \| `"fastify-installed-error-handler"` \| `"fastify-installed-request-id"` \| `"fastify-installed-prefix-route"` \| `"fastify-installed-optional-param"` \| `"fastify-installed-multi-route"` \| `"fastify-installed-static-cache-header"` \| `"fastify-installed-env-read"` \| `"fastify-installed-config-json-read"` \| `"fastify-installed-feature-flag-env"` \| `"fastify-installed-configured-prefix"` \| `"fastify-installed-health-check"`
+
+***
+
+### NodeLevel5InstalledThirdPartyAppCorpusRow
+
+> **NodeLevel5InstalledThirdPartyAppCorpusRow** = [`NodeLevel5CorpusHttpEvidence`](#nodelevel5corpushttpevidence) & `object`
+
+#### Type Declaration
+
+##### appName
+
+> **appName**: `string`
+
+##### source
+
+> **source**: [`NodeLevel5InstalledThirdPartyAppSource`](#nodelevel5installedthirdpartyappsource)
+
+##### framework
+
+> **framework**: [`NodeLevel5RealAppCorpusFramework`](#nodelevel5realappcorpusframework)
+
+##### direction
+
+> **direction**: [`NodeLevel5ProductSnapshotDirection`](#nodelevel5productsnapshotdirection)
+
+##### installedPackage
+
+> **installedPackage**: `string`
+
+##### installedPackageVersion
+
+> **installedPackageVersion**: `string`
+
+##### declaredSubset
+
+> **declaredSubset**: `true`
+
+##### unsupportedStateDetected
+
+> **unsupportedStateDetected**: `false`
+
+***
+
+### NodeLevel5InstalledThirdPartyAppCorpusReport
+
+> **NodeLevel5InstalledThirdPartyAppCorpusReport** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_INSTALLED_THIRD_PARTY_APP_CORPUS_REPORT_KIND`](#node_level5_installed_third_party_app_corpus_report_kind)
+
+##### version
+
+> **version**: *typeof* [`NODE_LEVEL5_INSTALLED_THIRD_PARTY_APP_CORPUS_REPORT_VERSION`](#node_level5_installed_third_party_app_corpus_report_version)
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### rowCount
+
+> **rowCount**: `number`
+
+##### rowsSha256
+
+> **rowsSha256**: `string`
+
+##### rows
+
+> **rows**: [`NodeLevel5InstalledThirdPartyAppCorpusRow`](#nodelevel5installedthirdpartyappcorpusrow)[]
+
+##### harnessProof
+
+> **harnessProof**: `true`
+
+##### nodeProductSupportClaimed
+
+> **nodeProductSupportClaimed**: `80`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `20`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
+
+***
+
+### NodeLevel5InstalledThirdPartyAppCorpusVerification
+
+> **NodeLevel5InstalledThirdPartyAppCorpusVerification** = `object`
+
+#### Properties
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### kind
+
+> **kind**: `"machinen.node-level5-installed-third-party-app-corpus-verification"`
+
+##### rowCount
+
+> **rowCount**: `number`
+
+##### rowsSha256Verified
+
+> **rowsSha256Verified**: `boolean`
+
+##### nodeProductSupportClaimed
+
+> **nodeProductSupportClaimed**: `80`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `20`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
+
+***
+
+### NodeLevel5ProductSnapshotDirection
+
+> **NodeLevel5ProductSnapshotDirection** = `"arm64-to-amd64"` \| `"amd64-to-arm64"`
+
+***
+
+### NodeLevel5ProductSnapshotRefusalCode
+
+> **NodeLevel5ProductSnapshotRefusalCode** = `"node-level5-non-node-target-refused"` \| `"node-level5-target-app-root-missing"` \| `"node-level5-unsupported-app-refused"` \| `"node-level5-active-request-refused"` \| `"node-level5-worker-thread-refused"` \| `"node-level5-native-addon-refused"` \| `"node-level5-wasm-external-memory-refused"` \| `"node-level5-tls-active-state-refused"` \| `"node-level5-child-process-live-state-refused"` \| `"node-level5-filesystem-watcher-refused"` \| `"node-level5-websocket-live-state-refused"` \| `"node-level5-db-connection-live-state-refused"` \| `"node-level5-redis-queue-live-state-refused"` \| `"node-level5-outbound-http-live-socket-refused"` \| `"node-level5-http2-live-session-refused"` \| `"node-level5-sse-live-stream-refused"` \| `"node-level5-open-writable-file-refused"` \| `"node-level5-timer-background-task-refused"` \| `"node-level5-cluster-mode-refused"`
+
+***
+
+### NodeLevel5ProductSnapshotRefusal
+
+> **NodeLevel5ProductSnapshotRefusal** = `object`
+
+#### Properties
+
+##### code
+
+> **code**: [`NodeLevel5ProductSnapshotRefusalCode`](#nodelevel5productsnapshotrefusalcode)
+
+##### message
+
+> **message**: `string`
+
+***
+
+### NodeLevel5ProductTargetIdentity
+
+> **NodeLevel5ProductTargetIdentity** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_PRODUCT_TARGET_IDENTITY_KIND`](#node_level5_product_target_identity_kind)
+
+##### target
+
+> **target**: `string`
+
+##### targetKind
+
+> **targetKind**: `"pid"` \| `"name"` \| `"current-directory"`
+
+##### runtime
+
+> **runtime**: `"node"` \| `"unknown"`
+
+##### appDir?
+
+> `optional` **appDir?**: `string`
+
+##### pid?
+
+> `optional` **pid?**: `number`
+
+##### executable?
+
+> `optional` **executable?**: `string`
+
+##### argv?
+
+> `optional` **argv?**: `string`
+
+##### registryMatched
+
+> **registryMatched**: `boolean`
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### refusal?
+
+> `optional` **refusal?**: [`NodeLevel5ProductSnapshotRefusal`](#nodelevel5productsnapshotrefusal)
+
+***
+
+### NodeLevel5ProductDetectedFeature
+
+> **NodeLevel5ProductDetectedFeature** = `"safe-idle-timer"` \| `"safe-outbound-http-reconnect"`
+
+***
+
+### NodeLevel5ProductDetectorReport
+
+> **NodeLevel5ProductDetectorReport** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_PRODUCT_DETECTOR_REPORT_KIND`](#node_level5_product_detector_report_kind)
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### appDir
+
+> **appDir**: `string`
+
+##### familyId?
+
+> `optional` **familyId?**: [`NodeLevel5ProductSupport80FamilyId`](#nodelevel5productsupport80familyid)
+
+##### direction
+
+> **direction**: [`NodeLevel5ProductSnapshotDirection`](#nodelevel5productsnapshotdirection)
+
+##### detectedFramework?
+
+> `optional` **detectedFramework?**: `"express"` \| `"fastify"`
+
+##### detectedFeatures?
+
+> `optional` **detectedFeatures?**: [`NodeLevel5ProductDetectedFeature`](#nodelevel5productdetectedfeature)[]
+
+##### refusal?
+
+> `optional` **refusal?**: [`NodeLevel5ProductSnapshotRefusal`](#nodelevel5productsnapshotrefusal)
+
+##### nodeProductSupportClaimed
+
+> **nodeProductSupportClaimed**: `80`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `20`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
+
+***
+
+### NodeLevel5ProductCaptureReport
+
+> **NodeLevel5ProductCaptureReport** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_PRODUCT_CAPTURE_REPORT_KIND`](#node_level5_product_capture_report_kind)
+
+##### accepted
+
+> **accepted**: `true`
+
+##### productCommandPath
+
+> **productCommandPath**: `"machinen snapshot node <pid> --out <dir>"`
+
+##### familyId
+
+> **familyId**: [`NodeLevel5ProductSupport80FamilyId`](#nodelevel5productsupport80familyid)
+
+##### direction
+
+> **direction**: [`NodeLevel5ProductSnapshotDirection`](#nodelevel5productsnapshotdirection)
+
+##### targetIdentitySha256
+
+> **targetIdentitySha256**: `string`
+
+##### detectorReportSha256
+
+> **detectorReportSha256**: `string`
+
+##### artifactRoot
+
+> **artifactRoot**: `string`
+
+##### translatedContinuationRequired
+
+> **translatedContinuationRequired**: `true`
+
+##### targetNativeNodeRequired
+
+> **targetNativeNodeRequired**: `true`
+
+##### rawCpuRestoreCaptured
+
+> **rawCpuRestoreCaptured**: `false`
+
+##### sourceIsaEmulationCaptured
+
+> **sourceIsaEmulationCaptured**: `false`
+
+##### metadataOnlySuccessAccepted
+
+> **metadataOnlySuccessAccepted**: `false`
+
+##### nodeProductSupportClaimed
+
+> **nodeProductSupportClaimed**: `80`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `20`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
+
+***
+
+### NodeLevel5ProductRestoreMaterializationReport
+
+> **NodeLevel5ProductRestoreMaterializationReport** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_PRODUCT_RESTORE_MATERIALIZATION_REPORT_KIND`](#node_level5_product_restore_materialization_report_kind)
+
+##### accepted
+
+> **accepted**: `true`
+
+##### familyId
+
+> **familyId**: [`NodeLevel5ProductSupport80FamilyId`](#nodelevel5productsupport80familyid)
+
+##### direction
+
+> **direction**: [`NodeLevel5ProductSnapshotDirection`](#nodelevel5productsnapshotdirection)
+
+##### captureReportVerified
+
+> **captureReportVerified**: `boolean`
+
+##### targetIdentityVerified
+
+> **targetIdentityVerified**: `boolean`
+
+##### detectorReportVerified
+
+> **detectorReportVerified**: `boolean`
+
+##### targetNativeNodeVerified
+
+> **targetNativeNodeVerified**: `boolean`
+
+##### translatedContinuationRequired
+
+> **translatedContinuationRequired**: `true`
+
+##### rawCpuRestoreUsed
+
+> **rawCpuRestoreUsed**: `false`
+
+##### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+##### metadataOnlySuccessAccepted
+
+> **metadataOnlySuccessAccepted**: `false`
+
+##### nodeProductSupportClaimed
+
+> **nodeProductSupportClaimed**: `80`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `20`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
+
+***
+
+### NodeLevel5ProductRestoreLaunchReport
+
+> **NodeLevel5ProductRestoreLaunchReport** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_PRODUCT_RESTORE_LAUNCH_REPORT_KIND`](#node_level5_product_restore_launch_report_kind)
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### executable
+
+> **executable**: `string`
+
+##### appDir
+
+> **appDir**: `string`
+
+##### exitCode
+
+> **exitCode**: `number` \| `null`
+
+##### signal
+
+> **signal**: `NodeJS.Signals` \| `null`
+
+##### targetNativeNodeVerified
+
+> **targetNativeNodeVerified**: `boolean`
+
+##### translatedContinuationRequired
+
+> **translatedContinuationRequired**: `true`
+
+##### rawCpuRestoreUsed
+
+> **rawCpuRestoreUsed**: `false`
+
+##### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+##### metadataOnlySuccessAccepted
+
+> **metadataOnlySuccessAccepted**: `false`
+
+##### nodeProductSupportClaimed
+
+> **nodeProductSupportClaimed**: `80`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `20`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
+
+***
+
+### NodeLevel5ProductBehavioralVerifierReport
+
+> **NodeLevel5ProductBehavioralVerifierReport** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_PRODUCT_BEHAVIORAL_VERIFIER_REPORT_KIND`](#node_level5_product_behavioral_verifier_report_kind)
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### verifier
+
+> **verifier**: `"target-native-http-loopback"` \| `"target-native-app-route"`
+
+##### executable
+
+> **executable**: `string`
+
+##### appDir
+
+> **appDir**: `string`
+
+##### routePath
+
+> **routePath**: `string`
+
+##### expectedStatus
+
+> **expectedStatus**: `number`
+
+##### actualStatus?
+
+> `optional` **actualStatus?**: `number`
+
+##### expectedBody
+
+> **expectedBody**: `string`
+
+##### actualBody?
+
+> `optional` **actualBody?**: `string`
+
+##### expectedHeaders?
+
+> `optional` **expectedHeaders?**: `Record`\<`string`, `string`\>
+
+##### actualHeaders?
+
+> `optional` **actualHeaders?**: `Record`\<`string`, `string`\>
+
+##### exitCode
+
+> **exitCode**: `number` \| `null`
+
+##### signal
+
+> **signal**: `NodeJS.Signals` \| `null`
+
+##### targetNativeNodeVerified
+
+> **targetNativeNodeVerified**: `boolean`
+
+##### translatedContinuationRequired
+
+> **translatedContinuationRequired**: `true`
+
+##### rawCpuRestoreUsed
+
+> **rawCpuRestoreUsed**: `false`
+
+##### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+##### metadataOnlySuccessAccepted
+
+> **metadataOnlySuccessAccepted**: `false`
+
+##### nodeProductSupportClaimed
+
+> **nodeProductSupportClaimed**: `80`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `20`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
+
+***
+
+### NodeLevel5ProductSnapshotManifest
+
+> **NodeLevel5ProductSnapshotManifest** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_PRODUCT_SNAPSHOT_KIND`](#node_level5_product_snapshot_kind)
+
+##### version
+
+> **version**: *typeof* [`NODE_LEVEL5_PRODUCT_SNAPSHOT_VERSION`](#node_level5_product_snapshot_version)
+
+##### status
+
+> **status**: `"node-product-support-80"`
+
+##### familyId
+
+> **familyId**: [`NodeLevel5ProductSupport80FamilyId`](#nodelevel5productsupport80familyid)
+
+##### direction
+
+> **direction**: [`NodeLevel5ProductSnapshotDirection`](#nodelevel5productsnapshotdirection)
+
+##### artifactRoot
+
+> **artifactRoot**: `string`
+
+##### detectorReportPath
+
+> **detectorReportPath**: `"node-level5-detector-report.json"`
+
+##### detectorReportSha256
+
+> **detectorReportSha256**: `string`
+
+##### targetIdentityPath
+
+> **targetIdentityPath**: `"node-level5-target-identity.json"`
+
+##### targetIdentitySha256
+
+> **targetIdentitySha256**: `string`
+
+##### captureReportPath
+
+> **captureReportPath**: `"node-level5-product-capture-report.json"`
+
+##### captureReportSha256
+
+> **captureReportSha256**: `string`
+
+##### artifactBundleKind
+
+> **artifactBundleKind**: `"machinen.node-level5-product-support-80-artifact-bundle"`
+
+##### translatedContinuationRequired
+
+> **translatedContinuationRequired**: `true`
+
+##### targetNativeNodeRequired
+
+> **targetNativeNodeRequired**: `true`
+
+##### rawCpuRestoreSupported
+
+> **rawCpuRestoreSupported**: `false`
+
+##### sourceIsaEmulationSupported
+
+> **sourceIsaEmulationSupported**: `false`
+
+##### appCheckpointHooksRequired
+
+> **appCheckpointHooksRequired**: `false`
+
+##### nodeProductSupportClaimed
+
+> **nodeProductSupportClaimed**: `80`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `20`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
+
+***
+
+### NodeLevel5ProductSnapshotSummary
+
+> **NodeLevel5ProductSnapshotSummary** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.node-level5-product-snapshot-summary"`
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### snapshotDir
+
+> **snapshotDir**: `string`
+
+##### manifestPath?
+
+> `optional` **manifestPath?**: `string`
+
+##### manifest?
+
+> `optional` **manifest?**: [`NodeLevel5ProductSnapshotManifest`](#nodelevel5productsnapshotmanifest)
+
+##### targetIdentity
+
+> **targetIdentity**: [`NodeLevel5ProductTargetIdentity`](#nodelevel5producttargetidentity)
+
+##### detectorReport?
+
+> `optional` **detectorReport?**: [`NodeLevel5ProductDetectorReport`](#nodelevel5productdetectorreport)
+
+##### captureReport?
+
+> `optional` **captureReport?**: [`NodeLevel5ProductCaptureReport`](#nodelevel5productcapturereport)
+
+##### refusal?
+
+> `optional` **refusal?**: [`NodeLevel5ProductSnapshotRefusal`](#nodelevel5productsnapshotrefusal)
+
+***
+
+### NodeLevel5ProductRestoreSummary
+
+> **NodeLevel5ProductRestoreSummary** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.node-level5-product-restore-summary"`
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### snapshotDir
+
+> **snapshotDir**: `string`
+
+##### manifestPath
+
+> **manifestPath**: `string`
+
+##### familyId
+
+> **familyId**: [`NodeLevel5ProductSupport80FamilyId`](#nodelevel5productsupport80familyid)
+
+##### direction
+
+> **direction**: [`NodeLevel5ProductSnapshotDirection`](#nodelevel5productsnapshotdirection)
+
+##### targetIdentityVerified
+
+> **targetIdentityVerified**: `boolean`
+
+##### detectorReportVerified
+
+> **detectorReportVerified**: `boolean`
+
+##### captureReportVerified
+
+> **captureReportVerified**: `boolean`
+
+##### materializationReportPath
+
+> **materializationReportPath**: `string`
+
+##### materializationReport
+
+> **materializationReport**: [`NodeLevel5ProductRestoreMaterializationReport`](#nodelevel5productrestorematerializationreport)
+
+##### launchReportPath
+
+> **launchReportPath**: `string`
+
+##### launchReport
+
+> **launchReport**: [`NodeLevel5ProductRestoreLaunchReport`](#nodelevel5productrestorelaunchreport)
+
+##### launchReportVerified
+
+> **launchReportVerified**: `boolean`
+
+##### behavioralVerifierReportPath
+
+> **behavioralVerifierReportPath**: `string`
+
+##### behavioralVerifierReport
+
+> **behavioralVerifierReport**: [`NodeLevel5ProductBehavioralVerifierReport`](#nodelevel5productbehavioralverifierreport)
+
+##### targetNativeNodeVerified
+
+> **targetNativeNodeVerified**: `boolean`
+
+##### behavioralVerifierPassed
+
+> **behavioralVerifierPassed**: `boolean`
+
+##### artifactHashesVerified
+
+> **artifactHashesVerified**: `boolean`
+
+##### retentionComplete
+
+> **retentionComplete**: `boolean`
+
+##### translatedContinuationRequired
+
+> **translatedContinuationRequired**: `true`
+
+##### rawCpuRestoreUsed
+
+> **rawCpuRestoreUsed**: `false`
+
+##### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+##### nodeProductSupportClaimed
+
+> **nodeProductSupportClaimed**: `80`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `20`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
+
+***
+
+### NodeLevel5ProductSupportFamilyId
+
+> **NodeLevel5ProductSupportFamilyId** = `"idle-http-listener"` \| `"timer-service"` \| `"plain-js-heap"` \| `"readonly-file-stdio"` \| `"pipes-streams-idle"`
+
+***
+
+### NodeLevel5ProductSupportDirection
+
+> **NodeLevel5ProductSupportDirection** = `"arm64-to-amd64"` \| `"amd64-to-arm64"`
+
+***
+
+### NodeLevel5ProductSupportFamily
+
+> **NodeLevel5ProductSupportFamily** = `object`
+
+#### Properties
+
+##### id
+
+> **id**: [`NodeLevel5ProductSupportFamilyId`](#nodelevel5productsupportfamilyid)
+
+##### title
+
+> **title**: `string`
+
+##### coveragePercent
+
+> **coveragePercent**: `4`
+
+##### status
+
+> **status**: `"experimental-supported"`
+
+##### included
+
+> **included**: readonly `string`[]
+
+##### excluded
+
+> **excluded**: readonly `string`[]
+
+##### contractArtifact
+
+> **contractArtifact**: `string`
+
+##### e2eArtifact
+
+> **e2eArtifact**: `string`
+
+##### directions
+
+> **directions**: readonly [`NodeLevel5ProductSupportDirection`](#nodelevel5productsupportdirection)[]
+
+##### targetNativeVerified
+
+> **targetNativeVerified**: `true`
+
+##### productSupportClaimed
+
+> **productSupportClaimed**: `true`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `false`
+
+***
+
+### NodeLevel5ProductUnsupportedNeighbor
+
+> **NodeLevel5ProductUnsupportedNeighbor** = `object`
+
+#### Properties
+
+##### id
+
+> **id**: `string`
+
+##### refusalCode
+
+> **refusalCode**: `string`
+
+##### targetStarted
+
+> **targetStarted**: `false`
+
+##### rawCpuRestoreUsed
+
+> **rawCpuRestoreUsed**: `false`
+
+##### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+##### productSupportClaimed
+
+> **productSupportClaimed**: `false`
+
+***
+
+### NodeLevel5ProductSupport20Matrix
+
+> **NodeLevel5ProductSupport20Matrix** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_PRODUCT_SUPPORT_20_KIND`](#node_level5_product_support_20_kind)
+
+##### version
+
+> **version**: *typeof* [`NODE_LEVEL5_PRODUCT_SUPPORT_20_VERSION`](#node_level5_product_support_20_version)
+
+##### status
+
+> **status**: `"experimental-node-product-support-20"`
+
+##### nodeProductSupportClaimed
+
+> **nodeProductSupportClaimed**: `20`
+
+##### nodeProductSupportScope
+
+> **nodeProductSupportScope**: `"five-idle-service-families"`
+
+##### declaredSubsetExperimentalProductSupportClaimed
+
+> **declaredSubsetExperimentalProductSupportClaimed**: `100`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `0`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
+
+##### node
+
+> **node**: `"22.x"`
+
+##### v8
+
+> **v8**: `"12.x pointer-compressed"`
+
+##### libuv
+
+> **libuv**: `"supported idle handles only"`
+
+##### families
+
+> **families**: readonly [`NodeLevel5ProductSupportFamily`](#nodelevel5productsupportfamily)[]
+
+##### unsupportedNeighbors
+
+> **unsupportedNeighbors**: readonly [`NodeLevel5ProductUnsupportedNeighbor`](#nodelevel5productunsupportedneighbor)[]
+
+##### safety
+
+> **safety**: `object`
+
+###### rawCpuRestoreSupported
+
+> **rawCpuRestoreSupported**: `false`
+
+###### sourceIsaEmulationSupported
+
+> **sourceIsaEmulationSupported**: `false`
+
+###### appCheckpointHooksRequired
+
+> **appCheckpointHooksRequired**: `false`
+
+###### targetNativeNodeRequired
+
+> **targetNativeNodeRequired**: `true`
+
+***
+
+### NodeLevel5ProductSupport50FamilyId
+
+> **NodeLevel5ProductSupport50FamilyId** = [`NodeLevel5ProductSupportFamily`](#nodelevel5productsupportfamily)\[`"id"`\] \| `"http-keepalive-idle-pool"` \| `"completed-microtask-checkpoint"` \| `"promise-async-closure-graph"` \| `"commonjs-esm-module-cache"` \| `"json-config-data-heap-graph"` \| `"graceful-shutdown-lifecycle"`
+
+***
+
+### NodeLevel5ProductSupport50Family
+
+> **NodeLevel5ProductSupport50Family** = `object`
+
+#### Properties
+
+##### id
+
+> **id**: [`NodeLevel5ProductSupport50FamilyId`](#nodelevel5productsupport50familyid)
+
+##### title
+
+> **title**: `string`
+
+##### coveragePercent
+
+> **coveragePercent**: `4` \| `5`
+
+##### status
+
+> **status**: `"experimental-supported"`
+
+##### included
+
+> **included**: readonly `string`[]
+
+##### excluded
+
+> **excluded**: readonly `string`[]
+
+##### contractArtifact
+
+> **contractArtifact**: `string`
+
+##### e2eArtifact
+
+> **e2eArtifact**: `string`
+
+##### directions
+
+> **directions**: readonly [`NodeLevel5ProductSupportDirection`](#nodelevel5productsupportdirection)[]
+
+##### targetNativeVerified
+
+> **targetNativeVerified**: `true`
+
+##### productSupportClaimed
+
+> **productSupportClaimed**: `true`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `false`
+
+***
+
+### NodeLevel5ProductSupport50Matrix
+
+> **NodeLevel5ProductSupport50Matrix** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_PRODUCT_SUPPORT_50_KIND`](#node_level5_product_support_50_kind)
+
+##### version
+
+> **version**: *typeof* [`NODE_LEVEL5_PRODUCT_SUPPORT_50_VERSION`](#node_level5_product_support_50_version)
+
+##### status
+
+> **status**: `"experimental-node-product-support-50"`
+
+##### nodeProductSupportClaimed
+
+> **nodeProductSupportClaimed**: `50`
+
+##### nodeProductSupportScope
+
+> **nodeProductSupportScope**: `"eleven-service-families"`
+
+##### previousNodeProductSupportClaimed
+
+> **previousNodeProductSupportClaimed**: `20`
+
+##### newNodeProductSupportClaimed
+
+> **newNodeProductSupportClaimed**: `30`
+
+##### declaredSubsetExperimentalProductSupportClaimed
+
+> **declaredSubsetExperimentalProductSupportClaimed**: `100`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `0`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
+
+##### node
+
+> **node**: `"22.x"`
+
+##### v8
+
+> **v8**: `"12.x pointer-compressed"`
+
+##### libuv
+
+> **libuv**: `"supported idle handles only"`
+
+##### families
+
+> **families**: readonly [`NodeLevel5ProductSupport50Family`](#nodelevel5productsupport50family)[]
+
+##### expandedUnsupportedNeighbors
+
+> **expandedUnsupportedNeighbors**: readonly [`NodeLevel5ProductUnsupportedNeighbor`](#nodelevel5productunsupportedneighbor)[]
+
+##### positiveAppCorpus
+
+> **positiveAppCorpus**: readonly `string`[]
+
+##### negativeAppCorpus
+
+> **negativeAppCorpus**: readonly `string`[]
+
+##### repeatabilityRuns
+
+> **repeatabilityRuns**: `20`
+
+##### safety
+
+> **safety**: `object`
+
+###### rawCpuRestoreSupported
+
+> **rawCpuRestoreSupported**: `false`
+
+###### sourceIsaEmulationSupported
+
+> **sourceIsaEmulationSupported**: `false`
+
+###### appCheckpointHooksRequired
+
+> **appCheckpointHooksRequired**: `false`
+
+###### targetNativeNodeRequired
+
+> **targetNativeNodeRequired**: `true`
+
+###### metadataOnlySuccessAccepted
+
+> **metadataOnlySuccessAccepted**: `false`
+
+***
+
+### NodeLevel5ProductSupport65FamilyId
+
+> **NodeLevel5ProductSupport65FamilyId** = [`NodeLevel5ProductSupport50Family`](#nodelevel5productsupport50family)\[`"id"`\] \| `"active-async-idle-boundary"` \| `"tls-boundary-policy"` \| `"child-process-boundary"`
+
+***
+
+### NodeLevel5ProductSupport65Family
+
+> **NodeLevel5ProductSupport65Family** = `object`
+
+#### Properties
+
+##### id
+
+> **id**: [`NodeLevel5ProductSupport65FamilyId`](#nodelevel5productsupport65familyid)
+
+##### title
+
+> **title**: `string`
+
+##### coveragePercent
+
+> **coveragePercent**: `4` \| `5`
+
+##### status
+
+> **status**: `"experimental-supported"`
+
+##### included
+
+> **included**: readonly `string`[]
+
+##### excluded
+
+> **excluded**: readonly `string`[]
+
+##### contractArtifact
+
+> **contractArtifact**: `string`
+
+##### e2eArtifact
+
+> **e2eArtifact**: `string`
+
+##### directions
+
+> **directions**: readonly [`NodeLevel5ProductSupportDirection`](#nodelevel5productsupportdirection)[]
+
+##### targetNativeVerified
+
+> **targetNativeVerified**: `true`
+
+##### productSupportClaimed
+
+> **productSupportClaimed**: `true`
+
+##### broadNodeFacilityAddressed
+
+> **broadNodeFacilityAddressed**: `boolean`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `false`
+
+***
+
+### NodeLevel5ProductSupport65Matrix
+
+> **NodeLevel5ProductSupport65Matrix** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_PRODUCT_SUPPORT_65_KIND`](#node_level5_product_support_65_kind)
+
+##### version
+
+> **version**: *typeof* [`NODE_LEVEL5_PRODUCT_SUPPORT_65_VERSION`](#node_level5_product_support_65_version)
+
+##### status
+
+> **status**: `"experimental-node-product-support-65"`
+
+##### nodeProductSupportClaimed
+
+> **nodeProductSupportClaimed**: `65`
+
+##### nodeProductSupportScope
+
+> **nodeProductSupportScope**: `"fourteen-service-and-boundary-families"`
+
+##### previousNodeProductSupportClaimed
+
+> **previousNodeProductSupportClaimed**: `50`
+
+##### newNodeProductSupportClaimed
+
+> **newNodeProductSupportClaimed**: `15`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `5`
+
+##### broadNodeProductSupportScope
+
+> **broadNodeProductSupportScope**: `"selected-hard-facility-boundaries"`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
+
+##### node
+
+> **node**: `"22.x"`
+
+##### v8
+
+> **v8**: `"12.x pointer-compressed"`
+
+##### libuv
+
+> **libuv**: `"supported idle handles plus selected hard-facility boundaries"`
+
+##### families
+
+> **families**: readonly [`NodeLevel5ProductSupport65Family`](#nodelevel5productsupport65family)[]
+
+##### expandedUnsupportedNeighbors
+
+> **expandedUnsupportedNeighbors**: readonly [`NodeLevel5ProductUnsupportedNeighbor`](#nodelevel5productunsupportedneighbor)[]
+
+##### hardFacilitiesAddressed
+
+> **hardFacilitiesAddressed**: readonly `string`[]
+
+##### repeatabilityRuns
+
+> **repeatabilityRuns**: `25`
+
+##### safety
+
+> **safety**: `object`
+
+###### rawCpuRestoreSupported
+
+> **rawCpuRestoreSupported**: `false`
+
+###### sourceIsaEmulationSupported
+
+> **sourceIsaEmulationSupported**: `false`
+
+###### appCheckpointHooksRequired
+
+> **appCheckpointHooksRequired**: `false`
+
+###### targetNativeNodeRequired
+
+> **targetNativeNodeRequired**: `true`
+
+###### metadataOnlySuccessAccepted
+
+> **metadataOnlySuccessAccepted**: `false`
+
+###### broadNodeSupportIsPartial
+
+> **broadNodeSupportIsPartial**: `true`
+
+***
+
+### NodeLevel5ProductSupport80ArtifactBundle
+
+> **NodeLevel5ProductSupport80ArtifactBundle** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_PRODUCT_SUPPORT_80_ARTIFACT_BUNDLE_KIND`](#node_level5_product_support_80_artifact_bundle_kind)
+
+##### version
+
+> **version**: *typeof* [`NODE_LEVEL5_PRODUCT_SUPPORT_80_VERSION`](#node_level5_product_support_80_version)
+
+##### familyId
+
+> **familyId**: [`NodeLevel5ProductSupport80FamilyId`](#nodelevel5productsupport80familyid)
+
+##### direction
+
+> **direction**: `"arm64-to-amd64"` \| `"amd64-to-arm64"`
+
+##### artifactRoot
+
+> **artifactRoot**: `string`
+
+##### manifestPath
+
+> **manifestPath**: `string`
+
+##### captureSummaryPath
+
+> **captureSummaryPath**: `string`
+
+##### restoreSummaryPath
+
+> **restoreSummaryPath**: `string`
+
+##### targetLogPath
+
+> **targetLogPath**: `string`
+
+##### targetNativeVerifierPath
+
+> **targetNativeVerifierPath**: `string`
+
+##### behavioralVerifierPath
+
+> **behavioralVerifierPath**: `string`
+
+##### refusalRowsPath
+
+> **refusalRowsPath**: `string`
+
+##### versionInfoPath
+
+> **versionInfoPath**: `string`
+
+##### triageBundlePath
+
+> **triageBundlePath**: `string`
+
+##### evidence
+
+> **evidence**: [`NodeLevel5RealVmCrossArchEvidence`](#nodelevel5realvmcrossarchevidence)
+
+***
+
+### NodeLevel5ProductSupport80ArtifactVerification
+
+> **NodeLevel5ProductSupport80ArtifactVerification** = `object`
+
+#### Properties
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### familyId
+
+> **familyId**: [`NodeLevel5ProductSupport80FamilyId`](#nodelevel5productsupport80familyid)
+
+##### direction
+
+> **direction**: `"arm64-to-amd64"` \| `"amd64-to-arm64"`
+
+##### checkedPaths
+
+> **checkedPaths**: readonly `string`[]
+
+##### targetNativeNodeVerified
+
+> **targetNativeNodeVerified**: `boolean`
+
+##### behavioralVerifierPassed
+
+> **behavioralVerifierPassed**: `boolean`
+
+##### rawCpuRestoreUsed
+
+> **rawCpuRestoreUsed**: `boolean`
+
+##### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `boolean`
+
+##### metadataOnlySuccessAccepted
+
+> **metadataOnlySuccessAccepted**: `boolean`
+
+##### manifestSchemaVerified
+
+> **manifestSchemaVerified**: `boolean`
+
+##### artifactHashesVerified
+
+> **artifactHashesVerified**: `boolean`
+
+##### retentionComplete
+
+> **retentionComplete**: `boolean`
+
+***
+
+### NodeLevel5ProductSupport80UnsupportedDetector
+
+> **NodeLevel5ProductSupport80UnsupportedDetector** = [`NodeLevel5ProductUnsupportedNeighbor`](#nodelevel5productunsupportedneighbor) & `object`
+
+#### Type Declaration
+
+##### detector
+
+> **detector**: `string`
+
+##### stable
+
+> **stable**: `true`
+
+##### artifactRequired
+
+> **artifactRequired**: `true`
+
+***
+
+### NodeLevel5ProductSupport80ClaimRegistry
+
+> **NodeLevel5ProductSupport80ClaimRegistry** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_PRODUCT_SUPPORT_80_HARDENING_KIND`](#node_level5_product_support_80_hardening_kind)
+
+##### status
+
+> **status**: `"node-product-support-80-hardened"`
+
+##### declaredSubsetExperimentalProductSupportClaimed
+
+> **declaredSubsetExperimentalProductSupportClaimed**: `100`
+
+##### nodeProductSupportTiers
+
+> **nodeProductSupportTiers**: readonly \[`20`, `50`, `65`, `80`\]
+
+##### nodeProductSupportClaimed
+
+> **nodeProductSupportClaimed**: `80`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `20`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
+
+##### realVmCrossArchEvidenceRequired
+
+> **realVmCrossArchEvidenceRequired**: `true`
+
+##### artifactRetentionDays
+
+> **artifactRetentionDays**: `30`
+
+##### flakeBudgetPercent
+
+> **flakeBudgetPercent**: `0`
+
+##### supportedFamilyCount
+
+> **supportedFamilyCount**: `17`
+
+##### unsupportedDetectorCount
+
+> **unsupportedDetectorCount**: `number`
+
+***
+
+### NodeLevel5ProductSupport80FamilyId
+
+> **NodeLevel5ProductSupport80FamilyId** = [`NodeLevel5ProductSupport65Family`](#nodelevel5productsupport65family)\[`"id"`\] \| `"express-fastify-http-app"` \| `"dependency-heavy-app"` \| `"streams-files-mixed-app"`
+
+***
+
+### NodeLevel5RealVmCrossArchEvidence
+
+> **NodeLevel5RealVmCrossArchEvidence** = `object`
+
+#### Properties
+
+##### familyId
+
+> **familyId**: [`NodeLevel5ProductSupport80FamilyId`](#nodelevel5productsupport80familyid)
+
+##### direction
+
+> **direction**: [`NodeLevel5ProductSupportDirection`](#nodelevel5productsupportdirection)
+
+##### substrate
+
+> **substrate**: `"machinen-real-vm-cross-arch"`
+
+##### artifactBundle
+
+> **artifactBundle**: `string`
+
+##### manifestVerified
+
+> **manifestVerified**: `true`
+
+##### captureSummaryVerified
+
+> **captureSummaryVerified**: `true`
+
+##### restoreSummaryVerified
+
+> **restoreSummaryVerified**: `true`
+
+##### targetLogsVerified
+
+> **targetLogsVerified**: `true`
+
+##### targetNativeNodeVerified
+
+> **targetNativeNodeVerified**: `true`
+
+##### behavioralVerifierPassed
+
+> **behavioralVerifierPassed**: `true`
+
+##### rawCpuRestoreUsed
+
+> **rawCpuRestoreUsed**: `false`
+
+##### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+##### metadataOnlySuccessAccepted
+
+> **metadataOnlySuccessAccepted**: `false`
+
+***
+
+### NodeLevel5ProductSupport80Family
+
+> **NodeLevel5ProductSupport80Family** = `object`
+
+#### Properties
+
+##### id
+
+> **id**: [`NodeLevel5ProductSupport80FamilyId`](#nodelevel5productsupport80familyid)
+
+##### title
+
+> **title**: `string`
+
+##### coveragePercent
+
+> **coveragePercent**: `4` \| `5`
+
+##### status
+
+> **status**: `"experimental-supported"`
+
+##### included
+
+> **included**: readonly `string`[]
+
+##### excluded
+
+> **excluded**: readonly `string`[]
+
+##### contractArtifact
+
+> **contractArtifact**: `string`
+
+##### e2eArtifact
+
+> **e2eArtifact**: `string`
+
+##### directions
+
+> **directions**: readonly [`NodeLevel5ProductSupportDirection`](#nodelevel5productsupportdirection)[]
+
+##### realVmCrossArchEvidence
+
+> **realVmCrossArchEvidence**: readonly [`NodeLevel5RealVmCrossArchEvidence`](#nodelevel5realvmcrossarchevidence)[]
+
+##### targetNativeVerified
+
+> **targetNativeVerified**: `true`
+
+##### productSupportClaimed
+
+> **productSupportClaimed**: `true`
+
+##### broadNodeFacilityAddressed
+
+> **broadNodeFacilityAddressed**: `boolean`
+
+***
+
+### NodeLevel5ProductSupport80Matrix
+
+> **NodeLevel5ProductSupport80Matrix** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_PRODUCT_SUPPORT_80_KIND`](#node_level5_product_support_80_kind)
+
+##### version
+
+> **version**: *typeof* [`NODE_LEVEL5_PRODUCT_SUPPORT_80_VERSION`](#node_level5_product_support_80_version)
+
+##### status
+
+> **status**: `"experimental-node-product-support-80"`
+
+##### nodeProductSupportClaimed
+
+> **nodeProductSupportClaimed**: `80`
+
+##### nodeProductSupportScope
+
+> **nodeProductSupportScope**: `"seventeen-service-app-and-boundary-families"`
+
+##### previousNodeProductSupportClaimed
+
+> **previousNodeProductSupportClaimed**: `65`
+
+##### newNodeProductSupportClaimed
+
+> **newNodeProductSupportClaimed**: `15`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `20`
+
+##### broadNodeProductSupportScope
+
+> **broadNodeProductSupportScope**: `"real-app-corpus-plus-selected-hard-facility-boundaries"`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
+
+##### node
+
+> **node**: `"22.x"`
+
+##### v8
+
+> **v8**: `"12.x pointer-compressed"`
+
+##### libuv
+
+> **libuv**: `"supported idle handles plus selected hard-facility boundaries"`
+
+##### families
+
+> **families**: readonly [`NodeLevel5ProductSupport80Family`](#nodelevel5productsupport80family)[]
+
+##### expandedUnsupportedNeighbors
+
+> **expandedUnsupportedNeighbors**: readonly [`NodeLevel5ProductUnsupportedNeighbor`](#nodelevel5productunsupportedneighbor)[]
+
+##### positiveRealAppCorpus
+
+> **positiveRealAppCorpus**: readonly `string`[]
+
+##### negativeRealAppCorpus
+
+> **negativeRealAppCorpus**: readonly `string`[]
+
+##### repeatabilityRuns
+
+> **repeatabilityRuns**: `30`
+
+##### flakeBudgetPercent
+
+> **flakeBudgetPercent**: `0`
+
+##### artifactRetention
+
+> **artifactRetention**: readonly `string`[]
+
+##### safety
+
+> **safety**: `object`
+
+###### rawCpuRestoreSupported
+
+> **rawCpuRestoreSupported**: `false`
+
+###### sourceIsaEmulationSupported
+
+> **sourceIsaEmulationSupported**: `false`
+
+###### appCheckpointHooksRequired
+
+> **appCheckpointHooksRequired**: `false`
+
+###### targetNativeNodeRequired
+
+> **targetNativeNodeRequired**: `true`
+
+###### metadataOnlySuccessAccepted
+
+> **metadataOnlySuccessAccepted**: `false`
+
+###### broadNodeSupportIsPartial
+
+> **broadNodeSupportIsPartial**: `true`
 
 ***
 
@@ -21925,6 +24461,534 @@ Poll interval in ms while retrying. Default 250.
 ### NodeLevel5ProofRefusalCode
 
 > **NodeLevel5ProofRefusalCode** = *typeof* [`nodeLevel5ProofRefusalCodes`](#nodelevel5proofrefusalcodes)\[`number`\]
+
+***
+
+### NodeLevel5ReadinessGateStatus
+
+> **NodeLevel5ReadinessGateStatus** = `"passed"` \| `"refused"` \| `"documented"`
+
+***
+
+### NodeLevel5ReadinessGate
+
+> **NodeLevel5ReadinessGate** = `object`
+
+#### Properties
+
+##### id
+
+> **id**: `string`
+
+##### family
+
+> **family**: `"narrow-product"` \| `"broad-proof"` \| `"final-audit"`
+
+##### title
+
+> **title**: `string`
+
+##### status
+
+> **status**: [`NodeLevel5ReadinessGateStatus`](#nodelevel5readinessgatestatus)
+
+##### artifact
+
+> **artifact**: `string`
+
+##### productSupportClaimed
+
+> **productSupportClaimed**: `false`
+
+##### broadProductSupportClaimed
+
+> **broadProductSupportClaimed**: `false`
+
+***
+
+### NodeLevel5UnsupportedNeighborGate
+
+> **NodeLevel5UnsupportedNeighborGate** = [`NodeLevel5ReadinessGate`](#nodelevel5readinessgate) & `object`
+
+#### Type Declaration
+
+##### refusalCode
+
+> **refusalCode**: `string`
+
+##### targetStarted
+
+> **targetStarted**: `false`
+
+##### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+##### rawCpuRestoreUsed
+
+> **rawCpuRestoreUsed**: `false`
+
+***
+
+### NodeLevel5AppCorpusGate
+
+> **NodeLevel5AppCorpusGate** = [`NodeLevel5ReadinessGate`](#nodelevel5readinessgate) & `object`
+
+#### Type Declaration
+
+##### appFamily
+
+> **appFamily**: `string`
+
+##### direction
+
+> **direction**: `"arm64-to-amd64"` \| `"amd64-to-arm64"` \| `"both"`
+
+##### repeatabilityRuns
+
+> **repeatabilityRuns**: `number`
+
+***
+
+### NodeLevel5ReadinessMatrix
+
+> **NodeLevel5ReadinessMatrix** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_READINESS_MATRIX_KIND`](#node_level5_readiness_matrix_kind)
+
+##### version
+
+> **version**: *typeof* [`NODE_LEVEL5_READINESS_MATRIX_VERSION`](#node_level5_readiness_matrix_version)
+
+##### status
+
+> **status**: `"proof-matrix-complete-product-support-not-claimed"`
+
+##### declaredSubsetCoverage
+
+> **declaredSubsetCoverage**: `100`
+
+##### narrowExperimentalProductReadiness
+
+> **narrowExperimentalProductReadiness**: `100`
+
+##### broadNodeProofReadiness
+
+> **broadNodeProofReadiness**: `100`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `0`
+
+##### arbitraryProcessCrossArchRestore
+
+> **arbitraryProcessCrossArchRestore**: `5`
+
+##### productSupportClaimed
+
+> **productSupportClaimed**: `false`
+
+##### broadLevel5ImplementationClaimed
+
+> **broadLevel5ImplementationClaimed**: `false`
+
+##### narrowProductGates
+
+> **narrowProductGates**: readonly [`NodeLevel5ReadinessGate`](#nodelevel5readinessgate)[]
+
+##### unsupportedNeighborGates
+
+> **unsupportedNeighborGates**: readonly [`NodeLevel5UnsupportedNeighborGate`](#nodelevel5unsupportedneighborgate)[]
+
+##### appCorpusGates
+
+> **appCorpusGates**: readonly [`NodeLevel5AppCorpusGate`](#nodelevel5appcorpusgate)[]
+
+##### repeatabilityGates
+
+> **repeatabilityGates**: readonly [`NodeLevel5ReadinessGate`](#nodelevel5readinessgate)[]
+
+##### finalAuditGates
+
+> **finalAuditGates**: readonly [`NodeLevel5ReadinessGate`](#nodelevel5readinessgate)[]
+
+***
+
+### NodeLevel5RealAppCorpusFramework
+
+> **NodeLevel5RealAppCorpusFramework** = `"express"` \| `"fastify"`
+
+***
+
+### NodeLevel5RealAppCorpusRow
+
+> **NodeLevel5RealAppCorpusRow** = [`NodeLevel5CorpusHttpEvidence`](#nodelevel5corpushttpevidence) & `object`
+
+#### Type Declaration
+
+##### framework
+
+> **framework**: [`NodeLevel5RealAppCorpusFramework`](#nodelevel5realappcorpusframework)
+
+##### direction
+
+> **direction**: [`NodeLevel5ProductSnapshotDirection`](#nodelevel5productsnapshotdirection)
+
+***
+
+### NodeLevel5RealAppCorpusReport
+
+> **NodeLevel5RealAppCorpusReport** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_REAL_APP_CORPUS_REPORT_KIND`](#node_level5_real_app_corpus_report_kind)
+
+##### version
+
+> **version**: *typeof* [`NODE_LEVEL5_REAL_APP_CORPUS_REPORT_VERSION`](#node_level5_real_app_corpus_report_version)
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### rowCount
+
+> **rowCount**: `number`
+
+##### rowsSha256
+
+> **rowsSha256**: `string`
+
+##### rows
+
+> **rows**: [`NodeLevel5RealAppCorpusRow`](#nodelevel5realappcorpusrow)[]
+
+##### harnessProof
+
+> **harnessProof**: `true`
+
+##### nodeProductSupportClaimed
+
+> **nodeProductSupportClaimed**: `80`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `20`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
+
+***
+
+### NodeLevel5RealAppCorpusVerification
+
+> **NodeLevel5RealAppCorpusVerification** = `object`
+
+#### Properties
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### kind
+
+> **kind**: `"machinen.node-level5-real-app-corpus-verification"`
+
+##### rowCount
+
+> **rowCount**: `number`
+
+##### rowsSha256Verified
+
+> **rowsSha256Verified**: `boolean`
+
+##### nodeProductSupportClaimed
+
+> **nodeProductSupportClaimed**: `80`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `20`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
+
+***
+
+### NodeLevel5RealAppRefusalMarker
+
+> **NodeLevel5RealAppRefusalMarker** = `"activeRequests"` \| `"workerThreads"` \| `"nativeAddons"` \| `"wasmExternalMemory"` \| `"tlsActiveState"` \| `"childProcesses"` \| `"filesystemWatchers"` \| `"websockets"` \| `"dbConnections"` \| `"redisQueueConnections"` \| `"outboundHttpSockets"` \| `"http2Sessions"` \| `"serverSentEvents"` \| `"openWritableFiles"` \| `"timersIntervals"` \| `"clusterMode"`
+
+***
+
+### NodeLevel5RealAppRefusalCorpusRow
+
+> **NodeLevel5RealAppRefusalCorpusRow** = `object`
+
+#### Properties
+
+##### framework
+
+> **framework**: [`NodeLevel5RealAppCorpusFramework`](#nodelevel5realappcorpusframework)
+
+##### direction
+
+> **direction**: [`NodeLevel5ProductSnapshotDirection`](#nodelevel5productsnapshotdirection)
+
+##### marker
+
+> **marker**: [`NodeLevel5RealAppRefusalMarker`](#nodelevel5realapprefusalmarker)
+
+##### expectedRefusalCode
+
+> **expectedRefusalCode**: [`NodeLevel5ProductSnapshotRefusalCode`](#nodelevel5productsnapshotrefusalcode)
+
+##### actualRefusalCode
+
+> **actualRefusalCode**: [`NodeLevel5ProductSnapshotRefusalCode`](#nodelevel5productsnapshotrefusalcode)
+
+##### snapshotAccepted
+
+> **snapshotAccepted**: `false`
+
+##### snapshotManifestWritten
+
+> **snapshotManifestWritten**: `false`
+
+##### refusedBeforeSnapshot
+
+> **refusedBeforeSnapshot**: `true`
+
+##### productCommandPath
+
+> **productCommandPath**: `"machinen snapshot node <pid> --out <dir>"`
+
+##### rawCpuRestoreUsed
+
+> **rawCpuRestoreUsed**: `false`
+
+##### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+##### metadataOnlySuccessAccepted
+
+> **metadataOnlySuccessAccepted**: `false`
+
+***
+
+### NodeLevel5RealAppRefusalCorpusReport
+
+> **NodeLevel5RealAppRefusalCorpusReport** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_REAL_APP_REFUSAL_CORPUS_REPORT_KIND`](#node_level5_real_app_refusal_corpus_report_kind)
+
+##### version
+
+> **version**: *typeof* [`NODE_LEVEL5_REAL_APP_REFUSAL_CORPUS_REPORT_VERSION`](#node_level5_real_app_refusal_corpus_report_version)
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### rowCount
+
+> **rowCount**: `number`
+
+##### rowsSha256
+
+> **rowsSha256**: `string`
+
+##### rows
+
+> **rows**: [`NodeLevel5RealAppRefusalCorpusRow`](#nodelevel5realapprefusalcorpusrow)[]
+
+##### harnessProof
+
+> **harnessProof**: `true`
+
+##### nodeProductSupportClaimed
+
+> **nodeProductSupportClaimed**: `80`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `20`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
+
+***
+
+### NodeLevel5RealAppRefusalCorpusVerification
+
+> **NodeLevel5RealAppRefusalCorpusVerification** = `object`
+
+#### Properties
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### kind
+
+> **kind**: `"machinen.node-level5-real-app-refusal-corpus-verification"`
+
+##### rowCount
+
+> **rowCount**: `number`
+
+##### rowsSha256Verified
+
+> **rowsSha256Verified**: `boolean`
+
+##### nodeProductSupportClaimed
+
+> **nodeProductSupportClaimed**: `80`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `20`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
+
+***
+
+### NodeLevel5ThirdPartyAppSource
+
+> **NodeLevel5ThirdPartyAppSource** = `"express-official-hello-world"` \| `"express-generator-router"` \| `"fastify-official-getting-started"` \| `"fastify-plugin-route"`
+
+***
+
+### NodeLevel5ThirdPartyAppCorpusRow
+
+> **NodeLevel5ThirdPartyAppCorpusRow** = [`NodeLevel5CorpusHttpEvidence`](#nodelevel5corpushttpevidence) & `object`
+
+#### Type Declaration
+
+##### appName
+
+> **appName**: `string`
+
+##### source
+
+> **source**: [`NodeLevel5ThirdPartyAppSource`](#nodelevel5thirdpartyappsource)
+
+##### framework
+
+> **framework**: [`NodeLevel5RealAppCorpusFramework`](#nodelevel5realappcorpusframework)
+
+##### direction
+
+> **direction**: [`NodeLevel5ProductSnapshotDirection`](#nodelevel5productsnapshotdirection)
+
+##### declaredSubset
+
+> **declaredSubset**: `true`
+
+##### unsupportedStateDetected
+
+> **unsupportedStateDetected**: `false`
+
+***
+
+### NodeLevel5ThirdPartyAppCorpusReport
+
+> **NodeLevel5ThirdPartyAppCorpusReport** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_THIRD_PARTY_APP_CORPUS_REPORT_KIND`](#node_level5_third_party_app_corpus_report_kind)
+
+##### version
+
+> **version**: *typeof* [`NODE_LEVEL5_THIRD_PARTY_APP_CORPUS_REPORT_VERSION`](#node_level5_third_party_app_corpus_report_version)
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### rowCount
+
+> **rowCount**: `number`
+
+##### rowsSha256
+
+> **rowsSha256**: `string`
+
+##### rows
+
+> **rows**: [`NodeLevel5ThirdPartyAppCorpusRow`](#nodelevel5thirdpartyappcorpusrow)[]
+
+##### harnessProof
+
+> **harnessProof**: `true`
+
+##### nodeProductSupportClaimed
+
+> **nodeProductSupportClaimed**: `80`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `20`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
+
+***
+
+### NodeLevel5ThirdPartyAppCorpusVerification
+
+> **NodeLevel5ThirdPartyAppCorpusVerification** = `object`
+
+#### Properties
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### kind
+
+> **kind**: `"machinen.node-level5-third-party-app-corpus-verification"`
+
+##### rowCount
+
+> **rowCount**: `number`
+
+##### rowsSha256Verified
+
+> **rowsSha256Verified**: `boolean`
+
+##### nodeProductSupportClaimed
+
+> **nodeProductSupportClaimed**: `80`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `20`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
 
 ***
 
@@ -23688,6 +26752,82 @@ loops; anything looser stops being a meaningful gate.
 
 ***
 
+### NODE\_LEVEL5\_APP\_SUPPORT\_MATRIX\_KIND
+
+> `const` **NODE\_LEVEL5\_APP\_SUPPORT\_MATRIX\_KIND**: `"machinen.node-level5-app-support-matrix"` = `"machinen.node-level5-app-support-matrix"`
+
+***
+
+### NODE\_LEVEL5\_APP\_SUPPORT\_MATRIX\_VERSION
+
+> `const` **NODE\_LEVEL5\_APP\_SUPPORT\_MATRIX\_VERSION**: `2` = `2`
+
+***
+
+### NODE\_LEVEL5\_DECLARED\_SUBSET\_FORMAT\_VERSION
+
+> `const` **NODE\_LEVEL5\_DECLARED\_SUBSET\_FORMAT\_VERSION**: `1` = `1`
+
+***
+
+### NODE\_LEVEL5\_DECLARED\_SUBSET\_MANIFEST
+
+> `const` **NODE\_LEVEL5\_DECLARED\_SUBSET\_MANIFEST**: `"machinen.node-level5-declared-subset-manifest"` = `"machinen.node-level5-declared-subset-manifest"`
+
+***
+
+### NODE\_LEVEL5\_DECLARED\_SUBSET\_RESTORE\_SUMMARY
+
+> `const` **NODE\_LEVEL5\_DECLARED\_SUBSET\_RESTORE\_SUMMARY**: `"machinen.node-level5-declared-subset-restore-summary"` = `"machinen.node-level5-declared-subset-restore-summary"`
+
+***
+
+### nodeLevel5DeclaredSubsetRefusalCodes
+
+> `const` **nodeLevel5DeclaredSubsetRefusalCodes**: `object`
+
+#### Type Declaration
+
+##### experimentalFlagRequired
+
+> `readonly` **experimentalFlagRequired**: `"node-level5-declared-subset-experimental-flag-required"` = `"node-level5-declared-subset-experimental-flag-required"`
+
+##### outputRequired
+
+> `readonly` **outputRequired**: `"node-level5-declared-subset-output-required"` = `"node-level5-declared-subset-output-required"`
+
+##### manifestRequired
+
+> `readonly` **manifestRequired**: `"node-level5-declared-subset-manifest-required"` = `"node-level5-declared-subset-manifest-required"`
+
+##### manifestMissing
+
+> `readonly` **manifestMissing**: `"node-level5-declared-subset-manifest-missing"` = `"node-level5-declared-subset-manifest-missing"`
+
+##### manifestInvalid
+
+> `readonly` **manifestInvalid**: `"node-level5-declared-subset-manifest-invalid"` = `"node-level5-declared-subset-manifest-invalid"`
+
+##### rawCpuRestoreRefused
+
+> `readonly` **rawCpuRestoreRefused**: `"node-level5-declared-subset-raw-cpu-restore-refused"` = `"node-level5-declared-subset-raw-cpu-restore-refused"`
+
+##### unsupportedNeighborRefused
+
+> `readonly` **unsupportedNeighborRefused**: `"node-level5-declared-subset-unsupported-neighbor-refused"` = `"node-level5-declared-subset-unsupported-neighbor-refused"`
+
+##### productClaimRefused
+
+> `readonly` **productClaimRefused**: `"node-level5-declared-subset-product-claim-refused"` = `"node-level5-declared-subset-product-claim-refused"`
+
+***
+
+### nodeLevel5DeclaredSubsetSupportMatrix
+
+> `const` **nodeLevel5DeclaredSubsetSupportMatrix**: [`NodeLevel5DeclaredSubsetSupportMatrix`](#nodelevel5declaredsubsetsupportmatrix)
+
+***
+
 ### NODE\_LEVEL5\_HTTP\_PROFILE\_FORMAT\_VERSION
 
 > `const` **NODE\_LEVEL5\_HTTP\_PROFILE\_FORMAT\_VERSION**: `1`
@@ -23703,6 +26843,234 @@ loops; anything looser stops being a meaningful gate.
 ### nodeLevel5HttpProfileRefusalCodes
 
 > `const` **nodeLevel5HttpProfileRefusalCodes**: readonly \[`"node-level5-http-arbitrary-v8-heap-native-stack-unsupported"`, `"node-level5-http-native-addon-unsupported"`, `"node-level5-http-worker-thread-unsupported"`, `"node-level5-http-inspector-unsupported"`, `"node-level5-http-active-request-unsupported"`, `"node-level5-http-active-tcp-stream-unsupported"`, `"node-level5-http-active-syscall-unsupported"`, `"node-level5-http-unsupported-timer-async-handle"`, `"node-level5-http-unsupported-module-runtime-state"`, `"node-level5-http-target-native-node-missing"`, `"node-level5-http-source-isa-emulation-forbidden"`, `"node-level5-http-sidecar-output-forbidden"`, `"node-level5-http-metadata-only-success-forbidden"`\]
+
+***
+
+### NODE\_LEVEL5\_INSTALLED\_THIRD\_PARTY\_APP\_CORPUS\_REPORT\_KIND
+
+> `const` **NODE\_LEVEL5\_INSTALLED\_THIRD\_PARTY\_APP\_CORPUS\_REPORT\_KIND**: `"machinen.node-level5-installed-third-party-app-corpus-report"` = `"machinen.node-level5-installed-third-party-app-corpus-report"`
+
+***
+
+### NODE\_LEVEL5\_INSTALLED\_THIRD\_PARTY\_APP\_CORPUS\_REPORT\_VERSION
+
+> `const` **NODE\_LEVEL5\_INSTALLED\_THIRD\_PARTY\_APP\_CORPUS\_REPORT\_VERSION**: `1` = `1`
+
+***
+
+### NODE\_LEVEL5\_PRODUCT\_SNAPSHOT\_KIND
+
+> `const` **NODE\_LEVEL5\_PRODUCT\_SNAPSHOT\_KIND**: `"machinen.node-level5-product-snapshot"` = `"machinen.node-level5-product-snapshot"`
+
+***
+
+### NODE\_LEVEL5\_PRODUCT\_SNAPSHOT\_VERSION
+
+> `const` **NODE\_LEVEL5\_PRODUCT\_SNAPSHOT\_VERSION**: `1` = `1`
+
+***
+
+### NODE\_LEVEL5\_PRODUCT\_DETECTOR\_REPORT\_KIND
+
+> `const` **NODE\_LEVEL5\_PRODUCT\_DETECTOR\_REPORT\_KIND**: `"machinen.node-level5-product-detector-report"` = `"machinen.node-level5-product-detector-report"`
+
+***
+
+### NODE\_LEVEL5\_PRODUCT\_TARGET\_IDENTITY\_KIND
+
+> `const` **NODE\_LEVEL5\_PRODUCT\_TARGET\_IDENTITY\_KIND**: `"machinen.node-level5-product-target-identity"` = `"machinen.node-level5-product-target-identity"`
+
+***
+
+### NODE\_LEVEL5\_PRODUCT\_CAPTURE\_REPORT\_KIND
+
+> `const` **NODE\_LEVEL5\_PRODUCT\_CAPTURE\_REPORT\_KIND**: `"machinen.node-level5-product-capture-report"` = `"machinen.node-level5-product-capture-report"`
+
+***
+
+### NODE\_LEVEL5\_PRODUCT\_RESTORE\_MATERIALIZATION\_REPORT\_KIND
+
+> `const` **NODE\_LEVEL5\_PRODUCT\_RESTORE\_MATERIALIZATION\_REPORT\_KIND**: `"machinen.node-level5-product-restore-materialization-report"` = `"machinen.node-level5-product-restore-materialization-report"`
+
+***
+
+### NODE\_LEVEL5\_PRODUCT\_RESTORE\_LAUNCH\_REPORT\_KIND
+
+> `const` **NODE\_LEVEL5\_PRODUCT\_RESTORE\_LAUNCH\_REPORT\_KIND**: `"machinen.node-level5-product-restore-launch-report"` = `"machinen.node-level5-product-restore-launch-report"`
+
+***
+
+### NODE\_LEVEL5\_PRODUCT\_BEHAVIORAL\_VERIFIER\_REPORT\_KIND
+
+> `const` **NODE\_LEVEL5\_PRODUCT\_BEHAVIORAL\_VERIFIER\_REPORT\_KIND**: `"machinen.node-level5-product-behavioral-verifier-report"` = `"machinen.node-level5-product-behavioral-verifier-report"`
+
+***
+
+### DEFAULT\_NODE\_LEVEL5\_PRODUCT\_SNAPSHOT\_DIRECTION
+
+> `const` **DEFAULT\_NODE\_LEVEL5\_PRODUCT\_SNAPSHOT\_DIRECTION**: `"arm64-to-amd64"` = `"arm64-to-amd64"`
+
+***
+
+### NODE\_LEVEL5\_PRODUCT\_SUPPORT\_20\_KIND
+
+> `const` **NODE\_LEVEL5\_PRODUCT\_SUPPORT\_20\_KIND**: `"machinen.node-level5-product-support-20"` = `"machinen.node-level5-product-support-20"`
+
+***
+
+### NODE\_LEVEL5\_PRODUCT\_SUPPORT\_20\_VERSION
+
+> `const` **NODE\_LEVEL5\_PRODUCT\_SUPPORT\_20\_VERSION**: `1` = `1`
+
+***
+
+### nodeLevel5ProductSupport20Families
+
+> `const` **nodeLevel5ProductSupport20Families**: readonly [`NodeLevel5ProductSupportFamily`](#nodelevel5productsupportfamily)[]
+
+***
+
+### nodeLevel5ProductUnsupportedNeighbors
+
+> `const` **nodeLevel5ProductUnsupportedNeighbors**: readonly [`NodeLevel5ProductUnsupportedNeighbor`](#nodelevel5productunsupportedneighbor)[]
+
+***
+
+### nodeLevel5ProductSupport20Matrix
+
+> `const` **nodeLevel5ProductSupport20Matrix**: [`NodeLevel5ProductSupport20Matrix`](#nodelevel5productsupport20matrix)
+
+***
+
+### NODE\_LEVEL5\_PRODUCT\_SUPPORT\_50\_KIND
+
+> `const` **NODE\_LEVEL5\_PRODUCT\_SUPPORT\_50\_KIND**: `"machinen.node-level5-product-support-50"` = `"machinen.node-level5-product-support-50"`
+
+***
+
+### NODE\_LEVEL5\_PRODUCT\_SUPPORT\_50\_VERSION
+
+> `const` **NODE\_LEVEL5\_PRODUCT\_SUPPORT\_50\_VERSION**: `1` = `1`
+
+***
+
+### nodeLevel5ProductSupport50NewFamilies
+
+> `const` **nodeLevel5ProductSupport50NewFamilies**: readonly [`NodeLevel5ProductSupport50Family`](#nodelevel5productsupport50family)[]
+
+***
+
+### nodeLevel5ProductSupport50Families
+
+> `const` **nodeLevel5ProductSupport50Families**: readonly [`NodeLevel5ProductSupport50Family`](#nodelevel5productsupport50family)[]
+
+***
+
+### nodeLevel5ProductSupport50ExpandedUnsupportedNeighbors
+
+> `const` **nodeLevel5ProductSupport50ExpandedUnsupportedNeighbors**: readonly [`NodeLevel5ProductUnsupportedNeighbor`](#nodelevel5productunsupportedneighbor)[]
+
+***
+
+### nodeLevel5ProductSupport50Matrix
+
+> `const` **nodeLevel5ProductSupport50Matrix**: [`NodeLevel5ProductSupport50Matrix`](#nodelevel5productsupport50matrix)
+
+***
+
+### NODE\_LEVEL5\_PRODUCT\_SUPPORT\_65\_KIND
+
+> `const` **NODE\_LEVEL5\_PRODUCT\_SUPPORT\_65\_KIND**: `"machinen.node-level5-product-support-65"` = `"machinen.node-level5-product-support-65"`
+
+***
+
+### NODE\_LEVEL5\_PRODUCT\_SUPPORT\_65\_VERSION
+
+> `const` **NODE\_LEVEL5\_PRODUCT\_SUPPORT\_65\_VERSION**: `1` = `1`
+
+***
+
+### nodeLevel5ProductSupport65NewFamilies
+
+> `const` **nodeLevel5ProductSupport65NewFamilies**: readonly [`NodeLevel5ProductSupport65Family`](#nodelevel5productsupport65family)[]
+
+***
+
+### nodeLevel5ProductSupport65Families
+
+> `const` **nodeLevel5ProductSupport65Families**: readonly [`NodeLevel5ProductSupport65Family`](#nodelevel5productsupport65family)[]
+
+***
+
+### nodeLevel5ProductSupport65ExpandedUnsupportedNeighbors
+
+> `const` **nodeLevel5ProductSupport65ExpandedUnsupportedNeighbors**: readonly [`NodeLevel5ProductUnsupportedNeighbor`](#nodelevel5productunsupportedneighbor)[]
+
+***
+
+### nodeLevel5ProductSupport65Matrix
+
+> `const` **nodeLevel5ProductSupport65Matrix**: [`NodeLevel5ProductSupport65Matrix`](#nodelevel5productsupport65matrix)
+
+***
+
+### NODE\_LEVEL5\_PRODUCT\_SUPPORT\_80\_ARTIFACT\_BUNDLE\_KIND
+
+> `const` **NODE\_LEVEL5\_PRODUCT\_SUPPORT\_80\_ARTIFACT\_BUNDLE\_KIND**: `"machinen.node-level5-product-support-80-artifact-bundle"` = `"machinen.node-level5-product-support-80-artifact-bundle"`
+
+***
+
+### NODE\_LEVEL5\_PRODUCT\_SUPPORT\_80\_HARDENING\_KIND
+
+> `const` **NODE\_LEVEL5\_PRODUCT\_SUPPORT\_80\_HARDENING\_KIND**: `"machinen.node-level5-product-support-80-hardening"` = `"machinen.node-level5-product-support-80-hardening"`
+
+***
+
+### nodeLevel5ProductSupport80UnsupportedDetectors
+
+> `const` **nodeLevel5ProductSupport80UnsupportedDetectors**: readonly [`NodeLevel5ProductSupport80UnsupportedDetector`](#nodelevel5productsupport80unsupporteddetector)[]
+
+***
+
+### nodeLevel5ProductSupport80ClaimRegistry
+
+> `const` **nodeLevel5ProductSupport80ClaimRegistry**: [`NodeLevel5ProductSupport80ClaimRegistry`](#nodelevel5productsupport80claimregistry)
+
+***
+
+### NODE\_LEVEL5\_PRODUCT\_SUPPORT\_80\_KIND
+
+> `const` **NODE\_LEVEL5\_PRODUCT\_SUPPORT\_80\_KIND**: `"machinen.node-level5-product-support-80"` = `"machinen.node-level5-product-support-80"`
+
+***
+
+### NODE\_LEVEL5\_PRODUCT\_SUPPORT\_80\_VERSION
+
+> `const` **NODE\_LEVEL5\_PRODUCT\_SUPPORT\_80\_VERSION**: `1` = `1`
+
+***
+
+### nodeLevel5ProductSupport80NewFamilies
+
+> `const` **nodeLevel5ProductSupport80NewFamilies**: readonly [`NodeLevel5ProductSupport80Family`](#nodelevel5productsupport80family)[]
+
+***
+
+### nodeLevel5ProductSupport80Families
+
+> `const` **nodeLevel5ProductSupport80Families**: readonly [`NodeLevel5ProductSupport80Family`](#nodelevel5productsupport80family)[]
+
+***
+
+### nodeLevel5ProductSupport80ExpandedUnsupportedNeighbors
+
+> `const` **nodeLevel5ProductSupport80ExpandedUnsupportedNeighbors**: readonly [`NodeLevel5ProductUnsupportedNeighbor`](#nodelevel5productunsupportedneighbor)[]
+
+***
+
+### nodeLevel5ProductSupport80Matrix
+
+> `const` **nodeLevel5ProductSupport80Matrix**: [`NodeLevel5ProductSupport80Matrix`](#nodelevel5productsupport80matrix)
 
 ***
 
@@ -23724,9 +27092,87 @@ loops; anything looser stops being a meaningful gate.
 
 ***
 
+### NODE\_LEVEL5\_READINESS\_MATRIX\_KIND
+
+> `const` **NODE\_LEVEL5\_READINESS\_MATRIX\_KIND**: `"machinen.node-level5-readiness-matrix"` = `"machinen.node-level5-readiness-matrix"`
+
+***
+
+### NODE\_LEVEL5\_READINESS\_MATRIX\_VERSION
+
+> `const` **NODE\_LEVEL5\_READINESS\_MATRIX\_VERSION**: `1` = `1`
+
+***
+
+### nodeLevel5NarrowProductReadinessGates
+
+> `const` **nodeLevel5NarrowProductReadinessGates**: readonly [`NodeLevel5ReadinessGate`](#nodelevel5readinessgate)[]
+
+***
+
+### nodeLevel5UnsupportedNeighborGates
+
+> `const` **nodeLevel5UnsupportedNeighborGates**: readonly [`NodeLevel5UnsupportedNeighborGate`](#nodelevel5unsupportedneighborgate)[]
+
+***
+
+### nodeLevel5AppCorpusGates
+
+> `const` **nodeLevel5AppCorpusGates**: readonly [`NodeLevel5AppCorpusGate`](#nodelevel5appcorpusgate)[]
+
+***
+
+### nodeLevel5FinalAuditGates
+
+> `const` **nodeLevel5FinalAuditGates**: readonly [`NodeLevel5ReadinessGate`](#nodelevel5readinessgate)[]
+
+***
+
+### nodeLevel5ReadinessMatrix
+
+> `const` **nodeLevel5ReadinessMatrix**: [`NodeLevel5ReadinessMatrix`](#nodelevel5readinessmatrix)
+
+***
+
+### NODE\_LEVEL5\_REAL\_APP\_CORPUS\_REPORT\_KIND
+
+> `const` **NODE\_LEVEL5\_REAL\_APP\_CORPUS\_REPORT\_KIND**: `"machinen.node-level5-real-app-corpus-report"` = `"machinen.node-level5-real-app-corpus-report"`
+
+***
+
+### NODE\_LEVEL5\_REAL\_APP\_CORPUS\_REPORT\_VERSION
+
+> `const` **NODE\_LEVEL5\_REAL\_APP\_CORPUS\_REPORT\_VERSION**: `1` = `1`
+
+***
+
+### NODE\_LEVEL5\_REAL\_APP\_REFUSAL\_CORPUS\_REPORT\_KIND
+
+> `const` **NODE\_LEVEL5\_REAL\_APP\_REFUSAL\_CORPUS\_REPORT\_KIND**: `"machinen.node-level5-real-app-refusal-corpus-report"` = `"machinen.node-level5-real-app-refusal-corpus-report"`
+
+***
+
+### NODE\_LEVEL5\_REAL\_APP\_REFUSAL\_CORPUS\_REPORT\_VERSION
+
+> `const` **NODE\_LEVEL5\_REAL\_APP\_REFUSAL\_CORPUS\_REPORT\_VERSION**: `1` = `1`
+
+***
+
 ### NODE\_LEVEL5\_TARGET\_SIDE\_PROOF\_FORMAT\_VERSION
 
 > `const` **NODE\_LEVEL5\_TARGET\_SIDE\_PROOF\_FORMAT\_VERSION**: `1`
+
+***
+
+### NODE\_LEVEL5\_THIRD\_PARTY\_APP\_CORPUS\_REPORT\_KIND
+
+> `const` **NODE\_LEVEL5\_THIRD\_PARTY\_APP\_CORPUS\_REPORT\_KIND**: `"machinen.node-level5-third-party-app-corpus-report"` = `"machinen.node-level5-third-party-app-corpus-report"`
+
+***
+
+### NODE\_LEVEL5\_THIRD\_PARTY\_APP\_CORPUS\_REPORT\_VERSION
+
+> `const` **NODE\_LEVEL5\_THIRD\_PARTY\_APP\_CORPUS\_REPORT\_VERSION**: `1` = `1`
 
 ***
 
@@ -26428,6 +29874,94 @@ available.
 
 ***
 
+### buildNodeLevel5AppSupportMatrix()
+
+> **buildNodeLevel5AppSupportMatrix**(): [`NodeLevel5AppSupportMatrix`](#nodelevel5appsupportmatrix)
+
+#### Returns
+
+[`NodeLevel5AppSupportMatrix`](#nodelevel5appsupportmatrix)
+
+***
+
+### supportedNodeLevel5AppSupportRows()
+
+> **supportedNodeLevel5AppSupportRows**(): [`NodeLevel5AppSupportMatrixRow`](#nodelevel5appsupportmatrixrow)[]
+
+#### Returns
+
+[`NodeLevel5AppSupportMatrixRow`](#nodelevel5appsupportmatrixrow)[]
+
+***
+
+### refusedNodeLevel5AppSupportRows()
+
+> **refusedNodeLevel5AppSupportRows**(): [`NodeLevel5AppSupportMatrixRow`](#nodelevel5appsupportmatrixrow)[]
+
+#### Returns
+
+[`NodeLevel5AppSupportMatrixRow`](#nodelevel5appsupportmatrixrow)[]
+
+***
+
+### notProvenNodeLevel5AppSupportRows()
+
+> **notProvenNodeLevel5AppSupportRows**(): [`NodeLevel5AppSupportMatrixRow`](#nodelevel5appsupportmatrixrow)[]
+
+#### Returns
+
+[`NodeLevel5AppSupportMatrixRow`](#nodelevel5appsupportmatrixrow)[]
+
+***
+
+### createNodeLevel5DeclaredSubsetCapture()
+
+> **createNodeLevel5DeclaredSubsetCapture**(`input`): [`NodeLevel5DeclaredSubsetCaptureSummary`](#nodelevel5declaredsubsetcapturesummary)
+
+#### Parameters
+
+##### input
+
+[`CreateNodeLevel5DeclaredSubsetCaptureInput`](#createnodelevel5declaredsubsetcaptureinput)
+
+#### Returns
+
+[`NodeLevel5DeclaredSubsetCaptureSummary`](#nodelevel5declaredsubsetcapturesummary)
+
+***
+
+### restoreNodeLevel5DeclaredSubset()
+
+> **restoreNodeLevel5DeclaredSubset**(`input`): [`NodeLevel5DeclaredSubsetRestoreSummary`](#nodelevel5declaredsubsetrestoresummary)
+
+#### Parameters
+
+##### input
+
+[`RestoreNodeLevel5DeclaredSubsetInput`](#restorenodelevel5declaredsubsetinput)
+
+#### Returns
+
+[`NodeLevel5DeclaredSubsetRestoreSummary`](#nodelevel5declaredsubsetrestoresummary)
+
+***
+
+### isNodeLevel5DeclaredSubsetManifest()
+
+> **isNodeLevel5DeclaredSubsetManifest**(`value`): `value is NodeLevel5DeclaredSubsetManifest`
+
+#### Parameters
+
+##### value
+
+`unknown`
+
+#### Returns
+
+`value is NodeLevel5DeclaredSubsetManifest`
+
+***
+
 ### buildNodeLevel5HttpProfileCapture()
 
 > **buildNodeLevel5HttpProfileCapture**(`input`): [`NodeLevel5HttpProfileCapture`](#nodelevel5httpprofilecapture)
@@ -26470,6 +30004,304 @@ available.
 
 ***
 
+### createNodeLevel5InstalledThirdPartyAppCorpusReport()
+
+> **createNodeLevel5InstalledThirdPartyAppCorpusReport**(`rows`): [`NodeLevel5InstalledThirdPartyAppCorpusReport`](#nodelevel5installedthirdpartyappcorpusreport)
+
+#### Parameters
+
+##### rows
+
+[`NodeLevel5InstalledThirdPartyAppCorpusRow`](#nodelevel5installedthirdpartyappcorpusrow)[]
+
+#### Returns
+
+[`NodeLevel5InstalledThirdPartyAppCorpusReport`](#nodelevel5installedthirdpartyappcorpusreport)
+
+***
+
+### writeNodeLevel5InstalledThirdPartyAppCorpusReport()
+
+> **writeNodeLevel5InstalledThirdPartyAppCorpusReport**(`input`): [`NodeLevel5InstalledThirdPartyAppCorpusReport`](#nodelevel5installedthirdpartyappcorpusreport)
+
+#### Parameters
+
+##### input
+
+###### path
+
+`string`
+
+###### rows
+
+[`NodeLevel5InstalledThirdPartyAppCorpusRow`](#nodelevel5installedthirdpartyappcorpusrow)[]
+
+#### Returns
+
+[`NodeLevel5InstalledThirdPartyAppCorpusReport`](#nodelevel5installedthirdpartyappcorpusreport)
+
+***
+
+### verifyNodeLevel5InstalledThirdPartyAppCorpusReport()
+
+> **verifyNodeLevel5InstalledThirdPartyAppCorpusReport**(`report`): [`NodeLevel5InstalledThirdPartyAppCorpusVerification`](#nodelevel5installedthirdpartyappcorpusverification)
+
+#### Parameters
+
+##### report
+
+[`NodeLevel5InstalledThirdPartyAppCorpusReport`](#nodelevel5installedthirdpartyappcorpusreport)
+
+#### Returns
+
+[`NodeLevel5InstalledThirdPartyAppCorpusVerification`](#nodelevel5installedthirdpartyappcorpusverification)
+
+***
+
+### loadNodeLevel5InstalledThirdPartyAppCorpusReport()
+
+> **loadNodeLevel5InstalledThirdPartyAppCorpusReport**(`path`): [`NodeLevel5InstalledThirdPartyAppCorpusReport`](#nodelevel5installedthirdpartyappcorpusreport)
+
+#### Parameters
+
+##### path
+
+`string`
+
+#### Returns
+
+[`NodeLevel5InstalledThirdPartyAppCorpusReport`](#nodelevel5installedthirdpartyappcorpusreport)
+
+***
+
+### createNodeLevel5ProductSnapshot()
+
+> **createNodeLevel5ProductSnapshot**(`input`): [`NodeLevel5ProductSnapshotSummary`](#nodelevel5productsnapshotsummary)
+
+#### Parameters
+
+##### input
+
+###### outDir
+
+`string`
+
+###### appDir?
+
+`string`
+
+###### target?
+
+`Partial`\<[`NodeLevel5ProductTargetIdentity`](#nodelevel5producttargetidentity)\> & `object`
+
+###### direction?
+
+[`NodeLevel5ProductSnapshotDirection`](#nodelevel5productsnapshotdirection)
+
+#### Returns
+
+[`NodeLevel5ProductSnapshotSummary`](#nodelevel5productsnapshotsummary)
+
+***
+
+### detectNodeLevel5ProductSnapshotApp()
+
+> **detectNodeLevel5ProductSnapshotApp**(`input`): [`NodeLevel5ProductDetectorReport`](#nodelevel5productdetectorreport)
+
+#### Parameters
+
+##### input
+
+###### appDir
+
+`string`
+
+###### direction?
+
+[`NodeLevel5ProductSnapshotDirection`](#nodelevel5productsnapshotdirection)
+
+#### Returns
+
+[`NodeLevel5ProductDetectorReport`](#nodelevel5productdetectorreport)
+
+***
+
+### isNodeLevel5ProductSnapshotBundle()
+
+> **isNodeLevel5ProductSnapshotBundle**(`snapshotDir`): `boolean`
+
+#### Parameters
+
+##### snapshotDir
+
+`string`
+
+#### Returns
+
+`boolean`
+
+***
+
+### restoreNodeLevel5ProductSnapshot()
+
+> **restoreNodeLevel5ProductSnapshot**(`input`): [`NodeLevel5ProductRestoreSummary`](#nodelevel5productrestoresummary)
+
+#### Parameters
+
+##### input
+
+###### snapshotDir
+
+`string`
+
+#### Returns
+
+[`NodeLevel5ProductRestoreSummary`](#nodelevel5productrestoresummary)
+
+***
+
+### assertNodeLevel5ProductSupport20MatrixComplete()
+
+> **assertNodeLevel5ProductSupport20MatrixComplete**(`matrix?`): `boolean`
+
+#### Parameters
+
+##### matrix?
+
+[`NodeLevel5ProductSupport20Matrix`](#nodelevel5productsupport20matrix) = `nodeLevel5ProductSupport20Matrix`
+
+#### Returns
+
+`boolean`
+
+***
+
+### assertNodeLevel5ProductSupport50MatrixComplete()
+
+> **assertNodeLevel5ProductSupport50MatrixComplete**(`matrix?`): `boolean`
+
+#### Parameters
+
+##### matrix?
+
+[`NodeLevel5ProductSupport50Matrix`](#nodelevel5productsupport50matrix) = `nodeLevel5ProductSupport50Matrix`
+
+#### Returns
+
+`boolean`
+
+***
+
+### assertNodeLevel5ProductSupport65MatrixComplete()
+
+> **assertNodeLevel5ProductSupport65MatrixComplete**(`matrix?`): `boolean`
+
+#### Parameters
+
+##### matrix?
+
+[`NodeLevel5ProductSupport65Matrix`](#nodelevel5productsupport65matrix) = `nodeLevel5ProductSupport65Matrix`
+
+#### Returns
+
+`boolean`
+
+***
+
+### createNodeLevel5ProductSupport80ArtifactBundle()
+
+> **createNodeLevel5ProductSupport80ArtifactBundle**(`input`): [`NodeLevel5ProductSupport80ArtifactBundle`](#nodelevel5productsupport80artifactbundle)
+
+#### Parameters
+
+##### input
+
+###### outDir
+
+`string`
+
+###### familyId
+
+[`NodeLevel5ProductSupport80FamilyId`](#nodelevel5productsupport80familyid)
+
+###### direction
+
+`"arm64-to-amd64"` \| `"amd64-to-arm64"`
+
+#### Returns
+
+[`NodeLevel5ProductSupport80ArtifactBundle`](#nodelevel5productsupport80artifactbundle)
+
+***
+
+### loadNodeLevel5ProductSupport80ArtifactBundle()
+
+> **loadNodeLevel5ProductSupport80ArtifactBundle**(`input`): [`NodeLevel5ProductSupport80ArtifactBundle`](#nodelevel5productsupport80artifactbundle)
+
+#### Parameters
+
+##### input
+
+###### artifactRoot
+
+`string`
+
+###### familyId
+
+[`NodeLevel5ProductSupport80FamilyId`](#nodelevel5productsupport80familyid)
+
+###### direction
+
+`"arm64-to-amd64"` \| `"amd64-to-arm64"`
+
+#### Returns
+
+[`NodeLevel5ProductSupport80ArtifactBundle`](#nodelevel5productsupport80artifactbundle)
+
+***
+
+### verifyNodeLevel5ProductSupport80ArtifactBundle()
+
+> **verifyNodeLevel5ProductSupport80ArtifactBundle**(`bundle`): [`NodeLevel5ProductSupport80ArtifactVerification`](#nodelevel5productsupport80artifactverification)
+
+#### Parameters
+
+##### bundle
+
+[`NodeLevel5ProductSupport80ArtifactBundle`](#nodelevel5productsupport80artifactbundle)
+
+#### Returns
+
+[`NodeLevel5ProductSupport80ArtifactVerification`](#nodelevel5productsupport80artifactverification)
+
+***
+
+### assertNodeLevel5ProductSupport80HardeningComplete()
+
+> **assertNodeLevel5ProductSupport80HardeningComplete**(): `boolean`
+
+#### Returns
+
+`boolean`
+
+***
+
+### assertNodeLevel5ProductSupport80MatrixComplete()
+
+> **assertNodeLevel5ProductSupport80MatrixComplete**(`matrix?`): `boolean`
+
+#### Parameters
+
+##### matrix?
+
+[`NodeLevel5ProductSupport80Matrix`](#nodelevel5productsupport80matrix) = `nodeLevel5ProductSupport80Matrix`
+
+#### Returns
+
+`boolean`
+
+***
+
 ### buildNodeLevel5ProofComposition()
 
 > **buildNodeLevel5ProofComposition**(`input`): [`NodeLevel5ProofComposition`](#nodelevel5proofcomposition)
@@ -26486,6 +30318,162 @@ available.
 
 ***
 
+### assertNodeLevel5ReadinessMatrixComplete()
+
+> **assertNodeLevel5ReadinessMatrixComplete**(`matrix?`): `boolean`
+
+#### Parameters
+
+##### matrix?
+
+[`NodeLevel5ReadinessMatrix`](#nodelevel5readinessmatrix) = `nodeLevel5ReadinessMatrix`
+
+#### Returns
+
+`boolean`
+
+***
+
+### createNodeLevel5RealAppCorpusReport()
+
+> **createNodeLevel5RealAppCorpusReport**(`rows`): [`NodeLevel5RealAppCorpusReport`](#nodelevel5realappcorpusreport)
+
+#### Parameters
+
+##### rows
+
+[`NodeLevel5RealAppCorpusRow`](#nodelevel5realappcorpusrow)[]
+
+#### Returns
+
+[`NodeLevel5RealAppCorpusReport`](#nodelevel5realappcorpusreport)
+
+***
+
+### writeNodeLevel5RealAppCorpusReport()
+
+> **writeNodeLevel5RealAppCorpusReport**(`input`): [`NodeLevel5RealAppCorpusReport`](#nodelevel5realappcorpusreport)
+
+#### Parameters
+
+##### input
+
+###### path
+
+`string`
+
+###### rows
+
+[`NodeLevel5RealAppCorpusRow`](#nodelevel5realappcorpusrow)[]
+
+#### Returns
+
+[`NodeLevel5RealAppCorpusReport`](#nodelevel5realappcorpusreport)
+
+***
+
+### verifyNodeLevel5RealAppCorpusReport()
+
+> **verifyNodeLevel5RealAppCorpusReport**(`report`): [`NodeLevel5RealAppCorpusVerification`](#nodelevel5realappcorpusverification)
+
+#### Parameters
+
+##### report
+
+[`NodeLevel5RealAppCorpusReport`](#nodelevel5realappcorpusreport)
+
+#### Returns
+
+[`NodeLevel5RealAppCorpusVerification`](#nodelevel5realappcorpusverification)
+
+***
+
+### loadNodeLevel5RealAppCorpusReport()
+
+> **loadNodeLevel5RealAppCorpusReport**(`path`): [`NodeLevel5RealAppCorpusReport`](#nodelevel5realappcorpusreport)
+
+#### Parameters
+
+##### path
+
+`string`
+
+#### Returns
+
+[`NodeLevel5RealAppCorpusReport`](#nodelevel5realappcorpusreport)
+
+***
+
+### createNodeLevel5RealAppRefusalCorpusReport()
+
+> **createNodeLevel5RealAppRefusalCorpusReport**(`rows`): [`NodeLevel5RealAppRefusalCorpusReport`](#nodelevel5realapprefusalcorpusreport)
+
+#### Parameters
+
+##### rows
+
+[`NodeLevel5RealAppRefusalCorpusRow`](#nodelevel5realapprefusalcorpusrow)[]
+
+#### Returns
+
+[`NodeLevel5RealAppRefusalCorpusReport`](#nodelevel5realapprefusalcorpusreport)
+
+***
+
+### writeNodeLevel5RealAppRefusalCorpusReport()
+
+> **writeNodeLevel5RealAppRefusalCorpusReport**(`input`): [`NodeLevel5RealAppRefusalCorpusReport`](#nodelevel5realapprefusalcorpusreport)
+
+#### Parameters
+
+##### input
+
+###### path
+
+`string`
+
+###### rows
+
+[`NodeLevel5RealAppRefusalCorpusRow`](#nodelevel5realapprefusalcorpusrow)[]
+
+#### Returns
+
+[`NodeLevel5RealAppRefusalCorpusReport`](#nodelevel5realapprefusalcorpusreport)
+
+***
+
+### verifyNodeLevel5RealAppRefusalCorpusReport()
+
+> **verifyNodeLevel5RealAppRefusalCorpusReport**(`report`): [`NodeLevel5RealAppRefusalCorpusVerification`](#nodelevel5realapprefusalcorpusverification)
+
+#### Parameters
+
+##### report
+
+[`NodeLevel5RealAppRefusalCorpusReport`](#nodelevel5realapprefusalcorpusreport)
+
+#### Returns
+
+[`NodeLevel5RealAppRefusalCorpusVerification`](#nodelevel5realapprefusalcorpusverification)
+
+***
+
+### loadNodeLevel5RealAppRefusalCorpusReport()
+
+> **loadNodeLevel5RealAppRefusalCorpusReport**(`path`): [`NodeLevel5RealAppRefusalCorpusReport`](#nodelevel5realapprefusalcorpusreport)
+
+#### Parameters
+
+##### path
+
+`string`
+
+#### Returns
+
+[`NodeLevel5RealAppRefusalCorpusReport`](#nodelevel5realapprefusalcorpusreport)
+
+***
+
 ### runNodeLevel5TargetSideProof()
 
 > **runNodeLevel5TargetSideProof**(`input?`): `Promise`\<[`NodeLevel5TargetSideProof`](#nodelevel5targetsideproof)\>
@@ -26499,6 +30487,76 @@ available.
 #### Returns
 
 `Promise`\<[`NodeLevel5TargetSideProof`](#nodelevel5targetsideproof)\>
+
+***
+
+### createNodeLevel5ThirdPartyAppCorpusReport()
+
+> **createNodeLevel5ThirdPartyAppCorpusReport**(`rows`): [`NodeLevel5ThirdPartyAppCorpusReport`](#nodelevel5thirdpartyappcorpusreport)
+
+#### Parameters
+
+##### rows
+
+[`NodeLevel5ThirdPartyAppCorpusRow`](#nodelevel5thirdpartyappcorpusrow)[]
+
+#### Returns
+
+[`NodeLevel5ThirdPartyAppCorpusReport`](#nodelevel5thirdpartyappcorpusreport)
+
+***
+
+### writeNodeLevel5ThirdPartyAppCorpusReport()
+
+> **writeNodeLevel5ThirdPartyAppCorpusReport**(`input`): [`NodeLevel5ThirdPartyAppCorpusReport`](#nodelevel5thirdpartyappcorpusreport)
+
+#### Parameters
+
+##### input
+
+###### path
+
+`string`
+
+###### rows
+
+[`NodeLevel5ThirdPartyAppCorpusRow`](#nodelevel5thirdpartyappcorpusrow)[]
+
+#### Returns
+
+[`NodeLevel5ThirdPartyAppCorpusReport`](#nodelevel5thirdpartyappcorpusreport)
+
+***
+
+### verifyNodeLevel5ThirdPartyAppCorpusReport()
+
+> **verifyNodeLevel5ThirdPartyAppCorpusReport**(`report`): [`NodeLevel5ThirdPartyAppCorpusVerification`](#nodelevel5thirdpartyappcorpusverification)
+
+#### Parameters
+
+##### report
+
+[`NodeLevel5ThirdPartyAppCorpusReport`](#nodelevel5thirdpartyappcorpusreport)
+
+#### Returns
+
+[`NodeLevel5ThirdPartyAppCorpusVerification`](#nodelevel5thirdpartyappcorpusverification)
+
+***
+
+### loadNodeLevel5ThirdPartyAppCorpusReport()
+
+> **loadNodeLevel5ThirdPartyAppCorpusReport**(`path`): [`NodeLevel5ThirdPartyAppCorpusReport`](#nodelevel5thirdpartyappcorpusreport)
+
+#### Parameters
+
+##### path
+
+`string`
+
+#### Returns
+
+[`NodeLevel5ThirdPartyAppCorpusReport`](#nodelevel5thirdpartyappcorpusreport)
 
 ***
 

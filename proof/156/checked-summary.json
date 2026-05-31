@@ -1,0 +1,51 @@
+{
+  "kind": "machinen.node-proper-level5-declared-subset-100-proof-summary",
+  "proof": "156",
+  "title": "Exact supported subset contract",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "declaredSubsetCoverage": 100,
+  "accepted": {
+    "proof": "156",
+    "title": "Exact supported subset contract",
+    "targetStartedBeforeVerification": false,
+    "coveredGates": [
+      "contract",
+      "implementation-boundary",
+      "positive-lane",
+      "negative-lane",
+      "docs-or-registry"
+    ],
+    "coverage": 100,
+    "digest": "06cb8877ffb6d01d0e00e7212c0e5d6bbc9854b7852f9c504755278d88afa131",
+    "productSupportClaimed": false,
+    "broadLevel5ImplementationClaimed": false
+  },
+  "refusedRows": [
+    {
+      "id": "missing-required-gate",
+      "expectedCode": "node-proper-level5-subset-contract-refused",
+      "actualCode": "node-proper-level5-subset-contract-refused",
+      "targetStarted": false
+    },
+    {
+      "id": "unsupported-neighbor",
+      "expectedCode": "node-proper-level5-declared-subset-unsupported-neighbor-refused",
+      "actualCode": "node-proper-level5-declared-subset-unsupported-neighbor-refused",
+      "targetStarted": false
+    },
+    {
+      "id": "broad-product-claim",
+      "expectedCode": "node-proper-level5-broad-product-claim-refused",
+      "actualCode": "node-proper-level5-broad-product-claim-refused",
+      "targetStarted": false
+    }
+  ],
+  "assertions": {
+    "subsetContractPinned": true,
+    "declaredSubsetGateCoveredAt100Percent": true,
+    "unsupportedNeighborsRefuseBeforeTargetStart": true,
+    "broadProductClaimRefused": true
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "kind": "machinen.node-level5-product-support-65-proof-summary",
+  "proof": "287",
+  "goal": "Public docs and version policy update",
+  "result": "Support page explains 65% scope and pinned runtime boundary.",
+  "status": "experimental-node-product-support-65",
+  "nodeProductSupportClaimed": 65,
+  "nodeProductSupportScope": "fourteen-service-and-boundary-families",
+  "previousNodeProductSupportClaimed": 50,
+  "newNodeProductSupportClaimed": 15,
+  "broadNodeProductSupportClaimed": 5,
+  "broadNodeProductSupportScope": "selected-hard-facility-boundaries",
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "docsMention65Percent": true,
+  "docsMentionBroadFive": true,
+  "docsMatrixClaim": 65,
+  "node": "22.x",
+  "v8": "12.x pointer-compressed",
+  "libuv": "supported idle handles plus selected hard-facility boundaries"
+}

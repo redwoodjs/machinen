@@ -1,0 +1,31 @@
+{
+  "kind": "machinen.node-level5-product-support-65-proof-summary",
+  "proof": "285",
+  "goal": "Target-native verifier for hard boundaries",
+  "result": "Verifies hard-boundary behavior on target, not metadata-only success.",
+  "status": "experimental-node-product-support-65",
+  "nodeProductSupportClaimed": 65,
+  "nodeProductSupportScope": "fourteen-service-and-boundary-families",
+  "previousNodeProductSupportClaimed": 50,
+  "newNodeProductSupportClaimed": 15,
+  "broadNodeProductSupportClaimed": 5,
+  "broadNodeProductSupportScope": "selected-hard-facility-boundaries",
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "targetNativeVerifiedFamilies": [
+    "idle-http-listener",
+    "timer-service",
+    "plain-js-heap",
+    "readonly-file-stdio",
+    "pipes-streams-idle",
+    "http-keepalive-idle-pool",
+    "completed-microtask-checkpoint",
+    "promise-async-closure-graph",
+    "commonjs-esm-module-cache",
+    "json-config-data-heap-graph",
+    "graceful-shutdown-lifecycle",
+    "active-async-idle-boundary",
+    "tls-boundary-policy",
+    "child-process-boundary"
+  ],
+  "metadataOnlySuccessAccepted": false
+}

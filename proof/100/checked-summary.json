@@ -1,0 +1,61 @@
+{
+  "kind": "machinen.node-proper-level5-real-guest-capture-to-amd64-e2e-summary",
+  "proof": "100",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "parser": {
+    "accepted": true,
+    "nativeParserStarted": true,
+    "targetStarted": false,
+    "recordsParsed": 5,
+    "schema": "machinen.real-guest-capture-record-v1",
+    "productSupportClaimed": false,
+    "broadLevel5ImplementationClaimed": false
+  },
+  "decoded": {
+    "accepted": true,
+    "nativeDecoderStarted": true,
+    "targetStarted": false,
+    "decodedFromCapturedBytes": true,
+    "count": 2,
+    "graphTotal": 2,
+    "evidenceOffset": 73,
+    "productSupportClaimed": false,
+    "broadLevel5ImplementationClaimed": false
+  },
+  "verifier": {
+    "accepted": true,
+    "structuredJsonParsed": true,
+    "targetStarted": false,
+    "sourceArchitecture": "arm64",
+    "targetArchitecture": "amd64",
+    "count": 2,
+    "graphTotal": 2,
+    "productSupportClaimed": false,
+    "broadLevel5ImplementationClaimed": false
+  },
+  "response": {
+    "count": 3,
+    "graphTotal": 3,
+    "processArch": "amd64",
+    "targetNativeNodeUsed": true,
+    "sourceIsaEmulationUsed": false
+  },
+  "refusedRows": [
+    {
+      "id": "verifier-before-target",
+      "expectedCode": "target-not-started-before-verifier",
+      "actualCode": "target-not-started-before-verifier",
+      "targetStarted": false
+    }
+  ],
+  "assertions": {
+    "zigGuestCaptureRan": true,
+    "nativeRecordParserRan": true,
+    "nativeByteDecoderRan": true,
+    "nativeVerifierRanBeforeTarget": true,
+    "amd64TargetReturnedNextState": true,
+    "noSourceIsaEmulation": true
+  }
+}

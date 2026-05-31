@@ -1,0 +1,34 @@
+{
+  "kind": "machinen.node-proper-level5-proof-076-summary",
+  "proof": "076",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "accepted": {
+    "fdEntriesRead": 3,
+    "descriptorsEmitted": 2,
+    "sourceFdReused": false
+  },
+  "refusedRows": [
+    {
+      "id": "unknown-fd-target",
+      "expectedCode": "node-proper-level5-fd-table-unknown-target",
+      "actualCode": "node-proper-level5-fd-table-unknown-target",
+      "targetStarted": false
+    },
+    {
+      "id": "source-fd-copy",
+      "expectedCode": "node-proper-level5-fd-table-source-fd-copy-forbidden",
+      "actualCode": "node-proper-level5-fd-table-source-fd-copy-forbidden",
+      "targetStarted": false
+    }
+  ],
+  "assertions": {
+    "proofOnly": true,
+    "acceptedPathVerified": true,
+    "refusedRowsStopBeforeTargetStart": true,
+    "noSourceIsaEmulation": true,
+    "noRawCpuCopy": true,
+    "noMetadataOnlySuccess": true
+  }
+}

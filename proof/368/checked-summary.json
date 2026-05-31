@@ -1,0 +1,12 @@
+{
+  "kind": "machinen.node-level5-retained-artifact-proof-summary",
+  "proof": "368",
+  "goal": "Retention completeness audit",
+  "result": "All required retained evidence artifacts are checked.",
+  "status": "node-product-support-80-retained-artifact-ingestion",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "retentionComplete": true,
+  "checkedPathCount": 9
+}

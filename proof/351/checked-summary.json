@@ -1,0 +1,12 @@
+{
+  "kind": "machinen.node-level5-product-command-proof-summary",
+  "proof": "351",
+  "goal": "Docs for product commands",
+  "result": "Public docs show artifact/verify/registry commands.",
+  "status": "node-product-support-80-product-commands",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "docsMentionArtifacts": true,
+  "docsMentionVerify": true
+}

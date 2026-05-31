@@ -1,0 +1,16 @@
+{
+  "kind": "machinen.node-level5-target-bound-proof-summary",
+  "proof": "428",
+  "goal": "Refuse missing app root",
+  "result": "Node target without app root refuses before snapshot.",
+  "status": "node-product-support-80-target-bound-snapshot",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": ["machinen snapshot node <name|pid>", "machinen restore <snapshot>"],
+  "refusedByRuntimeContract": true,
+  "refusal": {
+    "code": "node-level5-target-app-root-missing"
+  },
+  "productIntrospectionRequiresAppRoot": true
+}

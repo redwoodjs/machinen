@@ -1,0 +1,13 @@
+{
+  "kind": "machinen.node-level5-behavioral-verifier-proof-summary",
+  "proof": "635",
+  "goal": "Behavioral verifier final audit",
+  "result": "Behavioral verification composes with the product path without overclaiming.",
+  "status": "node-product-support-80-behavioral-verifier",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
+  "releaseCorpusProofRange": "501-560",
+  "retainedEvidenceVerified": true
+}

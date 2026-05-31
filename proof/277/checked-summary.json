@@ -1,0 +1,29 @@
+{
+  "kind": "machinen.node-level5-product-support-65-proof-summary",
+  "proof": "277",
+  "goal": "Active async idle boundary contract",
+  "result": "Exact supported/unsupported boundary.",
+  "status": "experimental-node-product-support-65",
+  "nodeProductSupportClaimed": 65,
+  "nodeProductSupportScope": "fourteen-service-and-boundary-families",
+  "previousNodeProductSupportClaimed": 50,
+  "newNodeProductSupportClaimed": 15,
+  "broadNodeProductSupportClaimed": 5,
+  "broadNodeProductSupportScope": "selected-hard-facility-boundaries",
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "family": {
+    "id": "active-async-idle-boundary",
+    "title": "Active async idle boundary",
+    "included": ["idle async resources", "completed callbacks", "empty active work queue"],
+    "excluded": ["in-flight async operations", "pending callbacks", "active promise reactions"],
+    "contractArtifact": "proof/277/checked-summary.json",
+    "e2eArtifact": "proof/278/checked-summary.json",
+    "coveragePercent": 5,
+    "status": "experimental-supported",
+    "directions": ["arm64-to-amd64", "amd64-to-arm64"],
+    "targetNativeVerified": true,
+    "productSupportClaimed": true,
+    "broadNodeFacilityAddressed": true,
+    "broadNodeProductSupportClaimed": false
+  }
+}

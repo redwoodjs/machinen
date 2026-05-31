@@ -1,0 +1,51 @@
+{
+  "kind": "machinen.node-proper-level5-declared-subset-100-proof-summary",
+  "proof": "160",
+  "title": "libuv and resource coverage registry for every supported handle",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "declaredSubsetCoverage": 100,
+  "accepted": {
+    "proof": "160",
+    "title": "libuv and resource coverage registry for every supported handle",
+    "targetStartedBeforeVerification": false,
+    "coveredGates": [
+      "contract",
+      "implementation-boundary",
+      "positive-lane",
+      "negative-lane",
+      "docs-or-registry"
+    ],
+    "coverage": 100,
+    "digest": "eb63b02933a415b4a7a90f4c83a55c6b2f41a8de027a26abc93ef5ec2079fb12",
+    "productSupportClaimed": false,
+    "broadLevel5ImplementationClaimed": false
+  },
+  "refusedRows": [
+    {
+      "id": "missing-required-gate",
+      "expectedCode": "node-proper-level5-libuv-coverage-registry-refused",
+      "actualCode": "node-proper-level5-libuv-coverage-registry-refused",
+      "targetStarted": false
+    },
+    {
+      "id": "unsupported-neighbor",
+      "expectedCode": "node-proper-level5-declared-subset-unsupported-neighbor-refused",
+      "actualCode": "node-proper-level5-declared-subset-unsupported-neighbor-refused",
+      "targetStarted": false
+    },
+    {
+      "id": "broad-product-claim",
+      "expectedCode": "node-proper-level5-broad-product-claim-refused",
+      "actualCode": "node-proper-level5-broad-product-claim-refused",
+      "targetStarted": false
+    }
+  ],
+  "assertions": {
+    "libuvResourceCoverageRegistryComplete": true,
+    "declaredSubsetGateCoveredAt100Percent": true,
+    "unsupportedNeighborsRefuseBeforeTargetStart": true,
+    "broadProductClaimRefused": true
+  }
+}

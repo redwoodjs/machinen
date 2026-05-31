@@ -1,0 +1,13 @@
+{
+  "kind": "machinen.node-level5-real-app-product-run-corpus-proof-summary",
+  "proof": "722",
+  "goal": "Product-run corpus generator contract",
+  "result": "The generator runs the product snapshot/restore surface and writes a retained corpus.",
+  "status": "node-product-support-80-real-app-product-run-corpus",
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
+  "accepted": true
+}

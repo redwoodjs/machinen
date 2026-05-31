@@ -1,0 +1,69 @@
+{
+  "kind": "machinen.node-proper-level5-native-bundle-verifier-summary",
+  "proof": "040",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "accepted": {
+    "verifierAccepted": true,
+    "targetNativeVerifierStarted": true,
+    "targetNodeStarted": true,
+    "targetMaterialized": true,
+    "sourceArchitecture": "arm64",
+    "targetArchitecture": "amd64",
+    "target": {
+      "count": 3,
+      "graphTotal": 3,
+      "leftSharedIsRightShared": true,
+      "packedSharedIsSame": true,
+      "listenerOpen": true,
+      "timerRepeatMs": 100
+    }
+  },
+  "refusedRows": [
+    {
+      "id": "missing-heap",
+      "expectedCode": "node-proper-level5-native-verifier-heap-graph-missing",
+      "actualCode": "node-proper-level5-native-verifier-heap-graph-missing",
+      "materializerStarted": false
+    },
+    {
+      "id": "bad-arch",
+      "expectedCode": "node-proper-level5-native-verifier-architecture-mismatch",
+      "actualCode": "node-proper-level5-native-verifier-architecture-mismatch",
+      "materializerStarted": false
+    },
+    {
+      "id": "raw-cpu",
+      "expectedCode": "node-proper-level5-native-verifier-raw-cpu-copy-forbidden",
+      "actualCode": "node-proper-level5-native-verifier-raw-cpu-copy-forbidden",
+      "materializerStarted": false
+    },
+    {
+      "id": "source-fd",
+      "expectedCode": "node-proper-level5-native-verifier-source-resource-reuse-forbidden",
+      "actualCode": "node-proper-level5-native-verifier-source-resource-reuse-forbidden",
+      "materializerStarted": false
+    },
+    {
+      "id": "product-claim",
+      "expectedCode": "node-proper-level5-native-verifier-product-claim-forbidden",
+      "actualCode": "node-proper-level5-native-verifier-product-claim-forbidden",
+      "materializerStarted": false
+    },
+    {
+      "id": "shortcut",
+      "expectedCode": "node-proper-level5-native-verifier-forbidden-shortcut",
+      "actualCode": "node-proper-level5-native-verifier-forbidden-shortcut",
+      "materializerStarted": false
+    }
+  ],
+  "assertions": {
+    "validBundlePassedNativeVerifier": true,
+    "targetReturnedNextState": true,
+    "refusedBeforeNodeStarted": true,
+    "noSourceCpuStateCopied": true,
+    "noSourceFdReuse": true,
+    "noForbiddenShortcutUsed": true
+  }
+}

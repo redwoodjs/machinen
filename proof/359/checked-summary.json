@@ -1,0 +1,13 @@
+{
+  "kind": "machinen.node-level5-product-command-proof-summary",
+  "proof": "359",
+  "goal": "Regression proof across 321–358",
+  "result": "Hardening + product commands both pass.",
+  "status": "node-product-support-80-product-commands",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "priorProofRange": "321-340",
+  "commandProofRange": "341-358",
+  "passing": true
+}

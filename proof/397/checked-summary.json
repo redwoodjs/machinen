@@ -1,0 +1,12 @@
+{
+  "kind": "machinen.node-level5-product-snapshot-proof-summary",
+  "proof": "397",
+  "goal": "Backward compatibility with diagnostics",
+  "result": "Existing node-level5 artifacts verify still works.",
+  "status": "node-product-support-80-snapshot-restore-facade",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": ["machinen snapshot node", "machinen restore <snapshot>"],
+  "diagnosticVerifyAccepted": true
+}

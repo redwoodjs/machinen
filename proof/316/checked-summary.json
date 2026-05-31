@@ -1,0 +1,18 @@
+{
+  "kind": "machinen.node-level5-product-support-80-proof-summary",
+  "proof": "316",
+  "goal": "Positive real app corpus",
+  "result": "Real supported apps pass.",
+  "status": "experimental-node-product-support-80",
+  "nodeProductSupportClaimed": 80,
+  "nodeProductSupportScope": "seventeen-service-app-and-boundary-families",
+  "previousNodeProductSupportClaimed": 65,
+  "newNodeProductSupportClaimed": 15,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "positiveRealAppCorpus": [
+    "express-fastify-http-app",
+    "dependency-heavy-app",
+    "streams-files-mixed-app"
+  ]
+}

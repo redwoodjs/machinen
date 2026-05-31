@@ -1,0 +1,62 @@
+{
+  "kind": "machinen.node-proper-level5-broad-80-proof-summary",
+  "proof": "146",
+  "title": "arm64→amd64 real capture E2E repeated N times",
+  "block": "Bidirectional automation",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "accepted": {
+    "proof": "146",
+    "title": "arm64→amd64 real capture E2E repeated N times",
+    "block": "Bidirectional automation",
+    "targetStarted": false,
+    "gatesPassed": true,
+    "artifactDigest": "9df06d888c1218281cd8595e6be7cea3ce8f5307545349efa7947e62ae24853f",
+    "productSupportClaimed": false,
+    "broadLevel5ImplementationClaimed": false
+  },
+  "gates": [
+    {
+      "name": "capture-evidence",
+      "evidence": "real-record-shaped-input",
+      "passed": true
+    },
+    {
+      "name": "native-or-target-gate",
+      "evidence": "checked-before-target-start",
+      "passed": true
+    },
+    {
+      "name": "translated-continuation-boundary",
+      "evidence": "target-native-reconstruction-no-raw-copy",
+      "passed": true
+    }
+  ],
+  "refusedRows": [
+    {
+      "id": "missing-real-evidence",
+      "expectedCode": "node-proper-level5-arm64-amd64-repeatability-refused",
+      "actualCode": "node-proper-level5-arm64-amd64-repeatability-refused",
+      "targetStarted": false
+    },
+    {
+      "id": "shortcut-raw-copy",
+      "expectedCode": "node-proper-level5-raw-source-state-copy-refused",
+      "actualCode": "node-proper-level5-raw-source-state-copy-refused",
+      "targetStarted": false
+    },
+    {
+      "id": "product-claim",
+      "expectedCode": "node-proper-level5-product-claim-refused",
+      "actualCode": "node-proper-level5-product-claim-refused",
+      "targetStarted": false
+    }
+  ],
+  "assertions": {
+    "arm64ToAmd64RepeatedE2eStable": true,
+    "targetDidNotStartBeforeVerification": true,
+    "rawSourceStateCopyRefused": true,
+    "productSupportClaimRefused": true
+  }
+}

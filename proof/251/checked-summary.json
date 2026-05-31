@@ -1,0 +1,27 @@
+{
+  "kind": "machinen.node-level5-product-support-50-proof-summary",
+  "proof": "251",
+  "goal": "Promise/async closure graph contract",
+  "result": "Exact supported/unsupported boundary.",
+  "status": "experimental-node-product-support-50",
+  "nodeProductSupportClaimed": 50,
+  "nodeProductSupportScope": "eleven-service-families",
+  "previousNodeProductSupportClaimed": 20,
+  "newNodeProductSupportClaimed": 30,
+  "broadNodeProductSupportClaimed": 0,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "family": {
+    "id": "promise-async-closure-graph",
+    "title": "Promise and async closure graph at idle",
+    "included": ["settled promises", "idle async closures", "plain closure contexts"],
+    "excluded": ["active async work", "in-flight awaits"],
+    "contractArtifact": "proof/251/checked-summary.json",
+    "e2eArtifact": "proof/252/checked-summary.json",
+    "coveragePercent": 5,
+    "status": "experimental-supported",
+    "directions": ["arm64-to-amd64", "amd64-to-arm64"],
+    "targetNativeVerified": true,
+    "productSupportClaimed": true,
+    "broadNodeProductSupportClaimed": false
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "kind": "machinen.node-level5-product-support-80-hardening-proof-summary",
+  "proof": "335",
+  "goal": "Security threat model",
+  "result": "Threat model for snapshot artifacts, target reconstruction, and unsupported states.",
+  "status": "node-product-support-80-hardened",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "rawCpuRestoreSupported": false,
+  "sourceIsaEmulationSupported": false,
+  "artifactTamperTriageRequired": true
+}

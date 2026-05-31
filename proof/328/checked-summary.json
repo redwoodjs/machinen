@@ -1,0 +1,13 @@
+{
+  "kind": "machinen.node-level5-product-support-80-hardening-proof-summary",
+  "proof": "328",
+  "goal": "CI artifact retention contract",
+  "result": "Define CI retention names, paths, and expiry.",
+  "status": "node-product-support-80-hardened",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "artifactRetentionDays": 30,
+  "artifactNamePrefix": "node-level5-80",
+  "retainedArtifactKinds": true
+}

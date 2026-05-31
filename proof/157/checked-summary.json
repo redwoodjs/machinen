@@ -1,0 +1,51 @@
+{
+  "kind": "machinen.node-proper-level5-declared-subset-100-proof-summary",
+  "proof": "157",
+  "title": "Guarded product capture command contract",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "declaredSubsetCoverage": 100,
+  "accepted": {
+    "proof": "157",
+    "title": "Guarded product capture command contract",
+    "targetStartedBeforeVerification": false,
+    "coveredGates": [
+      "contract",
+      "implementation-boundary",
+      "positive-lane",
+      "negative-lane",
+      "docs-or-registry"
+    ],
+    "coverage": 100,
+    "digest": "4c25c00f5bcf7a9844f189ecad9f8f5047a252de391504110fa5e517d4900163",
+    "productSupportClaimed": false,
+    "broadLevel5ImplementationClaimed": false
+  },
+  "refusedRows": [
+    {
+      "id": "missing-required-gate",
+      "expectedCode": "node-proper-level5-product-capture-contract-refused",
+      "actualCode": "node-proper-level5-product-capture-contract-refused",
+      "targetStarted": false
+    },
+    {
+      "id": "unsupported-neighbor",
+      "expectedCode": "node-proper-level5-declared-subset-unsupported-neighbor-refused",
+      "actualCode": "node-proper-level5-declared-subset-unsupported-neighbor-refused",
+      "targetStarted": false
+    },
+    {
+      "id": "broad-product-claim",
+      "expectedCode": "node-proper-level5-broad-product-claim-refused",
+      "actualCode": "node-proper-level5-broad-product-claim-refused",
+      "targetStarted": false
+    }
+  ],
+  "assertions": {
+    "guardedCaptureCommandContractCovered": true,
+    "declaredSubsetGateCoveredAt100Percent": true,
+    "unsupportedNeighborsRefuseBeforeTargetStart": true,
+    "broadProductClaimRefused": true
+  }
+}

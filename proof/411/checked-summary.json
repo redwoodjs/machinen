@@ -1,0 +1,13 @@
+{
+  "kind": "machinen.node-level5-product-detection-proof-summary",
+  "proof": "411",
+  "goal": "Detector evidence retained",
+  "result": "Snapshot writes retained detector report evidence.",
+  "status": "node-product-support-80-snapshot-detection",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": ["machinen snapshot node <name|pid>", "machinen restore <snapshot>"],
+  "detectorReportRetained": true,
+  "detectorReportAccepted": true
+}

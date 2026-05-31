@@ -1,0 +1,23 @@
+{
+  "kind": "machinen.node-level5-matrix-drift-guard-proof-summary",
+  "proof": "1112",
+  "goal": "Not-proven and boundary drift guard",
+  "result": "Gaps and broad app/process boundaries stay unclaimed.",
+  "status": "node-product-support-80-proof-only-matrix-drift-guard",
+  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <dir>"],
+  "proofOnly": true,
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "node": {
+    "id": "arbitrary-node-process",
+    "status": "not-claimed",
+    "reason": "broad Node state translation is not proven by the app corpus"
+  },
+  "cpu": {
+    "id": "raw-cross-arch-cpu-restore",
+    "status": "out-of-scope",
+    "reason": "Node Level 5 uses translated continuation, not copied CPU/register state"
+  }
+}

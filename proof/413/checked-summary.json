@@ -1,0 +1,13 @@
+{
+  "kind": "machinen.node-level5-product-detection-proof-summary",
+  "proof": "413",
+  "goal": "Human refusal output",
+  "result": "Human snapshot refusal is clear for operators.",
+  "status": "node-product-support-80-snapshot-detection",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": ["machinen snapshot node <name|pid>", "machinen restore <snapshot>"],
+  "refused": true,
+  "mentionsRefusal": true
+}

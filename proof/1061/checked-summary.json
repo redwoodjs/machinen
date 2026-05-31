@@ -1,0 +1,31 @@
+{
+  "kind": "machinen.node-level5-app-support-release-bundle-proof-summary",
+  "proof": "1061",
+  "goal": "Proof-only refused app row reconciliation",
+  "result": "Unsafe live-state rows remain refused before snapshot across Express/Fastify directions.",
+  "status": "node-product-support-80-proof-only-release-bundle",
+  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <dir>"],
+  "proofOnly": true,
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "feature": "externalNetwork",
+  "rowCount": 14,
+  "ids": [
+    "express-db-connections",
+    "express-http2-sessions",
+    "express-outbound-http-sockets",
+    "express-redis-queue-connections",
+    "express-server-sent-events",
+    "express-tls-active-state",
+    "express-websockets",
+    "fastify-db-connections",
+    "fastify-http2-sessions",
+    "fastify-outbound-http-sockets",
+    "fastify-redis-queue-connections",
+    "fastify-server-sent-events",
+    "fastify-tls-active-state",
+    "fastify-websockets"
+  ]
+}

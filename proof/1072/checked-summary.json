@@ -1,0 +1,15 @@
+{
+  "kind": "machinen.node-level5-app-support-release-bundle-proof-summary",
+  "proof": "1072",
+  "goal": "Proof-only not-proven and boundary reconciliation",
+  "result": "Remaining gaps and broad app/process boundaries stay explicit and unclaimed.",
+  "status": "out-of-scope",
+  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <dir>"],
+  "proofOnly": true,
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "id": "raw-cross-arch-cpu-restore",
+  "reason": "Node Level 5 uses translated continuation, not copied CPU/register state"
+}

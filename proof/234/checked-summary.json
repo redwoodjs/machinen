@@ -1,0 +1,53 @@
+{
+  "kind": "machinen.node-level5-product-support-20-proof-summary",
+  "proof": "234",
+  "goal": "Readonly file / stdio real E2E",
+  "result": "Adds 4%.",
+  "status": "experimental-node-product-support-20",
+  "nodeProductSupportClaimed": 20,
+  "nodeProductSupportScope": "five-idle-service-families",
+  "declaredSubsetExperimentalProductSupportClaimed": 100,
+  "broadNodeProductSupportClaimed": 0,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "family": {
+    "id": "readonly-file-stdio",
+    "title": "Readonly file and stdio",
+    "included": ["readonly file descriptors", "stdin", "stdout", "stderr"],
+    "excluded": ["dirty writable file state", "filesystem watchers"],
+    "contractArtifact": "proof/233/checked-summary.json",
+    "e2eArtifact": "proof/234/checked-summary.json",
+    "coveragePercent": 4,
+    "status": "experimental-supported",
+    "directions": ["arm64-to-amd64", "amd64-to-arm64"],
+    "targetNativeVerified": true,
+    "productSupportClaimed": true,
+    "broadNodeProductSupportClaimed": false
+  },
+  "e2e": {
+    "familyId": "readonly-file-stdio",
+    "coverageAdded": 4,
+    "lanes": [
+      {
+        "familyId": "readonly-file-stdio",
+        "sourceArch": "arm64",
+        "targetArch": "amd64",
+        "captureAccepted": true,
+        "restoreAccepted": true,
+        "translatedContinuationRequired": true,
+        "productSupportClaimed": true,
+        "broadNodeProductSupportClaimed": 0
+      },
+      {
+        "familyId": "readonly-file-stdio",
+        "sourceArch": "amd64",
+        "targetArch": "arm64",
+        "captureAccepted": true,
+        "restoreAccepted": true,
+        "translatedContinuationRequired": true,
+        "productSupportClaimed": true,
+        "broadNodeProductSupportClaimed": 0
+      }
+    ],
+    "targetNativeVerified": true
+  }
+}

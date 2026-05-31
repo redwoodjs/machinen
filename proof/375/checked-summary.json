@@ -1,0 +1,12 @@
+{
+  "kind": "machinen.node-level5-retained-artifact-proof-summary",
+  "proof": "375",
+  "goal": "Operator E2E from saved directory",
+  "result": "Saved and moved retained artifacts still verify.",
+  "status": "node-product-support-80-retained-artifact-ingestion",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "movedBundleAccepted": true,
+  "artifactHashesVerified": true
+}

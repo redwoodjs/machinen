@@ -1,0 +1,15 @@
+{
+  "kind": "machinen.node-level5-product-support-50-proof-summary",
+  "proof": "260",
+  "goal": "Bidirectional cross-arch all-family lane",
+  "result": "arm64→amd64 and amd64→arm64 for all 11 families.",
+  "status": "experimental-node-product-support-50",
+  "nodeProductSupportClaimed": 50,
+  "nodeProductSupportScope": "eleven-service-families",
+  "previousNodeProductSupportClaimed": 20,
+  "newNodeProductSupportClaimed": 30,
+  "broadNodeProductSupportClaimed": 0,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "allFamiliesBidirectional": true,
+  "directions": ["arm64-to-amd64", "amd64-to-arm64"]
+}

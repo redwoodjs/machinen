@@ -1,0 +1,41 @@
+{
+  "kind": "machinen.node-proper-level5-proof-078-summary",
+  "proof": "078",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "accepted": {
+    "timerDescriptor": true,
+    "eventfdDescriptor": true,
+    "pipeDescriptor": true,
+    "sourceFdReused": false
+  },
+  "refusedRows": [
+    {
+      "id": "missing-timer-evidence",
+      "expectedCode": "node-proper-level5-timer-evidence-missing",
+      "actualCode": "node-proper-level5-timer-evidence-missing",
+      "targetStarted": false
+    },
+    {
+      "id": "bad-eventfd-counter",
+      "expectedCode": "node-proper-level5-eventfd-counter-unsupported",
+      "actualCode": "node-proper-level5-eventfd-counter-unsupported",
+      "targetStarted": false
+    },
+    {
+      "id": "pipe-has-buffered-bytes",
+      "expectedCode": "node-proper-level5-pipe-buffered-bytes-unsupported",
+      "actualCode": "node-proper-level5-pipe-buffered-bytes-unsupported",
+      "targetStarted": false
+    }
+  ],
+  "assertions": {
+    "proofOnly": true,
+    "acceptedPathVerified": true,
+    "refusedRowsStopBeforeTargetStart": true,
+    "noSourceIsaEmulation": true,
+    "noRawCpuCopy": true,
+    "noMetadataOnlySuccess": true
+  }
+}

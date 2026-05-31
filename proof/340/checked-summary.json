@@ -1,0 +1,38 @@
+{
+  "kind": "machinen.node-level5-product-support-80-hardening-proof-summary",
+  "proof": "340",
+  "goal": "80% hardening audit",
+  "result": "Node 80%, broad 20%, with concrete retained evidence policy.",
+  "status": "node-product-support-80-hardened",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "auditedProofs": [
+    "321",
+    "322",
+    "323",
+    "324",
+    "325",
+    "326",
+    "327",
+    "328",
+    "329",
+    "330",
+    "331",
+    "332",
+    "333",
+    "334",
+    "335",
+    "336",
+    "337",
+    "338",
+    "339"
+  ],
+  "hardeningComplete": true,
+  "finalClaim": {
+    "nodeProductSupportClaimed": 80,
+    "broadNodeProductSupportClaimed": 20,
+    "arbitraryProcessCrossArchRestoreClaimed": 0,
+    "concreteRetainedEvidencePolicy": true
+  }
+}

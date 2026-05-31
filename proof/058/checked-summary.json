@@ -1,0 +1,38 @@
+{
+  "kind": "machinen.node-proper-level5-native-bundle-assembler-summary",
+  "proof": "058",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "accepted": {
+    "accepted": true,
+    "targetStarted": false,
+    "nativeAssemblerRan": true,
+    "sectionCount": 5,
+    "productSupportClaimed": false
+  },
+  "target": {
+    "count": 3,
+    "graphTotal": 3,
+    "targetNative": true
+  },
+  "refusedRows": [
+    {
+      "id": "missing",
+      "expectedCode": "node-proper-level5-native-assembler-artifact-missing",
+      "actualCode": "node-proper-level5-native-assembler-artifact-missing",
+      "targetStarted": false
+    },
+    {
+      "id": "tampered",
+      "expectedCode": "node-proper-level5-native-assembler-artifact-refused",
+      "actualCode": "node-proper-level5-native-assembler-artifact-refused",
+      "targetStarted": false
+    }
+  ],
+  "assertions": {
+    "nativeAssemblerBuiltBundle": true,
+    "targetReturnedNextState": true,
+    "invalidArtifactsRefuseBeforeTargetStart": true
+  }
+}

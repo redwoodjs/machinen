@@ -1,0 +1,61 @@
+{
+  "kind": "machinen.node-proper-level5-target-materializer-boundary-summary",
+  "proof": "064",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "accepted": {
+    "accepted": true,
+    "code": "accepted",
+    "targetStarted": true,
+    "response": {
+      "count": 3,
+      "graphTotal": 3,
+      "targetNative": true
+    }
+  },
+  "refusedRows": [
+    {
+      "id": "native-verifier",
+      "expectedCode": "node-proper-level5-materializer-native-verifier-required",
+      "actualCode": "node-proper-level5-materializer-native-verifier-required",
+      "targetStarted": false
+    },
+    {
+      "id": "provenance",
+      "expectedCode": "node-proper-level5-materializer-provenance-required",
+      "actualCode": "node-proper-level5-materializer-provenance-required",
+      "targetStarted": false
+    },
+    {
+      "id": "classifier",
+      "expectedCode": "node-proper-level5-materializer-thread-classifier-required",
+      "actualCode": "node-proper-level5-materializer-thread-classifier-required",
+      "targetStarted": false
+    },
+    {
+      "id": "resources",
+      "expectedCode": "node-proper-level5-materializer-resource-gate-required",
+      "actualCode": "node-proper-level5-materializer-resource-gate-required",
+      "targetStarted": false
+    },
+    {
+      "id": "product-claims",
+      "expectedCode": "node-proper-level5-materializer-product-claim-refused",
+      "actualCode": "node-proper-level5-materializer-product-claim-refused",
+      "targetStarted": false
+    },
+    {
+      "id": "shortcuts",
+      "expectedCode": "node-proper-level5-materializer-shortcut-refused",
+      "actualCode": "node-proper-level5-materializer-shortcut-refused",
+      "targetStarted": false
+    }
+  ],
+  "assertions": {
+    "targetStartsOnlyAfterAllGatesPass": true,
+    "eachMissingGateRefusesBeforeTargetStart": true,
+    "acceptedTargetReturnedNextState": true,
+    "noProductSupportClaimed": true
+  }
+}

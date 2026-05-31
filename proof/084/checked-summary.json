@@ -1,0 +1,36 @@
+{
+  "kind": "machinen.node-proper-level5-proof-084-summary",
+  "proof": "084",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "accepted": {
+    "sourceArchitecture": "amd64",
+    "targetArchitecture": "arm64",
+    "targetNative": true,
+    "count": 3,
+    "graphTotal": 3
+  },
+  "refusedRows": [
+    {
+      "id": "same-arch",
+      "expectedCode": "node-proper-level5-mirror-cross-arch-required",
+      "actualCode": "node-proper-level5-mirror-cross-arch-required",
+      "targetStarted": false
+    },
+    {
+      "id": "source-isa-emulation",
+      "expectedCode": "node-proper-level5-mirror-source-isa-emulation-refused",
+      "actualCode": "node-proper-level5-mirror-source-isa-emulation-refused",
+      "targetStarted": false
+    }
+  ],
+  "assertions": {
+    "proofOnly": true,
+    "acceptedPathVerified": true,
+    "refusedRowsStopBeforeTargetStart": true,
+    "noSourceIsaEmulation": true,
+    "noRawCpuCopy": true,
+    "noMetadataOnlySuccess": true
+  }
+}

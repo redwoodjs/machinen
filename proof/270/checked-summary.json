@@ -1,0 +1,14 @@
+{
+  "kind": "machinen.node-level5-product-support-50-proof-summary",
+  "proof": "270",
+  "goal": "Product claim registry update",
+  "result": "Records Node 50%, broad Node 0%.",
+  "status": "experimental-node-product-support-50",
+  "nodeProductSupportClaimed": 50,
+  "nodeProductSupportScope": "eleven-service-families",
+  "previousNodeProductSupportClaimed": 20,
+  "newNodeProductSupportClaimed": 30,
+  "broadNodeProductSupportClaimed": 0,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productClaimRegistry": "docs/snapshot/node-level5-product-support-50.json"
+}

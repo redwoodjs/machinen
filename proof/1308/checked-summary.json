@@ -1,0 +1,14 @@
+{
+  "kind": "machinen.node-level5-middleware-error-handling-proof-summary",
+  "proof": "1308",
+  "goal": "middleware/error-handling boundary preservation",
+  "result": "Arbitrary Express/Fastify apps and broad app/process support remain unclaimed.",
+  "status": "not-claimed",
+  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "id": "arbitrary-node-process",
+  "reason": "broad Node state translation is not proven by the app corpus"
+}

@@ -1,0 +1,13 @@
+{
+  "kind": "machinen.node-level5-middleware-error-handling-proof-summary",
+  "proof": "1286",
+  "goal": "middleware/error-handling product corpus generator",
+  "result": "The installed product corpus includes selected middleware/error-handling apps.",
+  "status": "node-product-support-80-middleware-error-handling-product-slice",
+  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productCommands": ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"]
+}

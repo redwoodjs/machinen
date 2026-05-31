@@ -1,0 +1,14 @@
+{
+  "kind": "machinen.node-level5-installed-third-party-app-corpus-proof-summary",
+  "proof": "875",
+  "goal": "Installed third-party app corpus final audit",
+  "result": "Installed third-party app evidence stays inside the declared subset without broad claims.",
+  "status": "node-product-support-80-installed-third-party-app-corpus",
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
+  "refusalCorpusProofRange": "761-800",
+  "unsupportedStatesStillRefuse": true
+}

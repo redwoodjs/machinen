@@ -1,0 +1,14 @@
+{
+  "kind": "machinen.node-level5-product-detection-proof-summary",
+  "proof": "419",
+  "goal": "Regression over 341–418",
+  "result": "Diagnostics, retained ingestion, facade, and detection compose.",
+  "status": "node-product-support-80-snapshot-detection",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": ["machinen snapshot node <name|pid>", "machinen restore <snapshot>"],
+  "priorProofRange": "341-400",
+  "detectionProofRange": "401-418",
+  "passing": true
+}

@@ -1,0 +1,42 @@
+{
+  "kind": "machinen.node-proper-level5-resource-descriptor-expansion-summary",
+  "proof": "113",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "acceptedResourceKinds": [
+    "tcp-listener-v1",
+    "timer-v1",
+    "stdio-v1",
+    "readonly-file-v1",
+    "pipe-endpoint-v1"
+  ],
+  "refusedRows": [
+    {
+      "id": "unknown-kind",
+      "expectedCode": "node-proper-level5-resource-kind-unsupported",
+      "actualCode": "node-proper-level5-resource-kind-unsupported",
+      "resourceId": "gpu",
+      "targetStarted": false
+    },
+    {
+      "id": "unsafe-state",
+      "expectedCode": "node-proper-level5-resource-state-unsafe",
+      "actualCode": "node-proper-level5-resource-state-unsafe",
+      "resourceId": "pipe",
+      "targetStarted": false
+    },
+    {
+      "id": "source-handle-copy",
+      "expectedCode": "node-proper-level5-resource-source-handle-copy-refused",
+      "actualCode": "node-proper-level5-resource-source-handle-copy-refused",
+      "resourceId": "file",
+      "targetStarted": false
+    }
+  ],
+  "assertions": {
+    "expandedResourceDescriptorSet": true,
+    "unsupportedResourcesRefuseBeforeTargetStart": true,
+    "sourceHandlesNotCopied": true
+  }
+}

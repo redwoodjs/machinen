@@ -1,0 +1,21 @@
+{
+  "kind": "machinen.node-level5-product-support-20-proof-summary",
+  "proof": "239",
+  "goal": "Target-native verification",
+  "result": "Verifies restored app state on target, not metadata-only success.",
+  "status": "experimental-node-product-support-20",
+  "nodeProductSupportClaimed": 20,
+  "nodeProductSupportScope": "five-idle-service-families",
+  "declaredSubsetExperimentalProductSupportClaimed": 100,
+  "broadNodeProductSupportClaimed": 0,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "targetNativeVerifiedFamilies": [
+    "idle-http-listener",
+    "timer-service",
+    "plain-js-heap",
+    "readonly-file-stdio",
+    "pipes-streams-idle"
+  ],
+  "metadataOnlySuccessRefused": true,
+  "targetNativeNodeRequired": true
+}

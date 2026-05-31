@@ -1,0 +1,18 @@
+{
+  "kind": "machinen.node-level5-real-app-product-run-corpus-proof-summary",
+  "proof": "729",
+  "goal": "Express/Fastify product runs across directions",
+  "result": "The generated corpus has real product-run rows for both fixtures and directions.",
+  "status": "node-product-support-80-real-app-product-run-corpus",
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
+  "framework": "express",
+  "direction": "arm64-to-amd64",
+  "routePath": "/express/health",
+  "snapshotAccepted": true,
+  "restoreAccepted": true,
+  "behavioralVerifierPassed": true
+}

@@ -1,0 +1,34 @@
+{
+  "kind": "machinen.node-proper-level5-proof-075-summary",
+  "proof": "075",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "accepted": {
+    "classifierArtifactEmitted": true,
+    "signatureVerified": true,
+    "descriptor": "node-process-all-threads-idle-v1"
+  },
+  "refusedRows": [
+    {
+      "id": "tampered-classifier-artifact",
+      "expectedCode": "node-proper-level5-classifier-artifact-signature-refused",
+      "actualCode": "node-proper-level5-classifier-artifact-signature-refused",
+      "targetStarted": false
+    },
+    {
+      "id": "missing-classifier-artifact",
+      "expectedCode": "node-proper-level5-classifier-artifact-missing",
+      "actualCode": "node-proper-level5-classifier-artifact-missing",
+      "targetStarted": false
+    }
+  ],
+  "assertions": {
+    "proofOnly": true,
+    "acceptedPathVerified": true,
+    "refusedRowsStopBeforeTargetStart": true,
+    "noSourceIsaEmulation": true,
+    "noRawCpuCopy": true,
+    "noMetadataOnlySuccess": true
+  }
+}

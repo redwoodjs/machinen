@@ -1,0 +1,12 @@
+{
+  "kind": "machinen.node-level5-retained-artifact-proof-summary",
+  "proof": "372",
+  "goal": "Release gate consumes retained bundle",
+  "result": "Release gate can verify retained bundle evidence.",
+  "status": "node-product-support-80-retained-artifact-ingestion",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "releaseGateAccepted": true,
+  "retainedArtifactAccepted": true
+}

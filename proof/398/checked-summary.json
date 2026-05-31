@@ -1,0 +1,21 @@
+{
+  "kind": "machinen.node-level5-product-snapshot",
+  "proof": "398",
+  "goal": "No overclaim product audit",
+  "result": "Product surface keeps 80 / 20 / 0 claims.",
+  "status": "node-product-support-80-snapshot-restore-facade",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": ["machinen snapshot node", "machinen restore <snapshot>"],
+  "version": 1,
+  "familyId": "express-fastify-http-app",
+  "direction": "arm64-to-amd64",
+  "artifactRoot": "artifacts/express-fastify-http-app/arm64-to-amd64",
+  "artifactBundleKind": "machinen.node-level5-product-support-80-artifact-bundle",
+  "translatedContinuationRequired": true,
+  "targetNativeNodeRequired": true,
+  "rawCpuRestoreSupported": false,
+  "sourceIsaEmulationSupported": false,
+  "appCheckpointHooksRequired": false
+}

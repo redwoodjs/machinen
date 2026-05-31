@@ -1,0 +1,11 @@
+{
+  "kind": "machinen.node-level5-product-command-proof-summary",
+  "proof": "357",
+  "goal": "Security/claim boundary audit",
+  "result": "No CLI command claims arbitrary Node support.",
+  "status": "node-product-support-80-product-commands",
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "arbitraryNodeSupportClaimed": false
+}
