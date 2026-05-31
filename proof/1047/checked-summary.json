@@ -1,0 +1,14 @@
+{
+  "kind": "machinen.node-level5-app-support-release-bundle-proof-summary",
+  "proof": "1047",
+  "goal": "Proof-only app support release bundle contract",
+  "result": "The proof-local bundle retains the matrix contract, hashes, reports, and proof ranges.",
+  "status": "node-product-support-80-proof-only-release-bundle",
+  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <dir>"],
+  "proofOnly": true,
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "proofRanges": ["721-760", "761-800", "801-840", "841-880", "921-960", "961-1000"]
+}
