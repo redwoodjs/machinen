@@ -1,0 +1,16 @@
+{
+  "kind": "machinen.node-level5-app-support-matrix-dimensions-proof-summary",
+  "proof": "925",
+  "goal": "Support matrix feature-dimension contract",
+  "result": "Every app row carries route, response, middleware, async, params, query, static asset, external network, and background-task dimensions.",
+  "status": "node-product-support-80-app-support-matrix-dimensions",
+  "productSurface": [
+    "machinen node-level5 support-matrix --json"
+  ],
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "cliVersion": 2,
+  "cliRowCount": 38
+}
