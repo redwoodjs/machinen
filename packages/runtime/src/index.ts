@@ -239,6 +239,13 @@ export {
   verifyNodeLevel5ProductSupport80ArtifactBundle,
 } from "./node-level5-product-support-80-hardening.ts";
 export {
+  NODE_LEVEL5_APP_SUPPORT_MATRIX_KIND,
+  NODE_LEVEL5_APP_SUPPORT_MATRIX_VERSION,
+  buildNodeLevel5AppSupportMatrix,
+  refusedNodeLevel5AppSupportRows,
+  supportedNodeLevel5AppSupportRows,
+} from "./node-level5-app-support-matrix.ts";
+export {
   NODE_LEVEL5_INSTALLED_THIRD_PARTY_APP_CORPUS_REPORT_KIND,
   NODE_LEVEL5_INSTALLED_THIRD_PARTY_APP_CORPUS_REPORT_VERSION,
   createNodeLevel5InstalledThirdPartyAppCorpusReport,
@@ -399,6 +406,17 @@ export type {
   NodeLevel5ProductSupport80ClaimRegistry,
   NodeLevel5ProductSupport80UnsupportedDetector,
 } from "./node-level5-product-support-80-hardening.ts";
+export type {
+  NodeLevel5AppSupportBoundary,
+  NodeLevel5AppSupportDirection,
+  NodeLevel5AppSupportEvidence,
+  NodeLevel5AppSupportEvidenceKind,
+  NodeLevel5AppSupportFramework,
+  NodeLevel5AppSupportMatrix,
+  NodeLevel5AppSupportMatrixRow,
+  NodeLevel5AppSupportProductBehavior,
+  NodeLevel5AppSupportStatus,
+} from "./node-level5-app-support-matrix.ts";
 export type { NodeLevel5CorpusHttpEvidence } from "./node-level5-corpus-common.ts";
 export type {
   NodeLevel5InstalledThirdPartyAppCorpusReport,

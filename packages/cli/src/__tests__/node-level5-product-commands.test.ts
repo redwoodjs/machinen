@@ -276,6 +276,24 @@ describe("Node Level 5 product commands", () => {
     }
   });
 
+  it("prints the app-based support matrix", () => {
+    const supportMatrix = runCli(["node-level5", "support-matrix", "--json"]);
+
+    expect(supportMatrix.status).toBe(0);
+    expect(JSON.parse(supportMatrix.stdout)).toMatchObject({
+      accepted: true,
+      kind: "machinen.node-level5-app-support-matrix",
+      rowCount: 26,
+      rows: expect.arrayContaining([
+        expect.objectContaining({ id: "express-installed-hello-world", status: "supported" }),
+        expect.objectContaining({ id: "fastify-websockets", status: "refused" }),
+      ]),
+      boundaries: expect.arrayContaining([
+        expect.objectContaining({ id: "arbitrary-node-process", status: "not-claimed" }),
+      ]),
+    });
+  });
+
   it("uses retained installed third-party app corpus evidence for release gates", () => {
     const dir = mkdtempSync(join(tmpdir(), "machinen-node80-cli-installed-third-party-corpus-"));
     try {

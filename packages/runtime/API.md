@@ -192,6 +192,20 @@
 - [`nodeLevel5ProductSupport80ClaimRegistry`](#nodelevel5productsupport80claimregistry)
 - [`nodeLevel5ProductSupport80UnsupportedDetectors`](#nodelevel5productsupport80unsupporteddetectors)
 - [`verifyNodeLevel5ProductSupport80ArtifactBundle`](#verifynodelevel5productsupport80artifactbundle)
+- [`NodeLevel5AppSupportBoundary`](#nodelevel5appsupportboundary)
+- [`NodeLevel5AppSupportDirection`](#nodelevel5appsupportdirection)
+- [`NodeLevel5AppSupportEvidence`](#nodelevel5appsupportevidence)
+- [`NodeLevel5AppSupportEvidenceKind`](#nodelevel5appsupportevidencekind)
+- [`NodeLevel5AppSupportFramework`](#nodelevel5appsupportframework)
+- [`NodeLevel5AppSupportMatrix`](#nodelevel5appsupportmatrix)
+- [`NodeLevel5AppSupportMatrixRow`](#nodelevel5appsupportmatrixrow)
+- [`NodeLevel5AppSupportProductBehavior`](#nodelevel5appsupportproductbehavior)
+- [`NodeLevel5AppSupportStatus`](#nodelevel5appsupportstatus)
+- [`NODE_LEVEL5_APP_SUPPORT_MATRIX_KIND`](#node_level5_app_support_matrix_kind)
+- [`NODE_LEVEL5_APP_SUPPORT_MATRIX_VERSION`](#node_level5_app_support_matrix_version)
+- [`buildNodeLevel5AppSupportMatrix`](#buildnodelevel5appsupportmatrix)
+- [`refusedNodeLevel5AppSupportRows`](#refusednodelevel5appsupportrows)
+- [`supportedNodeLevel5AppSupportRows`](#supportednodelevel5appsupportrows)
 - [`NodeLevel5CorpusHttpEvidence`](#nodelevel5corpushttpevidence)
 - [`NodeLevel5InstalledThirdPartyAppCorpusReport`](#nodelevel5installedthirdpartyappcorpusreport)
 - [`NodeLevel5InstalledThirdPartyAppCorpusRow`](#nodelevel5installedthirdpartyappcorpusrow)
@@ -14529,7 +14543,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`evidence`](#evidence-10)
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`evidence`](#evidence-11)
 
 ##### kind
 
@@ -18509,7 +18523,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`evidence`](#evidence-19)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`evidence`](#evidence-20)
 
 ##### kind
 
@@ -22060,6 +22074,168 @@ Poll interval in ms while retrying. Default 250.
 ### NestedVirtualizationStretchProofRefusalCode
 
 > **NestedVirtualizationStretchProofRefusalCode** = *typeof* [`nestedVirtualizationStretchProofRefusalCodes`](#nestedvirtualizationstretchproofrefusalcodes)\[`number`\]
+
+***
+
+### NodeLevel5AppSupportStatus
+
+> **NodeLevel5AppSupportStatus** = `"supported"` \| `"refused"`
+
+***
+
+### NodeLevel5AppSupportFramework
+
+> **NodeLevel5AppSupportFramework** = `"express"` \| `"fastify"`
+
+***
+
+### NodeLevel5AppSupportEvidenceKind
+
+> **NodeLevel5AppSupportEvidenceKind** = `"fixture-product-run-corpus"` \| `"template-corpus"` \| `"installed-package-corpus"` \| `"refusal-corpus"`
+
+***
+
+### NodeLevel5AppSupportProductBehavior
+
+> **NodeLevel5AppSupportProductBehavior** = `"machinen snapshot node <pid> --out <dir>; machinen restore <dir>"` \| `"refuse-before-snapshot"`
+
+***
+
+### NodeLevel5AppSupportDirection
+
+> **NodeLevel5AppSupportDirection** = `"arm64-to-amd64"` \| `"amd64-to-arm64"`
+
+***
+
+### NodeLevel5AppSupportEvidence
+
+> **NodeLevel5AppSupportEvidence** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: [`NodeLevel5AppSupportEvidenceKind`](#nodelevel5appsupportevidencekind)
+
+##### proofRange
+
+> **proofRange**: `string`
+
+##### corpusReport
+
+> **corpusReport**: `string`
+
+***
+
+### NodeLevel5AppSupportMatrixRow
+
+> **NodeLevel5AppSupportMatrixRow** = `object`
+
+#### Properties
+
+##### id
+
+> **id**: `string`
+
+##### appName
+
+> **appName**: `string`
+
+##### framework
+
+> **framework**: [`NodeLevel5AppSupportFramework`](#nodelevel5appsupportframework)
+
+##### status
+
+> **status**: [`NodeLevel5AppSupportStatus`](#nodelevel5appsupportstatus)
+
+##### productBehavior
+
+> **productBehavior**: [`NodeLevel5AppSupportProductBehavior`](#nodelevel5appsupportproductbehavior)
+
+##### supportScope
+
+> **supportScope**: `"declared-subset-idle-http"` \| `"unsupported-live-state"`
+
+##### directions
+
+> **directions**: [`NodeLevel5AppSupportDirection`](#nodelevel5appsupportdirection)[]
+
+##### evidence
+
+> **evidence**: [`NodeLevel5AppSupportEvidence`](#nodelevel5appsupportevidence)
+
+##### supportedAppShape
+
+> **supportedAppShape**: `string`
+
+##### limitations
+
+> **limitations**: `string`[]
+
+***
+
+### NodeLevel5AppSupportBoundary
+
+> **NodeLevel5AppSupportBoundary** = `object`
+
+#### Properties
+
+##### id
+
+> **id**: `string`
+
+##### status
+
+> **status**: `"not-claimed"` \| `"out-of-scope"`
+
+##### reason
+
+> **reason**: `string`
+
+***
+
+### NodeLevel5AppSupportMatrix
+
+> **NodeLevel5AppSupportMatrix** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_APP_SUPPORT_MATRIX_KIND`](#node_level5_app_support_matrix_kind)
+
+##### version
+
+> **version**: *typeof* [`NODE_LEVEL5_APP_SUPPORT_MATRIX_VERSION`](#node_level5_app_support_matrix_version)
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### rowCount
+
+> **rowCount**: `number`
+
+##### rows
+
+> **rows**: [`NodeLevel5AppSupportMatrixRow`](#nodelevel5appsupportmatrixrow)[]
+
+##### boundaries
+
+> **boundaries**: [`NodeLevel5AppSupportBoundary`](#nodelevel5appsupportboundary)[]
+
+##### nodeProductSupportClaimed
+
+> **nodeProductSupportClaimed**: `80`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `20`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
 
 ***
 
@@ -26469,6 +26645,18 @@ loops; anything looser stops being a meaningful gate.
 
 ***
 
+### NODE\_LEVEL5\_APP\_SUPPORT\_MATRIX\_KIND
+
+> `const` **NODE\_LEVEL5\_APP\_SUPPORT\_MATRIX\_KIND**: `"machinen.node-level5-app-support-matrix"` = `"machinen.node-level5-app-support-matrix"`
+
+***
+
+### NODE\_LEVEL5\_APP\_SUPPORT\_MATRIX\_VERSION
+
+> `const` **NODE\_LEVEL5\_APP\_SUPPORT\_MATRIX\_VERSION**: `1` = `1`
+
+***
+
 ### NODE\_LEVEL5\_DECLARED\_SUBSET\_FORMAT\_VERSION
 
 > `const` **NODE\_LEVEL5\_DECLARED\_SUBSET\_FORMAT\_VERSION**: `1` = `1`
@@ -29576,6 +29764,36 @@ available.
 #### Returns
 
 `string`[]
+
+***
+
+### buildNodeLevel5AppSupportMatrix()
+
+> **buildNodeLevel5AppSupportMatrix**(): [`NodeLevel5AppSupportMatrix`](#nodelevel5appsupportmatrix)
+
+#### Returns
+
+[`NodeLevel5AppSupportMatrix`](#nodelevel5appsupportmatrix)
+
+***
+
+### supportedNodeLevel5AppSupportRows()
+
+> **supportedNodeLevel5AppSupportRows**(): [`NodeLevel5AppSupportMatrixRow`](#nodelevel5appsupportmatrixrow)[]
+
+#### Returns
+
+[`NodeLevel5AppSupportMatrixRow`](#nodelevel5appsupportmatrixrow)[]
+
+***
+
+### refusedNodeLevel5AppSupportRows()
+
+> **refusedNodeLevel5AppSupportRows**(): [`NodeLevel5AppSupportMatrixRow`](#nodelevel5appsupportmatrixrow)[]
+
+#### Returns
+
+[`NodeLevel5AppSupportMatrixRow`](#nodelevel5appsupportmatrixrow)[]
 
 ***
 
