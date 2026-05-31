@@ -102,6 +102,7 @@ import type {
   ProductLevel4TimerfdDescriptor,
   ProductLevel4TimerfdRestoreSummary,
   ProductSupportLevel,
+  NodeLevel5ProductSnapshotDirection,
   NodeLevel5ProductSupport80FamilyId,
   RegistryEntry,
   VmHandle,
@@ -5041,8 +5042,24 @@ function cmdSnapshotNodeLevel5Product(args: string[]): number {
     createNodeLevel5ProductSnapshot({
       outDir: resolve(options.out),
       target: resolveNodeLevel5ProductSnapshotTarget(options.target),
+      direction: nodeLevel5ProductSnapshotDirectionOverride(),
     }),
     json,
+  );
+}
+
+function nodeLevel5ProductSnapshotDirectionOverride():
+  | NodeLevel5ProductSnapshotDirection
+  | undefined {
+  const direction = process.env.MACHINEN_NODE_LEVEL5_PRODUCT_SNAPSHOT_DIRECTION;
+  if (!direction) {
+    return undefined;
+  }
+  if (direction === "arm64-to-amd64" || direction === "amd64-to-arm64") {
+    return direction;
+  }
+  die(
+    "invalid MACHINEN_NODE_LEVEL5_PRODUCT_SNAPSHOT_DIRECTION; expected arm64-to-amd64 or amd64-to-arm64",
   );
 }
 
