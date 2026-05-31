@@ -3,6 +3,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import type { NodeLevel5CorpusHttpEvidence } from "../packages/runtime/src/node-level5-corpus-common.ts";
 import type {
   NodeLevel5ProductBehavioralVerifierReport,
   NodeLevel5ProductRestoreSummary,
@@ -111,6 +112,112 @@ export function runNodeLevel5SnapshotRestoreForApp(input: {
     "--json",
   ]) as NodeLevel5ProductRestoreSummary;
   return { snapshot, restore };
+}
+
+export function runNodeLevel5ProductPathForApp<T>(input: {
+  appDir: string;
+  snapshotDir: string;
+  direction: NodeLevel5ProductSnapshotDirection;
+  row: (run: {
+    snapshot: NodeLevel5ProductSnapshotSummary;
+    restore: NodeLevel5ProductRestoreSummary;
+  }) => T;
+}): T {
+  const child = spawnNodeLevel5RealAppCorpusTarget(input.appDir);
+  try {
+    return input.row(
+      runNodeLevel5SnapshotRestoreForApp({
+        child,
+        appDir: input.appDir,
+        snapshotDir: input.snapshotDir,
+        direction: input.direction,
+      }),
+    );
+  } finally {
+    stopNodeLevel5RealAppCorpusTarget(child);
+  }
+}
+
+export function nodeLevel5AppCorpusIdentity<TSource extends string>(
+  app: { appName: string; source: TSource; framework: NodeLevel5RealAppCorpusFramework },
+  direction: NodeLevel5ProductSnapshotDirection,
+): {
+  appName: string;
+  source: TSource;
+  framework: NodeLevel5RealAppCorpusFramework;
+  direction: NodeLevel5ProductSnapshotDirection;
+} {
+  return { appName: app.appName, source: app.source, framework: app.framework, direction };
+}
+
+export function nodeLevel5DeclaredSubsetCorpusFields(): {
+  declaredSubset: true;
+  unsupportedStateDetected: false;
+} {
+  return { declaredSubset: true, unsupportedStateDetected: false };
+}
+
+export function runNodeLevel5ProductPathForNamedApp<T>(input: {
+  outDir: string;
+  appName: string;
+  appDir: string;
+  direction: NodeLevel5ProductSnapshotDirection;
+  row: (run: {
+    snapshot: NodeLevel5ProductSnapshotSummary;
+    restore: NodeLevel5ProductRestoreSummary;
+  }) => T;
+}): T {
+  return runNodeLevel5ProductPathForApp({
+    appDir: input.appDir,
+    snapshotDir: join(input.outDir, "snapshots", input.appName, input.direction),
+    direction: input.direction,
+    row: input.row,
+  });
+}
+
+export function nodeLevel5HttpEvidenceFromProductRun(
+  snapshot: NodeLevel5ProductSnapshotSummary,
+  restore: NodeLevel5ProductRestoreSummary,
+): NodeLevel5CorpusHttpEvidence {
+  const report = restore.behavioralVerifierReport;
+  return {
+    routePath: report.routePath,
+    expectedStatus: report.expectedStatus,
+    actualStatus: verifierStatus(report),
+    expectedBody: report.expectedBody,
+    actualBody: verifierBody(report),
+    expectedHeaders: report.expectedHeaders ?? {},
+    actualHeaders: selectedNodeLevel5BehavioralHeaders(report),
+    snapshotAccepted: snapshot.accepted,
+    restoreAccepted: restore.accepted,
+    behavioralVerifierPassed: restore.behavioralVerifierPassed,
+    targetNativeNodeVerified: productRunTargetNativeVerified(restore, report),
+  };
+}
+
+function verifierStatus(report: NodeLevel5ProductBehavioralVerifierReport): number {
+  return report.actualStatus ?? 0;
+}
+
+function verifierBody(report: NodeLevel5ProductBehavioralVerifierReport): string {
+  return report.actualBody ?? "";
+}
+
+function productRunTargetNativeVerified(
+  restore: NodeLevel5ProductRestoreSummary,
+  report: NodeLevel5ProductBehavioralVerifierReport,
+): boolean {
+  return restore.targetNativeNodeVerified && report.targetNativeNodeVerified;
+}
+
+export function writeNodeLevel5BehaviorConfig(
+  appDir: string,
+  config: Record<string, unknown>,
+): void {
+  writeFileSync(
+    join(appDir, "machinen-node-level5-behavior.json"),
+    `${JSON.stringify(config, null, 2)}\n`,
+  );
 }
 
 export function selectedNodeLevel5BehavioralHeaders(

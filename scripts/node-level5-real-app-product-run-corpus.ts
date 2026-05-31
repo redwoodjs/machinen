@@ -7,23 +7,17 @@ import {
   type NodeLevel5RealAppCorpusFramework,
   type NodeLevel5RealAppCorpusRow,
 } from "../packages/runtime/src/node-level5-real-app-corpus.ts";
-import type {
-  NodeLevel5ProductBehavioralVerifierReport,
-  NodeLevel5ProductRestoreSummary,
-  NodeLevel5ProductSnapshotDirection,
-  NodeLevel5ProductSnapshotSummary,
-} from "../packages/runtime/src/node-level5-product-snapshot.ts";
+import type { NodeLevel5ProductSnapshotDirection } from "../packages/runtime/src/node-level5-product-snapshot.ts";
 import {
   isNodeLevel5RealAppCorpusMain,
   nodeLevel5RealAppCorpusDirections,
   nodeLevel5RealAppCorpusFrameworks,
   parseNodeLevel5RealAppCorpusOutArgs,
+  nodeLevel5HttpEvidenceFromProductRun,
   nodeLevel5HttpServerSourceForRoutes,
+  runNodeLevel5ProductPathForApp,
   runNodeLevel5RealAppCorpusCliJson,
-  runNodeLevel5SnapshotRestoreForApp,
-  selectedNodeLevel5BehavioralHeaders,
-  spawnNodeLevel5RealAppCorpusTarget,
-  stopNodeLevel5RealAppCorpusTarget,
+  writeNodeLevel5BehaviorConfig,
   writeNodeLevel5RealAppFixturePackageJson,
 } from "./node-level5-real-app-corpus-script-utils.ts";
 
@@ -103,57 +97,16 @@ function runFixtureProductCommands(
 ): NodeLevel5RealAppCorpusRow {
   const appDir = fixtureAppDir(outDir, framework, direction);
   const snapshotDir = join(outDir, "snapshots", framework, direction);
-  const child = spawnNodeLevel5RealAppCorpusTarget(appDir);
-  try {
-    const { snapshot, restore } = runNodeLevel5SnapshotRestoreForApp({
-      child,
-      appDir,
-      snapshotDir,
-      direction,
-    });
-    return rowFromProductRun(framework, direction, snapshot, restore);
-  } finally {
-    stopNodeLevel5RealAppCorpusTarget(child);
-  }
-}
-
-function rowFromProductRun(
-  framework: NodeLevel5RealAppCorpusFramework,
-  direction: NodeLevel5ProductSnapshotDirection,
-  snapshot: NodeLevel5ProductSnapshotSummary,
-  restore: NodeLevel5ProductRestoreSummary,
-): NodeLevel5RealAppCorpusRow {
-  const report = restore.behavioralVerifierReport;
-  return {
-    framework,
+  return runNodeLevel5ProductPathForApp({
+    appDir,
+    snapshotDir,
     direction,
-    routePath: report.routePath,
-    expectedStatus: report.expectedStatus,
-    actualStatus: verifierStatus(report),
-    expectedBody: report.expectedBody,
-    actualBody: verifierBody(report),
-    expectedHeaders: report.expectedHeaders ?? {},
-    actualHeaders: selectedNodeLevel5BehavioralHeaders(report),
-    snapshotAccepted: snapshot.accepted,
-    restoreAccepted: restore.accepted,
-    behavioralVerifierPassed: restore.behavioralVerifierPassed,
-    targetNativeNodeVerified: productRunTargetNativeVerified(restore, report),
-  };
-}
-
-function verifierStatus(report: NodeLevel5ProductBehavioralVerifierReport): number {
-  return report.actualStatus ?? 0;
-}
-
-function verifierBody(report: NodeLevel5ProductBehavioralVerifierReport): string {
-  return report.actualBody ?? "";
-}
-
-function productRunTargetNativeVerified(
-  restore: NodeLevel5ProductRestoreSummary,
-  report: NodeLevel5ProductBehavioralVerifierReport,
-): boolean {
-  return restore.targetNativeNodeVerified && report.targetNativeNodeVerified;
+    row: ({ snapshot, restore }) => ({
+      framework,
+      direction,
+      ...nodeLevel5HttpEvidenceFromProductRun(snapshot, restore),
+    }),
+  });
 }
 
 function fixtureAppDir(
@@ -165,10 +118,7 @@ function fixtureAppDir(
   mkdirSync(appDir, { recursive: true });
   writeNodeLevel5RealAppFixturePackageJson(appDir, framework, "product-run-fixture");
   writeFileSync(join(appDir, "server.mjs"), serverSource(fixture(framework)));
-  writeFileSync(
-    join(appDir, "machinen-node-level5-behavior.json"),
-    `${JSON.stringify(behaviorConfig(framework), null, 2)}\n`,
-  );
+  writeNodeLevel5BehaviorConfig(appDir, behaviorConfig(framework));
   return appDir;
 }
 
