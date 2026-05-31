@@ -15,12 +15,12 @@ type ProofDefinition = { goal: string; result: string; kind: string };
 const definitions: Record<string, ProofDefinition> = {
   "421": {
     goal: "Target argument contract",
-    result: "Product UX is machinen snapshot node <name|pid> --out <dir>.",
+    result: "Product UX is machinen snapshot <vm-name> --out <dir>.",
     kind: "contract",
   },
   "422": {
     goal: "Cwd shorthand refusal",
-    result: "snapshot node --out refuses without an explicit target.",
+    result: "snapshot --out refuses without an explicit target.",
     kind: "no-cwd",
   },
   "423": {
@@ -129,7 +129,7 @@ export function runNodeLevel5TargetBoundProof(proof: string): void {
     nodeProductSupportClaimed: 80,
     broadNodeProductSupportClaimed: 20,
     arbitraryProcessCrossArchRestoreClaimed: 0,
-    productSurface: ["machinen snapshot node <name|pid>", "machinen restore <snapshot>"],
+    productSurface: ["machinen snapshot <vm-name> --out <dir>", "machinen restore <snapshot>"],
     ...payload(definition.kind),
   };
   writeOrAssertSummary(proof, checkedSummary);
@@ -139,12 +139,12 @@ export function runNodeLevel5TargetBoundProof(proof: string): void {
 
 function payload(kind: string): Record<string, unknown> {
   if (kind === "contract") {
-    return { command: "machinen snapshot node <name|pid> --out <dir>", targetRequired: true };
+    return { command: "machinen snapshot <vm-name> --out <dir>", targetRequired: true };
   }
   if (kind === "no-cwd") {
     const appDir = supportedAppDir();
     const outDir = tempDir();
-    const result = runCli(["snapshot", "node", "--out", outDir, "--json"], appDir);
+    const result = runCli(["snapshot", "--out", outDir, "--json"], appDir);
     cleanup(appDir, outDir);
     return { refused: result.status === 1, targetRequired: true };
   }
@@ -276,7 +276,7 @@ function payload(kind: string): Record<string, unknown> {
     return { priorProofRange: "341-420", targetBoundProofRange: "421-438", passing: true };
   }
   return {
-    finalProductSurface: "snapshot node <name|pid> / restore",
+    finalProductSurface: "snapshot <vm-name> / restore",
     targetBound: true,
     diagnosticSelectorsHidden: true,
   };
@@ -435,6 +435,7 @@ function cliJson(args: string[], expectedStatus = 0, cwd = repoRoot): Record<str
 function runCli(args: string[], cwd = repoRoot) {
   return spawnSync(process.execPath, ["--import", tsxLoaderPath, cliPath, ...args], {
     cwd,
+    env: { ...process.env, MACHINEN_NODE_LEVEL5_ALLOW_HOST_PID_SNAPSHOT: "1" },
     encoding: "utf8",
   });
 }

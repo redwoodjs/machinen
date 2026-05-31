@@ -7,7 +7,7 @@
   "nodeProductSupportClaimed": 80,
   "broadNodeProductSupportClaimed": 20,
   "arbitraryProcessCrossArchRestoreClaimed": 0,
-  "productSurface": ["machinen snapshot node <name|pid>", "machinen restore <snapshot>"],
+  "productSurface": ["machinen snapshot <vm-name> --out <dir>", "machinen restore <snapshot>"],
   "refused": true,
   "mentionsRefusal": true
 }

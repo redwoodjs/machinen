@@ -2,12 +2,12 @@
   "kind": "machinen.node-level5-target-bound-proof-summary",
   "proof": "421",
   "goal": "Target argument contract",
-  "result": "Product UX is machinen snapshot node <name|pid> --out <dir>.",
+  "result": "Product UX is machinen snapshot <vm-name> --out <dir>.",
   "status": "node-product-support-80-target-bound-snapshot",
   "nodeProductSupportClaimed": 80,
   "broadNodeProductSupportClaimed": 20,
   "arbitraryProcessCrossArchRestoreClaimed": 0,
-  "productSurface": ["machinen snapshot node <name|pid>", "machinen restore <snapshot>"],
-  "command": "machinen snapshot node <name|pid> --out <dir>",
+  "productSurface": ["machinen snapshot <vm-name> --out <dir>", "machinen restore <snapshot>"],
+  "command": "machinen snapshot <vm-name> --out <dir>",
   "targetRequired": true
 }

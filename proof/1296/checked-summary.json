@@ -4,7 +4,7 @@
   "goal": "middleware/error-handling product-run evidence",
   "result": "Selected Express/Fastify middleware, not-found, error, and request-ID rows pass snapshot, restore, and behavior checks.",
   "status": "node-product-support-80-middleware-error-handling-product-slice",
-  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
+  "productSurface": ["machinen snapshot <vm-name> --out <dir>", "machinen restore <snapshot>"],
   "harnessProof": true,
   "nodeProductSupportClaimed": 80,
   "broadNodeProductSupportClaimed": 20,

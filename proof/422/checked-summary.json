@@ -2,12 +2,12 @@
   "kind": "machinen.node-level5-target-bound-proof-summary",
   "proof": "422",
   "goal": "Cwd shorthand refusal",
-  "result": "snapshot node --out refuses without an explicit target.",
+  "result": "snapshot --out refuses without an explicit target.",
   "status": "node-product-support-80-target-bound-snapshot",
   "nodeProductSupportClaimed": 80,
   "broadNodeProductSupportClaimed": 20,
   "arbitraryProcessCrossArchRestoreClaimed": 0,
-  "productSurface": ["machinen snapshot node <name|pid>", "machinen restore <snapshot>"],
+  "productSurface": ["machinen snapshot <vm-name> --out <dir>", "machinen restore <snapshot>"],
   "refused": true,
   "targetRequired": true
 }

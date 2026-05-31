@@ -4,7 +4,7 @@
   "goal": "Not-proven and boundary drift guard",
   "result": "Gaps and broad app/process boundaries stay unclaimed.",
   "status": "node-product-support-80-proof-only-matrix-drift-guard",
-  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <dir>"],
+  "productSurface": ["machinen snapshot <vm-name> --out <dir>", "machinen restore <dir>"],
   "proofOnly": true,
   "harnessProof": true,
   "nodeProductSupportClaimed": 80,

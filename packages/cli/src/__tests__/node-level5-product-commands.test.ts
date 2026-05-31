@@ -190,7 +190,7 @@ describe("Node Level 5 product commands", () => {
           snapshotAccepted: false,
           snapshotManifestWritten: false,
           refusedBeforeSnapshot: true,
-          productCommandPath: "machinen snapshot node <pid> --out <dir>",
+          productCommandPath: "machinen snapshot <vm-name> --out <dir>",
           rawCpuRestoreUsed: false,
           sourceIsaEmulationUsed: false,
           metadataOnlySuccessAccepted: false,

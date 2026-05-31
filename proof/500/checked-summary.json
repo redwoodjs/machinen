@@ -7,8 +7,8 @@
   "nodeProductSupportClaimed": 80,
   "broadNodeProductSupportClaimed": 20,
   "arbitraryProcessCrossArchRestoreClaimed": 0,
-  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
-  "finalProductSurface": "snapshot node <pid> / restore",
+  "productSurface": ["machinen snapshot <vm-name> --out <dir>", "machinen restore <snapshot>"],
+  "finalProductSurface": "snapshot <vm-name> / restore",
   "targetNativeMaterializationBoundary": true,
   "claimsRemain": "80/20/0"
 }

@@ -4,7 +4,7 @@
   "goal": "Refusal expansion release gate",
   "result": "Expanded refusal reports are release-gated and tamper-checked.",
   "status": "node-product-support-80-refusal-expansion",
-  "productSurface": ["machinen snapshot node <pid> --out <dir>"],
+  "productSurface": ["machinen snapshot <vm-name> --out <dir>"],
   "harnessProof": true,
   "nodeProductSupportClaimed": 80,
   "broadNodeProductSupportClaimed": 20,

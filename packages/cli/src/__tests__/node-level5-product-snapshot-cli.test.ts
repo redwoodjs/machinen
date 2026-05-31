@@ -39,8 +39,19 @@ function stopNodeTarget(child: ChildProcess): void {
   child.kill("SIGTERM");
 }
 
+const hostPidHarnessEnv = { MACHINEN_NODE_LEVEL5_ALLOW_HOST_PID_SNAPSHOT: "1" };
+
 describe("Node Level 5 product snapshot CLI", () => {
-  it("uses snapshot and restore as the product surface", () => {
+  it("keeps the public snapshot surface generic and VM-detection based", () => {
+    const dir = mkdtempSync(join(tmpdir(), "machinen-node-product-cli-public-"));
+    const snapshot = runCli(["snapshot", "api", "--out", dir, "--dry-run", "--json"]);
+    expect(snapshot.status).toBe(1);
+    expect(JSON.parse(snapshot.stderr)).toMatchObject({ error: { code: "VM_NOT_FOUND" } });
+    expect(snapshot.stderr).not.toContain("snapshot node");
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("uses snapshot and restore as the harness product surface", () => {
     const dir = mkdtempSync(join(tmpdir(), "machinen-node-product-cli-"));
     const source = appDir();
     let child: ChildProcess | undefined;
@@ -49,6 +60,7 @@ describe("Node Level 5 product snapshot CLI", () => {
       const snapshot = runCli(
         ["snapshot", "node", String(child.pid), "--out", dir, "--json"],
         source,
+        hostPidHarnessEnv,
       );
       expect(snapshot.status).toBe(0);
       expect(JSON.parse(snapshot.stdout)).toMatchObject({
@@ -89,7 +101,10 @@ describe("Node Level 5 product snapshot CLI", () => {
       const snapshot = runCli(
         ["snapshot", "node", String(child.pid), "--out", dir, "--json"],
         source,
-        { MACHINEN_NODE_LEVEL5_PRODUCT_SNAPSHOT_DIRECTION: "amd64-to-arm64" },
+        {
+          ...hostPidHarnessEnv,
+          MACHINEN_NODE_LEVEL5_PRODUCT_SNAPSHOT_DIRECTION: "amd64-to-arm64",
+        },
       );
       expect(snapshot.status).toBe(0);
       expect(JSON.parse(snapshot.stdout)).toMatchObject({
@@ -114,6 +129,7 @@ describe("Node Level 5 product snapshot CLI", () => {
       const snapshot = runCli(
         ["snapshot", "node", String(child.pid), "--out", dir, "--json"],
         source,
+        hostPidHarnessEnv,
       );
       expect(snapshot.status).toBe(1);
       expect(JSON.parse(snapshot.stdout)).toMatchObject({

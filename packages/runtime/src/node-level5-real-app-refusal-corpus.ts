@@ -38,7 +38,7 @@ export type NodeLevel5RealAppRefusalCorpusRow = {
   snapshotAccepted: false;
   snapshotManifestWritten: false;
   refusedBeforeSnapshot: true;
-  productCommandPath: "machinen snapshot node <pid> --out <dir>";
+  productCommandPath: "machinen snapshot <vm-name> --out <dir>";
   rawCpuRestoreUsed: false;
   sourceIsaEmulationUsed: false;
   metadataOnlySuccessAccepted: false;
@@ -131,7 +131,7 @@ function isAcceptedRealAppRefusalCorpusRow(row: NodeLevel5RealAppRefusalCorpusRo
     row.rawCpuRestoreUsed === false &&
     row.sourceIsaEmulationUsed === false &&
     row.metadataOnlySuccessAccepted === false &&
-    row.productCommandPath === "machinen snapshot node <pid> --out <dir>"
+    row.productCommandPath === "machinen snapshot <vm-name> --out <dir>"
   );
 }
 

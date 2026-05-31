@@ -8,7 +8,7 @@
   "nodeProductSupportClaimed": 80,
   "broadNodeProductSupportClaimed": 20,
   "arbitraryProcessCrossArchRestoreClaimed": 0,
-  "productSurface": ["machinen snapshot node <pid> --out <dir>"],
+  "productSurface": ["machinen snapshot <vm-name> --out <dir>"],
   "marker": "tlsActiveState",
   "rowCount": 4,
   "allExpectedCodesMatched": true,

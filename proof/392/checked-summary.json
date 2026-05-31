@@ -7,7 +7,7 @@
   "nodeProductSupportClaimed": 80,
   "broadNodeProductSupportClaimed": 20,
   "arbitraryProcessCrossArchRestoreClaimed": 0,
-  "productSurface": ["machinen snapshot node", "machinen restore <snapshot>"],
+  "productSurface": ["machinen snapshot <vm-name> --out <dir>", "machinen restore <snapshot>"],
   "fields": ["accepted", "snapshotDir", "manifestPath", "manifest"],
   "accepted": true
 }

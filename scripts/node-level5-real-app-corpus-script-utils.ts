@@ -88,9 +88,11 @@ function assertNodeLevel5RealAppCorpusCliStatus(
 function nodeLevel5RealAppCorpusCliEnv(
   direction: NodeLevel5ProductSnapshotDirection | undefined,
 ): NodeJS.ProcessEnv {
-  return direction
-    ? { ...process.env, MACHINEN_NODE_LEVEL5_PRODUCT_SNAPSHOT_DIRECTION: direction }
-    : { ...process.env };
+  return {
+    ...process.env,
+    MACHINEN_NODE_LEVEL5_ALLOW_HOST_PID_SNAPSHOT: "1",
+    ...(direction ? { MACHINEN_NODE_LEVEL5_PRODUCT_SNAPSHOT_DIRECTION: direction } : {}),
+  };
 }
 
 export function runNodeLevel5SnapshotRestoreForApp(input: {

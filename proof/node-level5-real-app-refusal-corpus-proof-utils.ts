@@ -55,7 +55,7 @@ export function runNodeLevel5RealAppRefusalCorpusProof(proof: string): void {
     nodeProductSupportClaimed: 80,
     broadNodeProductSupportClaimed: 20,
     arbitraryProcessCrossArchRestoreClaimed: 0,
-    productSurface: ["machinen snapshot node <pid> --out <dir>"],
+    productSurface: ["machinen snapshot <vm-name> --out <dir>"],
     ...payload(definition.kind),
   };
   writeOrAssertSummary(proof, checkedSummary);

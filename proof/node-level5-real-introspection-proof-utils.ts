@@ -11,7 +11,8 @@ const tsxLoaderPath = join(repoRoot, "node_modules/tsx/dist/loader.mjs");
 const definitions: Record<string, { goal: string; result: string; kind: string }> = {
   "441": {
     goal: "Real introspection contract",
-    result: "snapshot node <pid> reads process evidence instead of target metadata.",
+    result:
+      "diagnostic host-PID harness reads process evidence while the public product target remains a VM name.",
     kind: "contract",
   },
   "442": {
@@ -125,7 +126,7 @@ export function runNodeLevel5RealIntrospectionProof(proof: string): void {
     nodeProductSupportClaimed: 80,
     broadNodeProductSupportClaimed: 20,
     arbitraryProcessCrossArchRestoreClaimed: 0,
-    productSurface: ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
+    productSurface: ["machinen snapshot <vm-name> --out <dir>", "machinen restore <snapshot>"],
     ...payload(definition.kind),
   };
   writeOrAssertSummary(proof, checkedSummary);
@@ -268,7 +269,7 @@ function payload(kind: string): Record<string, unknown> {
     };
   }
   return {
-    finalProductSurface: "snapshot node <pid> / restore",
+    finalProductSurface: "snapshot <vm-name> / restore",
     targetMetadataShimRemoved: true,
     claimsRemain: "80/20/0",
   };
@@ -407,6 +408,7 @@ function cliJson(args: string[], expectedStatus = 0, cwd = repoRoot): Record<str
 function runCli(args: string[], cwd = repoRoot) {
   return spawnSync(process.execPath, ["--import", tsxLoaderPath, cliPath, ...args], {
     cwd,
+    env: { ...process.env, MACHINEN_NODE_LEVEL5_ALLOW_HOST_PID_SNAPSHOT: "1" },
     encoding: "utf8",
   });
 }

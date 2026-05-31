@@ -4,11 +4,11 @@
   "goal": "Final claim-boundary drift guard",
   "result": "Proof-only audits preserve translated continuation and 80/20/0 claims.",
   "status": "node-product-support-80-proof-only-matrix-drift-guard",
-  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <dir>"],
+  "productSurface": ["machinen snapshot <vm-name> --out <dir>", "machinen restore <dir>"],
   "proofOnly": true,
   "harnessProof": true,
   "nodeProductSupportClaimed": 80,
   "broadNodeProductSupportClaimed": 20,
   "arbitraryProcessCrossArchRestoreClaimed": 0,
-  "productSurfaces": ["machinen snapshot node <pid> --out <dir>", "machinen restore <dir>"]
+  "productSurfaces": ["machinen snapshot <vm-name> --out <dir>", "machinen restore <dir>"]
 }

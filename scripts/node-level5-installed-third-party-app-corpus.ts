@@ -56,7 +56,7 @@ type InstalledThirdPartyAppCorpusSummary = {
     typeof verifyNodeLevel5InstalledThirdPartyAppCorpusReport
   >;
   releaseGate: Record<string, any>;
-  productCommands: ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"];
+  productCommands: ["machinen snapshot <vm-name> --out <dir>", "machinen restore <snapshot>"];
   harnessProof: true;
   nodeProductSupportClaimed: 80;
   broadNodeProductSupportClaimed: 20;
@@ -852,7 +852,7 @@ export function generateInstalledThirdPartyAppCorpus(
     rows,
     installedThirdPartyAppVerification,
     releaseGate,
-    productCommands: ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
+    productCommands: ["machinen snapshot <vm-name> --out <dir>", "machinen restore <snapshot>"],
     harnessProof: true,
     nodeProductSupportClaimed: 80,
     broadNodeProductSupportClaimed: 20,

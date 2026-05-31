@@ -130,7 +130,7 @@ export function runNodeLevel5MatrixDriftGuardProof(proof: string): void {
     goal: definition.goal,
     result: definition.result,
     status: "node-product-support-80-proof-only-matrix-drift-guard",
-    productSurface: ["machinen snapshot node <pid> --out <dir>", "machinen restore <dir>"],
+    productSurface: ["machinen snapshot <vm-name> --out <dir>", "machinen restore <dir>"],
     proofOnly: true,
     harnessProof: true,
     nodeProductSupportClaimed: 80,
@@ -350,7 +350,7 @@ function auditPayload(kind: string): Record<string, unknown> {
   return recordFor(kind, {
     "audit-proof-only": { proofOnly: true, productCodeChanged: false },
     "audit-product-surfaces": {
-      productSurfaces: ["machinen snapshot node <pid> --out <dir>", "machinen restore <dir>"],
+      productSurfaces: ["machinen snapshot <vm-name> --out <dir>", "machinen restore <dir>"],
     },
     "audit-node-claim": { nodeProductSupportClaimed: matrix.nodeProductSupportClaimed },
     "audit-broad-node-claim": {

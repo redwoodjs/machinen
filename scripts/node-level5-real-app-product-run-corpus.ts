@@ -30,7 +30,7 @@ type ProductRunCorpusSummary = {
   rows: NodeLevel5RealAppCorpusRow[];
   corpusVerification: ReturnType<typeof verifyNodeLevel5RealAppCorpusReport>;
   releaseGate: Record<string, unknown>;
-  productCommands: ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"];
+  productCommands: ["machinen snapshot <vm-name> --out <dir>", "machinen restore <snapshot>"];
   productRunGenerated: true;
   harnessProof: true;
   nodeProductSupportClaimed: 80;
@@ -76,7 +76,7 @@ export function generateProductRunCorpus(outDir: string): ProductRunCorpusSummar
     rows,
     corpusVerification,
     releaseGate,
-    productCommands: ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
+    productCommands: ["machinen snapshot <vm-name> --out <dir>", "machinen restore <snapshot>"],
     productRunGenerated: true,
     harnessProof: true,
     nodeProductSupportClaimed: 80,

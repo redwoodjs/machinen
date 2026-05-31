@@ -8,7 +8,7 @@
   "nodeProductSupportClaimed": 80,
   "broadNodeProductSupportClaimed": 20,
   "arbitraryProcessCrossArchRestoreClaimed": 0,
-  "productSurface": ["machinen snapshot node <pid> --out <dir>"],
+  "productSurface": ["machinen snapshot <vm-name> --out <dir>"],
   "generatorRange": "761-768",
   "markerRange": "769-776",
   "gateRange": "785-792",

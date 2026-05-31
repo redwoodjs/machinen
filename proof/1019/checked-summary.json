@@ -4,7 +4,7 @@
   "goal": "Background/resource refusal markers",
   "result": "Writable files, timers, cluster mode, and matrix external/background refusals are retained.",
   "status": "node-product-support-80-refusal-expansion",
-  "productSurface": ["machinen snapshot node <pid> --out <dir>"],
+  "productSurface": ["machinen snapshot <vm-name> --out <dir>"],
   "harnessProof": true,
   "nodeProductSupportClaimed": 80,
   "broadNodeProductSupportClaimed": 20,

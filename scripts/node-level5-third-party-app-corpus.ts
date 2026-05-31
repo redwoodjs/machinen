@@ -42,7 +42,7 @@ type ThirdPartyAppCorpusSummary = {
   rows: NodeLevel5ThirdPartyAppCorpusRow[];
   thirdPartyAppVerification: ReturnType<typeof verifyNodeLevel5ThirdPartyAppCorpusReport>;
   releaseGate: Record<string, any>;
-  productCommands: ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"];
+  productCommands: ["machinen snapshot <vm-name> --out <dir>", "machinen restore <snapshot>"];
   harnessProof: true;
   nodeProductSupportClaimed: 80;
   broadNodeProductSupportClaimed: 20;
@@ -126,7 +126,7 @@ export function generateThirdPartyAppCorpus(outDir: string): ThirdPartyAppCorpus
     rows,
     thirdPartyAppVerification,
     releaseGate,
-    productCommands: ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
+    productCommands: ["machinen snapshot <vm-name> --out <dir>", "machinen restore <snapshot>"],
     harnessProof: true,
     nodeProductSupportClaimed: 80,
     broadNodeProductSupportClaimed: 20,

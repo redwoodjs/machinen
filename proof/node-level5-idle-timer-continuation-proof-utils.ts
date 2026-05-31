@@ -35,7 +35,7 @@ export function runNodeLevel5IdleTimerContinuationProof(proof: string): void {
     goal: definition.goal,
     result: definition.result,
     status: "node-product-support-80-idle-timer-continuation-product-slice",
-    productSurface: ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
+    productSurface: ["machinen snapshot <vm-name> --out <dir>", "machinen restore <snapshot>"],
     harnessProof: true,
     nodeProductSupportClaimed: 80,
     broadNodeProductSupportClaimed: 20,
