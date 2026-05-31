@@ -1,0 +1,12 @@
+{
+  "kind": "machinen.node-level5-real-app-behavioral-corpus-proof-summary",
+  "proof": "656",
+  "goal": "Real Fastify fixture behavior",
+  "result": "Restore probes a Fastify-declared app fixture route.",
+  "status": "node-product-support-80-real-app-behavioral-corpus",
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"]
+}

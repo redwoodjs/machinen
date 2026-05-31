@@ -22660,7 +22660,7 @@ Poll interval in ms while retrying. Default 250.
 
 ##### verifier
 
-> **verifier**: `"target-native-http-loopback"`
+> **verifier**: `"target-native-http-loopback"` \| `"target-native-app-route"`
 
 ##### executable
 
@@ -22670,9 +22670,33 @@ Poll interval in ms while retrying. Default 250.
 
 > **appDir**: `string`
 
+##### routePath
+
+> **routePath**: `string`
+
+##### expectedStatus
+
+> **expectedStatus**: `number`
+
+##### actualStatus?
+
+> `optional` **actualStatus?**: `number`
+
 ##### expectedBody
 
-> **expectedBody**: `"machinen-node-level5-behavior-ok"`
+> **expectedBody**: `string`
+
+##### actualBody?
+
+> `optional` **actualBody?**: `string`
+
+##### expectedHeaders?
+
+> `optional` **expectedHeaders?**: `Record`\<`string`, `string`\>
+
+##### actualHeaders?
+
+> `optional` **actualHeaders?**: `Record`\<`string`, `string`\>
 
 ##### exitCode
 
