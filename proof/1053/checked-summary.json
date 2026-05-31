@@ -11,5 +11,5 @@
   "broadNodeProductSupportClaimed": 20,
   "arbitraryProcessCrossArchRestoreClaimed": 0,
   "evidenceKinds": ["fixture-product-run-corpus", "installed-package-corpus", "template-corpus"],
-  "proofRanges": ["721-760", "801-840", "841-880", "961-1000"]
+  "proofRanges": ["1121-1160", "721-760", "801-840", "841-880", "961-1000"]
 }

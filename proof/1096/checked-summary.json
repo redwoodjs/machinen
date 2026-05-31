@@ -10,5 +10,5 @@
   "nodeProductSupportClaimed": 80,
   "broadNodeProductSupportClaimed": 20,
   "arbitraryProcessCrossArchRestoreClaimed": 0,
-  "liveStateRowsSupported": []
+  "liveStateRowsSupported": ["express-installed-idle-timer", "fastify-installed-idle-timer"]
 }

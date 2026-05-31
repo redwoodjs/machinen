@@ -24,7 +24,15 @@ const featureNames: NodeLevel5AppSupportFeatureName[] = [
   "externalNetwork",
   "backgroundTasks",
 ];
-const expectedProofRanges = ["721-760", "761-800", "801-840", "841-880", "921-960", "961-1000"];
+const expectedProofRanges = [
+  "1121-1160",
+  "721-760",
+  "761-800",
+  "801-840",
+  "841-880",
+  "921-960",
+  "961-1000",
+];
 const expectedReports = [
   "node-level5-real-app-corpus-report.json",
   "node-level5-third-party-app-corpus-report.json",
@@ -449,8 +457,8 @@ function writeOrAssertSummary(proof: string, checkedSummary: Record<string, unkn
 
 function validateExpectedBundleConstants(summary: Record<string, unknown>): void {
   const bundle = buildProofBundle();
-  if (bundle.rowCount !== 54) {
-    throw new Error(`expected 54 app support matrix rows, got ${bundle.rowCount}`);
+  if (bundle.rowCount !== 56) {
+    throw new Error(`expected 56 app support matrix rows, got ${bundle.rowCount}`);
   }
   if (JSON.stringify(bundle.proofRanges) !== JSON.stringify(expectedProofRanges)) {
     throw new Error(`unexpected proof ranges: ${bundle.proofRanges.join(",")}`);
