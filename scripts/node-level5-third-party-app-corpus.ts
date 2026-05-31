@@ -2,12 +2,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import type { NodeLevel5RealAppCorpusFramework } from "../packages/runtime/src/node-level5-real-app-corpus.ts";
-import type {
-  NodeLevel5ProductBehavioralVerifierReport,
-  NodeLevel5ProductRestoreSummary,
-  NodeLevel5ProductSnapshotDirection,
-  NodeLevel5ProductSnapshotSummary,
-} from "../packages/runtime/src/node-level5-product-snapshot.ts";
+import type { NodeLevel5ProductSnapshotDirection } from "../packages/runtime/src/node-level5-product-snapshot.ts";
 import {
   verifyNodeLevel5ThirdPartyAppCorpusReport,
   writeNodeLevel5ThirdPartyAppCorpusReport,
@@ -16,14 +11,15 @@ import {
 } from "../packages/runtime/src/node-level5-third-party-app-corpus.ts";
 import {
   isNodeLevel5RealAppCorpusMain,
+  nodeLevel5AppCorpusIdentity,
+  nodeLevel5DeclaredSubsetCorpusFields,
   nodeLevel5RealAppCorpusDirections,
   parseNodeLevel5RealAppCorpusOutArgs,
+  nodeLevel5HttpEvidenceFromProductRun,
   nodeLevel5HttpServerSourceForRoutes,
+  runNodeLevel5ProductPathForNamedApp,
   runNodeLevel5RealAppCorpusCliJson,
-  runNodeLevel5SnapshotRestoreForApp,
-  selectedNodeLevel5BehavioralHeaders,
-  spawnNodeLevel5RealAppCorpusTarget,
-  stopNodeLevel5RealAppCorpusTarget,
+  writeNodeLevel5BehaviorConfig,
   writeNodeLevel5RealAppFixturePackageJson,
 } from "./node-level5-real-app-corpus-script-utils.ts";
 
@@ -149,19 +145,17 @@ function runAppProductCommands(
   direction: NodeLevel5ProductSnapshotDirection,
 ): NodeLevel5ThirdPartyAppCorpusRow {
   const appDir = appDirFor(outDir, app, direction);
-  const snapshotDir = join(outDir, "snapshots", app.appName, direction);
-  const child = spawnNodeLevel5RealAppCorpusTarget(appDir);
-  try {
-    const { snapshot, restore } = runNodeLevel5SnapshotRestoreForApp({
-      child,
-      appDir,
-      snapshotDir,
-      direction,
-    });
-    return rowFromProductRun(app, direction, snapshot, restore);
-  } finally {
-    stopNodeLevel5RealAppCorpusTarget(child);
-  }
+  return runNodeLevel5ProductPathForNamedApp({
+    outDir,
+    appName: app.appName,
+    appDir,
+    direction,
+    row: ({ snapshot, restore }) => ({
+      ...nodeLevel5AppCorpusIdentity(app, direction),
+      ...nodeLevel5HttpEvidenceFromProductRun(snapshot, restore),
+      ...nodeLevel5DeclaredSubsetCorpusFields(),
+    }),
+  });
 }
 
 function appDirFor(
@@ -173,54 +167,8 @@ function appDirFor(
   mkdirSync(appDir, { recursive: true });
   writeNodeLevel5RealAppFixturePackageJson(appDir, app.framework, "third-party-fixture");
   writeFileSync(join(appDir, "server.mjs"), app.serverSource(app));
-  writeFileSync(
-    join(appDir, "machinen-node-level5-behavior.json"),
-    `${JSON.stringify(behaviorConfig(app), null, 2)}\n`,
-  );
+  writeNodeLevel5BehaviorConfig(appDir, behaviorConfig(app));
   return appDir;
-}
-
-function rowFromProductRun(
-  app: ThirdPartyAppDefinition,
-  direction: NodeLevel5ProductSnapshotDirection,
-  snapshot: NodeLevel5ProductSnapshotSummary,
-  restore: NodeLevel5ProductRestoreSummary,
-): NodeLevel5ThirdPartyAppCorpusRow {
-  const report = restore.behavioralVerifierReport;
-  return {
-    appName: app.appName,
-    source: app.source,
-    framework: app.framework,
-    direction,
-    routePath: report.routePath,
-    expectedStatus: report.expectedStatus,
-    actualStatus: verifierStatus(report),
-    expectedBody: report.expectedBody,
-    actualBody: verifierBody(report),
-    expectedHeaders: report.expectedHeaders ?? {},
-    actualHeaders: selectedNodeLevel5BehavioralHeaders(report),
-    snapshotAccepted: snapshot.accepted,
-    restoreAccepted: restore.accepted,
-    behavioralVerifierPassed: restore.behavioralVerifierPassed,
-    targetNativeNodeVerified: productRunTargetNativeVerified(restore, report),
-    declaredSubset: true,
-    unsupportedStateDetected: false,
-  };
-}
-
-function verifierStatus(report: NodeLevel5ProductBehavioralVerifierReport): number {
-  return report.actualStatus ?? 0;
-}
-
-function verifierBody(report: NodeLevel5ProductBehavioralVerifierReport): string {
-  return report.actualBody ?? "";
-}
-
-function productRunTargetNativeVerified(
-  restore: NodeLevel5ProductRestoreSummary,
-  report: NodeLevel5ProductBehavioralVerifierReport,
-): boolean {
-  return restore.targetNativeNodeVerified && report.targetNativeNodeVerified;
 }
 
 function behaviorConfig(app: ThirdPartyAppDefinition): Record<string, unknown> {
