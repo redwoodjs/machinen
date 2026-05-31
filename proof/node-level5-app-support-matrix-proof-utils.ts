@@ -41,7 +41,7 @@ export function runNodeLevel5AppSupportMatrixProof(proof: string): void {
     status: "node-product-support-80-app-support-matrix",
     productSurface: [
       "machinen node-level5 support-matrix --json",
-      "machinen snapshot node <pid> --out <dir>",
+      "machinen snapshot <vm-name> --out <dir>",
       "machinen restore <snapshot>",
     ],
     harnessProof: true,

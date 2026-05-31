@@ -1925,6 +1925,11 @@ type NodeLevel5ProductSnapshotCliOptions = {
   target?: Target;
 };
 
+type RequiredNodeLevel5SnapshotOptions = {
+  out: string;
+  target: Target;
+};
+
 type NodeLevel5ProductSnapshotTargetMetadata = {
   runtime?: "node" | "unknown";
   appDir?: string;
@@ -3699,7 +3704,29 @@ function buildDetachedRestoreSummaryWithSemantics(input: {
   };
 }
 
-// fallow-ignore-next-line code-duplication
+function buildDescriptorDetachedRestoreSummary<TDescriptor, TSummary extends object>(
+  input: {
+    descriptor: TDescriptor;
+    summary: TSummary;
+    vm: VmHandle;
+    name: string;
+    elapsedMs: number;
+  },
+  details: (descriptor: TDescriptor) => {
+    outputLogPath: string;
+    processField: string;
+    continuationSemantics: Record<string, unknown>;
+  },
+): Record<string, unknown> {
+  return buildDetachedRestoreSummaryWithSemantics({
+    summary: input.summary,
+    vm: input.vm,
+    name: input.name,
+    elapsedMs: input.elapsedMs,
+    ...details(input.descriptor),
+  });
+}
+
 function buildTcpListenerDetachedRestoreSummary(input: {
   descriptor: ProductLevel4TcpListenerDescriptor;
   summary: ProductLevel4TcpListenerRestoreSummary;
@@ -3707,12 +3734,7 @@ function buildTcpListenerDetachedRestoreSummary(input: {
   name: string;
   elapsedMs: number;
 }): Record<string, unknown> {
-  const { descriptor, summary, vm, name, elapsedMs } = input;
-  return buildDetachedRestoreSummaryWithSemantics({
-    summary,
-    vm,
-    name,
-    elapsedMs,
+  return buildDescriptorDetachedRestoreSummary(input, (descriptor) => ({
     outputLogPath: descriptor.continuation.outputLogPath,
     processField: "targetTcpListenerProcess",
     continuationSemantics: {
@@ -3726,10 +3748,9 @@ function buildTcpListenerDetachedRestoreSummary(input: {
       listenerPolicy: descriptor.continuation.listenerPolicy,
       acceptQueuePolicy: descriptor.continuation.acceptQueuePolicy,
     },
-  });
+  }));
 }
 
-// fallow-ignore-next-line code-duplication
 function buildTimerfdDetachedRestoreSummary(input: {
   descriptor: ProductLevel4TimerfdDescriptor;
   summary: ProductLevel4TimerfdRestoreSummary;
@@ -3737,12 +3758,7 @@ function buildTimerfdDetachedRestoreSummary(input: {
   name: string;
   elapsedMs: number;
 }): Record<string, unknown> {
-  const { descriptor, summary, vm, name, elapsedMs } = input;
-  return buildDetachedRestoreSummaryWithSemantics({
-    summary,
-    vm,
-    name,
-    elapsedMs,
+  return buildDescriptorDetachedRestoreSummary(input, (descriptor) => ({
     outputLogPath: descriptor.continuation.outputLogPath,
     processField: "targetTimerfdProcess",
     continuationSemantics: {
@@ -3755,10 +3771,9 @@ function buildTimerfdDetachedRestoreSummary(input: {
       timerPolicy: descriptor.continuation.timerPolicy,
       expirationPolicy: descriptor.continuation.expirationPolicy,
     },
-  });
+  }));
 }
 
-// fallow-ignore-next-line code-duplication
 function buildPipeDetachedRestoreSummary(input: {
   descriptor: ProductLevel4PipeDescriptor;
   summary: ProductLevel4PipeRestoreSummary;
@@ -3766,12 +3781,7 @@ function buildPipeDetachedRestoreSummary(input: {
   name: string;
   elapsedMs: number;
 }): Record<string, unknown> {
-  const { descriptor, summary, vm, name, elapsedMs } = input;
-  return buildDetachedRestoreSummaryWithSemantics({
-    summary,
-    vm,
-    name,
-    elapsedMs,
+  return buildDescriptorDetachedRestoreSummary(input, (descriptor) => ({
     outputLogPath: descriptor.continuation.outputLogPath,
     processField: "targetPipeProcess",
     continuationSemantics: {
@@ -3785,10 +3795,9 @@ function buildPipeDetachedRestoreSummary(input: {
       pipePolicy: descriptor.continuation.pipePolicy,
       readinessPolicy: descriptor.continuation.readinessPolicy,
     },
-  });
+  }));
 }
 
-// fallow-ignore-next-line code-duplication
 function buildEventfdDetachedRestoreSummary(input: {
   descriptor: ProductLevel4EventfdDescriptor;
   summary: ProductLevel4EventfdRestoreSummary;
@@ -3796,12 +3805,7 @@ function buildEventfdDetachedRestoreSummary(input: {
   name: string;
   elapsedMs: number;
 }): Record<string, unknown> {
-  const { descriptor, summary, vm, name, elapsedMs } = input;
-  return buildDetachedRestoreSummaryWithSemantics({
-    summary,
-    vm,
-    name,
-    elapsedMs,
+  return buildDescriptorDetachedRestoreSummary(input, (descriptor) => ({
     outputLogPath: descriptor.continuation.outputLogPath,
     processField: "targetEventfdProcess",
     continuationSemantics: {
@@ -3814,7 +3818,7 @@ function buildEventfdDetachedRestoreSummary(input: {
       counterPolicy: descriptor.continuation.counterPolicy,
       readinessPolicy: descriptor.continuation.readinessPolicy,
     },
-  });
+  }));
 }
 
 // fallow-ignore-next-line complexity
@@ -5172,8 +5176,8 @@ function restorePtyRawMode(wasRaw: boolean): void {
 }
 
 async function cmdSnapshot(args: string[]): Promise<number> {
-  if (isNodeLevel5ProductSnapshotCommand(args)) {
-    return cmdSnapshotNodeLevel5Product(args);
+  if (isNodeLevel5HostPidHarnessSnapshotCommand(args)) {
+    return cmdSnapshotNodeLevel5HostPidHarness(args);
   }
   const opts = parseSnapshotOptions(args);
   if (opts.dryRun) {
@@ -5182,15 +5186,42 @@ async function cmdSnapshot(args: string[]): Promise<number> {
   return runSnapshot(opts);
 }
 
-function isNodeLevel5ProductSnapshotCommand(args: string[]): boolean {
-  return args.some((arg) => arg === "node") && args.some((arg) => arg === "--out");
+function isNodeLevel5HostPidHarnessSnapshotCommand(args: string[]): boolean {
+  return allowNodeLevel5HostPidHarnessTarget() && isNodeLevel5HostPidHarnessShape(args);
 }
 
-function cmdSnapshotNodeLevel5Product(args: string[]): number {
+function isNodeLevel5HostPidHarnessShape(args: string[]): boolean {
+  return args[0] === "node" && isDigitsOnly(args[1]) && args.includes("--out");
+}
+
+function isDigitsOnly(value: string | undefined): boolean {
+  return /^[0-9]+$/.test(value ?? "");
+}
+
+async function cmdSnapshotNodeLevel5HostPidHarness(args: string[]): Promise<number> {
   const { json, rest } = consumeJsonFlag(args);
-  const options = parseNodeLevel5ProductSnapshotArgs(rest.filter((arg) => arg !== "node"));
-  if (!options.out || !options.target) {
-    die("usage: machinen snapshot node <name|pid> --out <dir> [--json]");
+  const options = requireNodeLevel5HostPidHarnessOptions(rest.filter((arg) => arg !== "node"));
+  return runNodeLevel5HostPidHarnessSnapshot({ ...options, target: options.target }, json);
+}
+
+function requireNodeLevel5HostPidHarnessOptions(
+  args: string[],
+): RequiredNodeLevel5SnapshotOptions & { target: { pid: number } } {
+  const options = parseNodeLevel5ProductSnapshotArgs(args);
+  if (!options.out || !options.target || !("pid" in options.target)) {
+    die(
+      "usage: MACHINEN_NODE_LEVEL5_ALLOW_HOST_PID_SNAPSHOT=1 machinen snapshot node <host-pid> --out <dir> [--json]",
+    );
+  }
+  return { out: options.out, target: options.target };
+}
+
+function runNodeLevel5HostPidHarnessSnapshot(
+  options: RequiredNodeLevel5SnapshotOptions & { target: { pid: number } },
+  json: boolean,
+): number {
+  if (!allowNodeLevel5HostPidHarnessTarget()) {
+    die("usage: machinen snapshot <vm-name> --out <dir> [--json]");
   }
   return reportNodeLevel5ProductSnapshot(
     createNodeLevel5ProductSnapshot({
@@ -5200,6 +5231,12 @@ function cmdSnapshotNodeLevel5Product(args: string[]): number {
     }),
     json,
   );
+}
+
+function allowNodeLevel5HostPidHarnessTarget(): boolean {
+  // Diagnostic/release-corpus harness only. The public product surface is
+  // `machinen snapshot <vm-name> --out <dir>` and detects Node inside the VM.
+  return process.env.MACHINEN_NODE_LEVEL5_ALLOW_HOST_PID_SNAPSHOT === "1";
 }
 
 function nodeLevel5ProductSnapshotDirectionOverride():
@@ -5236,7 +5273,7 @@ function writeNodeLevel5ProductSnapshotHumanSummary(
     process.stdout.write(`snapshot written: ${summary.snapshotDir}\n`);
     return;
   }
-  process.stderr.write(`machinen snapshot node: ${summary.refusal?.message}\n`);
+  process.stderr.write(`machinen snapshot: ${summary.refusal?.message}\n`);
 }
 
 function parseNodeLevel5ProductSnapshotArgs(args: string[]): NodeLevel5ProductSnapshotCliOptions {
@@ -5256,7 +5293,7 @@ function parseNodeLevel5ProductSnapshotTargetOnly(
     return {};
   }
   if (args.length > 1) {
-    die(`unknown snapshot node argument: ${args[1]}`);
+    die(`unknown snapshot host-pid harness argument: ${args[1]}`);
   }
   return { target: /^[0-9]+$/.test(args[0]!) ? { pid: Number(args[0]) } : { name: args[0]! } };
 }
@@ -5350,14 +5387,15 @@ interface SnapshotOptionsCli {
 }
 
 function parseSnapshotOptions(args: string[]): SnapshotOptionsCli {
-  // Form: `machinen snapshot <target> <out-dir>`. We strip --json /
-  // --dry-run / --keep-alive first; the first two positionals left
-  // are the target and the out-dir.
+  // Forms: `machinen snapshot <target> <out-dir>` and
+  // `machinen snapshot <target> --out <dir>`. We strip --json /
+  // --dry-run / --keep-alive first; the first positional left is the target.
   const { json, rest: afterJson } = consumeJsonFlag(args);
   const { dryRun, rest: afterDry } = consumeDryRunFlag(afterJson);
-  const { keepAlive, rest } = consumeKeepAliveFlag(afterDry);
+  const { keepAlive, rest: afterKeepAlive } = consumeKeepAliveFlag(afterDry);
+  const { outDir: flaggedOutDir, rest } = consumeSnapshotOutFlag(afterKeepAlive);
   const { target, rest: afterTarget } = resolveTarget(rest, "snapshot");
-  const outDir = parseSnapshotOutDir(afterTarget);
+  const outDir = parseSnapshotOutDir(afterTarget, flaggedOutDir);
   return { json, dryRun, keepAlive, target, outDir, resolvedOutDir: resolve(outDir) };
 }
 
@@ -5374,16 +5412,44 @@ function consumeKeepAliveFlag(args: string[]): { keepAlive: boolean; rest: strin
   return { keepAlive, rest };
 }
 
-function parseSnapshotOutDir(args: string[]): string {
+function consumeSnapshotOutFlag(args: string[]): { outDir: string | undefined; rest: string[] } {
+  const outFlag = args.indexOf("--out");
+  if (outFlag === -1) {
+    return { outDir: undefined, rest: args };
+  }
+  const outDir = takeCaptureValue(args, outFlag + 1, "--out");
+  const rest = args.filter((_, index) => index !== outFlag && index !== outFlag + 1);
+  return { outDir, rest };
+}
+
+function parseSnapshotOutDir(args: string[], flaggedOutDir?: string): string {
+  return flaggedOutDir
+    ? parseFlaggedSnapshotOutDir(args, flaggedOutDir)
+    : parsePositionalSnapshotOutDir(args);
+}
+
+function parseFlaggedSnapshotOutDir(args: string[], flaggedOutDir: string): string {
+  if (args.length > 0) {
+    die(`unknown argument: ${args[0]}`);
+  }
+  return flaggedOutDir;
+}
+
+function parsePositionalSnapshotOutDir(args: string[]): string {
   if (args.length === 0) {
-    die(
-      "usage: machinen snapshot <name|pid> <out-dir> [--keep-alive] [--dry-run] [--json]\n       machinen snapshot node <name|pid> --out <dir> [--json]",
-    );
+    die(snapshotUsage());
   }
   if (args.length > 1) {
     die(`unknown argument: ${args[1]}`);
   }
   return args[0]!;
+}
+
+function snapshotUsage(): string {
+  return (
+    "usage: machinen snapshot <name|pid> <out-dir> [--keep-alive] [--dry-run] [--json]\n" +
+    "       machinen snapshot <name|pid> --out <dir> [--keep-alive] [--dry-run] [--json]"
+  );
 }
 
 function snapshotDryRun(opts: SnapshotOptionsCli): number {
@@ -6490,7 +6556,10 @@ function printHelp(): void {
       `                                                 Example:\n` +
       `                                                   machinen exec <name|pid> --tty -- bash -i\n` +
       `  machinen snapshot <name|pid> <out-dir> [--keep-alive]\n` +
+      `  machinen snapshot <name|pid> --out <dir> [--keep-alive]\n` +
       `                                                 Checkpoint a running VM into <d>.\n` +
+      `                                                 Node workloads are detected inside the VM;\n` +
+      `                                                 no Node-only snapshot selector is needed.\n` +
       `                                                 Default vmstate snapshots are incremental\n` +
       `                                                 and non-destructive. CRIU snapshots stay\n` +
       `                                                 non-incremental; --keep-alive leaves them\n` +

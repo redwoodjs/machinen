@@ -6,7 +6,7 @@
   "status": "out-of-scope",
   "productSurface": [
     "machinen node-level5 support-matrix --json",
-    "machinen snapshot node <pid> --out <dir>",
+    "machinen snapshot <vm-name> --out <dir>",
     "machinen restore <snapshot>"
   ],
   "harnessProof": true,

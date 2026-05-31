@@ -7,7 +7,7 @@
   "nodeProductSupportClaimed": 80,
   "broadNodeProductSupportClaimed": 20,
   "arbitraryProcessCrossArchRestoreClaimed": 0,
-  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
+  "productSurface": ["machinen snapshot <vm-name> --out <dir>", "machinen restore <snapshot>"],
   "artifactRoot": "artifacts/express-fastify-http-app/arm64-to-amd64",
   "artifactBundleKind": "machinen.node-level5-product-support-80-artifact-bundle",
   "translatedContinuationRequired": true

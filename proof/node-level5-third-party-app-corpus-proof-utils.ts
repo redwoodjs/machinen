@@ -36,7 +36,7 @@ export function runNodeLevel5ThirdPartyAppCorpusProof(proof: string): void {
     nodeProductSupportClaimed: 80,
     broadNodeProductSupportClaimed: 20,
     arbitraryProcessCrossArchRestoreClaimed: 0,
-    productSurface: ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
+    productSurface: ["machinen snapshot <vm-name> --out <dir>", "machinen restore <snapshot>"],
     ...payload(definition.kind),
   };
   writeOrAssertSummary(proof, checkedSummary);

@@ -5,7 +5,7 @@ This is the internal app-based support matrix for the Node Level 5 product path.
 The product path remains:
 
 ```sh
-machinen snapshot node <pid> --out <dir>
+machinen snapshot <vm-name> --out <dir>
 machinen restore <dir>
 ```
 

@@ -15,7 +15,8 @@ type ProofDefinition = { goal: string; result: string; kind: string };
 const definitions: Record<string, ProofDefinition> = {
   "381": {
     goal: "Product snapshot command contract",
-    result: "Node Level 5 uses machinen snapshot node as product surface.",
+    result:
+      "Node Level 5 uses the generic machinen snapshot surface and detects Node inside the VM.",
     kind: "snapshot-contract",
   },
   "382": {
@@ -129,7 +130,7 @@ export function runNodeLevel5ProductSnapshotProof(proof: string): void {
     nodeProductSupportClaimed: 80,
     broadNodeProductSupportClaimed: 20,
     arbitraryProcessCrossArchRestoreClaimed: 0,
-    productSurface: ["machinen snapshot node", "machinen restore <snapshot>"],
+    productSurface: ["machinen snapshot <vm-name> --out <dir>", "machinen restore <snapshot>"],
     ...payload(definition.kind),
   };
   writeOrAssertSummary(proof, checkedSummary);
@@ -140,7 +141,7 @@ export function runNodeLevel5ProductSnapshotProof(proof: string): void {
 // fallow-ignore-next-line complexity
 function payload(kind: string): Record<string, unknown> {
   if (kind === "snapshot-contract") {
-    return { command: "machinen snapshot node <name|pid> --out <dir>" };
+    return { command: "machinen snapshot <vm-name> --out <dir>" };
   }
   if (kind === "restore-contract") {
     return {
@@ -231,7 +232,7 @@ function payload(kind: string): Record<string, unknown> {
     const dir = tempDir();
     const appDir = supportedAppDir();
     const result = runCli(
-      ["snapshot", "node", "999999", "--out", dir, "--family", "unknown-family", "--json"],
+      ["snapshot", "api", "--out", dir, "--family", "unknown-family", "--json"],
       appDir,
     );
     rmSync(dir, { recursive: true, force: true });
@@ -239,7 +240,7 @@ function payload(kind: string): Record<string, unknown> {
     return {
       refused: result.status === 1,
       familySelectorExposed: false,
-      messageIncludesUnknownArgument: result.stderr.includes("unknown snapshot node argument"),
+      messageIncludesUnknownArgument: result.stderr.includes("unknown argument: --family"),
     };
   }
   if (kind === "tamper") {
@@ -394,6 +395,7 @@ function cliJson(args: string[], expectedStatus = 0, cwd = repoRoot): Record<str
 function runCli(args: string[], cwd = repoRoot) {
   return spawnSync(process.execPath, ["--import", tsxLoaderPath, cliPath, ...args], {
     cwd,
+    env: { ...process.env, MACHINEN_NODE_LEVEL5_ALLOW_HOST_PID_SNAPSHOT: "1" },
     encoding: "utf8",
   });
 }

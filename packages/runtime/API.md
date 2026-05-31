@@ -22106,7 +22106,7 @@ Poll interval in ms while retrying. Default 250.
 
 ### NodeLevel5AppSupportProductBehavior
 
-> **NodeLevel5AppSupportProductBehavior** = `"machinen snapshot node <pid> --out <dir>; machinen restore <dir>"` \| `"refuse-before-snapshot"` \| `"not-proven"`
+> **NodeLevel5AppSupportProductBehavior** = `"machinen snapshot <vm-name> --out <dir>; machinen restore <dir>"` \| `"refuse-before-snapshot"` \| `"not-proven"`
 
 ***
 
@@ -22962,7 +22962,7 @@ Poll interval in ms while retrying. Default 250.
 
 ##### productCommandPath
 
-> **productCommandPath**: `"machinen snapshot node <pid> --out <dir>"`
+> **productCommandPath**: `"machinen snapshot <vm-name> --out <dir>"`
 
 ##### familyId
 
@@ -24770,7 +24770,7 @@ Poll interval in ms while retrying. Default 250.
 
 ##### productCommandPath
 
-> **productCommandPath**: `"machinen snapshot node <pid> --out <dir>"`
+> **productCommandPath**: `"machinen snapshot <vm-name> --out <dir>"`
 
 ##### rawCpuRestoreUsed
 

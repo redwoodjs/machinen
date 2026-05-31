@@ -9,6 +9,6 @@
   "nodeProductSupportClaimed": 80,
   "broadNodeProductSupportClaimed": 20,
   "arbitraryProcessCrossArchRestoreClaimed": 0,
-  "productSurface": "snapshot node <pid> / restore",
+  "productSurface": "snapshot <vm-name> / restore",
   "familySelectorExposed": false
 }

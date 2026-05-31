@@ -10,7 +10,7 @@ export type NodeLevel5AppSupportEvidenceKind =
   | "refusal-corpus"
   | "matrix-gap";
 export type NodeLevel5AppSupportProductBehavior =
-  | "machinen snapshot node <pid> --out <dir>; machinen restore <dir>"
+  | "machinen snapshot <vm-name> --out <dir>; machinen restore <dir>"
   | "refuse-before-snapshot"
   | "not-proven";
 export type NodeLevel5AppSupportDirection = "arm64-to-amd64" | "amd64-to-arm64";
@@ -696,7 +696,7 @@ function supportedRow(input: SupportedRowInput): NodeLevel5AppSupportMatrixRow {
     appName: input.appName,
     framework: input.framework,
     status: "supported",
-    productBehavior: "machinen snapshot node <pid> --out <dir>; machinen restore <dir>",
+    productBehavior: "machinen snapshot <vm-name> --out <dir>; machinen restore <dir>",
     supportScope: "declared-subset-idle-http",
     directions,
     evidence: input.evidence,

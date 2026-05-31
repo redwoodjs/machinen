@@ -8,7 +8,7 @@ Proofs 501–560 exercise the retained Node Level 5 product snapshot format acro
 These are harness proofs for release gating. They do not raise product support claims on their own. The product UX remains:
 
 ```sh
-machinen snapshot node <pid> --out ./node-snapshot
+machinen snapshot <vm-name> --out ./node-snapshot
 machinen restore ./node-snapshot
 ```
 

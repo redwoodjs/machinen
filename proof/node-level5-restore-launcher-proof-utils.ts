@@ -30,7 +30,7 @@ export function runNodeLevel5RestoreLauncherProof(proof: string): void {
     nodeProductSupportClaimed: 80,
     broadNodeProductSupportClaimed: 20,
     arbitraryProcessCrossArchRestoreClaimed: 0,
-    productSurface: ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
+    productSurface: ["machinen snapshot <vm-name> --out <dir>", "machinen restore <snapshot>"],
     ...payload(definition.kind),
   };
   writeOrAssertSummary(proof, checkedSummary);
@@ -384,6 +384,7 @@ function cliJson(args: string[], expectedStatus = 0, cwd = repoRoot): Record<str
 function runCli(args: string[], cwd = repoRoot) {
   return spawnSync(process.execPath, ["--import", tsxLoaderPath, cliPath, ...args], {
     cwd,
+    env: { ...process.env, MACHINEN_NODE_LEVEL5_ALLOW_HOST_PID_SNAPSHOT: "1" },
     encoding: "utf8",
   });
 }

@@ -15,7 +15,7 @@ type ProofDefinition = { goal: string; result: string; kind: string };
 const definitions: Record<string, ProofDefinition> = {
   "401": {
     goal: "Node snapshot detection contract",
-    result: "snapshot node inspects app evidence before capture.",
+    result: "generic snapshot detects Node app evidence before capture.",
     kind: "contract",
   },
   "402": {
@@ -129,7 +129,7 @@ export function runNodeLevel5ProductDetectionProof(proof: string): void {
     nodeProductSupportClaimed: 80,
     broadNodeProductSupportClaimed: 20,
     arbitraryProcessCrossArchRestoreClaimed: 0,
-    productSurface: ["machinen snapshot node <name|pid>", "machinen restore <snapshot>"],
+    productSurface: ["machinen snapshot <vm-name> --out <dir>", "machinen restore <snapshot>"],
     ...payload(definition.kind),
   };
   writeOrAssertSummary(proof, checkedSummary);
@@ -423,6 +423,7 @@ function cliJson(args: string[], expectedStatus = 0, cwd = repoRoot): Record<str
 function runCli(args: string[], cwd = repoRoot) {
   return spawnSync(process.execPath, ["--import", tsxLoaderPath, cliPath, ...args], {
     cwd,
+    env: { ...process.env, MACHINEN_NODE_LEVEL5_ALLOW_HOST_PID_SNAPSHOT: "1" },
     encoding: "utf8",
   });
 }

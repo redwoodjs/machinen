@@ -39,7 +39,7 @@ type RefusalCorpusSummary = {
   rows: NodeLevel5RealAppRefusalCorpusRow[];
   refusalVerification: ReturnType<typeof verifyNodeLevel5RealAppRefusalCorpusReport>;
   releaseGate: Record<string, any>;
-  productCommand: "machinen snapshot node <pid> --out <dir>";
+  productCommand: "machinen snapshot <vm-name> --out <dir>";
   harnessProof: true;
   nodeProductSupportClaimed: 80;
   broadNodeProductSupportClaimed: 20;
@@ -86,7 +86,7 @@ export function generateRefusalCorpus(outDir: string): RefusalCorpusSummary {
     rows,
     refusalVerification,
     releaseGate,
-    productCommand: "machinen snapshot node <pid> --out <dir>",
+    productCommand: "machinen snapshot <vm-name> --out <dir>",
     harnessProof: true,
     nodeProductSupportClaimed: 80,
     broadNodeProductSupportClaimed: 20,
@@ -144,7 +144,7 @@ function refusalRow(
     snapshotAccepted: false,
     snapshotManifestWritten: assertSnapshotManifestNotWritten(snapshotDir),
     refusedBeforeSnapshot: assertSnapshotRefused(snapshot),
-    productCommandPath: "machinen snapshot node <pid> --out <dir>",
+    productCommandPath: "machinen snapshot <vm-name> --out <dir>",
     rawCpuRestoreUsed: false,
     sourceIsaEmulationUsed: false,
     metadataOnlySuccessAccepted: false,

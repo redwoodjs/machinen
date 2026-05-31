@@ -4,7 +4,7 @@
   "goal": "Proof-only app support release bundle contract",
   "result": "The proof-local bundle retains the matrix contract, hashes, reports, and proof ranges.",
   "status": "node-product-support-80-proof-only-release-bundle",
-  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <dir>"],
+  "productSurface": ["machinen snapshot <vm-name> --out <dir>", "machinen restore <dir>"],
   "proofOnly": true,
   "harnessProof": true,
   "nodeProductSupportClaimed": 80,

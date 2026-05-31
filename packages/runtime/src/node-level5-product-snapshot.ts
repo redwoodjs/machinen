@@ -106,7 +106,7 @@ export type NodeLevel5ProductDetectorReport = {
 export type NodeLevel5ProductCaptureReport = {
   kind: typeof NODE_LEVEL5_PRODUCT_CAPTURE_REPORT_KIND;
   accepted: true;
-  productCommandPath: "machinen snapshot node <pid> --out <dir>";
+  productCommandPath: "machinen snapshot <vm-name> --out <dir>";
   familyId: NodeLevel5ProductSupport80FamilyId;
   direction: NodeLevel5ProductSnapshotDirection;
   targetIdentitySha256: string;
@@ -545,7 +545,7 @@ function buildCaptureReport(
   return {
     kind: NODE_LEVEL5_PRODUCT_CAPTURE_REPORT_KIND,
     accepted: true,
-    productCommandPath: "machinen snapshot node <pid> --out <dir>",
+    productCommandPath: "machinen snapshot <vm-name> --out <dir>",
     familyId: report.familyId,
     direction: report.direction,
     targetIdentitySha256,
