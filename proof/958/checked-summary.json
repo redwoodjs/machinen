@@ -1,0 +1,13 @@
+{
+  "kind": "machinen.node-level5-app-support-matrix-dimensions-proof-summary",
+  "proof": "958",
+  "goal": "Support matrix dimensions final audit",
+  "result": "Feature dimensions preserve the app-specific support boundary and keep claims unchanged.",
+  "status": "node-product-support-80-app-support-matrix-dimensions",
+  "productSurface": ["machinen node-level5 support-matrix --json"],
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "docsExist": true
+}

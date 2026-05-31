@@ -1,6 +1,10 @@
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 
+import {
+  isNodeLevel5CorpusHttpEvidenceAccepted,
+  type NodeLevel5CorpusHttpEvidence,
+} from "./node-level5-corpus-common.ts";
 import type { NodeLevel5ProductSnapshotDirection } from "./node-level5-product-snapshot.ts";
 
 export const NODE_LEVEL5_REAL_APP_CORPUS_REPORT_KIND =
@@ -9,20 +13,9 @@ export const NODE_LEVEL5_REAL_APP_CORPUS_REPORT_VERSION = 1;
 
 export type NodeLevel5RealAppCorpusFramework = "express" | "fastify";
 
-export type NodeLevel5RealAppCorpusRow = {
+export type NodeLevel5RealAppCorpusRow = NodeLevel5CorpusHttpEvidence & {
   framework: NodeLevel5RealAppCorpusFramework;
   direction: NodeLevel5ProductSnapshotDirection;
-  routePath: string;
-  expectedStatus: number;
-  actualStatus: number;
-  expectedBody: string;
-  actualBody: string;
-  expectedHeaders: Record<string, string>;
-  actualHeaders: Record<string, string>;
-  snapshotAccepted: boolean;
-  restoreAccepted: boolean;
-  behavioralVerifierPassed: boolean;
-  targetNativeNodeVerified: boolean;
 };
 
 export type NodeLevel5RealAppCorpusReport = {
@@ -102,15 +95,7 @@ export function loadNodeLevel5RealAppCorpusReport(path: string): NodeLevel5RealA
 }
 
 function isAcceptedRealAppCorpusRow(row: NodeLevel5RealAppCorpusRow): boolean {
-  return (
-    row.snapshotAccepted &&
-    row.restoreAccepted &&
-    row.behavioralVerifierPassed &&
-    row.targetNativeNodeVerified &&
-    row.actualStatus === row.expectedStatus &&
-    row.actualBody === row.expectedBody &&
-    Object.entries(row.expectedHeaders).every(([key, value]) => row.actualHeaders[key] === value)
-  );
+  return isNodeLevel5CorpusHttpEvidenceAccepted(row);
 }
 
 function sha256Json(value: unknown): string {

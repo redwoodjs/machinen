@@ -1,0 +1,13 @@
+{
+  "kind": "machinen.node-level5-third-party-app-corpus-proof-summary",
+  "proof": "804",
+  "goal": "Third-party app corpus generator contract",
+  "result": "The generator runs product snapshot/restore and writes a retained report.",
+  "status": "node-product-support-80-third-party-app-corpus",
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
+  "thirdPartyAppReportWritten": true
+}

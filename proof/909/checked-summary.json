@@ -1,0 +1,16 @@
+{
+  "kind": "machinen.node-level5-app-support-matrix-proof-summary",
+  "proof": "909",
+  "goal": "Support matrix boundaries",
+  "result": "The matrix keeps arbitrary Express/Fastify/Node and raw CPU restore unclaimed.",
+  "status": "node-product-support-80-app-support-matrix",
+  "productSurface": [
+    "machinen node-level5 support-matrix --json",
+    "machinen snapshot node <pid> --out <dir>",
+    "machinen restore <snapshot>"
+  ],
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0
+}

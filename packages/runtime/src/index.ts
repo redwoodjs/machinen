@@ -239,6 +239,38 @@ export {
   verifyNodeLevel5ProductSupport80ArtifactBundle,
 } from "./node-level5-product-support-80-hardening.ts";
 export {
+  NODE_LEVEL5_APP_SUPPORT_MATRIX_KIND,
+  NODE_LEVEL5_APP_SUPPORT_MATRIX_VERSION,
+  buildNodeLevel5AppSupportMatrix,
+  notProvenNodeLevel5AppSupportRows,
+  refusedNodeLevel5AppSupportRows,
+  supportedNodeLevel5AppSupportRows,
+} from "./node-level5-app-support-matrix.ts";
+export {
+  NODE_LEVEL5_INSTALLED_THIRD_PARTY_APP_CORPUS_REPORT_KIND,
+  NODE_LEVEL5_INSTALLED_THIRD_PARTY_APP_CORPUS_REPORT_VERSION,
+  createNodeLevel5InstalledThirdPartyAppCorpusReport,
+  loadNodeLevel5InstalledThirdPartyAppCorpusReport,
+  verifyNodeLevel5InstalledThirdPartyAppCorpusReport,
+  writeNodeLevel5InstalledThirdPartyAppCorpusReport,
+} from "./node-level5-installed-third-party-app-corpus.ts";
+export {
+  NODE_LEVEL5_THIRD_PARTY_APP_CORPUS_REPORT_KIND,
+  NODE_LEVEL5_THIRD_PARTY_APP_CORPUS_REPORT_VERSION,
+  createNodeLevel5ThirdPartyAppCorpusReport,
+  loadNodeLevel5ThirdPartyAppCorpusReport,
+  verifyNodeLevel5ThirdPartyAppCorpusReport,
+  writeNodeLevel5ThirdPartyAppCorpusReport,
+} from "./node-level5-third-party-app-corpus.ts";
+export {
+  NODE_LEVEL5_REAL_APP_REFUSAL_CORPUS_REPORT_KIND,
+  NODE_LEVEL5_REAL_APP_REFUSAL_CORPUS_REPORT_VERSION,
+  createNodeLevel5RealAppRefusalCorpusReport,
+  loadNodeLevel5RealAppRefusalCorpusReport,
+  verifyNodeLevel5RealAppRefusalCorpusReport,
+  writeNodeLevel5RealAppRefusalCorpusReport,
+} from "./node-level5-real-app-refusal-corpus.ts";
+export {
   NODE_LEVEL5_REAL_APP_CORPUS_REPORT_KIND,
   NODE_LEVEL5_REAL_APP_CORPUS_REPORT_VERSION,
   createNodeLevel5RealAppCorpusReport,
@@ -375,6 +407,43 @@ export type {
   NodeLevel5ProductSupport80ClaimRegistry,
   NodeLevel5ProductSupport80UnsupportedDetector,
 } from "./node-level5-product-support-80-hardening.ts";
+export type {
+  NodeLevel5AppSupportBoundary,
+  NodeLevel5AppSupportDirection,
+  NodeLevel5AppSupportEvidence,
+  NodeLevel5AppSupportEvidenceKind,
+  NodeLevel5AppSupportFeatureAssessment,
+  NodeLevel5AppSupportFeatureName,
+  NodeLevel5AppSupportFeatureStatus,
+  NodeLevel5AppSupportFeatures,
+  NodeLevel5AppSupportFramework,
+  NodeLevel5AppSupportMiddlewareFeature,
+  NodeLevel5AppSupportMatrix,
+  NodeLevel5AppSupportMatrixRow,
+  NodeLevel5AppSupportProductBehavior,
+  NodeLevel5AppSupportResponseFeature,
+  NodeLevel5AppSupportRouteFeature,
+  NodeLevel5AppSupportStatus,
+} from "./node-level5-app-support-matrix.ts";
+export type { NodeLevel5CorpusHttpEvidence } from "./node-level5-corpus-common.ts";
+export type {
+  NodeLevel5InstalledThirdPartyAppCorpusReport,
+  NodeLevel5InstalledThirdPartyAppCorpusRow,
+  NodeLevel5InstalledThirdPartyAppCorpusVerification,
+  NodeLevel5InstalledThirdPartyAppSource,
+} from "./node-level5-installed-third-party-app-corpus.ts";
+export type {
+  NodeLevel5ThirdPartyAppCorpusReport,
+  NodeLevel5ThirdPartyAppCorpusRow,
+  NodeLevel5ThirdPartyAppCorpusVerification,
+  NodeLevel5ThirdPartyAppSource,
+} from "./node-level5-third-party-app-corpus.ts";
+export type {
+  NodeLevel5RealAppRefusalCorpusReport,
+  NodeLevel5RealAppRefusalCorpusRow,
+  NodeLevel5RealAppRefusalCorpusVerification,
+  NodeLevel5RealAppRefusalMarker,
+} from "./node-level5-real-app-refusal-corpus.ts";
 export type {
   NodeLevel5RealAppCorpusFramework,
   NodeLevel5RealAppCorpusReport,

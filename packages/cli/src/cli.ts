@@ -43,6 +43,7 @@ import {
   ProductLevel4TcpListenerError,
   ProductLevel4TimerfdError,
   ProductPortablePostgresError,
+  buildNodeLevel5AppSupportMatrix,
   buildProductClaimRegistry,
   createProductLevel4EventfdSnapshot,
   createProductLevel4PingSocketSnapshot,
@@ -65,6 +66,9 @@ import {
   isProductPortablePostgresBundle,
   loadNodeLevel5ProductSupport80ArtifactBundle,
   loadNodeLevel5RealAppCorpusReport,
+  loadNodeLevel5RealAppRefusalCorpusReport,
+  loadNodeLevel5InstalledThirdPartyAppCorpusReport,
+  loadNodeLevel5ThirdPartyAppCorpusReport,
   list,
   productPortablePostgresFileSha256,
   productClaimFamilies,
@@ -78,6 +82,9 @@ import {
   restoreNodeLevel5ProductSnapshot,
   verifyNodeLevel5ProductSupport80ArtifactBundle,
   verifyNodeLevel5RealAppCorpusReport,
+  verifyNodeLevel5RealAppRefusalCorpusReport,
+  verifyNodeLevel5InstalledThirdPartyAppCorpusReport,
+  verifyNodeLevel5ThirdPartyAppCorpusReport,
   restoreProductLevel4EventfdSnapshot,
   restoreProductLevel4PingSocketSnapshot,
   restoreProductLevel4PipeSnapshot,
@@ -102,6 +109,7 @@ import type {
   ProductLevel4TimerfdDescriptor,
   ProductLevel4TimerfdRestoreSummary,
   ProductSupportLevel,
+  NodeLevel5ProductSnapshotDirection,
   NodeLevel5ProductSupport80FamilyId,
   RegistryEntry,
   VmHandle,
@@ -1944,6 +1952,9 @@ function cmdNodeLevel5(args: string[]): number {
   if (rest[0] === "claims") {
     return cmdNodeLevel5Claims(rest.slice(1), json);
   }
+  if (rest[0] === "support-matrix") {
+    return cmdNodeLevel5SupportMatrix(rest.slice(1), json);
+  }
   if (rest[0] === "release-gate") {
     return cmdNodeLevel5ReleaseGate(rest.slice(1), json);
   }
@@ -2013,17 +2024,27 @@ function cmdNodeLevel5Claims(args: string[], json: boolean): number {
   });
 }
 
+function cmdNodeLevel5SupportMatrix(args: string[], json: boolean): number {
+  const artifact = readOptionalNodeLevel5RetainedArtifact(args);
+  return reportNodeLevel5ProductCommand(json, {
+    ...buildNodeLevel5AppSupportMatrix(),
+    retainedArtifact: artifact,
+  });
+}
+
 function cmdNodeLevel5ReleaseGate(args: string[], json: boolean): number {
   const corpus = readOptionalNodeLevel5RealAppCorpus(args);
-  const artifactArgs = args.filter(
-    (arg, index) =>
-      arg !== "--include-real-app-corpus" &&
-      arg !== "--corpus-report" &&
-      args[index - 1] !== "--corpus-report",
-  );
-  const artifact = readOptionalNodeLevel5RetainedArtifact(artifactArgs);
-  const accepted =
-    (artifact ? artifact.accepted === true : true) && (corpus ? corpus.accepted === true : true);
+  const refusalCorpus = readOptionalNodeLevel5RealAppRefusalCorpus(args);
+  const thirdPartyAppCorpus = readOptionalNodeLevel5ThirdPartyAppCorpus(args);
+  const installedThirdPartyAppCorpus = readOptionalNodeLevel5InstalledThirdPartyAppCorpus(args);
+  const artifact = readOptionalNodeLevel5RetainedArtifact(nodeLevel5ReleaseGateArtifactArgs(args));
+  const accepted = [
+    artifact,
+    corpus,
+    refusalCorpus,
+    thirdPartyAppCorpus,
+    installedThirdPartyAppCorpus,
+  ].every((item) => (item ? item.accepted === true : true));
   return reportNodeLevel5ProductCommand(json, {
     accepted,
     kind: "machinen.node-level5-release-gate-summary",
@@ -2032,7 +2053,38 @@ function cmdNodeLevel5ReleaseGate(args: string[], json: boolean): number {
     arbitraryProcessCrossArchRestoreClaimed: 0,
     retainedArtifact: artifact,
     realAppCorpus: corpus,
+    realAppRefusalCorpus: refusalCorpus,
+    thirdPartyAppCorpus,
+    installedThirdPartyAppCorpus,
   });
+}
+
+const nodeLevel5ReleaseGateReportFlags = new Set([
+  "--include-real-app-corpus",
+  "--include-refusal-corpus",
+  "--include-third-party-app-corpus",
+  "--include-installed-third-party-app-corpus",
+  "--corpus-report",
+  "--refusal-corpus-report",
+  "--third-party-app-corpus-report",
+  "--installed-third-party-app-corpus-report",
+]);
+const nodeLevel5ReleaseGateReportValueFlags = new Set([
+  "--corpus-report",
+  "--refusal-corpus-report",
+  "--third-party-app-corpus-report",
+  "--installed-third-party-app-corpus-report",
+]);
+
+function nodeLevel5ReleaseGateArtifactArgs(args: string[]): string[] {
+  return args.filter((arg, index) => !isNodeLevel5ReleaseGateReportArg(args, arg, index));
+}
+
+function isNodeLevel5ReleaseGateReportArg(args: string[], arg: string, index: number): boolean {
+  return (
+    nodeLevel5ReleaseGateReportFlags.has(arg) ||
+    nodeLevel5ReleaseGateReportValueFlags.has(args[index - 1] ?? "")
+  );
 }
 
 function readOptionalNodeLevel5RealAppCorpus(args: string[]): Record<string, unknown> | undefined {
@@ -2063,9 +2115,109 @@ function verifyNodeLevel5RealAppCorpusPath(path: string): Record<string, unknown
 }
 
 function invalidNodeLevel5RealAppCorpus(error: unknown): Record<string, unknown> {
+  return invalidNodeLevel5ReleaseReport("node-level5-real-app-corpus-invalid", error);
+}
+
+function readOptionalNodeLevel5RealAppRefusalCorpus(
+  args: string[],
+): Record<string, unknown> | undefined {
+  const path = nodeLevel5RealAppRefusalCorpusReportPath(args);
+  return path ? verifyNodeLevel5RealAppRefusalCorpusPath(path) : undefined;
+}
+
+function nodeLevel5RealAppRefusalCorpusReportPath(args: string[]): string | undefined {
+  if (!args.includes("--include-refusal-corpus")) {
+    return undefined;
+  }
+  const reportFlag = args.indexOf("--refusal-corpus-report");
+  const path = reportFlag === -1 ? undefined : args[reportFlag + 1];
+  if (!path) {
+    die(
+      "machinen node-level5 release-gate --include-refusal-corpus requires --refusal-corpus-report <file>",
+    );
+  }
+  return path;
+}
+
+function verifyNodeLevel5RealAppRefusalCorpusPath(path: string): Record<string, unknown> {
+  try {
+    return verifyNodeLevel5RealAppRefusalCorpusReport(
+      loadNodeLevel5RealAppRefusalCorpusReport(resolve(path)),
+    );
+  } catch (error) {
+    return invalidNodeLevel5ReleaseReport("node-level5-real-app-refusal-corpus-invalid", error);
+  }
+}
+
+function readOptionalNodeLevel5ThirdPartyAppCorpus(
+  args: string[],
+): Record<string, unknown> | undefined {
+  const path = nodeLevel5ThirdPartyAppCorpusReportPath(args);
+  return path ? verifyNodeLevel5ThirdPartyAppCorpusPath(path) : undefined;
+}
+
+function nodeLevel5ThirdPartyAppCorpusReportPath(args: string[]): string | undefined {
+  if (!args.includes("--include-third-party-app-corpus")) {
+    return undefined;
+  }
+  const reportFlag = args.indexOf("--third-party-app-corpus-report");
+  const path = reportFlag === -1 ? undefined : args[reportFlag + 1];
+  if (!path) {
+    die(
+      "machinen node-level5 release-gate --include-third-party-app-corpus requires --third-party-app-corpus-report <file>",
+    );
+  }
+  return path;
+}
+
+function verifyNodeLevel5ThirdPartyAppCorpusPath(path: string): Record<string, unknown> {
+  try {
+    return verifyNodeLevel5ThirdPartyAppCorpusReport(
+      loadNodeLevel5ThirdPartyAppCorpusReport(resolve(path)),
+    );
+  } catch (error) {
+    return invalidNodeLevel5ReleaseReport("node-level5-third-party-app-corpus-invalid", error);
+  }
+}
+
+function readOptionalNodeLevel5InstalledThirdPartyAppCorpus(
+  args: string[],
+): Record<string, unknown> | undefined {
+  const path = nodeLevel5InstalledThirdPartyAppCorpusReportPath(args);
+  return path ? verifyNodeLevel5InstalledThirdPartyAppCorpusPath(path) : undefined;
+}
+
+function nodeLevel5InstalledThirdPartyAppCorpusReportPath(args: string[]): string | undefined {
+  if (!args.includes("--include-installed-third-party-app-corpus")) {
+    return undefined;
+  }
+  const reportFlag = args.indexOf("--installed-third-party-app-corpus-report");
+  const path = reportFlag === -1 ? undefined : args[reportFlag + 1];
+  if (!path) {
+    die(
+      "machinen node-level5 release-gate --include-installed-third-party-app-corpus requires --installed-third-party-app-corpus-report <file>",
+    );
+  }
+  return path;
+}
+
+function verifyNodeLevel5InstalledThirdPartyAppCorpusPath(path: string): Record<string, unknown> {
+  try {
+    return verifyNodeLevel5InstalledThirdPartyAppCorpusReport(
+      loadNodeLevel5InstalledThirdPartyAppCorpusReport(resolve(path)),
+    );
+  } catch (error) {
+    return invalidNodeLevel5ReleaseReport(
+      "node-level5-installed-third-party-app-corpus-invalid",
+      error,
+    );
+  }
+}
+
+function invalidNodeLevel5ReleaseReport(code: string, error: unknown): Record<string, unknown> {
   return {
     accepted: false,
-    code: "node-level5-real-app-corpus-invalid",
+    code,
     message: error instanceof Error ? error.message : String(error),
   };
 }
@@ -2169,7 +2321,10 @@ function reportNodeLevel5ProductCommand(json: boolean, summary: Record<string, u
 }
 
 function nodeLevel5Usage(): string {
-  return "usage: machinen node-level5 artifacts <write|verify> ... [--json]\n";
+  return (
+    "usage: machinen node-level5 artifacts <write|verify> ... [--json]\n" +
+    "       machinen node-level5 support-matrix [--json]\n"
+  );
 }
 
 function captureUsage(): string {
@@ -5041,8 +5196,24 @@ function cmdSnapshotNodeLevel5Product(args: string[]): number {
     createNodeLevel5ProductSnapshot({
       outDir: resolve(options.out),
       target: resolveNodeLevel5ProductSnapshotTarget(options.target),
+      direction: nodeLevel5ProductSnapshotDirectionOverride(),
     }),
     json,
+  );
+}
+
+function nodeLevel5ProductSnapshotDirectionOverride():
+  | NodeLevel5ProductSnapshotDirection
+  | undefined {
+  const direction = process.env.MACHINEN_NODE_LEVEL5_PRODUCT_SNAPSHOT_DIRECTION;
+  if (!direction) {
+    return undefined;
+  }
+  if (direction === "arm64-to-amd64" || direction === "amd64-to-arm64") {
+    return direction;
+  }
+  die(
+    "invalid MACHINEN_NODE_LEVEL5_PRODUCT_SNAPSHOT_DIRECTION; expected arm64-to-amd64 or amd64-to-arm64",
   );
 }
 

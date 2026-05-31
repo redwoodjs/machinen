@@ -8,9 +8,10 @@ import { describe, expect, it } from "vitest";
 const CLI = resolve("packages/cli/src/cli.ts");
 const TSX_LOADER = resolve("node_modules/tsx/dist/loader.mjs");
 
-function runCli(args: string[], cwd?: string) {
+function runCli(args: string[], cwd?: string, env?: Record<string, string>) {
   return spawnSync(process.execPath, ["--import", TSX_LOADER, CLI, ...args], {
     cwd,
+    env: { ...process.env, ...env },
     encoding: "utf8",
   });
 }
@@ -69,6 +70,31 @@ describe("Node Level 5 product snapshot CLI", () => {
         direction: "arm64-to-amd64",
         artifactHashesVerified: true,
         retentionComplete: true,
+      });
+    } finally {
+      if (child) {
+        stopNodeTarget(child);
+      }
+      rmSync(dir, { recursive: true, force: true });
+      rmSync(source, { recursive: true, force: true });
+    }
+  });
+
+  it("allows the release corpus runner to choose the retained direction without a product flag", () => {
+    const dir = mkdtempSync(join(tmpdir(), "machinen-node-product-cli-direction-"));
+    const source = appDir();
+    let child: ChildProcess | undefined;
+    try {
+      child = spawnNodeTarget(source);
+      const snapshot = runCli(
+        ["snapshot", "node", String(child.pid), "--out", dir, "--json"],
+        source,
+        { MACHINEN_NODE_LEVEL5_PRODUCT_SNAPSHOT_DIRECTION: "amd64-to-arm64" },
+      );
+      expect(snapshot.status).toBe(0);
+      expect(JSON.parse(snapshot.stdout)).toMatchObject({
+        accepted: true,
+        manifest: { direction: "amd64-to-arm64" },
       });
     } finally {
       if (child) {
