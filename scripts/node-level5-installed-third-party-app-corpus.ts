@@ -1,6 +1,10 @@
 import { existsSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
+import sensiblePackage from "@fastify/sensible/package.json" with { type: "json" };
+import expressPackage from "express/package.json" with { type: "json" };
+import fastifyPackage from "fastify/package.json" with { type: "json" };
+
 import type { NodeLevel5RealAppCorpusFramework } from "../packages/runtime/src/node-level5-real-app-corpus.ts";
 import type {
   NodeLevel5ProductBehavioralVerifierReport,
@@ -57,6 +61,12 @@ type InstalledThirdPartyAppCorpusSummary = {
   arbitraryProcessCrossArchRestoreClaimed: 0;
 };
 
+const installedThirdPartyPackageVersions = {
+  express: String(expressPackage.version),
+  fastify: String(fastifyPackage.version),
+  "@fastify/sensible": String(sensiblePackage.version),
+};
+
 const installedThirdPartyApps: InstalledThirdPartyAppDefinition[] = [
   {
     appName: "express-installed-hello-world",
@@ -66,8 +76,8 @@ const installedThirdPartyApps: InstalledThirdPartyAppDefinition[] = [
     body: "hello from installed express",
     headerValue: "express-installed-hello-world",
     installedPackage: "express",
-    installedPackageVersion: "5.2.1",
-    dependencies: { express: "^5.2.1" },
+    installedPackageVersion: installedThirdPartyPackageVersions.express,
+    dependencies: { express: `^${installedThirdPartyPackageVersions.express}` },
     serverSource: expressHelloWorldSource,
   },
   {
@@ -78,8 +88,8 @@ const installedThirdPartyApps: InstalledThirdPartyAppDefinition[] = [
     body: "installed express router user 42",
     headerValue: "express-installed-router",
     installedPackage: "express",
-    installedPackageVersion: "5.2.1",
-    dependencies: { express: "^5.2.1" },
+    installedPackageVersion: installedThirdPartyPackageVersions.express,
+    dependencies: { express: `^${installedThirdPartyPackageVersions.express}` },
     serverSource: expressRouterSource,
   },
   {
@@ -90,8 +100,8 @@ const installedThirdPartyApps: InstalledThirdPartyAppDefinition[] = [
     body: "hello from installed fastify",
     headerValue: "fastify-installed-getting-started",
     installedPackage: "fastify",
-    installedPackageVersion: "5.8.5",
-    dependencies: { fastify: "^5.8.5" },
+    installedPackageVersion: installedThirdPartyPackageVersions.fastify,
+    dependencies: { fastify: `^${installedThirdPartyPackageVersions.fastify}` },
     serverSource: fastifyGettingStartedSource,
   },
   {
@@ -102,8 +112,11 @@ const installedThirdPartyApps: InstalledThirdPartyAppDefinition[] = [
     body: "installed fastify plugin route ok",
     headerValue: "fastify-installed-plugin-route",
     installedPackage: "fastify",
-    installedPackageVersion: "5.8.5",
-    dependencies: { "@fastify/sensible": "^6.0.4", fastify: "^5.8.5" },
+    installedPackageVersion: installedThirdPartyPackageVersions.fastify,
+    dependencies: {
+      "@fastify/sensible": `^${installedThirdPartyPackageVersions["@fastify/sensible"]}`,
+      fastify: `^${installedThirdPartyPackageVersions.fastify}`,
+    },
     serverSource: fastifyPluginRouteSource,
   },
 ];
