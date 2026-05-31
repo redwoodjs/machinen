@@ -17,6 +17,14 @@ const markers = [
   "childProcesses",
   "filesystemWatchers",
   "websockets",
+  "dbConnections",
+  "redisQueueConnections",
+  "outboundHttpSockets",
+  "http2Sessions",
+  "serverSentEvents",
+  "openWritableFiles",
+  "timersIntervals",
+  "clusterMode",
 ];
 
 type Summary = Record<string, any>;
