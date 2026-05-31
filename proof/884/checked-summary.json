@@ -1,0 +1,18 @@
+{
+  "kind": "machinen.node-level5-app-support-matrix-proof-summary",
+  "proof": "884",
+  "goal": "App support matrix contract",
+  "result": "The matrix is app-based, accepted, and available from the CLI.",
+  "status": "node-product-support-80-app-support-matrix",
+  "productSurface": [
+    "machinen node-level5 support-matrix --json",
+    "machinen snapshot node <pid> --out <dir>",
+    "machinen restore <snapshot>"
+  ],
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "cliAccepted": true,
+  "cliRowCount": 26
+}
