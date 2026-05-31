@@ -4,9 +4,7 @@
   "goal": "Support matrix dimensions final audit",
   "result": "Feature dimensions preserve the app-specific support boundary and keep claims unchanged.",
   "status": "out-of-scope",
-  "productSurface": [
-    "machinen node-level5 support-matrix --json"
-  ],
+  "productSurface": ["machinen node-level5 support-matrix --json"],
   "harnessProof": true,
   "nodeProductSupportClaimed": 80,
   "broadNodeProductSupportClaimed": 20,

@@ -4,9 +4,7 @@
   "goal": "Refused app feature dimensions",
   "result": "Refused rows map unsupported live state to refused feature dimensions.",
   "status": "refused",
-  "productSurface": [
-    "machinen node-level5 support-matrix --json"
-  ],
+  "productSurface": ["machinen node-level5 support-matrix --json"],
   "harnessProof": true,
   "nodeProductSupportClaimed": 80,
   "broadNodeProductSupportClaimed": 20,
