@@ -1,0 +1,26 @@
+{
+  "kind": "machinen.node-level5-real-app-refusal-corpus-proof-summary",
+  "proof": "780",
+  "goal": "Refusal corpus framework and direction coverage",
+  "result": "Express and Fastify refusals are checked across both directions.",
+  "status": "node-product-support-80-real-app-refusal-corpus",
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": ["machinen snapshot node <pid> --out <dir>"],
+  "framework": "fastify",
+  "direction": "amd64-to-arm64",
+  "rowCount": 8,
+  "markers": [
+    "activeRequests",
+    "childProcesses",
+    "filesystemWatchers",
+    "nativeAddons",
+    "tlsActiveState",
+    "wasmExternalMemory",
+    "websockets",
+    "workerThreads"
+  ],
+  "allRefused": true
+}
