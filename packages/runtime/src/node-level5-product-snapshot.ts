@@ -54,6 +54,25 @@ export type NodeLevel5ProductSnapshotRefusal = {
   message: string;
 };
 
+export const NODE_LEVEL5_PRODUCT_REFUSAL_MARKERS = [
+  ["activeRequests", "node-level5-active-request-refused"],
+  ["workerThreads", "node-level5-worker-thread-refused"],
+  ["nativeAddons", "node-level5-native-addon-refused"],
+  ["wasmExternalMemory", "node-level5-wasm-external-memory-refused"],
+  ["tlsActiveState", "node-level5-tls-active-state-refused"],
+  ["childProcesses", "node-level5-child-process-live-state-refused"],
+  ["filesystemWatchers", "node-level5-filesystem-watcher-refused"],
+  ["websockets", "node-level5-websocket-live-state-refused"],
+  ["dbConnections", "node-level5-db-connection-live-state-refused"],
+  ["redisQueueConnections", "node-level5-redis-queue-live-state-refused"],
+  ["outboundHttpSockets", "node-level5-outbound-http-live-socket-refused"],
+  ["http2Sessions", "node-level5-http2-live-session-refused"],
+  ["serverSentEvents", "node-level5-sse-live-stream-refused"],
+  ["openWritableFiles", "node-level5-open-writable-file-refused"],
+  ["timersIntervals", "node-level5-timer-background-task-refused"],
+  ["clusterMode", "node-level5-cluster-mode-refused"],
+] as const satisfies ReadonlyArray<readonly [string, NodeLevel5ProductSnapshotRefusalCode]>;
+
 export type NodeLevel5ProductTargetIdentity = {
   kind: typeof NODE_LEVEL5_PRODUCT_TARGET_IDENTITY_KIND;
   target: string;
@@ -775,24 +794,13 @@ function detectNodeLevel5ProductSnapshotRefusal(
   appDir: string,
 ): NodeLevel5ProductSnapshotRefusal | undefined {
   const markers = readDetectorMarkers(appDir);
-  return (
-    markerRefusal(markers.activeRequests, "node-level5-active-request-refused") ??
-    markerRefusal(markers.workerThreads, "node-level5-worker-thread-refused") ??
-    markerRefusal(markers.nativeAddons, "node-level5-native-addon-refused") ??
-    markerRefusal(markers.wasmExternalMemory, "node-level5-wasm-external-memory-refused") ??
-    markerRefusal(markers.tlsActiveState, "node-level5-tls-active-state-refused") ??
-    markerRefusal(markers.childProcesses, "node-level5-child-process-live-state-refused") ??
-    markerRefusal(markers.filesystemWatchers, "node-level5-filesystem-watcher-refused") ??
-    markerRefusal(markers.websockets, "node-level5-websocket-live-state-refused") ??
-    markerRefusal(markers.dbConnections, "node-level5-db-connection-live-state-refused") ??
-    markerRefusal(markers.redisQueueConnections, "node-level5-redis-queue-live-state-refused") ??
-    markerRefusal(markers.outboundHttpSockets, "node-level5-outbound-http-live-socket-refused") ??
-    markerRefusal(markers.http2Sessions, "node-level5-http2-live-session-refused") ??
-    markerRefusal(markers.serverSentEvents, "node-level5-sse-live-stream-refused") ??
-    markerRefusal(markers.openWritableFiles, "node-level5-open-writable-file-refused") ??
-    markerRefusal(markers.timersIntervals, "node-level5-timer-background-task-refused") ??
-    markerRefusal(markers.clusterMode, "node-level5-cluster-mode-refused")
-  );
+  for (const [marker, code] of NODE_LEVEL5_PRODUCT_REFUSAL_MARKERS) {
+    const refusal = markerRefusal(markers[marker], code);
+    if (refusal) {
+      return refusal;
+    }
+  }
+  return undefined;
 }
 
 function markerRefusal(

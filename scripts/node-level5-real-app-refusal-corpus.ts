@@ -8,10 +8,11 @@ import {
   type NodeLevel5RealAppRefusalCorpusRow,
   type NodeLevel5RealAppRefusalMarker,
 } from "../packages/runtime/src/node-level5-real-app-refusal-corpus.ts";
-import type {
-  NodeLevel5ProductSnapshotDirection,
-  NodeLevel5ProductSnapshotRefusalCode,
-  NodeLevel5ProductSnapshotSummary,
+import {
+  NODE_LEVEL5_PRODUCT_REFUSAL_MARKERS,
+  type NodeLevel5ProductSnapshotDirection,
+  type NodeLevel5ProductSnapshotRefusalCode,
+  type NodeLevel5ProductSnapshotSummary,
 } from "../packages/runtime/src/node-level5-product-snapshot.ts";
 import type { NodeLevel5RealAppCorpusFramework } from "../packages/runtime/src/node-level5-real-app-corpus.ts";
 import {
@@ -22,24 +23,10 @@ import {
   runNodeLevel5RealAppCorpusCliJson,
   writeNodeLevel5RealAppFixturePackageJson,
 } from "./node-level5-real-app-corpus-script-utils.ts";
-const refusalCases: RefusalCase[] = [
-  ["activeRequests", "node-level5-active-request-refused"],
-  ["workerThreads", "node-level5-worker-thread-refused"],
-  ["nativeAddons", "node-level5-native-addon-refused"],
-  ["wasmExternalMemory", "node-level5-wasm-external-memory-refused"],
-  ["tlsActiveState", "node-level5-tls-active-state-refused"],
-  ["childProcesses", "node-level5-child-process-live-state-refused"],
-  ["filesystemWatchers", "node-level5-filesystem-watcher-refused"],
-  ["websockets", "node-level5-websocket-live-state-refused"],
-  ["dbConnections", "node-level5-db-connection-live-state-refused"],
-  ["redisQueueConnections", "node-level5-redis-queue-live-state-refused"],
-  ["outboundHttpSockets", "node-level5-outbound-http-live-socket-refused"],
-  ["http2Sessions", "node-level5-http2-live-session-refused"],
-  ["serverSentEvents", "node-level5-sse-live-stream-refused"],
-  ["openWritableFiles", "node-level5-open-writable-file-refused"],
-  ["timersIntervals", "node-level5-timer-background-task-refused"],
-  ["clusterMode", "node-level5-cluster-mode-refused"],
-];
+const refusalCases: RefusalCase[] = NODE_LEVEL5_PRODUCT_REFUSAL_MARKERS.map(([marker, code]) => [
+  marker as NodeLevel5RealAppRefusalMarker,
+  code,
+]);
 
 type RefusalCase = [NodeLevel5RealAppRefusalMarker, NodeLevel5ProductSnapshotRefusalCode];
 
