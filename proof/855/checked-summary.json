@@ -1,0 +1,26 @@
+{
+  "kind": "machinen.node-level5-installed-third-party-app-corpus-proof-summary",
+  "proof": "855",
+  "goal": "Third-party Express/Fastify app rows",
+  "result": "Selected declared-subset installed Express/Fastify package apps are retained across both directions.",
+  "status": "node-product-support-80-installed-third-party-app-corpus",
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
+  "sources": [
+    "express-installed-hello-world",
+    "express-installed-json-response",
+    "express-installed-query-string",
+    "express-installed-route-params",
+    "express-installed-router",
+    "express-installed-static-asset",
+    "fastify-installed-getting-started",
+    "fastify-installed-json-response",
+    "fastify-installed-plugin-route",
+    "fastify-installed-query-string",
+    "fastify-installed-route-params",
+    "fastify-installed-static-asset"
+  ]
+}

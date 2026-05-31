@@ -19,7 +19,15 @@ export type NodeLevel5RealAppRefusalMarker =
   | "tlsActiveState"
   | "childProcesses"
   | "filesystemWatchers"
-  | "websockets";
+  | "websockets"
+  | "dbConnections"
+  | "redisQueueConnections"
+  | "outboundHttpSockets"
+  | "http2Sessions"
+  | "serverSentEvents"
+  | "openWritableFiles"
+  | "timersIntervals"
+  | "clusterMode";
 
 export type NodeLevel5RealAppRefusalCorpusRow = {
   framework: NodeLevel5RealAppCorpusFramework;
