@@ -192,6 +192,28 @@
 - [`nodeLevel5ProductSupport80ClaimRegistry`](#nodelevel5productsupport80claimregistry)
 - [`nodeLevel5ProductSupport80UnsupportedDetectors`](#nodelevel5productsupport80unsupporteddetectors)
 - [`verifyNodeLevel5ProductSupport80ArtifactBundle`](#verifynodelevel5productsupport80artifactbundle)
+- [`NodeLevel5AppSupportBoundary`](#nodelevel5appsupportboundary)
+- [`NodeLevel5AppSupportDirection`](#nodelevel5appsupportdirection)
+- [`NodeLevel5AppSupportEvidence`](#nodelevel5appsupportevidence)
+- [`NodeLevel5AppSupportEvidenceKind`](#nodelevel5appsupportevidencekind)
+- [`NodeLevel5AppSupportFeatureAssessment`](#nodelevel5appsupportfeatureassessment)
+- [`NodeLevel5AppSupportFeatureName`](#nodelevel5appsupportfeaturename)
+- [`NodeLevel5AppSupportFeatureStatus`](#nodelevel5appsupportfeaturestatus)
+- [`NodeLevel5AppSupportFeatures`](#nodelevel5appsupportfeatures)
+- [`NodeLevel5AppSupportFramework`](#nodelevel5appsupportframework)
+- [`NodeLevel5AppSupportMatrix`](#nodelevel5appsupportmatrix)
+- [`NodeLevel5AppSupportMatrixRow`](#nodelevel5appsupportmatrixrow)
+- [`NodeLevel5AppSupportMiddlewareFeature`](#nodelevel5appsupportmiddlewarefeature)
+- [`NodeLevel5AppSupportProductBehavior`](#nodelevel5appsupportproductbehavior)
+- [`NodeLevel5AppSupportResponseFeature`](#nodelevel5appsupportresponsefeature)
+- [`NodeLevel5AppSupportRouteFeature`](#nodelevel5appsupportroutefeature)
+- [`NodeLevel5AppSupportStatus`](#nodelevel5appsupportstatus)
+- [`NODE_LEVEL5_APP_SUPPORT_MATRIX_KIND`](#node_level5_app_support_matrix_kind)
+- [`NODE_LEVEL5_APP_SUPPORT_MATRIX_VERSION`](#node_level5_app_support_matrix_version)
+- [`buildNodeLevel5AppSupportMatrix`](#buildnodelevel5appsupportmatrix)
+- [`notProvenNodeLevel5AppSupportRows`](#notprovennodelevel5appsupportrows)
+- [`refusedNodeLevel5AppSupportRows`](#refusednodelevel5appsupportrows)
+- [`supportedNodeLevel5AppSupportRows`](#supportednodelevel5appsupportrows)
 - [`NodeLevel5CorpusHttpEvidence`](#nodelevel5corpushttpevidence)
 - [`NodeLevel5InstalledThirdPartyAppCorpusReport`](#nodelevel5installedthirdpartyappcorpusreport)
 - [`NodeLevel5InstalledThirdPartyAppCorpusRow`](#nodelevel5installedthirdpartyappcorpusrow)
@@ -14529,7 +14551,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`evidence`](#evidence-10)
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`evidence`](#evidence-11)
 
 ##### kind
 
@@ -18509,7 +18531,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`evidence`](#evidence-19)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`evidence`](#evidence-20)
 
 ##### kind
 
@@ -22063,6 +22085,256 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NodeLevel5AppSupportStatus
+
+> **NodeLevel5AppSupportStatus** = `"supported"` \| `"refused"` \| `"not-proven"`
+
+***
+
+### NodeLevel5AppSupportFramework
+
+> **NodeLevel5AppSupportFramework** = `"express"` \| `"fastify"`
+
+***
+
+### NodeLevel5AppSupportEvidenceKind
+
+> **NodeLevel5AppSupportEvidenceKind** = `"fixture-product-run-corpus"` \| `"template-corpus"` \| `"installed-package-corpus"` \| `"refusal-corpus"` \| `"matrix-gap"`
+
+***
+
+### NodeLevel5AppSupportProductBehavior
+
+> **NodeLevel5AppSupportProductBehavior** = `"machinen snapshot node <pid> --out <dir>; machinen restore <dir>"` \| `"refuse-before-snapshot"` \| `"not-proven"`
+
+***
+
+### NodeLevel5AppSupportDirection
+
+> **NodeLevel5AppSupportDirection** = `"arm64-to-amd64"` \| `"amd64-to-arm64"`
+
+***
+
+### NodeLevel5AppSupportRouteFeature
+
+> **NodeLevel5AppSupportRouteFeature** = `"simple-route"` \| `"router-route"` \| `"plugin-route"` \| `"unsupported-live-state"` \| `"not-proven"`
+
+***
+
+### NodeLevel5AppSupportResponseFeature
+
+> **NodeLevel5AppSupportResponseFeature** = `"text"` \| `"json"` \| `"not-proven"`
+
+***
+
+### NodeLevel5AppSupportMiddlewareFeature
+
+> **NodeLevel5AppSupportMiddlewareFeature** = `"none"` \| `"pure-js"` \| `"not-proven"`
+
+***
+
+### NodeLevel5AppSupportFeatureName
+
+> **NodeLevel5AppSupportFeatureName** = `"route"` \| `"response"` \| `"middleware"` \| `"asyncHandler"` \| `"params"` \| `"query"` \| `"staticAssets"` \| `"externalNetwork"` \| `"backgroundTasks"`
+
+***
+
+### NodeLevel5AppSupportFeatureStatus
+
+> **NodeLevel5AppSupportFeatureStatus** = `"supported"` \| `"refused"` \| `"not-proven"`
+
+***
+
+### NodeLevel5AppSupportFeatures
+
+> **NodeLevel5AppSupportFeatures** = `object`
+
+#### Properties
+
+##### route
+
+> **route**: [`NodeLevel5AppSupportRouteFeature`](#nodelevel5appsupportroutefeature)
+
+##### response
+
+> **response**: [`NodeLevel5AppSupportResponseFeature`](#nodelevel5appsupportresponsefeature)
+
+##### middleware
+
+> **middleware**: [`NodeLevel5AppSupportMiddlewareFeature`](#nodelevel5appsupportmiddlewarefeature)
+
+##### asyncHandler
+
+> **asyncHandler**: `boolean`
+
+##### params
+
+> **params**: `boolean`
+
+##### query
+
+> **query**: `boolean`
+
+##### staticAssets
+
+> **staticAssets**: `boolean`
+
+##### externalNetwork
+
+> **externalNetwork**: `boolean`
+
+##### backgroundTasks
+
+> **backgroundTasks**: `boolean`
+
+***
+
+### NodeLevel5AppSupportFeatureAssessment
+
+> **NodeLevel5AppSupportFeatureAssessment** = `Record`\<[`NodeLevel5AppSupportFeatureName`](#nodelevel5appsupportfeaturename), [`NodeLevel5AppSupportFeatureStatus`](#nodelevel5appsupportfeaturestatus)\>
+
+***
+
+### NodeLevel5AppSupportEvidence
+
+> **NodeLevel5AppSupportEvidence** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: [`NodeLevel5AppSupportEvidenceKind`](#nodelevel5appsupportevidencekind)
+
+##### proofRange
+
+> **proofRange**: `string`
+
+##### corpusReport
+
+> **corpusReport**: `string`
+
+***
+
+### NodeLevel5AppSupportMatrixRow
+
+> **NodeLevel5AppSupportMatrixRow** = `object`
+
+#### Properties
+
+##### id
+
+> **id**: `string`
+
+##### appName
+
+> **appName**: `string`
+
+##### framework
+
+> **framework**: [`NodeLevel5AppSupportFramework`](#nodelevel5appsupportframework)
+
+##### status
+
+> **status**: [`NodeLevel5AppSupportStatus`](#nodelevel5appsupportstatus)
+
+##### productBehavior
+
+> **productBehavior**: [`NodeLevel5AppSupportProductBehavior`](#nodelevel5appsupportproductbehavior)
+
+##### supportScope
+
+> **supportScope**: `"declared-subset-idle-http"` \| `"unsupported-live-state"` \| `"not-proven-gap"`
+
+##### directions
+
+> **directions**: [`NodeLevel5AppSupportDirection`](#nodelevel5appsupportdirection)[]
+
+##### evidence
+
+> **evidence**: [`NodeLevel5AppSupportEvidence`](#nodelevel5appsupportevidence)
+
+##### supportedAppShape
+
+> **supportedAppShape**: `string`
+
+##### features
+
+> **features**: [`NodeLevel5AppSupportFeatures`](#nodelevel5appsupportfeatures)
+
+##### featureAssessment
+
+> **featureAssessment**: [`NodeLevel5AppSupportFeatureAssessment`](#nodelevel5appsupportfeatureassessment)
+
+##### limitations
+
+> **limitations**: `string`[]
+
+***
+
+### NodeLevel5AppSupportBoundary
+
+> **NodeLevel5AppSupportBoundary** = `object`
+
+#### Properties
+
+##### id
+
+> **id**: `string`
+
+##### status
+
+> **status**: `"not-claimed"` \| `"out-of-scope"`
+
+##### reason
+
+> **reason**: `string`
+
+***
+
+### NodeLevel5AppSupportMatrix
+
+> **NodeLevel5AppSupportMatrix** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_APP_SUPPORT_MATRIX_KIND`](#node_level5_app_support_matrix_kind)
+
+##### version
+
+> **version**: *typeof* [`NODE_LEVEL5_APP_SUPPORT_MATRIX_VERSION`](#node_level5_app_support_matrix_version)
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### rowCount
+
+> **rowCount**: `number`
+
+##### rows
+
+> **rows**: [`NodeLevel5AppSupportMatrixRow`](#nodelevel5appsupportmatrixrow)[]
+
+##### boundaries
+
+> **boundaries**: [`NodeLevel5AppSupportBoundary`](#nodelevel5appsupportboundary)[]
+
+##### nodeProductSupportClaimed
+
+> **nodeProductSupportClaimed**: `80`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `20`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
+
+***
+
 ### NodeLevel5CorpusHttpEvidence
 
 > **NodeLevel5CorpusHttpEvidence** = `object`
@@ -22407,7 +22679,7 @@ Poll interval in ms while retrying. Default 250.
 
 ### NodeLevel5InstalledThirdPartyAppSource
 
-> **NodeLevel5InstalledThirdPartyAppSource** = `"express-installed-hello-world"` \| `"express-installed-router"` \| `"fastify-installed-getting-started"` \| `"fastify-installed-plugin-route"`
+> **NodeLevel5InstalledThirdPartyAppSource** = `"express-installed-hello-world"` \| `"express-installed-router"` \| `"express-installed-json-response"` \| `"express-installed-route-params"` \| `"express-installed-query-string"` \| `"express-installed-static-asset"` \| `"fastify-installed-getting-started"` \| `"fastify-installed-plugin-route"` \| `"fastify-installed-json-response"` \| `"fastify-installed-route-params"` \| `"fastify-installed-query-string"` \| `"fastify-installed-static-asset"`
 
 ***
 
@@ -22543,7 +22815,7 @@ Poll interval in ms while retrying. Default 250.
 
 ### NodeLevel5ProductSnapshotRefusalCode
 
-> **NodeLevel5ProductSnapshotRefusalCode** = `"node-level5-non-node-target-refused"` \| `"node-level5-target-app-root-missing"` \| `"node-level5-unsupported-app-refused"` \| `"node-level5-active-request-refused"` \| `"node-level5-worker-thread-refused"` \| `"node-level5-native-addon-refused"` \| `"node-level5-wasm-external-memory-refused"` \| `"node-level5-tls-active-state-refused"` \| `"node-level5-child-process-live-state-refused"` \| `"node-level5-filesystem-watcher-refused"` \| `"node-level5-websocket-live-state-refused"`
+> **NodeLevel5ProductSnapshotRefusalCode** = `"node-level5-non-node-target-refused"` \| `"node-level5-target-app-root-missing"` \| `"node-level5-unsupported-app-refused"` \| `"node-level5-active-request-refused"` \| `"node-level5-worker-thread-refused"` \| `"node-level5-native-addon-refused"` \| `"node-level5-wasm-external-memory-refused"` \| `"node-level5-tls-active-state-refused"` \| `"node-level5-child-process-live-state-refused"` \| `"node-level5-filesystem-watcher-refused"` \| `"node-level5-websocket-live-state-refused"` \| `"node-level5-db-connection-live-state-refused"` \| `"node-level5-redis-queue-live-state-refused"` \| `"node-level5-outbound-http-live-socket-refused"` \| `"node-level5-http2-live-session-refused"` \| `"node-level5-sse-live-stream-refused"` \| `"node-level5-open-writable-file-refused"` \| `"node-level5-timer-background-task-refused"` \| `"node-level5-cluster-mode-refused"`
 
 ***
 
@@ -24443,7 +24715,7 @@ Poll interval in ms while retrying. Default 250.
 
 ### NodeLevel5RealAppRefusalMarker
 
-> **NodeLevel5RealAppRefusalMarker** = `"activeRequests"` \| `"workerThreads"` \| `"nativeAddons"` \| `"wasmExternalMemory"` \| `"tlsActiveState"` \| `"childProcesses"` \| `"filesystemWatchers"` \| `"websockets"`
+> **NodeLevel5RealAppRefusalMarker** = `"activeRequests"` \| `"workerThreads"` \| `"nativeAddons"` \| `"wasmExternalMemory"` \| `"tlsActiveState"` \| `"childProcesses"` \| `"filesystemWatchers"` \| `"websockets"` \| `"dbConnections"` \| `"redisQueueConnections"` \| `"outboundHttpSockets"` \| `"http2Sessions"` \| `"serverSentEvents"` \| `"openWritableFiles"` \| `"timersIntervals"` \| `"clusterMode"`
 
 ***
 
@@ -26466,6 +26738,18 @@ loops; anything looser stops being a meaningful gate.
 ### nestedVirtualizationStretchProofRefusalCodes
 
 > `const` **nestedVirtualizationStretchProofRefusalCodes**: readonly \[`"nested-virtualization-unavailable"`, `"nested-smoke-failed"`, `"nested-verifier-ambiguous"`, `"nested-snapshot-fork-unsafe"`\]
+
+***
+
+### NODE\_LEVEL5\_APP\_SUPPORT\_MATRIX\_KIND
+
+> `const` **NODE\_LEVEL5\_APP\_SUPPORT\_MATRIX\_KIND**: `"machinen.node-level5-app-support-matrix"` = `"machinen.node-level5-app-support-matrix"`
+
+***
+
+### NODE\_LEVEL5\_APP\_SUPPORT\_MATRIX\_VERSION
+
+> `const` **NODE\_LEVEL5\_APP\_SUPPORT\_MATRIX\_VERSION**: `2` = `2`
 
 ***
 
@@ -29576,6 +29860,46 @@ available.
 #### Returns
 
 `string`[]
+
+***
+
+### buildNodeLevel5AppSupportMatrix()
+
+> **buildNodeLevel5AppSupportMatrix**(): [`NodeLevel5AppSupportMatrix`](#nodelevel5appsupportmatrix)
+
+#### Returns
+
+[`NodeLevel5AppSupportMatrix`](#nodelevel5appsupportmatrix)
+
+***
+
+### supportedNodeLevel5AppSupportRows()
+
+> **supportedNodeLevel5AppSupportRows**(): [`NodeLevel5AppSupportMatrixRow`](#nodelevel5appsupportmatrixrow)[]
+
+#### Returns
+
+[`NodeLevel5AppSupportMatrixRow`](#nodelevel5appsupportmatrixrow)[]
+
+***
+
+### refusedNodeLevel5AppSupportRows()
+
+> **refusedNodeLevel5AppSupportRows**(): [`NodeLevel5AppSupportMatrixRow`](#nodelevel5appsupportmatrixrow)[]
+
+#### Returns
+
+[`NodeLevel5AppSupportMatrixRow`](#nodelevel5appsupportmatrixrow)[]
+
+***
+
+### notProvenNodeLevel5AppSupportRows()
+
+> **notProvenNodeLevel5AppSupportRows**(): [`NodeLevel5AppSupportMatrixRow`](#nodelevel5appsupportmatrixrow)[]
+
+#### Returns
+
+[`NodeLevel5AppSupportMatrixRow`](#nodelevel5appsupportmatrixrow)[]
 
 ***
 

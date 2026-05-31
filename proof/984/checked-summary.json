@@ -1,0 +1,13 @@
+{
+  "kind": "machinen.node-level5-installed-feature-corpus-proof-summary",
+  "proof": "984",
+  "goal": "Installed feature behavior evidence",
+  "result": "Feature rows retain product snapshot/restore and behavioral verifier evidence.",
+  "status": "node-product-support-80-installed-feature-corpus",
+  "productSurface": ["machinen snapshot node <pid> --out <dir>", "machinen restore <snapshot>"],
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "rowsSha256Verified": true
+}

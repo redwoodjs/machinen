@@ -1,0 +1,13 @@
+{
+  "kind": "machinen.node-level5-refusal-expansion-proof-summary",
+  "proof": "1037",
+  "goal": "Refusal expansion final audit",
+  "result": "Expanded refusals narrow unsafe support without broadening Node claims.",
+  "status": "node-product-support-80-refusal-expansion",
+  "productSurface": ["machinen snapshot node <pid> --out <dir>"],
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "rawCpuRestoreUsed": false
+}

@@ -43,6 +43,7 @@ import {
   ProductLevel4TcpListenerError,
   ProductLevel4TimerfdError,
   ProductPortablePostgresError,
+  buildNodeLevel5AppSupportMatrix,
   buildProductClaimRegistry,
   createProductLevel4EventfdSnapshot,
   createProductLevel4PingSocketSnapshot,
@@ -1951,6 +1952,9 @@ function cmdNodeLevel5(args: string[]): number {
   if (rest[0] === "claims") {
     return cmdNodeLevel5Claims(rest.slice(1), json);
   }
+  if (rest[0] === "support-matrix") {
+    return cmdNodeLevel5SupportMatrix(rest.slice(1), json);
+  }
   if (rest[0] === "release-gate") {
     return cmdNodeLevel5ReleaseGate(rest.slice(1), json);
   }
@@ -2016,6 +2020,14 @@ function cmdNodeLevel5Claims(args: string[], json: boolean): number {
     accepted: true,
     kind: "machinen.node-level5-claim-registry-summary",
     claimRegistry: nodeLevel5ProductSupport80ClaimRegistry,
+    retainedArtifact: artifact,
+  });
+}
+
+function cmdNodeLevel5SupportMatrix(args: string[], json: boolean): number {
+  const artifact = readOptionalNodeLevel5RetainedArtifact(args);
+  return reportNodeLevel5ProductCommand(json, {
+    ...buildNodeLevel5AppSupportMatrix(),
     retainedArtifact: artifact,
   });
 }
@@ -2309,7 +2321,10 @@ function reportNodeLevel5ProductCommand(json: boolean, summary: Record<string, u
 }
 
 function nodeLevel5Usage(): string {
-  return "usage: machinen node-level5 artifacts <write|verify> ... [--json]\n";
+  return (
+    "usage: machinen node-level5 artifacts <write|verify> ... [--json]\n" +
+    "       machinen node-level5 support-matrix [--json]\n"
+  );
 }
 
 function captureUsage(): string {
