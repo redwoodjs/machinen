@@ -104,16 +104,7 @@ export function createNodeLevel5ProductSupport80ArtifactBundle(input: {
   familyId: NodeLevel5ProductSupport80FamilyId;
   direction: "arm64-to-amd64" | "amd64-to-arm64";
 }): NodeLevel5ProductSupport80ArtifactBundle {
-  const family = nodeLevel5ProductSupport80Families.find((entry) => entry.id === input.familyId);
-  if (!family) {
-    throw new Error(`unknown Node Level 5 80% family: ${input.familyId}`);
-  }
-  const evidence = family.realVmCrossArchEvidence.find(
-    (entry) => entry.direction === input.direction,
-  );
-  if (!evidence) {
-    throw new Error(`missing ${input.direction} evidence for ${input.familyId}`);
-  }
+  const evidence = evidenceForFamily(input.familyId, input.direction);
   const artifactRoot = join(input.outDir, input.familyId, input.direction);
   mkdirSync(artifactRoot, { recursive: true });
   const bundle = buildBundle(artifactRoot, input.familyId, input.direction, evidence);
@@ -126,16 +117,7 @@ export function loadNodeLevel5ProductSupport80ArtifactBundle(input: {
   familyId: NodeLevel5ProductSupport80FamilyId;
   direction: "arm64-to-amd64" | "amd64-to-arm64";
 }): NodeLevel5ProductSupport80ArtifactBundle {
-  const family = nodeLevel5ProductSupport80Families.find((entry) => entry.id === input.familyId);
-  if (!family) {
-    throw new Error(`unknown Node Level 5 80% family: ${input.familyId}`);
-  }
-  const evidence = family.realVmCrossArchEvidence.find(
-    (entry) => entry.direction === input.direction,
-  );
-  if (!evidence) {
-    throw new Error(`missing ${input.direction} evidence for ${input.familyId}`);
-  }
+  const evidence = evidenceForFamily(input.familyId, input.direction);
   return buildBundle(input.artifactRoot, input.familyId, input.direction, evidence);
 }
 
@@ -187,6 +169,21 @@ export function assertNodeLevel5ProductSupport80HardeningComplete(): boolean {
       (detector) => detector.stable && detector.artifactRequired && !detector.targetStarted,
     )
   );
+}
+
+function evidenceForFamily(
+  familyId: NodeLevel5ProductSupport80FamilyId,
+  direction: "arm64-to-amd64" | "amd64-to-arm64",
+): NodeLevel5RealVmCrossArchEvidence {
+  const family = nodeLevel5ProductSupport80Families.find((entry) => entry.id === familyId);
+  if (!family) {
+    throw new Error(`unknown Node Level 5 80% family: ${familyId}`);
+  }
+  const evidence = family.realVmCrossArchEvidence.find((entry) => entry.direction === direction);
+  if (!evidence) {
+    throw new Error(`missing ${direction} evidence for ${familyId}`);
+  }
+  return evidence;
 }
 
 function buildBundle(
