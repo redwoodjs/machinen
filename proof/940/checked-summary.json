@@ -1,0 +1,15 @@
+{
+  "kind": "machinen.node-level5-app-support-matrix-dimensions-proof-summary",
+  "proof": "940",
+  "goal": "Refused app feature dimensions",
+  "result": "Refused rows map unsupported live state to refused feature dimensions.",
+  "status": "node-product-support-80-app-support-matrix-dimensions",
+  "productSurface": [
+    "machinen node-level5 support-matrix --json"
+  ],
+  "harnessProof": true,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "allRefuseBeforeSnapshot": true
+}
