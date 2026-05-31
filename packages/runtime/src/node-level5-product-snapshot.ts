@@ -38,7 +38,8 @@ export type NodeLevel5ProductSnapshotRefusalCode =
   | "node-level5-wasm-external-memory-refused"
   | "node-level5-tls-active-state-refused"
   | "node-level5-child-process-live-state-refused"
-  | "node-level5-filesystem-watcher-refused";
+  | "node-level5-filesystem-watcher-refused"
+  | "node-level5-websocket-live-state-refused";
 
 export type NodeLevel5ProductSnapshotRefusal = {
   code: NodeLevel5ProductSnapshotRefusalCode;
@@ -773,7 +774,8 @@ function detectNodeLevel5ProductSnapshotRefusal(
     markerRefusal(markers.wasmExternalMemory, "node-level5-wasm-external-memory-refused") ??
     markerRefusal(markers.tlsActiveState, "node-level5-tls-active-state-refused") ??
     markerRefusal(markers.childProcesses, "node-level5-child-process-live-state-refused") ??
-    markerRefusal(markers.filesystemWatchers, "node-level5-filesystem-watcher-refused")
+    markerRefusal(markers.filesystemWatchers, "node-level5-filesystem-watcher-refused") ??
+    markerRefusal(markers.websockets, "node-level5-websocket-live-state-refused")
   );
 }
 

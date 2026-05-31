@@ -239,6 +239,14 @@ export {
   verifyNodeLevel5ProductSupport80ArtifactBundle,
 } from "./node-level5-product-support-80-hardening.ts";
 export {
+  NODE_LEVEL5_REAL_APP_REFUSAL_CORPUS_REPORT_KIND,
+  NODE_LEVEL5_REAL_APP_REFUSAL_CORPUS_REPORT_VERSION,
+  createNodeLevel5RealAppRefusalCorpusReport,
+  loadNodeLevel5RealAppRefusalCorpusReport,
+  verifyNodeLevel5RealAppRefusalCorpusReport,
+  writeNodeLevel5RealAppRefusalCorpusReport,
+} from "./node-level5-real-app-refusal-corpus.ts";
+export {
   NODE_LEVEL5_REAL_APP_CORPUS_REPORT_KIND,
   NODE_LEVEL5_REAL_APP_CORPUS_REPORT_VERSION,
   createNodeLevel5RealAppCorpusReport,
@@ -375,6 +383,12 @@ export type {
   NodeLevel5ProductSupport80ClaimRegistry,
   NodeLevel5ProductSupport80UnsupportedDetector,
 } from "./node-level5-product-support-80-hardening.ts";
+export type {
+  NodeLevel5RealAppRefusalCorpusReport,
+  NodeLevel5RealAppRefusalCorpusRow,
+  NodeLevel5RealAppRefusalCorpusVerification,
+  NodeLevel5RealAppRefusalMarker,
+} from "./node-level5-real-app-refusal-corpus.ts";
 export type {
   NodeLevel5RealAppCorpusFramework,
   NodeLevel5RealAppCorpusReport,

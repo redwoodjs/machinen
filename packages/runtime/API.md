@@ -192,6 +192,16 @@
 - [`nodeLevel5ProductSupport80ClaimRegistry`](#nodelevel5productsupport80claimregistry)
 - [`nodeLevel5ProductSupport80UnsupportedDetectors`](#nodelevel5productsupport80unsupporteddetectors)
 - [`verifyNodeLevel5ProductSupport80ArtifactBundle`](#verifynodelevel5productsupport80artifactbundle)
+- [`NodeLevel5RealAppRefusalCorpusReport`](#nodelevel5realapprefusalcorpusreport)
+- [`NodeLevel5RealAppRefusalCorpusRow`](#nodelevel5realapprefusalcorpusrow)
+- [`NodeLevel5RealAppRefusalCorpusVerification`](#nodelevel5realapprefusalcorpusverification)
+- [`NodeLevel5RealAppRefusalMarker`](#nodelevel5realapprefusalmarker)
+- [`NODE_LEVEL5_REAL_APP_REFUSAL_CORPUS_REPORT_KIND`](#node_level5_real_app_refusal_corpus_report_kind)
+- [`NODE_LEVEL5_REAL_APP_REFUSAL_CORPUS_REPORT_VERSION`](#node_level5_real_app_refusal_corpus_report_version)
+- [`createNodeLevel5RealAppRefusalCorpusReport`](#createnodelevel5realapprefusalcorpusreport)
+- [`loadNodeLevel5RealAppRefusalCorpusReport`](#loadnodelevel5realapprefusalcorpusreport)
+- [`verifyNodeLevel5RealAppRefusalCorpusReport`](#verifynodelevel5realapprefusalcorpusreport)
+- [`writeNodeLevel5RealAppRefusalCorpusReport`](#writenodelevel5realapprefusalcorpusreport)
 - [`NodeLevel5RealAppCorpusFramework`](#nodelevel5realappcorpusframework)
 - [`NodeLevel5RealAppCorpusReport`](#nodelevel5realappcorpusreport)
 - [`NodeLevel5RealAppCorpusRow`](#nodelevel5realappcorpusrow)
@@ -22330,7 +22340,7 @@ Poll interval in ms while retrying. Default 250.
 
 ### NodeLevel5ProductSnapshotRefusalCode
 
-> **NodeLevel5ProductSnapshotRefusalCode** = `"node-level5-non-node-target-refused"` \| `"node-level5-target-app-root-missing"` \| `"node-level5-unsupported-app-refused"` \| `"node-level5-active-request-refused"` \| `"node-level5-worker-thread-refused"` \| `"node-level5-native-addon-refused"` \| `"node-level5-wasm-external-memory-refused"` \| `"node-level5-tls-active-state-refused"` \| `"node-level5-child-process-live-state-refused"` \| `"node-level5-filesystem-watcher-refused"`
+> **NodeLevel5ProductSnapshotRefusalCode** = `"node-level5-non-node-target-refused"` \| `"node-level5-target-app-root-missing"` \| `"node-level5-unsupported-app-refused"` \| `"node-level5-active-request-refused"` \| `"node-level5-worker-thread-refused"` \| `"node-level5-native-addon-refused"` \| `"node-level5-wasm-external-memory-refused"` \| `"node-level5-tls-active-state-refused"` \| `"node-level5-child-process-live-state-refused"` \| `"node-level5-filesystem-watcher-refused"` \| `"node-level5-websocket-live-state-refused"`
 
 ***
 
@@ -24249,6 +24259,152 @@ Poll interval in ms while retrying. Default 250.
 ##### kind
 
 > **kind**: `"machinen.node-level5-real-app-corpus-verification"`
+
+##### rowCount
+
+> **rowCount**: `number`
+
+##### rowsSha256Verified
+
+> **rowsSha256Verified**: `boolean`
+
+##### nodeProductSupportClaimed
+
+> **nodeProductSupportClaimed**: `80`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `20`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
+
+***
+
+### NodeLevel5RealAppRefusalMarker
+
+> **NodeLevel5RealAppRefusalMarker** = `"activeRequests"` \| `"workerThreads"` \| `"nativeAddons"` \| `"wasmExternalMemory"` \| `"tlsActiveState"` \| `"childProcesses"` \| `"filesystemWatchers"` \| `"websockets"`
+
+***
+
+### NodeLevel5RealAppRefusalCorpusRow
+
+> **NodeLevel5RealAppRefusalCorpusRow** = `object`
+
+#### Properties
+
+##### framework
+
+> **framework**: [`NodeLevel5RealAppCorpusFramework`](#nodelevel5realappcorpusframework)
+
+##### direction
+
+> **direction**: [`NodeLevel5ProductSnapshotDirection`](#nodelevel5productsnapshotdirection)
+
+##### marker
+
+> **marker**: [`NodeLevel5RealAppRefusalMarker`](#nodelevel5realapprefusalmarker)
+
+##### expectedRefusalCode
+
+> **expectedRefusalCode**: [`NodeLevel5ProductSnapshotRefusalCode`](#nodelevel5productsnapshotrefusalcode)
+
+##### actualRefusalCode
+
+> **actualRefusalCode**: [`NodeLevel5ProductSnapshotRefusalCode`](#nodelevel5productsnapshotrefusalcode)
+
+##### snapshotAccepted
+
+> **snapshotAccepted**: `false`
+
+##### snapshotManifestWritten
+
+> **snapshotManifestWritten**: `false`
+
+##### refusedBeforeSnapshot
+
+> **refusedBeforeSnapshot**: `true`
+
+##### productCommandPath
+
+> **productCommandPath**: `"machinen snapshot node <pid> --out <dir>"`
+
+##### rawCpuRestoreUsed
+
+> **rawCpuRestoreUsed**: `false`
+
+##### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+##### metadataOnlySuccessAccepted
+
+> **metadataOnlySuccessAccepted**: `false`
+
+***
+
+### NodeLevel5RealAppRefusalCorpusReport
+
+> **NodeLevel5RealAppRefusalCorpusReport** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_REAL_APP_REFUSAL_CORPUS_REPORT_KIND`](#node_level5_real_app_refusal_corpus_report_kind)
+
+##### version
+
+> **version**: *typeof* [`NODE_LEVEL5_REAL_APP_REFUSAL_CORPUS_REPORT_VERSION`](#node_level5_real_app_refusal_corpus_report_version)
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### rowCount
+
+> **rowCount**: `number`
+
+##### rowsSha256
+
+> **rowsSha256**: `string`
+
+##### rows
+
+> **rows**: [`NodeLevel5RealAppRefusalCorpusRow`](#nodelevel5realapprefusalcorpusrow)[]
+
+##### harnessProof
+
+> **harnessProof**: `true`
+
+##### nodeProductSupportClaimed
+
+> **nodeProductSupportClaimed**: `80`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `20`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
+
+***
+
+### NodeLevel5RealAppRefusalCorpusVerification
+
+> **NodeLevel5RealAppRefusalCorpusVerification** = `object`
+
+#### Properties
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### kind
+
+> **kind**: `"machinen.node-level5-real-app-refusal-corpus-verification"`
 
 ##### rowCount
 
@@ -26399,6 +26555,18 @@ loops; anything looser stops being a meaningful gate.
 ### NODE\_LEVEL5\_REAL\_APP\_CORPUS\_REPORT\_VERSION
 
 > `const` **NODE\_LEVEL5\_REAL\_APP\_CORPUS\_REPORT\_VERSION**: `1` = `1`
+
+***
+
+### NODE\_LEVEL5\_REAL\_APP\_REFUSAL\_CORPUS\_REPORT\_KIND
+
+> `const` **NODE\_LEVEL5\_REAL\_APP\_REFUSAL\_CORPUS\_REPORT\_KIND**: `"machinen.node-level5-real-app-refusal-corpus-report"` = `"machinen.node-level5-real-app-refusal-corpus-report"`
+
+***
+
+### NODE\_LEVEL5\_REAL\_APP\_REFUSAL\_CORPUS\_REPORT\_VERSION
+
+> `const` **NODE\_LEVEL5\_REAL\_APP\_REFUSAL\_CORPUS\_REPORT\_VERSION**: `1` = `1`
 
 ***
 
@@ -29523,6 +29691,76 @@ available.
 #### Returns
 
 [`NodeLevel5RealAppCorpusReport`](#nodelevel5realappcorpusreport)
+
+***
+
+### createNodeLevel5RealAppRefusalCorpusReport()
+
+> **createNodeLevel5RealAppRefusalCorpusReport**(`rows`): [`NodeLevel5RealAppRefusalCorpusReport`](#nodelevel5realapprefusalcorpusreport)
+
+#### Parameters
+
+##### rows
+
+[`NodeLevel5RealAppRefusalCorpusRow`](#nodelevel5realapprefusalcorpusrow)[]
+
+#### Returns
+
+[`NodeLevel5RealAppRefusalCorpusReport`](#nodelevel5realapprefusalcorpusreport)
+
+***
+
+### writeNodeLevel5RealAppRefusalCorpusReport()
+
+> **writeNodeLevel5RealAppRefusalCorpusReport**(`input`): [`NodeLevel5RealAppRefusalCorpusReport`](#nodelevel5realapprefusalcorpusreport)
+
+#### Parameters
+
+##### input
+
+###### path
+
+`string`
+
+###### rows
+
+[`NodeLevel5RealAppRefusalCorpusRow`](#nodelevel5realapprefusalcorpusrow)[]
+
+#### Returns
+
+[`NodeLevel5RealAppRefusalCorpusReport`](#nodelevel5realapprefusalcorpusreport)
+
+***
+
+### verifyNodeLevel5RealAppRefusalCorpusReport()
+
+> **verifyNodeLevel5RealAppRefusalCorpusReport**(`report`): [`NodeLevel5RealAppRefusalCorpusVerification`](#nodelevel5realapprefusalcorpusverification)
+
+#### Parameters
+
+##### report
+
+[`NodeLevel5RealAppRefusalCorpusReport`](#nodelevel5realapprefusalcorpusreport)
+
+#### Returns
+
+[`NodeLevel5RealAppRefusalCorpusVerification`](#nodelevel5realapprefusalcorpusverification)
+
+***
+
+### loadNodeLevel5RealAppRefusalCorpusReport()
+
+> **loadNodeLevel5RealAppRefusalCorpusReport**(`path`): [`NodeLevel5RealAppRefusalCorpusReport`](#nodelevel5realapprefusalcorpusreport)
+
+#### Parameters
+
+##### path
+
+`string`
+
+#### Returns
+
+[`NodeLevel5RealAppRefusalCorpusReport`](#nodelevel5realapprefusalcorpusreport)
 
 ***
 

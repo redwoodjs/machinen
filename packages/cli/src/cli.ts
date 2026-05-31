@@ -65,6 +65,7 @@ import {
   isProductPortablePostgresBundle,
   loadNodeLevel5ProductSupport80ArtifactBundle,
   loadNodeLevel5RealAppCorpusReport,
+  loadNodeLevel5RealAppRefusalCorpusReport,
   list,
   productPortablePostgresFileSha256,
   productClaimFamilies,
@@ -78,6 +79,7 @@ import {
   restoreNodeLevel5ProductSnapshot,
   verifyNodeLevel5ProductSupport80ArtifactBundle,
   verifyNodeLevel5RealAppCorpusReport,
+  verifyNodeLevel5RealAppRefusalCorpusReport,
   restoreProductLevel4EventfdSnapshot,
   restoreProductLevel4PingSocketSnapshot,
   restoreProductLevel4PipeSnapshot,
@@ -2016,15 +2018,11 @@ function cmdNodeLevel5Claims(args: string[], json: boolean): number {
 
 function cmdNodeLevel5ReleaseGate(args: string[], json: boolean): number {
   const corpus = readOptionalNodeLevel5RealAppCorpus(args);
-  const artifactArgs = args.filter(
-    (arg, index) =>
-      arg !== "--include-real-app-corpus" &&
-      arg !== "--corpus-report" &&
-      args[index - 1] !== "--corpus-report",
+  const refusalCorpus = readOptionalNodeLevel5RealAppRefusalCorpus(args);
+  const artifact = readOptionalNodeLevel5RetainedArtifact(nodeLevel5ReleaseGateArtifactArgs(args));
+  const accepted = [artifact, corpus, refusalCorpus].every((item) =>
+    item ? item.accepted === true : true,
   );
-  const artifact = readOptionalNodeLevel5RetainedArtifact(artifactArgs);
-  const accepted =
-    (artifact ? artifact.accepted === true : true) && (corpus ? corpus.accepted === true : true);
   return reportNodeLevel5ProductCommand(json, {
     accepted,
     kind: "machinen.node-level5-release-gate-summary",
@@ -2033,7 +2031,23 @@ function cmdNodeLevel5ReleaseGate(args: string[], json: boolean): number {
     arbitraryProcessCrossArchRestoreClaimed: 0,
     retainedArtifact: artifact,
     realAppCorpus: corpus,
+    realAppRefusalCorpus: refusalCorpus,
   });
+}
+
+function nodeLevel5ReleaseGateArtifactArgs(args: string[]): string[] {
+  return args.filter((arg, index) => !isNodeLevel5ReleaseGateReportArg(args, arg, index));
+}
+
+function isNodeLevel5ReleaseGateReportArg(args: string[], arg: string, index: number): boolean {
+  return (
+    arg === "--include-real-app-corpus" ||
+    arg === "--include-refusal-corpus" ||
+    arg === "--corpus-report" ||
+    arg === "--refusal-corpus-report" ||
+    args[index - 1] === "--corpus-report" ||
+    args[index - 1] === "--refusal-corpus-report"
+  );
 }
 
 function readOptionalNodeLevel5RealAppCorpus(args: string[]): Record<string, unknown> | undefined {
@@ -2064,9 +2078,44 @@ function verifyNodeLevel5RealAppCorpusPath(path: string): Record<string, unknown
 }
 
 function invalidNodeLevel5RealAppCorpus(error: unknown): Record<string, unknown> {
+  return invalidNodeLevel5ReleaseReport("node-level5-real-app-corpus-invalid", error);
+}
+
+function readOptionalNodeLevel5RealAppRefusalCorpus(
+  args: string[],
+): Record<string, unknown> | undefined {
+  const path = nodeLevel5RealAppRefusalCorpusReportPath(args);
+  return path ? verifyNodeLevel5RealAppRefusalCorpusPath(path) : undefined;
+}
+
+function nodeLevel5RealAppRefusalCorpusReportPath(args: string[]): string | undefined {
+  if (!args.includes("--include-refusal-corpus")) {
+    return undefined;
+  }
+  const reportFlag = args.indexOf("--refusal-corpus-report");
+  const path = reportFlag === -1 ? undefined : args[reportFlag + 1];
+  if (!path) {
+    die(
+      "machinen node-level5 release-gate --include-refusal-corpus requires --refusal-corpus-report <file>",
+    );
+  }
+  return path;
+}
+
+function verifyNodeLevel5RealAppRefusalCorpusPath(path: string): Record<string, unknown> {
+  try {
+    return verifyNodeLevel5RealAppRefusalCorpusReport(
+      loadNodeLevel5RealAppRefusalCorpusReport(resolve(path)),
+    );
+  } catch (error) {
+    return invalidNodeLevel5ReleaseReport("node-level5-real-app-refusal-corpus-invalid", error);
+  }
+}
+
+function invalidNodeLevel5ReleaseReport(code: string, error: unknown): Record<string, unknown> {
   return {
     accepted: false,
-    code: "node-level5-real-app-corpus-invalid",
+    code,
     message: error instanceof Error ? error.message : String(error),
   };
 }

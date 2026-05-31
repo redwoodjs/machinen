@@ -167,6 +167,58 @@ describe("Node Level 5 product commands", () => {
     }
   });
 
+  it("uses retained real-app refusal corpus evidence for release gates", () => {
+    const dir = mkdtempSync(join(tmpdir(), "machinen-node80-cli-refusal-corpus-"));
+    try {
+      const rows = [
+        {
+          framework: "express",
+          direction: "arm64-to-amd64",
+          marker: "workerThreads",
+          expectedRefusalCode: "node-level5-worker-thread-refused",
+          actualRefusalCode: "node-level5-worker-thread-refused",
+          snapshotAccepted: false,
+          snapshotManifestWritten: false,
+          refusedBeforeSnapshot: true,
+          productCommandPath: "machinen snapshot node <pid> --out <dir>",
+          rawCpuRestoreUsed: false,
+          sourceIsaEmulationUsed: false,
+          metadataOnlySuccessAccepted: false,
+        },
+      ];
+      const report = {
+        kind: "machinen.node-level5-real-app-refusal-corpus-report",
+        version: 1,
+        accepted: true,
+        rowCount: rows.length,
+        rowsSha256: createHash("sha256").update(JSON.stringify(rows)).digest("hex"),
+        rows,
+        harnessProof: true,
+        nodeProductSupportClaimed: 80,
+        broadNodeProductSupportClaimed: 20,
+        arbitraryProcessCrossArchRestoreClaimed: 0,
+      };
+      const reportPath = join(dir, "node-level5-real-app-refusal-corpus-report.json");
+      writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
+
+      const releaseGate = runCli([
+        "node-level5",
+        "release-gate",
+        "--include-refusal-corpus",
+        "--refusal-corpus-report",
+        reportPath,
+        "--json",
+      ]);
+      expect(releaseGate.status).toBe(0);
+      expect(JSON.parse(releaseGate.stdout)).toMatchObject({
+        accepted: true,
+        realAppRefusalCorpus: { accepted: true, rowCount: 1, rowsSha256Verified: true },
+      });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it("prints claims and refuses unknown ABI", () => {
     const claims = runCli(["node-level5", "claims", "--json"]);
     expect(claims.status).toBe(0);
