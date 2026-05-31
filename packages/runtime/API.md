@@ -192,6 +192,13 @@
 - [`nodeLevel5ProductSupport80ClaimRegistry`](#nodelevel5productsupport80claimregistry)
 - [`nodeLevel5ProductSupport80UnsupportedDetectors`](#nodelevel5productsupport80unsupporteddetectors)
 - [`verifyNodeLevel5ProductSupport80ArtifactBundle`](#verifynodelevel5productsupport80artifactbundle)
+- [`NodeLevel5ProductSupport85ReadinessGateStatus`](#nodelevel5productsupport85readinessgatestatus)
+- [`NodeLevel5ProductSupport85ReadinessGateId`](#nodelevel5productsupport85readinessgateid)
+- [`NodeLevel5ProductSupport85ReadinessGate`](#nodelevel5productsupport85readinessgate)
+- [`NodeLevel5ProductSupport85ReadinessReport`](#nodelevel5productsupport85readinessreport)
+- [`NODE_LEVEL5_PRODUCT_SUPPORT_85_READINESS_KIND`](#node_level5_product_support_85_readiness_kind)
+- [`NODE_LEVEL5_PRODUCT_SUPPORT_85_READINESS_VERSION`](#node_level5_product_support_85_readiness_version)
+- [`evaluateNodeLevel5ProductSupport85Readiness`](#evaluatenodelevel5productsupport85readiness)
 - [`NodeLevel5AppSupportBoundary`](#nodelevel5appsupportboundary)
 - [`NodeLevel5AppSupportDirection`](#nodelevel5appsupportdirection)
 - [`NodeLevel5AppSupportEvidence`](#nodelevel5appsupportevidence)
@@ -12608,7 +12615,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`message`](#message-7)
+[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`message`](#message-8)
 
 ##### migrationCompleted
 
@@ -24743,6 +24750,98 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NodeLevel5ProductSupport85ReadinessGateStatus
+
+> **NodeLevel5ProductSupport85ReadinessGateStatus** = `"passed"` \| `"blocked"`
+
+***
+
+### NodeLevel5ProductSupport85ReadinessGateId
+
+> **NodeLevel5ProductSupport85ReadinessGateId** = `"generic-vm-corpus-accepted"` \| `"generic-vm-positive-row-count"` \| `"generic-vm-refusal-row-count"` \| `"generic-vm-corpus-hash-verified"` \| `"claim-values-remain-current"` \| `"claim-change-unlocked"`
+
+***
+
+### NodeLevel5ProductSupport85ReadinessGate
+
+> **NodeLevel5ProductSupport85ReadinessGate** = `object`
+
+#### Properties
+
+##### id
+
+> **id**: [`NodeLevel5ProductSupport85ReadinessGateId`](#nodelevel5productsupport85readinessgateid)
+
+##### status
+
+> **status**: [`NodeLevel5ProductSupport85ReadinessGateStatus`](#nodelevel5productsupport85readinessgatestatus)
+
+##### message
+
+> **message**: `string`
+
+***
+
+### NodeLevel5ProductSupport85ReadinessReport
+
+> **NodeLevel5ProductSupport85ReadinessReport** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_PRODUCT_SUPPORT_85_READINESS_KIND`](#node_level5_product_support_85_readiness_kind)
+
+##### version
+
+> **version**: *typeof* [`NODE_LEVEL5_PRODUCT_SUPPORT_85_READINESS_VERSION`](#node_level5_product_support_85_readiness_version)
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### candidateEvidenceAccepted
+
+> **candidateEvidenceAccepted**: `boolean`
+
+##### claimChangeAllowed
+
+> **claimChangeAllowed**: `false`
+
+##### currentNodeProductSupportClaimed
+
+> **currentNodeProductSupportClaimed**: `80`
+
+##### currentBroadNodeProductSupportClaimed
+
+> **currentBroadNodeProductSupportClaimed**: `20`
+
+##### currentArbitraryProcessCrossArchRestoreClaimed
+
+> **currentArbitraryProcessCrossArchRestoreClaimed**: `0`
+
+##### candidateNodeProductSupportClaimed
+
+> **candidateNodeProductSupportClaimed**: `85`
+
+##### candidateBroadNodeProductSupportClaimed
+
+> **candidateBroadNodeProductSupportClaimed**: `25`
+
+##### candidateArbitraryProcessCrossArchRestoreClaimed
+
+> **candidateArbitraryProcessCrossArchRestoreClaimed**: `0`
+
+##### gates
+
+> **gates**: [`NodeLevel5ProductSupport85ReadinessGate`](#nodelevel5productsupport85readinessgate)[]
+
+##### blockedGates
+
+> **blockedGates**: [`NodeLevel5ProductSupport85ReadinessGate`](#nodelevel5productsupport85readinessgate)[]
+
+***
+
 ### NodeLevel5ProofIngredientName
 
 > **NodeLevel5ProofIngredientName** = *typeof* [`nodeLevel5ProofIngredientNames`](#nodelevel5proofingredientnames)\[`number`\]
@@ -27374,6 +27473,18 @@ loops; anything looser stops being a meaningful gate.
 ### nodeLevel5ProductSupport80Matrix
 
 > `const` **nodeLevel5ProductSupport80Matrix**: [`NodeLevel5ProductSupport80Matrix`](#nodelevel5productsupport80matrix)
+
+***
+
+### NODE\_LEVEL5\_PRODUCT\_SUPPORT\_85\_READINESS\_KIND
+
+> `const` **NODE\_LEVEL5\_PRODUCT\_SUPPORT\_85\_READINESS\_KIND**: `"machinen.node-level5-product-support-85-readiness"` = `"machinen.node-level5-product-support-85-readiness"`
+
+***
+
+### NODE\_LEVEL5\_PRODUCT\_SUPPORT\_85\_READINESS\_VERSION
+
+> `const` **NODE\_LEVEL5\_PRODUCT\_SUPPORT\_85\_READINESS\_VERSION**: `1` = `1`
 
 ***
 
@@ -30672,6 +30783,24 @@ available.
 #### Returns
 
 `boolean`
+
+***
+
+### evaluateNodeLevel5ProductSupport85Readiness()
+
+> **evaluateNodeLevel5ProductSupport85Readiness**(`input`): [`NodeLevel5ProductSupport85ReadinessReport`](#nodelevel5productsupport85readinessreport)
+
+#### Parameters
+
+##### input
+
+###### genericVmCorpusReport
+
+[`NodeLevel5GenericVmCorpusReport`](#nodelevel5genericvmcorpusreport)
+
+#### Returns
+
+[`NodeLevel5ProductSupport85ReadinessReport`](#nodelevel5productsupport85readinessreport)
 
 ***
 
