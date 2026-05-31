@@ -10,5 +10,5 @@
   "arbitraryProcessCrossArchRestoreClaimed": 0,
   "productSurface": ["machinen snapshot node <pid> --out <dir>"],
   "productRunCorpusProofRange": "721-760",
-  "refusalRows": 32
+  "refusalRows": 64
 }

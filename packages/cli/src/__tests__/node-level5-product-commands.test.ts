@@ -283,7 +283,7 @@ describe("Node Level 5 product commands", () => {
     expect(JSON.parse(supportMatrix.stdout)).toMatchObject({
       accepted: true,
       kind: "machinen.node-level5-app-support-matrix",
-      rowCount: 38,
+      rowCount: 54,
       rows: expect.arrayContaining([
         expect.objectContaining({
           id: "express-installed-hello-world",
@@ -291,7 +291,12 @@ describe("Node Level 5 product commands", () => {
           features: expect.objectContaining({ route: "simple-route", response: "text" }),
         }),
         expect.objectContaining({ id: "fastify-websockets", status: "refused" }),
-        expect.objectContaining({ id: "express-json-response-not-proven", status: "not-proven" }),
+        expect.objectContaining({ id: "express-db-connections", status: "refused" }),
+        expect.objectContaining({ id: "express-installed-json-response", status: "supported" }),
+        expect.objectContaining({
+          id: "express-external-network-not-proven",
+          status: "not-proven",
+        }),
       ]),
       boundaries: expect.arrayContaining([
         expect.objectContaining({ id: "arbitrary-node-process", status: "not-claimed" }),

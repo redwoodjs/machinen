@@ -208,6 +208,30 @@ function installedRows(): NodeLevel5AppSupportMatrixRow[] {
       framework: "express",
       features: routerTextFeatures(),
     }),
+    installedFeatureRow({
+      id: "express-installed-json-response",
+      appName: "Installed Express JSON response app",
+      framework: "express",
+      features: jsonResponseFeatures(false),
+    }),
+    installedFeatureRow({
+      id: "express-installed-route-params",
+      appName: "Installed Express route params app",
+      framework: "express",
+      features: routeParamsFeatures(false),
+    }),
+    installedFeatureRow({
+      id: "express-installed-query-string",
+      appName: "Installed Express query string app",
+      framework: "express",
+      features: queryStringFeatures(false),
+    }),
+    installedFeatureRow({
+      id: "express-installed-static-asset",
+      appName: "Installed Express static asset app",
+      framework: "express",
+      features: staticAssetFeatures(false),
+    }),
     installedRow({
       id: "fastify-installed-getting-started",
       appName: "Installed Fastify getting-started app",
@@ -219,6 +243,30 @@ function installedRows(): NodeLevel5AppSupportMatrixRow[] {
       appName: "Installed Fastify plugin-route app",
       framework: "fastify",
       features: asyncTextFeatures("plugin-route", "pure-js"),
+    }),
+    installedFeatureRow({
+      id: "fastify-installed-json-response",
+      appName: "Installed Fastify JSON response app",
+      framework: "fastify",
+      features: jsonResponseFeatures(true),
+    }),
+    installedFeatureRow({
+      id: "fastify-installed-route-params",
+      appName: "Installed Fastify route params app",
+      framework: "fastify",
+      features: routeParamsFeatures(true),
+    }),
+    installedFeatureRow({
+      id: "fastify-installed-query-string",
+      appName: "Installed Fastify query string app",
+      framework: "fastify",
+      features: queryStringFeatures(true),
+    }),
+    installedFeatureRow({
+      id: "fastify-installed-static-asset",
+      appName: "Installed Fastify static asset app",
+      framework: "fastify",
+      features: staticAssetFeatures(true),
     }),
   ];
 }
@@ -261,11 +309,32 @@ function installedRow(input: {
   framework: NodeLevel5AppSupportFramework;
   features: NodeLevel5AppSupportFeatures;
 }): NodeLevel5AppSupportMatrixRow {
+  return installedSupportRow(input, "841-880");
+}
+
+function installedFeatureRow(input: {
+  id: string;
+  appName: string;
+  framework: NodeLevel5AppSupportFramework;
+  features: NodeLevel5AppSupportFeatures;
+}): NodeLevel5AppSupportMatrixRow {
+  return installedSupportRow(input, "961-1000");
+}
+
+function installedSupportRow(
+  input: {
+    id: string;
+    appName: string;
+    framework: NodeLevel5AppSupportFramework;
+    features: NodeLevel5AppSupportFeatures;
+  },
+  proofRange: string,
+): NodeLevel5AppSupportMatrixRow {
   return supportedRow({
     ...input,
     evidence: {
       kind: "installed-package-corpus",
-      proofRange: "841-880",
+      proofRange,
       corpusReport: "node-level5-installed-third-party-app-corpus-report.json",
     },
     supportedAppShape: "selected installed package idle HTTP app",
@@ -374,6 +443,37 @@ function asyncTextFeatures(
   middleware: NodeLevel5AppSupportMiddlewareFeature,
 ): NodeLevel5AppSupportFeatures {
   return { ...baseFeatures({ route, response: "text", middleware }), asyncHandler: true };
+}
+
+function jsonResponseFeatures(asyncHandler: boolean): NodeLevel5AppSupportFeatures {
+  return {
+    ...baseFeatures({ route: "simple-route", response: "json", middleware: "none" }),
+    asyncHandler,
+  };
+}
+
+function routeParamsFeatures(asyncHandler: boolean): NodeLevel5AppSupportFeatures {
+  return {
+    ...baseFeatures({ route: "simple-route", response: "text", middleware: "none" }),
+    asyncHandler,
+    params: true,
+  };
+}
+
+function queryStringFeatures(asyncHandler: boolean): NodeLevel5AppSupportFeatures {
+  return {
+    ...baseFeatures({ route: "simple-route", response: "text", middleware: "none" }),
+    asyncHandler,
+    query: true,
+  };
+}
+
+function staticAssetFeatures(asyncHandler: boolean): NodeLevel5AppSupportFeatures {
+  return {
+    ...baseFeatures({ route: "simple-route", response: "text", middleware: "pure-js" }),
+    asyncHandler,
+    staticAssets: true,
+  };
 }
 
 function baseFeatures(input: {
@@ -535,6 +635,54 @@ function refusalMarkers(): RefusalMarker[] {
       reason: "live websocket state",
       feature: "externalNetwork",
     },
+    {
+      id: "db-connections",
+      appName: "DB connection app",
+      reason: "live DB connection state",
+      feature: "externalNetwork",
+    },
+    {
+      id: "redis-queue-connections",
+      appName: "Redis/queue connection app",
+      reason: "live Redis or queue client connection state",
+      feature: "externalNetwork",
+    },
+    {
+      id: "outbound-http-sockets",
+      appName: "outbound HTTP keepalive app",
+      reason: "live outbound HTTP socket state",
+      feature: "externalNetwork",
+    },
+    {
+      id: "http2-sessions",
+      appName: "HTTP/2 session app",
+      reason: "live HTTP/2 session state",
+      feature: "externalNetwork",
+    },
+    {
+      id: "server-sent-events",
+      appName: "server-sent events app",
+      reason: "live SSE stream state",
+      feature: "externalNetwork",
+    },
+    {
+      id: "open-writable-files",
+      appName: "open writable file app",
+      reason: "live writable file descriptor state",
+      feature: "backgroundTasks",
+    },
+    {
+      id: "timers-intervals",
+      appName: "timer/interval background task app",
+      reason: "live timer or interval background task state",
+      feature: "backgroundTasks",
+    },
+    {
+      id: "cluster-mode",
+      appName: "cluster mode app",
+      reason: "cluster or multi-process Node state",
+      feature: "backgroundTasks",
+    },
   ];
 }
 
@@ -544,26 +692,6 @@ function notProvenFeatureRows(): Array<{
   reason: string;
 }> {
   return [
-    {
-      id: "json-response",
-      name: "response",
-      reason: "JSON response app row has no retained product corpus yet",
-    },
-    {
-      id: "params",
-      name: "params",
-      reason: "dynamic route parameter app row has no retained product corpus yet",
-    },
-    {
-      id: "query",
-      name: "query",
-      reason: "query string app row has no retained product corpus yet",
-    },
-    {
-      id: "static-assets",
-      name: "staticAssets",
-      reason: "static asset app row has no retained product corpus yet",
-    },
     {
       id: "external-network",
       name: "externalNetwork",

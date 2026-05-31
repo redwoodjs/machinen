@@ -15,8 +15,16 @@ export const NODE_LEVEL5_INSTALLED_THIRD_PARTY_APP_CORPUS_REPORT_VERSION = 1;
 export type NodeLevel5InstalledThirdPartyAppSource =
   | "express-installed-hello-world"
   | "express-installed-router"
+  | "express-installed-json-response"
+  | "express-installed-route-params"
+  | "express-installed-query-string"
+  | "express-installed-static-asset"
   | "fastify-installed-getting-started"
-  | "fastify-installed-plugin-route";
+  | "fastify-installed-plugin-route"
+  | "fastify-installed-json-response"
+  | "fastify-installed-route-params"
+  | "fastify-installed-query-string"
+  | "fastify-installed-static-asset";
 
 export type NodeLevel5InstalledThirdPartyAppCorpusRow = NodeLevel5CorpusHttpEvidence & {
   appName: string;

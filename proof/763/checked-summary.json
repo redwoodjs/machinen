@@ -9,5 +9,5 @@
   "broadNodeProductSupportClaimed": 20,
   "arbitraryProcessCrossArchRestoreClaimed": 0,
   "productSurface": ["machinen snapshot node <pid> --out <dir>"],
-  "rowCount": 32
+  "rowCount": 64
 }
