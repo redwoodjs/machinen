@@ -239,6 +239,14 @@ export {
   verifyNodeLevel5ProductSupport80ArtifactBundle,
 } from "./node-level5-product-support-80-hardening.ts";
 export {
+  NODE_LEVEL5_INSTALLED_THIRD_PARTY_APP_CORPUS_REPORT_KIND,
+  NODE_LEVEL5_INSTALLED_THIRD_PARTY_APP_CORPUS_REPORT_VERSION,
+  createNodeLevel5InstalledThirdPartyAppCorpusReport,
+  loadNodeLevel5InstalledThirdPartyAppCorpusReport,
+  verifyNodeLevel5InstalledThirdPartyAppCorpusReport,
+  writeNodeLevel5InstalledThirdPartyAppCorpusReport,
+} from "./node-level5-installed-third-party-app-corpus.ts";
+export {
   NODE_LEVEL5_THIRD_PARTY_APP_CORPUS_REPORT_KIND,
   NODE_LEVEL5_THIRD_PARTY_APP_CORPUS_REPORT_VERSION,
   createNodeLevel5ThirdPartyAppCorpusReport,
@@ -392,6 +400,12 @@ export type {
   NodeLevel5ProductSupport80UnsupportedDetector,
 } from "./node-level5-product-support-80-hardening.ts";
 export type { NodeLevel5CorpusHttpEvidence } from "./node-level5-corpus-common.ts";
+export type {
+  NodeLevel5InstalledThirdPartyAppCorpusReport,
+  NodeLevel5InstalledThirdPartyAppCorpusRow,
+  NodeLevel5InstalledThirdPartyAppCorpusVerification,
+  NodeLevel5InstalledThirdPartyAppSource,
+} from "./node-level5-installed-third-party-app-corpus.ts";
 export type {
   NodeLevel5ThirdPartyAppCorpusReport,
   NodeLevel5ThirdPartyAppCorpusRow,

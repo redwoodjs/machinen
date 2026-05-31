@@ -193,6 +193,16 @@
 - [`nodeLevel5ProductSupport80UnsupportedDetectors`](#nodelevel5productsupport80unsupporteddetectors)
 - [`verifyNodeLevel5ProductSupport80ArtifactBundle`](#verifynodelevel5productsupport80artifactbundle)
 - [`NodeLevel5CorpusHttpEvidence`](#nodelevel5corpushttpevidence)
+- [`NodeLevel5InstalledThirdPartyAppCorpusReport`](#nodelevel5installedthirdpartyappcorpusreport)
+- [`NodeLevel5InstalledThirdPartyAppCorpusRow`](#nodelevel5installedthirdpartyappcorpusrow)
+- [`NodeLevel5InstalledThirdPartyAppCorpusVerification`](#nodelevel5installedthirdpartyappcorpusverification)
+- [`NodeLevel5InstalledThirdPartyAppSource`](#nodelevel5installedthirdpartyappsource)
+- [`NODE_LEVEL5_INSTALLED_THIRD_PARTY_APP_CORPUS_REPORT_KIND`](#node_level5_installed_third_party_app_corpus_report_kind)
+- [`NODE_LEVEL5_INSTALLED_THIRD_PARTY_APP_CORPUS_REPORT_VERSION`](#node_level5_installed_third_party_app_corpus_report_version)
+- [`createNodeLevel5InstalledThirdPartyAppCorpusReport`](#createnodelevel5installedthirdpartyappcorpusreport)
+- [`loadNodeLevel5InstalledThirdPartyAppCorpusReport`](#loadnodelevel5installedthirdpartyappcorpusreport)
+- [`verifyNodeLevel5InstalledThirdPartyAppCorpusReport`](#verifynodelevel5installedthirdpartyappcorpusreport)
+- [`writeNodeLevel5InstalledThirdPartyAppCorpusReport`](#writenodelevel5installedthirdpartyappcorpusreport)
 - [`NodeLevel5ThirdPartyAppCorpusReport`](#nodelevel5thirdpartyappcorpusreport)
 - [`NodeLevel5ThirdPartyAppCorpusRow`](#nodelevel5thirdpartyappcorpusrow)
 - [`NodeLevel5ThirdPartyAppCorpusVerification`](#nodelevel5thirdpartyappcorpusverification)
@@ -22395,6 +22405,136 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NodeLevel5InstalledThirdPartyAppSource
+
+> **NodeLevel5InstalledThirdPartyAppSource** = `"express-installed-hello-world"` \| `"express-installed-router"` \| `"fastify-installed-getting-started"` \| `"fastify-installed-plugin-route"`
+
+***
+
+### NodeLevel5InstalledThirdPartyAppCorpusRow
+
+> **NodeLevel5InstalledThirdPartyAppCorpusRow** = [`NodeLevel5CorpusHttpEvidence`](#nodelevel5corpushttpevidence) & `object`
+
+#### Type Declaration
+
+##### appName
+
+> **appName**: `string`
+
+##### source
+
+> **source**: [`NodeLevel5InstalledThirdPartyAppSource`](#nodelevel5installedthirdpartyappsource)
+
+##### framework
+
+> **framework**: [`NodeLevel5RealAppCorpusFramework`](#nodelevel5realappcorpusframework)
+
+##### direction
+
+> **direction**: [`NodeLevel5ProductSnapshotDirection`](#nodelevel5productsnapshotdirection)
+
+##### installedPackage
+
+> **installedPackage**: `string`
+
+##### installedPackageVersion
+
+> **installedPackageVersion**: `string`
+
+##### declaredSubset
+
+> **declaredSubset**: `true`
+
+##### unsupportedStateDetected
+
+> **unsupportedStateDetected**: `false`
+
+***
+
+### NodeLevel5InstalledThirdPartyAppCorpusReport
+
+> **NodeLevel5InstalledThirdPartyAppCorpusReport** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_INSTALLED_THIRD_PARTY_APP_CORPUS_REPORT_KIND`](#node_level5_installed_third_party_app_corpus_report_kind)
+
+##### version
+
+> **version**: *typeof* [`NODE_LEVEL5_INSTALLED_THIRD_PARTY_APP_CORPUS_REPORT_VERSION`](#node_level5_installed_third_party_app_corpus_report_version)
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### rowCount
+
+> **rowCount**: `number`
+
+##### rowsSha256
+
+> **rowsSha256**: `string`
+
+##### rows
+
+> **rows**: [`NodeLevel5InstalledThirdPartyAppCorpusRow`](#nodelevel5installedthirdpartyappcorpusrow)[]
+
+##### harnessProof
+
+> **harnessProof**: `true`
+
+##### nodeProductSupportClaimed
+
+> **nodeProductSupportClaimed**: `80`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `20`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
+
+***
+
+### NodeLevel5InstalledThirdPartyAppCorpusVerification
+
+> **NodeLevel5InstalledThirdPartyAppCorpusVerification** = `object`
+
+#### Properties
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### kind
+
+> **kind**: `"machinen.node-level5-installed-third-party-app-corpus-verification"`
+
+##### rowCount
+
+> **rowCount**: `number`
+
+##### rowsSha256Verified
+
+> **rowsSha256Verified**: `boolean`
+
+##### nodeProductSupportClaimed
+
+> **nodeProductSupportClaimed**: `80`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `20`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
+
+***
+
 ### NodeLevel5ProductSnapshotDirection
 
 > **NodeLevel5ProductSnapshotDirection** = `"arm64-to-amd64"` \| `"amd64-to-arm64"`
@@ -26411,6 +26551,18 @@ loops; anything looser stops being a meaningful gate.
 
 ***
 
+### NODE\_LEVEL5\_INSTALLED\_THIRD\_PARTY\_APP\_CORPUS\_REPORT\_KIND
+
+> `const` **NODE\_LEVEL5\_INSTALLED\_THIRD\_PARTY\_APP\_CORPUS\_REPORT\_KIND**: `"machinen.node-level5-installed-third-party-app-corpus-report"` = `"machinen.node-level5-installed-third-party-app-corpus-report"`
+
+***
+
+### NODE\_LEVEL5\_INSTALLED\_THIRD\_PARTY\_APP\_CORPUS\_REPORT\_VERSION
+
+> `const` **NODE\_LEVEL5\_INSTALLED\_THIRD\_PARTY\_APP\_CORPUS\_REPORT\_VERSION**: `1` = `1`
+
+***
+
 ### NODE\_LEVEL5\_PRODUCT\_SNAPSHOT\_KIND
 
 > `const` **NODE\_LEVEL5\_PRODUCT\_SNAPSHOT\_KIND**: `"machinen.node-level5-product-snapshot"` = `"machinen.node-level5-product-snapshot"`
@@ -29514,6 +29666,76 @@ available.
 #### Returns
 
 [`NodeLevel5HttpProfileRefusal`](#nodelevel5httpprofilerefusal)[]
+
+***
+
+### createNodeLevel5InstalledThirdPartyAppCorpusReport()
+
+> **createNodeLevel5InstalledThirdPartyAppCorpusReport**(`rows`): [`NodeLevel5InstalledThirdPartyAppCorpusReport`](#nodelevel5installedthirdpartyappcorpusreport)
+
+#### Parameters
+
+##### rows
+
+[`NodeLevel5InstalledThirdPartyAppCorpusRow`](#nodelevel5installedthirdpartyappcorpusrow)[]
+
+#### Returns
+
+[`NodeLevel5InstalledThirdPartyAppCorpusReport`](#nodelevel5installedthirdpartyappcorpusreport)
+
+***
+
+### writeNodeLevel5InstalledThirdPartyAppCorpusReport()
+
+> **writeNodeLevel5InstalledThirdPartyAppCorpusReport**(`input`): [`NodeLevel5InstalledThirdPartyAppCorpusReport`](#nodelevel5installedthirdpartyappcorpusreport)
+
+#### Parameters
+
+##### input
+
+###### path
+
+`string`
+
+###### rows
+
+[`NodeLevel5InstalledThirdPartyAppCorpusRow`](#nodelevel5installedthirdpartyappcorpusrow)[]
+
+#### Returns
+
+[`NodeLevel5InstalledThirdPartyAppCorpusReport`](#nodelevel5installedthirdpartyappcorpusreport)
+
+***
+
+### verifyNodeLevel5InstalledThirdPartyAppCorpusReport()
+
+> **verifyNodeLevel5InstalledThirdPartyAppCorpusReport**(`report`): [`NodeLevel5InstalledThirdPartyAppCorpusVerification`](#nodelevel5installedthirdpartyappcorpusverification)
+
+#### Parameters
+
+##### report
+
+[`NodeLevel5InstalledThirdPartyAppCorpusReport`](#nodelevel5installedthirdpartyappcorpusreport)
+
+#### Returns
+
+[`NodeLevel5InstalledThirdPartyAppCorpusVerification`](#nodelevel5installedthirdpartyappcorpusverification)
+
+***
+
+### loadNodeLevel5InstalledThirdPartyAppCorpusReport()
+
+> **loadNodeLevel5InstalledThirdPartyAppCorpusReport**(`path`): [`NodeLevel5InstalledThirdPartyAppCorpusReport`](#nodelevel5installedthirdpartyappcorpusreport)
+
+#### Parameters
+
+##### path
+
+`string`
+
+#### Returns
+
+[`NodeLevel5InstalledThirdPartyAppCorpusReport`](#nodelevel5installedthirdpartyappcorpusreport)
 
 ***
 

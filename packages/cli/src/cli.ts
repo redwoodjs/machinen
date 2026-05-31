@@ -66,6 +66,7 @@ import {
   loadNodeLevel5ProductSupport80ArtifactBundle,
   loadNodeLevel5RealAppCorpusReport,
   loadNodeLevel5RealAppRefusalCorpusReport,
+  loadNodeLevel5InstalledThirdPartyAppCorpusReport,
   loadNodeLevel5ThirdPartyAppCorpusReport,
   list,
   productPortablePostgresFileSha256,
@@ -81,6 +82,7 @@ import {
   verifyNodeLevel5ProductSupport80ArtifactBundle,
   verifyNodeLevel5RealAppCorpusReport,
   verifyNodeLevel5RealAppRefusalCorpusReport,
+  verifyNodeLevel5InstalledThirdPartyAppCorpusReport,
   verifyNodeLevel5ThirdPartyAppCorpusReport,
   restoreProductLevel4EventfdSnapshot,
   restoreProductLevel4PingSocketSnapshot,
@@ -2022,10 +2024,15 @@ function cmdNodeLevel5ReleaseGate(args: string[], json: boolean): number {
   const corpus = readOptionalNodeLevel5RealAppCorpus(args);
   const refusalCorpus = readOptionalNodeLevel5RealAppRefusalCorpus(args);
   const thirdPartyAppCorpus = readOptionalNodeLevel5ThirdPartyAppCorpus(args);
+  const installedThirdPartyAppCorpus = readOptionalNodeLevel5InstalledThirdPartyAppCorpus(args);
   const artifact = readOptionalNodeLevel5RetainedArtifact(nodeLevel5ReleaseGateArtifactArgs(args));
-  const accepted = [artifact, corpus, refusalCorpus, thirdPartyAppCorpus].every((item) =>
-    item ? item.accepted === true : true,
-  );
+  const accepted = [
+    artifact,
+    corpus,
+    refusalCorpus,
+    thirdPartyAppCorpus,
+    installedThirdPartyAppCorpus,
+  ].every((item) => (item ? item.accepted === true : true));
   return reportNodeLevel5ProductCommand(json, {
     accepted,
     kind: "machinen.node-level5-release-gate-summary",
@@ -2036,6 +2043,7 @@ function cmdNodeLevel5ReleaseGate(args: string[], json: boolean): number {
     realAppCorpus: corpus,
     realAppRefusalCorpus: refusalCorpus,
     thirdPartyAppCorpus,
+    installedThirdPartyAppCorpus,
   });
 }
 
@@ -2043,14 +2051,17 @@ const nodeLevel5ReleaseGateReportFlags = new Set([
   "--include-real-app-corpus",
   "--include-refusal-corpus",
   "--include-third-party-app-corpus",
+  "--include-installed-third-party-app-corpus",
   "--corpus-report",
   "--refusal-corpus-report",
   "--third-party-app-corpus-report",
+  "--installed-third-party-app-corpus-report",
 ]);
 const nodeLevel5ReleaseGateReportValueFlags = new Set([
   "--corpus-report",
   "--refusal-corpus-report",
   "--third-party-app-corpus-report",
+  "--installed-third-party-app-corpus-report",
 ]);
 
 function nodeLevel5ReleaseGateArtifactArgs(args: string[]): string[] {
@@ -2154,6 +2165,40 @@ function verifyNodeLevel5ThirdPartyAppCorpusPath(path: string): Record<string, u
     );
   } catch (error) {
     return invalidNodeLevel5ReleaseReport("node-level5-third-party-app-corpus-invalid", error);
+  }
+}
+
+function readOptionalNodeLevel5InstalledThirdPartyAppCorpus(
+  args: string[],
+): Record<string, unknown> | undefined {
+  const path = nodeLevel5InstalledThirdPartyAppCorpusReportPath(args);
+  return path ? verifyNodeLevel5InstalledThirdPartyAppCorpusPath(path) : undefined;
+}
+
+function nodeLevel5InstalledThirdPartyAppCorpusReportPath(args: string[]): string | undefined {
+  if (!args.includes("--include-installed-third-party-app-corpus")) {
+    return undefined;
+  }
+  const reportFlag = args.indexOf("--installed-third-party-app-corpus-report");
+  const path = reportFlag === -1 ? undefined : args[reportFlag + 1];
+  if (!path) {
+    die(
+      "machinen node-level5 release-gate --include-installed-third-party-app-corpus requires --installed-third-party-app-corpus-report <file>",
+    );
+  }
+  return path;
+}
+
+function verifyNodeLevel5InstalledThirdPartyAppCorpusPath(path: string): Record<string, unknown> {
+  try {
+    return verifyNodeLevel5InstalledThirdPartyAppCorpusReport(
+      loadNodeLevel5InstalledThirdPartyAppCorpusReport(resolve(path)),
+    );
+  } catch (error) {
+    return invalidNodeLevel5ReleaseReport(
+      "node-level5-installed-third-party-app-corpus-invalid",
+      error,
+    );
   }
 }
 
