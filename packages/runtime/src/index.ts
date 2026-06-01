@@ -270,6 +270,17 @@ export {
 } from "./arbitrary-process-level5-claim-ready.ts";
 
 export {
+  ARBITRARY_PROCESS_LEVEL5_SIMPLE_PIPE_FD_PROOF_KIND,
+  ARBITRARY_PROCESS_LEVEL5_SIMPLE_PIPE_FD_PROOF_REPORT,
+  ARBITRARY_PROCESS_LEVEL5_SIMPLE_PIPE_FD_PROOF_VERSION,
+  createArbitraryProcessLevel5SimplePipeFdProof,
+  loadArbitraryProcessLevel5SimplePipeFdProofReport,
+  verifyArbitraryProcessLevel5SimplePipeFdProofReport,
+  type ArbitraryProcessLevel5SimplePipeFdProofArtifact,
+  type ArbitraryProcessLevel5SimplePipeFdProofReport,
+} from "./arbitrary-process-level5-simple-pipe-fd-proof.ts";
+
+export {
   ARBITRARY_PROCESS_LEVEL5_REGULAR_FILE_FD_PROOF_KIND,
   ARBITRARY_PROCESS_LEVEL5_REGULAR_FILE_FD_PROOF_VERSION,
   createArbitraryProcessLevel5RegularFileFdProof,
