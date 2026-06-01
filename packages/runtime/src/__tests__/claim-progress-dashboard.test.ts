@@ -27,7 +27,7 @@ type ClaimProgressProofGroup = {
 
 type ClaimProgressDashboard = {
   kind: "machinen.claim-progress-dashboard";
-  version: 32;
+  version: 33;
   tracks: ClaimProgressTrack[];
   proofGroups: ClaimProgressProofGroup[];
 };
@@ -41,13 +41,14 @@ describe("claim progress dashboard", () => {
 
     expect(dashboard).toMatchObject({
       kind: "machinen.claim-progress-dashboard",
-      version: 32,
+      version: 33,
     });
     expect(dashboard.tracks.map((track) => track.id)).toEqual([
       "node-service",
       "postgres",
       "bun",
       "generic-linux-service",
+      "native-process-substrate",
       "arbitrary-process",
       "whole-linux-vm-workload",
     ]);
@@ -88,6 +89,7 @@ describe("claim progress dashboard", () => {
       "bun-not-started",
       "generic-linux-service-not-started",
       "level4-ping-resource-continuation",
+      "native-process-substrate-not-started",
       "arbitrary-process-0-seed-1-locked",
       "whole-linux-vm-workload-not-started",
     ]);
@@ -140,6 +142,7 @@ describe("claim progress dashboard", () => {
     expect(html).toContain("boundary");
     expect(html).toContain("resource");
     expect(html).toContain("capability");
+    expect(html).toContain("substrate");
     expect(html).toContain("product");
     expect(html).toContain("dependency install");
     expect(html).toContain("database smoke");
@@ -202,6 +205,15 @@ describe("claim progress dashboard", () => {
     expect(html).toContain("vm-ebpf-capability-smoke");
     expect(html).toContain("vm-seccomp-capability-smoke");
     expect(html).toContain("vm-nested-virtualization-smoke");
+    expect(html).toContain("native substrate");
+    expect(html).toContain("native-cpu-register-inventory");
+    expect(html).toContain("native-memory-map-inventory");
+    expect(html).toContain("native-writable-memory-materialization");
+    expect(html).toContain("native-stack-reconstruction-seed");
+    expect(html).toContain("native-page-protection-verifier");
+    expect(html).toContain("native-dirty-memory-consistency");
+    expect(html).toContain("native-futex-thread-refusal-proof");
+    expect(html).toContain("native-jit-code-page-refusal-proof");
     expect(html).toContain("proof IDs are path-like");
     expect(html).not.toContain("Claim matrix");
     expect(html).not.toContain("Proofs by claim");

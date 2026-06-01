@@ -397,6 +397,10 @@
             <dd>File descriptor, kernel resource, or network resource reconstruction proof.</dd>
           </div>
           <div>
+            <dt>substrate</dt>
+            <dd>CPU, memory, stack, bootstrap, and page-state reconstruction substrate proof.</dd>
+          </div>
+          <div>
             <dt>capability</dt>
             <dd>Host/guest capability probe such as eBPF, seccomp, or nested virtualization.</dd>
           </div>
@@ -455,7 +459,7 @@
     <script id="embedded-claim-progress" type="application/json">
       {
         "kind": "machinen.claim-progress-dashboard",
-        "version": 32,
+        "version": 33,
         "updatedFrom": [
           "docs/snapshot/node-level5-product-support-claim-registry.json",
           "docs/snapshot/node-level5-product-support-100.json",
@@ -2095,6 +2099,248 @@
             "docs": []
           },
           {
+            "id": "native-process-substrate",
+            "name": "Native process substrate",
+            "family": "process-substrate",
+            "runtime": "linux-process",
+            "status": "not-started",
+            "stage": "cpu/memory substrate proof slots",
+            "scope": "CPU and memory snapshot substrate for target-native process reconstruction; not product support and not arbitrary-process restore.",
+            "currentClaim": {
+              "productSupport": null,
+              "broadSupport": null,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "nextClaim": {
+              "arbitraryProcessCrossArchRestore": "substrate-proof-needed",
+              "claimChangeAllowed": false
+            },
+            "summary": "CPU registers, memory maps, writable pages, stacks, bootstrap state, page protections, dirty memory, and unsafe runtime/thread/JIT boundaries need retained target-native proofs before they can support any arbitrary-process claim.",
+            "claimGate": "native process substrate proof gate required",
+            "claimChangeAllowed": false,
+            "evidence": [],
+            "evidenceRows": [
+              {
+                "id": "native-cpu-register-inventory",
+                "area": "cpu register state",
+                "kind": "CPU register inventory",
+                "status": "not-started",
+                "evidence": "No retained native substrate artifact exists yet for this row. Capture GPRs, PC/IP, SP, flags/PSTATE, and architecture-specific register metadata without claiming cross-ISA execution resume.",
+                "gate": "native-cpu-register-inventory",
+                "artifact": "missing",
+                "next": "Retain source CPU register inventory and target-native reconstruction/refusal verifier output."
+              },
+              {
+                "id": "native-memory-map-inventory",
+                "area": "memory map inventory",
+                "kind": "Memory map inventory",
+                "status": "not-started",
+                "evidence": "No retained native substrate artifact exists yet for this row. Capture VMAs/maps, permissions, file-backed vs anonymous mappings, stack/heap/data/code regions, and guard pages.",
+                "gate": "native-memory-map-inventory",
+                "artifact": "missing",
+                "next": "Retain /proc maps inventory, hashes for file-backed regions, and target mapping plan verifier output."
+              },
+              {
+                "id": "native-writable-memory-materialization",
+                "area": "memory materialization",
+                "kind": "Writable memory materialization",
+                "status": "not-started",
+                "evidence": "No retained native substrate artifact exists yet for this row. Materialize writable anonymous/data pages into a target-native process image without raw source-ISA execution.",
+                "gate": "native-writable-memory-materialization",
+                "artifact": "missing",
+                "next": "Retain page dump manifest, target materialization transcript, and memory byte verifier output."
+              },
+              {
+                "id": "native-stack-reconstruction-seed",
+                "area": "stack reconstruction",
+                "kind": "Stack reconstruction seed",
+                "status": "not-started",
+                "evidence": "No retained native substrate artifact exists yet for this row. Reconstruct or safely refuse a simple single-thread stack frame with target-native behavior verification.",
+                "gate": "native-stack-reconstruction-seed",
+                "artifact": "missing",
+                "next": "Retain source stack descriptor, target stack construction transcript, and continuation verifier output."
+              },
+              {
+                "id": "native-argv-env-auxv-reconstruction",
+                "area": "process bootstrap",
+                "kind": "argv/env/auxv reconstruction",
+                "status": "not-started",
+                "evidence": "No retained native substrate artifact exists yet for this row. Rebuild argv, environment, cwd, and auxiliary-vector/bootstrap inputs for a target-native process.",
+                "gate": "native-argv-env-auxv-reconstruction",
+                "artifact": "missing",
+                "next": "Retain source bootstrap inventory and target verifier proving argv/env/cwd/auxv equivalence where safe."
+              },
+              {
+                "id": "native-dynamic-linker-runtime-boundary",
+                "area": "runtime boundary",
+                "kind": "Dynamic linker/runtime boundary",
+                "status": "not-started",
+                "evidence": "No retained native substrate artifact exists yet for this row. Define how libc, ld.so, loader state, and runtime-owned pages are reconstructed or refused without runtime hooks.",
+                "gate": "native-dynamic-linker-runtime-boundary",
+                "artifact": "missing",
+                "next": "Retain runtime/loader inventory plus explicit target-native reconstruction/refusal report."
+              },
+              {
+                "id": "native-single-thread-boundary-proof",
+                "area": "thread boundary",
+                "kind": "Single-thread boundary proof",
+                "status": "not-started",
+                "evidence": "No retained native substrate artifact exists yet for this row. Prove the initial CPU/memory substrate is single-thread only and refuses multi-thread execution contexts.",
+                "gate": "native-single-thread-boundary-proof",
+                "artifact": "missing",
+                "next": "Retain single-thread verifier output and multi-thread refusal artifact."
+              },
+              {
+                "id": "native-syscall-abi-boundary-proof",
+                "area": "syscall ABI boundary",
+                "kind": "Syscall ABI boundary proof",
+                "status": "not-started",
+                "evidence": "No retained native substrate artifact exists yet for this row. Show captured syscall/resource descriptors are translated to target-native ABI semantics, not source-ISA replay.",
+                "gate": "native-syscall-abi-boundary-proof",
+                "artifact": "missing",
+                "next": "Retain syscall/resource descriptor report plus target-native verifier output."
+              },
+              {
+                "id": "native-page-protection-verifier",
+                "area": "page protection",
+                "kind": "Page protection verifier",
+                "status": "not-started",
+                "evidence": "No retained native substrate artifact exists yet for this row. Verify restored mappings preserve readable/writable/executable protections, guard pages, and W^X boundaries.",
+                "gate": "native-page-protection-verifier",
+                "artifact": "missing",
+                "next": "Retain mprotect/guard-page verifier output and unsafe executable-page refusal details."
+              },
+              {
+                "id": "native-dirty-memory-consistency",
+                "area": "dirty memory",
+                "kind": "Dirty memory consistency proof",
+                "status": "not-started",
+                "evidence": "No retained native substrate artifact exists yet for this row. Define a safe snapshot point with dirty-page accounting and consistent page materialization.",
+                "gate": "native-dirty-memory-consistency",
+                "artifact": "missing",
+                "next": "Retain dirty-page ledger, snapshot consistency transcript, and target memory verifier output."
+              },
+              {
+                "id": "native-futex-thread-refusal-proof",
+                "area": "thread/futex refusal",
+                "kind": "Futex/thread refusal proof",
+                "status": "not-started",
+                "evidence": "No retained native substrate artifact exists yet for this row. Explicitly refuse futex owners, waiters, and multi-thread scheduler state until retained reconstruction proofs exist.",
+                "gate": "native-futex-thread-refusal-proof",
+                "artifact": "missing",
+                "next": "Retain refusal artifacts for futex owners/waiters and active thread state."
+              },
+              {
+                "id": "native-jit-code-page-refusal-proof",
+                "area": "jit/code-page refusal",
+                "kind": "JIT/code-page refusal proof",
+                "status": "not-started",
+                "evidence": "No retained native substrate artifact exists yet for this row. Explicitly refuse JIT executable pages and source-ISA code blobs as portable target-native state.",
+                "gate": "native-jit-code-page-refusal-proof",
+                "artifact": "missing",
+                "next": "Retain refusal artifacts for executable anonymous pages, JIT pages, and source-ISA code blobs."
+              }
+            ],
+            "refusals": [
+              "raw CPU restore",
+              "source ISA emulation",
+              "multi-thread scheduler state",
+              "futex owners/waiters",
+              "JIT/source-ISA executable pages",
+              "signal delivery in progress",
+              "runtime hooks or sidecars"
+            ],
+            "refusalRows": [
+              {
+                "boundary": "raw CPU restore / source ISA emulation",
+                "status": "forbidden",
+                "reason": "Cross-architecture support must reconstruct target-native process state, not resume raw source registers or emulate source code.",
+                "neededToReduce": "Not reducible; prove target-native reconstruction instead."
+              },
+              {
+                "boundary": "multi-thread scheduler state / futex owners",
+                "status": "not-proven",
+                "reason": "Thread scheduling, owned futexes, and wait queues can wedge or corrupt target execution.",
+                "neededToReduce": "Retained target-native multi-thread/futex reconstruction proof or explicit safe idle subset."
+              },
+              {
+                "boundary": "JIT/source-ISA executable pages",
+                "status": "refused",
+                "reason": "Runtime-generated source-ISA executable pages are not portable target-native state.",
+                "neededToReduce": "Runtime-specific safe reconstruction with retained verifier output, not raw code-page restore."
+              },
+              {
+                "boundary": "signal delivery in progress",
+                "status": "not-proven",
+                "reason": "Interrupted signal frames and handler state are not reconstructed safely yet.",
+                "neededToReduce": "Retained signal-frame capture/reconstruction proof or explicit refusal artifact."
+              }
+            ],
+            "nextSteps": [
+              {
+                "priority": 1,
+                "item": "Retain source CPU register inventory and target-native reconstruction/refusal verifier output.",
+                "gate": "native-cpu-register-inventory"
+              },
+              {
+                "priority": 2,
+                "item": "Retain /proc maps inventory, hashes for file-backed regions, and target mapping plan verifier output.",
+                "gate": "native-memory-map-inventory"
+              },
+              {
+                "priority": 3,
+                "item": "Retain page dump manifest, target materialization transcript, and memory byte verifier output.",
+                "gate": "native-writable-memory-materialization"
+              },
+              {
+                "priority": 4,
+                "item": "Retain source stack descriptor, target stack construction transcript, and continuation verifier output.",
+                "gate": "native-stack-reconstruction-seed"
+              },
+              {
+                "priority": 5,
+                "item": "Retain source bootstrap inventory and target verifier proving argv/env/cwd/auxv equivalence where safe.",
+                "gate": "native-argv-env-auxv-reconstruction"
+              },
+              {
+                "priority": 6,
+                "item": "Retain runtime/loader inventory plus explicit target-native reconstruction/refusal report.",
+                "gate": "native-dynamic-linker-runtime-boundary"
+              },
+              {
+                "priority": 7,
+                "item": "Retain single-thread verifier output and multi-thread refusal artifact.",
+                "gate": "native-single-thread-boundary-proof"
+              },
+              {
+                "priority": 8,
+                "item": "Retain syscall/resource descriptor report plus target-native verifier output.",
+                "gate": "native-syscall-abi-boundary-proof"
+              },
+              {
+                "priority": 9,
+                "item": "Retain mprotect/guard-page verifier output and unsafe executable-page refusal details.",
+                "gate": "native-page-protection-verifier"
+              },
+              {
+                "priority": 10,
+                "item": "Retain dirty-page ledger, snapshot consistency transcript, and target memory verifier output.",
+                "gate": "native-dirty-memory-consistency"
+              },
+              {
+                "priority": 11,
+                "item": "Retain refusal artifacts for futex owners/waiters and active thread state.",
+                "gate": "native-futex-thread-refusal-proof"
+              },
+              {
+                "priority": 12,
+                "item": "Retain refusal artifacts for executable anonymous pages, JIT pages, and source-ISA code blobs.",
+                "gate": "native-jit-code-page-refusal-proof"
+              }
+            ],
+            "docs": []
+          },
+          {
             "id": "arbitrary-process",
             "name": "Arbitrary process cross-architecture restore",
             "family": "process",
@@ -3283,6 +3529,262 @@
             "proofDirectory": "proofs/network-resources/level4-ping-resource-continuation"
           },
           {
+            "id": "native-process-substrate-not-started",
+            "claim": "Native process CPU/memory substrate not started",
+            "trackId": "native-process-substrate",
+            "status": "not-started",
+            "scope": "CPU and memory snapshot substrate proof slots only; no public product, broad, or arbitrary-process support claim.",
+            "claimNumbers": {
+              "productSupport": null,
+              "broadSupport": null,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "promotionEffect": "Requires retained target-native CPU/memory reconstruction proofs and explicit unsafe-state refusals before influencing arbitrary-process claims.",
+            "proofDirectory": "proofs/native-process-substrate/not-started",
+            "proofs": [
+              {
+                "id": "native-cpu-register-inventory",
+                "category": "cpu register state",
+                "status": "not-started",
+                "artifact": "missing",
+                "proves": "Capture GPRs, PC/IP, SP, flags/PSTATE, and architecture-specific register metadata without claiming cross-ISA execution resume.",
+                "claimUse": "substrate proof slot only; no claim raise without retained target-native reconstruction and behavior verifier artifacts",
+                "next": "Retain source CPU register inventory and target-native reconstruction/refusal verifier output.",
+                "claimImpact": {
+                  "productSupportDelta": 0,
+                  "broadSupportDelta": 0,
+                  "arbitraryProcessCrossArchRestoreDelta": 0,
+                  "resultingClaim": {
+                    "productSupport": null,
+                    "broadSupport": null,
+                    "arbitraryProcessCrossArchRestore": 0
+                  },
+                  "claimChangeAllowed": false
+                }
+              },
+              {
+                "id": "native-memory-map-inventory",
+                "category": "memory map inventory",
+                "status": "not-started",
+                "artifact": "missing",
+                "proves": "Capture VMAs/maps, permissions, file-backed vs anonymous mappings, stack/heap/data/code regions, and guard pages.",
+                "claimUse": "substrate proof slot only; no claim raise without retained target-native reconstruction and behavior verifier artifacts",
+                "next": "Retain /proc maps inventory, hashes for file-backed regions, and target mapping plan verifier output.",
+                "claimImpact": {
+                  "productSupportDelta": 0,
+                  "broadSupportDelta": 0,
+                  "arbitraryProcessCrossArchRestoreDelta": 0,
+                  "resultingClaim": {
+                    "productSupport": null,
+                    "broadSupport": null,
+                    "arbitraryProcessCrossArchRestore": 0
+                  },
+                  "claimChangeAllowed": false
+                }
+              },
+              {
+                "id": "native-writable-memory-materialization",
+                "category": "memory materialization",
+                "status": "not-started",
+                "artifact": "missing",
+                "proves": "Materialize writable anonymous/data pages into a target-native process image without raw source-ISA execution.",
+                "claimUse": "substrate proof slot only; no claim raise without retained target-native reconstruction and behavior verifier artifacts",
+                "next": "Retain page dump manifest, target materialization transcript, and memory byte verifier output.",
+                "claimImpact": {
+                  "productSupportDelta": 0,
+                  "broadSupportDelta": 0,
+                  "arbitraryProcessCrossArchRestoreDelta": 0,
+                  "resultingClaim": {
+                    "productSupport": null,
+                    "broadSupport": null,
+                    "arbitraryProcessCrossArchRestore": 0
+                  },
+                  "claimChangeAllowed": false
+                }
+              },
+              {
+                "id": "native-stack-reconstruction-seed",
+                "category": "stack reconstruction",
+                "status": "not-started",
+                "artifact": "missing",
+                "proves": "Reconstruct or safely refuse a simple single-thread stack frame with target-native behavior verification.",
+                "claimUse": "substrate proof slot only; no claim raise without retained target-native reconstruction and behavior verifier artifacts",
+                "next": "Retain source stack descriptor, target stack construction transcript, and continuation verifier output.",
+                "claimImpact": {
+                  "productSupportDelta": 0,
+                  "broadSupportDelta": 0,
+                  "arbitraryProcessCrossArchRestoreDelta": 0,
+                  "resultingClaim": {
+                    "productSupport": null,
+                    "broadSupport": null,
+                    "arbitraryProcessCrossArchRestore": 0
+                  },
+                  "claimChangeAllowed": false
+                }
+              },
+              {
+                "id": "native-argv-env-auxv-reconstruction",
+                "category": "process bootstrap",
+                "status": "not-started",
+                "artifact": "missing",
+                "proves": "Rebuild argv, environment, cwd, and auxiliary-vector/bootstrap inputs for a target-native process.",
+                "claimUse": "substrate proof slot only; no claim raise without retained target-native reconstruction and behavior verifier artifacts",
+                "next": "Retain source bootstrap inventory and target verifier proving argv/env/cwd/auxv equivalence where safe.",
+                "claimImpact": {
+                  "productSupportDelta": 0,
+                  "broadSupportDelta": 0,
+                  "arbitraryProcessCrossArchRestoreDelta": 0,
+                  "resultingClaim": {
+                    "productSupport": null,
+                    "broadSupport": null,
+                    "arbitraryProcessCrossArchRestore": 0
+                  },
+                  "claimChangeAllowed": false
+                }
+              },
+              {
+                "id": "native-dynamic-linker-runtime-boundary",
+                "category": "runtime boundary",
+                "status": "not-started",
+                "artifact": "missing",
+                "proves": "Define how libc, ld.so, loader state, and runtime-owned pages are reconstructed or refused without runtime hooks.",
+                "claimUse": "substrate proof slot only; no claim raise without retained target-native reconstruction and behavior verifier artifacts",
+                "next": "Retain runtime/loader inventory plus explicit target-native reconstruction/refusal report.",
+                "claimImpact": {
+                  "productSupportDelta": 0,
+                  "broadSupportDelta": 0,
+                  "arbitraryProcessCrossArchRestoreDelta": 0,
+                  "resultingClaim": {
+                    "productSupport": null,
+                    "broadSupport": null,
+                    "arbitraryProcessCrossArchRestore": 0
+                  },
+                  "claimChangeAllowed": false
+                }
+              },
+              {
+                "id": "native-single-thread-boundary-proof",
+                "category": "thread boundary",
+                "status": "not-started",
+                "artifact": "missing",
+                "proves": "Prove the initial CPU/memory substrate is single-thread only and refuses multi-thread execution contexts.",
+                "claimUse": "substrate proof slot only; no claim raise without retained target-native reconstruction and behavior verifier artifacts",
+                "next": "Retain single-thread verifier output and multi-thread refusal artifact.",
+                "claimImpact": {
+                  "productSupportDelta": 0,
+                  "broadSupportDelta": 0,
+                  "arbitraryProcessCrossArchRestoreDelta": 0,
+                  "resultingClaim": {
+                    "productSupport": null,
+                    "broadSupport": null,
+                    "arbitraryProcessCrossArchRestore": 0
+                  },
+                  "claimChangeAllowed": false
+                }
+              },
+              {
+                "id": "native-syscall-abi-boundary-proof",
+                "category": "syscall ABI boundary",
+                "status": "not-started",
+                "artifact": "missing",
+                "proves": "Show captured syscall/resource descriptors are translated to target-native ABI semantics, not source-ISA replay.",
+                "claimUse": "substrate proof slot only; no claim raise without retained target-native reconstruction and behavior verifier artifacts",
+                "next": "Retain syscall/resource descriptor report plus target-native verifier output.",
+                "claimImpact": {
+                  "productSupportDelta": 0,
+                  "broadSupportDelta": 0,
+                  "arbitraryProcessCrossArchRestoreDelta": 0,
+                  "resultingClaim": {
+                    "productSupport": null,
+                    "broadSupport": null,
+                    "arbitraryProcessCrossArchRestore": 0
+                  },
+                  "claimChangeAllowed": false
+                }
+              },
+              {
+                "id": "native-page-protection-verifier",
+                "category": "page protection",
+                "status": "not-started",
+                "artifact": "missing",
+                "proves": "Verify restored mappings preserve readable/writable/executable protections, guard pages, and W^X boundaries.",
+                "claimUse": "substrate proof slot only; no claim raise without retained target-native reconstruction and behavior verifier artifacts",
+                "next": "Retain mprotect/guard-page verifier output and unsafe executable-page refusal details.",
+                "claimImpact": {
+                  "productSupportDelta": 0,
+                  "broadSupportDelta": 0,
+                  "arbitraryProcessCrossArchRestoreDelta": 0,
+                  "resultingClaim": {
+                    "productSupport": null,
+                    "broadSupport": null,
+                    "arbitraryProcessCrossArchRestore": 0
+                  },
+                  "claimChangeAllowed": false
+                }
+              },
+              {
+                "id": "native-dirty-memory-consistency",
+                "category": "dirty memory",
+                "status": "not-started",
+                "artifact": "missing",
+                "proves": "Define a safe snapshot point with dirty-page accounting and consistent page materialization.",
+                "claimUse": "substrate proof slot only; no claim raise without retained target-native reconstruction and behavior verifier artifacts",
+                "next": "Retain dirty-page ledger, snapshot consistency transcript, and target memory verifier output.",
+                "claimImpact": {
+                  "productSupportDelta": 0,
+                  "broadSupportDelta": 0,
+                  "arbitraryProcessCrossArchRestoreDelta": 0,
+                  "resultingClaim": {
+                    "productSupport": null,
+                    "broadSupport": null,
+                    "arbitraryProcessCrossArchRestore": 0
+                  },
+                  "claimChangeAllowed": false
+                }
+              },
+              {
+                "id": "native-futex-thread-refusal-proof",
+                "category": "thread/futex refusal",
+                "status": "not-started",
+                "artifact": "missing",
+                "proves": "Explicitly refuse futex owners, waiters, and multi-thread scheduler state until retained reconstruction proofs exist.",
+                "claimUse": "substrate proof slot only; no claim raise without retained target-native reconstruction and behavior verifier artifacts",
+                "next": "Retain refusal artifacts for futex owners/waiters and active thread state.",
+                "claimImpact": {
+                  "productSupportDelta": 0,
+                  "broadSupportDelta": 0,
+                  "arbitraryProcessCrossArchRestoreDelta": 0,
+                  "resultingClaim": {
+                    "productSupport": null,
+                    "broadSupport": null,
+                    "arbitraryProcessCrossArchRestore": 0
+                  },
+                  "claimChangeAllowed": false
+                }
+              },
+              {
+                "id": "native-jit-code-page-refusal-proof",
+                "category": "jit/code-page refusal",
+                "status": "not-started",
+                "artifact": "missing",
+                "proves": "Explicitly refuse JIT executable pages and source-ISA code blobs as portable target-native state.",
+                "claimUse": "substrate proof slot only; no claim raise without retained target-native reconstruction and behavior verifier artifacts",
+                "next": "Retain refusal artifacts for executable anonymous pages, JIT pages, and source-ISA code blobs.",
+                "claimImpact": {
+                  "productSupportDelta": 0,
+                  "broadSupportDelta": 0,
+                  "arbitraryProcessCrossArchRestoreDelta": 0,
+                  "resultingClaim": {
+                    "productSupport": null,
+                    "broadSupport": null,
+                    "arbitraryProcessCrossArchRestore": 0
+                  },
+                  "claimChangeAllowed": false
+                }
+              }
+            ]
+          },
+          {
             "id": "arbitrary-process-0-seed-1-locked",
             "claim": "Arbitrary process 0% / candidate 1% locked",
             "trackId": "arbitrary-process",
@@ -3598,6 +4100,7 @@
             "arbitrary-process": "arbitrary binaries",
             bun: "bun",
             "generic-linux-service": "generic linux",
+            "native-process-substrate": "native substrate",
             "node-service": "nodejs",
             postgres: "postgresql",
             "whole-linux-vm-workload": "whole linux vm",
@@ -3643,7 +4146,17 @@
         ) {
           return "claim";
         }
-        if (normalized === "refusals") return "boundary";
+        if (
+          [
+            "refusals",
+            "jit/code-page refusal",
+            "syscall abi boundary",
+            "thread boundary",
+            "thread/futex refusal",
+          ].includes(normalized)
+        ) {
+          return "boundary";
+        }
         if (
           [
             "arbitrary-process seed",
@@ -3653,6 +4166,20 @@
           ].includes(normalized)
         ) {
           return "resource";
+        }
+        if (
+          [
+            "cpu register state",
+            "dirty memory",
+            "memory map inventory",
+            "memory materialization",
+            "page protection",
+            "process bootstrap",
+            "runtime boundary",
+            "stack reconstruction",
+          ].includes(normalized)
+        ) {
+          return "substrate";
         }
         if (["kernel feature", "virtualization"].includes(normalized)) return "capability";
         if (["dependency install", "product ux"].includes(normalized)) return "product";
@@ -3730,6 +4257,7 @@
             "arbitrary-process": "arbitrary",
             bun: "bun",
             "generic-linux-service": "generic",
+            "native-process-substrate": "native",
             "node-service": "nodejs",
             postgres: "postgresql",
             "whole-linux-vm-workload": "vm",
