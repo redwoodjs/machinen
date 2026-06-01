@@ -407,6 +407,29 @@
             </dd>
           </div>
           <div>
+            <dt>database smoke</dt>
+            <dd>
+              Proof that a database workload can run without crashing and return verified results.
+            </dd>
+          </div>
+          <div>
+            <dt>language process</dt>
+            <dd>
+              Proof that a simple compiled/interpreted process can run with retained verifier
+              output.
+            </dd>
+          </div>
+          <div>
+            <dt>kernel feature</dt>
+            <dd>
+              Proof or explicit refusal for privileged kernel features such as eBPF or seccomp.
+            </dd>
+          </div>
+          <div>
+            <dt>virtualization</dt>
+            <dd>Proof or explicit refusal for nested virtualization capability.</dd>
+          </div>
+          <div>
             <dt>artifact audit</dt>
             <dd>Validation that retained proof files exist and are usable.</dd>
           </div>
@@ -465,7 +488,7 @@
     <script id="embedded-claim-progress" type="application/json">
       {
         "kind": "machinen.claim-progress-dashboard",
-        "version": 31,
+        "version": 32,
         "updatedFrom": [
           "docs/snapshot/node-level5-product-support-claim-registry.json",
           "docs/snapshot/node-level5-product-support-100.json",
@@ -2334,6 +2357,76 @@
                 "gate": "vm workload boundary matrix",
                 "artifact": "not-created",
                 "next": "Define workload-level restore success separately from raw VM snapshot portability."
+              },
+              {
+                "id": "vm-sqlite-database-smoke",
+                "area": "database smoke",
+                "kind": "SQLite database smoke",
+                "status": "not-started",
+                "evidence": "No retained SQLite workload smoke proof exists yet.",
+                "gate": "vm-sqlite-database-smoke",
+                "artifact": "missing",
+                "next": "Run sqlite3 create/insert/select workload inside the VM and retain command transcript plus verifier output before/after restore."
+              },
+              {
+                "id": "vm-postgresql-database-smoke",
+                "area": "database smoke",
+                "kind": "PostgreSQL database smoke",
+                "status": "not-started",
+                "evidence": "No retained PostgreSQL workload smoke proof exists yet for the whole-VM workload track.",
+                "gate": "vm-postgresql-database-smoke",
+                "artifact": "missing",
+                "next": "Run PostgreSQL start/readiness/query smoke inside the VM and retain command transcripts plus verifier output before/after restore."
+              },
+              {
+                "id": "vm-simple-c-process-smoke",
+                "area": "language process",
+                "kind": "simple C process smoke",
+                "status": "not-started",
+                "evidence": "No retained simple C process smoke proof exists yet.",
+                "gate": "vm-simple-c-process-smoke",
+                "artifact": "missing",
+                "next": "Compile/run a simple C process inside the VM and retain source, build command, run transcript, and verifier output."
+              },
+              {
+                "id": "vm-simple-java-process-smoke",
+                "area": "language process",
+                "kind": "simple Java process smoke",
+                "status": "not-started",
+                "evidence": "No retained simple Java process smoke proof exists yet.",
+                "gate": "vm-simple-java-process-smoke",
+                "artifact": "missing",
+                "next": "Compile/run a simple Java process inside the VM and retain source, build command, run transcript, and verifier output."
+              },
+              {
+                "id": "vm-ebpf-capability-smoke",
+                "area": "kernel feature",
+                "kind": "eBPF capability smoke",
+                "status": "not-started",
+                "evidence": "No retained eBPF load/attach/query capability proof exists yet.",
+                "gate": "vm-ebpf-capability-smoke",
+                "artifact": "missing",
+                "next": "Run a minimal eBPF capability probe and retain kernel feature output, load result, and refusal details if unavailable."
+              },
+              {
+                "id": "vm-seccomp-capability-smoke",
+                "area": "kernel feature",
+                "kind": "seccomp capability smoke",
+                "status": "not-started",
+                "evidence": "No retained seccomp filter/install behavior proof exists yet.",
+                "gate": "vm-seccomp-capability-smoke",
+                "artifact": "missing",
+                "next": "Run a minimal seccomp filter proof and retain allowed/blocked syscall verifier output."
+              },
+              {
+                "id": "vm-nested-virtualization-smoke",
+                "area": "virtualization",
+                "kind": "nested virtualization smoke",
+                "status": "not-started",
+                "evidence": "No retained nested virtualization capability proof exists yet.",
+                "gate": "vm-nested-virtualization-smoke",
+                "artifact": "missing",
+                "next": "Probe nested virtualization availability and retain KVM/nested virt command output; keep refused if unavailable or unsafe."
               }
             ],
             "refusals": [
@@ -2341,7 +2434,10 @@
               "raw device state restore",
               "opaque kernel state",
               "active arbitrary processes",
-              "untranslated memory/register state"
+              "untranslated memory/register state",
+              "eBPF privileged kernel feature surface",
+              "seccomp policy mismatch",
+              "nested virtualization unavailable or unsafe"
             ],
             "refusalRows": [
               {
@@ -2349,6 +2445,24 @@
                 "status": "forbidden",
                 "reason": "Support must use target-native reconstruction/translation, not raw source VM state.",
                 "neededToReduce": "Not reducible for this product path; prove workload-level reconstruction instead."
+              },
+              {
+                "boundary": "eBPF privileged kernel feature surface",
+                "status": "not-proven",
+                "reason": "eBPF availability and safety differ by kernel configuration and privilege model.",
+                "neededToReduce": "Retained eBPF capability probe plus explicit safe/refused feature matrix."
+              },
+              {
+                "boundary": "seccomp policy mismatch",
+                "status": "not-proven",
+                "reason": "seccomp filters can block target restore or workload behavior if not reconstructed safely.",
+                "neededToReduce": "Retained seccomp verifier showing allowed/blocked syscall behavior on target."
+              },
+              {
+                "boundary": "nested virtualization unavailable or unsafe",
+                "status": "not-proven",
+                "reason": "Nested virtualization depends on host CPU/KVM exposure and is not a portable workload guarantee.",
+                "neededToReduce": "Retained nested virtualization capability probe or explicit refusal artifact."
               }
             ],
             "nextSteps": [
@@ -2361,6 +2475,41 @@
                 "priority": 2,
                 "item": "Connect filesystem/service/resource/process tracks to VM workload proof groups.",
                 "gate": "cross-track workload verifier"
+              },
+              {
+                "priority": 3,
+                "item": "Run sqlite3 create/insert/select workload inside the VM and retain command transcript plus verifier output before/after restore.",
+                "gate": "vm-sqlite-database-smoke"
+              },
+              {
+                "priority": 4,
+                "item": "Run PostgreSQL start/readiness/query smoke inside the VM and retain command transcripts plus verifier output before/after restore.",
+                "gate": "vm-postgresql-database-smoke"
+              },
+              {
+                "priority": 5,
+                "item": "Compile/run a simple C process inside the VM and retain source, build command, run transcript, and verifier output.",
+                "gate": "vm-simple-c-process-smoke"
+              },
+              {
+                "priority": 6,
+                "item": "Compile/run a simple Java process inside the VM and retain source, build command, run transcript, and verifier output.",
+                "gate": "vm-simple-java-process-smoke"
+              },
+              {
+                "priority": 7,
+                "item": "Run a minimal eBPF capability probe and retain kernel feature output, load result, and refusal details if unavailable.",
+                "gate": "vm-ebpf-capability-smoke"
+              },
+              {
+                "priority": 8,
+                "item": "Run a minimal seccomp filter proof and retain allowed/blocked syscall verifier output.",
+                "gate": "vm-seccomp-capability-smoke"
+              },
+              {
+                "priority": 9,
+                "item": "Probe nested virtualization availability and retain KVM/nested virt command output; keep refused if unavailable or unsafe.",
+                "gate": "vm-nested-virtualization-smoke"
               }
             ],
             "docs": []
@@ -3275,13 +3424,13 @@
             "claim": "Whole Linux VM workload portability not started",
             "trackId": "whole-linux-vm-workload",
             "status": "not-started",
-            "scope": "No whole-VM workload reconstruction claim yet; raw cross-architecture CPU/device VM restore remains refused.",
+            "scope": "No whole-VM workload reconstruction claim yet; proof slots now include database smoke, language-process smoke, kernel feature, and nested virtualization capability gates.",
             "claimNumbers": {
               "productSupport": 0,
               "broadSupport": 0,
               "arbitraryProcessCrossArchRestore": 0
             },
-            "promotionEffect": "Requires workload-level reconstruction boundary and verifier gates.",
+            "promotionEffect": "Requires retained workload-level reconstruction artifacts; smoke/capability rows alone do not imply raw VM portability or public claim support.",
             "proofDirectory": "proofs/linux-vm-workload/not-started",
             "proofs": [
               {
@@ -3292,6 +3441,146 @@
                 "proves": "No VM workload boundary matrix exists yet",
                 "claimUse": "blocks VM workload claim",
                 "next": "Define workload-level success and raw VM-state refusals."
+              },
+              {
+                "id": "vm-sqlite-database-smoke",
+                "category": "database smoke",
+                "status": "not-started",
+                "artifact": "missing",
+                "proves": "SQLite database smoke can run in the VM workload path without crashing and has retained verifier output.",
+                "claimUse": "candidate workload smoke only; does not raise whole-VM or arbitrary-process support without retained cross-architecture reconstruction evidence",
+                "next": "Run sqlite3 create/insert/select workload inside the VM and retain command transcript plus verifier output before/after restore.",
+                "claimImpact": {
+                  "productSupportDelta": 0,
+                  "broadSupportDelta": 0,
+                  "arbitraryProcessCrossArchRestoreDelta": 0,
+                  "resultingClaim": {
+                    "productSupport": 0,
+                    "broadSupport": 0,
+                    "arbitraryProcessCrossArchRestore": 0
+                  },
+                  "claimChangeAllowed": false
+                }
+              },
+              {
+                "id": "vm-postgresql-database-smoke",
+                "category": "database smoke",
+                "status": "not-started",
+                "artifact": "missing",
+                "proves": "PostgreSQL database smoke can run in the VM workload path without crashing and has retained verifier output.",
+                "claimUse": "candidate workload smoke only; does not raise whole-VM or arbitrary-process support without retained cross-architecture reconstruction evidence",
+                "next": "Run PostgreSQL start/readiness/query smoke inside the VM and retain command transcripts plus verifier output before/after restore.",
+                "claimImpact": {
+                  "productSupportDelta": 0,
+                  "broadSupportDelta": 0,
+                  "arbitraryProcessCrossArchRestoreDelta": 0,
+                  "resultingClaim": {
+                    "productSupport": 0,
+                    "broadSupport": 0,
+                    "arbitraryProcessCrossArchRestore": 0
+                  },
+                  "claimChangeAllowed": false
+                }
+              },
+              {
+                "id": "vm-simple-c-process-smoke",
+                "category": "language process",
+                "status": "not-started",
+                "artifact": "missing",
+                "proves": "simple C process smoke can run in the VM workload path without crashing and has retained verifier output.",
+                "claimUse": "candidate workload smoke only; does not raise whole-VM or arbitrary-process support without retained cross-architecture reconstruction evidence",
+                "next": "Compile/run a simple C process inside the VM and retain source, build command, run transcript, and verifier output.",
+                "claimImpact": {
+                  "productSupportDelta": 0,
+                  "broadSupportDelta": 0,
+                  "arbitraryProcessCrossArchRestoreDelta": 0,
+                  "resultingClaim": {
+                    "productSupport": 0,
+                    "broadSupport": 0,
+                    "arbitraryProcessCrossArchRestore": 0
+                  },
+                  "claimChangeAllowed": false
+                }
+              },
+              {
+                "id": "vm-simple-java-process-smoke",
+                "category": "language process",
+                "status": "not-started",
+                "artifact": "missing",
+                "proves": "simple Java process smoke can run in the VM workload path without crashing and has retained verifier output.",
+                "claimUse": "candidate workload smoke only; does not raise whole-VM or arbitrary-process support without retained cross-architecture reconstruction evidence",
+                "next": "Compile/run a simple Java process inside the VM and retain source, build command, run transcript, and verifier output.",
+                "claimImpact": {
+                  "productSupportDelta": 0,
+                  "broadSupportDelta": 0,
+                  "arbitraryProcessCrossArchRestoreDelta": 0,
+                  "resultingClaim": {
+                    "productSupport": 0,
+                    "broadSupport": 0,
+                    "arbitraryProcessCrossArchRestore": 0
+                  },
+                  "claimChangeAllowed": false
+                }
+              },
+              {
+                "id": "vm-ebpf-capability-smoke",
+                "category": "kernel feature",
+                "status": "not-started",
+                "artifact": "missing",
+                "proves": "eBPF capability smoke can run in the VM workload path without crashing and has retained verifier output.",
+                "claimUse": "candidate workload smoke only; does not raise whole-VM or arbitrary-process support without retained cross-architecture reconstruction evidence",
+                "next": "Run a minimal eBPF capability probe and retain kernel feature output, load result, and refusal details if unavailable.",
+                "claimImpact": {
+                  "productSupportDelta": 0,
+                  "broadSupportDelta": 0,
+                  "arbitraryProcessCrossArchRestoreDelta": 0,
+                  "resultingClaim": {
+                    "productSupport": 0,
+                    "broadSupport": 0,
+                    "arbitraryProcessCrossArchRestore": 0
+                  },
+                  "claimChangeAllowed": false
+                }
+              },
+              {
+                "id": "vm-seccomp-capability-smoke",
+                "category": "kernel feature",
+                "status": "not-started",
+                "artifact": "missing",
+                "proves": "seccomp capability smoke can run in the VM workload path without crashing and has retained verifier output.",
+                "claimUse": "candidate workload smoke only; does not raise whole-VM or arbitrary-process support without retained cross-architecture reconstruction evidence",
+                "next": "Run a minimal seccomp filter proof and retain allowed/blocked syscall verifier output.",
+                "claimImpact": {
+                  "productSupportDelta": 0,
+                  "broadSupportDelta": 0,
+                  "arbitraryProcessCrossArchRestoreDelta": 0,
+                  "resultingClaim": {
+                    "productSupport": 0,
+                    "broadSupport": 0,
+                    "arbitraryProcessCrossArchRestore": 0
+                  },
+                  "claimChangeAllowed": false
+                }
+              },
+              {
+                "id": "vm-nested-virtualization-smoke",
+                "category": "virtualization",
+                "status": "not-started",
+                "artifact": "missing",
+                "proves": "nested virtualization smoke can run in the VM workload path without crashing and has retained verifier output.",
+                "claimUse": "candidate workload smoke only; does not raise whole-VM or arbitrary-process support without retained cross-architecture reconstruction evidence",
+                "next": "Probe nested virtualization availability and retain KVM/nested virt command output; keep refused if unavailable or unsafe.",
+                "claimImpact": {
+                  "productSupportDelta": 0,
+                  "broadSupportDelta": 0,
+                  "arbitraryProcessCrossArchRestoreDelta": 0,
+                  "resultingClaim": {
+                    "productSupport": 0,
+                    "broadSupport": 0,
+                    "arbitraryProcessCrossArchRestore": 0
+                  },
+                  "claimChangeAllowed": false
+                }
               }
             ]
           }
