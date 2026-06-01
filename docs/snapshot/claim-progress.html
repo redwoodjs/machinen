@@ -149,6 +149,9 @@
         color: var(--muted);
         margin: 0;
       }
+      .legend-heading {
+        margin-top: 18px;
+      }
       .subtables {
         display: grid;
         gap: 18px;
@@ -352,6 +355,38 @@
           <div>
             <dt>Refusals</dt>
             <dd>Explicit unsafe or unsupported boundaries that prevent overclaiming.</dd>
+          </div>
+        </dl>
+        <h3 class="legend-heading">Progression</h3>
+        <dl class="legend">
+          <div>
+            <dt>0 · not-started</dt>
+            <dd>No retained proof artifact yet.</dd>
+          </div>
+          <div>
+            <dt>1 · seed-candidate</dt>
+            <dd>A scoped idea or fixture exists, but it is not claim-ready.</dd>
+          </div>
+          <div>
+            <dt>2 · partial-proof</dt>
+            <dd>Some retained evidence exists, but required gates are still incomplete.</dd>
+          </div>
+          <div>
+            <dt>3 · verified / passed / verified-seed</dt>
+            <dd>
+              The row passed its verifier, but it only changes claims if the whole gate allows it.
+            </dd>
+          </div>
+          <div>
+            <dt>4 · refused / forbidden</dt>
+            <dd>An explicit unsafe boundary; kept visible so support is not overclaimed.</dd>
+          </div>
+          <div>
+            <dt>Candidate increase</dt>
+            <dd>
+              Only appears when the proof gate permits a public claim change; partial proof alone is
+              not enough.
+            </dd>
           </div>
         </dl>
       </section>
@@ -1753,7 +1788,7 @@
                 proof.claimImpact?.arbitraryProcessCrossArchRestoreDelta,
                 claim.claimNumbers?.arbitraryProcessCrossArchRestore,
               ),
-              candidateValue(proof.claimImpact ?? claim.claimNumbers),
+              candidateValue(proof.claimImpact ?? {}, claim.claimNumbers ?? {}),
               pill(
                 String(proof.claimImpact?.claimChangeAllowed ?? track.claimChangeAllowed ?? false),
               ),
@@ -1770,7 +1805,7 @@
             "Product support impact (%)",
             "Broad service/workload impact (%)",
             "Arbitrary Linux process restore impact (%)",
-            "Candidate increase",
+            "Candidate increase / why locked",
             "Claim change allowed",
             "Next gate / work",
           ],
@@ -2016,17 +2051,16 @@
         return claimNumberValue(fallback);
       }
 
-      function candidateValue(claim = {}) {
-        if (claim.resultingClaim) {
-          return `result: ${claimTriple(claim.resultingClaim)}`;
+      function candidateValue(impact = {}, claimNumbers = {}) {
+        if (impact.claimChangeAllowed === false) return "none: gate locked";
+        if (typeof claimNumbers.candidateProductSupport === "number") {
+          return `candidate product/broad: ${claimNumberValue(claimNumbers.candidateProductSupport)} / ${claimNumberValue(claimNumbers.candidateBroadSupport)}`;
         }
-        if (
-          claim.candidateArbitraryProcessCrossArchRestore === null ||
-          claim.candidateArbitraryProcessCrossArchRestore === undefined
-        ) {
-          return "—";
+        if (typeof claimNumbers.candidateArbitraryProcessCrossArchRestore === "number") {
+          return `candidate arbitrary binaries: ${claimNumberValue(claimNumbers.candidateArbitraryProcessCrossArchRestore)}`;
         }
-        return `candidate arbitrary process: ${claimNumberValue(claim.candidateArbitraryProcessCrossArchRestore)}`;
+        if (impact.resultingClaim) return `result: ${claimTriple(impact.resultingClaim)}`;
+        return "none: no candidate listed";
       }
 
       function claimTriple(claim = {}) {

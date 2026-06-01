@@ -132,6 +132,11 @@ describe("claim progress dashboard", () => {
     expect(html.indexOf("Track overview")).toBeLessThan(html.indexOf("Proof impact matrix"));
     expect(html).toContain("Legend");
     expect(html).toContain("Plain-English labels for the claim columns");
+    expect(html).toContain("Progression");
+    expect(html).toContain("0 · not-started");
+    expect(html).toContain("2 · partial-proof");
+    expect(html).toContain("Candidate increase / why locked");
+    expect(html).toContain("none: gate locked");
     expect(html).toContain("nodejs");
     expect(html).toContain("postgres");
     expect(html).toContain("ping");
