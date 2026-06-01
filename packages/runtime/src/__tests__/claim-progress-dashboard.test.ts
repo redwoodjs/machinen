@@ -27,7 +27,7 @@ type ClaimProgressProofGroup = {
 
 type ClaimProgressDashboard = {
   kind: "machinen.claim-progress-dashboard";
-  version: 11;
+  version: 12;
   tracks: ClaimProgressTrack[];
   proofGroups: ClaimProgressProofGroup[];
 };
@@ -41,7 +41,7 @@ describe("claim progress dashboard", () => {
 
     expect(dashboard).toMatchObject({
       kind: "machinen.claim-progress-dashboard",
-      version: 11,
+      version: 12,
     });
     expect(dashboard.tracks.map((track) => track.id)).toEqual([
       "node-service",
@@ -77,11 +77,12 @@ describe("claim progress dashboard", () => {
         broadSupport: 0,
         arbitraryProcessCrossArchRestore: 0,
       },
-      nextClaim: { productSupport: 40, claimChangeAllowed: false },
+      nextClaim: { productSupport: 40, claimChangeAllowed: true },
     });
     expect(dashboard.proofGroups.map((group) => group.id)).toEqual([
       "node-service-100-100-0",
       "postgres-20-0-0",
+      "postgres-clean-logical-20-claim-ready",
       "bun-not-started",
       "generic-linux-service-not-started",
       "level4-ping-resource-continuation",
@@ -97,6 +98,7 @@ describe("claim progress dashboard", () => {
     expect(proofIds).toContain("simple-pipe-fd-proof");
     expect(proofIds).toContain("idle-epoll-tcp-proof");
     expect(proofIds).toContain("postgres-retained-verifier-artifacts");
+    expect(proofIds).toContain("postgres-40-schema-shape-rows");
     const embeddedJson =
       /<script id="embedded-claim-progress" type="application\/json">\n([\s\S]*?)\n    <\/script>/u.exec(
         html,

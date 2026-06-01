@@ -1,0 +1,6 @@
+-- two tables with foreign-key join shape
+-- fixture: schema-foreign-key-join
+CREATE TABLE teams(id integer primary key, name text not null);
+CREATE TABLE members(id integer primary key, team_id integer references teams(id), name text not null);
+INSERT INTO teams VALUES (1, 'runtime');
+INSERT INTO members VALUES (1, 1, 'lin');

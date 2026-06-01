@@ -1,0 +1,4 @@
+-- small committed write batch with no active transaction at capture
+-- fixture: workload-small-write-batch-quiesced
+CREATE TABLE ledger(id integer primary key, amount integer not null);
+INSERT INTO ledger VALUES (1, 7), (2, 11), (3, 13);
