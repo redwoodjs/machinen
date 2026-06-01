@@ -328,6 +328,60 @@ describe("Node Level 5 product commands", () => {
     }
   });
 
+  it("uses generic VM row artifacts for release gates", () => {
+    const dir = mkdtempSync(join(tmpdir(), "machinen-node85-cli-row-artifacts-"));
+    try {
+      const rowArtifactFiles = Array.from({ length: 28 }, (_, index) => {
+        const rowKind = index < 8 ? "positive" : "refusal";
+        const rowId = `${rowKind}-${index}`;
+        return {
+          rowId,
+          rowKind,
+          path: `generic-vm-row-artifacts/${rowId}.json`,
+          sha256: createHash("sha256").update(rowId).digest("hex"),
+          required: true,
+        };
+      });
+      const report = {
+        kind: "machinen.node-level5-generic-vm-row-artifacts-report",
+        version: 1,
+        accepted: true,
+        rowCount: 28,
+        positiveRowCount: 8,
+        refusalRowCount: 20,
+        rowArtifactFiles,
+        rowArtifactFileCount: rowArtifactFiles.length,
+        rowArtifactFilesSha256: createHash("sha256")
+          .update(JSON.stringify(rowArtifactFiles))
+          .digest("hex"),
+        claimChangeAllowed: false,
+        candidateNodeProductSupportClaimed: 85,
+        candidateBroadNodeProductSupportClaimed: 25,
+        nodeProductSupportClaimed: 80,
+        broadNodeProductSupportClaimed: 20,
+        arbitraryProcessCrossArchRestoreClaimed: 0,
+      };
+      const reportPath = join(dir, "node-level5-generic-vm-row-artifacts-report.json");
+      writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
+
+      const releaseGate = runCli([
+        "node-level5",
+        "release-gate",
+        "--include-generic-vm-row-artifacts",
+        "--generic-vm-row-artifacts-report",
+        reportPath,
+        "--json",
+      ]);
+      expect(releaseGate.status).toBe(0);
+      expect(JSON.parse(releaseGate.stdout)).toMatchObject({
+        accepted: true,
+        genericVmRowArtifacts: { accepted: true, rowArtifactFileCount: 28 },
+      });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it("uses retained real-app refusal corpus evidence for release gates", () => {
     const dir = mkdtempSync(join(tmpdir(), "machinen-node80-cli-refusal-corpus-"));
     try {
