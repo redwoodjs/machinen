@@ -27,7 +27,7 @@ type ClaimProgressProofGroup = {
 
 type ClaimProgressDashboard = {
   kind: "machinen.claim-progress-dashboard";
-  version: 22;
+  version: 23;
   tracks: ClaimProgressTrack[];
   proofGroups: ClaimProgressProofGroup[];
 };
@@ -41,7 +41,7 @@ describe("claim progress dashboard", () => {
 
     expect(dashboard).toMatchObject({
       kind: "machinen.claim-progress-dashboard",
-      version: 22,
+      version: 23,
     });
     expect(dashboard.tracks.map((track) => track.id)).toEqual([
       "node-service",
@@ -114,6 +114,8 @@ describe("claim progress dashboard", () => {
     expect(html).toContain("claim-progress.json");
     expect(html).toContain("Proof impact matrix");
     expect(html).toContain("Product support impact (%)");
+    expect(html).toContain("Supported bundles");
+    expect(html).toContain("missing 132");
     expect(html).toContain("Broad service/workload impact (%)");
     expect(html).toContain("Arbitrary Linux process restore impact (%)");
     expect(html).not.toContain("What to do next");

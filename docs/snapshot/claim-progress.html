@@ -351,7 +351,7 @@
     <script id="embedded-claim-progress" type="application/json">
       {
         "kind": "machinen.claim-progress-dashboard",
-        "version": 22,
+        "version": 23,
         "updatedFrom": [
           "docs/snapshot/node-level5-product-support-claim-registry.json",
           "docs/snapshot/node-level5-product-support-100.json",
@@ -497,7 +497,18 @@
             "docs": [
               "node-level5-product-support-100.md",
               "node-level5-product-support-next-milestone.md"
-            ]
+            ],
+            "rowCoverage": {
+              "supportedDirectionBundlesRequired": 136,
+              "supportedDirectionBundlesCovered": 4,
+              "supportedDirectionBundlesMissing": 132,
+              "refusedDirectionArtifactsRequired": 84,
+              "refusedDirectionArtifactsCovered": 84,
+              "refusedDirectionArtifactsMissing": 0,
+              "notProvenRows": 4,
+              "report": "proofs/nodejs/claim-evidence-index/retained/node-claim-row-coverage-report.json",
+              "summary": "4 / 136 covered \u00b7 missing 132"
+            }
           },
           {
             "id": "postgres",
@@ -1699,6 +1710,7 @@
             "Gate",
             "Evidence",
             "Refusals",
+            "Supported bundles",
             "Next",
           ],
           tracks.map((track) => [
@@ -1710,6 +1722,7 @@
             track.claimGate,
             count(track.evidenceRows, "row"),
             count(track.refusalRows, "boundary"),
+            rowCoverageSummary(track),
             count(derivedNextActionsForTrack(track, proofGroupsForTrack(track.id)), "step"),
           ]),
         );
@@ -1989,6 +2002,15 @@
         );
       }
 
+      function rowCoverageSummary(track) {
+        const coverage = track.rowCoverage;
+        if (!coverage) return "—";
+        return (
+          coverage.summary ??
+          `${coverage.supportedDirectionBundlesCovered} / ${coverage.supportedDirectionBundlesRequired} covered · missing ${coverage.supportedDirectionBundlesMissing}`
+        );
+      }
+
       function trackCards(tracks, claims) {
         return table(
           [
@@ -1998,6 +2020,7 @@
             "Broad service/workload claim (%)",
             "Arbitrary Linux process restore claim (%)",
             "Claim change allowed",
+            "Supported bundles",
             "Next work",
             "Gate",
           ],
@@ -2015,6 +2038,7 @@
               claimNumberValue(track.currentClaim?.broadSupport),
               claimNumberValue(track.currentClaim?.arbitraryProcessCrossArchRestore),
               pill(String(track.claimChangeAllowed)),
+              rowCoverageSummary(track),
               next,
               code(gate),
             ];
@@ -2034,6 +2058,7 @@
             <div class="claim-strip">
               ${claimBox("Family", `${track.family} / ${track.runtime}`)}
               ${claimBox("Claim gate", track.claimGate ?? "—")}
+              ${claimBox("Supported bundles", rowCoverageSummary(track))}
               ${claimBox("Next claim", claimObject(track.nextClaim))}
             </div>
             <p>${escapeHtml(track.summary ?? "")}</p>
