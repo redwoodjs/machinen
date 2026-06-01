@@ -10,7 +10,6 @@
     "proofs/generic-linux-service/not-started/claim.json",
     "proofs/linux-vm-workload/not-started/claim.json"
   ],
-  "currentProductPath": "machinen snapshot <vm-name> --out <dir>; machinen restore <dir>",
   "columns": {
     "claim": ["productSupport", "broadSupport", "arbitraryProcessCrossArchRestore"],
     "detail": ["track", "area", "state", "evidence", "gate", "artifact", "next"]
@@ -24,7 +23,6 @@
       "status": "claimed",
       "stage": "GA claim",
       "scope": "Selected safe Node services through VM-first product snapshot/restore.",
-      "productPath": "machinen snapshot <vm-name> --out <dir>; machinen restore <dir>",
       "currentClaim": {
         "productSupport": 100,
         "broadSupport": 100,
@@ -125,7 +123,6 @@
       "status": "product-track-existing",
       "stage": "existing product track; claim ladder needed",
       "scope": "Clean, idle logical Postgres restore track; not physical data-dir cross-ISA restore.",
-      "productPath": "machinen capture postgres ...; machinen restore <bundle> --target-arch <arch>",
       "currentClaim": {
         "productSupport": null,
         "broadSupport": null,
@@ -214,7 +211,6 @@
       "status": "not-started",
       "stage": "track seed needed",
       "scope": "No Bun product support claim yet.",
-      "productPath": "future: machinen snapshot <vm-name> --out <dir>; machinen restore <dir>",
       "currentClaim": {
         "productSupport": 0,
         "broadSupport": 0,
@@ -283,7 +279,6 @@
       "status": "not-started",
       "stage": "seed matrix needed",
       "scope": "Non-runtime-specific Linux services such as nginx, redis-like daemons, cron-style workers, and static binary services.",
-      "productPath": "future: machinen snapshot <vm-name> --out <dir>; machinen restore <dir>",
       "currentClaim": {
         "productSupport": 0,
         "broadSupport": 0,
@@ -346,7 +341,6 @@
       "status": "seed-candidate",
       "stage": "seed matrix",
       "scope": "Diagnostic seed rows only; no arbitrary Linux process support claim.",
-      "productPath": "future: machinen snapshot <vm-name> --out <dir>; machinen restore <dir>",
       "currentClaim": {
         "productSupport": null,
         "broadSupport": null,
@@ -525,7 +519,6 @@
       "status": "not-started",
       "stage": "claim boundary needed",
       "scope": "Workload-level VM portability by reconstruction, not raw cross-architecture CPU/device VM restore.",
-      "productPath": "future: machinen snapshot <vm-name> --out <dir>; machinen restore <dir>",
       "currentClaim": {
         "productSupport": 0,
         "broadSupport": 0,
@@ -562,7 +555,7 @@
         {
           "boundary": "raw cross-architecture VM CPU/device restore",
           "status": "forbidden",
-          "reason": "Product path must use target-native reconstruction/translation, not raw source VM state.",
+          "reason": "Support must use target-native reconstruction/translation, not raw source VM state.",
           "neededToReduce": "Not reducible for this product path; prove workload-level reconstruction instead."
         }
       ],
