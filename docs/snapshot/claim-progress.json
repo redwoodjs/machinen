@@ -1,11 +1,12 @@
 {
   "kind": "machinen.claim-progress-dashboard",
-  "version": 3,
+  "version": 4,
   "updatedFrom": [
     "docs/snapshot/node-level5-product-support-claim-registry.json",
     "docs/snapshot/node-level5-product-support-100.json",
     "docs/snapshot/arbitrary-process-level5-seed-matrix.json",
-    "docs/snapshot/arbitrary-process-level5-regular-file-fd-proof.md"
+    "proof/claims/arbitrary-process-0-seed-1-locked/regular-file-fd-proof.md",
+    "proof/claims/README.md"
   ],
   "currentProductPath": "machinen snapshot <vm-name> --out <dir>; machinen restore <dir>",
   "columns": {
@@ -290,7 +291,7 @@
       "docs": [
         "arbitrary-process-level5-seed-matrix.md",
         "level4-ping-socket-product.md",
-        "arbitrary-process-level5-regular-file-fd-proof.md"
+        "proof/claims/arbitrary-process-0-seed-1-locked/regular-file-fd-proof.md"
       ]
     },
     {
@@ -493,7 +494,8 @@
           "claimUse": "backs VM-first UX requirement",
           "next": "Preserve the product path for future runtimes."
         }
-      ]
+      ],
+      "proofDirectory": "proof/claims/node-service-100-100-0"
     },
     {
       "id": "level4-ping-resource-continuation",
@@ -526,7 +528,8 @@
           "claimUse": "seed only; claimChangeAllowed remains false",
           "next": "Add retained verifier artifact before treating as verified seed."
         }
-      ]
+      ],
+      "proofDirectory": "proof/claims/level4-ping-resource-continuation"
     },
     {
       "id": "arbitrary-process-0-seed-1-locked",
@@ -569,7 +572,8 @@
           "claimUse": "prevents overclaiming",
           "next": "Only reduce boundaries with retained verifier artifacts."
         }
-      ]
+      ],
+      "proofDirectory": "proof/claims/arbitrary-process-0-seed-1-locked"
     },
     {
       "id": "postgres-logical-product-track",
@@ -602,7 +606,8 @@
           "claimUse": "bounds Postgres support",
           "next": "Add dashboard-visible Postgres artifacts."
         }
-      ]
+      ],
+      "proofDirectory": "proof/claims/postgres-logical-product-track"
     },
     {
       "id": "bun-not-started",
@@ -626,7 +631,8 @@
           "claimUse": "blocks Bun claim",
           "next": "Create Bun seed matrix and refusal rows."
         }
-      ]
+      ],
+      "proofDirectory": "proof/claims/bun-not-started"
     }
   ]
 }

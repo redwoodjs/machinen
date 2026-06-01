@@ -21,12 +21,13 @@ type ClaimProgressProofGroup = {
   id: string;
   claim: string;
   trackId: string;
+  proofDirectory: string;
   proofs: ClaimProgressDetailRow[];
 };
 
 type ClaimProgressDashboard = {
   kind: "machinen.claim-progress-dashboard";
-  version: 3;
+  version: 4;
   tracks: ClaimProgressTrack[];
   proofGroups: ClaimProgressProofGroup[];
 };
@@ -40,7 +41,7 @@ describe("claim progress dashboard", () => {
 
     expect(dashboard).toMatchObject({
       kind: "machinen.claim-progress-dashboard",
-      version: 3,
+      version: 4,
     });
     expect(dashboard.tracks.map((track) => track.id)).toEqual([
       "node-service",
@@ -74,6 +75,7 @@ describe("claim progress dashboard", () => {
       "postgres-logical-product-track",
       "bun-not-started",
     ]);
+    expect(dashboard.proofGroups.every((group) => group.proofDirectory)).toBe(true);
     expect(
       dashboard.proofGroups.flatMap((group) => group.proofs.map((proof) => proof.id)),
     ).toContain("regular-file-fd-proof");
@@ -86,6 +88,7 @@ describe("claim progress dashboard", () => {
     expect(html).toContain("claim-progress.json");
     expect(html).toContain("Claim matrix");
     expect(html).toContain("Proofs by claim");
+    expect(html).toContain("Proof directory");
     expect(html).toContain("grouped track details");
     expect(html).toContain("Evidence rows");
     expect(html).toContain("Refusal boundaries");

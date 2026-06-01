@@ -1,0 +1,34 @@
+{
+  "id": "level4-ping-resource-continuation",
+  "claim": "Level 4 ping resource continuation",
+  "trackId": "arbitrary-process",
+  "status": "proven-resource",
+  "scope": "Ping/ICMP socket resource reconstruction evidence only; not arbitrary-process restore.",
+  "claimNumbers": {
+    "productSupport": "resource-level",
+    "broadSupport": "n/a",
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "promotionEffect": "Can seed the arbitrary-process resource table, but cannot raise arbitrary-process support by itself.",
+  "proofs": [
+    {
+      "id": "level4-ping-socket-product",
+      "category": "network resource",
+      "status": "passed",
+      "artifact": "level4-ping-socket-product.md",
+      "proves": "ping socket resource continuation semantics",
+      "claimUse": "narrow resource proof row",
+      "next": "Keep marked as resource evidence, not arbitrary process proof."
+    },
+    {
+      "id": "native-ping-socket-resource",
+      "category": "arbitrary-process seed",
+      "status": "seed-candidate",
+      "artifact": "arbitrary-process-level5-seed/native-ping-socket-resource.json",
+      "proves": "Ping evidence is represented as one native resource seed row",
+      "claimUse": "seed only; claimChangeAllowed remains false",
+      "next": "Add retained verifier artifact before treating as verified seed."
+    }
+  ],
+  "proofDirectory": "proof/claims/level4-ping-resource-continuation"
+}
