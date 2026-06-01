@@ -51,49 +51,7 @@ export function evaluateNodeLevel5FrameworkCapabilityReadiness(input: {
   const corpus = verifyNodeLevel5FrameworkIntrospectionCorpusReport(
     input.frameworkIntrospectionCorpusReport,
   );
-  const gates: NodeLevel5FrameworkCapabilityReadinessGate[] = [
-    gate(
-      "capability-matrix-stable",
-      matrix.accepted && matrix.rowCount === 24,
-      "framework capability matrix remains stable at 24 rows",
-    ),
-    gate(
-      "framework-introspection-corpus-accepted",
-      corpus.accepted,
-      "framework introspection corpus is accepted by the verifier",
-    ),
-    gate(
-      "framework-introspection-row-count",
-      corpus.rowCount === 16,
-      "framework introspection corpus covers Express/Fastify capabilities in both directions",
-    ),
-    gate(
-      "current-claim-remains-85-25-0",
-      corpus.currentNodeProductSupportClaimed === 85 &&
-        corpus.currentBroadNodeProductSupportClaimed === 25 &&
-        corpus.currentArbitraryProcessCrossArchRestoreClaimed === 0,
-      "current claim remains 85 / 25 / 0",
-    ),
-    gate(
-      "candidate-target-present",
-      corpus.candidateNodeProductSupportClaimed === 90 &&
-        corpus.candidateBroadNodeProductSupportClaimed === 30 &&
-        corpus.candidateArbitraryProcessCrossArchRestoreClaimed === 0,
-      "candidate target is 90 / 30 / 0",
-    ),
-    gate(
-      "arbitrary-claims-remain-false",
-      matrix.arbitraryExpressClaimed === false &&
-        matrix.arbitraryFastifyClaimed === false &&
-        matrix.arbitraryNodeClaimed === false,
-      "arbitrary Express, Fastify, and Node remain unclaimed",
-    ),
-    gate(
-      "claim-change-unlocked",
-      false,
-      "framework capability claim change is locked until future retained product evidence passes",
-    ),
-  ];
+  const gates = readinessGates({ matrix, corpus });
   const blockedGates = gates.filter((item) => item.status === "blocked");
   return {
     kind: NODE_LEVEL5_FRAMEWORK_CAPABILITY_READINESS_KIND,
@@ -110,6 +68,77 @@ export function evaluateNodeLevel5FrameworkCapabilityReadiness(input: {
     gates,
     blockedGates,
   };
+}
+
+function readinessGates(input: {
+  matrix: NodeLevel5FrameworkCapabilityMatrix;
+  corpus: ReturnType<typeof verifyNodeLevel5FrameworkIntrospectionCorpusReport>;
+}): NodeLevel5FrameworkCapabilityReadinessGate[] {
+  return [
+    gate(
+      "capability-matrix-stable",
+      input.matrix.accepted && input.matrix.rowCount === 24,
+      "framework capability matrix remains stable at 24 rows",
+    ),
+    gate(
+      "framework-introspection-corpus-accepted",
+      input.corpus.accepted,
+      "framework introspection corpus is accepted by the verifier",
+    ),
+    gate(
+      "framework-introspection-row-count",
+      input.corpus.rowCount === 16,
+      "framework introspection corpus covers Express/Fastify capabilities in both directions",
+    ),
+    gate(
+      "current-claim-remains-85-25-0",
+      currentClaimMatches(input.corpus),
+      "current claim remains 85 / 25 / 0",
+    ),
+    gate(
+      "candidate-target-present",
+      candidateTargetMatches(input.corpus),
+      "candidate target is 90 / 30 / 0",
+    ),
+    gate(
+      "arbitrary-claims-remain-false",
+      arbitraryClaimsRemainFalse(input.matrix),
+      "arbitrary Express, Fastify, and Node remain unclaimed",
+    ),
+    gate(
+      "claim-change-unlocked",
+      false,
+      "framework capability claim change is locked until future retained product evidence passes",
+    ),
+  ];
+}
+
+function currentClaimMatches(
+  corpus: ReturnType<typeof verifyNodeLevel5FrameworkIntrospectionCorpusReport>,
+): boolean {
+  return (
+    corpus.currentNodeProductSupportClaimed === 85 &&
+    corpus.currentBroadNodeProductSupportClaimed === 25 &&
+    corpus.currentArbitraryProcessCrossArchRestoreClaimed === 0
+  );
+}
+
+function candidateTargetMatches(
+  corpus: ReturnType<typeof verifyNodeLevel5FrameworkIntrospectionCorpusReport>,
+): boolean {
+  return (
+    corpus.candidateNodeProductSupportClaimed === 90 &&
+    corpus.candidateBroadNodeProductSupportClaimed === 30 &&
+    corpus.candidateArbitraryProcessCrossArchRestoreClaimed === 0
+  );
+}
+
+function arbitraryClaimsRemainFalse(matrix: NodeLevel5FrameworkCapabilityMatrix): boolean {
+  return (
+    matrix.arbitraryExpressClaimed === false &&
+    matrix.arbitraryFastifyClaimed === false &&
+    matrix.arbitraryNodeClaimed === false
+  );
 }
 
 function gate(

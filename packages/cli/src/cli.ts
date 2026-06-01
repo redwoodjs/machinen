@@ -2510,9 +2510,14 @@ function verifyNodeLevel5GenericVmRefusalArtifactsPath(path: string): Record<str
 function readOptionalNodeLevel5FrameworkIntrospectionCorpus(
   args: string[],
 ): Record<string, unknown> | undefined {
-  if (!args.includes("--include-framework-introspection-corpus")) {
-    return undefined;
-  }
+  return args.includes("--include-framework-introspection-corpus")
+    ? verifyNodeLevel5FrameworkIntrospectionCorpusPath(
+        requiredNodeLevel5FrameworkIntrospectionCorpusReportPath(args),
+      )
+    : undefined;
+}
+
+function requiredNodeLevel5FrameworkIntrospectionCorpusReportPath(args: string[]): string {
   const reportFlag = args.indexOf("--framework-introspection-corpus-report");
   const path = reportFlag === -1 ? undefined : args[reportFlag + 1];
   if (!path) {
@@ -2520,6 +2525,10 @@ function readOptionalNodeLevel5FrameworkIntrospectionCorpus(
       "machinen node-level5 release-gate --include-framework-introspection-corpus requires --framework-introspection-corpus-report <file>",
     );
   }
+  return path;
+}
+
+function verifyNodeLevel5FrameworkIntrospectionCorpusPath(path: string): Record<string, unknown> {
   try {
     return verifyNodeLevel5FrameworkIntrospectionCorpusReport(
       loadNodeLevel5FrameworkIntrospectionCorpusReport(resolve(path)),

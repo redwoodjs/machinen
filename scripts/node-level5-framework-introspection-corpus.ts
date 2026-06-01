@@ -81,33 +81,41 @@ export function generateFrameworkIntrospectionCorpus(
 }
 
 function rows(): NodeLevel5FrameworkIntrospectionCorpusRow[] {
-  return frameworks.flatMap((framework) =>
-    capabilities.flatMap((capability) =>
-      directions.map((direction) => ({
-        id: `${framework}-${capability}-${direction}`,
-        framework,
-        capability,
-        direction,
-        productCommandPath: "machinen snapshot <vm-name> --out <dir>; machinen restore <dir>",
-        vmDetectedNodeWorkload: true,
-        frameworkMetadataCapturedInsideVm: true,
-        retainedFrameworkGraphArtifact: true,
-        targetNativeRestoreProbePassed: true,
-        arbitraryFrameworkClaimed: false,
-        arbitraryNodeClaimed: false,
-        arbitraryProcessCrossArchRestoreClaimed: 0,
-      })),
-    ),
-  );
+  const generatedRows: NodeLevel5FrameworkIntrospectionCorpusRow[] = [];
+  for (const framework of frameworks) {
+    for (const capability of capabilities) {
+      for (const direction of directions) {
+        generatedRows.push({
+          id: `${framework}-${capability}-${direction}`,
+          framework,
+          capability,
+          direction,
+          productCommandPath: "machinen snapshot <vm-name> --out <dir>; machinen restore <dir>",
+          vmDetectedNodeWorkload: true,
+          frameworkMetadataCapturedInsideVm: true,
+          retainedFrameworkGraphArtifact: true,
+          targetNativeRestoreProbePassed: true,
+          arbitraryFrameworkClaimed: false,
+          arbitraryNodeClaimed: false,
+          arbitraryProcessCrossArchRestoreClaimed: 0,
+        });
+      }
+    }
+  }
+  return generatedRows;
 }
 
 function parseArgs(args: string[]): { outDir: string; json: boolean } {
-  const outFlag = args.indexOf("--out");
-  const outDir = outFlag === -1 ? undefined : args[outFlag + 1];
+  const outDir = valueAfterFlag(args, "--out");
   if (!outDir) {
     throw new Error("usage: node-level5-framework-introspection-corpus --out <dir> [--json]");
   }
   return { outDir, json: args.includes("--json") };
+}
+
+function valueAfterFlag(args: string[], flag: string): string | undefined {
+  const index = args.indexOf(flag);
+  return index >= 0 ? args[index + 1] : undefined;
 }
 
 if (process.argv[1]?.endsWith("node-level5-framework-introspection-corpus.ts")) {
