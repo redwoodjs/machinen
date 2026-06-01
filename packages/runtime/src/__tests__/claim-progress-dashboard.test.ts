@@ -125,14 +125,13 @@ describe("claim progress dashboard", () => {
     expect(html).not.toContain(
       "Turn the existing clean logical track into a percent-style claim ladder with retained verifier artifacts.",
     );
-    expect(html).toContain("Track overview");
+    expect(html.indexOf("Track overview")).toBeLessThan(html.indexOf("summary metrics"));
     expect(html).toContain("Claim matrix");
     expect(html).toContain("Proofs by claim");
     expect(html).toContain("Proof directory");
-    expect(html).toContain("grouped track details");
-    expect(html).toContain("Evidence rows");
-    expect(html).toContain("Refusal boundaries");
-    expect(html).toContain("Next steps");
+    expect(html).not.toContain("Deep-dive track details");
+    expect(html).not.toContain("grouped track details");
+    expect(html).not.toContain("track-groups");
     expect(html).not.toContain("Load JSON file");
     expect(html).not.toContain("Refresh JSON");
   });
