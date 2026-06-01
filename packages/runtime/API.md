@@ -683,12 +683,6 @@
 - [`ProductPortablePostgresClaimLadderRefusal`](#productportablepostgresclaimladderrefusal)
 - [`ProductPortablePostgresClaimLadderReport`](#productportablepostgresclaimladderreport)
 - [`ProductPortablePostgresClaimNumbers`](#productportablepostgresclaimnumbers)
-- [`ProductPortablePostgresClaimReadyArtifact`](#productportablepostgresclaimreadyartifact)
-- [`ProductPortablePostgresClaimReadyFixtureRow`](#productportablepostgresclaimreadyfixturerow)
-- [`ProductPortablePostgresClaimReadyGate`](#productportablepostgresclaimreadygate)
-- [`ProductPortablePostgresClaimReadyProofRow`](#productportablepostgresclaimreadyproofrow)
-- [`ProductPortablePostgresClaimReadyReport`](#productportablepostgresclaimreadyreport)
-- [`ProductPortablePostgresClaimReadyRowKind`](#productportablepostgresclaimreadyrowkind)
 - [`ProductPortablePostgresClaimProofRow`](#productportablepostgresclaimproofrow)
 - [`ProductPortablePostgresCaptureInput`](#productportablepostgrescaptureinput)
 - [`ProductPortablePostgresDescriptor`](#productportablepostgresdescriptor)
@@ -703,9 +697,6 @@
 - [`PRODUCT_PORTABLE_POSTGRES_CLAIM_LADDER_KIND`](#product_portable_postgres_claim_ladder_kind)
 - [`PRODUCT_PORTABLE_POSTGRES_CLAIM_LADDER_REPORT`](#product_portable_postgres_claim_ladder_report)
 - [`PRODUCT_PORTABLE_POSTGRES_CLAIM_LADDER_VERSION`](#product_portable_postgres_claim_ladder_version)
-- [`PRODUCT_PORTABLE_POSTGRES_CLAIM_READY_KIND`](#product_portable_postgres_claim_ready_kind)
-- [`PRODUCT_PORTABLE_POSTGRES_CLAIM_READY_REPORT`](#product_portable_postgres_claim_ready_report)
-- [`PRODUCT_PORTABLE_POSTGRES_CLAIM_READY_VERSION`](#product_portable_postgres_claim_ready_version)
 - [`PRODUCT_PORTABLE_POSTGRES_FORMAT_VERSION`](#product_portable_postgres_format_version)
 - [`PRODUCT_PORTABLE_POSTGRES_MANIFEST`](#product_portable_postgres_manifest)
 - [`PRODUCT_PORTABLE_POSTGRES_REFUSAL`](#product_portable_postgres_refusal)
@@ -717,9 +708,6 @@
 - [`createProductPortablePostgresClaimLadderReport`](#createproductportablepostgresclaimladderreport)
 - [`loadProductPortablePostgresClaimLadderReport`](#loadproductportablepostgresclaimladderreport)
 - [`verifyProductPortablePostgresClaimLadderReport`](#verifyproductportablepostgresclaimladderreport)
-- [`createProductPortablePostgresClaimReadyReport`](#createproductportablepostgresclaimreadyreport)
-- [`loadProductPortablePostgresClaimReadyReport`](#loadproductportablepostgresclaimreadyreport)
-- [`verifyProductPortablePostgresClaimReadyReport`](#verifyproductportablepostgresclaimreadyreport)
 - [`createProductPortablePostgresSnapshot`](#createproductportablepostgressnapshot)
 - [`restoreProductPortablePostgresSnapshot`](#restoreproductportablepostgressnapshot)
 - [`isProductPortablePostgresBundle`](#isproductportablepostgresbundle)
@@ -18669,7 +18657,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`sourceArch`](#sourcearch-35)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`sourceArch`](#sourcearch-34)
 
 ##### targetArch
 
@@ -18677,7 +18665,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`targetArch`](#targetarch-50)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`targetArch`](#targetarch-49)
 
 ##### stateModel
 
@@ -18733,7 +18721,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`evidence`](#evidence-22)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`evidence`](#evidence-21)
 
 ##### kind
 
@@ -20354,7 +20342,7 @@ kicks in: `<sourceName>/<fork.pid>`.
 
 ###### Overrides
 
-[`RestoreOptions`](#restoreoptions).[`name`](#name-23)
+[`RestoreOptions`](#restoreoptions).[`name`](#name-22)
 
 ##### portForward?
 
@@ -28849,288 +28837,6 @@ Result of `validatePid` — easy to switch on at the call site.
 
 ***
 
-### ProductPortablePostgresClaimReadyArtifact
-
-> **ProductPortablePostgresClaimReadyArtifact** = `object`
-
-#### Properties
-
-##### name
-
-> **name**: `string`
-
-##### path
-
-> **path**: `string`
-
-##### sha256
-
-> **sha256**: `string`
-
-***
-
-### ProductPortablePostgresClaimReadyRowKind
-
-> **ProductPortablePostgresClaimReadyRowKind** = `"schema-shape"` \| `"postgres-version"` \| `"workload-mix"`
-
-***
-
-### ProductPortablePostgresClaimReadyFixtureRow
-
-> **ProductPortablePostgresClaimReadyFixtureRow** = `object`
-
-#### Properties
-
-##### id
-
-> **id**: `string`
-
-##### kind
-
-> **kind**: [`ProductPortablePostgresClaimReadyRowKind`](#productportablepostgresclaimreadyrowkind)
-
-##### postgresVersion
-
-> **postgresVersion**: `string`
-
-##### description
-
-> **description**: `string`
-
-##### sourceArch
-
-> **sourceArch**: [`ProductPortablePostgresArchitecture`](#productportablepostgresarchitecture)
-
-##### targetArch
-
-> **targetArch**: [`ProductPortablePostgresArchitecture`](#productportablepostgresarchitecture)
-
-##### captureCompleted
-
-> **captureCompleted**: `boolean`
-
-##### restoreCompleted
-
-> **restoreCompleted**: `boolean`
-
-##### targetVerifierResult
-
-> **targetVerifierResult**: `"passed"` \| `"failed"` \| `"not-run"`
-
-##### artifacts
-
-> **artifacts**: [`ProductPortablePostgresClaimReadyArtifact`](#productportablepostgresclaimreadyartifact)[]
-
-***
-
-### ProductPortablePostgresClaimReadyGate
-
-> **ProductPortablePostgresClaimReadyGate** = `object`
-
-#### Properties
-
-##### id
-
-> **id**: `"base-20-claim-ladder-accepted"` \| `"schema-shape-rows-retained"` \| `"postgres-version-rows-retained"` \| `"workload-mix-rows-retained"` \| `"bidirectional-target-verifiers-retained"` \| `"refusal-boundaries-unchanged"` \| `"no-forbidden-shortcuts"` \| `"public-claim-still-20"`
-
-##### passed
-
-> **passed**: `boolean`
-
-##### evidence
-
-> **evidence**: `string`
-
-***
-
-### ProductPortablePostgresClaimReadyProofRow
-
-> **ProductPortablePostgresClaimReadyProofRow** = `object`
-
-#### Properties
-
-##### id
-
-> **id**: `"postgres-40-schema-shape-rows"` \| `"postgres-40-version-rows"` \| `"postgres-40-workload-mix-rows"` \| `"postgres-40-retained-verifier-artifacts"`
-
-##### category
-
-> **category**: `string`
-
-##### status
-
-> **status**: `"passed"`
-
-##### artifact
-
-> **artifact**: `string`
-
-##### proves
-
-> **proves**: `string`
-
-##### claimUse
-
-> **claimUse**: `string`
-
-##### next
-
-> **next**: `string`
-
-##### claimImpact
-
-> **claimImpact**: `object`
-
-###### productSupportDelta
-
-> **productSupportDelta**: `number`
-
-###### broadSupportDelta
-
-> **broadSupportDelta**: `0`
-
-###### arbitraryProcessCrossArchRestoreDelta
-
-> **arbitraryProcessCrossArchRestoreDelta**: `0`
-
-###### resultingClaim
-
-> **resultingClaim**: [`ProductPortablePostgresClaimNumbers`](#productportablepostgresclaimnumbers)
-
-###### claimChangeAllowed
-
-> **claimChangeAllowed**: `boolean`
-
-***
-
-### ProductPortablePostgresClaimReadyReport
-
-> **ProductPortablePostgresClaimReadyReport** = `object`
-
-#### Properties
-
-##### kind
-
-> **kind**: *typeof* [`PRODUCT_PORTABLE_POSTGRES_CLAIM_READY_KIND`](#product_portable_postgres_claim_ready_kind)
-
-##### version
-
-> **version**: *typeof* [`PRODUCT_PORTABLE_POSTGRES_CLAIM_READY_VERSION`](#product_portable_postgres_claim_ready_version)
-
-##### accepted
-
-> **accepted**: `boolean`
-
-##### trackId
-
-> **trackId**: `"postgres"`
-
-##### gate
-
-> **gate**: `"postgres-clean-logical-20-claim-ready"`
-
-##### subset
-
-> **subset**: `"postgres-clean-quiesced-logical-v1"`
-
-##### scope
-
-> **scope**: `"Clean, idle logical Postgres reconstruction only"`
-
-##### currentClaim
-
-> **currentClaim**: [`ProductPortablePostgresClaimNumbers`](#productportablepostgresclaimnumbers)
-
-##### candidateClaim
-
-> **candidateClaim**: [`ProductPortablePostgresClaimNumbers`](#productportablepostgresclaimnumbers)
-
-##### claimChangeAllowed
-
-> **claimChangeAllowed**: `boolean`
-
-##### publicClaimRaised
-
-> **publicClaimRaised**: `false`
-
-##### requiredRows
-
-> **requiredRows**: `object`
-
-###### schemaShapes
-
-> **schemaShapes**: `3`
-
-###### postgresVersions
-
-> **postgresVersions**: `3`
-
-###### workloadMixes
-
-> **workloadMixes**: `3`
-
-###### bidirectionalDirections
-
-> **bidirectionalDirections**: \[`"arm64-to-amd64"`, `"amd64-to-arm64"`\]
-
-##### rows
-
-> **rows**: [`ProductPortablePostgresClaimReadyFixtureRow`](#productportablepostgresclaimreadyfixturerow)[]
-
-##### gates
-
-> **gates**: [`ProductPortablePostgresClaimReadyGate`](#productportablepostgresclaimreadygate)[]
-
-##### proofs
-
-> **proofs**: [`ProductPortablePostgresClaimReadyProofRow`](#productportablepostgresclaimreadyproofrow)[]
-
-##### refusalBoundariesRetained
-
-> **refusalBoundariesRetained**: \[`"active transactions / sessions"`, `"dirty WAL boundary"`, `"physical data-dir cross-ISA copy"`\]
-
-##### shortcuts
-
-> **shortcuts**: `object`
-
-###### rawCpuRestoreUsed
-
-> **rawCpuRestoreUsed**: `false`
-
-###### sourceIsaEmulationUsed
-
-> **sourceIsaEmulationUsed**: `false`
-
-###### sourceTextReplayUsed
-
-> **sourceTextReplayUsed**: `false`
-
-###### sidecarRuntimeUsed
-
-> **sidecarRuntimeUsed**: `false`
-
-###### appHooksRequired
-
-> **appHooksRequired**: `false`
-
-###### metadataOnlySuccessAccepted
-
-> **metadataOnlySuccessAccepted**: `false`
-
-##### baseClaimLadderArtifact
-
-> **baseClaimLadderArtifact**: [`ProductPortablePostgresClaimReadyArtifact`](#productportablepostgresclaimreadyartifact)
-
-##### artifacts
-
-> **artifacts**: [`ProductPortablePostgresClaimReadyArtifact`](#productportablepostgresclaimreadyartifact)[]
-
-##### artifactsSha256
-
-> **artifactsSha256**: `string`
-
-***
-
 ### ProductPortablePostgresArchitecture
 
 > **ProductPortablePostgresArchitecture** = *typeof* [`productPortablePostgresArchitectures`](#productportablepostgresarchitectures)\[`number`\]
@@ -31984,24 +31690,6 @@ loops; anything looser stops being a meaningful gate.
 ### PRODUCT\_PORTABLE\_POSTGRES\_CLAIM\_LADDER\_REPORT
 
 > `const` **PRODUCT\_PORTABLE\_POSTGRES\_CLAIM\_LADDER\_REPORT**: `"postgres-claim-ladder-report.json"`
-
-***
-
-### PRODUCT\_PORTABLE\_POSTGRES\_CLAIM\_READY\_KIND
-
-> `const` **PRODUCT\_PORTABLE\_POSTGRES\_CLAIM\_READY\_KIND**: `"machinen.product-portable-postgres-clean-logical-20-claim-ready"`
-
-***
-
-### PRODUCT\_PORTABLE\_POSTGRES\_CLAIM\_READY\_VERSION
-
-> `const` **PRODUCT\_PORTABLE\_POSTGRES\_CLAIM\_READY\_VERSION**: `1`
-
-***
-
-### PRODUCT\_PORTABLE\_POSTGRES\_CLAIM\_READY\_REPORT
-
-> `const` **PRODUCT\_PORTABLE\_POSTGRES\_CLAIM\_READY\_REPORT**: `"postgres-clean-logical-20-claim-ready-report.json"`
 
 ***
 
@@ -36614,56 +36302,6 @@ readonly (`number` \| [`RssTarget`](#rsstarget))[]
 #### Returns
 
 [`ProductPortablePostgresClaimLadderReport`](#productportablepostgresclaimladderreport)
-
-***
-
-### createProductPortablePostgresClaimReadyReport()
-
-> **createProductPortablePostgresClaimReadyReport**(`input`): [`ProductPortablePostgresClaimReadyReport`](#productportablepostgresclaimreadyreport)
-
-#### Parameters
-
-##### input
-
-###### outDir
-
-`string`
-
-#### Returns
-
-[`ProductPortablePostgresClaimReadyReport`](#productportablepostgresclaimreadyreport)
-
-***
-
-### loadProductPortablePostgresClaimReadyReport()
-
-> **loadProductPortablePostgresClaimReadyReport**(`path`): [`ProductPortablePostgresClaimReadyReport`](#productportablepostgresclaimreadyreport)
-
-#### Parameters
-
-##### path
-
-`string`
-
-#### Returns
-
-[`ProductPortablePostgresClaimReadyReport`](#productportablepostgresclaimreadyreport)
-
-***
-
-### verifyProductPortablePostgresClaimReadyReport()
-
-> **verifyProductPortablePostgresClaimReadyReport**(`report`): [`ProductPortablePostgresClaimReadyReport`](#productportablepostgresclaimreadyreport)
-
-#### Parameters
-
-##### report
-
-[`ProductPortablePostgresClaimReadyReport`](#productportablepostgresclaimreadyreport)
-
-#### Returns
-
-[`ProductPortablePostgresClaimReadyReport`](#productportablepostgresclaimreadyreport)
 
 ***
 

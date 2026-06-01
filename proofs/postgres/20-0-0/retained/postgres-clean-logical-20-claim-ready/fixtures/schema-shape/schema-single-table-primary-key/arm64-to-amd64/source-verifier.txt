@@ -1,1 +1,0 @@
-schema-single-table-primary-key:accounts=2:ids=1,2

@@ -1,4 +1,0 @@
--- read-only lookup workload after restore
--- fixture: workload-readonly-lookup
-CREATE TABLE kv(key text primary key, value text not null);
-INSERT INTO kv VALUES ('snapshot', 'portable'), ('restore', 'target-native');

@@ -27,7 +27,7 @@ type ClaimProgressProofGroup = {
 
 type ClaimProgressDashboard = {
   kind: "machinen.claim-progress-dashboard";
-  version: 15;
+  version: 16;
   tracks: ClaimProgressTrack[];
   proofGroups: ClaimProgressProofGroup[];
 };
@@ -41,7 +41,7 @@ describe("claim progress dashboard", () => {
 
     expect(dashboard).toMatchObject({
       kind: "machinen.claim-progress-dashboard",
-      version: 15,
+      version: 16,
     });
     expect(dashboard.tracks.map((track) => track.id)).toEqual([
       "node-service",
@@ -71,27 +71,18 @@ describe("claim progress dashboard", () => {
     expect(dashboard.tracks.every((track) => track.evidenceRows.length > 0)).toBe(true);
     expect(dashboard.tracks.every((track) => track.refusalRows.length > 0)).toBe(true);
     expect(dashboard.tracks.find((track) => track.id === "postgres")).toMatchObject({
-      status: "claimed",
+      status: "seed-candidate",
       currentClaim: {
-        productSupport: 100,
-        broadSupport: 100,
+        productSupport: 0,
+        broadSupport: 0,
         arbitraryProcessCrossArchRestore: 0,
       },
-      nextClaim: null,
+      nextClaim: { productSupport: 20, broadSupport: 20, claimChangeAllowed: false },
     });
     expect(dashboard.proofGroups.map((group) => group.id)).toEqual([
       "node-service-100-100-0",
       "postgres-20-0-0",
-      "postgres-clean-logical-20-claim-ready",
-      "postgres-40-0-0",
-      "postgres-60-0-0",
-      "postgres-80-0-0",
-      "postgres-100-0-0",
-      "postgres-100-20-0",
-      "postgres-100-40-0",
-      "postgres-100-60-0",
-      "postgres-100-80-0",
-      "postgres-100-100-0",
+      "postgres-real-cross-arch-e2e-gate",
       "bun-not-started",
       "generic-linux-service-not-started",
       "level4-ping-resource-continuation",
@@ -107,9 +98,8 @@ describe("claim progress dashboard", () => {
     expect(proofIds).toContain("simple-pipe-fd-proof");
     expect(proofIds).toContain("idle-epoll-tcp-proof");
     expect(proofIds).toContain("postgres-retained-verifier-artifacts");
-    expect(proofIds).toContain("postgres-40-schema-shape-rows");
-    expect(proofIds).toContain("postgres-100-product-contract");
-    expect(proofIds).toContain("postgres-broad-100-product-contract");
+    expect(proofIds).toContain("postgres-e2e-amd64-to-arm64");
+    expect(proofIds).toContain("postgres-e2e-arm64-to-amd64");
     const embeddedJson =
       /<script id="embedded-claim-progress" type="application\/json">\n([\s\S]*?)\n    <\/script>/u.exec(
         html,

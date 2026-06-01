@@ -1,49 +1,34 @@
-# Postgres clean logical 20 / 0 / 0 claim
+# Postgres clean logical descriptor fixture / no public claim
 
-Status: `claimed`
+Status: `partial-proof`
 
 Track: `postgres`
 
 Proof directory: `proofs/postgres/20-0-0`
 
-Scope: Clean, idle logical Postgres reconstruction only; physical data-dir cross-ISA copy remains refused.
+This folder is retained fixture evidence for the logical PostgreSQL descriptor path. It is **not** a public Postgres no-dump `machinen snapshot` / `machinen restore` claim.
 
-Promotion effect: Raises Postgres product support to 20%; broad service/workload support and arbitrary Linux process restore stay 0%.
-
-## Claim numbers
+## Public claim numbers
 
 ```json
 {
-  "productSupport": 20,
+  "productSupport": 0,
   "broadSupport": 0,
   "arbitraryProcessCrossArchRestore": 0
 }
 ```
 
-## Retained artifacts
+## What this proves
 
-The retained claim ladder report is in
-`retained/postgres-claim-ladder-report.json`. It keeps arm64-to-amd64 and
-amd64-to-arm64 logical restore bundles, source verifier output, target verifier
-output, restore summaries, and an unsafe-state refusal artifact.
+The retained report in `retained/postgres-claim-ladder-report.json` exercises fixture-level logical dump descriptors, restore summaries, verifier-output matching, and unsafe-state refusals.
 
-The applied 40% gate report is in
-`retained/postgres-clean-logical-20-claim-ready-report.json`, with expanded
-artifacts under `retained/postgres-clean-logical-20-claim-ready/`. It keeps
-schema-shape rows, PostgreSQL 14/15/16 rows, workload-mix rows, source/target
-verifier output, restore summaries, manifests, and logical dumps. The public 40%
-claim is summarized in `../40-0-0/`; a future public raise needs a separate 60%
-gate.
+## What this does not prove
 
-## Proof impact rows
+- no-dump product capture of a real PostgreSQL service;
+- real PostgreSQL amd64 -> arm64 E2E restore;
+- real PostgreSQL arm64 -> amd64 E2E restore;
+- app workload behavior against a restored target service;
+- broad service/workload support;
+- arbitrary Linux process restore.
 
-| Proof                                       | Category                   | Status             | Product / broad / arbitrary-process impact | Artifact                                            | Proves                                                                                     | Next                                                         |
-| ------------------------------------------- | -------------------------- | ------------------ | ------------------------------------------ | --------------------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
-| `postgres-clean-logical-capture`            | database state             | `passed`           | `8% / 0% / 0%`                             | `portable-product.json`                             | clean, idle logical PostgreSQL capture is a portable unit                                  | Add more workload shapes before moving beyond 20%.           |
-| `postgres-bidirectional-cross-arch-restore` | cross-architecture restore | `passed`           | `5% / 0% / 0%`                             | `restore-summary.json`                              | arm64->amd64 and amd64->arm64 target-native verifier output passes                         | Retain more version and schema-shape rows for the 40% gate.  |
-| `postgres-retained-verifier-artifacts`      | retained artifacts         | `passed`           | `4% / 0% / 0%`                             | `source-verifier.txt / target-verifier.txt`         | source and target verifier outputs are retained with hashes                                | Standardize artifact retention for future Postgres rows.     |
-| `postgres-explicit-refusal-boundaries`      | refusals                   | `refused-boundary` | `3% / 0% / 0%`                             | `portable-product-refusal.json`                     | active transactions, dirty WAL, active sessions, and physical data-dir copy remain refused | Only reduce refusals with a new target-native verifier gate. |
-| `postgres-40-schema-shape-rows`             | schema shapes              | `passed`           | `+7% / 0% / 0% applied`                    | `postgres-clean-logical-20-claim-ready-report.json` | three clean logical schema shapes restore with target-native verifier artifacts            | Add extension/larger schema rows before a 60% claim.         |
-| `postgres-40-version-rows`                  | PostgreSQL versions        | `passed`           | `+5% / 0% / 0% applied`                    | `postgres-clean-logical-20-claim-ready-report.json` | PostgreSQL 14, 15, and 16 fixtures restore with retained verifiers                         | Add version/extension variation before a 60% claim.          |
-| `postgres-40-workload-mix-rows`             | workload mix               | `passed`           | `+5% / 0% / 0% applied`                    | `postgres-clean-logical-20-claim-ready-report.json` | read-only, committed write batch, and aggregate workloads restore cleanly                  | Add larger datasets and failure-mode rows.                   |
-| `postgres-40-retained-verifier-artifacts`   | retained artifacts         | `passed`           | `+3% / 0% / 0% applied`                    | `source-verifier.txt / target-verifier.txt`         | every candidate gate row retains source/target verifier artifacts and hashes               | Define a new 60% gate with retained verifier outputs.        |
+See `../real-cross-arch-e2e-gate/` for the required gate before any public Postgres percentage claim.

@@ -1,1 +1,0 @@
-workload-aggregate-query:metrics=3:bucket_a=8:bucket_b=8

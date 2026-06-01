@@ -1,3 +1,0 @@
--- logical PostgreSQL dump retained for claim ladder
-CREATE TABLE machinen_claim(id int primary key, label text);
-INSERT INTO machinen_claim VALUES (1, 'source'), (2, 'target');

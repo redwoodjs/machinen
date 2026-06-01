@@ -1,4 +1,0 @@
--- PostgreSQL 16 clean logical dump fixture
--- fixture: postgres-16-clean-logical
-CREATE TABLE version_probe(id integer primary key, pg_major integer not null);
-INSERT INTO version_probe VALUES (1, 16);
