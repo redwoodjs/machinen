@@ -45,13 +45,19 @@ machinen node-level5 release-gate \
   --generic-vm-retained-evidence-report ./node-level5-generic-vm-retained-evidence-report.json \
   --json
 
+machinen node-level5 release-gate \
+  --include-generic-vm-row-artifacts \
+  --generic-vm-row-artifacts-report ./node-level5-generic-vm-row-artifacts-report.json \
+  --json
+
 machinen node-level5 85-readiness \
   --generic-vm-corpus-report ./node-level5-generic-vm-corpus-report.json \
   --generic-vm-retained-evidence-report ./node-level5-generic-vm-retained-evidence-report.json \
+  --generic-vm-row-artifacts-report ./node-level5-generic-vm-row-artifacts-report.json \
   --json
 ```
 
-The generic VM corpus and retained-evidence gates record candidate 85 / 25 / 0 evidence only and keep `claimChangeAllowed: false`. The 85 readiness command is expected to stay refused until the claim-change PR intentionally unlocks the final claim gate.
+The generic VM corpus, retained-evidence, and row-artifact gates record candidate 85 / 25 / 0 evidence only and keep `claimChangeAllowed: false`. The 85 readiness command is expected to stay refused until the claim-change PR intentionally unlocks the final claim gate.
 
 The claim registry remains:
 
