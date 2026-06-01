@@ -1,0 +1,46 @@
+{
+  "kind": "machinen.node-level5-generic-vm-retained-evidence-report",
+  "version": 1,
+  "accepted": true,
+  "productCommandPath": "machinen snapshot <vm-name> --out <dir>; machinen restore <dir>",
+  "vmDetectedNodeWorkload": true,
+  "restoreProbePassed": true,
+  "retainedFiles": [
+    {
+      "path": "snapshot.json",
+      "sha256": "1cd802addb7dd5b45940004fa73ceaaa3636785743c4c8881cea4d658fc8d141",
+      "required": true
+    },
+    {
+      "path": "restore.log",
+      "sha256": "1a496558b8670694528d2f40eb00c6ad75c5a8f3f7b2285408e41712995e6553",
+      "required": true
+    },
+    {
+      "path": "snap/portable-node.json",
+      "sha256": "a4a2261486603ead9b4704334fac1569d03d0796dd6cab42b69dd2a193504d3e",
+      "required": true
+    },
+    {
+      "path": "snap/portable-node-app.tar.gz",
+      "sha256": "3f9fa5140e715c0ef3ef5639d5800afb0a3bc381f063a6b6b7e74e0091036bac",
+      "required": true
+    },
+    {
+      "path": "snap/portable-clean-service.json",
+      "sha256": "1e36eaa9e04e6e52b91d8fdbdb0b64a2033731cc1a1264011d8ee59d1ceafa4a",
+      "required": true
+    },
+    {
+      "path": "snap/clean-service-node-primary.tar.gz",
+      "sha256": "3f9fa5140e715c0ef3ef5639d5800afb0a3bc381f063a6b6b7e74e0091036bac",
+      "required": true
+    }
+  ],
+  "retainedFileCount": 6,
+  "retainedFilesSha256": "8423bbaae1a3cceb9ea5d99dc2e1d6410a40475aafe585dad741908aca978d7b",
+  "claimChangeAllowed": false,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0
+}

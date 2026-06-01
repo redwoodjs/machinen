@@ -403,7 +403,7 @@
               "arbitraryProcessCrossArchRestore": 0,
               "claimChangeAllowed": false
             },
-            "summary": "Node service 100 / 100 / 0 is not currently accepted as a public claim because retained real cross-architecture VM E2E artifacts have not been audited in-repo. Existing matrices and facades are proof-only until a real E2E evidence gate passes.",
+            "summary": "Node service 100 / 100 / 0 remains unverified, but the real E2E seed gate now has retained bidirectional clean Node HTTP service artifacts. Public support stays 0 / 0 / 0 until row-by-row coverage and refusal artifacts are complete.",
             "claimGate": "node-real-cross-arch-e2e-evidence-gate required",
             "claimChangeAllowed": false,
             "evidence": [
@@ -433,11 +433,11 @@
                 "id": "node-real-cross-arch-e2e-gate",
                 "area": "claim gate",
                 "kind": "required E2E gate",
-                "status": "not-started",
-                "evidence": "Requires retained machinen snapshot <vm-name> / machinen restore <dir> artifacts for supported Node app rows in both directions, with target behavior verification and refusal artifacts.",
+                "status": "partial-proof",
+                "evidence": "Retained real VM product artifacts now prove one clean Node HTTP service seed in both directions: amd64->arm64 and arm64->amd64. The gate is still not sufficient for 100 / 100 / 0 because row-by-row matrix coverage and refusal artifacts are incomplete.",
                 "gate": "node-real-cross-arch-e2e-evidence-gate",
-                "artifact": "missing",
-                "next": "Run or locate retained real VM E2E artifacts and connect them to each claimed row."
+                "artifact": "proofs/nodejs/real-cross-arch-e2e-gate/retained/node-real-cross-arch-e2e-gate-report.json",
+                "next": "Add retained E2E bundles for every supported Node row and complete refusal-artifact coverage before restoring any high public claim."
               }
             ],
             "refusals": [
@@ -470,7 +470,7 @@
             "nextSteps": [
               {
                 "priority": 1,
-                "item": "Audit retained Node real VM E2E artifact bundles for every claimed supported row and both architecture directions.",
+                "item": "Expand retained Node real VM E2E artifact bundles from the clean HTTP seed to every claimed supported row and both architecture directions.",
                 "gate": "node-real-cross-arch-e2e-artifact-audit"
               },
               {
@@ -1033,26 +1033,26 @@
             "id": "node-real-cross-arch-e2e-gate",
             "claim": "Node real cross-architecture E2E gate required",
             "trackId": "node-service",
-            "status": "not-started",
+            "status": "partial-proof",
             "scope": "Public Node product/broad claims require retained real VM machinen snapshot/restore artifacts in both directions with target behavior verification and refusal artifacts.",
             "claimNumbers": {
               "productSupport": 0,
               "broadSupport": 0,
               "arbitraryProcessCrossArchRestore": 0,
-              "candidateProductSupport": 80,
-              "candidateBroadSupport": 20
+              "candidateProductSupport": 20,
+              "candidateBroadSupport": 0
             },
-            "promotionEffect": "Blocks public Node product and broad support claims until real retained E2E evidence is connected to the claimed rows.",
+            "promotionEffect": "Adds validated bidirectional clean Node HTTP seed evidence. It does not restore 100 / 100 / 0 until full row coverage and refusal artifacts are retained.",
             "proofDirectory": "proofs/nodejs/real-cross-arch-e2e-gate",
             "proofs": [
               {
                 "id": "node-e2e-artifact-audit",
                 "category": "artifact audit",
-                "status": "not-started",
-                "artifact": "missing",
-                "proves": "Every supported Node row has retained real VM source/target artifacts, not only metadata or unit/facade reports.",
+                "status": "partial-proof",
+                "artifact": "proofs/nodejs/real-cross-arch-e2e-gate/retained/node-real-cross-arch-e2e-gate-report.json",
+                "proves": "The retained seed artifacts are validated; full row-by-row artifact coverage is still missing.",
                 "claimUse": "required before public Node product/broad claim",
-                "next": "Locate or produce retained VM E2E bundles for all supported rows.",
+                "next": "Attach retained E2E bundles to every supported Node support-matrix row.",
                 "claimImpact": {
                   "productSupportDelta": 0,
                   "broadSupportDelta": 0,
@@ -1068,11 +1068,11 @@
               {
                 "id": "node-e2e-amd64-to-arm64",
                 "category": "real E2E",
-                "status": "not-started",
-                "artifact": "missing",
+                "status": "verified",
+                "artifact": "proofs/nodejs/real-cross-arch-e2e-gate/retained/amd64-to-arm64/target/restore.json",
                 "proves": "machinen snapshot <vm-name> on amd64 and machinen restore <dir> on arm64 restores selected Node service behavior with target-native verification.",
                 "claimUse": "required before amd64->arm64 public Node claim",
-                "next": "Run and retain source transcript, target transcript, manifest, restore summary, behavior verifier output, and logs.",
+                "next": "Expand from this clean HTTP seed to every supported Node row.",
                 "claimImpact": {
                   "productSupportDelta": 0,
                   "broadSupportDelta": 0,
@@ -1088,11 +1088,11 @@
               {
                 "id": "node-e2e-arm64-to-amd64",
                 "category": "real E2E",
-                "status": "not-started",
-                "artifact": "missing",
+                "status": "verified",
+                "artifact": "proofs/nodejs/real-cross-arch-e2e-gate/retained/arm64-to-amd64/target/restore.json",
                 "proves": "machinen snapshot <vm-name> on arm64 and machinen restore <dir> on amd64 restores selected Node service behavior with target-native verification.",
                 "claimUse": "required before bidirectional public Node claim",
-                "next": "Run and retain source transcript, target transcript, manifest, restore summary, behavior verifier output, and logs.",
+                "next": "Expand from this clean HTTP seed to every supported Node row.",
                 "claimImpact": {
                   "productSupportDelta": 0,
                   "broadSupportDelta": 0,
@@ -1112,7 +1112,7 @@
                 "artifact": "missing",
                 "proves": "Unsupported live/runtime states refuse with retained artifacts in the same E2E evidence set.",
                 "claimUse": "required to bound any future public Node claim",
-                "next": "Retain refusal artifacts for workers, native addons, Wasm/external memory, TLS active state, active async work, child process state, raw CPU restore, source ISA emulation, and metadata-only success.",
+                "next": "Retain refusal artifacts for unsupported live/runtime states before any high public claim.",
                 "claimImpact": {
                   "productSupportDelta": 0,
                   "broadSupportDelta": 0,

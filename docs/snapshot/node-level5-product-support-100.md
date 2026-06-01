@@ -14,9 +14,9 @@ The previous Node `100 / 100 / 0` public claim is no longer accepted by the clai
 
 ## Why this was downgraded
 
-The repository has extensive Node matrices, product snapshot facades, release gates, and refusal rows. Those are useful proof substrate, but the current audit did not find a complete retained real-VM E2E artifact chain for every claimed supported row and both architecture directions.
+The repository has extensive Node matrices, product snapshot facades, release gates, and refusal rows. The repaired gate now contains retained bidirectional real-VM E2E seed artifacts for one clean Node HTTP service, but it still does not contain a complete retained artifact chain for every claimed supported row and all required refusal boundaries.
 
-A real public claim requires proof artifacts, not just claim registries or facade/unit reports.
+A real high public claim requires row-by-row proof artifacts, not just claim registries, facade/unit reports, or a single passing seed.
 
 ## Required gate
 

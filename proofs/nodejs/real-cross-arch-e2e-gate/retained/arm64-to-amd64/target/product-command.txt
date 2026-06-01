@@ -1,0 +1,1 @@
+node /root/machinen-node-e2e/packages/cli/dist/cli.js restore /tmp/machinen-node-e2e-arm64-to-amd64/portable-only --name node-e2e-arm-to-amd-restored-321983 --json

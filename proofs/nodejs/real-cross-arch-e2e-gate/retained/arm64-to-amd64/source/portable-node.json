@@ -1,0 +1,272 @@
+{
+  "kind": "machinen.portable-node-snapshot",
+  "formatVersion": 1,
+  "sourceArch": "arm64",
+  "runtime": "node",
+  "subset": "node-http-clean-root-v1",
+  "sourceCwd": "/opt/machinen-node-level5-detected",
+  "argv": ["node", "server.js"],
+  "nodeVersion": "v18.20.4",
+  "guestPort": 3000,
+  "verifier": {
+    "kind": "http-get",
+    "path": "/",
+    "sha256": "556122a72b9d33875251a9eb2b9a4931c858ceda64d2b5835fd46250eb3e8b60",
+    "bytes": 32
+  },
+  "kernelResources": {
+    "decisionModel": "supported-irrelevant-refused",
+    "supported": [
+      "clean-service-runtime-pipe-recreated-by-startup",
+      "clean-service-eventfd-recreated-by-runtime-start",
+      "clean-service-epoll-recreated-by-runtime-start",
+      "clean-service-runtime-pipe-recreated-by-startup",
+      "clean-service-runtime-pipe-recreated-by-startup",
+      "clean-service-eventfd-recreated-by-runtime-start",
+      "clean-service-epoll-recreated-by-runtime-start",
+      "clean-service-runtime-pipe-recreated-by-startup",
+      "clean-service-runtime-pipe-recreated-by-startup",
+      "clean-service-eventfd-recreated-by-runtime-start",
+      "clean-service-socket-fd-modeled",
+      "clean-service-socket-fd-modeled",
+      "clean-service-socket-fd-modeled",
+      "clean-service-epoll-recreated-by-runtime-start",
+      "clean-service-runtime-pipe-recreated-by-startup",
+      "clean-service-runtime-pipe-recreated-by-startup",
+      "clean-service-runtime-pipe-recreated-by-startup",
+      "clean-service-listener-rebound",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy",
+      "clean-service-runtime-library-from-target-policy"
+    ],
+    "irrelevant": [
+      "clean-service-stdio-fd-irrelevant",
+      "clean-service-stdio-fd-irrelevant",
+      "clean-service-stdio-fd-irrelevant",
+      "clean-service-runtime-device-fd-irrelevant",
+      "clean-service-runtime-device-fd-irrelevant"
+    ],
+    "refused": [],
+    "summary": {
+      "supported": 89,
+      "irrelevant": 5,
+      "refused": 0
+    }
+  },
+  "eventLoopResources": {
+    "kind": "machinen.node-event-loop-level4-resource-map",
+    "formatVersion": 1,
+    "sourceGoal": "008",
+    "evidenceStatus": "planning",
+    "productSupport": "not-yet-supported",
+    "implementationLevel": "not-implemented",
+    "graduationTargetLevel": "level-4-kernel-resource-reconstruction",
+    "genericResources": [
+      {
+        "kind": "pipe",
+        "libuvHandle": "uv_pipe_t/runtime",
+        "genericProfile": "pipe-pair-v1-empty-no-waiters",
+        "decision": "mapped-to-target-runtime-startup",
+        "details": {
+          "fd": 10,
+          "policy": "target runtime recreates internal pipe handles; user-visible pipes require the generic pipe descriptor"
+        }
+      },
+      {
+        "kind": "eventfd",
+        "libuvHandle": "uv_async_t/event-loop-wakeup",
+        "genericProfile": "eventfd-counter-v1-nonsemaphore-no-waiters",
+        "decision": "mapped-to-target-runtime-startup",
+        "details": {
+          "fd": 11,
+          "policy": "target runtime recreates async wakeup eventfd; captured counters/waiters require the generic eventfd descriptor"
+        }
+      },
+      {
+        "kind": "pipe",
+        "libuvHandle": "uv_pipe_t/runtime",
+        "genericProfile": "pipe-pair-v1-empty-no-waiters",
+        "decision": "mapped-to-target-runtime-startup",
+        "details": {
+          "fd": 13,
+          "policy": "target runtime recreates internal pipe handles; user-visible pipes require the generic pipe descriptor"
+        }
+      },
+      {
+        "kind": "pipe",
+        "libuvHandle": "uv_pipe_t/runtime",
+        "genericProfile": "pipe-pair-v1-empty-no-waiters",
+        "decision": "mapped-to-target-runtime-startup",
+        "details": {
+          "fd": 14,
+          "policy": "target runtime recreates internal pipe handles; user-visible pipes require the generic pipe descriptor"
+        }
+      },
+      {
+        "kind": "eventfd",
+        "libuvHandle": "uv_async_t/event-loop-wakeup",
+        "genericProfile": "eventfd-counter-v1-nonsemaphore-no-waiters",
+        "decision": "mapped-to-target-runtime-startup",
+        "details": {
+          "fd": 15,
+          "policy": "target runtime recreates async wakeup eventfd; captured counters/waiters require the generic eventfd descriptor"
+        }
+      },
+      {
+        "kind": "pipe",
+        "libuvHandle": "uv_pipe_t/runtime",
+        "genericProfile": "pipe-pair-v1-empty-no-waiters",
+        "decision": "mapped-to-target-runtime-startup",
+        "details": {
+          "fd": 17,
+          "policy": "target runtime recreates internal pipe handles; user-visible pipes require the generic pipe descriptor"
+        }
+      },
+      {
+        "kind": "pipe",
+        "libuvHandle": "uv_pipe_t/runtime",
+        "genericProfile": "pipe-pair-v1-empty-no-waiters",
+        "decision": "mapped-to-target-runtime-startup",
+        "details": {
+          "fd": 18,
+          "policy": "target runtime recreates internal pipe handles; user-visible pipes require the generic pipe descriptor"
+        }
+      },
+      {
+        "kind": "eventfd",
+        "libuvHandle": "uv_async_t/event-loop-wakeup",
+        "genericProfile": "eventfd-counter-v1-nonsemaphore-no-waiters",
+        "decision": "mapped-to-target-runtime-startup",
+        "details": {
+          "fd": 19,
+          "policy": "target runtime recreates async wakeup eventfd; captured counters/waiters require the generic eventfd descriptor"
+        }
+      },
+      {
+        "kind": "pipe",
+        "libuvHandle": "uv_pipe_t/runtime",
+        "genericProfile": "pipe-pair-v1-empty-no-waiters",
+        "decision": "mapped-to-target-runtime-startup",
+        "details": {
+          "fd": 7,
+          "policy": "target runtime recreates internal pipe handles; user-visible pipes require the generic pipe descriptor"
+        }
+      },
+      {
+        "kind": "pipe",
+        "libuvHandle": "uv_pipe_t/runtime",
+        "genericProfile": "pipe-pair-v1-empty-no-waiters",
+        "decision": "mapped-to-target-runtime-startup",
+        "details": {
+          "fd": 8,
+          "policy": "target runtime recreates internal pipe handles; user-visible pipes require the generic pipe descriptor"
+        }
+      },
+      {
+        "kind": "pipe",
+        "libuvHandle": "uv_pipe_t/runtime",
+        "genericProfile": "pipe-pair-v1-empty-no-waiters",
+        "decision": "mapped-to-target-runtime-startup",
+        "details": {
+          "fd": 9,
+          "policy": "target runtime recreates internal pipe handles; user-visible pipes require the generic pipe descriptor"
+        }
+      },
+      {
+        "kind": "tcp-listener",
+        "libuvHandle": "uv_tcp_t/server",
+        "genericProfile": "tcp-listener-v1-loopback-empty-accept-queue",
+        "decision": "mapped-to-generic-level4-descriptor",
+        "details": {
+          "family": "inet",
+          "protocol": "tcp",
+          "bindAddress": "127.0.0.1",
+          "port": 3000,
+          "backlog": "requires-node-verifier",
+          "acceptQueue": "empty",
+          "activeConnections": false,
+          "descriptorSource": "goals/007.md generic TCP listener descriptor"
+        }
+      }
+    ],
+    "refusals": [],
+    "summary": {
+      "mapped": 12,
+      "refused": 0
+    }
+  },
+  "appTar": {
+    "path": "portable-node-app.tar.gz",
+    "sha256": "3f9fa5140e715c0ef3ef5639d5800afb0a3bc381f063a6b6b7e74e0091036bac",
+    "bytes": 327
+  },
+  "refusals": []
+}

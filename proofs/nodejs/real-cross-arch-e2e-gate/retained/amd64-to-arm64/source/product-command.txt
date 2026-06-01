@@ -1,0 +1,1 @@
+node /root/machinen-node-e2e/packages/cli/dist/cli.js snapshot node-e2e-amd-source-306764 /tmp/machinen-node-e2e-amd64-source-current/snap

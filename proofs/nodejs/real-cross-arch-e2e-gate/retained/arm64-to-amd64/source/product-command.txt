@@ -1,0 +1,1 @@
+node packages/cli/dist/cli.js snapshot node-level5-detected-35878 --out /tmp/machinen-node-local-e2e-test/snap --json
