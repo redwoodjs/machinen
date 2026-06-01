@@ -66,8 +66,9 @@ describe("claim progress dashboard", () => {
     expect(embeddedJson).toBeDefined();
     expect(JSON.parse(embeddedJson ?? "{}")).toEqual(dashboard);
     expect(html).toContain("claim-progress.json");
-    expect(html).toContain("Track summary");
-    expect(html).toContain("Evidence detail");
+    expect(html).toContain("Claim matrix");
+    expect(html).toContain("grouped track details");
+    expect(html).toContain("Evidence rows");
     expect(html).toContain("Refusal boundaries");
     expect(html).toContain("Next steps");
     expect(html).not.toContain("Load JSON file");

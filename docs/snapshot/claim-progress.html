@@ -35,7 +35,7 @@
           sans-serif;
       }
       main {
-        max-width: 1420px;
+        max-width: 1480px;
         margin: 0 auto;
         padding: 32px 20px 56px;
       }
@@ -70,7 +70,8 @@
         margin: 22px 0;
       }
       .metric,
-      .card {
+      .card,
+      details.track-group {
         background: var(--card);
         border: 1px solid var(--line);
         border-radius: 18px;
@@ -85,16 +86,66 @@
         margin-top: 18px;
         overflow-x: auto;
       }
+      .groups {
+        display: grid;
+        gap: 18px;
+        margin-top: 18px;
+      }
+      details.track-group {
+        padding: 0;
+        overflow: hidden;
+      }
+      details.track-group summary {
+        align-items: center;
+        cursor: pointer;
+        display: grid;
+        gap: 12px;
+        grid-template-columns: minmax(240px, 1fr) auto auto auto;
+        list-style: none;
+        padding: 18px;
+      }
+      details.track-group summary::-webkit-details-marker {
+        display: none;
+      }
+      .track-body {
+        border-top: 1px solid var(--line);
+        display: grid;
+        gap: 16px;
+        padding: 18px;
+      }
+      .claim-strip {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      }
+      .claim-box {
+        background: var(--card-2);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 12px;
+      }
+      .claim-box strong {
+        display: block;
+        font-size: 22px;
+        margin-top: 4px;
+      }
+      .subtables {
+        display: grid;
+        gap: 18px;
+      }
       table {
         border-collapse: collapse;
         margin-top: 14px;
         min-width: 100%;
         width: max-content;
       }
+      .track-body table {
+        width: 100%;
+      }
       th,
       td {
         border-bottom: 1px solid var(--line);
-        max-width: 360px;
+        max-width: 420px;
         padding: 10px 12px;
         text-align: left;
         vertical-align: top;
@@ -103,9 +154,7 @@
         color: var(--muted);
         font-size: 12px;
         letter-spacing: 0.08em;
-        position: sticky;
         text-transform: uppercase;
-        top: 0;
       }
       tbody tr:hover {
         background: color-mix(in srgb, var(--info) 7%, transparent);
@@ -120,7 +169,8 @@
       }
       .claimed,
       .passed,
-      .implemented-product-support {
+      .implemented-product-support,
+      .true {
         background: color-mix(in srgb, var(--good) 24%, transparent);
         color: #86efac;
       }
@@ -132,7 +182,8 @@
       }
       .not-started,
       .not-proven,
-      .forbidden {
+      .forbidden,
+      .false {
         background: color-mix(in srgb, var(--bad) 24%, transparent);
         color: #fca5a5;
       }
@@ -153,9 +204,17 @@
         gap: 10px;
         justify-content: space-between;
       }
-      .track-anchor {
-        color: #bae6fd;
-        text-decoration: none;
+      .track-title {
+        display: grid;
+        gap: 4px;
+      }
+      .compact {
+        white-space: nowrap;
+      }
+      @media (max-width: 860px) {
+        details.track-group summary {
+          grid-template-columns: 1fr;
+        }
       }
     </style>
   </head>
@@ -165,8 +224,8 @@
         <p class="muted">Machinen product evidence</p>
         <h1>Claim progress dashboard</h1>
         <p class="muted">
-          Loads automatically from the embedded claim snapshot. If this page is served over HTTP, a
-          page reload also reads the latest <code>claim-progress.json</code>.
+          Grouped by product track. The page embeds a snapshot for direct file viewing; when served
+          over HTTP, reloading the page reads the latest <code>claim-progress.json</code>.
         </p>
         <p id="source" class="muted"></p>
       </header>
@@ -175,35 +234,13 @@
 
       <section class="card">
         <div class="section-heading">
-          <h2>Track summary</h2>
-          <span class="muted">Current claims, gates, and scope</span>
+          <h2>Claim matrix</h2>
+          <span class="muted">One row per track</span>
         </div>
-        <div id="track-summary"></div>
+        <div id="claim-matrix"></div>
       </section>
 
-      <section class="card">
-        <div class="section-heading">
-          <h2>Evidence detail</h2>
-          <span class="muted">One row per evidence or seed artifact</span>
-        </div>
-        <div id="evidence-detail"></div>
-      </section>
-
-      <section class="card">
-        <div class="section-heading">
-          <h2>Refusal boundaries</h2>
-          <span class="muted">What is refused, why, and what would reduce it</span>
-        </div>
-        <div id="refusal-detail"></div>
-      </section>
-
-      <section class="card">
-        <div class="section-heading">
-          <h2>Next steps</h2>
-          <span class="muted">Claim progression queue</span>
-        </div>
-        <div id="next-steps"></div>
-      </section>
+      <section class="groups" id="track-groups" aria-label="grouped track details"></section>
 
       <p id="error" class="error" role="alert"></p>
     </main>
@@ -665,10 +702,8 @@
       const metrics = document.querySelector("#metrics");
       const source = document.querySelector("#source");
       const error = document.querySelector("#error");
-      const trackSummary = document.querySelector("#track-summary");
-      const evidenceDetail = document.querySelector("#evidence-detail");
-      const refusalDetail = document.querySelector("#refusal-detail");
-      const nextSteps = document.querySelector("#next-steps");
+      const claimMatrix = document.querySelector("#claim-matrix");
+      const trackGroups = document.querySelector("#track-groups");
 
       loadEmbedded();
       if (globalThis.location?.protocol !== "file:") void loadRemote();
@@ -695,78 +730,88 @@
         source.textContent = `source: ${label} · version: ${data.version ?? "unknown"}`;
         const tracks = data.tracks ?? [];
         metrics.innerHTML = metricCards(data, tracks).join("");
-        trackSummary.innerHTML = table(
+        claimMatrix.innerHTML = table(
           [
             "Track",
-            "Family",
-            "Runtime",
             "Status",
-            "Stage",
             "Product",
             "Broad",
             "Arbitrary process",
-            "Claim gate",
-            "Claim change",
-            "Scope",
+            "Gate",
+            "Evidence",
+            "Refusals",
+            "Next",
           ],
           tracks.map((track) => [
-            `<a class="track-anchor" href="#${escapeHtml(track.id)}">${escapeHtml(track.name)}</a><p class="muted">${escapeHtml(track.id)}</p>`,
-            track.family,
-            track.runtime,
+            `<strong>${escapeHtml(track.name)}</strong><p class="muted">${escapeHtml(track.family)} · ${escapeHtml(track.runtime)} · ${escapeHtml(track.stage)}</p>`,
             pill(track.status),
-            track.stage,
             claimValue(track.currentClaim?.productSupport),
             claimValue(track.currentClaim?.broadSupport),
             claimValue(track.currentClaim?.arbitraryProcessCrossArchRestore),
             track.claimGate,
-            String(track.claimChangeAllowed),
-            `${escapeHtml(track.scope ?? "")}<p class="muted">${escapeHtml(track.summary ?? "")}</p>`,
+            count(track.evidenceRows, "row"),
+            count(track.refusalRows, "boundary"),
+            count(track.nextSteps, "step"),
           ]),
         );
-        evidenceDetail.innerHTML = table(
-          [
-            "Track",
-            "Evidence row",
-            "Area",
-            "Kind",
-            "Status",
-            "Evidence",
-            "Gate",
-            "Artifact",
-            "Next",
-          ],
-          tracks.flatMap((track) =>
-            (track.evidenceRows ?? []).map((row) => [
-              `<span id="${escapeHtml(track.id)}">${escapeHtml(track.name)}</span>`,
-              row.id,
-              row.area,
-              row.kind,
-              pill(row.status),
-              row.evidence,
-              row.gate,
-              code(row.artifact),
-              row.next,
-            ]),
-          ),
-        );
-        refusalDetail.innerHTML = table(
-          ["Track", "Boundary", "Status", "Reason", "Needed to reduce"],
-          tracks.flatMap((track) =>
-            (track.refusalRows ?? []).map((row) => [
-              track.name,
-              row.boundary,
-              pill(row.status),
-              row.reason,
-              row.neededToReduce,
-            ]),
-          ),
-        );
-        nextSteps.innerHTML = table(
-          ["Track", "Priority", "Item", "Gate"],
-          tracks.flatMap((track) =>
-            (track.nextSteps ?? []).map((row) => [track.name, row.priority, row.item, row.gate]),
-          ),
-        );
+        trackGroups.innerHTML = tracks.map(trackGroup).join("");
+      }
+
+      function trackGroup(track, index) {
+        return `<details class="track-group" ${index === 0 ? "open" : ""}>
+          <summary>
+            <span class="track-title"><strong>${escapeHtml(track.name)}</strong><span class="muted">${escapeHtml(track.scope ?? "")}</span></span>
+            ${pill(track.status)}
+            <span class="compact">claim: ${claimValue(track.currentClaim?.productSupport)} / ${claimValue(track.currentClaim?.broadSupport)} / ${claimValue(track.currentClaim?.arbitraryProcessCrossArchRestore)}</span>
+            <span class="compact">change: ${pill(String(track.claimChangeAllowed))}</span>
+          </summary>
+          <div class="track-body">
+            <div class="claim-strip">
+              ${claimBox("Family", `${track.family} / ${track.runtime}`)}
+              ${claimBox("Product path", track.productPath ?? "—")}
+              ${claimBox("Claim gate", track.claimGate ?? "—")}
+              ${claimBox("Next claim", claimObject(track.nextClaim))}
+            </div>
+            <p>${escapeHtml(track.summary ?? "")}</p>
+            <div class="subtables">
+              <section>
+                <h3>Evidence rows</h3>
+                ${table(
+                  ["Row", "Area", "Kind", "Status", "Evidence", "Gate", "Artifact", "Next"],
+                  (track.evidenceRows ?? []).map((row) => [
+                    row.id,
+                    row.area,
+                    row.kind,
+                    pill(row.status),
+                    row.evidence,
+                    row.gate,
+                    code(row.artifact),
+                    row.next,
+                  ]),
+                )}
+              </section>
+              <section>
+                <h3>Refusal boundaries</h3>
+                ${table(
+                  ["Boundary", "Status", "Reason", "Needed to reduce"],
+                  (track.refusalRows ?? []).map((row) => [
+                    row.boundary,
+                    pill(row.status),
+                    row.reason,
+                    row.neededToReduce,
+                  ]),
+                )}
+              </section>
+              <section>
+                <h3>Next steps</h3>
+                ${table(
+                  ["Priority", "Item", "Gate"],
+                  (track.nextSteps ?? []).map((row) => [row.priority, row.item, row.gate]),
+                )}
+              </section>
+            </div>
+          </div>
+        </details>`;
       }
 
       function metricCards(data, tracks) {
@@ -792,7 +837,12 @@
         return `<article class="metric"><span class="muted">${escapeHtml(label)}</span><strong>${escapeHtml(String(value))}</strong></article>`;
       }
 
+      function claimBox(label, value) {
+        return `<article class="claim-box"><span class="muted">${escapeHtml(label)}</span><strong>${formatCell(value)}</strong></article>`;
+      }
+
       function table(headers, rows) {
+        if (rows.length === 0) return `<p class="muted">No rows yet.</p>`;
         return `<table><thead><tr>${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join("")}</tr></thead><tbody>${rows
           .map((row) => `<tr>${row.map((cell) => `<td>${formatCell(cell)}</td>`).join("")}</tr>`)
           .join("")}</tbody></table>`;
@@ -804,9 +854,20 @@
         return escapeHtml(String(value));
       }
 
+      function claimObject(claim) {
+        if (!claim) return "—";
+        return Object.entries(claim)
+          .map(([key, value]) => `${key}: ${value}`)
+          .join(" · ");
+      }
+
       function claimValue(value) {
         if (value === null || value === undefined) return "—";
         return typeof value === "number" ? `${value}%` : String(value);
+      }
+
+      function count(items = [], unit) {
+        return `${items.length} ${unit}${items.length === 1 ? "" : "s"}`;
       }
 
       function pill(value) {
