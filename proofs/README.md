@@ -14,9 +14,10 @@ Top-level product claim folders include:
 
 Historical numbered proofs are physically grouped under product folders such as
 `proofs/nodejs/proper-level5-numbered/<id>/` and
-`proofs/nodejs/app-corpus-numbered/<id>/`. The `proofs/by-id/<id>` symlink index
-preserves proof-id lookup for older matrices and smoke scripts without keeping
-numbered proof directories at the root.
+`proofs/nodejs/app-corpus-numbered/<id>/`. Shared Node proof helpers live in
+`proofs/nodejs/utils/`. The `proofs/by-id/<id>` symlink index preserves proof-id
+lookup for older matrices and smoke scripts without keeping numbered proof
+directories at the root.
 
 New claim-facing proof summaries should live under the product claim folders above.
 

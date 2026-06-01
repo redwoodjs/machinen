@@ -1,3 +1,3 @@
-import { runNodeLevel5MiddlewareErrorHandlingProof } from "../../../node-level5-middleware-error-handling-proof-utils.ts";
+import { runNodeLevel5MiddlewareErrorHandlingProof } from "../../utils/node-level5-middleware-error-handling-proof-utils.ts";
 
 runNodeLevel5MiddlewareErrorHandlingProof("1318");

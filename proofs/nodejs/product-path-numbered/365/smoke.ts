@@ -1,4 +1,4 @@
 #!/usr/bin/env tsx
-import { runNodeLevel5RetainedArtifactProof } from "../../../node-level5-retained-artifact-proof-utils.ts";
+import { runNodeLevel5RetainedArtifactProof } from "../../utils/node-level5-retained-artifact-proof-utils.ts";
 
 runNodeLevel5RetainedArtifactProof("365");
