@@ -90,6 +90,8 @@ describe("claim progress dashboard", () => {
     expect(embeddedJson).toBeDefined();
     expect(JSON.parse(embeddedJson ?? "{}")).toEqual(dashboard);
     expect(html).toContain("claim-progress.json");
+    expect(html).toContain("What to do next");
+    expect(html).toContain("Track overview");
     expect(html).toContain("Claim matrix");
     expect(html).toContain("Proofs by claim");
     expect(html).toContain("Proof directory");

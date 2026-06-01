@@ -214,8 +214,89 @@
       .compact {
         white-space: nowrap;
       }
+      .decision-grid,
+      .track-cards {
+        display: grid;
+        gap: 16px;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        margin: 18px 0;
+      }
+      .decision,
+      .track-card,
+      .action-item {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        padding: 16px;
+      }
+      .decision {
+        border-left: 5px solid var(--info);
+      }
+      .decision.good {
+        border-left-color: var(--good);
+      }
+      .decision.warn {
+        border-left-color: var(--warn);
+      }
+      .decision.bad {
+        border-left-color: var(--bad);
+      }
+      .decision strong,
+      .track-card strong {
+        display: block;
+        margin-top: 6px;
+      }
+      .action-list {
+        counter-reset: action;
+        display: grid;
+        gap: 12px;
+        list-style: none;
+        margin: 16px 0 0;
+        padding: 0;
+      }
+      .action-item {
+        align-items: start;
+        display: grid;
+        gap: 8px;
+        grid-template-columns: auto 1fr;
+      }
+      .action-item::before {
+        align-items: center;
+        background: color-mix(in srgb, var(--info) 20%, transparent);
+        border-radius: 999px;
+        color: #bae6fd;
+        content: counter(action);
+        counter-increment: action;
+        display: inline-flex;
+        font-weight: 900;
+        height: 30px;
+        justify-content: center;
+        width: 30px;
+      }
+      .status-line {
+        align-items: center;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 10px;
+      }
+      .scan-note {
+        background: var(--card-2);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        margin-top: 12px;
+        padding: 12px;
+      }
+      details.card > summary {
+        cursor: pointer;
+        list-style: none;
+      }
+      details.card > summary::-webkit-details-marker {
+        display: none;
+      }
       @media (max-width: 860px) {
-        details.track-group summary {
+        details.track-group summary,
+        .action-item {
           grid-template-columns: 1fr;
         }
       }
@@ -227,31 +308,60 @@
         <p class="muted">Machinen product evidence</p>
         <h1>Claim progress dashboard</h1>
         <p class="muted">
-          Grouped by product track. The page embeds a snapshot for direct file viewing; when served
-          over HTTP, reloading the page reads the latest <code>claim-progress.json</code>.
+          Start with the summary cards and recommended next work. The detailed matrices are now
+          collapsed below for audit/debug use. When served over HTTP, reloading the page reads the
+          latest <code>claim-progress.json</code>.
         </p>
         <p id="source" class="muted"></p>
       </header>
 
       <section id="metrics" class="grid" aria-label="summary metrics"></section>
 
+      <section id="read-this-first" class="decision-grid" aria-label="read this first"></section>
+
       <section class="card">
         <div class="section-heading">
+          <h2>What to do next</h2>
+          <span class="muted"
+            >Recommended order; claim-changing gates stay locked until listed</span
+          >
+        </div>
+        <div id="next-actions"></div>
+      </section>
+
+      <section class="card">
+        <div class="section-heading">
+          <h2>Track overview</h2>
+          <span class="muted">One scannable card per product/workload track</span>
+        </div>
+        <div id="track-overview" class="track-cards"></div>
+      </section>
+
+      <details class="card">
+        <summary class="section-heading">
           <h2>Claim matrix</h2>
-          <span class="muted">One row per track</span>
-        </div>
+          <span class="muted">Audit table: one row per track</span>
+        </summary>
         <div id="claim-matrix"></div>
-      </section>
+      </details>
+
+      <details class="card">
+        <summary class="section-heading">
+          <h2>Proofs by claim</h2>
+          <span class="muted">Audit table: sorted by the claim each proof supports or blocks</span>
+        </summary>
+        <div id="proof-groups"></div>
+      </details>
 
       <section class="card">
         <div class="section-heading">
-          <h2>Proofs by claim</h2>
-          <span class="muted">Sorted by the claim each proof supports or blocks</span>
+          <h2>Deep-dive track details</h2>
+          <span class="muted"
+            >Open a track only when you need evidence rows, refusals, and gates</span
+          >
         </div>
-        <div id="proof-groups"></div>
+        <section class="groups" id="track-groups" aria-label="grouped track details"></section>
       </section>
-
-      <section class="groups" id="track-groups" aria-label="grouped track details"></section>
 
       <p id="error" class="error" role="alert"></p>
     </main>
@@ -1080,6 +1190,9 @@
       const metrics = document.querySelector("#metrics");
       const source = document.querySelector("#source");
       const error = document.querySelector("#error");
+      const readThisFirst = document.querySelector("#read-this-first");
+      const nextActions = document.querySelector("#next-actions");
+      const trackOverview = document.querySelector("#track-overview");
       const claimMatrix = document.querySelector("#claim-matrix");
       const proofGroups = document.querySelector("#proof-groups");
       const trackGroups = document.querySelector("#track-groups");
@@ -1112,6 +1225,9 @@
         const claims = data.proofGroups ?? [];
         activeProofGroups = claims;
         metrics.innerHTML = metricCards(data, tracks, claims).join("");
+        readThisFirst.innerHTML = decisionCards(data, tracks).join("");
+        nextActions.innerHTML = nextActionList(tracks);
+        trackOverview.innerHTML = trackCards(tracks);
         claimMatrix.innerHTML = table(
           [
             "Track",
@@ -1151,8 +1267,91 @@
         trackGroups.innerHTML = tracks.map(trackGroup).join("");
       }
 
-      function trackGroup(track, index) {
-        return `<details class="track-group" ${index === 0 ? "open" : ""}>
+      function decisionCards(data, tracks) {
+        const node = tracks.find((track) => track.id === "node-service");
+        const postgres = tracks.find((track) => track.id === "postgres");
+        const arbitrary = tracks.find((track) => track.id === "arbitrary-process");
+        return [
+          decisionCard(
+            "Public claim now",
+            node ? `${node.name}: ${claimTriple(node.currentClaim)}` : "Node claim data missing",
+            "Only selected safe Node services are GA. This does not imply arbitrary Linux process support.",
+            "good",
+          ),
+          decisionCard(
+            "Best next claim lift",
+            postgres ? postgres.name : "Postgres portable restore",
+            "Turn the existing clean logical product track into a percent-style claim ladder with retained verifier artifacts.",
+            "warn",
+          ),
+          decisionCard(
+            "Keep locked at 0%",
+            arbitrary
+              ? `${arbitrary.name}: ${claimValue(arbitrary.currentClaim?.arbitraryProcessCrossArchRestore)}`
+              : "Arbitrary process",
+            "The regular-file-FD proof is one verified seed. It cannot raise the arbitrary-process claim until the claim-ready gate exists.",
+            "bad",
+          ),
+          decisionCard(
+            "Do not build toward",
+            "raw CPU / source-ISA / raw VM restore",
+            `The supported product path is ${data.currentProductPath ?? "VM-first snapshot/restore"} with target-native reconstruction, not raw cross-architecture restore.`,
+            "bad",
+          ),
+        ];
+      }
+
+      function decisionCard(label, title, body, tone) {
+        return `<article class="decision ${tone}"><span class="muted">${escapeHtml(label)}</span><strong>${escapeHtml(title)}</strong><p class="muted">${escapeHtml(body)}</p></article>`;
+      }
+
+      function nextActionList(tracks) {
+        const rank = new Map([
+          ["arbitrary-process", 1],
+          ["postgres", 2],
+          ["bun", 3],
+          ["generic-linux-service", 4],
+          ["whole-linux-vm-workload", 5],
+          ["node-service", 6],
+        ]);
+        const actions = tracks
+          .flatMap((track) =>
+            (track.nextSteps ?? []).map((step) => ({
+              ...step,
+              trackId: track.id,
+              trackName: track.name,
+              rank: rank.get(track.id) ?? 99,
+            })),
+          )
+          .filter((step) => step.trackId !== "node-service")
+          .sort((left, right) => left.rank - right.rank || left.priority - right.priority)
+          .slice(0, 7);
+        if (actions.length === 0) return `<p class="muted">No next actions listed.</p>`;
+        return `<ol class="action-list">${actions
+          .map(
+            (action) =>
+              `<li class="action-item"><div><strong>${escapeHtml(action.trackName)}</strong><p>${escapeHtml(action.item)}</p><p class="muted">Gate: <code>${escapeHtml(action.gate)}</code></p></div></li>`,
+          )
+          .join("")}</ol>`;
+      }
+
+      function trackCards(tracks) {
+        return tracks
+          .map((track) => {
+            const next = track.nextSteps?.[0]?.item ?? "Keep current claim stable.";
+            const gate = track.nextSteps?.[0]?.gate ?? track.claimGate ?? "no gate listed";
+            return `<article class="track-card">
+              <div class="section-heading"><strong>${escapeHtml(track.name)}</strong>${pill(track.status)}</div>
+              <div class="status-line"><span class="muted">Claim</span><span>${claimTriple(track.currentClaim)}</span><span class="muted">Change</span>${pill(String(track.claimChangeAllowed))}</div>
+              <p class="scan-note"><strong>Next:</strong> ${escapeHtml(next)}</p>
+              <p class="muted">Gate: <code>${escapeHtml(gate)}</code></p>
+            </article>`;
+          })
+          .join("");
+      }
+
+      function trackGroup(track) {
+        return `<details class="track-group">
           <summary>
             <span class="track-title"><strong>${escapeHtml(track.name)}</strong><span class="muted">${escapeHtml(track.scope ?? "")}</span></span>
             ${pill(track.status)}
@@ -1287,6 +1486,10 @@
       function claimValue(value) {
         if (value === null || value === undefined) return "—";
         return typeof value === "number" ? `${value}%` : String(value);
+      }
+
+      function claimTriple(claim = {}) {
+        return `${claimValue(claim.productSupport)} / ${claimValue(claim.broadSupport)} / ${claimValue(claim.arbitraryProcessCrossArchRestore)}`;
       }
 
       function count(items = [], unit) {
