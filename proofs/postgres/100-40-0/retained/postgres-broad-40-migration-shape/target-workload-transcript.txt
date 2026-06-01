@@ -1,0 +1,10 @@
+row=postgres-broad-40-migration-shape
+kind=migration
+capture=clean-idle-logical
+restore=target-native-postgresql
+connect=after-restore-only
+workload=committed migration DDL before capture is present after restore
+result=migration_version=20260601 schema_hash=match
+active_sessions_at_capture=0
+active_transactions_at_capture=0
+dirty_wal=false

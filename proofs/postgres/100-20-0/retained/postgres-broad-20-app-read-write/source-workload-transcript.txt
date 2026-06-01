@@ -1,0 +1,10 @@
+row=postgres-broad-20-app-read-write
+kind=app-workload
+capture=clean-idle-logical
+restore=target-native-postgresql
+connect=after-restore-only
+workload=application performs reads and writes after restore
+result=users=3 orders=5 writes_after_restore=passed
+active_sessions_at_capture=0
+active_transactions_at_capture=0
+dirty_wal=false

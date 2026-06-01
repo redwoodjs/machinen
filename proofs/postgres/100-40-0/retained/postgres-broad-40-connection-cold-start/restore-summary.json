@@ -1,0 +1,37 @@
+{
+  "kind": "machinen.product-portable-postgres-service-workload-summary",
+  "rowId": "postgres-broad-40-connection-cold-start",
+  "state": "completed",
+  "migrationCompleted": true,
+  "broadServiceWorkloadVerifier": "passed",
+  "sourceTranscriptSha256": "e68e16c6bd188bceb0a38de89fa4aa87df8516332a8e18929fdb9dbabbd1176f",
+  "targetTranscriptSha256": "e68e16c6bd188bceb0a38de89fa4aa87df8516332a8e18929fdb9dbabbd1176f",
+  "queryResultSha256": "bad94ffde9f744226d4ce6c712523f6c6a284b9e6db4ade17ba4e4cf51b42a75",
+  "captureBoundary": {
+    "activeSessions": 0,
+    "activeTransactions": 0,
+    "dirtyWal": false
+  },
+  "restoreBoundary": "new target-native PostgreSQL service after logical restore",
+  "shortcuts": {
+    "rawCpuRestoreUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "sourceTextReplayUsed": false,
+    "sidecarRuntimeUsed": false,
+    "appHooksRequired": false,
+    "metadataOnlySuccessAccepted": false
+  },
+  "refusalsRetained": [
+    "active sessions at capture",
+    "active transactions at capture",
+    "dirty WAL boundary",
+    "physical data-dir cross-ISA copy",
+    "live connection/socket continuation",
+    "replication/failover state",
+    "source-ISA emulation",
+    "sidecar replay",
+    "app checkpoint hooks",
+    "metadata-only success",
+    "arbitrary Linux process restore"
+  ]
+}

@@ -1,0 +1,10 @@
+row=postgres-broad-60-backup-size
+kind=operational-size
+capture=clean-idle-logical
+restore=target-native-postgresql
+connect=after-restore-only
+workload=larger backup/import size row with service verifier
+result=logical_dump_bytes=large verifier=passed
+active_sessions_at_capture=0
+active_transactions_at_capture=0
+dirty_wal=false

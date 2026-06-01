@@ -1,0 +1,10 @@
+row=postgres-broad-60-failure-refusal
+kind=failure-refusal
+capture=clean-idle-logical
+restore=target-native-postgresql
+connect=after-restore-only
+workload=verifier mismatch, dirty WAL, and active sessions fail closed
+result=verifier_mismatch=refused dirty_wal=refused active_session=refused
+active_sessions_at_capture=0
+active_transactions_at_capture=0
+dirty_wal=false

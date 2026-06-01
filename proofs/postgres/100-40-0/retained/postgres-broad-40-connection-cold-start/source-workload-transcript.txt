@@ -1,0 +1,10 @@
+row=postgres-broad-40-connection-cold-start
+kind=service-cold-start
+capture=clean-idle-logical
+restore=target-native-postgresql
+connect=after-restore-only
+workload=new app connections establish after restore with no live socket continuation
+result=new_connections=passed live_socket_continuation=false
+active_sessions_at_capture=0
+active_transactions_at_capture=0
+dirty_wal=false

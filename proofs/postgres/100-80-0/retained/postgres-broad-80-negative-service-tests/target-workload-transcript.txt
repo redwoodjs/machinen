@@ -1,0 +1,10 @@
+row=postgres-broad-80-negative-service-tests
+kind=negative-service-tests
+capture=clean-idle-logical
+restore=target-native-postgresql
+connect=after-restore-only
+workload=live sessions, replication slots, and failover state remain refused
+result=live_sessions=refused replication_slots=refused failover_state=refused
+active_sessions_at_capture=0
+active_transactions_at_capture=0
+dirty_wal=false

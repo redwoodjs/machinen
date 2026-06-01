@@ -1,0 +1,96 @@
+{
+  "id": "postgres-100-100-0",
+  "claim": "Postgres service workload 100 / 100 / 0",
+  "trackId": "postgres",
+  "status": "claimed",
+  "scope": "Final bounded broad support claim for clean, idle logical PostgreSQL service workloads after target-native restore. This is still not active runtime continuation or arbitrary Linux process restore.",
+  "claimNumbers": {
+    "productSupport": 100,
+    "broadSupport": 100,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "promotionEffect": "Raises bounded Postgres broad service/workload support to 100%; arbitrary Linux process restore stays 0%.",
+  "proofDirectory": "proofs/postgres/100-100-0",
+  "proofs": [
+    {
+      "id": "postgres-broad-100-release-corpus",
+      "category": "release corpus",
+      "status": "passed",
+      "artifact": "proofs/postgres/100-100-0/retained/100-100-0-service-workload-claim-report.json",
+      "proves": "combined clean logical service workload release corpus passes",
+      "claimUse": "raises bounded Postgres broad service/workload support for clean logical restore; arbitrary-process stays 0",
+      "next": "Maintain release corpus for future claim changes.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 5,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 100,
+          "broadSupport": 85,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": true
+      }
+    },
+    {
+      "id": "postgres-broad-100-behavioral-parity",
+      "category": "behavioral parity",
+      "status": "passed",
+      "artifact": "proofs/postgres/100-100-0/retained/100-100-0-service-workload-claim-report.json",
+      "proves": "source/target workload transcripts and query result hashes match",
+      "claimUse": "raises bounded Postgres broad service/workload support for clean logical restore; arbitrary-process stays 0",
+      "next": "Keep target verifier artifacts retained.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 5,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 100,
+          "broadSupport": 90,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": true
+      }
+    },
+    {
+      "id": "postgres-broad-100-refusal-audit",
+      "category": "refusal audit",
+      "status": "passed",
+      "artifact": "proofs/postgres/100-100-0/retained/100-100-0-service-workload-claim-report.json",
+      "proves": "active sessions/transactions, dirty WAL, physical copy, replication/failover, emulation, sidecars, hooks, metadata-only success, and arbitrary-process restore remain refused",
+      "claimUse": "raises bounded Postgres broad service/workload support for clean logical restore; arbitrary-process stays 0",
+      "next": "Use separate product tracks to reduce these boundaries.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 5,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 100,
+          "broadSupport": 95,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": true
+      }
+    },
+    {
+      "id": "postgres-broad-100-product-contract",
+      "category": "product contract",
+      "status": "passed",
+      "artifact": "proofs/postgres/100-100-0/retained/100-100-0-service-workload-claim-report.json",
+      "proves": "public 100% broad claim is bounded to clean logical PostgreSQL service workloads after target-native restore",
+      "claimUse": "raises bounded Postgres broad service/workload support for clean logical restore; arbitrary-process stays 0",
+      "next": "Do not claim live database runtime continuation.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 5,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 100,
+          "broadSupport": 100,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": true
+      }
+    }
+  ]
+}

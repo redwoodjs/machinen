@@ -1,0 +1,10 @@
+row=postgres-broad-20-roles-auth
+kind=authz
+capture=clean-idle-logical
+restore=target-native-postgresql
+connect=after-restore-only
+workload=roles, grants, and authentication-facing privileges verified after restore
+result=roles=app_reader,app_writer grants=match
+active_sessions_at_capture=0
+active_transactions_at_capture=0
+dirty_wal=false

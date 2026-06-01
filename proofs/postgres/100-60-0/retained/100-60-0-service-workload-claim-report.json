@@ -1,0 +1,111 @@
+{
+  "kind": "machinen.product-portable-postgres-service-workload-claim-report",
+  "version": 1,
+  "claim": "Postgres service workload 100 / 60 / 0",
+  "accepted": true,
+  "scope": "Clean, idle logical PostgreSQL service workloads after target-native restore",
+  "productSupport": 100,
+  "arbitraryProcessCrossArchRestore": 0,
+  "rows": [
+    {
+      "id": "postgres-broad-60-trigger-policy",
+      "kind": "trigger-policy",
+      "description": "deterministic triggers and RLS policies checked through app workload",
+      "result": "trigger=passed rls=passed"
+    },
+    {
+      "id": "postgres-broad-60-jsonb-search",
+      "kind": "jsonb-search",
+      "description": "jsonb/filter/search workload result parity",
+      "result": "jsonb_filter=match search_count=42"
+    },
+    {
+      "id": "postgres-broad-60-failure-refusal",
+      "kind": "failure-refusal",
+      "description": "verifier mismatch, dirty WAL, and active sessions fail closed",
+      "result": "verifier_mismatch=refused dirty_wal=refused active_session=refused"
+    },
+    {
+      "id": "postgres-broad-60-backup-size",
+      "kind": "operational-size",
+      "description": "larger backup/import size row with service verifier",
+      "result": "logical_dump_bytes=large verifier=passed"
+    }
+  ],
+  "refusalBoundariesRetained": [
+    "active sessions at capture",
+    "active transactions at capture",
+    "dirty WAL boundary",
+    "physical data-dir cross-ISA copy",
+    "live connection/socket continuation",
+    "replication/failover state",
+    "source-ISA emulation",
+    "sidecar replay",
+    "app checkpoint hooks",
+    "metadata-only success",
+    "arbitrary Linux process restore"
+  ],
+  "artifacts": [
+    {
+      "name": "postgres-broad-60-trigger-policy/source-workload-transcript.txt",
+      "path": "retained/postgres-broad-60-trigger-policy/source-workload-transcript.txt",
+      "sha256": "e9be416b835b50f1edfbdbf0f22989577a5eb2223383725e81e291ab59848b81"
+    },
+    {
+      "name": "postgres-broad-60-trigger-policy/target-workload-transcript.txt",
+      "path": "retained/postgres-broad-60-trigger-policy/target-workload-transcript.txt",
+      "sha256": "e9be416b835b50f1edfbdbf0f22989577a5eb2223383725e81e291ab59848b81"
+    },
+    {
+      "name": "postgres-broad-60-trigger-policy/restore-summary.json",
+      "path": "retained/postgres-broad-60-trigger-policy/restore-summary.json",
+      "sha256": "92bfd528d26382ae8ccbeb1fc2ca762c046409b88ec99e6ad8fbb2af8dfb41d4"
+    },
+    {
+      "name": "postgres-broad-60-jsonb-search/source-workload-transcript.txt",
+      "path": "retained/postgres-broad-60-jsonb-search/source-workload-transcript.txt",
+      "sha256": "1168883212d589069dcea718377755cca331f5d039e4191d078b800788c8b032"
+    },
+    {
+      "name": "postgres-broad-60-jsonb-search/target-workload-transcript.txt",
+      "path": "retained/postgres-broad-60-jsonb-search/target-workload-transcript.txt",
+      "sha256": "1168883212d589069dcea718377755cca331f5d039e4191d078b800788c8b032"
+    },
+    {
+      "name": "postgres-broad-60-jsonb-search/restore-summary.json",
+      "path": "retained/postgres-broad-60-jsonb-search/restore-summary.json",
+      "sha256": "2222753b7b11cbe44a7d5357bbf22587fcebeddd4227fc6df8a2acd243e8489f"
+    },
+    {
+      "name": "postgres-broad-60-failure-refusal/source-workload-transcript.txt",
+      "path": "retained/postgres-broad-60-failure-refusal/source-workload-transcript.txt",
+      "sha256": "bfb73c05d53b0536dbbf3a179428cd5b3d22b103b4c04ad48c1df559c4ed7aad"
+    },
+    {
+      "name": "postgres-broad-60-failure-refusal/target-workload-transcript.txt",
+      "path": "retained/postgres-broad-60-failure-refusal/target-workload-transcript.txt",
+      "sha256": "bfb73c05d53b0536dbbf3a179428cd5b3d22b103b4c04ad48c1df559c4ed7aad"
+    },
+    {
+      "name": "postgres-broad-60-failure-refusal/restore-summary.json",
+      "path": "retained/postgres-broad-60-failure-refusal/restore-summary.json",
+      "sha256": "50fea01ccec5f95ca67e4b4897be46fada30fb8cd85f8b2a3582b17b1885d66a"
+    },
+    {
+      "name": "postgres-broad-60-backup-size/source-workload-transcript.txt",
+      "path": "retained/postgres-broad-60-backup-size/source-workload-transcript.txt",
+      "sha256": "206a22fb930b8d8808b99e53413b5cda02ff7f5b7c427ea1702c44aaf7f27894"
+    },
+    {
+      "name": "postgres-broad-60-backup-size/target-workload-transcript.txt",
+      "path": "retained/postgres-broad-60-backup-size/target-workload-transcript.txt",
+      "sha256": "206a22fb930b8d8808b99e53413b5cda02ff7f5b7c427ea1702c44aaf7f27894"
+    },
+    {
+      "name": "postgres-broad-60-backup-size/restore-summary.json",
+      "path": "retained/postgres-broad-60-backup-size/restore-summary.json",
+      "sha256": "e4282c80961da5791d5efce654b2d4b2f4ace0d5f660e3010a7a30a162f7fd61"
+    }
+  ],
+  "artifactsSha256": "b99788cb352573c5812fab07cfe35ac912e10c25b71f3c207afbf513f9169621"
+}

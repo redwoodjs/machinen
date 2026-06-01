@@ -63,10 +63,10 @@ Successful descriptors set:
 
 ## Percent-style claim ladder
 
-The clean logical subset now has a retained 100 / 0 / 0 claim ladder:
+The clean logical subset now has a retained 100 / 100 / 0 claim ladder:
 
 - product support claim: `100%`;
-- broad service/workload claim: `0%`;
+- broad service/workload claim: `100%` for clean logical PostgreSQL service workloads after target-native restore;
 - arbitrary Linux process restore claim: `0%`.
 
 The original retained 20% ladder lives in
@@ -82,11 +82,21 @@ and summarized by `proofs/postgres/40-0-0/`. Additional retained claim folders
 multi-schema/ownership, advanced schema, database-code, policy, mixed-workload,
 release-corpus, bidirectional-matrix, refusal-audit, and product-contract rows.
 
-This 100% is explicitly bounded to clean, idle logical PostgreSQL reconstruction.
-Active sessions, active transactions, dirty WAL, physical data-dir copy,
-source-ISA emulation, sidecars, app hooks, metadata-only success, broad
-service/workload support, and arbitrary Linux process restore remain refused or
-out of scope unless a separate verifier track exists.
+The broad service/workload ladder is summarized by `proofs/postgres/100-20-0/`,
+`proofs/postgres/100-40-0/`, `proofs/postgres/100-60-0/`,
+`proofs/postgres/100-80-0/`, and `proofs/postgres/100-100-0/`. These folders add
+retained application-style workload transcripts, query result parity, roles/auth,
+post-restore transaction behavior, ORM/migration/index rows, connection cold
+start, triggers/policies, JSONB/search, API corpus, tenant-policy rows,
+operational runbooks, release corpus, behavioral parity, refusal audit, and a
+bounded product contract.
+
+This 100 / 100 / 0 is explicitly bounded to clean, idle logical PostgreSQL
+reconstruction and service workloads that reconnect after restore. Active
+sessions, active transactions, dirty WAL, physical data-dir copy, live
+connection/socket continuation, replication/failover state, source-ISA emulation,
+sidecars, app hooks, metadata-only success, and arbitrary Linux process restore
+remain refused or out of scope unless a separate verifier track exists.
 
 ## Stable product refusals
 

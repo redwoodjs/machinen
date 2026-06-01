@@ -1,0 +1,96 @@
+{
+  "id": "postgres-100-40-0",
+  "claim": "Postgres service workload 100 / 40 / 0",
+  "trackId": "postgres",
+  "status": "claimed",
+  "scope": "Multiple clean logical service workload shapes with ORM-style access, migrations, indexes, and cold-start connection behavior.",
+  "claimNumbers": {
+    "productSupport": 100,
+    "broadSupport": 40,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "promotionEffect": "Raises bounded Postgres broad service/workload support to 40%; arbitrary Linux process restore stays 0%.",
+  "proofDirectory": "proofs/postgres/100-40-0",
+  "proofs": [
+    {
+      "id": "postgres-broad-40-orm-crud",
+      "category": "ORM workload",
+      "status": "passed",
+      "artifact": "proofs/postgres/100-40-0/retained/100-40-0-service-workload-claim-report.json",
+      "proves": "ORM-style CRUD transcript passes after restore",
+      "claimUse": "raises bounded Postgres broad service/workload support for clean logical restore; arbitrary-process stays 0",
+      "next": "Add extension/policy service rows before 60%.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 5,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 100,
+          "broadSupport": 25,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": true
+      }
+    },
+    {
+      "id": "postgres-broad-40-migration-shape",
+      "category": "migrations",
+      "status": "passed",
+      "artifact": "proofs/postgres/100-40-0/retained/100-40-0-service-workload-claim-report.json",
+      "proves": "committed schema migrations are present and verifiable after restore",
+      "claimUse": "raises bounded Postgres broad service/workload support for clean logical restore; arbitrary-process stays 0",
+      "next": "Add larger migration corpus before 80%.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 5,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 100,
+          "broadSupport": 30,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": true
+      }
+    },
+    {
+      "id": "postgres-broad-40-index-query-plan",
+      "category": "indexes/constraints",
+      "status": "passed",
+      "artifact": "proofs/postgres/100-40-0/retained/100-40-0-service-workload-claim-report.json",
+      "proves": "indexed lookups and expected constraint failures behave after restore",
+      "claimUse": "raises bounded Postgres broad service/workload support for clean logical restore; arbitrary-process stays 0",
+      "next": "Add partition/query corpus before 80%.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 5,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 100,
+          "broadSupport": 35,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": true
+      }
+    },
+    {
+      "id": "postgres-broad-40-connection-cold-start",
+      "category": "service connection",
+      "status": "passed",
+      "artifact": "proofs/postgres/100-40-0/retained/100-40-0-service-workload-claim-report.json",
+      "proves": "applications reconnect cold to the restored target service; live socket continuation remains refused",
+      "claimUse": "raises bounded Postgres broad service/workload support for clean logical restore; arbitrary-process stays 0",
+      "next": "Keep live client sessions refused.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 5,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 100,
+          "broadSupport": 40,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": true
+      }
+    }
+  ]
+}

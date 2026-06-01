@@ -1,0 +1,37 @@
+{
+  "kind": "machinen.product-portable-postgres-service-workload-summary",
+  "rowId": "postgres-broad-20-query-result-parity",
+  "state": "completed",
+  "migrationCompleted": true,
+  "broadServiceWorkloadVerifier": "passed",
+  "sourceTranscriptSha256": "e502745d261c99c8398ffd2e7ab0ac6f497b3c7b30374165e208e64f8754195b",
+  "targetTranscriptSha256": "e502745d261c99c8398ffd2e7ab0ac6f497b3c7b30374165e208e64f8754195b",
+  "queryResultSha256": "e9ea444a41597791c1f1fbd15cfe5563ece3afb6f8d4cfa3fccab5f5b67c6c0a",
+  "captureBoundary": {
+    "activeSessions": 0,
+    "activeTransactions": 0,
+    "dirtyWal": false
+  },
+  "restoreBoundary": "new target-native PostgreSQL service after logical restore",
+  "shortcuts": {
+    "rawCpuRestoreUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "sourceTextReplayUsed": false,
+    "sidecarRuntimeUsed": false,
+    "appHooksRequired": false,
+    "metadataOnlySuccessAccepted": false
+  },
+  "refusalsRetained": [
+    "active sessions at capture",
+    "active transactions at capture",
+    "dirty WAL boundary",
+    "physical data-dir cross-ISA copy",
+    "live connection/socket continuation",
+    "replication/failover state",
+    "source-ISA emulation",
+    "sidecar replay",
+    "app checkpoint hooks",
+    "metadata-only success",
+    "arbitrary Linux process restore"
+  ]
+}

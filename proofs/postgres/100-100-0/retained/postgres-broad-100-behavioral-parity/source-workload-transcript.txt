@@ -1,0 +1,10 @@
+row=postgres-broad-100-behavioral-parity
+kind=behavioral-parity
+capture=clean-idle-logical
+restore=target-native-postgresql
+connect=after-restore-only
+workload=source and target workload transcripts and query results match
+result=transcripts=match query_hashes=match
+active_sessions_at_capture=0
+active_transactions_at_capture=0
+dirty_wal=false

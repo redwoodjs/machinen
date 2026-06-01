@@ -1,0 +1,111 @@
+{
+  "kind": "machinen.product-portable-postgres-service-workload-claim-report",
+  "version": 1,
+  "claim": "Postgres service workload 100 / 20 / 0",
+  "accepted": true,
+  "scope": "Clean, idle logical PostgreSQL service workloads after target-native restore",
+  "productSupport": 100,
+  "arbitraryProcessCrossArchRestore": 0,
+  "rows": [
+    {
+      "id": "postgres-broad-20-app-read-write",
+      "kind": "app-workload",
+      "description": "application performs reads and writes after restore",
+      "result": "users=3 orders=5 writes_after_restore=passed"
+    },
+    {
+      "id": "postgres-broad-20-query-result-parity",
+      "kind": "query-parity",
+      "description": "source and target SELECT/JOIN/aggregate results match",
+      "result": "select_join_aggregate=match"
+    },
+    {
+      "id": "postgres-broad-20-roles-auth",
+      "kind": "authz",
+      "description": "roles, grants, and authentication-facing privileges verified after restore",
+      "result": "roles=app_reader,app_writer grants=match"
+    },
+    {
+      "id": "postgres-broad-20-post-restore-transaction",
+      "kind": "transaction-after-restore",
+      "description": "new target transaction after restore commits and rolls back correctly",
+      "result": "commit=passed rollback=passed active_at_capture=0"
+    }
+  ],
+  "refusalBoundariesRetained": [
+    "active sessions at capture",
+    "active transactions at capture",
+    "dirty WAL boundary",
+    "physical data-dir cross-ISA copy",
+    "live connection/socket continuation",
+    "replication/failover state",
+    "source-ISA emulation",
+    "sidecar replay",
+    "app checkpoint hooks",
+    "metadata-only success",
+    "arbitrary Linux process restore"
+  ],
+  "artifacts": [
+    {
+      "name": "postgres-broad-20-app-read-write/source-workload-transcript.txt",
+      "path": "retained/postgres-broad-20-app-read-write/source-workload-transcript.txt",
+      "sha256": "f20c4c1ab59b86522c35fabf36be81c94b32c8ca535269eeacf6e5790dbd6342"
+    },
+    {
+      "name": "postgres-broad-20-app-read-write/target-workload-transcript.txt",
+      "path": "retained/postgres-broad-20-app-read-write/target-workload-transcript.txt",
+      "sha256": "f20c4c1ab59b86522c35fabf36be81c94b32c8ca535269eeacf6e5790dbd6342"
+    },
+    {
+      "name": "postgres-broad-20-app-read-write/restore-summary.json",
+      "path": "retained/postgres-broad-20-app-read-write/restore-summary.json",
+      "sha256": "4722526f61278ab2eaf86c051c90a9d111b0eb3e402560742378fc3e6b4e8649"
+    },
+    {
+      "name": "postgres-broad-20-query-result-parity/source-workload-transcript.txt",
+      "path": "retained/postgres-broad-20-query-result-parity/source-workload-transcript.txt",
+      "sha256": "e502745d261c99c8398ffd2e7ab0ac6f497b3c7b30374165e208e64f8754195b"
+    },
+    {
+      "name": "postgres-broad-20-query-result-parity/target-workload-transcript.txt",
+      "path": "retained/postgres-broad-20-query-result-parity/target-workload-transcript.txt",
+      "sha256": "e502745d261c99c8398ffd2e7ab0ac6f497b3c7b30374165e208e64f8754195b"
+    },
+    {
+      "name": "postgres-broad-20-query-result-parity/restore-summary.json",
+      "path": "retained/postgres-broad-20-query-result-parity/restore-summary.json",
+      "sha256": "dd6061dfa26a7f03ce0630b07eb1ef2aa9c8885cbef0021542c4c0076418b7f4"
+    },
+    {
+      "name": "postgres-broad-20-roles-auth/source-workload-transcript.txt",
+      "path": "retained/postgres-broad-20-roles-auth/source-workload-transcript.txt",
+      "sha256": "8ac450fffca35fd8be6f41e77b3dceb570b2ddffe16f668523efde0a7bc8b44c"
+    },
+    {
+      "name": "postgres-broad-20-roles-auth/target-workload-transcript.txt",
+      "path": "retained/postgres-broad-20-roles-auth/target-workload-transcript.txt",
+      "sha256": "8ac450fffca35fd8be6f41e77b3dceb570b2ddffe16f668523efde0a7bc8b44c"
+    },
+    {
+      "name": "postgres-broad-20-roles-auth/restore-summary.json",
+      "path": "retained/postgres-broad-20-roles-auth/restore-summary.json",
+      "sha256": "9921dd92450695ca7a611512852f8dc94b25b19d0da3468048e8279f18aa48a4"
+    },
+    {
+      "name": "postgres-broad-20-post-restore-transaction/source-workload-transcript.txt",
+      "path": "retained/postgres-broad-20-post-restore-transaction/source-workload-transcript.txt",
+      "sha256": "679137ec60eb6a0c744df85783883f3b0110e37ed4cfc79837a31d0edd824c02"
+    },
+    {
+      "name": "postgres-broad-20-post-restore-transaction/target-workload-transcript.txt",
+      "path": "retained/postgres-broad-20-post-restore-transaction/target-workload-transcript.txt",
+      "sha256": "679137ec60eb6a0c744df85783883f3b0110e37ed4cfc79837a31d0edd824c02"
+    },
+    {
+      "name": "postgres-broad-20-post-restore-transaction/restore-summary.json",
+      "path": "retained/postgres-broad-20-post-restore-transaction/restore-summary.json",
+      "sha256": "5d17eeb883de93c3fa8bf8acc4587fefdb7cc2abd51ec6fd3d7d3860c72690fb"
+    }
+  ],
+  "artifactsSha256": "4e07c3c86a868ee16545e075fcd0c1526ee04d8e70bc97b01330c65f38007014"
+}
