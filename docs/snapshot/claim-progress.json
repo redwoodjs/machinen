@@ -4,7 +4,8 @@
   "updatedFrom": [
     "docs/snapshot/node-level5-product-support-claim-registry.json",
     "docs/snapshot/node-level5-product-support-100.json",
-    "docs/snapshot/arbitrary-process-level5-seed-matrix.json"
+    "docs/snapshot/arbitrary-process-level5-seed-matrix.json",
+    "docs/snapshot/arbitrary-process-level5-regular-file-fd-proof.md"
   ],
   "currentProductPath": "machinen snapshot <vm-name> --out <dir>; machinen restore <dir>",
   "columns": {
@@ -131,8 +132,8 @@
         "arbitraryProcessCrossArchRestore": 1,
         "claimChangeAllowed": false
       },
-      "summary": "Seed matrix exists for tiny target-native reconstruction candidates, including the proven ping socket resource row, but no arbitrary-process claim is raised yet.",
-      "claimGate": "dedicated arbitrary-process claim-ready gate required",
+      "summary": "Seed matrix exists for tiny target-native reconstruction candidates. The regular file FD row now has retained verifier artifacts; no arbitrary-process claim is raised yet.",
+      "claimGate": "regular-file-fd proof partial; dedicated arbitrary-process claim-ready gate still required",
       "claimChangeAllowed": false,
       "evidence": [
         "tiny native idle process seed",
@@ -168,11 +169,11 @@
           "id": "native-regular-file-fd",
           "area": "file descriptors",
           "kind": "resource translation seed",
-          "status": "seed-candidate",
-          "evidence": "Regular file FD boundary candidate",
-          "gate": "arbitrary-process-level5-seed-matrix",
-          "artifact": "arbitrary-process-level5-seed/native-regular-file-fd.json",
-          "next": "Prove offset, flags, and read/write continuation."
+          "status": "verified-seed",
+          "evidence": "Regular file FD target-native reopen proof verifies captured offset and read continuation",
+          "gate": "arbitrary-process regular-file-fd proof accepted",
+          "artifact": "regular-file-fd-proof-report.json",
+          "next": "Use this as one verified seed row; keep broader arbitrary-process claim blocked until the claim-ready gate."
         },
         {
           "id": "native-simple-pipe-fd",
@@ -266,26 +267,31 @@
         "rows": 14,
         "seedCandidates": 7,
         "refused": 6,
-        "notProven": 1
+        "notProven": 1,
+        "verifiedSeeds": 1
       },
       "nextSteps": [
         {
           "priority": 1,
-          "item": "Add retained verifier artifacts for regular file FDs.",
-          "gate": "artifact sha verification plus target behavior proof"
+          "item": "Define the arbitrary-process claim-ready gate before changing 0%. ",
+          "gate": "claimChangeAllowed must become true only from that gate"
         },
         {
           "priority": 2,
-          "item": "Add idle epoll and idle TCP listener safe-boundary proofs.",
-          "gate": "idle-only resource reconstruction verifier"
+          "item": "Add retained verifier artifacts for simple pipe FDs.",
+          "gate": "artifact sha verification plus target behavior proof"
         },
         {
           "priority": 3,
-          "item": "Define the arbitrary-process claim-ready gate before changing 0%. ",
-          "gate": "claimChangeAllowed must become true only from that gate"
+          "item": "Add idle epoll and idle TCP listener safe-boundary proofs.",
+          "gate": "idle-only resource reconstruction verifier"
         }
       ],
-      "docs": ["arbitrary-process-level5-seed-matrix.md", "level4-ping-socket-product.md"]
+      "docs": [
+        "arbitrary-process-level5-seed-matrix.md",
+        "level4-ping-socket-product.md",
+        "arbitrary-process-level5-regular-file-fd-proof.md"
+      ]
     },
     {
       "id": "postgres",

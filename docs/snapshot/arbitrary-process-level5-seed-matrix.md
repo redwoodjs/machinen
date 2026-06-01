@@ -42,6 +42,8 @@ The matrix starts with tiny target-native reconstruction candidates:
 
 These rows are seed candidates only. They are not a public arbitrary-process support claim.
 
+The first row with an attached verifier is `native-regular-file-fd`; see `arbitrary-process-level5-regular-file-fd-proof.md`. That proof verifies regular file descriptor target-native reconstruction while keeping arbitrary-process support at `0%`.
+
 ## Refusal rows
 
 The matrix keeps unsafe process state refused:
