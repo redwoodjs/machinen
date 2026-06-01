@@ -27,7 +27,7 @@ type ClaimProgressProofGroup = {
 
 type ClaimProgressDashboard = {
   kind: "machinen.claim-progress-dashboard";
-  version: 16;
+  version: 17;
   tracks: ClaimProgressTrack[];
   proofGroups: ClaimProgressProofGroup[];
 };
@@ -41,7 +41,7 @@ describe("claim progress dashboard", () => {
 
     expect(dashboard).toMatchObject({
       kind: "machinen.claim-progress-dashboard",
-      version: 16,
+      version: 17,
     });
     expect(dashboard.tracks.map((track) => track.id)).toEqual([
       "node-service",
@@ -52,10 +52,10 @@ describe("claim progress dashboard", () => {
       "whole-linux-vm-workload",
     ]);
     expect(dashboard.tracks.find((track) => track.id === "node-service")).toMatchObject({
-      status: "claimed",
+      status: "seed-candidate",
       currentClaim: {
-        productSupport: 100,
-        broadSupport: 100,
+        productSupport: 0,
+        broadSupport: 0,
         arbitraryProcessCrossArchRestore: 0,
       },
     });
@@ -81,6 +81,7 @@ describe("claim progress dashboard", () => {
     });
     expect(dashboard.proofGroups.map((group) => group.id)).toEqual([
       "node-service-100-100-0",
+      "node-real-cross-arch-e2e-gate",
       "postgres-20-0-0",
       "postgres-real-cross-arch-e2e-gate",
       "bun-not-started",
@@ -93,6 +94,7 @@ describe("claim progress dashboard", () => {
     const proofIds = dashboard.proofGroups.flatMap((group) =>
       group.proofs.map((proof) => proof.id),
     );
+    expect(proofIds).toContain("node-e2e-artifact-audit");
     expect(proofIds).toContain("regular-file-fd-proof");
     expect(proofIds).toContain("arbitrary-process-claim-ready-gate");
     expect(proofIds).toContain("simple-pipe-fd-proof");

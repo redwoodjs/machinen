@@ -888,8 +888,8 @@ describe("Node Level 5 product commands", () => {
     const claims = runCli(["node-level5", "claims", "--json"]);
     expect(claims.status).toBe(0);
     expect(JSON.parse(claims.stdout).claimRegistry).toMatchObject({
-      nodeProductSupportClaimed: 100,
-      broadNodeProductSupportClaimed: 100,
+      nodeProductSupportClaimed: 0,
+      broadNodeProductSupportClaimed: 0,
       arbitraryProcessCrossArchRestoreClaimed: 0,
     });
 

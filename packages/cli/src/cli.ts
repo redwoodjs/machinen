@@ -2165,8 +2165,8 @@ function cmdNodeLevel5ReleaseGate(args: string[], json: boolean): number {
   return reportNodeLevel5ProductCommand(json, {
     accepted,
     kind: "machinen.node-level5-release-gate-summary",
-    nodeProductSupportClaimed: 100,
-    broadNodeProductSupportClaimed: 100,
+    nodeProductSupportClaimed: 0,
+    broadNodeProductSupportClaimed: 0,
     arbitraryProcessCrossArchRestoreClaimed: 0,
     retainedArtifact: artifact,
     realAppCorpus: corpus,

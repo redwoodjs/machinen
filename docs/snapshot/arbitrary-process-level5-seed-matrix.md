@@ -6,8 +6,8 @@ Current claim boundary:
 
 ```json
 {
-  "nodeProductSupportClaimed": 100,
-  "broadNodeProductSupportClaimed": 100,
+  "nodeProductSupportClaimed": 0,
+  "broadNodeProductSupportClaimed": 0,
   "arbitraryProcessCrossArchRestoreClaimed": 0
 }
 ```

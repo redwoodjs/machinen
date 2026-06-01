@@ -1,8 +1,8 @@
 {
   "kind": "machinen.node-level5-product-support-100",
-  "status": "node-product-support-100-claimed",
-  "nodeProductSupportClaimed": 100,
-  "broadNodeProductSupportClaimed": 100,
+  "status": "node-product-support-100-unverified",
+  "nodeProductSupportClaimed": 0,
+  "broadNodeProductSupportClaimed": 0,
   "arbitraryProcessCrossArchRestoreClaimed": 0,
   "previousNodeProductSupportClaimed": 90,
   "previousBroadNodeProductSupportClaimed": 30,

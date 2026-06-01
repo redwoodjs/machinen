@@ -2,8 +2,8 @@
   "kind": "machinen.arbitrary-process-level5-seed-matrix-doc",
   "status": "seed-candidate-not-claimed",
   "current": {
-    "nodeProductSupportClaimed": 100,
-    "broadNodeProductSupportClaimed": 100,
+    "nodeProductSupportClaimed": 0,
+    "broadNodeProductSupportClaimed": 0,
     "arbitraryProcessCrossArchRestoreClaimed": 0
   },
   "candidate": {

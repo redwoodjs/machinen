@@ -27,7 +27,8 @@ New claim-facing proof summaries should live under the product claim folders abo
 The dashboard source of truth is `docs/snapshot/claim-progress.json`; each
 claim group here has a `claim.json` copy plus a readable `README.md`.
 
-- [Node service 100 / 100 / 0](./nodejs/100-100-0/README.md) — `claimed`
+- [Node service 100 / 100 / 0 unverified](./nodejs/100-100-0/README.md) — `partial-proof`
+- [Node real cross-architecture E2E gate](./nodejs/real-cross-arch-e2e-gate/README.md) — `not-started`
 - [Postgres clean logical descriptor fixture](./postgres/20-0-0/README.md) — `partial-proof`
 - [Postgres real cross-architecture E2E gate](./postgres/real-cross-arch-e2e-gate/README.md) — `not-started`
 - [Bun service support not started](./bun/not-started/README.md) — `not-started`

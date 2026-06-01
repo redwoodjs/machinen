@@ -1,6 +1,6 @@
 {
   "kind": "machinen.claim-progress-dashboard",
-  "version": 16,
+  "version": 17,
   "updatedFrom": [
     "docs/snapshot/node-level5-product-support-claim-registry.json",
     "docs/snapshot/node-level5-product-support-100.json",
@@ -28,18 +28,23 @@
       "name": "Node service restore",
       "family": "runtime-service",
       "runtime": "node",
-      "status": "claimed",
+      "status": "seed-candidate",
       "stage": "GA claim",
       "scope": "Selected safe Node services through VM-first product snapshot/restore.",
       "currentClaim": {
-        "productSupport": 100,
-        "broadSupport": 100,
+        "productSupport": 0,
+        "broadSupport": 0,
         "arbitraryProcessCrossArchRestore": 0
       },
-      "nextClaim": null,
-      "summary": "Selected safe Node services are claimed through the Node service claim ladder. Arbitrary process restore remains outside this track.",
-      "claimGate": "final-node-service-ga-gate",
-      "claimChangeAllowed": true,
+      "nextClaim": {
+        "productSupport": 80,
+        "broadSupport": 20,
+        "arbitraryProcessCrossArchRestore": 0,
+        "claimChangeAllowed": false
+      },
+      "summary": "Node service 100 / 100 / 0 is not currently accepted as a public claim because retained real cross-architecture VM E2E artifacts have not been audited in-repo. Existing matrices and facades are proof-only until a real E2E evidence gate passes.",
+      "claimGate": "node-real-cross-arch-e2e-evidence-gate required",
+      "claimChangeAllowed": false,
       "evidence": [
         "framework-capability-coverage-v2",
         "framework-combination-corpus",
@@ -54,34 +59,24 @@
       ],
       "evidenceRows": [
         {
-          "id": "node-framework-capability",
-          "area": "frameworks",
-          "kind": "capability matrix",
-          "status": "passed",
-          "evidence": "Express/Fastify capability rows with explicit coverage diagnostics",
-          "gate": "framework-claim-ready",
-          "artifact": "node-level5-framework-capability-matrix.md",
-          "next": "Keep framework rows evidence-bounded; do not claim arbitrary framework apps."
-        },
-        {
-          "id": "node-service-100-ladder",
-          "area": "claim ladder",
-          "kind": "release gate",
-          "status": "passed",
-          "evidence": "95/40/0 through 100/100/0 ladder with retained claim artifacts",
-          "gate": "node-level5-product-support-100-claim",
+          "id": "node-existing-matrices-proof-only",
+          "area": "audit",
+          "kind": "proof-only matrices/facades",
+          "status": "partial-proof",
+          "evidence": "Existing Node support matrices, claim ladders, and product snapshot facade tests exist, but the current audit did not find retained real cross-architecture VM E2E artifact bundles for the 100 / 100 / 0 public claim.",
+          "gate": "not sufficient for public claim",
           "artifact": "node-level5-product-support-100.json",
-          "next": "Keep arbitrary process at 0 unless the separate arbitrary-process gate passes."
+          "next": "Audit or produce real retained VM E2E bundles before restoring any public claim."
         },
         {
-          "id": "node-vm-first-product-path",
-          "area": "product UX",
-          "kind": "product path",
-          "status": "passed",
-          "evidence": "VM-first snapshot/restore metadata and CLI claim path",
-          "gate": "node-level5-product-snapshot-restore",
-          "artifact": "node-level5-product-snapshot-restore.md",
-          "next": "Preserve machinen snapshot <vm-name> --out <dir>; machinen restore <dir>."
+          "id": "node-real-cross-arch-e2e-gate",
+          "area": "claim gate",
+          "kind": "required E2E gate",
+          "status": "not-started",
+          "evidence": "Requires retained machinen snapshot <vm-name> / machinen restore <dir> artifacts for supported Node app rows in both directions, with target behavior verification and refusal artifacts.",
+          "gate": "node-real-cross-arch-e2e-evidence-gate",
+          "artifact": "missing",
+          "next": "Run or locate retained real VM E2E artifacts and connect them to each claimed row."
         }
       ],
       "refusals": [
@@ -114,8 +109,18 @@
       "nextSteps": [
         {
           "priority": 1,
-          "item": "Keep Node claims stable while moving future products to shared claim/evidence tables.",
-          "gate": "no claim regression"
+          "item": "Audit retained Node real VM E2E artifact bundles for every claimed supported row and both architecture directions.",
+          "gate": "node-real-cross-arch-e2e-artifact-audit"
+        },
+        {
+          "priority": 2,
+          "item": "If artifacts are missing, run real machinen snapshot/restore VM E2E for selected Express/Fastify rows and retain source/target behavior transcripts.",
+          "gate": "node-real-cross-arch-e2e-run"
+        },
+        {
+          "priority": 3,
+          "item": "Retain refusal artifacts for workers, native addons, Wasm/external memory, TLS active state, active async work, child process live state, raw CPU restore, source ISA emulation, and metadata-only success.",
+          "gate": "node-refusal-artifact-audit"
         }
       ],
       "docs": [
@@ -620,46 +625,146 @@
   "proofGroups": [
     {
       "id": "node-service-100-100-0",
-      "claim": "Node service 100 / 100 / 0",
+      "claim": "Node service 100 / 100 / 0 unverified",
       "trackId": "node-service",
-      "status": "claimed",
+      "status": "partial-proof",
       "scope": "Selected safe Node services through VM-first snapshot/restore.",
       "claimNumbers": {
-        "productSupport": 100,
-        "broadSupport": 100,
-        "arbitraryProcessCrossArchRestore": 0
+        "productSupport": 0,
+        "broadSupport": 0,
+        "arbitraryProcessCrossArchRestore": 0,
+        "candidateProductSupport": 80,
+        "candidateBroadSupport": 20
       },
-      "promotionEffect": "Public Node service claim is already raised; does not affect arbitrary-process claim.",
+      "promotionEffect": "No public Node claim is made from this group until retained real VM E2E artifact bundles are audited or produced.",
       "proofs": [
         {
           "id": "node-service-claim-ladder",
           "category": "claim ladder",
-          "status": "passed",
+          "status": "partial-proof",
           "artifact": "node-level5-product-support-100.json",
           "proves": "100 / 100 / 0 selected Node service claim ladder",
-          "claimUse": "backs current Node service claim",
-          "next": "Keep no-regression gates green."
+          "claimUse": "proof-only evidence; no public claim raise without retained real cross-architecture VM E2E artifacts",
+          "next": "Connect this row to retained source/target VM E2E artifacts and refusal artifacts before any public claim."
         },
         {
           "id": "node-framework-capabilities",
           "category": "framework evidence",
-          "status": "passed",
+          "status": "partial-proof",
           "artifact": "node-level5-framework-capability-matrix.md",
           "proves": "Express/Fastify capability rows with exact diagnostics",
-          "claimUse": "supports framework capability portion only",
-          "next": "Do not expand to arbitrary framework apps without new evidence."
+          "claimUse": "proof-only evidence; no public claim raise without retained real cross-architecture VM E2E artifacts",
+          "next": "Connect this row to retained source/target VM E2E artifacts and refusal artifacts before any public claim."
         },
         {
           "id": "node-vm-product-path",
           "category": "product UX",
-          "status": "passed",
+          "status": "partial-proof",
           "artifact": "node-level5-product-snapshot-restore.md",
           "proves": "machinen snapshot / restore product path and metadata",
-          "claimUse": "backs VM-first UX requirement",
-          "next": "Preserve the product path for future runtimes."
+          "claimUse": "proof-only evidence; no public claim raise without retained real cross-architecture VM E2E artifacts",
+          "next": "Connect this row to retained source/target VM E2E artifacts and refusal artifacts before any public claim."
         }
       ],
       "proofDirectory": "proofs/nodejs/100-100-0"
+    },
+    {
+      "id": "node-real-cross-arch-e2e-gate",
+      "claim": "Node real cross-architecture E2E gate required",
+      "trackId": "node-service",
+      "status": "not-started",
+      "scope": "Public Node product/broad claims require retained real VM machinen snapshot/restore artifacts in both directions with target behavior verification and refusal artifacts.",
+      "claimNumbers": {
+        "productSupport": 0,
+        "broadSupport": 0,
+        "arbitraryProcessCrossArchRestore": 0,
+        "candidateProductSupport": 80,
+        "candidateBroadSupport": 20
+      },
+      "promotionEffect": "Blocks public Node product and broad support claims until real retained E2E evidence is connected to the claimed rows.",
+      "proofDirectory": "proofs/nodejs/real-cross-arch-e2e-gate",
+      "proofs": [
+        {
+          "id": "node-e2e-artifact-audit",
+          "category": "artifact audit",
+          "status": "not-started",
+          "artifact": "missing",
+          "proves": "Every supported Node row has retained real VM source/target artifacts, not only metadata or unit/facade reports.",
+          "claimUse": "required before public Node product/broad claim",
+          "next": "Locate or produce retained VM E2E bundles for all supported rows.",
+          "claimImpact": {
+            "productSupportDelta": 0,
+            "broadSupportDelta": 0,
+            "arbitraryProcessCrossArchRestoreDelta": 0,
+            "resultingClaim": {
+              "productSupport": 0,
+              "broadSupport": 0,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "claimChangeAllowed": false
+          }
+        },
+        {
+          "id": "node-e2e-amd64-to-arm64",
+          "category": "real E2E",
+          "status": "not-started",
+          "artifact": "missing",
+          "proves": "machinen snapshot <vm-name> on amd64 and machinen restore <dir> on arm64 restores selected Node service behavior with target-native verification.",
+          "claimUse": "required before amd64->arm64 public Node claim",
+          "next": "Run and retain source transcript, target transcript, manifest, restore summary, behavior verifier output, and logs.",
+          "claimImpact": {
+            "productSupportDelta": 0,
+            "broadSupportDelta": 0,
+            "arbitraryProcessCrossArchRestoreDelta": 0,
+            "resultingClaim": {
+              "productSupport": 0,
+              "broadSupport": 0,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "claimChangeAllowed": false
+          }
+        },
+        {
+          "id": "node-e2e-arm64-to-amd64",
+          "category": "real E2E",
+          "status": "not-started",
+          "artifact": "missing",
+          "proves": "machinen snapshot <vm-name> on arm64 and machinen restore <dir> on amd64 restores selected Node service behavior with target-native verification.",
+          "claimUse": "required before bidirectional public Node claim",
+          "next": "Run and retain source transcript, target transcript, manifest, restore summary, behavior verifier output, and logs.",
+          "claimImpact": {
+            "productSupportDelta": 0,
+            "broadSupportDelta": 0,
+            "arbitraryProcessCrossArchRestoreDelta": 0,
+            "resultingClaim": {
+              "productSupport": 0,
+              "broadSupport": 0,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "claimChangeAllowed": false
+          }
+        },
+        {
+          "id": "node-e2e-refusal-audit",
+          "category": "refusals",
+          "status": "not-started",
+          "artifact": "missing",
+          "proves": "Unsupported live/runtime states refuse with retained artifacts in the same E2E evidence set.",
+          "claimUse": "required to bound any future public Node claim",
+          "next": "Retain refusal artifacts for workers, native addons, Wasm/external memory, TLS active state, active async work, child process state, raw CPU restore, source ISA emulation, and metadata-only success.",
+          "claimImpact": {
+            "productSupportDelta": 0,
+            "broadSupportDelta": 0,
+            "arbitraryProcessCrossArchRestoreDelta": 0,
+            "resultingClaim": {
+              "productSupport": 0,
+              "broadSupport": 0,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "claimChangeAllowed": false
+          }
+        }
+      ]
     },
     {
       "id": "postgres-20-0-0",

@@ -1,0 +1,98 @@
+{
+  "id": "node-real-cross-arch-e2e-gate",
+  "claim": "Node real cross-architecture E2E gate required",
+  "trackId": "node-service",
+  "status": "not-started",
+  "scope": "Public Node product/broad claims require retained real VM machinen snapshot/restore artifacts in both directions with target behavior verification and refusal artifacts.",
+  "claimNumbers": {
+    "productSupport": 0,
+    "broadSupport": 0,
+    "arbitraryProcessCrossArchRestore": 0,
+    "candidateProductSupport": 80,
+    "candidateBroadSupport": 20
+  },
+  "promotionEffect": "Blocks public Node product and broad support claims until real retained E2E evidence is connected to the claimed rows.",
+  "proofDirectory": "proofs/nodejs/real-cross-arch-e2e-gate",
+  "proofs": [
+    {
+      "id": "node-e2e-artifact-audit",
+      "category": "artifact audit",
+      "status": "not-started",
+      "artifact": "missing",
+      "proves": "Every supported Node row has retained real VM source/target artifacts, not only metadata or unit/facade reports.",
+      "claimUse": "required before public Node product/broad claim",
+      "next": "Locate or produce retained VM E2E bundles for all supported rows.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 0,
+          "broadSupport": 0,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    },
+    {
+      "id": "node-e2e-amd64-to-arm64",
+      "category": "real E2E",
+      "status": "not-started",
+      "artifact": "missing",
+      "proves": "machinen snapshot <vm-name> on amd64 and machinen restore <dir> on arm64 restores selected Node service behavior with target-native verification.",
+      "claimUse": "required before amd64->arm64 public Node claim",
+      "next": "Run and retain source transcript, target transcript, manifest, restore summary, behavior verifier output, and logs.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 0,
+          "broadSupport": 0,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    },
+    {
+      "id": "node-e2e-arm64-to-amd64",
+      "category": "real E2E",
+      "status": "not-started",
+      "artifact": "missing",
+      "proves": "machinen snapshot <vm-name> on arm64 and machinen restore <dir> on amd64 restores selected Node service behavior with target-native verification.",
+      "claimUse": "required before bidirectional public Node claim",
+      "next": "Run and retain source transcript, target transcript, manifest, restore summary, behavior verifier output, and logs.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 0,
+          "broadSupport": 0,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    },
+    {
+      "id": "node-e2e-refusal-audit",
+      "category": "refusals",
+      "status": "not-started",
+      "artifact": "missing",
+      "proves": "Unsupported live/runtime states refuse with retained artifacts in the same E2E evidence set.",
+      "claimUse": "required to bound any future public Node claim",
+      "next": "Retain refusal artifacts for workers, native addons, Wasm/external memory, TLS active state, active async work, child process state, raw CPU restore, source ISA emulation, and metadata-only success.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 0,
+          "broadSupport": 0,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    }
+  ]
+}

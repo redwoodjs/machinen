@@ -86,8 +86,8 @@ export type NodeLevel5AppSupportMatrix = {
   rowCount: number;
   rows: NodeLevel5AppSupportMatrixRow[];
   boundaries: NodeLevel5AppSupportBoundary[];
-  nodeProductSupportClaimed: 100;
-  broadNodeProductSupportClaimed: 100;
+  nodeProductSupportClaimed: 0;
+  broadNodeProductSupportClaimed: 0;
   arbitraryProcessCrossArchRestoreClaimed: 0;
 };
 
@@ -128,8 +128,8 @@ export function buildNodeLevel5AppSupportMatrix(): NodeLevel5AppSupportMatrix {
     rowCount: rows.length,
     rows,
     boundaries: supportBoundaries(),
-    nodeProductSupportClaimed: 100,
-    broadNodeProductSupportClaimed: 100,
+    nodeProductSupportClaimed: 0,
+    broadNodeProductSupportClaimed: 0,
     arbitraryProcessCrossArchRestoreClaimed: 0,
   };
 }

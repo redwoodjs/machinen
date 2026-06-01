@@ -67,7 +67,7 @@ machinen node-level5 85-claim-ready \
   --json
 ```
 
-The generic VM corpus, retained-evidence, row-artifact, refusal-artifact, and claim-ready gates back the claimed 85 / 25 / 0 tier. Framework capability, product-evidence, and claim-ready gates back the claimed 100 / 100 / 0 tier. The final framework claim-ready command unlocks the claim while arbitrary process support remains 0.
+The generic VM corpus, retained-evidence, row-artifact, refusal-artifact, framework capability, product-evidence, and claim-ready gates are now treated as proof substrate only. They do not back a public Node percentage claim until the real cross-architecture VM E2E gate in `proofs/nodejs/real-cross-arch-e2e-gate/` passes with retained artifacts. Arbitrary process support remains 0.
 
 The arbitrary-process seed track is diagnostic evidence only:
 
@@ -80,8 +80,8 @@ The claim registry is now:
 
 ```json
 {
-  "nodeProductSupportClaimed": 100,
-  "broadNodeProductSupportClaimed": 100,
+  "nodeProductSupportClaimed": 0,
+  "broadNodeProductSupportClaimed": 0,
   "arbitraryProcessCrossArchRestoreClaimed": 0
 }
 ```

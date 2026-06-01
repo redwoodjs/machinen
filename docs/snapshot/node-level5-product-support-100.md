@@ -1,41 +1,34 @@
-# Node Level 5 100 / 100 / 0 support
+# Node Level 5 100 / 100 / 0 support — unverified
 
-Machinen now claims **100 / 100 / 0** for selected Node service support.
+The previous Node `100 / 100 / 0` public claim is no longer accepted by the claim dashboard.
 
-| Claim                                        | Value | Meaning                                                                                               |
-| -------------------------------------------- | ----: | ----------------------------------------------------------------------------------------------------- |
-| Node product support                         |  100% | The selected Node service claim ladder is release-gated through final Node-service GA evidence.       |
-| Broad Node product support                   |  100% | Broad Node service support is claimed for the safe idle service taxonomy and retained evidence gates. |
-| Arbitrary process cross-architecture restore |    0% | Machinen still does not claim arbitrary Linux process restore.                                        |
+## Current public claim
 
-## Product path
-
-The product path remains VM-first:
-
-```sh
-machinen snapshot <vm-name> --out <dir>
-machinen restore <dir>
+```json
+{
+  "nodeProductSupportClaimed": 0,
+  "broadNodeProductSupportClaimed": 0,
+  "arbitraryProcessCrossArchRestoreClaimed": 0
+}
 ```
 
-Machinen detects supported Node workloads inside the VM. Host PID snapshot remains harness-only behind `MACHINEN_NODE_LEVEL5_ALLOW_HOST_PID_SNAPSHOT=1`.
+## Why this was downgraded
 
-## Evidence ladder
+The repository has extensive Node matrices, product snapshot facades, release gates, and refusal rows. Those are useful proof substrate, but the current audit did not find a complete retained real-VM E2E artifact chain for every claimed supported row and both architecture directions.
 
-The claim is backed by the Node service claim ladder:
+A real public claim requires proof artifacts, not just claim registries or facade/unit reports.
 
-| Target        | Gate                                          |
-| ------------- | --------------------------------------------- |
-| 95 / 40 / 0   | Framework capability coverage v2              |
-| 97 / 50 / 0   | Framework combination corpus                  |
-| 98 / 60 / 0   | Node runtime capability matrix                |
-| 99 / 70 / 0   | Installed framework app release gate          |
-| 99 / 80 / 0   | Broad Node capability claim-ready gate        |
-| 100 / 85 / 0  | Unified Node service claim gate               |
-| 100 / 90 / 0  | Cross-corpus consistency gate                 |
-| 100 / 95 / 0  | Runtime-state translation gate                |
-| 100 / 98 / 0  | Runtime + framework combined claim-ready gate |
-| 100 / 100 / 0 | Final Node-service GA gate                    |
+## Required gate
 
-## Boundaries
+See `proofs/nodejs/real-cross-arch-e2e-gate/`.
 
-This claim is for Node services in the safe-state taxonomy. It does not claim arbitrary non-Node process restore, raw CPU restore, source ISA emulation, app checkpoint hooks, or unsafe live state. Arbitrary Linux process cross-architecture restore remains **0%**.
+Before raising Node again, retain:
+
+- real `machinen snapshot <vm-name> --out <dir>` artifacts;
+- real `machinen restore <dir>` artifacts;
+- amd64 -> arm64 and arm64 -> amd64 target-native verifier output;
+- source and target behavior transcripts;
+- restore summaries and logs;
+- refusal artifacts for workers, native addons, Wasm/external memory, TLS active state, active async work, child process live state, raw CPU restore, source ISA emulation, app hooks, sidecars, and metadata-only success.
+
+Arbitrary Linux process cross-architecture restore remains `0%`.

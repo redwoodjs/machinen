@@ -23401,11 +23401,11 @@ Poll interval in ms while retrying. Default 250.
 
 ##### nodeProductSupportClaimed
 
-> **nodeProductSupportClaimed**: `100`
+> **nodeProductSupportClaimed**: `0`
 
 ##### broadNodeProductSupportClaimed
 
-> **broadNodeProductSupportClaimed**: `100`
+> **broadNodeProductSupportClaimed**: `0`
 
 ##### arbitraryProcessCrossArchRestoreClaimed
 
@@ -25699,11 +25699,11 @@ Poll interval in ms while retrying. Default 250.
 
 ##### nodeProductSupportClaimed
 
-> **nodeProductSupportClaimed**: `100`
+> **nodeProductSupportClaimed**: `0`
 
 ##### broadNodeProductSupportClaimed
 
-> **broadNodeProductSupportClaimed**: `100`
+> **broadNodeProductSupportClaimed**: `0`
 
 ##### arbitraryProcessCrossArchRestoreClaimed
 
@@ -25771,11 +25771,11 @@ Poll interval in ms while retrying. Default 250.
 
 ##### nodeProductSupportClaimed
 
-> **nodeProductSupportClaimed**: `100`
+> **nodeProductSupportClaimed**: `0`
 
 ##### broadNodeProductSupportClaimed
 
-> **broadNodeProductSupportClaimed**: `100`
+> **broadNodeProductSupportClaimed**: `0`
 
 ##### arbitraryProcessCrossArchRestoreClaimed
 
@@ -25839,11 +25839,11 @@ Poll interval in ms while retrying. Default 250.
 
 ##### nodeProductSupportClaimed
 
-> **nodeProductSupportClaimed**: `100`
+> **nodeProductSupportClaimed**: `0`
 
 ##### broadNodeProductSupportClaimed
 
-> **broadNodeProductSupportClaimed**: `100`
+> **broadNodeProductSupportClaimed**: `0`
 
 ##### arbitraryProcessCrossArchRestoreClaimed
 
@@ -25903,11 +25903,11 @@ Poll interval in ms while retrying. Default 250.
 
 ##### nodeProductSupportClaimed
 
-> **nodeProductSupportClaimed**: `100`
+> **nodeProductSupportClaimed**: `0`
 
 ##### broadNodeProductSupportClaimed
 
-> **broadNodeProductSupportClaimed**: `100`
+> **broadNodeProductSupportClaimed**: `0`
 
 ##### arbitraryProcessCrossArchRestoreClaimed
 
@@ -25999,11 +25999,11 @@ Poll interval in ms while retrying. Default 250.
 
 ##### nodeProductSupportClaimed
 
-> **nodeProductSupportClaimed**: `100`
+> **nodeProductSupportClaimed**: `0`
 
 ##### broadNodeProductSupportClaimed
 
-> **broadNodeProductSupportClaimed**: `100`
+> **broadNodeProductSupportClaimed**: `0`
 
 ##### arbitraryProcessCrossArchRestoreClaimed
 
@@ -26027,7 +26027,7 @@ Poll interval in ms while retrying. Default 250.
 
 ##### status
 
-> **status**: `"node-product-support-100"`
+> **status**: `"node-product-support-unverified"`
 
 ##### familyId
 
@@ -26091,11 +26091,11 @@ Poll interval in ms while retrying. Default 250.
 
 ##### nodeProductSupportClaimed
 
-> **nodeProductSupportClaimed**: `100`
+> **nodeProductSupportClaimed**: `0`
 
 ##### broadNodeProductSupportClaimed
 
-> **broadNodeProductSupportClaimed**: `100`
+> **broadNodeProductSupportClaimed**: `0`
 
 ##### arbitraryProcessCrossArchRestoreClaimed
 
@@ -26247,11 +26247,11 @@ Poll interval in ms while retrying. Default 250.
 
 ##### nodeProductSupportClaimed
 
-> **nodeProductSupportClaimed**: `100`
+> **nodeProductSupportClaimed**: `0`
 
 ##### broadNodeProductSupportClaimed
 
-> **broadNodeProductSupportClaimed**: `100`
+> **broadNodeProductSupportClaimed**: `0`
 
 ##### arbitraryProcessCrossArchRestoreClaimed
 
@@ -26271,11 +26271,11 @@ Poll interval in ms while retrying. Default 250.
 
 ##### status
 
-> **status**: `"node-product-support-100-claimed"`
+> **status**: `"node-product-support-100-unverified"`
 
 ##### declaredSubsetExperimentalProductSupportClaimed
 
-> **declaredSubsetExperimentalProductSupportClaimed**: `100`
+> **declaredSubsetExperimentalProductSupportClaimed**: `0`
 
 ##### nodeProductSupportTiers
 
@@ -26283,11 +26283,11 @@ Poll interval in ms while retrying. Default 250.
 
 ##### nodeProductSupportClaimed
 
-> **nodeProductSupportClaimed**: `100`
+> **nodeProductSupportClaimed**: `0`
 
 ##### broadNodeProductSupportClaimed
 
-> **broadNodeProductSupportClaimed**: `100`
+> **broadNodeProductSupportClaimed**: `0`
 
 ##### arbitraryProcessCrossArchRestoreClaimed
 
