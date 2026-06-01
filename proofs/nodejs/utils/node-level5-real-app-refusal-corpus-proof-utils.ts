@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const cliPath = join(repoRoot, "packages/cli/src/cli.ts");
-const runnerPath = join(repoRoot, "scripts/node-level5-real-app-refusal-corpus.ts");
+const runnerPath = join(repoRoot, "proofs/nodejs/scripts/node-level5-real-app-refusal-corpus.ts");
 const tsxLoaderPath = join(repoRoot, "node_modules/tsx/dist/loader.mjs");
 const markers = [
   "activeRequests",

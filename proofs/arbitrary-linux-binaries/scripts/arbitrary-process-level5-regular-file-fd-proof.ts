@@ -3,7 +3,7 @@
 import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { createArbitraryProcessLevel5RegularFileFdProof } from "../packages/runtime/src/arbitrary-process-level5-regular-file-fd-proof.ts";
+import { createArbitraryProcessLevel5RegularFileFdProof } from "../../../packages/runtime/src/arbitrary-process-level5-regular-file-fd-proof.ts";
 
 function main(): void {
   const out = valueAfter("--out");

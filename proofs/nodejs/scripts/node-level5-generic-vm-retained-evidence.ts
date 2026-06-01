@@ -4,7 +4,7 @@ import { join } from "node:path";
 import {
   verifyNodeLevel5GenericVmRetainedEvidenceReport,
   writeNodeLevel5GenericVmRetainedEvidenceReport,
-} from "../packages/runtime/src/node-level5-generic-vm-retained-evidence.ts";
+} from "../../../packages/runtime/src/node-level5-generic-vm-retained-evidence.ts";
 
 type GenericVmRetainedEvidenceSummary = {
   kind: "machinen.node-level5-generic-vm-retained-evidence-summary";

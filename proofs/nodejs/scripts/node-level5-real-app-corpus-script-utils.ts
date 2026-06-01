@@ -3,14 +3,14 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import type { NodeLevel5CorpusHttpEvidence } from "../packages/runtime/src/node-level5-corpus-common.ts";
+import type { NodeLevel5CorpusHttpEvidence } from "../../../packages/runtime/src/node-level5-corpus-common.ts";
 import type {
   NodeLevel5ProductBehavioralVerifierReport,
   NodeLevel5ProductRestoreSummary,
   NodeLevel5ProductSnapshotDirection,
   NodeLevel5ProductSnapshotSummary,
-} from "../packages/runtime/src/node-level5-product-snapshot.ts";
-import type { NodeLevel5RealAppCorpusFramework } from "../packages/runtime/src/node-level5-real-app-corpus.ts";
+} from "../../../packages/runtime/src/node-level5-product-snapshot.ts";
+import type { NodeLevel5RealAppCorpusFramework } from "../../../packages/runtime/src/node-level5-real-app-corpus.ts";
 
 export const nodeLevel5RealAppCorpusRepoRoot = resolve(
   dirname(fileURLToPath(import.meta.url)),

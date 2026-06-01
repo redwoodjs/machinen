@@ -1,11 +1,11 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { loadNodeLevel5GenericVmCorpusReport } from "../packages/runtime/src/node-level5-generic-vm-corpus.ts";
+import { loadNodeLevel5GenericVmCorpusReport } from "../../../packages/runtime/src/node-level5-generic-vm-corpus.ts";
 import {
   verifyNodeLevel5GenericVmRowArtifactsReport,
   writeNodeLevel5GenericVmRowArtifactsReport,
-} from "../packages/runtime/src/node-level5-generic-vm-row-artifacts.ts";
+} from "../../../packages/runtime/src/node-level5-generic-vm-row-artifacts.ts";
 
 type GenericVmRowArtifactsSummary = {
   kind: "machinen.node-level5-generic-vm-row-artifacts-summary";

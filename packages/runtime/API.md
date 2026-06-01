@@ -12834,7 +12834,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ##### proofRunner?
 
-> `optional` **proofRunner?**: `"scripts/node-level5-proof-composition.ts"`
+> `optional` **proofRunner?**: `"proofs/nodejs/scripts/node-level5-proof-composition.ts"`
 
 ##### refusals
 

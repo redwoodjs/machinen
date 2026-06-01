@@ -73,7 +73,7 @@
     "native-boundary-check": "tsx scripts/native-boundary-check.ts verify",
     "portable-machine-snapshot": "tsx scripts/portable-machine-snapshot.ts verify",
     "native-target-vm-synthetic-continuation": "tsx scripts/native-target-vm-synthetic-continuation.ts verify",
-    "node-level5-proof-composition": "tsx scripts/node-level5-proof-composition.ts verify",
+    "node-level5-proof-composition": "tsx proofs/nodejs/scripts/node-level5-proof-composition.ts verify",
     "portable-machine-vm-restore-proof": "tsx scripts/portable-machine-vm-restore-proof.ts verify",
     "portable-machine-proof-runner": "node scripts/portable-machine-proof-runner.mjs",
     "portable-machine-proof-matrix": "node scripts/portable-machine-proof-matrix.mjs",
@@ -140,10 +140,10 @@
     "archive-go-quiescent-runtime": "node scripts/archived-smoke.mjs scripts/smoke/go-quiescent-runtime.sh",
     "product-portable-claim-matrix": "node scripts/product-portable-claim-matrix.mjs",
     "product-claim-registry-matrix": "node scripts/product-claim-registry-matrix.mjs",
-    "level4-graduation-matrix": "pnpm exec tsx scripts/level4-graduation-matrix.ts",
-    "level4-ping-socket-graduation": "pnpm exec tsx scripts/level4-ping-socket-graduation.ts",
-    "level4-ping-socket-product": "pnpm exec tsx scripts/level4-ping-socket-product.ts",
-    "level4-ping-machine-workload": "pnpm exec tsx scripts/level4-ping-machine-workload.ts"
+    "level4-graduation-matrix": "pnpm exec tsx proofs/network-resources/scripts/level4-graduation-matrix.ts",
+    "level4-ping-socket-graduation": "pnpm exec tsx proofs/network-resources/scripts/level4-ping-socket-graduation.ts",
+    "level4-ping-socket-product": "pnpm exec tsx proofs/network-resources/scripts/level4-ping-socket-product.ts",
+    "level4-ping-machine-workload": "pnpm exec tsx proofs/network-resources/scripts/level4-ping-machine-workload.ts"
   },
   "devDependencies": {
     "@changesets/cli": "^2.30.0",

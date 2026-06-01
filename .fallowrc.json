@@ -3,6 +3,7 @@
   "entry": [
     "scripts/*.ts",
     "scripts/*.mjs",
+    "proofs/**/scripts/*.ts",
     "proofs/**/smoke.ts",
     "proofs/**/*.mjs",
     "packages/runtime/src/bin/*.ts",

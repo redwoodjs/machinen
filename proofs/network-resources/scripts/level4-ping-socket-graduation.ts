@@ -3,8 +3,8 @@ import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { planNativeTargetFdTable } from "../packages/runtime/src/native-resource-translation.ts";
-import type { NativeProcessResource } from "../packages/runtime/src/native-process-image.ts";
+import { planNativeTargetFdTable } from "../../../packages/runtime/src/native-resource-translation.ts";
+import type { NativeProcessResource } from "../../../packages/runtime/src/native-process-image.ts";
 
 type EvidenceStatus = "support" | "proof" | "refusal";
 type ProductSupport = "supported" | "not-yet-supported" | "unsupported";

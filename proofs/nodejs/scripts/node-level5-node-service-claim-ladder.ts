@@ -2,21 +2,20 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import {
-  verifyArbitraryProcessLevel5SeedReport,
-  writeArbitraryProcessLevel5SeedReport,
-} from "../packages/runtime/src/arbitrary-process-level5-seed-matrix.ts";
+  verifyNodeLevel5NodeServiceClaimLadderReport,
+  writeNodeLevel5NodeServiceClaimLadderReport,
+} from "../../../packages/runtime/src/node-level5-node-service-claim-ladder.ts";
 
 type Summary = {
-  kind: "machinen.arbitrary-process-level5-seed-summary";
+  kind: "machinen.node-level5-node-service-claim-ladder-summary";
   accepted: boolean;
   outDir: string;
   reportPath: string;
-  rowCount: number;
+  tierCount: number;
   artifactCount: number;
-  currentArbitraryProcessCrossArchRestoreClaimed: 0;
-  candidateArbitraryProcessCrossArchRestoreClaimed: 1;
-  claimChangeAllowed: false;
-  arbitraryProcessClaimed: false;
+  finalNodeProductSupportClaimed: 100;
+  finalBroadNodeProductSupportClaimed: 100;
+  finalArbitraryProcessCrossArchRestoreClaimed: 0;
 };
 
 function main(): void {
@@ -29,23 +28,22 @@ function main(): void {
 
 export function generate(outDir: string): Summary {
   mkdirSync(outDir, { recursive: true });
-  const reportPath = join(outDir, "arbitrary-process-level5-seed-report.json");
-  const report = writeArbitraryProcessLevel5SeedReport({ outDir, path: reportPath });
-  const verification = verifyArbitraryProcessLevel5SeedReport(report);
+  const reportPath = join(outDir, "node-level5-node-service-claim-ladder-report.json");
+  const report = writeNodeLevel5NodeServiceClaimLadderReport({ outDir, path: reportPath });
+  const verification = verifyNodeLevel5NodeServiceClaimLadderReport(report);
   const summary: Summary = {
-    kind: "machinen.arbitrary-process-level5-seed-summary",
+    kind: "machinen.node-level5-node-service-claim-ladder-summary",
     accepted: verification.accepted,
     outDir,
     reportPath,
-    rowCount: verification.rowCount,
+    tierCount: verification.tierCount,
     artifactCount: verification.artifactCount,
-    currentArbitraryProcessCrossArchRestoreClaimed: 0,
-    candidateArbitraryProcessCrossArchRestoreClaimed: 1,
-    claimChangeAllowed: false,
-    arbitraryProcessClaimed: false,
+    finalNodeProductSupportClaimed: 100,
+    finalBroadNodeProductSupportClaimed: 100,
+    finalArbitraryProcessCrossArchRestoreClaimed: 0,
   };
   writeFileSync(
-    join(outDir, "arbitrary-process-level5-seed-summary.json"),
+    join(outDir, "node-level5-node-service-claim-ladder-summary.json"),
     `${JSON.stringify(summary, null, 2)}\n`,
   );
   return summary;
@@ -54,7 +52,7 @@ export function generate(outDir: string): Summary {
 function parseArgs(args: string[]): { outDir: string; json: boolean } {
   const outDir = valueAfterFlag(args, "--out");
   if (!outDir) {
-    throw new Error("usage: arbitrary-process-level5-seed-matrix --out <dir> [--json]");
+    throw new Error("usage: node-level5-node-service-claim-ladder --out <dir> [--json]");
   }
   return { outDir, json: args.includes("--json") };
 }
@@ -64,6 +62,6 @@ function valueAfterFlag(args: string[], flag: string): string | undefined {
   return index >= 0 ? args[index + 1] : undefined;
 }
 
-if (process.argv[1]?.endsWith("arbitrary-process-level5-seed-matrix.ts")) {
+if (process.argv[1]?.endsWith("node-level5-node-service-claim-ladder.ts")) {
   main();
 }

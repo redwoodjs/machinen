@@ -3,8 +3,8 @@ import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { planNativeTargetFdTable } from "../packages/runtime/src/native-resource-translation.ts";
-import type { NativeProcessResource } from "../packages/runtime/src/native-process-image.ts";
+import { planNativeTargetFdTable } from "../../../packages/runtime/src/native-resource-translation.ts";
+import type { NativeProcessResource } from "../../../packages/runtime/src/native-process-image.ts";
 
 type ProductSupport = "supported" | "not-yet-supported" | "unsupported";
 type ImplementationLevel =
@@ -676,7 +676,7 @@ function baseRow(
 ): GraduationRow {
   const row = {
     kind: "machinen.level4-graduation.row" as const,
-    verifierCommand: "pnpm exec tsx scripts/level4-graduation-matrix.ts",
+    verifierCommand: "pnpm exec tsx proofs/network-resources/scripts/level4-graduation-matrix.ts",
     forbiddenPaths: {
       sourceIsaEmulation: false,
       sidecarOutput: false,

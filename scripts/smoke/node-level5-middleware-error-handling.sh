@@ -6,7 +6,7 @@ LOADER="$ROOT/node_modules/tsx/dist/loader.mjs"
 SUMMARY_DIR="$(mktemp -d "${TMPDIR:-/tmp}/machinen-node-level5-middleware-error-handling.XXXXXX")"
 trap 'rm -rf "$SUMMARY_DIR"' EXIT
 
-node --import "$LOADER" "$ROOT/scripts/node-level5-installed-third-party-app-corpus.ts" \
+node --import "$LOADER" "$ROOT/proofs/nodejs/scripts/node-level5-installed-third-party-app-corpus.ts" \
   --out "$SUMMARY_DIR/corpus" \
   --json > "$SUMMARY_DIR/summary.json"
 

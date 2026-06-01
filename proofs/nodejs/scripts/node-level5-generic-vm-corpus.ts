@@ -7,9 +7,9 @@ import {
   type NodeLevel5GenericVmCorpusRow,
   type NodeLevel5GenericVmModuleSystem,
   type NodeLevel5GenericVmRefusalMarker,
-} from "../packages/runtime/src/node-level5-generic-vm-corpus.ts";
-import type { NodeLevel5ProductSnapshotDirection } from "../packages/runtime/src/node-level5-product-snapshot.ts";
-import type { NodeLevel5RealAppCorpusFramework } from "../packages/runtime/src/node-level5-real-app-corpus.ts";
+} from "../../../packages/runtime/src/node-level5-generic-vm-corpus.ts";
+import type { NodeLevel5ProductSnapshotDirection } from "../../../packages/runtime/src/node-level5-product-snapshot.ts";
+import type { NodeLevel5RealAppCorpusFramework } from "../../../packages/runtime/src/node-level5-real-app-corpus.ts";
 
 type GenericVmCorpusSummary = {
   kind: "machinen.node-level5-generic-vm-corpus-summary";

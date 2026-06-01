@@ -6,8 +6,8 @@ import {
   writeNodeLevel5RealAppCorpusReport,
   type NodeLevel5RealAppCorpusFramework,
   type NodeLevel5RealAppCorpusRow,
-} from "../packages/runtime/src/node-level5-real-app-corpus.ts";
-import type { NodeLevel5ProductSnapshotDirection } from "../packages/runtime/src/node-level5-product-snapshot.ts";
+} from "../../../packages/runtime/src/node-level5-real-app-corpus.ts";
+import type { NodeLevel5ProductSnapshotDirection } from "../../../packages/runtime/src/node-level5-product-snapshot.ts";
 import {
   isNodeLevel5RealAppCorpusMain,
   nodeLevel5RealAppCorpusDirections,

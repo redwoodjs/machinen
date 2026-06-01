@@ -6,10 +6,10 @@ import { dirname, join, resolve } from "node:path";
 import {
   buildProductClaimRegistry,
   restoreProductLevel4PingSocketSnapshot,
-} from "../packages/runtime/src/index.ts";
-import { validatePortableSnapshotBundle } from "../packages/runtime/src/vm/portable-snapshot.ts";
-import { performSnapshot } from "../packages/runtime/src/vm/snapshot.ts";
-import profiles from "./portable-machine-proof-profiles.json" with { type: "json" };
+} from "../../../packages/runtime/src/index.ts";
+import { validatePortableSnapshotBundle } from "../../../packages/runtime/src/vm/portable-snapshot.ts";
+import { performSnapshot } from "../../../packages/runtime/src/vm/snapshot.ts";
+import profiles from "../../../scripts/portable-machine-proof-profiles.json" with { type: "json" };
 
 type Summary = {
   kind: "machinen.level4-ping-machine-workload";

@@ -1,14 +1,14 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-import type { NodeLevel5RealAppCorpusFramework } from "../packages/runtime/src/node-level5-real-app-corpus.ts";
-import type { NodeLevel5ProductSnapshotDirection } from "../packages/runtime/src/node-level5-product-snapshot.ts";
+import type { NodeLevel5RealAppCorpusFramework } from "../../../packages/runtime/src/node-level5-real-app-corpus.ts";
+import type { NodeLevel5ProductSnapshotDirection } from "../../../packages/runtime/src/node-level5-product-snapshot.ts";
 import {
   verifyNodeLevel5ThirdPartyAppCorpusReport,
   writeNodeLevel5ThirdPartyAppCorpusReport,
   type NodeLevel5ThirdPartyAppCorpusRow,
   type NodeLevel5ThirdPartyAppSource,
-} from "../packages/runtime/src/node-level5-third-party-app-corpus.ts";
+} from "../../../packages/runtime/src/node-level5-third-party-app-corpus.ts";
 import {
   isNodeLevel5RealAppCorpusMain,
   nodeLevel5AppCorpusIdentity,

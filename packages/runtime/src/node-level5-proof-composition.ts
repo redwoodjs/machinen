@@ -104,7 +104,7 @@ export interface NodeLevel5ProofComposition {
   requiredIngredients: NodeLevel5ProofIngredient[];
   evidenceChecks?: NodeLevel5ProofEvidenceCheck[];
   targetProof?: NodeLevel5TargetProofEvidence;
-  proofRunner?: "scripts/node-level5-proof-composition.ts";
+  proofRunner?: "proofs/nodejs/scripts/node-level5-proof-composition.ts";
   refusals: NodeLevel5ProofCompositionRefusal[];
   refusalMatrix: NodeLevel5ProofRefusalMatrixRow[];
   gates: {
@@ -127,7 +127,7 @@ export interface NodeLevel5ProofComposition {
 export function buildNodeLevel5ProofComposition(
   input: NodeLevel5ProofCompositionInput & {
     evidenceChecks?: NodeLevel5ProofEvidenceCheck[];
-    proofRunner?: "scripts/node-level5-proof-composition.ts";
+    proofRunner?: "proofs/nodejs/scripts/node-level5-proof-composition.ts";
   },
 ): NodeLevel5ProofComposition {
   const requiredIngredients = nodeLevel5ProofIngredientNames.map((name) =>

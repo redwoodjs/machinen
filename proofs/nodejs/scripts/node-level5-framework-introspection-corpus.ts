@@ -6,9 +6,9 @@ import {
   writeNodeLevel5FrameworkIntrospectionCorpusReport,
   type NodeLevel5FrameworkIntrospectionCapability,
   type NodeLevel5FrameworkIntrospectionCorpusRow,
-} from "../packages/runtime/src/node-level5-framework-introspection-corpus.ts";
-import type { NodeLevel5FrameworkCapabilityFramework } from "../packages/runtime/src/node-level5-framework-capability-matrix.ts";
-import type { NodeLevel5ProductSnapshotDirection } from "../packages/runtime/src/node-level5-product-snapshot.ts";
+} from "../../../packages/runtime/src/node-level5-framework-introspection-corpus.ts";
+import type { NodeLevel5FrameworkCapabilityFramework } from "../../../packages/runtime/src/node-level5-framework-capability-matrix.ts";
+import type { NodeLevel5ProductSnapshotDirection } from "../../../packages/runtime/src/node-level5-product-snapshot.ts";
 
 const frameworks: NodeLevel5FrameworkCapabilityFramework[] = ["express", "fastify"];
 const directions: NodeLevel5ProductSnapshotDirection[] = ["arm64-to-amd64", "amd64-to-arm64"];

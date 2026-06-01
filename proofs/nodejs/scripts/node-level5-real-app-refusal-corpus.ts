@@ -7,14 +7,14 @@ import {
   writeNodeLevel5RealAppRefusalCorpusReport,
   type NodeLevel5RealAppRefusalCorpusRow,
   type NodeLevel5RealAppRefusalMarker,
-} from "../packages/runtime/src/node-level5-real-app-refusal-corpus.ts";
+} from "../../../packages/runtime/src/node-level5-real-app-refusal-corpus.ts";
 import {
   NODE_LEVEL5_PRODUCT_REFUSAL_MARKERS,
   type NodeLevel5ProductSnapshotDirection,
   type NodeLevel5ProductSnapshotRefusalCode,
   type NodeLevel5ProductSnapshotSummary,
-} from "../packages/runtime/src/node-level5-product-snapshot.ts";
-import type { NodeLevel5RealAppCorpusFramework } from "../packages/runtime/src/node-level5-real-app-corpus.ts";
+} from "../../../packages/runtime/src/node-level5-product-snapshot.ts";
+import type { NodeLevel5RealAppCorpusFramework } from "../../../packages/runtime/src/node-level5-real-app-corpus.ts";
 import {
   isNodeLevel5RealAppCorpusMain,
   nodeLevel5RealAppCorpusDirections,

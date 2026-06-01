@@ -4,7 +4,7 @@ import { join } from "node:path";
 import {
   verifyNodeLevel5FrameworkProductEvidenceReport,
   writeNodeLevel5FrameworkProductEvidenceReport,
-} from "../packages/runtime/src/node-level5-framework-product-evidence.ts";
+} from "../../../packages/runtime/src/node-level5-framework-product-evidence.ts";
 
 type FrameworkProductEvidenceSummary = {
   kind: "machinen.node-level5-framework-product-evidence-summary";

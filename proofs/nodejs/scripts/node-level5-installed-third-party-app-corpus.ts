@@ -5,14 +5,14 @@ import sensiblePackage from "@fastify/sensible/package.json" with { type: "json"
 import expressPackage from "express/package.json" with { type: "json" };
 import fastifyPackage from "fastify/package.json" with { type: "json" };
 
-import type { NodeLevel5RealAppCorpusFramework } from "../packages/runtime/src/node-level5-real-app-corpus.ts";
-import type { NodeLevel5ProductSnapshotDirection } from "../packages/runtime/src/node-level5-product-snapshot.ts";
+import type { NodeLevel5RealAppCorpusFramework } from "../../../packages/runtime/src/node-level5-real-app-corpus.ts";
+import type { NodeLevel5ProductSnapshotDirection } from "../../../packages/runtime/src/node-level5-product-snapshot.ts";
 import {
   verifyNodeLevel5InstalledThirdPartyAppCorpusReport,
   writeNodeLevel5InstalledThirdPartyAppCorpusReport,
   type NodeLevel5InstalledThirdPartyAppCorpusRow,
   type NodeLevel5InstalledThirdPartyAppSource,
-} from "../packages/runtime/src/node-level5-installed-third-party-app-corpus.ts";
+} from "../../../packages/runtime/src/node-level5-installed-third-party-app-corpus.ts";
 import {
   isNodeLevel5RealAppCorpusMain,
   nodeLevel5RealAppCorpusDirections,

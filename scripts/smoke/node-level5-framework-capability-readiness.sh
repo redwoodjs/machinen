@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 WORK="${WORK_DIR:-$(mktemp -d "${TMPDIR:-/tmp}/machinen-node-level5-framework-readiness.XXXXXX")}"
 cd "$ROOT"
 
-pnpm exec tsx scripts/node-level5-framework-introspection-corpus.ts --out "$WORK" --json >"$WORK/summary.json"
+pnpm exec tsx proofs/nodejs/scripts/node-level5-framework-introspection-corpus.ts --out "$WORK" --json >"$WORK/summary.json"
 REPORT="$WORK/node-level5-framework-introspection-corpus-report.json"
 set +e
 pnpm exec tsx packages/cli/src/cli.ts node-level5 framework-readiness --framework-introspection-corpus-report "$REPORT" --json >"$WORK/readiness.json"

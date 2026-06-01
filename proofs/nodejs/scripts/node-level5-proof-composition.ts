@@ -9,7 +9,7 @@ import {
   type NodeLevel5ProofIngredientName,
   type NodeLevel5TargetProofEvidence,
   type NodeLevel5TargetSideProof,
-} from "../packages/runtime/src/index.ts";
+} from "../../../packages/runtime/src/index.ts";
 
 interface Args {
   out: string;
@@ -114,7 +114,7 @@ async function main(): Promise<void> {
     checkedSummaries,
     evidenceChecks,
     ...(targetProof ? { targetProof } : {}),
-    proofRunner: "scripts/node-level5-proof-composition.ts",
+    proofRunner: "proofs/nodejs/scripts/node-level5-proof-composition.ts",
   });
   const out = resolve(args.out);
   mkdirSync(dirname(out), { recursive: true });

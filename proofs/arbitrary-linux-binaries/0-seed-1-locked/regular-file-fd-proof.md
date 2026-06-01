@@ -43,7 +43,7 @@ bash scripts/smoke/arbitrary-process-level5-regular-file-fd-proof.sh
 Or write artifacts directly:
 
 ```sh
-pnpm exec tsx scripts/arbitrary-process-level5-regular-file-fd-proof.ts --out ./regular-file-fd-proof --json
+pnpm exec tsx proofs/arbitrary-linux-binaries/scripts/arbitrary-process-level5-regular-file-fd-proof.ts --out ./regular-file-fd-proof --json
 ```
 
 ## Claim boundary

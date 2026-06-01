@@ -7,7 +7,10 @@ import { fileURLToPath } from "node:url";
 import { buildNodeLevel5AppSupportMatrix } from "../../../packages/runtime/src/node-level5-app-support-matrix.ts";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
-const runnerPath = join(repoRoot, "scripts/node-level5-installed-third-party-app-corpus.ts");
+const runnerPath = join(
+  repoRoot,
+  "proofs/nodejs/scripts/node-level5-installed-third-party-app-corpus.ts",
+);
 const tsxLoaderPath = join(repoRoot, "node_modules/tsx/dist/loader.mjs");
 type Summary = Record<string, any>;
 type Row = Record<string, any>;
