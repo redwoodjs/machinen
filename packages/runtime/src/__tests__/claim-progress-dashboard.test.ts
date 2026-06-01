@@ -123,6 +123,10 @@ describe("claim progress dashboard", () => {
     expect(html).toContain("node/001m");
     expect(html).toContain("node/132m");
     expect(html).toContain("ID (proof #)");
+    expect(html).toContain("Type");
+    expect(html).toContain("Proof type options");
+    expect(html).toContain("row coverage");
+    expect(html).toContain("e2e");
     expect(html).toContain("Proof name");
     expect(html).toContain("express-official-hello-world");
     expect(html).toContain("fastify-generic-vm-esm");

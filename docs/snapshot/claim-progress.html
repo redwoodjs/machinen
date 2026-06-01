@@ -363,6 +363,10 @@
             <dt>Refusals</dt>
             <dd>Explicit unsafe or unsupported boundaries that prevent overclaiming.</dd>
           </div>
+          <div>
+            <dt>Proof type options</dt>
+            <dd id="proof-type-options">Loaded from the proof index.</dd>
+          </div>
         </dl>
         <h3 class="legend-heading">Progression</h3>
         <dl class="legend">
@@ -2786,6 +2790,7 @@
       const source = document.querySelector("#source");
       const error = document.querySelector("#error");
       const proofImpact = document.querySelector("#proof-impact");
+      const proofTypeOptions = document.querySelector("#proof-type-options");
       const trackOverview = document.querySelector("#track-overview");
 
       loadEmbedded();
@@ -2814,6 +2819,7 @@
         const tracks = data.tracks ?? [];
         const claims = data.proofGroups ?? [];
         proofImpact.innerHTML = proofIndexSections(tracks, claims);
+        proofTypeOptions.textContent = proofTypeOptionsList(claims).join(" · ");
         trackOverview.innerHTML = trackCards(tracks, claims);
       }
 
@@ -2835,6 +2841,19 @@
         return claim?.id === "level4-ping-resource-continuation" ? claim.id : track.id;
       }
 
+      function proofTypeOptionsList(claims) {
+        const options = new Set(["e2e"]);
+        for (const claim of claims) {
+          for (const proof of claim.proofs ?? []) options.add(proofType(proof.category));
+        }
+        return [...options].sort();
+      }
+
+      function proofType(category) {
+        if (String(category).toLowerCase() === "real e2e") return "e2e";
+        return category ?? "unspecified";
+      }
+
       function proofIndexSections(tracks, claims) {
         const claimsByTrack = new Map();
         for (const claim of claims) {
@@ -2845,7 +2864,7 @@
         return tracks
           .map((track) => {
             const rows = proofIndexRows(track, claimsByTrack.get(track.id) ?? []);
-            return `<section class="proof-index-track"><h3>${escapeHtml(displayTrackName(track))}</h3><p class="muted">${escapeHtml(rowCoverageSummary(track))} · ${rows.length} indexed proof rows</p>${table(["ID (proof #)", "Proof name", "Status"], rows)}</section>`;
+            return `<section class="proof-index-track"><h3>${escapeHtml(displayTrackName(track))}</h3><p class="muted">${escapeHtml(rowCoverageSummary(track))} · ${rows.length} indexed proof rows</p>${table(["ID (proof #)", "Type", "Proof name", "Status"], rows)}</section>`;
           })
           .join("");
       }
@@ -2857,7 +2876,8 @@
           for (const proof of claim.proofs ?? []) {
             rows.push([
               proofIndexId(track, index++),
-              `<strong>${escapeHtml(proof.id)}</strong><p class="muted">${escapeHtml(claim.id)} · ${escapeHtml(proof.category ?? "")}</p>`,
+              proofType(proof.category),
+              `<strong>${escapeHtml(proof.id)}</strong><p class="muted">${escapeHtml(claim.id)}</p>`,
               pill(proof.status),
             ]);
           }
@@ -2870,6 +2890,7 @@
         if (missingBundles.length > 0) {
           return missingBundles.map((bundle) => [
             bundle.proofId,
+            "e2e",
             `<strong>${escapeHtml(bundle.rowId)}</strong><p class="muted">${escapeHtml(bundle.direction)}</p>`,
             pill(bundle.status),
           ]);
@@ -2879,6 +2900,7 @@
         return missingRows.flatMap((row) =>
           row.directions.map((direction) => [
             proofIndexId(track, index++, "m"),
+            "e2e",
             `<strong>${escapeHtml(row.rowId)}</strong><p class="muted">${escapeHtml(direction)}</p>`,
             pill("missing"),
           ]),
