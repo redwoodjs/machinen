@@ -19,7 +19,7 @@
       "artifact": "arbitrary-process-level5-seed-matrix.json",
       "proves": "14-row seed/refusal/not-proven matrix with claim locked at 0",
       "claimUse": "defines proof backlog and unsafe refusals",
-      "next": "Add claim-ready gate."
+      "next": "Seed matrix is accepted; derive remaining work from unfinished proof and evidence rows."
     },
     {
       "id": "arbitrary-process-claim-ready-gate",
@@ -48,7 +48,7 @@
       "artifact": "regular-file-fd-proof-report.json",
       "proves": "Target-native reopen preserves captured file offset and read continuation",
       "claimUse": "one verified arbitrary-process seed; no claim raise",
-      "next": "Use as pattern for simple pipe FD proof."
+      "next": "Covered by the accepted claim-ready gate."
     },
     {
       "id": "simple-pipe-fd-proof",

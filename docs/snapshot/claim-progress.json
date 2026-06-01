@@ -1,6 +1,6 @@
 {
   "kind": "machinen.claim-progress-dashboard",
-  "version": 10,
+  "version": 11,
   "updatedFrom": [
     "docs/snapshot/node-level5-product-support-claim-registry.json",
     "docs/snapshot/node-level5-product-support-100.json",
@@ -464,7 +464,7 @@
           "evidence": "Gate requires accepted seed matrix, unsafe refusals, at least three verified seeds, required seed rows, and SHA-verified artifacts",
           "gate": "claimChangeAllowed must come only from arbitrary-process-level5-claim-ready",
           "artifact": "arbitrary-process-claim-ready-report.json",
-          "next": "Add simple pipe and idle epoll/TCP verified seeds so this gate can become true."
+          "next": "Gate is satisfied; keep public claim changes in a separate PR."
         },
         {
           "id": "native-simple-pipe-fd-proof",
@@ -474,7 +474,7 @@
           "evidence": "Simple pipe FD retained proof verifies endpoint direction, buffered bytes, EOF, and target-native pipe reconstruction",
           "gate": "artifact sha verification plus target behavior proof",
           "artifact": "simple-pipe-fd-proof-report.json",
-          "next": "Feed this verified seed into the arbitrary-process claim-ready gate."
+          "next": "Covered by the accepted claim-ready gate."
         },
         {
           "id": "native-idle-epoll-tcp-proof",
@@ -484,7 +484,7 @@
           "evidence": "Idle epoll and idle TCP listener retained proof verifies no ready events, no accepted streams, and target-native reconstruction",
           "gate": "idle-only resource reconstruction verifier",
           "artifact": "idle-resource-proof-report.json",
-          "next": "Use with the claim-ready gate before any public 1% claim PR."
+          "next": "Covered by the accepted claim-ready gate; public claim remains 0%."
         }
       ],
       "refusals": [
@@ -862,7 +862,7 @@
           "artifact": "arbitrary-process-level5-seed-matrix.json",
           "proves": "14-row seed/refusal/not-proven matrix with claim locked at 0",
           "claimUse": "defines proof backlog and unsafe refusals",
-          "next": "Add claim-ready gate."
+          "next": "Seed matrix is accepted; derive remaining work from unfinished proof and evidence rows."
         },
         {
           "id": "arbitrary-process-claim-ready-gate",
@@ -891,7 +891,7 @@
           "artifact": "regular-file-fd-proof-report.json",
           "proves": "Target-native reopen preserves captured file offset and read continuation",
           "claimUse": "one verified arbitrary-process seed; no claim raise",
-          "next": "Use as pattern for simple pipe FD proof."
+          "next": "Covered by the accepted claim-ready gate."
         },
         {
           "id": "simple-pipe-fd-proof",
