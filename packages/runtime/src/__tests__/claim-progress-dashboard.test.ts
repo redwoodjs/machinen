@@ -27,7 +27,7 @@ type ClaimProgressProofGroup = {
 
 type ClaimProgressDashboard = {
   kind: "machinen.claim-progress-dashboard";
-  version: 23;
+  version: 24;
   tracks: ClaimProgressTrack[];
   proofGroups: ClaimProgressProofGroup[];
 };
@@ -41,7 +41,7 @@ describe("claim progress dashboard", () => {
 
     expect(dashboard).toMatchObject({
       kind: "machinen.claim-progress-dashboard",
-      version: 23,
+      version: 24,
     });
     expect(dashboard.tracks.map((track) => track.id)).toEqual([
       "node-service",
@@ -117,6 +117,10 @@ describe("claim progress dashboard", () => {
     expect(html).toContain("Supported bundles");
     expect(html).toContain("4 / 136 covered");
     expect(html).toContain("missing 132");
+    expect(html).toContain("missingSupportedRowsCount");
+    expect(html).toContain("supported rows are missing both direction bundles");
+    expect(html).toContain("express-official-hello-world");
+    expect(html).toContain("fastify-generic-vm-esm");
     expect(html).toContain("Broad service/workload impact (%)");
     expect(html).toContain("Arbitrary Linux process restore impact (%)");
     expect(html).not.toContain("What to do next");
