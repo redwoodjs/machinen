@@ -1,0 +1,139 @@
+{
+  "kind": "machinen.claim-progress-dashboard",
+  "version": 1,
+  "updatedFrom": [
+    "docs/snapshot/node-level5-product-support-claim-registry.json",
+    "docs/snapshot/node-level5-product-support-100.json",
+    "docs/snapshot/arbitrary-process-level5-seed-matrix.json"
+  ],
+  "currentProductPath": "machinen snapshot <vm-name> --out <dir>; machinen restore <dir>",
+  "tracks": [
+    {
+      "id": "node-service",
+      "name": "Node service restore",
+      "status": "claimed",
+      "currentClaim": {
+        "productSupport": 100,
+        "broadSupport": 100,
+        "arbitraryProcessCrossArchRestore": 0
+      },
+      "nextClaim": null,
+      "summary": "Selected safe Node services are claimed through the Node service claim ladder. Arbitrary process restore remains outside this track.",
+      "evidence": [
+        "framework-capability-coverage-v2",
+        "framework-combination-corpus",
+        "node-runtime-capability-matrix",
+        "installed-framework-app-release-gate",
+        "broad-node-capability-claim-ready",
+        "unified-node-service-claim-gate",
+        "cross-corpus-consistency-gate",
+        "runtime-state-translation-gate",
+        "runtime-framework-combined-claim-ready",
+        "final-node-service-ga-gate"
+      ],
+      "refusals": [
+        "arbitrary non-Node processes",
+        "raw CPU restore",
+        "source ISA emulation",
+        "app checkpoint hooks",
+        "unsafe live state"
+      ],
+      "docs": [
+        "node-level5-product-support-100.md",
+        "node-level5-product-support-next-milestone.md"
+      ]
+    },
+    {
+      "id": "arbitrary-process",
+      "name": "Arbitrary process cross-architecture restore",
+      "status": "seed-candidate",
+      "currentClaim": {
+        "productSupport": null,
+        "broadSupport": null,
+        "arbitraryProcessCrossArchRestore": 0
+      },
+      "nextClaim": {
+        "arbitraryProcessCrossArchRestore": 1,
+        "claimChangeAllowed": false
+      },
+      "summary": "Seed matrix exists for tiny target-native reconstruction candidates, including the proven ping socket resource row, but no arbitrary-process claim is raised yet.",
+      "evidence": [
+        "tiny native idle process seed",
+        "argv/env/cwd seed",
+        "regular file FD seed",
+        "simple pipe FD seed",
+        "static/data/heap materialization seed",
+        "syscall/resource boundary seed",
+        "ping/ICMP socket resource seed"
+      ],
+      "refusals": [
+        "threads",
+        "JIT code",
+        "futex-owned locks",
+        "live sockets",
+        "device mmap",
+        "active epoll",
+        "arbitrary unknown Linux process"
+      ],
+      "counts": {
+        "rows": 14,
+        "seedCandidates": 7,
+        "refused": 6,
+        "notProven": 1
+      },
+      "docs": ["arbitrary-process-level5-seed-matrix.md", "level4-ping-socket-product.md"]
+    },
+    {
+      "id": "postgres",
+      "name": "Postgres portable restore",
+      "status": "product-track-existing",
+      "currentClaim": {
+        "productSupport": null,
+        "broadSupport": null,
+        "arbitraryProcessCrossArchRestore": 0
+      },
+      "nextClaim": {
+        "productSupport": "to-be-defined",
+        "claimChangeAllowed": false
+      },
+      "summary": "Postgres has an existing clean logical portable product track. It still needs a percent-style claim ladder before it can appear like Node in this dashboard.",
+      "evidence": [
+        "postgres-clean-quiesced-logical-v1",
+        "logical dump integrity",
+        "target verifier output"
+      ],
+      "refusals": [
+        "active transactions",
+        "active sessions",
+        "dirty WAL boundary",
+        "ambiguous host-mounted data dir",
+        "physical data-dir cross-ISA copy"
+      ],
+      "docs": ["product-portable-postgres.ts"]
+    },
+    {
+      "id": "bun",
+      "name": "Bun service restore",
+      "status": "not-started",
+      "currentClaim": {
+        "productSupport": 0,
+        "broadSupport": 0,
+        "arbitraryProcessCrossArchRestore": 0
+      },
+      "nextClaim": {
+        "productSupport": "seed-matrix-needed",
+        "claimChangeAllowed": false
+      },
+      "summary": "Bun needs a seed matrix, product-path detector evidence, retained artifacts, and refusal boundaries before any support claim.",
+      "evidence": [],
+      "refusals": [
+        "native/JIT runtime state until proven",
+        "active sockets",
+        "workers",
+        "native addons/plugins",
+        "arbitrary Bun apps"
+      ],
+      "docs": []
+    }
+  ]
+}
