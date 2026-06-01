@@ -27,7 +27,7 @@ type ClaimProgressProofGroup = {
 
 type ClaimProgressDashboard = {
   kind: "machinen.claim-progress-dashboard";
-  version: 28;
+  version: 29;
   tracks: ClaimProgressTrack[];
   proofGroups: ClaimProgressProofGroup[];
 };
@@ -41,7 +41,7 @@ describe("claim progress dashboard", () => {
 
     expect(dashboard).toMatchObject({
       kind: "machinen.claim-progress-dashboard",
-      version: 28,
+      version: 29,
     });
     expect(dashboard.tracks.map((track) => track.id)).toEqual([
       "node-service",
@@ -131,6 +131,7 @@ describe("claim progress dashboard", () => {
     expect(html).toContain("Type");
     expect(html).toContain("other types");
     expect(html).toContain("End-to-end source capture plus target restore behavior evidence");
+    expect(html).toContain("PostgreSQL proof for a connected psql client running SQL queries");
     expect(html).toContain("row coverage");
     expect(html).toContain("e2e");
     expect(html).toContain("Proof name");
@@ -158,7 +159,10 @@ describe("claim progress dashboard", () => {
     expect(html).toContain("Candidate increase");
     expect(html).toContain("none: gate locked");
     expect(html).toContain("nodejs");
-    expect(html).toContain("postgres");
+    expect(html).toContain("postgresql");
+    expect(html).toContain("PostgreSQL portable restore");
+    expect(html).toContain("psql query workload");
+    expect(html).toContain("postgresql-psql-query-workload-e2e");
     expect(html).toContain("ping");
     expect(html).toContain("arbitrary binaries");
     expect(html).toContain("proof IDs are path-like");

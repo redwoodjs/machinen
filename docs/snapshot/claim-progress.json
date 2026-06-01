@@ -1,6 +1,6 @@
 {
   "kind": "machinen.claim-progress-dashboard",
-  "version": 28,
+  "version": 29,
   "updatedFrom": [
     "docs/snapshot/node-level5-product-support-claim-registry.json",
     "docs/snapshot/node-level5-product-support-100.json",
@@ -1222,12 +1222,12 @@
     },
     {
       "id": "postgres",
-      "name": "Postgres portable restore",
+      "name": "PostgreSQL portable restore",
       "family": "database",
       "runtime": "postgresql",
       "status": "seed-candidate",
       "stage": "20 / 0 / 0 clean logical claim",
-      "scope": "Clean, idle logical Postgres restore track; not physical data-dir cross-ISA restore.",
+      "scope": "Clean, idle logical PostgreSQL restore track; not physical data-dir cross-ISA restore.",
       "currentClaim": {
         "productSupport": 0,
         "broadSupport": 0,
@@ -1239,7 +1239,7 @@
         "arbitraryProcessCrossArchRestore": 0,
         "claimChangeAllowed": false
       },
-      "summary": "No public Postgres snapshot/restore claim is active for no-dump machinen snapshot/restore. Existing logical descriptor work is proof-only fixture evidence. Product and broad-service support stay 0 until real bidirectional PostgreSQL E2E validation is retained.",
+      "summary": "No public PostgreSQL snapshot/restore claim is active for no-dump machinen snapshot/restore. Existing logical descriptor work is proof-only fixture evidence. Product and broad-service support stay 0 until real bidirectional PostgreSQL E2E validation is retained.",
       "claimGate": "postgres-real-cross-arch-e2e-gate required",
       "claimChangeAllowed": false,
       "evidence": [
@@ -1269,6 +1269,16 @@
           "gate": "postgres-real-cross-arch-e2e-gate",
           "artifact": "missing",
           "next": "Run real PostgreSQL source/target E2E validation in both directions."
+        },
+        {
+          "id": "postgresql-psql-query-workload-e2e",
+          "area": "psql workload",
+          "kind": "connected query-session E2E gate",
+          "status": "not-started",
+          "evidence": "No retained psql-connected query workload has been captured and restored through real PostgreSQL bidirectional E2E yet.",
+          "gate": "postgresql-psql-query-workload-e2e",
+          "artifact": "missing",
+          "next": "Run psql-connected query workload capture/restore in both directions and retain source query transcript, target restore summary, and target psql verifier output."
         }
       ],
       "refusals": [
@@ -1276,13 +1286,14 @@
         "active sessions",
         "dirty WAL boundary",
         "ambiguous host-mounted data dir",
-        "physical data-dir cross-ISA copy"
+        "physical data-dir cross-ISA copy",
+        "active psql sessions / in-flight queries"
       ],
       "refusalRows": [
         {
           "boundary": "active transactions / sessions",
           "status": "refused",
-          "reason": "The supported Postgres path is clean and idle logical reconstruction.",
+          "reason": "The supported PostgreSQL path is clean and idle logical reconstruction.",
           "neededToReduce": "Transaction/session drain or database-level captured-state proof."
         },
         {
@@ -1296,6 +1307,12 @@
           "status": "refused",
           "reason": "Physical storage is not a cross-architecture product claim.",
           "neededToReduce": "Keep using logical reconstruction; do not promote physical copy."
+        },
+        {
+          "boundary": "active psql sessions / in-flight queries",
+          "status": "not-proven",
+          "reason": "A live psql client session with in-flight query state has not been reconstructed across architectures.",
+          "neededToReduce": "A retained psql query-session E2E proof that captures a safe consistency point and verifies target-native query behavior."
         }
       ],
       "nextSteps": [
@@ -1318,6 +1335,11 @@
           "priority": 4,
           "item": "Run real E2E refusal cases for active sessions, active transactions, dirty WAL, physical data-dir copy, replication/failover, and metadata-only shortcuts.",
           "gate": "postgres-e2e-refusal-audit"
+        },
+        {
+          "priority": 5,
+          "item": "Add psql-connected query workload E2E coverage for PostgreSQL, including source query transcript and target psql verifier output.",
+          "gate": "postgresql-psql-query-workload-e2e"
         }
       ],
       "docs": ["product-portable-postgres.ts", "product-portable-postgres-claim-ladder.ts"]
@@ -1958,16 +1980,16 @@
     },
     {
       "id": "postgres-20-0-0",
-      "claim": "Postgres clean logical descriptor fixture / no public claim",
+      "claim": "PostgreSQL clean logical descriptor fixture / no public claim",
       "trackId": "postgres",
       "status": "partial-proof",
-      "scope": "Clean, idle logical Postgres reconstruction only; physical data-dir cross-ISA copy remains refused.",
+      "scope": "Clean, idle logical PostgreSQL reconstruction only; physical data-dir cross-ISA copy remains refused.",
       "claimNumbers": {
         "productSupport": 0,
         "broadSupport": 0,
         "arbitraryProcessCrossArchRestore": 0
       },
-      "promotionEffect": "Proof-only logical descriptor fixture. It does not claim no-dump machinen snapshot/restore and does not raise public Postgres support.",
+      "promotionEffect": "Proof-only logical descriptor fixture. It does not claim no-dump machinen snapshot/restore and does not raise public PostgreSQL support.",
       "proofs": [
         {
           "id": "postgres-clean-logical-capture",
@@ -2054,7 +2076,7 @@
     },
     {
       "id": "postgres-real-cross-arch-e2e-gate",
-      "claim": "Postgres real cross-architecture E2E gate required",
+      "claim": "PostgreSQL real cross-architecture E2E gate required",
       "trackId": "postgres",
       "status": "not-started",
       "scope": "No-dump machinen snapshot/restore for real PostgreSQL across amd64<->arm64 requires retained source and target PostgreSQL E2E artifacts before any public claim.",
@@ -2065,7 +2087,7 @@
         "candidateProductSupport": 20,
         "candidateBroadSupport": 20
       },
-      "promotionEffect": "Blocks public Postgres product and broad-service claims until real PostgreSQL E2E validation exists in both architecture directions.",
+      "promotionEffect": "Blocks public PostgreSQL product and broad-service claims until real PostgreSQL E2E validation exists in both architecture directions.",
       "proofDirectory": "proofs/postgres/real-cross-arch-e2e-gate",
       "proofs": [
         {
@@ -2074,7 +2096,7 @@
           "status": "not-started",
           "artifact": "missing",
           "proves": "Start real PostgreSQL on amd64, load schema/data/workload, capture through product snapshot command without user-supplied dump, restore on arm64 target-native PostgreSQL, and pass verifier/app workload.",
-          "claimUse": "required before any amd64->arm64 public Postgres claim",
+          "claimUse": "required before any amd64->arm64 public PostgreSQL claim",
           "next": "Run and retain the amd64->arm64 source transcript, target transcript, bundle manifest, restore summary, verifier outputs, and workload results.",
           "claimImpact": {
             "productSupportDelta": 0,
@@ -2094,8 +2116,28 @@
           "status": "not-started",
           "artifact": "missing",
           "proves": "Repeat the real PostgreSQL no-dump product snapshot/restore path from arm64 to amd64 with target-native PostgreSQL and retained verifier/app workload outputs.",
-          "claimUse": "required before bidirectional public Postgres claim",
+          "claimUse": "required before bidirectional public PostgreSQL claim",
           "next": "Run and retain the arm64->amd64 source transcript, target transcript, bundle manifest, restore summary, verifier outputs, and workload results.",
+          "claimImpact": {
+            "productSupportDelta": 0,
+            "broadSupportDelta": 0,
+            "arbitraryProcessCrossArchRestoreDelta": 0,
+            "resultingClaim": {
+              "productSupport": 0,
+              "broadSupport": 0,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "claimChangeAllowed": false
+          }
+        },
+        {
+          "id": "postgresql-psql-query-workload-e2e",
+          "category": "psql query workload",
+          "status": "not-started",
+          "artifact": "missing",
+          "proves": "Connect with psql, run SQL queries against the source PostgreSQL database, capture through the product snapshot path at a safe consistency point, restore on the target architecture, and verify equivalent query results through target-native psql.",
+          "claimUse": "required before claiming PostgreSQL support for connected psql query workloads",
+          "next": "Run and retain psql source query transcript, product snapshot artifact, target restore summary, target psql verifier output, and query result comparison for both architecture directions.",
           "claimImpact": {
             "productSupportDelta": 0,
             "broadSupportDelta": 0,
