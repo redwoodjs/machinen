@@ -22,6 +22,26 @@
       "next": "Add claim-ready gate."
     },
     {
+      "id": "arbitrary-process-claim-ready-gate",
+      "category": "claim gate",
+      "status": "passed",
+      "artifact": "arbitrary-process-claim-ready-report.json",
+      "proves": "claimChangeAllowed can only become true through the dedicated arbitrary-process claim-ready gate",
+      "claimUse": "keeps public arbitrary-process claim at 0 until required verified seeds pass",
+      "next": "Add simple pipe and idle epoll/TCP verified-seed reports.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": null,
+          "broadSupport": null,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    },
+    {
       "id": "regular-file-fd-proof",
       "category": "file descriptor",
       "status": "verified-seed",

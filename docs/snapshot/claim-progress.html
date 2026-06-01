@@ -361,7 +361,7 @@
     <script id="embedded-claim-progress" type="application/json">
       {
         "kind": "machinen.claim-progress-dashboard",
-        "version": 6,
+        "version": 7,
         "updatedFrom": [
           "docs/snapshot/node-level5-product-support-claim-registry.json",
           "docs/snapshot/node-level5-product-support-100.json",
@@ -371,7 +371,9 @@
           "proofs/generic-linux-service/not-started/claim.json",
           "proofs/linux-vm-workload/not-started/claim.json",
           "proofs/postgres/20-0-0/claim.json",
-          "proofs/postgres/20-0-0/retained/postgres-claim-ladder-report.json"
+          "proofs/postgres/20-0-0/retained/postgres-claim-ladder-report.json",
+          "packages/runtime/src/arbitrary-process-level5-claim-ready.ts",
+          "proofs/arbitrary-linux-binaries/scripts/arbitrary-process-level5-claim-ready.ts"
         ],
         "columns": {
           "claim": ["productSupport", "broadSupport", "arbitraryProcessCrossArchRestore"],
@@ -728,7 +730,7 @@
               "claimChangeAllowed": false
             },
             "summary": "Seed matrix exists for tiny target-native reconstruction candidates. The regular file FD row now has retained verifier artifacts; no arbitrary-process claim is raised yet.",
-            "claimGate": "regular-file-fd proof partial; dedicated arbitrary-process claim-ready gate still required",
+            "claimGate": "arbitrary-process claim-ready gate defined; waiting on simple-pipe and idle epoll/TCP verified seeds",
             "claimChangeAllowed": false,
             "evidence": [
               "tiny native idle process seed",
@@ -737,7 +739,8 @@
               "simple pipe FD seed",
               "static/data/heap materialization seed",
               "syscall/resource boundary seed",
-              "ping/ICMP socket resource seed"
+              "ping/ICMP socket resource seed",
+              "arbitrary-process-claim-ready-gate"
             ],
             "evidenceRows": [
               {
@@ -809,6 +812,16 @@
                 "gate": "level4 ping proof plus arbitrary-process seed matrix",
                 "artifact": "arbitrary-process-level5-seed/native-ping-socket-resource.json",
                 "next": "Use as a narrow resource row only; do not claim arbitrary process restore."
+              },
+              {
+                "id": "arbitrary-process-claim-ready-gate",
+                "area": "claim gate",
+                "kind": "claim-ready gate",
+                "status": "passed",
+                "evidence": "Gate requires accepted seed matrix, unsafe refusals, at least three verified seeds, required seed rows, and SHA-verified artifacts",
+                "gate": "claimChangeAllowed must come only from arbitrary-process-level5-claim-ready",
+                "artifact": "arbitrary-process-claim-ready-report.json",
+                "next": "Add simple pipe and idle epoll/TCP verified seeds so this gate can become true."
               }
             ],
             "refusals": [
@@ -868,8 +881,8 @@
             "nextSteps": [
               {
                 "priority": 1,
-                "item": "Define the arbitrary-process claim-ready gate before changing 0%. ",
-                "gate": "claimChangeAllowed must become true only from that gate"
+                "item": "Feed the claim-ready gate with retained simple pipe and idle epoll/TCP verified-seed reports.",
+                "gate": "arbitrary-process-level5-claim-ready accepted"
               },
               {
                 "priority": 2,
@@ -1197,6 +1210,26 @@
                 "proves": "14-row seed/refusal/not-proven matrix with claim locked at 0",
                 "claimUse": "defines proof backlog and unsafe refusals",
                 "next": "Add claim-ready gate."
+              },
+              {
+                "id": "arbitrary-process-claim-ready-gate",
+                "category": "claim gate",
+                "status": "passed",
+                "artifact": "arbitrary-process-claim-ready-report.json",
+                "proves": "claimChangeAllowed can only become true through the dedicated arbitrary-process claim-ready gate",
+                "claimUse": "keeps public arbitrary-process claim at 0 until required verified seeds pass",
+                "next": "Add simple pipe and idle epoll/TCP verified-seed reports.",
+                "claimImpact": {
+                  "productSupportDelta": 0,
+                  "broadSupportDelta": 0,
+                  "arbitraryProcessCrossArchRestoreDelta": 0,
+                  "resultingClaim": {
+                    "productSupport": null,
+                    "broadSupport": null,
+                    "arbitraryProcessCrossArchRestore": 0
+                  },
+                  "claimChangeAllowed": false
+                }
               },
               {
                 "id": "regular-file-fd-proof",
