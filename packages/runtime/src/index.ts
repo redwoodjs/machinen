@@ -1360,6 +1360,18 @@ export { readBalloonStats, STATS_FILE_SIZE } from "./balloon-stats.ts";
 export type { BalloonCounters } from "./balloon-stats.ts";
 
 export {
+  NODE_LEVEL5_GENERIC_VM_RETAINED_EVIDENCE_REPORT_KIND,
+  NODE_LEVEL5_GENERIC_VM_RETAINED_EVIDENCE_REPORT_VERSION,
+  createNodeLevel5GenericVmRetainedEvidenceReport,
+  loadNodeLevel5GenericVmRetainedEvidenceReport,
+  verifyNodeLevel5GenericVmRetainedEvidenceReport,
+  writeNodeLevel5GenericVmRetainedEvidenceReport,
+  type NodeLevel5GenericVmRetainedEvidenceFile,
+  type NodeLevel5GenericVmRetainedEvidenceReport,
+  type NodeLevel5GenericVmRetainedEvidenceVerification,
+} from "./node-level5-generic-vm-retained-evidence.ts";
+
+export {
   NODE_LEVEL5_GENERIC_VM_CORPUS_REPORT_KIND,
   NODE_LEVEL5_GENERIC_VM_CORPUS_REPORT_VERSION,
   createNodeLevel5GenericVmCorpusReport,

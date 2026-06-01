@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -5,6 +7,7 @@ import {
   type NodeLevel5GenericVmCorpusRow,
   type NodeLevel5GenericVmRefusalMarker,
 } from "../node-level5-generic-vm-corpus.ts";
+import type { NodeLevel5GenericVmRetainedEvidenceReport } from "../node-level5-generic-vm-retained-evidence.ts";
 import { evaluateNodeLevel5ProductSupport85Readiness } from "../node-level5-product-support-85-readiness.ts";
 import type { NodeLevel5ProductSnapshotDirection } from "../node-level5-product-snapshot.ts";
 import type { NodeLevel5RealAppCorpusFramework } from "../node-level5-real-app-corpus.ts";
@@ -58,6 +61,24 @@ describe("Node Level 5 product support 85 readiness", () => {
     ]);
   });
 
+  it("includes retained evidence gates when a retained report is provided", () => {
+    const report = evaluateNodeLevel5ProductSupport85Readiness({
+      genericVmCorpusReport: createNodeLevel5GenericVmCorpusReport(genericVmRows()),
+      genericVmRetainedEvidenceReport: retainedEvidenceReport(),
+    });
+
+    expect(report.candidateEvidenceAccepted).toBe(true);
+    expect(report.gates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "generic-vm-retained-evidence-accepted", status: "passed" }),
+        expect.objectContaining({ id: "generic-vm-retained-evidence-files", status: "passed" }),
+      ]),
+    );
+    expect(report.blockedGates).toEqual([
+      expect.objectContaining({ id: "claim-change-unlocked", status: "blocked" }),
+    ]);
+  });
+
   it("blocks incomplete candidate evidence", () => {
     const report = evaluateNodeLevel5ProductSupport85Readiness({
       genericVmCorpusReport: createNodeLevel5GenericVmCorpusReport(genericVmRows().slice(0, 2)),
@@ -77,6 +98,36 @@ describe("Node Level 5 product support 85 readiness", () => {
 
 function genericVmRows(): NodeLevel5GenericVmCorpusRow[] {
   return [...positiveRows(), ...refusalRows()];
+}
+
+function retainedEvidenceReport(): NodeLevel5GenericVmRetainedEvidenceReport {
+  const retainedFiles = [
+    "snapshot.json",
+    "restore.log",
+    "snap/portable-node.json",
+    "snap/portable-node-app.tar.gz",
+    "snap/portable-clean-service.json",
+    "snap/clean-service-node-primary.tar.gz",
+  ].map((path) => ({
+    path,
+    sha256: createHash("sha256").update(path).digest("hex"),
+    required: true as const,
+  }));
+  return {
+    kind: "machinen.node-level5-generic-vm-retained-evidence-report",
+    version: 1,
+    accepted: true,
+    productCommandPath: "machinen snapshot <vm-name> --out <dir>; machinen restore <dir>",
+    vmDetectedNodeWorkload: true,
+    restoreProbePassed: true,
+    retainedFiles,
+    retainedFileCount: retainedFiles.length,
+    retainedFilesSha256: createHash("sha256").update(JSON.stringify(retainedFiles)).digest("hex"),
+    claimChangeAllowed: false,
+    nodeProductSupportClaimed: 80,
+    broadNodeProductSupportClaimed: 20,
+    arbitraryProcessCrossArchRestoreClaimed: 0,
+  };
 }
 
 function positiveRows(): NodeLevel5GenericVmCorpusRow[] {
