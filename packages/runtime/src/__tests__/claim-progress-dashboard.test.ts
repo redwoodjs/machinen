@@ -130,6 +130,13 @@ describe("claim progress dashboard", () => {
       "Turn the existing clean logical track into a percent-style claim ladder with retained verifier artifacts.",
     );
     expect(html.indexOf("Track overview")).toBeLessThan(html.indexOf("Proof impact matrix"));
+    expect(html).toContain("Legend");
+    expect(html).toContain("Plain-English labels for the claim columns");
+    expect(html).toContain("nodejs");
+    expect(html).toContain("postgres");
+    expect(html).toContain("ping");
+    expect(html).toContain("arbitrary binaries");
+    expect(html).toContain("Grouped by track, then proof and claim");
     expect(html).toContain("Claim matrix");
     expect(html).toContain("Proofs by claim");
     expect(html).toContain("Proof directory");

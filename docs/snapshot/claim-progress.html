@@ -129,6 +129,26 @@
         font-size: 22px;
         margin-top: 4px;
       }
+      .legend {
+        display: grid;
+        gap: 12px;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        margin: 0;
+      }
+      .legend div {
+        background: var(--card-2);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 12px;
+      }
+      .legend dt {
+        font-weight: 800;
+        margin-bottom: 4px;
+      }
+      .legend dd {
+        color: var(--muted);
+        margin: 0;
+      }
       .subtables {
         display: grid;
         gap: 18px;
@@ -309,8 +329,37 @@
 
       <section class="card">
         <div class="section-heading">
+          <h2>Legend</h2>
+          <span class="muted">Plain-English labels for the claim columns</span>
+        </div>
+        <dl class="legend">
+          <div>
+            <dt>Product support</dt>
+            <dd>How much of the named product path has retained evidence.</dd>
+          </div>
+          <div>
+            <dt>Broad support</dt>
+            <dd>How much general service/workload coverage the product evidence justifies.</dd>
+          </div>
+          <div>
+            <dt>Arbitrary binaries</dt>
+            <dd>Cross-architecture restore for arbitrary Linux processes; still public 0%.</dd>
+          </div>
+          <div>
+            <dt>Supported bundles</dt>
+            <dd>Retained bidirectional source/target E2E artifacts for supported rows.</dd>
+          </div>
+          <div>
+            <dt>Refusals</dt>
+            <dd>Explicit unsafe or unsupported boundaries that prevent overclaiming.</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section class="card">
+        <div class="section-heading">
           <h2>Proof impact matrix</h2>
-          <span class="muted">Each proof row shows which claim columns it can affect</span>
+          <span class="muted">Grouped by track, then proof and claim</span>
         </div>
         <div id="proof-impact"></div>
       </section>
@@ -1695,7 +1744,7 @@
             "Next",
           ],
           tracks.map((track) => [
-            `<strong>${escapeHtml(track.name)}</strong><p class="muted">${escapeHtml(track.family)} · ${escapeHtml(track.runtime)} · ${escapeHtml(track.stage)}</p>`,
+            `<strong>${escapeHtml(displayTrackName(track))}</strong><p class="muted">${escapeHtml(track.family)} · ${escapeHtml(track.runtime)} · ${escapeHtml(track.stage)}</p>`,
             pill(track.status),
             claimValue(track.currentClaim?.productSupport),
             claimValue(track.currentClaim?.broadSupport),
@@ -1721,6 +1770,24 @@
         );
       }
 
+      function displayTrackName(track, claim = null) {
+        if (claim?.id === "level4-ping-resource-continuation") return "ping";
+        return (
+          {
+            "arbitrary-process": "arbitrary binaries",
+            bun: "bun",
+            "generic-linux-service": "generic linux",
+            "node-service": "nodejs",
+            postgres: "postgres",
+            "whole-linux-vm-workload": "whole linux vm",
+          }[track.id] ?? track.name
+        );
+      }
+
+      function displayTrackSubtext(track, claim = null) {
+        return claim?.id === "level4-ping-resource-continuation" ? claim.id : track.id;
+      }
+
       function proofImpactTable(tracks, claims) {
         const claimsByTrack = new Map();
         for (const claim of claims) {
@@ -1731,7 +1798,7 @@
         const rows = tracks.flatMap((track) =>
           (claimsByTrack.get(track.id) ?? []).flatMap((claim) =>
             (claim.proofs ?? []).map((proof) => [
-              `<strong>${escapeHtml(track.name)}</strong><p class="muted">${escapeHtml(track.id)}</p>`,
+              `<strong>${escapeHtml(displayTrackName(track, claim))}</strong><p class="muted">${escapeHtml(displayTrackSubtext(track, claim))}</p>`,
               `<strong>${escapeHtml(proof.id)}</strong><p class="muted">${escapeHtml(proof.category ?? "")}</p>`,
               `<strong>${escapeHtml(claim.claim)}</strong><p class="muted">${escapeHtml(claim.id)}</p>`,
               pill(proof.status),
@@ -1774,7 +1841,7 @@
           return proof.next ?? claim.promotionEffect ?? "Keep refusal boundary explicit.";
         }
         if (proof.claimImpact?.claimChangeAllowed === true) {
-          return `Candidate claim gate available for ${track?.name ?? claim.trackId}; public claim change remains separate.`;
+          return `Candidate claim gate available for ${track ? displayTrackName(track) : claim.trackId}; public claim change remains separate.`;
         }
         if (isCompleteStatus(proof.status)) {
           return "Complete; no next proof work derived from this row.";
@@ -1960,7 +2027,7 @@
             const next = derivedNext[0]?.item ?? "Keep current claim stable.";
             const gate = derivedNext[0]?.gate ?? track.claimGate ?? "no gate listed";
             return [
-              `<strong>${escapeHtml(track.name)}</strong><p class="muted">${escapeHtml(track.stage ?? "")}</p>`,
+              `<strong>${escapeHtml(displayTrackName(track))}</strong><p class="muted">${escapeHtml(track.stage ?? "")}</p>`,
               pill(track.status),
               claimNumberValue(track.currentClaim?.productSupport),
               claimNumberValue(track.currentClaim?.broadSupport),
