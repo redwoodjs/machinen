@@ -5,5 +5,5 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 LOADER="$ROOT/node_modules/tsx/dist/loader.mjs"
 
 for proof in $(seq 641 680); do
-  node --import "$LOADER" "$ROOT/proof/$proof/smoke.ts"
+  node --import "$LOADER" "$ROOT/proofs/by-id/$proof/smoke.ts"
 done

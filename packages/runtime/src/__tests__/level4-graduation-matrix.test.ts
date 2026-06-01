@@ -9,7 +9,14 @@ function runMatrix(args: string[] = []) {
   const out = join(outDir, "summary.json");
   const result = spawnSync(
     "pnpm",
-    ["exec", "tsx", "scripts/level4-graduation-matrix.ts", "--out", out, ...args],
+    [
+      "exec",
+      "tsx",
+      "proofs/network-resources/scripts/level4-graduation-matrix.ts",
+      "--out",
+      out,
+      ...args,
+    ],
     { cwd: join(import.meta.dirname, "../../..", ".."), encoding: "utf8" },
   );
   return { result, out };

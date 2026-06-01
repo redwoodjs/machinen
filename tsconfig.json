@@ -1,4 +1,5 @@
 {
+  "exclude": ["proofs/by-id"],
   "compilerOptions": {
     "target": "ES2022",
     "module": "ESNext",

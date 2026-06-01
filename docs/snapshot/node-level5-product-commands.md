@@ -69,6 +69,13 @@ machinen node-level5 85-claim-ready \
 
 The generic VM corpus, retained-evidence, row-artifact, refusal-artifact, and claim-ready gates back the claimed 85 / 25 / 0 tier. Framework capability, product-evidence, and claim-ready gates back the claimed 100 / 100 / 0 tier. The final framework claim-ready command unlocks the claim while arbitrary process support remains 0.
 
+The arbitrary-process seed track is diagnostic evidence only:
+
+```sh
+machinen node-level5 arbitrary-process-seed --json
+machinen node-level5 arbitrary-process-seed --out ./arbitrary-process-seed --json
+```
+
 The claim registry is now:
 
 ```json

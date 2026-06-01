@@ -1,0 +1,1556 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Machinen claim progress</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #0f172a;
+        --card: #111827;
+        --card-2: #0b1220;
+        --muted: #94a3b8;
+        --text: #e5e7eb;
+        --line: #334155;
+        --good: #22c55e;
+        --warn: #f59e0b;
+        --info: #38bdf8;
+        --bad: #ef4444;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family:
+          Inter,
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+      }
+      main {
+        max-width: 1480px;
+        margin: 0 auto;
+        padding: 32px 20px 56px;
+      }
+      header {
+        display: grid;
+        gap: 12px;
+        margin-bottom: 24px;
+      }
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+      h1 {
+        font-size: clamp(28px, 5vw, 46px);
+        line-height: 1;
+      }
+      h2 {
+        font-size: 22px;
+      }
+      h3 {
+        font-size: 16px;
+      }
+      .muted {
+        color: var(--muted);
+      }
+      .grid {
+        display: grid;
+        gap: 16px;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        margin: 22px 0;
+      }
+      .metric,
+      .card,
+      details.track-group {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        padding: 18px;
+      }
+      .metric strong {
+        display: block;
+        font-size: 30px;
+        margin-top: 6px;
+      }
+      .card {
+        margin-top: 18px;
+        overflow-x: auto;
+      }
+      .groups {
+        display: grid;
+        gap: 18px;
+        margin-top: 18px;
+      }
+      details.track-group {
+        padding: 0;
+        overflow: hidden;
+      }
+      details.track-group summary {
+        align-items: center;
+        cursor: pointer;
+        display: grid;
+        gap: 12px;
+        grid-template-columns: minmax(240px, 1fr) auto auto auto;
+        list-style: none;
+        padding: 18px;
+      }
+      details.track-group summary::-webkit-details-marker {
+        display: none;
+      }
+      .track-body {
+        border-top: 1px solid var(--line);
+        display: grid;
+        gap: 16px;
+        padding: 18px;
+      }
+      .claim-strip {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      }
+      .claim-box {
+        background: var(--card-2);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 12px;
+      }
+      .claim-box strong {
+        display: block;
+        font-size: 22px;
+        margin-top: 4px;
+      }
+      .subtables {
+        display: grid;
+        gap: 18px;
+      }
+      table {
+        border-collapse: collapse;
+        margin-top: 14px;
+        min-width: 100%;
+        width: max-content;
+      }
+      .track-body table {
+        width: 100%;
+      }
+      th,
+      td {
+        border-bottom: 1px solid var(--line);
+        max-width: 420px;
+        padding: 10px 12px;
+        text-align: left;
+        vertical-align: top;
+      }
+      th {
+        color: var(--muted);
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      tbody tr:hover {
+        background: color-mix(in srgb, var(--info) 7%, transparent);
+      }
+      .pill {
+        border-radius: 999px;
+        display: inline-block;
+        font-size: 12px;
+        font-weight: 800;
+        padding: 4px 9px;
+        white-space: nowrap;
+      }
+      .claimed,
+      .passed,
+      .proven-resource,
+      .implemented-product-support,
+      .true {
+        background: color-mix(in srgb, var(--good) 24%, transparent);
+        color: #86efac;
+      }
+      .seed-candidate,
+      .verified-seed,
+      .partial-proof,
+      .product-track-existing,
+      .refused {
+        background: color-mix(in srgb, var(--warn) 24%, transparent);
+        color: #fcd34d;
+      }
+      .not-started,
+      .not-proven,
+      .forbidden,
+      .false {
+        background: color-mix(in srgb, var(--bad) 24%, transparent);
+        color: #fca5a5;
+      }
+      ul {
+        margin: 8px 0 0;
+        padding-left: 18px;
+      }
+      code {
+        color: #bae6fd;
+      }
+      .error {
+        color: #fecaca;
+      }
+      .section-heading {
+        align-items: baseline;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        justify-content: space-between;
+      }
+      .track-title {
+        display: grid;
+        gap: 4px;
+      }
+      .compact {
+        white-space: nowrap;
+      }
+      .decision-grid {
+        display: grid;
+        gap: 16px;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        margin: 18px 0;
+      }
+      .decision,
+      .action-item {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        padding: 16px;
+      }
+      .decision {
+        border-left: 5px solid var(--info);
+      }
+      .decision.good {
+        border-left-color: var(--good);
+      }
+      .decision.warn {
+        border-left-color: var(--warn);
+      }
+      .decision.bad {
+        border-left-color: var(--bad);
+      }
+      .decision strong {
+        display: block;
+        margin-top: 6px;
+      }
+      .action-list {
+        counter-reset: action;
+        display: grid;
+        gap: 12px;
+        list-style: none;
+        margin: 16px 0 0;
+        padding: 0;
+      }
+      .action-item {
+        align-items: start;
+        display: grid;
+        gap: 8px;
+        grid-template-columns: auto 1fr;
+      }
+      .action-item::before {
+        align-items: center;
+        background: color-mix(in srgb, var(--info) 20%, transparent);
+        border-radius: 999px;
+        color: #bae6fd;
+        content: counter(action);
+        counter-increment: action;
+        display: inline-flex;
+        font-weight: 900;
+        height: 30px;
+        justify-content: center;
+        width: 30px;
+      }
+      details.card > summary {
+        cursor: pointer;
+        list-style: none;
+      }
+      details.card > summary::-webkit-details-marker {
+        display: none;
+      }
+      @media (max-width: 860px) {
+        details.track-group summary,
+        .action-item {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="muted">Machinen product evidence</p>
+        <h1>Claim progress dashboard</h1>
+        <p class="muted">
+          Start with the summary cards and recommended next work. The detailed matrices are now
+          collapsed below for audit/debug use. When served over HTTP, reloading the page reads the
+          latest <code>claim-progress.json</code>.
+        </p>
+        <p id="source" class="muted"></p>
+      </header>
+
+      <section id="metrics" class="grid" aria-label="summary metrics"></section>
+
+      <section id="read-this-first" class="decision-grid" aria-label="read this first"></section>
+
+      <section class="card">
+        <div class="section-heading">
+          <h2>Proof impact matrix</h2>
+          <span class="muted">Each proof row shows which claim columns it can affect</span>
+        </div>
+        <div id="proof-impact"></div>
+      </section>
+
+      <section class="card">
+        <div class="section-heading">
+          <h2>What to do next</h2>
+          <span class="muted"
+            >Recommended order; claim-changing gates stay locked until listed</span
+          >
+        </div>
+        <div id="next-actions"></div>
+      </section>
+
+      <section class="card">
+        <div class="section-heading">
+          <h2>Track overview</h2>
+          <span class="muted">One scannable card per product/workload track</span>
+        </div>
+        <div id="track-overview"></div>
+      </section>
+
+      <details class="card">
+        <summary class="section-heading">
+          <h2>Claim matrix</h2>
+          <span class="muted">Audit table: one row per track</span>
+        </summary>
+        <div id="claim-matrix"></div>
+      </details>
+
+      <details class="card">
+        <summary class="section-heading">
+          <h2>Proofs by claim</h2>
+          <span class="muted">Audit table: sorted by the claim each proof supports or blocks</span>
+        </summary>
+        <div id="proof-groups"></div>
+      </details>
+
+      <section class="card">
+        <div class="section-heading">
+          <h2>Deep-dive track details</h2>
+          <span class="muted"
+            >Open a track only when you need evidence rows, refusals, and gates</span
+          >
+        </div>
+        <section class="groups" id="track-groups" aria-label="grouped track details"></section>
+      </section>
+
+      <p id="error" class="error" role="alert"></p>
+    </main>
+
+    <script id="embedded-claim-progress" type="application/json">
+      {
+        "kind": "machinen.claim-progress-dashboard",
+        "version": 5,
+        "updatedFrom": [
+          "docs/snapshot/node-level5-product-support-claim-registry.json",
+          "docs/snapshot/node-level5-product-support-100.json",
+          "docs/snapshot/arbitrary-process-level5-seed-matrix.json",
+          "proofs/arbitrary-linux-binaries/0-seed-1-locked/regular-file-fd-proof.md",
+          "proofs/README.md",
+          "proofs/generic-linux-service/not-started/claim.json",
+          "proofs/linux-vm-workload/not-started/claim.json"
+        ],
+        "columns": {
+          "claim": ["productSupport", "broadSupport", "arbitraryProcessCrossArchRestore"],
+          "detail": ["track", "area", "state", "evidence", "gate", "artifact", "next"]
+        },
+        "tracks": [
+          {
+            "id": "node-service",
+            "name": "Node service restore",
+            "family": "runtime-service",
+            "runtime": "node",
+            "status": "claimed",
+            "stage": "GA claim",
+            "scope": "Selected safe Node services through VM-first product snapshot/restore.",
+            "currentClaim": {
+              "productSupport": 100,
+              "broadSupport": 100,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "nextClaim": null,
+            "summary": "Selected safe Node services are claimed through the Node service claim ladder. Arbitrary process restore remains outside this track.",
+            "claimGate": "final-node-service-ga-gate",
+            "claimChangeAllowed": true,
+            "evidence": [
+              "framework-capability-coverage-v2",
+              "framework-combination-corpus",
+              "node-runtime-capability-matrix",
+              "installed-framework-app-release-gate",
+              "broad-node-capability-claim-ready",
+              "unified-node-service-claim-gate",
+              "cross-corpus-consistency-gate",
+              "runtime-state-translation-gate",
+              "runtime-framework-combined-claim-ready",
+              "final-node-service-ga-gate"
+            ],
+            "evidenceRows": [
+              {
+                "id": "node-framework-capability",
+                "area": "frameworks",
+                "kind": "capability matrix",
+                "status": "passed",
+                "evidence": "Express/Fastify capability rows with explicit coverage diagnostics",
+                "gate": "framework-claim-ready",
+                "artifact": "node-level5-framework-capability-matrix.md",
+                "next": "Keep framework rows evidence-bounded; do not claim arbitrary framework apps."
+              },
+              {
+                "id": "node-service-100-ladder",
+                "area": "claim ladder",
+                "kind": "release gate",
+                "status": "passed",
+                "evidence": "95/40/0 through 100/100/0 ladder with retained claim artifacts",
+                "gate": "node-level5-product-support-100-claim",
+                "artifact": "node-level5-product-support-100.json",
+                "next": "Keep arbitrary process at 0 unless the separate arbitrary-process gate passes."
+              },
+              {
+                "id": "node-vm-first-product-path",
+                "area": "product UX",
+                "kind": "product path",
+                "status": "passed",
+                "evidence": "VM-first snapshot/restore metadata and CLI claim path",
+                "gate": "node-level5-product-snapshot-restore",
+                "artifact": "node-level5-product-snapshot-restore.md",
+                "next": "Preserve machinen snapshot <vm-name> --out <dir>; machinen restore <dir>."
+              }
+            ],
+            "refusals": [
+              "arbitrary non-Node processes",
+              "raw CPU restore",
+              "source ISA emulation",
+              "app checkpoint hooks",
+              "unsafe live state"
+            ],
+            "refusalRows": [
+              {
+                "boundary": "arbitrary non-Node processes",
+                "status": "refused",
+                "reason": "Node service claim is not an arbitrary Linux process claim.",
+                "neededToReduce": "Dedicated arbitrary-process captured-state translation and target-native reconstruction gate."
+              },
+              {
+                "boundary": "raw CPU restore / source ISA emulation",
+                "status": "forbidden",
+                "reason": "Product direction requires translated continuation, not CPU snapshot restore.",
+                "neededToReduce": "Not reducible; this remains a permanent architecture boundary."
+              },
+              {
+                "boundary": "app checkpoint hooks",
+                "status": "forbidden",
+                "reason": "Support cannot depend on app-exported state or checkpoint callbacks.",
+                "neededToReduce": "Use captured machine/process state and target-native reconstruction only."
+              }
+            ],
+            "nextSteps": [
+              {
+                "priority": 1,
+                "item": "Keep Node claims stable while moving future products to shared claim/evidence tables.",
+                "gate": "no claim regression"
+              }
+            ],
+            "docs": [
+              "node-level5-product-support-100.md",
+              "node-level5-product-support-next-milestone.md"
+            ]
+          },
+          {
+            "id": "postgres",
+            "name": "Postgres portable restore",
+            "family": "database",
+            "runtime": "postgresql",
+            "status": "product-track-existing",
+            "stage": "existing product track; claim ladder needed",
+            "scope": "Clean, idle logical Postgres restore track; not physical data-dir cross-ISA restore.",
+            "currentClaim": {
+              "productSupport": null,
+              "broadSupport": null,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "nextClaim": {
+              "productSupport": "to-be-defined",
+              "claimChangeAllowed": false
+            },
+            "summary": "Postgres has an existing clean logical portable product track. It still needs a percent-style claim ladder before it can appear like Node in this dashboard.",
+            "claimGate": "postgres claim ladder not defined yet",
+            "claimChangeAllowed": false,
+            "evidence": [
+              "postgres-clean-quiesced-logical-v1",
+              "logical dump integrity",
+              "target verifier output"
+            ],
+            "evidenceRows": [
+              {
+                "id": "postgres-clean-logical",
+                "area": "database state",
+                "kind": "logical reconstruction",
+                "status": "implemented-product-support",
+                "evidence": "Clean logical dump with source/target verifier output",
+                "gate": "portable postgres restore verifier",
+                "artifact": "portable-product.json",
+                "next": "Turn existing support into a percent-style claim ladder."
+              },
+              {
+                "id": "postgres-integrity",
+                "area": "data integrity",
+                "kind": "verifier",
+                "status": "implemented-product-support",
+                "evidence": "Logical dump sha and verifier output comparison",
+                "gate": "postgres logical dump integrity",
+                "artifact": "postgres.logical.dump",
+                "next": "Retain standardized verifier artifacts per claim row."
+              }
+            ],
+            "refusals": [
+              "active transactions",
+              "active sessions",
+              "dirty WAL boundary",
+              "ambiguous host-mounted data dir",
+              "physical data-dir cross-ISA copy"
+            ],
+            "refusalRows": [
+              {
+                "boundary": "active transactions / sessions",
+                "status": "refused",
+                "reason": "The supported Postgres path is clean and idle logical reconstruction.",
+                "neededToReduce": "Transaction/session drain or database-level captured-state proof."
+              },
+              {
+                "boundary": "dirty WAL boundary",
+                "status": "refused",
+                "reason": "Dirty WAL is physical engine state, not portable logical state.",
+                "neededToReduce": "Proven logical consistency point and target verifier."
+              },
+              {
+                "boundary": "physical data-dir cross-ISA copy",
+                "status": "refused",
+                "reason": "Physical storage is not a cross-architecture product claim.",
+                "neededToReduce": "Keep using logical reconstruction; do not promote physical copy."
+              }
+            ],
+            "nextSteps": [
+              {
+                "priority": 1,
+                "item": "Create Postgres claim ladder and dashboard rows from existing product-portable implementation.",
+                "gate": "postgres claim-ready report"
+              },
+              {
+                "priority": 2,
+                "item": "Add retained source/target verifier artifacts to each claim row.",
+                "gate": "artifact sha verification"
+              }
+            ],
+            "docs": ["product-portable-postgres.ts"]
+          },
+          {
+            "id": "bun",
+            "name": "Bun service restore",
+            "family": "runtime-service",
+            "runtime": "bun",
+            "status": "not-started",
+            "stage": "track seed needed",
+            "scope": "No Bun product support claim yet.",
+            "currentClaim": {
+              "productSupport": 0,
+              "broadSupport": 0,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "nextClaim": {
+              "productSupport": "seed-matrix-needed",
+              "claimChangeAllowed": false
+            },
+            "summary": "Bun needs a seed matrix, product-path detector evidence, retained artifacts, and refusal boundaries before any support claim.",
+            "claimGate": "bun seed matrix required",
+            "claimChangeAllowed": false,
+            "evidence": [],
+            "evidenceRows": [
+              {
+                "id": "bun-seed-matrix",
+                "area": "planning",
+                "kind": "missing seed matrix",
+                "status": "not-started",
+                "evidence": "No retained Bun evidence rows yet",
+                "gate": "bun seed matrix",
+                "artifact": "not-created",
+                "next": "Define safe Bun service subset and explicit refusal boundaries."
+              }
+            ],
+            "refusals": [
+              "native/JIT runtime state until proven",
+              "active sockets",
+              "workers",
+              "native addons/plugins",
+              "arbitrary Bun apps"
+            ],
+            "refusalRows": [
+              {
+                "boundary": "native/JIT runtime state",
+                "status": "not-proven",
+                "reason": "No Bun runtime-state translation evidence exists yet.",
+                "neededToReduce": "Bun-specific target-native reconstruction proof."
+              },
+              {
+                "boundary": "workers / active sockets / plugins",
+                "status": "not-proven",
+                "reason": "No safe subset or refusal matrix exists yet.",
+                "neededToReduce": "Seed matrix plus product claim-ready gate."
+              }
+            ],
+            "nextSteps": [
+              {
+                "priority": 1,
+                "item": "Create Bun seed matrix with evidence, refusal, and not-proven rows.",
+                "gate": "bun seed matrix accepted"
+              },
+              {
+                "priority": 2,
+                "item": "Add VM-first Bun product-path detector and retained artifacts.",
+                "gate": "bun product evidence report"
+              }
+            ],
+            "docs": []
+          },
+          {
+            "id": "generic-linux-service",
+            "name": "Generic Linux service workload",
+            "family": "linux-service",
+            "runtime": "native/service",
+            "status": "not-started",
+            "stage": "seed matrix needed",
+            "scope": "Non-runtime-specific Linux services such as nginx, redis-like daemons, cron-style workers, and static binary services.",
+            "currentClaim": {
+              "productSupport": 0,
+              "broadSupport": 0,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "nextClaim": {
+              "productSupport": "seed-matrix-needed",
+              "claimChangeAllowed": false
+            },
+            "summary": "Generic Linux services need service-manifest evidence, filesystem/resource reconstruction, and explicit refusals before any claim.",
+            "claimGate": "generic linux service seed matrix required",
+            "claimChangeAllowed": false,
+            "evidence": [],
+            "evidenceRows": [
+              {
+                "id": "generic-linux-service-seed-matrix",
+                "area": "planning",
+                "kind": "missing seed matrix",
+                "status": "not-started",
+                "evidence": "No retained generic Linux service evidence rows yet",
+                "gate": "generic service seed matrix",
+                "artifact": "not-created",
+                "next": "Define nginx/static-binary/worker seed rows with VM-first product UX."
+              }
+            ],
+            "refusals": [
+              "raw CPU restore",
+              "source ISA emulation",
+              "opaque service internals",
+              "active sockets until proven",
+              "device/kernel state"
+            ],
+            "refusalRows": [
+              {
+                "boundary": "opaque service internals / active kernel state",
+                "status": "not-proven",
+                "reason": "No generic service target-native reconstruction gate exists yet.",
+                "neededToReduce": "Service manifest, captured resources, and target verifier artifacts."
+              }
+            ],
+            "nextSteps": [
+              {
+                "priority": 1,
+                "item": "Create generic Linux service seed matrix.",
+                "gate": "generic-linux-service seed matrix accepted"
+              },
+              {
+                "priority": 2,
+                "item": "Add first static binary or nginx-style workload proof.",
+                "gate": "service behavior verifier"
+              }
+            ],
+            "docs": []
+          },
+          {
+            "id": "arbitrary-process",
+            "name": "Arbitrary process cross-architecture restore",
+            "family": "process",
+            "runtime": "linux-process",
+            "status": "seed-candidate",
+            "stage": "seed matrix",
+            "scope": "Diagnostic seed rows only; no arbitrary Linux process support claim.",
+            "currentClaim": {
+              "productSupport": null,
+              "broadSupport": null,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "nextClaim": {
+              "arbitraryProcessCrossArchRestore": 1,
+              "claimChangeAllowed": false
+            },
+            "summary": "Seed matrix exists for tiny target-native reconstruction candidates. The regular file FD row now has retained verifier artifacts; no arbitrary-process claim is raised yet.",
+            "claimGate": "regular-file-fd proof partial; dedicated arbitrary-process claim-ready gate still required",
+            "claimChangeAllowed": false,
+            "evidence": [
+              "tiny native idle process seed",
+              "argv/env/cwd seed",
+              "regular file FD seed",
+              "simple pipe FD seed",
+              "static/data/heap materialization seed",
+              "syscall/resource boundary seed",
+              "ping/ICMP socket resource seed"
+            ],
+            "evidenceRows": [
+              {
+                "id": "tiny-native-idle-counter",
+                "area": "process core",
+                "kind": "target-native reconstruction seed",
+                "status": "seed-candidate",
+                "evidence": "Tiny idle native process candidate with translated process-state requirement",
+                "gate": "arbitrary-process-level5-seed-matrix",
+                "artifact": "arbitrary-process-level5-seed/tiny-native-idle-counter.json",
+                "next": "Retain verifier artifacts before any 1% claim."
+              },
+              {
+                "id": "native-argv-env-cwd",
+                "area": "process metadata",
+                "kind": "target-native reconstruction seed",
+                "status": "seed-candidate",
+                "evidence": "argv/env/cwd reconstruction candidate",
+                "gate": "arbitrary-process-level5-seed-matrix",
+                "artifact": "arbitrary-process-level5-seed/native-argv-env-cwd.json",
+                "next": "Add target verifier that proves identity and cwd/env equivalence."
+              },
+              {
+                "id": "native-regular-file-fd",
+                "area": "file descriptors",
+                "kind": "resource translation seed",
+                "status": "verified-seed",
+                "evidence": "Regular file FD target-native reopen proof verifies captured offset and read continuation",
+                "gate": "arbitrary-process regular-file-fd proof accepted",
+                "artifact": "regular-file-fd-proof-report.json",
+                "next": "Use this as one verified seed row; keep broader arbitrary-process claim blocked until the claim-ready gate."
+              },
+              {
+                "id": "native-simple-pipe-fd",
+                "area": "file descriptors",
+                "kind": "resource translation seed",
+                "status": "seed-candidate",
+                "evidence": "Simple pipe FD boundary candidate",
+                "gate": "arbitrary-process-level5-seed-matrix",
+                "artifact": "arbitrary-process-level5-seed/native-simple-pipe-fd.json",
+                "next": "Prove pipe contents and endpoint direction without sidecar replay."
+              },
+              {
+                "id": "native-static-data-heap",
+                "area": "memory",
+                "kind": "target-native reconstruction seed",
+                "status": "seed-candidate",
+                "evidence": "Static/data/heap materialization candidate",
+                "gate": "arbitrary-process-level5-seed-matrix",
+                "artifact": "arbitrary-process-level5-seed/native-static-data-heap.json",
+                "next": "Keep JIT and executable anonymous pages refused."
+              },
+              {
+                "id": "native-syscall-boundary",
+                "area": "syscall resources",
+                "kind": "resource translation seed",
+                "status": "seed-candidate",
+                "evidence": "Selected syscall/resource boundary descriptor",
+                "gate": "arbitrary-process-level5-seed-matrix",
+                "artifact": "arbitrary-process-level5-seed/native-syscall-boundary.json",
+                "next": "Split safe idle boundaries from unsafe active resources."
+              },
+              {
+                "id": "native-ping-socket-resource",
+                "area": "network resource",
+                "kind": "network-resource-translation-seed",
+                "status": "seed-candidate",
+                "evidence": "Ping/ICMP socket reconstruction using proven Level 4 ping evidence",
+                "gate": "level4 ping proof plus arbitrary-process seed matrix",
+                "artifact": "arbitrary-process-level5-seed/native-ping-socket-resource.json",
+                "next": "Use as a narrow resource row only; do not claim arbitrary process restore."
+              }
+            ],
+            "refusals": [
+              "threads",
+              "JIT code",
+              "futex-owned locks",
+              "live sockets",
+              "device mmap",
+              "active epoll",
+              "arbitrary unknown Linux process"
+            ],
+            "refusalRows": [
+              {
+                "boundary": "threads",
+                "status": "refused",
+                "reason": "Multiple live execution contexts require scheduler and stack-state translation not proven.",
+                "neededToReduce": "Captured thread state plus target-native reconstruction verifier."
+              },
+              {
+                "boundary": "JIT code",
+                "status": "refused",
+                "reason": "Runtime-generated executable pages are not portable target-native state.",
+                "neededToReduce": "Runtime-specific safe reconstruction, not raw executable page restore."
+              },
+              {
+                "boundary": "futex-owned locks / waiters",
+                "status": "refused",
+                "reason": "Owned locks and wait queues can wedge or corrupt target execution.",
+                "neededToReduce": "Idle futex-only proof with no owners or waiters."
+              },
+              {
+                "boundary": "live sockets / active epoll",
+                "status": "refused",
+                "reason": "Active kernel event and stream state is not reconstructed yet.",
+                "neededToReduce": "Idle listener/idle epoll proofs with retained target verifiers."
+              },
+              {
+                "boundary": "device mmap",
+                "status": "refused",
+                "reason": "Device memory has target-specific side effects and opaque state.",
+                "neededToReduce": "Not part of the first arbitrary-process claim."
+              },
+              {
+                "boundary": "arbitrary unknown Linux process",
+                "status": "not-proven",
+                "reason": "Seed rows are diagnostic and do not establish broad process support.",
+                "neededToReduce": "Dedicated arbitrary-process claim-ready gate."
+              }
+            ],
+            "counts": {
+              "rows": 14,
+              "seedCandidates": 7,
+              "refused": 6,
+              "notProven": 1,
+              "verifiedSeeds": 1
+            },
+            "nextSteps": [
+              {
+                "priority": 1,
+                "item": "Define the arbitrary-process claim-ready gate before changing 0%. ",
+                "gate": "claimChangeAllowed must become true only from that gate"
+              },
+              {
+                "priority": 2,
+                "item": "Add retained verifier artifacts for simple pipe FDs.",
+                "gate": "artifact sha verification plus target behavior proof"
+              },
+              {
+                "priority": 3,
+                "item": "Add idle epoll and idle TCP listener safe-boundary proofs.",
+                "gate": "idle-only resource reconstruction verifier"
+              }
+            ],
+            "docs": [
+              "arbitrary-process-level5-seed-matrix.md",
+              "level4-ping-socket-product.md",
+              "proofs/arbitrary-linux-binaries/0-seed-1-locked/regular-file-fd-proof.md"
+            ]
+          },
+          {
+            "id": "whole-linux-vm-workload",
+            "name": "Whole Linux VM workload portability",
+            "family": "vm-workload",
+            "runtime": "linux-vm",
+            "status": "not-started",
+            "stage": "claim boundary needed",
+            "scope": "Workload-level VM portability by reconstruction, not raw cross-architecture CPU/device VM restore.",
+            "currentClaim": {
+              "productSupport": 0,
+              "broadSupport": 0,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "nextClaim": {
+              "productSupport": "workload-seed-needed",
+              "claimChangeAllowed": false
+            },
+            "summary": "Whole-VM workload movement needs filesystem, service, network/resource, and process-state reconstruction gates. Raw CPU/device VM restore remains refused cross-architecture.",
+            "claimGate": "whole VM workload claim boundary required",
+            "claimChangeAllowed": false,
+            "evidence": [],
+            "evidenceRows": [
+              {
+                "id": "vm-workload-boundary",
+                "area": "planning",
+                "kind": "missing claim boundary",
+                "status": "not-started",
+                "evidence": "No retained whole-VM workload proof rows yet",
+                "gate": "vm workload boundary matrix",
+                "artifact": "not-created",
+                "next": "Define workload-level restore success separately from raw VM snapshot portability."
+              }
+            ],
+            "refusals": [
+              "raw cross-arch CPU restore",
+              "raw device state restore",
+              "opaque kernel state",
+              "active arbitrary processes",
+              "untranslated memory/register state"
+            ],
+            "refusalRows": [
+              {
+                "boundary": "raw cross-architecture VM CPU/device restore",
+                "status": "forbidden",
+                "reason": "Support must use target-native reconstruction/translation, not raw source VM state.",
+                "neededToReduce": "Not reducible for this product path; prove workload-level reconstruction instead."
+              }
+            ],
+            "nextSteps": [
+              {
+                "priority": 1,
+                "item": "Create whole-VM workload claim boundary matrix.",
+                "gate": "vm workload boundary accepted"
+              },
+              {
+                "priority": 2,
+                "item": "Connect filesystem/service/resource/process tracks to VM workload proof groups.",
+                "gate": "cross-track workload verifier"
+              }
+            ],
+            "docs": []
+          }
+        ],
+        "proofGroups": [
+          {
+            "id": "node-service-100-100-0",
+            "claim": "Node service 100 / 100 / 0",
+            "trackId": "node-service",
+            "status": "claimed",
+            "scope": "Selected safe Node services through VM-first snapshot/restore.",
+            "claimNumbers": {
+              "productSupport": 100,
+              "broadSupport": 100,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "promotionEffect": "Public Node service claim is already raised; does not affect arbitrary-process claim.",
+            "proofs": [
+              {
+                "id": "node-service-claim-ladder",
+                "category": "claim ladder",
+                "status": "passed",
+                "artifact": "node-level5-product-support-100.json",
+                "proves": "100 / 100 / 0 selected Node service claim ladder",
+                "claimUse": "backs current Node service claim",
+                "next": "Keep no-regression gates green."
+              },
+              {
+                "id": "node-framework-capabilities",
+                "category": "framework evidence",
+                "status": "passed",
+                "artifact": "node-level5-framework-capability-matrix.md",
+                "proves": "Express/Fastify capability rows with exact diagnostics",
+                "claimUse": "supports framework capability portion only",
+                "next": "Do not expand to arbitrary framework apps without new evidence."
+              },
+              {
+                "id": "node-vm-product-path",
+                "category": "product UX",
+                "status": "passed",
+                "artifact": "node-level5-product-snapshot-restore.md",
+                "proves": "machinen snapshot / restore product path and metadata",
+                "claimUse": "backs VM-first UX requirement",
+                "next": "Preserve the product path for future runtimes."
+              }
+            ],
+            "proofDirectory": "proofs/nodejs/100-100-0"
+          },
+          {
+            "id": "postgres-logical-product-track",
+            "claim": "Postgres clean logical product track",
+            "trackId": "postgres",
+            "status": "product-track-existing",
+            "scope": "Clean, idle logical Postgres reconstruction; percent claim ladder not defined yet.",
+            "claimNumbers": {
+              "productSupport": "to-be-defined",
+              "broadSupport": null,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "promotionEffect": "Needs Postgres-specific claim ladder and retained verifier artifacts before a percent-style claim.",
+            "proofs": [
+              {
+                "id": "postgres-clean-logical",
+                "category": "database state",
+                "status": "implemented-product-support",
+                "artifact": "portable-product.json",
+                "proves": "logical dump and target verifier based reconstruction",
+                "claimUse": "existing product track evidence",
+                "next": "Convert to Postgres claim ladder."
+              },
+              {
+                "id": "postgres-refusals",
+                "category": "refusals",
+                "status": "refused",
+                "artifact": "product-portable-postgres.ts",
+                "proves": "active transactions, dirty WAL, and physical data-dir cross-ISA copy are refused",
+                "claimUse": "bounds Postgres support",
+                "next": "Add dashboard-visible Postgres artifacts."
+              }
+            ],
+            "proofDirectory": "proofs/postgres/logical-product-track"
+          },
+          {
+            "id": "bun-not-started",
+            "claim": "Bun service support not started",
+            "trackId": "bun",
+            "status": "not-started",
+            "scope": "No Bun support claim or seed matrix yet.",
+            "claimNumbers": {
+              "productSupport": 0,
+              "broadSupport": 0,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "promotionEffect": "Requires Bun seed matrix before any proof can affect support.",
+            "proofs": [
+              {
+                "id": "bun-seed-matrix-needed",
+                "category": "planning",
+                "status": "not-started",
+                "artifact": "not-created",
+                "proves": "No Bun evidence exists yet",
+                "claimUse": "blocks Bun claim",
+                "next": "Create Bun seed matrix and refusal rows."
+              }
+            ],
+            "proofDirectory": "proofs/bun/not-started"
+          },
+          {
+            "id": "generic-linux-service-not-started",
+            "claim": "Generic Linux service support not started",
+            "trackId": "generic-linux-service",
+            "status": "not-started",
+            "scope": "No generic Linux service support claim or seed matrix yet.",
+            "claimNumbers": {
+              "productSupport": 0,
+              "broadSupport": 0,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "promotionEffect": "Requires generic service seed matrix before any proof can affect support.",
+            "proofDirectory": "proofs/generic-linux-service/not-started",
+            "proofs": [
+              {
+                "id": "generic-linux-service-seed-matrix-needed",
+                "category": "planning",
+                "status": "not-started",
+                "artifact": "not-created",
+                "proves": "No generic Linux service evidence exists yet",
+                "claimUse": "blocks generic service claim",
+                "next": "Create service seed matrix and refusal rows."
+              }
+            ]
+          },
+          {
+            "id": "level4-ping-resource-continuation",
+            "claim": "Level 4 ping resource continuation",
+            "trackId": "arbitrary-process",
+            "status": "proven-resource",
+            "scope": "Ping/ICMP socket resource reconstruction evidence only; not arbitrary-process restore.",
+            "claimNumbers": {
+              "productSupport": "resource-level",
+              "broadSupport": "n/a",
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "promotionEffect": "Can seed the arbitrary-process resource table, but cannot raise arbitrary-process support by itself.",
+            "proofs": [
+              {
+                "id": "level4-ping-socket-product",
+                "category": "network resource",
+                "status": "passed",
+                "artifact": "level4-ping-socket-product.md",
+                "proves": "ping socket resource continuation semantics",
+                "claimUse": "narrow resource proof row",
+                "next": "Keep marked as resource evidence, not arbitrary process proof."
+              },
+              {
+                "id": "native-ping-socket-resource",
+                "category": "arbitrary-process seed",
+                "status": "seed-candidate",
+                "artifact": "arbitrary-process-level5-seed/native-ping-socket-resource.json",
+                "proves": "Ping evidence is represented as one native resource seed row",
+                "claimUse": "seed only; claimChangeAllowed remains false",
+                "next": "Add retained verifier artifact before treating as verified seed."
+              }
+            ],
+            "proofDirectory": "proofs/network-resources/level4-ping-resource-continuation"
+          },
+          {
+            "id": "arbitrary-process-0-seed-1-locked",
+            "claim": "Arbitrary process 0% / candidate 1% locked",
+            "trackId": "arbitrary-process",
+            "status": "partial-proof",
+            "scope": "Captured process-state translation plus target-native reconstruction seeds.",
+            "claimNumbers": {
+              "productSupport": null,
+              "broadSupport": null,
+              "arbitraryProcessCrossArchRestore": 0,
+              "candidateArbitraryProcessCrossArchRestore": 1
+            },
+            "promotionEffect": "No public claim change until a dedicated arbitrary-process claim-ready gate passes.",
+            "proofs": [
+              {
+                "id": "arbitrary-process-seed-matrix",
+                "category": "seed matrix",
+                "status": "passed",
+                "artifact": "arbitrary-process-level5-seed-matrix.json",
+                "proves": "14-row seed/refusal/not-proven matrix with claim locked at 0",
+                "claimUse": "defines proof backlog and unsafe refusals",
+                "next": "Add claim-ready gate."
+              },
+              {
+                "id": "regular-file-fd-proof",
+                "category": "file descriptor",
+                "status": "verified-seed",
+                "artifact": "regular-file-fd-proof-report.json",
+                "proves": "Target-native reopen preserves captured file offset and read continuation",
+                "claimUse": "one verified arbitrary-process seed; no claim raise",
+                "next": "Use as pattern for simple pipe FD proof."
+              },
+              {
+                "id": "unsafe-process-boundaries",
+                "category": "refusals",
+                "status": "refused",
+                "artifact": "arbitrary-process-level5-seed-matrix.md",
+                "proves": "threads, JIT, futex owners, live sockets, device mmap, active epoll remain refused",
+                "claimUse": "prevents overclaiming",
+                "next": "Only reduce boundaries with retained verifier artifacts."
+              }
+            ],
+            "proofDirectory": "proofs/arbitrary-linux-binaries/0-seed-1-locked"
+          },
+          {
+            "id": "whole-linux-vm-workload-not-started",
+            "claim": "Whole Linux VM workload portability not started",
+            "trackId": "whole-linux-vm-workload",
+            "status": "not-started",
+            "scope": "No whole-VM workload reconstruction claim yet; raw cross-architecture CPU/device VM restore remains refused.",
+            "claimNumbers": {
+              "productSupport": 0,
+              "broadSupport": 0,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "promotionEffect": "Requires workload-level reconstruction boundary and verifier gates.",
+            "proofDirectory": "proofs/linux-vm-workload/not-started",
+            "proofs": [
+              {
+                "id": "vm-workload-boundary-needed",
+                "category": "planning",
+                "status": "not-started",
+                "artifact": "not-created",
+                "proves": "No VM workload boundary matrix exists yet",
+                "claimUse": "blocks VM workload claim",
+                "next": "Define workload-level success and raw VM-state refusals."
+              }
+            ]
+          }
+        ]
+      }
+    </script>
+
+    <script>
+      const jsonPath = "./claim-progress.json";
+      const metrics = document.querySelector("#metrics");
+      const source = document.querySelector("#source");
+      const error = document.querySelector("#error");
+      const readThisFirst = document.querySelector("#read-this-first");
+      const proofImpact = document.querySelector("#proof-impact");
+      const nextActions = document.querySelector("#next-actions");
+      const trackOverview = document.querySelector("#track-overview");
+      const claimMatrix = document.querySelector("#claim-matrix");
+      const proofGroups = document.querySelector("#proof-groups");
+      const trackGroups = document.querySelector("#track-groups");
+      let activeProofGroups = [];
+
+      loadEmbedded();
+      if (globalThis.location?.protocol !== "file:") void loadRemote();
+
+      function loadEmbedded() {
+        const embedded = document.querySelector("#embedded-claim-progress")?.textContent;
+        if (!embedded) return;
+        render(JSON.parse(embedded), "embedded claim-progress snapshot");
+      }
+
+      async function loadRemote() {
+        error.textContent = "";
+        try {
+          const response = await fetch(`${jsonPath}?t=${Date.now()}`);
+          if (!response.ok) throw new Error(`failed to load ${jsonPath}: ${response.status}`);
+          render(await response.json(), jsonPath);
+        } catch (loadError) {
+          error.textContent = `${loadError.message}. Showing the embedded snapshot instead.`;
+          loadEmbedded();
+        }
+      }
+
+      function render(data, label) {
+        source.textContent = `source: ${label} · version: ${data.version ?? "unknown"}`;
+        const tracks = data.tracks ?? [];
+        const claims = data.proofGroups ?? [];
+        activeProofGroups = claims;
+        metrics.innerHTML = metricCards(tracks, claims).join("");
+        readThisFirst.innerHTML = decisionCards(tracks).join("");
+        proofImpact.innerHTML = proofImpactTable(tracks, claims);
+        nextActions.innerHTML = nextActionList(tracks);
+        trackOverview.innerHTML = trackCards(tracks);
+        claimMatrix.innerHTML = table(
+          [
+            "Track",
+            "Status",
+            "Product",
+            "Broad",
+            "Arbitrary process",
+            "Gate",
+            "Evidence",
+            "Refusals",
+            "Next",
+          ],
+          tracks.map((track) => [
+            `<strong>${escapeHtml(track.name)}</strong><p class="muted">${escapeHtml(track.family)} · ${escapeHtml(track.runtime)} · ${escapeHtml(track.stage)}</p>`,
+            pill(track.status),
+            claimValue(track.currentClaim?.productSupport),
+            claimValue(track.currentClaim?.broadSupport),
+            claimValue(track.currentClaim?.arbitraryProcessCrossArchRestore),
+            track.claimGate,
+            count(track.evidenceRows, "row"),
+            count(track.refusalRows, "boundary"),
+            count(track.nextSteps, "step"),
+          ]),
+        );
+        proofGroups.innerHTML = table(
+          ["Claim", "Status", "Proof directory", "Numbers", "Scope", "Proofs", "Promotion effect"],
+          claims.map((claim) => [
+            `<strong>${escapeHtml(claim.claim)}</strong><p class="muted">${escapeHtml(claim.id)}</p>`,
+            pill(claim.status),
+            code(claim.proofDirectory),
+            claimObject(claim.claimNumbers),
+            claim.scope,
+            count(claim.proofs, "proof"),
+            claim.promotionEffect,
+          ]),
+        );
+        trackGroups.innerHTML = tracks.map(trackGroup).join("");
+      }
+
+      function decisionCards(tracks) {
+        const node = tracks.find((track) => track.id === "node-service");
+        const postgres = tracks.find((track) => track.id === "postgres");
+        const arbitrary = tracks.find((track) => track.id === "arbitrary-process");
+        return [
+          decisionCard(
+            "Current public claim",
+            node ? `${node.name}: ${claimTriple(node.currentClaim)}` : "Node claim data missing",
+            "Labels: product support / broad service support / arbitrary Linux process restore.",
+            "good",
+          ),
+          decisionCard(
+            "Best next claim lift",
+            postgres ? postgres.name : "Postgres portable restore",
+            "Turn the existing clean logical track into a percent-style claim ladder with retained verifier artifacts.",
+            "warn",
+          ),
+          decisionCard(
+            "Keep locked at 0%",
+            arbitrary
+              ? `${arbitrary.name}: ${claimValue(arbitrary.currentClaim?.arbitraryProcessCrossArchRestore)}`
+              : "Arbitrary process",
+            "The regular-file-FD proof is one verified seed, not a public arbitrary-process claim raise.",
+            "bad",
+          ),
+        ];
+      }
+
+      function decisionCard(label, title, body, tone) {
+        return `<article class="decision ${tone}"><span class="muted">${escapeHtml(label)}</span><strong>${escapeHtml(title)}</strong><p class="muted">${escapeHtml(body)}</p></article>`;
+      }
+
+      function proofImpactTable(tracks, claims) {
+        const tracksById = new Map(tracks.map((track) => [track.id, track]));
+        const rows = claims.flatMap((claim) => {
+          const track = tracksById.get(claim.trackId);
+          return (claim.proofs ?? []).map((proof) => [
+            `<strong>${escapeHtml(proof.id)}</strong><p class="muted">${escapeHtml(proof.category ?? "")}</p>`,
+            track?.name ?? claim.trackId,
+            pill(proof.status),
+            claimNumberValue(claim.claimNumbers?.productSupport),
+            claimNumberValue(claim.claimNumbers?.broadSupport),
+            claimNumberValue(claim.claimNumbers?.arbitraryProcessCrossArchRestore),
+            candidateValue(claim.claimNumbers),
+            pill(String(track?.claimChangeAllowed ?? false)),
+            proof.next ?? claim.promotionEffect ?? "—",
+          ]);
+        });
+        return table(
+          [
+            "Proof",
+            "Track",
+            "Status",
+            "Product support claim (%)",
+            "Broad service/workload claim (%)",
+            "Arbitrary Linux process restore claim (%)",
+            "Candidate increase",
+            "Claim change allowed",
+            "Next gate / work",
+          ],
+          rows,
+        );
+      }
+
+      function nextActionList(tracks) {
+        const rank = new Map([
+          ["arbitrary-process", 1],
+          ["postgres", 2],
+          ["bun", 3],
+          ["generic-linux-service", 4],
+          ["whole-linux-vm-workload", 5],
+          ["node-service", 6],
+        ]);
+        const actions = tracks
+          .flatMap((track) =>
+            (track.nextSteps ?? []).map((step) => ({
+              ...step,
+              trackId: track.id,
+              trackName: track.name,
+              rank: rank.get(track.id) ?? 99,
+            })),
+          )
+          .filter((step) => step.trackId !== "node-service")
+          .sort((left, right) => left.rank - right.rank || left.priority - right.priority)
+          .slice(0, 7);
+        if (actions.length === 0) return `<p class="muted">No next actions listed.</p>`;
+        return `<ol class="action-list">${actions
+          .map(
+            (action) =>
+              `<li class="action-item"><div><strong>${escapeHtml(action.trackName)}</strong><p>${escapeHtml(action.item)}</p><p class="muted">Gate: <code>${escapeHtml(action.gate)}</code></p></div></li>`,
+          )
+          .join("")}</ol>`;
+      }
+
+      function trackCards(tracks) {
+        return table(
+          [
+            "Track",
+            "Status",
+            "Product support claim (%)",
+            "Broad service/workload claim (%)",
+            "Arbitrary Linux process restore claim (%)",
+            "Claim change allowed",
+            "Next work",
+            "Gate",
+          ],
+          tracks.map((track) => {
+            const next = track.nextSteps?.[0]?.item ?? "Keep current claim stable.";
+            const gate = track.nextSteps?.[0]?.gate ?? track.claimGate ?? "no gate listed";
+            return [
+              `<strong>${escapeHtml(track.name)}</strong><p class="muted">${escapeHtml(track.stage ?? "")}</p>`,
+              pill(track.status),
+              claimNumberValue(track.currentClaim?.productSupport),
+              claimNumberValue(track.currentClaim?.broadSupport),
+              claimNumberValue(track.currentClaim?.arbitraryProcessCrossArchRestore),
+              pill(String(track.claimChangeAllowed)),
+              next,
+              code(gate),
+            ];
+          }),
+        );
+      }
+
+      function trackGroup(track) {
+        return `<details class="track-group">
+          <summary>
+            <span class="track-title"><strong>${escapeHtml(track.name)}</strong><span class="muted">${escapeHtml(track.scope ?? "")}</span></span>
+            ${pill(track.status)}
+            <span class="compact">claim: ${claimValue(track.currentClaim?.productSupport)} / ${claimValue(track.currentClaim?.broadSupport)} / ${claimValue(track.currentClaim?.arbitraryProcessCrossArchRestore)}</span>
+            <span class="compact">change: ${pill(String(track.claimChangeAllowed))}</span>
+          </summary>
+          <div class="track-body">
+            <div class="claim-strip">
+              ${claimBox("Family", `${track.family} / ${track.runtime}`)}
+              ${claimBox("Claim gate", track.claimGate ?? "—")}
+              ${claimBox("Next claim", claimObject(track.nextClaim))}
+            </div>
+            <p>${escapeHtml(track.summary ?? "")}</p>
+            <div class="subtables">
+              <section>
+                <h3>Claim-sorted proofs</h3>
+                ${proofGroupTablesForTrack(track.id)}
+              </section>
+              <section>
+                <h3>Evidence rows</h3>
+                ${table(
+                  ["Row", "Area", "Kind", "Status", "Evidence", "Gate", "Artifact", "Next"],
+                  (track.evidenceRows ?? []).map((row) => [
+                    row.id,
+                    row.area,
+                    row.kind,
+                    pill(row.status),
+                    row.evidence,
+                    row.gate,
+                    code(row.artifact),
+                    row.next,
+                  ]),
+                )}
+              </section>
+              <section>
+                <h3>Refusal boundaries</h3>
+                ${table(
+                  ["Boundary", "Status", "Reason", "Needed to reduce"],
+                  (track.refusalRows ?? []).map((row) => [
+                    row.boundary,
+                    pill(row.status),
+                    row.reason,
+                    row.neededToReduce,
+                  ]),
+                )}
+              </section>
+              <section>
+                <h3>Next steps</h3>
+                ${table(
+                  ["Priority", "Item", "Gate"],
+                  (track.nextSteps ?? []).map((row) => [row.priority, row.item, row.gate]),
+                )}
+              </section>
+            </div>
+          </div>
+        </details>`;
+      }
+
+      function proofGroupTablesForTrack(trackId) {
+        const groups = activeProofGroups.filter((group) => group.trackId === trackId);
+        if (groups.length === 0) return `<p class="muted">No claim-sorted proof rows yet.</p>`;
+        return groups
+          .map(
+            (group) =>
+              `<h3>${escapeHtml(group.claim)}</h3>${table(
+                ["Proof", "Category", "Status", "Artifact", "Proves", "Claim use", "Next"],
+                (group.proofs ?? []).map((proof) => [
+                  proof.id,
+                  proof.category,
+                  pill(proof.status),
+                  code(proof.artifact),
+                  proof.proves,
+                  proof.claimUse,
+                  proof.next,
+                ]),
+              )}`,
+          )
+          .join("");
+      }
+
+      function metricCards(tracks, claims) {
+        const evidenceRows = tracks.reduce(
+          (sum, track) => sum + (track.evidenceRows?.length ?? 0),
+          0,
+        );
+        const refusalRows = tracks.reduce(
+          (sum, track) => sum + (track.refusalRows?.length ?? 0),
+          0,
+        );
+        const blockedClaims = tracks.filter((track) => track.claimChangeAllowed === false).length;
+        const claimProofRows = claims.reduce((sum, claim) => sum + (claim.proofs?.length ?? 0), 0);
+        return [
+          metric("Tracks", tracks.length),
+          metric("Claim groups", claims.length),
+          metric("Claim proofs", claimProofRows),
+          metric("Evidence rows", evidenceRows),
+          metric("Refusal rows", refusalRows),
+          metric("Blocked claim changes", blockedClaims),
+        ];
+      }
+
+      function metric(label, value) {
+        return `<article class="metric"><span class="muted">${escapeHtml(label)}</span><strong>${escapeHtml(String(value))}</strong></article>`;
+      }
+
+      function claimBox(label, value) {
+        return `<article class="claim-box"><span class="muted">${escapeHtml(label)}</span><strong>${formatCell(value)}</strong></article>`;
+      }
+
+      function table(headers, rows) {
+        if (rows.length === 0) return `<p class="muted">No rows yet.</p>`;
+        return `<table><thead><tr>${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join("")}</tr></thead><tbody>${rows
+          .map((row) => `<tr>${row.map((cell) => `<td>${formatCell(cell)}</td>`).join("")}</tr>`)
+          .join("")}</tbody></table>`;
+      }
+
+      function formatCell(value) {
+        if (value === null || value === undefined || value === "") return "—";
+        if (typeof value === "string" && value.includes("<")) return value;
+        return escapeHtml(String(value));
+      }
+
+      function claimObject(claim) {
+        if (!claim) return "—";
+        return Object.entries(claim)
+          .map(([key, value]) => `${key}: ${value}`)
+          .join(" · ");
+      }
+
+      function claimValue(value) {
+        if (value === null || value === undefined) return "—";
+        return typeof value === "number" ? `${value}%` : String(value);
+      }
+
+      function claimNumberValue(value) {
+        if (value === null || value === undefined) return "—";
+        if (typeof value === "number") return `${value}%`;
+        return escapeHtml(String(value));
+      }
+
+      function candidateValue(claim = {}) {
+        if (
+          claim.candidateArbitraryProcessCrossArchRestore === null ||
+          claim.candidateArbitraryProcessCrossArchRestore === undefined
+        ) {
+          return "—";
+        }
+        return `candidate arbitrary process: ${claimNumberValue(claim.candidateArbitraryProcessCrossArchRestore)}`;
+      }
+
+      function claimTriple(claim = {}) {
+        return `${claimValue(claim.productSupport)} / ${claimValue(claim.broadSupport)} / ${claimValue(claim.arbitraryProcessCrossArchRestore)}`;
+      }
+
+      function count(items = [], unit) {
+        return `${items.length} ${unit}${items.length === 1 ? "" : "s"}`;
+      }
+
+      function pill(value) {
+        return `<span class="pill ${escapeHtml(String(value))}">${escapeHtml(String(value))}</span>`;
+      }
+
+      function code(value) {
+        return `<code>${escapeHtml(String(value))}</code>`;
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;");
+      }
+    </script>
+  </body>
+</html>

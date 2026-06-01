@@ -43,6 +43,7 @@ import {
   ProductLevel4TcpListenerError,
   ProductLevel4TimerfdError,
   ProductPortablePostgresError,
+  buildArbitraryProcessLevel5SeedMatrix,
   buildNodeLevel5AppSupportMatrix,
   buildNodeLevel5FrameworkCapabilityMatrix,
   buildProductClaimRegistry,
@@ -67,6 +68,7 @@ import {
   isProductLevel4TimerfdBundle,
   isNodeLevel5ProductSnapshotBundle,
   isProductPortablePostgresBundle,
+  createArbitraryProcessLevel5SeedReport,
   loadNodeLevel5FrameworkIntrospectionCorpusReport,
   loadNodeLevel5FrameworkProductEvidenceReport,
   loadNodeLevel5ProductSupport80ArtifactBundle,
@@ -1986,6 +1988,9 @@ function cmdNodeLevel5(args: string[]): number {
   if (rest[0] === "framework-claim-ready") {
     return cmdNodeLevel5FrameworkClaimReady(rest.slice(1), json);
   }
+  if (rest[0] === "arbitrary-process-seed") {
+    return cmdNodeLevel5ArbitraryProcessSeed(rest.slice(1), json);
+  }
   if (rest[0] === "release-gate") {
     return cmdNodeLevel5ReleaseGate(rest.slice(1), json);
   }
@@ -2074,6 +2079,19 @@ function cmdNodeLevel5FrameworkCapabilities(args: string[], json: boolean): numb
     die(`unknown node-level5 framework-capabilities argument: ${args[0]}`);
   }
   return reportNodeLevel5ProductCommand(json, buildNodeLevel5FrameworkCapabilityMatrix());
+}
+
+function cmdNodeLevel5ArbitraryProcessSeed(args: string[], json: boolean): number {
+  const out = valueAfterNodeLevel5Flag(args, "--out");
+  const payload = out
+    ? createArbitraryProcessLevel5SeedReport({ outDir: resolve(out) })
+    : buildArbitraryProcessLevel5SeedMatrix();
+  return reportNodeLevel5ProductCommand(json, payload);
+}
+
+function valueAfterNodeLevel5Flag(args: string[], flag: string): string | undefined {
+  const index = args.indexOf(flag);
+  return index >= 0 ? args[index + 1] : undefined;
 }
 
 function cmdNodeLevel5FrameworkReadiness(args: string[], json: boolean): number {
@@ -2688,6 +2706,7 @@ function nodeLevel5Usage(): string {
     "       machinen node-level5 framework-capabilities [--json]\n" +
     "       machinen node-level5 framework-readiness --framework-introspection-corpus-report <file> [--json]\n" +
     "       machinen node-level5 framework-claim-ready --readiness-report <file> --framework-product-evidence-report <file> [--json]\n" +
+    "       machinen node-level5 arbitrary-process-seed [--out <dir>] [--json]\n" +
     "       machinen node-level5 release-gate [--include-generic-vm-corpus --generic-vm-corpus-report <file>] [--json]\n" +
     "       machinen node-level5 release-gate [--include-generic-vm-retained-evidence --generic-vm-retained-evidence-report <file>] [--json]\n" +
     "       machinen node-level5 release-gate [--include-generic-vm-row-artifacts --generic-vm-row-artifacts-report <file>] [--json]\n" +

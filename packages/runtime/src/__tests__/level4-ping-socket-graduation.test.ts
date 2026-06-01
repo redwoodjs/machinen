@@ -9,7 +9,14 @@ function runPingGoal(args: string[] = []) {
   const out = join(outDir, "summary.json");
   const result = spawnSync(
     "pnpm",
-    ["exec", "tsx", "scripts/level4-ping-socket-graduation.ts", "--out", out, ...args],
+    [
+      "exec",
+      "tsx",
+      "proofs/network-resources/scripts/level4-ping-socket-graduation.ts",
+      "--out",
+      out,
+      ...args,
+    ],
     { cwd: join(import.meta.dirname, "../../..", ".."), encoding: "utf8" },
   );
   return { result, out };

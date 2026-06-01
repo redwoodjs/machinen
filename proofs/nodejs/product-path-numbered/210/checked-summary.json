@@ -1,0 +1,30 @@
+{
+  "kind": "machinen.node-level5-readiness-proof-summary",
+  "proof": "210",
+  "title": "artifact diff stability across repeated proof lanes",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "gateId": "artifact-diff-stability",
+  "gate": {
+    "productSupportClaimed": false,
+    "broadProductSupportClaimed": false,
+    "id": "artifact-diff-stability",
+    "family": "broad-proof",
+    "title": "artifact diff stability across repeated proof lanes",
+    "status": "passed",
+    "artifact": "proofs/by-id/210/checked-summary.json",
+    "appFamily": "artifact-diff-stability",
+    "direction": "both",
+    "repeatabilityRuns": 20
+  },
+  "readiness": {
+    "broadNodeProofReadiness": 100
+  },
+  "assertions": {
+    "appCorpusGateCovered": true,
+    "bidirectionalLaneCovered": true,
+    "repeatabilityAtLeastTenRuns": true,
+    "broadProductSupportNotClaimed": true
+  }
+}

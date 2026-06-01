@@ -55,7 +55,10 @@
     {
       "name": "register-translation",
       "path": "docs/snapshot/checked-summaries/architecture-portable-snapshot/final-gauntlet.json",
-      "requiredFragments": ["native-register-translation", "target-registers-translated"],
+      "requiredFragments": [
+        "native-register-translation",
+        "target-registers-translated"
+      ],
       "status": "passed",
       "message": "evidence file contains the required fragments"
     },
@@ -73,14 +76,20 @@
     {
       "name": "private-memory-materialization",
       "path": "docs/snapshot/checked-summaries/architecture-portable-snapshot/final-gauntlet.json",
-      "requiredFragments": ["native-private-memory-materialization", "target-memory-materialized"],
+      "requiredFragments": [
+        "native-private-memory-materialization",
+        "target-memory-materialized"
+      ],
       "status": "passed",
       "message": "evidence file contains the required fragments"
     },
     {
       "name": "executable-target-module-materialization",
       "path": "docs/snapshot/native-process-continuation-audit.md",
-      "requiredFragments": ["Memory/executable materialization", "native-target-module-bytes"],
+      "requiredFragments": [
+        "Memory/executable materialization",
+        "native-target-module-bytes"
+      ],
       "status": "passed",
       "message": "evidence file contains the required fragments"
     },
@@ -108,22 +117,15 @@
     {
       "name": "target-native-verifier",
       "path": "docs/snapshot/checked-summaries/level4-graduation/goal-009-node-level5-proof-composition.json",
-      "requiredFragments": ["target-native-verifier", "sourceIsaEmulationAllowed"],
+      "requiredFragments": [
+        "target-native-verifier",
+        "sourceIsaEmulationAllowed"
+      ],
       "status": "passed",
       "message": "evidence file contains the required fragments"
     }
   ],
-  "targetProof": {
-    "path": "/Users/peterp/gh/redwoodjs/machinen/docs/snapshot/checked-summaries/level4-graduation/goal-009-target-side-continuation.json",
-    "status": "passed",
-    "kind": "machinen.node-level5-target-side-continuation-proof",
-    "noSourceIsaEmulation": true,
-    "noSidecarOutput": true,
-    "noMetadataOnlySuccess": true,
-    "targetVerifierObservedActualNodeContinuation": true,
-    "message": "target proof observed actual target-native Node continuation"
-  },
-  "proofRunner": "scripts/node-level5-proof-composition.ts",
+  "proofRunner": "proofs/nodejs/scripts/node-level5-proof-composition.ts",
   "refusals": [
     {
       "code": "node-level5-tls-rseq-unsupported",

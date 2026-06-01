@@ -1,0 +1,25 @@
+{
+  "id": "bun-not-started",
+  "claim": "Bun service support not started",
+  "trackId": "bun",
+  "status": "not-started",
+  "scope": "No Bun support claim or seed matrix yet.",
+  "claimNumbers": {
+    "productSupport": 0,
+    "broadSupport": 0,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "promotionEffect": "Requires Bun seed matrix before any proof can affect support.",
+  "proofs": [
+    {
+      "id": "bun-seed-matrix-needed",
+      "category": "planning",
+      "status": "not-started",
+      "artifact": "not-created",
+      "proves": "No Bun evidence exists yet",
+      "claimUse": "blocks Bun claim",
+      "next": "Create Bun seed matrix and refusal rows."
+    }
+  ],
+  "proofDirectory": "proofs/bun/not-started"
+}

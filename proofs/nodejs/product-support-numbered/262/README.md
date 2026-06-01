@@ -1,0 +1,9 @@
+# Proof 262 — Node Level 5 product support 50% gate
+
+This proof is part of the Node Level 5 product support 50% tier. It supports eleven declared Node service families and keeps broad Node product support at 0%.
+
+Run with:
+
+```sh
+pnpm exec tsx proofs/by-id/262/smoke.ts
+```

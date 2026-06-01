@@ -1,0 +1,44 @@
+{
+  "id": "arbitrary-process-0-seed-1-locked",
+  "claim": "Arbitrary process 0% / candidate 1% locked",
+  "trackId": "arbitrary-process",
+  "status": "partial-proof",
+  "scope": "Captured process-state translation plus target-native reconstruction seeds.",
+  "claimNumbers": {
+    "productSupport": null,
+    "broadSupport": null,
+    "arbitraryProcessCrossArchRestore": 0,
+    "candidateArbitraryProcessCrossArchRestore": 1
+  },
+  "promotionEffect": "No public claim change until a dedicated arbitrary-process claim-ready gate passes.",
+  "proofs": [
+    {
+      "id": "arbitrary-process-seed-matrix",
+      "category": "seed matrix",
+      "status": "passed",
+      "artifact": "arbitrary-process-level5-seed-matrix.json",
+      "proves": "14-row seed/refusal/not-proven matrix with claim locked at 0",
+      "claimUse": "defines proof backlog and unsafe refusals",
+      "next": "Add claim-ready gate."
+    },
+    {
+      "id": "regular-file-fd-proof",
+      "category": "file descriptor",
+      "status": "verified-seed",
+      "artifact": "regular-file-fd-proof-report.json",
+      "proves": "Target-native reopen preserves captured file offset and read continuation",
+      "claimUse": "one verified arbitrary-process seed; no claim raise",
+      "next": "Use as pattern for simple pipe FD proof."
+    },
+    {
+      "id": "unsafe-process-boundaries",
+      "category": "refusals",
+      "status": "refused",
+      "artifact": "arbitrary-process-level5-seed-matrix.md",
+      "proves": "threads, JIT, futex owners, live sockets, device mmap, active epoll remain refused",
+      "claimUse": "prevents overclaiming",
+      "next": "Only reduce boundaries with retained verifier artifacts."
+    }
+  ],
+  "proofDirectory": "proofs/arbitrary-linux-binaries/0-seed-1-locked"
+}

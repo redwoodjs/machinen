@@ -16,7 +16,7 @@
     "level4-event-loop-resource-map",
     "target-native-verifier"
   ],
-  "proofRunner": "scripts/node-level5-proof-composition.ts",
+  "proofRunner": "proofs/nodejs/scripts/node-level5-proof-composition.ts",
   "proofRunnerMode": "--include-target-proof",
   "proofRunArtifact": "docs/snapshot/checked-summaries/level4-graduation/goal-009-proof-run.json",
   "targetSideContinuationArtifact": "docs/snapshot/checked-summaries/level4-graduation/goal-009-target-side-continuation.json",

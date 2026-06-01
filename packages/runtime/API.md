@@ -193,6 +193,31 @@
 - [`nodeLevel5ProductSupport80UnsupportedDetectors`](#nodelevel5productsupport80unsupporteddetectors)
 - [`verifyNodeLevel5ProductSupport80ArtifactBundle`](#verifynodelevel5productsupport80artifactbundle)
 - [`NodeLevel5ProductSupport85ClaimRegistry`](#nodelevel5productsupport85claimregistry)
+- [`ArbitraryProcessLevel5SeedStatus`](#arbitraryprocesslevel5seedstatus)
+- [`ArbitraryProcessLevel5SeedEvidenceKind`](#arbitraryprocesslevel5seedevidencekind)
+- [`ArbitraryProcessLevel5SeedBoundary`](#arbitraryprocesslevel5seedboundary)
+- [`ArbitraryProcessLevel5RefusalMarker`](#arbitraryprocesslevel5refusalmarker)
+- [`ArbitraryProcessLevel5SeedRow`](#arbitraryprocesslevel5seedrow)
+- [`ArbitraryProcessLevel5SeedMatrix`](#arbitraryprocesslevel5seedmatrix)
+- [`ArbitraryProcessLevel5SeedArtifact`](#arbitraryprocesslevel5seedartifact)
+- [`ArbitraryProcessLevel5SeedReport`](#arbitraryprocesslevel5seedreport)
+- [`ArbitraryProcessLevel5SeedVerification`](#arbitraryprocesslevel5seedverification)
+- [`ARBITRARY_PROCESS_LEVEL5_SEED_MATRIX_KIND`](#arbitrary_process_level5_seed_matrix_kind)
+- [`ARBITRARY_PROCESS_LEVEL5_SEED_MATRIX_VERSION`](#arbitrary_process_level5_seed_matrix_version)
+- [`ARBITRARY_PROCESS_LEVEL5_SEED_REPORT_KIND`](#arbitrary_process_level5_seed_report_kind)
+- [`ARBITRARY_PROCESS_LEVEL5_SEED_REPORT_VERSION`](#arbitrary_process_level5_seed_report_version)
+- [`buildArbitraryProcessLevel5SeedMatrix`](#buildarbitraryprocesslevel5seedmatrix)
+- [`createArbitraryProcessLevel5SeedReport`](#createarbitraryprocesslevel5seedreport)
+- [`writeArbitraryProcessLevel5SeedReport`](#writearbitraryprocesslevel5seedreport)
+- [`loadArbitraryProcessLevel5SeedReport`](#loadarbitraryprocesslevel5seedreport)
+- [`verifyArbitraryProcessLevel5SeedReport`](#verifyarbitraryprocesslevel5seedreport)
+- [`ArbitraryProcessLevel5RegularFileFdProofArtifact`](#arbitraryprocesslevel5regularfilefdproofartifact)
+- [`ArbitraryProcessLevel5RegularFileFdProofReport`](#arbitraryprocesslevel5regularfilefdproofreport)
+- [`ARBITRARY_PROCESS_LEVEL5_REGULAR_FILE_FD_PROOF_KIND`](#arbitrary_process_level5_regular_file_fd_proof_kind)
+- [`ARBITRARY_PROCESS_LEVEL5_REGULAR_FILE_FD_PROOF_VERSION`](#arbitrary_process_level5_regular_file_fd_proof_version)
+- [`createArbitraryProcessLevel5RegularFileFdProof`](#createarbitraryprocesslevel5regularfilefdproof)
+- [`loadArbitraryProcessLevel5RegularFileFdProofReport`](#loadarbitraryprocesslevel5regularfilefdproofreport)
+- [`verifyArbitraryProcessLevel5RegularFileFdProofReport`](#verifyarbitraryprocesslevel5regularfilefdproofreport)
 - [`NodeLevel5NodeServiceClaimTarget`](#nodelevel5nodeserviceclaimtarget)
 - [`NodeLevel5NodeServiceClaimEvidenceKind`](#nodelevel5nodeserviceclaimevidencekind)
 - [`NodeLevel5NodeServiceClaimTier`](#nodelevel5nodeserviceclaimtier)
@@ -3096,7 +3121,7 @@ are dropped so a chatty SIGWINCH doesn't spam the bridge.
 
 ##### evidenceStatus
 
-> **evidenceStatus**: `"stretch-demo"` \| `"support"` \| `"proof"` \| `"refusal"` \| `"skipped"`
+> **evidenceStatus**: `"stretch-demo"` \| `"refusal"` \| `"support"` \| `"proof"` \| `"skipped"`
 
 ##### sourceArch
 
@@ -3120,7 +3145,7 @@ are dropped so a chatty SIGWINCH doesn't spam the bridge.
 
 ##### evidenceCategory
 
-> **evidenceCategory**: `"supported-semantic-restart"` \| `"supported-semantic-continuation"` \| `"runtime-aware-proof"` \| `"native/process-proof"` \| `"unsupported"`
+> **evidenceCategory**: `"unsupported"` \| `"supported-semantic-restart"` \| `"supported-semantic-continuation"` \| `"runtime-aware-proof"` \| `"native/process-proof"`
 
 ##### productSupport
 
@@ -3198,7 +3223,7 @@ are dropped so a chatty SIGWINCH doesn't spam the bridge.
 
 ##### evidenceStatus
 
-> **evidenceStatus**: `"stretch-demo"` \| `"support"` \| `"proof"` \| `"refusal"` \| `"skipped"`
+> **evidenceStatus**: `"stretch-demo"` \| `"refusal"` \| `"support"` \| `"proof"` \| `"skipped"`
 
 ###### Inherited from
 
@@ -3210,7 +3235,7 @@ are dropped so a chatty SIGWINCH doesn't spam the bridge.
 
 ###### Inherited from
 
-[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`sourceArch`](#sourcearch-2)
+[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`sourceArch`](#sourcearch-3)
 
 ##### targetArch
 
@@ -3218,7 +3243,7 @@ are dropped so a chatty SIGWINCH doesn't spam the bridge.
 
 ###### Inherited from
 
-[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`targetArch`](#targetarch-2)
+[`ArchitecturePortableSnapshotGauntletRowInput`](#architectureportablesnapshotgauntletrowinput).[`targetArch`](#targetarch-3)
 
 ##### hostArch
 
@@ -3246,7 +3271,7 @@ are dropped so a chatty SIGWINCH doesn't spam the bridge.
 
 ##### evidenceCategory
 
-> **evidenceCategory**: `"supported-semantic-restart"` \| `"supported-semantic-continuation"` \| `"runtime-aware-proof"` \| `"native/process-proof"` \| `"unsupported"`
+> **evidenceCategory**: `"unsupported"` \| `"supported-semantic-restart"` \| `"supported-semantic-continuation"` \| `"runtime-aware-proof"` \| `"native/process-proof"`
 
 ###### Inherited from
 
@@ -4007,7 +4032,7 @@ Pluggable for tests; defaults to [readHostTotalBytes](#readhosttotalbytes).
 
 ###### Inherited from
 
-[`Level5ArchitectureMetadata`](#level5architecturemetadata).[`sourceArch`](#sourcearch-4)
+[`Level5ArchitectureMetadata`](#level5architecturemetadata).[`sourceArch`](#sourcearch-5)
 
 ##### targetArch?
 
@@ -4015,7 +4040,7 @@ Pluggable for tests; defaults to [readHostTotalBytes](#readhosttotalbytes).
 
 ###### Inherited from
 
-[`Level5ArchitectureMetadata`](#level5architecturemetadata).[`targetArch`](#targetarch-4)
+[`Level5ArchitectureMetadata`](#level5architecturemetadata).[`targetArch`](#targetarch-5)
 
 ##### kind
 
@@ -4177,7 +4202,7 @@ Pluggable for tests; defaults to [readHostTotalBytes](#readhosttotalbytes).
 
 ###### Inherited from
 
-[`Level5ArtifactEnvelope`](#level5artifactenvelope).[`sourceArch`](#sourcearch-5)
+[`Level5ArtifactEnvelope`](#level5artifactenvelope).[`sourceArch`](#sourcearch-6)
 
 ##### targetArch?
 
@@ -4185,7 +4210,7 @@ Pluggable for tests; defaults to [readHostTotalBytes](#readhosttotalbytes).
 
 ###### Inherited from
 
-[`Level5ArtifactEnvelope`](#level5artifactenvelope).[`targetArch`](#targetarch-5)
+[`Level5ArtifactEnvelope`](#level5artifactenvelope).[`targetArch`](#targetarch-6)
 
 ##### formatVersion
 
@@ -4225,7 +4250,7 @@ Pluggable for tests; defaults to [readHostTotalBytes](#readhosttotalbytes).
 
 ###### Overrides
 
-[`Level5ArtifactEnvelope`](#level5artifactenvelope).[`kind`](#kind-6)
+[`Level5ArtifactEnvelope`](#level5artifactenvelope).[`kind`](#kind-10)
 
 ##### planState
 
@@ -6213,7 +6238,7 @@ by default when `output` is a TTY.
 
 ##### targetArch
 
-> **targetArch**: `"amd64"` \| `"arm64"`
+> **targetArch**: `"arm64"` \| `"amd64"`
 
 ##### targetRoot?
 
@@ -6262,11 +6287,11 @@ by default when `output` is a TTY.
 
 ##### arch?
 
-> `optional` **arch?**: `"amd64"` \| `"arm64"`
+> `optional` **arch?**: `"arm64"` \| `"amd64"`
 
 ##### kind
 
-> **kind**: `"unknown"` \| `"vdso"` \| `"executable"` \| `"shared-object"` \| `"pie-executable"`
+> **kind**: `"vdso"` \| `"unknown"` \| `"executable"` \| `"shared-object"` \| `"pie-executable"`
 
 ##### buildId
 
@@ -6898,7 +6923,7 @@ by default when `output` is a TTY.
 
 ###### sourceArch
 
-> **sourceArch**: `"amd64"` \| `"arm64"`
+> **sourceArch**: `"arm64"` \| `"amd64"`
 
 ###### pid?
 
@@ -6918,7 +6943,7 @@ by default when `output` is a TTY.
 
 ###### arch
 
-> **arch**: `"amd64"` \| `"arm64"`
+> **arch**: `"arm64"` \| `"amd64"`
 
 ###### abi
 
@@ -7040,7 +7065,7 @@ by default when `output` is a TTY.
 
 ###### materialization
 
-> **materialization**: `"refuse"` \| `"translate"` \| `"recreate"` \| `"omit"`
+> **materialization**: `"translate"` \| `"recreate"` \| `"omit"` \| `"refuse"`
 
 ###### targetStart?
 
@@ -7304,7 +7329,7 @@ by default when `output` is a TTY.
 
 ###### rseq.state
 
-> **state**: `"unsupported"` \| `"captured"` \| `"absent"`
+> **state**: `"unsupported"` \| `"absent"` \| `"captured"`
 
 ###### rseq.refusal?
 
@@ -7498,11 +7523,11 @@ by default when `output` is a TTY.
 
 ##### sourceArch
 
-> **sourceArch**: `"amd64"` \| `"arm64"`
+> **sourceArch**: `"arm64"` \| `"amd64"`
 
 ##### targetArch
 
-> **targetArch**: `"amd64"` \| `"arm64"`
+> **targetArch**: `"arm64"` \| `"amd64"`
 
 ##### codeLocations
 
@@ -7610,7 +7635,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`id`](#id-2)
+[`NativeCodeModule`](#nativecodemodule).[`id`](#id-3)
 
 ##### logicalName
 
@@ -7626,11 +7651,11 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`path`](#path)
+[`NativeCodeModule`](#nativecodemodule).[`path`](#path-2)
 
 ##### arch?
 
-> `optional` **arch?**: `"amd64"` \| `"arm64"`
+> `optional` **arch?**: `"arm64"` \| `"amd64"`
 
 ###### Inherited from
 
@@ -7638,11 +7663,11 @@ by default when `output` is a TTY.
 
 ##### kind
 
-> **kind**: `"unknown"` \| `"vdso"` \| `"executable"` \| `"shared-object"` \| `"pie-executable"`
+> **kind**: `"vdso"` \| `"unknown"` \| `"executable"` \| `"shared-object"` \| `"pie-executable"`
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-20)
+[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-24)
 
 ##### buildId
 
@@ -7718,7 +7743,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`id`](#id-2)
+[`NativeCodeModule`](#nativecodemodule).[`id`](#id-3)
 
 ##### logicalName
 
@@ -7734,11 +7759,11 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`path`](#path)
+[`NativeCodeModule`](#nativecodemodule).[`path`](#path-2)
 
 ##### arch?
 
-> `optional` **arch?**: `"amd64"` \| `"arm64"`
+> `optional` **arch?**: `"arm64"` \| `"amd64"`
 
 ###### Inherited from
 
@@ -7746,11 +7771,11 @@ by default when `output` is a TTY.
 
 ##### kind
 
-> **kind**: `"unknown"` \| `"vdso"` \| `"executable"` \| `"shared-object"` \| `"pie-executable"`
+> **kind**: `"vdso"` \| `"unknown"` \| `"executable"` \| `"shared-object"` \| `"pie-executable"`
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-20)
+[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-24)
 
 ##### buildId
 
@@ -7984,7 +8009,7 @@ by default when `output` is a TTY.
 
 ##### targetArch
 
-> **targetArch**: `"amd64"` \| `"arm64"`
+> **targetArch**: `"arm64"` \| `"amd64"`
 
 ##### targetModules
 
@@ -8148,11 +8173,11 @@ by default when `output` is a TTY.
 
 ##### sourceArch
 
-> **sourceArch**: `"amd64"` \| `"arm64"`
+> **sourceArch**: `"arm64"` \| `"amd64"`
 
 ##### targetArch
 
-> **targetArch**: `"amd64"` \| `"arm64"`
+> **targetArch**: `"arm64"` \| `"amd64"`
 
 ##### threads
 
@@ -8200,11 +8225,11 @@ by default when `output` is a TTY.
 
 ##### sourceArch
 
-> **sourceArch**: `"amd64"` \| `"arm64"`
+> **sourceArch**: `"arm64"` \| `"amd64"`
 
 ##### targetArch
 
-> **targetArch**: `"amd64"` \| `"arm64"`
+> **targetArch**: `"arm64"` \| `"amd64"`
 
 ##### threads
 
@@ -8304,7 +8329,7 @@ by default when `output` is a TTY.
 
 ##### action
 
-> **action**: `"close"` \| `"refuse"` \| `"materialize"`
+> **action**: `"refuse"` \| `"materialize"` \| `"close"`
 
 ##### source
 
@@ -8532,7 +8557,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeReturnChainFrame`](#nativereturnchainframe).[`id`](#id-11)
+[`NativeReturnChainFrame`](#nativereturnchainframe).[`id`](#id-12)
 
 ##### unwindId
 
@@ -9545,7 +9570,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-35)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-39)
 
 ##### targetArch
 
@@ -9553,7 +9578,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`targetArch`](#targetarch-13)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`targetArch`](#targetarch-14)
 
 ##### entryAddress
 
@@ -9641,7 +9666,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`sourceIsaEmulationUsed`](#sourceisaemulationused-3)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`sourceIsaEmulationUsed`](#sourceisaemulationused-4)
 
 ##### sidecarRuntimeUsed
 
@@ -10133,7 +10158,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-35)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-39)
 
 ##### targetArch
 
@@ -10141,7 +10166,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`targetArch`](#targetarch-13)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`targetArch`](#targetarch-14)
 
 ##### entryAddress
 
@@ -10229,7 +10254,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`sourceIsaEmulationUsed`](#sourceisaemulationused-3)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`sourceIsaEmulationUsed`](#sourceisaemulationused-4)
 
 ##### sidecarRuntimeUsed
 
@@ -11619,11 +11644,11 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ##### sourceArch
 
-> **sourceArch**: `"amd64"` \| `"arm64"`
+> **sourceArch**: `"arm64"` \| `"amd64"`
 
 ##### targetArch
 
-> **targetArch**: `"amd64"` \| `"arm64"`
+> **targetArch**: `"arm64"` \| `"amd64"`
 
 ##### sourceThreadPointer?
 
@@ -11661,7 +11686,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ##### targetArch?
 
-> `optional` **targetArch?**: `"amd64"` \| `"arm64"`
+> `optional` **targetArch?**: `"arm64"` \| `"amd64"`
 
 ##### targetFsBase?
 
@@ -12205,7 +12230,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ##### unsafeNeighbor
 
-> **unsafeNeighbor**: `"metadata-only-success"` \| `"active-syscall"` \| `"arbitrary-v8-heap-native-stack"` \| `"native-addon"` \| `"worker-thread"` \| `"inspector-debug"` \| `"active-request"` \| `"active-tcp-stream"` \| `"unsupported-timer-async-handle"` \| `"unsupported-module-runtime-state"` \| `"missing-target-native-node"` \| `"source-isa-emulation"` \| `"sidecar-output"`
+> **unsafeNeighbor**: `"active-syscall"` \| `"metadata-only-success"` \| `"arbitrary-v8-heap-native-stack"` \| `"native-addon"` \| `"worker-thread"` \| `"inspector-debug"` \| `"active-request"` \| `"active-tcp-stream"` \| `"unsupported-timer-async-handle"` \| `"unsupported-module-runtime-state"` \| `"missing-target-native-node"` \| `"source-isa-emulation"` \| `"sidecar-output"`
 
 ##### message
 
@@ -12553,7 +12578,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ##### evidenceStatus
 
-> **evidenceStatus**: `"proof"` \| `"checked"` \| `"missing"`
+> **evidenceStatus**: `"missing"` \| `"proof"` \| `"checked"`
 
 ##### checkedSummary?
 
@@ -12597,7 +12622,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ##### status
 
-> **status**: `"failed"` \| `"passed"` \| `"not-run"` \| `"missing"`
+> **status**: `"failed"` \| `"missing"` \| `"passed"` \| `"not-run"`
 
 ##### kind?
 
@@ -12689,7 +12714,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ##### status
 
-> **status**: `"failed"` \| `"passed"` \| `"missing"`
+> **status**: `"failed"` \| `"missing"` \| `"passed"`
 
 ##### message
 
@@ -12809,7 +12834,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ##### proofRunner?
 
-> `optional` **proofRunner?**: `"scripts/node-level5-proof-composition.ts"`
+> `optional` **proofRunner?**: `"proofs/nodejs/scripts/node-level5-proof-composition.ts"`
 
 ##### refusals
 
@@ -14456,7 +14481,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### guestArch
 
-> **guestArch**: `"amd64"` \| `"arm64"`
+> **guestArch**: `"arm64"` \| `"amd64"`
 
 ###### vmstate
 
@@ -14488,7 +14513,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### guestArch
 
-> **guestArch**: `"amd64"` \| `"arm64"`
+> **guestArch**: `"arm64"` \| `"amd64"`
 
 ###### mode
 
@@ -14596,7 +14621,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`sourceArch`](#sourcearch-16)
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`sourceArch`](#sourcearch-17)
 
 ##### targetArch
 
@@ -14604,7 +14629,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`targetArch`](#targetarch-25)
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`targetArch`](#targetarch-26)
 
 ##### machinenStateModel
 
@@ -14861,7 +14886,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### family
 
-> **family**: `"network-ping-socket"` \| `"unknown"` \| `"go"` \| `"postgresql"` \| `"nodejs"` \| `"python-ruby-jvm"` \| `"stateful-services"` \| `"foundation-native"` \| `"native-linux-resource"`
+> **family**: `"unknown"` \| `"network-ping-socket"` \| `"go"` \| `"postgresql"` \| `"nodejs"` \| `"python-ruby-jvm"` \| `"stateful-services"` \| `"foundation-native"` \| `"native-linux-resource"`
 
 ##### runtime?
 
@@ -14893,7 +14918,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### expectedResult
 
-> **expectedResult**: `"refusal"` \| `"unknown"` \| `"success"`
+> **expectedResult**: `"unknown"` \| `"refusal"` \| `"success"`
 
 ##### sourceGoal?
 
@@ -15015,7 +15040,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### family?
 
-> `optional` **family?**: `"network-ping-socket"` \| `"unknown"` \| `"go"` \| `"postgresql"` \| `"nodejs"` \| `"python-ruby-jvm"` \| `"stateful-services"` \| `"foundation-native"` \| `"native-linux-resource"`
+> `optional` **family?**: `"unknown"` \| `"network-ping-socket"` \| `"go"` \| `"postgresql"` \| `"nodejs"` \| `"python-ruby-jvm"` \| `"stateful-services"` \| `"foundation-native"` \| `"native-linux-resource"`
 
 ##### runtime?
 
@@ -15049,11 +15074,11 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### sourceArch
 
-> **sourceArch**: `"amd64"` \| `"arm64"`
+> **sourceArch**: `"arm64"` \| `"amd64"`
 
 ##### targetArch
 
-> **targetArch**: `"amd64"` \| `"arm64"`
+> **targetArch**: `"arm64"` \| `"amd64"`
 
 ##### sourceVerifierOutput
 
@@ -15077,11 +15102,11 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### waiters?
 
-> `optional` **waiters?**: `"none"` \| `"unknown"`
+> `optional` **waiters?**: `"unknown"` \| `"none"`
 
 ##### aliases?
 
-> `optional` **aliases?**: `"none"` \| `"unknown"` \| `"present"`
+> `optional` **aliases?**: `"unknown"` \| `"none"` \| `"present"`
 
 ##### activeSyscall?
 
@@ -15139,7 +15164,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ###### architecture
 
-> **architecture**: `"amd64"` \| `"arm64"`
+> **architecture**: `"arm64"` \| `"amd64"`
 
 ###### host
 
@@ -15163,7 +15188,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ###### architecture
 
-> **architecture**: `"amd64"` \| `"arm64"`
+> **architecture**: `"arm64"` \| `"amd64"`
 
 ##### eventfd
 
@@ -15339,7 +15364,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### targetArch
 
-> **targetArch**: `"amd64"` \| `"arm64"`
+> **targetArch**: `"arm64"` \| `"amd64"`
 
 ##### targetVerifierOutput
 
@@ -15389,11 +15414,11 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### sourceArch?
 
-> `optional` **sourceArch?**: `"amd64"` \| `"arm64"`
+> `optional` **sourceArch?**: `"arm64"` \| `"amd64"`
 
 ##### targetArch
 
-> **targetArch**: `"amd64"` \| `"arm64"`
+> **targetArch**: `"arm64"` \| `"amd64"`
 
 ##### targetVerifierResult
 
@@ -15443,11 +15468,11 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### sourceArch
 
-> **sourceArch**: `"amd64"` \| `"arm64"`
+> **sourceArch**: `"arm64"` \| `"amd64"`
 
 ##### targetArch
 
-> **targetArch**: `"amd64"` \| `"arm64"`
+> **targetArch**: `"arm64"` \| `"amd64"`
 
 ##### socketKind
 
@@ -15491,7 +15516,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### credential?
 
-> `optional` **credential?**: `"ping-group-range"` \| `"cap-net-raw"`
+> `optional` **credential?**: `"cap-net-raw"` \| `"ping-group-range"`
 
 ##### activeRecvmsg?
 
@@ -15565,7 +15590,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ###### architecture
 
-> **architecture**: `"amd64"` \| `"arm64"`
+> **architecture**: `"arm64"` \| `"amd64"`
 
 ###### host
 
@@ -15589,7 +15614,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ###### architecture
 
-> **architecture**: `"amd64"` \| `"arm64"`
+> **architecture**: `"arm64"` \| `"amd64"`
 
 ##### socket
 
@@ -15609,7 +15634,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ###### credential
 
-> **credential**: `"ping-group-range"` \| `"cap-net-raw"`
+> **credential**: `"cap-net-raw"` \| `"ping-group-range"`
 
 ###### echoIdentifier
 
@@ -15773,7 +15798,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### targetArch
 
-> **targetArch**: `"amd64"` \| `"arm64"`
+> **targetArch**: `"arm64"` \| `"amd64"`
 
 ##### targetVerifierOutput
 
@@ -15823,11 +15848,11 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### sourceArch?
 
-> `optional` **sourceArch?**: `"amd64"` \| `"arm64"`
+> `optional` **sourceArch?**: `"arm64"` \| `"amd64"`
 
 ##### targetArch
 
-> **targetArch**: `"amd64"` \| `"arm64"`
+> **targetArch**: `"arm64"` \| `"amd64"`
 
 ##### targetVerifierResult
 
@@ -15877,11 +15902,11 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### sourceArch
 
-> **sourceArch**: `"amd64"` \| `"arm64"`
+> **sourceArch**: `"arm64"` \| `"amd64"`
 
 ##### targetArch
 
-> **targetArch**: `"amd64"` \| `"arm64"`
+> **targetArch**: `"arm64"` \| `"amd64"`
 
 ##### sourceVerifierOutput
 
@@ -15897,7 +15922,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### buffer?
 
-> `optional` **buffer?**: `"bytes"` \| `"unknown"` \| `"empty"`
+> `optional` **buffer?**: `"unknown"` \| `"empty"` \| `"bytes"`
 
 ##### bufferedBytesHex?
 
@@ -15909,11 +15934,11 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### waiters?
 
-> `optional` **waiters?**: `"none"` \| `"unknown"`
+> `optional` **waiters?**: `"unknown"` \| `"none"`
 
 ##### readiness?
 
-> `optional` **readiness?**: `"readable"` \| `"unknown"` \| `"not-readable"`
+> `optional` **readiness?**: `"unknown"` \| `"readable"` \| `"not-readable"`
 
 ##### closeOnExec?
 
@@ -15979,7 +16004,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ###### architecture
 
-> **architecture**: `"amd64"` \| `"arm64"`
+> **architecture**: `"arm64"` \| `"amd64"`
 
 ###### host
 
@@ -16003,7 +16028,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ###### architecture
 
-> **architecture**: `"amd64"` \| `"arm64"`
+> **architecture**: `"arm64"` \| `"amd64"`
 
 ##### pipe
 
@@ -16187,7 +16212,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### targetArch
 
-> **targetArch**: `"amd64"` \| `"arm64"`
+> **targetArch**: `"arm64"` \| `"amd64"`
 
 ##### targetVerifierOutput
 
@@ -16237,11 +16262,11 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### sourceArch?
 
-> `optional` **sourceArch?**: `"amd64"` \| `"arm64"`
+> `optional` **sourceArch?**: `"arm64"` \| `"amd64"`
 
 ##### targetArch
 
-> **targetArch**: `"amd64"` \| `"arm64"`
+> **targetArch**: `"arm64"` \| `"amd64"`
 
 ##### targetVerifierResult
 
@@ -16291,11 +16316,11 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### sourceArch
 
-> **sourceArch**: `"amd64"` \| `"arm64"`
+> **sourceArch**: `"arm64"` \| `"amd64"`
 
 ##### targetArch
 
-> **targetArch**: `"amd64"` \| `"arm64"`
+> **targetArch**: `"arm64"` \| `"amd64"`
 
 ##### sourceVerifierOutput
 
@@ -16389,7 +16414,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ###### architecture
 
-> **architecture**: `"amd64"` \| `"arm64"`
+> **architecture**: `"arm64"` \| `"amd64"`
 
 ###### host
 
@@ -16413,7 +16438,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ###### architecture
 
-> **architecture**: `"amd64"` \| `"arm64"`
+> **architecture**: `"arm64"` \| `"amd64"`
 
 ##### listener
 
@@ -16609,7 +16634,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### targetArch
 
-> **targetArch**: `"amd64"` \| `"arm64"`
+> **targetArch**: `"arm64"` \| `"amd64"`
 
 ##### targetVerifierOutput
 
@@ -16659,11 +16684,11 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### sourceArch?
 
-> `optional` **sourceArch?**: `"amd64"` \| `"arm64"`
+> `optional` **sourceArch?**: `"arm64"` \| `"amd64"`
 
 ##### targetArch
 
-> **targetArch**: `"amd64"` \| `"arm64"`
+> **targetArch**: `"arm64"` \| `"amd64"`
 
 ##### targetVerifierResult
 
@@ -16713,11 +16738,11 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### sourceArch
 
-> **sourceArch**: `"amd64"` \| `"arm64"`
+> **sourceArch**: `"arm64"` \| `"amd64"`
 
 ##### targetArch
 
-> **targetArch**: `"amd64"` \| `"arm64"`
+> **targetArch**: `"arm64"` \| `"amd64"`
 
 ##### sourceVerifierOutput
 
@@ -16811,7 +16836,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ###### architecture
 
-> **architecture**: `"amd64"` \| `"arm64"`
+> **architecture**: `"arm64"` \| `"amd64"`
 
 ###### host
 
@@ -16835,7 +16860,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ###### architecture
 
-> **architecture**: `"amd64"` \| `"arm64"`
+> **architecture**: `"arm64"` \| `"amd64"`
 
 ##### timerfd
 
@@ -17015,7 +17040,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### targetArch
 
-> **targetArch**: `"amd64"` \| `"arm64"`
+> **targetArch**: `"arm64"` \| `"amd64"`
 
 ##### targetVerifierOutput
 
@@ -17065,11 +17090,11 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### sourceArch?
 
-> `optional` **sourceArch?**: `"amd64"` \| `"arm64"`
+> `optional` **sourceArch?**: `"arm64"` \| `"amd64"`
 
 ##### targetArch
 
-> **targetArch**: `"amd64"` \| `"arm64"`
+> **targetArch**: `"arm64"` \| `"amd64"`
 
 ##### targetVerifierResult
 
@@ -17149,11 +17174,11 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### sourceArch
 
-> **sourceArch**: `"amd64"` \| `"arm64"`
+> **sourceArch**: `"arm64"` \| `"amd64"`
 
 ##### targetArch
 
-> **targetArch**: `"amd64"` \| `"arm64"`
+> **targetArch**: `"arm64"` \| `"amd64"`
 
 ##### logicalDumpPath
 
@@ -17251,7 +17276,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ###### architecture
 
-> **architecture**: `"amd64"` \| `"arm64"`
+> **architecture**: `"arm64"` \| `"amd64"`
 
 ###### postgresVersion
 
@@ -17279,7 +17304,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ###### architecture
 
-> **architecture**: `"amd64"` \| `"arm64"`
+> **architecture**: `"arm64"` \| `"amd64"`
 
 ##### artifacts
 
@@ -17451,7 +17476,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### targetArch
 
-> **targetArch**: `"amd64"` \| `"arm64"`
+> **targetArch**: `"arm64"` \| `"amd64"`
 
 ##### targetVerifierOutput
 
@@ -17497,11 +17522,11 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### sourceArch?
 
-> `optional` **sourceArch?**: `"amd64"` \| `"arm64"`
+> `optional` **sourceArch?**: `"arm64"` \| `"amd64"`
 
 ##### targetArch
 
-> **targetArch**: `"amd64"` \| `"arm64"`
+> **targetArch**: `"arm64"` \| `"amd64"`
 
 ##### targetState
 
@@ -18200,7 +18225,7 @@ whole-VM state captures RAM/device/vCPU state, not disk blocks.
 
 ##### rootDiskMode?
 
-> `optional` **rootDiskMode?**: `"block"` \| `"none"`
+> `optional` **rootDiskMode?**: `"none"` \| `"block"`
 
 Whether the VM intentionally booted without a root block device.
 
@@ -18592,7 +18617,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`sourceArch`](#sourcearch-32)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`sourceArch`](#sourcearch-33)
 
 ##### targetArch
 
@@ -18600,7 +18625,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`targetArch`](#targetarch-47)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`targetArch`](#targetarch-48)
 
 ##### stateModel
 
@@ -20037,7 +20062,7 @@ VMM backend that wrote `state.vmstate`.
 
 ##### guestArch?
 
-> `optional` **guestArch?**: `"amd64"` \| `"arm64"` \| `"unknown"`
+> `optional` **guestArch?**: `"arm64"` \| `"amd64"` \| `"unknown"`
 
 Guest CPU architecture captured in `state.vmstate`; restore must match.
 
@@ -20277,7 +20302,7 @@ kicks in: `<sourceName>/<fork.pid>`.
 
 ###### Overrides
 
-[`RestoreOptions`](#restoreoptions).[`name`](#name-18)
+[`RestoreOptions`](#restoreoptions).[`name`](#name-19)
 
 ##### portForward?
 
@@ -21651,6 +21676,466 @@ Poll interval in ms while retrying. Default 250.
 ### AdvancedLinuxFacilityProbeStateModel
 
 > **AdvancedLinuxFacilityProbeStateModel** = `"preserved"` \| `"recreated"` \| `"proven-irrelevant"` \| `"refused"`
+
+***
+
+### ArbitraryProcessLevel5RegularFileFdProofArtifact
+
+> **ArbitraryProcessLevel5RegularFileFdProofArtifact** = `object`
+
+#### Properties
+
+##### name
+
+> **name**: `string`
+
+##### path
+
+> **path**: `string`
+
+##### sha256
+
+> **sha256**: `string`
+
+***
+
+### ArbitraryProcessLevel5RegularFileFdProofReport
+
+> **ArbitraryProcessLevel5RegularFileFdProofReport** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`ARBITRARY_PROCESS_LEVEL5_REGULAR_FILE_FD_PROOF_KIND`](#arbitrary_process_level5_regular_file_fd_proof_kind)
+
+##### version
+
+> **version**: *typeof* [`ARBITRARY_PROCESS_LEVEL5_REGULAR_FILE_FD_PROOF_VERSION`](#arbitrary_process_level5_regular_file_fd_proof_version)
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### rowId
+
+> **rowId**: `"native-regular-file-fd"`
+
+##### proofStatus
+
+> **proofStatus**: `"verified-seed"`
+
+##### sourceArch
+
+> **sourceArch**: [`NativeProcessImageArchitecture`](#nativeprocessimagearchitecture)
+
+##### targetArch
+
+> **targetArch**: [`NativeProcessImageArchitecture`](#nativeprocessimagearchitecture)
+
+##### capturedState
+
+> **capturedState**: `object`
+
+###### fd
+
+> **fd**: `3`
+
+###### kind
+
+> **kind**: `"file"`
+
+###### path
+
+> **path**: `string`
+
+###### offset
+
+> **offset**: `number`
+
+###### expectedNextBytesSha256
+
+> **expectedNextBytesSha256**: `string`
+
+##### targetReconstruction
+
+> **targetReconstruction**: `object`
+
+###### planKind
+
+> **planKind**: `"reopen-file"`
+
+###### targetFd
+
+> **targetFd**: `3`
+
+###### offset
+
+> **offset**: `number`
+
+###### rawCpuRestoreUsed
+
+> **rawCpuRestoreUsed**: `false`
+
+###### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+###### appCheckpointHooksRequired
+
+> **appCheckpointHooksRequired**: `false`
+
+###### metadataOnlySuccessAccepted
+
+> **metadataOnlySuccessAccepted**: `false`
+
+##### verifier
+
+> **verifier**: `object`
+
+###### readStartedAtCapturedOffset
+
+> **readStartedAtCapturedOffset**: `true`
+
+###### readBytesSha256Matched
+
+> **readBytesSha256Matched**: `true`
+
+###### targetOffsetAdvancedTo
+
+> **targetOffsetAdvancedTo**: `number`
+
+###### targetNativeReconstructionRequired
+
+> **targetNativeReconstructionRequired**: `true`
+
+###### translatedProcessStateRequired
+
+> **translatedProcessStateRequired**: `true`
+
+##### claimChangeAllowed
+
+> **claimChangeAllowed**: `false`
+
+##### currentArbitraryProcessCrossArchRestoreClaimed
+
+> **currentArbitraryProcessCrossArchRestoreClaimed**: `0`
+
+##### candidateArbitraryProcessCrossArchRestoreClaimed
+
+> **candidateArbitraryProcessCrossArchRestoreClaimed**: `1`
+
+##### arbitraryProcessClaimed
+
+> **arbitraryProcessClaimed**: `false`
+
+##### artifacts
+
+> **artifacts**: [`ArbitraryProcessLevel5RegularFileFdProofArtifact`](#arbitraryprocesslevel5regularfilefdproofartifact)[]
+
+##### artifactsSha256
+
+> **artifactsSha256**: `string`
+
+***
+
+### ArbitraryProcessLevel5SeedStatus
+
+> **ArbitraryProcessLevel5SeedStatus** = `"seed-candidate"` \| `"refused"` \| `"not-proven"`
+
+***
+
+### ArbitraryProcessLevel5SeedEvidenceKind
+
+> **ArbitraryProcessLevel5SeedEvidenceKind** = `"target-native-reconstruction-seed"` \| `"resource-translation-seed"` \| `"network-resource-translation-seed"` \| `"refusal-boundary"` \| `"matrix-gap"`
+
+***
+
+### ArbitraryProcessLevel5SeedBoundary
+
+> **ArbitraryProcessLevel5SeedBoundary** = `"no-threads"` \| `"no-jit"` \| `"idle-only"` \| `"regular-files-only"` \| `"simple-pipes-only"` \| `"no-live-sockets"` \| `"no-device-mmap"` \| `"no-futex-owned-locks"`
+
+***
+
+### ArbitraryProcessLevel5RefusalMarker
+
+> **ArbitraryProcessLevel5RefusalMarker** = `"threads"` \| `"jit-code"` \| `"futex-owned-locks"` \| `"live-sockets"` \| `"device-mmap"` \| `"active-epoll"`
+
+***
+
+### ArbitraryProcessLevel5SeedRow
+
+> **ArbitraryProcessLevel5SeedRow** = `object`
+
+#### Properties
+
+##### id
+
+> **id**: `string`
+
+##### status
+
+> **status**: [`ArbitraryProcessLevel5SeedStatus`](#arbitraryprocesslevel5seedstatus)
+
+##### evidenceKind
+
+> **evidenceKind**: [`ArbitraryProcessLevel5SeedEvidenceKind`](#arbitraryprocesslevel5seedevidencekind)
+
+##### processShape
+
+> **processShape**: `string`
+
+##### productPath
+
+> **productPath**: `"machinen snapshot <vm-name> --out <dir>; machinen restore <dir>"`
+
+##### translatedProcessStateRequired
+
+> **translatedProcessStateRequired**: `true`
+
+##### targetNativeReconstructionRequired
+
+> **targetNativeReconstructionRequired**: `true`
+
+##### rawCpuRestoreUsed
+
+> **rawCpuRestoreUsed**: `false`
+
+##### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+##### appCheckpointHooksRequired
+
+> **appCheckpointHooksRequired**: `false`
+
+##### metadataOnlySuccessAccepted
+
+> **metadataOnlySuccessAccepted**: `false`
+
+##### arbitraryProcessClaimed
+
+> **arbitraryProcessClaimed**: `false`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
+
+##### boundaries
+
+> **boundaries**: [`ArbitraryProcessLevel5SeedBoundary`](#arbitraryprocesslevel5seedboundary)[]
+
+##### refusalMarker?
+
+> `optional` **refusalMarker?**: [`ArbitraryProcessLevel5RefusalMarker`](#arbitraryprocesslevel5refusalmarker)
+
+***
+
+### ArbitraryProcessLevel5SeedMatrix
+
+> **ArbitraryProcessLevel5SeedMatrix** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`ARBITRARY_PROCESS_LEVEL5_SEED_MATRIX_KIND`](#arbitrary_process_level5_seed_matrix_kind)
+
+##### version
+
+> **version**: *typeof* [`ARBITRARY_PROCESS_LEVEL5_SEED_MATRIX_VERSION`](#arbitrary_process_level5_seed_matrix_version)
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### rowCount
+
+> **rowCount**: `14`
+
+##### seedCandidateRows
+
+> **seedCandidateRows**: `7`
+
+##### refusedRows
+
+> **refusedRows**: `6`
+
+##### notProvenRows
+
+> **notProvenRows**: `1`
+
+##### rows
+
+> **rows**: [`ArbitraryProcessLevel5SeedRow`](#arbitraryprocesslevel5seedrow)[]
+
+##### currentNodeProductSupportClaimed
+
+> **currentNodeProductSupportClaimed**: `100`
+
+##### currentBroadNodeProductSupportClaimed
+
+> **currentBroadNodeProductSupportClaimed**: `100`
+
+##### currentArbitraryProcessCrossArchRestoreClaimed
+
+> **currentArbitraryProcessCrossArchRestoreClaimed**: `0`
+
+##### candidateArbitraryProcessCrossArchRestoreClaimed
+
+> **candidateArbitraryProcessCrossArchRestoreClaimed**: `1`
+
+##### claimChangeAllowed
+
+> **claimChangeAllowed**: `false`
+
+##### arbitraryProcessClaimed
+
+> **arbitraryProcessClaimed**: `false`
+
+***
+
+### ArbitraryProcessLevel5SeedArtifact
+
+> **ArbitraryProcessLevel5SeedArtifact** = `object`
+
+#### Properties
+
+##### rowId
+
+> **rowId**: `string`
+
+##### status
+
+> **status**: [`ArbitraryProcessLevel5SeedStatus`](#arbitraryprocesslevel5seedstatus)
+
+##### evidenceKind
+
+> **evidenceKind**: [`ArbitraryProcessLevel5SeedEvidenceKind`](#arbitraryprocesslevel5seedevidencekind)
+
+##### path
+
+> **path**: `string`
+
+##### sha256
+
+> **sha256**: `string`
+
+##### required
+
+> **required**: `true`
+
+***
+
+### ArbitraryProcessLevel5SeedReport
+
+> **ArbitraryProcessLevel5SeedReport** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`ARBITRARY_PROCESS_LEVEL5_SEED_REPORT_KIND`](#arbitrary_process_level5_seed_report_kind)
+
+##### version
+
+> **version**: *typeof* [`ARBITRARY_PROCESS_LEVEL5_SEED_REPORT_VERSION`](#arbitrary_process_level5_seed_report_version)
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### matrix
+
+> **matrix**: [`ArbitraryProcessLevel5SeedMatrix`](#arbitraryprocesslevel5seedmatrix)
+
+##### artifactCount
+
+> **artifactCount**: `14`
+
+##### artifacts
+
+> **artifacts**: [`ArbitraryProcessLevel5SeedArtifact`](#arbitraryprocesslevel5seedartifact)[]
+
+##### artifactsSha256
+
+> **artifactsSha256**: `string`
+
+##### refusalMarkersCovered
+
+> **refusalMarkersCovered**: [`ArbitraryProcessLevel5RefusalMarker`](#arbitraryprocesslevel5refusalmarker)[]
+
+##### claimChangeAllowed
+
+> **claimChangeAllowed**: `false`
+
+##### currentNodeProductSupportClaimed
+
+> **currentNodeProductSupportClaimed**: `100`
+
+##### currentBroadNodeProductSupportClaimed
+
+> **currentBroadNodeProductSupportClaimed**: `100`
+
+##### currentArbitraryProcessCrossArchRestoreClaimed
+
+> **currentArbitraryProcessCrossArchRestoreClaimed**: `0`
+
+##### candidateArbitraryProcessCrossArchRestoreClaimed
+
+> **candidateArbitraryProcessCrossArchRestoreClaimed**: `1`
+
+##### arbitraryProcessClaimed
+
+> **arbitraryProcessClaimed**: `false`
+
+***
+
+### ArbitraryProcessLevel5SeedVerification
+
+> **ArbitraryProcessLevel5SeedVerification** = `object`
+
+#### Properties
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### kind
+
+> **kind**: `"machinen.arbitrary-process-level5-seed-verification"`
+
+##### rowCount
+
+> **rowCount**: `number`
+
+##### artifactCount
+
+> **artifactCount**: `number`
+
+##### artifactsSha256Verified
+
+> **artifactsSha256Verified**: `boolean`
+
+##### refusalMarkersCovered
+
+> **refusalMarkersCovered**: [`ArbitraryProcessLevel5RefusalMarker`](#arbitraryprocesslevel5refusalmarker)[]
+
+##### claimChangeAllowed
+
+> **claimChangeAllowed**: `false`
+
+##### currentArbitraryProcessCrossArchRestoreClaimed
+
+> **currentArbitraryProcessCrossArchRestoreClaimed**: `0`
+
+##### candidateArbitraryProcessCrossArchRestoreClaimed
+
+> **candidateArbitraryProcessCrossArchRestoreClaimed**: `1`
+
+##### arbitraryProcessClaimed
+
+> **arbitraryProcessClaimed**: `false`
 
 ***
 
@@ -27869,6 +28354,42 @@ tarball-producing tool can pre-populate the lookup cache.
 
 ***
 
+### ARBITRARY\_PROCESS\_LEVEL5\_REGULAR\_FILE\_FD\_PROOF\_KIND
+
+> `const` **ARBITRARY\_PROCESS\_LEVEL5\_REGULAR\_FILE\_FD\_PROOF\_KIND**: `"machinen.arbitrary-process-level5-regular-file-fd-proof"` = `"machinen.arbitrary-process-level5-regular-file-fd-proof"`
+
+***
+
+### ARBITRARY\_PROCESS\_LEVEL5\_REGULAR\_FILE\_FD\_PROOF\_VERSION
+
+> `const` **ARBITRARY\_PROCESS\_LEVEL5\_REGULAR\_FILE\_FD\_PROOF\_VERSION**: `1` = `1`
+
+***
+
+### ARBITRARY\_PROCESS\_LEVEL5\_SEED\_MATRIX\_KIND
+
+> `const` **ARBITRARY\_PROCESS\_LEVEL5\_SEED\_MATRIX\_KIND**: `"machinen.arbitrary-process-level5-seed-matrix"` = `"machinen.arbitrary-process-level5-seed-matrix"`
+
+***
+
+### ARBITRARY\_PROCESS\_LEVEL5\_SEED\_MATRIX\_VERSION
+
+> `const` **ARBITRARY\_PROCESS\_LEVEL5\_SEED\_MATRIX\_VERSION**: `1` = `1`
+
+***
+
+### ARBITRARY\_PROCESS\_LEVEL5\_SEED\_REPORT\_KIND
+
+> `const` **ARBITRARY\_PROCESS\_LEVEL5\_SEED\_REPORT\_KIND**: `"machinen.arbitrary-process-level5-seed-report"` = `"machinen.arbitrary-process-level5-seed-report"`
+
+***
+
+### ARBITRARY\_PROCESS\_LEVEL5\_SEED\_REPORT\_VERSION
+
+> `const` **ARBITRARY\_PROCESS\_LEVEL5\_SEED\_REPORT\_VERSION**: `1` = `1`
+
+***
+
 ### ARCHITECTURE\_PORTABLE\_SNAPSHOT\_GAUNTLET\_KIND
 
 > `const` **ARCHITECTURE\_PORTABLE\_SNAPSHOT\_GAUNTLET\_KIND**: `"machinen.architecture-portable-snapshot.final-proof-gauntlet"`
@@ -30555,6 +31076,146 @@ the guest agent skips entries that don't match.
 
 ***
 
+### createArbitraryProcessLevel5RegularFileFdProof()
+
+> **createArbitraryProcessLevel5RegularFileFdProof**(`input`): [`ArbitraryProcessLevel5RegularFileFdProofReport`](#arbitraryprocesslevel5regularfilefdproofreport)
+
+#### Parameters
+
+##### input
+
+###### outDir
+
+`string`
+
+###### sourceArch?
+
+`"arm64"` \| `"amd64"`
+
+###### targetArch?
+
+`"arm64"` \| `"amd64"`
+
+#### Returns
+
+[`ArbitraryProcessLevel5RegularFileFdProofReport`](#arbitraryprocesslevel5regularfilefdproofreport)
+
+***
+
+### loadArbitraryProcessLevel5RegularFileFdProofReport()
+
+> **loadArbitraryProcessLevel5RegularFileFdProofReport**(`path`): [`ArbitraryProcessLevel5RegularFileFdProofReport`](#arbitraryprocesslevel5regularfilefdproofreport)
+
+#### Parameters
+
+##### path
+
+`string`
+
+#### Returns
+
+[`ArbitraryProcessLevel5RegularFileFdProofReport`](#arbitraryprocesslevel5regularfilefdproofreport)
+
+***
+
+### verifyArbitraryProcessLevel5RegularFileFdProofReport()
+
+> **verifyArbitraryProcessLevel5RegularFileFdProofReport**(`report`): [`ArbitraryProcessLevel5RegularFileFdProofReport`](#arbitraryprocesslevel5regularfilefdproofreport)
+
+#### Parameters
+
+##### report
+
+[`ArbitraryProcessLevel5RegularFileFdProofReport`](#arbitraryprocesslevel5regularfilefdproofreport)
+
+#### Returns
+
+[`ArbitraryProcessLevel5RegularFileFdProofReport`](#arbitraryprocesslevel5regularfilefdproofreport)
+
+***
+
+### buildArbitraryProcessLevel5SeedMatrix()
+
+> **buildArbitraryProcessLevel5SeedMatrix**(): [`ArbitraryProcessLevel5SeedMatrix`](#arbitraryprocesslevel5seedmatrix)
+
+#### Returns
+
+[`ArbitraryProcessLevel5SeedMatrix`](#arbitraryprocesslevel5seedmatrix)
+
+***
+
+### createArbitraryProcessLevel5SeedReport()
+
+> **createArbitraryProcessLevel5SeedReport**(`input`): [`ArbitraryProcessLevel5SeedReport`](#arbitraryprocesslevel5seedreport)
+
+#### Parameters
+
+##### input
+
+###### outDir
+
+`string`
+
+#### Returns
+
+[`ArbitraryProcessLevel5SeedReport`](#arbitraryprocesslevel5seedreport)
+
+***
+
+### writeArbitraryProcessLevel5SeedReport()
+
+> **writeArbitraryProcessLevel5SeedReport**(`input`): [`ArbitraryProcessLevel5SeedReport`](#arbitraryprocesslevel5seedreport)
+
+#### Parameters
+
+##### input
+
+###### outDir
+
+`string`
+
+###### path
+
+`string`
+
+#### Returns
+
+[`ArbitraryProcessLevel5SeedReport`](#arbitraryprocesslevel5seedreport)
+
+***
+
+### loadArbitraryProcessLevel5SeedReport()
+
+> **loadArbitraryProcessLevel5SeedReport**(`path`): [`ArbitraryProcessLevel5SeedReport`](#arbitraryprocesslevel5seedreport)
+
+#### Parameters
+
+##### path
+
+`string`
+
+#### Returns
+
+[`ArbitraryProcessLevel5SeedReport`](#arbitraryprocesslevel5seedreport)
+
+***
+
+### verifyArbitraryProcessLevel5SeedReport()
+
+> **verifyArbitraryProcessLevel5SeedReport**(`report`): [`ArbitraryProcessLevel5SeedVerification`](#arbitraryprocesslevel5seedverification)
+
+#### Parameters
+
+##### report
+
+[`ArbitraryProcessLevel5SeedReport`](#arbitraryprocesslevel5seedreport)
+
+#### Returns
+
+[`ArbitraryProcessLevel5SeedVerification`](#arbitraryprocesslevel5seedverification)
+
+***
+
 ### buildArchitecturePortableSnapshotGauntletRow()
 
 > **buildArchitecturePortableSnapshotGauntletRow**(`input`): [`ArchitecturePortableSnapshotGauntletRow`](#architectureportablesnapshotgauntletrow)
@@ -30977,7 +31638,7 @@ readonly `Adapter`[]
 
 ##### adapters
 
-readonly `Pick`\<[`Level5RuntimeAdapter`](#level5runtimeadapter)\<`unknown`, `unknown`, `unknown`, [`Level5RestorePlan`](#level5restoreplan), `unknown`, [`Level5VerifierEvidence`](#level5verifierevidence)\>, `"graduationTargetLevel"` \| `"id"` \| `"runtimeFamily"` \| `"supportedProfiles"`\>[]
+readonly `Pick`\<[`Level5RuntimeAdapter`](#level5runtimeadapter)\<`unknown`, `unknown`, `unknown`, [`Level5RestorePlan`](#level5restoreplan), `unknown`, [`Level5VerifierEvidence`](#level5verifierevidence)\>, `"id"` \| `"graduationTargetLevel"` \| `"runtimeFamily"` \| `"supportedProfiles"`\>[]
 
 #### Returns
 

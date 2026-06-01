@@ -236,6 +236,37 @@ export {
 } from "./node-level5-product-support-85.ts";
 
 export {
+  ARBITRARY_PROCESS_LEVEL5_SEED_MATRIX_KIND,
+  ARBITRARY_PROCESS_LEVEL5_SEED_MATRIX_VERSION,
+  ARBITRARY_PROCESS_LEVEL5_SEED_REPORT_KIND,
+  ARBITRARY_PROCESS_LEVEL5_SEED_REPORT_VERSION,
+  buildArbitraryProcessLevel5SeedMatrix,
+  createArbitraryProcessLevel5SeedReport,
+  loadArbitraryProcessLevel5SeedReport,
+  verifyArbitraryProcessLevel5SeedReport,
+  writeArbitraryProcessLevel5SeedReport,
+  type ArbitraryProcessLevel5RefusalMarker,
+  type ArbitraryProcessLevel5SeedArtifact,
+  type ArbitraryProcessLevel5SeedBoundary,
+  type ArbitraryProcessLevel5SeedEvidenceKind,
+  type ArbitraryProcessLevel5SeedMatrix,
+  type ArbitraryProcessLevel5SeedReport,
+  type ArbitraryProcessLevel5SeedRow,
+  type ArbitraryProcessLevel5SeedStatus,
+  type ArbitraryProcessLevel5SeedVerification,
+} from "./arbitrary-process-level5-seed-matrix.ts";
+
+export {
+  ARBITRARY_PROCESS_LEVEL5_REGULAR_FILE_FD_PROOF_KIND,
+  ARBITRARY_PROCESS_LEVEL5_REGULAR_FILE_FD_PROOF_VERSION,
+  createArbitraryProcessLevel5RegularFileFdProof,
+  loadArbitraryProcessLevel5RegularFileFdProofReport,
+  verifyArbitraryProcessLevel5RegularFileFdProofReport,
+  type ArbitraryProcessLevel5RegularFileFdProofArtifact,
+  type ArbitraryProcessLevel5RegularFileFdProofReport,
+} from "./arbitrary-process-level5-regular-file-fd-proof.ts";
+
+export {
   NODE_LEVEL5_NODE_SERVICE_CLAIM_LADDER_REPORT_KIND,
   NODE_LEVEL5_NODE_SERVICE_CLAIM_LADDER_REPORT_VERSION,
   createNodeLevel5NodeServiceClaimLadderReport,

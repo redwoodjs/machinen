@@ -20,7 +20,7 @@ describe("proof-local smoke script conventions", () => {
     for (const scriptName of BANNED_PROOF_PACKAGE_SCRIPTS) {
       expect(
         packageJson.scripts?.[scriptName],
-        `${scriptName} should run directly from proof/025`,
+        `${scriptName} should run directly from proofs/by-id/025`,
       ).toBeUndefined();
     }
   });

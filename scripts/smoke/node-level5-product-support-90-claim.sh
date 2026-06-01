@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 WORK="${WORK_DIR:-$(mktemp -d "${TMPDIR:-/tmp}/machinen-node-level5-90-claim.XXXXXX")}"
 cd "$ROOT"
 
-pnpm exec tsx scripts/node-level5-framework-introspection-corpus.ts --out "$WORK" --json >"$WORK/introspection-summary.json"
+pnpm exec tsx proofs/nodejs/scripts/node-level5-framework-introspection-corpus.ts --out "$WORK" --json >"$WORK/introspection-summary.json"
 INTROSPECTION_REPORT="$WORK/node-level5-framework-introspection-corpus-report.json"
 set +e
 pnpm exec tsx packages/cli/src/cli.ts node-level5 framework-readiness --framework-introspection-corpus-report "$INTROSPECTION_REPORT" --json >"$WORK/framework-readiness.json"
@@ -16,7 +16,7 @@ if [[ "$READINESS_STATUS" -ne 1 ]]; then
   exit 1
 fi
 
-pnpm exec tsx scripts/node-level5-framework-product-evidence.ts --out "$WORK" --json >"$WORK/product-evidence-summary.json"
+pnpm exec tsx proofs/nodejs/scripts/node-level5-framework-product-evidence.ts --out "$WORK" --json >"$WORK/product-evidence-summary.json"
 PRODUCT_EVIDENCE_REPORT="$WORK/node-level5-framework-product-evidence-report.json"
 pnpm exec tsx packages/cli/src/cli.ts node-level5 framework-claim-ready --readiness-report "$WORK/framework-readiness.json" --framework-product-evidence-report "$PRODUCT_EVIDENCE_REPORT" --json >"$WORK/framework-claim-ready.json"
 pnpm exec tsx packages/cli/src/cli.ts node-level5 claims --json >"$WORK/claims.json"

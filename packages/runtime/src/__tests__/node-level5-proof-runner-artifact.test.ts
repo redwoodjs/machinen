@@ -12,7 +12,14 @@ describe("Node Level 5 proof runner artifact", () => {
       const out = join(dir, "proof.json");
       execFileSync(
         "pnpm",
-        ["exec", "tsx", "scripts/node-level5-proof-composition.ts", "verify", "--out", out],
+        [
+          "exec",
+          "tsx",
+          "proofs/nodejs/scripts/node-level5-proof-composition.ts",
+          "verify",
+          "--out",
+          out,
+        ],
         {
           encoding: "utf8",
         },
@@ -23,7 +30,7 @@ describe("Node Level 5 proof runner artifact", () => {
         productSupport: "not-yet-supported",
         implementationLevel: "not-implemented",
         graduationTargetLevel: "level-5-cross-arch-process-continuation",
-        proofRunner: "scripts/node-level5-proof-composition.ts",
+        proofRunner: "proofs/nodejs/scripts/node-level5-proof-composition.ts",
         summary: { proofReady: true, missing: 0 },
         gates: {
           sourceIsaEmulationAllowed: false,
@@ -63,7 +70,7 @@ describe("Node Level 5 proof runner artifact", () => {
         [
           "exec",
           "tsx",
-          "scripts/node-level5-proof-composition.ts",
+          "proofs/nodejs/scripts/node-level5-proof-composition.ts",
           "verify",
           "--out",
           out,

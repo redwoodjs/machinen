@@ -5,5 +5,5 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 
 for proof in $(seq 421 440); do
-  pnpm exec tsx "proof/${proof}/smoke.ts"
+  pnpm exec tsx "proofs/by-id/${proof}/smoke.ts"
 done

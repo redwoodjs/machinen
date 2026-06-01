@@ -3,8 +3,9 @@
   "entry": [
     "scripts/*.ts",
     "scripts/*.mjs",
-    "proof/*/smoke.ts",
-    "proof/*/*.mjs",
+    "proofs/**/scripts/*.ts",
+    "proofs/**/smoke.ts",
+    "proofs/**/*.mjs",
     "packages/runtime/src/bin/*.ts",
     "packages/microvm/test-fixtures/assets/*.{js,ts,mjs}",
     "examples/**/rootfs/**/*.{js,mjs,ts}",
@@ -16,7 +17,7 @@
     "ignore": [
       "**/__tests__/**",
       "**/*.{test,spec}.{js,jsx,ts,tsx,mjs,cjs}",
-      "proof/**",
+      "proofs/**",
       "scripts/native-dwarf-pointer-classification.ts"
     ]
   },
@@ -24,7 +25,7 @@
     "ignore": [
       "**/__tests__/**",
       "**/*.{test,spec}.{js,jsx,ts,tsx,mjs,cjs}",
-      "proof/**",
+      "proofs/**",
       "scripts/native-dwarf-pointer-classification.ts"
     ]
   },

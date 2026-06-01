@@ -1,0 +1,35 @@
+{
+  "kind": "machinen.arbitrary-process-level5-seed-matrix-doc",
+  "status": "seed-candidate-not-claimed",
+  "current": {
+    "nodeProductSupportClaimed": 100,
+    "broadNodeProductSupportClaimed": 100,
+    "arbitraryProcessCrossArchRestoreClaimed": 0
+  },
+  "candidate": {
+    "arbitraryProcessCrossArchRestoreClaimed": 1
+  },
+  "rowCount": 14,
+  "seedCandidateRows": 7,
+  "refusedRows": 6,
+  "notProvenRows": 1,
+  "pingSocketResourceSeedRow": true,
+  "pingSocketEvidence": "ping-level4-socket-reconstruction-v1",
+  "productCommandPath": "machinen snapshot <vm-name> --out <dir>; machinen restore <dir>",
+  "targetNativeReconstructionRequired": true,
+  "translatedProcessStateRequired": true,
+  "rawCpuRestoreUsed": false,
+  "sourceIsaEmulationUsed": false,
+  "appCheckpointHooksRequired": false,
+  "metadataOnlySuccessAccepted": false,
+  "claimChangeAllowed": false,
+  "arbitraryProcessClaimed": false,
+  "refusalMarkers": [
+    "threads",
+    "jit-code",
+    "futex-owned-locks",
+    "live-sockets",
+    "device-mmap",
+    "active-epoll"
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "kind": "machinen.node-proper-level5-real-capture-experimental-cli-summary",
+  "proof": "104",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "accepted": {
+    "accepted": true,
+    "targetStarted": false,
+    "proof": "104",
+    "consumedProof": "100",
+    "mode": "proof-only",
+    "productSupportClaimed": false,
+    "broadLevel5ImplementationClaimed": false
+  },
+  "refusedRows": [
+    {
+      "id": "missing-flags",
+      "expectedCode": "node-proper-level5-experimental-cli-proof-flags-required",
+      "actualCode": "node-proper-level5-experimental-cli-proof-flags-required",
+      "targetStarted": false
+    },
+    {
+      "id": "product-claim",
+      "expectedCode": "node-proper-level5-experimental-cli-product-claim-refused",
+      "actualCode": "node-proper-level5-experimental-cli-product-claim-refused",
+      "targetStarted": false
+    },
+    {
+      "id": "missing-summary",
+      "expectedCode": "node-proper-level5-experimental-cli-summary-missing",
+      "actualCode": "node-proper-level5-experimental-cli-summary-missing",
+      "targetStarted": false
+    }
+  ],
+  "docs": "proofs/by-id/104/EXPERIMENTAL.md",
+  "assertions": {
+    "cliConsumesRealCaptureE2eSummary": true,
+    "explicitProofOnlyFlagsRequired": true,
+    "productClaimAttemptRefused": true,
+    "targetNotStartedByCliBoundary": true
+  }
+}

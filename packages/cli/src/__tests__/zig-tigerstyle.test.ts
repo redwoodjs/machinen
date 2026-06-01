@@ -26,7 +26,7 @@ const zigFiles = spawnSync("git", ["ls-files", "*.zig"], {
   .split("\n")
   .filter(Boolean)
   .filter((path) => !path.includes("/.zig-cache/"))
-  .filter((path) => !path.startsWith("proof/"));
+  .filter((path) => !path.startsWith("proofs/"));
 
 type FunctionMetric = {
   file: string;

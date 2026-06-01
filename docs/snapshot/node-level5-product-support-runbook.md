@@ -55,4 +55,12 @@ machinen node-level5 framework-claim-ready \
 
 The framework claim-ready report must cover Express route/middleware/settings/error-handler graph artifacts, Fastify plugin/decorator/hook/schema/route graph artifacts, restored behavior probes tied to those artifacts, and refusal artifacts for active requests, worker threads, native addons, TLS active state, and child processes. Arbitrary Express, Fastify, Node, and arbitrary process cross-architecture restore remain unclaimed.
 
+For the arbitrary-process seed track, collect the seed matrix and retained seed artifacts:
+
+```sh
+machinen node-level5 arbitrary-process-seed --out ./arbitrary-process-seed --json
+```
+
+This seed track does not raise arbitrary process cross-architecture restore above `0%`. Treat threads, JIT code, futex-owned locks, live sockets, device mmap, and active epoll as refused until a future native-process claim-ready gate passes.
+
 Treat everything else as unsupported unless the product support matrix is expanded and the claim registry is intentionally raised.

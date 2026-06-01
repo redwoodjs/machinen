@@ -6,7 +6,7 @@
   "rows": [
     {
       "kind": "machinen.level4-graduation.row",
-      "verifierCommand": "pnpm exec tsx scripts/level4-graduation-matrix.ts",
+      "verifierCommand": "pnpm exec tsx proofs/network-resources/scripts/level4-graduation-matrix.ts",
       "forbiddenPaths": {
         "sourceIsaEmulation": false,
         "sidecarOutput": false,
@@ -37,7 +37,7 @@
     },
     {
       "kind": "machinen.level4-graduation.row",
-      "verifierCommand": "pnpm exec tsx scripts/level4-graduation-matrix.ts",
+      "verifierCommand": "pnpm exec tsx proofs/network-resources/scripts/level4-graduation-matrix.ts",
       "forbiddenPaths": {
         "sourceIsaEmulation": false,
         "sidecarOutput": false,
@@ -96,7 +96,7 @@
     },
     {
       "kind": "machinen.level4-graduation.row",
-      "verifierCommand": "pnpm exec tsx scripts/level4-graduation-matrix.ts",
+      "verifierCommand": "pnpm exec tsx proofs/network-resources/scripts/level4-graduation-matrix.ts",
       "forbiddenPaths": {
         "sourceIsaEmulation": false,
         "sidecarOutput": false,
@@ -133,7 +133,7 @@
     },
     {
       "kind": "machinen.level4-graduation.row",
-      "verifierCommand": "pnpm exec tsx scripts/level4-graduation-matrix.ts",
+      "verifierCommand": "pnpm exec tsx proofs/network-resources/scripts/level4-graduation-matrix.ts",
       "forbiddenPaths": {
         "sourceIsaEmulation": false,
         "sidecarOutput": false,
@@ -177,7 +177,7 @@
     },
     {
       "kind": "machinen.level4-graduation.row",
-      "verifierCommand": "pnpm exec tsx scripts/level4-graduation-matrix.ts",
+      "verifierCommand": "pnpm exec tsx proofs/network-resources/scripts/level4-graduation-matrix.ts",
       "forbiddenPaths": {
         "sourceIsaEmulation": false,
         "sidecarOutput": false,
@@ -212,7 +212,7 @@
     },
     {
       "kind": "machinen.level4-graduation.row",
-      "verifierCommand": "pnpm exec tsx scripts/level4-graduation-matrix.ts",
+      "verifierCommand": "pnpm exec tsx proofs/network-resources/scripts/level4-graduation-matrix.ts",
       "forbiddenPaths": {
         "sourceIsaEmulation": false,
         "sidecarOutput": false,
@@ -256,7 +256,7 @@
     },
     {
       "kind": "machinen.level4-graduation.row",
-      "verifierCommand": "pnpm exec tsx scripts/level4-graduation-matrix.ts",
+      "verifierCommand": "pnpm exec tsx proofs/network-resources/scripts/level4-graduation-matrix.ts",
       "forbiddenPaths": {
         "sourceIsaEmulation": false,
         "sidecarOutput": false,
@@ -291,7 +291,7 @@
     },
     {
       "kind": "machinen.level4-graduation.row",
-      "verifierCommand": "pnpm exec tsx scripts/level4-graduation-matrix.ts",
+      "verifierCommand": "pnpm exec tsx proofs/network-resources/scripts/level4-graduation-matrix.ts",
       "forbiddenPaths": {
         "sourceIsaEmulation": false,
         "sidecarOutput": false,
@@ -340,7 +340,7 @@
     },
     {
       "kind": "machinen.level4-graduation.row",
-      "verifierCommand": "pnpm exec tsx scripts/level4-graduation-matrix.ts",
+      "verifierCommand": "pnpm exec tsx proofs/network-resources/scripts/level4-graduation-matrix.ts",
       "forbiddenPaths": {
         "sourceIsaEmulation": false,
         "sidecarOutput": false,
@@ -375,7 +375,7 @@
     },
     {
       "kind": "machinen.level4-graduation.row",
-      "verifierCommand": "pnpm exec tsx scripts/level4-graduation-matrix.ts",
+      "verifierCommand": "pnpm exec tsx proofs/network-resources/scripts/level4-graduation-matrix.ts",
       "forbiddenPaths": {
         "sourceIsaEmulation": false,
         "sidecarOutput": false,
@@ -422,7 +422,7 @@
     },
     {
       "kind": "machinen.level4-graduation.row",
-      "verifierCommand": "pnpm exec tsx scripts/level4-graduation-matrix.ts",
+      "verifierCommand": "pnpm exec tsx proofs/network-resources/scripts/level4-graduation-matrix.ts",
       "forbiddenPaths": {
         "sourceIsaEmulation": false,
         "sidecarOutput": false,
@@ -453,7 +453,7 @@
     },
     {
       "kind": "machinen.level4-graduation.row",
-      "verifierCommand": "pnpm exec tsx scripts/level4-graduation-matrix.ts",
+      "verifierCommand": "pnpm exec tsx proofs/network-resources/scripts/level4-graduation-matrix.ts",
       "forbiddenPaths": {
         "sourceIsaEmulation": false,
         "sidecarOutput": false,
@@ -497,7 +497,7 @@
     },
     {
       "kind": "machinen.level4-graduation.row",
-      "verifierCommand": "pnpm exec tsx scripts/level4-graduation-matrix.ts",
+      "verifierCommand": "pnpm exec tsx proofs/network-resources/scripts/level4-graduation-matrix.ts",
       "forbiddenPaths": {
         "sourceIsaEmulation": false,
         "sidecarOutput": false,
@@ -539,7 +539,7 @@
     },
     {
       "kind": "machinen.level4-graduation.row",
-      "verifierCommand": "pnpm exec tsx scripts/level4-graduation-matrix.ts",
+      "verifierCommand": "pnpm exec tsx proofs/network-resources/scripts/level4-graduation-matrix.ts",
       "forbiddenPaths": {
         "sourceIsaEmulation": false,
         "sidecarOutput": false,
@@ -584,7 +584,7 @@
     },
     {
       "kind": "machinen.level4-graduation.row",
-      "verifierCommand": "pnpm exec tsx scripts/level4-graduation-matrix.ts",
+      "verifierCommand": "pnpm exec tsx proofs/network-resources/scripts/level4-graduation-matrix.ts",
       "forbiddenPaths": {
         "sourceIsaEmulation": false,
         "sidecarOutput": false,
