@@ -389,6 +389,18 @@
             <dd>PostgreSQL proof for a connected psql client running SQL queries.</dd>
           </div>
           <div>
+            <dt>schema/data query</dt>
+            <dd>PostgreSQL proof for schema creation, data load, and query verification.</dd>
+          </div>
+          <div>
+            <dt>role/permission</dt>
+            <dd>PostgreSQL proof for roles, grants, and permission-sensitive queries.</dd>
+          </div>
+          <div>
+            <dt>unix command</dt>
+            <dd>Proof that PostgreSQL command-line tools work before capture and after restore.</dd>
+          </div>
+          <div>
             <dt>artifact audit</dt>
             <dd>Validation that retained proof files exist and are usable.</dd>
           </div>
@@ -447,7 +459,7 @@
     <script id="embedded-claim-progress" type="application/json">
       {
         "kind": "machinen.claim-progress-dashboard",
-        "version": 29,
+        "version": 30,
         "updatedFrom": [
           "docs/snapshot/node-level5-product-support-claim-registry.json",
           "docs/snapshot/node-level5-product-support-100.json",
@@ -1726,6 +1738,56 @@
                 "gate": "postgresql-psql-query-workload-e2e",
                 "artifact": "missing",
                 "next": "Run psql-connected query workload capture/restore in both directions and retain source query transcript, target restore summary, and target psql verifier output."
+              },
+              {
+                "id": "postgresql-schema-data-query-e2e",
+                "area": "schema/data workload",
+                "kind": "schema plus query E2E gate",
+                "status": "not-started",
+                "evidence": "No retained PostgreSQL schema/data/query workload has been run through real bidirectional E2E yet.",
+                "gate": "postgresql-schema-data-query-e2e",
+                "artifact": "missing",
+                "next": "Retain schema creation, fixture data load, source query transcript, target restore summary, and target query verifier output in both directions."
+              },
+              {
+                "id": "postgresql-role-permission-e2e",
+                "area": "roles and permissions",
+                "kind": "role/permission E2E gate",
+                "status": "not-started",
+                "evidence": "No retained PostgreSQL role, grant, and permission verifier exists for restored target databases yet.",
+                "gate": "postgresql-role-permission-e2e",
+                "artifact": "missing",
+                "next": "Retain role creation, grants, source psql checks, target restore summary, and target psql permission verifier output."
+              },
+              {
+                "id": "postgresql-unix-pg-isready-command",
+                "area": "unix commands",
+                "kind": "pg_isready command proof",
+                "status": "not-started",
+                "evidence": "No retained pg_isready source/target command proof exists for PostgreSQL restore readiness.",
+                "gate": "postgresql-unix-command-proof-gate",
+                "artifact": "missing",
+                "next": "Run and retain pg_isready before capture and after target restore in both directions."
+              },
+              {
+                "id": "postgresql-unix-psql-command",
+                "area": "unix commands",
+                "kind": "psql command proof",
+                "status": "not-started",
+                "evidence": "No retained unix psql command proof exists for query execution before capture and after restore.",
+                "gate": "postgresql-unix-command-proof-gate",
+                "artifact": "missing",
+                "next": "Run and retain psql -c query transcripts against source and target PostgreSQL in both directions."
+              },
+              {
+                "id": "postgresql-unix-createdb-dropdb-command",
+                "area": "unix commands",
+                "kind": "createdb/dropdb command proof",
+                "status": "not-started",
+                "evidence": "No retained createdb/dropdb unix command proof exists for database lifecycle behavior around restored PostgreSQL.",
+                "gate": "postgresql-unix-command-proof-gate",
+                "artifact": "missing",
+                "next": "Run and retain createdb/dropdb lifecycle command transcripts with target-native psql verification."
               }
             ],
             "refusals": [
@@ -1787,6 +1849,31 @@
                 "priority": 5,
                 "item": "Add psql-connected query workload E2E coverage for PostgreSQL, including source query transcript and target psql verifier output.",
                 "gate": "postgresql-psql-query-workload-e2e"
+              },
+              {
+                "priority": 6,
+                "item": "Add PostgreSQL schema/data/query E2E coverage with retained source and target psql verifier outputs.",
+                "gate": "postgresql-schema-data-query-e2e"
+              },
+              {
+                "priority": 7,
+                "item": "Add PostgreSQL role and permission E2E coverage with retained target-native permission checks.",
+                "gate": "postgresql-role-permission-e2e"
+              },
+              {
+                "priority": 8,
+                "item": "Add PostgreSQL unix pg_isready command proof before capture and after restore.",
+                "gate": "postgresql-unix-pg-isready-command"
+              },
+              {
+                "priority": 9,
+                "item": "Add PostgreSQL unix psql command proof for deterministic source/target SQL queries.",
+                "gate": "postgresql-unix-psql-command"
+              },
+              {
+                "priority": 10,
+                "item": "Add PostgreSQL unix createdb/dropdb command proof for database lifecycle behavior.",
+                "gate": "postgresql-unix-createdb-dropdb-command"
               }
             ],
             "docs": ["product-portable-postgres.ts", "product-portable-postgres-claim-ladder.ts"]
@@ -2585,6 +2672,106 @@
                 "proves": "Connect with psql, run SQL queries against the source PostgreSQL database, capture through the product snapshot path at a safe consistency point, restore on the target architecture, and verify equivalent query results through target-native psql.",
                 "claimUse": "required before claiming PostgreSQL support for connected psql query workloads",
                 "next": "Run and retain psql source query transcript, product snapshot artifact, target restore summary, target psql verifier output, and query result comparison for both architecture directions.",
+                "claimImpact": {
+                  "productSupportDelta": 0,
+                  "broadSupportDelta": 0,
+                  "arbitraryProcessCrossArchRestoreDelta": 0,
+                  "resultingClaim": {
+                    "productSupport": 0,
+                    "broadSupport": 0,
+                    "arbitraryProcessCrossArchRestore": 0
+                  },
+                  "claimChangeAllowed": false
+                }
+              },
+              {
+                "id": "postgresql-schema-data-query-e2e",
+                "category": "schema/data query",
+                "status": "not-started",
+                "artifact": "missing",
+                "proves": "Create schema, load data, run SQL queries on source PostgreSQL, capture through product snapshot path, restore on the opposite architecture, and verify equivalent target-native query results.",
+                "claimUse": "required before claiming PostgreSQL support for schema/data query workloads",
+                "next": "Run and retain schema SQL, data load transcript, source query outputs, target restore summary, target psql verifier output, and query result comparison for both architecture directions.",
+                "claimImpact": {
+                  "productSupportDelta": 0,
+                  "broadSupportDelta": 0,
+                  "arbitraryProcessCrossArchRestoreDelta": 0,
+                  "resultingClaim": {
+                    "productSupport": 0,
+                    "broadSupport": 0,
+                    "arbitraryProcessCrossArchRestore": 0
+                  },
+                  "claimChangeAllowed": false
+                }
+              },
+              {
+                "id": "postgresql-role-permission-e2e",
+                "category": "role/permission",
+                "status": "not-started",
+                "artifact": "missing",
+                "proves": "PostgreSQL roles, grants, and permission-sensitive queries survive product capture/restore and are verified with target-native psql.",
+                "claimUse": "required before claiming PostgreSQL support for role and permission semantics",
+                "next": "Run and retain source role/grant setup, source permission checks, target restore summary, and target permission verifier output.",
+                "claimImpact": {
+                  "productSupportDelta": 0,
+                  "broadSupportDelta": 0,
+                  "arbitraryProcessCrossArchRestoreDelta": 0,
+                  "resultingClaim": {
+                    "productSupport": 0,
+                    "broadSupport": 0,
+                    "arbitraryProcessCrossArchRestore": 0
+                  },
+                  "claimChangeAllowed": false
+                }
+              },
+              {
+                "id": "postgresql-unix-pg-isready-command",
+                "category": "unix command",
+                "status": "not-started",
+                "artifact": "missing",
+                "proves": "The unix pg_isready command reports expected PostgreSQL readiness before capture and after target restore.",
+                "claimUse": "required unix command proof for PostgreSQL operational readiness",
+                "next": "Run and retain pg_isready command transcripts on source and target for both architecture directions.",
+                "claimImpact": {
+                  "productSupportDelta": 0,
+                  "broadSupportDelta": 0,
+                  "arbitraryProcessCrossArchRestoreDelta": 0,
+                  "resultingClaim": {
+                    "productSupport": 0,
+                    "broadSupport": 0,
+                    "arbitraryProcessCrossArchRestore": 0
+                  },
+                  "claimChangeAllowed": false
+                }
+              },
+              {
+                "id": "postgresql-unix-psql-command",
+                "category": "unix command",
+                "status": "not-started",
+                "artifact": "missing",
+                "proves": "The unix psql command can connect and run deterministic SQL before capture and after target restore.",
+                "claimUse": "required unix command proof for connected PostgreSQL query behavior",
+                "next": "Run and retain psql -c command transcripts and target query verifier output in both directions.",
+                "claimImpact": {
+                  "productSupportDelta": 0,
+                  "broadSupportDelta": 0,
+                  "arbitraryProcessCrossArchRestoreDelta": 0,
+                  "resultingClaim": {
+                    "productSupport": 0,
+                    "broadSupport": 0,
+                    "arbitraryProcessCrossArchRestore": 0
+                  },
+                  "claimChangeAllowed": false
+                }
+              },
+              {
+                "id": "postgresql-unix-createdb-dropdb-command",
+                "category": "unix command",
+                "status": "not-started",
+                "artifact": "missing",
+                "proves": "The unix createdb/dropdb commands work around restored PostgreSQL state without relying on source-ISA emulation or sidecars.",
+                "claimUse": "required unix command proof for basic PostgreSQL database lifecycle operations",
+                "next": "Run and retain createdb/dropdb command transcripts plus target-native psql lifecycle verification.",
                 "claimImpact": {
                   "productSupportDelta": 0,
                   "broadSupportDelta": 0,

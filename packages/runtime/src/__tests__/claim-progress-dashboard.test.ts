@@ -27,7 +27,7 @@ type ClaimProgressProofGroup = {
 
 type ClaimProgressDashboard = {
   kind: "machinen.claim-progress-dashboard";
-  version: 29;
+  version: 30;
   tracks: ClaimProgressTrack[];
   proofGroups: ClaimProgressProofGroup[];
 };
@@ -41,7 +41,7 @@ describe("claim progress dashboard", () => {
 
     expect(dashboard).toMatchObject({
       kind: "machinen.claim-progress-dashboard",
-      version: 29,
+      version: 30,
     });
     expect(dashboard.tracks.map((track) => track.id)).toEqual([
       "node-service",
@@ -132,6 +132,9 @@ describe("claim progress dashboard", () => {
     expect(html).toContain("other types");
     expect(html).toContain("End-to-end source capture plus target restore behavior evidence");
     expect(html).toContain("PostgreSQL proof for a connected psql client running SQL queries");
+    expect(html).toContain(
+      "Proof that PostgreSQL command-line tools work before capture and after restore",
+    );
     expect(html).toContain("row coverage");
     expect(html).toContain("e2e");
     expect(html).toContain("Proof name");
@@ -163,6 +166,14 @@ describe("claim progress dashboard", () => {
     expect(html).toContain("PostgreSQL portable restore");
     expect(html).toContain("psql query workload");
     expect(html).toContain("postgresql-psql-query-workload-e2e");
+    expect(html).toContain("schema/data query");
+    expect(html).toContain("postgresql-schema-data-query-e2e");
+    expect(html).toContain("role/permission");
+    expect(html).toContain("postgresql-role-permission-e2e");
+    expect(html).toContain("unix command");
+    expect(html).toContain("postgresql-unix-pg-isready-command");
+    expect(html).toContain("postgresql-unix-psql-command");
+    expect(html).toContain("postgresql-unix-createdb-dropdb-command");
     expect(html).toContain("ping");
     expect(html).toContain("arbitrary binaries");
     expect(html).toContain("proof IDs are path-like");
