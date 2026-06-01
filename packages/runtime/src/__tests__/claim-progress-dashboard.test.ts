@@ -137,9 +137,10 @@ describe("claim progress dashboard", () => {
     expect(html).toContain("ping");
     expect(html).toContain("arbitrary binaries");
     expect(html).toContain("Grouped by track, then proof and claim");
-    expect(html).toContain("Claim matrix");
-    expect(html).toContain("Proofs by claim");
-    expect(html).toContain("Proof directory");
+    expect(html).not.toContain("Claim matrix");
+    expect(html).not.toContain("Proofs by claim");
+    expect(html).not.toContain("claim-matrix");
+    expect(html).not.toContain("proof-groups");
     expect(html).not.toContain("Deep-dive track details");
     expect(html).not.toContain("grouped track details");
     expect(html).not.toContain("track-groups");

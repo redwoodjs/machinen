@@ -364,22 +364,6 @@
         <div id="proof-impact"></div>
       </section>
 
-      <details class="card">
-        <summary class="section-heading">
-          <h2>Claim matrix</h2>
-          <span class="muted">Audit table: one row per track</span>
-        </summary>
-        <div id="claim-matrix"></div>
-      </details>
-
-      <details class="card">
-        <summary class="section-heading">
-          <h2>Proofs by claim</h2>
-          <span class="muted">Audit table: sorted by the claim each proof supports or blocks</span>
-        </summary>
-        <div id="proof-groups"></div>
-      </details>
-
       <p id="error" class="error" role="alert"></p>
     </main>
 
@@ -1698,9 +1682,6 @@
       const error = document.querySelector("#error");
       const proofImpact = document.querySelector("#proof-impact");
       const trackOverview = document.querySelector("#track-overview");
-      const claimMatrix = document.querySelector("#claim-matrix");
-      const proofGroups = document.querySelector("#proof-groups");
-      let activeProofGroups = [];
 
       loadEmbedded();
       if (globalThis.location?.protocol !== "file:") void loadRemote();
@@ -1727,47 +1708,8 @@
         source.textContent = `source: ${label} · version: ${data.version ?? "unknown"}`;
         const tracks = data.tracks ?? [];
         const claims = data.proofGroups ?? [];
-        activeProofGroups = claims;
         proofImpact.innerHTML = proofImpactTable(tracks, claims);
         trackOverview.innerHTML = trackCards(tracks, claims);
-        claimMatrix.innerHTML = table(
-          [
-            "Track",
-            "Status",
-            "Product",
-            "Broad",
-            "Arbitrary process",
-            "Gate",
-            "Evidence",
-            "Refusals",
-            "Supported bundles",
-            "Next",
-          ],
-          tracks.map((track) => [
-            `<strong>${escapeHtml(displayTrackName(track))}</strong><p class="muted">${escapeHtml(track.family)} · ${escapeHtml(track.runtime)} · ${escapeHtml(track.stage)}</p>`,
-            pill(track.status),
-            claimValue(track.currentClaim?.productSupport),
-            claimValue(track.currentClaim?.broadSupport),
-            claimValue(track.currentClaim?.arbitraryProcessCrossArchRestore),
-            track.claimGate,
-            count(track.evidenceRows, "row"),
-            count(track.refusalRows, "boundary"),
-            rowCoverageSummary(track),
-            count(derivedNextActionsForTrack(track, proofGroupsForTrack(track.id)), "step"),
-          ]),
-        );
-        proofGroups.innerHTML = table(
-          ["Claim", "Status", "Proof directory", "Numbers", "Scope", "Proofs", "Promotion effect"],
-          claims.map((claim) => [
-            `<strong>${escapeHtml(claim.claim)}</strong><p class="muted">${escapeHtml(claim.id)}</p>`,
-            pill(claim.status),
-            code(claim.proofDirectory),
-            claimObject(claim.claimNumbers),
-            claim.scope,
-            count(claim.proofs, "proof"),
-            claim.promotionEffect,
-          ]),
-        );
       }
 
       function displayTrackName(track, claim = null) {
@@ -2041,10 +1983,6 @@
         );
       }
 
-      function proofGroupsForTrack(trackId) {
-        return activeProofGroups.filter((group) => group.trackId === trackId);
-      }
-
       function claimBox(label, value) {
         return `<article class="claim-box"><span class="muted">${escapeHtml(label)}</span><strong>${formatCell(value)}</strong></article>`;
       }
@@ -2060,13 +1998,6 @@
         if (value === null || value === undefined || value === "") return "—";
         if (typeof value === "string" && value.includes("<")) return value;
         return escapeHtml(String(value));
-      }
-
-      function claimObject(claim) {
-        if (!claim) return "—";
-        return Object.entries(claim)
-          .map(([key, value]) => `${key}: ${value}`)
-          .join(" · ");
       }
 
       function claimValue(value) {
