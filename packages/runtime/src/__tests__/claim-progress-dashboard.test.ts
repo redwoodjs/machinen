@@ -116,7 +116,8 @@ describe("claim progress dashboard", () => {
     expect(html).toContain("Product support impact (%)");
     expect(html).toContain("Broad service/workload impact (%)");
     expect(html).toContain("Arbitrary Linux process restore impact (%)");
-    expect(html).toContain("What to do next");
+    expect(html).not.toContain("What to do next");
+    expect(html).not.toContain("next-actions");
     expect(html).toContain("derivedNextActionsForTrack");
     expect(html).toContain("bestNextClaimLift");
     expect(html).not.toContain(
