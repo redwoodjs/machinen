@@ -12,5 +12,5 @@ node --import "$LOADER" "$ROOT/scripts/node-level5-real-app-refusal-corpus.ts" \
 export NODE_LEVEL5_REFUSAL_CORPUS_SUMMARY="$WORKDIR/summary.json"
 
 for proof in $(seq 761 800); do
-  node --import "$LOADER" "$ROOT/proofs/$proof/smoke.ts"
+  node --import "$LOADER" "$ROOT/proofs/by-id/$proof/smoke.ts"
 done

@@ -1,0 +1,30 @@
+{
+  "kind": "machinen.node-level5-readiness-proof-summary",
+  "proof": "206",
+  "title": "negative worker-thread app corpus lane",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "gateId": "negative-worker-app",
+  "gate": {
+    "productSupportClaimed": false,
+    "broadProductSupportClaimed": false,
+    "id": "negative-worker-app",
+    "family": "broad-proof",
+    "title": "negative worker-thread app corpus lane",
+    "status": "refused",
+    "artifact": "proofs/by-id/206/checked-summary.json",
+    "appFamily": "worker-thread-negative",
+    "direction": "both",
+    "repeatabilityRuns": 10
+  },
+  "readiness": {
+    "broadNodeProofReadiness": 100
+  },
+  "assertions": {
+    "appCorpusGateCovered": true,
+    "bidirectionalLaneCovered": true,
+    "repeatabilityAtLeastTenRuns": true,
+    "broadProductSupportNotClaimed": true
+  }
+}

@@ -12,5 +12,5 @@ node --import "$LOADER" "$ROOT/scripts/node-level5-installed-third-party-app-cor
 
 for proof in $(seq 1201 1240); do
   NODE_LEVEL5_HTTP_REQUEST_SHAPE_SUMMARY="$SUMMARY_DIR/summary.json" \
-    node --import "$LOADER" "$ROOT/proofs/$proof/smoke.ts"
+    node --import "$LOADER" "$ROOT/proofs/by-id/$proof/smoke.ts"
 done

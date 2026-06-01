@@ -1,0 +1,40 @@
+{
+  "kind": "machinen.node-level5-product-support-20-proof-summary",
+  "proof": "227",
+  "goal": "Idle HTTP listener product contract",
+  "result": "Exact supported/unsupported boundary.",
+  "status": "experimental-node-product-support-20",
+  "nodeProductSupportClaimed": 20,
+  "nodeProductSupportScope": "five-idle-service-families",
+  "declaredSubsetExperimentalProductSupportClaimed": 100,
+  "broadNodeProductSupportClaimed": 0,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "family": {
+    "id": "idle-http-listener",
+    "title": "Idle HTTP listener",
+    "included": ["server socket open", "idle event loop", "no active request in flight"],
+    "excluded": ["active requests", "TLS", "keepalive edge cases"],
+    "contractArtifact": "proofs/by-id/227/checked-summary.json",
+    "e2eArtifact": "proofs/by-id/228/checked-summary.json",
+    "coveragePercent": 4,
+    "status": "experimental-supported",
+    "directions": ["arm64-to-amd64", "amd64-to-arm64"],
+    "targetNativeVerified": true,
+    "productSupportClaimed": true,
+    "broadNodeProductSupportClaimed": false
+  },
+  "contract": {
+    "id": "idle-http-listener",
+    "title": "Idle HTTP listener",
+    "included": ["server socket open", "idle event loop", "no active request in flight"],
+    "excluded": ["active requests", "TLS", "keepalive edge cases"],
+    "contractArtifact": "proofs/by-id/227/checked-summary.json",
+    "e2eArtifact": "proofs/by-id/228/checked-summary.json",
+    "coveragePercent": 4,
+    "status": "experimental-supported",
+    "directions": ["arm64-to-amd64", "amd64-to-arm64"],
+    "targetNativeVerified": true,
+    "productSupportClaimed": true,
+    "broadNodeProductSupportClaimed": false
+  }
+}

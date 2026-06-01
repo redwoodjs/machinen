@@ -276,7 +276,7 @@ function finalAuditPayload(): Record<string, unknown> {
     String(index + 276).padStart(3, "0"),
   );
   for (const proof of auditedProofs) {
-    const path = join(repoRoot, "proofs", proof, "checked-summary.json");
+    const path = join(repoRoot, "proofs", "by-id", proof, "checked-summary.json");
     if (!existsSync(path)) {
       throw new Error(`missing checked summary for proof ${proof}`);
     }
@@ -343,7 +343,7 @@ function parseCliJson(result: ReturnType<typeof runCli>, label: string) {
 }
 
 function writeOrAssertSummary(proof: string, checkedSummary: Record<string, unknown>): void {
-  const path = join(repoRoot, "proofs", proof, "checked-summary.json");
+  const path = join(repoRoot, "proofs", "by-id", proof, "checked-summary.json");
   const text = `${JSON.stringify(checkedSummary, null, 2)}\n`;
   if (process.env[`UPDATE_PROOF_${proof}_SUMMARY`] === "1" || !existsSync(path)) {
     writeFileSync(path, text);
@@ -351,7 +351,7 @@ function writeOrAssertSummary(proof: string, checkedSummary: Record<string, unkn
   }
   if (JSON.stringify(JSON.parse(readFileSync(path, "utf8"))) !== JSON.stringify(checkedSummary)) {
     throw new Error(
-      `proofs/${proof}/checked-summary.json is stale; rerun with UPDATE_PROOF_${proof}_SUMMARY=1`,
+      `proofs/by-id/${proof}/checked-summary.json is stale; rerun with UPDATE_PROOF_${proof}_SUMMARY=1`,
     );
   }
 }

@@ -69,8 +69,8 @@ export const nodeLevel5ProductSupport65NewFamilies: readonly NodeLevel5ProductSu
     title: "Active async idle boundary",
     included: ["idle async resources", "completed callbacks", "empty active work queue"],
     excluded: ["in-flight async operations", "pending callbacks", "active promise reactions"],
-    contractArtifact: "proofs/277/checked-summary.json",
-    e2eArtifact: "proofs/278/checked-summary.json",
+    contractArtifact: "proofs/by-id/277/checked-summary.json",
+    e2eArtifact: "proofs/by-id/278/checked-summary.json",
   }),
   productFamily65({
     id: "tls-boundary-policy",
@@ -81,8 +81,8 @@ export const nodeLevel5ProductSupport65NewFamilies: readonly NodeLevel5ProductSu
       "retained refusal artifacts",
     ],
     excluded: ["full TLS session migration", "in-flight encrypted records"],
-    contractArtifact: "proofs/279/checked-summary.json",
-    e2eArtifact: "proofs/280/checked-summary.json",
+    contractArtifact: "proofs/by-id/279/checked-summary.json",
+    e2eArtifact: "proofs/by-id/280/checked-summary.json",
   }),
   productFamily65({
     id: "child-process-boundary",
@@ -93,8 +93,8 @@ export const nodeLevel5ProductSupport65NewFamilies: readonly NodeLevel5ProductSu
       "stable stdio descriptors",
     ],
     excluded: ["live child process continuation", "process tree migration"],
-    contractArtifact: "proofs/281/checked-summary.json",
-    e2eArtifact: "proofs/282/checked-summary.json",
+    contractArtifact: "proofs/by-id/281/checked-summary.json",
+    e2eArtifact: "proofs/by-id/282/checked-summary.json",
   }),
 ];
 

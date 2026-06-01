@@ -1,0 +1,31 @@
+{
+  "kind": "machinen.node-level5-readiness-proof-summary",
+  "proof": "200",
+  "title": "source ISA emulation remains outside the proof matrix",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "gateId": "source-isa-emulation",
+  "gate": {
+    "productSupportClaimed": false,
+    "broadProductSupportClaimed": false,
+    "status": "refused",
+    "targetStarted": false,
+    "sourceIsaEmulationUsed": false,
+    "rawCpuRestoreUsed": false,
+    "id": "source-isa-emulation",
+    "family": "broad-proof",
+    "title": "source ISA emulation remains outside the proof matrix",
+    "artifact": "proofs/by-id/200/checked-summary.json",
+    "refusalCode": "node-level5-source-isa-emulation-refused"
+  },
+  "readiness": {
+    "broadNodeProofReadiness": 100
+  },
+  "assertions": {
+    "refusedBeforeTargetStart": true,
+    "rawCpuRestoreNotUsed": true,
+    "sourceIsaEmulationNotUsed": true,
+    "broadProductSupportNotClaimed": true
+  }
+}

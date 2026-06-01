@@ -1,0 +1,40 @@
+{
+  "kind": "machinen.node-level5-product-support-20-proof-summary",
+  "proof": "235",
+  "goal": "Pipes / streams idle contract",
+  "result": "Exact supported/unsupported boundary.",
+  "status": "experimental-node-product-support-20",
+  "nodeProductSupportClaimed": 20,
+  "nodeProductSupportScope": "five-idle-service-families",
+  "declaredSubsetExperimentalProductSupportClaimed": 100,
+  "broadNodeProductSupportClaimed": 0,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "family": {
+    "id": "pipes-streams-idle",
+    "title": "Pipes and streams at idle boundary",
+    "included": ["idle pipe descriptors", "idle stream descriptors", "no active read or write"],
+    "excluded": ["backpressure in flight", "active stream callbacks"],
+    "contractArtifact": "proofs/by-id/235/checked-summary.json",
+    "e2eArtifact": "proofs/by-id/236/checked-summary.json",
+    "coveragePercent": 4,
+    "status": "experimental-supported",
+    "directions": ["arm64-to-amd64", "amd64-to-arm64"],
+    "targetNativeVerified": true,
+    "productSupportClaimed": true,
+    "broadNodeProductSupportClaimed": false
+  },
+  "contract": {
+    "id": "pipes-streams-idle",
+    "title": "Pipes and streams at idle boundary",
+    "included": ["idle pipe descriptors", "idle stream descriptors", "no active read or write"],
+    "excluded": ["backpressure in flight", "active stream callbacks"],
+    "contractArtifact": "proofs/by-id/235/checked-summary.json",
+    "e2eArtifact": "proofs/by-id/236/checked-summary.json",
+    "coveragePercent": 4,
+    "status": "experimental-supported",
+    "directions": ["arm64-to-amd64", "amd64-to-arm64"],
+    "targetNativeVerified": true,
+    "productSupportClaimed": true,
+    "broadNodeProductSupportClaimed": false
+  }
+}

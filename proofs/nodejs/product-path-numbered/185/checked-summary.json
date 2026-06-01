@@ -1,0 +1,36 @@
+{
+  "kind": "machinen.node-level5-readiness-proof-summary",
+  "proof": "185",
+  "title": "stable product-boundary refusal contract gate",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "gateId": "stable-refusal-contract",
+  "gate": {
+    "productSupportClaimed": false,
+    "broadProductSupportClaimed": false,
+    "id": "stable-refusal-contract",
+    "family": "narrow-product",
+    "title": "stable refusal contract for product-claim and unsafe restore attempts",
+    "status": "passed",
+    "artifact": "proofs/by-id/185/checked-summary.json"
+  },
+  "evidence": {
+    "guardedCliPathCovered": true,
+    "unsafeRestoreRefusedBeforeTargetStart": true,
+    "productClaimRefusalCode": "node-level5-declared-subset-product-claim-refused",
+    "rawCpuRefusalCode": "node-level5-declared-subset-raw-cpu-restore-refused",
+    "expectedProductClaimRefusal": "node-level5-declared-subset-product-claim-refused",
+    "expectedRawCpuRefusal": "node-level5-declared-subset-raw-cpu-restore-refused"
+  },
+  "readiness": {
+    "declaredSubsetCoverage": 100,
+    "narrowExperimentalProductReadiness": 100
+  },
+  "assertions": {
+    "narrowExperimentalProductReadinessAt100": true,
+    "broadProductSupportNotClaimed": true,
+    "guardedCliPathCovered": true,
+    "unsafeRestoreRefusedBeforeTargetStart": true
+  }
+}

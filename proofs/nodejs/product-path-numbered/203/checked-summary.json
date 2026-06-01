@@ -1,0 +1,30 @@
+{
+  "kind": "machinen.node-level5-readiness-proof-summary",
+  "proof": "203",
+  "title": "stream and pipe app corpus lane",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "gateId": "stream-pipe-service",
+  "gate": {
+    "productSupportClaimed": false,
+    "broadProductSupportClaimed": false,
+    "id": "stream-pipe-service",
+    "family": "broad-proof",
+    "title": "stream and pipe app corpus lane",
+    "status": "passed",
+    "artifact": "proofs/by-id/203/checked-summary.json",
+    "appFamily": "stream-pipe-idle",
+    "direction": "both",
+    "repeatabilityRuns": 10
+  },
+  "readiness": {
+    "broadNodeProofReadiness": 100
+  },
+  "assertions": {
+    "appCorpusGateCovered": true,
+    "bidirectionalLaneCovered": true,
+    "repeatabilityAtLeastTenRuns": true,
+    "broadProductSupportNotClaimed": true
+  }
+}

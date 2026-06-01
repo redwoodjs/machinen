@@ -12,9 +12,13 @@ Top-level product claim folders include:
 - `linux-vm-workload/`
 - `network-resources/`
 
-Historical numbered proofs remain under `proofs/<id>/` and are referenced by
-older matrices and smoke scripts. New claim-facing proof summaries should live
-under the product claim folders above.
+Historical numbered proofs are physically grouped under product folders such as
+`proofs/nodejs/proper-level5-numbered/<id>/` and
+`proofs/nodejs/app-corpus-numbered/<id>/`. The `proofs/by-id/<id>` symlink index
+preserves proof-id lookup for older matrices and smoke scripts without keeping
+numbered proof directories at the root.
+
+New claim-facing proof summaries should live under the product claim folders above.
 
 The dashboard source of truth is `docs/snapshot/claim-progress.json`; each
 claim group here has a `claim.json` copy plus a readable `README.md`.

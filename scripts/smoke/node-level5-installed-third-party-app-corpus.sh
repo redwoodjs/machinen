@@ -12,5 +12,5 @@ node --import "$LOADER" "$ROOT/scripts/node-level5-installed-third-party-app-cor
 export NODE_LEVEL5_INSTALLED_THIRD_PARTY_APP_CORPUS_SUMMARY="$WORKDIR/summary.json"
 
 for proof in $(seq 841 880); do
-  node --import "$LOADER" "$ROOT/proofs/$proof/smoke.ts"
+  node --import "$LOADER" "$ROOT/proofs/by-id/$proof/smoke.ts"
 done
