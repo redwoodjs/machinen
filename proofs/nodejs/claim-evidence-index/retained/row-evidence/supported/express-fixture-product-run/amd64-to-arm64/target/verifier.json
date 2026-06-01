@@ -1,0 +1,20 @@
+{
+  "kind": "machinen.node-supported-row-target-verifier",
+  "version": 1,
+  "accepted": true,
+  "rowId": "express-fixture-product-run",
+  "direction": "amd64-to-arm64",
+  "routePath": "/express/health",
+  "expectedBody": "express-fixture-product-run-ok",
+  "actualBody": "express-fixture-product-run-ok",
+  "bodySha256": "4bf425798b7b159a796da4461dcefac9ef320fa1d8888982e6f1647ab1e5c54b",
+  "expectedHeader": {
+    "x-machinen-row": "express-fixture-product-run"
+  },
+  "actualHeaders": "HTTP/1.1 200 OK\nX-Powered-By: Express\nx-machinen-row: express-fixture-product-run\nContent-Type: text/html; charset=utf-8\nContent-Length: 30\nETag: W/\"1e-iesgmGP/p3GSqE3fAzPB+itDe50\"\nDate: Mon, 01 Jun 2026 16:55:21 GMT\nConnection: keep-alive\nKeep-Alive: timeout=5\n\n",
+  "targetNativeNodeVerified": true,
+  "sourceIsaEmulationUsed": false,
+  "sidecarRuntimeUsed": false,
+  "appHooksRequired": false,
+  "metadataOnlySuccessAccepted": false
+}
