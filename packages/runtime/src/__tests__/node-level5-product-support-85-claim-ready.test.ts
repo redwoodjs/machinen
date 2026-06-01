@@ -4,26 +4,29 @@ import { evaluateNodeLevel5ProductSupport85ClaimReady } from "../node-level5-pro
 import type { NodeLevel5ProductSupport85ReadinessReport } from "../node-level5-product-support-85-readiness.ts";
 
 describe("Node Level 5 product support 85 claim ready gate", () => {
-  it("accepts evidence while keeping the claim unlock blocked", () => {
+  it("accepts evidence and unlocks the 85 / 25 / 0 claim", () => {
     const report = evaluateNodeLevel5ProductSupport85ClaimReady({
       readinessReport: readinessReport(),
     });
 
     expect(report).toMatchObject({
-      accepted: false,
+      accepted: true,
       claimReadyEvidenceAccepted: true,
-      claimChangeAllowed: false,
-      currentNodeProductSupportClaimed: 80,
-      currentBroadNodeProductSupportClaimed: 20,
+      claimChangeAllowed: true,
+      currentNodeProductSupportClaimed: 85,
+      currentBroadNodeProductSupportClaimed: 25,
       currentArbitraryProcessCrossArchRestoreClaimed: 0,
       candidateNodeProductSupportClaimed: 85,
       candidateBroadNodeProductSupportClaimed: 25,
       candidateArbitraryProcessCrossArchRestoreClaimed: 0,
       matrixCounts: { total: 114, supported: 68, refused: 42, notProven: 4 },
     });
-    expect(report.blockedGates).toEqual([
-      expect.objectContaining({ id: "claim-change-unlocked", status: "blocked" }),
-    ]);
+    expect(report.blockedGates).toEqual([]);
+    expect(report.gates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "claim-change-unlocked", status: "passed" }),
+      ]),
+    );
   });
 
   it("blocks when readiness still has evidence gaps", () => {

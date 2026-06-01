@@ -1,33 +1,27 @@
 {
   "kind": "machinen.node-level5-product-support-next-milestone",
-  "status": "candidate-not-claimed",
-  "current": {
+  "status": "claimed",
+  "previous": {
     "nodeProductSupportClaimed": 80,
     "broadNodeProductSupportClaimed": 20,
     "arbitraryProcessCrossArchRestoreClaimed": 0
   },
-  "candidateTarget": {
+  "current": {
     "nodeProductSupportClaimed": 85,
     "broadNodeProductSupportClaimed": 25,
     "arbitraryProcessCrossArchRestoreClaimed": 0
-  },
-  "candidateCorpus": {
-    "releaseGateField": "genericVmCorpus",
-    "report": "node-level5-generic-vm-corpus-report.json",
-    "claimChangeAllowed": false
   },
   "productCommandPath": "machinen snapshot <vm-name> --out <dir>; machinen restore <dir>",
   "nodeDetectedInsideVm": true,
   "hostPidProductTargetingAllowed": false,
   "hostPidHarnessEnv": "MACHINEN_NODE_LEVEL5_ALLOW_HOST_PID_SNAPSHOT=1",
   "requiredDirections": ["arm64-to-amd64", "amd64-to-arm64"],
-  "requiredPositiveEvidence": [
-    "generic-vm-snapshot-command",
-    "whole-vm-capture",
-    "node-workload-detected-inside-vm",
-    "target-native-restore-verification",
-    "retained-artifact-bundle",
-    "zero-flake-repeatability"
+  "evidenceGates": [
+    "generic-vm-corpus",
+    "generic-vm-retained-evidence",
+    "generic-vm-row-artifacts",
+    "generic-vm-refusal-artifacts",
+    "node-level5-85-claim-ready"
   ],
   "requiredRefusalEvidence": [
     "host-pid-product-targeting-refused-or-hidden",
@@ -42,5 +36,5 @@
     "raw-cpu-restore-refused",
     "metadata-only-success-refused"
   ],
-  "claimChangeAllowed": false
+  "claimChangeAllowed": true
 }

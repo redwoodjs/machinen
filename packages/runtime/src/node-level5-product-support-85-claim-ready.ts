@@ -33,9 +33,9 @@ export type NodeLevel5ProductSupport85ClaimReadyReport = {
   version: typeof NODE_LEVEL5_PRODUCT_SUPPORT_85_CLAIM_READY_VERSION;
   accepted: boolean;
   claimReadyEvidenceAccepted: boolean;
-  claimChangeAllowed: false;
-  currentNodeProductSupportClaimed: 80;
-  currentBroadNodeProductSupportClaimed: 20;
+  claimChangeAllowed: true;
+  currentNodeProductSupportClaimed: 85;
+  currentBroadNodeProductSupportClaimed: 25;
   currentArbitraryProcessCrossArchRestoreClaimed: 0;
   candidateNodeProductSupportClaimed: 85;
   candidateBroadNodeProductSupportClaimed: 25;
@@ -85,7 +85,7 @@ export function evaluateNodeLevel5ProductSupport85ClaimReady(input: {
       input.readinessReport.currentNodeProductSupportClaimed === 80 &&
         input.readinessReport.currentBroadNodeProductSupportClaimed === 20 &&
         input.readinessReport.currentArbitraryProcessCrossArchRestoreClaimed === 0,
-      "current claims remain 80 / 20 / 0 before the claim PR",
+      "pre-claim readiness evidence was collected from the 80 / 20 / 0 claim boundary",
     ),
     gate(
       "candidate-target-present",
@@ -100,19 +100,19 @@ export function evaluateNodeLevel5ProductSupport85ClaimReady(input: {
     ),
     gate(
       "claim-change-unlocked",
-      false,
-      "claim change remains locked until the final claim PR intentionally flips it",
+      true,
+      "claim change is intentionally unlocked by the 85 / 25 / 0 claim PR",
     ),
   ];
   const blockedGates = gates.filter((item) => item.status === "blocked");
   return {
     kind: NODE_LEVEL5_PRODUCT_SUPPORT_85_CLAIM_READY_KIND,
     version: NODE_LEVEL5_PRODUCT_SUPPORT_85_CLAIM_READY_VERSION,
-    accepted: false,
-    claimReadyEvidenceAccepted: blockedGates.every((item) => item.id === "claim-change-unlocked"),
-    claimChangeAllowed: false,
-    currentNodeProductSupportClaimed: 80,
-    currentBroadNodeProductSupportClaimed: 20,
+    accepted: blockedGates.length === 0,
+    claimReadyEvidenceAccepted: blockedGates.length === 0,
+    claimChangeAllowed: true,
+    currentNodeProductSupportClaimed: 85,
+    currentBroadNodeProductSupportClaimed: 25,
     currentArbitraryProcessCrossArchRestoreClaimed: 0,
     candidateNodeProductSupportClaimed: 85,
     candidateBroadNodeProductSupportClaimed: 25,

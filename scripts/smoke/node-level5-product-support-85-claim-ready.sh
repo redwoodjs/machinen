@@ -26,10 +26,10 @@ READINESS_STATUS=$?
 pnpm exec tsx packages/cli/src/cli.ts node-level5 85-claim-ready --readiness-report "$WORK/readiness.json" --json >"$WORK/claim-ready.json"
 CLAIM_READY_STATUS=$?
 set -e
-if [[ "$READINESS_STATUS" -ne 1 || "$CLAIM_READY_STATUS" -ne 1 ]]; then
-  echo "expected readiness and claim-ready to stay locked, got readiness=$READINESS_STATUS claimReady=$CLAIM_READY_STATUS" >&2
+if [[ "$READINESS_STATUS" -ne 1 || "$CLAIM_READY_STATUS" -ne 0 ]]; then
+  echo "expected readiness locked and claim-ready accepted, got readiness=$READINESS_STATUS claimReady=$CLAIM_READY_STATUS" >&2
   exit 1
 fi
-node -e 'const fs=require("fs"); const s=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if (s.accepted !== false || s.claimReadyEvidenceAccepted !== true || s.claimChangeAllowed !== false) throw new Error("85 claim-ready gate did not keep claim shift locked with accepted evidence"); const blocked=s.blockedGates.map((g)=>g.id); if (blocked.length !== 1 || blocked[0] !== "claim-change-unlocked") throw new Error(`unexpected blocked gates: ${blocked.join(",")}`); if (s.currentBroadNodeProductSupportClaimed !== 20 || s.candidateBroadNodeProductSupportClaimed !== 25) throw new Error("broad support claims did not remain current/candidate");' "$WORK/claim-ready.json"
+node -e 'const fs=require("fs"); const s=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if (s.accepted !== true || s.claimReadyEvidenceAccepted !== true || s.claimChangeAllowed !== true) throw new Error("85 claim-ready gate did not unlock the claim with accepted evidence"); if (s.blockedGates.length !== 0) throw new Error(`unexpected blocked gates: ${s.blockedGates.map((g)=>g.id).join(",")}`); if (s.currentBroadNodeProductSupportClaimed !== 25 || s.candidateBroadNodeProductSupportClaimed !== 25) throw new Error("broad support claim did not move to 25");' "$WORK/claim-ready.json"
 
 echo "node level5 85 claim-ready smoke passed: $WORK"

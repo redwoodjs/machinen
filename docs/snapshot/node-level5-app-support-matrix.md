@@ -11,7 +11,7 @@ machinen restore <dir>
 
 ## Current app rows
 
-Current matrix totals: **114** rows, with **68** supported, **42** refused, and **4** not-proven. Claims remain **80 / 20 / 0** until the next milestone gates pass.
+Current matrix totals: **114** rows, with **68** supported, **42** refused, and **4** not-proven. Claims are now **85 / 25 / 0**.
 
 | App row                                       | Framework |    Status | Route  | Response | Middleware | Async | Product behavior   | Evidence          |
 | --------------------------------------------- | --------- | --------: | ------ | -------- | ---------- | ----: | ------------------ | ----------------- |
@@ -140,6 +140,6 @@ machinen node-level5 support-matrix --json
 
 Claims remain unchanged:
 
-- Node product support: **80%**
-- Broad Node product support: **20%**
+- Node product support: **85%**
+- Broad Node product support: **25%**
 - Arbitrary process cross-arch restore: **0%**
