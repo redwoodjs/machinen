@@ -292,9 +292,9 @@
         <p class="muted">Machinen product evidence</p>
         <h1>Claim progress dashboard</h1>
         <p class="muted">
-          Start with the track overview, then use the summary cards and proof impact matrix. The
-          detailed matrices are now collapsed below for audit/debug use. When served over HTTP,
-          reloading the page reads the latest <code>claim-progress.json</code>.
+          Start with the track overview, then use the proof impact matrix. The detailed matrices are
+          now collapsed below for audit/debug use. When served over HTTP, reloading the page reads
+          the latest <code>claim-progress.json</code>.
         </p>
         <p id="source" class="muted"></p>
       </header>
@@ -306,10 +306,6 @@
         </div>
         <div id="track-overview"></div>
       </section>
-
-      <section id="metrics" class="grid" aria-label="summary metrics"></section>
-
-      <section id="read-this-first" class="decision-grid" aria-label="read this first"></section>
 
       <section class="card">
         <div class="section-heading">
@@ -1649,10 +1645,8 @@
 
     <script>
       const jsonPath = "./claim-progress.json";
-      const metrics = document.querySelector("#metrics");
       const source = document.querySelector("#source");
       const error = document.querySelector("#error");
-      const readThisFirst = document.querySelector("#read-this-first");
       const proofImpact = document.querySelector("#proof-impact");
       const trackOverview = document.querySelector("#track-overview");
       const claimMatrix = document.querySelector("#claim-matrix");
@@ -1685,8 +1679,6 @@
         const tracks = data.tracks ?? [];
         const claims = data.proofGroups ?? [];
         activeProofGroups = claims;
-        metrics.innerHTML = metricCards(tracks, claims).join("");
-        readThisFirst.innerHTML = decisionCards(tracks).join("");
         proofImpact.innerHTML = proofImpactTable(tracks, claims);
         trackOverview.innerHTML = trackCards(tracks, claims);
         claimMatrix.innerHTML = table(
@@ -1729,94 +1721,42 @@
         );
       }
 
-      function decisionCards(tracks) {
-        const node = tracks.find((track) => track.id === "node-service");
-        const arbitrary = tracks.find((track) => track.id === "arbitrary-process");
-        const bestLift = bestNextClaimLift(tracks);
-        return [
-          decisionCard(
-            "Current public claim",
-            node ? `${node.name}: ${claimTriple(node.currentClaim)}` : "Node claim data missing",
-            "Labels: product support / broad service support / arbitrary Linux process restore.",
-            "good",
-          ),
-          decisionCard(
-            "Best next claim lift",
-            bestLift
-              ? `${bestLift.track.name}: ${claimTriple(bestLift.track.currentClaim)} → ${claimTriple(bestLift.track.nextClaim)}`
-              : "No claim lift ready",
-            bestLift
-              ? `${bestLift.action.item} Gate: ${bestLift.action.gate}.`
-              : "No candidate claim increase is listed.",
-            bestLift?.action.score < 20 ? "warn" : "good",
-          ),
-          decisionCard(
-            "Public claim still 0%",
-            arbitrary
-              ? `${arbitrary.name}: ${claimValue(arbitrary.currentClaim?.arbitraryProcessCrossArchRestore)}`
-              : "Arbitrary process",
-            "The claim-ready gate can authorize a candidate 1% decision, but no public arbitrary-process claim raise has been made.",
-            "bad",
-          ),
-        ];
-      }
-
-      function bestNextClaimLift(tracks) {
-        return tracks
-          .map((track) => ({ track, action: deriveNextClaimAction(track) }))
-          .filter(({ track, action }) => track.id !== "node-service" && action)
-          .sort(
-            (left, right) =>
-              nextClaimLiftScore(right.track, right.action) -
-              nextClaimLiftScore(left.track, left.action),
-          )[0];
-      }
-
-      function nextClaimLiftScore(track, action) {
-        const current = track.currentClaim ?? {};
-        const next = track.nextClaim ?? {};
-        const productDelta = numericDelta(current.productSupport, next.productSupport);
-        const broadDelta = numericDelta(current.broadSupport, next.broadSupport);
-        const arbitraryDelta = numericDelta(
-          current.arbitraryProcessCrossArchRestore,
-          next.arbitraryProcessCrossArchRestore,
-        );
-        return productDelta * 1000 + broadDelta * 800 + arbitraryDelta * 10 + action.score;
-      }
-
-      function numericDelta(current, next) {
-        return typeof current === "number" && typeof next === "number" ? next - current : 0;
-      }
-
-      function decisionCard(label, title, body, tone) {
-        return `<article class="decision ${tone}"><span class="muted">${escapeHtml(label)}</span><strong>${escapeHtml(title)}</strong><p class="muted">${escapeHtml(body)}</p></article>`;
-      }
-
       function proofImpactTable(tracks, claims) {
-        const tracksById = new Map(tracks.map((track) => [track.id, track]));
-        const rows = claims.flatMap((claim) => {
-          const track = tracksById.get(claim.trackId);
-          return (claim.proofs ?? []).map((proof) => [
-            `<strong>${escapeHtml(proof.id)}</strong><p class="muted">${escapeHtml(proof.category ?? "")}</p>`,
-            track?.name ?? claim.trackId,
-            pill(proof.status),
-            impactValue(proof.claimImpact?.productSupportDelta, claim.claimNumbers?.productSupport),
-            impactValue(proof.claimImpact?.broadSupportDelta, claim.claimNumbers?.broadSupport),
-            impactValue(
-              proof.claimImpact?.arbitraryProcessCrossArchRestoreDelta,
-              claim.claimNumbers?.arbitraryProcessCrossArchRestore,
-            ),
-            candidateValue(proof.claimImpact ?? claim.claimNumbers),
-            pill(
-              String(proof.claimImpact?.claimChangeAllowed ?? track?.claimChangeAllowed ?? false),
-            ),
-            proofWorkText(proof, claim, track),
-          ]);
-        });
+        const claimsByTrack = new Map();
+        for (const claim of claims) {
+          const trackClaims = claimsByTrack.get(claim.trackId) ?? [];
+          trackClaims.push(claim);
+          claimsByTrack.set(claim.trackId, trackClaims);
+        }
+        const rows = tracks.flatMap((track) =>
+          (claimsByTrack.get(track.id) ?? []).flatMap((claim) =>
+            (claim.proofs ?? []).map((proof) => [
+              `<strong>${escapeHtml(track.name)}</strong><p class="muted">${escapeHtml(track.id)}</p>`,
+              `<strong>${escapeHtml(proof.id)}</strong><p class="muted">${escapeHtml(proof.category ?? "")}</p>`,
+              `<strong>${escapeHtml(claim.claim)}</strong><p class="muted">${escapeHtml(claim.id)}</p>`,
+              pill(proof.status),
+              impactValue(
+                proof.claimImpact?.productSupportDelta,
+                claim.claimNumbers?.productSupport,
+              ),
+              impactValue(proof.claimImpact?.broadSupportDelta, claim.claimNumbers?.broadSupport),
+              impactValue(
+                proof.claimImpact?.arbitraryProcessCrossArchRestoreDelta,
+                claim.claimNumbers?.arbitraryProcessCrossArchRestore,
+              ),
+              candidateValue(proof.claimImpact ?? claim.claimNumbers),
+              pill(
+                String(proof.claimImpact?.claimChangeAllowed ?? track.claimChangeAllowed ?? false),
+              ),
+              proofWorkText(proof, claim, track),
+            ]),
+          ),
+        );
         return table(
           [
-            "Proof",
             "Track",
+            "Proof",
+            "Claim",
             "Status",
             "Product support impact (%)",
             "Broad service/workload impact (%)",
@@ -2036,31 +1976,6 @@
 
       function proofGroupsForTrack(trackId) {
         return activeProofGroups.filter((group) => group.trackId === trackId);
-      }
-
-      function metricCards(tracks, claims) {
-        const evidenceRows = tracks.reduce(
-          (sum, track) => sum + (track.evidenceRows?.length ?? 0),
-          0,
-        );
-        const refusalRows = tracks.reduce(
-          (sum, track) => sum + (track.refusalRows?.length ?? 0),
-          0,
-        );
-        const blockedClaims = tracks.filter((track) => track.claimChangeAllowed === false).length;
-        const claimProofRows = claims.reduce((sum, claim) => sum + (claim.proofs?.length ?? 0), 0);
-        return [
-          metric("Tracks", tracks.length),
-          metric("Claim groups", claims.length),
-          metric("Claim proofs", claimProofRows),
-          metric("Evidence rows", evidenceRows),
-          metric("Refusal rows", refusalRows),
-          metric("Blocked claim changes", blockedClaims),
-        ];
-      }
-
-      function metric(label, value) {
-        return `<article class="metric"><span class="muted">${escapeHtml(label)}</span><strong>${escapeHtml(String(value))}</strong></article>`;
       }
 
       function claimBox(label, value) {

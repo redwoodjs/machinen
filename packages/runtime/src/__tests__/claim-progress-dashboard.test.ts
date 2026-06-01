@@ -121,11 +121,15 @@ describe("claim progress dashboard", () => {
     expect(html).not.toContain("What to do next");
     expect(html).not.toContain("next-actions");
     expect(html).toContain("derivedNextActionsForTrack");
-    expect(html).toContain("bestNextClaimLift");
+    expect(html).not.toContain("bestNextClaimLift");
+    expect(html).not.toContain("summary metrics");
+    expect(html).not.toContain("Current public claim");
+    expect(html).not.toContain("Best next claim lift");
+    expect(html).not.toContain("Public claim still 0%");
     expect(html).not.toContain(
       "Turn the existing clean logical track into a percent-style claim ladder with retained verifier artifacts.",
     );
-    expect(html.indexOf("Track overview")).toBeLessThan(html.indexOf("summary metrics"));
+    expect(html.indexOf("Track overview")).toBeLessThan(html.indexOf("Proof impact matrix"));
     expect(html).toContain("Claim matrix");
     expect(html).toContain("Proofs by claim");
     expect(html).toContain("Proof directory");
