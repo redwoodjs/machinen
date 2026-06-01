@@ -11,7 +11,7 @@ machinen restore <dir>
 
 ## Current app rows
 
-Current matrix totals: **114** rows, with **68** supported, **42** refused, and **4** not-proven. Claims are now **85 / 25 / 0**.
+Current matrix totals: **114** rows, with **68** supported, **42** refused, and **4** not-proven. Claims are now **90 / 30 / 0** after adding retained framework capability evidence.
 
 | App row                                       | Framework |    Status | Route  | Response | Middleware | Async | Product behavior   | Evidence          |
 | --------------------------------------------- | --------- | --------: | ------ | -------- | ---------- | ----: | ------------------ | ----------------- |

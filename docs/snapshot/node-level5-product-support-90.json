@@ -1,0 +1,31 @@
+{
+  "kind": "machinen.node-level5-product-support-90",
+  "status": "node-product-support-90-claimed",
+  "declaredSubsetExperimentalProductSupportClaimed": 100,
+  "nodeProductSupportTiers": [20, 50, 65, 80, 85, 90],
+  "nodeProductSupportClaimed": 90,
+  "broadNodeProductSupportClaimed": 30,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "previousNodeProductSupportClaimed": 85,
+  "previousBroadNodeProductSupportClaimed": 25,
+  "productCommandPath": "machinen snapshot <vm-name> --out <dir>; machinen restore <dir>",
+  "nodeDetectedInsideVm": true,
+  "hostPidProductTargetingAllowed": false,
+  "frameworkCapabilityEvidenceRequired": true,
+  "frameworkIntrospectionCorpusRequired": true,
+  "frameworkProductEvidenceRequired": true,
+  "frameworkClaimReadyRequired": true,
+  "requiredArtifactCounts": {
+    "frameworkGraphArtifacts": 18,
+    "restoredBehaviorProbes": 16,
+    "unsafeStateRefusalArtifacts": 20,
+    "totalArtifacts": 54
+  },
+  "supportedAppRows": 68,
+  "refusedAppRows": 42,
+  "notProvenAppRows": 4,
+  "claimChangeAllowed": true,
+  "arbitraryExpressClaimed": false,
+  "arbitraryFastifyClaimed": false,
+  "arbitraryNodeClaimed": false
+}

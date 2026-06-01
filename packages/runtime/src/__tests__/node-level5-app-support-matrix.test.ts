@@ -15,8 +15,8 @@ describe("Node Level 5 app support matrix", () => {
       accepted: true,
       kind: "machinen.node-level5-app-support-matrix",
       version: 2,
-      nodeProductSupportClaimed: 85,
-      broadNodeProductSupportClaimed: 25,
+      nodeProductSupportClaimed: 90,
+      broadNodeProductSupportClaimed: 30,
       arbitraryProcessCrossArchRestoreClaimed: 0,
     });
     expect(matrix.rowCount).toBe(114);

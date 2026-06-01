@@ -779,18 +779,18 @@ describe("Node Level 5 product commands", () => {
       accepted: true,
       kind: "machinen.node-level5-framework-capability-matrix",
       rowCount: 24,
-      currentNodeProductSupportClaimed: 85,
-      currentBroadNodeProductSupportClaimed: 25,
+      currentNodeProductSupportClaimed: 90,
+      currentBroadNodeProductSupportClaimed: 30,
       candidateNodeProductSupportClaimed: 90,
       candidateBroadNodeProductSupportClaimed: 30,
-      claimChangeAllowed: false,
+      claimChangeAllowed: true,
       arbitraryExpressClaimed: false,
       arbitraryFastifyClaimed: false,
       arbitraryNodeClaimed: false,
       rows: expect.arrayContaining([
         expect.objectContaining({
           id: "express-framework-introspection",
-          status: "candidate-next-evidence",
+          status: "supported-selected-rows",
         }),
         expect.objectContaining({ id: "fastify-arbitrary-framework-app", status: "not-proven" }),
       ]),
@@ -864,8 +864,8 @@ describe("Node Level 5 product commands", () => {
     const claims = runCli(["node-level5", "claims", "--json"]);
     expect(claims.status).toBe(0);
     expect(JSON.parse(claims.stdout).claimRegistry).toMatchObject({
-      nodeProductSupportClaimed: 85,
-      broadNodeProductSupportClaimed: 25,
+      nodeProductSupportClaimed: 90,
+      broadNodeProductSupportClaimed: 30,
       arbitraryProcessCrossArchRestoreClaimed: 0,
     });
 

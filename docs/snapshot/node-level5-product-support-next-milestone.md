@@ -1,39 +1,36 @@
-# Node Level 5 85 / 25 / 0 milestone
+# Node Level 5 90 / 30 / 0 milestone
 
-This milestone is now claimed. Machinen moves from **80 / 20 / 0** to **85 / 25 / 0** for Node Level 5 product support.
+This milestone is now claimed. Machinen moves from **85 / 25 / 0** to **90 / 30 / 0** for Node Level 5 product support.
 
 ## Current claim
 
-| Claim                                        | Current value | Meaning                                                                            |
-| -------------------------------------------- | ------------: | ---------------------------------------------------------------------------------- |
-| Node product support                         |           85% | Selected Node service/app rows have VM-first product-path evidence.                |
-| Broad Node product support                   |           25% | Broad Node remains partial and limited to proven app rows plus refusal boundaries. |
-| Arbitrary process cross-architecture restore |            0% | Machinen does not claim arbitrary process restore.                                 |
+| Claim                                        | Current value | Meaning                                                                                               |
+| -------------------------------------------- | ------------: | ----------------------------------------------------------------------------------------------------- |
+| Node product support                         |           90% | Selected Node app rows plus retained Express/Fastify framework capability evidence are release-gated. |
+| Broad Node product support                   |           30% | Broad Node remains partial and limited to proven framework capabilities plus refusal boundaries.      |
+| Arbitrary process cross-architecture restore |            0% | Machinen does not claim arbitrary process restore.                                                    |
 
 ## What changed
 
-The 85 / 25 / 0 claim adds the generic VM-first product path:
+The 90 / 30 / 0 claim adds framework capability evidence on top of the VM-first product path:
 
 ```sh
 machinen snapshot <vm-name> --out <dir>
 machinen restore <dir>
 ```
 
-Machinen detects supported Node workloads inside the VM. Users do not pass `node` or a host PID on the product path.
+Machinen still detects supported Node workloads inside the VM. Users do not pass `node` or a host PID on the product path.
 
 ## Evidence gates
 
 The claim is backed by:
 
-1. product-path rows for the generic VM snapshot command;
-2. a release-gated generic VM corpus report for both cross-architecture directions;
-3. positive and negative support-matrix rows;
-4. drift guards for the 114 / 68 / 42 / 4 matrix counts;
-5. a VM smoke that boots a Node workload, snapshots the VM with generic `--out`, restores the snapshot, and verifies behavior;
-6. retained generic VM evidence;
-7. per-row generic VM artifacts;
-8. generic VM refusal artifacts;
-9. the 85 claim-ready gate.
+1. framework capability matrix evidence;
+2. framework introspection corpus evidence;
+3. framework readiness evidence;
+4. retained framework product evidence;
+5. framework claim-ready evidence;
+6. exact artifact drift guards for 18 graph artifacts, 16 restored behavior probes, 20 refusal artifacts, and 54 total retained framework artifacts.
 
 ## Refusal evidence
 
@@ -46,7 +43,6 @@ The following remain refused or outside the product path:
 | Active requests                    | Refused before restore claim.                                                        |
 | Worker threads                     | Refused.                                                                             |
 | Native addons                      | Refused.                                                                             |
-| Wasm / external memory             | Refused.                                                                             |
 | TLS active state                   | Refused.                                                                             |
 | Child processes                    | Refused.                                                                             |
 | Source ISA emulation               | Refused.                                                                             |

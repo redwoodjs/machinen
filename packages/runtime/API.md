@@ -193,6 +193,10 @@
 - [`nodeLevel5ProductSupport80UnsupportedDetectors`](#nodelevel5productsupport80unsupporteddetectors)
 - [`verifyNodeLevel5ProductSupport80ArtifactBundle`](#verifynodelevel5productsupport80artifactbundle)
 - [`NodeLevel5ProductSupport85ClaimRegistry`](#nodelevel5productsupport85claimregistry)
+- [`NodeLevel5ProductSupport90ClaimRegistry`](#nodelevel5productsupport90claimregistry)
+- [`NODE_LEVEL5_PRODUCT_SUPPORT_90_KIND`](#node_level5_product_support_90_kind)
+- [`NODE_LEVEL5_PRODUCT_SUPPORT_90_VERSION`](#node_level5_product_support_90_version)
+- [`nodeLevel5ProductSupport90ClaimRegistry`](#nodelevel5productsupport90claimregistry)
 - [`NODE_LEVEL5_PRODUCT_SUPPORT_85_KIND`](#node_level5_product_support_85_kind)
 - [`NODE_LEVEL5_PRODUCT_SUPPORT_85_VERSION`](#node_level5_product_support_85_version)
 - [`nodeLevel5ProductSupport85ClaimRegistry`](#nodelevel5productsupport85claimregistry)
@@ -22428,11 +22432,11 @@ Poll interval in ms while retrying. Default 250.
 
 ##### nodeProductSupportClaimed
 
-> **nodeProductSupportClaimed**: `85`
+> **nodeProductSupportClaimed**: `90`
 
 ##### broadNodeProductSupportClaimed
 
-> **broadNodeProductSupportClaimed**: `25`
+> **broadNodeProductSupportClaimed**: `30`
 
 ##### arbitraryProcessCrossArchRestoreClaimed
 
@@ -22888,7 +22892,7 @@ Poll interval in ms while retrying. Default 250.
 
 ### NodeLevel5FrameworkCapabilityEvidenceKind
 
-> **NodeLevel5FrameworkCapabilityEvidenceKind** = `"app-support-matrix"` \| `"generic-vm-corpus"` \| `"generic-vm-refusal-artifacts"` \| `"future-framework-introspection"`
+> **NodeLevel5FrameworkCapabilityEvidenceKind** = `"app-support-matrix"` \| `"generic-vm-corpus"` \| `"generic-vm-refusal-artifacts"` \| `"future-framework-introspection"` \| `"framework-product-evidence"`
 
 ***
 
@@ -22972,11 +22976,11 @@ Poll interval in ms while retrying. Default 250.
 
 ##### currentNodeProductSupportClaimed
 
-> **currentNodeProductSupportClaimed**: `85`
+> **currentNodeProductSupportClaimed**: `90`
 
 ##### currentBroadNodeProductSupportClaimed
 
-> **currentBroadNodeProductSupportClaimed**: `25`
+> **currentBroadNodeProductSupportClaimed**: `30`
 
 ##### currentArbitraryProcessCrossArchRestoreClaimed
 
@@ -22996,7 +23000,7 @@ Poll interval in ms while retrying. Default 250.
 
 ##### claimChangeAllowed
 
-> **claimChangeAllowed**: `false`
+> **claimChangeAllowed**: `true`
 
 ##### arbitraryExpressClaimed
 
@@ -24506,11 +24510,11 @@ Poll interval in ms while retrying. Default 250.
 
 ##### nodeProductSupportClaimed
 
-> **nodeProductSupportClaimed**: `85`
+> **nodeProductSupportClaimed**: `90`
 
 ##### broadNodeProductSupportClaimed
 
-> **broadNodeProductSupportClaimed**: `25`
+> **broadNodeProductSupportClaimed**: `30`
 
 ##### arbitraryProcessCrossArchRestoreClaimed
 
@@ -24578,11 +24582,11 @@ Poll interval in ms while retrying. Default 250.
 
 ##### nodeProductSupportClaimed
 
-> **nodeProductSupportClaimed**: `85`
+> **nodeProductSupportClaimed**: `90`
 
 ##### broadNodeProductSupportClaimed
 
-> **broadNodeProductSupportClaimed**: `25`
+> **broadNodeProductSupportClaimed**: `30`
 
 ##### arbitraryProcessCrossArchRestoreClaimed
 
@@ -24646,11 +24650,11 @@ Poll interval in ms while retrying. Default 250.
 
 ##### nodeProductSupportClaimed
 
-> **nodeProductSupportClaimed**: `85`
+> **nodeProductSupportClaimed**: `90`
 
 ##### broadNodeProductSupportClaimed
 
-> **broadNodeProductSupportClaimed**: `25`
+> **broadNodeProductSupportClaimed**: `30`
 
 ##### arbitraryProcessCrossArchRestoreClaimed
 
@@ -24710,11 +24714,11 @@ Poll interval in ms while retrying. Default 250.
 
 ##### nodeProductSupportClaimed
 
-> **nodeProductSupportClaimed**: `85`
+> **nodeProductSupportClaimed**: `90`
 
 ##### broadNodeProductSupportClaimed
 
-> **broadNodeProductSupportClaimed**: `25`
+> **broadNodeProductSupportClaimed**: `30`
 
 ##### arbitraryProcessCrossArchRestoreClaimed
 
@@ -24806,11 +24810,11 @@ Poll interval in ms while retrying. Default 250.
 
 ##### nodeProductSupportClaimed
 
-> **nodeProductSupportClaimed**: `85`
+> **nodeProductSupportClaimed**: `90`
 
 ##### broadNodeProductSupportClaimed
 
-> **broadNodeProductSupportClaimed**: `25`
+> **broadNodeProductSupportClaimed**: `30`
 
 ##### arbitraryProcessCrossArchRestoreClaimed
 
@@ -24834,7 +24838,7 @@ Poll interval in ms while retrying. Default 250.
 
 ##### status
 
-> **status**: `"node-product-support-85"`
+> **status**: `"node-product-support-90"`
 
 ##### familyId
 
@@ -24898,11 +24902,11 @@ Poll interval in ms while retrying. Default 250.
 
 ##### nodeProductSupportClaimed
 
-> **nodeProductSupportClaimed**: `85`
+> **nodeProductSupportClaimed**: `90`
 
 ##### broadNodeProductSupportClaimed
 
-> **broadNodeProductSupportClaimed**: `25`
+> **broadNodeProductSupportClaimed**: `30`
 
 ##### arbitraryProcessCrossArchRestoreClaimed
 
@@ -25054,11 +25058,11 @@ Poll interval in ms while retrying. Default 250.
 
 ##### nodeProductSupportClaimed
 
-> **nodeProductSupportClaimed**: `85`
+> **nodeProductSupportClaimed**: `90`
 
 ##### broadNodeProductSupportClaimed
 
-> **broadNodeProductSupportClaimed**: `25`
+> **broadNodeProductSupportClaimed**: `30`
 
 ##### arbitraryProcessCrossArchRestoreClaimed
 
@@ -26309,6 +26313,118 @@ Poll interval in ms while retrying. Default 250.
 ##### notProvenAppRows
 
 > **notProvenAppRows**: `4`
+
+##### unsupportedDetectorCount
+
+> **unsupportedDetectorCount**: `number`
+
+***
+
+### NodeLevel5ProductSupport90ClaimRegistry
+
+> **NodeLevel5ProductSupport90ClaimRegistry** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_PRODUCT_SUPPORT_90_KIND`](#node_level5_product_support_90_kind)
+
+##### status
+
+> **status**: `"node-product-support-90-claimed"`
+
+##### declaredSubsetExperimentalProductSupportClaimed
+
+> **declaredSubsetExperimentalProductSupportClaimed**: `100`
+
+##### nodeProductSupportTiers
+
+> **nodeProductSupportTiers**: readonly \[`20`, `50`, `65`, `80`, `85`, `90`\]
+
+##### nodeProductSupportClaimed
+
+> **nodeProductSupportClaimed**: `90`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `30`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
+
+##### previousNodeProductSupportClaimed
+
+> **previousNodeProductSupportClaimed**: `85`
+
+##### previousBroadNodeProductSupportClaimed
+
+> **previousBroadNodeProductSupportClaimed**: `25`
+
+##### frameworkCapabilityEvidenceRequired
+
+> **frameworkCapabilityEvidenceRequired**: `true`
+
+##### frameworkIntrospectionCorpusRequired
+
+> **frameworkIntrospectionCorpusRequired**: `true`
+
+##### frameworkProductEvidenceRequired
+
+> **frameworkProductEvidenceRequired**: `true`
+
+##### frameworkClaimReadyRequired
+
+> **frameworkClaimReadyRequired**: `true`
+
+##### retainedEvidenceRequired
+
+> **retainedEvidenceRequired**: `true`
+
+##### refusalArtifactEvidenceRequired
+
+> **refusalArtifactEvidenceRequired**: `true`
+
+##### realVmCrossArchEvidenceRequired
+
+> **realVmCrossArchEvidenceRequired**: `true`
+
+##### artifactRetentionDays
+
+> **artifactRetentionDays**: `30`
+
+##### flakeBudgetPercent
+
+> **flakeBudgetPercent**: `0`
+
+##### supportedAppRows
+
+> **supportedAppRows**: `68`
+
+##### refusedAppRows
+
+> **refusedAppRows**: `42`
+
+##### notProvenAppRows
+
+> **notProvenAppRows**: `4`
+
+##### frameworkGraphArtifactCount
+
+> **frameworkGraphArtifactCount**: `18`
+
+##### restoredBehaviorProbeCount
+
+> **restoredBehaviorProbeCount**: `16`
+
+##### frameworkRefusalArtifactCount
+
+> **frameworkRefusalArtifactCount**: `20`
+
+##### frameworkProductArtifactCount
+
+> **frameworkProductArtifactCount**: `54`
 
 ##### unsupportedDetectorCount
 
@@ -29085,6 +29201,24 @@ loops; anything looser stops being a meaningful gate.
 ### nodeLevel5ProductSupport85ClaimRegistry
 
 > `const` **nodeLevel5ProductSupport85ClaimRegistry**: [`NodeLevel5ProductSupport85ClaimRegistry`](#nodelevel5productsupport85claimregistry)
+
+***
+
+### NODE\_LEVEL5\_PRODUCT\_SUPPORT\_90\_KIND
+
+> `const` **NODE\_LEVEL5\_PRODUCT\_SUPPORT\_90\_KIND**: `"machinen.node-level5-product-support-90"` = `"machinen.node-level5-product-support-90"`
+
+***
+
+### NODE\_LEVEL5\_PRODUCT\_SUPPORT\_90\_VERSION
+
+> `const` **NODE\_LEVEL5\_PRODUCT\_SUPPORT\_90\_VERSION**: `1` = `1`
+
+***
+
+### nodeLevel5ProductSupport90ClaimRegistry
+
+> `const` **nodeLevel5ProductSupport90ClaimRegistry**: [`NodeLevel5ProductSupport90ClaimRegistry`](#nodelevel5productsupport90claimregistry)
 
 ***
 

@@ -84,7 +84,7 @@ import {
   productClaimFamilies,
   productClaimStatuses,
   nodeLevel5ProductSupport80UnsupportedDetectors,
-  nodeLevel5ProductSupport85ClaimRegistry,
+  nodeLevel5ProductSupport90ClaimRegistry,
   productSupportLevels,
   readHostRssBytesMulti,
   restore,
@@ -2056,7 +2056,7 @@ function cmdNodeLevel5Claims(args: string[], json: boolean): number {
   return reportNodeLevel5ProductCommand(json, {
     accepted: true,
     kind: "machinen.node-level5-claim-registry-summary",
-    claimRegistry: nodeLevel5ProductSupport85ClaimRegistry,
+    claimRegistry: nodeLevel5ProductSupport90ClaimRegistry,
     retainedArtifact: artifact,
   });
 }
@@ -2147,8 +2147,8 @@ function cmdNodeLevel5ReleaseGate(args: string[], json: boolean): number {
   return reportNodeLevel5ProductCommand(json, {
     accepted,
     kind: "machinen.node-level5-release-gate-summary",
-    nodeProductSupportClaimed: 85,
-    broadNodeProductSupportClaimed: 25,
+    nodeProductSupportClaimed: 90,
+    broadNodeProductSupportClaimed: 30,
     arbitraryProcessCrossArchRestoreClaimed: 0,
     retainedArtifact: artifact,
     realAppCorpus: corpus,

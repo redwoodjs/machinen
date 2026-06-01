@@ -1,6 +1,6 @@
 {
   "kind": "machinen.node-level5-product-support-90-draft",
-  "status": "draft-not-claimed",
+  "status": "superseded-by-node-product-support-90-claimed",
   "current": {
     "nodeProductSupportClaimed": 85,
     "broadNodeProductSupportClaimed": 25,

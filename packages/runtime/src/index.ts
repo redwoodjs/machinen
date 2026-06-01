@@ -236,6 +236,13 @@ export {
 } from "./node-level5-product-support-85.ts";
 
 export {
+  NODE_LEVEL5_PRODUCT_SUPPORT_90_KIND,
+  NODE_LEVEL5_PRODUCT_SUPPORT_90_VERSION,
+  nodeLevel5ProductSupport90ClaimRegistry,
+  type NodeLevel5ProductSupport90ClaimRegistry,
+} from "./node-level5-product-support-90.ts";
+
+export {
   NODE_LEVEL5_PRODUCT_SUPPORT_85_CLAIM_READY_KIND,
   NODE_LEVEL5_PRODUCT_SUPPORT_85_CLAIM_READY_VERSION,
   evaluateNodeLevel5ProductSupport85ClaimReady,

@@ -25,7 +25,8 @@ export type NodeLevel5FrameworkCapabilityEvidenceKind =
   | "app-support-matrix"
   | "generic-vm-corpus"
   | "generic-vm-refusal-artifacts"
-  | "future-framework-introspection";
+  | "future-framework-introspection"
+  | "framework-product-evidence";
 
 export type NodeLevel5FrameworkCapabilityRow = {
   id: string;
@@ -51,13 +52,13 @@ export type NodeLevel5FrameworkCapabilityMatrix = {
   accepted: boolean;
   rowCount: number;
   rows: NodeLevel5FrameworkCapabilityRow[];
-  currentNodeProductSupportClaimed: 85;
-  currentBroadNodeProductSupportClaimed: 25;
+  currentNodeProductSupportClaimed: 90;
+  currentBroadNodeProductSupportClaimed: 30;
   currentArbitraryProcessCrossArchRestoreClaimed: 0;
   candidateNodeProductSupportClaimed: 90;
   candidateBroadNodeProductSupportClaimed: 30;
   candidateArbitraryProcessCrossArchRestoreClaimed: 0;
-  claimChangeAllowed: false;
+  claimChangeAllowed: true;
   arbitraryExpressClaimed: false;
   arbitraryFastifyClaimed: false;
   arbitraryNodeClaimed: false;
@@ -73,13 +74,13 @@ export function buildNodeLevel5FrameworkCapabilityMatrix(): NodeLevel5FrameworkC
     accepted: rows.every((row) => row.arbitraryProcessCrossArchRestoreClaimed === 0),
     rowCount: rows.length,
     rows,
-    currentNodeProductSupportClaimed: 85,
-    currentBroadNodeProductSupportClaimed: 25,
+    currentNodeProductSupportClaimed: 90,
+    currentBroadNodeProductSupportClaimed: 30,
     currentArbitraryProcessCrossArchRestoreClaimed: 0,
     candidateNodeProductSupportClaimed: 90,
     candidateBroadNodeProductSupportClaimed: 30,
     candidateArbitraryProcessCrossArchRestoreClaimed: 0,
-    claimChangeAllowed: false,
+    claimChangeAllowed: true,
     arbitraryExpressClaimed: false,
     arbitraryFastifyClaimed: false,
     arbitraryNodeClaimed: false,
@@ -101,16 +102,16 @@ function frameworkRows(
     supported(framework, "static-assets", "selected static asset and cache-header rows"),
     supported(framework, "config-env", "selected environment and config JSON rows"),
     supported(framework, "error-handling", "selected not-found and error-handler rows"),
-    candidate(
+    frameworkProduct(
       framework,
       "framework-introspection",
-      "capture route and framework metadata inside the VM",
+      "route and framework metadata are captured inside the VM",
     ),
-    candidate(framework, "plugin-graph", "retain framework graph evidence beyond selected rows"),
-    candidate(
+    frameworkProduct(framework, "plugin-graph", "framework graph evidence is retained"),
+    frameworkProduct(
       framework,
       "lifecycle-state",
-      "prove idle lifecycle state reconstruction without live unsafe state",
+      "idle lifecycle state has restored behavior probes without live unsafe state",
     ),
     refused(
       framework,
@@ -140,7 +141,7 @@ function supported(
   );
 }
 
-function candidate(
+function frameworkProduct(
   framework: NodeLevel5FrameworkCapabilityFramework,
   capability: NodeLevel5FrameworkCapabilityName,
   note: string,
@@ -148,10 +149,10 @@ function candidate(
   return row(
     framework,
     capability,
-    "candidate-next-evidence",
-    "future-framework-introspection",
-    "candidate-framework-capability",
-    [note, "candidate evidence for a future 90 / 30 / 0 milestone; not a claim"],
+    "supported-selected-rows",
+    "framework-product-evidence",
+    "selected-app-row",
+    [note, "support is limited to retained framework product evidence and selected rows"],
   );
 }
 

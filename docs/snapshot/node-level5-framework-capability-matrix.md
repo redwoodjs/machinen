@@ -1,18 +1,16 @@
 # Node Level 5 framework capability matrix
 
-This matrix starts the path beyond app-row evidence. It does **not** claim arbitrary Express, arbitrary Fastify, arbitrary Node, or arbitrary process cross-architecture restore.
+This matrix tracks framework capability evidence beyond app-row evidence. It does **not** claim arbitrary Express, arbitrary Fastify, arbitrary Node, or arbitrary process cross-architecture restore.
 
-The current claim remains:
+The current claim is:
 
 ```json
 {
-  "nodeProductSupportClaimed": 85,
-  "broadNodeProductSupportClaimed": 25,
+  "nodeProductSupportClaimed": 90,
+  "broadNodeProductSupportClaimed": 30,
   "arbitraryProcessCrossArchRestoreClaimed": 0
 }
 ```
-
-The next candidate target is **90 / 30 / 0**, but it is not claimed.
 
 ## CLI
 
@@ -29,26 +27,26 @@ machinen node-level5 framework-claim-ready \
 
 ## What this adds
 
-The readiness gate now checks more than row count. It verifies that every Express/Fastify capability and cross-architecture direction is present, that the rows use the VM-detected product command path, that framework graph artifacts are retained, and that no row claims arbitrary framework, Node, or process support.
+The readiness gate checks more than row count. It verifies that every Express/Fastify capability and cross-architecture direction is present, that the rows use the VM-detected product command path, that framework graph artifacts are retained, and that no row claims arbitrary framework, Node, or process support.
 
-The claim-ready gate adds the product evidence required before a future 90 / 30 / 0 claim PR can raise the public claim: Express route/middleware/settings/error-handler graph artifacts, Fastify plugin/decorator/hook/schema/route graph artifacts, restored behavior probes tied to those artifacts, and refusal artifacts for unsafe dynamic/live states.
+The claim-ready gate proves the framework evidence required for the 90 / 30 / 0 claim: Express route/middleware/settings/error-handler graph artifacts, Fastify plugin/decorator/hook/schema/route graph artifacts, restored behavior probes tied to those artifacts, and refusal artifacts for unsafe dynamic/live states.
 
 The matrix separates three ideas:
 
-| Status                    | Meaning                                                                                                       |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `supported-selected-rows` | Existing app-support rows cover selected examples of the capability.                                          |
-| `candidate-next-evidence` | We need framework introspection and retained framework graph evidence before this can support a future claim. |
-| `refused`                 | Unsafe live state refuses before snapshot or restore.                                                         |
-| `not-proven`              | Arbitrary framework app support is not claimed.                                                               |
+| Status                    | Meaning                                                                                             |
+| ------------------------- | --------------------------------------------------------------------------------------------------- |
+| `supported-selected-rows` | Existing app rows or retained framework product evidence cover selected examples of the capability. |
+| `candidate-next-evidence` | Reserved for future evidence beyond the current 90 / 30 / 0 claim.                                  |
+| `refused`                 | Unsafe live state refuses before snapshot or restore.                                               |
+| `not-proven`              | Arbitrary framework app support is not claimed.                                                     |
 
-## Candidate capabilities
+## Supported framework capability evidence
 
-The next evidence path should capture framework-level metadata inside the VM:
+The current framework evidence captures:
 
-- Express route and middleware graph evidence;
-- Fastify route, hook, decorator, and plugin graph evidence;
-- idle lifecycle state evidence;
-- explicit refusals for active requests, worker threads, native addons, TLS active state, and child processes.
+- Express route, middleware, settings, and error-handler graph evidence;
+- Fastify plugin, decorator, hook, schema, and route graph evidence;
+- restored behavior probes tied to retained graph artifacts;
+- refusal artifacts for active requests, worker threads, native addons, TLS active state, and child processes.
 
-These are candidate framework-capability rows only. They do not broaden the product claim until release gates prove them.
+These are selected framework-capability rows only. They do not broaden the claim to arbitrary framework apps.

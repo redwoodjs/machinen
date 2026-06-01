@@ -1,6 +1,6 @@
 # Node Level 5 product support runbook
 
-This runbook applies to the 20%, 50%, 65%, 80%, and 85% Node product support tiers. The current shipped claim is 85% Node product support, 25% broad Node product support, and 0% arbitrary process cross-architecture restore.
+This runbook applies to the 20%, 50%, 65%, 80%, 85%, and 90% Node product support tiers. The current shipped claim is 90% Node product support, 30% broad Node product support, and 0% arbitrary process cross-architecture restore.
 
 ## Collect artifacts
 
@@ -40,7 +40,7 @@ For the 80% tier, also identify the selected app row, real-app corpus row, refus
 
 For the 85 / 25 / 0 tier, also identify the generic VM row, retained-evidence report, row-artifact report, refusal-artifact report, and claim-ready report that covers the case. Retain the VM restore/probe log from `scripts/smoke/node-level5-vm-detected-product-snapshot.sh`.
 
-For the draft 90 / 30 / 0 framework target, collect the framework capability, readiness, product-evidence, and claim-ready reports:
+For the 90 / 30 / 0 framework tier, collect the framework capability, readiness, product-evidence, and claim-ready reports:
 
 ```sh
 machinen node-level5 framework-capabilities --json
@@ -53,6 +53,6 @@ machinen node-level5 framework-claim-ready \
   --json
 ```
 
-The framework claim-ready report must cover Express route/middleware/settings/error-handler graph artifacts, Fastify plugin/decorator/hook/schema/route graph artifacts, restored behavior probes tied to those artifacts, and refusal artifacts for active requests, worker threads, native addons, TLS active state, and child processes. The shipped public claim remains 85 / 25 / 0 until the claim registry is intentionally raised.
+The framework claim-ready report must cover Express route/middleware/settings/error-handler graph artifacts, Fastify plugin/decorator/hook/schema/route graph artifacts, restored behavior probes tied to those artifacts, and refusal artifacts for active requests, worker threads, native addons, TLS active state, and child processes. Arbitrary Express, Fastify, Node, and arbitrary process cross-architecture restore remain unclaimed.
 
 Treat everything else as unsupported unless the product support matrix is expanded and the claim registry is intentionally raised.

@@ -3,19 +3,19 @@ import { describe, expect, it } from "vitest";
 import { buildNodeLevel5FrameworkCapabilityMatrix } from "../node-level5-framework-capability-matrix.ts";
 
 describe("Node Level 5 framework capability matrix", () => {
-  it("defines a candidate framework-capability path without arbitrary claims", () => {
+  it("defines a claimed framework-capability path without arbitrary claims", () => {
     const matrix = buildNodeLevel5FrameworkCapabilityMatrix();
 
     expect(matrix).toMatchObject({
       accepted: true,
       rowCount: 24,
-      currentNodeProductSupportClaimed: 85,
-      currentBroadNodeProductSupportClaimed: 25,
+      currentNodeProductSupportClaimed: 90,
+      currentBroadNodeProductSupportClaimed: 30,
       currentArbitraryProcessCrossArchRestoreClaimed: 0,
       candidateNodeProductSupportClaimed: 90,
       candidateBroadNodeProductSupportClaimed: 30,
       candidateArbitraryProcessCrossArchRestoreClaimed: 0,
-      claimChangeAllowed: false,
+      claimChangeAllowed: true,
       arbitraryExpressClaimed: false,
       arbitraryFastifyClaimed: false,
       arbitraryNodeClaimed: false,

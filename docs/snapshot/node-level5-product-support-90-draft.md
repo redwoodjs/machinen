@@ -1,8 +1,8 @@
 # Node Level 5 90 / 30 / 0 draft
 
-This is a draft claim target, not a public claim.
+This draft target has been superseded by the claimed 90 / 30 / 0 support document. It is retained as the pre-claim planning artifact.
 
-The current public claim remains **85 / 25 / 0**:
+At draft time, the public claim was **85 / 25 / 0**:
 
 | Claim                                        | Current | Draft target |
 | -------------------------------------------- | ------: | -----------: |
@@ -51,4 +51,4 @@ The retained framework product evidence must include:
 
 The draft does not claim arbitrary Express apps, arbitrary Fastify apps, arbitrary Node apps, or arbitrary process cross-architecture restore.
 
-`claimChangeAllowed` remains `false` for the draft artifact. A later claim PR must explicitly update the public claim and keep arbitrary process restore at `0%`.
+`claimChangeAllowed` remains `false` for the draft artifact because it is historical planning evidence. The claimed support artifact explicitly updates the public claim and keeps arbitrary process restore at `0%`.
