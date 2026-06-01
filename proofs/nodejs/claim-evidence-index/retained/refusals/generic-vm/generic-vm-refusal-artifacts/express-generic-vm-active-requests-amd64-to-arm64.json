@@ -1,0 +1,15 @@
+{
+  "kind": "machinen.node-level5-generic-vm-refusal-artifact",
+  "rowId": "express-generic-vm-active-requests-amd64-to-arm64",
+  "framework": "express",
+  "marker": "activeRequests",
+  "direction": "amd64-to-arm64",
+  "expectedRefusalCode": "node-level5-active-request-refused",
+  "actualRefusalCode": "node-level5-active-request-refused",
+  "refusedBeforeSnapshot": true,
+  "restoreAttempted": false,
+  "claimChangeAllowed": false,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0
+}

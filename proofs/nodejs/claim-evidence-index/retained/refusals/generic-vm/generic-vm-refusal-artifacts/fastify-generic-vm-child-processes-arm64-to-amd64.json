@@ -1,0 +1,15 @@
+{
+  "kind": "machinen.node-level5-generic-vm-refusal-artifact",
+  "rowId": "fastify-generic-vm-child-processes-arm64-to-amd64",
+  "framework": "fastify",
+  "marker": "childProcesses",
+  "direction": "arm64-to-amd64",
+  "expectedRefusalCode": "node-level5-child-process-live-state-refused",
+  "actualRefusalCode": "node-level5-child-process-live-state-refused",
+  "refusedBeforeSnapshot": true,
+  "restoreAttempted": false,
+  "claimChangeAllowed": false,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0
+}

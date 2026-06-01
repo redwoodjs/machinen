@@ -1,0 +1,15 @@
+{
+  "kind": "machinen.node-level5-generic-vm-refusal-artifact",
+  "rowId": "express-generic-vm-worker-threads-arm64-to-amd64",
+  "framework": "express",
+  "marker": "workerThreads",
+  "direction": "arm64-to-amd64",
+  "expectedRefusalCode": "node-level5-worker-thread-refused",
+  "actualRefusalCode": "node-level5-worker-thread-refused",
+  "refusedBeforeSnapshot": true,
+  "restoreAttempted": false,
+  "claimChangeAllowed": false,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0
+}

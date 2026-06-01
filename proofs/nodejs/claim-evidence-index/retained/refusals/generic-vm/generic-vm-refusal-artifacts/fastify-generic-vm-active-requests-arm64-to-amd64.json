@@ -1,0 +1,15 @@
+{
+  "kind": "machinen.node-level5-generic-vm-refusal-artifact",
+  "rowId": "fastify-generic-vm-active-requests-arm64-to-amd64",
+  "framework": "fastify",
+  "marker": "activeRequests",
+  "direction": "arm64-to-amd64",
+  "expectedRefusalCode": "node-level5-active-request-refused",
+  "actualRefusalCode": "node-level5-active-request-refused",
+  "refusedBeforeSnapshot": true,
+  "restoreAttempted": false,
+  "claimChangeAllowed": false,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0
+}

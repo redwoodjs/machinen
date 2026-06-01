@@ -1,0 +1,6 @@
+{
+  "name": "express-refusal-fixture",
+  "dependencies": {
+    "express": "^4.0.0"
+  }
+}

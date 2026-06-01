@@ -6,7 +6,7 @@
   "status": "node-product-support-80-refusal-expansion",
   "productSurface": ["machinen snapshot <vm-name> --out <dir>"],
   "harnessProof": true,
-  "nodeProductSupportClaimed": 80,
-  "broadNodeProductSupportClaimed": 20,
+  "nodeProductSupportClaimed": 0,
+  "broadNodeProductSupportClaimed": 0,
   "arbitraryProcessCrossArchRestoreClaimed": 0
 }

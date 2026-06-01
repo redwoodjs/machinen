@@ -1,6 +1,6 @@
 {
   "kind": "machinen.claim-progress-dashboard",
-  "version": 17,
+  "version": 18,
   "updatedFrom": [
     "docs/snapshot/node-level5-product-support-claim-registry.json",
     "docs/snapshot/node-level5-product-support-100.json",
@@ -58,6 +58,16 @@
         "final-node-service-ga-gate"
       ],
       "evidenceRows": [
+        {
+          "id": "node-claim-evidence-index",
+          "area": "audit",
+          "kind": "claim-facing consolidated index",
+          "status": "partial-proof",
+          "evidence": "Consolidates the sharded Node numbered proof corpus, retained bidirectional E2E seed, and refusal definitions. It explicitly keeps public Node at 0 / 0 / 0 until every supported/refused row is linked to retained product artifacts.",
+          "gate": "node-claim-evidence-index",
+          "artifact": "proofs/nodejs/claim-evidence-index/retained/node-claim-evidence-index-report.json",
+          "next": "Use this index as the only route for future Node claim raises."
+        },
         {
           "id": "node-existing-matrices-proof-only",
           "area": "audit",
@@ -667,6 +677,84 @@
         }
       ],
       "proofDirectory": "proofs/nodejs/100-100-0"
+    },
+    {
+      "id": "node-claim-evidence-index",
+      "claim": "Node claim evidence index",
+      "trackId": "node-service",
+      "status": "partial-proof",
+      "scope": "Single claim-facing consolidation gate for the sharded Node proof corpus, retained E2E seed, and refusal definitions.",
+      "claimNumbers": {
+        "productSupport": 0,
+        "broadSupport": 0,
+        "arbitraryProcessCrossArchRestore": 0,
+        "candidateProductSupport": 20,
+        "candidateBroadSupport": 0
+      },
+      "promotionEffect": "Prevents numbered proof shards, checked summaries, facades, or release gates from raising public Node claims unless linked to retained product E2E artifacts.",
+      "proofDirectory": "proofs/nodejs/claim-evidence-index",
+      "proofs": [
+        {
+          "id": "node-numbered-proof-corpus-index",
+          "category": "corpus index",
+          "status": "verified",
+          "artifact": "proofs/nodejs/claim-evidence-index/retained/node-claim-evidence-index-report.json",
+          "proves": "The Node proof corpus is organized into sharded numbered buckets and classified as proof substrate unless linked to retained E2E artifacts.",
+          "claimUse": "claim-facing audit index only",
+          "next": "Attach row-level retained artifacts before claim raises.",
+          "claimImpact": {
+            "productSupportDelta": 0,
+            "broadSupportDelta": 0,
+            "arbitraryProcessCrossArchRestoreDelta": 0,
+            "resultingClaim": {
+              "productSupport": 0,
+              "broadSupport": 0,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "claimChangeAllowed": false
+          }
+        },
+        {
+          "id": "node-refusal-definitions-index",
+          "category": "refusals",
+          "status": "verified",
+          "artifact": "proofs/nodejs/claim-evidence-index/retained/refusals/real-app-summary.json",
+          "proves": "The real-app refusal markers are defined and the retained generator report covers 64 rows across Express/Fastify and both directions.",
+          "claimUse": "boundary definition only until linked to matrix rows",
+          "next": "Link every refused matrix row to retained refusal artifacts.",
+          "claimImpact": {
+            "productSupportDelta": 0,
+            "broadSupportDelta": 0,
+            "arbitraryProcessCrossArchRestoreDelta": 0,
+            "resultingClaim": {
+              "productSupport": 0,
+              "broadSupport": 0,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "claimChangeAllowed": false
+          }
+        },
+        {
+          "id": "node-generic-vm-refusal-artifacts-index",
+          "category": "refusals",
+          "status": "verified",
+          "artifact": "proofs/nodejs/claim-evidence-index/retained/refusals/generic-vm-refusal-artifacts-summary.json",
+          "proves": "The generic-VM refusal artifact report covers 20 artifacts for active requests, workers, native addons, TLS active state, and child processes across frameworks/directions.",
+          "claimUse": "boundary definition only until linked to matrix rows",
+          "next": "Link generic VM refusal artifacts to the claim matrix.",
+          "claimImpact": {
+            "productSupportDelta": 0,
+            "broadSupportDelta": 0,
+            "arbitraryProcessCrossArchRestoreDelta": 0,
+            "resultingClaim": {
+              "productSupport": 0,
+              "broadSupport": 0,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "claimChangeAllowed": false
+          }
+        }
+      ]
     },
     {
       "id": "node-real-cross-arch-e2e-gate",

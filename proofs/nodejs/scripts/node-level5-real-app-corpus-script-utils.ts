@@ -14,7 +14,7 @@ import type { NodeLevel5RealAppCorpusFramework } from "../../../packages/runtime
 
 export const nodeLevel5RealAppCorpusRepoRoot = resolve(
   dirname(fileURLToPath(import.meta.url)),
-  "..",
+  "../../..",
 );
 export const nodeLevel5RealAppCorpusCliPath = join(
   nodeLevel5RealAppCorpusRepoRoot,

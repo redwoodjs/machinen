@@ -9,3 +9,5 @@ pnpm exec tsx "$ROOT/proofs/nodejs/scripts/node-real-cross-arch-e2e-gate.ts" \
   --root "$RETAINED" \
   --out "$OUT" \
   --json
+
+pnpm exec oxfmt "$OUT" >/dev/null
