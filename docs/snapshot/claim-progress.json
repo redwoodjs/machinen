@@ -1,17 +1,26 @@
 {
   "kind": "machinen.claim-progress-dashboard",
-  "version": 1,
+  "version": 2,
   "updatedFrom": [
     "docs/snapshot/node-level5-product-support-claim-registry.json",
     "docs/snapshot/node-level5-product-support-100.json",
     "docs/snapshot/arbitrary-process-level5-seed-matrix.json"
   ],
   "currentProductPath": "machinen snapshot <vm-name> --out <dir>; machinen restore <dir>",
+  "columns": {
+    "claim": ["productSupport", "broadSupport", "arbitraryProcessCrossArchRestore"],
+    "detail": ["track", "area", "state", "evidence", "gate", "artifact", "next"]
+  },
   "tracks": [
     {
       "id": "node-service",
       "name": "Node service restore",
+      "family": "runtime-service",
+      "runtime": "node",
       "status": "claimed",
+      "stage": "GA claim",
+      "scope": "Selected safe Node services through VM-first product snapshot/restore.",
+      "productPath": "machinen snapshot <vm-name> --out <dir>; machinen restore <dir>",
       "currentClaim": {
         "productSupport": 100,
         "broadSupport": 100,
@@ -19,6 +28,8 @@
       },
       "nextClaim": null,
       "summary": "Selected safe Node services are claimed through the Node service claim ladder. Arbitrary process restore remains outside this track.",
+      "claimGate": "final-node-service-ga-gate",
+      "claimChangeAllowed": true,
       "evidence": [
         "framework-capability-coverage-v2",
         "framework-combination-corpus",
@@ -31,12 +42,71 @@
         "runtime-framework-combined-claim-ready",
         "final-node-service-ga-gate"
       ],
+      "evidenceRows": [
+        {
+          "id": "node-framework-capability",
+          "area": "frameworks",
+          "kind": "capability matrix",
+          "status": "passed",
+          "evidence": "Express/Fastify capability rows with explicit coverage diagnostics",
+          "gate": "framework-claim-ready",
+          "artifact": "node-level5-framework-capability-matrix.md",
+          "next": "Keep framework rows evidence-bounded; do not claim arbitrary framework apps."
+        },
+        {
+          "id": "node-service-100-ladder",
+          "area": "claim ladder",
+          "kind": "release gate",
+          "status": "passed",
+          "evidence": "95/40/0 through 100/100/0 ladder with retained claim artifacts",
+          "gate": "node-level5-product-support-100-claim",
+          "artifact": "node-level5-product-support-100.json",
+          "next": "Keep arbitrary process at 0 unless the separate arbitrary-process gate passes."
+        },
+        {
+          "id": "node-vm-first-product-path",
+          "area": "product UX",
+          "kind": "product path",
+          "status": "passed",
+          "evidence": "VM-first snapshot/restore metadata and CLI claim path",
+          "gate": "node-level5-product-snapshot-restore",
+          "artifact": "node-level5-product-snapshot-restore.md",
+          "next": "Preserve machinen snapshot <vm-name> --out <dir>; machinen restore <dir>."
+        }
+      ],
       "refusals": [
         "arbitrary non-Node processes",
         "raw CPU restore",
         "source ISA emulation",
         "app checkpoint hooks",
         "unsafe live state"
+      ],
+      "refusalRows": [
+        {
+          "boundary": "arbitrary non-Node processes",
+          "status": "refused",
+          "reason": "Node service claim is not an arbitrary Linux process claim.",
+          "neededToReduce": "Dedicated arbitrary-process captured-state translation and target-native reconstruction gate."
+        },
+        {
+          "boundary": "raw CPU restore / source ISA emulation",
+          "status": "forbidden",
+          "reason": "Product direction requires translated continuation, not CPU snapshot restore.",
+          "neededToReduce": "Not reducible; this remains a permanent architecture boundary."
+        },
+        {
+          "boundary": "app checkpoint hooks",
+          "status": "forbidden",
+          "reason": "Support cannot depend on app-exported state or checkpoint callbacks.",
+          "neededToReduce": "Use captured machine/process state and target-native reconstruction only."
+        }
+      ],
+      "nextSteps": [
+        {
+          "priority": 1,
+          "item": "Keep Node claims stable while moving future products to shared claim/evidence tables.",
+          "gate": "no claim regression"
+        }
       ],
       "docs": [
         "node-level5-product-support-100.md",
@@ -46,7 +116,12 @@
     {
       "id": "arbitrary-process",
       "name": "Arbitrary process cross-architecture restore",
+      "family": "process",
+      "runtime": "linux-process",
       "status": "seed-candidate",
+      "stage": "seed matrix",
+      "scope": "Diagnostic seed rows only; no arbitrary Linux process support claim.",
+      "productPath": "future: machinen snapshot <vm-name> --out <dir>; machinen restore <dir>",
       "currentClaim": {
         "productSupport": null,
         "broadSupport": null,
@@ -57,6 +132,8 @@
         "claimChangeAllowed": false
       },
       "summary": "Seed matrix exists for tiny target-native reconstruction candidates, including the proven ping socket resource row, but no arbitrary-process claim is raised yet.",
+      "claimGate": "dedicated arbitrary-process claim-ready gate required",
+      "claimChangeAllowed": false,
       "evidence": [
         "tiny native idle process seed",
         "argv/env/cwd seed",
@@ -65,6 +142,78 @@
         "static/data/heap materialization seed",
         "syscall/resource boundary seed",
         "ping/ICMP socket resource seed"
+      ],
+      "evidenceRows": [
+        {
+          "id": "tiny-native-idle-counter",
+          "area": "process core",
+          "kind": "target-native reconstruction seed",
+          "status": "seed-candidate",
+          "evidence": "Tiny idle native process candidate with translated process-state requirement",
+          "gate": "arbitrary-process-level5-seed-matrix",
+          "artifact": "arbitrary-process-level5-seed/tiny-native-idle-counter.json",
+          "next": "Retain verifier artifacts before any 1% claim."
+        },
+        {
+          "id": "native-argv-env-cwd",
+          "area": "process metadata",
+          "kind": "target-native reconstruction seed",
+          "status": "seed-candidate",
+          "evidence": "argv/env/cwd reconstruction candidate",
+          "gate": "arbitrary-process-level5-seed-matrix",
+          "artifact": "arbitrary-process-level5-seed/native-argv-env-cwd.json",
+          "next": "Add target verifier that proves identity and cwd/env equivalence."
+        },
+        {
+          "id": "native-regular-file-fd",
+          "area": "file descriptors",
+          "kind": "resource translation seed",
+          "status": "seed-candidate",
+          "evidence": "Regular file FD boundary candidate",
+          "gate": "arbitrary-process-level5-seed-matrix",
+          "artifact": "arbitrary-process-level5-seed/native-regular-file-fd.json",
+          "next": "Prove offset, flags, and read/write continuation."
+        },
+        {
+          "id": "native-simple-pipe-fd",
+          "area": "file descriptors",
+          "kind": "resource translation seed",
+          "status": "seed-candidate",
+          "evidence": "Simple pipe FD boundary candidate",
+          "gate": "arbitrary-process-level5-seed-matrix",
+          "artifact": "arbitrary-process-level5-seed/native-simple-pipe-fd.json",
+          "next": "Prove pipe contents and endpoint direction without sidecar replay."
+        },
+        {
+          "id": "native-static-data-heap",
+          "area": "memory",
+          "kind": "target-native reconstruction seed",
+          "status": "seed-candidate",
+          "evidence": "Static/data/heap materialization candidate",
+          "gate": "arbitrary-process-level5-seed-matrix",
+          "artifact": "arbitrary-process-level5-seed/native-static-data-heap.json",
+          "next": "Keep JIT and executable anonymous pages refused."
+        },
+        {
+          "id": "native-syscall-boundary",
+          "area": "syscall resources",
+          "kind": "resource translation seed",
+          "status": "seed-candidate",
+          "evidence": "Selected syscall/resource boundary descriptor",
+          "gate": "arbitrary-process-level5-seed-matrix",
+          "artifact": "arbitrary-process-level5-seed/native-syscall-boundary.json",
+          "next": "Split safe idle boundaries from unsafe active resources."
+        },
+        {
+          "id": "native-ping-socket-resource",
+          "area": "network resource",
+          "kind": "network-resource-translation-seed",
+          "status": "seed-candidate",
+          "evidence": "Ping/ICMP socket reconstruction using proven Level 4 ping evidence",
+          "gate": "level4 ping proof plus arbitrary-process seed matrix",
+          "artifact": "arbitrary-process-level5-seed/native-ping-socket-resource.json",
+          "next": "Use as a narrow resource row only; do not claim arbitrary process restore."
+        }
       ],
       "refusals": [
         "threads",
@@ -75,18 +224,78 @@
         "active epoll",
         "arbitrary unknown Linux process"
       ],
+      "refusalRows": [
+        {
+          "boundary": "threads",
+          "status": "refused",
+          "reason": "Multiple live execution contexts require scheduler and stack-state translation not proven.",
+          "neededToReduce": "Captured thread state plus target-native reconstruction verifier."
+        },
+        {
+          "boundary": "JIT code",
+          "status": "refused",
+          "reason": "Runtime-generated executable pages are not portable target-native state.",
+          "neededToReduce": "Runtime-specific safe reconstruction, not raw executable page restore."
+        },
+        {
+          "boundary": "futex-owned locks / waiters",
+          "status": "refused",
+          "reason": "Owned locks and wait queues can wedge or corrupt target execution.",
+          "neededToReduce": "Idle futex-only proof with no owners or waiters."
+        },
+        {
+          "boundary": "live sockets / active epoll",
+          "status": "refused",
+          "reason": "Active kernel event and stream state is not reconstructed yet.",
+          "neededToReduce": "Idle listener/idle epoll proofs with retained target verifiers."
+        },
+        {
+          "boundary": "device mmap",
+          "status": "refused",
+          "reason": "Device memory has target-specific side effects and opaque state.",
+          "neededToReduce": "Not part of the first arbitrary-process claim."
+        },
+        {
+          "boundary": "arbitrary unknown Linux process",
+          "status": "not-proven",
+          "reason": "Seed rows are diagnostic and do not establish broad process support.",
+          "neededToReduce": "Dedicated arbitrary-process claim-ready gate."
+        }
+      ],
       "counts": {
         "rows": 14,
         "seedCandidates": 7,
         "refused": 6,
         "notProven": 1
       },
+      "nextSteps": [
+        {
+          "priority": 1,
+          "item": "Add retained verifier artifacts for regular file FDs.",
+          "gate": "artifact sha verification plus target behavior proof"
+        },
+        {
+          "priority": 2,
+          "item": "Add idle epoll and idle TCP listener safe-boundary proofs.",
+          "gate": "idle-only resource reconstruction verifier"
+        },
+        {
+          "priority": 3,
+          "item": "Define the arbitrary-process claim-ready gate before changing 0%. ",
+          "gate": "claimChangeAllowed must become true only from that gate"
+        }
+      ],
       "docs": ["arbitrary-process-level5-seed-matrix.md", "level4-ping-socket-product.md"]
     },
     {
       "id": "postgres",
       "name": "Postgres portable restore",
+      "family": "database",
+      "runtime": "postgresql",
       "status": "product-track-existing",
+      "stage": "existing product track; claim ladder needed",
+      "scope": "Clean, idle logical Postgres restore track; not physical data-dir cross-ISA restore.",
+      "productPath": "machinen capture postgres ...; machinen restore <bundle> --target-arch <arch>",
       "currentClaim": {
         "productSupport": null,
         "broadSupport": null,
@@ -97,10 +306,34 @@
         "claimChangeAllowed": false
       },
       "summary": "Postgres has an existing clean logical portable product track. It still needs a percent-style claim ladder before it can appear like Node in this dashboard.",
+      "claimGate": "postgres claim ladder not defined yet",
+      "claimChangeAllowed": false,
       "evidence": [
         "postgres-clean-quiesced-logical-v1",
         "logical dump integrity",
         "target verifier output"
+      ],
+      "evidenceRows": [
+        {
+          "id": "postgres-clean-logical",
+          "area": "database state",
+          "kind": "logical reconstruction",
+          "status": "implemented-product-support",
+          "evidence": "Clean logical dump with source/target verifier output",
+          "gate": "portable postgres restore verifier",
+          "artifact": "portable-product.json",
+          "next": "Turn existing support into a percent-style claim ladder."
+        },
+        {
+          "id": "postgres-integrity",
+          "area": "data integrity",
+          "kind": "verifier",
+          "status": "implemented-product-support",
+          "evidence": "Logical dump sha and verifier output comparison",
+          "gate": "postgres logical dump integrity",
+          "artifact": "postgres.logical.dump",
+          "next": "Retain standardized verifier artifacts per claim row."
+        }
       ],
       "refusals": [
         "active transactions",
@@ -109,12 +342,49 @@
         "ambiguous host-mounted data dir",
         "physical data-dir cross-ISA copy"
       ],
+      "refusalRows": [
+        {
+          "boundary": "active transactions / sessions",
+          "status": "refused",
+          "reason": "The supported Postgres path is clean and idle logical reconstruction.",
+          "neededToReduce": "Transaction/session drain or database-level captured-state proof."
+        },
+        {
+          "boundary": "dirty WAL boundary",
+          "status": "refused",
+          "reason": "Dirty WAL is physical engine state, not portable logical state.",
+          "neededToReduce": "Proven logical consistency point and target verifier."
+        },
+        {
+          "boundary": "physical data-dir cross-ISA copy",
+          "status": "refused",
+          "reason": "Physical storage is not a cross-architecture product claim.",
+          "neededToReduce": "Keep using logical reconstruction; do not promote physical copy."
+        }
+      ],
+      "nextSteps": [
+        {
+          "priority": 1,
+          "item": "Create Postgres claim ladder and dashboard rows from existing product-portable implementation.",
+          "gate": "postgres claim-ready report"
+        },
+        {
+          "priority": 2,
+          "item": "Add retained source/target verifier artifacts to each claim row.",
+          "gate": "artifact sha verification"
+        }
+      ],
       "docs": ["product-portable-postgres.ts"]
     },
     {
       "id": "bun",
       "name": "Bun service restore",
+      "family": "runtime-service",
+      "runtime": "bun",
       "status": "not-started",
+      "stage": "track seed needed",
+      "scope": "No Bun product support claim yet.",
+      "productPath": "future: machinen snapshot <vm-name> --out <dir>; machinen restore <dir>",
       "currentClaim": {
         "productSupport": 0,
         "broadSupport": 0,
@@ -125,13 +395,53 @@
         "claimChangeAllowed": false
       },
       "summary": "Bun needs a seed matrix, product-path detector evidence, retained artifacts, and refusal boundaries before any support claim.",
+      "claimGate": "bun seed matrix required",
+      "claimChangeAllowed": false,
       "evidence": [],
+      "evidenceRows": [
+        {
+          "id": "bun-seed-matrix",
+          "area": "planning",
+          "kind": "missing seed matrix",
+          "status": "not-started",
+          "evidence": "No retained Bun evidence rows yet",
+          "gate": "bun seed matrix",
+          "artifact": "not-created",
+          "next": "Define safe Bun service subset and explicit refusal boundaries."
+        }
+      ],
       "refusals": [
         "native/JIT runtime state until proven",
         "active sockets",
         "workers",
         "native addons/plugins",
         "arbitrary Bun apps"
+      ],
+      "refusalRows": [
+        {
+          "boundary": "native/JIT runtime state",
+          "status": "not-proven",
+          "reason": "No Bun runtime-state translation evidence exists yet.",
+          "neededToReduce": "Bun-specific target-native reconstruction proof."
+        },
+        {
+          "boundary": "workers / active sockets / plugins",
+          "status": "not-proven",
+          "reason": "No safe subset or refusal matrix exists yet.",
+          "neededToReduce": "Seed matrix plus product claim-ready gate."
+        }
+      ],
+      "nextSteps": [
+        {
+          "priority": 1,
+          "item": "Create Bun seed matrix with evidence, refusal, and not-proven rows.",
+          "gate": "bun seed matrix accepted"
+        },
+        {
+          "priority": 2,
+          "item": "Add VM-first Bun product-path detector and retained artifacts.",
+          "gate": "bun product evidence report"
+        }
       ],
       "docs": []
     }
