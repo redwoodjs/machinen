@@ -23352,6 +23352,14 @@ Poll interval in ms while retrying. Default 250.
 
 > **evidenceKind**: [`NodeLevel5FrameworkProductEvidenceKind`](#nodelevel5frameworkproductevidencekind)
 
+##### capability?
+
+> `optional` **capability?**: [`NodeLevel5FrameworkIntrospectionCapability`](#nodelevel5frameworkintrospectioncapability)
+
+##### unsafeStateMarker?
+
+> `optional` **unsafeStateMarker?**: [`NodeLevel5FrameworkUnsafeStateMarker`](#nodelevel5frameworkunsafestatemarker)
+
 ##### required
 
 > **required**: `true`
@@ -23483,6 +23491,18 @@ Poll interval in ms while retrying. Default 250.
 ##### artifactFilesSha256Verified
 
 > **artifactFilesSha256Verified**: `boolean`
+
+##### graphArtifactCoverageComplete
+
+> **graphArtifactCoverageComplete**: `boolean`
+
+##### restoredBehaviorProbeCoverageComplete
+
+> **restoredBehaviorProbeCoverageComplete**: `boolean`
+
+##### refusalArtifactCoverageComplete
+
+> **refusalArtifactCoverageComplete**: `boolean`
 
 ##### claimChangeAllowed
 

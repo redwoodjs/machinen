@@ -36,6 +36,8 @@ export type NodeLevel5FrameworkProductEvidenceFile = {
   framework: NodeLevel5FrameworkCapabilityFramework;
   direction: NodeLevel5ProductSnapshotDirection;
   evidenceKind: NodeLevel5FrameworkProductEvidenceKind;
+  capability?: NodeLevel5FrameworkIntrospectionCapability;
+  unsafeStateMarker?: NodeLevel5FrameworkUnsafeStateMarker;
   required: true;
 };
 
@@ -71,6 +73,9 @@ export type NodeLevel5FrameworkProductEvidenceVerification = {
   refusalArtifactCount: number;
   artifactCount: number;
   artifactFilesSha256Verified: boolean;
+  graphArtifactCoverageComplete: boolean;
+  restoredBehaviorProbeCoverageComplete: boolean;
+  refusalArtifactCoverageComplete: boolean;
   claimChangeAllowed: false;
   currentNodeProductSupportClaimed: 85;
   currentBroadNodeProductSupportClaimed: 25;
@@ -169,6 +174,11 @@ export function verifyNodeLevel5FrameworkProductEvidenceReport(
     refusalArtifactCount: report.refusalArtifactCount,
     artifactCount: report.artifactFiles.length,
     artifactFilesSha256Verified,
+    graphArtifactCoverageComplete: graphArtifactCoverageComplete(report.artifactFiles),
+    restoredBehaviorProbeCoverageComplete: restoredBehaviorProbeCoverageComplete(
+      report.artifactFiles,
+    ),
+    refusalArtifactCoverageComplete: refusalArtifactCoverageComplete(report.artifactFiles),
     claimChangeAllowed: false,
     currentNodeProductSupportClaimed: 85,
     currentBroadNodeProductSupportClaimed: 25,
@@ -247,6 +257,8 @@ function writeArtifact(
     framework,
     direction,
     evidenceKind,
+    capability: capabilityFromPayload(payload),
+    unsafeStateMarker: unsafeStateMarkerFromPayload(payload),
     required: true,
   };
 }
@@ -265,27 +277,119 @@ function reportAccepted(
   report: NodeLevel5FrameworkProductEvidenceReport,
   artifactFilesSha256Verified: boolean,
 ): boolean {
+  return reportAcceptanceChecks(report, artifactFilesSha256Verified).every(Boolean);
+}
+
+function reportAcceptanceChecks(
+  report: NodeLevel5FrameworkProductEvidenceReport,
+  artifactFilesSha256Verified: boolean,
+): boolean[] {
+  return [
+    report.kind === NODE_LEVEL5_FRAMEWORK_PRODUCT_EVIDENCE_REPORT_KIND,
+    report.version === NODE_LEVEL5_FRAMEWORK_PRODUCT_EVIDENCE_REPORT_VERSION,
+    report.accepted === true,
+    report.productCommandPath === "machinen snapshot <vm-name> --out <dir>; machinen restore <dir>",
+    report.vmDetectedNodeWorkload === true,
+    report.graphArtifactCount === 18,
+    report.restoredBehaviorProbeCount === 16,
+    report.refusalArtifactCount === 20,
+    report.artifactCount === 54,
+    report.artifactFiles.length === 54,
+    requiredCapabilitiesReported(report),
+    graphArtifactCoverageComplete(report.artifactFiles),
+    restoredBehaviorProbeCoverageComplete(report.artifactFiles),
+    refusalArtifactCoverageComplete(report.artifactFiles),
+    report.claimChangeAllowed === false,
+    report.currentNodeProductSupportClaimed === 85,
+    report.currentBroadNodeProductSupportClaimed === 25,
+    report.currentArbitraryProcessCrossArchRestoreClaimed === 0,
+    report.candidateNodeProductSupportClaimed === 90,
+    report.candidateBroadNodeProductSupportClaimed === 30,
+    report.candidateArbitraryProcessCrossArchRestoreClaimed === 0,
+    artifactFilesSha256Verified,
+  ];
+}
+
+function requiredCapabilitiesReported(report: NodeLevel5FrameworkProductEvidenceReport): boolean {
   return (
-    report.kind === NODE_LEVEL5_FRAMEWORK_PRODUCT_EVIDENCE_REPORT_KIND &&
-    report.version === NODE_LEVEL5_FRAMEWORK_PRODUCT_EVIDENCE_REPORT_VERSION &&
-    report.accepted === true &&
-    report.productCommandPath ===
-      "machinen snapshot <vm-name> --out <dir>; machinen restore <dir>" &&
-    report.vmDetectedNodeWorkload === true &&
-    report.graphArtifactCount === 18 &&
-    report.restoredBehaviorProbeCount === 16 &&
-    report.refusalArtifactCount === 20 &&
-    report.artifactCount === 54 &&
-    report.artifactFiles.length === 54 &&
-    report.claimChangeAllowed === false &&
-    report.currentNodeProductSupportClaimed === 85 &&
-    report.currentBroadNodeProductSupportClaimed === 25 &&
-    report.currentArbitraryProcessCrossArchRestoreClaimed === 0 &&
-    report.candidateNodeProductSupportClaimed === 90 &&
-    report.candidateBroadNodeProductSupportClaimed === 30 &&
-    report.candidateArbitraryProcessCrossArchRestoreClaimed === 0 &&
-    artifactFilesSha256Verified
+    sameStringSet(report.expressCapabilitiesCovered, [
+      "routes",
+      "middleware",
+      "settings",
+      "error-handlers",
+    ]) &&
+    sameStringSet(report.fastifyCapabilitiesCovered, [
+      "plugins",
+      "decorators",
+      "hooks",
+      "schemas",
+      "routes",
+    ]) &&
+    sameStringSet(report.unsafeStateMarkersCovered, unsafeStateMarkers)
   );
+}
+
+function graphArtifactCoverageComplete(files: NodeLevel5FrameworkProductEvidenceFile[]): boolean {
+  const expectedKeys = directions.flatMap((direction) => [
+    ...expressGraphKinds.map((kind) => evidenceKey("express", direction, kind)),
+    ...fastifyGraphKinds.map((kind) => evidenceKey("fastify", direction, kind)),
+  ]);
+  const observedKeys = files
+    .filter((file) => graphEvidenceKinds().includes(file.evidenceKind))
+    .map((file) => evidenceKey(file.framework, file.direction, file.evidenceKind));
+  return sameStringSet(observedKeys, expectedKeys);
+}
+
+function restoredBehaviorProbeCoverageComplete(
+  files: NodeLevel5FrameworkProductEvidenceFile[],
+): boolean {
+  const expectedKeys = (["express", "fastify"] as const).flatMap((framework) =>
+    restoredCapabilities.flatMap((capability) =>
+      directions.map((direction) => `${framework}:${direction}:${capability}`),
+    ),
+  );
+  const observedKeys = files
+    .filter((file) => file.evidenceKind === "restored-behavior-probe" && file.capability)
+    .map((file) => `${file.framework}:${file.direction}:${file.capability}`);
+  return sameStringSet(observedKeys, expectedKeys);
+}
+
+function refusalArtifactCoverageComplete(files: NodeLevel5FrameworkProductEvidenceFile[]): boolean {
+  const expectedKeys = (["express", "fastify"] as const).flatMap((framework) =>
+    unsafeStateMarkers.flatMap((marker) =>
+      directions.map((direction) => `${framework}:${direction}:${marker}`),
+    ),
+  );
+  const observedKeys = files
+    .filter((file) => file.evidenceKind === "refusal-artifact" && file.unsafeStateMarker)
+    .map((file) => `${file.framework}:${file.direction}:${file.unsafeStateMarker}`);
+  return sameStringSet(observedKeys, expectedKeys);
+}
+
+function evidenceKey(
+  framework: NodeLevel5FrameworkCapabilityFramework,
+  direction: NodeLevel5ProductSnapshotDirection,
+  kind: NodeLevel5FrameworkProductEvidenceKind,
+): string {
+  return `${framework}:${direction}:${kind}`;
+}
+
+function capabilityFromPayload(
+  payload: Record<string, unknown>,
+): NodeLevel5FrameworkIntrospectionCapability | undefined {
+  return restoredCapabilities.find((capability) => capability === payload.capability);
+}
+
+function unsafeStateMarkerFromPayload(
+  payload: Record<string, unknown>,
+): NodeLevel5FrameworkUnsafeStateMarker | undefined {
+  return unsafeStateMarkers.find((marker) => marker === payload.marker);
+}
+
+function sameStringSet(actual: readonly string[], expected: readonly string[]): boolean {
+  const actualSet = new Set(actual);
+  const expectedSet = new Set(expected);
+  return actualSet.size === expectedSet.size && expected.every((item) => actualSet.has(item));
 }
 
 function graphEvidenceKinds(): NodeLevel5FrameworkProductEvidenceKind[] {

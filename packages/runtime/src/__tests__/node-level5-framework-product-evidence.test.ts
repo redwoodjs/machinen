@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -35,6 +36,9 @@ describe("Node Level 5 framework product evidence", () => {
       expect(verifyNodeLevel5FrameworkProductEvidenceReport(report)).toMatchObject({
         accepted: true,
         artifactFilesSha256Verified: true,
+        graphArtifactCoverageComplete: true,
+        restoredBehaviorProbeCoverageComplete: true,
+        refusalArtifactCoverageComplete: true,
       });
       expect(
         verifyNodeLevel5FrameworkProductEvidenceReport(
@@ -45,4 +49,35 @@ describe("Node Level 5 framework product evidence", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it("rejects drift in unsafe-state refusal artifact coverage", () => {
+    const dir = mkdtempSync(join(tmpdir(), "machinen-framework-product-refusal-drift-"));
+    try {
+      const report = writeNodeLevel5FrameworkProductEvidenceReport({
+        outDir: dir,
+        path: join(dir, "report.json"),
+      });
+      const refusalFile = report.artifactFiles.find(
+        (file) =>
+          file.evidenceKind === "refusal-artifact" && file.unsafeStateMarker === "activeRequests",
+      );
+      if (!refusalFile) {
+        throw new Error("missing active request refusal artifact");
+      }
+      refusalFile.unsafeStateMarker = "workerThreads";
+      report.artifactFilesSha256 = hashJson(report.artifactFiles);
+
+      expect(verifyNodeLevel5FrameworkProductEvidenceReport(report)).toMatchObject({
+        accepted: false,
+        artifactFilesSha256Verified: true,
+        refusalArtifactCoverageComplete: false,
+      });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });
+
+function hashJson(value: unknown): string {
+  return createHash("sha256").update(JSON.stringify(value)).digest("hex");
+}
