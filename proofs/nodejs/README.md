@@ -4,7 +4,7 @@ This directory keeps the Node proof corpus sharded by proof family, plus a singl
 
 ## Claim-facing folders
 
-- `claim-evidence-index/` — consolidated index/gate for public Node claims.
+- `claim-evidence-index/` — consolidated index/gate and row-coverage manifest for public Node claims.
 - `real-cross-arch-e2e-gate/` — retained bidirectional clean Node HTTP product E2E seed.
 - `100-100-0/` — historical previous claim folder, now unverified.
 

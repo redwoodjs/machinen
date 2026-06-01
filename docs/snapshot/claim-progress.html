@@ -361,7 +361,7 @@
     <script id="embedded-claim-progress" type="application/json">
       {
         "kind": "machinen.claim-progress-dashboard",
-        "version": 18,
+        "version": 19,
         "updatedFrom": [
           "docs/snapshot/node-level5-product-support-claim-registry.json",
           "docs/snapshot/node-level5-product-support-100.json",
@@ -428,6 +428,16 @@
                 "gate": "node-claim-evidence-index",
                 "artifact": "proofs/nodejs/claim-evidence-index/retained/node-claim-evidence-index-report.json",
                 "next": "Use this index as the only route for future Node claim raises."
+              },
+              {
+                "id": "node-row-coverage-manifest",
+                "area": "audit",
+                "kind": "row coverage manifest",
+                "status": "partial-proof",
+                "evidence": "Generated from buildNodeLevel5AppSupportMatrix(): 68 supported rows require 136 bidirectional E2E row bundles, 42 refused rows require 84 refusal direction artifacts, and 4 not-proven rows block any 100% claim. Current retained refusal coverage is complete; supported row bundles are not yet populated row-by-row.",
+                "gate": "node-claim-row-coverage",
+                "artifact": "proofs/nodejs/claim-evidence-index/retained/node-claim-row-coverage-report.json",
+                "next": "Populate row-evidence/supported/<row-id>/<direction>/ for every supported row and resolve not-proven rows."
               },
               {
                 "id": "node-existing-matrices-proof-only",
@@ -1103,6 +1113,26 @@
                 "proves": "The generic-VM refusal artifact report covers 20 artifacts for active requests, workers, native addons, TLS active state, and child processes across frameworks/directions.",
                 "claimUse": "boundary definition only until linked to matrix rows",
                 "next": "Link generic VM refusal artifacts to the claim matrix.",
+                "claimImpact": {
+                  "productSupportDelta": 0,
+                  "broadSupportDelta": 0,
+                  "arbitraryProcessCrossArchRestoreDelta": 0,
+                  "resultingClaim": {
+                    "productSupport": 0,
+                    "broadSupport": 0,
+                    "arbitraryProcessCrossArchRestore": 0
+                  },
+                  "claimChangeAllowed": false
+                }
+              },
+              {
+                "id": "node-row-coverage-manifest",
+                "category": "row coverage",
+                "status": "verified",
+                "artifact": "proofs/nodejs/claim-evidence-index/retained/node-claim-row-coverage-report.json",
+                "proves": "The support matrix has an explicit row-by-row coverage ledger: 136 supported direction bundles required, 0 currently row-covered; 84 refusal direction rows required, 84 covered; 4 not-proven rows remain blockers.",
+                "claimUse": "required missing-artifact ledger before any Node claim raise",
+                "next": "Fill every missing supported row bundle and resolve not-proven rows.",
                 "claimImpact": {
                   "productSupportDelta": 0,
                   "broadSupportDelta": 0,
