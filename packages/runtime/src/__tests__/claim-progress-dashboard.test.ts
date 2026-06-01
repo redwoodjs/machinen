@@ -48,6 +48,12 @@ describe("claim progress dashboard", () => {
       currentClaim: { arbitraryProcessCrossArchRestore: 0 },
       nextClaim: { arbitraryProcessCrossArchRestore: 1, claimChangeAllowed: false },
     });
+    const embeddedJson =
+      /<script id="embedded-claim-progress" type="application\/json">\n([\s\S]*?)\n    <\/script>/u.exec(
+        html,
+      )?.[1];
+    expect(embeddedJson).toBeDefined();
+    expect(JSON.parse(embeddedJson ?? "{}")).toEqual(dashboard);
     expect(html).toContain("claim-progress.json");
     expect(html).toContain("Load JSON file");
   });
