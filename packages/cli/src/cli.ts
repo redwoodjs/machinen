@@ -46,6 +46,7 @@ import {
   buildNodeLevel5AppSupportMatrix,
   buildNodeLevel5FrameworkCapabilityMatrix,
   buildProductClaimRegistry,
+  evaluateNodeLevel5FrameworkCapabilityClaimReady,
   evaluateNodeLevel5FrameworkCapabilityReadiness,
   createProductLevel4EventfdSnapshot,
   createProductLevel4PingSocketSnapshot,
@@ -67,6 +68,7 @@ import {
   isNodeLevel5ProductSnapshotBundle,
   isProductPortablePostgresBundle,
   loadNodeLevel5FrameworkIntrospectionCorpusReport,
+  loadNodeLevel5FrameworkProductEvidenceReport,
   loadNodeLevel5ProductSupport80ArtifactBundle,
   loadNodeLevel5RealAppCorpusReport,
   loadNodeLevel5RealAppRefusalCorpusReport,
@@ -1981,6 +1983,9 @@ function cmdNodeLevel5(args: string[]): number {
   if (rest[0] === "framework-readiness") {
     return cmdNodeLevel5FrameworkReadiness(rest.slice(1), json);
   }
+  if (rest[0] === "framework-claim-ready") {
+    return cmdNodeLevel5FrameworkClaimReady(rest.slice(1), json);
+  }
   if (rest[0] === "release-gate") {
     return cmdNodeLevel5ReleaseGate(rest.slice(1), json);
   }
@@ -2085,6 +2090,35 @@ function cmdNodeLevel5FrameworkReadiness(args: string[], json: boolean): number 
     ),
   });
   return reportNodeLevel5ProductCommand(json, summary);
+}
+
+function cmdNodeLevel5FrameworkClaimReady(args: string[], json: boolean): number {
+  const readinessPath = requiredNodeLevel5FrameworkFlag(
+    args,
+    "--readiness-report",
+    "framework-claim-ready",
+  );
+  const productEvidencePath = requiredNodeLevel5FrameworkFlag(
+    args,
+    "--framework-product-evidence-report",
+    "framework-claim-ready",
+  );
+  const summary = evaluateNodeLevel5FrameworkCapabilityClaimReady({
+    readinessReport: JSON.parse(readFileSync(resolve(readinessPath), "utf8")),
+    productEvidenceReport: loadNodeLevel5FrameworkProductEvidenceReport(
+      resolve(productEvidencePath),
+    ),
+  });
+  return reportNodeLevel5ProductCommand(json, summary);
+}
+
+function requiredNodeLevel5FrameworkFlag(args: string[], flag: string, command: string): string {
+  const index = args.indexOf(flag);
+  const value = index === -1 ? undefined : args[index + 1];
+  if (!value) {
+    die(`machinen node-level5 ${command} requires ${flag} <file>`);
+  }
+  return value;
 }
 
 function cmdNodeLevel5ReleaseGate(args: string[], json: boolean): number {
@@ -2653,6 +2687,7 @@ function nodeLevel5Usage(): string {
     "       machinen node-level5 support-matrix [--json]\n" +
     "       machinen node-level5 framework-capabilities [--json]\n" +
     "       machinen node-level5 framework-readiness --framework-introspection-corpus-report <file> [--json]\n" +
+    "       machinen node-level5 framework-claim-ready --readiness-report <file> --framework-product-evidence-report <file> [--json]\n" +
     "       machinen node-level5 release-gate [--include-generic-vm-corpus --generic-vm-corpus-report <file>] [--json]\n" +
     "       machinen node-level5 release-gate [--include-generic-vm-retained-evidence --generic-vm-retained-evidence-report <file>] [--json]\n" +
     "       machinen node-level5 release-gate [--include-generic-vm-row-artifacts --generic-vm-row-artifacts-report <file>] [--json]\n" +

@@ -244,6 +244,13 @@
 - [`loadNodeLevel5InstalledThirdPartyAppCorpusReport`](#loadnodelevel5installedthirdpartyappcorpusreport)
 - [`verifyNodeLevel5InstalledThirdPartyAppCorpusReport`](#verifynodelevel5installedthirdpartyappcorpusreport)
 - [`writeNodeLevel5InstalledThirdPartyAppCorpusReport`](#writenodelevel5installedthirdpartyappcorpusreport)
+- [`NodeLevel5FrameworkCapabilityClaimReadyGateStatus`](#nodelevel5frameworkcapabilityclaimreadygatestatus)
+- [`NodeLevel5FrameworkCapabilityClaimReadyGateId`](#nodelevel5frameworkcapabilityclaimreadygateid)
+- [`NodeLevel5FrameworkCapabilityClaimReadyGate`](#nodelevel5frameworkcapabilityclaimreadygate)
+- [`NodeLevel5FrameworkCapabilityClaimReadyReport`](#nodelevel5frameworkcapabilityclaimreadyreport)
+- [`NODE_LEVEL5_FRAMEWORK_CAPABILITY_CLAIM_READY_KIND`](#node_level5_framework_capability_claim_ready_kind)
+- [`NODE_LEVEL5_FRAMEWORK_CAPABILITY_CLAIM_READY_VERSION`](#node_level5_framework_capability_claim_ready_version)
+- [`evaluateNodeLevel5FrameworkCapabilityClaimReady`](#evaluatenodelevel5frameworkcapabilityclaimready)
 - [`NodeLevel5FrameworkCapabilityReadinessCoverage`](#nodelevel5frameworkcapabilityreadinesscoverage)
 - [`NodeLevel5FrameworkCapabilityReadinessGateStatus`](#nodelevel5frameworkcapabilityreadinessgatestatus)
 - [`NodeLevel5FrameworkCapabilityReadinessGateId`](#nodelevel5frameworkcapabilityreadinessgateid)
@@ -252,6 +259,17 @@
 - [`NODE_LEVEL5_FRAMEWORK_CAPABILITY_READINESS_KIND`](#node_level5_framework_capability_readiness_kind)
 - [`NODE_LEVEL5_FRAMEWORK_CAPABILITY_READINESS_VERSION`](#node_level5_framework_capability_readiness_version)
 - [`evaluateNodeLevel5FrameworkCapabilityReadiness`](#evaluatenodelevel5frameworkcapabilityreadiness)
+- [`NodeLevel5FrameworkProductEvidenceKind`](#nodelevel5frameworkproductevidencekind)
+- [`NodeLevel5FrameworkUnsafeStateMarker`](#nodelevel5frameworkunsafestatemarker)
+- [`NodeLevel5FrameworkProductEvidenceFile`](#nodelevel5frameworkproductevidencefile)
+- [`NodeLevel5FrameworkProductEvidenceReport`](#nodelevel5frameworkproductevidencereport)
+- [`NodeLevel5FrameworkProductEvidenceVerification`](#nodelevel5frameworkproductevidenceverification)
+- [`NODE_LEVEL5_FRAMEWORK_PRODUCT_EVIDENCE_REPORT_KIND`](#node_level5_framework_product_evidence_report_kind)
+- [`NODE_LEVEL5_FRAMEWORK_PRODUCT_EVIDENCE_REPORT_VERSION`](#node_level5_framework_product_evidence_report_version)
+- [`createNodeLevel5FrameworkProductEvidenceReport`](#createnodelevel5frameworkproductevidencereport)
+- [`writeNodeLevel5FrameworkProductEvidenceReport`](#writenodelevel5frameworkproductevidencereport)
+- [`verifyNodeLevel5FrameworkProductEvidenceReport`](#verifynodelevel5frameworkproductevidencereport)
+- [`loadNodeLevel5FrameworkProductEvidenceReport`](#loadnodelevel5frameworkproductevidencereport)
 - [`NodeLevel5FrameworkIntrospectionCapability`](#nodelevel5frameworkintrospectioncapability)
 - [`NodeLevel5FrameworkIntrospectionCorpusRow`](#nodelevel5frameworkintrospectioncorpusrow)
 - [`NodeLevel5FrameworkIntrospectionCorpusReport`](#nodelevel5frameworkintrospectioncorpusreport)
@@ -12681,7 +12699,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`message`](#message-10)
+[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`message`](#message-11)
 
 ##### migrationCompleted
 
@@ -22758,6 +22776,98 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NodeLevel5FrameworkCapabilityClaimReadyGateStatus
+
+> **NodeLevel5FrameworkCapabilityClaimReadyGateStatus** = `"passed"` \| `"blocked"`
+
+***
+
+### NodeLevel5FrameworkCapabilityClaimReadyGateId
+
+> **NodeLevel5FrameworkCapabilityClaimReadyGateId** = `"readiness-report-shape"` \| `"readiness-candidate-evidence-complete"` \| `"only-readiness-claim-unlock-blocked"` \| `"framework-product-evidence-accepted"` \| `"framework-graph-artifacts-complete"` \| `"restored-behavior-probes-complete"` \| `"unsafe-state-refusal-artifacts-complete"` \| `"current-claim-remains-85-25-0"` \| `"candidate-target-present"` \| `"arbitrary-process-remains-zero"` \| `"claim-change-unlocked"`
+
+***
+
+### NodeLevel5FrameworkCapabilityClaimReadyGate
+
+> **NodeLevel5FrameworkCapabilityClaimReadyGate** = `object`
+
+#### Properties
+
+##### id
+
+> **id**: [`NodeLevel5FrameworkCapabilityClaimReadyGateId`](#nodelevel5frameworkcapabilityclaimreadygateid)
+
+##### status
+
+> **status**: [`NodeLevel5FrameworkCapabilityClaimReadyGateStatus`](#nodelevel5frameworkcapabilityclaimreadygatestatus)
+
+##### message
+
+> **message**: `string`
+
+***
+
+### NodeLevel5FrameworkCapabilityClaimReadyReport
+
+> **NodeLevel5FrameworkCapabilityClaimReadyReport** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_FRAMEWORK_CAPABILITY_CLAIM_READY_KIND`](#node_level5_framework_capability_claim_ready_kind)
+
+##### version
+
+> **version**: *typeof* [`NODE_LEVEL5_FRAMEWORK_CAPABILITY_CLAIM_READY_VERSION`](#node_level5_framework_capability_claim_ready_version)
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### claimReadyEvidenceAccepted
+
+> **claimReadyEvidenceAccepted**: `boolean`
+
+##### claimChangeAllowed
+
+> **claimChangeAllowed**: `true`
+
+##### currentNodeProductSupportClaimed
+
+> **currentNodeProductSupportClaimed**: `85`
+
+##### currentBroadNodeProductSupportClaimed
+
+> **currentBroadNodeProductSupportClaimed**: `25`
+
+##### currentArbitraryProcessCrossArchRestoreClaimed
+
+> **currentArbitraryProcessCrossArchRestoreClaimed**: `0`
+
+##### candidateNodeProductSupportClaimed
+
+> **candidateNodeProductSupportClaimed**: `90`
+
+##### candidateBroadNodeProductSupportClaimed
+
+> **candidateBroadNodeProductSupportClaimed**: `30`
+
+##### candidateArbitraryProcessCrossArchRestoreClaimed
+
+> **candidateArbitraryProcessCrossArchRestoreClaimed**: `0`
+
+##### gates
+
+> **gates**: [`NodeLevel5FrameworkCapabilityClaimReadyGate`](#nodelevel5frameworkcapabilityclaimreadygate)[]
+
+##### blockedGates
+
+> **blockedGates**: [`NodeLevel5FrameworkCapabilityClaimReadyGate`](#nodelevel5frameworkcapabilityclaimreadygate)[]
+
+***
+
 ### NodeLevel5FrameworkCapabilityFramework
 
 > **NodeLevel5FrameworkCapabilityFramework** = `"express"` \| `"fastify"`
@@ -23173,6 +23283,206 @@ Poll interval in ms while retrying. Default 250.
 ##### rowsSha256Verified
 
 > **rowsSha256Verified**: `boolean`
+
+##### claimChangeAllowed
+
+> **claimChangeAllowed**: `false`
+
+##### currentNodeProductSupportClaimed
+
+> **currentNodeProductSupportClaimed**: `85`
+
+##### currentBroadNodeProductSupportClaimed
+
+> **currentBroadNodeProductSupportClaimed**: `25`
+
+##### currentArbitraryProcessCrossArchRestoreClaimed
+
+> **currentArbitraryProcessCrossArchRestoreClaimed**: `0`
+
+##### candidateNodeProductSupportClaimed
+
+> **candidateNodeProductSupportClaimed**: `90`
+
+##### candidateBroadNodeProductSupportClaimed
+
+> **candidateBroadNodeProductSupportClaimed**: `30`
+
+##### candidateArbitraryProcessCrossArchRestoreClaimed
+
+> **candidateArbitraryProcessCrossArchRestoreClaimed**: `0`
+
+***
+
+### NodeLevel5FrameworkProductEvidenceKind
+
+> **NodeLevel5FrameworkProductEvidenceKind** = `"express-route-graph"` \| `"express-middleware-graph"` \| `"express-settings-graph"` \| `"express-error-handler-graph"` \| `"fastify-plugin-graph"` \| `"fastify-decorator-graph"` \| `"fastify-hook-graph"` \| `"fastify-schema-graph"` \| `"fastify-route-graph"` \| `"restored-behavior-probe"` \| `"refusal-artifact"`
+
+***
+
+### NodeLevel5FrameworkUnsafeStateMarker
+
+> **NodeLevel5FrameworkUnsafeStateMarker** = `"activeRequests"` \| `"workerThreads"` \| `"nativeAddons"` \| `"tlsActiveState"` \| `"childProcesses"`
+
+***
+
+### NodeLevel5FrameworkProductEvidenceFile
+
+> **NodeLevel5FrameworkProductEvidenceFile** = `object`
+
+#### Properties
+
+##### path
+
+> **path**: `string`
+
+##### sha256
+
+> **sha256**: `string`
+
+##### framework
+
+> **framework**: [`NodeLevel5FrameworkCapabilityFramework`](#nodelevel5frameworkcapabilityframework)
+
+##### direction
+
+> **direction**: [`NodeLevel5ProductSnapshotDirection`](#nodelevel5productsnapshotdirection)
+
+##### evidenceKind
+
+> **evidenceKind**: [`NodeLevel5FrameworkProductEvidenceKind`](#nodelevel5frameworkproductevidencekind)
+
+##### required
+
+> **required**: `true`
+
+***
+
+### NodeLevel5FrameworkProductEvidenceReport
+
+> **NodeLevel5FrameworkProductEvidenceReport** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_FRAMEWORK_PRODUCT_EVIDENCE_REPORT_KIND`](#node_level5_framework_product_evidence_report_kind)
+
+##### version
+
+> **version**: *typeof* [`NODE_LEVEL5_FRAMEWORK_PRODUCT_EVIDENCE_REPORT_VERSION`](#node_level5_framework_product_evidence_report_version)
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### productCommandPath
+
+> **productCommandPath**: `"machinen snapshot <vm-name> --out <dir>; machinen restore <dir>"`
+
+##### vmDetectedNodeWorkload
+
+> **vmDetectedNodeWorkload**: `true`
+
+##### graphArtifactCount
+
+> **graphArtifactCount**: `number`
+
+##### restoredBehaviorProbeCount
+
+> **restoredBehaviorProbeCount**: `number`
+
+##### refusalArtifactCount
+
+> **refusalArtifactCount**: `number`
+
+##### artifactCount
+
+> **artifactCount**: `number`
+
+##### artifactFiles
+
+> **artifactFiles**: [`NodeLevel5FrameworkProductEvidenceFile`](#nodelevel5frameworkproductevidencefile)[]
+
+##### artifactFilesSha256
+
+> **artifactFilesSha256**: `string`
+
+##### expressCapabilitiesCovered
+
+> **expressCapabilitiesCovered**: `string`[]
+
+##### fastifyCapabilitiesCovered
+
+> **fastifyCapabilitiesCovered**: `string`[]
+
+##### unsafeStateMarkersCovered
+
+> **unsafeStateMarkersCovered**: [`NodeLevel5FrameworkUnsafeStateMarker`](#nodelevel5frameworkunsafestatemarker)[]
+
+##### claimChangeAllowed
+
+> **claimChangeAllowed**: `false`
+
+##### currentNodeProductSupportClaimed
+
+> **currentNodeProductSupportClaimed**: `85`
+
+##### currentBroadNodeProductSupportClaimed
+
+> **currentBroadNodeProductSupportClaimed**: `25`
+
+##### currentArbitraryProcessCrossArchRestoreClaimed
+
+> **currentArbitraryProcessCrossArchRestoreClaimed**: `0`
+
+##### candidateNodeProductSupportClaimed
+
+> **candidateNodeProductSupportClaimed**: `90`
+
+##### candidateBroadNodeProductSupportClaimed
+
+> **candidateBroadNodeProductSupportClaimed**: `30`
+
+##### candidateArbitraryProcessCrossArchRestoreClaimed
+
+> **candidateArbitraryProcessCrossArchRestoreClaimed**: `0`
+
+***
+
+### NodeLevel5FrameworkProductEvidenceVerification
+
+> **NodeLevel5FrameworkProductEvidenceVerification** = `object`
+
+#### Properties
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### kind
+
+> **kind**: `"machinen.node-level5-framework-product-evidence-verification"`
+
+##### graphArtifactCount
+
+> **graphArtifactCount**: `number`
+
+##### restoredBehaviorProbeCount
+
+> **restoredBehaviorProbeCount**: `number`
+
+##### refusalArtifactCount
+
+> **refusalArtifactCount**: `number`
+
+##### artifactCount
+
+> **artifactCount**: `number`
+
+##### artifactFilesSha256Verified
+
+> **artifactFilesSha256Verified**: `boolean`
 
 ##### claimChangeAllowed
 
@@ -28362,6 +28672,18 @@ loops; anything looser stops being a meaningful gate.
 
 ***
 
+### NODE\_LEVEL5\_FRAMEWORK\_CAPABILITY\_CLAIM\_READY\_KIND
+
+> `const` **NODE\_LEVEL5\_FRAMEWORK\_CAPABILITY\_CLAIM\_READY\_KIND**: `"machinen.node-level5-framework-capability-claim-ready"` = `"machinen.node-level5-framework-capability-claim-ready"`
+
+***
+
+### NODE\_LEVEL5\_FRAMEWORK\_CAPABILITY\_CLAIM\_READY\_VERSION
+
+> `const` **NODE\_LEVEL5\_FRAMEWORK\_CAPABILITY\_CLAIM\_READY\_VERSION**: `1` = `1`
+
+***
+
 ### NODE\_LEVEL5\_FRAMEWORK\_CAPABILITY\_MATRIX\_KIND
 
 > `const` **NODE\_LEVEL5\_FRAMEWORK\_CAPABILITY\_MATRIX\_KIND**: `"machinen.node-level5-framework-capability-matrix"` = `"machinen.node-level5-framework-capability-matrix"`
@@ -28395,6 +28717,18 @@ loops; anything looser stops being a meaningful gate.
 ### NODE\_LEVEL5\_FRAMEWORK\_INTROSPECTION\_CORPUS\_REPORT\_VERSION
 
 > `const` **NODE\_LEVEL5\_FRAMEWORK\_INTROSPECTION\_CORPUS\_REPORT\_VERSION**: `1` = `1`
+
+***
+
+### NODE\_LEVEL5\_FRAMEWORK\_PRODUCT\_EVIDENCE\_REPORT\_KIND
+
+> `const` **NODE\_LEVEL5\_FRAMEWORK\_PRODUCT\_EVIDENCE\_REPORT\_KIND**: `"machinen.node-level5-framework-product-evidence-report"` = `"machinen.node-level5-framework-product-evidence-report"`
+
+***
+
+### NODE\_LEVEL5\_FRAMEWORK\_PRODUCT\_EVIDENCE\_REPORT\_VERSION
+
+> `const` **NODE\_LEVEL5\_FRAMEWORK\_PRODUCT\_EVIDENCE\_REPORT\_VERSION**: `1` = `1`
 
 ***
 
@@ -31622,6 +31956,28 @@ available.
 
 ***
 
+### evaluateNodeLevel5FrameworkCapabilityClaimReady()
+
+> **evaluateNodeLevel5FrameworkCapabilityClaimReady**(`input`): [`NodeLevel5FrameworkCapabilityClaimReadyReport`](#nodelevel5frameworkcapabilityclaimreadyreport)
+
+#### Parameters
+
+##### input
+
+###### readinessReport
+
+[`NodeLevel5FrameworkCapabilityReadinessReport`](#nodelevel5frameworkcapabilityreadinessreport)
+
+###### productEvidenceReport
+
+[`NodeLevel5FrameworkProductEvidenceReport`](#nodelevel5frameworkproductevidencereport)
+
+#### Returns
+
+[`NodeLevel5FrameworkCapabilityClaimReadyReport`](#nodelevel5frameworkcapabilityclaimreadyreport)
+
+***
+
 ### buildNodeLevel5FrameworkCapabilityMatrix()
 
 > **buildNodeLevel5FrameworkCapabilityMatrix**(): [`NodeLevel5FrameworkCapabilityMatrix`](#nodelevel5frameworkcapabilitymatrix)
@@ -31721,6 +32077,78 @@ available.
 #### Returns
 
 [`NodeLevel5FrameworkIntrospectionCorpusReport`](#nodelevel5frameworkintrospectioncorpusreport)
+
+***
+
+### createNodeLevel5FrameworkProductEvidenceReport()
+
+> **createNodeLevel5FrameworkProductEvidenceReport**(`input`): [`NodeLevel5FrameworkProductEvidenceReport`](#nodelevel5frameworkproductevidencereport)
+
+#### Parameters
+
+##### input
+
+###### outDir
+
+`string`
+
+#### Returns
+
+[`NodeLevel5FrameworkProductEvidenceReport`](#nodelevel5frameworkproductevidencereport)
+
+***
+
+### writeNodeLevel5FrameworkProductEvidenceReport()
+
+> **writeNodeLevel5FrameworkProductEvidenceReport**(`input`): [`NodeLevel5FrameworkProductEvidenceReport`](#nodelevel5frameworkproductevidencereport)
+
+#### Parameters
+
+##### input
+
+###### outDir
+
+`string`
+
+###### path
+
+`string`
+
+#### Returns
+
+[`NodeLevel5FrameworkProductEvidenceReport`](#nodelevel5frameworkproductevidencereport)
+
+***
+
+### verifyNodeLevel5FrameworkProductEvidenceReport()
+
+> **verifyNodeLevel5FrameworkProductEvidenceReport**(`report`): [`NodeLevel5FrameworkProductEvidenceVerification`](#nodelevel5frameworkproductevidenceverification)
+
+#### Parameters
+
+##### report
+
+[`NodeLevel5FrameworkProductEvidenceReport`](#nodelevel5frameworkproductevidencereport)
+
+#### Returns
+
+[`NodeLevel5FrameworkProductEvidenceVerification`](#nodelevel5frameworkproductevidenceverification)
+
+***
+
+### loadNodeLevel5FrameworkProductEvidenceReport()
+
+> **loadNodeLevel5FrameworkProductEvidenceReport**(`path`): [`NodeLevel5FrameworkProductEvidenceReport`](#nodelevel5frameworkproductevidencereport)
+
+#### Parameters
+
+##### path
+
+`string`
+
+#### Returns
+
+[`NodeLevel5FrameworkProductEvidenceReport`](#nodelevel5frameworkproductevidencereport)
 
 ***
 

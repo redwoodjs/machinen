@@ -21,11 +21,17 @@ machinen node-level5 framework-capabilities --json
 machinen node-level5 framework-readiness \
   --framework-introspection-corpus-report ./node-level5-framework-introspection-corpus-report.json \
   --json
+machinen node-level5 framework-claim-ready \
+  --readiness-report ./node-level5-framework-readiness.json \
+  --framework-product-evidence-report ./node-level5-framework-product-evidence-report.json \
+  --json
 ```
 
 ## What this adds
 
 The readiness gate now checks more than row count. It verifies that every Express/Fastify capability and cross-architecture direction is present, that the rows use the VM-detected product command path, that framework graph artifacts are retained, and that no row claims arbitrary framework, Node, or process support.
+
+The claim-ready gate adds the product evidence required before a future 90 / 30 / 0 claim PR can raise the public claim: Express route/middleware/settings/error-handler graph artifacts, Fastify plugin/decorator/hook/schema/route graph artifacts, restored behavior probes tied to those artifacts, and refusal artifacts for unsafe dynamic/live states.
 
 The matrix separates three ideas:
 

@@ -1378,6 +1378,16 @@ export { readBalloonStats, STATS_FILE_SIZE } from "./balloon-stats.ts";
 export type { BalloonCounters } from "./balloon-stats.ts";
 
 export {
+  NODE_LEVEL5_FRAMEWORK_CAPABILITY_CLAIM_READY_KIND,
+  NODE_LEVEL5_FRAMEWORK_CAPABILITY_CLAIM_READY_VERSION,
+  evaluateNodeLevel5FrameworkCapabilityClaimReady,
+  type NodeLevel5FrameworkCapabilityClaimReadyGate,
+  type NodeLevel5FrameworkCapabilityClaimReadyGateId,
+  type NodeLevel5FrameworkCapabilityClaimReadyGateStatus,
+  type NodeLevel5FrameworkCapabilityClaimReadyReport,
+} from "./node-level5-framework-capability-claim-ready.ts";
+
+export {
   NODE_LEVEL5_FRAMEWORK_CAPABILITY_READINESS_KIND,
   NODE_LEVEL5_FRAMEWORK_CAPABILITY_READINESS_VERSION,
   evaluateNodeLevel5FrameworkCapabilityReadiness,
@@ -1387,6 +1397,20 @@ export {
   type NodeLevel5FrameworkCapabilityReadinessGateStatus,
   type NodeLevel5FrameworkCapabilityReadinessReport,
 } from "./node-level5-framework-capability-readiness.ts";
+
+export {
+  NODE_LEVEL5_FRAMEWORK_PRODUCT_EVIDENCE_REPORT_KIND,
+  NODE_LEVEL5_FRAMEWORK_PRODUCT_EVIDENCE_REPORT_VERSION,
+  createNodeLevel5FrameworkProductEvidenceReport,
+  loadNodeLevel5FrameworkProductEvidenceReport,
+  verifyNodeLevel5FrameworkProductEvidenceReport,
+  writeNodeLevel5FrameworkProductEvidenceReport,
+  type NodeLevel5FrameworkProductEvidenceFile,
+  type NodeLevel5FrameworkProductEvidenceKind,
+  type NodeLevel5FrameworkProductEvidenceReport,
+  type NodeLevel5FrameworkProductEvidenceVerification,
+  type NodeLevel5FrameworkUnsafeStateMarker,
+} from "./node-level5-framework-product-evidence.ts";
 
 export {
   NODE_LEVEL5_FRAMEWORK_INTROSPECTION_CORPUS_REPORT_KIND,
