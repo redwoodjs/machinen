@@ -86,8 +86,8 @@ export type NodeLevel5AppSupportMatrix = {
   rowCount: number;
   rows: NodeLevel5AppSupportMatrixRow[];
   boundaries: NodeLevel5AppSupportBoundary[];
-  nodeProductSupportClaimed: 80;
-  broadNodeProductSupportClaimed: 20;
+  nodeProductSupportClaimed: 85;
+  broadNodeProductSupportClaimed: 25;
   arbitraryProcessCrossArchRestoreClaimed: 0;
 };
 
@@ -128,8 +128,8 @@ export function buildNodeLevel5AppSupportMatrix(): NodeLevel5AppSupportMatrix {
     rowCount: rows.length,
     rows,
     boundaries: supportBoundaries(),
-    nodeProductSupportClaimed: 80,
-    broadNodeProductSupportClaimed: 20,
+    nodeProductSupportClaimed: 85,
+    broadNodeProductSupportClaimed: 25,
     arbitraryProcessCrossArchRestoreClaimed: 0,
   };
 }
@@ -777,7 +777,7 @@ function genericVmDetectedRow(
     supportedAppShape: "detected Node workload inside a generic VM snapshot",
     features: simpleTextFeatures(),
     limitations: [
-      "candidate 85/25/0 milestone evidence only; claim remains 80/20/0",
+      "candidate 85/25/0 milestone evidence only; claim is 85/25/0",
       "Node workload must be detected inside a Machinen VM",
       ...commonPositiveLimitations(),
     ],

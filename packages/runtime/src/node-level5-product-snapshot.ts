@@ -6,9 +6,9 @@ import { join } from "node:path";
 import {
   createNodeLevel5ProductSupport80ArtifactBundle,
   loadNodeLevel5ProductSupport80ArtifactBundle,
-  nodeLevel5ProductSupport80ClaimRegistry,
   verifyNodeLevel5ProductSupport80ArtifactBundle,
 } from "./node-level5-product-support-80-hardening.ts";
+import { nodeLevel5ProductSupport85ClaimRegistry } from "./node-level5-product-support-85.ts";
 import type { NodeLevel5ProductSupport80FamilyId } from "./node-level5-product-support-80.ts";
 
 export const NODE_LEVEL5_PRODUCT_SNAPSHOT_KIND = "machinen.node-level5-product-snapshot";
@@ -98,8 +98,8 @@ export type NodeLevel5ProductDetectorReport = {
   detectedFramework?: "express" | "fastify";
   detectedFeatures?: NodeLevel5ProductDetectedFeature[];
   refusal?: NodeLevel5ProductSnapshotRefusal;
-  nodeProductSupportClaimed: 80;
-  broadNodeProductSupportClaimed: 20;
+  nodeProductSupportClaimed: 85;
+  broadNodeProductSupportClaimed: 25;
   arbitraryProcessCrossArchRestoreClaimed: 0;
 };
 
@@ -117,8 +117,8 @@ export type NodeLevel5ProductCaptureReport = {
   rawCpuRestoreCaptured: false;
   sourceIsaEmulationCaptured: false;
   metadataOnlySuccessAccepted: false;
-  nodeProductSupportClaimed: 80;
-  broadNodeProductSupportClaimed: 20;
+  nodeProductSupportClaimed: 85;
+  broadNodeProductSupportClaimed: 25;
   arbitraryProcessCrossArchRestoreClaimed: 0;
 };
 
@@ -135,8 +135,8 @@ export type NodeLevel5ProductRestoreMaterializationReport = {
   rawCpuRestoreUsed: false;
   sourceIsaEmulationUsed: false;
   metadataOnlySuccessAccepted: false;
-  nodeProductSupportClaimed: 80;
-  broadNodeProductSupportClaimed: 20;
+  nodeProductSupportClaimed: 85;
+  broadNodeProductSupportClaimed: 25;
   arbitraryProcessCrossArchRestoreClaimed: 0;
 };
 
@@ -152,8 +152,8 @@ export type NodeLevel5ProductRestoreLaunchReport = {
   rawCpuRestoreUsed: false;
   sourceIsaEmulationUsed: false;
   metadataOnlySuccessAccepted: false;
-  nodeProductSupportClaimed: 80;
-  broadNodeProductSupportClaimed: 20;
+  nodeProductSupportClaimed: 85;
+  broadNodeProductSupportClaimed: 25;
   arbitraryProcessCrossArchRestoreClaimed: 0;
 };
 
@@ -177,15 +177,15 @@ export type NodeLevel5ProductBehavioralVerifierReport = {
   rawCpuRestoreUsed: false;
   sourceIsaEmulationUsed: false;
   metadataOnlySuccessAccepted: false;
-  nodeProductSupportClaimed: 80;
-  broadNodeProductSupportClaimed: 20;
+  nodeProductSupportClaimed: 85;
+  broadNodeProductSupportClaimed: 25;
   arbitraryProcessCrossArchRestoreClaimed: 0;
 };
 
 export type NodeLevel5ProductSnapshotManifest = {
   kind: typeof NODE_LEVEL5_PRODUCT_SNAPSHOT_KIND;
   version: typeof NODE_LEVEL5_PRODUCT_SNAPSHOT_VERSION;
-  status: "node-product-support-80";
+  status: "node-product-support-85";
   familyId: NodeLevel5ProductSupport80FamilyId;
   direction: NodeLevel5ProductSnapshotDirection;
   artifactRoot: string;
@@ -201,8 +201,8 @@ export type NodeLevel5ProductSnapshotManifest = {
   rawCpuRestoreSupported: false;
   sourceIsaEmulationSupported: false;
   appCheckpointHooksRequired: false;
-  nodeProductSupportClaimed: 80;
-  broadNodeProductSupportClaimed: 20;
+  nodeProductSupportClaimed: 85;
+  broadNodeProductSupportClaimed: 25;
   arbitraryProcessCrossArchRestoreClaimed: 0;
 };
 
@@ -242,8 +242,8 @@ export type NodeLevel5ProductRestoreSummary = {
   translatedContinuationRequired: true;
   rawCpuRestoreUsed: false;
   sourceIsaEmulationUsed: false;
-  nodeProductSupportClaimed: 80;
-  broadNodeProductSupportClaimed: 20;
+  nodeProductSupportClaimed: 85;
+  broadNodeProductSupportClaimed: 25;
   arbitraryProcessCrossArchRestoreClaimed: 0;
 };
 
@@ -373,8 +373,8 @@ export function restoreNodeLevel5ProductSnapshot(input: {
     translatedContinuationRequired: true,
     rawCpuRestoreUsed: false,
     sourceIsaEmulationUsed: false,
-    nodeProductSupportClaimed: 80,
-    broadNodeProductSupportClaimed: 20,
+    nodeProductSupportClaimed: 85,
+    broadNodeProductSupportClaimed: 25,
     arbitraryProcessCrossArchRestoreClaimed: 0,
   };
 }
@@ -512,7 +512,7 @@ function buildManifest(
   return {
     kind: NODE_LEVEL5_PRODUCT_SNAPSHOT_KIND,
     version: NODE_LEVEL5_PRODUCT_SNAPSHOT_VERSION,
-    status: "node-product-support-80",
+    status: "node-product-support-85",
     familyId: report.familyId,
     direction: report.direction,
     artifactRoot: join("artifacts", report.familyId, report.direction),
@@ -528,11 +528,11 @@ function buildManifest(
     rawCpuRestoreSupported: false,
     sourceIsaEmulationSupported: false,
     appCheckpointHooksRequired: false,
-    nodeProductSupportClaimed: nodeLevel5ProductSupport80ClaimRegistry.nodeProductSupportClaimed,
+    nodeProductSupportClaimed: nodeLevel5ProductSupport85ClaimRegistry.nodeProductSupportClaimed,
     broadNodeProductSupportClaimed:
-      nodeLevel5ProductSupport80ClaimRegistry.broadNodeProductSupportClaimed,
+      nodeLevel5ProductSupport85ClaimRegistry.broadNodeProductSupportClaimed,
     arbitraryProcessCrossArchRestoreClaimed:
-      nodeLevel5ProductSupport80ClaimRegistry.arbitraryProcessCrossArchRestoreClaimed,
+      nodeLevel5ProductSupport85ClaimRegistry.arbitraryProcessCrossArchRestoreClaimed,
   };
 }
 
@@ -556,8 +556,8 @@ function buildCaptureReport(
     rawCpuRestoreCaptured: false,
     sourceIsaEmulationCaptured: false,
     metadataOnlySuccessAccepted: false,
-    nodeProductSupportClaimed: 80,
-    broadNodeProductSupportClaimed: 20,
+    nodeProductSupportClaimed: 85,
+    broadNodeProductSupportClaimed: 25,
     arbitraryProcessCrossArchRestoreClaimed: 0,
   };
 }
@@ -604,8 +604,8 @@ function behavioralVerifierReportBase(
     rawCpuRestoreUsed: false,
     sourceIsaEmulationUsed: false,
     metadataOnlySuccessAccepted: false,
-    nodeProductSupportClaimed: 80,
-    broadNodeProductSupportClaimed: 20,
+    nodeProductSupportClaimed: 85,
+    broadNodeProductSupportClaimed: 25,
     arbitraryProcessCrossArchRestoreClaimed: 0,
   };
 }
@@ -744,8 +744,8 @@ function buildRestoreLaunchReport(
     rawCpuRestoreUsed: false,
     sourceIsaEmulationUsed: false,
     metadataOnlySuccessAccepted: false,
-    nodeProductSupportClaimed: 80,
-    broadNodeProductSupportClaimed: 20,
+    nodeProductSupportClaimed: 85,
+    broadNodeProductSupportClaimed: 25,
     arbitraryProcessCrossArchRestoreClaimed: 0,
   };
 }
@@ -770,8 +770,8 @@ function buildRestoreMaterializationReport(
     rawCpuRestoreUsed: false,
     sourceIsaEmulationUsed: false,
     metadataOnlySuccessAccepted: false,
-    nodeProductSupportClaimed: 80,
-    broadNodeProductSupportClaimed: 20,
+    nodeProductSupportClaimed: 85,
+    broadNodeProductSupportClaimed: 25,
     arbitraryProcessCrossArchRestoreClaimed: 0,
   };
 }
@@ -791,8 +791,8 @@ function detectorReportBase(
     kind: NODE_LEVEL5_PRODUCT_DETECTOR_REPORT_KIND,
     appDir,
     direction,
-    nodeProductSupportClaimed: 80,
-    broadNodeProductSupportClaimed: 20,
+    nodeProductSupportClaimed: 85,
+    broadNodeProductSupportClaimed: 25,
     arbitraryProcessCrossArchRestoreClaimed: 0,
     ...fields,
   };
@@ -962,7 +962,7 @@ function hasNodeLevel5ProductSnapshotIdentity(
   return (
     record.kind === NODE_LEVEL5_PRODUCT_SNAPSHOT_KIND &&
     record.version === NODE_LEVEL5_PRODUCT_SNAPSHOT_VERSION &&
-    record.status === "node-product-support-80" &&
+    record.status === "node-product-support-85" &&
     typeof record.artifactRoot === "string"
   );
 }
@@ -996,8 +996,8 @@ function hasNodeLevel5ProductSnapshotClaims(
   record: Partial<NodeLevel5ProductSnapshotManifest>,
 ): boolean {
   return (
-    record.nodeProductSupportClaimed === 80 &&
-    record.broadNodeProductSupportClaimed === 20 &&
+    record.nodeProductSupportClaimed === 85 &&
+    record.broadNodeProductSupportClaimed === 25 &&
     record.arbitraryProcessCrossArchRestoreClaimed === 0
   );
 }

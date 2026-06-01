@@ -1,0 +1,26 @@
+{
+  "kind": "machinen.node-level5-product-support-85",
+  "status": "node-product-support-85-claimed",
+  "nodeProductSupportClaimed": 85,
+  "broadNodeProductSupportClaimed": 25,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "previousNodeProductSupportClaimed": 80,
+  "previousBroadNodeProductSupportClaimed": 20,
+  "productCommandPath": "machinen snapshot <vm-name> --out <dir>; machinen restore <dir>",
+  "nodeDetectedInsideVm": true,
+  "hostPidProductTargetingAllowed": false,
+  "supportMatrixRows": {
+    "total": 114,
+    "supported": 68,
+    "refused": 42,
+    "notProven": 4
+  },
+  "requiredEvidence": [
+    "generic-vm-corpus",
+    "generic-vm-retained-evidence",
+    "generic-vm-row-artifacts",
+    "generic-vm-refusal-artifacts",
+    "node-level5-85-claim-ready"
+  ],
+  "claimChangeAllowed": true
+}

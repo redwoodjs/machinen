@@ -1,6 +1,6 @@
 # Node Level 5 product commands
 
-The Node Level 5 product command surface exposes the hardened 80% evidence workflow.
+The Node Level 5 product command surface exposes the hardened 85% evidence workflow.
 
 ## Write an artifact bundle
 
@@ -67,14 +67,14 @@ machinen node-level5 85-claim-ready \
   --json
 ```
 
-The generic VM corpus, retained-evidence, row-artifact, refusal-artifact, and claim-ready gates record candidate 85 / 25 / 0 evidence only and keep `claimChangeAllowed: false`. The 85 readiness and claim-ready commands are expected to stay refused until the claim-change PR intentionally unlocks the final claim gate.
+The generic VM corpus, retained-evidence, row-artifact, refusal-artifact, and claim-ready gates back the claimed 85 / 25 / 0 tier. The final claim-ready command unlocks the claim while arbitrary process support remains 0.
 
 The claim registry remains:
 
 ```json
 {
-  "nodeProductSupportClaimed": 80,
-  "broadNodeProductSupportClaimed": 20,
+  "nodeProductSupportClaimed": 85,
+  "broadNodeProductSupportClaimed": 25,
   "arbitraryProcessCrossArchRestoreClaimed": 0
 }
 ```

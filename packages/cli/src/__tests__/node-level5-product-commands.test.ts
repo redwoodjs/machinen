@@ -410,15 +410,15 @@ describe("Node Level 5 product commands", () => {
         readinessPath,
         "--json",
       ]);
-      expect(claimReady.status).toBe(1);
+      expect(claimReady.status).toBe(0);
       expect(JSON.parse(claimReady.stdout)).toMatchObject({
-        accepted: false,
+        accepted: true,
         claimReadyEvidenceAccepted: true,
-        claimChangeAllowed: false,
+        claimChangeAllowed: true,
         candidateBroadNodeProductSupportClaimed: 25,
-        currentBroadNodeProductSupportClaimed: 20,
+        currentBroadNodeProductSupportClaimed: 25,
         matrixCounts: { total: 114, supported: 68, refused: 42, notProven: 4 },
-        blockedGates: [expect.objectContaining({ id: "claim-change-unlocked" })],
+        blockedGates: [],
       });
     } finally {
       rmSync(dir, { recursive: true, force: true });
@@ -709,8 +709,8 @@ describe("Node Level 5 product commands", () => {
     const claims = runCli(["node-level5", "claims", "--json"]);
     expect(claims.status).toBe(0);
     expect(JSON.parse(claims.stdout).claimRegistry).toMatchObject({
-      nodeProductSupportClaimed: 80,
-      broadNodeProductSupportClaimed: 20,
+      nodeProductSupportClaimed: 85,
+      broadNodeProductSupportClaimed: 25,
       arbitraryProcessCrossArchRestoreClaimed: 0,
     });
 
