@@ -65,6 +65,7 @@ import {
   isProductLevel4TimerfdBundle,
   isNodeLevel5ProductSnapshotBundle,
   isProductPortablePostgresBundle,
+  loadNodeLevel5FrameworkIntrospectionCorpusReport,
   loadNodeLevel5ProductSupport80ArtifactBundle,
   loadNodeLevel5RealAppCorpusReport,
   loadNodeLevel5RealAppRefusalCorpusReport,
@@ -95,6 +96,7 @@ import {
   verifyNodeLevel5GenericVmRefusalArtifactsReport,
   verifyNodeLevel5GenericVmRetainedEvidenceReport,
   verifyNodeLevel5GenericVmRowArtifactsReport,
+  verifyNodeLevel5FrameworkIntrospectionCorpusReport,
   verifyNodeLevel5InstalledThirdPartyAppCorpusReport,
   verifyNodeLevel5ThirdPartyAppCorpusReport,
   restoreProductLevel4EventfdSnapshot,
@@ -2074,6 +2076,7 @@ function cmdNodeLevel5ReleaseGate(args: string[], json: boolean): number {
   const genericVmRetainedEvidence = readOptionalNodeLevel5GenericVmRetainedEvidence(args);
   const genericVmRowArtifacts = readOptionalNodeLevel5GenericVmRowArtifacts(args);
   const genericVmRefusalArtifacts = readOptionalNodeLevel5GenericVmRefusalArtifacts(args);
+  const frameworkIntrospectionCorpus = readOptionalNodeLevel5FrameworkIntrospectionCorpus(args);
   const artifact = readOptionalNodeLevel5RetainedArtifact(nodeLevel5ReleaseGateArtifactArgs(args));
   const accepted = [
     artifact,
@@ -2085,6 +2088,7 @@ function cmdNodeLevel5ReleaseGate(args: string[], json: boolean): number {
     genericVmRetainedEvidence,
     genericVmRowArtifacts,
     genericVmRefusalArtifacts,
+    frameworkIntrospectionCorpus,
   ].every((item) => (item ? item.accepted === true : true));
   return reportNodeLevel5ProductCommand(json, {
     accepted,
@@ -2101,6 +2105,7 @@ function cmdNodeLevel5ReleaseGate(args: string[], json: boolean): number {
     genericVmRetainedEvidence,
     genericVmRowArtifacts,
     genericVmRefusalArtifacts,
+    frameworkIntrospectionCorpus,
   });
 }
 
@@ -2113,6 +2118,7 @@ const nodeLevel5ReleaseGateReportFlags = new Set([
   "--include-generic-vm-retained-evidence",
   "--include-generic-vm-row-artifacts",
   "--include-generic-vm-refusal-artifacts",
+  "--include-framework-introspection-corpus",
   "--corpus-report",
   "--refusal-corpus-report",
   "--third-party-app-corpus-report",
@@ -2121,6 +2127,7 @@ const nodeLevel5ReleaseGateReportFlags = new Set([
   "--generic-vm-retained-evidence-report",
   "--generic-vm-row-artifacts-report",
   "--generic-vm-refusal-artifacts-report",
+  "--framework-introspection-corpus-report",
 ]);
 const nodeLevel5ReleaseGateReportValueFlags = new Set([
   "--corpus-report",
@@ -2131,6 +2138,7 @@ const nodeLevel5ReleaseGateReportValueFlags = new Set([
   "--generic-vm-retained-evidence-report",
   "--generic-vm-row-artifacts-report",
   "--generic-vm-refusal-artifacts-report",
+  "--framework-introspection-corpus-report",
 ]);
 
 function cmdNodeLevel5ProductSupport85Readiness(args: string[], json: boolean): number {
@@ -2479,6 +2487,31 @@ function verifyNodeLevel5GenericVmRefusalArtifactsPath(path: string): Record<str
   }
 }
 
+function readOptionalNodeLevel5FrameworkIntrospectionCorpus(
+  args: string[],
+): Record<string, unknown> | undefined {
+  if (!args.includes("--include-framework-introspection-corpus")) {
+    return undefined;
+  }
+  const reportFlag = args.indexOf("--framework-introspection-corpus-report");
+  const path = reportFlag === -1 ? undefined : args[reportFlag + 1];
+  if (!path) {
+    die(
+      "machinen node-level5 release-gate --include-framework-introspection-corpus requires --framework-introspection-corpus-report <file>",
+    );
+  }
+  try {
+    return verifyNodeLevel5FrameworkIntrospectionCorpusReport(
+      loadNodeLevel5FrameworkIntrospectionCorpusReport(resolve(path)),
+    );
+  } catch (error) {
+    return invalidNodeLevel5ReleaseReport(
+      "node-level5-framework-introspection-corpus-invalid",
+      error,
+    );
+  }
+}
+
 function invalidNodeLevel5ReleaseReport(code: string, error: unknown): Record<string, unknown> {
   return {
     accepted: false,
@@ -2594,6 +2627,7 @@ function nodeLevel5Usage(): string {
     "       machinen node-level5 release-gate [--include-generic-vm-retained-evidence --generic-vm-retained-evidence-report <file>] [--json]\n" +
     "       machinen node-level5 release-gate [--include-generic-vm-row-artifacts --generic-vm-row-artifacts-report <file>] [--json]\n" +
     "       machinen node-level5 release-gate [--include-generic-vm-refusal-artifacts --generic-vm-refusal-artifacts-report <file>] [--json]\n" +
+    "       machinen node-level5 release-gate [--include-framework-introspection-corpus --framework-introspection-corpus-report <file>] [--json]\n" +
     "       machinen node-level5 85-readiness --generic-vm-corpus-report <file> [--generic-vm-retained-evidence-report <file>] [--generic-vm-row-artifacts-report <file>] [--generic-vm-refusal-artifacts-report <file>] [--json]\n" +
     "       machinen node-level5 85-claim-ready --readiness-report <file> [--json]\n"
   );

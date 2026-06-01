@@ -244,6 +244,16 @@
 - [`loadNodeLevel5InstalledThirdPartyAppCorpusReport`](#loadnodelevel5installedthirdpartyappcorpusreport)
 - [`verifyNodeLevel5InstalledThirdPartyAppCorpusReport`](#verifynodelevel5installedthirdpartyappcorpusreport)
 - [`writeNodeLevel5InstalledThirdPartyAppCorpusReport`](#writenodelevel5installedthirdpartyappcorpusreport)
+- [`NodeLevel5FrameworkIntrospectionCapability`](#nodelevel5frameworkintrospectioncapability)
+- [`NodeLevel5FrameworkIntrospectionCorpusRow`](#nodelevel5frameworkintrospectioncorpusrow)
+- [`NodeLevel5FrameworkIntrospectionCorpusReport`](#nodelevel5frameworkintrospectioncorpusreport)
+- [`NodeLevel5FrameworkIntrospectionCorpusVerification`](#nodelevel5frameworkintrospectioncorpusverification)
+- [`NODE_LEVEL5_FRAMEWORK_INTROSPECTION_CORPUS_REPORT_KIND`](#node_level5_framework_introspection_corpus_report_kind)
+- [`NODE_LEVEL5_FRAMEWORK_INTROSPECTION_CORPUS_REPORT_VERSION`](#node_level5_framework_introspection_corpus_report_version)
+- [`createNodeLevel5FrameworkIntrospectionCorpusReport`](#createnodelevel5frameworkintrospectioncorpusreport)
+- [`writeNodeLevel5FrameworkIntrospectionCorpusReport`](#writenodelevel5frameworkintrospectioncorpusreport)
+- [`verifyNodeLevel5FrameworkIntrospectionCorpusReport`](#verifynodelevel5frameworkintrospectioncorpusreport)
+- [`loadNodeLevel5FrameworkIntrospectionCorpusReport`](#loadnodelevel5frameworkintrospectioncorpusreport)
 - [`NodeLevel5FrameworkCapabilityFramework`](#nodelevel5frameworkcapabilityframework)
 - [`NodeLevel5FrameworkCapabilityStatus`](#nodelevel5frameworkcapabilitystatus)
 - [`NodeLevel5FrameworkCapabilityName`](#nodelevel5frameworkcapabilityname)
@@ -22884,6 +22894,180 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NodeLevel5FrameworkIntrospectionCapability
+
+> **NodeLevel5FrameworkIntrospectionCapability** = `"route-graph"` \| `"middleware-hook-graph"` \| `"plugin-graph"` \| `"idle-lifecycle-state"`
+
+***
+
+### NodeLevel5FrameworkIntrospectionCorpusRow
+
+> **NodeLevel5FrameworkIntrospectionCorpusRow** = `object`
+
+#### Properties
+
+##### id
+
+> **id**: `string`
+
+##### framework
+
+> **framework**: [`NodeLevel5FrameworkCapabilityFramework`](#nodelevel5frameworkcapabilityframework)
+
+##### capability
+
+> **capability**: [`NodeLevel5FrameworkIntrospectionCapability`](#nodelevel5frameworkintrospectioncapability)
+
+##### direction
+
+> **direction**: [`NodeLevel5ProductSnapshotDirection`](#nodelevel5productsnapshotdirection)
+
+##### productCommandPath
+
+> **productCommandPath**: `"machinen snapshot <vm-name> --out <dir>; machinen restore <dir>"`
+
+##### vmDetectedNodeWorkload
+
+> **vmDetectedNodeWorkload**: `true`
+
+##### frameworkMetadataCapturedInsideVm
+
+> **frameworkMetadataCapturedInsideVm**: `true`
+
+##### retainedFrameworkGraphArtifact
+
+> **retainedFrameworkGraphArtifact**: `true`
+
+##### targetNativeRestoreProbePassed
+
+> **targetNativeRestoreProbePassed**: `true`
+
+##### arbitraryFrameworkClaimed
+
+> **arbitraryFrameworkClaimed**: `false`
+
+##### arbitraryNodeClaimed
+
+> **arbitraryNodeClaimed**: `false`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
+
+***
+
+### NodeLevel5FrameworkIntrospectionCorpusReport
+
+> **NodeLevel5FrameworkIntrospectionCorpusReport** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_FRAMEWORK_INTROSPECTION_CORPUS_REPORT_KIND`](#node_level5_framework_introspection_corpus_report_kind)
+
+##### version
+
+> **version**: *typeof* [`NODE_LEVEL5_FRAMEWORK_INTROSPECTION_CORPUS_REPORT_VERSION`](#node_level5_framework_introspection_corpus_report_version)
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### rowCount
+
+> **rowCount**: `number`
+
+##### rowsSha256
+
+> **rowsSha256**: `string`
+
+##### rows
+
+> **rows**: [`NodeLevel5FrameworkIntrospectionCorpusRow`](#nodelevel5frameworkintrospectioncorpusrow)[]
+
+##### claimChangeAllowed
+
+> **claimChangeAllowed**: `false`
+
+##### currentNodeProductSupportClaimed
+
+> **currentNodeProductSupportClaimed**: `85`
+
+##### currentBroadNodeProductSupportClaimed
+
+> **currentBroadNodeProductSupportClaimed**: `25`
+
+##### currentArbitraryProcessCrossArchRestoreClaimed
+
+> **currentArbitraryProcessCrossArchRestoreClaimed**: `0`
+
+##### candidateNodeProductSupportClaimed
+
+> **candidateNodeProductSupportClaimed**: `90`
+
+##### candidateBroadNodeProductSupportClaimed
+
+> **candidateBroadNodeProductSupportClaimed**: `30`
+
+##### candidateArbitraryProcessCrossArchRestoreClaimed
+
+> **candidateArbitraryProcessCrossArchRestoreClaimed**: `0`
+
+***
+
+### NodeLevel5FrameworkIntrospectionCorpusVerification
+
+> **NodeLevel5FrameworkIntrospectionCorpusVerification** = `object`
+
+#### Properties
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### kind
+
+> **kind**: `"machinen.node-level5-framework-introspection-corpus-verification"`
+
+##### rowCount
+
+> **rowCount**: `number`
+
+##### rowsSha256Verified
+
+> **rowsSha256Verified**: `boolean`
+
+##### claimChangeAllowed
+
+> **claimChangeAllowed**: `false`
+
+##### currentNodeProductSupportClaimed
+
+> **currentNodeProductSupportClaimed**: `85`
+
+##### currentBroadNodeProductSupportClaimed
+
+> **currentBroadNodeProductSupportClaimed**: `25`
+
+##### currentArbitraryProcessCrossArchRestoreClaimed
+
+> **currentArbitraryProcessCrossArchRestoreClaimed**: `0`
+
+##### candidateNodeProductSupportClaimed
+
+> **candidateNodeProductSupportClaimed**: `90`
+
+##### candidateBroadNodeProductSupportClaimed
+
+> **candidateBroadNodeProductSupportClaimed**: `30`
+
+##### candidateArbitraryProcessCrossArchRestoreClaimed
+
+> **candidateArbitraryProcessCrossArchRestoreClaimed**: `0`
+
+***
+
 ### NodeLevel5GenericVmModuleSystem
 
 > **NodeLevel5GenericVmModuleSystem** = `"cjs"` \| `"esm"`
@@ -28054,6 +28238,18 @@ loops; anything looser stops being a meaningful gate.
 
 ***
 
+### NODE\_LEVEL5\_FRAMEWORK\_INTROSPECTION\_CORPUS\_REPORT\_KIND
+
+> `const` **NODE\_LEVEL5\_FRAMEWORK\_INTROSPECTION\_CORPUS\_REPORT\_KIND**: `"machinen.node-level5-framework-introspection-corpus-report"` = `"machinen.node-level5-framework-introspection-corpus-report"`
+
+***
+
+### NODE\_LEVEL5\_FRAMEWORK\_INTROSPECTION\_CORPUS\_REPORT\_VERSION
+
+> `const` **NODE\_LEVEL5\_FRAMEWORK\_INTROSPECTION\_CORPUS\_REPORT\_VERSION**: `1` = `1`
+
+***
+
 ### NODE\_LEVEL5\_GENERIC\_VM\_CORPUS\_REPORT\_KIND
 
 > `const` **NODE\_LEVEL5\_GENERIC\_VM\_CORPUS\_REPORT\_KIND**: `"machinen.node-level5-generic-vm-corpus-report"` = `"machinen.node-level5-generic-vm-corpus-report"`
@@ -31285,6 +31481,76 @@ available.
 #### Returns
 
 [`NodeLevel5FrameworkCapabilityMatrix`](#nodelevel5frameworkcapabilitymatrix)
+
+***
+
+### createNodeLevel5FrameworkIntrospectionCorpusReport()
+
+> **createNodeLevel5FrameworkIntrospectionCorpusReport**(`rows`): [`NodeLevel5FrameworkIntrospectionCorpusReport`](#nodelevel5frameworkintrospectioncorpusreport)
+
+#### Parameters
+
+##### rows
+
+[`NodeLevel5FrameworkIntrospectionCorpusRow`](#nodelevel5frameworkintrospectioncorpusrow)[]
+
+#### Returns
+
+[`NodeLevel5FrameworkIntrospectionCorpusReport`](#nodelevel5frameworkintrospectioncorpusreport)
+
+***
+
+### writeNodeLevel5FrameworkIntrospectionCorpusReport()
+
+> **writeNodeLevel5FrameworkIntrospectionCorpusReport**(`input`): [`NodeLevel5FrameworkIntrospectionCorpusReport`](#nodelevel5frameworkintrospectioncorpusreport)
+
+#### Parameters
+
+##### input
+
+###### path
+
+`string`
+
+###### rows
+
+[`NodeLevel5FrameworkIntrospectionCorpusRow`](#nodelevel5frameworkintrospectioncorpusrow)[]
+
+#### Returns
+
+[`NodeLevel5FrameworkIntrospectionCorpusReport`](#nodelevel5frameworkintrospectioncorpusreport)
+
+***
+
+### verifyNodeLevel5FrameworkIntrospectionCorpusReport()
+
+> **verifyNodeLevel5FrameworkIntrospectionCorpusReport**(`report`): [`NodeLevel5FrameworkIntrospectionCorpusVerification`](#nodelevel5frameworkintrospectioncorpusverification)
+
+#### Parameters
+
+##### report
+
+[`NodeLevel5FrameworkIntrospectionCorpusReport`](#nodelevel5frameworkintrospectioncorpusreport)
+
+#### Returns
+
+[`NodeLevel5FrameworkIntrospectionCorpusVerification`](#nodelevel5frameworkintrospectioncorpusverification)
+
+***
+
+### loadNodeLevel5FrameworkIntrospectionCorpusReport()
+
+> **loadNodeLevel5FrameworkIntrospectionCorpusReport**(`path`): [`NodeLevel5FrameworkIntrospectionCorpusReport`](#nodelevel5frameworkintrospectioncorpusreport)
+
+#### Parameters
+
+##### path
+
+`string`
+
+#### Returns
+
+[`NodeLevel5FrameworkIntrospectionCorpusReport`](#nodelevel5frameworkintrospectioncorpusreport)
 
 ***
 

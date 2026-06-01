@@ -642,6 +642,59 @@ describe("Node Level 5 product commands", () => {
     });
   });
 
+  it("uses framework introspection corpus evidence for release gates", () => {
+    const dir = mkdtempSync(join(tmpdir(), "machinen-node90-framework-introspection-"));
+    try {
+      const rows = Array.from({ length: 16 }, (_, index) => ({
+        id: `framework-introspection-${index}`,
+        framework: index % 2 === 0 ? "express" : "fastify",
+        capability: "route-graph",
+        direction: index % 2 === 0 ? "arm64-to-amd64" : "amd64-to-arm64",
+        productCommandPath: "machinen snapshot <vm-name> --out <dir>; machinen restore <dir>",
+        vmDetectedNodeWorkload: true,
+        frameworkMetadataCapturedInsideVm: true,
+        retainedFrameworkGraphArtifact: true,
+        targetNativeRestoreProbePassed: true,
+        arbitraryFrameworkClaimed: false,
+        arbitraryNodeClaimed: false,
+        arbitraryProcessCrossArchRestoreClaimed: 0,
+      }));
+      const report = {
+        kind: "machinen.node-level5-framework-introspection-corpus-report",
+        version: 1,
+        accepted: true,
+        rowCount: rows.length,
+        rowsSha256: createHash("sha256").update(JSON.stringify(rows)).digest("hex"),
+        rows,
+        claimChangeAllowed: false,
+        currentNodeProductSupportClaimed: 85,
+        currentBroadNodeProductSupportClaimed: 25,
+        currentArbitraryProcessCrossArchRestoreClaimed: 0,
+        candidateNodeProductSupportClaimed: 90,
+        candidateBroadNodeProductSupportClaimed: 30,
+        candidateArbitraryProcessCrossArchRestoreClaimed: 0,
+      };
+      const reportPath = join(dir, "node-level5-framework-introspection-corpus-report.json");
+      writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
+
+      const releaseGate = runCli([
+        "node-level5",
+        "release-gate",
+        "--include-framework-introspection-corpus",
+        "--framework-introspection-corpus-report",
+        reportPath,
+        "--json",
+      ]);
+      expect(releaseGate.status).toBe(0);
+      expect(JSON.parse(releaseGate.stdout)).toMatchObject({
+        accepted: true,
+        frameworkIntrospectionCorpus: { accepted: true, rowCount: 16 },
+      });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it("prints framework capability candidates without arbitrary claims", () => {
     const capabilities = runCli(["node-level5", "framework-capabilities", "--json"]);
 
