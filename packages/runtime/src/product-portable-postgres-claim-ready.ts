@@ -319,31 +319,28 @@ export function verifyProductPortablePostgresClaimReadyReport(
     baseAccepted: report.baseClaimLadderArtifact.sha256.length === 64,
     rows: report.rows,
   });
-  const accepted =
-    report.kind === PRODUCT_PORTABLE_POSTGRES_CLAIM_READY_KIND &&
-    report.version === PRODUCT_PORTABLE_POSTGRES_CLAIM_READY_VERSION &&
-    report.gate === "postgres-clean-logical-20-claim-ready" &&
-    report.currentClaim.productSupport === 20 &&
-    report.currentClaim.broadSupport === 0 &&
-    report.currentClaim.arbitraryProcessCrossArchRestore === 0 &&
-    report.candidateClaim.productSupport === 40 &&
-    report.candidateClaim.broadSupport === 0 &&
-    report.candidateClaim.arbitraryProcessCrossArchRestore === 0 &&
-    report.publicClaimRaised === false &&
-    report.claimChangeAllowed === report.accepted &&
-    gates.every((gate) => gate.passed) === report.accepted &&
-    report.rows.length === 18 &&
-    report.rows.every(rowAccepted) &&
-    report.proofs.reduce((sum, proof) => sum + proof.claimImpact.productSupportDelta, 0) === 20 &&
-    report.proofs.every((proof) => proof.claimImpact.broadSupportDelta === 0) &&
-    report.proofs.every((proof) => proof.claimImpact.arbitraryProcessCrossArchRestoreDelta === 0) &&
-    report.shortcuts.rawCpuRestoreUsed === false &&
-    report.shortcuts.sourceIsaEmulationUsed === false &&
-    report.shortcuts.sourceTextReplayUsed === false &&
-    report.shortcuts.sidecarRuntimeUsed === false &&
-    report.shortcuts.appHooksRequired === false &&
-    report.shortcuts.metadataOnlySuccessAccepted === false &&
-    report.artifactsSha256 === sha256Json(report.artifacts);
+  const checks = [
+    report.kind === PRODUCT_PORTABLE_POSTGRES_CLAIM_READY_KIND,
+    report.version === PRODUCT_PORTABLE_POSTGRES_CLAIM_READY_VERSION,
+    report.gate === "postgres-clean-logical-20-claim-ready",
+    report.currentClaim.productSupport === 20,
+    report.currentClaim.broadSupport === 0,
+    report.currentClaim.arbitraryProcessCrossArchRestore === 0,
+    report.candidateClaim.productSupport === 40,
+    report.candidateClaim.broadSupport === 0,
+    report.candidateClaim.arbitraryProcessCrossArchRestore === 0,
+    report.publicClaimRaised === false,
+    report.claimChangeAllowed === report.accepted,
+    gates.every((gate) => gate.passed) === report.accepted,
+    report.rows.length === 18,
+    report.rows.every(rowAccepted),
+    productSupportDeltaSum(report.proofs) === 20,
+    report.proofs.every((proof) => proof.claimImpact.broadSupportDelta === 0),
+    report.proofs.every((proof) => proof.claimImpact.arbitraryProcessCrossArchRestoreDelta === 0),
+    shortcutsRetained(report.shortcuts),
+    report.artifactsSha256 === sha256Json(report.artifacts),
+  ];
+  const accepted = checks.every(Boolean);
   return { ...report, accepted };
 }
 
@@ -402,17 +399,44 @@ function logicalDumpFor(fixture: (typeof fixtureInputs)[number]): string {
   return [`-- ${fixture.description}`, `-- fixture: ${fixture.id}`, ...fixture.sql, ""].join("\n");
 }
 
+function productSupportDeltaSum(proofs: ProductPortablePostgresClaimReadyProofRow[]): number {
+  return proofs.reduce((sum, proof) => sum + proof.claimImpact.productSupportDelta, 0);
+}
+
+function shortcutsRetained(
+  shortcuts: ProductPortablePostgresClaimReadyReport["shortcuts"],
+): boolean {
+  return [
+    shortcuts.rawCpuRestoreUsed,
+    shortcuts.sourceIsaEmulationUsed,
+    shortcuts.sourceTextReplayUsed,
+    shortcuts.sidecarRuntimeUsed,
+    shortcuts.appHooksRequired,
+    shortcuts.metadataOnlySuccessAccepted,
+  ].every((shortcut) => shortcut === false);
+}
+
+function retainedRowCount(
+  rows: ProductPortablePostgresClaimReadyFixtureRow[],
+  kind: ProductPortablePostgresClaimReadyRowKind,
+): number {
+  return new Set(rows.filter((row) => row.kind === kind).map((row) => row.id)).size;
+}
+
+function hasBidirectionalRows(rows: ProductPortablePostgresClaimReadyFixtureRow[]): boolean {
+  const directions = new Set(rows.map((row) => `${row.sourceArch}-to-${row.targetArch}`));
+  return directions.has("arm64-to-amd64") && directions.has("amd64-to-arm64");
+}
+
+function rowArtifactsHaveSha(row: ProductPortablePostgresClaimReadyFixtureRow): boolean {
+  return row.artifacts.every((artifact) => artifact.sha256.length === 64);
+}
+
 function gatesFor(input: {
   baseAccepted: boolean;
   rows: ProductPortablePostgresClaimReadyFixtureRow[];
 }): ProductPortablePostgresClaimReadyGate[] {
-  const rowKinds = new Map<ProductPortablePostgresClaimReadyRowKind, Set<string>>();
-  for (const row of input.rows.filter(rowAccepted)) {
-    rowKinds.set(row.kind, (rowKinds.get(row.kind) ?? new Set()).add(row.id));
-  }
-  const directions = new Set(
-    input.rows.filter(rowAccepted).map((row) => `${row.sourceArch}-to-${row.targetArch}`),
-  );
+  const rows = input.rows.filter(rowAccepted);
   return [
     gate(
       "base-20-claim-ladder-accepted",
@@ -421,22 +445,22 @@ function gatesFor(input: {
     ),
     gate(
       "schema-shape-rows-retained",
-      (rowKinds.get("schema-shape")?.size ?? 0) >= 3,
+      retainedRowCount(rows, "schema-shape") >= 3,
       "At least three clean logical schema-shape rows have retained target verifier artifacts.",
     ),
     gate(
       "postgres-version-rows-retained",
-      (rowKinds.get("postgres-version")?.size ?? 0) >= 3,
+      retainedRowCount(rows, "postgres-version") >= 3,
       "At least three PostgreSQL major-version rows have retained target verifier artifacts.",
     ),
     gate(
       "workload-mix-rows-retained",
-      (rowKinds.get("workload-mix")?.size ?? 0) >= 3,
+      retainedRowCount(rows, "workload-mix") >= 3,
       "At least three clean, idle workload-mix rows have retained target verifier artifacts.",
     ),
     gate(
       "bidirectional-target-verifiers-retained",
-      directions.has("arm64-to-amd64") && directions.has("amd64-to-arm64"),
+      hasBidirectionalRows(rows),
       "Rows include both arm64->amd64 and amd64->arm64 target-native verifier artifacts.",
     ),
     gate(
@@ -446,7 +470,7 @@ function gatesFor(input: {
     ),
     gate(
       "no-forbidden-shortcuts",
-      input.rows.every((row) => row.artifacts.every((artifact) => artifact.sha256.length === 64)),
+      input.rows.every(rowArtifactsHaveSha),
       "No raw CPU restore, source-ISA emulation, sidecar replay, app hooks, or metadata-only success is accepted.",
     ),
     gate(

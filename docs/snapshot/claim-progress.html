@@ -1525,8 +1525,8 @@
 
       function decisionCards(tracks) {
         const node = tracks.find((track) => track.id === "node-service");
-        const postgres = tracks.find((track) => track.id === "postgres");
         const arbitrary = tracks.find((track) => track.id === "arbitrary-process");
+        const bestLift = bestNextClaimLift(tracks);
         return [
           decisionCard(
             "Current public claim",
@@ -1536,9 +1536,13 @@
           ),
           decisionCard(
             "Best next claim lift",
-            postgres ? postgres.name : "Postgres portable restore",
-            "Turn the existing clean logical track into a percent-style claim ladder with retained verifier artifacts.",
-            "warn",
+            bestLift
+              ? `${bestLift.track.name}: ${claimTriple(bestLift.track.currentClaim)} → ${claimTriple(bestLift.track.nextClaim)}`
+              : "No claim lift ready",
+            bestLift
+              ? `${bestLift.action.item} Gate: ${bestLift.action.gate}.`
+              : "No candidate claim increase is listed.",
+            bestLift?.action.score < 20 ? "warn" : "good",
           ),
           decisionCard(
             "Public claim still 0%",
@@ -1549,6 +1553,33 @@
             "bad",
           ),
         ];
+      }
+
+      function bestNextClaimLift(tracks) {
+        return tracks
+          .map((track) => ({ track, action: deriveNextClaimAction(track) }))
+          .filter(({ track, action }) => track.id !== "node-service" && action)
+          .sort(
+            (left, right) =>
+              nextClaimLiftScore(right.track, right.action) -
+              nextClaimLiftScore(left.track, left.action),
+          )[0];
+      }
+
+      function nextClaimLiftScore(track, action) {
+        const current = track.currentClaim ?? {};
+        const next = track.nextClaim ?? {};
+        const productDelta = numericDelta(current.productSupport, next.productSupport);
+        const broadDelta = numericDelta(current.broadSupport, next.broadSupport);
+        const arbitraryDelta = numericDelta(
+          current.arbitraryProcessCrossArchRestore,
+          next.arbitraryProcessCrossArchRestore,
+        );
+        return productDelta * 1000 + broadDelta * 800 + arbitraryDelta * 10 + action.score;
+      }
+
+      function numericDelta(current, next) {
+        return typeof current === "number" && typeof next === "number" ? next - current : 0;
       }
 
       function decisionCard(label, title, body, tone) {

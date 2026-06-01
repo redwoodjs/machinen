@@ -112,6 +112,10 @@ describe("claim progress dashboard", () => {
     expect(html).toContain("Arbitrary Linux process restore impact (%)");
     expect(html).toContain("What to do next");
     expect(html).toContain("derivedNextActionsForTrack");
+    expect(html).toContain("bestNextClaimLift");
+    expect(html).not.toContain(
+      "Turn the existing clean logical track into a percent-style claim ladder with retained verifier artifacts.",
+    );
     expect(html).toContain("Track overview");
     expect(html).toContain("Claim matrix");
     expect(html).toContain("Proofs by claim");
