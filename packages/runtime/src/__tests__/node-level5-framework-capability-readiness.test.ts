@@ -22,9 +22,59 @@ describe("Node Level 5 framework capability readiness", () => {
       candidateBroadNodeProductSupportClaimed: 30,
       candidateArbitraryProcessCrossArchRestoreClaimed: 0,
     });
+    expect(report.coverage).toMatchObject({
+      expectedRows: 16,
+      observedRows: 16,
+      missingCoverageKeys: [],
+      duplicateRowIds: [],
+    });
     expect(report.blockedGates).toEqual([
       expect.objectContaining({ id: "claim-change-unlocked", status: "blocked" }),
     ]);
+  });
+
+  it("blocks candidate evidence when framework coverage is incomplete", () => {
+    const incompleteRows = rows();
+    incompleteRows[0] = {
+      ...incompleteRows[0],
+      id: "express-duplicate-route-graph-amd64-to-arm64",
+      direction: "amd64-to-arm64",
+    };
+
+    const report = evaluateNodeLevel5FrameworkCapabilityReadiness({
+      frameworkIntrospectionCorpusReport:
+        createNodeLevel5FrameworkIntrospectionCorpusReport(incompleteRows),
+    });
+
+    expect(report.candidateEvidenceAccepted).toBe(false);
+    expect(report.coverage.missingCoverageKeys).toContain("express:route-graph:arm64-to-amd64");
+    expect(report.blockedGates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "framework-introspection-coverage-complete" }),
+        expect.objectContaining({ id: "claim-change-unlocked" }),
+      ]),
+    );
+  });
+
+  it("blocks candidate evidence when rows overclaim arbitrary support", () => {
+    const overclaimedRows = rows();
+    overclaimedRows[0] = {
+      ...overclaimedRows[0],
+      arbitraryFrameworkClaimed: true,
+    } as unknown as NodeLevel5FrameworkIntrospectionCorpusRow;
+
+    const report = evaluateNodeLevel5FrameworkCapabilityReadiness({
+      frameworkIntrospectionCorpusReport:
+        createNodeLevel5FrameworkIntrospectionCorpusReport(overclaimedRows),
+    });
+
+    expect(report.candidateEvidenceAccepted).toBe(false);
+    expect(report.blockedGates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "framework-introspection-corpus-accepted" }),
+        expect.objectContaining({ id: "framework-introspection-no-arbitrary-claims" }),
+      ]),
+    );
   });
 });
 

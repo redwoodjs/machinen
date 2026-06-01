@@ -25,6 +25,8 @@ machinen node-level5 framework-readiness \
 
 ## What this adds
 
+The readiness gate now checks more than row count. It verifies that every Express/Fastify capability and cross-architecture direction is present, that the rows use the VM-detected product command path, that framework graph artifacts are retained, and that no row claims arbitrary framework, Node, or process support.
+
 The matrix separates three ideas:
 
 | Status                    | Meaning                                                                                                       |

@@ -4,7 +4,9 @@ import {
 } from "./node-level5-framework-capability-matrix.ts";
 import {
   verifyNodeLevel5FrameworkIntrospectionCorpusReport,
+  type NodeLevel5FrameworkIntrospectionCapability,
   type NodeLevel5FrameworkIntrospectionCorpusReport,
+  type NodeLevel5FrameworkIntrospectionCorpusRow,
 } from "./node-level5-framework-introspection-corpus.ts";
 
 export const NODE_LEVEL5_FRAMEWORK_CAPABILITY_READINESS_KIND =
@@ -16,6 +18,10 @@ export type NodeLevel5FrameworkCapabilityReadinessGateId =
   | "capability-matrix-stable"
   | "framework-introspection-corpus-accepted"
   | "framework-introspection-row-count"
+  | "framework-introspection-coverage-complete"
+  | "framework-introspection-product-path"
+  | "framework-introspection-retained-artifacts"
+  | "framework-introspection-no-arbitrary-claims"
   | "current-claim-remains-85-25-0"
   | "candidate-target-present"
   | "arbitrary-claims-remain-false"
@@ -25,6 +31,15 @@ export type NodeLevel5FrameworkCapabilityReadinessGate = {
   id: NodeLevel5FrameworkCapabilityReadinessGateId;
   status: NodeLevel5FrameworkCapabilityReadinessGateStatus;
   message: string;
+};
+
+export type NodeLevel5FrameworkCapabilityReadinessCoverage = {
+  expectedRows: number;
+  observedRows: number;
+  expectedCoverageKeys: string[];
+  observedCoverageKeys: string[];
+  missingCoverageKeys: string[];
+  duplicateRowIds: string[];
 };
 
 export type NodeLevel5FrameworkCapabilityReadinessReport = {
@@ -39,6 +54,7 @@ export type NodeLevel5FrameworkCapabilityReadinessReport = {
   candidateNodeProductSupportClaimed: 90;
   candidateBroadNodeProductSupportClaimed: 30;
   candidateArbitraryProcessCrossArchRestoreClaimed: 0;
+  coverage: NodeLevel5FrameworkCapabilityReadinessCoverage;
   gates: NodeLevel5FrameworkCapabilityReadinessGate[];
   blockedGates: NodeLevel5FrameworkCapabilityReadinessGate[];
 };
@@ -51,7 +67,13 @@ export function evaluateNodeLevel5FrameworkCapabilityReadiness(input: {
   const corpus = verifyNodeLevel5FrameworkIntrospectionCorpusReport(
     input.frameworkIntrospectionCorpusReport,
   );
-  const gates = readinessGates({ matrix, corpus });
+  const coverage = frameworkIntrospectionCoverage(input.frameworkIntrospectionCorpusReport.rows);
+  const gates = readinessGates({
+    matrix,
+    corpus,
+    coverage,
+    rows: input.frameworkIntrospectionCorpusReport.rows,
+  });
   const blockedGates = gates.filter((item) => item.status === "blocked");
   return {
     kind: NODE_LEVEL5_FRAMEWORK_CAPABILITY_READINESS_KIND,
@@ -65,6 +87,7 @@ export function evaluateNodeLevel5FrameworkCapabilityReadiness(input: {
     candidateNodeProductSupportClaimed: 90,
     candidateBroadNodeProductSupportClaimed: 30,
     candidateArbitraryProcessCrossArchRestoreClaimed: 0,
+    coverage,
     gates,
     blockedGates,
   };
@@ -73,11 +96,13 @@ export function evaluateNodeLevel5FrameworkCapabilityReadiness(input: {
 function readinessGates(input: {
   matrix: NodeLevel5FrameworkCapabilityMatrix;
   corpus: ReturnType<typeof verifyNodeLevel5FrameworkIntrospectionCorpusReport>;
+  coverage: NodeLevel5FrameworkCapabilityReadinessCoverage;
+  rows: NodeLevel5FrameworkIntrospectionCorpusRow[];
 }): NodeLevel5FrameworkCapabilityReadinessGate[] {
   return [
     gate(
       "capability-matrix-stable",
-      input.matrix.accepted && input.matrix.rowCount === 24,
+      capabilityMatrixStable(input.matrix),
       "framework capability matrix remains stable at 24 rows",
     ),
     gate(
@@ -87,8 +112,28 @@ function readinessGates(input: {
     ),
     gate(
       "framework-introspection-row-count",
-      input.corpus.rowCount === 16,
+      input.corpus.rowCount === input.coverage.expectedRows,
       "framework introspection corpus covers Express/Fastify capabilities in both directions",
+    ),
+    gate(
+      "framework-introspection-coverage-complete",
+      coverageComplete(input.coverage),
+      "framework introspection corpus includes every framework/capability/direction combination exactly once",
+    ),
+    gate(
+      "framework-introspection-product-path",
+      rowsUseProductPath(input.rows),
+      "framework introspection evidence comes from VM-detected product snapshot and restore commands",
+    ),
+    gate(
+      "framework-introspection-retained-artifacts",
+      rowsRetainFrameworkArtifacts(input.rows),
+      "framework introspection evidence retains framework graph artifacts and target-native restore probes",
+    ),
+    gate(
+      "framework-introspection-no-arbitrary-claims",
+      rowsAvoidArbitraryClaims(input.rows),
+      "framework introspection evidence does not claim arbitrary framework, Node, or process restore support",
     ),
     gate(
       "current-claim-remains-85-25-0",
@@ -111,6 +156,82 @@ function readinessGates(input: {
       "framework capability claim change is locked until future retained product evidence passes",
     ),
   ];
+}
+
+const expectedFrameworks = ["express", "fastify"] as const;
+const expectedCapabilities: NodeLevel5FrameworkIntrospectionCapability[] = [
+  "route-graph",
+  "middleware-hook-graph",
+  "plugin-graph",
+  "idle-lifecycle-state",
+];
+const expectedDirections = ["arm64-to-amd64", "amd64-to-arm64"] as const;
+const productCommandPath = "machinen snapshot <vm-name> --out <dir>; machinen restore <dir>";
+
+function frameworkIntrospectionCoverage(
+  rows: NodeLevel5FrameworkIntrospectionCorpusRow[],
+): NodeLevel5FrameworkCapabilityReadinessCoverage {
+  const expectedCoverageKeys = expectedFrameworks.flatMap((framework) =>
+    expectedCapabilities.flatMap((capability) =>
+      expectedDirections.map((direction) => coverageKey({ framework, capability, direction })),
+    ),
+  );
+  const observedCoverageKeys = rows.map(coverageKey).sort();
+  const duplicateRowIds = duplicateValues(rows.map((row) => row.id));
+  return {
+    expectedRows: expectedCoverageKeys.length,
+    observedRows: rows.length,
+    expectedCoverageKeys: expectedCoverageKeys.sort(),
+    observedCoverageKeys,
+    missingCoverageKeys: expectedCoverageKeys.filter((key) => !observedCoverageKeys.includes(key)),
+    duplicateRowIds,
+  };
+}
+
+function coverageKey(
+  row: Pick<NodeLevel5FrameworkIntrospectionCorpusRow, "framework" | "capability" | "direction">,
+): string {
+  return `${row.framework}:${row.capability}:${row.direction}`;
+}
+
+function duplicateValues(values: string[]): string[] {
+  return values.filter((value, index) => values.indexOf(value) !== index).sort();
+}
+
+function capabilityMatrixStable(matrix: NodeLevel5FrameworkCapabilityMatrix): boolean {
+  return matrix.accepted && matrix.rowCount === 24;
+}
+
+function coverageComplete(coverage: NodeLevel5FrameworkCapabilityReadinessCoverage): boolean {
+  return (
+    coverage.observedRows === coverage.expectedRows &&
+    coverage.missingCoverageKeys.length === 0 &&
+    coverage.duplicateRowIds.length === 0
+  );
+}
+
+function rowsUseProductPath(rows: NodeLevel5FrameworkIntrospectionCorpusRow[]): boolean {
+  return rows.every(
+    (row) => row.productCommandPath === productCommandPath && row.vmDetectedNodeWorkload === true,
+  );
+}
+
+function rowsRetainFrameworkArtifacts(rows: NodeLevel5FrameworkIntrospectionCorpusRow[]): boolean {
+  return rows.every(
+    (row) =>
+      row.frameworkMetadataCapturedInsideVm === true &&
+      row.retainedFrameworkGraphArtifact === true &&
+      row.targetNativeRestoreProbePassed === true,
+  );
+}
+
+function rowsAvoidArbitraryClaims(rows: NodeLevel5FrameworkIntrospectionCorpusRow[]): boolean {
+  return rows.every(
+    (row) =>
+      row.arbitraryFrameworkClaimed === false &&
+      row.arbitraryNodeClaimed === false &&
+      row.arbitraryProcessCrossArchRestoreClaimed === 0,
+  );
 }
 
 function currentClaimMatches(

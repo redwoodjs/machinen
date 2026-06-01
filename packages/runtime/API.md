@@ -244,6 +244,7 @@
 - [`loadNodeLevel5InstalledThirdPartyAppCorpusReport`](#loadnodelevel5installedthirdpartyappcorpusreport)
 - [`verifyNodeLevel5InstalledThirdPartyAppCorpusReport`](#verifynodelevel5installedthirdpartyappcorpusreport)
 - [`writeNodeLevel5InstalledThirdPartyAppCorpusReport`](#writenodelevel5installedthirdpartyappcorpusreport)
+- [`NodeLevel5FrameworkCapabilityReadinessCoverage`](#nodelevel5frameworkcapabilityreadinesscoverage)
 - [`NodeLevel5FrameworkCapabilityReadinessGateStatus`](#nodelevel5frameworkcapabilityreadinessgatestatus)
 - [`NodeLevel5FrameworkCapabilityReadinessGateId`](#nodelevel5frameworkcapabilityreadinessgateid)
 - [`NodeLevel5FrameworkCapabilityReadinessGate`](#nodelevel5frameworkcapabilityreadinessgate)
@@ -22909,7 +22910,7 @@ Poll interval in ms while retrying. Default 250.
 
 ### NodeLevel5FrameworkCapabilityReadinessGateId
 
-> **NodeLevel5FrameworkCapabilityReadinessGateId** = `"capability-matrix-stable"` \| `"framework-introspection-corpus-accepted"` \| `"framework-introspection-row-count"` \| `"current-claim-remains-85-25-0"` \| `"candidate-target-present"` \| `"arbitrary-claims-remain-false"` \| `"claim-change-unlocked"`
+> **NodeLevel5FrameworkCapabilityReadinessGateId** = `"capability-matrix-stable"` \| `"framework-introspection-corpus-accepted"` \| `"framework-introspection-row-count"` \| `"framework-introspection-coverage-complete"` \| `"framework-introspection-product-path"` \| `"framework-introspection-retained-artifacts"` \| `"framework-introspection-no-arbitrary-claims"` \| `"current-claim-remains-85-25-0"` \| `"candidate-target-present"` \| `"arbitrary-claims-remain-false"` \| `"claim-change-unlocked"`
 
 ***
 
@@ -22930,6 +22931,38 @@ Poll interval in ms while retrying. Default 250.
 ##### message
 
 > **message**: `string`
+
+***
+
+### NodeLevel5FrameworkCapabilityReadinessCoverage
+
+> **NodeLevel5FrameworkCapabilityReadinessCoverage** = `object`
+
+#### Properties
+
+##### expectedRows
+
+> **expectedRows**: `number`
+
+##### observedRows
+
+> **observedRows**: `number`
+
+##### expectedCoverageKeys
+
+> **expectedCoverageKeys**: `string`[]
+
+##### observedCoverageKeys
+
+> **observedCoverageKeys**: `string`[]
+
+##### missingCoverageKeys
+
+> **missingCoverageKeys**: `string`[]
+
+##### duplicateRowIds
+
+> **duplicateRowIds**: `string`[]
 
 ***
 
@@ -22982,6 +23015,10 @@ Poll interval in ms while retrying. Default 250.
 ##### candidateArbitraryProcessCrossArchRestoreClaimed
 
 > **candidateArbitraryProcessCrossArchRestoreClaimed**: `0`
+
+##### coverage
+
+> **coverage**: [`NodeLevel5FrameworkCapabilityReadinessCoverage`](#nodelevel5frameworkcapabilityreadinesscoverage)
 
 ##### gates
 

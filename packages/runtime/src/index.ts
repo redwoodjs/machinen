@@ -1381,6 +1381,7 @@ export {
   NODE_LEVEL5_FRAMEWORK_CAPABILITY_READINESS_KIND,
   NODE_LEVEL5_FRAMEWORK_CAPABILITY_READINESS_VERSION,
   evaluateNodeLevel5FrameworkCapabilityReadiness,
+  type NodeLevel5FrameworkCapabilityReadinessCoverage,
   type NodeLevel5FrameworkCapabilityReadinessGate,
   type NodeLevel5FrameworkCapabilityReadinessGateId,
   type NodeLevel5FrameworkCapabilityReadinessGateStatus,

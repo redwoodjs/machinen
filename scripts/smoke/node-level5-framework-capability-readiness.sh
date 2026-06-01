@@ -15,6 +15,6 @@ if [[ "$STATUS" -ne 1 ]]; then
   echo "expected framework readiness to stay locked, got status $STATUS" >&2
   exit 1
 fi
-node -e 'const fs=require("fs"); const s=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if (s.accepted !== false || s.candidateEvidenceAccepted !== true || s.claimChangeAllowed !== false) throw new Error("framework readiness did not keep claim locked"); if (s.currentBroadNodeProductSupportClaimed !== 25 || s.candidateBroadNodeProductSupportClaimed !== 30) throw new Error("framework readiness claims drifted");' "$WORK/readiness.json"
+node -e 'const fs=require("fs"); const s=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if (s.accepted !== false || s.candidateEvidenceAccepted !== true || s.claimChangeAllowed !== false) throw new Error("framework readiness did not keep claim locked"); if (s.coverage?.expectedRows !== 16 || s.coverage?.missingCoverageKeys?.length !== 0) throw new Error("framework readiness coverage failed"); if (s.currentBroadNodeProductSupportClaimed !== 25 || s.candidateBroadNodeProductSupportClaimed !== 30) throw new Error("framework readiness claims drifted");' "$WORK/readiness.json"
 
 echo "node level5 framework capability readiness smoke passed: $WORK"

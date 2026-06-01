@@ -645,20 +645,7 @@ describe("Node Level 5 product commands", () => {
   it("keeps framework readiness locked at the 90 / 30 / 0 candidate", () => {
     const dir = mkdtempSync(join(tmpdir(), "machinen-node90-framework-readiness-"));
     try {
-      const rows = Array.from({ length: 16 }, (_, index) => ({
-        id: `framework-readiness-${index}`,
-        framework: index % 2 === 0 ? "express" : "fastify",
-        capability: "route-graph",
-        direction: index % 2 === 0 ? "arm64-to-amd64" : "amd64-to-arm64",
-        productCommandPath: "machinen snapshot <vm-name> --out <dir>; machinen restore <dir>",
-        vmDetectedNodeWorkload: true,
-        frameworkMetadataCapturedInsideVm: true,
-        retainedFrameworkGraphArtifact: true,
-        targetNativeRestoreProbePassed: true,
-        arbitraryFrameworkClaimed: false,
-        arbitraryNodeClaimed: false,
-        arbitraryProcessCrossArchRestoreClaimed: 0,
-      }));
+      const rows = frameworkIntrospectionRows("framework-readiness");
       const report = {
         kind: "machinen.node-level5-framework-introspection-corpus-report",
         version: 1,
@@ -701,20 +688,7 @@ describe("Node Level 5 product commands", () => {
   it("uses framework introspection corpus evidence for release gates", () => {
     const dir = mkdtempSync(join(tmpdir(), "machinen-node90-framework-introspection-"));
     try {
-      const rows = Array.from({ length: 16 }, (_, index) => ({
-        id: `framework-introspection-${index}`,
-        framework: index % 2 === 0 ? "express" : "fastify",
-        capability: "route-graph",
-        direction: index % 2 === 0 ? "arm64-to-amd64" : "amd64-to-arm64",
-        productCommandPath: "machinen snapshot <vm-name> --out <dir>; machinen restore <dir>",
-        vmDetectedNodeWorkload: true,
-        frameworkMetadataCapturedInsideVm: true,
-        retainedFrameworkGraphArtifact: true,
-        targetNativeRestoreProbePassed: true,
-        arbitraryFrameworkClaimed: false,
-        arbitraryNodeClaimed: false,
-        arbitraryProcessCrossArchRestoreClaimed: 0,
-      }));
+      const rows = frameworkIntrospectionRows("framework-introspection");
       const report = {
         kind: "machinen.node-level5-framework-introspection-corpus-report",
         version: 1,
@@ -867,3 +841,32 @@ describe("Node Level 5 product commands", () => {
     });
   });
 });
+
+function frameworkIntrospectionRows(prefix: string) {
+  const frameworks = ["express", "fastify"] as const;
+  const capabilities = [
+    "route-graph",
+    "middleware-hook-graph",
+    "plugin-graph",
+    "idle-lifecycle-state",
+  ] as const;
+  const directions = ["arm64-to-amd64", "amd64-to-arm64"] as const;
+  return frameworks.flatMap((framework) =>
+    capabilities.flatMap((capability) =>
+      directions.map((direction) => ({
+        id: `${prefix}-${framework}-${capability}-${direction}`,
+        framework,
+        capability,
+        direction,
+        productCommandPath: "machinen snapshot <vm-name> --out <dir>; machinen restore <dir>",
+        vmDetectedNodeWorkload: true,
+        frameworkMetadataCapturedInsideVm: true,
+        retainedFrameworkGraphArtifact: true,
+        targetNativeRestoreProbePassed: true,
+        arbitraryFrameworkClaimed: false,
+        arbitraryNodeClaimed: false,
+        arbitraryProcessCrossArchRestoreClaimed: 0,
+      })),
+    ),
+  );
+}

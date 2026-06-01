@@ -265,6 +265,7 @@ const TOC = {
     "loadNodeLevel5InstalledThirdPartyAppCorpusReport",
     "verifyNodeLevel5InstalledThirdPartyAppCorpusReport",
     "writeNodeLevel5InstalledThirdPartyAppCorpusReport",
+    "NodeLevel5FrameworkCapabilityReadinessCoverage",
     "NodeLevel5FrameworkCapabilityReadinessGateStatus",
     "NodeLevel5FrameworkCapabilityReadinessGateId",
     "NodeLevel5FrameworkCapabilityReadinessGate",
