@@ -152,6 +152,14 @@
       .legend-heading {
         margin-top: 18px;
       }
+      .proof-index-track {
+        display: grid;
+        gap: 10px;
+        margin-top: 18px;
+      }
+      .proof-index-track:first-child {
+        margin-top: 0;
+      }
       .subtables {
         display: grid;
         gap: 18px;
@@ -315,9 +323,8 @@
         <p class="muted">Machinen product evidence</p>
         <h1>Claim progress dashboard</h1>
         <p class="muted">
-          Start with the track overview, then use the proof impact matrix. The detailed matrices are
-          now collapsed below for audit/debug use. When served over HTTP, reloading the page reads
-          the latest <code>claim-progress.json</code>.
+          Start with the track overview, then use the proof index. When served over HTTP, reloading
+          the page reads the latest <code>claim-progress.json</code>.
         </p>
         <p id="source" class="muted"></p>
       </header>
@@ -393,8 +400,10 @@
 
       <section class="card">
         <div class="section-heading">
-          <h2>Proof impact matrix</h2>
-          <span class="muted">Grouped by track, then proof and claim</span>
+          <h2>Proof index</h2>
+          <span class="muted"
+            >Grouped by track; missing Node bundles use an <code>m</code> suffix</span
+          >
         </div>
         <div id="proof-impact"></div>
       </section>
@@ -405,7 +414,7 @@
     <script id="embedded-claim-progress" type="application/json">
       {
         "kind": "machinen.claim-progress-dashboard",
-        "version": 24,
+        "version": 25,
         "updatedFrom": [
           "docs/snapshot/node-level5-product-support-claim-registry.json",
           "docs/snapshot/node-level5-product-support-100.json",
@@ -828,7 +837,801 @@
                   "directions": ["arm64-to-amd64", "amd64-to-arm64"]
                 }
               ],
-              "missingSupportedRowsCount": 66
+              "missingSupportedRowsCount": 66,
+              "missingSupportedDirectionBundles": [
+                {
+                  "proofId": "NODE-001m",
+                  "rowId": "express-official-hello-world",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-002m",
+                  "rowId": "express-official-hello-world",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-003m",
+                  "rowId": "express-generator-router",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-004m",
+                  "rowId": "express-generator-router",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-005m",
+                  "rowId": "fastify-official-getting-started",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-006m",
+                  "rowId": "fastify-official-getting-started",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-007m",
+                  "rowId": "fastify-plugin-route",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-008m",
+                  "rowId": "fastify-plugin-route",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-009m",
+                  "rowId": "express-installed-hello-world",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-010m",
+                  "rowId": "express-installed-hello-world",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-011m",
+                  "rowId": "express-installed-router",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-012m",
+                  "rowId": "express-installed-router",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-013m",
+                  "rowId": "express-installed-json-response",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-014m",
+                  "rowId": "express-installed-json-response",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-015m",
+                  "rowId": "express-installed-route-params",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-016m",
+                  "rowId": "express-installed-route-params",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-017m",
+                  "rowId": "express-installed-query-string",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-018m",
+                  "rowId": "express-installed-query-string",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-019m",
+                  "rowId": "express-installed-static-asset",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-020m",
+                  "rowId": "express-installed-static-asset",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-021m",
+                  "rowId": "express-installed-idle-timer",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-022m",
+                  "rowId": "express-installed-idle-timer",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-023m",
+                  "rowId": "express-installed-safe-outbound-reconnect",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-024m",
+                  "rowId": "express-installed-safe-outbound-reconnect",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-025m",
+                  "rowId": "express-installed-post-json-body",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-026m",
+                  "rowId": "express-installed-post-json-body",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-027m",
+                  "rowId": "express-installed-custom-header",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-028m",
+                  "rowId": "express-installed-custom-header",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-029m",
+                  "rowId": "express-installed-put-route",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-030m",
+                  "rowId": "express-installed-put-route",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-031m",
+                  "rowId": "express-installed-delete-route",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-032m",
+                  "rowId": "express-installed-delete-route",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-033m",
+                  "rowId": "express-installed-cookie-read",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-034m",
+                  "rowId": "express-installed-cookie-read",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-035m",
+                  "rowId": "express-installed-status-code",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-036m",
+                  "rowId": "express-installed-status-code",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-037m",
+                  "rowId": "express-installed-redirect",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-038m",
+                  "rowId": "express-installed-redirect",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-039m",
+                  "rowId": "express-installed-response-header",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-040m",
+                  "rowId": "express-installed-response-header",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-041m",
+                  "rowId": "express-installed-middleware-chain",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-042m",
+                  "rowId": "express-installed-middleware-chain",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-043m",
+                  "rowId": "express-installed-not-found",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-044m",
+                  "rowId": "express-installed-not-found",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-045m",
+                  "rowId": "express-installed-error-handler",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-046m",
+                  "rowId": "express-installed-error-handler",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-047m",
+                  "rowId": "express-installed-request-id",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-048m",
+                  "rowId": "express-installed-request-id",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-049m",
+                  "rowId": "express-installed-nested-router",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-050m",
+                  "rowId": "express-installed-nested-router",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-051m",
+                  "rowId": "express-installed-optional-param",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-052m",
+                  "rowId": "express-installed-optional-param",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-053m",
+                  "rowId": "express-installed-multi-route",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-054m",
+                  "rowId": "express-installed-multi-route",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-055m",
+                  "rowId": "express-installed-static-cache-header",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-056m",
+                  "rowId": "express-installed-static-cache-header",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-057m",
+                  "rowId": "express-installed-env-read",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-058m",
+                  "rowId": "express-installed-env-read",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-059m",
+                  "rowId": "express-installed-config-json-read",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-060m",
+                  "rowId": "express-installed-config-json-read",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-061m",
+                  "rowId": "express-installed-feature-flag-env",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-062m",
+                  "rowId": "express-installed-feature-flag-env",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-063m",
+                  "rowId": "express-installed-configured-prefix",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-064m",
+                  "rowId": "express-installed-configured-prefix",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-065m",
+                  "rowId": "express-installed-health-check",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-066m",
+                  "rowId": "express-installed-health-check",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-067m",
+                  "rowId": "fastify-installed-getting-started",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-068m",
+                  "rowId": "fastify-installed-getting-started",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-069m",
+                  "rowId": "fastify-installed-plugin-route",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-070m",
+                  "rowId": "fastify-installed-plugin-route",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-071m",
+                  "rowId": "fastify-installed-json-response",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-072m",
+                  "rowId": "fastify-installed-json-response",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-073m",
+                  "rowId": "fastify-installed-route-params",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-074m",
+                  "rowId": "fastify-installed-route-params",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-075m",
+                  "rowId": "fastify-installed-query-string",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-076m",
+                  "rowId": "fastify-installed-query-string",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-077m",
+                  "rowId": "fastify-installed-static-asset",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-078m",
+                  "rowId": "fastify-installed-static-asset",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-079m",
+                  "rowId": "fastify-installed-idle-timer",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-080m",
+                  "rowId": "fastify-installed-idle-timer",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-081m",
+                  "rowId": "fastify-installed-safe-outbound-reconnect",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-082m",
+                  "rowId": "fastify-installed-safe-outbound-reconnect",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-083m",
+                  "rowId": "fastify-installed-post-json-body",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-084m",
+                  "rowId": "fastify-installed-post-json-body",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-085m",
+                  "rowId": "fastify-installed-custom-header",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-086m",
+                  "rowId": "fastify-installed-custom-header",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-087m",
+                  "rowId": "fastify-installed-put-route",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-088m",
+                  "rowId": "fastify-installed-put-route",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-089m",
+                  "rowId": "fastify-installed-delete-route",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-090m",
+                  "rowId": "fastify-installed-delete-route",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-091m",
+                  "rowId": "fastify-installed-cookie-read",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-092m",
+                  "rowId": "fastify-installed-cookie-read",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-093m",
+                  "rowId": "fastify-installed-status-code",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-094m",
+                  "rowId": "fastify-installed-status-code",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-095m",
+                  "rowId": "fastify-installed-redirect",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-096m",
+                  "rowId": "fastify-installed-redirect",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-097m",
+                  "rowId": "fastify-installed-response-header",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-098m",
+                  "rowId": "fastify-installed-response-header",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-099m",
+                  "rowId": "fastify-installed-hook-chain",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-100m",
+                  "rowId": "fastify-installed-hook-chain",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-101m",
+                  "rowId": "fastify-installed-not-found",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-102m",
+                  "rowId": "fastify-installed-not-found",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-103m",
+                  "rowId": "fastify-installed-error-handler",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-104m",
+                  "rowId": "fastify-installed-error-handler",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-105m",
+                  "rowId": "fastify-installed-request-id",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-106m",
+                  "rowId": "fastify-installed-request-id",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-107m",
+                  "rowId": "fastify-installed-prefix-route",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-108m",
+                  "rowId": "fastify-installed-prefix-route",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-109m",
+                  "rowId": "fastify-installed-optional-param",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-110m",
+                  "rowId": "fastify-installed-optional-param",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-111m",
+                  "rowId": "fastify-installed-multi-route",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-112m",
+                  "rowId": "fastify-installed-multi-route",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-113m",
+                  "rowId": "fastify-installed-static-cache-header",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-114m",
+                  "rowId": "fastify-installed-static-cache-header",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-115m",
+                  "rowId": "fastify-installed-env-read",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-116m",
+                  "rowId": "fastify-installed-env-read",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-117m",
+                  "rowId": "fastify-installed-config-json-read",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-118m",
+                  "rowId": "fastify-installed-config-json-read",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-119m",
+                  "rowId": "fastify-installed-feature-flag-env",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-120m",
+                  "rowId": "fastify-installed-feature-flag-env",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-121m",
+                  "rowId": "fastify-installed-configured-prefix",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-122m",
+                  "rowId": "fastify-installed-configured-prefix",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-123m",
+                  "rowId": "fastify-installed-health-check",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-124m",
+                  "rowId": "fastify-installed-health-check",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-125m",
+                  "rowId": "express-generic-vm-cjs",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-126m",
+                  "rowId": "express-generic-vm-cjs",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-127m",
+                  "rowId": "express-generic-vm-esm",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-128m",
+                  "rowId": "express-generic-vm-esm",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-129m",
+                  "rowId": "fastify-generic-vm-cjs",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-130m",
+                  "rowId": "fastify-generic-vm-cjs",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-131m",
+                  "rowId": "fastify-generic-vm-esm",
+                  "direction": "arm64-to-amd64",
+                  "status": "missing"
+                },
+                {
+                  "proofId": "NODE-132m",
+                  "rowId": "fastify-generic-vm-esm",
+                  "direction": "amd64-to-arm64",
+                  "status": "missing"
+                }
+              ]
             }
           },
           {
@@ -2010,7 +2813,7 @@
         source.textContent = `source: ${label} · version: ${data.version ?? "unknown"}`;
         const tracks = data.tracks ?? [];
         const claims = data.proofGroups ?? [];
-        proofImpact.innerHTML = proofImpactTable(tracks, claims);
+        proofImpact.innerHTML = proofIndexSections(tracks, claims);
         trackOverview.innerHTML = trackCards(tracks, claims);
       }
 
@@ -2032,53 +2835,70 @@
         return claim?.id === "level4-ping-resource-continuation" ? claim.id : track.id;
       }
 
-      function proofImpactTable(tracks, claims) {
+      function proofIndexSections(tracks, claims) {
         const claimsByTrack = new Map();
         for (const claim of claims) {
           const trackClaims = claimsByTrack.get(claim.trackId) ?? [];
           trackClaims.push(claim);
           claimsByTrack.set(claim.trackId, trackClaims);
         }
-        const rows = tracks.flatMap((track) =>
-          (claimsByTrack.get(track.id) ?? []).flatMap((claim) =>
-            (claim.proofs ?? []).map((proof) => [
-              `<strong>${escapeHtml(displayTrackName(track, claim))}</strong><p class="muted">${escapeHtml(displayTrackSubtext(track, claim))}</p>`,
-              rowCoverageSummary(track),
-              `<strong>${escapeHtml(proof.id)}</strong><p class="muted">${escapeHtml(proof.category ?? "")}</p>`,
-              `<strong>${escapeHtml(claim.claim)}</strong><p class="muted">${escapeHtml(claim.id)}</p>`,
+        return tracks
+          .map((track) => {
+            const rows = proofIndexRows(track, claimsByTrack.get(track.id) ?? []);
+            return `<section class="proof-index-track"><h3>${escapeHtml(displayTrackName(track))}</h3><p class="muted">${escapeHtml(rowCoverageSummary(track))} · ${rows.length} indexed proof rows</p>${table(["ID (proof #)", "Proof name", "Status"], rows)}</section>`;
+          })
+          .join("");
+      }
+
+      function proofIndexRows(track, claims) {
+        const rows = missingBundleProofRows(track);
+        let index = rows.length + 1;
+        for (const claim of claims) {
+          for (const proof of claim.proofs ?? []) {
+            rows.push([
+              proofIndexId(track, index++),
+              `<strong>${escapeHtml(proof.id)}</strong><p class="muted">${escapeHtml(claim.id)} · ${escapeHtml(proof.category ?? "")}</p>`,
               pill(proof.status),
-              impactValue(
-                proof.claimImpact?.productSupportDelta,
-                claim.claimNumbers?.productSupport,
-              ),
-              impactValue(proof.claimImpact?.broadSupportDelta, claim.claimNumbers?.broadSupport),
-              impactValue(
-                proof.claimImpact?.arbitraryProcessCrossArchRestoreDelta,
-                claim.claimNumbers?.arbitraryProcessCrossArchRestore,
-              ),
-              candidateValue(proof.claimImpact ?? {}, claim.claimNumbers ?? {}),
-              pill(
-                String(proof.claimImpact?.claimChangeAllowed ?? track.claimChangeAllowed ?? false),
-              ),
-              proofWorkText(proof, claim, track),
-            ]),
-          ),
+            ]);
+          }
+        }
+        return rows;
+      }
+
+      function missingBundleProofRows(track) {
+        const missingBundles = track.rowCoverage?.missingSupportedDirectionBundles ?? [];
+        if (missingBundles.length > 0) {
+          return missingBundles.map((bundle) => [
+            bundle.proofId,
+            `<strong>${escapeHtml(bundle.rowId)}</strong><p class="muted">${escapeHtml(bundle.direction)}</p>`,
+            pill(bundle.status),
+          ]);
+        }
+        const missingRows = track.rowCoverage?.missingSupportedRows ?? [];
+        let index = 1;
+        return missingRows.flatMap((row) =>
+          row.directions.map((direction) => [
+            proofIndexId(track, index++, "m"),
+            `<strong>${escapeHtml(row.rowId)}</strong><p class="muted">${escapeHtml(direction)}</p>`,
+            pill("missing"),
+          ]),
         );
-        return table(
-          [
-            "Track",
-            "Supported bundles",
-            "Proof",
-            "Claim",
-            "Status",
-            "Product support impact (%)",
-            "Broad service/workload impact (%)",
-            "Arbitrary Linux process restore impact (%)",
-            "Candidate increase / why locked",
-            "Claim change allowed",
-            "Next gate / work",
-          ],
-          rows,
+      }
+
+      function proofIndexId(track, index, suffix = "") {
+        return `${proofIndexPrefix(track)}-${String(index).padStart(3, "0")}${suffix}`;
+      }
+
+      function proofIndexPrefix(track) {
+        return (
+          {
+            "arbitrary-process": "ARB",
+            bun: "BUN",
+            "generic-linux-service": "GEN",
+            "node-service": "NODE",
+            postgres: "PG",
+            "whole-linux-vm-workload": "VM",
+          }[track.id] ?? "TRACK"
         );
       }
 
@@ -2252,18 +3072,6 @@
         );
       }
 
-      function rowCoverageDetails(track) {
-        const coverage = track.rowCoverage;
-        if (!coverage?.missingSupportedRows?.length) return rowCoverageSummary(track);
-        const missingRows = coverage.missingSupportedRows
-          .map(
-            (row) =>
-              `<li><code>${escapeHtml(row.rowId)}</code>: ${escapeHtml(row.directions.join(", "))}</li>`,
-          )
-          .join("");
-        return `<details><summary>${escapeHtml(rowCoverageSummary(track))}</summary><p class="muted">${escapeHtml(String(coverage.missingSupportedRowsCount))} supported rows are missing both direction bundles:</p><ul>${missingRows}</ul></details>`;
-      }
-
       function trackCards(tracks, claims) {
         return table(
           [
@@ -2273,7 +3081,6 @@
             "Broad service/workload claim (%)",
             "Arbitrary Linux process restore claim (%)",
             "Claim change allowed",
-            "Supported bundles",
             "Next work",
             "Gate",
           ],
@@ -2291,7 +3098,6 @@
               claimNumberValue(track.currentClaim?.broadSupport),
               claimNumberValue(track.currentClaim?.arbitraryProcessCrossArchRestore),
               pill(String(track.claimChangeAllowed)),
-              rowCoverageDetails(track),
               next,
               code(gate),
             ];

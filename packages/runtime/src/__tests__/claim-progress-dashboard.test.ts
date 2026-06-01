@@ -27,7 +27,7 @@ type ClaimProgressProofGroup = {
 
 type ClaimProgressDashboard = {
   kind: "machinen.claim-progress-dashboard";
-  version: 24;
+  version: 25;
   tracks: ClaimProgressTrack[];
   proofGroups: ClaimProgressProofGroup[];
 };
@@ -41,7 +41,7 @@ describe("claim progress dashboard", () => {
 
     expect(dashboard).toMatchObject({
       kind: "machinen.claim-progress-dashboard",
-      version: 24,
+      version: 25,
     });
     expect(dashboard.tracks.map((track) => track.id)).toEqual([
       "node-service",
@@ -112,17 +112,22 @@ describe("claim progress dashboard", () => {
     expect(embeddedJson).toBeDefined();
     expect(JSON.parse(embeddedJson ?? "{}")).toEqual(dashboard);
     expect(html).toContain("claim-progress.json");
-    expect(html).toContain("Proof impact matrix");
-    expect(html).toContain("Product support impact (%)");
+    expect(html).toContain("Proof index");
+    expect(html).not.toContain("Proof impact matrix");
+    expect(html).not.toContain("Product support impact (%)");
     expect(html).toContain("Supported bundles");
     expect(html).toContain("4 / 136 covered");
     expect(html).toContain("missing 132");
     expect(html).toContain("missingSupportedRowsCount");
-    expect(html).toContain("supported rows are missing both direction bundles");
+    expect(html).toContain("missingSupportedDirectionBundles");
+    expect(html).toContain("NODE-001m");
+    expect(html).toContain("NODE-132m");
+    expect(html).toContain("ID (proof #)");
+    expect(html).toContain("Proof name");
     expect(html).toContain("express-official-hello-world");
     expect(html).toContain("fastify-generic-vm-esm");
-    expect(html).toContain("Broad service/workload impact (%)");
-    expect(html).toContain("Arbitrary Linux process restore impact (%)");
+    expect(html).not.toContain("Broad service/workload impact (%)");
+    expect(html).not.toContain("Arbitrary Linux process restore impact (%)");
     expect(html).not.toContain("What to do next");
     expect(html).not.toContain("next-actions");
     expect(html).toContain("derivedNextActionsForTrack");
@@ -134,19 +139,19 @@ describe("claim progress dashboard", () => {
     expect(html).not.toContain(
       "Turn the existing clean logical track into a percent-style claim ladder with retained verifier artifacts.",
     );
-    expect(html.indexOf("Track overview")).toBeLessThan(html.indexOf("Proof impact matrix"));
+    expect(html.indexOf("Track overview")).toBeLessThan(html.indexOf("Proof index"));
     expect(html).toContain("Legend");
     expect(html).toContain("Plain-English labels for the claim columns");
     expect(html).toContain("Progression");
     expect(html).toContain("0 · not-started");
     expect(html).toContain("2 · partial-proof");
-    expect(html).toContain("Candidate increase / why locked");
+    expect(html).toContain("Candidate increase");
     expect(html).toContain("none: gate locked");
     expect(html).toContain("nodejs");
     expect(html).toContain("postgres");
     expect(html).toContain("ping");
     expect(html).toContain("arbitrary binaries");
-    expect(html).toContain("Grouped by track, then proof and claim");
+    expect(html).toContain("Grouped by track; missing Node bundles use an");
     expect(html).not.toContain("Claim matrix");
     expect(html).not.toContain("Proofs by claim");
     expect(html).not.toContain("claim-matrix");
