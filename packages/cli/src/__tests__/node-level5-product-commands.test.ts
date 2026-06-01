@@ -771,6 +771,29 @@ describe("Node Level 5 product commands", () => {
     }
   });
 
+  it("prints arbitrary process seed matrix without raising the process claim", () => {
+    const seed = runCli(["node-level5", "arbitrary-process-seed", "--json"]);
+
+    expect(seed.status).toBe(0);
+    expect(JSON.parse(seed.stdout)).toMatchObject({
+      accepted: true,
+      kind: "machinen.arbitrary-process-level5-seed-matrix",
+      rowCount: 13,
+      seedCandidateRows: 6,
+      refusedRows: 6,
+      notProvenRows: 1,
+      currentArbitraryProcessCrossArchRestoreClaimed: 0,
+      candidateArbitraryProcessCrossArchRestoreClaimed: 1,
+      claimChangeAllowed: false,
+      arbitraryProcessClaimed: false,
+      rows: expect.arrayContaining([
+        expect.objectContaining({ id: "tiny-native-idle-counter", status: "seed-candidate" }),
+        expect.objectContaining({ id: "native-threads-refused", status: "refused" }),
+        expect.objectContaining({ id: "arbitrary-linux-process", status: "not-proven" }),
+      ]),
+    });
+  });
+
   it("prints framework capability candidates without arbitrary claims", () => {
     const capabilities = runCli(["node-level5", "framework-capabilities", "--json"]);
 

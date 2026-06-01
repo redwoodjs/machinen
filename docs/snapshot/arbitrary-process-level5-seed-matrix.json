@@ -1,0 +1,33 @@
+{
+  "kind": "machinen.arbitrary-process-level5-seed-matrix-doc",
+  "status": "seed-candidate-not-claimed",
+  "current": {
+    "nodeProductSupportClaimed": 100,
+    "broadNodeProductSupportClaimed": 100,
+    "arbitraryProcessCrossArchRestoreClaimed": 0
+  },
+  "candidate": {
+    "arbitraryProcessCrossArchRestoreClaimed": 1
+  },
+  "rowCount": 13,
+  "seedCandidateRows": 6,
+  "refusedRows": 6,
+  "notProvenRows": 1,
+  "productCommandPath": "machinen snapshot <vm-name> --out <dir>; machinen restore <dir>",
+  "targetNativeReconstructionRequired": true,
+  "translatedProcessStateRequired": true,
+  "rawCpuRestoreUsed": false,
+  "sourceIsaEmulationUsed": false,
+  "appCheckpointHooksRequired": false,
+  "metadataOnlySuccessAccepted": false,
+  "claimChangeAllowed": false,
+  "arbitraryProcessClaimed": false,
+  "refusalMarkers": [
+    "threads",
+    "jit-code",
+    "futex-owned-locks",
+    "live-sockets",
+    "device-mmap",
+    "active-epoll"
+  ]
+}

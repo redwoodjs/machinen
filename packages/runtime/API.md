@@ -193,6 +193,24 @@
 - [`nodeLevel5ProductSupport80UnsupportedDetectors`](#nodelevel5productsupport80unsupporteddetectors)
 - [`verifyNodeLevel5ProductSupport80ArtifactBundle`](#verifynodelevel5productsupport80artifactbundle)
 - [`NodeLevel5ProductSupport85ClaimRegistry`](#nodelevel5productsupport85claimregistry)
+- [`ArbitraryProcessLevel5SeedStatus`](#arbitraryprocesslevel5seedstatus)
+- [`ArbitraryProcessLevel5SeedEvidenceKind`](#arbitraryprocesslevel5seedevidencekind)
+- [`ArbitraryProcessLevel5SeedBoundary`](#arbitraryprocesslevel5seedboundary)
+- [`ArbitraryProcessLevel5RefusalMarker`](#arbitraryprocesslevel5refusalmarker)
+- [`ArbitraryProcessLevel5SeedRow`](#arbitraryprocesslevel5seedrow)
+- [`ArbitraryProcessLevel5SeedMatrix`](#arbitraryprocesslevel5seedmatrix)
+- [`ArbitraryProcessLevel5SeedArtifact`](#arbitraryprocesslevel5seedartifact)
+- [`ArbitraryProcessLevel5SeedReport`](#arbitraryprocesslevel5seedreport)
+- [`ArbitraryProcessLevel5SeedVerification`](#arbitraryprocesslevel5seedverification)
+- [`ARBITRARY_PROCESS_LEVEL5_SEED_MATRIX_KIND`](#arbitrary_process_level5_seed_matrix_kind)
+- [`ARBITRARY_PROCESS_LEVEL5_SEED_MATRIX_VERSION`](#arbitrary_process_level5_seed_matrix_version)
+- [`ARBITRARY_PROCESS_LEVEL5_SEED_REPORT_KIND`](#arbitrary_process_level5_seed_report_kind)
+- [`ARBITRARY_PROCESS_LEVEL5_SEED_REPORT_VERSION`](#arbitrary_process_level5_seed_report_version)
+- [`buildArbitraryProcessLevel5SeedMatrix`](#buildarbitraryprocesslevel5seedmatrix)
+- [`createArbitraryProcessLevel5SeedReport`](#createarbitraryprocesslevel5seedreport)
+- [`writeArbitraryProcessLevel5SeedReport`](#writearbitraryprocesslevel5seedreport)
+- [`loadArbitraryProcessLevel5SeedReport`](#loadarbitraryprocesslevel5seedreport)
+- [`verifyArbitraryProcessLevel5SeedReport`](#verifyarbitraryprocesslevel5seedreport)
 - [`NodeLevel5NodeServiceClaimTarget`](#nodelevel5nodeserviceclaimtarget)
 - [`NodeLevel5NodeServiceClaimEvidenceKind`](#nodelevel5nodeserviceclaimevidencekind)
 - [`NodeLevel5NodeServiceClaimTier`](#nodelevel5nodeserviceclaimtier)
@@ -4225,7 +4243,7 @@ Pluggable for tests; defaults to [readHostTotalBytes](#readhosttotalbytes).
 
 ###### Overrides
 
-[`Level5ArtifactEnvelope`](#level5artifactenvelope).[`kind`](#kind-6)
+[`Level5ArtifactEnvelope`](#level5artifactenvelope).[`kind`](#kind-9)
 
 ##### planState
 
@@ -7610,7 +7628,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`id`](#id-2)
+[`NativeCodeModule`](#nativecodemodule).[`id`](#id-3)
 
 ##### logicalName
 
@@ -7626,7 +7644,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`path`](#path)
+[`NativeCodeModule`](#nativecodemodule).[`path`](#path-1)
 
 ##### arch?
 
@@ -7642,7 +7660,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-20)
+[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-23)
 
 ##### buildId
 
@@ -7718,7 +7736,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`id`](#id-2)
+[`NativeCodeModule`](#nativecodemodule).[`id`](#id-3)
 
 ##### logicalName
 
@@ -7734,7 +7752,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`path`](#path)
+[`NativeCodeModule`](#nativecodemodule).[`path`](#path-1)
 
 ##### arch?
 
@@ -7750,7 +7768,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-20)
+[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-23)
 
 ##### buildId
 
@@ -8532,7 +8550,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeReturnChainFrame`](#nativereturnchainframe).[`id`](#id-11)
+[`NativeReturnChainFrame`](#nativereturnchainframe).[`id`](#id-12)
 
 ##### unwindId
 
@@ -9545,7 +9563,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-35)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-38)
 
 ##### targetArch
 
@@ -9641,7 +9659,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`sourceIsaEmulationUsed`](#sourceisaemulationused-3)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`sourceIsaEmulationUsed`](#sourceisaemulationused-4)
 
 ##### sidecarRuntimeUsed
 
@@ -10133,7 +10151,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-35)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-38)
 
 ##### targetArch
 
@@ -10229,7 +10247,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`sourceIsaEmulationUsed`](#sourceisaemulationused-3)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`sourceIsaEmulationUsed`](#sourceisaemulationused-4)
 
 ##### sidecarRuntimeUsed
 
@@ -21654,6 +21672,306 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### ArbitraryProcessLevel5SeedStatus
+
+> **ArbitraryProcessLevel5SeedStatus** = `"seed-candidate"` \| `"refused"` \| `"not-proven"`
+
+***
+
+### ArbitraryProcessLevel5SeedEvidenceKind
+
+> **ArbitraryProcessLevel5SeedEvidenceKind** = `"target-native-reconstruction-seed"` \| `"resource-translation-seed"` \| `"refusal-boundary"` \| `"matrix-gap"`
+
+***
+
+### ArbitraryProcessLevel5SeedBoundary
+
+> **ArbitraryProcessLevel5SeedBoundary** = `"no-threads"` \| `"no-jit"` \| `"idle-only"` \| `"regular-files-only"` \| `"simple-pipes-only"` \| `"no-live-sockets"` \| `"no-device-mmap"` \| `"no-futex-owned-locks"`
+
+***
+
+### ArbitraryProcessLevel5RefusalMarker
+
+> **ArbitraryProcessLevel5RefusalMarker** = `"threads"` \| `"jit-code"` \| `"futex-owned-locks"` \| `"live-sockets"` \| `"device-mmap"` \| `"active-epoll"`
+
+***
+
+### ArbitraryProcessLevel5SeedRow
+
+> **ArbitraryProcessLevel5SeedRow** = `object`
+
+#### Properties
+
+##### id
+
+> **id**: `string`
+
+##### status
+
+> **status**: [`ArbitraryProcessLevel5SeedStatus`](#arbitraryprocesslevel5seedstatus)
+
+##### evidenceKind
+
+> **evidenceKind**: [`ArbitraryProcessLevel5SeedEvidenceKind`](#arbitraryprocesslevel5seedevidencekind)
+
+##### processShape
+
+> **processShape**: `string`
+
+##### productPath
+
+> **productPath**: `"machinen snapshot <vm-name> --out <dir>; machinen restore <dir>"`
+
+##### translatedProcessStateRequired
+
+> **translatedProcessStateRequired**: `true`
+
+##### targetNativeReconstructionRequired
+
+> **targetNativeReconstructionRequired**: `true`
+
+##### rawCpuRestoreUsed
+
+> **rawCpuRestoreUsed**: `false`
+
+##### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+##### appCheckpointHooksRequired
+
+> **appCheckpointHooksRequired**: `false`
+
+##### metadataOnlySuccessAccepted
+
+> **metadataOnlySuccessAccepted**: `false`
+
+##### arbitraryProcessClaimed
+
+> **arbitraryProcessClaimed**: `false`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
+
+##### boundaries
+
+> **boundaries**: [`ArbitraryProcessLevel5SeedBoundary`](#arbitraryprocesslevel5seedboundary)[]
+
+##### refusalMarker?
+
+> `optional` **refusalMarker?**: [`ArbitraryProcessLevel5RefusalMarker`](#arbitraryprocesslevel5refusalmarker)
+
+***
+
+### ArbitraryProcessLevel5SeedMatrix
+
+> **ArbitraryProcessLevel5SeedMatrix** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`ARBITRARY_PROCESS_LEVEL5_SEED_MATRIX_KIND`](#arbitrary_process_level5_seed_matrix_kind)
+
+##### version
+
+> **version**: *typeof* [`ARBITRARY_PROCESS_LEVEL5_SEED_MATRIX_VERSION`](#arbitrary_process_level5_seed_matrix_version)
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### rowCount
+
+> **rowCount**: `13`
+
+##### seedCandidateRows
+
+> **seedCandidateRows**: `6`
+
+##### refusedRows
+
+> **refusedRows**: `6`
+
+##### notProvenRows
+
+> **notProvenRows**: `1`
+
+##### rows
+
+> **rows**: [`ArbitraryProcessLevel5SeedRow`](#arbitraryprocesslevel5seedrow)[]
+
+##### currentNodeProductSupportClaimed
+
+> **currentNodeProductSupportClaimed**: `100`
+
+##### currentBroadNodeProductSupportClaimed
+
+> **currentBroadNodeProductSupportClaimed**: `100`
+
+##### currentArbitraryProcessCrossArchRestoreClaimed
+
+> **currentArbitraryProcessCrossArchRestoreClaimed**: `0`
+
+##### candidateArbitraryProcessCrossArchRestoreClaimed
+
+> **candidateArbitraryProcessCrossArchRestoreClaimed**: `1`
+
+##### claimChangeAllowed
+
+> **claimChangeAllowed**: `false`
+
+##### arbitraryProcessClaimed
+
+> **arbitraryProcessClaimed**: `false`
+
+***
+
+### ArbitraryProcessLevel5SeedArtifact
+
+> **ArbitraryProcessLevel5SeedArtifact** = `object`
+
+#### Properties
+
+##### rowId
+
+> **rowId**: `string`
+
+##### status
+
+> **status**: [`ArbitraryProcessLevel5SeedStatus`](#arbitraryprocesslevel5seedstatus)
+
+##### evidenceKind
+
+> **evidenceKind**: [`ArbitraryProcessLevel5SeedEvidenceKind`](#arbitraryprocesslevel5seedevidencekind)
+
+##### path
+
+> **path**: `string`
+
+##### sha256
+
+> **sha256**: `string`
+
+##### required
+
+> **required**: `true`
+
+***
+
+### ArbitraryProcessLevel5SeedReport
+
+> **ArbitraryProcessLevel5SeedReport** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`ARBITRARY_PROCESS_LEVEL5_SEED_REPORT_KIND`](#arbitrary_process_level5_seed_report_kind)
+
+##### version
+
+> **version**: *typeof* [`ARBITRARY_PROCESS_LEVEL5_SEED_REPORT_VERSION`](#arbitrary_process_level5_seed_report_version)
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### matrix
+
+> **matrix**: [`ArbitraryProcessLevel5SeedMatrix`](#arbitraryprocesslevel5seedmatrix)
+
+##### artifactCount
+
+> **artifactCount**: `13`
+
+##### artifacts
+
+> **artifacts**: [`ArbitraryProcessLevel5SeedArtifact`](#arbitraryprocesslevel5seedartifact)[]
+
+##### artifactsSha256
+
+> **artifactsSha256**: `string`
+
+##### refusalMarkersCovered
+
+> **refusalMarkersCovered**: [`ArbitraryProcessLevel5RefusalMarker`](#arbitraryprocesslevel5refusalmarker)[]
+
+##### claimChangeAllowed
+
+> **claimChangeAllowed**: `false`
+
+##### currentNodeProductSupportClaimed
+
+> **currentNodeProductSupportClaimed**: `100`
+
+##### currentBroadNodeProductSupportClaimed
+
+> **currentBroadNodeProductSupportClaimed**: `100`
+
+##### currentArbitraryProcessCrossArchRestoreClaimed
+
+> **currentArbitraryProcessCrossArchRestoreClaimed**: `0`
+
+##### candidateArbitraryProcessCrossArchRestoreClaimed
+
+> **candidateArbitraryProcessCrossArchRestoreClaimed**: `1`
+
+##### arbitraryProcessClaimed
+
+> **arbitraryProcessClaimed**: `false`
+
+***
+
+### ArbitraryProcessLevel5SeedVerification
+
+> **ArbitraryProcessLevel5SeedVerification** = `object`
+
+#### Properties
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### kind
+
+> **kind**: `"machinen.arbitrary-process-level5-seed-verification"`
+
+##### rowCount
+
+> **rowCount**: `number`
+
+##### artifactCount
+
+> **artifactCount**: `number`
+
+##### artifactsSha256Verified
+
+> **artifactsSha256Verified**: `boolean`
+
+##### refusalMarkersCovered
+
+> **refusalMarkersCovered**: [`ArbitraryProcessLevel5RefusalMarker`](#arbitraryprocesslevel5refusalmarker)[]
+
+##### claimChangeAllowed
+
+> **claimChangeAllowed**: `false`
+
+##### currentArbitraryProcessCrossArchRestoreClaimed
+
+> **currentArbitraryProcessCrossArchRestoreClaimed**: `0`
+
+##### candidateArbitraryProcessCrossArchRestoreClaimed
+
+> **candidateArbitraryProcessCrossArchRestoreClaimed**: `1`
+
+##### arbitraryProcessClaimed
+
+> **arbitraryProcessClaimed**: `false`
+
+***
+
 ### ArchitecturePortableSnapshotGauntletEvidenceStatus
 
 > **ArchitecturePortableSnapshotGauntletEvidenceStatus** = *typeof* [`architecturePortableSnapshotGauntletEvidenceStatuses`](#architectureportablesnapshotgauntletevidencestatuses)\[`number`\]
@@ -27869,6 +28187,30 @@ tarball-producing tool can pre-populate the lookup cache.
 
 ***
 
+### ARBITRARY\_PROCESS\_LEVEL5\_SEED\_MATRIX\_KIND
+
+> `const` **ARBITRARY\_PROCESS\_LEVEL5\_SEED\_MATRIX\_KIND**: `"machinen.arbitrary-process-level5-seed-matrix"` = `"machinen.arbitrary-process-level5-seed-matrix"`
+
+***
+
+### ARBITRARY\_PROCESS\_LEVEL5\_SEED\_MATRIX\_VERSION
+
+> `const` **ARBITRARY\_PROCESS\_LEVEL5\_SEED\_MATRIX\_VERSION**: `1` = `1`
+
+***
+
+### ARBITRARY\_PROCESS\_LEVEL5\_SEED\_REPORT\_KIND
+
+> `const` **ARBITRARY\_PROCESS\_LEVEL5\_SEED\_REPORT\_KIND**: `"machinen.arbitrary-process-level5-seed-report"` = `"machinen.arbitrary-process-level5-seed-report"`
+
+***
+
+### ARBITRARY\_PROCESS\_LEVEL5\_SEED\_REPORT\_VERSION
+
+> `const` **ARBITRARY\_PROCESS\_LEVEL5\_SEED\_REPORT\_VERSION**: `1` = `1`
+
+***
+
 ### ARCHITECTURE\_PORTABLE\_SNAPSHOT\_GAUNTLET\_KIND
 
 > `const` **ARCHITECTURE\_PORTABLE\_SNAPSHOT\_GAUNTLET\_KIND**: `"machinen.architecture-portable-snapshot.final-proof-gauntlet"`
@@ -30552,6 +30894,88 @@ the guest agent skips entries that don't match.
 #### Returns
 
 `string`[]
+
+***
+
+### buildArbitraryProcessLevel5SeedMatrix()
+
+> **buildArbitraryProcessLevel5SeedMatrix**(): [`ArbitraryProcessLevel5SeedMatrix`](#arbitraryprocesslevel5seedmatrix)
+
+#### Returns
+
+[`ArbitraryProcessLevel5SeedMatrix`](#arbitraryprocesslevel5seedmatrix)
+
+***
+
+### createArbitraryProcessLevel5SeedReport()
+
+> **createArbitraryProcessLevel5SeedReport**(`input`): [`ArbitraryProcessLevel5SeedReport`](#arbitraryprocesslevel5seedreport)
+
+#### Parameters
+
+##### input
+
+###### outDir
+
+`string`
+
+#### Returns
+
+[`ArbitraryProcessLevel5SeedReport`](#arbitraryprocesslevel5seedreport)
+
+***
+
+### writeArbitraryProcessLevel5SeedReport()
+
+> **writeArbitraryProcessLevel5SeedReport**(`input`): [`ArbitraryProcessLevel5SeedReport`](#arbitraryprocesslevel5seedreport)
+
+#### Parameters
+
+##### input
+
+###### outDir
+
+`string`
+
+###### path
+
+`string`
+
+#### Returns
+
+[`ArbitraryProcessLevel5SeedReport`](#arbitraryprocesslevel5seedreport)
+
+***
+
+### loadArbitraryProcessLevel5SeedReport()
+
+> **loadArbitraryProcessLevel5SeedReport**(`path`): [`ArbitraryProcessLevel5SeedReport`](#arbitraryprocesslevel5seedreport)
+
+#### Parameters
+
+##### path
+
+`string`
+
+#### Returns
+
+[`ArbitraryProcessLevel5SeedReport`](#arbitraryprocesslevel5seedreport)
+
+***
+
+### verifyArbitraryProcessLevel5SeedReport()
+
+> **verifyArbitraryProcessLevel5SeedReport**(`report`): [`ArbitraryProcessLevel5SeedVerification`](#arbitraryprocesslevel5seedverification)
+
+#### Parameters
+
+##### report
+
+[`ArbitraryProcessLevel5SeedReport`](#arbitraryprocesslevel5seedreport)
+
+#### Returns
+
+[`ArbitraryProcessLevel5SeedVerification`](#arbitraryprocesslevel5seedverification)
 
 ***
 
