@@ -1,6 +1,6 @@
 {
   "kind": "machinen.claim-progress-dashboard",
-  "version": 21,
+  "version": 22,
   "updatedFrom": [
     "docs/snapshot/node-level5-product-support-claim-registry.json",
     "docs/snapshot/node-level5-product-support-100.json",
@@ -73,7 +73,7 @@
           "area": "audit",
           "kind": "row coverage manifest",
           "status": "partial-proof",
-          "evidence": "Generated from buildNodeLevel5AppSupportMatrix(): 68 supported rows require 136 bidirectional E2E row bundles, 42 refused rows require 84 refusal direction artifacts, and 4 not-proven rows block any 100% claim. Current retained refusal coverage is complete; 2 supported row-direction bundles are now retained and 134 remain missing.",
+          "evidence": "Generated from buildNodeLevel5AppSupportMatrix(): 68 supported rows require 136 bidirectional E2E row bundles, 42 refused rows require 84 refusal direction artifacts, and 4 not-proven rows block any 100% claim. Current retained refusal coverage is complete; 4 supported row-direction bundles are now retained and 132 remain missing.",
           "gate": "node-claim-row-coverage",
           "artifact": "proofs/nodejs/claim-evidence-index/retained/node-claim-row-coverage-report.json",
           "next": "Continue populating row-evidence/supported/<row-id>/<direction>/ for every supported row and resolve not-proven rows."
@@ -769,9 +769,9 @@
           "category": "row coverage",
           "status": "verified",
           "artifact": "proofs/nodejs/claim-evidence-index/retained/node-claim-row-coverage-report.json",
-          "proves": "The support matrix has an explicit row-by-row coverage ledger: 136 supported direction bundles required, 2 currently row-covered; 84 refusal direction rows required, 84 covered; 4 not-proven rows remain blockers.",
+          "proves": "The support matrix has an explicit row-by-row coverage ledger: 136 supported direction bundles required, 4 currently row-covered; 84 refusal direction rows required, 84 covered; 4 not-proven rows remain blockers.",
           "claimUse": "required missing-artifact ledger before any Node claim raise",
-          "next": "Fill the 134 missing supported row bundles and resolve not-proven rows.",
+          "next": "Fill the 132 missing supported row bundles and resolve not-proven rows.",
           "claimImpact": {
             "productSupportDelta": 0,
             "broadSupportDelta": 0,
