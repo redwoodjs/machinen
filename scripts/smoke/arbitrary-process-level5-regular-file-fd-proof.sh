@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-WORK="${WORK_DIR:-$(mktemp -d "${TMPDIR:-/tmp}/machinen-arbitrary-process-regular-file-fd.XXXXXX")}" 
+WORK="${WORK_DIR:-$(mktemp -d "${TMPDIR:-/tmp}/machinen-arbitrary-process-regular-file-fd.XXXXXX")}"
 mkdir -p "$WORK"
 
 pnpm exec tsx scripts/arbitrary-process-level5-regular-file-fd-proof.ts --out "$WORK" --json >"$WORK/summary.json"

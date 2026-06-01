@@ -17,10 +17,18 @@ type ClaimProgressTrack = {
   nextSteps: ClaimProgressDetailRow[];
 };
 
+type ClaimProgressProofGroup = {
+  id: string;
+  claim: string;
+  trackId: string;
+  proofs: ClaimProgressDetailRow[];
+};
+
 type ClaimProgressDashboard = {
   kind: "machinen.claim-progress-dashboard";
-  version: 2;
+  version: 3;
   tracks: ClaimProgressTrack[];
+  proofGroups: ClaimProgressProofGroup[];
 };
 
 describe("claim progress dashboard", () => {
@@ -32,7 +40,7 @@ describe("claim progress dashboard", () => {
 
     expect(dashboard).toMatchObject({
       kind: "machinen.claim-progress-dashboard",
-      version: 2,
+      version: 3,
     });
     expect(dashboard.tracks.map((track) => track.id)).toEqual([
       "node-service",
@@ -59,6 +67,16 @@ describe("claim progress dashboard", () => {
     );
     expect(dashboard.tracks.every((track) => track.evidenceRows.length > 0)).toBe(true);
     expect(dashboard.tracks.every((track) => track.refusalRows.length > 0)).toBe(true);
+    expect(dashboard.proofGroups.map((group) => group.id)).toEqual([
+      "node-service-100-100-0",
+      "level4-ping-resource-continuation",
+      "arbitrary-process-0-seed-1-locked",
+      "postgres-logical-product-track",
+      "bun-not-started",
+    ]);
+    expect(
+      dashboard.proofGroups.flatMap((group) => group.proofs.map((proof) => proof.id)),
+    ).toContain("regular-file-fd-proof");
     const embeddedJson =
       /<script id="embedded-claim-progress" type="application\/json">\n([\s\S]*?)\n    <\/script>/u.exec(
         html,
@@ -67,6 +85,7 @@ describe("claim progress dashboard", () => {
     expect(JSON.parse(embeddedJson ?? "{}")).toEqual(dashboard);
     expect(html).toContain("claim-progress.json");
     expect(html).toContain("Claim matrix");
+    expect(html).toContain("Proofs by claim");
     expect(html).toContain("grouped track details");
     expect(html).toContain("Evidence rows");
     expect(html).toContain("Refusal boundaries");
