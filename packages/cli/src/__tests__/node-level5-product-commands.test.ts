@@ -275,6 +275,59 @@ describe("Node Level 5 product commands", () => {
     }
   });
 
+  it("uses generic VM retained evidence for release gates", () => {
+    const dir = mkdtempSync(join(tmpdir(), "machinen-node85-cli-retained-evidence-"));
+    try {
+      const retainedFiles = [
+        "snapshot.json",
+        "restore.log",
+        "snap/portable-node.json",
+        "snap/portable-node-app.tar.gz",
+        "snap/portable-clean-service.json",
+        "snap/clean-service-node-primary.tar.gz",
+      ].map((path) => ({
+        path,
+        sha256: createHash("sha256").update(path).digest("hex"),
+        required: true,
+      }));
+      const report = {
+        kind: "machinen.node-level5-generic-vm-retained-evidence-report",
+        version: 1,
+        accepted: true,
+        productCommandPath: "machinen snapshot <vm-name> --out <dir>; machinen restore <dir>",
+        vmDetectedNodeWorkload: true,
+        restoreProbePassed: true,
+        retainedFiles,
+        retainedFileCount: retainedFiles.length,
+        retainedFilesSha256: createHash("sha256")
+          .update(JSON.stringify(retainedFiles))
+          .digest("hex"),
+        claimChangeAllowed: false,
+        nodeProductSupportClaimed: 80,
+        broadNodeProductSupportClaimed: 20,
+        arbitraryProcessCrossArchRestoreClaimed: 0,
+      };
+      const reportPath = join(dir, "node-level5-generic-vm-retained-evidence-report.json");
+      writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
+
+      const releaseGate = runCli([
+        "node-level5",
+        "release-gate",
+        "--include-generic-vm-retained-evidence",
+        "--generic-vm-retained-evidence-report",
+        reportPath,
+        "--json",
+      ]);
+      expect(releaseGate.status).toBe(0);
+      expect(JSON.parse(releaseGate.stdout)).toMatchObject({
+        accepted: true,
+        genericVmRetainedEvidence: { accepted: true, retainedFileCount: 6 },
+      });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it("uses retained real-app refusal corpus evidence for release gates", () => {
     const dir = mkdtempSync(join(tmpdir(), "machinen-node80-cli-refusal-corpus-"));
     try {

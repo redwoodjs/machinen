@@ -51,4 +51,8 @@ node "$CLI" exec "$RESTORED" -- "for i in \$(seq 1 80); do curl -fsS http://127.
 kill -TERM "$RESTORE_PID" >/dev/null 2>&1 || true
 wait "$RESTORE_PID" >/dev/null 2>&1 || true
 
+pnpm exec tsx scripts/node-level5-generic-vm-retained-evidence.ts --work-dir "$WORK" --json >"$WORK/retained-evidence-summary.json"
+node "$CLI" node-level5 release-gate --include-generic-vm-retained-evidence --generic-vm-retained-evidence-report "$WORK/node-level5-generic-vm-retained-evidence-report.json" --json >"$WORK/retained-evidence-release-gate.json"
+node -e 'const fs=require("fs"); const s=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if (s.accepted !== true || s.genericVmRetainedEvidence?.accepted !== true || s.genericVmRetainedEvidence?.retainedFileCount !== 6) throw new Error("generic VM retained evidence release gate failed");' "$WORK/retained-evidence-release-gate.json"
+
 echo "node level5 VM-detected generic snapshot+restore smoke passed: $WORK"

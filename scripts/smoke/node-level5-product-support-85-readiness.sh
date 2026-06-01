@@ -7,8 +7,17 @@ cd "$ROOT"
 
 pnpm exec tsx scripts/node-level5-generic-vm-corpus.ts --out "$WORK" --json >"$WORK/generic-vm-summary.json"
 REPORT="$WORK/node-level5-generic-vm-corpus-report.json"
+mkdir -p "$WORK/snap"
+printf '{"snap_dir":"%s/snap"}\n' "$WORK" >"$WORK/snapshot.json"
+printf 'restored as node-level5-detected-restored\n' >"$WORK/restore.log"
+printf '{"runtime":"node","subset":"node-http-clean-root-v1"}\n' >"$WORK/snap/portable-node.json"
+printf 'app\n' >"$WORK/snap/portable-node-app.tar.gz"
+printf '{}\n' >"$WORK/snap/portable-clean-service.json"
+printf 'clean-service\n' >"$WORK/snap/clean-service-node-primary.tar.gz"
+pnpm exec tsx scripts/node-level5-generic-vm-retained-evidence.ts --work-dir "$WORK" --json >"$WORK/retained-evidence-summary.json"
+RETAINED="$WORK/node-level5-generic-vm-retained-evidence-report.json"
 set +e
-pnpm exec tsx packages/cli/src/cli.ts node-level5 85-readiness --generic-vm-corpus-report "$REPORT" --json >"$WORK/readiness.json"
+pnpm exec tsx packages/cli/src/cli.ts node-level5 85-readiness --generic-vm-corpus-report "$REPORT" --generic-vm-retained-evidence-report "$RETAINED" --json >"$WORK/readiness.json"
 STATUS=$?
 set -e
 if [[ "$STATUS" -ne 1 ]]; then

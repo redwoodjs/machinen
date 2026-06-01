@@ -68,6 +68,7 @@ import {
   loadNodeLevel5RealAppCorpusReport,
   loadNodeLevel5RealAppRefusalCorpusReport,
   loadNodeLevel5GenericVmCorpusReport,
+  loadNodeLevel5GenericVmRetainedEvidenceReport,
   loadNodeLevel5InstalledThirdPartyAppCorpusReport,
   loadNodeLevel5ThirdPartyAppCorpusReport,
   list,
@@ -86,6 +87,7 @@ import {
   verifyNodeLevel5RealAppCorpusReport,
   verifyNodeLevel5RealAppRefusalCorpusReport,
   verifyNodeLevel5GenericVmCorpusReport,
+  verifyNodeLevel5GenericVmRetainedEvidenceReport,
   verifyNodeLevel5InstalledThirdPartyAppCorpusReport,
   verifyNodeLevel5ThirdPartyAppCorpusReport,
   restoreProductLevel4EventfdSnapshot,
@@ -2049,6 +2051,7 @@ function cmdNodeLevel5ReleaseGate(args: string[], json: boolean): number {
   const thirdPartyAppCorpus = readOptionalNodeLevel5ThirdPartyAppCorpus(args);
   const installedThirdPartyAppCorpus = readOptionalNodeLevel5InstalledThirdPartyAppCorpus(args);
   const genericVmCorpus = readOptionalNodeLevel5GenericVmCorpus(args);
+  const genericVmRetainedEvidence = readOptionalNodeLevel5GenericVmRetainedEvidence(args);
   const artifact = readOptionalNodeLevel5RetainedArtifact(nodeLevel5ReleaseGateArtifactArgs(args));
   const accepted = [
     artifact,
@@ -2057,6 +2060,7 @@ function cmdNodeLevel5ReleaseGate(args: string[], json: boolean): number {
     thirdPartyAppCorpus,
     installedThirdPartyAppCorpus,
     genericVmCorpus,
+    genericVmRetainedEvidence,
   ].every((item) => (item ? item.accepted === true : true));
   return reportNodeLevel5ProductCommand(json, {
     accepted,
@@ -2070,6 +2074,7 @@ function cmdNodeLevel5ReleaseGate(args: string[], json: boolean): number {
     thirdPartyAppCorpus,
     installedThirdPartyAppCorpus,
     genericVmCorpus,
+    genericVmRetainedEvidence,
   });
 }
 
@@ -2079,11 +2084,13 @@ const nodeLevel5ReleaseGateReportFlags = new Set([
   "--include-third-party-app-corpus",
   "--include-installed-third-party-app-corpus",
   "--include-generic-vm-corpus",
+  "--include-generic-vm-retained-evidence",
   "--corpus-report",
   "--refusal-corpus-report",
   "--third-party-app-corpus-report",
   "--installed-third-party-app-corpus-report",
   "--generic-vm-corpus-report",
+  "--generic-vm-retained-evidence-report",
 ]);
 const nodeLevel5ReleaseGateReportValueFlags = new Set([
   "--corpus-report",
@@ -2091,12 +2098,21 @@ const nodeLevel5ReleaseGateReportValueFlags = new Set([
   "--third-party-app-corpus-report",
   "--installed-third-party-app-corpus-report",
   "--generic-vm-corpus-report",
+  "--generic-vm-retained-evidence-report",
 ]);
 
 function cmdNodeLevel5ProductSupport85Readiness(args: string[], json: boolean): number {
   const reportPath = requiredNodeLevel5GenericVmCorpusReportPath(args, "85-readiness");
+  const retainedEvidencePath = optionalNodeLevel5GenericVmRetainedEvidenceReportPath(args);
   const summary = evaluateNodeLevel5ProductSupport85Readiness({
     genericVmCorpusReport: loadNodeLevel5GenericVmCorpusReport(resolve(reportPath)),
+    ...(retainedEvidencePath
+      ? {
+          genericVmRetainedEvidenceReport: loadNodeLevel5GenericVmRetainedEvidenceReport(
+            resolve(retainedEvidencePath),
+          ),
+        }
+      : {}),
   });
   return reportNodeLevel5ProductCommand(json, summary);
 }
@@ -2275,6 +2291,48 @@ function verifyNodeLevel5GenericVmCorpusPath(path: string): Record<string, unkno
   }
 }
 
+function readOptionalNodeLevel5GenericVmRetainedEvidence(
+  args: string[],
+): Record<string, unknown> | undefined {
+  if (!args.includes("--include-generic-vm-retained-evidence")) {
+    return undefined;
+  }
+  const path = requiredNodeLevel5GenericVmRetainedEvidenceReportPath(
+    args,
+    "release-gate --include-generic-vm-retained-evidence",
+  );
+  return verifyNodeLevel5GenericVmRetainedEvidencePath(path);
+}
+
+function optionalNodeLevel5GenericVmRetainedEvidenceReportPath(args: string[]): string | undefined {
+  const reportFlag = args.indexOf("--generic-vm-retained-evidence-report");
+  return reportFlag === -1 ? undefined : args[reportFlag + 1];
+}
+
+function requiredNodeLevel5GenericVmRetainedEvidenceReportPath(
+  args: string[],
+  command: string,
+): string {
+  const path = optionalNodeLevel5GenericVmRetainedEvidenceReportPath(args);
+  if (!path) {
+    die(`machinen node-level5 ${command} requires --generic-vm-retained-evidence-report <file>`);
+  }
+  return path;
+}
+
+function verifyNodeLevel5GenericVmRetainedEvidencePath(path: string): Record<string, unknown> {
+  try {
+    return verifyNodeLevel5GenericVmRetainedEvidenceReport(
+      loadNodeLevel5GenericVmRetainedEvidenceReport(resolve(path)),
+    );
+  } catch (error) {
+    return invalidNodeLevel5ReleaseReport(
+      "node-level5-generic-vm-retained-evidence-invalid",
+      error,
+    );
+  }
+}
+
 function invalidNodeLevel5ReleaseReport(code: string, error: unknown): Record<string, unknown> {
   return {
     accepted: false,
@@ -2386,7 +2444,8 @@ function nodeLevel5Usage(): string {
     "usage: machinen node-level5 artifacts <write|verify> ... [--json]\n" +
     "       machinen node-level5 support-matrix [--json]\n" +
     "       machinen node-level5 release-gate [--include-generic-vm-corpus --generic-vm-corpus-report <file>] [--json]\n" +
-    "       machinen node-level5 85-readiness --generic-vm-corpus-report <file> [--json]\n"
+    "       machinen node-level5 release-gate [--include-generic-vm-retained-evidence --generic-vm-retained-evidence-report <file>] [--json]\n" +
+    "       machinen node-level5 85-readiness --generic-vm-corpus-report <file> [--generic-vm-retained-evidence-report <file>] [--json]\n"
   );
 }
 

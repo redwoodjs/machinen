@@ -232,6 +232,15 @@
 - [`loadNodeLevel5InstalledThirdPartyAppCorpusReport`](#loadnodelevel5installedthirdpartyappcorpusreport)
 - [`verifyNodeLevel5InstalledThirdPartyAppCorpusReport`](#verifynodelevel5installedthirdpartyappcorpusreport)
 - [`writeNodeLevel5InstalledThirdPartyAppCorpusReport`](#writenodelevel5installedthirdpartyappcorpusreport)
+- [`NodeLevel5GenericVmRetainedEvidenceFile`](#nodelevel5genericvmretainedevidencefile)
+- [`NodeLevel5GenericVmRetainedEvidenceReport`](#nodelevel5genericvmretainedevidencereport)
+- [`NodeLevel5GenericVmRetainedEvidenceVerification`](#nodelevel5genericvmretainedevidenceverification)
+- [`NODE_LEVEL5_GENERIC_VM_RETAINED_EVIDENCE_REPORT_KIND`](#node_level5_generic_vm_retained_evidence_report_kind)
+- [`NODE_LEVEL5_GENERIC_VM_RETAINED_EVIDENCE_REPORT_VERSION`](#node_level5_generic_vm_retained_evidence_report_version)
+- [`createNodeLevel5GenericVmRetainedEvidenceReport`](#createnodelevel5genericvmretainedevidencereport)
+- [`writeNodeLevel5GenericVmRetainedEvidenceReport`](#writenodelevel5genericvmretainedevidencereport)
+- [`verifyNodeLevel5GenericVmRetainedEvidenceReport`](#verifynodelevel5genericvmretainedevidencereport)
+- [`loadNodeLevel5GenericVmRetainedEvidenceReport`](#loadnodelevel5genericvmretainedevidencereport)
 - [`NodeLevel5GenericVmModuleSystem`](#nodelevel5genericvmmodulesystem)
 - [`NodeLevel5GenericVmRefusalMarker`](#nodelevel5genericvmrefusalmarker)
 - [`NodeLevel5GenericVmPositiveRow`](#nodelevel5genericvmpositiverow)
@@ -22970,6 +22979,126 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NodeLevel5GenericVmRetainedEvidenceFile
+
+> **NodeLevel5GenericVmRetainedEvidenceFile** = `object`
+
+#### Properties
+
+##### path
+
+> **path**: `string`
+
+##### sha256
+
+> **sha256**: `string`
+
+##### required
+
+> **required**: `true`
+
+***
+
+### NodeLevel5GenericVmRetainedEvidenceReport
+
+> **NodeLevel5GenericVmRetainedEvidenceReport** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_GENERIC_VM_RETAINED_EVIDENCE_REPORT_KIND`](#node_level5_generic_vm_retained_evidence_report_kind)
+
+##### version
+
+> **version**: *typeof* [`NODE_LEVEL5_GENERIC_VM_RETAINED_EVIDENCE_REPORT_VERSION`](#node_level5_generic_vm_retained_evidence_report_version)
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### productCommandPath
+
+> **productCommandPath**: `"machinen snapshot <vm-name> --out <dir>; machinen restore <dir>"`
+
+##### vmDetectedNodeWorkload
+
+> **vmDetectedNodeWorkload**: `true`
+
+##### restoreProbePassed
+
+> **restoreProbePassed**: `true`
+
+##### retainedFiles
+
+> **retainedFiles**: [`NodeLevel5GenericVmRetainedEvidenceFile`](#nodelevel5genericvmretainedevidencefile)[]
+
+##### retainedFileCount
+
+> **retainedFileCount**: `number`
+
+##### retainedFilesSha256
+
+> **retainedFilesSha256**: `string`
+
+##### claimChangeAllowed
+
+> **claimChangeAllowed**: `false`
+
+##### nodeProductSupportClaimed
+
+> **nodeProductSupportClaimed**: `80`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `20`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
+
+***
+
+### NodeLevel5GenericVmRetainedEvidenceVerification
+
+> **NodeLevel5GenericVmRetainedEvidenceVerification** = `object`
+
+#### Properties
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### kind
+
+> **kind**: `"machinen.node-level5-generic-vm-retained-evidence-verification"`
+
+##### retainedFileCount
+
+> **retainedFileCount**: `number`
+
+##### retainedFilesSha256Verified
+
+> **retainedFilesSha256Verified**: `boolean`
+
+##### claimChangeAllowed
+
+> **claimChangeAllowed**: `false`
+
+##### nodeProductSupportClaimed
+
+> **nodeProductSupportClaimed**: `80`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `20`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
+
+***
+
 ### NodeLevel5HttpProfileRefusalCode
 
 > **NodeLevel5HttpProfileRefusalCode** = *typeof* [`nodeLevel5HttpProfileRefusalCodes`](#nodelevel5httpprofilerefusalcodes)\[`number`\]
@@ -24758,7 +24887,7 @@ Poll interval in ms while retrying. Default 250.
 
 ### NodeLevel5ProductSupport85ReadinessGateId
 
-> **NodeLevel5ProductSupport85ReadinessGateId** = `"generic-vm-corpus-accepted"` \| `"generic-vm-positive-row-count"` \| `"generic-vm-refusal-row-count"` \| `"generic-vm-corpus-hash-verified"` \| `"claim-values-remain-current"` \| `"claim-change-unlocked"`
+> **NodeLevel5ProductSupport85ReadinessGateId** = `"generic-vm-corpus-accepted"` \| `"generic-vm-positive-row-count"` \| `"generic-vm-refusal-row-count"` \| `"generic-vm-corpus-hash-verified"` \| `"generic-vm-retained-evidence-accepted"` \| `"generic-vm-retained-evidence-files"` \| `"claim-values-remain-current"` \| `"claim-change-unlocked"`
 
 ***
 
@@ -27227,6 +27356,18 @@ loops; anything looser stops being a meaningful gate.
 ### NODE\_LEVEL5\_GENERIC\_VM\_CORPUS\_REPORT\_VERSION
 
 > `const` **NODE\_LEVEL5\_GENERIC\_VM\_CORPUS\_REPORT\_VERSION**: `1` = `1`
+
+***
+
+### NODE\_LEVEL5\_GENERIC\_VM\_RETAINED\_EVIDENCE\_REPORT\_KIND
+
+> `const` **NODE\_LEVEL5\_GENERIC\_VM\_RETAINED\_EVIDENCE\_REPORT\_KIND**: `"machinen.node-level5-generic-vm-retained-evidence-report"` = `"machinen.node-level5-generic-vm-retained-evidence-report"`
+
+***
+
+### NODE\_LEVEL5\_GENERIC\_VM\_RETAINED\_EVIDENCE\_REPORT\_VERSION
+
+> `const` **NODE\_LEVEL5\_GENERIC\_VM\_RETAINED\_EVIDENCE\_REPORT\_VERSION**: `1` = `1`
 
 ***
 
@@ -30446,6 +30587,78 @@ available.
 
 ***
 
+### createNodeLevel5GenericVmRetainedEvidenceReport()
+
+> **createNodeLevel5GenericVmRetainedEvidenceReport**(`input`): [`NodeLevel5GenericVmRetainedEvidenceReport`](#nodelevel5genericvmretainedevidencereport)
+
+#### Parameters
+
+##### input
+
+###### workDir
+
+`string`
+
+#### Returns
+
+[`NodeLevel5GenericVmRetainedEvidenceReport`](#nodelevel5genericvmretainedevidencereport)
+
+***
+
+### writeNodeLevel5GenericVmRetainedEvidenceReport()
+
+> **writeNodeLevel5GenericVmRetainedEvidenceReport**(`input`): [`NodeLevel5GenericVmRetainedEvidenceReport`](#nodelevel5genericvmretainedevidencereport)
+
+#### Parameters
+
+##### input
+
+###### workDir
+
+`string`
+
+###### path
+
+`string`
+
+#### Returns
+
+[`NodeLevel5GenericVmRetainedEvidenceReport`](#nodelevel5genericvmretainedevidencereport)
+
+***
+
+### verifyNodeLevel5GenericVmRetainedEvidenceReport()
+
+> **verifyNodeLevel5GenericVmRetainedEvidenceReport**(`report`): [`NodeLevel5GenericVmRetainedEvidenceVerification`](#nodelevel5genericvmretainedevidenceverification)
+
+#### Parameters
+
+##### report
+
+[`NodeLevel5GenericVmRetainedEvidenceReport`](#nodelevel5genericvmretainedevidencereport)
+
+#### Returns
+
+[`NodeLevel5GenericVmRetainedEvidenceVerification`](#nodelevel5genericvmretainedevidenceverification)
+
+***
+
+### loadNodeLevel5GenericVmRetainedEvidenceReport()
+
+> **loadNodeLevel5GenericVmRetainedEvidenceReport**(`path`): [`NodeLevel5GenericVmRetainedEvidenceReport`](#nodelevel5genericvmretainedevidencereport)
+
+#### Parameters
+
+##### path
+
+`string`
+
+#### Returns
+
+[`NodeLevel5GenericVmRetainedEvidenceReport`](#nodelevel5genericvmretainedevidencereport)
+
+***
+
 ### buildNodeLevel5HttpProfileCapture()
 
 > **buildNodeLevel5HttpProfileCapture**(`input`): [`NodeLevel5HttpProfileCapture`](#nodelevel5httpprofilecapture)
@@ -30797,6 +31010,10 @@ available.
 ###### genericVmCorpusReport
 
 [`NodeLevel5GenericVmCorpusReport`](#nodelevel5genericvmcorpusreport)
+
+###### genericVmRetainedEvidenceReport?
+
+[`NodeLevel5GenericVmRetainedEvidenceReport`](#nodelevel5genericvmretainedevidencereport)
 
 #### Returns
 

@@ -2,6 +2,10 @@ import {
   verifyNodeLevel5GenericVmCorpusReport,
   type NodeLevel5GenericVmCorpusReport,
 } from "./node-level5-generic-vm-corpus.ts";
+import {
+  verifyNodeLevel5GenericVmRetainedEvidenceReport,
+  type NodeLevel5GenericVmRetainedEvidenceReport,
+} from "./node-level5-generic-vm-retained-evidence.ts";
 
 export const NODE_LEVEL5_PRODUCT_SUPPORT_85_READINESS_KIND =
   "machinen.node-level5-product-support-85-readiness";
@@ -13,6 +17,8 @@ export type NodeLevel5ProductSupport85ReadinessGateId =
   | "generic-vm-positive-row-count"
   | "generic-vm-refusal-row-count"
   | "generic-vm-corpus-hash-verified"
+  | "generic-vm-retained-evidence-accepted"
+  | "generic-vm-retained-evidence-files"
   | "claim-values-remain-current"
   | "claim-change-unlocked";
 
@@ -40,8 +46,12 @@ export type NodeLevel5ProductSupport85ReadinessReport = {
 
 export function evaluateNodeLevel5ProductSupport85Readiness(input: {
   genericVmCorpusReport: NodeLevel5GenericVmCorpusReport;
+  genericVmRetainedEvidenceReport?: NodeLevel5GenericVmRetainedEvidenceReport;
 }): NodeLevel5ProductSupport85ReadinessReport {
   const verification = verifyNodeLevel5GenericVmCorpusReport(input.genericVmCorpusReport);
+  const retainedEvidence = input.genericVmRetainedEvidenceReport
+    ? verifyNodeLevel5GenericVmRetainedEvidenceReport(input.genericVmRetainedEvidenceReport)
+    : undefined;
   const gates: NodeLevel5ProductSupport85ReadinessGate[] = [
     gate(
       "generic-vm-corpus-accepted",
@@ -63,6 +73,7 @@ export function evaluateNodeLevel5ProductSupport85Readiness(input: {
       verification.rowsSha256Verified,
       "generic VM corpus row hash is verified",
     ),
+    ...retainedEvidenceGates(retainedEvidence),
     gate(
       "claim-values-remain-current",
       verification.nodeProductSupportClaimed === 80 &&
@@ -92,6 +103,26 @@ export function evaluateNodeLevel5ProductSupport85Readiness(input: {
     gates,
     blockedGates,
   };
+}
+
+function retainedEvidenceGates(
+  retainedEvidence: ReturnType<typeof verifyNodeLevel5GenericVmRetainedEvidenceReport> | undefined,
+): NodeLevel5ProductSupport85ReadinessGate[] {
+  if (!retainedEvidence) {
+    return [];
+  }
+  return [
+    gate(
+      "generic-vm-retained-evidence-accepted",
+      retainedEvidence.accepted,
+      "generic VM retained evidence report is accepted by the release verifier",
+    ),
+    gate(
+      "generic-vm-retained-evidence-files",
+      retainedEvidence.retainedFileCount === 6 && retainedEvidence.retainedFilesSha256Verified,
+      "generic VM retained evidence keeps snapshot, restore, manifest, and workload artifacts",
+    ),
+  ];
 }
 
 function gate(
