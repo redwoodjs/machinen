@@ -46,6 +46,7 @@ import {
   buildNodeLevel5AppSupportMatrix,
   buildNodeLevel5FrameworkCapabilityMatrix,
   buildProductClaimRegistry,
+  evaluateNodeLevel5FrameworkCapabilityReadiness,
   createProductLevel4EventfdSnapshot,
   createProductLevel4PingSocketSnapshot,
   createProductLevel4PipeSnapshot,
@@ -1977,6 +1978,9 @@ function cmdNodeLevel5(args: string[]): number {
   if (rest[0] === "framework-capabilities") {
     return cmdNodeLevel5FrameworkCapabilities(rest.slice(1), json);
   }
+  if (rest[0] === "framework-readiness") {
+    return cmdNodeLevel5FrameworkReadiness(rest.slice(1), json);
+  }
   if (rest[0] === "release-gate") {
     return cmdNodeLevel5ReleaseGate(rest.slice(1), json);
   }
@@ -2065,6 +2069,22 @@ function cmdNodeLevel5FrameworkCapabilities(args: string[], json: boolean): numb
     die(`unknown node-level5 framework-capabilities argument: ${args[0]}`);
   }
   return reportNodeLevel5ProductCommand(json, buildNodeLevel5FrameworkCapabilityMatrix());
+}
+
+function cmdNodeLevel5FrameworkReadiness(args: string[], json: boolean): number {
+  const reportFlag = args.indexOf("--framework-introspection-corpus-report");
+  const path = reportFlag === -1 ? undefined : args[reportFlag + 1];
+  if (!path) {
+    die(
+      "machinen node-level5 framework-readiness requires --framework-introspection-corpus-report <file>",
+    );
+  }
+  const summary = evaluateNodeLevel5FrameworkCapabilityReadiness({
+    frameworkIntrospectionCorpusReport: loadNodeLevel5FrameworkIntrospectionCorpusReport(
+      resolve(path),
+    ),
+  });
+  return reportNodeLevel5ProductCommand(json, summary);
 }
 
 function cmdNodeLevel5ReleaseGate(args: string[], json: boolean): number {
@@ -2623,6 +2643,7 @@ function nodeLevel5Usage(): string {
     "usage: machinen node-level5 artifacts <write|verify> ... [--json]\n" +
     "       machinen node-level5 support-matrix [--json]\n" +
     "       machinen node-level5 framework-capabilities [--json]\n" +
+    "       machinen node-level5 framework-readiness --framework-introspection-corpus-report <file> [--json]\n" +
     "       machinen node-level5 release-gate [--include-generic-vm-corpus --generic-vm-corpus-report <file>] [--json]\n" +
     "       machinen node-level5 release-gate [--include-generic-vm-retained-evidence --generic-vm-retained-evidence-report <file>] [--json]\n" +
     "       machinen node-level5 release-gate [--include-generic-vm-row-artifacts --generic-vm-row-artifacts-report <file>] [--json]\n" +

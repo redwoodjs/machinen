@@ -1378,6 +1378,16 @@ export { readBalloonStats, STATS_FILE_SIZE } from "./balloon-stats.ts";
 export type { BalloonCounters } from "./balloon-stats.ts";
 
 export {
+  NODE_LEVEL5_FRAMEWORK_CAPABILITY_READINESS_KIND,
+  NODE_LEVEL5_FRAMEWORK_CAPABILITY_READINESS_VERSION,
+  evaluateNodeLevel5FrameworkCapabilityReadiness,
+  type NodeLevel5FrameworkCapabilityReadinessGate,
+  type NodeLevel5FrameworkCapabilityReadinessGateId,
+  type NodeLevel5FrameworkCapabilityReadinessGateStatus,
+  type NodeLevel5FrameworkCapabilityReadinessReport,
+} from "./node-level5-framework-capability-readiness.ts";
+
+export {
   NODE_LEVEL5_FRAMEWORK_INTROSPECTION_CORPUS_REPORT_KIND,
   NODE_LEVEL5_FRAMEWORK_INTROSPECTION_CORPUS_REPORT_VERSION,
   createNodeLevel5FrameworkIntrospectionCorpusReport,

@@ -18,6 +18,9 @@ The next candidate target is **90 / 30 / 0**, but it is not claimed.
 
 ```sh
 machinen node-level5 framework-capabilities --json
+machinen node-level5 framework-readiness \
+  --framework-introspection-corpus-report ./node-level5-framework-introspection-corpus-report.json \
+  --json
 ```
 
 ## What this adds

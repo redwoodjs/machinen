@@ -244,6 +244,13 @@
 - [`loadNodeLevel5InstalledThirdPartyAppCorpusReport`](#loadnodelevel5installedthirdpartyappcorpusreport)
 - [`verifyNodeLevel5InstalledThirdPartyAppCorpusReport`](#verifynodelevel5installedthirdpartyappcorpusreport)
 - [`writeNodeLevel5InstalledThirdPartyAppCorpusReport`](#writenodelevel5installedthirdpartyappcorpusreport)
+- [`NodeLevel5FrameworkCapabilityReadinessGateStatus`](#nodelevel5frameworkcapabilityreadinessgatestatus)
+- [`NodeLevel5FrameworkCapabilityReadinessGateId`](#nodelevel5frameworkcapabilityreadinessgateid)
+- [`NodeLevel5FrameworkCapabilityReadinessGate`](#nodelevel5frameworkcapabilityreadinessgate)
+- [`NodeLevel5FrameworkCapabilityReadinessReport`](#nodelevel5frameworkcapabilityreadinessreport)
+- [`NODE_LEVEL5_FRAMEWORK_CAPABILITY_READINESS_KIND`](#node_level5_framework_capability_readiness_kind)
+- [`NODE_LEVEL5_FRAMEWORK_CAPABILITY_READINESS_VERSION`](#node_level5_framework_capability_readiness_version)
+- [`evaluateNodeLevel5FrameworkCapabilityReadiness`](#evaluatenodelevel5frameworkcapabilityreadiness)
 - [`NodeLevel5FrameworkIntrospectionCapability`](#nodelevel5frameworkintrospectioncapability)
 - [`NodeLevel5FrameworkIntrospectionCorpusRow`](#nodelevel5frameworkintrospectioncorpusrow)
 - [`NodeLevel5FrameworkIntrospectionCorpusReport`](#nodelevel5frameworkintrospectioncorpusreport)
@@ -12673,7 +12680,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`message`](#message-9)
+[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`message`](#message-10)
 
 ##### migrationCompleted
 
@@ -22894,6 +22901,98 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NodeLevel5FrameworkCapabilityReadinessGateStatus
+
+> **NodeLevel5FrameworkCapabilityReadinessGateStatus** = `"passed"` \| `"blocked"`
+
+***
+
+### NodeLevel5FrameworkCapabilityReadinessGateId
+
+> **NodeLevel5FrameworkCapabilityReadinessGateId** = `"capability-matrix-stable"` \| `"framework-introspection-corpus-accepted"` \| `"framework-introspection-row-count"` \| `"current-claim-remains-85-25-0"` \| `"candidate-target-present"` \| `"arbitrary-claims-remain-false"` \| `"claim-change-unlocked"`
+
+***
+
+### NodeLevel5FrameworkCapabilityReadinessGate
+
+> **NodeLevel5FrameworkCapabilityReadinessGate** = `object`
+
+#### Properties
+
+##### id
+
+> **id**: [`NodeLevel5FrameworkCapabilityReadinessGateId`](#nodelevel5frameworkcapabilityreadinessgateid)
+
+##### status
+
+> **status**: [`NodeLevel5FrameworkCapabilityReadinessGateStatus`](#nodelevel5frameworkcapabilityreadinessgatestatus)
+
+##### message
+
+> **message**: `string`
+
+***
+
+### NodeLevel5FrameworkCapabilityReadinessReport
+
+> **NodeLevel5FrameworkCapabilityReadinessReport** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_FRAMEWORK_CAPABILITY_READINESS_KIND`](#node_level5_framework_capability_readiness_kind)
+
+##### version
+
+> **version**: *typeof* [`NODE_LEVEL5_FRAMEWORK_CAPABILITY_READINESS_VERSION`](#node_level5_framework_capability_readiness_version)
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### candidateEvidenceAccepted
+
+> **candidateEvidenceAccepted**: `boolean`
+
+##### claimChangeAllowed
+
+> **claimChangeAllowed**: `false`
+
+##### currentNodeProductSupportClaimed
+
+> **currentNodeProductSupportClaimed**: `85`
+
+##### currentBroadNodeProductSupportClaimed
+
+> **currentBroadNodeProductSupportClaimed**: `25`
+
+##### currentArbitraryProcessCrossArchRestoreClaimed
+
+> **currentArbitraryProcessCrossArchRestoreClaimed**: `0`
+
+##### candidateNodeProductSupportClaimed
+
+> **candidateNodeProductSupportClaimed**: `90`
+
+##### candidateBroadNodeProductSupportClaimed
+
+> **candidateBroadNodeProductSupportClaimed**: `30`
+
+##### candidateArbitraryProcessCrossArchRestoreClaimed
+
+> **candidateArbitraryProcessCrossArchRestoreClaimed**: `0`
+
+##### gates
+
+> **gates**: [`NodeLevel5FrameworkCapabilityReadinessGate`](#nodelevel5frameworkcapabilityreadinessgate)[]
+
+##### blockedGates
+
+> **blockedGates**: [`NodeLevel5FrameworkCapabilityReadinessGate`](#nodelevel5frameworkcapabilityreadinessgate)[]
+
+***
+
 ### NodeLevel5FrameworkIntrospectionCapability
 
 > **NodeLevel5FrameworkIntrospectionCapability** = `"route-graph"` \| `"middleware-hook-graph"` \| `"plugin-graph"` \| `"idle-lifecycle-state"`
@@ -28238,6 +28337,18 @@ loops; anything looser stops being a meaningful gate.
 
 ***
 
+### NODE\_LEVEL5\_FRAMEWORK\_CAPABILITY\_READINESS\_KIND
+
+> `const` **NODE\_LEVEL5\_FRAMEWORK\_CAPABILITY\_READINESS\_KIND**: `"machinen.node-level5-framework-capability-readiness"` = `"machinen.node-level5-framework-capability-readiness"`
+
+***
+
+### NODE\_LEVEL5\_FRAMEWORK\_CAPABILITY\_READINESS\_VERSION
+
+> `const` **NODE\_LEVEL5\_FRAMEWORK\_CAPABILITY\_READINESS\_VERSION**: `1` = `1`
+
+***
+
 ### NODE\_LEVEL5\_FRAMEWORK\_INTROSPECTION\_CORPUS\_REPORT\_KIND
 
 > `const` **NODE\_LEVEL5\_FRAMEWORK\_INTROSPECTION\_CORPUS\_REPORT\_KIND**: `"machinen.node-level5-framework-introspection-corpus-report"` = `"machinen.node-level5-framework-introspection-corpus-report"`
@@ -31481,6 +31592,28 @@ available.
 #### Returns
 
 [`NodeLevel5FrameworkCapabilityMatrix`](#nodelevel5frameworkcapabilitymatrix)
+
+***
+
+### evaluateNodeLevel5FrameworkCapabilityReadiness()
+
+> **evaluateNodeLevel5FrameworkCapabilityReadiness**(`input`): [`NodeLevel5FrameworkCapabilityReadinessReport`](#nodelevel5frameworkcapabilityreadinessreport)
+
+#### Parameters
+
+##### input
+
+###### frameworkIntrospectionCorpusReport
+
+[`NodeLevel5FrameworkIntrospectionCorpusReport`](#nodelevel5frameworkintrospectioncorpusreport)
+
+###### frameworkCapabilityMatrix?
+
+[`NodeLevel5FrameworkCapabilityMatrix`](#nodelevel5frameworkcapabilitymatrix)
+
+#### Returns
+
+[`NodeLevel5FrameworkCapabilityReadinessReport`](#nodelevel5frameworkcapabilityreadinessreport)
 
 ***
 

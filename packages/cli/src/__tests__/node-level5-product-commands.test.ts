@@ -642,6 +642,62 @@ describe("Node Level 5 product commands", () => {
     });
   });
 
+  it("keeps framework readiness locked at the 90 / 30 / 0 candidate", () => {
+    const dir = mkdtempSync(join(tmpdir(), "machinen-node90-framework-readiness-"));
+    try {
+      const rows = Array.from({ length: 16 }, (_, index) => ({
+        id: `framework-readiness-${index}`,
+        framework: index % 2 === 0 ? "express" : "fastify",
+        capability: "route-graph",
+        direction: index % 2 === 0 ? "arm64-to-amd64" : "amd64-to-arm64",
+        productCommandPath: "machinen snapshot <vm-name> --out <dir>; machinen restore <dir>",
+        vmDetectedNodeWorkload: true,
+        frameworkMetadataCapturedInsideVm: true,
+        retainedFrameworkGraphArtifact: true,
+        targetNativeRestoreProbePassed: true,
+        arbitraryFrameworkClaimed: false,
+        arbitraryNodeClaimed: false,
+        arbitraryProcessCrossArchRestoreClaimed: 0,
+      }));
+      const report = {
+        kind: "machinen.node-level5-framework-introspection-corpus-report",
+        version: 1,
+        accepted: true,
+        rowCount: rows.length,
+        rowsSha256: createHash("sha256").update(JSON.stringify(rows)).digest("hex"),
+        rows,
+        claimChangeAllowed: false,
+        currentNodeProductSupportClaimed: 85,
+        currentBroadNodeProductSupportClaimed: 25,
+        currentArbitraryProcessCrossArchRestoreClaimed: 0,
+        candidateNodeProductSupportClaimed: 90,
+        candidateBroadNodeProductSupportClaimed: 30,
+        candidateArbitraryProcessCrossArchRestoreClaimed: 0,
+      };
+      const reportPath = join(dir, "node-level5-framework-introspection-corpus-report.json");
+      writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
+
+      const readiness = runCli([
+        "node-level5",
+        "framework-readiness",
+        "--framework-introspection-corpus-report",
+        reportPath,
+        "--json",
+      ]);
+      expect(readiness.status).toBe(1);
+      expect(JSON.parse(readiness.stdout)).toMatchObject({
+        accepted: false,
+        candidateEvidenceAccepted: true,
+        claimChangeAllowed: false,
+        currentBroadNodeProductSupportClaimed: 25,
+        candidateBroadNodeProductSupportClaimed: 30,
+        blockedGates: [expect.objectContaining({ id: "claim-change-unlocked" })],
+      });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it("uses framework introspection corpus evidence for release gates", () => {
     const dir = mkdtempSync(join(tmpdir(), "machinen-node90-framework-introspection-"));
     try {
