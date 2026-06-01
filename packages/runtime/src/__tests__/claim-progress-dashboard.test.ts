@@ -27,7 +27,7 @@ type ClaimProgressProofGroup = {
 
 type ClaimProgressDashboard = {
   kind: "machinen.claim-progress-dashboard";
-  version: 25;
+  version: 26;
   tracks: ClaimProgressTrack[];
   proofGroups: ClaimProgressProofGroup[];
 };
@@ -41,7 +41,7 @@ describe("claim progress dashboard", () => {
 
     expect(dashboard).toMatchObject({
       kind: "machinen.claim-progress-dashboard",
-      version: 25,
+      version: 26,
     });
     expect(dashboard.tracks.map((track) => track.id)).toEqual([
       "node-service",
@@ -120,8 +120,8 @@ describe("claim progress dashboard", () => {
     expect(html).toContain("missing 132");
     expect(html).toContain("missingSupportedRowsCount");
     expect(html).toContain("missingSupportedDirectionBundles");
-    expect(html).toContain("NODE-001m");
-    expect(html).toContain("NODE-132m");
+    expect(html).toContain("node/001m");
+    expect(html).toContain("node/132m");
     expect(html).toContain("ID (proof #)");
     expect(html).toContain("Proof name");
     expect(html).toContain("express-official-hello-world");
@@ -151,7 +151,7 @@ describe("claim progress dashboard", () => {
     expect(html).toContain("postgres");
     expect(html).toContain("ping");
     expect(html).toContain("arbitrary binaries");
-    expect(html).toContain("Grouped by track; missing Node bundles use an");
+    expect(html).toContain("proof IDs are path-like");
     expect(html).not.toContain("Claim matrix");
     expect(html).not.toContain("Proofs by claim");
     expect(html).not.toContain("claim-matrix");
