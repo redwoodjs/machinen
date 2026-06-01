@@ -361,7 +361,7 @@
     <script id="embedded-claim-progress" type="application/json">
       {
         "kind": "machinen.claim-progress-dashboard",
-        "version": 9,
+        "version": 11,
         "updatedFrom": [
           "docs/snapshot/node-level5-product-support-claim-registry.json",
           "docs/snapshot/node-level5-product-support-100.json",
@@ -733,8 +733,8 @@
               "arbitraryProcessCrossArchRestore": 1,
               "claimChangeAllowed": true
             },
-            "summary": "Seed matrix exists for tiny target-native reconstruction candidates. The regular file FD row now has retained verifier artifacts; no arbitrary-process claim is raised yet.",
-            "claimGate": "arbitrary-process claim-ready gate can pass after regular-file, simple-pipe, and idle epoll/TCP verified seeds",
+            "summary": "The seed matrix and three verified resource seeds now satisfy the claim-ready gate for a candidate 1% path. The public arbitrary-process claim remains 0% until a separate claim-change decision.",
+            "claimGate": "arbitrary-process claim-ready gate accepted; public claim still 0%",
             "claimChangeAllowed": false,
             "evidence": [
               "tiny native idle process seed",
@@ -825,7 +825,7 @@
                 "evidence": "Gate requires accepted seed matrix, unsafe refusals, at least three verified seeds, required seed rows, and SHA-verified artifacts",
                 "gate": "claimChangeAllowed must come only from arbitrary-process-level5-claim-ready",
                 "artifact": "arbitrary-process-claim-ready-report.json",
-                "next": "Add simple pipe and idle epoll/TCP verified seeds so this gate can become true."
+                "next": "Gate is satisfied; keep public claim changes in a separate PR."
               },
               {
                 "id": "native-simple-pipe-fd-proof",
@@ -835,7 +835,7 @@
                 "evidence": "Simple pipe FD retained proof verifies endpoint direction, buffered bytes, EOF, and target-native pipe reconstruction",
                 "gate": "artifact sha verification plus target behavior proof",
                 "artifact": "simple-pipe-fd-proof-report.json",
-                "next": "Feed this verified seed into the arbitrary-process claim-ready gate."
+                "next": "Covered by the accepted claim-ready gate."
               },
               {
                 "id": "native-idle-epoll-tcp-proof",
@@ -845,7 +845,7 @@
                 "evidence": "Idle epoll and idle TCP listener retained proof verifies no ready events, no accepted streams, and target-native reconstruction",
                 "gate": "idle-only resource reconstruction verifier",
                 "artifact": "idle-resource-proof-report.json",
-                "next": "Use with the claim-ready gate before any public 1% claim PR."
+                "next": "Covered by the accepted claim-ready gate; public claim remains 0%."
               }
             ],
             "refusals": [
@@ -905,18 +905,8 @@
             "nextSteps": [
               {
                 "priority": 1,
-                "item": "Open a separate public claim-change PR only if the accepted claim-ready gate should raise arbitrary-process restore to 1%.",
-                "gate": "arbitrary-process-level5-claim-ready accepted"
-              },
-              {
-                "priority": 2,
-                "item": "Add retained verifier artifacts for simple pipe FDs.",
-                "gate": "artifact sha verification plus target behavior proof"
-              },
-              {
-                "priority": 3,
-                "item": "Add idle epoll and idle TCP listener safe-boundary proofs.",
-                "gate": "idle-only resource reconstruction verifier"
+                "item": "Keep the public arbitrary-process claim at 0% unless a separate claim-change PR is explicitly requested.",
+                "gate": "claim-ready gate accepted; public claim still 0%"
               }
             ],
             "docs": [
@@ -1233,7 +1223,7 @@
                 "artifact": "arbitrary-process-level5-seed-matrix.json",
                 "proves": "14-row seed/refusal/not-proven matrix with claim locked at 0",
                 "claimUse": "defines proof backlog and unsafe refusals",
-                "next": "Add claim-ready gate."
+                "next": "Seed matrix is accepted; derive remaining work from unfinished proof and evidence rows."
               },
               {
                 "id": "arbitrary-process-claim-ready-gate",
@@ -1242,7 +1232,7 @@
                 "artifact": "arbitrary-process-claim-ready-report.json",
                 "proves": "claimChangeAllowed can only become true through the dedicated arbitrary-process claim-ready gate",
                 "claimUse": "keeps public arbitrary-process claim at 0 until required verified seeds pass",
-                "next": "Add simple pipe and idle epoll/TCP verified-seed reports.",
+                "next": "Keep public claim changes separate; this gate only authorizes a candidate 1% decision.",
                 "claimImpact": {
                   "productSupportDelta": 0,
                   "broadSupportDelta": 0,
@@ -1262,7 +1252,7 @@
                 "artifact": "regular-file-fd-proof-report.json",
                 "proves": "Target-native reopen preserves captured file offset and read continuation",
                 "claimUse": "one verified arbitrary-process seed; no claim raise",
-                "next": "Use as pattern for simple pipe FD proof."
+                "next": "Covered by the accepted claim-ready gate."
               },
               {
                 "id": "simple-pipe-fd-proof",
@@ -1271,7 +1261,7 @@
                 "artifact": "simple-pipe-fd-proof-report.json",
                 "proves": "Target-native simple pipe reconstruction preserves endpoint direction, buffered bytes, and EOF behavior",
                 "claimUse": "second verified arbitrary-process seed; no claim raise",
-                "next": "Use with regular-file-FD and idle epoll/TCP proofs in the claim-ready gate.",
+                "next": "Covered by the accepted claim-ready gate; no public claim raise in this PR.",
                 "claimImpact": {
                   "productSupportDelta": 0,
                   "broadSupportDelta": 0,
@@ -1291,7 +1281,7 @@
                 "artifact": "idle-resource-proof-report.json",
                 "proves": "Target-native reconstruction of idle epoll and idle TCP listener resources with no active streams or ready events",
                 "claimUse": "third verified arbitrary-process seed; unlocks the claim-ready gate but does not itself raise the public claim",
-                "next": "Use only through the accepted claim-ready gate for any future 1% claim change.",
+                "next": "Covered by the accepted claim-ready gate; keep public claim changes separate.",
                 "claimImpact": {
                   "productSupportDelta": 0,
                   "broadSupportDelta": 0,
@@ -1388,8 +1378,8 @@
         metrics.innerHTML = metricCards(tracks, claims).join("");
         readThisFirst.innerHTML = decisionCards(tracks).join("");
         proofImpact.innerHTML = proofImpactTable(tracks, claims);
-        nextActions.innerHTML = nextActionList(tracks);
-        trackOverview.innerHTML = trackCards(tracks);
+        nextActions.innerHTML = nextActionList(tracks, claims);
+        trackOverview.innerHTML = trackCards(tracks, claims);
         claimMatrix.innerHTML = table(
           [
             "Track",
@@ -1411,7 +1401,7 @@
             track.claimGate,
             count(track.evidenceRows, "row"),
             count(track.refusalRows, "boundary"),
-            count(track.nextSteps, "step"),
+            count(derivedNextActionsForTrack(track, proofGroupsForTrack(track.id)), "step"),
           ]),
         );
         proofGroups.innerHTML = table(
@@ -1447,11 +1437,11 @@
             "warn",
           ),
           decisionCard(
-            "Keep locked at 0%",
+            "Public claim still 0%",
             arbitrary
               ? `${arbitrary.name}: ${claimValue(arbitrary.currentClaim?.arbitraryProcessCrossArchRestore)}`
               : "Arbitrary process",
-            "The regular-file-FD proof is one verified seed, not a public arbitrary-process claim raise.",
+            "The claim-ready gate can authorize a candidate 1% decision, but no public arbitrary-process claim raise has been made.",
             "bad",
           ),
         ];
@@ -1479,7 +1469,7 @@
             pill(
               String(proof.claimImpact?.claimChangeAllowed ?? track?.claimChangeAllowed ?? false),
             ),
-            proof.next ?? claim.promotionEffect ?? "—",
+            proofWorkText(proof, claim, track),
           ]);
         });
         return table(
@@ -1498,26 +1488,40 @@
         );
       }
 
-      function nextActionList(tracks) {
-        const rank = new Map([
-          ["arbitrary-process", 1],
-          ["postgres", 2],
-          ["bun", 3],
-          ["generic-linux-service", 4],
-          ["whole-linux-vm-workload", 5],
-          ["node-service", 6],
-        ]);
+      function proofWorkText(proof, claim, track) {
+        if (proof.status === "refused" || proof.status === "refused-boundary") {
+          return proof.next ?? claim.promotionEffect ?? "Keep refusal boundary explicit.";
+        }
+        if (proof.claimImpact?.claimChangeAllowed === true) {
+          return `Candidate claim gate available for ${track?.name ?? claim.trackId}; public claim change remains separate.`;
+        }
+        if (isCompleteStatus(proof.status)) {
+          return "Complete; no next proof work derived from this row.";
+        }
+        return proof.next ?? claim.promotionEffect ?? "—";
+      }
+
+      function nextActionList(tracks, claims) {
+        const trackOrder = new Map(tracks.map((track, index) => [track.id, index]));
         const actions = tracks
           .flatMap((track) =>
-            (track.nextSteps ?? []).map((step) => ({
+            derivedNextActionsForTrack(
+              track,
+              claims.filter((claim) => claim.trackId === track.id),
+            ).map((step) => ({
               ...step,
               trackId: track.id,
               trackName: track.name,
-              rank: rank.get(track.id) ?? 99,
+              trackOrder: trackOrder.get(track.id) ?? 99,
             })),
           )
           .filter((step) => step.trackId !== "node-service")
-          .sort((left, right) => left.rank - right.rank || left.priority - right.priority)
+          .sort(
+            (left, right) =>
+              left.score - right.score ||
+              left.trackOrder - right.trackOrder ||
+              left.priority - right.priority,
+          )
           .slice(0, 7);
         if (actions.length === 0) return `<p class="muted">No next actions listed.</p>`;
         return `<ol class="action-list">${actions
@@ -1528,7 +1532,124 @@
           .join("")}</ol>`;
       }
 
-      function trackCards(tracks) {
+      function derivedNextActionsForTrack(track, groups) {
+        if (track.status === "claimed" && track.id === "node-service") {
+          return [];
+        }
+        const actions = [];
+        const nextClaimAction = deriveNextClaimAction(track);
+        if (nextClaimAction) actions.push(nextClaimAction);
+        if (track.id === "arbitrary-process" && nextClaimAction?.score === 80) {
+          return dedupeActions(actions).map((action, index) => ({
+            priority: index + 1,
+            ...action,
+          }));
+        }
+        actions.push(...deriveEvidenceActions(track));
+        actions.push(...deriveProofActions(groups));
+        actions.push(...deriveBoundaryActions(track));
+        return dedupeActions(actions).map((action, index) => ({
+          priority: index + 1,
+          ...action,
+        }));
+      }
+
+      function deriveNextClaimAction(track) {
+        const current = track.currentClaim ?? {};
+        const next = track.nextClaim ?? {};
+        const increased = [
+          "productSupport",
+          "broadSupport",
+          "arbitraryProcessCrossArchRestore",
+        ].filter(
+          (key) =>
+            typeof next[key] === "number" &&
+            typeof current[key] === "number" &&
+            next[key] > current[key],
+        );
+        if (increased.length === 0) return null;
+        const target = increased
+          .map((key) => `${claimLabel(key)} ${claimNumberValue(next[key])}`)
+          .join(", ");
+        const allowed = next.claimChangeAllowed === true;
+        return {
+          score: allowed ? 80 : 10,
+          item: allowed
+            ? `Decide in a separate claim-change PR whether to raise ${track.name} to ${target}.`
+            : `Satisfy the locked next-claim gate before raising ${track.name} to ${target}.`,
+          gate: track.claimGate ?? `${track.id} next-claim gate`,
+        };
+      }
+
+      function deriveEvidenceActions(track) {
+        return (track.evidenceRows ?? [])
+          .filter((row) => !isCompleteStatus(row.status) && row.next)
+          .map((row) => ({
+            score: row.status === "not-started" ? 20 : 30,
+            item: row.next,
+            gate: row.gate ?? row.id ?? track.claimGate ?? "evidence gate",
+          }));
+      }
+
+      function deriveProofActions(groups) {
+        return groups.flatMap((group) =>
+          (group.proofs ?? [])
+            .filter((proof) => !isCompleteStatus(proof.status) && proof.next)
+            .map((proof) => ({
+              score: proof.status === "not-started" ? 22 : 35,
+              item: proof.next,
+              gate: proof.artifact ?? group.proofDirectory ?? proof.id,
+            })),
+        );
+      }
+
+      function deriveBoundaryActions(track) {
+        return (track.refusalRows ?? [])
+          .filter((row) => row.status === "not-proven" && row.neededToReduce)
+          .map((row) => ({
+            score: 40,
+            item: row.neededToReduce,
+            gate: row.boundary,
+          }));
+      }
+
+      function dedupeActions(actions) {
+        const seen = new Set();
+        let hasPriorConcreteAction = false;
+        return actions.filter((action) => {
+          if (action.gate === "not-created" && hasPriorConcreteAction) return false;
+          const key = `${action.item}::${action.gate}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          hasPriorConcreteAction = true;
+          return true;
+        });
+      }
+
+      function isCompleteStatus(status) {
+        return [
+          "claimed",
+          "implemented-product-support",
+          "passed",
+          "product-track-existing",
+          "proven-resource",
+          "refused",
+          "refused-boundary",
+          "verified-seed",
+        ].includes(String(status));
+      }
+
+      function claimLabel(key) {
+        return (
+          {
+            arbitraryProcessCrossArchRestore: "arbitrary Linux process restore",
+            broadSupport: "broad service/workload support",
+            productSupport: "product support",
+          }[key] ?? key
+        );
+      }
+
+      function trackCards(tracks, claims) {
         return table(
           [
             "Track",
@@ -1541,8 +1662,12 @@
             "Gate",
           ],
           tracks.map((track) => {
-            const next = track.nextSteps?.[0]?.item ?? "Keep current claim stable.";
-            const gate = track.nextSteps?.[0]?.gate ?? track.claimGate ?? "no gate listed";
+            const derivedNext = derivedNextActionsForTrack(
+              track,
+              claims.filter((claim) => claim.trackId === track.id),
+            );
+            const next = derivedNext[0]?.item ?? "Keep current claim stable.";
+            const gate = derivedNext[0]?.gate ?? track.claimGate ?? "no gate listed";
             return [
               `<strong>${escapeHtml(track.name)}</strong><p class="muted">${escapeHtml(track.stage ?? "")}</p>`,
               pill(track.status),
@@ -1609,7 +1734,11 @@
                 <h3>Next steps</h3>
                 ${table(
                   ["Priority", "Item", "Gate"],
-                  (track.nextSteps ?? []).map((row) => [row.priority, row.item, row.gate]),
+                  derivedNextActionsForTrack(track, proofGroupsForTrack(track.id)).map((row) => [
+                    row.priority,
+                    row.item,
+                    row.gate,
+                  ]),
                 )}
               </section>
             </div>
@@ -1617,8 +1746,12 @@
         </details>`;
       }
 
+      function proofGroupsForTrack(trackId) {
+        return activeProofGroups.filter((group) => group.trackId === trackId);
+      }
+
       function proofGroupTablesForTrack(trackId) {
-        const groups = activeProofGroups.filter((group) => group.trackId === trackId);
+        const groups = proofGroupsForTrack(trackId);
         if (groups.length === 0) return `<p class="muted">No claim-sorted proof rows yet.</p>`;
         return groups
           .map(
@@ -1632,7 +1765,7 @@
                   code(proof.artifact),
                   proof.proves,
                   proof.claimUse,
-                  proof.next,
+                  proofWorkText(proof, group, null),
                 ]),
               )}`,
           )

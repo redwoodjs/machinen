@@ -19,7 +19,7 @@
       "artifact": "arbitrary-process-level5-seed-matrix.json",
       "proves": "14-row seed/refusal/not-proven matrix with claim locked at 0",
       "claimUse": "defines proof backlog and unsafe refusals",
-      "next": "Add claim-ready gate."
+      "next": "Seed matrix is accepted; derive remaining work from unfinished proof and evidence rows."
     },
     {
       "id": "arbitrary-process-claim-ready-gate",
@@ -28,7 +28,7 @@
       "artifact": "arbitrary-process-claim-ready-report.json",
       "proves": "claimChangeAllowed can only become true through the dedicated arbitrary-process claim-ready gate",
       "claimUse": "keeps public arbitrary-process claim at 0 until required verified seeds pass",
-      "next": "Add simple pipe and idle epoll/TCP verified-seed reports.",
+      "next": "Keep public claim changes separate; this gate only authorizes a candidate 1% decision.",
       "claimImpact": {
         "productSupportDelta": 0,
         "broadSupportDelta": 0,
@@ -48,7 +48,7 @@
       "artifact": "regular-file-fd-proof-report.json",
       "proves": "Target-native reopen preserves captured file offset and read continuation",
       "claimUse": "one verified arbitrary-process seed; no claim raise",
-      "next": "Use as pattern for simple pipe FD proof."
+      "next": "Covered by the accepted claim-ready gate."
     },
     {
       "id": "simple-pipe-fd-proof",
@@ -57,7 +57,7 @@
       "artifact": "simple-pipe-fd-proof-report.json",
       "proves": "Target-native simple pipe reconstruction preserves endpoint direction, buffered bytes, and EOF behavior",
       "claimUse": "second verified arbitrary-process seed; no claim raise",
-      "next": "Use with regular-file-FD and idle epoll/TCP proofs in the claim-ready gate.",
+      "next": "Covered by the accepted claim-ready gate; no public claim raise in this PR.",
       "claimImpact": {
         "productSupportDelta": 0,
         "broadSupportDelta": 0,
@@ -77,7 +77,7 @@
       "artifact": "idle-resource-proof-report.json",
       "proves": "Target-native reconstruction of idle epoll and idle TCP listener resources with no active streams or ready events",
       "claimUse": "third verified arbitrary-process seed; unlocks the claim-ready gate but does not itself raise the public claim",
-      "next": "Use only through the accepted claim-ready gate for any future 1% claim change.",
+      "next": "Covered by the accepted claim-ready gate; keep public claim changes separate.",
       "claimImpact": {
         "productSupportDelta": 0,
         "broadSupportDelta": 0,
