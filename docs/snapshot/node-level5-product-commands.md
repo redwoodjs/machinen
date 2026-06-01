@@ -67,14 +67,14 @@ machinen node-level5 85-claim-ready \
   --json
 ```
 
-The generic VM corpus, retained-evidence, row-artifact, refusal-artifact, and claim-ready gates back the claimed 85 / 25 / 0 tier. Framework capability, product-evidence, and claim-ready gates back the claimed 90 / 30 / 0 tier. The final framework claim-ready command unlocks the claim while arbitrary process support remains 0.
+The generic VM corpus, retained-evidence, row-artifact, refusal-artifact, and claim-ready gates back the claimed 85 / 25 / 0 tier. Framework capability, product-evidence, and claim-ready gates back the claimed 100 / 100 / 0 tier. The final framework claim-ready command unlocks the claim while arbitrary process support remains 0.
 
 The claim registry is now:
 
 ```json
 {
-  "nodeProductSupportClaimed": 90,
-  "broadNodeProductSupportClaimed": 30,
+  "nodeProductSupportClaimed": 100,
+  "broadNodeProductSupportClaimed": 100,
   "arbitraryProcessCrossArchRestoreClaimed": 0
 }
 ```

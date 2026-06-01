@@ -9,8 +9,8 @@ describe("Node Level 5 framework capability matrix", () => {
     expect(matrix).toMatchObject({
       accepted: true,
       rowCount: 24,
-      currentNodeProductSupportClaimed: 90,
-      currentBroadNodeProductSupportClaimed: 30,
+      currentNodeProductSupportClaimed: 100,
+      currentBroadNodeProductSupportClaimed: 100,
       currentArbitraryProcessCrossArchRestoreClaimed: 0,
       candidateNodeProductSupportClaimed: 90,
       candidateBroadNodeProductSupportClaimed: 30,

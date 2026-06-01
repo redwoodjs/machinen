@@ -193,6 +193,22 @@
 - [`nodeLevel5ProductSupport80UnsupportedDetectors`](#nodelevel5productsupport80unsupporteddetectors)
 - [`verifyNodeLevel5ProductSupport80ArtifactBundle`](#verifynodelevel5productsupport80artifactbundle)
 - [`NodeLevel5ProductSupport85ClaimRegistry`](#nodelevel5productsupport85claimregistry)
+- [`NodeLevel5NodeServiceClaimTarget`](#nodelevel5nodeserviceclaimtarget)
+- [`NodeLevel5NodeServiceClaimEvidenceKind`](#nodelevel5nodeserviceclaimevidencekind)
+- [`NodeLevel5NodeServiceClaimTier`](#nodelevel5nodeserviceclaimtier)
+- [`NodeLevel5NodeServiceClaimArtifact`](#nodelevel5nodeserviceclaimartifact)
+- [`NodeLevel5NodeServiceClaimLadderReport`](#nodelevel5nodeserviceclaimladderreport)
+- [`NodeLevel5NodeServiceClaimLadderVerification`](#nodelevel5nodeserviceclaimladderverification)
+- [`NODE_LEVEL5_NODE_SERVICE_CLAIM_LADDER_REPORT_KIND`](#node_level5_node_service_claim_ladder_report_kind)
+- [`NODE_LEVEL5_NODE_SERVICE_CLAIM_LADDER_REPORT_VERSION`](#node_level5_node_service_claim_ladder_report_version)
+- [`createNodeLevel5NodeServiceClaimLadderReport`](#createnodelevel5nodeserviceclaimladderreport)
+- [`writeNodeLevel5NodeServiceClaimLadderReport`](#writenodelevel5nodeserviceclaimladderreport)
+- [`loadNodeLevel5NodeServiceClaimLadderReport`](#loadnodelevel5nodeserviceclaimladderreport)
+- [`verifyNodeLevel5NodeServiceClaimLadderReport`](#verifynodelevel5nodeserviceclaimladderreport)
+- [`NodeLevel5ProductSupport100ClaimRegistry`](#nodelevel5productsupport100claimregistry)
+- [`NODE_LEVEL5_PRODUCT_SUPPORT_100_KIND`](#node_level5_product_support_100_kind)
+- [`NODE_LEVEL5_PRODUCT_SUPPORT_100_VERSION`](#node_level5_product_support_100_version)
+- [`nodeLevel5ProductSupport100ClaimRegistry`](#nodelevel5productsupport100claimregistry)
 - [`NodeLevel5ProductSupport90ClaimRegistry`](#nodelevel5productsupport90claimregistry)
 - [`NODE_LEVEL5_PRODUCT_SUPPORT_90_KIND`](#node_level5_product_support_90_kind)
 - [`NODE_LEVEL5_PRODUCT_SUPPORT_90_VERSION`](#node_level5_product_support_90_version)
@@ -22432,11 +22448,11 @@ Poll interval in ms while retrying. Default 250.
 
 ##### nodeProductSupportClaimed
 
-> **nodeProductSupportClaimed**: `90`
+> **nodeProductSupportClaimed**: `100`
 
 ##### broadNodeProductSupportClaimed
 
-> **broadNodeProductSupportClaimed**: `30`
+> **broadNodeProductSupportClaimed**: `100`
 
 ##### arbitraryProcessCrossArchRestoreClaimed
 
@@ -22976,11 +22992,11 @@ Poll interval in ms while retrying. Default 250.
 
 ##### currentNodeProductSupportClaimed
 
-> **currentNodeProductSupportClaimed**: `90`
+> **currentNodeProductSupportClaimed**: `100`
 
 ##### currentBroadNodeProductSupportClaimed
 
-> **currentBroadNodeProductSupportClaimed**: `30`
+> **currentBroadNodeProductSupportClaimed**: `100`
 
 ##### currentArbitraryProcessCrossArchRestoreClaimed
 
@@ -24384,6 +24400,226 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NodeLevel5NodeServiceClaimTarget
+
+> **NodeLevel5NodeServiceClaimTarget** = `"95-40-0"` \| `"97-50-0"` \| `"98-60-0"` \| `"99-70-0"` \| `"99-80-0"` \| `"100-85-0"` \| `"100-90-0"` \| `"100-95-0"` \| `"100-98-0"` \| `"100-100-0"`
+
+***
+
+### NodeLevel5NodeServiceClaimEvidenceKind
+
+> **NodeLevel5NodeServiceClaimEvidenceKind** = `"framework-capability-coverage-v2"` \| `"framework-combination-corpus"` \| `"node-runtime-capability-matrix"` \| `"installed-framework-app-release-gate"` \| `"broad-node-capability-claim-ready"` \| `"unified-node-service-claim-gate"` \| `"cross-corpus-consistency-gate"` \| `"runtime-state-translation-gate"` \| `"runtime-framework-combined-claim-ready"` \| `"final-node-service-ga-gate"`
+
+***
+
+### NodeLevel5NodeServiceClaimTier
+
+> **NodeLevel5NodeServiceClaimTier** = `object`
+
+#### Properties
+
+##### target
+
+> **target**: [`NodeLevel5NodeServiceClaimTarget`](#nodelevel5nodeserviceclaimtarget)
+
+##### nodeProductSupportClaimed
+
+> **nodeProductSupportClaimed**: `number`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `number`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
+
+##### evidenceKind
+
+> **evidenceKind**: [`NodeLevel5NodeServiceClaimEvidenceKind`](#nodelevel5nodeserviceclaimevidencekind)
+
+##### proof
+
+> **proof**: `string`
+
+##### evidenceItems
+
+> **evidenceItems**: `string`[]
+
+##### refusalBoundaries
+
+> **refusalBoundaries**: `string`[]
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### arbitraryNodeClaimed
+
+> **arbitraryNodeClaimed**: `false`
+
+##### arbitraryProcessClaimed
+
+> **arbitraryProcessClaimed**: `false`
+
+##### rawCpuRestoreUsed
+
+> **rawCpuRestoreUsed**: `false`
+
+##### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+##### appCheckpointHooksRequired
+
+> **appCheckpointHooksRequired**: `false`
+
+***
+
+### NodeLevel5NodeServiceClaimArtifact
+
+> **NodeLevel5NodeServiceClaimArtifact** = `object`
+
+#### Properties
+
+##### target
+
+> **target**: [`NodeLevel5NodeServiceClaimTarget`](#nodelevel5nodeserviceclaimtarget)
+
+##### evidenceKind
+
+> **evidenceKind**: [`NodeLevel5NodeServiceClaimEvidenceKind`](#nodelevel5nodeserviceclaimevidencekind)
+
+##### path
+
+> **path**: `string`
+
+##### sha256
+
+> **sha256**: `string`
+
+##### required
+
+> **required**: `true`
+
+***
+
+### NodeLevel5NodeServiceClaimLadderReport
+
+> **NodeLevel5NodeServiceClaimLadderReport** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_NODE_SERVICE_CLAIM_LADDER_REPORT_KIND`](#node_level5_node_service_claim_ladder_report_kind)
+
+##### version
+
+> **version**: *typeof* [`NODE_LEVEL5_NODE_SERVICE_CLAIM_LADDER_REPORT_VERSION`](#node_level5_node_service_claim_ladder_report_version)
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### tierCount
+
+> **tierCount**: `10`
+
+##### tiers
+
+> **tiers**: [`NodeLevel5NodeServiceClaimTier`](#nodelevel5nodeserviceclaimtier)[]
+
+##### artifactCount
+
+> **artifactCount**: `10`
+
+##### artifacts
+
+> **artifacts**: [`NodeLevel5NodeServiceClaimArtifact`](#nodelevel5nodeserviceclaimartifact)[]
+
+##### artifactsSha256
+
+> **artifactsSha256**: `string`
+
+##### finalNodeProductSupportClaimed
+
+> **finalNodeProductSupportClaimed**: `100`
+
+##### finalBroadNodeProductSupportClaimed
+
+> **finalBroadNodeProductSupportClaimed**: `100`
+
+##### finalArbitraryProcessCrossArchRestoreClaimed
+
+> **finalArbitraryProcessCrossArchRestoreClaimed**: `0`
+
+##### claimChangeAllowed
+
+> **claimChangeAllowed**: `true`
+
+##### arbitraryNodeClaimed
+
+> **arbitraryNodeClaimed**: `false`
+
+##### arbitraryExpressClaimed
+
+> **arbitraryExpressClaimed**: `false`
+
+##### arbitraryFastifyClaimed
+
+> **arbitraryFastifyClaimed**: `false`
+
+##### arbitraryProcessClaimed
+
+> **arbitraryProcessClaimed**: `false`
+
+***
+
+### NodeLevel5NodeServiceClaimLadderVerification
+
+> **NodeLevel5NodeServiceClaimLadderVerification** = `object`
+
+#### Properties
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### kind
+
+> **kind**: `"machinen.node-level5-node-service-claim-ladder-verification"`
+
+##### tierCount
+
+> **tierCount**: `number`
+
+##### artifactCount
+
+> **artifactCount**: `number`
+
+##### artifactsSha256Verified
+
+> **artifactsSha256Verified**: `boolean`
+
+##### finalNodeProductSupportClaimed
+
+> **finalNodeProductSupportClaimed**: `100`
+
+##### finalBroadNodeProductSupportClaimed
+
+> **finalBroadNodeProductSupportClaimed**: `100`
+
+##### finalArbitraryProcessCrossArchRestoreClaimed
+
+> **finalArbitraryProcessCrossArchRestoreClaimed**: `0`
+
+##### claimChangeAllowed
+
+> **claimChangeAllowed**: `true`
+
+***
+
 ### NodeLevel5ProductSnapshotDirection
 
 > **NodeLevel5ProductSnapshotDirection** = `"arm64-to-amd64"` \| `"amd64-to-arm64"`
@@ -24510,11 +24746,11 @@ Poll interval in ms while retrying. Default 250.
 
 ##### nodeProductSupportClaimed
 
-> **nodeProductSupportClaimed**: `90`
+> **nodeProductSupportClaimed**: `100`
 
 ##### broadNodeProductSupportClaimed
 
-> **broadNodeProductSupportClaimed**: `30`
+> **broadNodeProductSupportClaimed**: `100`
 
 ##### arbitraryProcessCrossArchRestoreClaimed
 
@@ -24582,11 +24818,11 @@ Poll interval in ms while retrying. Default 250.
 
 ##### nodeProductSupportClaimed
 
-> **nodeProductSupportClaimed**: `90`
+> **nodeProductSupportClaimed**: `100`
 
 ##### broadNodeProductSupportClaimed
 
-> **broadNodeProductSupportClaimed**: `30`
+> **broadNodeProductSupportClaimed**: `100`
 
 ##### arbitraryProcessCrossArchRestoreClaimed
 
@@ -24650,11 +24886,11 @@ Poll interval in ms while retrying. Default 250.
 
 ##### nodeProductSupportClaimed
 
-> **nodeProductSupportClaimed**: `90`
+> **nodeProductSupportClaimed**: `100`
 
 ##### broadNodeProductSupportClaimed
 
-> **broadNodeProductSupportClaimed**: `30`
+> **broadNodeProductSupportClaimed**: `100`
 
 ##### arbitraryProcessCrossArchRestoreClaimed
 
@@ -24714,11 +24950,11 @@ Poll interval in ms while retrying. Default 250.
 
 ##### nodeProductSupportClaimed
 
-> **nodeProductSupportClaimed**: `90`
+> **nodeProductSupportClaimed**: `100`
 
 ##### broadNodeProductSupportClaimed
 
-> **broadNodeProductSupportClaimed**: `30`
+> **broadNodeProductSupportClaimed**: `100`
 
 ##### arbitraryProcessCrossArchRestoreClaimed
 
@@ -24810,11 +25046,11 @@ Poll interval in ms while retrying. Default 250.
 
 ##### nodeProductSupportClaimed
 
-> **nodeProductSupportClaimed**: `90`
+> **nodeProductSupportClaimed**: `100`
 
 ##### broadNodeProductSupportClaimed
 
-> **broadNodeProductSupportClaimed**: `30`
+> **broadNodeProductSupportClaimed**: `100`
 
 ##### arbitraryProcessCrossArchRestoreClaimed
 
@@ -24838,7 +25074,7 @@ Poll interval in ms while retrying. Default 250.
 
 ##### status
 
-> **status**: `"node-product-support-90"`
+> **status**: `"node-product-support-100"`
 
 ##### familyId
 
@@ -24902,11 +25138,11 @@ Poll interval in ms while retrying. Default 250.
 
 ##### nodeProductSupportClaimed
 
-> **nodeProductSupportClaimed**: `90`
+> **nodeProductSupportClaimed**: `100`
 
 ##### broadNodeProductSupportClaimed
 
-> **broadNodeProductSupportClaimed**: `30`
+> **broadNodeProductSupportClaimed**: `100`
 
 ##### arbitraryProcessCrossArchRestoreClaimed
 
@@ -25058,15 +25294,111 @@ Poll interval in ms while retrying. Default 250.
 
 ##### nodeProductSupportClaimed
 
-> **nodeProductSupportClaimed**: `90`
+> **nodeProductSupportClaimed**: `100`
 
 ##### broadNodeProductSupportClaimed
 
-> **broadNodeProductSupportClaimed**: `30`
+> **broadNodeProductSupportClaimed**: `100`
 
 ##### arbitraryProcessCrossArchRestoreClaimed
 
 > **arbitraryProcessCrossArchRestoreClaimed**: `0`
+
+***
+
+### NodeLevel5ProductSupport100ClaimRegistry
+
+> **NodeLevel5ProductSupport100ClaimRegistry** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_PRODUCT_SUPPORT_100_KIND`](#node_level5_product_support_100_kind)
+
+##### status
+
+> **status**: `"node-product-support-100-claimed"`
+
+##### declaredSubsetExperimentalProductSupportClaimed
+
+> **declaredSubsetExperimentalProductSupportClaimed**: `100`
+
+##### nodeProductSupportTiers
+
+> **nodeProductSupportTiers**: readonly \[`20`, `50`, `65`, `80`, `85`, `90`, `95`, `97`, `98`, `99`, `100`\]
+
+##### nodeProductSupportClaimed
+
+> **nodeProductSupportClaimed**: `100`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `100`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
+
+##### previousNodeProductSupportClaimed
+
+> **previousNodeProductSupportClaimed**: `90`
+
+##### previousBroadNodeProductSupportClaimed
+
+> **previousBroadNodeProductSupportClaimed**: `30`
+
+##### nodeServiceClaimLadderRequired
+
+> **nodeServiceClaimLadderRequired**: `true`
+
+##### finalNodeServiceGaGateRequired
+
+> **finalNodeServiceGaGateRequired**: `true`
+
+##### runtimeFrameworkCombinedGateRequired
+
+> **runtimeFrameworkCombinedGateRequired**: `true`
+
+##### runtimeStateTranslationGateRequired
+
+> **runtimeStateTranslationGateRequired**: `true`
+
+##### crossCorpusConsistencyGateRequired
+
+> **crossCorpusConsistencyGateRequired**: `true`
+
+##### retainedEvidenceRequired
+
+> **retainedEvidenceRequired**: `true`
+
+##### refusalArtifactEvidenceRequired
+
+> **refusalArtifactEvidenceRequired**: `true`
+
+##### realVmCrossArchEvidenceRequired
+
+> **realVmCrossArchEvidenceRequired**: `true`
+
+##### artifactRetentionDays
+
+> **artifactRetentionDays**: `30`
+
+##### flakeBudgetPercent
+
+> **flakeBudgetPercent**: `0`
+
+##### arbitraryNodeClaimed
+
+> **arbitraryNodeClaimed**: `false`
+
+##### arbitraryProcessClaimed
+
+> **arbitraryProcessClaimed**: `false`
+
+##### unsupportedDetectorCount
+
+> **unsupportedDetectorCount**: `number`
 
 ***
 
@@ -28946,6 +29278,18 @@ loops; anything looser stops being a meaningful gate.
 
 ***
 
+### NODE\_LEVEL5\_NODE\_SERVICE\_CLAIM\_LADDER\_REPORT\_KIND
+
+> `const` **NODE\_LEVEL5\_NODE\_SERVICE\_CLAIM\_LADDER\_REPORT\_KIND**: `"machinen.node-level5-node-service-claim-ladder-report"` = `"machinen.node-level5-node-service-claim-ladder-report"`
+
+***
+
+### NODE\_LEVEL5\_NODE\_SERVICE\_CLAIM\_LADDER\_REPORT\_VERSION
+
+> `const` **NODE\_LEVEL5\_NODE\_SERVICE\_CLAIM\_LADDER\_REPORT\_VERSION**: `1` = `1`
+
+***
+
 ### NODE\_LEVEL5\_PRODUCT\_SNAPSHOT\_KIND
 
 > `const` **NODE\_LEVEL5\_PRODUCT\_SNAPSHOT\_KIND**: `"machinen.node-level5-product-snapshot"` = `"machinen.node-level5-product-snapshot"`
@@ -28997,6 +29341,24 @@ loops; anything looser stops being a meaningful gate.
 ### DEFAULT\_NODE\_LEVEL5\_PRODUCT\_SNAPSHOT\_DIRECTION
 
 > `const` **DEFAULT\_NODE\_LEVEL5\_PRODUCT\_SNAPSHOT\_DIRECTION**: `"arm64-to-amd64"` = `"arm64-to-amd64"`
+
+***
+
+### NODE\_LEVEL5\_PRODUCT\_SUPPORT\_100\_KIND
+
+> `const` **NODE\_LEVEL5\_PRODUCT\_SUPPORT\_100\_KIND**: `"machinen.node-level5-product-support-100"` = `"machinen.node-level5-product-support-100"`
+
+***
+
+### NODE\_LEVEL5\_PRODUCT\_SUPPORT\_100\_VERSION
+
+> `const` **NODE\_LEVEL5\_PRODUCT\_SUPPORT\_100\_VERSION**: `1` = `1`
+
+***
+
+### nodeLevel5ProductSupport100ClaimRegistry
+
+> `const` **nodeLevel5ProductSupport100ClaimRegistry**: [`NodeLevel5ProductSupport100ClaimRegistry`](#nodelevel5productsupport100claimregistry)
 
 ***
 
@@ -32717,6 +33079,78 @@ available.
 #### Returns
 
 [`NodeLevel5InstalledThirdPartyAppCorpusReport`](#nodelevel5installedthirdpartyappcorpusreport)
+
+***
+
+### createNodeLevel5NodeServiceClaimLadderReport()
+
+> **createNodeLevel5NodeServiceClaimLadderReport**(`input`): [`NodeLevel5NodeServiceClaimLadderReport`](#nodelevel5nodeserviceclaimladderreport)
+
+#### Parameters
+
+##### input
+
+###### outDir
+
+`string`
+
+#### Returns
+
+[`NodeLevel5NodeServiceClaimLadderReport`](#nodelevel5nodeserviceclaimladderreport)
+
+***
+
+### writeNodeLevel5NodeServiceClaimLadderReport()
+
+> **writeNodeLevel5NodeServiceClaimLadderReport**(`input`): [`NodeLevel5NodeServiceClaimLadderReport`](#nodelevel5nodeserviceclaimladderreport)
+
+#### Parameters
+
+##### input
+
+###### outDir
+
+`string`
+
+###### path
+
+`string`
+
+#### Returns
+
+[`NodeLevel5NodeServiceClaimLadderReport`](#nodelevel5nodeserviceclaimladderreport)
+
+***
+
+### loadNodeLevel5NodeServiceClaimLadderReport()
+
+> **loadNodeLevel5NodeServiceClaimLadderReport**(`path`): [`NodeLevel5NodeServiceClaimLadderReport`](#nodelevel5nodeserviceclaimladderreport)
+
+#### Parameters
+
+##### path
+
+`string`
+
+#### Returns
+
+[`NodeLevel5NodeServiceClaimLadderReport`](#nodelevel5nodeserviceclaimladderreport)
+
+***
+
+### verifyNodeLevel5NodeServiceClaimLadderReport()
+
+> **verifyNodeLevel5NodeServiceClaimLadderReport**(`report`): [`NodeLevel5NodeServiceClaimLadderVerification`](#nodelevel5nodeserviceclaimladderverification)
+
+#### Parameters
+
+##### report
+
+[`NodeLevel5NodeServiceClaimLadderReport`](#nodelevel5nodeserviceclaimladderreport)
+
+#### Returns
+
+[`NodeLevel5NodeServiceClaimLadderVerification`](#nodelevel5nodeserviceclaimladderverification)
 
 ***
 

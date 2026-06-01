@@ -6,8 +6,8 @@ The current claim is:
 
 ```json
 {
-  "nodeProductSupportClaimed": 90,
-  "broadNodeProductSupportClaimed": 30,
+  "nodeProductSupportClaimed": 100,
+  "broadNodeProductSupportClaimed": 100,
   "arbitraryProcessCrossArchRestoreClaimed": 0
 }
 ```
@@ -29,14 +29,14 @@ machinen node-level5 framework-claim-ready \
 
 The readiness gate checks more than row count. It verifies that every Express/Fastify capability and cross-architecture direction is present, that the rows use the VM-detected product command path, that framework graph artifacts are retained, and that no row claims arbitrary framework, Node, or process support.
 
-The claim-ready gate proves the framework evidence required for the 90 / 30 / 0 claim: Express route/middleware/settings/error-handler graph artifacts, Fastify plugin/decorator/hook/schema/route graph artifacts, restored behavior probes tied to those artifacts, and refusal artifacts for unsafe dynamic/live states.
+The claim-ready gate proves the framework evidence required for the 100 / 100 / 0 claim: Express route/middleware/settings/error-handler graph artifacts, Fastify plugin/decorator/hook/schema/route graph artifacts, restored behavior probes tied to those artifacts, and refusal artifacts for unsafe dynamic/live states.
 
 The matrix separates three ideas:
 
 | Status                    | Meaning                                                                                             |
 | ------------------------- | --------------------------------------------------------------------------------------------------- |
 | `supported-selected-rows` | Existing app rows or retained framework product evidence cover selected examples of the capability. |
-| `candidate-next-evidence` | Reserved for future evidence beyond the current 90 / 30 / 0 claim.                                  |
+| `candidate-next-evidence` | Reserved for future evidence beyond the current 100 / 100 / 0 claim.                                |
 | `refused`                 | Unsafe live state refuses before snapshot or restore.                                               |
 | `not-proven`              | Arbitrary framework app support is not claimed.                                                     |
 

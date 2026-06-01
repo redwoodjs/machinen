@@ -67,8 +67,8 @@ describe("Node Level 5 product snapshot CLI", () => {
         accepted: true,
         detectorReport: { accepted: true, familyId: "express-fastify-http-app" },
         manifest: {
-          nodeProductSupportClaimed: 90,
-          broadNodeProductSupportClaimed: 30,
+          nodeProductSupportClaimed: 100,
+          broadNodeProductSupportClaimed: 100,
           arbitraryProcessCrossArchRestoreClaimed: 0,
         },
       });

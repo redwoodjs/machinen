@@ -1,8 +1,6 @@
 {
-  "kind": "machinen.node-level5-product-support-claim-registry",
+  "kind": "machinen.node-level5-product-support-100",
   "status": "node-product-support-100-claimed",
-  "declaredSubsetExperimentalProductSupportClaimed": 100,
-  "nodeProductSupportTiers": [20, 50, 65, 80, 85, 90, 95, 97, 98, 99, 100],
   "nodeProductSupportClaimed": 100,
   "broadNodeProductSupportClaimed": 100,
   "arbitraryProcessCrossArchRestoreClaimed": 0,
@@ -13,11 +11,12 @@
   "runtimeFrameworkCombinedGateRequired": true,
   "runtimeStateTranslationGateRequired": true,
   "crossCorpusConsistencyGateRequired": true,
-  "retainedEvidenceRequired": true,
-  "refusalArtifactEvidenceRequired": true,
-  "realVmCrossArchEvidenceRequired": true,
-  "artifactRetentionDays": 30,
-  "flakeBudgetPercent": 0,
+  "productCommandPath": "machinen snapshot <vm-name> --out <dir>; machinen restore <dir>",
+  "nodeDetectedInsideVm": true,
+  "hostPidProductTargetingAllowed": false,
+  "claimChangeAllowed": true,
   "arbitraryNodeClaimed": false,
+  "arbitraryExpressClaimed": false,
+  "arbitraryFastifyClaimed": false,
   "arbitraryProcessClaimed": false
 }

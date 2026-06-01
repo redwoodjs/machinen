@@ -39,8 +39,8 @@ describe("Node Level 5 product snapshot facade", () => {
       });
       expect(summary.accepted).toBe(true);
       expect(summary.manifest).toMatchObject({
-        nodeProductSupportClaimed: 90,
-        broadNodeProductSupportClaimed: 30,
+        nodeProductSupportClaimed: 100,
+        broadNodeProductSupportClaimed: 100,
         arbitraryProcessCrossArchRestoreClaimed: 0,
         translatedContinuationRequired: true,
         rawCpuRestoreSupported: false,

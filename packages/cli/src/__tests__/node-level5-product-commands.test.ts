@@ -779,8 +779,8 @@ describe("Node Level 5 product commands", () => {
       accepted: true,
       kind: "machinen.node-level5-framework-capability-matrix",
       rowCount: 24,
-      currentNodeProductSupportClaimed: 90,
-      currentBroadNodeProductSupportClaimed: 30,
+      currentNodeProductSupportClaimed: 100,
+      currentBroadNodeProductSupportClaimed: 100,
       candidateNodeProductSupportClaimed: 90,
       candidateBroadNodeProductSupportClaimed: 30,
       claimChangeAllowed: true,
@@ -864,8 +864,8 @@ describe("Node Level 5 product commands", () => {
     const claims = runCli(["node-level5", "claims", "--json"]);
     expect(claims.status).toBe(0);
     expect(JSON.parse(claims.stdout).claimRegistry).toMatchObject({
-      nodeProductSupportClaimed: 90,
-      broadNodeProductSupportClaimed: 30,
+      nodeProductSupportClaimed: 100,
+      broadNodeProductSupportClaimed: 100,
       arbitraryProcessCrossArchRestoreClaimed: 0,
     });
 

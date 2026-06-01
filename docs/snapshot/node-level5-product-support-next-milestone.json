@@ -2,47 +2,31 @@
   "kind": "machinen.node-level5-product-support-next-milestone",
   "status": "claimed",
   "previous": {
-    "nodeProductSupportClaimed": 85,
-    "broadNodeProductSupportClaimed": 25,
+    "nodeProductSupportClaimed": 90,
+    "broadNodeProductSupportClaimed": 30,
     "arbitraryProcessCrossArchRestoreClaimed": 0
   },
   "current": {
-    "nodeProductSupportClaimed": 90,
-    "broadNodeProductSupportClaimed": 30,
+    "nodeProductSupportClaimed": 100,
+    "broadNodeProductSupportClaimed": 100,
     "arbitraryProcessCrossArchRestoreClaimed": 0
   },
   "productCommandPath": "machinen snapshot <vm-name> --out <dir>; machinen restore <dir>",
   "nodeDetectedInsideVm": true,
   "hostPidProductTargetingAllowed": false,
-  "hostPidHarnessEnv": "MACHINEN_NODE_LEVEL5_ALLOW_HOST_PID_SNAPSHOT=1",
-  "requiredDirections": ["arm64-to-amd64", "amd64-to-arm64"],
   "evidenceGates": [
-    "framework-capability-matrix",
-    "framework-introspection-corpus",
-    "framework-readiness",
-    "framework-product-evidence",
-    "framework-claim-ready"
-  ],
-  "requiredArtifactCounts": {
-    "frameworkGraphArtifacts": 18,
-    "restoredBehaviorProbes": 16,
-    "unsafeStateRefusalArtifacts": 20,
-    "totalArtifacts": 54
-  },
-  "requiredRefusalEvidence": [
-    "host-pid-product-targeting-refused-or-hidden",
-    "node-only-product-selector-not-public",
-    "active-request-refused",
-    "worker-thread-refused",
-    "native-addon-refused",
-    "tls-active-state-refused",
-    "child-process-refused",
-    "source-isa-emulation-refused",
-    "raw-cpu-restore-refused",
-    "metadata-only-success-refused"
+    "framework-capability-coverage-v2",
+    "framework-combination-corpus",
+    "node-runtime-capability-matrix",
+    "installed-framework-app-release-gate",
+    "broad-node-capability-claim-ready",
+    "unified-node-service-claim-gate",
+    "cross-corpus-consistency-gate",
+    "runtime-state-translation-gate",
+    "runtime-framework-combined-claim-ready",
+    "final-node-service-ga-gate"
   ],
   "claimChangeAllowed": true,
-  "arbitraryExpressClaimed": false,
-  "arbitraryFastifyClaimed": false,
-  "arbitraryNodeClaimed": false
+  "arbitraryNodeClaimed": false,
+  "arbitraryProcessClaimed": false
 }

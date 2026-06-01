@@ -236,11 +236,33 @@ export {
 } from "./node-level5-product-support-85.ts";
 
 export {
+  NODE_LEVEL5_NODE_SERVICE_CLAIM_LADDER_REPORT_KIND,
+  NODE_LEVEL5_NODE_SERVICE_CLAIM_LADDER_REPORT_VERSION,
+  createNodeLevel5NodeServiceClaimLadderReport,
+  loadNodeLevel5NodeServiceClaimLadderReport,
+  verifyNodeLevel5NodeServiceClaimLadderReport,
+  writeNodeLevel5NodeServiceClaimLadderReport,
+  type NodeLevel5NodeServiceClaimArtifact,
+  type NodeLevel5NodeServiceClaimEvidenceKind,
+  type NodeLevel5NodeServiceClaimLadderReport,
+  type NodeLevel5NodeServiceClaimLadderVerification,
+  type NodeLevel5NodeServiceClaimTarget,
+  type NodeLevel5NodeServiceClaimTier,
+} from "./node-level5-node-service-claim-ladder.ts";
+
+export {
   NODE_LEVEL5_PRODUCT_SUPPORT_90_KIND,
   NODE_LEVEL5_PRODUCT_SUPPORT_90_VERSION,
   nodeLevel5ProductSupport90ClaimRegistry,
   type NodeLevel5ProductSupport90ClaimRegistry,
 } from "./node-level5-product-support-90.ts";
+
+export {
+  NODE_LEVEL5_PRODUCT_SUPPORT_100_KIND,
+  NODE_LEVEL5_PRODUCT_SUPPORT_100_VERSION,
+  nodeLevel5ProductSupport100ClaimRegistry,
+  type NodeLevel5ProductSupport100ClaimRegistry,
+} from "./node-level5-product-support-100.ts";
 
 export {
   NODE_LEVEL5_PRODUCT_SUPPORT_85_CLAIM_READY_KIND,

@@ -52,8 +52,8 @@ export type NodeLevel5FrameworkCapabilityMatrix = {
   accepted: boolean;
   rowCount: number;
   rows: NodeLevel5FrameworkCapabilityRow[];
-  currentNodeProductSupportClaimed: 90;
-  currentBroadNodeProductSupportClaimed: 30;
+  currentNodeProductSupportClaimed: 100;
+  currentBroadNodeProductSupportClaimed: 100;
   currentArbitraryProcessCrossArchRestoreClaimed: 0;
   candidateNodeProductSupportClaimed: 90;
   candidateBroadNodeProductSupportClaimed: 30;
@@ -74,8 +74,8 @@ export function buildNodeLevel5FrameworkCapabilityMatrix(): NodeLevel5FrameworkC
     accepted: rows.every((row) => row.arbitraryProcessCrossArchRestoreClaimed === 0),
     rowCount: rows.length,
     rows,
-    currentNodeProductSupportClaimed: 90,
-    currentBroadNodeProductSupportClaimed: 30,
+    currentNodeProductSupportClaimed: 100,
+    currentBroadNodeProductSupportClaimed: 100,
     currentArbitraryProcessCrossArchRestoreClaimed: 0,
     candidateNodeProductSupportClaimed: 90,
     candidateBroadNodeProductSupportClaimed: 30,

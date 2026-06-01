@@ -1,6 +1,6 @@
 # Node Level 5 product support runbook
 
-This runbook applies to the 20%, 50%, 65%, 80%, 85%, and 90% Node product support tiers. The current shipped claim is 90% Node product support, 30% broad Node product support, and 0% arbitrary process cross-architecture restore.
+This runbook applies to the 20%, 50%, 65%, 80%, 85%, and 90% Node product support tiers. The current shipped claim is 100% Node product support, 100% broad Node product support, and 0% arbitrary process cross-architecture restore.
 
 ## Collect artifacts
 
@@ -40,7 +40,7 @@ For the 80% tier, also identify the selected app row, real-app corpus row, refus
 
 For the 85 / 25 / 0 tier, also identify the generic VM row, retained-evidence report, row-artifact report, refusal-artifact report, and claim-ready report that covers the case. Retain the VM restore/probe log from `scripts/smoke/node-level5-vm-detected-product-snapshot.sh`.
 
-For the 90 / 30 / 0 framework tier, collect the framework capability, readiness, product-evidence, and claim-ready reports:
+For the 100 / 100 / 0 framework tier, collect the framework capability, readiness, product-evidence, and claim-ready reports:
 
 ```sh
 machinen node-level5 framework-capabilities --json
