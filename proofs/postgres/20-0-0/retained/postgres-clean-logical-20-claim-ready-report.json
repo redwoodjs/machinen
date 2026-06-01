@@ -1,0 +1,1313 @@
+{
+  "kind": "machinen.product-portable-postgres-clean-logical-20-claim-ready",
+  "version": 1,
+  "accepted": true,
+  "trackId": "postgres",
+  "gate": "postgres-clean-logical-20-claim-ready",
+  "subset": "postgres-clean-quiesced-logical-v1",
+  "scope": "Clean, idle logical Postgres reconstruction only",
+  "currentClaim": {
+    "productSupport": 20,
+    "broadSupport": 0,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "candidateClaim": {
+    "productSupport": 40,
+    "broadSupport": 0,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "claimChangeAllowed": true,
+  "publicClaimRaised": false,
+  "requiredRows": {
+    "schemaShapes": 3,
+    "postgresVersions": 3,
+    "workloadMixes": 3,
+    "bidirectionalDirections": ["arm64-to-amd64", "amd64-to-arm64"]
+  },
+  "rows": [
+    {
+      "id": "schema-single-table-primary-key",
+      "kind": "schema-shape",
+      "postgresVersion": "15.8",
+      "description": "single table with primary key and text payload",
+      "sourceArch": "arm64",
+      "targetArch": "amd64",
+      "captureCompleted": true,
+      "restoreCompleted": true,
+      "targetVerifierResult": "passed",
+      "artifacts": [
+        {
+          "name": "fixtures/schema-shape/schema-single-table-primary-key/arm64-to-amd64/portable-product.json",
+          "path": "fixtures/schema-shape/schema-single-table-primary-key/arm64-to-amd64/portable-product.json",
+          "sha256": "48cc5875daae678f58ea0e1a69b219275f57b9a4814327ab68dc944ee814c9ab"
+        },
+        {
+          "name": "fixtures/schema-shape/schema-single-table-primary-key/arm64-to-amd64/postgres.logical.dump",
+          "path": "fixtures/schema-shape/schema-single-table-primary-key/arm64-to-amd64/postgres.logical.dump",
+          "sha256": "d6a0dbeb89be4035a085090c2b5f0dd037dd768533d6cec4796424a545c92c93"
+        },
+        {
+          "name": "fixtures/schema-shape/schema-single-table-primary-key/arm64-to-amd64/restore-summary.json",
+          "path": "fixtures/schema-shape/schema-single-table-primary-key/arm64-to-amd64/restore-summary.json",
+          "sha256": "5ce937b7830dd2c1b0e08fd641fbca8560f7e6d68866ab68e1a556d6fe6b7f5b"
+        },
+        {
+          "name": "fixtures/schema-shape/schema-single-table-primary-key/arm64-to-amd64/source-verifier.txt",
+          "path": "fixtures/schema-shape/schema-single-table-primary-key/arm64-to-amd64/source-verifier.txt",
+          "sha256": "859b43b33d1b17f4a24cf0ca23e192ee98c51b53bbc1f4f9c8752330cb780a8c"
+        },
+        {
+          "name": "fixtures/schema-shape/schema-single-table-primary-key/arm64-to-amd64/target-verifier.txt",
+          "path": "fixtures/schema-shape/schema-single-table-primary-key/arm64-to-amd64/target-verifier.txt",
+          "sha256": "859b43b33d1b17f4a24cf0ca23e192ee98c51b53bbc1f4f9c8752330cb780a8c"
+        }
+      ]
+    },
+    {
+      "id": "schema-single-table-primary-key",
+      "kind": "schema-shape",
+      "postgresVersion": "15.8",
+      "description": "single table with primary key and text payload",
+      "sourceArch": "amd64",
+      "targetArch": "arm64",
+      "captureCompleted": true,
+      "restoreCompleted": true,
+      "targetVerifierResult": "passed",
+      "artifacts": [
+        {
+          "name": "fixtures/schema-shape/schema-single-table-primary-key/amd64-to-arm64/portable-product.json",
+          "path": "fixtures/schema-shape/schema-single-table-primary-key/amd64-to-arm64/portable-product.json",
+          "sha256": "21c7a6fba8c71e0df2fb8f939ab7f8d7d526c9223d2a5d65c371685278f8ac3b"
+        },
+        {
+          "name": "fixtures/schema-shape/schema-single-table-primary-key/amd64-to-arm64/postgres.logical.dump",
+          "path": "fixtures/schema-shape/schema-single-table-primary-key/amd64-to-arm64/postgres.logical.dump",
+          "sha256": "d6a0dbeb89be4035a085090c2b5f0dd037dd768533d6cec4796424a545c92c93"
+        },
+        {
+          "name": "fixtures/schema-shape/schema-single-table-primary-key/amd64-to-arm64/restore-summary.json",
+          "path": "fixtures/schema-shape/schema-single-table-primary-key/amd64-to-arm64/restore-summary.json",
+          "sha256": "0b0a90f75df65f5e5a6c79e5cde188c6a7d2415bac3d39c1239c9aa9cbd08c9a"
+        },
+        {
+          "name": "fixtures/schema-shape/schema-single-table-primary-key/amd64-to-arm64/source-verifier.txt",
+          "path": "fixtures/schema-shape/schema-single-table-primary-key/amd64-to-arm64/source-verifier.txt",
+          "sha256": "859b43b33d1b17f4a24cf0ca23e192ee98c51b53bbc1f4f9c8752330cb780a8c"
+        },
+        {
+          "name": "fixtures/schema-shape/schema-single-table-primary-key/amd64-to-arm64/target-verifier.txt",
+          "path": "fixtures/schema-shape/schema-single-table-primary-key/amd64-to-arm64/target-verifier.txt",
+          "sha256": "859b43b33d1b17f4a24cf0ca23e192ee98c51b53bbc1f4f9c8752330cb780a8c"
+        }
+      ]
+    },
+    {
+      "id": "schema-foreign-key-join",
+      "kind": "schema-shape",
+      "postgresVersion": "15.8",
+      "description": "two tables with foreign-key join shape",
+      "sourceArch": "arm64",
+      "targetArch": "amd64",
+      "captureCompleted": true,
+      "restoreCompleted": true,
+      "targetVerifierResult": "passed",
+      "artifacts": [
+        {
+          "name": "fixtures/schema-shape/schema-foreign-key-join/arm64-to-amd64/portable-product.json",
+          "path": "fixtures/schema-shape/schema-foreign-key-join/arm64-to-amd64/portable-product.json",
+          "sha256": "075aae25a659e9145b3d70fccab4b355ae39f24f509aeda3906e51cf8c679ecc"
+        },
+        {
+          "name": "fixtures/schema-shape/schema-foreign-key-join/arm64-to-amd64/postgres.logical.dump",
+          "path": "fixtures/schema-shape/schema-foreign-key-join/arm64-to-amd64/postgres.logical.dump",
+          "sha256": "53df9a757df56d3cc6019e3c5ff58e31f3442a228f234d6bf5c575e1052dc286"
+        },
+        {
+          "name": "fixtures/schema-shape/schema-foreign-key-join/arm64-to-amd64/restore-summary.json",
+          "path": "fixtures/schema-shape/schema-foreign-key-join/arm64-to-amd64/restore-summary.json",
+          "sha256": "56a9f689692fa8d3975f9edd7a09e0f66d9e23eb995416d67a93711506b52da3"
+        },
+        {
+          "name": "fixtures/schema-shape/schema-foreign-key-join/arm64-to-amd64/source-verifier.txt",
+          "path": "fixtures/schema-shape/schema-foreign-key-join/arm64-to-amd64/source-verifier.txt",
+          "sha256": "516d7764656e65479195e8537bac626e02554042c6269f9f41c0ac9ff55782cb"
+        },
+        {
+          "name": "fixtures/schema-shape/schema-foreign-key-join/arm64-to-amd64/target-verifier.txt",
+          "path": "fixtures/schema-shape/schema-foreign-key-join/arm64-to-amd64/target-verifier.txt",
+          "sha256": "516d7764656e65479195e8537bac626e02554042c6269f9f41c0ac9ff55782cb"
+        }
+      ]
+    },
+    {
+      "id": "schema-foreign-key-join",
+      "kind": "schema-shape",
+      "postgresVersion": "15.8",
+      "description": "two tables with foreign-key join shape",
+      "sourceArch": "amd64",
+      "targetArch": "arm64",
+      "captureCompleted": true,
+      "restoreCompleted": true,
+      "targetVerifierResult": "passed",
+      "artifacts": [
+        {
+          "name": "fixtures/schema-shape/schema-foreign-key-join/amd64-to-arm64/portable-product.json",
+          "path": "fixtures/schema-shape/schema-foreign-key-join/amd64-to-arm64/portable-product.json",
+          "sha256": "aa669e9d549f50a8d93df417498db6796c83c11988666fecf3ffcfe60831b171"
+        },
+        {
+          "name": "fixtures/schema-shape/schema-foreign-key-join/amd64-to-arm64/postgres.logical.dump",
+          "path": "fixtures/schema-shape/schema-foreign-key-join/amd64-to-arm64/postgres.logical.dump",
+          "sha256": "53df9a757df56d3cc6019e3c5ff58e31f3442a228f234d6bf5c575e1052dc286"
+        },
+        {
+          "name": "fixtures/schema-shape/schema-foreign-key-join/amd64-to-arm64/restore-summary.json",
+          "path": "fixtures/schema-shape/schema-foreign-key-join/amd64-to-arm64/restore-summary.json",
+          "sha256": "ddc5ecefd151c1cb294e236ae6ab64d7f3f3369fcbad736a6c809f00f928c46c"
+        },
+        {
+          "name": "fixtures/schema-shape/schema-foreign-key-join/amd64-to-arm64/source-verifier.txt",
+          "path": "fixtures/schema-shape/schema-foreign-key-join/amd64-to-arm64/source-verifier.txt",
+          "sha256": "516d7764656e65479195e8537bac626e02554042c6269f9f41c0ac9ff55782cb"
+        },
+        {
+          "name": "fixtures/schema-shape/schema-foreign-key-join/amd64-to-arm64/target-verifier.txt",
+          "path": "fixtures/schema-shape/schema-foreign-key-join/amd64-to-arm64/target-verifier.txt",
+          "sha256": "516d7764656e65479195e8537bac626e02554042c6269f9f41c0ac9ff55782cb"
+        }
+      ]
+    },
+    {
+      "id": "schema-index-sequence-default",
+      "kind": "schema-shape",
+      "postgresVersion": "15.8",
+      "description": "sequence default and secondary index shape",
+      "sourceArch": "arm64",
+      "targetArch": "amd64",
+      "captureCompleted": true,
+      "restoreCompleted": true,
+      "targetVerifierResult": "passed",
+      "artifacts": [
+        {
+          "name": "fixtures/schema-shape/schema-index-sequence-default/arm64-to-amd64/portable-product.json",
+          "path": "fixtures/schema-shape/schema-index-sequence-default/arm64-to-amd64/portable-product.json",
+          "sha256": "2551d61e57b044d878e08c34f6e08e16016256e03037df624ebb1aa9ffb42f05"
+        },
+        {
+          "name": "fixtures/schema-shape/schema-index-sequence-default/arm64-to-amd64/postgres.logical.dump",
+          "path": "fixtures/schema-shape/schema-index-sequence-default/arm64-to-amd64/postgres.logical.dump",
+          "sha256": "afca821f4af41db8cafeef2f634692eeb6c1c49e807200eada2bdc45c9684c37"
+        },
+        {
+          "name": "fixtures/schema-shape/schema-index-sequence-default/arm64-to-amd64/restore-summary.json",
+          "path": "fixtures/schema-shape/schema-index-sequence-default/arm64-to-amd64/restore-summary.json",
+          "sha256": "354f91509ee26f4869693a070af3a78d1d2d42431c0726549f39b786d029b826"
+        },
+        {
+          "name": "fixtures/schema-shape/schema-index-sequence-default/arm64-to-amd64/source-verifier.txt",
+          "path": "fixtures/schema-shape/schema-index-sequence-default/arm64-to-amd64/source-verifier.txt",
+          "sha256": "1998119d0ef28e2e956fdba930d5a39dda77620d858e7abefbc89ee55f10cd4a"
+        },
+        {
+          "name": "fixtures/schema-shape/schema-index-sequence-default/arm64-to-amd64/target-verifier.txt",
+          "path": "fixtures/schema-shape/schema-index-sequence-default/arm64-to-amd64/target-verifier.txt",
+          "sha256": "1998119d0ef28e2e956fdba930d5a39dda77620d858e7abefbc89ee55f10cd4a"
+        }
+      ]
+    },
+    {
+      "id": "schema-index-sequence-default",
+      "kind": "schema-shape",
+      "postgresVersion": "15.8",
+      "description": "sequence default and secondary index shape",
+      "sourceArch": "amd64",
+      "targetArch": "arm64",
+      "captureCompleted": true,
+      "restoreCompleted": true,
+      "targetVerifierResult": "passed",
+      "artifacts": [
+        {
+          "name": "fixtures/schema-shape/schema-index-sequence-default/amd64-to-arm64/portable-product.json",
+          "path": "fixtures/schema-shape/schema-index-sequence-default/amd64-to-arm64/portable-product.json",
+          "sha256": "199c52c75012481c8370b979cf27df390719c2430826b2e8d08b569a4ca75b3a"
+        },
+        {
+          "name": "fixtures/schema-shape/schema-index-sequence-default/amd64-to-arm64/postgres.logical.dump",
+          "path": "fixtures/schema-shape/schema-index-sequence-default/amd64-to-arm64/postgres.logical.dump",
+          "sha256": "afca821f4af41db8cafeef2f634692eeb6c1c49e807200eada2bdc45c9684c37"
+        },
+        {
+          "name": "fixtures/schema-shape/schema-index-sequence-default/amd64-to-arm64/restore-summary.json",
+          "path": "fixtures/schema-shape/schema-index-sequence-default/amd64-to-arm64/restore-summary.json",
+          "sha256": "e6b6e06a33b963d27576f05b6168a3355685a38b2e329250c07905c17bccae54"
+        },
+        {
+          "name": "fixtures/schema-shape/schema-index-sequence-default/amd64-to-arm64/source-verifier.txt",
+          "path": "fixtures/schema-shape/schema-index-sequence-default/amd64-to-arm64/source-verifier.txt",
+          "sha256": "1998119d0ef28e2e956fdba930d5a39dda77620d858e7abefbc89ee55f10cd4a"
+        },
+        {
+          "name": "fixtures/schema-shape/schema-index-sequence-default/amd64-to-arm64/target-verifier.txt",
+          "path": "fixtures/schema-shape/schema-index-sequence-default/amd64-to-arm64/target-verifier.txt",
+          "sha256": "1998119d0ef28e2e956fdba930d5a39dda77620d858e7abefbc89ee55f10cd4a"
+        }
+      ]
+    },
+    {
+      "id": "postgres-14-clean-logical",
+      "kind": "postgres-version",
+      "postgresVersion": "14.12",
+      "description": "PostgreSQL 14 clean logical dump fixture",
+      "sourceArch": "arm64",
+      "targetArch": "amd64",
+      "captureCompleted": true,
+      "restoreCompleted": true,
+      "targetVerifierResult": "passed",
+      "artifacts": [
+        {
+          "name": "fixtures/postgres-version/postgres-14-clean-logical/arm64-to-amd64/portable-product.json",
+          "path": "fixtures/postgres-version/postgres-14-clean-logical/arm64-to-amd64/portable-product.json",
+          "sha256": "b1979b63a4160fc79784cf6e5a2438ef1f86fd9fdacb44a2da9295b67d11fe81"
+        },
+        {
+          "name": "fixtures/postgres-version/postgres-14-clean-logical/arm64-to-amd64/postgres.logical.dump",
+          "path": "fixtures/postgres-version/postgres-14-clean-logical/arm64-to-amd64/postgres.logical.dump",
+          "sha256": "0027964c97ea056ccf8e6e083b9e371c9a6a19abf28959045a235c00a37f3c31"
+        },
+        {
+          "name": "fixtures/postgres-version/postgres-14-clean-logical/arm64-to-amd64/restore-summary.json",
+          "path": "fixtures/postgres-version/postgres-14-clean-logical/arm64-to-amd64/restore-summary.json",
+          "sha256": "0a65c03c125e6e819f59e2e9357041d4394dbe13c7fa16e823ad73bcb0a6e89b"
+        },
+        {
+          "name": "fixtures/postgres-version/postgres-14-clean-logical/arm64-to-amd64/source-verifier.txt",
+          "path": "fixtures/postgres-version/postgres-14-clean-logical/arm64-to-amd64/source-verifier.txt",
+          "sha256": "aae9f9dc0e7d7c139ad1356a3b794ae5e21a202809bd911efaa8c07b21eb8fe3"
+        },
+        {
+          "name": "fixtures/postgres-version/postgres-14-clean-logical/arm64-to-amd64/target-verifier.txt",
+          "path": "fixtures/postgres-version/postgres-14-clean-logical/arm64-to-amd64/target-verifier.txt",
+          "sha256": "aae9f9dc0e7d7c139ad1356a3b794ae5e21a202809bd911efaa8c07b21eb8fe3"
+        }
+      ]
+    },
+    {
+      "id": "postgres-14-clean-logical",
+      "kind": "postgres-version",
+      "postgresVersion": "14.12",
+      "description": "PostgreSQL 14 clean logical dump fixture",
+      "sourceArch": "amd64",
+      "targetArch": "arm64",
+      "captureCompleted": true,
+      "restoreCompleted": true,
+      "targetVerifierResult": "passed",
+      "artifacts": [
+        {
+          "name": "fixtures/postgres-version/postgres-14-clean-logical/amd64-to-arm64/portable-product.json",
+          "path": "fixtures/postgres-version/postgres-14-clean-logical/amd64-to-arm64/portable-product.json",
+          "sha256": "f1603981967cfdfd7e2985fcf36a4e1a2766346d3a8833f9a0a111f5024cef8f"
+        },
+        {
+          "name": "fixtures/postgres-version/postgres-14-clean-logical/amd64-to-arm64/postgres.logical.dump",
+          "path": "fixtures/postgres-version/postgres-14-clean-logical/amd64-to-arm64/postgres.logical.dump",
+          "sha256": "0027964c97ea056ccf8e6e083b9e371c9a6a19abf28959045a235c00a37f3c31"
+        },
+        {
+          "name": "fixtures/postgres-version/postgres-14-clean-logical/amd64-to-arm64/restore-summary.json",
+          "path": "fixtures/postgres-version/postgres-14-clean-logical/amd64-to-arm64/restore-summary.json",
+          "sha256": "177f982b078173ad0ef147af46d492adde0eb121ed5a4ca6e909ffefc7621e60"
+        },
+        {
+          "name": "fixtures/postgres-version/postgres-14-clean-logical/amd64-to-arm64/source-verifier.txt",
+          "path": "fixtures/postgres-version/postgres-14-clean-logical/amd64-to-arm64/source-verifier.txt",
+          "sha256": "aae9f9dc0e7d7c139ad1356a3b794ae5e21a202809bd911efaa8c07b21eb8fe3"
+        },
+        {
+          "name": "fixtures/postgres-version/postgres-14-clean-logical/amd64-to-arm64/target-verifier.txt",
+          "path": "fixtures/postgres-version/postgres-14-clean-logical/amd64-to-arm64/target-verifier.txt",
+          "sha256": "aae9f9dc0e7d7c139ad1356a3b794ae5e21a202809bd911efaa8c07b21eb8fe3"
+        }
+      ]
+    },
+    {
+      "id": "postgres-15-clean-logical",
+      "kind": "postgres-version",
+      "postgresVersion": "15.8",
+      "description": "PostgreSQL 15 clean logical dump fixture",
+      "sourceArch": "arm64",
+      "targetArch": "amd64",
+      "captureCompleted": true,
+      "restoreCompleted": true,
+      "targetVerifierResult": "passed",
+      "artifacts": [
+        {
+          "name": "fixtures/postgres-version/postgres-15-clean-logical/arm64-to-amd64/portable-product.json",
+          "path": "fixtures/postgres-version/postgres-15-clean-logical/arm64-to-amd64/portable-product.json",
+          "sha256": "ece58f0b19934a8ef62e7cd367aec9068308d072ecc073202367e3d55ef52b8e"
+        },
+        {
+          "name": "fixtures/postgres-version/postgres-15-clean-logical/arm64-to-amd64/postgres.logical.dump",
+          "path": "fixtures/postgres-version/postgres-15-clean-logical/arm64-to-amd64/postgres.logical.dump",
+          "sha256": "755d47178f6d4345d6c30f37984002691140e81cdf8674fb26e93a89b588f42e"
+        },
+        {
+          "name": "fixtures/postgres-version/postgres-15-clean-logical/arm64-to-amd64/restore-summary.json",
+          "path": "fixtures/postgres-version/postgres-15-clean-logical/arm64-to-amd64/restore-summary.json",
+          "sha256": "4fa2baf119ea1ce1d9415d2a80c39b57d8a4cbee8c2642145839387899eff706"
+        },
+        {
+          "name": "fixtures/postgres-version/postgres-15-clean-logical/arm64-to-amd64/source-verifier.txt",
+          "path": "fixtures/postgres-version/postgres-15-clean-logical/arm64-to-amd64/source-verifier.txt",
+          "sha256": "b7f06f723d2ecd89a5657ac64369f0ecda24b4ff2e729e2c5694784320882750"
+        },
+        {
+          "name": "fixtures/postgres-version/postgres-15-clean-logical/arm64-to-amd64/target-verifier.txt",
+          "path": "fixtures/postgres-version/postgres-15-clean-logical/arm64-to-amd64/target-verifier.txt",
+          "sha256": "b7f06f723d2ecd89a5657ac64369f0ecda24b4ff2e729e2c5694784320882750"
+        }
+      ]
+    },
+    {
+      "id": "postgres-15-clean-logical",
+      "kind": "postgres-version",
+      "postgresVersion": "15.8",
+      "description": "PostgreSQL 15 clean logical dump fixture",
+      "sourceArch": "amd64",
+      "targetArch": "arm64",
+      "captureCompleted": true,
+      "restoreCompleted": true,
+      "targetVerifierResult": "passed",
+      "artifacts": [
+        {
+          "name": "fixtures/postgres-version/postgres-15-clean-logical/amd64-to-arm64/portable-product.json",
+          "path": "fixtures/postgres-version/postgres-15-clean-logical/amd64-to-arm64/portable-product.json",
+          "sha256": "9df9d75e720e0e847d6f2b167fb32958a94ab0b99ebf041ad41f749a8ba2dfd6"
+        },
+        {
+          "name": "fixtures/postgres-version/postgres-15-clean-logical/amd64-to-arm64/postgres.logical.dump",
+          "path": "fixtures/postgres-version/postgres-15-clean-logical/amd64-to-arm64/postgres.logical.dump",
+          "sha256": "755d47178f6d4345d6c30f37984002691140e81cdf8674fb26e93a89b588f42e"
+        },
+        {
+          "name": "fixtures/postgres-version/postgres-15-clean-logical/amd64-to-arm64/restore-summary.json",
+          "path": "fixtures/postgres-version/postgres-15-clean-logical/amd64-to-arm64/restore-summary.json",
+          "sha256": "9fa92d6b11de53cbb990699e8a7a438e70432d4146f12667fd78bbb8e347f7e7"
+        },
+        {
+          "name": "fixtures/postgres-version/postgres-15-clean-logical/amd64-to-arm64/source-verifier.txt",
+          "path": "fixtures/postgres-version/postgres-15-clean-logical/amd64-to-arm64/source-verifier.txt",
+          "sha256": "b7f06f723d2ecd89a5657ac64369f0ecda24b4ff2e729e2c5694784320882750"
+        },
+        {
+          "name": "fixtures/postgres-version/postgres-15-clean-logical/amd64-to-arm64/target-verifier.txt",
+          "path": "fixtures/postgres-version/postgres-15-clean-logical/amd64-to-arm64/target-verifier.txt",
+          "sha256": "b7f06f723d2ecd89a5657ac64369f0ecda24b4ff2e729e2c5694784320882750"
+        }
+      ]
+    },
+    {
+      "id": "postgres-16-clean-logical",
+      "kind": "postgres-version",
+      "postgresVersion": "16.4",
+      "description": "PostgreSQL 16 clean logical dump fixture",
+      "sourceArch": "arm64",
+      "targetArch": "amd64",
+      "captureCompleted": true,
+      "restoreCompleted": true,
+      "targetVerifierResult": "passed",
+      "artifacts": [
+        {
+          "name": "fixtures/postgres-version/postgres-16-clean-logical/arm64-to-amd64/portable-product.json",
+          "path": "fixtures/postgres-version/postgres-16-clean-logical/arm64-to-amd64/portable-product.json",
+          "sha256": "4d31861f7df90d8573c07e2a2c101c4f8e7a85ff8abadafc5562d54426378ec1"
+        },
+        {
+          "name": "fixtures/postgres-version/postgres-16-clean-logical/arm64-to-amd64/postgres.logical.dump",
+          "path": "fixtures/postgres-version/postgres-16-clean-logical/arm64-to-amd64/postgres.logical.dump",
+          "sha256": "27d290c425afe529be722590310b580e5646b3d9bff62aa5316647e11a4dd3f5"
+        },
+        {
+          "name": "fixtures/postgres-version/postgres-16-clean-logical/arm64-to-amd64/restore-summary.json",
+          "path": "fixtures/postgres-version/postgres-16-clean-logical/arm64-to-amd64/restore-summary.json",
+          "sha256": "54b4118a21f258ebbe974b2038de1e4de8177f3ca311248ddda490818cc546fc"
+        },
+        {
+          "name": "fixtures/postgres-version/postgres-16-clean-logical/arm64-to-amd64/source-verifier.txt",
+          "path": "fixtures/postgres-version/postgres-16-clean-logical/arm64-to-amd64/source-verifier.txt",
+          "sha256": "b45198447ef5426f3352cd77cc5a216893712492d0b9315330ad1646b91059a1"
+        },
+        {
+          "name": "fixtures/postgres-version/postgres-16-clean-logical/arm64-to-amd64/target-verifier.txt",
+          "path": "fixtures/postgres-version/postgres-16-clean-logical/arm64-to-amd64/target-verifier.txt",
+          "sha256": "b45198447ef5426f3352cd77cc5a216893712492d0b9315330ad1646b91059a1"
+        }
+      ]
+    },
+    {
+      "id": "postgres-16-clean-logical",
+      "kind": "postgres-version",
+      "postgresVersion": "16.4",
+      "description": "PostgreSQL 16 clean logical dump fixture",
+      "sourceArch": "amd64",
+      "targetArch": "arm64",
+      "captureCompleted": true,
+      "restoreCompleted": true,
+      "targetVerifierResult": "passed",
+      "artifacts": [
+        {
+          "name": "fixtures/postgres-version/postgres-16-clean-logical/amd64-to-arm64/portable-product.json",
+          "path": "fixtures/postgres-version/postgres-16-clean-logical/amd64-to-arm64/portable-product.json",
+          "sha256": "7783ae6be43e401ab8e242bc758147aff8138567b9fdbd4406e6cb39b66bffe1"
+        },
+        {
+          "name": "fixtures/postgres-version/postgres-16-clean-logical/amd64-to-arm64/postgres.logical.dump",
+          "path": "fixtures/postgres-version/postgres-16-clean-logical/amd64-to-arm64/postgres.logical.dump",
+          "sha256": "27d290c425afe529be722590310b580e5646b3d9bff62aa5316647e11a4dd3f5"
+        },
+        {
+          "name": "fixtures/postgres-version/postgres-16-clean-logical/amd64-to-arm64/restore-summary.json",
+          "path": "fixtures/postgres-version/postgres-16-clean-logical/amd64-to-arm64/restore-summary.json",
+          "sha256": "633df1c4d8031ed24c9d8d8f78c00ebf597e251e3b7e7304fba5d19928bb22dc"
+        },
+        {
+          "name": "fixtures/postgres-version/postgres-16-clean-logical/amd64-to-arm64/source-verifier.txt",
+          "path": "fixtures/postgres-version/postgres-16-clean-logical/amd64-to-arm64/source-verifier.txt",
+          "sha256": "b45198447ef5426f3352cd77cc5a216893712492d0b9315330ad1646b91059a1"
+        },
+        {
+          "name": "fixtures/postgres-version/postgres-16-clean-logical/amd64-to-arm64/target-verifier.txt",
+          "path": "fixtures/postgres-version/postgres-16-clean-logical/amd64-to-arm64/target-verifier.txt",
+          "sha256": "b45198447ef5426f3352cd77cc5a216893712492d0b9315330ad1646b91059a1"
+        }
+      ]
+    },
+    {
+      "id": "workload-readonly-lookup",
+      "kind": "workload-mix",
+      "postgresVersion": "15.8",
+      "description": "read-only lookup workload after restore",
+      "sourceArch": "arm64",
+      "targetArch": "amd64",
+      "captureCompleted": true,
+      "restoreCompleted": true,
+      "targetVerifierResult": "passed",
+      "artifacts": [
+        {
+          "name": "fixtures/workload-mix/workload-readonly-lookup/arm64-to-amd64/portable-product.json",
+          "path": "fixtures/workload-mix/workload-readonly-lookup/arm64-to-amd64/portable-product.json",
+          "sha256": "6cb5d61fa388ebfcf6a01943fbf8c3c4a05b1b6af0144b6c9c5d05d93d4e97cb"
+        },
+        {
+          "name": "fixtures/workload-mix/workload-readonly-lookup/arm64-to-amd64/postgres.logical.dump",
+          "path": "fixtures/workload-mix/workload-readonly-lookup/arm64-to-amd64/postgres.logical.dump",
+          "sha256": "a6ccdb461d0eed4a5c600e7c209356b72bec69322f0a6b72a444b1809ea94e19"
+        },
+        {
+          "name": "fixtures/workload-mix/workload-readonly-lookup/arm64-to-amd64/restore-summary.json",
+          "path": "fixtures/workload-mix/workload-readonly-lookup/arm64-to-amd64/restore-summary.json",
+          "sha256": "041eac2b625edfe7352744c37be23f353c933087d64ec01300432ee6791f3b57"
+        },
+        {
+          "name": "fixtures/workload-mix/workload-readonly-lookup/arm64-to-amd64/source-verifier.txt",
+          "path": "fixtures/workload-mix/workload-readonly-lookup/arm64-to-amd64/source-verifier.txt",
+          "sha256": "2b7b2ded2e828c4f7868b249a922a5d016534137a59efaeff11da0c3b2e09c55"
+        },
+        {
+          "name": "fixtures/workload-mix/workload-readonly-lookup/arm64-to-amd64/target-verifier.txt",
+          "path": "fixtures/workload-mix/workload-readonly-lookup/arm64-to-amd64/target-verifier.txt",
+          "sha256": "2b7b2ded2e828c4f7868b249a922a5d016534137a59efaeff11da0c3b2e09c55"
+        }
+      ]
+    },
+    {
+      "id": "workload-readonly-lookup",
+      "kind": "workload-mix",
+      "postgresVersion": "15.8",
+      "description": "read-only lookup workload after restore",
+      "sourceArch": "amd64",
+      "targetArch": "arm64",
+      "captureCompleted": true,
+      "restoreCompleted": true,
+      "targetVerifierResult": "passed",
+      "artifacts": [
+        {
+          "name": "fixtures/workload-mix/workload-readonly-lookup/amd64-to-arm64/portable-product.json",
+          "path": "fixtures/workload-mix/workload-readonly-lookup/amd64-to-arm64/portable-product.json",
+          "sha256": "398778eda00bce73e8d1aa4c5a68cc2d8bda2c34a3b677ed8f12b1813ed83652"
+        },
+        {
+          "name": "fixtures/workload-mix/workload-readonly-lookup/amd64-to-arm64/postgres.logical.dump",
+          "path": "fixtures/workload-mix/workload-readonly-lookup/amd64-to-arm64/postgres.logical.dump",
+          "sha256": "a6ccdb461d0eed4a5c600e7c209356b72bec69322f0a6b72a444b1809ea94e19"
+        },
+        {
+          "name": "fixtures/workload-mix/workload-readonly-lookup/amd64-to-arm64/restore-summary.json",
+          "path": "fixtures/workload-mix/workload-readonly-lookup/amd64-to-arm64/restore-summary.json",
+          "sha256": "98e56ff9d640da24f58c6fb922e887a9b78611f3bd055e20d1d1e6e4f4aed0d4"
+        },
+        {
+          "name": "fixtures/workload-mix/workload-readonly-lookup/amd64-to-arm64/source-verifier.txt",
+          "path": "fixtures/workload-mix/workload-readonly-lookup/amd64-to-arm64/source-verifier.txt",
+          "sha256": "2b7b2ded2e828c4f7868b249a922a5d016534137a59efaeff11da0c3b2e09c55"
+        },
+        {
+          "name": "fixtures/workload-mix/workload-readonly-lookup/amd64-to-arm64/target-verifier.txt",
+          "path": "fixtures/workload-mix/workload-readonly-lookup/amd64-to-arm64/target-verifier.txt",
+          "sha256": "2b7b2ded2e828c4f7868b249a922a5d016534137a59efaeff11da0c3b2e09c55"
+        }
+      ]
+    },
+    {
+      "id": "workload-small-write-batch-quiesced",
+      "kind": "workload-mix",
+      "postgresVersion": "15.8",
+      "description": "small committed write batch with no active transaction at capture",
+      "sourceArch": "arm64",
+      "targetArch": "amd64",
+      "captureCompleted": true,
+      "restoreCompleted": true,
+      "targetVerifierResult": "passed",
+      "artifacts": [
+        {
+          "name": "fixtures/workload-mix/workload-small-write-batch-quiesced/arm64-to-amd64/portable-product.json",
+          "path": "fixtures/workload-mix/workload-small-write-batch-quiesced/arm64-to-amd64/portable-product.json",
+          "sha256": "0eeafa2dce7c209af81e5e7776ac5245e40be45f8f82b7670324b061ab40f80e"
+        },
+        {
+          "name": "fixtures/workload-mix/workload-small-write-batch-quiesced/arm64-to-amd64/postgres.logical.dump",
+          "path": "fixtures/workload-mix/workload-small-write-batch-quiesced/arm64-to-amd64/postgres.logical.dump",
+          "sha256": "1f6f22d6ba1b08c4d241bf3499412d26e13bde2460192c68f8709a516501cdf2"
+        },
+        {
+          "name": "fixtures/workload-mix/workload-small-write-batch-quiesced/arm64-to-amd64/restore-summary.json",
+          "path": "fixtures/workload-mix/workload-small-write-batch-quiesced/arm64-to-amd64/restore-summary.json",
+          "sha256": "82d5398078413377183548f4068b70d8762a3ae49140062be787d116ecdafe3b"
+        },
+        {
+          "name": "fixtures/workload-mix/workload-small-write-batch-quiesced/arm64-to-amd64/source-verifier.txt",
+          "path": "fixtures/workload-mix/workload-small-write-batch-quiesced/arm64-to-amd64/source-verifier.txt",
+          "sha256": "bf9f590777d8b9458d82f6bb2fd8fc8747f616af7dc36f4d60bb0f2764471bd8"
+        },
+        {
+          "name": "fixtures/workload-mix/workload-small-write-batch-quiesced/arm64-to-amd64/target-verifier.txt",
+          "path": "fixtures/workload-mix/workload-small-write-batch-quiesced/arm64-to-amd64/target-verifier.txt",
+          "sha256": "bf9f590777d8b9458d82f6bb2fd8fc8747f616af7dc36f4d60bb0f2764471bd8"
+        }
+      ]
+    },
+    {
+      "id": "workload-small-write-batch-quiesced",
+      "kind": "workload-mix",
+      "postgresVersion": "15.8",
+      "description": "small committed write batch with no active transaction at capture",
+      "sourceArch": "amd64",
+      "targetArch": "arm64",
+      "captureCompleted": true,
+      "restoreCompleted": true,
+      "targetVerifierResult": "passed",
+      "artifacts": [
+        {
+          "name": "fixtures/workload-mix/workload-small-write-batch-quiesced/amd64-to-arm64/portable-product.json",
+          "path": "fixtures/workload-mix/workload-small-write-batch-quiesced/amd64-to-arm64/portable-product.json",
+          "sha256": "756c3c263df248bb09dd533a464aa83ab5918dae7d47d58dec64801127df932a"
+        },
+        {
+          "name": "fixtures/workload-mix/workload-small-write-batch-quiesced/amd64-to-arm64/postgres.logical.dump",
+          "path": "fixtures/workload-mix/workload-small-write-batch-quiesced/amd64-to-arm64/postgres.logical.dump",
+          "sha256": "1f6f22d6ba1b08c4d241bf3499412d26e13bde2460192c68f8709a516501cdf2"
+        },
+        {
+          "name": "fixtures/workload-mix/workload-small-write-batch-quiesced/amd64-to-arm64/restore-summary.json",
+          "path": "fixtures/workload-mix/workload-small-write-batch-quiesced/amd64-to-arm64/restore-summary.json",
+          "sha256": "8ccb93ec6ad3a337004e4b3dfa086959d1e081c5703f0946af8b472d4aeb51b3"
+        },
+        {
+          "name": "fixtures/workload-mix/workload-small-write-batch-quiesced/amd64-to-arm64/source-verifier.txt",
+          "path": "fixtures/workload-mix/workload-small-write-batch-quiesced/amd64-to-arm64/source-verifier.txt",
+          "sha256": "bf9f590777d8b9458d82f6bb2fd8fc8747f616af7dc36f4d60bb0f2764471bd8"
+        },
+        {
+          "name": "fixtures/workload-mix/workload-small-write-batch-quiesced/amd64-to-arm64/target-verifier.txt",
+          "path": "fixtures/workload-mix/workload-small-write-batch-quiesced/amd64-to-arm64/target-verifier.txt",
+          "sha256": "bf9f590777d8b9458d82f6bb2fd8fc8747f616af7dc36f4d60bb0f2764471bd8"
+        }
+      ]
+    },
+    {
+      "id": "workload-aggregate-query",
+      "kind": "workload-mix",
+      "postgresVersion": "15.8",
+      "description": "aggregate query verifier workload",
+      "sourceArch": "arm64",
+      "targetArch": "amd64",
+      "captureCompleted": true,
+      "restoreCompleted": true,
+      "targetVerifierResult": "passed",
+      "artifacts": [
+        {
+          "name": "fixtures/workload-mix/workload-aggregate-query/arm64-to-amd64/portable-product.json",
+          "path": "fixtures/workload-mix/workload-aggregate-query/arm64-to-amd64/portable-product.json",
+          "sha256": "0cf36ca550f575c9ca1e94af9370a8ac67d3061d3f4b2829388014395b9d668f"
+        },
+        {
+          "name": "fixtures/workload-mix/workload-aggregate-query/arm64-to-amd64/postgres.logical.dump",
+          "path": "fixtures/workload-mix/workload-aggregate-query/arm64-to-amd64/postgres.logical.dump",
+          "sha256": "800ed4bf58f478646a2c719a6fa2a01d465ee720443f4a4ac12bffa17b28fc2f"
+        },
+        {
+          "name": "fixtures/workload-mix/workload-aggregate-query/arm64-to-amd64/restore-summary.json",
+          "path": "fixtures/workload-mix/workload-aggregate-query/arm64-to-amd64/restore-summary.json",
+          "sha256": "269981db3b49f06a8568f2808403118f0cda263c33194276e85b7c68e380c9b4"
+        },
+        {
+          "name": "fixtures/workload-mix/workload-aggregate-query/arm64-to-amd64/source-verifier.txt",
+          "path": "fixtures/workload-mix/workload-aggregate-query/arm64-to-amd64/source-verifier.txt",
+          "sha256": "0616c6d5ff28170b4cb635fbc59878d6977cdb456e450a536dd9a0893c9dee49"
+        },
+        {
+          "name": "fixtures/workload-mix/workload-aggregate-query/arm64-to-amd64/target-verifier.txt",
+          "path": "fixtures/workload-mix/workload-aggregate-query/arm64-to-amd64/target-verifier.txt",
+          "sha256": "0616c6d5ff28170b4cb635fbc59878d6977cdb456e450a536dd9a0893c9dee49"
+        }
+      ]
+    },
+    {
+      "id": "workload-aggregate-query",
+      "kind": "workload-mix",
+      "postgresVersion": "15.8",
+      "description": "aggregate query verifier workload",
+      "sourceArch": "amd64",
+      "targetArch": "arm64",
+      "captureCompleted": true,
+      "restoreCompleted": true,
+      "targetVerifierResult": "passed",
+      "artifacts": [
+        {
+          "name": "fixtures/workload-mix/workload-aggregate-query/amd64-to-arm64/portable-product.json",
+          "path": "fixtures/workload-mix/workload-aggregate-query/amd64-to-arm64/portable-product.json",
+          "sha256": "6de88e416452dbccabc36f04b704868b125d5b6d21053a85d30b89fbfbf0b204"
+        },
+        {
+          "name": "fixtures/workload-mix/workload-aggregate-query/amd64-to-arm64/postgres.logical.dump",
+          "path": "fixtures/workload-mix/workload-aggregate-query/amd64-to-arm64/postgres.logical.dump",
+          "sha256": "800ed4bf58f478646a2c719a6fa2a01d465ee720443f4a4ac12bffa17b28fc2f"
+        },
+        {
+          "name": "fixtures/workload-mix/workload-aggregate-query/amd64-to-arm64/restore-summary.json",
+          "path": "fixtures/workload-mix/workload-aggregate-query/amd64-to-arm64/restore-summary.json",
+          "sha256": "886f414df5723f9dfb6bf88c3869d3b10a2ba1790f30f4b68bed794e32865b92"
+        },
+        {
+          "name": "fixtures/workload-mix/workload-aggregate-query/amd64-to-arm64/source-verifier.txt",
+          "path": "fixtures/workload-mix/workload-aggregate-query/amd64-to-arm64/source-verifier.txt",
+          "sha256": "0616c6d5ff28170b4cb635fbc59878d6977cdb456e450a536dd9a0893c9dee49"
+        },
+        {
+          "name": "fixtures/workload-mix/workload-aggregate-query/amd64-to-arm64/target-verifier.txt",
+          "path": "fixtures/workload-mix/workload-aggregate-query/amd64-to-arm64/target-verifier.txt",
+          "sha256": "0616c6d5ff28170b4cb635fbc59878d6977cdb456e450a536dd9a0893c9dee49"
+        }
+      ]
+    }
+  ],
+  "gates": [
+    {
+      "id": "base-20-claim-ladder-accepted",
+      "passed": true,
+      "evidence": "The retained 20% clean logical claim ladder is accepted before evaluating the 40% gate."
+    },
+    {
+      "id": "schema-shape-rows-retained",
+      "passed": true,
+      "evidence": "At least three clean logical schema-shape rows have retained target verifier artifacts."
+    },
+    {
+      "id": "postgres-version-rows-retained",
+      "passed": true,
+      "evidence": "At least three PostgreSQL major-version rows have retained target verifier artifacts."
+    },
+    {
+      "id": "workload-mix-rows-retained",
+      "passed": true,
+      "evidence": "At least three clean, idle workload-mix rows have retained target verifier artifacts."
+    },
+    {
+      "id": "bidirectional-target-verifiers-retained",
+      "passed": true,
+      "evidence": "Rows include both arm64->amd64 and amd64->arm64 target-native verifier artifacts."
+    },
+    {
+      "id": "refusal-boundaries-unchanged",
+      "passed": true,
+      "evidence": "Active sessions/transactions, dirty WAL, and physical data-dir cross-ISA copy remain refused."
+    },
+    {
+      "id": "no-forbidden-shortcuts",
+      "passed": true,
+      "evidence": "No raw CPU restore, source-ISA emulation, sidecar replay, app hooks, or metadata-only success is accepted."
+    },
+    {
+      "id": "public-claim-still-20",
+      "passed": true,
+      "evidence": "This gate can unlock a candidate 40% claim decision but does not raise the public claim by itself."
+    }
+  ],
+  "proofs": [
+    {
+      "id": "postgres-40-schema-shape-rows",
+      "category": "schema shapes",
+      "status": "passed",
+      "artifact": "postgres-clean-logical-20-claim-ready-report.json",
+      "proves": "single-table primary-key, foreign-key join, and index/sequence schema shapes restore through target-native verification",
+      "claimUse": "unlocks part of the candidate 40% clean logical Postgres claim",
+      "next": "Complete for this gate; add more shapes before any higher claim.",
+      "claimImpact": {
+        "productSupportDelta": 7,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 27,
+          "broadSupport": 0,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": true
+      }
+    },
+    {
+      "id": "postgres-40-version-rows",
+      "category": "PostgreSQL versions",
+      "status": "passed",
+      "artifact": "postgres-clean-logical-20-claim-ready-report.json",
+      "proves": "PostgreSQL 14, 15, and 16 clean logical fixtures restore with retained verifier output",
+      "claimUse": "keeps the candidate 40% claim from being a single-version proof",
+      "next": "Complete for this gate; add patch/extension variation before any higher claim.",
+      "claimImpact": {
+        "productSupportDelta": 5,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 32,
+          "broadSupport": 0,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": true
+      }
+    },
+    {
+      "id": "postgres-40-workload-mix-rows",
+      "category": "workload mix",
+      "status": "passed",
+      "artifact": "postgres-clean-logical-20-claim-ready-report.json",
+      "proves": "read-only lookup, committed write batch, and aggregate-query workloads restore from clean logical state",
+      "claimUse": "adds workload variety without claiming active sessions or dirty WAL",
+      "next": "Complete for this gate; keep active sessions refused.",
+      "claimImpact": {
+        "productSupportDelta": 5,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 37,
+          "broadSupport": 0,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": true
+      }
+    },
+    {
+      "id": "postgres-40-retained-verifier-artifacts",
+      "category": "retained artifacts",
+      "status": "passed",
+      "artifact": "source-verifier.txt / target-verifier.txt / restore-summary.json",
+      "proves": "every row retains source verifier, target verifier, restore summary, manifest, and dump hashes",
+      "claimUse": "makes the candidate 40% gate auditable instead of metadata-only",
+      "next": "Use this report as the gate input for a separate 40% claim PR.",
+      "claimImpact": {
+        "productSupportDelta": 3,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 40,
+          "broadSupport": 0,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": true
+      }
+    }
+  ],
+  "refusalBoundariesRetained": [
+    "active transactions / sessions",
+    "dirty WAL boundary",
+    "physical data-dir cross-ISA copy"
+  ],
+  "shortcuts": {
+    "rawCpuRestoreUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "sourceTextReplayUsed": false,
+    "sidecarRuntimeUsed": false,
+    "appHooksRequired": false,
+    "metadataOnlySuccessAccepted": false
+  },
+  "baseClaimLadderArtifact": {
+    "name": "base-20-claim-ladder/postgres-claim-ladder-report.json",
+    "path": "base-20-claim-ladder/postgres-claim-ladder-report.json",
+    "sha256": "50ac96809907e4ee363a3ee8ab235e9bad42e466aa32d120ddc6d0a490d11ba5"
+  },
+  "artifacts": [
+    {
+      "name": "base-20-claim-ladder/postgres-claim-ladder-report.json",
+      "path": "base-20-claim-ladder/postgres-claim-ladder-report.json",
+      "sha256": "50ac96809907e4ee363a3ee8ab235e9bad42e466aa32d120ddc6d0a490d11ba5"
+    },
+    {
+      "name": "fixtures/schema-shape/schema-single-table-primary-key/arm64-to-amd64/portable-product.json",
+      "path": "fixtures/schema-shape/schema-single-table-primary-key/arm64-to-amd64/portable-product.json",
+      "sha256": "48cc5875daae678f58ea0e1a69b219275f57b9a4814327ab68dc944ee814c9ab"
+    },
+    {
+      "name": "fixtures/schema-shape/schema-single-table-primary-key/arm64-to-amd64/postgres.logical.dump",
+      "path": "fixtures/schema-shape/schema-single-table-primary-key/arm64-to-amd64/postgres.logical.dump",
+      "sha256": "d6a0dbeb89be4035a085090c2b5f0dd037dd768533d6cec4796424a545c92c93"
+    },
+    {
+      "name": "fixtures/schema-shape/schema-single-table-primary-key/arm64-to-amd64/restore-summary.json",
+      "path": "fixtures/schema-shape/schema-single-table-primary-key/arm64-to-amd64/restore-summary.json",
+      "sha256": "5ce937b7830dd2c1b0e08fd641fbca8560f7e6d68866ab68e1a556d6fe6b7f5b"
+    },
+    {
+      "name": "fixtures/schema-shape/schema-single-table-primary-key/arm64-to-amd64/source-verifier.txt",
+      "path": "fixtures/schema-shape/schema-single-table-primary-key/arm64-to-amd64/source-verifier.txt",
+      "sha256": "859b43b33d1b17f4a24cf0ca23e192ee98c51b53bbc1f4f9c8752330cb780a8c"
+    },
+    {
+      "name": "fixtures/schema-shape/schema-single-table-primary-key/arm64-to-amd64/target-verifier.txt",
+      "path": "fixtures/schema-shape/schema-single-table-primary-key/arm64-to-amd64/target-verifier.txt",
+      "sha256": "859b43b33d1b17f4a24cf0ca23e192ee98c51b53bbc1f4f9c8752330cb780a8c"
+    },
+    {
+      "name": "fixtures/schema-shape/schema-single-table-primary-key/amd64-to-arm64/portable-product.json",
+      "path": "fixtures/schema-shape/schema-single-table-primary-key/amd64-to-arm64/portable-product.json",
+      "sha256": "21c7a6fba8c71e0df2fb8f939ab7f8d7d526c9223d2a5d65c371685278f8ac3b"
+    },
+    {
+      "name": "fixtures/schema-shape/schema-single-table-primary-key/amd64-to-arm64/postgres.logical.dump",
+      "path": "fixtures/schema-shape/schema-single-table-primary-key/amd64-to-arm64/postgres.logical.dump",
+      "sha256": "d6a0dbeb89be4035a085090c2b5f0dd037dd768533d6cec4796424a545c92c93"
+    },
+    {
+      "name": "fixtures/schema-shape/schema-single-table-primary-key/amd64-to-arm64/restore-summary.json",
+      "path": "fixtures/schema-shape/schema-single-table-primary-key/amd64-to-arm64/restore-summary.json",
+      "sha256": "0b0a90f75df65f5e5a6c79e5cde188c6a7d2415bac3d39c1239c9aa9cbd08c9a"
+    },
+    {
+      "name": "fixtures/schema-shape/schema-single-table-primary-key/amd64-to-arm64/source-verifier.txt",
+      "path": "fixtures/schema-shape/schema-single-table-primary-key/amd64-to-arm64/source-verifier.txt",
+      "sha256": "859b43b33d1b17f4a24cf0ca23e192ee98c51b53bbc1f4f9c8752330cb780a8c"
+    },
+    {
+      "name": "fixtures/schema-shape/schema-single-table-primary-key/amd64-to-arm64/target-verifier.txt",
+      "path": "fixtures/schema-shape/schema-single-table-primary-key/amd64-to-arm64/target-verifier.txt",
+      "sha256": "859b43b33d1b17f4a24cf0ca23e192ee98c51b53bbc1f4f9c8752330cb780a8c"
+    },
+    {
+      "name": "fixtures/schema-shape/schema-foreign-key-join/arm64-to-amd64/portable-product.json",
+      "path": "fixtures/schema-shape/schema-foreign-key-join/arm64-to-amd64/portable-product.json",
+      "sha256": "075aae25a659e9145b3d70fccab4b355ae39f24f509aeda3906e51cf8c679ecc"
+    },
+    {
+      "name": "fixtures/schema-shape/schema-foreign-key-join/arm64-to-amd64/postgres.logical.dump",
+      "path": "fixtures/schema-shape/schema-foreign-key-join/arm64-to-amd64/postgres.logical.dump",
+      "sha256": "53df9a757df56d3cc6019e3c5ff58e31f3442a228f234d6bf5c575e1052dc286"
+    },
+    {
+      "name": "fixtures/schema-shape/schema-foreign-key-join/arm64-to-amd64/restore-summary.json",
+      "path": "fixtures/schema-shape/schema-foreign-key-join/arm64-to-amd64/restore-summary.json",
+      "sha256": "56a9f689692fa8d3975f9edd7a09e0f66d9e23eb995416d67a93711506b52da3"
+    },
+    {
+      "name": "fixtures/schema-shape/schema-foreign-key-join/arm64-to-amd64/source-verifier.txt",
+      "path": "fixtures/schema-shape/schema-foreign-key-join/arm64-to-amd64/source-verifier.txt",
+      "sha256": "516d7764656e65479195e8537bac626e02554042c6269f9f41c0ac9ff55782cb"
+    },
+    {
+      "name": "fixtures/schema-shape/schema-foreign-key-join/arm64-to-amd64/target-verifier.txt",
+      "path": "fixtures/schema-shape/schema-foreign-key-join/arm64-to-amd64/target-verifier.txt",
+      "sha256": "516d7764656e65479195e8537bac626e02554042c6269f9f41c0ac9ff55782cb"
+    },
+    {
+      "name": "fixtures/schema-shape/schema-foreign-key-join/amd64-to-arm64/portable-product.json",
+      "path": "fixtures/schema-shape/schema-foreign-key-join/amd64-to-arm64/portable-product.json",
+      "sha256": "aa669e9d549f50a8d93df417498db6796c83c11988666fecf3ffcfe60831b171"
+    },
+    {
+      "name": "fixtures/schema-shape/schema-foreign-key-join/amd64-to-arm64/postgres.logical.dump",
+      "path": "fixtures/schema-shape/schema-foreign-key-join/amd64-to-arm64/postgres.logical.dump",
+      "sha256": "53df9a757df56d3cc6019e3c5ff58e31f3442a228f234d6bf5c575e1052dc286"
+    },
+    {
+      "name": "fixtures/schema-shape/schema-foreign-key-join/amd64-to-arm64/restore-summary.json",
+      "path": "fixtures/schema-shape/schema-foreign-key-join/amd64-to-arm64/restore-summary.json",
+      "sha256": "ddc5ecefd151c1cb294e236ae6ab64d7f3f3369fcbad736a6c809f00f928c46c"
+    },
+    {
+      "name": "fixtures/schema-shape/schema-foreign-key-join/amd64-to-arm64/source-verifier.txt",
+      "path": "fixtures/schema-shape/schema-foreign-key-join/amd64-to-arm64/source-verifier.txt",
+      "sha256": "516d7764656e65479195e8537bac626e02554042c6269f9f41c0ac9ff55782cb"
+    },
+    {
+      "name": "fixtures/schema-shape/schema-foreign-key-join/amd64-to-arm64/target-verifier.txt",
+      "path": "fixtures/schema-shape/schema-foreign-key-join/amd64-to-arm64/target-verifier.txt",
+      "sha256": "516d7764656e65479195e8537bac626e02554042c6269f9f41c0ac9ff55782cb"
+    },
+    {
+      "name": "fixtures/schema-shape/schema-index-sequence-default/arm64-to-amd64/portable-product.json",
+      "path": "fixtures/schema-shape/schema-index-sequence-default/arm64-to-amd64/portable-product.json",
+      "sha256": "2551d61e57b044d878e08c34f6e08e16016256e03037df624ebb1aa9ffb42f05"
+    },
+    {
+      "name": "fixtures/schema-shape/schema-index-sequence-default/arm64-to-amd64/postgres.logical.dump",
+      "path": "fixtures/schema-shape/schema-index-sequence-default/arm64-to-amd64/postgres.logical.dump",
+      "sha256": "afca821f4af41db8cafeef2f634692eeb6c1c49e807200eada2bdc45c9684c37"
+    },
+    {
+      "name": "fixtures/schema-shape/schema-index-sequence-default/arm64-to-amd64/restore-summary.json",
+      "path": "fixtures/schema-shape/schema-index-sequence-default/arm64-to-amd64/restore-summary.json",
+      "sha256": "354f91509ee26f4869693a070af3a78d1d2d42431c0726549f39b786d029b826"
+    },
+    {
+      "name": "fixtures/schema-shape/schema-index-sequence-default/arm64-to-amd64/source-verifier.txt",
+      "path": "fixtures/schema-shape/schema-index-sequence-default/arm64-to-amd64/source-verifier.txt",
+      "sha256": "1998119d0ef28e2e956fdba930d5a39dda77620d858e7abefbc89ee55f10cd4a"
+    },
+    {
+      "name": "fixtures/schema-shape/schema-index-sequence-default/arm64-to-amd64/target-verifier.txt",
+      "path": "fixtures/schema-shape/schema-index-sequence-default/arm64-to-amd64/target-verifier.txt",
+      "sha256": "1998119d0ef28e2e956fdba930d5a39dda77620d858e7abefbc89ee55f10cd4a"
+    },
+    {
+      "name": "fixtures/schema-shape/schema-index-sequence-default/amd64-to-arm64/portable-product.json",
+      "path": "fixtures/schema-shape/schema-index-sequence-default/amd64-to-arm64/portable-product.json",
+      "sha256": "199c52c75012481c8370b979cf27df390719c2430826b2e8d08b569a4ca75b3a"
+    },
+    {
+      "name": "fixtures/schema-shape/schema-index-sequence-default/amd64-to-arm64/postgres.logical.dump",
+      "path": "fixtures/schema-shape/schema-index-sequence-default/amd64-to-arm64/postgres.logical.dump",
+      "sha256": "afca821f4af41db8cafeef2f634692eeb6c1c49e807200eada2bdc45c9684c37"
+    },
+    {
+      "name": "fixtures/schema-shape/schema-index-sequence-default/amd64-to-arm64/restore-summary.json",
+      "path": "fixtures/schema-shape/schema-index-sequence-default/amd64-to-arm64/restore-summary.json",
+      "sha256": "e6b6e06a33b963d27576f05b6168a3355685a38b2e329250c07905c17bccae54"
+    },
+    {
+      "name": "fixtures/schema-shape/schema-index-sequence-default/amd64-to-arm64/source-verifier.txt",
+      "path": "fixtures/schema-shape/schema-index-sequence-default/amd64-to-arm64/source-verifier.txt",
+      "sha256": "1998119d0ef28e2e956fdba930d5a39dda77620d858e7abefbc89ee55f10cd4a"
+    },
+    {
+      "name": "fixtures/schema-shape/schema-index-sequence-default/amd64-to-arm64/target-verifier.txt",
+      "path": "fixtures/schema-shape/schema-index-sequence-default/amd64-to-arm64/target-verifier.txt",
+      "sha256": "1998119d0ef28e2e956fdba930d5a39dda77620d858e7abefbc89ee55f10cd4a"
+    },
+    {
+      "name": "fixtures/postgres-version/postgres-14-clean-logical/arm64-to-amd64/portable-product.json",
+      "path": "fixtures/postgres-version/postgres-14-clean-logical/arm64-to-amd64/portable-product.json",
+      "sha256": "b1979b63a4160fc79784cf6e5a2438ef1f86fd9fdacb44a2da9295b67d11fe81"
+    },
+    {
+      "name": "fixtures/postgres-version/postgres-14-clean-logical/arm64-to-amd64/postgres.logical.dump",
+      "path": "fixtures/postgres-version/postgres-14-clean-logical/arm64-to-amd64/postgres.logical.dump",
+      "sha256": "0027964c97ea056ccf8e6e083b9e371c9a6a19abf28959045a235c00a37f3c31"
+    },
+    {
+      "name": "fixtures/postgres-version/postgres-14-clean-logical/arm64-to-amd64/restore-summary.json",
+      "path": "fixtures/postgres-version/postgres-14-clean-logical/arm64-to-amd64/restore-summary.json",
+      "sha256": "0a65c03c125e6e819f59e2e9357041d4394dbe13c7fa16e823ad73bcb0a6e89b"
+    },
+    {
+      "name": "fixtures/postgres-version/postgres-14-clean-logical/arm64-to-amd64/source-verifier.txt",
+      "path": "fixtures/postgres-version/postgres-14-clean-logical/arm64-to-amd64/source-verifier.txt",
+      "sha256": "aae9f9dc0e7d7c139ad1356a3b794ae5e21a202809bd911efaa8c07b21eb8fe3"
+    },
+    {
+      "name": "fixtures/postgres-version/postgres-14-clean-logical/arm64-to-amd64/target-verifier.txt",
+      "path": "fixtures/postgres-version/postgres-14-clean-logical/arm64-to-amd64/target-verifier.txt",
+      "sha256": "aae9f9dc0e7d7c139ad1356a3b794ae5e21a202809bd911efaa8c07b21eb8fe3"
+    },
+    {
+      "name": "fixtures/postgres-version/postgres-14-clean-logical/amd64-to-arm64/portable-product.json",
+      "path": "fixtures/postgres-version/postgres-14-clean-logical/amd64-to-arm64/portable-product.json",
+      "sha256": "f1603981967cfdfd7e2985fcf36a4e1a2766346d3a8833f9a0a111f5024cef8f"
+    },
+    {
+      "name": "fixtures/postgres-version/postgres-14-clean-logical/amd64-to-arm64/postgres.logical.dump",
+      "path": "fixtures/postgres-version/postgres-14-clean-logical/amd64-to-arm64/postgres.logical.dump",
+      "sha256": "0027964c97ea056ccf8e6e083b9e371c9a6a19abf28959045a235c00a37f3c31"
+    },
+    {
+      "name": "fixtures/postgres-version/postgres-14-clean-logical/amd64-to-arm64/restore-summary.json",
+      "path": "fixtures/postgres-version/postgres-14-clean-logical/amd64-to-arm64/restore-summary.json",
+      "sha256": "177f982b078173ad0ef147af46d492adde0eb121ed5a4ca6e909ffefc7621e60"
+    },
+    {
+      "name": "fixtures/postgres-version/postgres-14-clean-logical/amd64-to-arm64/source-verifier.txt",
+      "path": "fixtures/postgres-version/postgres-14-clean-logical/amd64-to-arm64/source-verifier.txt",
+      "sha256": "aae9f9dc0e7d7c139ad1356a3b794ae5e21a202809bd911efaa8c07b21eb8fe3"
+    },
+    {
+      "name": "fixtures/postgres-version/postgres-14-clean-logical/amd64-to-arm64/target-verifier.txt",
+      "path": "fixtures/postgres-version/postgres-14-clean-logical/amd64-to-arm64/target-verifier.txt",
+      "sha256": "aae9f9dc0e7d7c139ad1356a3b794ae5e21a202809bd911efaa8c07b21eb8fe3"
+    },
+    {
+      "name": "fixtures/postgres-version/postgres-15-clean-logical/arm64-to-amd64/portable-product.json",
+      "path": "fixtures/postgres-version/postgres-15-clean-logical/arm64-to-amd64/portable-product.json",
+      "sha256": "ece58f0b19934a8ef62e7cd367aec9068308d072ecc073202367e3d55ef52b8e"
+    },
+    {
+      "name": "fixtures/postgres-version/postgres-15-clean-logical/arm64-to-amd64/postgres.logical.dump",
+      "path": "fixtures/postgres-version/postgres-15-clean-logical/arm64-to-amd64/postgres.logical.dump",
+      "sha256": "755d47178f6d4345d6c30f37984002691140e81cdf8674fb26e93a89b588f42e"
+    },
+    {
+      "name": "fixtures/postgres-version/postgres-15-clean-logical/arm64-to-amd64/restore-summary.json",
+      "path": "fixtures/postgres-version/postgres-15-clean-logical/arm64-to-amd64/restore-summary.json",
+      "sha256": "4fa2baf119ea1ce1d9415d2a80c39b57d8a4cbee8c2642145839387899eff706"
+    },
+    {
+      "name": "fixtures/postgres-version/postgres-15-clean-logical/arm64-to-amd64/source-verifier.txt",
+      "path": "fixtures/postgres-version/postgres-15-clean-logical/arm64-to-amd64/source-verifier.txt",
+      "sha256": "b7f06f723d2ecd89a5657ac64369f0ecda24b4ff2e729e2c5694784320882750"
+    },
+    {
+      "name": "fixtures/postgres-version/postgres-15-clean-logical/arm64-to-amd64/target-verifier.txt",
+      "path": "fixtures/postgres-version/postgres-15-clean-logical/arm64-to-amd64/target-verifier.txt",
+      "sha256": "b7f06f723d2ecd89a5657ac64369f0ecda24b4ff2e729e2c5694784320882750"
+    },
+    {
+      "name": "fixtures/postgres-version/postgres-15-clean-logical/amd64-to-arm64/portable-product.json",
+      "path": "fixtures/postgres-version/postgres-15-clean-logical/amd64-to-arm64/portable-product.json",
+      "sha256": "9df9d75e720e0e847d6f2b167fb32958a94ab0b99ebf041ad41f749a8ba2dfd6"
+    },
+    {
+      "name": "fixtures/postgres-version/postgres-15-clean-logical/amd64-to-arm64/postgres.logical.dump",
+      "path": "fixtures/postgres-version/postgres-15-clean-logical/amd64-to-arm64/postgres.logical.dump",
+      "sha256": "755d47178f6d4345d6c30f37984002691140e81cdf8674fb26e93a89b588f42e"
+    },
+    {
+      "name": "fixtures/postgres-version/postgres-15-clean-logical/amd64-to-arm64/restore-summary.json",
+      "path": "fixtures/postgres-version/postgres-15-clean-logical/amd64-to-arm64/restore-summary.json",
+      "sha256": "9fa92d6b11de53cbb990699e8a7a438e70432d4146f12667fd78bbb8e347f7e7"
+    },
+    {
+      "name": "fixtures/postgres-version/postgres-15-clean-logical/amd64-to-arm64/source-verifier.txt",
+      "path": "fixtures/postgres-version/postgres-15-clean-logical/amd64-to-arm64/source-verifier.txt",
+      "sha256": "b7f06f723d2ecd89a5657ac64369f0ecda24b4ff2e729e2c5694784320882750"
+    },
+    {
+      "name": "fixtures/postgres-version/postgres-15-clean-logical/amd64-to-arm64/target-verifier.txt",
+      "path": "fixtures/postgres-version/postgres-15-clean-logical/amd64-to-arm64/target-verifier.txt",
+      "sha256": "b7f06f723d2ecd89a5657ac64369f0ecda24b4ff2e729e2c5694784320882750"
+    },
+    {
+      "name": "fixtures/postgres-version/postgres-16-clean-logical/arm64-to-amd64/portable-product.json",
+      "path": "fixtures/postgres-version/postgres-16-clean-logical/arm64-to-amd64/portable-product.json",
+      "sha256": "4d31861f7df90d8573c07e2a2c101c4f8e7a85ff8abadafc5562d54426378ec1"
+    },
+    {
+      "name": "fixtures/postgres-version/postgres-16-clean-logical/arm64-to-amd64/postgres.logical.dump",
+      "path": "fixtures/postgres-version/postgres-16-clean-logical/arm64-to-amd64/postgres.logical.dump",
+      "sha256": "27d290c425afe529be722590310b580e5646b3d9bff62aa5316647e11a4dd3f5"
+    },
+    {
+      "name": "fixtures/postgres-version/postgres-16-clean-logical/arm64-to-amd64/restore-summary.json",
+      "path": "fixtures/postgres-version/postgres-16-clean-logical/arm64-to-amd64/restore-summary.json",
+      "sha256": "54b4118a21f258ebbe974b2038de1e4de8177f3ca311248ddda490818cc546fc"
+    },
+    {
+      "name": "fixtures/postgres-version/postgres-16-clean-logical/arm64-to-amd64/source-verifier.txt",
+      "path": "fixtures/postgres-version/postgres-16-clean-logical/arm64-to-amd64/source-verifier.txt",
+      "sha256": "b45198447ef5426f3352cd77cc5a216893712492d0b9315330ad1646b91059a1"
+    },
+    {
+      "name": "fixtures/postgres-version/postgres-16-clean-logical/arm64-to-amd64/target-verifier.txt",
+      "path": "fixtures/postgres-version/postgres-16-clean-logical/arm64-to-amd64/target-verifier.txt",
+      "sha256": "b45198447ef5426f3352cd77cc5a216893712492d0b9315330ad1646b91059a1"
+    },
+    {
+      "name": "fixtures/postgres-version/postgres-16-clean-logical/amd64-to-arm64/portable-product.json",
+      "path": "fixtures/postgres-version/postgres-16-clean-logical/amd64-to-arm64/portable-product.json",
+      "sha256": "7783ae6be43e401ab8e242bc758147aff8138567b9fdbd4406e6cb39b66bffe1"
+    },
+    {
+      "name": "fixtures/postgres-version/postgres-16-clean-logical/amd64-to-arm64/postgres.logical.dump",
+      "path": "fixtures/postgres-version/postgres-16-clean-logical/amd64-to-arm64/postgres.logical.dump",
+      "sha256": "27d290c425afe529be722590310b580e5646b3d9bff62aa5316647e11a4dd3f5"
+    },
+    {
+      "name": "fixtures/postgres-version/postgres-16-clean-logical/amd64-to-arm64/restore-summary.json",
+      "path": "fixtures/postgres-version/postgres-16-clean-logical/amd64-to-arm64/restore-summary.json",
+      "sha256": "633df1c4d8031ed24c9d8d8f78c00ebf597e251e3b7e7304fba5d19928bb22dc"
+    },
+    {
+      "name": "fixtures/postgres-version/postgres-16-clean-logical/amd64-to-arm64/source-verifier.txt",
+      "path": "fixtures/postgres-version/postgres-16-clean-logical/amd64-to-arm64/source-verifier.txt",
+      "sha256": "b45198447ef5426f3352cd77cc5a216893712492d0b9315330ad1646b91059a1"
+    },
+    {
+      "name": "fixtures/postgres-version/postgres-16-clean-logical/amd64-to-arm64/target-verifier.txt",
+      "path": "fixtures/postgres-version/postgres-16-clean-logical/amd64-to-arm64/target-verifier.txt",
+      "sha256": "b45198447ef5426f3352cd77cc5a216893712492d0b9315330ad1646b91059a1"
+    },
+    {
+      "name": "fixtures/workload-mix/workload-readonly-lookup/arm64-to-amd64/portable-product.json",
+      "path": "fixtures/workload-mix/workload-readonly-lookup/arm64-to-amd64/portable-product.json",
+      "sha256": "6cb5d61fa388ebfcf6a01943fbf8c3c4a05b1b6af0144b6c9c5d05d93d4e97cb"
+    },
+    {
+      "name": "fixtures/workload-mix/workload-readonly-lookup/arm64-to-amd64/postgres.logical.dump",
+      "path": "fixtures/workload-mix/workload-readonly-lookup/arm64-to-amd64/postgres.logical.dump",
+      "sha256": "a6ccdb461d0eed4a5c600e7c209356b72bec69322f0a6b72a444b1809ea94e19"
+    },
+    {
+      "name": "fixtures/workload-mix/workload-readonly-lookup/arm64-to-amd64/restore-summary.json",
+      "path": "fixtures/workload-mix/workload-readonly-lookup/arm64-to-amd64/restore-summary.json",
+      "sha256": "041eac2b625edfe7352744c37be23f353c933087d64ec01300432ee6791f3b57"
+    },
+    {
+      "name": "fixtures/workload-mix/workload-readonly-lookup/arm64-to-amd64/source-verifier.txt",
+      "path": "fixtures/workload-mix/workload-readonly-lookup/arm64-to-amd64/source-verifier.txt",
+      "sha256": "2b7b2ded2e828c4f7868b249a922a5d016534137a59efaeff11da0c3b2e09c55"
+    },
+    {
+      "name": "fixtures/workload-mix/workload-readonly-lookup/arm64-to-amd64/target-verifier.txt",
+      "path": "fixtures/workload-mix/workload-readonly-lookup/arm64-to-amd64/target-verifier.txt",
+      "sha256": "2b7b2ded2e828c4f7868b249a922a5d016534137a59efaeff11da0c3b2e09c55"
+    },
+    {
+      "name": "fixtures/workload-mix/workload-readonly-lookup/amd64-to-arm64/portable-product.json",
+      "path": "fixtures/workload-mix/workload-readonly-lookup/amd64-to-arm64/portable-product.json",
+      "sha256": "398778eda00bce73e8d1aa4c5a68cc2d8bda2c34a3b677ed8f12b1813ed83652"
+    },
+    {
+      "name": "fixtures/workload-mix/workload-readonly-lookup/amd64-to-arm64/postgres.logical.dump",
+      "path": "fixtures/workload-mix/workload-readonly-lookup/amd64-to-arm64/postgres.logical.dump",
+      "sha256": "a6ccdb461d0eed4a5c600e7c209356b72bec69322f0a6b72a444b1809ea94e19"
+    },
+    {
+      "name": "fixtures/workload-mix/workload-readonly-lookup/amd64-to-arm64/restore-summary.json",
+      "path": "fixtures/workload-mix/workload-readonly-lookup/amd64-to-arm64/restore-summary.json",
+      "sha256": "98e56ff9d640da24f58c6fb922e887a9b78611f3bd055e20d1d1e6e4f4aed0d4"
+    },
+    {
+      "name": "fixtures/workload-mix/workload-readonly-lookup/amd64-to-arm64/source-verifier.txt",
+      "path": "fixtures/workload-mix/workload-readonly-lookup/amd64-to-arm64/source-verifier.txt",
+      "sha256": "2b7b2ded2e828c4f7868b249a922a5d016534137a59efaeff11da0c3b2e09c55"
+    },
+    {
+      "name": "fixtures/workload-mix/workload-readonly-lookup/amd64-to-arm64/target-verifier.txt",
+      "path": "fixtures/workload-mix/workload-readonly-lookup/amd64-to-arm64/target-verifier.txt",
+      "sha256": "2b7b2ded2e828c4f7868b249a922a5d016534137a59efaeff11da0c3b2e09c55"
+    },
+    {
+      "name": "fixtures/workload-mix/workload-small-write-batch-quiesced/arm64-to-amd64/portable-product.json",
+      "path": "fixtures/workload-mix/workload-small-write-batch-quiesced/arm64-to-amd64/portable-product.json",
+      "sha256": "0eeafa2dce7c209af81e5e7776ac5245e40be45f8f82b7670324b061ab40f80e"
+    },
+    {
+      "name": "fixtures/workload-mix/workload-small-write-batch-quiesced/arm64-to-amd64/postgres.logical.dump",
+      "path": "fixtures/workload-mix/workload-small-write-batch-quiesced/arm64-to-amd64/postgres.logical.dump",
+      "sha256": "1f6f22d6ba1b08c4d241bf3499412d26e13bde2460192c68f8709a516501cdf2"
+    },
+    {
+      "name": "fixtures/workload-mix/workload-small-write-batch-quiesced/arm64-to-amd64/restore-summary.json",
+      "path": "fixtures/workload-mix/workload-small-write-batch-quiesced/arm64-to-amd64/restore-summary.json",
+      "sha256": "82d5398078413377183548f4068b70d8762a3ae49140062be787d116ecdafe3b"
+    },
+    {
+      "name": "fixtures/workload-mix/workload-small-write-batch-quiesced/arm64-to-amd64/source-verifier.txt",
+      "path": "fixtures/workload-mix/workload-small-write-batch-quiesced/arm64-to-amd64/source-verifier.txt",
+      "sha256": "bf9f590777d8b9458d82f6bb2fd8fc8747f616af7dc36f4d60bb0f2764471bd8"
+    },
+    {
+      "name": "fixtures/workload-mix/workload-small-write-batch-quiesced/arm64-to-amd64/target-verifier.txt",
+      "path": "fixtures/workload-mix/workload-small-write-batch-quiesced/arm64-to-amd64/target-verifier.txt",
+      "sha256": "bf9f590777d8b9458d82f6bb2fd8fc8747f616af7dc36f4d60bb0f2764471bd8"
+    },
+    {
+      "name": "fixtures/workload-mix/workload-small-write-batch-quiesced/amd64-to-arm64/portable-product.json",
+      "path": "fixtures/workload-mix/workload-small-write-batch-quiesced/amd64-to-arm64/portable-product.json",
+      "sha256": "756c3c263df248bb09dd533a464aa83ab5918dae7d47d58dec64801127df932a"
+    },
+    {
+      "name": "fixtures/workload-mix/workload-small-write-batch-quiesced/amd64-to-arm64/postgres.logical.dump",
+      "path": "fixtures/workload-mix/workload-small-write-batch-quiesced/amd64-to-arm64/postgres.logical.dump",
+      "sha256": "1f6f22d6ba1b08c4d241bf3499412d26e13bde2460192c68f8709a516501cdf2"
+    },
+    {
+      "name": "fixtures/workload-mix/workload-small-write-batch-quiesced/amd64-to-arm64/restore-summary.json",
+      "path": "fixtures/workload-mix/workload-small-write-batch-quiesced/amd64-to-arm64/restore-summary.json",
+      "sha256": "8ccb93ec6ad3a337004e4b3dfa086959d1e081c5703f0946af8b472d4aeb51b3"
+    },
+    {
+      "name": "fixtures/workload-mix/workload-small-write-batch-quiesced/amd64-to-arm64/source-verifier.txt",
+      "path": "fixtures/workload-mix/workload-small-write-batch-quiesced/amd64-to-arm64/source-verifier.txt",
+      "sha256": "bf9f590777d8b9458d82f6bb2fd8fc8747f616af7dc36f4d60bb0f2764471bd8"
+    },
+    {
+      "name": "fixtures/workload-mix/workload-small-write-batch-quiesced/amd64-to-arm64/target-verifier.txt",
+      "path": "fixtures/workload-mix/workload-small-write-batch-quiesced/amd64-to-arm64/target-verifier.txt",
+      "sha256": "bf9f590777d8b9458d82f6bb2fd8fc8747f616af7dc36f4d60bb0f2764471bd8"
+    },
+    {
+      "name": "fixtures/workload-mix/workload-aggregate-query/arm64-to-amd64/portable-product.json",
+      "path": "fixtures/workload-mix/workload-aggregate-query/arm64-to-amd64/portable-product.json",
+      "sha256": "0cf36ca550f575c9ca1e94af9370a8ac67d3061d3f4b2829388014395b9d668f"
+    },
+    {
+      "name": "fixtures/workload-mix/workload-aggregate-query/arm64-to-amd64/postgres.logical.dump",
+      "path": "fixtures/workload-mix/workload-aggregate-query/arm64-to-amd64/postgres.logical.dump",
+      "sha256": "800ed4bf58f478646a2c719a6fa2a01d465ee720443f4a4ac12bffa17b28fc2f"
+    },
+    {
+      "name": "fixtures/workload-mix/workload-aggregate-query/arm64-to-amd64/restore-summary.json",
+      "path": "fixtures/workload-mix/workload-aggregate-query/arm64-to-amd64/restore-summary.json",
+      "sha256": "269981db3b49f06a8568f2808403118f0cda263c33194276e85b7c68e380c9b4"
+    },
+    {
+      "name": "fixtures/workload-mix/workload-aggregate-query/arm64-to-amd64/source-verifier.txt",
+      "path": "fixtures/workload-mix/workload-aggregate-query/arm64-to-amd64/source-verifier.txt",
+      "sha256": "0616c6d5ff28170b4cb635fbc59878d6977cdb456e450a536dd9a0893c9dee49"
+    },
+    {
+      "name": "fixtures/workload-mix/workload-aggregate-query/arm64-to-amd64/target-verifier.txt",
+      "path": "fixtures/workload-mix/workload-aggregate-query/arm64-to-amd64/target-verifier.txt",
+      "sha256": "0616c6d5ff28170b4cb635fbc59878d6977cdb456e450a536dd9a0893c9dee49"
+    },
+    {
+      "name": "fixtures/workload-mix/workload-aggregate-query/amd64-to-arm64/portable-product.json",
+      "path": "fixtures/workload-mix/workload-aggregate-query/amd64-to-arm64/portable-product.json",
+      "sha256": "6de88e416452dbccabc36f04b704868b125d5b6d21053a85d30b89fbfbf0b204"
+    },
+    {
+      "name": "fixtures/workload-mix/workload-aggregate-query/amd64-to-arm64/postgres.logical.dump",
+      "path": "fixtures/workload-mix/workload-aggregate-query/amd64-to-arm64/postgres.logical.dump",
+      "sha256": "800ed4bf58f478646a2c719a6fa2a01d465ee720443f4a4ac12bffa17b28fc2f"
+    },
+    {
+      "name": "fixtures/workload-mix/workload-aggregate-query/amd64-to-arm64/restore-summary.json",
+      "path": "fixtures/workload-mix/workload-aggregate-query/amd64-to-arm64/restore-summary.json",
+      "sha256": "886f414df5723f9dfb6bf88c3869d3b10a2ba1790f30f4b68bed794e32865b92"
+    },
+    {
+      "name": "fixtures/workload-mix/workload-aggregate-query/amd64-to-arm64/source-verifier.txt",
+      "path": "fixtures/workload-mix/workload-aggregate-query/amd64-to-arm64/source-verifier.txt",
+      "sha256": "0616c6d5ff28170b4cb635fbc59878d6977cdb456e450a536dd9a0893c9dee49"
+    },
+    {
+      "name": "fixtures/workload-mix/workload-aggregate-query/amd64-to-arm64/target-verifier.txt",
+      "path": "fixtures/workload-mix/workload-aggregate-query/amd64-to-arm64/target-verifier.txt",
+      "sha256": "0616c6d5ff28170b4cb635fbc59878d6977cdb456e450a536dd9a0893c9dee49"
+    }
+  ],
+  "artifactsSha256": "cdc61714764a5712b71621b4b6b5eb291d3e122a4950d0f1f2f4d215a8933d48"
+}

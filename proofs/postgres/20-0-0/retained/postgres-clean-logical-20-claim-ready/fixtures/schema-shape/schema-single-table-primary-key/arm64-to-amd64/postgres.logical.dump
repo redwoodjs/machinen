@@ -1,0 +1,4 @@
+-- single table with primary key and text payload
+-- fixture: schema-single-table-primary-key
+CREATE TABLE accounts(id integer primary key, name text not null);
+INSERT INTO accounts VALUES (1, 'ada'), (2, 'grace');

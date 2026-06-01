@@ -1078,6 +1078,20 @@ export {
   verifyProductPortablePostgresClaimLadderReport,
 } from "./product-portable-postgres-claim-ladder.ts";
 export {
+  PRODUCT_PORTABLE_POSTGRES_CLAIM_READY_KIND,
+  PRODUCT_PORTABLE_POSTGRES_CLAIM_READY_REPORT,
+  PRODUCT_PORTABLE_POSTGRES_CLAIM_READY_VERSION,
+  createProductPortablePostgresClaimReadyReport,
+  loadProductPortablePostgresClaimReadyReport,
+  verifyProductPortablePostgresClaimReadyReport,
+  type ProductPortablePostgresClaimReadyArtifact,
+  type ProductPortablePostgresClaimReadyFixtureRow,
+  type ProductPortablePostgresClaimReadyGate,
+  type ProductPortablePostgresClaimReadyProofRow,
+  type ProductPortablePostgresClaimReadyReport,
+  type ProductPortablePostgresClaimReadyRowKind,
+} from "./product-portable-postgres-claim-ready.ts";
+export {
   PRODUCT_LEVEL4_TCP_LISTENER_FORMAT_VERSION,
   PRODUCT_LEVEL4_TCP_LISTENER_MANIFEST,
   PRODUCT_LEVEL4_TCP_LISTENER_REFUSAL,

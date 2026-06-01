@@ -73,8 +73,14 @@ The retained ladder lives in
 `proofs/postgres/20-0-0/retained/postgres-claim-ladder-report.json`. It keeps
 per-proof claim impact rows, bidirectional logical restore bundles, source and
 target verifier output, restore summaries, and an unsafe-state refusal artifact.
-The next Postgres lift is locked behind a separate 40% claim-ready report with
-more schema, version, and workload-mix rows.
+
+The 20% -> 40% claim-ready gate is satisfied by
+`proofs/postgres/20-0-0/retained/postgres-clean-logical-20-claim-ready-report.json`
+and its retained fixture directory. That report adds schema-shape rows,
+PostgreSQL 14/15/16 version rows, and clean workload-mix rows with bidirectional
+target verifier artifacts. It unlocks a candidate 40% product-support decision,
+but the public Postgres claim remains `20 / 0 / 0` until a separate claim-change
+PR raises it.
 
 ## Stable product refusals
 

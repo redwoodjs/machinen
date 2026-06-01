@@ -1,0 +1,4 @@
+-- aggregate query verifier workload
+-- fixture: workload-aggregate-query
+CREATE TABLE metrics(id integer primary key, bucket text not null, value integer not null);
+INSERT INTO metrics VALUES (1, 'a', 3), (2, 'a', 5), (3, 'b', 8);

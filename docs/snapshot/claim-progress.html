@@ -361,7 +361,7 @@
     <script id="embedded-claim-progress" type="application/json">
       {
         "kind": "machinen.claim-progress-dashboard",
-        "version": 11,
+        "version": 12,
         "updatedFrom": [
           "docs/snapshot/node-level5-product-support-claim-registry.json",
           "docs/snapshot/node-level5-product-support-100.json",
@@ -377,7 +377,9 @@
           "packages/runtime/src/arbitrary-process-level5-simple-pipe-fd-proof.ts",
           "proofs/arbitrary-linux-binaries/scripts/arbitrary-process-level5-simple-pipe-fd-proof.ts",
           "packages/runtime/src/arbitrary-process-level5-idle-resource-proof.ts",
-          "proofs/arbitrary-linux-binaries/scripts/arbitrary-process-level5-idle-resource-proof.ts"
+          "proofs/arbitrary-linux-binaries/scripts/arbitrary-process-level5-idle-resource-proof.ts",
+          "packages/runtime/src/product-portable-postgres-claim-ready.ts",
+          "proofs/postgres/scripts/product-portable-postgres-claim-ready.ts"
         ],
         "columns": {
           "claim": ["productSupport", "broadSupport", "arbitraryProcessCrossArchRestore"],
@@ -501,10 +503,10 @@
               "productSupport": 40,
               "broadSupport": 0,
               "arbitraryProcessCrossArchRestore": 0,
-              "claimChangeAllowed": false
+              "claimChangeAllowed": true
             },
-            "summary": "Clean, idle logical Postgres restore is now a percent-style 20 / 0 / 0 claim with retained source/target verifier artifacts. Broader Postgres workload support still needs a separate 40% gate.",
-            "claimGate": "postgres-clean-logical-20-claim-ready",
+            "summary": "Clean, idle logical PostgreSQL reconstruction is claimed at 20%. The postgres-clean-logical-20-claim-ready gate is now satisfied for a candidate 40% claim decision, but the public claim remains 20% until a separate claim-change PR.",
+            "claimGate": "postgres-clean-logical-20-claim-ready accepted; candidate 40% only",
             "claimChangeAllowed": true,
             "evidence": [
               "postgres-clean-quiesced-logical-v1",
@@ -543,6 +545,16 @@
                 "gate": "postgres unsafe-state refusal boundary",
                 "artifact": "retained/refusals/active-transaction/portable-product-refusal.json",
                 "next": "Only reduce refusal boundaries with target-native verifier artifacts."
+              },
+              {
+                "id": "postgres-clean-logical-20-claim-ready",
+                "area": "claim gate",
+                "kind": "candidate 40% claim-ready gate",
+                "status": "passed",
+                "evidence": "Retained schema-shape, PostgreSQL-version, and workload-mix rows with bidirectional target verifier artifacts satisfy the 20% to 40% gate.",
+                "gate": "postgres-clean-logical-20-claim-ready",
+                "artifact": "postgres-clean-logical-20-claim-ready-report.json",
+                "next": "Use a separate claim-change PR for any public 40% raise."
               }
             ],
             "refusals": [
@@ -575,13 +587,8 @@
             "nextSteps": [
               {
                 "priority": 1,
-                "item": "Define the Postgres 40% gate with schema-shape, version, and workload-mix rows.",
-                "gate": "postgres-40-claim-ready report"
-              },
-              {
-                "priority": 2,
-                "item": "Retain verifier artifacts for additional clean logical Postgres fixtures.",
-                "gate": "artifact sha verification"
+                "item": "Decide in a separate claim-change PR whether to raise Postgres portable restore to product support 40%.",
+                "gate": "postgres-clean-logical-20-claim-ready accepted"
               }
             ],
             "docs": ["product-portable-postgres.ts", "product-portable-postgres-claim-ladder.ts"]
@@ -1119,6 +1126,103 @@
             "proofDirectory": "proofs/postgres/20-0-0"
           },
           {
+            "id": "postgres-clean-logical-20-claim-ready",
+            "claim": "Postgres clean logical candidate 40 gate",
+            "trackId": "postgres",
+            "status": "passed",
+            "scope": "Schema-shape, version, and workload-mix retained verifier artifacts for the candidate 40% Postgres product-support decision.",
+            "claimNumbers": {
+              "productSupport": 20,
+              "broadSupport": 0,
+              "arbitraryProcessCrossArchRestore": 0,
+              "candidateProductSupport": 40
+            },
+            "promotionEffect": "Unlocks a candidate 40% Postgres product-support claim decision; does not raise the public claim by itself.",
+            "proofDirectory": "proofs/postgres/20-0-0/retained/postgres-clean-logical-20-claim-ready",
+            "proofs": [
+              {
+                "id": "postgres-40-schema-shape-rows",
+                "category": "schema shapes",
+                "status": "passed",
+                "artifact": "postgres-clean-logical-20-claim-ready-report.json",
+                "proves": "single-table primary-key, foreign-key join, and index/sequence schema shapes restore through target-native verification",
+                "claimUse": "candidate 40% gate input; no public claim raise by itself",
+                "next": "Complete for this gate; add more shapes before any higher claim.",
+                "claimImpact": {
+                  "productSupportDelta": 7,
+                  "broadSupportDelta": 0,
+                  "arbitraryProcessCrossArchRestoreDelta": 0,
+                  "resultingClaim": {
+                    "productSupport": 27,
+                    "broadSupport": 0,
+                    "arbitraryProcessCrossArchRestore": 0
+                  },
+                  "claimChangeAllowed": true
+                }
+              },
+              {
+                "id": "postgres-40-version-rows",
+                "category": "PostgreSQL versions",
+                "status": "passed",
+                "artifact": "postgres-clean-logical-20-claim-ready-report.json",
+                "proves": "PostgreSQL 14, 15, and 16 clean logical fixtures restore with retained verifier output",
+                "claimUse": "candidate 40% gate input; no broad service or arbitrary-process claim",
+                "next": "Complete for this gate; add patch/extension variation before any higher claim.",
+                "claimImpact": {
+                  "productSupportDelta": 5,
+                  "broadSupportDelta": 0,
+                  "arbitraryProcessCrossArchRestoreDelta": 0,
+                  "resultingClaim": {
+                    "productSupport": 32,
+                    "broadSupport": 0,
+                    "arbitraryProcessCrossArchRestore": 0
+                  },
+                  "claimChangeAllowed": true
+                }
+              },
+              {
+                "id": "postgres-40-workload-mix-rows",
+                "category": "workload mix",
+                "status": "passed",
+                "artifact": "postgres-clean-logical-20-claim-ready-report.json",
+                "proves": "read-only lookup, committed write batch, and aggregate-query workloads restore from clean logical state",
+                "claimUse": "candidate 40% gate input while active sessions remain refused",
+                "next": "Complete for this gate; keep active sessions refused.",
+                "claimImpact": {
+                  "productSupportDelta": 5,
+                  "broadSupportDelta": 0,
+                  "arbitraryProcessCrossArchRestoreDelta": 0,
+                  "resultingClaim": {
+                    "productSupport": 37,
+                    "broadSupport": 0,
+                    "arbitraryProcessCrossArchRestore": 0
+                  },
+                  "claimChangeAllowed": true
+                }
+              },
+              {
+                "id": "postgres-40-retained-verifier-artifacts",
+                "category": "retained artifacts",
+                "status": "passed",
+                "artifact": "source-verifier.txt / target-verifier.txt / restore-summary.json",
+                "proves": "every row retains source verifier, target verifier, restore summary, manifest, and dump hashes",
+                "claimUse": "auditable candidate 40% gate input; no metadata-only success",
+                "next": "Use this report as the gate input for a separate 40% claim PR.",
+                "claimImpact": {
+                  "productSupportDelta": 3,
+                  "broadSupportDelta": 0,
+                  "arbitraryProcessCrossArchRestoreDelta": 0,
+                  "resultingClaim": {
+                    "productSupport": 40,
+                    "broadSupport": 0,
+                    "arbitraryProcessCrossArchRestore": 0
+                  },
+                  "claimChangeAllowed": true
+                }
+              }
+            ]
+          },
+          {
             "id": "bun-not-started",
             "claim": "Bun service support not started",
             "trackId": "bun",
@@ -1573,7 +1677,7 @@
           .join(", ");
         const allowed = next.claimChangeAllowed === true;
         return {
-          score: allowed ? 80 : 10,
+          score: allowed ? (track.id === "arbitrary-process" ? 80 : 15) : 10,
           item: allowed
             ? `Decide in a separate claim-change PR whether to raise ${track.name} to ${target}.`
             : `Satisfy the locked next-claim gate before raising ${track.name} to ${target}.`,

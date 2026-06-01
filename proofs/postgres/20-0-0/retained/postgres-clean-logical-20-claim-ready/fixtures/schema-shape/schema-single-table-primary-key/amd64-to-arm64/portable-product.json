@@ -1,0 +1,45 @@
+{
+  "kind": "machinen.product-portable-snapshot",
+  "formatVersion": 1,
+  "supportLevel": "implemented-product-support",
+  "subset": "postgres-clean-quiesced-logical-v1",
+  "runtime": "postgresql",
+  "captureSurface": "machinen capture postgres",
+  "restoreSurface": "machinen restore <bundle> --target-arch <arch> --target-verifier-output <file>",
+  "source": {
+    "architecture": "amd64",
+    "postgresVersion": "15.8",
+    "host": {
+      "arch": "arm64",
+      "platform": "darwin",
+      "release": "24.6.0"
+    }
+  },
+  "target": {
+    "architecture": "arm64"
+  },
+  "artifacts": {
+    "logicalDump": {
+      "path": "postgres.logical.dump",
+      "sha256": "d6a0dbeb89be4035a085090c2b5f0dd037dd768533d6cec4796424a545c92c93",
+      "bytes": 215
+    }
+  },
+  "provenance": {
+    "checkpointLsn": "0/20C40AA",
+    "sourceVerifierOutputSha256": "859b43b33d1b17f4a24cf0ca23e192ee98c51b53bbc1f4f9c8752330cb780a8c"
+  },
+  "gates": {
+    "noActiveClientTransaction": true,
+    "noActiveClientSession": true,
+    "walCheckpointed": true,
+    "logicalDumpIsPortableUnit": true,
+    "targetNativeVerificationRequired": true,
+    "sourceIsaEmulationAllowed": false,
+    "sourceTextReplayAllowed": false,
+    "sidecarRuntimeAllowed": false,
+    "appHooksAllowed": false,
+    "metadataOnlyContinuationAllowed": false
+  },
+  "sourceVerifierOutput": "schema-single-table-primary-key:accounts=2:ids=1,2\n"
+}
