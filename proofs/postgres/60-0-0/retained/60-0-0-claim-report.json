@@ -1,0 +1,109 @@
+{
+  "kind": "machinen.product-portable-postgres-claim-report",
+  "version": 1,
+  "claim": "Postgres clean logical 60 / 0 / 0",
+  "accepted": true,
+  "subset": "postgres-clean-quiesced-logical-v1",
+  "scope": "Clean, idle logical PostgreSQL reconstruction only",
+  "broadSupport": 0,
+  "arbitraryProcessCrossArchRestore": 0,
+  "rows": [
+    {
+      "id": "postgres-60-extension-jsonb-array-enum",
+      "kind": "extension-and-type-shape",
+      "rowCount": 128,
+      "description": "jsonb, arrays, enums, and generated columns survive clean logical restore"
+    },
+    {
+      "id": "postgres-60-large-dataset-batch",
+      "kind": "larger-dataset",
+      "rowCount": 10000,
+      "description": "larger committed dataset restores with verifier checksum"
+    },
+    {
+      "id": "postgres-60-multi-schema-ownership",
+      "kind": "schema-and-owner",
+      "rowCount": 512,
+      "description": "multiple schemas, owners, privileges, and search_path restore logically"
+    },
+    {
+      "id": "postgres-60-negative-integrity-refusals",
+      "kind": "negative-refusal",
+      "rowCount": 0,
+      "description": "corrupt dump, verifier mismatch, active session, and dirty WAL remain fail-closed"
+    }
+  ],
+  "refusalBoundariesRetained": [
+    "active transactions / sessions",
+    "dirty WAL boundary",
+    "physical data-dir cross-ISA copy",
+    "source-ISA emulation",
+    "sidecar replay",
+    "metadata-only success",
+    "broad service/workload support",
+    "arbitrary Linux process restore"
+  ],
+  "artifacts": [
+    {
+      "name": "postgres-60-extension-jsonb-array-enum/source-verifier.txt",
+      "path": "retained/postgres-60-extension-jsonb-array-enum/source-verifier.txt",
+      "sha256": "17f21b01592b75403b419bad30c77ecece32f995fbb63066d1dc0db91ed943dd"
+    },
+    {
+      "name": "postgres-60-extension-jsonb-array-enum/target-verifier.txt",
+      "path": "retained/postgres-60-extension-jsonb-array-enum/target-verifier.txt",
+      "sha256": "17f21b01592b75403b419bad30c77ecece32f995fbb63066d1dc0db91ed943dd"
+    },
+    {
+      "name": "postgres-60-extension-jsonb-array-enum/restore-summary.json",
+      "path": "retained/postgres-60-extension-jsonb-array-enum/restore-summary.json",
+      "sha256": "ca2d722888690550761291a87bc88eea82d0cde6a90b39311f7488b64ad2b9eb"
+    },
+    {
+      "name": "postgres-60-large-dataset-batch/source-verifier.txt",
+      "path": "retained/postgres-60-large-dataset-batch/source-verifier.txt",
+      "sha256": "b06a52e23431191d5ab0bb9c77029fe0605e98b45d73dc1c7ccc496acd74f99f"
+    },
+    {
+      "name": "postgres-60-large-dataset-batch/target-verifier.txt",
+      "path": "retained/postgres-60-large-dataset-batch/target-verifier.txt",
+      "sha256": "b06a52e23431191d5ab0bb9c77029fe0605e98b45d73dc1c7ccc496acd74f99f"
+    },
+    {
+      "name": "postgres-60-large-dataset-batch/restore-summary.json",
+      "path": "retained/postgres-60-large-dataset-batch/restore-summary.json",
+      "sha256": "d686956a05fa3a128e85e87f01c0c3a1bc4b70058201be85b5b15c8f0c04fe8b"
+    },
+    {
+      "name": "postgres-60-multi-schema-ownership/source-verifier.txt",
+      "path": "retained/postgres-60-multi-schema-ownership/source-verifier.txt",
+      "sha256": "2d11c286cec36bcc326dc369d093f6e141efa2f93d8f2cd117002a95a902639f"
+    },
+    {
+      "name": "postgres-60-multi-schema-ownership/target-verifier.txt",
+      "path": "retained/postgres-60-multi-schema-ownership/target-verifier.txt",
+      "sha256": "2d11c286cec36bcc326dc369d093f6e141efa2f93d8f2cd117002a95a902639f"
+    },
+    {
+      "name": "postgres-60-multi-schema-ownership/restore-summary.json",
+      "path": "retained/postgres-60-multi-schema-ownership/restore-summary.json",
+      "sha256": "bec21a2be96fed454b0aa305499896c1253d851024f3f3801a61a80add1fe414"
+    },
+    {
+      "name": "postgres-60-negative-integrity-refusals/source-verifier.txt",
+      "path": "retained/postgres-60-negative-integrity-refusals/source-verifier.txt",
+      "sha256": "bfec3ed8691992274032f44496d603032df88364f6c5594f80fa868eae757404"
+    },
+    {
+      "name": "postgres-60-negative-integrity-refusals/target-verifier.txt",
+      "path": "retained/postgres-60-negative-integrity-refusals/target-verifier.txt",
+      "sha256": "bfec3ed8691992274032f44496d603032df88364f6c5594f80fa868eae757404"
+    },
+    {
+      "name": "postgres-60-negative-integrity-refusals/restore-summary.json",
+      "path": "retained/postgres-60-negative-integrity-refusals/restore-summary.json",
+      "sha256": "ca096f97be57ae0ea838ef5d90c9b5fa456de842217ed4089944fff2bc4cf7aa"
+    }
+  ],
+  "artifactsSha256": "2244d42fd9455a2b22005fab6279ad0ec6b8f5875bf0b1f00081828455b4ae13"
+}

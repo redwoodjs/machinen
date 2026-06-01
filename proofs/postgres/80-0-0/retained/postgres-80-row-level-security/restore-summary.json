@@ -1,0 +1,27 @@
+{
+  "kind": "machinen.product-portable-postgres-retained-restore-summary",
+  "rowId": "postgres-80-row-level-security",
+  "state": "completed",
+  "migrationCompleted": true,
+  "targetVerifierResult": "passed",
+  "sourceVerifierOutputSha256": "05587afd43d42a99da17d4c4abf024b6b58ba3dd05c24b31948738be3adb180e",
+  "targetVerifierOutputSha256": "05587afd43d42a99da17d4c4abf024b6b58ba3dd05c24b31948738be3adb180e",
+  "shortcuts": {
+    "rawCpuRestoreUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "sourceTextReplayUsed": false,
+    "sidecarRuntimeUsed": false,
+    "appHooksRequired": false,
+    "metadataOnlySuccessAccepted": false
+  },
+  "refusalsRetained": [
+    "active transactions / sessions",
+    "dirty WAL boundary",
+    "physical data-dir cross-ISA copy",
+    "source-ISA emulation",
+    "sidecar replay",
+    "metadata-only success",
+    "broad service/workload support",
+    "arbitrary Linux process restore"
+  ]
+}

@@ -1,0 +1,1 @@
+postgres-60-extension-jsonb-array-enum:source:clean-logical:rows=128:checksum=88c59e68c31a

@@ -30,6 +30,9 @@ claim group here has a `claim.json` copy plus a readable `README.md`.
 - [Node service 100 / 100 / 0](./nodejs/100-100-0/README.md) — `claimed`
 - [Postgres clean logical 20 / 0 / 0](./postgres/20-0-0/README.md) — `claimed`
 - [Postgres clean logical 40 / 0 / 0](./postgres/40-0-0/README.md) — `claimed`
+- [Postgres clean logical 60 / 0 / 0](./postgres/60-0-0/README.md) — `claimed`
+- [Postgres clean logical 80 / 0 / 0](./postgres/80-0-0/README.md) — `claimed`
+- [Postgres clean logical 100 / 0 / 0](./postgres/100-0-0/README.md) — `claimed`
 - [Bun service support not started](./bun/not-started/README.md) — `not-started`
 - [Generic Linux service support not started](./generic-linux-service/not-started/README.md) — `not-started`
 - [Level 4 ping resource continuation](./network-resources/level4-ping-resource-continuation/README.md) — `proven-resource`

@@ -1,0 +1,109 @@
+{
+  "kind": "machinen.product-portable-postgres-claim-report",
+  "version": 1,
+  "claim": "Postgres clean logical 100 / 0 / 0",
+  "accepted": true,
+  "subset": "postgres-clean-quiesced-logical-v1",
+  "scope": "Clean, idle logical PostgreSQL reconstruction only",
+  "broadSupport": 0,
+  "arbitraryProcessCrossArchRestore": 0,
+  "rows": [
+    {
+      "id": "postgres-100-release-corpus",
+      "kind": "release-corpus",
+      "rowCount": 20000,
+      "description": "combined clean logical release corpus covers all accepted rows"
+    },
+    {
+      "id": "postgres-100-bidirectional-matrix",
+      "kind": "architecture-matrix",
+      "rowCount": 20000,
+      "description": "all accepted rows retain amd64<->arm64 target verifier artifacts"
+    },
+    {
+      "id": "postgres-100-refusal-audit",
+      "kind": "refusal-audit",
+      "rowCount": 0,
+      "description": "all unsafe neighbors remain explicit refusals"
+    },
+    {
+      "id": "postgres-100-product-contract",
+      "kind": "product-contract",
+      "rowCount": 20000,
+      "description": "public contract labels 100% as clean idle logical only"
+    }
+  ],
+  "refusalBoundariesRetained": [
+    "active transactions / sessions",
+    "dirty WAL boundary",
+    "physical data-dir cross-ISA copy",
+    "source-ISA emulation",
+    "sidecar replay",
+    "metadata-only success",
+    "broad service/workload support",
+    "arbitrary Linux process restore"
+  ],
+  "artifacts": [
+    {
+      "name": "postgres-100-release-corpus/source-verifier.txt",
+      "path": "retained/postgres-100-release-corpus/source-verifier.txt",
+      "sha256": "df16eaea2f888ef955be11d0fb06d1b997ae901d448646383a389d68fe4157c8"
+    },
+    {
+      "name": "postgres-100-release-corpus/target-verifier.txt",
+      "path": "retained/postgres-100-release-corpus/target-verifier.txt",
+      "sha256": "df16eaea2f888ef955be11d0fb06d1b997ae901d448646383a389d68fe4157c8"
+    },
+    {
+      "name": "postgres-100-release-corpus/restore-summary.json",
+      "path": "retained/postgres-100-release-corpus/restore-summary.json",
+      "sha256": "cd7a39aac96152256f55c9fbbc855b3ac2c3c647c77847023579b913f7062864"
+    },
+    {
+      "name": "postgres-100-bidirectional-matrix/source-verifier.txt",
+      "path": "retained/postgres-100-bidirectional-matrix/source-verifier.txt",
+      "sha256": "17df9585b2212af7a49a8265743f42ee385ae60256699e5d6f0994f5a2937418"
+    },
+    {
+      "name": "postgres-100-bidirectional-matrix/target-verifier.txt",
+      "path": "retained/postgres-100-bidirectional-matrix/target-verifier.txt",
+      "sha256": "17df9585b2212af7a49a8265743f42ee385ae60256699e5d6f0994f5a2937418"
+    },
+    {
+      "name": "postgres-100-bidirectional-matrix/restore-summary.json",
+      "path": "retained/postgres-100-bidirectional-matrix/restore-summary.json",
+      "sha256": "e2de5f92ffd76f8381e1ea9a3e1dfdb9a7fcf06e256d8b1f1757303654cbff5d"
+    },
+    {
+      "name": "postgres-100-refusal-audit/source-verifier.txt",
+      "path": "retained/postgres-100-refusal-audit/source-verifier.txt",
+      "sha256": "12f29eb6e133c362fa9374fc557c63e343085344287831dcf55c8b73ee8adb47"
+    },
+    {
+      "name": "postgres-100-refusal-audit/target-verifier.txt",
+      "path": "retained/postgres-100-refusal-audit/target-verifier.txt",
+      "sha256": "12f29eb6e133c362fa9374fc557c63e343085344287831dcf55c8b73ee8adb47"
+    },
+    {
+      "name": "postgres-100-refusal-audit/restore-summary.json",
+      "path": "retained/postgres-100-refusal-audit/restore-summary.json",
+      "sha256": "d3944695a07dee09073008b8c131887f3212062d6d125868998799766e269cfe"
+    },
+    {
+      "name": "postgres-100-product-contract/source-verifier.txt",
+      "path": "retained/postgres-100-product-contract/source-verifier.txt",
+      "sha256": "6eba878a2a5696f24a6081b36055a561eb405b2aeb9fefdfe19fb491362643a4"
+    },
+    {
+      "name": "postgres-100-product-contract/target-verifier.txt",
+      "path": "retained/postgres-100-product-contract/target-verifier.txt",
+      "sha256": "6eba878a2a5696f24a6081b36055a561eb405b2aeb9fefdfe19fb491362643a4"
+    },
+    {
+      "name": "postgres-100-product-contract/restore-summary.json",
+      "path": "retained/postgres-100-product-contract/restore-summary.json",
+      "sha256": "932c6f89b3413c73de9fcf753711fbc400c4061ce12218b847ffe0b9d9447dcd"
+    }
+  ],
+  "artifactsSha256": "173cdd8b3d6f0b75aa4a933b7b88e1963dec25eba28e8276d01762b7a6bf71b5"
+}

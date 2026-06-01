@@ -1,0 +1,27 @@
+{
+  "kind": "machinen.product-portable-postgres-retained-restore-summary",
+  "rowId": "postgres-60-multi-schema-ownership",
+  "state": "completed",
+  "migrationCompleted": true,
+  "targetVerifierResult": "passed",
+  "sourceVerifierOutputSha256": "2d11c286cec36bcc326dc369d093f6e141efa2f93d8f2cd117002a95a902639f",
+  "targetVerifierOutputSha256": "2d11c286cec36bcc326dc369d093f6e141efa2f93d8f2cd117002a95a902639f",
+  "shortcuts": {
+    "rawCpuRestoreUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "sourceTextReplayUsed": false,
+    "sidecarRuntimeUsed": false,
+    "appHooksRequired": false,
+    "metadataOnlySuccessAccepted": false
+  },
+  "refusalsRetained": [
+    "active transactions / sessions",
+    "dirty WAL boundary",
+    "physical data-dir cross-ISA copy",
+    "source-ISA emulation",
+    "sidecar replay",
+    "metadata-only success",
+    "broad service/workload support",
+    "arbitrary Linux process restore"
+  ]
+}

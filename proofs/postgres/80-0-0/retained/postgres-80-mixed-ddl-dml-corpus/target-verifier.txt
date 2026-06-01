@@ -1,0 +1,1 @@
+postgres-80-mixed-ddl-dml-corpus:source:clean-logical:rows=4096:checksum=fb45cd0747a3

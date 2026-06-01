@@ -27,7 +27,7 @@ type ClaimProgressProofGroup = {
 
 type ClaimProgressDashboard = {
   kind: "machinen.claim-progress-dashboard";
-  version: 13;
+  version: 14;
   tracks: ClaimProgressTrack[];
   proofGroups: ClaimProgressProofGroup[];
 };
@@ -41,7 +41,7 @@ describe("claim progress dashboard", () => {
 
     expect(dashboard).toMatchObject({
       kind: "machinen.claim-progress-dashboard",
-      version: 13,
+      version: 14,
     });
     expect(dashboard.tracks.map((track) => track.id)).toEqual([
       "node-service",
@@ -73,17 +73,20 @@ describe("claim progress dashboard", () => {
     expect(dashboard.tracks.find((track) => track.id === "postgres")).toMatchObject({
       status: "claimed",
       currentClaim: {
-        productSupport: 40,
+        productSupport: 100,
         broadSupport: 0,
         arbitraryProcessCrossArchRestore: 0,
       },
-      nextClaim: { productSupport: 60, claimChangeAllowed: false },
+      nextClaim: null,
     });
     expect(dashboard.proofGroups.map((group) => group.id)).toEqual([
       "node-service-100-100-0",
       "postgres-20-0-0",
       "postgres-clean-logical-20-claim-ready",
       "postgres-40-0-0",
+      "postgres-60-0-0",
+      "postgres-80-0-0",
+      "postgres-100-0-0",
       "bun-not-started",
       "generic-linux-service-not-started",
       "level4-ping-resource-continuation",
@@ -100,6 +103,7 @@ describe("claim progress dashboard", () => {
     expect(proofIds).toContain("idle-epoll-tcp-proof");
     expect(proofIds).toContain("postgres-retained-verifier-artifacts");
     expect(proofIds).toContain("postgres-40-schema-shape-rows");
+    expect(proofIds).toContain("postgres-100-product-contract");
     const embeddedJson =
       /<script id="embedded-claim-progress" type="application\/json">\n([\s\S]*?)\n    <\/script>/u.exec(
         html,

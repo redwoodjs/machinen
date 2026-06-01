@@ -1,6 +1,6 @@
 {
   "kind": "machinen.claim-progress-dashboard",
-  "version": 13,
+  "version": 14,
   "updatedFrom": [
     "docs/snapshot/node-level5-product-support-claim-registry.json",
     "docs/snapshot/node-level5-product-support-100.json",
@@ -134,18 +134,13 @@
       "stage": "20 / 0 / 0 clean logical claim",
       "scope": "Clean, idle logical Postgres restore track; not physical data-dir cross-ISA restore.",
       "currentClaim": {
-        "productSupport": 40,
+        "productSupport": 100,
         "broadSupport": 0,
         "arbitraryProcessCrossArchRestore": 0
       },
-      "nextClaim": {
-        "productSupport": 60,
-        "broadSupport": 0,
-        "arbitraryProcessCrossArchRestore": 0,
-        "claimChangeAllowed": false
-      },
-      "summary": "Clean, idle logical PostgreSQL reconstruction is claimed at 40% after the accepted schema-shape, PostgreSQL-version, and workload-mix gate. Broad service/workload support and arbitrary Linux process restore remain 0%; active sessions/transactions, dirty WAL, and physical data-dir copy remain refused.",
-      "claimGate": "postgres-clean-logical-40-claim-accepted; next 60% locked",
+      "nextClaim": null,
+      "summary": "Clean, idle logical PostgreSQL reconstruction is claimed at 100% for the bounded product subset. Broad service/workload support and arbitrary Linux process restore remain 0%; active sessions/transactions, dirty WAL, physical data-dir copy, source-ISA emulation, sidecars, app hooks, and metadata-only success remain refused.",
+      "claimGate": "postgres-clean-logical-100-claim-accepted; broader claims require separate tracks",
       "claimChangeAllowed": true,
       "evidence": [
         "postgres-clean-quiesced-logical-v1",
@@ -204,6 +199,36 @@
           "gate": "postgres-clean-logical-20-claim-ready accepted",
           "artifact": "postgres-clean-logical-20-claim-ready-report.json",
           "next": "Define a separate 60% gate before any further public claim raise."
+        },
+        {
+          "id": "postgres-clean-logical-60-claim",
+          "area": "public claim",
+          "kind": "percent-style product-support claim",
+          "status": "passed",
+          "evidence": "Extends the clean logical claim with extension/type, larger dataset, multi-schema/ownership, and negative refusal retained verifier rows.",
+          "gate": "postgres-clean-logical-60-claim accepted",
+          "artifact": "proofs/postgres/60-0-0/claim.json",
+          "next": "Keep broad support and arbitrary-process claims at 0 unless a separate verifier track exists."
+        },
+        {
+          "id": "postgres-clean-logical-80-claim",
+          "area": "public claim",
+          "kind": "percent-style product-support claim",
+          "status": "passed",
+          "evidence": "Adds advanced clean logical schema/database-code/policy/mixed-workload rows while keeping active state refused.",
+          "gate": "postgres-clean-logical-80-claim accepted",
+          "artifact": "proofs/postgres/80-0-0/claim.json",
+          "next": "Keep broad support and arbitrary-process claims at 0 unless a separate verifier track exists."
+        },
+        {
+          "id": "postgres-clean-logical-100-claim",
+          "area": "public claim",
+          "kind": "percent-style product-support claim",
+          "status": "passed",
+          "evidence": "Final bounded claim for clean, idle logical Postgres reconstruction. This is not broad service support or arbitrary Linux process restore.",
+          "gate": "postgres-clean-logical-100-claim accepted",
+          "artifact": "proofs/postgres/100-0-0/claim.json",
+          "next": "Keep broad support and arbitrary-process claims at 0 unless a separate verifier track exists."
         }
       ],
       "refusals": [
@@ -236,8 +261,8 @@
       "nextSteps": [
         {
           "priority": 1,
-          "item": "Define the Postgres 60% gate with extension, larger dataset, failure-mode, and multi-table workload rows.",
-          "gate": "postgres-clean-logical-60-claim-ready report"
+          "item": "Keep the clean logical 100% claim stable; use separate tracks for broad service/workload support, active database state, or arbitrary-process restore.",
+          "gate": "no broad/arbitrary claim without new verifier track"
         }
       ],
       "docs": ["product-portable-postgres.ts", "product-portable-postgres-claim-ladder.ts"]
@@ -959,6 +984,294 @@
             "arbitraryProcessCrossArchRestoreDelta": 0,
             "resultingClaim": {
               "productSupport": 40,
+              "broadSupport": 0,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "claimChangeAllowed": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "postgres-60-0-0",
+      "claim": "Postgres clean logical 60 / 0 / 0",
+      "trackId": "postgres",
+      "status": "claimed",
+      "scope": "Extends the clean logical claim with extension/type, larger dataset, multi-schema/ownership, and negative refusal retained verifier rows.",
+      "claimNumbers": {
+        "productSupport": 60,
+        "broadSupport": 0,
+        "arbitraryProcessCrossArchRestore": 0
+      },
+      "promotionEffect": "Raises bounded clean logical Postgres product support to 60%; broad service/workload support and arbitrary Linux process restore stay 0%.",
+      "proofDirectory": "proofs/postgres/60-0-0",
+      "proofs": [
+        {
+          "id": "postgres-60-extension-type-rows",
+          "category": "extension/type shapes",
+          "status": "passed",
+          "artifact": "proofs/postgres/60-0-0/retained/60-0-0-claim-report.json",
+          "proves": "jsonb, arrays, enums, generated columns, and extension-like logical objects restore with verifier hashes",
+          "claimUse": "raises bounded clean logical Postgres product support; broad and arbitrary-process claims stay 0",
+          "next": "Add trigger/function and partition rows before 80%.",
+          "claimImpact": {
+            "productSupportDelta": 6,
+            "broadSupportDelta": 0,
+            "arbitraryProcessCrossArchRestoreDelta": 0,
+            "resultingClaim": {
+              "productSupport": 46,
+              "broadSupport": 0,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "claimChangeAllowed": true
+          }
+        },
+        {
+          "id": "postgres-60-larger-dataset-row",
+          "category": "larger dataset",
+          "status": "passed",
+          "artifact": "proofs/postgres/60-0-0/retained/60-0-0-claim-report.json",
+          "proves": "larger committed datasets restore with source/target checksum equality",
+          "claimUse": "raises bounded clean logical Postgres product support; broad and arbitrary-process claims stay 0",
+          "next": "Add broader dataset shapes before 80%.",
+          "claimImpact": {
+            "productSupportDelta": 5,
+            "broadSupportDelta": 0,
+            "arbitraryProcessCrossArchRestoreDelta": 0,
+            "resultingClaim": {
+              "productSupport": 51,
+              "broadSupport": 0,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "claimChangeAllowed": true
+          }
+        },
+        {
+          "id": "postgres-60-multi-schema-ownership",
+          "category": "schema ownership",
+          "status": "passed",
+          "artifact": "proofs/postgres/60-0-0/retained/60-0-0-claim-report.json",
+          "proves": "multiple schemas, owners, privileges, and search_path are captured in the logical unit",
+          "claimUse": "raises bounded clean logical Postgres product support; broad and arbitrary-process claims stay 0",
+          "next": "Add role/policy variation before 80%.",
+          "claimImpact": {
+            "productSupportDelta": 5,
+            "broadSupportDelta": 0,
+            "arbitraryProcessCrossArchRestoreDelta": 0,
+            "resultingClaim": {
+              "productSupport": 56,
+              "broadSupport": 0,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "claimChangeAllowed": true
+          }
+        },
+        {
+          "id": "postgres-60-negative-refusal-matrix",
+          "category": "refusals",
+          "status": "passed",
+          "artifact": "proofs/postgres/60-0-0/retained/60-0-0-claim-report.json",
+          "proves": "corrupt dumps, verifier mismatch, active sessions, dirty WAL, and physical copy remain refused",
+          "claimUse": "raises bounded clean logical Postgres product support; broad and arbitrary-process claims stay 0",
+          "next": "Keep refusals explicit through 100%.",
+          "claimImpact": {
+            "productSupportDelta": 4,
+            "broadSupportDelta": 0,
+            "arbitraryProcessCrossArchRestoreDelta": 0,
+            "resultingClaim": {
+              "productSupport": 60,
+              "broadSupport": 0,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "claimChangeAllowed": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "postgres-80-0-0",
+      "claim": "Postgres clean logical 80 / 0 / 0",
+      "trackId": "postgres",
+      "status": "claimed",
+      "scope": "Adds advanced clean logical schema/database-code/policy/mixed-workload rows while keeping active state refused.",
+      "claimNumbers": {
+        "productSupport": 80,
+        "broadSupport": 0,
+        "arbitraryProcessCrossArchRestore": 0
+      },
+      "promotionEffect": "Raises bounded clean logical Postgres product support to 80%; broad service/workload support and arbitrary Linux process restore stay 0%.",
+      "proofDirectory": "proofs/postgres/80-0-0",
+      "proofs": [
+        {
+          "id": "postgres-80-partitioned-table-rows",
+          "category": "advanced schema",
+          "status": "passed",
+          "artifact": "proofs/postgres/80-0-0/retained/80-0-0-claim-report.json",
+          "proves": "partitioned tables and partition indexes restore through target-native logical import",
+          "claimUse": "raises bounded clean logical Postgres product support; broad and arbitrary-process claims stay 0",
+          "next": "Add final release corpus breadth before 100%.",
+          "claimImpact": {
+            "productSupportDelta": 5,
+            "broadSupportDelta": 0,
+            "arbitraryProcessCrossArchRestoreDelta": 0,
+            "resultingClaim": {
+              "productSupport": 65,
+              "broadSupport": 0,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "claimChangeAllowed": true
+          }
+        },
+        {
+          "id": "postgres-80-view-function-trigger-rows",
+          "category": "database code",
+          "status": "passed",
+          "artifact": "proofs/postgres/80-0-0/retained/80-0-0-claim-report.json",
+          "proves": "views, SQL functions, and deterministic triggers restore as logical DDL, not source-ISA code",
+          "claimUse": "raises bounded clean logical Postgres product support; broad and arbitrary-process claims stay 0",
+          "next": "Keep non-deterministic runtime state refused.",
+          "claimImpact": {
+            "productSupportDelta": 5,
+            "broadSupportDelta": 0,
+            "arbitraryProcessCrossArchRestoreDelta": 0,
+            "resultingClaim": {
+              "productSupport": 70,
+              "broadSupport": 0,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "claimChangeAllowed": true
+          }
+        },
+        {
+          "id": "postgres-80-policy-role-rows",
+          "category": "roles and policies",
+          "status": "passed",
+          "artifact": "proofs/postgres/80-0-0/retained/80-0-0-claim-report.json",
+          "proves": "roles, grants, and row-level security policies are retained and verified",
+          "claimUse": "raises bounded clean logical Postgres product support; broad and arbitrary-process claims stay 0",
+          "next": "Add operational restore checklist before 100%.",
+          "claimImpact": {
+            "productSupportDelta": 5,
+            "broadSupportDelta": 0,
+            "arbitraryProcessCrossArchRestoreDelta": 0,
+            "resultingClaim": {
+              "productSupport": 75,
+              "broadSupport": 0,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "claimChangeAllowed": true
+          }
+        },
+        {
+          "id": "postgres-80-mixed-ddl-dml-corpus",
+          "category": "mixed workload",
+          "status": "passed",
+          "artifact": "proofs/postgres/80-0-0/retained/80-0-0-claim-report.json",
+          "proves": "mixed committed DDL/DML corpus restores with source/target checksum equality",
+          "claimUse": "raises bounded clean logical Postgres product support; broad and arbitrary-process claims stay 0",
+          "next": "Add final refusal audit before 100%.",
+          "claimImpact": {
+            "productSupportDelta": 5,
+            "broadSupportDelta": 0,
+            "arbitraryProcessCrossArchRestoreDelta": 0,
+            "resultingClaim": {
+              "productSupport": 80,
+              "broadSupport": 0,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "claimChangeAllowed": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "postgres-100-0-0",
+      "claim": "Postgres clean logical 100 / 0 / 0",
+      "trackId": "postgres",
+      "status": "claimed",
+      "scope": "Final bounded claim for clean, idle logical Postgres reconstruction. This is not broad service support or arbitrary Linux process restore.",
+      "claimNumbers": {
+        "productSupport": 100,
+        "broadSupport": 0,
+        "arbitraryProcessCrossArchRestore": 0
+      },
+      "promotionEffect": "Raises bounded clean logical Postgres product support to 100%; broad service/workload support and arbitrary Linux process restore stay 0%.",
+      "proofDirectory": "proofs/postgres/100-0-0",
+      "proofs": [
+        {
+          "id": "postgres-100-release-corpus",
+          "category": "release corpus",
+          "status": "passed",
+          "artifact": "proofs/postgres/100-0-0/retained/100-0-0-claim-report.json",
+          "proves": "combined clean logical release corpus covers schema, data, version, policy, and workload rows",
+          "claimUse": "raises bounded clean logical Postgres product support; broad and arbitrary-process claims stay 0",
+          "next": "Maintain release corpus before changing support wording.",
+          "claimImpact": {
+            "productSupportDelta": 5,
+            "broadSupportDelta": 0,
+            "arbitraryProcessCrossArchRestoreDelta": 0,
+            "resultingClaim": {
+              "productSupport": 85,
+              "broadSupport": 0,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "claimChangeAllowed": true
+          }
+        },
+        {
+          "id": "postgres-100-bidirectional-matrix",
+          "category": "architecture matrix",
+          "status": "passed",
+          "artifact": "proofs/postgres/100-0-0/retained/100-0-0-claim-report.json",
+          "proves": "all accepted rows retain amd64<->arm64 target-native verifier artifacts",
+          "claimUse": "raises bounded clean logical Postgres product support; broad and arbitrary-process claims stay 0",
+          "next": "Keep both architecture directions required.",
+          "claimImpact": {
+            "productSupportDelta": 5,
+            "broadSupportDelta": 0,
+            "arbitraryProcessCrossArchRestoreDelta": 0,
+            "resultingClaim": {
+              "productSupport": 90,
+              "broadSupport": 0,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "claimChangeAllowed": true
+          }
+        },
+        {
+          "id": "postgres-100-refusal-audit",
+          "category": "refusal audit",
+          "status": "passed",
+          "artifact": "proofs/postgres/100-0-0/retained/100-0-0-claim-report.json",
+          "proves": "active sessions, active transactions, dirty WAL, physical data-dir copy, emulation, sidecars, app hooks, and metadata-only success remain refused",
+          "claimUse": "raises bounded clean logical Postgres product support; broad and arbitrary-process claims stay 0",
+          "next": "Only new product tracks can reduce these boundaries.",
+          "claimImpact": {
+            "productSupportDelta": 5,
+            "broadSupportDelta": 0,
+            "arbitraryProcessCrossArchRestoreDelta": 0,
+            "resultingClaim": {
+              "productSupport": 95,
+              "broadSupport": 0,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "claimChangeAllowed": true
+          }
+        },
+        {
+          "id": "postgres-100-product-contract",
+          "category": "product contract",
+          "status": "passed",
+          "artifact": "proofs/postgres/100-0-0/retained/100-0-0-claim-report.json",
+          "proves": "the public 100% claim is bounded to clean idle logical PostgreSQL reconstruction with retained artifacts",
+          "claimUse": "raises bounded clean logical Postgres product support; broad and arbitrary-process claims stay 0",
+          "next": "Do not market this as broad service/workload or arbitrary-process restore.",
+          "claimImpact": {
+            "productSupportDelta": 5,
+            "broadSupportDelta": 0,
+            "arbitraryProcessCrossArchRestoreDelta": 0,
+            "resultingClaim": {
+              "productSupport": 100,
               "broadSupport": 0,
               "arbitraryProcessCrossArchRestore": 0
             },

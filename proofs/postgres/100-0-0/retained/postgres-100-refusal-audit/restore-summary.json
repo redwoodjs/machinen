@@ -1,0 +1,27 @@
+{
+  "kind": "machinen.product-portable-postgres-retained-restore-summary",
+  "rowId": "postgres-100-refusal-audit",
+  "state": "completed",
+  "migrationCompleted": true,
+  "targetVerifierResult": "passed",
+  "sourceVerifierOutputSha256": "12f29eb6e133c362fa9374fc557c63e343085344287831dcf55c8b73ee8adb47",
+  "targetVerifierOutputSha256": "12f29eb6e133c362fa9374fc557c63e343085344287831dcf55c8b73ee8adb47",
+  "shortcuts": {
+    "rawCpuRestoreUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "sourceTextReplayUsed": false,
+    "sidecarRuntimeUsed": false,
+    "appHooksRequired": false,
+    "metadataOnlySuccessAccepted": false
+  },
+  "refusalsRetained": [
+    "active transactions / sessions",
+    "dirty WAL boundary",
+    "physical data-dir cross-ISA copy",
+    "source-ISA emulation",
+    "sidecar replay",
+    "metadata-only success",
+    "broad service/workload support",
+    "arbitrary Linux process restore"
+  ]
+}
