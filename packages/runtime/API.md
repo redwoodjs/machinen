@@ -211,6 +211,16 @@
 - [`writeArbitraryProcessLevel5SeedReport`](#writearbitraryprocesslevel5seedreport)
 - [`loadArbitraryProcessLevel5SeedReport`](#loadarbitraryprocesslevel5seedreport)
 - [`verifyArbitraryProcessLevel5SeedReport`](#verifyarbitraryprocesslevel5seedreport)
+- [`ArbitraryProcessLevel5VerifiedSeedInput`](#arbitraryprocesslevel5verifiedseedinput)
+- [`ArbitraryProcessLevel5ClaimReadyGate`](#arbitraryprocesslevel5claimreadygate)
+- [`ArbitraryProcessLevel5ClaimReadyReport`](#arbitraryprocesslevel5claimreadyreport)
+- [`ARBITRARY_PROCESS_LEVEL5_CLAIM_READY_KIND`](#arbitrary_process_level5_claim_ready_kind)
+- [`ARBITRARY_PROCESS_LEVEL5_CLAIM_READY_VERSION`](#arbitrary_process_level5_claim_ready_version)
+- [`ARBITRARY_PROCESS_LEVEL5_CLAIM_READY_REPORT`](#arbitrary_process_level5_claim_ready_report)
+- [`evaluateArbitraryProcessLevel5ClaimReady`](#evaluatearbitraryprocesslevel5claimready)
+- [`writeArbitraryProcessLevel5ClaimReadyReport`](#writearbitraryprocesslevel5claimreadyreport)
+- [`loadArbitraryProcessLevel5ClaimReadyReport`](#loadarbitraryprocesslevel5claimreadyreport)
+- [`verifyArbitraryProcessLevel5ClaimReadyReport`](#verifyarbitraryprocesslevel5claimreadyreport)
 - [`ArbitraryProcessLevel5RegularFileFdProofArtifact`](#arbitraryprocesslevel5regularfilefdproofartifact)
 - [`ArbitraryProcessLevel5RegularFileFdProofReport`](#arbitraryprocesslevel5regularfilefdproofreport)
 - [`ARBITRARY_PROCESS_LEVEL5_REGULAR_FILE_FD_PROOF_KIND`](#arbitrary_process_level5_regular_file_fd_proof_kind)
@@ -4264,7 +4274,7 @@ Pluggable for tests; defaults to [readHostTotalBytes](#readhosttotalbytes).
 
 ###### Overrides
 
-[`Level5ArtifactEnvelope`](#level5artifactenvelope).[`kind`](#kind-10)
+[`Level5ArtifactEnvelope`](#level5artifactenvelope).[`kind`](#kind-11)
 
 ##### planState
 
@@ -7649,7 +7659,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`id`](#id-3)
+[`NativeCodeModule`](#nativecodemodule).[`id`](#id-4)
 
 ##### logicalName
 
@@ -7681,7 +7691,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-24)
+[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-25)
 
 ##### buildId
 
@@ -7757,7 +7767,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`id`](#id-3)
+[`NativeCodeModule`](#nativecodemodule).[`id`](#id-4)
 
 ##### logicalName
 
@@ -7789,7 +7799,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-24)
+[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-25)
 
 ##### buildId
 
@@ -8571,7 +8581,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeReturnChainFrame`](#nativereturnchainframe).[`id`](#id-12)
+[`NativeReturnChainFrame`](#nativereturnchainframe).[`id`](#id-13)
 
 ##### unwindId
 
@@ -9584,7 +9594,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-39)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-40)
 
 ##### targetArch
 
@@ -10172,7 +10182,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-39)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-40)
 
 ##### targetArch
 
@@ -12176,7 +12186,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`evidence`](#evidence-4)
+[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`evidence`](#evidence-5)
 
 ##### kind
 
@@ -14715,7 +14725,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`evidence`](#evidence-11)
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`evidence`](#evidence-12)
 
 ##### kind
 
@@ -18695,7 +18705,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`evidence`](#evidence-20)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`evidence`](#evidence-21)
 
 ##### kind
 
@@ -21690,6 +21700,118 @@ Poll interval in ms while retrying. Default 250.
 ### AdvancedLinuxFacilityProbeStateModel
 
 > **AdvancedLinuxFacilityProbeStateModel** = `"preserved"` \| `"recreated"` \| `"proven-irrelevant"` \| `"refused"`
+
+***
+
+### ArbitraryProcessLevel5VerifiedSeedInput
+
+> **ArbitraryProcessLevel5VerifiedSeedInput** = `object`
+
+#### Properties
+
+##### rowId
+
+> **rowId**: `string`
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### proofStatus
+
+> **proofStatus**: `"verified-seed"`
+
+##### artifact
+
+> **artifact**: `string`
+
+##### sha256
+
+> **sha256**: `string`
+
+***
+
+### ArbitraryProcessLevel5ClaimReadyGate
+
+> **ArbitraryProcessLevel5ClaimReadyGate** = `object`
+
+#### Properties
+
+##### id
+
+> **id**: `"seed-matrix-accepted"` \| `"unsafe-boundaries-refused"` \| `"minimum-verified-seeds"` \| `"required-seed-rows-verified"` \| `"no-forbidden-shortcuts"` \| `"claim-still-zero-before-gate"`
+
+##### passed
+
+> **passed**: `boolean`
+
+##### evidence
+
+> **evidence**: `string`
+
+***
+
+### ArbitraryProcessLevel5ClaimReadyReport
+
+> **ArbitraryProcessLevel5ClaimReadyReport** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`ARBITRARY_PROCESS_LEVEL5_CLAIM_READY_KIND`](#arbitrary_process_level5_claim_ready_kind)
+
+##### version
+
+> **version**: *typeof* [`ARBITRARY_PROCESS_LEVEL5_CLAIM_READY_VERSION`](#arbitrary_process_level5_claim_ready_version)
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### currentArbitraryProcessCrossArchRestoreClaimed
+
+> **currentArbitraryProcessCrossArchRestoreClaimed**: `0`
+
+##### candidateArbitraryProcessCrossArchRestoreClaimed
+
+> **candidateArbitraryProcessCrossArchRestoreClaimed**: `1`
+
+##### claimChangeAllowed
+
+> **claimChangeAllowed**: `boolean`
+
+##### arbitraryProcessClaimed
+
+> **arbitraryProcessClaimed**: `false`
+
+##### requiredVerifiedSeedRows
+
+> **requiredVerifiedSeedRows**: \[`"native-regular-file-fd"`, `"native-simple-pipe-fd"`, `"native-idle-epoll-or-tcp"`\]
+
+##### verifiedSeedRows
+
+> **verifiedSeedRows**: `string`[]
+
+##### verifiedSeedCount
+
+> **verifiedSeedCount**: `number`
+
+##### minimumVerifiedSeedCount
+
+> **minimumVerifiedSeedCount**: `3`
+
+##### gates
+
+> **gates**: [`ArbitraryProcessLevel5ClaimReadyGate`](#arbitraryprocesslevel5claimreadygate)[]
+
+##### verifiedSeeds
+
+> **verifiedSeeds**: [`ArbitraryProcessLevel5VerifiedSeedInput`](#arbitraryprocesslevel5verifiedseedinput)[]
+
+##### artifactsSha256
+
+> **artifactsSha256**: `string`
 
 ***
 
@@ -28670,6 +28792,24 @@ tarball-producing tool can pre-populate the lookup cache.
 
 ***
 
+### ARBITRARY\_PROCESS\_LEVEL5\_CLAIM\_READY\_KIND
+
+> `const` **ARBITRARY\_PROCESS\_LEVEL5\_CLAIM\_READY\_KIND**: `"machinen.arbitrary-process-level5-claim-ready"`
+
+***
+
+### ARBITRARY\_PROCESS\_LEVEL5\_CLAIM\_READY\_VERSION
+
+> `const` **ARBITRARY\_PROCESS\_LEVEL5\_CLAIM\_READY\_VERSION**: `1`
+
+***
+
+### ARBITRARY\_PROCESS\_LEVEL5\_CLAIM\_READY\_REPORT
+
+> `const` **ARBITRARY\_PROCESS\_LEVEL5\_CLAIM\_READY\_REPORT**: `"arbitrary-process-claim-ready-report.json"`
+
+***
+
 ### ARBITRARY\_PROCESS\_LEVEL5\_REGULAR\_FILE\_FD\_PROOF\_KIND
 
 > `const` **ARBITRARY\_PROCESS\_LEVEL5\_REGULAR\_FILE\_FD\_PROOF\_KIND**: `"machinen.arbitrary-process-level5-regular-file-fd-proof"` = `"machinen.arbitrary-process-level5-regular-file-fd-proof"`
@@ -31407,6 +31547,80 @@ the guest agent skips entries that don't match.
 #### Returns
 
 `string`[]
+
+***
+
+### evaluateArbitraryProcessLevel5ClaimReady()
+
+> **evaluateArbitraryProcessLevel5ClaimReady**(`input`): [`ArbitraryProcessLevel5ClaimReadyReport`](#arbitraryprocesslevel5claimreadyreport)
+
+#### Parameters
+
+##### input
+
+###### seedReport
+
+[`ArbitraryProcessLevel5SeedReport`](#arbitraryprocesslevel5seedreport)
+
+###### verifiedSeeds
+
+[`ArbitraryProcessLevel5VerifiedSeedInput`](#arbitraryprocesslevel5verifiedseedinput)[]
+
+#### Returns
+
+[`ArbitraryProcessLevel5ClaimReadyReport`](#arbitraryprocesslevel5claimreadyreport)
+
+***
+
+### writeArbitraryProcessLevel5ClaimReadyReport()
+
+> **writeArbitraryProcessLevel5ClaimReadyReport**(`outDir`, `report`): `void`
+
+#### Parameters
+
+##### outDir
+
+`string`
+
+##### report
+
+[`ArbitraryProcessLevel5ClaimReadyReport`](#arbitraryprocesslevel5claimreadyreport)
+
+#### Returns
+
+`void`
+
+***
+
+### loadArbitraryProcessLevel5ClaimReadyReport()
+
+> **loadArbitraryProcessLevel5ClaimReadyReport**(`path`): [`ArbitraryProcessLevel5ClaimReadyReport`](#arbitraryprocesslevel5claimreadyreport)
+
+#### Parameters
+
+##### path
+
+`string`
+
+#### Returns
+
+[`ArbitraryProcessLevel5ClaimReadyReport`](#arbitraryprocesslevel5claimreadyreport)
+
+***
+
+### verifyArbitraryProcessLevel5ClaimReadyReport()
+
+> **verifyArbitraryProcessLevel5ClaimReadyReport**(`report`): [`ArbitraryProcessLevel5ClaimReadyReport`](#arbitraryprocesslevel5claimreadyreport)
+
+#### Parameters
+
+##### report
+
+[`ArbitraryProcessLevel5ClaimReadyReport`](#arbitraryprocesslevel5claimreadyreport)
+
+#### Returns
+
+[`ArbitraryProcessLevel5ClaimReadyReport`](#arbitraryprocesslevel5claimreadyreport)
 
 ***
 

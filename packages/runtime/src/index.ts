@@ -257,6 +257,19 @@ export {
 } from "./arbitrary-process-level5-seed-matrix.ts";
 
 export {
+  ARBITRARY_PROCESS_LEVEL5_CLAIM_READY_KIND,
+  ARBITRARY_PROCESS_LEVEL5_CLAIM_READY_REPORT,
+  ARBITRARY_PROCESS_LEVEL5_CLAIM_READY_VERSION,
+  evaluateArbitraryProcessLevel5ClaimReady,
+  loadArbitraryProcessLevel5ClaimReadyReport,
+  verifyArbitraryProcessLevel5ClaimReadyReport,
+  writeArbitraryProcessLevel5ClaimReadyReport,
+  type ArbitraryProcessLevel5ClaimReadyGate,
+  type ArbitraryProcessLevel5ClaimReadyReport,
+  type ArbitraryProcessLevel5VerifiedSeedInput,
+} from "./arbitrary-process-level5-claim-ready.ts";
+
+export {
   ARBITRARY_PROCESS_LEVEL5_REGULAR_FILE_FD_PROOF_KIND,
   ARBITRARY_PROCESS_LEVEL5_REGULAR_FILE_FD_PROOF_VERSION,
   createArbitraryProcessLevel5RegularFileFdProof,
