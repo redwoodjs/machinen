@@ -192,6 +192,13 @@
 - [`nodeLevel5ProductSupport80ClaimRegistry`](#nodelevel5productsupport80claimregistry)
 - [`nodeLevel5ProductSupport80UnsupportedDetectors`](#nodelevel5productsupport80unsupporteddetectors)
 - [`verifyNodeLevel5ProductSupport80ArtifactBundle`](#verifynodelevel5productsupport80artifactbundle)
+- [`NodeLevel5ProductSupport85ClaimReadyGateStatus`](#nodelevel5productsupport85claimreadygatestatus)
+- [`NodeLevel5ProductSupport85ClaimReadyGateId`](#nodelevel5productsupport85claimreadygateid)
+- [`NodeLevel5ProductSupport85ClaimReadyGate`](#nodelevel5productsupport85claimreadygate)
+- [`NodeLevel5ProductSupport85ClaimReadyReport`](#nodelevel5productsupport85claimreadyreport)
+- [`NODE_LEVEL5_PRODUCT_SUPPORT_85_CLAIM_READY_KIND`](#node_level5_product_support_85_claim_ready_kind)
+- [`NODE_LEVEL5_PRODUCT_SUPPORT_85_CLAIM_READY_VERSION`](#node_level5_product_support_85_claim_ready_version)
+- [`evaluateNodeLevel5ProductSupport85ClaimReady`](#evaluatenodelevel5productsupport85claimready)
 - [`NodeLevel5ProductSupport85ReadinessGateStatus`](#nodelevel5productsupport85readinessgatestatus)
 - [`NodeLevel5ProductSupport85ReadinessGateId`](#nodelevel5productsupport85readinessgateid)
 - [`NodeLevel5ProductSupport85ReadinessGate`](#nodelevel5productsupport85readinessgate)
@@ -199,6 +206,7 @@
 - [`NODE_LEVEL5_PRODUCT_SUPPORT_85_READINESS_KIND`](#node_level5_product_support_85_readiness_kind)
 - [`NODE_LEVEL5_PRODUCT_SUPPORT_85_READINESS_VERSION`](#node_level5_product_support_85_readiness_version)
 - [`evaluateNodeLevel5ProductSupport85Readiness`](#evaluatenodelevel5productsupport85readiness)
+- [`loadNodeLevel5ProductSupport85ReadinessReport`](#loadnodelevel5productsupport85readinessreport)
 - [`NodeLevel5AppSupportBoundary`](#nodelevel5appsupportboundary)
 - [`NodeLevel5AppSupportDirection`](#nodelevel5appsupportdirection)
 - [`NodeLevel5AppSupportEvidence`](#nodelevel5appsupportevidence)
@@ -232,6 +240,15 @@
 - [`loadNodeLevel5InstalledThirdPartyAppCorpusReport`](#loadnodelevel5installedthirdpartyappcorpusreport)
 - [`verifyNodeLevel5InstalledThirdPartyAppCorpusReport`](#verifynodelevel5installedthirdpartyappcorpusreport)
 - [`writeNodeLevel5InstalledThirdPartyAppCorpusReport`](#writenodelevel5installedthirdpartyappcorpusreport)
+- [`NodeLevel5GenericVmRefusalArtifactFile`](#nodelevel5genericvmrefusalartifactfile)
+- [`NodeLevel5GenericVmRefusalArtifactsReport`](#nodelevel5genericvmrefusalartifactsreport)
+- [`NodeLevel5GenericVmRefusalArtifactsVerification`](#nodelevel5genericvmrefusalartifactsverification)
+- [`NODE_LEVEL5_GENERIC_VM_REFUSAL_ARTIFACTS_REPORT_KIND`](#node_level5_generic_vm_refusal_artifacts_report_kind)
+- [`NODE_LEVEL5_GENERIC_VM_REFUSAL_ARTIFACTS_REPORT_VERSION`](#node_level5_generic_vm_refusal_artifacts_report_version)
+- [`createNodeLevel5GenericVmRefusalArtifactsReport`](#createnodelevel5genericvmrefusalartifactsreport)
+- [`writeNodeLevel5GenericVmRefusalArtifactsReport`](#writenodelevel5genericvmrefusalartifactsreport)
+- [`verifyNodeLevel5GenericVmRefusalArtifactsReport`](#verifynodelevel5genericvmrefusalartifactsreport)
+- [`loadNodeLevel5GenericVmRefusalArtifactsReport`](#loadnodelevel5genericvmrefusalartifactsreport)
 - [`NodeLevel5GenericVmRowArtifactFile`](#nodelevel5genericvmrowartifactfile)
 - [`NodeLevel5GenericVmRowArtifactsReport`](#nodelevel5genericvmrowartifactsreport)
 - [`NodeLevel5GenericVmRowArtifactsVerification`](#nodelevel5genericvmrowartifactsverification)
@@ -12633,7 +12650,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`message`](#message-8)
+[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`message`](#message-9)
 
 ##### migrationCompleted
 
@@ -22988,6 +23005,162 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NodeLevel5GenericVmRefusalArtifactFile
+
+> **NodeLevel5GenericVmRefusalArtifactFile** = `object`
+
+#### Properties
+
+##### rowId
+
+> **rowId**: `string`
+
+##### framework
+
+> **framework**: [`NodeLevel5GenericVmRefusalRow`](#nodelevel5genericvmrefusalrow)\[`"framework"`\]
+
+##### marker
+
+> **marker**: [`NodeLevel5GenericVmRefusalMarker`](#nodelevel5genericvmrefusalmarker)
+
+##### direction
+
+> **direction**: [`NodeLevel5GenericVmRefusalRow`](#nodelevel5genericvmrefusalrow)\[`"direction"`\]
+
+##### expectedRefusalCode
+
+> **expectedRefusalCode**: [`NodeLevel5GenericVmRefusalRow`](#nodelevel5genericvmrefusalrow)\[`"expectedRefusalCode"`\]
+
+##### path
+
+> **path**: `string`
+
+##### sha256
+
+> **sha256**: `string`
+
+##### required
+
+> **required**: `true`
+
+***
+
+### NodeLevel5GenericVmRefusalArtifactsReport
+
+> **NodeLevel5GenericVmRefusalArtifactsReport** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_GENERIC_VM_REFUSAL_ARTIFACTS_REPORT_KIND`](#node_level5_generic_vm_refusal_artifacts_report_kind)
+
+##### version
+
+> **version**: *typeof* [`NODE_LEVEL5_GENERIC_VM_REFUSAL_ARTIFACTS_REPORT_VERSION`](#node_level5_generic_vm_refusal_artifacts_report_version)
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### refusalRowCount
+
+> **refusalRowCount**: `number`
+
+##### refusalArtifactFiles
+
+> **refusalArtifactFiles**: [`NodeLevel5GenericVmRefusalArtifactFile`](#nodelevel5genericvmrefusalartifactfile)[]
+
+##### refusalArtifactFileCount
+
+> **refusalArtifactFileCount**: `number`
+
+##### refusalArtifactFilesSha256
+
+> **refusalArtifactFilesSha256**: `string`
+
+##### markersCovered
+
+> **markersCovered**: [`NodeLevel5GenericVmRefusalMarker`](#nodelevel5genericvmrefusalmarker)[]
+
+##### claimChangeAllowed
+
+> **claimChangeAllowed**: `false`
+
+##### candidateNodeProductSupportClaimed
+
+> **candidateNodeProductSupportClaimed**: `85`
+
+##### candidateBroadNodeProductSupportClaimed
+
+> **candidateBroadNodeProductSupportClaimed**: `25`
+
+##### nodeProductSupportClaimed
+
+> **nodeProductSupportClaimed**: `80`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `20`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
+
+***
+
+### NodeLevel5GenericVmRefusalArtifactsVerification
+
+> **NodeLevel5GenericVmRefusalArtifactsVerification** = `object`
+
+#### Properties
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### kind
+
+> **kind**: `"machinen.node-level5-generic-vm-refusal-artifacts-verification"`
+
+##### refusalArtifactFileCount
+
+> **refusalArtifactFileCount**: `number`
+
+##### markersCovered
+
+> **markersCovered**: [`NodeLevel5GenericVmRefusalMarker`](#nodelevel5genericvmrefusalmarker)[]
+
+##### refusalArtifactFilesSha256Verified
+
+> **refusalArtifactFilesSha256Verified**: `boolean`
+
+##### claimChangeAllowed
+
+> **claimChangeAllowed**: `false`
+
+##### candidateNodeProductSupportClaimed
+
+> **candidateNodeProductSupportClaimed**: `85`
+
+##### candidateBroadNodeProductSupportClaimed
+
+> **candidateBroadNodeProductSupportClaimed**: `25`
+
+##### nodeProductSupportClaimed
+
+> **nodeProductSupportClaimed**: `80`
+
+##### broadNodeProductSupportClaimed
+
+> **broadNodeProductSupportClaimed**: `20`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
+
+***
+
 ### NodeLevel5GenericVmRetainedEvidenceFile
 
 > **NodeLevel5GenericVmRetainedEvidenceFile** = `object`
@@ -25044,6 +25217,118 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NodeLevel5ProductSupport85ClaimReadyGateStatus
+
+> **NodeLevel5ProductSupport85ClaimReadyGateStatus** = `"passed"` \| `"blocked"`
+
+***
+
+### NodeLevel5ProductSupport85ClaimReadyGateId
+
+> **NodeLevel5ProductSupport85ClaimReadyGateId** = `"readiness-report-shape"` \| `"candidate-evidence-complete"` \| `"only-claim-unlock-blocked"` \| `"matrix-counts-stable"` \| `"claim-values-current"` \| `"candidate-target-present"` \| `"arbitrary-process-remains-zero"` \| `"claim-change-unlocked"`
+
+***
+
+### NodeLevel5ProductSupport85ClaimReadyGate
+
+> **NodeLevel5ProductSupport85ClaimReadyGate** = `object`
+
+#### Properties
+
+##### id
+
+> **id**: [`NodeLevel5ProductSupport85ClaimReadyGateId`](#nodelevel5productsupport85claimreadygateid)
+
+##### status
+
+> **status**: [`NodeLevel5ProductSupport85ClaimReadyGateStatus`](#nodelevel5productsupport85claimreadygatestatus)
+
+##### message
+
+> **message**: `string`
+
+***
+
+### NodeLevel5ProductSupport85ClaimReadyReport
+
+> **NodeLevel5ProductSupport85ClaimReadyReport** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_PRODUCT_SUPPORT_85_CLAIM_READY_KIND`](#node_level5_product_support_85_claim_ready_kind)
+
+##### version
+
+> **version**: *typeof* [`NODE_LEVEL5_PRODUCT_SUPPORT_85_CLAIM_READY_VERSION`](#node_level5_product_support_85_claim_ready_version)
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### claimReadyEvidenceAccepted
+
+> **claimReadyEvidenceAccepted**: `boolean`
+
+##### claimChangeAllowed
+
+> **claimChangeAllowed**: `false`
+
+##### currentNodeProductSupportClaimed
+
+> **currentNodeProductSupportClaimed**: `80`
+
+##### currentBroadNodeProductSupportClaimed
+
+> **currentBroadNodeProductSupportClaimed**: `20`
+
+##### currentArbitraryProcessCrossArchRestoreClaimed
+
+> **currentArbitraryProcessCrossArchRestoreClaimed**: `0`
+
+##### candidateNodeProductSupportClaimed
+
+> **candidateNodeProductSupportClaimed**: `85`
+
+##### candidateBroadNodeProductSupportClaimed
+
+> **candidateBroadNodeProductSupportClaimed**: `25`
+
+##### candidateArbitraryProcessCrossArchRestoreClaimed
+
+> **candidateArbitraryProcessCrossArchRestoreClaimed**: `0`
+
+##### matrixCounts
+
+> **matrixCounts**: `object`
+
+###### total
+
+> **total**: `114`
+
+###### supported
+
+> **supported**: `68`
+
+###### refused
+
+> **refused**: `42`
+
+###### notProven
+
+> **notProven**: `4`
+
+##### gates
+
+> **gates**: [`NodeLevel5ProductSupport85ClaimReadyGate`](#nodelevel5productsupport85claimreadygate)[]
+
+##### blockedGates
+
+> **blockedGates**: [`NodeLevel5ProductSupport85ClaimReadyGate`](#nodelevel5productsupport85claimreadygate)[]
+
+***
+
 ### NodeLevel5ProductSupport85ReadinessGateStatus
 
 > **NodeLevel5ProductSupport85ReadinessGateStatus** = `"passed"` \| `"blocked"`
@@ -25052,7 +25337,7 @@ Poll interval in ms while retrying. Default 250.
 
 ### NodeLevel5ProductSupport85ReadinessGateId
 
-> **NodeLevel5ProductSupport85ReadinessGateId** = `"generic-vm-corpus-accepted"` \| `"generic-vm-positive-row-count"` \| `"generic-vm-refusal-row-count"` \| `"generic-vm-corpus-hash-verified"` \| `"generic-vm-retained-evidence-accepted"` \| `"generic-vm-retained-evidence-files"` \| `"generic-vm-row-artifacts-accepted"` \| `"generic-vm-row-artifacts-complete"` \| `"claim-values-remain-current"` \| `"claim-change-unlocked"`
+> **NodeLevel5ProductSupport85ReadinessGateId** = `"generic-vm-corpus-accepted"` \| `"generic-vm-positive-row-count"` \| `"generic-vm-refusal-row-count"` \| `"generic-vm-corpus-hash-verified"` \| `"generic-vm-retained-evidence-accepted"` \| `"generic-vm-retained-evidence-files"` \| `"generic-vm-row-artifacts-accepted"` \| `"generic-vm-row-artifacts-complete"` \| `"generic-vm-refusal-artifacts-accepted"` \| `"generic-vm-refusal-artifacts-complete"` \| `"claim-values-remain-current"` \| `"claim-change-unlocked"`
 
 ***
 
@@ -27524,6 +27809,18 @@ loops; anything looser stops being a meaningful gate.
 
 ***
 
+### NODE\_LEVEL5\_GENERIC\_VM\_REFUSAL\_ARTIFACTS\_REPORT\_KIND
+
+> `const` **NODE\_LEVEL5\_GENERIC\_VM\_REFUSAL\_ARTIFACTS\_REPORT\_KIND**: `"machinen.node-level5-generic-vm-refusal-artifacts-report"` = `"machinen.node-level5-generic-vm-refusal-artifacts-report"`
+
+***
+
+### NODE\_LEVEL5\_GENERIC\_VM\_REFUSAL\_ARTIFACTS\_REPORT\_VERSION
+
+> `const` **NODE\_LEVEL5\_GENERIC\_VM\_REFUSAL\_ARTIFACTS\_REPORT\_VERSION**: `1` = `1`
+
+***
+
 ### NODE\_LEVEL5\_GENERIC\_VM\_RETAINED\_EVIDENCE\_REPORT\_KIND
 
 > `const` **NODE\_LEVEL5\_GENERIC\_VM\_RETAINED\_EVIDENCE\_REPORT\_KIND**: `"machinen.node-level5-generic-vm-retained-evidence-report"` = `"machinen.node-level5-generic-vm-retained-evidence-report"`
@@ -27791,6 +28088,18 @@ loops; anything looser stops being a meaningful gate.
 ### nodeLevel5ProductSupport80Matrix
 
 > `const` **nodeLevel5ProductSupport80Matrix**: [`NodeLevel5ProductSupport80Matrix`](#nodelevel5productsupport80matrix)
+
+***
+
+### NODE\_LEVEL5\_PRODUCT\_SUPPORT\_85\_CLAIM\_READY\_KIND
+
+> `const` **NODE\_LEVEL5\_PRODUCT\_SUPPORT\_85\_CLAIM\_READY\_KIND**: `"machinen.node-level5-product-support-85-claim-ready"` = `"machinen.node-level5-product-support-85-claim-ready"`
+
+***
+
+### NODE\_LEVEL5\_PRODUCT\_SUPPORT\_85\_CLAIM\_READY\_VERSION
+
+> `const` **NODE\_LEVEL5\_PRODUCT\_SUPPORT\_85\_CLAIM\_READY\_VERSION**: `1` = `1`
 
 ***
 
@@ -30764,6 +31073,86 @@ available.
 
 ***
 
+### createNodeLevel5GenericVmRefusalArtifactsReport()
+
+> **createNodeLevel5GenericVmRefusalArtifactsReport**(`input`): [`NodeLevel5GenericVmRefusalArtifactsReport`](#nodelevel5genericvmrefusalartifactsreport)
+
+#### Parameters
+
+##### input
+
+###### corpusReport
+
+[`NodeLevel5GenericVmCorpusReport`](#nodelevel5genericvmcorpusreport)
+
+###### outDir
+
+`string`
+
+#### Returns
+
+[`NodeLevel5GenericVmRefusalArtifactsReport`](#nodelevel5genericvmrefusalartifactsreport)
+
+***
+
+### writeNodeLevel5GenericVmRefusalArtifactsReport()
+
+> **writeNodeLevel5GenericVmRefusalArtifactsReport**(`input`): [`NodeLevel5GenericVmRefusalArtifactsReport`](#nodelevel5genericvmrefusalartifactsreport)
+
+#### Parameters
+
+##### input
+
+###### corpusReport
+
+[`NodeLevel5GenericVmCorpusReport`](#nodelevel5genericvmcorpusreport)
+
+###### outDir
+
+`string`
+
+###### path
+
+`string`
+
+#### Returns
+
+[`NodeLevel5GenericVmRefusalArtifactsReport`](#nodelevel5genericvmrefusalartifactsreport)
+
+***
+
+### verifyNodeLevel5GenericVmRefusalArtifactsReport()
+
+> **verifyNodeLevel5GenericVmRefusalArtifactsReport**(`report`): [`NodeLevel5GenericVmRefusalArtifactsVerification`](#nodelevel5genericvmrefusalartifactsverification)
+
+#### Parameters
+
+##### report
+
+[`NodeLevel5GenericVmRefusalArtifactsReport`](#nodelevel5genericvmrefusalartifactsreport)
+
+#### Returns
+
+[`NodeLevel5GenericVmRefusalArtifactsVerification`](#nodelevel5genericvmrefusalartifactsverification)
+
+***
+
+### loadNodeLevel5GenericVmRefusalArtifactsReport()
+
+> **loadNodeLevel5GenericVmRefusalArtifactsReport**(`path`): [`NodeLevel5GenericVmRefusalArtifactsReport`](#nodelevel5genericvmrefusalartifactsreport)
+
+#### Parameters
+
+##### path
+
+`string`
+
+#### Returns
+
+[`NodeLevel5GenericVmRefusalArtifactsReport`](#nodelevel5genericvmrefusalartifactsreport)
+
+***
+
 ### createNodeLevel5GenericVmRetainedEvidenceReport()
 
 > **createNodeLevel5GenericVmRetainedEvidenceReport**(`input`): [`NodeLevel5GenericVmRetainedEvidenceReport`](#nodelevel5genericvmretainedevidencereport)
@@ -31256,6 +31645,44 @@ available.
 
 ***
 
+### evaluateNodeLevel5ProductSupport85ClaimReady()
+
+> **evaluateNodeLevel5ProductSupport85ClaimReady**(`input`): [`NodeLevel5ProductSupport85ClaimReadyReport`](#nodelevel5productsupport85claimreadyreport)
+
+#### Parameters
+
+##### input
+
+###### readinessReport
+
+[`NodeLevel5ProductSupport85ReadinessReport`](#nodelevel5productsupport85readinessreport)
+
+###### appSupportMatrix?
+
+[`NodeLevel5AppSupportMatrix`](#nodelevel5appsupportmatrix)
+
+#### Returns
+
+[`NodeLevel5ProductSupport85ClaimReadyReport`](#nodelevel5productsupport85claimreadyreport)
+
+***
+
+### loadNodeLevel5ProductSupport85ReadinessReport()
+
+> **loadNodeLevel5ProductSupport85ReadinessReport**(`path`): [`NodeLevel5ProductSupport85ReadinessReport`](#nodelevel5productsupport85readinessreport)
+
+#### Parameters
+
+##### path
+
+`string`
+
+#### Returns
+
+[`NodeLevel5ProductSupport85ReadinessReport`](#nodelevel5productsupport85readinessreport)
+
+***
+
 ### evaluateNodeLevel5ProductSupport85Readiness()
 
 > **evaluateNodeLevel5ProductSupport85Readiness**(`input`): [`NodeLevel5ProductSupport85ReadinessReport`](#nodelevel5productsupport85readinessreport)
@@ -31275,6 +31702,10 @@ available.
 ###### genericVmRowArtifactsReport?
 
 [`NodeLevel5GenericVmRowArtifactsReport`](#nodelevel5genericvmrowartifactsreport)
+
+###### genericVmRefusalArtifactsReport?
+
+[`NodeLevel5GenericVmRefusalArtifactsReport`](#nodelevel5genericvmrefusalartifactsreport)
 
 #### Returns
 

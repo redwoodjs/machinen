@@ -1,7 +1,13 @@
+import { readFileSync } from "node:fs";
+
 import {
   verifyNodeLevel5GenericVmCorpusReport,
   type NodeLevel5GenericVmCorpusReport,
 } from "./node-level5-generic-vm-corpus.ts";
+import {
+  verifyNodeLevel5GenericVmRefusalArtifactsReport,
+  type NodeLevel5GenericVmRefusalArtifactsReport,
+} from "./node-level5-generic-vm-refusal-artifacts.ts";
 import {
   verifyNodeLevel5GenericVmRetainedEvidenceReport,
   type NodeLevel5GenericVmRetainedEvidenceReport,
@@ -25,6 +31,8 @@ export type NodeLevel5ProductSupport85ReadinessGateId =
   | "generic-vm-retained-evidence-files"
   | "generic-vm-row-artifacts-accepted"
   | "generic-vm-row-artifacts-complete"
+  | "generic-vm-refusal-artifacts-accepted"
+  | "generic-vm-refusal-artifacts-complete"
   | "claim-values-remain-current"
   | "claim-change-unlocked";
 
@@ -50,10 +58,17 @@ export type NodeLevel5ProductSupport85ReadinessReport = {
   blockedGates: NodeLevel5ProductSupport85ReadinessGate[];
 };
 
+export function loadNodeLevel5ProductSupport85ReadinessReport(
+  path: string,
+): NodeLevel5ProductSupport85ReadinessReport {
+  return JSON.parse(readFileSync(path, "utf8")) as NodeLevel5ProductSupport85ReadinessReport;
+}
+
 export function evaluateNodeLevel5ProductSupport85Readiness(input: {
   genericVmCorpusReport: NodeLevel5GenericVmCorpusReport;
   genericVmRetainedEvidenceReport?: NodeLevel5GenericVmRetainedEvidenceReport;
   genericVmRowArtifactsReport?: NodeLevel5GenericVmRowArtifactsReport;
+  genericVmRefusalArtifactsReport?: NodeLevel5GenericVmRefusalArtifactsReport;
 }): NodeLevel5ProductSupport85ReadinessReport {
   const verification = verifyNodeLevel5GenericVmCorpusReport(input.genericVmCorpusReport);
   const retainedEvidence = input.genericVmRetainedEvidenceReport
@@ -61,6 +76,9 @@ export function evaluateNodeLevel5ProductSupport85Readiness(input: {
     : undefined;
   const rowArtifacts = input.genericVmRowArtifactsReport
     ? verifyNodeLevel5GenericVmRowArtifactsReport(input.genericVmRowArtifactsReport)
+    : undefined;
+  const refusalArtifacts = input.genericVmRefusalArtifactsReport
+    ? verifyNodeLevel5GenericVmRefusalArtifactsReport(input.genericVmRefusalArtifactsReport)
     : undefined;
   const gates: NodeLevel5ProductSupport85ReadinessGate[] = [
     gate(
@@ -85,6 +103,7 @@ export function evaluateNodeLevel5ProductSupport85Readiness(input: {
     ),
     ...retainedEvidenceGates(retainedEvidence),
     ...rowArtifactGates(rowArtifacts),
+    ...refusalArtifactGates(refusalArtifacts),
     gate(
       "claim-values-remain-current",
       verification.nodeProductSupportClaimed === 80 &&
@@ -154,6 +173,27 @@ function rowArtifactGates(
         rowArtifacts.positiveRowCount === 8 &&
         rowArtifacts.refusalRowCount === 20,
       "generic VM row artifacts cover every positive and refusal corpus row",
+    ),
+  ];
+}
+
+function refusalArtifactGates(
+  refusalArtifacts: ReturnType<typeof verifyNodeLevel5GenericVmRefusalArtifactsReport> | undefined,
+): NodeLevel5ProductSupport85ReadinessGate[] {
+  if (!refusalArtifacts) {
+    return [];
+  }
+  return [
+    gate(
+      "generic-vm-refusal-artifacts-accepted",
+      refusalArtifacts.accepted,
+      "generic VM refusal artifact report is accepted by the release verifier",
+    ),
+    gate(
+      "generic-vm-refusal-artifacts-complete",
+      refusalArtifacts.refusalArtifactFileCount === 20 &&
+        refusalArtifacts.markersCovered.length === 5,
+      "generic VM refusal artifacts cover active request, worker, native addon, TLS, and child process boundaries",
     ),
   ];
 }

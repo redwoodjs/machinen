@@ -229,9 +229,20 @@ export {
   nodeLevel5ProductSupport80NewFamilies,
 } from "./node-level5-product-support-80.ts";
 export {
+  NODE_LEVEL5_PRODUCT_SUPPORT_85_CLAIM_READY_KIND,
+  NODE_LEVEL5_PRODUCT_SUPPORT_85_CLAIM_READY_VERSION,
+  evaluateNodeLevel5ProductSupport85ClaimReady,
+  type NodeLevel5ProductSupport85ClaimReadyGate,
+  type NodeLevel5ProductSupport85ClaimReadyGateId,
+  type NodeLevel5ProductSupport85ClaimReadyGateStatus,
+  type NodeLevel5ProductSupport85ClaimReadyReport,
+} from "./node-level5-product-support-85-claim-ready.ts";
+
+export {
   NODE_LEVEL5_PRODUCT_SUPPORT_85_READINESS_KIND,
   NODE_LEVEL5_PRODUCT_SUPPORT_85_READINESS_VERSION,
   evaluateNodeLevel5ProductSupport85Readiness,
+  loadNodeLevel5ProductSupport85ReadinessReport,
   type NodeLevel5ProductSupport85ReadinessGate,
   type NodeLevel5ProductSupport85ReadinessGateId,
   type NodeLevel5ProductSupport85ReadinessGateStatus,
@@ -1358,6 +1369,18 @@ export { readHostRssBytes, readHostRssBytesMulti } from "./proc-rss.ts";
 export type { RssTarget } from "./proc-rss.ts";
 export { readBalloonStats, STATS_FILE_SIZE } from "./balloon-stats.ts";
 export type { BalloonCounters } from "./balloon-stats.ts";
+
+export {
+  NODE_LEVEL5_GENERIC_VM_REFUSAL_ARTIFACTS_REPORT_KIND,
+  NODE_LEVEL5_GENERIC_VM_REFUSAL_ARTIFACTS_REPORT_VERSION,
+  createNodeLevel5GenericVmRefusalArtifactsReport,
+  loadNodeLevel5GenericVmRefusalArtifactsReport,
+  verifyNodeLevel5GenericVmRefusalArtifactsReport,
+  writeNodeLevel5GenericVmRefusalArtifactsReport,
+  type NodeLevel5GenericVmRefusalArtifactFile,
+  type NodeLevel5GenericVmRefusalArtifactsReport,
+  type NodeLevel5GenericVmRefusalArtifactsVerification,
+} from "./node-level5-generic-vm-refusal-artifacts.ts";
 
 export {
   NODE_LEVEL5_GENERIC_VM_ROW_ARTIFACTS_REPORT_KIND,

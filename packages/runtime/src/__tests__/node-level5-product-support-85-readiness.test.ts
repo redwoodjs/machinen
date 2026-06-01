@@ -6,7 +6,9 @@ import {
   createNodeLevel5GenericVmCorpusReport,
   type NodeLevel5GenericVmCorpusRow,
   type NodeLevel5GenericVmRefusalMarker,
+  type NodeLevel5GenericVmRefusalRow,
 } from "../node-level5-generic-vm-corpus.ts";
+import type { NodeLevel5GenericVmRefusalArtifactsReport } from "../node-level5-generic-vm-refusal-artifacts.ts";
 import type { NodeLevel5GenericVmRetainedEvidenceReport } from "../node-level5-generic-vm-retained-evidence.ts";
 import { evaluateNodeLevel5ProductSupport85Readiness } from "../node-level5-product-support-85-readiness.ts";
 import type { NodeLevel5ProductSnapshotDirection } from "../node-level5-product-snapshot.ts";
@@ -79,6 +81,24 @@ describe("Node Level 5 product support 85 readiness", () => {
     ]);
   });
 
+  it("includes refusal artifact gates when refusal artifacts are provided", () => {
+    const report = evaluateNodeLevel5ProductSupport85Readiness({
+      genericVmCorpusReport: createNodeLevel5GenericVmCorpusReport(genericVmRows()),
+      genericVmRefusalArtifactsReport: refusalArtifactsReport(),
+    });
+
+    expect(report.candidateEvidenceAccepted).toBe(true);
+    expect(report.gates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "generic-vm-refusal-artifacts-accepted", status: "passed" }),
+        expect.objectContaining({ id: "generic-vm-refusal-artifacts-complete", status: "passed" }),
+      ]),
+    );
+    expect(report.blockedGates).toEqual([
+      expect.objectContaining({ id: "claim-change-unlocked", status: "blocked" }),
+    ]);
+  });
+
   it("blocks incomplete candidate evidence", () => {
     const report = evaluateNodeLevel5ProductSupport85Readiness({
       genericVmCorpusReport: createNodeLevel5GenericVmCorpusReport(genericVmRows().slice(0, 2)),
@@ -130,6 +150,43 @@ function retainedEvidenceReport(): NodeLevel5GenericVmRetainedEvidenceReport {
   };
 }
 
+function refusalArtifactsReport(): NodeLevel5GenericVmRefusalArtifactsReport {
+  const refusalArtifactFiles = refusalRows().map((row) => ({
+    rowId: row.id,
+    framework: row.framework,
+    marker: row.marker,
+    direction: row.direction,
+    expectedRefusalCode: row.expectedRefusalCode,
+    path: `generic-vm-refusal-artifacts/${row.id}.json`,
+    sha256: createHash("sha256").update(row.id).digest("hex"),
+    required: true as const,
+  }));
+  return {
+    kind: "machinen.node-level5-generic-vm-refusal-artifacts-report",
+    version: 1,
+    accepted: true,
+    refusalRowCount: 20,
+    refusalArtifactFiles,
+    refusalArtifactFileCount: refusalArtifactFiles.length,
+    refusalArtifactFilesSha256: createHash("sha256")
+      .update(JSON.stringify(refusalArtifactFiles))
+      .digest("hex"),
+    markersCovered: [
+      "activeRequests",
+      "childProcesses",
+      "nativeAddons",
+      "tlsActiveState",
+      "workerThreads",
+    ],
+    claimChangeAllowed: false,
+    candidateNodeProductSupportClaimed: 85,
+    candidateBroadNodeProductSupportClaimed: 25,
+    nodeProductSupportClaimed: 80,
+    broadNodeProductSupportClaimed: 20,
+    arbitraryProcessCrossArchRestoreClaimed: 0,
+  };
+}
+
 function positiveRows(): NodeLevel5GenericVmCorpusRow[] {
   return frameworks.flatMap((framework) =>
     (["cjs", "esm"] as const).flatMap((moduleSystem) =>
@@ -156,7 +213,7 @@ function positiveRows(): NodeLevel5GenericVmCorpusRow[] {
   );
 }
 
-function refusalRows(): NodeLevel5GenericVmCorpusRow[] {
+function refusalRows(): NodeLevel5GenericVmRefusalRow[] {
   return frameworks.flatMap((framework) =>
     markerCodes.flatMap(({ marker, id, code }) =>
       directions.map((direction) => ({
