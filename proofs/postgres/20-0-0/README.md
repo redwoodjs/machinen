@@ -27,13 +27,13 @@ The retained claim ladder report is in
 amd64-to-arm64 logical restore bundles, source verifier output, target verifier
 output, restore summaries, and an unsafe-state refusal artifact.
 
-The candidate 40% gate report is in
+The applied 40% gate report is in
 `retained/postgres-clean-logical-20-claim-ready-report.json`, with expanded
 artifacts under `retained/postgres-clean-logical-20-claim-ready/`. It keeps
 schema-shape rows, PostgreSQL 14/15/16 rows, workload-mix rows, source/target
-verifier output, restore summaries, manifests, and logical dumps. This gate does
-not raise the public claim by itself; it only allows a separate 40% claim-change
-PR.
+verifier output, restore summaries, manifests, and logical dumps. The public 40%
+claim is summarized in `../40-0-0/`; a future public raise needs a separate 60%
+gate.
 
 ## Proof impact rows
 
@@ -43,7 +43,7 @@ PR.
 | `postgres-bidirectional-cross-arch-restore` | cross-architecture restore | `passed`           | `5% / 0% / 0%`                             | `restore-summary.json`                              | arm64->amd64 and amd64->arm64 target-native verifier output passes                         | Retain more version and schema-shape rows for the 40% gate.  |
 | `postgres-retained-verifier-artifacts`      | retained artifacts         | `passed`           | `4% / 0% / 0%`                             | `source-verifier.txt / target-verifier.txt`         | source and target verifier outputs are retained with hashes                                | Standardize artifact retention for future Postgres rows.     |
 | `postgres-explicit-refusal-boundaries`      | refusals                   | `refused-boundary` | `3% / 0% / 0%`                             | `portable-product-refusal.json`                     | active transactions, dirty WAL, active sessions, and physical data-dir copy remain refused | Only reduce refusals with a new target-native verifier gate. |
-| `postgres-40-schema-shape-rows`             | schema shapes              | `passed`           | `+7% / 0% / 0% candidate`                  | `postgres-clean-logical-20-claim-ready-report.json` | three clean logical schema shapes restore with target-native verifier artifacts            | Complete for candidate 40% gate.                             |
-| `postgres-40-version-rows`                  | PostgreSQL versions        | `passed`           | `+5% / 0% / 0% candidate`                  | `postgres-clean-logical-20-claim-ready-report.json` | PostgreSQL 14, 15, and 16 fixtures restore with retained verifiers                         | Complete for candidate 40% gate.                             |
-| `postgres-40-workload-mix-rows`             | workload mix               | `passed`           | `+5% / 0% / 0% candidate`                  | `postgres-clean-logical-20-claim-ready-report.json` | read-only, committed write batch, and aggregate workloads restore cleanly                  | Complete for candidate 40% gate.                             |
-| `postgres-40-retained-verifier-artifacts`   | retained artifacts         | `passed`           | `+3% / 0% / 0% candidate`                  | `source-verifier.txt / target-verifier.txt`         | every candidate gate row retains source/target verifier artifacts and hashes               | Use in a separate public 40% claim PR.                       |
+| `postgres-40-schema-shape-rows`             | schema shapes              | `passed`           | `+7% / 0% / 0% applied`                    | `postgres-clean-logical-20-claim-ready-report.json` | three clean logical schema shapes restore with target-native verifier artifacts            | Add extension/larger schema rows before a 60% claim.         |
+| `postgres-40-version-rows`                  | PostgreSQL versions        | `passed`           | `+5% / 0% / 0% applied`                    | `postgres-clean-logical-20-claim-ready-report.json` | PostgreSQL 14, 15, and 16 fixtures restore with retained verifiers                         | Add version/extension variation before a 60% claim.          |
+| `postgres-40-workload-mix-rows`             | workload mix               | `passed`           | `+5% / 0% / 0% applied`                    | `postgres-clean-logical-20-claim-ready-report.json` | read-only, committed write batch, and aggregate workloads restore cleanly                  | Add larger datasets and failure-mode rows.                   |
+| `postgres-40-retained-verifier-artifacts`   | retained artifacts         | `passed`           | `+3% / 0% / 0% applied`                    | `source-verifier.txt / target-verifier.txt`         | every candidate gate row retains source/target verifier artifacts and hashes               | Define a new 60% gate with retained verifier outputs.        |

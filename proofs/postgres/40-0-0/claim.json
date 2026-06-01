@@ -1,0 +1,96 @@
+{
+  "id": "postgres-40-0-0",
+  "claim": "Postgres clean logical 40 / 0 / 0",
+  "trackId": "postgres",
+  "status": "claimed",
+  "scope": "Clean, idle logical Postgres reconstruction with schema-shape, version, and workload-mix retained verifier artifacts; active sessions, dirty WAL, and physical data-dir copy remain refused.",
+  "claimNumbers": {
+    "productSupport": 40,
+    "broadSupport": 0,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "promotionEffect": "Raises Postgres product support to 40%; broad service/workload support and arbitrary Linux process restore stay 0%.",
+  "proofDirectory": "proofs/postgres/40-0-0",
+  "proofs": [
+    {
+      "id": "postgres-40-schema-shape-rows",
+      "category": "schema shapes",
+      "status": "passed",
+      "artifact": "../20-0-0/retained/postgres-clean-logical-20-claim-ready-report.json",
+      "proves": "single-table primary-key, foreign-key join, and index/sequence schema shapes restore through target-native verification",
+      "claimUse": "raises Postgres product support from 20% toward 40% for the clean logical subset",
+      "next": "Add extension and larger schema rows before any 60% claim.",
+      "claimImpact": {
+        "productSupportDelta": 7,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 27,
+          "broadSupport": 0,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": true
+      }
+    },
+    {
+      "id": "postgres-40-version-rows",
+      "category": "PostgreSQL versions",
+      "status": "passed",
+      "artifact": "../20-0-0/retained/postgres-clean-logical-20-claim-ready-report.json",
+      "proves": "PostgreSQL 14, 15, and 16 clean logical fixtures restore with retained verifier output",
+      "claimUse": "keeps the 40% product-support claim from being a single-version proof",
+      "next": "Add patch-version and extension-version variation before any 60% claim.",
+      "claimImpact": {
+        "productSupportDelta": 5,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 32,
+          "broadSupport": 0,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": true
+      }
+    },
+    {
+      "id": "postgres-40-workload-mix-rows",
+      "category": "workload mix",
+      "status": "passed",
+      "artifact": "../20-0-0/retained/postgres-clean-logical-20-claim-ready-report.json",
+      "proves": "read-only lookup, committed write batch, and aggregate-query workloads restore from clean logical state",
+      "claimUse": "adds workload variety while active sessions and dirty WAL remain refused",
+      "next": "Add larger dataset and failure-mode workload rows before any 60% claim.",
+      "claimImpact": {
+        "productSupportDelta": 5,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 37,
+          "broadSupport": 0,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": true
+      }
+    },
+    {
+      "id": "postgres-40-retained-verifier-artifacts",
+      "category": "retained artifacts",
+      "status": "passed",
+      "artifact": "../20-0-0/retained/postgres-clean-logical-20-claim-ready-report.json",
+      "proves": "every 40% claim row retains source verifier, target verifier, restore summary, manifest, and dump hashes",
+      "claimUse": "makes the 40% product-support claim auditable instead of metadata-only",
+      "next": "Define a 60% gate with new retained verifier artifacts.",
+      "claimImpact": {
+        "productSupportDelta": 3,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 40,
+          "broadSupport": 0,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": true
+      }
+    }
+  ]
+}

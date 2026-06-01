@@ -63,24 +63,24 @@ Successful descriptors set:
 
 ## Percent-style claim ladder
 
-The clean logical subset now has a retained 20 / 0 / 0 claim ladder:
+The clean logical subset now has a retained 40 / 0 / 0 claim ladder:
 
-- product support claim: `20%`;
+- product support claim: `40%`;
 - broad service/workload claim: `0%`;
 - arbitrary Linux process restore claim: `0%`.
 
-The retained ladder lives in
+The original retained 20% ladder lives in
 `proofs/postgres/20-0-0/retained/postgres-claim-ladder-report.json`. It keeps
 per-proof claim impact rows, bidirectional logical restore bundles, source and
 target verifier output, restore summaries, and an unsafe-state refusal artifact.
 
-The 20% -> 40% claim-ready gate is satisfied by
+The applied 20% -> 40% gate is retained at
 `proofs/postgres/20-0-0/retained/postgres-clean-logical-20-claim-ready-report.json`
-and its retained fixture directory. That report adds schema-shape rows,
+and summarized by `proofs/postgres/40-0-0/`. That report adds schema-shape rows,
 PostgreSQL 14/15/16 version rows, and clean workload-mix rows with bidirectional
-target verifier artifacts. It unlocks a candidate 40% product-support decision,
-but the public Postgres claim remains `20 / 0 / 0` until a separate claim-change
-PR raises it.
+target verifier artifacts. The next public raise is locked behind a new 60% gate
+with additional retained rows; active sessions, active transactions, dirty WAL,
+and physical data-dir copy remain refused.
 
 ## Stable product refusals
 

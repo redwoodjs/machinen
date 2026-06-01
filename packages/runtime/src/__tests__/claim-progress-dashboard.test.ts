@@ -27,7 +27,7 @@ type ClaimProgressProofGroup = {
 
 type ClaimProgressDashboard = {
   kind: "machinen.claim-progress-dashboard";
-  version: 12;
+  version: 13;
   tracks: ClaimProgressTrack[];
   proofGroups: ClaimProgressProofGroup[];
 };
@@ -41,7 +41,7 @@ describe("claim progress dashboard", () => {
 
     expect(dashboard).toMatchObject({
       kind: "machinen.claim-progress-dashboard",
-      version: 12,
+      version: 13,
     });
     expect(dashboard.tracks.map((track) => track.id)).toEqual([
       "node-service",
@@ -73,16 +73,17 @@ describe("claim progress dashboard", () => {
     expect(dashboard.tracks.find((track) => track.id === "postgres")).toMatchObject({
       status: "claimed",
       currentClaim: {
-        productSupport: 20,
+        productSupport: 40,
         broadSupport: 0,
         arbitraryProcessCrossArchRestore: 0,
       },
-      nextClaim: { productSupport: 40, claimChangeAllowed: true },
+      nextClaim: { productSupport: 60, claimChangeAllowed: false },
     });
     expect(dashboard.proofGroups.map((group) => group.id)).toEqual([
       "node-service-100-100-0",
       "postgres-20-0-0",
       "postgres-clean-logical-20-claim-ready",
+      "postgres-40-0-0",
       "bun-not-started",
       "generic-linux-service-not-started",
       "level4-ping-resource-continuation",
