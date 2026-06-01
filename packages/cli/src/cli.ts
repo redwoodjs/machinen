@@ -72,6 +72,7 @@ import {
   loadNodeLevel5GenericVmRetainedEvidenceReport,
   loadNodeLevel5GenericVmRowArtifactsReport,
   loadNodeLevel5InstalledThirdPartyAppCorpusReport,
+  loadNodeLevel5ProductSupport85ReadinessReport,
   loadNodeLevel5ThirdPartyAppCorpusReport,
   list,
   productPortablePostgresFileSha256,
@@ -84,6 +85,7 @@ import {
   restore,
   restoreNodeLevel5DeclaredSubset,
   restoreNodeLevel5ProductSnapshot,
+  evaluateNodeLevel5ProductSupport85ClaimReady,
   evaluateNodeLevel5ProductSupport85Readiness,
   verifyNodeLevel5ProductSupport80ArtifactBundle,
   verifyNodeLevel5RealAppCorpusReport,
@@ -1975,6 +1977,9 @@ function cmdNodeLevel5(args: string[]): number {
   if (rest[0] === "85-readiness") {
     return cmdNodeLevel5ProductSupport85Readiness(rest.slice(1), json);
   }
+  if (rest[0] === "85-claim-ready") {
+    return cmdNodeLevel5ProductSupport85ClaimReady(rest.slice(1), json);
+  }
   if (rest[0] === "abi-check") {
     return cmdNodeLevel5AbiCheck(rest.slice(1), json);
   }
@@ -2147,6 +2152,23 @@ function cmdNodeLevel5ProductSupport85Readiness(args: string[], json: boolean): 
       : {}),
   });
   return reportNodeLevel5ProductCommand(json, summary);
+}
+
+function cmdNodeLevel5ProductSupport85ClaimReady(args: string[], json: boolean): number {
+  const readinessPath = requiredNodeLevel5ProductSupport85ReadinessReportPath(args);
+  const summary = evaluateNodeLevel5ProductSupport85ClaimReady({
+    readinessReport: loadNodeLevel5ProductSupport85ReadinessReport(resolve(readinessPath)),
+  });
+  return reportNodeLevel5ProductCommand(json, summary);
+}
+
+function requiredNodeLevel5ProductSupport85ReadinessReportPath(args: string[]): string {
+  const reportFlag = args.indexOf("--readiness-report");
+  const path = reportFlag === -1 ? undefined : args[reportFlag + 1];
+  if (!path) {
+    die("machinen node-level5 85-claim-ready requires --readiness-report <file>");
+  }
+  return path;
 }
 
 function nodeLevel5ReleaseGateArtifactArgs(args: string[]): string[] {
@@ -2560,7 +2582,8 @@ function nodeLevel5Usage(): string {
     "       machinen node-level5 release-gate [--include-generic-vm-retained-evidence --generic-vm-retained-evidence-report <file>] [--json]\n" +
     "       machinen node-level5 release-gate [--include-generic-vm-row-artifacts --generic-vm-row-artifacts-report <file>] [--json]\n" +
     "       machinen node-level5 release-gate [--include-generic-vm-refusal-artifacts --generic-vm-refusal-artifacts-report <file>] [--json]\n" +
-    "       machinen node-level5 85-readiness --generic-vm-corpus-report <file> [--generic-vm-retained-evidence-report <file>] [--generic-vm-row-artifacts-report <file>] [--generic-vm-refusal-artifacts-report <file>] [--json]\n"
+    "       machinen node-level5 85-readiness --generic-vm-corpus-report <file> [--generic-vm-retained-evidence-report <file>] [--generic-vm-row-artifacts-report <file>] [--generic-vm-refusal-artifacts-report <file>] [--json]\n" +
+    "       machinen node-level5 85-claim-ready --readiness-report <file> [--json]\n"
   );
 }
 

@@ -382,6 +382,49 @@ describe("Node Level 5 product commands", () => {
     }
   });
 
+  it("keeps the 85 claim-ready gate locked after evidence passes", () => {
+    const dir = mkdtempSync(join(tmpdir(), "machinen-node85-cli-claim-ready-"));
+    try {
+      const readiness = {
+        kind: "machinen.node-level5-product-support-85-readiness",
+        version: 1,
+        accepted: false,
+        candidateEvidenceAccepted: true,
+        claimChangeAllowed: false,
+        currentNodeProductSupportClaimed: 80,
+        currentBroadNodeProductSupportClaimed: 20,
+        currentArbitraryProcessCrossArchRestoreClaimed: 0,
+        candidateNodeProductSupportClaimed: 85,
+        candidateBroadNodeProductSupportClaimed: 25,
+        candidateArbitraryProcessCrossArchRestoreClaimed: 0,
+        gates: [{ id: "claim-change-unlocked", status: "blocked", message: "locked" }],
+        blockedGates: [{ id: "claim-change-unlocked", status: "blocked", message: "locked" }],
+      };
+      const readinessPath = join(dir, "readiness.json");
+      writeFileSync(readinessPath, `${JSON.stringify(readiness, null, 2)}\n`);
+
+      const claimReady = runCli([
+        "node-level5",
+        "85-claim-ready",
+        "--readiness-report",
+        readinessPath,
+        "--json",
+      ]);
+      expect(claimReady.status).toBe(1);
+      expect(JSON.parse(claimReady.stdout)).toMatchObject({
+        accepted: false,
+        claimReadyEvidenceAccepted: true,
+        claimChangeAllowed: false,
+        candidateBroadNodeProductSupportClaimed: 25,
+        currentBroadNodeProductSupportClaimed: 20,
+        matrixCounts: { total: 114, supported: 68, refused: 42, notProven: 4 },
+        blockedGates: [expect.objectContaining({ id: "claim-change-unlocked" })],
+      });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it("uses generic VM refusal artifacts for release gates", () => {
     const dir = mkdtempSync(join(tmpdir(), "machinen-node85-cli-refusal-artifacts-"));
     try {

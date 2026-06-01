@@ -192,6 +192,13 @@
 - [`nodeLevel5ProductSupport80ClaimRegistry`](#nodelevel5productsupport80claimregistry)
 - [`nodeLevel5ProductSupport80UnsupportedDetectors`](#nodelevel5productsupport80unsupporteddetectors)
 - [`verifyNodeLevel5ProductSupport80ArtifactBundle`](#verifynodelevel5productsupport80artifactbundle)
+- [`NodeLevel5ProductSupport85ClaimReadyGateStatus`](#nodelevel5productsupport85claimreadygatestatus)
+- [`NodeLevel5ProductSupport85ClaimReadyGateId`](#nodelevel5productsupport85claimreadygateid)
+- [`NodeLevel5ProductSupport85ClaimReadyGate`](#nodelevel5productsupport85claimreadygate)
+- [`NodeLevel5ProductSupport85ClaimReadyReport`](#nodelevel5productsupport85claimreadyreport)
+- [`NODE_LEVEL5_PRODUCT_SUPPORT_85_CLAIM_READY_KIND`](#node_level5_product_support_85_claim_ready_kind)
+- [`NODE_LEVEL5_PRODUCT_SUPPORT_85_CLAIM_READY_VERSION`](#node_level5_product_support_85_claim_ready_version)
+- [`evaluateNodeLevel5ProductSupport85ClaimReady`](#evaluatenodelevel5productsupport85claimready)
 - [`NodeLevel5ProductSupport85ReadinessGateStatus`](#nodelevel5productsupport85readinessgatestatus)
 - [`NodeLevel5ProductSupport85ReadinessGateId`](#nodelevel5productsupport85readinessgateid)
 - [`NodeLevel5ProductSupport85ReadinessGate`](#nodelevel5productsupport85readinessgate)
@@ -199,6 +206,7 @@
 - [`NODE_LEVEL5_PRODUCT_SUPPORT_85_READINESS_KIND`](#node_level5_product_support_85_readiness_kind)
 - [`NODE_LEVEL5_PRODUCT_SUPPORT_85_READINESS_VERSION`](#node_level5_product_support_85_readiness_version)
 - [`evaluateNodeLevel5ProductSupport85Readiness`](#evaluatenodelevel5productsupport85readiness)
+- [`loadNodeLevel5ProductSupport85ReadinessReport`](#loadnodelevel5productsupport85readinessreport)
 - [`NodeLevel5AppSupportBoundary`](#nodelevel5appsupportboundary)
 - [`NodeLevel5AppSupportDirection`](#nodelevel5appsupportdirection)
 - [`NodeLevel5AppSupportEvidence`](#nodelevel5appsupportevidence)
@@ -12642,7 +12650,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`message`](#message-8)
+[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`message`](#message-9)
 
 ##### migrationCompleted
 
@@ -25209,6 +25217,118 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NodeLevel5ProductSupport85ClaimReadyGateStatus
+
+> **NodeLevel5ProductSupport85ClaimReadyGateStatus** = `"passed"` \| `"blocked"`
+
+***
+
+### NodeLevel5ProductSupport85ClaimReadyGateId
+
+> **NodeLevel5ProductSupport85ClaimReadyGateId** = `"readiness-report-shape"` \| `"candidate-evidence-complete"` \| `"only-claim-unlock-blocked"` \| `"matrix-counts-stable"` \| `"claim-values-current"` \| `"candidate-target-present"` \| `"arbitrary-process-remains-zero"` \| `"claim-change-unlocked"`
+
+***
+
+### NodeLevel5ProductSupport85ClaimReadyGate
+
+> **NodeLevel5ProductSupport85ClaimReadyGate** = `object`
+
+#### Properties
+
+##### id
+
+> **id**: [`NodeLevel5ProductSupport85ClaimReadyGateId`](#nodelevel5productsupport85claimreadygateid)
+
+##### status
+
+> **status**: [`NodeLevel5ProductSupport85ClaimReadyGateStatus`](#nodelevel5productsupport85claimreadygatestatus)
+
+##### message
+
+> **message**: `string`
+
+***
+
+### NodeLevel5ProductSupport85ClaimReadyReport
+
+> **NodeLevel5ProductSupport85ClaimReadyReport** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_PRODUCT_SUPPORT_85_CLAIM_READY_KIND`](#node_level5_product_support_85_claim_ready_kind)
+
+##### version
+
+> **version**: *typeof* [`NODE_LEVEL5_PRODUCT_SUPPORT_85_CLAIM_READY_VERSION`](#node_level5_product_support_85_claim_ready_version)
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### claimReadyEvidenceAccepted
+
+> **claimReadyEvidenceAccepted**: `boolean`
+
+##### claimChangeAllowed
+
+> **claimChangeAllowed**: `false`
+
+##### currentNodeProductSupportClaimed
+
+> **currentNodeProductSupportClaimed**: `80`
+
+##### currentBroadNodeProductSupportClaimed
+
+> **currentBroadNodeProductSupportClaimed**: `20`
+
+##### currentArbitraryProcessCrossArchRestoreClaimed
+
+> **currentArbitraryProcessCrossArchRestoreClaimed**: `0`
+
+##### candidateNodeProductSupportClaimed
+
+> **candidateNodeProductSupportClaimed**: `85`
+
+##### candidateBroadNodeProductSupportClaimed
+
+> **candidateBroadNodeProductSupportClaimed**: `25`
+
+##### candidateArbitraryProcessCrossArchRestoreClaimed
+
+> **candidateArbitraryProcessCrossArchRestoreClaimed**: `0`
+
+##### matrixCounts
+
+> **matrixCounts**: `object`
+
+###### total
+
+> **total**: `114`
+
+###### supported
+
+> **supported**: `68`
+
+###### refused
+
+> **refused**: `42`
+
+###### notProven
+
+> **notProven**: `4`
+
+##### gates
+
+> **gates**: [`NodeLevel5ProductSupport85ClaimReadyGate`](#nodelevel5productsupport85claimreadygate)[]
+
+##### blockedGates
+
+> **blockedGates**: [`NodeLevel5ProductSupport85ClaimReadyGate`](#nodelevel5productsupport85claimreadygate)[]
+
+***
+
 ### NodeLevel5ProductSupport85ReadinessGateStatus
 
 > **NodeLevel5ProductSupport85ReadinessGateStatus** = `"passed"` \| `"blocked"`
@@ -27968,6 +28088,18 @@ loops; anything looser stops being a meaningful gate.
 ### nodeLevel5ProductSupport80Matrix
 
 > `const` **nodeLevel5ProductSupport80Matrix**: [`NodeLevel5ProductSupport80Matrix`](#nodelevel5productsupport80matrix)
+
+***
+
+### NODE\_LEVEL5\_PRODUCT\_SUPPORT\_85\_CLAIM\_READY\_KIND
+
+> `const` **NODE\_LEVEL5\_PRODUCT\_SUPPORT\_85\_CLAIM\_READY\_KIND**: `"machinen.node-level5-product-support-85-claim-ready"` = `"machinen.node-level5-product-support-85-claim-ready"`
+
+***
+
+### NODE\_LEVEL5\_PRODUCT\_SUPPORT\_85\_CLAIM\_READY\_VERSION
+
+> `const` **NODE\_LEVEL5\_PRODUCT\_SUPPORT\_85\_CLAIM\_READY\_VERSION**: `1` = `1`
 
 ***
 
@@ -31510,6 +31642,44 @@ available.
 #### Returns
 
 `boolean`
+
+***
+
+### evaluateNodeLevel5ProductSupport85ClaimReady()
+
+> **evaluateNodeLevel5ProductSupport85ClaimReady**(`input`): [`NodeLevel5ProductSupport85ClaimReadyReport`](#nodelevel5productsupport85claimreadyreport)
+
+#### Parameters
+
+##### input
+
+###### readinessReport
+
+[`NodeLevel5ProductSupport85ReadinessReport`](#nodelevel5productsupport85readinessreport)
+
+###### appSupportMatrix?
+
+[`NodeLevel5AppSupportMatrix`](#nodelevel5appsupportmatrix)
+
+#### Returns
+
+[`NodeLevel5ProductSupport85ClaimReadyReport`](#nodelevel5productsupport85claimreadyreport)
+
+***
+
+### loadNodeLevel5ProductSupport85ReadinessReport()
+
+> **loadNodeLevel5ProductSupport85ReadinessReport**(`path`): [`NodeLevel5ProductSupport85ReadinessReport`](#nodelevel5productsupport85readinessreport)
+
+#### Parameters
+
+##### path
+
+`string`
+
+#### Returns
+
+[`NodeLevel5ProductSupport85ReadinessReport`](#nodelevel5productsupport85readinessreport)
 
 ***
 

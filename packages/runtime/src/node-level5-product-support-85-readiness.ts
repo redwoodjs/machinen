@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 import {
   verifyNodeLevel5GenericVmCorpusReport,
   type NodeLevel5GenericVmCorpusReport,
@@ -55,6 +57,12 @@ export type NodeLevel5ProductSupport85ReadinessReport = {
   gates: NodeLevel5ProductSupport85ReadinessGate[];
   blockedGates: NodeLevel5ProductSupport85ReadinessGate[];
 };
+
+export function loadNodeLevel5ProductSupport85ReadinessReport(
+  path: string,
+): NodeLevel5ProductSupport85ReadinessReport {
+  return JSON.parse(readFileSync(path, "utf8")) as NodeLevel5ProductSupport85ReadinessReport;
+}
 
 export function evaluateNodeLevel5ProductSupport85Readiness(input: {
   genericVmCorpusReport: NodeLevel5GenericVmCorpusReport;

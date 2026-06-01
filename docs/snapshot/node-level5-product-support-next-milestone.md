@@ -83,8 +83,9 @@ Before changing any claim constants or claim registry values:
 5. Add a VM smoke that boots a Node workload, snapshots the VM with generic `--out`, restores the snapshot, and verifies behavior.
 6. Keep release-gate summaries explicit about candidate evidence (`genericVmCorpus`) and retain `80 / 20 / 0` in all claim fields until the claim-change PR.
 7. Run `machinen node-level5 85-readiness --generic-vm-corpus-report <file> --generic-vm-retained-evidence-report <file> --generic-vm-row-artifacts-report <file> --generic-vm-refusal-artifacts-report <file> --json`; it must show candidate evidence accepted and only the final `claim-change-unlocked` gate blocked before the claim PR.
-8. Run format, lint, docs build, typecheck, Vitest, focused Node Level 5 smokes, full VM smoke, and `fallow audit --changed-since origin/main`.
-9. Only then update claim values to `85 / 25 / 0`.
+8. Run `machinen node-level5 85-claim-ready --readiness-report <file> --json`; it must show the matrix counts are stable, the candidate 85 / 25 / 0 target is present, arbitrary process support remains 0, and only the final `claim-change-unlocked` gate is blocked.
+9. Run format, lint, docs build, typecheck, Vitest, focused Node Level 5 smokes, full VM smoke, and `fallow audit --changed-since origin/main`.
+10. Only then update claim values to `85 / 25 / 0`.
 
 ## Non-goals
 
