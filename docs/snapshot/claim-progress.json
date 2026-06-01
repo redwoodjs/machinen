@@ -1,12 +1,14 @@
 {
   "kind": "machinen.claim-progress-dashboard",
-  "version": 4,
+  "version": 5,
   "updatedFrom": [
     "docs/snapshot/node-level5-product-support-claim-registry.json",
     "docs/snapshot/node-level5-product-support-100.json",
     "docs/snapshot/arbitrary-process-level5-seed-matrix.json",
-    "proof/claims/arbitrary-process-0-seed-1-locked/regular-file-fd-proof.md",
-    "proof/claims/README.md"
+    "proofs/arbitrary-linux-binaries/0-seed-1-locked/regular-file-fd-proof.md",
+    "proofs/README.md",
+    "proofs/generic-linux-service/not-started/claim.json",
+    "proofs/linux-vm-workload/not-started/claim.json"
   ],
   "currentProductPath": "machinen snapshot <vm-name> --out <dir>; machinen restore <dir>",
   "columns": {
@@ -114,6 +116,227 @@
         "node-level5-product-support-100.md",
         "node-level5-product-support-next-milestone.md"
       ]
+    },
+    {
+      "id": "postgres",
+      "name": "Postgres portable restore",
+      "family": "database",
+      "runtime": "postgresql",
+      "status": "product-track-existing",
+      "stage": "existing product track; claim ladder needed",
+      "scope": "Clean, idle logical Postgres restore track; not physical data-dir cross-ISA restore.",
+      "productPath": "machinen capture postgres ...; machinen restore <bundle> --target-arch <arch>",
+      "currentClaim": {
+        "productSupport": null,
+        "broadSupport": null,
+        "arbitraryProcessCrossArchRestore": 0
+      },
+      "nextClaim": {
+        "productSupport": "to-be-defined",
+        "claimChangeAllowed": false
+      },
+      "summary": "Postgres has an existing clean logical portable product track. It still needs a percent-style claim ladder before it can appear like Node in this dashboard.",
+      "claimGate": "postgres claim ladder not defined yet",
+      "claimChangeAllowed": false,
+      "evidence": [
+        "postgres-clean-quiesced-logical-v1",
+        "logical dump integrity",
+        "target verifier output"
+      ],
+      "evidenceRows": [
+        {
+          "id": "postgres-clean-logical",
+          "area": "database state",
+          "kind": "logical reconstruction",
+          "status": "implemented-product-support",
+          "evidence": "Clean logical dump with source/target verifier output",
+          "gate": "portable postgres restore verifier",
+          "artifact": "portable-product.json",
+          "next": "Turn existing support into a percent-style claim ladder."
+        },
+        {
+          "id": "postgres-integrity",
+          "area": "data integrity",
+          "kind": "verifier",
+          "status": "implemented-product-support",
+          "evidence": "Logical dump sha and verifier output comparison",
+          "gate": "postgres logical dump integrity",
+          "artifact": "postgres.logical.dump",
+          "next": "Retain standardized verifier artifacts per claim row."
+        }
+      ],
+      "refusals": [
+        "active transactions",
+        "active sessions",
+        "dirty WAL boundary",
+        "ambiguous host-mounted data dir",
+        "physical data-dir cross-ISA copy"
+      ],
+      "refusalRows": [
+        {
+          "boundary": "active transactions / sessions",
+          "status": "refused",
+          "reason": "The supported Postgres path is clean and idle logical reconstruction.",
+          "neededToReduce": "Transaction/session drain or database-level captured-state proof."
+        },
+        {
+          "boundary": "dirty WAL boundary",
+          "status": "refused",
+          "reason": "Dirty WAL is physical engine state, not portable logical state.",
+          "neededToReduce": "Proven logical consistency point and target verifier."
+        },
+        {
+          "boundary": "physical data-dir cross-ISA copy",
+          "status": "refused",
+          "reason": "Physical storage is not a cross-architecture product claim.",
+          "neededToReduce": "Keep using logical reconstruction; do not promote physical copy."
+        }
+      ],
+      "nextSteps": [
+        {
+          "priority": 1,
+          "item": "Create Postgres claim ladder and dashboard rows from existing product-portable implementation.",
+          "gate": "postgres claim-ready report"
+        },
+        {
+          "priority": 2,
+          "item": "Add retained source/target verifier artifacts to each claim row.",
+          "gate": "artifact sha verification"
+        }
+      ],
+      "docs": ["product-portable-postgres.ts"]
+    },
+    {
+      "id": "bun",
+      "name": "Bun service restore",
+      "family": "runtime-service",
+      "runtime": "bun",
+      "status": "not-started",
+      "stage": "track seed needed",
+      "scope": "No Bun product support claim yet.",
+      "productPath": "future: machinen snapshot <vm-name> --out <dir>; machinen restore <dir>",
+      "currentClaim": {
+        "productSupport": 0,
+        "broadSupport": 0,
+        "arbitraryProcessCrossArchRestore": 0
+      },
+      "nextClaim": {
+        "productSupport": "seed-matrix-needed",
+        "claimChangeAllowed": false
+      },
+      "summary": "Bun needs a seed matrix, product-path detector evidence, retained artifacts, and refusal boundaries before any support claim.",
+      "claimGate": "bun seed matrix required",
+      "claimChangeAllowed": false,
+      "evidence": [],
+      "evidenceRows": [
+        {
+          "id": "bun-seed-matrix",
+          "area": "planning",
+          "kind": "missing seed matrix",
+          "status": "not-started",
+          "evidence": "No retained Bun evidence rows yet",
+          "gate": "bun seed matrix",
+          "artifact": "not-created",
+          "next": "Define safe Bun service subset and explicit refusal boundaries."
+        }
+      ],
+      "refusals": [
+        "native/JIT runtime state until proven",
+        "active sockets",
+        "workers",
+        "native addons/plugins",
+        "arbitrary Bun apps"
+      ],
+      "refusalRows": [
+        {
+          "boundary": "native/JIT runtime state",
+          "status": "not-proven",
+          "reason": "No Bun runtime-state translation evidence exists yet.",
+          "neededToReduce": "Bun-specific target-native reconstruction proof."
+        },
+        {
+          "boundary": "workers / active sockets / plugins",
+          "status": "not-proven",
+          "reason": "No safe subset or refusal matrix exists yet.",
+          "neededToReduce": "Seed matrix plus product claim-ready gate."
+        }
+      ],
+      "nextSteps": [
+        {
+          "priority": 1,
+          "item": "Create Bun seed matrix with evidence, refusal, and not-proven rows.",
+          "gate": "bun seed matrix accepted"
+        },
+        {
+          "priority": 2,
+          "item": "Add VM-first Bun product-path detector and retained artifacts.",
+          "gate": "bun product evidence report"
+        }
+      ],
+      "docs": []
+    },
+    {
+      "id": "generic-linux-service",
+      "name": "Generic Linux service workload",
+      "family": "linux-service",
+      "runtime": "native/service",
+      "status": "not-started",
+      "stage": "seed matrix needed",
+      "scope": "Non-runtime-specific Linux services such as nginx, redis-like daemons, cron-style workers, and static binary services.",
+      "productPath": "future: machinen snapshot <vm-name> --out <dir>; machinen restore <dir>",
+      "currentClaim": {
+        "productSupport": 0,
+        "broadSupport": 0,
+        "arbitraryProcessCrossArchRestore": 0
+      },
+      "nextClaim": {
+        "productSupport": "seed-matrix-needed",
+        "claimChangeAllowed": false
+      },
+      "summary": "Generic Linux services need service-manifest evidence, filesystem/resource reconstruction, and explicit refusals before any claim.",
+      "claimGate": "generic linux service seed matrix required",
+      "claimChangeAllowed": false,
+      "evidence": [],
+      "evidenceRows": [
+        {
+          "id": "generic-linux-service-seed-matrix",
+          "area": "planning",
+          "kind": "missing seed matrix",
+          "status": "not-started",
+          "evidence": "No retained generic Linux service evidence rows yet",
+          "gate": "generic service seed matrix",
+          "artifact": "not-created",
+          "next": "Define nginx/static-binary/worker seed rows with VM-first product UX."
+        }
+      ],
+      "refusals": [
+        "raw CPU restore",
+        "source ISA emulation",
+        "opaque service internals",
+        "active sockets until proven",
+        "device/kernel state"
+      ],
+      "refusalRows": [
+        {
+          "boundary": "opaque service internals / active kernel state",
+          "status": "not-proven",
+          "reason": "No generic service target-native reconstruction gate exists yet.",
+          "neededToReduce": "Service manifest, captured resources, and target verifier artifacts."
+        }
+      ],
+      "nextSteps": [
+        {
+          "priority": 1,
+          "item": "Create generic Linux service seed matrix.",
+          "gate": "generic-linux-service seed matrix accepted"
+        },
+        {
+          "priority": 2,
+          "item": "Add first static binary or nginx-style workload proof.",
+          "gate": "service behavior verifier"
+        }
+      ],
+      "docs": []
     },
     {
       "id": "arbitrary-process",
@@ -291,106 +514,17 @@
       "docs": [
         "arbitrary-process-level5-seed-matrix.md",
         "level4-ping-socket-product.md",
-        "proof/claims/arbitrary-process-0-seed-1-locked/regular-file-fd-proof.md"
+        "proofs/arbitrary-linux-binaries/0-seed-1-locked/regular-file-fd-proof.md"
       ]
     },
     {
-      "id": "postgres",
-      "name": "Postgres portable restore",
-      "family": "database",
-      "runtime": "postgresql",
-      "status": "product-track-existing",
-      "stage": "existing product track; claim ladder needed",
-      "scope": "Clean, idle logical Postgres restore track; not physical data-dir cross-ISA restore.",
-      "productPath": "machinen capture postgres ...; machinen restore <bundle> --target-arch <arch>",
-      "currentClaim": {
-        "productSupport": null,
-        "broadSupport": null,
-        "arbitraryProcessCrossArchRestore": 0
-      },
-      "nextClaim": {
-        "productSupport": "to-be-defined",
-        "claimChangeAllowed": false
-      },
-      "summary": "Postgres has an existing clean logical portable product track. It still needs a percent-style claim ladder before it can appear like Node in this dashboard.",
-      "claimGate": "postgres claim ladder not defined yet",
-      "claimChangeAllowed": false,
-      "evidence": [
-        "postgres-clean-quiesced-logical-v1",
-        "logical dump integrity",
-        "target verifier output"
-      ],
-      "evidenceRows": [
-        {
-          "id": "postgres-clean-logical",
-          "area": "database state",
-          "kind": "logical reconstruction",
-          "status": "implemented-product-support",
-          "evidence": "Clean logical dump with source/target verifier output",
-          "gate": "portable postgres restore verifier",
-          "artifact": "portable-product.json",
-          "next": "Turn existing support into a percent-style claim ladder."
-        },
-        {
-          "id": "postgres-integrity",
-          "area": "data integrity",
-          "kind": "verifier",
-          "status": "implemented-product-support",
-          "evidence": "Logical dump sha and verifier output comparison",
-          "gate": "postgres logical dump integrity",
-          "artifact": "postgres.logical.dump",
-          "next": "Retain standardized verifier artifacts per claim row."
-        }
-      ],
-      "refusals": [
-        "active transactions",
-        "active sessions",
-        "dirty WAL boundary",
-        "ambiguous host-mounted data dir",
-        "physical data-dir cross-ISA copy"
-      ],
-      "refusalRows": [
-        {
-          "boundary": "active transactions / sessions",
-          "status": "refused",
-          "reason": "The supported Postgres path is clean and idle logical reconstruction.",
-          "neededToReduce": "Transaction/session drain or database-level captured-state proof."
-        },
-        {
-          "boundary": "dirty WAL boundary",
-          "status": "refused",
-          "reason": "Dirty WAL is physical engine state, not portable logical state.",
-          "neededToReduce": "Proven logical consistency point and target verifier."
-        },
-        {
-          "boundary": "physical data-dir cross-ISA copy",
-          "status": "refused",
-          "reason": "Physical storage is not a cross-architecture product claim.",
-          "neededToReduce": "Keep using logical reconstruction; do not promote physical copy."
-        }
-      ],
-      "nextSteps": [
-        {
-          "priority": 1,
-          "item": "Create Postgres claim ladder and dashboard rows from existing product-portable implementation.",
-          "gate": "postgres claim-ready report"
-        },
-        {
-          "priority": 2,
-          "item": "Add retained source/target verifier artifacts to each claim row.",
-          "gate": "artifact sha verification"
-        }
-      ],
-      "docs": ["product-portable-postgres.ts"]
-    },
-    {
-      "id": "bun",
-      "name": "Bun service restore",
-      "family": "runtime-service",
-      "runtime": "bun",
+      "id": "whole-linux-vm-workload",
+      "name": "Whole Linux VM workload portability",
+      "family": "vm-workload",
+      "runtime": "linux-vm",
       "status": "not-started",
-      "stage": "track seed needed",
-      "scope": "No Bun product support claim yet.",
+      "stage": "claim boundary needed",
+      "scope": "Workload-level VM portability by reconstruction, not raw cross-architecture CPU/device VM restore.",
       "productPath": "future: machinen snapshot <vm-name> --out <dir>; machinen restore <dir>",
       "currentClaim": {
         "productSupport": 0,
@@ -398,56 +532,50 @@
         "arbitraryProcessCrossArchRestore": 0
       },
       "nextClaim": {
-        "productSupport": "seed-matrix-needed",
+        "productSupport": "workload-seed-needed",
         "claimChangeAllowed": false
       },
-      "summary": "Bun needs a seed matrix, product-path detector evidence, retained artifacts, and refusal boundaries before any support claim.",
-      "claimGate": "bun seed matrix required",
+      "summary": "Whole-VM workload movement needs filesystem, service, network/resource, and process-state reconstruction gates. Raw CPU/device VM restore remains refused cross-architecture.",
+      "claimGate": "whole VM workload claim boundary required",
       "claimChangeAllowed": false,
       "evidence": [],
       "evidenceRows": [
         {
-          "id": "bun-seed-matrix",
+          "id": "vm-workload-boundary",
           "area": "planning",
-          "kind": "missing seed matrix",
+          "kind": "missing claim boundary",
           "status": "not-started",
-          "evidence": "No retained Bun evidence rows yet",
-          "gate": "bun seed matrix",
+          "evidence": "No retained whole-VM workload proof rows yet",
+          "gate": "vm workload boundary matrix",
           "artifact": "not-created",
-          "next": "Define safe Bun service subset and explicit refusal boundaries."
+          "next": "Define workload-level restore success separately from raw VM snapshot portability."
         }
       ],
       "refusals": [
-        "native/JIT runtime state until proven",
-        "active sockets",
-        "workers",
-        "native addons/plugins",
-        "arbitrary Bun apps"
+        "raw cross-arch CPU restore",
+        "raw device state restore",
+        "opaque kernel state",
+        "active arbitrary processes",
+        "untranslated memory/register state"
       ],
       "refusalRows": [
         {
-          "boundary": "native/JIT runtime state",
-          "status": "not-proven",
-          "reason": "No Bun runtime-state translation evidence exists yet.",
-          "neededToReduce": "Bun-specific target-native reconstruction proof."
-        },
-        {
-          "boundary": "workers / active sockets / plugins",
-          "status": "not-proven",
-          "reason": "No safe subset or refusal matrix exists yet.",
-          "neededToReduce": "Seed matrix plus product claim-ready gate."
+          "boundary": "raw cross-architecture VM CPU/device restore",
+          "status": "forbidden",
+          "reason": "Product path must use target-native reconstruction/translation, not raw source VM state.",
+          "neededToReduce": "Not reducible for this product path; prove workload-level reconstruction instead."
         }
       ],
       "nextSteps": [
         {
           "priority": 1,
-          "item": "Create Bun seed matrix with evidence, refusal, and not-proven rows.",
-          "gate": "bun seed matrix accepted"
+          "item": "Create whole-VM workload claim boundary matrix.",
+          "gate": "vm workload boundary accepted"
         },
         {
           "priority": 2,
-          "item": "Add VM-first Bun product-path detector and retained artifacts.",
-          "gate": "bun product evidence report"
+          "item": "Connect filesystem/service/resource/process tracks to VM workload proof groups.",
+          "gate": "cross-track workload verifier"
         }
       ],
       "docs": []
@@ -495,7 +623,91 @@
           "next": "Preserve the product path for future runtimes."
         }
       ],
-      "proofDirectory": "proof/claims/node-service-100-100-0"
+      "proofDirectory": "proofs/nodejs/100-100-0"
+    },
+    {
+      "id": "postgres-logical-product-track",
+      "claim": "Postgres clean logical product track",
+      "trackId": "postgres",
+      "status": "product-track-existing",
+      "scope": "Clean, idle logical Postgres reconstruction; percent claim ladder not defined yet.",
+      "claimNumbers": {
+        "productSupport": "to-be-defined",
+        "broadSupport": null,
+        "arbitraryProcessCrossArchRestore": 0
+      },
+      "promotionEffect": "Needs Postgres-specific claim ladder and retained verifier artifacts before a percent-style claim.",
+      "proofs": [
+        {
+          "id": "postgres-clean-logical",
+          "category": "database state",
+          "status": "implemented-product-support",
+          "artifact": "portable-product.json",
+          "proves": "logical dump and target verifier based reconstruction",
+          "claimUse": "existing product track evidence",
+          "next": "Convert to Postgres claim ladder."
+        },
+        {
+          "id": "postgres-refusals",
+          "category": "refusals",
+          "status": "refused",
+          "artifact": "product-portable-postgres.ts",
+          "proves": "active transactions, dirty WAL, and physical data-dir cross-ISA copy are refused",
+          "claimUse": "bounds Postgres support",
+          "next": "Add dashboard-visible Postgres artifacts."
+        }
+      ],
+      "proofDirectory": "proofs/postgres/logical-product-track"
+    },
+    {
+      "id": "bun-not-started",
+      "claim": "Bun service support not started",
+      "trackId": "bun",
+      "status": "not-started",
+      "scope": "No Bun support claim or seed matrix yet.",
+      "claimNumbers": {
+        "productSupport": 0,
+        "broadSupport": 0,
+        "arbitraryProcessCrossArchRestore": 0
+      },
+      "promotionEffect": "Requires Bun seed matrix before any proof can affect support.",
+      "proofs": [
+        {
+          "id": "bun-seed-matrix-needed",
+          "category": "planning",
+          "status": "not-started",
+          "artifact": "not-created",
+          "proves": "No Bun evidence exists yet",
+          "claimUse": "blocks Bun claim",
+          "next": "Create Bun seed matrix and refusal rows."
+        }
+      ],
+      "proofDirectory": "proofs/bun/not-started"
+    },
+    {
+      "id": "generic-linux-service-not-started",
+      "claim": "Generic Linux service support not started",
+      "trackId": "generic-linux-service",
+      "status": "not-started",
+      "scope": "No generic Linux service support claim or seed matrix yet.",
+      "claimNumbers": {
+        "productSupport": 0,
+        "broadSupport": 0,
+        "arbitraryProcessCrossArchRestore": 0
+      },
+      "promotionEffect": "Requires generic service seed matrix before any proof can affect support.",
+      "proofDirectory": "proofs/generic-linux-service/not-started",
+      "proofs": [
+        {
+          "id": "generic-linux-service-seed-matrix-needed",
+          "category": "planning",
+          "status": "not-started",
+          "artifact": "not-created",
+          "proves": "No generic Linux service evidence exists yet",
+          "claimUse": "blocks generic service claim",
+          "next": "Create service seed matrix and refusal rows."
+        }
+      ]
     },
     {
       "id": "level4-ping-resource-continuation",
@@ -529,7 +741,7 @@
           "next": "Add retained verifier artifact before treating as verified seed."
         }
       ],
-      "proofDirectory": "proof/claims/level4-ping-resource-continuation"
+      "proofDirectory": "proofs/network-resources/level4-ping-resource-continuation"
     },
     {
       "id": "arbitrary-process-0-seed-1-locked",
@@ -573,66 +785,32 @@
           "next": "Only reduce boundaries with retained verifier artifacts."
         }
       ],
-      "proofDirectory": "proof/claims/arbitrary-process-0-seed-1-locked"
+      "proofDirectory": "proofs/arbitrary-linux-binaries/0-seed-1-locked"
     },
     {
-      "id": "postgres-logical-product-track",
-      "claim": "Postgres clean logical product track",
-      "trackId": "postgres",
-      "status": "product-track-existing",
-      "scope": "Clean, idle logical Postgres reconstruction; percent claim ladder not defined yet.",
-      "claimNumbers": {
-        "productSupport": "to-be-defined",
-        "broadSupport": null,
-        "arbitraryProcessCrossArchRestore": 0
-      },
-      "promotionEffect": "Needs Postgres-specific claim ladder and retained verifier artifacts before a percent-style claim.",
-      "proofs": [
-        {
-          "id": "postgres-clean-logical",
-          "category": "database state",
-          "status": "implemented-product-support",
-          "artifact": "portable-product.json",
-          "proves": "logical dump and target verifier based reconstruction",
-          "claimUse": "existing product track evidence",
-          "next": "Convert to Postgres claim ladder."
-        },
-        {
-          "id": "postgres-refusals",
-          "category": "refusals",
-          "status": "refused",
-          "artifact": "product-portable-postgres.ts",
-          "proves": "active transactions, dirty WAL, and physical data-dir cross-ISA copy are refused",
-          "claimUse": "bounds Postgres support",
-          "next": "Add dashboard-visible Postgres artifacts."
-        }
-      ],
-      "proofDirectory": "proof/claims/postgres-logical-product-track"
-    },
-    {
-      "id": "bun-not-started",
-      "claim": "Bun service support not started",
-      "trackId": "bun",
+      "id": "whole-linux-vm-workload-not-started",
+      "claim": "Whole Linux VM workload portability not started",
+      "trackId": "whole-linux-vm-workload",
       "status": "not-started",
-      "scope": "No Bun support claim or seed matrix yet.",
+      "scope": "No whole-VM workload reconstruction claim yet; raw cross-architecture CPU/device VM restore remains refused.",
       "claimNumbers": {
         "productSupport": 0,
         "broadSupport": 0,
         "arbitraryProcessCrossArchRestore": 0
       },
-      "promotionEffect": "Requires Bun seed matrix before any proof can affect support.",
+      "promotionEffect": "Requires workload-level reconstruction boundary and verifier gates.",
+      "proofDirectory": "proofs/linux-vm-workload/not-started",
       "proofs": [
         {
-          "id": "bun-seed-matrix-needed",
+          "id": "vm-workload-boundary-needed",
           "category": "planning",
           "status": "not-started",
           "artifact": "not-created",
-          "proves": "No Bun evidence exists yet",
-          "claimUse": "blocks Bun claim",
-          "next": "Create Bun seed matrix and refusal rows."
+          "proves": "No VM workload boundary matrix exists yet",
+          "claimUse": "blocks VM workload claim",
+          "next": "Define workload-level success and raw VM-state refusals."
         }
-      ],
-      "proofDirectory": "proof/claims/bun-not-started"
+      ]
     }
   ]
 }

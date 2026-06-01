@@ -1,0 +1,31 @@
+{
+  "kind": "machinen.node-level5-readiness-proof-summary",
+  "proof": "186",
+  "title": "V8 pending microtasks are refused before target start",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "gateId": "v8-pending-microtasks",
+  "gate": {
+    "productSupportClaimed": false,
+    "broadProductSupportClaimed": false,
+    "status": "refused",
+    "targetStarted": false,
+    "sourceIsaEmulationUsed": false,
+    "rawCpuRestoreUsed": false,
+    "id": "v8-pending-microtasks",
+    "family": "broad-proof",
+    "title": "V8 pending microtasks are refused before target start",
+    "artifact": "proofs/186/checked-summary.json",
+    "refusalCode": "node-level5-v8-pending-microtasks-refused"
+  },
+  "readiness": {
+    "broadNodeProofReadiness": 100
+  },
+  "assertions": {
+    "refusedBeforeTargetStart": true,
+    "rawCpuRestoreNotUsed": true,
+    "sourceIsaEmulationNotUsed": true,
+    "broadProductSupportNotClaimed": true
+  }
+}

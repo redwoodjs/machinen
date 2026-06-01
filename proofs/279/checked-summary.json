@@ -1,0 +1,33 @@
+{
+  "kind": "machinen.node-level5-product-support-65-proof-summary",
+  "proof": "279",
+  "goal": "TLS boundary policy contract",
+  "result": "Exact supported/unsupported boundary.",
+  "status": "experimental-node-product-support-65",
+  "nodeProductSupportClaimed": 65,
+  "nodeProductSupportScope": "fourteen-service-and-boundary-families",
+  "previousNodeProductSupportClaimed": 50,
+  "newNodeProductSupportClaimed": 15,
+  "broadNodeProductSupportClaimed": 5,
+  "broadNodeProductSupportScope": "selected-hard-facility-boundaries",
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "family": {
+    "id": "tls-boundary-policy",
+    "title": "TLS boundary policy",
+    "included": [
+      "clear refusal of live TLS state",
+      "target-native TCP fallback boundary",
+      "retained refusal artifacts"
+    ],
+    "excluded": ["full TLS session migration", "in-flight encrypted records"],
+    "contractArtifact": "proofs/279/checked-summary.json",
+    "e2eArtifact": "proofs/280/checked-summary.json",
+    "coveragePercent": 5,
+    "status": "experimental-supported",
+    "directions": ["arm64-to-amd64", "amd64-to-arm64"],
+    "targetNativeVerified": true,
+    "productSupportClaimed": true,
+    "broadNodeFacilityAddressed": true,
+    "broadNodeProductSupportClaimed": false
+  }
+}

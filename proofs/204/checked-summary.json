@@ -1,0 +1,30 @@
+{
+  "kind": "machinen.node-level5-readiness-proof-summary",
+  "proof": "204",
+  "title": "readonly file I/O app corpus lane",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "gateId": "readonly-file-service",
+  "gate": {
+    "productSupportClaimed": false,
+    "broadProductSupportClaimed": false,
+    "id": "readonly-file-service",
+    "family": "broad-proof",
+    "title": "readonly file I/O app corpus lane",
+    "status": "passed",
+    "artifact": "proofs/204/checked-summary.json",
+    "appFamily": "readonly-file-io",
+    "direction": "both",
+    "repeatabilityRuns": 10
+  },
+  "readiness": {
+    "broadNodeProofReadiness": 100
+  },
+  "assertions": {
+    "appCorpusGateCovered": true,
+    "bidirectionalLaneCovered": true,
+    "repeatabilityAtLeastTenRuns": true,
+    "broadProductSupportNotClaimed": true
+  }
+}

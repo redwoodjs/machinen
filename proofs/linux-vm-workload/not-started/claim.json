@@ -1,0 +1,25 @@
+{
+  "id": "whole-linux-vm-workload-not-started",
+  "claim": "Whole Linux VM workload portability not started",
+  "trackId": "whole-linux-vm-workload",
+  "status": "not-started",
+  "scope": "No whole-VM workload reconstruction claim yet; raw cross-architecture CPU/device VM restore remains refused.",
+  "claimNumbers": {
+    "productSupport": 0,
+    "broadSupport": 0,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "promotionEffect": "Requires workload-level reconstruction boundary and verifier gates.",
+  "proofDirectory": "proofs/linux-vm-workload/not-started",
+  "proofs": [
+    {
+      "id": "vm-workload-boundary-needed",
+      "category": "planning",
+      "status": "not-started",
+      "artifact": "not-created",
+      "proves": "No VM workload boundary matrix exists yet",
+      "claimUse": "blocks VM workload claim",
+      "next": "Define workload-level success and raw VM-state refusals."
+    }
+  ]
+}

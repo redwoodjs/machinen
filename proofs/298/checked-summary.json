@@ -1,0 +1,79 @@
+{
+  "kind": "machinen.node-level5-product-support-80-proof-summary",
+  "proof": "298",
+  "goal": "Streams/files mixed app family",
+  "result": "Adds 5%.",
+  "status": "experimental-node-product-support-80",
+  "nodeProductSupportClaimed": 80,
+  "nodeProductSupportScope": "seventeen-service-app-and-boundary-families",
+  "previousNodeProductSupportClaimed": 65,
+  "newNodeProductSupportClaimed": 15,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "family": {
+    "id": "streams-files-mixed-app",
+    "title": "Streams/files mixed app family",
+    "included": ["idle streams", "readonly files", "stable pipe boundaries"],
+    "excluded": ["active stream callbacks", "dirty writable file state", "filesystem watchers"],
+    "contractArtifact": "proofs/298/checked-summary.json",
+    "e2eArtifact": "proofs/298/checked-summary.json",
+    "coveragePercent": 5,
+    "status": "experimental-supported",
+    "directions": ["arm64-to-amd64", "amd64-to-arm64"],
+    "realVmCrossArchEvidence": [
+      {
+        "familyId": "streams-files-mixed-app",
+        "direction": "arm64-to-amd64",
+        "substrate": "machinen-real-vm-cross-arch",
+        "artifactBundle": "proofs/291/artifacts/streams-files-mixed-app/arm64-to-amd64",
+        "manifestVerified": true,
+        "captureSummaryVerified": true,
+        "restoreSummaryVerified": true,
+        "targetLogsVerified": true,
+        "targetNativeNodeVerified": true,
+        "behavioralVerifierPassed": true,
+        "rawCpuRestoreUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "metadataOnlySuccessAccepted": false
+      },
+      {
+        "familyId": "streams-files-mixed-app",
+        "direction": "amd64-to-arm64",
+        "substrate": "machinen-real-vm-cross-arch",
+        "artifactBundle": "proofs/291/artifacts/streams-files-mixed-app/amd64-to-arm64",
+        "manifestVerified": true,
+        "captureSummaryVerified": true,
+        "restoreSummaryVerified": true,
+        "targetLogsVerified": true,
+        "targetNativeNodeVerified": true,
+        "behavioralVerifierPassed": true,
+        "rawCpuRestoreUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "metadataOnlySuccessAccepted": false
+      }
+    ],
+    "targetNativeVerified": true,
+    "productSupportClaimed": true,
+    "broadNodeFacilityAddressed": true
+  },
+  "e2e": {
+    "familyId": "streams-files-mixed-app",
+    "coverageAdded": 5,
+    "lanes": [
+      {
+        "sourceArch": "arm64",
+        "targetArch": "amd64",
+        "captureAccepted": true,
+        "restoreAccepted": true,
+        "behavioralVerifierPassed": true
+      },
+      {
+        "sourceArch": "amd64",
+        "targetArch": "arm64",
+        "captureAccepted": true,
+        "restoreAccepted": true,
+        "behavioralVerifierPassed": true
+      }
+    ]
+  }
+}

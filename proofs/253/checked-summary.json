@@ -1,0 +1,27 @@
+{
+  "kind": "machinen.node-level5-product-support-50-proof-summary",
+  "proof": "253",
+  "goal": "CommonJS/ESM module cache contract",
+  "result": "Exact supported/unsupported boundary.",
+  "status": "experimental-node-product-support-50",
+  "nodeProductSupportClaimed": 50,
+  "nodeProductSupportScope": "eleven-service-families",
+  "previousNodeProductSupportClaimed": 20,
+  "newNodeProductSupportClaimed": 30,
+  "broadNodeProductSupportClaimed": 0,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "family": {
+    "id": "commonjs-esm-module-cache",
+    "title": "CommonJS and ESM module cache",
+    "included": ["stable module cache", "resolved module namespace objects"],
+    "excluded": ["dynamic loader hooks", "native addons"],
+    "contractArtifact": "proofs/253/checked-summary.json",
+    "e2eArtifact": "proofs/254/checked-summary.json",
+    "coveragePercent": 5,
+    "status": "experimental-supported",
+    "directions": ["arm64-to-amd64", "amd64-to-arm64"],
+    "targetNativeVerified": true,
+    "productSupportClaimed": true,
+    "broadNodeProductSupportClaimed": false
+  }
+}

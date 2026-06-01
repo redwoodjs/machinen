@@ -1,0 +1,25 @@
+{
+  "id": "generic-linux-service-not-started",
+  "claim": "Generic Linux service support not started",
+  "trackId": "generic-linux-service",
+  "status": "not-started",
+  "scope": "No generic Linux service support claim or seed matrix yet.",
+  "claimNumbers": {
+    "productSupport": 0,
+    "broadSupport": 0,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "promotionEffect": "Requires generic service seed matrix before any proof can affect support.",
+  "proofDirectory": "proofs/generic-linux-service/not-started",
+  "proofs": [
+    {
+      "id": "generic-linux-service-seed-matrix-needed",
+      "category": "planning",
+      "status": "not-started",
+      "artifact": "not-created",
+      "proves": "No generic Linux service evidence exists yet",
+      "claimUse": "blocks generic service claim",
+      "next": "Create service seed matrix and refusal rows."
+    }
+  ]
+}

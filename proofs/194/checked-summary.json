@@ -1,0 +1,31 @@
+{
+  "kind": "machinen.node-level5-readiness-proof-summary",
+  "proof": "194",
+  "title": "active HTTP requests are refused",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "gateId": "active-http-requests",
+  "gate": {
+    "productSupportClaimed": false,
+    "broadProductSupportClaimed": false,
+    "status": "refused",
+    "targetStarted": false,
+    "sourceIsaEmulationUsed": false,
+    "rawCpuRestoreUsed": false,
+    "id": "active-http-requests",
+    "family": "broad-proof",
+    "title": "active HTTP requests are refused",
+    "artifact": "proofs/194/checked-summary.json",
+    "refusalCode": "node-level5-active-http-request-refused"
+  },
+  "readiness": {
+    "broadNodeProofReadiness": 100
+  },
+  "assertions": {
+    "refusedBeforeTargetStart": true,
+    "rawCpuRestoreNotUsed": true,
+    "sourceIsaEmulationNotUsed": true,
+    "broadProductSupportNotClaimed": true
+  }
+}

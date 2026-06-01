@@ -1,0 +1,30 @@
+{
+  "kind": "machinen.node-level5-readiness-proof-summary",
+  "proof": "205",
+  "title": "npm-style dependency graph app corpus lane",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "gateId": "dependency-graph-service",
+  "gate": {
+    "productSupportClaimed": false,
+    "broadProductSupportClaimed": false,
+    "id": "dependency-graph-service",
+    "family": "broad-proof",
+    "title": "npm-style dependency graph app corpus lane",
+    "status": "passed",
+    "artifact": "proofs/205/checked-summary.json",
+    "appFamily": "dependency-graph-idle",
+    "direction": "both",
+    "repeatabilityRuns": 10
+  },
+  "readiness": {
+    "broadNodeProofReadiness": 100
+  },
+  "assertions": {
+    "appCorpusGateCovered": true,
+    "bidirectionalLaneCovered": true,
+    "repeatabilityAtLeastTenRuns": true,
+    "broadProductSupportNotClaimed": true
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "kind": "machinen.node-level5-readiness-proof-summary",
+  "proof": "202",
+  "title": "timer service app corpus lane",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "gateId": "timer-service",
+  "gate": {
+    "productSupportClaimed": false,
+    "broadProductSupportClaimed": false,
+    "id": "timer-service",
+    "family": "broad-proof",
+    "title": "timer service app corpus lane",
+    "status": "passed",
+    "artifact": "proofs/202/checked-summary.json",
+    "appFamily": "timer-service-idle",
+    "direction": "both",
+    "repeatabilityRuns": 10
+  },
+  "readiness": {
+    "broadNodeProofReadiness": 100
+  },
+  "assertions": {
+    "appCorpusGateCovered": true,
+    "bidirectionalLaneCovered": true,
+    "repeatabilityAtLeastTenRuns": true,
+    "broadProductSupportNotClaimed": true
+  }
+}

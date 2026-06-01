@@ -42,7 +42,7 @@ The matrix starts with tiny target-native reconstruction candidates:
 
 These rows are seed candidates only. They are not a public arbitrary-process support claim.
 
-The first row with an attached verifier is `native-regular-file-fd`; see `../../proof/claims/arbitrary-process-0-seed-1-locked/regular-file-fd-proof.md`. That proof verifies regular file descriptor target-native reconstruction while keeping arbitrary-process support at `0%`.
+The first row with an attached verifier is `native-regular-file-fd`; see `../../proofs/arbitrary-linux-binaries/0-seed-1-locked/regular-file-fd-proof.md`. That proof verifies regular file descriptor target-native reconstruction while keeping arbitrary-process support at `0%`.
 
 ## Refusal rows
 

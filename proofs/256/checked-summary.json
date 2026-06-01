@@ -1,0 +1,50 @@
+{
+  "kind": "machinen.node-level5-product-support-50-proof-summary",
+  "proof": "256",
+  "goal": "JSON/config/data heap graph real E2E",
+  "result": "Adds 5%.",
+  "status": "experimental-node-product-support-50",
+  "nodeProductSupportClaimed": 50,
+  "nodeProductSupportScope": "eleven-service-families",
+  "previousNodeProductSupportClaimed": 20,
+  "newNodeProductSupportClaimed": 30,
+  "broadNodeProductSupportClaimed": 0,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "family": {
+    "id": "json-config-data-heap-graph",
+    "title": "JSON, config, and data heap graph",
+    "included": ["pure data objects", "JSON-compatible graphs", "configuration snapshots"],
+    "excluded": ["external memory", "Wasm", "native bindings"],
+    "contractArtifact": "proofs/255/checked-summary.json",
+    "e2eArtifact": "proofs/256/checked-summary.json",
+    "coveragePercent": 5,
+    "status": "experimental-supported",
+    "directions": ["arm64-to-amd64", "amd64-to-arm64"],
+    "targetNativeVerified": true,
+    "productSupportClaimed": true,
+    "broadNodeProductSupportClaimed": false
+  },
+  "e2e": {
+    "familyId": "json-config-data-heap-graph",
+    "coverageAdded": 5,
+    "lanes": [
+      {
+        "sourceArch": "arm64",
+        "targetArch": "amd64",
+        "captureAccepted": true,
+        "restoreAccepted": true,
+        "targetNativeVerified": true,
+        "metadataOnlySuccessAccepted": false
+      },
+      {
+        "sourceArch": "amd64",
+        "targetArch": "arm64",
+        "captureAccepted": true,
+        "restoreAccepted": true,
+        "targetNativeVerified": true,
+        "metadataOnlySuccessAccepted": false
+      }
+    ],
+    "targetNativeVerified": true
+  }
+}

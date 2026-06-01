@@ -1,0 +1,34 @@
+{
+  "id": "postgres-logical-product-track",
+  "claim": "Postgres clean logical product track",
+  "trackId": "postgres",
+  "status": "product-track-existing",
+  "scope": "Clean, idle logical Postgres reconstruction; percent claim ladder not defined yet.",
+  "claimNumbers": {
+    "productSupport": "to-be-defined",
+    "broadSupport": null,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "promotionEffect": "Needs Postgres-specific claim ladder and retained verifier artifacts before a percent-style claim.",
+  "proofs": [
+    {
+      "id": "postgres-clean-logical",
+      "category": "database state",
+      "status": "implemented-product-support",
+      "artifact": "portable-product.json",
+      "proves": "logical dump and target verifier based reconstruction",
+      "claimUse": "existing product track evidence",
+      "next": "Convert to Postgres claim ladder."
+    },
+    {
+      "id": "postgres-refusals",
+      "category": "refusals",
+      "status": "refused",
+      "artifact": "product-portable-postgres.ts",
+      "proves": "active transactions, dirty WAL, and physical data-dir cross-ISA copy are refused",
+      "claimUse": "bounds Postgres support",
+      "next": "Add dashboard-visible Postgres artifacts."
+    }
+  ],
+  "proofDirectory": "proofs/postgres/logical-product-track"
+}

@@ -27,7 +27,7 @@ type ClaimProgressProofGroup = {
 
 type ClaimProgressDashboard = {
   kind: "machinen.claim-progress-dashboard";
-  version: 4;
+  version: 5;
   tracks: ClaimProgressTrack[];
   proofGroups: ClaimProgressProofGroup[];
 };
@@ -41,13 +41,15 @@ describe("claim progress dashboard", () => {
 
     expect(dashboard).toMatchObject({
       kind: "machinen.claim-progress-dashboard",
-      version: 4,
+      version: 5,
     });
     expect(dashboard.tracks.map((track) => track.id)).toEqual([
       "node-service",
-      "arbitrary-process",
       "postgres",
       "bun",
+      "generic-linux-service",
+      "arbitrary-process",
+      "whole-linux-vm-workload",
     ]);
     expect(dashboard.tracks.find((track) => track.id === "node-service")).toMatchObject({
       status: "claimed",
@@ -70,10 +72,12 @@ describe("claim progress dashboard", () => {
     expect(dashboard.tracks.every((track) => track.refusalRows.length > 0)).toBe(true);
     expect(dashboard.proofGroups.map((group) => group.id)).toEqual([
       "node-service-100-100-0",
-      "level4-ping-resource-continuation",
-      "arbitrary-process-0-seed-1-locked",
       "postgres-logical-product-track",
       "bun-not-started",
+      "generic-linux-service-not-started",
+      "level4-ping-resource-continuation",
+      "arbitrary-process-0-seed-1-locked",
+      "whole-linux-vm-workload-not-started",
     ]);
     expect(dashboard.proofGroups.every((group) => group.proofDirectory)).toBe(true);
     expect(

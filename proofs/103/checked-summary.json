@@ -1,0 +1,56 @@
+{
+  "kind": "machinen.node-proper-level5-real-capture-e2e-repeatability-summary",
+  "proof": "103",
+  "scope": "proof-only-harness-not-product-support",
+  "productSupportClaimed": false,
+  "broadLevel5ImplementationClaimed": false,
+  "automationLane": "pnpm exec tsx proofs/100/smoke.ts repeated twice",
+  "runCount": 2,
+  "stableDigest": "797082337dc2fe5e0615e3395d409befdac418260baa5fae9a63840d5eb4a32f",
+  "normalized": [
+    {
+      "response": {
+        "count": 3,
+        "graphTotal": 3,
+        "processArch": "amd64",
+        "targetNativeNodeUsed": true,
+        "sourceIsaEmulationUsed": false
+      },
+      "assertions": {
+        "zigGuestCaptureRan": true,
+        "nativeRecordParserRan": true,
+        "nativeByteDecoderRan": true,
+        "nativeVerifierRanBeforeTarget": true,
+        "amd64TargetReturnedNextState": true,
+        "noSourceIsaEmulation": true
+      },
+      "productSupportClaimed": false,
+      "broadLevel5ImplementationClaimed": false
+    },
+    {
+      "response": {
+        "count": 3,
+        "graphTotal": 3,
+        "processArch": "amd64",
+        "targetNativeNodeUsed": true,
+        "sourceIsaEmulationUsed": false
+      },
+      "assertions": {
+        "zigGuestCaptureRan": true,
+        "nativeRecordParserRan": true,
+        "nativeByteDecoderRan": true,
+        "nativeVerifierRanBeforeTarget": true,
+        "amd64TargetReturnedNextState": true,
+        "noSourceIsaEmulation": true
+      },
+      "productSupportClaimed": false,
+      "broadLevel5ImplementationClaimed": false
+    }
+  ],
+  "assertions": {
+    "realCaptureE2eRepeated": true,
+    "normalizedDigestsStable": true,
+    "amd64TargetReturnedNextStateBothRuns": true,
+    "noSourceIsaEmulationBothRuns": true
+  }
+}
