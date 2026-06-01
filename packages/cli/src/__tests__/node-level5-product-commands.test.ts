@@ -778,8 +778,8 @@ describe("Node Level 5 product commands", () => {
     expect(JSON.parse(seed.stdout)).toMatchObject({
       accepted: true,
       kind: "machinen.arbitrary-process-level5-seed-matrix",
-      rowCount: 13,
-      seedCandidateRows: 6,
+      rowCount: 14,
+      seedCandidateRows: 7,
       refusedRows: 6,
       notProvenRows: 1,
       currentArbitraryProcessCrossArchRestoreClaimed: 0,
@@ -788,6 +788,7 @@ describe("Node Level 5 product commands", () => {
       arbitraryProcessClaimed: false,
       rows: expect.arrayContaining([
         expect.objectContaining({ id: "tiny-native-idle-counter", status: "seed-candidate" }),
+        expect.objectContaining({ id: "native-ping-socket-resource", status: "seed-candidate" }),
         expect.objectContaining({ id: "native-threads-refused", status: "refused" }),
         expect.objectContaining({ id: "arbitrary-linux-process", status: "not-proven" }),
       ]),

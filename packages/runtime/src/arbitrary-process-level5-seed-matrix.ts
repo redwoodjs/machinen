@@ -13,6 +13,7 @@ export type ArbitraryProcessLevel5SeedStatus = "seed-candidate" | "refused" | "n
 export type ArbitraryProcessLevel5SeedEvidenceKind =
   | "target-native-reconstruction-seed"
   | "resource-translation-seed"
+  | "network-resource-translation-seed"
   | "refusal-boundary"
   | "matrix-gap";
 export type ArbitraryProcessLevel5SeedBoundary =
@@ -54,8 +55,8 @@ export type ArbitraryProcessLevel5SeedMatrix = {
   kind: typeof ARBITRARY_PROCESS_LEVEL5_SEED_MATRIX_KIND;
   version: typeof ARBITRARY_PROCESS_LEVEL5_SEED_MATRIX_VERSION;
   accepted: boolean;
-  rowCount: 13;
-  seedCandidateRows: 6;
+  rowCount: 14;
+  seedCandidateRows: 7;
   refusedRows: 6;
   notProvenRows: 1;
   rows: ArbitraryProcessLevel5SeedRow[];
@@ -81,7 +82,7 @@ export type ArbitraryProcessLevel5SeedReport = {
   version: typeof ARBITRARY_PROCESS_LEVEL5_SEED_REPORT_VERSION;
   accepted: boolean;
   matrix: ArbitraryProcessLevel5SeedMatrix;
-  artifactCount: 13;
+  artifactCount: 14;
   artifacts: ArbitraryProcessLevel5SeedArtifact[];
   artifactsSha256: string;
   refusalMarkersCovered: ArbitraryProcessLevel5RefusalMarker[];
@@ -122,8 +123,8 @@ export function buildArbitraryProcessLevel5SeedMatrix(): ArbitraryProcessLevel5S
     kind: ARBITRARY_PROCESS_LEVEL5_SEED_MATRIX_KIND,
     version: ARBITRARY_PROCESS_LEVEL5_SEED_MATRIX_VERSION,
     accepted: rows.every((row) => row.arbitraryProcessClaimed === false),
-    rowCount: 13,
-    seedCandidateRows: rows.filter((row) => row.status === "seed-candidate").length as 6,
+    rowCount: 14,
+    seedCandidateRows: rows.filter((row) => row.status === "seed-candidate").length as 7,
     refusedRows: rows.filter((row) => row.status === "refused").length as 6,
     notProvenRows: rows.filter((row) => row.status === "not-proven").length as 1,
     rows,
@@ -148,9 +149,9 @@ export function createArbitraryProcessLevel5SeedReport(input: {
     kind: ARBITRARY_PROCESS_LEVEL5_SEED_REPORT_KIND,
     version: ARBITRARY_PROCESS_LEVEL5_SEED_REPORT_VERSION,
     accepted:
-      matrix.accepted && artifacts.length === 13 && hasAllRefusalMarkers(refusalMarkersCovered),
+      matrix.accepted && artifacts.length === 14 && hasAllRefusalMarkers(refusalMarkersCovered),
     matrix,
-    artifactCount: 13,
+    artifactCount: 14,
     artifacts,
     artifactsSha256: sha256Json(artifacts),
     refusalMarkersCovered,
@@ -229,6 +230,14 @@ function seedRows(): ArbitraryProcessLevel5SeedRow[] {
       "no-device-mmap",
       "no-futex-owned-locks",
     ]),
+    baseRow(
+      "native-ping-socket-resource",
+      "seed-candidate",
+      "network-resource-translation-seed",
+      "ping/ICMP socket resource reconstruction using proven Level 4 ping evidence",
+      ["no-threads", "idle-only", "no-live-sockets"],
+      undefined,
+    ),
   ];
 }
 
@@ -339,12 +348,12 @@ function seedReportAccepted(
     report.kind === ARBITRARY_PROCESS_LEVEL5_SEED_REPORT_KIND,
     report.version === ARBITRARY_PROCESS_LEVEL5_SEED_REPORT_VERSION,
     report.accepted === true,
-    report.matrix.rowCount === 13,
-    report.matrix.seedCandidateRows === 6,
+    report.matrix.rowCount === 14,
+    report.matrix.seedCandidateRows === 7,
     report.matrix.refusedRows === 6,
     report.matrix.notProvenRows === 1,
-    report.artifactCount === 13,
-    report.artifacts.length === 13,
+    report.artifactCount === 14,
+    report.artifacts.length === 14,
     hasAllRefusalMarkers(markersCovered),
     report.claimChangeAllowed === false,
     report.currentArbitraryProcessCrossArchRestoreClaimed === 0,

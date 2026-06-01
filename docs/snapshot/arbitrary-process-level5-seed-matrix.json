@@ -9,10 +9,12 @@
   "candidate": {
     "arbitraryProcessCrossArchRestoreClaimed": 1
   },
-  "rowCount": 13,
-  "seedCandidateRows": 6,
+  "rowCount": 14,
+  "seedCandidateRows": 7,
   "refusedRows": 6,
   "notProvenRows": 1,
+  "pingSocketResourceSeedRow": true,
+  "pingSocketEvidence": "ping-level4-socket-reconstruction-v1",
   "productCommandPath": "machinen snapshot <vm-name> --out <dir>; machinen restore <dir>",
   "targetNativeReconstructionRequired": true,
   "translatedProcessStateRequired": true,

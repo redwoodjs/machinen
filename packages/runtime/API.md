@@ -21680,7 +21680,7 @@ Poll interval in ms while retrying. Default 250.
 
 ### ArbitraryProcessLevel5SeedEvidenceKind
 
-> **ArbitraryProcessLevel5SeedEvidenceKind** = `"target-native-reconstruction-seed"` \| `"resource-translation-seed"` \| `"refusal-boundary"` \| `"matrix-gap"`
+> **ArbitraryProcessLevel5SeedEvidenceKind** = `"target-native-reconstruction-seed"` \| `"resource-translation-seed"` \| `"network-resource-translation-seed"` \| `"refusal-boundary"` \| `"matrix-gap"`
 
 ***
 
@@ -21784,11 +21784,11 @@ Poll interval in ms while retrying. Default 250.
 
 ##### rowCount
 
-> **rowCount**: `13`
+> **rowCount**: `14`
 
 ##### seedCandidateRows
 
-> **seedCandidateRows**: `6`
+> **seedCandidateRows**: `7`
 
 ##### refusedRows
 
@@ -21884,7 +21884,7 @@ Poll interval in ms while retrying. Default 250.
 
 ##### artifactCount
 
-> **artifactCount**: `13`
+> **artifactCount**: `14`
 
 ##### artifacts
 

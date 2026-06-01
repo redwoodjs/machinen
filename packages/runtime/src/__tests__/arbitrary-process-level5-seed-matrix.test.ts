@@ -17,8 +17,8 @@ describe("arbitrary process Level 5 seed matrix", () => {
 
     expect(matrix).toMatchObject({
       accepted: true,
-      rowCount: 13,
-      seedCandidateRows: 6,
+      rowCount: 14,
+      seedCandidateRows: 7,
       refusedRows: 6,
       notProvenRows: 1,
       currentNodeProductSupportClaimed: 100,
@@ -31,6 +31,10 @@ describe("arbitrary process Level 5 seed matrix", () => {
     expect(matrix.rows.every((row) => row.rawCpuRestoreUsed === false)).toBe(true);
     expect(matrix.rows.every((row) => row.sourceIsaEmulationUsed === false)).toBe(true);
     expect(matrix.rows.every((row) => row.appCheckpointHooksRequired === false)).toBe(true);
+    expect(matrix.rows.find((row) => row.id === "native-ping-socket-resource")).toMatchObject({
+      status: "seed-candidate",
+      evidenceKind: "network-resource-translation-seed",
+    });
     expect(matrix.rows.find((row) => row.id === "arbitrary-linux-process")).toMatchObject({
       status: "not-proven",
       arbitraryProcessClaimed: false,
@@ -45,7 +49,7 @@ describe("arbitrary process Level 5 seed matrix", () => {
 
       expect(report).toMatchObject({
         accepted: true,
-        artifactCount: 13,
+        artifactCount: 14,
         claimChangeAllowed: false,
         currentArbitraryProcessCrossArchRestoreClaimed: 0,
         candidateArbitraryProcessCrossArchRestoreClaimed: 1,
@@ -65,7 +69,7 @@ describe("arbitrary process Level 5 seed matrix", () => {
       });
       expect(
         verifyArbitraryProcessLevel5SeedReport(loadArbitraryProcessLevel5SeedReport(path)),
-      ).toMatchObject({ accepted: true, rowCount: 13 });
+      ).toMatchObject({ accepted: true, rowCount: 14 });
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

@@ -37,7 +37,8 @@ The matrix starts with tiny target-native reconstruction candidates:
 - regular file descriptor translation;
 - simple pipe descriptor translation;
 - static/data/heap byte materialization;
-- selected syscall/resource boundary descriptors.
+- selected syscall/resource boundary descriptors;
+- ping/ICMP socket resource reconstruction using the existing Level 4 ping evidence.
 
 These rows are seed candidates only. They are not a public arbitrary-process support claim.
 
@@ -51,6 +52,8 @@ The matrix keeps unsafe process state refused:
 - live sockets;
 - device mmap;
 - active epoll.
+
+The ping row is still a seed candidate for the arbitrary-process track. It reuses proven ping socket reconstruction evidence as one native resource row, not as proof of arbitrary process restore.
 
 ## Required rules
 
