@@ -8,6 +8,7 @@ import {
 } from "../../../packages/runtime/src/arbitrary-process-level5-claim-ready.ts";
 import { createArbitraryProcessLevel5RegularFileFdProof } from "../../../packages/runtime/src/arbitrary-process-level5-regular-file-fd-proof.ts";
 import { createArbitraryProcessLevel5SeedReport } from "../../../packages/runtime/src/arbitrary-process-level5-seed-matrix.ts";
+import { createArbitraryProcessLevel5SimplePipeFdProof } from "../../../packages/runtime/src/arbitrary-process-level5-simple-pipe-fd-proof.ts";
 
 type Args = { outDir: string; json: boolean };
 
@@ -33,6 +34,9 @@ const seedReport = createArbitraryProcessLevel5SeedReport({ outDir: join(outDir,
 const regularFile = createArbitraryProcessLevel5RegularFileFdProof({
   outDir: join(outDir, "regular-file-fd"),
 });
+const simplePipe = createArbitraryProcessLevel5SimplePipeFdProof({
+  outDir: join(outDir, "simple-pipe-fd"),
+});
 const report = evaluateArbitraryProcessLevel5ClaimReady({
   seedReport,
   verifiedSeeds: [
@@ -42,6 +46,13 @@ const report = evaluateArbitraryProcessLevel5ClaimReady({
       proofStatus: regularFile.proofStatus,
       artifact: "regular-file-fd/regular-file-fd-proof-report.json",
       sha256: regularFile.artifactsSha256,
+    },
+    {
+      rowId: simplePipe.rowId,
+      accepted: simplePipe.accepted,
+      proofStatus: simplePipe.proofStatus,
+      artifact: "simple-pipe-fd/simple-pipe-fd-proof-report.json",
+      sha256: simplePipe.artifactsSha256,
     },
   ],
 });

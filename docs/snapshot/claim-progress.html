@@ -361,7 +361,7 @@
     <script id="embedded-claim-progress" type="application/json">
       {
         "kind": "machinen.claim-progress-dashboard",
-        "version": 7,
+        "version": 8,
         "updatedFrom": [
           "docs/snapshot/node-level5-product-support-claim-registry.json",
           "docs/snapshot/node-level5-product-support-100.json",
@@ -373,7 +373,9 @@
           "proofs/postgres/20-0-0/claim.json",
           "proofs/postgres/20-0-0/retained/postgres-claim-ladder-report.json",
           "packages/runtime/src/arbitrary-process-level5-claim-ready.ts",
-          "proofs/arbitrary-linux-binaries/scripts/arbitrary-process-level5-claim-ready.ts"
+          "proofs/arbitrary-linux-binaries/scripts/arbitrary-process-level5-claim-ready.ts",
+          "packages/runtime/src/arbitrary-process-level5-simple-pipe-fd-proof.ts",
+          "proofs/arbitrary-linux-binaries/scripts/arbitrary-process-level5-simple-pipe-fd-proof.ts"
         ],
         "columns": {
           "claim": ["productSupport", "broadSupport", "arbitraryProcessCrossArchRestore"],
@@ -822,6 +824,16 @@
                 "gate": "claimChangeAllowed must come only from arbitrary-process-level5-claim-ready",
                 "artifact": "arbitrary-process-claim-ready-report.json",
                 "next": "Add simple pipe and idle epoll/TCP verified seeds so this gate can become true."
+              },
+              {
+                "id": "native-simple-pipe-fd-proof",
+                "area": "file descriptors",
+                "kind": "resource translation proof",
+                "status": "verified-seed",
+                "evidence": "Simple pipe FD retained proof verifies endpoint direction, buffered bytes, EOF, and target-native pipe reconstruction",
+                "gate": "artifact sha verification plus target behavior proof",
+                "artifact": "simple-pipe-fd-proof-report.json",
+                "next": "Feed this verified seed into the arbitrary-process claim-ready gate."
               }
             ],
             "refusals": [
@@ -881,8 +893,8 @@
             "nextSteps": [
               {
                 "priority": 1,
-                "item": "Feed the claim-ready gate with retained simple pipe and idle epoll/TCP verified-seed reports.",
-                "gate": "arbitrary-process-level5-claim-ready accepted"
+                "item": "Add idle epoll and idle TCP listener safe-boundary proofs so the claim-ready gate has all required seed rows.",
+                "gate": "idle-only resource reconstruction verifier"
               },
               {
                 "priority": 2,
@@ -1239,6 +1251,26 @@
                 "proves": "Target-native reopen preserves captured file offset and read continuation",
                 "claimUse": "one verified arbitrary-process seed; no claim raise",
                 "next": "Use as pattern for simple pipe FD proof."
+              },
+              {
+                "id": "simple-pipe-fd-proof",
+                "category": "file descriptor",
+                "status": "verified-seed",
+                "artifact": "simple-pipe-fd-proof-report.json",
+                "proves": "Target-native simple pipe reconstruction preserves endpoint direction, buffered bytes, and EOF behavior",
+                "claimUse": "second verified arbitrary-process seed; no claim raise",
+                "next": "Use with regular-file-FD and idle epoll/TCP proofs in the claim-ready gate.",
+                "claimImpact": {
+                  "productSupportDelta": 0,
+                  "broadSupportDelta": 0,
+                  "arbitraryProcessCrossArchRestoreDelta": 0,
+                  "resultingClaim": {
+                    "productSupport": null,
+                    "broadSupport": null,
+                    "arbitraryProcessCrossArchRestore": 0
+                  },
+                  "claimChangeAllowed": false
+                }
               },
               {
                 "id": "unsafe-process-boundaries",

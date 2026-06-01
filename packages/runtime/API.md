@@ -221,6 +221,14 @@
 - [`writeArbitraryProcessLevel5ClaimReadyReport`](#writearbitraryprocesslevel5claimreadyreport)
 - [`loadArbitraryProcessLevel5ClaimReadyReport`](#loadarbitraryprocesslevel5claimreadyreport)
 - [`verifyArbitraryProcessLevel5ClaimReadyReport`](#verifyarbitraryprocesslevel5claimreadyreport)
+- [`ArbitraryProcessLevel5SimplePipeFdProofArtifact`](#arbitraryprocesslevel5simplepipefdproofartifact)
+- [`ArbitraryProcessLevel5SimplePipeFdProofReport`](#arbitraryprocesslevel5simplepipefdproofreport)
+- [`ARBITRARY_PROCESS_LEVEL5_SIMPLE_PIPE_FD_PROOF_KIND`](#arbitrary_process_level5_simple_pipe_fd_proof_kind)
+- [`ARBITRARY_PROCESS_LEVEL5_SIMPLE_PIPE_FD_PROOF_VERSION`](#arbitrary_process_level5_simple_pipe_fd_proof_version)
+- [`ARBITRARY_PROCESS_LEVEL5_SIMPLE_PIPE_FD_PROOF_REPORT`](#arbitrary_process_level5_simple_pipe_fd_proof_report)
+- [`createArbitraryProcessLevel5SimplePipeFdProof`](#createarbitraryprocesslevel5simplepipefdproof)
+- [`loadArbitraryProcessLevel5SimplePipeFdProofReport`](#loadarbitraryprocesslevel5simplepipefdproofreport)
+- [`verifyArbitraryProcessLevel5SimplePipeFdProofReport`](#verifyarbitraryprocesslevel5simplepipefdproofreport)
 - [`ArbitraryProcessLevel5RegularFileFdProofArtifact`](#arbitraryprocesslevel5regularfilefdproofartifact)
 - [`ArbitraryProcessLevel5RegularFileFdProofReport`](#arbitraryprocesslevel5regularfilefdproofreport)
 - [`ARBITRARY_PROCESS_LEVEL5_REGULAR_FILE_FD_PROOF_KIND`](#arbitrary_process_level5_regular_file_fd_proof_kind)
@@ -4274,7 +4282,7 @@ Pluggable for tests; defaults to [readHostTotalBytes](#readhosttotalbytes).
 
 ###### Overrides
 
-[`Level5ArtifactEnvelope`](#level5artifactenvelope).[`kind`](#kind-11)
+[`Level5ArtifactEnvelope`](#level5artifactenvelope).[`kind`](#kind-12)
 
 ##### planState
 
@@ -7675,7 +7683,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`path`](#path-2)
+[`NativeCodeModule`](#nativecodemodule).[`path`](#path-3)
 
 ##### arch?
 
@@ -7691,7 +7699,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-25)
+[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-26)
 
 ##### buildId
 
@@ -7783,7 +7791,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`path`](#path-2)
+[`NativeCodeModule`](#nativecodemodule).[`path`](#path-3)
 
 ##### arch?
 
@@ -7799,7 +7807,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-25)
+[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-26)
 
 ##### buildId
 
@@ -9594,7 +9602,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-40)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-41)
 
 ##### targetArch
 
@@ -10182,7 +10190,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-40)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-41)
 
 ##### targetArch
 
@@ -20326,7 +20334,7 @@ kicks in: `<sourceName>/<fork.pid>`.
 
 ###### Overrides
 
-[`RestoreOptions`](#restoreoptions).[`name`](#name-20)
+[`RestoreOptions`](#restoreoptions).[`name`](#name-21)
 
 ##### portForward?
 
@@ -22272,6 +22280,162 @@ Poll interval in ms while retrying. Default 250.
 ##### arbitraryProcessClaimed
 
 > **arbitraryProcessClaimed**: `false`
+
+***
+
+### ArbitraryProcessLevel5SimplePipeFdProofArtifact
+
+> **ArbitraryProcessLevel5SimplePipeFdProofArtifact** = `object`
+
+#### Properties
+
+##### name
+
+> **name**: `string`
+
+##### path
+
+> **path**: `string`
+
+##### sha256
+
+> **sha256**: `string`
+
+***
+
+### ArbitraryProcessLevel5SimplePipeFdProofReport
+
+> **ArbitraryProcessLevel5SimplePipeFdProofReport** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`ARBITRARY_PROCESS_LEVEL5_SIMPLE_PIPE_FD_PROOF_KIND`](#arbitrary_process_level5_simple_pipe_fd_proof_kind)
+
+##### version
+
+> **version**: *typeof* [`ARBITRARY_PROCESS_LEVEL5_SIMPLE_PIPE_FD_PROOF_VERSION`](#arbitrary_process_level5_simple_pipe_fd_proof_version)
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### rowId
+
+> **rowId**: `"native-simple-pipe-fd"`
+
+##### proofStatus
+
+> **proofStatus**: `"verified-seed"`
+
+##### capturedState
+
+> **capturedState**: `object`
+
+###### readFd
+
+> **readFd**: `3`
+
+###### writeFd
+
+> **writeFd**: `4`
+
+###### bufferedBytesSha256
+
+> **bufferedBytesSha256**: `string`
+
+###### writerClosed
+
+> **writerClosed**: `true`
+
+###### readerIdle
+
+> **readerIdle**: `true`
+
+##### targetReconstruction
+
+> **targetReconstruction**: `object`
+
+###### planKind
+
+> **planKind**: `"create-pipe-and-materialize-buffer"`
+
+###### readFd
+
+> **readFd**: `3`
+
+###### writeFd
+
+> **writeFd**: `4`
+
+###### endpointDirectionPreserved
+
+> **endpointDirectionPreserved**: `true`
+
+###### sidecarReplayUsed
+
+> **sidecarReplayUsed**: `false`
+
+###### rawCpuRestoreUsed
+
+> **rawCpuRestoreUsed**: `false`
+
+###### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+###### appCheckpointHooksRequired
+
+> **appCheckpointHooksRequired**: `false`
+
+###### metadataOnlySuccessAccepted
+
+> **metadataOnlySuccessAccepted**: `false`
+
+##### verifier
+
+> **verifier**: `object`
+
+###### targetReadBytesSha256Matched
+
+> **targetReadBytesSha256Matched**: `true`
+
+###### eofAfterBufferedBytes
+
+> **eofAfterBufferedBytes**: `true`
+
+###### targetNativeReconstructionRequired
+
+> **targetNativeReconstructionRequired**: `true`
+
+###### translatedProcessStateRequired
+
+> **translatedProcessStateRequired**: `true`
+
+##### claimChangeAllowed
+
+> **claimChangeAllowed**: `false`
+
+##### currentArbitraryProcessCrossArchRestoreClaimed
+
+> **currentArbitraryProcessCrossArchRestoreClaimed**: `0`
+
+##### candidateArbitraryProcessCrossArchRestoreClaimed
+
+> **candidateArbitraryProcessCrossArchRestoreClaimed**: `1`
+
+##### arbitraryProcessClaimed
+
+> **arbitraryProcessClaimed**: `false`
+
+##### artifacts
+
+> **artifacts**: [`ArbitraryProcessLevel5SimplePipeFdProofArtifact`](#arbitraryprocesslevel5simplepipefdproofartifact)[]
+
+##### artifactsSha256
+
+> **artifactsSha256**: `string`
 
 ***
 
@@ -28846,6 +29010,24 @@ tarball-producing tool can pre-populate the lookup cache.
 
 ***
 
+### ARBITRARY\_PROCESS\_LEVEL5\_SIMPLE\_PIPE\_FD\_PROOF\_KIND
+
+> `const` **ARBITRARY\_PROCESS\_LEVEL5\_SIMPLE\_PIPE\_FD\_PROOF\_KIND**: `"machinen.arbitrary-process-level5-simple-pipe-fd-proof"`
+
+***
+
+### ARBITRARY\_PROCESS\_LEVEL5\_SIMPLE\_PIPE\_FD\_PROOF\_VERSION
+
+> `const` **ARBITRARY\_PROCESS\_LEVEL5\_SIMPLE\_PIPE\_FD\_PROOF\_VERSION**: `1`
+
+***
+
+### ARBITRARY\_PROCESS\_LEVEL5\_SIMPLE\_PIPE\_FD\_PROOF\_REPORT
+
+> `const` **ARBITRARY\_PROCESS\_LEVEL5\_SIMPLE\_PIPE\_FD\_PROOF\_REPORT**: `"simple-pipe-fd-proof-report.json"`
+
+***
+
 ### ARCHITECTURE\_PORTABLE\_SNAPSHOT\_GAUNTLET\_KIND
 
 > `const` **ARCHITECTURE\_PORTABLE\_SNAPSHOT\_GAUNTLET\_KIND**: `"machinen.architecture-portable-snapshot.final-proof-gauntlet"`
@@ -31761,6 +31943,56 @@ the guest agent skips entries that don't match.
 #### Returns
 
 [`ArbitraryProcessLevel5SeedVerification`](#arbitraryprocesslevel5seedverification)
+
+***
+
+### createArbitraryProcessLevel5SimplePipeFdProof()
+
+> **createArbitraryProcessLevel5SimplePipeFdProof**(`input`): [`ArbitraryProcessLevel5SimplePipeFdProofReport`](#arbitraryprocesslevel5simplepipefdproofreport)
+
+#### Parameters
+
+##### input
+
+###### outDir
+
+`string`
+
+#### Returns
+
+[`ArbitraryProcessLevel5SimplePipeFdProofReport`](#arbitraryprocesslevel5simplepipefdproofreport)
+
+***
+
+### loadArbitraryProcessLevel5SimplePipeFdProofReport()
+
+> **loadArbitraryProcessLevel5SimplePipeFdProofReport**(`path`): [`ArbitraryProcessLevel5SimplePipeFdProofReport`](#arbitraryprocesslevel5simplepipefdproofreport)
+
+#### Parameters
+
+##### path
+
+`string`
+
+#### Returns
+
+[`ArbitraryProcessLevel5SimplePipeFdProofReport`](#arbitraryprocesslevel5simplepipefdproofreport)
+
+***
+
+### verifyArbitraryProcessLevel5SimplePipeFdProofReport()
+
+> **verifyArbitraryProcessLevel5SimplePipeFdProofReport**(`report`): [`ArbitraryProcessLevel5SimplePipeFdProofReport`](#arbitraryprocesslevel5simplepipefdproofreport)
+
+#### Parameters
+
+##### report
+
+[`ArbitraryProcessLevel5SimplePipeFdProofReport`](#arbitraryprocesslevel5simplepipefdproofreport)
+
+#### Returns
+
+[`ArbitraryProcessLevel5SimplePipeFdProofReport`](#arbitraryprocesslevel5simplepipefdproofreport)
 
 ***
 

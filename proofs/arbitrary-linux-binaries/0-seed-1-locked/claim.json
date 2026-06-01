@@ -51,6 +51,26 @@
       "next": "Use as pattern for simple pipe FD proof."
     },
     {
+      "id": "simple-pipe-fd-proof",
+      "category": "file descriptor",
+      "status": "verified-seed",
+      "artifact": "simple-pipe-fd-proof-report.json",
+      "proves": "Target-native simple pipe reconstruction preserves endpoint direction, buffered bytes, and EOF behavior",
+      "claimUse": "second verified arbitrary-process seed; no claim raise",
+      "next": "Use with regular-file-FD and idle epoll/TCP proofs in the claim-ready gate.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": null,
+          "broadSupport": null,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    },
+    {
       "id": "unsafe-process-boundaries",
       "category": "refusals",
       "status": "refused",
