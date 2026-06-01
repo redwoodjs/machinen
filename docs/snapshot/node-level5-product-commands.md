@@ -39,9 +39,13 @@ machinen node-level5 release-gate \
   --include-generic-vm-corpus \
   --generic-vm-corpus-report ./node-level5-generic-vm-corpus-report.json \
   --json
+
+machinen node-level5 85-readiness \
+  --generic-vm-corpus-report ./node-level5-generic-vm-corpus-report.json \
+  --json
 ```
 
-The generic VM corpus gate records candidate 85 / 25 / 0 evidence only and keeps `claimChangeAllowed: false`.
+The generic VM corpus gate records candidate 85 / 25 / 0 evidence only and keeps `claimChangeAllowed: false`. The 85 readiness command is expected to stay refused until the claim-change PR intentionally unlocks the final claim gate.
 
 The claim registry remains:
 

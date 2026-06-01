@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+WORK="${WORK_DIR:-$(mktemp -d "${TMPDIR:-/tmp}/machinen-node-level5-85-readiness.XXXXXX")}"
+cd "$ROOT"
+
+pnpm exec tsx scripts/node-level5-generic-vm-corpus.ts --out "$WORK" --json >"$WORK/generic-vm-summary.json"
+REPORT="$WORK/node-level5-generic-vm-corpus-report.json"
+set +e
+pnpm exec tsx packages/cli/src/cli.ts node-level5 85-readiness --generic-vm-corpus-report "$REPORT" --json >"$WORK/readiness.json"
+STATUS=$?
+set -e
+if [[ "$STATUS" -ne 1 ]]; then
+  echo "expected 85-readiness to stay locked, got status $STATUS" >&2
+  exit 1
+fi
+node -e 'const fs=require("fs"); const s=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if (s.accepted !== false || s.candidateEvidenceAccepted !== true || s.claimChangeAllowed !== false) throw new Error("85 readiness did not keep claim shift locked with accepted candidate evidence"); const blocked=s.blockedGates.map((g)=>g.id); if (blocked.length !== 1 || blocked[0] !== "claim-change-unlocked") throw new Error(`unexpected blocked gates: ${blocked.join(",")}`);' "$WORK/readiness.json"
+
+echo "node level5 85 readiness smoke passed: $WORK"

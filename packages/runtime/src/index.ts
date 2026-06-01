@@ -229,6 +229,16 @@ export {
   nodeLevel5ProductSupport80NewFamilies,
 } from "./node-level5-product-support-80.ts";
 export {
+  NODE_LEVEL5_PRODUCT_SUPPORT_85_READINESS_KIND,
+  NODE_LEVEL5_PRODUCT_SUPPORT_85_READINESS_VERSION,
+  evaluateNodeLevel5ProductSupport85Readiness,
+  type NodeLevel5ProductSupport85ReadinessGate,
+  type NodeLevel5ProductSupport85ReadinessGateId,
+  type NodeLevel5ProductSupport85ReadinessGateStatus,
+  type NodeLevel5ProductSupport85ReadinessReport,
+} from "./node-level5-product-support-85-readiness.ts";
+
+export {
   NODE_LEVEL5_PRODUCT_SUPPORT_80_ARTIFACT_BUNDLE_KIND,
   NODE_LEVEL5_PRODUCT_SUPPORT_80_HARDENING_KIND,
   assertNodeLevel5ProductSupport80HardeningComplete,

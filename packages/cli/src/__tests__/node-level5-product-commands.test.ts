@@ -249,6 +249,27 @@ describe("Node Level 5 product commands", () => {
         accepted: true,
         genericVmCorpus: { accepted: true, rowCount: 2, rowsSha256Verified: true },
       });
+
+      const readiness = runCli([
+        "node-level5",
+        "85-readiness",
+        "--generic-vm-corpus-report",
+        reportPath,
+        "--json",
+      ]);
+      expect(readiness.status).toBe(1);
+      expect(JSON.parse(readiness.stdout)).toMatchObject({
+        accepted: false,
+        candidateEvidenceAccepted: false,
+        claimChangeAllowed: false,
+        candidateNodeProductSupportClaimed: 85,
+        currentNodeProductSupportClaimed: 80,
+        blockedGates: expect.arrayContaining([
+          expect.objectContaining({ id: "generic-vm-positive-row-count" }),
+          expect.objectContaining({ id: "generic-vm-refusal-row-count" }),
+          expect.objectContaining({ id: "claim-change-unlocked" }),
+        ]),
+      });
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

@@ -81,6 +81,7 @@ import {
   restore,
   restoreNodeLevel5DeclaredSubset,
   restoreNodeLevel5ProductSnapshot,
+  evaluateNodeLevel5ProductSupport85Readiness,
   verifyNodeLevel5ProductSupport80ArtifactBundle,
   verifyNodeLevel5RealAppCorpusReport,
   verifyNodeLevel5RealAppRefusalCorpusReport,
@@ -1965,6 +1966,9 @@ function cmdNodeLevel5(args: string[]): number {
   if (rest[0] === "release-gate") {
     return cmdNodeLevel5ReleaseGate(rest.slice(1), json);
   }
+  if (rest[0] === "85-readiness") {
+    return cmdNodeLevel5ProductSupport85Readiness(rest.slice(1), json);
+  }
   if (rest[0] === "abi-check") {
     return cmdNodeLevel5AbiCheck(rest.slice(1), json);
   }
@@ -2088,6 +2092,14 @@ const nodeLevel5ReleaseGateReportValueFlags = new Set([
   "--installed-third-party-app-corpus-report",
   "--generic-vm-corpus-report",
 ]);
+
+function cmdNodeLevel5ProductSupport85Readiness(args: string[], json: boolean): number {
+  const reportPath = requiredNodeLevel5GenericVmCorpusReportPath(args, "85-readiness");
+  const summary = evaluateNodeLevel5ProductSupport85Readiness({
+    genericVmCorpusReport: loadNodeLevel5GenericVmCorpusReport(resolve(reportPath)),
+  });
+  return reportNodeLevel5ProductCommand(json, summary);
+}
 
 function nodeLevel5ReleaseGateArtifactArgs(args: string[]): string[] {
   return args.filter((arg, index) => !isNodeLevel5ReleaseGateReportArg(args, arg, index));
@@ -2238,12 +2250,17 @@ function nodeLevel5GenericVmCorpusReportPath(args: string[]): string | undefined
   if (!args.includes("--include-generic-vm-corpus")) {
     return undefined;
   }
+  return requiredNodeLevel5GenericVmCorpusReportPath(
+    args,
+    "release-gate --include-generic-vm-corpus",
+  );
+}
+
+function requiredNodeLevel5GenericVmCorpusReportPath(args: string[], command: string): string {
   const reportFlag = args.indexOf("--generic-vm-corpus-report");
   const path = reportFlag === -1 ? undefined : args[reportFlag + 1];
   if (!path) {
-    die(
-      "machinen node-level5 release-gate --include-generic-vm-corpus requires --generic-vm-corpus-report <file>",
-    );
+    die(`machinen node-level5 ${command} requires --generic-vm-corpus-report <file>`);
   }
   return path;
 }
@@ -2368,7 +2385,8 @@ function nodeLevel5Usage(): string {
   return (
     "usage: machinen node-level5 artifacts <write|verify> ... [--json]\n" +
     "       machinen node-level5 support-matrix [--json]\n" +
-    "       machinen node-level5 release-gate [--include-generic-vm-corpus --generic-vm-corpus-report <file>] [--json]\n"
+    "       machinen node-level5 release-gate [--include-generic-vm-corpus --generic-vm-corpus-report <file>] [--json]\n" +
+    "       machinen node-level5 85-readiness --generic-vm-corpus-report <file> [--json]\n"
   );
 }
 
