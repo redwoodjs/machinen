@@ -367,75 +367,42 @@
           </div>
         </dl>
         <h3 class="legend-heading">Type</h3>
+        <p class="muted">
+          The table uses a small basic type set. The detailed category appears in the Subcategory
+          column.
+        </p>
         <dl class="legend">
           <div>
             <dt>e2e</dt>
-            <dd>End-to-end source capture plus target restore behavior evidence.</dd>
+            <dd>End-to-end or workload smoke evidence with source/target behavior checks.</dd>
           </div>
           <div>
-            <dt>row coverage</dt>
-            <dd>Ledger showing which support-matrix rows have retained artifacts.</dd>
+            <dt>command</dt>
+            <dd>Unix or product command proof run before capture and/or after restore.</dd>
           </div>
           <div>
-            <dt>refusals</dt>
-            <dd>Evidence for unsupported or unsafe boundaries that must stay locked.</dd>
+            <dt>coverage</dt>
+            <dd>Ledger, corpus, matrix, or artifact audit evidence.</dd>
           </div>
           <div>
-            <dt>claim gate</dt>
-            <dd>Rule/check that decides whether a public claim can change.</dd>
+            <dt>claim</dt>
+            <dd>Claim ladder, product contract, seed matrix, or claim gate.</dd>
           </div>
           <div>
-            <dt>psql query workload</dt>
-            <dd>PostgreSQL proof for a connected psql client running SQL queries.</dd>
+            <dt>boundary</dt>
+            <dd>Explicit refusal or unsupported-state proof that prevents overclaiming.</dd>
           </div>
           <div>
-            <dt>schema/data query</dt>
-            <dd>PostgreSQL proof for schema creation, data load, and query verification.</dd>
+            <dt>resource</dt>
+            <dd>File descriptor, kernel resource, or network resource reconstruction proof.</dd>
           </div>
           <div>
-            <dt>role/permission</dt>
-            <dd>PostgreSQL proof for roles, grants, and permission-sensitive queries.</dd>
+            <dt>capability</dt>
+            <dd>Host/guest capability probe such as eBPF, seccomp, or nested virtualization.</dd>
           </div>
           <div>
-            <dt>unix command</dt>
-            <dd>Proof that command-line tools work before capture and after restore.</dd>
-          </div>
-          <div>
-            <dt>dependency install</dt>
-            <dd>
-              Proof that package dependencies are retained with provenance and target behavior.
-            </dd>
-          </div>
-          <div>
-            <dt>database smoke</dt>
-            <dd>
-              Proof that a database workload can run without crashing and return verified results.
-            </dd>
-          </div>
-          <div>
-            <dt>language process</dt>
-            <dd>
-              Proof that a simple compiled/interpreted process can run with retained verifier
-              output.
-            </dd>
-          </div>
-          <div>
-            <dt>kernel feature</dt>
-            <dd>
-              Proof or explicit refusal for privileged kernel features such as eBPF or seccomp.
-            </dd>
-          </div>
-          <div>
-            <dt>virtualization</dt>
-            <dd>Proof or explicit refusal for nested virtualization capability.</dd>
-          </div>
-          <div>
-            <dt>artifact audit</dt>
-            <dd>Validation that retained proof files exist and are usable.</dd>
-          </div>
-          <div>
-            <dt>other types</dt>
-            <dd id="proof-type-options">Loaded from the proof index.</dd>
+            <dt>product</dt>
+            <dd>Product UX, dependency install, or app/package setup proof.</dd>
           </div>
         </dl>
         <h3 class="legend-heading">Progression</h3>
@@ -3593,7 +3560,6 @@
       const source = document.querySelector("#source");
       const error = document.querySelector("#error");
       const proofImpact = document.querySelector("#proof-impact");
-      const proofTypeOptions = document.querySelector("#proof-type-options");
       const trackOverview = document.querySelector("#track-overview");
 
       loadEmbedded();
@@ -3622,7 +3588,6 @@
         const tracks = data.tracks ?? [];
         const claims = data.proofGroups ?? [];
         proofImpact.innerHTML = proofIndexSections(tracks, claims);
-        proofTypeOptions.textContent = proofTypeOptionsList(claims).join(" · ");
         trackOverview.innerHTML = trackCards(tracks, claims);
       }
 
@@ -3644,16 +3609,58 @@
         return claim?.id === "level4-ping-resource-continuation" ? claim.id : track.id;
       }
 
-      function proofTypeOptionsList(claims) {
-        const options = new Set(["e2e"]);
-        for (const claim of claims) {
-          for (const proof of claim.proofs ?? []) options.add(proofType(proof.category));
+      function proofType(category) {
+        const normalized = String(category ?? "").toLowerCase();
+        if (
+          [
+            "real e2e",
+            "psql query workload",
+            "schema/data query",
+            "role/permission",
+            "database smoke",
+            "language process",
+            "cross-architecture restore",
+          ].includes(normalized)
+        ) {
+          return "e2e";
         }
-        return [...options].sort();
+        if (normalized === "unix command") return "command";
+        if (
+          [
+            "artifact audit",
+            "corpus index",
+            "framework evidence",
+            "retained artifacts",
+            "row coverage",
+          ].includes(normalized)
+        ) {
+          return "coverage";
+        }
+        if (
+          ["claim gate", "claim ladder", "planning", "product contract", "seed matrix"].includes(
+            normalized,
+          )
+        ) {
+          return "claim";
+        }
+        if (normalized === "refusals") return "boundary";
+        if (
+          [
+            "arbitrary-process seed",
+            "file descriptor",
+            "kernel resources",
+            "network resource",
+          ].includes(normalized)
+        ) {
+          return "resource";
+        }
+        if (["kernel feature", "virtualization"].includes(normalized)) return "capability";
+        if (["dependency install", "product ux"].includes(normalized)) return "product";
+        return "coverage";
       }
 
-      function proofType(category) {
-        if (String(category).toLowerCase() === "real e2e") return "e2e";
+      function proofSubcategory(category) {
+        if (String(category).toLowerCase() === "real e2e") return "real E2E";
         return category ?? "unspecified";
       }
 
@@ -3667,7 +3674,7 @@
         return tracks
           .map((track) => {
             const rows = proofIndexRows(track, claimsByTrack.get(track.id) ?? []);
-            return `<section class="proof-index-track"><h3>${escapeHtml(displayTrackName(track))}</h3><p class="muted">${escapeHtml(rowCoverageSummary(track))} · ${rows.length} indexed proof rows</p>${table(["ID (proof #)", "Type", "Proof name", "Status"], rows)}</section>`;
+            return `<section class="proof-index-track"><h3>${escapeHtml(displayTrackName(track))}</h3><p class="muted">${escapeHtml(rowCoverageSummary(track))} · ${rows.length} indexed proof rows</p>${table(["ID (proof #)", "Type", "Subcategory", "Proof name", "Status"], rows)}</section>`;
           })
           .join("");
       }
@@ -3680,6 +3687,7 @@
             rows.push([
               proofIndexId(track, index++),
               proofType(proof.category),
+              proofSubcategory(proof.category),
               `<strong>${escapeHtml(proof.id)}</strong><p class="muted">${escapeHtml(claim.id)}</p>`,
               pill(proof.status),
             ]);
@@ -3694,6 +3702,7 @@
           return missingBundles.map((bundle) => [
             bundle.proofId,
             "e2e",
+            "row bundle",
             `<strong>${escapeHtml(bundle.rowId)}</strong><p class="muted">${escapeHtml(bundle.direction)}</p>`,
             pill(bundle.status),
           ]);
@@ -3704,6 +3713,7 @@
           row.directions.map((direction) => [
             proofIndexId(track, index++),
             "e2e",
+            "row bundle",
             `<strong>${escapeHtml(row.rowId)}</strong><p class="muted">${escapeHtml(direction)}</p>`,
             pill("missing"),
           ]),

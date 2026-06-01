@@ -128,11 +128,19 @@ describe("claim progress dashboard", () => {
     expect(html).toContain(".verified");
     expect(html).toContain("ID (proof #)");
     expect(html).toContain("Type");
-    expect(html).toContain("Type");
-    expect(html).toContain("other types");
-    expect(html).toContain("End-to-end source capture plus target restore behavior evidence");
-    expect(html).toContain("PostgreSQL proof for a connected psql client running SQL queries");
-    expect(html).toContain("Proof that command-line tools work before capture and after restore");
+    expect(html).toContain("Subcategory");
+    expect(html).not.toContain("other types");
+    expect(html).toContain("The table uses a small basic type set");
+    expect(html).toContain(
+      "End-to-end or workload smoke evidence with source/target behavior checks",
+    );
+    expect(html).toContain("command");
+    expect(html).toContain("coverage");
+    expect(html).toContain("claim");
+    expect(html).toContain("boundary");
+    expect(html).toContain("resource");
+    expect(html).toContain("capability");
+    expect(html).toContain("product");
     expect(html).toContain("dependency install");
     expect(html).toContain("database smoke");
     expect(html).toContain("language process");
