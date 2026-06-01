@@ -18,8 +18,10 @@ pnpm exec tsx scripts/node-level5-generic-vm-retained-evidence.ts --work-dir "$W
 RETAINED="$WORK/node-level5-generic-vm-retained-evidence-report.json"
 pnpm exec tsx scripts/node-level5-generic-vm-row-artifacts.ts --generic-vm-corpus-report "$REPORT" --out "$WORK" --json >"$WORK/row-artifacts-summary.json"
 ROW_ARTIFACTS="$WORK/node-level5-generic-vm-row-artifacts-report.json"
+pnpm exec tsx scripts/node-level5-generic-vm-refusal-artifacts.ts --generic-vm-corpus-report "$REPORT" --out "$WORK" --json >"$WORK/refusal-artifacts-summary.json"
+REFUSAL_ARTIFACTS="$WORK/node-level5-generic-vm-refusal-artifacts-report.json"
 set +e
-pnpm exec tsx packages/cli/src/cli.ts node-level5 85-readiness --generic-vm-corpus-report "$REPORT" --generic-vm-retained-evidence-report "$RETAINED" --generic-vm-row-artifacts-report "$ROW_ARTIFACTS" --json >"$WORK/readiness.json"
+pnpm exec tsx packages/cli/src/cli.ts node-level5 85-readiness --generic-vm-corpus-report "$REPORT" --generic-vm-retained-evidence-report "$RETAINED" --generic-vm-row-artifacts-report "$ROW_ARTIFACTS" --generic-vm-refusal-artifacts-report "$REFUSAL_ARTIFACTS" --json >"$WORK/readiness.json"
 STATUS=$?
 set -e
 if [[ "$STATUS" -ne 1 ]]; then

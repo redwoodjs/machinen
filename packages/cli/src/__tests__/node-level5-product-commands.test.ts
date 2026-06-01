@@ -382,6 +382,69 @@ describe("Node Level 5 product commands", () => {
     }
   });
 
+  it("uses generic VM refusal artifacts for release gates", () => {
+    const dir = mkdtempSync(join(tmpdir(), "machinen-node85-cli-refusal-artifacts-"));
+    try {
+      const markers = [
+        "activeRequests",
+        "workerThreads",
+        "nativeAddons",
+        "tlsActiveState",
+        "childProcesses",
+      ];
+      const refusalArtifactFiles = Array.from({ length: 20 }, (_, index) => {
+        const marker = markers[index % markers.length]!;
+        const rowId = `refusal-${index}`;
+        return {
+          rowId,
+          framework: index % 2 === 0 ? "express" : "fastify",
+          marker,
+          direction: index % 2 === 0 ? "arm64-to-amd64" : "amd64-to-arm64",
+          expectedRefusalCode: "node-level5-worker-thread-refused",
+          path: `generic-vm-refusal-artifacts/${rowId}.json`,
+          sha256: createHash("sha256").update(rowId).digest("hex"),
+          required: true,
+        };
+      });
+      const report = {
+        kind: "machinen.node-level5-generic-vm-refusal-artifacts-report",
+        version: 1,
+        accepted: true,
+        refusalRowCount: 20,
+        refusalArtifactFiles,
+        refusalArtifactFileCount: refusalArtifactFiles.length,
+        refusalArtifactFilesSha256: createHash("sha256")
+          .update(JSON.stringify(refusalArtifactFiles))
+          .digest("hex"),
+        markersCovered: [...markers].sort(),
+        claimChangeAllowed: false,
+        candidateNodeProductSupportClaimed: 85,
+        candidateBroadNodeProductSupportClaimed: 25,
+        nodeProductSupportClaimed: 80,
+        broadNodeProductSupportClaimed: 20,
+        arbitraryProcessCrossArchRestoreClaimed: 0,
+      };
+      const reportPath = join(dir, "node-level5-generic-vm-refusal-artifacts-report.json");
+      writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
+
+      const releaseGate = runCli([
+        "node-level5",
+        "release-gate",
+        "--include-generic-vm-refusal-artifacts",
+        "--generic-vm-refusal-artifacts-report",
+        reportPath,
+        "--json",
+      ]);
+      expect(releaseGate.status).toBe(0);
+      expect(JSON.parse(releaseGate.stdout)).toMatchObject({
+        accepted: true,
+        genericVmRefusalArtifacts: { accepted: true, refusalArtifactFileCount: 20 },
+      });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it("uses retained real-app refusal corpus evidence for release gates", () => {
     const dir = mkdtempSync(join(tmpdir(), "machinen-node80-cli-refusal-corpus-"));
     try {
