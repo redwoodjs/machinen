@@ -27,7 +27,7 @@ type ClaimProgressProofGroup = {
 
 type ClaimProgressDashboard = {
   kind: "machinen.claim-progress-dashboard";
-  version: 5;
+  version: 6;
   tracks: ClaimProgressTrack[];
   proofGroups: ClaimProgressProofGroup[];
 };
@@ -41,7 +41,7 @@ describe("claim progress dashboard", () => {
 
     expect(dashboard).toMatchObject({
       kind: "machinen.claim-progress-dashboard",
-      version: 5,
+      version: 6,
     });
     expect(dashboard.tracks.map((track) => track.id)).toEqual([
       "node-service",
@@ -70,9 +70,18 @@ describe("claim progress dashboard", () => {
     );
     expect(dashboard.tracks.every((track) => track.evidenceRows.length > 0)).toBe(true);
     expect(dashboard.tracks.every((track) => track.refusalRows.length > 0)).toBe(true);
+    expect(dashboard.tracks.find((track) => track.id === "postgres")).toMatchObject({
+      status: "claimed",
+      currentClaim: {
+        productSupport: 20,
+        broadSupport: 0,
+        arbitraryProcessCrossArchRestore: 0,
+      },
+      nextClaim: { productSupport: 40, claimChangeAllowed: false },
+    });
     expect(dashboard.proofGroups.map((group) => group.id)).toEqual([
       "node-service-100-100-0",
-      "postgres-logical-product-track",
+      "postgres-20-0-0",
       "bun-not-started",
       "generic-linux-service-not-started",
       "level4-ping-resource-continuation",
@@ -80,9 +89,11 @@ describe("claim progress dashboard", () => {
       "whole-linux-vm-workload-not-started",
     ]);
     expect(dashboard.proofGroups.every((group) => group.proofDirectory)).toBe(true);
-    expect(
-      dashboard.proofGroups.flatMap((group) => group.proofs.map((proof) => proof.id)),
-    ).toContain("regular-file-fd-proof");
+    const proofIds = dashboard.proofGroups.flatMap((group) =>
+      group.proofs.map((proof) => proof.id),
+    );
+    expect(proofIds).toContain("regular-file-fd-proof");
+    expect(proofIds).toContain("postgres-retained-verifier-artifacts");
     const embeddedJson =
       /<script id="embedded-claim-progress" type="application\/json">\n([\s\S]*?)\n    <\/script>/u.exec(
         html,
@@ -91,9 +102,9 @@ describe("claim progress dashboard", () => {
     expect(JSON.parse(embeddedJson ?? "{}")).toEqual(dashboard);
     expect(html).toContain("claim-progress.json");
     expect(html).toContain("Proof impact matrix");
-    expect(html).toContain("Product support claim (%)");
-    expect(html).toContain("Broad service/workload claim (%)");
-    expect(html).toContain("Arbitrary Linux process restore claim (%)");
+    expect(html).toContain("Product support impact (%)");
+    expect(html).toContain("Broad service/workload impact (%)");
+    expect(html).toContain("Arbitrary Linux process restore impact (%)");
     expect(html).toContain("What to do next");
     expect(html).toContain("Track overview");
     expect(html).toContain("Claim matrix");
