@@ -1,0 +1,257 @@
+{
+  "kind": "machinen.product-portable-postgres-claim-ladder",
+  "version": 1,
+  "accepted": true,
+  "trackId": "postgres",
+  "claim": "Postgres clean logical 20 / 0 / 0",
+  "subset": "postgres-clean-quiesced-logical-v1",
+  "scope": "Clean, idle logical Postgres reconstruction only",
+  "currentClaim": {
+    "productSupport": 20,
+    "broadSupport": 0,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "nextClaim": {
+    "productSupport": 40,
+    "broadSupport": 0,
+    "arbitraryProcessCrossArchRestore": 0,
+    "claimChangeAllowed": false
+  },
+  "claimChangeAllowed": true,
+  "directions": [
+    {
+      "id": "arm64-to-amd64",
+      "sourceArch": "arm64",
+      "targetArch": "amd64",
+      "captureCompleted": true,
+      "restoreCompleted": true,
+      "targetVerifierResult": "passed",
+      "artifacts": [
+        {
+          "name": "arm64-to-amd64/portable-product.json",
+          "path": "arm64-to-amd64/portable-product.json",
+          "sha256": "7eb79a2a1acc9bfe11cf9080803dc0be4cfebda88e26b7ea9da55a63d1987c66"
+        },
+        {
+          "name": "arm64-to-amd64/postgres.logical.dump",
+          "path": "arm64-to-amd64/postgres.logical.dump",
+          "sha256": "f9d3220c71f68ecb49ba4b41eb5faa09735cdf9c681c44e722a5d0e7ac1dcb1b"
+        },
+        {
+          "name": "arm64-to-amd64/restore-summary.json",
+          "path": "arm64-to-amd64/restore-summary.json",
+          "sha256": "7ee08026ce68f713a774fc3d782cff1cc8f91f03e9dfa547f925ef30972117c6"
+        },
+        {
+          "name": "arm64-to-amd64/source-verifier.txt",
+          "path": "arm64-to-amd64/source-verifier.txt",
+          "sha256": "92e9f13d9cceaa5d99d33b28a2e1578979125b3a1c950aced663baf2caef52cd"
+        },
+        {
+          "name": "arm64-to-amd64/target-verifier.txt",
+          "path": "arm64-to-amd64/target-verifier.txt",
+          "sha256": "92e9f13d9cceaa5d99d33b28a2e1578979125b3a1c950aced663baf2caef52cd"
+        }
+      ]
+    },
+    {
+      "id": "amd64-to-arm64",
+      "sourceArch": "amd64",
+      "targetArch": "arm64",
+      "captureCompleted": true,
+      "restoreCompleted": true,
+      "targetVerifierResult": "passed",
+      "artifacts": [
+        {
+          "name": "amd64-to-arm64/portable-product.json",
+          "path": "amd64-to-arm64/portable-product.json",
+          "sha256": "1ba1fbc3cfb8c6e411256d3712a0fa60b79b29a238e6ffe26845e3a17346cec5"
+        },
+        {
+          "name": "amd64-to-arm64/postgres.logical.dump",
+          "path": "amd64-to-arm64/postgres.logical.dump",
+          "sha256": "f9d3220c71f68ecb49ba4b41eb5faa09735cdf9c681c44e722a5d0e7ac1dcb1b"
+        },
+        {
+          "name": "amd64-to-arm64/restore-summary.json",
+          "path": "amd64-to-arm64/restore-summary.json",
+          "sha256": "6d748d5850f680fd3a4b5efc6f06bf431b9fe304df60837f1018aff15a16cb85"
+        },
+        {
+          "name": "amd64-to-arm64/source-verifier.txt",
+          "path": "amd64-to-arm64/source-verifier.txt",
+          "sha256": "3a5909d3bc9bc1f4a1d215a5364a399e68213f551d1cd1b6799112b6b86c7d2f"
+        },
+        {
+          "name": "amd64-to-arm64/target-verifier.txt",
+          "path": "amd64-to-arm64/target-verifier.txt",
+          "sha256": "3a5909d3bc9bc1f4a1d215a5364a399e68213f551d1cd1b6799112b6b86c7d2f"
+        }
+      ]
+    }
+  ],
+  "refusals": [
+    {
+      "id": "active-transaction",
+      "expectedRefusalCode": "postgres-active-transaction-unsupported",
+      "migrationCompleted": false,
+      "artifact": {
+        "name": "refusals/active-transaction/portable-product-refusal.json",
+        "path": "refusals/active-transaction/portable-product-refusal.json",
+        "sha256": "29ab81104c0e54fda1ec2a0e219db6b0fe8f8a47406c34d36a8eaf5e34fc0ed5"
+      }
+    }
+  ],
+  "proofs": [
+    {
+      "id": "postgres-clean-logical-capture",
+      "category": "database state",
+      "status": "passed",
+      "artifact": "portable-product.json",
+      "proves": "clean, idle logical PostgreSQL capture is a portable unit",
+      "claimUse": "raises Postgres product support for the clean logical subset",
+      "next": "Add more workload shapes before moving beyond 20%.",
+      "claimImpact": {
+        "productSupportDelta": 8,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 8,
+          "broadSupport": 0,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": true
+      }
+    },
+    {
+      "id": "postgres-bidirectional-cross-arch-restore",
+      "category": "cross-architecture restore",
+      "status": "passed",
+      "artifact": "restore-summary.json",
+      "proves": "arm64->amd64 and amd64->arm64 target-native verifier output passes",
+      "claimUse": "keeps the claim cross-architecture, not host-local only",
+      "next": "Retain more version and schema-shape rows for the 40% gate.",
+      "claimImpact": {
+        "productSupportDelta": 5,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 13,
+          "broadSupport": 0,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": true
+      }
+    },
+    {
+      "id": "postgres-retained-verifier-artifacts",
+      "category": "retained artifacts",
+      "status": "passed",
+      "artifact": "source-verifier.txt / target-verifier.txt",
+      "proves": "source and target verifier outputs are retained with hashes",
+      "claimUse": "makes the claim auditable instead of metadata-only",
+      "next": "Standardize artifact retention for future Postgres rows.",
+      "claimImpact": {
+        "productSupportDelta": 4,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 17,
+          "broadSupport": 0,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": true
+      }
+    },
+    {
+      "id": "postgres-explicit-refusal-boundaries",
+      "category": "refusals",
+      "status": "refused-boundary",
+      "artifact": "portable-product-refusal.json",
+      "proves": "active transactions, dirty WAL, active sessions, and physical data-dir copy remain refused",
+      "claimUse": "bounds the 20% claim and prevents broad Postgres overclaiming",
+      "next": "Only reduce refusals with a new target-native verifier gate.",
+      "claimImpact": {
+        "productSupportDelta": 3,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 20,
+          "broadSupport": 0,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": true
+      }
+    }
+  ],
+  "gates": {
+    "noActiveClientTransaction": true,
+    "noActiveClientSession": true,
+    "walCheckpointed": true,
+    "logicalDumpIsPortableUnit": true,
+    "targetNativeVerificationRequired": true,
+    "sourceIsaEmulationAllowed": false,
+    "sourceTextReplayAllowed": false,
+    "sidecarRuntimeAllowed": false,
+    "appHooksAllowed": false,
+    "metadataOnlyContinuationAllowed": false
+  },
+  "artifacts": [
+    {
+      "name": "arm64-to-amd64/portable-product.json",
+      "path": "arm64-to-amd64/portable-product.json",
+      "sha256": "7eb79a2a1acc9bfe11cf9080803dc0be4cfebda88e26b7ea9da55a63d1987c66"
+    },
+    {
+      "name": "arm64-to-amd64/postgres.logical.dump",
+      "path": "arm64-to-amd64/postgres.logical.dump",
+      "sha256": "f9d3220c71f68ecb49ba4b41eb5faa09735cdf9c681c44e722a5d0e7ac1dcb1b"
+    },
+    {
+      "name": "arm64-to-amd64/restore-summary.json",
+      "path": "arm64-to-amd64/restore-summary.json",
+      "sha256": "7ee08026ce68f713a774fc3d782cff1cc8f91f03e9dfa547f925ef30972117c6"
+    },
+    {
+      "name": "arm64-to-amd64/source-verifier.txt",
+      "path": "arm64-to-amd64/source-verifier.txt",
+      "sha256": "92e9f13d9cceaa5d99d33b28a2e1578979125b3a1c950aced663baf2caef52cd"
+    },
+    {
+      "name": "arm64-to-amd64/target-verifier.txt",
+      "path": "arm64-to-amd64/target-verifier.txt",
+      "sha256": "92e9f13d9cceaa5d99d33b28a2e1578979125b3a1c950aced663baf2caef52cd"
+    },
+    {
+      "name": "amd64-to-arm64/portable-product.json",
+      "path": "amd64-to-arm64/portable-product.json",
+      "sha256": "1ba1fbc3cfb8c6e411256d3712a0fa60b79b29a238e6ffe26845e3a17346cec5"
+    },
+    {
+      "name": "amd64-to-arm64/postgres.logical.dump",
+      "path": "amd64-to-arm64/postgres.logical.dump",
+      "sha256": "f9d3220c71f68ecb49ba4b41eb5faa09735cdf9c681c44e722a5d0e7ac1dcb1b"
+    },
+    {
+      "name": "amd64-to-arm64/restore-summary.json",
+      "path": "amd64-to-arm64/restore-summary.json",
+      "sha256": "6d748d5850f680fd3a4b5efc6f06bf431b9fe304df60837f1018aff15a16cb85"
+    },
+    {
+      "name": "amd64-to-arm64/source-verifier.txt",
+      "path": "amd64-to-arm64/source-verifier.txt",
+      "sha256": "3a5909d3bc9bc1f4a1d215a5364a399e68213f551d1cd1b6799112b6b86c7d2f"
+    },
+    {
+      "name": "amd64-to-arm64/target-verifier.txt",
+      "path": "amd64-to-arm64/target-verifier.txt",
+      "sha256": "3a5909d3bc9bc1f4a1d215a5364a399e68213f551d1cd1b6799112b6b86c7d2f"
+    },
+    {
+      "name": "refusals/active-transaction/portable-product-refusal.json",
+      "path": "refusals/active-transaction/portable-product-refusal.json",
+      "sha256": "29ab81104c0e54fda1ec2a0e219db6b0fe8f8a47406c34d36a8eaf5e34fc0ed5"
+    }
+  ],
+  "artifactsSha256": "10d4b4dacee512658ea2d3ba6524e59190624ca6a5fa3eda4e3712541c34b160"
+}

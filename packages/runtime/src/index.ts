@@ -1035,6 +1035,14 @@ export {
   restoreProductPortablePostgresSnapshot,
 } from "./product-portable-postgres.ts";
 export {
+  PRODUCT_PORTABLE_POSTGRES_CLAIM_LADDER_KIND,
+  PRODUCT_PORTABLE_POSTGRES_CLAIM_LADDER_REPORT,
+  PRODUCT_PORTABLE_POSTGRES_CLAIM_LADDER_VERSION,
+  createProductPortablePostgresClaimLadderReport,
+  loadProductPortablePostgresClaimLadderReport,
+  verifyProductPortablePostgresClaimLadderReport,
+} from "./product-portable-postgres-claim-ladder.ts";
+export {
   PRODUCT_LEVEL4_TCP_LISTENER_FORMAT_VERSION,
   PRODUCT_LEVEL4_TCP_LISTENER_MANIFEST,
   PRODUCT_LEVEL4_TCP_LISTENER_REFUSAL,
@@ -1232,6 +1240,16 @@ export type {
   ProductPortablePostgresRestoreSummary,
   ProductPortableSupportLevel,
 } from "./product-portable-postgres.ts";
+export type {
+  ProductPortablePostgresClaimImpact,
+  ProductPortablePostgresClaimLadderArtifact,
+  ProductPortablePostgresClaimLadderDirection,
+  ProductPortablePostgresClaimLadderRefusal,
+  ProductPortablePostgresClaimLadderReport,
+  ProductPortablePostgresClaimNumbers,
+  ProductPortablePostgresClaimProofRow,
+  ProductPortablePostgresClaimProofStatus,
+} from "./product-portable-postgres-claim-ladder.ts";
 export type {
   ProductLevel4TcpListenerArchitecture,
   ProductLevel4TcpListenerCaptureInput,

@@ -651,6 +651,13 @@
 
 - [`ProductPortablePostgresError`](#productportablepostgreserror)
 - [`ProductPortablePostgresClaimClassification`](#productportablepostgresclaimclassification)
+- [`ProductPortablePostgresClaimImpact`](#productportablepostgresclaimimpact)
+- [`ProductPortablePostgresClaimLadderArtifact`](#productportablepostgresclaimladderartifact)
+- [`ProductPortablePostgresClaimLadderDirection`](#productportablepostgresclaimladderdirection)
+- [`ProductPortablePostgresClaimLadderRefusal`](#productportablepostgresclaimladderrefusal)
+- [`ProductPortablePostgresClaimLadderReport`](#productportablepostgresclaimladderreport)
+- [`ProductPortablePostgresClaimNumbers`](#productportablepostgresclaimnumbers)
+- [`ProductPortablePostgresClaimProofRow`](#productportablepostgresclaimproofrow)
 - [`ProductPortablePostgresCaptureInput`](#productportablepostgrescaptureinput)
 - [`ProductPortablePostgresDescriptor`](#productportablepostgresdescriptor)
 - [`ProductPortablePostgresRefusal`](#productportablepostgresrefusal)
@@ -660,6 +667,10 @@
 - [`ProductPortableSupportLevel`](#productportablesupportlevel)
 - [`ProductPortablePostgresRefusalCode`](#productportablepostgresrefusalcode)
 - [`ProductPortablePostgresCaptureResult`](#productportablepostgrescaptureresult)
+- [`ProductPortablePostgresClaimProofStatus`](#productportablepostgresclaimproofstatus)
+- [`PRODUCT_PORTABLE_POSTGRES_CLAIM_LADDER_KIND`](#product_portable_postgres_claim_ladder_kind)
+- [`PRODUCT_PORTABLE_POSTGRES_CLAIM_LADDER_REPORT`](#product_portable_postgres_claim_ladder_report)
+- [`PRODUCT_PORTABLE_POSTGRES_CLAIM_LADDER_VERSION`](#product_portable_postgres_claim_ladder_version)
 - [`PRODUCT_PORTABLE_POSTGRES_FORMAT_VERSION`](#product_portable_postgres_format_version)
 - [`PRODUCT_PORTABLE_POSTGRES_MANIFEST`](#product_portable_postgres_manifest)
 - [`PRODUCT_PORTABLE_POSTGRES_REFUSAL`](#product_portable_postgres_refusal)
@@ -668,6 +679,9 @@
 - [`productPortablePostgresArchitectures`](#productportablepostgresarchitectures)
 - [`productPortablePostgresSupportLevels`](#productportablepostgressupportlevels)
 - [`productPortablePostgresRefusalCodes`](#productportablepostgresrefusalcodes)
+- [`createProductPortablePostgresClaimLadderReport`](#createproductportablepostgresclaimladderreport)
+- [`loadProductPortablePostgresClaimLadderReport`](#loadproductportablepostgresclaimladderreport)
+- [`verifyProductPortablePostgresClaimLadderReport`](#verifyproductportablepostgresclaimladderreport)
 - [`createProductPortablePostgresSnapshot`](#createproductportablepostgressnapshot)
 - [`restoreProductPortablePostgresSnapshot`](#restoreproductportablepostgressnapshot)
 - [`isProductPortablePostgresBundle`](#isproductportablepostgresbundle)
@@ -18617,7 +18631,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`sourceArch`](#sourcearch-33)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`sourceArch`](#sourcearch-34)
 
 ##### targetArch
 
@@ -18625,7 +18639,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`targetArch`](#targetarch-48)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`targetArch`](#targetarch-49)
 
 ##### stateModel
 
@@ -18693,7 +18707,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Overrides
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`migrationCompleted`](#migrationcompleted-36)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`migrationCompleted`](#migrationcompleted-37)
 
 ##### scope
 
@@ -20302,7 +20316,7 @@ kicks in: `<sourceName>/<fork.pid>`.
 
 ###### Overrides
 
-[`RestoreOptions`](#restoreoptions).[`name`](#name-19)
+[`RestoreOptions`](#restoreoptions).[`name`](#name-20)
 
 ##### portForward?
 
@@ -28067,6 +28081,308 @@ Result of `validatePid` — easy to switch on at the call site.
 
 ***
 
+### ProductPortablePostgresClaimLadderArtifact
+
+> **ProductPortablePostgresClaimLadderArtifact** = `object`
+
+#### Properties
+
+##### name
+
+> **name**: `string`
+
+##### path
+
+> **path**: `string`
+
+##### sha256
+
+> **sha256**: `string`
+
+***
+
+### ProductPortablePostgresClaimNumbers
+
+> **ProductPortablePostgresClaimNumbers** = `object`
+
+#### Properties
+
+##### productSupport
+
+> **productSupport**: `number`
+
+##### broadSupport
+
+> **broadSupport**: `number`
+
+##### arbitraryProcessCrossArchRestore
+
+> **arbitraryProcessCrossArchRestore**: `number`
+
+***
+
+### ProductPortablePostgresClaimImpact
+
+> **ProductPortablePostgresClaimImpact** = `object`
+
+#### Properties
+
+##### productSupportDelta
+
+> **productSupportDelta**: `number`
+
+##### broadSupportDelta
+
+> **broadSupportDelta**: `number`
+
+##### arbitraryProcessCrossArchRestoreDelta
+
+> **arbitraryProcessCrossArchRestoreDelta**: `number`
+
+##### resultingClaim
+
+> **resultingClaim**: [`ProductPortablePostgresClaimNumbers`](#productportablepostgresclaimnumbers)
+
+##### claimChangeAllowed
+
+> **claimChangeAllowed**: `boolean`
+
+***
+
+### ProductPortablePostgresClaimProofStatus
+
+> **ProductPortablePostgresClaimProofStatus** = `"passed"` \| `"refused-boundary"`
+
+***
+
+### ProductPortablePostgresClaimProofRow
+
+> **ProductPortablePostgresClaimProofRow** = `object`
+
+#### Properties
+
+##### id
+
+> **id**: `"postgres-clean-logical-capture"` \| `"postgres-bidirectional-cross-arch-restore"` \| `"postgres-retained-verifier-artifacts"` \| `"postgres-explicit-refusal-boundaries"`
+
+##### category
+
+> **category**: `string`
+
+##### status
+
+> **status**: [`ProductPortablePostgresClaimProofStatus`](#productportablepostgresclaimproofstatus)
+
+##### artifact
+
+> **artifact**: `string`
+
+##### proves
+
+> **proves**: `string`
+
+##### claimUse
+
+> **claimUse**: `string`
+
+##### next
+
+> **next**: `string`
+
+##### claimImpact
+
+> **claimImpact**: [`ProductPortablePostgresClaimImpact`](#productportablepostgresclaimimpact)
+
+***
+
+### ProductPortablePostgresClaimLadderDirection
+
+> **ProductPortablePostgresClaimLadderDirection** = `object`
+
+#### Properties
+
+##### id
+
+> **id**: `"arm64-to-amd64"` \| `"amd64-to-arm64"`
+
+##### sourceArch
+
+> **sourceArch**: [`ProductPortablePostgresArchitecture`](#productportablepostgresarchitecture)
+
+##### targetArch
+
+> **targetArch**: [`ProductPortablePostgresArchitecture`](#productportablepostgresarchitecture)
+
+##### captureCompleted
+
+> **captureCompleted**: `boolean`
+
+##### restoreCompleted
+
+> **restoreCompleted**: `boolean`
+
+##### targetVerifierResult
+
+> **targetVerifierResult**: `"passed"` \| `"failed"` \| `"not-run"`
+
+##### artifacts
+
+> **artifacts**: [`ProductPortablePostgresClaimLadderArtifact`](#productportablepostgresclaimladderartifact)[]
+
+***
+
+### ProductPortablePostgresClaimLadderRefusal
+
+> **ProductPortablePostgresClaimLadderRefusal** = `object`
+
+#### Properties
+
+##### id
+
+> **id**: `"active-transaction"`
+
+##### expectedRefusalCode
+
+> **expectedRefusalCode**: [`ProductPortablePostgresRefusalCode`](#productportablepostgresrefusalcode)
+
+##### migrationCompleted
+
+> **migrationCompleted**: `false`
+
+##### artifact
+
+> **artifact**: [`ProductPortablePostgresClaimLadderArtifact`](#productportablepostgresclaimladderartifact)
+
+***
+
+### ProductPortablePostgresClaimLadderReport
+
+> **ProductPortablePostgresClaimLadderReport** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`PRODUCT_PORTABLE_POSTGRES_CLAIM_LADDER_KIND`](#product_portable_postgres_claim_ladder_kind)
+
+##### version
+
+> **version**: *typeof* [`PRODUCT_PORTABLE_POSTGRES_CLAIM_LADDER_VERSION`](#product_portable_postgres_claim_ladder_version)
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### trackId
+
+> **trackId**: `"postgres"`
+
+##### claim
+
+> **claim**: `"Postgres clean logical 20 / 0 / 0"`
+
+##### subset
+
+> **subset**: `"postgres-clean-quiesced-logical-v1"`
+
+##### scope
+
+> **scope**: `"Clean, idle logical Postgres reconstruction only"`
+
+##### currentClaim
+
+> **currentClaim**: [`ProductPortablePostgresClaimNumbers`](#productportablepostgresclaimnumbers)
+
+##### nextClaim
+
+> **nextClaim**: `object`
+
+###### productSupport
+
+> **productSupport**: `40`
+
+###### broadSupport
+
+> **broadSupport**: `0`
+
+###### arbitraryProcessCrossArchRestore
+
+> **arbitraryProcessCrossArchRestore**: `0`
+
+###### claimChangeAllowed
+
+> **claimChangeAllowed**: `false`
+
+##### claimChangeAllowed
+
+> **claimChangeAllowed**: `true`
+
+##### directions
+
+> **directions**: [`ProductPortablePostgresClaimLadderDirection`](#productportablepostgresclaimladderdirection)[]
+
+##### refusals
+
+> **refusals**: [`ProductPortablePostgresClaimLadderRefusal`](#productportablepostgresclaimladderrefusal)[]
+
+##### proofs
+
+> **proofs**: [`ProductPortablePostgresClaimProofRow`](#productportablepostgresclaimproofrow)[]
+
+##### gates
+
+> **gates**: `object`
+
+###### noActiveClientTransaction
+
+> **noActiveClientTransaction**: `true`
+
+###### noActiveClientSession
+
+> **noActiveClientSession**: `true`
+
+###### walCheckpointed
+
+> **walCheckpointed**: `true`
+
+###### logicalDumpIsPortableUnit
+
+> **logicalDumpIsPortableUnit**: `true`
+
+###### targetNativeVerificationRequired
+
+> **targetNativeVerificationRequired**: `true`
+
+###### sourceIsaEmulationAllowed
+
+> **sourceIsaEmulationAllowed**: `false`
+
+###### sourceTextReplayAllowed
+
+> **sourceTextReplayAllowed**: `false`
+
+###### sidecarRuntimeAllowed
+
+> **sidecarRuntimeAllowed**: `false`
+
+###### appHooksAllowed
+
+> **appHooksAllowed**: `false`
+
+###### metadataOnlyContinuationAllowed
+
+> **metadataOnlyContinuationAllowed**: `false`
+
+##### artifacts
+
+> **artifacts**: [`ProductPortablePostgresClaimLadderArtifact`](#productportablepostgresclaimladderartifact)[]
+
+##### artifactsSha256
+
+> **artifactsSha256**: `string`
+
+***
+
 ### ProductPortablePostgresArchitecture
 
 > **ProductPortablePostgresArchitecture** = *typeof* [`productPortablePostgresArchitectures`](#productportablepostgresarchitectures)\[`number`\]
@@ -30848,6 +31164,24 @@ loops; anything looser stops being a meaningful gate.
 ### productLevel4TimerfdRefusalCodes
 
 > `const` **productLevel4TimerfdRefusalCodes**: readonly \[`"timerfd-source-target-arch-match"`, `"timerfd-target-arch-mismatch"`, `"timerfd-target-verifier-mismatch"`, `"timerfd-remaining-time-out-of-range"`, `"timerfd-unread-expirations-unsupported"`, `"timerfd-periodic-unsupported"`, `"timerfd-absolute-unsupported"`, `"timerfd-cancel-on-set-unsupported"`, `"timerfd-clock-unsupported"`, `"timerfd-unsupported-flags"`, `"timerfd-active-read-unsupported"`\]
+
+***
+
+### PRODUCT\_PORTABLE\_POSTGRES\_CLAIM\_LADDER\_KIND
+
+> `const` **PRODUCT\_PORTABLE\_POSTGRES\_CLAIM\_LADDER\_KIND**: `"machinen.product-portable-postgres-claim-ladder"`
+
+***
+
+### PRODUCT\_PORTABLE\_POSTGRES\_CLAIM\_LADDER\_VERSION
+
+> `const` **PRODUCT\_PORTABLE\_POSTGRES\_CLAIM\_LADDER\_VERSION**: `1`
+
+***
+
+### PRODUCT\_PORTABLE\_POSTGRES\_CLAIM\_LADDER\_REPORT
+
+> `const` **PRODUCT\_PORTABLE\_POSTGRES\_CLAIM\_LADDER\_REPORT**: `"postgres-claim-ladder-report.json"`
 
 ***
 
@@ -35236,6 +35570,56 @@ readonly (`number` \| [`RssTarget`](#rsstarget))[]
 #### Returns
 
 [`ProductLevel4TimerfdRestoreSummary`](#productlevel4timerfdrestoresummary)
+
+***
+
+### createProductPortablePostgresClaimLadderReport()
+
+> **createProductPortablePostgresClaimLadderReport**(`input`): [`ProductPortablePostgresClaimLadderReport`](#productportablepostgresclaimladderreport)
+
+#### Parameters
+
+##### input
+
+###### outDir
+
+`string`
+
+#### Returns
+
+[`ProductPortablePostgresClaimLadderReport`](#productportablepostgresclaimladderreport)
+
+***
+
+### loadProductPortablePostgresClaimLadderReport()
+
+> **loadProductPortablePostgresClaimLadderReport**(`path`): [`ProductPortablePostgresClaimLadderReport`](#productportablepostgresclaimladderreport)
+
+#### Parameters
+
+##### path
+
+`string`
+
+#### Returns
+
+[`ProductPortablePostgresClaimLadderReport`](#productportablepostgresclaimladderreport)
+
+***
+
+### verifyProductPortablePostgresClaimLadderReport()
+
+> **verifyProductPortablePostgresClaimLadderReport**(`report`): [`ProductPortablePostgresClaimLadderReport`](#productportablepostgresclaimladderreport)
+
+#### Parameters
+
+##### report
+
+[`ProductPortablePostgresClaimLadderReport`](#productportablepostgresclaimladderreport)
+
+#### Returns
+
+[`ProductPortablePostgresClaimLadderReport`](#productportablepostgresclaimladderreport)
 
 ***
 

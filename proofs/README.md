@@ -28,7 +28,7 @@ The dashboard source of truth is `docs/snapshot/claim-progress.json`; each
 claim group here has a `claim.json` copy plus a readable `README.md`.
 
 - [Node service 100 / 100 / 0](./nodejs/100-100-0/README.md) — `claimed`
-- [Postgres clean logical product track](./postgres/logical-product-track/README.md) — `product-track-existing`
+- [Postgres clean logical 20 / 0 / 0](./postgres/20-0-0/README.md) — `claimed`
 - [Bun service support not started](./bun/not-started/README.md) — `not-started`
 - [Generic Linux service support not started](./generic-linux-service/not-started/README.md) — `not-started`
 - [Level 4 ping resource continuation](./network-resources/level4-ping-resource-continuation/README.md) — `proven-resource`

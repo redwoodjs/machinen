@@ -61,6 +61,21 @@ Successful descriptors set:
 - shortcut gates disallow source-ISA emulation, source text replay, sidecar
   runtime success, app hooks, and metadata-only continuation.
 
+## Percent-style claim ladder
+
+The clean logical subset now has a retained 20 / 0 / 0 claim ladder:
+
+- product support claim: `20%`;
+- broad service/workload claim: `0%`;
+- arbitrary Linux process restore claim: `0%`.
+
+The retained ladder lives in
+`proofs/postgres/20-0-0/retained/postgres-claim-ladder-report.json`. It keeps
+per-proof claim impact rows, bidirectional logical restore bundles, source and
+target verifier output, restore summaries, and an unsafe-state refusal artifact.
+The next Postgres lift is locked behind a separate 40% claim-ready report with
+more schema, version, and workload-mix rows.
+
 ## Stable product refusals
 
 Product capture/restore keeps unsupported neighbors fail-closed with

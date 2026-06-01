@@ -95,6 +95,7 @@
     "nested-virtualization-stretch-proof": "pnpm exec tsx scripts/nested-virtualization-stretch-proof.ts",
     "architecture-portable-snapshot-gauntlet": "pnpm exec tsx scripts/architecture-portable-snapshot-gauntlet.ts",
     "smoke-product-portable-postgres": "bash scripts/smoke/product-portable-postgres.sh",
+    "smoke-product-portable-postgres-claim-ladder": "bash scripts/smoke/product-portable-postgres-claim-ladder.sh",
     "smoke-product-support-discovery": "bash scripts/smoke/product-support-discovery.sh",
     "smoke-semantic-ping-continuation": "bash scripts/smoke/semantic-ping-continuation.sh",
     "smoke-portable-ping-machine": "bash scripts/smoke/portable-ping-machine.sh",
