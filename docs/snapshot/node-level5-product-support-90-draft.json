@@ -1,0 +1,56 @@
+{
+  "kind": "machinen.node-level5-product-support-90-draft",
+  "status": "draft-not-claimed",
+  "current": {
+    "nodeProductSupportClaimed": 85,
+    "broadNodeProductSupportClaimed": 25,
+    "arbitraryProcessCrossArchRestoreClaimed": 0
+  },
+  "candidate": {
+    "nodeProductSupportClaimed": 90,
+    "broadNodeProductSupportClaimed": 30,
+    "arbitraryProcessCrossArchRestoreClaimed": 0
+  },
+  "productCommandPath": "machinen snapshot <vm-name> --out <dir>; machinen restore <dir>",
+  "nodeDetectedInsideVm": true,
+  "hostPidProductTargetingAllowed": false,
+  "requiredEvidenceGates": [
+    "node-level5-framework-capabilities",
+    "node-level5-framework-introspection-corpus",
+    "node-level5-framework-readiness",
+    "node-level5-framework-product-evidence",
+    "node-level5-framework-claim-ready"
+  ],
+  "requiredFrameworkGraphArtifacts": {
+    "express": ["routes", "middleware", "settings", "error-handlers"],
+    "fastify": ["plugins", "decorators", "hooks", "schemas", "routes"]
+  },
+  "requiredRestoredBehaviorProbes": [
+    "express-route-graph",
+    "express-middleware-hook-graph",
+    "express-plugin-graph",
+    "express-idle-lifecycle-state",
+    "fastify-route-graph",
+    "fastify-middleware-hook-graph",
+    "fastify-plugin-graph",
+    "fastify-idle-lifecycle-state"
+  ],
+  "requiredUnsafeStateRefusals": [
+    "activeRequests",
+    "workerThreads",
+    "nativeAddons",
+    "tlsActiveState",
+    "childProcesses"
+  ],
+  "requiredArtifactCounts": {
+    "frameworkGraphArtifacts": 18,
+    "restoredBehaviorProbes": 16,
+    "unsafeStateRefusalArtifacts": 20,
+    "totalArtifacts": 54
+  },
+  "claimChangeAllowed": false,
+  "arbitraryExpressClaimed": false,
+  "arbitraryFastifyClaimed": false,
+  "arbitraryNodeClaimed": false,
+  "arbitraryProcessCrossArchRestoreClaimed": 0
+}
