@@ -6,6 +6,7 @@ import {
   evaluateArbitraryProcessLevel5ClaimReady,
   writeArbitraryProcessLevel5ClaimReadyReport,
 } from "../../../packages/runtime/src/arbitrary-process-level5-claim-ready.ts";
+import { createArbitraryProcessLevel5IdleResourceProof } from "../../../packages/runtime/src/arbitrary-process-level5-idle-resource-proof.ts";
 import { createArbitraryProcessLevel5RegularFileFdProof } from "../../../packages/runtime/src/arbitrary-process-level5-regular-file-fd-proof.ts";
 import { createArbitraryProcessLevel5SeedReport } from "../../../packages/runtime/src/arbitrary-process-level5-seed-matrix.ts";
 import { createArbitraryProcessLevel5SimplePipeFdProof } from "../../../packages/runtime/src/arbitrary-process-level5-simple-pipe-fd-proof.ts";
@@ -37,6 +38,9 @@ const regularFile = createArbitraryProcessLevel5RegularFileFdProof({
 const simplePipe = createArbitraryProcessLevel5SimplePipeFdProof({
   outDir: join(outDir, "simple-pipe-fd"),
 });
+const idleResource = createArbitraryProcessLevel5IdleResourceProof({
+  outDir: join(outDir, "idle-resource"),
+});
 const report = evaluateArbitraryProcessLevel5ClaimReady({
   seedReport,
   verifiedSeeds: [
@@ -53,6 +57,13 @@ const report = evaluateArbitraryProcessLevel5ClaimReady({
       proofStatus: simplePipe.proofStatus,
       artifact: "simple-pipe-fd/simple-pipe-fd-proof-report.json",
       sha256: simplePipe.artifactsSha256,
+    },
+    {
+      rowId: idleResource.rowId,
+      accepted: idleResource.accepted,
+      proofStatus: idleResource.proofStatus,
+      artifact: "idle-resource/idle-resource-proof-report.json",
+      sha256: idleResource.artifactsSha256,
     },
   ],
 });

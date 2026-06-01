@@ -221,6 +221,14 @@
 - [`writeArbitraryProcessLevel5ClaimReadyReport`](#writearbitraryprocesslevel5claimreadyreport)
 - [`loadArbitraryProcessLevel5ClaimReadyReport`](#loadarbitraryprocesslevel5claimreadyreport)
 - [`verifyArbitraryProcessLevel5ClaimReadyReport`](#verifyarbitraryprocesslevel5claimreadyreport)
+- [`ArbitraryProcessLevel5IdleResourceProofArtifact`](#arbitraryprocesslevel5idleresourceproofartifact)
+- [`ArbitraryProcessLevel5IdleResourceProofReport`](#arbitraryprocesslevel5idleresourceproofreport)
+- [`ARBITRARY_PROCESS_LEVEL5_IDLE_RESOURCE_PROOF_KIND`](#arbitrary_process_level5_idle_resource_proof_kind)
+- [`ARBITRARY_PROCESS_LEVEL5_IDLE_RESOURCE_PROOF_VERSION`](#arbitrary_process_level5_idle_resource_proof_version)
+- [`ARBITRARY_PROCESS_LEVEL5_IDLE_RESOURCE_PROOF_REPORT`](#arbitrary_process_level5_idle_resource_proof_report)
+- [`createArbitraryProcessLevel5IdleResourceProof`](#createarbitraryprocesslevel5idleresourceproof)
+- [`loadArbitraryProcessLevel5IdleResourceProofReport`](#loadarbitraryprocesslevel5idleresourceproofreport)
+- [`verifyArbitraryProcessLevel5IdleResourceProofReport`](#verifyarbitraryprocesslevel5idleresourceproofreport)
 - [`ArbitraryProcessLevel5SimplePipeFdProofArtifact`](#arbitraryprocesslevel5simplepipefdproofartifact)
 - [`ArbitraryProcessLevel5SimplePipeFdProofReport`](#arbitraryprocesslevel5simplepipefdproofreport)
 - [`ARBITRARY_PROCESS_LEVEL5_SIMPLE_PIPE_FD_PROOF_KIND`](#arbitrary_process_level5_simple_pipe_fd_proof_kind)
@@ -4282,7 +4290,7 @@ Pluggable for tests; defaults to [readHostTotalBytes](#readhosttotalbytes).
 
 ###### Overrides
 
-[`Level5ArtifactEnvelope`](#level5artifactenvelope).[`kind`](#kind-12)
+[`Level5ArtifactEnvelope`](#level5artifactenvelope).[`kind`](#kind-13)
 
 ##### planState
 
@@ -7683,7 +7691,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`path`](#path-3)
+[`NativeCodeModule`](#nativecodemodule).[`path`](#path-4)
 
 ##### arch?
 
@@ -7699,7 +7707,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-26)
+[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-27)
 
 ##### buildId
 
@@ -7791,7 +7799,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`path`](#path-3)
+[`NativeCodeModule`](#nativecodemodule).[`path`](#path-4)
 
 ##### arch?
 
@@ -7807,7 +7815,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-26)
+[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-27)
 
 ##### buildId
 
@@ -9602,7 +9610,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-41)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-42)
 
 ##### targetArch
 
@@ -10190,7 +10198,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-41)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-42)
 
 ##### targetArch
 
@@ -20334,7 +20342,7 @@ kicks in: `<sourceName>/<fork.pid>`.
 
 ###### Overrides
 
-[`RestoreOptions`](#restoreoptions).[`name`](#name-21)
+[`RestoreOptions`](#restoreoptions).[`name`](#name-22)
 
 ##### portForward?
 
@@ -21816,6 +21824,166 @@ Poll interval in ms while retrying. Default 250.
 ##### verifiedSeeds
 
 > **verifiedSeeds**: [`ArbitraryProcessLevel5VerifiedSeedInput`](#arbitraryprocesslevel5verifiedseedinput)[]
+
+##### artifactsSha256
+
+> **artifactsSha256**: `string`
+
+***
+
+### ArbitraryProcessLevel5IdleResourceProofArtifact
+
+> **ArbitraryProcessLevel5IdleResourceProofArtifact** = `object`
+
+#### Properties
+
+##### name
+
+> **name**: `string`
+
+##### path
+
+> **path**: `string`
+
+##### sha256
+
+> **sha256**: `string`
+
+***
+
+### ArbitraryProcessLevel5IdleResourceProofReport
+
+> **ArbitraryProcessLevel5IdleResourceProofReport** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`ARBITRARY_PROCESS_LEVEL5_IDLE_RESOURCE_PROOF_KIND`](#arbitrary_process_level5_idle_resource_proof_kind)
+
+##### version
+
+> **version**: *typeof* [`ARBITRARY_PROCESS_LEVEL5_IDLE_RESOURCE_PROOF_VERSION`](#arbitrary_process_level5_idle_resource_proof_version)
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### rowId
+
+> **rowId**: `"native-idle-epoll-or-tcp"`
+
+##### proofStatus
+
+> **proofStatus**: `"verified-seed"`
+
+##### capturedState
+
+> **capturedState**: `object`
+
+###### epollFd
+
+> **epollFd**: `5`
+
+###### tcpListenerFd
+
+> **tcpListenerFd**: `6`
+
+###### epollReadyEvents
+
+> **epollReadyEvents**: `0`
+
+###### acceptedStreams
+
+> **acceptedStreams**: `0`
+
+###### listenerBacklogEmpty
+
+> **listenerBacklogEmpty**: `true`
+
+##### targetReconstruction
+
+> **targetReconstruction**: `object`
+
+###### planKind
+
+> **planKind**: `"create-idle-epoll-and-idle-tcp-listener"`
+
+###### epollFd
+
+> **epollFd**: `5`
+
+###### tcpListenerFd
+
+> **tcpListenerFd**: `6`
+
+###### idleOnly
+
+> **idleOnly**: `true`
+
+###### activeSocketStreamsRestored
+
+> **activeSocketStreamsRestored**: `false`
+
+###### sidecarReplayUsed
+
+> **sidecarReplayUsed**: `false`
+
+###### rawCpuRestoreUsed
+
+> **rawCpuRestoreUsed**: `false`
+
+###### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+###### appCheckpointHooksRequired
+
+> **appCheckpointHooksRequired**: `false`
+
+###### metadataOnlySuccessAccepted
+
+> **metadataOnlySuccessAccepted**: `false`
+
+##### verifier
+
+> **verifier**: `object`
+
+###### epollWaitReturnedNoEvents
+
+> **epollWaitReturnedNoEvents**: `true`
+
+###### listenerAcceptedNoStreams
+
+> **listenerAcceptedNoStreams**: `true`
+
+###### targetNativeReconstructionRequired
+
+> **targetNativeReconstructionRequired**: `true`
+
+###### translatedProcessStateRequired
+
+> **translatedProcessStateRequired**: `true`
+
+##### claimChangeAllowed
+
+> **claimChangeAllowed**: `false`
+
+##### currentArbitraryProcessCrossArchRestoreClaimed
+
+> **currentArbitraryProcessCrossArchRestoreClaimed**: `0`
+
+##### candidateArbitraryProcessCrossArchRestoreClaimed
+
+> **candidateArbitraryProcessCrossArchRestoreClaimed**: `1`
+
+##### arbitraryProcessClaimed
+
+> **arbitraryProcessClaimed**: `false`
+
+##### artifacts
+
+> **artifacts**: [`ArbitraryProcessLevel5IdleResourceProofArtifact`](#arbitraryprocesslevel5idleresourceproofartifact)[]
 
 ##### artifactsSha256
 
@@ -28974,6 +29142,24 @@ tarball-producing tool can pre-populate the lookup cache.
 
 ***
 
+### ARBITRARY\_PROCESS\_LEVEL5\_IDLE\_RESOURCE\_PROOF\_KIND
+
+> `const` **ARBITRARY\_PROCESS\_LEVEL5\_IDLE\_RESOURCE\_PROOF\_KIND**: `"machinen.arbitrary-process-level5-idle-resource-proof"`
+
+***
+
+### ARBITRARY\_PROCESS\_LEVEL5\_IDLE\_RESOURCE\_PROOF\_VERSION
+
+> `const` **ARBITRARY\_PROCESS\_LEVEL5\_IDLE\_RESOURCE\_PROOF\_VERSION**: `1`
+
+***
+
+### ARBITRARY\_PROCESS\_LEVEL5\_IDLE\_RESOURCE\_PROOF\_REPORT
+
+> `const` **ARBITRARY\_PROCESS\_LEVEL5\_IDLE\_RESOURCE\_PROOF\_REPORT**: `"idle-resource-proof-report.json"`
+
+***
+
 ### ARBITRARY\_PROCESS\_LEVEL5\_REGULAR\_FILE\_FD\_PROOF\_KIND
 
 > `const` **ARBITRARY\_PROCESS\_LEVEL5\_REGULAR\_FILE\_FD\_PROOF\_KIND**: `"machinen.arbitrary-process-level5-regular-file-fd-proof"` = `"machinen.arbitrary-process-level5-regular-file-fd-proof"`
@@ -31803,6 +31989,56 @@ the guest agent skips entries that don't match.
 #### Returns
 
 [`ArbitraryProcessLevel5ClaimReadyReport`](#arbitraryprocesslevel5claimreadyreport)
+
+***
+
+### createArbitraryProcessLevel5IdleResourceProof()
+
+> **createArbitraryProcessLevel5IdleResourceProof**(`input`): [`ArbitraryProcessLevel5IdleResourceProofReport`](#arbitraryprocesslevel5idleresourceproofreport)
+
+#### Parameters
+
+##### input
+
+###### outDir
+
+`string`
+
+#### Returns
+
+[`ArbitraryProcessLevel5IdleResourceProofReport`](#arbitraryprocesslevel5idleresourceproofreport)
+
+***
+
+### loadArbitraryProcessLevel5IdleResourceProofReport()
+
+> **loadArbitraryProcessLevel5IdleResourceProofReport**(`path`): [`ArbitraryProcessLevel5IdleResourceProofReport`](#arbitraryprocesslevel5idleresourceproofreport)
+
+#### Parameters
+
+##### path
+
+`string`
+
+#### Returns
+
+[`ArbitraryProcessLevel5IdleResourceProofReport`](#arbitraryprocesslevel5idleresourceproofreport)
+
+***
+
+### verifyArbitraryProcessLevel5IdleResourceProofReport()
+
+> **verifyArbitraryProcessLevel5IdleResourceProofReport**(`report`): [`ArbitraryProcessLevel5IdleResourceProofReport`](#arbitraryprocesslevel5idleresourceproofreport)
+
+#### Parameters
+
+##### report
+
+[`ArbitraryProcessLevel5IdleResourceProofReport`](#arbitraryprocesslevel5idleresourceproofreport)
+
+#### Returns
+
+[`ArbitraryProcessLevel5IdleResourceProofReport`](#arbitraryprocesslevel5idleresourceproofreport)
 
 ***
 

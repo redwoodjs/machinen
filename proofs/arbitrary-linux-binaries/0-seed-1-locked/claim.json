@@ -10,7 +10,7 @@
     "arbitraryProcessCrossArchRestore": 0,
     "candidateArbitraryProcessCrossArchRestore": 1
   },
-  "promotionEffect": "No public claim change until a dedicated arbitrary-process claim-ready gate passes.",
+  "promotionEffect": "Candidate 1% arbitrary-process claim is unlocked only through the accepted claim-ready gate; public claim remains 0% in this proof PR.",
   "proofs": [
     {
       "id": "arbitrary-process-seed-matrix",
@@ -68,6 +68,26 @@
           "arbitraryProcessCrossArchRestore": 0
         },
         "claimChangeAllowed": false
+      }
+    },
+    {
+      "id": "idle-epoll-tcp-proof",
+      "category": "kernel resources",
+      "status": "verified-seed",
+      "artifact": "idle-resource-proof-report.json",
+      "proves": "Target-native reconstruction of idle epoll and idle TCP listener resources with no active streams or ready events",
+      "claimUse": "third verified arbitrary-process seed; unlocks the claim-ready gate but does not itself raise the public claim",
+      "next": "Use only through the accepted claim-ready gate for any future 1% claim change.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": null,
+          "broadSupport": null,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": true
       }
     },
     {

@@ -98,6 +98,7 @@
     "smoke-product-portable-postgres-claim-ladder": "bash scripts/smoke/product-portable-postgres-claim-ladder.sh",
     "smoke-arbitrary-process-level5-claim-ready": "bash scripts/smoke/arbitrary-process-level5-claim-ready.sh",
     "smoke-arbitrary-process-level5-simple-pipe-fd-proof": "bash scripts/smoke/arbitrary-process-level5-simple-pipe-fd-proof.sh",
+    "smoke-arbitrary-process-level5-idle-resource-proof": "bash scripts/smoke/arbitrary-process-level5-idle-resource-proof.sh",
     "smoke-product-support-discovery": "bash scripts/smoke/product-support-discovery.sh",
     "smoke-semantic-ping-continuation": "bash scripts/smoke/semantic-ping-continuation.sh",
     "smoke-portable-ping-machine": "bash scripts/smoke/portable-ping-machine.sh",

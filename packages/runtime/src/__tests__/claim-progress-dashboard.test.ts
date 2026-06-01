@@ -27,7 +27,7 @@ type ClaimProgressProofGroup = {
 
 type ClaimProgressDashboard = {
   kind: "machinen.claim-progress-dashboard";
-  version: 8;
+  version: 9;
   tracks: ClaimProgressTrack[];
   proofGroups: ClaimProgressProofGroup[];
 };
@@ -41,7 +41,7 @@ describe("claim progress dashboard", () => {
 
     expect(dashboard).toMatchObject({
       kind: "machinen.claim-progress-dashboard",
-      version: 8,
+      version: 9,
     });
     expect(dashboard.tracks.map((track) => track.id)).toEqual([
       "node-service",
@@ -63,7 +63,7 @@ describe("claim progress dashboard", () => {
     expect(arbitraryProcess).toMatchObject({
       status: "seed-candidate",
       currentClaim: { arbitraryProcessCrossArchRestore: 0 },
-      nextClaim: { arbitraryProcessCrossArchRestore: 1, claimChangeAllowed: false },
+      nextClaim: { arbitraryProcessCrossArchRestore: 1, claimChangeAllowed: true },
     });
     expect(arbitraryProcess?.evidenceRows.map((row) => row.id)).toContain(
       "native-ping-socket-resource",
@@ -95,6 +95,7 @@ describe("claim progress dashboard", () => {
     expect(proofIds).toContain("regular-file-fd-proof");
     expect(proofIds).toContain("arbitrary-process-claim-ready-gate");
     expect(proofIds).toContain("simple-pipe-fd-proof");
+    expect(proofIds).toContain("idle-epoll-tcp-proof");
     expect(proofIds).toContain("postgres-retained-verifier-artifacts");
     const embeddedJson =
       /<script id="embedded-claim-progress" type="application\/json">\n([\s\S]*?)\n    <\/script>/u.exec(

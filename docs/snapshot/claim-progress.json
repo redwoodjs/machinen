@@ -1,6 +1,6 @@
 {
   "kind": "machinen.claim-progress-dashboard",
-  "version": 8,
+  "version": 9,
   "updatedFrom": [
     "docs/snapshot/node-level5-product-support-claim-registry.json",
     "docs/snapshot/node-level5-product-support-100.json",
@@ -14,7 +14,9 @@
     "packages/runtime/src/arbitrary-process-level5-claim-ready.ts",
     "proofs/arbitrary-linux-binaries/scripts/arbitrary-process-level5-claim-ready.ts",
     "packages/runtime/src/arbitrary-process-level5-simple-pipe-fd-proof.ts",
-    "proofs/arbitrary-linux-binaries/scripts/arbitrary-process-level5-simple-pipe-fd-proof.ts"
+    "proofs/arbitrary-linux-binaries/scripts/arbitrary-process-level5-simple-pipe-fd-proof.ts",
+    "packages/runtime/src/arbitrary-process-level5-idle-resource-proof.ts",
+    "proofs/arbitrary-linux-binaries/scripts/arbitrary-process-level5-idle-resource-proof.ts"
   ],
   "columns": {
     "claim": ["productSupport", "broadSupport", "arbitraryProcessCrossArchRestore"],
@@ -368,10 +370,10 @@
       },
       "nextClaim": {
         "arbitraryProcessCrossArchRestore": 1,
-        "claimChangeAllowed": false
+        "claimChangeAllowed": true
       },
       "summary": "Seed matrix exists for tiny target-native reconstruction candidates. The regular file FD row now has retained verifier artifacts; no arbitrary-process claim is raised yet.",
-      "claimGate": "arbitrary-process claim-ready gate defined; waiting on simple-pipe and idle epoll/TCP verified seeds",
+      "claimGate": "arbitrary-process claim-ready gate can pass after regular-file, simple-pipe, and idle epoll/TCP verified seeds",
       "claimChangeAllowed": false,
       "evidence": [
         "tiny native idle process seed",
@@ -473,6 +475,16 @@
           "gate": "artifact sha verification plus target behavior proof",
           "artifact": "simple-pipe-fd-proof-report.json",
           "next": "Feed this verified seed into the arbitrary-process claim-ready gate."
+        },
+        {
+          "id": "native-idle-epoll-tcp-proof",
+          "area": "kernel resources",
+          "kind": "idle-only resource reconstruction proof",
+          "status": "verified-seed",
+          "evidence": "Idle epoll and idle TCP listener retained proof verifies no ready events, no accepted streams, and target-native reconstruction",
+          "gate": "idle-only resource reconstruction verifier",
+          "artifact": "idle-resource-proof-report.json",
+          "next": "Use with the claim-ready gate before any public 1% claim PR."
         }
       ],
       "refusals": [
@@ -532,8 +544,8 @@
       "nextSteps": [
         {
           "priority": 1,
-          "item": "Add idle epoll and idle TCP listener safe-boundary proofs so the claim-ready gate has all required seed rows.",
-          "gate": "idle-only resource reconstruction verifier"
+          "item": "Open a separate public claim-change PR only if the accepted claim-ready gate should raise arbitrary-process restore to 1%.",
+          "gate": "arbitrary-process-level5-claim-ready accepted"
         },
         {
           "priority": 2,
@@ -851,7 +863,7 @@
         "arbitraryProcessCrossArchRestore": 0,
         "candidateArbitraryProcessCrossArchRestore": 1
       },
-      "promotionEffect": "No public claim change until a dedicated arbitrary-process claim-ready gate passes.",
+      "promotionEffect": "Candidate 1% arbitrary-process claim is unlocked only through the accepted claim-ready gate; public claim remains 0% in this proof PR.",
       "proofs": [
         {
           "id": "arbitrary-process-seed-matrix",
@@ -909,6 +921,26 @@
               "arbitraryProcessCrossArchRestore": 0
             },
             "claimChangeAllowed": false
+          }
+        },
+        {
+          "id": "idle-epoll-tcp-proof",
+          "category": "kernel resources",
+          "status": "verified-seed",
+          "artifact": "idle-resource-proof-report.json",
+          "proves": "Target-native reconstruction of idle epoll and idle TCP listener resources with no active streams or ready events",
+          "claimUse": "third verified arbitrary-process seed; unlocks the claim-ready gate but does not itself raise the public claim",
+          "next": "Use only through the accepted claim-ready gate for any future 1% claim change.",
+          "claimImpact": {
+            "productSupportDelta": 0,
+            "broadSupportDelta": 0,
+            "arbitraryProcessCrossArchRestoreDelta": 0,
+            "resultingClaim": {
+              "productSupport": null,
+              "broadSupport": null,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "claimChangeAllowed": true
           }
         },
         {

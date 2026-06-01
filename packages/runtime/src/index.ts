@@ -270,6 +270,17 @@ export {
 } from "./arbitrary-process-level5-claim-ready.ts";
 
 export {
+  ARBITRARY_PROCESS_LEVEL5_IDLE_RESOURCE_PROOF_KIND,
+  ARBITRARY_PROCESS_LEVEL5_IDLE_RESOURCE_PROOF_REPORT,
+  ARBITRARY_PROCESS_LEVEL5_IDLE_RESOURCE_PROOF_VERSION,
+  createArbitraryProcessLevel5IdleResourceProof,
+  loadArbitraryProcessLevel5IdleResourceProofReport,
+  verifyArbitraryProcessLevel5IdleResourceProofReport,
+  type ArbitraryProcessLevel5IdleResourceProofArtifact,
+  type ArbitraryProcessLevel5IdleResourceProofReport,
+} from "./arbitrary-process-level5-idle-resource-proof.ts";
+
+export {
   ARBITRARY_PROCESS_LEVEL5_SIMPLE_PIPE_FD_PROOF_KIND,
   ARBITRARY_PROCESS_LEVEL5_SIMPLE_PIPE_FD_PROOF_REPORT,
   ARBITRARY_PROCESS_LEVEL5_SIMPLE_PIPE_FD_PROOF_VERSION,
