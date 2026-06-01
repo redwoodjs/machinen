@@ -124,6 +124,7 @@ describe("claim progress dashboard", () => {
     expect(html).toContain("nodejs/132m");
     expect(html).not.toContain("node/001m");
     expect(html).toContain(".missing");
+    expect(html).toContain(".verified");
     expect(html).toContain("ID (proof #)");
     expect(html).toContain("Type");
     expect(html).toContain("Proof type options");
