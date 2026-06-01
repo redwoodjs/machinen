@@ -1378,6 +1378,18 @@ export { readBalloonStats, STATS_FILE_SIZE } from "./balloon-stats.ts";
 export type { BalloonCounters } from "./balloon-stats.ts";
 
 export {
+  NODE_LEVEL5_FRAMEWORK_CAPABILITY_MATRIX_KIND,
+  NODE_LEVEL5_FRAMEWORK_CAPABILITY_MATRIX_VERSION,
+  buildNodeLevel5FrameworkCapabilityMatrix,
+  type NodeLevel5FrameworkCapabilityEvidenceKind,
+  type NodeLevel5FrameworkCapabilityFramework,
+  type NodeLevel5FrameworkCapabilityMatrix,
+  type NodeLevel5FrameworkCapabilityName,
+  type NodeLevel5FrameworkCapabilityRow,
+  type NodeLevel5FrameworkCapabilityStatus,
+} from "./node-level5-framework-capability-matrix.ts";
+
+export {
   NODE_LEVEL5_GENERIC_VM_REFUSAL_ARTIFACTS_REPORT_KIND,
   NODE_LEVEL5_GENERIC_VM_REFUSAL_ARTIFACTS_REPORT_VERSION,
   createNodeLevel5GenericVmRefusalArtifactsReport,

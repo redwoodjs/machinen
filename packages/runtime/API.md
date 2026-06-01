@@ -244,6 +244,15 @@
 - [`loadNodeLevel5InstalledThirdPartyAppCorpusReport`](#loadnodelevel5installedthirdpartyappcorpusreport)
 - [`verifyNodeLevel5InstalledThirdPartyAppCorpusReport`](#verifynodelevel5installedthirdpartyappcorpusreport)
 - [`writeNodeLevel5InstalledThirdPartyAppCorpusReport`](#writenodelevel5installedthirdpartyappcorpusreport)
+- [`NodeLevel5FrameworkCapabilityFramework`](#nodelevel5frameworkcapabilityframework)
+- [`NodeLevel5FrameworkCapabilityStatus`](#nodelevel5frameworkcapabilitystatus)
+- [`NodeLevel5FrameworkCapabilityName`](#nodelevel5frameworkcapabilityname)
+- [`NodeLevel5FrameworkCapabilityEvidenceKind`](#nodelevel5frameworkcapabilityevidencekind)
+- [`NodeLevel5FrameworkCapabilityRow`](#nodelevel5frameworkcapabilityrow)
+- [`NodeLevel5FrameworkCapabilityMatrix`](#nodelevel5frameworkcapabilitymatrix)
+- [`NODE_LEVEL5_FRAMEWORK_CAPABILITY_MATRIX_KIND`](#node_level5_framework_capability_matrix_kind)
+- [`NODE_LEVEL5_FRAMEWORK_CAPABILITY_MATRIX_VERSION`](#node_level5_framework_capability_matrix_version)
+- [`buildNodeLevel5FrameworkCapabilityMatrix`](#buildnodelevel5frameworkcapabilitymatrix)
 - [`NodeLevel5GenericVmRefusalArtifactFile`](#nodelevel5genericvmrefusalartifactfile)
 - [`NodeLevel5GenericVmRefusalArtifactsReport`](#nodelevel5genericvmrefusalartifactsreport)
 - [`NodeLevel5GenericVmRefusalArtifactsVerification`](#nodelevel5genericvmrefusalartifactsverification)
@@ -22731,6 +22740,150 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NodeLevel5FrameworkCapabilityFramework
+
+> **NodeLevel5FrameworkCapabilityFramework** = `"express"` \| `"fastify"`
+
+***
+
+### NodeLevel5FrameworkCapabilityStatus
+
+> **NodeLevel5FrameworkCapabilityStatus** = `"supported-selected-rows"` \| `"candidate-next-evidence"` \| `"refused"` \| `"not-proven"`
+
+***
+
+### NodeLevel5FrameworkCapabilityName
+
+> **NodeLevel5FrameworkCapabilityName** = `"routing"` \| `"middleware-hooks"` \| `"request-shapes"` \| `"response-shapes"` \| `"static-assets"` \| `"config-env"` \| `"error-handling"` \| `"framework-introspection"` \| `"plugin-graph"` \| `"lifecycle-state"` \| `"active-live-state"` \| `"arbitrary-framework-app"`
+
+***
+
+### NodeLevel5FrameworkCapabilityEvidenceKind
+
+> **NodeLevel5FrameworkCapabilityEvidenceKind** = `"app-support-matrix"` \| `"generic-vm-corpus"` \| `"generic-vm-refusal-artifacts"` \| `"future-framework-introspection"`
+
+***
+
+### NodeLevel5FrameworkCapabilityRow
+
+> **NodeLevel5FrameworkCapabilityRow** = `object`
+
+#### Properties
+
+##### id
+
+> **id**: `string`
+
+##### framework
+
+> **framework**: [`NodeLevel5FrameworkCapabilityFramework`](#nodelevel5frameworkcapabilityframework)
+
+##### capability
+
+> **capability**: [`NodeLevel5FrameworkCapabilityName`](#nodelevel5frameworkcapabilityname)
+
+##### status
+
+> **status**: [`NodeLevel5FrameworkCapabilityStatus`](#nodelevel5frameworkcapabilitystatus)
+
+##### evidenceKind
+
+> **evidenceKind**: [`NodeLevel5FrameworkCapabilityEvidenceKind`](#nodelevel5frameworkcapabilityevidencekind)
+
+##### productPath
+
+> **productPath**: `"machinen snapshot <vm-name> --out <dir>; machinen restore <dir>"`
+
+##### claimScope
+
+> **claimScope**: `"selected-app-row"` \| `"candidate-framework-capability"` \| `"refusal-boundary"` \| `"not-claimed"`
+
+##### arbitraryFrameworkClaimed
+
+> **arbitraryFrameworkClaimed**: `false`
+
+##### arbitraryNodeClaimed
+
+> **arbitraryNodeClaimed**: `false`
+
+##### arbitraryProcessCrossArchRestoreClaimed
+
+> **arbitraryProcessCrossArchRestoreClaimed**: `0`
+
+##### notes
+
+> **notes**: `string`[]
+
+***
+
+### NodeLevel5FrameworkCapabilityMatrix
+
+> **NodeLevel5FrameworkCapabilityMatrix** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: *typeof* [`NODE_LEVEL5_FRAMEWORK_CAPABILITY_MATRIX_KIND`](#node_level5_framework_capability_matrix_kind)
+
+##### version
+
+> **version**: *typeof* [`NODE_LEVEL5_FRAMEWORK_CAPABILITY_MATRIX_VERSION`](#node_level5_framework_capability_matrix_version)
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### rowCount
+
+> **rowCount**: `number`
+
+##### rows
+
+> **rows**: [`NodeLevel5FrameworkCapabilityRow`](#nodelevel5frameworkcapabilityrow)[]
+
+##### currentNodeProductSupportClaimed
+
+> **currentNodeProductSupportClaimed**: `85`
+
+##### currentBroadNodeProductSupportClaimed
+
+> **currentBroadNodeProductSupportClaimed**: `25`
+
+##### currentArbitraryProcessCrossArchRestoreClaimed
+
+> **currentArbitraryProcessCrossArchRestoreClaimed**: `0`
+
+##### candidateNodeProductSupportClaimed
+
+> **candidateNodeProductSupportClaimed**: `90`
+
+##### candidateBroadNodeProductSupportClaimed
+
+> **candidateBroadNodeProductSupportClaimed**: `30`
+
+##### candidateArbitraryProcessCrossArchRestoreClaimed
+
+> **candidateArbitraryProcessCrossArchRestoreClaimed**: `0`
+
+##### claimChangeAllowed
+
+> **claimChangeAllowed**: `false`
+
+##### arbitraryExpressClaimed
+
+> **arbitraryExpressClaimed**: `false`
+
+##### arbitraryFastifyClaimed
+
+> **arbitraryFastifyClaimed**: `false`
+
+##### arbitraryNodeClaimed
+
+> **arbitraryNodeClaimed**: `false`
+
+***
+
 ### NodeLevel5GenericVmModuleSystem
 
 > **NodeLevel5GenericVmModuleSystem** = `"cjs"` \| `"esm"`
@@ -27889,6 +28042,18 @@ loops; anything looser stops being a meaningful gate.
 
 ***
 
+### NODE\_LEVEL5\_FRAMEWORK\_CAPABILITY\_MATRIX\_KIND
+
+> `const` **NODE\_LEVEL5\_FRAMEWORK\_CAPABILITY\_MATRIX\_KIND**: `"machinen.node-level5-framework-capability-matrix"` = `"machinen.node-level5-framework-capability-matrix"`
+
+***
+
+### NODE\_LEVEL5\_FRAMEWORK\_CAPABILITY\_MATRIX\_VERSION
+
+> `const` **NODE\_LEVEL5\_FRAMEWORK\_CAPABILITY\_MATRIX\_VERSION**: `1` = `1`
+
+***
+
 ### NODE\_LEVEL5\_GENERIC\_VM\_CORPUS\_REPORT\_KIND
 
 > `const` **NODE\_LEVEL5\_GENERIC\_VM\_CORPUS\_REPORT\_KIND**: `"machinen.node-level5-generic-vm-corpus-report"` = `"machinen.node-level5-generic-vm-corpus-report"`
@@ -31110,6 +31275,16 @@ available.
 #### Returns
 
 `value is NodeLevel5DeclaredSubsetManifest`
+
+***
+
+### buildNodeLevel5FrameworkCapabilityMatrix()
+
+> **buildNodeLevel5FrameworkCapabilityMatrix**(): [`NodeLevel5FrameworkCapabilityMatrix`](#nodelevel5frameworkcapabilitymatrix)
+
+#### Returns
+
+[`NodeLevel5FrameworkCapabilityMatrix`](#nodelevel5frameworkcapabilitymatrix)
 
 ***
 

@@ -642,6 +642,32 @@ describe("Node Level 5 product commands", () => {
     });
   });
 
+  it("prints framework capability candidates without arbitrary claims", () => {
+    const capabilities = runCli(["node-level5", "framework-capabilities", "--json"]);
+
+    expect(capabilities.status).toBe(0);
+    expect(JSON.parse(capabilities.stdout)).toMatchObject({
+      accepted: true,
+      kind: "machinen.node-level5-framework-capability-matrix",
+      rowCount: 24,
+      currentNodeProductSupportClaimed: 85,
+      currentBroadNodeProductSupportClaimed: 25,
+      candidateNodeProductSupportClaimed: 90,
+      candidateBroadNodeProductSupportClaimed: 30,
+      claimChangeAllowed: false,
+      arbitraryExpressClaimed: false,
+      arbitraryFastifyClaimed: false,
+      arbitraryNodeClaimed: false,
+      rows: expect.arrayContaining([
+        expect.objectContaining({
+          id: "express-framework-introspection",
+          status: "candidate-next-evidence",
+        }),
+        expect.objectContaining({ id: "fastify-arbitrary-framework-app", status: "not-proven" }),
+      ]),
+    });
+  });
+
   it("uses retained installed third-party app corpus evidence for release gates", () => {
     const dir = mkdtempSync(join(tmpdir(), "machinen-node80-cli-installed-third-party-corpus-"));
     try {
