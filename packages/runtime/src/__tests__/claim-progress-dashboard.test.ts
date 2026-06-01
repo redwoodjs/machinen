@@ -27,7 +27,7 @@ type ClaimProgressProofGroup = {
 
 type ClaimProgressDashboard = {
   kind: "machinen.claim-progress-dashboard";
-  version: 30;
+  version: 31;
   tracks: ClaimProgressTrack[];
   proofGroups: ClaimProgressProofGroup[];
 };
@@ -41,7 +41,7 @@ describe("claim progress dashboard", () => {
 
     expect(dashboard).toMatchObject({
       kind: "machinen.claim-progress-dashboard",
-      version: 30,
+      version: 31,
     });
     expect(dashboard.tracks.map((track) => track.id)).toEqual([
       "node-service",
@@ -132,9 +132,8 @@ describe("claim progress dashboard", () => {
     expect(html).toContain("other types");
     expect(html).toContain("End-to-end source capture plus target restore behavior evidence");
     expect(html).toContain("PostgreSQL proof for a connected psql client running SQL queries");
-    expect(html).toContain(
-      "Proof that PostgreSQL command-line tools work before capture and after restore",
-    );
+    expect(html).toContain("Proof that command-line tools work before capture and after restore");
+    expect(html).toContain("dependency install");
     expect(html).toContain("row coverage");
     expect(html).toContain("e2e");
     expect(html).toContain("Proof name");
@@ -176,6 +175,14 @@ describe("claim progress dashboard", () => {
     expect(html).toContain("postgresql-unix-createdb-dropdb-command");
     expect(html).toContain("ping");
     expect(html).toContain("arbitrary binaries");
+    expect(html).toContain("bun-product-command-detection");
+    expect(html).toContain("bun-http-service-e2e-arm64-to-amd64");
+    expect(html).toContain("bun-http-service-e2e-amd64-to-arm64");
+    expect(html).toContain("bun-dependency-install-e2e");
+    expect(html).toContain("bun-unix-version-command");
+    expect(html).toContain("bun-unix-run-command");
+    expect(html).toContain("bun-unix-test-command");
+    expect(html).toContain("bun-refusal-audit");
     expect(html).toContain("proof IDs are path-like");
     expect(html).not.toContain("Claim matrix");
     expect(html).not.toContain("Proofs by claim");

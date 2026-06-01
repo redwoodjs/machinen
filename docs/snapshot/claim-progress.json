@@ -1,6 +1,6 @@
 {
   "kind": "machinen.claim-progress-dashboard",
-  "version": 30,
+  "version": 31,
   "updatedFrom": [
     "docs/snapshot/node-level5-product-support-claim-registry.json",
     "docs/snapshot/node-level5-product-support-100.json",
@@ -1450,6 +1450,66 @@
           "gate": "bun seed matrix",
           "artifact": "not-created",
           "next": "Define safe Bun service subset and explicit refusal boundaries."
+        },
+        {
+          "id": "bun-product-command-detection",
+          "area": "product command",
+          "kind": "Bun product-path detector",
+          "status": "not-started",
+          "evidence": "No retained Bun product command detector artifact exists yet.",
+          "gate": "bun-product-command-detection",
+          "artifact": "missing",
+          "next": "Retain Bun app detection evidence and product snapshot command transcript before any Bun claim."
+        },
+        {
+          "id": "bun-http-service-e2e-arm64-to-amd64",
+          "area": "real E2E",
+          "kind": "Bun HTTP service cross-architecture E2E",
+          "status": "not-started",
+          "evidence": "No retained arm64->amd64 Bun HTTP service product snapshot/restore artifact exists yet.",
+          "gate": "bun-real-cross-arch-e2e-gate",
+          "artifact": "missing",
+          "next": "Run Bun HTTP service capture on arm64 and restore/verify on amd64 with retained source/target artifacts."
+        },
+        {
+          "id": "bun-http-service-e2e-amd64-to-arm64",
+          "area": "real E2E",
+          "kind": "Bun HTTP service cross-architecture E2E",
+          "status": "not-started",
+          "evidence": "No retained amd64->arm64 Bun HTTP service product snapshot/restore artifact exists yet.",
+          "gate": "bun-real-cross-arch-e2e-gate",
+          "artifact": "missing",
+          "next": "Run Bun HTTP service capture on amd64 and restore/verify on arm64 with retained source/target artifacts."
+        },
+        {
+          "id": "bun-unix-version-command",
+          "area": "unix commands",
+          "kind": "bun --version command proof",
+          "status": "not-started",
+          "evidence": "No retained bun --version source/target command proof exists yet.",
+          "gate": "bun-unix-command-proof-gate",
+          "artifact": "missing",
+          "next": "Run and retain bun --version command transcripts on source and target in both directions."
+        },
+        {
+          "id": "bun-unix-run-command",
+          "area": "unix commands",
+          "kind": "bun run command proof",
+          "status": "not-started",
+          "evidence": "No retained bun run source/target command proof exists yet.",
+          "gate": "bun-unix-command-proof-gate",
+          "artifact": "missing",
+          "next": "Run and retain bun run command transcripts and target behavior verifier output."
+        },
+        {
+          "id": "bun-unix-test-command",
+          "area": "unix commands",
+          "kind": "bun test command proof",
+          "status": "not-started",
+          "evidence": "No retained bun test source/target command proof exists yet.",
+          "gate": "bun-unix-command-proof-gate",
+          "artifact": "missing",
+          "next": "Run and retain bun test transcripts before capture and after restore."
         }
       ],
       "refusals": [
@@ -1483,6 +1543,36 @@
           "priority": 2,
           "item": "Add VM-first Bun product-path detector and retained artifacts.",
           "gate": "bun product evidence report"
+        },
+        {
+          "priority": 3,
+          "item": "Add Bun product command detection proof with retained detector and product snapshot transcripts.",
+          "gate": "bun-product-command-detection"
+        },
+        {
+          "priority": 4,
+          "item": "Add Bun HTTP service E2E proof from arm64 to amd64 with retained source/target artifacts.",
+          "gate": "bun-http-service-e2e-arm64-to-amd64"
+        },
+        {
+          "priority": 5,
+          "item": "Add Bun HTTP service E2E proof from amd64 to arm64 with retained source/target artifacts.",
+          "gate": "bun-http-service-e2e-amd64-to-arm64"
+        },
+        {
+          "priority": 6,
+          "item": "Add Bun dependency install E2E proof with retained bun install provenance and target behavior verifier output.",
+          "gate": "bun-dependency-install-e2e"
+        },
+        {
+          "priority": 7,
+          "item": "Add Bun unix command proofs for bun --version, bun run, and bun test.",
+          "gate": "bun-unix-command-proof-gate"
+        },
+        {
+          "priority": 8,
+          "item": "Add Bun refusal audit artifacts for unsupported runtime and active-resource states.",
+          "gate": "bun-refusal-audit"
         }
       ],
       "docs": []
@@ -2372,13 +2462,13 @@
       "claim": "Bun service support not started",
       "trackId": "bun",
       "status": "not-started",
-      "scope": "No Bun support claim or seed matrix yet.",
+      "scope": "No Bun support claim yet; proof slots now enumerate the required product, E2E, unix command, dependency, and refusal gates.",
       "claimNumbers": {
         "productSupport": 0,
         "broadSupport": 0,
         "arbitraryProcessCrossArchRestore": 0
       },
-      "promotionEffect": "Requires Bun seed matrix before any proof can affect support.",
+      "promotionEffect": "Requires retained Bun product command, bidirectional E2E, unix command, dependency, and refusal artifacts before any proof can affect support.",
       "proofs": [
         {
           "id": "bun-seed-matrix-needed",
@@ -2388,6 +2478,166 @@
           "proves": "No Bun evidence exists yet",
           "claimUse": "blocks Bun claim",
           "next": "Create Bun seed matrix and refusal rows."
+        },
+        {
+          "id": "bun-product-command-detection",
+          "category": "product UX",
+          "status": "not-started",
+          "artifact": "missing",
+          "proves": "A product command can identify a supported Bun service path without hooks, sidecars, source-ISA emulation, or metadata-only success.",
+          "claimUse": "required before any Bun product support claim",
+          "next": "Retain Bun product command transcript, app manifest, detector output, and refusal output for unsupported Bun states.",
+          "claimImpact": {
+            "productSupportDelta": 0,
+            "broadSupportDelta": 0,
+            "arbitraryProcessCrossArchRestoreDelta": 0,
+            "resultingClaim": {
+              "productSupport": 0,
+              "broadSupport": 0,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "claimChangeAllowed": false
+          }
+        },
+        {
+          "id": "bun-http-service-e2e-arm64-to-amd64",
+          "category": "real E2E",
+          "status": "not-started",
+          "artifact": "missing",
+          "proves": "Capture a Bun HTTP service on arm64 with the product snapshot path, restore on amd64, and verify target-native HTTP behavior.",
+          "claimUse": "required before arm64->amd64 public Bun claim",
+          "next": "Run and retain source product command, snapshot summary, app bundle, target restore summary, HTTP response body, and verifier output.",
+          "claimImpact": {
+            "productSupportDelta": 0,
+            "broadSupportDelta": 0,
+            "arbitraryProcessCrossArchRestoreDelta": 0,
+            "resultingClaim": {
+              "productSupport": 0,
+              "broadSupport": 0,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "claimChangeAllowed": false
+          }
+        },
+        {
+          "id": "bun-http-service-e2e-amd64-to-arm64",
+          "category": "real E2E",
+          "status": "not-started",
+          "artifact": "missing",
+          "proves": "Capture a Bun HTTP service on amd64 with the product snapshot path, restore on arm64, and verify target-native HTTP behavior.",
+          "claimUse": "required before bidirectional public Bun claim",
+          "next": "Run and retain source product command, snapshot summary, app bundle, target restore summary, HTTP response body, and verifier output.",
+          "claimImpact": {
+            "productSupportDelta": 0,
+            "broadSupportDelta": 0,
+            "arbitraryProcessCrossArchRestoreDelta": 0,
+            "resultingClaim": {
+              "productSupport": 0,
+              "broadSupport": 0,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "claimChangeAllowed": false
+          }
+        },
+        {
+          "id": "bun-dependency-install-e2e",
+          "category": "dependency install",
+          "status": "not-started",
+          "artifact": "missing",
+          "proves": "A Bun service with package dependencies can be captured and restored with retained dependency provenance and target-native behavior verification.",
+          "claimUse": "required before claiming installed Bun app support",
+          "next": "Run and retain bun install provenance, lockfile, app bundle, target restore summary, and target behavior verifier output.",
+          "claimImpact": {
+            "productSupportDelta": 0,
+            "broadSupportDelta": 0,
+            "arbitraryProcessCrossArchRestoreDelta": 0,
+            "resultingClaim": {
+              "productSupport": 0,
+              "broadSupport": 0,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "claimChangeAllowed": false
+          }
+        },
+        {
+          "id": "bun-unix-version-command",
+          "category": "unix command",
+          "status": "not-started",
+          "artifact": "missing",
+          "proves": "The unix bun --version command reports expected runtime availability before capture and after target restore.",
+          "claimUse": "required unix command proof for Bun runtime readiness",
+          "next": "Run and retain bun --version command transcripts on source and target for both architecture directions.",
+          "claimImpact": {
+            "productSupportDelta": 0,
+            "broadSupportDelta": 0,
+            "arbitraryProcessCrossArchRestoreDelta": 0,
+            "resultingClaim": {
+              "productSupport": 0,
+              "broadSupport": 0,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "claimChangeAllowed": false
+          }
+        },
+        {
+          "id": "bun-unix-run-command",
+          "category": "unix command",
+          "status": "not-started",
+          "artifact": "missing",
+          "proves": "The unix bun run command can launch the supported Bun app before capture and after target restore.",
+          "claimUse": "required unix command proof for Bun app launch behavior",
+          "next": "Run and retain bun run command transcripts plus target behavior verification.",
+          "claimImpact": {
+            "productSupportDelta": 0,
+            "broadSupportDelta": 0,
+            "arbitraryProcessCrossArchRestoreDelta": 0,
+            "resultingClaim": {
+              "productSupport": 0,
+              "broadSupport": 0,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "claimChangeAllowed": false
+          }
+        },
+        {
+          "id": "bun-unix-test-command",
+          "category": "unix command",
+          "status": "not-started",
+          "artifact": "missing",
+          "proves": "The unix bun test command can execute deterministic tests before capture and after target restore.",
+          "claimUse": "required unix command proof for Bun test behavior",
+          "next": "Run and retain bun test command transcripts and target test verifier output.",
+          "claimImpact": {
+            "productSupportDelta": 0,
+            "broadSupportDelta": 0,
+            "arbitraryProcessCrossArchRestoreDelta": 0,
+            "resultingClaim": {
+              "productSupport": 0,
+              "broadSupport": 0,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "claimChangeAllowed": false
+          }
+        },
+        {
+          "id": "bun-refusal-audit",
+          "category": "refusals",
+          "status": "not-started",
+          "artifact": "missing",
+          "proves": "Workers, native plugins/addons, active sockets, native/JIT runtime state, source-ISA emulation, sidecars, hooks, and metadata-only success are explicitly refused for Bun until retained proofs exist.",
+          "claimUse": "required to bound any future Bun claim",
+          "next": "Run and retain Bun refusal artifacts for unsupported runtime states before any public claim.",
+          "claimImpact": {
+            "productSupportDelta": 0,
+            "broadSupportDelta": 0,
+            "arbitraryProcessCrossArchRestoreDelta": 0,
+            "resultingClaim": {
+              "productSupport": 0,
+              "broadSupport": 0,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "claimChangeAllowed": false
+          }
         }
       ],
       "proofDirectory": "proofs/bun/not-started"
