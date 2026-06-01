@@ -40,4 +40,19 @@ For the 80% tier, also identify the selected app row, real-app corpus row, refus
 
 For the 85 / 25 / 0 tier, also identify the generic VM row, retained-evidence report, row-artifact report, refusal-artifact report, and claim-ready report that covers the case. Retain the VM restore/probe log from `scripts/smoke/node-level5-vm-detected-product-snapshot.sh`.
 
+For the draft 90 / 30 / 0 framework target, collect the framework capability, readiness, product-evidence, and claim-ready reports:
+
+```sh
+machinen node-level5 framework-capabilities --json
+machinen node-level5 framework-readiness \
+  --framework-introspection-corpus-report ./node-level5-framework-introspection-corpus-report.json \
+  --json
+machinen node-level5 framework-claim-ready \
+  --readiness-report ./node-level5-framework-readiness.json \
+  --framework-product-evidence-report ./node-level5-framework-product-evidence-report.json \
+  --json
+```
+
+The framework claim-ready report must cover Express route/middleware/settings/error-handler graph artifacts, Fastify plugin/decorator/hook/schema/route graph artifacts, restored behavior probes tied to those artifacts, and refusal artifacts for active requests, worker threads, native addons, TLS active state, and child processes. The shipped public claim remains 85 / 25 / 0 until the claim registry is intentionally raised.
+
 Treat everything else as unsupported unless the product support matrix is expanded and the claim registry is intentionally raised.

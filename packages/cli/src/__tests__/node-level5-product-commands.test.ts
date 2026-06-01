@@ -4,6 +4,12 @@ import { closeSync, mkdtempSync, openSync, readFileSync, rmSync, writeFileSync }
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
+import {
+  createNodeLevel5FrameworkIntrospectionCorpusReport,
+  evaluateNodeLevel5FrameworkCapabilityReadiness,
+  writeNodeLevel5FrameworkProductEvidenceReport,
+  type NodeLevel5FrameworkIntrospectionCorpusRow,
+} from "@machinen/runtime";
 import { describe, expect, it } from "vitest";
 
 const CLI = resolve("packages/cli/src/cli.ts");
@@ -725,6 +731,46 @@ describe("Node Level 5 product commands", () => {
     }
   });
 
+  it("prints framework capability claim-ready when product evidence passes", () => {
+    const dir = mkdtempSync(join(tmpdir(), "machinen-node90-framework-claim-ready-"));
+    try {
+      const readinessReport = evaluateNodeLevel5FrameworkCapabilityReadiness({
+        frameworkIntrospectionCorpusReport: createNodeLevel5FrameworkIntrospectionCorpusReport(
+          frameworkIntrospectionRows("framework-claim-ready"),
+        ),
+      });
+      const readinessPath = join(dir, "readiness.json");
+      writeFileSync(readinessPath, `${JSON.stringify(readinessReport, null, 2)}\n`);
+      const productEvidencePath = join(dir, "product-evidence.json");
+      writeNodeLevel5FrameworkProductEvidenceReport({ outDir: dir, path: productEvidencePath });
+
+      const claimReady = runCli([
+        "node-level5",
+        "framework-claim-ready",
+        "--readiness-report",
+        readinessPath,
+        "--framework-product-evidence-report",
+        productEvidencePath,
+        "--json",
+      ]);
+
+      expect(claimReady.status).toBe(0);
+      expect(JSON.parse(claimReady.stdout)).toMatchObject({
+        accepted: true,
+        claimReadyEvidenceAccepted: true,
+        claimChangeAllowed: true,
+        currentNodeProductSupportClaimed: 85,
+        currentBroadNodeProductSupportClaimed: 25,
+        candidateNodeProductSupportClaimed: 90,
+        candidateBroadNodeProductSupportClaimed: 30,
+        candidateArbitraryProcessCrossArchRestoreClaimed: 0,
+        blockedGates: [],
+      });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it("prints framework capability candidates without arbitrary claims", () => {
     const capabilities = runCli(["node-level5", "framework-capabilities", "--json"]);
 
@@ -842,7 +888,7 @@ describe("Node Level 5 product commands", () => {
   });
 });
 
-function frameworkIntrospectionRows(prefix: string) {
+function frameworkIntrospectionRows(prefix: string): NodeLevel5FrameworkIntrospectionCorpusRow[] {
   const frameworks = ["express", "fastify"] as const;
   const capabilities = [
     "route-graph",
