@@ -1776,6 +1776,7 @@
           (claimsByTrack.get(track.id) ?? []).flatMap((claim) =>
             (claim.proofs ?? []).map((proof) => [
               `<strong>${escapeHtml(displayTrackName(track, claim))}</strong><p class="muted">${escapeHtml(displayTrackSubtext(track, claim))}</p>`,
+              rowCoverageSummary(track),
               `<strong>${escapeHtml(proof.id)}</strong><p class="muted">${escapeHtml(proof.category ?? "")}</p>`,
               `<strong>${escapeHtml(claim.claim)}</strong><p class="muted">${escapeHtml(claim.id)}</p>`,
               pill(proof.status),
@@ -1799,6 +1800,7 @@
         return table(
           [
             "Track",
+            "Supported bundles",
             "Proof",
             "Claim",
             "Status",

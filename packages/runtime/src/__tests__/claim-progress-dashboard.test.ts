@@ -115,6 +115,7 @@ describe("claim progress dashboard", () => {
     expect(html).toContain("Proof impact matrix");
     expect(html).toContain("Product support impact (%)");
     expect(html).toContain("Supported bundles");
+    expect(html).toContain("4 / 136 covered");
     expect(html).toContain("missing 132");
     expect(html).toContain("Broad service/workload impact (%)");
     expect(html).toContain("Arbitrary Linux process restore impact (%)");
