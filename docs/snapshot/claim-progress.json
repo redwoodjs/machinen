@@ -1,6 +1,6 @@
 {
   "kind": "machinen.claim-progress-dashboard",
-  "version": 34,
+  "version": 35,
   "updatedFrom": [
     "docs/snapshot/node-level5-product-support-claim-registry.json",
     "docs/snapshot/node-level5-product-support-100.json",
@@ -149,19 +149,15 @@
       ],
       "rowCoverage": {
         "supportedDirectionBundlesRequired": 136,
-        "supportedDirectionBundlesCovered": 6,
-        "supportedDirectionBundlesMissing": 130,
+        "supportedDirectionBundlesCovered": 8,
+        "supportedDirectionBundlesMissing": 128,
         "refusedDirectionArtifactsRequired": 84,
         "refusedDirectionArtifactsCovered": 84,
         "refusedDirectionArtifactsMissing": 0,
         "notProvenRows": 4,
         "report": "proofs/nodejs/claim-evidence-index/retained/node-claim-row-coverage-report.json",
-        "summary": "6 / 136 covered \u00b7 missing 130",
+        "summary": "8 / 136 covered \u00b7 missing 128",
         "missingSupportedRows": [
-          {
-            "rowId": "express-generator-router",
-            "directions": ["arm64-to-amd64", "amd64-to-arm64"]
-          },
           {
             "rowId": "fastify-official-getting-started",
             "directions": ["arm64-to-amd64", "amd64-to-arm64"]
@@ -419,7 +415,7 @@
             "directions": ["arm64-to-amd64", "amd64-to-arm64"]
           }
         ],
-        "missingSupportedRowsCount": 65,
+        "missingSupportedRowsCount": 64,
         "missingSupportedDirectionBundles": [
           {
             "proofId": "nodejs/001",
@@ -437,13 +433,13 @@
             "proofId": "nodejs/003",
             "rowId": "express-generator-router",
             "direction": "arm64-to-amd64",
-            "status": "missing"
+            "status": "covered"
           },
           {
             "proofId": "nodejs/004",
             "rowId": "express-generator-router",
             "direction": "amd64-to-arm64",
-            "status": "missing"
+            "status": "covered"
           },
           {
             "proofId": "nodejs/005",
