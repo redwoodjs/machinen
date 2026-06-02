@@ -459,7 +459,7 @@
     <script id="embedded-claim-progress" type="application/json">
       {
         "kind": "machinen.claim-progress-dashboard",
-        "version": 42,
+        "version": 43,
         "updatedFrom": [
           "docs/snapshot/node-level5-product-support-claim-registry.json",
           "docs/snapshot/node-level5-product-support-100.json",
@@ -608,19 +608,15 @@
             ],
             "rowCoverage": {
               "supportedDirectionBundlesRequired": 136,
-              "supportedDirectionBundlesCovered": 22,
-              "supportedDirectionBundlesMissing": 114,
+              "supportedDirectionBundlesCovered": 24,
+              "supportedDirectionBundlesMissing": 112,
               "refusedDirectionArtifactsRequired": 84,
               "refusedDirectionArtifactsCovered": 84,
               "refusedDirectionArtifactsMissing": 0,
               "notProvenRows": 4,
               "report": "proofs/nodejs/claim-evidence-index/retained/node-claim-row-coverage-report.json",
-              "summary": "22 / 136 covered \u00b7 missing 114",
+              "summary": "24 / 136 covered \u00b7 missing 112",
               "missingSupportedRows": [
-                {
-                  "rowId": "express-installed-static-asset",
-                  "directions": ["arm64-to-amd64", "amd64-to-arm64"]
-                },
                 {
                   "rowId": "express-installed-idle-timer",
                   "directions": ["arm64-to-amd64", "amd64-to-arm64"]
@@ -846,7 +842,7 @@
                   "directions": ["arm64-to-amd64", "amd64-to-arm64"]
                 }
               ],
-              "missingSupportedRowsCount": 57,
+              "missingSupportedRowsCount": 56,
               "missingSupportedDirectionBundles": [
                 {
                   "proofId": "nodejs/001",
@@ -960,13 +956,13 @@
                   "proofId": "nodejs/019",
                   "rowId": "express-installed-static-asset",
                   "direction": "arm64-to-amd64",
-                  "status": "missing"
+                  "status": "covered"
                 },
                 {
                   "proofId": "nodejs/020",
                   "rowId": "express-installed-static-asset",
                   "direction": "amd64-to-arm64",
-                  "status": "missing"
+                  "status": "covered"
                 },
                 {
                   "proofId": "nodejs/021",
