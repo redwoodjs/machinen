@@ -459,7 +459,7 @@
     <script id="embedded-claim-progress" type="application/json">
       {
         "kind": "machinen.claim-progress-dashboard",
-        "version": 72,
+        "version": 73,
         "updatedFrom": [
           "docs/snapshot/node-level5-product-support-claim-registry.json",
           "docs/snapshot/node-level5-product-support-100.json",
@@ -608,19 +608,15 @@
             ],
             "rowCoverage": {
               "supportedDirectionBundlesRequired": 136,
-              "supportedDirectionBundlesCovered": 82,
-              "supportedDirectionBundlesMissing": 54,
+              "supportedDirectionBundlesCovered": 84,
+              "supportedDirectionBundlesMissing": 52,
               "refusedDirectionArtifactsRequired": 84,
               "refusedDirectionArtifactsCovered": 84,
               "refusedDirectionArtifactsMissing": 0,
               "notProvenRows": 4,
               "report": "proofs/nodejs/claim-evidence-index/retained/node-claim-row-coverage-report.json",
-              "summary": "82 / 136 covered \u00b7 missing 54",
+              "summary": "84 / 136 covered \u00b7 missing 52",
               "missingSupportedRows": [
-                {
-                  "rowId": "fastify-installed-idle-timer",
-                  "directions": ["arm64-to-amd64", "amd64-to-arm64"]
-                },
                 {
                   "rowId": "fastify-installed-safe-outbound-reconnect",
                   "directions": ["arm64-to-amd64", "amd64-to-arm64"]
@@ -726,7 +722,7 @@
                   "directions": ["arm64-to-amd64", "amd64-to-arm64"]
                 }
               ],
-              "missingSupportedRowsCount": 27,
+              "missingSupportedRowsCount": 26,
               "missingSupportedDirectionBundles": [
                 {
                   "proofId": "nodejs/001",
@@ -1200,13 +1196,13 @@
                   "proofId": "nodejs/079",
                   "rowId": "fastify-installed-idle-timer",
                   "direction": "arm64-to-amd64",
-                  "status": "missing"
+                  "status": "covered"
                 },
                 {
                   "proofId": "nodejs/080",
                   "rowId": "fastify-installed-idle-timer",
                   "direction": "amd64-to-arm64",
-                  "status": "missing"
+                  "status": "covered"
                 },
                 {
                   "proofId": "nodejs/081",
