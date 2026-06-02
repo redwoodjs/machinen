@@ -1,0 +1,21 @@
+{
+  "kind": "machinen.arbitrary-process-level5-seed-artifact",
+  "row": {
+    "id": "native-regular-file-fd",
+    "status": "seed-candidate",
+    "evidenceKind": "target-native-reconstruction-seed",
+    "processShape": "regular file descriptor resource translation",
+    "proofPath": "retained proof-only seed artifact",
+    "productPathArtifactsRequired": false,
+    "productSupportClaimAllowed": false,
+    "translatedProcessStateRequired": true,
+    "targetNativeReconstructionRequired": true,
+    "rawCpuRestoreUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "metadataOnlySuccessAccepted": false,
+    "arbitraryProcessClaimed": false,
+    "arbitraryProcessCrossArchRestoreClaimed": 0,
+    "boundaries": ["regular-files-only", "no-threads", "idle-only"]
+  }
+}

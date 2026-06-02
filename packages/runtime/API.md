@@ -22788,9 +22788,17 @@ Poll interval in ms while retrying. Default 250.
 
 > **processShape**: `string`
 
-##### productPath
+##### proofPath
 
-> **productPath**: `"machinen snapshot <vm-name> --out <dir>; machinen restore <dir>"`
+> **proofPath**: `"retained proof-only seed artifact"`
+
+##### productPathArtifactsRequired
+
+> **productPathArtifactsRequired**: `false`
+
+##### productSupportClaimAllowed
+
+> **productSupportClaimAllowed**: `false`
 
 ##### translatedProcessStateRequired
 

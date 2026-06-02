@@ -1,0 +1,13 @@
+{
+  "kind": "machinen.arbitrary-process-level5-idle-resource-source-capture",
+  "epoll": {
+    "fd": 5,
+    "readyEvents": 0,
+    "watchedFds": [6]
+  },
+  "tcpListener": {
+    "fd": 6,
+    "acceptedStreams": 0,
+    "backlogEmpty": true
+  }
+}

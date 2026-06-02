@@ -38,7 +38,9 @@ export type ArbitraryProcessLevel5SeedRow = {
   status: ArbitraryProcessLevel5SeedStatus;
   evidenceKind: ArbitraryProcessLevel5SeedEvidenceKind;
   processShape: string;
-  productPath: "machinen snapshot <vm-name> --out <dir>; machinen restore <dir>";
+  proofPath: "retained proof-only seed artifact";
+  productPathArtifactsRequired: false;
+  productSupportClaimAllowed: false;
   translatedProcessStateRequired: true;
   targetNativeReconstructionRequired: true;
   rawCpuRestoreUsed: false;
@@ -107,7 +109,7 @@ export type ArbitraryProcessLevel5SeedVerification = {
   arbitraryProcessClaimed: false;
 };
 
-const productPath = "machinen snapshot <vm-name> --out <dir>; machinen restore <dir>";
+const proofPath = "retained proof-only seed artifact";
 const refusalMarkers: ArbitraryProcessLevel5RefusalMarker[] = [
   "threads",
   "jit-code",
@@ -298,7 +300,9 @@ function baseRow(
     status,
     evidenceKind,
     processShape,
-    productPath,
+    proofPath,
+    productPathArtifactsRequired: false,
+    productSupportClaimAllowed: false,
     translatedProcessStateRequired: true,
     targetNativeReconstructionRequired: true,
     rawCpuRestoreUsed: false,

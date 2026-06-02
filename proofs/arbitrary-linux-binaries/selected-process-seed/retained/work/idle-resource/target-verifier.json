@@ -1,0 +1,6 @@
+{
+  "kind": "machinen.arbitrary-process-level5-idle-resource-target-verifier",
+  "epollWaitReturnedNoEvents": true,
+  "listenerAcceptedNoStreams": true,
+  "idleOnlyResourceReconstructionVerifier": true
+}

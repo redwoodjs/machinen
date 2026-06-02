@@ -1,0 +1,46 @@
+{
+  "kind": "machinen.arbitrary-process-level5-regular-file-fd-target-plan",
+  "targetArch": "amd64",
+  "fdTable": [
+    {
+      "targetFd": 3,
+      "capturedFd": 3,
+      "resourceId": "fd:3:regular-file",
+      "resourceKind": "file",
+      "kind": "reopen-file",
+      "closeOnExec": false,
+      "action": "materialize",
+      "source": "captured-resource",
+      "recipe": {
+        "reopen": "/Users/peterp/gh/redwoodjs/machinen/proofs/arbitrary-linux-binaries/selected-process-seed/retained/work/regular-file-fd/regular-file-fd-fixture.txt",
+        "offset": 27,
+        "flags": []
+      },
+      "targetGuestRecipe": {
+        "kind": "reopen-file",
+        "fd": 3,
+        "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/arbitrary-linux-binaries/selected-process-seed/retained/work/regular-file-fd/regular-file-fd-fixture.txt",
+        "offset": 27,
+        "access": 0,
+        "closeOnExec": false
+      },
+      "provenance": {
+        "resourceId": "fd:3:regular-file",
+        "capturedFd": 3,
+        "targetFd": 3,
+        "reason": "translated-resource-recipe"
+      }
+    }
+  ],
+  "targetGuestResources": [
+    {
+      "kind": "reopen-file",
+      "fd": 3,
+      "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/arbitrary-linux-binaries/selected-process-seed/retained/work/regular-file-fd/regular-file-fd-fixture.txt",
+      "offset": 27,
+      "access": 0,
+      "closeOnExec": false
+    }
+  ],
+  "refusals": []
+}

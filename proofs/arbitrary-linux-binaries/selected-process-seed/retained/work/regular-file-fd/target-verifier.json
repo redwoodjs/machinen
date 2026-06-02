@@ -1,0 +1,10 @@
+{
+  "kind": "machinen.arbitrary-process-level5-regular-file-fd-target-verifier",
+  "readStartedAtCapturedOffset": true,
+  "readBytesSha256Matched": true,
+  "targetOffsetAdvancedTo": 53,
+  "rawCpuRestoreUsed": false,
+  "sourceIsaEmulationUsed": false,
+  "appCheckpointHooksRequired": false,
+  "metadataOnlySuccessAccepted": false
+}

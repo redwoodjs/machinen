@@ -1,0 +1,109 @@
+{
+  "kind": "machinen.selected-arbitrary-linux-process-seed-gate",
+  "version": 1,
+  "accepted": true,
+  "scope": "selected-arbitrary-linux-process-seed-v1",
+  "proofStatus": "verified",
+  "publicClaimAllowed": false,
+  "claimChangeAllowed": false,
+  "currentClaim": {
+    "productSupport": null,
+    "broadSupport": null,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "candidateOnly": {
+    "arbitraryProcessCrossArchRestore": 1,
+    "reason": "Candidate-only scoped seed evidence; no public arbitrary-process claim lift without a separate explicit decision and broader retained coverage."
+  },
+  "productPathArtifactsRequired": false,
+  "productPathArtifactsCovered": 0,
+  "productSupportRowsAdded": 0,
+  "selectedSeedRows": [
+    {
+      "id": "native-regular-file-fd",
+      "status": "verified-seed",
+      "artifact": "work/regular-file-fd/regular-file-fd-proof-report.json",
+      "sha256": "510788f34e1ef839cfd1ed0275f5194c097a862fcf18bf8d6f7b6f994b6ab583"
+    },
+    {
+      "id": "native-simple-pipe-fd",
+      "status": "verified-seed",
+      "artifact": "work/simple-pipe-fd/simple-pipe-fd-proof-report.json",
+      "sha256": "c73efa00d97f1eff6f04c46c4c56a4cabf3b8f3036e3e475242283cc13faf40a"
+    },
+    {
+      "id": "native-idle-epoll-or-tcp",
+      "status": "verified-seed",
+      "artifact": "work/idle-resource/idle-resource-proof-report.json",
+      "sha256": "1c7463b7e27a407424d11ebec7608cd71fbd88da0d9136be51abc3f3684e8b23"
+    }
+  ],
+  "refusalRows": [
+    {
+      "id": "threads",
+      "status": "refused",
+      "reason": "multiple live execution contexts remain refused"
+    },
+    {
+      "id": "jit-code",
+      "status": "refused",
+      "reason": "runtime-generated executable pages remain refused"
+    },
+    {
+      "id": "futex-owned-locks",
+      "status": "refused",
+      "reason": "owned locks and wait queues remain refused"
+    },
+    {
+      "id": "live-sockets-active-epoll",
+      "status": "refused",
+      "reason": "live sockets and active epoll readiness remain refused"
+    },
+    {
+      "id": "device-mmap",
+      "status": "refused",
+      "reason": "device memory and opaque kernel/device state remain refused"
+    },
+    {
+      "id": "arbitrary-unknown-linux-process",
+      "status": "refused",
+      "reason": "uncontrolled arbitrary process state remains not supported"
+    }
+  ],
+  "gates": [
+    {
+      "id": "selected-seed-rows-verified",
+      "passed": true,
+      "evidence": "regular-file FD, simple pipe FD, and idle epoll/TCP seed proofs are retained and SHA-addressed."
+    },
+    {
+      "id": "claim-ready-input-accepted",
+      "passed": true,
+      "evidence": "Existing arbitrary-process claim-ready gate accepts the three proof-only seed rows as a candidate only."
+    },
+    {
+      "id": "product-path-artifacts-not-required",
+      "passed": true,
+      "evidence": "This selected seed gate is proof-only; product-path artifacts are intentionally not required and product support rows added is 0."
+    },
+    {
+      "id": "public-claim-remains-zero",
+      "passed": true,
+      "evidence": "Public arbitrary Linux process cross-architecture restore claim remains 0."
+    },
+    {
+      "id": "refusal-boundaries-retained",
+      "passed": true,
+      "evidence": "Threads, JIT, futex owners, live sockets/active epoll, device mmap, and arbitrary unknown processes remain refused."
+    }
+  ],
+  "noShortcutPolicy": {
+    "rawCpuRestoreAccepted": false,
+    "sourceIsaEmulationAccepted": false,
+    "appCheckpointHooksAccepted": false,
+    "sidecarReplayAccepted": false,
+    "metadataOnlySuccessAccepted": false,
+    "arbitraryUnknownProcessAccepted": false
+  },
+  "artifactsSha256": "882850467126e4a30df74698ccc21ae9a68d9b080ff15098fb26c82cb8eae35d"
+}

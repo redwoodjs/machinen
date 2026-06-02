@@ -27,7 +27,7 @@ type ClaimProgressProofGroup = {
 
 type ClaimProgressDashboard = {
   kind: "machinen.claim-progress-dashboard";
-  version: 122;
+  version: 123;
   tracks: ClaimProgressTrack[];
   proofGroups: ClaimProgressProofGroup[];
 };
@@ -41,7 +41,7 @@ describe("claim progress dashboard", () => {
 
     expect(dashboard).toMatchObject({
       kind: "machinen.claim-progress-dashboard",
-      version: 122,
+      version: 123,
     });
     expect(dashboard.tracks.map((track) => track.id)).toEqual([
       "node-service",
@@ -66,7 +66,13 @@ describe("claim progress dashboard", () => {
     expect(arbitraryProcess).toMatchObject({
       status: "seed-candidate",
       currentClaim: { arbitraryProcessCrossArchRestore: 0 },
-      nextClaim: { arbitraryProcessCrossArchRestore: 1, claimChangeAllowed: true },
+      nextClaim: {
+        arbitraryProcessCrossArchRestore: 1,
+        claimChangeAllowed: false,
+        productPathArtifactsRequired: false,
+        productSupportRowsAdded: 0,
+      },
+      claimChangeAllowed: false,
     });
     expect(arbitraryProcess?.evidenceRows.map((row) => row.id)).toContain(
       "native-ping-socket-resource",
@@ -165,6 +171,7 @@ describe("claim progress dashboard", () => {
     expect(proofIds).toContain("whole-vm-java-service-workload");
     expect(proofIds).toContain("whole-vm-dirty-active-opaque-state-refusals");
     expect(proofIds).toContain("arbitrary-process-claim-ready-gate");
+    expect(proofIds).toContain("selected-arbitrary-process-seed-gate");
     expect(proofIds).toContain("simple-pipe-fd-proof");
     expect(proofIds).toContain("idle-epoll-tcp-proof");
     expect(proofIds).toContain("postgres-retained-verifier-artifacts");
@@ -269,6 +276,11 @@ describe("claim progress dashboard", () => {
     expect(html).toContain("postgresql-unix-createdb-dropdb-command");
     expect(html).toContain("ping");
     expect(html).toContain("arbitrary binaries");
+    expect(html).toContain("selected-arbitrary-linux-process-seed-v1");
+    expect(html).toContain("selected-arbitrary-process-seed-gate-report.json");
+    expect(html).toContain("arbitrary/007");
+    expect(html).toContain("productPathArtifactsRequired");
+    expect(html).toContain("public arbitrary Linux process restore claim remains 0");
     expect(html).toContain("bun-product-command-detection");
     expect(html).toContain("bun-http-service-e2e-arm64-to-amd64");
     expect(html).toContain("bun-http-service-e2e-amd64-to-arm64");

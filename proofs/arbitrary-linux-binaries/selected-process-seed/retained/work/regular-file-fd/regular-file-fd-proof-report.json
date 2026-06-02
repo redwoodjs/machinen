@@ -1,0 +1,54 @@
+{
+  "kind": "machinen.arbitrary-process-level5-regular-file-fd-proof",
+  "version": 1,
+  "accepted": true,
+  "rowId": "native-regular-file-fd",
+  "proofStatus": "verified-seed",
+  "sourceArch": "arm64",
+  "targetArch": "amd64",
+  "capturedState": {
+    "fd": 3,
+    "kind": "file",
+    "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/arbitrary-linux-binaries/selected-process-seed/retained/work/regular-file-fd/regular-file-fd-fixture.txt",
+    "offset": 27,
+    "expectedNextBytesSha256": "d2d950ac463a2f712a4365edab47adf8eafcfdabf71956960cf443bd45f37964"
+  },
+  "targetReconstruction": {
+    "planKind": "reopen-file",
+    "targetFd": 3,
+    "offset": 27,
+    "rawCpuRestoreUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "metadataOnlySuccessAccepted": false
+  },
+  "verifier": {
+    "readStartedAtCapturedOffset": true,
+    "readBytesSha256Matched": true,
+    "targetOffsetAdvancedTo": 53,
+    "targetNativeReconstructionRequired": true,
+    "translatedProcessStateRequired": true
+  },
+  "claimChangeAllowed": false,
+  "currentArbitraryProcessCrossArchRestoreClaimed": 0,
+  "candidateArbitraryProcessCrossArchRestoreClaimed": 1,
+  "arbitraryProcessClaimed": false,
+  "artifacts": [
+    {
+      "name": "source-capture.json",
+      "path": "source-capture.json",
+      "sha256": "8a2cc00fc2dd9c125d27c87d9eb2a0ccee2d291b264f9f71d7df2267ead2c71b"
+    },
+    {
+      "name": "target-reconstruction-plan.json",
+      "path": "target-reconstruction-plan.json",
+      "sha256": "d566094ed6fa2ebdb12aeaf9cc41827a57b91db93b8c3a5383401a6062e759f6"
+    },
+    {
+      "name": "target-verifier.json",
+      "path": "target-verifier.json",
+      "sha256": "a8a48ebdec436032989994878a35522d38fed38a87b91d386de7941397869ef5"
+    }
+  ],
+  "artifactsSha256": "510788f34e1ef839cfd1ed0275f5194c097a862fcf18bf8d6f7b6f994b6ab583"
+}

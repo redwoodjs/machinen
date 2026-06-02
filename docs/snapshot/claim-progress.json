@@ -1,6 +1,6 @@
 {
   "kind": "machinen.claim-progress-dashboard",
-  "version": 122,
+  "version": 123,
   "updatedFrom": [
     "docs/snapshot/node-level5-product-support-claim-registry.json",
     "docs/snapshot/node-level5-product-support-100.json",
@@ -28,7 +28,8 @@
     "proofs/linux-vm-workload/smoke-matrix/retained/whole-vm-workload-smoke-matrix-report.json",
     "proofs/linux-vm-workload/selected-whole-vm-workload/retained/selected-whole-vm-workload-support-matrix-report.json",
     "proofs/linux-vm-workload/next-corpus/retained/whole-vm-workload-next-corpus-report.json",
-    "proofs/linux-vm-workload/corpus-proof/retained/whole-vm-workload-corpus-proof-report.json"
+    "proofs/linux-vm-workload/corpus-proof/retained/whole-vm-workload-corpus-proof-report.json",
+    "proofs/arbitrary-linux-binaries/selected-process-seed/retained/selected-arbitrary-process-seed-gate-report.json"
   ],
   "columns": {
     "claim": ["productSupport", "broadSupport", "arbitraryProcessCrossArchRestore"],
@@ -1886,8 +1887,8 @@
       "family": "process",
       "runtime": "linux-process",
       "status": "seed-candidate",
-      "stage": "seed matrix",
-      "scope": "Diagnostic seed rows only; no arbitrary Linux process support claim.",
+      "stage": "selected arbitrary-process seed gate verified; public claim 0",
+      "scope": "Proof-only selected-arbitrary-linux-process-seed-v1 plus refusal boundaries; no arbitrary Linux process support claim.",
       "currentClaim": {
         "productSupport": null,
         "broadSupport": null,
@@ -1895,10 +1896,13 @@
       },
       "nextClaim": {
         "arbitraryProcessCrossArchRestore": 1,
-        "claimChangeAllowed": true
+        "claimChangeAllowed": false,
+        "scope": "candidate-only selected-arbitrary-linux-process-seed-v1",
+        "productPathArtifactsRequired": false,
+        "productSupportRowsAdded": 0
       },
-      "summary": "The seed matrix and three verified resource seeds now satisfy the claim-ready gate for a candidate 1% path. The public arbitrary-process claim remains 0% until a separate claim-change decision.",
-      "claimGate": "arbitrary-process claim-ready gate accepted; public claim still 0%",
+      "summary": "The selected-arbitrary-linux-process-seed-v1 gate is verified as proof-only candidate evidence: three retained seed rows and six refusal boundaries are covered, product-path artifacts are intentionally not required, product support rows added is 0, and the public arbitrary Linux process restore claim remains 0.",
+      "claimGate": "selected-arbitrary-process-seed-gate accepted; public arbitrary-process claim still 0",
       "claimChangeAllowed": false,
       "evidence": [
         "tiny native idle process seed",
@@ -1908,7 +1912,8 @@
         "static/data/heap materialization seed",
         "syscall/resource boundary seed",
         "ping/ICMP socket resource seed",
-        "arbitrary-process-claim-ready-gate"
+        "arbitrary-process-claim-ready-gate",
+        "selected-arbitrary-process-seed-gate"
       ],
       "evidenceRows": [
         {
@@ -2030,6 +2035,17 @@
           "gate": "native-selected-workload-e2e",
           "artifact": "proofs/native-process-substrate/selected-workload-e2e/retained/native-selected-workload-e2e-report.json",
           "next": "Require product machinen capture native/restore E2E artifacts before public selected-native support claims."
+        },
+        {
+          "id": "selected-arbitrary-process-seed-gate",
+          "area": "selected process seed",
+          "kind": "proof-only seed gate",
+          "status": "verified",
+          "evidence": "Retained selected-arbitrary-linux-process-seed-v1 gate covers three verified seed rows and six refusal boundaries. Product-path artifacts are intentionally not required, product support rows added is 0, and public arbitrary Linux process restore remains 0.",
+          "gate": "selected-arbitrary-process-seed-gate",
+          "artifact": "proofs/arbitrary-linux-binaries/selected-process-seed/retained/selected-arbitrary-process-seed-gate-report.json",
+          "claimUse": "candidate-only selected seed evidence; no public arbitrary-process claim lift",
+          "next": "Only raise any arbitrary-process claim in a separate explicit claim-change path with broader retained coverage."
         }
       ],
       "refusals": [
@@ -2077,6 +2093,20 @@
           "status": "not-proven",
           "reason": "Seed rows are diagnostic and do not establish broad process support.",
           "neededToReduce": "Dedicated arbitrary-process claim-ready gate."
+        },
+        {
+          "boundary": "selected seed product-path artifacts",
+          "status": "not-required",
+          "reason": "The selected arbitrary-process seed gate is proof-only; it intentionally does not require product-path artifacts and adds 0 product support rows.",
+          "artifact": "proofs/arbitrary-linux-binaries/selected-process-seed/retained/selected-arbitrary-process-seed-gate-report.json",
+          "neededToReduce": "Add retained product-path capture/restore artifacts only in a separate product claim path."
+        },
+        {
+          "boundary": "selected seed arbitrary unknown Linux process",
+          "status": "refused",
+          "reason": "selected-arbitrary-linux-process-seed-v1 covers three selected seed rows only; uncontrolled arbitrary process state remains unsupported.",
+          "artifact": "proofs/arbitrary-linux-binaries/selected-process-seed/retained/selected-arbitrary-process-seed-gate-report.json",
+          "neededToReduce": "Broader retained coverage for threads, active syscalls, JIT/runtime-private state, live sockets, process trees, and opaque resources."
         }
       ],
       "counts": {
@@ -2097,7 +2127,19 @@
         "arbitrary-process-level5-seed-matrix.md",
         "level4-ping-socket-product.md",
         "proofs/arbitrary-linux-binaries/0-seed-1-locked/regular-file-fd-proof.md"
-      ]
+      ],
+      "rowCoverage": {
+        "selectedSeedRowsRequired": 3,
+        "selectedSeedRowsVerified": 3,
+        "selectedSeedRefusalRowsRequired": 6,
+        "selectedSeedRefusalRowsVerified": 6,
+        "productPathArtifactsRequired": false,
+        "productPathArtifactsCovered": 0,
+        "productSupportRowsAdded": 0,
+        "publicClaimAllowed": false,
+        "report": "proofs/arbitrary-linux-binaries/selected-process-seed/retained/selected-arbitrary-process-seed-gate-report.json",
+        "summary": "3 / 3 selected proof-only seed rows verified · 6 / 6 refusal rows retained · public arbitrary-process claim 0"
+      }
     },
     {
       "id": "whole-linux-vm-workload",
@@ -4320,6 +4362,28 @@
           "proves": "threads, JIT, futex owners, live sockets, device mmap, active epoll remain refused",
           "claimUse": "prevents overclaiming",
           "next": "Only reduce boundaries with retained verifier artifacts."
+        },
+        {
+          "id": "selected-arbitrary-process-seed-gate",
+          "proofNumber": "arbitrary/007",
+          "category": "selected process seed gate",
+          "status": "verified",
+          "artifact": "proofs/arbitrary-linux-binaries/selected-process-seed/retained/selected-arbitrary-process-seed-gate-report.json",
+          "proves": "selected-arbitrary-linux-process-seed-v1 has three retained proof-only seed rows, six refusal boundaries, no product-path artifact requirement, product support rows added 0, and no public arbitrary-process claim lift.",
+          "claimUse": "candidate-only selected seed evidence; arbitrary Linux process restore remains 0",
+          "next": "Add broader retained product-path support only in a separate claim-change path.",
+          "claimImpact": {
+            "productSupportDelta": 0,
+            "broadSupportDelta": 0,
+            "arbitraryProcessCrossArchRestoreDelta": 0,
+            "resultingClaim": {
+              "productSupport": null,
+              "broadSupport": null,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "claimChangeAllowed": false,
+            "scope": "selected-arbitrary-linux-process-seed-v1 proof-only"
+          }
         }
       ],
       "proofDirectory": "proofs/arbitrary-linux-binaries/0-seed-1-locked"

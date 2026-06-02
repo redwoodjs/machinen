@@ -10,7 +10,7 @@
     "arbitraryProcessCrossArchRestore": 0,
     "candidateArbitraryProcessCrossArchRestore": 1
   },
-  "promotionEffect": "Candidate 1% arbitrary-process claim is unlocked only through the accepted claim-ready gate; public claim remains 0% in this proof PR.",
+  "promotionEffect": "No public claim change. The selected seed gate is proof-only, does not require product-path artifacts, and keeps arbitrary Linux process restore at 0.",
   "proofs": [
     {
       "id": "arbitrary-process-seed-matrix",
@@ -98,6 +98,28 @@
       "proves": "threads, JIT, futex owners, live sockets, device mmap, active epoll remain refused",
       "claimUse": "prevents overclaiming",
       "next": "Only reduce boundaries with retained verifier artifacts."
+    },
+    {
+      "id": "selected-arbitrary-process-seed-gate",
+      "proofNumber": "arbitrary/007",
+      "category": "selected process seed gate",
+      "status": "verified",
+      "artifact": "proofs/arbitrary-linux-binaries/selected-process-seed/retained/selected-arbitrary-process-seed-gate-report.json",
+      "proves": "selected-arbitrary-linux-process-seed-v1 has three retained proof-only seed rows, six refusal boundaries, no product-path artifact requirement, product support rows added 0, and no public arbitrary-process claim lift.",
+      "claimUse": "candidate-only selected seed evidence; arbitrary Linux process restore remains 0",
+      "next": "Add broader retained product-path support only in a separate claim-change path.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": null,
+          "broadSupport": null,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false,
+        "scope": "selected-arbitrary-linux-process-seed-v1 proof-only"
+      }
     }
   ],
   "proofDirectory": "proofs/arbitrary-linux-binaries/0-seed-1-locked"

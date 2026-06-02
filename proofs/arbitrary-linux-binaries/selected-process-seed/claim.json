@@ -1,0 +1,27 @@
+{
+  "id": "selected-arbitrary-linux-process-seed-gate",
+  "claim": "Selected arbitrary Linux process seed proof only",
+  "trackId": "arbitrary-process",
+  "status": "verified",
+  "scope": "selected-arbitrary-linux-process-seed-v1",
+  "claimNumbers": {
+    "productSupport": null,
+    "broadSupport": null,
+    "arbitraryProcessCrossArchRestore": 0,
+    "candidateArbitraryProcessCrossArchRestore": 1
+  },
+  "promotionEffect": "No public claim change. This proof-only seed gate keeps arbitrary Linux process restore at 0 because product-path artifacts are intentionally not required.",
+  "proofDirectory": "proofs/arbitrary-linux-binaries/selected-process-seed",
+  "proofs": [
+    {
+      "id": "selected-arbitrary-process-seed-gate",
+      "proofNumber": "arbitrary/007",
+      "category": "selected process seed gate",
+      "status": "verified",
+      "artifact": "proofs/arbitrary-linux-binaries/selected-process-seed/retained/selected-arbitrary-process-seed-gate-report.json",
+      "proves": "selected-arbitrary-linux-process-seed-v1 has three retained proof-only seed rows, six retained refusal boundaries, no product-path artifact requirement, and no public arbitrary-process claim lift.",
+      "claimUse": "candidate-only selected seed evidence; arbitrary Linux process restore remains 0",
+      "next": "Add broader retained product-path support only in a separate claim-change path."
+    }
+  ]
+}
