@@ -1,0 +1,20 @@
+{
+  "kind": "machinen.node-supported-row-target-verifier",
+  "version": 1,
+  "accepted": true,
+  "rowId": "express-installed-nested-router",
+  "direction": "amd64-to-arm64",
+  "routePath": "/express-installed-nested-router",
+  "expectedBody": "express-installed-nested-router-ok",
+  "actualBody": "express-installed-nested-router-ok",
+  "bodySha256": "4e8298d83e6fdb985b2786e3d9172ea07229af80ff96bc0034198801d3c79fc0",
+  "expectedHeader": {
+    "x-machinen-row": "express-installed-nested-router"
+  },
+  "actualHeaders": "HTTP/1.1 200 OK\nX-Powered-By: Express\nx-machinen-row: express-installed-nested-router\nContent-Type: text/html; charset=utf-8\nContent-Length: 34\nETag: W/\"22-zqP9q/CWiQ0u33TULZxeAb/znsM\"\nDate: Tue, 02 Jun 2026 16:15:52 GMT\nConnection: keep-alive\nKeep-Alive: timeout=5\n\n",
+  "targetNativeNodeVerified": true,
+  "sourceIsaEmulationUsed": false,
+  "sidecarRuntimeUsed": false,
+  "appHooksRequired": false,
+  "metadataOnlySuccessAccepted": false
+}

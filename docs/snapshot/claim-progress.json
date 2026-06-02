@@ -1,6 +1,6 @@
 {
   "kind": "machinen.claim-progress-dashboard",
-  "version": 57,
+  "version": 58,
   "updatedFrom": [
     "docs/snapshot/node-level5-product-support-claim-registry.json",
     "docs/snapshot/node-level5-product-support-100.json",
@@ -149,19 +149,15 @@
       ],
       "rowCoverage": {
         "supportedDirectionBundlesRequired": 136,
-        "supportedDirectionBundlesCovered": 52,
-        "supportedDirectionBundlesMissing": 84,
+        "supportedDirectionBundlesCovered": 54,
+        "supportedDirectionBundlesMissing": 82,
         "refusedDirectionArtifactsRequired": 84,
         "refusedDirectionArtifactsCovered": 84,
         "refusedDirectionArtifactsMissing": 0,
         "notProvenRows": 4,
         "report": "proofs/nodejs/claim-evidence-index/retained/node-claim-row-coverage-report.json",
-        "summary": "52 / 136 covered \u00b7 missing 84",
+        "summary": "54 / 136 covered \u00b7 missing 82",
         "missingSupportedRows": [
-          {
-            "rowId": "express-installed-nested-router",
-            "directions": ["arm64-to-amd64", "amd64-to-arm64"]
-          },
           {
             "rowId": "express-installed-optional-param",
             "directions": ["arm64-to-amd64", "amd64-to-arm64"]
@@ -327,7 +323,7 @@
             "directions": ["arm64-to-amd64", "amd64-to-arm64"]
           }
         ],
-        "missingSupportedRowsCount": 42,
+        "missingSupportedRowsCount": 41,
         "missingSupportedDirectionBundles": [
           {
             "proofId": "nodejs/001",
@@ -621,13 +617,13 @@
             "proofId": "nodejs/049",
             "rowId": "express-installed-nested-router",
             "direction": "arm64-to-amd64",
-            "status": "missing"
+            "status": "covered"
           },
           {
             "proofId": "nodejs/050",
             "rowId": "express-installed-nested-router",
             "direction": "amd64-to-arm64",
-            "status": "missing"
+            "status": "covered"
           },
           {
             "proofId": "nodejs/051",
