@@ -1,0 +1,1 @@
+machinen restore <dir> for fastify-official-getting-started arm64-to-amd64
