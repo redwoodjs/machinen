@@ -1,0 +1,20 @@
+{
+  "kind": "machinen.node-supported-row-target-verifier",
+  "version": 1,
+  "accepted": true,
+  "rowId": "express-installed-cookie-read",
+  "direction": "arm64-to-amd64",
+  "routePath": "/express-installed-cookie-read",
+  "expectedBody": "express-installed-cookie-read-ok",
+  "actualBody": "express-installed-cookie-read-ok",
+  "bodySha256": "a0a6e8059350c4d974b6975e3ffcbe2a33ebd0307189248f2aa4350706cc0f3e",
+  "expectedHeader": {
+    "x-machinen-row": "express-installed-cookie-read"
+  },
+  "actualHeaders": "HTTP/1.1 200 OK\nX-Powered-By: Express\nx-machinen-row: express-installed-cookie-read\nContent-Type: text/html; charset=utf-8\nContent-Length: 32\nETag: W/\"20-jqsXCsxC6JBk0EH+XN/+j0GegJQ\"\nDate: Tue, 02 Jun 2026 15:59:10 GMT\nConnection: keep-alive\nKeep-Alive: timeout=5\n\n",
+  "targetNativeNodeVerified": true,
+  "sourceIsaEmulationUsed": false,
+  "sidecarRuntimeUsed": false,
+  "appHooksRequired": false,
+  "metadataOnlySuccessAccepted": false
+}

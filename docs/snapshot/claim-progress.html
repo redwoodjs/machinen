@@ -459,7 +459,7 @@
     <script id="embedded-claim-progress" type="application/json">
       {
         "kind": "machinen.claim-progress-dashboard",
-        "version": 49,
+        "version": 50,
         "updatedFrom": [
           "docs/snapshot/node-level5-product-support-claim-registry.json",
           "docs/snapshot/node-level5-product-support-100.json",
@@ -608,19 +608,15 @@
             ],
             "rowCoverage": {
               "supportedDirectionBundlesRequired": 136,
-              "supportedDirectionBundlesCovered": 36,
-              "supportedDirectionBundlesMissing": 100,
+              "supportedDirectionBundlesCovered": 38,
+              "supportedDirectionBundlesMissing": 98,
               "refusedDirectionArtifactsRequired": 84,
               "refusedDirectionArtifactsCovered": 84,
               "refusedDirectionArtifactsMissing": 0,
               "notProvenRows": 4,
               "report": "proofs/nodejs/claim-evidence-index/retained/node-claim-row-coverage-report.json",
-              "summary": "36 / 136 covered \u00b7 missing 100",
+              "summary": "38 / 136 covered \u00b7 missing 98",
               "missingSupportedRows": [
-                {
-                  "rowId": "express-installed-cookie-read",
-                  "directions": ["arm64-to-amd64", "amd64-to-arm64"]
-                },
                 {
                   "rowId": "express-installed-status-code",
                   "directions": ["arm64-to-amd64", "amd64-to-arm64"]
@@ -818,7 +814,7 @@
                   "directions": ["arm64-to-amd64", "amd64-to-arm64"]
                 }
               ],
-              "missingSupportedRowsCount": 50,
+              "missingSupportedRowsCount": 49,
               "missingSupportedDirectionBundles": [
                 {
                   "proofId": "nodejs/001",
@@ -1016,13 +1012,13 @@
                   "proofId": "nodejs/033",
                   "rowId": "express-installed-cookie-read",
                   "direction": "arm64-to-amd64",
-                  "status": "missing"
+                  "status": "covered"
                 },
                 {
                   "proofId": "nodejs/034",
                   "rowId": "express-installed-cookie-read",
                   "direction": "amd64-to-arm64",
-                  "status": "missing"
+                  "status": "covered"
                 },
                 {
                   "proofId": "nodejs/035",
