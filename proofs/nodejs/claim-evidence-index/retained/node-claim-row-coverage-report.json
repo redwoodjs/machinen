@@ -1,7 +1,7 @@
 {
   "kind": "machinen.node-claim-row-coverage-report",
   "version": 1,
-  "generatedAt": "2026-06-02T16:41:03.919Z",
+  "generatedAt": "2026-06-02T16:42:03.528Z",
   "accepted": true,
   "claimAllowed": false,
   "publicClaim": {
@@ -16,8 +16,8 @@
   },
   "directionRequirementCounts": {
     "supportedRequired": 136,
-    "supportedCovered": 100,
-    "supportedMissing": 36,
+    "supportedCovered": 102,
+    "supportedMissing": 34,
     "refusedRequired": 84,
     "refusedCovered": 84,
     "refusedMissing": 0
@@ -1626,7 +1626,7 @@
     {
       "rowId": "fastify-installed-response-header",
       "direction": "arm64-to-amd64",
-      "status": "missing",
+      "status": "covered",
       "requiredFiles": {
         "sourceProductCommand": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-installed-response-header/arm64-to-amd64/source/product-command.txt",
         "sourceSnapshotSummary": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-installed-response-header/arm64-to-amd64/source/snapshot.json",
@@ -1637,21 +1637,12 @@
         "targetBehavior": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-installed-response-header/arm64-to-amd64/target/target-http-body.txt",
         "targetVerifier": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-installed-response-header/arm64-to-amd64/target/verifier.json"
       },
-      "missingFiles": [
-        "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-installed-response-header/arm64-to-amd64/source/product-command.txt",
-        "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-installed-response-header/arm64-to-amd64/source/snapshot.json",
-        "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-installed-response-header/arm64-to-amd64/source/portable-node.json",
-        "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-installed-response-header/arm64-to-amd64/source/portable-node-app.tar.gz",
-        "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-installed-response-header/arm64-to-amd64/target/product-command.txt",
-        "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-installed-response-header/arm64-to-amd64/target/restore.json",
-        "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-installed-response-header/arm64-to-amd64/target/target-http-body.txt",
-        "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-installed-response-header/arm64-to-amd64/target/verifier.json"
-      ]
+      "missingFiles": []
     },
     {
       "rowId": "fastify-installed-response-header",
       "direction": "amd64-to-arm64",
-      "status": "missing",
+      "status": "covered",
       "requiredFiles": {
         "sourceProductCommand": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-installed-response-header/amd64-to-arm64/source/product-command.txt",
         "sourceSnapshotSummary": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-installed-response-header/amd64-to-arm64/source/snapshot.json",
@@ -1662,16 +1653,7 @@
         "targetBehavior": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-installed-response-header/amd64-to-arm64/target/target-http-body.txt",
         "targetVerifier": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-installed-response-header/amd64-to-arm64/target/verifier.json"
       },
-      "missingFiles": [
-        "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-installed-response-header/amd64-to-arm64/source/product-command.txt",
-        "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-installed-response-header/amd64-to-arm64/source/snapshot.json",
-        "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-installed-response-header/amd64-to-arm64/source/portable-node.json",
-        "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-installed-response-header/amd64-to-arm64/source/portable-node-app.tar.gz",
-        "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-installed-response-header/amd64-to-arm64/target/product-command.txt",
-        "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-installed-response-header/amd64-to-arm64/target/restore.json",
-        "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-installed-response-header/amd64-to-arm64/target/target-http-body.txt",
-        "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-installed-response-header/amd64-to-arm64/target/verifier.json"
-      ]
+      "missingFiles": []
     },
     {
       "rowId": "fastify-installed-hook-chain",
