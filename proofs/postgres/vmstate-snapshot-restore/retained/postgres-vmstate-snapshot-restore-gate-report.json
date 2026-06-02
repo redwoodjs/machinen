@@ -1,0 +1,163 @@
+{
+  "kind": "machinen.postgres-vmstate-snapshot-restore-gate-report",
+  "version": 1,
+  "generatedAt": "2026-06-02T18:24:21.776Z",
+  "accepted": true,
+  "verifiedScope": {
+    "runtime": "postgresql",
+    "interface": "psql",
+    "subset": "postgres-clean-quiesced-checkpointed-vmstate",
+    "sourceGuestArch": "arm64",
+    "targetGuestArch": "arm64",
+    "crossArchitecture": false,
+    "snapshotEngine": "vmstate"
+  },
+  "publicPortablePostgresClaimAllowed": false,
+  "publicClaim": {
+    "productSupport": 0,
+    "broadSupport": 0,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "guarantees": [
+    "A real PostgreSQL 15 service booted in a Machinen arm64 VM.",
+    "Schema/data/workload were loaded through psql before snapshot.",
+    "Machinen vmstate snapshot and restore completed for the clean quiesced VM.",
+    "Target psql verifier output matched source psql verifier output after restore.",
+    "The retained target verifier shows rowCount=4, valueSum=105, and expected payload/value arrays."
+  ],
+  "nonGuarantees": [
+    "Does not prove amd64 -> arm64 PostgreSQL restore.",
+    "Does not prove arm64 -> amd64 PostgreSQL restore.",
+    "Does not prove no-dump product-level portable PostgreSQL capture/restore.",
+    "Does not prove physical PostgreSQL data-directory portability across ISA.",
+    "Does not support active sessions, active transactions, dirty WAL, replication/failover state, app hooks, sidecars, source ISA emulation, or metadata-only success."
+  ],
+  "postgres": {
+    "version": "15.18 (Debian 15.18-0+deb12u1)",
+    "architecture": "aarch64",
+    "walCheckpointLsn": "0/2000188",
+    "activeTransactionsAtSnapshot": 0,
+    "sourceVerifierOutputSha256": "5d1062188f302d75521800edc29b0a44e218e88699e27b98793afcefb28c3051",
+    "targetVerifierOutputSha256": "5d1062188f302d75521800edc29b0a44e218e88699e27b98793afcefb28c3051",
+    "sourceTargetVerifierMatch": true
+  },
+  "noShortcutPolicy": {
+    "sourceIsaEmulationUsed": false,
+    "sourceTextReplayAccepted": false,
+    "sidecarRuntimeUsed": false,
+    "appHooksRequired": false,
+    "metadataOnlyShortcutAccepted": false,
+    "targetNativeExecutionRequired": true
+  },
+  "refusalBoundaries": [
+    "postgres-active-transaction-unsupported",
+    "postgres-active-session-unsupported",
+    "postgres-dirty-wal-boundary-unsupported",
+    "postgres-unsynced-data-directory-unsupported",
+    "postgres-replication-slot-state-unsupported",
+    "postgres-streaming-replication-unsupported",
+    "postgres-extension-native-state-unsupported",
+    "postgres-host-mounted-data-dir-ambiguous"
+  ],
+  "checks": [
+    {
+      "id": "summary-completed",
+      "passed": true,
+      "message": "Machinen PostgreSQL proof summary completed"
+    },
+    {
+      "id": "runtime-postgresql",
+      "passed": true,
+      "message": "summary runtime is PostgreSQL"
+    },
+    {
+      "id": "snapshot-engine-vmstate",
+      "passed": true,
+      "message": "snapshot used Machinen vmstate engine"
+    },
+    {
+      "id": "same-arm64-guest-scope",
+      "passed": true,
+      "message": "verified scope is same-guest-architecture arm64 VM-state restore"
+    },
+    {
+      "id": "target-restore-passed",
+      "passed": true,
+      "message": "target restore completed and verifier passed"
+    },
+    {
+      "id": "source-target-psql-match",
+      "passed": true,
+      "message": "source and target psql verifier transcripts match retained summary"
+    },
+    {
+      "id": "expected-database-shape",
+      "passed": true,
+      "message": "target psql verifier shows expected rows and aggregate"
+    },
+    {
+      "id": "no-active-transactions",
+      "passed": true,
+      "message": "snapshot was taken with no active PostgreSQL client transaction"
+    },
+    {
+      "id": "wal-checkpointed",
+      "passed": true,
+      "message": "WAL checkpoint boundary is recorded"
+    },
+    {
+      "id": "no-shortcuts",
+      "passed": true,
+      "message": "no source ISA emulation, source text replay, sidecar, app hook, or metadata-only shortcut was accepted"
+    },
+    {
+      "id": "retained-artifacts-present",
+      "passed": true,
+      "message": "all required retained PostgreSQL VM-state proof artifacts exist"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "proofs/postgres/vmstate-snapshot-restore/retained/postgres-vmstate-snapshot-restore-summary.json",
+      "exists": true,
+      "bytes": 5739,
+      "sha256": "23d7dab7089e4f72b385b8c81ee6fc9f5662a002601aac7e7f83efa8ead951a6"
+    },
+    {
+      "path": "proofs/postgres/vmstate-snapshot-restore/retained/source/product-command.txt",
+      "exists": true,
+      "bytes": 114,
+      "sha256": "6504c2686a55e399dfe870286de750e67effa83867f62ad92df383aa7187b2f1"
+    },
+    {
+      "path": "proofs/postgres/vmstate-snapshot-restore/retained/source/source-psql-transcript.txt",
+      "exists": true,
+      "bytes": 136,
+      "sha256": "ccb3085ce1adf24e332b7428dbdfb54809fee1c6115ca2dfa5b699ea9c77c25c"
+    },
+    {
+      "path": "proofs/postgres/vmstate-snapshot-restore/retained/source/snapshot-meta.json",
+      "exists": true,
+      "bytes": 749,
+      "sha256": "7a55b239d8ce851ed7f20e3143aedbd9a67f22ef67ef81fbdb6fbbf8e8454d04"
+    },
+    {
+      "path": "proofs/postgres/vmstate-snapshot-restore/retained/target/product-command.txt",
+      "exists": true,
+      "bytes": 221,
+      "sha256": "d78828a2b7fe4105b40103a7f2947f201bd43f195a7d48df8c586403c6a858bb"
+    },
+    {
+      "path": "proofs/postgres/vmstate-snapshot-restore/retained/target/restore.log",
+      "exists": true,
+      "bytes": 43,
+      "sha256": "5631b5ddd67213bbc088582a25a634bc4ac9956f2e7a458a2b0acfe7431db60d"
+    },
+    {
+      "path": "proofs/postgres/vmstate-snapshot-restore/retained/target/target-psql-verifier.txt",
+      "exists": true,
+      "bytes": 136,
+      "sha256": "ccb3085ce1adf24e332b7428dbdfb54809fee1c6115ca2dfa5b699ea9c77c25c"
+    }
+  ]
+}

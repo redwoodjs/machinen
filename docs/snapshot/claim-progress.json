@@ -1,6 +1,6 @@
 {
   "kind": "machinen.claim-progress-dashboard",
-  "version": 103,
+  "version": 104,
   "updatedFrom": [
     "docs/snapshot/node-level5-product-support-claim-registry.json",
     "docs/snapshot/node-level5-product-support-100.json",
@@ -1123,7 +1123,7 @@
       "family": "database",
       "runtime": "postgresql",
       "status": "seed-candidate",
-      "stage": "20 / 0 / 0 clean logical claim",
+      "stage": "0 / 0 / 0 public portable claim; verified same-arch VM-state psql proof",
       "scope": "Clean, idle logical PostgreSQL restore track; not physical data-dir cross-ISA restore.",
       "currentClaim": {
         "productSupport": 0,
@@ -1136,10 +1136,11 @@
         "arbitraryProcessCrossArchRestore": 0,
         "claimChangeAllowed": false
       },
-      "summary": "No public PostgreSQL no-dump snapshot/restore claim is active. A retained no-shortcut gate now explicitly blocks logical fixture overclaiming until real bidirectional PostgreSQL E2E artifacts exist.",
+      "summary": "A real PostgreSQL/psql Machinen VM-state snapshot/restore proof is now verified for a clean quiesced arm64 VM. The public portable PostgreSQL cross-architecture claim remains 0 / 0 / 0 until retained native amd64<->arm64 product E2E artifacts exist.",
       "claimGate": "postgres-real-cross-arch-e2e-gate required",
       "claimChangeAllowed": false,
       "evidence": [
+        "postgres-vmstate-snapshot-restore-psql",
         "postgres-clean-quiesced-logical-v1",
         "postgres-clean-logical-20-claim-ladder",
         "bidirectional target-native verifier output",
@@ -1158,6 +1159,16 @@
           "next": "Replace with real PostgreSQL bidirectional E2E artifacts."
         },
         {
+          "id": "postgres-vmstate-snapshot-restore-psql",
+          "area": "vmstate snapshot/restore",
+          "kind": "real VM E2E",
+          "status": "verified",
+          "evidence": "Real PostgreSQL 15 service in an arm64 Machinen VM was snapshotted with vmstate, restored, and verified with psql; source and target verifier outputs match.",
+          "gate": "postgres-vmstate-snapshot-restore-gate",
+          "artifact": "proofs/postgres/vmstate-snapshot-restore/retained/postgres-vmstate-snapshot-restore-gate-report.json",
+          "next": "Use this as same-arch PostgreSQL/psql evidence only; run native amd64<->arm64 E2E to raise portable PostgreSQL support."
+        },
+        {
           "id": "postgres-real-cross-arch-e2e-gate",
           "area": "claim gate",
           "kind": "required E2E gate",
@@ -1171,21 +1182,21 @@
           "id": "postgresql-psql-query-workload-e2e",
           "area": "psql workload",
           "kind": "connected query-session E2E gate",
-          "status": "not-started",
-          "evidence": "No retained psql-connected query workload has been captured and restored through real PostgreSQL bidirectional E2E yet.",
+          "status": "verified",
+          "evidence": "Retained arm64 VM-state proof loaded schema/data/workload through psql before snapshot and verified matching target psql output after restore.",
           "gate": "postgresql-psql-query-workload-e2e",
-          "artifact": "missing",
-          "next": "Run psql-connected query workload capture/restore in both directions and retain source query transcript, target restore summary, and target psql verifier output."
+          "artifact": "proofs/postgres/vmstate-snapshot-restore/retained/postgres-vmstate-snapshot-restore-gate-report.json",
+          "next": "Repeat with real native amd64<->arm64 PostgreSQL product E2E before any portable cross-architecture claim."
         },
         {
           "id": "postgresql-schema-data-query-e2e",
           "area": "schema/data workload",
           "kind": "schema plus query E2E gate",
-          "status": "not-started",
-          "evidence": "No retained PostgreSQL schema/data/query workload has been run through real bidirectional E2E yet.",
+          "status": "verified",
+          "evidence": "Retained target psql verifier shows rowCount=4, valueSum=105, expected payload/value arrays, and source/target verifier hash match for same-arch VM-state restore.",
           "gate": "postgresql-schema-data-query-e2e",
-          "artifact": "missing",
-          "next": "Retain schema creation, fixture data load, source query transcript, target restore summary, and target query verifier output in both directions."
+          "artifact": "proofs/postgres/vmstate-snapshot-restore/retained/target/target-psql-verifier.txt",
+          "next": "Add native bidirectional cross-architecture PostgreSQL target verifiers."
         },
         {
           "id": "postgresql-role-permission-e2e",
@@ -1275,18 +1286,18 @@
       "nextSteps": [
         {
           "priority": 1,
-          "item": "Run real PostgreSQL amd64->arm64 no-dump product snapshot/restore E2E and retain source/target transcripts/artifacts.",
+          "item": "Provision a native amd64 PostgreSQL host and run real PostgreSQL amd64->arm64 no-dump product snapshot/restore E2E with retained psql transcripts.",
           "gate": "postgres-e2e-amd64-to-arm64"
         },
         {
           "priority": 2,
-          "item": "Run real PostgreSQL arm64->amd64 no-dump product snapshot/restore E2E and retain source/target transcripts/artifacts.",
+          "item": "Run real PostgreSQL arm64->amd64 no-dump product snapshot/restore E2E with retained psql transcripts.",
           "gate": "postgres-e2e-arm64-to-amd64"
         },
         {
           "priority": 3,
-          "item": "Keep the no-shortcut gate accepted so logical fixture evidence cannot raise public PostgreSQL claims.",
-          "gate": "postgres-no-shortcut-boundary-gate"
+          "item": "Extend the verified psql workload to roles/permissions, pg_isready command transcripts, and refusal artifacts in the real cross-arch harness.",
+          "gate": "postgres-real-cross-arch-e2e-gate"
         }
       ],
       "docs": ["product-portable-postgres.ts", "product-portable-postgres-claim-ladder.ts"]
@@ -2576,6 +2587,44 @@
         }
       ],
       "proofDirectory": "proofs/postgres/20-0-0"
+    },
+    {
+      "id": "postgres-vmstate-snapshot-restore",
+      "claim": "PostgreSQL / psql VM-state snapshot/restore verified",
+      "trackId": "postgres",
+      "status": "verified",
+      "scope": "Clean quiesced PostgreSQL 15 database inside an arm64 Machinen VM restored through vmstate snapshot/restore and verified with psql.",
+      "claimNumbers": {
+        "productSupport": 0,
+        "broadSupport": 0,
+        "arbitraryProcessCrossArchRestore": 0,
+        "candidateProductSupport": 0,
+        "candidateBroadSupport": 0
+      },
+      "promotionEffect": "Adds a verified PostgreSQL/psql VM-state snapshot/restore proof, but does not raise the public portable PostgreSQL cross-architecture claim.",
+      "proofDirectory": "proofs/postgres/vmstate-snapshot-restore",
+      "proofs": [
+        {
+          "id": "postgres-vmstate-snapshot-restore-psql",
+          "category": "real VM E2E",
+          "status": "verified",
+          "artifact": "proofs/postgres/vmstate-snapshot-restore/retained/postgres-vmstate-snapshot-restore-gate-report.json",
+          "proves": "A real PostgreSQL 15 service in an arm64 Machinen VM was snapshotted and restored with vmstate, and target psql verification matched the source workload output.",
+          "claimUse": "narrow PostgreSQL/psql VM-state proof only; not a cross-architecture public PostgreSQL claim",
+          "next": "Run retained native amd64<->arm64 PostgreSQL product E2E before raising portable PostgreSQL support.",
+          "claimImpact": {
+            "productSupportDelta": 0,
+            "broadSupportDelta": 0,
+            "arbitraryProcessCrossArchRestoreDelta": 0,
+            "resultingClaim": {
+              "productSupport": 0,
+              "broadSupport": 0,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "claimChangeAllowed": false
+          }
+        }
+      ]
     },
     {
       "id": "postgres-real-cross-arch-e2e-gate",

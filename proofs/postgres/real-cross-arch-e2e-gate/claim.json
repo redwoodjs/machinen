@@ -2,8 +2,8 @@
   "id": "postgres-real-cross-arch-e2e-gate",
   "claim": "Postgres real cross-architecture E2E gate required",
   "trackId": "postgres",
-  "status": "not-started",
-  "scope": "No-dump machinen snapshot/restore for real PostgreSQL across amd64<->arm64 requires retained source and target PostgreSQL E2E artifacts before any public claim.",
+  "status": "blocked-by-missing-real-e2e-artifacts",
+  "scope": "No-dump machinen snapshot/restore for real PostgreSQL across amd64<->arm64 requires retained source and target PostgreSQL E2E artifacts before any public claim. The separate arm64 VM-state PostgreSQL/psql proof does not satisfy this cross-architecture gate.",
   "claimNumbers": {
     "productSupport": 0,
     "broadSupport": 0,

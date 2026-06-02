@@ -27,7 +27,7 @@ type ClaimProgressProofGroup = {
 
 type ClaimProgressDashboard = {
   kind: "machinen.claim-progress-dashboard";
-  version: 103;
+  version: 104;
   tracks: ClaimProgressTrack[];
   proofGroups: ClaimProgressProofGroup[];
 };
@@ -41,7 +41,7 @@ describe("claim progress dashboard", () => {
 
     expect(dashboard).toMatchObject({
       kind: "machinen.claim-progress-dashboard",
-      version: 103,
+      version: 104,
     });
     expect(dashboard.tracks.map((track) => track.id)).toEqual([
       "node-service",
@@ -87,6 +87,7 @@ describe("claim progress dashboard", () => {
       "node-arbitrary-app-boundary",
       "node-real-cross-arch-e2e-gate",
       "postgres-20-0-0",
+      "postgres-vmstate-snapshot-restore",
       "postgres-real-cross-arch-e2e-gate",
       "bun-not-started",
       "generic-linux-service-not-started",
@@ -110,6 +111,7 @@ describe("claim progress dashboard", () => {
     expect(proofIds).toContain("simple-pipe-fd-proof");
     expect(proofIds).toContain("idle-epoll-tcp-proof");
     expect(proofIds).toContain("postgres-retained-verifier-artifacts");
+    expect(proofIds).toContain("postgres-vmstate-snapshot-restore-psql");
     expect(proofIds).toContain("postgres-e2e-amd64-to-arm64");
     expect(proofIds).toContain("postgres-e2e-arm64-to-amd64");
     expect(proofIds).toContain("postgres-no-shortcut-boundary-gate");

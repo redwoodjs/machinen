@@ -1,0 +1,26 @@
+{
+  "engine": "vmstate",
+  "sourceName": "postgres-proof-14316",
+  "sourceImage": "/tmp/machinen-postgres-restore-proof-run/work/postgres-machinen-rootfs.tar.gz",
+  "snappedAt": 1780424437471,
+  "vmstate": {
+    "sourceBackend": "hvf",
+    "guestArch": "arm64",
+    "topologyHash": "8839332ade1976ba8ca91632fd026498418ea44680d53870473ce5255195be55",
+    "memoryCeilingMib": 4096,
+    "guestPauth": { "active": false, "sctlrEl1": "0x20000003474d99d" },
+    "rootDisk": {
+      "mode": "block",
+      "file": "rootdisk.img",
+      "path": "/var/folders/jj/brzmsc2562zbwgzwbnjdnqp80000gn/T/machinen-rootdisk-14459-9b54a6b2701d.img",
+      "sizeBytes": 2147483648,
+      "sha256": "878a930cf2f7158958428332abb0615f61b1a5861cf682c42ce552fa2ec46aa1"
+    },
+    "checkpoint": {
+      "chainId": "76085469ffece0e8349e7e8022b314f4",
+      "sequence": 1,
+      "ram": "full",
+      "rootDisk": "full"
+    }
+  }
+}

@@ -1,0 +1,1 @@
+node packages/cli/dist/cli.js restore /tmp/machinen-postgres-restore-proof-run/work/postgres.snap --image /tmp/machinen-postgres-restore-proof-run/work/postgres-machinen-rootfs.tar.gz --name postgres-proof-14316-restored

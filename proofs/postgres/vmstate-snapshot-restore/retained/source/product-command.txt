@@ -1,0 +1,1 @@
+bash scripts/smoke/postgres-machinen-restore.sh --json --keep --work-dir /tmp/machinen-postgres-restore-proof-run

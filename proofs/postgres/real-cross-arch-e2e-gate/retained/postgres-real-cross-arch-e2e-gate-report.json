@@ -1,7 +1,7 @@
 {
   "kind": "machinen.postgres-real-cross-arch-e2e-gate-report",
   "version": 1,
-  "generatedAt": "2026-06-02T17:47:26.544Z",
+  "generatedAt": "2026-06-02T18:24:22.373Z",
   "accepted": true,
   "publicClaimAllowed": false,
   "publicClaim": {

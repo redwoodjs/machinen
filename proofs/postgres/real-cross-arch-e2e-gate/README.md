@@ -4,7 +4,9 @@ Status: `blocked-by-missing-real-e2e-artifacts`
 
 Track: `postgres`
 
-This gate replaces the unvalidated Postgres percent raises. No public Postgres no-dump `machinen snapshot` / `machinen restore` claim is allowed until the real E2E artifacts exist.
+This gate replaces the unvalidated Postgres percent raises. No public Postgres no-dump cross-architecture `machinen snapshot` / `machinen restore` claim is allowed until the real E2E artifacts exist.
+
+A narrower same-architecture PostgreSQL/psql VM-state proof is retained at `../vmstate-snapshot-restore/`. It verifies clean quiesced PostgreSQL restore inside an `arm64` Machinen VM, but it does not satisfy this bidirectional cross-architecture gate.
 
 Required proof rows:
 

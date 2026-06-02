@@ -16,7 +16,18 @@ The existing PostgreSQL work is proof-only fixture evidence for a logical descri
 
 ## What exists
 
-The fixture path describes `postgres-clean-quiesced-logical-v1`:
+A retained same-architecture VM-state proof now verifies PostgreSQL/psql snapshot/restore for a clean quiesced PostgreSQL 15 service inside an `arm64` Machinen VM:
+
+- proof folder: `proofs/postgres/vmstate-snapshot-restore/`;
+- source schema/data/workload were loaded through `psql`;
+- `machinen snapshot` used the `vmstate` engine;
+- `machinen restore` completed;
+- target `psql` verifier output matched source output;
+- no source ISA emulation, sidecar, app hook, source-text replay, or metadata-only shortcut was accepted.
+
+This proves a narrow same-arch PostgreSQL/psql VM-state restore. It does **not** prove portable PostgreSQL cross-architecture support.
+
+The older fixture path describes `postgres-clean-quiesced-logical-v1`:
 
 - source and target architectures are `arm64` and `amd64` in either direction;
 - PostgreSQL has no active client transaction or session that must survive;
