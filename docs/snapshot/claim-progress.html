@@ -459,7 +459,7 @@
     <script id="embedded-claim-progress" type="application/json">
       {
         "kind": "machinen.claim-progress-dashboard",
-        "version": 96,
+        "version": 97,
         "updatedFrom": [
           "docs/snapshot/node-level5-product-support-claim-registry.json",
           "docs/snapshot/node-level5-product-support-100.json",
@@ -608,19 +608,15 @@
             ],
             "rowCoverage": {
               "supportedDirectionBundlesRequired": 136,
-              "supportedDirectionBundlesCovered": 130,
-              "supportedDirectionBundlesMissing": 6,
+              "supportedDirectionBundlesCovered": 132,
+              "supportedDirectionBundlesMissing": 4,
               "refusedDirectionArtifactsRequired": 84,
               "refusedDirectionArtifactsCovered": 84,
               "refusedDirectionArtifactsMissing": 0,
               "notProvenRows": 4,
               "report": "proofs/nodejs/claim-evidence-index/retained/node-claim-row-coverage-report.json",
-              "summary": "130 / 136 covered \u00b7 missing 6",
+              "summary": "132 / 136 covered \u00b7 missing 4",
               "missingSupportedRows": [
-                {
-                  "rowId": "express-generic-vm-esm",
-                  "directions": ["arm64-to-amd64", "amd64-to-arm64"]
-                },
                 {
                   "rowId": "fastify-generic-vm-cjs",
                   "directions": ["arm64-to-amd64", "amd64-to-arm64"]
@@ -630,7 +626,7 @@
                   "directions": ["arm64-to-amd64", "amd64-to-arm64"]
                 }
               ],
-              "missingSupportedRowsCount": 3,
+              "missingSupportedRowsCount": 2,
               "missingSupportedDirectionBundles": [
                 {
                   "proofId": "nodejs/001",
@@ -1392,13 +1388,13 @@
                   "proofId": "nodejs/127",
                   "rowId": "express-generic-vm-esm",
                   "direction": "arm64-to-amd64",
-                  "status": "missing"
+                  "status": "covered"
                 },
                 {
                   "proofId": "nodejs/128",
                   "rowId": "express-generic-vm-esm",
                   "direction": "amd64-to-arm64",
-                  "status": "missing"
+                  "status": "covered"
                 },
                 {
                   "proofId": "nodejs/129",
