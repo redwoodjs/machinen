@@ -1,0 +1,1 @@
+machinen snapshot <vm-name> --out <dir> / positional equivalent for fastify-installed-configured-prefix arm64-to-amd64
