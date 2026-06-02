@@ -1,0 +1,27 @@
+{
+  "kind": "machinen.node-supported-row-target-verifier",
+  "version": 1,
+  "accepted": true,
+  "rowId": "fastify-external-network-safe-reconnect",
+  "direction": "arm64-to-amd64",
+  "routePath": "/fastify-external-network-safe-reconnect",
+  "scenario": "external-network",
+  "scenarioVerifier": {
+    "externalNetworkSafeReconnectVerified": true,
+    "backgroundTaskHeartbeatVerified": false,
+    "backgroundTicksObserved": null
+  },
+  "expectedBody": "fastify-external-network-safe-reconnect-ok",
+  "actualBody": "fastify-external-network-safe-reconnect-ok",
+  "bodySha256": "da8d4efc0cea18a467d3e1d497fca65625a042da4d3b4870f3a01ec04535ab62",
+  "expectedHeader": {
+    "x-machinen-row": "fastify-external-network-safe-reconnect",
+    "x-machinen-scenario": "safe-outbound-reconnect"
+  },
+  "actualHeaders": "HTTP/1.1 200 OK\nx-machinen-row: fastify-external-network-safe-reconnect\nx-machinen-scenario: safe-outbound-reconnect\ncontent-type: text/plain; charset=utf-8\ncontent-length: 42\nDate: Tue, 02 Jun 2026 17:12:35 GMT\nConnection: keep-alive\nKeep-Alive: timeout=72\n\n",
+  "targetNativeNodeVerified": true,
+  "sourceIsaEmulationUsed": false,
+  "sidecarRuntimeUsed": false,
+  "appHooksRequired": false,
+  "metadataOnlySuccessAccepted": false
+}
