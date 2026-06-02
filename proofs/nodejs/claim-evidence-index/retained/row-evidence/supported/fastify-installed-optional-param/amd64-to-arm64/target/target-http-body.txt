@@ -1,0 +1,1 @@
+fastify-installed-optional-param-ok
