@@ -1,0 +1,1 @@
+machinen restore <dir> for express-installed-hello-world arm64-to-amd64
