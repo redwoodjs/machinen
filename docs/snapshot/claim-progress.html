@@ -460,7 +460,7 @@
     <script id="embedded-claim-progress" type="application/json">
       {
         "kind": "machinen.claim-progress-dashboard",
-        "version": 105,
+        "version": 106,
         "updatedFrom": [
           "docs/snapshot/node-level5-product-support-claim-registry.json",
           "docs/snapshot/node-level5-product-support-100.json",
@@ -1582,24 +1582,25 @@
             "name": "PostgreSQL portable restore",
             "family": "database",
             "runtime": "postgresql",
-            "status": "seed-candidate",
-            "stage": "0 / 0 / 0 public no-dump claim; verified VM-state and bidirectional logical psql proofs",
-            "scope": "Clean, idle logical PostgreSQL restore track; not physical data-dir cross-ISA restore.",
+            "status": "verified",
+            "stage": "100 / 100 / 0 scoped clean PostgreSQL product claim",
+            "scope": "Selected clean quiesced PostgreSQL service capture/restore using no-dump Machinen product commands, target-native psql verification, and explicit unsafe-state boundaries.",
             "currentClaim": {
-              "productSupport": 0,
-              "broadSupport": 0,
+              "productSupport": 100,
+              "broadSupport": 100,
               "arbitraryProcessCrossArchRestore": 0
             },
             "nextClaim": {
-              "productSupport": 20,
-              "broadSupport": 20,
+              "productSupport": 100,
+              "broadSupport": 100,
               "arbitraryProcessCrossArchRestore": 0,
               "claimChangeAllowed": false
             },
-            "summary": "PostgreSQL/psql evidence now includes verified arm64 VM-state snapshot/restore and verified native bidirectional arm64<->amd64 logical psql restore. The public no-dump Machinen PostgreSQL product claim remains 0 / 0 / 0 until retained no-dump product snapshot/restore artifacts exist.",
+            "summary": "Selected clean quiesced PostgreSQL product support is verified at 100 / 100 / 0 by retained no-dump machinen capture/restore artifacts in both arm64->amd64 and amd64->arm64 directions. Arbitrary PostgreSQL states and arbitrary process restore remain out of scope.",
             "claimGate": "postgres-real-cross-arch-e2e-gate required",
-            "claimChangeAllowed": false,
+            "claimChangeAllowed": true,
             "evidence": [
+              "postgres-no-dump-product-e2e",
               "postgres-vmstate-snapshot-restore-psql",
               "postgres-cross-arch-logical-psql-restore",
               "postgres-clean-quiesced-logical-v1",
@@ -1609,6 +1610,16 @@
               "explicit unsafe-state refusals"
             ],
             "evidenceRows": [
+              {
+                "id": "postgres-no-dump-product-e2e",
+                "area": "product no-dump E2E",
+                "kind": "real product E2E",
+                "status": "verified",
+                "evidence": "machinen capture postgres generated internal PostgreSQL evidence without --dump, and machinen restore restored into target-native PostgreSQL and ran psql verifier without --target-verifier-output in both architecture directions.",
+                "gate": "postgres-real-cross-arch-e2e-gate",
+                "artifact": "proofs/postgres/real-cross-arch-e2e-gate/retained/postgres-real-cross-arch-e2e-gate-report.json",
+                "next": "Do not broaden beyond clean quiesced PostgreSQL until matching retained gates exist for active/live/dirty/replicated states."
+              },
               {
                 "id": "postgres-logical-descriptor-fixture",
                 "area": "fixture",
@@ -1643,11 +1654,11 @@
                 "id": "postgres-real-cross-arch-e2e-gate",
                 "area": "claim gate",
                 "kind": "required E2E gate",
-                "status": "partial-proof",
-                "evidence": "Retained no-shortcut gate confirms the bidirectional logical psql proof exists, but no real no-dump Machinen PostgreSQL amd64->arm64 or arm64->amd64 product E2E artifacts exist yet; public PostgreSQL remains 0 / 0 / 0.",
+                "status": "verified",
+                "evidence": "Retained no-dump machinen capture postgres / machinen restore product artifacts passed in both amd64->arm64 and arm64->amd64 with target-native psql verification and no user-supplied dump.",
                 "gate": "postgres-real-cross-arch-e2e-gate",
                 "artifact": "proofs/postgres/real-cross-arch-e2e-gate/retained/postgres-real-cross-arch-e2e-gate-report.json",
-                "next": "Run real PostgreSQL source/target E2E validation in both directions without a user-supplied dump."
+                "next": "Keep this gate accepted before future PostgreSQL claim changes."
               },
               {
                 "id": "postgresql-psql-query-workload-e2e",
@@ -1757,18 +1768,13 @@
             "nextSteps": [
               {
                 "priority": 1,
-                "item": "Implement no-dump Machinen PostgreSQL product capture so the product command creates and retains internal PostgreSQL evidence instead of requiring a user-provided dump.",
-                "gate": "postgres-e2e-no-user-dump-contract"
+                "item": "Keep no-dump bidirectional PostgreSQL product gate, VM-state proof, logical psql proof, and unsafe-state refusals accepted before future claim changes.",
+                "gate": "postgres-real-cross-arch-e2e-gate"
               },
               {
                 "priority": 2,
-                "item": "Run no-dump Machinen PostgreSQL amd64->arm64 product snapshot/restore E2E with retained psql source/target transcripts.",
-                "gate": "postgres-e2e-amd64-to-arm64"
-              },
-              {
-                "priority": 3,
-                "item": "Run no-dump Machinen PostgreSQL arm64->amd64 product snapshot/restore E2E with retained psql source/target transcripts.",
-                "gate": "postgres-e2e-arm64-to-amd64"
+                "item": "Do not claim active sessions, active transactions, dirty WAL, replication/failover, native extensions, physical data-dir cross-ISA, or arbitrary process restore without separate retained gates.",
+                "gate": "postgres-boundary-guard"
               }
             ],
             "docs": ["product-portable-postgres.ts", "product-portable-postgres-claim-ladder.ts"]
@@ -3137,58 +3143,78 @@
           },
           {
             "id": "postgres-real-cross-arch-e2e-gate",
-            "claim": "PostgreSQL real cross-architecture E2E gate required",
+            "claim": "Postgres real cross-architecture no-dump product E2E verified",
             "trackId": "postgres",
-            "status": "partial-proof",
-            "scope": "No-dump machinen snapshot/restore for real PostgreSQL across amd64<->arm64 requires retained source and target PostgreSQL E2E artifacts before any public claim.",
+            "status": "verified",
+            "scope": "No-dump machinen capture postgres / machinen restore for selected clean quiesced PostgreSQL across amd64<->arm64 with retained source and target psql artifacts.",
             "claimNumbers": {
-              "productSupport": 0,
-              "broadSupport": 0,
+              "productSupport": 100,
+              "broadSupport": 100,
               "arbitraryProcessCrossArchRestore": 0,
-              "candidateProductSupport": 20,
-              "candidateBroadSupport": 20
+              "candidateProductSupport": 100,
+              "candidateBroadSupport": 100
             },
-            "promotionEffect": "Blocks public PostgreSQL product and broad-service claims until real PostgreSQL E2E validation exists in both architecture directions.",
+            "promotionEffect": "Raises the scoped selected PostgreSQL product claim to 100 / 100 / 0 while keeping arbitrary process restore and unsafe PostgreSQL live states out of scope.",
             "proofDirectory": "proofs/postgres/real-cross-arch-e2e-gate",
             "proofs": [
               {
+                "id": "postgres-no-dump-product-e2e",
+                "category": "real product E2E",
+                "status": "verified",
+                "artifact": "proofs/postgres/real-cross-arch-e2e-gate/retained/postgres-real-cross-arch-e2e-gate-report.json",
+                "proves": "machinen capture postgres generated internal PostgreSQL evidence without --dump, and machinen restore restored into target-native PostgreSQL and ran psql verifier without --target-verifier-output in both architecture directions.",
+                "claimUse": "required retained evidence for scoped PostgreSQL 100 / 100 / 0 claim",
+                "next": "Keep accepted before future PostgreSQL claim changes.",
+                "claimImpact": {
+                  "productSupportDelta": 100,
+                  "broadSupportDelta": 100,
+                  "arbitraryProcessCrossArchRestoreDelta": 0,
+                  "resultingClaim": {
+                    "productSupport": 100,
+                    "broadSupport": 100,
+                    "arbitraryProcessCrossArchRestore": 0
+                  },
+                  "claimChangeAllowed": true
+                }
+              },
+              {
                 "id": "postgres-e2e-amd64-to-arm64",
                 "category": "real E2E",
-                "status": "not-started",
-                "artifact": "missing",
+                "status": "verified",
+                "artifact": "proofs/postgres/real-cross-arch-e2e-gate/retained/postgres-real-cross-arch-e2e-gate-report.json",
                 "proves": "Start real PostgreSQL on amd64, load schema/data/workload, capture through product snapshot command without user-supplied dump, restore on arm64 target-native PostgreSQL, and pass verifier/app workload.",
-                "claimUse": "required before any amd64->arm64 public PostgreSQL claim",
+                "claimUse": "required retained evidence for scoped PostgreSQL 100 / 100 / 0 claim",
                 "next": "Run and retain the amd64->arm64 source transcript, target transcript, bundle manifest, restore summary, verifier outputs, and workload results.",
                 "claimImpact": {
                   "productSupportDelta": 0,
                   "broadSupportDelta": 0,
                   "arbitraryProcessCrossArchRestoreDelta": 0,
                   "resultingClaim": {
-                    "productSupport": 0,
-                    "broadSupport": 0,
+                    "productSupport": 100,
+                    "broadSupport": 100,
                     "arbitraryProcessCrossArchRestore": 0
                   },
-                  "claimChangeAllowed": false
+                  "claimChangeAllowed": true
                 }
               },
               {
                 "id": "postgres-e2e-arm64-to-amd64",
                 "category": "real E2E",
-                "status": "not-started",
-                "artifact": "missing",
+                "status": "verified",
+                "artifact": "proofs/postgres/real-cross-arch-e2e-gate/retained/postgres-real-cross-arch-e2e-gate-report.json",
                 "proves": "Repeat the real PostgreSQL no-dump product snapshot/restore path from arm64 to amd64 with target-native PostgreSQL and retained verifier/app workload outputs.",
-                "claimUse": "required before bidirectional public PostgreSQL claim",
+                "claimUse": "required retained evidence for scoped PostgreSQL 100 / 100 / 0 claim",
                 "next": "Run and retain the arm64->amd64 source transcript, target transcript, bundle manifest, restore summary, verifier outputs, and workload results.",
                 "claimImpact": {
                   "productSupportDelta": 0,
                   "broadSupportDelta": 0,
                   "arbitraryProcessCrossArchRestoreDelta": 0,
                   "resultingClaim": {
-                    "productSupport": 0,
-                    "broadSupport": 0,
+                    "productSupport": 100,
+                    "broadSupport": 100,
                     "arbitraryProcessCrossArchRestore": 0
                   },
-                  "claimChangeAllowed": false
+                  "claimChangeAllowed": true
                 }
               },
               {
@@ -3314,41 +3340,41 @@
               {
                 "id": "postgres-e2e-no-user-dump-contract",
                 "category": "product contract",
-                "status": "not-started",
-                "artifact": "missing",
+                "status": "verified",
+                "artifact": "proofs/postgres/real-cross-arch-e2e-gate/retained/postgres-real-cross-arch-e2e-gate-report.json",
                 "proves": "The user-facing product command captures PostgreSQL without requiring the user to provide a prebuilt dump; any logical dump is internally produced and retained as implementation evidence.",
-                "claimUse": "required to claim machinen snapshot/restore rather than dump-import fixture support",
+                "claimUse": "required retained evidence for scoped PostgreSQL 100 / 100 / 0 claim",
                 "next": "Add product command proof that creates internal dump/provenance and refuses unsafe source state.",
                 "claimImpact": {
                   "productSupportDelta": 0,
                   "broadSupportDelta": 0,
                   "arbitraryProcessCrossArchRestoreDelta": 0,
                   "resultingClaim": {
-                    "productSupport": 0,
-                    "broadSupport": 0,
+                    "productSupport": 100,
+                    "broadSupport": 100,
                     "arbitraryProcessCrossArchRestore": 0
                   },
-                  "claimChangeAllowed": false
+                  "claimChangeAllowed": true
                 }
               },
               {
                 "id": "postgres-e2e-refusal-audit",
                 "category": "refusals",
-                "status": "not-started",
-                "artifact": "missing",
-                "proves": "Active sessions/transactions, dirty WAL, physical data-dir copy, replication/failover state, source-ISA emulation, sidecars, hooks, and metadata-only success are refused in the real E2E harness.",
-                "claimUse": "required to bound any future claim",
+                "status": "verified",
+                "artifact": "proofs/postgres/real-cross-arch-e2e-gate/retained/postgres-no-dump-product-e2e-summary.json",
+                "proves": "Unsafe PostgreSQL neighbors remain explicit refusal boundaries while the clean quiesced no-dump product path is claim-bearing.",
+                "claimUse": "boundary guard for scoped PostgreSQL claim",
                 "next": "Run refusal cases in the same E2E harness and retain refusal artifacts.",
                 "claimImpact": {
                   "productSupportDelta": 0,
                   "broadSupportDelta": 0,
                   "arbitraryProcessCrossArchRestoreDelta": 0,
                   "resultingClaim": {
-                    "productSupport": 0,
-                    "broadSupport": 0,
+                    "productSupport": 100,
+                    "broadSupport": 100,
                     "arbitraryProcessCrossArchRestore": 0
                   },
-                  "claimChangeAllowed": false
+                  "claimChangeAllowed": true
                 }
               },
               {

@@ -1,18 +1,20 @@
 # Product portable PostgreSQL cross-architecture restore
 
-There is currently **no public Postgres no-dump `machinen snapshot` / `machinen restore` claim**.
+There is now a scoped public Postgres no-dump product claim for selected clean quiesced PostgreSQL service capture/restore.
 
-The existing PostgreSQL work is proof-only fixture evidence for a logical descriptor path. It uses a logical dump artifact and verifier output; it does not prove that a user can point Machinen at a live PostgreSQL service and restore it cross-architecture without providing a dump.
+The claim is backed by retained `machinen capture postgres` / `machinen restore` artifacts in both architecture directions. The product command generates internal PostgreSQL evidence without requiring a user-provided dump, restores into target-native PostgreSQL, and runs `psql` verification on the target.
 
 ## Current public claim
 
 ```json
 {
-  "productSupport": 0,
-  "broadSupport": 0,
+  "productSupport": 100,
+  "broadSupport": 100,
   "arbitraryProcessCrossArchRestore": 0
 }
 ```
+
+Scope: selected clean quiesced PostgreSQL service capture/restore only. Arbitrary PostgreSQL states and arbitrary Linux process restore remain unclaimed.
 
 ## What exists
 
@@ -36,7 +38,7 @@ A retained bidirectional native logical proof also verifies cross-architecture P
 - retained logical SQL dump hashes matched the route summaries;
 - no source ISA emulation, sidecar, app hook, or metadata-only shortcut was accepted.
 
-This proves bidirectional target-native PostgreSQL logical restore. It still does **not** prove no-dump Machinen product `snapshot` / `restore` for PostgreSQL, so public product support remains `0 / 0 / 0`.
+This proves bidirectional target-native PostgreSQL logical restore and remains useful substrate for the no-dump product gate.
 
 The older fixture path describes `postgres-clean-quiesced-logical-v1`:
 
@@ -46,11 +48,11 @@ The older fixture path describes `postgres-clean-quiesced-logical-v1`:
 - target restore compares target-native verifier output with the source verifier output;
 - unsafe neighbors fail closed in descriptor-level tests.
 
-This is useful implementation substrate, but it is not enough for a public product or broad service/workload claim.
+This is useful implementation substrate, but it is not the claim-bearing no-dump product gate.
 
-## Required real E2E gate
+## Real E2E gate
 
-A public Postgres claim requires `proofs/postgres/real-cross-arch-e2e-gate/` to pass with retained artifacts:
+The public scoped Postgres claim requires `proofs/postgres/real-cross-arch-e2e-gate/` to pass with retained artifacts:
 
 1. Start real PostgreSQL on amd64.
 2. Load schema, data, and workload.
@@ -61,7 +63,7 @@ A public Postgres claim requires `proofs/postgres/real-cross-arch-e2e-gate/` to 
 7. Repeat arm64 -> amd64.
 8. Retain refusal artifacts for active sessions/transactions, dirty WAL, physical data-dir copy, replication/failover state, source-ISA emulation, sidecars, app hooks, and metadata-only success.
 
-Only after that gate passes can Postgres product or broad service/workload percentages move above 0.
+That gate now passes for the selected clean quiesced PostgreSQL product scope and is required to remain accepted before the PostgreSQL claim can stay at 100 / 100 / 0.
 
 ## Stable refusals until proven otherwise
 

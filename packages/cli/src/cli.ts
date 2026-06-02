@@ -37,6 +37,7 @@ import { pipeline } from "node:stream/promises";
 import {
   attach,
   boot,
+  PRODUCT_PORTABLE_POSTGRES_DUMP,
   ProductLevel4EventfdError,
   ProductLevel4PingSocketError,
   ProductLevel4PipeError,
@@ -1072,6 +1073,9 @@ type CapturePostgresOptions = {
   dirtyWal?: boolean;
   hostMountedDataDir?: boolean;
   physicalDataDirCopy?: boolean;
+  postgresDockerHost?: string;
+  postgresContainer?: string;
+  postgresDatabase?: string;
 };
 
 type CaptureTcpListenerOptions = {
@@ -1226,19 +1230,32 @@ function cmdCapturePostgres(input: { json: boolean; dryRun: boolean; rest: strin
     ["--out", options.out],
     ["--source-arch", options.sourceArch],
     ["--target-arch", options.targetArch],
-    ["--dump", options.dump],
-    ["--source-verifier-output", options.sourceVerifierOutput],
     ["--postgres-version", options.postgresVersion],
     ["--checkpoint-lsn", options.checkpointLsn],
   ] as const;
   assertCaptureRequired(required);
+  const noDumpProductCapture = options.dump === undefined;
+  if (noDumpProductCapture) {
+    assertCaptureRequired([
+      ["--postgres-container", options.postgresContainer],
+      ["--database", options.postgresDatabase],
+      ["--verifier-sql", options.verifierSql],
+    ] as const);
+  } else {
+    assertCaptureRequired([["--source-verifier-output", options.sourceVerifierOutput]] as const);
+  }
   try {
+    const postgresEvidence = noDumpProductCapture
+      ? capturePostgresDockerEvidence(options)
+      : undefined;
     const result = createProductPortablePostgresSnapshot({
       outDir: options.out!,
       sourceArch: options.sourceArch!,
       targetArch: options.targetArch!,
-      logicalDumpPath: options.dump!,
-      sourceVerifierOutput: readFileSync(resolve(options.sourceVerifierOutput!), "utf8").trim(),
+      logicalDumpPath: postgresEvidence?.dumpPath ?? options.dump!,
+      sourceVerifierOutput:
+        postgresEvidence?.sourceVerifierOutput ??
+        readFileSync(resolve(options.sourceVerifierOutput!), "utf8").trim(),
       postgresVersion: options.postgresVersion!,
       checkpointLsn: options.checkpointLsn!,
       initSqlSha256: optionalFileSha256(options.initSql),
@@ -1803,6 +1820,15 @@ function consumePostgresCaptureOption(
       return index + 1;
     case "--data-manifest":
       options.dataManifest = takeCaptureValue(rest, index + 1, arg);
+      return index + 1;
+    case "--postgres-docker-host":
+      options.postgresDockerHost = takeCaptureValue(rest, index + 1, arg);
+      return index + 1;
+    case "--postgres-container":
+      options.postgresContainer = takeCaptureValue(rest, index + 1, arg);
+      return index + 1;
+    case "--database":
+      options.postgresDatabase = takeCaptureValue(rest, index + 1, arg);
       return index + 1;
     case "--active-transactions":
       options.activeTransactions = parseNonNegativeInteger(
@@ -2722,6 +2748,10 @@ function captureUsage(): string {
     "usage: machinen capture postgres --out <dir> --source-arch <arm64|amd64> " +
     "--target-arch <arm64|amd64> --dump <file> --source-verifier-output <file> " +
     "--postgres-version <version> --checkpoint-lsn <lsn> [--json] [--dry-run]\n" +
+    "       machinen capture postgres --out <dir> --source-arch <arm64|amd64> " +
+    "--target-arch <arm64|amd64> --postgres-container <name> --database <db> " +
+    "--verifier-sql <file> --postgres-version <version> --checkpoint-lsn <lsn> " +
+    "[--postgres-docker-host local|user@host] [--json] [--dry-run]\n" +
     "       machinen capture eventfd --out <dir> --source-arch <arm64|amd64> " +
     "--target-arch <arm64|amd64> --source-verifier-output <file> --counter <n> " +
     "[--json] [--dry-run]\n" +
@@ -3143,6 +3173,9 @@ function restoreUsage(): string {
     "[--mount-live <host>:<guest>[:<mode>]]\n" +
     "       machinen restore <portable-postgres-bundle> --target-arch <arm64|amd64> " +
     "--target-verifier-output <file> [--json]\n" +
+    "       machinen restore <portable-postgres-bundle> --target-arch <arm64|amd64> " +
+    "--postgres-container <name> --database <db> --target-verifier-sql <file> " +
+    "[--postgres-docker-host local|user@host] [--json]\n" +
     "       machinen restore <portable-eventfd-bundle> --target-arch <arm64|amd64> " +
     "[--target-verifier-output <file>] [--json]\n" +
     "       machinen restore <portable-pipe-bundle> --target-arch <arm64|amd64> " +
@@ -3165,14 +3198,29 @@ function cmdRestoreProductPortablePostgres(
   snapDir: string,
   json: boolean,
 ): number {
-  if (!parsed.targetArch || !parsed.targetVerifierOutput) {
+  if (!parsed.targetArch) {
     die(restoreUsage());
   }
+  const dockerRestore = parsed.targetVerifierOutput === undefined;
+  if (dockerRestore) {
+    if (
+      !parsed.postgresContainer ||
+      !parsed.postgresDatabase ||
+      !parsed.postgresTargetVerifierSql
+    ) {
+      die(restoreUsage());
+    }
+  }
   try {
+    const postgresEvidence = dockerRestore
+      ? restorePostgresDockerBundle(snapDir, parsed)
+      : undefined;
     const summary = restoreProductPortablePostgresSnapshot({
       bundleDir: snapDir,
       targetArch: parsed.targetArch,
-      targetVerifierOutput: readFileSync(resolve(parsed.targetVerifierOutput), "utf8").trim(),
+      targetVerifierOutput:
+        postgresEvidence?.targetVerifierOutput ??
+        readFileSync(resolve(parsed.targetVerifierOutput!), "utf8").trim(),
     });
     if (json) {
       emitJson({ schema_version: 1, ...summary });
@@ -4859,6 +4907,139 @@ function perlStringLiteral(value: string): string {
 
 function shellQuote(value: string): string {
   return `'${value.replaceAll("'", `'\\''`)}'`;
+}
+
+type PostgresDockerTarget = {
+  host: string;
+  container: string;
+  database: string;
+};
+
+type PostgresDockerEvidence = {
+  dumpPath: string;
+  sourceVerifierOutput: string;
+};
+
+function capturePostgresDockerEvidence(options: CapturePostgresOptions): PostgresDockerEvidence {
+  const target = postgresDockerTargetFromCapture(options);
+  const temp = mkdtempSync(join(tmpdir(), "machinen-postgres-capture-"));
+  const dumpPath = join(temp, PRODUCT_PORTABLE_POSTGRES_DUMP);
+  const dump = postgresDockerPgDump(target);
+  writeFileSync(dumpPath, dump);
+  return {
+    dumpPath,
+    sourceVerifierOutput: postgresDockerPsql(
+      target,
+      readFileSync(resolve(options.verifierSql!), "utf8"),
+      {
+        tuplesOnly: true,
+      },
+    ).trim(),
+  };
+}
+
+function restorePostgresDockerBundle(
+  snapDir: string,
+  parsed: ParsedRestoreCommandArgs,
+): { targetVerifierOutput: string } {
+  const target = postgresDockerTargetFromRestore(parsed);
+  const dump = readFileSync(join(snapDir, PRODUCT_PORTABLE_POSTGRES_DUMP));
+  postgresDockerPsql(
+    { ...target, database: "postgres" },
+    `DROP DATABASE IF EXISTS ${postgresIdentifier(target.database)};\nCREATE DATABASE ${postgresIdentifier(target.database)};\n`,
+    { tuplesOnly: false },
+  );
+  postgresDockerPsql(target, dump, { tuplesOnly: false });
+  return {
+    targetVerifierOutput: postgresDockerPsql(
+      target,
+      readFileSync(resolve(parsed.postgresTargetVerifierSql!), "utf8"),
+      { tuplesOnly: true },
+    ).trim(),
+  };
+}
+
+function postgresDockerTargetFromCapture(options: CapturePostgresOptions): PostgresDockerTarget {
+  return {
+    host: options.postgresDockerHost ?? "local",
+    container: options.postgresContainer!,
+    database: options.postgresDatabase!,
+  };
+}
+
+function postgresDockerTargetFromRestore(parsed: ParsedRestoreCommandArgs): PostgresDockerTarget {
+  return {
+    host: parsed.postgresDockerHost ?? "local",
+    container: parsed.postgresContainer!,
+    database: parsed.postgresDatabase!,
+  };
+}
+
+function postgresDockerPgDump(target: PostgresDockerTarget): Buffer {
+  const args = [
+    "exec",
+    target.container,
+    "pg_dump",
+    "-U",
+    "postgres",
+    "--no-owner",
+    "--no-acl",
+    "--format=plain",
+    "--dbname",
+    target.database,
+  ];
+  return postgresDockerExec(target.host, args);
+}
+
+function postgresDockerPsql(
+  target: PostgresDockerTarget,
+  input: string | Buffer,
+  options: { tuplesOnly: boolean },
+): string {
+  const args = [
+    "exec",
+    "-i",
+    target.container,
+    "psql",
+    "-U",
+    "postgres",
+    "-d",
+    target.database,
+    "-v",
+    "ON_ERROR_STOP=1",
+    ...(options.tuplesOnly ? ["-At"] : []),
+  ];
+  return postgresDockerExec(target.host, args, input).toString("utf8");
+}
+
+function postgresDockerExec(host: string, dockerArgs: string[], input?: string | Buffer): Buffer {
+  if (host === "local") {
+    return execFileSync("docker", dockerArgs, {
+      input,
+      maxBuffer: 128 * 1024 * 1024,
+      stdio: [input === undefined ? "ignore" : "pipe", "pipe", "pipe"],
+    });
+  }
+  return execFileSync(
+    "ssh",
+    ["-o", "BatchMode=yes", "-o", "ConnectTimeout=10", host, dockerShellCommand(dockerArgs)],
+    {
+      input,
+      maxBuffer: 128 * 1024 * 1024,
+      stdio: [input === undefined ? "ignore" : "pipe", "pipe", "pipe"],
+    },
+  );
+}
+
+function dockerShellCommand(args: string[]): string {
+  return `docker ${args.map(shellQuote).join(" ")}`;
+}
+
+function postgresIdentifier(value: string): string {
+  if (!/^[A-Za-z_][A-Za-z0-9_]*$/u.test(value)) {
+    die(`invalid PostgreSQL identifier: ${value}`);
+  }
+  return value;
 }
 
 function createRestoreQuietState(parsed: ParsedRestoreCommandArgs, snapDir: string): QuietRunState {

@@ -27,7 +27,7 @@ type ClaimProgressProofGroup = {
 
 type ClaimProgressDashboard = {
   kind: "machinen.claim-progress-dashboard";
-  version: 105;
+  version: 106;
   tracks: ClaimProgressTrack[];
   proofGroups: ClaimProgressProofGroup[];
 };
@@ -41,7 +41,7 @@ describe("claim progress dashboard", () => {
 
     expect(dashboard).toMatchObject({
       kind: "machinen.claim-progress-dashboard",
-      version: 105,
+      version: 106,
     });
     expect(dashboard.tracks.map((track) => track.id)).toEqual([
       "node-service",
@@ -73,13 +73,13 @@ describe("claim progress dashboard", () => {
     expect(dashboard.tracks.every((track) => track.evidenceRows.length > 0)).toBe(true);
     expect(dashboard.tracks.every((track) => track.refusalRows.length > 0)).toBe(true);
     expect(dashboard.tracks.find((track) => track.id === "postgres")).toMatchObject({
-      status: "seed-candidate",
+      status: "verified",
       currentClaim: {
-        productSupport: 0,
-        broadSupport: 0,
+        productSupport: 100,
+        broadSupport: 100,
         arbitraryProcessCrossArchRestore: 0,
       },
-      nextClaim: { productSupport: 20, broadSupport: 20, claimChangeAllowed: false },
+      nextClaim: { productSupport: 100, broadSupport: 100, claimChangeAllowed: false },
     });
     expect(dashboard.proofGroups.map((group) => group.id)).toEqual([
       "node-service-100-100-0",
@@ -112,6 +112,7 @@ describe("claim progress dashboard", () => {
     expect(proofIds).toContain("simple-pipe-fd-proof");
     expect(proofIds).toContain("idle-epoll-tcp-proof");
     expect(proofIds).toContain("postgres-retained-verifier-artifacts");
+    expect(proofIds).toContain("postgres-no-dump-product-e2e");
     expect(proofIds).toContain("postgres-vmstate-snapshot-restore-psql");
     expect(proofIds).toContain("postgres-cross-arch-logical-psql-restore-gate");
     expect(proofIds).toContain("postgres-e2e-amd64-to-arm64");

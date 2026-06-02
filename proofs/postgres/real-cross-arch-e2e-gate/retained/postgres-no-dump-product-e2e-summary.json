@@ -1,0 +1,257 @@
+{
+  "kind": "machinen.postgres-no-dump-product-e2e-proof",
+  "profile": "postgres-no-dump-product-capture-restore",
+  "state": "completed",
+  "runtime": "postgresql",
+  "localHostArch": "arm64",
+  "image": "postgres:15-bookworm",
+  "hosts": {
+    "arm64": {
+      "label": "arm64",
+      "host": "local-macbook",
+      "kind": "local",
+      "machine": "arm64",
+      "arch": "arm64",
+      "docker": "aarch64 linux"
+    },
+    "amd64": {
+      "label": "amd64",
+      "host": "root@192.168.0.8",
+      "kind": "ssh",
+      "machine": "x86_64",
+      "arch": "amd64",
+      "docker": "x86_64 linux"
+    }
+  },
+  "postgres": {
+    "initSqlSha256": "36bd62cf169e1eb041ee1e7a791f177a2b4e6809e2240b9ad17297a72f88ea7a",
+    "workloadSqlSha256": "cee4f9dee7f03744b3c13e8d6536ff7a1220904aa24cd01410daf9d5833acef9",
+    "verifierSqlSha256": "1d4799aaf94829c9a6cfa11502992b916b111a620909dd6d0d337fbb1bf2171d",
+    "routes": [
+      {
+        "route": "arm64-to-amd64",
+        "sourceHost": "local-macbook",
+        "targetHost": "root@192.168.0.8",
+        "sourceDockerHost": "local",
+        "targetDockerHost": "root@192.168.0.8",
+        "sourceArch": "arm64",
+        "targetArch": "amd64",
+        "sourcePostgresVersion": "15.18 (Debian 15.18-1.pgdg12+1)",
+        "targetPostgresVersion": "15.18 (Debian 15.18-1.pgdg12+1)",
+        "sourceVerifierOutput": "{\"database\" : \"machinen_pg\", \"rowCount\" : 4, \"valueSum\" : 105, \"payloads\" : [\"alpha\",\"beta\",\"gamma\",\"delta\"], \"values\" : [10,25,30,40]}",
+        "targetVerifierOutput": "{\"database\" : \"machinen_pg\", \"rowCount\" : 4, \"valueSum\" : 105, \"payloads\" : [\"alpha\",\"beta\",\"gamma\",\"delta\"], \"values\" : [10,25,30,40]}",
+        "logicalFingerprint": "19c61ac217b9bdf7dae88e5a515643d3b49c21a2a0d920096bf3017b36195166",
+        "targetVerifierOutputSha256": "5d1062188f302d75521800edc29b0a44e218e88699e27b98793afcefb28c3051",
+        "internalDumpSha256": "3fbac837f6c0e29c2a86f91aa886dd8cf20e2049d767ada45fb03174da5a4827",
+        "internalDumpBytes": 2135,
+        "bundleManifestSha256": "298acc033b947e58a81dfb70bdaa6ec8e19bb35483f08a389ca5a7a6d306142e",
+        "restoreSummarySha256": "2a2f9d129b4c8b27720c413ee6faf80cdc212193a645a85a49bb13eea9cb28a4",
+        "checkpointLsn": "0/2000188",
+        "activeTransactionsAtCapture": 0,
+        "migrationCompleted": true,
+        "noUserSuppliedDump": true,
+        "restoreUsedTargetVerifierOutputFile": false,
+        "targetNativeExecution": true,
+        "sourceIsaEmulationUsed": false,
+        "sourceTextReusedAsTargetCode": false,
+        "sidecarRuntimeUsed": false,
+        "appHooksRequired": false,
+        "bundleDir": "/tmp/machinen-postgres-no-dump-product-proof-run/work/arm64-to-amd64/bundle",
+        "captureCommand": "'node' '/Users/peterp/gh/redwoodjs/machinen/packages/cli/dist/cli.js' 'capture' 'postgres' '--json' '--out' '/tmp/machinen-postgres-no-dump-product-proof-run/work/arm64-to-amd64/bundle' '--source-arch' 'arm64' '--target-arch' 'amd64' '--postgres-docker-host' 'local' '--postgres-container' 'pg-product-src-arm64-41478-55cd1afc' '--database' 'machinen_pg' '--verifier-sql' '/Users/peterp/gh/redwoodjs/machinen/scripts/fixtures/postgres-machinen/verify.sql' '--postgres-version' '15.18 (Debian 15.18-1.pgdg12+1)' '--checkpoint-lsn' '0/2000188' '--init-sql' '/Users/peterp/gh/redwoodjs/machinen/scripts/fixtures/postgres-machinen/init.sql' '--workload-sql' '/Users/peterp/gh/redwoodjs/machinen/scripts/fixtures/postgres-machinen/workload.sql'",
+        "restoreCommand": "'node' '/Users/peterp/gh/redwoodjs/machinen/packages/cli/dist/cli.js' 'restore' '/tmp/machinen-postgres-no-dump-product-proof-run/work/arm64-to-amd64/bundle' '--json' '--target-arch' 'amd64' '--postgres-docker-host' 'root@192.168.0.8' '--postgres-container' 'pg-product-tgt-amd64-41478-b2d2f651' '--database' 'machinen_pg' '--target-verifier-sql' '/Users/peterp/gh/redwoodjs/machinen/scripts/fixtures/postgres-machinen/verify.sql'"
+      },
+      {
+        "route": "amd64-to-arm64",
+        "sourceHost": "root@192.168.0.8",
+        "targetHost": "local-macbook",
+        "sourceDockerHost": "root@192.168.0.8",
+        "targetDockerHost": "local",
+        "sourceArch": "amd64",
+        "targetArch": "arm64",
+        "sourcePostgresVersion": "15.18 (Debian 15.18-1.pgdg12+1)",
+        "targetPostgresVersion": "15.18 (Debian 15.18-1.pgdg12+1)",
+        "sourceVerifierOutput": "{\"database\" : \"machinen_pg\", \"rowCount\" : 4, \"valueSum\" : 105, \"payloads\" : [\"alpha\",\"beta\",\"gamma\",\"delta\"], \"values\" : [10,25,30,40]}",
+        "targetVerifierOutput": "{\"database\" : \"machinen_pg\", \"rowCount\" : 4, \"valueSum\" : 105, \"payloads\" : [\"alpha\",\"beta\",\"gamma\",\"delta\"], \"values\" : [10,25,30,40]}",
+        "logicalFingerprint": "19c61ac217b9bdf7dae88e5a515643d3b49c21a2a0d920096bf3017b36195166",
+        "targetVerifierOutputSha256": "5d1062188f302d75521800edc29b0a44e218e88699e27b98793afcefb28c3051",
+        "internalDumpSha256": "a5fe1389c863ee8bcb1ebb0de7149ba09564b1b44547b6d79ca9e82e5b2048d0",
+        "internalDumpBytes": 2135,
+        "bundleManifestSha256": "9e13061252408647bffabf2d6d79846c554cae17de4f063a0cee55de797be6a4",
+        "restoreSummarySha256": "fe4cd71abb7173f4953a7bc5d369e142a69ff51af0913c0d2ba82466634996de",
+        "checkpointLsn": "0/2000188",
+        "activeTransactionsAtCapture": 0,
+        "migrationCompleted": true,
+        "noUserSuppliedDump": true,
+        "restoreUsedTargetVerifierOutputFile": false,
+        "targetNativeExecution": true,
+        "sourceIsaEmulationUsed": false,
+        "sourceTextReusedAsTargetCode": false,
+        "sidecarRuntimeUsed": false,
+        "appHooksRequired": false,
+        "bundleDir": "/tmp/machinen-postgres-no-dump-product-proof-run/work/amd64-to-arm64/bundle",
+        "captureCommand": "'node' '/Users/peterp/gh/redwoodjs/machinen/packages/cli/dist/cli.js' 'capture' 'postgres' '--json' '--out' '/tmp/machinen-postgres-no-dump-product-proof-run/work/amd64-to-arm64/bundle' '--source-arch' 'amd64' '--target-arch' 'arm64' '--postgres-docker-host' 'root@192.168.0.8' '--postgres-container' 'pg-product-src-amd64-41478-6da4c414' '--database' 'machinen_pg' '--verifier-sql' '/Users/peterp/gh/redwoodjs/machinen/scripts/fixtures/postgres-machinen/verify.sql' '--postgres-version' '15.18 (Debian 15.18-1.pgdg12+1)' '--checkpoint-lsn' '0/2000188' '--init-sql' '/Users/peterp/gh/redwoodjs/machinen/scripts/fixtures/postgres-machinen/init.sql' '--workload-sql' '/Users/peterp/gh/redwoodjs/machinen/scripts/fixtures/postgres-machinen/workload.sql'",
+        "restoreCommand": "'node' '/Users/peterp/gh/redwoodjs/machinen/packages/cli/dist/cli.js' 'restore' '/tmp/machinen-postgres-no-dump-product-proof-run/work/amd64-to-arm64/bundle' '--json' '--target-arch' 'arm64' '--postgres-docker-host' 'local' '--postgres-container' 'pg-product-tgt-arm64-41478-b132d50c' '--database' 'machinen_pg' '--target-verifier-sql' '/Users/peterp/gh/redwoodjs/machinen/scripts/fixtures/postgres-machinen/verify.sql'"
+      }
+    ],
+    "logicalFingerprint": "19c61ac217b9bdf7dae88e5a515643d3b49c21a2a0d920096bf3017b36195166",
+    "routeCount": 2
+  },
+  "supportedSubset": {
+    "name": "postgres-clean-quiesced-no-dump-product-capture-restore",
+    "migrationCompleted": true,
+    "capturePolicy": "machinen capture postgres generated internal logical dump from clean checkpointed PostgreSQL container",
+    "restorePolicy": "machinen restore restored internal dump into target-native PostgreSQL and ran psql verifier",
+    "noUserSuppliedDump": true,
+    "targetVerifierOutputFileNotUsed": true,
+    "noActiveClientTransaction": true,
+    "walCheckpointedBeforeCapture": true,
+    "physicalDataDirectoryPortable": false,
+    "bidirectionalArm64Amd64": true
+  },
+  "refusals": [
+    {
+      "name": "active-client-transaction",
+      "state": "refused",
+      "expectedRefusalCode": "postgres-active-transaction-unsupported",
+      "migrationCompleted": false,
+      "descriptorGateCompleted": false,
+      "evidence": {},
+      "sourceIsaEmulationUsed": false,
+      "sourceTextReusedAsTargetCode": false,
+      "sidecarRuntimeUsed": false,
+      "appHooksRequired": false
+    },
+    {
+      "name": "active-client-session",
+      "state": "refused",
+      "expectedRefusalCode": "postgres-active-session-unsupported",
+      "migrationCompleted": false,
+      "descriptorGateCompleted": false,
+      "evidence": {},
+      "sourceIsaEmulationUsed": false,
+      "sourceTextReusedAsTargetCode": false,
+      "sidecarRuntimeUsed": false,
+      "appHooksRequired": false
+    },
+    {
+      "name": "dirty-uncheckpointed-wal",
+      "state": "refused",
+      "expectedRefusalCode": "postgres-dirty-wal-boundary-unsupported",
+      "migrationCompleted": false,
+      "descriptorGateCompleted": false,
+      "evidence": {},
+      "sourceIsaEmulationUsed": false,
+      "sourceTextReusedAsTargetCode": false,
+      "sidecarRuntimeUsed": false,
+      "appHooksRequired": false
+    },
+    {
+      "name": "torn-data-directory",
+      "state": "refused",
+      "expectedRefusalCode": "postgres-unsynced-data-directory-unsupported",
+      "migrationCompleted": false,
+      "descriptorGateCompleted": false,
+      "evidence": {},
+      "sourceIsaEmulationUsed": false,
+      "sourceTextReusedAsTargetCode": false,
+      "sidecarRuntimeUsed": false,
+      "appHooksRequired": false
+    },
+    {
+      "name": "replication-slot",
+      "state": "refused",
+      "expectedRefusalCode": "postgres-replication-slot-state-unsupported",
+      "migrationCompleted": false,
+      "descriptorGateCompleted": false,
+      "evidence": {},
+      "sourceIsaEmulationUsed": false,
+      "sourceTextReusedAsTargetCode": false,
+      "sidecarRuntimeUsed": false,
+      "appHooksRequired": false
+    },
+    {
+      "name": "streaming-replication",
+      "state": "refused",
+      "expectedRefusalCode": "postgres-streaming-replication-unsupported",
+      "migrationCompleted": false,
+      "descriptorGateCompleted": false,
+      "evidence": {},
+      "sourceIsaEmulationUsed": false,
+      "sourceTextReusedAsTargetCode": false,
+      "sidecarRuntimeUsed": false,
+      "appHooksRequired": false
+    },
+    {
+      "name": "external-extension",
+      "state": "refused",
+      "expectedRefusalCode": "postgres-extension-native-state-unsupported",
+      "migrationCompleted": false,
+      "descriptorGateCompleted": false,
+      "evidence": {},
+      "sourceIsaEmulationUsed": false,
+      "sourceTextReusedAsTargetCode": false,
+      "sidecarRuntimeUsed": false,
+      "appHooksRequired": false
+    },
+    {
+      "name": "host-mounted-data-dir",
+      "state": "refused",
+      "expectedRefusalCode": "postgres-host-mounted-data-dir-ambiguous",
+      "migrationCompleted": false,
+      "descriptorGateCompleted": false,
+      "evidence": {},
+      "sourceIsaEmulationUsed": false,
+      "sourceTextReusedAsTargetCode": false,
+      "sidecarRuntimeUsed": false,
+      "appHooksRequired": false
+    },
+    {
+      "name": "physical-data-directory-cross-arch",
+      "state": "refused",
+      "expectedRefusalCode": "postgres-physical-data-dir-cross-arch-unsupported",
+      "migrationCompleted": false,
+      "descriptorGateCompleted": false,
+      "evidence": {
+        "reason": "PostgreSQL physical data directories and WAL are not the portable unit for arm64<->amd64 restore; use internal logical product capture/restore."
+      },
+      "sourceIsaEmulationUsed": false,
+      "sourceTextReusedAsTargetCode": false,
+      "sidecarRuntimeUsed": false,
+      "appHooksRequired": false
+    }
+  ],
+  "targetRestore": {
+    "state": "completed",
+    "migrationCompleted": true,
+    "descriptorGateCompleted": true,
+    "targetVerifierResult": "passed",
+    "targetResourceStatuses": [
+      {
+        "kind": "postgres-clean-quiesced-no-dump-product-capture-restore",
+        "status": "passed"
+      },
+      {
+        "kind": "postgres-arm64-to-amd64-no-dump-product-restore",
+        "status": "passed"
+      },
+      {
+        "kind": "postgres-amd64-to-arm64-no-dump-product-restore",
+        "status": "passed"
+      }
+    ],
+    "sourceTextReusedAsTargetCode": false,
+    "sourceIsaEmulationUsed": false,
+    "sidecarRuntimeUsed": false,
+    "appHooksRequired": false
+  },
+  "securityInspection": {
+    "sourceIsaEmulationArtifactFound": false,
+    "sourceTextReplayArtifactFound": false,
+    "sidecarRuntimeArtifactFound": false,
+    "appHookArtifactFound": false,
+    "metadataOnlyShortcutAccepted": false,
+    "targetNativeExecutionRequired": true,
+    "passed": true
+  },
+  "timings": []
+}

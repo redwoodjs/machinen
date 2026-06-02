@@ -55,6 +55,14 @@ export interface ParsedRestoreCommandArgs {
   targetArch?: "arm64" | "amd64";
   /** File containing target-native verifier output for semantic bundles. */
   targetVerifierOutput?: string;
+  /** PostgreSQL Docker host for no-dump product restore (`local` or `user@host`). */
+  postgresDockerHost?: string;
+  /** PostgreSQL Docker container for no-dump product restore. */
+  postgresContainer?: string;
+  /** PostgreSQL database name for no-dump product restore. */
+  postgresDatabase?: string;
+  /** SQL file used to verify the restored PostgreSQL target. */
+  postgresTargetVerifierSql?: string;
   /** Compatibility flag; Node Level 5 proof bundles now run the verifier by default. */
   verifyProofOnly?: boolean;
   /** Return 0 for a passed proof-only verifier while still reporting proof-only status. */
@@ -69,6 +77,10 @@ type RestoreFlag =
   | "portForward"
   | "targetArch"
   | "targetVerifierOutput"
+  | "postgresDockerHost"
+  | "postgresContainer"
+  | "postgresDatabase"
+  | "postgresTargetVerifierSql"
   | "verifyProofOnly"
   | "allowProofOnlySuccess";
 
@@ -89,6 +101,10 @@ interface RestoreParseState {
   liveMounts: Array<{ host: string; guest: string; mode: "ro" | "rw" }>;
   targetArch?: "arm64" | "amd64";
   targetVerifierOutput?: string;
+  postgresDockerHost?: string;
+  postgresContainer?: string;
+  postgresDatabase?: string;
+  postgresTargetVerifierSql?: string;
   verifyProofOnly?: boolean;
   allowProofOnlySuccess?: boolean;
   seenLiveGuests: Set<string>;
@@ -103,6 +119,10 @@ const RESTORE_VALUE_FLAGS = new Map<string, RestoreFlag>([
   ["--publish", "portForward"],
   ["--target-arch", "targetArch"],
   ["--target-verifier-output", "targetVerifierOutput"],
+  ["--postgres-docker-host", "postgresDockerHost"],
+  ["--postgres-container", "postgresContainer"],
+  ["--database", "postgresDatabase"],
+  ["--target-verifier-sql", "postgresTargetVerifierSql"],
 ]);
 
 const RESTORE_BARE_FLAGS = new Map<string, RestoreFlag>([
@@ -120,6 +140,10 @@ const RESTORE_FLAG_HANDLERS: Record<RestoreFlag, RestoreFlagHandler> = {
   targetArch: handleRestoreTargetArch,
   targetVerifierOutput: handleRestoreTargetVerifierOutput,
   verifyProofOnly: handleRestoreVerifyProofOnly,
+  postgresDockerHost: handleRestorePostgresDockerHost,
+  postgresContainer: handleRestorePostgresContainer,
+  postgresDatabase: handleRestorePostgresDatabase,
+  postgresTargetVerifierSql: handleRestorePostgresTargetVerifierSql,
   allowProofOnlySuccess: handleRestoreAllowProofOnlySuccess,
 };
 
@@ -171,6 +195,10 @@ function finishRestoreArgs(state: RestoreParseState): ParsedRestoreCommandArgs {
     liveMounts: state.liveMounts,
     targetArch: state.targetArch,
     targetVerifierOutput: state.targetVerifierOutput,
+    postgresDockerHost: state.postgresDockerHost,
+    postgresContainer: state.postgresContainer,
+    postgresDatabase: state.postgresDatabase,
+    postgresTargetVerifierSql: state.postgresTargetVerifierSql,
     verifyProofOnly: state.verifyProofOnly,
     allowProofOnlySuccess: state.allowProofOnlySuccess,
   };
@@ -207,6 +235,54 @@ function handleRestoreImage(
   const { spec, next } = takeRestoreValue(flag, args, index, "a value", "--image");
   assertRestoreFlagUnused(state.image !== undefined, "--image");
   state.image = spec;
+  return next;
+}
+
+function handleRestorePostgresDockerHost(
+  state: RestoreParseState,
+  flag: string,
+  args: string[],
+  index: number,
+): number {
+  const { spec, next } = takeRestoreValue(flag, args, index, "a Docker host", flag);
+  assertRestoreFlagUnused(state.postgresDockerHost !== undefined, flag);
+  state.postgresDockerHost = spec;
+  return next;
+}
+
+function handleRestorePostgresContainer(
+  state: RestoreParseState,
+  flag: string,
+  args: string[],
+  index: number,
+): number {
+  const { spec, next } = takeRestoreValue(flag, args, index, "a container name", flag);
+  assertRestoreFlagUnused(state.postgresContainer !== undefined, flag);
+  state.postgresContainer = spec;
+  return next;
+}
+
+function handleRestorePostgresDatabase(
+  state: RestoreParseState,
+  flag: string,
+  args: string[],
+  index: number,
+): number {
+  const { spec, next } = takeRestoreValue(flag, args, index, "a database name", flag);
+  assertRestoreFlagUnused(state.postgresDatabase !== undefined, flag);
+  state.postgresDatabase = spec;
+  return next;
+}
+
+function handleRestorePostgresTargetVerifierSql(
+  state: RestoreParseState,
+  flag: string,
+  args: string[],
+  index: number,
+): number {
+  const { spec, next } = takeRestoreValue(flag, args, index, "a SQL file", flag);
+  assertRestoreFlagUnused(state.postgresTargetVerifierSql !== undefined, flag);
+  state.postgresTargetVerifierSql = spec;
   return next;
 }
 

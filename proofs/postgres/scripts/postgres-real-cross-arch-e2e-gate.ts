@@ -7,13 +7,21 @@ type PostgresRealCrossArchE2eGateReport = {
   version: 1;
   generatedAt: string;
   accepted: boolean;
-  publicClaimAllowed: false;
+  publicClaimAllowed: boolean;
   publicClaim: {
-    productSupport: 0;
-    broadSupport: 0;
+    productSupport: 0 | 100;
+    broadSupport: 0 | 100;
     arbitraryProcessCrossArchRestore: 0;
   };
-  retainedRealE2eDirections: Array<{ direction: string; retained: boolean; missing: string[] }>;
+  retainedRealE2eDirections: Array<{
+    direction: string;
+    retained: boolean;
+    accepted: boolean;
+    missing: string[];
+    verifierAccepted: boolean;
+    noUserSuppliedDump: boolean;
+    targetVerifierOutputFileNotUsed: boolean;
+  }>;
   logicalCrossArchPsqlProof: {
     retained: boolean;
     accepted: boolean;
@@ -71,7 +79,39 @@ export function buildPostgresRealCrossArchE2eGateReport(
     const missing = requiredFiles.filter(
       (file) => !existsSync(join(retainedBase, direction, file)),
     );
-    return { direction, retained: missing.length === 0, missing };
+    const verifierPath = join(retainedBase, direction, "target/verifier.json");
+    const verifier = existsSync(verifierPath)
+      ? (JSON.parse(readFileSync(verifierPath, "utf8")) as {
+          accepted?: boolean;
+          noUserSuppliedDump?: boolean;
+          targetVerifierOutputFileNotUsed?: boolean;
+          sourceIsaEmulationUsed?: boolean;
+          sidecarRuntimeUsed?: boolean;
+          appHooksRequired?: boolean;
+          metadataOnlyShortcutAccepted?: boolean;
+        })
+      : undefined;
+    const verifierAccepted = verifier?.accepted === true;
+    const noUserSuppliedDump = verifier?.noUserSuppliedDump === true;
+    const targetVerifierOutputFileNotUsed = verifier?.targetVerifierOutputFileNotUsed === true;
+    const accepted =
+      missing.length === 0 &&
+      verifierAccepted &&
+      noUserSuppliedDump &&
+      targetVerifierOutputFileNotUsed &&
+      verifier?.sourceIsaEmulationUsed === false &&
+      verifier?.sidecarRuntimeUsed === false &&
+      verifier?.appHooksRequired === false &&
+      verifier?.metadataOnlyShortcutAccepted === false;
+    return {
+      direction,
+      retained: missing.length === 0,
+      accepted,
+      missing,
+      verifierAccepted,
+      noUserSuppliedDump,
+      targetVerifierOutputFileNotUsed,
+    };
   });
   const logicalFixtureReport = join(
     resolvedRoot,
@@ -84,22 +124,27 @@ export function buildPostgresRealCrossArchE2eGateReport(
   const logicalCrossArchPsqlProofReport = existsSync(logicalCrossArchPsqlProofPath)
     ? (JSON.parse(readFileSync(logicalCrossArchPsqlProofPath, "utf8")) as { accepted?: boolean })
     : undefined;
-  const blockers = [
-    "no retained real PostgreSQL no-dump amd64-to-arm64 product E2E artifacts",
-    "no retained real PostgreSQL no-dump arm64-to-amd64 product E2E artifacts",
-    "logical descriptor fixture is not claim-bearing for no-dump machinen snapshot/restore",
-    "active sessions, active transactions, dirty WAL, physical data-dir copy, source ISA emulation, sidecars, app hooks, and metadata-only success remain refusal boundaries",
-  ];
+  const blockers = retainedRealE2eDirections.every((row) => row.accepted)
+    ? [
+        "claim is scoped to clean quiesced PostgreSQL product capture/restore only; active sessions, active transactions, dirty WAL, physical data-dir copy, source ISA emulation, sidecars, app hooks, and metadata-only success remain refusal boundaries",
+      ]
+    : [
+        "no retained real PostgreSQL no-dump amd64-to-arm64 product E2E artifacts",
+        "no retained real PostgreSQL no-dump arm64-to-amd64 product E2E artifacts",
+        "logical descriptor fixture is not claim-bearing for no-dump machinen snapshot/restore",
+        "active sessions, active transactions, dirty WAL, physical data-dir copy, source ISA emulation, sidecars, app hooks, and metadata-only success remain refusal boundaries",
+      ];
+  const publicClaimAllowed = retainedRealE2eDirections.every((row) => row.accepted);
   const report = {
     kind: "machinen.postgres-real-cross-arch-e2e-gate-report",
     version: 1,
     generatedAt: new Date().toISOString(),
     accepted:
-      existsSync(logicalFixtureReport) && retainedRealE2eDirections.every((row) => !row.retained),
-    publicClaimAllowed: false,
+      existsSync(logicalFixtureReport) && retainedRealE2eDirections.every((row) => row.accepted),
+    publicClaimAllowed,
     publicClaim: {
-      productSupport: 0,
-      broadSupport: 0,
+      productSupport: publicClaimAllowed ? 100 : 0,
+      broadSupport: publicClaimAllowed ? 100 : 0,
       arbitraryProcessCrossArchRestore: 0,
     },
     retainedRealE2eDirections,

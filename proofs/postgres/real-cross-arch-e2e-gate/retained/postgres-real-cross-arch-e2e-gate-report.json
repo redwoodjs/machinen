@@ -1,40 +1,32 @@
 {
   "kind": "machinen.postgres-real-cross-arch-e2e-gate-report",
   "version": 1,
-  "generatedAt": "2026-06-02T18:33:36.816Z",
+  "generatedAt": "2026-06-02T18:50:57.338Z",
   "accepted": true,
-  "publicClaimAllowed": false,
+  "publicClaimAllowed": true,
   "publicClaim": {
-    "productSupport": 0,
-    "broadSupport": 0,
+    "productSupport": 100,
+    "broadSupport": 100,
     "arbitraryProcessCrossArchRestore": 0
   },
   "retainedRealE2eDirections": [
     {
       "direction": "amd64-to-arm64",
-      "retained": false,
-      "missing": [
-        "source/product-command.txt",
-        "source/source-psql-transcript.txt",
-        "source/snapshot.json",
-        "target/product-command.txt",
-        "target/restore.json",
-        "target/target-psql-verifier.txt",
-        "target/verifier.json"
-      ]
+      "retained": true,
+      "accepted": true,
+      "missing": [],
+      "verifierAccepted": true,
+      "noUserSuppliedDump": true,
+      "targetVerifierOutputFileNotUsed": true
     },
     {
       "direction": "arm64-to-amd64",
-      "retained": false,
-      "missing": [
-        "source/product-command.txt",
-        "source/source-psql-transcript.txt",
-        "source/snapshot.json",
-        "target/product-command.txt",
-        "target/restore.json",
-        "target/target-psql-verifier.txt",
-        "target/verifier.json"
-      ]
+      "retained": true,
+      "accepted": true,
+      "missing": [],
+      "verifierAccepted": true,
+      "noUserSuppliedDump": true,
+      "targetVerifierOutputFileNotUsed": true
     }
   ],
   "logicalCrossArchPsqlProof": {
@@ -53,9 +45,6 @@
     "metadataOnlySuccessAccepted": false
   },
   "blockers": [
-    "no retained real PostgreSQL no-dump amd64-to-arm64 product E2E artifacts",
-    "no retained real PostgreSQL no-dump arm64-to-amd64 product E2E artifacts",
-    "logical descriptor fixture is not claim-bearing for no-dump machinen snapshot/restore",
-    "active sessions, active transactions, dirty WAL, physical data-dir copy, source ISA emulation, sidecars, app hooks, and metadata-only success remain refusal boundaries"
+    "claim is scoped to clean quiesced PostgreSQL product capture/restore only; active sessions, active transactions, dirty WAL, physical data-dir copy, source ISA emulation, sidecars, app hooks, and metadata-only success remain refusal boundaries"
   ]
 }

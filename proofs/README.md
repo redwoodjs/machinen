@@ -33,7 +33,7 @@ claim group here has a `claim.json` copy plus a readable `README.md`.
 - [Postgres clean logical descriptor fixture](./postgres/20-0-0/README.md) — `partial-proof`
 - [Postgres / psql VM-state snapshot/restore](./postgres/vmstate-snapshot-restore/README.md) — `verified`
 - [Postgres / psql bidirectional cross-arch logical restore](./postgres/cross-arch-logical-psql-restore/README.md) — `verified`
-- [Postgres real cross-architecture E2E gate](./postgres/real-cross-arch-e2e-gate/README.md) — `blocked-by-missing-real-e2e-artifacts`
+- [Postgres real cross-architecture no-dump product E2E gate](./postgres/real-cross-arch-e2e-gate/README.md) — `verified`
 - [Bun service support not started](./bun/not-started/README.md) — `not-started`
 - [Generic Linux service support not started](./generic-linux-service/not-started/README.md) — `not-started`
 - [Level 4 ping resource continuation](./network-resources/level4-ping-resource-continuation/README.md) — `proven-resource`
