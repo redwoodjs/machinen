@@ -1,14 +1,19 @@
 # Whole Linux VM workload portability not started
 
-Status: `not-started`
+Status: `defined`
 
 Track: `whole-linux-vm-workload`
 
 Proof directory: `proofs/linux-vm-workload/not-started`
 
-Scope: No whole-VM workload reconstruction claim yet; raw cross-architecture CPU/device VM restore remains refused.
+Scope: Whole-VM workload taxonomy is defined, but no whole-VM workload reconstruction claim exists yet. Raw cross-architecture CPU/device VM restore remains refused.
 
-Promotion effect: Requires workload-level reconstruction boundary and verifier gates.
+Promotion effect: Requires retained workload-level reconstruction artifacts and retained product refusal boundaries.
+
+Definition:
+
+- `docs/snapshot/whole-linux-vm-workload-taxonomy.md`
+- `docs/snapshot/whole-linux-vm-workload-taxonomy.json`
 
 ## Claim numbers
 
@@ -22,6 +27,7 @@ Promotion effect: Requires workload-level reconstruction boundary and verifier g
 
 ## Proofs
 
-| Proof                         | Category | Status        | Artifact      | Proves                                    | Claim use                | Next                                                     |
-| ----------------------------- | -------- | ------------- | ------------- | ----------------------------------------- | ------------------------ | -------------------------------------------------------- |
-| `vm-workload-boundary-needed` | planning | `not-started` | `not-created` | No VM workload boundary matrix exists yet | blocks VM workload claim | Define workload-level success and raw VM-state refusals. |
+| Proof                         | Category | Status        | Artifact                                              | Proves                                                                                                      | Claim use                                               | Next                                                        |
+| ----------------------------- | -------- | ------------- | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- | ----------------------------------------------------------- |
+| `vm-workload-taxonomy`        | planning | `defined`     | `docs/snapshot/whole-linux-vm-workload-taxonomy.json` | Defines taxonomy, supported subset, artifact requirements, refusal boundaries, and dashboard claim language | blocks VM workload claim until retained artifacts exist | Build selected-whole-vm-workload-v1 product matrix.         |
+| `vm-workload-boundary-needed` | planning | `not-started` | `not-created`                                         | No retained VM workload support/refusal matrix exists yet                                                   | blocks VM workload claim                                | Retain supported direction artifacts and refusal artifacts. |

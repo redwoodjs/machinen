@@ -460,7 +460,7 @@
     <script id="embedded-claim-progress" type="application/json">
       {
         "kind": "machinen.claim-progress-dashboard",
-        "version": 115,
+        "version": 116,
         "updatedFrom": [
           "docs/snapshot/node-level5-product-support-claim-registry.json",
           "docs/snapshot/node-level5-product-support-100.json",
@@ -481,7 +481,9 @@
           "proofs/native-process-substrate/resource-coverage/retained/native-resource-coverage-matrix-report.json",
           "proofs/native-process-substrate/selected-workload-e2e/retained/native-selected-workload-e2e-report.json",
           "proofs/native-process-substrate/product-e2e-gate/retained/native-product-e2e-gate-report.json",
-          "proofs/native-process-substrate/selected-native-support-matrix/retained/selected-native-support-matrix-report.json"
+          "proofs/native-process-substrate/selected-native-support-matrix/retained/selected-native-support-matrix-report.json",
+          "docs/snapshot/whole-linux-vm-workload-taxonomy.md",
+          "docs/snapshot/whole-linux-vm-workload-taxonomy.json"
         ],
         "columns": {
           "claim": ["productSupport", "broadSupport", "arbitraryProcessCrossArchRestore"],
@@ -2557,23 +2559,35 @@
             "name": "Whole Linux VM workload portability",
             "family": "vm-workload",
             "runtime": "linux-vm",
-            "status": "not-started",
-            "stage": "claim boundary needed",
-            "scope": "Workload-level VM portability by reconstruction, not raw cross-architecture CPU/device VM restore.",
+            "status": "defined",
+            "stage": "taxonomy defined; claim remains 0 / 0 / 0",
+            "scope": "Definition-only whole-VM workload portability by target-native reconstruction. Not arbitrary VM restore, not raw cross-ISA VM-state replay, and not arbitrary Linux process restore.",
             "currentClaim": {
               "productSupport": 0,
               "broadSupport": 0,
               "arbitraryProcessCrossArchRestore": 0
             },
             "nextClaim": {
-              "productSupport": "workload-seed-needed",
+              "productSupport": "selected-whole-vm-workload-v1-matrix-needed",
+              "broadSupport": "selected-whole-vm-workload-v1-matrix-needed",
+              "arbitraryProcessCrossArchRestore": 0,
               "claimChangeAllowed": false
             },
-            "summary": "Whole-VM workload movement needs filesystem, service, network/resource, and process-state reconstruction gates. Raw CPU/device VM restore remains refused cross-architecture.",
-            "claimGate": "whole VM workload claim boundary required",
+            "summary": "Whole-VM workload taxonomy now defines selected-whole-vm-workload-v1, required artifact gates, refusal boundaries, and dashboard claim language. No retained support/refusal matrix exists yet, so the public claim remains 0 / 0 / 0.",
+            "claimGate": "whole VM workload taxonomy defined; retained support/refusal matrix still required",
             "claimChangeAllowed": false,
-            "evidence": [],
+            "evidence": ["whole-vm-workload-taxonomy"],
             "evidenceRows": [
+              {
+                "id": "vm-workload-taxonomy",
+                "area": "planning",
+                "kind": "claim boundary taxonomy",
+                "status": "defined",
+                "evidence": "Defines whole Linux VM workload support as target-native reconstruction of a declared VM workload from retained portable artifacts and verifiers. It defines selected-whole-vm-workload-v1, refusal boundaries, artifact requirements, and future dashboard claim language.",
+                "gate": "definition only; no claim lift",
+                "artifact": "docs/snapshot/whole-linux-vm-workload-taxonomy.json",
+                "next": "Build retained selected-whole-vm-workload-v1 support/refusal matrix before any claim lift."
+              },
               {
                 "id": "vm-workload-boundary",
                 "area": "planning",
@@ -2663,7 +2677,11 @@
               "untranslated memory/register state",
               "eBPF privileged kernel feature surface",
               "seccomp policy mismatch",
-              "nested virtualization unavailable or unsafe"
+              "nested virtualization unavailable or unsafe",
+              "arbitrary VM restore",
+              "raw cross-ISA VM-state replay",
+              "metadata-only VM success",
+              "sidecar replay"
             ],
             "refusalRows": [
               {
@@ -2689,9 +2707,38 @@
                 "status": "not-proven",
                 "reason": "Nested virtualization depends on host CPU/KVM exposure and is not a portable workload guarantee.",
                 "neededToReduce": "Retained nested virtualization capability probe or explicit refusal artifact."
+              },
+              {
+                "boundary": "arbitrary VM restore",
+                "status": "refused",
+                "reason": "The taxonomy only allows declared workload reconstruction from retained portable artifacts.",
+                "neededToReduce": "Retained support matrix for each declared VM workload subset; never infer arbitrary VM support."
+              },
+              {
+                "boundary": "metadata-only VM success / sidecar replay",
+                "status": "forbidden",
+                "reason": "Future support cannot accept metadata-only success or sidecar replay as restore.",
+                "neededToReduce": "Not reducible; target verifier and artifact integrity are mandatory."
+              },
+              {
+                "boundary": "dirty block-device state without portable manifest",
+                "status": "refused",
+                "reason": "Dirty block-device state must have a portable manifest and verifier or be refused.",
+                "neededToReduce": "Retained block/data manifest plus source/target verifier artifacts."
+              },
+              {
+                "boundary": "architecture-specific kernel/module ABI",
+                "status": "refused",
+                "reason": "Source-architecture kernel modules or ABI-specific dependencies are not portable by default.",
+                "neededToReduce": "Target-native dependency reconstruction or explicit refusal artifact."
               }
             ],
             "nextSteps": [
+              {
+                "priority": 0,
+                "item": "Use docs/snapshot/whole-linux-vm-workload-taxonomy.json as the definition before building selected-whole-vm-workload-v1 artifacts.",
+                "gate": "vm-workload-taxonomy"
+              },
               {
                 "priority": 1,
                 "item": "Create whole-VM workload claim boundary matrix.",
@@ -2738,7 +2785,7 @@
                 "gate": "vm-nested-virtualization-smoke"
               }
             ],
-            "docs": []
+            "docs": ["whole-linux-vm-workload-taxonomy.md"]
           }
         ],
         "proofGroups": [
@@ -4308,26 +4355,48 @@
           },
           {
             "id": "whole-linux-vm-workload-not-started",
-            "claim": "Whole Linux VM workload portability not started",
+            "claim": "Whole Linux VM workload portability definition only",
             "trackId": "whole-linux-vm-workload",
-            "status": "not-started",
-            "scope": "No whole-VM workload reconstruction claim yet; proof slots now include database smoke, language-process smoke, kernel feature, and nested virtualization capability gates.",
+            "status": "defined",
+            "scope": "Whole-VM workload taxonomy is defined, but no whole-VM workload reconstruction claim exists yet. Raw cross-architecture CPU/device VM restore remains refused.",
             "claimNumbers": {
               "productSupport": 0,
               "broadSupport": 0,
               "arbitraryProcessCrossArchRestore": 0
             },
-            "promotionEffect": "Requires retained workload-level reconstruction artifacts; smoke/capability rows alone do not imply raw VM portability or public claim support.",
+            "promotionEffect": "Requires retained selected-whole-vm-workload-v1 support artifacts plus retained product refusal boundaries.",
             "proofDirectory": "proofs/linux-vm-workload/not-started",
             "proofs": [
+              {
+                "id": "vm-workload-taxonomy",
+                "proofNumber": "vm-workload/000",
+                "type": "planning",
+                "category": "claim boundary taxonomy",
+                "status": "defined",
+                "artifact": "docs/snapshot/whole-linux-vm-workload-taxonomy.json",
+                "proves": "Defines taxonomy, supported subset, refusal boundaries, artifact requirements, and dashboard claim language before any whole-VM claim lift.",
+                "claimUse": "definition only; no productSupport/broadSupport/arbitraryProcessCrossArchRestore lift",
+                "next": "Build selected-whole-vm-workload-v1 retained support/refusal matrix.",
+                "claimImpact": {
+                  "productSupportDelta": 0,
+                  "broadSupportDelta": 0,
+                  "arbitraryProcessCrossArchRestoreDelta": 0,
+                  "resultingClaim": {
+                    "productSupport": 0,
+                    "broadSupport": 0,
+                    "arbitraryProcessCrossArchRestore": 0
+                  },
+                  "claimChangeAllowed": false
+                }
+              },
               {
                 "id": "vm-workload-boundary-needed",
                 "category": "planning",
                 "status": "not-started",
                 "artifact": "not-created",
-                "proves": "No VM workload boundary matrix exists yet",
+                "proves": "No retained whole-VM workload support/refusal matrix exists yet",
                 "claimUse": "blocks VM workload claim",
-                "next": "Define workload-level success and raw VM-state refusals."
+                "next": "Retain selected-whole-vm-workload-v1 supported direction artifacts and refusal artifacts."
               },
               {
                 "id": "vm-sqlite-database-smoke",

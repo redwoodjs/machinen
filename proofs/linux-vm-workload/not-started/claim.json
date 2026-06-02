@@ -1,25 +1,40 @@
 {
   "id": "whole-linux-vm-workload-not-started",
-  "claim": "Whole Linux VM workload portability not started",
+  "claim": "Whole Linux VM workload portability definition only",
   "trackId": "whole-linux-vm-workload",
-  "status": "not-started",
-  "scope": "No whole-VM workload reconstruction claim yet; raw cross-architecture CPU/device VM restore remains refused.",
+  "status": "defined",
+  "scope": "Whole-VM workload taxonomy is defined, but no whole-VM workload reconstruction claim exists yet. Raw cross-architecture CPU/device VM restore remains refused.",
   "claimNumbers": {
     "productSupport": 0,
     "broadSupport": 0,
     "arbitraryProcessCrossArchRestore": 0
   },
-  "promotionEffect": "Requires workload-level reconstruction boundary and verifier gates.",
+  "promotionEffect": "Requires retained selected-whole-vm-workload-v1 support artifacts plus retained product refusal boundaries.",
   "proofDirectory": "proofs/linux-vm-workload/not-started",
+  "definition": {
+    "taxonomyMarkdown": "docs/snapshot/whole-linux-vm-workload-taxonomy.md",
+    "taxonomyJson": "docs/snapshot/whole-linux-vm-workload-taxonomy.json",
+    "supportedSubsetCandidate": "selected-whole-vm-workload-v1",
+    "futureClaimLanguage": "Selected whole-VM workload restore: 100 / 100 / 0 for selected-whole-vm-workload-v1 only. Not arbitrary VM restore, not raw cross-ISA VM-state replay, and not arbitrary Linux process restore."
+  },
   "proofs": [
+    {
+      "id": "vm-workload-taxonomy",
+      "category": "planning",
+      "status": "defined",
+      "artifact": "docs/snapshot/whole-linux-vm-workload-taxonomy.json",
+      "proves": "Defines taxonomy, supported subset, refusal boundaries, artifact requirements, and dashboard claim language before any claim lift.",
+      "claimUse": "definition only; blocks VM workload claim until retained artifacts exist",
+      "next": "Build selected-whole-vm-workload-v1 product support/refusal matrix."
+    },
     {
       "id": "vm-workload-boundary-needed",
       "category": "planning",
       "status": "not-started",
       "artifact": "not-created",
-      "proves": "No VM workload boundary matrix exists yet",
+      "proves": "No retained whole-VM workload support/refusal matrix exists yet",
       "claimUse": "blocks VM workload claim",
-      "next": "Define workload-level success and raw VM-state refusals."
+      "next": "Retain supported direction artifacts and refusal artifacts."
     }
   ]
 }

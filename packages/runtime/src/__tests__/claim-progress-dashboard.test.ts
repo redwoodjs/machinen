@@ -27,7 +27,7 @@ type ClaimProgressProofGroup = {
 
 type ClaimProgressDashboard = {
   kind: "machinen.claim-progress-dashboard";
-  version: 115;
+  version: 116;
   tracks: ClaimProgressTrack[];
   proofGroups: ClaimProgressProofGroup[];
 };
@@ -41,7 +41,7 @@ describe("claim progress dashboard", () => {
 
     expect(dashboard).toMatchObject({
       kind: "machinen.claim-progress-dashboard",
-      version: 115,
+      version: 116,
     });
     expect(dashboard.tracks.map((track) => track.id)).toEqual([
       "node-service",
@@ -132,6 +132,7 @@ describe("claim progress dashboard", () => {
     expect(proofIds).toContain("native-product-e2e-gate");
     expect(proofIds).toContain("selected-native-support-matrix");
     expect(proofIds).toContain("selected-native-refusal-artifacts");
+    expect(proofIds).toContain("vm-workload-taxonomy");
     expect(proofIds).toContain("arbitrary-process-claim-ready-gate");
     expect(proofIds).toContain("simple-pipe-fd-proof");
     expect(proofIds).toContain("idle-epoll-tcp-proof");
@@ -247,6 +248,8 @@ describe("claim progress dashboard", () => {
     expect(html).toContain("vm-ebpf-capability-smoke");
     expect(html).toContain("vm-seccomp-capability-smoke");
     expect(html).toContain("vm-nested-virtualization-smoke");
+    expect(html).toContain("selected-whole-vm-workload-v1");
+    expect(html).toContain("whole-linux-vm-workload-taxonomy.json");
     expect(html).toContain("native substrate");
     expect(html).toContain("native-cpu-register-inventory");
     expect(html).toContain("native-memory-map-inventory");
