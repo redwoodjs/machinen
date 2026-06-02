@@ -1,0 +1,194 @@
+{
+  "direction": "arm64-to-amd64",
+  "sourceArch": "arm64",
+  "targetArch": "amd64",
+  "accepted": true,
+  "productCommands": {
+    "capture": "machinen capture native",
+    "restore": "machinen restore"
+  },
+  "sourceArtifacts": [
+    {
+      "name": "proofs/native-process-substrate/product-e2e-gate/retained/arm64-to-amd64/source/source-verifier.json",
+      "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/native-process-substrate/product-e2e-gate/retained/arm64-to-amd64/source/source-verifier.json",
+      "sha256": "f9d4e520e6356875ce685bdb90945804d841d8e4bb8f2f68c45cadf8adaa45f9"
+    },
+    {
+      "name": "proofs/native-process-substrate/product-e2e-gate/retained/arm64-to-amd64/source/source-capture.json",
+      "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/native-process-substrate/product-e2e-gate/retained/arm64-to-amd64/source/source-capture.json",
+      "sha256": "36c417674f47860af9fe8aa6c3fe2fd04edcb6741c4cda4f6abf7ba1b28900fb"
+    },
+    {
+      "name": "proofs/native-process-substrate/product-e2e-gate/retained/arm64-to-amd64/source/target-plan.json",
+      "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/native-process-substrate/product-e2e-gate/retained/arm64-to-amd64/source/target-plan.json",
+      "sha256": "47f0e85fd856ce7c9acedb27a8aa7bc64d05fd6b35cb70d941a64603b6d7e0be"
+    }
+  ],
+  "targetArtifacts": [
+    {
+      "name": "proofs/native-process-substrate/product-e2e-gate/retained/arm64-to-amd64/target/target-verifier.json",
+      "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/native-process-substrate/product-e2e-gate/retained/arm64-to-amd64/target/target-verifier.json",
+      "sha256": "3f6bd64624e949cdd78ee11c7f1a7d410febcb4078cec3109c774a9b122ca530"
+    },
+    {
+      "name": "portable-selected-native.json",
+      "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/native-process-substrate/product-e2e-gate/retained/arm64-to-amd64/selected-native.bundle/portable-selected-native.json",
+      "sha256": "5c80067278dbc5cbf4c3fa6fd30d55cdedc85fe379e4d7ea171d5f686195d4a8"
+    },
+    {
+      "name": "source-verifier.json",
+      "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/native-process-substrate/product-e2e-gate/retained/arm64-to-amd64/selected-native.bundle/source-verifier.json",
+      "sha256": "e9e8a46c4e9cdf69559d5f9afb742f39564c32f69a36ebc32b812af01e36edf0"
+    },
+    {
+      "name": "source-capture.json",
+      "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/native-process-substrate/product-e2e-gate/retained/arm64-to-amd64/selected-native.bundle/source-capture.json",
+      "sha256": "36c417674f47860af9fe8aa6c3fe2fd04edcb6741c4cda4f6abf7ba1b28900fb"
+    },
+    {
+      "name": "target-plan.json",
+      "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/native-process-substrate/product-e2e-gate/retained/arm64-to-amd64/selected-native.bundle/target-plan.json",
+      "sha256": "47f0e85fd856ce7c9acedb27a8aa7bc64d05fd6b35cb70d941a64603b6d7e0be"
+    },
+    {
+      "name": "portable-selected-native-restore-summary.json",
+      "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/native-process-substrate/product-e2e-gate/retained/arm64-to-amd64/selected-native.bundle/portable-selected-native-restore-summary.json",
+      "sha256": "4aa2ceb804341d476162b6077bde687516c8d42a0194c800e6ad43178c7f8ecd"
+    }
+  ],
+  "captureSummary": {
+    "schema_version": 1,
+    "state": "completed",
+    "migrationCompleted": true,
+    "bundleDir": "/Users/peterp/gh/redwoodjs/machinen/proofs/native-process-substrate/product-e2e-gate/retained/arm64-to-amd64/selected-native.bundle",
+    "descriptor": {
+      "kind": "machinen.product-selected-native",
+      "formatVersion": 1,
+      "supportLevel": "proof-only-product-path",
+      "subset": "selected-single-thread-native-workload-v1",
+      "implementationLevel": "native-product-path-e2e-gate",
+      "runtime": "native-linux-process",
+      "captureSurface": "machinen capture native",
+      "restoreSurface": "machinen restore <bundle> --target-arch <arch> --target-verifier-output <file>",
+      "source": {
+        "architecture": "arm64",
+        "host": {
+          "arch": "arm64",
+          "platform": "darwin",
+          "release": "24.6.0"
+        }
+      },
+      "target": {
+        "architecture": "amd64"
+      },
+      "artifacts": {
+        "sourceVerifierOutput": {
+          "path": "source-verifier.json",
+          "sha256": "e9e8a46c4e9cdf69559d5f9afb742f39564c32f69a36ebc32b812af01e36edf0"
+        },
+        "sourceCapture": {
+          "path": "source-capture.json",
+          "sha256": "36c417674f47860af9fe8aa6c3fe2fd04edcb6741c4cda4f6abf7ba1b28900fb"
+        },
+        "targetPlan": {
+          "path": "target-plan.json",
+          "sha256": "47f0e85fd856ce7c9acedb27a8aa7bc64d05fd6b35cb70d941a64603b6d7e0be"
+        }
+      },
+      "selectedWorkload": {
+        "threadState": "single-stopped-outside-syscall",
+        "memory": "private-rw-page",
+        "stack": "target-ucontext-stack-with-guard",
+        "bootstrap": "argv-env-cwd",
+        "resources": [
+          "closed-fd",
+          "inherit-stdio",
+          "reopen-file",
+          "pipe-buffered-bytes",
+          "eventfd-counter",
+          "timerfd-one-shot",
+          "epoll-interest-list",
+          "tcp-listener-loopback"
+        ]
+      },
+      "gates": {
+        "selectedSingleThreadOnly": true,
+        "stoppedOutsideActiveSyscallRequired": true,
+        "selectedResourceSubsetOnly": true,
+        "targetNativeVerificationRequired": true,
+        "arbitraryLinuxProcessSupportClaimed": false,
+        "sourceIsaEmulationAllowed": false,
+        "rawCpuRestoreAllowed": false,
+        "runtimeProfileRestoreAllowed": false,
+        "sidecarRuntimeAllowed": false,
+        "appHooksAllowed": false,
+        "metadataOnlyContinuationAllowed": false
+      },
+      "sourceVerifierEvidence": {
+        "targetArch": "arm64",
+        "targetNativeExecution": true,
+        "rawCpuRestoreUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "runtimeProfileRestoreUsed": false,
+        "appHooksUsed": false,
+        "metadataOnlySuccessAccepted": false,
+        "checks": {
+          "memory": true,
+          "stack": true,
+          "bootstrap": true,
+          "targetFunctionReturned": true
+        },
+        "resources": {
+          "closedFd": true,
+          "stdio": true,
+          "reopenFile": true,
+          "pipe": true,
+          "eventfd": true,
+          "timerfd": true,
+          "epoll": true,
+          "tcpListener": true
+        }
+      }
+    },
+    "dryRun": false
+  },
+  "restoreSummary": {
+    "schema_version": 1,
+    "kind": "machinen.product-selected-native-restore-summary",
+    "formatVersion": 1,
+    "runtime": "native-linux-process",
+    "subset": "selected-single-thread-native-workload-v1",
+    "supportLevel": "proof-only-product-path",
+    "implementationLevel": "native-product-path-e2e-gate",
+    "targetArch": "amd64",
+    "publicClaimAllowed": false,
+    "publicClaim": {
+      "productSupport": null,
+      "broadSupport": null,
+      "arbitraryProcessCrossArchRestore": 0
+    },
+    "shortcutInspection": {
+      "rawCpuRestoreUsed": false,
+      "sourceIsaEmulationUsed": false,
+      "runtimeProfileRestoreUsed": false,
+      "sourceTextReusedAsTargetCode": false,
+      "sidecarRuntimeUsed": false,
+      "appHooksRequired": false,
+      "metadataOnlyShortcutAccepted": false
+    },
+    "state": "completed",
+    "migrationCompleted": true,
+    "sourceArch": "arm64",
+    "targetVerifierResult": "passed",
+    "descriptorSha256": "fc72b8cedc1974b96278b91f95c5772c01b2317ab1a3b7eba38be9c4e19a8335",
+    "targetVerifierOutputSha256": "89d30848fc05e8ff5921409010e49789be2e2616301a355f96fd8de9d94e7cb8"
+  },
+  "noShortcutPolicy": {
+    "rawCpuRestoreAccepted": false,
+    "sourceIsaEmulationAccepted": false,
+    "runtimeProfileRestoreAccepted": false,
+    "sidecarRuntimeAccepted": false,
+    "appHooksAccepted": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

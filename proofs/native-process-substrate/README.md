@@ -29,3 +29,4 @@ Resource and harness outputs:
 - `proofs/native-process-substrate/regular-file-fd-bidirectional/retained/native-regular-file-fd-bidirectional-proof-report.json`
 - `proofs/native-process-substrate/resource-coverage/retained/native-resource-coverage-matrix-report.json`
 - `proofs/native-process-substrate/selected-workload-e2e/retained/native-selected-workload-e2e-report.json`
+- `proofs/native-process-substrate/product-e2e-gate/retained/native-product-e2e-gate-report.json`

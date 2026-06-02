@@ -1070,6 +1070,28 @@ export {
   restoreProductPortablePostgresSnapshot,
 } from "./product-portable-postgres.ts";
 export {
+  PRODUCT_SELECTED_NATIVE_FORMAT_VERSION,
+  PRODUCT_SELECTED_NATIVE_MANIFEST,
+  PRODUCT_SELECTED_NATIVE_REFUSAL,
+  PRODUCT_SELECTED_NATIVE_RESTORE_SUMMARY,
+  PRODUCT_SELECTED_NATIVE_SOURCE_CAPTURE,
+  PRODUCT_SELECTED_NATIVE_SOURCE_VERIFIER,
+  PRODUCT_SELECTED_NATIVE_TARGET_PLAN,
+  ProductSelectedNativeError,
+  type ProductSelectedNativeCaptureInput,
+  type ProductSelectedNativeCaptureResult,
+  type ProductSelectedNativeDescriptor,
+  type ProductSelectedNativeRefusal,
+  type ProductSelectedNativeRestoreInput,
+  type ProductSelectedNativeRestoreSummary,
+  type ProductSelectedNativeVerifierEvidence,
+  createProductSelectedNativeSnapshot,
+  isProductSelectedNativeBundle,
+  productSelectedNativeArchitectures,
+  productSelectedNativeRefusalCodes,
+  restoreProductSelectedNativeSnapshot,
+} from "./product-selected-native.ts";
+export {
   PRODUCT_PORTABLE_POSTGRES_CLAIM_LADDER_KIND,
   PRODUCT_PORTABLE_POSTGRES_CLAIM_LADDER_REPORT,
   PRODUCT_PORTABLE_POSTGRES_CLAIM_LADDER_VERSION,

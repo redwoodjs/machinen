@@ -1,0 +1,19 @@
+{
+  "kind": "machinen.native-selected-workload-source-capture",
+  "direction": "amd64-to-arm64",
+  "sourceArch": "amd64",
+  "threadState": "single-stopped-outside-syscall",
+  "memory": "private-rw-page",
+  "stack": "target-ucontext-stack-with-guard",
+  "bootstrap": "argv-env-cwd",
+  "resources": [
+    "closed-fd",
+    "inherit-stdio",
+    "reopen-file",
+    "pipe-buffered-bytes",
+    "eventfd-counter",
+    "timerfd-one-shot",
+    "epoll-interest-list",
+    "tcp-listener-loopback"
+  ]
+}

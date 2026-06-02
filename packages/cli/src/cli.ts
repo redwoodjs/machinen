@@ -44,6 +44,7 @@ import {
   ProductLevel4TcpListenerError,
   ProductLevel4TimerfdError,
   ProductPortablePostgresError,
+  ProductSelectedNativeError,
   buildArbitraryProcessLevel5SeedMatrix,
   buildNodeLevel5AppSupportMatrix,
   buildNodeLevel5FrameworkCapabilityMatrix,
@@ -59,6 +60,7 @@ import {
   createNodeLevel5ProductSnapshot,
   createNodeLevel5ProductSupport80ArtifactBundle,
   createProductPortablePostgresSnapshot,
+  createProductSelectedNativeSnapshot,
   filterProductClaimRegistry,
   formatMachinenError,
   isMachinenError,
@@ -69,6 +71,7 @@ import {
   isProductLevel4TimerfdBundle,
   isNodeLevel5ProductSnapshotBundle,
   isProductPortablePostgresBundle,
+  isProductSelectedNativeBundle,
   createArbitraryProcessLevel5SeedReport,
   loadNodeLevel5FrameworkIntrospectionCorpusReport,
   loadNodeLevel5FrameworkProductEvidenceReport,
@@ -111,6 +114,7 @@ import {
   restoreProductLevel4TcpListenerSnapshot,
   restoreProductLevel4TimerfdSnapshot,
   restoreProductPortablePostgresSnapshot,
+  restoreProductSelectedNativeSnapshot,
   runGc,
   validatePid,
 } from "@machinen/runtime";
@@ -1167,6 +1171,19 @@ type CapturePingSocketOptions = {
   unsupportedRawSocketOption?: boolean;
 };
 
+type CaptureNativeOptions = {
+  json: boolean;
+  dryRun: boolean;
+  out?: string;
+  sourceArch?: "arm64" | "amd64";
+  targetArch?: "arm64" | "amd64";
+  sourceVerifierOutput?: string;
+  sourceCapture?: string;
+  targetPlan?: string;
+  activeSyscall?: boolean;
+  unsupportedResourceState?: boolean;
+};
+
 // fallow-ignore-next-line complexity
 function cmdCapture(args: string[]): number {
   const { json, rest: withoutJson } = consumeJsonFlag(args);
@@ -1188,6 +1205,9 @@ function cmdCapture(args: string[]): number {
   }
   if (rest[0] === "ping-socket") {
     return cmdCapturePingSocket({ json, dryRun, rest });
+  }
+  if (rest[0] === "native") {
+    return cmdCaptureNative({ json, dryRun, rest });
   }
   if (rest[0] === "node-level5") {
     return cmdCaptureNodeLevel5DeclaredSubset({ json, dryRun, rest });
@@ -1451,6 +1471,33 @@ function cmdCapturePingSocket(input: { json: boolean; dryRun: boolean; rest: str
   }
 }
 
+function cmdCaptureNative(input: { json: boolean; dryRun: boolean; rest: string[] }): number {
+  const options = parseCaptureNativeArgs(input);
+  const required = [
+    ["--out", options.out],
+    ["--source-arch", options.sourceArch],
+    ["--target-arch", options.targetArch],
+    ["--source-verifier-output", options.sourceVerifierOutput],
+  ] as const;
+  assertCaptureRequired(required);
+  try {
+    const result = createProductSelectedNativeSnapshot({
+      outDir: options.out!,
+      sourceArch: options.sourceArch!,
+      targetArch: options.targetArch!,
+      sourceVerifierOutput: readFileSync(resolve(options.sourceVerifierOutput!), "utf8").trim(),
+      sourceCapturePath: options.sourceCapture,
+      targetPlanPath: options.targetPlan,
+      activeSyscall: options.activeSyscall,
+      unsupportedResourceState: options.unsupportedResourceState,
+      dryRun: options.dryRun,
+    });
+    return reportProductCaptureResult(options.json, result, "selected native");
+  } catch (err) {
+    handleProductSelectedNativeError(err, options.json);
+  }
+}
+
 function assertCaptureRequired(required: ReadonlyArray<readonly [string, unknown]>): void {
   for (const [flag, value] of required) {
     if (value === undefined || value === "") {
@@ -1549,6 +1596,14 @@ function parseCapturePingSocketArgs(input: {
   rest: string[];
 }): CapturePingSocketOptions {
   return parseProductCaptureArgs(input, consumePingCaptureOption);
+}
+
+function parseCaptureNativeArgs(input: {
+  json: boolean;
+  dryRun: boolean;
+  rest: string[];
+}): CaptureNativeOptions {
+  return parseProductCaptureArgs(input, consumeNativeCaptureOption);
 }
 
 function parseCapturePostgresArgs(input: {
@@ -1793,6 +1848,30 @@ function consumePingCaptureOption(
 }
 
 // fallow-ignore-next-line complexity
+function consumeNativeCaptureOption(
+  options: CaptureNativeOptions,
+  rest: string[],
+  index: number,
+  arg: string,
+): number | undefined {
+  switch (arg) {
+    case "--source-capture":
+      options.sourceCapture = takeCaptureValue(rest, index + 1, arg);
+      return index + 1;
+    case "--target-plan":
+      options.targetPlan = takeCaptureValue(rest, index + 1, arg);
+      return index + 1;
+    case "--active-syscall":
+      options.activeSyscall = true;
+      return index;
+    case "--unsupported-resource-state":
+      options.unsupportedResourceState = true;
+      return index;
+    default:
+      return undefined;
+  }
+}
+
 function consumePostgresCaptureOption(
   options: CapturePostgresOptions,
   rest: string[],
@@ -2767,6 +2846,9 @@ function captureUsage(): string {
     "       machinen capture ping-socket --out <dir> --source-arch <arm64|amd64> " +
     "--target-arch <arm64|amd64> --socket-kind <ping-dgram-icmp|raw-icmp> " +
     "--source-verifier-output <file> --echo-id <n> --echo-seq <n> [--json] [--dry-run]\n" +
+    "       machinen capture native --out <dir> --source-arch <arm64|amd64> " +
+    "--target-arch <arm64|amd64> --source-verifier-output <file> " +
+    "[--source-capture <file>] [--target-plan <file>] [--json] [--dry-run]\n" +
     "       machinen capture node-level5 --experimental-node-level5 --out <dir> " +
     "[--source-arch <arm64|amd64>] [--target-arch <arm64|amd64>] [--json] [--dry-run]"
   );
@@ -3089,6 +3171,9 @@ async function cmdRestore(args: string[]): Promise<number> {
   if (isProductPortablePostgresBundle(snapDir)) {
     return cmdRestoreProductPortablePostgres(parsed, snapDir, json);
   }
+  if (isProductSelectedNativeBundle(snapDir)) {
+    return cmdRestoreProductSelectedNative(parsed, snapDir, json);
+  }
   if (!shouldPreferVmstateRestore(snapDir)) {
     if (isNodeLevel5ProofCompositionBundle(snapDir)) {
       return await cmdRestoreNodeLevel5ProofComposition(snapDir, json, parsed);
@@ -3186,6 +3271,8 @@ function restoreUsage(): string {
     "[--target-verifier-output <file>] [--json]\n" +
     "       machinen restore <portable-ping-socket-bundle> --target-arch <arm64|amd64> " +
     "[--target-verifier-output <file>] [--json]\n" +
+    "       machinen restore <selected-native-bundle> --target-arch <arm64|amd64> " +
+    "--target-verifier-output <file> [--json]\n" +
     "       machinen restore <node-level5-proof-bundle> " +
     "[--allow-proof-only-success] [--json]\n" +
     "       machinen restore node-level5 --experimental-node-level5 <manifest> [--json]"
@@ -3222,19 +3309,58 @@ function cmdRestoreProductPortablePostgres(
         postgresEvidence?.targetVerifierOutput ??
         readFileSync(resolve(parsed.targetVerifierOutput!), "utf8").trim(),
     });
-    if (json) {
-      emitJson({ schema_version: 1, ...summary });
-    } else if (summary.migrationCompleted) {
-      process.stderr.write(`restored portable postgres bundle: ${snapDir}\n`);
-    } else {
-      process.stderr.write(
-        `refused portable postgres restore: ${summary.refusal?.expectedRefusalCode ?? "unknown"}\n`,
-      );
-    }
-    return summary.migrationCompleted ? 0 : 1;
+    return reportProductRestoreResult(json, summary, {
+      restored: `restored portable postgres bundle: ${snapDir}\n`,
+      refusedPrefix: "refused portable postgres restore",
+    });
   } catch (err) {
     handleProductPortablePostgresError(err, json);
   }
+}
+
+// fallow-ignore-next-line complexity
+function cmdRestoreProductSelectedNative(
+  parsed: ParsedRestoreCommandArgs,
+  snapDir: string,
+  json: boolean,
+): number {
+  if (!parsed.targetArch || !parsed.targetVerifierOutput) {
+    die(restoreUsage());
+  }
+  try {
+    const summary = restoreProductSelectedNativeSnapshot({
+      bundleDir: snapDir,
+      targetArch: parsed.targetArch,
+      targetVerifierOutput: readFileSync(resolve(parsed.targetVerifierOutput), "utf8").trim(),
+    });
+    return reportProductRestoreResult(json, summary, {
+      restored: `restored selected native bundle: ${snapDir}\n`,
+      refusedPrefix: "refused selected native restore",
+    });
+  } catch (err) {
+    handleProductSelectedNativeError(err, json);
+  }
+}
+
+// fallow-ignore-next-line complexity
+function reportProductRestoreResult(
+  json: boolean,
+  summary: {
+    migrationCompleted: boolean;
+    refusal?: { expectedRefusalCode?: string };
+  },
+  messages: { restored: string; refusedPrefix: string },
+): number {
+  if (json) {
+    emitJson({ schema_version: 1, ...summary });
+  } else if (summary.migrationCompleted) {
+    process.stderr.write(messages.restored);
+  } else {
+    process.stderr.write(
+      `${messages.refusedPrefix}: ${summary.refusal?.expectedRefusalCode ?? "unknown"}\n`,
+    );
+  }
+  return summary.migrationCompleted ? 0 : 1;
 }
 
 type TcpListenerPortableRestoreValidation =
@@ -4636,6 +4762,13 @@ function handleProductPortablePostgresError(err: unknown, json: boolean): never 
       process.exit(1);
     }
     die(err.message);
+  }
+  handleError(err);
+}
+
+function handleProductSelectedNativeError(err: unknown, json: boolean): never {
+  if (err instanceof ProductSelectedNativeError) {
+    reportKnownProductError(err, json);
   }
   handleError(err);
 }

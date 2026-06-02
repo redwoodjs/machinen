@@ -1,6 +1,6 @@
 {
   "kind": "machinen.claim-progress-dashboard",
-  "version": 113,
+  "version": 114,
   "updatedFrom": [
     "docs/snapshot/node-level5-product-support-claim-registry.json",
     "docs/snapshot/node-level5-product-support-100.json",
@@ -1690,6 +1690,16 @@
           "gate": "native-jit-code-page-refusal-proof",
           "artifact": "proofs/native-process-substrate/retained/row-proofs/012/row-proof.json",
           "next": "Keep this refusal boundary active until a separate target-native reconstruction proof exists."
+        },
+        {
+          "id": "native-product-e2e-gate",
+          "area": "selected native workload",
+          "kind": "product-path e2e",
+          "status": "verified",
+          "evidence": "Retained bidirectional product-path gate runs machinen capture native and machinen restore for the selected single-thread native workload using retained target-native source and target verifier artifacts. It remains proof-only and does not raise arbitrary Linux process restore.",
+          "gate": "native-product-e2e-gate",
+          "artifact": "proofs/native-process-substrate/product-e2e-gate/retained/native-product-e2e-gate-report.json",
+          "next": "Keep arbitrary Linux process restore at 0 until broader retained product artifacts cover uncontrolled process state and boundary refusals."
         }
       ],
       "refusals": [
@@ -3505,6 +3515,28 @@
           "proves": "Bidirectional retained harness executes target-native selected native workload behavior after composing memory, stack, bootstrap, and selected resources; accepted directions 2/2. This is not product machinen capture native/restore support.",
           "claimUse": "harness proof only; no product or arbitrary-process claim raise",
           "next": "Promote to product-path selected-native E2E gate before any selected-native public claim.",
+          "claimImpact": {
+            "productSupportDelta": 0,
+            "broadSupportDelta": 0,
+            "arbitraryProcessCrossArchRestoreDelta": 0,
+            "resultingClaim": {
+              "productSupport": null,
+              "broadSupport": null,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "claimChangeAllowed": false
+          }
+        },
+        {
+          "id": "native-product-e2e-gate",
+          "proofNumber": "native-product-e2e/001",
+          "type": "e2e",
+          "category": "selected native product path",
+          "status": "verified",
+          "artifact": "proofs/native-process-substrate/product-e2e-gate/retained/native-product-e2e-gate-report.json",
+          "proves": "Bidirectional retained product-path gate runs machinen capture native and machinen restore on selected single-thread native workload artifacts with target-native verifier outputs; accepted directions 2/2. This is proof-only and does not claim arbitrary Linux process restore.",
+          "claimUse": "product-path proof only; no product or arbitrary-process claim raise",
+          "next": "Require broader product-path coverage and refusal boundaries before any selected-native public support claim.",
           "claimImpact": {
             "productSupportDelta": 0,
             "broadSupportDelta": 0,

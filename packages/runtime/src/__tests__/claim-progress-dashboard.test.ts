@@ -27,7 +27,7 @@ type ClaimProgressProofGroup = {
 
 type ClaimProgressDashboard = {
   kind: "machinen.claim-progress-dashboard";
-  version: 113;
+  version: 114;
   tracks: ClaimProgressTrack[];
   proofGroups: ClaimProgressProofGroup[];
 };
@@ -41,7 +41,7 @@ describe("claim progress dashboard", () => {
 
     expect(dashboard).toMatchObject({
       kind: "machinen.claim-progress-dashboard",
-      version: 113,
+      version: 114,
     });
     expect(dashboard.tracks.map((track) => track.id)).toEqual([
       "node-service",
@@ -111,6 +111,7 @@ describe("claim progress dashboard", () => {
     expect(proofIds).toContain("native-regular-file-fd-bidirectional-proof");
     expect(proofIds).toContain("native-resource-coverage-matrix");
     expect(proofIds).toContain("native-selected-workload-e2e");
+    expect(proofIds).toContain("native-product-e2e-gate");
     expect(proofIds).toContain("arbitrary-process-claim-ready-gate");
     expect(proofIds).toContain("simple-pipe-fd-proof");
     expect(proofIds).toContain("idle-epoll-tcp-proof");
