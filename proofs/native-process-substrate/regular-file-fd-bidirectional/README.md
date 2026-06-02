@@ -1,6 +1,6 @@
 # Native regular-file FD bidirectional proof
 
-Status: `verified-resource-seed`
+Status: `verified`
 
 This proof is the first resource row on the path toward a scoped selected-native
 process claim. It verifies a regular file descriptor in both architecture

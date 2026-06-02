@@ -2,7 +2,7 @@
   "proofNumber": "015",
   "id": "native-deleted-unlinked-file-fd",
   "category": "file descriptor",
-  "status": "verified-refusal",
+  "status": "verified",
   "disposition": "refused-boundary",
   "accepted": true,
   "artifact": "proofs/native-process-substrate/resource-coverage/retained/row-proofs/015/row-proof.json",

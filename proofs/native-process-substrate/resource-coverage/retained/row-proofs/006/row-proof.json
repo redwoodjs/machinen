@@ -2,7 +2,7 @@
   "proofNumber": "006",
   "id": "native-timerfd-one-shot",
   "category": "timerfd",
-  "status": "verified-resource-seed",
+  "status": "verified",
   "disposition": "supported-selected-subset",
   "accepted": true,
   "artifact": "proofs/native-process-substrate/resource-coverage/retained/row-proofs/006/row-proof.json",

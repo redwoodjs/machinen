@@ -1,6 +1,6 @@
 # Selected native workload E2E harness proof
 
-Status: `verified-e2e-harness`
+Status: `verified`
 
 This retained proof runs a tiny selected native workload on target-native Linux
 runners in both directions:

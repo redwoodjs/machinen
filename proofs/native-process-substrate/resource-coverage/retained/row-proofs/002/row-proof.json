@@ -2,7 +2,7 @@
   "proofNumber": "002",
   "id": "native-stdio-inherit-output-policy",
   "category": "stdio",
-  "status": "verified-resource-seed",
+  "status": "verified",
   "disposition": "supported-selected-subset",
   "accepted": true,
   "artifact": "proofs/native-process-substrate/resource-coverage/retained/row-proofs/002/row-proof.json",

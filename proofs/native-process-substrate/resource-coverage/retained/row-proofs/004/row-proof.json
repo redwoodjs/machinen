@@ -2,7 +2,7 @@
   "proofNumber": "004",
   "id": "native-pipe-buffered-bytes",
   "category": "pipe",
-  "status": "verified-resource-seed",
+  "status": "verified",
   "disposition": "supported-selected-subset",
   "accepted": true,
   "artifact": "proofs/native-process-substrate/resource-coverage/retained/row-proofs/004/row-proof.json",

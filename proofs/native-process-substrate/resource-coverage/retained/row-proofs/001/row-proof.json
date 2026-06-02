@@ -2,7 +2,7 @@
   "proofNumber": "001",
   "id": "native-regular-file-fd-bidirectional",
   "category": "regular file fd",
-  "status": "verified-resource-seed",
+  "status": "verified",
   "disposition": "supported-selected-subset",
   "accepted": true,
   "artifact": "proofs/native-process-substrate/regular-file-fd-bidirectional/retained/native-regular-file-fd-bidirectional-proof-report.json",

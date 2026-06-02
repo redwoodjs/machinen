@@ -1,7 +1,7 @@
 {
   "kind": "machinen.native-selected-workload-e2e",
   "version": 1,
-  "generatedAt": "2026-06-02T19:51:10.706Z",
+  "generatedAt": "2026-06-02T19:55:34.873Z",
   "accepted": true,
   "publicClaimAllowed": false,
   "publicClaim": {
@@ -10,7 +10,7 @@
     "arbitraryProcessCrossArchRestore": 0
   },
   "scope": "Retained harness proof for a selected single-thread native workload. It composes substrate/resource plans into target-native post-restore behavior in both directions, but is not machinen capture native/restore product support and does not claim arbitrary Linux process restore.",
-  "proofStatus": "verified-e2e-harness",
+  "proofStatus": "verified",
   "directions": [
     {
       "direction": "arm64-to-amd64",

@@ -2,7 +2,7 @@
   "proofNumber": "007",
   "id": "native-epoll-interest-list",
   "category": "epoll",
-  "status": "verified-resource-seed",
+  "status": "verified",
   "disposition": "supported-selected-subset",
   "accepted": true,
   "artifact": "proofs/native-process-substrate/resource-coverage/retained/row-proofs/007/row-proof.json",

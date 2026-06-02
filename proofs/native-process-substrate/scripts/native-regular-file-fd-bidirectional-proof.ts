@@ -84,7 +84,7 @@ type GateReport = {
   };
   scope: string;
   rowId: "native-regular-file-fd-bidirectional";
-  proofStatus: "verified-resource-seed";
+  proofStatus: "verified";
   directions: DirectionProof[];
   acceptedDirections: number;
   requiredDirections: number;
@@ -120,7 +120,7 @@ function main(): void {
     scope:
       "Bidirectional regular-file FD resource reconstruction seed. Verifies target-side reopen/seek/read/write behavior and file identity policy only; it is not arbitrary process restore support.",
     rowId: "native-regular-file-fd-bidirectional",
-    proofStatus: "verified-resource-seed",
+    proofStatus: "verified",
     directions,
     acceptedDirections: directions.filter((direction) => direction.accepted).length,
     requiredDirections: 2,

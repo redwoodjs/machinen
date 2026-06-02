@@ -2,7 +2,7 @@
   "proofNumber": "014",
   "id": "native-inotify-pidfd-memfd-shm-special",
   "category": "special fd",
-  "status": "verified-refusal",
+  "status": "verified",
   "disposition": "refused-boundary",
   "accepted": true,
   "artifact": "proofs/native-process-substrate/resource-coverage/retained/row-proofs/014/row-proof.json",

@@ -8,7 +8,7 @@ import type {
   NativeProcessResource,
 } from "../../../packages/runtime/src/native-process-image.ts";
 
-type RowStatus = "verified-resource-seed" | "verified-refusal";
+type RowStatus = "verified";
 type RowDisposition = "supported-selected-subset" | "refused-boundary";
 
 type ResourceRowProof = {
@@ -497,7 +497,7 @@ function regularFileRow(): ResourceRowProof {
     proofNumber: "001",
     id: "native-regular-file-fd-bidirectional",
     category: "regular file fd",
-    status: "verified-resource-seed",
+    status: "verified",
     disposition: "supported-selected-subset",
     accepted: external.accepted,
     artifact: external.artifact,
@@ -559,7 +559,7 @@ function supportedRow(input: {
     proofNumber,
     id: input.id,
     category: input.category,
-    status: "verified-resource-seed",
+    status: "verified",
     disposition: "supported-selected-subset",
     accepted: checks.every((entry) => entry.passed),
     artifact: `proofs/native-process-substrate/resource-coverage/retained/row-proofs/${proofNumber}/row-proof.json`,
@@ -591,7 +591,7 @@ function refusalRow(
     proofNumber,
     id,
     category,
-    status: "verified-refusal",
+    status: "verified",
     disposition: "refused-boundary",
     accepted: checks.every((entry) => entry.passed),
     artifact: `proofs/native-process-substrate/resource-coverage/retained/row-proofs/${proofNumber}/row-proof.json`,

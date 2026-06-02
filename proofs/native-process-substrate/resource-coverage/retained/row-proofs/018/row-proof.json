@@ -2,7 +2,7 @@
   "proofNumber": "018",
   "id": "native-device-special-file",
   "category": "device/special file",
-  "status": "verified-refusal",
+  "status": "verified",
   "disposition": "refused-boundary",
   "accepted": true,
   "artifact": "proofs/native-process-substrate/resource-coverage/retained/row-proofs/018/row-proof.json",

@@ -2,7 +2,7 @@
   "proofNumber": "005",
   "id": "native-eventfd-counter",
   "category": "eventfd",
-  "status": "verified-resource-seed",
+  "status": "verified",
   "disposition": "supported-selected-subset",
   "accepted": true,
   "artifact": "proofs/native-process-substrate/resource-coverage/retained/row-proofs/005/row-proof.json",

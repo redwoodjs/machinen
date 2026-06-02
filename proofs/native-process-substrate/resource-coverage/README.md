@@ -1,13 +1,13 @@
 # Native resource coverage matrix
 
-Status: `verified-resource-matrix`
+Status: `verified`
 
 This retained matrix is the resource-row inventory for the selected native
 process proof track. Every row is either:
 
-- `verified-resource-seed` — a selected target-native resource reconstruction
+- `verified` with `disposition: supported-selected-subset` — a selected target-native resource reconstruction
   seed with retained target plan checks, or
-- `verified-refusal` — an unsupported resource boundary with retained exact
+- `verified` with `disposition: refused-boundary` — an unsupported resource boundary with retained exact
   refusal codes/details.
 
 It does not raise public product support or arbitrary Linux process restore. It

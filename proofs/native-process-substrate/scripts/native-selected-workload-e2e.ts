@@ -49,7 +49,7 @@ type GateReport = {
     arbitraryProcessCrossArchRestore: 0;
   };
   scope: string;
-  proofStatus: "verified-e2e-harness";
+  proofStatus: "verified";
   directions: DirectionReport[];
   acceptedDirections: number;
   requiredDirections: 2;
@@ -115,7 +115,7 @@ function main(): void {
     },
     scope:
       "Retained harness proof for a selected single-thread native workload. It composes substrate/resource plans into target-native post-restore behavior in both directions, but is not machinen capture native/restore product support and does not claim arbitrary Linux process restore.",
-    proofStatus: "verified-e2e-harness",
+    proofStatus: "verified",
     directions,
     acceptedDirections: directions.filter((direction) => direction.accepted).length,
     requiredDirections: 2,

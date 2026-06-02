@@ -1,7 +1,7 @@
 {
   "kind": "machinen.native-regular-file-fd-bidirectional-proof",
   "version": 1,
-  "generatedAt": "2026-06-02T19:30:51.885Z",
+  "generatedAt": "2026-06-02T19:55:26.445Z",
   "accepted": true,
   "publicClaimAllowed": false,
   "publicClaim": {
@@ -11,7 +11,7 @@
   },
   "scope": "Bidirectional regular-file FD resource reconstruction seed. Verifies target-side reopen/seek/read/write behavior and file identity policy only; it is not arbitrary process restore support.",
   "rowId": "native-regular-file-fd-bidirectional",
-  "proofStatus": "verified-resource-seed",
+  "proofStatus": "verified",
   "directions": [
     {
       "direction": "arm64-to-amd64",

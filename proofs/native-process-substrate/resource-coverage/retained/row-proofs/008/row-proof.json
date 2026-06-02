@@ -2,7 +2,7 @@
   "proofNumber": "008",
   "id": "native-tcp-listener-loopback",
   "category": "tcp",
-  "status": "verified-resource-seed",
+  "status": "verified",
   "disposition": "supported-selected-subset",
   "accepted": true,
   "artifact": "proofs/native-process-substrate/resource-coverage/retained/row-proofs/008/row-proof.json",
