@@ -1,6 +1,6 @@
 {
   "kind": "machinen.claim-progress-dashboard",
-  "version": 38,
+  "version": 39,
   "updatedFrom": [
     "docs/snapshot/node-level5-product-support-claim-registry.json",
     "docs/snapshot/node-level5-product-support-100.json",
@@ -149,19 +149,15 @@
       ],
       "rowCoverage": {
         "supportedDirectionBundlesRequired": 136,
-        "supportedDirectionBundlesCovered": 14,
-        "supportedDirectionBundlesMissing": 122,
+        "supportedDirectionBundlesCovered": 16,
+        "supportedDirectionBundlesMissing": 120,
         "refusedDirectionArtifactsRequired": 84,
         "refusedDirectionArtifactsCovered": 84,
         "refusedDirectionArtifactsMissing": 0,
         "notProvenRows": 4,
         "report": "proofs/nodejs/claim-evidence-index/retained/node-claim-row-coverage-report.json",
-        "summary": "14 / 136 covered \u00b7 missing 122",
+        "summary": "16 / 136 covered \u00b7 missing 120",
         "missingSupportedRows": [
-          {
-            "rowId": "express-installed-router",
-            "directions": ["arm64-to-amd64", "amd64-to-arm64"]
-          },
           {
             "rowId": "express-installed-json-response",
             "directions": ["arm64-to-amd64", "amd64-to-arm64"]
@@ -403,7 +399,7 @@
             "directions": ["arm64-to-amd64", "amd64-to-arm64"]
           }
         ],
-        "missingSupportedRowsCount": 61,
+        "missingSupportedRowsCount": 60,
         "missingSupportedDirectionBundles": [
           {
             "proofId": "nodejs/001",
@@ -469,13 +465,13 @@
             "proofId": "nodejs/011",
             "rowId": "express-installed-router",
             "direction": "arm64-to-amd64",
-            "status": "missing"
+            "status": "covered"
           },
           {
             "proofId": "nodejs/012",
             "rowId": "express-installed-router",
             "direction": "amd64-to-arm64",
-            "status": "missing"
+            "status": "covered"
           },
           {
             "proofId": "nodejs/013",
