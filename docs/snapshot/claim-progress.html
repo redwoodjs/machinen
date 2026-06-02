@@ -459,7 +459,7 @@
     <script id="embedded-claim-progress" type="application/json">
       {
         "kind": "machinen.claim-progress-dashboard",
-        "version": 74,
+        "version": 75,
         "updatedFrom": [
           "docs/snapshot/node-level5-product-support-claim-registry.json",
           "docs/snapshot/node-level5-product-support-100.json",
@@ -608,19 +608,15 @@
             ],
             "rowCoverage": {
               "supportedDirectionBundlesRequired": 136,
-              "supportedDirectionBundlesCovered": 86,
-              "supportedDirectionBundlesMissing": 50,
+              "supportedDirectionBundlesCovered": 88,
+              "supportedDirectionBundlesMissing": 48,
               "refusedDirectionArtifactsRequired": 84,
               "refusedDirectionArtifactsCovered": 84,
               "refusedDirectionArtifactsMissing": 0,
               "notProvenRows": 4,
               "report": "proofs/nodejs/claim-evidence-index/retained/node-claim-row-coverage-report.json",
-              "summary": "86 / 136 covered \u00b7 missing 50",
+              "summary": "88 / 136 covered \u00b7 missing 48",
               "missingSupportedRows": [
-                {
-                  "rowId": "fastify-installed-post-json-body",
-                  "directions": ["arm64-to-amd64", "amd64-to-arm64"]
-                },
                 {
                   "rowId": "fastify-installed-custom-header",
                   "directions": ["arm64-to-amd64", "amd64-to-arm64"]
@@ -718,7 +714,7 @@
                   "directions": ["arm64-to-amd64", "amd64-to-arm64"]
                 }
               ],
-              "missingSupportedRowsCount": 25,
+              "missingSupportedRowsCount": 24,
               "missingSupportedDirectionBundles": [
                 {
                   "proofId": "nodejs/001",
@@ -1216,13 +1212,13 @@
                   "proofId": "nodejs/083",
                   "rowId": "fastify-installed-post-json-body",
                   "direction": "arm64-to-amd64",
-                  "status": "missing"
+                  "status": "covered"
                 },
                 {
                   "proofId": "nodejs/084",
                   "rowId": "fastify-installed-post-json-body",
                   "direction": "amd64-to-arm64",
-                  "status": "missing"
+                  "status": "covered"
                 },
                 {
                   "proofId": "nodejs/085",
