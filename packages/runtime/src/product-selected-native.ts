@@ -511,22 +511,41 @@ function validVerifierShape(
   verifier: Record<string, unknown>,
   expectedArch: ProductSelectedNativeArchitecture,
 ): boolean {
-  const checks = verifier.checks;
-  const resources = verifier.resources;
   return (
-    verifier.status === "passed" &&
-    verifier.targetArch === expectedArch &&
-    verifier.targetNativeExecution === true &&
-    verifier.rawCpuRestoreUsed === false &&
-    verifier.sourceIsaEmulationUsed === false &&
-    verifier.runtimeProfileRestoreUsed === false &&
-    verifier.appHooksUsed === false &&
-    verifier.metadataOnlySuccessAccepted === false &&
+    verifierCorePassed(verifier, expectedArch) &&
+    verifierChecksPassed(verifier.checks) &&
+    verifierResourcesPassed(verifier.resources)
+  );
+}
+
+function verifierCorePassed(
+  verifier: Record<string, unknown>,
+  expectedArch: ProductSelectedNativeArchitecture,
+): boolean {
+  return [
+    verifier.status === "passed",
+    verifier.targetArch === expectedArch,
+    verifier.targetNativeExecution === true,
+    verifier.rawCpuRestoreUsed === false,
+    verifier.sourceIsaEmulationUsed === false,
+    verifier.runtimeProfileRestoreUsed === false,
+    verifier.appHooksUsed === false,
+    verifier.metadataOnlySuccessAccepted === false,
+  ].every(Boolean);
+}
+
+function verifierChecksPassed(checks: unknown): boolean {
+  return (
     isObject(checks) &&
     checks.memory === true &&
     checks.stack === true &&
     checks.bootstrap === true &&
-    checks.targetFunctionReturned === true &&
+    checks.targetFunctionReturned === true
+  );
+}
+
+function verifierResourcesPassed(resources: unknown): boolean {
+  return (
     isObject(resources) &&
     resources.closedFd === true &&
     resources.stdio === true &&

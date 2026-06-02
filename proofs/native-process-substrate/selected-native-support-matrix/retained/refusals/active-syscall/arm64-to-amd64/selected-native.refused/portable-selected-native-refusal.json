@@ -1,0 +1,22 @@
+{
+  "kind": "machinen.product-selected-native-refusal",
+  "formatVersion": 1,
+  "runtime": "native-linux-process",
+  "supportLevel": "explicit-refusal",
+  "state": "refused",
+  "migrationCompleted": false,
+  "expectedRefusalCode": "native-source-state-unsupported",
+  "message": "active syscall source state is outside the selected native product-path subset",
+  "evidence": {
+    "activeSyscall": true,
+    "boundary": "single-stopped-outside-syscall"
+  },
+  "arbitraryLinuxProcessSupportClaimed": false,
+  "rawCpuRestoreUsed": false,
+  "sourceIsaEmulationUsed": false,
+  "runtimeProfileRestoreUsed": false,
+  "sourceTextReusedAsTargetCode": false,
+  "sidecarRuntimeUsed": false,
+  "appHooksRequired": false,
+  "metadataOnlyShortcutAccepted": false
+}

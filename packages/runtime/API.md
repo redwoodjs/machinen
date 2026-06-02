@@ -823,6 +823,8 @@
 ### Product selected native process gate
 
 - [`ProductSelectedNativeError`](#productselectednativeerror)
+- [`ProductSelectedNativeArchitecture`](#productselectednativearchitecture)
+- [`ProductSelectedNativeRefusalCode`](#productselectednativerefusalcode)
 - [`ProductSelectedNativeCaptureInput`](#productselectednativecaptureinput)
 - [`ProductSelectedNativeDescriptor`](#productselectednativedescriptor)
 - [`ProductSelectedNativeVerifierEvidence`](#productselectednativeverifierevidence)
@@ -29447,6 +29449,18 @@ Result of `validatePid` — easy to switch on at the call site.
 ### ProductPortablePostgresCaptureResult
 
 > **ProductPortablePostgresCaptureResult** = \{ `state`: `"completed"`; `migrationCompleted`: `true`; `bundleDir`: `string`; `descriptor`: [`ProductPortablePostgresDescriptor`](#productportablepostgresdescriptor); `dryRun`: `boolean`; \} \| \{ `state`: `"refused"`; `migrationCompleted`: `false`; `bundleDir`: `string`; `refusal`: [`ProductPortablePostgresRefusal`](#productportablepostgresrefusal); `dryRun`: `boolean`; \}
+
+***
+
+### ProductSelectedNativeArchitecture
+
+> **ProductSelectedNativeArchitecture** = *typeof* [`productSelectedNativeArchitectures`](#productselectednativearchitectures)\[`number`\]
+
+***
+
+### ProductSelectedNativeRefusalCode
+
+> **ProductSelectedNativeRefusalCode** = *typeof* [`productSelectedNativeRefusalCodes`](#productselectednativerefusalcodes)\[`number`\]
 
 ***
 

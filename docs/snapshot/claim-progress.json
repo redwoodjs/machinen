@@ -1,6 +1,6 @@
 {
   "kind": "machinen.claim-progress-dashboard",
-  "version": 114,
+  "version": 115,
   "updatedFrom": [
     "docs/snapshot/node-level5-product-support-claim-registry.json",
     "docs/snapshot/node-level5-product-support-100.json",
@@ -19,7 +19,9 @@
     "proofs/arbitrary-linux-binaries/scripts/arbitrary-process-level5-idle-resource-proof.ts",
     "proofs/native-process-substrate/regular-file-fd-bidirectional/retained/native-regular-file-fd-bidirectional-proof-report.json",
     "proofs/native-process-substrate/resource-coverage/retained/native-resource-coverage-matrix-report.json",
-    "proofs/native-process-substrate/selected-workload-e2e/retained/native-selected-workload-e2e-report.json"
+    "proofs/native-process-substrate/selected-workload-e2e/retained/native-selected-workload-e2e-report.json",
+    "proofs/native-process-substrate/product-e2e-gate/retained/native-product-e2e-gate-report.json",
+    "proofs/native-process-substrate/selected-native-support-matrix/retained/selected-native-support-matrix-report.json"
   ],
   "columns": {
     "claim": ["productSupport", "broadSupport", "arbitraryProcessCrossArchRestore"],
@@ -1755,6 +1757,121 @@
         }
       ],
       "docs": []
+    },
+    {
+      "id": "selected-native-workload",
+      "name": "Selected native workload restore",
+      "family": "native-process",
+      "runtime": "native",
+      "status": "verified",
+      "stage": "100 / 100 / 0 selected native workload claim",
+      "scope": "Selected single-thread native workload through machinen capture native and machinen restore. This is not arbitrary Linux process restore.",
+      "currentClaim": {
+        "productSupport": 100,
+        "broadSupport": 100,
+        "arbitraryProcessCrossArchRestore": 0
+      },
+      "nextClaim": {
+        "productSupport": 100,
+        "broadSupport": 100,
+        "arbitraryProcessCrossArchRestore": 0,
+        "claimChangeAllowed": false
+      },
+      "summary": "Selected native workload support is validated at 100 / 100 / 0 by a retained support matrix: two product-path supported directions and six retained product refusal artifacts. Arbitrary Linux process restore remains 0.",
+      "claimGate": "selected-native-support-matrix retained row/refusal gate passed",
+      "claimChangeAllowed": true,
+      "evidence": ["selected-native-product-e2e-gate", "selected-native-support-matrix"],
+      "evidenceRows": [
+        {
+          "id": "selected-native-support-matrix",
+          "area": "claim gate",
+          "kind": "support matrix",
+          "status": "verified",
+          "evidence": "Retained support matrix covers the selected-single-thread-native-workload-v1 row in both directions and retains six refusal artifacts for neighboring unsupported source/target states. The scoped selected-native claim is 100 / 100 / 0.",
+          "gate": "selected-native-support-matrix",
+          "artifact": "proofs/native-process-substrate/selected-native-support-matrix/retained/selected-native-support-matrix-report.json",
+          "next": "Keep all supported direction bundles and refusal artifacts retained before changing this selected-native claim."
+        },
+        {
+          "id": "native-product-e2e-gate",
+          "area": "product path",
+          "kind": "product-path e2e",
+          "status": "verified",
+          "evidence": "Retained bidirectional product-path gate runs machinen capture native and machinen restore for the selected single-thread native workload with target-native verifier outputs.",
+          "gate": "native-product-e2e-gate",
+          "artifact": "proofs/native-process-substrate/product-e2e-gate/retained/native-product-e2e-gate-report.json",
+          "next": "Use only through the selected-native support matrix for public claim changes."
+        },
+        {
+          "id": "native-resource-coverage-matrix",
+          "area": "resource boundaries",
+          "kind": "resource coverage",
+          "status": "verified",
+          "evidence": "Retained native resource coverage matrix proves selected resource seeds and explicit refusal boundaries used by the selected workload claim.",
+          "gate": "native-resource-coverage-matrix",
+          "artifact": "proofs/native-process-substrate/resource-coverage/retained/native-resource-coverage-matrix-report.json",
+          "next": "Do not broaden resource support without retained product-path artifacts."
+        }
+      ],
+      "refusals": [
+        "arbitrary Linux processes",
+        "active syscall state",
+        "unsupported source resources",
+        "source ISA emulation / shortcut restore"
+      ],
+      "refusalRows": [
+        {
+          "boundary": "arbitrary Linux processes",
+          "status": "refused",
+          "reason": "The selected-native claim covers one declared workload row only, not arbitrary process state.",
+          "neededToReduce": "A separate arbitrary-process retained product matrix covering uncontrolled process state."
+        },
+        {
+          "boundary": "active syscall source state",
+          "status": "verified",
+          "reason": "machinen capture native refuses active syscall source state with native-source-state-unsupported.",
+          "artifact": "proofs/native-process-substrate/selected-native-support-matrix/retained/selected-native-support-matrix-report.json",
+          "neededToReduce": "Target-native continuation models for active syscalls plus retained product artifacts."
+        },
+        {
+          "boundary": "unsupported source resource state",
+          "status": "verified",
+          "reason": "machinen capture native refuses unsupported source resources with native-source-state-unsupported.",
+          "artifact": "proofs/native-process-substrate/selected-native-support-matrix/retained/selected-native-support-matrix-report.json",
+          "neededToReduce": "Product support and retained refusal coverage for each additional resource class."
+        },
+        {
+          "boundary": "source ISA emulation / shortcut restore",
+          "status": "verified",
+          "reason": "machinen restore refuses target verifier shortcut/source ISA emulation attempts with native-target-shortcut-detected.",
+          "artifact": "proofs/native-process-substrate/selected-native-support-matrix/retained/selected-native-support-matrix-report.json",
+          "neededToReduce": "Not reducible; forbidden shortcut boundary remains permanent."
+        }
+      ],
+      "nextSteps": [
+        {
+          "priority": 1,
+          "item": "Keep selected-native support matrix accepted before presenting the selected-native 100 / 100 / 0 claim.",
+          "gate": "selected-native-support-matrix"
+        },
+        {
+          "priority": 2,
+          "item": "Do not merge this claim into arbitrary-process support; arbitrary Linux process restore remains 0.",
+          "gate": "selected-native boundary rows"
+        }
+      ],
+      "docs": ["proofs/native-process-substrate/selected-native-support-matrix/README.md"],
+      "rowCoverage": {
+        "supportedDirectionBundlesRequired": 2,
+        "supportedDirectionBundlesCovered": 2,
+        "supportedDirectionBundlesMissing": 0,
+        "refusedDirectionArtifactsRequired": 6,
+        "refusedDirectionArtifactsCovered": 6,
+        "refusedDirectionArtifactsMissing": 0,
+        "notProvenRows": 0,
+        "report": "proofs/native-process-substrate/selected-native-support-matrix/retained/selected-native-support-matrix-report.json",
+        "summary": "2 / 2 supported directions · 6 / 6 refusals · missing 0"
+      }
     },
     {
       "id": "arbitrary-process",
@@ -3544,6 +3661,80 @@
             "resultingClaim": {
               "productSupport": null,
               "broadSupport": null,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "claimChangeAllowed": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "selected-native-workload-100-100-0",
+      "claim": "100 / 100 / 0 selected native workload",
+      "trackId": "selected-native-workload",
+      "proofDirectory": "proofs/native-process-substrate/selected-native-support-matrix",
+      "proofs": [
+        {
+          "id": "selected-native-support-matrix",
+          "proofNumber": "native-selected/001",
+          "type": "claim",
+          "category": "selected native support matrix",
+          "status": "verified",
+          "artifact": "proofs/native-process-substrate/selected-native-support-matrix/retained/selected-native-support-matrix-report.json",
+          "proves": "Claim-bearing retained matrix covers selected-single-thread-native-workload-v1 with 2/2 supported product directions, 6/6 refusal artifacts, and 0 not-proven rows.",
+          "claimUse": "allows selected-native 100 / 100 / 0 only; arbitrary Linux process restore remains 0",
+          "next": "Keep matrix accepted before future selected-native claim changes.",
+          "claimImpact": {
+            "productSupportDelta": 100,
+            "broadSupportDelta": 100,
+            "arbitraryProcessCrossArchRestoreDelta": 0,
+            "resultingClaim": {
+              "productSupport": 100,
+              "broadSupport": 100,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "claimChangeAllowed": true
+          }
+        },
+        {
+          "id": "selected-native-supported-directions",
+          "proofNumber": "native-selected/002",
+          "type": "e2e",
+          "category": "supported product directions",
+          "status": "verified",
+          "artifact": "proofs/native-process-substrate/product-e2e-gate/retained/native-product-e2e-gate-report.json",
+          "proves": "machinen capture native and machinen restore complete for arm64-to-amd64 and amd64-to-arm64 selected workload directions.",
+          "claimUse": "supported row evidence for selected-native matrix",
+          "next": "Retain source, target, manifest, restore summary, transcript, and verifier artifacts for both directions.",
+          "claimImpact": {
+            "productSupportDelta": 0,
+            "broadSupportDelta": 0,
+            "arbitraryProcessCrossArchRestoreDelta": 0,
+            "resultingClaim": {
+              "productSupport": 100,
+              "broadSupport": 100,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "claimChangeAllowed": false
+          }
+        },
+        {
+          "id": "selected-native-refusal-artifacts",
+          "proofNumber": "native-selected/003",
+          "type": "boundary",
+          "category": "product refusals",
+          "status": "verified",
+          "artifact": "proofs/native-process-substrate/selected-native-support-matrix/retained/selected-native-support-matrix-report.json",
+          "proves": "Product command path retains refusals for active syscall source state, unsupported source resource state, and target shortcut/source ISA emulation attempts in both directions.",
+          "claimUse": "boundary evidence for selected-native matrix",
+          "next": "Add retained refusals before adding any neighboring native state to the claim.",
+          "claimImpact": {
+            "productSupportDelta": 0,
+            "broadSupportDelta": 0,
+            "arbitraryProcessCrossArchRestoreDelta": 0,
+            "resultingClaim": {
+              "productSupport": 100,
+              "broadSupport": 100,
               "arbitraryProcessCrossArchRestore": 0
             },
             "claimChangeAllowed": false

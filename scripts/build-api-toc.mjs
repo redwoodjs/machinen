@@ -824,6 +824,8 @@ const TOC = {
   ],
   "Product selected native process gate": [
     "ProductSelectedNativeError",
+    "ProductSelectedNativeArchitecture",
+    "ProductSelectedNativeRefusalCode",
     "ProductSelectedNativeCaptureInput",
     "ProductSelectedNativeDescriptor",
     "ProductSelectedNativeVerifierEvidence",

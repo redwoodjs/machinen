@@ -1,0 +1,22 @@
+{
+  "kind": "machinen.claim",
+  "version": 1,
+  "id": "selected-native-workload-100-100-0",
+  "trackId": "selected-native-workload",
+  "claim": "100 / 100 / 0 selected native workload",
+  "scope": "Selected single-thread native workload only: selected-single-thread-native-workload-v1. Not arbitrary Linux process restore.",
+  "status": "verified",
+  "artifact": "proofs/native-process-substrate/selected-native-support-matrix/retained/selected-native-support-matrix-report.json",
+  "publicClaimAllowed": true,
+  "publicClaim": {
+    "productSupport": 100,
+    "broadSupport": 100,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "boundaries": [
+    "active syscall source state refused",
+    "unsupported source resource state refused",
+    "target shortcut/source ISA emulation attempt refused",
+    "arbitrary Linux process restore remains 0"
+  ]
+}

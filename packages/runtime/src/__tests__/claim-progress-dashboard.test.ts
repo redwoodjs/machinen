@@ -27,7 +27,7 @@ type ClaimProgressProofGroup = {
 
 type ClaimProgressDashboard = {
   kind: "machinen.claim-progress-dashboard";
-  version: 114;
+  version: 115;
   tracks: ClaimProgressTrack[];
   proofGroups: ClaimProgressProofGroup[];
 };
@@ -41,7 +41,7 @@ describe("claim progress dashboard", () => {
 
     expect(dashboard).toMatchObject({
       kind: "machinen.claim-progress-dashboard",
-      version: 114,
+      version: 115,
     });
     expect(dashboard.tracks.map((track) => track.id)).toEqual([
       "node-service",
@@ -50,6 +50,7 @@ describe("claim progress dashboard", () => {
       "bun",
       "generic-linux-service",
       "native-process-substrate",
+      "selected-native-workload",
       "arbitrary-process",
       "whole-linux-vm-workload",
     ]);
@@ -81,6 +82,22 @@ describe("claim progress dashboard", () => {
       },
       nextClaim: { productSupport: 100, broadSupport: 100, claimChangeAllowed: false },
     });
+    expect(dashboard.tracks.find((track) => track.id === "selected-native-workload")).toMatchObject(
+      {
+        status: "verified",
+        currentClaim: {
+          productSupport: 100,
+          broadSupport: 100,
+          arbitraryProcessCrossArchRestore: 0,
+        },
+        nextClaim: {
+          productSupport: 100,
+          broadSupport: 100,
+          arbitraryProcessCrossArchRestore: 0,
+          claimChangeAllowed: false,
+        },
+      },
+    );
     expect(dashboard.proofGroups.map((group) => group.id)).toEqual([
       "node-service-100-100-0",
       "node-claim-evidence-index",
@@ -94,6 +111,7 @@ describe("claim progress dashboard", () => {
       "generic-linux-service-not-started",
       "level4-ping-resource-continuation",
       "native-process-substrate-gate",
+      "selected-native-workload-100-100-0",
       "arbitrary-process-0-seed-1-locked",
       "whole-linux-vm-workload-not-started",
     ]);
@@ -112,6 +130,8 @@ describe("claim progress dashboard", () => {
     expect(proofIds).toContain("native-resource-coverage-matrix");
     expect(proofIds).toContain("native-selected-workload-e2e");
     expect(proofIds).toContain("native-product-e2e-gate");
+    expect(proofIds).toContain("selected-native-support-matrix");
+    expect(proofIds).toContain("selected-native-refusal-artifacts");
     expect(proofIds).toContain("arbitrary-process-claim-ready-gate");
     expect(proofIds).toContain("simple-pipe-fd-proof");
     expect(proofIds).toContain("idle-epoll-tcp-proof");

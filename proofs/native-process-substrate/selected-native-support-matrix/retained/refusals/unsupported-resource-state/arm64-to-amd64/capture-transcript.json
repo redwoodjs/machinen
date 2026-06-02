@@ -1,0 +1,21 @@
+{
+  "command": [
+    "node",
+    "packages/cli/dist/cli.js",
+    "capture",
+    "native",
+    "--out",
+    "/Users/peterp/gh/redwoodjs/machinen/proofs/native-process-substrate/selected-native-support-matrix/retained/refusals/unsupported-resource-state/arm64-to-amd64/selected-native.refused",
+    "--source-arch",
+    "arm64",
+    "--target-arch",
+    "amd64",
+    "--source-verifier-output",
+    "proofs/native-process-substrate/product-e2e-gate/retained/arm64-to-amd64/source/source-verifier.json",
+    "--unsupported-resource-state",
+    "--json"
+  ],
+  "status": 1,
+  "stdout": "{\"schema_version\":1,\"state\":\"refused\",\"migrationCompleted\":false,\"bundleDir\":\"/Users/peterp/gh/redwoodjs/machinen/proofs/native-process-substrate/selected-native-support-matrix/retained/refusals/unsupported-resource-state/arm64-to-amd64/selected-native.refused\",\"refusal\":{\"kind\":\"machinen.product-selected-native-refusal\",\"formatVersion\":1,\"runtime\":\"native-linux-process\",\"supportLevel\":\"explicit-refusal\",\"state\":\"refused\",\"migrationCompleted\":false,\"expectedRefusalCode\":\"native-source-state-unsupported\",\"message\":\"unsupported resource state is outside the selected native product-path subset\",\"evidence\":{\"unsupportedResourceState\":true,\"boundary\":\"selected-resource-subset-only\"},\"arbitraryLinuxProcessSupportClaimed\":false,\"rawCpuRestoreUsed\":false,\"sourceIsaEmulationUsed\":false,\"runtimeProfileRestoreUsed\":false,\"sourceTextReusedAsTargetCode\":false,\"sidecarRuntimeUsed\":false,\"appHooksRequired\":false,\"metadataOnlyShortcutAccepted\":false},\"dryRun\":false}\n",
+  "stderr": ""
+}

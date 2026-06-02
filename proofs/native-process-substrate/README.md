@@ -30,3 +30,4 @@ Resource and harness outputs:
 - `proofs/native-process-substrate/resource-coverage/retained/native-resource-coverage-matrix-report.json`
 - `proofs/native-process-substrate/selected-workload-e2e/retained/native-selected-workload-e2e-report.json`
 - `proofs/native-process-substrate/product-e2e-gate/retained/native-product-e2e-gate-report.json`
+- `proofs/native-process-substrate/selected-native-support-matrix/retained/selected-native-support-matrix-report.json`

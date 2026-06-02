@@ -1,0 +1,55 @@
+{
+  "kind": "machinen.product-selected-native-restore-summary",
+  "formatVersion": 1,
+  "runtime": "native-linux-process",
+  "subset": "selected-single-thread-native-workload-v1",
+  "supportLevel": "proof-only-product-path",
+  "implementationLevel": "native-product-path-e2e-gate",
+  "targetArch": "arm64",
+  "publicClaimAllowed": false,
+  "publicClaim": {
+    "productSupport": null,
+    "broadSupport": null,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "shortcutInspection": {
+    "rawCpuRestoreUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "runtimeProfileRestoreUsed": false,
+    "sourceTextReusedAsTargetCode": false,
+    "sidecarRuntimeUsed": false,
+    "appHooksRequired": false,
+    "metadataOnlyShortcutAccepted": false
+  },
+  "state": "refused",
+  "migrationCompleted": false,
+  "sourceArch": "amd64",
+  "targetVerifierResult": "failed",
+  "descriptorSha256": "1c632c2810ab0c29ea112f6434241853fcec450f7785eed9c0f7ea0a98b312fc",
+  "targetVerifierOutputSha256": "302e2e7c1ceda7b618b5aa9e4e1c4ee5bbe796807f0c88107c4916c9b296263b",
+  "refusal": {
+    "kind": "machinen.product-selected-native-refusal",
+    "formatVersion": 1,
+    "runtime": "native-linux-process",
+    "supportLevel": "explicit-refusal",
+    "state": "refused",
+    "migrationCompleted": false,
+    "expectedRefusalCode": "native-target-shortcut-detected",
+    "message": "target verifier output used a forbidden shortcut",
+    "evidence": {
+      "rawCpuRestoreUsed": false,
+      "sourceIsaEmulationUsed": true,
+      "runtimeProfileRestoreUsed": false,
+      "appHooksUsed": false,
+      "metadataOnlySuccessAccepted": false
+    },
+    "arbitraryLinuxProcessSupportClaimed": false,
+    "rawCpuRestoreUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "runtimeProfileRestoreUsed": false,
+    "sourceTextReusedAsTargetCode": false,
+    "sidecarRuntimeUsed": false,
+    "appHooksRequired": false,
+    "metadataOnlyShortcutAccepted": false
+  }
+}
