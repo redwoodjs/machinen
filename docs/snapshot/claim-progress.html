@@ -460,7 +460,7 @@
     <script id="embedded-claim-progress" type="application/json">
       {
         "kind": "machinen.claim-progress-dashboard",
-        "version": 110,
+        "version": 111,
         "updatedFrom": [
           "docs/snapshot/node-level5-product-support-claim-registry.json",
           "docs/snapshot/node-level5-product-support-100.json",
@@ -478,7 +478,8 @@
           "packages/runtime/src/arbitrary-process-level5-idle-resource-proof.ts",
           "proofs/arbitrary-linux-binaries/scripts/arbitrary-process-level5-idle-resource-proof.ts",
           "proofs/native-process-substrate/regular-file-fd-bidirectional/retained/native-regular-file-fd-bidirectional-proof-report.json",
-          "proofs/native-process-substrate/resource-coverage/retained/native-resource-coverage-matrix-report.json"
+          "proofs/native-process-substrate/resource-coverage/retained/native-resource-coverage-matrix-report.json",
+          "proofs/native-process-substrate/selected-workload-e2e/retained/native-selected-workload-e2e-report.json"
         ],
         "columns": {
           "claim": ["productSupport", "broadSupport", "arbitraryProcessCrossArchRestore"],
@@ -2018,15 +2019,16 @@
               "arbitraryProcessCrossArchRestore": "still-0-until-arbitrary-process-reconstruction-proof",
               "claimChangeAllowed": false
             },
-            "summary": "Retained proof-only native substrate/boundary gate verifies all 12 native/001-native/012 rows. Resource coverage now has 18/18 rows accepted (8 supported selected-subset seeds, 10 verified refusals). Arbitrary Linux process restore remains 0.",
-            "claimGate": "native substrate gate and native resource coverage matrix accepted; public claim remains 0",
+            "summary": "Retained native substrate gate verifies 12/12 rows, resource coverage verifies 18/18 rows, and the selected native workload E2E harness now executes target-native post-restore behavior in both directions. This remains a harness proof; product native restore and arbitrary Linux process restore remain unclaimed at 0.",
+            "claimGate": "native substrate gate, native resource coverage matrix, and selected workload E2E harness accepted; product/public claim remains 0",
             "claimChangeAllowed": false,
             "evidence": [
               "proofs/native-process-substrate/retained/native-substrate-gate-report.json",
               "proofs/native-process-substrate/retained/raw/*.json",
               "proofs/native-process-substrate/retained/row-proofs/*/row-proof.json",
               "proofs/native-process-substrate/regular-file-fd-bidirectional/retained/native-regular-file-fd-bidirectional-proof-report.json",
-              "proofs/native-process-substrate/resource-coverage/retained/native-resource-coverage-matrix-report.json"
+              "proofs/native-process-substrate/resource-coverage/retained/native-resource-coverage-matrix-report.json",
+              "proofs/native-process-substrate/selected-workload-e2e/retained/native-selected-workload-e2e-report.json"
             ],
             "evidenceRows": [
               {
@@ -2188,17 +2190,17 @@
             "nextSteps": [
               {
                 "priority": 1,
-                "item": "Build a tiny single-thread native C workload proof that composes CPU registers, stack, memory materialization, bootstrap state, and accepted resource rows into target-native post-restore behavior.",
-                "gate": "native-single-thread-c-workload-e2e"
+                "item": "Turn the selected native workload harness into product-path commands: machinen capture native and machinen restore with retained bidirectional source/target artifacts.",
+                "gate": "selected-native-product-e2e-gate"
               },
               {
                 "priority": 2,
-                "item": "Add a claim-facing selected-native support matrix that requires product capture/restore E2E artifacts for every supported resource row and retained refusals for every boundary row.",
+                "item": "Add a selected-native support matrix whose public claim is derived only from retained product E2E artifacts plus retained refusal boundaries.",
                 "gate": "selected-native-support-matrix-gate"
               },
               {
                 "priority": 3,
-                "item": "Keep arbitrary Linux process restore at 0 until process execution, memory/register/thread/resource proofs compose into real target-native process behavior.",
+                "item": "Keep arbitrary Linux process restore at 0 until product process execution, memory/register/thread/resource proofs cover a broader arbitrary-process matrix.",
                 "gate": "arbitrary-process-claim-ready-gate"
               }
             ],
@@ -2344,6 +2346,16 @@
                 "gate": "native-resource-coverage-matrix",
                 "artifact": "proofs/native-process-substrate/resource-coverage/retained/native-resource-coverage-matrix-report.json",
                 "next": "Use as input to selected-native product E2E support matrix; keep arbitrary process restore at 0."
+              },
+              {
+                "id": "native-selected-workload-e2e",
+                "area": "selected native workload",
+                "kind": "harness e2e",
+                "status": "verified-e2e-harness",
+                "evidence": "Retained bidirectional harness executes target-native post-restore behavior for a selected single-thread workload with memory, stack, bootstrap, regular file, pipe, eventfd, timerfd, epoll, and TCP listener checks. It is not product native restore support.",
+                "gate": "native-selected-workload-e2e",
+                "artifact": "proofs/native-process-substrate/selected-workload-e2e/retained/native-selected-workload-e2e-report.json",
+                "next": "Require product machinen capture native/restore E2E artifacts before public selected-native support claims."
               }
             ],
             "refusals": [
@@ -3926,6 +3938,28 @@
                 "proves": "Selected native resource matrix has 18/18 accepted rows: 8 supported selected-subset resource seeds and 10 verified refusal boundaries; not-proven rows 0.",
                 "claimUse": "resource coverage only; no arbitrary-process claim raise",
                 "next": "Require product E2E behavior artifacts before selected-native claim promotion.",
+                "claimImpact": {
+                  "productSupportDelta": 0,
+                  "broadSupportDelta": 0,
+                  "arbitraryProcessCrossArchRestoreDelta": 0,
+                  "resultingClaim": {
+                    "productSupport": null,
+                    "broadSupport": null,
+                    "arbitraryProcessCrossArchRestore": 0
+                  },
+                  "claimChangeAllowed": false
+                }
+              },
+              {
+                "id": "native-selected-workload-e2e",
+                "proofNumber": "native-e2e/001",
+                "type": "e2e",
+                "category": "selected native workload harness",
+                "status": "verified-e2e-harness",
+                "artifact": "proofs/native-process-substrate/selected-workload-e2e/retained/native-selected-workload-e2e-report.json",
+                "proves": "Bidirectional retained harness executes target-native selected native workload behavior after composing memory, stack, bootstrap, and selected resources; accepted directions 2/2. This is not product machinen capture native/restore support.",
+                "claimUse": "harness proof only; no product or arbitrary-process claim raise",
+                "next": "Promote to product-path selected-native E2E gate before any selected-native public claim.",
                 "claimImpact": {
                   "productSupportDelta": 0,
                   "broadSupportDelta": 0,
