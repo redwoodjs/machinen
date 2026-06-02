@@ -1,6 +1,6 @@
 {
   "kind": "machinen.claim-progress-dashboard",
-  "version": 89,
+  "version": 90,
   "updatedFrom": [
     "docs/snapshot/node-level5-product-support-claim-registry.json",
     "docs/snapshot/node-level5-product-support-100.json",
@@ -149,19 +149,15 @@
       ],
       "rowCoverage": {
         "supportedDirectionBundlesRequired": 136,
-        "supportedDirectionBundlesCovered": 116,
-        "supportedDirectionBundlesMissing": 20,
+        "supportedDirectionBundlesCovered": 118,
+        "supportedDirectionBundlesMissing": 18,
         "refusedDirectionArtifactsRequired": 84,
         "refusedDirectionArtifactsCovered": 84,
         "refusedDirectionArtifactsMissing": 0,
         "notProvenRows": 4,
         "report": "proofs/nodejs/claim-evidence-index/retained/node-claim-row-coverage-report.json",
-        "summary": "116 / 136 covered \u00b7 missing 20",
+        "summary": "118 / 136 covered \u00b7 missing 18",
         "missingSupportedRows": [
-          {
-            "rowId": "fastify-installed-static-cache-header",
-            "directions": ["arm64-to-amd64", "amd64-to-arm64"]
-          },
           {
             "rowId": "fastify-installed-env-read",
             "directions": ["arm64-to-amd64", "amd64-to-arm64"]
@@ -199,7 +195,7 @@
             "directions": ["arm64-to-amd64", "amd64-to-arm64"]
           }
         ],
-        "missingSupportedRowsCount": 10,
+        "missingSupportedRowsCount": 9,
         "missingSupportedDirectionBundles": [
           {
             "proofId": "nodejs/001",
@@ -877,13 +873,13 @@
             "proofId": "nodejs/113",
             "rowId": "fastify-installed-static-cache-header",
             "direction": "arm64-to-amd64",
-            "status": "missing"
+            "status": "covered"
           },
           {
             "proofId": "nodejs/114",
             "rowId": "fastify-installed-static-cache-header",
             "direction": "amd64-to-arm64",
-            "status": "missing"
+            "status": "covered"
           },
           {
             "proofId": "nodejs/115",

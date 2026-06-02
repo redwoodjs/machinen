@@ -1,0 +1,1 @@
+machinen restore <dir> for fastify-installed-static-cache-header arm64-to-amd64
