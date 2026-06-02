@@ -77,11 +77,11 @@
     {
       "id": "node-e2e-refusal-audit",
       "category": "refusals",
-      "status": "not-started",
-      "artifact": "missing",
-      "proves": "Unsupported live/runtime states refuse with retained artifacts in the same E2E evidence set.",
-      "claimUse": "required to bound any future public Node claim",
-      "next": "Retain refusal artifacts for unsupported live/runtime states before any high public claim.",
+      "status": "verified",
+      "artifact": "proofs/nodejs/claim-evidence-index/retained/refusals/real-app-summary.json",
+      "proves": "Retained Node refusal artifacts verify unsupported live/runtime states fail closed before snapshot/restore: real-app refusals cover active requests, workers, native addons, wasm external memory, TLS active state, DB/Redis/HTTP/socket/watch states, and generic-VM refusals cover active requests, child processes, native addons, TLS active state, and worker threads.",
+      "claimUse": "retained boundary evidence for the selected Node service claim; prevents broadening to unsupported live/runtime states",
+      "next": "Keep refusal artifacts accepted through the consolidated Node claim evidence index before any future Node claim change.",
       "claimImpact": {
         "productSupportDelta": 0,
         "broadSupportDelta": 0,
@@ -92,7 +92,12 @@
           "arbitraryProcessCrossArchRestore": 0
         },
         "claimChangeAllowed": false
-      }
+      },
+      "supportingArtifacts": [
+        "proofs/nodejs/claim-evidence-index/retained/refusals/real-app-summary.json",
+        "proofs/nodejs/claim-evidence-index/retained/refusals/generic-vm-refusal-artifacts-summary.json",
+        "proofs/nodejs/claim-evidence-index/retained/node-claim-boundary-guard-report.json"
+      ]
     }
   ]
 }
