@@ -1,0 +1,20 @@
+{
+  "kind": "machinen.node-supported-row-target-verifier",
+  "version": 1,
+  "accepted": true,
+  "rowId": "express-installed-idle-timer",
+  "direction": "arm64-to-amd64",
+  "routePath": "/express-installed-idle-timer",
+  "expectedBody": "express-installed-idle-timer-ok",
+  "actualBody": "express-installed-idle-timer-ok",
+  "bodySha256": "a8420386913c9efe5ec672ed2bae64681c2a2f143431bd22335d02c6bb9263df",
+  "expectedHeader": {
+    "x-machinen-row": "express-installed-idle-timer"
+  },
+  "actualHeaders": "HTTP/1.1 200 OK\nX-Powered-By: Express\nx-machinen-row: express-installed-idle-timer\nContent-Type: text/html; charset=utf-8\nContent-Length: 31\nETag: W/\"1f-6IrtmgJYwOaTHadHU2eCUAYsEUc\"\nDate: Tue, 02 Jun 2026 15:50:51 GMT\nConnection: keep-alive\nKeep-Alive: timeout=5\n\n",
+  "targetNativeNodeVerified": true,
+  "sourceIsaEmulationUsed": false,
+  "sidecarRuntimeUsed": false,
+  "appHooksRequired": false,
+  "metadataOnlySuccessAccepted": false
+}
