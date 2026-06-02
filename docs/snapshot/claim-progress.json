@@ -1,6 +1,6 @@
 {
   "kind": "machinen.claim-progress-dashboard",
-  "version": 94,
+  "version": 95,
   "updatedFrom": [
     "docs/snapshot/node-level5-product-support-claim-registry.json",
     "docs/snapshot/node-level5-product-support-100.json",
@@ -149,19 +149,15 @@
       ],
       "rowCoverage": {
         "supportedDirectionBundlesRequired": 136,
-        "supportedDirectionBundlesCovered": 126,
-        "supportedDirectionBundlesMissing": 10,
+        "supportedDirectionBundlesCovered": 128,
+        "supportedDirectionBundlesMissing": 8,
         "refusedDirectionArtifactsRequired": 84,
         "refusedDirectionArtifactsCovered": 84,
         "refusedDirectionArtifactsMissing": 0,
         "notProvenRows": 4,
         "report": "proofs/nodejs/claim-evidence-index/retained/node-claim-row-coverage-report.json",
-        "summary": "126 / 136 covered \u00b7 missing 10",
+        "summary": "128 / 136 covered \u00b7 missing 8",
         "missingSupportedRows": [
-          {
-            "rowId": "fastify-installed-health-check",
-            "directions": ["arm64-to-amd64", "amd64-to-arm64"]
-          },
           {
             "rowId": "express-generic-vm-cjs",
             "directions": ["arm64-to-amd64", "amd64-to-arm64"]
@@ -179,7 +175,7 @@
             "directions": ["arm64-to-amd64", "amd64-to-arm64"]
           }
         ],
-        "missingSupportedRowsCount": 5,
+        "missingSupportedRowsCount": 4,
         "missingSupportedDirectionBundles": [
           {
             "proofId": "nodejs/001",
@@ -917,13 +913,13 @@
             "proofId": "nodejs/123",
             "rowId": "fastify-installed-health-check",
             "direction": "arm64-to-amd64",
-            "status": "missing"
+            "status": "covered"
           },
           {
             "proofId": "nodejs/124",
             "rowId": "fastify-installed-health-check",
             "direction": "amd64-to-arm64",
-            "status": "missing"
+            "status": "covered"
           },
           {
             "proofId": "nodejs/125",
