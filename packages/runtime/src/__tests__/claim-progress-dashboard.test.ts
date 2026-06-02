@@ -27,7 +27,7 @@ type ClaimProgressProofGroup = {
 
 type ClaimProgressDashboard = {
   kind: "machinen.claim-progress-dashboard";
-  version: 121;
+  version: 122;
   tracks: ClaimProgressTrack[];
   proofGroups: ClaimProgressProofGroup[];
 };
@@ -41,7 +41,7 @@ describe("claim progress dashboard", () => {
 
     expect(dashboard).toMatchObject({
       kind: "machinen.claim-progress-dashboard",
-      version: 121,
+      version: 122,
     });
     expect(dashboard.tracks.map((track) => track.id)).toEqual([
       "node-service",
@@ -160,6 +160,10 @@ describe("claim progress dashboard", () => {
     expect(proofIds).toContain("selected-whole-vm-workload-support-matrix");
     expect(proofIds).toContain("whole-vm-workload-next-corpus");
     expect(proofIds).toContain("whole-vm-workload-corpus-proof");
+    expect(proofIds).toContain("whole-vm-sqlite-clean-db-workload");
+    expect(proofIds).toContain("whole-vm-postgresql-clean-workload");
+    expect(proofIds).toContain("whole-vm-java-service-workload");
+    expect(proofIds).toContain("whole-vm-dirty-active-opaque-state-refusals");
     expect(proofIds).toContain("arbitrary-process-claim-ready-gate");
     expect(proofIds).toContain("simple-pipe-fd-proof");
     expect(proofIds).toContain("idle-epoll-tcp-proof");
@@ -298,6 +302,12 @@ describe("claim progress dashboard", () => {
     expect(html).toContain("whole-vm-dirty-active-opaque-state-refusals");
     expect(html).toContain("broader-corpus-locked-until-row-artifacts-exist");
     expect(html).toContain("whole-vm-workload-corpus-proof-report.json");
+    expect(html).toContain("vm/011");
+    expect(html).toContain("vm/012");
+    expect(html).toContain("vm/013");
+    expect(html).toContain("vm/014");
+    expect(html).toContain("database workload refusal");
+    expect(html).toContain("service workload refusal");
     expect(html).toContain("corpusProductSupportRowsAdded");
     expect(html).toContain("target-native-c-service-verifier-passed");
     expect(html).toContain("loopback-listener-request-response-verifier-passed");
