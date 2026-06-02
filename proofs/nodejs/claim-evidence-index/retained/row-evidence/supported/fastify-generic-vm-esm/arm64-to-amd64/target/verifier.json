@@ -1,0 +1,20 @@
+{
+  "kind": "machinen.node-supported-row-target-verifier",
+  "version": 1,
+  "accepted": true,
+  "rowId": "fastify-generic-vm-esm",
+  "direction": "arm64-to-amd64",
+  "routePath": "/fastify-generic-vm-esm",
+  "expectedBody": "fastify-generic-vm-esm-ok",
+  "actualBody": "fastify-generic-vm-esm-ok",
+  "bodySha256": "b54c03e9d6dcfc2353508ffc28eb09fce6408de52330d9f4d5fbbcf740effefe",
+  "expectedHeader": {
+    "x-machinen-row": "fastify-generic-vm-esm"
+  },
+  "actualHeaders": "HTTP/1.1 200 OK\nx-machinen-row: fastify-generic-vm-esm\ncontent-type: text/plain; charset=utf-8\ncontent-length: 25\nDate: Tue, 02 Jun 2026 17:01:21 GMT\nConnection: keep-alive\nKeep-Alive: timeout=72\n\n",
+  "targetNativeNodeVerified": true,
+  "sourceIsaEmulationUsed": false,
+  "sidecarRuntimeUsed": false,
+  "appHooksRequired": false,
+  "metadataOnlySuccessAccepted": false
+}

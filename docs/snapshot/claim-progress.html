@@ -459,7 +459,7 @@
     <script id="embedded-claim-progress" type="application/json">
       {
         "kind": "machinen.claim-progress-dashboard",
-        "version": 98,
+        "version": 99,
         "updatedFrom": [
           "docs/snapshot/node-level5-product-support-claim-registry.json",
           "docs/snapshot/node-level5-product-support-100.json",
@@ -608,21 +608,16 @@
             ],
             "rowCoverage": {
               "supportedDirectionBundlesRequired": 136,
-              "supportedDirectionBundlesCovered": 134,
-              "supportedDirectionBundlesMissing": 2,
+              "supportedDirectionBundlesCovered": 136,
+              "supportedDirectionBundlesMissing": 0,
               "refusedDirectionArtifactsRequired": 84,
               "refusedDirectionArtifactsCovered": 84,
               "refusedDirectionArtifactsMissing": 0,
               "notProvenRows": 4,
               "report": "proofs/nodejs/claim-evidence-index/retained/node-claim-row-coverage-report.json",
-              "summary": "134 / 136 covered \u00b7 missing 2",
-              "missingSupportedRows": [
-                {
-                  "rowId": "fastify-generic-vm-esm",
-                  "directions": ["arm64-to-amd64", "amd64-to-arm64"]
-                }
-              ],
-              "missingSupportedRowsCount": 1,
+              "summary": "136 / 136 covered \u00b7 missing 0",
+              "missingSupportedRows": [],
+              "missingSupportedRowsCount": 0,
               "missingSupportedDirectionBundles": [
                 {
                   "proofId": "nodejs/001",
@@ -1408,13 +1403,13 @@
                   "proofId": "nodejs/131",
                   "rowId": "fastify-generic-vm-esm",
                   "direction": "arm64-to-amd64",
-                  "status": "missing"
+                  "status": "covered"
                 },
                 {
                   "proofId": "nodejs/132",
                   "rowId": "fastify-generic-vm-esm",
                   "direction": "amd64-to-arm64",
-                  "status": "missing"
+                  "status": "covered"
                 }
               ]
             }

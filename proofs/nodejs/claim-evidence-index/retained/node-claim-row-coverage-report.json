@@ -1,7 +1,7 @@
 {
   "kind": "machinen.node-claim-row-coverage-report",
   "version": 1,
-  "generatedAt": "2026-06-02T17:00:52.181Z",
+  "generatedAt": "2026-06-02T17:02:06.496Z",
   "accepted": true,
   "claimAllowed": false,
   "publicClaim": {
@@ -16,8 +16,8 @@
   },
   "directionRequirementCounts": {
     "supportedRequired": 136,
-    "supportedCovered": 134,
-    "supportedMissing": 2,
+    "supportedCovered": 136,
+    "supportedMissing": 0,
     "refusedRequired": 84,
     "refusedCovered": 84,
     "refusedMissing": 0
@@ -2170,7 +2170,7 @@
     {
       "rowId": "fastify-generic-vm-esm",
       "direction": "arm64-to-amd64",
-      "status": "missing",
+      "status": "covered",
       "requiredFiles": {
         "sourceProductCommand": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-generic-vm-esm/arm64-to-amd64/source/product-command.txt",
         "sourceSnapshotSummary": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-generic-vm-esm/arm64-to-amd64/source/snapshot.json",
@@ -2181,21 +2181,12 @@
         "targetBehavior": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-generic-vm-esm/arm64-to-amd64/target/target-http-body.txt",
         "targetVerifier": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-generic-vm-esm/arm64-to-amd64/target/verifier.json"
       },
-      "missingFiles": [
-        "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-generic-vm-esm/arm64-to-amd64/source/product-command.txt",
-        "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-generic-vm-esm/arm64-to-amd64/source/snapshot.json",
-        "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-generic-vm-esm/arm64-to-amd64/source/portable-node.json",
-        "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-generic-vm-esm/arm64-to-amd64/source/portable-node-app.tar.gz",
-        "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-generic-vm-esm/arm64-to-amd64/target/product-command.txt",
-        "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-generic-vm-esm/arm64-to-amd64/target/restore.json",
-        "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-generic-vm-esm/arm64-to-amd64/target/target-http-body.txt",
-        "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-generic-vm-esm/arm64-to-amd64/target/verifier.json"
-      ]
+      "missingFiles": []
     },
     {
       "rowId": "fastify-generic-vm-esm",
       "direction": "amd64-to-arm64",
-      "status": "missing",
+      "status": "covered",
       "requiredFiles": {
         "sourceProductCommand": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-generic-vm-esm/amd64-to-arm64/source/product-command.txt",
         "sourceSnapshotSummary": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-generic-vm-esm/amd64-to-arm64/source/snapshot.json",
@@ -2206,16 +2197,7 @@
         "targetBehavior": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-generic-vm-esm/amd64-to-arm64/target/target-http-body.txt",
         "targetVerifier": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-generic-vm-esm/amd64-to-arm64/target/verifier.json"
       },
-      "missingFiles": [
-        "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-generic-vm-esm/amd64-to-arm64/source/product-command.txt",
-        "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-generic-vm-esm/amd64-to-arm64/source/snapshot.json",
-        "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-generic-vm-esm/amd64-to-arm64/source/portable-node.json",
-        "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-generic-vm-esm/amd64-to-arm64/source/portable-node-app.tar.gz",
-        "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-generic-vm-esm/amd64-to-arm64/target/product-command.txt",
-        "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-generic-vm-esm/amd64-to-arm64/target/restore.json",
-        "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-generic-vm-esm/amd64-to-arm64/target/target-http-body.txt",
-        "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-generic-vm-esm/amd64-to-arm64/target/verifier.json"
-      ]
+      "missingFiles": []
     }
   ],
   "refusedCoverage": [
