@@ -459,7 +459,7 @@
     <script id="embedded-claim-progress" type="application/json">
       {
         "kind": "machinen.claim-progress-dashboard",
-        "version": 67,
+        "version": 68,
         "updatedFrom": [
           "docs/snapshot/node-level5-product-support-claim-registry.json",
           "docs/snapshot/node-level5-product-support-100.json",
@@ -608,19 +608,15 @@
             ],
             "rowCoverage": {
               "supportedDirectionBundlesRequired": 136,
-              "supportedDirectionBundlesCovered": 72,
-              "supportedDirectionBundlesMissing": 64,
+              "supportedDirectionBundlesCovered": 74,
+              "supportedDirectionBundlesMissing": 62,
               "refusedDirectionArtifactsRequired": 84,
               "refusedDirectionArtifactsCovered": 84,
               "refusedDirectionArtifactsMissing": 0,
               "notProvenRows": 4,
               "report": "proofs/nodejs/claim-evidence-index/retained/node-claim-row-coverage-report.json",
-              "summary": "72 / 136 covered \u00b7 missing 64",
+              "summary": "74 / 136 covered \u00b7 missing 62",
               "missingSupportedRows": [
-                {
-                  "rowId": "fastify-installed-plugin-route",
-                  "directions": ["arm64-to-amd64", "amd64-to-arm64"]
-                },
                 {
                   "rowId": "fastify-installed-json-response",
                   "directions": ["arm64-to-amd64", "amd64-to-arm64"]
@@ -746,7 +742,7 @@
                   "directions": ["arm64-to-amd64", "amd64-to-arm64"]
                 }
               ],
-              "missingSupportedRowsCount": 32,
+              "missingSupportedRowsCount": 31,
               "missingSupportedDirectionBundles": [
                 {
                   "proofId": "nodejs/001",
@@ -1160,13 +1156,13 @@
                   "proofId": "nodejs/069",
                   "rowId": "fastify-installed-plugin-route",
                   "direction": "arm64-to-amd64",
-                  "status": "missing"
+                  "status": "covered"
                 },
                 {
                   "proofId": "nodejs/070",
                   "rowId": "fastify-installed-plugin-route",
                   "direction": "amd64-to-arm64",
-                  "status": "missing"
+                  "status": "covered"
                 },
                 {
                   "proofId": "nodejs/071",
