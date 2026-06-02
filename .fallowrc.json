@@ -18,7 +18,8 @@
       "**/__tests__/**",
       "**/*.{test,spec}.{js,jsx,ts,tsx,mjs,cjs}",
       "proofs/**",
-      "scripts/native-dwarf-pointer-classification.ts"
+      "scripts/native-dwarf-pointer-classification.ts",
+      "scripts/postgres-no-dump-product-proof.mjs"
     ]
   },
   "health": {
@@ -26,7 +27,8 @@
       "**/__tests__/**",
       "**/*.{test,spec}.{js,jsx,ts,tsx,mjs,cjs}",
       "proofs/**",
-      "scripts/native-dwarf-pointer-classification.ts"
+      "scripts/native-dwarf-pointer-classification.ts",
+      "scripts/postgres-no-dump-product-proof.mjs"
     ]
   },
   "ignoreDependencies": [

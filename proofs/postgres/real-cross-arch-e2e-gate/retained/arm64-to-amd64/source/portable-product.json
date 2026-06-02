@@ -21,12 +21,12 @@
   "artifacts": {
     "logicalDump": {
       "path": "postgres.logical.dump",
-      "sha256": "3fbac837f6c0e29c2a86f91aa886dd8cf20e2049d767ada45fb03174da5a4827",
-      "bytes": 2135
+      "sha256": "5eb04a431d50c4faf794e74417c1f6795673f124db8479800553c510cbb2fb04",
+      "bytes": 2543
     }
   },
   "provenance": {
-    "checkpointLsn": "0/2000188",
+    "checkpointLsn": "0/2421288",
     "initSqlSha256": "36bd62cf169e1eb041ee1e7a791f177a2b4e6809e2240b9ad17297a72f88ea7a",
     "workloadSqlSha256": "cee4f9dee7f03744b3c13e8d6536ff7a1220904aa24cd01410daf9d5833acef9",
     "verifierSqlSha256": "1d4799aaf94829c9a6cfa11502992b916b111a620909dd6d0d337fbb1bf2171d",

@@ -2,7 +2,7 @@
 
 There is now a scoped public Postgres no-dump product claim for selected clean quiesced PostgreSQL service capture/restore.
 
-The claim is backed by retained `machinen capture postgres` / `machinen restore` artifacts in both architecture directions. The product command generates internal PostgreSQL evidence without requiring a user-provided dump, restores into target-native PostgreSQL, and runs `psql` verification on the target.
+The claim is backed by retained `machinen capture postgres` / `machinen restore` artifacts in both architecture directions. The product command generates internal PostgreSQL evidence without requiring a user-provided dump, restores into target-native PostgreSQL, and runs `psql` verification on the target. The retained gate also includes row proofs for psql query workload, schema/data query, role/permission restoration, `pg_isready`, `psql`, and `createdb`/`dropdb` command behavior.
 
 ## Current public claim
 

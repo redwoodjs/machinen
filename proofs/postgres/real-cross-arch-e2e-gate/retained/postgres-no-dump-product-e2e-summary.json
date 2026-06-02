@@ -41,12 +41,45 @@
         "sourceVerifierOutput": "{\"database\" : \"machinen_pg\", \"rowCount\" : 4, \"valueSum\" : 105, \"payloads\" : [\"alpha\",\"beta\",\"gamma\",\"delta\"], \"values\" : [10,25,30,40]}",
         "targetVerifierOutput": "{\"database\" : \"machinen_pg\", \"rowCount\" : 4, \"valueSum\" : 105, \"payloads\" : [\"alpha\",\"beta\",\"gamma\",\"delta\"], \"values\" : [10,25,30,40]}",
         "logicalFingerprint": "19c61ac217b9bdf7dae88e5a515643d3b49c21a2a0d920096bf3017b36195166",
+        "rowProofs": {
+          "psqlQueryWorkload": {
+            "sourceTranscript": "{\"database\" : \"machinen_pg\", \"rowCount\" : 4, \"valueSum\" : 105, \"payloads\" : [\"alpha\",\"beta\",\"gamma\",\"delta\"], \"values\" : [10,25,30,40]}",
+            "targetTranscript": "{\"database\" : \"machinen_pg\", \"rowCount\" : 4, \"valueSum\" : 105, \"payloads\" : [\"alpha\",\"beta\",\"gamma\",\"delta\"], \"values\" : [10,25,30,40]}",
+            "accepted": true
+          },
+          "schemaDataQuery": {
+            "sourceTranscript": "4|105",
+            "targetTranscript": "4|105",
+            "accepted": true
+          },
+          "rolePermission": {
+            "sourceApplyTranscript": "DO\nGRANT\nGRANT",
+            "sourceVerifierTranscript": "{\"roleExists\" : true, \"readerCanSelectEvents\" : true, \"readerCanUseSequence\" : true, \"readerCanSelectSequence\" : true}",
+            "targetVerifierTranscript": "{\"roleExists\" : true, \"readerCanSelectEvents\" : true, \"readerCanUseSequence\" : true, \"readerCanSelectSequence\" : true}",
+            "accepted": true
+          },
+          "pgIsReadyCommand": {
+            "sourceTranscript": "/var/run/postgresql:5432 - accepting connections\n/Users/peterp/.profile: line 1: /bin/brew: No such file or directory",
+            "targetTranscript": "/var/run/postgresql:5432 - accepting connections",
+            "accepted": true
+          },
+          "psqlCommand": {
+            "sourceTranscript": "4|105",
+            "targetTranscript": "4|105",
+            "accepted": true
+          },
+          "createdbDropdbCommand": {
+            "sourceTranscript": "machinen_lifecycle_088668",
+            "targetTranscript": "machinen_lifecycle_1bc445",
+            "accepted": true
+          }
+        },
         "targetVerifierOutputSha256": "5d1062188f302d75521800edc29b0a44e218e88699e27b98793afcefb28c3051",
-        "internalDumpSha256": "3fbac837f6c0e29c2a86f91aa886dd8cf20e2049d767ada45fb03174da5a4827",
-        "internalDumpBytes": 2135,
-        "bundleManifestSha256": "298acc033b947e58a81dfb70bdaa6ec8e19bb35483f08a389ca5a7a6d306142e",
-        "restoreSummarySha256": "2a2f9d129b4c8b27720c413ee6faf80cdc212193a645a85a49bb13eea9cb28a4",
-        "checkpointLsn": "0/2000188",
+        "internalDumpSha256": "5eb04a431d50c4faf794e74417c1f6795673f124db8479800553c510cbb2fb04",
+        "internalDumpBytes": 2543,
+        "bundleManifestSha256": "8ea58eca42007b11caf1e557c1163423649e7424fd9fa4ea3ae560bbfc8a8416",
+        "restoreSummarySha256": "839c70859cb321d965a716ee5acfd7e8eefb2bfbf764e3887cb11dba34c1c609",
+        "checkpointLsn": "0/2421288",
         "activeTransactionsAtCapture": 0,
         "migrationCompleted": true,
         "noUserSuppliedDump": true,
@@ -56,9 +89,9 @@
         "sourceTextReusedAsTargetCode": false,
         "sidecarRuntimeUsed": false,
         "appHooksRequired": false,
-        "bundleDir": "/tmp/machinen-postgres-no-dump-product-proof-run/work/arm64-to-amd64/bundle",
-        "captureCommand": "'node' '/Users/peterp/gh/redwoodjs/machinen/packages/cli/dist/cli.js' 'capture' 'postgres' '--json' '--out' '/tmp/machinen-postgres-no-dump-product-proof-run/work/arm64-to-amd64/bundle' '--source-arch' 'arm64' '--target-arch' 'amd64' '--postgres-docker-host' 'local' '--postgres-container' 'pg-product-src-arm64-41478-55cd1afc' '--database' 'machinen_pg' '--verifier-sql' '/Users/peterp/gh/redwoodjs/machinen/scripts/fixtures/postgres-machinen/verify.sql' '--postgres-version' '15.18 (Debian 15.18-1.pgdg12+1)' '--checkpoint-lsn' '0/2000188' '--init-sql' '/Users/peterp/gh/redwoodjs/machinen/scripts/fixtures/postgres-machinen/init.sql' '--workload-sql' '/Users/peterp/gh/redwoodjs/machinen/scripts/fixtures/postgres-machinen/workload.sql'",
-        "restoreCommand": "'node' '/Users/peterp/gh/redwoodjs/machinen/packages/cli/dist/cli.js' 'restore' '/tmp/machinen-postgres-no-dump-product-proof-run/work/arm64-to-amd64/bundle' '--json' '--target-arch' 'amd64' '--postgres-docker-host' 'root@192.168.0.8' '--postgres-container' 'pg-product-tgt-amd64-41478-b2d2f651' '--database' 'machinen_pg' '--target-verifier-sql' '/Users/peterp/gh/redwoodjs/machinen/scripts/fixtures/postgres-machinen/verify.sql'"
+        "bundleDir": "/tmp/machinen-postgres-rowproofs-run/work/arm64-to-amd64/bundle",
+        "captureCommand": "'node' '/Users/peterp/gh/redwoodjs/machinen/packages/cli/dist/cli.js' 'capture' 'postgres' '--json' '--out' '/tmp/machinen-postgres-rowproofs-run/work/arm64-to-amd64/bundle' '--source-arch' 'arm64' '--target-arch' 'amd64' '--postgres-docker-host' 'local' '--postgres-container' 'pg-product-src-arm64-55233-fb3a98b4' '--database' 'machinen_pg' '--verifier-sql' '/Users/peterp/gh/redwoodjs/machinen/scripts/fixtures/postgres-machinen/verify.sql' '--postgres-version' '15.18 (Debian 15.18-1.pgdg12+1)' '--checkpoint-lsn' '0/2421288' '--init-sql' '/Users/peterp/gh/redwoodjs/machinen/scripts/fixtures/postgres-machinen/init.sql' '--workload-sql' '/Users/peterp/gh/redwoodjs/machinen/scripts/fixtures/postgres-machinen/workload.sql'",
+        "restoreCommand": "'node' '/Users/peterp/gh/redwoodjs/machinen/packages/cli/dist/cli.js' 'restore' '/tmp/machinen-postgres-rowproofs-run/work/arm64-to-amd64/bundle' '--json' '--target-arch' 'amd64' '--postgres-docker-host' 'root@192.168.0.8' '--postgres-container' 'pg-product-tgt-amd64-55233-e63df644' '--database' 'machinen_pg' '--target-verifier-sql' '/Users/peterp/gh/redwoodjs/machinen/scripts/fixtures/postgres-machinen/verify.sql'"
       },
       {
         "route": "amd64-to-arm64",
@@ -73,12 +106,45 @@
         "sourceVerifierOutput": "{\"database\" : \"machinen_pg\", \"rowCount\" : 4, \"valueSum\" : 105, \"payloads\" : [\"alpha\",\"beta\",\"gamma\",\"delta\"], \"values\" : [10,25,30,40]}",
         "targetVerifierOutput": "{\"database\" : \"machinen_pg\", \"rowCount\" : 4, \"valueSum\" : 105, \"payloads\" : [\"alpha\",\"beta\",\"gamma\",\"delta\"], \"values\" : [10,25,30,40]}",
         "logicalFingerprint": "19c61ac217b9bdf7dae88e5a515643d3b49c21a2a0d920096bf3017b36195166",
+        "rowProofs": {
+          "psqlQueryWorkload": {
+            "sourceTranscript": "{\"database\" : \"machinen_pg\", \"rowCount\" : 4, \"valueSum\" : 105, \"payloads\" : [\"alpha\",\"beta\",\"gamma\",\"delta\"], \"values\" : [10,25,30,40]}",
+            "targetTranscript": "{\"database\" : \"machinen_pg\", \"rowCount\" : 4, \"valueSum\" : 105, \"payloads\" : [\"alpha\",\"beta\",\"gamma\",\"delta\"], \"values\" : [10,25,30,40]}",
+            "accepted": true
+          },
+          "schemaDataQuery": {
+            "sourceTranscript": "4|105",
+            "targetTranscript": "4|105",
+            "accepted": true
+          },
+          "rolePermission": {
+            "sourceApplyTranscript": "DO\nGRANT\nGRANT",
+            "sourceVerifierTranscript": "{\"roleExists\" : true, \"readerCanSelectEvents\" : true, \"readerCanUseSequence\" : true, \"readerCanSelectSequence\" : true}",
+            "targetVerifierTranscript": "{\"roleExists\" : true, \"readerCanSelectEvents\" : true, \"readerCanUseSequence\" : true, \"readerCanSelectSequence\" : true}",
+            "accepted": true
+          },
+          "pgIsReadyCommand": {
+            "sourceTranscript": "/var/run/postgresql:5432 - accepting connections",
+            "targetTranscript": "/var/run/postgresql:5432 - accepting connections\n/Users/peterp/.profile: line 1: /bin/brew: No such file or directory",
+            "accepted": true
+          },
+          "psqlCommand": {
+            "sourceTranscript": "4|105",
+            "targetTranscript": "4|105",
+            "accepted": true
+          },
+          "createdbDropdbCommand": {
+            "sourceTranscript": "machinen_lifecycle_ef5243",
+            "targetTranscript": "machinen_lifecycle_833017",
+            "accepted": true
+          }
+        },
         "targetVerifierOutputSha256": "5d1062188f302d75521800edc29b0a44e218e88699e27b98793afcefb28c3051",
-        "internalDumpSha256": "a5fe1389c863ee8bcb1ebb0de7149ba09564b1b44547b6d79ca9e82e5b2048d0",
-        "internalDumpBytes": 2135,
-        "bundleManifestSha256": "9e13061252408647bffabf2d6d79846c554cae17de4f063a0cee55de797be6a4",
-        "restoreSummarySha256": "fe4cd71abb7173f4953a7bc5d369e142a69ff51af0913c0d2ba82466634996de",
-        "checkpointLsn": "0/2000188",
+        "internalDumpSha256": "870857e8d56f4276a16323e3ae9d55fe469b1ee8ffb0697cb2f377c59bf5783d",
+        "internalDumpBytes": 2544,
+        "bundleManifestSha256": "3bfb1113d7b8b9357dde1f564b45def8ca732ca71e78ef8404ad473143b1cd5f",
+        "restoreSummarySha256": "01535cbdf54f231bce740f4a5b5907b6c5204cc0cb26e456df3b01147a2039f5",
+        "checkpointLsn": "0/24212A0",
         "activeTransactionsAtCapture": 0,
         "migrationCompleted": true,
         "noUserSuppliedDump": true,
@@ -88,9 +154,9 @@
         "sourceTextReusedAsTargetCode": false,
         "sidecarRuntimeUsed": false,
         "appHooksRequired": false,
-        "bundleDir": "/tmp/machinen-postgres-no-dump-product-proof-run/work/amd64-to-arm64/bundle",
-        "captureCommand": "'node' '/Users/peterp/gh/redwoodjs/machinen/packages/cli/dist/cli.js' 'capture' 'postgres' '--json' '--out' '/tmp/machinen-postgres-no-dump-product-proof-run/work/amd64-to-arm64/bundle' '--source-arch' 'amd64' '--target-arch' 'arm64' '--postgres-docker-host' 'root@192.168.0.8' '--postgres-container' 'pg-product-src-amd64-41478-6da4c414' '--database' 'machinen_pg' '--verifier-sql' '/Users/peterp/gh/redwoodjs/machinen/scripts/fixtures/postgres-machinen/verify.sql' '--postgres-version' '15.18 (Debian 15.18-1.pgdg12+1)' '--checkpoint-lsn' '0/2000188' '--init-sql' '/Users/peterp/gh/redwoodjs/machinen/scripts/fixtures/postgres-machinen/init.sql' '--workload-sql' '/Users/peterp/gh/redwoodjs/machinen/scripts/fixtures/postgres-machinen/workload.sql'",
-        "restoreCommand": "'node' '/Users/peterp/gh/redwoodjs/machinen/packages/cli/dist/cli.js' 'restore' '/tmp/machinen-postgres-no-dump-product-proof-run/work/amd64-to-arm64/bundle' '--json' '--target-arch' 'arm64' '--postgres-docker-host' 'local' '--postgres-container' 'pg-product-tgt-arm64-41478-b132d50c' '--database' 'machinen_pg' '--target-verifier-sql' '/Users/peterp/gh/redwoodjs/machinen/scripts/fixtures/postgres-machinen/verify.sql'"
+        "bundleDir": "/tmp/machinen-postgres-rowproofs-run/work/amd64-to-arm64/bundle",
+        "captureCommand": "'node' '/Users/peterp/gh/redwoodjs/machinen/packages/cli/dist/cli.js' 'capture' 'postgres' '--json' '--out' '/tmp/machinen-postgres-rowproofs-run/work/amd64-to-arm64/bundle' '--source-arch' 'amd64' '--target-arch' 'arm64' '--postgres-docker-host' 'root@192.168.0.8' '--postgres-container' 'pg-product-src-amd64-55233-57775a90' '--database' 'machinen_pg' '--verifier-sql' '/Users/peterp/gh/redwoodjs/machinen/scripts/fixtures/postgres-machinen/verify.sql' '--postgres-version' '15.18 (Debian 15.18-1.pgdg12+1)' '--checkpoint-lsn' '0/24212A0' '--init-sql' '/Users/peterp/gh/redwoodjs/machinen/scripts/fixtures/postgres-machinen/init.sql' '--workload-sql' '/Users/peterp/gh/redwoodjs/machinen/scripts/fixtures/postgres-machinen/workload.sql'",
+        "restoreCommand": "'node' '/Users/peterp/gh/redwoodjs/machinen/packages/cli/dist/cli.js' 'restore' '/tmp/machinen-postgres-rowproofs-run/work/amd64-to-arm64/bundle' '--json' '--target-arch' 'arm64' '--postgres-docker-host' 'local' '--postgres-container' 'pg-product-tgt-arm64-55233-f0812589' '--database' 'machinen_pg' '--target-verifier-sql' '/Users/peterp/gh/redwoodjs/machinen/scripts/fixtures/postgres-machinen/verify.sql'"
       }
     ],
     "logicalFingerprint": "19c61ac217b9bdf7dae88e5a515643d3b49c21a2a0d920096bf3017b36195166",

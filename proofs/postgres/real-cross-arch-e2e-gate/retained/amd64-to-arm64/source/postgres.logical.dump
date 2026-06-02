@@ -1,8 +1,9 @@
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'machinen_reader') THEN CREATE ROLE machinen_reader; END IF; END $$;
 --
 -- PostgreSQL database dump
 --
 
-\restrict 6hTILMhvNjc871xPPjaFABIzGYOPPky6rG6WrScb7nzAfIFueWPgtkGHfsKgrXY
+\restrict edfo7DRcDFpUUlEcJVD1LvUjySC2uns6rbyupMYnChcW1kXhXH9PKVfG1AgawGU
 
 -- Dumped from database version 15.18 (Debian 15.18-1.pgdg12+1)
 -- Dumped by pg_dump version 15.18 (Debian 15.18-1.pgdg12+1)
@@ -66,10 +67,10 @@ ALTER TABLE ONLY public.events ALTER COLUMN id SET DEFAULT nextval('public.event
 --
 
 COPY public.events (id, payload, value, updated_at) FROM stdin;
-1	alpha	10	2026-06-02 18:47:49.280774+00
-3	gamma	30	2026-06-02 18:47:49.280774+00
-2	beta	25	2026-06-02 18:47:49.280774+00
-4	delta	40	2026-06-02 18:47:49.482731+00
+1	alpha	10	2026-06-02 19:02:20.484228+00
+3	gamma	30	2026-06-02 19:02:20.484228+00
+2	beta	25	2026-06-02 19:02:20.484228+00
+4	delta	40	2026-06-02 19:02:20.766758+00
 \.
 
 
@@ -89,8 +90,22 @@ ALTER TABLE ONLY public.events
 
 
 --
+-- Name: TABLE events; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT ON TABLE public.events TO machinen_reader;
+
+
+--
+-- Name: SEQUENCE events_id_seq; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,USAGE ON SEQUENCE public.events_id_seq TO machinen_reader;
+
+
+--
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 6hTILMhvNjc871xPPjaFABIzGYOPPky6rG6WrScb7nzAfIFueWPgtkGHfsKgrXY
+\unrestrict edfo7DRcDFpUUlEcJVD1LvUjySC2uns6rbyupMYnChcW1kXhXH9PKVfG1AgawGU
 

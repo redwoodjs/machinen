@@ -2,6 +2,13 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+type RetainedPostgresRowProof = {
+  rowId: string;
+  direction: string;
+  accepted: boolean;
+  path: string;
+};
+
 type PostgresRealCrossArchE2eGateReport = {
   kind: "machinen.postgres-real-cross-arch-e2e-gate-report";
   version: 1;
@@ -21,7 +28,9 @@ type PostgresRealCrossArchE2eGateReport = {
     verifierAccepted: boolean;
     noUserSuppliedDump: boolean;
     targetVerifierOutputFileNotUsed: boolean;
+    rowProofsAccepted: boolean;
   }>;
+  retainedRowProofs: RetainedPostgresRowProof[];
   logicalCrossArchPsqlProof: {
     retained: boolean;
     accepted: boolean;
@@ -41,6 +50,15 @@ type PostgresRealCrossArchE2eGateReport = {
 };
 
 const directions = ["amd64-to-arm64", "arm64-to-amd64"];
+const requiredRowProofIds = [
+  "postgresql-psql-query-workload-e2e",
+  "postgresql-schema-data-query-e2e",
+  "postgresql-role-permission-e2e",
+  "postgresql-unix-pg-isready-command",
+  "postgresql-unix-psql-command",
+  "postgresql-unix-createdb-dropdb-command",
+];
+
 const requiredFiles = [
   "source/product-command.txt",
   "source/source-psql-transcript.txt",
@@ -89,16 +107,21 @@ export function buildPostgresRealCrossArchE2eGateReport(
           sidecarRuntimeUsed?: boolean;
           appHooksRequired?: boolean;
           metadataOnlyShortcutAccepted?: boolean;
+          rowProofs?: Array<{ rowId: string; accepted: boolean; path: string }>;
         })
       : undefined;
     const verifierAccepted = verifier?.accepted === true;
     const noUserSuppliedDump = verifier?.noUserSuppliedDump === true;
     const targetVerifierOutputFileNotUsed = verifier?.targetVerifierOutputFileNotUsed === true;
+    const rowProofsAccepted = requiredRowProofIds.every((rowId) =>
+      verifier?.rowProofs?.some((row) => row.rowId === rowId && row.accepted === true),
+    );
     const accepted =
       missing.length === 0 &&
       verifierAccepted &&
       noUserSuppliedDump &&
       targetVerifierOutputFileNotUsed &&
+      rowProofsAccepted &&
       verifier?.sourceIsaEmulationUsed === false &&
       verifier?.sidecarRuntimeUsed === false &&
       verifier?.appHooksRequired === false &&
@@ -111,8 +134,12 @@ export function buildPostgresRealCrossArchE2eGateReport(
       verifierAccepted,
       noUserSuppliedDump,
       targetVerifierOutputFileNotUsed,
+      rowProofsAccepted,
     };
   });
+  const retainedRowProofs = directions.flatMap((direction) =>
+    requiredRowProofIds.map((rowId) => retainedRowProof(retainedBase, direction, rowId)),
+  );
   const logicalFixtureReport = join(
     resolvedRoot,
     "proofs/postgres/20-0-0/retained/postgres-claim-ladder-report.json",
@@ -148,6 +175,7 @@ export function buildPostgresRealCrossArchE2eGateReport(
       arbitraryProcessCrossArchRestore: 0,
     },
     retainedRealE2eDirections,
+    retainedRowProofs,
     logicalCrossArchPsqlProof: {
       retained: existsSync(logicalCrossArchPsqlProofPath),
       accepted: logicalCrossArchPsqlProofReport?.accepted === true,
@@ -166,6 +194,31 @@ export function buildPostgresRealCrossArchE2eGateReport(
     blockers,
   } satisfies PostgresRealCrossArchE2eGateReport;
   return report;
+}
+
+function retainedRowProof(
+  base: string,
+  direction: string,
+  rowId: string,
+): RetainedPostgresRowProof {
+  const slugs: Record<string, string> = {
+    "postgresql-psql-query-workload-e2e": "psql-query-workload",
+    "postgresql-schema-data-query-e2e": "schema-data-query",
+    "postgresql-role-permission-e2e": "role-permission",
+    "postgresql-unix-pg-isready-command": "unix-pg-isready-command",
+    "postgresql-unix-psql-command": "unix-psql-command",
+    "postgresql-unix-createdb-dropdb-command": "unix-createdb-dropdb-command",
+  };
+  const path = join(base, direction, "row-proofs", slugs[rowId]!, "row-proof.json");
+  const report = existsSync(path)
+    ? (JSON.parse(readFileSync(path, "utf8")) as { accepted?: boolean })
+    : undefined;
+  return {
+    rowId,
+    direction,
+    accepted: report?.accepted === true,
+    path: path.replace(`${process.cwd()}/`, ""),
+  };
 }
 
 function parseArgs(args: string[]): { root: string; out?: string; json: boolean } {

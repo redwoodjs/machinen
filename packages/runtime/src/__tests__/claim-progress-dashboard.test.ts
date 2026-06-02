@@ -27,7 +27,7 @@ type ClaimProgressProofGroup = {
 
 type ClaimProgressDashboard = {
   kind: "machinen.claim-progress-dashboard";
-  version: 106;
+  version: 107;
   tracks: ClaimProgressTrack[];
   proofGroups: ClaimProgressProofGroup[];
 };
@@ -41,7 +41,7 @@ describe("claim progress dashboard", () => {
 
     expect(dashboard).toMatchObject({
       kind: "machinen.claim-progress-dashboard",
-      version: 106,
+      version: 107,
     });
     expect(dashboard.tracks.map((track) => track.id)).toEqual([
       "node-service",
@@ -113,6 +113,12 @@ describe("claim progress dashboard", () => {
     expect(proofIds).toContain("idle-epoll-tcp-proof");
     expect(proofIds).toContain("postgres-retained-verifier-artifacts");
     expect(proofIds).toContain("postgres-no-dump-product-e2e");
+    expect(proofIds).toContain("postgresql-unix-createdb-dropdb-command");
+    expect(proofIds).toContain("postgresql-unix-psql-command");
+    expect(proofIds).toContain("postgresql-unix-pg-isready-command");
+    expect(proofIds).toContain("postgresql-role-permission-e2e");
+    expect(proofIds).toContain("postgresql-schema-data-query-e2e");
+    expect(proofIds).toContain("postgresql-psql-query-workload-e2e");
     expect(proofIds).toContain("postgres-vmstate-snapshot-restore-psql");
     expect(proofIds).toContain("postgres-cross-arch-logical-psql-restore-gate");
     expect(proofIds).toContain("postgres-e2e-amd64-to-arm64");

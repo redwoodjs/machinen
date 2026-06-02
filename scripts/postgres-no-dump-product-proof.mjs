@@ -184,13 +184,55 @@ function stopPostgres(host, name) {
 }
 
 function psql(host, name, sql, database = "postgres") {
+  return psqlTranscript(host, name, sql, database).trim().split("\n").filter(Boolean).at(-1) ?? "";
+}
+
+function psqlTranscript(host, name, sql, database = "postgres") {
   const result = hostCommand(
     host,
     `docker exec -i ${shellQuote(name)} psql -U postgres -d ${shellQuote(database)} -v ON_ERROR_STOP=1 -At`,
     { input: sql, encoding: "utf8", maxBuffer: 16 * 1024 * 1024 },
   );
-  return outputText(result).stdout.trim().split("\n").filter(Boolean).at(-1) ?? "";
+  return outputText(result).stdout.trim();
 }
+
+function dockerTranscript(host, args, options = {}) {
+  const result = hostCommand(host, `docker ${args}`, { encoding: "utf8", ...options });
+  const { stdout, stderr } = outputText(result);
+  return `${stdout}${stderr}`.trim();
+}
+
+function pgIsReadyTranscript(host, name) {
+  return dockerTranscript(host, `exec ${shellQuote(name)} pg_isready -U postgres`);
+}
+
+function createdbDropdbTranscript(host, name) {
+  const tempDb = `machinen_lifecycle_${randomBytes(3).toString("hex")}`;
+  const commands = [
+    `docker exec ${shellQuote(name)} dropdb -U postgres --if-exists ${shellQuote(tempDb)}`,
+    `docker exec ${shellQuote(name)} createdb -U postgres ${shellQuote(tempDb)}`,
+    `docker exec ${shellQuote(name)} psql -U postgres -d ${shellQuote(tempDb)} -v ON_ERROR_STOP=1 -At -c ${shellQuote("SELECT current_database();")}`,
+    `docker exec ${shellQuote(name)} dropdb -U postgres ${shellQuote(tempDb)}`,
+  ];
+  return hostText(host, commands.join(" && "));
+}
+
+const ROLE_PERMISSION_SQL = `DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'machinen_reader') THEN
+    CREATE ROLE machinen_reader;
+  END IF;
+END $$;
+GRANT SELECT ON TABLE events TO machinen_reader;
+GRANT USAGE, SELECT ON SEQUENCE events_id_seq TO machinen_reader;
+`;
+
+const ROLE_PERMISSION_VERIFY_SQL = `SELECT json_build_object(
+  'roleExists', EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'machinen_reader'),
+  'readerCanSelectEvents', has_table_privilege('machinen_reader', 'events', 'SELECT'),
+  'readerCanUseSequence', has_sequence_privilege('machinen_reader', 'events_id_seq', 'USAGE'),
+  'readerCanSelectSequence', has_sequence_privilege('machinen_reader', 'events_id_seq', 'SELECT')
+)::text;
+`;
 
 function parsedVerifier(output) {
   return JSON.parse(output);
@@ -288,8 +330,28 @@ function runRoute({ source, target, image, workDir }) {
     startPostgres(target.rawHost, image, targetName);
     const sourceVersion = psql(source.rawHost, sourceName, "SHOW server_version;");
     const targetVersion = psql(target.rawHost, targetName, "SHOW server_version;");
+    const sourcePgIsReadyTranscript = pgIsReadyTranscript(source.rawHost, sourceName);
     psql(source.rawHost, sourceName, INIT_SQL);
     psql(source.rawHost, sourceName, WORKLOAD_SQL);
+    const sourcePsqlCommandTranscript = psqlTranscript(
+      source.rawHost,
+      sourceName,
+      "SELECT count(*) AS event_count, sum(value) AS value_sum FROM events;",
+      "machinen_pg",
+    );
+    const sourceRolePermissionApplyTranscript = psqlTranscript(
+      source.rawHost,
+      sourceName,
+      ROLE_PERMISSION_SQL,
+      "machinen_pg",
+    );
+    const sourceRolePermissionVerifier = psql(
+      source.rawHost,
+      sourceName,
+      ROLE_PERMISSION_VERIFY_SQL,
+      "machinen_pg",
+    );
+    const sourceCreatedbDropdbTranscript = createdbDropdbTranscript(source.rawHost, sourceName);
     const activeTransactions = psql(
       source.rawHost,
       sourceName,
@@ -347,7 +409,21 @@ function runRoute({ source, target, image, workDir }) {
       VERIFY_SQL_PATH,
     ];
     const restore = cliJson(restoreArgs, join(routeDir, "restore.json"));
+    const targetPgIsReadyTranscript = pgIsReadyTranscript(target.rawHost, targetName);
     const targetVerify = psql(target.rawHost, targetName, VERIFY_SQL, "machinen_pg");
+    const targetPsqlCommandTranscript = psqlTranscript(
+      target.rawHost,
+      targetName,
+      "SELECT count(*) AS event_count, sum(value) AS value_sum FROM events;",
+      "machinen_pg",
+    );
+    const targetRolePermissionVerifier = psql(
+      target.rawHost,
+      targetName,
+      ROLE_PERMISSION_VERIFY_SQL,
+      "machinen_pg",
+    );
+    const targetCreatedbDropdbTranscript = createdbDropdbTranscript(target.rawHost, targetName);
     const sourceFingerprint = logicalFingerprint(sourceVerifyBeforeCapture);
     const targetFingerprint = logicalFingerprint(targetVerify);
     if (source.arch === target.arch) {
@@ -374,6 +450,47 @@ function runRoute({ source, target, image, workDir }) {
       sourceVerifierOutput: sourceVerifyBeforeCapture,
       targetVerifierOutput: targetVerify,
       logicalFingerprint: sourceFingerprint,
+      rowProofs: {
+        psqlQueryWorkload: {
+          sourceTranscript: sourceVerifyBeforeCapture,
+          targetTranscript: targetVerify,
+          accepted: sourceVerifyBeforeCapture === targetVerify,
+        },
+        schemaDataQuery: {
+          sourceTranscript: sourcePsqlCommandTranscript,
+          targetTranscript: targetPsqlCommandTranscript,
+          accepted: sourcePsqlCommandTranscript === targetPsqlCommandTranscript,
+        },
+        rolePermission: {
+          sourceApplyTranscript: sourceRolePermissionApplyTranscript,
+          sourceVerifierTranscript: sourceRolePermissionVerifier,
+          targetVerifierTranscript: targetRolePermissionVerifier,
+          accepted:
+            sourceRolePermissionVerifier === targetRolePermissionVerifier &&
+            parsedVerifier(targetRolePermissionVerifier).roleExists === true &&
+            parsedVerifier(targetRolePermissionVerifier).readerCanSelectEvents === true &&
+            parsedVerifier(targetRolePermissionVerifier).readerCanUseSequence === true,
+        },
+        pgIsReadyCommand: {
+          sourceTranscript: sourcePgIsReadyTranscript,
+          targetTranscript: targetPgIsReadyTranscript,
+          accepted:
+            sourcePgIsReadyTranscript.includes("accepting connections") &&
+            targetPgIsReadyTranscript.includes("accepting connections"),
+        },
+        psqlCommand: {
+          sourceTranscript: sourcePsqlCommandTranscript,
+          targetTranscript: targetPsqlCommandTranscript,
+          accepted: sourcePsqlCommandTranscript === targetPsqlCommandTranscript,
+        },
+        createdbDropdbCommand: {
+          sourceTranscript: sourceCreatedbDropdbTranscript,
+          targetTranscript: targetCreatedbDropdbTranscript,
+          accepted:
+            sourceCreatedbDropdbTranscript.includes("machinen_lifecycle_") &&
+            targetCreatedbDropdbTranscript.includes("machinen_lifecycle_"),
+        },
+      },
       targetVerifierOutputSha256: sha256(targetVerify),
       internalDumpSha256: sha256File(join(bundleDir, "postgres.logical.dump")),
       internalDumpBytes: readFileSync(join(bundleDir, "postgres.logical.dump")).byteLength,

@@ -2,7 +2,7 @@
   "schema_version": 1,
   "state": "completed",
   "migrationCompleted": true,
-  "bundleDir": "/tmp/machinen-postgres-no-dump-product-proof-run/work/amd64-to-arm64/bundle",
+  "bundleDir": "/tmp/machinen-postgres-rowproofs-run/work/amd64-to-arm64/bundle",
   "descriptor": {
     "kind": "machinen.product-portable-snapshot",
     "formatVersion": 1,
@@ -20,12 +20,12 @@
     "artifacts": {
       "logicalDump": {
         "path": "postgres.logical.dump",
-        "sha256": "a5fe1389c863ee8bcb1ebb0de7149ba09564b1b44547b6d79ca9e82e5b2048d0",
-        "bytes": 2135
+        "sha256": "870857e8d56f4276a16323e3ae9d55fe469b1ee8ffb0697cb2f377c59bf5783d",
+        "bytes": 2544
       }
     },
     "provenance": {
-      "checkpointLsn": "0/2000188",
+      "checkpointLsn": "0/24212A0",
       "initSqlSha256": "36bd62cf169e1eb041ee1e7a791f177a2b4e6809e2240b9ad17297a72f88ea7a",
       "workloadSqlSha256": "cee4f9dee7f03744b3c13e8d6536ff7a1220904aa24cd01410daf9d5833acef9",
       "verifierSqlSha256": "1d4799aaf94829c9a6cfa11502992b916b111a620909dd6d0d337fbb1bf2171d",

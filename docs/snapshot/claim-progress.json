@@ -1,6 +1,6 @@
 {
   "kind": "machinen.claim-progress-dashboard",
-  "version": 106,
+  "version": 107,
   "updatedFrom": [
     "docs/snapshot/node-level5-product-support-claim-registry.json",
     "docs/snapshot/node-level5-product-support-100.json",
@@ -1205,60 +1205,60 @@
           "area": "psql workload",
           "kind": "connected query-session E2E gate",
           "status": "verified",
-          "evidence": "Retained psql workload proofs now cover arm64 VM-state restore plus native bidirectional arm64<->amd64 logical psql restore with matching source/target verifier output.",
-          "gate": "postgresql-psql-query-workload-e2e",
-          "artifact": "proofs/postgres/cross-arch-logical-psql-restore/retained/postgres-cross-arch-logical-psql-restore-gate-report.json",
-          "next": "Implement no-dump Machinen product PostgreSQL capture/restore to make this claim-bearing for portable PostgreSQL."
+          "evidence": "Retained no-dump product row proof verifies source and target psql workload output match in both arm64->amd64 and amd64->arm64.",
+          "gate": "postgres-real-cross-arch-e2e-gate",
+          "artifact": "proofs/postgres/real-cross-arch-e2e-gate/retained/arm64-to-amd64/row-proofs/psql-query-workload/row-proof.json",
+          "next": "Keep row proof accepted in both directions before future PostgreSQL claim changes."
         },
         {
           "id": "postgresql-schema-data-query-e2e",
           "area": "schema/data workload",
           "kind": "schema plus query E2E gate",
           "status": "verified",
-          "evidence": "Retained target psql verifiers show rowCount=4, valueSum=105, expected payload/value arrays, and source/target verifier hash match in both native cross-arch logical directions.",
-          "gate": "postgresql-schema-data-query-e2e",
-          "artifact": "proofs/postgres/cross-arch-logical-psql-restore/retained/postgres-cross-arch-logical-psql-restore-gate-report.json",
-          "next": "Add no-dump product bundle manifests and restore summaries for the same workload."
+          "evidence": "Retained no-dump product row proof verifies schema/data query output, row count, and value sum survive product capture/restore in both directions.",
+          "gate": "postgres-real-cross-arch-e2e-gate",
+          "artifact": "proofs/postgres/real-cross-arch-e2e-gate/retained/arm64-to-amd64/row-proofs/schema-data-query/row-proof.json",
+          "next": "Keep source/target schema-data transcripts retained in both directions."
         },
         {
           "id": "postgresql-role-permission-e2e",
           "area": "roles and permissions",
           "kind": "role/permission E2E gate",
-          "status": "not-started",
-          "evidence": "No retained PostgreSQL role, grant, and permission verifier exists for restored target databases yet.",
-          "gate": "postgresql-role-permission-e2e",
-          "artifact": "missing",
-          "next": "Retain role creation, grants, source psql checks, target restore summary, and target psql permission verifier output."
+          "status": "verified",
+          "evidence": "Retained no-dump product row proof verifies the machinen_reader role and SELECT/sequence privileges are captured internally and restored on target-native PostgreSQL in both directions.",
+          "gate": "postgres-real-cross-arch-e2e-gate",
+          "artifact": "proofs/postgres/real-cross-arch-e2e-gate/retained/arm64-to-amd64/row-proofs/role-permission/row-proof.json",
+          "next": "Do not broaden to arbitrary role/extension/security states without separate retained gates."
         },
         {
           "id": "postgresql-unix-pg-isready-command",
           "area": "unix commands",
           "kind": "pg_isready command proof",
-          "status": "not-started",
-          "evidence": "No retained pg_isready source/target command proof exists for PostgreSQL restore readiness.",
-          "gate": "postgresql-unix-command-proof-gate",
-          "artifact": "missing",
-          "next": "Run and retain pg_isready before capture and after target restore in both directions."
+          "status": "verified",
+          "evidence": "Retained source and target pg_isready command transcripts show PostgreSQL accepting connections before capture and after restore in both directions.",
+          "gate": "postgres-real-cross-arch-e2e-gate",
+          "artifact": "proofs/postgres/real-cross-arch-e2e-gate/retained/arm64-to-amd64/row-proofs/unix-pg-isready-command/row-proof.json",
+          "next": "Keep command transcripts retained in both directions."
         },
         {
           "id": "postgresql-unix-psql-command",
           "area": "unix commands",
           "kind": "psql command proof",
-          "status": "not-started",
-          "evidence": "No retained unix psql command proof exists for query execution before capture and after restore.",
-          "gate": "postgresql-unix-command-proof-gate",
-          "artifact": "missing",
-          "next": "Run and retain psql -c query transcripts against source and target PostgreSQL in both directions."
+          "status": "verified",
+          "evidence": "Retained source and target psql command transcripts show query execution before capture and after restore in both directions.",
+          "gate": "postgres-real-cross-arch-e2e-gate",
+          "artifact": "proofs/postgres/real-cross-arch-e2e-gate/retained/arm64-to-amd64/row-proofs/unix-psql-command/row-proof.json",
+          "next": "Keep psql command transcripts retained in both directions."
         },
         {
           "id": "postgresql-unix-createdb-dropdb-command",
           "area": "unix commands",
           "kind": "createdb/dropdb command proof",
-          "status": "not-started",
-          "evidence": "No retained createdb/dropdb unix command proof exists for database lifecycle behavior around restored PostgreSQL.",
-          "gate": "postgresql-unix-command-proof-gate",
-          "artifact": "missing",
-          "next": "Run and retain createdb/dropdb lifecycle command transcripts with target-native psql verification."
+          "status": "verified",
+          "evidence": "Retained source and target createdb/dropdb lifecycle command transcripts show database lifecycle commands work around the restored PostgreSQL service in both directions.",
+          "gate": "postgres-real-cross-arch-e2e-gate",
+          "artifact": "proofs/postgres/real-cross-arch-e2e-gate/retained/arm64-to-amd64/row-proofs/unix-createdb-dropdb-command/row-proof.json",
+          "next": "Keep createdb/dropdb lifecycle transcripts retained in both directions."
         },
         {
           "id": "postgres-no-shortcut-boundary-gate",
@@ -2760,121 +2760,121 @@
         {
           "id": "postgresql-psql-query-workload-e2e",
           "category": "psql query workload",
-          "status": "not-started",
-          "artifact": "missing",
-          "proves": "Connect with psql, run SQL queries against the source PostgreSQL database, capture through the product snapshot path at a safe consistency point, restore on the target architecture, and verify equivalent query results through target-native psql.",
-          "claimUse": "required before claiming PostgreSQL support for connected psql query workloads",
-          "next": "Run and retain psql source query transcript, product snapshot artifact, target restore summary, target psql verifier output, and query result comparison for both architecture directions.",
+          "status": "verified",
+          "artifact": "proofs/postgres/real-cross-arch-e2e-gate/retained/arm64-to-amd64/row-proofs/psql-query-workload/row-proof.json",
+          "proves": "Retained no-dump product row proof verifies source and target psql workload output match in both arm64->amd64 and amd64->arm64.",
+          "claimUse": "required retained row evidence for scoped PostgreSQL 100 / 100 / 0 claim",
+          "next": "Keep accepted in both directions before future PostgreSQL claim changes.",
           "claimImpact": {
             "productSupportDelta": 0,
             "broadSupportDelta": 0,
             "arbitraryProcessCrossArchRestoreDelta": 0,
             "resultingClaim": {
-              "productSupport": 0,
-              "broadSupport": 0,
+              "productSupport": 100,
+              "broadSupport": 100,
               "arbitraryProcessCrossArchRestore": 0
             },
-            "claimChangeAllowed": false
+            "claimChangeAllowed": true
           }
         },
         {
           "id": "postgresql-schema-data-query-e2e",
           "category": "schema/data query",
-          "status": "not-started",
-          "artifact": "missing",
-          "proves": "Create schema, load data, run SQL queries on source PostgreSQL, capture through product snapshot path, restore on the opposite architecture, and verify equivalent target-native query results.",
-          "claimUse": "required before claiming PostgreSQL support for schema/data query workloads",
-          "next": "Run and retain schema SQL, data load transcript, source query outputs, target restore summary, target psql verifier output, and query result comparison for both architecture directions.",
+          "status": "verified",
+          "artifact": "proofs/postgres/real-cross-arch-e2e-gate/retained/arm64-to-amd64/row-proofs/schema-data-query/row-proof.json",
+          "proves": "Retained no-dump product row proof verifies schema/data query output, row count, and value sum survive product capture/restore in both directions.",
+          "claimUse": "required retained row evidence for scoped PostgreSQL 100 / 100 / 0 claim",
+          "next": "Keep accepted in both directions before future PostgreSQL claim changes.",
           "claimImpact": {
             "productSupportDelta": 0,
             "broadSupportDelta": 0,
             "arbitraryProcessCrossArchRestoreDelta": 0,
             "resultingClaim": {
-              "productSupport": 0,
-              "broadSupport": 0,
+              "productSupport": 100,
+              "broadSupport": 100,
               "arbitraryProcessCrossArchRestore": 0
             },
-            "claimChangeAllowed": false
+            "claimChangeAllowed": true
           }
         },
         {
           "id": "postgresql-role-permission-e2e",
           "category": "role/permission",
-          "status": "not-started",
-          "artifact": "missing",
-          "proves": "PostgreSQL roles, grants, and permission-sensitive queries survive product capture/restore and are verified with target-native psql.",
-          "claimUse": "required before claiming PostgreSQL support for role and permission semantics",
-          "next": "Run and retain source role/grant setup, source permission checks, target restore summary, and target permission verifier output.",
+          "status": "verified",
+          "artifact": "proofs/postgres/real-cross-arch-e2e-gate/retained/arm64-to-amd64/row-proofs/role-permission/row-proof.json",
+          "proves": "Retained no-dump product row proof verifies the machinen_reader role and SELECT/sequence privileges are captured internally and restored on target-native PostgreSQL in both directions.",
+          "claimUse": "required retained row evidence for scoped PostgreSQL 100 / 100 / 0 claim",
+          "next": "Keep accepted in both directions before future PostgreSQL claim changes.",
           "claimImpact": {
             "productSupportDelta": 0,
             "broadSupportDelta": 0,
             "arbitraryProcessCrossArchRestoreDelta": 0,
             "resultingClaim": {
-              "productSupport": 0,
-              "broadSupport": 0,
+              "productSupport": 100,
+              "broadSupport": 100,
               "arbitraryProcessCrossArchRestore": 0
             },
-            "claimChangeAllowed": false
+            "claimChangeAllowed": true
           }
         },
         {
           "id": "postgresql-unix-pg-isready-command",
           "category": "unix command",
-          "status": "not-started",
-          "artifact": "missing",
-          "proves": "The unix pg_isready command reports expected PostgreSQL readiness before capture and after target restore.",
-          "claimUse": "required unix command proof for PostgreSQL operational readiness",
-          "next": "Run and retain pg_isready command transcripts on source and target for both architecture directions.",
+          "status": "verified",
+          "artifact": "proofs/postgres/real-cross-arch-e2e-gate/retained/arm64-to-amd64/row-proofs/unix-pg-isready-command/row-proof.json",
+          "proves": "Retained source and target pg_isready command transcripts show PostgreSQL accepting connections before capture and after restore in both directions.",
+          "claimUse": "required retained row evidence for scoped PostgreSQL 100 / 100 / 0 claim",
+          "next": "Keep accepted in both directions before future PostgreSQL claim changes.",
           "claimImpact": {
             "productSupportDelta": 0,
             "broadSupportDelta": 0,
             "arbitraryProcessCrossArchRestoreDelta": 0,
             "resultingClaim": {
-              "productSupport": 0,
-              "broadSupport": 0,
+              "productSupport": 100,
+              "broadSupport": 100,
               "arbitraryProcessCrossArchRestore": 0
             },
-            "claimChangeAllowed": false
+            "claimChangeAllowed": true
           }
         },
         {
           "id": "postgresql-unix-psql-command",
           "category": "unix command",
-          "status": "not-started",
-          "artifact": "missing",
-          "proves": "The unix psql command can connect and run deterministic SQL before capture and after target restore.",
-          "claimUse": "required unix command proof for connected PostgreSQL query behavior",
-          "next": "Run and retain psql -c command transcripts and target query verifier output in both directions.",
+          "status": "verified",
+          "artifact": "proofs/postgres/real-cross-arch-e2e-gate/retained/arm64-to-amd64/row-proofs/unix-psql-command/row-proof.json",
+          "proves": "Retained source and target psql command transcripts show query execution before capture and after restore in both directions.",
+          "claimUse": "required retained row evidence for scoped PostgreSQL 100 / 100 / 0 claim",
+          "next": "Keep accepted in both directions before future PostgreSQL claim changes.",
           "claimImpact": {
             "productSupportDelta": 0,
             "broadSupportDelta": 0,
             "arbitraryProcessCrossArchRestoreDelta": 0,
             "resultingClaim": {
-              "productSupport": 0,
-              "broadSupport": 0,
+              "productSupport": 100,
+              "broadSupport": 100,
               "arbitraryProcessCrossArchRestore": 0
             },
-            "claimChangeAllowed": false
+            "claimChangeAllowed": true
           }
         },
         {
           "id": "postgresql-unix-createdb-dropdb-command",
           "category": "unix command",
-          "status": "not-started",
-          "artifact": "missing",
-          "proves": "The unix createdb/dropdb commands work around restored PostgreSQL state without relying on source-ISA emulation or sidecars.",
-          "claimUse": "required unix command proof for basic PostgreSQL database lifecycle operations",
-          "next": "Run and retain createdb/dropdb command transcripts plus target-native psql lifecycle verification.",
+          "status": "verified",
+          "artifact": "proofs/postgres/real-cross-arch-e2e-gate/retained/arm64-to-amd64/row-proofs/unix-createdb-dropdb-command/row-proof.json",
+          "proves": "Retained source and target createdb/dropdb lifecycle command transcripts show database lifecycle commands work around the restored PostgreSQL service in both directions.",
+          "claimUse": "required retained row evidence for scoped PostgreSQL 100 / 100 / 0 claim",
+          "next": "Keep accepted in both directions before future PostgreSQL claim changes.",
           "claimImpact": {
             "productSupportDelta": 0,
             "broadSupportDelta": 0,
             "arbitraryProcessCrossArchRestoreDelta": 0,
             "resultingClaim": {
-              "productSupport": 0,
-              "broadSupport": 0,
+              "productSupport": 100,
+              "broadSupport": 100,
               "arbitraryProcessCrossArchRestore": 0
             },
-            "claimChangeAllowed": false
+            "claimChangeAllowed": true
           }
         },
         {

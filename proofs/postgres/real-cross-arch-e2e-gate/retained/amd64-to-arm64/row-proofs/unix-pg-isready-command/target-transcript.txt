@@ -1,0 +1,2 @@
+/var/run/postgresql:5432 - accepting connections
+/Users/peterp/.profile: line 1: /bin/brew: No such file or directory

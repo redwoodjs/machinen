@@ -1,0 +1,1 @@
+{"roleExists" : true, "readerCanSelectEvents" : true, "readerCanUseSequence" : true, "readerCanSelectSequence" : true}

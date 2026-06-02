@@ -1,0 +1,15 @@
+{
+  "kind": "machinen.postgres-row-proof",
+  "rowId": "postgresql-unix-pg-isready-command",
+  "direction": "arm64-to-amd64",
+  "accepted": true,
+  "sourceArch": "arm64",
+  "targetArch": "amd64",
+  "noUserSuppliedDump": true,
+  "targetNativeExecution": true,
+  "proof": {
+    "sourceTranscript": "/var/run/postgresql:5432 - accepting connections\n/Users/peterp/.profile: line 1: /bin/brew: No such file or directory",
+    "targetTranscript": "/var/run/postgresql:5432 - accepting connections",
+    "accepted": true
+  }
+}

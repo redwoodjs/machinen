@@ -1,0 +1,15 @@
+{
+  "kind": "machinen.postgres-row-proof",
+  "rowId": "postgresql-unix-createdb-dropdb-command",
+  "direction": "arm64-to-amd64",
+  "accepted": true,
+  "sourceArch": "arm64",
+  "targetArch": "amd64",
+  "noUserSuppliedDump": true,
+  "targetNativeExecution": true,
+  "proof": {
+    "sourceTranscript": "machinen_lifecycle_088668",
+    "targetTranscript": "machinen_lifecycle_1bc445",
+    "accepted": true
+  }
+}

@@ -4924,8 +4924,9 @@ function capturePostgresDockerEvidence(options: CapturePostgresOptions): Postgre
   const target = postgresDockerTargetFromCapture(options);
   const temp = mkdtempSync(join(tmpdir(), "machinen-postgres-capture-"));
   const dumpPath = join(temp, PRODUCT_PORTABLE_POSTGRES_DUMP);
+  const rolePrelude = postgresDockerRolePrelude(target);
   const dump = postgresDockerPgDump(target);
-  writeFileSync(dumpPath, dump);
+  writeFileSync(dumpPath, Buffer.concat([Buffer.from(rolePrelude, "utf8"), dump]));
   return {
     dumpPath,
     sourceVerifierOutput: postgresDockerPsql(
@@ -4975,6 +4976,27 @@ function postgresDockerTargetFromRestore(parsed: ParsedRestoreCommandArgs): Post
   };
 }
 
+function postgresDockerRolePrelude(target: PostgresDockerTarget): string {
+  const roles = postgresDockerPsql(
+    { ...target, database: "postgres" },
+    "SELECT rolname FROM pg_roles WHERE rolname !~ '^pg_' AND rolname <> 'postgres' ORDER BY rolname;",
+    { tuplesOnly: true },
+  )
+    .trim()
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (roles.length === 0) {
+    return "";
+  }
+  return `${roles
+    .map(
+      (role) =>
+        `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = ${postgresStringLiteral(role)}) THEN CREATE ROLE ${postgresIdentifier(role)}; END IF; END $$;`,
+    )
+    .join("\n")}\n`;
+}
+
 function postgresDockerPgDump(target: PostgresDockerTarget): Buffer {
   const args = [
     "exec",
@@ -4983,7 +5005,6 @@ function postgresDockerPgDump(target: PostgresDockerTarget): Buffer {
     "-U",
     "postgres",
     "--no-owner",
-    "--no-acl",
     "--format=plain",
     "--dbname",
     target.database,
@@ -5040,6 +5061,10 @@ function postgresIdentifier(value: string): string {
     die(`invalid PostgreSQL identifier: ${value}`);
   }
   return value;
+}
+
+function postgresStringLiteral(value: string): string {
+  return `'${value.replaceAll("'", "''")}'`;
 }
 
 function createRestoreQuietState(parsed: ParsedRestoreCommandArgs, snapDir: string): QuietRunState {

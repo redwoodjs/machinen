@@ -1,7 +1,7 @@
 {
   "kind": "machinen.postgres-real-cross-arch-e2e-gate-report",
   "version": 1,
-  "generatedAt": "2026-06-02T18:50:57.338Z",
+  "generatedAt": "2026-06-02T19:04:22.792Z",
   "accepted": true,
   "publicClaimAllowed": true,
   "publicClaim": {
@@ -17,7 +17,8 @@
       "missing": [],
       "verifierAccepted": true,
       "noUserSuppliedDump": true,
-      "targetVerifierOutputFileNotUsed": true
+      "targetVerifierOutputFileNotUsed": true,
+      "rowProofsAccepted": true
     },
     {
       "direction": "arm64-to-amd64",
@@ -26,7 +27,82 @@
       "missing": [],
       "verifierAccepted": true,
       "noUserSuppliedDump": true,
-      "targetVerifierOutputFileNotUsed": true
+      "targetVerifierOutputFileNotUsed": true,
+      "rowProofsAccepted": true
+    }
+  ],
+  "retainedRowProofs": [
+    {
+      "rowId": "postgresql-psql-query-workload-e2e",
+      "direction": "amd64-to-arm64",
+      "accepted": true,
+      "path": "proofs/postgres/real-cross-arch-e2e-gate/retained/amd64-to-arm64/row-proofs/psql-query-workload/row-proof.json"
+    },
+    {
+      "rowId": "postgresql-schema-data-query-e2e",
+      "direction": "amd64-to-arm64",
+      "accepted": true,
+      "path": "proofs/postgres/real-cross-arch-e2e-gate/retained/amd64-to-arm64/row-proofs/schema-data-query/row-proof.json"
+    },
+    {
+      "rowId": "postgresql-role-permission-e2e",
+      "direction": "amd64-to-arm64",
+      "accepted": true,
+      "path": "proofs/postgres/real-cross-arch-e2e-gate/retained/amd64-to-arm64/row-proofs/role-permission/row-proof.json"
+    },
+    {
+      "rowId": "postgresql-unix-pg-isready-command",
+      "direction": "amd64-to-arm64",
+      "accepted": true,
+      "path": "proofs/postgres/real-cross-arch-e2e-gate/retained/amd64-to-arm64/row-proofs/unix-pg-isready-command/row-proof.json"
+    },
+    {
+      "rowId": "postgresql-unix-psql-command",
+      "direction": "amd64-to-arm64",
+      "accepted": true,
+      "path": "proofs/postgres/real-cross-arch-e2e-gate/retained/amd64-to-arm64/row-proofs/unix-psql-command/row-proof.json"
+    },
+    {
+      "rowId": "postgresql-unix-createdb-dropdb-command",
+      "direction": "amd64-to-arm64",
+      "accepted": true,
+      "path": "proofs/postgres/real-cross-arch-e2e-gate/retained/amd64-to-arm64/row-proofs/unix-createdb-dropdb-command/row-proof.json"
+    },
+    {
+      "rowId": "postgresql-psql-query-workload-e2e",
+      "direction": "arm64-to-amd64",
+      "accepted": true,
+      "path": "proofs/postgres/real-cross-arch-e2e-gate/retained/arm64-to-amd64/row-proofs/psql-query-workload/row-proof.json"
+    },
+    {
+      "rowId": "postgresql-schema-data-query-e2e",
+      "direction": "arm64-to-amd64",
+      "accepted": true,
+      "path": "proofs/postgres/real-cross-arch-e2e-gate/retained/arm64-to-amd64/row-proofs/schema-data-query/row-proof.json"
+    },
+    {
+      "rowId": "postgresql-role-permission-e2e",
+      "direction": "arm64-to-amd64",
+      "accepted": true,
+      "path": "proofs/postgres/real-cross-arch-e2e-gate/retained/arm64-to-amd64/row-proofs/role-permission/row-proof.json"
+    },
+    {
+      "rowId": "postgresql-unix-pg-isready-command",
+      "direction": "arm64-to-amd64",
+      "accepted": true,
+      "path": "proofs/postgres/real-cross-arch-e2e-gate/retained/arm64-to-amd64/row-proofs/unix-pg-isready-command/row-proof.json"
+    },
+    {
+      "rowId": "postgresql-unix-psql-command",
+      "direction": "arm64-to-amd64",
+      "accepted": true,
+      "path": "proofs/postgres/real-cross-arch-e2e-gate/retained/arm64-to-amd64/row-proofs/unix-psql-command/row-proof.json"
+    },
+    {
+      "rowId": "postgresql-unix-createdb-dropdb-command",
+      "direction": "arm64-to-amd64",
+      "accepted": true,
+      "path": "proofs/postgres/real-cross-arch-e2e-gate/retained/arm64-to-amd64/row-proofs/unix-createdb-dropdb-command/row-proof.json"
     }
   ],
   "logicalCrossArchPsqlProof": {

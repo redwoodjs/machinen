@@ -15,12 +15,50 @@
   "targetVerifierOutputFileNotUsed": true,
   "activeTransactionsAtCapture": 0,
   "targetNativeExecution": true,
-  "internalDumpSha256": "3fbac837f6c0e29c2a86f91aa886dd8cf20e2049d767ada45fb03174da5a4827",
-  "bundleManifestSha256": "298acc033b947e58a81dfb70bdaa6ec8e19bb35483f08a389ca5a7a6d306142e",
-  "restoreSummarySha256": "2a2f9d129b4c8b27720c413ee6faf80cdc212193a645a85a49bb13eea9cb28a4",
+  "internalDumpSha256": "5eb04a431d50c4faf794e74417c1f6795673f124db8479800553c510cbb2fb04",
+  "bundleManifestSha256": "8ea58eca42007b11caf1e557c1163423649e7424fd9fa4ea3ae560bbfc8a8416",
+  "restoreSummarySha256": "839c70859cb321d965a716ee5acfd7e8eefb2bfbf764e3887cb11dba34c1c609",
   "sourceIsaEmulationUsed": false,
   "sourceTextReusedAsTargetCode": false,
   "sidecarRuntimeUsed": false,
   "appHooksRequired": false,
-  "metadataOnlyShortcutAccepted": false
+  "metadataOnlyShortcutAccepted": false,
+  "rowProofs": [
+    {
+      "rowId": "postgresql-psql-query-workload-e2e",
+      "slug": "psql-query-workload",
+      "accepted": true,
+      "path": "proofs/postgres/real-cross-arch-e2e-gate/retained/arm64-to-amd64/row-proofs/psql-query-workload"
+    },
+    {
+      "rowId": "postgresql-schema-data-query-e2e",
+      "slug": "schema-data-query",
+      "accepted": true,
+      "path": "proofs/postgres/real-cross-arch-e2e-gate/retained/arm64-to-amd64/row-proofs/schema-data-query"
+    },
+    {
+      "rowId": "postgresql-role-permission-e2e",
+      "slug": "role-permission",
+      "accepted": true,
+      "path": "proofs/postgres/real-cross-arch-e2e-gate/retained/arm64-to-amd64/row-proofs/role-permission"
+    },
+    {
+      "rowId": "postgresql-unix-pg-isready-command",
+      "slug": "unix-pg-isready-command",
+      "accepted": true,
+      "path": "proofs/postgres/real-cross-arch-e2e-gate/retained/arm64-to-amd64/row-proofs/unix-pg-isready-command"
+    },
+    {
+      "rowId": "postgresql-unix-psql-command",
+      "slug": "unix-psql-command",
+      "accepted": true,
+      "path": "proofs/postgres/real-cross-arch-e2e-gate/retained/arm64-to-amd64/row-proofs/unix-psql-command"
+    },
+    {
+      "rowId": "postgresql-unix-createdb-dropdb-command",
+      "slug": "unix-createdb-dropdb-command",
+      "accepted": true,
+      "path": "proofs/postgres/real-cross-arch-e2e-gate/retained/arm64-to-amd64/row-proofs/unix-createdb-dropdb-command"
+    }
+  ]
 }
