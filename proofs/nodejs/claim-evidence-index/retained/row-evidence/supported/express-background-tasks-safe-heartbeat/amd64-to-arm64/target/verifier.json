@@ -1,0 +1,27 @@
+{
+  "kind": "machinen.node-supported-row-target-verifier",
+  "version": 1,
+  "accepted": true,
+  "rowId": "express-background-tasks-safe-heartbeat",
+  "direction": "amd64-to-arm64",
+  "routePath": "/express-background-tasks-safe-heartbeat",
+  "scenario": "background-tasks",
+  "scenarioVerifier": {
+    "externalNetworkSafeReconnectVerified": false,
+    "backgroundTaskHeartbeatVerified": true,
+    "backgroundTicksObserved": 2
+  },
+  "expectedBody": "express-background-tasks-safe-heartbeat-ok",
+  "actualBody": "express-background-tasks-safe-heartbeat-ok",
+  "bodySha256": "c664d7a181987498040c87871699d7106dbba2b172f419de9e1bb6dcc1774f21",
+  "expectedHeader": {
+    "x-machinen-row": "express-background-tasks-safe-heartbeat",
+    "x-machinen-scenario": "safe-background-heartbeat"
+  },
+  "actualHeaders": "HTTP/1.1 200 OK\nX-Powered-By: Express\nx-machinen-row: express-background-tasks-safe-heartbeat\nx-machinen-scenario: safe-background-heartbeat\nx-machinen-background-ticks: 2\nContent-Type: text/html; charset=utf-8\nContent-Length: 42\nETag: W/\"2a-B/KwWBw/y8xhzqO8dsQI78tH1/s\"\nDate: Tue, 02 Jun 2026 17:14:26 GMT\nConnection: keep-alive\nKeep-Alive: timeout=5\n\n",
+  "targetNativeNodeVerified": true,
+  "sourceIsaEmulationUsed": false,
+  "sidecarRuntimeUsed": false,
+  "appHooksRequired": false,
+  "metadataOnlySuccessAccepted": false
+}
