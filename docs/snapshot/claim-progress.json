@@ -1,6 +1,6 @@
 {
   "kind": "machinen.claim-progress-dashboard",
-  "version": 51,
+  "version": 52,
   "updatedFrom": [
     "docs/snapshot/node-level5-product-support-claim-registry.json",
     "docs/snapshot/node-level5-product-support-100.json",
@@ -149,19 +149,15 @@
       ],
       "rowCoverage": {
         "supportedDirectionBundlesRequired": 136,
-        "supportedDirectionBundlesCovered": 40,
-        "supportedDirectionBundlesMissing": 96,
+        "supportedDirectionBundlesCovered": 42,
+        "supportedDirectionBundlesMissing": 94,
         "refusedDirectionArtifactsRequired": 84,
         "refusedDirectionArtifactsCovered": 84,
         "refusedDirectionArtifactsMissing": 0,
         "notProvenRows": 4,
         "report": "proofs/nodejs/claim-evidence-index/retained/node-claim-row-coverage-report.json",
-        "summary": "40 / 136 covered \u00b7 missing 96",
+        "summary": "42 / 136 covered \u00b7 missing 94",
         "missingSupportedRows": [
-          {
-            "rowId": "express-installed-redirect",
-            "directions": ["arm64-to-amd64", "amd64-to-arm64"]
-          },
           {
             "rowId": "express-installed-response-header",
             "directions": ["arm64-to-amd64", "amd64-to-arm64"]
@@ -351,7 +347,7 @@
             "directions": ["arm64-to-amd64", "amd64-to-arm64"]
           }
         ],
-        "missingSupportedRowsCount": 48,
+        "missingSupportedRowsCount": 47,
         "missingSupportedDirectionBundles": [
           {
             "proofId": "nodejs/001",
@@ -573,13 +569,13 @@
             "proofId": "nodejs/037",
             "rowId": "express-installed-redirect",
             "direction": "arm64-to-amd64",
-            "status": "missing"
+            "status": "covered"
           },
           {
             "proofId": "nodejs/038",
             "rowId": "express-installed-redirect",
             "direction": "amd64-to-arm64",
-            "status": "missing"
+            "status": "covered"
           },
           {
             "proofId": "nodejs/039",
