@@ -18,6 +18,9 @@ The generated reports are retained at:
 ```text
 proofs/nodejs/claim-evidence-index/retained/node-claim-evidence-index-report.json
 proofs/nodejs/claim-evidence-index/retained/node-claim-row-coverage-report.json
+proofs/nodejs/claim-evidence-index/retained/node-claim-boundary-guard-report.json
+proofs/nodejs/claim-evidence-index/retained/node-row-verifier-integrity-report.json
+proofs/nodejs/claim-evidence-index/retained/node-artifact-integrity-manifest.json
 ```
 
 Current retained inputs:
@@ -28,11 +31,11 @@ Current retained inputs:
 
 Current policy:
 
-- keep `100 / 100 / 0` unverified;
-- keep public Node claim at `0 / 0 / 0`;
-- treat `proofs/nodejs/real-cross-arch-e2e-gate/` as bidirectional seed evidence only;
-- treat retained refusal reports as boundary definitions until every support-matrix refusal row is linked;
-- require every supported and refused matrix row to link to retained source/target artifacts before a claim raise.
+- selected Node service support is claim-bearing at `100 / 100 / 0` only while this retained gate accepts;
+- arbitrary Node applications/processes and arbitrary Linux process cross-architecture restore remain `0 / 0 / 0`;
+- require every supported matrix row to link to retained source/target artifacts and accepted target verifiers;
+- require every refused matrix row to link to retained refusal artifacts;
+- require the boundary guard, verifier-integrity report, and artifact-integrity manifest to stay accepted before future claim changes.
 
 The row-coverage report lists the exact required paths for each missing supported row under:
 

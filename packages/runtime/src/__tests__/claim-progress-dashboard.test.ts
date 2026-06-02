@@ -27,7 +27,7 @@ type ClaimProgressProofGroup = {
 
 type ClaimProgressDashboard = {
   kind: "machinen.claim-progress-dashboard";
-  version: 101;
+  version: 103;
   tracks: ClaimProgressTrack[];
   proofGroups: ClaimProgressProofGroup[];
 };
@@ -41,10 +41,11 @@ describe("claim progress dashboard", () => {
 
     expect(dashboard).toMatchObject({
       kind: "machinen.claim-progress-dashboard",
-      version: 101,
+      version: 103,
     });
     expect(dashboard.tracks.map((track) => track.id)).toEqual([
       "node-service",
+      "node-arbitrary-app",
       "postgres",
       "bun",
       "generic-linux-service",
@@ -83,6 +84,7 @@ describe("claim progress dashboard", () => {
     expect(dashboard.proofGroups.map((group) => group.id)).toEqual([
       "node-service-100-100-0",
       "node-claim-evidence-index",
+      "node-arbitrary-app-boundary",
       "node-real-cross-arch-e2e-gate",
       "postgres-20-0-0",
       "postgres-real-cross-arch-e2e-gate",
@@ -99,6 +101,9 @@ describe("claim progress dashboard", () => {
     );
     expect(proofIds).toContain("node-numbered-proof-corpus-index");
     expect(proofIds).toContain("node-row-coverage-manifest");
+    expect(proofIds).toContain("node-claim-boundary-guard");
+    expect(proofIds).toContain("node-row-verifier-integrity");
+    expect(proofIds).toContain("node-artifact-integrity-manifest");
     expect(proofIds).toContain("node-e2e-artifact-audit");
     expect(proofIds).toContain("regular-file-fd-proof");
     expect(proofIds).toContain("arbitrary-process-claim-ready-gate");
@@ -107,6 +112,7 @@ describe("claim progress dashboard", () => {
     expect(proofIds).toContain("postgres-retained-verifier-artifacts");
     expect(proofIds).toContain("postgres-e2e-amd64-to-arm64");
     expect(proofIds).toContain("postgres-e2e-arm64-to-amd64");
+    expect(proofIds).toContain("postgres-no-shortcut-boundary-gate");
     const embeddedJson =
       /<script id="embedded-claim-progress" type="application\/json">\n([\s\S]*?)\n    <\/script>/u.exec(
         html,

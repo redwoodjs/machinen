@@ -460,7 +460,7 @@
     <script id="embedded-claim-progress" type="application/json">
       {
         "kind": "machinen.claim-progress-dashboard",
-        "version": 101,
+        "version": 103,
         "updatedFrom": [
           "docs/snapshot/node-level5-product-support-claim-registry.json",
           "docs/snapshot/node-level5-product-support-100.json",
@@ -502,7 +502,7 @@
               "arbitraryProcessCrossArchRestore": 0,
               "claimChangeAllowed": true
             },
-            "summary": "Selected Node service support is validated at 100 / 100 / 0 by retained bidirectional row E2E artifacts and complete refusal artifacts. Arbitrary-process cross-architecture restore remains 0.",
+            "summary": "Selected Node service support is validated at 100 / 100 / 0 by retained bidirectional row E2E artifacts, verifier-integrity checks, artifact hashes, boundary guard, and complete refusal artifacts. Arbitrary Node applications/processes remain a separate 0 / 0 / 0 scope.",
             "claimGate": "node-claim-evidence-index retained row gate passed",
             "claimChangeAllowed": true,
             "evidence": [
@@ -557,6 +557,36 @@
                 "gate": "node-real-cross-arch-e2e-evidence-gate",
                 "artifact": "proofs/nodejs/real-cross-arch-e2e-gate/retained/node-real-cross-arch-e2e-gate-report.json",
                 "next": "Keep as seed evidence alongside the complete row coverage gate."
+              },
+              {
+                "id": "node-claim-boundary-guard",
+                "area": "boundary",
+                "kind": "negative claim guard",
+                "status": "verified",
+                "evidence": "Retained guard proves selected Node service 100 / 100 / 0 does not broaden to arbitrary Node apps/processes, raw CPU restore, source ISA emulation, app hooks, sidecars, or metadata-only success.",
+                "gate": "node-claim-boundary-guard",
+                "artifact": "proofs/nodejs/claim-evidence-index/retained/node-claim-boundary-guard-report.json",
+                "next": "Keep accepted before future Node claim changes."
+              },
+              {
+                "id": "node-row-verifier-integrity",
+                "area": "artifact audit",
+                "kind": "verifier integrity",
+                "status": "verified",
+                "evidence": "Retained integrity report checks every row-direction target verifier for accepted=true, path row/direction match, target body hash match, target-native Node, and forbidden-shortcut flags.",
+                "gate": "node-row-verifier-integrity",
+                "artifact": "proofs/nodejs/claim-evidence-index/retained/node-row-verifier-integrity-report.json",
+                "next": "Regenerate and keep accepted when row artifacts change."
+              },
+              {
+                "id": "node-artifact-integrity-manifest",
+                "area": "artifact audit",
+                "kind": "artifact manifest",
+                "status": "verified",
+                "evidence": "Retained manifest records SHA256 and byte size for every required row artifact, refusal artifact, and retained report used by the claim.",
+                "gate": "node-artifact-integrity-manifest",
+                "artifact": "proofs/nodejs/claim-evidence-index/retained/node-artifact-integrity-manifest.json",
+                "next": "Regenerate and keep accepted when retained artifacts change."
               }
             ],
             "refusals": [
@@ -589,18 +619,13 @@
             "nextSteps": [
               {
                 "priority": 1,
-                "item": "Keep all selected Node service rows backed by retained source/target artifacts and verifier outputs.",
-                "gate": "node-claim-row-coverage"
+                "item": "Keep the boundary guard, verifier-integrity report, artifact manifest, row coverage, and refusal reports accepted before future Node claim changes.",
+                "gate": "node-claim-evidence-index"
               },
               {
                 "priority": 2,
-                "item": "Keep arbitrary Node applications and arbitrary Linux process restore out of the public claim until separate retained gates exist.",
-                "gate": "arbitrary-node/process-boundary"
-              },
-              {
-                "priority": 3,
-                "item": "Fail closed if any supported row loses artifacts or any refused row loses refusal evidence.",
-                "gate": "node-claim-evidence-index"
+                "item": "Keep arbitrary Node applications/processes out of the selected service claim until a separate retained gate exists.",
+                "gate": "node-claim-boundary-guard"
               }
             ],
             "docs": [
@@ -1464,6 +1489,95 @@
             }
           },
           {
+            "id": "node-arbitrary-app",
+            "name": "Arbitrary Node app/process restore",
+            "family": "runtime-service-boundary",
+            "runtime": "node",
+            "status": "refused-boundary",
+            "stage": "not claimed",
+            "scope": "Arbitrary Node applications/processes outside the selected safe service matrix.",
+            "currentClaim": {
+              "productSupport": 0,
+              "broadSupport": 0,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "nextClaim": {
+              "productSupport": 0,
+              "broadSupport": 0,
+              "arbitraryProcessCrossArchRestore": 0,
+              "claimChangeAllowed": false
+            },
+            "summary": "Arbitrary Node app/process restore remains 0 / 0 / 0. The selected Node service 100 / 100 / 0 claim does not include arbitrary V8 heap/native stack continuation, arbitrary framework apps, raw CPU restore, source ISA emulation, sidecars, app hooks, or metadata-only success.",
+            "claimGate": "separate arbitrary-Node retained reconstruction gate required",
+            "claimChangeAllowed": false,
+            "evidence": ["node-claim-boundary-guard", "node-app-support-matrix-boundaries"],
+            "evidenceRows": [
+              {
+                "id": "node-arbitrary-scope-boundary",
+                "area": "boundary",
+                "kind": "scope boundary",
+                "status": "refused-boundary",
+                "evidence": "The selected service matrix keeps arbitrary Express/Fastify apps and arbitrary Node processes as non-claimed boundaries.",
+                "gate": "node-claim-boundary-guard",
+                "artifact": "proofs/nodejs/claim-evidence-index/retained/node-claim-boundary-guard-report.json",
+                "next": "Create a separate retained reconstruction gate before any arbitrary Node app/process claim."
+              },
+              {
+                "id": "node-v8-native-stack-boundary",
+                "area": "runtime state",
+                "kind": "runtime boundary",
+                "status": "forbidden",
+                "evidence": "Arbitrary V8 heap/native stack continuation is not proven by selected service row artifacts.",
+                "gate": "arbitrary-node-runtime-state-gate",
+                "artifact": "packages/runtime/src/node-level5-app-support-matrix.ts",
+                "next": "Require captured source process state and target-native reconstruction, not runtime-profile shortcuts."
+              }
+            ],
+            "refusals": [
+              "arbitrary V8 heap continuation",
+              "arbitrary native stack continuation",
+              "raw CPU restore",
+              "source ISA emulation",
+              "sidecars/app hooks/metadata-only success"
+            ],
+            "refusalRows": [
+              {
+                "boundary": "arbitrary V8 heap/native stack continuation",
+                "status": "refused-boundary",
+                "reason": "Selected service rows reconstruct target-native app behavior; they do not prove arbitrary in-process continuation.",
+                "neededToReduce": "Retained arbitrary Node process reconstruction proof with target-native verifier artifacts."
+              },
+              {
+                "boundary": "raw CPU restore / source ISA emulation",
+                "status": "forbidden",
+                "reason": "Product architecture forbids copied CPU/register state and source ISA emulation as success paths.",
+                "neededToReduce": "Not reducible for this product path."
+              },
+              {
+                "boundary": "app hooks, sidecars, metadata-only success",
+                "status": "forbidden",
+                "reason": "Claim-bearing restore cannot depend on app-exported state, sidecar replay, or metadata-only success.",
+                "neededToReduce": "Use retained captured state and target-native reconstruction/verifier outputs."
+              }
+            ],
+            "nextSteps": [
+              {
+                "priority": 1,
+                "item": "Define a separate arbitrary Node app/process proof matrix before any claim change.",
+                "gate": "arbitrary-node-proof-matrix"
+              },
+              {
+                "priority": 2,
+                "item": "Retain target-native reconstruction/verifier artifacts for arbitrary V8/libuv/native state if this scope is pursued.",
+                "gate": "arbitrary-node-reconstruction-gate"
+              }
+            ],
+            "docs": [
+              "node-level5-product-support-100.md",
+              "proper-node-level5-without-runtime-profiles.md"
+            ]
+          },
+          {
             "id": "postgres",
             "name": "PostgreSQL portable restore",
             "family": "database",
@@ -1482,7 +1596,7 @@
               "arbitraryProcessCrossArchRestore": 0,
               "claimChangeAllowed": false
             },
-            "summary": "No public PostgreSQL snapshot/restore claim is active for no-dump machinen snapshot/restore. Existing logical descriptor work is proof-only fixture evidence. Product and broad-service support stay 0 until real bidirectional PostgreSQL E2E validation is retained.",
+            "summary": "No public PostgreSQL no-dump snapshot/restore claim is active. A retained no-shortcut gate now explicitly blocks logical fixture overclaiming until real bidirectional PostgreSQL E2E artifacts exist.",
             "claimGate": "postgres-real-cross-arch-e2e-gate required",
             "claimChangeAllowed": false,
             "evidence": [
@@ -1507,11 +1621,11 @@
                 "id": "postgres-real-cross-arch-e2e-gate",
                 "area": "claim gate",
                 "kind": "required E2E gate",
-                "status": "not-started",
-                "evidence": "No retained amd64->arm64 and arm64->amd64 real PostgreSQL no-dump E2E run exists yet.",
+                "status": "partial-proof",
+                "evidence": "Retained no-shortcut gate confirms no real amd64->arm64 or arm64->amd64 PostgreSQL no-dump E2E artifacts exist yet and keeps public PostgreSQL at 0 / 0 / 0.",
                 "gate": "postgres-real-cross-arch-e2e-gate",
-                "artifact": "missing",
-                "next": "Run real PostgreSQL source/target E2E validation in both directions."
+                "artifact": "proofs/postgres/real-cross-arch-e2e-gate/retained/postgres-real-cross-arch-e2e-gate-report.json",
+                "next": "Run real PostgreSQL source/target E2E validation in both directions without a user-supplied dump."
               },
               {
                 "id": "postgresql-psql-query-workload-e2e",
@@ -1572,6 +1686,16 @@
                 "gate": "postgresql-unix-command-proof-gate",
                 "artifact": "missing",
                 "next": "Run and retain createdb/dropdb lifecycle command transcripts with target-native psql verification."
+              },
+              {
+                "id": "postgres-no-shortcut-boundary-gate",
+                "area": "boundary",
+                "kind": "no-shortcut gate",
+                "status": "verified",
+                "evidence": "Retained report rejects user-supplied dump, physical data-dir copy, source ISA emulation, sidecars, app hooks, and metadata-only success as public PostgreSQL proof shortcuts.",
+                "gate": "postgres-real-cross-arch-e2e-gate",
+                "artifact": "proofs/postgres/real-cross-arch-e2e-gate/retained/postgres-real-cross-arch-e2e-gate-report.json",
+                "next": "Replace blocker with real retained PostgreSQL E2E artifacts before any public claim raise."
               }
             ],
             "refusals": [
@@ -1611,53 +1735,18 @@
             "nextSteps": [
               {
                 "priority": 1,
-                "item": "Run real PostgreSQL amd64->arm64 no-dump product snapshot/restore E2E and retain transcripts/artifacts.",
+                "item": "Run real PostgreSQL amd64->arm64 no-dump product snapshot/restore E2E and retain source/target transcripts/artifacts.",
                 "gate": "postgres-e2e-amd64-to-arm64"
               },
               {
                 "priority": 2,
-                "item": "Run real PostgreSQL arm64->amd64 no-dump product snapshot/restore E2E and retain transcripts/artifacts.",
+                "item": "Run real PostgreSQL arm64->amd64 no-dump product snapshot/restore E2E and retain source/target transcripts/artifacts.",
                 "gate": "postgres-e2e-arm64-to-amd64"
               },
               {
                 "priority": 3,
-                "item": "Add product command proof that internally creates dump/provenance instead of requiring a user-supplied dump.",
-                "gate": "postgres-e2e-no-user-dump-contract"
-              },
-              {
-                "priority": 4,
-                "item": "Run real E2E refusal cases for active sessions, active transactions, dirty WAL, physical data-dir copy, replication/failover, and metadata-only shortcuts.",
-                "gate": "postgres-e2e-refusal-audit"
-              },
-              {
-                "priority": 5,
-                "item": "Add psql-connected query workload E2E coverage for PostgreSQL, including source query transcript and target psql verifier output.",
-                "gate": "postgresql-psql-query-workload-e2e"
-              },
-              {
-                "priority": 6,
-                "item": "Add PostgreSQL schema/data/query E2E coverage with retained source and target psql verifier outputs.",
-                "gate": "postgresql-schema-data-query-e2e"
-              },
-              {
-                "priority": 7,
-                "item": "Add PostgreSQL role and permission E2E coverage with retained target-native permission checks.",
-                "gate": "postgresql-role-permission-e2e"
-              },
-              {
-                "priority": 8,
-                "item": "Add PostgreSQL unix pg_isready command proof before capture and after restore.",
-                "gate": "postgresql-unix-pg-isready-command"
-              },
-              {
-                "priority": 9,
-                "item": "Add PostgreSQL unix psql command proof for deterministic source/target SQL queries.",
-                "gate": "postgresql-unix-psql-command"
-              },
-              {
-                "priority": 10,
-                "item": "Add PostgreSQL unix createdb/dropdb command proof for database lifecycle behavior.",
-                "gate": "postgresql-unix-createdb-dropdb-command"
+                "item": "Keep the no-shortcut gate accepted so logical fixture evidence cannot raise public PostgreSQL claims.",
+                "gate": "postgres-no-shortcut-boundary-gate"
               }
             ],
             "docs": ["product-portable-postgres.ts", "product-portable-postgres-claim-ladder.ts"]
@@ -2571,7 +2660,7 @@
               "candidateProductSupport": 20,
               "candidateBroadSupport": 0
             },
-            "promotionEffect": "Prevents numbered proof shards, checked summaries, facades, or release gates from raising public Node claims unless linked to retained product E2E artifacts.",
+            "promotionEffect": "Claim-bearing only while row coverage, refusal coverage, boundary guard, verifier integrity, and artifact integrity reports remain accepted.",
             "proofDirectory": "proofs/nodejs/claim-evidence-index",
             "proofs": [
               {
@@ -2642,6 +2731,104 @@
                 "proves": "The support matrix has an explicit row-by-row coverage ledger: 144 supported direction bundles required and covered; 84 refusal direction rows required and covered; 0 not-proven rows remain.",
                 "claimUse": "required missing-artifact ledger before any Node claim raise",
                 "next": "Keep the retained row coverage gate complete before future claim changes.",
+                "claimImpact": {
+                  "productSupportDelta": 0,
+                  "broadSupportDelta": 0,
+                  "arbitraryProcessCrossArchRestoreDelta": 0,
+                  "resultingClaim": {
+                    "productSupport": 0,
+                    "broadSupport": 0,
+                    "arbitraryProcessCrossArchRestore": 0
+                  },
+                  "claimChangeAllowed": false
+                }
+              },
+              {
+                "id": "node-claim-boundary-guard",
+                "category": "boundary",
+                "status": "verified",
+                "artifact": "proofs/nodejs/claim-evidence-index/retained/node-claim-boundary-guard-report.json",
+                "proves": "The selected Node service 100 / 100 / 0 claim does not broaden to arbitrary Node apps/processes or forbidden shortcut paths.",
+                "claimUse": "required retained guard for public selected Node service claim",
+                "next": "Keep accepted before future Node claim changes.",
+                "claimImpact": {
+                  "productSupportDelta": 0,
+                  "broadSupportDelta": 0,
+                  "arbitraryProcessCrossArchRestoreDelta": 0,
+                  "resultingClaim": {
+                    "productSupport": 100,
+                    "broadSupport": 100,
+                    "arbitraryProcessCrossArchRestore": 0
+                  },
+                  "claimChangeAllowed": false
+                }
+              },
+              {
+                "id": "node-row-verifier-integrity",
+                "category": "artifact audit",
+                "status": "verified",
+                "artifact": "proofs/nodejs/claim-evidence-index/retained/node-row-verifier-integrity-report.json",
+                "proves": "Every supported row-direction verifier is accepted, path-matched, body-hash-matched, target-native, and free of forbidden shortcuts.",
+                "claimUse": "required retained verifier audit for public selected Node service claim",
+                "next": "Regenerate after row artifact changes.",
+                "claimImpact": {
+                  "productSupportDelta": 0,
+                  "broadSupportDelta": 0,
+                  "arbitraryProcessCrossArchRestoreDelta": 0,
+                  "resultingClaim": {
+                    "productSupport": 100,
+                    "broadSupport": 100,
+                    "arbitraryProcessCrossArchRestore": 0
+                  },
+                  "claimChangeAllowed": false
+                }
+              },
+              {
+                "id": "node-artifact-integrity-manifest",
+                "category": "artifact audit",
+                "status": "verified",
+                "artifact": "proofs/nodejs/claim-evidence-index/retained/node-artifact-integrity-manifest.json",
+                "proves": "Every retained source/target/refusal/report artifact used by the claim has a stable SHA256 and byte count.",
+                "claimUse": "required retained artifact index for public selected Node service claim",
+                "next": "Regenerate after retained artifact changes.",
+                "claimImpact": {
+                  "productSupportDelta": 0,
+                  "broadSupportDelta": 0,
+                  "arbitraryProcessCrossArchRestoreDelta": 0,
+                  "resultingClaim": {
+                    "productSupport": 100,
+                    "broadSupport": 100,
+                    "arbitraryProcessCrossArchRestore": 0
+                  },
+                  "claimChangeAllowed": false
+                }
+              }
+            ]
+          },
+          {
+            "id": "node-arbitrary-app-boundary",
+            "claim": "Arbitrary Node app/process support not claimed",
+            "trackId": "node-arbitrary-app",
+            "status": "refused-boundary",
+            "scope": "Arbitrary Node apps/processes outside the selected safe service matrix remain non-claimed.",
+            "claimNumbers": {
+              "productSupport": 0,
+              "broadSupport": 0,
+              "arbitraryProcessCrossArchRestore": 0,
+              "candidateProductSupport": 0,
+              "candidateBroadSupport": 0
+            },
+            "promotionEffect": "Prevents selected Node service proof rows from being read as arbitrary Node app/process support.",
+            "proofDirectory": "proofs/nodejs/claim-evidence-index",
+            "proofs": [
+              {
+                "id": "node-arbitrary-app-boundary-guard",
+                "category": "boundary",
+                "status": "refused-boundary",
+                "artifact": "proofs/nodejs/claim-evidence-index/retained/node-claim-boundary-guard-report.json",
+                "proves": "Arbitrary Node applications/processes remain 0 / 0 / 0 despite selected Node service 100 / 100 / 0.",
+                "claimUse": "negative boundary guard only",
+                "next": "Create a separate retained arbitrary Node reconstruction gate before any claim change.",
                 "claimImpact": {
                   "productSupportDelta": 0,
                   "broadSupportDelta": 0,
@@ -2854,7 +3041,7 @@
             "id": "postgres-real-cross-arch-e2e-gate",
             "claim": "PostgreSQL real cross-architecture E2E gate required",
             "trackId": "postgres",
-            "status": "not-started",
+            "status": "partial-proof",
             "scope": "No-dump machinen snapshot/restore for real PostgreSQL across amd64<->arm64 requires retained source and target PostgreSQL E2E artifacts before any public claim.",
             "claimNumbers": {
               "productSupport": 0,
@@ -3054,6 +3241,26 @@
                 "proves": "Active sessions/transactions, dirty WAL, physical data-dir copy, replication/failover state, source-ISA emulation, sidecars, hooks, and metadata-only success are refused in the real E2E harness.",
                 "claimUse": "required to bound any future claim",
                 "next": "Run refusal cases in the same E2E harness and retain refusal artifacts.",
+                "claimImpact": {
+                  "productSupportDelta": 0,
+                  "broadSupportDelta": 0,
+                  "arbitraryProcessCrossArchRestoreDelta": 0,
+                  "resultingClaim": {
+                    "productSupport": 0,
+                    "broadSupport": 0,
+                    "arbitraryProcessCrossArchRestore": 0
+                  },
+                  "claimChangeAllowed": false
+                }
+              },
+              {
+                "id": "postgres-no-shortcut-boundary-gate",
+                "category": "boundary",
+                "status": "verified",
+                "artifact": "proofs/postgres/real-cross-arch-e2e-gate/retained/postgres-real-cross-arch-e2e-gate-report.json",
+                "proves": "PostgreSQL public support remains 0 / 0 / 0 until retained no-dump bidirectional E2E artifacts exist; logical fixtures, user-supplied dumps, physical data-dir copy, source ISA emulation, sidecars, app hooks, and metadata-only success cannot raise the claim.",
+                "claimUse": "negative no-shortcut gate only; blocks overclaiming",
+                "next": "Run real PostgreSQL E2E artifacts in both directions before any claim raise.",
                 "claimImpact": {
                   "productSupportDelta": 0,
                   "broadSupportDelta": 0,
@@ -3886,6 +4093,7 @@
             "generic-linux-service": "generic linux",
             "native-process-substrate": "native substrate",
             "node-service": "nodejs",
+            "node-arbitrary-app": "nodejs-boundary",
             postgres: "postgresql",
             "whole-linux-vm-workload": "whole linux vm",
           }[track.id] ?? track.name
@@ -4043,6 +4251,7 @@
             "generic-linux-service": "generic",
             "native-process-substrate": "native",
             "node-service": "nodejs",
+            "node-arbitrary-app": "nodejs-boundary",
             postgres: "postgresql",
             "whole-linux-vm-workload": "vm",
           }[track.id] ?? "track"

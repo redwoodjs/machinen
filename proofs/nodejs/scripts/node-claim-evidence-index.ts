@@ -52,11 +52,18 @@ type RefusalDefinitionSummary = {
   status: "defined-but-not-all-claim-retained" | "claim-ready-retained";
 };
 
+type RetainedHardeningReport = {
+  id: string;
+  path: string;
+  accepted: boolean;
+  role: "boundary-guard" | "verifier-integrity" | "artifact-integrity";
+};
+
 type NodeClaimEvidenceIndexReport = {
   kind: "machinen.node-claim-evidence-index-report";
   version: 1;
   generatedAt: string;
-  accepted: true;
+  accepted: boolean;
   publicClaimAllowed: boolean;
   publicClaim: {
     productSupport: 0 | 100;
@@ -67,6 +74,7 @@ type NodeClaimEvidenceIndexReport = {
   numberedBuckets: NumberedBucket[];
   claimFolders: ClaimFolder[];
   retainedGates: RetainedGate[];
+  retainedHardeningReports: RetainedHardeningReport[];
   refusalDefinitions: RefusalDefinitionSummary;
   consolidationPolicy: {
     singleGate: true;
@@ -130,7 +138,9 @@ export function buildNodeClaimEvidenceIndexReport(root: string): NodeClaimEviden
   const resolvedRoot = resolve(root);
   const matrix = buildNodeLevel5AppSupportMatrix();
   const rowCoverage = buildNodeClaimRowCoverageReport(resolvedRoot);
-  const publicClaimAllowed = rowCoverage.claimAllowed;
+  const retainedHardeningReports = readRetainedHardeningReports(resolvedRoot);
+  const publicClaimAllowed =
+    rowCoverage.claimAllowed && retainedHardeningReports.every((report) => report.accepted);
   const retainedGates = [readRetainedE2eGate(resolvedRoot)];
   const realAppRefusalSummary = readJson(
     join(resolvedRoot, "claim-evidence-index/retained/refusals/real-app-summary.json"),
@@ -145,7 +155,7 @@ export function buildNodeClaimEvidenceIndexReport(root: string): NodeClaimEviden
     kind: "machinen.node-claim-evidence-index-report",
     version: 1,
     generatedAt: new Date().toISOString(),
-    accepted: true,
+    accepted: publicClaimAllowed,
     publicClaimAllowed,
     publicClaim: {
       productSupport: publicClaimAllowed ? 100 : 0,
@@ -160,6 +170,7 @@ export function buildNodeClaimEvidenceIndexReport(root: string): NodeClaimEviden
     ),
     claimFolders: [inspect100ClaimFolder(resolvedRoot)],
     retainedGates,
+    retainedHardeningReports,
     refusalDefinitions: {
       realAppRefusalMarkers: NODE_LEVEL5_PRODUCT_REFUSAL_MARKERS.map(([marker]) => marker),
       realAppRefusalMarkerCount: NODE_LEVEL5_PRODUCT_REFUSAL_MARKERS.length,
@@ -209,6 +220,45 @@ export function buildNodeClaimEvidenceIndexReport(root: string): NodeClaimEviden
           "Link each row to exact retained source command, target command, manifest, restore summary, verifier output, and hashes.",
           "Fail the gate if any row is only a checked summary, facade/unit test, stale numbered proof, metadata-only success, app hook, sidecar, source-ISA emulation, or raw CPU restore.",
         ],
+  };
+}
+
+function readRetainedHardeningReports(root: string): RetainedHardeningReport[] {
+  return [
+    retainedHardeningReport(
+      root,
+      "node-claim-boundary-guard",
+      "claim-evidence-index/retained/node-claim-boundary-guard-report.json",
+      "boundary-guard",
+    ),
+    retainedHardeningReport(
+      root,
+      "node-row-verifier-integrity",
+      "claim-evidence-index/retained/node-row-verifier-integrity-report.json",
+      "verifier-integrity",
+    ),
+    retainedHardeningReport(
+      root,
+      "node-artifact-integrity-manifest",
+      "claim-evidence-index/retained/node-artifact-integrity-manifest.json",
+      "artifact-integrity",
+    ),
+  ];
+}
+
+function retainedHardeningReport(
+  root: string,
+  id: string,
+  path: string,
+  role: RetainedHardeningReport["role"],
+): RetainedHardeningReport {
+  const absolutePath = join(root, path);
+  const report = readJson(absolutePath);
+  return {
+    id,
+    path: displayPath(absolutePath),
+    role,
+    accepted: report?.accepted === true,
   };
 }
 

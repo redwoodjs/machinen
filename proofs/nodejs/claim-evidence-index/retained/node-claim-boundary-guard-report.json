@@ -1,0 +1,73 @@
+{
+  "kind": "machinen.node-claim-boundary-guard",
+  "version": 1,
+  "generatedAt": "2026-06-02T17:47:24.079Z",
+  "accepted": true,
+  "selectedNodeServiceClaim": {
+    "productSupport": 100,
+    "broadSupport": 100,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "forbiddenBroadening": {
+    "arbitraryNodeClaimed": false,
+    "arbitraryExpressClaimed": false,
+    "arbitraryFastifyClaimed": false,
+    "arbitraryLinuxProcessClaimed": false,
+    "rawCpuRestoreSupported": false,
+    "sourceIsaEmulationAllowed": false,
+    "appHooksRequired": false,
+    "sidecarRuntimeAllowed": false,
+    "metadataOnlySuccessAccepted": false
+  },
+  "matrixBoundaryIds": [
+    "arbitrary-express-app",
+    "arbitrary-fastify-app",
+    "arbitrary-node-process",
+    "raw-cross-arch-cpu-restore"
+  ],
+  "dashboardScopes": [
+    {
+      "id": "node-service",
+      "currentClaim": {
+        "productSupport": 100,
+        "broadSupport": 100,
+        "arbitraryProcessCrossArchRestore": 0
+      }
+    },
+    {
+      "id": "node-arbitrary-app",
+      "currentClaim": {
+        "productSupport": 0,
+        "broadSupport": 0,
+        "arbitraryProcessCrossArchRestore": 0
+      }
+    }
+  ],
+  "checks": [
+    {
+      "id": "selected-node-service-100-100-0",
+      "passed": true,
+      "message": "selected Node service claim is 100 / 100 / 0"
+    },
+    {
+      "id": "arbitrary-node-not-claimed",
+      "passed": true,
+      "message": "arbitrary Node/application support is not inferred from the selected service claim"
+    },
+    {
+      "id": "dashboard-has-separate-arbitrary-node-scope",
+      "passed": true,
+      "message": "dashboard separates selected Node service support from arbitrary Node app/process scope"
+    },
+    {
+      "id": "matrix-boundaries-retained",
+      "passed": true,
+      "message": "matrix retains arbitrary framework/app/process and raw CPU boundaries"
+    },
+    {
+      "id": "forbidden-shortcuts-remain-forbidden",
+      "passed": true,
+      "message": "raw CPU restore, source ISA emulation, app hooks, sidecars, and metadata-only success stay forbidden"
+    }
+  ]
+}

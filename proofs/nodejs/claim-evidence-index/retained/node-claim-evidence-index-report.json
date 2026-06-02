@@ -1,7 +1,7 @@
 {
   "kind": "machinen.node-claim-evidence-index-report",
   "version": 1,
-  "generatedAt": "2026-06-02T17:23:15.483Z",
+  "generatedAt": "2026-06-02T17:47:25.995Z",
   "accepted": true,
   "publicClaimAllowed": true,
   "publicClaim": {
@@ -114,6 +114,26 @@
         "retained refusal artifacts for unsupported workers, native addons, Wasm/external memory, TLS active state, active async work, and child process live state",
         "claim-level audit proving no raw CPU restore, source-ISA emulation, app hooks, sidecars, or metadata-only success"
       ]
+    }
+  ],
+  "retainedHardeningReports": [
+    {
+      "id": "node-claim-boundary-guard",
+      "path": "proofs/nodejs/claim-evidence-index/retained/node-claim-boundary-guard-report.json",
+      "role": "boundary-guard",
+      "accepted": true
+    },
+    {
+      "id": "node-row-verifier-integrity",
+      "path": "proofs/nodejs/claim-evidence-index/retained/node-row-verifier-integrity-report.json",
+      "role": "verifier-integrity",
+      "accepted": true
+    },
+    {
+      "id": "node-artifact-integrity-manifest",
+      "path": "proofs/nodejs/claim-evidence-index/retained/node-artifact-integrity-manifest.json",
+      "role": "artifact-integrity",
+      "accepted": true
     }
   ],
   "refusalDefinitions": {

@@ -27,11 +27,11 @@ New claim-facing proof summaries should live under the product claim folders abo
 The dashboard source of truth is `docs/snapshot/claim-progress.json`; each
 claim group here has a `claim.json` copy plus a readable `README.md`.
 
-- [Node claim evidence index](./nodejs/claim-evidence-index/README.md) — `claim-facing-index`
-- [Node service 100 / 100 / 0 unverified](./nodejs/100-100-0/README.md) — `partial-proof`
+- [Node claim evidence index](./nodejs/claim-evidence-index/README.md) — `claim-facing-index-verified`
+- [Node service 100 / 100 / 0 selected service claim](./nodejs/100-100-0/README.md) — `verified`
 - [Node real cross-architecture E2E gate](./nodejs/real-cross-arch-e2e-gate/README.md) — `partial-proof`
 - [Postgres clean logical descriptor fixture](./postgres/20-0-0/README.md) — `partial-proof`
-- [Postgres real cross-architecture E2E gate](./postgres/real-cross-arch-e2e-gate/README.md) — `not-started`
+- [Postgres real cross-architecture E2E gate](./postgres/real-cross-arch-e2e-gate/README.md) — `blocked-by-missing-real-e2e-artifacts`
 - [Bun service support not started](./bun/not-started/README.md) — `not-started`
 - [Generic Linux service support not started](./generic-linux-service/not-started/README.md) — `not-started`
 - [Level 4 ping resource continuation](./network-resources/level4-ping-resource-continuation/README.md) — `proven-resource`

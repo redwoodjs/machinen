@@ -1,0 +1,55 @@
+{
+  "kind": "machinen.postgres-real-cross-arch-e2e-gate-report",
+  "version": 1,
+  "generatedAt": "2026-06-02T17:47:26.544Z",
+  "accepted": true,
+  "publicClaimAllowed": false,
+  "publicClaim": {
+    "productSupport": 0,
+    "broadSupport": 0,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "retainedRealE2eDirections": [
+    {
+      "direction": "amd64-to-arm64",
+      "retained": false,
+      "missing": [
+        "source/product-command.txt",
+        "source/source-psql-transcript.txt",
+        "source/snapshot.json",
+        "target/product-command.txt",
+        "target/restore.json",
+        "target/target-psql-verifier.txt",
+        "target/verifier.json"
+      ]
+    },
+    {
+      "direction": "arm64-to-amd64",
+      "retained": false,
+      "missing": [
+        "source/product-command.txt",
+        "source/source-psql-transcript.txt",
+        "source/snapshot.json",
+        "target/product-command.txt",
+        "target/restore.json",
+        "target/target-psql-verifier.txt",
+        "target/verifier.json"
+      ]
+    }
+  ],
+  "logicalFixtureClaimBearing": false,
+  "noShortcutPolicy": {
+    "userSuppliedDumpAcceptedAsProductProof": false,
+    "physicalDataDirCopyAccepted": false,
+    "sourceIsaEmulationAccepted": false,
+    "sidecarRuntimeAccepted": false,
+    "appHooksAccepted": false,
+    "metadataOnlySuccessAccepted": false
+  },
+  "blockers": [
+    "no retained real PostgreSQL no-dump amd64-to-arm64 product E2E artifacts",
+    "no retained real PostgreSQL no-dump arm64-to-amd64 product E2E artifacts",
+    "logical descriptor fixture is not claim-bearing for no-dump machinen snapshot/restore",
+    "active sessions, active transactions, dirty WAL, physical data-dir copy, source ISA emulation, sidecars, app hooks, and metadata-only success remain refusal boundaries"
+  ]
+}
