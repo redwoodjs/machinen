@@ -32,6 +32,7 @@ claim group here has a `claim.json` copy plus a readable `README.md`.
 - [Node real cross-architecture E2E gate](./nodejs/real-cross-arch-e2e-gate/README.md) — `partial-proof`
 - [Postgres clean logical descriptor fixture](./postgres/20-0-0/README.md) — `partial-proof`
 - [Postgres / psql VM-state snapshot/restore](./postgres/vmstate-snapshot-restore/README.md) — `verified`
+- [Postgres / psql bidirectional cross-arch logical restore](./postgres/cross-arch-logical-psql-restore/README.md) — `verified`
 - [Postgres real cross-architecture E2E gate](./postgres/real-cross-arch-e2e-gate/README.md) — `blocked-by-missing-real-e2e-artifacts`
 - [Bun service support not started](./bun/not-started/README.md) — `not-started`
 - [Generic Linux service support not started](./generic-linux-service/not-started/README.md) — `not-started`

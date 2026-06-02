@@ -1,0 +1,1 @@
+docker run postgres:15-bookworm on local-macbook (arm64); load fixture SQL; CHECKPOINT; pg_dump machinen_pg

@@ -1,0 +1,38 @@
+{
+  "id": "postgres-cross-arch-logical-psql-restore",
+  "claim": "PostgreSQL / psql bidirectional cross-architecture logical restore verified",
+  "trackId": "postgres",
+  "status": "verified",
+  "scope": "Clean quiesced PostgreSQL 15 database restored through target-native logical SQL using psql in both arm64->amd64 and amd64->arm64 directions.",
+  "claimNumbers": {
+    "productSupport": 0,
+    "broadSupport": 0,
+    "arbitraryProcessCrossArchRestore": 0,
+    "candidateProductSupport": 0,
+    "candidateBroadSupport": 0
+  },
+  "promotionEffect": "Adds verified bidirectional PostgreSQL/psql logical restore evidence, but does not raise the public no-dump Machinen PostgreSQL snapshot/restore claim.",
+  "proofDirectory": "proofs/postgres/cross-arch-logical-psql-restore",
+  "proofs": [
+    {
+      "id": "postgres-cross-arch-logical-psql-restore-gate",
+      "category": "cross-arch logical E2E",
+      "status": "verified",
+      "artifact": "proofs/postgres/cross-arch-logical-psql-restore/retained/postgres-cross-arch-logical-psql-restore-gate-report.json",
+      "proves": "A clean quiesced PostgreSQL 15 psql workload restored successfully through target-native logical SQL in both arm64->amd64 and amd64->arm64 directions.",
+      "claimUse": "narrow PostgreSQL/psql logical cross-arch proof only; not a no-dump Machinen product snapshot/restore claim",
+      "next": "Implement and retain no-dump Machinen product PostgreSQL capture/restore artifacts before raising portable PostgreSQL support.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 0,
+          "broadSupport": 0,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -14,6 +14,12 @@ type PostgresRealCrossArchE2eGateReport = {
     arbitraryProcessCrossArchRestore: 0;
   };
   retainedRealE2eDirections: Array<{ direction: string; retained: boolean; missing: string[] }>;
+  logicalCrossArchPsqlProof: {
+    retained: boolean;
+    accepted: boolean;
+    claimBearingForNoDumpMachinenProduct: false;
+    path: string;
+  };
   logicalFixtureClaimBearing: false;
   noShortcutPolicy: {
     userSuppliedDumpAcceptedAsProductProof: false;
@@ -71,6 +77,13 @@ export function buildPostgresRealCrossArchE2eGateReport(
     resolvedRoot,
     "proofs/postgres/20-0-0/retained/postgres-claim-ladder-report.json",
   );
+  const logicalCrossArchPsqlProofPath = join(
+    resolvedRoot,
+    "proofs/postgres/cross-arch-logical-psql-restore/retained/postgres-cross-arch-logical-psql-restore-gate-report.json",
+  );
+  const logicalCrossArchPsqlProofReport = existsSync(logicalCrossArchPsqlProofPath)
+    ? (JSON.parse(readFileSync(logicalCrossArchPsqlProofPath, "utf8")) as { accepted?: boolean })
+    : undefined;
   const blockers = [
     "no retained real PostgreSQL no-dump amd64-to-arm64 product E2E artifacts",
     "no retained real PostgreSQL no-dump arm64-to-amd64 product E2E artifacts",
@@ -90,6 +103,12 @@ export function buildPostgresRealCrossArchE2eGateReport(
       arbitraryProcessCrossArchRestore: 0,
     },
     retainedRealE2eDirections,
+    logicalCrossArchPsqlProof: {
+      retained: existsSync(logicalCrossArchPsqlProofPath),
+      accepted: logicalCrossArchPsqlProofReport?.accepted === true,
+      claimBearingForNoDumpMachinenProduct: false,
+      path: "proofs/postgres/cross-arch-logical-psql-restore/retained/postgres-cross-arch-logical-psql-restore-gate-report.json",
+    },
     logicalFixtureClaimBearing: false,
     noShortcutPolicy: {
       userSuppliedDumpAcceptedAsProductProof: false,

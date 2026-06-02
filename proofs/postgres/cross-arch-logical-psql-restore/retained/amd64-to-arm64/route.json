@@ -1,0 +1,23 @@
+{
+  "route": "amd64-to-arm64",
+  "sourceHost": "root@192.168.0.8",
+  "targetHost": "local-macbook",
+  "sourceArch": "amd64",
+  "targetArch": "arm64",
+  "sourcePostgresVersion": "15.18 (Debian 15.18-1.pgdg12+1)",
+  "targetPostgresVersion": "15.18 (Debian 15.18-1.pgdg12+1)",
+  "sourceVerifierOutput": "{\"database\" : \"machinen_pg\", \"rowCount\" : 4, \"valueSum\" : 105, \"payloads\" : [\"alpha\",\"beta\",\"gamma\",\"delta\"], \"values\" : [10,25,30,40]}",
+  "targetVerifierOutput": "{\"database\" : \"machinen_pg\", \"rowCount\" : 4, \"valueSum\" : 105, \"payloads\" : [\"alpha\",\"beta\",\"gamma\",\"delta\"], \"values\" : [10,25,30,40]}",
+  "logicalFingerprint": "19c61ac217b9bdf7dae88e5a515643d3b49c21a2a0d920096bf3017b36195166",
+  "targetVerifierOutputSha256": "5d1062188f302d75521800edc29b0a44e218e88699e27b98793afcefb28c3051",
+  "dumpSha256": "5bd70238925d56f6040ae1a97f75e6a2b5231e6c67f87334d9907f0b61ddedb0",
+  "dumpBytes": 2135,
+  "checkpointLsn": "0/2000188",
+  "activeTransactionsAtCapture": 0,
+  "migrationCompleted": true,
+  "targetNativeExecution": true,
+  "sourceIsaEmulationUsed": false,
+  "sourceTextReusedAsTargetCode": false,
+  "sidecarRuntimeUsed": false,
+  "appHooksRequired": false
+}

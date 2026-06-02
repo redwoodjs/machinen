@@ -1,7 +1,7 @@
 {
   "kind": "machinen.postgres-vmstate-snapshot-restore-gate-report",
   "version": 1,
-  "generatedAt": "2026-06-02T18:24:21.776Z",
+  "generatedAt": "2026-06-02T18:33:37.346Z",
   "accepted": true,
   "verifiedScope": {
     "runtime": "postgresql",
@@ -138,8 +138,8 @@
     {
       "path": "proofs/postgres/vmstate-snapshot-restore/retained/source/snapshot-meta.json",
       "exists": true,
-      "bytes": 749,
-      "sha256": "7a55b239d8ce851ed7f20e3143aedbd9a67f22ef67ef81fbdb6fbbf8e8454d04"
+      "bytes": 903,
+      "sha256": "03f051b6306803d28ac90ea9ea9cba6b88a3eb5fb1f565a23337ece9a0da667f"
     },
     {
       "path": "proofs/postgres/vmstate-snapshot-restore/retained/target/product-command.txt",

@@ -1,7 +1,7 @@
 {
   "kind": "machinen.postgres-real-cross-arch-e2e-gate-report",
   "version": 1,
-  "generatedAt": "2026-06-02T18:24:22.373Z",
+  "generatedAt": "2026-06-02T18:33:36.816Z",
   "accepted": true,
   "publicClaimAllowed": false,
   "publicClaim": {
@@ -37,6 +37,12 @@
       ]
     }
   ],
+  "logicalCrossArchPsqlProof": {
+    "retained": true,
+    "accepted": true,
+    "claimBearingForNoDumpMachinenProduct": false,
+    "path": "proofs/postgres/cross-arch-logical-psql-restore/retained/postgres-cross-arch-logical-psql-restore-gate-report.json"
+  },
   "logicalFixtureClaimBearing": false,
   "noShortcutPolicy": {
     "userSuppliedDumpAcceptedAsProductProof": false,

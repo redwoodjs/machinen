@@ -27,6 +27,17 @@ A retained same-architecture VM-state proof now verifies PostgreSQL/psql snapsho
 
 This proves a narrow same-arch PostgreSQL/psql VM-state restore. It does **not** prove portable PostgreSQL cross-architecture support.
 
+A retained bidirectional native logical proof also verifies cross-architecture PostgreSQL/psql logical restore:
+
+- proof folder: `proofs/postgres/cross-arch-logical-psql-restore/`;
+- native `arm64` PostgreSQL and native `amd64` PostgreSQL hosts were used;
+- `arm64 -> amd64` and `amd64 -> arm64` both passed;
+- target-native `psql` verifier output matched source output in both directions;
+- retained logical SQL dump hashes matched the route summaries;
+- no source ISA emulation, sidecar, app hook, or metadata-only shortcut was accepted.
+
+This proves bidirectional target-native PostgreSQL logical restore. It still does **not** prove no-dump Machinen product `snapshot` / `restore` for PostgreSQL, so public product support remains `0 / 0 / 0`.
+
 The older fixture path describes `postgres-clean-quiesced-logical-v1`:
 
 - source and target architectures are `arm64` and `amd64` in either direction;

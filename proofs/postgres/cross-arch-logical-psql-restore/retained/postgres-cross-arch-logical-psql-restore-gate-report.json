@@ -1,0 +1,323 @@
+{
+  "kind": "machinen.postgres-cross-arch-logical-psql-restore-gate-report",
+  "version": 1,
+  "generatedAt": "2026-06-02T18:33:36.288Z",
+  "accepted": true,
+  "verifiedScope": {
+    "runtime": "postgresql",
+    "interface": "psql",
+    "subset": "postgres-clean-quiesced-cross-arch-logical-restore",
+    "directions": ["arm64-to-amd64", "amd64-to-arm64"],
+    "crossArchitecture": true,
+    "restoreMechanism": "target-native-logical-sql-restore",
+    "machinenNoDumpSnapshotRestore": false
+  },
+  "publicPortablePostgresClaimAllowed": false,
+  "publicClaim": {
+    "productSupport": 0,
+    "broadSupport": 0,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "guarantees": [
+    "A native arm64 PostgreSQL container and native amd64 PostgreSQL container were both used.",
+    "The clean quiesced psql workload restored arm64 -> amd64 and amd64 -> arm64.",
+    "Target-native psql verifier output matched source verifier output in both directions.",
+    "The retained verifier shows rowCount=4, valueSum=105, and expected payload/value arrays.",
+    "Logical SQL dump artifacts are retained and hash-checked for both directions."
+  ],
+  "nonGuarantees": [
+    "Does not prove no-dump Machinen product PostgreSQL snapshot/restore.",
+    "Does not prove physical PostgreSQL data-directory portability across ISA.",
+    "Does not prove live sessions, active transactions, dirty WAL, replication/failover state, native extensions, app hooks, sidecars, source ISA emulation, or metadata-only success.",
+    "Does not raise the public portable PostgreSQL claim above 0 / 0 / 0."
+  ],
+  "routes": [
+    {
+      "direction": "arm64-to-amd64",
+      "accepted": true,
+      "sourceArch": "arm64",
+      "targetArch": "amd64",
+      "sourceHost": "local-macbook",
+      "targetHost": "root@192.168.0.8",
+      "sourcePostgresVersion": "15.18 (Debian 15.18-1.pgdg12+1)",
+      "targetPostgresVersion": "15.18 (Debian 15.18-1.pgdg12+1)",
+      "logicalFingerprint": "19c61ac217b9bdf7dae88e5a515643d3b49c21a2a0d920096bf3017b36195166",
+      "dumpSha256": "138d1de152d34e4ee3c7a14b9da7070b66b1a5f5e87ccea264669d78a0da1b6e",
+      "retainedDumpSha256": "138d1de152d34e4ee3c7a14b9da7070b66b1a5f5e87ccea264669d78a0da1b6e",
+      "sourceVerifierOutputSha256": "5d1062188f302d75521800edc29b0a44e218e88699e27b98793afcefb28c3051",
+      "targetVerifierOutputSha256": "5d1062188f302d75521800edc29b0a44e218e88699e27b98793afcefb28c3051",
+      "checks": [
+        {
+          "id": "route-present",
+          "passed": true,
+          "message": "arm64-to-amd64 route exists in summary"
+        },
+        {
+          "id": "cross-arch",
+          "passed": true,
+          "message": "arm64-to-amd64 is cross-architecture"
+        },
+        {
+          "id": "migration-completed",
+          "passed": true,
+          "message": "arm64-to-amd64 migration completed"
+        },
+        {
+          "id": "target-native",
+          "passed": true,
+          "message": "arm64-to-amd64 target-native execution"
+        },
+        {
+          "id": "source-target-verifier-match",
+          "passed": true,
+          "message": "arm64-to-amd64 source and target psql verifier output match"
+        },
+        {
+          "id": "expected-database-shape",
+          "passed": true,
+          "message": "arm64-to-amd64 target psql verifier has expected rows and aggregate"
+        },
+        {
+          "id": "retained-dump-hash-match",
+          "passed": true,
+          "message": "arm64-to-amd64 retained SQL dump hash matches summary"
+        },
+        {
+          "id": "no-active-transactions",
+          "passed": true,
+          "message": "arm64-to-amd64 captured with no active PostgreSQL transactions"
+        },
+        {
+          "id": "no-route-shortcuts",
+          "passed": true,
+          "message": "arm64-to-amd64 did not use source ISA emulation, source-text code replay, sidecar, or app hooks"
+        }
+      ]
+    },
+    {
+      "direction": "amd64-to-arm64",
+      "accepted": true,
+      "sourceArch": "amd64",
+      "targetArch": "arm64",
+      "sourceHost": "root@192.168.0.8",
+      "targetHost": "local-macbook",
+      "sourcePostgresVersion": "15.18 (Debian 15.18-1.pgdg12+1)",
+      "targetPostgresVersion": "15.18 (Debian 15.18-1.pgdg12+1)",
+      "logicalFingerprint": "19c61ac217b9bdf7dae88e5a515643d3b49c21a2a0d920096bf3017b36195166",
+      "dumpSha256": "5bd70238925d56f6040ae1a97f75e6a2b5231e6c67f87334d9907f0b61ddedb0",
+      "retainedDumpSha256": "5bd70238925d56f6040ae1a97f75e6a2b5231e6c67f87334d9907f0b61ddedb0",
+      "sourceVerifierOutputSha256": "5d1062188f302d75521800edc29b0a44e218e88699e27b98793afcefb28c3051",
+      "targetVerifierOutputSha256": "5d1062188f302d75521800edc29b0a44e218e88699e27b98793afcefb28c3051",
+      "checks": [
+        {
+          "id": "route-present",
+          "passed": true,
+          "message": "amd64-to-arm64 route exists in summary"
+        },
+        {
+          "id": "cross-arch",
+          "passed": true,
+          "message": "amd64-to-arm64 is cross-architecture"
+        },
+        {
+          "id": "migration-completed",
+          "passed": true,
+          "message": "amd64-to-arm64 migration completed"
+        },
+        {
+          "id": "target-native",
+          "passed": true,
+          "message": "amd64-to-arm64 target-native execution"
+        },
+        {
+          "id": "source-target-verifier-match",
+          "passed": true,
+          "message": "amd64-to-arm64 source and target psql verifier output match"
+        },
+        {
+          "id": "expected-database-shape",
+          "passed": true,
+          "message": "amd64-to-arm64 target psql verifier has expected rows and aggregate"
+        },
+        {
+          "id": "retained-dump-hash-match",
+          "passed": true,
+          "message": "amd64-to-arm64 retained SQL dump hash matches summary"
+        },
+        {
+          "id": "no-active-transactions",
+          "passed": true,
+          "message": "amd64-to-arm64 captured with no active PostgreSQL transactions"
+        },
+        {
+          "id": "no-route-shortcuts",
+          "passed": true,
+          "message": "amd64-to-arm64 did not use source ISA emulation, source-text code replay, sidecar, or app hooks"
+        }
+      ]
+    }
+  ],
+  "noShortcutPolicy": {
+    "physicalDataDirectoryPortable": false,
+    "sourceIsaEmulationUsed": false,
+    "sourceTextReplayAcceptedAsMachinenProductProof": false,
+    "sidecarRuntimeUsed": false,
+    "appHooksRequired": false,
+    "metadataOnlyShortcutAccepted": false,
+    "targetNativeExecutionRequired": true
+  },
+  "refusalBoundaries": [
+    "postgres-active-transaction-unsupported",
+    "postgres-active-session-unsupported",
+    "postgres-dirty-wal-boundary-unsupported",
+    "postgres-unsynced-data-directory-unsupported",
+    "postgres-replication-slot-state-unsupported",
+    "postgres-streaming-replication-unsupported",
+    "postgres-extension-native-state-unsupported",
+    "postgres-host-mounted-data-dir-ambiguous",
+    "postgres-physical-data-dir-cross-arch-unsupported"
+  ],
+  "checks": [
+    {
+      "id": "summary-completed",
+      "passed": true,
+      "message": "cross-arch logical proof completed"
+    },
+    {
+      "id": "runtime-postgresql",
+      "passed": true,
+      "message": "summary runtime is PostgreSQL"
+    },
+    {
+      "id": "native-hosts",
+      "passed": true,
+      "message": "retained proof used native arm64 and native amd64 hosts"
+    },
+    {
+      "id": "route-count",
+      "passed": true,
+      "message": "both arm64->amd64 and amd64->arm64 routes are retained"
+    },
+    {
+      "id": "bidirectional-cross-arch",
+      "passed": true,
+      "message": "routes are bidirectional across arm64 and amd64"
+    },
+    {
+      "id": "target-native-logical-restore",
+      "passed": true,
+      "message": "each route restored into target-native PostgreSQL"
+    },
+    {
+      "id": "source-target-verifier-match",
+      "passed": true,
+      "message": "source and target psql verifier output match in every route"
+    },
+    {
+      "id": "retained-dump-integrity",
+      "passed": true,
+      "message": "retained logical SQL dump hashes match route summaries"
+    },
+    {
+      "id": "no-active-transactions",
+      "passed": true,
+      "message": "all captures had zero active PostgreSQL transactions"
+    },
+    {
+      "id": "no-shortcuts",
+      "passed": true,
+      "message": "no ISA emulation, sidecar, app hook, or metadata-only shortcut was accepted"
+    },
+    {
+      "id": "retained-artifacts-present",
+      "passed": true,
+      "message": "all required retained logical psql artifacts exist"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "proofs/postgres/cross-arch-logical-psql-restore/retained/postgres-cross-arch-logical-psql-restore-summary.json",
+      "exists": true,
+      "bytes": 9061,
+      "sha256": "98122255eef0d8a51f8dacc47a9f0e3c2a8affac88efad5200b15f5b72c8baa0"
+    },
+    {
+      "path": "proofs/postgres/cross-arch-logical-psql-restore/retained/product-command.txt",
+      "exists": true,
+      "bytes": 164,
+      "sha256": "03c5168617dbc880217d2e779b5782041baa48e0bea2471a8cdae3f0c40f4e34"
+    },
+    {
+      "path": "proofs/postgres/cross-arch-logical-psql-restore/retained/arm64-to-amd64/postgres.logical.sql",
+      "exists": true,
+      "bytes": 2134,
+      "sha256": "138d1de152d34e4ee3c7a14b9da7070b66b1a5f5e87ccea264669d78a0da1b6e"
+    },
+    {
+      "path": "proofs/postgres/cross-arch-logical-psql-restore/retained/arm64-to-amd64/route.json",
+      "exists": true,
+      "bytes": 1209,
+      "sha256": "39944dcb32d876ff121a62254255fdee685e70305ee83a9be39984641f74e5a1"
+    },
+    {
+      "path": "proofs/postgres/cross-arch-logical-psql-restore/retained/arm64-to-amd64/source-product-command.txt",
+      "exists": true,
+      "bytes": 108,
+      "sha256": "ba92bf0b8c8ca4566b3d6794e113fcc4202647f62f249f967cc91f03630727e5"
+    },
+    {
+      "path": "proofs/postgres/cross-arch-logical-psql-restore/retained/arm64-to-amd64/source-psql-transcript.txt",
+      "exists": true,
+      "bytes": 136,
+      "sha256": "ccb3085ce1adf24e332b7428dbdfb54809fee1c6115ca2dfa5b699ea9c77c25c"
+    },
+    {
+      "path": "proofs/postgres/cross-arch-logical-psql-restore/retained/arm64-to-amd64/target-product-command.txt",
+      "exists": true,
+      "bytes": 109,
+      "sha256": "53de588013a83d56a53429dbeda266bdb1215df8002d44e66515ea978dceada8"
+    },
+    {
+      "path": "proofs/postgres/cross-arch-logical-psql-restore/retained/arm64-to-amd64/target-psql-verifier.txt",
+      "exists": true,
+      "bytes": 136,
+      "sha256": "ccb3085ce1adf24e332b7428dbdfb54809fee1c6115ca2dfa5b699ea9c77c25c"
+    },
+    {
+      "path": "proofs/postgres/cross-arch-logical-psql-restore/retained/amd64-to-arm64/postgres.logical.sql",
+      "exists": true,
+      "bytes": 2135,
+      "sha256": "5bd70238925d56f6040ae1a97f75e6a2b5231e6c67f87334d9907f0b61ddedb0"
+    },
+    {
+      "path": "proofs/postgres/cross-arch-logical-psql-restore/retained/amd64-to-arm64/route.json",
+      "exists": true,
+      "bytes": 1209,
+      "sha256": "41868ee82a6525ddbc9371954b95d6760f9bc05e17ef096cd362c68c6fec3019"
+    },
+    {
+      "path": "proofs/postgres/cross-arch-logical-psql-restore/retained/amd64-to-arm64/source-product-command.txt",
+      "exists": true,
+      "bytes": 111,
+      "sha256": "62a1be9df9267f60acdb56f9077668800e734cd85f8e5b928a9834b3b1fa5a1d"
+    },
+    {
+      "path": "proofs/postgres/cross-arch-logical-psql-restore/retained/amd64-to-arm64/source-psql-transcript.txt",
+      "exists": true,
+      "bytes": 136,
+      "sha256": "ccb3085ce1adf24e332b7428dbdfb54809fee1c6115ca2dfa5b699ea9c77c25c"
+    },
+    {
+      "path": "proofs/postgres/cross-arch-logical-psql-restore/retained/amd64-to-arm64/target-product-command.txt",
+      "exists": true,
+      "bytes": 106,
+      "sha256": "01fcb60527c947a4294f714567912ce08eecacc246bed42e37ca9fe669d05b67"
+    },
+    {
+      "path": "proofs/postgres/cross-arch-logical-psql-restore/retained/amd64-to-arm64/target-psql-verifier.txt",
+      "exists": true,
+      "bytes": 136,
+      "sha256": "ccb3085ce1adf24e332b7428dbdfb54809fee1c6115ca2dfa5b699ea9c77c25c"
+    }
+  ]
+}

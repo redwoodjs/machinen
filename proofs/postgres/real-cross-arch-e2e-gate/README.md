@@ -8,6 +8,8 @@ This gate replaces the unvalidated Postgres percent raises. No public Postgres n
 
 A narrower same-architecture PostgreSQL/psql VM-state proof is retained at `../vmstate-snapshot-restore/`. It verifies clean quiesced PostgreSQL restore inside an `arm64` Machinen VM, but it does not satisfy this bidirectional cross-architecture gate.
 
+A native bidirectional PostgreSQL/psql logical restore proof is retained at `../cross-arch-logical-psql-restore/`. It verifies `arm64 -> amd64` and `amd64 -> arm64` target-native logical SQL restore, but it still does not satisfy this no-dump Machinen product gate.
+
 Required proof rows:
 
 1. Real PostgreSQL `amd64 -> arm64` run.

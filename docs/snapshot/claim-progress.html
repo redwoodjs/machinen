@@ -460,7 +460,7 @@
     <script id="embedded-claim-progress" type="application/json">
       {
         "kind": "machinen.claim-progress-dashboard",
-        "version": 104,
+        "version": 105,
         "updatedFrom": [
           "docs/snapshot/node-level5-product-support-claim-registry.json",
           "docs/snapshot/node-level5-product-support-100.json",
@@ -1583,7 +1583,7 @@
             "family": "database",
             "runtime": "postgresql",
             "status": "seed-candidate",
-            "stage": "0 / 0 / 0 public portable claim; verified same-arch VM-state psql proof",
+            "stage": "0 / 0 / 0 public no-dump claim; verified VM-state and bidirectional logical psql proofs",
             "scope": "Clean, idle logical PostgreSQL restore track; not physical data-dir cross-ISA restore.",
             "currentClaim": {
               "productSupport": 0,
@@ -1596,11 +1596,12 @@
               "arbitraryProcessCrossArchRestore": 0,
               "claimChangeAllowed": false
             },
-            "summary": "A real PostgreSQL/psql Machinen VM-state snapshot/restore proof is now verified for a clean quiesced arm64 VM. The public portable PostgreSQL cross-architecture claim remains 0 / 0 / 0 until retained native amd64<->arm64 product E2E artifacts exist.",
+            "summary": "PostgreSQL/psql evidence now includes verified arm64 VM-state snapshot/restore and verified native bidirectional arm64<->amd64 logical psql restore. The public no-dump Machinen PostgreSQL product claim remains 0 / 0 / 0 until retained no-dump product snapshot/restore artifacts exist.",
             "claimGate": "postgres-real-cross-arch-e2e-gate required",
             "claimChangeAllowed": false,
             "evidence": [
               "postgres-vmstate-snapshot-restore-psql",
+              "postgres-cross-arch-logical-psql-restore",
               "postgres-clean-quiesced-logical-v1",
               "postgres-clean-logical-20-claim-ladder",
               "bidirectional target-native verifier output",
@@ -1629,11 +1630,21 @@
                 "next": "Use this as same-arch PostgreSQL/psql evidence only; run native amd64<->arm64 E2E to raise portable PostgreSQL support."
               },
               {
+                "id": "postgres-cross-arch-logical-psql-restore",
+                "area": "cross-arch logical psql",
+                "kind": "native bidirectional logical E2E",
+                "status": "verified",
+                "evidence": "Native PostgreSQL 15 containers restored a clean quiesced psql workload through retained logical SQL in both arm64->amd64 and amd64->arm64 directions; target verifier output matched source output.",
+                "gate": "postgres-cross-arch-logical-psql-restore-gate",
+                "artifact": "proofs/postgres/cross-arch-logical-psql-restore/retained/postgres-cross-arch-logical-psql-restore-gate-report.json",
+                "next": "Use as cross-arch psql/logical evidence only; it is not no-dump Machinen product snapshot/restore."
+              },
+              {
                 "id": "postgres-real-cross-arch-e2e-gate",
                 "area": "claim gate",
                 "kind": "required E2E gate",
                 "status": "partial-proof",
-                "evidence": "Retained no-shortcut gate confirms no real amd64->arm64 or arm64->amd64 PostgreSQL no-dump E2E artifacts exist yet and keeps public PostgreSQL at 0 / 0 / 0.",
+                "evidence": "Retained no-shortcut gate confirms the bidirectional logical psql proof exists, but no real no-dump Machinen PostgreSQL amd64->arm64 or arm64->amd64 product E2E artifacts exist yet; public PostgreSQL remains 0 / 0 / 0.",
                 "gate": "postgres-real-cross-arch-e2e-gate",
                 "artifact": "proofs/postgres/real-cross-arch-e2e-gate/retained/postgres-real-cross-arch-e2e-gate-report.json",
                 "next": "Run real PostgreSQL source/target E2E validation in both directions without a user-supplied dump."
@@ -1643,20 +1654,20 @@
                 "area": "psql workload",
                 "kind": "connected query-session E2E gate",
                 "status": "verified",
-                "evidence": "Retained arm64 VM-state proof loaded schema/data/workload through psql before snapshot and verified matching target psql output after restore.",
+                "evidence": "Retained psql workload proofs now cover arm64 VM-state restore plus native bidirectional arm64<->amd64 logical psql restore with matching source/target verifier output.",
                 "gate": "postgresql-psql-query-workload-e2e",
-                "artifact": "proofs/postgres/vmstate-snapshot-restore/retained/postgres-vmstate-snapshot-restore-gate-report.json",
-                "next": "Repeat with real native amd64<->arm64 PostgreSQL product E2E before any portable cross-architecture claim."
+                "artifact": "proofs/postgres/cross-arch-logical-psql-restore/retained/postgres-cross-arch-logical-psql-restore-gate-report.json",
+                "next": "Implement no-dump Machinen product PostgreSQL capture/restore to make this claim-bearing for portable PostgreSQL."
               },
               {
                 "id": "postgresql-schema-data-query-e2e",
                 "area": "schema/data workload",
                 "kind": "schema plus query E2E gate",
                 "status": "verified",
-                "evidence": "Retained target psql verifier shows rowCount=4, valueSum=105, expected payload/value arrays, and source/target verifier hash match for same-arch VM-state restore.",
+                "evidence": "Retained target psql verifiers show rowCount=4, valueSum=105, expected payload/value arrays, and source/target verifier hash match in both native cross-arch logical directions.",
                 "gate": "postgresql-schema-data-query-e2e",
-                "artifact": "proofs/postgres/vmstate-snapshot-restore/retained/target/target-psql-verifier.txt",
-                "next": "Add native bidirectional cross-architecture PostgreSQL target verifiers."
+                "artifact": "proofs/postgres/cross-arch-logical-psql-restore/retained/postgres-cross-arch-logical-psql-restore-gate-report.json",
+                "next": "Add no-dump product bundle manifests and restore summaries for the same workload."
               },
               {
                 "id": "postgresql-role-permission-e2e",
@@ -1746,18 +1757,18 @@
             "nextSteps": [
               {
                 "priority": 1,
-                "item": "Provision a native amd64 PostgreSQL host and run real PostgreSQL amd64->arm64 no-dump product snapshot/restore E2E with retained psql transcripts.",
-                "gate": "postgres-e2e-amd64-to-arm64"
+                "item": "Implement no-dump Machinen PostgreSQL product capture so the product command creates and retains internal PostgreSQL evidence instead of requiring a user-provided dump.",
+                "gate": "postgres-e2e-no-user-dump-contract"
               },
               {
                 "priority": 2,
-                "item": "Run real PostgreSQL arm64->amd64 no-dump product snapshot/restore E2E with retained psql transcripts.",
-                "gate": "postgres-e2e-arm64-to-amd64"
+                "item": "Run no-dump Machinen PostgreSQL amd64->arm64 product snapshot/restore E2E with retained psql source/target transcripts.",
+                "gate": "postgres-e2e-amd64-to-arm64"
               },
               {
                 "priority": 3,
-                "item": "Extend the verified psql workload to roles/permissions, pg_isready command transcripts, and refusal artifacts in the real cross-arch harness.",
-                "gate": "postgres-real-cross-arch-e2e-gate"
+                "item": "Run no-dump Machinen PostgreSQL arm64->amd64 product snapshot/restore E2E with retained psql source/target transcripts.",
+                "gate": "postgres-e2e-arm64-to-amd64"
               }
             ],
             "docs": ["product-portable-postgres.ts", "product-portable-postgres-claim-ladder.ts"]
@@ -3072,6 +3083,44 @@
                 "proves": "A real PostgreSQL 15 service in an arm64 Machinen VM was snapshotted and restored with vmstate, and target psql verification matched the source workload output.",
                 "claimUse": "narrow PostgreSQL/psql VM-state proof only; not a cross-architecture public PostgreSQL claim",
                 "next": "Run retained native amd64<->arm64 PostgreSQL product E2E before raising portable PostgreSQL support.",
+                "claimImpact": {
+                  "productSupportDelta": 0,
+                  "broadSupportDelta": 0,
+                  "arbitraryProcessCrossArchRestoreDelta": 0,
+                  "resultingClaim": {
+                    "productSupport": 0,
+                    "broadSupport": 0,
+                    "arbitraryProcessCrossArchRestore": 0
+                  },
+                  "claimChangeAllowed": false
+                }
+              }
+            ]
+          },
+          {
+            "id": "postgres-cross-arch-logical-psql-restore",
+            "claim": "PostgreSQL / psql bidirectional cross-architecture logical restore verified",
+            "trackId": "postgres",
+            "status": "verified",
+            "scope": "Clean quiesced PostgreSQL 15 database restored through target-native logical SQL using psql in both arm64->amd64 and amd64->arm64 directions.",
+            "claimNumbers": {
+              "productSupport": 0,
+              "broadSupport": 0,
+              "arbitraryProcessCrossArchRestore": 0,
+              "candidateProductSupport": 0,
+              "candidateBroadSupport": 0
+            },
+            "promotionEffect": "Adds verified bidirectional PostgreSQL/psql logical restore evidence, but does not raise the public no-dump Machinen PostgreSQL snapshot/restore claim.",
+            "proofDirectory": "proofs/postgres/cross-arch-logical-psql-restore",
+            "proofs": [
+              {
+                "id": "postgres-cross-arch-logical-psql-restore-gate",
+                "category": "cross-arch logical E2E",
+                "status": "verified",
+                "artifact": "proofs/postgres/cross-arch-logical-psql-restore/retained/postgres-cross-arch-logical-psql-restore-gate-report.json",
+                "proves": "A clean quiesced PostgreSQL 15 psql workload restored successfully through target-native logical SQL in both arm64->amd64 and amd64->arm64 directions.",
+                "claimUse": "narrow PostgreSQL/psql logical cross-arch proof only; not a no-dump Machinen product snapshot/restore claim",
+                "next": "Implement and retain no-dump Machinen product PostgreSQL capture/restore artifacts before raising portable PostgreSQL support.",
                 "claimImpact": {
                   "productSupportDelta": 0,
                   "broadSupportDelta": 0,
