@@ -1,0 +1,38 @@
+{
+  "formatVersion": 1,
+  "resources": [
+    {
+      "id": "argv",
+      "kind": "argv",
+      "state": "captured",
+      "argv": ["ping", "127.0.0.1"]
+    },
+    {
+      "id": "cwd",
+      "kind": "cwd",
+      "state": "captured",
+      "path": "/"
+    },
+    {
+      "id": "ping-socket-fd",
+      "kind": "socket",
+      "state": "captured",
+      "fd": 3,
+      "flags": [
+        "profile:ping-level4-socket-reconstruction-v1",
+        "socket-kind:ping-dgram-icmp",
+        "echo-id:1",
+        "echo-seq:1",
+        "destination:127.0.0.1",
+        "interval-ms:10000",
+        "route:loopback",
+        "namespace:target-loopback",
+        "descriptor:portable-ping-socket.json"
+      ]
+    }
+  ],
+  "unsupported": {
+    "vocabularyVersion": 1,
+    "refusals": []
+  }
+}

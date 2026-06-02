@@ -27,7 +27,7 @@ type ClaimProgressProofGroup = {
 
 type ClaimProgressDashboard = {
   kind: "machinen.claim-progress-dashboard";
-  version: 118;
+  version: 119;
   tracks: ClaimProgressTrack[];
   proofGroups: ClaimProgressProofGroup[];
 };
@@ -41,7 +41,7 @@ describe("claim progress dashboard", () => {
 
     expect(dashboard).toMatchObject({
       kind: "machinen.claim-progress-dashboard",
-      version: 118,
+      version: 119,
     });
     expect(dashboard.tracks.map((track) => track.id)).toEqual([
       "node-service",
@@ -98,6 +98,15 @@ describe("claim progress dashboard", () => {
         },
       },
     );
+    expect(dashboard.tracks.find((track) => track.id === "whole-linux-vm-workload")).toMatchObject({
+      status: "verified",
+      currentClaim: {
+        productSupport: 100,
+        broadSupport: 100,
+        arbitraryProcessCrossArchRestore: 0,
+      },
+      scope: "selected-whole-vm-workload-v1 only",
+    });
     expect(dashboard.proofGroups.map((group) => group.id)).toEqual([
       "node-service-100-100-0",
       "node-claim-evidence-index",
@@ -134,6 +143,7 @@ describe("claim progress dashboard", () => {
     expect(proofIds).toContain("selected-native-refusal-artifacts");
     expect(proofIds).toContain("vm-workload-taxonomy");
     expect(proofIds).toContain("vm-workload-boundary-needed");
+    expect(proofIds).toContain("selected-whole-vm-workload-support-matrix");
     expect(proofIds).toContain("arbitrary-process-claim-ready-gate");
     expect(proofIds).toContain("simple-pipe-fd-proof");
     expect(proofIds).toContain("idle-epoll-tcp-proof");
@@ -253,6 +263,9 @@ describe("claim progress dashboard", () => {
     expect(html).toContain("whole-linux-vm-workload-taxonomy.json");
     expect(html).toContain("whole-vm-workload-boundary-matrix-report.json");
     expect(html).toContain("whole-vm-workload-smoke-matrix-report.json");
+    expect(html).toContain("selected-whole-vm-workload-support-matrix-report.json");
+    expect(html).toContain("ping-level4-socket-reconstruction-v1");
+    expect(html).toContain("targetOutputObserved");
     expect(html).toContain("vm-workload-tool-missing");
     expect(html).toContain("target-native-static-c-binary-executed");
     expect(html).toContain("native substrate");

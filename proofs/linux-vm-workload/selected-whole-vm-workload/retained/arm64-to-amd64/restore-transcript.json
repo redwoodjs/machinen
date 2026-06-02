@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "kind": "machinen.product-level4-ping-socket-restore-summary",
+  "formatVersion": 1,
+  "runtime": "network-ping-socket",
+  "subset": "ping-level4-socket-reconstruction-v1",
+  "supportLevel": "implemented-product-support",
+  "implementationLevel": "level-4-kernel-resource-reconstruction",
+  "state": "completed",
+  "migrationCompleted": true,
+  "sourceArch": "arm64",
+  "targetArch": "amd64",
+  "targetVerifierResult": "passed",
+  "descriptorSha256": "22e2f2b65d0b149f1dbc8885f56ca0e1d385efed15928be36625f61f94e44d4d",
+  "targetVerifierOutputSha256": "a627d6a65401a7c94ed2761675c9800da1a5310f10d60dfa8d378e5c3cb0e27d",
+  "shortcutInspection": {
+    "sourceIsaEmulationUsed": false,
+    "sourceTextReusedAsTargetCode": false,
+    "sidecarRuntimeUsed": false,
+    "metadataOnlyShortcutAccepted": false
+  },
+  "targetVmStarted": true,
+  "restoredName": "bundle",
+  "restoredPid": 1216063,
+  "targetOutputObserved": true,
+  "outputLogPath": "/tmp/machinen-restored-ping.log",
+  "targetPingProcess": "running",
+  "elapsedMs": 2467,
+  "continuationSemantics": {
+    "destination": "127.0.0.1",
+    "intervalMs": 10000,
+    "echoIdentifier": 1,
+    "nextSequence": 1,
+    "sequencePolicy": "continue-at-next-supported-boundary",
+    "idPolicy": "descriptor-preserved-when-target-ping-supports-it",
+    "textOutputSequencePolicy": "machinen-helper-renders-descriptor-sequence"
+  }
+}

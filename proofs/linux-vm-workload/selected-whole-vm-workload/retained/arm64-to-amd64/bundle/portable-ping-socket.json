@@ -1,0 +1,52 @@
+{
+  "kind": "machinen.product-level4-ping-socket",
+  "formatVersion": 1,
+  "supportLevel": "implemented-product-support",
+  "subset": "ping-level4-socket-reconstruction-v1",
+  "implementationLevel": "level-4-kernel-resource-reconstruction",
+  "runtime": "network-ping-socket",
+  "captureSurface": "machinen capture ping-socket",
+  "restoreSurface": "machinen restore <bundle> --target-arch <arch> [--target-verifier-output <file>]",
+  "source": {
+    "architecture": "arm64",
+    "host": {
+      "arch": "arm64",
+      "platform": "darwin",
+      "release": "24.6.0"
+    }
+  },
+  "target": {
+    "architecture": "amd64"
+  },
+  "socket": {
+    "kind": "ping-dgram-icmp",
+    "route": "loopback",
+    "namespace": "target-loopback",
+    "credential": "ping-group-range",
+    "echoIdentifier": 1,
+    "echoSequence": 1
+  },
+  "continuation": {
+    "destination": "127.0.0.1",
+    "intervalMs": 10000,
+    "outputLogPath": "/tmp/machinen-restored-ping.log",
+    "sequencePolicy": "continue-at-next-supported-boundary",
+    "idPolicy": "descriptor-preserved-when-target-ping-supports-it",
+    "textOutputSequencePolicy": "machinen-helper-renders-descriptor-sequence"
+  },
+  "gates": {
+    "emptyReceiveQueueRequired": true,
+    "noInflightPacketsRequired": true,
+    "noActiveRecvmsgRequired": true,
+    "unambiguousRouteAndNamespaceRequired": true,
+    "credentialOrCapabilityMappingRequired": true,
+    "unsupportedRawSocketOptionsRefused": true,
+    "targetNativeVerificationRequired": true,
+    "sourceIsaEmulationAllowed": false,
+    "sourceTextReplayAllowed": false,
+    "sidecarRuntimeAllowed": false,
+    "metadataOnlyContinuationAllowed": false
+  },
+  "sourceVerifierOutput": "ping-dgram-icmp id=1 seq=1 loopback target-loopback",
+  "sourceVerifierOutputSha256": "a627d6a65401a7c94ed2761675c9800da1a5310f10d60dfa8d378e5c3cb0e27d"
+}

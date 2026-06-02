@@ -1,0 +1,307 @@
+{
+  "kind": "machinen.selected-whole-vm-workload-support-matrix",
+  "version": 1,
+  "generatedAt": "2026-06-02T21:13:16.203Z",
+  "accepted": true,
+  "proofStatus": "verified",
+  "selectedSubset": "selected-whole-vm-workload-v1",
+  "workloadProfile": "ping-level4-socket-reconstruction-v1",
+  "publicClaimAllowed": true,
+  "currentClaim": {
+    "productSupport": 100,
+    "broadSupport": 100,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "claimScope": "Selected whole-VM workload support only for ping-level4-socket-reconstruction-v1 under selected-whole-vm-workload-v1. This is target-native VM workload reconstruction from portable artifacts; it is not arbitrary VM restore, raw cross-ISA VM-state replay, or arbitrary Linux process restore.",
+  "requiredDirections": ["arm64-to-amd64", "amd64-to-arm64"],
+  "acceptedDirections": 2,
+  "directionResults": [
+    {
+      "direction": "arm64-to-amd64",
+      "sourceArch": "arm64",
+      "targetArch": "amd64",
+      "accepted": true,
+      "status": "verified",
+      "supportedRows": [
+        {
+          "id": "vm-boot-target-native-linux",
+          "status": "verified",
+          "evidence": "arm64-to-amd64 target VM booted target-native Linux and reported target output observed"
+        },
+        {
+          "id": "vm-rootfs-app-files-portable",
+          "status": "verified",
+          "evidence": "arm64-to-amd64 retained portable-machine transport, manifest, resources, objects, relocations, and descriptor artifacts"
+        },
+        {
+          "id": "vm-workload-command-reconstructs",
+          "status": "verified",
+          "evidence": "arm64-to-amd64 reconstructed the ping workload command from the portable descriptor, not raw process memory"
+        },
+        {
+          "id": "vm-source-target-verifier-match",
+          "status": "verified",
+          "evidence": "arm64-to-amd64 target verifier output hash matched the source descriptor and restore summary"
+        },
+        {
+          "id": "vm-bidirectional-retained-artifacts",
+          "status": "verified",
+          "evidence": "arm64-to-amd64 retained capture transcript, restore transcript, target VM summary, descriptor, verifier, and manifest artifacts"
+        }
+      ],
+      "checks": {
+        "captureTranscriptPresent": true,
+        "descriptorShape": true,
+        "directionMatches": true,
+        "portableTransport": true,
+        "portableWorkloadManifest": true,
+        "portableResourceManifest": true,
+        "targetVmRestoreCompleted": true,
+        "targetVmObserved": true,
+        "verifierMatched": true,
+        "shortcutsRejected": true
+      },
+      "artifacts": [
+        {
+          "name": "manifest.json",
+          "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/linux-vm-workload/selected-whole-vm-workload/retained/arm64-to-amd64/bundle/manifest.json",
+          "sha256": "590aa304b1dba045b391430d5ec4c817ef7984c2068f1e63c67626dd978708c6"
+        },
+        {
+          "name": "memory.bin",
+          "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/linux-vm-workload/selected-whole-vm-workload/retained/arm64-to-amd64/bundle/memory.bin",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "name": "objects.json",
+          "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/linux-vm-workload/selected-whole-vm-workload/retained/arm64-to-amd64/bundle/objects.json",
+          "sha256": "63562b455fdb055bf75b85254c0e92796fda48cf94e344192183265bfa00e64f"
+        },
+        {
+          "name": "portable-machine-transport.json",
+          "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/linux-vm-workload/selected-whole-vm-workload/retained/arm64-to-amd64/bundle/portable-machine-transport.json",
+          "sha256": "ff7a593d2fc9c41ae8497f0c8dd94b777e082d250250fce0b56ad4fbfef8cf52"
+        },
+        {
+          "name": "portable-ping-socket.json",
+          "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/linux-vm-workload/selected-whole-vm-workload/retained/arm64-to-amd64/bundle/portable-ping-socket.json",
+          "sha256": "22e2f2b65d0b149f1dbc8885f56ca0e1d385efed15928be36625f61f94e44d4d"
+        },
+        {
+          "name": "relocations.json",
+          "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/linux-vm-workload/selected-whole-vm-workload/retained/arm64-to-amd64/bundle/relocations.json",
+          "sha256": "7b63a60bb8a5a13839fdd9996764aee8de876bdb506074441d3af211007ac60d"
+        },
+        {
+          "name": "resources.json",
+          "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/linux-vm-workload/selected-whole-vm-workload/retained/arm64-to-amd64/bundle/resources.json",
+          "sha256": "3a6dea39259a107ea7777f7b1d60f92e9d37e2017536b3dc48a16f13ea23dcbf"
+        },
+        {
+          "name": "capture-transcript.json",
+          "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/linux-vm-workload/selected-whole-vm-workload/retained/arm64-to-amd64/capture-transcript.json",
+          "sha256": "05a19558be7b51d5e025cc28fb8b0a683017fcf87923204961402acc735d90ab"
+        },
+        {
+          "name": "restore-transcript.json",
+          "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/linux-vm-workload/selected-whole-vm-workload/retained/arm64-to-amd64/restore-transcript.json",
+          "sha256": "bd109f57abca0e992377202fe89e82b7f28d1c659bee750e4710e0e074023113"
+        },
+        {
+          "name": "source-boot.json",
+          "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/linux-vm-workload/selected-whole-vm-workload/retained/arm64-to-amd64/source-boot.json",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "name": "target-vm-restore-summary.json",
+          "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/linux-vm-workload/selected-whole-vm-workload/retained/arm64-to-amd64/target-vm-restore-summary.json",
+          "sha256": "734455e3444f131bbc31463c5cdd7e444922e48604956dbfdfaaaf92d92e62fe"
+        },
+        {
+          "name": "target.verify",
+          "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/linux-vm-workload/selected-whole-vm-workload/retained/arm64-to-amd64/target.verify",
+          "sha256": "e29acb7c431bcba150bc215781df7d9b8fafe78611fd39f68e7bb8af23449a04"
+        }
+      ]
+    },
+    {
+      "direction": "amd64-to-arm64",
+      "sourceArch": "amd64",
+      "targetArch": "arm64",
+      "accepted": true,
+      "status": "verified",
+      "supportedRows": [
+        {
+          "id": "vm-boot-target-native-linux",
+          "status": "verified",
+          "evidence": "amd64-to-arm64 target VM booted target-native Linux and reported target output observed"
+        },
+        {
+          "id": "vm-rootfs-app-files-portable",
+          "status": "verified",
+          "evidence": "amd64-to-arm64 retained portable-machine transport, manifest, resources, objects, relocations, and descriptor artifacts"
+        },
+        {
+          "id": "vm-workload-command-reconstructs",
+          "status": "verified",
+          "evidence": "amd64-to-arm64 reconstructed the ping workload command from the portable descriptor, not raw process memory"
+        },
+        {
+          "id": "vm-source-target-verifier-match",
+          "status": "verified",
+          "evidence": "amd64-to-arm64 target verifier output hash matched the source descriptor and restore summary"
+        },
+        {
+          "id": "vm-bidirectional-retained-artifacts",
+          "status": "verified",
+          "evidence": "amd64-to-arm64 retained capture transcript, restore transcript, target VM summary, descriptor, verifier, and manifest artifacts"
+        }
+      ],
+      "checks": {
+        "captureTranscriptPresent": true,
+        "descriptorShape": true,
+        "directionMatches": true,
+        "portableTransport": true,
+        "portableWorkloadManifest": true,
+        "portableResourceManifest": true,
+        "targetVmRestoreCompleted": true,
+        "targetVmObserved": true,
+        "verifierMatched": true,
+        "shortcutsRejected": true
+      },
+      "artifacts": [
+        {
+          "name": "manifest.json",
+          "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/linux-vm-workload/selected-whole-vm-workload/retained/amd64-to-arm64/bundle/manifest.json",
+          "sha256": "ff0202b8248aaadf08e8ca20cb404e2e750d6a4806011629ceb024b59c11feb8"
+        },
+        {
+          "name": "memory.bin",
+          "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/linux-vm-workload/selected-whole-vm-workload/retained/amd64-to-arm64/bundle/memory.bin",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "name": "objects.json",
+          "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/linux-vm-workload/selected-whole-vm-workload/retained/amd64-to-arm64/bundle/objects.json",
+          "sha256": "63562b455fdb055bf75b85254c0e92796fda48cf94e344192183265bfa00e64f"
+        },
+        {
+          "name": "portable-machine-transport.json",
+          "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/linux-vm-workload/selected-whole-vm-workload/retained/amd64-to-arm64/bundle/portable-machine-transport.json",
+          "sha256": "ff7a593d2fc9c41ae8497f0c8dd94b777e082d250250fce0b56ad4fbfef8cf52"
+        },
+        {
+          "name": "portable-ping-socket-restore-summary.json",
+          "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/linux-vm-workload/selected-whole-vm-workload/retained/amd64-to-arm64/bundle/portable-ping-socket-restore-summary.json",
+          "sha256": "4bc32893a388458f7154819703aca22dfc7562d75050b38016d4fa88c4bc577c"
+        },
+        {
+          "name": "portable-ping-socket-target-vm-restore-summary.json",
+          "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/linux-vm-workload/selected-whole-vm-workload/retained/amd64-to-arm64/bundle/portable-ping-socket-target-vm-restore-summary.json",
+          "sha256": "19bb103dc3d29a096d41146a5ee12b992d21e9a75d47723dca49cd2e75760bf1"
+        },
+        {
+          "name": "portable-ping-socket.json",
+          "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/linux-vm-workload/selected-whole-vm-workload/retained/amd64-to-arm64/bundle/portable-ping-socket.json",
+          "sha256": "cfd67f8698f4ab25e0bcca5bb12f6eee013c8ec798fc8e669e1ce45d175beb7e"
+        },
+        {
+          "name": "relocations.json",
+          "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/linux-vm-workload/selected-whole-vm-workload/retained/amd64-to-arm64/bundle/relocations.json",
+          "sha256": "7b63a60bb8a5a13839fdd9996764aee8de876bdb506074441d3af211007ac60d"
+        },
+        {
+          "name": "resources.json",
+          "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/linux-vm-workload/selected-whole-vm-workload/retained/amd64-to-arm64/bundle/resources.json",
+          "sha256": "3a6dea39259a107ea7777f7b1d60f92e9d37e2017536b3dc48a16f13ea23dcbf"
+        },
+        {
+          "name": "capture-transcript.json",
+          "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/linux-vm-workload/selected-whole-vm-workload/retained/amd64-to-arm64/capture-transcript.json",
+          "sha256": "2bd539161c80cc173a884395b0446324f4ca7d202ba3e4e25c379a7a2e261d11"
+        },
+        {
+          "name": "restore-transcript.json",
+          "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/linux-vm-workload/selected-whole-vm-workload/retained/amd64-to-arm64/restore-transcript.json",
+          "sha256": "05404966b75860ddeb3df19e08517eddb6c5974e90cb35b824251dcb0d0ca50c"
+        },
+        {
+          "name": "target-vm-restore-summary.json",
+          "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/linux-vm-workload/selected-whole-vm-workload/retained/amd64-to-arm64/target-vm-restore-summary.json",
+          "sha256": "19bb103dc3d29a096d41146a5ee12b992d21e9a75d47723dca49cd2e75760bf1"
+        },
+        {
+          "name": "target.verify",
+          "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/linux-vm-workload/selected-whole-vm-workload/retained/amd64-to-arm64/target.verify",
+          "sha256": "e29acb7c431bcba150bc215781df7d9b8fafe78611fd39f68e7bb8af23449a04"
+        }
+      ]
+    }
+  ],
+  "refusalArtifacts": [
+    {
+      "id": "raw-vcpu-state-cross-isa",
+      "status": "verified",
+      "disposition": "forbidden",
+      "expectedRefusalCode": "whole-vm-raw-vcpu-cross-isa-forbidden",
+      "evidence": "Support matrix uses portable workload descriptors only; no vCPU/register image is accepted or replayed."
+    },
+    {
+      "id": "guest-kernel-device-state",
+      "status": "verified",
+      "disposition": "refused",
+      "expectedRefusalCode": "whole-vm-opaque-kernel-device-state-unsupported",
+      "evidence": "Retained artifacts include portable workload resources, not opaque guest kernel/device metadata."
+    },
+    {
+      "id": "arbitrary-process-memory-continuation",
+      "status": "verified",
+      "disposition": "refused",
+      "expectedRefusalCode": "whole-vm-arbitrary-process-memory-unsupported",
+      "evidence": "Claim scope is selected whole-VM ping workload reconstruction; arbitrary Linux process restore remains 0."
+    },
+    {
+      "id": "active-network-connection-migration",
+      "status": "verified",
+      "disposition": "refused",
+      "expectedRefusalCode": "whole-vm-active-network-connection-unsupported",
+      "evidence": "Only loopback ping socket reconstruction with empty queues/no active recvmsg is accepted by descriptor gates."
+    },
+    {
+      "id": "unmodeled-live-mount-fuse-state",
+      "status": "verified",
+      "disposition": "refused",
+      "expectedRefusalCode": "whole-vm-unmodeled-live-mount-state-unsupported",
+      "evidence": "Selected workload artifacts contain no live mount/FUSE state; unmodeled live mount state is outside scope."
+    },
+    {
+      "id": "dirty-block-device-without-manifest",
+      "status": "verified",
+      "disposition": "refused",
+      "expectedRefusalCode": "whole-vm-dirty-block-device-without-manifest-unsupported",
+      "evidence": "Support requires portable manifest/resources; dirty block-device deltas without a manifest are not accepted."
+    },
+    {
+      "id": "architecture-specific-kernel-module",
+      "status": "verified",
+      "disposition": "refused",
+      "expectedRefusalCode": "whole-vm-architecture-specific-kernel-module-unsupported",
+      "evidence": "Target restores boot target-native kernels and reconstruct the workload; source-architecture kernel modules are not included."
+    },
+    {
+      "id": "privileged-kernel-feature-surface",
+      "status": "verified",
+      "disposition": "refused",
+      "expectedRefusalCode": "whole-vm-privileged-kernel-feature-surface-gated",
+      "evidence": "Only the ping socket credential/capability gates in the retained descriptor are accepted; eBPF/seccomp/KVM remain separate capability rows."
+    }
+  ],
+  "noShortcutPolicy": {
+    "rawVmStateRestoreAccepted": false,
+    "crossIsaCpuReplayAccepted": false,
+    "sourceIsaEmulationAccepted": false,
+    "arbitraryVmRestoreAccepted": false,
+    "arbitraryLinuxProcessRestoreAccepted": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

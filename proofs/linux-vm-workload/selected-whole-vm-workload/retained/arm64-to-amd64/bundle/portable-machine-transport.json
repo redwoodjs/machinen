@@ -1,0 +1,15 @@
+{
+  "kind": "machinen.portable-machine-transport",
+  "formatVersion": 1,
+  "profile": "ping-level4-socket-reconstruction-v1",
+  "productSupport": "supported",
+  "implementationLevel": "level-4-kernel-resource-reconstruction",
+  "transport": "machinen snapshot",
+  "restoreSurface": "machinen restore <bundle> --target-arch <arch> [--target-verifier-output <file>]",
+  "resourceDescriptor": "portable-ping-socket.json",
+  "reusableResourceModel": {
+    "family": "level4-kernel-resource-reconstruction",
+    "firstResource": "network-ping-socket",
+    "nextResources": ["pipe", "eventfd", "timerfd", "tcp-listener"]
+  }
+}

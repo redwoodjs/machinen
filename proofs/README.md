@@ -48,3 +48,4 @@ claim group here has a `claim.json` copy plus a readable `README.md`.
 - [Whole Linux VM workload portability taxonomy](./linux-vm-workload/not-started/README.md) — `defined`
 - [Whole VM workload boundary matrix](./linux-vm-workload/boundary-matrix/README.md) — `verified`
 - [Whole VM workload smoke matrix](./linux-vm-workload/smoke-matrix/README.md) — `verified`
+- [Selected whole VM workload support matrix](./linux-vm-workload/selected-whole-vm-workload/README.md) — `verified`
