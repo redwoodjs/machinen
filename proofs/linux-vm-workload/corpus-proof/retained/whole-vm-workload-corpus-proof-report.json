@@ -1,0 +1,177 @@
+{
+  "kind": "machinen.whole-vm-workload-corpus-proof",
+  "version": 1,
+  "generatedAt": "2026-06-02T21:34:35.743Z",
+  "accepted": true,
+  "proofStatus": "verified",
+  "publicClaimAllowed": false,
+  "currentClaim": {
+    "productSupport": 100,
+    "broadSupport": 100,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "currentClaimScope": "selected-whole-vm-workload-v1 only",
+  "claimChangeAllowed": false,
+  "summary": {
+    "requiredRows": 8,
+    "verifiedRows": 8,
+    "proofOnlySupportedRows": 4,
+    "refusedRows": 3,
+    "refusalDefinedRows": 1,
+    "productSupportRowsAdded": 0
+  },
+  "rowResults": [
+    {
+      "id": "whole-vm-sqlite-clean-db-workload",
+      "status": "verified",
+      "disposition": "refused",
+      "claimUse": "proof-only",
+      "acceptedArchs": ["arm64", "amd64"],
+      "accepted": true,
+      "productSupportClaimAllowed": false,
+      "evidence": ["arm64:sqlite3-not-installed-in-guest", "amd64:sqlite3-not-installed-in-guest"],
+      "refusalCode": "whole-vm-workload-tool-missing"
+    },
+    {
+      "id": "whole-vm-postgresql-clean-workload",
+      "status": "verified",
+      "disposition": "refused",
+      "claimUse": "proof-only",
+      "acceptedArchs": ["arm64", "amd64"],
+      "accepted": true,
+      "productSupportClaimAllowed": false,
+      "evidence": [
+        "arm64:postgresql-tools-not-installed-in-guest",
+        "amd64:postgresql-tools-not-installed-in-guest"
+      ],
+      "refusalCode": "whole-vm-workload-tool-missing"
+    },
+    {
+      "id": "whole-vm-c-service-workload",
+      "status": "verified",
+      "disposition": "supported",
+      "claimUse": "proof-only",
+      "acceptedArchs": ["arm64", "amd64"],
+      "accepted": true,
+      "productSupportClaimAllowed": false,
+      "evidence": [
+        "arm64:target-native-c-service-verifier-passed",
+        "amd64:target-native-c-service-verifier-passed"
+      ]
+    },
+    {
+      "id": "whole-vm-java-service-workload",
+      "status": "verified",
+      "disposition": "refused",
+      "claimUse": "proof-only",
+      "acceptedArchs": ["arm64", "amd64"],
+      "accepted": true,
+      "productSupportClaimAllowed": false,
+      "evidence": [
+        "arm64:java-runtime-not-installed-in-guest",
+        "amd64:java-runtime-not-installed-in-guest"
+      ],
+      "refusalCode": "whole-vm-workload-tool-missing"
+    },
+    {
+      "id": "whole-vm-filesystem-workload",
+      "status": "verified",
+      "disposition": "supported",
+      "claimUse": "proof-only",
+      "acceptedArchs": ["arm64", "amd64"],
+      "accepted": true,
+      "productSupportClaimAllowed": false,
+      "evidence": [
+        "arm64:file-tree-create-copy-read-verifier-passed",
+        "amd64:file-tree-create-copy-read-verifier-passed"
+      ]
+    },
+    {
+      "id": "whole-vm-network-listener-workload",
+      "status": "verified",
+      "disposition": "supported",
+      "claimUse": "proof-only",
+      "acceptedArchs": ["arm64", "amd64"],
+      "accepted": true,
+      "productSupportClaimAllowed": false,
+      "evidence": [
+        "arm64:loopback-listener-request-response-verifier-passed",
+        "amd64:loopback-listener-request-response-verifier-passed"
+      ]
+    },
+    {
+      "id": "whole-vm-multi-process-workload",
+      "status": "verified",
+      "disposition": "supported",
+      "claimUse": "proof-only",
+      "acceptedArchs": ["arm64", "amd64"],
+      "accepted": true,
+      "productSupportClaimAllowed": false,
+      "evidence": ["arm64:fork-pipe-child-verifier-passed", "amd64:fork-pipe-child-verifier-passed"]
+    },
+    {
+      "id": "whole-vm-dirty-active-opaque-state-refusals",
+      "status": "verified",
+      "disposition": "refusal-defined",
+      "claimUse": "refusal-boundary-only",
+      "acceptedArchs": ["arm64", "amd64"],
+      "accepted": true,
+      "productSupportClaimAllowed": false,
+      "evidence": [
+        "arm64:dirty-db-active-session-opaque-kernel-device-runtime-private-state-require-explicit-refusal",
+        "amd64:dirty-db-active-session-opaque-kernel-device-runtime-private-state-require-explicit-refusal"
+      ],
+      "refusalCode": "whole-vm-dirty-active-opaque-state-unsupported"
+    }
+  ],
+  "artifacts": [
+    {
+      "name": "arm64/stderr.txt",
+      "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/linux-vm-workload/corpus-proof/retained/arm64/stderr.txt",
+      "sha256": "a913c5ea70dd3cabf6f325751eb8489b74bbea2ed2c502444cadba042b7d5652"
+    },
+    {
+      "name": "arm64/stdout.txt",
+      "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/linux-vm-workload/corpus-proof/retained/arm64/stdout.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "amd64/stderr.txt",
+      "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/linux-vm-workload/corpus-proof/retained/amd64/stderr.txt",
+      "sha256": "4e1d04b5dfb6f615a143cbb79ee2aafae89f80ba6e752d4831f5f248edd6a2b1"
+    },
+    {
+      "name": "amd64/stdout.txt",
+      "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/linux-vm-workload/corpus-proof/retained/amd64/stdout.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "sources/c-service.c",
+      "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/linux-vm-workload/corpus-proof/retained/sources/c-service.c",
+      "sha256": "c07d8f898a8bdfaf57eead00457ce75ce8e5ac9819583ce850dc7c32635c83db"
+    },
+    {
+      "name": "sources/network-listener.c",
+      "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/linux-vm-workload/corpus-proof/retained/sources/network-listener.c",
+      "sha256": "1c3370170910dd787dd896d29782a3972d146f27c97274431b9e05e88bc8ebe1"
+    },
+    {
+      "name": "sources/multi-process.c",
+      "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/linux-vm-workload/corpus-proof/retained/sources/multi-process.c",
+      "sha256": "5b36a72de2b580ede50c661a0ef5d2659649d8c9367a33618ae8a99c66b620b8"
+    },
+    {
+      "name": "sources/run-corpus.sh",
+      "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/linux-vm-workload/corpus-proof/retained/sources/run-corpus.sh",
+      "sha256": "7ba2c17da693449c323defae42ec2fd82c362de3886a16d0d6d7912b335fa510"
+    }
+  ],
+  "noShortcutPolicy": {
+    "rawVmStateRestoreAccepted": false,
+    "crossIsaCpuReplayAccepted": false,
+    "sourceIsaEmulationAccepted": false,
+    "arbitraryVmRestoreAccepted": false,
+    "arbitraryLinuxProcessRestoreAccepted": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

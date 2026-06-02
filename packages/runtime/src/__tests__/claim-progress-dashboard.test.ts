@@ -27,7 +27,7 @@ type ClaimProgressProofGroup = {
 
 type ClaimProgressDashboard = {
   kind: "machinen.claim-progress-dashboard";
-  version: 120;
+  version: 121;
   tracks: ClaimProgressTrack[];
   proofGroups: ClaimProgressProofGroup[];
 };
@@ -41,7 +41,7 @@ describe("claim progress dashboard", () => {
 
     expect(dashboard).toMatchObject({
       kind: "machinen.claim-progress-dashboard",
-      version: 120,
+      version: 121,
     });
     expect(dashboard.tracks.map((track) => track.id)).toEqual([
       "node-service",
@@ -145,6 +145,7 @@ describe("claim progress dashboard", () => {
     expect(proofIds).toContain("vm-workload-boundary-needed");
     expect(proofIds).toContain("selected-whole-vm-workload-support-matrix");
     expect(proofIds).toContain("whole-vm-workload-next-corpus");
+    expect(proofIds).toContain("whole-vm-workload-corpus-proof");
     expect(proofIds).toContain("arbitrary-process-claim-ready-gate");
     expect(proofIds).toContain("simple-pipe-fd-proof");
     expect(proofIds).toContain("idle-epoll-tcp-proof");
@@ -265,8 +266,8 @@ describe("claim progress dashboard", () => {
     expect(html).toContain("whole-vm-workload-boundary-matrix-report.json");
     expect(html).toContain("whole-vm-workload-smoke-matrix-report.json");
     expect(html).toContain("selected-whole-vm-workload-support-matrix-report.json");
-    expect(html).toContain("ping-level4-socket-reconstruction-v1");
-    expect(html).toContain("targetOutputObserved");
+    expect(html).toContain("selected-whole-vm-workload-v1 only");
+    expect(html).toContain("targetVmStarted and targetOutputObserved");
     expect(html).toContain("whole-vm-workload-next-corpus-report.json");
     expect(html).toContain("whole-vm-sqlite-clean-db-workload");
     expect(html).toContain("whole-vm-postgresql-clean-workload");
@@ -277,6 +278,11 @@ describe("claim progress dashboard", () => {
     expect(html).toContain("whole-vm-multi-process-workload");
     expect(html).toContain("whole-vm-dirty-active-opaque-state-refusals");
     expect(html).toContain("broader-corpus-locked-until-row-artifacts-exist");
+    expect(html).toContain("whole-vm-workload-corpus-proof-report.json");
+    expect(html).toContain("corpusProductSupportRowsAdded");
+    expect(html).toContain("target-native-c-service-verifier-passed");
+    expect(html).toContain("loopback-listener-request-response-verifier-passed");
+    expect(html).toContain("fork-pipe-child-verifier-passed");
     expect(html).toContain("vm-workload-tool-missing");
     expect(html).toContain("target-native-static-c-binary-executed");
     expect(html).toContain("native substrate");

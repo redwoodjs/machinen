@@ -1,0 +1,25 @@
+{
+  "id": "whole-vm-workload-corpus-proof",
+  "claim": "Whole VM workload corpus proof rows",
+  "trackId": "whole-linux-vm-workload",
+  "status": "verified",
+  "scope": "Proof-only workload probes and refusal rows. Current product claim remains selected-whole-vm-workload-v1 only.",
+  "claimNumbers": {
+    "productSupport": 100,
+    "broadSupport": 100,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "promotionEffect": "No product claim lift. Verifies proof-only support for C/filesystem/network-listener/multi-process probes and verifies refusals for missing SQLite/PostgreSQL/Java tooling plus dirty/active/opaque boundaries.",
+  "proofs": [
+    {
+      "id": "whole-vm-workload-corpus-proof",
+      "category": "workload corpus proof",
+      "status": "verified",
+      "artifact": "retained/whole-vm-workload-corpus-proof-report.json",
+      "proves": "The requested corpus rows have retained arm64 and amd64 VM proof/refusal artifacts.",
+      "claimUse": "proof-only; no product support claim change",
+      "next": "Turn supported proof-only rows into product rows with retained machinen snapshot/restore artifacts before broadening claims."
+    }
+  ],
+  "proofDirectory": "proofs/linux-vm-workload/corpus-proof"
+}

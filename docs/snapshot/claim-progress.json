@@ -1,6 +1,6 @@
 {
   "kind": "machinen.claim-progress-dashboard",
-  "version": 120,
+  "version": 121,
   "updatedFrom": [
     "docs/snapshot/node-level5-product-support-claim-registry.json",
     "docs/snapshot/node-level5-product-support-100.json",
@@ -27,7 +27,8 @@
     "proofs/linux-vm-workload/boundary-matrix/retained/whole-vm-workload-boundary-matrix-report.json",
     "proofs/linux-vm-workload/smoke-matrix/retained/whole-vm-workload-smoke-matrix-report.json",
     "proofs/linux-vm-workload/selected-whole-vm-workload/retained/selected-whole-vm-workload-support-matrix-report.json",
-    "proofs/linux-vm-workload/next-corpus/retained/whole-vm-workload-next-corpus-report.json"
+    "proofs/linux-vm-workload/next-corpus/retained/whole-vm-workload-next-corpus-report.json",
+    "proofs/linux-vm-workload/corpus-proof/retained/whole-vm-workload-corpus-proof-report.json"
   ],
   "columns": {
     "claim": ["productSupport", "broadSupport", "arbitraryProcessCrossArchRestore"],
@@ -2122,7 +2123,7 @@
         "refusalArtifactsCovered": 0,
         "refusalArtifactsRequiredBeforeClaimLift": 52
       },
-      "summary": "Selected whole-VM workload support remains verified for selected-whole-vm-workload-v1 using ping-level4-socket-reconstruction-v1. The next broader corpus rows are now defined, but have zero retained support artifacts and do not broaden the claim.",
+      "summary": "Selected whole-VM workload product support remains scoped to selected-whole-vm-workload-v1. The requested broader corpus rows now have retained proof/refusal evidence in arm64 and amd64 VMs, but product support rows added remains 0 because these are not retained machinen snapshot/restore matrices for those workloads.",
       "claimGate": "selected-whole-vm-workload-support-matrix",
       "claimChangeAllowed": false,
       "evidence": [
@@ -2130,7 +2131,8 @@
         "whole-vm-workload-boundary-matrix",
         "whole-vm-workload-smoke-matrix",
         "selected-whole-vm-workload-support-matrix",
-        "whole-vm-workload-next-corpus"
+        "whole-vm-workload-next-corpus",
+        "whole-vm-workload-corpus-proof"
       ],
       "evidenceRows": [
         {
@@ -2243,154 +2245,202 @@
         },
         {
           "id": "whole-vm-sqlite-clean-db-workload",
-          "area": "whole VM workload next corpus",
-          "kind": "database workload",
+          "area": "whole VM workload corpus proof",
+          "kind": "refusal proof",
           "category": "database workload",
-          "status": "not-started",
-          "disposition": "not-started",
-          "evidence": "SQLite clean DB workload row is defined but has no retained bidirectional product support artifacts yet.",
-          "gate": "whole-vm-workload-next-corpus",
-          "artifact": "proofs/linux-vm-workload/next-corpus/retained/whole-vm-workload-next-corpus-report.json",
-          "claimUse": "future corpus only; no current claim lift",
-          "next": "Retain arm64-to-amd64 and amd64-to-arm64 product capture/restore/verifier artifacts before support.",
+          "status": "verified",
+          "disposition": "refused",
+          "evidence": "Retained arm64 and amd64 VM refusal/proof accepted: arm64:sqlite3-not-installed-in-guest; amd64:sqlite3-not-installed-in-guest.",
+          "gate": "whole-vm-workload-corpus-proof",
+          "artifact": "proofs/linux-vm-workload/corpus-proof/retained/whole-vm-workload-corpus-proof-report.json",
+          "claimUse": "proof-only; no product claim lift",
+          "next": "Reduce only by adding target-native tooling/product support and retained refusal-neighbor artifacts.",
           "claimImpact": {
             "productSupportDelta": 0,
             "broadSupportDelta": 0,
             "arbitraryProcessCrossArchRestoreDelta": 0,
-            "claimChangeAllowed": false
+            "claimChangeAllowed": false,
+            "resultingClaim": {
+              "productSupport": 100,
+              "broadSupport": 100,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "scope": "proof-only next-corpus evidence"
           }
         },
         {
           "id": "whole-vm-postgresql-clean-workload",
-          "area": "whole VM workload next corpus",
-          "kind": "database workload",
+          "area": "whole VM workload corpus proof",
+          "kind": "refusal proof",
           "category": "database workload",
-          "status": "not-started",
-          "disposition": "not-started",
-          "evidence": "PostgreSQL clean workload row is defined but has no retained bidirectional product support artifacts yet.",
-          "gate": "whole-vm-workload-next-corpus",
-          "artifact": "proofs/linux-vm-workload/next-corpus/retained/whole-vm-workload-next-corpus-report.json",
-          "claimUse": "future corpus only; no current claim lift",
-          "next": "Retain arm64-to-amd64 and amd64-to-arm64 product capture/restore/verifier artifacts before support.",
+          "status": "verified",
+          "disposition": "refused",
+          "evidence": "Retained arm64 and amd64 VM refusal/proof accepted: arm64:postgresql-tools-not-installed-in-guest; amd64:postgresql-tools-not-installed-in-guest.",
+          "gate": "whole-vm-workload-corpus-proof",
+          "artifact": "proofs/linux-vm-workload/corpus-proof/retained/whole-vm-workload-corpus-proof-report.json",
+          "claimUse": "proof-only; no product claim lift",
+          "next": "Reduce only by adding target-native tooling/product support and retained refusal-neighbor artifacts.",
           "claimImpact": {
             "productSupportDelta": 0,
             "broadSupportDelta": 0,
             "arbitraryProcessCrossArchRestoreDelta": 0,
-            "claimChangeAllowed": false
+            "claimChangeAllowed": false,
+            "resultingClaim": {
+              "productSupport": 100,
+              "broadSupport": 100,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "scope": "proof-only next-corpus evidence"
           }
         },
         {
           "id": "whole-vm-c-service-workload",
-          "area": "whole VM workload next corpus",
-          "kind": "service workload",
+          "area": "whole VM workload corpus proof",
+          "kind": "workload proof",
           "category": "service workload",
-          "status": "not-started",
-          "disposition": "not-started",
-          "evidence": "C service workload row is defined but has no retained bidirectional product support artifacts yet.",
-          "gate": "whole-vm-workload-next-corpus",
-          "artifact": "proofs/linux-vm-workload/next-corpus/retained/whole-vm-workload-next-corpus-report.json",
-          "claimUse": "future corpus only; no current claim lift",
-          "next": "Retain arm64-to-amd64 and amd64-to-arm64 product capture/restore/verifier artifacts before support.",
+          "status": "verified",
+          "disposition": "supported",
+          "evidence": "Retained arm64 and amd64 VM proof passed: arm64:target-native-c-service-verifier-passed; amd64:target-native-c-service-verifier-passed.",
+          "gate": "whole-vm-workload-corpus-proof",
+          "artifact": "proofs/linux-vm-workload/corpus-proof/retained/whole-vm-workload-corpus-proof-report.json",
+          "claimUse": "proof-only; no product claim lift",
+          "next": "Promote only after retained bidirectional machinen snapshot/restore product artifacts exist for this row.",
           "claimImpact": {
             "productSupportDelta": 0,
             "broadSupportDelta": 0,
             "arbitraryProcessCrossArchRestoreDelta": 0,
-            "claimChangeAllowed": false
+            "claimChangeAllowed": false,
+            "resultingClaim": {
+              "productSupport": 100,
+              "broadSupport": 100,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "scope": "proof-only next-corpus evidence"
           }
         },
         {
           "id": "whole-vm-java-service-workload",
-          "area": "whole VM workload next corpus",
-          "kind": "service workload",
+          "area": "whole VM workload corpus proof",
+          "kind": "refusal proof",
           "category": "service workload",
-          "status": "not-started",
-          "disposition": "not-started",
-          "evidence": "Java service workload row is defined but has no retained bidirectional product support artifacts yet.",
-          "gate": "whole-vm-workload-next-corpus",
-          "artifact": "proofs/linux-vm-workload/next-corpus/retained/whole-vm-workload-next-corpus-report.json",
-          "claimUse": "future corpus only; no current claim lift",
-          "next": "Retain arm64-to-amd64 and amd64-to-arm64 product capture/restore/verifier artifacts before support.",
+          "status": "verified",
+          "disposition": "refused",
+          "evidence": "Retained arm64 and amd64 VM refusal/proof accepted: arm64:java-runtime-not-installed-in-guest; amd64:java-runtime-not-installed-in-guest.",
+          "gate": "whole-vm-workload-corpus-proof",
+          "artifact": "proofs/linux-vm-workload/corpus-proof/retained/whole-vm-workload-corpus-proof-report.json",
+          "claimUse": "proof-only; no product claim lift",
+          "next": "Reduce only by adding target-native tooling/product support and retained refusal-neighbor artifacts.",
           "claimImpact": {
             "productSupportDelta": 0,
             "broadSupportDelta": 0,
             "arbitraryProcessCrossArchRestoreDelta": 0,
-            "claimChangeAllowed": false
+            "claimChangeAllowed": false,
+            "resultingClaim": {
+              "productSupport": 100,
+              "broadSupport": 100,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "scope": "proof-only next-corpus evidence"
           }
         },
         {
           "id": "whole-vm-filesystem-workload",
-          "area": "whole VM workload next corpus",
-          "kind": "filesystem workload",
+          "area": "whole VM workload corpus proof",
+          "kind": "workload proof",
           "category": "filesystem workload",
-          "status": "not-started",
-          "disposition": "not-started",
-          "evidence": "Filesystem workload row is defined but has no retained bidirectional product support artifacts yet.",
-          "gate": "whole-vm-workload-next-corpus",
-          "artifact": "proofs/linux-vm-workload/next-corpus/retained/whole-vm-workload-next-corpus-report.json",
-          "claimUse": "future corpus only; no current claim lift",
-          "next": "Retain arm64-to-amd64 and amd64-to-arm64 product capture/restore/verifier artifacts before support.",
+          "status": "verified",
+          "disposition": "supported",
+          "evidence": "Retained arm64 and amd64 VM proof passed: arm64:file-tree-create-copy-read-verifier-passed; amd64:file-tree-create-copy-read-verifier-passed.",
+          "gate": "whole-vm-workload-corpus-proof",
+          "artifact": "proofs/linux-vm-workload/corpus-proof/retained/whole-vm-workload-corpus-proof-report.json",
+          "claimUse": "proof-only; no product claim lift",
+          "next": "Promote only after retained bidirectional machinen snapshot/restore product artifacts exist for this row.",
           "claimImpact": {
             "productSupportDelta": 0,
             "broadSupportDelta": 0,
             "arbitraryProcessCrossArchRestoreDelta": 0,
-            "claimChangeAllowed": false
+            "claimChangeAllowed": false,
+            "resultingClaim": {
+              "productSupport": 100,
+              "broadSupport": 100,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "scope": "proof-only next-corpus evidence"
           }
         },
         {
           "id": "whole-vm-network-listener-workload",
-          "area": "whole VM workload next corpus",
-          "kind": "network workload",
+          "area": "whole VM workload corpus proof",
+          "kind": "workload proof",
           "category": "network workload",
-          "status": "not-started",
-          "disposition": "not-started",
-          "evidence": "Network listener workload row is defined but has no retained bidirectional product support artifacts yet.",
-          "gate": "whole-vm-workload-next-corpus",
-          "artifact": "proofs/linux-vm-workload/next-corpus/retained/whole-vm-workload-next-corpus-report.json",
-          "claimUse": "future corpus only; no current claim lift",
-          "next": "Retain arm64-to-amd64 and amd64-to-arm64 product capture/restore/verifier artifacts before support.",
+          "status": "verified",
+          "disposition": "supported",
+          "evidence": "Retained arm64 and amd64 VM proof passed: arm64:loopback-listener-request-response-verifier-passed; amd64:loopback-listener-request-response-verifier-passed.",
+          "gate": "whole-vm-workload-corpus-proof",
+          "artifact": "proofs/linux-vm-workload/corpus-proof/retained/whole-vm-workload-corpus-proof-report.json",
+          "claimUse": "proof-only; no product claim lift",
+          "next": "Promote only after retained bidirectional machinen snapshot/restore product artifacts exist for this row.",
           "claimImpact": {
             "productSupportDelta": 0,
             "broadSupportDelta": 0,
             "arbitraryProcessCrossArchRestoreDelta": 0,
-            "claimChangeAllowed": false
+            "claimChangeAllowed": false,
+            "resultingClaim": {
+              "productSupport": 100,
+              "broadSupport": 100,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "scope": "proof-only next-corpus evidence"
           }
         },
         {
           "id": "whole-vm-multi-process-workload",
-          "area": "whole VM workload next corpus",
-          "kind": "process topology workload",
+          "area": "whole VM workload corpus proof",
+          "kind": "workload proof",
           "category": "process topology workload",
-          "status": "not-started",
-          "disposition": "not-started",
-          "evidence": "Multi-process workload row is defined but has no retained bidirectional product support artifacts yet.",
-          "gate": "whole-vm-workload-next-corpus",
-          "artifact": "proofs/linux-vm-workload/next-corpus/retained/whole-vm-workload-next-corpus-report.json",
-          "claimUse": "future corpus only; no current claim lift",
-          "next": "Retain arm64-to-amd64 and amd64-to-arm64 product capture/restore/verifier artifacts before support.",
+          "status": "verified",
+          "disposition": "supported",
+          "evidence": "Retained arm64 and amd64 VM proof passed: arm64:fork-pipe-child-verifier-passed; amd64:fork-pipe-child-verifier-passed.",
+          "gate": "whole-vm-workload-corpus-proof",
+          "artifact": "proofs/linux-vm-workload/corpus-proof/retained/whole-vm-workload-corpus-proof-report.json",
+          "claimUse": "proof-only; no product claim lift",
+          "next": "Promote only after retained bidirectional machinen snapshot/restore product artifacts exist for this row.",
           "claimImpact": {
             "productSupportDelta": 0,
             "broadSupportDelta": 0,
             "arbitraryProcessCrossArchRestoreDelta": 0,
-            "claimChangeAllowed": false
+            "claimChangeAllowed": false,
+            "resultingClaim": {
+              "productSupport": 100,
+              "broadSupport": 100,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "scope": "proof-only next-corpus evidence"
           }
         },
         {
           "id": "whole-vm-dirty-active-opaque-state-refusals",
-          "area": "whole VM workload next corpus",
-          "kind": "refusal boundary",
+          "area": "whole VM workload corpus proof",
+          "kind": "refusal proof",
           "category": "refusal boundary",
-          "status": "defined",
+          "status": "verified",
           "disposition": "refusal-defined",
-          "evidence": "Dirty/active/opaque state refusals refusal row is defined; retained refusal artifacts are still required before any broader claim.",
-          "gate": "whole-vm-workload-next-corpus",
-          "artifact": "proofs/linux-vm-workload/next-corpus/retained/whole-vm-workload-next-corpus-report.json",
-          "claimUse": "refusal boundary only; no claim lift",
-          "next": "Retain refusal input manifest, product command transcript, stable refusal code, boundary evidence, and shortcut inspection.",
+          "evidence": "Retained arm64 and amd64 VM refusal/proof accepted: arm64:dirty-db-active-session-opaque-kernel-device-runtime-private-state-require-explicit-refusal; amd64:dirty-db-active-session-opaque-kernel-device-runtime-private-state-require-explicit-refusal.",
+          "gate": "whole-vm-workload-corpus-proof",
+          "artifact": "proofs/linux-vm-workload/corpus-proof/retained/whole-vm-workload-corpus-proof-report.json",
+          "claimUse": "refusal boundary only; no product claim lift",
+          "next": "Reduce only by adding target-native tooling/product support and retained refusal-neighbor artifacts.",
           "claimImpact": {
             "productSupportDelta": 0,
             "broadSupportDelta": 0,
             "arbitraryProcessCrossArchRestoreDelta": 0,
-            "claimChangeAllowed": false
+            "claimChangeAllowed": false,
+            "resultingClaim": {
+              "productSupport": 100,
+              "broadSupport": 100,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "scope": "proof-only next-corpus evidence"
           }
         }
       ],
@@ -2540,6 +2590,34 @@
           "reason": "Dirty database state, active network/session state, opaque guest kernel/device state, and runtime-private/JIT/native extension state require explicit refusal artifacts before any broader claim.",
           "artifact": "proofs/linux-vm-workload/next-corpus/retained/whole-vm-workload-next-corpus-report.json",
           "neededToReduce": "Retain product command refusal transcripts with stable refusal codes and shortcut inspection records."
+        },
+        {
+          "boundary": "whole-vm corpus whole-vm-sqlite-clean-db-workload",
+          "status": "refused",
+          "reason": "whole-vm-workload-tool-missing: arm64:sqlite3-not-installed-in-guest; amd64:sqlite3-not-installed-in-guest",
+          "artifact": "proofs/linux-vm-workload/corpus-proof/retained/whole-vm-workload-corpus-proof-report.json",
+          "neededToReduce": "Retain product support artifacts and neighboring refusal artifacts before any broader claim."
+        },
+        {
+          "boundary": "whole-vm corpus whole-vm-postgresql-clean-workload",
+          "status": "refused",
+          "reason": "whole-vm-workload-tool-missing: arm64:postgresql-tools-not-installed-in-guest; amd64:postgresql-tools-not-installed-in-guest",
+          "artifact": "proofs/linux-vm-workload/corpus-proof/retained/whole-vm-workload-corpus-proof-report.json",
+          "neededToReduce": "Retain product support artifacts and neighboring refusal artifacts before any broader claim."
+        },
+        {
+          "boundary": "whole-vm corpus whole-vm-java-service-workload",
+          "status": "refused",
+          "reason": "whole-vm-workload-tool-missing: arm64:java-runtime-not-installed-in-guest; amd64:java-runtime-not-installed-in-guest",
+          "artifact": "proofs/linux-vm-workload/corpus-proof/retained/whole-vm-workload-corpus-proof-report.json",
+          "neededToReduce": "Retain product support artifacts and neighboring refusal artifacts before any broader claim."
+        },
+        {
+          "boundary": "whole-vm corpus whole-vm-dirty-active-opaque-state-refusals",
+          "status": "defined",
+          "reason": "whole-vm-dirty-active-opaque-state-unsupported: arm64:dirty-db-active-session-opaque-kernel-device-runtime-private-state-require-explicit-refusal; amd64:dirty-db-active-session-opaque-kernel-device-runtime-private-state-require-explicit-refusal",
+          "artifact": "proofs/linux-vm-workload/corpus-proof/retained/whole-vm-workload-corpus-proof-report.json",
+          "neededToReduce": "Retain product support artifacts and neighboring refusal artifacts before any broader claim."
         }
       ],
       "nextSteps": [
@@ -2646,7 +2724,8 @@
         "whole-linux-vm-workload-taxonomy.md",
         "proofs/linux-vm-workload/smoke-matrix/README.md",
         "proofs/linux-vm-workload/selected-whole-vm-workload/README.md",
-        "proofs/linux-vm-workload/next-corpus/README.md"
+        "proofs/linux-vm-workload/next-corpus/README.md",
+        "proofs/linux-vm-workload/corpus-proof/README.md"
       ],
       "rowCoverage": {
         "supportedDirectionBundlesRequired": 2,
@@ -2661,7 +2740,7 @@
         "smokeRowsRefused": 4,
         "notProvenRows": 0,
         "report": "proofs/linux-vm-workload/selected-whole-vm-workload/retained/selected-whole-vm-workload-support-matrix-report.json",
-        "summary": "2 / 2 selected-workload directions verified · next corpus 8 / 8 rows defined · 0 support/refusal artifacts covered for broader claim",
+        "summary": "2 / 2 selected-workload product directions verified · 8 / 8 next-corpus proof rows verified · product support rows added 0",
         "selectedWholeVmWorkloadClaim": "100 / 100 / 0 for selected-whole-vm-workload-v1 only",
         "nextCorpusRowsRequired": 8,
         "nextCorpusRowsDefined": 8,
@@ -2669,7 +2748,14 @@
         "nextCorpusSupportArtifactsRequiredBeforeClaimLift": 77,
         "nextCorpusRefusalArtifactsCovered": 0,
         "nextCorpusRefusalArtifactsRequiredBeforeClaimLift": 52,
-        "nextCorpusReport": "proofs/linux-vm-workload/next-corpus/retained/whole-vm-workload-next-corpus-report.json"
+        "nextCorpusReport": "proofs/linux-vm-workload/next-corpus/retained/whole-vm-workload-next-corpus-report.json",
+        "corpusProofRowsRequired": 8,
+        "corpusProofRowsVerified": 8,
+        "corpusProofOnlySupportedRows": 4,
+        "corpusProofRefusedRows": 3,
+        "corpusProofRefusalDefinedRows": 1,
+        "corpusProductSupportRowsAdded": 0,
+        "corpusProofReport": "proofs/linux-vm-workload/corpus-proof/retained/whole-vm-workload-corpus-proof-report.json"
       }
     }
   ],
@@ -4483,6 +4569,28 @@
             },
             "claimChangeAllowed": false,
             "scope": "future corpus only"
+          }
+        },
+        {
+          "id": "whole-vm-workload-corpus-proof",
+          "category": "workload corpus proof",
+          "status": "verified",
+          "artifact": "proofs/linux-vm-workload/corpus-proof/retained/whole-vm-workload-corpus-proof-report.json",
+          "disposition": "proof-only",
+          "proves": "Retained arm64 and amd64 VM proof/refusal artifacts cover all requested next-corpus rows.",
+          "claimUse": "Proof-only corpus evidence; no product support claim change.",
+          "next": "Turn supported proof-only rows into product rows with retained machinen snapshot/restore artifacts before broadening claims.",
+          "claimImpact": {
+            "productSupportDelta": 0,
+            "broadSupportDelta": 0,
+            "arbitraryProcessCrossArchRestoreDelta": 0,
+            "resultingClaim": {
+              "productSupport": 100,
+              "broadSupport": 100,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "claimChangeAllowed": false,
+            "scope": "proof-only next-corpus evidence"
           }
         }
       ]
