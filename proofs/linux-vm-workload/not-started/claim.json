@@ -30,11 +30,22 @@
     {
       "id": "vm-workload-boundary-needed",
       "category": "planning",
-      "status": "not-started",
-      "artifact": "not-created",
-      "proves": "No retained whole-VM workload support/refusal matrix exists yet",
-      "claimUse": "blocks VM workload claim",
-      "next": "Retain supported direction artifacts and refusal artifacts."
+      "status": "verified",
+      "artifact": "proofs/linux-vm-workload/boundary-matrix/retained/whole-vm-workload-boundary-matrix-report.json",
+      "proves": "Retained boundary matrix validates supported row definitions, refusal boundaries, artifact requirements, forbidden shortcuts, and claim language for selected-whole-vm-workload-v1.",
+      "claimUse": "definition-only boundary matrix; no productSupport/broadSupport/arbitraryProcessCrossArchRestore lift",
+      "next": "Run retained selected-whole-vm-workload-v1 support/refusal artifacts.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 0,
+          "broadSupport": 0,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
     }
   ]
 }

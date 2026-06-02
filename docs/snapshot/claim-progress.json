@@ -1,6 +1,6 @@
 {
   "kind": "machinen.claim-progress-dashboard",
-  "version": 116,
+  "version": 117,
   "updatedFrom": [
     "docs/snapshot/node-level5-product-support-claim-registry.json",
     "docs/snapshot/node-level5-product-support-100.json",
@@ -23,7 +23,8 @@
     "proofs/native-process-substrate/product-e2e-gate/retained/native-product-e2e-gate-report.json",
     "proofs/native-process-substrate/selected-native-support-matrix/retained/selected-native-support-matrix-report.json",
     "docs/snapshot/whole-linux-vm-workload-taxonomy.md",
-    "docs/snapshot/whole-linux-vm-workload-taxonomy.json"
+    "docs/snapshot/whole-linux-vm-workload-taxonomy.json",
+    "proofs/linux-vm-workload/boundary-matrix/retained/whole-vm-workload-boundary-matrix-report.json"
   ],
   "columns": {
     "claim": ["productSupport", "broadSupport", "arbitraryProcessCrossArchRestore"],
@@ -2113,10 +2114,10 @@
         "arbitraryProcessCrossArchRestore": 0,
         "claimChangeAllowed": false
       },
-      "summary": "Whole-VM workload taxonomy now defines selected-whole-vm-workload-v1, required artifact gates, refusal boundaries, and dashboard claim language. No retained support/refusal matrix exists yet, so the public claim remains 0 / 0 / 0.",
-      "claimGate": "whole VM workload taxonomy defined; retained support/refusal matrix still required",
+      "summary": "Whole-VM workload taxonomy and retained boundary matrix now define selected-whole-vm-workload-v1, required artifact gates, refusal boundaries, and dashboard claim language. No retained VM workload smoke artifacts exist yet, so the public claim remains 0 / 0 / 0.",
+      "claimGate": "whole VM workload taxonomy and boundary matrix defined; retained support/refusal product artifacts still required",
       "claimChangeAllowed": false,
-      "evidence": ["whole-vm-workload-taxonomy"],
+      "evidence": ["whole-vm-workload-taxonomy", "whole-vm-workload-boundary-matrix"],
       "evidenceRows": [
         {
           "id": "vm-workload-taxonomy",
@@ -2131,12 +2132,12 @@
         {
           "id": "vm-workload-boundary",
           "area": "planning",
-          "kind": "missing claim boundary",
-          "status": "not-started",
-          "evidence": "No retained whole-VM workload proof rows yet",
-          "gate": "vm workload boundary matrix",
-          "artifact": "not-created",
-          "next": "Define workload-level restore success separately from raw VM snapshot portability."
+          "kind": "claim boundary matrix",
+          "status": "verified",
+          "evidence": "Retained boundary matrix validates the taxonomy: selected-whole-vm-workload-v1, required supported rows, refusal boundaries, artifact requirements, forbidden shortcuts, and dashboard claim language. It is definition-only and does not raise the whole-VM claim.",
+          "gate": "whole-vm-workload-boundary-matrix",
+          "artifact": "proofs/linux-vm-workload/boundary-matrix/retained/whole-vm-workload-boundary-matrix-report.json",
+          "next": "Run retained VM workload smoke/product artifacts before any claim lift."
         },
         {
           "id": "vm-sqlite-database-smoke",
@@ -3932,11 +3933,22 @@
         {
           "id": "vm-workload-boundary-needed",
           "category": "planning",
-          "status": "not-started",
-          "artifact": "not-created",
-          "proves": "No retained whole-VM workload support/refusal matrix exists yet",
-          "claimUse": "blocks VM workload claim",
-          "next": "Retain selected-whole-vm-workload-v1 supported direction artifacts and refusal artifacts."
+          "status": "verified",
+          "artifact": "proofs/linux-vm-workload/boundary-matrix/retained/whole-vm-workload-boundary-matrix-report.json",
+          "proves": "Retained boundary matrix validates supported row definitions, refusal boundaries, artifact requirements, forbidden shortcuts, and claim language for selected-whole-vm-workload-v1.",
+          "claimUse": "definition-only boundary matrix; no productSupport/broadSupport/arbitraryProcessCrossArchRestore lift",
+          "next": "Run retained selected-whole-vm-workload-v1 support/refusal artifacts.",
+          "claimImpact": {
+            "productSupportDelta": 0,
+            "broadSupportDelta": 0,
+            "arbitraryProcessCrossArchRestoreDelta": 0,
+            "resultingClaim": {
+              "productSupport": 0,
+              "broadSupport": 0,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "claimChangeAllowed": false
+          }
         },
         {
           "id": "vm-sqlite-database-smoke",

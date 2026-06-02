@@ -46,3 +46,4 @@ claim group here has a `claim.json` copy plus a readable `README.md`.
 - [Selected native support matrix](./native-process-substrate/selected-native-support-matrix/README.md) — `verified`
 - [Arbitrary process 0% / candidate 1% locked](./arbitrary-linux-binaries/0-seed-1-locked/README.md) — `partial-proof`
 - [Whole Linux VM workload portability taxonomy](./linux-vm-workload/not-started/README.md) — `defined`
+- [Whole VM workload boundary matrix](./linux-vm-workload/boundary-matrix/README.md) — `verified`

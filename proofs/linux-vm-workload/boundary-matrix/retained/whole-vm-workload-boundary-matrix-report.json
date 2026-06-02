@@ -1,0 +1,159 @@
+{
+  "kind": "machinen.whole-vm-workload-boundary-matrix",
+  "version": 1,
+  "generatedAt": "2026-06-02T20:42:05.937Z",
+  "accepted": true,
+  "proofStatus": "verified",
+  "publicClaimAllowed": false,
+  "currentClaim": {
+    "productSupport": 0,
+    "broadSupport": 0,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "selectedSubset": "selected-whole-vm-workload-v1",
+  "supportedRows": [
+    {
+      "id": "vm-boot-target-native-linux",
+      "status": "defined-not-proven",
+      "requirement": "Target VM boots target-native Linux without source kernel/CPU replay.",
+      "retainedProductArtifactRequired": true
+    },
+    {
+      "id": "vm-rootfs-app-files-portable",
+      "status": "defined-not-proven",
+      "requirement": "Rootfs/app files are reconstructed from portable artifacts with hashes.",
+      "retainedProductArtifactRequired": true
+    },
+    {
+      "id": "vm-workload-command-reconstructs",
+      "status": "defined-not-proven",
+      "requirement": "Workload command restarts/reconstructs from declared state, not raw process memory.",
+      "retainedProductArtifactRequired": true
+    },
+    {
+      "id": "vm-source-target-verifier-match",
+      "status": "defined-not-proven",
+      "requirement": "Source and target verifier outputs prove equivalent workload behavior.",
+      "retainedProductArtifactRequired": true
+    },
+    {
+      "id": "vm-bidirectional-retained-artifacts",
+      "status": "defined-not-proven",
+      "requirement": "Both arm64-to-amd64 and amd64-to-arm64 directions retain capture, restore, transcript, manifest, and verifier artifacts.",
+      "retainedProductArtifactRequired": true
+    }
+  ],
+  "refusalRows": [
+    {
+      "id": "raw-vcpu-state-cross-isa",
+      "status": "defined-refusal-required",
+      "expectedDisposition": "forbidden",
+      "reason": "Source vCPU/register state cannot be replayed across ISA boundaries.",
+      "retainedProductArtifactRequired": true
+    },
+    {
+      "id": "guest-kernel-device-state",
+      "status": "defined-refusal-required",
+      "expectedDisposition": "refused",
+      "reason": "Opaque guest kernel/device state is not a portable workload artifact.",
+      "retainedProductArtifactRequired": true
+    },
+    {
+      "id": "arbitrary-process-memory-continuation",
+      "status": "defined-refusal-required",
+      "expectedDisposition": "refused",
+      "reason": "Arbitrary process memory/register continuation remains separate and currently 0.",
+      "retainedProductArtifactRequired": true
+    },
+    {
+      "id": "active-network-connection-migration",
+      "status": "defined-refusal-required",
+      "expectedDisposition": "refused",
+      "reason": "Active connections require protocol-aware reconstruction or reconnect policy.",
+      "retainedProductArtifactRequired": true
+    },
+    {
+      "id": "unmodeled-live-mount-fuse-state",
+      "status": "defined-refusal-required",
+      "expectedDisposition": "refused",
+      "reason": "Live mount/FUSE state must be represented by explicit portable mount artifacts or refused.",
+      "retainedProductArtifactRequired": true
+    },
+    {
+      "id": "dirty-block-device-without-manifest",
+      "status": "defined-refusal-required",
+      "expectedDisposition": "refused",
+      "reason": "Dirty block-device state without a portable manifest cannot be treated as restored.",
+      "retainedProductArtifactRequired": true
+    },
+    {
+      "id": "architecture-specific-kernel-module",
+      "status": "defined-refusal-required",
+      "expectedDisposition": "refused",
+      "reason": "Source-architecture kernel modules or ABI-specific dependencies are not portable across target architectures.",
+      "retainedProductArtifactRequired": true
+    },
+    {
+      "id": "privileged-kernel-feature-surface",
+      "status": "defined-refusal-required",
+      "expectedDisposition": "refused-or-capability-gated",
+      "reason": "eBPF, seccomp, KVM/nested virtualization, and similar features need retained capability probes and explicit refusal rows.",
+      "retainedProductArtifactRequired": true
+    }
+  ],
+  "artifactRequirements": {
+    "supportedDirection": [
+      "source workload manifest",
+      "source verifier output",
+      "portable rootfs/app/data manifest with hashes",
+      "capture transcript",
+      "restore plan",
+      "target verifier output",
+      "target boot/workload transcript",
+      "shortcut inspection record",
+      "artifact integrity manifest"
+    ],
+    "refusalDirection": [
+      "refusal input manifest",
+      "product command transcript",
+      "stable expected refusal code",
+      "evidence for boundary condition",
+      "shortcut inspection record when relevant"
+    ],
+    "forbiddenShortcuts": [
+      "raw vCPU replay",
+      "source ISA emulation",
+      "opaque VM/device metadata-only success",
+      "app checkpoint hooks as the source of truth",
+      "sidecar replay"
+    ]
+  },
+  "forbiddenShortcuts": [
+    "raw vCPU replay",
+    "source ISA emulation",
+    "opaque VM/device metadata-only success",
+    "app checkpoint hooks as the source of truth",
+    "sidecar replay"
+  ],
+  "acceptanceChecks": {
+    "taxonomyKind": true,
+    "definitionOnly": true,
+    "claimStaysZero": true,
+    "selectedSubsetNamed": true,
+    "supportedRowsEnumerated": true,
+    "refusalBoundariesEnumerated": true,
+    "supportedArtifactsRequired": true,
+    "refusalArtifactsRequired": true,
+    "forbiddenShortcutsEnumerated": true,
+    "dashboardLanguagePresent": true
+  },
+  "claimLanguage": {
+    "notStarted": "Whole Linux VM workload portability is definition-only. Current claim remains 0 / 0 / 0.",
+    "futureIfProven": "Selected whole-VM workload restore: 100 / 100 / 0 for selected-whole-vm-workload-v1 only.",
+    "requiredBoundaryText": "Not arbitrary VM restore, not raw cross-ISA VM-state replay, and not arbitrary Linux process restore."
+  },
+  "taxonomyArtifact": {
+    "path": "/Users/peterp/gh/redwoodjs/machinen/docs/snapshot/whole-linux-vm-workload-taxonomy.json",
+    "sha256": "23d9b665806e70e98d0d061736378b023cc49bedca4649df2a0ccfb846de2f05"
+  }
+}
