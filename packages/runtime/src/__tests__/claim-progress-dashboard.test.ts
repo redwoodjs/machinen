@@ -98,7 +98,10 @@ describe("claim progress dashboard", () => {
         },
       },
     );
-    expect(dashboard.tracks.find((track) => track.id === "whole-linux-vm-workload")).toMatchObject({
+    const wholeVmWorkload = dashboard.tracks.find(
+      (track) => track.id === "whole-linux-vm-workload",
+    );
+    expect(wholeVmWorkload).toMatchObject({
       status: "verified",
       currentClaim: {
         productSupport: 100,
@@ -107,6 +110,17 @@ describe("claim progress dashboard", () => {
       },
       scope: "selected-whole-vm-workload-v1 only",
     });
+    const wholeVmCorpusRefusedRows = wholeVmWorkload?.evidenceRows.filter(
+      (row) =>
+        row.gate === "whole-vm-workload-corpus-proof" &&
+        ["refused", "refusal-defined"].includes(String(row.disposition)),
+    );
+    expect(wholeVmCorpusRefusedRows?.map((row) => row.id)).toEqual([
+      "whole-vm-sqlite-clean-db-workload",
+      "whole-vm-postgresql-clean-workload",
+      "whole-vm-java-service-workload",
+      "whole-vm-dirty-active-opaque-state-refusals",
+    ]);
     expect(dashboard.proofGroups.map((group) => group.id)).toEqual([
       "node-service-100-100-0",
       "node-claim-evidence-index",
@@ -223,7 +237,12 @@ describe("claim progress dashboard", () => {
     expect(html).not.toContain(
       "Turn the existing clean logical track into a percent-style claim ladder with retained verifier artifacts.",
     );
-    expect(html.indexOf("Track overview")).toBeLessThan(html.indexOf("Proof index"));
+    expect(html.indexOf("Track overview")).toBeLessThan(
+      html.indexOf("Whole-VM corpus refused rows"),
+    );
+    expect(html.indexOf("Whole-VM corpus refused rows")).toBeLessThan(html.indexOf("Proof index"));
+    expect(html).toContain("Visible refusal/proof rows from the next whole-VM corpus");
+    expect(html).toContain("wholeVmCorpusRefusalTable");
     expect(html).toContain("Legend");
     expect(html).toContain("Plain-English labels for the claim columns");
     expect(html).toContain("Progression");
@@ -284,6 +303,9 @@ describe("claim progress dashboard", () => {
     expect(html).toContain("loopback-listener-request-response-verifier-passed");
     expect(html).toContain("fork-pipe-child-verifier-passed");
     expect(html).toContain("vm-workload-tool-missing");
+    expect(html).toContain("whole-vm-workload-tool-missing");
+    expect(html).toContain("whole-vm-dirty-active-opaque-state-unsupported");
+    expect(html).toContain("refusal boundary only; no product claim lift");
     expect(html).toContain("target-native-static-c-binary-executed");
     expect(html).toContain("native substrate");
     expect(html).toContain("native-cpu-register-inventory");

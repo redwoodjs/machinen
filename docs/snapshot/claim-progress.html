@@ -342,6 +342,14 @@
 
       <section class="card">
         <div class="section-heading">
+          <h2>Whole-VM corpus refused rows</h2>
+          <span class="muted">Visible refusal/proof rows from the next whole-VM corpus</span>
+        </div>
+        <div id="whole-vm-corpus-refusals"></div>
+      </section>
+
+      <section class="card">
+        <div class="section-heading">
           <h2>Legend</h2>
           <span class="muted">Plain-English labels for the claim columns</span>
         </div>
@@ -5065,6 +5073,7 @@
       const error = document.querySelector("#error");
       const proofImpact = document.querySelector("#proof-impact");
       const trackOverview = document.querySelector("#track-overview");
+      const wholeVmCorpusRefusals = document.querySelector("#whole-vm-corpus-refusals");
 
       loadEmbedded();
       if (globalThis.location?.protocol !== "file:") void loadRemote();
@@ -5093,6 +5102,7 @@
         const claims = data.proofGroups ?? [];
         proofImpact.innerHTML = proofIndexSections(tracks, claims);
         trackOverview.innerHTML = trackCards(tracks, claims);
+        wholeVmCorpusRefusals.innerHTML = wholeVmCorpusRefusalTable(tracks);
       }
 
       function displayTrackName(track, claim = null) {
@@ -5192,6 +5202,28 @@
       function proofSubcategory(category) {
         if (String(category).toLowerCase() === "real e2e") return "real E2E";
         return category ?? "unspecified";
+      }
+
+      function wholeVmCorpusRefusalTable(tracks) {
+        const track = tracks.find((candidate) => candidate.id === "whole-linux-vm-workload");
+        const rows = (track?.evidenceRows ?? [])
+          .filter(
+            (row) =>
+              row.gate === "whole-vm-workload-corpus-proof" &&
+              ["refused", "refusal-defined"].includes(String(row.disposition)),
+          )
+          .map((row) => [
+            `<strong>${escapeHtml(row.id)}</strong><p class="muted">${escapeHtml(row.category ?? row.kind ?? "whole VM workload")}</p>`,
+            pill(row.disposition),
+            row.evidence,
+            row.claimUse ?? "proof-only; no product claim lift",
+            code(
+              row.artifact ??
+                "proofs/linux-vm-workload/corpus-proof/retained/whole-vm-workload-corpus-proof-report.json",
+            ),
+          ]);
+        if (rows.length === 0) return `<p class="muted">No whole-VM corpus refused rows found.</p>`;
+        return `<p class="muted">These rows are verified refusals or refusal definitions. They do not broaden the selected-whole-vm-workload-v1 claim.</p>${table(["Row", "Disposition", "Evidence", "Claim use", "Artifact"], rows)}`;
       }
 
       function proofIndexSections(tracks, claims) {
