@@ -1,0 +1,168 @@
+{
+  "kind": "machinen.whole-vm-workload-smoke-matrix",
+  "version": 1,
+  "generatedAt": "2026-06-02T20:54:15.960Z",
+  "accepted": true,
+  "proofStatus": "verified",
+  "publicClaimAllowed": false,
+  "currentClaim": {
+    "productSupport": 0,
+    "broadSupport": 0,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "scope": "Retained VM workload smoke/capability matrix for vm/003-vm/009. Supported rows prove guest execution only; refused rows record stable missing-tool or unavailable-capability boundaries. This does not prove whole-VM cross-architecture restore and does not raise the whole-VM claim.",
+  "guestArch": "arm64",
+  "rowResults": [
+    {
+      "id": "vm-sqlite-database-smoke",
+      "proofNumber": "vm/003",
+      "disposition": "refused",
+      "status": "verified",
+      "accepted": true,
+      "verifier": {
+        "id": "vm-sqlite-database-smoke",
+        "disposition": "refused",
+        "accepted": "true",
+        "refusalCode": "vm-workload-tool-missing",
+        "tool": "sqlite3",
+        "evidence": "sqlite3-not-installed-in-guest"
+      },
+      "refusalCode": "vm-workload-tool-missing",
+      "evidence": "sqlite3-not-installed-in-guest"
+    },
+    {
+      "id": "vm-postgresql-database-smoke",
+      "proofNumber": "vm/004",
+      "disposition": "refused",
+      "status": "verified",
+      "accepted": true,
+      "verifier": {
+        "id": "vm-postgresql-database-smoke",
+        "disposition": "refused",
+        "accepted": "true",
+        "refusalCode": "vm-workload-tool-missing",
+        "tool": "postgresql",
+        "evidence": "postgresql-tools-not-installed-in-guest"
+      },
+      "refusalCode": "vm-workload-tool-missing",
+      "evidence": "postgresql-tools-not-installed-in-guest"
+    },
+    {
+      "id": "vm-simple-c-process-smoke",
+      "proofNumber": "vm/005",
+      "disposition": "supported",
+      "status": "verified",
+      "accepted": true,
+      "verifier": {
+        "id": "vm-simple-c-process-smoke",
+        "disposition": "supported",
+        "accepted": "true",
+        "evidence": "target-native-static-c-binary-executed"
+      },
+      "evidence": "target-native-static-c-binary-executed"
+    },
+    {
+      "id": "vm-simple-java-process-smoke",
+      "proofNumber": "vm/006",
+      "disposition": "refused",
+      "status": "verified",
+      "accepted": true,
+      "verifier": {
+        "id": "vm-simple-java-process-smoke",
+        "disposition": "refused",
+        "accepted": "true",
+        "refusalCode": "vm-workload-tool-missing",
+        "tool": "java",
+        "evidence": "java-runtime-not-installed-in-guest"
+      },
+      "refusalCode": "vm-workload-tool-missing",
+      "evidence": "java-runtime-not-installed-in-guest"
+    },
+    {
+      "id": "vm-ebpf-capability-smoke",
+      "proofNumber": "vm/007",
+      "disposition": "supported",
+      "status": "verified",
+      "accepted": true,
+      "verifier": {
+        "id": "vm-ebpf-capability-smoke",
+        "disposition": "supported",
+        "accepted": "true",
+        "evidence": "bpf-map-create-succeeded"
+      },
+      "evidence": "bpf-map-create-succeeded"
+    },
+    {
+      "id": "vm-seccomp-capability-smoke",
+      "proofNumber": "vm/008",
+      "disposition": "supported",
+      "status": "verified",
+      "accepted": true,
+      "verifier": {
+        "id": "vm-seccomp-capability-smoke",
+        "disposition": "supported",
+        "accepted": "true",
+        "evidence": "seccomp-filter-blocked-getpid-with-eperm"
+      },
+      "evidence": "seccomp-filter-blocked-getpid-with-eperm"
+    },
+    {
+      "id": "vm-nested-virtualization-smoke",
+      "proofNumber": "vm/009",
+      "disposition": "refused",
+      "status": "verified",
+      "accepted": true,
+      "verifier": {
+        "id": "vm-nested-virtualization-smoke",
+        "disposition": "refused",
+        "accepted": "true",
+        "refusalCode": "vm-workload-nested-virtualization-unavailable",
+        "evidence": "/dev/kvm-missing"
+      },
+      "refusalCode": "vm-workload-nested-virtualization-unavailable",
+      "evidence": "/dev/kvm-missing"
+    }
+  ],
+  "acceptedRows": 7,
+  "requiredRows": 7,
+  "supportedRows": 3,
+  "refusedRows": 4,
+  "artifacts": [
+    {
+      "name": "vm-workload-smoke-transcript.json",
+      "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/linux-vm-workload/smoke-matrix/retained/vm-workload-smoke-transcript.json",
+      "sha256": "ebc3b741c1f418b7db0a0dd7636076280bc3cd8118625b73812f9633fd585b82"
+    },
+    {
+      "name": "vm-workload-smoke-rows.json",
+      "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/linux-vm-workload/smoke-matrix/retained/vm-workload-smoke-rows.json",
+      "sha256": "380cb4775ae54901afa6af1c7824d6b396e52598eb913e069bd273349b608b67"
+    },
+    {
+      "name": "run-vm-workload-smoke.sh",
+      "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/linux-vm-workload/smoke-matrix/retained/run-vm-workload-smoke.sh",
+      "sha256": "6c40e79919f45f3560bedb9e9b4009d1e18a464a66903f5538b4f30b02272828"
+    },
+    {
+      "name": "simple-c-smoke.c",
+      "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/linux-vm-workload/smoke-matrix/retained/simple-c-smoke.c",
+      "sha256": "d6d26524ea392d46e2dbd23701edd9027f9b754db08fa463004b48252f03a757"
+    },
+    {
+      "name": "seccomp-smoke.c",
+      "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/linux-vm-workload/smoke-matrix/retained/seccomp-smoke.c",
+      "sha256": "8b1bd6b5f36cfd091793460f069e0c802eae7c5cbf7057006468c37313f59012"
+    },
+    {
+      "name": "ebpf-smoke.c",
+      "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/linux-vm-workload/smoke-matrix/retained/ebpf-smoke.c",
+      "sha256": "a665b9e50033e144d35d3e2605173c088b21d78f90991476d187bd0c58e597fb"
+    }
+  ],
+  "noShortcutPolicy": {
+    "rawVmStateRestoreAccepted": false,
+    "crossIsaCpuReplayAccepted": false,
+    "arbitraryProcessRestoreAccepted": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

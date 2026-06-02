@@ -460,7 +460,7 @@
     <script id="embedded-claim-progress" type="application/json">
       {
         "kind": "machinen.claim-progress-dashboard",
-        "version": 117,
+        "version": 118,
         "updatedFrom": [
           "docs/snapshot/node-level5-product-support-claim-registry.json",
           "docs/snapshot/node-level5-product-support-100.json",
@@ -484,7 +484,8 @@
           "proofs/native-process-substrate/selected-native-support-matrix/retained/selected-native-support-matrix-report.json",
           "docs/snapshot/whole-linux-vm-workload-taxonomy.md",
           "docs/snapshot/whole-linux-vm-workload-taxonomy.json",
-          "proofs/linux-vm-workload/boundary-matrix/retained/whole-vm-workload-boundary-matrix-report.json"
+          "proofs/linux-vm-workload/boundary-matrix/retained/whole-vm-workload-boundary-matrix-report.json",
+          "proofs/linux-vm-workload/smoke-matrix/retained/whole-vm-workload-smoke-matrix-report.json"
         ],
         "columns": {
           "claim": ["productSupport", "broadSupport", "arbitraryProcessCrossArchRestore"],
@@ -2560,8 +2561,8 @@
             "name": "Whole Linux VM workload portability",
             "family": "vm-workload",
             "runtime": "linux-vm",
-            "status": "defined",
-            "stage": "taxonomy defined; claim remains 0 / 0 / 0",
+            "status": "verified",
+            "stage": "taxonomy, boundary, and smoke rows verified; claim remains 0 / 0 / 0",
             "scope": "Definition-only whole-VM workload portability by target-native reconstruction. Not arbitrary VM restore, not raw cross-ISA VM-state replay, and not arbitrary Linux process restore.",
             "currentClaim": {
               "productSupport": 0,
@@ -2574,10 +2575,14 @@
               "arbitraryProcessCrossArchRestore": 0,
               "claimChangeAllowed": false
             },
-            "summary": "Whole-VM workload taxonomy and retained boundary matrix now define selected-whole-vm-workload-v1, required artifact gates, refusal boundaries, and dashboard claim language. No retained VM workload smoke artifacts exist yet, so the public claim remains 0 / 0 / 0.",
-            "claimGate": "whole VM workload taxonomy and boundary matrix defined; retained support/refusal product artifacts still required",
+            "summary": "Whole-VM workload taxonomy, retained boundary matrix, and vm/003-vm/009 smoke/capability rows are verified. Rows include supported guest probes and explicit refusals for missing tools/capabilities. No retained VM snapshot/restore support matrix exists yet, so the public claim remains 0 / 0 / 0.",
+            "claimGate": "whole VM smoke rows verified; retained snapshot/restore support matrix still required",
             "claimChangeAllowed": false,
-            "evidence": ["whole-vm-workload-taxonomy", "whole-vm-workload-boundary-matrix"],
+            "evidence": [
+              "whole-vm-workload-taxonomy",
+              "whole-vm-workload-boundary-matrix",
+              "whole-vm-workload-smoke-matrix"
+            ],
             "evidenceRows": [
               {
                 "id": "vm-workload-taxonomy",
@@ -2603,71 +2608,78 @@
                 "id": "vm-sqlite-database-smoke",
                 "area": "database smoke",
                 "kind": "SQLite database smoke",
-                "status": "not-started",
-                "evidence": "No retained SQLite workload smoke proof exists yet.",
-                "gate": "vm-sqlite-database-smoke",
-                "artifact": "missing",
-                "next": "Run sqlite3 create/insert/select workload inside the VM and retain command transcript plus verifier output before/after restore."
+                "status": "verified",
+                "evidence": "Retained VM guest probe refused with vm-workload-tool-missing: sqlite3-not-installed-in-guest. This is an explicit boundary, not support.",
+                "gate": "whole-vm-workload-smoke-matrix",
+                "artifact": "proofs/linux-vm-workload/smoke-matrix/retained/whole-vm-workload-smoke-matrix-report.json",
+                "next": "Build retained selected-whole-vm-workload-v1 snapshot/restore support matrix before any whole-VM claim lift.",
+                "disposition": "refused"
               },
               {
                 "id": "vm-postgresql-database-smoke",
                 "area": "database smoke",
                 "kind": "PostgreSQL database smoke",
-                "status": "not-started",
-                "evidence": "No retained PostgreSQL workload smoke proof exists yet for the whole-VM workload track.",
-                "gate": "vm-postgresql-database-smoke",
-                "artifact": "missing",
-                "next": "Run PostgreSQL start/readiness/query smoke inside the VM and retain command transcripts plus verifier output before/after restore."
+                "status": "verified",
+                "evidence": "Retained VM guest probe refused with vm-workload-tool-missing: postgresql-tools-not-installed-in-guest. This is an explicit boundary, not support.",
+                "gate": "whole-vm-workload-smoke-matrix",
+                "artifact": "proofs/linux-vm-workload/smoke-matrix/retained/whole-vm-workload-smoke-matrix-report.json",
+                "next": "Build retained selected-whole-vm-workload-v1 snapshot/restore support matrix before any whole-VM claim lift.",
+                "disposition": "refused"
               },
               {
                 "id": "vm-simple-c-process-smoke",
                 "area": "language process",
                 "kind": "simple C process smoke",
-                "status": "not-started",
-                "evidence": "No retained simple C process smoke proof exists yet.",
-                "gate": "vm-simple-c-process-smoke",
-                "artifact": "missing",
-                "next": "Compile/run a simple C process inside the VM and retain source, build command, run transcript, and verifier output."
+                "status": "verified",
+                "evidence": "Retained VM guest probe passed: target-native-static-c-binary-executed. This is a workload/capability smoke proof only.",
+                "gate": "whole-vm-workload-smoke-matrix",
+                "artifact": "proofs/linux-vm-workload/smoke-matrix/retained/whole-vm-workload-smoke-matrix-report.json",
+                "next": "Build retained selected-whole-vm-workload-v1 snapshot/restore support matrix before any whole-VM claim lift.",
+                "disposition": "supported"
               },
               {
                 "id": "vm-simple-java-process-smoke",
                 "area": "language process",
                 "kind": "simple Java process smoke",
-                "status": "not-started",
-                "evidence": "No retained simple Java process smoke proof exists yet.",
-                "gate": "vm-simple-java-process-smoke",
-                "artifact": "missing",
-                "next": "Compile/run a simple Java process inside the VM and retain source, build command, run transcript, and verifier output."
+                "status": "verified",
+                "evidence": "Retained VM guest probe refused with vm-workload-tool-missing: java-runtime-not-installed-in-guest. This is an explicit boundary, not support.",
+                "gate": "whole-vm-workload-smoke-matrix",
+                "artifact": "proofs/linux-vm-workload/smoke-matrix/retained/whole-vm-workload-smoke-matrix-report.json",
+                "next": "Build retained selected-whole-vm-workload-v1 snapshot/restore support matrix before any whole-VM claim lift.",
+                "disposition": "refused"
               },
               {
                 "id": "vm-ebpf-capability-smoke",
                 "area": "kernel feature",
                 "kind": "eBPF capability smoke",
-                "status": "not-started",
-                "evidence": "No retained eBPF load/attach/query capability proof exists yet.",
-                "gate": "vm-ebpf-capability-smoke",
-                "artifact": "missing",
-                "next": "Run a minimal eBPF capability probe and retain kernel feature output, load result, and refusal details if unavailable."
+                "status": "verified",
+                "evidence": "Retained VM guest probe passed: bpf-map-create-succeeded. This is a workload/capability smoke proof only.",
+                "gate": "whole-vm-workload-smoke-matrix",
+                "artifact": "proofs/linux-vm-workload/smoke-matrix/retained/whole-vm-workload-smoke-matrix-report.json",
+                "next": "Build retained selected-whole-vm-workload-v1 snapshot/restore support matrix before any whole-VM claim lift.",
+                "disposition": "supported"
               },
               {
                 "id": "vm-seccomp-capability-smoke",
                 "area": "kernel feature",
                 "kind": "seccomp capability smoke",
-                "status": "not-started",
-                "evidence": "No retained seccomp filter/install behavior proof exists yet.",
-                "gate": "vm-seccomp-capability-smoke",
-                "artifact": "missing",
-                "next": "Run a minimal seccomp filter proof and retain allowed/blocked syscall verifier output."
+                "status": "verified",
+                "evidence": "Retained VM guest probe passed: seccomp-filter-blocked-getpid-with-eperm. This is a workload/capability smoke proof only.",
+                "gate": "whole-vm-workload-smoke-matrix",
+                "artifact": "proofs/linux-vm-workload/smoke-matrix/retained/whole-vm-workload-smoke-matrix-report.json",
+                "next": "Build retained selected-whole-vm-workload-v1 snapshot/restore support matrix before any whole-VM claim lift.",
+                "disposition": "supported"
               },
               {
                 "id": "vm-nested-virtualization-smoke",
                 "area": "virtualization",
                 "kind": "nested virtualization smoke",
-                "status": "not-started",
-                "evidence": "No retained nested virtualization capability proof exists yet.",
-                "gate": "vm-nested-virtualization-smoke",
-                "artifact": "missing",
-                "next": "Probe nested virtualization availability and retain KVM/nested virt command output; keep refused if unavailable or unsafe."
+                "status": "verified",
+                "evidence": "Retained VM guest probe refused with vm-workload-nested-virtualization-unavailable: /dev/kvm-missing. This is an explicit boundary, not support.",
+                "gate": "whole-vm-workload-smoke-matrix",
+                "artifact": "proofs/linux-vm-workload/smoke-matrix/retained/whole-vm-workload-smoke-matrix-report.json",
+                "next": "Build retained selected-whole-vm-workload-v1 snapshot/restore support matrix before any whole-VM claim lift.",
+                "disposition": "refused"
               }
             ],
             "refusals": [
@@ -2732,6 +2744,27 @@
                 "status": "refused",
                 "reason": "Source-architecture kernel modules or ABI-specific dependencies are not portable by default.",
                 "neededToReduce": "Target-native dependency reconstruction or explicit refusal artifact."
+              },
+              {
+                "boundary": "SQLite guest tooling missing",
+                "status": "refused",
+                "reason": "Retained VM smoke matrix records vm-workload-tool-missing: sqlite3-not-installed-in-guest.",
+                "artifact": "proofs/linux-vm-workload/smoke-matrix/retained/whole-vm-workload-smoke-matrix-report.json",
+                "neededToReduce": "Install/provide the guest tool/runtime and retain a passing VM workload probe."
+              },
+              {
+                "boundary": "PostgreSQL guest tooling missing",
+                "status": "refused",
+                "reason": "Retained VM smoke matrix records vm-workload-tool-missing: postgresql-tools-not-installed-in-guest.",
+                "artifact": "proofs/linux-vm-workload/smoke-matrix/retained/whole-vm-workload-smoke-matrix-report.json",
+                "neededToReduce": "Install/provide the guest tool/runtime and retain a passing VM workload probe."
+              },
+              {
+                "boundary": "Java runtime missing in guest",
+                "status": "refused",
+                "reason": "Retained VM smoke matrix records vm-workload-tool-missing: java-runtime-not-installed-in-guest.",
+                "artifact": "proofs/linux-vm-workload/smoke-matrix/retained/whole-vm-workload-smoke-matrix-report.json",
+                "neededToReduce": "Install/provide the guest tool/runtime and retain a passing VM workload probe."
               }
             ],
             "nextSteps": [
@@ -2786,7 +2819,25 @@
                 "gate": "vm-nested-virtualization-smoke"
               }
             ],
-            "docs": ["whole-linux-vm-workload-taxonomy.md"]
+            "docs": [
+              "whole-linux-vm-workload-taxonomy.md",
+              "proofs/linux-vm-workload/smoke-matrix/README.md"
+            ],
+            "rowCoverage": {
+              "supportedDirectionBundlesRequired": 0,
+              "supportedDirectionBundlesCovered": 0,
+              "supportedDirectionBundlesMissing": 0,
+              "refusedDirectionArtifactsRequired": 0,
+              "refusedDirectionArtifactsCovered": 0,
+              "refusedDirectionArtifactsMissing": 0,
+              "smokeRowsRequired": 7,
+              "smokeRowsVerified": 7,
+              "smokeRowsSupported": 3,
+              "smokeRowsRefused": 4,
+              "notProvenRows": 0,
+              "report": "proofs/linux-vm-workload/smoke-matrix/retained/whole-vm-workload-smoke-matrix-report.json",
+              "summary": "7 / 7 smoke rows verified · 3 supported · 4 refused · claim still 0 / 0 / 0"
+            }
           }
         ],
         "proofGroups": [
@@ -4358,14 +4409,14 @@
             "id": "whole-linux-vm-workload-not-started",
             "claim": "Whole Linux VM workload portability definition only",
             "trackId": "whole-linux-vm-workload",
-            "status": "defined",
+            "status": "verified",
             "scope": "Whole-VM workload taxonomy is defined, but no whole-VM workload reconstruction claim exists yet. Raw cross-architecture CPU/device VM restore remains refused.",
             "claimNumbers": {
               "productSupport": 0,
               "broadSupport": 0,
               "arbitraryProcessCrossArchRestore": 0
             },
-            "promotionEffect": "Requires retained selected-whole-vm-workload-v1 support artifacts plus retained product refusal boundaries.",
+            "promotionEffect": "vm/003-vm/009 smoke rows are verified as supported/refused evidence, but claim lift still requires retained selected-whole-vm-workload-v1 snapshot/restore artifacts.",
             "proofDirectory": "proofs/linux-vm-workload/not-started",
             "proofs": [
               {
@@ -4413,11 +4464,11 @@
               {
                 "id": "vm-sqlite-database-smoke",
                 "category": "database smoke",
-                "status": "not-started",
-                "artifact": "missing",
-                "proves": "SQLite database smoke can run in the VM workload path without crashing and has retained verifier output.",
-                "claimUse": "candidate workload smoke only; does not raise whole-VM or arbitrary-process support without retained cross-architecture reconstruction evidence",
-                "next": "Run sqlite3 create/insert/select workload inside the VM and retain command transcript plus verifier output before/after restore.",
+                "status": "verified",
+                "artifact": "proofs/linux-vm-workload/smoke-matrix/retained/whole-vm-workload-smoke-matrix-report.json",
+                "proves": "Retained Machinen VM guest probe refused with vm-workload-tool-missing: sqlite3-not-installed-in-guest.",
+                "claimUse": "VM workload smoke/capability evidence only; no whole-VM snapshot/restore or arbitrary-process claim lift",
+                "next": "Require retained selected-whole-vm-workload-v1 snapshot/restore artifacts before claim lift.",
                 "claimImpact": {
                   "productSupportDelta": 0,
                   "broadSupportDelta": 0,
@@ -4428,16 +4479,17 @@
                     "arbitraryProcessCrossArchRestore": 0
                   },
                   "claimChangeAllowed": false
-                }
+                },
+                "disposition": "refused"
               },
               {
                 "id": "vm-postgresql-database-smoke",
                 "category": "database smoke",
-                "status": "not-started",
-                "artifact": "missing",
-                "proves": "PostgreSQL database smoke can run in the VM workload path without crashing and has retained verifier output.",
-                "claimUse": "candidate workload smoke only; does not raise whole-VM or arbitrary-process support without retained cross-architecture reconstruction evidence",
-                "next": "Run PostgreSQL start/readiness/query smoke inside the VM and retain command transcripts plus verifier output before/after restore.",
+                "status": "verified",
+                "artifact": "proofs/linux-vm-workload/smoke-matrix/retained/whole-vm-workload-smoke-matrix-report.json",
+                "proves": "Retained Machinen VM guest probe refused with vm-workload-tool-missing: postgresql-tools-not-installed-in-guest.",
+                "claimUse": "VM workload smoke/capability evidence only; no whole-VM snapshot/restore or arbitrary-process claim lift",
+                "next": "Require retained selected-whole-vm-workload-v1 snapshot/restore artifacts before claim lift.",
                 "claimImpact": {
                   "productSupportDelta": 0,
                   "broadSupportDelta": 0,
@@ -4448,16 +4500,17 @@
                     "arbitraryProcessCrossArchRestore": 0
                   },
                   "claimChangeAllowed": false
-                }
+                },
+                "disposition": "refused"
               },
               {
                 "id": "vm-simple-c-process-smoke",
                 "category": "language process",
-                "status": "not-started",
-                "artifact": "missing",
-                "proves": "simple C process smoke can run in the VM workload path without crashing and has retained verifier output.",
-                "claimUse": "candidate workload smoke only; does not raise whole-VM or arbitrary-process support without retained cross-architecture reconstruction evidence",
-                "next": "Compile/run a simple C process inside the VM and retain source, build command, run transcript, and verifier output.",
+                "status": "verified",
+                "artifact": "proofs/linux-vm-workload/smoke-matrix/retained/whole-vm-workload-smoke-matrix-report.json",
+                "proves": "Retained Machinen VM guest probe passed: target-native-static-c-binary-executed.",
+                "claimUse": "VM workload smoke/capability evidence only; no whole-VM snapshot/restore or arbitrary-process claim lift",
+                "next": "Require retained selected-whole-vm-workload-v1 snapshot/restore artifacts before claim lift.",
                 "claimImpact": {
                   "productSupportDelta": 0,
                   "broadSupportDelta": 0,
@@ -4468,16 +4521,17 @@
                     "arbitraryProcessCrossArchRestore": 0
                   },
                   "claimChangeAllowed": false
-                }
+                },
+                "disposition": "supported"
               },
               {
                 "id": "vm-simple-java-process-smoke",
                 "category": "language process",
-                "status": "not-started",
-                "artifact": "missing",
-                "proves": "simple Java process smoke can run in the VM workload path without crashing and has retained verifier output.",
-                "claimUse": "candidate workload smoke only; does not raise whole-VM or arbitrary-process support without retained cross-architecture reconstruction evidence",
-                "next": "Compile/run a simple Java process inside the VM and retain source, build command, run transcript, and verifier output.",
+                "status": "verified",
+                "artifact": "proofs/linux-vm-workload/smoke-matrix/retained/whole-vm-workload-smoke-matrix-report.json",
+                "proves": "Retained Machinen VM guest probe refused with vm-workload-tool-missing: java-runtime-not-installed-in-guest.",
+                "claimUse": "VM workload smoke/capability evidence only; no whole-VM snapshot/restore or arbitrary-process claim lift",
+                "next": "Require retained selected-whole-vm-workload-v1 snapshot/restore artifacts before claim lift.",
                 "claimImpact": {
                   "productSupportDelta": 0,
                   "broadSupportDelta": 0,
@@ -4488,16 +4542,17 @@
                     "arbitraryProcessCrossArchRestore": 0
                   },
                   "claimChangeAllowed": false
-                }
+                },
+                "disposition": "refused"
               },
               {
                 "id": "vm-ebpf-capability-smoke",
                 "category": "kernel feature",
-                "status": "not-started",
-                "artifact": "missing",
-                "proves": "eBPF capability smoke can run in the VM workload path without crashing and has retained verifier output.",
-                "claimUse": "candidate workload smoke only; does not raise whole-VM or arbitrary-process support without retained cross-architecture reconstruction evidence",
-                "next": "Run a minimal eBPF capability probe and retain kernel feature output, load result, and refusal details if unavailable.",
+                "status": "verified",
+                "artifact": "proofs/linux-vm-workload/smoke-matrix/retained/whole-vm-workload-smoke-matrix-report.json",
+                "proves": "Retained Machinen VM guest probe passed: bpf-map-create-succeeded.",
+                "claimUse": "VM workload smoke/capability evidence only; no whole-VM snapshot/restore or arbitrary-process claim lift",
+                "next": "Require retained selected-whole-vm-workload-v1 snapshot/restore artifacts before claim lift.",
                 "claimImpact": {
                   "productSupportDelta": 0,
                   "broadSupportDelta": 0,
@@ -4508,16 +4563,17 @@
                     "arbitraryProcessCrossArchRestore": 0
                   },
                   "claimChangeAllowed": false
-                }
+                },
+                "disposition": "supported"
               },
               {
                 "id": "vm-seccomp-capability-smoke",
                 "category": "kernel feature",
-                "status": "not-started",
-                "artifact": "missing",
-                "proves": "seccomp capability smoke can run in the VM workload path without crashing and has retained verifier output.",
-                "claimUse": "candidate workload smoke only; does not raise whole-VM or arbitrary-process support without retained cross-architecture reconstruction evidence",
-                "next": "Run a minimal seccomp filter proof and retain allowed/blocked syscall verifier output.",
+                "status": "verified",
+                "artifact": "proofs/linux-vm-workload/smoke-matrix/retained/whole-vm-workload-smoke-matrix-report.json",
+                "proves": "Retained Machinen VM guest probe passed: seccomp-filter-blocked-getpid-with-eperm.",
+                "claimUse": "VM workload smoke/capability evidence only; no whole-VM snapshot/restore or arbitrary-process claim lift",
+                "next": "Require retained selected-whole-vm-workload-v1 snapshot/restore artifacts before claim lift.",
                 "claimImpact": {
                   "productSupportDelta": 0,
                   "broadSupportDelta": 0,
@@ -4528,16 +4584,17 @@
                     "arbitraryProcessCrossArchRestore": 0
                   },
                   "claimChangeAllowed": false
-                }
+                },
+                "disposition": "supported"
               },
               {
                 "id": "vm-nested-virtualization-smoke",
                 "category": "virtualization",
-                "status": "not-started",
-                "artifact": "missing",
-                "proves": "nested virtualization smoke can run in the VM workload path without crashing and has retained verifier output.",
-                "claimUse": "candidate workload smoke only; does not raise whole-VM or arbitrary-process support without retained cross-architecture reconstruction evidence",
-                "next": "Probe nested virtualization availability and retain KVM/nested virt command output; keep refused if unavailable or unsafe.",
+                "status": "verified",
+                "artifact": "proofs/linux-vm-workload/smoke-matrix/retained/whole-vm-workload-smoke-matrix-report.json",
+                "proves": "Retained Machinen VM guest probe refused with vm-workload-nested-virtualization-unavailable: /dev/kvm-missing.",
+                "claimUse": "VM workload smoke/capability evidence only; no whole-VM snapshot/restore or arbitrary-process claim lift",
+                "next": "Require retained selected-whole-vm-workload-v1 snapshot/restore artifacts before claim lift.",
                 "claimImpact": {
                   "productSupportDelta": 0,
                   "broadSupportDelta": 0,
@@ -4548,7 +4605,8 @@
                     "arbitraryProcessCrossArchRestore": 0
                   },
                   "claimChangeAllowed": false
-                }
+                },
+                "disposition": "refused"
               }
             ]
           }

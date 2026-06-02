@@ -1,0 +1,15 @@
+{
+  "command": [
+    "node",
+    "packages/cli/dist/cli.js",
+    "boot",
+    "--mount",
+    "/var/folders/jj/brzmsc2562zbwgzwbnjdnqp80000gn/T/whole-vm-workload-smoke-zT8k5D:/mnt/proof",
+    "--",
+    "/bin/sh",
+    "/mnt/proof/run-vm-workload-smoke.sh"
+  ],
+  "status": 0,
+  "stdout": "",
+  "stderr": "booting vm…\nguest ready\nready in 0.50s\nMACHINEN_VM_WORKLOAD_ROW id=vm-sqlite-database-smoke disposition=refused accepted=true refusalCode=vm-workload-tool-missing tool=sqlite3 evidence=sqlite3-not-installed-in-guest\r\nMACHINEN_VM_WORKLOAD_ROW id=vm-postgresql-database-smoke disposition=refused accepted=true refusalCode=vm-workload-tool-missing tool=postgresql evidence=postgresql-tools-not-installed-in-guest\r\nMACHINEN_VM_WORKLOAD_ROW id=vm-simple-c-process-smoke disposition=supported accepted=true evidence=target-native-static-c-binary-executed\r\nMACHINEN_VM_WORKLOAD_ROW id=vm-simple-java-process-smoke disposition=refused accepted=true refusalCode=vm-workload-tool-missing tool=java evidence=java-runtime-not-installed-in-guest\r\nMACHINEN_VM_WORKLOAD_ROW id=vm-ebpf-capability-smoke disposition=supported accepted=true evidence=bpf-map-create-succeeded\r\nMACHINEN_VM_WORKLOAD_ROW id=vm-seccomp-capability-smoke disposition=supported accepted=true evidence=seccomp-filter-blocked-getpid-with-eperm\r\nMACHINEN_VM_WORKLOAD_ROW id=vm-nested-virtualization-smoke disposition=refused accepted=true refusalCode=vm-workload-nested-virtualization-unavailable evidence=/dev/kvm-missing\r\n[    0.240140] reboot: Power down\r\n"
+}

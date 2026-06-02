@@ -27,7 +27,7 @@ type ClaimProgressProofGroup = {
 
 type ClaimProgressDashboard = {
   kind: "machinen.claim-progress-dashboard";
-  version: 117;
+  version: 118;
   tracks: ClaimProgressTrack[];
   proofGroups: ClaimProgressProofGroup[];
 };
@@ -41,7 +41,7 @@ describe("claim progress dashboard", () => {
 
     expect(dashboard).toMatchObject({
       kind: "machinen.claim-progress-dashboard",
-      version: 117,
+      version: 118,
     });
     expect(dashboard.tracks.map((track) => track.id)).toEqual([
       "node-service",
@@ -252,6 +252,9 @@ describe("claim progress dashboard", () => {
     expect(html).toContain("selected-whole-vm-workload-v1");
     expect(html).toContain("whole-linux-vm-workload-taxonomy.json");
     expect(html).toContain("whole-vm-workload-boundary-matrix-report.json");
+    expect(html).toContain("whole-vm-workload-smoke-matrix-report.json");
+    expect(html).toContain("vm-workload-tool-missing");
+    expect(html).toContain("target-native-static-c-binary-executed");
     expect(html).toContain("native substrate");
     expect(html).toContain("native-cpu-register-inventory");
     expect(html).toContain("native-memory-map-inventory");

@@ -2,14 +2,14 @@
   "id": "whole-linux-vm-workload-not-started",
   "claim": "Whole Linux VM workload portability definition only",
   "trackId": "whole-linux-vm-workload",
-  "status": "defined",
+  "status": "verified",
   "scope": "Whole-VM workload taxonomy is defined, but no whole-VM workload reconstruction claim exists yet. Raw cross-architecture CPU/device VM restore remains refused.",
   "claimNumbers": {
     "productSupport": 0,
     "broadSupport": 0,
     "arbitraryProcessCrossArchRestore": 0
   },
-  "promotionEffect": "Requires retained selected-whole-vm-workload-v1 support artifacts plus retained product refusal boundaries.",
+  "promotionEffect": "vm/003-vm/009 smoke rows are verified as supported/refused evidence, but claim lift still requires retained selected-whole-vm-workload-v1 snapshot/restore artifacts.",
   "proofDirectory": "proofs/linux-vm-workload/not-started",
   "definition": {
     "taxonomyMarkdown": "docs/snapshot/whole-linux-vm-workload-taxonomy.md",
@@ -35,6 +35,153 @@
       "proves": "Retained boundary matrix validates supported row definitions, refusal boundaries, artifact requirements, forbidden shortcuts, and claim language for selected-whole-vm-workload-v1.",
       "claimUse": "definition-only boundary matrix; no productSupport/broadSupport/arbitraryProcessCrossArchRestore lift",
       "next": "Run retained selected-whole-vm-workload-v1 support/refusal artifacts.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 0,
+          "broadSupport": 0,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    },
+    {
+      "id": "vm-sqlite-database-smoke",
+      "category": "",
+      "status": "verified",
+      "artifact": "proofs/linux-vm-workload/smoke-matrix/retained/whole-vm-workload-smoke-matrix-report.json",
+      "disposition": "refused",
+      "proves": "Retained Machinen VM guest probe refused with vm-workload-tool-missing: sqlite3-not-installed-in-guest.",
+      "claimUse": "VM workload smoke/capability evidence only; no whole-VM snapshot/restore or arbitrary-process claim lift",
+      "next": "Require retained selected-whole-vm-workload-v1 snapshot/restore artifacts before claim lift.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 0,
+          "broadSupport": 0,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    },
+    {
+      "id": "vm-postgresql-database-smoke",
+      "category": "",
+      "status": "verified",
+      "artifact": "proofs/linux-vm-workload/smoke-matrix/retained/whole-vm-workload-smoke-matrix-report.json",
+      "disposition": "refused",
+      "proves": "Retained Machinen VM guest probe refused with vm-workload-tool-missing: postgresql-tools-not-installed-in-guest.",
+      "claimUse": "VM workload smoke/capability evidence only; no whole-VM snapshot/restore or arbitrary-process claim lift",
+      "next": "Require retained selected-whole-vm-workload-v1 snapshot/restore artifacts before claim lift.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 0,
+          "broadSupport": 0,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    },
+    {
+      "id": "vm-simple-c-process-smoke",
+      "category": "",
+      "status": "verified",
+      "artifact": "proofs/linux-vm-workload/smoke-matrix/retained/whole-vm-workload-smoke-matrix-report.json",
+      "disposition": "supported",
+      "proves": "Retained Machinen VM guest probe passed: target-native-static-c-binary-executed.",
+      "claimUse": "VM workload smoke/capability evidence only; no whole-VM snapshot/restore or arbitrary-process claim lift",
+      "next": "Require retained selected-whole-vm-workload-v1 snapshot/restore artifacts before claim lift.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 0,
+          "broadSupport": 0,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    },
+    {
+      "id": "vm-simple-java-process-smoke",
+      "category": "",
+      "status": "verified",
+      "artifact": "proofs/linux-vm-workload/smoke-matrix/retained/whole-vm-workload-smoke-matrix-report.json",
+      "disposition": "refused",
+      "proves": "Retained Machinen VM guest probe refused with vm-workload-tool-missing: java-runtime-not-installed-in-guest.",
+      "claimUse": "VM workload smoke/capability evidence only; no whole-VM snapshot/restore or arbitrary-process claim lift",
+      "next": "Require retained selected-whole-vm-workload-v1 snapshot/restore artifacts before claim lift.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 0,
+          "broadSupport": 0,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    },
+    {
+      "id": "vm-ebpf-capability-smoke",
+      "category": "",
+      "status": "verified",
+      "artifact": "proofs/linux-vm-workload/smoke-matrix/retained/whole-vm-workload-smoke-matrix-report.json",
+      "disposition": "supported",
+      "proves": "Retained Machinen VM guest probe passed: bpf-map-create-succeeded.",
+      "claimUse": "VM workload smoke/capability evidence only; no whole-VM snapshot/restore or arbitrary-process claim lift",
+      "next": "Require retained selected-whole-vm-workload-v1 snapshot/restore artifacts before claim lift.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 0,
+          "broadSupport": 0,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    },
+    {
+      "id": "vm-seccomp-capability-smoke",
+      "category": "",
+      "status": "verified",
+      "artifact": "proofs/linux-vm-workload/smoke-matrix/retained/whole-vm-workload-smoke-matrix-report.json",
+      "disposition": "supported",
+      "proves": "Retained Machinen VM guest probe passed: seccomp-filter-blocked-getpid-with-eperm.",
+      "claimUse": "VM workload smoke/capability evidence only; no whole-VM snapshot/restore or arbitrary-process claim lift",
+      "next": "Require retained selected-whole-vm-workload-v1 snapshot/restore artifacts before claim lift.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 0,
+          "broadSupport": 0,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    },
+    {
+      "id": "vm-nested-virtualization-smoke",
+      "category": "",
+      "status": "verified",
+      "artifact": "proofs/linux-vm-workload/smoke-matrix/retained/whole-vm-workload-smoke-matrix-report.json",
+      "disposition": "refused",
+      "proves": "Retained Machinen VM guest probe refused with vm-workload-nested-virtualization-unavailable: /dev/kvm-missing.",
+      "claimUse": "VM workload smoke/capability evidence only; no whole-VM snapshot/restore or arbitrary-process claim lift",
+      "next": "Require retained selected-whole-vm-workload-v1 snapshot/restore artifacts before claim lift.",
       "claimImpact": {
         "productSupportDelta": 0,
         "broadSupportDelta": 0,
