@@ -1,0 +1,1 @@
+fastify-background-tasks-safe-heartbeat-ok

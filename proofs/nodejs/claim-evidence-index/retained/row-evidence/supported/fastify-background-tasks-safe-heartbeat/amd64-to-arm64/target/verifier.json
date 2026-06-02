@@ -1,0 +1,27 @@
+{
+  "kind": "machinen.node-supported-row-target-verifier",
+  "version": 1,
+  "accepted": true,
+  "rowId": "fastify-background-tasks-safe-heartbeat",
+  "direction": "amd64-to-arm64",
+  "routePath": "/fastify-background-tasks-safe-heartbeat",
+  "scenario": "background-tasks",
+  "scenarioVerifier": {
+    "externalNetworkSafeReconnectVerified": false,
+    "backgroundTaskHeartbeatVerified": true,
+    "backgroundTicksObserved": 2
+  },
+  "expectedBody": "fastify-background-tasks-safe-heartbeat-ok",
+  "actualBody": "fastify-background-tasks-safe-heartbeat-ok",
+  "bodySha256": "1810ca9003b7ef9157b4ccd7cd791a24faaaa8dbd929a5a380538d7606102c55",
+  "expectedHeader": {
+    "x-machinen-row": "fastify-background-tasks-safe-heartbeat",
+    "x-machinen-scenario": "safe-background-heartbeat"
+  },
+  "actualHeaders": "HTTP/1.1 200 OK\nx-machinen-row: fastify-background-tasks-safe-heartbeat\nx-machinen-scenario: safe-background-heartbeat\nx-machinen-background-ticks: 2\ncontent-type: text/plain; charset=utf-8\ncontent-length: 42\nDate: Tue, 02 Jun 2026 17:15:30 GMT\nConnection: keep-alive\nKeep-Alive: timeout=72\n\n",
+  "targetNativeNodeVerified": true,
+  "sourceIsaEmulationUsed": false,
+  "sidecarRuntimeUsed": false,
+  "appHooksRequired": false,
+  "metadataOnlySuccessAccepted": false
+}
