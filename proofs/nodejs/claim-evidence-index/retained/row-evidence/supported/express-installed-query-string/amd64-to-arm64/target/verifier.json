@@ -1,0 +1,20 @@
+{
+  "kind": "machinen.node-supported-row-target-verifier",
+  "version": 1,
+  "accepted": true,
+  "rowId": "express-installed-query-string",
+  "direction": "amd64-to-arm64",
+  "routePath": "/express-installed-query-string",
+  "expectedBody": "express-installed-query-string-ok",
+  "actualBody": "express-installed-query-string-ok",
+  "bodySha256": "acbc061c8d81607e0ec0718beb5eff866103485cf59085cd9e8133beeaebb371",
+  "expectedHeader": {
+    "x-machinen-row": "express-installed-query-string"
+  },
+  "actualHeaders": "HTTP/1.1 200 OK\nX-Powered-By: Express\nx-machinen-row: express-installed-query-string\nContent-Type: text/html; charset=utf-8\nContent-Length: 33\nETag: W/\"21-H+oHvkMUqxPyk1oa3VfEFqIT2dw\"\nDate: Tue, 02 Jun 2026 15:48:53 GMT\nConnection: keep-alive\nKeep-Alive: timeout=5\n\n",
+  "targetNativeNodeVerified": true,
+  "sourceIsaEmulationUsed": false,
+  "sidecarRuntimeUsed": false,
+  "appHooksRequired": false,
+  "metadataOnlySuccessAccepted": false
+}
