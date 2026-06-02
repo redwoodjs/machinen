@@ -1,0 +1,1 @@
+machinen restore <dir> for fastify-generic-vm-cjs amd64-to-arm64
