@@ -215,6 +215,28 @@
         "claimChangeAllowed": true,
         "scope": "selected-whole-vm-workload-v1 only"
       }
+    },
+    {
+      "id": "whole-vm-workload-next-corpus",
+      "category": "corpus planning",
+      "status": "defined",
+      "artifact": "proofs/linux-vm-workload/next-corpus/retained/whole-vm-workload-next-corpus-report.json",
+      "disposition": "future-corpus-only",
+      "proves": "Defines SQLite, PostgreSQL, C service, Java service, filesystem, network listener, multi-process, and dirty/active/opaque refusal rows.",
+      "claimUse": "No current claim change; broadening remains locked behind retained artifacts.",
+      "next": "Add retained bidirectional product artifacts and refusal neighbors for each row.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 100,
+          "broadSupport": 100,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false,
+        "scope": "future corpus only"
+      }
     }
   ]
 }
