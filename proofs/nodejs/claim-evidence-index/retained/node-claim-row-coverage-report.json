@@ -1,7 +1,7 @@
 {
   "kind": "machinen.node-claim-row-coverage-report",
   "version": 1,
-  "generatedAt": "2026-06-02T16:57:32.137Z",
+  "generatedAt": "2026-06-02T16:58:45.164Z",
   "accepted": true,
   "claimAllowed": false,
   "publicClaim": {
@@ -16,8 +16,8 @@
   },
   "directionRequirementCounts": {
     "supportedRequired": 136,
-    "supportedCovered": 128,
-    "supportedMissing": 8,
+    "supportedCovered": 130,
+    "supportedMissing": 6,
     "refusedRequired": 84,
     "refusedCovered": 84,
     "refusedMissing": 0
@@ -2074,7 +2074,7 @@
     {
       "rowId": "express-generic-vm-cjs",
       "direction": "arm64-to-amd64",
-      "status": "missing",
+      "status": "covered",
       "requiredFiles": {
         "sourceProductCommand": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-generic-vm-cjs/arm64-to-amd64/source/product-command.txt",
         "sourceSnapshotSummary": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-generic-vm-cjs/arm64-to-amd64/source/snapshot.json",
@@ -2085,21 +2085,12 @@
         "targetBehavior": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-generic-vm-cjs/arm64-to-amd64/target/target-http-body.txt",
         "targetVerifier": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-generic-vm-cjs/arm64-to-amd64/target/verifier.json"
       },
-      "missingFiles": [
-        "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-generic-vm-cjs/arm64-to-amd64/source/product-command.txt",
-        "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-generic-vm-cjs/arm64-to-amd64/source/snapshot.json",
-        "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-generic-vm-cjs/arm64-to-amd64/source/portable-node.json",
-        "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-generic-vm-cjs/arm64-to-amd64/source/portable-node-app.tar.gz",
-        "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-generic-vm-cjs/arm64-to-amd64/target/product-command.txt",
-        "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-generic-vm-cjs/arm64-to-amd64/target/restore.json",
-        "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-generic-vm-cjs/arm64-to-amd64/target/target-http-body.txt",
-        "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-generic-vm-cjs/arm64-to-amd64/target/verifier.json"
-      ]
+      "missingFiles": []
     },
     {
       "rowId": "express-generic-vm-cjs",
       "direction": "amd64-to-arm64",
-      "status": "missing",
+      "status": "covered",
       "requiredFiles": {
         "sourceProductCommand": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-generic-vm-cjs/amd64-to-arm64/source/product-command.txt",
         "sourceSnapshotSummary": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-generic-vm-cjs/amd64-to-arm64/source/snapshot.json",
@@ -2110,16 +2101,7 @@
         "targetBehavior": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-generic-vm-cjs/amd64-to-arm64/target/target-http-body.txt",
         "targetVerifier": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-generic-vm-cjs/amd64-to-arm64/target/verifier.json"
       },
-      "missingFiles": [
-        "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-generic-vm-cjs/amd64-to-arm64/source/product-command.txt",
-        "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-generic-vm-cjs/amd64-to-arm64/source/snapshot.json",
-        "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-generic-vm-cjs/amd64-to-arm64/source/portable-node.json",
-        "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-generic-vm-cjs/amd64-to-arm64/source/portable-node-app.tar.gz",
-        "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-generic-vm-cjs/amd64-to-arm64/target/product-command.txt",
-        "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-generic-vm-cjs/amd64-to-arm64/target/restore.json",
-        "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-generic-vm-cjs/amd64-to-arm64/target/target-http-body.txt",
-        "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-generic-vm-cjs/amd64-to-arm64/target/verifier.json"
-      ]
+      "missingFiles": []
     },
     {
       "rowId": "express-generic-vm-esm",
