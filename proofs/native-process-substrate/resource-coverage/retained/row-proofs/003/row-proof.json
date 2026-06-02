@@ -1,0 +1,137 @@
+{
+  "proofNumber": "003",
+  "id": "native-pipe-empty-pair",
+  "category": "pipe",
+  "status": "verified-resource-seed",
+  "disposition": "supported-selected-subset",
+  "accepted": true,
+  "artifact": "proofs/native-process-substrate/resource-coverage/retained/row-proofs/003/row-proof.json",
+  "evidence": "Empty pipe pair is reconstructed as a target-native synthetic pipe with read/write endpoint direction preserved.",
+  "checks": [
+    {
+      "id": "expected-target-kinds",
+      "passed": true,
+      "message": "target kinds include "
+    },
+    {
+      "id": "expected-guest-kinds",
+      "passed": true,
+      "message": "guest kinds include synthetic-empty-pipe"
+    },
+    {
+      "id": "expected-refusals",
+      "passed": true,
+      "message": "refusals match "
+    },
+    {
+      "id": "no-raw-cpu-or-emulation",
+      "passed": true,
+      "message": "resource translation does not use raw CPU restore or source ISA emulation"
+    }
+  ],
+  "targetPlan": {
+    "entries": [
+      {
+        "targetFd": 10,
+        "capturedFd": 10,
+        "resourceId": "fd:10:pipe-read",
+        "resourceKind": "pipe",
+        "kind": "synthetic-empty-pipe-read-end",
+        "closeOnExec": false,
+        "action": "materialize",
+        "source": "captured-resource",
+        "recipe": {
+          "pipeModel": "empty-pair-v1",
+          "pipeDirection": "read",
+          "pipeBuffer": "empty",
+          "peerLifetime": "open",
+          "pipeWaiters": "none",
+          "readiness": "not-readable"
+        },
+        "targetGuestRecipe": {
+          "kind": "synthetic-empty-pipe",
+          "readFd": 10,
+          "closeOnExec": false
+        },
+        "provenance": {
+          "resourceId": "fd:10:pipe-read",
+          "capturedFd": 10,
+          "targetFd": 10,
+          "flags": ["octal:0"],
+          "reason": "translated-resource-recipe"
+        }
+      },
+      {
+        "targetFd": 12,
+        "capturedFd": 12,
+        "resourceId": "fd:12:pipe-write",
+        "resourceKind": "pipe",
+        "kind": "synthetic-empty-pipe-write-end",
+        "closeOnExec": false,
+        "action": "materialize",
+        "source": "captured-resource",
+        "recipe": {
+          "pipeModel": "empty-pair-v1",
+          "pipeDirection": "write",
+          "pipeBuffer": "empty",
+          "peerLifetime": "open",
+          "pipeWaiters": "none",
+          "readiness": "not-readable",
+          "pairedReadFd": 10
+        },
+        "provenance": {
+          "resourceId": "fd:12:pipe-write",
+          "capturedFd": 12,
+          "targetFd": 12,
+          "flags": ["octal:1"],
+          "reason": "translated-resource-recipe"
+        }
+      }
+    ],
+    "resources": [
+      {
+        "id": "fd:10:pipe-read",
+        "kind": "pipe",
+        "state": "recipe",
+        "fd": 10,
+        "path": "pipe:[pair]",
+        "flags": ["octal:0"],
+        "recipe": {
+          "pipeModel": "empty-pair-v1",
+          "pipeDirection": "read",
+          "pipeBuffer": "empty",
+          "peerLifetime": "open",
+          "pipeWaiters": "none",
+          "readiness": "not-readable"
+        }
+      },
+      {
+        "id": "fd:12:pipe-write",
+        "kind": "pipe",
+        "state": "recipe",
+        "fd": 12,
+        "path": "pipe:[pair]",
+        "flags": ["octal:1"],
+        "recipe": {
+          "pipeModel": "empty-pair-v1",
+          "pipeDirection": "write",
+          "pipeBuffer": "empty",
+          "peerLifetime": "open",
+          "pipeWaiters": "none",
+          "readiness": "not-readable"
+        }
+      }
+    ],
+    "targetGuestResources": [
+      {
+        "kind": "synthetic-empty-pipe",
+        "readFd": 10,
+        "closeOnExec": false,
+        "writeFd": 12
+      }
+    ],
+    "refusals": []
+  },
+  "refusals": [],
+  "claimUse": "resource-seed-only"
+}

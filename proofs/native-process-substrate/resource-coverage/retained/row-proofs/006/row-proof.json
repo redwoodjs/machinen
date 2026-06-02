@@ -1,0 +1,110 @@
+{
+  "proofNumber": "006",
+  "id": "native-timerfd-one-shot",
+  "category": "timerfd",
+  "status": "verified-resource-seed",
+  "disposition": "supported-selected-subset",
+  "accepted": true,
+  "artifact": "proofs/native-process-substrate/resource-coverage/retained/row-proofs/006/row-proof.json",
+  "evidence": "One-shot timerfd descriptor with no unread ticks, no interval, and supported monotonic clock is materialized target-natively.",
+  "checks": [
+    {
+      "id": "expected-target-kinds",
+      "passed": true,
+      "message": "target kinds include "
+    },
+    {
+      "id": "expected-guest-kinds",
+      "passed": true,
+      "message": "guest kinds include synthetic-timerfd"
+    },
+    {
+      "id": "expected-refusals",
+      "passed": true,
+      "message": "refusals match "
+    },
+    {
+      "id": "no-raw-cpu-or-emulation",
+      "passed": true,
+      "message": "resource translation does not use raw CPU restore or source ISA emulation"
+    }
+  ],
+  "targetPlan": {
+    "entries": [
+      {
+        "targetFd": 12,
+        "capturedFd": 12,
+        "resourceId": "fd:12:timerfd",
+        "resourceKind": "timer",
+        "kind": "synthetic-timerfd",
+        "closeOnExec": false,
+        "action": "materialize",
+        "source": "captured-resource",
+        "recipe": {
+          "timerfdModel": "descriptor-v1",
+          "timerfdClockId": 1,
+          "timerfdTicks": 0,
+          "timerfdSettimeFlags": 0,
+          "timerfdValueSeconds": 5,
+          "timerfdValueNanoseconds": 100,
+          "timerfdIntervalSeconds": 0,
+          "timerfdIntervalNanoseconds": 0
+        },
+        "targetGuestRecipe": {
+          "kind": "synthetic-timerfd",
+          "fd": 12,
+          "clockId": 1,
+          "settimeFlags": 0,
+          "valueSeconds": 5,
+          "valueNanoseconds": 100,
+          "intervalSeconds": 0,
+          "intervalNanoseconds": 0,
+          "closeOnExec": false
+        },
+        "provenance": {
+          "resourceId": "fd:12:timerfd",
+          "capturedFd": 12,
+          "targetFd": 12,
+          "flags": ["octal:2"],
+          "reason": "translated-resource-recipe"
+        }
+      }
+    ],
+    "resources": [
+      {
+        "id": "fd:12:timerfd",
+        "kind": "timer",
+        "state": "recipe",
+        "fd": 12,
+        "path": "anon_inode:[timerfd]",
+        "flags": ["octal:2"],
+        "recipe": {
+          "timerfdModel": "descriptor-v1",
+          "timerfdClockId": 1,
+          "timerfdTicks": 0,
+          "timerfdSettimeFlags": 0,
+          "timerfdValueSeconds": 5,
+          "timerfdValueNanoseconds": 100,
+          "timerfdIntervalSeconds": 0,
+          "timerfdIntervalNanoseconds": 0
+        }
+      }
+    ],
+    "targetGuestResources": [
+      {
+        "kind": "synthetic-timerfd",
+        "fd": 12,
+        "clockId": 1,
+        "settimeFlags": 0,
+        "valueSeconds": 5,
+        "valueNanoseconds": 100,
+        "intervalSeconds": 0,
+        "intervalNanoseconds": 0,
+        "closeOnExec": false
+      }
+    ],
+    "refusals": []
+  },
+  "refusals": [],
+  "claimUse": "resource-seed-only"
+}

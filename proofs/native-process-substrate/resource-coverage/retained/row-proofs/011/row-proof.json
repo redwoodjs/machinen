@@ -1,0 +1,46 @@
+{
+  "proofNumber": "011",
+  "id": "native-pty-tty-unbrokered",
+  "category": "pty/tty",
+  "status": "verified-refusal",
+  "disposition": "refused-boundary",
+  "accepted": true,
+  "artifact": "proofs/native-process-substrate/resource-coverage/retained/row-proofs/011/row-proof.json",
+  "evidence": "PTY/TTY resources require an explicit broker and are refused in the selected native matrix.",
+  "checks": [
+    {
+      "id": "has-refusal",
+      "passed": true,
+      "message": "at least one refusal retained"
+    },
+    {
+      "id": "all-refusals-have-codes",
+      "passed": true,
+      "message": "every refusal has a code"
+    },
+    {
+      "id": "no-target-materialization",
+      "passed": true,
+      "message": "unsupported resource row is not materialized"
+    }
+  ],
+  "refusals": [
+    {
+      "code": "resource-kind-unsupported",
+      "message": "resource fd:23:pty (pty) needs a host broker recipe before native restore",
+      "detail": {
+        "id": "fd:23:pty",
+        "kind": "pty",
+        "fd": 23,
+        "path": "/dev/pts/3",
+        "boundary": "broker-recipe",
+        "requiredModel": [
+          "explicit broker capability",
+          "termios state",
+          "session and foreground process group"
+        ]
+      }
+    }
+  ],
+  "claimUse": "boundary-refusal-only"
+}

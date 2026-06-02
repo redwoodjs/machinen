@@ -1,6 +1,6 @@
 {
   "kind": "machinen.claim-progress-dashboard",
-  "version": 109,
+  "version": 110,
   "updatedFrom": [
     "docs/snapshot/node-level5-product-support-claim-registry.json",
     "docs/snapshot/node-level5-product-support-100.json",
@@ -17,7 +17,8 @@
     "proofs/arbitrary-linux-binaries/scripts/arbitrary-process-level5-simple-pipe-fd-proof.ts",
     "packages/runtime/src/arbitrary-process-level5-idle-resource-proof.ts",
     "proofs/arbitrary-linux-binaries/scripts/arbitrary-process-level5-idle-resource-proof.ts",
-    "proofs/native-process-substrate/regular-file-fd-bidirectional/retained/native-regular-file-fd-bidirectional-proof-report.json"
+    "proofs/native-process-substrate/regular-file-fd-bidirectional/retained/native-regular-file-fd-bidirectional-proof-report.json",
+    "proofs/native-process-substrate/resource-coverage/retained/native-resource-coverage-matrix-report.json"
   ],
   "columns": {
     "claim": ["productSupport", "broadSupport", "arbitraryProcessCrossArchRestore"],
@@ -1557,14 +1558,15 @@
         "arbitraryProcessCrossArchRestore": "still-0-until-arbitrary-process-reconstruction-proof",
         "claimChangeAllowed": false
       },
-      "summary": "Retained proof-only native substrate/boundary gate verifies all 12 native/001-native/012 rows. A bidirectional regular-file FD resource seed now verifies target-side reopen/seek/read/write behavior. Arbitrary Linux process restore remains 0.",
-      "claimGate": "proofs/native-process-substrate/retained/native-substrate-gate-report.json accepted; public claim remains 0",
+      "summary": "Retained proof-only native substrate/boundary gate verifies all 12 native/001-native/012 rows. Resource coverage now has 18/18 rows accepted (8 supported selected-subset seeds, 10 verified refusals). Arbitrary Linux process restore remains 0.",
+      "claimGate": "native substrate gate and native resource coverage matrix accepted; public claim remains 0",
       "claimChangeAllowed": false,
       "evidence": [
         "proofs/native-process-substrate/retained/native-substrate-gate-report.json",
         "proofs/native-process-substrate/retained/raw/*.json",
         "proofs/native-process-substrate/retained/row-proofs/*/row-proof.json",
-        "proofs/native-process-substrate/regular-file-fd-bidirectional/retained/native-regular-file-fd-bidirectional-proof-report.json"
+        "proofs/native-process-substrate/regular-file-fd-bidirectional/retained/native-regular-file-fd-bidirectional-proof-report.json",
+        "proofs/native-process-substrate/resource-coverage/retained/native-resource-coverage-matrix-report.json"
       ],
       "evidenceRows": [
         {
@@ -1726,17 +1728,17 @@
       "nextSteps": [
         {
           "priority": 1,
-          "item": "Build a tiny single-thread native C workload proof that composes CPU registers, stack, memory materialization, bootstrap state, and the retained regular-file FD resource into target-native post-restore behavior.",
+          "item": "Build a tiny single-thread native C workload proof that composes CPU registers, stack, memory materialization, bootstrap state, and accepted resource rows into target-native post-restore behavior.",
           "gate": "native-single-thread-c-workload-e2e"
         },
         {
           "priority": 2,
-          "item": "Retain target-native page protection checks for r--/rw-/r-x/guard mappings on Linux hosts.",
-          "gate": "native-page-protection-linux-verifier"
+          "item": "Add a claim-facing selected-native support matrix that requires product capture/restore E2E artifacts for every supported resource row and retained refusals for every boundary row.",
+          "gate": "selected-native-support-matrix-gate"
         },
         {
           "priority": 3,
-          "item": "Keep arbitrary Linux process restore at 0 until memory/register/thread/resource proofs compose into real target-native process behavior.",
+          "item": "Keep arbitrary Linux process restore at 0 until process execution, memory/register/thread/resource proofs compose into real target-native process behavior.",
           "gate": "arbitrary-process-claim-ready-gate"
         }
       ],
@@ -1872,6 +1874,16 @@
           "gate": "idle-only resource reconstruction verifier",
           "artifact": "idle-resource-proof-report.json",
           "next": "Covered by the accepted claim-ready gate; public claim remains 0%."
+        },
+        {
+          "id": "native-resource-coverage-matrix",
+          "area": "resource coverage",
+          "kind": "resource matrix",
+          "status": "verified-resource-matrix",
+          "evidence": "Retained native resource matrix covers 18/18 rows with 8 supported selected-subset seeds and 10 refusal boundaries. This does not raise arbitrary-process support.",
+          "gate": "native-resource-coverage-matrix",
+          "artifact": "proofs/native-process-substrate/resource-coverage/retained/native-resource-coverage-matrix-report.json",
+          "next": "Use as input to selected-native product E2E support matrix; keep arbitrary process restore at 0."
         }
       ],
       "refusals": [
@@ -3432,6 +3444,28 @@
           "proves": "Bidirectional regular-file FD seed verifies target-side reopen/seek/read/write behavior, captured read-write cloexec flags, path/inode identity policy, and shortcut-free target-native resource reconstruction.",
           "claimUse": "resource seed only; no arbitrary-process claim raise",
           "next": "Compose with target-native process execution proof before claim promotion.",
+          "claimImpact": {
+            "productSupportDelta": 0,
+            "broadSupportDelta": 0,
+            "arbitraryProcessCrossArchRestoreDelta": 0,
+            "resultingClaim": {
+              "productSupport": null,
+              "broadSupport": null,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "claimChangeAllowed": false
+          }
+        },
+        {
+          "id": "native-resource-coverage-matrix",
+          "proofNumber": "native-resource/coverage",
+          "type": "resource",
+          "category": "resource coverage",
+          "status": "verified-resource-matrix",
+          "artifact": "proofs/native-process-substrate/resource-coverage/retained/native-resource-coverage-matrix-report.json",
+          "proves": "Selected native resource matrix has 18/18 accepted rows: 8 supported selected-subset resource seeds and 10 verified refusal boundaries; not-proven rows 0.",
+          "claimUse": "resource coverage only; no arbitrary-process claim raise",
+          "next": "Require product E2E behavior artifacts before selected-native claim promotion.",
           "claimImpact": {
             "productSupportDelta": 0,
             "broadSupportDelta": 0,

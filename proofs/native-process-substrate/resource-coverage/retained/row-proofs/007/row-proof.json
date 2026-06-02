@@ -1,0 +1,155 @@
+{
+  "proofNumber": "007",
+  "id": "native-epoll-interest-list",
+  "category": "epoll",
+  "status": "verified-resource-seed",
+  "disposition": "supported-selected-subset",
+  "accepted": true,
+  "artifact": "proofs/native-process-substrate/resource-coverage/retained/row-proofs/007/row-proof.json",
+  "evidence": "epoll interest list is accepted only when every watched fd has an accepted target recipe.",
+  "checks": [
+    {
+      "id": "expected-target-kinds",
+      "passed": true,
+      "message": "target kinds include "
+    },
+    {
+      "id": "expected-guest-kinds",
+      "passed": true,
+      "message": "guest kinds include synthetic-empty-eventfd,synthetic-epoll"
+    },
+    {
+      "id": "expected-refusals",
+      "passed": true,
+      "message": "refusals match "
+    },
+    {
+      "id": "no-raw-cpu-or-emulation",
+      "passed": true,
+      "message": "resource translation does not use raw CPU restore or source ISA emulation"
+    }
+  ],
+  "targetPlan": {
+    "entries": [
+      {
+        "targetFd": 10,
+        "capturedFd": 10,
+        "resourceId": "fd:10:eventfd",
+        "resourceKind": "eventfd",
+        "kind": "synthetic-empty-eventfd",
+        "closeOnExec": false,
+        "action": "materialize",
+        "source": "captured-resource",
+        "recipe": {
+          "synthetic": "empty-eventfd",
+          "fd": 10
+        },
+        "targetGuestRecipe": {
+          "kind": "synthetic-empty-eventfd",
+          "fd": 10,
+          "closeOnExec": false
+        },
+        "provenance": {
+          "resourceId": "fd:10:eventfd",
+          "capturedFd": 10,
+          "targetFd": 10,
+          "flags": ["octal:2"],
+          "reason": "translated-resource-recipe"
+        }
+      },
+      {
+        "targetFd": 12,
+        "capturedFd": 12,
+        "resourceId": "fd:12:epoll",
+        "resourceKind": "epoll",
+        "kind": "synthetic-epoll",
+        "closeOnExec": false,
+        "action": "materialize",
+        "source": "captured-resource",
+        "recipe": {
+          "epollModel": "interest-list-v1",
+          "watches": [
+            {
+              "fd": 10,
+              "events": 1,
+              "data": "0x45504f4c4c"
+            }
+          ]
+        },
+        "targetGuestRecipe": {
+          "kind": "synthetic-epoll",
+          "fd": 12,
+          "watches": [
+            {
+              "fd": 10,
+              "events": 1,
+              "data": "0x45504f4c4c"
+            }
+          ],
+          "closeOnExec": false
+        },
+        "provenance": {
+          "resourceId": "fd:12:epoll",
+          "capturedFd": 12,
+          "targetFd": 12,
+          "flags": ["octal:2"],
+          "reason": "translated-resource-recipe"
+        }
+      }
+    ],
+    "resources": [
+      {
+        "id": "fd:10:eventfd",
+        "kind": "eventfd",
+        "state": "recipe",
+        "fd": 10,
+        "path": "anon_inode:[eventfd]",
+        "flags": ["octal:2"],
+        "recipe": {
+          "synthetic": "empty-eventfd",
+          "fd": 10
+        }
+      },
+      {
+        "id": "fd:12:epoll",
+        "kind": "epoll",
+        "state": "recipe",
+        "fd": 12,
+        "path": "anon_inode:[eventpoll]",
+        "flags": ["octal:2"],
+        "recipe": {
+          "epollModel": "interest-list-v1",
+          "watches": [
+            {
+              "fd": 10,
+              "events": 1,
+              "data": "0x45504f4c4c"
+            }
+          ]
+        }
+      }
+    ],
+    "targetGuestResources": [
+      {
+        "kind": "synthetic-empty-eventfd",
+        "fd": 10,
+        "closeOnExec": false
+      },
+      {
+        "kind": "synthetic-epoll",
+        "fd": 12,
+        "watches": [
+          {
+            "fd": 10,
+            "events": 1,
+            "data": "0x45504f4c4c"
+          }
+        ],
+        "closeOnExec": false
+      }
+    ],
+    "refusals": []
+  },
+  "refusals": [],
+  "claimUse": "resource-seed-only"
+}

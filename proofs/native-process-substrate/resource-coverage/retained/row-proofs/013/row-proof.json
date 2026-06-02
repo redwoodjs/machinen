@@ -1,0 +1,48 @@
+{
+  "proofNumber": "013",
+  "id": "native-signalfd-pending-state",
+  "category": "signalfd",
+  "status": "verified-refusal",
+  "disposition": "refused-boundary",
+  "accepted": true,
+  "artifact": "proofs/native-process-substrate/resource-coverage/retained/row-proofs/013/row-proof.json",
+  "evidence": "signalfd with pending or queued signal state is refused.",
+  "checks": [
+    {
+      "id": "has-refusal",
+      "passed": true,
+      "message": "at least one refusal retained"
+    },
+    {
+      "id": "all-refusals-have-codes",
+      "passed": true,
+      "message": "every refusal has a code"
+    },
+    {
+      "id": "no-target-materialization",
+      "passed": true,
+      "message": "unsupported resource row is not materialized"
+    }
+  ],
+  "refusals": [
+    {
+      "code": "target-signalfd-state-unsupported",
+      "message": "signalfd resource fd:26:signalfd cannot be recreated target-natively",
+      "detail": {
+        "id": "fd:26:signalfd",
+        "kind": "signalfd",
+        "fd": 26,
+        "path": "anon_inode:[signalfd]",
+        "boundary": "signalfd-empty-queue",
+        "reason": "signalfd recipe requires a finite mask and flags",
+        "requiredModel": [
+          "pending signal queue",
+          "siginfo payload provenance",
+          "delivery ordering",
+          "signal-mask coordination"
+        ]
+      }
+    }
+  ],
+  "claimUse": "boundary-refusal-only"
+}

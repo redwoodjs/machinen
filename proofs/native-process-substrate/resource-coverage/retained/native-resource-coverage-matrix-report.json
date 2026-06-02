@@ -1,0 +1,1553 @@
+{
+  "kind": "machinen.native-resource-coverage-matrix",
+  "version": 1,
+  "generatedAt": "2026-06-02T19:39:31.304Z",
+  "accepted": true,
+  "publicClaimAllowed": false,
+  "publicClaim": {
+    "productSupport": null,
+    "broadSupport": null,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "scope": "Selected native resource coverage matrix. Every row is either a supported target-native resource seed or a retained refusal boundary. This is not arbitrary Linux process restore product support.",
+  "rowCount": 18,
+  "acceptedRows": 18,
+  "supportedRows": 8,
+  "refusedRows": 10,
+  "notProvenRows": 0,
+  "rows": [
+    {
+      "proofNumber": "001",
+      "id": "native-regular-file-fd-bidirectional",
+      "category": "regular file fd",
+      "status": "verified-resource-seed",
+      "disposition": "supported-selected-subset",
+      "accepted": true,
+      "artifact": "proofs/native-process-substrate/regular-file-fd-bidirectional/retained/native-regular-file-fd-bidirectional-proof-report.json",
+      "evidence": "Bidirectional retained proof verifies regular-file fd offset, read/write behavior, flags, path/inode identity policy, and no shortcut use.",
+      "checks": [
+        {
+          "id": "external-proof-accepted",
+          "passed": true,
+          "message": "regular-file FD bidirectional proof accepted"
+        }
+      ],
+      "claimUse": "resource-seed-only"
+    },
+    {
+      "proofNumber": "002",
+      "id": "native-stdio-inherit-output-policy",
+      "category": "stdio",
+      "status": "verified-resource-seed",
+      "disposition": "supported-selected-subset",
+      "accepted": true,
+      "artifact": "proofs/native-process-substrate/resource-coverage/retained/row-proofs/002/row-proof.json",
+      "evidence": "Explicit stdio policy inherits stdout/stderr, refuses non-file stdin buffer state, and refuses non-stdio kernel buffers.",
+      "checks": [
+        {
+          "id": "expected-target-kinds",
+          "passed": true,
+          "message": "target kinds include inherit-stdio,inherit-stdio"
+        },
+        {
+          "id": "expected-guest-kinds",
+          "passed": true,
+          "message": "guest kinds include "
+        },
+        {
+          "id": "expected-refusals",
+          "passed": true,
+          "message": "refusals match stdin-buffer-state-unsupported,non-stdio-kernel-state-unsupported"
+        },
+        {
+          "id": "no-raw-cpu-or-emulation",
+          "passed": true,
+          "message": "resource translation does not use raw CPU restore or source ISA emulation"
+        }
+      ],
+      "targetPlan": {
+        "entries": [
+          {
+            "targetFd": 0,
+            "capturedFd": 0,
+            "resourceId": "fd:0:stdin",
+            "resourceKind": "pipe",
+            "kind": "refused",
+            "closeOnExec": false,
+            "action": "refuse",
+            "source": "captured-resource",
+            "refusal": {
+              "code": "stdin-buffer-state-unsupported",
+              "message": "resource fd:0:stdin (pipe) needs a host broker recipe before native restore",
+              "detail": {
+                "id": "fd:0:stdin",
+                "kind": "pipe",
+                "fd": 0,
+                "path": "pipe:[stdin]",
+                "boundary": "stdio-policy",
+                "requiredModel": [
+                  "pipe buffer contents",
+                  "peer fd ownership",
+                  "readiness and wakeup ordering"
+                ]
+              }
+            },
+            "provenance": {
+              "resourceId": "fd:0:stdin",
+              "capturedFd": 0,
+              "targetFd": 0,
+              "reason": "resource-refused-before-target-execution"
+            }
+          },
+          {
+            "targetFd": 1,
+            "capturedFd": 1,
+            "resourceId": "fd:1:stdout",
+            "resourceKind": "pipe",
+            "kind": "inherit-stdio",
+            "closeOnExec": false,
+            "action": "materialize",
+            "source": "captured-resource",
+            "recipe": {
+              "inherit": "stdout",
+              "fd": 1
+            },
+            "targetGuestRecipe": {
+              "kind": "inherit-stdio",
+              "fd": 1,
+              "stream": "stdout",
+              "closeOnExec": false
+            },
+            "provenance": {
+              "resourceId": "fd:1:stdout",
+              "capturedFd": 1,
+              "targetFd": 1,
+              "reason": "translated-resource-recipe"
+            }
+          },
+          {
+            "targetFd": 2,
+            "capturedFd": 2,
+            "resourceId": "fd:2:stderr",
+            "resourceKind": "socket",
+            "kind": "inherit-stdio",
+            "closeOnExec": false,
+            "action": "materialize",
+            "source": "captured-resource",
+            "recipe": {
+              "inherit": "stderr",
+              "fd": 2
+            },
+            "targetGuestRecipe": {
+              "kind": "inherit-stdio",
+              "fd": 2,
+              "stream": "stderr",
+              "closeOnExec": false
+            },
+            "provenance": {
+              "resourceId": "fd:2:stderr",
+              "capturedFd": 2,
+              "targetFd": 2,
+              "reason": "translated-resource-recipe"
+            }
+          },
+          {
+            "targetFd": 3,
+            "capturedFd": 3,
+            "resourceId": "fd:3:nonstdio",
+            "resourceKind": "pipe",
+            "kind": "refused",
+            "closeOnExec": false,
+            "action": "refuse",
+            "source": "captured-resource",
+            "refusal": {
+              "code": "non-stdio-kernel-state-unsupported",
+              "message": "resource fd:3:nonstdio (pipe) needs a host broker recipe before native restore",
+              "detail": {
+                "id": "fd:3:nonstdio",
+                "kind": "pipe",
+                "fd": 3,
+                "path": "pipe:[nonstdio]",
+                "boundary": "kernel-state",
+                "requiredModel": [
+                  "pipe buffer contents",
+                  "peer fd ownership",
+                  "readiness and wakeup ordering"
+                ]
+              }
+            },
+            "provenance": {
+              "resourceId": "fd:3:nonstdio",
+              "capturedFd": 3,
+              "targetFd": 3,
+              "reason": "resource-refused-before-target-execution"
+            }
+          }
+        ],
+        "resources": [
+          {
+            "id": "fd:0:stdin",
+            "kind": "pipe",
+            "state": "refused",
+            "fd": 0,
+            "path": "pipe:[stdin]",
+            "refusal": {
+              "code": "stdin-buffer-state-unsupported",
+              "message": "resource fd:0:stdin (pipe) needs a host broker recipe before native restore",
+              "detail": {
+                "id": "fd:0:stdin",
+                "kind": "pipe",
+                "fd": 0,
+                "path": "pipe:[stdin]",
+                "boundary": "stdio-policy",
+                "requiredModel": [
+                  "pipe buffer contents",
+                  "peer fd ownership",
+                  "readiness and wakeup ordering"
+                ]
+              }
+            }
+          },
+          {
+            "id": "fd:1:stdout",
+            "kind": "pipe",
+            "state": "recipe",
+            "fd": 1,
+            "path": "pipe:[stdout]",
+            "recipe": {
+              "inherit": "stdout",
+              "fd": 1
+            }
+          },
+          {
+            "id": "fd:2:stderr",
+            "kind": "socket",
+            "state": "recipe",
+            "fd": 2,
+            "path": "socket:[stderr]",
+            "recipe": {
+              "inherit": "stderr",
+              "fd": 2
+            }
+          },
+          {
+            "id": "fd:3:nonstdio",
+            "kind": "pipe",
+            "state": "refused",
+            "fd": 3,
+            "path": "pipe:[nonstdio]",
+            "refusal": {
+              "code": "non-stdio-kernel-state-unsupported",
+              "message": "resource fd:3:nonstdio (pipe) needs a host broker recipe before native restore",
+              "detail": {
+                "id": "fd:3:nonstdio",
+                "kind": "pipe",
+                "fd": 3,
+                "path": "pipe:[nonstdio]",
+                "boundary": "kernel-state",
+                "requiredModel": [
+                  "pipe buffer contents",
+                  "peer fd ownership",
+                  "readiness and wakeup ordering"
+                ]
+              }
+            }
+          }
+        ],
+        "targetGuestResources": [
+          {
+            "kind": "inherit-stdio",
+            "fd": 1,
+            "stream": "stdout",
+            "closeOnExec": false
+          },
+          {
+            "kind": "inherit-stdio",
+            "fd": 2,
+            "stream": "stderr",
+            "closeOnExec": false
+          }
+        ],
+        "refusals": [
+          {
+            "code": "stdin-buffer-state-unsupported",
+            "message": "resource fd:0:stdin (pipe) needs a host broker recipe before native restore",
+            "detail": {
+              "id": "fd:0:stdin",
+              "kind": "pipe",
+              "fd": 0,
+              "path": "pipe:[stdin]",
+              "boundary": "stdio-policy",
+              "requiredModel": [
+                "pipe buffer contents",
+                "peer fd ownership",
+                "readiness and wakeup ordering"
+              ]
+            }
+          },
+          {
+            "code": "non-stdio-kernel-state-unsupported",
+            "message": "resource fd:3:nonstdio (pipe) needs a host broker recipe before native restore",
+            "detail": {
+              "id": "fd:3:nonstdio",
+              "kind": "pipe",
+              "fd": 3,
+              "path": "pipe:[nonstdio]",
+              "boundary": "kernel-state",
+              "requiredModel": [
+                "pipe buffer contents",
+                "peer fd ownership",
+                "readiness and wakeup ordering"
+              ]
+            }
+          }
+        ]
+      },
+      "refusals": [
+        {
+          "code": "stdin-buffer-state-unsupported",
+          "message": "resource fd:0:stdin (pipe) needs a host broker recipe before native restore",
+          "detail": {
+            "id": "fd:0:stdin",
+            "kind": "pipe",
+            "fd": 0,
+            "path": "pipe:[stdin]",
+            "boundary": "stdio-policy",
+            "requiredModel": [
+              "pipe buffer contents",
+              "peer fd ownership",
+              "readiness and wakeup ordering"
+            ]
+          }
+        },
+        {
+          "code": "non-stdio-kernel-state-unsupported",
+          "message": "resource fd:3:nonstdio (pipe) needs a host broker recipe before native restore",
+          "detail": {
+            "id": "fd:3:nonstdio",
+            "kind": "pipe",
+            "fd": 3,
+            "path": "pipe:[nonstdio]",
+            "boundary": "kernel-state",
+            "requiredModel": [
+              "pipe buffer contents",
+              "peer fd ownership",
+              "readiness and wakeup ordering"
+            ]
+          }
+        }
+      ],
+      "claimUse": "resource-seed-only"
+    },
+    {
+      "proofNumber": "003",
+      "id": "native-pipe-empty-pair",
+      "category": "pipe",
+      "status": "verified-resource-seed",
+      "disposition": "supported-selected-subset",
+      "accepted": true,
+      "artifact": "proofs/native-process-substrate/resource-coverage/retained/row-proofs/003/row-proof.json",
+      "evidence": "Empty pipe pair is reconstructed as a target-native synthetic pipe with read/write endpoint direction preserved.",
+      "checks": [
+        {
+          "id": "expected-target-kinds",
+          "passed": true,
+          "message": "target kinds include "
+        },
+        {
+          "id": "expected-guest-kinds",
+          "passed": true,
+          "message": "guest kinds include synthetic-empty-pipe"
+        },
+        {
+          "id": "expected-refusals",
+          "passed": true,
+          "message": "refusals match "
+        },
+        {
+          "id": "no-raw-cpu-or-emulation",
+          "passed": true,
+          "message": "resource translation does not use raw CPU restore or source ISA emulation"
+        }
+      ],
+      "targetPlan": {
+        "entries": [
+          {
+            "targetFd": 10,
+            "capturedFd": 10,
+            "resourceId": "fd:10:pipe-read",
+            "resourceKind": "pipe",
+            "kind": "synthetic-empty-pipe-read-end",
+            "closeOnExec": false,
+            "action": "materialize",
+            "source": "captured-resource",
+            "recipe": {
+              "pipeModel": "empty-pair-v1",
+              "pipeDirection": "read",
+              "pipeBuffer": "empty",
+              "peerLifetime": "open",
+              "pipeWaiters": "none",
+              "readiness": "not-readable"
+            },
+            "targetGuestRecipe": {
+              "kind": "synthetic-empty-pipe",
+              "readFd": 10,
+              "closeOnExec": false
+            },
+            "provenance": {
+              "resourceId": "fd:10:pipe-read",
+              "capturedFd": 10,
+              "targetFd": 10,
+              "flags": ["octal:0"],
+              "reason": "translated-resource-recipe"
+            }
+          },
+          {
+            "targetFd": 12,
+            "capturedFd": 12,
+            "resourceId": "fd:12:pipe-write",
+            "resourceKind": "pipe",
+            "kind": "synthetic-empty-pipe-write-end",
+            "closeOnExec": false,
+            "action": "materialize",
+            "source": "captured-resource",
+            "recipe": {
+              "pipeModel": "empty-pair-v1",
+              "pipeDirection": "write",
+              "pipeBuffer": "empty",
+              "peerLifetime": "open",
+              "pipeWaiters": "none",
+              "readiness": "not-readable",
+              "pairedReadFd": 10
+            },
+            "provenance": {
+              "resourceId": "fd:12:pipe-write",
+              "capturedFd": 12,
+              "targetFd": 12,
+              "flags": ["octal:1"],
+              "reason": "translated-resource-recipe"
+            }
+          }
+        ],
+        "resources": [
+          {
+            "id": "fd:10:pipe-read",
+            "kind": "pipe",
+            "state": "recipe",
+            "fd": 10,
+            "path": "pipe:[pair]",
+            "flags": ["octal:0"],
+            "recipe": {
+              "pipeModel": "empty-pair-v1",
+              "pipeDirection": "read",
+              "pipeBuffer": "empty",
+              "peerLifetime": "open",
+              "pipeWaiters": "none",
+              "readiness": "not-readable"
+            }
+          },
+          {
+            "id": "fd:12:pipe-write",
+            "kind": "pipe",
+            "state": "recipe",
+            "fd": 12,
+            "path": "pipe:[pair]",
+            "flags": ["octal:1"],
+            "recipe": {
+              "pipeModel": "empty-pair-v1",
+              "pipeDirection": "write",
+              "pipeBuffer": "empty",
+              "peerLifetime": "open",
+              "pipeWaiters": "none",
+              "readiness": "not-readable"
+            }
+          }
+        ],
+        "targetGuestResources": [
+          {
+            "kind": "synthetic-empty-pipe",
+            "readFd": 10,
+            "closeOnExec": false,
+            "writeFd": 12
+          }
+        ],
+        "refusals": []
+      },
+      "refusals": [],
+      "claimUse": "resource-seed-only"
+    },
+    {
+      "proofNumber": "004",
+      "id": "native-pipe-buffered-bytes",
+      "category": "pipe",
+      "status": "verified-resource-seed",
+      "disposition": "supported-selected-subset",
+      "accepted": true,
+      "artifact": "proofs/native-process-substrate/resource-coverage/retained/row-proofs/004/row-proof.json",
+      "evidence": "Buffered pipe pair retains known bytes and target-native read/write endpoint direction.",
+      "checks": [
+        {
+          "id": "expected-target-kinds",
+          "passed": true,
+          "message": "target kinds include "
+        },
+        {
+          "id": "expected-guest-kinds",
+          "passed": true,
+          "message": "guest kinds include synthetic-empty-pipe"
+        },
+        {
+          "id": "expected-refusals",
+          "passed": true,
+          "message": "refusals match "
+        },
+        {
+          "id": "no-raw-cpu-or-emulation",
+          "passed": true,
+          "message": "resource translation does not use raw CPU restore or source ISA emulation"
+        }
+      ],
+      "targetPlan": {
+        "entries": [
+          {
+            "targetFd": 10,
+            "capturedFd": 10,
+            "resourceId": "fd:10:pipe-read",
+            "resourceKind": "pipe",
+            "kind": "synthetic-empty-pipe-read-end",
+            "closeOnExec": false,
+            "action": "materialize",
+            "source": "captured-resource",
+            "recipe": {
+              "pipeModel": "buffered-bytes-v1",
+              "pipeDirection": "read",
+              "pipeBuffer": "bytes",
+              "peerLifetime": "open",
+              "pipeWaiters": "none",
+              "readiness": "readable",
+              "pipeBufferBytes": "50495045"
+            },
+            "targetGuestRecipe": {
+              "kind": "synthetic-empty-pipe",
+              "readFd": 10,
+              "initialBytesHex": "50495045",
+              "closeOnExec": false
+            },
+            "provenance": {
+              "resourceId": "fd:10:pipe-read",
+              "capturedFd": 10,
+              "targetFd": 10,
+              "flags": ["octal:0"],
+              "reason": "translated-resource-recipe"
+            }
+          },
+          {
+            "targetFd": 12,
+            "capturedFd": 12,
+            "resourceId": "fd:12:pipe-write",
+            "resourceKind": "pipe",
+            "kind": "synthetic-empty-pipe-write-end",
+            "closeOnExec": false,
+            "action": "materialize",
+            "source": "captured-resource",
+            "recipe": {
+              "pipeModel": "buffered-bytes-v1",
+              "pipeDirection": "write",
+              "pipeBuffer": "bytes",
+              "peerLifetime": "open",
+              "pipeWaiters": "none",
+              "readiness": "readable",
+              "pipeBufferBytes": "50495045",
+              "pairedReadFd": 10
+            },
+            "provenance": {
+              "resourceId": "fd:12:pipe-write",
+              "capturedFd": 12,
+              "targetFd": 12,
+              "flags": ["octal:1"],
+              "reason": "translated-resource-recipe"
+            }
+          }
+        ],
+        "resources": [
+          {
+            "id": "fd:10:pipe-read",
+            "kind": "pipe",
+            "state": "recipe",
+            "fd": 10,
+            "path": "pipe:[pair]",
+            "flags": ["octal:0"],
+            "recipe": {
+              "pipeModel": "buffered-bytes-v1",
+              "pipeDirection": "read",
+              "pipeBuffer": "bytes",
+              "peerLifetime": "open",
+              "pipeWaiters": "none",
+              "readiness": "readable",
+              "pipeBufferBytes": "50495045"
+            }
+          },
+          {
+            "id": "fd:12:pipe-write",
+            "kind": "pipe",
+            "state": "recipe",
+            "fd": 12,
+            "path": "pipe:[pair]",
+            "flags": ["octal:1"],
+            "recipe": {
+              "pipeModel": "buffered-bytes-v1",
+              "pipeDirection": "write",
+              "pipeBuffer": "bytes",
+              "peerLifetime": "open",
+              "pipeWaiters": "none",
+              "readiness": "readable",
+              "pipeBufferBytes": "50495045"
+            }
+          }
+        ],
+        "targetGuestResources": [
+          {
+            "kind": "synthetic-empty-pipe",
+            "readFd": 10,
+            "initialBytesHex": "50495045",
+            "closeOnExec": false,
+            "writeFd": 12
+          }
+        ],
+        "refusals": []
+      },
+      "refusals": [],
+      "claimUse": "resource-seed-only"
+    },
+    {
+      "proofNumber": "005",
+      "id": "native-eventfd-counter",
+      "category": "eventfd",
+      "status": "verified-resource-seed",
+      "disposition": "supported-selected-subset",
+      "accepted": true,
+      "artifact": "proofs/native-process-substrate/resource-coverage/retained/row-proofs/005/row-proof.json",
+      "evidence": "eventfd counter-v1 with nonzero counter, no semaphore mode, and no waiters is materialized target-natively.",
+      "checks": [
+        {
+          "id": "expected-target-kinds",
+          "passed": true,
+          "message": "target kinds include "
+        },
+        {
+          "id": "expected-guest-kinds",
+          "passed": true,
+          "message": "guest kinds include synthetic-eventfd"
+        },
+        {
+          "id": "expected-refusals",
+          "passed": true,
+          "message": "refusals match "
+        },
+        {
+          "id": "no-raw-cpu-or-emulation",
+          "passed": true,
+          "message": "resource translation does not use raw CPU restore or source ISA emulation"
+        }
+      ],
+      "targetPlan": {
+        "entries": [
+          {
+            "targetFd": 11,
+            "capturedFd": 11,
+            "resourceId": "fd:11:eventfd-counter",
+            "resourceKind": "eventfd",
+            "kind": "synthetic-eventfd",
+            "closeOnExec": false,
+            "action": "materialize",
+            "source": "captured-resource",
+            "recipe": {
+              "eventfdModel": "counter-v1",
+              "eventfdCount": "0x2a",
+              "eventfdSemaphore": 0,
+              "eventfdWaiters": "none"
+            },
+            "targetGuestRecipe": {
+              "kind": "synthetic-eventfd",
+              "fd": 11,
+              "initialValue": "0x2a",
+              "closeOnExec": false
+            },
+            "provenance": {
+              "resourceId": "fd:11:eventfd-counter",
+              "capturedFd": 11,
+              "targetFd": 11,
+              "flags": ["octal:2"],
+              "reason": "translated-resource-recipe"
+            }
+          }
+        ],
+        "resources": [
+          {
+            "id": "fd:11:eventfd-counter",
+            "kind": "eventfd",
+            "state": "recipe",
+            "fd": 11,
+            "path": "anon_inode:[eventfd]",
+            "flags": ["octal:2"],
+            "recipe": {
+              "eventfdModel": "counter-v1",
+              "eventfdCount": "0x2a",
+              "eventfdSemaphore": 0,
+              "eventfdWaiters": "none"
+            }
+          }
+        ],
+        "targetGuestResources": [
+          {
+            "kind": "synthetic-eventfd",
+            "fd": 11,
+            "initialValue": "0x2a",
+            "closeOnExec": false
+          }
+        ],
+        "refusals": []
+      },
+      "refusals": [],
+      "claimUse": "resource-seed-only"
+    },
+    {
+      "proofNumber": "006",
+      "id": "native-timerfd-one-shot",
+      "category": "timerfd",
+      "status": "verified-resource-seed",
+      "disposition": "supported-selected-subset",
+      "accepted": true,
+      "artifact": "proofs/native-process-substrate/resource-coverage/retained/row-proofs/006/row-proof.json",
+      "evidence": "One-shot timerfd descriptor with no unread ticks, no interval, and supported monotonic clock is materialized target-natively.",
+      "checks": [
+        {
+          "id": "expected-target-kinds",
+          "passed": true,
+          "message": "target kinds include "
+        },
+        {
+          "id": "expected-guest-kinds",
+          "passed": true,
+          "message": "guest kinds include synthetic-timerfd"
+        },
+        {
+          "id": "expected-refusals",
+          "passed": true,
+          "message": "refusals match "
+        },
+        {
+          "id": "no-raw-cpu-or-emulation",
+          "passed": true,
+          "message": "resource translation does not use raw CPU restore or source ISA emulation"
+        }
+      ],
+      "targetPlan": {
+        "entries": [
+          {
+            "targetFd": 12,
+            "capturedFd": 12,
+            "resourceId": "fd:12:timerfd",
+            "resourceKind": "timer",
+            "kind": "synthetic-timerfd",
+            "closeOnExec": false,
+            "action": "materialize",
+            "source": "captured-resource",
+            "recipe": {
+              "timerfdModel": "descriptor-v1",
+              "timerfdClockId": 1,
+              "timerfdTicks": 0,
+              "timerfdSettimeFlags": 0,
+              "timerfdValueSeconds": 5,
+              "timerfdValueNanoseconds": 100,
+              "timerfdIntervalSeconds": 0,
+              "timerfdIntervalNanoseconds": 0
+            },
+            "targetGuestRecipe": {
+              "kind": "synthetic-timerfd",
+              "fd": 12,
+              "clockId": 1,
+              "settimeFlags": 0,
+              "valueSeconds": 5,
+              "valueNanoseconds": 100,
+              "intervalSeconds": 0,
+              "intervalNanoseconds": 0,
+              "closeOnExec": false
+            },
+            "provenance": {
+              "resourceId": "fd:12:timerfd",
+              "capturedFd": 12,
+              "targetFd": 12,
+              "flags": ["octal:2"],
+              "reason": "translated-resource-recipe"
+            }
+          }
+        ],
+        "resources": [
+          {
+            "id": "fd:12:timerfd",
+            "kind": "timer",
+            "state": "recipe",
+            "fd": 12,
+            "path": "anon_inode:[timerfd]",
+            "flags": ["octal:2"],
+            "recipe": {
+              "timerfdModel": "descriptor-v1",
+              "timerfdClockId": 1,
+              "timerfdTicks": 0,
+              "timerfdSettimeFlags": 0,
+              "timerfdValueSeconds": 5,
+              "timerfdValueNanoseconds": 100,
+              "timerfdIntervalSeconds": 0,
+              "timerfdIntervalNanoseconds": 0
+            }
+          }
+        ],
+        "targetGuestResources": [
+          {
+            "kind": "synthetic-timerfd",
+            "fd": 12,
+            "clockId": 1,
+            "settimeFlags": 0,
+            "valueSeconds": 5,
+            "valueNanoseconds": 100,
+            "intervalSeconds": 0,
+            "intervalNanoseconds": 0,
+            "closeOnExec": false
+          }
+        ],
+        "refusals": []
+      },
+      "refusals": [],
+      "claimUse": "resource-seed-only"
+    },
+    {
+      "proofNumber": "007",
+      "id": "native-epoll-interest-list",
+      "category": "epoll",
+      "status": "verified-resource-seed",
+      "disposition": "supported-selected-subset",
+      "accepted": true,
+      "artifact": "proofs/native-process-substrate/resource-coverage/retained/row-proofs/007/row-proof.json",
+      "evidence": "epoll interest list is accepted only when every watched fd has an accepted target recipe.",
+      "checks": [
+        {
+          "id": "expected-target-kinds",
+          "passed": true,
+          "message": "target kinds include "
+        },
+        {
+          "id": "expected-guest-kinds",
+          "passed": true,
+          "message": "guest kinds include synthetic-empty-eventfd,synthetic-epoll"
+        },
+        {
+          "id": "expected-refusals",
+          "passed": true,
+          "message": "refusals match "
+        },
+        {
+          "id": "no-raw-cpu-or-emulation",
+          "passed": true,
+          "message": "resource translation does not use raw CPU restore or source ISA emulation"
+        }
+      ],
+      "targetPlan": {
+        "entries": [
+          {
+            "targetFd": 10,
+            "capturedFd": 10,
+            "resourceId": "fd:10:eventfd",
+            "resourceKind": "eventfd",
+            "kind": "synthetic-empty-eventfd",
+            "closeOnExec": false,
+            "action": "materialize",
+            "source": "captured-resource",
+            "recipe": {
+              "synthetic": "empty-eventfd",
+              "fd": 10
+            },
+            "targetGuestRecipe": {
+              "kind": "synthetic-empty-eventfd",
+              "fd": 10,
+              "closeOnExec": false
+            },
+            "provenance": {
+              "resourceId": "fd:10:eventfd",
+              "capturedFd": 10,
+              "targetFd": 10,
+              "flags": ["octal:2"],
+              "reason": "translated-resource-recipe"
+            }
+          },
+          {
+            "targetFd": 12,
+            "capturedFd": 12,
+            "resourceId": "fd:12:epoll",
+            "resourceKind": "epoll",
+            "kind": "synthetic-epoll",
+            "closeOnExec": false,
+            "action": "materialize",
+            "source": "captured-resource",
+            "recipe": {
+              "epollModel": "interest-list-v1",
+              "watches": [
+                {
+                  "fd": 10,
+                  "events": 1,
+                  "data": "0x45504f4c4c"
+                }
+              ]
+            },
+            "targetGuestRecipe": {
+              "kind": "synthetic-epoll",
+              "fd": 12,
+              "watches": [
+                {
+                  "fd": 10,
+                  "events": 1,
+                  "data": "0x45504f4c4c"
+                }
+              ],
+              "closeOnExec": false
+            },
+            "provenance": {
+              "resourceId": "fd:12:epoll",
+              "capturedFd": 12,
+              "targetFd": 12,
+              "flags": ["octal:2"],
+              "reason": "translated-resource-recipe"
+            }
+          }
+        ],
+        "resources": [
+          {
+            "id": "fd:10:eventfd",
+            "kind": "eventfd",
+            "state": "recipe",
+            "fd": 10,
+            "path": "anon_inode:[eventfd]",
+            "flags": ["octal:2"],
+            "recipe": {
+              "synthetic": "empty-eventfd",
+              "fd": 10
+            }
+          },
+          {
+            "id": "fd:12:epoll",
+            "kind": "epoll",
+            "state": "recipe",
+            "fd": 12,
+            "path": "anon_inode:[eventpoll]",
+            "flags": ["octal:2"],
+            "recipe": {
+              "epollModel": "interest-list-v1",
+              "watches": [
+                {
+                  "fd": 10,
+                  "events": 1,
+                  "data": "0x45504f4c4c"
+                }
+              ]
+            }
+          }
+        ],
+        "targetGuestResources": [
+          {
+            "kind": "synthetic-empty-eventfd",
+            "fd": 10,
+            "closeOnExec": false
+          },
+          {
+            "kind": "synthetic-epoll",
+            "fd": 12,
+            "watches": [
+              {
+                "fd": 10,
+                "events": 1,
+                "data": "0x45504f4c4c"
+              }
+            ],
+            "closeOnExec": false
+          }
+        ],
+        "refusals": []
+      },
+      "refusals": [],
+      "claimUse": "resource-seed-only"
+    },
+    {
+      "proofNumber": "008",
+      "id": "native-tcp-listener-loopback",
+      "category": "tcp",
+      "status": "verified-resource-seed",
+      "disposition": "supported-selected-subset",
+      "accepted": true,
+      "artifact": "proofs/native-process-substrate/resource-coverage/retained/row-proofs/008/row-proof.json",
+      "evidence": "Idle loopback TCP listener with empty accept queue is represented as target-native synthetic listener recipe.",
+      "checks": [
+        {
+          "id": "expected-target-kinds",
+          "passed": true,
+          "message": "target kinds include "
+        },
+        {
+          "id": "expected-guest-kinds",
+          "passed": true,
+          "message": "guest kinds include synthetic-tcp-listener"
+        },
+        {
+          "id": "expected-refusals",
+          "passed": true,
+          "message": "refusals match "
+        },
+        {
+          "id": "no-raw-cpu-or-emulation",
+          "passed": true,
+          "message": "resource translation does not use raw CPU restore or source ISA emulation"
+        }
+      ],
+      "targetPlan": {
+        "entries": [
+          {
+            "targetFd": 20,
+            "capturedFd": 20,
+            "resourceId": "fd:20:tcp-listener",
+            "resourceKind": "socket",
+            "kind": "synthetic-tcp-listener",
+            "closeOnExec": false,
+            "action": "materialize",
+            "source": "captured-resource",
+            "recipe": {
+              "tcpListenerModel": "loopback-listener-v1",
+              "family": "inet4",
+              "socketType": "stream",
+              "protocol": "tcp",
+              "bindAddress": "127.0.0.1",
+              "port": 54321,
+              "backlog": 16,
+              "reuseAddr": true
+            },
+            "targetGuestRecipe": {
+              "kind": "synthetic-tcp-listener",
+              "fd": 20,
+              "port": 54321,
+              "backlog": 16,
+              "reuseAddr": true,
+              "closeOnExec": false
+            },
+            "provenance": {
+              "resourceId": "fd:20:tcp-listener",
+              "capturedFd": 20,
+              "targetFd": 20,
+              "flags": ["octal:2"],
+              "reason": "translated-resource-recipe"
+            }
+          }
+        ],
+        "resources": [
+          {
+            "id": "fd:20:tcp-listener",
+            "kind": "socket",
+            "state": "recipe",
+            "fd": 20,
+            "path": "socket:[tcp-listen]",
+            "flags": ["octal:2"],
+            "recipe": {
+              "tcpListenerModel": "loopback-listener-v1",
+              "family": "inet4",
+              "socketType": "stream",
+              "protocol": "tcp",
+              "bindAddress": "127.0.0.1",
+              "port": 54321,
+              "backlog": 16,
+              "reuseAddr": true
+            }
+          }
+        ],
+        "targetGuestResources": [
+          {
+            "kind": "synthetic-tcp-listener",
+            "fd": 20,
+            "port": 54321,
+            "backlog": 16,
+            "reuseAddr": true,
+            "closeOnExec": false
+          }
+        ],
+        "refusals": []
+      },
+      "refusals": [],
+      "claimUse": "resource-seed-only"
+    },
+    {
+      "proofNumber": "009",
+      "id": "native-tcp-active-connection-unbrokered",
+      "category": "tcp",
+      "status": "verified-refusal",
+      "disposition": "refused-boundary",
+      "accepted": true,
+      "artifact": "proofs/native-process-substrate/resource-coverage/retained/row-proofs/009/row-proof.json",
+      "evidence": "Active TCP connection without explicit broker is refused fail-closed.",
+      "checks": [
+        {
+          "id": "has-refusal",
+          "passed": true,
+          "message": "at least one refusal retained"
+        },
+        {
+          "id": "all-refusals-have-codes",
+          "passed": true,
+          "message": "every refusal has a code"
+        },
+        {
+          "id": "no-target-materialization",
+          "passed": true,
+          "message": "unsupported resource row is not materialized"
+        }
+      ],
+      "refusals": [
+        {
+          "code": "kernel-state-unsupported",
+          "message": "resource fd:21:tcp-active (socket) needs a host broker recipe before native restore",
+          "detail": {
+            "id": "fd:21:tcp-active",
+            "kind": "socket",
+            "fd": 21,
+            "path": "socket:[tcp-active]",
+            "boundary": "kernel-state",
+            "requiredModel": [
+              "accept/connect/listen queue state",
+              "peer endpoint identity",
+              "credentials and namespaces",
+              "socket options, shutdown state, readiness, and partial transfer state"
+            ]
+          }
+        }
+      ],
+      "claimUse": "boundary-refusal-only"
+    },
+    {
+      "proofNumber": "010",
+      "id": "native-unix-domain-socket",
+      "category": "unix socket",
+      "status": "verified-refusal",
+      "disposition": "refused-boundary",
+      "accepted": true,
+      "artifact": "proofs/native-process-substrate/resource-coverage/retained/row-proofs/010/row-proof.json",
+      "evidence": "Unix domain sockets are refused until peer identity, queues, credentials, and namespace policy are proven.",
+      "checks": [
+        {
+          "id": "has-refusal",
+          "passed": true,
+          "message": "at least one refusal retained"
+        },
+        {
+          "id": "all-refusals-have-codes",
+          "passed": true,
+          "message": "every refusal has a code"
+        },
+        {
+          "id": "no-target-materialization",
+          "passed": true,
+          "message": "unsupported resource row is not materialized"
+        }
+      ],
+      "refusals": [
+        {
+          "code": "kernel-state-unsupported",
+          "message": "resource fd:22:unix (socket) needs a host broker recipe before native restore",
+          "detail": {
+            "id": "fd:22:unix",
+            "kind": "socket",
+            "fd": 22,
+            "path": "socket:[unix]",
+            "boundary": "kernel-state",
+            "requiredModel": [
+              "accept/connect/listen queue state",
+              "peer endpoint identity",
+              "credentials and namespaces",
+              "socket options, shutdown state, readiness, and partial transfer state"
+            ]
+          }
+        }
+      ],
+      "claimUse": "boundary-refusal-only"
+    },
+    {
+      "proofNumber": "011",
+      "id": "native-pty-tty-unbrokered",
+      "category": "pty/tty",
+      "status": "verified-refusal",
+      "disposition": "refused-boundary",
+      "accepted": true,
+      "artifact": "proofs/native-process-substrate/resource-coverage/retained/row-proofs/011/row-proof.json",
+      "evidence": "PTY/TTY resources require an explicit broker and are refused in the selected native matrix.",
+      "checks": [
+        {
+          "id": "has-refusal",
+          "passed": true,
+          "message": "at least one refusal retained"
+        },
+        {
+          "id": "all-refusals-have-codes",
+          "passed": true,
+          "message": "every refusal has a code"
+        },
+        {
+          "id": "no-target-materialization",
+          "passed": true,
+          "message": "unsupported resource row is not materialized"
+        }
+      ],
+      "refusals": [
+        {
+          "code": "resource-kind-unsupported",
+          "message": "resource fd:23:pty (pty) needs a host broker recipe before native restore",
+          "detail": {
+            "id": "fd:23:pty",
+            "kind": "pty",
+            "fd": 23,
+            "path": "/dev/pts/3",
+            "boundary": "broker-recipe",
+            "requiredModel": [
+              "explicit broker capability",
+              "termios state",
+              "session and foreground process group"
+            ]
+          }
+        }
+      ],
+      "claimUse": "boundary-refusal-only"
+    },
+    {
+      "proofNumber": "012",
+      "id": "native-raw-ping-socket-unscoped",
+      "category": "raw/ping socket",
+      "status": "verified-refusal",
+      "disposition": "refused-boundary",
+      "accepted": true,
+      "artifact": "proofs/native-process-substrate/resource-coverage/retained/row-proofs/012/row-proof.json",
+      "evidence": "Raw and ping sockets are out of the selected native process resource scope unless a dedicated credential/network proof is retained.",
+      "checks": [
+        {
+          "id": "has-refusal",
+          "passed": true,
+          "message": "at least one refusal retained"
+        },
+        {
+          "id": "all-refusals-have-codes",
+          "passed": true,
+          "message": "every refusal has a code"
+        },
+        {
+          "id": "no-target-materialization",
+          "passed": true,
+          "message": "unsupported resource row is not materialized"
+        }
+      ],
+      "refusals": [
+        {
+          "code": "resource-kind-unsupported",
+          "message": "resource fd:24:raw (raw-socket) needs a host broker recipe before native restore",
+          "detail": {
+            "id": "fd:24:raw",
+            "kind": "raw-socket",
+            "fd": 24,
+            "path": "socket:[raw-icmp]",
+            "boundary": "broker-recipe",
+            "requiredModel": [
+              "explicit broker capability",
+              "network namespace and credential policy"
+            ]
+          }
+        },
+        {
+          "code": "kernel-state-unsupported",
+          "message": "resource fd:25:ping (socket) needs a host broker recipe before native restore",
+          "detail": {
+            "id": "fd:25:ping",
+            "kind": "socket",
+            "fd": 25,
+            "path": "socket:[ping]",
+            "boundary": "kernel-state",
+            "requiredModel": [
+              "accept/connect/listen queue state",
+              "peer endpoint identity",
+              "credentials and namespaces",
+              "socket options, shutdown state, readiness, and partial transfer state"
+            ]
+          }
+        }
+      ],
+      "claimUse": "boundary-refusal-only"
+    },
+    {
+      "proofNumber": "013",
+      "id": "native-signalfd-pending-state",
+      "category": "signalfd",
+      "status": "verified-refusal",
+      "disposition": "refused-boundary",
+      "accepted": true,
+      "artifact": "proofs/native-process-substrate/resource-coverage/retained/row-proofs/013/row-proof.json",
+      "evidence": "signalfd with pending or queued signal state is refused.",
+      "checks": [
+        {
+          "id": "has-refusal",
+          "passed": true,
+          "message": "at least one refusal retained"
+        },
+        {
+          "id": "all-refusals-have-codes",
+          "passed": true,
+          "message": "every refusal has a code"
+        },
+        {
+          "id": "no-target-materialization",
+          "passed": true,
+          "message": "unsupported resource row is not materialized"
+        }
+      ],
+      "refusals": [
+        {
+          "code": "target-signalfd-state-unsupported",
+          "message": "signalfd resource fd:26:signalfd cannot be recreated target-natively",
+          "detail": {
+            "id": "fd:26:signalfd",
+            "kind": "signalfd",
+            "fd": 26,
+            "path": "anon_inode:[signalfd]",
+            "boundary": "signalfd-empty-queue",
+            "reason": "signalfd recipe requires a finite mask and flags",
+            "requiredModel": [
+              "pending signal queue",
+              "siginfo payload provenance",
+              "delivery ordering",
+              "signal-mask coordination"
+            ]
+          }
+        }
+      ],
+      "claimUse": "boundary-refusal-only"
+    },
+    {
+      "proofNumber": "014",
+      "id": "native-inotify-pidfd-memfd-shm-special",
+      "category": "special fd",
+      "status": "verified-refusal",
+      "disposition": "refused-boundary",
+      "accepted": true,
+      "artifact": "proofs/native-process-substrate/resource-coverage/retained/row-proofs/014/row-proof.json",
+      "evidence": "inotify, pidfd, memfd, shm, and unknown anon_inode resources are refused until separate models exist.",
+      "checks": [
+        {
+          "id": "has-refusal",
+          "passed": true,
+          "message": "at least one refusal retained"
+        },
+        {
+          "id": "all-refusals-have-codes",
+          "passed": true,
+          "message": "every refusal has a code"
+        },
+        {
+          "id": "no-target-materialization",
+          "passed": true,
+          "message": "unsupported resource row is not materialized"
+        }
+      ],
+      "refusals": [
+        {
+          "code": "resource-kind-unsupported",
+          "message": "inotify/pidfd/memfd/shm resource models are not selected for native process support yet",
+          "detail": {
+            "boundary": "special-fd-resource-models",
+            "resources": ["inotify", "pidfd", "memfd", "shm"]
+          }
+        }
+      ],
+      "claimUse": "boundary-refusal-only"
+    },
+    {
+      "proofNumber": "015",
+      "id": "native-deleted-unlinked-file-fd",
+      "category": "file descriptor",
+      "status": "verified-refusal",
+      "disposition": "refused-boundary",
+      "accepted": true,
+      "artifact": "proofs/native-process-substrate/resource-coverage/retained/row-proofs/015/row-proof.json",
+      "evidence": "Deleted/unlinked file descriptors are refused until content identity and lifetime policy are proven.",
+      "checks": [
+        {
+          "id": "has-refusal",
+          "passed": true,
+          "message": "at least one refusal retained"
+        },
+        {
+          "id": "all-refusals-have-codes",
+          "passed": true,
+          "message": "every refusal has a code"
+        },
+        {
+          "id": "no-target-materialization",
+          "passed": true,
+          "message": "unsupported resource row is not materialized"
+        }
+      ],
+      "refusals": [
+        {
+          "code": "fd-kind-unsupported",
+          "message": "deleted/unlinked file fd cannot be reopened by stable target path",
+          "detail": {
+            "boundary": "deleted-file-fd",
+            "path": "regular-file-fd-fixture.txt (deleted)"
+          }
+        }
+      ],
+      "claimUse": "boundary-refusal-only"
+    },
+    {
+      "proofNumber": "016",
+      "id": "native-file-locks-leases",
+      "category": "file descriptor",
+      "status": "verified-refusal",
+      "disposition": "refused-boundary",
+      "accepted": true,
+      "artifact": "proofs/native-process-substrate/resource-coverage/retained/row-proofs/016/row-proof.json",
+      "evidence": "File locks and leases are refused until owner/waiter and lock lifetime reconstruction is proven.",
+      "checks": [
+        {
+          "id": "has-refusal",
+          "passed": true,
+          "message": "at least one refusal retained"
+        },
+        {
+          "id": "all-refusals-have-codes",
+          "passed": true,
+          "message": "every refusal has a code"
+        },
+        {
+          "id": "no-target-materialization",
+          "passed": true,
+          "message": "unsupported resource row is not materialized"
+        }
+      ],
+      "refusals": [
+        {
+          "code": "kernel-state-unsupported",
+          "message": "file locks and leases are kernel-owned state outside the selected resource seed",
+          "detail": {
+            "boundary": "file-locks-leases",
+            "requiredModel": [
+              "lock owner",
+              "blocked waiters",
+              "lease break state",
+              "target lock acquisition policy"
+            ]
+          }
+        }
+      ],
+      "claimUse": "boundary-refusal-only"
+    },
+    {
+      "proofNumber": "017",
+      "id": "native-mmap-backed-file-resource",
+      "category": "mmap/resource",
+      "status": "verified-refusal",
+      "disposition": "refused-boundary",
+      "accepted": true,
+      "artifact": "proofs/native-process-substrate/resource-coverage/retained/row-proofs/017/row-proof.json",
+      "evidence": "mmap-backed file/resource coupling is refused until memory mapping and resource identity compose in an E2E proof.",
+      "checks": [
+        {
+          "id": "has-refusal",
+          "passed": true,
+          "message": "at least one refusal retained"
+        },
+        {
+          "id": "all-refusals-have-codes",
+          "passed": true,
+          "message": "every refusal has a code"
+        },
+        {
+          "id": "no-target-materialization",
+          "passed": true,
+          "message": "unsupported resource row is not materialized"
+        }
+      ],
+      "refusals": [
+        {
+          "code": "mapping-shared-unsupported",
+          "message": "mmap-backed file resources require composed mapping/resource reconstruction",
+          "detail": {
+            "boundary": "mmap-backed-file-resource",
+            "requiredModel": [
+              "mapping permissions",
+              "file offset",
+              "dirty page ledger",
+              "shared/private semantics"
+            ]
+          }
+        }
+      ],
+      "claimUse": "boundary-refusal-only"
+    },
+    {
+      "proofNumber": "018",
+      "id": "native-device-special-file",
+      "category": "device/special file",
+      "status": "verified-refusal",
+      "disposition": "refused-boundary",
+      "accepted": true,
+      "artifact": "proofs/native-process-substrate/resource-coverage/retained/row-proofs/018/row-proof.json",
+      "evidence": "Device and special files are refused without a target-native device/broker model.",
+      "checks": [
+        {
+          "id": "has-refusal",
+          "passed": true,
+          "message": "at least one refusal retained"
+        },
+        {
+          "id": "all-refusals-have-codes",
+          "passed": true,
+          "message": "every refusal has a code"
+        },
+        {
+          "id": "no-target-materialization",
+          "passed": true,
+          "message": "unsupported resource row is not materialized"
+        }
+      ],
+      "refusals": [
+        {
+          "code": "fd-kind-unsupported",
+          "message": "resource fd:27:device (fd) needs a host broker recipe before native restore",
+          "detail": {
+            "id": "fd:27:device",
+            "kind": "fd",
+            "fd": 27,
+            "path": "/dev/null",
+            "boundary": "broker-recipe",
+            "requiredModel": []
+          }
+        }
+      ],
+      "claimUse": "boundary-refusal-only"
+    }
+  ],
+  "requiredExternalProofs": [
+    {
+      "id": "native-regular-file-fd-bidirectional",
+      "accepted": true,
+      "artifact": "proofs/native-process-substrate/regular-file-fd-bidirectional/retained/native-regular-file-fd-bidirectional-proof-report.json"
+    }
+  ],
+  "noShortcutPolicy": {
+    "rawCpuRestoreAccepted": false,
+    "sourceIsaEmulationAccepted": false,
+    "runtimeProfileRestoreAccepted": false,
+    "sidecarRuntimeAccepted": false,
+    "appHooksAccepted": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

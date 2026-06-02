@@ -1,0 +1,47 @@
+{
+  "proofNumber": "010",
+  "id": "native-unix-domain-socket",
+  "category": "unix socket",
+  "status": "verified-refusal",
+  "disposition": "refused-boundary",
+  "accepted": true,
+  "artifact": "proofs/native-process-substrate/resource-coverage/retained/row-proofs/010/row-proof.json",
+  "evidence": "Unix domain sockets are refused until peer identity, queues, credentials, and namespace policy are proven.",
+  "checks": [
+    {
+      "id": "has-refusal",
+      "passed": true,
+      "message": "at least one refusal retained"
+    },
+    {
+      "id": "all-refusals-have-codes",
+      "passed": true,
+      "message": "every refusal has a code"
+    },
+    {
+      "id": "no-target-materialization",
+      "passed": true,
+      "message": "unsupported resource row is not materialized"
+    }
+  ],
+  "refusals": [
+    {
+      "code": "kernel-state-unsupported",
+      "message": "resource fd:22:unix (socket) needs a host broker recipe before native restore",
+      "detail": {
+        "id": "fd:22:unix",
+        "kind": "socket",
+        "fd": 22,
+        "path": "socket:[unix]",
+        "boundary": "kernel-state",
+        "requiredModel": [
+          "accept/connect/listen queue state",
+          "peer endpoint identity",
+          "credentials and namespaces",
+          "socket options, shutdown state, readiness, and partial transfer state"
+        ]
+      }
+    }
+  ],
+  "claimUse": "boundary-refusal-only"
+}

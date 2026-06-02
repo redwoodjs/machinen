@@ -1,0 +1,42 @@
+{
+  "proofNumber": "018",
+  "id": "native-device-special-file",
+  "category": "device/special file",
+  "status": "verified-refusal",
+  "disposition": "refused-boundary",
+  "accepted": true,
+  "artifact": "proofs/native-process-substrate/resource-coverage/retained/row-proofs/018/row-proof.json",
+  "evidence": "Device and special files are refused without a target-native device/broker model.",
+  "checks": [
+    {
+      "id": "has-refusal",
+      "passed": true,
+      "message": "at least one refusal retained"
+    },
+    {
+      "id": "all-refusals-have-codes",
+      "passed": true,
+      "message": "every refusal has a code"
+    },
+    {
+      "id": "no-target-materialization",
+      "passed": true,
+      "message": "unsupported resource row is not materialized"
+    }
+  ],
+  "refusals": [
+    {
+      "code": "fd-kind-unsupported",
+      "message": "resource fd:27:device (fd) needs a host broker recipe before native restore",
+      "detail": {
+        "id": "fd:27:device",
+        "kind": "fd",
+        "fd": 27,
+        "path": "/dev/null",
+        "boundary": "broker-recipe",
+        "requiredModel": []
+      }
+    }
+  ],
+  "claimUse": "boundary-refusal-only"
+}

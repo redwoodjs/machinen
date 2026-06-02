@@ -1,0 +1,92 @@
+{
+  "proofNumber": "005",
+  "id": "native-eventfd-counter",
+  "category": "eventfd",
+  "status": "verified-resource-seed",
+  "disposition": "supported-selected-subset",
+  "accepted": true,
+  "artifact": "proofs/native-process-substrate/resource-coverage/retained/row-proofs/005/row-proof.json",
+  "evidence": "eventfd counter-v1 with nonzero counter, no semaphore mode, and no waiters is materialized target-natively.",
+  "checks": [
+    {
+      "id": "expected-target-kinds",
+      "passed": true,
+      "message": "target kinds include "
+    },
+    {
+      "id": "expected-guest-kinds",
+      "passed": true,
+      "message": "guest kinds include synthetic-eventfd"
+    },
+    {
+      "id": "expected-refusals",
+      "passed": true,
+      "message": "refusals match "
+    },
+    {
+      "id": "no-raw-cpu-or-emulation",
+      "passed": true,
+      "message": "resource translation does not use raw CPU restore or source ISA emulation"
+    }
+  ],
+  "targetPlan": {
+    "entries": [
+      {
+        "targetFd": 11,
+        "capturedFd": 11,
+        "resourceId": "fd:11:eventfd-counter",
+        "resourceKind": "eventfd",
+        "kind": "synthetic-eventfd",
+        "closeOnExec": false,
+        "action": "materialize",
+        "source": "captured-resource",
+        "recipe": {
+          "eventfdModel": "counter-v1",
+          "eventfdCount": "0x2a",
+          "eventfdSemaphore": 0,
+          "eventfdWaiters": "none"
+        },
+        "targetGuestRecipe": {
+          "kind": "synthetic-eventfd",
+          "fd": 11,
+          "initialValue": "0x2a",
+          "closeOnExec": false
+        },
+        "provenance": {
+          "resourceId": "fd:11:eventfd-counter",
+          "capturedFd": 11,
+          "targetFd": 11,
+          "flags": ["octal:2"],
+          "reason": "translated-resource-recipe"
+        }
+      }
+    ],
+    "resources": [
+      {
+        "id": "fd:11:eventfd-counter",
+        "kind": "eventfd",
+        "state": "recipe",
+        "fd": 11,
+        "path": "anon_inode:[eventfd]",
+        "flags": ["octal:2"],
+        "recipe": {
+          "eventfdModel": "counter-v1",
+          "eventfdCount": "0x2a",
+          "eventfdSemaphore": 0,
+          "eventfdWaiters": "none"
+        }
+      }
+    ],
+    "targetGuestResources": [
+      {
+        "kind": "synthetic-eventfd",
+        "fd": 11,
+        "initialValue": "0x2a",
+        "closeOnExec": false
+      }
+    ],
+    "refusals": []
+  },
+  "refusals": [],
+  "claimUse": "resource-seed-only"
+}

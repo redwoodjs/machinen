@@ -1,0 +1,38 @@
+{
+  "proofNumber": "014",
+  "id": "native-inotify-pidfd-memfd-shm-special",
+  "category": "special fd",
+  "status": "verified-refusal",
+  "disposition": "refused-boundary",
+  "accepted": true,
+  "artifact": "proofs/native-process-substrate/resource-coverage/retained/row-proofs/014/row-proof.json",
+  "evidence": "inotify, pidfd, memfd, shm, and unknown anon_inode resources are refused until separate models exist.",
+  "checks": [
+    {
+      "id": "has-refusal",
+      "passed": true,
+      "message": "at least one refusal retained"
+    },
+    {
+      "id": "all-refusals-have-codes",
+      "passed": true,
+      "message": "every refusal has a code"
+    },
+    {
+      "id": "no-target-materialization",
+      "passed": true,
+      "message": "unsupported resource row is not materialized"
+    }
+  ],
+  "refusals": [
+    {
+      "code": "resource-kind-unsupported",
+      "message": "inotify/pidfd/memfd/shm resource models are not selected for native process support yet",
+      "detail": {
+        "boundary": "special-fd-resource-models",
+        "resources": ["inotify", "pidfd", "memfd", "shm"]
+      }
+    }
+  ],
+  "claimUse": "boundary-refusal-only"
+}

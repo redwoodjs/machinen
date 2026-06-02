@@ -1,0 +1,38 @@
+{
+  "proofNumber": "015",
+  "id": "native-deleted-unlinked-file-fd",
+  "category": "file descriptor",
+  "status": "verified-refusal",
+  "disposition": "refused-boundary",
+  "accepted": true,
+  "artifact": "proofs/native-process-substrate/resource-coverage/retained/row-proofs/015/row-proof.json",
+  "evidence": "Deleted/unlinked file descriptors are refused until content identity and lifetime policy are proven.",
+  "checks": [
+    {
+      "id": "has-refusal",
+      "passed": true,
+      "message": "at least one refusal retained"
+    },
+    {
+      "id": "all-refusals-have-codes",
+      "passed": true,
+      "message": "every refusal has a code"
+    },
+    {
+      "id": "no-target-materialization",
+      "passed": true,
+      "message": "unsupported resource row is not materialized"
+    }
+  ],
+  "refusals": [
+    {
+      "code": "fd-kind-unsupported",
+      "message": "deleted/unlinked file fd cannot be reopened by stable target path",
+      "detail": {
+        "boundary": "deleted-file-fd",
+        "path": "regular-file-fd-fixture.txt (deleted)"
+      }
+    }
+  ],
+  "claimUse": "boundary-refusal-only"
+}

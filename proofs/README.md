@@ -40,5 +40,6 @@ claim group here has a `claim.json` copy plus a readable `README.md`.
 - [Level 4 ping resource continuation](./network-resources/level4-ping-resource-continuation/README.md) — `proven-resource`
 - [Native process substrate proof gate](./native-process-substrate/README.md) — `verified`
 - [Native regular-file FD bidirectional proof](./native-process-substrate/regular-file-fd-bidirectional/README.md) — `verified-resource-seed`
+- [Native resource coverage matrix](./native-process-substrate/resource-coverage/README.md) — `verified-resource-matrix`
 - [Arbitrary process 0% / candidate 1% locked](./arbitrary-linux-binaries/0-seed-1-locked/README.md) — `partial-proof`
 - [Whole Linux VM workload portability not started](./linux-vm-workload/not-started/README.md) — `not-started`

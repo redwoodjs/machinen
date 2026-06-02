@@ -1,0 +1,59 @@
+{
+  "proofNumber": "012",
+  "id": "native-raw-ping-socket-unscoped",
+  "category": "raw/ping socket",
+  "status": "verified-refusal",
+  "disposition": "refused-boundary",
+  "accepted": true,
+  "artifact": "proofs/native-process-substrate/resource-coverage/retained/row-proofs/012/row-proof.json",
+  "evidence": "Raw and ping sockets are out of the selected native process resource scope unless a dedicated credential/network proof is retained.",
+  "checks": [
+    {
+      "id": "has-refusal",
+      "passed": true,
+      "message": "at least one refusal retained"
+    },
+    {
+      "id": "all-refusals-have-codes",
+      "passed": true,
+      "message": "every refusal has a code"
+    },
+    {
+      "id": "no-target-materialization",
+      "passed": true,
+      "message": "unsupported resource row is not materialized"
+    }
+  ],
+  "refusals": [
+    {
+      "code": "resource-kind-unsupported",
+      "message": "resource fd:24:raw (raw-socket) needs a host broker recipe before native restore",
+      "detail": {
+        "id": "fd:24:raw",
+        "kind": "raw-socket",
+        "fd": 24,
+        "path": "socket:[raw-icmp]",
+        "boundary": "broker-recipe",
+        "requiredModel": ["explicit broker capability", "network namespace and credential policy"]
+      }
+    },
+    {
+      "code": "kernel-state-unsupported",
+      "message": "resource fd:25:ping (socket) needs a host broker recipe before native restore",
+      "detail": {
+        "id": "fd:25:ping",
+        "kind": "socket",
+        "fd": 25,
+        "path": "socket:[ping]",
+        "boundary": "kernel-state",
+        "requiredModel": [
+          "accept/connect/listen queue state",
+          "peer endpoint identity",
+          "credentials and namespaces",
+          "socket options, shutdown state, readiness, and partial transfer state"
+        ]
+      }
+    }
+  ],
+  "claimUse": "boundary-refusal-only"
+}
