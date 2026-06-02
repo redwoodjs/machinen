@@ -9,12 +9,14 @@ import {
 } from "../../../packages/runtime/src/node-level5-app-support-matrix.ts";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
-const expectedStatusCounts = { supported: 68, refused: 42, "not-proven": 4 };
+const expectedStatusCounts = { supported: 72, refused: 42, "not-proven": 0 };
 const expectedSupportedIds = [
   "express-fixture-product-run",
   "express-generator-router",
   "express-generic-vm-cjs",
   "express-generic-vm-esm",
+  "express-background-tasks-safe-heartbeat",
+  "express-external-network-safe-reconnect",
   "express-installed-config-json-read",
   "express-installed-configured-prefix",
   "express-installed-cookie-read",
@@ -48,6 +50,8 @@ const expectedSupportedIds = [
   "fastify-fixture-product-run",
   "fastify-generic-vm-cjs",
   "fastify-generic-vm-esm",
+  "fastify-background-tasks-safe-heartbeat",
+  "fastify-external-network-safe-reconnect",
   "fastify-installed-config-json-read",
   "fastify-installed-configured-prefix",
   "fastify-installed-cookie-read",
@@ -80,12 +84,7 @@ const expectedSupportedIds = [
   "fastify-official-getting-started",
   "fastify-plugin-route",
 ];
-const expectedNotProvenIds = [
-  "express-background-tasks-not-proven",
-  "express-external-network-not-proven",
-  "fastify-background-tasks-not-proven",
-  "fastify-external-network-not-proven",
-];
+const expectedNotProvenIds: string[] = [];
 const expectedRefusalSuffixes = [
   "active-requests",
   "child-processes",

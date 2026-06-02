@@ -27,7 +27,7 @@ type ClaimProgressProofGroup = {
 
 type ClaimProgressDashboard = {
   kind: "machinen.claim-progress-dashboard";
-  version: 99;
+  version: 100;
   tracks: ClaimProgressTrack[];
   proofGroups: ClaimProgressProofGroup[];
 };
@@ -41,7 +41,7 @@ describe("claim progress dashboard", () => {
 
     expect(dashboard).toMatchObject({
       kind: "machinen.claim-progress-dashboard",
-      version: 99,
+      version: 100,
     });
     expect(dashboard.tracks.map((track) => track.id)).toEqual([
       "node-service",
@@ -53,10 +53,10 @@ describe("claim progress dashboard", () => {
       "whole-linux-vm-workload",
     ]);
     expect(dashboard.tracks.find((track) => track.id === "node-service")).toMatchObject({
-      status: "seed-candidate",
+      status: "verified",
       currentClaim: {
-        productSupport: 0,
-        broadSupport: 0,
+        productSupport: 100,
+        broadSupport: 100,
         arbitraryProcessCrossArchRestore: 0,
       },
     });
@@ -118,12 +118,13 @@ describe("claim progress dashboard", () => {
     expect(html).not.toContain("Proof impact matrix");
     expect(html).not.toContain("Product support impact (%)");
     expect(html).toContain("Supported bundles");
-    expect(html).toContain("136 / 136 covered");
+    expect(html).toContain("144 / 144 covered");
     expect(html).toContain("missing 0");
     expect(html).toContain("missingSupportedRowsCount");
     expect(html).toContain("missingSupportedDirectionBundles");
     expect(html).toContain("nodejs/001");
     expect(html).toContain("nodejs/132");
+    expect(html).toContain("nodejs/140");
     expect(html).not.toContain("nodejs/001m");
     expect(html).not.toContain("node/001m");
     expect(html).toContain(".missing");

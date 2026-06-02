@@ -459,7 +459,7 @@
     <script id="embedded-claim-progress" type="application/json">
       {
         "kind": "machinen.claim-progress-dashboard",
-        "version": 99,
+        "version": 100,
         "updatedFrom": [
           "docs/snapshot/node-level5-product-support-claim-registry.json",
           "docs/snapshot/node-level5-product-support-100.json",
@@ -487,23 +487,23 @@
             "name": "Node service restore",
             "family": "runtime-service",
             "runtime": "node",
-            "status": "seed-candidate",
-            "stage": "GA claim",
+            "status": "verified",
+            "stage": "100 / 100 / 0 selected Node service claim",
             "scope": "Selected safe Node services through VM-first product snapshot/restore.",
             "currentClaim": {
-              "productSupport": 0,
-              "broadSupport": 0,
+              "productSupport": 100,
+              "broadSupport": 100,
               "arbitraryProcessCrossArchRestore": 0
             },
             "nextClaim": {
-              "productSupport": 80,
-              "broadSupport": 20,
+              "productSupport": 100,
+              "broadSupport": 100,
               "arbitraryProcessCrossArchRestore": 0,
-              "claimChangeAllowed": false
+              "claimChangeAllowed": true
             },
-            "summary": "Node service 100 / 100 / 0 remains unverified, but the real E2E seed gate now has retained bidirectional clean Node HTTP service artifacts. Public support stays 0 / 0 / 0 until row-by-row coverage and refusal artifacts are complete.",
-            "claimGate": "node-real-cross-arch-e2e-evidence-gate required",
-            "claimChangeAllowed": false,
+            "summary": "Selected Node service support is validated at 100 / 100 / 0 by retained bidirectional row E2E artifacts and complete refusal artifacts. Arbitrary-process cross-architecture restore remains 0.",
+            "claimGate": "node-claim-evidence-index retained row gate passed",
+            "claimChangeAllowed": true,
             "evidence": [
               "framework-capability-coverage-v2",
               "framework-combination-corpus",
@@ -521,41 +521,41 @@
                 "id": "node-claim-evidence-index",
                 "area": "audit",
                 "kind": "claim-facing consolidated index",
-                "status": "partial-proof",
-                "evidence": "Consolidates the sharded Node numbered proof corpus, retained bidirectional E2E seed, and refusal definitions. It explicitly keeps public Node at 0 / 0 / 0 until every supported/refused row is linked to retained product artifacts.",
+                "status": "verified",
+                "evidence": "Consolidates the sharded Node numbered proof corpus, retained bidirectional E2E seed, row-by-row supported artifacts, and refusal definitions. The gate now allows the selected Node service 100 / 100 / 0 claim.",
                 "gate": "node-claim-evidence-index",
                 "artifact": "proofs/nodejs/claim-evidence-index/retained/node-claim-evidence-index-report.json",
-                "next": "Use this index as the only route for future Node claim raises."
+                "next": "Keep this index as the only route for future Node claim changes."
               },
               {
                 "id": "node-row-coverage-manifest",
                 "area": "audit",
                 "kind": "row coverage manifest",
-                "status": "partial-proof",
-                "evidence": "Generated from buildNodeLevel5AppSupportMatrix(): 68 supported rows require 136 bidirectional E2E row bundles, 42 refused rows require 84 refusal direction artifacts, and 4 not-proven rows block any 100% claim. Current retained refusal coverage is complete; 4 supported row-direction bundles are now retained and 132 remain missing.",
+                "status": "verified",
+                "evidence": "Generated from buildNodeLevel5AppSupportMatrix(): 72 supported rows require 144 bidirectional E2E row bundles, 42 refused rows require 84 refusal direction artifacts, and 0 not-proven rows remain. Retained supported and refused coverage is complete.",
                 "gate": "node-claim-row-coverage",
                 "artifact": "proofs/nodejs/claim-evidence-index/retained/node-claim-row-coverage-report.json",
-                "next": "Continue populating row-evidence/supported/<row-id>/<direction>/ for every supported row and resolve not-proven rows."
+                "next": "Preserve retained source/target artifacts for every supported row and retained refusal artifacts for every refused row."
               },
               {
                 "id": "node-existing-matrices-proof-only",
                 "area": "audit",
                 "kind": "proof-only matrices/facades",
-                "status": "partial-proof",
-                "evidence": "Existing Node support matrices, claim ladders, and product snapshot facade tests exist, but the current audit did not find retained real cross-architecture VM E2E artifact bundles for the 100 / 100 / 0 public claim.",
-                "gate": "not sufficient for public claim",
+                "status": "verified",
+                "evidence": "Existing matrices and facades are now backed by the consolidated retained row E2E gate; they remain non-claim-bearing on their own.",
+                "gate": "claim-bearing only through node-claim-evidence-index",
                 "artifact": "node-level5-product-support-100.json",
-                "next": "Audit or produce real retained VM E2E bundles before restoring any public claim."
+                "next": "Do not raise claims from matrices/facades without retained artifacts."
               },
               {
                 "id": "node-real-cross-arch-e2e-gate",
                 "area": "claim gate",
                 "kind": "required E2E gate",
-                "status": "partial-proof",
-                "evidence": "Retained real VM product artifacts now prove one clean Node HTTP service seed in both directions: amd64->arm64 and arm64->amd64. The gate is still not sufficient for 100 / 100 / 0 because row-by-row matrix coverage and refusal artifacts are incomplete.",
+                "status": "verified",
+                "evidence": "Retained real VM product artifacts prove the clean Node HTTP seed in both directions; full row coverage is now provided by the claim evidence index.",
                 "gate": "node-real-cross-arch-e2e-evidence-gate",
                 "artifact": "proofs/nodejs/real-cross-arch-e2e-gate/retained/node-real-cross-arch-e2e-gate-report.json",
-                "next": "Add retained E2E bundles for every supported Node row and complete refusal-artifact coverage before restoring any high public claim."
+                "next": "Keep as seed evidence alongside the complete row coverage gate."
               }
             ],
             "refusals": [
@@ -588,18 +588,18 @@
             "nextSteps": [
               {
                 "priority": 1,
-                "item": "Expand retained Node real VM E2E artifact bundles from the clean HTTP seed to every claimed supported row and both architecture directions.",
-                "gate": "node-real-cross-arch-e2e-artifact-audit"
+                "item": "Keep all selected Node service rows backed by retained source/target artifacts and verifier outputs.",
+                "gate": "node-claim-row-coverage"
               },
               {
                 "priority": 2,
-                "item": "If artifacts are missing, run real machinen snapshot/restore VM E2E for selected Express/Fastify rows and retain source/target behavior transcripts.",
-                "gate": "node-real-cross-arch-e2e-run"
+                "item": "Keep arbitrary Node applications and arbitrary Linux process restore out of the public claim until separate retained gates exist.",
+                "gate": "arbitrary-node/process-boundary"
               },
               {
                 "priority": 3,
-                "item": "Retain refusal artifacts for workers, native addons, Wasm/external memory, TLS active state, active async work, child process live state, raw CPU restore, source ISA emulation, and metadata-only success.",
-                "gate": "node-refusal-artifact-audit"
+                "item": "Fail closed if any supported row loses artifacts or any refused row loses refusal evidence.",
+                "gate": "node-claim-evidence-index"
               }
             ],
             "docs": [
@@ -607,15 +607,15 @@
               "node-level5-product-support-next-milestone.md"
             ],
             "rowCoverage": {
-              "supportedDirectionBundlesRequired": 136,
-              "supportedDirectionBundlesCovered": 136,
+              "supportedDirectionBundlesRequired": 144,
+              "supportedDirectionBundlesCovered": 144,
               "supportedDirectionBundlesMissing": 0,
               "refusedDirectionArtifactsRequired": 84,
               "refusedDirectionArtifactsCovered": 84,
               "refusedDirectionArtifactsMissing": 0,
-              "notProvenRows": 4,
+              "notProvenRows": 0,
               "report": "proofs/nodejs/claim-evidence-index/retained/node-claim-row-coverage-report.json",
-              "summary": "136 / 136 covered \u00b7 missing 0",
+              "summary": "144 / 144 covered \u00b7 missing 0",
               "missingSupportedRows": [],
               "missingSupportedRowsCount": 0,
               "missingSupportedDirectionBundles": [
@@ -1408,6 +1408,54 @@
                 {
                   "proofId": "nodejs/132",
                   "rowId": "fastify-generic-vm-esm",
+                  "direction": "amd64-to-arm64",
+                  "status": "covered"
+                },
+                {
+                  "proofId": "nodejs/133",
+                  "rowId": "express-external-network-safe-reconnect",
+                  "direction": "arm64-to-amd64",
+                  "status": "covered"
+                },
+                {
+                  "proofId": "nodejs/134",
+                  "rowId": "express-external-network-safe-reconnect",
+                  "direction": "amd64-to-arm64",
+                  "status": "covered"
+                },
+                {
+                  "proofId": "nodejs/135",
+                  "rowId": "fastify-external-network-safe-reconnect",
+                  "direction": "arm64-to-amd64",
+                  "status": "covered"
+                },
+                {
+                  "proofId": "nodejs/136",
+                  "rowId": "fastify-external-network-safe-reconnect",
+                  "direction": "amd64-to-arm64",
+                  "status": "covered"
+                },
+                {
+                  "proofId": "nodejs/137",
+                  "rowId": "express-background-tasks-safe-heartbeat",
+                  "direction": "arm64-to-amd64",
+                  "status": "covered"
+                },
+                {
+                  "proofId": "nodejs/138",
+                  "rowId": "express-background-tasks-safe-heartbeat",
+                  "direction": "amd64-to-arm64",
+                  "status": "covered"
+                },
+                {
+                  "proofId": "nodejs/139",
+                  "rowId": "fastify-background-tasks-safe-heartbeat",
+                  "direction": "arm64-to-amd64",
+                  "status": "covered"
+                },
+                {
+                  "proofId": "nodejs/140",
+                  "rowId": "fastify-background-tasks-safe-heartbeat",
                   "direction": "amd64-to-arm64",
                   "status": "covered"
                 }
@@ -2466,9 +2514,9 @@
         "proofGroups": [
           {
             "id": "node-service-100-100-0",
-            "claim": "Node service 100 / 100 / 0 unverified",
+            "claim": "Node service 100 / 100 / 0 selected service claim",
             "trackId": "node-service",
-            "status": "partial-proof",
+            "status": "verified",
             "scope": "Selected safe Node services through VM-first snapshot/restore.",
             "claimNumbers": {
               "productSupport": 0,
@@ -2513,7 +2561,7 @@
             "id": "node-claim-evidence-index",
             "claim": "Node claim evidence index",
             "trackId": "node-service",
-            "status": "partial-proof",
+            "status": "verified",
             "scope": "Single claim-facing consolidation gate for the sharded Node proof corpus, retained E2E seed, and refusal definitions.",
             "claimNumbers": {
               "productSupport": 0,
@@ -2590,9 +2638,9 @@
                 "category": "row coverage",
                 "status": "verified",
                 "artifact": "proofs/nodejs/claim-evidence-index/retained/node-claim-row-coverage-report.json",
-                "proves": "The support matrix has an explicit row-by-row coverage ledger: 136 supported direction bundles required, 4 currently row-covered; 84 refusal direction rows required, 84 covered; 4 not-proven rows remain blockers.",
+                "proves": "The support matrix has an explicit row-by-row coverage ledger: 144 supported direction bundles required and covered; 84 refusal direction rows required and covered; 0 not-proven rows remain.",
                 "claimUse": "required missing-artifact ledger before any Node claim raise",
-                "next": "Fill the 132 missing supported row bundles and resolve not-proven rows.",
+                "next": "Keep the retained row coverage gate complete before future claim changes.",
                 "claimImpact": {
                   "productSupportDelta": 0,
                   "broadSupportDelta": 0,
@@ -2609,9 +2657,9 @@
           },
           {
             "id": "node-real-cross-arch-e2e-gate",
-            "claim": "Node real cross-architecture E2E gate required",
+            "claim": "Node real cross-architecture E2E seed gate retained",
             "trackId": "node-service",
-            "status": "partial-proof",
+            "status": "verified",
             "scope": "Public Node product/broad claims require retained real VM machinen snapshot/restore artifacts in both directions with target behavior verification and refusal artifacts.",
             "claimNumbers": {
               "productSupport": 0,

@@ -20,9 +20,9 @@ export type NodeLevel5ProductSupport85ClaimRegistry = {
   realVmCrossArchEvidenceRequired: true;
   artifactRetentionDays: 30;
   flakeBudgetPercent: 0;
-  supportedAppRows: 68;
+  supportedAppRows: 72;
   refusedAppRows: 42;
-  notProvenAppRows: 4;
+  notProvenAppRows: 0;
   unsupportedDetectorCount: number;
 };
 
@@ -43,8 +43,8 @@ export const nodeLevel5ProductSupport85ClaimRegistry: NodeLevel5ProductSupport85
   realVmCrossArchEvidenceRequired: true,
   artifactRetentionDays: 30,
   flakeBudgetPercent: 0,
-  supportedAppRows: 68,
+  supportedAppRows: 72,
   refusedAppRows: 42,
-  notProvenAppRows: 4,
+  notProvenAppRows: 0,
   unsupportedDetectorCount: nodeLevel5ProductSupport80ClaimRegistry.unsupportedDetectorCount,
 };

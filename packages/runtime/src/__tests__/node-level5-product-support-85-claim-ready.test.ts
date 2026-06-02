@@ -19,7 +19,7 @@ describe("Node Level 5 product support 85 claim ready gate", () => {
       candidateNodeProductSupportClaimed: 85,
       candidateBroadNodeProductSupportClaimed: 25,
       candidateArbitraryProcessCrossArchRestoreClaimed: 0,
-      matrixCounts: { total: 114, supported: 68, refused: 42, notProven: 4 },
+      matrixCounts: { total: 114, supported: 72, refused: 42, notProven: 0 },
     });
     expect(report.blockedGates).toEqual([]);
     expect(report.gates).toEqual(

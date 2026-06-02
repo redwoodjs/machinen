@@ -16,9 +16,9 @@ describe("Node Level 5 product support 85 claim", () => {
       retainedEvidenceRequired: true,
       rowArtifactEvidenceRequired: true,
       refusalArtifactEvidenceRequired: true,
-      supportedAppRows: 68,
+      supportedAppRows: 72,
       refusedAppRows: 42,
-      notProvenAppRows: 4,
+      notProvenAppRows: 0,
     });
   });
 });

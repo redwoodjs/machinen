@@ -1,10 +1,10 @@
 {
   "kind": "machinen.node-level5-product-support-claim-registry",
-  "status": "node-product-support-100-unverified",
-  "declaredSubsetExperimentalProductSupportClaimed": 0,
+  "status": "node-product-support-100-claimed",
+  "declaredSubsetExperimentalProductSupportClaimed": 100,
   "nodeProductSupportTiers": [20, 50, 65, 80, 85, 90, 95, 97, 98, 99, 100],
-  "nodeProductSupportClaimed": 0,
-  "broadNodeProductSupportClaimed": 0,
+  "nodeProductSupportClaimed": 100,
+  "broadNodeProductSupportClaimed": 100,
   "arbitraryProcessCrossArchRestoreClaimed": 0,
   "previousNodeProductSupportClaimed": 90,
   "previousBroadNodeProductSupportClaimed": 30,
@@ -20,6 +20,6 @@
   "flakeBudgetPercent": 0,
   "arbitraryNodeClaimed": false,
   "arbitraryProcessClaimed": false,
-  "unverifiedReason": "retained real cross-architecture VM E2E artifact bundles have not been audited in-repo for the previous 100 / 100 / 0 public claim",
-  "requiredGate": "proofs/nodejs/real-cross-arch-e2e-gate"
+  "verifiedReason": "consolidated retained row coverage links every supported Node support-matrix row to bidirectional product E2E artifacts and every refused row to retained refusal artifacts",
+  "requiredGate": "proofs/nodejs/claim-evidence-index/retained/node-claim-row-coverage-report.json"
 }

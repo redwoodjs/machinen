@@ -11,9 +11,9 @@
   "hostPidProductTargetingAllowed": false,
   "supportMatrixRows": {
     "total": 114,
-    "supported": 68,
+    "supported": 72,
     "refused": 42,
-    "notProven": 4
+    "notProven": 0
   },
   "requiredEvidence": [
     "generic-vm-corpus",

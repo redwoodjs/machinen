@@ -22,9 +22,9 @@ export type NodeLevel5ProductSupport90ClaimRegistry = {
   realVmCrossArchEvidenceRequired: true;
   artifactRetentionDays: 30;
   flakeBudgetPercent: 0;
-  supportedAppRows: 68;
+  supportedAppRows: 72;
   refusedAppRows: 42;
-  notProvenAppRows: 4;
+  notProvenAppRows: 0;
   frameworkGraphArtifactCount: 18;
   restoredBehaviorProbeCount: 16;
   frameworkRefusalArtifactCount: 20;
@@ -51,9 +51,9 @@ export const nodeLevel5ProductSupport90ClaimRegistry: NodeLevel5ProductSupport90
   realVmCrossArchEvidenceRequired: true,
   artifactRetentionDays: 30,
   flakeBudgetPercent: 0,
-  supportedAppRows: 68,
+  supportedAppRows: 72,
   refusedAppRows: 42,
-  notProvenAppRows: 4,
+  notProvenAppRows: 0,
   frameworkGraphArtifactCount: 18,
   restoredBehaviorProbeCount: 16,
   frameworkRefusalArtifactCount: 20,

@@ -1,22 +1,22 @@
 {
   "kind": "machinen.node-claim-row-coverage-report",
   "version": 1,
-  "generatedAt": "2026-06-02T17:02:06.496Z",
+  "generatedAt": "2026-06-02T17:23:15.435Z",
   "accepted": true,
-  "claimAllowed": false,
+  "claimAllowed": true,
   "publicClaim": {
-    "productSupport": 0,
-    "broadSupport": 0,
+    "productSupport": 100,
+    "broadSupport": 100,
     "arbitraryProcessCrossArchRestore": 0
   },
   "rowCounts": {
-    "supportedRows": 68,
+    "supportedRows": 72,
     "refusedRows": 42,
-    "notProvenRows": 4
+    "notProvenRows": 0
   },
   "directionRequirementCounts": {
-    "supportedRequired": 136,
-    "supportedCovered": 136,
+    "supportedRequired": 144,
+    "supportedCovered": 144,
     "supportedMissing": 0,
     "refusedRequired": 84,
     "refusedCovered": 84,
@@ -2198,6 +2198,134 @@
         "targetVerifier": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-generic-vm-esm/amd64-to-arm64/target/verifier.json"
       },
       "missingFiles": []
+    },
+    {
+      "rowId": "express-external-network-safe-reconnect",
+      "direction": "arm64-to-amd64",
+      "status": "covered",
+      "requiredFiles": {
+        "sourceProductCommand": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-external-network-safe-reconnect/arm64-to-amd64/source/product-command.txt",
+        "sourceSnapshotSummary": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-external-network-safe-reconnect/arm64-to-amd64/source/snapshot.json",
+        "sourceManifest": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-external-network-safe-reconnect/arm64-to-amd64/source/portable-node.json",
+        "sourceArtifact": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-external-network-safe-reconnect/arm64-to-amd64/source/portable-node-app.tar.gz",
+        "targetProductCommand": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-external-network-safe-reconnect/arm64-to-amd64/target/product-command.txt",
+        "targetRestoreSummary": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-external-network-safe-reconnect/arm64-to-amd64/target/restore.json",
+        "targetBehavior": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-external-network-safe-reconnect/arm64-to-amd64/target/target-http-body.txt",
+        "targetVerifier": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-external-network-safe-reconnect/arm64-to-amd64/target/verifier.json"
+      },
+      "missingFiles": []
+    },
+    {
+      "rowId": "express-external-network-safe-reconnect",
+      "direction": "amd64-to-arm64",
+      "status": "covered",
+      "requiredFiles": {
+        "sourceProductCommand": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-external-network-safe-reconnect/amd64-to-arm64/source/product-command.txt",
+        "sourceSnapshotSummary": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-external-network-safe-reconnect/amd64-to-arm64/source/snapshot.json",
+        "sourceManifest": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-external-network-safe-reconnect/amd64-to-arm64/source/portable-node.json",
+        "sourceArtifact": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-external-network-safe-reconnect/amd64-to-arm64/source/portable-node-app.tar.gz",
+        "targetProductCommand": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-external-network-safe-reconnect/amd64-to-arm64/target/product-command.txt",
+        "targetRestoreSummary": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-external-network-safe-reconnect/amd64-to-arm64/target/restore.json",
+        "targetBehavior": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-external-network-safe-reconnect/amd64-to-arm64/target/target-http-body.txt",
+        "targetVerifier": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-external-network-safe-reconnect/amd64-to-arm64/target/verifier.json"
+      },
+      "missingFiles": []
+    },
+    {
+      "rowId": "fastify-external-network-safe-reconnect",
+      "direction": "arm64-to-amd64",
+      "status": "covered",
+      "requiredFiles": {
+        "sourceProductCommand": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-external-network-safe-reconnect/arm64-to-amd64/source/product-command.txt",
+        "sourceSnapshotSummary": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-external-network-safe-reconnect/arm64-to-amd64/source/snapshot.json",
+        "sourceManifest": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-external-network-safe-reconnect/arm64-to-amd64/source/portable-node.json",
+        "sourceArtifact": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-external-network-safe-reconnect/arm64-to-amd64/source/portable-node-app.tar.gz",
+        "targetProductCommand": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-external-network-safe-reconnect/arm64-to-amd64/target/product-command.txt",
+        "targetRestoreSummary": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-external-network-safe-reconnect/arm64-to-amd64/target/restore.json",
+        "targetBehavior": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-external-network-safe-reconnect/arm64-to-amd64/target/target-http-body.txt",
+        "targetVerifier": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-external-network-safe-reconnect/arm64-to-amd64/target/verifier.json"
+      },
+      "missingFiles": []
+    },
+    {
+      "rowId": "fastify-external-network-safe-reconnect",
+      "direction": "amd64-to-arm64",
+      "status": "covered",
+      "requiredFiles": {
+        "sourceProductCommand": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-external-network-safe-reconnect/amd64-to-arm64/source/product-command.txt",
+        "sourceSnapshotSummary": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-external-network-safe-reconnect/amd64-to-arm64/source/snapshot.json",
+        "sourceManifest": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-external-network-safe-reconnect/amd64-to-arm64/source/portable-node.json",
+        "sourceArtifact": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-external-network-safe-reconnect/amd64-to-arm64/source/portable-node-app.tar.gz",
+        "targetProductCommand": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-external-network-safe-reconnect/amd64-to-arm64/target/product-command.txt",
+        "targetRestoreSummary": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-external-network-safe-reconnect/amd64-to-arm64/target/restore.json",
+        "targetBehavior": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-external-network-safe-reconnect/amd64-to-arm64/target/target-http-body.txt",
+        "targetVerifier": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-external-network-safe-reconnect/amd64-to-arm64/target/verifier.json"
+      },
+      "missingFiles": []
+    },
+    {
+      "rowId": "express-background-tasks-safe-heartbeat",
+      "direction": "arm64-to-amd64",
+      "status": "covered",
+      "requiredFiles": {
+        "sourceProductCommand": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-background-tasks-safe-heartbeat/arm64-to-amd64/source/product-command.txt",
+        "sourceSnapshotSummary": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-background-tasks-safe-heartbeat/arm64-to-amd64/source/snapshot.json",
+        "sourceManifest": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-background-tasks-safe-heartbeat/arm64-to-amd64/source/portable-node.json",
+        "sourceArtifact": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-background-tasks-safe-heartbeat/arm64-to-amd64/source/portable-node-app.tar.gz",
+        "targetProductCommand": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-background-tasks-safe-heartbeat/arm64-to-amd64/target/product-command.txt",
+        "targetRestoreSummary": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-background-tasks-safe-heartbeat/arm64-to-amd64/target/restore.json",
+        "targetBehavior": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-background-tasks-safe-heartbeat/arm64-to-amd64/target/target-http-body.txt",
+        "targetVerifier": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-background-tasks-safe-heartbeat/arm64-to-amd64/target/verifier.json"
+      },
+      "missingFiles": []
+    },
+    {
+      "rowId": "express-background-tasks-safe-heartbeat",
+      "direction": "amd64-to-arm64",
+      "status": "covered",
+      "requiredFiles": {
+        "sourceProductCommand": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-background-tasks-safe-heartbeat/amd64-to-arm64/source/product-command.txt",
+        "sourceSnapshotSummary": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-background-tasks-safe-heartbeat/amd64-to-arm64/source/snapshot.json",
+        "sourceManifest": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-background-tasks-safe-heartbeat/amd64-to-arm64/source/portable-node.json",
+        "sourceArtifact": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-background-tasks-safe-heartbeat/amd64-to-arm64/source/portable-node-app.tar.gz",
+        "targetProductCommand": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-background-tasks-safe-heartbeat/amd64-to-arm64/target/product-command.txt",
+        "targetRestoreSummary": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-background-tasks-safe-heartbeat/amd64-to-arm64/target/restore.json",
+        "targetBehavior": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-background-tasks-safe-heartbeat/amd64-to-arm64/target/target-http-body.txt",
+        "targetVerifier": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/express-background-tasks-safe-heartbeat/amd64-to-arm64/target/verifier.json"
+      },
+      "missingFiles": []
+    },
+    {
+      "rowId": "fastify-background-tasks-safe-heartbeat",
+      "direction": "arm64-to-amd64",
+      "status": "covered",
+      "requiredFiles": {
+        "sourceProductCommand": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-background-tasks-safe-heartbeat/arm64-to-amd64/source/product-command.txt",
+        "sourceSnapshotSummary": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-background-tasks-safe-heartbeat/arm64-to-amd64/source/snapshot.json",
+        "sourceManifest": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-background-tasks-safe-heartbeat/arm64-to-amd64/source/portable-node.json",
+        "sourceArtifact": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-background-tasks-safe-heartbeat/arm64-to-amd64/source/portable-node-app.tar.gz",
+        "targetProductCommand": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-background-tasks-safe-heartbeat/arm64-to-amd64/target/product-command.txt",
+        "targetRestoreSummary": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-background-tasks-safe-heartbeat/arm64-to-amd64/target/restore.json",
+        "targetBehavior": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-background-tasks-safe-heartbeat/arm64-to-amd64/target/target-http-body.txt",
+        "targetVerifier": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-background-tasks-safe-heartbeat/arm64-to-amd64/target/verifier.json"
+      },
+      "missingFiles": []
+    },
+    {
+      "rowId": "fastify-background-tasks-safe-heartbeat",
+      "direction": "amd64-to-arm64",
+      "status": "covered",
+      "requiredFiles": {
+        "sourceProductCommand": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-background-tasks-safe-heartbeat/amd64-to-arm64/source/product-command.txt",
+        "sourceSnapshotSummary": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-background-tasks-safe-heartbeat/amd64-to-arm64/source/snapshot.json",
+        "sourceManifest": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-background-tasks-safe-heartbeat/amd64-to-arm64/source/portable-node.json",
+        "sourceArtifact": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-background-tasks-safe-heartbeat/amd64-to-arm64/source/portable-node-app.tar.gz",
+        "targetProductCommand": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-background-tasks-safe-heartbeat/amd64-to-arm64/target/product-command.txt",
+        "targetRestoreSummary": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-background-tasks-safe-heartbeat/amd64-to-arm64/target/restore.json",
+        "targetBehavior": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-background-tasks-safe-heartbeat/amd64-to-arm64/target/target-http-body.txt",
+        "targetVerifier": "proofs/nodejs/claim-evidence-index/retained/row-evidence/supported/fastify-background-tasks-safe-heartbeat/amd64-to-arm64/target/verifier.json"
+      },
+      "missingFiles": []
     }
   ],
   "refusedCoverage": [
@@ -2958,36 +3086,7 @@
       "expectedRefusalCode": "node-level5-child-process-live-state-refused"
     }
   ],
-  "notProvenBlockers": [
-    {
-      "rowId": "express-external-network-not-proven",
-      "framework": "express",
-      "appName": "express external-network app gap",
-      "reason": "external network or DB client app row has no safe support corpus yet",
-      "requiredResolution": "support-with-retained-e2e"
-    },
-    {
-      "rowId": "fastify-external-network-not-proven",
-      "framework": "fastify",
-      "appName": "fastify external-network app gap",
-      "reason": "external network or DB client app row has no safe support corpus yet",
-      "requiredResolution": "support-with-retained-e2e"
-    },
-    {
-      "rowId": "express-background-tasks-not-proven",
-      "framework": "express",
-      "appName": "express background-tasks app gap",
-      "reason": "background timer/scheduler app row has no safe support corpus yet",
-      "requiredResolution": "support-with-retained-e2e"
-    },
-    {
-      "rowId": "fastify-background-tasks-not-proven",
-      "framework": "fastify",
-      "appName": "fastify background-tasks app gap",
-      "reason": "background timer/scheduler app row has no safe support corpus yet",
-      "requiredResolution": "support-with-retained-e2e"
-    }
-  ],
+  "notProvenBlockers": [],
   "retainedSources": [
     {
       "id": "real-app-refusal-corpus",

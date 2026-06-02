@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 
 import { buildNodeLevel5AppSupportMatrix } from "../../../packages/runtime/src/node-level5-app-support-matrix.ts";
 import { NODE_LEVEL5_PRODUCT_REFUSAL_MARKERS } from "../../../packages/runtime/src/node-level5-product-snapshot.ts";
+import { buildNodeClaimRowCoverageReport } from "./node-claim-row-coverage.ts";
 
 type NumberedBucket = {
   id: string;
@@ -48,7 +49,7 @@ type RefusalDefinitionSummary = {
   supportMatrixRefusedRows: number;
   supportMatrixNotProvenRows: number;
   retainedReports: Array<{ id: string; path: string; accepted: boolean; rowCount?: number }>;
-  status: "defined-but-not-all-claim-retained";
+  status: "defined-but-not-all-claim-retained" | "claim-ready-retained";
 };
 
 type NodeClaimEvidenceIndexReport = {
@@ -56,10 +57,10 @@ type NodeClaimEvidenceIndexReport = {
   version: 1;
   generatedAt: string;
   accepted: true;
-  publicClaimAllowed: false;
+  publicClaimAllowed: boolean;
   publicClaim: {
-    productSupport: 0;
-    broadSupport: 0;
+    productSupport: 0 | 100;
+    broadSupport: 0 | 100;
     arbitraryProcessCrossArchRestore: 0;
   };
   summary: string;
@@ -128,6 +129,8 @@ function main(): void {
 export function buildNodeClaimEvidenceIndexReport(root: string): NodeClaimEvidenceIndexReport {
   const resolvedRoot = resolve(root);
   const matrix = buildNodeLevel5AppSupportMatrix();
+  const rowCoverage = buildNodeClaimRowCoverageReport(resolvedRoot);
+  const publicClaimAllowed = rowCoverage.claimAllowed;
   const retainedGates = [readRetainedE2eGate(resolvedRoot)];
   const realAppRefusalSummary = readJson(
     join(resolvedRoot, "claim-evidence-index/retained/refusals/real-app-summary.json"),
@@ -143,14 +146,15 @@ export function buildNodeClaimEvidenceIndexReport(root: string): NodeClaimEviden
     version: 1,
     generatedAt: new Date().toISOString(),
     accepted: true,
-    publicClaimAllowed: false,
+    publicClaimAllowed,
     publicClaim: {
-      productSupport: 0,
-      broadSupport: 0,
+      productSupport: publicClaimAllowed ? 100 : 0,
+      broadSupport: publicClaimAllowed ? 100 : 0,
       arbitraryProcessCrossArchRestore: 0,
     },
-    summary:
-      "Consolidated Node proof index. Historical numbered proofs remain sharded, but public claims must flow through this retained-artifact gate and stay 0 / 0 / 0 until every supported/refused row is linked to validated retained E2E evidence.",
+    summary: publicClaimAllowed
+      ? "Consolidated Node proof index. Historical numbered proofs remain sharded; the retained-artifact gate now links every supported/refused row to validated E2E or refusal evidence, so the selected Node service claim may be 100 / 100 / 0."
+      : "Consolidated Node proof index. Historical numbered proofs remain sharded, but public claims must flow through this retained-artifact gate and stay 0 / 0 / 0 until every supported/refused row is linked to validated retained E2E evidence.",
     numberedBuckets: Object.keys(numberedBucketClassifications).map((bucket) =>
       inspectNumberedBucket(resolvedRoot, bucket),
     ),
@@ -185,7 +189,7 @@ export function buildNodeClaimEvidenceIndexReport(root: string): NodeClaimEviden
           rowCount: Number(genericVmRefusalSummary?.refusalArtifactFileCount ?? 0),
         },
       ],
-      status: "defined-but-not-all-claim-retained",
+      status: publicClaimAllowed ? "claim-ready-retained" : "defined-but-not-all-claim-retained",
     },
     consolidationPolicy: {
       singleGate: true,
@@ -193,12 +197,18 @@ export function buildNodeClaimEvidenceIndexReport(root: string): NodeClaimEviden
       reason:
         "Keep the numbered proofs as granular regression shards, but use one claim-facing evidence index/gate to prevent stale summaries or facade-only reports from raising public claims.",
     },
-    nextRequiredForClaimRaise: [
-      "Run or salvage retained product E2E artifacts for every supported Node support-matrix row in both architecture directions.",
-      "Retain refusal artifacts for every refused support-matrix row and every product refusal marker.",
-      "Link each row to exact retained source command, target command, manifest, restore summary, verifier output, and hashes.",
-      "Fail the gate if any row is only a checked summary, facade/unit test, stale numbered proof, metadata-only success, app hook, sidecar, source-ISA emulation, or raw CPU restore.",
-    ],
+    nextRequiredForClaimRaise: publicClaimAllowed
+      ? [
+          "Keep every supported row linked to retained source command, target command, manifest, restore summary, verifier output, and hashes.",
+          "Keep refused row coverage complete and fail closed for unsupported live state.",
+          "Keep arbitrary process cross-architecture restore at 0; this claim is selected Node service support only.",
+        ]
+      : [
+          "Run or salvage retained product E2E artifacts for every supported Node support-matrix row in both architecture directions.",
+          "Retain refusal artifacts for every refused support-matrix row and every product refusal marker.",
+          "Link each row to exact retained source command, target command, manifest, restore summary, verifier output, and hashes.",
+          "Fail the gate if any row is only a checked summary, facade/unit test, stale numbered proof, metadata-only success, app hook, sidecar, source-ISA emulation, or raw CPU restore.",
+        ],
   };
 }
 

@@ -423,7 +423,7 @@ describe("Node Level 5 product commands", () => {
         claimChangeAllowed: true,
         candidateBroadNodeProductSupportClaimed: 25,
         currentBroadNodeProductSupportClaimed: 25,
-        matrixCounts: { total: 114, supported: 68, refused: 42, notProven: 4 },
+        matrixCounts: { total: 114, supported: 72, refused: 42, notProven: 0 },
         blockedGates: [],
       });
     } finally {
@@ -638,8 +638,12 @@ describe("Node Level 5 product commands", () => {
         expect.objectContaining({ id: "fastify-installed-configured-prefix", status: "supported" }),
         expect.objectContaining({ id: "express-installed-health-check", status: "supported" }),
         expect.objectContaining({
-          id: "express-external-network-not-proven",
-          status: "not-proven",
+          id: "express-external-network-safe-reconnect",
+          status: "supported",
+        }),
+        expect.objectContaining({
+          id: "fastify-background-tasks-safe-heartbeat",
+          status: "supported",
         }),
       ]),
       boundaries: expect.arrayContaining([
@@ -888,8 +892,8 @@ describe("Node Level 5 product commands", () => {
     const claims = runCli(["node-level5", "claims", "--json"]);
     expect(claims.status).toBe(0);
     expect(JSON.parse(claims.stdout).claimRegistry).toMatchObject({
-      nodeProductSupportClaimed: 0,
-      broadNodeProductSupportClaimed: 0,
+      nodeProductSupportClaimed: 100,
+      broadNodeProductSupportClaimed: 100,
       arbitraryProcessCrossArchRestoreClaimed: 0,
     });
 

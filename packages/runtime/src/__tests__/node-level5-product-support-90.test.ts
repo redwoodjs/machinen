@@ -20,9 +20,9 @@ describe("Node Level 5 product support 90 claim", () => {
       restoredBehaviorProbeCount: 16,
       frameworkRefusalArtifactCount: 20,
       frameworkProductArtifactCount: 54,
-      supportedAppRows: 68,
+      supportedAppRows: 72,
       refusedAppRows: 42,
-      notProvenAppRows: 4,
+      notProvenAppRows: 0,
     });
   });
 });

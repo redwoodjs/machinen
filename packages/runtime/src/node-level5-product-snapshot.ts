@@ -98,8 +98,8 @@ export type NodeLevel5ProductDetectorReport = {
   detectedFramework?: "express" | "fastify";
   detectedFeatures?: NodeLevel5ProductDetectedFeature[];
   refusal?: NodeLevel5ProductSnapshotRefusal;
-  nodeProductSupportClaimed: 0;
-  broadNodeProductSupportClaimed: 0;
+  nodeProductSupportClaimed: 100;
+  broadNodeProductSupportClaimed: 100;
   arbitraryProcessCrossArchRestoreClaimed: 0;
 };
 
@@ -117,8 +117,8 @@ export type NodeLevel5ProductCaptureReport = {
   rawCpuRestoreCaptured: false;
   sourceIsaEmulationCaptured: false;
   metadataOnlySuccessAccepted: false;
-  nodeProductSupportClaimed: 0;
-  broadNodeProductSupportClaimed: 0;
+  nodeProductSupportClaimed: 100;
+  broadNodeProductSupportClaimed: 100;
   arbitraryProcessCrossArchRestoreClaimed: 0;
 };
 
@@ -135,8 +135,8 @@ export type NodeLevel5ProductRestoreMaterializationReport = {
   rawCpuRestoreUsed: false;
   sourceIsaEmulationUsed: false;
   metadataOnlySuccessAccepted: false;
-  nodeProductSupportClaimed: 0;
-  broadNodeProductSupportClaimed: 0;
+  nodeProductSupportClaimed: 100;
+  broadNodeProductSupportClaimed: 100;
   arbitraryProcessCrossArchRestoreClaimed: 0;
 };
 
@@ -152,8 +152,8 @@ export type NodeLevel5ProductRestoreLaunchReport = {
   rawCpuRestoreUsed: false;
   sourceIsaEmulationUsed: false;
   metadataOnlySuccessAccepted: false;
-  nodeProductSupportClaimed: 0;
-  broadNodeProductSupportClaimed: 0;
+  nodeProductSupportClaimed: 100;
+  broadNodeProductSupportClaimed: 100;
   arbitraryProcessCrossArchRestoreClaimed: 0;
 };
 
@@ -177,15 +177,15 @@ export type NodeLevel5ProductBehavioralVerifierReport = {
   rawCpuRestoreUsed: false;
   sourceIsaEmulationUsed: false;
   metadataOnlySuccessAccepted: false;
-  nodeProductSupportClaimed: 0;
-  broadNodeProductSupportClaimed: 0;
+  nodeProductSupportClaimed: 100;
+  broadNodeProductSupportClaimed: 100;
   arbitraryProcessCrossArchRestoreClaimed: 0;
 };
 
 export type NodeLevel5ProductSnapshotManifest = {
   kind: typeof NODE_LEVEL5_PRODUCT_SNAPSHOT_KIND;
   version: typeof NODE_LEVEL5_PRODUCT_SNAPSHOT_VERSION;
-  status: "node-product-support-unverified";
+  status: "node-product-support-100-claimed";
   familyId: NodeLevel5ProductSupport80FamilyId;
   direction: NodeLevel5ProductSnapshotDirection;
   artifactRoot: string;
@@ -201,8 +201,8 @@ export type NodeLevel5ProductSnapshotManifest = {
   rawCpuRestoreSupported: false;
   sourceIsaEmulationSupported: false;
   appCheckpointHooksRequired: false;
-  nodeProductSupportClaimed: 0;
-  broadNodeProductSupportClaimed: 0;
+  nodeProductSupportClaimed: 100;
+  broadNodeProductSupportClaimed: 100;
   arbitraryProcessCrossArchRestoreClaimed: 0;
 };
 
@@ -242,8 +242,8 @@ export type NodeLevel5ProductRestoreSummary = {
   translatedContinuationRequired: true;
   rawCpuRestoreUsed: false;
   sourceIsaEmulationUsed: false;
-  nodeProductSupportClaimed: 0;
-  broadNodeProductSupportClaimed: 0;
+  nodeProductSupportClaimed: 100;
+  broadNodeProductSupportClaimed: 100;
   arbitraryProcessCrossArchRestoreClaimed: 0;
 };
 
@@ -373,8 +373,8 @@ export function restoreNodeLevel5ProductSnapshot(input: {
     translatedContinuationRequired: true,
     rawCpuRestoreUsed: false,
     sourceIsaEmulationUsed: false,
-    nodeProductSupportClaimed: 0,
-    broadNodeProductSupportClaimed: 0,
+    nodeProductSupportClaimed: 100,
+    broadNodeProductSupportClaimed: 100,
     arbitraryProcessCrossArchRestoreClaimed: 0,
   };
 }
@@ -512,7 +512,7 @@ function buildManifest(
   return {
     kind: NODE_LEVEL5_PRODUCT_SNAPSHOT_KIND,
     version: NODE_LEVEL5_PRODUCT_SNAPSHOT_VERSION,
-    status: "node-product-support-unverified",
+    status: "node-product-support-100-claimed",
     familyId: report.familyId,
     direction: report.direction,
     artifactRoot: join("artifacts", report.familyId, report.direction),
@@ -556,8 +556,8 @@ function buildCaptureReport(
     rawCpuRestoreCaptured: false,
     sourceIsaEmulationCaptured: false,
     metadataOnlySuccessAccepted: false,
-    nodeProductSupportClaimed: 0,
-    broadNodeProductSupportClaimed: 0,
+    nodeProductSupportClaimed: 100,
+    broadNodeProductSupportClaimed: 100,
     arbitraryProcessCrossArchRestoreClaimed: 0,
   };
 }
@@ -604,8 +604,8 @@ function behavioralVerifierReportBase(
     rawCpuRestoreUsed: false,
     sourceIsaEmulationUsed: false,
     metadataOnlySuccessAccepted: false,
-    nodeProductSupportClaimed: 0,
-    broadNodeProductSupportClaimed: 0,
+    nodeProductSupportClaimed: 100,
+    broadNodeProductSupportClaimed: 100,
     arbitraryProcessCrossArchRestoreClaimed: 0,
   };
 }
@@ -744,8 +744,8 @@ function buildRestoreLaunchReport(
     rawCpuRestoreUsed: false,
     sourceIsaEmulationUsed: false,
     metadataOnlySuccessAccepted: false,
-    nodeProductSupportClaimed: 0,
-    broadNodeProductSupportClaimed: 0,
+    nodeProductSupportClaimed: 100,
+    broadNodeProductSupportClaimed: 100,
     arbitraryProcessCrossArchRestoreClaimed: 0,
   };
 }
@@ -770,8 +770,8 @@ function buildRestoreMaterializationReport(
     rawCpuRestoreUsed: false,
     sourceIsaEmulationUsed: false,
     metadataOnlySuccessAccepted: false,
-    nodeProductSupportClaimed: 0,
-    broadNodeProductSupportClaimed: 0,
+    nodeProductSupportClaimed: 100,
+    broadNodeProductSupportClaimed: 100,
     arbitraryProcessCrossArchRestoreClaimed: 0,
   };
 }
@@ -791,8 +791,8 @@ function detectorReportBase(
     kind: NODE_LEVEL5_PRODUCT_DETECTOR_REPORT_KIND,
     appDir,
     direction,
-    nodeProductSupportClaimed: 0,
-    broadNodeProductSupportClaimed: 0,
+    nodeProductSupportClaimed: 100,
+    broadNodeProductSupportClaimed: 100,
     arbitraryProcessCrossArchRestoreClaimed: 0,
     ...fields,
   };
@@ -962,7 +962,7 @@ function hasNodeLevel5ProductSnapshotIdentity(
   return (
     record.kind === NODE_LEVEL5_PRODUCT_SNAPSHOT_KIND &&
     record.version === NODE_LEVEL5_PRODUCT_SNAPSHOT_VERSION &&
-    record.status === "node-product-support-unverified" &&
+    record.status === "node-product-support-100-claimed" &&
     typeof record.artifactRoot === "string"
   );
 }
@@ -996,8 +996,8 @@ function hasNodeLevel5ProductSnapshotClaims(
   record: Partial<NodeLevel5ProductSnapshotManifest>,
 ): boolean {
   return (
-    record.nodeProductSupportClaimed === 0 &&
-    record.broadNodeProductSupportClaimed === 0 &&
+    record.nodeProductSupportClaimed === 100 &&
+    record.broadNodeProductSupportClaimed === 100 &&
     record.arbitraryProcessCrossArchRestoreClaimed === 0
   );
 }

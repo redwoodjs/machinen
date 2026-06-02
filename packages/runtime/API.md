@@ -23177,7 +23177,7 @@ Poll interval in ms while retrying. Default 250.
 
 ### NodeLevel5AppSupportEvidenceKind
 
-> **NodeLevel5AppSupportEvidenceKind** = `"fixture-product-run-corpus"` \| `"template-corpus"` \| `"installed-package-corpus"` \| `"generic-vm-detected-corpus"` \| `"refusal-corpus"` \| `"matrix-gap"`
+> **NodeLevel5AppSupportEvidenceKind** = `"fixture-product-run-corpus"` \| `"template-corpus"` \| `"installed-package-corpus"` \| `"generic-vm-detected-corpus"` \| `"resolved-gap-retained-e2e"` \| `"refusal-corpus"` \| `"matrix-gap"`
 
 ***
 
@@ -25699,11 +25699,11 @@ Poll interval in ms while retrying. Default 250.
 
 ##### nodeProductSupportClaimed
 
-> **nodeProductSupportClaimed**: `0`
+> **nodeProductSupportClaimed**: `100`
 
 ##### broadNodeProductSupportClaimed
 
-> **broadNodeProductSupportClaimed**: `0`
+> **broadNodeProductSupportClaimed**: `100`
 
 ##### arbitraryProcessCrossArchRestoreClaimed
 
@@ -25771,11 +25771,11 @@ Poll interval in ms while retrying. Default 250.
 
 ##### nodeProductSupportClaimed
 
-> **nodeProductSupportClaimed**: `0`
+> **nodeProductSupportClaimed**: `100`
 
 ##### broadNodeProductSupportClaimed
 
-> **broadNodeProductSupportClaimed**: `0`
+> **broadNodeProductSupportClaimed**: `100`
 
 ##### arbitraryProcessCrossArchRestoreClaimed
 
@@ -25839,11 +25839,11 @@ Poll interval in ms while retrying. Default 250.
 
 ##### nodeProductSupportClaimed
 
-> **nodeProductSupportClaimed**: `0`
+> **nodeProductSupportClaimed**: `100`
 
 ##### broadNodeProductSupportClaimed
 
-> **broadNodeProductSupportClaimed**: `0`
+> **broadNodeProductSupportClaimed**: `100`
 
 ##### arbitraryProcessCrossArchRestoreClaimed
 
@@ -25903,11 +25903,11 @@ Poll interval in ms while retrying. Default 250.
 
 ##### nodeProductSupportClaimed
 
-> **nodeProductSupportClaimed**: `0`
+> **nodeProductSupportClaimed**: `100`
 
 ##### broadNodeProductSupportClaimed
 
-> **broadNodeProductSupportClaimed**: `0`
+> **broadNodeProductSupportClaimed**: `100`
 
 ##### arbitraryProcessCrossArchRestoreClaimed
 
@@ -25999,11 +25999,11 @@ Poll interval in ms while retrying. Default 250.
 
 ##### nodeProductSupportClaimed
 
-> **nodeProductSupportClaimed**: `0`
+> **nodeProductSupportClaimed**: `100`
 
 ##### broadNodeProductSupportClaimed
 
-> **broadNodeProductSupportClaimed**: `0`
+> **broadNodeProductSupportClaimed**: `100`
 
 ##### arbitraryProcessCrossArchRestoreClaimed
 
@@ -26027,7 +26027,7 @@ Poll interval in ms while retrying. Default 250.
 
 ##### status
 
-> **status**: `"node-product-support-unverified"`
+> **status**: `"node-product-support-100-claimed"`
 
 ##### familyId
 
@@ -26091,11 +26091,11 @@ Poll interval in ms while retrying. Default 250.
 
 ##### nodeProductSupportClaimed
 
-> **nodeProductSupportClaimed**: `0`
+> **nodeProductSupportClaimed**: `100`
 
 ##### broadNodeProductSupportClaimed
 
-> **broadNodeProductSupportClaimed**: `0`
+> **broadNodeProductSupportClaimed**: `100`
 
 ##### arbitraryProcessCrossArchRestoreClaimed
 
@@ -26247,11 +26247,11 @@ Poll interval in ms while retrying. Default 250.
 
 ##### nodeProductSupportClaimed
 
-> **nodeProductSupportClaimed**: `0`
+> **nodeProductSupportClaimed**: `100`
 
 ##### broadNodeProductSupportClaimed
 
-> **broadNodeProductSupportClaimed**: `0`
+> **broadNodeProductSupportClaimed**: `100`
 
 ##### arbitraryProcessCrossArchRestoreClaimed
 
@@ -26271,7 +26271,7 @@ Poll interval in ms while retrying. Default 250.
 
 ##### status
 
-> **status**: `"node-product-support-100-unverified"`
+> **status**: `"node-product-support-100-claimed"`
 
 ##### declaredSubsetExperimentalProductSupportClaimed
 
@@ -26283,11 +26283,11 @@ Poll interval in ms while retrying. Default 250.
 
 ##### nodeProductSupportClaimed
 
-> **nodeProductSupportClaimed**: `0`
+> **nodeProductSupportClaimed**: `100`
 
 ##### broadNodeProductSupportClaimed
 
-> **broadNodeProductSupportClaimed**: `0`
+> **broadNodeProductSupportClaimed**: `100`
 
 ##### arbitraryProcessCrossArchRestoreClaimed
 
@@ -27405,7 +27405,7 @@ Poll interval in ms while retrying. Default 250.
 
 ###### supported
 
-> **supported**: `68`
+> **supported**: `72`
 
 ###### refused
 
@@ -27413,7 +27413,7 @@ Poll interval in ms while retrying. Default 250.
 
 ###### notProven
 
-> **notProven**: `4`
+> **notProven**: `0`
 
 ##### gates
 
@@ -27589,7 +27589,7 @@ Poll interval in ms while retrying. Default 250.
 
 ##### supportedAppRows
 
-> **supportedAppRows**: `68`
+> **supportedAppRows**: `72`
 
 ##### refusedAppRows
 
@@ -27597,7 +27597,7 @@ Poll interval in ms while retrying. Default 250.
 
 ##### notProvenAppRows
 
-> **notProvenAppRows**: `4`
+> **notProvenAppRows**: `0`
 
 ##### unsupportedDetectorCount
 
@@ -27685,7 +27685,7 @@ Poll interval in ms while retrying. Default 250.
 
 ##### supportedAppRows
 
-> **supportedAppRows**: `68`
+> **supportedAppRows**: `72`
 
 ##### refusedAppRows
 
@@ -27693,7 +27693,7 @@ Poll interval in ms while retrying. Default 250.
 
 ##### notProvenAppRows
 
-> **notProvenAppRows**: `4`
+> **notProvenAppRows**: `0`
 
 ##### frameworkGraphArtifactCount
 

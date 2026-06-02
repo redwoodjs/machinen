@@ -42,9 +42,9 @@ export type NodeLevel5ProductSupport85ClaimReadyReport = {
   candidateArbitraryProcessCrossArchRestoreClaimed: 0;
   matrixCounts: {
     total: 114;
-    supported: 68;
+    supported: 72;
     refused: 42;
-    notProven: 4;
+    notProven: 0;
   };
   gates: NodeLevel5ProductSupport85ClaimReadyGate[];
   blockedGates: NodeLevel5ProductSupport85ClaimReadyGate[];
@@ -75,10 +75,10 @@ export function evaluateNodeLevel5ProductSupport85ClaimReady(input: {
     gate(
       "matrix-counts-stable",
       matrix.rowCount === 114 &&
-        matrixCounts.supported === 68 &&
+        matrixCounts.supported === 72 &&
         matrixCounts.refused === 42 &&
-        matrixCounts.notProven === 4,
-      "support matrix remains 114 rows with 68 supported, 42 refused, and 4 not-proven",
+        matrixCounts.notProven === 0,
+      "support matrix remains 114 rows with 72 supported, 42 refused, and 0 not-proven",
     ),
     gate(
       "claim-values-current",
@@ -119,9 +119,9 @@ export function evaluateNodeLevel5ProductSupport85ClaimReady(input: {
     candidateArbitraryProcessCrossArchRestoreClaimed: 0,
     matrixCounts: {
       total: 114,
-      supported: 68,
+      supported: 72,
       refused: 42,
-      notProven: 4,
+      notProven: 0,
     },
     gates,
     blockedGates,

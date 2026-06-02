@@ -1,15 +1,15 @@
 {
   "kind": "machinen.node-claim-evidence-index-report",
   "version": 1,
-  "generatedAt": "2026-06-01T16:41:37.321Z",
+  "generatedAt": "2026-06-02T17:23:15.483Z",
   "accepted": true,
-  "publicClaimAllowed": false,
+  "publicClaimAllowed": true,
   "publicClaim": {
-    "productSupport": 0,
-    "broadSupport": 0,
+    "productSupport": 100,
+    "broadSupport": 100,
     "arbitraryProcessCrossArchRestore": 0
   },
-  "summary": "Consolidated Node proof index. Historical numbered proofs remain sharded, but public claims must flow through this retained-artifact gate and stay 0 / 0 / 0 until every supported/refused row is linked to validated retained E2E evidence.",
+  "summary": "Consolidated Node proof index. Historical numbered proofs remain sharded; the retained-artifact gate now links every supported/refused row to validated E2E or refusal evidence, so the selected Node service claim may be 100 / 100 / 0.",
   "numberedBuckets": [
     {
       "id": "proper-level5-numbered",
@@ -147,7 +147,7 @@
     "genericVmRefusalMarkerCount": 5,
     "genericVmExpectedRows": 20,
     "supportMatrixRefusedRows": 42,
-    "supportMatrixNotProvenRows": 4,
+    "supportMatrixNotProvenRows": 0,
     "retainedReports": [
       {
         "id": "real-app-refusal-corpus",
@@ -162,7 +162,7 @@
         "rowCount": 20
       }
     ],
-    "status": "defined-but-not-all-claim-retained"
+    "status": "claim-ready-retained"
   },
   "consolidationPolicy": {
     "singleGate": true,
@@ -170,9 +170,8 @@
     "reason": "Keep the numbered proofs as granular regression shards, but use one claim-facing evidence index/gate to prevent stale summaries or facade-only reports from raising public claims."
   },
   "nextRequiredForClaimRaise": [
-    "Run or salvage retained product E2E artifacts for every supported Node support-matrix row in both architecture directions.",
-    "Retain refusal artifacts for every refused support-matrix row and every product refusal marker.",
-    "Link each row to exact retained source command, target command, manifest, restore summary, verifier output, and hashes.",
-    "Fail the gate if any row is only a checked summary, facade/unit test, stale numbered proof, metadata-only success, app hook, sidecar, source-ISA emulation, or raw CPU restore."
+    "Keep every supported row linked to retained source command, target command, manifest, restore summary, verifier output, and hashes.",
+    "Keep refused row coverage complete and fail closed for unsupported live state.",
+    "Keep arbitrary process cross-architecture restore at 0; this claim is selected Node service support only."
   ]
 }

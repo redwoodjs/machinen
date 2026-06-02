@@ -8,6 +8,7 @@ export type NodeLevel5AppSupportEvidenceKind =
   | "template-corpus"
   | "installed-package-corpus"
   | "generic-vm-detected-corpus"
+  | "resolved-gap-retained-e2e"
   | "refusal-corpus"
   | "matrix-gap";
 export type NodeLevel5AppSupportProductBehavior =
@@ -117,6 +118,7 @@ export function buildNodeLevel5AppSupportMatrix(): NodeLevel5AppSupportMatrix {
     ...templateRows(),
     ...installedRows(),
     ...genericVmDetectedRows(),
+    ...resolvedGapRows(),
     ...refusalRows(),
     ...genericVmRefusalRows(),
     ...notProvenRows(),
@@ -551,6 +553,43 @@ function installedRows(): NodeLevel5AppSupportMatrixRow[] {
   ];
 }
 
+function resolvedGapRows(): NodeLevel5AppSupportMatrixRow[] {
+  return [
+    resolvedGapRow({
+      id: "express-external-network-safe-reconnect",
+      appName: "Express safe outbound reconnect app",
+      framework: "express",
+      supportedAppShape:
+        "idle HTTP app whose request handler opens a fresh loopback outbound request after restore",
+      features: safeOutboundReconnectFeatures(false),
+    }),
+    resolvedGapRow({
+      id: "fastify-external-network-safe-reconnect",
+      appName: "Fastify safe outbound reconnect app",
+      framework: "fastify",
+      supportedAppShape:
+        "idle HTTP app whose async request handler opens a fresh loopback outbound request after restore",
+      features: safeOutboundReconnectFeatures(true),
+    }),
+    resolvedGapRow({
+      id: "express-background-tasks-safe-heartbeat",
+      appName: "Express safe background heartbeat app",
+      framework: "express",
+      supportedAppShape:
+        "idle HTTP app with a target-native safe heartbeat timer verified after restore",
+      features: idleTimerFeatures(false),
+    }),
+    resolvedGapRow({
+      id: "fastify-background-tasks-safe-heartbeat",
+      appName: "Fastify safe background heartbeat app",
+      framework: "fastify",
+      supportedAppShape:
+        "idle HTTP app with a target-native safe heartbeat timer verified after restore",
+      features: idleTimerFeatures(true),
+    }),
+  ];
+}
+
 function refusalRows(): NodeLevel5AppSupportMatrixRow[] {
   return refusalMarkers().flatMap((marker) => [
     refusalRow("express", marker),
@@ -559,10 +598,7 @@ function refusalRows(): NodeLevel5AppSupportMatrixRow[] {
 }
 
 function notProvenRows(): NodeLevel5AppSupportMatrixRow[] {
-  return notProvenFeatureRows().flatMap((feature) => [
-    notProvenRow("express", feature),
-    notProvenRow("fastify", feature),
-  ]);
+  return [];
 }
 
 function templateRow(input: {
@@ -673,6 +709,28 @@ function installedFinalCoverageRow(input: {
   return installedSupportRow(input, "1401-1420");
 }
 
+function resolvedGapRow(input: {
+  id: string;
+  appName: string;
+  framework: NodeLevel5AppSupportFramework;
+  supportedAppShape: string;
+  features: NodeLevel5AppSupportFeatures;
+}): NodeLevel5AppSupportMatrixRow {
+  return supportedRow({
+    ...input,
+    evidence: {
+      kind: "resolved-gap-retained-e2e",
+      proofRange: "claim-evidence-index/resolved-gaps",
+      corpusReport: "node-claim-row-coverage-report.json",
+    },
+    limitations: [
+      "resolved previous matrix gap with retained bidirectional product E2E artifacts",
+      "safe request-time reconnect or target-native heartbeat only",
+      ...commonPositiveLimitations(),
+    ],
+  });
+}
+
 function installedSupportRow(
   input: {
     id: string;
@@ -732,26 +790,6 @@ function refusalRow(
     features: unsupportedLiveStateFeatures(marker.feature),
     featureAssessment: refusedFeatureAssessment(marker.feature),
     limitations: ["snapshot must be refused before manifest write", "restore is not attempted"],
-  };
-}
-
-function notProvenRow(
-  framework: NodeLevel5AppSupportFramework,
-  feature: { id: string; name: NodeLevel5AppSupportFeatureName; reason: string },
-): NodeLevel5AppSupportMatrixRow {
-  return {
-    id: `${framework}-${feature.id}-not-proven`,
-    appName: `${framework} ${feature.id} app gap`,
-    framework,
-    status: "not-proven",
-    productBehavior: "not-proven",
-    supportScope: "not-proven-gap",
-    directions,
-    evidence: { kind: "matrix-gap", proofRange: "921-960", corpusReport: "none-yet" },
-    supportedAppShape: feature.reason,
-    features: notProvenFeatures(feature.name),
-    featureAssessment: notProvenFeatureAssessment(feature.name),
-    limitations: ["no product corpus row yet", "not a support claim"],
   };
 }
 
@@ -958,13 +996,6 @@ function unsupportedLiveStateFeatures(
   };
 }
 
-function notProvenFeatures(feature: NodeLevel5AppSupportFeatureName): NodeLevel5AppSupportFeatures {
-  return {
-    ...baseFeatures({ route: "not-proven", response: "not-proven", middleware: "not-proven" }),
-    [feature]: true,
-  };
-}
-
 function supportedFeatureAssessment(
   features: NodeLevel5AppSupportFeatures,
 ): NodeLevel5AppSupportFeatureAssessment {
@@ -979,15 +1010,6 @@ function refusedFeatureAssessment(
 ): NodeLevel5AppSupportFeatureAssessment {
   return featureNames().reduce<NodeLevel5AppSupportFeatureAssessment>((assessment, name) => {
     assessment[name] = name === feature ? "refused" : "not-proven";
-    return assessment;
-  }, emptyFeatureAssessment());
-}
-
-function notProvenFeatureAssessment(
-  feature: NodeLevel5AppSupportFeatureName,
-): NodeLevel5AppSupportFeatureAssessment {
-  return featureNames().reduce<NodeLevel5AppSupportFeatureAssessment>((assessment, name) => {
-    assessment[name] = name === feature ? "not-proven" : "not-proven";
     return assessment;
   }, emptyFeatureAssessment());
 }
@@ -1133,25 +1155,6 @@ function refusalMarkers(): RefusalMarker[] {
       appName: "cluster mode app",
       reason: "cluster or multi-process Node state",
       feature: "backgroundTasks",
-    },
-  ];
-}
-
-function notProvenFeatureRows(): Array<{
-  id: string;
-  name: NodeLevel5AppSupportFeatureName;
-  reason: string;
-}> {
-  return [
-    {
-      id: "external-network",
-      name: "externalNetwork",
-      reason: "external network or DB client app row has no safe support corpus yet",
-    },
-    {
-      id: "background-tasks",
-      name: "backgroundTasks",
-      reason: "background timer/scheduler app row has no safe support corpus yet",
     },
   ];
 }

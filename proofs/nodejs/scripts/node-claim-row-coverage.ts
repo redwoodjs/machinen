@@ -42,10 +42,10 @@ type NodeClaimRowCoverageReport = {
   version: 1;
   generatedAt: string;
   accepted: true;
-  claimAllowed: false;
+  claimAllowed: boolean;
   publicClaim: {
-    productSupport: 0;
-    broadSupport: 0;
+    productSupport: 0 | 100;
+    broadSupport: 0 | 100;
     arbitraryProcessCrossArchRestore: 0;
   };
   rowCounts: {
@@ -156,15 +156,18 @@ export function buildNodeClaimRowCoverageReport(root: string): NodeClaimRowCover
   );
   const supportedCovered = supportedCoverage.filter((row) => row.status === "covered").length;
   const refusedCovered = refusedCoverage.filter((row) => row.status === "covered").length;
+  const supportedMissing = supportedCoverage.length - supportedCovered;
+  const refusedMissing = refusedCoverage.length - refusedCovered;
+  const claimAllowed = supportedMissing === 0 && refusedMissing === 0 && notProvenRows.length === 0;
   return {
     kind: "machinen.node-claim-row-coverage-report",
     version: 1,
     generatedAt: new Date().toISOString(),
     accepted: true,
-    claimAllowed: false,
+    claimAllowed,
     publicClaim: {
-      productSupport: 0,
-      broadSupport: 0,
+      productSupport: claimAllowed ? 100 : 0,
+      broadSupport: claimAllowed ? 100 : 0,
       arbitraryProcessCrossArchRestore: 0,
     },
     rowCounts: {
@@ -175,10 +178,10 @@ export function buildNodeClaimRowCoverageReport(root: string): NodeClaimRowCover
     directionRequirementCounts: {
       supportedRequired: supportedCoverage.length,
       supportedCovered,
-      supportedMissing: supportedCoverage.length - supportedCovered,
+      supportedMissing,
       refusedRequired: refusedCoverage.length,
       refusedCovered,
-      refusedMissing: refusedCoverage.length - refusedCovered,
+      refusedMissing,
     },
     supportedCoverage,
     refusedCoverage,
