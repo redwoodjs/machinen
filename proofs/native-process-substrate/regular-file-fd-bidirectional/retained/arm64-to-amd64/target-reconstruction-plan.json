@@ -1,0 +1,48 @@
+{
+  "kind": "machinen.native-regular-file-fd-target-plan",
+  "direction": "arm64-to-amd64",
+  "targetArch": "amd64",
+  "fdTable": [
+    {
+      "targetFd": 3,
+      "capturedFd": 3,
+      "resourceId": "fd:3:arm64-to-amd64:regular-file",
+      "resourceKind": "file",
+      "kind": "reopen-file",
+      "closeOnExec": true,
+      "action": "materialize",
+      "source": "captured-resource",
+      "recipe": {
+        "reopen": "proofs/native-process-substrate/regular-file-fd-bidirectional/retained/arm64-to-amd64/regular-file-fd-fixture.txt",
+        "offset": 29,
+        "flags": ["octal:2000002", "cloexec"]
+      },
+      "targetGuestRecipe": {
+        "kind": "reopen-file",
+        "fd": 3,
+        "path": "proofs/native-process-substrate/regular-file-fd-bidirectional/retained/arm64-to-amd64/regular-file-fd-fixture.txt",
+        "offset": 29,
+        "access": 2,
+        "closeOnExec": true
+      },
+      "provenance": {
+        "resourceId": "fd:3:arm64-to-amd64:regular-file",
+        "capturedFd": 3,
+        "targetFd": 3,
+        "flags": ["octal:2000002", "cloexec"],
+        "reason": "translated-resource-recipe"
+      }
+    }
+  ],
+  "targetGuestResources": [
+    {
+      "kind": "reopen-file",
+      "fd": 3,
+      "path": "proofs/native-process-substrate/regular-file-fd-bidirectional/retained/arm64-to-amd64/regular-file-fd-fixture.txt",
+      "offset": 29,
+      "access": 2,
+      "closeOnExec": true
+    }
+  ],
+  "refusals": []
+}

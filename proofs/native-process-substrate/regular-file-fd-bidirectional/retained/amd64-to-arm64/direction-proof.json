@@ -1,0 +1,79 @@
+{
+  "direction": "amd64-to-arm64",
+  "sourceArch": "amd64",
+  "targetArch": "arm64",
+  "accepted": true,
+  "sourceCapture": {
+    "fd": 3,
+    "kind": "regular-file",
+    "path": "proofs/native-process-substrate/regular-file-fd-bidirectional/retained/amd64-to-arm64/regular-file-fd-fixture.txt",
+    "pathPolicy": "same-host-path-reopen-proof",
+    "inodePolicy": "record-and-verify-same-file-identity",
+    "sourceIdentity": {
+      "dev": 16777230,
+      "ino": 321595510,
+      "size": 98
+    },
+    "offset": 29,
+    "flags": {
+      "captured": ["octal:2000002", "cloexec"],
+      "expectedAccess": "read-write",
+      "closeOnExec": true
+    },
+    "expectedNextReadSha256": "0f7a9943f99c386a4f31a5f1d0251e5dc5a67b8e342f3d9ea16f2b70a5224ffc"
+  },
+  "targetPlan": {
+    "kind": "reopen-file",
+    "targetFd": 3,
+    "offset": 29,
+    "access": "read-write",
+    "closeOnExec": true,
+    "targetGuestResources": [
+      {
+        "kind": "reopen-file",
+        "fd": 3,
+        "path": "proofs/native-process-substrate/regular-file-fd-bidirectional/retained/amd64-to-arm64/regular-file-fd-fixture.txt",
+        "offset": 29,
+        "access": 2,
+        "closeOnExec": true
+      }
+    ],
+    "refusals": []
+  },
+  "targetVerifier": {
+    "targetNativeExecution": true,
+    "rawCpuRestoreUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appHooksUsed": false,
+    "metadataOnlySuccessAccepted": false,
+    "readStartedAtCapturedOffset": true,
+    "readBytesSha256Matched": true,
+    "writeStartedAfterRead": true,
+    "writeBytesSha256Matched": true,
+    "finalOffset": 82,
+    "targetIdentity": {
+      "dev": 16777230,
+      "ino": 321595510,
+      "size": 98
+    },
+    "sameFileIdentityVerified": true,
+    "finalFileSha256": "69ef86f60ae12af14aadedef41f7423f0af454712e552d5a0ecd94ef44a01662"
+  },
+  "artifacts": [
+    {
+      "name": "source-capture.json",
+      "path": "source-capture.json",
+      "sha256": "b8baadcceee6186105b13a1f574ebc9f9ed819a557124c2b74edee29b2c2813c"
+    },
+    {
+      "name": "target-reconstruction-plan.json",
+      "path": "target-reconstruction-plan.json",
+      "sha256": "7f65ce15f5144bdb1a749ee60c411188c7db3a244a93ad3ea9371815861c088a"
+    },
+    {
+      "name": "target-verifier.json",
+      "path": "target-verifier.json",
+      "sha256": "5723577f5e4e21c31bcec12f9ad3a9616a322532d1c7b37086fcbc96308e54f3"
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 {
   "kind": "machinen.claim-progress-dashboard",
-  "version": 108,
+  "version": 109,
   "updatedFrom": [
     "docs/snapshot/node-level5-product-support-claim-registry.json",
     "docs/snapshot/node-level5-product-support-100.json",
@@ -16,7 +16,8 @@
     "packages/runtime/src/arbitrary-process-level5-simple-pipe-fd-proof.ts",
     "proofs/arbitrary-linux-binaries/scripts/arbitrary-process-level5-simple-pipe-fd-proof.ts",
     "packages/runtime/src/arbitrary-process-level5-idle-resource-proof.ts",
-    "proofs/arbitrary-linux-binaries/scripts/arbitrary-process-level5-idle-resource-proof.ts"
+    "proofs/arbitrary-linux-binaries/scripts/arbitrary-process-level5-idle-resource-proof.ts",
+    "proofs/native-process-substrate/regular-file-fd-bidirectional/retained/native-regular-file-fd-bidirectional-proof-report.json"
   ],
   "columns": {
     "claim": ["productSupport", "broadSupport", "arbitraryProcessCrossArchRestore"],
@@ -1556,13 +1557,14 @@
         "arbitraryProcessCrossArchRestore": "still-0-until-arbitrary-process-reconstruction-proof",
         "claimChangeAllowed": false
       },
-      "summary": "Retained proof-only native substrate/boundary gate verifies all 12 native/001-native/012 rows without raising arbitrary Linux process restore support.",
+      "summary": "Retained proof-only native substrate/boundary gate verifies all 12 native/001-native/012 rows. A bidirectional regular-file FD resource seed now verifies target-side reopen/seek/read/write behavior. Arbitrary Linux process restore remains 0.",
       "claimGate": "proofs/native-process-substrate/retained/native-substrate-gate-report.json accepted; public claim remains 0",
       "claimChangeAllowed": false,
       "evidence": [
         "proofs/native-process-substrate/retained/native-substrate-gate-report.json",
         "proofs/native-process-substrate/retained/raw/*.json",
-        "proofs/native-process-substrate/retained/row-proofs/*/row-proof.json"
+        "proofs/native-process-substrate/retained/row-proofs/*/row-proof.json",
+        "proofs/native-process-substrate/regular-file-fd-bidirectional/retained/native-regular-file-fd-bidirectional-proof-report.json"
       ],
       "evidenceRows": [
         {
@@ -1724,8 +1726,8 @@
       "nextSteps": [
         {
           "priority": 1,
-          "item": "Promote regular-file FD native resource translation into the next retained bidirectional proof track.",
-          "gate": "native-regular-file-fd-bidirectional-proof"
+          "item": "Build a tiny single-thread native C workload proof that composes CPU registers, stack, memory materialization, bootstrap state, and the retained regular-file FD resource into target-native post-restore behavior.",
+          "gate": "native-single-thread-c-workload-e2e"
         },
         {
           "priority": 2,
@@ -1795,11 +1797,11 @@
           "id": "native-regular-file-fd",
           "area": "file descriptors",
           "kind": "resource translation seed",
-          "status": "verified-seed",
-          "evidence": "Regular file FD target-native reopen proof verifies captured offset and read continuation",
+          "status": "verified-resource-seed",
+          "evidence": "Retained bidirectional regular-file FD proof verifies arm64->amd64 and amd64->arm64 target-side reopen/seek/read/write behavior, captured flags, and same-file identity policy without raw CPU restore or source-ISA emulation.",
           "gate": "arbitrary-process regular-file-fd proof accepted",
-          "artifact": "regular-file-fd-proof-report.json",
-          "next": "Use this as one verified seed row; keep broader arbitrary-process claim blocked until the claim-ready gate."
+          "artifact": "proofs/native-process-substrate/regular-file-fd-bidirectional/retained/native-regular-file-fd-bidirectional-proof-report.json",
+          "next": "Compose with process CPU/memory/bootstrap execution proofs before any arbitrary-process claim raise beyond the locked seed candidate."
         },
         {
           "id": "native-simple-pipe-fd",
@@ -3419,6 +3421,28 @@
             },
             "claimChangeAllowed": false
           }
+        },
+        {
+          "id": "native-regular-file-fd-bidirectional-proof",
+          "proofNumber": "native-resource/001",
+          "type": "resource",
+          "category": "regular file fd",
+          "status": "verified-resource-seed",
+          "artifact": "proofs/native-process-substrate/regular-file-fd-bidirectional/retained/native-regular-file-fd-bidirectional-proof-report.json",
+          "proves": "Bidirectional regular-file FD seed verifies target-side reopen/seek/read/write behavior, captured read-write cloexec flags, path/inode identity policy, and shortcut-free target-native resource reconstruction.",
+          "claimUse": "resource seed only; no arbitrary-process claim raise",
+          "next": "Compose with target-native process execution proof before claim promotion.",
+          "claimImpact": {
+            "productSupportDelta": 0,
+            "broadSupportDelta": 0,
+            "arbitraryProcessCrossArchRestoreDelta": 0,
+            "resultingClaim": {
+              "productSupport": null,
+              "broadSupport": null,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "claimChangeAllowed": false
+          }
         }
       ]
     },
@@ -3468,11 +3492,11 @@
         {
           "id": "regular-file-fd-proof",
           "category": "file descriptor",
-          "status": "verified-seed",
-          "artifact": "regular-file-fd-proof-report.json",
-          "proves": "Target-native reopen preserves captured file offset and read continuation",
+          "status": "verified-resource-seed",
+          "artifact": "proofs/native-process-substrate/regular-file-fd-bidirectional/retained/native-regular-file-fd-bidirectional-proof-report.json",
+          "proves": "Retained bidirectional target-native regular-file FD reconstruction preserves captured offset, flags, read/write behavior, and same-file identity policy.",
           "claimUse": "one verified arbitrary-process seed; no claim raise",
-          "next": "Covered by the accepted claim-ready gate."
+          "next": "Compose with CPU/memory/bootstrap behavior proof before any broader claim."
         },
         {
           "id": "simple-pipe-fd-proof",

@@ -39,5 +39,6 @@ claim group here has a `claim.json` copy plus a readable `README.md`.
 - [Generic Linux service support not started](./generic-linux-service/not-started/README.md) — `not-started`
 - [Level 4 ping resource continuation](./network-resources/level4-ping-resource-continuation/README.md) — `proven-resource`
 - [Native process substrate proof gate](./native-process-substrate/README.md) — `verified`
+- [Native regular-file FD bidirectional proof](./native-process-substrate/regular-file-fd-bidirectional/README.md) — `verified-resource-seed`
 - [Arbitrary process 0% / candidate 1% locked](./arbitrary-linux-binaries/0-seed-1-locked/README.md) — `partial-proof`
 - [Whole Linux VM workload portability not started](./linux-vm-workload/not-started/README.md) — `not-started`

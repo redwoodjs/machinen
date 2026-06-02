@@ -1,0 +1,22 @@
+{
+  "kind": "machinen.native-regular-file-fd-target-verifier",
+  "direction": "arm64-to-amd64",
+  "targetArch": "amd64",
+  "targetNativeExecution": true,
+  "rawCpuRestoreUsed": false,
+  "sourceIsaEmulationUsed": false,
+  "appHooksUsed": false,
+  "metadataOnlySuccessAccepted": false,
+  "readStartedAtCapturedOffset": true,
+  "readBytesSha256Matched": true,
+  "writeStartedAfterRead": true,
+  "writeBytesSha256Matched": true,
+  "finalOffset": 82,
+  "targetIdentity": {
+    "dev": 16777230,
+    "ino": 321595504,
+    "size": 98
+  },
+  "sameFileIdentityVerified": true,
+  "finalFileSha256": "37198d6c3653bb31ac0d6ba0cf0b19790c3fcdb17df536e542cf42bd9047ef08"
+}
