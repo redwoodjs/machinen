@@ -1,0 +1,28 @@
+{
+  "proofNumber": "010",
+  "id": "native-dirty-memory-consistency",
+  "type": "substrate",
+  "subcategory": "dirty memory",
+  "status": "verified",
+  "accepted": true,
+  "artifact": "proofs/native-process-substrate/retained/row-proofs/010/row-proof.json",
+  "evidence": "Memory translation preserved integer words, relocated proven pointers, and refused ambiguous dirty words. Raw verifier: proofs/native-process-substrate/retained/raw/native-memory-translate.json.",
+  "checks": [
+    {
+      "id": "preserved-word",
+      "passed": true,
+      "message": "integer word preserved"
+    },
+    {
+      "id": "pointer-relocated",
+      "passed": true,
+      "message": "pointer relocated"
+    },
+    {
+      "id": "ambiguous-refused",
+      "passed": true,
+      "message": "ambiguous word refused"
+    }
+  ],
+  "claimUse": "proof-only-native-substrate"
+}

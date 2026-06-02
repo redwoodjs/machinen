@@ -1,0 +1,46 @@
+{
+  "formatVersion": 1,
+  "bundleDir": "/var/folders/jj/brzmsc2562zbwgzwbnjdnqp80000gn/T/native-controlled-restore-gate/bundle",
+  "loader": "/var/folders/jj/brzmsc2562zbwgzwbnjdnqp80000gn/T/native-controlled-restore-gate/bin/machinen-native-restore-loader",
+  "codeLocations": 1,
+  "registerThreads": 1,
+  "stackRelocations": 2,
+  "memoryRelocations": 1,
+  "resourceRecipes": 1,
+  "loaderEvent": {
+    "status": "materialized",
+    "sizeBytes": 4096,
+    "finalProt": "rw"
+  },
+  "refusal": {
+    "code": "mapping-ambiguous",
+    "message": "stack frame frame:ambiguous has no unwind/DWARF/sidecar metadata"
+  },
+  "execution": "materialized-translated-state-without-final-jump",
+  "bundleFiles": [
+    {
+      "name": "native-process.json",
+      "bytes": 467
+    },
+    {
+      "name": "native-mappings.json",
+      "bytes": 1579
+    },
+    {
+      "name": "native-threads.json",
+      "bytes": 1297
+    },
+    {
+      "name": "native-resources.json",
+      "bytes": 556
+    },
+    {
+      "name": "native-translation.json",
+      "bytes": 1609
+    },
+    {
+      "name": "native-memory.bin",
+      "bytes": 4096
+    }
+  ]
+}

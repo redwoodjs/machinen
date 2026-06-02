@@ -27,7 +27,7 @@ type ClaimProgressProofGroup = {
 
 type ClaimProgressDashboard = {
   kind: "machinen.claim-progress-dashboard";
-  version: 107;
+  version: 108;
   tracks: ClaimProgressTrack[];
   proofGroups: ClaimProgressProofGroup[];
 };
@@ -41,7 +41,7 @@ describe("claim progress dashboard", () => {
 
     expect(dashboard).toMatchObject({
       kind: "machinen.claim-progress-dashboard",
-      version: 107,
+      version: 108,
     });
     expect(dashboard.tracks.map((track) => track.id)).toEqual([
       "node-service",
@@ -93,7 +93,7 @@ describe("claim progress dashboard", () => {
       "bun-not-started",
       "generic-linux-service-not-started",
       "level4-ping-resource-continuation",
-      "native-process-substrate-not-started",
+      "native-process-substrate-gate",
       "arbitrary-process-0-seed-1-locked",
       "whole-linux-vm-workload-not-started",
     ]);

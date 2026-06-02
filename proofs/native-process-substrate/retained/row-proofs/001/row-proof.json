@@ -1,0 +1,28 @@
+{
+  "proofNumber": "001",
+  "id": "native-cpu-register-inventory",
+  "type": "substrate",
+  "subcategory": "cpu register state",
+  "status": "verified",
+  "accepted": true,
+  "artifact": "proofs/native-process-substrate/retained/row-proofs/001/row-proof.json",
+  "evidence": "Translated one stopped arm64 thread into amd64 target registers and refused an active-syscall thread. Raw verifier: proofs/native-process-substrate/retained/raw/native-register-translate.json.",
+  "checks": [
+    {
+      "id": "translated-one-thread",
+      "passed": true,
+      "message": "one thread translated"
+    },
+    {
+      "id": "refused-active-syscall",
+      "passed": true,
+      "message": "active syscall refused"
+    },
+    {
+      "id": "target-registers-amd64",
+      "passed": true,
+      "message": "target register inventory is amd64"
+    }
+  ],
+  "claimUse": "proof-only-native-substrate"
+}

@@ -1,0 +1,16 @@
+{
+  "formatVersion": 1,
+  "ambiguityClasses": 10,
+  "checklist": [
+    "pointer-vs-integer: Relocate only metadata-proven pointer/code/thread-pointer words.; refusal=pointer-ambiguous",
+    "return-address: Map return addresses through NativeCodeLocationMapping.; refusal=code-location-unknown",
+    "unknown-frame: no translation rule yet; refusal=mapping-ambiguous",
+    "active-syscall: no translation rule yet; refusal=active-syscall",
+    "signal-frame: no translation rule yet; refusal=signal-frame-active",
+    "tls-rseq-futex: no translation rule yet; refusal=rseq-state-unsupported",
+    "target-build: Validate target build identity before mapping code or data addresses.; refusal=target-build-mismatch",
+    "kernel-resource: Regular files can reopen/reseek; brokered resources require declared capability; kernel-stateful fds fail closed.; refusal=kernel-state-unsupported",
+    "vdso-vvar-special-mapping: no translation rule yet; refusal=vdso-policy-unsupported",
+    "jit-or-self-modifying-code: no translation rule yet; refusal=code-location-unknown"
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "formatVersion": 1,
+  "result": {
+    "state": "materialized",
+    "stackMapping": "mapping:stack",
+    "sourceWindow": {
+      "base": "0x7fff0000",
+      "limit": "0x80000000"
+    },
+    "targetWindow": {
+      "base": "0x7fffffffe000",
+      "limit": "0x7fffffffe100",
+      "sizeBytes": 64
+    },
+    "guards": {
+      "below": "0x7fffffffd000",
+      "above": "0x7ffffffff000"
+    },
+    "relocations": [
+      {
+        "mapping": "mapping:stack",
+        "offset": 0,
+        "kind": "return-address",
+        "sourceValue": "0x400180",
+        "targetValue": "0x14000180",
+        "state": "translated"
+      },
+      {
+        "mapping": "mapping:stack",
+        "offset": 24,
+        "kind": "pointer",
+        "sourceValue": "0x600000",
+        "targetValue": "0x700000",
+        "state": "translated"
+      }
+    ],
+    "refusals": []
+  }
+}

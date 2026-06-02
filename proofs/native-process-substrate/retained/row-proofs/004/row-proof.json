@@ -1,0 +1,28 @@
+{
+  "proofNumber": "004",
+  "id": "native-stack-reconstruction-seed",
+  "type": "substrate",
+  "subcategory": "stack reconstruction",
+  "status": "verified",
+  "accepted": true,
+  "artifact": "proofs/native-process-substrate/retained/row-proofs/004/row-proof.json",
+  "evidence": "Stack window materialization translated a return address and pointer slot with no refusals. Raw verifier: proofs/native-process-substrate/retained/raw/native-stack-translate.json.",
+  "checks": [
+    {
+      "id": "stack-materialized",
+      "passed": true,
+      "message": "stack materialized"
+    },
+    {
+      "id": "two-stack-relocations",
+      "passed": true,
+      "message": "return address and pointer relocated"
+    },
+    {
+      "id": "no-stack-refusals",
+      "passed": true,
+      "message": "no stack refusals"
+    }
+  ],
+  "claimUse": "proof-only-native-substrate"
+}

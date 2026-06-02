@@ -1,0 +1,22 @@
+{
+  "formatVersion": 1,
+  "result": {
+    "relocations": [
+      {
+        "mapping": "mapping:data",
+        "offset": 8,
+        "kind": "pointer",
+        "sourceValue": "0x600000",
+        "targetValue": "0x700000",
+        "state": "translated"
+      }
+    ],
+    "preservedWords": 1,
+    "refusals": [
+      {
+        "code": "pointer-ambiguous",
+        "message": "memory word mapping:data+16 cannot be proven pointer or integer"
+      }
+    ]
+  }
+}

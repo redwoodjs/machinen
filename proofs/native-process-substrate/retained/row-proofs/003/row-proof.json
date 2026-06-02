@@ -1,0 +1,28 @@
+{
+  "proofNumber": "003",
+  "id": "native-writable-memory-materialization",
+  "type": "substrate",
+  "subcategory": "memory materialization",
+  "status": "verified",
+  "accepted": true,
+  "artifact": "proofs/native-process-substrate/retained/row-proofs/003/row-proof.json",
+  "evidence": "Native restore loader materialized captured writable memory bytes from native-memory.bin with final rw protection. Raw verifier: proofs/native-process-substrate/retained/raw/native-controlled-restore.json.",
+  "checks": [
+    {
+      "id": "loader-materialized",
+      "passed": true,
+      "message": "loader materialized bytes"
+    },
+    {
+      "id": "materialized-page",
+      "passed": true,
+      "message": "one page materialized"
+    },
+    {
+      "id": "final-prot-rw",
+      "passed": true,
+      "message": "final protection is rw"
+    }
+  ],
+  "claimUse": "proof-only-native-substrate"
+}

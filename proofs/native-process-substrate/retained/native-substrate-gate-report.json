@@ -1,0 +1,349 @@
+{
+  "kind": "machinen.native-process-substrate-gate-report",
+  "version": 1,
+  "generatedAt": "2026-06-02T19:22:38.849Z",
+  "accepted": true,
+  "publicClaimAllowed": false,
+  "publicClaim": {
+    "productSupport": null,
+    "broadSupport": null,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "scope": "Proof-only native/process substrate and boundary evidence for target-native reconstruction. This is not arbitrary Linux process restore product support.",
+  "rowCount": 12,
+  "acceptedRows": 12,
+  "rows": [
+    {
+      "proofNumber": "001",
+      "id": "native-cpu-register-inventory",
+      "type": "substrate",
+      "subcategory": "cpu register state",
+      "status": "verified",
+      "accepted": true,
+      "artifact": "proofs/native-process-substrate/retained/row-proofs/001/row-proof.json",
+      "evidence": "Translated one stopped arm64 thread into amd64 target registers and refused an active-syscall thread. Raw verifier: proofs/native-process-substrate/retained/raw/native-register-translate.json.",
+      "checks": [
+        {
+          "id": "translated-one-thread",
+          "passed": true,
+          "message": "one thread translated"
+        },
+        {
+          "id": "refused-active-syscall",
+          "passed": true,
+          "message": "active syscall refused"
+        },
+        {
+          "id": "target-registers-amd64",
+          "passed": true,
+          "message": "target register inventory is amd64"
+        }
+      ],
+      "claimUse": "proof-only-native-substrate"
+    },
+    {
+      "proofNumber": "002",
+      "id": "native-memory-map-inventory",
+      "type": "substrate",
+      "subcategory": "memory map inventory",
+      "status": "verified",
+      "accepted": true,
+      "artifact": "proofs/native-process-substrate/retained/row-proofs/002/row-proof.json",
+      "evidence": "Retained native process image bundle contains manifest, mappings, threads, resources, translation, and native-memory.bin inventory files. Raw verifier: proofs/native-process-substrate/retained/raw/native-controlled-restore.json.",
+      "checks": [
+        {
+          "id": "bundle-has-manifest",
+          "passed": true,
+          "message": "manifest retained"
+        },
+        {
+          "id": "bundle-has-mappings",
+          "passed": true,
+          "message": "mappings retained"
+        },
+        {
+          "id": "bundle-has-memory",
+          "passed": true,
+          "message": "captured memory file retained"
+        }
+      ],
+      "claimUse": "proof-only-native-substrate"
+    },
+    {
+      "proofNumber": "003",
+      "id": "native-writable-memory-materialization",
+      "type": "substrate",
+      "subcategory": "memory materialization",
+      "status": "verified",
+      "accepted": true,
+      "artifact": "proofs/native-process-substrate/retained/row-proofs/003/row-proof.json",
+      "evidence": "Native restore loader materialized captured writable memory bytes from native-memory.bin with final rw protection. Raw verifier: proofs/native-process-substrate/retained/raw/native-controlled-restore.json.",
+      "checks": [
+        {
+          "id": "loader-materialized",
+          "passed": true,
+          "message": "loader materialized bytes"
+        },
+        {
+          "id": "materialized-page",
+          "passed": true,
+          "message": "one page materialized"
+        },
+        {
+          "id": "final-prot-rw",
+          "passed": true,
+          "message": "final protection is rw"
+        }
+      ],
+      "claimUse": "proof-only-native-substrate"
+    },
+    {
+      "proofNumber": "004",
+      "id": "native-stack-reconstruction-seed",
+      "type": "substrate",
+      "subcategory": "stack reconstruction",
+      "status": "verified",
+      "accepted": true,
+      "artifact": "proofs/native-process-substrate/retained/row-proofs/004/row-proof.json",
+      "evidence": "Stack window materialization translated a return address and pointer slot with no refusals. Raw verifier: proofs/native-process-substrate/retained/raw/native-stack-translate.json.",
+      "checks": [
+        {
+          "id": "stack-materialized",
+          "passed": true,
+          "message": "stack materialized"
+        },
+        {
+          "id": "two-stack-relocations",
+          "passed": true,
+          "message": "return address and pointer relocated"
+        },
+        {
+          "id": "no-stack-refusals",
+          "passed": true,
+          "message": "no stack refusals"
+        }
+      ],
+      "claimUse": "proof-only-native-substrate"
+    },
+    {
+      "proofNumber": "005",
+      "id": "native-argv-env-auxv-reconstruction",
+      "type": "substrate",
+      "subcategory": "process bootstrap",
+      "status": "verified",
+      "accepted": true,
+      "artifact": "proofs/native-process-substrate/retained/row-proofs/005/row-proof.json",
+      "evidence": "Controlled native process image retained argv/env/cwd bootstrap manifest and an argv resource recipe for target-native process startup. Raw verifier: proofs/native-process-substrate/retained/raw/native-controlled-restore.json.",
+      "checks": [
+        {
+          "id": "native-manifest-retained",
+          "passed": true,
+          "message": "native manifest retained"
+        },
+        {
+          "id": "resource-recipe",
+          "passed": true,
+          "message": "bootstrap/resource recipe retained"
+        },
+        {
+          "id": "translation-retained",
+          "passed": true,
+          "message": "translation plan retained"
+        }
+      ],
+      "claimUse": "proof-only-native-substrate"
+    },
+    {
+      "proofNumber": "006",
+      "id": "native-dynamic-linker-runtime-boundary",
+      "type": "substrate",
+      "subcategory": "runtime boundary",
+      "status": "verified",
+      "accepted": true,
+      "artifact": "proofs/native-process-substrate/retained/row-proofs/006/row-proof.json",
+      "evidence": "Boundary checklist requires target build/code identity and refuses vdso/vvar/special mapping ambiguity instead of runtime-profile restore. Raw verifier: proofs/native-process-substrate/retained/raw/native-boundary-check.json.",
+      "checks": [
+        {
+          "id": "target-build-boundary",
+          "passed": true,
+          "message": "target build identity boundary present"
+        },
+        {
+          "id": "vdso-boundary",
+          "passed": true,
+          "message": "vdso/vvar/special mapping boundary present"
+        },
+        {
+          "id": "no-runtime-profile-success",
+          "passed": true,
+          "message": "runtime profile restore is not accepted"
+        }
+      ],
+      "claimUse": "boundary-refusal"
+    },
+    {
+      "proofNumber": "007",
+      "id": "native-single-thread-boundary-proof",
+      "type": "boundary",
+      "subcategory": "thread boundary",
+      "status": "verified",
+      "accepted": true,
+      "artifact": "proofs/native-process-substrate/retained/row-proofs/007/row-proof.json",
+      "evidence": "Thread restore boundary accepts exactly one safe stopped thread and refuses multi-thread state. Raw verifier: proofs/native-process-substrate/retained/raw/native-thread-refusal-matrix.json.",
+      "checks": [
+        {
+          "id": "single-thread-accepted",
+          "passed": true,
+          "message": "single safe thread accepted"
+        },
+        {
+          "id": "multi-thread-refused",
+          "passed": true,
+          "message": "multi-thread refused"
+        }
+      ],
+      "claimUse": "boundary-refusal"
+    },
+    {
+      "proofNumber": "008",
+      "id": "native-syscall-abi-boundary-proof",
+      "type": "boundary",
+      "subcategory": "syscall ABI boundary",
+      "status": "verified",
+      "accepted": true,
+      "artifact": "proofs/native-process-substrate/retained/row-proofs/008/row-proof.json",
+      "evidence": "Active syscall policy classifies syscall states fail-closed and refuses blocking/restart/unknown active syscall continuations. Raw verifier: proofs/native-process-substrate/retained/raw/native-active-syscall-policy.json.",
+      "checks": [
+        {
+          "id": "execution-fail-closed",
+          "passed": true,
+          "message": "syscalls classified fail-closed"
+        },
+        {
+          "id": "restart-refused",
+          "passed": true,
+          "message": "restart syscall refused"
+        },
+        {
+          "id": "active-refused",
+          "passed": true,
+          "message": "unknown active syscall refused"
+        }
+      ],
+      "claimUse": "boundary-refusal"
+    },
+    {
+      "proofNumber": "009",
+      "id": "native-page-protection-verifier",
+      "type": "substrate",
+      "subcategory": "page protection",
+      "status": "verified",
+      "accepted": true,
+      "artifact": "proofs/native-process-substrate/retained/row-proofs/009/row-proof.json",
+      "evidence": "Native loader materialized a captured page and set the target final page protection to rw; stack guard metadata is retained in the stack proof. Raw verifier: proofs/native-process-substrate/retained/raw/native-controlled-restore.json.",
+      "checks": [
+        {
+          "id": "final-protection-recorded",
+          "passed": true,
+          "message": "final protection recorded"
+        },
+        {
+          "id": "stack-guards-retained",
+          "passed": true,
+          "message": "stack guard addresses retained"
+        }
+      ],
+      "claimUse": "proof-only-native-substrate"
+    },
+    {
+      "proofNumber": "010",
+      "id": "native-dirty-memory-consistency",
+      "type": "substrate",
+      "subcategory": "dirty memory",
+      "status": "verified",
+      "accepted": true,
+      "artifact": "proofs/native-process-substrate/retained/row-proofs/010/row-proof.json",
+      "evidence": "Memory translation preserved integer words, relocated proven pointers, and refused ambiguous dirty words. Raw verifier: proofs/native-process-substrate/retained/raw/native-memory-translate.json.",
+      "checks": [
+        {
+          "id": "preserved-word",
+          "passed": true,
+          "message": "integer word preserved"
+        },
+        {
+          "id": "pointer-relocated",
+          "passed": true,
+          "message": "pointer relocated"
+        },
+        {
+          "id": "ambiguous-refused",
+          "passed": true,
+          "message": "ambiguous word refused"
+        }
+      ],
+      "claimUse": "proof-only-native-substrate"
+    },
+    {
+      "proofNumber": "011",
+      "id": "native-futex-thread-refusal-proof",
+      "type": "boundary",
+      "subcategory": "thread/futex refusal",
+      "status": "verified",
+      "accepted": true,
+      "artifact": "proofs/native-process-substrate/retained/row-proofs/011/row-proof.json",
+      "evidence": "Thread/futex boundary refuses captured futex resources and active futex syscalls. Raw verifier: proofs/native-process-substrate/retained/raw/native-thread-refusal-matrix.json.",
+      "checks": [
+        {
+          "id": "futex-resource-refused",
+          "passed": true,
+          "message": "futex resource refused"
+        },
+        {
+          "id": "active-futex-refused",
+          "passed": true,
+          "message": "active futex syscall refused"
+        }
+      ],
+      "claimUse": "boundary-refusal"
+    },
+    {
+      "proofNumber": "012",
+      "id": "native-jit-code-page-refusal-proof",
+      "type": "boundary",
+      "subcategory": "jit/code-page refusal",
+      "status": "verified",
+      "accepted": true,
+      "artifact": "proofs/native-process-substrate/retained/row-proofs/012/row-proof.json",
+      "evidence": "Boundary checklist refuses JIT/self-modifying code pages unless code locations are proven target-native. Raw verifier: proofs/native-process-substrate/retained/raw/native-boundary-check.json.",
+      "checks": [
+        {
+          "id": "jit-boundary",
+          "passed": true,
+          "message": "JIT/self-modifying code boundary present"
+        },
+        {
+          "id": "code-location-refusal",
+          "passed": true,
+          "message": "code-location-unknown refusal retained"
+        }
+      ],
+      "claimUse": "boundary-refusal"
+    }
+  ],
+  "noShortcutPolicy": {
+    "rawCpuRestoreAccepted": false,
+    "sourceIsaEmulationAccepted": false,
+    "runtimeProfileRestoreAccepted": false,
+    "sidecarRuntimeAccepted": false,
+    "appHooksAccepted": false,
+    "metadataOnlySuccessAccepted": false
+  },
+  "stillNotClaimed": [
+    "arbitrary Linux process cross-architecture restore",
+    "raw CPU/register resume across ISA",
+    "source ISA emulation",
+    "multi-thread/futex process continuation",
+    "JIT/self-modifying executable code-page continuation",
+    "active syscall continuation without a syscall-specific target model"
+  ]
+}

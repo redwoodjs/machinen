@@ -1,0 +1,23 @@
+{
+  "proofNumber": "009",
+  "id": "native-page-protection-verifier",
+  "type": "substrate",
+  "subcategory": "page protection",
+  "status": "verified",
+  "accepted": true,
+  "artifact": "proofs/native-process-substrate/retained/row-proofs/009/row-proof.json",
+  "evidence": "Native loader materialized a captured page and set the target final page protection to rw; stack guard metadata is retained in the stack proof. Raw verifier: proofs/native-process-substrate/retained/raw/native-controlled-restore.json.",
+  "checks": [
+    {
+      "id": "final-protection-recorded",
+      "passed": true,
+      "message": "final protection recorded"
+    },
+    {
+      "id": "stack-guards-retained",
+      "passed": true,
+      "message": "stack guard addresses retained"
+    }
+  ],
+  "claimUse": "proof-only-native-substrate"
+}

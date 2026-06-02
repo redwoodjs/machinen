@@ -1,0 +1,28 @@
+{
+  "proofNumber": "006",
+  "id": "native-dynamic-linker-runtime-boundary",
+  "type": "substrate",
+  "subcategory": "runtime boundary",
+  "status": "verified",
+  "accepted": true,
+  "artifact": "proofs/native-process-substrate/retained/row-proofs/006/row-proof.json",
+  "evidence": "Boundary checklist requires target build/code identity and refuses vdso/vvar/special mapping ambiguity instead of runtime-profile restore. Raw verifier: proofs/native-process-substrate/retained/raw/native-boundary-check.json.",
+  "checks": [
+    {
+      "id": "target-build-boundary",
+      "passed": true,
+      "message": "target build identity boundary present"
+    },
+    {
+      "id": "vdso-boundary",
+      "passed": true,
+      "message": "vdso/vvar/special mapping boundary present"
+    },
+    {
+      "id": "no-runtime-profile-success",
+      "passed": true,
+      "message": "runtime profile restore is not accepted"
+    }
+  ],
+  "claimUse": "boundary-refusal"
+}
