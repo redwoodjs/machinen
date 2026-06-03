@@ -24,7 +24,7 @@ trap cleanup EXIT
 
 "${SOURCE_CLI[@]}" boot --name "$SOURCE_NAME" --mount-live "$SOURCE_BUNDLE:/mnt/portable-vm-source:ro" --detach --json -- sleep 100000 \
   >"$WORK/source-boot.json" 2>"$WORK/source-boot.err"
-"${SOURCE_CLI[@]}" exec "$SOURCE_NAME" -- "mkdir -p /opt/machinen-portable-vm-source && ln -sfn /mnt/portable-vm-source /opt/machinen-portable-vm-source/bundle" \
+"${SOURCE_CLI[@]}" exec "$SOURCE_NAME" -- "mkdir -p /run/machinen/portable-vm && ln -sfn /mnt/portable-vm-source /run/machinen/portable-vm/source-bundle" \
   >"$WORK/source-setup.out" 2>"$WORK/source-setup.err"
 "${SOURCE_CLI[@]}" snapshot "$SOURCE_NAME" --portable --out "$SNAP_DIR" --json \
   >"$WORK/snapshot.json" 2>"$WORK/snapshot.err"
@@ -40,11 +40,18 @@ const readJson = (name) => JSON.parse(fs.readFileSync(path.join(work, name), 'ut
 const snapshot = readJson('snapshot.json');
 const restore = readJson('restore.json');
 if (snapshot.accepted !== true || snapshot.sourceArchitecture !== sourceArch || snapshot.sourceArchitectureDetected !== true) throw new Error('portable snapshot did not detect source arch');
+if (snapshot.sourcePathDetection !== 'guest portable VM inventory agent') throw new Error('portable snapshot did not use guest inventory agent path');
+const plan = readJson('portable-vm.snap/portable-vm-manifest-plan.json');
+const inventory = readJson('portable-vm.snap/portable-vm-raw-inventory.json');
+if (plan.kind !== 'machinen.portable-vm-manifest-plan' || plan.targetPolicy.unknownStatePolicy !== 'refuse-by-default') throw new Error('portable VM plan missing claim guard policy');
+if (!Array.isArray(plan.restorePlan.rows) || plan.restorePlan.rows.length !== 3) throw new Error('portable VM plan did not classify all-three rows');
+if (inventory.kind !== 'machinen.portable-vm-raw-inventory' || inventory.items.length !== 3) throw new Error('portable VM raw inventory missing rows');
 if (restore.accepted !== true || restore.sourceArch !== sourceArch || restore.targetArch !== targetArch || restore.targetArchitectureDetected !== true) throw new Error('portable restore did not detect target arch');
+if (restore.portableVmPlan?.kind !== 'machinen.portable-vm-manifest-plan' || restore.portableVmPlan.productSupportedRows !== 3) throw new Error('portable restore did not consume the portability plan');
 if (restore.migrationCompleted !== true || restore.targetVmStarted !== true) throw new Error('portable restore did not boot target VM');
 if (restore.workloads.filesystem !== true || restore.workloads.service !== true || restore.workloads.sqlite !== true) throw new Error('portable restore workloads did not verify');
 if (restore.claimGuard.arbitraryVmRestoreClaimed !== false || restore.claimGuard.rawVmStateReplayUsed !== false) throw new Error('claim guard drifted');
-const files = ['snapshot.json', 'restore.json', 'portable-vm.snap/portable-vm-snapshot-summary.json', 'portable-vm.snap/portable-vm-product-restore-summary.json', 'portable-vm.snap/source-architecture.txt', 'portable-vm.snap/portable-vm-all3-manifest.json'];
+const files = ['snapshot.json', 'restore.json', 'portable-vm.snap/portable-vm-snapshot-summary.json', 'portable-vm.snap/portable-vm-product-restore-summary.json', 'portable-vm.snap/source-architecture.txt', 'portable-vm.snap/portable-vm-all3-manifest.json', 'portable-vm.snap/portable-vm-raw-inventory.json', 'portable-vm.snap/portable-vm-manifest-plan.json'];
 const report = {
   kind: 'machinen.portable-vm-product-snapshot-restore-e2e-report',
   version: 1,

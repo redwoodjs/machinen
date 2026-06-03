@@ -6,7 +6,10 @@
   "sourceArchitecture": "arm64",
   "sourceArchitectureDetected": true,
   "sourceArchitectureDetection": "uname -m inside source VM",
-  "sourcePath": "/opt/machinen-portable-vm-source/bundle",
+  "sourcePathDetection": "guest portable VM inventory agent",
+  "sourcePath": "/run/machinen/portable-vm/source-bundle",
+  "portableVmManifest": "portable-vm-raw-inventory.json",
+  "portableVmPlan": "portable-vm-manifest-plan.json",
   "arbitraryVmRestoreClaimed": false,
   "rawVmStateReplayUsed": false
 }

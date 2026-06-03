@@ -1,0 +1,30 @@
+{
+  "kind": "machinen.portable-vm-raw-inventory",
+  "version": 1,
+  "scope": "portable-vm-all3-product-snapshot-restore-v1",
+  "sourceArchitecture": "arm64",
+  "sourceArchitectureDetected": true,
+  "sourceArchitectureDetection": "uname -m inside source VM",
+  "sourcePathDetection": "guest portable VM inventory agent resolved source bundle",
+  "sourcePath": "/run/machinen/portable-vm/source-bundle",
+  "items": [
+    {
+      "id": "filesystem-root",
+      "category": "filesystem",
+      "path": "filesystem/root",
+      "disposition": "product-supported"
+    },
+    {
+      "id": "selected-service",
+      "category": "service",
+      "path": "service-manifest.json",
+      "disposition": "product-supported"
+    },
+    {
+      "id": "clean-sqlite",
+      "category": "sqlite",
+      "path": "sqlite-dump.sql",
+      "disposition": "product-supported"
+    }
+  ]
+}

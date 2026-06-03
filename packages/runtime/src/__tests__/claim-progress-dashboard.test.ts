@@ -41,7 +41,7 @@ describe("claim progress dashboard", () => {
 
     expect(dashboard).toMatchObject({
       kind: "machinen.claim-progress-dashboard",
-      version: 140,
+      version: 141,
     });
     expect(dashboard.tracks.map((track) => track.id)).toEqual([
       "node-service",
@@ -422,6 +422,8 @@ describe("claim progress dashboard", () => {
     expect(html).toContain("real-cross-arch-tcp-listener-product-e2e-report.json");
     expect(html).toContain("real-cross-arch-portable-vm-all3-e2e-report.json");
     expect(html).toContain("portable-vm-product-snapshot-restore-e2e-report.json");
+    expect(html).toContain("vm/035");
+    expect(html).toContain("portable-vm-product-plan-refusal-report.json");
     expect(html).toContain("controlled-portable-vm-inventory-plan-v1");
     expect(html).toContain("fixture-guest-inventory-portable-vm-plan-v1");
     expect(html).toContain("portableVmInventoryPlanRows");

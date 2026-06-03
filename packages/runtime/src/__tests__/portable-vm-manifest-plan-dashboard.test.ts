@@ -67,6 +67,7 @@ describe("portable VM manifest/plan dashboard", () => {
       "vm/032",
       "vm/033",
       "vm/034",
+      "vm/035",
     ]);
     expect(manifestPlan.sourceVm).toMatchObject({
       sourceArchitecture: "detected-from-source-vm",
@@ -120,6 +121,7 @@ describe("portable VM manifest/plan dashboard", () => {
     expect(html).toContain("vm/033");
     expect(html).toContain("vm/034");
     expect(html).toContain("portable-vm-product-snapshot-restore-e2e-report.json");
+    expect(html).toContain("portable-vm-product-plan-refusal-report.json");
     expect(html).toContain("snapshot VM");
     expect(html).toContain("Architecture detection");
     expect(html).toContain("detected-from-source-vm");

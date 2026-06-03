@@ -10,7 +10,7 @@
     "arbitraryProcessCrossArchRestore": 0,
     "arbitraryVmRestoreRowsAdded": 0
   },
-  "promotionEffect": "Promotes the all-three portable VM path into machinen snapshot --portable and machinen restore commands with source/target architecture detection. The retained product run now includes arm64→amd64 execution on an opposite-architecture target host; arbitrary VM restore remains unclaimed.",
+  "promotionEffect": "Promotes the all-three portable VM path into machinen snapshot --portable and machinen restore commands with source/target architecture detection, product-generated inventory/plan artifacts, and plan-consuming restore. The retained product evidence includes local plan consumption plus arm64→amd64 execution on an opposite-architecture target host; arbitrary VM restore remains unclaimed.",
   "proofDirectory": "proofs/linux-vm-workload/portable-vm-product-snapshot-restore",
   "proofs": [
     {
@@ -20,7 +20,7 @@
       "status": "verified",
       "disposition": "product-path",
       "artifact": "proofs/linux-vm-workload/portable-vm-product-snapshot-restore/retained/portable-vm-product-snapshot-restore-e2e-report.json",
-      "proves": "Product commands completed on the selected all-three portable VM workload: snapshot=true, arm64→amd64 restore=true, filesystem=true, service=true, sqlite=true; source/target arch detected without user arch flags.",
+      "proves": "Product commands completed on the selected all-three portable VM workload: snapshot=true, inventory/plan generated=true, plan consumed=true, arm64→amd64 restore=true, filesystem=true, service=true, sqlite=true; source/target arch detected without user arch flags.",
       "claimUse": "product command path evidence for selected all-three portable VM workload; arbitrary VM restore remains unclaimed",
       "next": "Replace the selected source-layout assumption with a real paused VM inventory agent and full Portable VM Manifest/Plan consumption.",
       "claimImpact": {

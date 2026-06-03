@@ -11,8 +11,8 @@
   "sourceArchitectureDetected": true,
   "targetArchitectureDetected": true,
   "targetVmStarted": true,
-  "restoredName": "portable-vm-product-target-arm64-1780484096-46876",
-  "restoredPid": 47219,
+  "restoredName": "portable-vm-product-target-arm64-1780488889-66743",
+  "restoredPid": 67081,
   "targetRestore": {
     "kind": "machinen.real-cross-arch-portable-vm-all3-target-restore",
     "accepted": true,
@@ -20,7 +20,7 @@
     "sqliteRestored": { "count": 3, "qtySum": 41 },
     "sqliteExpected": { "count": 3, "qtySum": 41 },
     "serviceStarted": true,
-    "servicePid": 351
+    "servicePid": 354
   },
   "targetVerify": {
     "kind": "machinen.real-cross-arch-portable-vm-all3-target-verifier",
@@ -30,11 +30,20 @@
     "service": { "accepted": true, "status": 200, "body": "machinen-portable-service-v1" }
   },
   "workloads": { "filesystem": true, "service": true, "sqlite": true },
+  "portableVmPlan": {
+    "kind": "machinen.portable-vm-manifest-plan",
+    "scope": "portable-vm-all3-product-snapshot-restore-v1",
+    "sourceArchitecture": "arm64",
+    "rowCount": 3,
+    "productSupportedRows": 3,
+    "refusedRows": 0,
+    "unknownStatePolicy": "refuse-by-default"
+  },
   "claimGuard": {
     "arbitraryVmRestoreClaimed": false,
     "rawVmStateReplayUsed": false,
     "sourceIsaEmulationUsed": false,
     "metadataOnlyShortcutAccepted": false
   },
-  "elapsedMs": 3732
+  "elapsedMs": 3728
 }

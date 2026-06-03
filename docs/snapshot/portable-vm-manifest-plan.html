@@ -551,9 +551,18 @@
             "row": "portable-vm-product-snapshot-restore-e2e",
             "status": "verified",
             "scope": "portable-vm-all3-product-snapshot-restore-v1",
-            "proves": "machinen snapshot --portable and machinen restore now consume the selected portable VM all-three bundle with detected source/target architecture; retained product evidence includes a real arm64→amd64 restore with filesystem/service/SQLite verifiers passing.",
+            "proves": "machinen snapshot --portable now emits raw inventory and a VM Portability Plan from the guest inventory agent, and machinen restore consumes the selected portable VM plan before target restore; retained evidence also includes real arm64→amd64 restore with filesystem/service/SQLite verifiers passing.",
             "artifact": "proofs/linux-vm-workload/portable-vm-product-snapshot-restore/retained/portable-vm-product-snapshot-restore-e2e-report.json",
-            "claimUse": "product command path evidence for the selected all-three portable VM workload; arbitrary VM restore remains unclaimed"
+            "claimUse": "product command path evidence for the selected all-three portable VM workload and plan consumption; arbitrary VM restore remains unclaimed"
+          },
+          {
+            "id": "vm/035",
+            "row": "portable-vm-product-plan-refusal",
+            "status": "verified",
+            "scope": "portable-vm-all3-product-snapshot-restore-v1",
+            "proves": "machinen restore consumes a VM Portability Plan and refuses an active-network-stream row before target VM boot with stable refusal code portable-vm-active-network-stream-unsupported.",
+            "artifact": "proofs/linux-vm-workload/portable-vm-product-plan-refusal/retained/portable-vm-product-plan-refusal-report.json",
+            "claimUse": "product refusal evidence only; unsafe plan rows are fail-closed and arbitrary VM restore remains unclaimed"
           }
         ]
       }

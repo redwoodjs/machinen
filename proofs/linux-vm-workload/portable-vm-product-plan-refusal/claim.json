@@ -1,0 +1,39 @@
+{
+  "id": "portable-vm-product-plan-refusal",
+  "claim": "Portable VM product restore consumes VM Portability Plan refusal rows",
+  "trackId": "whole-linux-vm-workload",
+  "status": "verified",
+  "scope": "portable-vm-all3-product-snapshot-restore-v1",
+  "claimNumbers": {
+    "productSupport": 100,
+    "broadSupport": 100,
+    "arbitraryProcessCrossArchRestore": 0,
+    "arbitraryVmRestoreRowsAdded": 0
+  },
+  "promotionEffect": "Adds a product-path refusal gate for Portable VM Manifest / VM Portability Plan rows. The refusal is pre-boot and does not broaden the selected whole-VM claim.",
+  "proofDirectory": "proofs/linux-vm-workload/portable-vm-product-plan-refusal",
+  "proofs": [
+    {
+      "id": "portable-vm-product-plan-refusal",
+      "proofNumber": "vm/035",
+      "category": "portable VM product plan refusal",
+      "status": "verified",
+      "disposition": "product-refusal",
+      "artifact": "proofs/linux-vm-workload/portable-vm-product-plan-refusal/retained/portable-vm-product-plan-refusal-report.json",
+      "proves": "machinen restore consumes a generated VM Portability Plan and refuses active network stream rows before target VM boot with portable-vm-active-network-stream-unsupported.",
+      "claimUse": "product refusal evidence for selected portable VM plan handling; arbitrary VM restore remains unclaimed",
+      "next": "Expand product plan refusals with retained dirty DB, unknown process, opaque device, and active syscall product-command transcripts.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 100,
+          "broadSupport": 100,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    }
+  ]
+}

@@ -7,10 +7,13 @@
   "sourceArchitecture": "arm64",
   "sourceArchitectureDetected": true,
   "sourceArchitectureDetection": "uname -m inside source VM",
-  "sourcePath": "/opt/machinen-portable-vm-source/bundle",
+  "sourcePathDetection": "guest portable VM inventory agent",
+  "sourcePath": "/run/machinen/portable-vm/source-bundle",
+  "portableVmManifest": "portable-vm-raw-inventory.json",
+  "portableVmPlan": "portable-vm-manifest-plan.json",
   "arbitraryVmRestoreClaimed": false,
   "rawVmStateReplayUsed": false,
-  "snapshotDir": "/Users/peterp/gh/redwoodjs/machinen/proofs/linux-vm-workload/portable-vm-product-snapshot-restore/retained/portable-vm.snap",
-  "elapsedMs": 25,
+  "snapshotDir": "/var/folders/jj/brzmsc2562zbwgzwbnjdnqp80000gn/T/machinen-portable-vm-product.DAEh08/portable-vm.snap",
+  "elapsedMs": 31,
   "dryRun": false
 }

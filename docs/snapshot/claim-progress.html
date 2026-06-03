@@ -468,7 +468,7 @@
     <script id="embedded-claim-progress" type="application/json">
       {
         "kind": "machinen.claim-progress-dashboard",
-        "version": 140,
+        "version": 141,
         "updatedFrom": [
           "docs/snapshot/node-level5-product-support-claim-registry.json",
           "docs/snapshot/node-level5-product-support-100.json",
@@ -502,7 +502,8 @@
           "proofs/arbitrary-linux-binaries/selected-process-next-proof-matrix/retained/selected-arbitrary-process-next-proof-matrix-report.json",
           "proofs/arbitrary-linux-binaries/100-phase-ladder/retained/arbitrary-process-100-phase-ladder-report.json",
           "proofs/arbitrary-linux-binaries/controlled-process-corpus/retained/controlled-process-corpus-matrix-report.json",
-          "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/arbitrary-process-complete-classification-matrix-report.json"
+          "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/arbitrary-process-complete-classification-matrix-report.json",
+          "proofs/linux-vm-workload/portable-vm-product-plan-refusal/retained/portable-vm-product-plan-refusal-report.json"
         ],
         "columns": {
           "claim": ["productSupport", "broadSupport", "arbitraryProcessCrossArchRestore"],
@@ -3655,7 +3656,7 @@
               "refusalArtifactsCovered": 0,
               "refusalArtifactsRequiredBeforeClaimLift": 52
             },
-            "summary": "The whole-VM track now includes a product command path for the selected portable VM all-three workload: machinen snapshot --portable detects source architecture and machinen restore detects target architecture, then restores filesystem, service, and SQLite rows across arm64→amd64. Arbitrary VM restore remains unclaimed.",
+            "summary": "The whole-VM track now includes a product command path for the selected portable VM all-three workload: machinen snapshot --portable detects source architecture through the guest inventory agent, emits a Portable VM Manifest / VM Portability Plan, and machinen restore detects target architecture, consumes the plan, restores filesystem/service/SQLite rows across arm64→amd64 evidence, and refuses unsafe plan rows before target VM boot. Arbitrary VM restore remains unclaimed.",
             "claimGate": "selected-whole-vm-workload-support-matrix",
             "claimChangeAllowed": false,
             "evidence": [
@@ -3675,7 +3676,8 @@
               "real-cross-arch-filesystem-product-e2e",
               "real-cross-arch-service-product-e2e",
               "real-cross-arch-sqlite-product-e2e",
-              "portable-vm-product-snapshot-restore-e2e"
+              "portable-vm-product-snapshot-restore-e2e",
+              "portable-vm-product-plan-refusal"
             ],
             "evidenceRows": [
               {
@@ -4164,11 +4166,23 @@
                 "kind": "machinen snapshot --portable / restore",
                 "status": "verified",
                 "disposition": "product-path",
-                "evidence": "Product commands completed on a real opposite-architecture arm64→amd64 target host with sourceArchDetected=true, targetArchDetected=true, filesystem=true, service=true, sqlite=true.",
+                "evidence": "Product commands completed with guest inventory agent, raw inventory and VM Portability Plan generation, plan-consuming restore, sourceArchDetected=true, targetArchDetected=true, filesystem=true, service=true, sqlite=true, plus retained opposite-architecture arm64→amd64 target evidence.",
                 "gate": "portable-vm-product-snapshot-restore-e2e",
                 "artifact": "proofs/linux-vm-workload/portable-vm-product-snapshot-restore/retained/portable-vm-product-snapshot-restore-e2e-report.json",
                 "claimUse": "product command path evidence for selected all-three portable VM workload; arbitrary VM restore remains unclaimed",
-                "next": "Replace the selected source-layout assumption with a real paused VM inventory agent and full Portable VM Manifest/Plan consumption."
+                "next": "Expand product plan consumption beyond the selected all-three source bundle into a paused VM inventory agent covering broader workload rows."
+              },
+              {
+                "id": "portable-vm-product-plan-refusal",
+                "area": "portable VM product path",
+                "kind": "VM Portability Plan refusal",
+                "status": "verified",
+                "disposition": "product-refusal",
+                "evidence": "Product restore consumed a generated VM Portability Plan and refused an active-network-stream row before target VM boot with portable-vm-active-network-stream-unsupported.",
+                "gate": "portable-vm-product-plan-refusal",
+                "artifact": "proofs/linux-vm-workload/portable-vm-product-plan-refusal/retained/portable-vm-product-plan-refusal-report.json",
+                "claimUse": "product refusal evidence for selected portable VM plan handling; arbitrary VM restore remains unclaimed",
+                "next": "Retain dirty DB, unknown process, opaque device, and active syscall refusal transcripts through the same product command path."
               }
             ],
             "refusals": [
@@ -8039,9 +8053,32 @@
                 "status": "verified",
                 "disposition": "product-path",
                 "artifact": "proofs/linux-vm-workload/portable-vm-product-snapshot-restore/retained/portable-vm-product-snapshot-restore-e2e-report.json",
-                "proves": "machinen snapshot --portable and machinen restore product commands completed on a real opposite-architecture arm64→amd64 target host with detected source/target architecture and all-three workload verifiers passed.",
+                "proves": "machinen snapshot --portable generated raw inventory and a VM Portability Plan, and machinen restore consumed that plan before completing the selected all-three workload; retained evidence also includes a real opposite-architecture arm64→amd64 product target run.",
                 "claimUse": "product command path evidence for selected all-three portable VM workload; arbitrary VM restore remains unclaimed",
-                "next": "Replace the selected source-layout assumption with a real paused VM inventory agent and full Portable VM Manifest/Plan consumption.",
+                "next": "Expand product plan consumption beyond the selected all-three source bundle into a paused VM inventory agent covering broader workload rows.",
+                "claimImpact": {
+                  "productSupportDelta": 0,
+                  "broadSupportDelta": 0,
+                  "arbitraryProcessCrossArchRestoreDelta": 0,
+                  "resultingClaim": {
+                    "productSupport": 100,
+                    "broadSupport": 100,
+                    "arbitraryProcessCrossArchRestore": 0
+                  },
+                  "claimChangeAllowed": false
+                }
+              },
+              {
+                "id": "portable-vm-product-plan-refusal",
+                "proofNumber": "vm/035",
+                "type": "e2e",
+                "category": "portable VM product plan refusal",
+                "status": "verified",
+                "disposition": "product-refusal",
+                "artifact": "proofs/linux-vm-workload/portable-vm-product-plan-refusal/retained/portable-vm-product-plan-refusal-report.json",
+                "proves": "machinen restore consumes a generated VM Portability Plan and refuses active network stream rows before target VM boot with portable-vm-active-network-stream-unsupported.",
+                "claimUse": "product refusal evidence for selected portable VM plan handling; arbitrary VM restore remains unclaimed",
+                "next": "Expand product plan refusals with retained dirty DB, unknown process, opaque device, and active syscall product-command transcripts.",
                 "claimImpact": {
                   "productSupportDelta": 0,
                   "broadSupportDelta": 0,

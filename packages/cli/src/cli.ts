@@ -273,6 +273,50 @@ function validateAssetsDir(dir: string): void {
         `  Produce them with ./scripts/build-base-assets.sh (outputs to ./release-assets/).`,
     );
   }
+  validateOptionalGuestAssetArchitecture(abs, spec.cpu);
+}
+
+// fallow-ignore-next-line complexity
+function validateOptionalGuestAssetArchitecture(dir: string, cpu: GuestCpu): void {
+  for (const name of ["init", "exec-agent"]) {
+    const path = join(dir, name);
+    if (!existsSync(path)) {
+      continue;
+    }
+    const actual = readElfGuestCpu(path);
+    if (!actual) {
+      die(`MACHINEN_ASSETS_DIR=${dir} contains ${name}, but it is not a recognized Linux ELF`);
+    }
+    if (actual !== cpu) {
+      die(
+        `MACHINEN_ASSETS_DIR=${dir} contains ${name} for ${actual}, but this host will boot ${cpu} guests.\n` +
+          `  Rebuild assets with MACHINEN_GUEST_ARCH=${cpu} ./scripts/build-base-assets.sh, or remove stale ${name}.`,
+      );
+    }
+  }
+}
+
+// fallow-ignore-next-line complexity
+function readElfGuestCpu(path: string): GuestCpu | null {
+  const bytes = readFileSync(path);
+  if (
+    bytes.length < 20 ||
+    bytes[0] !== 0x7f ||
+    bytes[1] !== 0x45 ||
+    bytes[2] !== 0x4c ||
+    bytes[3] !== 0x46
+  ) {
+    return null;
+  }
+  const littleEndian = bytes[5] === 1;
+  const machine = littleEndian ? bytes.readUInt16LE(18) : bytes.readUInt16BE(18);
+  if (machine === 0x3e) {
+    return "amd64";
+  }
+  if (machine === 0xb7) {
+    return "arm64";
+  }
+  return null;
 }
 
 async function ensureBaseAssets(tag: string): Promise<string> {
@@ -3208,6 +3252,9 @@ async function cmdRestore(args: string[]): Promise<number> {
   return runRestoreAttachedSession(vm, quiet);
 }
 
+const PORTABLE_VM_PRODUCT_SCOPE = "portable-vm-all3-product-snapshot-restore-v1";
+const PORTABLE_VM_PLAN_KIND = "machinen.portable-vm-manifest-plan";
+
 function isPortableVmProductBundle(snapDir: string): boolean {
   return (
     existsSync(join(snapDir, "portable-vm-all3-manifest.json")) &&
@@ -3226,6 +3273,21 @@ async function cmdRestorePortableVmProductBundle(
   const started = Date.now();
   const sourceArch = readPortableVmSourceArchitecture(snapDir);
   const targetArch = guestCpu();
+  const planRefusal = evaluatePortableVmRestorePlan(snapDir, sourceArch, targetArch);
+  if (planRefusal) {
+    const refusal = portableVmRestoreRefusal(
+      planRefusal.code,
+      planRefusal.message,
+      sourceArch,
+      targetArch,
+    );
+    writeFileSync(
+      join(snapDir, "portable-vm-product-restore-summary.json"),
+      `${JSON.stringify(refusal, null, 2)}\n`,
+    );
+    reportPortableVmRestoreSummary(json, refusal);
+    return 1;
+  }
   const name = parsed.name ?? deriveBootName(snapDir);
   const paths = await resolveCliBaseAssets();
   const vm = await boot({
@@ -3264,7 +3326,7 @@ async function cmdRestorePortableVmProductBundle(
       kind: "machinen.portable-vm-product-restore-summary",
       version: 1,
       accepted: true,
-      scope: "portable-vm-all3-product-snapshot-restore-v1",
+      scope: PORTABLE_VM_PRODUCT_SCOPE,
       state: "completed",
       migrationCompleted: true,
       sourceArch,
@@ -3281,6 +3343,7 @@ async function cmdRestorePortableVmProductBundle(
         service: (targetVerify.service as Record<string, unknown>)?.accepted === true,
         sqlite: (targetVerify.sqlite as Record<string, unknown>)?.accepted === true,
       },
+      portableVmPlan: summarizePortableVmRestorePlan(snapDir),
       claimGuard: portableVmClaimGuard(),
       elapsedMs: Date.now() - started,
     };
@@ -3313,6 +3376,97 @@ async function cmdRestorePortableVmProductBundle(
   }
 }
 
+// fallow-ignore-next-line complexity
+function evaluatePortableVmRestorePlan(
+  snapDir: string,
+  sourceArch: GuestCpu,
+  targetArch: GuestCpu,
+): { code: string; message: string } | null {
+  const planPath = join(snapDir, "portable-vm-manifest-plan.json");
+  if (!existsSync(planPath)) {
+    return {
+      code: "portable-vm-portability-plan-missing",
+      message:
+        "portable VM restore requires a generated Portable VM Manifest / VM Portability Plan",
+    };
+  }
+  const plan = JSON.parse(readFileSync(planPath, "utf8")) as Record<string, unknown>;
+  if (plan.kind !== PORTABLE_VM_PLAN_KIND) {
+    return {
+      code: "portable-vm-portability-plan-invalid",
+      message: "portable VM plan kind is invalid",
+    };
+  }
+  if (plan.scope !== PORTABLE_VM_PRODUCT_SCOPE) {
+    return {
+      code: "portable-vm-portability-plan-invalid",
+      message: "portable VM plan scope is invalid",
+    };
+  }
+  if (plan.sourceArchitecture !== sourceArch) {
+    return {
+      code: "portable-vm-source-architecture-mismatch",
+      message: `portable VM plan source architecture ${String(plan.sourceArchitecture)} does not match bundle source architecture ${sourceArch}`,
+    };
+  }
+  const allowedTargets = (plan.targetPolicy as Record<string, unknown> | undefined)
+    ?.allowedTargetArchitectures;
+  if (Array.isArray(allowedTargets) && !allowedTargets.includes(targetArch)) {
+    return {
+      code: "portable-vm-target-architecture-unsupported",
+      message: `portable VM plan does not allow target architecture ${targetArch}`,
+    };
+  }
+  const rows = portableVmPlanRows(plan);
+  const refused = rows.find((row) => row.disposition === "refused");
+  if (refused) {
+    return {
+      code:
+        typeof refused.refusalCode === "string"
+          ? refused.refusalCode
+          : "portable-vm-plan-row-refused",
+      message:
+        typeof refused.message === "string"
+          ? refused.message
+          : `portable VM plan refused ${String(refused.id ?? refused.category ?? "unknown row")}`,
+    };
+  }
+  for (const required of ["filesystem", "service", "sqlite"] as const) {
+    const row = rows.find((candidate) => candidate.category === required);
+    if (!row || row.disposition !== "product-supported") {
+      return {
+        code: "portable-vm-required-plan-row-missing",
+        message: `portable VM plan is missing required product-supported ${required} row`,
+      };
+    }
+  }
+  return null;
+}
+
+function portableVmPlanRows(plan: Record<string, unknown>): Array<Record<string, unknown>> {
+  const restorePlan = plan.restorePlan as Record<string, unknown> | undefined;
+  return Array.isArray(restorePlan?.rows)
+    ? (restorePlan.rows as Array<Record<string, unknown>>)
+    : [];
+}
+
+function summarizePortableVmRestorePlan(snapDir: string): Record<string, unknown> {
+  const plan = JSON.parse(
+    readFileSync(join(snapDir, "portable-vm-manifest-plan.json"), "utf8"),
+  ) as Record<string, unknown>;
+  const rows = portableVmPlanRows(plan);
+  return {
+    kind: PORTABLE_VM_PLAN_KIND,
+    scope: plan.scope,
+    sourceArchitecture: plan.sourceArchitecture,
+    rowCount: rows.length,
+    productSupportedRows: rows.filter((row) => row.disposition === "product-supported").length,
+    refusedRows: rows.filter((row) => row.disposition === "refused").length,
+    unknownStatePolicy: (plan.targetPolicy as Record<string, unknown> | undefined)
+      ?.unknownStatePolicy,
+  };
+}
+
 function portableVmRestoreRefusal(
   code: string,
   message: string,
@@ -3323,7 +3477,7 @@ function portableVmRestoreRefusal(
     kind: "machinen.portable-vm-product-restore-summary",
     version: 1,
     accepted: false,
-    scope: "portable-vm-all3-product-snapshot-restore-v1",
+    scope: PORTABLE_VM_PRODUCT_SCOPE,
     state: "refused",
     migrationCompleted: false,
     sourceArch,
@@ -6429,8 +6583,7 @@ async function runSnapshot(opts: SnapshotOptionsCli): Promise<number> {
 
 async function runPortableVmSnapshot(vm: VmHandle, opts: SnapshotOptionsCli): Promise<number> {
   const started = Date.now();
-  const sourcePath = "/opt/machinen-portable-vm-source/bundle";
-  const exportCommand = portableVmSnapshotExportCommand(sourcePath);
+  const exportCommand = portableVmSnapshotExportCommand();
   const exported = await vm.execRaw(exportCommand, { execTimeoutMs: 60_000 });
   if (exported.exitCode !== 0) {
     reportPortableVmSnapshotRefusal(
@@ -6452,24 +6605,112 @@ async function runPortableVmSnapshot(vm: VmHandle, opts: SnapshotOptionsCli): Pr
   return 0;
 }
 
-function portableVmSnapshotExportCommand(sourcePath: string): string {
-  return [
-    "set -eu",
-    `src=${shellQuote(sourcePath)}`,
-    "[ -d \"$src\" ] || { echo 'portable VM source bundle missing' >&2; exit 41; }",
-    "[ -f \"$src/portable-vm-all3-manifest.json\" ] || { echo 'portable VM manifest missing' >&2; exit 42; }",
-    "[ -d \"$src/filesystem/root\" ] || { echo 'portable VM filesystem root missing' >&2; exit 43; }",
-    "[ -f \"$src/service-manifest.json\" ] || { echo 'portable VM service manifest missing' >&2; exit 44; }",
-    "[ -f \"$src/sqlite-dump.sql\" ] || { echo 'portable VM sqlite dump missing' >&2; exit 45; }",
-    "machine=$(uname -m)",
-    'case "$machine" in x86_64) source_arch=amd64 ;; aarch64|arm64) source_arch=arm64 ;; *) echo "unsupported source architecture: $machine" >&2; exit 46 ;; esac',
-    "work=$(mktemp -d)",
-    'cp -a "$src/." "$work/"',
-    'printf \'%s\\n\' "$source_arch" >"$work/source-architecture.txt"',
-    `printf '{"kind":"machinen.portable-vm-product-snapshot-summary","version":1,"accepted":true,"scope":"portable-vm-all3-product-snapshot-restore-v1","sourceArchitecture":"%s","sourceArchitectureDetected":true,"sourceArchitectureDetection":"uname -m inside source VM","sourcePath":"%s","arbitraryVmRestoreClaimed":false,"rawVmStateReplayUsed":false}\\n' "$source_arch" "$src" >"$work/portable-vm-snapshot-summary.json"`,
-    'tar -C "$work" -cf - . | base64 -w0',
-    'rm -rf "$work"',
-  ].join("; ");
+function portableVmSnapshotExportCommand(): string {
+  return `sh -eu -c ${shellQuote(portableVmSnapshotGuestAgentScript())}`;
+}
+
+function portableVmSnapshotGuestAgentScript(): string {
+  return String.raw`
+resolve_source() {
+  configured_source=$(printenv MACHINEN_PORTABLE_VM_SOURCE || true)
+  if [ -n "$configured_source" ] && [ -d "$configured_source" ]; then
+    printf '%s\n' "$configured_source"
+    return 0
+  fi
+  for candidate in /run/machinen/portable-vm/source-bundle /mnt/portable-vm-source /opt/machinen-portable-vm-source/bundle; do
+    if [ -d "$candidate" ]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+src=$(resolve_source) || { echo 'portable VM guest inventory agent could not find a source bundle' >&2; exit 41; }
+[ -f "$src/portable-vm-all3-manifest.json" ] || { echo 'portable VM manifest missing' >&2; exit 42; }
+[ -d "$src/filesystem/root" ] || { echo 'portable VM filesystem root missing' >&2; exit 43; }
+[ -f "$src/service-manifest.json" ] || { echo 'portable VM service manifest missing' >&2; exit 44; }
+[ -f "$src/sqlite-dump.sql" ] || { echo 'portable VM sqlite dump missing' >&2; exit 45; }
+
+machine=$(uname -m)
+case "$machine" in
+  x86_64) source_arch=amd64 ;;
+  aarch64|arm64) source_arch=arm64 ;;
+  *) echo "unsupported source architecture: $machine" >&2; exit 46 ;;
+esac
+
+work=$(mktemp -d)
+cp -a "$src/." "$work/"
+printf '%s\n' "$source_arch" >"$work/source-architecture.txt"
+
+refusal_rows=''
+add_refusal() {
+  id="$1"
+  category="$2"
+  code="$3"
+  message="$4"
+  refusal_rows="$refusal_rows,
+      { \"id\": \"$id\", \"category\": \"$category\", \"disposition\": \"refused\", \"refusalCode\": \"$code\", \"message\": \"$message\" }"
+}
+[ ! -f "$src/portable-vm-active-db-state.refuse" ] || add_refusal active-db-state database portable-vm-active-db-state-unsupported 'dirty or active database state must be quiesced before portable VM restore'
+[ ! -f "$src/portable-vm-active-network-stream.refuse" ] || add_refusal active-network-stream network portable-vm-active-network-stream-unsupported 'active network streams are refused; only listener reconstruction is supported'
+[ ! -f "$src/portable-vm-unknown-live-process.refuse" ] || add_refusal unknown-live-process process portable-vm-unknown-live-process-unsupported 'unknown live processes are refused by default'
+[ ! -f "$src/portable-vm-opaque-device-state.refuse" ] || add_refusal opaque-device-state device portable-vm-opaque-device-state-unsupported 'opaque device state is refused by default'
+[ ! -f "$src/portable-vm-active-syscall.refuse" ] || add_refusal active-syscall process portable-vm-active-syscall-unsupported 'active syscall state is refused by default'
+
+cat >"$work/portable-vm-raw-inventory.json" <<JSON
+{
+  "kind": "machinen.portable-vm-raw-inventory",
+  "version": 1,
+  "scope": "${PORTABLE_VM_PRODUCT_SCOPE}",
+  "sourceArchitecture": "$source_arch",
+  "sourceArchitectureDetected": true,
+  "sourceArchitectureDetection": "uname -m inside source VM",
+  "sourcePathDetection": "guest portable VM inventory agent resolved source bundle",
+  "sourcePath": "$src",
+  "items": [
+    { "id": "filesystem-root", "category": "filesystem", "path": "filesystem/root", "disposition": "product-supported" },
+    { "id": "selected-service", "category": "service", "path": "service-manifest.json", "disposition": "product-supported" },
+    { "id": "clean-sqlite", "category": "sqlite", "path": "sqlite-dump.sql", "disposition": "product-supported" }
+  ]
+}
+JSON
+
+cat >"$work/portable-vm-manifest-plan.json" <<JSON
+{
+  "kind": "${PORTABLE_VM_PLAN_KIND}",
+  "version": 1,
+  "status": "product-generated",
+  "scope": "${PORTABLE_VM_PRODUCT_SCOPE}",
+  "sourceArchitecture": "$source_arch",
+  "sourceArchitectureDetected": true,
+  "targetPolicy": {
+    "restoreMode": "target-native-reconstruction",
+    "allowedTargetArchitectures": ["arm64", "amd64"],
+    "unknownStatePolicy": "refuse-by-default",
+    "architectureDetection": "detect-target-architecture-at-restore-time"
+  },
+  "restorePlan": {
+    "rows": [
+      { "id": "filesystem-root", "category": "filesystem", "disposition": "product-supported", "restoreStrategy": "copy-content-addressed-file-tree", "artifact": "filesystem-manifest.json" },
+      { "id": "selected-service", "category": "service", "disposition": "product-supported", "restoreStrategy": "start-target-native-selected-service", "artifact": "service-manifest.json" },
+      { "id": "clean-sqlite", "category": "sqlite", "disposition": "product-supported", "restoreStrategy": "restore-clean-logical-sqlite-dump", "artifact": "sqlite-logical.json" }$refusal_rows
+    ]
+  },
+  "claimGuard": {
+    "arbitraryVmRestoreClaimed": false,
+    "rawVmStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlyShortcutAccepted": false
+  }
+}
+JSON
+
+printf '{"kind":"machinen.portable-vm-product-snapshot-summary","version":1,"accepted":true,"scope":"${PORTABLE_VM_PRODUCT_SCOPE}","sourceArchitecture":"%s","sourceArchitectureDetected":true,"sourceArchitectureDetection":"uname -m inside source VM","sourcePathDetection":"guest portable VM inventory agent","sourcePath":"%s","portableVmManifest":"portable-vm-raw-inventory.json","portableVmPlan":"portable-vm-manifest-plan.json","arbitraryVmRestoreClaimed":false,"rawVmStateReplayUsed":false}\n' "$source_arch" "$src" >"$work/portable-vm-snapshot-summary.json"
+
+tar -C "$work" -cf - . | base64 -w0
+rm -rf "$work"
+`;
 }
 
 function readPortableVmSnapshotSummary(bundleDir: string): Record<string, unknown> {
