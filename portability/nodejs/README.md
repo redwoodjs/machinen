@@ -35,8 +35,8 @@ Dependency-heavy rows are classified by default. Pass `--install-deps` to attemp
 
 ## Claim boundary
 
-This corpus does **not** claim raw Node process continuation. It proves that arbitrary Node rows can be inventoried, classified, run/refused through Machinen runtime, and guarded by stable claim language. Refused-first rows stay product-refusal evidence until their target-native reconstruction path has retained proofs.
+This corpus does **not** claim raw Node process continuation. It shows that arbitrary Node rows can be inventoried, classified, run/refused through Machinen runtime, and guarded by stable claim language. Refused-first rows stay product-refusal evidence until their target-native reconstruction path has retained portability smokes.
 
-## Memory-only scalar proof
+## Memory-only scalar smoke
 
-`proofs/nodejs/memory-scalar-reconstruction/` retains a narrower proof than the app corpus: one controlled memory-only Node `count` scalar is captured from source process memory and reconstructed target-native across `arm64 -> amd64`. This does not lift the broad arbitrary Node heap/process claim; it adds one scoped compatibility dimension.
+`021-memory-scalar-counter` retains a narrower smoke than the app corpus: one controlled memory-only Node `count` scalar is captured from source process memory and reconstructed target-native across `arm64 -> amd64`. This does not lift the broad arbitrary Node heap/process claim; it adds one scoped compatibility dimension.

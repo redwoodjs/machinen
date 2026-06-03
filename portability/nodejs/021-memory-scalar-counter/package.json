@@ -1,0 +1,8 @@
+{
+  "type": "module",
+  "scripts": {
+    "start": "node app.mjs",
+    "smoke": "node --import tsx smoke.ts verify"
+  },
+  "dependencies": {}
+}

@@ -104,9 +104,10 @@ describe("Node.js portability corpus", () => {
     expect(html).toContain("raw V8 heap restore");
     expect(html).toContain("active socket stream transfer");
     expect(html).toContain("nodejs-portability-deps-amd64-runtime-report.json");
+    expect(html).toContain("nodejs-portability-memory-scalar-arm64-to-amd64-report.json");
   });
 
-  it("contains the requested 20 numbered workload rows", () => {
+  it("contains the requested 21 numbered workload rows", () => {
     expect(rowDirs()).toEqual([
       "001-plain-http-create-server",
       "002-express",
@@ -128,12 +129,13 @@ describe("Node.js portability corpus", () => {
       "018-child-process-app",
       "019-active-request-app",
       "020-outbound-connection-app",
+      "021-memory-scalar-counter",
     ]);
   });
 
   it("keeps arbitrary raw Node process restore out of the corpus claim", () => {
     const rows = rowDirs().map(readRow);
-    expect(rows).toHaveLength(20);
+    expect(rows).toHaveLength(21);
     for (const row of rows) {
       expect(row.runtime).toBe("nodejs");
       expect(row.claimGuard).toMatchObject({
@@ -171,11 +173,11 @@ describe("Node.js portability corpus", () => {
       version: 1,
       runtime: "nodejs",
       summary: {
-        rowCount: 20,
-        byStatus: { verified: 14, refused: 6 },
-        byProductClaim: { candidate: 14, refusal: 6 },
+        rowCount: 21,
+        byStatus: { verified: 15, refused: 6 },
+        byProductClaim: { candidate: 15, refusal: 6 },
         architectures: ["arm64", "amd64"],
-        verifiedBothArchitectures: 14,
+        verifiedBothArchitectures: 15,
         refusedRows: 6,
         conditionalRows: 0,
         failedClassifiedRows: 0,
@@ -243,11 +245,11 @@ describe("Node.js portability corpus", () => {
     };
     expect(report).toMatchObject({
       accepted: true,
-      rowCount: 20,
+      rowCount: 21,
       architectures: ["arm64", "amd64"],
       executeVm: false,
       summary: {
-        productSupportedRows: 9,
+        productSupportedRows: 10,
         declaredConfigRows: 5,
         refusedFirstRows: 6,
         refusedRows: 12,

@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 interface MemoryScalarReport {
-  kind: "machinen.node-memory-scalar-reconstruction-proof";
+  kind: "machinen.nodejs-portability-memory-scalar-smoke-report";
   accepted: boolean;
   scope: "single-memory-only-node-global-scalar-count";
   sourceArch: "arm64" | "amd64";
@@ -38,14 +38,14 @@ describe("Node memory scalar reconstruction proof", () => {
     const report = JSON.parse(
       readFileSync(
         resolve(
-          "proofs/nodejs/memory-scalar-reconstruction/retained/node-memory-scalar-reconstruction-arm64-to-amd64-report.json",
+          "portability/nodejs/retained/nodejs-portability-memory-scalar-arm64-to-amd64-report.json",
         ),
         "utf8",
       ),
     ) as MemoryScalarReport;
 
     expect(report).toMatchObject({
-      kind: "machinen.node-memory-scalar-reconstruction-proof",
+      kind: "machinen.nodejs-portability-memory-scalar-smoke-report",
       accepted: true,
       scope: "single-memory-only-node-global-scalar-count",
       sourceArch: "arm64",
@@ -69,7 +69,7 @@ describe("Node memory scalar reconstruction proof", () => {
       },
     });
     expect(report.claimBoundary.claims).toEqual([
-      "one controlled memory-only Node count scalar was captured from source process memory and reconstructed target-native across arm64-to-amd64",
+      "one portability smoke row captures a memory-only Node count scalar from source process memory and reconstructs it target-native across arm64-to-amd64",
     ]);
     expect(report.claimBoundary.notClaimed).toEqual(
       expect.arrayContaining([
@@ -94,7 +94,7 @@ describe("Node memory scalar reconstruction proof", () => {
 
   it("uses source process memory capture, not an app-exported checkpoint", () => {
     const script = readFileSync(
-      resolve("proofs/nodejs/scripts/node-memory-scalar-reconstruction.ts"),
+      resolve("portability/nodejs/021-memory-scalar-counter/smoke.ts"),
       "utf8",
     );
     expect(script).toContain("/proc/\\${pid}/mem");

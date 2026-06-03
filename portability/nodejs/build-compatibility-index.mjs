@@ -26,6 +26,10 @@ const evidenceInputs = [
     "portability/nodejs/retained/nodejs-portability-deps-amd64-runtime-report.json",
   ],
   ["runtime-report", "portability/nodejs/retained/nodejs-portability-row001-runtime-report.json"],
+  [
+    "memory-scalar-smoke-report",
+    "portability/nodejs/retained/nodejs-portability-memory-scalar-arm64-to-amd64-report.json",
+  ],
 ];
 const categoryBySlug = {
   "plain-http-create-server": "http",
@@ -48,6 +52,7 @@ const categoryBySlug = {
   "child-process-app": "process-blocker",
   "active-request-app": "live-state-blocker",
   "outbound-connection-app": "network-blocker",
+  "memory-scalar-counter": "memory-state",
 };
 const capabilityBySlug = {
   "plain-http-create-server":
@@ -71,6 +76,8 @@ const capabilityBySlug = {
   "child-process-app": "Child process tree blocker",
   "active-request-app": "In-flight HTTP request blocker",
   "outbound-connection-app": "Outbound connection/reconnect policy blocker",
+  "memory-scalar-counter":
+    "Memory-only Node scalar captured from source process memory and reconstructed target-native",
 };
 
 function hashFile(path) {
@@ -105,6 +112,10 @@ function attemptPolicy(row) {
 }
 
 function archCell(row, arch, reports) {
+  const memoryScalar = memoryScalarCell(row, arch, reports);
+  if (memoryScalar) {
+    return memoryScalar;
+  }
   const ev = [
     evidence(
       "classification-report",
@@ -160,6 +171,42 @@ function archCell(row, arch, reports) {
     lastRun: null,
     evidence: ev,
     notes: "Known capability; runtime execution pending.",
+  };
+}
+
+function memoryScalarCell(row, arch, reports) {
+  if (row.id !== "021-memory-scalar-counter") {
+    return undefined;
+  }
+  const report = reports.find(
+    (candidate) =>
+      candidate.path ===
+      "portability/nodejs/retained/nodejs-portability-memory-scalar-arm64-to-amd64-report.json",
+  );
+  const ev = [
+    evidence(
+      "row-manifest",
+      "portability/nodejs/021-memory-scalar-counter/portability.json",
+      `${arch} memory-scalar row metadata`,
+    ),
+  ];
+  if (report?.report?.accepted === true) {
+    ev.push(evidence(report.kind, report.path, "arm64-to-amd64 memory scalar smoke passed"));
+    return {
+      status: "verified",
+      lastRun: null,
+      evidence: ev,
+      notes:
+        arch === "arm64"
+          ? "Source memory capture recovered count=41 from guest /proc/<pid>/mem."
+          : "Target-native reconstruction verified count 41 -> 42.",
+    };
+  }
+  return {
+    status: "classified",
+    lastRun: null,
+    evidence: ev,
+    notes: "Memory-scalar smoke not retained for this architecture pair.",
   };
 }
 

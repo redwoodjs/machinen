@@ -1,5 +1,5 @@
 {
-  "kind": "machinen.node-memory-scalar-reconstruction-proof",
+  "kind": "machinen.nodejs-portability-memory-scalar-smoke-report",
   "version": 1,
   "accepted": true,
   "scope": "single-memory-only-node-global-scalar-count",
@@ -41,7 +41,7 @@
   },
   "claimBoundary": {
     "claims": [
-      "one controlled memory-only Node count scalar was captured from source process memory and reconstructed target-native across arm64-to-amd64"
+      "one portability smoke row captures a memory-only Node count scalar from source process memory and reconstructs it target-native across arm64-to-amd64"
     ],
     "notClaimed": [
       "arbitrary Node process restore",
@@ -65,5 +65,8 @@
   "retainedArtifacts": [
     "proofs/nodejs/memory-scalar-reconstruction/retained/arm64-source-capture.json",
     "proofs/nodejs/memory-scalar-reconstruction/retained/arm64-to-amd64-target-result.json"
-  ]
+  ],
+  "corpus": "portability/nodejs/021-memory-scalar-counter",
+  "portabilityRow": "021-memory-scalar-counter",
+  "smokeCommand": "pnpm node-portability-memory-scalar --out portability/nodejs/retained/nodejs-portability-memory-scalar-arm64-to-amd64-report.json"
 }

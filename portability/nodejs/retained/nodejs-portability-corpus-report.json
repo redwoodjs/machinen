@@ -4,16 +4,17 @@
   "accepted": true,
   "proofStatus": "verified",
   "corpus": "portability/nodejs",
-  "rowCount": 20,
+  "rowCount": 21,
   "architectures": ["arm64", "amd64"],
   "executeVm": false,
   "installDeps": false,
   "summary": {
-    "productSupportedRows": 9,
+    "productSupportedRows": 10,
     "declaredConfigRows": 5,
     "refusedFirstRows": 6,
     "verifiedVmRows": 0,
     "refusedRows": 12,
+    "failedClassifiedRows": 0,
     "environmentUnavailableRows": 0
   },
   "claimGuard": {
@@ -114,7 +115,7 @@
       "refusalCode": null,
       "details": {
         "reason": "classified; pass --execute-vm to run in Machinen runtime",
-        "dependencies": ["hono"],
+        "dependencies": ["@hono/node-server", "hono"],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
           "rawV8HeapRestoreUsed": false,
@@ -420,6 +421,29 @@
           "rawV8HeapRestoreUsed": false,
           "rawCpuStateReplayUsed": false,
           "sourceIsaEmulationUsed": false
+        }
+      }
+    },
+    {
+      "id": "021-memory-scalar-counter",
+      "slug": "memory-scalar-counter",
+      "disposition": "product-supported",
+      "architecture": "arm64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "arbitraryLinuxProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false,
+          "samePidContinuationClaimed": false,
+          "activeRequestOrSocketContinuationClaimed": false
         }
       }
     },
@@ -514,7 +538,7 @@
       "refusalCode": null,
       "details": {
         "reason": "classified; pass --execute-vm to run in Machinen runtime",
-        "dependencies": ["hono"],
+        "dependencies": ["@hono/node-server", "hono"],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
           "rawV8HeapRestoreUsed": false,
@@ -820,6 +844,29 @@
           "rawV8HeapRestoreUsed": false,
           "rawCpuStateReplayUsed": false,
           "sourceIsaEmulationUsed": false
+        }
+      }
+    },
+    {
+      "id": "021-memory-scalar-counter",
+      "slug": "memory-scalar-counter",
+      "disposition": "product-supported",
+      "architecture": "amd64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "arbitraryLinuxProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false,
+          "samePidContinuationClaimed": false,
+          "activeRequestOrSocketContinuationClaimed": false
         }
       }
     }
