@@ -1,0 +1,827 @@
+{
+  "kind": "machinen.nodejs-portability-corpus-report",
+  "version": 1,
+  "accepted": true,
+  "proofStatus": "verified",
+  "corpus": "portability/nodejs",
+  "rowCount": 20,
+  "architectures": ["arm64", "amd64"],
+  "executeVm": false,
+  "installDeps": false,
+  "summary": {
+    "productSupportedRows": 9,
+    "declaredConfigRows": 5,
+    "refusedFirstRows": 6,
+    "verifiedVmRows": 0,
+    "refusedRows": 12,
+    "environmentUnavailableRows": 0
+  },
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false
+  },
+  "results": [
+    {
+      "id": "001-plain-http-create-server",
+      "slug": "plain-http-create-server",
+      "disposition": "product-supported",
+      "architecture": "arm64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    },
+    {
+      "id": "002-express",
+      "slug": "express",
+      "disposition": "product-supported",
+      "architecture": "arm64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": ["express"],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    },
+    {
+      "id": "003-fastify",
+      "slug": "fastify",
+      "disposition": "product-supported",
+      "architecture": "arm64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": ["fastify"],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    },
+    {
+      "id": "004-koa",
+      "slug": "koa",
+      "disposition": "product-supported",
+      "architecture": "arm64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": ["koa"],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    },
+    {
+      "id": "005-hono",
+      "slug": "hono",
+      "disposition": "product-supported",
+      "architecture": "arm64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": ["hono"],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    },
+    {
+      "id": "006-next-minimal-server",
+      "slug": "next-minimal-server",
+      "disposition": "supported-with-declared-config",
+      "architecture": "arm64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": ["next", "react", "react-dom"],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    },
+    {
+      "id": "007-remix-react-router-server",
+      "slug": "remix-react-router-server",
+      "disposition": "supported-with-declared-config",
+      "architecture": "arm64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": ["@remix-run/node", "@remix-run/router"],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    },
+    {
+      "id": "008-nestjs",
+      "slug": "nestjs",
+      "disposition": "supported-with-declared-config",
+      "architecture": "arm64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": ["@nestjs/core", "@nestjs/common", "reflect-metadata", "rxjs"],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    },
+    {
+      "id": "009-graphql-apollo",
+      "slug": "graphql-apollo",
+      "disposition": "supported-with-declared-config",
+      "architecture": "arm64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": ["@apollo/server", "graphql"],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    },
+    {
+      "id": "010-websocket-server",
+      "slug": "websocket-server",
+      "disposition": "refused-first",
+      "architecture": "arm64",
+      "accepted": false,
+      "executedInVm": false,
+      "state": "refused",
+      "refusalCode": "node-portability-websocket-unsupported",
+      "details": {
+        "reason": "refused by first corpus policy",
+        "dependencies": ["ws"],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    },
+    {
+      "id": "011-sqlite-app",
+      "slug": "sqlite-app",
+      "disposition": "product-supported",
+      "architecture": "arm64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    },
+    {
+      "id": "012-postgres-app",
+      "slug": "postgres-app",
+      "disposition": "supported-with-declared-config",
+      "architecture": "arm64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": ["pg"],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    },
+    {
+      "id": "013-static-file-server",
+      "slug": "static-file-server",
+      "disposition": "product-supported",
+      "architecture": "arm64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    },
+    {
+      "id": "014-file-upload-app",
+      "slug": "file-upload-app",
+      "disposition": "product-supported",
+      "architecture": "arm64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    },
+    {
+      "id": "015-cron-timer-app",
+      "slug": "cron-timer-app",
+      "disposition": "product-supported",
+      "architecture": "arm64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    },
+    {
+      "id": "016-worker-thread-app",
+      "slug": "worker-thread-app",
+      "disposition": "refused-first",
+      "architecture": "arm64",
+      "accepted": false,
+      "executedInVm": false,
+      "state": "refused",
+      "refusalCode": "node-portability-worker-thread-unsupported",
+      "details": {
+        "reason": "refused by first corpus policy",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    },
+    {
+      "id": "017-native-addon-app",
+      "slug": "native-addon-app",
+      "disposition": "refused-first",
+      "architecture": "arm64",
+      "accepted": false,
+      "executedInVm": false,
+      "state": "refused",
+      "refusalCode": "node-portability-native-addon-unsupported",
+      "details": {
+        "reason": "refused by first corpus policy",
+        "dependencies": ["node-gyp"],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    },
+    {
+      "id": "018-child-process-app",
+      "slug": "child-process-app",
+      "disposition": "refused-first",
+      "architecture": "arm64",
+      "accepted": false,
+      "executedInVm": false,
+      "state": "refused",
+      "refusalCode": "node-portability-child-process-unsupported",
+      "details": {
+        "reason": "refused by first corpus policy",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    },
+    {
+      "id": "019-active-request-app",
+      "slug": "active-request-app",
+      "disposition": "refused-first",
+      "architecture": "arm64",
+      "accepted": false,
+      "executedInVm": false,
+      "state": "refused",
+      "refusalCode": "node-portability-active-request-unsupported",
+      "details": {
+        "reason": "refused by first corpus policy",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    },
+    {
+      "id": "020-outbound-connection-app",
+      "slug": "outbound-connection-app",
+      "disposition": "refused-first",
+      "architecture": "arm64",
+      "accepted": false,
+      "executedInVm": false,
+      "state": "refused",
+      "refusalCode": "node-portability-outbound-connection-unsupported",
+      "details": {
+        "reason": "refused by first corpus policy",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    },
+    {
+      "id": "001-plain-http-create-server",
+      "slug": "plain-http-create-server",
+      "disposition": "product-supported",
+      "architecture": "amd64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    },
+    {
+      "id": "002-express",
+      "slug": "express",
+      "disposition": "product-supported",
+      "architecture": "amd64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": ["express"],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    },
+    {
+      "id": "003-fastify",
+      "slug": "fastify",
+      "disposition": "product-supported",
+      "architecture": "amd64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": ["fastify"],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    },
+    {
+      "id": "004-koa",
+      "slug": "koa",
+      "disposition": "product-supported",
+      "architecture": "amd64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": ["koa"],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    },
+    {
+      "id": "005-hono",
+      "slug": "hono",
+      "disposition": "product-supported",
+      "architecture": "amd64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": ["hono"],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    },
+    {
+      "id": "006-next-minimal-server",
+      "slug": "next-minimal-server",
+      "disposition": "supported-with-declared-config",
+      "architecture": "amd64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": ["next", "react", "react-dom"],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    },
+    {
+      "id": "007-remix-react-router-server",
+      "slug": "remix-react-router-server",
+      "disposition": "supported-with-declared-config",
+      "architecture": "amd64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": ["@remix-run/node", "@remix-run/router"],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    },
+    {
+      "id": "008-nestjs",
+      "slug": "nestjs",
+      "disposition": "supported-with-declared-config",
+      "architecture": "amd64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": ["@nestjs/core", "@nestjs/common", "reflect-metadata", "rxjs"],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    },
+    {
+      "id": "009-graphql-apollo",
+      "slug": "graphql-apollo",
+      "disposition": "supported-with-declared-config",
+      "architecture": "amd64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": ["@apollo/server", "graphql"],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    },
+    {
+      "id": "010-websocket-server",
+      "slug": "websocket-server",
+      "disposition": "refused-first",
+      "architecture": "amd64",
+      "accepted": false,
+      "executedInVm": false,
+      "state": "refused",
+      "refusalCode": "node-portability-websocket-unsupported",
+      "details": {
+        "reason": "refused by first corpus policy",
+        "dependencies": ["ws"],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    },
+    {
+      "id": "011-sqlite-app",
+      "slug": "sqlite-app",
+      "disposition": "product-supported",
+      "architecture": "amd64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    },
+    {
+      "id": "012-postgres-app",
+      "slug": "postgres-app",
+      "disposition": "supported-with-declared-config",
+      "architecture": "amd64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": ["pg"],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    },
+    {
+      "id": "013-static-file-server",
+      "slug": "static-file-server",
+      "disposition": "product-supported",
+      "architecture": "amd64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    },
+    {
+      "id": "014-file-upload-app",
+      "slug": "file-upload-app",
+      "disposition": "product-supported",
+      "architecture": "amd64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    },
+    {
+      "id": "015-cron-timer-app",
+      "slug": "cron-timer-app",
+      "disposition": "product-supported",
+      "architecture": "amd64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    },
+    {
+      "id": "016-worker-thread-app",
+      "slug": "worker-thread-app",
+      "disposition": "refused-first",
+      "architecture": "amd64",
+      "accepted": false,
+      "executedInVm": false,
+      "state": "refused",
+      "refusalCode": "node-portability-worker-thread-unsupported",
+      "details": {
+        "reason": "refused by first corpus policy",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    },
+    {
+      "id": "017-native-addon-app",
+      "slug": "native-addon-app",
+      "disposition": "refused-first",
+      "architecture": "amd64",
+      "accepted": false,
+      "executedInVm": false,
+      "state": "refused",
+      "refusalCode": "node-portability-native-addon-unsupported",
+      "details": {
+        "reason": "refused by first corpus policy",
+        "dependencies": ["node-gyp"],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    },
+    {
+      "id": "018-child-process-app",
+      "slug": "child-process-app",
+      "disposition": "refused-first",
+      "architecture": "amd64",
+      "accepted": false,
+      "executedInVm": false,
+      "state": "refused",
+      "refusalCode": "node-portability-child-process-unsupported",
+      "details": {
+        "reason": "refused by first corpus policy",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    },
+    {
+      "id": "019-active-request-app",
+      "slug": "active-request-app",
+      "disposition": "refused-first",
+      "architecture": "amd64",
+      "accepted": false,
+      "executedInVm": false,
+      "state": "refused",
+      "refusalCode": "node-portability-active-request-unsupported",
+      "details": {
+        "reason": "refused by first corpus policy",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    },
+    {
+      "id": "020-outbound-connection-app",
+      "slug": "outbound-connection-app",
+      "disposition": "refused-first",
+      "architecture": "amd64",
+      "accepted": false,
+      "executedInVm": false,
+      "state": "refused",
+      "refusalCode": "node-portability-outbound-connection-unsupported",
+      "details": {
+        "reason": "refused by first corpus policy",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    }
+  ]
+}

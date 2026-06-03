@@ -1,0 +1,49 @@
+{
+  "kind": "machinen.nodejs-portability-corpus-report",
+  "version": 1,
+  "accepted": true,
+  "proofStatus": "verified",
+  "corpus": "portability/nodejs",
+  "rowCount": 1,
+  "architectures": ["arm64"],
+  "executeVm": true,
+  "installDeps": false,
+  "summary": {
+    "productSupportedRows": 1,
+    "declaredConfigRows": 0,
+    "refusedFirstRows": 0,
+    "verifiedVmRows": 1,
+    "refusedRows": 0,
+    "environmentUnavailableRows": 0
+  },
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false
+  },
+  "results": [
+    {
+      "id": "001-plain-http-create-server",
+      "slug": "plain-http-create-server",
+      "disposition": "product-supported",
+      "architecture": "arm64",
+      "accepted": true,
+      "executedInVm": true,
+      "state": "verified",
+      "refusalCode": null,
+      "details": {
+        "verifier": {
+          "accepted": true,
+          "body": "machinen-node-portability:plain-http-create-server"
+        },
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "019-active-request-app",
+  "slug": "active-request-app",
+  "runtime": "nodejs",
+  "description": "In-flight request state refused; retry/idempotency policy required",
+  "disposition": "refused-first",
+  "claimUse": "classification/refusal only; no product support claim",
+  "architecturePolicy": "run-on-each-target-architecture-with-machinen-runtime",
+  "startCommand": "node app.mjs",
+  "healthPath": "/health",
+  "expectedBody": "machinen-node-portability:active-request-app",
+  "dependencies": [],
+  "refusalCode": "node-portability-active-request-unsupported",
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false
+  }
+}

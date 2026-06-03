@@ -1,0 +1,20 @@
+{
+  "id": "006-next-minimal-server",
+  "slug": "next-minimal-server",
+  "runtime": "nodejs",
+  "description": "Next minimal production server; dependency install required",
+  "disposition": "supported-with-declared-config",
+  "claimUse": "portable Node app/product candidate evidence only; no raw process continuation claim",
+  "architecturePolicy": "run-on-each-target-architecture-with-machinen-runtime",
+  "startCommand": "node app.mjs",
+  "healthPath": "/health",
+  "expectedBody": "machinen-node-portability:next-minimal-server:minimal-next-shape",
+  "dependencies": ["next", "react", "react-dom"],
+  "refusalCode": null,
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false
+  }
+}

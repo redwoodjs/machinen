@@ -1,0 +1,20 @@
+{
+  "id": "015-cron-timer-app",
+  "slug": "cron-timer-app",
+  "runtime": "nodejs",
+  "description": "Timer app reconstructed from declared schedule, not in-flight timer heap",
+  "disposition": "product-supported",
+  "claimUse": "portable Node app/product candidate evidence only; no raw process continuation claim",
+  "architecturePolicy": "run-on-each-target-architecture-with-machinen-runtime",
+  "startCommand": "node app.mjs",
+  "healthPath": "/health",
+  "expectedBody": "machinen-node-portability:cron-timer-app:interval:declared:1000ms",
+  "dependencies": [],
+  "refusalCode": null,
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false
+  }
+}

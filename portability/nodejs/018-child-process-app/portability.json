@@ -1,0 +1,20 @@
+{
+  "id": "018-child-process-app",
+  "slug": "child-process-app",
+  "runtime": "nodejs",
+  "description": "Child process tree state refused until process-tree reconstruction is proven",
+  "disposition": "refused-first",
+  "claimUse": "classification/refusal only; no product support claim",
+  "architecturePolicy": "run-on-each-target-architecture-with-machinen-runtime",
+  "startCommand": "node app.mjs",
+  "healthPath": "/health",
+  "expectedBody": "machinen-node-portability:child-process-app",
+  "dependencies": [],
+  "refusalCode": "node-portability-child-process-unsupported",
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false
+  }
+}

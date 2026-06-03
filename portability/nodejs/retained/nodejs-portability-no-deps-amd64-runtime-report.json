@@ -1,0 +1,137 @@
+{
+  "kind": "machinen.nodejs-portability-corpus-report",
+  "version": 1,
+  "accepted": true,
+  "proofStatus": "verified",
+  "corpus": "portability/nodejs",
+  "rowCount": 5,
+  "architectures": ["amd64"],
+  "executeVm": true,
+  "installDeps": false,
+  "summary": {
+    "productSupportedRows": 5,
+    "declaredConfigRows": 0,
+    "refusedFirstRows": 0,
+    "verifiedVmRows": 5,
+    "refusedRows": 0,
+    "environmentUnavailableRows": 0
+  },
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false
+  },
+  "results": [
+    {
+      "id": "001-plain-http-create-server",
+      "slug": "plain-http-create-server",
+      "disposition": "product-supported",
+      "architecture": "amd64",
+      "accepted": true,
+      "executedInVm": true,
+      "state": "verified",
+      "refusalCode": null,
+      "details": {
+        "verifier": {
+          "accepted": true,
+          "body": "machinen-node-portability:plain-http-create-server"
+        },
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    },
+    {
+      "id": "011-sqlite-app",
+      "slug": "sqlite-app",
+      "disposition": "product-supported",
+      "architecture": "amd64",
+      "accepted": true,
+      "executedInVm": true,
+      "state": "verified",
+      "refusalCode": null,
+      "details": {
+        "verifier": {
+          "accepted": true,
+          "body": "machinen-node-portability:sqlite-app:rows=3:sum=41"
+        },
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    },
+    {
+      "id": "013-static-file-server",
+      "slug": "static-file-server",
+      "disposition": "product-supported",
+      "architecture": "amd64",
+      "accepted": true,
+      "executedInVm": true,
+      "state": "verified",
+      "refusalCode": null,
+      "details": {
+        "verifier": {
+          "accepted": true,
+          "body": "machinen-node-portability:static-file-server:portable-static-file"
+        },
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    },
+    {
+      "id": "014-file-upload-app",
+      "slug": "file-upload-app",
+      "disposition": "product-supported",
+      "architecture": "amd64",
+      "accepted": true,
+      "executedInVm": true,
+      "state": "verified",
+      "refusalCode": null,
+      "details": {
+        "verifier": {
+          "accepted": true,
+          "body": "machinen-node-portability:file-upload-app"
+        },
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    },
+    {
+      "id": "015-cron-timer-app",
+      "slug": "cron-timer-app",
+      "disposition": "product-supported",
+      "architecture": "amd64",
+      "accepted": true,
+      "executedInVm": true,
+      "state": "verified",
+      "refusalCode": null,
+      "details": {
+        "verifier": {
+          "accepted": true,
+          "body": "machinen-node-portability:cron-timer-app:interval:declared:1000ms"
+        },
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    }
+  ]
+}

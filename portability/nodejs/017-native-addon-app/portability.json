@@ -1,0 +1,20 @@
+{
+  "id": "017-native-addon-app",
+  "slug": "native-addon-app",
+  "runtime": "nodejs",
+  "description": "Native addon ABI/build state refused until target-native addon rebuild policy is proven",
+  "disposition": "refused-first",
+  "claimUse": "classification/refusal only; no product support claim",
+  "architecturePolicy": "run-on-each-target-architecture-with-machinen-runtime",
+  "startCommand": "node app.mjs",
+  "healthPath": "/health",
+  "expectedBody": "machinen-node-portability:native-addon-app",
+  "dependencies": ["node-gyp"],
+  "refusalCode": "node-portability-native-addon-unsupported",
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false
+  }
+}

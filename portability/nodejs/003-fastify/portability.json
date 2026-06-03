@@ -1,0 +1,20 @@
+{
+  "id": "003-fastify",
+  "slug": "fastify",
+  "runtime": "nodejs",
+  "description": "Fastify HTTP service from package.json",
+  "disposition": "product-supported",
+  "claimUse": "portable Node app/product candidate evidence only; no raw process continuation claim",
+  "architecturePolicy": "run-on-each-target-architecture-with-machinen-runtime",
+  "startCommand": "node app.mjs",
+  "healthPath": "/health",
+  "expectedBody": "machinen-node-portability:fastify",
+  "dependencies": ["fastify"],
+  "refusalCode": null,
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false
+  }
+}
