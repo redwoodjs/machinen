@@ -26,7 +26,9 @@
     "metadataOnlySuccessAccepted": false
   },
   "proofArtifact": "jit-executable-anonymous-mapping-proof.json",
-  "proofArtifactSha256": "ac0d364765dc715e6a1ee027c82c5e1c7ba97f50d5ef76ddf942c7162cfea72b",
+  "proofArtifactSha256": "810999b1d20bb3edfd1755e3655b4c110ba1cc3435c638913da5707d114b5826",
   "proofMode": "stable-refusal-proof",
+  "proofQuality": "stable-refusal-proof",
+  "executableFixture": null,
   "proofChecksPassed": 4
 }

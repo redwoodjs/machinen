@@ -4,6 +4,7 @@
   "rowId": "device-mmap-opaque-resource",
   "proofNumber": "arbitrary/031",
   "proofMode": "stable-refusal-proof",
+  "proofQuality": "stable-refusal-proof",
   "accepted": true,
   "disposition": "refused",
   "fixture": {
@@ -14,7 +15,8 @@
       "device file descriptor",
       "opaque kernel/device side effects"
     ],
-    "fixtureHash": "7f9ba4f1df604f4887ef7299fb702e0f266f551fb3e06f1cfbfed44b2579823e"
+    "fixtureHash": "7f9ba4f1df604f4887ef7299fb702e0f266f551fb3e06f1cfbfed44b2579823e",
+    "execution": null
   },
   "verifier": {
     "targetNativeReconstructionAttempted": false,

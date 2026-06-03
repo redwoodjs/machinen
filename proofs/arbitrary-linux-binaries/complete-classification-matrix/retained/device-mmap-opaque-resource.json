@@ -24,7 +24,9 @@
     "metadataOnlySuccessAccepted": false
   },
   "proofArtifact": "device-mmap-opaque-resource-proof.json",
-  "proofArtifactSha256": "3244e96767d15271e6eaa976ea63af75f68c985aaa59d30b6b8553efa73fd164",
+  "proofArtifactSha256": "d05568205479266248f57a28d8689bfb213ca8c3c55de0a873cc968bcaded6aa",
   "proofMode": "stable-refusal-proof",
+  "proofQuality": "stable-refusal-proof",
+  "executableFixture": null,
   "proofChecksPassed": 4
 }

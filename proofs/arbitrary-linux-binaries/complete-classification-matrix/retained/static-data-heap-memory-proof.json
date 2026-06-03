@@ -4,6 +4,7 @@
   "rowId": "static-data-heap-memory",
   "proofNumber": "arbitrary/021",
   "proofMode": "target-native-reconstruction-proof",
+  "proofQuality": "executable-fixture-proof",
   "accepted": true,
   "disposition": "supported-proof",
   "fixture": {
@@ -15,7 +16,21 @@
       "page protection manifest"
     ],
     "refusedState": [],
-    "fixtureHash": "0fbabdf7fdf7bdeb824984e3b599d071004b4dbbb98d894a227b5f7d26dbab4a"
+    "fixtureHash": "0fbabdf7fdf7bdeb824984e3b599d071004b4dbbb98d894a227b5f7d26dbab4a",
+    "execution": {
+      "name": "static-data-heap-node-fixture",
+      "executed": true,
+      "passed": true,
+      "output": {
+        "staticPayloadSha256": "1f8b9bc0a7601df5f596f364894cd88c6613401fa457ab425831aea66dfad0ab",
+        "heapPayloadSha256": "c5e104ac8d4216c8124b11ddbb9079287facf7d224a7ab6a93e38e4de3e7615a",
+        "mutationBeforeAfterMatched": true
+      },
+      "transcript": [
+        "executed static-data-heap-node-fixture",
+        "verified heapPayloadSha256, mutationBeforeAfterMatched, staticPayloadSha256"
+      ]
+    }
   },
   "verifier": {
     "targetNativeReconstructionAttempted": true,
@@ -27,6 +42,11 @@
         "name": "portable-state-manifest-present",
         "passed": true,
         "detail": "4 portable state fields retained for static-data-heap-memory"
+      },
+      {
+        "name": "executable-fixture-verifier-passed",
+        "passed": true,
+        "detail": "static-data-heap-node-fixture executed and passed for static-data-heap-memory"
       },
       {
         "name": "target-native-verifier-passed",
@@ -48,7 +68,9 @@
   "transcript": [
     "loaded portable fixture static-data-heap-memory-fixture",
     "validated target-native reconstruction manifest",
-    "ran deterministic target verifier checks",
+    "executed static-data-heap-node-fixture",
+    "verified heapPayloadSha256, mutationBeforeAfterMatched, staticPayloadSha256",
+    "ran deterministic executable fixture verifier checks",
     "recorded proof without product claim lift"
   ],
   "claimGuard": {

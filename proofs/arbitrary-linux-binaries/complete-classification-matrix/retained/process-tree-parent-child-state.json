@@ -26,7 +26,9 @@
     "metadataOnlySuccessAccepted": false
   },
   "proofArtifact": "process-tree-parent-child-state-proof.json",
-  "proofArtifactSha256": "6d6af716626899dfeeda0194827184655c453ee102790ec51367b096b5eb6e58",
+  "proofArtifactSha256": "23bdf307d764d88b2501dbb1348a0a376f031888c1be468a5d807f10861a3949",
   "proofMode": "stable-refusal-proof",
+  "proofQuality": "stable-refusal-proof",
+  "executableFixture": null,
   "proofChecksPassed": 4
 }

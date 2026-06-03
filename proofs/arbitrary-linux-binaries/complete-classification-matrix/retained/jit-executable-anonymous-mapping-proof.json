@@ -4,6 +4,7 @@
   "rowId": "jit-executable-anonymous-mapping",
   "proofNumber": "arbitrary/030",
   "proofMode": "stable-refusal-proof",
+  "proofQuality": "stable-refusal-proof",
   "accepted": true,
   "disposition": "refused",
   "fixture": {
@@ -14,7 +15,8 @@
       "generated code bytes",
       "runtime code pointer provenance"
     ],
-    "fixtureHash": "ff6d542db962c4b6f8de307b609369326a1d642944946f263d1f0a5a13b4a601"
+    "fixtureHash": "ff6d542db962c4b6f8de307b609369326a1d642944946f263d1f0a5a13b4a601",
+    "execution": null
   },
   "verifier": {
     "targetNativeReconstructionAttempted": false,

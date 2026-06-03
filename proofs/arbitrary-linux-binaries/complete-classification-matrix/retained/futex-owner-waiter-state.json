@@ -24,7 +24,9 @@
     "metadataOnlySuccessAccepted": false
   },
   "proofArtifact": "futex-owner-waiter-state-proof.json",
-  "proofArtifactSha256": "4fd15edcf6f026af69cba07b8e6cf6719d773836aeb7ee0a48b835705d3c130f",
+  "proofArtifactSha256": "d9cb673fe42d0e61fd31fabe99c6da921c220d897122e1543d17be48e9b4a50c",
   "proofMode": "stable-refusal-proof",
+  "proofQuality": "stable-refusal-proof",
+  "executableFixture": null,
   "proofChecksPassed": 4
 }

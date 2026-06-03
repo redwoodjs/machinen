@@ -24,7 +24,9 @@
     "metadataOnlySuccessAccepted": false
   },
   "proofArtifact": "shared-memory-opaque-mapping-proof.json",
-  "proofArtifactSha256": "acfb416abcdacb39da89afa239ec4409cb5736cea89291ec6fa8d6272effdcfe",
+  "proofArtifactSha256": "e38bd226161aeabd292534a6189b8454e5a1be1e0b0ef652f08b1644dc89800d",
   "proofMode": "stable-refusal-proof",
+  "proofQuality": "stable-refusal-proof",
+  "executableFixture": null,
   "proofChecksPassed": 4
 }

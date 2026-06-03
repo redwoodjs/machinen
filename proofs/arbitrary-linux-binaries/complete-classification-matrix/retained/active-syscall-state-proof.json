@@ -4,6 +4,7 @@
   "rowId": "active-syscall-state",
   "proofNumber": "arbitrary/027",
   "proofMode": "stable-refusal-proof",
+  "proofQuality": "stable-refusal-proof",
   "accepted": true,
   "disposition": "refused",
   "fixture": {
@@ -14,7 +15,8 @@
       "in-kernel continuation",
       "partial kernel-side side effect"
     ],
-    "fixtureHash": "66c08386f86f54c744dd8b1e2d19a4ad7c254f48fe041360cb91d647ef9980fe"
+    "fixtureHash": "66c08386f86f54c744dd8b1e2d19a4ad7c254f48fe041360cb91d647ef9980fe",
+    "execution": null
   },
   "verifier": {
     "targetNativeReconstructionAttempted": false,

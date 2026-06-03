@@ -4,6 +4,7 @@
   "rowId": "active-unix-domain-socket-state",
   "proofNumber": "arbitrary/033",
   "proofMode": "stable-refusal-proof",
+  "proofQuality": "stable-refusal-proof",
   "accepted": true,
   "disposition": "refused",
   "fixture": {
@@ -15,7 +16,8 @@
       "SCM_RIGHTS payload",
       "peer process dependency"
     ],
-    "fixtureHash": "f5ce0e40fbfe84ccd044740e81567ca400168f5663ced85437411ad73ee72ff7"
+    "fixtureHash": "f5ce0e40fbfe84ccd044740e81567ca400168f5663ced85437411ad73ee72ff7",
+    "execution": null
   },
   "verifier": {
     "targetNativeReconstructionAttempted": false,

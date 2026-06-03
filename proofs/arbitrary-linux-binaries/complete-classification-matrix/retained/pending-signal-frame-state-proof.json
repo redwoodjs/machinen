@@ -4,6 +4,7 @@
   "rowId": "pending-signal-frame-state",
   "proofNumber": "arbitrary/026",
   "proofMode": "stable-refusal-proof",
+  "proofQuality": "stable-refusal-proof",
   "accepted": true,
   "disposition": "refused",
   "fixture": {
@@ -14,7 +15,8 @@
       "handler stack continuation",
       "target-specific sigreturn frame"
     ],
-    "fixtureHash": "cb499a46d911ae63875cda9d9224ff692b0675dbd4f1d0b6b22a88ef746ea5d7"
+    "fixtureHash": "cb499a46d911ae63875cda9d9224ff692b0675dbd4f1d0b6b22a88ef746ea5d7",
+    "execution": null
   },
   "verifier": {
     "targetNativeReconstructionAttempted": false,

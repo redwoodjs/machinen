@@ -4,6 +4,7 @@
   "rowId": "idle-epoll-tcp-listener-state",
   "proofNumber": "arbitrary/025",
   "proofMode": "target-native-reconstruction-proof",
+  "proofQuality": "executable-fixture-proof",
   "accepted": true,
   "disposition": "supported-proof",
   "fixture": {
@@ -15,7 +16,21 @@
       "no ready events"
     ],
     "refusedState": [],
-    "fixtureHash": "417f129f947beaf0cf4ff50cc9dfe241ffac987c17322bd51e53c7bb46ee5e00"
+    "fixtureHash": "417f129f947beaf0cf4ff50cc9dfe241ffac987c17322bd51e53c7bb46ee5e00",
+    "execution": {
+      "name": "idle-epoll-tcp-listener-node-fixture",
+      "executed": true,
+      "passed": true,
+      "output": {
+        "listenerStarted": true,
+        "acceptedStreams": 0,
+        "readyEvents": 0
+      },
+      "transcript": [
+        "executed idle-epoll-tcp-listener-node-fixture",
+        "verified acceptedStreams, listenerStarted, readyEvents"
+      ]
+    }
   },
   "verifier": {
     "targetNativeReconstructionAttempted": true,
@@ -27,6 +42,11 @@
         "name": "portable-state-manifest-present",
         "passed": true,
         "detail": "4 portable state fields retained for idle-epoll-tcp-listener-state"
+      },
+      {
+        "name": "executable-fixture-verifier-passed",
+        "passed": true,
+        "detail": "idle-epoll-tcp-listener-node-fixture executed and passed for idle-epoll-tcp-listener-state"
       },
       {
         "name": "target-native-verifier-passed",
@@ -48,7 +68,9 @@
   "transcript": [
     "loaded portable fixture idle-epoll-tcp-listener-state-fixture",
     "validated target-native reconstruction manifest",
-    "ran deterministic target verifier checks",
+    "executed idle-epoll-tcp-listener-node-fixture",
+    "verified acceptedStreams, listenerStarted, readyEvents",
+    "ran deterministic executable fixture verifier checks",
     "recorded proof without product claim lift"
   ],
   "claimGuard": {

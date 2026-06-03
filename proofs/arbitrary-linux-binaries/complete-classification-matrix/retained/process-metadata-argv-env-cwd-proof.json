@@ -4,6 +4,7 @@
   "rowId": "process-metadata-argv-env-cwd",
   "proofNumber": "arbitrary/020",
   "proofMode": "target-native-reconstruction-proof",
+  "proofQuality": "executable-fixture-proof",
   "accepted": true,
   "disposition": "supported-proof",
   "fixture": {
@@ -15,7 +16,23 @@
       "target-native process launch manifest"
     ],
     "refusedState": [],
-    "fixtureHash": "5fa27d5d69105118cb7d9a46108f1d776228d6e84da5096957f265e3ce39615f"
+    "fixtureHash": "5fa27d5d69105118cb7d9a46108f1d776228d6e84da5096957f265e3ce39615f",
+    "execution": {
+      "name": "argv-env-cwd-node-fixture",
+      "executed": true,
+      "passed": true,
+      "output": {
+        "argvMatched": true,
+        "envMatched": true,
+        "cwdMatched": true,
+        "argvSha256": "f62b312d2282723bf5e9426777cc473181f35a1097186ac4955c9d877e8f6379",
+        "cwdSha256": "16c8520e9fe1131ac0afb3510d0e20f503fff0ada010dd6947966d404a8bd59b"
+      },
+      "transcript": [
+        "executed argv-env-cwd-node-fixture",
+        "verified argvMatched, argvSha256, cwdMatched, cwdSha256, envMatched"
+      ]
+    }
   },
   "verifier": {
     "targetNativeReconstructionAttempted": true,
@@ -27,6 +44,11 @@
         "name": "portable-state-manifest-present",
         "passed": true,
         "detail": "4 portable state fields retained for process-metadata-argv-env-cwd"
+      },
+      {
+        "name": "executable-fixture-verifier-passed",
+        "passed": true,
+        "detail": "argv-env-cwd-node-fixture executed and passed for process-metadata-argv-env-cwd"
       },
       {
         "name": "target-native-verifier-passed",
@@ -48,7 +70,9 @@
   "transcript": [
     "loaded portable fixture process-metadata-argv-env-cwd-fixture",
     "validated target-native reconstruction manifest",
-    "ran deterministic target verifier checks",
+    "executed argv-env-cwd-node-fixture",
+    "verified argvMatched, argvSha256, cwdMatched, cwdSha256, envMatched",
+    "ran deterministic executable fixture verifier checks",
     "recorded proof without product claim lift"
   ],
   "claimGuard": {

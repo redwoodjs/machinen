@@ -4,6 +4,7 @@
   "rowId": "dynamic-linker-abi-mismatch-state",
   "proofNumber": "arbitrary/035",
   "proofMode": "stable-refusal-proof",
+  "proofQuality": "stable-refusal-proof",
   "accepted": true,
   "disposition": "refused",
   "fixture": {
@@ -14,7 +15,8 @@
       "ABI mismatch",
       "missing target runtime dependency"
     ],
-    "fixtureHash": "047a2e0a1b807c59f66c64c39f7d2011bef74caab9067851567ae48075b8a10b"
+    "fixtureHash": "047a2e0a1b807c59f66c64c39f7d2011bef74caab9067851567ae48075b8a10b",
+    "execution": null
   },
   "verifier": {
     "targetNativeReconstructionAttempted": false,

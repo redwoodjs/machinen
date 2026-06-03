@@ -24,7 +24,9 @@
     "metadataOnlySuccessAccepted": false
   },
   "proofArtifact": "multi-thread-scheduler-state-proof.json",
-  "proofArtifactSha256": "f1fc703bb53252c94d86852b2b2a25b2a4f2b7b19b415b1bd954a7d3eaa052b8",
+  "proofArtifactSha256": "7bb02d1dbdb9ca85620890eaf2ffdfa5c75e2be77e971893898438d4fcfd2e8d",
   "proofMode": "stable-refusal-proof",
+  "proofQuality": "stable-refusal-proof",
+  "executableFixture": null,
   "proofChecksPassed": 4
 }

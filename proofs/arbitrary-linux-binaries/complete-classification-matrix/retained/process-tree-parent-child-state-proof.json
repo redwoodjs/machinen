@@ -4,6 +4,7 @@
   "rowId": "process-tree-parent-child-state",
   "proofNumber": "arbitrary/034",
   "proofMode": "stable-refusal-proof",
+  "proofQuality": "stable-refusal-proof",
   "accepted": true,
   "disposition": "refused",
   "fixture": {
@@ -15,7 +16,8 @@
       "parent/child relationship",
       "cross-process IPC"
     ],
-    "fixtureHash": "9a033f213b448d821768441c49661bf5fab740e4b52d15a43df9793920468973"
+    "fixtureHash": "9a033f213b448d821768441c49661bf5fab740e4b52d15a43df9793920468973",
+    "execution": null
   },
   "verifier": {
     "targetNativeReconstructionAttempted": false,

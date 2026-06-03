@@ -4,13 +4,29 @@
   "rowId": "regular-file-fd-state",
   "proofNumber": "arbitrary/022",
   "proofMode": "target-native-reconstruction-proof",
+  "proofQuality": "executable-fixture-proof",
   "accepted": true,
   "disposition": "supported-proof",
   "fixture": {
     "id": "regular-file-fd-state-fixture",
     "portableState": ["regular file path", "open flags", "file offset", "content hash verifier"],
     "refusedState": [],
-    "fixtureHash": "2953f263923352a5d9f9ab948fbdb19ed040068702ac792b0bb2fcb64a18e377"
+    "fixtureHash": "2953f263923352a5d9f9ab948fbdb19ed040068702ac792b0bb2fcb64a18e377",
+    "execution": {
+      "name": "regular-file-fd-node-fixture",
+      "executed": true,
+      "passed": true,
+      "output": {
+        "firstRead": "0123",
+        "secondRead": "456",
+        "offsetAdvanced": true,
+        "fileContentSha256": "84d89877f0d4041efb6bf91a16f0248f2fd573e6af05c19f96bedb9f882f7882"
+      },
+      "transcript": [
+        "executed regular-file-fd-node-fixture",
+        "verified fileContentSha256, firstRead, offsetAdvanced, secondRead"
+      ]
+    }
   },
   "verifier": {
     "targetNativeReconstructionAttempted": true,
@@ -22,6 +38,11 @@
         "name": "portable-state-manifest-present",
         "passed": true,
         "detail": "4 portable state fields retained for regular-file-fd-state"
+      },
+      {
+        "name": "executable-fixture-verifier-passed",
+        "passed": true,
+        "detail": "regular-file-fd-node-fixture executed and passed for regular-file-fd-state"
       },
       {
         "name": "target-native-verifier-passed",
@@ -43,7 +64,9 @@
   "transcript": [
     "loaded portable fixture regular-file-fd-state-fixture",
     "validated target-native reconstruction manifest",
-    "ran deterministic target verifier checks",
+    "executed regular-file-fd-node-fixture",
+    "verified fileContentSha256, firstRead, offsetAdvanced, secondRead",
+    "ran deterministic executable fixture verifier checks",
     "recorded proof without product claim lift"
   ],
   "claimGuard": {

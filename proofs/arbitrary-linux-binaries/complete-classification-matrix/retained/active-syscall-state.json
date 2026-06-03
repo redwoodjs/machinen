@@ -26,7 +26,9 @@
     "metadataOnlySuccessAccepted": false
   },
   "proofArtifact": "active-syscall-state-proof.json",
-  "proofArtifactSha256": "81d5d923cc5270fa312b3819b3fddef1c8360e12ac60989375cbada18be17d8a",
+  "proofArtifactSha256": "12ea3aa1e92c0cb7f1c2f32af6aa78c0d816d49df898c8bc056afa9adb26ffa9",
   "proofMode": "stable-refusal-proof",
+  "proofQuality": "stable-refusal-proof",
+  "executableFixture": null,
   "proofChecksPassed": 4
 }

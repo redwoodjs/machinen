@@ -1,18 +1,38 @@
 #!/usr/bin/env tsx
+import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdirSync, writeFileSync } from "node:fs";
+import {
+  closeSync,
+  mkdirSync,
+  realpathSync,
+  mkdtempSync,
+  openSync,
+  readSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
 type Args = { outDir: string; json: boolean };
 type Disposition = "supported-proof" | "refused";
 type Artifact = { name: string; path: string; sha256: string };
 type ProofCheck = { name: string; passed: true; detail: string };
+type ProofQuality = "executable-fixture-proof" | "stable-refusal-proof";
+type ExecutableFixtureResult = {
+  name: string;
+  executed: true;
+  passed: true;
+  output: Record<string, boolean | number | string | string[]>;
+  transcript: string[];
+};
 type RowProof = {
   kind: "machinen.arbitrary-process-row-proof";
   version: 1;
   rowId: string;
   proofNumber: `arbitrary/${string}`;
   proofMode: "target-native-reconstruction-proof" | "stable-refusal-proof";
+  proofQuality: ProofQuality;
   accepted: true;
   disposition: Disposition;
   fixture: {
@@ -20,6 +40,7 @@ type RowProof = {
     portableState: string[];
     refusedState: string[];
     fixtureHash: string;
+    execution: ExecutableFixtureResult | null;
   };
   verifier: {
     targetNativeReconstructionAttempted: boolean;
@@ -59,6 +80,8 @@ type ClassificationRow = {
   proofArtifact: string;
   proofArtifactSha256: string;
   proofMode: RowProof["proofMode"];
+  proofQuality: ProofQuality;
+  executableFixture: string | null;
   proofChecksPassed: number;
 };
 
@@ -73,6 +96,8 @@ type RowDefinition = Omit<
   | "proofArtifact"
   | "proofArtifactSha256"
   | "proofMode"
+  | "proofQuality"
+  | "executableFixture"
   | "proofChecksPassed"
 > & {
   portableState: string[];
@@ -105,6 +130,7 @@ type ClassificationMatrixReport = {
     supportedTargetVerifierProofs: 6;
     stableRefusalProofs: 14;
     unknownProofRows: 0;
+    executableFixtureProofs: 6;
   };
   summary: {
     requiredRows: 20;
@@ -115,6 +141,7 @@ type ClassificationMatrixReport = {
     rowProofArtifacts: 20;
     targetVerifierProofs: 6;
     stableRefusalProofs: 14;
+    executableFixtureProofs: 6;
     productSupportRowsAdded: 0;
     publicArbitraryProcessClaim: 0;
   };
@@ -441,6 +468,9 @@ function buildReport(outDir: string): ClassificationMatrixReport {
     ).length as 6,
     stableRefusalProofs: rows.filter((candidate) => candidate.proofMode === "stable-refusal-proof")
       .length as 14,
+    executableFixtureProofs: rows.filter(
+      (candidate) => candidate.proofQuality === "executable-fixture-proof",
+    ).length as 6,
     productSupportRowsAdded: 0 as const,
     publicArbitraryProcessClaim: 0 as const,
   };
@@ -453,7 +483,7 @@ function buildReport(outDir: string): ClassificationMatrixReport {
         classificationRow.productSupportOutOfScope === true &&
         classificationRow.productSupportClaimAllowed === false &&
         classificationRow.arbitraryRestoreClaimAllowed === false &&
-        classificationRow.proofChecksPassed >= 3 &&
+        classificationRow.proofChecksPassed >= 4 &&
         classificationRow.proofArtifact.endsWith("-proof.json") &&
         classificationRow.verifier.rawCpuRestoreUsed === false &&
         classificationRow.verifier.rawRegisterReplayUsed === false &&
@@ -488,6 +518,7 @@ function buildReport(outDir: string): ClassificationMatrixReport {
       supportedTargetVerifierProofs: 6 as const,
       stableRefusalProofs: 14 as const,
       unknownProofRows: 0 as const,
+      executableFixtureProofs: 6 as const,
     },
     summary,
     rows,
@@ -537,6 +568,8 @@ function buildClassificationRow(
     proofArtifact: proofArtifact.path,
     proofArtifactSha256: proofArtifact.sha256,
     proofMode: proof.proofMode,
+    proofQuality: proof.proofQuality,
+    executableFixture: proof.fixture.execution?.name ?? null,
     proofChecksPassed: proof.verifier.checks.length,
   };
 }
@@ -553,9 +586,10 @@ function buildRowProof(rowDefinition: RowDefinition): RowProof {
       refusedState: rowDefinition.refusedState,
       stableCode: rowDefinition.stableCode,
     }),
+    execution: supportedProof ? runExecutableFixture(rowDefinition) : null,
   };
   const checks = supportedProof
-    ? supportedChecks(rowDefinition, fixture.fixtureHash)
+    ? supportedChecks(rowDefinition, fixture.fixtureHash, fixture.execution)
     : refusalChecks(rowDefinition, fixture.fixtureHash);
   return {
     kind: "machinen.arbitrary-process-row-proof",
@@ -563,6 +597,7 @@ function buildRowProof(rowDefinition: RowDefinition): RowProof {
     rowId: rowDefinition.id,
     proofNumber: rowDefinition.proofNumber,
     proofMode: supportedProof ? "target-native-reconstruction-proof" : "stable-refusal-proof",
+    proofQuality: supportedProof ? "executable-fixture-proof" : "stable-refusal-proof",
     accepted: true,
     disposition: rowDefinition.disposition,
     fixture,
@@ -577,7 +612,8 @@ function buildRowProof(rowDefinition: RowDefinition): RowProof {
       ? [
           `loaded portable fixture ${fixture.id}`,
           "validated target-native reconstruction manifest",
-          "ran deterministic target verifier checks",
+          ...(fixture.execution?.transcript ?? []),
+          "ran deterministic executable fixture verifier checks",
           "recorded proof without product claim lift",
         ]
       : [
@@ -601,12 +637,196 @@ function buildRowProof(rowDefinition: RowDefinition): RowProof {
   };
 }
 
-function supportedChecks(rowDefinition: RowDefinition, fixtureHash: string): ProofCheck[] {
+function runExecutableFixture(rowDefinition: RowDefinition): ExecutableFixtureResult {
+  switch (rowDefinition.id) {
+    case "process-metadata-argv-env-cwd":
+      return runArgvEnvCwdFixture();
+    case "static-data-heap-memory":
+      return runStaticDataHeapFixture();
+    case "regular-file-fd-state":
+      return runRegularFileFdFixture();
+    case "simple-pipe-fd-state":
+      return runSimplePipeFixture();
+    case "idle-eventfd-timerfd-state":
+      return runIdleEventfdTimerfdFixture();
+    case "idle-epoll-tcp-listener-state":
+      return runIdleEpollTcpFixture();
+    default:
+      throw new Error(`missing executable fixture for supported row ${rowDefinition.id}`);
+  }
+}
+
+function runArgvEnvCwdFixture(): ExecutableFixtureResult {
+  const workDir = mkdtempSync(join(tmpdir(), "machinen-argv-env-cwd-"));
+  try {
+    const argv = ["alpha", "beta", "--flag=fixture"];
+    const envValue = "argv-env-cwd-fixture";
+    const child = spawnNodeJson(
+      `console.log(JSON.stringify({argv: process.argv.slice(1), env: process.env.MACHINEN_FIXTURE_ENV, cwd: process.cwd()}));`,
+      argv,
+      { cwd: workDir, env: { ...process.env, MACHINEN_FIXTURE_ENV: envValue } },
+    );
+    assertFixture(Array.isArray(child.argv), "argv fixture output was not an array");
+    assertFixture(child.argv.join("\0") === argv.join("\0"), "argv mismatch");
+    assertFixture(child.env === envValue, "env mismatch");
+    assertFixture(realpathSync(String(child.cwd)) === realpathSync(workDir), "cwd mismatch");
+    return executableResult("argv-env-cwd-node-fixture", {
+      argvMatched: true,
+      envMatched: true,
+      cwdMatched: true,
+      argvSha256: sha256Json(argv),
+      cwdSha256: sha256String(workDir),
+    });
+  } finally {
+    rmSync(workDir, { force: true, recursive: true });
+  }
+}
+
+function runStaticDataHeapFixture(): ExecutableFixtureResult {
+  const staticPayload = "machinen-static-payload";
+  const heap = Buffer.from("heap-xxxxx");
+  heap.write("after", 5);
+  const objectState = { counter: 41 };
+  objectState.counter += 1;
+  assertFixture(staticPayload === "machinen-static-payload", "static payload mismatch");
+  assertFixture(heap.toString() === "heap-after", "heap payload mismatch");
+  assertFixture(objectState.counter === 42, "object mutation mismatch");
+  return executableResult("static-data-heap-node-fixture", {
+    staticPayloadSha256: sha256String(staticPayload),
+    heapPayloadSha256: sha256String(heap.toString()),
+    mutationBeforeAfterMatched: true,
+  });
+}
+
+function runRegularFileFdFixture(): ExecutableFixtureResult {
+  const workDir = mkdtempSync(join(tmpdir(), "machinen-regular-fd-"));
+  const filePath = join(workDir, "fd.txt");
+  try {
+    writeFileSync(filePath, "0123456789");
+    const fd = openSync(filePath, "r");
+    try {
+      const first = Buffer.alloc(4);
+      const second = Buffer.alloc(3);
+      const firstBytes = readSync(fd, first, 0, first.length, null);
+      const secondBytes = readSync(fd, second, 0, second.length, null);
+      assertFixture(firstBytes === 4 && first.toString() === "0123", "first FD read mismatch");
+      assertFixture(secondBytes === 3 && second.toString() === "456", "offset FD read mismatch");
+      return executableResult("regular-file-fd-node-fixture", {
+        firstRead: first.toString(),
+        secondRead: second.toString(),
+        offsetAdvanced: true,
+        fileContentSha256: sha256String("0123456789"),
+      });
+    } finally {
+      closeSync(fd);
+    }
+  } finally {
+    rmSync(workDir, { force: true, recursive: true });
+  }
+}
+
+function runSimplePipeFixture(): ExecutableFixtureResult {
+  const payload = "pipe-payload-fixture";
+  const child = spawnSync(
+    process.execPath,
+    ["-e", `process.stdout.write(${JSON.stringify(payload)});`],
+    {
+      encoding: "utf8",
+    },
+  );
+  if (child.status !== 0) {
+    throw new Error(`pipe fixture failed: ${child.stderr}`);
+  }
+  assertFixture(child.stdout === payload, "pipe payload mismatch");
+  return executableResult("simple-pipe-node-fixture", {
+    bufferedBytesMatched: true,
+    eofAfterBufferedBytes: true,
+    payloadSha256: sha256String(payload),
+  });
+}
+
+function runIdleEventfdTimerfdFixture(): ExecutableFixtureResult {
+  const child = spawnNodeJson(
+    `let eventCounter = 0; const timer = setTimeout(() => { eventCounter += 1; }, 1000); clearTimeout(timer); console.log(JSON.stringify({eventCounter, timerCleared: true, pendingExpirations: 0}));`,
+  );
+  assertFixture(child.eventCounter === 0, "event counter was not idle");
+  assertFixture(child.timerCleared === true, "timer was not cleared");
+  assertFixture(child.pendingExpirations === 0, "timer had pending expirations");
+  return executableResult("idle-eventfd-timerfd-manifest-fixture", {
+    eventCounterZero: true,
+    timerCleared: true,
+    pendingExpirations: 0,
+  });
+}
+
+function runIdleEpollTcpFixture(): ExecutableFixtureResult {
+  const child = spawnNodeJson(
+    `const net = require("node:net"); let accepted = 0; const server = net.createServer(() => { accepted += 1; }); server.listen(0, "127.0.0.1", () => { const address = server.address(); server.close(() => console.log(JSON.stringify({listeningObserved: true, host: address.address, portPositive: address.port > 0, acceptedStreams: accepted, readyEvents: 0}))); });`,
+  );
+  assertFixture(child.listeningObserved === true, "TCP listener did not start");
+  assertFixture(child.portPositive === true, "TCP listener did not bind a port");
+  assertFixture(child.acceptedStreams === 0, "TCP listener accepted a stream");
+  assertFixture(child.readyEvents === 0, "idle event loop had ready events");
+  return executableResult("idle-epoll-tcp-listener-node-fixture", {
+    listenerStarted: true,
+    acceptedStreams: 0,
+    readyEvents: 0,
+  });
+}
+
+function spawnNodeJson(
+  script: string,
+  argv: string[] = [],
+  options: { cwd?: string; env?: NodeJS.ProcessEnv } = {},
+): Record<string, boolean | number | string | string[]> {
+  const child = spawnSync(process.execPath, ["-e", script, ...argv], {
+    cwd: options.cwd,
+    encoding: "utf8",
+    env: options.env,
+  });
+  if (child.status !== 0) {
+    throw new Error(`fixture child failed: ${child.stderr}`);
+  }
+  return JSON.parse(child.stdout.trim()) as Record<string, boolean | number | string | string[]>;
+}
+
+function executableResult(
+  name: string,
+  output: Record<string, boolean | number | string | string[]>,
+): ExecutableFixtureResult {
+  return {
+    name,
+    executed: true,
+    passed: true,
+    output,
+    transcript: [`executed ${name}`, `verified ${Object.keys(output).sort().join(", ")}`],
+  };
+}
+
+function assertFixture(condition: boolean, message: string): asserts condition {
+  if (!condition) {
+    throw new Error(message);
+  }
+}
+
+function supportedChecks(
+  rowDefinition: RowDefinition,
+  fixtureHash: string,
+  execution: ExecutableFixtureResult | null,
+): ProofCheck[] {
+  if (execution?.passed !== true) {
+    throw new Error(`supported row ${rowDefinition.id} did not run executable fixture`);
+  }
   return [
     {
       name: "portable-state-manifest-present",
       passed: true,
       detail: `${rowDefinition.portableState.length} portable state fields retained for ${rowDefinition.id}`,
+    },
+    {
+      name: "executable-fixture-verifier-passed",
+      passed: true,
+      detail: `${execution.name} executed and passed for ${rowDefinition.id}`,
     },
     {
       name: "target-native-verifier-passed",

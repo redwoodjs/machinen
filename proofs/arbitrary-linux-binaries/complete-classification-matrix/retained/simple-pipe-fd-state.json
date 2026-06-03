@@ -25,7 +25,9 @@
     "metadataOnlySuccessAccepted": false
   },
   "proofArtifact": "simple-pipe-fd-state-proof.json",
-  "proofArtifactSha256": "291b345580ca4620dc0ac391fc541a2027d9ef066ffdd36b03abd24a5ff641f4",
+  "proofArtifactSha256": "564538ce124b5a5759b43456eeb8a7759dccdafeaeba089120a18c63dea9cac0",
   "proofMode": "target-native-reconstruction-proof",
-  "proofChecksPassed": 4
+  "proofQuality": "executable-fixture-proof",
+  "executableFixture": "simple-pipe-node-fixture",
+  "proofChecksPassed": 5
 }

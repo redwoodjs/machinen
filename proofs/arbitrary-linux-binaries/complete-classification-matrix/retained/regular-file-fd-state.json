@@ -25,7 +25,9 @@
     "metadataOnlySuccessAccepted": false
   },
   "proofArtifact": "regular-file-fd-state-proof.json",
-  "proofArtifactSha256": "0238359deb5b6d9d7b7b0be96777dbdc7cb010ef7fff5686588dc55596af762f",
+  "proofArtifactSha256": "94b377a107e211a1ce3ff8b2f3ccbd632ebe06e237ab4cb405d109afca1bbdf9",
   "proofMode": "target-native-reconstruction-proof",
-  "proofChecksPassed": 4
+  "proofQuality": "executable-fixture-proof",
+  "executableFixture": "regular-file-fd-node-fixture",
+  "proofChecksPassed": 5
 }

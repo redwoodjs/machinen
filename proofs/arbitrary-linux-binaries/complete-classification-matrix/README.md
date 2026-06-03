@@ -6,13 +6,14 @@ Scope: `declared-arbitrary-process-state-classification-v1`
 
 Proof rows: `arbitrary/020` through `arbitrary/039`
 
-This matrix turns every declared arbitrary-process state class into a retained proof row. Supported rows keep a `*-proof.json` target-native reconstruction verifier artifact. Refused rows keep a `*-proof.json` stable-refusal verifier artifact that refuses before target execution. Product support remains out of scope, and arbitrary process restore remains unclaimed.
+This matrix turns every declared arbitrary-process state class into a retained proof row. Supported rows keep a `*-proof.json` executable fixture verifier artifact. Refused rows keep a `*-proof.json` stable-refusal verifier artifact that refuses before target execution. Product support remains out of scope, and arbitrary process restore remains unclaimed.
 
 ## Summary
 
 - Required rows: 20
 - Verified rows: 20
 - Retained row proof artifacts: 20
+- Executable fixture proofs: 6
 - Supported target-verifier proofs: 6
 - Stable refusal proofs: 14
 - Supported-proof rows: 6
@@ -20,6 +21,12 @@ This matrix turns every declared arbitrary-process state class into a retained p
 - Unknown rows: 0
 - Declared state classes classified: 100%
 - Public arbitrary process restore claim: 0
+
+## Proof quality
+
+- `executable-fixture-proof`: 6 supported rows run a retained executable fixture verifier.
+- `stable-refusal-proof`: 14 refused rows retain stable refusal-code verifier artifacts.
+- Product-path proof: 0 rows; product support remains out of scope for arbitrary process work.
 
 ## Claim effect
 

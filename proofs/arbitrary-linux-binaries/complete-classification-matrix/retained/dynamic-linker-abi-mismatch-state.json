@@ -26,7 +26,9 @@
     "metadataOnlySuccessAccepted": false
   },
   "proofArtifact": "dynamic-linker-abi-mismatch-state-proof.json",
-  "proofArtifactSha256": "12ad3b1d42508c079889bd01778bb80ca0676e251d9f737e375a0bb2272e9c87",
+  "proofArtifactSha256": "0263a8df536e59914a1f0e02189b66d778d9415161fdeb85f176cbfcfcdf7409",
   "proofMode": "stable-refusal-proof",
+  "proofQuality": "stable-refusal-proof",
+  "executableFixture": null,
   "proofChecksPassed": 4
 }

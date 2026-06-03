@@ -27,7 +27,9 @@
     "metadataOnlySuccessAccepted": false
   },
   "proofArtifact": "idle-eventfd-timerfd-state-proof.json",
-  "proofArtifactSha256": "955477ce969989faaeb4be0a8414121e999c2a8541a35cb6c491360ef634e95c",
+  "proofArtifactSha256": "b58d25076b8c7c62cd3f38260071c21f8cf9f00d6e3fa188660d452ecaf8071d",
   "proofMode": "target-native-reconstruction-proof",
-  "proofChecksPassed": 4
+  "proofQuality": "executable-fixture-proof",
+  "executableFixture": "idle-eventfd-timerfd-manifest-fixture",
+  "proofChecksPassed": 5
 }

@@ -4,6 +4,7 @@
   "rowId": "multi-thread-scheduler-state",
   "proofNumber": "arbitrary/028",
   "proofMode": "stable-refusal-proof",
+  "proofQuality": "stable-refusal-proof",
   "accepted": true,
   "disposition": "refused",
   "fixture": {
@@ -15,7 +16,8 @@
       "stack ownership",
       "TLS ownership"
     ],
-    "fixtureHash": "6c3e3d61a4f042b72d3bfc8742f602ada253cc4ac0643f2a8f9b3db7e6fcde08"
+    "fixtureHash": "6c3e3d61a4f042b72d3bfc8742f602ada253cc4ac0643f2a8f9b3db7e6fcde08",
+    "execution": null
   },
   "verifier": {
     "targetNativeReconstructionAttempted": false,

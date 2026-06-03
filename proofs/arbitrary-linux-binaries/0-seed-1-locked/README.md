@@ -48,7 +48,7 @@ The retained phase ladder lives in `../100-phase-ladder/retained/arbitrary-proce
 
 ## Complete declared-state classification matrix
 
-Rows `arbitrary/020` through `arbitrary/039` live in `../complete-classification-matrix/retained/arbitrary-process-complete-classification-matrix-report.json`. They prove/classify 20/20 declared arbitrary-process state classes with 20 retained row proof artifacts: 6 target-native reconstruction proofs, 14 stable refusal proofs, and 0 unknown rows. Product support remains out of scope and arbitrary Linux process restore remains `0`.
+Rows `arbitrary/020` through `arbitrary/039` live in `../complete-classification-matrix/retained/arbitrary-process-complete-classification-matrix-report.json`. They prove/classify 20/20 declared arbitrary-process state classes with 20 retained row proof artifacts: 6 executable fixture proofs, 14 stable refusal proofs, and 0 unknown rows. Product support remains out of scope and arbitrary Linux process restore remains `0`.
 
 ## Local proof notes
 

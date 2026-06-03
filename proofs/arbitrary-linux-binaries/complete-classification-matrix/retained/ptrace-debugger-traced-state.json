@@ -24,7 +24,9 @@
     "metadataOnlySuccessAccepted": false
   },
   "proofArtifact": "ptrace-debugger-traced-state-proof.json",
-  "proofArtifactSha256": "7d8640e60b52d5d10daf212fdcbab1510180d9a26431de7e8f00ef0812c64d4d",
+  "proofArtifactSha256": "29598b5f423573fdbd8db9ea83d31f7c587b822ba06a4f8614003e46d131886d",
   "proofMode": "stable-refusal-proof",
+  "proofQuality": "stable-refusal-proof",
+  "executableFixture": null,
   "proofChecksPassed": 4
 }

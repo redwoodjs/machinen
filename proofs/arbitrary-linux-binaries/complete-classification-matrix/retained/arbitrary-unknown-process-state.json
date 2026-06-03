@@ -26,7 +26,9 @@
     "metadataOnlySuccessAccepted": false
   },
   "proofArtifact": "arbitrary-unknown-process-state-proof.json",
-  "proofArtifactSha256": "d74d4ced7b7a19dd529ce4b33631b774cf027d4b9c6c129589f5cab8d7c25c38",
+  "proofArtifactSha256": "a6bb6a478128763de259603eb00f9884fb28ef901456d2ef02eb042d89e605a0",
   "proofMode": "stable-refusal-proof",
+  "proofQuality": "stable-refusal-proof",
+  "executableFixture": null,
   "proofChecksPassed": 4
 }

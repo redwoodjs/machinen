@@ -4,6 +4,7 @@
   "rowId": "simple-pipe-fd-state",
   "proofNumber": "arbitrary/023",
   "proofMode": "target-native-reconstruction-proof",
+  "proofQuality": "executable-fixture-proof",
   "accepted": true,
   "disposition": "supported-proof",
   "fixture": {
@@ -14,7 +15,21 @@
       "EOF/open endpoint policy"
     ],
     "refusedState": [],
-    "fixtureHash": "bcb1ba94274d769928b3e6d4b9e5947f5e24b774df61bb62a90bb42c3ed68e1a"
+    "fixtureHash": "bcb1ba94274d769928b3e6d4b9e5947f5e24b774df61bb62a90bb42c3ed68e1a",
+    "execution": {
+      "name": "simple-pipe-node-fixture",
+      "executed": true,
+      "passed": true,
+      "output": {
+        "bufferedBytesMatched": true,
+        "eofAfterBufferedBytes": true,
+        "payloadSha256": "97bef8669f6a9f2f9c7142020ec5977112be57e73f3a90604e88ef48f5441f3f"
+      },
+      "transcript": [
+        "executed simple-pipe-node-fixture",
+        "verified bufferedBytesMatched, eofAfterBufferedBytes, payloadSha256"
+      ]
+    }
   },
   "verifier": {
     "targetNativeReconstructionAttempted": true,
@@ -26,6 +41,11 @@
         "name": "portable-state-manifest-present",
         "passed": true,
         "detail": "3 portable state fields retained for simple-pipe-fd-state"
+      },
+      {
+        "name": "executable-fixture-verifier-passed",
+        "passed": true,
+        "detail": "simple-pipe-node-fixture executed and passed for simple-pipe-fd-state"
       },
       {
         "name": "target-native-verifier-passed",
@@ -47,7 +67,9 @@
   "transcript": [
     "loaded portable fixture simple-pipe-fd-state-fixture",
     "validated target-native reconstruction manifest",
-    "ran deterministic target verifier checks",
+    "executed simple-pipe-node-fixture",
+    "verified bufferedBytesMatched, eofAfterBufferedBytes, payloadSha256",
+    "ran deterministic executable fixture verifier checks",
     "recorded proof without product claim lift"
   ],
   "claimGuard": {

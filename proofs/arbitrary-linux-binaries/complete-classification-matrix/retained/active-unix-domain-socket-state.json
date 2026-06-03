@@ -26,7 +26,9 @@
     "metadataOnlySuccessAccepted": false
   },
   "proofArtifact": "active-unix-domain-socket-state-proof.json",
-  "proofArtifactSha256": "fda4c7608b8f2ae65f120e59df7afd50d9b1e4bb913af64226bf2ec1f90fbf9e",
+  "proofArtifactSha256": "2bf3285c28bb2863b1ae81dcfb2e7425ae450d7ef17e34a8c4264b194c1f6d4c",
   "proofMode": "stable-refusal-proof",
+  "proofQuality": "stable-refusal-proof",
+  "executableFixture": null,
   "proofChecksPassed": 4
 }

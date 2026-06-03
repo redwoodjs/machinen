@@ -4,6 +4,7 @@
   "rowId": "shared-memory-opaque-mapping",
   "proofNumber": "arbitrary/032",
   "proofMode": "stable-refusal-proof",
+  "proofQuality": "stable-refusal-proof",
   "accepted": true,
   "disposition": "refused",
   "fixture": {
@@ -14,7 +15,8 @@
       "unmanifested shared bytes",
       "cross-process mutation race"
     ],
-    "fixtureHash": "e2248643dd8a2baee8c161381daec361bce2f2996562ffdadeac49c398e9ebfe"
+    "fixtureHash": "e2248643dd8a2baee8c161381daec361bce2f2996562ffdadeac49c398e9ebfe",
+    "execution": null
   },
   "verifier": {
     "targetNativeReconstructionAttempted": false,

@@ -25,7 +25,9 @@
     "metadataOnlySuccessAccepted": false
   },
   "proofArtifact": "static-data-heap-memory-proof.json",
-  "proofArtifactSha256": "28c68cb8c8c77e398a9f70b57514c22b3249757ef3bacbe8a7416874fb02bd39",
+  "proofArtifactSha256": "91b67259f3a70038b4e3a60bc362d7dbf385c94ac673509244d8f8da3e4e16d2",
   "proofMode": "target-native-reconstruction-proof",
-  "proofChecksPassed": 4
+  "proofQuality": "executable-fixture-proof",
+  "executableFixture": "static-data-heap-node-fixture",
+  "proofChecksPassed": 5
 }

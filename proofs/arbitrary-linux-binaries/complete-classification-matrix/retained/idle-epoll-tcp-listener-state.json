@@ -27,7 +27,9 @@
     "metadataOnlySuccessAccepted": false
   },
   "proofArtifact": "idle-epoll-tcp-listener-state-proof.json",
-  "proofArtifactSha256": "62c6402b9536f1d43f1974e51e71327a26ddb61ebf2cc8010cd63ee739230fec",
+  "proofArtifactSha256": "3da5194e5f2c1c15a2f00d029861c015bae41ce5ef5e57d925ebe8b194b5c465",
   "proofMode": "target-native-reconstruction-proof",
-  "proofChecksPassed": 4
+  "proofQuality": "executable-fixture-proof",
+  "executableFixture": "idle-epoll-tcp-listener-node-fixture",
+  "proofChecksPassed": 5
 }

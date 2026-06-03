@@ -4,13 +4,15 @@
   "rowId": "arbitrary-unknown-process-state",
   "proofNumber": "arbitrary/039",
   "proofMode": "stable-refusal-proof",
+  "proofQuality": "stable-refusal-proof",
   "accepted": true,
   "disposition": "refused",
   "fixture": {
     "id": "arbitrary-unknown-process-state-fixture",
     "portableState": [],
     "refusedState": ["unclassified process-state class", "unknown kernel/runtime resource"],
-    "fixtureHash": "bba4040ee3ea6368ec10a1040de94f6bbcb1e7a918ab1a1131e77f5528dff0f2"
+    "fixtureHash": "bba4040ee3ea6368ec10a1040de94f6bbcb1e7a918ab1a1131e77f5528dff0f2",
+    "execution": null
   },
   "verifier": {
     "targetNativeReconstructionAttempted": false,

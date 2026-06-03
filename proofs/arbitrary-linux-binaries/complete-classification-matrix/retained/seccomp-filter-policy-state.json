@@ -24,7 +24,9 @@
     "metadataOnlySuccessAccepted": false
   },
   "proofArtifact": "seccomp-filter-policy-state-proof.json",
-  "proofArtifactSha256": "f1cef14986e248c54bc1af27d138a3afe4293e6675df0b60a166e5c4ae251d48",
+  "proofArtifactSha256": "723a3a2d0fdb132a4a7a0f52e0f2769afd9ea6c815eb9eb2734a85e0fae4ed6c",
   "proofMode": "stable-refusal-proof",
+  "proofQuality": "stable-refusal-proof",
+  "executableFixture": null,
   "proofChecksPassed": 4
 }

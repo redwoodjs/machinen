@@ -23,7 +23,9 @@
     "metadataOnlySuccessAccepted": false
   },
   "proofArtifact": "process-metadata-argv-env-cwd-proof.json",
-  "proofArtifactSha256": "e769a25d1c23d774b1eb298a640bf8906a88ad86c2013c4f8ba200f1ca3ae890",
+  "proofArtifactSha256": "e6d802e6ee068f16bea49538a3cf78f8ba4427689d1fe2992441be5f2c3706c5",
   "proofMode": "target-native-reconstruction-proof",
-  "proofChecksPassed": 4
+  "proofQuality": "executable-fixture-proof",
+  "executableFixture": "argv-env-cwd-node-fixture",
+  "proofChecksPassed": 5
 }

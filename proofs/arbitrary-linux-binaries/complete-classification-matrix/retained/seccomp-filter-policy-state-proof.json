@@ -4,6 +4,7 @@
   "rowId": "seccomp-filter-policy-state",
   "proofNumber": "arbitrary/037",
   "proofMode": "stable-refusal-proof",
+  "proofQuality": "stable-refusal-proof",
   "accepted": true,
   "disposition": "refused",
   "fixture": {
@@ -14,7 +15,8 @@
       "blocked target syscall",
       "restore helper policy dependency"
     ],
-    "fixtureHash": "72ac43636e6009524eaa3d8e280182cdd7b4b76f52f50f2e4854833ec9912d75"
+    "fixtureHash": "72ac43636e6009524eaa3d8e280182cdd7b4b76f52f50f2e4854833ec9912d75",
+    "execution": null
   },
   "verifier": {
     "targetNativeReconstructionAttempted": false,

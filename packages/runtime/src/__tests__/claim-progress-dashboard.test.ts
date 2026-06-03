@@ -27,7 +27,7 @@ type ClaimProgressProofGroup = {
 
 type ClaimProgressDashboard = {
   kind: "machinen.claim-progress-dashboard";
-  version: 130;
+  version: 131;
   tracks: ClaimProgressTrack[];
   proofGroups: ClaimProgressProofGroup[];
 };
@@ -41,7 +41,7 @@ describe("claim progress dashboard", () => {
 
     expect(dashboard).toMatchObject({
       kind: "machinen.claim-progress-dashboard",
-      version: 130,
+      version: 131,
     });
     expect(dashboard.tracks.map((track) => track.id)).toEqual([
       "node-service",
@@ -228,6 +228,7 @@ describe("claim progress dashboard", () => {
     expect(html).toContain("ID (proof #)");
     expect(html).toContain("Type");
     expect(html).toContain("Subcategory");
+    expect(html).toContain("Proof quality");
     expect(html).not.toContain("other types");
     expect(html).toContain("The table uses a small basic type set");
     expect(html).toContain(
@@ -321,8 +322,20 @@ describe("claim progress dashboard", () => {
     expect(html).toContain("declared-arbitrary-process-state-classification-v1");
     expect(html).toContain("declaredStateClassesClassified");
     expect(html).toContain("completeClassificationRowProofArtifacts");
+    expect(html).toContain("completeClassificationExecutableFixtureProofs");
+    expect(html).toContain("proofQualityLevels");
+    expect(html).toContain("declared-retained-proof");
+    expect(html).toContain("executable-fixture-proof");
+    expect(html).toContain("bidirectional-target-proof");
+    expect(html).toContain("product-path-proof");
     expect(html).toContain("target-native-reconstruction-proof");
     expect(html).toContain("stable-refusal-proof");
+    expect(html).toContain("argv-env-cwd-node-fixture");
+    expect(html).toContain("static-data-heap-node-fixture");
+    expect(html).toContain("regular-file-fd-node-fixture");
+    expect(html).toContain("simple-pipe-node-fixture");
+    expect(html).toContain("idle-eventfd-timerfd-manifest-fixture");
+    expect(html).toContain("idle-epoll-tcp-listener-node-fixture");
     expect(html).toContain("any unclassified process-state class is proven refused by default");
     expect(html).toContain("argv/env/cwd");
     expect(html).toContain("static/data/heap");
