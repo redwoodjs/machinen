@@ -51,6 +51,8 @@ claim group here has a `claim.json` copy plus a readable `README.md`.
 - [Arbitrary process proof/classification phase ladder](./arbitrary-linux-binaries/100-phase-ladder/README.md) — `verified`
 - [Controlled process proof corpus matrix](./arbitrary-linux-binaries/controlled-process-corpus/README.md) — `verified`
 - [Complete arbitrary-process state classification proof matrix](./arbitrary-linux-binaries/complete-classification-matrix/README.md) — `verified`
+- [Arbitrary-process refusal detector transcripts](./arbitrary-linux-binaries/refusal-detector-transcripts/README.md) — `verified`
+- [Arbitrary-process bidirectional target output hardening](./arbitrary-linux-binaries/bidirectional-target-output-hardening/README.md) — `verified`
 - [Whole Linux VM workload portability taxonomy](./linux-vm-workload/not-started/README.md) — `defined`
 - [Whole VM workload boundary matrix](./linux-vm-workload/boundary-matrix/README.md) — `verified`
 - [Whole VM workload smoke matrix](./linux-vm-workload/smoke-matrix/README.md) — `verified`
@@ -58,3 +60,6 @@ claim group here has a `claim.json` copy plus a readable `README.md`.
 - [Whole VM workload next corpus](./linux-vm-workload/next-corpus/README.md) — `defined`
 - [Whole VM workload corpus proof](./linux-vm-workload/corpus-proof/README.md) — `verified`
 - [Whole VM workload corpus product gate](./linux-vm-workload/corpus-product-gate/README.md) — `verified`
+- [Whole VM workload corpus refusal product gate](./linux-vm-workload/corpus-refusal-product-gate/README.md) — `verified`
+- [Whole VM workload claim-scope decision card](./linux-vm-workload/claim-scope-decision-card/README.md) — `verified`
+- [Whole VM clean DB tooling support path](./linux-vm-workload/db-tooling-support-path/README.md) — `verified`

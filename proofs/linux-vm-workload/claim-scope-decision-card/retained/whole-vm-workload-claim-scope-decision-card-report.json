@@ -1,0 +1,54 @@
+{
+  "kind": "machinen.whole-vm-workload-claim-scope-decision-card",
+  "version": 1,
+  "accepted": true,
+  "status": "verified",
+  "scope": "whole-vm-corpus-claim-scope-decision-v1",
+  "recommendation": "keep-current-public-claim-scope",
+  "publicClaimChangeAllowed": false,
+  "currentClaim": {
+    "productSupport": 100,
+    "broadSupport": 100,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "currentClaimScope": "selected-whole-vm-workload-v1 only",
+  "productGatedRows": [
+    "whole-vm-c-service-workload",
+    "whole-vm-filesystem-workload",
+    "whole-vm-network-listener-workload",
+    "whole-vm-multi-process-workload"
+  ],
+  "productRefusedRows": [
+    "whole-vm-sqlite-clean-db-workload",
+    "whole-vm-postgresql-clean-workload",
+    "whole-vm-java-service-workload",
+    "whole-vm-dirty-active-opaque-state-refusals"
+  ],
+  "decisionReasons": [
+    "Supported broader-corpus rows have retained product-gate artifacts, but refused neighbors still bound the corpus.",
+    "The product-gated corpus rows are selected workload rows, not arbitrary VM restore evidence.",
+    "Raw VM-state replay, cross-ISA vCPU replay, source ISA emulation, and metadata-only success remain forbidden.",
+    "Public claim language remains scoped to selected-whole-vm-workload-v1 until an explicit broader claim card is approved."
+  ],
+  "requiredBeforeBroaderClaim": [
+    "explicit named workload scope",
+    "retained product gates for every supported row in that scope",
+    "retained product refusal artifacts for dirty/active/opaque neighbors",
+    "dashboard/public documentation that says arbitrary VM restore is not claimed"
+  ],
+  "noShortcutPolicy": {
+    "rawVmStateRestoreAccepted": false,
+    "crossIsaCpuReplayAccepted": false,
+    "sourceIsaEmulationAccepted": false,
+    "arbitraryVmRestoreAccepted": false,
+    "arbitraryLinuxProcessRestoreAccepted": false,
+    "metadataOnlySuccessAccepted": false
+  },
+  "artifacts": [
+    {
+      "name": "whole-vm-workload-claim-scope-decision-card.json",
+      "path": "whole-vm-workload-claim-scope-decision-card.json",
+      "sha256": "90b1aa86567d42aa808cb1c4b7c3d124236629a828835bb8e79cc415f6b95fcc"
+    }
+  ]
+}

@@ -27,7 +27,7 @@ type ClaimProgressProofGroup = {
 
 type ClaimProgressDashboard = {
   kind: "machinen.claim-progress-dashboard";
-  version: 133;
+  version: 134;
   tracks: ClaimProgressTrack[];
   proofGroups: ClaimProgressProofGroup[];
 };
@@ -41,7 +41,7 @@ describe("claim progress dashboard", () => {
 
     expect(dashboard).toMatchObject({
       kind: "machinen.claim-progress-dashboard",
-      version: 133,
+      version: 134,
     });
     expect(dashboard.tracks.map((track) => track.id)).toEqual([
       "node-service",
@@ -319,6 +319,12 @@ describe("claim progress dashboard", () => {
     expect(html).toContain("arbitrary-process-complete-classification-matrix-report.json");
     expect(html).toContain("process-metadata-argv-env-cwd-proof.json");
     expect(html).toContain("process-metadata-argv-env-cwd-bidirectional-proof.json");
+    expect(html).toContain("arbitrary-process-refusal-detector-transcripts-report.json");
+    expect(html).toContain("arbitrary-process-bidirectional-target-output-hardening-report.json");
+    expect(html).toContain("arbitrary-process-refusal-detector-transcripts-v1");
+    expect(html).toContain("arbitrary-process-bidirectional-target-output-hardening-v1");
+    expect(html).toContain("refusalDetectorTranscriptsVerified");
+    expect(html).toContain("bidirectionalTargetOutputArtifactsRetained");
     expect(html).toContain("arbitrary-unknown-process-state-proof.json");
     expect(html).toContain("declared-arbitrary-process-state-classification-v1");
     expect(html).toContain("declaredStateClassesClassified");
@@ -391,6 +397,19 @@ describe("claim progress dashboard", () => {
     expect(html).toContain("arbitraryVmRestoreRowsAdded");
     expect(html).toContain("whole-vm-c-service-workload-product-gate.json");
     expect(html).toContain("whole-vm-network-listener-workload-product-gate.json");
+    expect(html).toContain("whole-vm-workload-corpus-refusal-product-gate-report.json");
+    expect(html).toContain("whole-vm-refused-corpus-product-refusals-v1");
+    expect(html).toContain("whole-vm-workload-claim-scope-decision-card-report.json");
+    expect(html).toContain("whole-vm-corpus-claim-scope-decision-v1");
+    expect(html).toContain("keep-current-public-claim-scope");
+    expect(html).toContain("whole-vm-db-tooling-support-path-report.json");
+    expect(html).toContain("whole-vm-clean-db-tooling-support-path-v1");
+    expect(html).toContain("cleanDbProductGateRowsVerified");
+    expect(html).toContain("dirtyActiveDbRefusalsVerified");
+    expect(html).toContain("whole-vm-sqlite-clean-db-workload-tooling-product-gate.json");
+    expect(html).toContain("whole-vm-postgresql-active-transaction-dirty-wal-refusal");
+    expect(html).toContain("vm/019");
+    expect(html).toContain("vm/027");
     expect(html).toContain("database workload refusal");
     expect(html).toContain("service workload refusal");
     expect(html).toContain("corpusProductSupportRowsAdded");

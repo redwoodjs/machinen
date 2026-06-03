@@ -1,0 +1,56 @@
+{
+  "kind": "machinen.arbitrary-process-refusal-detector-transcript",
+  "version": 1,
+  "rowId": "futex-owner-waiter-state",
+  "proofNumber": "arbitrary/029",
+  "accepted": true,
+  "status": "verified",
+  "disposition": "detected-refusal",
+  "stableRefusalCode": "arbitrary-process-futex-owner-waiter-unsupported",
+  "detectorSteps": [
+    {
+      "name": "fixture-manifest-loaded",
+      "passed": true,
+      "detail": "loaded refused fixture for futex-owner-waiter-state"
+    },
+    {
+      "name": "refused-state-detected",
+      "passed": true,
+      "detail": "futex owners/waiters and wait queues are proven refused by stable classifier"
+    },
+    {
+      "name": "stable-refusal-code-emitted",
+      "passed": true,
+      "detail": "arbitrary-process-futex-owner-waiter-unsupported"
+    },
+    {
+      "name": "target-execution-blocked",
+      "passed": true,
+      "detail": "refusal completed before target execution"
+    },
+    {
+      "name": "claim-guard-held",
+      "passed": true,
+      "detail": "public arbitrary process restore remains 0"
+    }
+  ],
+  "transcript": [
+    "detector:start row=futex-owner-waiter-state",
+    "detector:classify evidence=futex owners/waiters and wait queues are proven refused by stable classifier",
+    "detector:refuse code=arbitrary-process-futex-owner-waiter-unsupported",
+    "detector:block-target-execution=true",
+    "detector:product-support-out-of-scope=true",
+    "detector:arbitrary-process-restore-claim=0"
+  ],
+  "claimGuard": {
+    "productSupportOutOfScope": true,
+    "productSupportRowsAdded": 0,
+    "publicClaimAllowed": false,
+    "arbitraryProcessRestoreClaimed": 0,
+    "targetExecutionBlocked": true,
+    "rawCpuRestoreUsed": false,
+    "rawRegisterReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

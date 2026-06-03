@@ -1,0 +1,28 @@
+{
+  "kind": "machinen.arbitrary-process-bidirectional-target-output",
+  "version": 1,
+  "rowId": "regular-file-fd-state",
+  "proofNumber": "arbitrary/022",
+  "direction": "arm64-to-amd64",
+  "accepted": true,
+  "status": "verified",
+  "executableFixture": "regular-file-fd-node-fixture",
+  "targetOutputObserved": true,
+  "targetVerifierPassed": true,
+  "output": {
+    "rowId": "regular-file-fd-state",
+    "direction": "arm64-to-amd64",
+    "fixture": "regular-file-fd-node-fixture",
+    "targetNativeVerifier": true,
+    "behaviorMatchedSourceFixture": true
+  },
+  "claimGuard": {
+    "productSupportOutOfScope": true,
+    "arbitraryProcessRestoreClaimed": 0,
+    "publicClaimAllowed": false,
+    "sourceIsaEmulationUsed": false,
+    "rawCpuRestoreUsed": false,
+    "rawRegisterReplayUsed": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

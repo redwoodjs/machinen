@@ -468,7 +468,7 @@
     <script id="embedded-claim-progress" type="application/json">
       {
         "kind": "machinen.claim-progress-dashboard",
-        "version": 133,
+        "version": 134,
         "updatedFrom": [
           "docs/snapshot/node-level5-product-support-claim-registry.json",
           "docs/snapshot/node-level5-product-support-100.json",
@@ -2360,7 +2360,7 @@
             "family": "process",
             "runtime": "linux-process",
             "status": "seed-candidate",
-            "stage": "declared arbitrary-process bidirectional target proofs complete; restore claim 0",
+            "stage": "arbitrary-process proof/classification coverage hardened; restore claim 0",
             "scope": "Proof-only selected-arbitrary-linux-process-seed-v1 plus refusal boundaries; no arbitrary Linux process support claim.",
             "currentClaim": {
               "productSupport": null,
@@ -2375,7 +2375,7 @@
               "productSupportRowsAdded": 0,
               "productSupportOutOfScope": true
             },
-            "summary": "The declared-arbitrary-process-state-classification-v1 matrix is verified as arbitrary/020 through arbitrary/039 with retained proof artifacts for all 20 rows: 6 bidirectional target proofs across 12 directions, 14 stable refusal proofs, and 0 unknown rows. Product support remains out of scope and public arbitrary process restore remains 0.",
+            "summary": "Arbitrary-process work remains proof/classification only. The supported rows have bidirectional target proofs and per-direction target outputs; all 14 refused rows now have detector transcripts. Product support remains out of scope and public arbitrary process restore remains 0.",
             "claimGate": "selected-arbitrary-process-seed-gate accepted; public arbitrary-process claim still 0",
             "claimChangeAllowed": false,
             "evidence": [
@@ -2392,7 +2392,9 @@
               "selected-arbitrary-process-next-proof-matrix",
               "arbitrary-process-100-phase-ladder",
               "controlled-process-corpus-matrix",
-              "arbitrary-process-complete-classification-matrix"
+              "arbitrary-process-complete-classification-matrix",
+              "arbitrary-process-refusal-detector-transcripts",
+              "arbitrary-process-bidirectional-target-output-hardening"
             ],
             "evidenceRows": [
               {
@@ -3277,6 +3279,30 @@
                 "proofChecksPassed": 4,
                 "claimUse": "stable refusal proof; arbitrary process restore remains 0",
                 "next": "Reduce only with retained bidirectional target-native proof artifacts for this state class."
+              },
+              {
+                "id": "arbitrary-process-refusal-detector-transcripts",
+                "area": "arbitrary-process proof hardening",
+                "kind": "refusal detector transcripts",
+                "status": "verified",
+                "disposition": "proof-only",
+                "evidence": "14 detector transcripts and stable refusal codes retained.",
+                "gate": "arbitrary-process-refusal-detector-transcripts",
+                "artifact": "proofs/arbitrary-linux-binaries/refusal-detector-transcripts/retained/arbitrary-process-refusal-detector-transcripts-report.json",
+                "claimUse": "detector transcript evidence only; arbitrary process restore remains 0",
+                "next": "Product support remains out of scope; do not lift arbitrary-process public claim."
+              },
+              {
+                "id": "arbitrary-process-bidirectional-target-output-hardening",
+                "area": "arbitrary-process proof hardening",
+                "kind": "bidirectional target output hardening",
+                "status": "verified",
+                "disposition": "proof-only",
+                "evidence": "12 per-direction target output artifacts retained across 12 directions.",
+                "gate": "arbitrary-process-bidirectional-target-output-hardening",
+                "artifact": "proofs/arbitrary-linux-binaries/bidirectional-target-output-hardening/retained/arbitrary-process-bidirectional-target-output-hardening-report.json",
+                "claimUse": "per-direction target output proof only; arbitrary process restore remains 0",
+                "next": "Product support remains out of scope; do not lift arbitrary-process public claim."
               }
             ],
             "refusals": [
@@ -3551,7 +3577,7 @@
               "productSupportRowsAdded": 0,
               "publicClaimAllowed": false,
               "report": "proofs/arbitrary-linux-binaries/selected-process-seed/retained/selected-arbitrary-process-seed-gate-report.json",
-              "summary": "20 / 20 declared state classes proven · 6 bidirectional target proofs / 12 directions · 14 stable refusals · public arbitrary-process restore claim 0",
+              "summary": "20 / 20 declared state classes proven · 12 per-direction target outputs · 14 refusal detector transcripts · public arbitrary-process restore claim 0",
               "selectedBehaviorChecksRequired": 5,
               "selectedBehaviorChecksVerified": 5,
               "selectedBehaviorRefusalRowsRequired": 8,
@@ -3596,7 +3622,13 @@
                 "stable-refusal-proof"
               ],
               "completeClassificationBidirectionalTargetProofs": 6,
-              "completeClassificationBidirectionalTargetDirections": 12
+              "completeClassificationBidirectionalTargetDirections": 12,
+              "refusalDetectorTranscriptsVerified": 14,
+              "refusalDetectorStableCodesVerified": 14,
+              "bidirectionalTargetOutputArtifactsRetained": 12,
+              "bidirectionalTargetOutputDirectionsVerified": 12,
+              "refusalDetectorTranscriptScope": "arbitrary-process-refusal-detector-transcripts-v1",
+              "bidirectionalTargetOutputScope": "arbitrary-process-bidirectional-target-output-hardening-v1"
             }
           },
           {
@@ -3605,7 +3637,7 @@
             "family": "vm-workload",
             "runtime": "linux-vm",
             "status": "verified",
-            "stage": "selected whole-VM support plus supported corpus product gates; arbitrary VM restore unclaimed",
+            "stage": "whole-VM corpus product/refusal gates and DB tooling path retained; arbitrary VM restore unclaimed",
             "scope": "selected-whole-vm-workload-v1 only",
             "currentClaim": {
               "productSupport": 100,
@@ -3623,7 +3655,7 @@
               "refusalArtifactsCovered": 0,
               "refusalArtifactsRequiredBeforeClaimLift": 52
             },
-            "summary": "Selected whole-VM workload support remains scoped to selected-whole-vm-workload-v1 only. The broader supported corpus now has retained product-gate artifacts for C service, filesystem, network listener, and multi-process rows, but arbitrary VM restore, raw VM-state replay, and arbitrary Linux process restore remain unclaimed.",
+            "summary": "The broader whole-VM corpus now has product gates for supported rows, product-quality refusals for refused rows, a claim-scope decision card that keeps current public scope, and clean SQLite/PostgreSQL tooling support-path artifacts. Arbitrary VM restore remains unclaimed.",
             "claimGate": "selected-whole-vm-workload-support-matrix",
             "claimChangeAllowed": false,
             "evidence": [
@@ -3633,7 +3665,10 @@
               "selected-whole-vm-workload-support-matrix",
               "whole-vm-workload-next-corpus",
               "whole-vm-workload-corpus-proof",
-              "whole-vm-workload-corpus-product-gate"
+              "whole-vm-workload-corpus-product-gate",
+              "whole-vm-workload-corpus-refusal-product-gate",
+              "whole-vm-workload-claim-scope-decision-card",
+              "whole-vm-db-tooling-support-path"
             ],
             "evidenceRows": [
               {
@@ -4007,6 +4042,42 @@
                 "artifact": "proofs/linux-vm-workload/corpus-product-gate/retained/whole-vm-multi-process-workload-product-gate.json",
                 "claimUse": "scoped corpus product artifact only; no arbitrary VM restore claim",
                 "next": "Keep scoped to this corpus row unless additional product/refusal neighbors justify broader claim language."
+              },
+              {
+                "id": "whole-vm-workload-corpus-refusal-product-gate",
+                "area": "whole VM workload corpus",
+                "kind": "corpus product refusal",
+                "status": "verified",
+                "disposition": "proof-gated",
+                "evidence": "4 product-quality refusal rows retained across 8 directions.",
+                "gate": "whole-vm-workload-corpus-refusal-product-gate",
+                "artifact": "proofs/linux-vm-workload/corpus-refusal-product-gate/retained/whole-vm-workload-corpus-refusal-product-gate-report.json",
+                "claimUse": "product-quality refusal artifacts only; no arbitrary VM restore claim",
+                "next": "Keep public scope explicit; arbitrary VM restore remains unclaimed."
+              },
+              {
+                "id": "whole-vm-workload-claim-scope-decision-card",
+                "area": "whole VM workload corpus",
+                "kind": "claim decision card",
+                "status": "verified",
+                "disposition": "proof-gated",
+                "evidence": "Decision card recommends keep-current-public-claim-scope; public claim change allowed=false.",
+                "gate": "whole-vm-workload-claim-scope-decision-card",
+                "artifact": "proofs/linux-vm-workload/claim-scope-decision-card/retained/whole-vm-workload-claim-scope-decision-card-report.json",
+                "claimUse": "decision card only; no public claim lift",
+                "next": "Keep public scope explicit; arbitrary VM restore remains unclaimed."
+              },
+              {
+                "id": "whole-vm-db-tooling-support-path",
+                "area": "whole VM workload corpus",
+                "kind": "clean DB tooling support path",
+                "status": "verified",
+                "disposition": "proof-gated",
+                "evidence": "Clean SQLite/PostgreSQL tooling support path has 2 product gates and 2 dirty/active DB refusals.",
+                "gate": "whole-vm-db-tooling-support-path",
+                "artifact": "proofs/linux-vm-workload/db-tooling-support-path/retained/whole-vm-db-tooling-support-path-report.json",
+                "claimUse": "clean DB tooling support path only; no arbitrary VM restore claim",
+                "next": "Keep public scope explicit; arbitrary VM restore remains unclaimed."
               }
             ],
             "refusals": [
@@ -4326,7 +4397,19 @@
               "corpusProductGateDirectionsVerified": 8,
               "arbitraryVmRestoreRowsAdded": 0,
               "wholeVmCorpusProductGateReport": "proofs/linux-vm-workload/corpus-product-gate/retained/whole-vm-workload-corpus-product-gate-report.json",
-              "wholeVmCorpusProductGateScope": "whole-vm-supported-corpus-product-artifacts-v1"
+              "wholeVmCorpusProductGateScope": "whole-vm-supported-corpus-product-artifacts-v1",
+              "corpusProductRefusalRowsVerified": 4,
+              "corpusProductRefusalDirectionsVerified": 8,
+              "claimScopeDecisionRecommendation": "keep-current-public-claim-scope",
+              "cleanDbProductGateRowsVerified": 2,
+              "cleanDbDirectionsVerified": 4,
+              "dirtyActiveDbRefusalsVerified": 2,
+              "wholeVmRefusalProductGateReport": "proofs/linux-vm-workload/corpus-refusal-product-gate/retained/whole-vm-workload-corpus-refusal-product-gate-report.json",
+              "wholeVmClaimScopeDecisionReport": "proofs/linux-vm-workload/claim-scope-decision-card/retained/whole-vm-workload-claim-scope-decision-card-report.json",
+              "wholeVmDbToolingSupportPathReport": "proofs/linux-vm-workload/db-tooling-support-path/retained/whole-vm-db-tooling-support-path-report.json",
+              "wholeVmRefusalProductGateScope": "whole-vm-refused-corpus-product-refusals-v1",
+              "wholeVmClaimScopeDecisionScope": "whole-vm-corpus-claim-scope-decision-v1",
+              "wholeVmDbToolingSupportPathScope": "whole-vm-clean-db-tooling-support-path-v1"
             }
           }
         ],
@@ -6941,6 +7024,50 @@
                   "claimChangeAllowed": false,
                   "scope": "declared arbitrary-process state proof only"
                 }
+              },
+              {
+                "id": "arbitrary-process-refusal-detector-transcripts",
+                "proofNumber": "arbitrary/040",
+                "category": "refusal detector transcript",
+                "artifact": "proofs/arbitrary-linux-binaries/refusal-detector-transcripts/retained/arbitrary-process-refusal-detector-transcripts-report.json",
+                "proves": "14 refused rows have stable detector transcripts.",
+                "status": "verified",
+                "disposition": "proof-only",
+                "claimUse": "proof-only; arbitrary process restore remains 0",
+                "next": "No product support claim; keep public arbitrary-process restore at 0.",
+                "claimImpact": {
+                  "productSupportDelta": 0,
+                  "broadSupportDelta": 0,
+                  "arbitraryProcessCrossArchRestoreDelta": 0,
+                  "resultingClaim": {
+                    "productSupport": null,
+                    "broadSupport": null,
+                    "arbitraryProcessCrossArchRestore": 0
+                  },
+                  "claimChangeAllowed": false
+                }
+              },
+              {
+                "id": "arbitrary-process-bidirectional-target-output-hardening",
+                "proofNumber": "arbitrary/041",
+                "category": "bidirectional target output",
+                "artifact": "proofs/arbitrary-linux-binaries/bidirectional-target-output-hardening/retained/arbitrary-process-bidirectional-target-output-hardening-report.json",
+                "proves": "12 per-direction target outputs retained.",
+                "status": "verified",
+                "disposition": "proof-only",
+                "claimUse": "proof-only; arbitrary process restore remains 0",
+                "next": "No product support claim; keep public arbitrary-process restore at 0.",
+                "claimImpact": {
+                  "productSupportDelta": 0,
+                  "broadSupportDelta": 0,
+                  "arbitraryProcessCrossArchRestoreDelta": 0,
+                  "resultingClaim": {
+                    "productSupport": null,
+                    "broadSupport": null,
+                    "arbitraryProcessCrossArchRestore": 0
+                  },
+                  "claimChangeAllowed": false
+                }
               }
             ],
             "proofDirectory": "proofs/arbitrary-linux-binaries/0-seed-1-locked"
@@ -7430,6 +7557,213 @@
                   },
                   "claimChangeAllowed": false,
                   "scope": "supported whole-VM corpus product artifacts only"
+                }
+              },
+              {
+                "id": "whole-vm-sqlite-clean-db-workload",
+                "proofNumber": "vm/019",
+                "type": "boundary",
+                "category": "corpus product refusal",
+                "status": "verified",
+                "disposition": "product-refused",
+                "artifact": "proofs/linux-vm-workload/corpus-refusal-product-gate/retained/whole-vm-sqlite-clean-db-workload-product-refusal.json",
+                "proves": "Product-quality refusal whole-vm-workload-tool-missing retained.",
+                "claimUse": "product-quality refusal artifact only; no arbitrary VM restore claim",
+                "next": "Reduce only with clean tooling/product support and dirty-active refusal neighbors.",
+                "claimImpact": {
+                  "productSupportDelta": 0,
+                  "broadSupportDelta": 0,
+                  "arbitraryProcessCrossArchRestoreDelta": 0,
+                  "resultingClaim": {
+                    "productSupport": 100,
+                    "broadSupport": 100,
+                    "arbitraryProcessCrossArchRestore": 0
+                  },
+                  "claimChangeAllowed": false
+                }
+              },
+              {
+                "id": "whole-vm-postgresql-clean-workload",
+                "proofNumber": "vm/020",
+                "type": "boundary",
+                "category": "corpus product refusal",
+                "status": "verified",
+                "disposition": "product-refused",
+                "artifact": "proofs/linux-vm-workload/corpus-refusal-product-gate/retained/whole-vm-postgresql-clean-workload-product-refusal.json",
+                "proves": "Product-quality refusal whole-vm-workload-tool-missing retained.",
+                "claimUse": "product-quality refusal artifact only; no arbitrary VM restore claim",
+                "next": "Reduce only with clean tooling/product support and dirty-active refusal neighbors.",
+                "claimImpact": {
+                  "productSupportDelta": 0,
+                  "broadSupportDelta": 0,
+                  "arbitraryProcessCrossArchRestoreDelta": 0,
+                  "resultingClaim": {
+                    "productSupport": 100,
+                    "broadSupport": 100,
+                    "arbitraryProcessCrossArchRestore": 0
+                  },
+                  "claimChangeAllowed": false
+                }
+              },
+              {
+                "id": "whole-vm-java-service-workload",
+                "proofNumber": "vm/021",
+                "type": "boundary",
+                "category": "corpus product refusal",
+                "status": "verified",
+                "disposition": "product-refused",
+                "artifact": "proofs/linux-vm-workload/corpus-refusal-product-gate/retained/whole-vm-java-service-workload-product-refusal.json",
+                "proves": "Product-quality refusal whole-vm-workload-tool-missing retained.",
+                "claimUse": "product-quality refusal artifact only; no arbitrary VM restore claim",
+                "next": "Reduce only with clean tooling/product support and dirty-active refusal neighbors.",
+                "claimImpact": {
+                  "productSupportDelta": 0,
+                  "broadSupportDelta": 0,
+                  "arbitraryProcessCrossArchRestoreDelta": 0,
+                  "resultingClaim": {
+                    "productSupport": 100,
+                    "broadSupport": 100,
+                    "arbitraryProcessCrossArchRestore": 0
+                  },
+                  "claimChangeAllowed": false
+                }
+              },
+              {
+                "id": "whole-vm-dirty-active-opaque-state-refusals",
+                "proofNumber": "vm/022",
+                "type": "boundary",
+                "category": "corpus product refusal",
+                "status": "verified",
+                "disposition": "product-refusal-defined",
+                "artifact": "proofs/linux-vm-workload/corpus-refusal-product-gate/retained/whole-vm-dirty-active-opaque-state-refusals-product-refusal.json",
+                "proves": "Product-quality refusal whole-vm-dirty-active-opaque-state-unsupported retained.",
+                "claimUse": "product-quality refusal artifact only; no arbitrary VM restore claim",
+                "next": "Reduce only with clean tooling/product support and dirty-active refusal neighbors.",
+                "claimImpact": {
+                  "productSupportDelta": 0,
+                  "broadSupportDelta": 0,
+                  "arbitraryProcessCrossArchRestoreDelta": 0,
+                  "resultingClaim": {
+                    "productSupport": 100,
+                    "broadSupport": 100,
+                    "arbitraryProcessCrossArchRestore": 0
+                  },
+                  "claimChangeAllowed": false
+                }
+              },
+              {
+                "id": "whole-vm-corpus-claim-scope-decision",
+                "proofNumber": "vm/023",
+                "type": "claim",
+                "category": "claim decision card",
+                "status": "verified",
+                "disposition": "keep-current-public-claim-scope",
+                "artifact": "proofs/linux-vm-workload/claim-scope-decision-card/retained/whole-vm-workload-claim-scope-decision-card-report.json",
+                "proves": "Supported broader-corpus rows have retained product-gate artifacts, but refused neighbors still bound the corpus.; The product-gated corpus rows are selected workload rows, not arbitrary VM restore evidence.; Raw VM-state replay, cross-ISA vCPU replay, source ISA emulation, and metadata-only success remain forbidden.; Public claim language remains scoped to selected-whole-vm-workload-v1 until an explicit broader claim card is approved.",
+                "claimUse": "decision card only; no public claim lift",
+                "next": "Keep current public claim scope until an explicit broader claim is approved.",
+                "claimImpact": {
+                  "productSupportDelta": 0,
+                  "broadSupportDelta": 0,
+                  "arbitraryProcessCrossArchRestoreDelta": 0,
+                  "resultingClaim": {
+                    "productSupport": 100,
+                    "broadSupport": 100,
+                    "arbitraryProcessCrossArchRestore": 0
+                  },
+                  "claimChangeAllowed": false
+                }
+              },
+              {
+                "id": "whole-vm-sqlite-clean-db-workload",
+                "proofNumber": "vm/024",
+                "type": "product",
+                "category": "clean DB tooling product gate",
+                "status": "verified",
+                "disposition": "tooling-product-supported",
+                "artifact": "proofs/linux-vm-workload/db-tooling-support-path/retained/whole-vm-sqlite-clean-db-workload-tooling-product-gate.json",
+                "proves": "Target-native clean DB tooling support path covers whole-vm-sqlite-clean-db-workload.",
+                "claimUse": "clean DB tooling support path only; no arbitrary VM restore claim",
+                "next": "Keep dirty/active DB states refused; do not infer arbitrary VM restore.",
+                "claimImpact": {
+                  "productSupportDelta": 0,
+                  "broadSupportDelta": 0,
+                  "arbitraryProcessCrossArchRestoreDelta": 0,
+                  "resultingClaim": {
+                    "productSupport": 100,
+                    "broadSupport": 100,
+                    "arbitraryProcessCrossArchRestore": 0
+                  },
+                  "claimChangeAllowed": false
+                }
+              },
+              {
+                "id": "whole-vm-postgresql-clean-workload",
+                "proofNumber": "vm/025",
+                "type": "product",
+                "category": "clean DB tooling product gate",
+                "status": "verified",
+                "disposition": "tooling-product-supported",
+                "artifact": "proofs/linux-vm-workload/db-tooling-support-path/retained/whole-vm-postgresql-clean-workload-tooling-product-gate.json",
+                "proves": "Target-native clean DB tooling support path covers whole-vm-postgresql-clean-workload.",
+                "claimUse": "clean DB tooling support path only; no arbitrary VM restore claim",
+                "next": "Keep dirty/active DB states refused; do not infer arbitrary VM restore.",
+                "claimImpact": {
+                  "productSupportDelta": 0,
+                  "broadSupportDelta": 0,
+                  "arbitraryProcessCrossArchRestoreDelta": 0,
+                  "resultingClaim": {
+                    "productSupport": 100,
+                    "broadSupport": 100,
+                    "arbitraryProcessCrossArchRestore": 0
+                  },
+                  "claimChangeAllowed": false
+                }
+              },
+              {
+                "id": "whole-vm-sqlite-dirty-wal-hot-journal-refusal",
+                "proofNumber": "vm/026",
+                "type": "boundary",
+                "category": "dirty active DB refusal",
+                "status": "verified",
+                "disposition": "product-refused",
+                "artifact": "proofs/linux-vm-workload/db-tooling-support-path/retained/whole-vm-sqlite-dirty-wal-hot-journal-refusal.json",
+                "proves": "Dirty/active DB state remains refused with whole-vm-dirty-db-state-unsupported.",
+                "claimUse": "dirty/active DB refusal only; no arbitrary VM restore claim",
+                "next": "Reduce only with retained transactional/dirty-state product proof artifacts.",
+                "claimImpact": {
+                  "productSupportDelta": 0,
+                  "broadSupportDelta": 0,
+                  "arbitraryProcessCrossArchRestoreDelta": 0,
+                  "resultingClaim": {
+                    "productSupport": 100,
+                    "broadSupport": 100,
+                    "arbitraryProcessCrossArchRestore": 0
+                  },
+                  "claimChangeAllowed": false
+                }
+              },
+              {
+                "id": "whole-vm-postgresql-active-transaction-dirty-wal-refusal",
+                "proofNumber": "vm/027",
+                "type": "boundary",
+                "category": "dirty active DB refusal",
+                "status": "verified",
+                "disposition": "product-refused",
+                "artifact": "proofs/linux-vm-workload/db-tooling-support-path/retained/whole-vm-postgresql-active-transaction-dirty-wal-refusal.json",
+                "proves": "Dirty/active DB state remains refused with whole-vm-active-db-state-unsupported.",
+                "claimUse": "dirty/active DB refusal only; no arbitrary VM restore claim",
+                "next": "Reduce only with retained transactional/dirty-state product proof artifacts.",
+                "claimImpact": {
+                  "productSupportDelta": 0,
+                  "broadSupportDelta": 0,
+                  "arbitraryProcessCrossArchRestoreDelta": 0,
+                  "resultingClaim": {
+                    "productSupport": 100,
+                    "broadSupport": 100,
+                    "arbitraryProcessCrossArchRestore": 0
+                  },
+                  "claimChangeAllowed": false
                 }
               }
             ]

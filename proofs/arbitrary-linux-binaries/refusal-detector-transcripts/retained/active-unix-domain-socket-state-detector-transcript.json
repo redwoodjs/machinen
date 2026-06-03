@@ -1,0 +1,56 @@
+{
+  "kind": "machinen.arbitrary-process-refusal-detector-transcript",
+  "version": 1,
+  "rowId": "active-unix-domain-socket-state",
+  "proofNumber": "arbitrary/033",
+  "accepted": true,
+  "status": "verified",
+  "disposition": "detected-refusal",
+  "stableRefusalCode": "arbitrary-process-active-unix-socket-unsupported",
+  "detectorSteps": [
+    {
+      "name": "fixture-manifest-loaded",
+      "passed": true,
+      "detail": "loaded refused fixture for active-unix-domain-socket-state"
+    },
+    {
+      "name": "refused-state-detected",
+      "passed": true,
+      "detail": "active Unix domain sockets, queued credentials, and peer coupling are proven refused"
+    },
+    {
+      "name": "stable-refusal-code-emitted",
+      "passed": true,
+      "detail": "arbitrary-process-active-unix-socket-unsupported"
+    },
+    {
+      "name": "target-execution-blocked",
+      "passed": true,
+      "detail": "refusal completed before target execution"
+    },
+    {
+      "name": "claim-guard-held",
+      "passed": true,
+      "detail": "public arbitrary process restore remains 0"
+    }
+  ],
+  "transcript": [
+    "detector:start row=active-unix-domain-socket-state",
+    "detector:classify evidence=active Unix domain sockets, queued credentials, and peer coupling are proven refused",
+    "detector:refuse code=arbitrary-process-active-unix-socket-unsupported",
+    "detector:block-target-execution=true",
+    "detector:product-support-out-of-scope=true",
+    "detector:arbitrary-process-restore-claim=0"
+  ],
+  "claimGuard": {
+    "productSupportOutOfScope": true,
+    "productSupportRowsAdded": 0,
+    "publicClaimAllowed": false,
+    "arbitraryProcessRestoreClaimed": 0,
+    "targetExecutionBlocked": true,
+    "rawCpuRestoreUsed": false,
+    "rawRegisterReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

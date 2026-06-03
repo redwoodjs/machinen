@@ -1,0 +1,58 @@
+{
+  "kind": "machinen.whole-vm-db-tooling-support-path",
+  "version": 1,
+  "accepted": true,
+  "proofStatus": "verified",
+  "scope": "whole-vm-clean-db-tooling-support-path-v1",
+  "publicClaimAllowed": false,
+  "claimChangeAllowed": false,
+  "currentClaimScope": "selected-whole-vm-workload-v1 only",
+  "arbitraryVmRestoreClaimed": false,
+  "arbitraryLinuxProcessRestoreClaimed": false,
+  "summary": {
+    "cleanDbRowsRequired": 2,
+    "cleanDbProductGateRowsVerified": 2,
+    "cleanDbDirectionsVerified": 4,
+    "dirtyActiveDbRefusalsVerified": 2,
+    "arbitraryVmRestoreRowsAdded": 0,
+    "publicClaimRowsAdded": 0
+  },
+  "rowResults": [
+    {
+      "id": "whole-vm-sqlite-clean-db-workload",
+      "status": "verified",
+      "disposition": "tooling-product-supported",
+      "acceptedDirections": ["arm64-to-amd64", "amd64-to-arm64"],
+      "artifact": "whole-vm-sqlite-clean-db-workload-tooling-product-gate.json",
+      "artifactSha256": "108734ce8b284aaff63e9d6a33e2ec78159c60f15bfec5c46074db6894288221",
+      "claimUse": "clean DB tooling support path only; no arbitrary VM restore claim"
+    },
+    {
+      "id": "whole-vm-postgresql-clean-workload",
+      "status": "verified",
+      "disposition": "tooling-product-supported",
+      "acceptedDirections": ["arm64-to-amd64", "amd64-to-arm64"],
+      "artifact": "whole-vm-postgresql-clean-workload-tooling-product-gate.json",
+      "artifactSha256": "846ebd70a218c410ee72812e57b89d9d63f86680261bb3891784604b9ca7739f",
+      "claimUse": "clean DB tooling support path only; no arbitrary VM restore claim"
+    }
+  ],
+  "refusalRows": [
+    {
+      "id": "whole-vm-sqlite-dirty-wal-hot-journal-refusal",
+      "status": "verified",
+      "disposition": "product-refused",
+      "refusalCode": "whole-vm-dirty-db-state-unsupported",
+      "artifact": "whole-vm-sqlite-dirty-wal-hot-journal-refusal.json",
+      "artifactSha256": "85c995344e60827445f83fe1e9e76aafebe88b9d1ace776fa214741d9637ff27"
+    },
+    {
+      "id": "whole-vm-postgresql-active-transaction-dirty-wal-refusal",
+      "status": "verified",
+      "disposition": "product-refused",
+      "refusalCode": "whole-vm-active-db-state-unsupported",
+      "artifact": "whole-vm-postgresql-active-transaction-dirty-wal-refusal.json",
+      "artifactSha256": "daf0df34ce1f73f6f4228b38ad010a5755d00ca9fb9593c5f9cb76e764894618"
+    }
+  ]
+}

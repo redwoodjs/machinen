@@ -1,0 +1,37 @@
+{
+  "id": "whole-vm-workload-claim-scope-decision-card",
+  "claim": "Whole-VM corpus claim-scope decision card",
+  "trackId": "whole-linux-vm-workload",
+  "status": "verified",
+  "scope": "whole-vm-corpus-claim-scope-decision-v1",
+  "claimNumbers": {
+    "productSupport": 100,
+    "broadSupport": 100,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "promotionEffect": "Decision card recommends keeping current public claim scope; arbitrary VM restore remains unclaimed.",
+  "proofDirectory": "proofs/linux-vm-workload/claim-scope-decision-card",
+  "proofs": [
+    {
+      "id": "whole-vm-corpus-claim-scope-decision",
+      "proofNumber": "vm/023",
+      "category": "claim decision card",
+      "status": "verified",
+      "disposition": "keep-current-public-claim-scope",
+      "artifact": "proofs/linux-vm-workload/claim-scope-decision-card/retained/whole-vm-workload-claim-scope-decision-card-report.json",
+      "proves": "Supported broader-corpus rows have retained product-gate artifacts, but refused neighbors still bound the corpus.; The product-gated corpus rows are selected workload rows, not arbitrary VM restore evidence.; Raw VM-state replay, cross-ISA vCPU replay, source ISA emulation, and metadata-only success remain forbidden.; Public claim language remains scoped to selected-whole-vm-workload-v1 until an explicit broader claim card is approved.",
+      "claimUse": "decision card only; no public claim lift",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 100,
+          "broadSupport": 100,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    }
+  ]
+}
