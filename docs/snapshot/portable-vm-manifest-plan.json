@@ -370,9 +370,9 @@
       "row": "portable-vm-product-snapshot-restore-e2e",
       "status": "verified",
       "scope": "portable-vm-all3-product-snapshot-restore-v1",
-      "proves": "machinen snapshot --portable and machinen restore now consume the selected portable VM all-three bundle with detected source/target architecture and filesystem/service/SQLite verifiers.",
+      "proves": "machinen snapshot --portable and machinen restore now consume the selected portable VM all-three bundle with detected source/target architecture; retained product evidence includes a real arm64→amd64 restore with filesystem/service/SQLite verifiers passing.",
       "artifact": "proofs/linux-vm-workload/portable-vm-product-snapshot-restore/retained/portable-vm-product-snapshot-restore-e2e-report.json",
-      "claimUse": "product command path evidence only; opposite-arch product host run is next; arbitrary VM restore remains unclaimed"
+      "claimUse": "product command path evidence for the selected all-three portable VM workload; arbitrary VM restore remains unclaimed"
     }
   ]
 }

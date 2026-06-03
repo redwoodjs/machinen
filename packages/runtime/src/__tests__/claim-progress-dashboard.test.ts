@@ -41,7 +41,7 @@ describe("claim progress dashboard", () => {
 
     expect(dashboard).toMatchObject({
       kind: "machinen.claim-progress-dashboard",
-      version: 139,
+      version: 140,
     });
     expect(dashboard.tracks.map((track) => track.id)).toEqual([
       "node-service",

@@ -1,0 +1,10 @@
+4f4db844b3a44a9f5e64ccc4be91b16e4e4fdfcacbb560b16c0b294b609b91cf  release-assets/bzImage-x86_64
+af8862f32776b2f207c8060397f04c4dccec59291c60fa1b84699c2d00ac473b  release-assets/rootfs-debian-amd64.tar.gz
+e8b059dad5229463c10df0d8ef747c4141c4afb2831b8ac49bcd668cd5cc0706  packages/native-x64-linux/vmm/bin/machinen-vm
+f877415e0f0856f6cbedb3dc2d1aae53f12dc12b515841020f2c1e0ebd5eb857  packages/native-x64-linux/vmm/guest/init
+28c848b77da5455e12cc35a09984a3c7fbc10e825a014e5e10bdd8dc388968b9  packages/native-x64-linux/vmm/guest/exec-agent
+release-assets/bzImage-x86_64:                  Linux kernel x86 boot executable bzImage, version 6.12.20 (root@p4p8-server) #1 SMP PREEMPT_DYNAMIC Wed Jun  3 14:01:32 SAST 2026, RO-rootFS, swap_dev 0XD, Normal VGA
+release-assets/rootfs-debian-amd64.tar.gz:      gzip compressed data, from Unix, original size modulo 2^32 157153280 gzip compressed data, reserved method, ASCII, encrypted, from FAT filesystem (MS-DOS, OS/2, NT), original size modulo 2^32 157153280
+packages/native-x64-linux/vmm/bin/machinen-vm:  ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, with debug_info, not stripped
+packages/native-x64-linux/vmm/guest/init:       ELF 64-bit LSB executable, x86-64, version 1 (SYSV), statically linked, stripped
+packages/native-x64-linux/vmm/guest/exec-agent: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), statically linked, stripped

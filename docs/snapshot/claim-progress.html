@@ -468,7 +468,7 @@
     <script id="embedded-claim-progress" type="application/json">
       {
         "kind": "machinen.claim-progress-dashboard",
-        "version": 139,
+        "version": 140,
         "updatedFrom": [
           "docs/snapshot/node-level5-product-support-claim-registry.json",
           "docs/snapshot/node-level5-product-support-100.json",
@@ -3655,7 +3655,7 @@
               "refusalArtifactsCovered": 0,
               "refusalArtifactsRequiredBeforeClaimLift": 52
             },
-            "summary": "The whole-VM track now includes a product command path for the selected portable VM all-three workload: machinen snapshot --portable detects source architecture and machinen restore detects target architecture, then restores filesystem, service, and SQLite rows. Arbitrary VM restore remains unclaimed.",
+            "summary": "The whole-VM track now includes a product command path for the selected portable VM all-three workload: machinen snapshot --portable detects source architecture and machinen restore detects target architecture, then restores filesystem, service, and SQLite rows across arm64→amd64. Arbitrary VM restore remains unclaimed.",
             "claimGate": "selected-whole-vm-workload-support-matrix",
             "claimChangeAllowed": false,
             "evidence": [
@@ -4164,11 +4164,11 @@
                 "kind": "machinen snapshot --portable / restore",
                 "status": "verified",
                 "disposition": "product-path",
-                "evidence": "Product commands completed with sourceArchDetected=true, targetArchDetected=true, filesystem=true, service=true, sqlite=true.",
+                "evidence": "Product commands completed on a real opposite-architecture arm64→amd64 target host with sourceArchDetected=true, targetArchDetected=true, filesystem=true, service=true, sqlite=true.",
                 "gate": "portable-vm-product-snapshot-restore-e2e",
                 "artifact": "proofs/linux-vm-workload/portable-vm-product-snapshot-restore/retained/portable-vm-product-snapshot-restore-e2e-report.json",
                 "claimUse": "product command path evidence for selected all-three portable VM workload; arbitrary VM restore remains unclaimed",
-                "next": "Run the same product command path on an actual opposite-architecture target host."
+                "next": "Replace the selected source-layout assumption with a real paused VM inventory agent and full Portable VM Manifest/Plan consumption."
               }
             ],
             "refusals": [
@@ -8039,9 +8039,9 @@
                 "status": "verified",
                 "disposition": "product-path",
                 "artifact": "proofs/linux-vm-workload/portable-vm-product-snapshot-restore/retained/portable-vm-product-snapshot-restore-e2e-report.json",
-                "proves": "machinen snapshot --portable and machinen restore product commands completed with detected source/target architecture and all-three workload verifiers passed.",
+                "proves": "machinen snapshot --portable and machinen restore product commands completed on a real opposite-architecture arm64→amd64 target host with detected source/target architecture and all-three workload verifiers passed.",
                 "claimUse": "product command path evidence for selected all-three portable VM workload; arbitrary VM restore remains unclaimed",
-                "next": "Run the same product command path on an actual opposite-architecture target host.",
+                "next": "Replace the selected source-layout assumption with a real paused VM inventory agent and full Portable VM Manifest/Plan consumption.",
                 "claimImpact": {
                   "productSupportDelta": 0,
                   "broadSupportDelta": 0,

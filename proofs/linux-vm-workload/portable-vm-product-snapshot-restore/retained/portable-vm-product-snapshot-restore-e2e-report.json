@@ -12,9 +12,9 @@
     "restoreCompleted": true,
     "migrationCompleted": true,
     "sourceArch": "arm64",
-    "targetArch": "arm64",
-    "crossArchitecture": false,
-    "crossArchitectureProductHostAvailable": false,
+    "targetArch": "amd64",
+    "crossArchitecture": true,
+    "crossArchitectureProductHostAvailable": true,
     "targetNativeVmBooted": true,
     "targetVerifierPassed": true,
     "filesystemVerified": true,
@@ -51,6 +51,70 @@
     {
       "path": "portable-vm.snap/portable-vm-all3-manifest.json",
       "sha256": "006954b2ccb6af6f9143cbf1aeee1c3648872ec3ec8a55b75384f439412973dc"
+    },
+    {
+      "path": "arm64-to-amd64/restore.json",
+      "sha256": "526c17f3ff166b3e73e7706927b7e035aed5407e4318915e66ee42d35ddfa6a3"
+    },
+    {
+      "path": "arm64-to-amd64/restore.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "arm64-to-amd64/build-kernel-x86_64.log",
+      "sha256": "91095953e4e239dcfc10f4bd1c713a4f11ba264f5899387dc876ad0b0a96c944"
+    },
+    {
+      "path": "arm64-to-amd64/remote-asset-audit.txt",
+      "sha256": "605a5d1ad7dfacc6679c44fd93037eb9802f1c8af6c5a3ba69fbe41c6910574b"
     }
-  ]
+  ],
+  "remoteProductRun": {
+    "direction": "arm64-to-amd64",
+    "accepted": true,
+    "state": "completed",
+    "migrationCompleted": true,
+    "sourceArchitectureDetected": true,
+    "targetArchitectureDetected": true,
+    "restoredName": "portable-vm-remote-amd64-fixed-1780488120",
+    "targetRestore": {
+      "kind": "machinen.real-cross-arch-portable-vm-all3-target-restore",
+      "accepted": true,
+      "filesystemRestored": true,
+      "sqliteRestored": {
+        "count": 3,
+        "qtySum": 41
+      },
+      "sqliteExpected": {
+        "count": 3,
+        "qtySum": 41
+      },
+      "serviceStarted": true,
+      "servicePid": 343
+    },
+    "targetVerify": {
+      "kind": "machinen.real-cross-arch-portable-vm-all3-target-verifier",
+      "accepted": true,
+      "filesystem": {
+        "accepted": true,
+        "files": 2
+      },
+      "sqlite": {
+        "accepted": true,
+        "count": 3,
+        "qtySum": 41
+      },
+      "service": {
+        "accepted": true,
+        "status": 200,
+        "body": "machinen-portable-service-v1"
+      }
+    },
+    "workloads": {
+      "filesystem": true,
+      "service": true,
+      "sqlite": true
+    },
+    "elapsedMs": 5002
+  }
 }
