@@ -16,6 +16,7 @@ type PortableVmManifestPlan = {
   plan: { rows: Array<Record<string, unknown>> };
   summary: Record<string, unknown>;
   validationRules: string[];
+  implementationEvidence?: Array<Record<string, unknown>>;
 };
 
 describe("portable VM manifest/plan dashboard", () => {
@@ -39,7 +40,7 @@ describe("portable VM manifest/plan dashboard", () => {
     expect(manifestPlan.productIntent).toMatchObject({
       goal: expect.stringContaining("Pause a VM"),
       notGoal: expect.stringContaining("raw vCPU replay"),
-      nextImplementationStep: expect.stringContaining("guest inventory agent"),
+      nextImplementationStep: expect.stringContaining("machinen restore"),
     });
     expect(manifestPlan.workflow.map((step) => step.name)).toEqual([
       "pause/quiesce VM",
@@ -48,6 +49,14 @@ describe("portable VM manifest/plan dashboard", () => {
       "plan restore",
       "restore target-native VM",
       "retain proof artifacts",
+    ]);
+    expect(manifestPlan.implementationEvidence?.map((row) => row.id)).toEqual([
+      "vm/028",
+      "vm/029",
+      "vm/030",
+      "vm/031",
+      "vm/032",
+      "vm/033",
     ]);
     expect(manifestPlan.claimGuard).toMatchObject({
       publicClaimAllowed: false,
@@ -82,6 +91,10 @@ describe("portable VM manifest/plan dashboard", () => {
     expect(html).toContain("mixed VM state");
     expect(html).toContain("mostly whole-VM restore");
     expect(html).toContain("Workflow");
+    expect(html).toContain("Implementation evidence");
+    expect(html).toContain("real-cross-arch-tcp-listener-product-e2e-report.json");
+    expect(html).toContain("real-cross-arch-portable-vm-all3-e2e-report.json");
+    expect(html).toContain("vm/033");
     expect(html).toContain("pause/quiesce VM");
     expect(html).toContain("restore target-native VM");
     expect(html).toContain("Claim guard");

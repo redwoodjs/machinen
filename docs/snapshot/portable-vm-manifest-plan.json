@@ -9,7 +9,7 @@
     "goal": "Pause a VM, inventory its contents, classify every row, restore what is safe, and refuse unsafe state with stable codes.",
     "notGoal": "Do not claim exact arbitrary cross-architecture VM resume, raw vCPU replay, source ISA emulation, or metadata-only success.",
     "why": "This makes mostly-whole-VM cross-architecture restore inspectable and honest instead of a vague any-VM promise.",
-    "nextImplementationStep": "Build a guest inventory agent plus pause/quiesce path that emits this manifest/plan from a real VM."
+    "nextImplementationStep": "Promote the retained real cross-arch filesystem, service, SQLite, and TCP-listener E2Es into machinen restore consuming the Portable VM Manifest/Plan directly."
   },
   "workflow": [
     {
@@ -288,7 +288,10 @@
     "refusedRows": 4,
     "sameArchOnlyRows": 0,
     "unknownRows": 0,
-    "publicClaimAllowed": false
+    "publicClaimAllowed": false,
+    "implementationEvidenceRows": 6,
+    "realCrossArchE2eRows": 4,
+    "arbitraryVmRestoreClaimed": false
   },
   "validationRules": [
     "Every manifest item must have a disposition.",
@@ -296,5 +299,61 @@
     "Every product-supported row must name a proofGate and artifactRequirements.",
     "unknownStatePolicy=refuse-by-default must remain true for cross-architecture restore.",
     "A manifest/plan alone must not raise a public arbitrary VM restore claim."
+  ],
+  "implementationEvidence": [
+    {
+      "id": "vm/028",
+      "row": "portable-vm-inventory-plan-proof",
+      "status": "verified",
+      "scope": "controlled-portable-vm-inventory-plan-v1",
+      "proves": "Controlled VM inventory rows classify into a generated Portable VM Manifest/Plan with stable refusals.",
+      "artifact": "proofs/linux-vm-workload/portable-vm-inventory-plan/retained/portable-vm-inventory-plan-report.json",
+      "claimUse": "workflow proof only; arbitrary VM restore remains unclaimed"
+    },
+    {
+      "id": "vm/029",
+      "row": "portable-vm-guest-inventory-plan-proof",
+      "status": "verified",
+      "scope": "fixture-guest-inventory-portable-vm-plan-v1",
+      "proves": "Fixture guest inventory input is collected into raw inventory and classified into a Portable VM Manifest/Plan.",
+      "artifact": "proofs/linux-vm-workload/portable-vm-guest-inventory-plan/retained/portable-vm-guest-inventory-plan-report.json",
+      "claimUse": "workflow proof only; arbitrary VM restore remains unclaimed"
+    },
+    {
+      "id": "vm/030",
+      "row": "real-cross-arch-tcp-listener-product-e2e",
+      "status": "verified",
+      "scope": "real-cross-arch-tcp-listener-product-e2e-v1",
+      "proves": "Actual amd64→arm64 product capture/restore path boots a target-native VM and verifies a selected TCP listener.",
+      "artifact": "proofs/linux-vm-workload/real-cross-arch-tcp-listener-product-e2e/retained/real-cross-arch-tcp-listener-product-e2e-report.json",
+      "claimUse": "selected TCP listener workload evidence only; arbitrary VM restore remains unclaimed"
+    },
+    {
+      "id": "vm/031",
+      "row": "real-cross-arch-filesystem-product-e2e",
+      "status": "verified",
+      "scope": "real-cross-arch-portable-vm-filesystem-service-sqlite-v1",
+      "proves": "Actual amd64→arm64 target VM materializes retained filesystem rows and verifies SHA-256 hashes.",
+      "artifact": "proofs/linux-vm-workload/real-cross-arch-portable-vm-all3-e2e/retained/real-cross-arch-portable-vm-all3-e2e-report.json",
+      "claimUse": "selected filesystem workload evidence only; arbitrary VM restore remains unclaimed"
+    },
+    {
+      "id": "vm/032",
+      "row": "real-cross-arch-service-product-e2e",
+      "status": "verified",
+      "scope": "real-cross-arch-portable-vm-filesystem-service-sqlite-v1",
+      "proves": "Actual amd64→arm64 target VM starts a target-native selected service and verifies request/response behavior.",
+      "artifact": "proofs/linux-vm-workload/real-cross-arch-portable-vm-all3-e2e/retained/real-cross-arch-portable-vm-all3-e2e-report.json",
+      "claimUse": "selected service workload evidence only; arbitrary VM restore remains unclaimed"
+    },
+    {
+      "id": "vm/033",
+      "row": "real-cross-arch-sqlite-product-e2e",
+      "status": "verified",
+      "scope": "real-cross-arch-portable-vm-filesystem-service-sqlite-v1",
+      "proves": "Actual amd64→arm64 target VM restores a clean SQLite database with target-native tooling and verifies query results.",
+      "artifact": "proofs/linux-vm-workload/real-cross-arch-portable-vm-all3-e2e/retained/real-cross-arch-portable-vm-all3-e2e-report.json",
+      "claimUse": "selected clean SQLite workload evidence only; arbitrary VM restore remains unclaimed"
+    }
   ]
 }
