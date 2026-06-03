@@ -1,0 +1,65 @@
+{
+  "kind": "machinen.node-memory-scalar-reconstruction-proof",
+  "version": 1,
+  "accepted": true,
+  "scope": "single-memory-only-node-global-scalar-count",
+  "sourceArch": "arm64",
+  "targetArch": "arm64",
+  "migrationCompleted": true,
+  "sourceCapture": {
+    "kind": "machinen.node-memory-scalar-reconstruction-proof.source-capture",
+    "accepted": true,
+    "sourceArch": "arm64",
+    "anchor": "machinen-memory-scalar-count-anchor-v1",
+    "variable": "count",
+    "capturedValue": 41,
+    "captureMethod": "guest-proc-mem-v8-context-smi-scan",
+    "appHookUsedForCapture": false,
+    "rawV8HeapRestored": false,
+    "samePidRestored": false,
+    "evidence": {
+      "value": 41,
+      "anchorTaggedAddress": "0x39b18d64c0a9",
+      "anchorAddress": "0x39b18d64c0b8",
+      "contextPointerAddress": "0x2e18d48fed0",
+      "contextSlotAddress": "0x2e18d48fe80",
+      "smiEncoding": "v8-pointer-compressed-or-tagged-smi"
+    }
+  },
+  "targetResult": {
+    "kind": "machinen.node-memory-scalar-reconstruction-proof.target-result",
+    "accepted": true,
+    "targetArch": "arm64",
+    "sourceArch": "arm64",
+    "capturedValue": 41,
+    "reconstructedInitialValue": 41,
+    "incrementedValue": 42,
+    "targetNativeNode": true,
+    "appHookUsedForCapture": false,
+    "rawV8HeapRestored": false,
+    "samePidRestored": false
+  },
+  "claimBoundary": {
+    "claims": [
+      "one controlled memory-only Node count scalar was captured from source process memory and reconstructed target-native"
+    ],
+    "notClaimed": [
+      "arbitrary Node process restore",
+      "raw V8 heap restore",
+      "same PID continuation",
+      "active request/socket continuation",
+      "worker/native-addon/child-process live-state transfer",
+      "source ISA emulation",
+      "arbitrary Linux process restore"
+    ]
+  },
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "arbitraryLinuxProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "samePidContinuationClaimed": false,
+    "activeRequestOrSocketContinuationClaimed": false
+  }
+}

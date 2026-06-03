@@ -1,0 +1,13 @@
+{
+  "kind": "machinen.node-memory-scalar-reconstruction-proof.target-result",
+  "accepted": true,
+  "targetArch": "amd64",
+  "sourceArch": "arm64",
+  "capturedValue": 41,
+  "reconstructedInitialValue": 41,
+  "incrementedValue": 42,
+  "targetNativeNode": true,
+  "appHookUsedForCapture": false,
+  "rawV8HeapRestored": false,
+  "samePidRestored": false
+}
