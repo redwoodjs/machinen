@@ -3342,7 +3342,7 @@ async function cmdRestorePortableVmProductBundle(
         filesystem: (targetVerify.filesystem as Record<string, unknown>)?.accepted === true,
         service: (targetVerify.service as Record<string, unknown>)?.accepted === true,
         sqlite: (targetVerify.sqlite as Record<string, unknown>)?.accepted === true,
-        nodejs: summarizePortableVmNodePlan(snapDir),
+        nodejs: summarizePortableVmNodePlan(snapDir, targetVerify),
       },
       portableVmPlan: summarizePortableVmRestorePlan(snapDir),
       claimGuard: portableVmClaimGuard(),
@@ -3475,22 +3475,70 @@ function summarizePortableVmRestorePlan(snapDir: string): Record<string, unknown
   };
 }
 
-function summarizePortableVmNodePlan(snapDir: string): Record<string, unknown> {
+function summarizePortableVmNodePlan(
+  snapDir: string,
+  targetVerify?: Record<string, unknown>,
+): Record<string, unknown> {
   const plan = JSON.parse(
     readFileSync(join(snapDir, "portable-vm-manifest-plan.json"), "utf8"),
   ) as Record<string, unknown>;
   const rows = portableVmPlanRows(plan).filter((row) => row.category === "nodejs");
   return {
+    ...summarizePortableVmNodeRows(rows),
+    ...summarizePortableVmNodeMemoryVerifier(targetVerify),
+    arbitraryNodeProcessRestoreClaimed: false,
+    rawV8HeapRestoreUsed: false,
+  };
+}
+
+function summarizePortableVmNodeRows(
+  rows: Array<Record<string, unknown>>,
+): Record<string, unknown> {
+  return {
     classified: rows.some((row) => row.disposition === "classified"),
     rowCount: rows.length,
     refusedRows: rows.filter((row) => row.disposition === "refused").length,
     memoryRows: rows.filter((row) => row.id === "nodejs-memory-ir").length,
-    memoryMaterializationRows: rows.filter(
-      (row) => row.restoreStrategy === "materialize-nodejs-memory-ir-target-native",
-    ).length,
-    arbitraryNodeProcessRestoreClaimed: false,
-    rawV8HeapRestoreUsed: false,
+    memoryMaterializationRows: rows.filter(isPortableVmNodeMemoryMaterializationRow).length,
   };
+}
+
+function summarizePortableVmNodeMemoryVerifier(
+  targetVerify?: Record<string, unknown>,
+): Record<string, unknown> {
+  const nodejsMemory = portableVmNodeMemoryVerifierRecord(targetVerify);
+  return {
+    memoryVerified: nodejsMemory.accepted === true,
+    memoryMaterializedRows: portableVmNodeMemoryMaterializedRows(nodejsMemory),
+  };
+}
+
+function portableVmNodeMemoryVerifierRecord(
+  targetVerify?: Record<string, unknown>,
+): Record<string, unknown> {
+  if (!targetVerify) {
+    return {};
+  }
+  return portableVmRecordValue(targetVerify.nodejsMemory);
+}
+
+function portableVmNodeMemoryMaterializedRows(nodejsMemory: Record<string, unknown>): number {
+  const rows = nodejsMemory.materializedRows;
+  if (typeof rows !== "number") {
+    return 0;
+  }
+  return rows;
+}
+
+function portableVmRecordValue(value: unknown): Record<string, unknown> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return {};
+  }
+  return value as Record<string, unknown>;
+}
+
+function isPortableVmNodeMemoryMaterializationRow(row: Record<string, unknown>): boolean {
+  return row.restoreStrategy === "materialize-nodejs-memory-ir-target-native";
 }
 
 function portableVmRestoreRefusal(

@@ -543,6 +543,8 @@ describe("Node.js portability corpus", () => {
       acceptedPath: {
         nodejsMemoryRows: number;
         memoryMaterializationRows: number;
+        memoryVerified: boolean;
+        materializedRows: number;
         restoreStrategy: string;
         memoryIrKind: string;
       };
@@ -564,6 +566,17 @@ describe("Node.js portability corpus", () => {
         "utf8",
       ),
     ) as { restoreStrategy: string };
+    const acceptRestore = JSON.parse(
+      readFileSync(resolve(proofRoot, "accept-restore.json"), "utf8"),
+    ) as {
+      targetRestore: { nodejsMemory: { materialized: boolean; materializedRows: number } };
+      targetVerify: {
+        nodejsMemory: { accepted: boolean; memoryIrKind: string; materializedRows: number };
+      };
+      workloads: {
+        nodejs: { memoryVerified: boolean; memoryMaterializedRows: number };
+      };
+    };
     const refusalRestore = JSON.parse(
       readFileSync(resolve(proofRoot, "refusal-restore.json"), "utf8"),
     ) as { accepted: boolean; refusal: { code: string } };
@@ -574,6 +587,8 @@ describe("Node.js portability corpus", () => {
       acceptedPath: {
         nodejsMemoryRows: 1,
         memoryMaterializationRows: 1,
+        memoryVerified: true,
+        materializedRows: 1,
         restoreStrategy: "materialize-nodejs-memory-ir-target-native",
         memoryIrKind: "machinen.nodejs.memory-ir",
       },
@@ -599,6 +614,17 @@ describe("Node.js portability corpus", () => {
     expect(memoryIr.kind).toBe("machinen.nodejs.memory-ir");
     expect(memoryIr.rows).toHaveLength(1);
     expect(classification.restoreStrategy).toBe("materialize-nodejs-memory-ir-target-native");
+    expect(acceptRestore).toMatchObject({
+      targetRestore: { nodejsMemory: { materialized: true, materializedRows: 1 } },
+      targetVerify: {
+        nodejsMemory: {
+          accepted: true,
+          memoryIrKind: "machinen.nodejs.memory-ir",
+          materializedRows: 1,
+        },
+      },
+      workloads: { nodejs: { memoryVerified: true, memoryMaterializedRows: 1 } },
+    });
     expect(refusalRestore).toMatchObject({
       accepted: false,
       refusal: { code: "node-portability-memory-pending-promise-unsupported" },

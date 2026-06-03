@@ -1,0 +1,17 @@
+{
+  "kind": "machinen.portable-vm-filesystem-capture",
+  "version": 1,
+  "root": "filesystem/root",
+  "files": [
+    {
+      "path": "etc/machinen/message.txt",
+      "bytes": 26,
+      "sha256": "b900bf35ef6de78d9df4b0c112f575dfd4c8dfdcaf385d01fa229a741b06a165"
+    },
+    {
+      "path": "var/lib/machinen/data/numbers.txt",
+      "bytes": 6,
+      "sha256": "14c5e74c4b96ccef41cd94db73a9ec3348038ac094feca4fd897cecffa07cdae"
+    }
+  ]
+}

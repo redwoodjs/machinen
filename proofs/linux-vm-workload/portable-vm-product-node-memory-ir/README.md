@@ -1,6 +1,6 @@
 # Portable VM product Node memory IR proof
 
-Retains product CLI evidence that `machinen snapshot <vm> --portable --out <bundle>` detects a source bundle carrying `nodejs-memory-ir.json`, emits `nodejs-memory-classification.json`, adds a `nodejs-memory-ir` plan row, and that `machinen restore <bundle> --json` consumes the plan.
+Retains product CLI evidence that `machinen snapshot <vm> --portable --out <bundle>` detects a source bundle carrying `nodejs-memory-ir.json`, emits `nodejs-memory-classification.json`, adds a `nodejs-memory-ir` plan row, and that `machinen restore <bundle> --json` materializes the memory IR into a target-native Node app whose `/state` endpoint is verified.
 
 Also retains a fail-closed product refusal for `nodejs-memory-pending-promise.refuse` with `node-portability-memory-pending-promise-unsupported`.
 

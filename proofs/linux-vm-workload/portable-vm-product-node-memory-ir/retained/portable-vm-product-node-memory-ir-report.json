@@ -14,6 +14,8 @@
     "targetArch": "arm64",
     "nodejsMemoryRows": 1,
     "memoryMaterializationRows": 1,
+    "memoryVerified": true,
+    "materializedRows": 1,
     "restoreStrategy": "materialize-nodejs-memory-ir-target-native",
     "memoryIrKind": "machinen.nodejs.memory-ir"
   },
@@ -41,23 +43,23 @@
   "artifacts": [
     {
       "path": "accept-snapshot.json",
-      "sha256": "ea87c9faddc392e2fa5ebb1a4ab8b78c3847c8bd2650ec85558e645edb3b77fe"
+      "sha256": "f86efb3017bfa70ab6e8ddb28a84c23b6a7e9c9240d46b46c455a932ac2682f1"
     },
     {
       "path": "accept-restore.json",
-      "sha256": "01c9cda254cc6add18af488d29e62e301b6b4198229d4e2ae749b9f28f8eb9d5"
+      "sha256": "42a55fc00bddf0ccffba1c5db79e0b9d1626021ffd05ad65d07ea1bb77e9265d"
     },
     {
       "path": "node-memory.snap/portable-vm-raw-inventory.json",
-      "sha256": "96011e7e4d3388b20edc918e387a7382970515178306d1ad9bb6bf3bbf66cf91"
+      "sha256": "1acee69cc0157efb5aa0d7235884d0a7d0c35388fdfa5f1131142475f637967c"
     },
     {
       "path": "node-memory.snap/portable-vm-manifest-plan.json",
-      "sha256": "ca6e15e9f1b39c1edb69662e0db952980b5d7a635ef206201544f81d8d689f88"
+      "sha256": "1f4afdf93a2df49fdb19cafaaf5de3852a535afd8f6a6ba071572e2a45b53041"
     },
     {
       "path": "node-memory.snap/nodejs-memory-ir.json",
-      "sha256": "1c3c48ee4fb7fd1958a75c3c8de30d5937787ab694b877a206c55e27da90f8a5"
+      "sha256": "238d4dc4d364a809f44a0f44ac97537d1a39b092a98542d4afad420d609a8a82"
     },
     {
       "path": "node-memory.snap/nodejs-memory-classification.json",
@@ -65,15 +67,15 @@
     },
     {
       "path": "refusal-snapshot.json",
-      "sha256": "ed51617418c29253af833c1efacc4c70939f77df058421f291023ba6ad10dcef"
+      "sha256": "f672d08fbc67881d0f09e2ac157e18db4044caddc5a3b6f683ea2a5e8c198594"
     },
     {
       "path": "refusal-restore.json",
-      "sha256": "79566682073dde34ce83df10d5156ea4a9b04a30e6526e565ca3a0da42ce1720"
+      "sha256": "ec795fd67d1d5c58a16bbddee02c8631a79d9a4dcfb56168dd8b42d6a94f29c3"
     },
     {
       "path": "node-memory-refusal.snap/portable-vm-manifest-plan.json",
-      "sha256": "8a6ed5345ac0c9e2f79759bb2a87638ecc2057af3c263e141f25ebb40679ed71"
+      "sha256": "45d428b7bc2536f0c8fab6cdae0acb43e5ec781a9ee8d3e4f9df147b5d5d46ce"
     }
   ]
 }

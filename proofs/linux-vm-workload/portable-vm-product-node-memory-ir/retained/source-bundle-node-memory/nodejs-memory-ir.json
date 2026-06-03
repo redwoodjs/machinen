@@ -1,0 +1,35 @@
+{
+  "kind": "machinen.nodejs.memory-ir",
+  "version": 1,
+  "runtime": {
+    "name": "node",
+    "sourceArch": "arm64",
+    "v8": "12.4.254.21-node.22"
+  },
+  "rows": [
+    {
+      "id": "038-memory-real-array",
+      "shape": "array",
+      "semanticState": {
+        "kind": "array",
+        "anchor": "machinen-real-array-anchor-v1",
+        "values": [1, 2, 3, 5, 8],
+        "sum": 19
+      },
+      "anchors": {
+        "anchor": "machinen-real-array-anchor-v1",
+        "values": "array-values:1,2,3,5,8"
+      }
+    }
+  ],
+  "unsupported": [],
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "arbitraryLinuxProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "samePidContinuationClaimed": false,
+    "activeRequestOrSocketContinuationClaimed": false
+  }
+}
