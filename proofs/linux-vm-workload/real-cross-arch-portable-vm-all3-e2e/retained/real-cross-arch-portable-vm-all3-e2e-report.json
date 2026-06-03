@@ -4,7 +4,7 @@
   "accepted": true,
   "proofStatus": "verified",
   "scope": "real-cross-arch-portable-vm-filesystem-service-sqlite-v1",
-  "productCommandPath": "opposite-arch source capture bundle; machinen boot --mount-live <bundle>; machinen exec target restore/verifier",
+  "productCommandPath": "future product path: machinen snapshot --portable <vm> --out <bundle>; machinen restore <bundle> (source arch detected at snapshot time, target arch detected at restore time)",
   "source": {
     "architecture": "amd64",
     "platform": "linux/amd64",
@@ -84,7 +84,8 @@
     "crossArchitecture": true,
     "targetNativeVmBooted": true,
     "targetVerifierPassed": true,
-    "allThreeWorkloadsVerified": true
+    "allThreeWorkloadsVerified": true,
+    "snapshotCompleted": true
   },
   "claimGuard": {
     "arbitraryVmRestoreClaimed": false,
@@ -189,5 +190,10 @@
       "path": "target-verify.stdout.json",
       "sha256": "63a82d7624e660d2452b6e3498d80aea83e8a8511ebdc4d70fc6780210f67413"
     }
-  ]
+  ],
+  "architectureDetection": {
+    "source": "detected from source Linux inventory during snapshot/proof source phase",
+    "target": "detected from target Machinen VM/host at restore time",
+    "userSuppliedArchPolicy": "normal VM product workflow should not require --source-arch or --target-arch"
+  }
 }

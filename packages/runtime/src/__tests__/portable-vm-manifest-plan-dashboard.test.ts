@@ -11,7 +11,16 @@ type PortableVmManifestPlan = {
   claimGuard: Record<string, boolean>;
   productIntent: Record<string, string>;
   workflow: Array<Record<string, unknown>>;
-  targetPolicy: { unknownStatePolicy: "refuse-by-default" };
+  sourceVm: {
+    sourceArchitecture: string;
+    targetArchitecture: string;
+    architectureDetection?: Record<string, string>;
+  };
+  targetPolicy: {
+    unknownStatePolicy: "refuse-by-default";
+    architectureDetection?: string;
+    userArchOverridePolicy?: string;
+  };
   manifest: Record<string, Array<Record<string, unknown>>>;
   plan: { rows: Array<Record<string, unknown>> };
   summary: Record<string, unknown>;
@@ -40,10 +49,10 @@ describe("portable VM manifest/plan dashboard", () => {
     expect(manifestPlan.productIntent).toMatchObject({
       goal: expect.stringContaining("Pause a VM"),
       notGoal: expect.stringContaining("raw vCPU replay"),
-      nextImplementationStep: expect.stringContaining("machinen restore"),
+      nextImplementationStep: expect.stringContaining("source and target architecture detected"),
     });
     expect(manifestPlan.workflow.map((step) => step.name)).toEqual([
-      "pause/quiesce VM",
+      "snapshot VM",
       "inventory VM",
       "classify rows",
       "plan restore",
@@ -58,6 +67,19 @@ describe("portable VM manifest/plan dashboard", () => {
       "vm/032",
       "vm/033",
     ]);
+    expect(manifestPlan.sourceVm).toMatchObject({
+      sourceArchitecture: "detected-from-source-vm",
+      targetArchitecture: "detected-at-restore-time",
+      architectureDetection: {
+        source: expect.stringContaining("machinen snapshot --portable"),
+        target: expect.stringContaining("machinen restore"),
+        userSuppliedArchPolicy: expect.stringContaining("does not require --source-arch"),
+      },
+    });
+    expect(manifestPlan.targetPolicy).toMatchObject({
+      architectureDetection: "detect-target-architecture-at-restore-time",
+      userArchOverridePolicy: "proof-and-refusal-tests-only",
+    });
     expect(manifestPlan.claimGuard).toMatchObject({
       publicClaimAllowed: false,
       arbitraryVmRestoreClaimed: false,
@@ -95,7 +117,11 @@ describe("portable VM manifest/plan dashboard", () => {
     expect(html).toContain("real-cross-arch-tcp-listener-product-e2e-report.json");
     expect(html).toContain("real-cross-arch-portable-vm-all3-e2e-report.json");
     expect(html).toContain("vm/033");
-    expect(html).toContain("pause/quiesce VM");
+    expect(html).toContain("snapshot VM");
+    expect(html).toContain("Architecture detection");
+    expect(html).toContain("detected-from-source-vm");
+    expect(html).toContain("detected-at-restore-time");
+    expect(html).toContain("does not require --source-arch");
     expect(html).toContain("restore target-native VM");
     expect(html).toContain("Claim guard");
     expect(html).toContain("Plan rows");
