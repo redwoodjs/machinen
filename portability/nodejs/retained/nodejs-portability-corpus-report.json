@@ -4,16 +4,16 @@
   "accepted": true,
   "proofStatus": "verified",
   "corpus": "portability/nodejs",
-  "rowCount": 37,
+  "rowCount": 49,
   "architectures": ["arm64", "amd64"],
   "executeVm": false,
   "installDeps": false,
   "summary": {
-    "productSupportedRows": 24,
+    "productSupportedRows": 35,
     "declaredConfigRows": 5,
-    "refusedFirstRows": 8,
+    "refusedFirstRows": 9,
     "verifiedVmRows": 0,
-    "refusedRows": 16,
+    "refusedRows": 18,
     "failedClassifiedRows": 0,
     "environmentUnavailableRows": 0
   },
@@ -816,6 +816,282 @@
       }
     },
     {
+      "id": "038-memory-real-array",
+      "slug": "memory-real-array",
+      "disposition": "product-supported",
+      "architecture": "arm64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "arbitraryLinuxProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false,
+          "samePidContinuationClaimed": false,
+          "activeRequestOrSocketContinuationClaimed": false
+        }
+      }
+    },
+    {
+      "id": "039-memory-real-closure-context",
+      "slug": "memory-real-closure-context",
+      "disposition": "product-supported",
+      "architecture": "arm64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "arbitraryLinuxProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false,
+          "samePidContinuationClaimed": false,
+          "activeRequestOrSocketContinuationClaimed": false
+        }
+      }
+    },
+    {
+      "id": "040-memory-real-string",
+      "slug": "memory-real-string",
+      "disposition": "product-supported",
+      "architecture": "arm64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "arbitraryLinuxProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false,
+          "samePidContinuationClaimed": false,
+          "activeRequestOrSocketContinuationClaimed": false
+        }
+      }
+    },
+    {
+      "id": "041-memory-real-nested-object-graph",
+      "slug": "memory-real-nested-object-graph",
+      "disposition": "product-supported",
+      "architecture": "arm64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "arbitraryLinuxProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false,
+          "samePidContinuationClaimed": false,
+          "activeRequestOrSocketContinuationClaimed": false
+        }
+      }
+    },
+    {
+      "id": "042-memory-real-shared-references",
+      "slug": "memory-real-shared-references",
+      "disposition": "product-supported",
+      "architecture": "arm64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "arbitraryLinuxProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false,
+          "samePidContinuationClaimed": false,
+          "activeRequestOrSocketContinuationClaimed": false
+        }
+      }
+    },
+    {
+      "id": "043-memory-real-cycle",
+      "slug": "memory-real-cycle",
+      "disposition": "product-supported",
+      "architecture": "arm64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "arbitraryLinuxProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false,
+          "samePidContinuationClaimed": false,
+          "activeRequestOrSocketContinuationClaimed": false
+        }
+      }
+    },
+    {
+      "id": "044-memory-real-map-set",
+      "slug": "memory-real-map-set",
+      "disposition": "product-supported",
+      "architecture": "arm64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "arbitraryLinuxProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false,
+          "samePidContinuationClaimed": false,
+          "activeRequestOrSocketContinuationClaimed": false
+        }
+      }
+    },
+    {
+      "id": "045-memory-real-class-instance",
+      "slug": "memory-real-class-instance",
+      "disposition": "product-supported",
+      "architecture": "arm64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "arbitraryLinuxProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false,
+          "samePidContinuationClaimed": false,
+          "activeRequestOrSocketContinuationClaimed": false
+        }
+      }
+    },
+    {
+      "id": "046-memory-real-buffer",
+      "slug": "memory-real-buffer",
+      "disposition": "product-supported",
+      "architecture": "arm64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "arbitraryLinuxProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false,
+          "samePidContinuationClaimed": false,
+          "activeRequestOrSocketContinuationClaimed": false
+        }
+      }
+    },
+    {
+      "id": "047-memory-real-typed-array",
+      "slug": "memory-real-typed-array",
+      "disposition": "product-supported",
+      "architecture": "arm64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "arbitraryLinuxProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false,
+          "samePidContinuationClaimed": false,
+          "activeRequestOrSocketContinuationClaimed": false
+        }
+      }
+    },
+    {
+      "id": "048-memory-real-http-handler-closure-state",
+      "slug": "memory-real-http-handler-closure-state",
+      "disposition": "product-supported",
+      "architecture": "arm64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "arbitraryLinuxProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false,
+          "samePidContinuationClaimed": false,
+          "activeRequestOrSocketContinuationClaimed": false
+        }
+      }
+    },
+    {
+      "id": "049-memory-real-promise-refusal",
+      "slug": "memory-real-promise-refusal",
+      "disposition": "refused-first",
+      "architecture": "arm64",
+      "accepted": false,
+      "executedInVm": false,
+      "state": "refused",
+      "refusalCode": "node-portability-memory-pending-promise-unsupported",
+      "details": {
+        "reason": "refused by first corpus policy",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "arbitraryLinuxProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false,
+          "samePidContinuationClaimed": false,
+          "activeRequestOrSocketContinuationClaimed": false
+        }
+      }
+    },
+    {
       "id": "001-plain-http-create-server",
       "slug": "plain-http-create-server",
       "disposition": "product-supported",
@@ -1594,6 +1870,282 @@
       "refusalCode": null,
       "details": {
         "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "arbitraryLinuxProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false,
+          "samePidContinuationClaimed": false,
+          "activeRequestOrSocketContinuationClaimed": false
+        }
+      }
+    },
+    {
+      "id": "038-memory-real-array",
+      "slug": "memory-real-array",
+      "disposition": "product-supported",
+      "architecture": "amd64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "arbitraryLinuxProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false,
+          "samePidContinuationClaimed": false,
+          "activeRequestOrSocketContinuationClaimed": false
+        }
+      }
+    },
+    {
+      "id": "039-memory-real-closure-context",
+      "slug": "memory-real-closure-context",
+      "disposition": "product-supported",
+      "architecture": "amd64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "arbitraryLinuxProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false,
+          "samePidContinuationClaimed": false,
+          "activeRequestOrSocketContinuationClaimed": false
+        }
+      }
+    },
+    {
+      "id": "040-memory-real-string",
+      "slug": "memory-real-string",
+      "disposition": "product-supported",
+      "architecture": "amd64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "arbitraryLinuxProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false,
+          "samePidContinuationClaimed": false,
+          "activeRequestOrSocketContinuationClaimed": false
+        }
+      }
+    },
+    {
+      "id": "041-memory-real-nested-object-graph",
+      "slug": "memory-real-nested-object-graph",
+      "disposition": "product-supported",
+      "architecture": "amd64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "arbitraryLinuxProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false,
+          "samePidContinuationClaimed": false,
+          "activeRequestOrSocketContinuationClaimed": false
+        }
+      }
+    },
+    {
+      "id": "042-memory-real-shared-references",
+      "slug": "memory-real-shared-references",
+      "disposition": "product-supported",
+      "architecture": "amd64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "arbitraryLinuxProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false,
+          "samePidContinuationClaimed": false,
+          "activeRequestOrSocketContinuationClaimed": false
+        }
+      }
+    },
+    {
+      "id": "043-memory-real-cycle",
+      "slug": "memory-real-cycle",
+      "disposition": "product-supported",
+      "architecture": "amd64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "arbitraryLinuxProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false,
+          "samePidContinuationClaimed": false,
+          "activeRequestOrSocketContinuationClaimed": false
+        }
+      }
+    },
+    {
+      "id": "044-memory-real-map-set",
+      "slug": "memory-real-map-set",
+      "disposition": "product-supported",
+      "architecture": "amd64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "arbitraryLinuxProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false,
+          "samePidContinuationClaimed": false,
+          "activeRequestOrSocketContinuationClaimed": false
+        }
+      }
+    },
+    {
+      "id": "045-memory-real-class-instance",
+      "slug": "memory-real-class-instance",
+      "disposition": "product-supported",
+      "architecture": "amd64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "arbitraryLinuxProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false,
+          "samePidContinuationClaimed": false,
+          "activeRequestOrSocketContinuationClaimed": false
+        }
+      }
+    },
+    {
+      "id": "046-memory-real-buffer",
+      "slug": "memory-real-buffer",
+      "disposition": "product-supported",
+      "architecture": "amd64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "arbitraryLinuxProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false,
+          "samePidContinuationClaimed": false,
+          "activeRequestOrSocketContinuationClaimed": false
+        }
+      }
+    },
+    {
+      "id": "047-memory-real-typed-array",
+      "slug": "memory-real-typed-array",
+      "disposition": "product-supported",
+      "architecture": "amd64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "arbitraryLinuxProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false,
+          "samePidContinuationClaimed": false,
+          "activeRequestOrSocketContinuationClaimed": false
+        }
+      }
+    },
+    {
+      "id": "048-memory-real-http-handler-closure-state",
+      "slug": "memory-real-http-handler-closure-state",
+      "disposition": "product-supported",
+      "architecture": "amd64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "arbitraryLinuxProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false,
+          "samePidContinuationClaimed": false,
+          "activeRequestOrSocketContinuationClaimed": false
+        }
+      }
+    },
+    {
+      "id": "049-memory-real-promise-refusal",
+      "slug": "memory-real-promise-refusal",
+      "disposition": "refused-first",
+      "architecture": "amd64",
+      "accepted": false,
+      "executedInVm": false,
+      "state": "refused",
+      "refusalCode": "node-portability-memory-pending-promise-unsupported",
+      "details": {
+        "reason": "refused by first corpus policy",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,

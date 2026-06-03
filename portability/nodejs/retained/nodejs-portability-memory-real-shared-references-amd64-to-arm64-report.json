@@ -1,0 +1,160 @@
+{
+  "kind": "machinen.nodejs-portability-memory-real-shared-references-smoke-report",
+  "version": 1,
+  "accepted": true,
+  "portabilityRow": "042-memory-real-shared-references",
+  "architectures": ["amd64", "arm64"],
+  "sourceArch": "amd64",
+  "targetArch": "arm64",
+  "executeVm": true,
+  "memoryCapture": "real-guest-proc-maps-and-proc-mem",
+  "migrationCompleted": true,
+  "summary": {
+    "verifiedVmRows": 1,
+    "memoryStateRows": 1,
+    "refusedRows": 0
+  },
+  "results": [
+    {
+      "id": "042-memory-real-shared-references",
+      "architecture": "amd64",
+      "state": "verified"
+    },
+    {
+      "id": "042-memory-real-shared-references",
+      "architecture": "arm64",
+      "state": "verified"
+    }
+  ],
+  "sourceCapture": {
+    "kind": "machinen.nodejs-portability-memory-real-shared-references-smoke-report.source-capture",
+    "accepted": true,
+    "portabilityRow": "042-memory-real-shared-references",
+    "sourceArch": "amd64",
+    "captureMethod": "guest-proc-maps-and-proc-mem-anchor-semantic-decoder",
+    "appHookUsedForCapture": false,
+    "rawV8HeapRestored": false,
+    "samePidRestored": false,
+    "memoryIr": {
+      "kind": "machinen.nodejs.memory-ir",
+      "version": 1,
+      "runtime": {
+        "name": "node",
+        "sourceArch": "amd64",
+        "v8": "12.4.254.21-node.22"
+      },
+      "rows": [
+        {
+          "id": "042-memory-real-shared-references",
+          "shape": "shared-references",
+          "semanticState": {
+            "kind": "shared-references",
+            "anchor": "machinen-real-shared-anchor-v1",
+            "left": {
+              "ref": "alpha"
+            },
+            "right": {
+              "ref": "alpha"
+            },
+            "sharedIdentity": true
+          },
+          "anchors": {
+            "anchor": "machinen-real-shared-anchor-v1",
+            "shared": "shared-node:alpha"
+          }
+        }
+      ],
+      "unsupported": [],
+      "claimGuard": {
+        "arbitraryNodeProcessRestoreClaimed": false,
+        "arbitraryLinuxProcessRestoreClaimed": false,
+        "rawV8HeapRestoreUsed": false,
+        "rawCpuStateReplayUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "samePidContinuationClaimed": false,
+        "activeRequestOrSocketContinuationClaimed": false
+      }
+    },
+    "evidence": {
+      "pid": 385,
+      "mapsSha256": "79b9827696a638da1529db6d87ce5a755202c297adbcc230d605a9dfb44317c6",
+      "readableMappings": 110,
+      "decodedFields": {
+        "anchor": {
+          "found": true,
+          "hits": ["0x2b6b39bc", "0x2b6b3a8d", "0x3352d4c0e8", "0xcf52b2d65cc"]
+        },
+        "shared": {
+          "found": true,
+          "hits": ["0x2b6b3abb", "0x3352d4c1c8", "0xcf52b2d66cb", "0x3d4705a4c253"]
+        }
+      }
+    }
+  },
+  "targetResult": {
+    "kind": "machinen.nodejs-portability-memory-real-shared-references-smoke-report.target-result",
+    "accepted": true,
+    "portabilityRow": "042-memory-real-shared-references",
+    "sourceArch": "amd64",
+    "targetArch": "arm64",
+    "materialization": "target-native-node-semantic-memory-ir",
+    "targetNativeNode": true,
+    "appHookUsedForCapture": false,
+    "rawV8HeapRestored": false,
+    "samePidRestored": false,
+    "verifier": {
+      "accepted": true,
+      "actual": {
+        "kind": "shared-references",
+        "anchor": "machinen-real-shared-anchor-v1",
+        "left": {
+          "ref": "alpha"
+        },
+        "right": {
+          "ref": "alpha"
+        },
+        "sharedIdentity": true
+      },
+      "expected": {
+        "kind": "shared-references",
+        "anchor": "machinen-real-shared-anchor-v1",
+        "left": {
+          "ref": "alpha"
+        },
+        "right": {
+          "ref": "alpha"
+        },
+        "sharedIdentity": true
+      }
+    }
+  },
+  "evidence": {
+    "appPath": "portability/nodejs/042-memory-real-shared-references/app.mjs",
+    "appSha256": "024ba1f3e79ec4d646c42d3106098b820bfd75c0f8317421f11c550387177c7f",
+    "smokePath": "portability/nodejs/042-memory-real-shared-references/smoke.ts"
+  },
+  "claimBoundary": {
+    "claims": [
+      "042-memory-real-shared-references captures selected Node shared-references state from /proc memory and materializes it target-native across architectures"
+    ],
+    "notClaimed": [
+      "arbitrary Node process restore",
+      "raw V8 heap restore",
+      "same PID continuation",
+      "active request/socket continuation",
+      "worker/native-addon/child-process live-state transfer",
+      "source ISA emulation",
+      "arbitrary Linux process restore",
+      "raw VM/vCPU/device replay"
+    ]
+  },
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "arbitraryLinuxProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "samePidContinuationClaimed": false,
+    "activeRequestOrSocketContinuationClaimed": false
+  }
+}

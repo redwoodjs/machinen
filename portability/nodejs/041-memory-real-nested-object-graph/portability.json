@@ -1,0 +1,36 @@
+{
+  "id": "041-memory-real-nested-object-graph",
+  "slug": "memory-real-nested-object-graph",
+  "runtime": "nodejs",
+  "description": "Selected nested object graph captured from source process memory and materialized target-native across architectures",
+  "disposition": "product-supported",
+  "claimUse": "selected Node memory-state portability only; semantic decode/materialize, not raw V8 heap restore",
+  "architecturePolicy": "capture selected state from source /proc memory and materialize target-native across architectures",
+  "startCommand": "node app.mjs",
+  "healthPath": "/value",
+  "expectedBody": "memory-ready",
+  "dependencies": [],
+  "refusalCode": null,
+  "capability": {
+    "category": "memory-state",
+    "detects": ["anchor:anchor", "anchor:child", "anchor:count"],
+    "captures": ["/proc/<pid>/maps", "/proc/<pid>/mem", "machinen.nodejs.memory-ir"],
+    "restores": ["target-native Node semantic memory IR materialization"],
+    "verifies": ["target /state deep-equals decoded semantic memory IR state"],
+    "blocks": [
+      "raw V8 heap restore",
+      "same PID continuation",
+      "active request/socket continuation",
+      "arbitrary Node process continuation"
+    ]
+  },
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "arbitraryLinuxProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "samePidContinuationClaimed": false,
+    "activeRequestOrSocketContinuationClaimed": false
+  }
+}

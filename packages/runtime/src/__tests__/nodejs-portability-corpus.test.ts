@@ -110,9 +110,11 @@ describe("Node.js portability corpus", () => {
     expect(html).toContain("nodejs-portability-memory-closure-context-report.json");
     expect(html).toContain("nodejs-portability-memory-unsupported-boundaries-report.json");
     expect(html).toContain("nodejs-portability-memory-real-plain-object-report.json");
+    expect(html).toContain("nodejs-portability-memory-real-promise-refusal-report.json");
+    expect(html).toContain("nodejs-portability-memory-real-array-report.json");
   });
 
-  it("contains the requested 37 numbered workload rows", () => {
+  it("contains the requested 49 numbered workload rows", () => {
     expect(rowDirs()).toEqual([
       "001-plain-http-create-server",
       "002-express",
@@ -151,12 +153,24 @@ describe("Node.js portability corpus", () => {
       "035-memory-pending-promise-refusal",
       "036-memory-capture-classifier",
       "037-memory-real-plain-object",
+      "038-memory-real-array",
+      "039-memory-real-closure-context",
+      "040-memory-real-string",
+      "041-memory-real-nested-object-graph",
+      "042-memory-real-shared-references",
+      "043-memory-real-cycle",
+      "044-memory-real-map-set",
+      "045-memory-real-class-instance",
+      "046-memory-real-buffer",
+      "047-memory-real-typed-array",
+      "048-memory-real-http-handler-closure-state",
+      "049-memory-real-promise-refusal",
     ]);
   });
 
   it("keeps arbitrary raw Node process restore out of the corpus claim", () => {
     const rows = rowDirs().map(readRow);
-    expect(rows).toHaveLength(37);
+    expect(rows).toHaveLength(49);
     for (const row of rows) {
       expect(row.runtime).toBe("nodejs");
       expect(row.claimGuard).toMatchObject({
@@ -181,6 +195,7 @@ describe("Node.js portability corpus", () => {
       "020-outbound-connection-app",
       "025-memory-unsupported-boundaries",
       "035-memory-pending-promise-refusal",
+      "049-memory-real-promise-refusal",
     ]);
     for (const row of refused) {
       expect(row.refusalCode).toMatch(/^node-portability-.+-unsupported$/u);
@@ -196,12 +211,12 @@ describe("Node.js portability corpus", () => {
       version: 1,
       runtime: "nodejs",
       summary: {
-        rowCount: 37,
-        byStatus: { verified: 29, refused: 8 },
-        byProductClaim: { candidate: 29, refusal: 8 },
+        rowCount: 49,
+        byStatus: { verified: 40, refused: 9 },
+        byProductClaim: { candidate: 40, refusal: 9 },
         architectures: ["arm64", "amd64"],
-        verifiedBothArchitectures: 29,
-        refusedRows: 8,
+        verifiedBothArchitectures: 40,
+        refusedRows: 9,
         conditionalRows: 0,
         failedClassifiedRows: 0,
       },
@@ -251,6 +266,10 @@ describe("Node.js portability corpus", () => {
     }
     expect(cli).toContain("nodejs-portability-inventory.json");
     expect(cli).toContain("classify-against-node-portability-compatibility-index");
+    expect(cli).toContain("nodejs-memory-ir.json");
+    expect(cli).toContain("nodejs-memory-classification.json");
+    expect(cli).toContain("materialize-nodejs-memory-ir-target-native");
+    expect(cli).toContain("node-portability-memory-pending-promise-unsupported");
     expect(cli).toContain('arbitraryNodeProcessRestoreClaimed": false');
     expect(cli).toContain('rawV8HeapRestoreUsed": false');
   });
@@ -268,14 +287,14 @@ describe("Node.js portability corpus", () => {
     };
     expect(report).toMatchObject({
       accepted: true,
-      rowCount: 37,
+      rowCount: 49,
       architectures: ["arm64", "amd64"],
       executeVm: false,
       summary: {
-        productSupportedRows: 24,
+        productSupportedRows: 35,
         declaredConfigRows: 5,
-        refusedFirstRows: 8,
-        refusedRows: 16,
+        refusedFirstRows: 9,
+        refusedRows: 18,
       },
       claimGuard: {
         arbitraryNodeProcessRestoreClaimed: false,
@@ -385,6 +404,76 @@ describe("Node.js portability corpus", () => {
     }
   });
 
+  it("retains bidirectional real memory materialization evidence for selected shapes", () => {
+    const shapes = [
+      "plain-object",
+      "array",
+      "closure-context",
+      "string",
+      "nested-object-graph",
+      "shared-references",
+      "cycle",
+      "map-set",
+      "class-instance",
+      "buffer",
+      "typed-array",
+      "http-handler-closure-state",
+    ];
+    for (const shape of shapes) {
+      const forward = JSON.parse(
+        readFileSync(
+          resolve(corpusRoot, `retained/nodejs-portability-memory-real-${shape}-report.json`),
+          "utf8",
+        ),
+      ) as {
+        accepted: boolean;
+        sourceArch: string;
+        targetArch: string;
+        memoryCapture: string;
+        migrationCompleted: boolean;
+        sourceCapture: {
+          memoryIr?: { kind: string };
+          evidence: { decodedFields: Record<string, { found: boolean }> };
+        };
+        targetResult: { targetNativeNode: true; verifier: { accepted: boolean } };
+        claimGuard: Record<string, false>;
+      };
+      const reverse = JSON.parse(
+        readFileSync(
+          resolve(
+            corpusRoot,
+            `retained/nodejs-portability-memory-real-${shape}-amd64-to-arm64-report.json`,
+          ),
+          "utf8",
+        ),
+      ) as typeof forward;
+      for (const [report, sourceArch, targetArch] of [
+        [forward, "arm64", "amd64"],
+        [reverse, "amd64", "arm64"],
+      ] as const) {
+        expect(report).toMatchObject({
+          accepted: true,
+          sourceArch,
+          targetArch,
+          memoryCapture: "real-guest-proc-maps-and-proc-mem",
+          migrationCompleted: true,
+        });
+        expect(
+          Object.values(report.sourceCapture.evidence.decodedFields).every((field) => field.found),
+        ).toBe(true);
+        expect(report.targetResult).toMatchObject({
+          targetNativeNode: true,
+          verifier: { accepted: true },
+        });
+        expect(report.claimGuard).toMatchObject({
+          arbitraryNodeProcessRestoreClaimed: false,
+          rawV8HeapRestoreUsed: false,
+          sourceIsaEmulationUsed: false,
+        });
+      }
+    }
+  });
+
   it("retains cross-arch real memory plain-object materialization evidence", () => {
     const report = JSON.parse(
       readFileSync(
@@ -440,6 +529,37 @@ describe("Node.js portability corpus", () => {
       rawV8HeapRestoreUsed: false,
       sourceIsaEmulationUsed: false,
     });
+  });
+
+  it("retains fail-closed real Promise memory refusal evidence", () => {
+    const report = JSON.parse(
+      readFileSync(
+        resolve(corpusRoot, "retained/nodejs-portability-memory-real-promise-refusal-report.json"),
+        "utf8",
+      ),
+    ) as {
+      accepted: boolean;
+      portabilityRow: string;
+      migrationCompleted: boolean;
+      refusal: { code: string };
+      results: Array<{ id: string; state: string; refusalCode: string }>;
+      memoryIr: { unsupported: Array<{ code: string }> };
+      claimGuard: Record<string, false>;
+    };
+    expect(report).toMatchObject({
+      accepted: true,
+      portabilityRow: "049-memory-real-promise-refusal",
+      migrationCompleted: false,
+      refusal: { code: "node-portability-memory-pending-promise-unsupported" },
+    });
+    expect(report.results).toEqual([
+      expect.objectContaining({ id: "049-memory-real-promise-refusal", state: "refused" }),
+      expect.objectContaining({ id: "049-memory-real-promise-refusal", state: "refused" }),
+    ]);
+    expect(report.memoryIr.unsupported).toEqual([
+      expect.objectContaining({ code: "node-portability-memory-pending-promise-unsupported" }),
+    ]);
+    expect(report.claimGuard.rawV8HeapRestoreUsed).toBe(false);
   });
 
   it("retains real guest /proc memory classifier smoke reports", () => {

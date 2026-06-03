@@ -85,6 +85,18 @@ const categoryBySlug = {
   "memory-pending-promise-refusal": "memory-blocker",
   "memory-capture-classifier": "memory-state",
   "memory-real-plain-object": "memory-state",
+  "memory-real-array": "memory-state",
+  "memory-real-closure-context": "memory-state",
+  "memory-real-string": "memory-state",
+  "memory-real-nested-object-graph": "memory-state",
+  "memory-real-shared-references": "memory-state",
+  "memory-real-cycle": "memory-state",
+  "memory-real-map-set": "memory-state",
+  "memory-real-class-instance": "memory-state",
+  "memory-real-buffer": "memory-state",
+  "memory-real-typed-array": "memory-state",
+  "memory-real-http-handler-closure-state": "memory-state",
+  "memory-real-promise-refusal": "memory-blocker",
 };
 const capabilityBySlug = {
   "plain-http-create-server":
@@ -130,6 +142,29 @@ const capabilityBySlug = {
   "memory-capture-classifier": "Real guest /proc memory capture classifier for Node/V8 categories",
   "memory-real-plain-object":
     "Selected plain-object state captured from source /proc memory and materialized target-native across architectures",
+  "memory-real-array":
+    "Selected array state captured from source /proc memory and materialized target-native across architectures",
+  "memory-real-closure-context":
+    "Selected closure context state captured from source /proc memory and materialized target-native across architectures",
+  "memory-real-string":
+    "Selected string state captured from source /proc memory and materialized target-native across architectures",
+  "memory-real-nested-object-graph":
+    "Selected nested object graph captured from source /proc memory and materialized target-native across architectures",
+  "memory-real-shared-references":
+    "Selected shared-reference graph captured from source /proc memory and materialized target-native across architectures",
+  "memory-real-cycle":
+    "Selected cyclic graph captured from source /proc memory and materialized target-native across architectures",
+  "memory-real-map-set":
+    "Selected Map/Set state captured from source /proc memory and materialized target-native across architectures",
+  "memory-real-class-instance":
+    "Selected class-instance state captured from source /proc memory and materialized target-native across architectures",
+  "memory-real-buffer":
+    "Selected Buffer bytes captured from source /proc memory and materialized target-native across architectures",
+  "memory-real-typed-array":
+    "Selected typed-array state captured from source /proc memory and materialized target-native across architectures",
+  "memory-real-http-handler-closure-state":
+    "Selected HTTP handler closure state captured from source /proc memory and materialized target-native across architectures",
+  "memory-real-promise-refusal": "Pending Promise and microtask memory state refuses fail-closed",
 };
 
 function hashFile(path) {

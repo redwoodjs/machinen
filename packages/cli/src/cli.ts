@@ -3467,6 +3467,9 @@ function summarizePortableVmRestorePlan(snapDir: string): Record<string, unknown
     nodejsClassifiedRows: rows.filter(
       (row) => row.category === "nodejs" && row.disposition === "classified",
     ).length,
+    nodejsMemoryRows: rows.filter(
+      (row) => row.category === "nodejs" && row.id === "nodejs-memory-ir",
+    ).length,
     unknownStatePolicy: (plan.targetPolicy as Record<string, unknown> | undefined)
       ?.unknownStatePolicy,
   };
@@ -3481,6 +3484,10 @@ function summarizePortableVmNodePlan(snapDir: string): Record<string, unknown> {
     classified: rows.some((row) => row.disposition === "classified"),
     rowCount: rows.length,
     refusedRows: rows.filter((row) => row.disposition === "refused").length,
+    memoryRows: rows.filter((row) => row.id === "nodejs-memory-ir").length,
+    memoryMaterializationRows: rows.filter(
+      (row) => row.restoreStrategy === "materialize-nodejs-memory-ir-target-native",
+    ).length,
     arbitraryNodeProcessRestoreClaimed: false,
     rawV8HeapRestoreUsed: false,
   };
@@ -6682,13 +6689,40 @@ add_refusal() {
 [ ! -f "$src/node-portability-child-process.refuse" ] || add_refusal nodejs-child-process nodejs node-portability-child-process-unsupported 'child process trees are refused by default'
 [ ! -f "$src/node-portability-active-request.refuse" ] || add_refusal nodejs-active-request nodejs node-portability-active-request-unsupported 'in-flight Node HTTP requests are refused by default'
 [ ! -f "$src/node-portability-outbound-connection.refuse" ] || add_refusal nodejs-outbound-connection nodejs node-portability-outbound-connection-unsupported 'outbound connection state is refused by default'
+[ ! -f "$src/nodejs-memory-pending-promise.refuse" ] || add_refusal nodejs-memory-pending-promise nodejs node-portability-memory-pending-promise-unsupported 'pending Promise and microtask state is refused by default'
 
 node_inventory_items=''
 node_plan_rows=''
+node_memory_items=''
+node_memory_plan_rows=''
 node_package_json=''
 if [ -d "$src/filesystem/root" ]; then
   node_package_json=$(find "$src/filesystem/root" -maxdepth 6 -name package.json -type f 2>/dev/null | head -n 1 || true)
 fi
+if [ -f "$src/nodejs-memory-ir.json" ]; then
+  cat >"$work/nodejs-memory-classification.json" <<NODEMEMJSON
+{
+  "kind": "machinen.nodejs-memory-classification",
+  "version": 1,
+  "status": "classified",
+  "sourceArchitecture": "$source_arch",
+  "memoryIr": "nodejs-memory-ir.json",
+  "restoreStrategy": "materialize-nodejs-memory-ir-target-native",
+  "compatibilityIndex": "portability/nodejs/index.json",
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false
+  }
+}
+NODEMEMJSON
+  node_memory_items=',
+    { "id": "nodejs-memory-ir", "category": "nodejs", "path": "nodejs-memory-ir.json", "classification": "nodejs-memory-classification.json", "disposition": "product-supported" }'
+  node_memory_plan_rows=',
+      { "id": "nodejs-memory-ir", "category": "nodejs", "disposition": "product-supported", "restoreStrategy": "materialize-nodejs-memory-ir-target-native", "artifact": "nodejs-memory-ir.json", "classification": "nodejs-memory-classification.json", "compatibilityIndex": "portability/nodejs/index.json" }'
+fi
+
 if [ -n "$node_package_json" ]; then
   node_package_rel=$(printf '%s\n' "$node_package_json" | sed "s|^$src/||")
   node_app_dir=$(dirname "$node_package_json")
@@ -6733,7 +6767,7 @@ cat >"$work/portable-vm-raw-inventory.json" <<JSON
   "items": [
     { "id": "filesystem-root", "category": "filesystem", "path": "filesystem/root", "disposition": "product-supported" },
     { "id": "selected-service", "category": "service", "path": "service-manifest.json", "disposition": "product-supported" },
-    { "id": "clean-sqlite", "category": "sqlite", "path": "sqlite-dump.sql", "disposition": "product-supported" }$node_inventory_items
+    { "id": "clean-sqlite", "category": "sqlite", "path": "sqlite-dump.sql", "disposition": "product-supported" }$node_inventory_items$node_memory_items
   ]
 }
 JSON
@@ -6756,7 +6790,7 @@ cat >"$work/portable-vm-manifest-plan.json" <<JSON
     "rows": [
       { "id": "filesystem-root", "category": "filesystem", "disposition": "product-supported", "restoreStrategy": "copy-content-addressed-file-tree", "artifact": "filesystem-manifest.json" },
       { "id": "selected-service", "category": "service", "disposition": "product-supported", "restoreStrategy": "start-target-native-selected-service", "artifact": "service-manifest.json" },
-      { "id": "clean-sqlite", "category": "sqlite", "disposition": "product-supported", "restoreStrategy": "restore-clean-logical-sqlite-dump", "artifact": "sqlite-logical.json" }$node_plan_rows$refusal_rows
+      { "id": "clean-sqlite", "category": "sqlite", "disposition": "product-supported", "restoreStrategy": "restore-clean-logical-sqlite-dump", "artifact": "sqlite-logical.json" }$node_plan_rows$node_memory_plan_rows$refusal_rows
     ]
   },
   "claimGuard": {

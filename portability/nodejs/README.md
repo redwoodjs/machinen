@@ -45,10 +45,15 @@ Rows `022` through `035` move existing V8/Node memory-state coverage into portab
 
 Row `036-memory-capture-classifier` starts a real Node process inside a guest and captures `/proc/<pid>/maps` plus `/proc/<pid>/mem` to classify seeded Node/V8 memory categories on both `arm64` and `amd64`.
 
-Row `037-memory-real-plain-object` retains an `arm64 -> amd64` source-memory capture and target-native materialization proof for one selected plain-object state. It is semantic state portability, not raw V8 heap restore, raw VM replay, or arbitrary process continuation.
+Rows `037` through `048` retain bidirectional real-memory evidence (`arm64 -> amd64` and `amd64 -> arm64`) for selected plain object, array, closure context, string, nested/shared/cyclic graphs, Map/Set, class instance, Buffer, typed array, and HTTP handler closure state. Each supported row captures `/proc/<pid>/maps` and `/proc/<pid>/mem`, emits `machinen.nodejs.memory-ir`, materializes that semantic IR in target-native Node, and verifies behavior.
+
+Row `049-memory-real-promise-refusal` keeps pending Promise / microtask state fail-closed with `node-portability-memory-pending-promise-unsupported`.
+
+Product portable VM snapshots can carry `nodejs-memory-ir.json` and `nodejs-memory-classification.json`; restore plans classify supported memory IR rows with `materialize-nodejs-memory-ir-target-native` and refuse unsafe Promise rows before restore.
 
 These rows do not lift the broad arbitrary Node heap/process claim; they add scoped compatibility dimensions. Run the local decoder smokes with:
 
 ```bash
 pnpm node-portability-memory-state-smokes
+pnpm node-portability-real-memory-smokes
 ```

@@ -1,0 +1,145 @@
+{
+  "kind": "machinen.nodejs-portability-memory-real-typed-array-smoke-report",
+  "version": 1,
+  "accepted": true,
+  "portabilityRow": "047-memory-real-typed-array",
+  "architectures": ["arm64", "amd64"],
+  "sourceArch": "arm64",
+  "targetArch": "amd64",
+  "executeVm": true,
+  "memoryCapture": "real-guest-proc-maps-and-proc-mem",
+  "migrationCompleted": true,
+  "summary": {
+    "verifiedVmRows": 1,
+    "memoryStateRows": 1,
+    "refusedRows": 0
+  },
+  "results": [
+    {
+      "id": "047-memory-real-typed-array",
+      "architecture": "arm64",
+      "state": "verified"
+    },
+    {
+      "id": "047-memory-real-typed-array",
+      "architecture": "amd64",
+      "state": "verified"
+    }
+  ],
+  "sourceCapture": {
+    "kind": "machinen.nodejs-portability-memory-real-typed-array-smoke-report.source-capture",
+    "accepted": true,
+    "portabilityRow": "047-memory-real-typed-array",
+    "sourceArch": "arm64",
+    "captureMethod": "guest-proc-maps-and-proc-mem-anchor-semantic-decoder",
+    "appHookUsedForCapture": false,
+    "rawV8HeapRestored": false,
+    "samePidRestored": false,
+    "memoryIr": {
+      "kind": "machinen.nodejs.memory-ir",
+      "version": 1,
+      "runtime": {
+        "name": "node",
+        "sourceArch": "arm64",
+        "v8": "12.4.254.21-node.22"
+      },
+      "rows": [
+        {
+          "id": "047-memory-real-typed-array",
+          "shape": "typed-array",
+          "semanticState": {
+            "kind": "typed-array",
+            "anchor": "machinen-real-typed-array-anchor-v1",
+            "constructor": "Uint32Array",
+            "values": [7, 11, 13]
+          },
+          "anchors": {
+            "anchor": "machinen-real-typed-array-anchor-v1",
+            "values": "typed-array-values:7,11,13"
+          }
+        }
+      ],
+      "unsupported": [],
+      "claimGuard": {
+        "arbitraryNodeProcessRestoreClaimed": false,
+        "arbitraryLinuxProcessRestoreClaimed": false,
+        "rawV8HeapRestoreUsed": false,
+        "rawCpuStateReplayUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "samePidContinuationClaimed": false,
+        "activeRequestOrSocketContinuationClaimed": false
+      }
+    },
+    "evidence": {
+      "pid": 372,
+      "mapsSha256": "ff475365ac87cda98c171fa91f002516cdb946880a1872adc640aff78da773c1",
+      "readableMappings": 92,
+      "decodedFields": {
+        "anchor": {
+          "found": true,
+          "hits": ["0x15b89b16", "0x15b89c0d", "0x2ea5b46cc996", "0x2ea5b46cca8d"]
+        },
+        "values": {
+          "found": true,
+          "hits": ["0x15b89c40", "0x2ea5b46ccac0", "0x39adc00d66f0", "0x3bad3e28c188"]
+        }
+      }
+    }
+  },
+  "targetResult": {
+    "kind": "machinen.nodejs-portability-memory-real-typed-array-smoke-report.target-result",
+    "accepted": true,
+    "portabilityRow": "047-memory-real-typed-array",
+    "sourceArch": "arm64",
+    "targetArch": "amd64",
+    "materialization": "target-native-node-semantic-memory-ir",
+    "targetNativeNode": true,
+    "appHookUsedForCapture": false,
+    "rawV8HeapRestored": false,
+    "samePidRestored": false,
+    "verifier": {
+      "accepted": true,
+      "actual": {
+        "kind": "typed-array",
+        "anchor": "machinen-real-typed-array-anchor-v1",
+        "constructor": "Uint32Array",
+        "values": [7, 11, 13]
+      },
+      "expected": {
+        "kind": "typed-array",
+        "anchor": "machinen-real-typed-array-anchor-v1",
+        "constructor": "Uint32Array",
+        "values": [7, 11, 13]
+      }
+    }
+  },
+  "evidence": {
+    "appPath": "portability/nodejs/047-memory-real-typed-array/app.mjs",
+    "appSha256": "995929f90aee2c6cfc0931e8e2bd54da68ad6dcc6ca63027fdcf7ee75528f5ea",
+    "smokePath": "portability/nodejs/047-memory-real-typed-array/smoke.ts"
+  },
+  "claimBoundary": {
+    "claims": [
+      "047-memory-real-typed-array captures selected Node typed-array state from /proc memory and materializes it target-native across architectures"
+    ],
+    "notClaimed": [
+      "arbitrary Node process restore",
+      "raw V8 heap restore",
+      "same PID continuation",
+      "active request/socket continuation",
+      "worker/native-addon/child-process live-state transfer",
+      "source ISA emulation",
+      "arbitrary Linux process restore",
+      "raw VM/vCPU/device replay"
+    ]
+  },
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "arbitraryLinuxProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "samePidContinuationClaimed": false,
+    "activeRequestOrSocketContinuationClaimed": false
+  }
+}
