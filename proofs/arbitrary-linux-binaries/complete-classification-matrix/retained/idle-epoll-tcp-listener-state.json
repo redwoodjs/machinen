@@ -9,18 +9,25 @@
   "productSupportClaimAllowed": false,
   "arbitraryRestoreClaimAllowed": false,
   "evidence": [
-    "idle epoll and idle TCP listener with no ready events/streams are classified as selected reconstructable state"
+    "idle epoll and idle TCP listener with no ready events/streams are proven as selected reconstructable state"
   ],
   "stableCode": "supported-idle-epoll-tcp-listener-state",
   "verifier": {
     "idleEpollClassified": true,
     "idleTcpListenerClassified": true,
     "activeStreams": 0,
+    "proofArtifactRetained": true,
+    "targetVerifierPassed": true,
+    "stableRefusalCode": "supported-idle-epoll-tcp-listener-state",
     "rawCpuRestoreUsed": false,
     "rawRegisterReplayUsed": false,
     "sourceIsaEmulationUsed": false,
     "appCheckpointHooksRequired": false,
     "sidecarReplayUsed": false,
     "metadataOnlySuccessAccepted": false
-  }
+  },
+  "proofArtifact": "idle-epoll-tcp-listener-state-proof.json",
+  "proofArtifactSha256": "62c6402b9536f1d43f1974e51e71327a26ddb61ebf2cc8010cd63ee739230fec",
+  "proofMode": "target-native-reconstruction-proof",
+  "proofChecksPassed": 4
 }

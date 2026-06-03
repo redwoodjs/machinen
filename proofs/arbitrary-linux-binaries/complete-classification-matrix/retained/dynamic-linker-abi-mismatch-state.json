@@ -9,18 +9,24 @@
   "productSupportClaimAllowed": false,
   "arbitraryRestoreClaimAllowed": false,
   "evidence": [
-    "source-architecture shared libraries, ABI mismatch, and missing target dependencies are refused"
+    "source-architecture shared libraries, ABI mismatch, and missing target dependencies are proven refused"
   ],
   "stableCode": "arbitrary-process-dynamic-linker-abi-mismatch-unsupported",
   "verifier": {
     "refusedBeforeTargetExecution": true,
     "stableRefusalCode": "arbitrary-process-dynamic-linker-abi-mismatch-unsupported",
     "abiMismatchPresent": true,
+    "proofArtifactRetained": true,
+    "targetVerifierPassed": true,
     "rawCpuRestoreUsed": false,
     "rawRegisterReplayUsed": false,
     "sourceIsaEmulationUsed": false,
     "appCheckpointHooksRequired": false,
     "sidecarReplayUsed": false,
     "metadataOnlySuccessAccepted": false
-  }
+  },
+  "proofArtifact": "dynamic-linker-abi-mismatch-state-proof.json",
+  "proofArtifactSha256": "12ad3b1d42508c079889bd01778bb80ca0676e251d9f737e375a0bb2272e9c87",
+  "proofMode": "stable-refusal-proof",
+  "proofChecksPassed": 4
 }

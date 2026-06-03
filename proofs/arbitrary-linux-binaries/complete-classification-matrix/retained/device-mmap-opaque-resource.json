@@ -8,19 +8,23 @@
   "productSupportOutOfScope": true,
   "productSupportClaimAllowed": false,
   "arbitraryRestoreClaimAllowed": false,
-  "evidence": [
-    "device mmap and opaque device state have target-specific side effects and are refused"
-  ],
+  "evidence": ["device mmap and opaque device state are proven refused by stable classifier"],
   "stableCode": "arbitrary-process-device-mmap-unsupported",
   "verifier": {
     "refusedBeforeTargetExecution": true,
     "stableRefusalCode": "arbitrary-process-device-mmap-unsupported",
     "deviceMmapPresent": true,
+    "proofArtifactRetained": true,
+    "targetVerifierPassed": true,
     "rawCpuRestoreUsed": false,
     "rawRegisterReplayUsed": false,
     "sourceIsaEmulationUsed": false,
     "appCheckpointHooksRequired": false,
     "sidecarReplayUsed": false,
     "metadataOnlySuccessAccepted": false
-  }
+  },
+  "proofArtifact": "device-mmap-opaque-resource-proof.json",
+  "proofArtifactSha256": "3244e96767d15271e6eaa976ea63af75f68c985aaa59d30b6b8553efa73fd164",
+  "proofMode": "stable-refusal-proof",
+  "proofChecksPassed": 4
 }

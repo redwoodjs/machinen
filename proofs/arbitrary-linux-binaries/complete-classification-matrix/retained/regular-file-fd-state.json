@@ -9,16 +9,23 @@
   "productSupportClaimAllowed": false,
   "arbitraryRestoreClaimAllowed": false,
   "evidence": [
-    "regular-file FD path/offset/flags are classified as selected reconstructable resource state"
+    "regular-file FD path/offset/flags are proven as selected reconstructable resource state"
   ],
   "stableCode": "supported-regular-file-fd-state",
   "verifier": {
     "regularFileFdClassified": true,
+    "proofArtifactRetained": true,
+    "targetVerifierPassed": true,
+    "stableRefusalCode": "supported-regular-file-fd-state",
     "rawCpuRestoreUsed": false,
     "rawRegisterReplayUsed": false,
     "sourceIsaEmulationUsed": false,
     "appCheckpointHooksRequired": false,
     "sidecarReplayUsed": false,
     "metadataOnlySuccessAccepted": false
-  }
+  },
+  "proofArtifact": "regular-file-fd-state-proof.json",
+  "proofArtifactSha256": "0238359deb5b6d9d7b7b0be96777dbdc7cb010ef7fff5686588dc55596af762f",
+  "proofMode": "target-native-reconstruction-proof",
+  "proofChecksPassed": 4
 }

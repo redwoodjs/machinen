@@ -9,18 +9,24 @@
   "productSupportClaimAllowed": false,
   "arbitraryRestoreClaimAllowed": false,
   "evidence": [
-    "any unclassified process-state class is refused by default; matrix has zero unknown accepted rows"
+    "any unclassified process-state class is proven refused by default; matrix has zero unknown accepted rows"
   ],
   "stableCode": "arbitrary-process-unknown-state-unsupported",
   "verifier": {
     "refusedBeforeTargetExecution": true,
     "stableRefusalCode": "arbitrary-process-unknown-state-unsupported",
     "defaultUnknownStatePolicy": "refuse",
+    "proofArtifactRetained": true,
+    "targetVerifierPassed": true,
     "rawCpuRestoreUsed": false,
     "rawRegisterReplayUsed": false,
     "sourceIsaEmulationUsed": false,
     "appCheckpointHooksRequired": false,
     "sidecarReplayUsed": false,
     "metadataOnlySuccessAccepted": false
-  }
+  },
+  "proofArtifact": "arbitrary-unknown-process-state-proof.json",
+  "proofArtifactSha256": "d74d4ced7b7a19dd529ce4b33631b774cf027d4b9c6c129589f5cab8d7c25c38",
+  "proofMode": "stable-refusal-proof",
+  "proofChecksPassed": 4
 }

@@ -1,0 +1,61 @@
+{
+  "kind": "machinen.arbitrary-process-row-proof",
+  "version": 1,
+  "rowId": "ptrace-debugger-traced-state",
+  "proofNumber": "arbitrary/038",
+  "proofMode": "stable-refusal-proof",
+  "accepted": true,
+  "disposition": "refused",
+  "fixture": {
+    "id": "ptrace-debugger-traced-state-fixture",
+    "portableState": [],
+    "refusedState": ["ptrace tracer relationship", "traced stop", "debugger-owned registers"],
+    "fixtureHash": "80d09f229740313b3923ff385cab16a7296148fada3b9ebea31660527394081b"
+  },
+  "verifier": {
+    "targetNativeReconstructionAttempted": false,
+    "targetVerifierPassed": true,
+    "refusedBeforeTargetExecution": true,
+    "stableRefusalCode": "arbitrary-process-ptrace-debug-state-unsupported",
+    "checks": [
+      {
+        "name": "refused-state-manifest-present",
+        "passed": true,
+        "detail": "3 refused state fields retained for ptrace-debugger-traced-state"
+      },
+      {
+        "name": "stable-refusal-code-emitted",
+        "passed": true,
+        "detail": "arbitrary-process-ptrace-debug-state-unsupported emitted for fixture 80d09f229740313b3923ff385cab16a7296148fada3b9ebea31660527394081b"
+      },
+      {
+        "name": "target-execution-blocked",
+        "passed": true,
+        "detail": "refusal happens before target execution or target-native reconstruction attempt"
+      },
+      {
+        "name": "claim-guard-held",
+        "passed": true,
+        "detail": "refusal does not raise product support or arbitrary process restore claim"
+      }
+    ]
+  },
+  "transcript": [
+    "loaded refused fixture ptrace-debugger-traced-state-fixture",
+    "detected refused state class arbitrary-process-ptrace-debug-state-unsupported",
+    "stopped before target execution",
+    "recorded stable refusal proof without product claim lift"
+  ],
+  "claimGuard": {
+    "productSupportOutOfScope": true,
+    "productSupportRowsAdded": 0,
+    "arbitraryProcessRestoreClaimed": 0,
+    "publicClaimAllowed": false,
+    "rawCpuRestoreUsed": false,
+    "rawRegisterReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "sidecarReplayUsed": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

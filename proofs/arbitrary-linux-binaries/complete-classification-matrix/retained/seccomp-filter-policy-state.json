@@ -8,19 +8,23 @@
   "productSupportOutOfScope": true,
   "productSupportClaimAllowed": false,
   "arbitraryRestoreClaimAllowed": false,
-  "evidence": [
-    "seccomp filters can block target behavior or restore logic and are refused without a retained policy verifier"
-  ],
+  "evidence": ["seccomp filters are proven refused without a retained policy verifier"],
   "stableCode": "arbitrary-process-seccomp-policy-unsupported",
   "verifier": {
     "refusedBeforeTargetExecution": true,
     "stableRefusalCode": "arbitrary-process-seccomp-policy-unsupported",
     "seccompFilterPresent": true,
+    "proofArtifactRetained": true,
+    "targetVerifierPassed": true,
     "rawCpuRestoreUsed": false,
     "rawRegisterReplayUsed": false,
     "sourceIsaEmulationUsed": false,
     "appCheckpointHooksRequired": false,
     "sidecarReplayUsed": false,
     "metadataOnlySuccessAccepted": false
-  }
+  },
+  "proofArtifact": "seccomp-filter-policy-state-proof.json",
+  "proofArtifactSha256": "f1cef14986e248c54bc1af27d138a3afe4293e6675df0b60a166e5c4ae251d48",
+  "proofMode": "stable-refusal-proof",
+  "proofChecksPassed": 4
 }

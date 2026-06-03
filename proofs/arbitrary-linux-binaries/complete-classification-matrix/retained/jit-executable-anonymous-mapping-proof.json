@@ -1,0 +1,65 @@
+{
+  "kind": "machinen.arbitrary-process-row-proof",
+  "version": 1,
+  "rowId": "jit-executable-anonymous-mapping",
+  "proofNumber": "arbitrary/030",
+  "proofMode": "stable-refusal-proof",
+  "accepted": true,
+  "disposition": "refused",
+  "fixture": {
+    "id": "jit-executable-anonymous-mapping-fixture",
+    "portableState": [],
+    "refusedState": [
+      "anonymous executable page",
+      "generated code bytes",
+      "runtime code pointer provenance"
+    ],
+    "fixtureHash": "ff6d542db962c4b6f8de307b609369326a1d642944946f263d1f0a5a13b4a601"
+  },
+  "verifier": {
+    "targetNativeReconstructionAttempted": false,
+    "targetVerifierPassed": true,
+    "refusedBeforeTargetExecution": true,
+    "stableRefusalCode": "arbitrary-process-jit-executable-mapping-unsupported",
+    "checks": [
+      {
+        "name": "refused-state-manifest-present",
+        "passed": true,
+        "detail": "3 refused state fields retained for jit-executable-anonymous-mapping"
+      },
+      {
+        "name": "stable-refusal-code-emitted",
+        "passed": true,
+        "detail": "arbitrary-process-jit-executable-mapping-unsupported emitted for fixture ff6d542db962c4b6f8de307b609369326a1d642944946f263d1f0a5a13b4a601"
+      },
+      {
+        "name": "target-execution-blocked",
+        "passed": true,
+        "detail": "refusal happens before target execution or target-native reconstruction attempt"
+      },
+      {
+        "name": "claim-guard-held",
+        "passed": true,
+        "detail": "refusal does not raise product support or arbitrary process restore claim"
+      }
+    ]
+  },
+  "transcript": [
+    "loaded refused fixture jit-executable-anonymous-mapping-fixture",
+    "detected refused state class arbitrary-process-jit-executable-mapping-unsupported",
+    "stopped before target execution",
+    "recorded stable refusal proof without product claim lift"
+  ],
+  "claimGuard": {
+    "productSupportOutOfScope": true,
+    "productSupportRowsAdded": 0,
+    "arbitraryProcessRestoreClaimed": 0,
+    "publicClaimAllowed": false,
+    "rawCpuRestoreUsed": false,
+    "rawRegisterReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "sidecarReplayUsed": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

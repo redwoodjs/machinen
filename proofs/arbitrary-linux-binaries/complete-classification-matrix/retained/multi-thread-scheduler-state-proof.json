@@ -1,0 +1,66 @@
+{
+  "kind": "machinen.arbitrary-process-row-proof",
+  "version": 1,
+  "rowId": "multi-thread-scheduler-state",
+  "proofNumber": "arbitrary/028",
+  "proofMode": "stable-refusal-proof",
+  "accepted": true,
+  "disposition": "refused",
+  "fixture": {
+    "id": "multi-thread-scheduler-state-fixture",
+    "portableState": [],
+    "refusedState": [
+      "thread register sets",
+      "scheduler interleaving",
+      "stack ownership",
+      "TLS ownership"
+    ],
+    "fixtureHash": "6c3e3d61a4f042b72d3bfc8742f602ada253cc4ac0643f2a8f9b3db7e6fcde08"
+  },
+  "verifier": {
+    "targetNativeReconstructionAttempted": false,
+    "targetVerifierPassed": true,
+    "refusedBeforeTargetExecution": true,
+    "stableRefusalCode": "arbitrary-process-multithread-unsupported",
+    "checks": [
+      {
+        "name": "refused-state-manifest-present",
+        "passed": true,
+        "detail": "4 refused state fields retained for multi-thread-scheduler-state"
+      },
+      {
+        "name": "stable-refusal-code-emitted",
+        "passed": true,
+        "detail": "arbitrary-process-multithread-unsupported emitted for fixture 6c3e3d61a4f042b72d3bfc8742f602ada253cc4ac0643f2a8f9b3db7e6fcde08"
+      },
+      {
+        "name": "target-execution-blocked",
+        "passed": true,
+        "detail": "refusal happens before target execution or target-native reconstruction attempt"
+      },
+      {
+        "name": "claim-guard-held",
+        "passed": true,
+        "detail": "refusal does not raise product support or arbitrary process restore claim"
+      }
+    ]
+  },
+  "transcript": [
+    "loaded refused fixture multi-thread-scheduler-state-fixture",
+    "detected refused state class arbitrary-process-multithread-unsupported",
+    "stopped before target execution",
+    "recorded stable refusal proof without product claim lift"
+  ],
+  "claimGuard": {
+    "productSupportOutOfScope": true,
+    "productSupportRowsAdded": 0,
+    "arbitraryProcessRestoreClaimed": 0,
+    "publicClaimAllowed": false,
+    "rawCpuRestoreUsed": false,
+    "rawRegisterReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "sidecarReplayUsed": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

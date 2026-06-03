@@ -1,0 +1,65 @@
+{
+  "kind": "machinen.arbitrary-process-row-proof",
+  "version": 1,
+  "rowId": "device-mmap-opaque-resource",
+  "proofNumber": "arbitrary/031",
+  "proofMode": "stable-refusal-proof",
+  "accepted": true,
+  "disposition": "refused",
+  "fixture": {
+    "id": "device-mmap-opaque-resource-fixture",
+    "portableState": [],
+    "refusedState": [
+      "device-backed mmap",
+      "device file descriptor",
+      "opaque kernel/device side effects"
+    ],
+    "fixtureHash": "7f9ba4f1df604f4887ef7299fb702e0f266f551fb3e06f1cfbfed44b2579823e"
+  },
+  "verifier": {
+    "targetNativeReconstructionAttempted": false,
+    "targetVerifierPassed": true,
+    "refusedBeforeTargetExecution": true,
+    "stableRefusalCode": "arbitrary-process-device-mmap-unsupported",
+    "checks": [
+      {
+        "name": "refused-state-manifest-present",
+        "passed": true,
+        "detail": "3 refused state fields retained for device-mmap-opaque-resource"
+      },
+      {
+        "name": "stable-refusal-code-emitted",
+        "passed": true,
+        "detail": "arbitrary-process-device-mmap-unsupported emitted for fixture 7f9ba4f1df604f4887ef7299fb702e0f266f551fb3e06f1cfbfed44b2579823e"
+      },
+      {
+        "name": "target-execution-blocked",
+        "passed": true,
+        "detail": "refusal happens before target execution or target-native reconstruction attempt"
+      },
+      {
+        "name": "claim-guard-held",
+        "passed": true,
+        "detail": "refusal does not raise product support or arbitrary process restore claim"
+      }
+    ]
+  },
+  "transcript": [
+    "loaded refused fixture device-mmap-opaque-resource-fixture",
+    "detected refused state class arbitrary-process-device-mmap-unsupported",
+    "stopped before target execution",
+    "recorded stable refusal proof without product claim lift"
+  ],
+  "claimGuard": {
+    "productSupportOutOfScope": true,
+    "productSupportRowsAdded": 0,
+    "arbitraryProcessRestoreClaimed": 0,
+    "publicClaimAllowed": false,
+    "rawCpuRestoreUsed": false,
+    "rawRegisterReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "sidecarReplayUsed": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

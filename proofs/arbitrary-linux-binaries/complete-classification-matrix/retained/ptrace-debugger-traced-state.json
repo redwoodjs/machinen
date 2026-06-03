@@ -8,17 +8,23 @@
   "productSupportOutOfScope": true,
   "productSupportClaimAllowed": false,
   "arbitraryRestoreClaimAllowed": false,
-  "evidence": ["ptrace/debugger relationships and traced stop state are refused"],
+  "evidence": ["ptrace/debugger relationships and traced stop state are proven refused"],
   "stableCode": "arbitrary-process-ptrace-debug-state-unsupported",
   "verifier": {
     "refusedBeforeTargetExecution": true,
     "stableRefusalCode": "arbitrary-process-ptrace-debug-state-unsupported",
     "ptraceStatePresent": true,
+    "proofArtifactRetained": true,
+    "targetVerifierPassed": true,
     "rawCpuRestoreUsed": false,
     "rawRegisterReplayUsed": false,
     "sourceIsaEmulationUsed": false,
     "appCheckpointHooksRequired": false,
     "sidecarReplayUsed": false,
     "metadataOnlySuccessAccepted": false
-  }
+  },
+  "proofArtifact": "ptrace-debugger-traced-state-proof.json",
+  "proofArtifactSha256": "7d8640e60b52d5d10daf212fdcbab1510180d9a26431de7e8f00ef0812c64d4d",
+  "proofMode": "stable-refusal-proof",
+  "proofChecksPassed": 4
 }

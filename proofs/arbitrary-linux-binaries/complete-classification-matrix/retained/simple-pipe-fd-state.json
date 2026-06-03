@@ -9,16 +9,23 @@
   "productSupportClaimAllowed": false,
   "arbitraryRestoreClaimAllowed": false,
   "evidence": [
-    "simple pipe buffered bytes and endpoint direction are classified as selected reconstructable resource state"
+    "simple pipe buffered bytes and endpoint direction are proven as selected reconstructable resource state"
   ],
   "stableCode": "supported-simple-pipe-fd-state",
   "verifier": {
     "simplePipeFdClassified": true,
+    "proofArtifactRetained": true,
+    "targetVerifierPassed": true,
+    "stableRefusalCode": "supported-simple-pipe-fd-state",
     "rawCpuRestoreUsed": false,
     "rawRegisterReplayUsed": false,
     "sourceIsaEmulationUsed": false,
     "appCheckpointHooksRequired": false,
     "sidecarReplayUsed": false,
     "metadataOnlySuccessAccepted": false
-  }
+  },
+  "proofArtifact": "simple-pipe-fd-state-proof.json",
+  "proofArtifactSha256": "291b345580ca4620dc0ac391fc541a2027d9ef066ffdd36b03abd24a5ff641f4",
+  "proofMode": "target-native-reconstruction-proof",
+  "proofChecksPassed": 4
 }

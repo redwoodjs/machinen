@@ -1,0 +1,65 @@
+{
+  "kind": "machinen.arbitrary-process-row-proof",
+  "version": 1,
+  "rowId": "simple-pipe-fd-state",
+  "proofNumber": "arbitrary/023",
+  "proofMode": "target-native-reconstruction-proof",
+  "accepted": true,
+  "disposition": "supported-proof",
+  "fixture": {
+    "id": "simple-pipe-fd-state-fixture",
+    "portableState": [
+      "pipe endpoint direction",
+      "buffered byte payload",
+      "EOF/open endpoint policy"
+    ],
+    "refusedState": [],
+    "fixtureHash": "bcb1ba94274d769928b3e6d4b9e5947f5e24b774df61bb62a90bb42c3ed68e1a"
+  },
+  "verifier": {
+    "targetNativeReconstructionAttempted": true,
+    "targetVerifierPassed": true,
+    "refusedBeforeTargetExecution": false,
+    "stableRefusalCode": null,
+    "checks": [
+      {
+        "name": "portable-state-manifest-present",
+        "passed": true,
+        "detail": "3 portable state fields retained for simple-pipe-fd-state"
+      },
+      {
+        "name": "target-native-verifier-passed",
+        "passed": true,
+        "detail": "deterministic verifier accepted fixture bcb1ba94274d769928b3e6d4b9e5947f5e24b774df61bb62a90bb42c3ed68e1a"
+      },
+      {
+        "name": "no-forbidden-shortcuts",
+        "passed": true,
+        "detail": "raw CPU/register replay, source ISA emulation, hooks, sidecars, and metadata-only success are false"
+      },
+      {
+        "name": "claim-guard-held",
+        "passed": true,
+        "detail": "product support remains out of scope and arbitrary process restore claim remains 0"
+      }
+    ]
+  },
+  "transcript": [
+    "loaded portable fixture simple-pipe-fd-state-fixture",
+    "validated target-native reconstruction manifest",
+    "ran deterministic target verifier checks",
+    "recorded proof without product claim lift"
+  ],
+  "claimGuard": {
+    "productSupportOutOfScope": true,
+    "productSupportRowsAdded": 0,
+    "arbitraryProcessRestoreClaimed": 0,
+    "publicClaimAllowed": false,
+    "rawCpuRestoreUsed": false,
+    "rawRegisterReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "sidecarReplayUsed": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

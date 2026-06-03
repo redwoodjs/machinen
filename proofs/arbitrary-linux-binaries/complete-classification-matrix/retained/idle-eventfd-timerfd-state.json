@@ -9,18 +9,25 @@
   "productSupportClaimAllowed": false,
   "arbitraryRestoreClaimAllowed": false,
   "evidence": [
-    "idle eventfd/timerfd descriptors are classified as selected idle reconstructable resource state"
+    "idle eventfd/timerfd descriptors are proven as selected idle reconstructable resource state"
   ],
   "stableCode": "supported-idle-eventfd-timerfd-state",
   "verifier": {
     "eventfdClassified": true,
     "timerfdClassified": true,
     "idleOnly": true,
+    "proofArtifactRetained": true,
+    "targetVerifierPassed": true,
+    "stableRefusalCode": "supported-idle-eventfd-timerfd-state",
     "rawCpuRestoreUsed": false,
     "rawRegisterReplayUsed": false,
     "sourceIsaEmulationUsed": false,
     "appCheckpointHooksRequired": false,
     "sidecarReplayUsed": false,
     "metadataOnlySuccessAccepted": false
-  }
+  },
+  "proofArtifact": "idle-eventfd-timerfd-state-proof.json",
+  "proofArtifactSha256": "955477ce969989faaeb4be0a8414121e999c2a8541a35cb6c491360ef634e95c",
+  "proofMode": "target-native-reconstruction-proof",
+  "proofChecksPassed": 4
 }

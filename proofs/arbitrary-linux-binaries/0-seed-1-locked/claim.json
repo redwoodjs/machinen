@@ -401,10 +401,13 @@
       "category": "process metadata",
       "status": "verified",
       "disposition": "supported-proof",
-      "artifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/process-metadata-argv-env-cwd.json",
-      "proves": "argv/env/cwd hashes are classified as target-native reconstructable proof state",
-      "claimUse": "supported-proof classification; arbitrary process restore remains 0",
-      "next": "Use as declared-state classification input; product support remains out of scope.",
+      "artifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/process-metadata-argv-env-cwd-proof.json",
+      "rowSummaryArtifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/process-metadata-argv-env-cwd.json",
+      "proofMode": "target-native-reconstruction-proof",
+      "proofChecksPassed": 4,
+      "proves": "argv/env/cwd hashes are proven as target-native reconstructable proof state; retained proof target-native-reconstruction-proof with 4 verifier checks",
+      "claimUse": "target-native reconstruction proof; arbitrary process restore remains 0",
+      "next": "Use as declared-state proof input; product support remains out of scope.",
       "claimImpact": {
         "productSupportDelta": 0,
         "broadSupportDelta": 0,
@@ -415,7 +418,7 @@
           "arbitraryProcessCrossArchRestore": 0
         },
         "claimChangeAllowed": false,
-        "scope": "declared arbitrary-process state classification only"
+        "scope": "declared arbitrary-process state proof only"
       }
     },
     {
@@ -424,10 +427,13 @@
       "category": "memory",
       "status": "verified",
       "disposition": "supported-proof",
-      "artifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/static-data-heap-memory.json",
-      "proves": "static/data/heap byte payload is classified as target-native materializable proof state",
-      "claimUse": "supported-proof classification; arbitrary process restore remains 0",
-      "next": "Use as declared-state classification input; product support remains out of scope.",
+      "artifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/static-data-heap-memory-proof.json",
+      "rowSummaryArtifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/static-data-heap-memory.json",
+      "proofMode": "target-native-reconstruction-proof",
+      "proofChecksPassed": 4,
+      "proves": "static/data/heap byte payload is proven as target-native materializable proof state; retained proof target-native-reconstruction-proof with 4 verifier checks",
+      "claimUse": "target-native reconstruction proof; arbitrary process restore remains 0",
+      "next": "Use as declared-state proof input; product support remains out of scope.",
       "claimImpact": {
         "productSupportDelta": 0,
         "broadSupportDelta": 0,
@@ -438,7 +444,7 @@
           "arbitraryProcessCrossArchRestore": 0
         },
         "claimChangeAllowed": false,
-        "scope": "declared arbitrary-process state classification only"
+        "scope": "declared arbitrary-process state proof only"
       }
     },
     {
@@ -447,10 +453,13 @@
       "category": "file descriptor",
       "status": "verified",
       "disposition": "supported-proof",
-      "artifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/regular-file-fd-state.json",
-      "proves": "regular-file FD path/offset/flags are classified as selected reconstructable resource state",
-      "claimUse": "supported-proof classification; arbitrary process restore remains 0",
-      "next": "Use as declared-state classification input; product support remains out of scope.",
+      "artifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/regular-file-fd-state-proof.json",
+      "rowSummaryArtifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/regular-file-fd-state.json",
+      "proofMode": "target-native-reconstruction-proof",
+      "proofChecksPassed": 4,
+      "proves": "regular-file FD path/offset/flags are proven as selected reconstructable resource state; retained proof target-native-reconstruction-proof with 4 verifier checks",
+      "claimUse": "target-native reconstruction proof; arbitrary process restore remains 0",
+      "next": "Use as declared-state proof input; product support remains out of scope.",
       "claimImpact": {
         "productSupportDelta": 0,
         "broadSupportDelta": 0,
@@ -461,7 +470,7 @@
           "arbitraryProcessCrossArchRestore": 0
         },
         "claimChangeAllowed": false,
-        "scope": "declared arbitrary-process state classification only"
+        "scope": "declared arbitrary-process state proof only"
       }
     },
     {
@@ -470,10 +479,13 @@
       "category": "pipe descriptor",
       "status": "verified",
       "disposition": "supported-proof",
-      "artifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/simple-pipe-fd-state.json",
-      "proves": "simple pipe buffered bytes and endpoint direction are classified as selected reconstructable resource state",
-      "claimUse": "supported-proof classification; arbitrary process restore remains 0",
-      "next": "Use as declared-state classification input; product support remains out of scope.",
+      "artifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/simple-pipe-fd-state-proof.json",
+      "rowSummaryArtifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/simple-pipe-fd-state.json",
+      "proofMode": "target-native-reconstruction-proof",
+      "proofChecksPassed": 4,
+      "proves": "simple pipe buffered bytes and endpoint direction are proven as selected reconstructable resource state; retained proof target-native-reconstruction-proof with 4 verifier checks",
+      "claimUse": "target-native reconstruction proof; arbitrary process restore remains 0",
+      "next": "Use as declared-state proof input; product support remains out of scope.",
       "claimImpact": {
         "productSupportDelta": 0,
         "broadSupportDelta": 0,
@@ -484,7 +496,7 @@
           "arbitraryProcessCrossArchRestore": 0
         },
         "claimChangeAllowed": false,
-        "scope": "declared arbitrary-process state classification only"
+        "scope": "declared arbitrary-process state proof only"
       }
     },
     {
@@ -493,10 +505,13 @@
       "category": "idle kernel resource",
       "status": "verified",
       "disposition": "supported-proof",
-      "artifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/idle-eventfd-timerfd-state.json",
-      "proves": "idle eventfd/timerfd descriptors are classified as selected idle reconstructable resource state",
-      "claimUse": "supported-proof classification; arbitrary process restore remains 0",
-      "next": "Use as declared-state classification input; product support remains out of scope.",
+      "artifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/idle-eventfd-timerfd-state-proof.json",
+      "rowSummaryArtifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/idle-eventfd-timerfd-state.json",
+      "proofMode": "target-native-reconstruction-proof",
+      "proofChecksPassed": 4,
+      "proves": "idle eventfd/timerfd descriptors are proven as selected idle reconstructable resource state; retained proof target-native-reconstruction-proof with 4 verifier checks",
+      "claimUse": "target-native reconstruction proof; arbitrary process restore remains 0",
+      "next": "Use as declared-state proof input; product support remains out of scope.",
       "claimImpact": {
         "productSupportDelta": 0,
         "broadSupportDelta": 0,
@@ -507,7 +522,7 @@
           "arbitraryProcessCrossArchRestore": 0
         },
         "claimChangeAllowed": false,
-        "scope": "declared arbitrary-process state classification only"
+        "scope": "declared arbitrary-process state proof only"
       }
     },
     {
@@ -516,10 +531,13 @@
       "category": "idle network resource",
       "status": "verified",
       "disposition": "supported-proof",
-      "artifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/idle-epoll-tcp-listener-state.json",
-      "proves": "idle epoll and idle TCP listener with no ready events/streams are classified as selected reconstructable state",
-      "claimUse": "supported-proof classification; arbitrary process restore remains 0",
-      "next": "Use as declared-state classification input; product support remains out of scope.",
+      "artifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/idle-epoll-tcp-listener-state-proof.json",
+      "rowSummaryArtifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/idle-epoll-tcp-listener-state.json",
+      "proofMode": "target-native-reconstruction-proof",
+      "proofChecksPassed": 4,
+      "proves": "idle epoll and idle TCP listener with no ready events/streams are proven as selected reconstructable state; retained proof target-native-reconstruction-proof with 4 verifier checks",
+      "claimUse": "target-native reconstruction proof; arbitrary process restore remains 0",
+      "next": "Use as declared-state proof input; product support remains out of scope.",
       "claimImpact": {
         "productSupportDelta": 0,
         "broadSupportDelta": 0,
@@ -530,7 +548,7 @@
           "arbitraryProcessCrossArchRestore": 0
         },
         "claimChangeAllowed": false,
-        "scope": "declared arbitrary-process state classification only"
+        "scope": "declared arbitrary-process state proof only"
       }
     },
     {
@@ -539,10 +557,13 @@
       "category": "signal state",
       "status": "verified",
       "disposition": "refused",
-      "artifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/pending-signal-frame-state.json",
-      "proves": "pending signal frames and handler continuation require target-specific stack/kernel semantics",
-      "claimUse": "classification refusal; arbitrary process restore remains 0",
-      "next": "Reduce only with retained proof artifacts for this state class.",
+      "artifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/pending-signal-frame-state-proof.json",
+      "rowSummaryArtifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/pending-signal-frame-state.json",
+      "proofMode": "stable-refusal-proof",
+      "proofChecksPassed": 4,
+      "proves": "pending signal frames and handler continuation are proven refused by stable classifier; retained proof stable-refusal-proof with 4 verifier checks",
+      "claimUse": "stable refusal proof; arbitrary process restore remains 0",
+      "next": "Reduce only with retained target-native proof artifacts for this state class.",
       "claimImpact": {
         "productSupportDelta": 0,
         "broadSupportDelta": 0,
@@ -553,7 +574,7 @@
           "arbitraryProcessCrossArchRestore": 0
         },
         "claimChangeAllowed": false,
-        "scope": "declared arbitrary-process state classification only"
+        "scope": "declared arbitrary-process state proof only"
       }
     },
     {
@@ -562,10 +583,13 @@
       "category": "active syscall state",
       "status": "verified",
       "disposition": "refused",
-      "artifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/active-syscall-state.json",
-      "proves": "interrupted active syscalls and in-kernel state are refused before target execution",
-      "claimUse": "classification refusal; arbitrary process restore remains 0",
-      "next": "Reduce only with retained proof artifacts for this state class.",
+      "artifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/active-syscall-state-proof.json",
+      "rowSummaryArtifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/active-syscall-state.json",
+      "proofMode": "stable-refusal-proof",
+      "proofChecksPassed": 4,
+      "proves": "interrupted active syscalls and in-kernel state are proven refused before target execution; retained proof stable-refusal-proof with 4 verifier checks",
+      "claimUse": "stable refusal proof; arbitrary process restore remains 0",
+      "next": "Reduce only with retained target-native proof artifacts for this state class.",
       "claimImpact": {
         "productSupportDelta": 0,
         "broadSupportDelta": 0,
@@ -576,7 +600,7 @@
           "arbitraryProcessCrossArchRestore": 0
         },
         "claimChangeAllowed": false,
-        "scope": "declared arbitrary-process state classification only"
+        "scope": "declared arbitrary-process state proof only"
       }
     },
     {
@@ -585,10 +609,13 @@
       "category": "thread state",
       "status": "verified",
       "disposition": "refused",
-      "artifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/multi-thread-scheduler-state.json",
-      "proves": "multiple live threads require scheduler, register, and stack ownership reconstruction not accepted by this matrix",
-      "claimUse": "classification refusal; arbitrary process restore remains 0",
-      "next": "Reduce only with retained proof artifacts for this state class.",
+      "artifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/multi-thread-scheduler-state-proof.json",
+      "rowSummaryArtifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/multi-thread-scheduler-state.json",
+      "proofMode": "stable-refusal-proof",
+      "proofChecksPassed": 4,
+      "proves": "multiple live threads are proven refused by retained scheduler-state classifier; retained proof stable-refusal-proof with 4 verifier checks",
+      "claimUse": "stable refusal proof; arbitrary process restore remains 0",
+      "next": "Reduce only with retained target-native proof artifacts for this state class.",
       "claimImpact": {
         "productSupportDelta": 0,
         "broadSupportDelta": 0,
@@ -599,7 +626,7 @@
           "arbitraryProcessCrossArchRestore": 0
         },
         "claimChangeAllowed": false,
-        "scope": "declared arbitrary-process state classification only"
+        "scope": "declared arbitrary-process state proof only"
       }
     },
     {
@@ -608,10 +635,13 @@
       "category": "futex state",
       "status": "verified",
       "disposition": "refused",
-      "artifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/futex-owner-waiter-state.json",
-      "proves": "futex owners/waiters and wait queues can wedge or corrupt target execution",
-      "claimUse": "classification refusal; arbitrary process restore remains 0",
-      "next": "Reduce only with retained proof artifacts for this state class.",
+      "artifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/futex-owner-waiter-state-proof.json",
+      "rowSummaryArtifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/futex-owner-waiter-state.json",
+      "proofMode": "stable-refusal-proof",
+      "proofChecksPassed": 4,
+      "proves": "futex owners/waiters and wait queues are proven refused by stable classifier; retained proof stable-refusal-proof with 4 verifier checks",
+      "claimUse": "stable refusal proof; arbitrary process restore remains 0",
+      "next": "Reduce only with retained target-native proof artifacts for this state class.",
       "claimImpact": {
         "productSupportDelta": 0,
         "broadSupportDelta": 0,
@@ -622,7 +652,7 @@
           "arbitraryProcessCrossArchRestore": 0
         },
         "claimChangeAllowed": false,
-        "scope": "declared arbitrary-process state classification only"
+        "scope": "declared arbitrary-process state proof only"
       }
     },
     {
@@ -631,10 +661,13 @@
       "category": "executable memory",
       "status": "verified",
       "disposition": "refused",
-      "artifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/jit-executable-anonymous-mapping.json",
-      "proves": "JIT/generated executable anonymous mappings are refused; raw executable page replay is forbidden",
-      "claimUse": "classification refusal; arbitrary process restore remains 0",
-      "next": "Reduce only with retained proof artifacts for this state class.",
+      "artifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/jit-executable-anonymous-mapping-proof.json",
+      "rowSummaryArtifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/jit-executable-anonymous-mapping.json",
+      "proofMode": "stable-refusal-proof",
+      "proofChecksPassed": 4,
+      "proves": "JIT/generated executable anonymous mappings are proven refused; raw executable page replay is forbidden; retained proof stable-refusal-proof with 4 verifier checks",
+      "claimUse": "stable refusal proof; arbitrary process restore remains 0",
+      "next": "Reduce only with retained target-native proof artifacts for this state class.",
       "claimImpact": {
         "productSupportDelta": 0,
         "broadSupportDelta": 0,
@@ -645,7 +678,7 @@
           "arbitraryProcessCrossArchRestore": 0
         },
         "claimChangeAllowed": false,
-        "scope": "declared arbitrary-process state classification only"
+        "scope": "declared arbitrary-process state proof only"
       }
     },
     {
@@ -654,10 +687,13 @@
       "category": "device mmap",
       "status": "verified",
       "disposition": "refused",
-      "artifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/device-mmap-opaque-resource.json",
-      "proves": "device mmap and opaque device state have target-specific side effects and are refused",
-      "claimUse": "classification refusal; arbitrary process restore remains 0",
-      "next": "Reduce only with retained proof artifacts for this state class.",
+      "artifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/device-mmap-opaque-resource-proof.json",
+      "rowSummaryArtifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/device-mmap-opaque-resource.json",
+      "proofMode": "stable-refusal-proof",
+      "proofChecksPassed": 4,
+      "proves": "device mmap and opaque device state are proven refused by stable classifier; retained proof stable-refusal-proof with 4 verifier checks",
+      "claimUse": "stable refusal proof; arbitrary process restore remains 0",
+      "next": "Reduce only with retained target-native proof artifacts for this state class.",
       "claimImpact": {
         "productSupportDelta": 0,
         "broadSupportDelta": 0,
@@ -668,7 +704,7 @@
           "arbitraryProcessCrossArchRestore": 0
         },
         "claimChangeAllowed": false,
-        "scope": "declared arbitrary-process state classification only"
+        "scope": "declared arbitrary-process state proof only"
       }
     },
     {
@@ -677,10 +713,13 @@
       "category": "shared memory",
       "status": "verified",
       "disposition": "refused",
-      "artifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/shared-memory-opaque-mapping.json",
-      "proves": "opaque shared memory without a portable manifest is refused",
-      "claimUse": "classification refusal; arbitrary process restore remains 0",
-      "next": "Reduce only with retained proof artifacts for this state class.",
+      "artifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/shared-memory-opaque-mapping-proof.json",
+      "rowSummaryArtifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/shared-memory-opaque-mapping.json",
+      "proofMode": "stable-refusal-proof",
+      "proofChecksPassed": 4,
+      "proves": "opaque shared memory without a portable manifest is proven refused; retained proof stable-refusal-proof with 4 verifier checks",
+      "claimUse": "stable refusal proof; arbitrary process restore remains 0",
+      "next": "Reduce only with retained target-native proof artifacts for this state class.",
       "claimImpact": {
         "productSupportDelta": 0,
         "broadSupportDelta": 0,
@@ -691,7 +730,7 @@
           "arbitraryProcessCrossArchRestore": 0
         },
         "claimChangeAllowed": false,
-        "scope": "declared arbitrary-process state classification only"
+        "scope": "declared arbitrary-process state proof only"
       }
     },
     {
@@ -700,10 +739,13 @@
       "category": "Unix socket",
       "status": "verified",
       "disposition": "refused",
-      "artifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/active-unix-domain-socket-state.json",
-      "proves": "active Unix domain sockets, queued credentials, and peer process coupling are refused",
-      "claimUse": "classification refusal; arbitrary process restore remains 0",
-      "next": "Reduce only with retained proof artifacts for this state class.",
+      "artifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/active-unix-domain-socket-state-proof.json",
+      "rowSummaryArtifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/active-unix-domain-socket-state.json",
+      "proofMode": "stable-refusal-proof",
+      "proofChecksPassed": 4,
+      "proves": "active Unix domain sockets, queued credentials, and peer coupling are proven refused; retained proof stable-refusal-proof with 4 verifier checks",
+      "claimUse": "stable refusal proof; arbitrary process restore remains 0",
+      "next": "Reduce only with retained target-native proof artifacts for this state class.",
       "claimImpact": {
         "productSupportDelta": 0,
         "broadSupportDelta": 0,
@@ -714,7 +756,7 @@
           "arbitraryProcessCrossArchRestore": 0
         },
         "claimChangeAllowed": false,
-        "scope": "declared arbitrary-process state classification only"
+        "scope": "declared arbitrary-process state proof only"
       }
     },
     {
@@ -723,10 +765,13 @@
       "category": "process tree",
       "status": "verified",
       "disposition": "refused",
-      "artifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/process-tree-parent-child-state.json",
-      "proves": "forked children, process groups, parent/child relationships, and cross-process IPC remain refused",
-      "claimUse": "classification refusal; arbitrary process restore remains 0",
-      "next": "Reduce only with retained proof artifacts for this state class.",
+      "artifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/process-tree-parent-child-state-proof.json",
+      "rowSummaryArtifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/process-tree-parent-child-state.json",
+      "proofMode": "stable-refusal-proof",
+      "proofChecksPassed": 4,
+      "proves": "forked children, process groups, and parent/child relationships are proven refused; retained proof stable-refusal-proof with 4 verifier checks",
+      "claimUse": "stable refusal proof; arbitrary process restore remains 0",
+      "next": "Reduce only with retained target-native proof artifacts for this state class.",
       "claimImpact": {
         "productSupportDelta": 0,
         "broadSupportDelta": 0,
@@ -737,7 +782,7 @@
           "arbitraryProcessCrossArchRestore": 0
         },
         "claimChangeAllowed": false,
-        "scope": "declared arbitrary-process state classification only"
+        "scope": "declared arbitrary-process state proof only"
       }
     },
     {
@@ -746,10 +791,13 @@
       "category": "dynamic linker",
       "status": "verified",
       "disposition": "refused",
-      "artifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/dynamic-linker-abi-mismatch-state.json",
-      "proves": "source-architecture shared libraries, ABI mismatch, and missing target dependencies are refused",
-      "claimUse": "classification refusal; arbitrary process restore remains 0",
-      "next": "Reduce only with retained proof artifacts for this state class.",
+      "artifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/dynamic-linker-abi-mismatch-state-proof.json",
+      "rowSummaryArtifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/dynamic-linker-abi-mismatch-state.json",
+      "proofMode": "stable-refusal-proof",
+      "proofChecksPassed": 4,
+      "proves": "source-architecture shared libraries, ABI mismatch, and missing target dependencies are proven refused; retained proof stable-refusal-proof with 4 verifier checks",
+      "claimUse": "stable refusal proof; arbitrary process restore remains 0",
+      "next": "Reduce only with retained target-native proof artifacts for this state class.",
       "claimImpact": {
         "productSupportDelta": 0,
         "broadSupportDelta": 0,
@@ -760,7 +808,7 @@
           "arbitraryProcessCrossArchRestore": 0
         },
         "claimChangeAllowed": false,
-        "scope": "declared arbitrary-process state classification only"
+        "scope": "declared arbitrary-process state proof only"
       }
     },
     {
@@ -769,10 +817,13 @@
       "category": "credentials and namespaces",
       "status": "verified",
       "disposition": "refused",
-      "artifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/credentials-namespace-cgroup-state.json",
-      "proves": "credential, namespace, and cgroup state require host/target policy reconstruction and are refused in this matrix",
-      "claimUse": "classification refusal; arbitrary process restore remains 0",
-      "next": "Reduce only with retained proof artifacts for this state class.",
+      "artifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/credentials-namespace-cgroup-state-proof.json",
+      "rowSummaryArtifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/credentials-namespace-cgroup-state.json",
+      "proofMode": "stable-refusal-proof",
+      "proofChecksPassed": 4,
+      "proves": "credential, namespace, and cgroup state are proven refused without host/target policy reconstruction; retained proof stable-refusal-proof with 4 verifier checks",
+      "claimUse": "stable refusal proof; arbitrary process restore remains 0",
+      "next": "Reduce only with retained target-native proof artifacts for this state class.",
       "claimImpact": {
         "productSupportDelta": 0,
         "broadSupportDelta": 0,
@@ -783,7 +834,7 @@
           "arbitraryProcessCrossArchRestore": 0
         },
         "claimChangeAllowed": false,
-        "scope": "declared arbitrary-process state classification only"
+        "scope": "declared arbitrary-process state proof only"
       }
     },
     {
@@ -792,10 +843,13 @@
       "category": "seccomp",
       "status": "verified",
       "disposition": "refused",
-      "artifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/seccomp-filter-policy-state.json",
-      "proves": "seccomp filters can block target behavior or restore logic and are refused without a retained policy verifier",
-      "claimUse": "classification refusal; arbitrary process restore remains 0",
-      "next": "Reduce only with retained proof artifacts for this state class.",
+      "artifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/seccomp-filter-policy-state-proof.json",
+      "rowSummaryArtifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/seccomp-filter-policy-state.json",
+      "proofMode": "stable-refusal-proof",
+      "proofChecksPassed": 4,
+      "proves": "seccomp filters are proven refused without a retained policy verifier; retained proof stable-refusal-proof with 4 verifier checks",
+      "claimUse": "stable refusal proof; arbitrary process restore remains 0",
+      "next": "Reduce only with retained target-native proof artifacts for this state class.",
       "claimImpact": {
         "productSupportDelta": 0,
         "broadSupportDelta": 0,
@@ -806,7 +860,7 @@
           "arbitraryProcessCrossArchRestore": 0
         },
         "claimChangeAllowed": false,
-        "scope": "declared arbitrary-process state classification only"
+        "scope": "declared arbitrary-process state proof only"
       }
     },
     {
@@ -815,10 +869,13 @@
       "category": "ptrace/debugger",
       "status": "verified",
       "disposition": "refused",
-      "artifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/ptrace-debugger-traced-state.json",
-      "proves": "ptrace/debugger relationships and traced stop state are refused",
-      "claimUse": "classification refusal; arbitrary process restore remains 0",
-      "next": "Reduce only with retained proof artifacts for this state class.",
+      "artifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/ptrace-debugger-traced-state-proof.json",
+      "rowSummaryArtifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/ptrace-debugger-traced-state.json",
+      "proofMode": "stable-refusal-proof",
+      "proofChecksPassed": 4,
+      "proves": "ptrace/debugger relationships and traced stop state are proven refused; retained proof stable-refusal-proof with 4 verifier checks",
+      "claimUse": "stable refusal proof; arbitrary process restore remains 0",
+      "next": "Reduce only with retained target-native proof artifacts for this state class.",
       "claimImpact": {
         "productSupportDelta": 0,
         "broadSupportDelta": 0,
@@ -829,7 +886,7 @@
           "arbitraryProcessCrossArchRestore": 0
         },
         "claimChangeAllowed": false,
-        "scope": "declared arbitrary-process state classification only"
+        "scope": "declared arbitrary-process state proof only"
       }
     },
     {
@@ -838,10 +895,13 @@
       "category": "unknown state",
       "status": "verified",
       "disposition": "refused",
-      "artifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/arbitrary-unknown-process-state.json",
-      "proves": "any unclassified process-state class is refused by default; matrix has zero unknown accepted rows",
-      "claimUse": "classification refusal; arbitrary process restore remains 0",
-      "next": "Reduce only with retained proof artifacts for this state class.",
+      "artifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/arbitrary-unknown-process-state-proof.json",
+      "rowSummaryArtifact": "proofs/arbitrary-linux-binaries/complete-classification-matrix/retained/arbitrary-unknown-process-state.json",
+      "proofMode": "stable-refusal-proof",
+      "proofChecksPassed": 4,
+      "proves": "any unclassified process-state class is proven refused by default; matrix has zero unknown accepted rows; retained proof stable-refusal-proof with 4 verifier checks",
+      "claimUse": "stable refusal proof; arbitrary process restore remains 0",
+      "next": "Reduce only with retained target-native proof artifacts for this state class.",
       "claimImpact": {
         "productSupportDelta": 0,
         "broadSupportDelta": 0,
@@ -852,7 +912,7 @@
           "arbitraryProcessCrossArchRestore": 0
         },
         "claimChangeAllowed": false,
-        "scope": "declared arbitrary-process state classification only"
+        "scope": "declared arbitrary-process state proof only"
       }
     }
   ],

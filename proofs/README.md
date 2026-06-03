@@ -50,7 +50,7 @@ claim group here has a `claim.json` copy plus a readable `README.md`.
 - [Selected arbitrary Linux process next proof matrix](./arbitrary-linux-binaries/selected-process-next-proof-matrix/README.md) — `verified`
 - [Arbitrary process proof/classification phase ladder](./arbitrary-linux-binaries/100-phase-ladder/README.md) — `verified`
 - [Controlled process proof corpus matrix](./arbitrary-linux-binaries/controlled-process-corpus/README.md) — `verified`
-- [Complete arbitrary-process state classification matrix](./arbitrary-linux-binaries/complete-classification-matrix/README.md) — `verified`
+- [Complete arbitrary-process state classification proof matrix](./arbitrary-linux-binaries/complete-classification-matrix/README.md) — `verified`
 - [Whole Linux VM workload portability taxonomy](./linux-vm-workload/not-started/README.md) — `defined`
 - [Whole VM workload boundary matrix](./linux-vm-workload/boundary-matrix/README.md) — `verified`
 - [Whole VM workload smoke matrix](./linux-vm-workload/smoke-matrix/README.md) — `verified`

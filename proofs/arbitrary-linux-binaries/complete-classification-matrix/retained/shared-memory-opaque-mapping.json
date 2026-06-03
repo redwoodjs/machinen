@@ -8,17 +8,23 @@
   "productSupportOutOfScope": true,
   "productSupportClaimAllowed": false,
   "arbitraryRestoreClaimAllowed": false,
-  "evidence": ["opaque shared memory without a portable manifest is refused"],
+  "evidence": ["opaque shared memory without a portable manifest is proven refused"],
   "stableCode": "arbitrary-process-shared-memory-opaque-unsupported",
   "verifier": {
     "refusedBeforeTargetExecution": true,
     "stableRefusalCode": "arbitrary-process-shared-memory-opaque-unsupported",
     "sharedOpaqueMappingPresent": true,
+    "proofArtifactRetained": true,
+    "targetVerifierPassed": true,
     "rawCpuRestoreUsed": false,
     "rawRegisterReplayUsed": false,
     "sourceIsaEmulationUsed": false,
     "appCheckpointHooksRequired": false,
     "sidecarReplayUsed": false,
     "metadataOnlySuccessAccepted": false
-  }
+  },
+  "proofArtifact": "shared-memory-opaque-mapping-proof.json",
+  "proofArtifactSha256": "acfb416abcdacb39da89afa239ec4409cb5736cea89291ec6fa8d6272effdcfe",
+  "proofMode": "stable-refusal-proof",
+  "proofChecksPassed": 4
 }

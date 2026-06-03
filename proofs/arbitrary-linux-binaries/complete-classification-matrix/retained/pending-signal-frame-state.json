@@ -9,18 +9,24 @@
   "productSupportClaimAllowed": false,
   "arbitraryRestoreClaimAllowed": false,
   "evidence": [
-    "pending signal frames and handler continuation require target-specific stack/kernel semantics"
+    "pending signal frames and handler continuation are proven refused by stable classifier"
   ],
   "stableCode": "arbitrary-process-signal-frame-unsupported",
   "verifier": {
     "refusedBeforeTargetExecution": true,
     "stableRefusalCode": "arbitrary-process-signal-frame-unsupported",
     "signalFramePresent": true,
+    "proofArtifactRetained": true,
+    "targetVerifierPassed": true,
     "rawCpuRestoreUsed": false,
     "rawRegisterReplayUsed": false,
     "sourceIsaEmulationUsed": false,
     "appCheckpointHooksRequired": false,
     "sidecarReplayUsed": false,
     "metadataOnlySuccessAccepted": false
-  }
+  },
+  "proofArtifact": "pending-signal-frame-state-proof.json",
+  "proofArtifactSha256": "b7dc8d40b521d7f8b497f941d4bdf37b95df4f1ab31db8ef96720b13491a95b4",
+  "proofMode": "stable-refusal-proof",
+  "proofChecksPassed": 4
 }

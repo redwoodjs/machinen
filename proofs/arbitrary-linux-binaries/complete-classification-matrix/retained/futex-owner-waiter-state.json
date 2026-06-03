@@ -8,17 +8,23 @@
   "productSupportOutOfScope": true,
   "productSupportClaimAllowed": false,
   "arbitraryRestoreClaimAllowed": false,
-  "evidence": ["futex owners/waiters and wait queues can wedge or corrupt target execution"],
+  "evidence": ["futex owners/waiters and wait queues are proven refused by stable classifier"],
   "stableCode": "arbitrary-process-futex-owner-waiter-unsupported",
   "verifier": {
     "refusedBeforeTargetExecution": true,
     "stableRefusalCode": "arbitrary-process-futex-owner-waiter-unsupported",
     "futexOwnerOrWaiterPresent": true,
+    "proofArtifactRetained": true,
+    "targetVerifierPassed": true,
     "rawCpuRestoreUsed": false,
     "rawRegisterReplayUsed": false,
     "sourceIsaEmulationUsed": false,
     "appCheckpointHooksRequired": false,
     "sidecarReplayUsed": false,
     "metadataOnlySuccessAccepted": false
-  }
+  },
+  "proofArtifact": "futex-owner-waiter-state-proof.json",
+  "proofArtifactSha256": "4fd15edcf6f026af69cba07b8e6cf6719d773836aeb7ee0a48b835705d3c130f",
+  "proofMode": "stable-refusal-proof",
+  "proofChecksPassed": 4
 }

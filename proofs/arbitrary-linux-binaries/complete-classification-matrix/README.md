@@ -1,4 +1,4 @@
-# Complete arbitrary-process state classification matrix
+# Complete arbitrary-process state classification proof matrix
 
 Status: `verified`
 
@@ -6,12 +6,15 @@ Scope: `declared-arbitrary-process-state-classification-v1`
 
 Proof rows: `arbitrary/020` through `arbitrary/039`
 
-This matrix classifies the declared arbitrary-process state surface as supported-proof or refused. It has zero unknown rows for the declared matrix. Product support remains out of scope, and arbitrary process restore remains unclaimed.
+This matrix turns every declared arbitrary-process state class into a retained proof row. Supported rows keep a `*-proof.json` target-native reconstruction verifier artifact. Refused rows keep a `*-proof.json` stable-refusal verifier artifact that refuses before target execution. Product support remains out of scope, and arbitrary process restore remains unclaimed.
 
 ## Summary
 
 - Required rows: 20
 - Verified rows: 20
+- Retained row proof artifacts: 20
+- Supported target-verifier proofs: 6
+- Stable refusal proofs: 14
 - Supported-proof rows: 6
 - Refused rows: 14
 - Unknown rows: 0
@@ -28,6 +31,8 @@ This matrix classifies the declared arbitrary-process state surface as supported
 }
 ```
 
-## Retained artifact
+## Retained artifacts
 
 - `retained/arbitrary-process-complete-classification-matrix-report.json`
+- `retained/*-proof.json` for all 20 rows
+- `retained/*.json` row summaries for all 20 rows

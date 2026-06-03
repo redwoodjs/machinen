@@ -9,18 +9,24 @@
   "productSupportClaimAllowed": false,
   "arbitraryRestoreClaimAllowed": false,
   "evidence": [
-    "JIT/generated executable anonymous mappings are refused; raw executable page replay is forbidden"
+    "JIT/generated executable anonymous mappings are proven refused; raw executable page replay is forbidden"
   ],
   "stableCode": "arbitrary-process-jit-executable-mapping-unsupported",
   "verifier": {
     "refusedBeforeTargetExecution": true,
     "stableRefusalCode": "arbitrary-process-jit-executable-mapping-unsupported",
     "executableAnonymousMappingPresent": true,
+    "proofArtifactRetained": true,
+    "targetVerifierPassed": true,
     "rawCpuRestoreUsed": false,
     "rawRegisterReplayUsed": false,
     "sourceIsaEmulationUsed": false,
     "appCheckpointHooksRequired": false,
     "sidecarReplayUsed": false,
     "metadataOnlySuccessAccepted": false
-  }
+  },
+  "proofArtifact": "jit-executable-anonymous-mapping-proof.json",
+  "proofArtifactSha256": "ac0d364765dc715e6a1ee027c82c5e1c7ba97f50d5ef76ddf942c7162cfea72b",
+  "proofMode": "stable-refusal-proof",
+  "proofChecksPassed": 4
 }

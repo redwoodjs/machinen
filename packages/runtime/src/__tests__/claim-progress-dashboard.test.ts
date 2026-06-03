@@ -27,7 +27,7 @@ type ClaimProgressProofGroup = {
 
 type ClaimProgressDashboard = {
   kind: "machinen.claim-progress-dashboard";
-  version: 129;
+  version: 130;
   tracks: ClaimProgressTrack[];
   proofGroups: ClaimProgressProofGroup[];
 };
@@ -41,7 +41,7 @@ describe("claim progress dashboard", () => {
 
     expect(dashboard).toMatchObject({
       kind: "machinen.claim-progress-dashboard",
-      version: 129,
+      version: 130,
     });
     expect(dashboard.tracks.map((track) => track.id)).toEqual([
       "node-service",
@@ -316,9 +316,14 @@ describe("claim progress dashboard", () => {
     expect(html).toContain("arbitrary/020");
     expect(html).toContain("arbitrary/039");
     expect(html).toContain("arbitrary-process-complete-classification-matrix-report.json");
+    expect(html).toContain("process-metadata-argv-env-cwd-proof.json");
+    expect(html).toContain("arbitrary-unknown-process-state-proof.json");
     expect(html).toContain("declared-arbitrary-process-state-classification-v1");
     expect(html).toContain("declaredStateClassesClassified");
-    expect(html).toContain("any unclassified process-state class is refused by default");
+    expect(html).toContain("completeClassificationRowProofArtifacts");
+    expect(html).toContain("target-native-reconstruction-proof");
+    expect(html).toContain("stable-refusal-proof");
+    expect(html).toContain("any unclassified process-state class is proven refused by default");
     expect(html).toContain("argv/env/cwd");
     expect(html).toContain("static/data/heap");
     expect(html).toContain("idle epoll/TCP");

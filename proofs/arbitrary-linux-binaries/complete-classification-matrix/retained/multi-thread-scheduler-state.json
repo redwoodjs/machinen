@@ -8,19 +8,23 @@
   "productSupportOutOfScope": true,
   "productSupportClaimAllowed": false,
   "arbitraryRestoreClaimAllowed": false,
-  "evidence": [
-    "multiple live threads require scheduler, register, and stack ownership reconstruction not accepted by this matrix"
-  ],
+  "evidence": ["multiple live threads are proven refused by retained scheduler-state classifier"],
   "stableCode": "arbitrary-process-multithread-unsupported",
   "verifier": {
     "refusedBeforeTargetExecution": true,
     "stableRefusalCode": "arbitrary-process-multithread-unsupported",
     "liveThreadsGreaterThanOne": true,
+    "proofArtifactRetained": true,
+    "targetVerifierPassed": true,
     "rawCpuRestoreUsed": false,
     "rawRegisterReplayUsed": false,
     "sourceIsaEmulationUsed": false,
     "appCheckpointHooksRequired": false,
     "sidecarReplayUsed": false,
     "metadataOnlySuccessAccepted": false
-  }
+  },
+  "proofArtifact": "multi-thread-scheduler-state-proof.json",
+  "proofArtifactSha256": "f1fc703bb53252c94d86852b2b2a25b2a4f2b7b19b415b1bd954a7d3eaa052b8",
+  "proofMode": "stable-refusal-proof",
+  "proofChecksPassed": 4
 }

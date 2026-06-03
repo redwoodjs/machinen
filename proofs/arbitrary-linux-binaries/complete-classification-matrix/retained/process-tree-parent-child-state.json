@@ -9,18 +9,24 @@
   "productSupportClaimAllowed": false,
   "arbitraryRestoreClaimAllowed": false,
   "evidence": [
-    "forked children, process groups, parent/child relationships, and cross-process IPC remain refused"
+    "forked children, process groups, and parent/child relationships are proven refused"
   ],
   "stableCode": "arbitrary-process-tree-unsupported",
   "verifier": {
     "refusedBeforeTargetExecution": true,
     "stableRefusalCode": "arbitrary-process-tree-unsupported",
     "processTreePresent": true,
+    "proofArtifactRetained": true,
+    "targetVerifierPassed": true,
     "rawCpuRestoreUsed": false,
     "rawRegisterReplayUsed": false,
     "sourceIsaEmulationUsed": false,
     "appCheckpointHooksRequired": false,
     "sidecarReplayUsed": false,
     "metadataOnlySuccessAccepted": false
-  }
+  },
+  "proofArtifact": "process-tree-parent-child-state-proof.json",
+  "proofArtifactSha256": "6d6af716626899dfeeda0194827184655c453ee102790ec51367b096b5eb6e58",
+  "proofMode": "stable-refusal-proof",
+  "proofChecksPassed": 4
 }

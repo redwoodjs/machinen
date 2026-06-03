@@ -9,16 +9,23 @@
   "productSupportClaimAllowed": false,
   "arbitraryRestoreClaimAllowed": false,
   "evidence": [
-    "static/data/heap byte payload is classified as target-native materializable proof state"
+    "static/data/heap byte payload is proven as target-native materializable proof state"
   ],
   "stableCode": "supported-static-data-heap-memory",
   "verifier": {
     "staticDataHeapClassified": true,
+    "proofArtifactRetained": true,
+    "targetVerifierPassed": true,
+    "stableRefusalCode": "supported-static-data-heap-memory",
     "rawCpuRestoreUsed": false,
     "rawRegisterReplayUsed": false,
     "sourceIsaEmulationUsed": false,
     "appCheckpointHooksRequired": false,
     "sidecarReplayUsed": false,
     "metadataOnlySuccessAccepted": false
-  }
+  },
+  "proofArtifact": "static-data-heap-memory-proof.json",
+  "proofArtifactSha256": "28c68cb8c8c77e398a9f70b57514c22b3249757ef3bacbe8a7416874fb02bd39",
+  "proofMode": "target-native-reconstruction-proof",
+  "proofChecksPassed": 4
 }

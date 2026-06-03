@@ -9,18 +9,24 @@
   "productSupportClaimAllowed": false,
   "arbitraryRestoreClaimAllowed": false,
   "evidence": [
-    "active Unix domain sockets, queued credentials, and peer process coupling are refused"
+    "active Unix domain sockets, queued credentials, and peer coupling are proven refused"
   ],
   "stableCode": "arbitrary-process-active-unix-socket-unsupported",
   "verifier": {
     "refusedBeforeTargetExecution": true,
     "stableRefusalCode": "arbitrary-process-active-unix-socket-unsupported",
     "activeUnixSocketPresent": true,
+    "proofArtifactRetained": true,
+    "targetVerifierPassed": true,
     "rawCpuRestoreUsed": false,
     "rawRegisterReplayUsed": false,
     "sourceIsaEmulationUsed": false,
     "appCheckpointHooksRequired": false,
     "sidecarReplayUsed": false,
     "metadataOnlySuccessAccepted": false
-  }
+  },
+  "proofArtifact": "active-unix-domain-socket-state-proof.json",
+  "proofArtifactSha256": "fda4c7608b8f2ae65f120e59df7afd50d9b1e4bb913af64226bf2ec1f90fbf9e",
+  "proofMode": "stable-refusal-proof",
+  "proofChecksPassed": 4
 }
