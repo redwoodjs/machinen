@@ -1,0 +1,23 @@
+{
+  "id": "controlled-thread-binary-refusal",
+  "category": "thread refusal",
+  "status": "verified",
+  "disposition": "refused",
+  "accepted": true,
+  "proofOnly": true,
+  "productSupportClaimAllowed": false,
+  "productPathRequired": false,
+  "evidence": [
+    "multiple live threads require scheduler/stack ownership translation not in corpus v1"
+  ],
+  "refusalCode": "controlled-process-thread-state-unsupported",
+  "verifier": {
+    "stableRefusalCode": "controlled-process-thread-state-unsupported",
+    "refusedBeforeTargetExecution": true,
+    "rawCpuRestoreUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "sidecarReplayUsed": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

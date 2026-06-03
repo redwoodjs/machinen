@@ -27,7 +27,7 @@ type ClaimProgressProofGroup = {
 
 type ClaimProgressDashboard = {
   kind: "machinen.claim-progress-dashboard";
-  version: 127;
+  version: 128;
   tracks: ClaimProgressTrack[];
   proofGroups: ClaimProgressProofGroup[];
 };
@@ -41,7 +41,7 @@ describe("claim progress dashboard", () => {
 
     expect(dashboard).toMatchObject({
       kind: "machinen.claim-progress-dashboard",
-      version: 127,
+      version: 128,
     });
     expect(dashboard.tracks.map((track) => track.id)).toEqual([
       "node-service",
@@ -185,6 +185,7 @@ describe("claim progress dashboard", () => {
     expect(proofIds).toContain("selected-arbitrary-process-candidate-claim-decision");
     expect(proofIds).toContain("phase-1-selected-seed-proof-path");
     expect(proofIds).toContain("phase-7-arbitrary-process-proof-100-gate");
+    expect(proofIds).toContain("controlled-process-corpus-matrix");
     expect(proofIds).toContain("simple-pipe-fd-proof");
     expect(proofIds).toContain("idle-epoll-tcp-proof");
     expect(proofIds).toContain("postgres-retained-verifier-artifacts");
@@ -305,6 +306,11 @@ describe("claim progress dashboard", () => {
     expect(html).toContain("proof/classification ladder");
     expect(html).toContain("productSupportOutOfScope");
     expect(html).toContain("phase ladder only");
+    expect(html).toContain("arbitrary/019");
+    expect(html).toContain("controlled-process-corpus-matrix-report.json");
+    expect(html).toContain("controlled-process-proof-corpus-v1");
+    expect(html).toContain("supported-proof");
+    expect(html).toContain("controlled-active-syscall-refusal");
     expect(html).toContain("argv/env/cwd");
     expect(html).toContain("static/data/heap");
     expect(html).toContain("idle epoll/TCP");

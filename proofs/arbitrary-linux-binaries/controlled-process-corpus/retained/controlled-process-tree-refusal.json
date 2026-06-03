@@ -1,0 +1,21 @@
+{
+  "id": "controlled-process-tree-refusal",
+  "category": "process tree refusal",
+  "status": "verified",
+  "disposition": "refused",
+  "accepted": true,
+  "proofOnly": true,
+  "productSupportClaimAllowed": false,
+  "productPathRequired": false,
+  "evidence": ["forked children, process groups, and cross-process IPC remain outside corpus v1"],
+  "refusalCode": "controlled-process-tree-unsupported",
+  "verifier": {
+    "stableRefusalCode": "controlled-process-tree-unsupported",
+    "refusedBeforeTargetExecution": true,
+    "rawCpuRestoreUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "sidecarReplayUsed": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

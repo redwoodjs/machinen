@@ -1,0 +1,24 @@
+{
+  "id": "controlled-argv-env-cwd-binary",
+  "category": "process metadata",
+  "status": "verified",
+  "disposition": "supported-proof",
+  "accepted": true,
+  "proofOnly": true,
+  "productSupportClaimAllowed": false,
+  "productPathRequired": false,
+  "evidence": ["argv hash matched", "env hash matched", "cwd policy matched"],
+  "verifier": {
+    "argvSha256": "4926563d73ded8421cca837e5af7f3173d18c0a4b96407f10d7e20b1dcc565b4",
+    "envSha256": "ba261ca1bcbda98e4598e51d6f830ce4804c48f5f28bc49ae8012d248d0c14b3",
+    "cwdPolicy": "captured-path-hash",
+    "argvMatched": true,
+    "envMatched": true,
+    "cwdMatched": true,
+    "rawCpuRestoreUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "sidecarReplayUsed": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

@@ -1,0 +1,319 @@
+{
+  "kind": "machinen.arbitrary-process-controlled-process-corpus-matrix",
+  "version": 1,
+  "accepted": true,
+  "proofNumber": "arbitrary/019",
+  "scope": "controlled-process-proof-corpus-v1",
+  "proofStatus": "verified",
+  "publicClaimAllowed": false,
+  "claimChangeAllowed": false,
+  "productSupportOutOfScope": true,
+  "currentClaim": {
+    "productSupport": null,
+    "broadSupport": null,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "summary": {
+    "requiredRows": 10,
+    "verifiedRows": 10,
+    "supportedProofRows": 6,
+    "refusedRows": 4,
+    "unknownRows": 0,
+    "productSupportRowsAdded": 0,
+    "publicArbitraryProcessClaim": 0
+  },
+  "rows": [
+    {
+      "id": "controlled-argv-env-cwd-binary",
+      "category": "process metadata",
+      "status": "verified",
+      "disposition": "supported-proof",
+      "accepted": true,
+      "proofOnly": true,
+      "productSupportClaimAllowed": false,
+      "productPathRequired": false,
+      "evidence": ["argv hash matched", "env hash matched", "cwd policy matched"],
+      "verifier": {
+        "argvSha256": "4926563d73ded8421cca837e5af7f3173d18c0a4b96407f10d7e20b1dcc565b4",
+        "envSha256": "ba261ca1bcbda98e4598e51d6f830ce4804c48f5f28bc49ae8012d248d0c14b3",
+        "cwdPolicy": "captured-path-hash",
+        "argvMatched": true,
+        "envMatched": true,
+        "cwdMatched": true,
+        "rawCpuRestoreUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "appCheckpointHooksRequired": false,
+        "sidecarReplayUsed": false,
+        "metadataOnlySuccessAccepted": false
+      }
+    },
+    {
+      "id": "controlled-static-data-heap-mutation-binary",
+      "category": "memory",
+      "status": "verified",
+      "disposition": "supported-proof",
+      "accepted": true,
+      "proofOnly": true,
+      "productSupportClaimAllowed": false,
+      "productPathRequired": false,
+      "evidence": ["static/data/heap payload hash matched", "mutation transition verified"],
+      "verifier": {
+        "staticDataHeapSha256": "a450bcc42490321f2959395e42f830b593464e583cbd068a47570aac3c7e771b",
+        "mutationBeforeAfterMatched": true,
+        "writableHeapMaterialized": true,
+        "rawCpuRestoreUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "appCheckpointHooksRequired": false,
+        "sidecarReplayUsed": false,
+        "metadataOnlySuccessAccepted": false
+      }
+    },
+    {
+      "id": "controlled-regular-file-fd-binary",
+      "category": "file descriptor",
+      "status": "verified",
+      "disposition": "supported-proof",
+      "accepted": true,
+      "proofOnly": true,
+      "productSupportClaimAllowed": false,
+      "productPathRequired": false,
+      "evidence": ["regular-file FD offset preserved", "target read continuation matched"],
+      "verifier": {
+        "fd": 3,
+        "offsetPreserved": true,
+        "readContinuationMatched": true,
+        "targetOffsetAdvanced": true,
+        "rawCpuRestoreUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "appCheckpointHooksRequired": false,
+        "sidecarReplayUsed": false,
+        "metadataOnlySuccessAccepted": false
+      }
+    },
+    {
+      "id": "controlled-simple-pipe-binary",
+      "category": "pipe descriptor",
+      "status": "verified",
+      "disposition": "supported-proof",
+      "accepted": true,
+      "proofOnly": true,
+      "productSupportClaimAllowed": false,
+      "productPathRequired": false,
+      "evidence": ["simple pipe buffered bytes matched", "EOF observed after buffered bytes"],
+      "verifier": {
+        "readFd": 3,
+        "writeFd": 4,
+        "endpointDirectionPreserved": true,
+        "bufferedBytesMatched": true,
+        "eofAfterBufferedBytes": true,
+        "rawCpuRestoreUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "appCheckpointHooksRequired": false,
+        "sidecarReplayUsed": false,
+        "metadataOnlySuccessAccepted": false
+      }
+    },
+    {
+      "id": "controlled-idle-tcp-epoll-binary",
+      "category": "idle kernel resources",
+      "status": "verified",
+      "disposition": "supported-proof",
+      "accepted": true,
+      "proofOnly": true,
+      "productSupportClaimAllowed": false,
+      "productPathRequired": false,
+      "evidence": ["idle TCP listener reconstructed", "epoll wait returned no ready events"],
+      "verifier": {
+        "tcpListenerFd": 6,
+        "epollFd": 5,
+        "acceptedStreams": 0,
+        "epollReadyEvents": 0,
+        "idleOnly": true,
+        "rawCpuRestoreUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "appCheckpointHooksRequired": false,
+        "sidecarReplayUsed": false,
+        "metadataOnlySuccessAccepted": false
+      }
+    },
+    {
+      "id": "controlled-mixed-selected-resource-binary",
+      "category": "mixed selected resources",
+      "status": "verified",
+      "disposition": "supported-proof",
+      "accepted": true,
+      "proofOnly": true,
+      "productSupportClaimAllowed": false,
+      "productPathRequired": false,
+      "evidence": [
+        "argv/env/cwd matched",
+        "heap payload matched",
+        "regular file FD matched",
+        "simple pipe matched",
+        "idle epoll/TCP matched"
+      ],
+      "verifier": {
+        "metadataMatched": true,
+        "staticDataHeapMatched": true,
+        "regularFileFdVerified": true,
+        "simplePipeFdVerified": true,
+        "idleTcpEpollVerified": true,
+        "rawCpuRestoreUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "appCheckpointHooksRequired": false,
+        "sidecarReplayUsed": false,
+        "metadataOnlySuccessAccepted": false
+      }
+    },
+    {
+      "id": "controlled-thread-binary-refusal",
+      "category": "thread refusal",
+      "status": "verified",
+      "disposition": "refused",
+      "accepted": true,
+      "proofOnly": true,
+      "productSupportClaimAllowed": false,
+      "productPathRequired": false,
+      "evidence": [
+        "multiple live threads require scheduler/stack ownership translation not in corpus v1"
+      ],
+      "refusalCode": "controlled-process-thread-state-unsupported",
+      "verifier": {
+        "stableRefusalCode": "controlled-process-thread-state-unsupported",
+        "refusedBeforeTargetExecution": true,
+        "rawCpuRestoreUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "appCheckpointHooksRequired": false,
+        "sidecarReplayUsed": false,
+        "metadataOnlySuccessAccepted": false
+      }
+    },
+    {
+      "id": "controlled-jit-executable-mmap-refusal",
+      "category": "jit/executable mmap refusal",
+      "status": "verified",
+      "disposition": "refused",
+      "accepted": true,
+      "proofOnly": true,
+      "productSupportClaimAllowed": false,
+      "productPathRequired": false,
+      "evidence": ["generated executable mappings and executable anonymous pages remain refused"],
+      "refusalCode": "controlled-process-jit-executable-mmap-unsupported",
+      "verifier": {
+        "stableRefusalCode": "controlled-process-jit-executable-mmap-unsupported",
+        "refusedBeforeTargetExecution": true,
+        "rawCpuRestoreUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "appCheckpointHooksRequired": false,
+        "sidecarReplayUsed": false,
+        "metadataOnlySuccessAccepted": false
+      }
+    },
+    {
+      "id": "controlled-active-syscall-refusal",
+      "category": "active syscall refusal",
+      "status": "verified",
+      "disposition": "refused",
+      "accepted": true,
+      "proofOnly": true,
+      "productSupportClaimAllowed": false,
+      "productPathRequired": false,
+      "evidence": ["active syscall/interrupted kernel state is refused before target execution"],
+      "refusalCode": "controlled-process-active-syscall-unsupported",
+      "verifier": {
+        "stableRefusalCode": "controlled-process-active-syscall-unsupported",
+        "refusedBeforeTargetExecution": true,
+        "rawCpuRestoreUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "appCheckpointHooksRequired": false,
+        "sidecarReplayUsed": false,
+        "metadataOnlySuccessAccepted": false
+      }
+    },
+    {
+      "id": "controlled-process-tree-refusal",
+      "category": "process tree refusal",
+      "status": "verified",
+      "disposition": "refused",
+      "accepted": true,
+      "proofOnly": true,
+      "productSupportClaimAllowed": false,
+      "productPathRequired": false,
+      "evidence": [
+        "forked children, process groups, and cross-process IPC remain outside corpus v1"
+      ],
+      "refusalCode": "controlled-process-tree-unsupported",
+      "verifier": {
+        "stableRefusalCode": "controlled-process-tree-unsupported",
+        "refusedBeforeTargetExecution": true,
+        "rawCpuRestoreUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "appCheckpointHooksRequired": false,
+        "sidecarReplayUsed": false,
+        "metadataOnlySuccessAccepted": false
+      }
+    }
+  ],
+  "noShortcutPolicy": {
+    "rawCpuRestoreAccepted": false,
+    "rawRegisterReplayAccepted": false,
+    "sourceIsaEmulationAccepted": false,
+    "appCheckpointHooksAccepted": false,
+    "sidecarReplayAccepted": false,
+    "metadataOnlySuccessAccepted": false,
+    "arbitraryUnknownProcessAccepted": false
+  },
+  "artifacts": [
+    {
+      "name": "controlled-argv-env-cwd-binary.json",
+      "path": "controlled-argv-env-cwd-binary.json",
+      "sha256": "460b3ae2177964fa6249f3a51255ed47e1a17b2190a9211240b6cbca99e6b971"
+    },
+    {
+      "name": "controlled-static-data-heap-mutation-binary.json",
+      "path": "controlled-static-data-heap-mutation-binary.json",
+      "sha256": "b9cf01465d02bd6e7dad8985aa619c6002baf1baa0518b1b51cb64afc45cb33a"
+    },
+    {
+      "name": "controlled-regular-file-fd-binary.json",
+      "path": "controlled-regular-file-fd-binary.json",
+      "sha256": "92250d469bb0afa5597eec405e2e181497eeecb9f105f2f35cc38a4f5dbc5434"
+    },
+    {
+      "name": "controlled-simple-pipe-binary.json",
+      "path": "controlled-simple-pipe-binary.json",
+      "sha256": "c7358c5dd85dcb9ac9929424187375811c6eacff65ef8f9c8fe4b08d93b00173"
+    },
+    {
+      "name": "controlled-idle-tcp-epoll-binary.json",
+      "path": "controlled-idle-tcp-epoll-binary.json",
+      "sha256": "220a068f4850a7d76556a38cdbec41fcd5c1530384100d054a5643e5505aebb0"
+    },
+    {
+      "name": "controlled-mixed-selected-resource-binary.json",
+      "path": "controlled-mixed-selected-resource-binary.json",
+      "sha256": "c021c95511843f99e276bbaac4b1afb2157e6fe56dcee0c72a083bcfca8ceb8f"
+    },
+    {
+      "name": "controlled-thread-binary-refusal.json",
+      "path": "controlled-thread-binary-refusal.json",
+      "sha256": "72ffcc5d70120df97fa4ad9d033e21d5fe0cd7a31aa6a5ad0cbd5ae2a601e8b3"
+    },
+    {
+      "name": "controlled-jit-executable-mmap-refusal.json",
+      "path": "controlled-jit-executable-mmap-refusal.json",
+      "sha256": "0b1d75132202b47bd38f082be6cd89b80b4ef15a22b6479a111203a7067d0e01"
+    },
+    {
+      "name": "controlled-active-syscall-refusal.json",
+      "path": "controlled-active-syscall-refusal.json",
+      "sha256": "9bddb095cb728765fe3ea8b028fd62b772b242679696ce350284717fa6bd9742"
+    },
+    {
+      "name": "controlled-process-tree-refusal.json",
+      "path": "controlled-process-tree-refusal.json",
+      "sha256": "64b59ba5949adb0d27ac4ab43eeef22213aefc2312b9d8dff0de9609f01c6801"
+    }
+  ],
+  "artifactsSha256": "b69922b8921968973bbb7480dbb1de7244dbdcd8eded5617f76a7821d383eaab"
+}

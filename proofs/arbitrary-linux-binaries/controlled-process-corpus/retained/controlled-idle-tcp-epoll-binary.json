@@ -1,0 +1,23 @@
+{
+  "id": "controlled-idle-tcp-epoll-binary",
+  "category": "idle kernel resources",
+  "status": "verified",
+  "disposition": "supported-proof",
+  "accepted": true,
+  "proofOnly": true,
+  "productSupportClaimAllowed": false,
+  "productPathRequired": false,
+  "evidence": ["idle TCP listener reconstructed", "epoll wait returned no ready events"],
+  "verifier": {
+    "tcpListenerFd": 6,
+    "epollFd": 5,
+    "acceptedStreams": 0,
+    "epollReadyEvents": 0,
+    "idleOnly": true,
+    "rawCpuRestoreUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "sidecarReplayUsed": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

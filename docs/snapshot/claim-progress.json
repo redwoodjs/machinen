@@ -1,6 +1,6 @@
 {
   "kind": "machinen.claim-progress-dashboard",
-  "version": 127,
+  "version": 128,
   "updatedFrom": [
     "docs/snapshot/node-level5-product-support-claim-registry.json",
     "docs/snapshot/node-level5-product-support-100.json",
@@ -32,7 +32,8 @@
     "proofs/arbitrary-linux-binaries/selected-process-seed/retained/selected-arbitrary-process-seed-gate-report.json",
     "proofs/arbitrary-linux-binaries/selected-process-behavior-e2e/retained/selected-arbitrary-process-behavior-e2e-report.json",
     "proofs/arbitrary-linux-binaries/selected-process-next-proof-matrix/retained/selected-arbitrary-process-next-proof-matrix-report.json",
-    "proofs/arbitrary-linux-binaries/100-phase-ladder/retained/arbitrary-process-100-phase-ladder-report.json"
+    "proofs/arbitrary-linux-binaries/100-phase-ladder/retained/arbitrary-process-100-phase-ladder-report.json",
+    "proofs/arbitrary-linux-binaries/controlled-process-corpus/retained/controlled-process-corpus-matrix-report.json"
   ],
   "columns": {
     "claim": ["productSupport", "broadSupport", "arbitraryProcessCrossArchRestore"],
@@ -1890,7 +1891,7 @@
       "family": "process",
       "runtime": "linux-process",
       "status": "seed-candidate",
-      "stage": "arbitrary-process proof/classification ladder defined; product support out of scope",
+      "stage": "controlled process proof corpus verified; product support out of scope",
       "scope": "Proof-only selected-arbitrary-linux-process-seed-v1 plus refusal boundaries; no arbitrary Linux process support claim.",
       "currentClaim": {
         "productSupport": null,
@@ -1905,7 +1906,7 @@
         "productSupportRowsAdded": 0,
         "productSupportOutOfScope": true
       },
-      "summary": "The arbitrary-process phase ladder is now a proof/classification ladder with product support explicitly out of scope. Phase 1 is proof-only rather than blocked on product artifacts. The ladder records phases 1–7, missing proof corpus/refusal gates, and keeps public arbitrary Linux process restore at 0.",
+      "summary": "The controlled-process-proof-corpus-v1 matrix is verified as arbitrary/019: 10/10 rows, 6 supported-proof rows, 4 refused rows, and 0 unknown rows. Product support remains out of scope and public arbitrary Linux process restore remains 0.",
       "claimGate": "selected-arbitrary-process-seed-gate accepted; public arbitrary-process claim still 0",
       "claimChangeAllowed": false,
       "evidence": [
@@ -1920,7 +1921,8 @@
         "selected-arbitrary-process-seed-gate",
         "selected-arbitrary-process-behavior-e2e",
         "selected-arbitrary-process-next-proof-matrix",
-        "arbitrary-process-100-phase-ladder"
+        "arbitrary-process-100-phase-ladder",
+        "controlled-process-corpus-matrix"
       ],
       "evidenceRows": [
         {
@@ -2223,11 +2225,11 @@
           "area": "proof/classification phase ladder",
           "kind": "5 / 1 controlled process proof corpus",
           "status": "proof-only",
-          "evidence": "Target proof/classification 5 / 1; missing gates: retained proof matrix for multiple controlled binaries; bidirectional target verifiers for each row; row coverage manifest with no unknown rows",
+          "evidence": "Phase 2 now has arbitrary/019 controlled-process-proof-corpus-v1 retained with 10/10 verified rows; product support remains out of scope.",
           "gate": "arbitrary-process-100-phase-ladder",
           "artifact": "proofs/arbitrary-linux-binaries/100-phase-ladder/retained/phase-2-controlled-process-corpus.json",
           "claimUse": "phase definition/evidence only; public arbitrary Linux process restore remains 0",
-          "next": "Build controlled-binary proof corpus without product-path requirements."
+          "next": "Expand Phase 3 memory/linker/signal rows using retained proof artifacts."
         },
         {
           "id": "phase-3-memory-dynamic-linker-signals",
@@ -2283,6 +2285,137 @@
           "artifact": "proofs/arbitrary-linux-binaries/100-phase-ladder/retained/phase-7-arbitrary-process-proof-100-gate.json",
           "claimUse": "phase definition/evidence only; public arbitrary Linux process restore remains 0",
           "next": "Only this gate may authorize proof/classification 100 / 100; product support remains out of scope."
+        },
+        {
+          "id": "controlled-process-corpus-matrix",
+          "area": "controlled process corpus",
+          "kind": "controlled process corpus",
+          "status": "verified",
+          "evidence": "Retained controlled-process-proof-corpus-v1 matrix verifies 10/10 rows: argv/env/cwd, static/data/heap mutation, regular-file FD, simple pipe, idle TCP/epoll, mixed selected resources, plus thread/JIT/active-syscall/process-tree refusals.",
+          "gate": "controlled-process-corpus-matrix",
+          "artifact": "proofs/arbitrary-linux-binaries/controlled-process-corpus/retained/controlled-process-corpus-matrix-report.json",
+          "claimUse": "proof corpus evidence only; no product support claim; arbitrary Linux process restore remains 0",
+          "next": "Use this as Phase 2 input before expanding memory, linker, signal, IPC, and thread/futex coverage."
+        },
+        {
+          "id": "controlled-argv-env-cwd-binary",
+          "area": "controlled process corpus",
+          "kind": "process metadata",
+          "status": "verified",
+          "disposition": "supported-proof",
+          "evidence": "argv hash matched; env hash matched; cwd policy matched",
+          "gate": "controlled-process-corpus-matrix",
+          "artifact": "proofs/arbitrary-linux-binaries/controlled-process-corpus/retained/controlled-argv-env-cwd-binary.json",
+          "claimUse": "supported proof row; no product support claim",
+          "next": "Use as proof corpus input for later classification gates."
+        },
+        {
+          "id": "controlled-static-data-heap-mutation-binary",
+          "area": "controlled process corpus",
+          "kind": "memory",
+          "status": "verified",
+          "disposition": "supported-proof",
+          "evidence": "static/data/heap payload hash matched; mutation transition verified",
+          "gate": "controlled-process-corpus-matrix",
+          "artifact": "proofs/arbitrary-linux-binaries/controlled-process-corpus/retained/controlled-static-data-heap-mutation-binary.json",
+          "claimUse": "supported proof row; no product support claim",
+          "next": "Use as proof corpus input for later classification gates."
+        },
+        {
+          "id": "controlled-regular-file-fd-binary",
+          "area": "controlled process corpus",
+          "kind": "file descriptor",
+          "status": "verified",
+          "disposition": "supported-proof",
+          "evidence": "regular-file FD offset preserved; target read continuation matched",
+          "gate": "controlled-process-corpus-matrix",
+          "artifact": "proofs/arbitrary-linux-binaries/controlled-process-corpus/retained/controlled-regular-file-fd-binary.json",
+          "claimUse": "supported proof row; no product support claim",
+          "next": "Use as proof corpus input for later classification gates."
+        },
+        {
+          "id": "controlled-simple-pipe-binary",
+          "area": "controlled process corpus",
+          "kind": "pipe descriptor",
+          "status": "verified",
+          "disposition": "supported-proof",
+          "evidence": "simple pipe buffered bytes matched; EOF observed after buffered bytes",
+          "gate": "controlled-process-corpus-matrix",
+          "artifact": "proofs/arbitrary-linux-binaries/controlled-process-corpus/retained/controlled-simple-pipe-binary.json",
+          "claimUse": "supported proof row; no product support claim",
+          "next": "Use as proof corpus input for later classification gates."
+        },
+        {
+          "id": "controlled-idle-tcp-epoll-binary",
+          "area": "controlled process corpus",
+          "kind": "idle kernel resources",
+          "status": "verified",
+          "disposition": "supported-proof",
+          "evidence": "idle TCP listener reconstructed; epoll wait returned no ready events",
+          "gate": "controlled-process-corpus-matrix",
+          "artifact": "proofs/arbitrary-linux-binaries/controlled-process-corpus/retained/controlled-idle-tcp-epoll-binary.json",
+          "claimUse": "supported proof row; no product support claim",
+          "next": "Use as proof corpus input for later classification gates."
+        },
+        {
+          "id": "controlled-mixed-selected-resource-binary",
+          "area": "controlled process corpus",
+          "kind": "mixed selected resources",
+          "status": "verified",
+          "disposition": "supported-proof",
+          "evidence": "argv/env/cwd matched; heap payload matched; regular file FD matched; simple pipe matched; idle epoll/TCP matched",
+          "gate": "controlled-process-corpus-matrix",
+          "artifact": "proofs/arbitrary-linux-binaries/controlled-process-corpus/retained/controlled-mixed-selected-resource-binary.json",
+          "claimUse": "supported proof row; no product support claim",
+          "next": "Use as proof corpus input for later classification gates."
+        },
+        {
+          "id": "controlled-thread-binary-refusal",
+          "area": "controlled process corpus",
+          "kind": "thread refusal",
+          "status": "verified",
+          "disposition": "refused",
+          "evidence": "multiple live threads require scheduler/stack ownership translation not in corpus v1",
+          "gate": "controlled-process-corpus-matrix",
+          "artifact": "proofs/arbitrary-linux-binaries/controlled-process-corpus/retained/controlled-thread-binary-refusal.json",
+          "claimUse": "refusal evidence; prevents controlled-corpus overclaiming",
+          "next": "Reduce only with retained proof artifacts for that refused state class."
+        },
+        {
+          "id": "controlled-jit-executable-mmap-refusal",
+          "area": "controlled process corpus",
+          "kind": "jit/executable mmap refusal",
+          "status": "verified",
+          "disposition": "refused",
+          "evidence": "generated executable mappings and executable anonymous pages remain refused",
+          "gate": "controlled-process-corpus-matrix",
+          "artifact": "proofs/arbitrary-linux-binaries/controlled-process-corpus/retained/controlled-jit-executable-mmap-refusal.json",
+          "claimUse": "refusal evidence; prevents controlled-corpus overclaiming",
+          "next": "Reduce only with retained proof artifacts for that refused state class."
+        },
+        {
+          "id": "controlled-active-syscall-refusal",
+          "area": "controlled process corpus",
+          "kind": "active syscall refusal",
+          "status": "verified",
+          "disposition": "refused",
+          "evidence": "active syscall/interrupted kernel state is refused before target execution",
+          "gate": "controlled-process-corpus-matrix",
+          "artifact": "proofs/arbitrary-linux-binaries/controlled-process-corpus/retained/controlled-active-syscall-refusal.json",
+          "claimUse": "refusal evidence; prevents controlled-corpus overclaiming",
+          "next": "Reduce only with retained proof artifacts for that refused state class."
+        },
+        {
+          "id": "controlled-process-tree-refusal",
+          "area": "controlled process corpus",
+          "kind": "process tree refusal",
+          "status": "verified",
+          "disposition": "refused",
+          "evidence": "forked children, process groups, and cross-process IPC remain outside corpus v1",
+          "gate": "controlled-process-corpus-matrix",
+          "artifact": "proofs/arbitrary-linux-binaries/controlled-process-corpus/retained/controlled-process-tree-refusal.json",
+          "claimUse": "refusal evidence; prevents controlled-corpus overclaiming",
+          "next": "Reduce only with retained proof artifacts for that refused state class."
         }
       ],
       "refusals": [
@@ -2400,6 +2533,34 @@
           "reason": "100 / 100 arbitrary process proof/classification gate is not claim-ready: arbitrary unknown Linux process state remains unsupported",
           "artifact": "proofs/arbitrary-linux-binaries/100-phase-ladder/retained/phase-7-arbitrary-process-proof-100-gate.json",
           "neededToReduce": "Only this gate may authorize proof/classification 100 / 100; product support remains out of scope."
+        },
+        {
+          "boundary": "controlled-thread-binary-refusal",
+          "status": "refused",
+          "reason": "multiple live threads require scheduler/stack ownership translation not in corpus v1",
+          "artifact": "proofs/arbitrary-linux-binaries/controlled-process-corpus/retained/controlled-thread-binary-refusal.json",
+          "neededToReduce": "Retain proof artifacts and target verifiers before reducing this refusal."
+        },
+        {
+          "boundary": "controlled-jit-executable-mmap-refusal",
+          "status": "refused",
+          "reason": "generated executable mappings and executable anonymous pages remain refused",
+          "artifact": "proofs/arbitrary-linux-binaries/controlled-process-corpus/retained/controlled-jit-executable-mmap-refusal.json",
+          "neededToReduce": "Retain proof artifacts and target verifiers before reducing this refusal."
+        },
+        {
+          "boundary": "controlled-active-syscall-refusal",
+          "status": "refused",
+          "reason": "active syscall/interrupted kernel state is refused before target execution",
+          "artifact": "proofs/arbitrary-linux-binaries/controlled-process-corpus/retained/controlled-active-syscall-refusal.json",
+          "neededToReduce": "Retain proof artifacts and target verifiers before reducing this refusal."
+        },
+        {
+          "boundary": "controlled-process-tree-refusal",
+          "status": "refused",
+          "reason": "forked children, process groups, and cross-process IPC remain outside corpus v1",
+          "artifact": "proofs/arbitrary-linux-binaries/controlled-process-corpus/retained/controlled-process-tree-refusal.json",
+          "neededToReduce": "Retain proof artifacts and target verifiers before reducing this refusal."
         }
       ],
       "counts": {
@@ -2431,7 +2592,7 @@
         "productSupportRowsAdded": 0,
         "publicClaimAllowed": false,
         "report": "proofs/arbitrary-linux-binaries/selected-process-seed/retained/selected-arbitrary-process-seed-gate-report.json",
-        "summary": "3 / 3 selected seed rows · 5 / 5 behavior checks · 10 / 10 next proof rows · 7 / 7 proof/classification phase rows · public arbitrary-process claim 0",
+        "summary": "3 / 3 selected seed rows · 5 / 5 behavior checks · 10 / 10 next proof rows · 10 / 10 controlled process rows · public arbitrary-process claim 0",
         "selectedBehaviorChecksRequired": 5,
         "selectedBehaviorChecksVerified": 5,
         "selectedBehaviorRefusalRowsRequired": 8,
@@ -2450,7 +2611,13 @@
         "phaseBlockedRows": 1,
         "phaseNotStartedRows": 2,
         "phaseLadderReport": "proofs/arbitrary-linux-binaries/100-phase-ladder/retained/arbitrary-process-100-phase-ladder-report.json",
-        "productSupportOutOfScope": true
+        "productSupportOutOfScope": true,
+        "controlledProcessRowsRequired": 10,
+        "controlledProcessRowsVerified": 10,
+        "controlledProcessSupportedProofRows": 6,
+        "controlledProcessRefusedRows": 4,
+        "controlledProcessUnknownRows": 0,
+        "controlledProcessCorpusReport": "proofs/arbitrary-linux-binaries/controlled-process-corpus/retained/controlled-process-corpus-matrix-report.json"
       }
     },
     {
@@ -5101,6 +5268,28 @@
             },
             "claimChangeAllowed": false,
             "scope": "proof/classification phase ladder only"
+          }
+        },
+        {
+          "id": "controlled-process-corpus-matrix",
+          "proofNumber": "arbitrary/019",
+          "category": "controlled process corpus",
+          "status": "verified",
+          "artifact": "proofs/arbitrary-linux-binaries/controlled-process-corpus/retained/controlled-process-corpus-matrix-report.json",
+          "proves": "controlled-process-proof-corpus-v1 has 10/10 verified rows: 6 supported-proof rows, 4 refused rows, 0 unknown rows, and no product support claim.",
+          "claimUse": "proof corpus evidence only; arbitrary Linux process restore remains 0",
+          "next": "Use this matrix as Phase 2 input before expanding memory, linker, signal, IPC, and thread/futex coverage.",
+          "claimImpact": {
+            "productSupportDelta": 0,
+            "broadSupportDelta": 0,
+            "arbitraryProcessCrossArchRestoreDelta": 0,
+            "resultingClaim": {
+              "productSupport": null,
+              "broadSupport": null,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "claimChangeAllowed": false,
+            "scope": "controlled-process-proof-corpus-v1 proof-only"
           }
         }
       ],

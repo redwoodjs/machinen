@@ -42,6 +42,10 @@ Rows `arbitrary/009` through `arbitrary/018` are retained in `../selected-proces
 
 The retained phase ladder lives in `../100-phase-ladder/retained/arbitrary-process-100-phase-ladder-report.json`. It defines phases 1–7 with product support out of scope and keeps the public arbitrary Linux process restore claim at `0`.
 
+## Controlled process corpus
+
+`arbitrary/019` lives in `../controlled-process-corpus/retained/controlled-process-corpus-matrix-report.json`. It verifies 10/10 controlled process proof rows with 6 supported-proof rows, 4 refused rows, and 0 unknown rows. Product support remains out of scope and arbitrary Linux process restore remains `0`.
+
 ## Local proof notes
 
 - [Regular file FD proof](./regular-file-fd-proof.md)
