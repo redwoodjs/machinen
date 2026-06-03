@@ -1,0 +1,26 @@
+{
+  "id": "active-unix-domain-socket-state",
+  "proofNumber": "arbitrary/033",
+  "category": "Unix socket",
+  "status": "verified",
+  "disposition": "refused",
+  "accepted": true,
+  "productSupportOutOfScope": true,
+  "productSupportClaimAllowed": false,
+  "arbitraryRestoreClaimAllowed": false,
+  "evidence": [
+    "active Unix domain sockets, queued credentials, and peer process coupling are refused"
+  ],
+  "stableCode": "arbitrary-process-active-unix-socket-unsupported",
+  "verifier": {
+    "refusedBeforeTargetExecution": true,
+    "stableRefusalCode": "arbitrary-process-active-unix-socket-unsupported",
+    "activeUnixSocketPresent": true,
+    "rawCpuRestoreUsed": false,
+    "rawRegisterReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "sidecarReplayUsed": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

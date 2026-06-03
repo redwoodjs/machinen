@@ -1,0 +1,24 @@
+{
+  "id": "regular-file-fd-state",
+  "proofNumber": "arbitrary/022",
+  "category": "file descriptor",
+  "status": "verified",
+  "disposition": "supported-proof",
+  "accepted": true,
+  "productSupportOutOfScope": true,
+  "productSupportClaimAllowed": false,
+  "arbitraryRestoreClaimAllowed": false,
+  "evidence": [
+    "regular-file FD path/offset/flags are classified as selected reconstructable resource state"
+  ],
+  "stableCode": "supported-regular-file-fd-state",
+  "verifier": {
+    "regularFileFdClassified": true,
+    "rawCpuRestoreUsed": false,
+    "rawRegisterReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "sidecarReplayUsed": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

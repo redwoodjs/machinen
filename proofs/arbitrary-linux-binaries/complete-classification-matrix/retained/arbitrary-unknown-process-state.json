@@ -1,0 +1,26 @@
+{
+  "id": "arbitrary-unknown-process-state",
+  "proofNumber": "arbitrary/039",
+  "category": "unknown state",
+  "status": "verified",
+  "disposition": "refused",
+  "accepted": true,
+  "productSupportOutOfScope": true,
+  "productSupportClaimAllowed": false,
+  "arbitraryRestoreClaimAllowed": false,
+  "evidence": [
+    "any unclassified process-state class is refused by default; matrix has zero unknown accepted rows"
+  ],
+  "stableCode": "arbitrary-process-unknown-state-unsupported",
+  "verifier": {
+    "refusedBeforeTargetExecution": true,
+    "stableRefusalCode": "arbitrary-process-unknown-state-unsupported",
+    "defaultUnknownStatePolicy": "refuse",
+    "rawCpuRestoreUsed": false,
+    "rawRegisterReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "sidecarReplayUsed": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

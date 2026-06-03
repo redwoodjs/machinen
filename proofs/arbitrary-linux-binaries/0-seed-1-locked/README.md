@@ -46,6 +46,10 @@ The retained phase ladder lives in `../100-phase-ladder/retained/arbitrary-proce
 
 `arbitrary/019` lives in `../controlled-process-corpus/retained/controlled-process-corpus-matrix-report.json`. It verifies 10/10 controlled process proof rows with 6 supported-proof rows, 4 refused rows, and 0 unknown rows. Product support remains out of scope and arbitrary Linux process restore remains `0`.
 
+## Complete declared-state classification matrix
+
+Rows `arbitrary/020` through `arbitrary/039` live in `../complete-classification-matrix/retained/arbitrary-process-complete-classification-matrix-report.json`. They classify 20/20 declared arbitrary-process state classes with 6 supported-proof rows, 14 refused rows, and 0 unknown rows. Product support remains out of scope and arbitrary Linux process restore remains `0`.
+
 ## Local proof notes
 
 - [Regular file FD proof](./regular-file-fd-proof.md)

@@ -1,0 +1,26 @@
+{
+  "id": "dynamic-linker-abi-mismatch-state",
+  "proofNumber": "arbitrary/035",
+  "category": "dynamic linker",
+  "status": "verified",
+  "disposition": "refused",
+  "accepted": true,
+  "productSupportOutOfScope": true,
+  "productSupportClaimAllowed": false,
+  "arbitraryRestoreClaimAllowed": false,
+  "evidence": [
+    "source-architecture shared libraries, ABI mismatch, and missing target dependencies are refused"
+  ],
+  "stableCode": "arbitrary-process-dynamic-linker-abi-mismatch-unsupported",
+  "verifier": {
+    "refusedBeforeTargetExecution": true,
+    "stableRefusalCode": "arbitrary-process-dynamic-linker-abi-mismatch-unsupported",
+    "abiMismatchPresent": true,
+    "rawCpuRestoreUsed": false,
+    "rawRegisterReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "sidecarReplayUsed": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

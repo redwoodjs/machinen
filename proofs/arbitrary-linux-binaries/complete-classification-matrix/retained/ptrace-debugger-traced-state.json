@@ -1,0 +1,24 @@
+{
+  "id": "ptrace-debugger-traced-state",
+  "proofNumber": "arbitrary/038",
+  "category": "ptrace/debugger",
+  "status": "verified",
+  "disposition": "refused",
+  "accepted": true,
+  "productSupportOutOfScope": true,
+  "productSupportClaimAllowed": false,
+  "arbitraryRestoreClaimAllowed": false,
+  "evidence": ["ptrace/debugger relationships and traced stop state are refused"],
+  "stableCode": "arbitrary-process-ptrace-debug-state-unsupported",
+  "verifier": {
+    "refusedBeforeTargetExecution": true,
+    "stableRefusalCode": "arbitrary-process-ptrace-debug-state-unsupported",
+    "ptraceStatePresent": true,
+    "rawCpuRestoreUsed": false,
+    "rawRegisterReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "sidecarReplayUsed": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

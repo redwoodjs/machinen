@@ -1,0 +1,24 @@
+{
+  "id": "shared-memory-opaque-mapping",
+  "proofNumber": "arbitrary/032",
+  "category": "shared memory",
+  "status": "verified",
+  "disposition": "refused",
+  "accepted": true,
+  "productSupportOutOfScope": true,
+  "productSupportClaimAllowed": false,
+  "arbitraryRestoreClaimAllowed": false,
+  "evidence": ["opaque shared memory without a portable manifest is refused"],
+  "stableCode": "arbitrary-process-shared-memory-opaque-unsupported",
+  "verifier": {
+    "refusedBeforeTargetExecution": true,
+    "stableRefusalCode": "arbitrary-process-shared-memory-opaque-unsupported",
+    "sharedOpaqueMappingPresent": true,
+    "rawCpuRestoreUsed": false,
+    "rawRegisterReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "sidecarReplayUsed": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

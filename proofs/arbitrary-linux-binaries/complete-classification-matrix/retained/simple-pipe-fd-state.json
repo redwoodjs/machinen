@@ -1,0 +1,24 @@
+{
+  "id": "simple-pipe-fd-state",
+  "proofNumber": "arbitrary/023",
+  "category": "pipe descriptor",
+  "status": "verified",
+  "disposition": "supported-proof",
+  "accepted": true,
+  "productSupportOutOfScope": true,
+  "productSupportClaimAllowed": false,
+  "arbitraryRestoreClaimAllowed": false,
+  "evidence": [
+    "simple pipe buffered bytes and endpoint direction are classified as selected reconstructable resource state"
+  ],
+  "stableCode": "supported-simple-pipe-fd-state",
+  "verifier": {
+    "simplePipeFdClassified": true,
+    "rawCpuRestoreUsed": false,
+    "rawRegisterReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "sidecarReplayUsed": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

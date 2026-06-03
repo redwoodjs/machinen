@@ -1,0 +1,26 @@
+{
+  "id": "idle-eventfd-timerfd-state",
+  "proofNumber": "arbitrary/024",
+  "category": "idle kernel resource",
+  "status": "verified",
+  "disposition": "supported-proof",
+  "accepted": true,
+  "productSupportOutOfScope": true,
+  "productSupportClaimAllowed": false,
+  "arbitraryRestoreClaimAllowed": false,
+  "evidence": [
+    "idle eventfd/timerfd descriptors are classified as selected idle reconstructable resource state"
+  ],
+  "stableCode": "supported-idle-eventfd-timerfd-state",
+  "verifier": {
+    "eventfdClassified": true,
+    "timerfdClassified": true,
+    "idleOnly": true,
+    "rawCpuRestoreUsed": false,
+    "rawRegisterReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "sidecarReplayUsed": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "id": "process-metadata-argv-env-cwd",
+  "proofNumber": "arbitrary/020",
+  "category": "process metadata",
+  "status": "verified",
+  "disposition": "supported-proof",
+  "accepted": true,
+  "productSupportOutOfScope": true,
+  "productSupportClaimAllowed": false,
+  "arbitraryRestoreClaimAllowed": false,
+  "evidence": ["argv/env/cwd hashes are classified as target-native reconstructable proof state"],
+  "stableCode": "supported-process-metadata-argv-env-cwd",
+  "verifier": {
+    "argvEnvCwdClassified": true,
+    "rawCpuRestoreUsed": false,
+    "rawRegisterReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "sidecarReplayUsed": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

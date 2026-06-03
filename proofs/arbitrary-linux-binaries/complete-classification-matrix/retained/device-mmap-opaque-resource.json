@@ -1,0 +1,26 @@
+{
+  "id": "device-mmap-opaque-resource",
+  "proofNumber": "arbitrary/031",
+  "category": "device mmap",
+  "status": "verified",
+  "disposition": "refused",
+  "accepted": true,
+  "productSupportOutOfScope": true,
+  "productSupportClaimAllowed": false,
+  "arbitraryRestoreClaimAllowed": false,
+  "evidence": [
+    "device mmap and opaque device state have target-specific side effects and are refused"
+  ],
+  "stableCode": "arbitrary-process-device-mmap-unsupported",
+  "verifier": {
+    "refusedBeforeTargetExecution": true,
+    "stableRefusalCode": "arbitrary-process-device-mmap-unsupported",
+    "deviceMmapPresent": true,
+    "rawCpuRestoreUsed": false,
+    "rawRegisterReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "sidecarReplayUsed": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

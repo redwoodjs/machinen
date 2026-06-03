@@ -1,0 +1,24 @@
+{
+  "id": "static-data-heap-memory",
+  "proofNumber": "arbitrary/021",
+  "category": "memory",
+  "status": "verified",
+  "disposition": "supported-proof",
+  "accepted": true,
+  "productSupportOutOfScope": true,
+  "productSupportClaimAllowed": false,
+  "arbitraryRestoreClaimAllowed": false,
+  "evidence": [
+    "static/data/heap byte payload is classified as target-native materializable proof state"
+  ],
+  "stableCode": "supported-static-data-heap-memory",
+  "verifier": {
+    "staticDataHeapClassified": true,
+    "rawCpuRestoreUsed": false,
+    "rawRegisterReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "sidecarReplayUsed": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

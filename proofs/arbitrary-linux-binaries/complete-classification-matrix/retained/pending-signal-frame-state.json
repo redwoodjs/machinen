@@ -1,0 +1,26 @@
+{
+  "id": "pending-signal-frame-state",
+  "proofNumber": "arbitrary/026",
+  "category": "signal state",
+  "status": "verified",
+  "disposition": "refused",
+  "accepted": true,
+  "productSupportOutOfScope": true,
+  "productSupportClaimAllowed": false,
+  "arbitraryRestoreClaimAllowed": false,
+  "evidence": [
+    "pending signal frames and handler continuation require target-specific stack/kernel semantics"
+  ],
+  "stableCode": "arbitrary-process-signal-frame-unsupported",
+  "verifier": {
+    "refusedBeforeTargetExecution": true,
+    "stableRefusalCode": "arbitrary-process-signal-frame-unsupported",
+    "signalFramePresent": true,
+    "rawCpuRestoreUsed": false,
+    "rawRegisterReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "sidecarReplayUsed": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

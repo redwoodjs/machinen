@@ -27,7 +27,7 @@ type ClaimProgressProofGroup = {
 
 type ClaimProgressDashboard = {
   kind: "machinen.claim-progress-dashboard";
-  version: 128;
+  version: 129;
   tracks: ClaimProgressTrack[];
   proofGroups: ClaimProgressProofGroup[];
 };
@@ -41,7 +41,7 @@ describe("claim progress dashboard", () => {
 
     expect(dashboard).toMatchObject({
       kind: "machinen.claim-progress-dashboard",
-      version: 128,
+      version: 129,
     });
     expect(dashboard.tracks.map((track) => track.id)).toEqual([
       "node-service",
@@ -186,6 +186,8 @@ describe("claim progress dashboard", () => {
     expect(proofIds).toContain("phase-1-selected-seed-proof-path");
     expect(proofIds).toContain("phase-7-arbitrary-process-proof-100-gate");
     expect(proofIds).toContain("controlled-process-corpus-matrix");
+    expect(proofIds).toContain("process-metadata-argv-env-cwd");
+    expect(proofIds).toContain("arbitrary-unknown-process-state");
     expect(proofIds).toContain("simple-pipe-fd-proof");
     expect(proofIds).toContain("idle-epoll-tcp-proof");
     expect(proofIds).toContain("postgres-retained-verifier-artifacts");
@@ -311,6 +313,12 @@ describe("claim progress dashboard", () => {
     expect(html).toContain("controlled-process-proof-corpus-v1");
     expect(html).toContain("supported-proof");
     expect(html).toContain("controlled-active-syscall-refusal");
+    expect(html).toContain("arbitrary/020");
+    expect(html).toContain("arbitrary/039");
+    expect(html).toContain("arbitrary-process-complete-classification-matrix-report.json");
+    expect(html).toContain("declared-arbitrary-process-state-classification-v1");
+    expect(html).toContain("declaredStateClassesClassified");
+    expect(html).toContain("any unclassified process-state class is refused by default");
     expect(html).toContain("argv/env/cwd");
     expect(html).toContain("static/data/heap");
     expect(html).toContain("idle epoll/TCP");

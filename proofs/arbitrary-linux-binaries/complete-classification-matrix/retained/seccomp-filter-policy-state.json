@@ -1,0 +1,26 @@
+{
+  "id": "seccomp-filter-policy-state",
+  "proofNumber": "arbitrary/037",
+  "category": "seccomp",
+  "status": "verified",
+  "disposition": "refused",
+  "accepted": true,
+  "productSupportOutOfScope": true,
+  "productSupportClaimAllowed": false,
+  "arbitraryRestoreClaimAllowed": false,
+  "evidence": [
+    "seccomp filters can block target behavior or restore logic and are refused without a retained policy verifier"
+  ],
+  "stableCode": "arbitrary-process-seccomp-policy-unsupported",
+  "verifier": {
+    "refusedBeforeTargetExecution": true,
+    "stableRefusalCode": "arbitrary-process-seccomp-policy-unsupported",
+    "seccompFilterPresent": true,
+    "rawCpuRestoreUsed": false,
+    "rawRegisterReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "sidecarReplayUsed": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

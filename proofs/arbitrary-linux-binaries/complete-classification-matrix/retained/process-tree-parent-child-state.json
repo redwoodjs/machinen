@@ -1,0 +1,26 @@
+{
+  "id": "process-tree-parent-child-state",
+  "proofNumber": "arbitrary/034",
+  "category": "process tree",
+  "status": "verified",
+  "disposition": "refused",
+  "accepted": true,
+  "productSupportOutOfScope": true,
+  "productSupportClaimAllowed": false,
+  "arbitraryRestoreClaimAllowed": false,
+  "evidence": [
+    "forked children, process groups, parent/child relationships, and cross-process IPC remain refused"
+  ],
+  "stableCode": "arbitrary-process-tree-unsupported",
+  "verifier": {
+    "refusedBeforeTargetExecution": true,
+    "stableRefusalCode": "arbitrary-process-tree-unsupported",
+    "processTreePresent": true,
+    "rawCpuRestoreUsed": false,
+    "rawRegisterReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "sidecarReplayUsed": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

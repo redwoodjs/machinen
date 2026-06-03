@@ -1,0 +1,26 @@
+{
+  "id": "active-syscall-state",
+  "proofNumber": "arbitrary/027",
+  "category": "active syscall state",
+  "status": "verified",
+  "disposition": "refused",
+  "accepted": true,
+  "productSupportOutOfScope": true,
+  "productSupportClaimAllowed": false,
+  "arbitraryRestoreClaimAllowed": false,
+  "evidence": [
+    "interrupted active syscalls and in-kernel state are refused before target execution"
+  ],
+  "stableCode": "arbitrary-process-active-syscall-unsupported",
+  "verifier": {
+    "refusedBeforeTargetExecution": true,
+    "stableRefusalCode": "arbitrary-process-active-syscall-unsupported",
+    "activeSyscallPresent": true,
+    "rawCpuRestoreUsed": false,
+    "rawRegisterReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "sidecarReplayUsed": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

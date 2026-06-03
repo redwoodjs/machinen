@@ -1,0 +1,26 @@
+{
+  "id": "multi-thread-scheduler-state",
+  "proofNumber": "arbitrary/028",
+  "category": "thread state",
+  "status": "verified",
+  "disposition": "refused",
+  "accepted": true,
+  "productSupportOutOfScope": true,
+  "productSupportClaimAllowed": false,
+  "arbitraryRestoreClaimAllowed": false,
+  "evidence": [
+    "multiple live threads require scheduler, register, and stack ownership reconstruction not accepted by this matrix"
+  ],
+  "stableCode": "arbitrary-process-multithread-unsupported",
+  "verifier": {
+    "refusedBeforeTargetExecution": true,
+    "stableRefusalCode": "arbitrary-process-multithread-unsupported",
+    "liveThreadsGreaterThanOne": true,
+    "rawCpuRestoreUsed": false,
+    "rawRegisterReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "sidecarReplayUsed": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

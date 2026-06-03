@@ -1,0 +1,26 @@
+{
+  "id": "jit-executable-anonymous-mapping",
+  "proofNumber": "arbitrary/030",
+  "category": "executable memory",
+  "status": "verified",
+  "disposition": "refused",
+  "accepted": true,
+  "productSupportOutOfScope": true,
+  "productSupportClaimAllowed": false,
+  "arbitraryRestoreClaimAllowed": false,
+  "evidence": [
+    "JIT/generated executable anonymous mappings are refused; raw executable page replay is forbidden"
+  ],
+  "stableCode": "arbitrary-process-jit-executable-mapping-unsupported",
+  "verifier": {
+    "refusedBeforeTargetExecution": true,
+    "stableRefusalCode": "arbitrary-process-jit-executable-mapping-unsupported",
+    "executableAnonymousMappingPresent": true,
+    "rawCpuRestoreUsed": false,
+    "rawRegisterReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "sidecarReplayUsed": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

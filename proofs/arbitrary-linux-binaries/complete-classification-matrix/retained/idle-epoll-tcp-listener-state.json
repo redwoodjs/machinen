@@ -1,0 +1,26 @@
+{
+  "id": "idle-epoll-tcp-listener-state",
+  "proofNumber": "arbitrary/025",
+  "category": "idle network resource",
+  "status": "verified",
+  "disposition": "supported-proof",
+  "accepted": true,
+  "productSupportOutOfScope": true,
+  "productSupportClaimAllowed": false,
+  "arbitraryRestoreClaimAllowed": false,
+  "evidence": [
+    "idle epoll and idle TCP listener with no ready events/streams are classified as selected reconstructable state"
+  ],
+  "stableCode": "supported-idle-epoll-tcp-listener-state",
+  "verifier": {
+    "idleEpollClassified": true,
+    "idleTcpListenerClassified": true,
+    "activeStreams": 0,
+    "rawCpuRestoreUsed": false,
+    "rawRegisterReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "sidecarReplayUsed": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}
