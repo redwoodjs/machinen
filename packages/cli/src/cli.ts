@@ -3342,6 +3342,7 @@ async function cmdRestorePortableVmProductBundle(
         filesystem: (targetVerify.filesystem as Record<string, unknown>)?.accepted === true,
         service: (targetVerify.service as Record<string, unknown>)?.accepted === true,
         sqlite: (targetVerify.sqlite as Record<string, unknown>)?.accepted === true,
+        nodejs: summarizePortableVmNodePlan(snapDir),
       },
       portableVmPlan: summarizePortableVmRestorePlan(snapDir),
       claimGuard: portableVmClaimGuard(),
@@ -3462,8 +3463,26 @@ function summarizePortableVmRestorePlan(snapDir: string): Record<string, unknown
     rowCount: rows.length,
     productSupportedRows: rows.filter((row) => row.disposition === "product-supported").length,
     refusedRows: rows.filter((row) => row.disposition === "refused").length,
+    nodejsRows: rows.filter((row) => row.category === "nodejs").length,
+    nodejsClassifiedRows: rows.filter(
+      (row) => row.category === "nodejs" && row.disposition === "classified",
+    ).length,
     unknownStatePolicy: (plan.targetPolicy as Record<string, unknown> | undefined)
       ?.unknownStatePolicy,
+  };
+}
+
+function summarizePortableVmNodePlan(snapDir: string): Record<string, unknown> {
+  const plan = JSON.parse(
+    readFileSync(join(snapDir, "portable-vm-manifest-plan.json"), "utf8"),
+  ) as Record<string, unknown>;
+  const rows = portableVmPlanRows(plan).filter((row) => row.category === "nodejs");
+  return {
+    classified: rows.some((row) => row.disposition === "classified"),
+    rowCount: rows.length,
+    refusedRows: rows.filter((row) => row.disposition === "refused").length,
+    arbitraryNodeProcessRestoreClaimed: false,
+    rawV8HeapRestoreUsed: false,
   };
 }
 
@@ -6657,6 +6676,49 @@ add_refusal() {
 [ ! -f "$src/portable-vm-unknown-live-process.refuse" ] || add_refusal unknown-live-process process portable-vm-unknown-live-process-unsupported 'unknown live processes are refused by default'
 [ ! -f "$src/portable-vm-opaque-device-state.refuse" ] || add_refusal opaque-device-state device portable-vm-opaque-device-state-unsupported 'opaque device state is refused by default'
 [ ! -f "$src/portable-vm-active-syscall.refuse" ] || add_refusal active-syscall process portable-vm-active-syscall-unsupported 'active syscall state is refused by default'
+[ ! -f "$src/node-portability-active-websocket.refuse" ] || add_refusal nodejs-active-websocket nodejs node-portability-active-websocket-unsupported 'active WebSocket sessions are refused by default'
+[ ! -f "$src/node-portability-worker-thread.refuse" ] || add_refusal nodejs-worker-thread nodejs node-portability-worker-thread-unsupported 'worker thread live state is refused by default'
+[ ! -f "$src/node-portability-native-addon.refuse" ] || add_refusal nodejs-native-addon nodejs node-portability-native-addon-unsupported 'native addon live/ABI state is refused by default'
+[ ! -f "$src/node-portability-child-process.refuse" ] || add_refusal nodejs-child-process nodejs node-portability-child-process-unsupported 'child process trees are refused by default'
+[ ! -f "$src/node-portability-active-request.refuse" ] || add_refusal nodejs-active-request nodejs node-portability-active-request-unsupported 'in-flight Node HTTP requests are refused by default'
+[ ! -f "$src/node-portability-outbound-connection.refuse" ] || add_refusal nodejs-outbound-connection nodejs node-portability-outbound-connection-unsupported 'outbound connection state is refused by default'
+
+node_inventory_items=''
+node_plan_rows=''
+node_package_json=''
+if [ -d "$src/filesystem/root" ]; then
+  node_package_json=$(find "$src/filesystem/root" -maxdepth 6 -name package.json -type f 2>/dev/null | head -n 1 || true)
+fi
+if [ -n "$node_package_json" ]; then
+  node_package_rel=$(printf '%s\n' "$node_package_json" | sed "s|^$src/||")
+  node_app_dir=$(dirname "$node_package_json")
+  node_app_rel=$(printf '%s\n' "$node_app_dir" | sed "s|^$src/||")
+  node_package_manager="npm"
+  [ ! -f "$node_app_dir/pnpm-lock.yaml" ] || node_package_manager="pnpm"
+  [ ! -f "$node_app_dir/yarn.lock" ] || node_package_manager="yarn"
+  cat >"$work/nodejs-portability-inventory.json" <<NODEJSON
+{
+  "kind": "machinen.nodejs-portability-inventory",
+  "version": 1,
+  "status": "classified",
+  "sourceArchitecture": "$source_arch",
+  "packageJson": "$node_package_rel",
+  "appDir": "$node_app_rel",
+  "packageManager": "$node_package_manager",
+  "compatibilityIndex": "portability/nodejs/index.json",
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false
+  }
+}
+NODEJSON
+  node_inventory_items=',
+    { "id": "nodejs-package-json", "category": "nodejs", "path": "nodejs-portability-inventory.json", "disposition": "classified" }'
+  node_plan_rows=',
+      { "id": "nodejs-package-json", "category": "nodejs", "disposition": "classified", "restoreStrategy": "classify-against-node-portability-compatibility-index", "artifact": "nodejs-portability-inventory.json", "compatibilityIndex": "portability/nodejs/index.json" }'
+fi
 
 cat >"$work/portable-vm-raw-inventory.json" <<JSON
 {
@@ -6671,7 +6733,7 @@ cat >"$work/portable-vm-raw-inventory.json" <<JSON
   "items": [
     { "id": "filesystem-root", "category": "filesystem", "path": "filesystem/root", "disposition": "product-supported" },
     { "id": "selected-service", "category": "service", "path": "service-manifest.json", "disposition": "product-supported" },
-    { "id": "clean-sqlite", "category": "sqlite", "path": "sqlite-dump.sql", "disposition": "product-supported" }
+    { "id": "clean-sqlite", "category": "sqlite", "path": "sqlite-dump.sql", "disposition": "product-supported" }$node_inventory_items
   ]
 }
 JSON
@@ -6694,7 +6756,7 @@ cat >"$work/portable-vm-manifest-plan.json" <<JSON
     "rows": [
       { "id": "filesystem-root", "category": "filesystem", "disposition": "product-supported", "restoreStrategy": "copy-content-addressed-file-tree", "artifact": "filesystem-manifest.json" },
       { "id": "selected-service", "category": "service", "disposition": "product-supported", "restoreStrategy": "start-target-native-selected-service", "artifact": "service-manifest.json" },
-      { "id": "clean-sqlite", "category": "sqlite", "disposition": "product-supported", "restoreStrategy": "restore-clean-logical-sqlite-dump", "artifact": "sqlite-logical.json" }$refusal_rows
+      { "id": "clean-sqlite", "category": "sqlite", "disposition": "product-supported", "restoreStrategy": "restore-clean-logical-sqlite-dump", "artifact": "sqlite-logical.json" }$node_plan_rows$refusal_rows
     ]
   },
   "claimGuard": {

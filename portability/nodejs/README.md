@@ -2,6 +2,8 @@
 
 This corpus is the product-facing path toward arbitrary Node portability without overclaiming raw process continuation.
 
+`index.json` and `index.html` are generated compatibility views for the corpus. They show capability rows, per-architecture outcomes, blockers, evidence links, and claim guards.
+
 Each numbered row lives at `portability/nodejs/NNN-<name>` and contains:
 
 - `portability.json` — row classification, verifier contract, claim guard
@@ -14,6 +16,7 @@ Classification-only, no VM boot:
 
 ```bash
 pnpm node-portability-corpus --out portability/nodejs/retained/nodejs-portability-corpus-report.json
+pnpm node-portability-index
 ```
 
 Runtime-controlled execution on the current architecture:
@@ -28,7 +31,7 @@ Runtime-controlled execution on requested architectures when those hosts/assets 
 pnpm node-portability-corpus --execute-vm --arch arm64 --arch amd64
 ```
 
-Dependency-heavy rows are classified by default. Pass `--install-deps` to attempt target-native dependency installation inside the VM.
+Dependency-heavy rows are classified by default. Pass `--install-deps` to attempt target-native dependency installation inside the VM. Runtime failures are retained under `<report-name>-evidence/` and classified as `failed-classified` rows when the environment is available but install/start/verify fails.
 
 ## Claim boundary
 

@@ -25,21 +25,18 @@
   "summary": {
     "rowCount": 20,
     "byStatus": {
-      "verified": 5,
-      "classified": 4,
-      "conditional": 5,
+      "verified": 14,
       "refused": 6
     },
     "byProductClaim": {
-      "candidate": 5,
-      "none": 4,
-      "conditional": 5,
+      "candidate": 14,
       "refusal": 6
     },
     "architectures": ["arm64", "amd64"],
-    "verifiedBothArchitectures": 5,
+    "verifiedBothArchitectures": 14,
     "refusedRows": 6,
-    "conditionalRows": 5
+    "conditionalRows": 0,
+    "failedClassifiedRows": 0
   },
   "evidenceReports": [
     {
@@ -59,6 +56,18 @@
       "path": "portability/nodejs/retained/nodejs-portability-no-deps-amd64-runtime-report.json",
       "sha256": "bd858d63ca06f6fd2f24a841640545059e7c849d40b2e395a22484b0aecece8a",
       "summary": "nodejs-portability-no-deps-amd64-runtime-report.json"
+    },
+    {
+      "kind": "runtime-report",
+      "path": "portability/nodejs/retained/nodejs-portability-deps-arm64-runtime-report.json",
+      "sha256": "9b292835410a0438f665be2ae1e62253cc97b3a33f4b903166c74efc4bf3e906",
+      "summary": "nodejs-portability-deps-arm64-runtime-report.json"
+    },
+    {
+      "kind": "runtime-report",
+      "path": "portability/nodejs/retained/nodejs-portability-deps-amd64-runtime-report.json",
+      "sha256": "014e17c444bc5c9e9c696e1d8294001eb9f111e8f2c0072f6118f2ebde0b6343",
+      "summary": "nodejs-portability-deps-amd64-runtime-report.json"
     },
     {
       "kind": "runtime-report",
@@ -163,10 +172,10 @@
       "category": "framework",
       "description": "Express HTTP service from package.json",
       "attemptPolicy": "try-first",
-      "status": "classified",
+      "status": "verified",
       "architectures": {
         "arm64": {
-          "status": "classified",
+          "status": "verified",
           "lastRun": null,
           "evidence": [
             {
@@ -174,12 +183,18 @@
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
               "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
               "summary": "arm64 classification row retained"
+            },
+            {
+              "kind": "runtime-report",
+              "path": "portability/nodejs/retained/nodejs-portability-deps-arm64-runtime-report.json",
+              "sha256": "9b292835410a0438f665be2ae1e62253cc97b3a33f4b903166c74efc4bf3e906",
+              "summary": "arm64 Machinen runtime verifier passed"
             }
           ],
-          "notes": "Known capability; runtime execution pending."
+          "notes": "Machinen runtime-controlled VM execution verified this capability."
         },
         "amd64": {
-          "status": "classified",
+          "status": "verified",
           "lastRun": null,
           "evidence": [
             {
@@ -187,24 +202,23 @@
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
               "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
               "summary": "amd64 classification row retained"
+            },
+            {
+              "kind": "runtime-report",
+              "path": "portability/nodejs/retained/nodejs-portability-deps-amd64-runtime-report.json",
+              "sha256": "014e17c444bc5c9e9c696e1d8294001eb9f111e8f2c0072f6118f2ebde0b6343",
+              "summary": "amd64 Machinen runtime verifier passed"
             }
           ],
-          "notes": "Known capability; runtime execution pending."
+          "notes": "Machinen runtime-controlled VM execution verified this capability."
         }
       },
-      "blockers": [
-        {
-          "id": "dependency-install-required",
-          "severity": "minor",
-          "description": "Needs target-native npm dependency installation during proof/product restore.",
-          "refusalCode": null
-        }
-      ],
+      "blockers": [],
       "workaround": null,
       "productClaim": {
-        "status": "none",
-        "scope": "classification-only",
-        "notes": "Known row, not yet product-claimed."
+        "status": "candidate",
+        "scope": "node-portability-corpus-proof",
+        "notes": "VM-verified capability evidence; does not claim arbitrary raw Node process continuation."
       },
       "evidence": [
         {
@@ -218,6 +232,18 @@
           "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
           "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
           "summary": "arm64 classification row retained"
+        },
+        {
+          "kind": "runtime-report",
+          "path": "portability/nodejs/retained/nodejs-portability-deps-arm64-runtime-report.json",
+          "sha256": "9b292835410a0438f665be2ae1e62253cc97b3a33f4b903166c74efc4bf3e906",
+          "summary": "arm64 Machinen runtime verifier passed"
+        },
+        {
+          "kind": "runtime-report",
+          "path": "portability/nodejs/retained/nodejs-portability-deps-amd64-runtime-report.json",
+          "sha256": "014e17c444bc5c9e9c696e1d8294001eb9f111e8f2c0072f6118f2ebde0b6343",
+          "summary": "amd64 Machinen runtime verifier passed"
         }
       ],
       "claimGuard": {
@@ -234,10 +260,10 @@
       "category": "framework",
       "description": "Fastify HTTP service from package.json",
       "attemptPolicy": "try-first",
-      "status": "classified",
+      "status": "verified",
       "architectures": {
         "arm64": {
-          "status": "classified",
+          "status": "verified",
           "lastRun": null,
           "evidence": [
             {
@@ -245,12 +271,18 @@
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
               "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
               "summary": "arm64 classification row retained"
+            },
+            {
+              "kind": "runtime-report",
+              "path": "portability/nodejs/retained/nodejs-portability-deps-arm64-runtime-report.json",
+              "sha256": "9b292835410a0438f665be2ae1e62253cc97b3a33f4b903166c74efc4bf3e906",
+              "summary": "arm64 Machinen runtime verifier passed"
             }
           ],
-          "notes": "Known capability; runtime execution pending."
+          "notes": "Machinen runtime-controlled VM execution verified this capability."
         },
         "amd64": {
-          "status": "classified",
+          "status": "verified",
           "lastRun": null,
           "evidence": [
             {
@@ -258,24 +290,23 @@
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
               "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
               "summary": "amd64 classification row retained"
+            },
+            {
+              "kind": "runtime-report",
+              "path": "portability/nodejs/retained/nodejs-portability-deps-amd64-runtime-report.json",
+              "sha256": "014e17c444bc5c9e9c696e1d8294001eb9f111e8f2c0072f6118f2ebde0b6343",
+              "summary": "amd64 Machinen runtime verifier passed"
             }
           ],
-          "notes": "Known capability; runtime execution pending."
+          "notes": "Machinen runtime-controlled VM execution verified this capability."
         }
       },
-      "blockers": [
-        {
-          "id": "dependency-install-required",
-          "severity": "minor",
-          "description": "Needs target-native npm dependency installation during proof/product restore.",
-          "refusalCode": null
-        }
-      ],
+      "blockers": [],
       "workaround": null,
       "productClaim": {
-        "status": "none",
-        "scope": "classification-only",
-        "notes": "Known row, not yet product-claimed."
+        "status": "candidate",
+        "scope": "node-portability-corpus-proof",
+        "notes": "VM-verified capability evidence; does not claim arbitrary raw Node process continuation."
       },
       "evidence": [
         {
@@ -289,6 +320,18 @@
           "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
           "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
           "summary": "arm64 classification row retained"
+        },
+        {
+          "kind": "runtime-report",
+          "path": "portability/nodejs/retained/nodejs-portability-deps-arm64-runtime-report.json",
+          "sha256": "9b292835410a0438f665be2ae1e62253cc97b3a33f4b903166c74efc4bf3e906",
+          "summary": "arm64 Machinen runtime verifier passed"
+        },
+        {
+          "kind": "runtime-report",
+          "path": "portability/nodejs/retained/nodejs-portability-deps-amd64-runtime-report.json",
+          "sha256": "014e17c444bc5c9e9c696e1d8294001eb9f111e8f2c0072f6118f2ebde0b6343",
+          "summary": "amd64 Machinen runtime verifier passed"
         }
       ],
       "claimGuard": {
@@ -305,10 +348,10 @@
       "category": "framework",
       "description": "Koa HTTP service from package.json",
       "attemptPolicy": "try-first",
-      "status": "classified",
+      "status": "verified",
       "architectures": {
         "arm64": {
-          "status": "classified",
+          "status": "verified",
           "lastRun": null,
           "evidence": [
             {
@@ -316,12 +359,18 @@
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
               "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
               "summary": "arm64 classification row retained"
+            },
+            {
+              "kind": "runtime-report",
+              "path": "portability/nodejs/retained/nodejs-portability-deps-arm64-runtime-report.json",
+              "sha256": "9b292835410a0438f665be2ae1e62253cc97b3a33f4b903166c74efc4bf3e906",
+              "summary": "arm64 Machinen runtime verifier passed"
             }
           ],
-          "notes": "Known capability; runtime execution pending."
+          "notes": "Machinen runtime-controlled VM execution verified this capability."
         },
         "amd64": {
-          "status": "classified",
+          "status": "verified",
           "lastRun": null,
           "evidence": [
             {
@@ -329,24 +378,23 @@
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
               "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
               "summary": "amd64 classification row retained"
+            },
+            {
+              "kind": "runtime-report",
+              "path": "portability/nodejs/retained/nodejs-portability-deps-amd64-runtime-report.json",
+              "sha256": "014e17c444bc5c9e9c696e1d8294001eb9f111e8f2c0072f6118f2ebde0b6343",
+              "summary": "amd64 Machinen runtime verifier passed"
             }
           ],
-          "notes": "Known capability; runtime execution pending."
+          "notes": "Machinen runtime-controlled VM execution verified this capability."
         }
       },
-      "blockers": [
-        {
-          "id": "dependency-install-required",
-          "severity": "minor",
-          "description": "Needs target-native npm dependency installation during proof/product restore.",
-          "refusalCode": null
-        }
-      ],
+      "blockers": [],
       "workaround": null,
       "productClaim": {
-        "status": "none",
-        "scope": "classification-only",
-        "notes": "Known row, not yet product-claimed."
+        "status": "candidate",
+        "scope": "node-portability-corpus-proof",
+        "notes": "VM-verified capability evidence; does not claim arbitrary raw Node process continuation."
       },
       "evidence": [
         {
@@ -360,6 +408,18 @@
           "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
           "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
           "summary": "arm64 classification row retained"
+        },
+        {
+          "kind": "runtime-report",
+          "path": "portability/nodejs/retained/nodejs-portability-deps-arm64-runtime-report.json",
+          "sha256": "9b292835410a0438f665be2ae1e62253cc97b3a33f4b903166c74efc4bf3e906",
+          "summary": "arm64 Machinen runtime verifier passed"
+        },
+        {
+          "kind": "runtime-report",
+          "path": "portability/nodejs/retained/nodejs-portability-deps-amd64-runtime-report.json",
+          "sha256": "014e17c444bc5c9e9c696e1d8294001eb9f111e8f2c0072f6118f2ebde0b6343",
+          "summary": "amd64 Machinen runtime verifier passed"
         }
       ],
       "claimGuard": {
@@ -376,10 +436,10 @@
       "category": "framework",
       "description": "Hono HTTP service from package.json",
       "attemptPolicy": "try-first",
-      "status": "classified",
+      "status": "verified",
       "architectures": {
         "arm64": {
-          "status": "classified",
+          "status": "verified",
           "lastRun": null,
           "evidence": [
             {
@@ -387,12 +447,18 @@
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
               "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
               "summary": "arm64 classification row retained"
+            },
+            {
+              "kind": "runtime-report",
+              "path": "portability/nodejs/retained/nodejs-portability-deps-arm64-runtime-report.json",
+              "sha256": "9b292835410a0438f665be2ae1e62253cc97b3a33f4b903166c74efc4bf3e906",
+              "summary": "arm64 Machinen runtime verifier passed"
             }
           ],
-          "notes": "Known capability; runtime execution pending."
+          "notes": "Machinen runtime-controlled VM execution verified this capability."
         },
         "amd64": {
-          "status": "classified",
+          "status": "verified",
           "lastRun": null,
           "evidence": [
             {
@@ -400,30 +466,29 @@
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
               "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
               "summary": "amd64 classification row retained"
+            },
+            {
+              "kind": "runtime-report",
+              "path": "portability/nodejs/retained/nodejs-portability-deps-amd64-runtime-report.json",
+              "sha256": "014e17c444bc5c9e9c696e1d8294001eb9f111e8f2c0072f6118f2ebde0b6343",
+              "summary": "amd64 Machinen runtime verifier passed"
             }
           ],
-          "notes": "Known capability; runtime execution pending."
+          "notes": "Machinen runtime-controlled VM execution verified this capability."
         }
       },
-      "blockers": [
-        {
-          "id": "dependency-install-required",
-          "severity": "minor",
-          "description": "Needs target-native npm dependency installation during proof/product restore.",
-          "refusalCode": null
-        }
-      ],
+      "blockers": [],
       "workaround": null,
       "productClaim": {
-        "status": "none",
-        "scope": "classification-only",
-        "notes": "Known row, not yet product-claimed."
+        "status": "candidate",
+        "scope": "node-portability-corpus-proof",
+        "notes": "VM-verified capability evidence; does not claim arbitrary raw Node process continuation."
       },
       "evidence": [
         {
           "kind": "row-manifest",
           "path": "portability/nodejs/005-hono/portability.json",
-          "sha256": "caad4611ee3bbd78d13c4340e897276d36f07cbbd74295183bec54aa013db8f4",
+          "sha256": "aef4efe731e4b25f9a08e872564e9774ada1b0bd395decf08bab6bd46c5d1a44",
           "summary": "row metadata"
         },
         {
@@ -431,6 +496,18 @@
           "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
           "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
           "summary": "arm64 classification row retained"
+        },
+        {
+          "kind": "runtime-report",
+          "path": "portability/nodejs/retained/nodejs-portability-deps-arm64-runtime-report.json",
+          "sha256": "9b292835410a0438f665be2ae1e62253cc97b3a33f4b903166c74efc4bf3e906",
+          "summary": "arm64 Machinen runtime verifier passed"
+        },
+        {
+          "kind": "runtime-report",
+          "path": "portability/nodejs/retained/nodejs-portability-deps-amd64-runtime-report.json",
+          "sha256": "014e17c444bc5c9e9c696e1d8294001eb9f111e8f2c0072f6118f2ebde0b6343",
+          "summary": "amd64 Machinen runtime verifier passed"
         }
       ],
       "claimGuard": {
@@ -447,10 +524,10 @@
       "category": "framework-server",
       "description": "Next minimal production server; dependency install required",
       "attemptPolicy": "config-required",
-      "status": "conditional",
+      "status": "verified",
       "architectures": {
         "arm64": {
-          "status": "conditional",
+          "status": "verified",
           "lastRun": null,
           "evidence": [
             {
@@ -458,12 +535,18 @@
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
               "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
               "summary": "arm64 classification row retained"
+            },
+            {
+              "kind": "runtime-report",
+              "path": "portability/nodejs/retained/nodejs-portability-deps-arm64-runtime-report.json",
+              "sha256": "9b292835410a0438f665be2ae1e62253cc97b3a33f4b903166c74efc4bf3e906",
+              "summary": "arm64 Machinen runtime verifier passed"
             }
           ],
-          "notes": "Needs declared config/dependencies before runtime execution."
+          "notes": "Machinen runtime-controlled VM execution verified this capability."
         },
         "amd64": {
-          "status": "conditional",
+          "status": "verified",
           "lastRun": null,
           "evidence": [
             {
@@ -471,9 +554,15 @@
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
               "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
               "summary": "amd64 classification row retained"
+            },
+            {
+              "kind": "runtime-report",
+              "path": "portability/nodejs/retained/nodejs-portability-deps-amd64-runtime-report.json",
+              "sha256": "014e17c444bc5c9e9c696e1d8294001eb9f111e8f2c0072f6118f2ebde0b6343",
+              "summary": "amd64 Machinen runtime verifier passed"
             }
           ],
-          "notes": "Needs declared config/dependencies before runtime execution."
+          "notes": "Machinen runtime-controlled VM execution verified this capability."
         }
       },
       "blockers": [
@@ -484,11 +573,11 @@
           "refusalCode": null
         }
       ],
-      "workaround": "Declare dependencies/config/artifacts and rerun with --install-deps or matching product adapter.",
+      "workaround": null,
       "productClaim": {
-        "status": "conditional",
+        "status": "candidate",
         "scope": "node-portability-corpus-proof",
-        "notes": "Requires declared dependencies/config/artifacts before runtime execution."
+        "notes": "VM-verified capability evidence; does not claim arbitrary raw Node process continuation."
       },
       "evidence": [
         {
@@ -502,6 +591,18 @@
           "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
           "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
           "summary": "arm64 classification row retained"
+        },
+        {
+          "kind": "runtime-report",
+          "path": "portability/nodejs/retained/nodejs-portability-deps-arm64-runtime-report.json",
+          "sha256": "9b292835410a0438f665be2ae1e62253cc97b3a33f4b903166c74efc4bf3e906",
+          "summary": "arm64 Machinen runtime verifier passed"
+        },
+        {
+          "kind": "runtime-report",
+          "path": "portability/nodejs/retained/nodejs-portability-deps-amd64-runtime-report.json",
+          "sha256": "014e17c444bc5c9e9c696e1d8294001eb9f111e8f2c0072f6118f2ebde0b6343",
+          "summary": "amd64 Machinen runtime verifier passed"
         }
       ],
       "claimGuard": {
@@ -518,10 +619,10 @@
       "category": "framework-server",
       "description": "Remix/React Router style HTTP handler; dependency install required",
       "attemptPolicy": "config-required",
-      "status": "conditional",
+      "status": "verified",
       "architectures": {
         "arm64": {
-          "status": "conditional",
+          "status": "verified",
           "lastRun": null,
           "evidence": [
             {
@@ -529,12 +630,18 @@
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
               "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
               "summary": "arm64 classification row retained"
+            },
+            {
+              "kind": "runtime-report",
+              "path": "portability/nodejs/retained/nodejs-portability-deps-arm64-runtime-report.json",
+              "sha256": "9b292835410a0438f665be2ae1e62253cc97b3a33f4b903166c74efc4bf3e906",
+              "summary": "arm64 Machinen runtime verifier passed"
             }
           ],
-          "notes": "Needs declared config/dependencies before runtime execution."
+          "notes": "Machinen runtime-controlled VM execution verified this capability."
         },
         "amd64": {
-          "status": "conditional",
+          "status": "verified",
           "lastRun": null,
           "evidence": [
             {
@@ -542,9 +649,15 @@
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
               "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
               "summary": "amd64 classification row retained"
+            },
+            {
+              "kind": "runtime-report",
+              "path": "portability/nodejs/retained/nodejs-portability-deps-amd64-runtime-report.json",
+              "sha256": "014e17c444bc5c9e9c696e1d8294001eb9f111e8f2c0072f6118f2ebde0b6343",
+              "summary": "amd64 Machinen runtime verifier passed"
             }
           ],
-          "notes": "Needs declared config/dependencies before runtime execution."
+          "notes": "Machinen runtime-controlled VM execution verified this capability."
         }
       },
       "blockers": [
@@ -555,11 +668,11 @@
           "refusalCode": null
         }
       ],
-      "workaround": "Declare dependencies/config/artifacts and rerun with --install-deps or matching product adapter.",
+      "workaround": null,
       "productClaim": {
-        "status": "conditional",
+        "status": "candidate",
         "scope": "node-portability-corpus-proof",
-        "notes": "Requires declared dependencies/config/artifacts before runtime execution."
+        "notes": "VM-verified capability evidence; does not claim arbitrary raw Node process continuation."
       },
       "evidence": [
         {
@@ -573,6 +686,18 @@
           "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
           "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
           "summary": "arm64 classification row retained"
+        },
+        {
+          "kind": "runtime-report",
+          "path": "portability/nodejs/retained/nodejs-portability-deps-arm64-runtime-report.json",
+          "sha256": "9b292835410a0438f665be2ae1e62253cc97b3a33f4b903166c74efc4bf3e906",
+          "summary": "arm64 Machinen runtime verifier passed"
+        },
+        {
+          "kind": "runtime-report",
+          "path": "portability/nodejs/retained/nodejs-portability-deps-amd64-runtime-report.json",
+          "sha256": "014e17c444bc5c9e9c696e1d8294001eb9f111e8f2c0072f6118f2ebde0b6343",
+          "summary": "amd64 Machinen runtime verifier passed"
         }
       ],
       "claimGuard": {
@@ -589,10 +714,10 @@
       "category": "framework-server",
       "description": "NestJS HTTP service; dependency install/build required",
       "attemptPolicy": "config-required",
-      "status": "conditional",
+      "status": "verified",
       "architectures": {
         "arm64": {
-          "status": "conditional",
+          "status": "verified",
           "lastRun": null,
           "evidence": [
             {
@@ -600,12 +725,18 @@
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
               "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
               "summary": "arm64 classification row retained"
+            },
+            {
+              "kind": "runtime-report",
+              "path": "portability/nodejs/retained/nodejs-portability-deps-arm64-runtime-report.json",
+              "sha256": "9b292835410a0438f665be2ae1e62253cc97b3a33f4b903166c74efc4bf3e906",
+              "summary": "arm64 Machinen runtime verifier passed"
             }
           ],
-          "notes": "Needs declared config/dependencies before runtime execution."
+          "notes": "Machinen runtime-controlled VM execution verified this capability."
         },
         "amd64": {
-          "status": "conditional",
+          "status": "verified",
           "lastRun": null,
           "evidence": [
             {
@@ -613,9 +744,15 @@
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
               "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
               "summary": "amd64 classification row retained"
+            },
+            {
+              "kind": "runtime-report",
+              "path": "portability/nodejs/retained/nodejs-portability-deps-amd64-runtime-report.json",
+              "sha256": "014e17c444bc5c9e9c696e1d8294001eb9f111e8f2c0072f6118f2ebde0b6343",
+              "summary": "amd64 Machinen runtime verifier passed"
             }
           ],
-          "notes": "Needs declared config/dependencies before runtime execution."
+          "notes": "Machinen runtime-controlled VM execution verified this capability."
         }
       },
       "blockers": [
@@ -626,11 +763,11 @@
           "refusalCode": null
         }
       ],
-      "workaround": "Declare dependencies/config/artifacts and rerun with --install-deps or matching product adapter.",
+      "workaround": null,
       "productClaim": {
-        "status": "conditional",
+        "status": "candidate",
         "scope": "node-portability-corpus-proof",
-        "notes": "Requires declared dependencies/config/artifacts before runtime execution."
+        "notes": "VM-verified capability evidence; does not claim arbitrary raw Node process continuation."
       },
       "evidence": [
         {
@@ -644,6 +781,18 @@
           "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
           "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
           "summary": "arm64 classification row retained"
+        },
+        {
+          "kind": "runtime-report",
+          "path": "portability/nodejs/retained/nodejs-portability-deps-arm64-runtime-report.json",
+          "sha256": "9b292835410a0438f665be2ae1e62253cc97b3a33f4b903166c74efc4bf3e906",
+          "summary": "arm64 Machinen runtime verifier passed"
+        },
+        {
+          "kind": "runtime-report",
+          "path": "portability/nodejs/retained/nodejs-portability-deps-amd64-runtime-report.json",
+          "sha256": "014e17c444bc5c9e9c696e1d8294001eb9f111e8f2c0072f6118f2ebde0b6343",
+          "summary": "amd64 Machinen runtime verifier passed"
         }
       ],
       "claimGuard": {
@@ -660,10 +809,10 @@
       "category": "api",
       "description": "GraphQL/Apollo HTTP service; dependency install required",
       "attemptPolicy": "config-required",
-      "status": "conditional",
+      "status": "verified",
       "architectures": {
         "arm64": {
-          "status": "conditional",
+          "status": "verified",
           "lastRun": null,
           "evidence": [
             {
@@ -671,12 +820,18 @@
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
               "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
               "summary": "arm64 classification row retained"
+            },
+            {
+              "kind": "runtime-report",
+              "path": "portability/nodejs/retained/nodejs-portability-deps-arm64-runtime-report.json",
+              "sha256": "9b292835410a0438f665be2ae1e62253cc97b3a33f4b903166c74efc4bf3e906",
+              "summary": "arm64 Machinen runtime verifier passed"
             }
           ],
-          "notes": "Needs declared config/dependencies before runtime execution."
+          "notes": "Machinen runtime-controlled VM execution verified this capability."
         },
         "amd64": {
-          "status": "conditional",
+          "status": "verified",
           "lastRun": null,
           "evidence": [
             {
@@ -684,9 +839,15 @@
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
               "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
               "summary": "amd64 classification row retained"
+            },
+            {
+              "kind": "runtime-report",
+              "path": "portability/nodejs/retained/nodejs-portability-deps-amd64-runtime-report.json",
+              "sha256": "014e17c444bc5c9e9c696e1d8294001eb9f111e8f2c0072f6118f2ebde0b6343",
+              "summary": "amd64 Machinen runtime verifier passed"
             }
           ],
-          "notes": "Needs declared config/dependencies before runtime execution."
+          "notes": "Machinen runtime-controlled VM execution verified this capability."
         }
       },
       "blockers": [
@@ -697,11 +858,11 @@
           "refusalCode": null
         }
       ],
-      "workaround": "Declare dependencies/config/artifacts and rerun with --install-deps or matching product adapter.",
+      "workaround": null,
       "productClaim": {
-        "status": "conditional",
+        "status": "candidate",
         "scope": "node-portability-corpus-proof",
-        "notes": "Requires declared dependencies/config/artifacts before runtime execution."
+        "notes": "VM-verified capability evidence; does not claim arbitrary raw Node process continuation."
       },
       "evidence": [
         {
@@ -715,6 +876,18 @@
           "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
           "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
           "summary": "arm64 classification row retained"
+        },
+        {
+          "kind": "runtime-report",
+          "path": "portability/nodejs/retained/nodejs-portability-deps-arm64-runtime-report.json",
+          "sha256": "9b292835410a0438f665be2ae1e62253cc97b3a33f4b903166c74efc4bf3e906",
+          "summary": "arm64 Machinen runtime verifier passed"
+        },
+        {
+          "kind": "runtime-report",
+          "path": "portability/nodejs/retained/nodejs-portability-deps-amd64-runtime-report.json",
+          "sha256": "014e17c444bc5c9e9c696e1d8294001eb9f111e8f2c0072f6118f2ebde0b6343",
+          "summary": "amd64 Machinen runtime verifier passed"
         }
       ],
       "claimGuard": {
@@ -890,10 +1063,10 @@
       "category": "state",
       "description": "Clean declared PostgreSQL logical artifact required",
       "attemptPolicy": "config-required",
-      "status": "conditional",
+      "status": "verified",
       "architectures": {
         "arm64": {
-          "status": "conditional",
+          "status": "verified",
           "lastRun": null,
           "evidence": [
             {
@@ -901,12 +1074,18 @@
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
               "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
               "summary": "arm64 classification row retained"
+            },
+            {
+              "kind": "runtime-report",
+              "path": "portability/nodejs/retained/nodejs-portability-deps-arm64-runtime-report.json",
+              "sha256": "9b292835410a0438f665be2ae1e62253cc97b3a33f4b903166c74efc4bf3e906",
+              "summary": "arm64 Machinen runtime verifier passed"
             }
           ],
-          "notes": "Needs declared config/dependencies before runtime execution."
+          "notes": "Machinen runtime-controlled VM execution verified this capability."
         },
         "amd64": {
-          "status": "conditional",
+          "status": "verified",
           "lastRun": null,
           "evidence": [
             {
@@ -914,9 +1093,15 @@
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
               "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
               "summary": "amd64 classification row retained"
+            },
+            {
+              "kind": "runtime-report",
+              "path": "portability/nodejs/retained/nodejs-portability-deps-amd64-runtime-report.json",
+              "sha256": "014e17c444bc5c9e9c696e1d8294001eb9f111e8f2c0072f6118f2ebde0b6343",
+              "summary": "amd64 Machinen runtime verifier passed"
             }
           ],
-          "notes": "Needs declared config/dependencies before runtime execution."
+          "notes": "Machinen runtime-controlled VM execution verified this capability."
         }
       },
       "blockers": [
@@ -927,11 +1112,11 @@
           "refusalCode": null
         }
       ],
-      "workaround": "Declare dependencies/config/artifacts and rerun with --install-deps or matching product adapter.",
+      "workaround": null,
       "productClaim": {
-        "status": "conditional",
+        "status": "candidate",
         "scope": "node-portability-corpus-proof",
-        "notes": "Requires declared dependencies/config/artifacts before runtime execution."
+        "notes": "VM-verified capability evidence; does not claim arbitrary raw Node process continuation."
       },
       "evidence": [
         {
@@ -945,6 +1130,18 @@
           "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
           "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
           "summary": "arm64 classification row retained"
+        },
+        {
+          "kind": "runtime-report",
+          "path": "portability/nodejs/retained/nodejs-portability-deps-arm64-runtime-report.json",
+          "sha256": "9b292835410a0438f665be2ae1e62253cc97b3a33f4b903166c74efc4bf3e906",
+          "summary": "arm64 Machinen runtime verifier passed"
+        },
+        {
+          "kind": "runtime-report",
+          "path": "portability/nodejs/retained/nodejs-portability-deps-amd64-runtime-report.json",
+          "sha256": "014e17c444bc5c9e9c696e1d8294001eb9f111e8f2c0072f6118f2ebde0b6343",
+          "summary": "amd64 Machinen runtime verifier passed"
         }
       ],
       "claimGuard": {

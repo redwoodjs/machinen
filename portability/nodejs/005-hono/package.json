@@ -4,6 +4,7 @@
     "start": "node app.mjs"
   },
   "dependencies": {
+    "@hono/node-server": "*",
     "hono": "*"
   }
 }

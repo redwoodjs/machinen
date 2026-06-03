@@ -37,6 +37,7 @@ interface CompatibilityIndex {
     verifiedBothArchitectures: number;
     refusedRows: number;
     conditionalRows: number;
+    failedClassifiedRows: number;
   };
   rows: Array<{
     id: string;
@@ -86,6 +87,23 @@ describe("Node.js portability corpus", () => {
     expect(readme).toContain("Proof mode: try broadly");
     expect(schema.title).toBe("Machinen portability compatibility index");
     expect(schema.properties).toHaveProperty("rows");
+  });
+
+  it("renders a caniuse-style dashboard backed by the Node compatibility index", () => {
+    const index = JSON.parse(
+      readFileSync(resolve(corpusRoot, "index.json"), "utf8"),
+    ) as CompatibilityIndex;
+    const html = readFileSync(resolve(corpusRoot, "index.html"), "utf8");
+    const embedded =
+      /<script id="embedded-nodejs-portability-index" type="application\/json">\n([\s\S]*?)\n\s*<\/script>/u.exec(
+        html,
+      );
+    expect(embedded?.[1]).toBeDefined();
+    expect(JSON.parse(embedded![1]!)).toEqual(index);
+    expect(html).toContain("Node.js portability compatibility");
+    expect(html).toContain("raw V8 heap restore");
+    expect(html).toContain("active socket stream transfer");
+    expect(html).toContain("nodejs-portability-deps-amd64-runtime-report.json");
   });
 
   it("contains the requested 20 numbered workload rows", () => {
@@ -154,12 +172,13 @@ describe("Node.js portability corpus", () => {
       runtime: "nodejs",
       summary: {
         rowCount: 20,
-        byStatus: { verified: 5, classified: 4, conditional: 5, refused: 6 },
-        byProductClaim: { candidate: 5, none: 4, conditional: 5, refusal: 6 },
+        byStatus: { verified: 14, refused: 6 },
+        byProductClaim: { candidate: 14, refusal: 6 },
         architectures: ["arm64", "amd64"],
-        verifiedBothArchitectures: 5,
+        verifiedBothArchitectures: 14,
         refusedRows: 6,
-        conditionalRows: 5,
+        conditionalRows: 0,
+        failedClassifiedRows: 0,
       },
     });
     expect(index.claimBoundary.model).toContain(
@@ -180,6 +199,35 @@ describe("Node.js portability corpus", () => {
         sourceIsaEmulationUsed: false,
       });
     }
+  });
+
+  it("keeps Node live-state refusals wired into the product portable VM plan path", () => {
+    const cli = readFileSync(resolve("packages/cli/src/cli.ts"), "utf8");
+    const report = JSON.parse(
+      readFileSync(
+        resolve(
+          "proofs/linux-vm-workload/portable-vm-product-node-refusals/retained/portable-vm-product-node-refusal-report.json",
+        ),
+        "utf8",
+      ),
+    ) as { accepted: boolean; rows: Array<{ marker: string; refusalCode: string }> };
+    expect(report.accepted).toBe(true);
+    expect(report.rows.map((row) => row.refusalCode)).toEqual([
+      "node-portability-active-websocket-unsupported",
+      "node-portability-worker-thread-unsupported",
+      "node-portability-native-addon-unsupported",
+      "node-portability-child-process-unsupported",
+      "node-portability-active-request-unsupported",
+      "node-portability-outbound-connection-unsupported",
+    ]);
+    for (const row of report.rows) {
+      expect(cli).toContain(row.marker);
+      expect(cli).toContain(row.refusalCode);
+    }
+    expect(cli).toContain("nodejs-portability-inventory.json");
+    expect(cli).toContain("classify-against-node-portability-compatibility-index");
+    expect(cli).toContain('arbitraryNodeProcessRestoreClaimed": false');
+    expect(cli).toContain('rawV8HeapRestoreUsed": false');
   });
 
   it("retains a bidirectional classification report for arm64 and amd64", () => {
@@ -236,6 +284,49 @@ describe("Node.js portability corpus", () => {
           environmentUnavailableRows: 0,
         },
       });
+    }
+  });
+
+  it("retains runtime-controlled arm64 and amd64 VM execution for dependency-backed rows", () => {
+    for (const [file, arch] of [
+      ["nodejs-portability-deps-arm64-runtime-report.json", "arm64"],
+      ["nodejs-portability-deps-amd64-runtime-report.json", "amd64"],
+    ] as const) {
+      const report = JSON.parse(readFileSync(resolve(corpusRoot, "retained", file), "utf8")) as {
+        accepted: boolean;
+        rowCount: number;
+        architectures: string[];
+        executeVm: boolean;
+        installDeps: boolean;
+        summary: Record<string, number>;
+        results: Array<{ id: string; state: string }>;
+      };
+      expect(report).toMatchObject({
+        accepted: true,
+        rowCount: 9,
+        architectures: [arch],
+        executeVm: true,
+        installDeps: true,
+        summary: {
+          productSupportedRows: 4,
+          declaredConfigRows: 5,
+          verifiedVmRows: 9,
+          failedClassifiedRows: 0,
+          environmentUnavailableRows: 0,
+        },
+      });
+      expect(report.results.map((row) => row.id)).toEqual([
+        "002-express",
+        "003-fastify",
+        "004-koa",
+        "005-hono",
+        "006-next-minimal-server",
+        "007-remix-react-router-server",
+        "008-nestjs",
+        "009-graphql-apollo",
+        "012-postgres-app",
+      ]);
+      expect(report.results.every((row) => row.state === "verified")).toBe(true);
     }
   });
 });

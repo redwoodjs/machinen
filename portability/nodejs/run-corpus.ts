@@ -29,7 +29,7 @@ interface RowResult {
   architecture: GuestArch;
   accepted: boolean;
   executedInVm: boolean;
-  state: "verified" | "classified" | "refused" | "environment-unavailable";
+  state: "verified" | "classified" | "refused" | "failed-classified" | "environment-unavailable";
   refusalCode: string | null;
   details: Record<string, unknown>;
 }
@@ -109,7 +109,9 @@ async function main(): Promise<void> {
       results.push(...rows.map((row) => classifyOnly(row, arch)));
       continue;
     }
-    results.push(...(await runRowsInVm(rows, arch, args.installDeps)));
+    results.push(
+      ...(await runRowsInVm(rows, arch, args.installDeps, retainedEvidenceDir(args.out))),
+    );
   }
   const report = buildReport(rows, results, args);
   mkdirSync(dirname(args.out), { recursive: true });
@@ -142,6 +144,7 @@ async function runRowsInVm(
   rows: RowManifest[],
   architecture: GuestArch,
   installDeps: boolean,
+  evidenceDir: string,
 ): Promise<RowResult[]> {
   const previousArch = process.env.MACHINEN_GUEST_ARCH;
   process.env.MACHINEN_GUEST_ARCH = architecture;
@@ -160,7 +163,7 @@ async function runRowsInVm(
     }
     const results: RowResult[] = [];
     for (const row of rows) {
-      results.push(await runOneRow(vm, row, architecture, installDeps));
+      results.push(await runOneRow(vm, row, architecture, installDeps, evidenceDir));
     }
     return results;
   } finally {
@@ -169,8 +172,15 @@ async function runRowsInVm(
     } else {
       process.env.MACHINEN_GUEST_ARCH = previousArch;
     }
-    await vm.kill().catch(() => undefined);
+    await killVmBestEffort(vm);
   }
+}
+
+async function killVmBestEffort(vm: VmHandle): Promise<void> {
+  await Promise.race([
+    vm.kill().catch(() => undefined),
+    new Promise<void>((resolve) => setTimeout(resolve, 5_000)),
+  ]);
 }
 
 function baseAssetsFor(architecture: GuestArch): { image: string; kernel: string; dtb?: string } {
@@ -225,6 +235,7 @@ async function runOneRow(
   row: RowManifest,
   architecture: GuestArch,
   installDeps: boolean,
+  evidenceDir: string,
 ): Promise<RowResult> {
   if (row.disposition === "refused-first") {
     return { ...classifyOnly(row, architecture), executedInVm: true };
@@ -254,7 +265,7 @@ async function runOneRow(
       { execTimeoutMs: 180_000 },
     );
     if (install.exitCode !== 0) {
-      return executionFailure(row, architecture, "npm-install-failed", install);
+      return executionFailure(row, architecture, "npm-install-failed", install, evidenceDir);
     }
   }
   await vm.execRaw("pkill -f /tmp/machinen-node-portability/ || true");
@@ -263,7 +274,7 @@ async function runOneRow(
     { execTimeoutMs: 30_000 },
   );
   if (start.exitCode !== 0) {
-    return executionFailure(row, architecture, "start-failed", start);
+    return executionFailure(row, architecture, "start-failed", start, evidenceDir);
   }
   const verify = await vm.execRaw(
     `. /tmp/machinen-node-portability-env.sh && cd ${shellQuote(guestDir)} && for i in 1 2 3 4 5; do PORT=3000 node verifier.mjs && exit 0; sleep 1; done; cat server.log >&2; exit 1`,
@@ -271,7 +282,7 @@ async function runOneRow(
   );
   await vm.execRaw(`cd ${shellQuote(guestDir)} && kill $(cat server.pid) 2>/dev/null || true`);
   if (verify.exitCode !== 0) {
-    return executionFailure(row, architecture, "verify-failed", verify);
+    return executionFailure(row, architecture, "verify-failed", verify, evidenceDir);
   }
   return {
     id: row.id,
@@ -291,7 +302,16 @@ function executionFailure(
   architecture: GuestArch,
   code: string,
   result: { stdout: string; stderr: string; exitCode: number },
+  evidenceDir: string,
 ): RowResult {
+  const classification = classifyExecutionFailure(code, result);
+  const evidencePath = writeFailureEvidence(
+    row,
+    architecture,
+    classification.code,
+    result,
+    evidenceDir,
+  );
   return {
     id: row.id,
     slug: row.slug,
@@ -299,14 +319,80 @@ function executionFailure(
     architecture,
     accepted: false,
     executedInVm: true,
-    state: "environment-unavailable",
-    refusalCode: `node-portability-${code}`,
+    state: "failed-classified",
+    refusalCode: classification.code,
     details: {
+      classification: classification.reason,
       exitCode: result.exitCode,
       stdout: result.stdout.slice(-2000),
       stderr: result.stderr.slice(-2000),
+      evidencePath,
     },
   };
+}
+
+function classifyExecutionFailure(
+  code: string,
+  result: { stdout: string; stderr: string; exitCode: number },
+): { code: string; reason: string } {
+  const combined = `${result.stdout}\n${result.stderr}`;
+  if (/ERR_MODULE_NOT_FOUND|Cannot find package/u.test(combined)) {
+    return {
+      code: "node-portability-missing-dependency-declaration",
+      reason: "missing dependency declaration",
+    };
+  }
+  if (/node-gyp|gyp ERR!|make:|CXX\(/u.test(combined)) {
+    return {
+      code: "node-portability-native-addon-build-failed",
+      reason: "native addon build failure",
+    };
+  }
+  if (/ECONNREFUSED|ENOTFOUND|ETIMEDOUT|external service|database unavailable/iu.test(combined)) {
+    return {
+      code: "node-portability-external-service-unavailable",
+      reason: "external service unavailable",
+    };
+  }
+  if (/missing env|environment variable|process\.env/iu.test(combined)) {
+    return {
+      code: "node-portability-env-config-missing",
+      reason: "environment/config missing",
+    };
+  }
+  if (code === "npm-install-failed") {
+    return {
+      code: "node-portability-dependency-install-failed",
+      reason: "target-native dependency install failure",
+    };
+  }
+  return {
+    code: `node-portability-${code}`,
+    reason: "unsupported dependency/runtime feature",
+  };
+}
+
+function writeFailureEvidence(
+  row: RowManifest,
+  architecture: GuestArch,
+  code: string,
+  result: { stdout: string; stderr: string; exitCode: number },
+  evidenceDir: string,
+): string {
+  const dir = join(evidenceDir, architecture, row.id, code);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, "stdout.txt"), result.stdout);
+  writeFileSync(join(dir, "stderr.txt"), result.stderr);
+  writeFileSync(
+    join(dir, "failure.json"),
+    `${JSON.stringify({ row: row.id, slug: row.slug, architecture, code, exitCode: result.exitCode }, null, 2)}\n`,
+  );
+  return relative(process.cwd(), dir);
+}
+
+function retainedEvidenceDir(out: string): string {
+  const base = out.replace(/\.json$/u, "");
+  return `${base}-evidence`;
 }
 
 async function pushFixture(vm: VmHandle, row: RowManifest, guestDir: string): Promise<void> {
@@ -347,6 +433,7 @@ function buildReport(
       refusedFirstRows: rows.filter((row) => row.disposition === "refused-first").length,
       verifiedVmRows: results.filter((result) => result.state === "verified").length,
       refusedRows: results.filter((result) => result.state === "refused").length,
+      failedClassifiedRows: results.filter((result) => result.state === "failed-classified").length,
       environmentUnavailableRows: results.filter(
         (result) => result.state === "environment-unavailable",
       ).length,

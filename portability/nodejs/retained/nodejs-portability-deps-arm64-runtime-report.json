@@ -1,0 +1,226 @@
+{
+  "kind": "machinen.nodejs-portability-corpus-report",
+  "version": 1,
+  "accepted": true,
+  "proofStatus": "verified",
+  "corpus": "portability/nodejs",
+  "rowCount": 9,
+  "architectures": ["arm64"],
+  "executeVm": true,
+  "installDeps": true,
+  "summary": {
+    "productSupportedRows": 4,
+    "declaredConfigRows": 5,
+    "refusedFirstRows": 0,
+    "verifiedVmRows": 9,
+    "refusedRows": 0,
+    "failedClassifiedRows": 0,
+    "environmentUnavailableRows": 0
+  },
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false
+  },
+  "results": [
+    {
+      "id": "002-express",
+      "slug": "express",
+      "disposition": "product-supported",
+      "architecture": "arm64",
+      "accepted": true,
+      "executedInVm": true,
+      "state": "verified",
+      "refusalCode": null,
+      "details": {
+        "verifier": {
+          "accepted": true,
+          "body": "machinen-node-portability:express"
+        },
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    },
+    {
+      "id": "003-fastify",
+      "slug": "fastify",
+      "disposition": "product-supported",
+      "architecture": "arm64",
+      "accepted": true,
+      "executedInVm": true,
+      "state": "verified",
+      "refusalCode": null,
+      "details": {
+        "verifier": {
+          "accepted": true,
+          "body": "machinen-node-portability:fastify"
+        },
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    },
+    {
+      "id": "004-koa",
+      "slug": "koa",
+      "disposition": "product-supported",
+      "architecture": "arm64",
+      "accepted": true,
+      "executedInVm": true,
+      "state": "verified",
+      "refusalCode": null,
+      "details": {
+        "verifier": {
+          "accepted": true,
+          "body": "machinen-node-portability:koa"
+        },
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    },
+    {
+      "id": "005-hono",
+      "slug": "hono",
+      "disposition": "product-supported",
+      "architecture": "arm64",
+      "accepted": true,
+      "executedInVm": true,
+      "state": "verified",
+      "refusalCode": null,
+      "details": {
+        "verifier": {
+          "accepted": true,
+          "body": "machinen-node-portability:hono"
+        },
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    },
+    {
+      "id": "006-next-minimal-server",
+      "slug": "next-minimal-server",
+      "disposition": "supported-with-declared-config",
+      "architecture": "arm64",
+      "accepted": true,
+      "executedInVm": true,
+      "state": "verified",
+      "refusalCode": null,
+      "details": {
+        "verifier": {
+          "accepted": true,
+          "body": "machinen-node-portability:next-minimal-server:minimal-next-shape"
+        },
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    },
+    {
+      "id": "007-remix-react-router-server",
+      "slug": "remix-react-router-server",
+      "disposition": "supported-with-declared-config",
+      "architecture": "arm64",
+      "accepted": true,
+      "executedInVm": true,
+      "state": "verified",
+      "refusalCode": null,
+      "details": {
+        "verifier": {
+          "accepted": true,
+          "body": "machinen-node-portability:remix-react-router-server:minimal-remix-shape"
+        },
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    },
+    {
+      "id": "008-nestjs",
+      "slug": "nestjs",
+      "disposition": "supported-with-declared-config",
+      "architecture": "arm64",
+      "accepted": true,
+      "executedInVm": true,
+      "state": "verified",
+      "refusalCode": null,
+      "details": {
+        "verifier": {
+          "accepted": true,
+          "body": "machinen-node-portability:nestjs:minimal-nest-shape"
+        },
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    },
+    {
+      "id": "009-graphql-apollo",
+      "slug": "graphql-apollo",
+      "disposition": "supported-with-declared-config",
+      "architecture": "arm64",
+      "accepted": true,
+      "executedInVm": true,
+      "state": "verified",
+      "refusalCode": null,
+      "details": {
+        "verifier": {
+          "accepted": true,
+          "body": "{\"data\":{\"portability\":\"machinen-node-portability:graphql-apollo\"}}"
+        },
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    },
+    {
+      "id": "012-postgres-app",
+      "slug": "postgres-app",
+      "disposition": "supported-with-declared-config",
+      "architecture": "arm64",
+      "accepted": true,
+      "executedInVm": true,
+      "state": "verified",
+      "refusalCode": null,
+      "details": {
+        "verifier": {
+          "accepted": true,
+          "body": "machinen-node-portability:postgres-app"
+        },
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false
+        }
+      }
+    }
+  ]
+}
