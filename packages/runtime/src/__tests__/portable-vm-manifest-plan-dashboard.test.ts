@@ -57,6 +57,12 @@ describe("portable VM manifest/plan dashboard", () => {
       }
     }
     expect(html).toContain("Portable VM Manifest / VM Portability Plan");
+    expect(html).toContain("single-tracking-table");
+    expect(html).toContain("tracking-table");
+    expect(html).toContain("<th>Section</th>");
+    expect(html).toContain("<th>Row / item</th>");
+    expect(html).toContain("<th>Disposition / value</th>");
+    expect(html).toContain("subheading");
     expect(html).toContain("Claim guard");
     expect(html).toContain("Plan rows");
     expect(html).toContain("Manifest inventory");

@@ -35,18 +35,16 @@
           sans-serif;
       }
       main {
-        max-width: 1400px;
+        max-width: 1480px;
         margin: 0 auto;
-        padding: 32px 20px 56px;
+        padding: 28px 18px 56px;
       }
       header {
         display: grid;
         gap: 10px;
-        margin-bottom: 22px;
+        margin-bottom: 18px;
       }
       h1,
-      h2,
-      h3,
       p {
         margin: 0;
       }
@@ -54,54 +52,48 @@
         font-size: clamp(28px, 5vw, 44px);
         line-height: 1;
       }
-      h2 {
-        font-size: 22px;
-      }
-      h3 {
-        font-size: 16px;
-      }
       .muted {
         color: var(--muted);
       }
-      .grid {
-        display: grid;
-        gap: 14px;
-        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-        margin: 18px 0;
-      }
-      .metric,
-      .card {
+      .table-card {
         background: var(--card);
         border: 1px solid var(--line);
         border-radius: 18px;
-        padding: 18px;
-      }
-      .metric strong {
-        display: block;
-        font-size: 28px;
-        margin-top: 6px;
-      }
-      .card {
-        margin-top: 18px;
         overflow-x: auto;
       }
       table {
         border-collapse: collapse;
         width: 100%;
-        min-width: 860px;
+        min-width: 1180px;
       }
       th,
       td {
         border-bottom: 1px solid var(--line);
-        padding: 10px;
+        padding: 10px 12px;
         text-align: left;
         vertical-align: top;
       }
       th {
+        background: var(--card-2);
         color: var(--muted);
         font-size: 12px;
         letter-spacing: 0.08em;
+        position: sticky;
         text-transform: uppercase;
+        top: 0;
+        z-index: 1;
+      }
+      tr.subheading td {
+        background: color-mix(in srgb, var(--info) 15%, var(--card-2));
+        color: #e0f2fe;
+        font-size: 13px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        padding-top: 14px;
+        text-transform: uppercase;
+      }
+      tr:hover:not(.subheading) td {
+        background: color-mix(in srgb, var(--card-2) 70%, transparent);
       }
       code {
         background: var(--card-2);
@@ -113,8 +105,9 @@
         border-radius: 999px;
         display: inline-block;
         font-size: 12px;
-        font-weight: 700;
+        font-weight: 800;
         padding: 4px 8px;
+        white-space: nowrap;
       }
       .portable,
       .reconstructable,
@@ -136,9 +129,16 @@
         background: color-mix(in srgb, var(--info) 22%, transparent);
         color: #bae6fd;
       }
+      .true {
+        background: color-mix(in srgb, var(--good) 22%, transparent);
+        color: #bbf7d0;
+      }
       ul {
-        margin: 8px 0 0;
-        padding-left: 20px;
+        margin: 0;
+        padding-left: 18px;
+      }
+      .nowrap {
+        white-space: nowrap;
       }
     </style>
   </head>
@@ -148,31 +148,25 @@
         <p class="muted" id="source">loading…</p>
         <h1>Portable VM Manifest / VM Portability Plan</h1>
         <p class="muted">
-          Draft JSON structure for a paused VM inventory plus restore/refusal plan. This is a design
+          Single-table draft for a paused VM inventory plus restore/refusal plan. This is a design
           artifact, not a public arbitrary-VM restore claim.
         </p>
       </header>
 
-      <section id="overview"></section>
-      <section class="card">
-        <h2>Claim guard</h2>
-        <div id="claim-guard"></div>
-      </section>
-      <section class="card">
-        <h2>Plan rows</h2>
-        <div id="plan-rows"></div>
-      </section>
-      <section class="card">
-        <h2>Manifest inventory</h2>
-        <div id="manifest"></div>
-      </section>
-      <section class="card">
-        <h2>Disposition legend</h2>
-        <div id="legend"></div>
-      </section>
-      <section class="card">
-        <h2>Validation rules</h2>
-        <div id="rules"></div>
+      <section class="table-card" aria-label="Portable VM manifest plan tracking table">
+        <table id="tracking-table">
+          <thead>
+            <tr>
+              <th>Section</th>
+              <th>Row / item</th>
+              <th>Disposition / value</th>
+              <th>Restore strategy / meaning</th>
+              <th>Artifacts / proof gate</th>
+              <th>Refusal / guard</th>
+            </tr>
+          </thead>
+          <tbody id="single-tracking-table"></tbody>
+        </table>
       </section>
     </main>
 
@@ -466,68 +460,120 @@
       function render(data, sourceLabel) {
         document.querySelector("#source").textContent =
           `source: ${sourceLabel} · version: ${data.version} · ${data.scope}`;
-        document.querySelector("#overview").innerHTML = overview(data);
-        document.querySelector("#claim-guard").innerHTML = claimGuard(data.claimGuard);
-        document.querySelector("#plan-rows").innerHTML = planRows(data.plan.rows);
-        document.querySelector("#manifest").innerHTML = manifest(data.manifest);
-        document.querySelector("#legend").innerHTML = legend(data.dispositionLegend);
-        document.querySelector("#rules").innerHTML = list(data.validationRules);
+        document.querySelector("#single-tracking-table").innerHTML = trackingRows(data);
       }
 
-      function overview(data) {
-        const summary = data.summary;
-        return `<div class="grid">
-          ${metric("Status", pill(data.status))}
-          ${metric("Plan rows", summary.planRows)}
-          ${metric("Product-supported", summary.productSupportedRows)}
-          ${metric("Reconstructable", summary.reconstructableRows)}
-          ${metric("Refused", summary.refusedRows)}
-          ${metric("Public claim allowed", pill(String(summary.publicClaimAllowed)))}
-        </div>`;
-      }
-
-      function claimGuard(guard) {
-        return table(
-          ["Guard", "Value"],
-          Object.entries(guard).map(([key, value]) => [key, pill(String(value))]),
+      function trackingRows(data) {
+        const rows = [];
+        rows.push(subheading("Overview"));
+        rows.push(
+          row("Overview", "Status", pill(data.status), data.purpose, code(data.scope), "—"),
         );
-      }
+        for (const [key, value] of Object.entries(data.summary)) {
+          rows.push(row("Overview", key, value, "summary metric", "—", "—"));
+        }
 
-      function planRows(rows) {
-        return table(
-          ["ID", "Component", "Disposition", "Restore strategy", "Artifacts", "Proof/refusal"],
-          rows.map((row) => [
-            code(row.id),
-            row.component,
-            pill(row.disposition),
-            row.restoreStrategy,
-            list(row.artifactRequirements),
-            row.refusalCode
-              ? `${code(row.refusalCode)}<br />${code(row.proofGate)}`
-              : code(row.proofGate),
-          ]),
+        rows.push(subheading("Claim guard"));
+        for (const [key, value] of Object.entries(data.claimGuard)) {
+          rows.push(
+            row(
+              "Claim guard",
+              key,
+              pill(String(value)),
+              "must hold before public claims",
+              "—",
+              guardText(key, value),
+            ),
+          );
+        }
+
+        rows.push(subheading("Source VM and target policy"));
+        rows.push(
+          row(
+            "Source VM",
+            data.sourceVm.id,
+            `${data.sourceVm.sourceArchitecture} → ${data.sourceVm.targetArchitecture}`,
+            `guest=${data.sourceVm.guestOs} · kernel=${data.sourceVm.kernel} · vmm=${data.sourceVm.vmm}`,
+            code(data.sourceVm.pauseMode),
+            keyValueList(data.sourceVm.quiesce),
+          ),
         );
+        rows.push(
+          row(
+            "Target policy",
+            "restore policy",
+            code(data.targetPolicy.restoreMode),
+            `dependencyPolicy=${data.targetPolicy.dependencyPolicy}`,
+            keyValueList({
+              allowedTargetArchitectures: data.targetPolicy.allowedTargetArchitectures,
+            }),
+            `unknownStatePolicy=${data.targetPolicy.unknownStatePolicy}`,
+          ),
+        );
+
+        rows.push(subheading("Plan rows"));
+        for (const planRow of data.plan.rows) {
+          rows.push(
+            row(
+              "Plan rows",
+              code(planRow.id),
+              pill(planRow.disposition),
+              planRow.restoreStrategy,
+              `${list(planRow.artifactRequirements)}${code(planRow.proofGate)}`,
+              planRow.refusalCode ? code(planRow.refusalCode) : "—",
+            ),
+          );
+        }
+
+        rows.push(subheading("Manifest inventory"));
+        for (const [section, items] of Object.entries(data.manifest)) {
+          rows.push(subheading(`Manifest inventory · ${section}`));
+          for (const item of items) {
+            rows.push(
+              row(
+                section,
+                code(item.id),
+                pill(item.disposition),
+                summarizeManifestRow(item),
+                "—",
+                item.refusalCode ? code(item.refusalCode) : "—",
+              ),
+            );
+          }
+        }
+
+        rows.push(subheading("Disposition legend"));
+        for (const item of data.dispositionLegend) {
+          rows.push(
+            row(
+              "Disposition legend",
+              pill(item.disposition),
+              item.disposition,
+              item.meaning,
+              "—",
+              "—",
+            ),
+          );
+        }
+
+        rows.push(subheading("Validation rules"));
+        data.validationRules.forEach((rule, index) => {
+          rows.push(row("Validation rules", `rule ${index + 1}`, "required", rule, "—", "—"));
+        });
+
+        return rows.join("");
       }
 
-      function manifest(manifest) {
-        return Object.entries(manifest)
-          .map(
-            ([section, rows]) =>
-              `<h3>${escapeHtml(section)}</h3>${table(
-                ["ID", "Disposition", "State / policy", "Refusal"],
-                rows.map((row) => [
-                  code(row.id),
-                  pill(row.disposition),
-                  summarizeManifestRow(row),
-                  row.refusalCode ? code(row.refusalCode) : "—",
-                ]),
-              )}`,
-          )
-          .join("");
+      function subheading(label) {
+        return `<tr class="subheading"><td colspan="6">${escapeHtml(label)}</td></tr>`;
       }
 
-      function summarizeManifestRow(row) {
-        return Object.entries(row)
+      function row(section, item, disposition, strategy, artifacts, refusal) {
+        return `<tr><td class="nowrap">${formatCell(section)}</td><td>${formatCell(item)}</td><td>${formatCell(disposition)}</td><td>${formatCell(strategy)}</td><td>${formatCell(artifacts)}</td><td>${formatCell(refusal)}</td></tr>`;
+      }
+
+      function summarizeManifestRow(item) {
+        return Object.entries(item)
           .filter(([key]) => !["id", "disposition", "refusalCode"].includes(key))
           .map(
             ([key, value]) =>
@@ -536,21 +582,17 @@
           .join(" · ");
       }
 
-      function legend(rows) {
-        return table(
-          ["Disposition", "Meaning"],
-          rows.map((row) => [pill(row.disposition), row.meaning]),
+      function guardText(key, value) {
+        if (value === false) return `${key} remains false`;
+        return `${key}=${String(value)}`;
+      }
+
+      function keyValueList(value) {
+        return list(
+          Object.entries(value).map(
+            ([key, item]) => `${key}: ${Array.isArray(item) ? item.join(", ") : String(item)}`,
+          ),
         );
-      }
-
-      function metric(label, value) {
-        return `<article class="metric"><span class="muted">${escapeHtml(label)}</span><strong>${formatCell(value)}</strong></article>`;
-      }
-
-      function table(headers, rows) {
-        return `<table><thead><tr>${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join("")}</tr></thead><tbody>${rows
-          .map((row) => `<tr>${row.map((cell) => `<td>${formatCell(cell)}</td>`).join("")}</tr>`)
-          .join("")}</tbody></table>`;
       }
 
       function list(items = []) {
