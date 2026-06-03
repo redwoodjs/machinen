@@ -1,0 +1,79 @@
+{
+  "kind": "machinen.portable-vm-product-node-memory-ir-report",
+  "version": 1,
+  "accepted": true,
+  "proofStatus": "verified",
+  "scope": "portable-vm-product-node-memory-ir-v1",
+  "productCommandPath": "machinen snapshot <vm> --portable --out <bundle>; machinen restore <bundle> --json",
+  "sourceArchitectureDetected": true,
+  "targetArchitectureDetected": true,
+  "acceptedPath": {
+    "snapshotCompleted": true,
+    "restoreCompleted": true,
+    "sourceArch": "arm64",
+    "targetArch": "arm64",
+    "nodejsMemoryRows": 1,
+    "memoryMaterializationRows": 1,
+    "restoreStrategy": "materialize-nodejs-memory-ir-target-native",
+    "memoryIrKind": "machinen.nodejs.memory-ir"
+  },
+  "refusalPath": {
+    "snapshotCompleted": true,
+    "restoreRefused": true,
+    "refusalCode": "node-portability-memory-pending-promise-unsupported"
+  },
+  "claimGuard": {
+    "arbitraryVmRestoreClaimed": false,
+    "rawVmStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlyShortcutAccepted": false,
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "samePidContinuationClaimed": false
+  },
+  "notClaimed": [
+    "arbitrary Node process restore",
+    "raw V8 heap restore",
+    "same PID continuation",
+    "raw VM/vCPU/device replay",
+    "arbitrary Linux process restore"
+  ],
+  "artifacts": [
+    {
+      "path": "accept-snapshot.json",
+      "sha256": "ea87c9faddc392e2fa5ebb1a4ab8b78c3847c8bd2650ec85558e645edb3b77fe"
+    },
+    {
+      "path": "accept-restore.json",
+      "sha256": "01c9cda254cc6add18af488d29e62e301b6b4198229d4e2ae749b9f28f8eb9d5"
+    },
+    {
+      "path": "node-memory.snap/portable-vm-raw-inventory.json",
+      "sha256": "96011e7e4d3388b20edc918e387a7382970515178306d1ad9bb6bf3bbf66cf91"
+    },
+    {
+      "path": "node-memory.snap/portable-vm-manifest-plan.json",
+      "sha256": "ca6e15e9f1b39c1edb69662e0db952980b5d7a635ef206201544f81d8d689f88"
+    },
+    {
+      "path": "node-memory.snap/nodejs-memory-ir.json",
+      "sha256": "1c3c48ee4fb7fd1958a75c3c8de30d5937787ab694b877a206c55e27da90f8a5"
+    },
+    {
+      "path": "node-memory.snap/nodejs-memory-classification.json",
+      "sha256": "19cc9525c97f64963c6fc062d1d118ace867b8b89f952bd2ac855f3da43b85c5"
+    },
+    {
+      "path": "refusal-snapshot.json",
+      "sha256": "ed51617418c29253af833c1efacc4c70939f77df058421f291023ba6ad10dcef"
+    },
+    {
+      "path": "refusal-restore.json",
+      "sha256": "79566682073dde34ce83df10d5156ea4a9b04a30e6526e565ca3a0da42ce1720"
+    },
+    {
+      "path": "node-memory-refusal.snap/portable-vm-manifest-plan.json",
+      "sha256": "8a6ed5345ac0c9e2f79759bb2a87638ecc2057af3c263e141f25ebb40679ed71"
+    }
+  ]
+}

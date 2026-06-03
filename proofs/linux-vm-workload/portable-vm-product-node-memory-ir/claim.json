@@ -1,0 +1,23 @@
+{
+  "kind": "machinen.proof-claim",
+  "version": 1,
+  "id": "portable-vm-product-node-memory-ir",
+  "status": "verified",
+  "claim": "Portable VM product snapshot/restore carries and plans selected Node memory IR materialization, and refuses pending Promise memory state fail-closed.",
+  "scope": "portable-vm-product-node-memory-ir-v1",
+  "retainedEvidence": "retained/portable-vm-product-node-memory-ir-report.json",
+  "notClaimed": [
+    "arbitrary Node process restore",
+    "raw V8 heap restore",
+    "same PID continuation",
+    "arbitrary Linux process restore",
+    "raw VM/vCPU/device replay"
+  ],
+  "claimGuard": {
+    "arbitraryVmRestoreClaimed": false,
+    "rawVmStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false
+  }
+}

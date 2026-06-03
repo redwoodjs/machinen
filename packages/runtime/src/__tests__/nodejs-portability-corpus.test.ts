@@ -531,6 +531,86 @@ describe("Node.js portability corpus", () => {
     });
   });
 
+  it("retains product portable VM Node memory IR snapshot/restore evidence", () => {
+    const proofRoot = resolve(
+      "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained",
+    );
+    const report = JSON.parse(
+      readFileSync(resolve(proofRoot, "portable-vm-product-node-memory-ir-report.json"), "utf8"),
+    ) as {
+      accepted: boolean;
+      productCommandPath: string;
+      acceptedPath: {
+        nodejsMemoryRows: number;
+        memoryMaterializationRows: number;
+        restoreStrategy: string;
+        memoryIrKind: string;
+      };
+      refusalPath: { restoreRefused: boolean; refusalCode: string };
+      claimGuard: Record<string, false>;
+    };
+    const plan = JSON.parse(
+      readFileSync(resolve(proofRoot, "node-memory.snap/portable-vm-manifest-plan.json"), "utf8"),
+    ) as { restorePlan: { rows: Array<Record<string, unknown>> } };
+    const inventory = JSON.parse(
+      readFileSync(resolve(proofRoot, "node-memory.snap/portable-vm-raw-inventory.json"), "utf8"),
+    ) as { items: Array<Record<string, unknown>> };
+    const memoryIr = JSON.parse(
+      readFileSync(resolve(proofRoot, "node-memory.snap/nodejs-memory-ir.json"), "utf8"),
+    ) as { kind: string; rows: unknown[] };
+    const classification = JSON.parse(
+      readFileSync(
+        resolve(proofRoot, "node-memory.snap/nodejs-memory-classification.json"),
+        "utf8",
+      ),
+    ) as { restoreStrategy: string };
+    const refusalRestore = JSON.parse(
+      readFileSync(resolve(proofRoot, "refusal-restore.json"), "utf8"),
+    ) as { accepted: boolean; refusal: { code: string } };
+    expect(report).toMatchObject({
+      accepted: true,
+      productCommandPath:
+        "machinen snapshot <vm> --portable --out <bundle>; machinen restore <bundle> --json",
+      acceptedPath: {
+        nodejsMemoryRows: 1,
+        memoryMaterializationRows: 1,
+        restoreStrategy: "materialize-nodejs-memory-ir-target-native",
+        memoryIrKind: "machinen.nodejs.memory-ir",
+      },
+      refusalPath: {
+        restoreRefused: true,
+        refusalCode: "node-portability-memory-pending-promise-unsupported",
+      },
+    });
+    expect(plan.restorePlan.rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "nodejs-memory-ir",
+          category: "nodejs",
+          disposition: "product-supported",
+          restoreStrategy: "materialize-nodejs-memory-ir-target-native",
+          artifact: "nodejs-memory-ir.json",
+        }),
+      ]),
+    );
+    expect(inventory.items).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: "nodejs-memory-ir" })]),
+    );
+    expect(memoryIr.kind).toBe("machinen.nodejs.memory-ir");
+    expect(memoryIr.rows).toHaveLength(1);
+    expect(classification.restoreStrategy).toBe("materialize-nodejs-memory-ir-target-native");
+    expect(refusalRestore).toMatchObject({
+      accepted: false,
+      refusal: { code: "node-portability-memory-pending-promise-unsupported" },
+    });
+    expect(report.claimGuard).toMatchObject({
+      arbitraryVmRestoreClaimed: false,
+      rawVmStateReplayUsed: false,
+      arbitraryNodeProcessRestoreClaimed: false,
+      rawV8HeapRestoreUsed: false,
+    });
+  });
+
   it("retains fail-closed real Promise memory refusal evidence", () => {
     const report = JSON.parse(
       readFileSync(
