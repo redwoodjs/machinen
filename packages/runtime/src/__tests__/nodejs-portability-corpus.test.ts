@@ -18,6 +18,46 @@ interface NodePortabilityRow {
   claimGuard: Record<string, false>;
 }
 
+interface CompatibilityIndex {
+  kind: "machinen.portability-compatibility-index";
+  version: number;
+  runtime: "nodejs";
+  claimBoundary: {
+    model: string;
+    notClaimed: string[];
+    proofMode: string;
+    productMode: string;
+    claimGuard: Record<string, false>;
+  };
+  summary: {
+    rowCount: number;
+    byStatus: Record<string, number>;
+    byProductClaim: Record<string, number>;
+    architectures: string[];
+    verifiedBothArchitectures: number;
+    refusedRows: number;
+    conditionalRows: number;
+  };
+  rows: Array<{
+    id: string;
+    capability: string;
+    category: string;
+    attemptPolicy: "try-first" | "config-required" | "refuse-live-state";
+    status: "verified" | "classified" | "conditional" | "failed-classified" | "refused";
+    architectures: Record<
+      string,
+      { status: string; evidence: Array<{ kind: string; path: string }> }
+    >;
+    blockers: Array<{ id: string; severity: string; refusalCode: string | null }>;
+    productClaim: {
+      status: "claimed" | "candidate" | "conditional" | "refusal" | "none";
+      scope: string;
+    };
+    evidence: Array<{ kind: string; path: string }>;
+    claimGuard: Record<string, false>;
+  }>;
+}
+
 const corpusRoot = resolve("portability/nodejs");
 
 function rowDirs(): string[] {
@@ -34,6 +74,20 @@ function readRow(dir: string): NodePortabilityRow {
 }
 
 describe("Node.js portability corpus", () => {
+  it("documents the caniuse-style compatibility structure", () => {
+    const readme = readFileSync(resolve("portability/README.md"), "utf8");
+    const schema = JSON.parse(
+      readFileSync(resolve("portability/compatibility.schema.json"), "utf8"),
+    ) as {
+      title: string;
+      properties: Record<string, unknown>;
+    };
+    expect(readme).toContain("caniuse.com");
+    expect(readme).toContain("Proof mode: try broadly");
+    expect(schema.title).toBe("Machinen portability compatibility index");
+    expect(schema.properties).toHaveProperty("rows");
+  });
+
   it("contains the requested 20 numbered workload rows", () => {
     expect(rowDirs()).toEqual([
       "001-plain-http-create-server",
@@ -87,6 +141,44 @@ describe("Node.js portability corpus", () => {
     ]);
     for (const row of refused) {
       expect(row.refusalCode).toMatch(/^node-portability-.+-unsupported$/u);
+    }
+  });
+
+  it("publishes the Node compatibility index as capability rows, not app trophies", () => {
+    const index = JSON.parse(
+      readFileSync(resolve(corpusRoot, "index.json"), "utf8"),
+    ) as CompatibilityIndex;
+    expect(index).toMatchObject({
+      kind: "machinen.portability-compatibility-index",
+      version: 1,
+      runtime: "nodejs",
+      summary: {
+        rowCount: 20,
+        byStatus: { verified: 5, classified: 4, conditional: 5, refused: 6 },
+        byProductClaim: { candidate: 5, none: 4, conditional: 5, refusal: 6 },
+        architectures: ["arm64", "amd64"],
+        verifiedBothArchitectures: 5,
+        refusedRows: 6,
+        conditionalRows: 5,
+      },
+    });
+    expect(index.claimBoundary.model).toContain(
+      "arbitrary Node.js application portability dimensions",
+    );
+    expect(index.claimBoundary.notClaimed).toEqual(
+      expect.arrayContaining(["raw V8 heap restore", "raw CPU/process continuation"]),
+    );
+    for (const row of index.rows) {
+      expect(row.capability.length).toBeGreaterThan(10);
+      expect(row.architectures).toHaveProperty("arm64");
+      expect(row.architectures).toHaveProperty("amd64");
+      expect(row.productClaim.status).not.toBe("claimed");
+      expect(row.claimGuard).toMatchObject({
+        arbitraryNodeProcessRestoreClaimed: false,
+        rawV8HeapRestoreUsed: false,
+        rawCpuStateReplayUsed: false,
+        sourceIsaEmulationUsed: false,
+      });
     }
   });
 

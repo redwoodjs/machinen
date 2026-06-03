@@ -1,127 +1,1577 @@
 {
-  "kind": "machinen.nodejs-portability-corpus",
+  "kind": "machinen.portability-compatibility-index",
   "version": 1,
-  "rowCount": 20,
+  "runtime": "nodejs",
+  "updatedAt": "2026-06-03",
+  "claimBoundary": {
+    "model": "caniuse-style compatibility table for arbitrary Node.js application portability dimensions",
+    "notClaimed": [
+      "raw V8 heap restore",
+      "raw CPU/process continuation",
+      "same PID continuation",
+      "active request transfer",
+      "active socket stream transfer",
+      "source ISA emulation"
+    ],
+    "proofMode": "try broadly, retain successes and failures, classify blockers",
+    "productMode": "claim only verified rows with retained product/runtime evidence and fail-closed blockers",
+    "claimGuard": {
+      "arbitraryNodeProcessRestoreClaimed": false,
+      "rawV8HeapRestoreUsed": false,
+      "rawCpuStateReplayUsed": false,
+      "sourceIsaEmulationUsed": false
+    }
+  },
+  "summary": {
+    "rowCount": 20,
+    "byStatus": {
+      "verified": 5,
+      "classified": 4,
+      "conditional": 5,
+      "refused": 6
+    },
+    "byProductClaim": {
+      "candidate": 5,
+      "none": 4,
+      "conditional": 5,
+      "refusal": 6
+    },
+    "architectures": ["arm64", "amd64"],
+    "verifiedBothArchitectures": 5,
+    "refusedRows": 6,
+    "conditionalRows": 5
+  },
+  "evidenceReports": [
+    {
+      "kind": "classification-report",
+      "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+      "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+      "summary": "nodejs-portability-corpus-report.json"
+    },
+    {
+      "kind": "runtime-report",
+      "path": "portability/nodejs/retained/nodejs-portability-no-deps-runtime-report.json",
+      "sha256": "8e5b196b9cfc0233cbfd74b8b46151cd2a6eff0c69384cd051b3d53df46f07e5",
+      "summary": "nodejs-portability-no-deps-runtime-report.json"
+    },
+    {
+      "kind": "runtime-report",
+      "path": "portability/nodejs/retained/nodejs-portability-no-deps-amd64-runtime-report.json",
+      "sha256": "bd858d63ca06f6fd2f24a841640545059e7c849d40b2e395a22484b0aecece8a",
+      "summary": "nodejs-portability-no-deps-amd64-runtime-report.json"
+    },
+    {
+      "kind": "runtime-report",
+      "path": "portability/nodejs/retained/nodejs-portability-row001-runtime-report.json",
+      "sha256": "795839478c44b5766d4118087deb129f6e05e869d0db5e1399055e63133bedc8",
+      "summary": "nodejs-portability-row001-runtime-report.json"
+    }
+  ],
   "rows": [
     {
       "id": "001-plain-http-create-server",
       "slug": "plain-http-create-server",
-      "disposition": "product-supported",
-      "refusalCode": null
+      "capability": "Plain node:http listener can restart target-native and verify response",
+      "category": "http",
+      "description": "node:http selected HTTP service",
+      "attemptPolicy": "try-first",
+      "status": "verified",
+      "architectures": {
+        "arm64": {
+          "status": "verified",
+          "lastRun": null,
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+              "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+              "summary": "arm64 classification row retained"
+            },
+            {
+              "kind": "runtime-report",
+              "path": "portability/nodejs/retained/nodejs-portability-no-deps-runtime-report.json",
+              "sha256": "8e5b196b9cfc0233cbfd74b8b46151cd2a6eff0c69384cd051b3d53df46f07e5",
+              "summary": "arm64 Machinen runtime verifier passed"
+            }
+          ],
+          "notes": "Machinen runtime-controlled VM execution verified this capability."
+        },
+        "amd64": {
+          "status": "verified",
+          "lastRun": null,
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+              "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+              "summary": "amd64 classification row retained"
+            },
+            {
+              "kind": "runtime-report",
+              "path": "portability/nodejs/retained/nodejs-portability-no-deps-amd64-runtime-report.json",
+              "sha256": "bd858d63ca06f6fd2f24a841640545059e7c849d40b2e395a22484b0aecece8a",
+              "summary": "amd64 Machinen runtime verifier passed"
+            }
+          ],
+          "notes": "Machinen runtime-controlled VM execution verified this capability."
+        }
+      },
+      "blockers": [],
+      "workaround": null,
+      "productClaim": {
+        "status": "candidate",
+        "scope": "node-portability-corpus-proof",
+        "notes": "VM-verified capability evidence; does not claim arbitrary raw Node process continuation."
+      },
+      "evidence": [
+        {
+          "kind": "row-manifest",
+          "path": "portability/nodejs/001-plain-http-create-server/portability.json",
+          "sha256": "5e737eefbdb1a6971eb518aa761a459eaa1cbe2eebab32930602940755ab8a63",
+          "summary": "row metadata"
+        },
+        {
+          "kind": "classification-report",
+          "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+          "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+          "summary": "arm64 classification row retained"
+        },
+        {
+          "kind": "runtime-report",
+          "path": "portability/nodejs/retained/nodejs-portability-no-deps-runtime-report.json",
+          "sha256": "8e5b196b9cfc0233cbfd74b8b46151cd2a6eff0c69384cd051b3d53df46f07e5",
+          "summary": "arm64 Machinen runtime verifier passed"
+        },
+        {
+          "kind": "runtime-report",
+          "path": "portability/nodejs/retained/nodejs-portability-no-deps-amd64-runtime-report.json",
+          "sha256": "bd858d63ca06f6fd2f24a841640545059e7c849d40b2e395a22484b0aecece8a",
+          "summary": "amd64 Machinen runtime verifier passed"
+        }
+      ],
+      "claimGuard": {
+        "arbitraryNodeProcessRestoreClaimed": false,
+        "rawV8HeapRestoreUsed": false,
+        "rawCpuStateReplayUsed": false,
+        "sourceIsaEmulationUsed": false
+      }
     },
     {
       "id": "002-express",
       "slug": "express",
-      "disposition": "product-supported",
-      "refusalCode": null
+      "capability": "Express basic HTTP route shape",
+      "category": "framework",
+      "description": "Express HTTP service from package.json",
+      "attemptPolicy": "try-first",
+      "status": "classified",
+      "architectures": {
+        "arm64": {
+          "status": "classified",
+          "lastRun": null,
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+              "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+              "summary": "arm64 classification row retained"
+            }
+          ],
+          "notes": "Known capability; runtime execution pending."
+        },
+        "amd64": {
+          "status": "classified",
+          "lastRun": null,
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+              "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+              "summary": "amd64 classification row retained"
+            }
+          ],
+          "notes": "Known capability; runtime execution pending."
+        }
+      },
+      "blockers": [
+        {
+          "id": "dependency-install-required",
+          "severity": "minor",
+          "description": "Needs target-native npm dependency installation during proof/product restore.",
+          "refusalCode": null
+        }
+      ],
+      "workaround": null,
+      "productClaim": {
+        "status": "none",
+        "scope": "classification-only",
+        "notes": "Known row, not yet product-claimed."
+      },
+      "evidence": [
+        {
+          "kind": "row-manifest",
+          "path": "portability/nodejs/002-express/portability.json",
+          "sha256": "c2bf1da733979d89129ff2e20d05f4b1322edef1b9f9feffbea3973d473093cf",
+          "summary": "row metadata"
+        },
+        {
+          "kind": "classification-report",
+          "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+          "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+          "summary": "arm64 classification row retained"
+        }
+      ],
+      "claimGuard": {
+        "arbitraryNodeProcessRestoreClaimed": false,
+        "rawV8HeapRestoreUsed": false,
+        "rawCpuStateReplayUsed": false,
+        "sourceIsaEmulationUsed": false
+      }
     },
     {
       "id": "003-fastify",
       "slug": "fastify",
-      "disposition": "product-supported",
-      "refusalCode": null
+      "capability": "Fastify basic HTTP route shape",
+      "category": "framework",
+      "description": "Fastify HTTP service from package.json",
+      "attemptPolicy": "try-first",
+      "status": "classified",
+      "architectures": {
+        "arm64": {
+          "status": "classified",
+          "lastRun": null,
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+              "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+              "summary": "arm64 classification row retained"
+            }
+          ],
+          "notes": "Known capability; runtime execution pending."
+        },
+        "amd64": {
+          "status": "classified",
+          "lastRun": null,
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+              "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+              "summary": "amd64 classification row retained"
+            }
+          ],
+          "notes": "Known capability; runtime execution pending."
+        }
+      },
+      "blockers": [
+        {
+          "id": "dependency-install-required",
+          "severity": "minor",
+          "description": "Needs target-native npm dependency installation during proof/product restore.",
+          "refusalCode": null
+        }
+      ],
+      "workaround": null,
+      "productClaim": {
+        "status": "none",
+        "scope": "classification-only",
+        "notes": "Known row, not yet product-claimed."
+      },
+      "evidence": [
+        {
+          "kind": "row-manifest",
+          "path": "portability/nodejs/003-fastify/portability.json",
+          "sha256": "8c3a4490807de9a1e56984d7839bd0143ffbeeaafd12c455d4596aa8a135c0be",
+          "summary": "row metadata"
+        },
+        {
+          "kind": "classification-report",
+          "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+          "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+          "summary": "arm64 classification row retained"
+        }
+      ],
+      "claimGuard": {
+        "arbitraryNodeProcessRestoreClaimed": false,
+        "rawV8HeapRestoreUsed": false,
+        "rawCpuStateReplayUsed": false,
+        "sourceIsaEmulationUsed": false
+      }
     },
     {
       "id": "004-koa",
       "slug": "koa",
-      "disposition": "product-supported",
-      "refusalCode": null
+      "capability": "Koa basic HTTP middleware shape",
+      "category": "framework",
+      "description": "Koa HTTP service from package.json",
+      "attemptPolicy": "try-first",
+      "status": "classified",
+      "architectures": {
+        "arm64": {
+          "status": "classified",
+          "lastRun": null,
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+              "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+              "summary": "arm64 classification row retained"
+            }
+          ],
+          "notes": "Known capability; runtime execution pending."
+        },
+        "amd64": {
+          "status": "classified",
+          "lastRun": null,
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+              "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+              "summary": "amd64 classification row retained"
+            }
+          ],
+          "notes": "Known capability; runtime execution pending."
+        }
+      },
+      "blockers": [
+        {
+          "id": "dependency-install-required",
+          "severity": "minor",
+          "description": "Needs target-native npm dependency installation during proof/product restore.",
+          "refusalCode": null
+        }
+      ],
+      "workaround": null,
+      "productClaim": {
+        "status": "none",
+        "scope": "classification-only",
+        "notes": "Known row, not yet product-claimed."
+      },
+      "evidence": [
+        {
+          "kind": "row-manifest",
+          "path": "portability/nodejs/004-koa/portability.json",
+          "sha256": "988452beea045640d185d6a995daa01ae17c1ce9f3be49993e22c49f34daf93f",
+          "summary": "row metadata"
+        },
+        {
+          "kind": "classification-report",
+          "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+          "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+          "summary": "arm64 classification row retained"
+        }
+      ],
+      "claimGuard": {
+        "arbitraryNodeProcessRestoreClaimed": false,
+        "rawV8HeapRestoreUsed": false,
+        "rawCpuStateReplayUsed": false,
+        "sourceIsaEmulationUsed": false
+      }
     },
     {
       "id": "005-hono",
       "slug": "hono",
-      "disposition": "product-supported",
-      "refusalCode": null
+      "capability": "Hono basic HTTP route shape",
+      "category": "framework",
+      "description": "Hono HTTP service from package.json",
+      "attemptPolicy": "try-first",
+      "status": "classified",
+      "architectures": {
+        "arm64": {
+          "status": "classified",
+          "lastRun": null,
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+              "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+              "summary": "arm64 classification row retained"
+            }
+          ],
+          "notes": "Known capability; runtime execution pending."
+        },
+        "amd64": {
+          "status": "classified",
+          "lastRun": null,
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+              "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+              "summary": "amd64 classification row retained"
+            }
+          ],
+          "notes": "Known capability; runtime execution pending."
+        }
+      },
+      "blockers": [
+        {
+          "id": "dependency-install-required",
+          "severity": "minor",
+          "description": "Needs target-native npm dependency installation during proof/product restore.",
+          "refusalCode": null
+        }
+      ],
+      "workaround": null,
+      "productClaim": {
+        "status": "none",
+        "scope": "classification-only",
+        "notes": "Known row, not yet product-claimed."
+      },
+      "evidence": [
+        {
+          "kind": "row-manifest",
+          "path": "portability/nodejs/005-hono/portability.json",
+          "sha256": "caad4611ee3bbd78d13c4340e897276d36f07cbbd74295183bec54aa013db8f4",
+          "summary": "row metadata"
+        },
+        {
+          "kind": "classification-report",
+          "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+          "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+          "summary": "arm64 classification row retained"
+        }
+      ],
+      "claimGuard": {
+        "arbitraryNodeProcessRestoreClaimed": false,
+        "rawV8HeapRestoreUsed": false,
+        "rawCpuStateReplayUsed": false,
+        "sourceIsaEmulationUsed": false
+      }
     },
     {
       "id": "006-next-minimal-server",
       "slug": "next-minimal-server",
-      "disposition": "supported-with-declared-config",
-      "refusalCode": null
+      "capability": "Next minimal server bootstrap shape",
+      "category": "framework-server",
+      "description": "Next minimal production server; dependency install required",
+      "attemptPolicy": "config-required",
+      "status": "conditional",
+      "architectures": {
+        "arm64": {
+          "status": "conditional",
+          "lastRun": null,
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+              "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+              "summary": "arm64 classification row retained"
+            }
+          ],
+          "notes": "Needs declared config/dependencies before runtime execution."
+        },
+        "amd64": {
+          "status": "conditional",
+          "lastRun": null,
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+              "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+              "summary": "amd64 classification row retained"
+            }
+          ],
+          "notes": "Needs declared config/dependencies before runtime execution."
+        }
+      },
+      "blockers": [
+        {
+          "id": "declared-config-required",
+          "severity": "minor",
+          "description": "Needs target-native dependency/config/artifact declaration before proof execution.",
+          "refusalCode": null
+        }
+      ],
+      "workaround": "Declare dependencies/config/artifacts and rerun with --install-deps or matching product adapter.",
+      "productClaim": {
+        "status": "conditional",
+        "scope": "node-portability-corpus-proof",
+        "notes": "Requires declared dependencies/config/artifacts before runtime execution."
+      },
+      "evidence": [
+        {
+          "kind": "row-manifest",
+          "path": "portability/nodejs/006-next-minimal-server/portability.json",
+          "sha256": "be63568e2c5397fabc357e7c182eb3d7b143a3464b6d4ce392a134fb9ed72bd6",
+          "summary": "row metadata"
+        },
+        {
+          "kind": "classification-report",
+          "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+          "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+          "summary": "arm64 classification row retained"
+        }
+      ],
+      "claimGuard": {
+        "arbitraryNodeProcessRestoreClaimed": false,
+        "rawV8HeapRestoreUsed": false,
+        "rawCpuStateReplayUsed": false,
+        "sourceIsaEmulationUsed": false
+      }
     },
     {
       "id": "007-remix-react-router-server",
       "slug": "remix-react-router-server",
-      "disposition": "supported-with-declared-config",
-      "refusalCode": null
+      "capability": "Remix / React Router server bootstrap shape",
+      "category": "framework-server",
+      "description": "Remix/React Router style HTTP handler; dependency install required",
+      "attemptPolicy": "config-required",
+      "status": "conditional",
+      "architectures": {
+        "arm64": {
+          "status": "conditional",
+          "lastRun": null,
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+              "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+              "summary": "arm64 classification row retained"
+            }
+          ],
+          "notes": "Needs declared config/dependencies before runtime execution."
+        },
+        "amd64": {
+          "status": "conditional",
+          "lastRun": null,
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+              "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+              "summary": "amd64 classification row retained"
+            }
+          ],
+          "notes": "Needs declared config/dependencies before runtime execution."
+        }
+      },
+      "blockers": [
+        {
+          "id": "declared-config-required",
+          "severity": "minor",
+          "description": "Needs target-native dependency/config/artifact declaration before proof execution.",
+          "refusalCode": null
+        }
+      ],
+      "workaround": "Declare dependencies/config/artifacts and rerun with --install-deps or matching product adapter.",
+      "productClaim": {
+        "status": "conditional",
+        "scope": "node-portability-corpus-proof",
+        "notes": "Requires declared dependencies/config/artifacts before runtime execution."
+      },
+      "evidence": [
+        {
+          "kind": "row-manifest",
+          "path": "portability/nodejs/007-remix-react-router-server/portability.json",
+          "sha256": "5bd24c1daea832a32c4461b7746658ff4c5e79fa12d579df939d03eadcac32ed",
+          "summary": "row metadata"
+        },
+        {
+          "kind": "classification-report",
+          "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+          "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+          "summary": "arm64 classification row retained"
+        }
+      ],
+      "claimGuard": {
+        "arbitraryNodeProcessRestoreClaimed": false,
+        "rawV8HeapRestoreUsed": false,
+        "rawCpuStateReplayUsed": false,
+        "sourceIsaEmulationUsed": false
+      }
     },
     {
       "id": "008-nestjs",
       "slug": "nestjs",
-      "disposition": "supported-with-declared-config",
-      "refusalCode": null
+      "capability": "NestJS server bootstrap shape",
+      "category": "framework-server",
+      "description": "NestJS HTTP service; dependency install/build required",
+      "attemptPolicy": "config-required",
+      "status": "conditional",
+      "architectures": {
+        "arm64": {
+          "status": "conditional",
+          "lastRun": null,
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+              "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+              "summary": "arm64 classification row retained"
+            }
+          ],
+          "notes": "Needs declared config/dependencies before runtime execution."
+        },
+        "amd64": {
+          "status": "conditional",
+          "lastRun": null,
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+              "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+              "summary": "amd64 classification row retained"
+            }
+          ],
+          "notes": "Needs declared config/dependencies before runtime execution."
+        }
+      },
+      "blockers": [
+        {
+          "id": "declared-config-required",
+          "severity": "minor",
+          "description": "Needs target-native dependency/config/artifact declaration before proof execution.",
+          "refusalCode": null
+        }
+      ],
+      "workaround": "Declare dependencies/config/artifacts and rerun with --install-deps or matching product adapter.",
+      "productClaim": {
+        "status": "conditional",
+        "scope": "node-portability-corpus-proof",
+        "notes": "Requires declared dependencies/config/artifacts before runtime execution."
+      },
+      "evidence": [
+        {
+          "kind": "row-manifest",
+          "path": "portability/nodejs/008-nestjs/portability.json",
+          "sha256": "ccf33ca54d77b7015483219a1b4a7ea888d1af5c7061ee69fb9a2124847a4764",
+          "summary": "row metadata"
+        },
+        {
+          "kind": "classification-report",
+          "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+          "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+          "summary": "arm64 classification row retained"
+        }
+      ],
+      "claimGuard": {
+        "arbitraryNodeProcessRestoreClaimed": false,
+        "rawV8HeapRestoreUsed": false,
+        "rawCpuStateReplayUsed": false,
+        "sourceIsaEmulationUsed": false
+      }
     },
     {
       "id": "009-graphql-apollo",
       "slug": "graphql-apollo",
-      "disposition": "supported-with-declared-config",
-      "refusalCode": null
+      "capability": "GraphQL / Apollo HTTP API shape",
+      "category": "api",
+      "description": "GraphQL/Apollo HTTP service; dependency install required",
+      "attemptPolicy": "config-required",
+      "status": "conditional",
+      "architectures": {
+        "arm64": {
+          "status": "conditional",
+          "lastRun": null,
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+              "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+              "summary": "arm64 classification row retained"
+            }
+          ],
+          "notes": "Needs declared config/dependencies before runtime execution."
+        },
+        "amd64": {
+          "status": "conditional",
+          "lastRun": null,
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+              "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+              "summary": "amd64 classification row retained"
+            }
+          ],
+          "notes": "Needs declared config/dependencies before runtime execution."
+        }
+      },
+      "blockers": [
+        {
+          "id": "declared-config-required",
+          "severity": "minor",
+          "description": "Needs target-native dependency/config/artifact declaration before proof execution.",
+          "refusalCode": null
+        }
+      ],
+      "workaround": "Declare dependencies/config/artifacts and rerun with --install-deps or matching product adapter.",
+      "productClaim": {
+        "status": "conditional",
+        "scope": "node-portability-corpus-proof",
+        "notes": "Requires declared dependencies/config/artifacts before runtime execution."
+      },
+      "evidence": [
+        {
+          "kind": "row-manifest",
+          "path": "portability/nodejs/009-graphql-apollo/portability.json",
+          "sha256": "188aea02b4dc7d5a50473c20a66f7855b395ffbe177c3d00ed7476b7821fa346",
+          "summary": "row metadata"
+        },
+        {
+          "kind": "classification-report",
+          "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+          "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+          "summary": "arm64 classification row retained"
+        }
+      ],
+      "claimGuard": {
+        "arbitraryNodeProcessRestoreClaimed": false,
+        "rawV8HeapRestoreUsed": false,
+        "rawCpuStateReplayUsed": false,
+        "sourceIsaEmulationUsed": false
+      }
     },
     {
       "id": "010-websocket-server",
       "slug": "websocket-server",
-      "disposition": "refused-first",
-      "refusalCode": "node-portability-websocket-unsupported"
+      "capability": "WebSocket server startup and active session boundary",
+      "category": "realtime",
+      "description": "Active WebSocket connection state is not portable yet",
+      "attemptPolicy": "refuse-live-state",
+      "status": "refused",
+      "architectures": {
+        "arm64": {
+          "status": "refused",
+          "lastRun": null,
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+              "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+              "summary": "arm64 classification row retained"
+            }
+          ],
+          "notes": "node-portability-websocket-unsupported"
+        },
+        "amd64": {
+          "status": "refused",
+          "lastRun": null,
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+              "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+              "summary": "amd64 classification row retained"
+            }
+          ],
+          "notes": "node-portability-websocket-unsupported"
+        }
+      },
+      "blockers": [
+        {
+          "id": "websocket-server",
+          "severity": "hard-blocker",
+          "description": "Active WebSocket connection state is not portable yet",
+          "refusalCode": "node-portability-websocket-unsupported"
+        }
+      ],
+      "workaround": "Remove or declare a reconstruction policy for this live/opaque state before claiming portability.",
+      "productClaim": {
+        "status": "refusal",
+        "scope": "node-portability-blocker",
+        "notes": "Stable blocker row; app restart may be separately attempted but live/opaque state is not portable."
+      },
+      "evidence": [
+        {
+          "kind": "row-manifest",
+          "path": "portability/nodejs/010-websocket-server/portability.json",
+          "sha256": "97107dc1ee083fc03bd11c7444660ecd98cc59278b199968f05a30760e9eb06b",
+          "summary": "row metadata"
+        },
+        {
+          "kind": "classification-report",
+          "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+          "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+          "summary": "arm64 classification row retained"
+        }
+      ],
+      "claimGuard": {
+        "arbitraryNodeProcessRestoreClaimed": false,
+        "rawV8HeapRestoreUsed": false,
+        "rawCpuStateReplayUsed": false,
+        "sourceIsaEmulationUsed": false
+      }
     },
     {
       "id": "011-sqlite-app",
       "slug": "sqlite-app",
-      "disposition": "product-supported",
-      "refusalCode": null
+      "capability": "Clean local SQLite-style state plus HTTP verifier",
+      "category": "state",
+      "description": "Clean SQLite logical DB plus HTTP verifier",
+      "attemptPolicy": "try-first",
+      "status": "verified",
+      "architectures": {
+        "arm64": {
+          "status": "verified",
+          "lastRun": null,
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+              "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+              "summary": "arm64 classification row retained"
+            },
+            {
+              "kind": "runtime-report",
+              "path": "portability/nodejs/retained/nodejs-portability-no-deps-runtime-report.json",
+              "sha256": "8e5b196b9cfc0233cbfd74b8b46151cd2a6eff0c69384cd051b3d53df46f07e5",
+              "summary": "arm64 Machinen runtime verifier passed"
+            }
+          ],
+          "notes": "Machinen runtime-controlled VM execution verified this capability."
+        },
+        "amd64": {
+          "status": "verified",
+          "lastRun": null,
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+              "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+              "summary": "amd64 classification row retained"
+            },
+            {
+              "kind": "runtime-report",
+              "path": "portability/nodejs/retained/nodejs-portability-no-deps-amd64-runtime-report.json",
+              "sha256": "bd858d63ca06f6fd2f24a841640545059e7c849d40b2e395a22484b0aecece8a",
+              "summary": "amd64 Machinen runtime verifier passed"
+            }
+          ],
+          "notes": "Machinen runtime-controlled VM execution verified this capability."
+        }
+      },
+      "blockers": [],
+      "workaround": null,
+      "productClaim": {
+        "status": "candidate",
+        "scope": "node-portability-corpus-proof",
+        "notes": "VM-verified capability evidence; does not claim arbitrary raw Node process continuation."
+      },
+      "evidence": [
+        {
+          "kind": "row-manifest",
+          "path": "portability/nodejs/011-sqlite-app/portability.json",
+          "sha256": "393f6d7ff4b6569b327a8a5aa998987e3cd056c860395de18b395040ef5ba7c4",
+          "summary": "row metadata"
+        },
+        {
+          "kind": "classification-report",
+          "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+          "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+          "summary": "arm64 classification row retained"
+        },
+        {
+          "kind": "runtime-report",
+          "path": "portability/nodejs/retained/nodejs-portability-no-deps-runtime-report.json",
+          "sha256": "8e5b196b9cfc0233cbfd74b8b46151cd2a6eff0c69384cd051b3d53df46f07e5",
+          "summary": "arm64 Machinen runtime verifier passed"
+        },
+        {
+          "kind": "runtime-report",
+          "path": "portability/nodejs/retained/nodejs-portability-no-deps-amd64-runtime-report.json",
+          "sha256": "bd858d63ca06f6fd2f24a841640545059e7c849d40b2e395a22484b0aecece8a",
+          "summary": "amd64 Machinen runtime verifier passed"
+        }
+      ],
+      "claimGuard": {
+        "arbitraryNodeProcessRestoreClaimed": false,
+        "rawV8HeapRestoreUsed": false,
+        "rawCpuStateReplayUsed": false,
+        "sourceIsaEmulationUsed": false
+      }
     },
     {
       "id": "012-postgres-app",
       "slug": "postgres-app",
-      "disposition": "supported-with-declared-config",
-      "refusalCode": null
+      "capability": "Declared clean PostgreSQL external state boundary",
+      "category": "state",
+      "description": "Clean declared PostgreSQL logical artifact required",
+      "attemptPolicy": "config-required",
+      "status": "conditional",
+      "architectures": {
+        "arm64": {
+          "status": "conditional",
+          "lastRun": null,
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+              "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+              "summary": "arm64 classification row retained"
+            }
+          ],
+          "notes": "Needs declared config/dependencies before runtime execution."
+        },
+        "amd64": {
+          "status": "conditional",
+          "lastRun": null,
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+              "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+              "summary": "amd64 classification row retained"
+            }
+          ],
+          "notes": "Needs declared config/dependencies before runtime execution."
+        }
+      },
+      "blockers": [
+        {
+          "id": "declared-config-required",
+          "severity": "minor",
+          "description": "Needs target-native dependency/config/artifact declaration before proof execution.",
+          "refusalCode": null
+        }
+      ],
+      "workaround": "Declare dependencies/config/artifacts and rerun with --install-deps or matching product adapter.",
+      "productClaim": {
+        "status": "conditional",
+        "scope": "node-portability-corpus-proof",
+        "notes": "Requires declared dependencies/config/artifacts before runtime execution."
+      },
+      "evidence": [
+        {
+          "kind": "row-manifest",
+          "path": "portability/nodejs/012-postgres-app/portability.json",
+          "sha256": "921302c67904052ce3a5688913c862898b5f903eaeb28ac1a9882d3e012b6728",
+          "summary": "row metadata"
+        },
+        {
+          "kind": "classification-report",
+          "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+          "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+          "summary": "arm64 classification row retained"
+        }
+      ],
+      "claimGuard": {
+        "arbitraryNodeProcessRestoreClaimed": false,
+        "rawV8HeapRestoreUsed": false,
+        "rawCpuStateReplayUsed": false,
+        "sourceIsaEmulationUsed": false
+      }
     },
     {
       "id": "013-static-file-server",
       "slug": "static-file-server",
-      "disposition": "product-supported",
-      "refusalCode": null
+      "capability": "Static file tree served by Node",
+      "category": "filesystem",
+      "description": "Static file tree plus node:http service",
+      "attemptPolicy": "try-first",
+      "status": "verified",
+      "architectures": {
+        "arm64": {
+          "status": "verified",
+          "lastRun": null,
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+              "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+              "summary": "arm64 classification row retained"
+            },
+            {
+              "kind": "runtime-report",
+              "path": "portability/nodejs/retained/nodejs-portability-no-deps-runtime-report.json",
+              "sha256": "8e5b196b9cfc0233cbfd74b8b46151cd2a6eff0c69384cd051b3d53df46f07e5",
+              "summary": "arm64 Machinen runtime verifier passed"
+            }
+          ],
+          "notes": "Machinen runtime-controlled VM execution verified this capability."
+        },
+        "amd64": {
+          "status": "verified",
+          "lastRun": null,
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+              "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+              "summary": "amd64 classification row retained"
+            },
+            {
+              "kind": "runtime-report",
+              "path": "portability/nodejs/retained/nodejs-portability-no-deps-amd64-runtime-report.json",
+              "sha256": "bd858d63ca06f6fd2f24a841640545059e7c849d40b2e395a22484b0aecece8a",
+              "summary": "amd64 Machinen runtime verifier passed"
+            }
+          ],
+          "notes": "Machinen runtime-controlled VM execution verified this capability."
+        }
+      },
+      "blockers": [],
+      "workaround": null,
+      "productClaim": {
+        "status": "candidate",
+        "scope": "node-portability-corpus-proof",
+        "notes": "VM-verified capability evidence; does not claim arbitrary raw Node process continuation."
+      },
+      "evidence": [
+        {
+          "kind": "row-manifest",
+          "path": "portability/nodejs/013-static-file-server/portability.json",
+          "sha256": "e3135e952d619d44e63581a5bd382a7c6a3380e6600a3c4f0db2b96110da22c0",
+          "summary": "row metadata"
+        },
+        {
+          "kind": "classification-report",
+          "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+          "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+          "summary": "arm64 classification row retained"
+        },
+        {
+          "kind": "runtime-report",
+          "path": "portability/nodejs/retained/nodejs-portability-no-deps-runtime-report.json",
+          "sha256": "8e5b196b9cfc0233cbfd74b8b46151cd2a6eff0c69384cd051b3d53df46f07e5",
+          "summary": "arm64 Machinen runtime verifier passed"
+        },
+        {
+          "kind": "runtime-report",
+          "path": "portability/nodejs/retained/nodejs-portability-no-deps-amd64-runtime-report.json",
+          "sha256": "bd858d63ca06f6fd2f24a841640545059e7c849d40b2e395a22484b0aecece8a",
+          "summary": "amd64 Machinen runtime verifier passed"
+        }
+      ],
+      "claimGuard": {
+        "arbitraryNodeProcessRestoreClaimed": false,
+        "rawV8HeapRestoreUsed": false,
+        "rawCpuStateReplayUsed": false,
+        "sourceIsaEmulationUsed": false
+      }
     },
     {
       "id": "014-file-upload-app",
       "slug": "file-upload-app",
-      "disposition": "product-supported",
-      "refusalCode": null
+      "capability": "Upload/data directory state served by Node",
+      "category": "filesystem",
+      "description": "File upload directory plus HTTP verifier",
+      "attemptPolicy": "try-first",
+      "status": "verified",
+      "architectures": {
+        "arm64": {
+          "status": "verified",
+          "lastRun": null,
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+              "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+              "summary": "arm64 classification row retained"
+            },
+            {
+              "kind": "runtime-report",
+              "path": "portability/nodejs/retained/nodejs-portability-no-deps-runtime-report.json",
+              "sha256": "8e5b196b9cfc0233cbfd74b8b46151cd2a6eff0c69384cd051b3d53df46f07e5",
+              "summary": "arm64 Machinen runtime verifier passed"
+            }
+          ],
+          "notes": "Machinen runtime-controlled VM execution verified this capability."
+        },
+        "amd64": {
+          "status": "verified",
+          "lastRun": null,
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+              "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+              "summary": "amd64 classification row retained"
+            },
+            {
+              "kind": "runtime-report",
+              "path": "portability/nodejs/retained/nodejs-portability-no-deps-amd64-runtime-report.json",
+              "sha256": "bd858d63ca06f6fd2f24a841640545059e7c849d40b2e395a22484b0aecece8a",
+              "summary": "amd64 Machinen runtime verifier passed"
+            }
+          ],
+          "notes": "Machinen runtime-controlled VM execution verified this capability."
+        }
+      },
+      "blockers": [],
+      "workaround": null,
+      "productClaim": {
+        "status": "candidate",
+        "scope": "node-portability-corpus-proof",
+        "notes": "VM-verified capability evidence; does not claim arbitrary raw Node process continuation."
+      },
+      "evidence": [
+        {
+          "kind": "row-manifest",
+          "path": "portability/nodejs/014-file-upload-app/portability.json",
+          "sha256": "4f169d9651978e0d63c08e30eb466ce05ee4d88bd1c497e63bead5fc5ac68481",
+          "summary": "row metadata"
+        },
+        {
+          "kind": "classification-report",
+          "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+          "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+          "summary": "arm64 classification row retained"
+        },
+        {
+          "kind": "runtime-report",
+          "path": "portability/nodejs/retained/nodejs-portability-no-deps-runtime-report.json",
+          "sha256": "8e5b196b9cfc0233cbfd74b8b46151cd2a6eff0c69384cd051b3d53df46f07e5",
+          "summary": "arm64 Machinen runtime verifier passed"
+        },
+        {
+          "kind": "runtime-report",
+          "path": "portability/nodejs/retained/nodejs-portability-no-deps-amd64-runtime-report.json",
+          "sha256": "bd858d63ca06f6fd2f24a841640545059e7c849d40b2e395a22484b0aecece8a",
+          "summary": "amd64 Machinen runtime verifier passed"
+        }
+      ],
+      "claimGuard": {
+        "arbitraryNodeProcessRestoreClaimed": false,
+        "rawV8HeapRestoreUsed": false,
+        "rawCpuStateReplayUsed": false,
+        "sourceIsaEmulationUsed": false
+      }
     },
     {
       "id": "015-cron-timer-app",
       "slug": "cron-timer-app",
-      "disposition": "product-supported",
-      "refusalCode": null
+      "capability": "Declared timer/schedule reconstruction",
+      "category": "scheduler",
+      "description": "Timer app reconstructed from declared schedule, not in-flight timer heap",
+      "attemptPolicy": "try-first",
+      "status": "verified",
+      "architectures": {
+        "arm64": {
+          "status": "verified",
+          "lastRun": null,
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+              "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+              "summary": "arm64 classification row retained"
+            },
+            {
+              "kind": "runtime-report",
+              "path": "portability/nodejs/retained/nodejs-portability-no-deps-runtime-report.json",
+              "sha256": "8e5b196b9cfc0233cbfd74b8b46151cd2a6eff0c69384cd051b3d53df46f07e5",
+              "summary": "arm64 Machinen runtime verifier passed"
+            }
+          ],
+          "notes": "Machinen runtime-controlled VM execution verified this capability."
+        },
+        "amd64": {
+          "status": "verified",
+          "lastRun": null,
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+              "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+              "summary": "amd64 classification row retained"
+            },
+            {
+              "kind": "runtime-report",
+              "path": "portability/nodejs/retained/nodejs-portability-no-deps-amd64-runtime-report.json",
+              "sha256": "bd858d63ca06f6fd2f24a841640545059e7c849d40b2e395a22484b0aecece8a",
+              "summary": "amd64 Machinen runtime verifier passed"
+            }
+          ],
+          "notes": "Machinen runtime-controlled VM execution verified this capability."
+        }
+      },
+      "blockers": [],
+      "workaround": null,
+      "productClaim": {
+        "status": "candidate",
+        "scope": "node-portability-corpus-proof",
+        "notes": "VM-verified capability evidence; does not claim arbitrary raw Node process continuation."
+      },
+      "evidence": [
+        {
+          "kind": "row-manifest",
+          "path": "portability/nodejs/015-cron-timer-app/portability.json",
+          "sha256": "90853da55cdae7b7aa4567cc35b0ac3be58dd1b6cfd65300c6f64b84979defc8",
+          "summary": "row metadata"
+        },
+        {
+          "kind": "classification-report",
+          "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+          "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+          "summary": "arm64 classification row retained"
+        },
+        {
+          "kind": "runtime-report",
+          "path": "portability/nodejs/retained/nodejs-portability-no-deps-runtime-report.json",
+          "sha256": "8e5b196b9cfc0233cbfd74b8b46151cd2a6eff0c69384cd051b3d53df46f07e5",
+          "summary": "arm64 Machinen runtime verifier passed"
+        },
+        {
+          "kind": "runtime-report",
+          "path": "portability/nodejs/retained/nodejs-portability-no-deps-amd64-runtime-report.json",
+          "sha256": "bd858d63ca06f6fd2f24a841640545059e7c849d40b2e395a22484b0aecece8a",
+          "summary": "amd64 Machinen runtime verifier passed"
+        }
+      ],
+      "claimGuard": {
+        "arbitraryNodeProcessRestoreClaimed": false,
+        "rawV8HeapRestoreUsed": false,
+        "rawCpuStateReplayUsed": false,
+        "sourceIsaEmulationUsed": false
+      }
     },
     {
       "id": "016-worker-thread-app",
       "slug": "worker-thread-app",
-      "disposition": "refused-first",
-      "refusalCode": "node-portability-worker-thread-unsupported"
+      "capability": "Worker thread live-state blocker",
+      "category": "concurrency-blocker",
+      "description": "Worker thread live state refused until target-native worker reconstruction is proven",
+      "attemptPolicy": "refuse-live-state",
+      "status": "refused",
+      "architectures": {
+        "arm64": {
+          "status": "refused",
+          "lastRun": null,
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+              "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+              "summary": "arm64 classification row retained"
+            }
+          ],
+          "notes": "node-portability-worker-thread-unsupported"
+        },
+        "amd64": {
+          "status": "refused",
+          "lastRun": null,
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+              "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+              "summary": "amd64 classification row retained"
+            }
+          ],
+          "notes": "node-portability-worker-thread-unsupported"
+        }
+      },
+      "blockers": [
+        {
+          "id": "worker-thread-app",
+          "severity": "hard-blocker",
+          "description": "Worker thread live state refused until target-native worker reconstruction is proven",
+          "refusalCode": "node-portability-worker-thread-unsupported"
+        }
+      ],
+      "workaround": "Remove or declare a reconstruction policy for this live/opaque state before claiming portability.",
+      "productClaim": {
+        "status": "refusal",
+        "scope": "node-portability-blocker",
+        "notes": "Stable blocker row; app restart may be separately attempted but live/opaque state is not portable."
+      },
+      "evidence": [
+        {
+          "kind": "row-manifest",
+          "path": "portability/nodejs/016-worker-thread-app/portability.json",
+          "sha256": "0d46753c3151d9f80342577557b2d0c07e09831a8116139dca6d8ba920d17fc6",
+          "summary": "row metadata"
+        },
+        {
+          "kind": "classification-report",
+          "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+          "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+          "summary": "arm64 classification row retained"
+        }
+      ],
+      "claimGuard": {
+        "arbitraryNodeProcessRestoreClaimed": false,
+        "rawV8HeapRestoreUsed": false,
+        "rawCpuStateReplayUsed": false,
+        "sourceIsaEmulationUsed": false
+      }
     },
     {
       "id": "017-native-addon-app",
       "slug": "native-addon-app",
-      "disposition": "refused-first",
-      "refusalCode": "node-portability-native-addon-unsupported"
+      "capability": "Native addon rebuild / ABI blocker",
+      "category": "native-blocker",
+      "description": "Native addon ABI/build state refused until target-native addon rebuild policy is proven",
+      "attemptPolicy": "refuse-live-state",
+      "status": "refused",
+      "architectures": {
+        "arm64": {
+          "status": "refused",
+          "lastRun": null,
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+              "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+              "summary": "arm64 classification row retained"
+            }
+          ],
+          "notes": "node-portability-native-addon-unsupported"
+        },
+        "amd64": {
+          "status": "refused",
+          "lastRun": null,
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+              "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+              "summary": "amd64 classification row retained"
+            }
+          ],
+          "notes": "node-portability-native-addon-unsupported"
+        }
+      },
+      "blockers": [
+        {
+          "id": "native-addon-app",
+          "severity": "hard-blocker",
+          "description": "Native addon ABI/build state refused until target-native addon rebuild policy is proven",
+          "refusalCode": "node-portability-native-addon-unsupported"
+        }
+      ],
+      "workaround": "Remove or declare a reconstruction policy for this live/opaque state before claiming portability.",
+      "productClaim": {
+        "status": "refusal",
+        "scope": "node-portability-blocker",
+        "notes": "Stable blocker row; app restart may be separately attempted but live/opaque state is not portable."
+      },
+      "evidence": [
+        {
+          "kind": "row-manifest",
+          "path": "portability/nodejs/017-native-addon-app/portability.json",
+          "sha256": "747c37f770802b5db112506a21f8221ec44348b129c92f38c993938c00af9635",
+          "summary": "row metadata"
+        },
+        {
+          "kind": "classification-report",
+          "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+          "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+          "summary": "arm64 classification row retained"
+        }
+      ],
+      "claimGuard": {
+        "arbitraryNodeProcessRestoreClaimed": false,
+        "rawV8HeapRestoreUsed": false,
+        "rawCpuStateReplayUsed": false,
+        "sourceIsaEmulationUsed": false
+      }
     },
     {
       "id": "018-child-process-app",
       "slug": "child-process-app",
-      "disposition": "refused-first",
-      "refusalCode": "node-portability-child-process-unsupported"
+      "capability": "Child process tree blocker",
+      "category": "process-blocker",
+      "description": "Child process tree state refused until process-tree reconstruction is proven",
+      "attemptPolicy": "refuse-live-state",
+      "status": "refused",
+      "architectures": {
+        "arm64": {
+          "status": "refused",
+          "lastRun": null,
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+              "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+              "summary": "arm64 classification row retained"
+            }
+          ],
+          "notes": "node-portability-child-process-unsupported"
+        },
+        "amd64": {
+          "status": "refused",
+          "lastRun": null,
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+              "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+              "summary": "amd64 classification row retained"
+            }
+          ],
+          "notes": "node-portability-child-process-unsupported"
+        }
+      },
+      "blockers": [
+        {
+          "id": "child-process-app",
+          "severity": "hard-blocker",
+          "description": "Child process tree state refused until process-tree reconstruction is proven",
+          "refusalCode": "node-portability-child-process-unsupported"
+        }
+      ],
+      "workaround": "Remove or declare a reconstruction policy for this live/opaque state before claiming portability.",
+      "productClaim": {
+        "status": "refusal",
+        "scope": "node-portability-blocker",
+        "notes": "Stable blocker row; app restart may be separately attempted but live/opaque state is not portable."
+      },
+      "evidence": [
+        {
+          "kind": "row-manifest",
+          "path": "portability/nodejs/018-child-process-app/portability.json",
+          "sha256": "8f48d0502a3c55cb9d20f15841c01b68f643adc4cd51d35e42909ab33820a612",
+          "summary": "row metadata"
+        },
+        {
+          "kind": "classification-report",
+          "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+          "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+          "summary": "arm64 classification row retained"
+        }
+      ],
+      "claimGuard": {
+        "arbitraryNodeProcessRestoreClaimed": false,
+        "rawV8HeapRestoreUsed": false,
+        "rawCpuStateReplayUsed": false,
+        "sourceIsaEmulationUsed": false
+      }
     },
     {
       "id": "019-active-request-app",
       "slug": "active-request-app",
-      "disposition": "refused-first",
-      "refusalCode": "node-portability-active-request-unsupported"
+      "capability": "In-flight HTTP request blocker",
+      "category": "live-state-blocker",
+      "description": "In-flight request state refused; retry/idempotency policy required",
+      "attemptPolicy": "refuse-live-state",
+      "status": "refused",
+      "architectures": {
+        "arm64": {
+          "status": "refused",
+          "lastRun": null,
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+              "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+              "summary": "arm64 classification row retained"
+            }
+          ],
+          "notes": "node-portability-active-request-unsupported"
+        },
+        "amd64": {
+          "status": "refused",
+          "lastRun": null,
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+              "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+              "summary": "amd64 classification row retained"
+            }
+          ],
+          "notes": "node-portability-active-request-unsupported"
+        }
+      },
+      "blockers": [
+        {
+          "id": "active-request-app",
+          "severity": "hard-blocker",
+          "description": "In-flight request state refused; retry/idempotency policy required",
+          "refusalCode": "node-portability-active-request-unsupported"
+        }
+      ],
+      "workaround": "Remove or declare a reconstruction policy for this live/opaque state before claiming portability.",
+      "productClaim": {
+        "status": "refusal",
+        "scope": "node-portability-blocker",
+        "notes": "Stable blocker row; app restart may be separately attempted but live/opaque state is not portable."
+      },
+      "evidence": [
+        {
+          "kind": "row-manifest",
+          "path": "portability/nodejs/019-active-request-app/portability.json",
+          "sha256": "2b163eb589d4917c1dbbbdf1b4df30fa4b9f50ce3179a8e8e13fd1fc888c791a",
+          "summary": "row metadata"
+        },
+        {
+          "kind": "classification-report",
+          "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+          "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+          "summary": "arm64 classification row retained"
+        }
+      ],
+      "claimGuard": {
+        "arbitraryNodeProcessRestoreClaimed": false,
+        "rawV8HeapRestoreUsed": false,
+        "rawCpuStateReplayUsed": false,
+        "sourceIsaEmulationUsed": false
+      }
     },
     {
       "id": "020-outbound-connection-app",
       "slug": "outbound-connection-app",
-      "disposition": "refused-first",
-      "refusalCode": "node-portability-outbound-connection-unsupported"
+      "capability": "Outbound connection/reconnect policy blocker",
+      "category": "network-blocker",
+      "description": "Outbound connection refused unless reconnect policy is declared and verified",
+      "attemptPolicy": "refuse-live-state",
+      "status": "refused",
+      "architectures": {
+        "arm64": {
+          "status": "refused",
+          "lastRun": null,
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+              "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+              "summary": "arm64 classification row retained"
+            }
+          ],
+          "notes": "node-portability-outbound-connection-unsupported"
+        },
+        "amd64": {
+          "status": "refused",
+          "lastRun": null,
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+              "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+              "summary": "amd64 classification row retained"
+            }
+          ],
+          "notes": "node-portability-outbound-connection-unsupported"
+        }
+      },
+      "blockers": [
+        {
+          "id": "outbound-connection-app",
+          "severity": "hard-blocker",
+          "description": "Outbound connection refused unless reconnect policy is declared and verified",
+          "refusalCode": "node-portability-outbound-connection-unsupported"
+        }
+      ],
+      "workaround": "Remove or declare a reconstruction policy for this live/opaque state before claiming portability.",
+      "productClaim": {
+        "status": "refusal",
+        "scope": "node-portability-blocker",
+        "notes": "Stable blocker row; app restart may be separately attempted but live/opaque state is not portable."
+      },
+      "evidence": [
+        {
+          "kind": "row-manifest",
+          "path": "portability/nodejs/020-outbound-connection-app/portability.json",
+          "sha256": "ee2181e37e7ffdb8fccd33dc4eab9d553469d6a045a6ba79460e02c0a0af6757",
+          "summary": "row metadata"
+        },
+        {
+          "kind": "classification-report",
+          "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+          "sha256": "685ab17690e91399266ff44d86ed0b6dd623ebba9e4d4e754968961a32173b2b",
+          "summary": "arm64 classification row retained"
+        }
+      ],
+      "claimGuard": {
+        "arbitraryNodeProcessRestoreClaimed": false,
+        "rawV8HeapRestoreUsed": false,
+        "rawCpuStateReplayUsed": false,
+        "sourceIsaEmulationUsed": false
+      }
     }
   ]
 }

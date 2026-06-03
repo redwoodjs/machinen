@@ -1,5 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+  "ignorePatterns": ["portability/**"],
   "entry": [
     "scripts/*.ts",
     "scripts/*.mjs",
@@ -18,6 +19,7 @@
       "**/__tests__/**",
       "**/*.{test,spec}.{js,jsx,ts,tsx,mjs,cjs}",
       "proofs/**",
+      "portability/**",
       "scripts/native-dwarf-pointer-classification.ts",
       "scripts/postgres-no-dump-product-proof.mjs"
     ]
@@ -27,6 +29,7 @@
       "**/__tests__/**",
       "**/*.{test,spec}.{js,jsx,ts,tsx,mjs,cjs}",
       "proofs/**",
+      "portability/**",
       "scripts/native-dwarf-pointer-classification.ts",
       "scripts/postgres-no-dump-product-proof.mjs"
     ]
