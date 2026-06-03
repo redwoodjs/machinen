@@ -73,6 +73,16 @@ const categoryBySlug = {
   "memory-array": "memory-state",
   "memory-closure-context": "memory-state",
   "memory-unsupported-boundaries": "memory-blocker",
+  "memory-string": "memory-state",
+  "memory-nested-object-graph": "memory-state",
+  "memory-shared-references": "memory-state",
+  "memory-cycle": "memory-state",
+  "memory-map-set": "memory-state",
+  "memory-class-instance": "memory-state",
+  "memory-http-handler-closure-state": "memory-state",
+  "memory-buffer": "memory-state",
+  "memory-typed-array": "memory-state",
+  "memory-pending-promise-refusal": "memory-blocker",
 };
 const capabilityBySlug = {
   "plain-http-create-server":
@@ -103,6 +113,18 @@ const capabilityBySlug = {
   "memory-closure-context":
     "Selected V8 closure context counter cell decoded and materialized target-native",
   "memory-unsupported-boundaries": "Unsupported V8 memory shapes refuse fail-closed",
+  "memory-string": "Selected V8 string state materialized target-native",
+  "memory-nested-object-graph": "Selected nested object graph state materialized target-native",
+  "memory-shared-references": "Selected shared references preserved in semantic graph IR",
+  "memory-cycle": "Selected cyclic object graph preserved in semantic graph IR",
+  "memory-map-set": "Selected Map and Set entries materialized target-native",
+  "memory-class-instance":
+    "Selected class instance data and prototype identity materialized target-native",
+  "memory-http-handler-closure-state":
+    "Selected HTTP handler closure state materialized target-native",
+  "memory-buffer": "Selected internal Buffer bytes materialized target-native",
+  "memory-typed-array": "Selected typed array contents materialized target-native",
+  "memory-pending-promise-refusal": "Pending Promise and microtask state refuses fail-closed",
 };
 
 function hashFile(path) {
@@ -114,7 +136,13 @@ function evidence(kind, path, summary) {
 }
 
 function readReports() {
-  return evidenceInputs
+  const retainedMemoryReports = readdirSync(join(root, "retained"))
+    .filter((name) => /^nodejs-portability-memory-.*-report\.json$/u.test(name))
+    .map((name) => ["memory-state-smoke-report", join(root, "retained", name)]);
+  const inputs = [...evidenceInputs, ...retainedMemoryReports].filter(
+    ([, path], index, all) => all.findIndex((candidate) => candidate[1] === path) === index,
+  );
+  return inputs
     .filter(([, path]) => existsSync(path))
     .map(([kind, path]) => ({ kind, path, report: JSON.parse(readFileSync(path, "utf8")) }));
 }

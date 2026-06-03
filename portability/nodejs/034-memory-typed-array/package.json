@@ -1,0 +1,7 @@
+{
+  "type": "module",
+  "scripts": {
+    "smoke": "node smoke.mjs"
+  },
+  "dependencies": {}
+}

@@ -1,0 +1,64 @@
+{
+  "kind": "machinen.nodejs-portability-memory-state-smoke-report",
+  "version": 1,
+  "accepted": true,
+  "corpus": "portability/nodejs/031-memory-class-instance",
+  "portabilityRow": "031-memory-class-instance",
+  "architectures": ["arm64", "amd64"],
+  "executeVm": false,
+  "memoryCapture": "retained-semantic-ir-portability-smoke",
+  "summary": {
+    "verifiedVmRows": 0,
+    "memoryStateRows": 1,
+    "refusedRows": 0
+  },
+  "results": [
+    {
+      "id": "031-memory-class-instance",
+      "architecture": "arm64",
+      "state": "verified",
+      "refusalCode": null
+    },
+    {
+      "id": "031-memory-class-instance",
+      "architecture": "amd64",
+      "state": "verified",
+      "refusalCode": null
+    }
+  ],
+  "semanticIr": {
+    "kind": "class-instance",
+    "className": "Counter",
+    "value": {
+      "count": 41
+    }
+  },
+  "materializedState": {
+    "value": {
+      "count": 41,
+      "inc": 42,
+      "className": "Counter"
+    },
+    "accepted": true
+  },
+  "claimBoundary": {
+    "claims": ["Selected class instance data and prototype identity materialized target-native"],
+    "notClaimed": [
+      "arbitrary Node process restore",
+      "raw V8 heap restore",
+      "same PID continuation",
+      "active request/socket continuation",
+      "source ISA emulation",
+      "arbitrary Linux process restore"
+    ]
+  },
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "arbitraryLinuxProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "samePidContinuationClaimed": false,
+    "activeRequestOrSocketContinuationClaimed": false
+  }
+}

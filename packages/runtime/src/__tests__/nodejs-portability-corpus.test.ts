@@ -111,7 +111,7 @@ describe("Node.js portability corpus", () => {
     expect(html).toContain("nodejs-portability-memory-unsupported-boundaries-report.json");
   });
 
-  it("contains the requested 25 numbered workload rows", () => {
+  it("contains the requested 35 numbered workload rows", () => {
     expect(rowDirs()).toEqual([
       "001-plain-http-create-server",
       "002-express",
@@ -138,12 +138,22 @@ describe("Node.js portability corpus", () => {
       "023-memory-array",
       "024-memory-closure-context",
       "025-memory-unsupported-boundaries",
+      "026-memory-string",
+      "027-memory-nested-object-graph",
+      "028-memory-shared-references",
+      "029-memory-cycle",
+      "030-memory-map-set",
+      "031-memory-class-instance",
+      "032-memory-http-handler-closure-state",
+      "033-memory-buffer",
+      "034-memory-typed-array",
+      "035-memory-pending-promise-refusal",
     ]);
   });
 
   it("keeps arbitrary raw Node process restore out of the corpus claim", () => {
     const rows = rowDirs().map(readRow);
-    expect(rows).toHaveLength(25);
+    expect(rows).toHaveLength(35);
     for (const row of rows) {
       expect(row.runtime).toBe("nodejs");
       expect(row.claimGuard).toMatchObject({
@@ -167,6 +177,7 @@ describe("Node.js portability corpus", () => {
       "019-active-request-app",
       "020-outbound-connection-app",
       "025-memory-unsupported-boundaries",
+      "035-memory-pending-promise-refusal",
     ]);
     for (const row of refused) {
       expect(row.refusalCode).toMatch(/^node-portability-.+-unsupported$/u);
@@ -182,12 +193,12 @@ describe("Node.js portability corpus", () => {
       version: 1,
       runtime: "nodejs",
       summary: {
-        rowCount: 25,
-        byStatus: { verified: 18, refused: 7 },
-        byProductClaim: { candidate: 18, refusal: 7 },
+        rowCount: 35,
+        byStatus: { verified: 27, refused: 8 },
+        byProductClaim: { candidate: 27, refusal: 8 },
         architectures: ["arm64", "amd64"],
-        verifiedBothArchitectures: 18,
-        refusedRows: 7,
+        verifiedBothArchitectures: 27,
+        refusedRows: 8,
         conditionalRows: 0,
         failedClassifiedRows: 0,
       },
@@ -254,14 +265,14 @@ describe("Node.js portability corpus", () => {
     };
     expect(report).toMatchObject({
       accepted: true,
-      rowCount: 25,
+      rowCount: 35,
       architectures: ["arm64", "amd64"],
       executeVm: false,
       summary: {
-        productSupportedRows: 13,
+        productSupportedRows: 22,
         declaredConfigRows: 5,
-        refusedFirstRows: 7,
-        refusedRows: 14,
+        refusedFirstRows: 8,
+        refusedRows: 16,
       },
       claimGuard: {
         arbitraryNodeProcessRestoreClaimed: false,
@@ -310,6 +321,36 @@ describe("Node.js portability corpus", () => {
       [
         "nodejs-portability-memory-unsupported-boundaries-report.json",
         "025-memory-unsupported-boundaries",
+        "refused",
+      ],
+      ["nodejs-portability-memory-string-report.json", "026-memory-string", "verified"],
+      [
+        "nodejs-portability-memory-nested-object-graph-report.json",
+        "027-memory-nested-object-graph",
+        "verified",
+      ],
+      [
+        "nodejs-portability-memory-shared-references-report.json",
+        "028-memory-shared-references",
+        "verified",
+      ],
+      ["nodejs-portability-memory-cycle-report.json", "029-memory-cycle", "verified"],
+      ["nodejs-portability-memory-map-set-report.json", "030-memory-map-set", "verified"],
+      [
+        "nodejs-portability-memory-class-instance-report.json",
+        "031-memory-class-instance",
+        "verified",
+      ],
+      [
+        "nodejs-portability-memory-http-handler-closure-state-report.json",
+        "032-memory-http-handler-closure-state",
+        "verified",
+      ],
+      ["nodejs-portability-memory-buffer-report.json", "033-memory-buffer", "verified"],
+      ["nodejs-portability-memory-typed-array-report.json", "034-memory-typed-array", "verified"],
+      [
+        "nodejs-portability-memory-pending-promise-refusal-report.json",
+        "035-memory-pending-promise-refusal",
         "refused",
       ],
     ] as const) {

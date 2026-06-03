@@ -41,7 +41,7 @@ This corpus does **not** claim raw Node process continuation. It shows that arbi
 
 `021-memory-scalar-counter` retains a narrower smoke than the app corpus: one controlled memory-only Node `count` scalar is captured from source process memory and reconstructed target-native across `arm64 -> amd64`.
 
-Rows `022` through `025` move existing V8 memory decoder coverage into portability smokes for selected plain objects, packed arrays, closure contexts, and fail-closed unsupported memory boundaries.
+Rows `022` through `035` move existing V8/Node memory-state coverage into portability smokes for selected plain objects, packed arrays, closure contexts, strings, nested/shared/cyclic object graphs, Map/Set, class instances, HTTP handler closure state, Buffer, typed arrays, and fail-closed unsupported async/runtime boundaries.
 
 These rows do not lift the broad arbitrary Node heap/process claim; they add scoped compatibility dimensions. Run the local decoder smokes with:
 

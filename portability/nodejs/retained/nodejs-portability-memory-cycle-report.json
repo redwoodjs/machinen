@@ -1,0 +1,73 @@
+{
+  "kind": "machinen.nodejs-portability-memory-state-smoke-report",
+  "version": 1,
+  "accepted": true,
+  "corpus": "portability/nodejs/029-memory-cycle",
+  "portabilityRow": "029-memory-cycle",
+  "architectures": ["arm64", "amd64"],
+  "executeVm": false,
+  "memoryCapture": "retained-semantic-ir-portability-smoke",
+  "summary": {
+    "verifiedVmRows": 0,
+    "memoryStateRows": 1,
+    "refusedRows": 0
+  },
+  "results": [
+    {
+      "id": "029-memory-cycle",
+      "architecture": "arm64",
+      "state": "verified",
+      "refusalCode": null
+    },
+    {
+      "id": "029-memory-cycle",
+      "architecture": "amd64",
+      "state": "verified",
+      "refusalCode": null
+    }
+  ],
+  "semanticIr": {
+    "kind": "graph",
+    "value": {
+      "root": "obj-1",
+      "objects": {
+        "obj-1": {
+          "name": "cycle",
+          "self": "obj-1"
+        }
+      }
+    }
+  },
+  "materializedState": {
+    "value": {
+      "root": "obj-1",
+      "objects": {
+        "obj-1": {
+          "name": "cycle",
+          "self": "obj-1"
+        }
+      }
+    },
+    "accepted": true
+  },
+  "claimBoundary": {
+    "claims": ["Selected cyclic object graph preserved semantically"],
+    "notClaimed": [
+      "arbitrary Node process restore",
+      "raw V8 heap restore",
+      "same PID continuation",
+      "active request/socket continuation",
+      "source ISA emulation",
+      "arbitrary Linux process restore"
+    ]
+  },
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "arbitraryLinuxProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "samePidContinuationClaimed": false,
+    "activeRequestOrSocketContinuationClaimed": false
+  }
+}
