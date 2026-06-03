@@ -38,9 +38,9 @@ Promotion effect: No public claim change. The selected seed gate is proof-only, 
 
 Rows `arbitrary/009` through `arbitrary/018` are retained in `../selected-process-next-proof-matrix/retained/selected-arbitrary-process-next-proof-matrix-report.json`. They are proof-only, refusal, or claim-locked rows and do not change the public arbitrary Linux process restore claim.
 
-## 100 / 100 / 100 phase ladder
+## Proof/classification phase ladder
 
-The retained phase ladder lives in `../100-phase-ladder/retained/arbitrary-process-100-phase-ladder-report.json`. It defines phases 1–7 and keeps completed claim rows at `0`; it does not raise the public arbitrary Linux process restore claim.
+The retained phase ladder lives in `../100-phase-ladder/retained/arbitrary-process-100-phase-ladder-report.json`. It defines phases 1–7 with product support out of scope and keeps the public arbitrary Linux process restore claim at `0`.
 
 ## Local proof notes
 

@@ -1,33 +1,27 @@
 {
   "kind": "machinen.arbitrary-process-100-phase-row",
   "row": {
-    "id": "phase-1-selected-seed-product-path",
+    "id": "phase-1-selected-seed-proof-path",
     "proofNumber": "arbitrary-phase/001",
-    "title": "1 / 1 / 1 selected seed product path",
+    "title": "1 / 1 selected seed proof path",
     "targetClaim": {
-      "productSupport": 1,
+      "productSupport": null,
       "broadSupport": 1,
       "arbitraryProcessCrossArchRestore": 1
     },
-    "status": "blocked",
+    "status": "proof-only",
     "claimChangeAllowed": false,
-    "productPathRequired": true,
+    "productPathRequired": false,
     "productPathCovered": false,
     "retainedEvidence": [
       "arbitrary/007 selected seed gate",
       "arbitrary/008 selected behavior E2E",
       "arbitrary/009-arbitrary/018 proof/refusal matrix"
     ],
-    "missingGates": [
-      "retained product command source capture for selected seed",
-      "retained product command target restore/verifier for both directions",
-      "stable product refusal codes for neighboring unsupported states"
-    ],
-    "blockers": [
-      "product-path artifacts are intentionally absent from current selected seed evidence"
-    ],
+    "missingGates": ["none for proof-only phase 1; product support is out of scope"],
+    "blockers": [],
     "claimUse": "phase definition/evidence only; public arbitrary Linux process restore remains 0",
-    "next": "Implement real product command artifacts before any 1% public claim decision."
+    "next": "Keep as proof-backed selected seed evidence; do not require product-path artifacts."
   },
   "currentClaim": {
     "productSupport": null,
@@ -35,7 +29,7 @@
     "arbitraryProcessCrossArchRestore": 0
   },
   "targetClaim": {
-    "productSupport": 1,
+    "productSupport": null,
     "broadSupport": 1,
     "arbitraryProcessCrossArchRestore": 1
   },

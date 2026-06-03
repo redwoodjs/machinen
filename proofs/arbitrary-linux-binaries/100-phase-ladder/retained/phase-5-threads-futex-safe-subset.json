@@ -3,15 +3,15 @@
   "row": {
     "id": "phase-5-threads-futex-safe-subset",
     "proofNumber": "arbitrary-phase/005",
-    "title": "60 / 60 / 20 threads/futex safe subset or hard refusals",
+    "title": "60 / 20 threads/futex proof subset or hard refusals",
     "targetClaim": {
-      "productSupport": 60,
+      "productSupport": null,
       "broadSupport": 60,
       "arbitraryProcessCrossArchRestore": 20
     },
     "status": "blocked",
     "claimChangeAllowed": false,
-    "productPathRequired": true,
+    "productPathRequired": false,
     "productPathCovered": false,
     "retainedEvidence": ["thread/futex refusal rows"],
     "missingGates": [
@@ -29,7 +29,7 @@
     "arbitraryProcessCrossArchRestore": 0
   },
   "targetClaim": {
-    "productSupport": 60,
+    "productSupport": null,
     "broadSupport": 60,
     "arbitraryProcessCrossArchRestore": 20
   },

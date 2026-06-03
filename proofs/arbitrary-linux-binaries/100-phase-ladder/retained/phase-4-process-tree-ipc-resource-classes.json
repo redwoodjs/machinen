@@ -3,19 +3,19 @@
   "row": {
     "id": "phase-4-process-tree-ipc-resource-classes",
     "proofNumber": "arbitrary-phase/004",
-    "title": "40 / 40 / 10 process tree, IPC, and resource classes",
+    "title": "40 / 10 process tree, IPC, and resource proof classes",
     "targetClaim": {
-      "productSupport": 40,
+      "productSupport": null,
       "broadSupport": 40,
       "arbitraryProcessCrossArchRestore": 10
     },
     "status": "defined",
     "claimChangeAllowed": false,
-    "productPathRequired": true,
+    "productPathRequired": false,
     "productPathCovered": false,
     "retainedEvidence": ["arbitrary/016 process tree refusal proof"],
     "missingGates": [
-      "retained process-tree capture/reconstruction product artifacts",
+      "retained process-tree capture/reconstruction proof artifacts",
       "IPC matrix for Unix sockets, pipes, eventfd, timerfd, shared memory",
       "namespace/cgroup/credential boundary matrix"
     ],
@@ -29,7 +29,7 @@
     "arbitraryProcessCrossArchRestore": 0
   },
   "targetClaim": {
-    "productSupport": 40,
+    "productSupport": null,
     "broadSupport": 40,
     "arbitraryProcessCrossArchRestore": 10
   },

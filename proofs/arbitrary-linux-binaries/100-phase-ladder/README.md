@@ -1,8 +1,8 @@
-# Arbitrary process 100 / 100 / 100 phase ladder
+# Arbitrary process proof/classification phase ladder
 
 Status: `verified`
 
-This retained ladder defines phases 1–7 for a possible future `100 / 100 / 100` arbitrary Linux process claim. It does **not** complete those phases and does **not** raise the public claim.
+This retained ladder defines phases 1–7 for proof/classification coverage with product support explicitly out of scope. It does **not** raise the public claim.
 
 ## Current public claim
 

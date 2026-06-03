@@ -3,15 +3,15 @@
   "row": {
     "id": "phase-6-broad-linux-binary-corpus",
     "proofNumber": "arbitrary-phase/006",
-    "title": "80 / 80 / 50 broad Linux binary corpus under strict gates",
+    "title": "80 / 50 broad Linux binary proof corpus under strict gates",
     "targetClaim": {
-      "productSupport": 80,
+      "productSupport": null,
       "broadSupport": 80,
       "arbitraryProcessCrossArchRestore": 50
     },
     "status": "not-started",
     "claimChangeAllowed": false,
-    "productPathRequired": true,
+    "productPathRequired": false,
     "productPathCovered": false,
     "retainedEvidence": [],
     "missingGates": [
@@ -22,7 +22,7 @@
     ],
     "blockers": ["no broad uncontrolled binary corpus exists"],
     "claimUse": "phase definition/evidence only; public arbitrary Linux process restore remains 0",
-    "next": "Start only after controlled process and resource matrices are product-backed."
+    "next": "Start only after controlled process and resource proof matrices are retained."
   },
   "currentClaim": {
     "productSupport": null,
@@ -30,7 +30,7 @@
     "arbitraryProcessCrossArchRestore": 0
   },
   "targetClaim": {
-    "productSupport": 80,
+    "productSupport": null,
     "broadSupport": 80,
     "arbitraryProcessCrossArchRestore": 50
   },

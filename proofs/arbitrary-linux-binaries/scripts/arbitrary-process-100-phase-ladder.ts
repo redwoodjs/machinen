@@ -13,13 +13,13 @@ type PhaseRow = {
   proofNumber: `arbitrary-phase/${string}`;
   title: string;
   targetClaim: {
-    productSupport: number;
+    productSupport: number | null;
     broadSupport: number;
     arbitraryProcessCrossArchRestore: number;
   };
   status: PhaseStatus;
   claimChangeAllowed: false;
-  productPathRequired: boolean;
+  productPathRequired: false;
   productPathCovered: false;
   retainedEvidence: string[];
   missingGates: string[];
@@ -40,7 +40,7 @@ type PhaseLadderReport = {
     arbitraryProcessCrossArchRestore: 0;
   };
   targetClaim: {
-    productSupport: 100;
+    productSupport: null;
     broadSupport: 100;
     arbitraryProcessCrossArchRestore: 100;
   };
@@ -92,7 +92,7 @@ function phaseRows(): PhaseRow[] {
     title: string,
     targetClaim: PhaseRow["targetClaim"],
     status: PhaseStatus,
-    productPathRequired: boolean,
+    productPathRequired: false,
     retainedEvidence: string[],
     missingGates: string[],
     blockers: string[],
@@ -114,32 +114,28 @@ function phaseRows(): PhaseRow[] {
   });
   return [
     row(
-      "phase-1-selected-seed-product-path",
+      "phase-1-selected-seed-proof-path",
       "arbitrary-phase/001",
-      "1 / 1 / 1 selected seed product path",
-      { productSupport: 1, broadSupport: 1, arbitraryProcessCrossArchRestore: 1 },
-      "blocked",
-      true,
+      "1 / 1 selected seed proof path",
+      { productSupport: null, broadSupport: 1, arbitraryProcessCrossArchRestore: 1 },
+      "proof-only",
+      false,
       [
         "arbitrary/007 selected seed gate",
         "arbitrary/008 selected behavior E2E",
         "arbitrary/009-arbitrary/018 proof/refusal matrix",
       ],
-      [
-        "retained product command source capture for selected seed",
-        "retained product command target restore/verifier for both directions",
-        "stable product refusal codes for neighboring unsupported states",
-      ],
-      ["product-path artifacts are intentionally absent from current selected seed evidence"],
-      "Implement real product command artifacts before any 1% public claim decision.",
+      ["none for proof-only phase 1; product support is out of scope"],
+      [],
+      "Keep as proof-backed selected seed evidence; do not require product-path artifacts.",
     ),
     row(
       "phase-2-controlled-process-corpus",
       "arbitrary-phase/002",
-      "5 / 5 / 1 controlled process corpus",
-      { productSupport: 5, broadSupport: 5, arbitraryProcessCrossArchRestore: 1 },
+      "5 / 1 controlled process proof corpus",
+      { productSupport: null, broadSupport: 5, arbitraryProcessCrossArchRestore: 1 },
       "proof-only",
-      true,
+      false,
       [
         "argv/env/cwd proof",
         "regular-file FD proof",
@@ -147,20 +143,20 @@ function phaseRows(): PhaseRow[] {
         "idle epoll/TCP proof",
       ],
       [
-        "retained product matrix for multiple controlled binaries",
+        "retained proof matrix for multiple controlled binaries",
         "bidirectional target verifiers for each row",
         "row coverage manifest with no unknown rows",
       ],
-      ["current evidence is proof-only, not product-path"],
-      "Build controlled-binary product corpus only after phase 1 product path exists.",
+      ["controlled process corpus rows beyond the selected seed are not complete"],
+      "Build controlled-binary proof corpus without product-path requirements.",
     ),
     row(
       "phase-3-memory-dynamic-linker-signals",
       "arbitrary-phase/003",
-      "20 / 20 / 5 memory, linker, and signal boundary coverage",
-      { productSupport: 20, broadSupport: 20, arbitraryProcessCrossArchRestore: 5 },
+      "20 / 5 memory, linker, and signal proof coverage",
+      { productSupport: null, broadSupport: 20, arbitraryProcessCrossArchRestore: 5 },
       "proof-only",
-      true,
+      false,
       [
         "arbitrary/012 memory map materialization proof",
         "arbitrary/014 active syscall/signal refusals",
@@ -177,13 +173,13 @@ function phaseRows(): PhaseRow[] {
     row(
       "phase-4-process-tree-ipc-resource-classes",
       "arbitrary-phase/004",
-      "40 / 40 / 10 process tree, IPC, and resource classes",
-      { productSupport: 40, broadSupport: 40, arbitraryProcessCrossArchRestore: 10 },
+      "40 / 10 process tree, IPC, and resource proof classes",
+      { productSupport: null, broadSupport: 40, arbitraryProcessCrossArchRestore: 10 },
       "defined",
-      true,
+      false,
       ["arbitrary/016 process tree refusal proof"],
       [
-        "retained process-tree capture/reconstruction product artifacts",
+        "retained process-tree capture/reconstruction proof artifacts",
         "IPC matrix for Unix sockets, pipes, eventfd, timerfd, shared memory",
         "namespace/cgroup/credential boundary matrix",
       ],
@@ -193,10 +189,10 @@ function phaseRows(): PhaseRow[] {
     row(
       "phase-5-threads-futex-safe-subset",
       "arbitrary-phase/005",
-      "60 / 60 / 20 threads/futex safe subset or hard refusals",
-      { productSupport: 60, broadSupport: 60, arbitraryProcessCrossArchRestore: 20 },
+      "60 / 20 threads/futex proof subset or hard refusals",
+      { productSupport: null, broadSupport: 60, arbitraryProcessCrossArchRestore: 20 },
       "blocked",
-      true,
+      false,
       ["thread/futex refusal rows"],
       [
         "captured thread register/stack ownership model",
@@ -209,10 +205,10 @@ function phaseRows(): PhaseRow[] {
     row(
       "phase-6-broad-linux-binary-corpus",
       "arbitrary-phase/006",
-      "80 / 80 / 50 broad Linux binary corpus under strict gates",
-      { productSupport: 80, broadSupport: 80, arbitraryProcessCrossArchRestore: 50 },
+      "80 / 50 broad Linux binary proof corpus under strict gates",
+      { productSupport: null, broadSupport: 80, arbitraryProcessCrossArchRestore: 50 },
       "not-started",
-      true,
+      false,
       [],
       [
         "coreutils/shell/server/interpreter corpus",
@@ -221,25 +217,25 @@ function phaseRows(): PhaseRow[] {
         "artifact integrity manifest for every row",
       ],
       ["no broad uncontrolled binary corpus exists"],
-      "Start only after controlled process and resource matrices are product-backed.",
+      "Start only after controlled process and resource proof matrices are retained.",
     ),
     row(
-      "phase-7-arbitrary-process-100-gate",
+      "phase-7-arbitrary-process-proof-100-gate",
       "arbitrary-phase/007",
-      "100 / 100 / 100 arbitrary process claim gate",
-      { productSupport: 100, broadSupport: 100, arbitraryProcessCrossArchRestore: 100 },
+      "100 / 100 arbitrary process proof/classification gate",
+      { productSupport: null, broadSupport: 100, arbitraryProcessCrossArchRestore: 100 },
       "not-started",
-      true,
+      false,
       [],
       [
         "complete support/refusal matrix for every declared process-state class",
         "zero unknown rows",
-        "bidirectional product artifacts for every supported row",
+        "bidirectional proof artifacts for every supported row",
         "stable refusal artifacts for every refused row",
         "external shortcut audit showing no raw CPU restore/source ISA emulation/metadata-only success",
       ],
       ["arbitrary unknown Linux process state remains unsupported"],
-      "Only this gate may authorize 100 / 100 / 100, and only after all rows are supported or explicitly refused with retained artifacts.",
+      "Only this gate may authorize proof/classification 100 / 100; product support remains out of scope.",
     ),
   ];
 }
@@ -293,7 +289,7 @@ function buildReport(outDir: string): PhaseLadderReport {
       arbitraryProcessCrossArchRestore: 0 as const,
     },
     targetClaim: {
-      productSupport: 100 as const,
+      productSupport: null,
       broadSupport: 100 as const,
       arbitraryProcessCrossArchRestore: 100 as const,
     },

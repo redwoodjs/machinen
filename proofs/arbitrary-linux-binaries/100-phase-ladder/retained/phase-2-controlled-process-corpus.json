@@ -3,15 +3,15 @@
   "row": {
     "id": "phase-2-controlled-process-corpus",
     "proofNumber": "arbitrary-phase/002",
-    "title": "5 / 5 / 1 controlled process corpus",
+    "title": "5 / 1 controlled process proof corpus",
     "targetClaim": {
-      "productSupport": 5,
+      "productSupport": null,
       "broadSupport": 5,
       "arbitraryProcessCrossArchRestore": 1
     },
     "status": "proof-only",
     "claimChangeAllowed": false,
-    "productPathRequired": true,
+    "productPathRequired": false,
     "productPathCovered": false,
     "retainedEvidence": [
       "argv/env/cwd proof",
@@ -20,13 +20,13 @@
       "idle epoll/TCP proof"
     ],
     "missingGates": [
-      "retained product matrix for multiple controlled binaries",
+      "retained proof matrix for multiple controlled binaries",
       "bidirectional target verifiers for each row",
       "row coverage manifest with no unknown rows"
     ],
-    "blockers": ["current evidence is proof-only, not product-path"],
+    "blockers": ["controlled process corpus rows beyond the selected seed are not complete"],
     "claimUse": "phase definition/evidence only; public arbitrary Linux process restore remains 0",
-    "next": "Build controlled-binary product corpus only after phase 1 product path exists."
+    "next": "Build controlled-binary proof corpus without product-path requirements."
   },
   "currentClaim": {
     "productSupport": null,
@@ -34,7 +34,7 @@
     "arbitraryProcessCrossArchRestore": 0
   },
   "targetClaim": {
-    "productSupport": 5,
+    "productSupport": null,
     "broadSupport": 5,
     "arbitraryProcessCrossArchRestore": 1
   },

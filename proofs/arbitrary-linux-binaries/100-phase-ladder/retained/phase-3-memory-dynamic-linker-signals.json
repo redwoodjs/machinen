@@ -3,15 +3,15 @@
   "row": {
     "id": "phase-3-memory-dynamic-linker-signals",
     "proofNumber": "arbitrary-phase/003",
-    "title": "20 / 20 / 5 memory, linker, and signal boundary coverage",
+    "title": "20 / 5 memory, linker, and signal proof coverage",
     "targetClaim": {
-      "productSupport": 20,
+      "productSupport": null,
       "broadSupport": 20,
       "arbitraryProcessCrossArchRestore": 5
     },
     "status": "proof-only",
     "claimChangeAllowed": false,
-    "productPathRequired": true,
+    "productPathRequired": false,
     "productPathCovered": false,
     "retainedEvidence": [
       "arbitrary/012 memory map materialization proof",
@@ -33,7 +33,7 @@
     "arbitraryProcessCrossArchRestore": 0
   },
   "targetClaim": {
-    "productSupport": 20,
+    "productSupport": null,
     "broadSupport": 20,
     "arbitraryProcessCrossArchRestore": 5
   },
