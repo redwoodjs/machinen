@@ -477,11 +477,12 @@
           "sameArchOnlyRows": 0,
           "unknownRows": 0,
           "publicClaimAllowed": false,
-          "implementationEvidenceRows": 6,
+          "implementationEvidenceRows": 7,
           "realCrossArchE2eRows": 4,
           "arbitraryVmRestoreClaimed": false,
           "sourceArchitectureDetection": "snapshot-time",
-          "targetArchitectureDetection": "restore-time"
+          "targetArchitectureDetection": "restore-time",
+          "productCommandEvidenceRows": 1
         },
         "validationRules": [
           "Every manifest item must have a disposition.",
@@ -544,6 +545,15 @@
             "proves": "Actual amd64→arm64 target VM restores a clean SQLite database with target-native tooling and verifies query results. Product VM workflow should detect source/target arch automatically.",
             "artifact": "proofs/linux-vm-workload/real-cross-arch-portable-vm-all3-e2e/retained/real-cross-arch-portable-vm-all3-e2e-report.json",
             "claimUse": "selected clean SQLite workload evidence only; source/target arch detection is the product direction; arbitrary VM restore remains unclaimed"
+          },
+          {
+            "id": "vm/034",
+            "row": "portable-vm-product-snapshot-restore-e2e",
+            "status": "verified",
+            "scope": "portable-vm-all3-product-snapshot-restore-v1",
+            "proves": "machinen snapshot --portable and machinen restore now consume the selected portable VM all-three bundle with detected source/target architecture and filesystem/service/SQLite verifiers.",
+            "artifact": "proofs/linux-vm-workload/portable-vm-product-snapshot-restore/retained/portable-vm-product-snapshot-restore-e2e-report.json",
+            "claimUse": "product command path evidence only; opposite-arch product host run is next; arbitrary VM restore remains unclaimed"
           }
         ]
       }

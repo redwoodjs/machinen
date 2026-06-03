@@ -454,7 +454,8 @@ export const COMMANDS: CommandSpec[] = [
   },
   {
     name: "snapshot",
-    summary: "CRIU-snapshot a running VM.",
+    summary:
+      "Snapshot a running VM; --portable writes the selected Portable VM Manifest/Plan bundle.",
     jsonOutput: true,
     mutating: true,
     positionals: [
@@ -465,6 +466,12 @@ export const COMMANDS: CommandSpec[] = [
       },
     ],
     flags: [
+      {
+        name: "--portable",
+        type: "boolean",
+        description:
+          "Write the selected Portable VM Manifest/Plan bundle with source architecture detected from the VM.",
+      },
       {
         name: "--keep-alive",
         type: "boolean",
@@ -478,7 +485,7 @@ export const COMMANDS: CommandSpec[] = [
       { name: "--json", type: "boolean", description: "Emit the snapshot result as JSON." },
     ],
     jsonEnvelope:
-      '{"schema_version": 1, "snap_dir": <abs-path>, "elapsed_ms": <int>, "dry_run": <bool>}',
+      '{"schema_version": 1, "snap_dir"|"snapshotDir": <abs-path>, "elapsed_ms"|"elapsedMs": <int>, "dry_run"|"dryRun": <bool>}',
   },
   {
     name: "fork",

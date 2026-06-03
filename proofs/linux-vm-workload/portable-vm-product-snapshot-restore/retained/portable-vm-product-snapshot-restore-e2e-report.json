@@ -1,0 +1,56 @@
+{
+  "kind": "machinen.portable-vm-product-snapshot-restore-e2e-report",
+  "version": 1,
+  "accepted": true,
+  "proofStatus": "verified",
+  "scope": "portable-vm-all3-product-snapshot-restore-v1",
+  "productCommandPath": "machinen snapshot <vm> --portable --out <bundle>; machinen restore <bundle> --json",
+  "sourceArchitectureDetected": true,
+  "targetArchitectureDetected": true,
+  "result": {
+    "snapshotCompleted": true,
+    "restoreCompleted": true,
+    "migrationCompleted": true,
+    "sourceArch": "arm64",
+    "targetArch": "arm64",
+    "crossArchitecture": false,
+    "crossArchitectureProductHostAvailable": false,
+    "targetNativeVmBooted": true,
+    "targetVerifierPassed": true,
+    "filesystemVerified": true,
+    "serviceVerified": true,
+    "sqliteVerified": true
+  },
+  "claimGuard": {
+    "arbitraryVmRestoreClaimed": false,
+    "rawVmStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlyShortcutAccepted": false
+  },
+  "artifacts": [
+    {
+      "path": "snapshot.json",
+      "sha256": "72b0e7607b10b447ae27ab6ae8ced55849965deff4ffc24b1d0e762d325fe3d2"
+    },
+    {
+      "path": "restore.json",
+      "sha256": "bd27e7b5ed884d24f1fddbbe26adca99ad4a07c0f2e25f94d7c1600e60a5deff"
+    },
+    {
+      "path": "portable-vm.snap/portable-vm-snapshot-summary.json",
+      "sha256": "446303e7b05ab09ebca057c6aaa641d28df3ffd7c42ddc3a5a07420947ec5890"
+    },
+    {
+      "path": "portable-vm.snap/portable-vm-product-restore-summary.json",
+      "sha256": "be87058c2d4011a5b600fa6bd6b0d54c0f4c08bfff98308b61f9a8a103c8930e"
+    },
+    {
+      "path": "portable-vm.snap/source-architecture.txt",
+      "sha256": "c1669e1d8edca98769c37d494b76442a1d6e5ffffd7b4da1fb63aef8ebaf6f01"
+    },
+    {
+      "path": "portable-vm.snap/portable-vm-all3-manifest.json",
+      "sha256": "006954b2ccb6af6f9143cbf1aeee1c3648872ec3ec8a55b75384f439412973dc"
+    }
+  ]
+}

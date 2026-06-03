@@ -66,4 +66,5 @@ claim group here has a `claim.json` copy plus a readable `README.md`.
 - [Portable VM guest inventory plan proof](./linux-vm-workload/portable-vm-guest-inventory-plan/README.md) — `verified`
 - [Real cross-arch TCP listener product E2E](./linux-vm-workload/real-cross-arch-tcp-listener-product-e2e/README.md) — `verified`
 - [Real cross-arch portable VM all-3 E2E](./linux-vm-workload/real-cross-arch-portable-vm-all3-e2e/README.md) — `verified`
+- [Portable VM product snapshot/restore E2E](./linux-vm-workload/portable-vm-product-snapshot-restore/README.md) — `verified`
 - [Whole VM clean DB tooling support path](./linux-vm-workload/db-tooling-support-path/README.md) — `verified`

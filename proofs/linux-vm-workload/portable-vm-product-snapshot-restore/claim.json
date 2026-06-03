@@ -1,0 +1,39 @@
+{
+  "id": "portable-vm-product-snapshot-restore-e2e",
+  "claim": "Portable VM product snapshot/restore path for filesystem, service, and SQLite",
+  "trackId": "whole-linux-vm-workload",
+  "status": "verified",
+  "scope": "portable-vm-all3-product-snapshot-restore-v1",
+  "claimNumbers": {
+    "productSupport": 100,
+    "broadSupport": 100,
+    "arbitraryProcessCrossArchRestore": 0,
+    "arbitraryVmRestoreRowsAdded": 0
+  },
+  "promotionEffect": "Promotes the all-three portable VM path into machinen snapshot --portable and machinen restore commands with source/target architecture detection. The retained product run is local-arch; arbitrary VM restore remains unclaimed.",
+  "proofDirectory": "proofs/linux-vm-workload/portable-vm-product-snapshot-restore",
+  "proofs": [
+    {
+      "id": "portable-vm-product-snapshot-restore-e2e",
+      "proofNumber": "vm/034",
+      "category": "portable VM product snapshot/restore",
+      "status": "verified",
+      "disposition": "product-path",
+      "artifact": "proofs/linux-vm-workload/portable-vm-product-snapshot-restore/retained/portable-vm-product-snapshot-restore-e2e-report.json",
+      "proves": "Product commands completed: snapshot=true, restore=true, filesystem=true, service=true, sqlite=true; source/target arch detected without user arch flags.",
+      "claimUse": "product command path evidence for selected all-three portable VM workload; arbitrary VM restore remains unclaimed",
+      "next": "Run the same product command path on an actual opposite-architecture target host to make the product-path cross-arch evidence bidirectional.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 100,
+          "broadSupport": 100,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    }
+  ]
+}

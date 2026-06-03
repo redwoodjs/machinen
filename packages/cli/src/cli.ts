@@ -25,6 +25,7 @@ import {
   mkdtempSync,
   readFileSync,
   renameSync,
+  rmSync,
   symlinkSync,
   unlinkSync,
   writeFileSync,
@@ -3161,6 +3162,9 @@ async function cmdRestore(args: string[]): Promise<number> {
   const parsed = parseRestoreCommandArgs(rest);
   validateRestoreCommandArgs(parsed);
   const snapDir = resolve(parsed.positional[0]!);
+  if (isPortableVmProductBundle(snapDir)) {
+    return await cmdRestorePortableVmProductBundle(parsed, snapDir, json);
+  }
   const portableAdapter = detectPortableRestoreAdapter(snapDir);
   if (portableAdapter) {
     return cmdRestorePortableAdapter(portableAdapter, parsed, snapDir, json);
@@ -3202,6 +3206,156 @@ async function cmdRestore(args: string[]): Promise<number> {
   const vm = await startRestoreVm(parsed, snapDir, paths, quiet);
   reportRestoreSuccess(vm, quiet);
   return runRestoreAttachedSession(vm, quiet);
+}
+
+function isPortableVmProductBundle(snapDir: string): boolean {
+  return (
+    existsSync(join(snapDir, "portable-vm-all3-manifest.json")) &&
+    existsSync(join(snapDir, "source-architecture.txt")) &&
+    existsSync(join(snapDir, "target-restore.sh")) &&
+    existsSync(join(snapDir, "target-verify.sh"))
+  );
+}
+
+// fallow-ignore-next-line complexity
+async function cmdRestorePortableVmProductBundle(
+  parsed: ParsedRestoreCommandArgs,
+  snapDir: string,
+  json: boolean,
+): Promise<number> {
+  const started = Date.now();
+  const sourceArch = readPortableVmSourceArchitecture(snapDir);
+  const targetArch = guestCpu();
+  const name = parsed.name ?? deriveBootName(snapDir);
+  const paths = await resolveCliBaseAssets();
+  const vm = await boot({
+    image: paths.defaultImagePath,
+    kernel: paths.kernelPath,
+    dtb: paths.dtbPath,
+    name,
+    detached: true,
+    cmd: ["sleep", "100000"],
+    liveMounts: [{ host: snapDir, guest: "/mnt/capture", mode: "ro" }],
+    timeoutMs: undefined,
+  });
+  let continuationStarted = false;
+  try {
+    const restoreResult = await vm.execRaw("/mnt/capture/target-restore.sh", {
+      connectTimeoutMs: 180_000,
+      execTimeoutMs: 180_000,
+    });
+    if (restoreResult.exitCode !== 0) {
+      throw new Error(
+        restoreResult.stderr || restoreResult.stdout || "portable VM target restore failed",
+      );
+    }
+    const verifyResult = await vm.execRaw("/mnt/capture/target-verify.sh", {
+      connectTimeoutMs: 180_000,
+      execTimeoutMs: 90_000,
+    });
+    if (verifyResult.exitCode !== 0) {
+      throw new Error(
+        verifyResult.stderr || verifyResult.stdout || "portable VM target verifier failed",
+      );
+    }
+    const targetRestore = JSON.parse(restoreResult.stdout) as Record<string, unknown>;
+    const targetVerify = JSON.parse(verifyResult.stdout) as Record<string, unknown>;
+    const summary = {
+      kind: "machinen.portable-vm-product-restore-summary",
+      version: 1,
+      accepted: true,
+      scope: "portable-vm-all3-product-snapshot-restore-v1",
+      state: "completed",
+      migrationCompleted: true,
+      sourceArch,
+      targetArch,
+      sourceArchitectureDetected: true,
+      targetArchitectureDetected: true,
+      targetVmStarted: true,
+      restoredName: vm.name ?? name,
+      restoredPid: vm.pid,
+      targetRestore,
+      targetVerify,
+      workloads: {
+        filesystem: (targetVerify.filesystem as Record<string, unknown>)?.accepted === true,
+        service: (targetVerify.service as Record<string, unknown>)?.accepted === true,
+        sqlite: (targetVerify.sqlite as Record<string, unknown>)?.accepted === true,
+      },
+      claimGuard: portableVmClaimGuard(),
+      elapsedMs: Date.now() - started,
+    };
+    writeFileSync(
+      join(snapDir, "portable-vm-product-restore-summary.json"),
+      `${JSON.stringify(summary, null, 2)}\n`,
+    );
+    continuationStarted = true;
+    reportPortableVmRestoreSummary(json, summary);
+    return 0;
+  } catch (error) {
+    const refusal = portableVmRestoreRefusal(
+      "portable-vm-target-restore-failed",
+      describeError(error),
+      sourceArch,
+      targetArch,
+    );
+    writeFileSync(
+      join(snapDir, "portable-vm-product-restore-summary.json"),
+      `${JSON.stringify(refusal, null, 2)}\n`,
+    );
+    reportPortableVmRestoreSummary(json, refusal);
+    return 1;
+  } finally {
+    if (continuationStarted) {
+      await vm.detach();
+    } else {
+      await vm.kill().catch(() => undefined);
+    }
+  }
+}
+
+function portableVmRestoreRefusal(
+  code: string,
+  message: string,
+  sourceArch: GuestCpu,
+  targetArch: GuestCpu,
+): Record<string, unknown> {
+  return {
+    kind: "machinen.portable-vm-product-restore-summary",
+    version: 1,
+    accepted: false,
+    scope: "portable-vm-all3-product-snapshot-restore-v1",
+    state: "refused",
+    migrationCompleted: false,
+    sourceArch,
+    targetArch,
+    sourceArchitectureDetected: true,
+    targetArchitectureDetected: true,
+    refusal: { code, message },
+    claimGuard: portableVmClaimGuard(),
+  };
+}
+
+function portableVmClaimGuard(): Record<string, false> {
+  return {
+    arbitraryVmRestoreClaimed: false,
+    rawVmStateReplayUsed: false,
+    sourceIsaEmulationUsed: false,
+    metadataOnlyShortcutAccepted: false,
+  };
+}
+
+// fallow-ignore-next-line complexity
+function reportPortableVmRestoreSummary(json: boolean, summary: Record<string, unknown>): void {
+  if (json) {
+    emitJson({ schema_version: 1, ...summary });
+    return;
+  }
+  if (summary.accepted === true) {
+    process.stdout.write("portable VM restore completed\n");
+    return;
+  }
+  const refusal = summary.refusal as { code?: string; message?: string } | undefined;
+  process.stderr.write(`portable VM restore refused: ${refusal?.code ?? "unknown"}\n`);
 }
 
 function cmdRestoreNodeLevel5ProductSnapshot(snapDir: string, json: boolean): number {
@@ -6119,6 +6273,7 @@ interface SnapshotOptionsCli {
   json: boolean;
   dryRun: boolean;
   keepAlive: boolean;
+  portable: boolean;
   target: Target;
   outDir: string;
   resolvedOutDir: string;
@@ -6131,10 +6286,24 @@ function parseSnapshotOptions(args: string[]): SnapshotOptionsCli {
   const { json, rest: afterJson } = consumeJsonFlag(args);
   const { dryRun, rest: afterDry } = consumeDryRunFlag(afterJson);
   const { keepAlive, rest: afterKeepAlive } = consumeKeepAliveFlag(afterDry);
-  const { outDir: flaggedOutDir, rest } = consumeSnapshotOutFlag(afterKeepAlive);
+  const { portable, rest: afterPortable } = consumePortableSnapshotFlag(afterKeepAlive);
+  const { outDir: flaggedOutDir, rest } = consumeSnapshotOutFlag(afterPortable);
   const { target, rest: afterTarget } = resolveTarget(rest, "snapshot");
   const outDir = parseSnapshotOutDir(afterTarget, flaggedOutDir);
-  return { json, dryRun, keepAlive, target, outDir, resolvedOutDir: resolve(outDir) };
+  return { json, dryRun, keepAlive, portable, target, outDir, resolvedOutDir: resolve(outDir) };
+}
+
+function consumePortableSnapshotFlag(args: string[]): { portable: boolean; rest: string[] } {
+  const rest: string[] = [];
+  let portable = false;
+  for (const arg of args) {
+    if (arg === "--portable") {
+      portable = true;
+    } else {
+      rest.push(arg);
+    }
+  }
+  return { portable, rest };
 }
 
 function consumeKeepAliveFlag(args: string[]): { keepAlive: boolean; rest: string[] } {
@@ -6185,8 +6354,8 @@ function parsePositionalSnapshotOutDir(args: string[]): string {
 
 function snapshotUsage(): string {
   return (
-    "usage: machinen snapshot <name|pid> <out-dir> [--keep-alive] [--dry-run] [--json]\n" +
-    "       machinen snapshot <name|pid> --out <dir> [--keep-alive] [--dry-run] [--json]"
+    "usage: machinen snapshot <name|pid> <out-dir> [--portable] [--keep-alive] [--dry-run] [--json]\n" +
+    "       machinen snapshot <name|pid> --out <dir> [--portable] [--keep-alive] [--dry-run] [--json]"
   );
 }
 
@@ -6226,6 +6395,9 @@ async function runSnapshot(opts: SnapshotOptionsCli): Promise<number> {
   const vm = await attach(opts.target).catch(handleError);
   const quiet = createSnapshotQuietState(vm, opts);
   try {
+    if (opts.portable) {
+      return await runPortableVmSnapshot(vm, opts);
+    }
     const adapterOpts = { guestCpu, sha256Bytes };
     const portableNode = await inspectPortableNodeVm(vm, entry, adapterOpts);
     const cleanService = portableNode
@@ -6253,6 +6425,99 @@ async function runSnapshot(opts: SnapshotOptionsCli): Promise<number> {
   } finally {
     await vm.detach();
   }
+}
+
+async function runPortableVmSnapshot(vm: VmHandle, opts: SnapshotOptionsCli): Promise<number> {
+  const started = Date.now();
+  const sourcePath = "/opt/machinen-portable-vm-source/bundle";
+  const exportCommand = portableVmSnapshotExportCommand(sourcePath);
+  const exported = await vm.execRaw(exportCommand, { execTimeoutMs: 60_000 });
+  if (exported.exitCode !== 0) {
+    reportPortableVmSnapshotRefusal(
+      opts,
+      exported.stderr || exported.stdout || "portable VM source layout missing",
+    );
+    return 1;
+  }
+  const archive = Buffer.from(exported.stdout.trim(), "base64");
+  const tempDir = mkdtempSync(join(tmpdir(), "machinen-portable-vm-snapshot-"));
+  const archivePath = join(tempDir, "portable-vm.tar");
+  rmSync(opts.resolvedOutDir, { recursive: true, force: true });
+  mkdirSync(opts.resolvedOutDir, { recursive: true });
+  writeFileSync(archivePath, archive);
+  execFileSync("tar", ["-xf", archivePath, "-C", opts.resolvedOutDir]);
+  rmSync(tempDir, { recursive: true, force: true });
+  const summary = readPortableVmSnapshotSummary(opts.resolvedOutDir);
+  reportPortableVmSnapshotSuccess(opts, summary, Date.now() - started);
+  return 0;
+}
+
+function portableVmSnapshotExportCommand(sourcePath: string): string {
+  return [
+    "set -eu",
+    `src=${shellQuote(sourcePath)}`,
+    "[ -d \"$src\" ] || { echo 'portable VM source bundle missing' >&2; exit 41; }",
+    "[ -f \"$src/portable-vm-all3-manifest.json\" ] || { echo 'portable VM manifest missing' >&2; exit 42; }",
+    "[ -d \"$src/filesystem/root\" ] || { echo 'portable VM filesystem root missing' >&2; exit 43; }",
+    "[ -f \"$src/service-manifest.json\" ] || { echo 'portable VM service manifest missing' >&2; exit 44; }",
+    "[ -f \"$src/sqlite-dump.sql\" ] || { echo 'portable VM sqlite dump missing' >&2; exit 45; }",
+    "machine=$(uname -m)",
+    'case "$machine" in x86_64) source_arch=amd64 ;; aarch64|arm64) source_arch=arm64 ;; *) echo "unsupported source architecture: $machine" >&2; exit 46 ;; esac',
+    "work=$(mktemp -d)",
+    'cp -a "$src/." "$work/"',
+    'printf \'%s\\n\' "$source_arch" >"$work/source-architecture.txt"',
+    `printf '{"kind":"machinen.portable-vm-product-snapshot-summary","version":1,"accepted":true,"scope":"portable-vm-all3-product-snapshot-restore-v1","sourceArchitecture":"%s","sourceArchitectureDetected":true,"sourceArchitectureDetection":"uname -m inside source VM","sourcePath":"%s","arbitraryVmRestoreClaimed":false,"rawVmStateReplayUsed":false}\\n' "$source_arch" "$src" >"$work/portable-vm-snapshot-summary.json"`,
+    'tar -C "$work" -cf - . | base64 -w0',
+    'rm -rf "$work"',
+  ].join("; ");
+}
+
+function readPortableVmSnapshotSummary(bundleDir: string): Record<string, unknown> {
+  const summaryPath = join(bundleDir, "portable-vm-snapshot-summary.json");
+  if (!existsSync(summaryPath)) {
+    return { accepted: true, sourceArchitecture: readPortableVmSourceArchitecture(bundleDir) };
+  }
+  return JSON.parse(readFileSync(summaryPath, "utf8")) as Record<string, unknown>;
+}
+
+function readPortableVmSourceArchitecture(bundleDir: string): GuestCpu {
+  const value = readFileSync(join(bundleDir, "source-architecture.txt"), "utf8").trim();
+  if (value === "arm64" || value === "amd64") {
+    return value;
+  }
+  throw new Error(`portable VM source architecture is invalid: ${value}`);
+}
+
+function reportPortableVmSnapshotRefusal(opts: SnapshotOptionsCli, message: string): void {
+  if (opts.json) {
+    emitJson({
+      schema_version: 1,
+      kind: "machinen.portable-vm-product-snapshot-summary",
+      accepted: false,
+      migrationCompleted: false,
+      refusal: { code: "portable-vm-source-layout-unsupported", message: message.trim() },
+    });
+    return;
+  }
+  process.stderr.write(`machinen snapshot --portable: ${message.trim()}\n`);
+}
+
+function reportPortableVmSnapshotSuccess(
+  opts: SnapshotOptionsCli,
+  summary: Record<string, unknown>,
+  elapsedMs: number,
+): void {
+  if (opts.json) {
+    emitJson({
+      schema_version: 1,
+      ...summary,
+      snapshotDir: opts.resolvedOutDir,
+      elapsedMs,
+      dryRun: false,
+    });
+    return;
+  }
+  process.stdout.write(`portable VM snapshot: ${opts.resolvedOutDir} (${elapsedMs}ms)\n`);
 }
 
 function createSnapshotQuietState(vm: VmHandle, opts: SnapshotOptionsCli): QuietRunState {
@@ -7293,8 +7558,8 @@ function printHelp(): void {
       `                                                 pipes (good for one-shot commands).\n` +
       `                                                 Example:\n` +
       `                                                   machinen exec <name|pid> --tty -- bash -i\n` +
-      `  machinen snapshot <name|pid> <out-dir> [--keep-alive]\n` +
-      `  machinen snapshot <name|pid> --out <dir> [--keep-alive]\n` +
+      `  machinen snapshot <name|pid> <out-dir> [--portable] [--keep-alive]\n` +
+      `  machinen snapshot <name|pid> --out <dir> [--portable] [--keep-alive]\n` +
       `                                                 Checkpoint a running VM into <d>.\n` +
       `                                                 Node workloads are detected inside the VM;\n` +
       `                                                 no Node-only snapshot selector is needed.\n` +

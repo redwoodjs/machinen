@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "kind": "machinen.portable-vm-product-restore-summary",
+  "version": 1,
+  "accepted": true,
+  "scope": "portable-vm-all3-product-snapshot-restore-v1",
+  "state": "completed",
+  "migrationCompleted": true,
+  "sourceArch": "arm64",
+  "targetArch": "arm64",
+  "sourceArchitectureDetected": true,
+  "targetArchitectureDetected": true,
+  "targetVmStarted": true,
+  "restoredName": "portable-vm-product-target-arm64-1780484096-46876",
+  "restoredPid": 47219,
+  "targetRestore": {
+    "kind": "machinen.real-cross-arch-portable-vm-all3-target-restore",
+    "accepted": true,
+    "filesystemRestored": true,
+    "sqliteRestored": { "count": 3, "qtySum": 41 },
+    "sqliteExpected": { "count": 3, "qtySum": 41 },
+    "serviceStarted": true,
+    "servicePid": 351
+  },
+  "targetVerify": {
+    "kind": "machinen.real-cross-arch-portable-vm-all3-target-verifier",
+    "accepted": true,
+    "filesystem": { "accepted": true, "files": 2 },
+    "sqlite": { "accepted": true, "count": 3, "qtySum": 41 },
+    "service": { "accepted": true, "status": 200, "body": "machinen-portable-service-v1" }
+  },
+  "workloads": { "filesystem": true, "service": true, "sqlite": true },
+  "claimGuard": {
+    "arbitraryVmRestoreClaimed": false,
+    "rawVmStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlyShortcutAccepted": false
+  },
+  "elapsedMs": 3732
+}
