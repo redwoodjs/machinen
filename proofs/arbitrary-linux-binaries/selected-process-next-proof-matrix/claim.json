@@ -1,148 +1,18 @@
 {
-  "id": "arbitrary-process-0-seed-1-locked",
-  "claim": "Arbitrary process 0% / candidate 1% locked",
+  "id": "selected-arbitrary-process-next-proof-matrix",
+  "claim": "Selected arbitrary Linux process next proof matrix",
   "trackId": "arbitrary-process",
-  "status": "partial-proof",
-  "scope": "Captured process-state translation plus target-native reconstruction seeds.",
+  "status": "verified",
+  "scope": "selected-arbitrary-linux-process-seed-v1",
   "claimNumbers": {
     "productSupport": null,
     "broadSupport": null,
     "arbitraryProcessCrossArchRestore": 0,
     "candidateArbitraryProcessCrossArchRestore": 1
   },
-  "promotionEffect": "No public claim change. The selected seed gate is proof-only, does not require product-path artifacts, and keeps arbitrary Linux process restore at 0.",
+  "promotionEffect": "No public claim change. Rows arbitrary/009 through arbitrary/018 are proof-only/refusal/claim-locked evidence and keep arbitrary Linux process restore at 0.",
+  "proofDirectory": "proofs/arbitrary-linux-binaries/selected-process-next-proof-matrix",
   "proofs": [
-    {
-      "id": "arbitrary-process-seed-matrix",
-      "category": "seed matrix",
-      "status": "passed",
-      "artifact": "arbitrary-process-level5-seed-matrix.json",
-      "proves": "14-row seed/refusal/not-proven matrix with claim locked at 0",
-      "claimUse": "defines proof backlog and unsafe refusals",
-      "next": "Seed matrix is accepted; derive remaining work from unfinished proof and evidence rows."
-    },
-    {
-      "id": "arbitrary-process-claim-ready-gate",
-      "category": "claim gate",
-      "status": "passed",
-      "artifact": "arbitrary-process-claim-ready-report.json",
-      "proves": "claimChangeAllowed can only become true through the dedicated arbitrary-process claim-ready gate",
-      "claimUse": "keeps public arbitrary-process claim at 0 until required verified seeds pass",
-      "next": "Keep public claim changes separate; this gate only authorizes a candidate 1% decision.",
-      "claimImpact": {
-        "productSupportDelta": 0,
-        "broadSupportDelta": 0,
-        "arbitraryProcessCrossArchRestoreDelta": 0,
-        "resultingClaim": {
-          "productSupport": null,
-          "broadSupport": null,
-          "arbitraryProcessCrossArchRestore": 0
-        },
-        "claimChangeAllowed": false
-      }
-    },
-    {
-      "id": "regular-file-fd-proof",
-      "category": "file descriptor",
-      "status": "verified-seed",
-      "artifact": "regular-file-fd-proof-report.json",
-      "proves": "Target-native reopen preserves captured file offset and read continuation",
-      "claimUse": "one verified arbitrary-process seed; no claim raise",
-      "next": "Covered by the accepted claim-ready gate."
-    },
-    {
-      "id": "simple-pipe-fd-proof",
-      "category": "file descriptor",
-      "status": "verified-seed",
-      "artifact": "simple-pipe-fd-proof-report.json",
-      "proves": "Target-native simple pipe reconstruction preserves endpoint direction, buffered bytes, and EOF behavior",
-      "claimUse": "second verified arbitrary-process seed; no claim raise",
-      "next": "Covered by the accepted claim-ready gate; no public claim raise in this PR.",
-      "claimImpact": {
-        "productSupportDelta": 0,
-        "broadSupportDelta": 0,
-        "arbitraryProcessCrossArchRestoreDelta": 0,
-        "resultingClaim": {
-          "productSupport": null,
-          "broadSupport": null,
-          "arbitraryProcessCrossArchRestore": 0
-        },
-        "claimChangeAllowed": false
-      }
-    },
-    {
-      "id": "idle-epoll-tcp-proof",
-      "category": "kernel resources",
-      "status": "verified-seed",
-      "artifact": "idle-resource-proof-report.json",
-      "proves": "Target-native reconstruction of idle epoll and idle TCP listener resources with no active streams or ready events",
-      "claimUse": "third verified arbitrary-process seed; unlocks the claim-ready gate but does not itself raise the public claim",
-      "next": "Covered by the accepted claim-ready gate; keep public claim changes separate.",
-      "claimImpact": {
-        "productSupportDelta": 0,
-        "broadSupportDelta": 0,
-        "arbitraryProcessCrossArchRestoreDelta": 0,
-        "resultingClaim": {
-          "productSupport": null,
-          "broadSupport": null,
-          "arbitraryProcessCrossArchRestore": 0
-        },
-        "claimChangeAllowed": true
-      }
-    },
-    {
-      "id": "unsafe-process-boundaries",
-      "category": "refusals",
-      "status": "refused",
-      "artifact": "arbitrary-process-level5-seed-matrix.md",
-      "proves": "threads, JIT, futex owners, live sockets, device mmap, active epoll remain refused",
-      "claimUse": "prevents overclaiming",
-      "next": "Only reduce boundaries with retained verifier artifacts."
-    },
-    {
-      "id": "selected-arbitrary-process-seed-gate",
-      "proofNumber": "arbitrary/007",
-      "category": "selected process seed gate",
-      "status": "verified",
-      "artifact": "proofs/arbitrary-linux-binaries/selected-process-seed/retained/selected-arbitrary-process-seed-gate-report.json",
-      "proves": "selected-arbitrary-linux-process-seed-v1 has three retained proof-only seed rows, six refusal boundaries, no product-path artifact requirement, product support rows added 0, and no public arbitrary-process claim lift.",
-      "claimUse": "candidate-only selected seed evidence; arbitrary Linux process restore remains 0",
-      "next": "Add broader retained product-path support only in a separate claim-change path.",
-      "claimImpact": {
-        "productSupportDelta": 0,
-        "broadSupportDelta": 0,
-        "arbitraryProcessCrossArchRestoreDelta": 0,
-        "resultingClaim": {
-          "productSupport": null,
-          "broadSupport": null,
-          "arbitraryProcessCrossArchRestore": 0
-        },
-        "claimChangeAllowed": false,
-        "scope": "selected-arbitrary-linux-process-seed-v1 proof-only"
-      }
-    },
-    {
-      "id": "selected-arbitrary-process-behavior-e2e",
-      "proofNumber": "arbitrary/008",
-      "category": "selected process behavior e2e",
-      "status": "verified",
-      "artifact": "proofs/arbitrary-linux-binaries/selected-process-behavior-e2e/retained/selected-arbitrary-process-behavior-e2e-report.json",
-      "proves": "selected-arbitrary-linux-process-seed-v1 has retained behavior checks for argv/env/cwd, static/data/heap, regular-file FD, simple pipe FD, idle epoll/TCP, and eight explicit refusal boundaries without a public arbitrary-process claim lift.",
-      "claimUse": "proof-only selected behavior evidence; arbitrary Linux process restore remains 0",
-      "next": "Broaden only with retained product-path support and additional uncontrolled-state coverage in a separate claim-change path.",
-      "claimImpact": {
-        "productSupportDelta": 0,
-        "broadSupportDelta": 0,
-        "arbitraryProcessCrossArchRestoreDelta": 0,
-        "resultingClaim": {
-          "productSupport": null,
-          "broadSupport": null,
-          "arbitraryProcessCrossArchRestore": 0
-        },
-        "claimChangeAllowed": false,
-        "scope": "selected-arbitrary-linux-process-seed-v1 proof-only behavior e2e"
-      }
-    },
     {
       "id": "selected-arbitrary-process-bidirectional-architecture-matrix",
       "proofNumber": "arbitrary/009",
@@ -373,6 +243,5 @@
         "scope": "selected-arbitrary-linux-process-seed-v1 proof-only"
       }
     }
-  ],
-  "proofDirectory": "proofs/arbitrary-linux-binaries/0-seed-1-locked"
+  ]
 }

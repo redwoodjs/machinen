@@ -1,0 +1,43 @@
+{
+  "kind": "machinen.selected-arbitrary-process-next-proof-row",
+  "scope": "selected-arbitrary-linux-process-seed-v1",
+  "row": {
+    "id": "selected-arbitrary-process-bidirectional-architecture-matrix",
+    "proofNumber": "arbitrary/009",
+    "category": "bidirectional architecture matrix",
+    "status": "verified",
+    "disposition": "proof-only",
+    "proves": "Retained matrix covers selected-arbitrary-linux-process-seed-v1 in arm64-to-amd64 and amd64-to-arm64 proof-only directions with identical behavior/refusal requirements.",
+    "claimUse": "proof-only architecture evidence; arbitrary Linux process restore remains 0"
+  },
+  "currentClaim": {
+    "productSupport": null,
+    "broadSupport": null,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "claimChangeAllowed": false,
+  "publicClaimAllowed": false,
+  "productSupportRowsAdded": 0,
+  "productSupportClaimAllowed": false,
+  "noShortcutPolicy": {
+    "rawCpuRestoreAccepted": false,
+    "rawRegisterReplayAccepted": false,
+    "sourceIsaEmulationAccepted": false,
+    "appCheckpointHooksAccepted": false,
+    "sidecarReplayAccepted": false,
+    "metadataOnlySuccessAccepted": false,
+    "arbitraryUnknownProcessAccepted": false
+  },
+  "directions": [
+    {
+      "direction": "arm64-to-amd64",
+      "behaviorChecksVerified": 5,
+      "refusalRowsRetained": 8
+    },
+    {
+      "direction": "amd64-to-arm64",
+      "behaviorChecksVerified": 5,
+      "refusalRowsRetained": 8
+    }
+  ]
+}

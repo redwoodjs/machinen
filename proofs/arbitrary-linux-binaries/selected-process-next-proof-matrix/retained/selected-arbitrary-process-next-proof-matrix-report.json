@@ -1,0 +1,220 @@
+{
+  "kind": "machinen.selected-arbitrary-process-next-proof-matrix",
+  "version": 1,
+  "accepted": true,
+  "scope": "selected-arbitrary-linux-process-seed-v1",
+  "proofStatus": "verified",
+  "publicClaimAllowed": false,
+  "claimChangeAllowed": false,
+  "currentClaim": {
+    "productSupport": null,
+    "broadSupport": null,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "candidateOnly": {
+    "arbitraryProcessCrossArchRestore": 1,
+    "claimChangeAllowed": false
+  },
+  "summary": {
+    "requiredRows": 10,
+    "verifiedRows": 10,
+    "proofOnlyRows": 7,
+    "refusedRows": 2,
+    "claimLockedRows": 1,
+    "productSupportRowsAdded": 0
+  },
+  "rows": [
+    {
+      "id": "selected-arbitrary-process-bidirectional-architecture-matrix",
+      "proofNumber": "arbitrary/009",
+      "category": "bidirectional architecture matrix",
+      "status": "verified",
+      "disposition": "proof-only",
+      "artifact": "proofs/arbitrary-linux-binaries/selected-process-next-proof-matrix/retained/selected-arbitrary-process-bidirectional-architecture-matrix.json",
+      "proves": "Retained matrix covers selected-arbitrary-linux-process-seed-v1 in arm64-to-amd64 and amd64-to-arm64 proof-only directions with identical behavior/refusal requirements.",
+      "claimUse": "proof-only architecture evidence; arbitrary Linux process restore remains 0",
+      "next": "Replace proof-only directions with retained product-path directions only in a separate product claim path.",
+      "accepted": true,
+      "productSupportClaimAllowed": false
+    },
+    {
+      "id": "selected-tiny-native-process-source-capture",
+      "proofNumber": "arbitrary/010",
+      "category": "source capture fixture",
+      "status": "verified",
+      "disposition": "proof-only",
+      "artifact": "proofs/arbitrary-linux-binaries/selected-process-next-proof-matrix/retained/selected-tiny-native-process-source-capture.json",
+      "proves": "Retained source capture fixture records argv/env/cwd, static/data/heap hash, safe-point metadata, and selected resource descriptors for one tiny single-thread native seed.",
+      "claimUse": "proof-only source-capture evidence; no arbitrary-process claim lift",
+      "next": "Move from fixture capture to product capture only with retained command transcripts and target verifiers.",
+      "accepted": true,
+      "productSupportClaimAllowed": false
+    },
+    {
+      "id": "selected-tiny-native-target-reconstruction-verifier",
+      "proofNumber": "arbitrary/011",
+      "category": "target reconstruction verifier",
+      "status": "verified",
+      "disposition": "proof-only",
+      "artifact": "proofs/arbitrary-linux-binaries/selected-process-next-proof-matrix/retained/selected-tiny-native-target-reconstruction-verifier.json",
+      "proves": "Retained target verifier checks selected seed metadata, static/data/heap payload, regular-file FD, simple pipe FD, and idle epoll/TCP reconstruction without raw CPU restore.",
+      "claimUse": "proof-only target behavior evidence; no arbitrary-process claim lift",
+      "next": "Broaden only after target-native reconstruction covers additional uncontrolled state.",
+      "accepted": true,
+      "productSupportClaimAllowed": false
+    },
+    {
+      "id": "selected-memory-map-materialization-proof",
+      "proofNumber": "arbitrary/012",
+      "category": "memory map materialization",
+      "status": "verified",
+      "disposition": "proof-only",
+      "artifact": "proofs/arbitrary-linux-binaries/selected-process-next-proof-matrix/retained/selected-memory-map-materialization-proof.json",
+      "proves": "Retained memory map materialization proof accepts only static/data/heap mappings and refuses JIT, device, shared-opaque, and executable-anonymous mappings.",
+      "claimUse": "proof-only memory-surface evidence; no arbitrary-process claim lift",
+      "next": "Add separate retained rows for each new mapping class before reducing refusals.",
+      "accepted": true,
+      "productSupportClaimAllowed": false
+    },
+    {
+      "id": "selected-register-stack-bootstrap-boundary",
+      "proofNumber": "arbitrary/013",
+      "category": "register stack bootstrap boundary",
+      "status": "verified",
+      "disposition": "proof-only",
+      "artifact": "proofs/arbitrary-linux-binaries/selected-process-next-proof-matrix/retained/selected-register-stack-bootstrap-boundary.json",
+      "proves": "Retained bootstrap boundary records translated entry/stack descriptors and explicitly forbids raw register replay or raw stack continuation as success.",
+      "claimUse": "proof-only bootstrap boundary evidence; no arbitrary-process claim lift",
+      "next": "Broaden only with retained target-native bootstrap verifiers for more process shapes.",
+      "accepted": true,
+      "productSupportClaimAllowed": false
+    },
+    {
+      "id": "selected-signal-frame-active-syscall-refusals",
+      "proofNumber": "arbitrary/014",
+      "category": "signal and active syscall refusals",
+      "status": "verified",
+      "disposition": "refused",
+      "artifact": "proofs/arbitrary-linux-binaries/selected-process-next-proof-matrix/retained/selected-signal-frame-active-syscall-refusals.json",
+      "proves": "Retained refusal row keeps signal frames, pending handlers, active syscalls, and interrupted kernel state outside selected-arbitrary-linux-process-seed-v1.",
+      "claimUse": "refusal evidence; prevents arbitrary-process overclaiming",
+      "next": "Reduce only with stable refusal/translation codes and target behavior verifiers for each active-state class.",
+      "accepted": true,
+      "productSupportClaimAllowed": false
+    },
+    {
+      "id": "selected-dynamic-linker-shared-library-boundary",
+      "proofNumber": "arbitrary/015",
+      "category": "dynamic linker boundary",
+      "status": "verified",
+      "disposition": "proof-only",
+      "artifact": "proofs/arbitrary-linux-binaries/selected-process-next-proof-matrix/retained/selected-dynamic-linker-shared-library-boundary.json",
+      "proves": "Retained dependency boundary supports only target-native dependency availability and refuses source-architecture shared library/ABI mismatch and missing target runtime dependencies.",
+      "claimUse": "proof-only dependency boundary evidence; no arbitrary-process claim lift",
+      "next": "Add target dependency manifests and bidirectional target verifiers before claiming more library surfaces.",
+      "accepted": true,
+      "productSupportClaimAllowed": false
+    },
+    {
+      "id": "selected-process-tree-refusal-proof",
+      "proofNumber": "arbitrary/016",
+      "category": "process tree refusal",
+      "status": "verified",
+      "disposition": "refused",
+      "artifact": "proofs/arbitrary-linux-binaries/selected-process-next-proof-matrix/retained/selected-process-tree-refusal-proof.json",
+      "proves": "Retained refusal row keeps forked process trees, parent/child relationships, process groups, and cross-process IPC outside selected-arbitrary-linux-process-seed-v1.",
+      "claimUse": "refusal evidence; prevents process-tree overclaiming",
+      "next": "Reduce only with retained multi-process capture/reconstruction and IPC verifiers.",
+      "accepted": true,
+      "productSupportClaimAllowed": false
+    },
+    {
+      "id": "selected-arbitrary-process-evidence-index",
+      "proofNumber": "arbitrary/017",
+      "category": "selected seed evidence index",
+      "status": "verified",
+      "disposition": "proof-only",
+      "artifact": "proofs/arbitrary-linux-binaries/selected-process-next-proof-matrix/retained/selected-arbitrary-process-evidence-index.json",
+      "proves": "Retained evidence index ties arbitrary/007 through arbitrary/016 to SHA-addressed artifacts, behavior checks, refusal boundaries, and no-shortcut policy.",
+      "claimUse": "coverage index only; no public arbitrary-process claim lift",
+      "next": "Keep this index accepted before any future candidate or product claim decision.",
+      "accepted": true,
+      "productSupportClaimAllowed": false
+    },
+    {
+      "id": "selected-arbitrary-process-candidate-claim-decision",
+      "proofNumber": "arbitrary/018",
+      "category": "candidate claim decision row",
+      "status": "verified",
+      "disposition": "claim-locked",
+      "artifact": "proofs/arbitrary-linux-binaries/selected-process-next-proof-matrix/retained/selected-arbitrary-process-candidate-claim-decision.json",
+      "proves": "Retained decision row records that candidate 1% evidence exists for the selected seed, but public arbitrary Linux process restore remains 0 because product-path support and broad uncontrolled-state coverage are absent.",
+      "claimUse": "locks public claim at 0; candidate remains non-public",
+      "next": "Only change public claim in a separate explicit claim-change path with retained product-path evidence.",
+      "accepted": true,
+      "productSupportClaimAllowed": false
+    }
+  ],
+  "artifacts": [
+    {
+      "name": "selected-arbitrary-process-bidirectional-architecture-matrix.json",
+      "path": "selected-arbitrary-process-bidirectional-architecture-matrix.json",
+      "sha256": "9bfabf064cbdff6471b9186c7d5c1a10f208a7b38f31812607653c6b3b44ec1f"
+    },
+    {
+      "name": "selected-tiny-native-process-source-capture.json",
+      "path": "selected-tiny-native-process-source-capture.json",
+      "sha256": "2091cc6a745f4b623590a5fa389dbe8326dea8c65ebb556dd64e231f566fdb95"
+    },
+    {
+      "name": "selected-tiny-native-target-reconstruction-verifier.json",
+      "path": "selected-tiny-native-target-reconstruction-verifier.json",
+      "sha256": "f16fe464e501f01a4ae2edc4122c8bc1713673ef533e0596de141e645944ee71"
+    },
+    {
+      "name": "selected-memory-map-materialization-proof.json",
+      "path": "selected-memory-map-materialization-proof.json",
+      "sha256": "f60e621b2e1b96ebb74632d747ca35967c0c533a3cbe0ff49ff439527a5e3771"
+    },
+    {
+      "name": "selected-register-stack-bootstrap-boundary.json",
+      "path": "selected-register-stack-bootstrap-boundary.json",
+      "sha256": "841f8a7db9de69b6bbdd180bee83f524fe29acb956900401df7a535e2d2a77dd"
+    },
+    {
+      "name": "selected-signal-frame-active-syscall-refusals.json",
+      "path": "selected-signal-frame-active-syscall-refusals.json",
+      "sha256": "9bff4cb40e788beac393c5a9d7b5d219ea73ac85dc3488872992195fbfe57512"
+    },
+    {
+      "name": "selected-dynamic-linker-shared-library-boundary.json",
+      "path": "selected-dynamic-linker-shared-library-boundary.json",
+      "sha256": "7de513e4d09c402c8280727a55c6dc2ac5d73c0089390b8d888250325c898a82"
+    },
+    {
+      "name": "selected-process-tree-refusal-proof.json",
+      "path": "selected-process-tree-refusal-proof.json",
+      "sha256": "98bb5d7764a43be83e588433635256329a01b469ad08a57a4a44513a78a49625"
+    },
+    {
+      "name": "selected-arbitrary-process-evidence-index.json",
+      "path": "selected-arbitrary-process-evidence-index.json",
+      "sha256": "70ca01ddfdd4fae5c0cee61b70f587828b56e8acb91b7ef8cb8fa6fbbaee96b0"
+    },
+    {
+      "name": "selected-arbitrary-process-candidate-claim-decision.json",
+      "path": "selected-arbitrary-process-candidate-claim-decision.json",
+      "sha256": "a6126a1a4c94860bf463ebdec7c627a31ea2612015837b1bccff7bdcf94ac9af"
+    }
+  ],
+  "noShortcutPolicy": {
+    "rawCpuRestoreAccepted": false,
+    "rawRegisterReplayAccepted": false,
+    "sourceIsaEmulationAccepted": false,
+    "appCheckpointHooksAccepted": false,
+    "sidecarReplayAccepted": false,
+    "metadataOnlySuccessAccepted": false,
+    "arbitraryUnknownProcessAccepted": false
+  },
+  "artifactsSha256": "16dd0ce4fb5429587f643575509204cae97631c22681aa336733e58e18d35f38"
+}

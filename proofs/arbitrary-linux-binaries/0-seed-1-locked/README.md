@@ -34,6 +34,10 @@ Promotion effect: No public claim change. The selected seed gate is proof-only, 
 | `selected-arbitrary-process-seed-gate`    | selected process seed gate    | `verified`      | `../selected-process-seed/retained/selected-arbitrary-process-seed-gate-report.json`            | selected-arbitrary-linux-process-seed-v1 has 3 proof-only seed rows and 6 refusals                                         | candidate-only selected seed evidence; claim remains 0 | Add broader retained product-path support only in a separate claim-change path.  |
 | `selected-arbitrary-process-behavior-e2e` | selected process behavior e2e | `verified`      | `../selected-process-behavior-e2e/retained/selected-arbitrary-process-behavior-e2e-report.json` | selected seed behavior checks pass for argv/env/cwd, static/data/heap, regular-file FD, simple pipe FD, and idle epoll/TCP | proof-only selected behavior evidence; claim remains 0 | Broaden only with retained product-path support and uncontrolled-state coverage. |
 
+## Next proof matrix rows
+
+Rows `arbitrary/009` through `arbitrary/018` are retained in `../selected-process-next-proof-matrix/retained/selected-arbitrary-process-next-proof-matrix-report.json`. They are proof-only, refusal, or claim-locked rows and do not change the public arbitrary Linux process restore claim.
+
 ## Local proof notes
 
 - [Regular file FD proof](./regular-file-fd-proof.md)

@@ -1,0 +1,38 @@
+{
+  "kind": "machinen.selected-arbitrary-process-next-proof-row",
+  "scope": "selected-arbitrary-linux-process-seed-v1",
+  "row": {
+    "id": "selected-arbitrary-process-candidate-claim-decision",
+    "proofNumber": "arbitrary/018",
+    "category": "candidate claim decision row",
+    "status": "verified",
+    "disposition": "claim-locked",
+    "proves": "Retained decision row records that candidate 1% evidence exists for the selected seed, but public arbitrary Linux process restore remains 0 because product-path support and broad uncontrolled-state coverage are absent.",
+    "claimUse": "locks public claim at 0; candidate remains non-public"
+  },
+  "currentClaim": {
+    "productSupport": null,
+    "broadSupport": null,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "claimChangeAllowed": false,
+  "publicClaimAllowed": false,
+  "productSupportRowsAdded": 0,
+  "productSupportClaimAllowed": false,
+  "noShortcutPolicy": {
+    "rawCpuRestoreAccepted": false,
+    "rawRegisterReplayAccepted": false,
+    "sourceIsaEmulationAccepted": false,
+    "appCheckpointHooksAccepted": false,
+    "sidecarReplayAccepted": false,
+    "metadataOnlySuccessAccepted": false,
+    "arbitraryUnknownProcessAccepted": false
+  },
+  "decision": {
+    "candidateEvidenceAvailable": true,
+    "candidateArbitraryProcessCrossArchRestore": 1,
+    "publicArbitraryProcessCrossArchRestore": 0,
+    "publicClaimChangeAllowed": false,
+    "reason": "product-path support and broad uncontrolled-state coverage remain absent"
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "kind": "machinen.selected-arbitrary-process-next-proof-row",
+  "scope": "selected-arbitrary-linux-process-seed-v1",
+  "row": {
+    "id": "selected-process-tree-refusal-proof",
+    "proofNumber": "arbitrary/016",
+    "category": "process tree refusal",
+    "status": "verified",
+    "disposition": "refused",
+    "proves": "Retained refusal row keeps forked process trees, parent/child relationships, process groups, and cross-process IPC outside selected-arbitrary-linux-process-seed-v1.",
+    "claimUse": "refusal evidence; prevents process-tree overclaiming"
+  },
+  "currentClaim": {
+    "productSupport": null,
+    "broadSupport": null,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "claimChangeAllowed": false,
+  "publicClaimAllowed": false,
+  "productSupportRowsAdded": 0,
+  "productSupportClaimAllowed": false,
+  "noShortcutPolicy": {
+    "rawCpuRestoreAccepted": false,
+    "rawRegisterReplayAccepted": false,
+    "sourceIsaEmulationAccepted": false,
+    "appCheckpointHooksAccepted": false,
+    "sidecarReplayAccepted": false,
+    "metadataOnlySuccessAccepted": false,
+    "arbitraryUnknownProcessAccepted": false
+  },
+  "refusals": ["forked-child", "process-tree", "process-group", "cross-process-ipc"]
+}

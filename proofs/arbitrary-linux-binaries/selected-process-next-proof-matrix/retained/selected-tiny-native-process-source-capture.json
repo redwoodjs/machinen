@@ -1,0 +1,42 @@
+{
+  "kind": "machinen.selected-arbitrary-process-next-proof-row",
+  "scope": "selected-arbitrary-linux-process-seed-v1",
+  "row": {
+    "id": "selected-tiny-native-process-source-capture",
+    "proofNumber": "arbitrary/010",
+    "category": "source capture fixture",
+    "status": "verified",
+    "disposition": "proof-only",
+    "proves": "Retained source capture fixture records argv/env/cwd, static/data/heap hash, safe-point metadata, and selected resource descriptors for one tiny single-thread native seed.",
+    "claimUse": "proof-only source-capture evidence; no arbitrary-process claim lift"
+  },
+  "currentClaim": {
+    "productSupport": null,
+    "broadSupport": null,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "claimChangeAllowed": false,
+  "publicClaimAllowed": false,
+  "productSupportRowsAdded": 0,
+  "productSupportClaimAllowed": false,
+  "noShortcutPolicy": {
+    "rawCpuRestoreAccepted": false,
+    "rawRegisterReplayAccepted": false,
+    "sourceIsaEmulationAccepted": false,
+    "appCheckpointHooksAccepted": false,
+    "sidecarReplayAccepted": false,
+    "metadataOnlySuccessAccepted": false,
+    "arbitraryUnknownProcessAccepted": false
+  },
+  "sourceCapture": {
+    "threads": 1,
+    "safePoint": "idle",
+    "argv": ["selected-arbitrary-process-seed", "--capture"],
+    "env": {
+      "MACHINEN_SELECTED_SEED": "1"
+    },
+    "cwdPolicy": "captured-path-hash",
+    "staticDataHeapSha256": "15eabdd401f97ec5fe73d4ee01f2cbcc3c6df54dd03329bf5fa316cc38a16fef",
+    "selectedResources": ["regular-file-fd", "simple-pipe-fd", "idle-epoll-tcp"]
+  }
+}

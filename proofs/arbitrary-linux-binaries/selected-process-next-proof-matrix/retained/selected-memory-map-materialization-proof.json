@@ -1,0 +1,35 @@
+{
+  "kind": "machinen.selected-arbitrary-process-next-proof-row",
+  "scope": "selected-arbitrary-linux-process-seed-v1",
+  "row": {
+    "id": "selected-memory-map-materialization-proof",
+    "proofNumber": "arbitrary/012",
+    "category": "memory map materialization",
+    "status": "verified",
+    "disposition": "proof-only",
+    "proves": "Retained memory map materialization proof accepts only static/data/heap mappings and refuses JIT, device, shared-opaque, and executable-anonymous mappings.",
+    "claimUse": "proof-only memory-surface evidence; no arbitrary-process claim lift"
+  },
+  "currentClaim": {
+    "productSupport": null,
+    "broadSupport": null,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "claimChangeAllowed": false,
+  "publicClaimAllowed": false,
+  "productSupportRowsAdded": 0,
+  "productSupportClaimAllowed": false,
+  "noShortcutPolicy": {
+    "rawCpuRestoreAccepted": false,
+    "rawRegisterReplayAccepted": false,
+    "sourceIsaEmulationAccepted": false,
+    "appCheckpointHooksAccepted": false,
+    "sidecarReplayAccepted": false,
+    "metadataOnlySuccessAccepted": false,
+    "arbitraryUnknownProcessAccepted": false
+  },
+  "memoryMaps": {
+    "accepted": ["static", "data", "heap"],
+    "refused": ["jit-code", "device-mmap", "shared-opaque", "executable-anonymous"]
+  }
+}

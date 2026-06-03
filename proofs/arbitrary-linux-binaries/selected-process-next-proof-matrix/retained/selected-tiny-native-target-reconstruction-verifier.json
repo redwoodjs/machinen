@@ -1,0 +1,39 @@
+{
+  "kind": "machinen.selected-arbitrary-process-next-proof-row",
+  "scope": "selected-arbitrary-linux-process-seed-v1",
+  "row": {
+    "id": "selected-tiny-native-target-reconstruction-verifier",
+    "proofNumber": "arbitrary/011",
+    "category": "target reconstruction verifier",
+    "status": "verified",
+    "disposition": "proof-only",
+    "proves": "Retained target verifier checks selected seed metadata, static/data/heap payload, regular-file FD, simple pipe FD, and idle epoll/TCP reconstruction without raw CPU restore.",
+    "claimUse": "proof-only target behavior evidence; no arbitrary-process claim lift"
+  },
+  "currentClaim": {
+    "productSupport": null,
+    "broadSupport": null,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "claimChangeAllowed": false,
+  "publicClaimAllowed": false,
+  "productSupportRowsAdded": 0,
+  "productSupportClaimAllowed": false,
+  "noShortcutPolicy": {
+    "rawCpuRestoreAccepted": false,
+    "rawRegisterReplayAccepted": false,
+    "sourceIsaEmulationAccepted": false,
+    "appCheckpointHooksAccepted": false,
+    "sidecarReplayAccepted": false,
+    "metadataOnlySuccessAccepted": false,
+    "arbitraryUnknownProcessAccepted": false
+  },
+  "targetVerifier": {
+    "argvEnvCwdMatched": true,
+    "staticDataHeapMatched": true,
+    "regularFileFdVerified": true,
+    "simplePipeFdVerified": true,
+    "idleEpollTcpVerified": true,
+    "targetNativeReconstructionRequired": true
+  }
+}

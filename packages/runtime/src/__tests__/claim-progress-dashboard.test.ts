@@ -27,7 +27,7 @@ type ClaimProgressProofGroup = {
 
 type ClaimProgressDashboard = {
   kind: "machinen.claim-progress-dashboard";
-  version: 124;
+  version: 125;
   tracks: ClaimProgressTrack[];
   proofGroups: ClaimProgressProofGroup[];
 };
@@ -41,7 +41,7 @@ describe("claim progress dashboard", () => {
 
     expect(dashboard).toMatchObject({
       kind: "machinen.claim-progress-dashboard",
-      version: 124,
+      version: 125,
     });
     expect(dashboard.tracks.map((track) => track.id)).toEqual([
       "node-service",
@@ -173,6 +173,16 @@ describe("claim progress dashboard", () => {
     expect(proofIds).toContain("arbitrary-process-claim-ready-gate");
     expect(proofIds).toContain("selected-arbitrary-process-seed-gate");
     expect(proofIds).toContain("selected-arbitrary-process-behavior-e2e");
+    expect(proofIds).toContain("selected-arbitrary-process-bidirectional-architecture-matrix");
+    expect(proofIds).toContain("selected-tiny-native-process-source-capture");
+    expect(proofIds).toContain("selected-tiny-native-target-reconstruction-verifier");
+    expect(proofIds).toContain("selected-memory-map-materialization-proof");
+    expect(proofIds).toContain("selected-register-stack-bootstrap-boundary");
+    expect(proofIds).toContain("selected-signal-frame-active-syscall-refusals");
+    expect(proofIds).toContain("selected-dynamic-linker-shared-library-boundary");
+    expect(proofIds).toContain("selected-process-tree-refusal-proof");
+    expect(proofIds).toContain("selected-arbitrary-process-evidence-index");
+    expect(proofIds).toContain("selected-arbitrary-process-candidate-claim-decision");
     expect(proofIds).toContain("simple-pipe-fd-proof");
     expect(proofIds).toContain("idle-epoll-tcp-proof");
     expect(proofIds).toContain("postgres-retained-verifier-artifacts");
@@ -282,11 +292,16 @@ describe("claim progress dashboard", () => {
     expect(html).toContain("selected-arbitrary-process-behavior-e2e-report.json");
     expect(html).toContain("arbitrary/007");
     expect(html).toContain("arbitrary/008");
+    expect(html).toContain("arbitrary/009");
+    expect(html).toContain("arbitrary/018");
+    expect(html).toContain("selected-arbitrary-process-next-proof-matrix-report.json");
+    expect(html).toContain("bidirectional architecture matrix");
+    expect(html).toContain("candidate claim decision row");
     expect(html).toContain("argv/env/cwd");
     expect(html).toContain("static/data/heap");
     expect(html).toContain("idle epoll/TCP");
     expect(html).toContain("productPathArtifactsRequired");
-    expect(html).toContain("public arbitrary Linux process restore claim remains 0");
+    expect(html).toContain("public arbitrary Linux process restore remains 0");
     expect(html).toContain("bun-product-command-detection");
     expect(html).toContain("bun-http-service-e2e-arm64-to-amd64");
     expect(html).toContain("bun-http-service-e2e-amd64-to-arm64");
