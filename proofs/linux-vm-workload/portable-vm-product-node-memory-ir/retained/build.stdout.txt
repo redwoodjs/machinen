@@ -8,8 +8,8 @@ Scope: 10 of 11 workspace projects
 packages/microvm build$ zig build
 packages/mount-server build$ zig build
 packages/mount-server build: Done
-packages/microvm build: ./.zig-cache/o/a0f597b7fdcbdee5029bc5e30e6deb75/sysreg-probe: replacing existing signature
 packages/microvm build: ./.zig-cache/o/a28f9f2d642afd641b5a705a802c6771/snapshot-test: replacing existing signature
+packages/microvm build: ./.zig-cache/o/a0f597b7fdcbdee5029bc5e30e6deb75/sysreg-probe: replacing existing signature
 packages/microvm build: Done
 packages/runtime build$ tsup
 packages/runtime build: CLI Building entry: src/index.ts
@@ -20,10 +20,10 @@ packages/runtime build: CLI Target: node20
 packages/runtime build: CLI Cleaning output folder
 packages/runtime build: ESM Build start
 packages/runtime build: ESM dist/index.js     1.20 MB
-packages/runtime build: ESM dist/index.js.map 718.41 KB
-packages/runtime build: ESM ⚡️ Build success in 42ms
+packages/runtime build: ESM dist/index.js.map 718.44 KB
+packages/runtime build: ESM ⚡️ Build success in 48ms
 packages/runtime build: DTS Build start
-packages/runtime build: DTS ⚡️ Build success in 1215ms
+packages/runtime build: DTS ⚡️ Build success in 1271ms
 packages/runtime build: DTS dist/index.d.ts 449.79 KB
 packages/runtime build: Done
 packages/cli build$ tsup

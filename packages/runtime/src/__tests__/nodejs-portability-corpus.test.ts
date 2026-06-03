@@ -74,6 +74,38 @@ function readRow(dir: string): NodePortabilityRow {
   ) as NodePortabilityRow;
 }
 
+function selectedProductNodeMemoryRowIds(): string[] {
+  return [
+    "040-memory-real-string",
+    "041-memory-real-nested-object-graph",
+    "042-memory-real-shared-references",
+    "043-memory-real-cycle",
+    "044-memory-real-map-set",
+    "045-memory-real-class-instance",
+    "046-memory-real-buffer",
+    "047-memory-real-typed-array",
+  ];
+}
+
+function expectSelectedProductNodeMemoryRowEvidence(
+  rowEvidence: Array<{ rowId: string; stages: Record<string, boolean> }>,
+): void {
+  expect(rowEvidence.map((row) => row.rowId)).toEqual(selectedProductNodeMemoryRowIds());
+  for (const row of rowEvidence) {
+    for (const stage of [
+      "detect",
+      "capture",
+      "decode",
+      "classify",
+      "materialize",
+      "verify",
+      "retain",
+    ]) {
+      expect(row.stages[stage]).toBe(true);
+    }
+  }
+}
+
 describe("Node.js portability corpus", () => {
   it("documents the caniuse-style compatibility structure", () => {
     const readme = readFileSync(resolve("portability/README.md"), "utf8");
@@ -535,6 +567,7 @@ describe("Node.js portability corpus", () => {
     const proofRoot = resolve(
       "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained",
     );
+    const expectedMemoryRowIds = selectedProductNodeMemoryRowIds();
     const report = JSON.parse(
       readFileSync(resolve(proofRoot, "portable-vm-product-node-memory-ir-report.json"), "utf8"),
     ) as {
@@ -545,6 +578,8 @@ describe("Node.js portability corpus", () => {
         memoryMaterializationRows: number;
         memoryVerified: boolean;
         materializedRows: number;
+        supportedSemanticRows: string[];
+        rowEvidence: Array<{ rowId: string; stages: Record<string, boolean> }>;
         restoreStrategy: string;
         memoryIrKind: string;
       };
@@ -559,7 +594,7 @@ describe("Node.js portability corpus", () => {
     ) as { items: Array<Record<string, unknown>> };
     const memoryIr = JSON.parse(
       readFileSync(resolve(proofRoot, "node-memory.snap/nodejs-memory-ir.json"), "utf8"),
-    ) as { kind: string; rows: unknown[] };
+    ) as { kind: string; rows: Array<{ id: string }> };
     const classification = JSON.parse(
       readFileSync(
         resolve(proofRoot, "node-memory.snap/nodejs-memory-classification.json"),
@@ -592,7 +627,8 @@ describe("Node.js portability corpus", () => {
         nodejsMemoryRows: 1,
         memoryMaterializationRows: 1,
         memoryVerified: true,
-        materializedRows: 1,
+        materializedRows: expectedMemoryRowIds.length,
+        supportedSemanticRows: expectedMemoryRowIds,
         restoreStrategy: "materialize-nodejs-memory-ir-target-native",
         memoryIrKind: "machinen.nodejs.memory-ir",
       },
@@ -616,20 +652,25 @@ describe("Node.js portability corpus", () => {
       expect.arrayContaining([expect.objectContaining({ id: "nodejs-memory-ir" })]),
     );
     expect(memoryIr.kind).toBe("machinen.nodejs.memory-ir");
-    expect(memoryIr.rows).toHaveLength(1);
+    expect(memoryIr.rows.map((row) => row.id)).toEqual(expectedMemoryRowIds);
+    expectSelectedProductNodeMemoryRowEvidence(report.acceptedPath.rowEvidence);
     expect(classification.restoreStrategy).toBe("materialize-nodejs-memory-ir-target-native");
     expect(materializer).toContain("machinen.nodejs.memory-ir");
     expect(materializer).toContain("rawV8HeapRestoreUsed");
     expect(acceptRestore).toMatchObject({
-      targetRestore: { nodejsMemory: { materialized: true, materializedRows: 1 } },
+      targetRestore: {
+        nodejsMemory: { materialized: true, materializedRows: expectedMemoryRowIds.length },
+      },
       targetVerify: {
         nodejsMemory: {
           accepted: true,
           memoryIrKind: "machinen.nodejs.memory-ir",
-          materializedRows: 1,
+          materializedRows: expectedMemoryRowIds.length,
         },
       },
-      workloads: { nodejs: { memoryVerified: true, memoryMaterializedRows: 1 } },
+      workloads: {
+        nodejs: { memoryVerified: true, memoryMaterializedRows: expectedMemoryRowIds.length },
+      },
     });
     expect(refusalRestore).toMatchObject({
       accepted: false,
@@ -647,6 +688,7 @@ describe("Node.js portability corpus", () => {
     const proofRoot = resolve(
       "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained",
     );
+    const expectedMemoryRowIds = selectedProductNodeMemoryRowIds();
     const report = JSON.parse(
       readFileSync(
         resolve(proofRoot, "portable-vm-product-node-memory-ir-cross-arch-report.json"),
@@ -660,6 +702,8 @@ describe("Node.js portability corpus", () => {
         targetArch: string;
         memoryVerified: boolean;
         memoryMaterializedRows: number;
+        supportedSemanticRows: string[];
+        rowEvidence: Array<{ rowId: string; stages: Record<string, boolean> }>;
         productMaterializerInjected: boolean;
       }>;
       claimGuard: Record<string, false>;
@@ -671,7 +715,8 @@ describe("Node.js portability corpus", () => {
         sourceArch: "arm64",
         targetArch: "amd64",
         memoryVerified: true,
-        memoryMaterializedRows: 1,
+        memoryMaterializedRows: expectedMemoryRowIds.length,
+        supportedSemanticRows: expectedMemoryRowIds,
         productMaterializerInjected: true,
       }),
       expect.objectContaining({
@@ -679,7 +724,8 @@ describe("Node.js portability corpus", () => {
         sourceArch: "amd64",
         targetArch: "arm64",
         memoryVerified: true,
-        memoryMaterializedRows: 1,
+        memoryMaterializedRows: expectedMemoryRowIds.length,
+        supportedSemanticRows: expectedMemoryRowIds,
         productMaterializerInjected: true,
       }),
     ]);
@@ -695,15 +741,30 @@ describe("Node.js portability corpus", () => {
         resolve(proofRoot, `${direction}/node-memory.snap/nodejs-memory-materializer.mjs`),
         "utf8",
       );
+      const rowEvidence = JSON.parse(
+        readFileSync(
+          resolve(
+            proofRoot,
+            `${direction}/node-memory.snap/nodejs-memory-product-row-evidence.json`,
+          ),
+          "utf8",
+        ),
+      ) as Array<{ rowId: string; stages: Record<string, boolean> }>;
+      expectSelectedProductNodeMemoryRowEvidence(rowEvidence);
       expect(restore).toMatchObject({
         accepted: true,
-        workloads: { nodejs: { memoryVerified: true, memoryMaterializedRows: 1 } },
+        workloads: {
+          nodejs: { memoryVerified: true, memoryMaterializedRows: expectedMemoryRowIds.length },
+        },
         targetVerify: {
           nodejsMemory: { accepted: true, memoryIrKind: "machinen.nodejs.memory-ir" },
         },
       });
       expect(materializer).toContain("machinen.nodejs.memory-ir");
       expect(materializer).toContain("rawV8HeapRestoreUsed");
+    }
+    for (const direction of report.directions) {
+      expectSelectedProductNodeMemoryRowEvidence(direction.rowEvidence);
     }
     expect(report.claimGuard).toMatchObject({
       arbitraryVmRestoreClaimed: false,

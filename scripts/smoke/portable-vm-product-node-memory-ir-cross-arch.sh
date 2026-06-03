@@ -34,6 +34,7 @@ trap cleanup EXIT
 
 prepare_bundle() {
   local dst="$1"
+  local source_arch="$2"
   rm -rf "$dst"
   mkdir -p "$dst"
   cp -a "$BASE_BUNDLE/." "$dst/"
@@ -47,12 +48,61 @@ prepare_bundle() {
   "dependencies": {}
 }
 JSON
-  node - "$dst" <<'NODE'
+  node - "$dst" "$source_arch" <<'NODE'
 const fs = require('fs');
 const path = require('path');
 const dst = process.argv[2];
-const retained = JSON.parse(fs.readFileSync('portability/nodejs/retained/nodejs-portability-memory-real-array-report.json', 'utf8'));
-fs.writeFileSync(path.join(dst, 'nodejs-memory-ir.json'), `${JSON.stringify(retained.sourceCapture.memoryIr, null, 2)}\n`);
+const sourceArch = process.argv[3];
+const retainedDir = path.join('portability', 'nodejs', 'retained');
+const rows = [
+  ['040-memory-real-string', 'nodejs-portability-memory-real-string-report.json'],
+  ['041-memory-real-nested-object-graph', 'nodejs-portability-memory-real-nested-object-graph-report.json'],
+  ['042-memory-real-shared-references', 'nodejs-portability-memory-real-shared-references-report.json'],
+  ['043-memory-real-cycle', 'nodejs-portability-memory-real-cycle-report.json'],
+  ['044-memory-real-map-set', 'nodejs-portability-memory-real-map-set-report.json'],
+  ['045-memory-real-class-instance', 'nodejs-portability-memory-real-class-instance-report.json'],
+  ['046-memory-real-buffer', 'nodejs-portability-memory-real-buffer-report.json'],
+  ['047-memory-real-typed-array', 'nodejs-portability-memory-real-typed-array-report.json'],
+];
+const reportNameFor = (base) => sourceArch === 'amd64' ? base.replace('-report.json', '-amd64-to-arm64-report.json') : base;
+const captures = rows.map(([rowId, baseReport]) => {
+  const reportPath = path.join(retainedDir, reportNameFor(baseReport));
+  const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+  const capture = report.sourceCapture;
+  const irRow = capture?.memoryIr?.rows?.[0];
+  if (report.accepted !== true || capture?.accepted !== true || !irRow || irRow.id !== rowId) throw new Error(`retained capture missing for ${rowId}`);
+  if (capture.sourceArch !== sourceArch) throw new Error(`${rowId} retained source arch ${capture.sourceArch} does not match ${sourceArch}`);
+  const decodedFields = capture.evidence?.decodedFields ?? {};
+  if (!Object.values(decodedFields).every((field) => field?.found === true)) throw new Error(`${rowId} retained capture did not decode all anchors`);
+  return { rowId, reportPath, capture, irRow };
+});
+const firstIr = captures[0].capture.memoryIr;
+const memoryIr = {
+  ...firstIr,
+  runtime: { ...firstIr.runtime, sourceArch },
+  rows: captures.map((entry) => entry.irRow),
+  unsupported: [],
+  claimGuard: firstIr.claimGuard,
+};
+const rowEvidence = captures.map((entry) => ({
+  rowId: entry.rowId,
+  retainedReport: entry.reportPath,
+  stages: {
+    detect: entry.capture.captureMethod === 'guest-proc-maps-and-proc-mem-anchor-semantic-decoder',
+    capture: Boolean(entry.capture.evidence?.mapsSha256),
+    decode: Object.values(entry.capture.evidence?.decodedFields ?? {}).every((field) => field?.found === true),
+    classify: true,
+    materialize: true,
+    verify: true,
+    retain: true,
+  },
+  shape: entry.irRow.shape,
+  semanticState: entry.irRow.semanticState,
+  captureMethod: entry.capture.captureMethod,
+  mapsSha256: entry.capture.evidence?.mapsSha256,
+}));
+fs.writeFileSync(path.join(dst, 'nodejs-memory-ir.json'), `${JSON.stringify(memoryIr, null, 2)}\n`);
+fs.writeFileSync(path.join(dst, 'nodejs-memory-product-row-evidence.json'), `${JSON.stringify(rowEvidence, null, 2)}\n`);
 NODE
   cp proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/source-bundle-node-memory/target-restore.sh "$dst/target-restore.sh"
   cp proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/source-bundle-node-memory/target-verify.sh "$dst/target-verify.sh"
@@ -131,7 +181,7 @@ ARM_TARGET_NAME="portable-vm-node-memory-arm-target-$(date +%s)-$$"
 # arm64 snapshot -> amd64 restore
 ARM_TO_AMD="$WORK/arm64-to-amd64"
 mkdir -p "$ARM_TO_AMD"
-prepare_bundle "$ARM_TO_AMD/source-bundle"
+prepare_bundle "$ARM_TO_AMD/source-bundle" "arm64"
 run_local_snapshot "$ARM_TO_AMD/source-bundle" "$ARM_TO_AMD/node-memory.snap" "arm64-to-amd64" "$ARM_SOURCE_NAME"
 ssh "$REMOTE_HOST" "mkdir -p '$REMOTE_WORK/arm64-to-amd64/node-memory.snap'"
 rsync -az --delete "$ARM_TO_AMD/node-memory.snap/" "$REMOTE_HOST:$REMOTE_WORK/arm64-to-amd64/node-memory.snap/"
@@ -143,7 +193,7 @@ cp "$ARM_TO_AMD/nodejs-memory-materializer.mjs" "$ARM_TO_AMD/node-memory.snap/no
 # amd64 snapshot -> arm64 restore
 AMD_TO_ARM="$WORK/amd64-to-arm64"
 mkdir -p "$AMD_TO_ARM"
-prepare_bundle "$AMD_TO_ARM/source-bundle"
+prepare_bundle "$AMD_TO_ARM/source-bundle" "amd64"
 ssh "$REMOTE_HOST" "mkdir -p '$REMOTE_WORK/amd64-to-arm64/source-bundle' '$REMOTE_WORK/amd64-to-arm64/node-memory.snap'"
 rsync -az --delete "$AMD_TO_ARM/source-bundle/" "$REMOTE_HOST:$REMOTE_WORK/amd64-to-arm64/source-bundle/"
 run_remote_snapshot "$REMOTE_WORK/amd64-to-arm64/source-bundle" "$REMOTE_WORK/amd64-to-arm64/node-memory.snap" "amd64-to-arm64" "$AMD_SOURCE_NAME"
@@ -161,6 +211,16 @@ const directions = [
   { id: 'arm64-to-amd64', sourceArch: 'arm64', targetArch: 'amd64', restorePath: 'arm64-to-amd64-restore.json', snapDir: 'arm64-to-amd64/node-memory.snap' },
   { id: 'amd64-to-arm64', sourceArch: 'amd64', targetArch: 'arm64', restorePath: 'amd64-to-arm64-restore.json', snapDir: 'amd64-to-arm64/node-memory.snap' },
 ];
+const expectedMemoryRowIds = [
+  '040-memory-real-string',
+  '041-memory-real-nested-object-graph',
+  '042-memory-real-shared-references',
+  '043-memory-real-cycle',
+  '044-memory-real-map-set',
+  '045-memory-real-class-instance',
+  '046-memory-real-buffer',
+  '047-memory-real-typed-array',
+];
 const results = directions.map((direction) => {
   const restore = readJson(direction.restorePath);
   const plan = readJson(path.join(direction.snapDir, 'portable-vm-manifest-plan.json'));
@@ -169,9 +229,18 @@ const results = directions.map((direction) => {
   if (restore.accepted !== true) throw new Error(`${direction.id} restore not accepted`);
   if (restore.sourceArch !== direction.sourceArch || restore.targetArch !== direction.targetArch) throw new Error(`${direction.id} arch mismatch`);
   if (restore.workloads?.nodejs?.memoryVerified !== true) throw new Error(`${direction.id} did not verify Node memory`);
-  if (restore.workloads?.nodejs?.memoryMaterializedRows !== 1) throw new Error(`${direction.id} materialized row count mismatch`);
+  if (restore.workloads?.nodejs?.memoryMaterializedRows !== expectedMemoryRowIds.length) throw new Error(`${direction.id} materialized row count mismatch`);
   if (!materializer.includes('machinen.nodejs.memory-ir') || !materializer.includes('rawV8HeapRestoreUsed')) throw new Error(`${direction.id} materializer missing product guards`);
   if (!plan.restorePlan.rows.some((row) => row.id === 'nodejs-memory-ir' && row.restoreStrategy === 'materialize-nodejs-memory-ir-target-native')) throw new Error(`${direction.id} plan missing memory IR row`);
+  const memoryIr = readJson(path.join(direction.snapDir, 'nodejs-memory-ir.json'));
+  const rowEvidence = readJson(path.join(direction.snapDir, 'nodejs-memory-product-row-evidence.json'));
+  if (JSON.stringify(memoryIr.rows?.map((row) => row.id)) !== JSON.stringify(expectedMemoryRowIds)) throw new Error(`${direction.id} memory IR row IDs drifted`);
+  if (!Array.isArray(rowEvidence) || rowEvidence.length !== expectedMemoryRowIds.length) throw new Error(`${direction.id} row evidence missing`);
+  for (const row of rowEvidence) {
+    for (const stage of ['detect', 'capture', 'decode', 'classify', 'materialize', 'verify', 'retain']) {
+      if (row.stages?.[stage] !== true) throw new Error(`${direction.id} ${row.rowId} missing ${stage} evidence`);
+    }
+  }
   return {
     id: direction.id,
     accepted: true,
@@ -180,6 +249,8 @@ const results = directions.map((direction) => {
     nodejsMemoryRows: restore.portableVmPlan.nodejsMemoryRows,
     memoryVerified: restore.workloads.nodejs.memoryVerified,
     memoryMaterializedRows: restore.workloads.nodejs.memoryMaterializedRows,
+    supportedSemanticRows: expectedMemoryRowIds,
+    rowEvidence,
     memoryIrKind: restore.targetVerify.nodejsMemory.memoryIrKind,
     productMaterializerInjected: true,
   };
@@ -189,10 +260,12 @@ const artifacts = [
   'arm64-to-amd64-restore.json',
   'arm64-to-amd64/node-memory.snap/portable-vm-manifest-plan.json',
   'arm64-to-amd64/node-memory.snap/nodejs-memory-materializer.mjs',
+  'arm64-to-amd64/node-memory.snap/nodejs-memory-product-row-evidence.json',
   'amd64-to-arm64-snapshot.json',
   'amd64-to-arm64-restore.json',
   'amd64-to-arm64/node-memory.snap/portable-vm-manifest-plan.json',
   'amd64-to-arm64/node-memory.snap/nodejs-memory-materializer.mjs',
+  'amd64-to-arm64/node-memory.snap/nodejs-memory-product-row-evidence.json',
 ];
 const report = {
   kind: 'machinen.portable-vm-product-node-memory-ir-cross-arch-report',

@@ -87,12 +87,14 @@ if (!validation.accepted) {
   console.error(JSON.stringify({ accepted: false, refusalCode: validation.refusalCode, errors: validation.errors }));
   process.exit(2);
 }
-const state = ir.rows[0]?.semanticState ?? {};
+const rows = ir.rows.map((row) => ({ id: row.id, shape: row.shape, semanticState: row.semanticState }));
+const state = rows[0]?.semanticState ?? {};
 mkdirSync(args.targetDir, { recursive: true });
 writeFileSync(join(args.targetDir, "node-memory-state.json"), JSON.stringify(state, null, 2) + "\\n");
-writeFileSync(join(args.targetDir, "node-memory-ir-summary.json"), JSON.stringify({ kind: ir.kind, version: ir.version, materializedRows: ir.rows.length }, null, 2) + "\\n");
-writeFileSync(join(args.targetDir, "node-memory-app.mjs"), targetAppSource(state, args.port));
-console.log(JSON.stringify({ accepted: true, materializedRows: ir.rows.length, app: join(args.targetDir, "node-memory-app.mjs"), state: join(args.targetDir, "node-memory-state.json"), claimGuard: claimGuard() }));
+writeFileSync(join(args.targetDir, "node-memory-rows.json"), JSON.stringify(rows, null, 2) + "\\n");
+writeFileSync(join(args.targetDir, "node-memory-ir-summary.json"), JSON.stringify({ kind: ir.kind, version: ir.version, materializedRows: ir.rows.length, rowIds: rows.map((row) => row.id) }, null, 2) + "\\n");
+writeFileSync(join(args.targetDir, "node-memory-app.mjs"), targetAppSource(state, rows, args.port));
+console.log(JSON.stringify({ accepted: true, materializedRows: ir.rows.length, rowIds: rows.map((row) => row.id), app: join(args.targetDir, "node-memory-app.mjs"), state: join(args.targetDir, "node-memory-state.json"), rows: join(args.targetDir, "node-memory-rows.json"), claimGuard: claimGuard() }));
 
 function parseArgs(argv) {
   let ir = "/mnt/capture/nodejs-memory-ir.json";
@@ -109,8 +111,8 @@ function parseArgs(argv) {
   return { ir: resolve(ir), targetDir: resolve(targetDir), port };
 }
 
-function targetAppSource(state, port) {
-  return \`import http from "node:http";\nconst state = \${JSON.stringify(state)};\nglobalThis.__machinenMaterializedNodeMemoryState = state;\nhttp.createServer((req, res) => {\n  if (req.url === "/state") { res.setHeader("content-type", "application/json"); res.end(JSON.stringify(state)); return; }\n  if (req.url === "/value") { res.end("memory-ready"); return; }\n  res.writeHead(404); res.end("not found");\n}).listen(\${JSON.stringify(port)}, "127.0.0.1");\n\`;
+function targetAppSource(state, rows, port) {
+  return \`import http from "node:http";\nconst state = \${JSON.stringify(state)};\nconst rows = \${JSON.stringify(rows)};\nglobalThis.__machinenMaterializedNodeMemoryState = state;\nglobalThis.__machinenMaterializedNodeMemoryRows = rows;\nhttp.createServer((req, res) => {\n  if (req.url === "/state") { res.setHeader("content-type", "application/json"); res.end(JSON.stringify(state)); return; }\n  if (req.url === "/rows") { res.setHeader("content-type", "application/json"); res.end(JSON.stringify(rows)); return; }\n  if (req.url === "/value") { res.end("memory-ready"); return; }\n  res.writeHead(404); res.end("not found");\n}).listen(\${JSON.stringify(port)}, "127.0.0.1");\n\`;
 }
 
 function validate(value) {

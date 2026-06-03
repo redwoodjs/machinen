@@ -3,7 +3,7 @@
   "version": 1,
   "id": "portable-vm-product-node-memory-ir",
   "status": "verified",
-  "claim": "Portable VM product snapshot/restore carries selected Node memory IR, injects a product-owned materializer, materializes it into a target-native Node app, verifies /state, and refuses pending Promise memory state fail-closed.",
+  "claim": "Portable VM product snapshot/restore carries selected semantic Node Memory IR rows, injects a product-owned materializer, materializes them into a target-native Node app, verifies /state and /rows, and refuses pending Promise memory state fail-closed.",
   "scope": "portable-vm-product-node-memory-ir-v1",
   "retainedEvidence": "retained/portable-vm-product-node-memory-ir-report.json",
   "notClaimed": [

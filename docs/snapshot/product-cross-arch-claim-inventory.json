@@ -9,7 +9,8 @@
     "eventfd-counter-v1-nonsemaphore-no-waiters",
     "pipe-pair-v1-empty-no-waiters",
     "timerfd-relative-oneshot-v1-monotonic",
-    "tcp-listener-v1-loopback-empty-accept-queue"
+    "tcp-listener-v1-loopback-empty-accept-queue",
+    "nodejs-memory-ir-selected-semantic-v1"
   ],
   "claims": [
     {
@@ -24,6 +25,13 @@
       "supportLevel": "implemented-product-support",
       "notes": "Goal 49 keeps the clean Node HTTP service subset productized through the shared clean-service contract using machinen snapshot <vm> <bundle> and machinen restore <bundle> with no runtime-specific flags.",
       "subset": "node-http-clean-root-v1"
+    },
+    {
+      "goal": "portable-vm-node-memory-ir",
+      "claim": "Selected semantic Node Memory IR materialization through portable VM product snapshot/restore",
+      "supportLevel": "implemented-product-support",
+      "notes": "Scoped caniuse-style matrix support for selected semantic Node Memory IR rows (string, nested object graph, shared references, cycle, Map/Set, class instance, Buffer, TypedArray) through machinen snapshot <vm> --portable --out <bundle> and machinen restore <bundle> --json. Evidence is retained for detect -> capture -> decode -> classify -> materialize -> verify -> retain and for arm64<->amd64 target-native materialization. This does not claim arbitrary Node process restore, raw V8 heap restore, same-PID continuation, arbitrary Linux process restore, or raw VM/vCPU/device replay.",
+      "subset": "nodejs-memory-ir-selected-semantic-v1"
     },
     {
       "goal": "022",

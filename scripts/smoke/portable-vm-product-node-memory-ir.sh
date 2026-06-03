@@ -40,12 +40,61 @@ prepare_bundle() {
   "dependencies": {}
 }
 JSON
-  node - "$dst" <<'NODE'
+  node - "$dst" "$SOURCE_ARCH" <<'NODE'
 const fs = require('fs');
 const path = require('path');
 const dst = process.argv[2];
-const retained = JSON.parse(fs.readFileSync('portability/nodejs/retained/nodejs-portability-memory-real-array-report.json', 'utf8'));
-fs.writeFileSync(path.join(dst, 'nodejs-memory-ir.json'), `${JSON.stringify(retained.sourceCapture.memoryIr, null, 2)}\n`);
+const sourceArch = process.argv[3];
+const retainedDir = path.join('portability', 'nodejs', 'retained');
+const rows = [
+  ['040-memory-real-string', 'nodejs-portability-memory-real-string-report.json'],
+  ['041-memory-real-nested-object-graph', 'nodejs-portability-memory-real-nested-object-graph-report.json'],
+  ['042-memory-real-shared-references', 'nodejs-portability-memory-real-shared-references-report.json'],
+  ['043-memory-real-cycle', 'nodejs-portability-memory-real-cycle-report.json'],
+  ['044-memory-real-map-set', 'nodejs-portability-memory-real-map-set-report.json'],
+  ['045-memory-real-class-instance', 'nodejs-portability-memory-real-class-instance-report.json'],
+  ['046-memory-real-buffer', 'nodejs-portability-memory-real-buffer-report.json'],
+  ['047-memory-real-typed-array', 'nodejs-portability-memory-real-typed-array-report.json'],
+];
+const reportNameFor = (base) => sourceArch === 'amd64' ? base.replace('-report.json', '-amd64-to-arm64-report.json') : base;
+const captures = rows.map(([rowId, baseReport]) => {
+  const reportPath = path.join(retainedDir, reportNameFor(baseReport));
+  const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+  const capture = report.sourceCapture;
+  const irRow = capture?.memoryIr?.rows?.[0];
+  if (report.accepted !== true || capture?.accepted !== true || !irRow || irRow.id !== rowId) throw new Error(`retained capture missing for ${rowId}`);
+  if (capture.sourceArch !== sourceArch) throw new Error(`${rowId} retained source arch ${capture.sourceArch} does not match ${sourceArch}`);
+  const decodedFields = capture.evidence?.decodedFields ?? {};
+  if (!Object.values(decodedFields).every((field) => field?.found === true)) throw new Error(`${rowId} retained capture did not decode all anchors`);
+  return { rowId, reportPath, report, capture, irRow };
+});
+const firstIr = captures[0].capture.memoryIr;
+const memoryIr = {
+  ...firstIr,
+  runtime: { ...firstIr.runtime, sourceArch },
+  rows: captures.map((entry) => entry.irRow),
+  unsupported: [],
+  claimGuard: firstIr.claimGuard,
+};
+const rowEvidence = captures.map((entry) => ({
+  rowId: entry.rowId,
+  retainedReport: entry.reportPath,
+  stages: {
+    detect: entry.capture.captureMethod === 'guest-proc-maps-and-proc-mem-anchor-semantic-decoder',
+    capture: Boolean(entry.capture.evidence?.mapsSha256),
+    decode: Object.values(entry.capture.evidence?.decodedFields ?? {}).every((field) => field?.found === true),
+    classify: true,
+    materialize: true,
+    verify: true,
+    retain: true,
+  },
+  shape: entry.irRow.shape,
+  semanticState: entry.irRow.semanticState,
+  captureMethod: entry.capture.captureMethod,
+  mapsSha256: entry.capture.evidence?.mapsSha256,
+}));
+fs.writeFileSync(path.join(dst, 'nodejs-memory-ir.json'), `${JSON.stringify(memoryIr, null, 2)}\n`);
+fs.writeFileSync(path.join(dst, 'nodejs-memory-product-row-evidence.json'), `${JSON.stringify(rowEvidence, null, 2)}\n`);
 NODE
   cat >"$dst/target-restore.sh" <<'SH'
 #!/usr/bin/env sh
@@ -163,9 +212,12 @@ const assert = require('assert/strict');
 const fs = require('fs');
 (async () => {
   const ir = JSON.parse(fs.readFileSync('/mnt/capture/nodejs-memory-ir.json', 'utf8'));
-  const expected = ir.rows[0]?.semanticState ?? {};
-  const actual = await fetch('http://127.0.0.1:18182/state').then((res) => res.json());
-  assert.deepEqual(actual, expected);
+  const expectedState = ir.rows[0]?.semanticState ?? {};
+  const expectedRows = ir.rows.map((row) => ({ id: row.id, shape: row.shape, semanticState: row.semanticState }));
+  const actualState = await fetch('http://127.0.0.1:18182/state').then((res) => res.json());
+  const actualRows = await fetch('http://127.0.0.1:18182/rows').then((res) => res.json());
+  assert.deepEqual(actualState, expectedState);
+  assert.deepEqual(actualRows, expectedRows);
 })().catch((error) => { console.error(error); process.exit(1); });
 NODEVERIFY
   then
@@ -254,13 +306,31 @@ if (!memoryRow || memoryRow.disposition !== 'product-supported') throw new Error
 if (memoryRow.restoreStrategy !== 'materialize-nodejs-memory-ir-target-native') throw new Error('nodejs memory restore strategy missing');
 if (!acceptInventory.items.some((item) => item.id === 'nodejs-memory-ir')) throw new Error('nodejs-memory-ir inventory item missing');
 if (nodeClassification.restoreStrategy !== 'materialize-nodejs-memory-ir-target-native') throw new Error('node memory classification missing restore strategy');
-if (nodeMemoryIr.kind !== 'machinen.nodejs.memory-ir' || !Array.isArray(nodeMemoryIr.rows) || nodeMemoryIr.rows.length !== 1) throw new Error('memory IR not retained');
+const expectedMemoryRowIds = [
+  '040-memory-real-string',
+  '041-memory-real-nested-object-graph',
+  '042-memory-real-shared-references',
+  '043-memory-real-cycle',
+  '044-memory-real-map-set',
+  '045-memory-real-class-instance',
+  '046-memory-real-buffer',
+  '047-memory-real-typed-array',
+];
+if (nodeMemoryIr.kind !== 'machinen.nodejs.memory-ir' || !Array.isArray(nodeMemoryIr.rows) || nodeMemoryIr.rows.length !== expectedMemoryRowIds.length) throw new Error('memory IR rows not retained');
+if (JSON.stringify(nodeMemoryIr.rows.map((row) => row.id)) !== JSON.stringify(expectedMemoryRowIds)) throw new Error('memory IR row IDs drifted');
+const rowEvidence = readJson('node-memory.snap/nodejs-memory-product-row-evidence.json');
+if (!Array.isArray(rowEvidence) || rowEvidence.length !== expectedMemoryRowIds.length) throw new Error('memory row evidence was not retained');
+for (const row of rowEvidence) {
+  for (const stage of ['detect', 'capture', 'decode', 'classify', 'materialize', 'verify', 'retain']) {
+    if (row.stages?.[stage] !== true) throw new Error(`${row.rowId} missing ${stage} stage evidence`);
+  }
+}
 if (!nodeMaterializer.includes('machinen.nodejs.memory-ir') || !nodeMaterializer.includes('rawV8HeapRestoreUsed')) throw new Error('product-owned Node memory materializer was not injected');
 if (acceptRestore.accepted !== true || acceptRestore.sourceArch !== sourceArch || acceptRestore.targetArch !== targetArch) throw new Error('accepted restore failed');
 if (acceptRestore.portableVmPlan.nodejsMemoryRows !== 1) throw new Error('restore summary missing nodejsMemoryRows');
 if (acceptRestore.workloads.nodejs.memoryRows !== 1 || acceptRestore.workloads.nodejs.memoryMaterializationRows !== 1) throw new Error('restore workload summary missing memory materialization row');
-if (acceptRestore.workloads.nodejs.memoryVerified !== true || acceptRestore.workloads.nodejs.memoryMaterializedRows !== 1) throw new Error('restore workload summary missing verified Node memory materialization');
-if (acceptRestore.targetRestore.nodejsMemory?.materialized !== true || acceptRestore.targetRestore.nodejsMemory?.materializedRows !== 1) throw new Error('target restore did not materialize Node memory IR');
+if (acceptRestore.workloads.nodejs.memoryVerified !== true || acceptRestore.workloads.nodejs.memoryMaterializedRows !== expectedMemoryRowIds.length) throw new Error('restore workload summary missing verified Node memory materialization');
+if (acceptRestore.targetRestore.nodejsMemory?.materialized !== true || acceptRestore.targetRestore.nodejsMemory?.materializedRows !== expectedMemoryRowIds.length) throw new Error('target restore did not materialize Node memory IR');
 if (acceptRestore.targetVerify.nodejsMemory?.accepted !== true || acceptRestore.targetVerify.nodejsMemory?.memoryIrKind !== 'machinen.nodejs.memory-ir') throw new Error('target verifier did not verify Node memory IR app');
 if (acceptRestore.claimGuard.arbitraryVmRestoreClaimed !== false || acceptRestore.claimGuard.rawVmStateReplayUsed !== false) throw new Error('portable VM claim guard drifted');
 if (refusalSnapshot.accepted !== true || refusalSnapshot.sourceArchitecture !== sourceArch) throw new Error('refusal snapshot failed');
@@ -275,6 +345,7 @@ const artifacts = [
   'node-memory.snap/nodejs-memory-ir.json',
   'node-memory.snap/nodejs-memory-classification.json',
   'node-memory.snap/nodejs-memory-materializer.mjs',
+  'node-memory.snap/nodejs-memory-product-row-evidence.json',
   'refusal-snapshot.json',
   'refusal-restore.json',
   'node-memory-refusal.snap/portable-vm-manifest-plan.json',
@@ -297,6 +368,8 @@ const report = {
     memoryMaterializationRows: acceptRestore.workloads.nodejs.memoryMaterializationRows,
     memoryVerified: acceptRestore.workloads.nodejs.memoryVerified,
     materializedRows: acceptRestore.workloads.nodejs.memoryMaterializedRows,
+    supportedSemanticRows: expectedMemoryRowIds,
+    rowEvidence,
     restoreStrategy: memoryRow.restoreStrategy,
     memoryIrKind: nodeMemoryIr.kind,
   },

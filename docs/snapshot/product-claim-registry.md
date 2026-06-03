@@ -20,6 +20,7 @@ selected-state harness proof and is not listed as product support. The implement
 subsets are:
 
 - `node-app-http-server-recreate` — `node-http-clean-root-v1` — `level-1-semantic-restart`
+- `nodejs-memory-ir-selected-semantic-v1` — selected semantic Node Memory IR rows — target-native materialization from portable IR, not raw process/V8 continuation
 - `python-cross-arch-runtime-policy` — `python-http-clean-root-v1` — `level-1-semantic-restart`
 - `go-cross-arch-runtime-policy` — `go-http-clean-root-v1` — `level-1-semantic-restart`
 - `ping-level4-socket-reconstruction-v1` — `ping-level4-socket-reconstruction-v1` — `level-4-kernel-resource-reconstruction`
@@ -28,10 +29,14 @@ subsets are:
 - `timerfd-relative-oneshot-v1-monotonic` — `timerfd-relative-oneshot-v1-monotonic` — `level-4-kernel-resource-reconstruction`
 - `tcp-listener-v1-loopback-empty-accept-queue` — `tcp-listener-v1-loopback-empty-accept-queue` — `level-4-kernel-resource-reconstruction`
 
-There is currently no Level 5 product support entry. Historical Node/runtime
-profile and live-app proof suites remain proof-only or archived until a captured
-source process state implementation is routed through the public product surface
-and advertised by this registry.
+There is currently no arbitrary Level 5 Node/Linux process continuation product
+support entry. The selected Node Memory IR entry is a compatibility-matrix subset
+for semantic IR materialization only; it refuses unsafe/opaque state and does not
+claim raw V8 heap restore, same-PID continuation, raw CPU state replay, or
+arbitrary process restore. Historical Node/runtime profile and live-app proof
+suites remain proof-only or archived until a captured source process state
+implementation is routed through the public product surface and advertised by
+this registry.
 
 The earlier PostgreSQL logical proof/capture route is not advertised here as
 implemented snapshot/restore product support until it is routed through the same

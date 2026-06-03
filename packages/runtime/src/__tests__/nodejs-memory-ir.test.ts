@@ -27,6 +27,12 @@ function validIr() {
         semanticState: { kind: "array", values: [1, 2, 3], sum: 6 },
         anchors: { values: "array-values:1,2,3" },
       },
+      {
+        id: "040-memory-real-string",
+        shape: "string",
+        semanticState: { kind: "string", value: "portable" },
+        anchors: { value: "real-string-value:portable" },
+      },
     ],
     unsupported: [],
     claimGuard: {
@@ -42,7 +48,7 @@ describe("Node.js Memory IR product materializer", () => {
     expect(validateNodejsMemoryIrDocument(validIr())).toMatchObject({
       accepted: true,
       refusalCode: null,
-      rowCount: 1,
+      rowCount: 2,
     });
     expect(NODEJS_MEMORY_IR_RESTORE_STRATEGY).toBe("materialize-nodejs-memory-ir-target-native");
   });
@@ -90,12 +96,21 @@ describe("Node.js Memory IR product materializer", () => {
 
     expect(JSON.parse(out)).toMatchObject({
       accepted: true,
-      materializedRows: 1,
+      materializedRows: 2,
       claimGuard: { rawV8HeapRestoreUsed: false, samePidContinuationClaimed: false },
     });
     expect(JSON.parse(readFileSync(join(targetDir, "node-memory-state.json"), "utf8"))).toEqual(
       validIr().rows[0]!.semanticState,
     );
-    expect(readFileSync(join(targetDir, "node-memory-app.mjs"), "utf8")).toContain("/state");
+    expect(JSON.parse(readFileSync(join(targetDir, "node-memory-rows.json"), "utf8"))).toEqual(
+      validIr().rows.map((row) => ({
+        id: row.id,
+        shape: row.shape,
+        semanticState: row.semanticState,
+      })),
+    );
+    const app = readFileSync(join(targetDir, "node-memory-app.mjs"), "utf8");
+    expect(app).toContain("/state");
+    expect(app).toContain("/rows");
   });
 });

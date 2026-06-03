@@ -102,6 +102,7 @@ function implementedSubsets(primarySubset) {
   return primarySubset === "node-http-clean-root-v1"
     ? [
         "node-http-clean-root-v1",
+        "nodejs-memory-ir-selected-semantic-v1",
         "python-http-clean-root-v1",
         "go-http-clean-root-v1",
         "ping-level4-socket-reconstruction-v1",

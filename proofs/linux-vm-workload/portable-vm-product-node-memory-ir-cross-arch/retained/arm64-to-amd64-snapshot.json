@@ -14,6 +14,6 @@
   "arbitraryVmRestoreClaimed": false,
   "rawVmStateReplayUsed": false,
   "snapshotDir": "/Users/peterp/gh/redwoodjs/machinen/proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/arm64-to-amd64/node-memory.snap",
-  "elapsedMs": 35,
+  "elapsedMs": 37,
   "dryRun": false
 }

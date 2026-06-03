@@ -18,10 +18,10 @@ packages/runtime build: CLI Target: node20
 packages/runtime build: CLI Cleaning output folder
 packages/runtime build: ESM Build start
 packages/runtime build: ESM dist/index.js     1.20 MB
-packages/runtime build: ESM dist/index.js.map 718.41 KB
-packages/runtime build: ESM ⚡️ Build success in 40ms
+packages/runtime build: ESM dist/index.js.map 718.44 KB
+packages/runtime build: ESM ⚡️ Build success in 42ms
 packages/runtime build: DTS Build start
-packages/runtime build: DTS ⚡️ Build success in 1244ms
+packages/runtime build: DTS ⚡️ Build success in 1234ms
 packages/runtime build: DTS dist/index.d.ts 449.79 KB
 packages/runtime build: Done
 packages/cli build$ tsup

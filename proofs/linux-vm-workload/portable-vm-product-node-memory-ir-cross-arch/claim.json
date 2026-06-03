@@ -3,7 +3,7 @@
   "version": 1,
   "id": "portable-vm-product-node-memory-ir-cross-arch",
   "status": "verified",
-  "claim": "Portable VM product snapshot/restore materializes selected Node Memory IR with the product-owned materializer across arm64<->amd64.",
+  "claim": "Portable VM product snapshot/restore materializes selected semantic Node Memory IR rows with the product-owned materializer across arm64<->amd64.",
   "scope": "portable-vm-product-node-memory-ir-cross-arch-v1",
   "retainedEvidence": "retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
   "notClaimed": [

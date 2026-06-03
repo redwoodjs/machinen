@@ -34,9 +34,12 @@ const assert = require('assert/strict');
 const fs = require('fs');
 (async () => {
   const ir = JSON.parse(fs.readFileSync('/mnt/capture/nodejs-memory-ir.json', 'utf8'));
-  const expected = ir.rows[0]?.semanticState ?? {};
-  const actual = await fetch('http://127.0.0.1:18182/state').then((res) => res.json());
-  assert.deepEqual(actual, expected);
+  const expectedState = ir.rows[0]?.semanticState ?? {};
+  const expectedRows = ir.rows.map((row) => ({ id: row.id, shape: row.shape, semanticState: row.semanticState }));
+  const actualState = await fetch('http://127.0.0.1:18182/state').then((res) => res.json());
+  const actualRows = await fetch('http://127.0.0.1:18182/rows').then((res) => res.json());
+  assert.deepEqual(actualState, expectedState);
+  assert.deepEqual(actualRows, expectedRows);
 })().catch((error) => { console.error(error); process.exit(1); });
 NODEVERIFY
   then

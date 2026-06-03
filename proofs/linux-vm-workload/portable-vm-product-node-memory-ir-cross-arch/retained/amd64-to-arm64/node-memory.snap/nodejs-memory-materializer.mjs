@@ -30,27 +30,40 @@ if (!validation.accepted) {
   );
   process.exit(2);
 }
-const state = ir.rows[0]?.semanticState ?? {};
+const rows = ir.rows.map((row) => ({
+  id: row.id,
+  shape: row.shape,
+  semanticState: row.semanticState,
+}));
+const state = rows[0]?.semanticState ?? {};
 mkdirSync(args.targetDir, { recursive: true });
 writeFileSync(
   join(args.targetDir, "node-memory-state.json"),
   JSON.stringify(state, null, 2) + "\n",
 );
+writeFileSync(join(args.targetDir, "node-memory-rows.json"), JSON.stringify(rows, null, 2) + "\n");
 writeFileSync(
   join(args.targetDir, "node-memory-ir-summary.json"),
   JSON.stringify(
-    { kind: ir.kind, version: ir.version, materializedRows: ir.rows.length },
+    {
+      kind: ir.kind,
+      version: ir.version,
+      materializedRows: ir.rows.length,
+      rowIds: rows.map((row) => row.id),
+    },
     null,
     2,
   ) + "\n",
 );
-writeFileSync(join(args.targetDir, "node-memory-app.mjs"), targetAppSource(state, args.port));
+writeFileSync(join(args.targetDir, "node-memory-app.mjs"), targetAppSource(state, rows, args.port));
 console.log(
   JSON.stringify({
     accepted: true,
     materializedRows: ir.rows.length,
+    rowIds: rows.map((row) => row.id),
     app: join(args.targetDir, "node-memory-app.mjs"),
     state: join(args.targetDir, "node-memory-state.json"),
+    rows: join(args.targetDir, "node-memory-rows.json"),
     claimGuard: claimGuard(),
   }),
 );
@@ -70,12 +83,15 @@ function parseArgs(argv) {
   return { ir: resolve(ir), targetDir: resolve(targetDir), port };
 }
 
-function targetAppSource(state, port) {
+function targetAppSource(state, rows, port) {
   return `import http from "node:http";
 const state = ${JSON.stringify(state)};
+const rows = ${JSON.stringify(rows)};
 globalThis.__machinenMaterializedNodeMemoryState = state;
+globalThis.__machinenMaterializedNodeMemoryRows = rows;
 http.createServer((req, res) => {
   if (req.url === "/state") { res.setHeader("content-type", "application/json"); res.end(JSON.stringify(state)); return; }
+  if (req.url === "/rows") { res.setHeader("content-type", "application/json"); res.end(JSON.stringify(rows)); return; }
   if (req.url === "/value") { res.end("memory-ready"); return; }
   res.writeHead(404); res.end("not found");
 }).listen(${JSON.stringify(port)}, "127.0.0.1");
