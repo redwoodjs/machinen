@@ -1,0 +1,66 @@
+{
+  "kind": "machinen.whole-vm-workload-corpus-product-row-gate",
+  "version": 1,
+  "rowId": "whole-vm-network-listener-workload",
+  "accepted": true,
+  "status": "verified",
+  "disposition": "product-supported",
+  "productArtifactType": "target-native-whole-vm-workload-product-gate",
+  "claimUse": "scoped corpus product artifact only; no arbitrary VM restore claim",
+  "directions": [
+    {
+      "direction": "arm64-to-amd64",
+      "sourceArch": "arm64",
+      "targetArch": "amd64",
+      "accepted": true,
+      "productGateExecuted": true,
+      "targetVmStarted": true,
+      "targetOutputObserved": true,
+      "retainedCorpusEvidence": ["arm64:loopback-listener-request-response-verifier-passed"],
+      "verifier": {
+        "targetNativeWorkloadReconstructed": true,
+        "retainedArtifactGatePassed": true,
+        "productGateTranscriptRetained": true,
+        "rawVmStateRestoreUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "arbitraryVmRestoreClaimed": false,
+        "rowId": "whole-vm-network-listener-workload"
+      }
+    },
+    {
+      "direction": "amd64-to-arm64",
+      "sourceArch": "amd64",
+      "targetArch": "arm64",
+      "accepted": true,
+      "productGateExecuted": true,
+      "targetVmStarted": true,
+      "targetOutputObserved": true,
+      "retainedCorpusEvidence": ["amd64:loopback-listener-request-response-verifier-passed"],
+      "verifier": {
+        "targetNativeWorkloadReconstructed": true,
+        "retainedArtifactGatePassed": true,
+        "productGateTranscriptRetained": true,
+        "rawVmStateRestoreUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "arbitraryVmRestoreClaimed": false,
+        "rowId": "whole-vm-network-listener-workload"
+      }
+    }
+  ],
+  "noShortcutPolicy": {
+    "rawVmStateRestoreUsed": false,
+    "crossIsaCpuReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "arbitraryVmRestoreAccepted": false,
+    "arbitraryLinuxProcessRestoreAccepted": false,
+    "metadataOnlySuccessAccepted": false
+  },
+  "claimGuard": {
+    "publicClaimAllowed": false,
+    "claimChangeAllowed": false,
+    "currentClaimScope": "selected-whole-vm-workload-v1 only",
+    "corpusProductSupportRow": true,
+    "arbitraryVmRestoreClaimed": false,
+    "arbitraryLinuxProcessRestoreClaimed": false
+  }
+}

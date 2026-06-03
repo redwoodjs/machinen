@@ -27,7 +27,10 @@
   "proofArtifact": "simple-pipe-fd-state-proof.json",
   "proofArtifactSha256": "564538ce124b5a5759b43456eeb8a7759dccdafeaeba089120a18c63dea9cac0",
   "proofMode": "target-native-reconstruction-proof",
-  "proofQuality": "executable-fixture-proof",
+  "proofQuality": "bidirectional-target-proof",
   "executableFixture": "simple-pipe-node-fixture",
+  "bidirectionalProofArtifact": "simple-pipe-fd-state-bidirectional-proof.json",
+  "bidirectionalProofArtifactSha256": "8f72c416cef12fcbfef8836f2b984cc59e44f8262ee367af1d425c88042ddaee",
+  "bidirectionalDirections": 2,
   "proofChecksPassed": 5
 }

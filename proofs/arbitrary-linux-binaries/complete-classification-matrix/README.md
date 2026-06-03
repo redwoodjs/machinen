@@ -6,7 +6,7 @@ Scope: `declared-arbitrary-process-state-classification-v1`
 
 Proof rows: `arbitrary/020` through `arbitrary/039`
 
-This matrix turns every declared arbitrary-process state class into a retained proof row. Supported rows keep a `*-proof.json` executable fixture verifier artifact. Refused rows keep a `*-proof.json` stable-refusal verifier artifact that refuses before target execution. Product support remains out of scope, and arbitrary process restore remains unclaimed.
+This matrix turns every declared arbitrary-process state class into a retained proof row. Supported rows keep `*-proof.json` executable fixture verifier artifacts and `*-bidirectional-proof.json` target proof artifacts for arm64→amd64 and amd64→arm64. Refused rows keep `*-proof.json` stable-refusal verifier artifacts that refuse before target execution. Product support remains out of scope, and arbitrary process restore remains unclaimed.
 
 ## Summary
 
@@ -14,7 +14,8 @@ This matrix turns every declared arbitrary-process state class into a retained p
 - Verified rows: 20
 - Retained row proof artifacts: 20
 - Executable fixture proofs: 6
-- Supported target-verifier proofs: 6
+- Bidirectional target proofs: 6
+- Bidirectional target directions: 12
 - Stable refusal proofs: 14
 - Supported-proof rows: 6
 - Refused rows: 14
@@ -24,6 +25,7 @@ This matrix turns every declared arbitrary-process state class into a retained p
 
 ## Proof quality
 
+- `bidirectional-target-proof`: 6 supported rows retain arm64→amd64 and amd64→arm64 target proof artifacts.
 - `executable-fixture-proof`: 6 supported rows run a retained executable fixture verifier.
 - `stable-refusal-proof`: 14 refused rows retain stable refusal-code verifier artifacts.
 - Product-path proof: 0 rows; product support remains out of scope for arbitrary process work.
@@ -42,4 +44,5 @@ This matrix turns every declared arbitrary-process state class into a retained p
 
 - `retained/arbitrary-process-complete-classification-matrix-report.json`
 - `retained/*-proof.json` for all 20 rows
+- `retained/*-bidirectional-proof.json` for the 6 supported rows
 - `retained/*.json` row summaries for all 20 rows

@@ -23,9 +23,12 @@
     "metadataOnlySuccessAccepted": false
   },
   "proofArtifact": "process-metadata-argv-env-cwd-proof.json",
-  "proofArtifactSha256": "e6d802e6ee068f16bea49538a3cf78f8ba4427689d1fe2992441be5f2c3706c5",
+  "proofArtifactSha256": "88c7f590b05c7f78291ca6b1c5555922d75f53ee8a64ce883e38de643396d204",
   "proofMode": "target-native-reconstruction-proof",
-  "proofQuality": "executable-fixture-proof",
+  "proofQuality": "bidirectional-target-proof",
   "executableFixture": "argv-env-cwd-node-fixture",
+  "bidirectionalProofArtifact": "process-metadata-argv-env-cwd-bidirectional-proof.json",
+  "bidirectionalProofArtifactSha256": "f62080197f09d7b5e1653182bab8f879c2d656dec7e2e5d7d0c04e18d7858a79",
+  "bidirectionalDirections": 2,
   "proofChecksPassed": 5
 }

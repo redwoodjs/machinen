@@ -57,3 +57,4 @@ claim group here has a `claim.json` copy plus a readable `README.md`.
 - [Selected whole VM workload support matrix](./linux-vm-workload/selected-whole-vm-workload/README.md) — `verified`
 - [Whole VM workload next corpus](./linux-vm-workload/next-corpus/README.md) — `defined`
 - [Whole VM workload corpus proof](./linux-vm-workload/corpus-proof/README.md) — `verified`
+- [Whole VM workload corpus product gate](./linux-vm-workload/corpus-product-gate/README.md) — `verified`

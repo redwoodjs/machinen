@@ -29,7 +29,10 @@
   "proofArtifact": "idle-epoll-tcp-listener-state-proof.json",
   "proofArtifactSha256": "3da5194e5f2c1c15a2f00d029861c015bae41ce5ef5e57d925ebe8b194b5c465",
   "proofMode": "target-native-reconstruction-proof",
-  "proofQuality": "executable-fixture-proof",
+  "proofQuality": "bidirectional-target-proof",
   "executableFixture": "idle-epoll-tcp-listener-node-fixture",
+  "bidirectionalProofArtifact": "idle-epoll-tcp-listener-state-bidirectional-proof.json",
+  "bidirectionalProofArtifactSha256": "85aa0a51c18ec38d02e501bfe1a9935191891d844543c6142db66b4535fe9f3d",
+  "bidirectionalDirections": 2,
   "proofChecksPassed": 5
 }

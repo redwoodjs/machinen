@@ -28,5 +28,8 @@
   "proofMode": "stable-refusal-proof",
   "proofQuality": "stable-refusal-proof",
   "executableFixture": null,
+  "bidirectionalProofArtifact": null,
+  "bidirectionalProofArtifactSha256": null,
+  "bidirectionalDirections": 0,
   "proofChecksPassed": 4
 }

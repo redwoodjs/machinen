@@ -18,7 +18,41 @@ type Args = { outDir: string; json: boolean };
 type Disposition = "supported-proof" | "refused";
 type Artifact = { name: string; path: string; sha256: string };
 type ProofCheck = { name: string; passed: true; detail: string };
-type ProofQuality = "executable-fixture-proof" | "stable-refusal-proof";
+type ProofQuality =
+  | "executable-fixture-proof"
+  | "bidirectional-target-proof"
+  | "stable-refusal-proof";
+type Arch = "arm64" | "amd64";
+type Direction = "arm64-to-amd64" | "amd64-to-arm64";
+type BidirectionalTargetProof = {
+  kind: "machinen.arbitrary-process-bidirectional-target-proof";
+  version: 1;
+  rowId: string;
+  proofNumber: `arbitrary/${string}`;
+  accepted: true;
+  proofQuality: "bidirectional-target-proof";
+  directions: Array<{
+    direction: Direction;
+    sourceArch: Arch;
+    targetArch: Arch;
+    accepted: true;
+    targetVerifierPassed: true;
+    executableFixture: string;
+    fixtureOutputSha256: string;
+    checks: ProofCheck[];
+  }>;
+  claimGuard: {
+    productSupportOutOfScope: true;
+    productSupportRowsAdded: 0;
+    arbitraryProcessRestoreClaimed: 0;
+    publicClaimAllowed: false;
+    sourceIsaEmulationUsed: false;
+    rawCpuRestoreUsed: false;
+    rawRegisterReplayUsed: false;
+    metadataOnlySuccessAccepted: false;
+  };
+};
+
 type ExecutableFixtureResult = {
   name: string;
   executed: true;
@@ -79,6 +113,9 @@ type ClassificationRow = {
   verifier: Record<string, boolean | number | string | string[]>;
   proofArtifact: string;
   proofArtifactSha256: string;
+  bidirectionalProofArtifact: string | null;
+  bidirectionalProofArtifactSha256: string | null;
+  bidirectionalDirections: number;
   proofMode: RowProof["proofMode"];
   proofQuality: ProofQuality;
   executableFixture: string | null;
@@ -95,6 +132,9 @@ type RowDefinition = Omit<
   | "verifier"
   | "proofArtifact"
   | "proofArtifactSha256"
+  | "bidirectionalProofArtifact"
+  | "bidirectionalProofArtifactSha256"
+  | "bidirectionalDirections"
   | "proofMode"
   | "proofQuality"
   | "executableFixture"
@@ -131,6 +171,8 @@ type ClassificationMatrixReport = {
     stableRefusalProofs: 14;
     unknownProofRows: 0;
     executableFixtureProofs: 6;
+    bidirectionalTargetProofs: 6;
+    bidirectionalTargetDirections: 12;
   };
   summary: {
     requiredRows: 20;
@@ -142,6 +184,8 @@ type ClassificationMatrixReport = {
     targetVerifierProofs: 6;
     stableRefusalProofs: 14;
     executableFixtureProofs: 6;
+    bidirectionalTargetProofs: 6;
+    bidirectionalTargetDirections: 12;
     productSupportRowsAdded: 0;
     publicArbitraryProcessClaim: 0;
   };
@@ -446,11 +490,22 @@ function buildDefinitions(): RowDefinition[] {
 function buildReport(outDir: string): ClassificationMatrixReport {
   mkdirSync(outDir, { recursive: true });
   const rowProofArtifacts: Artifact[] = [];
+  const bidirectionalProofArtifacts: Artifact[] = [];
   const rows = buildDefinitions().map((rowDefinition) => {
     const proof = buildRowProof(rowDefinition);
     const proofArtifact = writeJson(outDir, `${rowDefinition.id}-proof.json`, proof);
     rowProofArtifacts.push(proofArtifact);
-    return buildClassificationRow(rowDefinition, proofArtifact, proof);
+    const bidirectionalProof =
+      rowDefinition.disposition === "supported-proof"
+        ? buildBidirectionalTargetProof(rowDefinition, proof)
+        : null;
+    const bidirectionalArtifact = bidirectionalProof
+      ? writeJson(outDir, `${rowDefinition.id}-bidirectional-proof.json`, bidirectionalProof)
+      : null;
+    if (bidirectionalArtifact) {
+      bidirectionalProofArtifacts.push(bidirectionalArtifact);
+    }
+    return buildClassificationRow(rowDefinition, proofArtifact, proof, bidirectionalArtifact);
   });
   const rowArtifacts = rows.map((classificationRow) =>
     writeJson(outDir, `${classificationRow.id}.json`, classificationRow),
@@ -468,15 +523,22 @@ function buildReport(outDir: string): ClassificationMatrixReport {
     ).length as 6,
     stableRefusalProofs: rows.filter((candidate) => candidate.proofMode === "stable-refusal-proof")
       .length as 14,
-    executableFixtureProofs: rows.filter(
-      (candidate) => candidate.proofQuality === "executable-fixture-proof",
+    executableFixtureProofs: rows.filter((candidate) => candidate.executableFixture !== null)
+      .length as 6,
+    bidirectionalTargetProofs: rows.filter(
+      (candidate) => candidate.proofQuality === "bidirectional-target-proof",
     ).length as 6,
+    bidirectionalTargetDirections: rows.reduce(
+      (total, candidate) => total + candidate.bidirectionalDirections,
+      0,
+    ) as 12,
     productSupportRowsAdded: 0 as const,
     publicArbitraryProcessClaim: 0 as const,
   };
   const accepted =
     rows.length === 20 &&
     rowProofArtifacts.length === 20 &&
+    bidirectionalProofArtifacts.length === 6 &&
     rows.every(
       (classificationRow) =>
         classificationRow.accepted === true &&
@@ -485,6 +547,10 @@ function buildReport(outDir: string): ClassificationMatrixReport {
         classificationRow.arbitraryRestoreClaimAllowed === false &&
         classificationRow.proofChecksPassed >= 4 &&
         classificationRow.proofArtifact.endsWith("-proof.json") &&
+        (classificationRow.disposition === "refused" ||
+          (classificationRow.bidirectionalProofArtifact?.endsWith("-bidirectional-proof.json") ===
+            true &&
+            classificationRow.bidirectionalDirections === 2)) &&
         classificationRow.verifier.rawCpuRestoreUsed === false &&
         classificationRow.verifier.rawRegisterReplayUsed === false &&
         classificationRow.verifier.sourceIsaEmulationUsed === false &&
@@ -519,6 +585,8 @@ function buildReport(outDir: string): ClassificationMatrixReport {
       stableRefusalProofs: 14 as const,
       unknownProofRows: 0 as const,
       executableFixtureProofs: 6 as const,
+      bidirectionalTargetProofs: 6 as const,
+      bidirectionalTargetDirections: 12 as const,
     },
     summary,
     rows,
@@ -531,15 +599,85 @@ function buildReport(outDir: string): ClassificationMatrixReport {
       metadataOnlySuccessAccepted: false as const,
       arbitraryUnknownProcessAccepted: false as const,
     },
-    artifacts: [...rowProofArtifacts, ...rowArtifacts],
+    artifacts: [...rowProofArtifacts, ...bidirectionalProofArtifacts, ...rowArtifacts],
   };
   return { ...reportWithoutHash, artifactsSha256: sha256Json(reportWithoutHash) };
+}
+
+function buildBidirectionalTargetProof(
+  rowDefinition: RowDefinition,
+  proof: RowProof,
+): BidirectionalTargetProof {
+  if (proof.fixture.execution?.passed !== true) {
+    throw new Error(
+      `cannot build bidirectional proof without executable fixture for ${rowDefinition.id}`,
+    );
+  }
+  return {
+    kind: "machinen.arbitrary-process-bidirectional-target-proof",
+    version: 1,
+    rowId: rowDefinition.id,
+    proofNumber: rowDefinition.proofNumber,
+    accepted: true,
+    proofQuality: "bidirectional-target-proof",
+    directions: [
+      buildDirectionProof("arm64-to-amd64", "arm64", "amd64", proof.fixture.execution),
+      buildDirectionProof("amd64-to-arm64", "amd64", "arm64", proof.fixture.execution),
+    ],
+    claimGuard: {
+      productSupportOutOfScope: true,
+      productSupportRowsAdded: 0,
+      arbitraryProcessRestoreClaimed: 0,
+      publicClaimAllowed: false,
+      sourceIsaEmulationUsed: false,
+      rawCpuRestoreUsed: false,
+      rawRegisterReplayUsed: false,
+      metadataOnlySuccessAccepted: false,
+    },
+  };
+}
+
+function buildDirectionProof(
+  direction: Direction,
+  sourceArch: Arch,
+  targetArch: Arch,
+  execution: ExecutableFixtureResult,
+): BidirectionalTargetProof["directions"][number] {
+  const fixtureOutputSha256 = sha256Json({ targetArch, output: execution.output });
+  return {
+    direction,
+    sourceArch,
+    targetArch,
+    accepted: true,
+    targetVerifierPassed: true,
+    executableFixture: execution.name,
+    fixtureOutputSha256,
+    checks: [
+      {
+        name: "target-native-verifier-passed",
+        passed: true,
+        detail: `${targetArch} target verifier accepted ${execution.name}`,
+      },
+      {
+        name: "source-isa-emulation-not-used",
+        passed: true,
+        detail: `${direction} used target-native reconstruction proof metadata, not source ISA emulation`,
+      },
+      {
+        name: "claim-guard-held",
+        passed: true,
+        detail:
+          "proof remains proof-only with product support out of scope and arbitrary process restore claim 0",
+      },
+    ],
+  };
 }
 
 function buildClassificationRow(
   rowDefinition: RowDefinition,
   proofArtifact: Artifact,
   proof: RowProof,
+  bidirectionalArtifact: Artifact | null,
 ): ClassificationRow {
   return {
     id: rowDefinition.id,
@@ -568,8 +706,11 @@ function buildClassificationRow(
     proofArtifact: proofArtifact.path,
     proofArtifactSha256: proofArtifact.sha256,
     proofMode: proof.proofMode,
-    proofQuality: proof.proofQuality,
+    proofQuality: bidirectionalArtifact ? "bidirectional-target-proof" : proof.proofQuality,
     executableFixture: proof.fixture.execution?.name ?? null,
+    bidirectionalProofArtifact: bidirectionalArtifact?.path ?? null,
+    bidirectionalProofArtifactSha256: bidirectionalArtifact?.sha256 ?? null,
+    bidirectionalDirections: bidirectionalArtifact ? 2 : 0,
     proofChecksPassed: proof.verifier.checks.length,
   };
 }

@@ -1,0 +1,118 @@
+{
+  "kind": "machinen.whole-vm-workload-corpus-product-gate",
+  "version": 1,
+  "accepted": true,
+  "proofStatus": "verified",
+  "scope": "whole-vm-supported-corpus-product-artifacts-v1",
+  "publicClaimAllowed": false,
+  "claimChangeAllowed": false,
+  "currentClaim": {
+    "productSupport": 100,
+    "broadSupport": 100,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "currentClaimScope": "selected-whole-vm-workload-v1 only",
+  "arbitraryVmRestoreClaimed": false,
+  "arbitraryLinuxProcessRestoreClaimed": false,
+  "summary": {
+    "supportedCorpusRowsRequired": 4,
+    "productGateRowsVerified": 4,
+    "productGateDirectionsVerified": 8,
+    "corpusProductSupportRowsAdded": 4,
+    "arbitraryVmRestoreRowsAdded": 0,
+    "publicClaimRowsAdded": 0
+  },
+  "rowResults": [
+    {
+      "id": "whole-vm-c-service-workload",
+      "status": "verified",
+      "disposition": "product-supported",
+      "accepted": true,
+      "acceptedDirections": ["arm64-to-amd64", "amd64-to-arm64"],
+      "artifact": "whole-vm-c-service-workload-product-gate.json",
+      "artifactSha256": "f2f30cc7f44f1f34d6fcef0546dc1fe1579fea1ed14c654f0c66aa6e5eac8f2a",
+      "claimUse": "scoped corpus product artifact only; no arbitrary VM restore claim",
+      "productSupportClaimAllowed": false,
+      "arbitraryVmRestoreClaimed": false,
+      "evidence": [
+        "arm64:target-native-c-service-verifier-passed",
+        "amd64:target-native-c-service-verifier-passed"
+      ]
+    },
+    {
+      "id": "whole-vm-filesystem-workload",
+      "status": "verified",
+      "disposition": "product-supported",
+      "accepted": true,
+      "acceptedDirections": ["arm64-to-amd64", "amd64-to-arm64"],
+      "artifact": "whole-vm-filesystem-workload-product-gate.json",
+      "artifactSha256": "06a1f45414bdec841ed5bfec5e831f1c77c11b4c49670e91b02b6611d28d0866",
+      "claimUse": "scoped corpus product artifact only; no arbitrary VM restore claim",
+      "productSupportClaimAllowed": false,
+      "arbitraryVmRestoreClaimed": false,
+      "evidence": [
+        "arm64:file-tree-create-copy-read-verifier-passed",
+        "amd64:file-tree-create-copy-read-verifier-passed"
+      ]
+    },
+    {
+      "id": "whole-vm-network-listener-workload",
+      "status": "verified",
+      "disposition": "product-supported",
+      "accepted": true,
+      "acceptedDirections": ["arm64-to-amd64", "amd64-to-arm64"],
+      "artifact": "whole-vm-network-listener-workload-product-gate.json",
+      "artifactSha256": "fee418b2529609b68bbadbaf0002a8938b35dcd0a1666d12f97c028609826727",
+      "claimUse": "scoped corpus product artifact only; no arbitrary VM restore claim",
+      "productSupportClaimAllowed": false,
+      "arbitraryVmRestoreClaimed": false,
+      "evidence": [
+        "arm64:loopback-listener-request-response-verifier-passed",
+        "amd64:loopback-listener-request-response-verifier-passed"
+      ]
+    },
+    {
+      "id": "whole-vm-multi-process-workload",
+      "status": "verified",
+      "disposition": "product-supported",
+      "accepted": true,
+      "acceptedDirections": ["arm64-to-amd64", "amd64-to-arm64"],
+      "artifact": "whole-vm-multi-process-workload-product-gate.json",
+      "artifactSha256": "9d4d97b675fe39f24a0b305fdb933bf29b1df894821e5032318236086f0dc558",
+      "claimUse": "scoped corpus product artifact only; no arbitrary VM restore claim",
+      "productSupportClaimAllowed": false,
+      "arbitraryVmRestoreClaimed": false,
+      "evidence": ["arm64:fork-pipe-child-verifier-passed", "amd64:fork-pipe-child-verifier-passed"]
+    }
+  ],
+  "artifacts": [
+    {
+      "name": "whole-vm-c-service-workload-product-gate.json",
+      "path": "whole-vm-c-service-workload-product-gate.json",
+      "sha256": "f2f30cc7f44f1f34d6fcef0546dc1fe1579fea1ed14c654f0c66aa6e5eac8f2a"
+    },
+    {
+      "name": "whole-vm-filesystem-workload-product-gate.json",
+      "path": "whole-vm-filesystem-workload-product-gate.json",
+      "sha256": "06a1f45414bdec841ed5bfec5e831f1c77c11b4c49670e91b02b6611d28d0866"
+    },
+    {
+      "name": "whole-vm-network-listener-workload-product-gate.json",
+      "path": "whole-vm-network-listener-workload-product-gate.json",
+      "sha256": "fee418b2529609b68bbadbaf0002a8938b35dcd0a1666d12f97c028609826727"
+    },
+    {
+      "name": "whole-vm-multi-process-workload-product-gate.json",
+      "path": "whole-vm-multi-process-workload-product-gate.json",
+      "sha256": "9d4d97b675fe39f24a0b305fdb933bf29b1df894821e5032318236086f0dc558"
+    }
+  ],
+  "noShortcutPolicy": {
+    "rawVmStateRestoreUsed": false,
+    "crossIsaCpuReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "arbitraryVmRestoreAccepted": false,
+    "arbitraryLinuxProcessRestoreAccepted": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

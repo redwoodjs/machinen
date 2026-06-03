@@ -23,7 +23,9 @@
     "supportedTargetVerifierProofs": 6,
     "stableRefusalProofs": 14,
     "unknownProofRows": 0,
-    "executableFixtureProofs": 6
+    "executableFixtureProofs": 6,
+    "bidirectionalTargetProofs": 6,
+    "bidirectionalTargetDirections": 12
   },
   "summary": {
     "requiredRows": 20,
@@ -35,6 +37,8 @@
     "targetVerifierProofs": 6,
     "stableRefusalProofs": 14,
     "executableFixtureProofs": 6,
+    "bidirectionalTargetProofs": 6,
+    "bidirectionalTargetDirections": 12,
     "productSupportRowsAdded": 0,
     "publicArbitraryProcessClaim": 0
   },
@@ -64,10 +68,13 @@
         "metadataOnlySuccessAccepted": false
       },
       "proofArtifact": "process-metadata-argv-env-cwd-proof.json",
-      "proofArtifactSha256": "e6d802e6ee068f16bea49538a3cf78f8ba4427689d1fe2992441be5f2c3706c5",
+      "proofArtifactSha256": "88c7f590b05c7f78291ca6b1c5555922d75f53ee8a64ce883e38de643396d204",
       "proofMode": "target-native-reconstruction-proof",
-      "proofQuality": "executable-fixture-proof",
+      "proofQuality": "bidirectional-target-proof",
       "executableFixture": "argv-env-cwd-node-fixture",
+      "bidirectionalProofArtifact": "process-metadata-argv-env-cwd-bidirectional-proof.json",
+      "bidirectionalProofArtifactSha256": "f62080197f09d7b5e1653182bab8f879c2d656dec7e2e5d7d0c04e18d7858a79",
+      "bidirectionalDirections": 2,
       "proofChecksPassed": 5
     },
     {
@@ -99,8 +106,11 @@
       "proofArtifact": "static-data-heap-memory-proof.json",
       "proofArtifactSha256": "91b67259f3a70038b4e3a60bc362d7dbf385c94ac673509244d8f8da3e4e16d2",
       "proofMode": "target-native-reconstruction-proof",
-      "proofQuality": "executable-fixture-proof",
+      "proofQuality": "bidirectional-target-proof",
       "executableFixture": "static-data-heap-node-fixture",
+      "bidirectionalProofArtifact": "static-data-heap-memory-bidirectional-proof.json",
+      "bidirectionalProofArtifactSha256": "d2153b16745ae62f130d5f7c67d2fdba1cbb128a2c4f4cced12d06a941ba1f64",
+      "bidirectionalDirections": 2,
       "proofChecksPassed": 5
     },
     {
@@ -132,8 +142,11 @@
       "proofArtifact": "regular-file-fd-state-proof.json",
       "proofArtifactSha256": "94b377a107e211a1ce3ff8b2f3ccbd632ebe06e237ab4cb405d109afca1bbdf9",
       "proofMode": "target-native-reconstruction-proof",
-      "proofQuality": "executable-fixture-proof",
+      "proofQuality": "bidirectional-target-proof",
       "executableFixture": "regular-file-fd-node-fixture",
+      "bidirectionalProofArtifact": "regular-file-fd-state-bidirectional-proof.json",
+      "bidirectionalProofArtifactSha256": "0c6c0bbed0df7dae104d967c120fd3ef7283b4bced33cb701315cd9aafc3ddbe",
+      "bidirectionalDirections": 2,
       "proofChecksPassed": 5
     },
     {
@@ -165,8 +178,11 @@
       "proofArtifact": "simple-pipe-fd-state-proof.json",
       "proofArtifactSha256": "564538ce124b5a5759b43456eeb8a7759dccdafeaeba089120a18c63dea9cac0",
       "proofMode": "target-native-reconstruction-proof",
-      "proofQuality": "executable-fixture-proof",
+      "proofQuality": "bidirectional-target-proof",
       "executableFixture": "simple-pipe-node-fixture",
+      "bidirectionalProofArtifact": "simple-pipe-fd-state-bidirectional-proof.json",
+      "bidirectionalProofArtifactSha256": "8f72c416cef12fcbfef8836f2b984cc59e44f8262ee367af1d425c88042ddaee",
+      "bidirectionalDirections": 2,
       "proofChecksPassed": 5
     },
     {
@@ -200,8 +216,11 @@
       "proofArtifact": "idle-eventfd-timerfd-state-proof.json",
       "proofArtifactSha256": "b58d25076b8c7c62cd3f38260071c21f8cf9f00d6e3fa188660d452ecaf8071d",
       "proofMode": "target-native-reconstruction-proof",
-      "proofQuality": "executable-fixture-proof",
+      "proofQuality": "bidirectional-target-proof",
       "executableFixture": "idle-eventfd-timerfd-manifest-fixture",
+      "bidirectionalProofArtifact": "idle-eventfd-timerfd-state-bidirectional-proof.json",
+      "bidirectionalProofArtifactSha256": "0bfcde0de7fd03e4100d1adcde715f03ed36918f1b7bcd6d91a2725ca2ddb06c",
+      "bidirectionalDirections": 2,
       "proofChecksPassed": 5
     },
     {
@@ -235,8 +254,11 @@
       "proofArtifact": "idle-epoll-tcp-listener-state-proof.json",
       "proofArtifactSha256": "3da5194e5f2c1c15a2f00d029861c015bae41ce5ef5e57d925ebe8b194b5c465",
       "proofMode": "target-native-reconstruction-proof",
-      "proofQuality": "executable-fixture-proof",
+      "proofQuality": "bidirectional-target-proof",
       "executableFixture": "idle-epoll-tcp-listener-node-fixture",
+      "bidirectionalProofArtifact": "idle-epoll-tcp-listener-state-bidirectional-proof.json",
+      "bidirectionalProofArtifactSha256": "85aa0a51c18ec38d02e501bfe1a9935191891d844543c6142db66b4535fe9f3d",
+      "bidirectionalDirections": 2,
       "proofChecksPassed": 5
     },
     {
@@ -271,6 +293,9 @@
       "proofMode": "stable-refusal-proof",
       "proofQuality": "stable-refusal-proof",
       "executableFixture": null,
+      "bidirectionalProofArtifact": null,
+      "bidirectionalProofArtifactSha256": null,
+      "bidirectionalDirections": 0,
       "proofChecksPassed": 4
     },
     {
@@ -305,6 +330,9 @@
       "proofMode": "stable-refusal-proof",
       "proofQuality": "stable-refusal-proof",
       "executableFixture": null,
+      "bidirectionalProofArtifact": null,
+      "bidirectionalProofArtifactSha256": null,
+      "bidirectionalDirections": 0,
       "proofChecksPassed": 4
     },
     {
@@ -339,6 +367,9 @@
       "proofMode": "stable-refusal-proof",
       "proofQuality": "stable-refusal-proof",
       "executableFixture": null,
+      "bidirectionalProofArtifact": null,
+      "bidirectionalProofArtifactSha256": null,
+      "bidirectionalDirections": 0,
       "proofChecksPassed": 4
     },
     {
@@ -371,6 +402,9 @@
       "proofMode": "stable-refusal-proof",
       "proofQuality": "stable-refusal-proof",
       "executableFixture": null,
+      "bidirectionalProofArtifact": null,
+      "bidirectionalProofArtifactSha256": null,
+      "bidirectionalDirections": 0,
       "proofChecksPassed": 4
     },
     {
@@ -405,6 +439,9 @@
       "proofMode": "stable-refusal-proof",
       "proofQuality": "stable-refusal-proof",
       "executableFixture": null,
+      "bidirectionalProofArtifact": null,
+      "bidirectionalProofArtifactSha256": null,
+      "bidirectionalDirections": 0,
       "proofChecksPassed": 4
     },
     {
@@ -437,6 +474,9 @@
       "proofMode": "stable-refusal-proof",
       "proofQuality": "stable-refusal-proof",
       "executableFixture": null,
+      "bidirectionalProofArtifact": null,
+      "bidirectionalProofArtifactSha256": null,
+      "bidirectionalDirections": 0,
       "proofChecksPassed": 4
     },
     {
@@ -469,6 +509,9 @@
       "proofMode": "stable-refusal-proof",
       "proofQuality": "stable-refusal-proof",
       "executableFixture": null,
+      "bidirectionalProofArtifact": null,
+      "bidirectionalProofArtifactSha256": null,
+      "bidirectionalDirections": 0,
       "proofChecksPassed": 4
     },
     {
@@ -503,6 +546,9 @@
       "proofMode": "stable-refusal-proof",
       "proofQuality": "stable-refusal-proof",
       "executableFixture": null,
+      "bidirectionalProofArtifact": null,
+      "bidirectionalProofArtifactSha256": null,
+      "bidirectionalDirections": 0,
       "proofChecksPassed": 4
     },
     {
@@ -537,6 +583,9 @@
       "proofMode": "stable-refusal-proof",
       "proofQuality": "stable-refusal-proof",
       "executableFixture": null,
+      "bidirectionalProofArtifact": null,
+      "bidirectionalProofArtifactSha256": null,
+      "bidirectionalDirections": 0,
       "proofChecksPassed": 4
     },
     {
@@ -571,6 +620,9 @@
       "proofMode": "stable-refusal-proof",
       "proofQuality": "stable-refusal-proof",
       "executableFixture": null,
+      "bidirectionalProofArtifact": null,
+      "bidirectionalProofArtifactSha256": null,
+      "bidirectionalDirections": 0,
       "proofChecksPassed": 4
     },
     {
@@ -605,6 +657,9 @@
       "proofMode": "stable-refusal-proof",
       "proofQuality": "stable-refusal-proof",
       "executableFixture": null,
+      "bidirectionalProofArtifact": null,
+      "bidirectionalProofArtifactSha256": null,
+      "bidirectionalDirections": 0,
       "proofChecksPassed": 4
     },
     {
@@ -637,6 +692,9 @@
       "proofMode": "stable-refusal-proof",
       "proofQuality": "stable-refusal-proof",
       "executableFixture": null,
+      "bidirectionalProofArtifact": null,
+      "bidirectionalProofArtifactSha256": null,
+      "bidirectionalDirections": 0,
       "proofChecksPassed": 4
     },
     {
@@ -669,6 +727,9 @@
       "proofMode": "stable-refusal-proof",
       "proofQuality": "stable-refusal-proof",
       "executableFixture": null,
+      "bidirectionalProofArtifact": null,
+      "bidirectionalProofArtifactSha256": null,
+      "bidirectionalDirections": 0,
       "proofChecksPassed": 4
     },
     {
@@ -703,6 +764,9 @@
       "proofMode": "stable-refusal-proof",
       "proofQuality": "stable-refusal-proof",
       "executableFixture": null,
+      "bidirectionalProofArtifact": null,
+      "bidirectionalProofArtifactSha256": null,
+      "bidirectionalDirections": 0,
       "proofChecksPassed": 4
     }
   ],
@@ -719,7 +783,7 @@
     {
       "name": "process-metadata-argv-env-cwd-proof.json",
       "path": "process-metadata-argv-env-cwd-proof.json",
-      "sha256": "e6d802e6ee068f16bea49538a3cf78f8ba4427689d1fe2992441be5f2c3706c5"
+      "sha256": "88c7f590b05c7f78291ca6b1c5555922d75f53ee8a64ce883e38de643396d204"
     },
     {
       "name": "static-data-heap-memory-proof.json",
@@ -817,105 +881,135 @@
       "sha256": "a6bb6a478128763de259603eb00f9884fb28ef901456d2ef02eb042d89e605a0"
     },
     {
+      "name": "process-metadata-argv-env-cwd-bidirectional-proof.json",
+      "path": "process-metadata-argv-env-cwd-bidirectional-proof.json",
+      "sha256": "f62080197f09d7b5e1653182bab8f879c2d656dec7e2e5d7d0c04e18d7858a79"
+    },
+    {
+      "name": "static-data-heap-memory-bidirectional-proof.json",
+      "path": "static-data-heap-memory-bidirectional-proof.json",
+      "sha256": "d2153b16745ae62f130d5f7c67d2fdba1cbb128a2c4f4cced12d06a941ba1f64"
+    },
+    {
+      "name": "regular-file-fd-state-bidirectional-proof.json",
+      "path": "regular-file-fd-state-bidirectional-proof.json",
+      "sha256": "0c6c0bbed0df7dae104d967c120fd3ef7283b4bced33cb701315cd9aafc3ddbe"
+    },
+    {
+      "name": "simple-pipe-fd-state-bidirectional-proof.json",
+      "path": "simple-pipe-fd-state-bidirectional-proof.json",
+      "sha256": "8f72c416cef12fcbfef8836f2b984cc59e44f8262ee367af1d425c88042ddaee"
+    },
+    {
+      "name": "idle-eventfd-timerfd-state-bidirectional-proof.json",
+      "path": "idle-eventfd-timerfd-state-bidirectional-proof.json",
+      "sha256": "0bfcde0de7fd03e4100d1adcde715f03ed36918f1b7bcd6d91a2725ca2ddb06c"
+    },
+    {
+      "name": "idle-epoll-tcp-listener-state-bidirectional-proof.json",
+      "path": "idle-epoll-tcp-listener-state-bidirectional-proof.json",
+      "sha256": "85aa0a51c18ec38d02e501bfe1a9935191891d844543c6142db66b4535fe9f3d"
+    },
+    {
       "name": "process-metadata-argv-env-cwd.json",
       "path": "process-metadata-argv-env-cwd.json",
-      "sha256": "5571eaa0bef31a8a1718bf93629f133976af89ec3e6b9fbba90241251a1302d1"
+      "sha256": "2ab0b4651cba9aa7e81d09521484fad6fb0cfd67b5f6f2deb7748e2f47a8dcec"
     },
     {
       "name": "static-data-heap-memory.json",
       "path": "static-data-heap-memory.json",
-      "sha256": "d3f4bd23a659d984cec2e29762ebb857fc86da00f1e542f22ccaa13c951af570"
+      "sha256": "5474bce141d0cf5d0b59c1095ccf31c39ef3635ede9e9ea78ebb5f2fadd5ab2f"
     },
     {
       "name": "regular-file-fd-state.json",
       "path": "regular-file-fd-state.json",
-      "sha256": "b3d56b32761613fceb1a1636a74bf5c1e43a8fc89669abdab6412f23b8f8a0ff"
+      "sha256": "ebfa4bde50ec747d3177cdff574c2354788881199f061c5839d0829c61f6dfc4"
     },
     {
       "name": "simple-pipe-fd-state.json",
       "path": "simple-pipe-fd-state.json",
-      "sha256": "59cd7447ccc4f70f9230f661a2d1e6a93fea426c5bc55793c5e90e36089cd983"
+      "sha256": "9e992c90f2ed069d403f7f35f1c011205dcd5d15a2db59f2a52d7c20408a3110"
     },
     {
       "name": "idle-eventfd-timerfd-state.json",
       "path": "idle-eventfd-timerfd-state.json",
-      "sha256": "65fba933110442dde0970f30c4a5acee8dfc3b6b553c9e96182cb169981d737a"
+      "sha256": "9cf9426139b43ad0541a24f964edafa3480a1f6c9d0222dc148e1fdec022b0be"
     },
     {
       "name": "idle-epoll-tcp-listener-state.json",
       "path": "idle-epoll-tcp-listener-state.json",
-      "sha256": "0a35b5f79337390b5ad77fb188c0b8849a58c90650edbb3090781ccbb9c527b2"
+      "sha256": "5d437f9db039cadbdfc8d5d67f0ba5a145c9281ddcc2358d0dd87464a23c2776"
     },
     {
       "name": "pending-signal-frame-state.json",
       "path": "pending-signal-frame-state.json",
-      "sha256": "06087021ddee4b2dd1f620eaa46ed00284bb85c72f5b7f95f624e3fcb43cf19a"
+      "sha256": "816e2ced5c2087f36f66023a5d59a20cf63a1020880c40c65d4fc83dd2c04854"
     },
     {
       "name": "active-syscall-state.json",
       "path": "active-syscall-state.json",
-      "sha256": "c699c51da90240f8ca2febcad6df64c5117cefa8e47de602ce778f576aaa60cb"
+      "sha256": "d43a7084f13b99a368695745dda4fdc70f3bddaf9e9fb5dd12e15acc164becd6"
     },
     {
       "name": "multi-thread-scheduler-state.json",
       "path": "multi-thread-scheduler-state.json",
-      "sha256": "e312edc0360492e574e934a584e12a786cea209a2386f00b18931a82ccbf7d58"
+      "sha256": "d445878457c8c25579f5bb95479dfda44bedcf31616205c5070a9932011f118a"
     },
     {
       "name": "futex-owner-waiter-state.json",
       "path": "futex-owner-waiter-state.json",
-      "sha256": "49452d42e0e3fddbc8d3f31b6b13ba7f132aca2a48994187edfc30cc854df8dc"
+      "sha256": "ab4eb71284781387db606d05a8f180898917e1eca9f4652f29368df0add5e469"
     },
     {
       "name": "jit-executable-anonymous-mapping.json",
       "path": "jit-executable-anonymous-mapping.json",
-      "sha256": "2f9ea0b2e027baa239b35cfd782fbc190fe9ae94a60e7507f9f8981e9a5e4539"
+      "sha256": "74bfedd853c7e995c2a639c66d5d891742871170b7115f78d8b8dd861dfcc143"
     },
     {
       "name": "device-mmap-opaque-resource.json",
       "path": "device-mmap-opaque-resource.json",
-      "sha256": "24037abecc38ce4f2d8c74a4be4a09d9620e770b8a0d2c7fb8b7ce95611ee9b2"
+      "sha256": "da53914b708d19c930be5af78cdf94efca04af23b535e7d652998fc6e53fcbc5"
     },
     {
       "name": "shared-memory-opaque-mapping.json",
       "path": "shared-memory-opaque-mapping.json",
-      "sha256": "d3857db0be3c074642b0ba0dc742732f98aadaacff4cc11d467dff6ddad6579b"
+      "sha256": "64e8584baea51fc3f3ab001f54b64c34391e8ac690cddaf4d89dfacb704b62e7"
     },
     {
       "name": "active-unix-domain-socket-state.json",
       "path": "active-unix-domain-socket-state.json",
-      "sha256": "6d74c98c7dd439dc1cd8bf844c39b70b8641182fe8ed71548a5589aff0895e2c"
+      "sha256": "4b137f041770a3fe0c57e9e2f86c3274f66d31a5c3777911fa08fb41330f15eb"
     },
     {
       "name": "process-tree-parent-child-state.json",
       "path": "process-tree-parent-child-state.json",
-      "sha256": "5b05bf094ff9f198afdaf673165e197541059e01f4a38f550adb53ad0eba2fba"
+      "sha256": "267ef3543182ebcc7a6cdbaf318f7845b0b0c31500c19efdc9fdc003c68fe619"
     },
     {
       "name": "dynamic-linker-abi-mismatch-state.json",
       "path": "dynamic-linker-abi-mismatch-state.json",
-      "sha256": "73ebbc1858f9b71a2f89c5b08d904a0ccf9617084f1f789c61cf99faf6b18635"
+      "sha256": "bc0f4ec6ae384cb14e9a2c90084c85cfa1a01b67b2e0c91e047316eb6bde4e7e"
     },
     {
       "name": "credentials-namespace-cgroup-state.json",
       "path": "credentials-namespace-cgroup-state.json",
-      "sha256": "9403968c00508cd7303bfa8de5cfd98de06a403a9b9cf0b48bd56018f2d94152"
+      "sha256": "402f81d2f10563f1bdf2ea33a88d8a106349929a78e820f0b0d882916a10d979"
     },
     {
       "name": "seccomp-filter-policy-state.json",
       "path": "seccomp-filter-policy-state.json",
-      "sha256": "fafee9394aef9822efb3ca62b7ae32aeb117edb0d4076e55eb990a6e566de1b2"
+      "sha256": "82c076048430d3898a9f51acfe1b3e22401c2400bce351645e65c0f2571448e8"
     },
     {
       "name": "ptrace-debugger-traced-state.json",
       "path": "ptrace-debugger-traced-state.json",
-      "sha256": "6309ce0750a7a1aed490afa8fb8a68e7ec4f537601dc24ee9f56ac37b0004636"
+      "sha256": "15e55c30f77b1e51e4694f178367435dc61763d83a9dbe3764c77b29df5dbdea"
     },
     {
       "name": "arbitrary-unknown-process-state.json",
       "path": "arbitrary-unknown-process-state.json",
-      "sha256": "d656ddc98823a9f1e0fe85dcd7bb4a445c45a0ee9cf59e669094333c31ed4879"
+      "sha256": "cc275f3e73a2a10a0183b23173f8844b8664e2a7fe37ae065038aa2df0fda6dd"
     }
   ],
-  "artifactsSha256": "036f6b0180e1e20577c68a233c0bde8c8d394e81d9d1064f1bb705958c9e647c"
+  "artifactsSha256": "af223a00799ac24ecb448efba16bc196275d57bfd05ef5982e648769d0cd9544"
 }

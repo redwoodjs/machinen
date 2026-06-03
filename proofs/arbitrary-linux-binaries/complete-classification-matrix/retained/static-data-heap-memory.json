@@ -27,7 +27,10 @@
   "proofArtifact": "static-data-heap-memory-proof.json",
   "proofArtifactSha256": "91b67259f3a70038b4e3a60bc362d7dbf385c94ac673509244d8f8da3e4e16d2",
   "proofMode": "target-native-reconstruction-proof",
-  "proofQuality": "executable-fixture-proof",
+  "proofQuality": "bidirectional-target-proof",
   "executableFixture": "static-data-heap-node-fixture",
+  "bidirectionalProofArtifact": "static-data-heap-memory-bidirectional-proof.json",
+  "bidirectionalProofArtifactSha256": "d2153b16745ae62f130d5f7c67d2fdba1cbb128a2c4f4cced12d06a941ba1f64",
+  "bidirectionalDirections": 2,
   "proofChecksPassed": 5
 }

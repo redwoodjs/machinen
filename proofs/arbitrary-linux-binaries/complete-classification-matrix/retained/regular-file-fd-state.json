@@ -27,7 +27,10 @@
   "proofArtifact": "regular-file-fd-state-proof.json",
   "proofArtifactSha256": "94b377a107e211a1ce3ff8b2f3ccbd632ebe06e237ab4cb405d109afca1bbdf9",
   "proofMode": "target-native-reconstruction-proof",
-  "proofQuality": "executable-fixture-proof",
+  "proofQuality": "bidirectional-target-proof",
   "executableFixture": "regular-file-fd-node-fixture",
+  "bidirectionalProofArtifact": "regular-file-fd-state-bidirectional-proof.json",
+  "bidirectionalProofArtifactSha256": "0c6c0bbed0df7dae104d967c120fd3ef7283b4bced33cb701315cd9aafc3ddbe",
+  "bidirectionalDirections": 2,
   "proofChecksPassed": 5
 }

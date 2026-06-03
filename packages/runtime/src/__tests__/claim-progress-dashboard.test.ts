@@ -27,7 +27,7 @@ type ClaimProgressProofGroup = {
 
 type ClaimProgressDashboard = {
   kind: "machinen.claim-progress-dashboard";
-  version: 131;
+  version: 133;
   tracks: ClaimProgressTrack[];
   proofGroups: ClaimProgressProofGroup[];
 };
@@ -41,7 +41,7 @@ describe("claim progress dashboard", () => {
 
     expect(dashboard).toMatchObject({
       kind: "machinen.claim-progress-dashboard",
-      version: 131,
+      version: 133,
     });
     expect(dashboard.tracks.map((track) => track.id)).toEqual([
       "node-service",
@@ -318,11 +318,14 @@ describe("claim progress dashboard", () => {
     expect(html).toContain("arbitrary/039");
     expect(html).toContain("arbitrary-process-complete-classification-matrix-report.json");
     expect(html).toContain("process-metadata-argv-env-cwd-proof.json");
+    expect(html).toContain("process-metadata-argv-env-cwd-bidirectional-proof.json");
     expect(html).toContain("arbitrary-unknown-process-state-proof.json");
     expect(html).toContain("declared-arbitrary-process-state-classification-v1");
     expect(html).toContain("declaredStateClassesClassified");
     expect(html).toContain("completeClassificationRowProofArtifacts");
     expect(html).toContain("completeClassificationExecutableFixtureProofs");
+    expect(html).toContain("completeClassificationBidirectionalTargetProofs");
+    expect(html).toContain("completeClassificationBidirectionalTargetDirections");
     expect(html).toContain("proofQualityLevels");
     expect(html).toContain("declared-retained-proof");
     expect(html).toContain("executable-fixture-proof");
@@ -379,6 +382,15 @@ describe("claim progress dashboard", () => {
     expect(html).toContain("vm/012");
     expect(html).toContain("vm/013");
     expect(html).toContain("vm/014");
+    expect(html).toContain("vm/015");
+    expect(html).toContain("vm/018");
+    expect(html).toContain("whole-vm-workload-corpus-product-gate-report.json");
+    expect(html).toContain("whole-vm-supported-corpus-product-artifacts-v1");
+    expect(html).toContain("corpusProductGateRowsVerified");
+    expect(html).toContain("corpusProductSupportRowsAdded");
+    expect(html).toContain("arbitraryVmRestoreRowsAdded");
+    expect(html).toContain("whole-vm-c-service-workload-product-gate.json");
+    expect(html).toContain("whole-vm-network-listener-workload-product-gate.json");
     expect(html).toContain("database workload refusal");
     expect(html).toContain("service workload refusal");
     expect(html).toContain("corpusProductSupportRowsAdded");

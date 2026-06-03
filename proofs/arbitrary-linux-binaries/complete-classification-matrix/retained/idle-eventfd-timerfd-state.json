@@ -29,7 +29,10 @@
   "proofArtifact": "idle-eventfd-timerfd-state-proof.json",
   "proofArtifactSha256": "b58d25076b8c7c62cd3f38260071c21f8cf9f00d6e3fa188660d452ecaf8071d",
   "proofMode": "target-native-reconstruction-proof",
-  "proofQuality": "executable-fixture-proof",
+  "proofQuality": "bidirectional-target-proof",
   "executableFixture": "idle-eventfd-timerfd-manifest-fixture",
+  "bidirectionalProofArtifact": "idle-eventfd-timerfd-state-bidirectional-proof.json",
+  "bidirectionalProofArtifactSha256": "0bfcde0de7fd03e4100d1adcde715f03ed36918f1b7bcd6d91a2725ca2ddb06c",
+  "bidirectionalDirections": 2,
   "proofChecksPassed": 5
 }

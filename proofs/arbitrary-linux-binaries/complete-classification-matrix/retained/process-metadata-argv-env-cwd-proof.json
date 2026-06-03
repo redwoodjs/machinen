@@ -26,7 +26,7 @@
         "envMatched": true,
         "cwdMatched": true,
         "argvSha256": "f62b312d2282723bf5e9426777cc473181f35a1097186ac4955c9d877e8f6379",
-        "cwdSha256": "16c8520e9fe1131ac0afb3510d0e20f503fff0ada010dd6947966d404a8bd59b"
+        "cwdSha256": "eeb356062de8ff812e672a3e3d5a8c453c02e577225b703ea436991a10b4d6d5"
       },
       "transcript": [
         "executed argv-env-cwd-node-fixture",
