@@ -83,3 +83,7 @@ real host directory. Cover:
    read-only mount and never touches the host fs.
 4. **Wedge guard** — a malformed / over-long descriptor chain must be
    acked fail-soft, never hang the VMM thread.
+
+Write clearly.
+The most important component of writing clearly is simply to have high standards for clarity. Then if you write something unclear, you notice, and ask: what did I mean to say? You can just keep doing this over and over. And if you have high standards for clarity, you will.
+Having high standards for clarity is useful in lots of other kinds of work too. It's very useful when I'm advising startups at Y Combinator. I ask founders what they plan to do. Their initial answer is a muddy pool. Then we make it clear — not just what to say, but what to do.
