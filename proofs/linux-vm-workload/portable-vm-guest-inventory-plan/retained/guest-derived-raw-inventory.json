@@ -1,0 +1,140 @@
+[
+  {
+    "id": "rootfs-file-tree",
+    "section": "filesystems",
+    "component": "filesystem",
+    "observedState": "clean-file-tree",
+    "attributes": {
+      "mountPoint": "/",
+      "contentAddressed": true,
+      "fsFrozen": true,
+      "source": "guest-mount-table-fixture"
+    }
+  },
+  {
+    "id": "example-c-service",
+    "section": "services",
+    "component": "service",
+    "observedState": "selected-target-native-service",
+    "attributes": {
+      "manager": "systemd-or-supervisor",
+      "targetNativeBinaryRequired": true,
+      "startVerifierAvailable": true,
+      "source": "guest-service-manifest-fixture"
+    }
+  },
+  {
+    "id": "selected-service-process",
+    "section": "processes",
+    "component": "process",
+    "observedState": "selected-process-metadata",
+    "attributes": {
+      "pid": 101,
+      "argvCaptured": true,
+      "envCaptured": true,
+      "cwdCaptured": true,
+      "memoryPolicy": "portable-data-only",
+      "source": "guest-proc-fixture"
+    }
+  },
+  {
+    "id": "unknown-live-process",
+    "section": "processes",
+    "component": "process",
+    "observedState": "unclassified-live-process-state",
+    "attributes": {
+      "pid": 222,
+      "unknownState": true,
+      "source": "guest-proc-fixture"
+    }
+  },
+  {
+    "id": "http-listener-8080",
+    "section": "network",
+    "component": "network",
+    "observedState": "listening-no-active-streams",
+    "attributes": {
+      "protocol": "tcp",
+      "port": 8080,
+      "activeStreams": 0,
+      "source": "guest-ss-fixture"
+    }
+  },
+  {
+    "id": "active-tcp-streams",
+    "section": "network",
+    "component": "network",
+    "observedState": "connected-streams-or-in-flight-packets",
+    "attributes": {
+      "protocol": "tcp",
+      "activeStreams": 2,
+      "source": "guest-ss-fixture"
+    }
+  },
+  {
+    "id": "sqlite-clean-db",
+    "section": "databases",
+    "component": "database",
+    "observedState": "clean-quiesced",
+    "attributes": {
+      "engine": "sqlite",
+      "path": "/var/lib/example/app.db",
+      "clean": true,
+      "targetNativeTooling": true,
+      "source": "guest-db-fixture"
+    }
+  },
+  {
+    "id": "postgres-dirty-wal",
+    "section": "databases",
+    "component": "database",
+    "observedState": "active-transaction-or-dirty-wal",
+    "attributes": {
+      "engine": "postgresql",
+      "dirtyWal": true,
+      "source": "guest-db-fixture"
+    }
+  },
+  {
+    "id": "virtio-net",
+    "section": "devices",
+    "component": "device",
+    "observedState": "configuration-only",
+    "attributes": {
+      "deviceKind": "virtio-net",
+      "opaqueState": false,
+      "source": "guest-device-fixture"
+    }
+  },
+  {
+    "id": "passthrough-gpu",
+    "section": "devices",
+    "component": "device",
+    "observedState": "opaque-device-state",
+    "attributes": {
+      "deviceKind": "passthrough-gpu",
+      "opaqueState": true,
+      "source": "guest-device-fixture"
+    }
+  },
+  {
+    "id": "mount-namespace",
+    "section": "kernelState",
+    "component": "kernel-state",
+    "observedState": "declared-mount-table",
+    "attributes": {
+      "mountTableCaptured": true,
+      "source": "guest-proc-mounts-fixture"
+    }
+  },
+  {
+    "id": "active-syscalls",
+    "section": "kernelState",
+    "component": "kernel-state",
+    "observedState": "in-kernel-continuation",
+    "attributes": {
+      "activeSyscallPresent": true,
+      "source": "guest-task-stack-fixture"
+    }
+  }
+]

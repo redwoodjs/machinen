@@ -1,6 +1,6 @@
 {
   "kind": "machinen.claim-progress-dashboard",
-  "version": 135,
+  "version": 137,
   "updatedFrom": [
     "docs/snapshot/node-level5-product-support-claim-registry.json",
     "docs/snapshot/node-level5-product-support-100.json",
@@ -3169,7 +3169,7 @@
       "family": "vm-workload",
       "runtime": "linux-vm",
       "status": "verified",
-      "stage": "portable VM inventory workflow proof retained; arbitrary VM restore unclaimed",
+      "stage": "real selected cross-arch product E2E retained; arbitrary VM restore unclaimed",
       "scope": "selected-whole-vm-workload-v1 only",
       "currentClaim": {
         "productSupport": 100,
@@ -3187,7 +3187,7 @@
         "refusalArtifactsCovered": 0,
         "refusalArtifactsRequiredBeforeClaimLift": 52
       },
-      "summary": "The whole-VM track now includes the first proof-first portable VM workflow slice: controlled pause/quiesce transcript, raw inventory, generated portable VM manifest/plan, and retained classifier report. Arbitrary VM restore remains unclaimed.",
+      "summary": "The whole-VM track now includes a real product-command cross-architecture E2E for a selected TCP listener workload: actual opposite-architecture source socket verification, portable capture bundle, target-native Machinen VM restore, and target verifier output. Arbitrary VM restore remains unclaimed.",
       "claimGate": "selected-whole-vm-workload-support-matrix",
       "claimChangeAllowed": false,
       "evidence": [
@@ -3201,7 +3201,9 @@
         "whole-vm-workload-corpus-refusal-product-gate",
         "whole-vm-workload-claim-scope-decision-card",
         "whole-vm-db-tooling-support-path",
-        "portable-vm-inventory-plan-proof"
+        "portable-vm-inventory-plan-proof",
+        "portable-vm-guest-inventory-plan-proof",
+        "real-cross-arch-tcp-listener-product-e2e"
       ],
       "evidenceRows": [
         {
@@ -3623,6 +3625,30 @@
           "artifact": "proofs/linux-vm-workload/portable-vm-inventory-plan/retained/portable-vm-inventory-plan-report.json",
           "claimUse": "workflow proof only; arbitrary VM restore remains unclaimed",
           "next": "Replace controlled inventory fixture with an in-guest inventory agent and product command wiring."
+        },
+        {
+          "id": "portable-vm-guest-inventory-plan-proof",
+          "area": "portable VM workflow",
+          "kind": "fixture guest inventory to plan generator",
+          "status": "verified",
+          "disposition": "workflow-proof",
+          "evidence": "Fixture guest inventory contributed 12 input rows, 12 raw inventory rows, and 12 plan rows with 5 stable refusals.",
+          "gate": "portable-vm-guest-inventory-plan-proof",
+          "artifact": "proofs/linux-vm-workload/portable-vm-guest-inventory-plan/retained/portable-vm-guest-inventory-plan-report.json",
+          "claimUse": "workflow proof only; arbitrary VM restore remains unclaimed",
+          "next": "Replace fixture guest inventory input with an in-guest collector and product command wiring."
+        },
+        {
+          "id": "real-cross-arch-tcp-listener-product-e2e",
+          "area": "portable VM workload",
+          "kind": "real cross-arch product E2E",
+          "status": "verified",
+          "disposition": "product-e2e",
+          "evidence": "amd64->arm64 product capture/restore completed: target VM booted=true, verifier passed=true.",
+          "gate": "real-cross-arch-tcp-listener-product-e2e",
+          "artifact": "proofs/linux-vm-workload/real-cross-arch-tcp-listener-product-e2e/retained/real-cross-arch-tcp-listener-product-e2e-report.json",
+          "claimUse": "selected TCP listener workload product evidence only; arbitrary VM restore remains unclaimed",
+          "next": "Extend the same real product-command E2E pattern to filesystem/service/SQLite rows and compose through the Portable VM Manifest/Plan."
         }
       ],
       "refusals": [
@@ -3960,7 +3986,20 @@
         "portableVmInventoryRefusedRows": 5,
         "portableVmInventoryUnknownRowsAccepted": 0,
         "portableVmInventoryPlanReport": "proofs/linux-vm-workload/portable-vm-inventory-plan/retained/portable-vm-inventory-plan-report.json",
-        "portableVmInventoryPlanScope": "controlled-portable-vm-inventory-plan-v1"
+        "portableVmInventoryPlanScope": "controlled-portable-vm-inventory-plan-v1",
+        "portableVmGuestInventoryContract": "docs/snapshot/portable-vm-guest-inventory-contract.json",
+        "portableVmGuestInventoryInputRows": 12,
+        "portableVmGuestRawInventoryRows": 12,
+        "portableVmGuestInventoryPlanRows": 12,
+        "portableVmGuestInventoryRefusedRows": 5,
+        "portableVmGuestInventoryUnknownRowsAccepted": 0,
+        "portableVmGuestInventoryPlanReport": "proofs/linux-vm-workload/portable-vm-guest-inventory-plan/retained/portable-vm-guest-inventory-plan-report.json",
+        "portableVmGuestInventoryPlanScope": "fixture-guest-inventory-portable-vm-plan-v1",
+        "realCrossArchTcpListenerProductE2e": "proofs/linux-vm-workload/real-cross-arch-tcp-listener-product-e2e/retained/real-cross-arch-tcp-listener-product-e2e-report.json",
+        "realCrossArchTcpListenerDirection": "amd64->arm64",
+        "realCrossArchTcpListenerTargetVmBooted": true,
+        "realCrossArchTcpListenerTargetVerifierPassed": true,
+        "realCrossArchTcpListenerArbitraryVmRestoreClaimed": false
       }
     }
   ],
@@ -7328,6 +7367,52 @@
           "proves": "Generated 12 raw inventory items into 12 classified plan rows with 0 unknown accepted rows.",
           "claimUse": "workflow proof only; arbitrary VM restore remains unclaimed",
           "next": "Replace controlled inventory fixture with in-guest inventory agent and product command wiring.",
+          "claimImpact": {
+            "productSupportDelta": 0,
+            "broadSupportDelta": 0,
+            "arbitraryProcessCrossArchRestoreDelta": 0,
+            "resultingClaim": {
+              "productSupport": 100,
+              "broadSupport": 100,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "claimChangeAllowed": false
+          }
+        },
+        {
+          "id": "portable-vm-guest-inventory-plan-proof",
+          "proofNumber": "vm/029",
+          "type": "workflow",
+          "category": "portable VM guest inventory plan",
+          "status": "verified",
+          "disposition": "workflow-proof",
+          "artifact": "proofs/linux-vm-workload/portable-vm-guest-inventory-plan/retained/portable-vm-guest-inventory-plan-report.json",
+          "proves": "Consumed 12 fixture guest inventory rows and generated 12 classified plan rows with 0 unknown accepted rows.",
+          "claimUse": "workflow proof only; arbitrary VM restore remains unclaimed",
+          "next": "Replace fixture guest inventory input with in-guest inventory agent and product command wiring.",
+          "claimImpact": {
+            "productSupportDelta": 0,
+            "broadSupportDelta": 0,
+            "arbitraryProcessCrossArchRestoreDelta": 0,
+            "resultingClaim": {
+              "productSupport": 100,
+              "broadSupport": 100,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "claimChangeAllowed": false
+          }
+        },
+        {
+          "id": "real-cross-arch-tcp-listener-product-e2e",
+          "proofNumber": "vm/030",
+          "type": "e2e",
+          "category": "real cross-arch product E2E",
+          "status": "verified",
+          "disposition": "product-e2e",
+          "artifact": "proofs/linux-vm-workload/real-cross-arch-tcp-listener-product-e2e/retained/real-cross-arch-tcp-listener-product-e2e-report.json",
+          "proves": "Actual amd64->arm64 product capture/restore path completed for selected TCP listener workload with target-native VM verifier passed.",
+          "claimUse": "selected TCP listener workload product evidence only; arbitrary VM restore remains unclaimed",
+          "next": "Extend to filesystem/service/SQLite rows and compose through the Portable VM Manifest/Plan.",
           "claimImpact": {
             "productSupportDelta": 0,
             "broadSupportDelta": 0,

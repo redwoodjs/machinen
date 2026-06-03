@@ -1,0 +1,1 @@
+MACHINEN_TCP_LISTENER_RESTORED family=inet protocol=tcp bind=127.0.0.1:18080 backlog=8 acceptQueue=empty reuseaddr=true fd=6

@@ -1,0 +1,60 @@
+{
+  "kind": "machinen.portable-vm-guest-inventory-plan-proof",
+  "version": 1,
+  "accepted": true,
+  "proofStatus": "verified",
+  "scope": "fixture-guest-inventory-portable-vm-plan-v1",
+  "publicClaimAllowed": false,
+  "claimChangeAllowed": false,
+  "arbitraryVmRestoreClaimed": false,
+  "inputContract": "portable-vm-guest-inventory-contract.json",
+  "inputInventory": "guest-inventory-input.json",
+  "generatedManifestPlan": "portable-vm-manifest-plan.generated.json",
+  "summary": {
+    "manifestSections": 7,
+    "rawInventoryItems": 12,
+    "planRows": 12,
+    "portableRows": 1,
+    "reconstructableRows": 4,
+    "productSupportedRows": 2,
+    "refusedRows": 5,
+    "sameArchOnlyRows": 0,
+    "unknownRows": 0,
+    "publicClaimAllowed": false,
+    "contractFieldsVerified": 11,
+    "collectorInputRows": 12,
+    "rawInventoryRowsFromGuestInput": 12,
+    "onePlanRowPerInputRow": true,
+    "refusedRowsHaveCodes": true,
+    "unknownRowsAccepted": 0,
+    "productSupportRowsAdded": 0,
+    "arbitraryVmRestoreRowsAdded": 0
+  },
+  "artifacts": [
+    {
+      "name": "portable-vm-guest-inventory-contract.json",
+      "path": "portable-vm-guest-inventory-contract.json",
+      "sha256": "47efe151404ef2e2f65426eb5c8acd0c5c82ca613ed0d7319281b869d90b816c"
+    },
+    {
+      "name": "guest-inventory-input.json",
+      "path": "guest-inventory-input.json",
+      "sha256": "48bfd34cadfbeb8ca10180ec65be22e519db8d5bc225711591d602a22a1debf4"
+    },
+    {
+      "name": "guest-inventory-collector-transcript.json",
+      "path": "guest-inventory-collector-transcript.json",
+      "sha256": "384a847e8fbe7785a5867b1634a0988fe4d8e9be2fa056253c9f67eba03cd7ae"
+    },
+    {
+      "name": "guest-derived-raw-inventory.json",
+      "path": "guest-derived-raw-inventory.json",
+      "sha256": "e8fb9bbf003835f965dcdf5b53f9946919a3640bb009b7adc017ec16a9e7ac49"
+    },
+    {
+      "name": "portable-vm-manifest-plan.generated.json",
+      "path": "portable-vm-manifest-plan.generated.json",
+      "sha256": "2fe3724b75b16dc298e298edef7b01c6b4a562cd6e45b67d9bdded9571ea6807"
+    }
+  ]
+}

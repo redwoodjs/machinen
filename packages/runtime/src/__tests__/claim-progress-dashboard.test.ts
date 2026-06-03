@@ -27,7 +27,7 @@ type ClaimProgressProofGroup = {
 
 type ClaimProgressDashboard = {
   kind: "machinen.claim-progress-dashboard";
-  version: 135;
+  version: 137;
   tracks: ClaimProgressTrack[];
   proofGroups: ClaimProgressProofGroup[];
 };
@@ -41,7 +41,7 @@ describe("claim progress dashboard", () => {
 
     expect(dashboard).toMatchObject({
       kind: "machinen.claim-progress-dashboard",
-      version: 135,
+      version: 137,
     });
     expect(dashboard.tracks.map((track) => track.id)).toEqual([
       "node-service",
@@ -411,10 +411,19 @@ describe("claim progress dashboard", () => {
     expect(html).toContain("vm/019");
     expect(html).toContain("vm/027");
     expect(html).toContain("vm/028");
+    expect(html).toContain("vm/029");
+    expect(html).toContain("vm/030");
     expect(html).toContain("portable-vm-inventory-plan-report.json");
+    expect(html).toContain("portable-vm-guest-inventory-plan-report.json");
+    expect(html).toContain("real-cross-arch-tcp-listener-product-e2e-report.json");
     expect(html).toContain("controlled-portable-vm-inventory-plan-v1");
+    expect(html).toContain("fixture-guest-inventory-portable-vm-plan-v1");
     expect(html).toContain("portableVmInventoryPlanRows");
     expect(html).toContain("portableVmInventoryUnknownRowsAccepted");
+    expect(html).toContain("portableVmGuestInventoryInputRows");
+    expect(html).toContain("portableVmGuestInventoryUnknownRowsAccepted");
+    expect(html).toContain("realCrossArchTcpListenerDirection");
+    expect(html).toContain("realCrossArchTcpListenerTargetVerifierPassed");
     expect(html).toContain("database workload refusal");
     expect(html).toContain("service workload refusal");
     expect(html).toContain("corpusProductSupportRowsAdded");

@@ -1,0 +1,43 @@
+{
+  "kind": "machinen.portable-vm-guest-inventory-contract",
+  "version": 1,
+  "scope": "fixture-guest-inventory-portable-vm-plan-v1",
+  "purpose": "Contract for guest-produced portable VM inventory input before classification into a VM Portability Plan.",
+  "requiredTopLevelFields": [
+    "kind",
+    "version",
+    "sourceVm",
+    "pause",
+    "filesystems",
+    "services",
+    "processes",
+    "network",
+    "databases",
+    "devices",
+    "kernelState"
+  ],
+  "rules": [
+    "The collector emits observed guest state only; it does not decide public claims.",
+    "Every discovered inventory item must include id, observedState, and attributes.",
+    "Unknown process, device, database, network, or kernel state must remain present and classify to a stable portable-vm-* refusal code.",
+    "The classifier must produce one plan row for every inventory item.",
+    "The plan must keep publicClaimAllowed=false and arbitraryVmRestoreClaimed=false."
+  ],
+  "sections": {
+    "filesystems": "Guest file trees, mount points, frozen state, and content-addressing facts.",
+    "services": "Selected service manager metadata and target-native reconstruction requirements.",
+    "processes": "Process argv/env/cwd metadata plus unknown live process state that must be refused.",
+    "network": "TCP listeners that can be reconstructed and active streams that must be refused.",
+    "databases": "Clean quiesced databases that can use product tooling plus dirty/active state that must be refused.",
+    "devices": "Reconstructable virtual device configuration and opaque passthrough/device state refusals.",
+    "kernelState": "Declared mount/kernel metadata and active in-kernel continuations that must be refused."
+  },
+  "claimGuard": {
+    "publicClaimAllowed": false,
+    "arbitraryVmRestoreClaimed": false,
+    "rawVmStateReplayAllowed": false,
+    "crossIsaVcpuReplayAllowed": false,
+    "sourceIsaEmulationAllowed": false,
+    "metadataOnlySuccessAllowed": false
+  }
+}

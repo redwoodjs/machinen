@@ -1,0 +1,21 @@
+{
+  "kind": "machinen.product-level4-tcp-listener-restore-summary",
+  "formatVersion": 1,
+  "runtime": "native-linux-resource",
+  "subset": "tcp-listener-v1-loopback-empty-accept-queue",
+  "supportLevel": "implemented-product-support",
+  "implementationLevel": "level-4-kernel-resource-reconstruction",
+  "state": "completed",
+  "migrationCompleted": true,
+  "sourceArch": "amd64",
+  "targetArch": "arm64",
+  "targetVerifierResult": "passed",
+  "descriptorSha256": "20d2e9f8e229a358f5f7af6b2f0696ccc75f75674a9d129b7cac5bd9b7dc6a0f",
+  "targetVerifierOutputSha256": "235f9cd2f9893eb4176077ae0fbcbc9b15532fe704d5f2f5888a7141ee790d44",
+  "shortcutInspection": {
+    "sourceIsaEmulationUsed": false,
+    "sourceTextReusedAsTargetCode": false,
+    "sidecarRuntimeUsed": false,
+    "metadataOnlyShortcutAccepted": false
+  }
+}

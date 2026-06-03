@@ -1,0 +1,99 @@
+{
+  "kind": "machinen.real-cross-arch-tcp-listener-product-e2e-report",
+  "version": 1,
+  "accepted": true,
+  "proofStatus": "verified",
+  "scope": "real-cross-arch-tcp-listener-product-e2e-v1",
+  "productCommandPath": "machinen capture tcp-listener; machinen restore <bundle> --target-arch <target> --json",
+  "source": {
+    "architecture": "amd64",
+    "platform": "linux/amd64",
+    "verifierOutput": "tcp-listener family=inet protocol=tcp bind=127.0.0.1:18080 backlog=8 acceptQueue=empty reuseaddr=true sourceArch=x86_64"
+  },
+  "target": {
+    "architecture": "arm64",
+    "restoredName": "real-xarch-tcp-amd64-to-arm64-1780481777-22257",
+    "targetVmStarted": true,
+    "targetVerifierResult": "passed",
+    "targetOutputObserved": true,
+    "targetLog": "MACHINEN_TCP_LISTENER_RESTORED family=inet protocol=tcp bind=127.0.0.1:18080 backlog=8 acceptQueue=empty reuseaddr=true fd=6"
+  },
+  "workload": {
+    "kind": "tcp-listener",
+    "bindAddress": "127.0.0.1",
+    "port": 18080,
+    "backlog": 8,
+    "acceptQueue": "empty",
+    "policy": "target-native-loopback-tcp-listener-recreated"
+  },
+  "result": {
+    "captureCompleted": true,
+    "restoreCompleted": true,
+    "migrationCompleted": true,
+    "sourceArch": "amd64",
+    "targetArch": "arm64",
+    "crossArchitecture": true,
+    "targetNativeVmBooted": true,
+    "targetVerifierPassed": true
+  },
+  "shortcutInspection": {
+    "sourceIsaEmulationUsed": false,
+    "sourceTextReusedAsTargetCode": false,
+    "sidecarRuntimeUsed": false,
+    "metadataOnlyShortcutAccepted": false
+  },
+  "claimGuard": {
+    "arbitraryVmRestoreClaimed": false,
+    "rawVmStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "sourceTextReusedAsTargetCode": false,
+    "sidecarRuntimeUsed": false,
+    "metadataOnlyShortcutAccepted": false
+  },
+  "artifacts": [
+    {
+      "path": "source-listener.py",
+      "sha256": "ccff77c377a76c79038bf685ce0d1a1282784f9e0686f14231becbfbafca14dd"
+    },
+    {
+      "path": "source-verifier.txt",
+      "sha256": "e28ce0ea4cc57bce712486db3eebdb2a1f0753e0a4b30af1c7f779b0f7af087f"
+    },
+    {
+      "path": "docker-source.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "capture.stdout.json",
+      "sha256": "8ed4070bca3753d68d577a853f05ecf06d0435bb96ed52011d18a2028c798d8c"
+    },
+    {
+      "path": "capture.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "restore.stdout.json",
+      "sha256": "f20aa3585186097d49c294c3e22275354d65ccb2e35b9f04604241e1662164a0"
+    },
+    {
+      "path": "restore.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "target-listener-log.txt",
+      "sha256": "b9d55816fdad0ecb21209ef887a55420f96755d5fb71d4c657c2f84d2b0ae0c9"
+    },
+    {
+      "path": "bundle/portable-tcp-listener.json",
+      "sha256": "20d2e9f8e229a358f5f7af6b2f0696ccc75f75674a9d129b7cac5bd9b7dc6a0f"
+    },
+    {
+      "path": "bundle/portable-tcp-listener-restore-summary.json",
+      "sha256": "66805010dc9f5c103d478e0f8a1116f5d69e24372f3473f99c02eea65118c355"
+    },
+    {
+      "path": "bundle/portable-tcp-listener-target-vm-restore-summary.json",
+      "sha256": "878e1a9351324001a378f897f787ff1f91a7420cb0a1d94e5928f7229f97402c"
+    }
+  ]
+}

@@ -63,4 +63,6 @@ claim group here has a `claim.json` copy plus a readable `README.md`.
 - [Whole VM workload corpus refusal product gate](./linux-vm-workload/corpus-refusal-product-gate/README.md) — `verified`
 - [Whole VM workload claim-scope decision card](./linux-vm-workload/claim-scope-decision-card/README.md) — `verified`
 - [Portable VM inventory plan proof](./linux-vm-workload/portable-vm-inventory-plan/README.md) — `verified`
+- [Portable VM guest inventory plan proof](./linux-vm-workload/portable-vm-guest-inventory-plan/README.md) — `verified`
+- [Real cross-arch TCP listener product E2E](./linux-vm-workload/real-cross-arch-tcp-listener-product-e2e/README.md) — `verified`
 - [Whole VM clean DB tooling support path](./linux-vm-workload/db-tooling-support-path/README.md) — `verified`

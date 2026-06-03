@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "state": "completed",
+  "migrationCompleted": true,
+  "bundleDir": "/Users/peterp/gh/redwoodjs/machinen/proofs/linux-vm-workload/real-cross-arch-tcp-listener-product-e2e/retained/bundle",
+  "descriptor": {
+    "kind": "machinen.product-level4-tcp-listener",
+    "formatVersion": 1,
+    "supportLevel": "implemented-product-support",
+    "subset": "tcp-listener-v1-loopback-empty-accept-queue",
+    "implementationLevel": "level-4-kernel-resource-reconstruction",
+    "runtime": "native-linux-resource",
+    "captureSurface": "machinen capture tcp-listener",
+    "restoreSurface": "machinen restore <bundle> --target-arch <arch> [--target-verifier-output <file>]",
+    "source": {
+      "architecture": "amd64",
+      "host": { "arch": "arm64", "platform": "darwin", "release": "24.6.0" }
+    },
+    "target": { "architecture": "arm64" },
+    "listener": {
+      "family": "inet",
+      "socketType": "stream",
+      "protocol": "tcp",
+      "bindAddress": "127.0.0.1",
+      "port": 18080,
+      "backlog": 8,
+      "reuseAddr": true,
+      "acceptQueue": "empty",
+      "activeConnections": false,
+      "partialIo": false
+    },
+    "continuation": {
+      "outputLogPath": "/tmp/machinen-restored-tcp-listener.log",
+      "listenerPolicy": "target-native-loopback-tcp-listener-recreated",
+      "acceptQueuePolicy": "empty-accept-queue-only"
+    },
+    "gates": {
+      "loopbackBindRequired": true,
+      "staticPortRequired": true,
+      "explicitBacklogRequired": true,
+      "emptyAcceptQueueRequired": true,
+      "noActiveConnectionsRequired": true,
+      "supportedSocketOptionsRequired": true,
+      "noPartialIoRequired": true,
+      "noActiveSyscallRequired": true,
+      "targetNativeVerificationRequired": true,
+      "sourceIsaEmulationAllowed": false,
+      "sourceTextReplayAllowed": false,
+      "sidecarRuntimeAllowed": false,
+      "metadataOnlyContinuationAllowed": false
+    },
+    "sourceVerifierOutput": "tcp-listener family=inet protocol=tcp bind=127.0.0.1:18080 backlog=8 acceptQueue=empty reuseaddr=true sourceArch=x86_64",
+    "sourceVerifierOutputSha256": "235f9cd2f9893eb4176077ae0fbcbc9b15532fe704d5f2f5888a7141ee790d44"
+  },
+  "dryRun": false
+}

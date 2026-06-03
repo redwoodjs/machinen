@@ -93,4 +93,93 @@ describe("portable VM manifest/plan dashboard", () => {
       "A manifest/plan alone must not raise a public arbitrary VM restore claim.",
     );
   });
+
+  it("keeps the guest inventory contract and retained generated plan claim-guarded", () => {
+    const contract = JSON.parse(
+      readFileSync(resolve("docs/snapshot/portable-vm-guest-inventory-contract.json"), "utf8"),
+    ) as {
+      kind: string;
+      version: number;
+      requiredTopLevelFields: string[];
+      claimGuard: Record<string, boolean>;
+    };
+    const report = JSON.parse(
+      readFileSync(
+        resolve(
+          "proofs/linux-vm-workload/portable-vm-guest-inventory-plan/retained/portable-vm-guest-inventory-plan-report.json",
+        ),
+        "utf8",
+      ),
+    ) as {
+      accepted: boolean;
+      scope: string;
+      publicClaimAllowed: boolean;
+      arbitraryVmRestoreClaimed: boolean;
+      summary: Record<string, unknown>;
+    };
+    const generatedPlan = JSON.parse(
+      readFileSync(
+        resolve(
+          "proofs/linux-vm-workload/portable-vm-guest-inventory-plan/retained/portable-vm-manifest-plan.generated.json",
+        ),
+        "utf8",
+      ),
+    ) as PortableVmManifestPlan;
+
+    expect(contract).toMatchObject({
+      kind: "machinen.portable-vm-guest-inventory-contract",
+      version: 1,
+    });
+    expect(contract.requiredTopLevelFields).toEqual([
+      "kind",
+      "version",
+      "sourceVm",
+      "pause",
+      "filesystems",
+      "services",
+      "processes",
+      "network",
+      "databases",
+      "devices",
+      "kernelState",
+    ]);
+    expect(contract.claimGuard).toMatchObject({
+      publicClaimAllowed: false,
+      arbitraryVmRestoreClaimed: false,
+      rawVmStateReplayAllowed: false,
+      crossIsaVcpuReplayAllowed: false,
+      sourceIsaEmulationAllowed: false,
+      metadataOnlySuccessAllowed: false,
+    });
+    expect(report).toMatchObject({
+      accepted: true,
+      scope: "fixture-guest-inventory-portable-vm-plan-v1",
+      publicClaimAllowed: false,
+      arbitraryVmRestoreClaimed: false,
+      summary: {
+        collectorInputRows: 12,
+        rawInventoryRowsFromGuestInput: 12,
+        planRows: 12,
+        refusedRows: 5,
+        unknownRowsAccepted: 0,
+        productSupportRowsAdded: 0,
+        arbitraryVmRestoreRowsAdded: 0,
+      },
+    });
+    expect(generatedPlan).toMatchObject({
+      kind: "machinen.portable-vm-manifest-plan",
+      status: "generated-proof",
+      scope: "fixture-guest-inventory-portable-vm-plan-v1",
+      claimGuard: {
+        publicClaimAllowed: false,
+        arbitraryVmRestoreClaimed: false,
+      },
+      summary: {
+        rawInventoryItems: 12,
+        planRows: 12,
+        refusedRows: 5,
+        unknownRows: 0,
+      },
+    });
+  });
 });

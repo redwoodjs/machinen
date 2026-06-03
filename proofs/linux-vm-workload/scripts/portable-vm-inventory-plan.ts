@@ -2,6 +2,7 @@
 import { createHash } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 type Args = { outDir: string; json: boolean };
 type Disposition =
@@ -20,7 +21,7 @@ type Component =
   | "device"
   | "kernel-state";
 
-type RawInventoryItem = {
+export type RawInventoryItem = {
   id: string;
   section: keyof PortableVmManifestPlan["manifest"];
   component: Component;
@@ -28,7 +29,7 @@ type RawInventoryItem = {
   attributes: Record<string, boolean | number | string | string[]>;
 };
 
-type PlanRow = {
+export type PlanRow = {
   id: string;
   component: Component;
   sourceRef: string;
@@ -39,11 +40,11 @@ type PlanRow = {
   refusalCode?: string;
 };
 
-type PortableVmManifestPlan = {
+export type PortableVmManifestPlan = {
   kind: "machinen.portable-vm-manifest-plan";
   version: 1;
   status: "generated-proof";
-  scope: "controlled-portable-vm-inventory-plan-v1";
+  scope: "controlled-portable-vm-inventory-plan-v1" | "fixture-guest-inventory-portable-vm-plan-v1";
   purpose: string;
   productIntent: Record<string, string>;
   workflow: Array<{ step: number; name: string; does: string; why: string; status: "verified" }>;
@@ -226,7 +227,7 @@ function raw(
   return { id, section, component, observedState, attributes };
 }
 
-function buildPauseTranscript(rawInventory: RawInventoryItem[]): unknown {
+export function buildPauseTranscript(rawInventory: RawInventoryItem[]): unknown {
   return {
     kind: "machinen.controlled-vm-pause-quiesce-transcript",
     version: 1,
@@ -249,7 +250,9 @@ function buildPauseTranscript(rawInventory: RawInventoryItem[]): unknown {
   };
 }
 
-function buildPortableVmManifestPlan(rawInventory: RawInventoryItem[]): PortableVmManifestPlan {
+export function buildPortableVmManifestPlan(
+  rawInventory: RawInventoryItem[],
+): PortableVmManifestPlan {
   const manifest = emptyManifest();
   const rows: PlanRow[] = [];
   for (const item of rawInventory) {
@@ -572,7 +575,7 @@ function summary(
   };
 }
 
-function assertAcceptedPlan(plan: PortableVmManifestPlan): void {
+export function assertAcceptedPlan(plan: PortableVmManifestPlan): void {
   const manifestItems = Object.values(plan.manifest).flat();
   if (manifestItems.length !== plan.summary.rawInventoryItems) {
     throw new Error("manifest item count drifted");
@@ -624,7 +627,7 @@ function parseArgs(argv: string[]): Args {
   return args;
 }
 
-function writeJson(
+export function writeJson(
   outDir: string,
   name: string,
   value: unknown,
@@ -634,4 +637,6 @@ function writeJson(
   return { name, path: name, sha256: createHash("sha256").update(content).digest("hex") };
 }
 
-main();
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main();
+}
