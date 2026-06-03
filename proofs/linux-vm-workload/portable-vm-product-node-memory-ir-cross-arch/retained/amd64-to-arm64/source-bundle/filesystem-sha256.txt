@@ -1,0 +1,2 @@
+b900bf35ef6de78d9df4b0c112f575dfd4c8dfdcaf385d01fa229a741b06a165  etc/machinen/message.txt
+14c5e74c4b96ccef41cd94db73a9ec3348038ac094feca4fd897cecffa07cdae  var/lib/machinen/data/numbers.txt

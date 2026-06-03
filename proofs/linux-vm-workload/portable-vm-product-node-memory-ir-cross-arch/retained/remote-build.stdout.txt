@@ -1,0 +1,38 @@
+
+> machinen@1.0.0 build /mnt/shared-500G/machinen-product
+> pnpm -r build
+
+packages/native-arm64-darwin             |  WARN  Unsupported platform: wanted: {"cpu":["arm64"],"os":["darwin"],"libc":["any"]} (current: {"os":"linux","cpu":"x64","libc":"glibc"})
+packages/native-arm64-linux              |  WARN  Unsupported platform: wanted: {"cpu":["arm64"],"os":["linux"],"libc":["any"]} (current: {"os":"linux","cpu":"x64","libc":"glibc"})
+Scope: 10 of 11 workspace projects
+packages/microvm build$ zig build
+packages/mount-server build$ zig build
+packages/mount-server build: Done
+packages/microvm build: Done
+packages/runtime build$ tsup
+packages/runtime build: CLI Building entry: src/index.ts
+packages/runtime build: CLI Using tsconfig: tsconfig.json
+packages/runtime build: CLI tsup v8.5.1
+packages/runtime build: CLI Using tsup config: /mnt/shared-500G/machinen-product/packages/runtime/tsup.config.ts
+packages/runtime build: CLI Target: node20
+packages/runtime build: CLI Cleaning output folder
+packages/runtime build: ESM Build start
+packages/runtime build: ESM dist/index.js     1.20 MB
+packages/runtime build: ESM dist/index.js.map 718.41 KB
+packages/runtime build: ESM ⚡️ Build success in 40ms
+packages/runtime build: DTS Build start
+packages/runtime build: DTS ⚡️ Build success in 1244ms
+packages/runtime build: DTS dist/index.d.ts 449.79 KB
+packages/runtime build: Done
+packages/cli build$ tsup
+packages/cli build: CLI Building entry: src/cli.ts
+packages/cli build: CLI Using tsconfig: tsconfig.json
+packages/cli build: CLI tsup v8.5.1
+packages/cli build: CLI Using tsup config: /mnt/shared-500G/machinen-product/packages/cli/tsup.config.ts
+packages/cli build: CLI Target: node20
+packages/cli build: CLI Cleaning output folder
+packages/cli build: ESM Build start
+packages/cli build: ESM dist/cli.js     345.07 KB
+packages/cli build: ESM dist/cli.js.map 177.99 KB
+packages/cli build: ESM ⚡️ Build success in 20ms
+packages/cli build: Done

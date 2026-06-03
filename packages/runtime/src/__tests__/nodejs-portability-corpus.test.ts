@@ -643,6 +643,76 @@ describe("Node.js portability corpus", () => {
     });
   });
 
+  it("retains cross-arch product portable VM Node memory IR materialization evidence", () => {
+    const proofRoot = resolve(
+      "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained",
+    );
+    const report = JSON.parse(
+      readFileSync(
+        resolve(proofRoot, "portable-vm-product-node-memory-ir-cross-arch-report.json"),
+        "utf8",
+      ),
+    ) as {
+      accepted: boolean;
+      directions: Array<{
+        id: string;
+        sourceArch: string;
+        targetArch: string;
+        memoryVerified: boolean;
+        memoryMaterializedRows: number;
+        productMaterializerInjected: boolean;
+      }>;
+      claimGuard: Record<string, false>;
+    };
+    expect(report.accepted).toBe(true);
+    expect(report.directions).toEqual([
+      expect.objectContaining({
+        id: "arm64-to-amd64",
+        sourceArch: "arm64",
+        targetArch: "amd64",
+        memoryVerified: true,
+        memoryMaterializedRows: 1,
+        productMaterializerInjected: true,
+      }),
+      expect.objectContaining({
+        id: "amd64-to-arm64",
+        sourceArch: "amd64",
+        targetArch: "arm64",
+        memoryVerified: true,
+        memoryMaterializedRows: 1,
+        productMaterializerInjected: true,
+      }),
+    ]);
+    for (const direction of ["arm64-to-amd64", "amd64-to-arm64"] as const) {
+      const restore = JSON.parse(
+        readFileSync(resolve(proofRoot, `${direction}-restore.json`), "utf8"),
+      ) as {
+        accepted: boolean;
+        workloads: { nodejs: { memoryVerified: boolean; memoryMaterializedRows: number } };
+        targetVerify: { nodejsMemory: { accepted: boolean; memoryIrKind: string } };
+      };
+      const materializer = readFileSync(
+        resolve(proofRoot, `${direction}/node-memory.snap/nodejs-memory-materializer.mjs`),
+        "utf8",
+      );
+      expect(restore).toMatchObject({
+        accepted: true,
+        workloads: { nodejs: { memoryVerified: true, memoryMaterializedRows: 1 } },
+        targetVerify: {
+          nodejsMemory: { accepted: true, memoryIrKind: "machinen.nodejs.memory-ir" },
+        },
+      });
+      expect(materializer).toContain("machinen.nodejs.memory-ir");
+      expect(materializer).toContain("rawV8HeapRestoreUsed");
+    }
+    expect(report.claimGuard).toMatchObject({
+      arbitraryVmRestoreClaimed: false,
+      rawVmStateReplayUsed: false,
+      arbitraryNodeProcessRestoreClaimed: false,
+      rawV8HeapRestoreUsed: false,
+    });
+  });
+
   it("retains fail-closed real Promise memory refusal evidence", () => {
     const report = JSON.parse(
       readFileSync(

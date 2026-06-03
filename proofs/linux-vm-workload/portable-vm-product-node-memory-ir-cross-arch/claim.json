@@ -1,0 +1,23 @@
+{
+  "kind": "machinen.proof-claim",
+  "version": 1,
+  "id": "portable-vm-product-node-memory-ir-cross-arch",
+  "status": "verified",
+  "claim": "Portable VM product snapshot/restore materializes selected Node Memory IR with the product-owned materializer across arm64<->amd64.",
+  "scope": "portable-vm-product-node-memory-ir-cross-arch-v1",
+  "retainedEvidence": "retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
+  "notClaimed": [
+    "arbitrary Node process restore",
+    "raw V8 heap restore",
+    "same PID continuation",
+    "arbitrary Linux process restore",
+    "raw VM/vCPU/device replay"
+  ],
+  "claimGuard": {
+    "arbitraryVmRestoreClaimed": false,
+    "rawVmStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false
+  }
+}

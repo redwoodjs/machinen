@@ -1,0 +1,81 @@
+{
+  "kind": "machinen.portable-vm-product-node-memory-ir-cross-arch-report",
+  "version": 1,
+  "accepted": true,
+  "proofStatus": "verified",
+  "scope": "portable-vm-product-node-memory-ir-cross-arch-v1",
+  "productCommandPath": "machinen snapshot <vm> --portable --out <bundle>; machinen restore <bundle> --json",
+  "directions": [
+    {
+      "id": "arm64-to-amd64",
+      "accepted": true,
+      "sourceArch": "arm64",
+      "targetArch": "amd64",
+      "nodejsMemoryRows": 1,
+      "memoryVerified": true,
+      "memoryMaterializedRows": 1,
+      "memoryIrKind": "machinen.nodejs.memory-ir",
+      "productMaterializerInjected": true
+    },
+    {
+      "id": "amd64-to-arm64",
+      "accepted": true,
+      "sourceArch": "amd64",
+      "targetArch": "arm64",
+      "nodejsMemoryRows": 1,
+      "memoryVerified": true,
+      "memoryMaterializedRows": 1,
+      "memoryIrKind": "machinen.nodejs.memory-ir",
+      "productMaterializerInjected": true
+    }
+  ],
+  "claimGuard": {
+    "arbitraryVmRestoreClaimed": false,
+    "rawVmStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "samePidContinuationClaimed": false
+  },
+  "notClaimed": [
+    "arbitrary Node process restore",
+    "raw V8 heap restore",
+    "same PID continuation",
+    "raw VM/vCPU/device replay",
+    "arbitrary Linux process restore"
+  ],
+  "artifacts": [
+    {
+      "path": "arm64-to-amd64-snapshot.json",
+      "sha256": "77e5a916b533a7fb8daccc623fd463c104d208a236c74bb17485e697d7cd0ef8"
+    },
+    {
+      "path": "arm64-to-amd64-restore.json",
+      "sha256": "6a501e9934d17bd1e4040923ec0ed1cc804bd0dd6062ccfa1c277956c6c1948f"
+    },
+    {
+      "path": "arm64-to-amd64/node-memory.snap/portable-vm-manifest-plan.json",
+      "sha256": "1f4afdf93a2df49fdb19cafaaf5de3852a535afd8f6a6ba071572e2a45b53041"
+    },
+    {
+      "path": "arm64-to-amd64/node-memory.snap/nodejs-memory-materializer.mjs",
+      "sha256": "be047bceea07f0250b3c25886153ee029baee5561ae3e946e5b3f9df0bc024ef"
+    },
+    {
+      "path": "amd64-to-arm64-snapshot.json",
+      "sha256": "1efa63508d05177a9feff44ee68cfda5e6e29298a51f26aceeffccd914a023d6"
+    },
+    {
+      "path": "amd64-to-arm64-restore.json",
+      "sha256": "e942ada434e2d6fbe26f2ed6c519e80ff40277c332218ce86b14daeed69dfcca"
+    },
+    {
+      "path": "amd64-to-arm64/node-memory.snap/portable-vm-manifest-plan.json",
+      "sha256": "5f630e434f869e2d4987de736a533f21f8e45a3421d557ad4bbf4bcc99deb4f6"
+    },
+    {
+      "path": "amd64-to-arm64/node-memory.snap/nodejs-memory-materializer.mjs",
+      "sha256": "be047bceea07f0250b3c25886153ee029baee5561ae3e946e5b3f9df0bc024ef"
+    }
+  ]
+}
