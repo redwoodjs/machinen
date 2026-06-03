@@ -1,0 +1,6 @@
+{
+  "kind": "machinen.arbitrary-process-level5-simple-pipe-target-verifier",
+  "readBytesSha256": "9f861f641f380ab1a9367ae8eb382a38876b3ebcf378d266cd009c3f849aab33",
+  "targetReadBytesSha256Matched": true,
+  "eofAfterBufferedBytes": true
+}

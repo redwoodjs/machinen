@@ -1,0 +1,13 @@
+{
+  "kind": "machinen.selected-arbitrary-linux-process-target-verifier",
+  "scope": "selected-arbitrary-linux-process-seed-v1",
+  "argvMatched": true,
+  "envMatched": true,
+  "cwdMatched": true,
+  "staticDataHeapMatched": true,
+  "rawCpuRestoreUsed": false,
+  "sourceIsaEmulationUsed": false,
+  "appCheckpointHooksRequired": false,
+  "sidecarReplayUsed": false,
+  "metadataOnlySuccessAccepted": false
+}

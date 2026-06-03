@@ -1,6 +1,6 @@
 {
   "kind": "machinen.claim-progress-dashboard",
-  "version": 123,
+  "version": 124,
   "updatedFrom": [
     "docs/snapshot/node-level5-product-support-claim-registry.json",
     "docs/snapshot/node-level5-product-support-100.json",
@@ -29,7 +29,8 @@
     "proofs/linux-vm-workload/selected-whole-vm-workload/retained/selected-whole-vm-workload-support-matrix-report.json",
     "proofs/linux-vm-workload/next-corpus/retained/whole-vm-workload-next-corpus-report.json",
     "proofs/linux-vm-workload/corpus-proof/retained/whole-vm-workload-corpus-proof-report.json",
-    "proofs/arbitrary-linux-binaries/selected-process-seed/retained/selected-arbitrary-process-seed-gate-report.json"
+    "proofs/arbitrary-linux-binaries/selected-process-seed/retained/selected-arbitrary-process-seed-gate-report.json",
+    "proofs/arbitrary-linux-binaries/selected-process-behavior-e2e/retained/selected-arbitrary-process-behavior-e2e-report.json"
   ],
   "columns": {
     "claim": ["productSupport", "broadSupport", "arbitraryProcessCrossArchRestore"],
@@ -1887,7 +1888,7 @@
       "family": "process",
       "runtime": "linux-process",
       "status": "seed-candidate",
-      "stage": "selected arbitrary-process seed gate verified; public claim 0",
+      "stage": "selected arbitrary-process seed behavior E2E verified; public claim 0",
       "scope": "Proof-only selected-arbitrary-linux-process-seed-v1 plus refusal boundaries; no arbitrary Linux process support claim.",
       "currentClaim": {
         "productSupport": null,
@@ -1901,7 +1902,7 @@
         "productPathArtifactsRequired": false,
         "productSupportRowsAdded": 0
       },
-      "summary": "The selected-arbitrary-linux-process-seed-v1 gate is verified as proof-only candidate evidence: three retained seed rows and six refusal boundaries are covered, product-path artifacts are intentionally not required, product support rows added is 0, and the public arbitrary Linux process restore claim remains 0.",
+      "summary": "The selected-arbitrary-linux-process-seed-v1 behavior E2E is verified as proof-only evidence: argv/env/cwd, static/data/heap, regular-file FD, simple pipe FD, and idle epoll/TCP behavior checks pass with eight refusal boundaries. Product-path artifacts are not required, product support rows added is 0, and the public arbitrary Linux process restore claim remains 0.",
       "claimGate": "selected-arbitrary-process-seed-gate accepted; public arbitrary-process claim still 0",
       "claimChangeAllowed": false,
       "evidence": [
@@ -1913,7 +1914,8 @@
         "syscall/resource boundary seed",
         "ping/ICMP socket resource seed",
         "arbitrary-process-claim-ready-gate",
-        "selected-arbitrary-process-seed-gate"
+        "selected-arbitrary-process-seed-gate",
+        "selected-arbitrary-process-behavior-e2e"
       ],
       "evidenceRows": [
         {
@@ -2046,6 +2048,17 @@
           "artifact": "proofs/arbitrary-linux-binaries/selected-process-seed/retained/selected-arbitrary-process-seed-gate-report.json",
           "claimUse": "candidate-only selected seed evidence; no public arbitrary-process claim lift",
           "next": "Only raise any arbitrary-process claim in a separate explicit claim-change path with broader retained coverage."
+        },
+        {
+          "id": "selected-arbitrary-process-behavior-e2e",
+          "area": "selected process behavior",
+          "kind": "proof-only behavior e2e",
+          "status": "verified",
+          "evidence": "Retained selected-arbitrary-linux-process-seed-v1 behavior E2E verifies argv/env/cwd, static/data/heap, regular-file FD, simple pipe FD, and idle epoll/TCP behavior checks. It retains eight refusal boundaries and keeps public arbitrary Linux process restore at 0.",
+          "gate": "selected-arbitrary-process-behavior-e2e",
+          "artifact": "proofs/arbitrary-linux-binaries/selected-process-behavior-e2e/retained/selected-arbitrary-process-behavior-e2e-report.json",
+          "claimUse": "proof-only selected behavior evidence; no public arbitrary-process claim lift",
+          "next": "Broaden only with retained product-path support and additional uncontrolled-state coverage in a separate claim-change path."
         }
       ],
       "refusals": [
@@ -2107,6 +2120,20 @@
           "reason": "selected-arbitrary-linux-process-seed-v1 covers three selected seed rows only; uncontrolled arbitrary process state remains unsupported.",
           "artifact": "proofs/arbitrary-linux-binaries/selected-process-seed/retained/selected-arbitrary-process-seed-gate-report.json",
           "neededToReduce": "Broader retained coverage for threads, active syscalls, JIT/runtime-private state, live sockets, process trees, and opaque resources."
+        },
+        {
+          "boundary": "selected behavior active syscalls",
+          "status": "refused",
+          "reason": "The behavior E2E source capture is idle; active syscall continuation is not reconstructed.",
+          "artifact": "proofs/arbitrary-linux-binaries/selected-process-behavior-e2e/retained/selected-arbitrary-process-behavior-e2e-report.json",
+          "neededToReduce": "Retained active-syscall capture/translation and target verifier artifacts."
+        },
+        {
+          "boundary": "selected behavior process trees",
+          "status": "refused",
+          "reason": "The behavior E2E covers one selected process seed only; multi-process/process-tree restore remains outside scope.",
+          "artifact": "proofs/arbitrary-linux-binaries/selected-process-behavior-e2e/retained/selected-arbitrary-process-behavior-e2e-report.json",
+          "neededToReduce": "Retained process-tree capture/reconstruction and target behavior verifiers."
         }
       ],
       "counts": {
@@ -2138,7 +2165,12 @@
         "productSupportRowsAdded": 0,
         "publicClaimAllowed": false,
         "report": "proofs/arbitrary-linux-binaries/selected-process-seed/retained/selected-arbitrary-process-seed-gate-report.json",
-        "summary": "3 / 3 selected proof-only seed rows verified · 6 / 6 refusal rows retained · public arbitrary-process claim 0"
+        "summary": "3 / 3 selected proof-only seed rows verified · 5 / 5 behavior checks verified · 8 / 8 behavior refusal rows retained · public arbitrary-process claim 0",
+        "selectedBehaviorChecksRequired": 5,
+        "selectedBehaviorChecksVerified": 5,
+        "selectedBehaviorRefusalRowsRequired": 8,
+        "selectedBehaviorRefusalRowsVerified": 8,
+        "behaviorE2eReport": "proofs/arbitrary-linux-binaries/selected-process-behavior-e2e/retained/selected-arbitrary-process-behavior-e2e-report.json"
       }
     },
     {
@@ -4383,6 +4415,28 @@
             },
             "claimChangeAllowed": false,
             "scope": "selected-arbitrary-linux-process-seed-v1 proof-only"
+          }
+        },
+        {
+          "id": "selected-arbitrary-process-behavior-e2e",
+          "proofNumber": "arbitrary/008",
+          "category": "selected process behavior e2e",
+          "status": "verified",
+          "artifact": "proofs/arbitrary-linux-binaries/selected-process-behavior-e2e/retained/selected-arbitrary-process-behavior-e2e-report.json",
+          "proves": "selected-arbitrary-linux-process-seed-v1 has retained behavior checks for argv/env/cwd, static/data/heap, regular-file FD, simple pipe FD, idle epoll/TCP, and eight explicit refusal boundaries without a public arbitrary-process claim lift.",
+          "claimUse": "proof-only selected behavior evidence; arbitrary Linux process restore remains 0",
+          "next": "Broaden only with retained product-path support and additional uncontrolled-state coverage in a separate claim-change path.",
+          "claimImpact": {
+            "productSupportDelta": 0,
+            "broadSupportDelta": 0,
+            "arbitraryProcessCrossArchRestoreDelta": 0,
+            "resultingClaim": {
+              "productSupport": null,
+              "broadSupport": null,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "claimChangeAllowed": false,
+            "scope": "selected-arbitrary-linux-process-seed-v1 proof-only behavior e2e"
           }
         }
       ],

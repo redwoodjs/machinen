@@ -1,0 +1,9 @@
+{
+  "kind": "machinen.arbitrary-process-level5-idle-resource-target-plan",
+  "action": "create-idle-epoll-and-idle-tcp-listener",
+  "idleOnly": true,
+  "activeSocketStreamsRestored": false,
+  "sidecarReplayUsed": false,
+  "rawCpuRestoreUsed": false,
+  "sourceIsaEmulationUsed": false
+}

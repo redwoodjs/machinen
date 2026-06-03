@@ -1,0 +1,27 @@
+{
+  "id": "selected-arbitrary-process-behavior-e2e",
+  "claim": "Selected arbitrary Linux process behavior E2E proof only",
+  "trackId": "arbitrary-process",
+  "status": "verified",
+  "scope": "selected-arbitrary-linux-process-seed-v1",
+  "claimNumbers": {
+    "productSupport": null,
+    "broadSupport": null,
+    "arbitraryProcessCrossArchRestore": 0,
+    "candidateArbitraryProcessCrossArchRestore": 1
+  },
+  "promotionEffect": "No public claim change. This proof-only behavior E2E keeps arbitrary Linux process restore at 0 because product-path artifacts are not required and product support rows added is 0.",
+  "proofDirectory": "proofs/arbitrary-linux-binaries/selected-process-behavior-e2e",
+  "proofs": [
+    {
+      "id": "selected-arbitrary-process-behavior-e2e",
+      "proofNumber": "arbitrary/008",
+      "category": "selected process behavior e2e",
+      "status": "verified",
+      "artifact": "proofs/arbitrary-linux-binaries/selected-process-behavior-e2e/retained/selected-arbitrary-process-behavior-e2e-report.json",
+      "proves": "selected-arbitrary-linux-process-seed-v1 has retained behavior checks for argv/env/cwd, static/data/heap, regular-file FD, simple pipe FD, idle epoll/TCP, and eight explicit refusal boundaries without a public arbitrary-process claim lift.",
+      "claimUse": "proof-only selected behavior evidence; arbitrary Linux process restore remains 0",
+      "next": "Broaden only with retained product-path support and additional uncontrolled-state coverage in a separate claim-change path."
+    }
+  ]
+}

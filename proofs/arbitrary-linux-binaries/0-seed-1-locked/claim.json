@@ -120,6 +120,28 @@
         "claimChangeAllowed": false,
         "scope": "selected-arbitrary-linux-process-seed-v1 proof-only"
       }
+    },
+    {
+      "id": "selected-arbitrary-process-behavior-e2e",
+      "proofNumber": "arbitrary/008",
+      "category": "selected process behavior e2e",
+      "status": "verified",
+      "artifact": "proofs/arbitrary-linux-binaries/selected-process-behavior-e2e/retained/selected-arbitrary-process-behavior-e2e-report.json",
+      "proves": "selected-arbitrary-linux-process-seed-v1 has retained behavior checks for argv/env/cwd, static/data/heap, regular-file FD, simple pipe FD, idle epoll/TCP, and eight explicit refusal boundaries without a public arbitrary-process claim lift.",
+      "claimUse": "proof-only selected behavior evidence; arbitrary Linux process restore remains 0",
+      "next": "Broaden only with retained product-path support and additional uncontrolled-state coverage in a separate claim-change path.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": null,
+          "broadSupport": null,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false,
+        "scope": "selected-arbitrary-linux-process-seed-v1 proof-only behavior e2e"
+      }
     }
   ],
   "proofDirectory": "proofs/arbitrary-linux-binaries/0-seed-1-locked"

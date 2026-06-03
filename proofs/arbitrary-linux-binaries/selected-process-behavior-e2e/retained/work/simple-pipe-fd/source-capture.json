@@ -1,0 +1,10 @@
+{
+  "kind": "machinen.arbitrary-process-level5-simple-pipe-source-capture",
+  "fd": {
+    "read": 3,
+    "write": 4
+  },
+  "writerClosed": true,
+  "readerIdle": true,
+  "bufferedBytesSha256": "9f861f641f380ab1a9367ae8eb382a38876b3ebcf378d266cd009c3f849aab33"
+}

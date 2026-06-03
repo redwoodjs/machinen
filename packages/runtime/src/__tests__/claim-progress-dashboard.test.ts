@@ -27,7 +27,7 @@ type ClaimProgressProofGroup = {
 
 type ClaimProgressDashboard = {
   kind: "machinen.claim-progress-dashboard";
-  version: 123;
+  version: 124;
   tracks: ClaimProgressTrack[];
   proofGroups: ClaimProgressProofGroup[];
 };
@@ -41,7 +41,7 @@ describe("claim progress dashboard", () => {
 
     expect(dashboard).toMatchObject({
       kind: "machinen.claim-progress-dashboard",
-      version: 123,
+      version: 124,
     });
     expect(dashboard.tracks.map((track) => track.id)).toEqual([
       "node-service",
@@ -172,6 +172,7 @@ describe("claim progress dashboard", () => {
     expect(proofIds).toContain("whole-vm-dirty-active-opaque-state-refusals");
     expect(proofIds).toContain("arbitrary-process-claim-ready-gate");
     expect(proofIds).toContain("selected-arbitrary-process-seed-gate");
+    expect(proofIds).toContain("selected-arbitrary-process-behavior-e2e");
     expect(proofIds).toContain("simple-pipe-fd-proof");
     expect(proofIds).toContain("idle-epoll-tcp-proof");
     expect(proofIds).toContain("postgres-retained-verifier-artifacts");
@@ -278,7 +279,12 @@ describe("claim progress dashboard", () => {
     expect(html).toContain("arbitrary binaries");
     expect(html).toContain("selected-arbitrary-linux-process-seed-v1");
     expect(html).toContain("selected-arbitrary-process-seed-gate-report.json");
+    expect(html).toContain("selected-arbitrary-process-behavior-e2e-report.json");
     expect(html).toContain("arbitrary/007");
+    expect(html).toContain("arbitrary/008");
+    expect(html).toContain("argv/env/cwd");
+    expect(html).toContain("static/data/heap");
+    expect(html).toContain("idle epoll/TCP");
     expect(html).toContain("productPathArtifactsRequired");
     expect(html).toContain("public arbitrary Linux process restore claim remains 0");
     expect(html).toContain("bun-product-command-detection");
