@@ -9,6 +9,8 @@ type PortableVmManifestPlan = {
   status: "draft-for-validation";
   scope: "cross-architecture-portable-whole-vm-restore-v1";
   claimGuard: Record<string, boolean>;
+  productIntent: Record<string, string>;
+  workflow: Array<Record<string, unknown>>;
   targetPolicy: { unknownStatePolicy: "refuse-by-default" };
   manifest: Record<string, Array<Record<string, unknown>>>;
   plan: { rows: Array<Record<string, unknown>> };
@@ -34,6 +36,19 @@ describe("portable VM manifest/plan dashboard", () => {
       scope: "cross-architecture-portable-whole-vm-restore-v1",
     });
     expect(JSON.parse(embeddedJson ?? "{}")).toEqual(manifestPlan);
+    expect(manifestPlan.productIntent).toMatchObject({
+      goal: expect.stringContaining("Pause a VM"),
+      notGoal: expect.stringContaining("raw vCPU replay"),
+      nextImplementationStep: expect.stringContaining("guest inventory agent"),
+    });
+    expect(manifestPlan.workflow.map((step) => step.name)).toEqual([
+      "pause/quiesce VM",
+      "inventory VM",
+      "classify rows",
+      "plan restore",
+      "restore target-native VM",
+      "retain proof artifacts",
+    ]);
     expect(manifestPlan.claimGuard).toMatchObject({
       publicClaimAllowed: false,
       arbitraryVmRestoreClaimed: false,
@@ -63,6 +78,12 @@ describe("portable VM manifest/plan dashboard", () => {
     expect(html).toContain("<th>Row / item</th>");
     expect(html).toContain("<th>Disposition / value</th>");
     expect(html).toContain("subheading");
+    expect(html).toContain("What are we doing, and why?");
+    expect(html).toContain("mixed VM state");
+    expect(html).toContain("mostly whole-VM restore");
+    expect(html).toContain("Workflow");
+    expect(html).toContain("pause/quiesce VM");
+    expect(html).toContain("restore target-native VM");
     expect(html).toContain("Claim guard");
     expect(html).toContain("Plan rows");
     expect(html).toContain("Manifest inventory");

@@ -177,6 +177,51 @@
         "status": "draft-for-validation",
         "scope": "cross-architecture-portable-whole-vm-restore-v1",
         "purpose": "Describe a paused VM as portable inventory plus a restore/refusal plan before any cross-architecture whole-VM restore claim is made.",
+        "productIntent": {
+          "problem": "A VM contains mixed state: some portable, some target-native reconstructable, some unsafe across CPU architectures, and some unknown.",
+          "goal": "Pause a VM, inventory its contents, classify every row, restore what is safe, and refuse unsafe state with stable codes.",
+          "notGoal": "Do not claim exact arbitrary cross-architecture VM resume, raw vCPU replay, source ISA emulation, or metadata-only success.",
+          "why": "This makes mostly-whole-VM cross-architecture restore inspectable and honest instead of a vague any-VM promise.",
+          "nextImplementationStep": "Build a guest inventory agent plus pause/quiesce path that emits this manifest/plan from a real VM."
+        },
+        "workflow": [
+          {
+            "step": 1,
+            "name": "pause/quiesce VM",
+            "does": "freeze filesystems and selected services into a stable point",
+            "why": "avoid copying dirty or changing state"
+          },
+          {
+            "step": 2,
+            "name": "inventory VM",
+            "does": "discover filesystems, services, processes, DBs, listeners, devices, and kernel state",
+            "why": "know what is actually inside the VM"
+          },
+          {
+            "step": 3,
+            "name": "classify rows",
+            "does": "mark each item portable, reconstructable, product-supported, refused, same-arch-only, or unknown",
+            "why": "prevent hidden unsupported state from becoming a false success"
+          },
+          {
+            "step": 4,
+            "name": "plan restore",
+            "does": "convert supported rows into target-native restore actions and refused rows into stable errors",
+            "why": "make restore deterministic and auditable"
+          },
+          {
+            "step": 5,
+            "name": "restore target-native VM",
+            "does": "boot target VM, materialize portable data, install/recreate target-native services, and run verifiers",
+            "why": "cross architectures without raw CPU/vCPU replay"
+          },
+          {
+            "step": 6,
+            "name": "retain proof artifacts",
+            "does": "keep manifest, plan, transcripts, refusal codes, and verifier output",
+            "why": "public claims must be backed by artifacts"
+          }
+        ],
         "claimGuard": {
           "publicClaimAllowed": false,
           "arbitraryVmRestoreClaimed": false,
@@ -465,6 +510,47 @@
 
       function trackingRows(data) {
         const rows = [];
+        rows.push(subheading("What are we doing, and why?"));
+        rows.push(row("Intent", "Problem", "mixed VM state", data.productIntent.problem, "—", "—"));
+        rows.push(
+          row("Intent", "Goal", "mostly whole-VM restore", data.productIntent.goal, "—", "—"),
+        );
+        rows.push(
+          row(
+            "Intent",
+            "Not goal",
+            pill("not arbitrary VM resume"),
+            data.productIntent.notGoal,
+            "—",
+            "claim stays scoped",
+          ),
+        );
+        rows.push(row("Intent", "Why", "safe + inspectable", data.productIntent.why, "—", "—"));
+        rows.push(
+          row(
+            "Intent",
+            "Next implementation",
+            "build",
+            data.productIntent.nextImplementationStep,
+            "—",
+            "—",
+          ),
+        );
+
+        rows.push(subheading("Workflow"));
+        for (const step of data.workflow) {
+          rows.push(
+            row(
+              "Workflow",
+              `${step.step}. ${step.name}`,
+              "implementation step",
+              step.does,
+              "—",
+              step.why,
+            ),
+          );
+        }
+
         rows.push(subheading("Overview"));
         rows.push(
           row("Overview", "Status", pill(data.status), data.purpose, code(data.scope), "—"),
