@@ -1,0 +1,173 @@
+{
+  "id": "arbitrary-process-100-phase-ladder",
+  "claim": "Arbitrary process 100 / 100 / 100 phase ladder",
+  "trackId": "arbitrary-process",
+  "status": "verified",
+  "scope": "phase definitions only; public arbitrary Linux process restore remains 0",
+  "claimNumbers": {
+    "productSupport": null,
+    "broadSupport": null,
+    "arbitraryProcessCrossArchRestore": 0,
+    "targetProductSupport": 100,
+    "targetBroadSupport": 100,
+    "targetArbitraryProcessCrossArchRestore": 100
+  },
+  "promotionEffect": "No public claim change. The phase ladder records missing product-path, corpus, and refusal gates before any future 100 / 100 / 100 claim.",
+  "proofDirectory": "proofs/arbitrary-linux-binaries/100-phase-ladder",
+  "proofs": [
+    {
+      "id": "phase-1-selected-seed-product-path",
+      "proofNumber": "arbitrary-phase/001",
+      "category": "arbitrary process 100 phase",
+      "status": "blocked",
+      "artifact": "proofs/arbitrary-linux-binaries/100-phase-ladder/retained/phase-1-selected-seed-product-path.json",
+      "proves": "1 / 1 / 1 selected seed product path; target 1 / 1 / 1; missing gates: retained product command source capture for selected seed; retained product command target restore/verifier for both directions; stable product refusal codes for neighboring unsupported states",
+      "claimUse": "phase definition/evidence only; public arbitrary Linux process restore remains 0",
+      "next": "Implement real product command artifacts before any 1% public claim decision.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": null,
+          "broadSupport": null,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false,
+        "scope": "phase ladder only"
+      }
+    },
+    {
+      "id": "phase-2-controlled-process-corpus",
+      "proofNumber": "arbitrary-phase/002",
+      "category": "arbitrary process 100 phase",
+      "status": "proof-only",
+      "artifact": "proofs/arbitrary-linux-binaries/100-phase-ladder/retained/phase-2-controlled-process-corpus.json",
+      "proves": "5 / 5 / 1 controlled process corpus; target 5 / 5 / 1; missing gates: retained product matrix for multiple controlled binaries; bidirectional target verifiers for each row; row coverage manifest with no unknown rows",
+      "claimUse": "phase definition/evidence only; public arbitrary Linux process restore remains 0",
+      "next": "Build controlled-binary product corpus only after phase 1 product path exists.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": null,
+          "broadSupport": null,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false,
+        "scope": "phase ladder only"
+      }
+    },
+    {
+      "id": "phase-3-memory-dynamic-linker-signals",
+      "proofNumber": "arbitrary-phase/003",
+      "category": "arbitrary process 100 phase",
+      "status": "proof-only",
+      "artifact": "proofs/arbitrary-linux-binaries/100-phase-ladder/retained/phase-3-memory-dynamic-linker-signals.json",
+      "proves": "20 / 20 / 5 memory, linker, and signal boundary coverage; target 20 / 20 / 5; missing gates: real mapping manifests from captured processes; target dependency manifests; stable signal/active-syscall refusal artifacts",
+      "claimUse": "phase definition/evidence only; public arbitrary Linux process restore remains 0",
+      "next": "Attach real process capture artifacts and target verifier transcripts for memory/linker rows.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": null,
+          "broadSupport": null,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false,
+        "scope": "phase ladder only"
+      }
+    },
+    {
+      "id": "phase-4-process-tree-ipc-resource-classes",
+      "proofNumber": "arbitrary-phase/004",
+      "category": "arbitrary process 100 phase",
+      "status": "defined",
+      "artifact": "proofs/arbitrary-linux-binaries/100-phase-ladder/retained/phase-4-process-tree-ipc-resource-classes.json",
+      "proves": "40 / 40 / 10 process tree, IPC, and resource classes; target 40 / 40 / 10; missing gates: retained process-tree capture/reconstruction product artifacts; IPC matrix for Unix sockets, pipes, eventfd, timerfd, shared memory; namespace/cgroup/credential boundary matrix",
+      "claimUse": "phase definition/evidence only; public arbitrary Linux process restore remains 0",
+      "next": "Define and retain IPC/resource corpus rows before reducing process-tree refusal.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": null,
+          "broadSupport": null,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false,
+        "scope": "phase ladder only"
+      }
+    },
+    {
+      "id": "phase-5-threads-futex-safe-subset",
+      "proofNumber": "arbitrary-phase/005",
+      "category": "arbitrary process 100 phase",
+      "status": "blocked",
+      "artifact": "proofs/arbitrary-linux-binaries/100-phase-ladder/retained/phase-5-threads-futex-safe-subset.json",
+      "proves": "60 / 60 / 20 threads/futex safe subset or hard refusals; target 60 / 60 / 20; missing gates: captured thread register/stack ownership model; target-native scheduler/bootstrap verifier; futex owner/waiter translation or stable refusal codes",
+      "claimUse": "phase definition/evidence only; public arbitrary Linux process restore remains 0",
+      "next": "Do not reduce thread/futex boundaries without retained target-native thread behavior verifiers.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": null,
+          "broadSupport": null,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false,
+        "scope": "phase ladder only"
+      }
+    },
+    {
+      "id": "phase-6-broad-linux-binary-corpus",
+      "proofNumber": "arbitrary-phase/006",
+      "category": "arbitrary process 100 phase",
+      "status": "not-started",
+      "artifact": "proofs/arbitrary-linux-binaries/100-phase-ladder/retained/phase-6-broad-linux-binary-corpus.json",
+      "proves": "80 / 80 / 50 broad Linux binary corpus under strict gates; target 80 / 80 / 50; missing gates: coreutils/shell/server/interpreter corpus; per-row source captures and target verifiers; unsupported runtime/private-state refusal matrix; artifact integrity manifest for every row",
+      "claimUse": "phase definition/evidence only; public arbitrary Linux process restore remains 0",
+      "next": "Start only after controlled process and resource matrices are product-backed.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": null,
+          "broadSupport": null,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false,
+        "scope": "phase ladder only"
+      }
+    },
+    {
+      "id": "phase-7-arbitrary-process-100-gate",
+      "proofNumber": "arbitrary-phase/007",
+      "category": "arbitrary process 100 phase",
+      "status": "not-started",
+      "artifact": "proofs/arbitrary-linux-binaries/100-phase-ladder/retained/phase-7-arbitrary-process-100-gate.json",
+      "proves": "100 / 100 / 100 arbitrary process claim gate; target 100 / 100 / 100; missing gates: complete support/refusal matrix for every declared process-state class; zero unknown rows; bidirectional product artifacts for every supported row; stable refusal artifacts for every refused row; external shortcut audit showing no raw CPU restore/source ISA emulation/metadata-only success",
+      "claimUse": "phase definition/evidence only; public arbitrary Linux process restore remains 0",
+      "next": "Only this gate may authorize 100 / 100 / 100, and only after all rows are supported or explicitly refused with retained artifacts.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": null,
+          "broadSupport": null,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false,
+        "scope": "phase ladder only"
+      }
+    }
+  ]
+}

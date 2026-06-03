@@ -1,0 +1,53 @@
+{
+  "kind": "machinen.arbitrary-process-100-phase-row",
+  "row": {
+    "id": "phase-1-selected-seed-product-path",
+    "proofNumber": "arbitrary-phase/001",
+    "title": "1 / 1 / 1 selected seed product path",
+    "targetClaim": {
+      "productSupport": 1,
+      "broadSupport": 1,
+      "arbitraryProcessCrossArchRestore": 1
+    },
+    "status": "blocked",
+    "claimChangeAllowed": false,
+    "productPathRequired": true,
+    "productPathCovered": false,
+    "retainedEvidence": [
+      "arbitrary/007 selected seed gate",
+      "arbitrary/008 selected behavior E2E",
+      "arbitrary/009-arbitrary/018 proof/refusal matrix"
+    ],
+    "missingGates": [
+      "retained product command source capture for selected seed",
+      "retained product command target restore/verifier for both directions",
+      "stable product refusal codes for neighboring unsupported states"
+    ],
+    "blockers": [
+      "product-path artifacts are intentionally absent from current selected seed evidence"
+    ],
+    "claimUse": "phase definition/evidence only; public arbitrary Linux process restore remains 0",
+    "next": "Implement real product command artifacts before any 1% public claim decision."
+  },
+  "currentClaim": {
+    "productSupport": null,
+    "broadSupport": null,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "targetClaim": {
+    "productSupport": 1,
+    "broadSupport": 1,
+    "arbitraryProcessCrossArchRestore": 1
+  },
+  "publicClaimAllowed": false,
+  "claimChangeAllowed": false,
+  "productSupportRowsAdded": 0,
+  "forbiddenShortcuts": [
+    "raw-cpu-restore",
+    "raw-register-replay",
+    "source-isa-emulation",
+    "app-checkpoint-hooks-as-source-of-truth",
+    "sidecar-replay",
+    "metadata-only-success"
+  ]
+}

@@ -1,0 +1,52 @@
+{
+  "kind": "machinen.arbitrary-process-100-phase-row",
+  "row": {
+    "id": "phase-2-controlled-process-corpus",
+    "proofNumber": "arbitrary-phase/002",
+    "title": "5 / 5 / 1 controlled process corpus",
+    "targetClaim": {
+      "productSupport": 5,
+      "broadSupport": 5,
+      "arbitraryProcessCrossArchRestore": 1
+    },
+    "status": "proof-only",
+    "claimChangeAllowed": false,
+    "productPathRequired": true,
+    "productPathCovered": false,
+    "retainedEvidence": [
+      "argv/env/cwd proof",
+      "regular-file FD proof",
+      "simple-pipe FD proof",
+      "idle epoll/TCP proof"
+    ],
+    "missingGates": [
+      "retained product matrix for multiple controlled binaries",
+      "bidirectional target verifiers for each row",
+      "row coverage manifest with no unknown rows"
+    ],
+    "blockers": ["current evidence is proof-only, not product-path"],
+    "claimUse": "phase definition/evidence only; public arbitrary Linux process restore remains 0",
+    "next": "Build controlled-binary product corpus only after phase 1 product path exists."
+  },
+  "currentClaim": {
+    "productSupport": null,
+    "broadSupport": null,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "targetClaim": {
+    "productSupport": 5,
+    "broadSupport": 5,
+    "arbitraryProcessCrossArchRestore": 1
+  },
+  "publicClaimAllowed": false,
+  "claimChangeAllowed": false,
+  "productSupportRowsAdded": 0,
+  "forbiddenShortcuts": [
+    "raw-cpu-restore",
+    "raw-register-replay",
+    "source-isa-emulation",
+    "app-checkpoint-hooks-as-source-of-truth",
+    "sidecar-replay",
+    "metadata-only-success"
+  ]
+}

@@ -48,6 +48,7 @@ claim group here has a `claim.json` copy plus a readable `README.md`.
 - [Selected arbitrary Linux process seed gate](./arbitrary-linux-binaries/selected-process-seed/README.md) — `verified`
 - [Selected arbitrary Linux process behavior E2E](./arbitrary-linux-binaries/selected-process-behavior-e2e/README.md) — `verified`
 - [Selected arbitrary Linux process next proof matrix](./arbitrary-linux-binaries/selected-process-next-proof-matrix/README.md) — `verified`
+- [Arbitrary process 100 / 100 / 100 phase ladder](./arbitrary-linux-binaries/100-phase-ladder/README.md) — `verified`
 - [Whole Linux VM workload portability taxonomy](./linux-vm-workload/not-started/README.md) — `defined`
 - [Whole VM workload boundary matrix](./linux-vm-workload/boundary-matrix/README.md) — `verified`
 - [Whole VM workload smoke matrix](./linux-vm-workload/smoke-matrix/README.md) — `verified`

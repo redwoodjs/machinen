@@ -27,7 +27,7 @@ type ClaimProgressProofGroup = {
 
 type ClaimProgressDashboard = {
   kind: "machinen.claim-progress-dashboard";
-  version: 125;
+  version: 126;
   tracks: ClaimProgressTrack[];
   proofGroups: ClaimProgressProofGroup[];
 };
@@ -41,7 +41,7 @@ describe("claim progress dashboard", () => {
 
     expect(dashboard).toMatchObject({
       kind: "machinen.claim-progress-dashboard",
-      version: 125,
+      version: 126,
     });
     expect(dashboard.tracks.map((track) => track.id)).toEqual([
       "node-service",
@@ -183,6 +183,8 @@ describe("claim progress dashboard", () => {
     expect(proofIds).toContain("selected-process-tree-refusal-proof");
     expect(proofIds).toContain("selected-arbitrary-process-evidence-index");
     expect(proofIds).toContain("selected-arbitrary-process-candidate-claim-decision");
+    expect(proofIds).toContain("phase-1-selected-seed-product-path");
+    expect(proofIds).toContain("phase-7-arbitrary-process-100-gate");
     expect(proofIds).toContain("simple-pipe-fd-proof");
     expect(proofIds).toContain("idle-epoll-tcp-proof");
     expect(proofIds).toContain("postgres-retained-verifier-artifacts");
@@ -297,6 +299,11 @@ describe("claim progress dashboard", () => {
     expect(html).toContain("selected-arbitrary-process-next-proof-matrix-report.json");
     expect(html).toContain("bidirectional architecture matrix");
     expect(html).toContain("candidate claim decision row");
+    expect(html).toContain("arbitrary-process-100-phase-ladder-report.json");
+    expect(html).toContain("arbitrary-phase/001");
+    expect(html).toContain("arbitrary-phase/007");
+    expect(html).toContain("100 / 100 / 100");
+    expect(html).toContain("phase ladder only");
     expect(html).toContain("argv/env/cwd");
     expect(html).toContain("static/data/heap");
     expect(html).toContain("idle epoll/TCP");
