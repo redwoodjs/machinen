@@ -1,0 +1,583 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Portable VM Manifest / Plan</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #0f172a;
+        --card: #111827;
+        --card-2: #0b1220;
+        --line: #334155;
+        --muted: #94a3b8;
+        --text: #e5e7eb;
+        --good: #22c55e;
+        --warn: #f59e0b;
+        --bad: #ef4444;
+        --info: #38bdf8;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family:
+          Inter,
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+      }
+      main {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 32px 20px 56px;
+      }
+      header {
+        display: grid;
+        gap: 10px;
+        margin-bottom: 22px;
+      }
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+      h1 {
+        font-size: clamp(28px, 5vw, 44px);
+        line-height: 1;
+      }
+      h2 {
+        font-size: 22px;
+      }
+      h3 {
+        font-size: 16px;
+      }
+      .muted {
+        color: var(--muted);
+      }
+      .grid {
+        display: grid;
+        gap: 14px;
+        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+        margin: 18px 0;
+      }
+      .metric,
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        padding: 18px;
+      }
+      .metric strong {
+        display: block;
+        font-size: 28px;
+        margin-top: 6px;
+      }
+      .card {
+        margin-top: 18px;
+        overflow-x: auto;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        min-width: 860px;
+      }
+      th,
+      td {
+        border-bottom: 1px solid var(--line);
+        padding: 10px;
+        text-align: left;
+        vertical-align: top;
+      }
+      th {
+        color: var(--muted);
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      code {
+        background: var(--card-2);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 2px 6px;
+      }
+      .pill {
+        border-radius: 999px;
+        display: inline-block;
+        font-size: 12px;
+        font-weight: 700;
+        padding: 4px 8px;
+      }
+      .portable,
+      .reconstructable,
+      .product-supported {
+        background: color-mix(in srgb, var(--good) 22%, transparent);
+        color: #bbf7d0;
+      }
+      .refused {
+        background: color-mix(in srgb, var(--bad) 24%, transparent);
+        color: #fecaca;
+      }
+      .same-arch-only,
+      .unknown,
+      .draft-for-validation {
+        background: color-mix(in srgb, var(--warn) 26%, transparent);
+        color: #fde68a;
+      }
+      .false {
+        background: color-mix(in srgb, var(--info) 22%, transparent);
+        color: #bae6fd;
+      }
+      ul {
+        margin: 8px 0 0;
+        padding-left: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="muted" id="source">loading…</p>
+        <h1>Portable VM Manifest / VM Portability Plan</h1>
+        <p class="muted">
+          Draft JSON structure for a paused VM inventory plus restore/refusal plan. This is a design
+          artifact, not a public arbitrary-VM restore claim.
+        </p>
+      </header>
+
+      <section id="overview"></section>
+      <section class="card">
+        <h2>Claim guard</h2>
+        <div id="claim-guard"></div>
+      </section>
+      <section class="card">
+        <h2>Plan rows</h2>
+        <div id="plan-rows"></div>
+      </section>
+      <section class="card">
+        <h2>Manifest inventory</h2>
+        <div id="manifest"></div>
+      </section>
+      <section class="card">
+        <h2>Disposition legend</h2>
+        <div id="legend"></div>
+      </section>
+      <section class="card">
+        <h2>Validation rules</h2>
+        <div id="rules"></div>
+      </section>
+    </main>
+
+    <script id="embedded-portable-vm-manifest-plan" type="application/json">
+      {
+        "kind": "machinen.portable-vm-manifest-plan",
+        "version": 1,
+        "status": "draft-for-validation",
+        "scope": "cross-architecture-portable-whole-vm-restore-v1",
+        "purpose": "Describe a paused VM as portable inventory plus a restore/refusal plan before any cross-architecture whole-VM restore claim is made.",
+        "claimGuard": {
+          "publicClaimAllowed": false,
+          "arbitraryVmRestoreClaimed": false,
+          "arbitraryLinuxProcessRestoreClaimed": false,
+          "rawVmStateReplayAllowed": false,
+          "crossIsaVcpuReplayAllowed": false,
+          "sourceIsaEmulationAllowed": false,
+          "metadataOnlySuccessAllowed": false
+        },
+        "sourceVm": {
+          "id": "example-source-vm",
+          "sourceArchitecture": "arm64",
+          "targetArchitecture": "amd64",
+          "guestOs": "linux",
+          "kernel": "example-kernel-version",
+          "vmm": "machinen-vm",
+          "pauseMode": "guest-quiesced",
+          "quiesce": {
+            "filesystemFrozen": true,
+            "servicesStoppedOrCheckpointed": "selected-services-only",
+            "databasesClean": "selected-clean-databases-only",
+            "networkDrained": "listeners-only-active-streams-refused"
+          }
+        },
+        "targetPolicy": {
+          "restoreMode": "target-native-reconstruction",
+          "allowedTargetArchitectures": ["arm64", "amd64"],
+          "dependencyPolicy": "target-native-dependencies-required",
+          "unknownStatePolicy": "refuse-by-default"
+        },
+        "dispositionLegend": [
+          {
+            "disposition": "portable",
+            "meaning": "Can be copied or materialized without architecture-specific interpretation."
+          },
+          {
+            "disposition": "reconstructable",
+            "meaning": "Can be recreated target-native from portable metadata."
+          },
+          {
+            "disposition": "product-supported",
+            "meaning": "A retained product path exists for this row and scope."
+          },
+          {
+            "disposition": "refused",
+            "meaning": "Known unsafe or unsupported; restore must stop with a stable refusal code."
+          },
+          {
+            "disposition": "same-arch-only",
+            "meaning": "May be restorable only without crossing CPU architecture."
+          },
+          {
+            "disposition": "unknown",
+            "meaning": "Not classified; refused by default."
+          }
+        ],
+        "manifest": {
+          "filesystems": [
+            {
+              "id": "rootfs-file-tree",
+              "mountPoint": "/",
+              "state": "clean-file-tree",
+              "contentAddressed": true,
+              "disposition": "portable"
+            }
+          ],
+          "services": [
+            {
+              "id": "example-c-service",
+              "manager": "systemd-or-supervisor",
+              "binaryPolicy": "target-native-binary-required",
+              "disposition": "product-supported"
+            }
+          ],
+          "processes": [
+            {
+              "id": "selected-service-process",
+              "argvCaptured": true,
+              "envCaptured": true,
+              "cwdCaptured": true,
+              "memoryPolicy": "portable-data-only",
+              "disposition": "reconstructable"
+            },
+            {
+              "id": "unknown-live-process",
+              "state": "unclassified-live-process-state",
+              "disposition": "refused",
+              "refusalCode": "portable-vm-unknown-process-state-unsupported"
+            }
+          ],
+          "network": [
+            {
+              "id": "http-listener-8080",
+              "protocol": "tcp",
+              "state": "listening-no-active-streams",
+              "disposition": "reconstructable"
+            },
+            {
+              "id": "active-tcp-streams",
+              "state": "connected-streams-or-in-flight-packets",
+              "disposition": "refused",
+              "refusalCode": "portable-vm-active-network-stream-unsupported"
+            }
+          ],
+          "databases": [
+            {
+              "id": "sqlite-clean-db",
+              "engine": "sqlite",
+              "state": "clean-quiesced",
+              "disposition": "product-supported"
+            },
+            {
+              "id": "postgres-dirty-wal",
+              "engine": "postgresql",
+              "state": "active-transaction-or-dirty-wal",
+              "disposition": "refused",
+              "refusalCode": "portable-vm-active-db-state-unsupported"
+            }
+          ],
+          "devices": [
+            {
+              "id": "virtio-net",
+              "state": "configuration-only",
+              "disposition": "reconstructable"
+            },
+            {
+              "id": "passthrough-gpu",
+              "state": "opaque-device-state",
+              "disposition": "refused",
+              "refusalCode": "portable-vm-opaque-device-state-unsupported"
+            }
+          ],
+          "kernelState": [
+            {
+              "id": "mount-namespace",
+              "state": "declared-mount-table",
+              "disposition": "reconstructable"
+            },
+            {
+              "id": "active-syscalls",
+              "state": "in-kernel-continuation",
+              "disposition": "refused",
+              "refusalCode": "portable-vm-active-syscall-unsupported"
+            }
+          ]
+        },
+        "plan": {
+          "rows": [
+            {
+              "id": "vm/rootfs-file-tree",
+              "component": "filesystem",
+              "sourceRef": "rootfs-file-tree",
+              "disposition": "portable",
+              "restoreStrategy": "copy-content-addressed-file-tree",
+              "artifactRequirements": ["file-tree-manifest", "content-hashes"],
+              "proofGate": "file-tree-materialization-proof"
+            },
+            {
+              "id": "vm/example-c-service",
+              "component": "service",
+              "sourceRef": "example-c-service",
+              "disposition": "product-supported",
+              "restoreStrategy": "install-target-native-binary-and-start-service",
+              "artifactRequirements": [
+                "service-manifest",
+                "target-native-binary",
+                "start-verifier"
+              ],
+              "proofGate": "service-product-gate"
+            },
+            {
+              "id": "vm/http-listener-8080",
+              "component": "network",
+              "sourceRef": "http-listener-8080",
+              "disposition": "reconstructable",
+              "restoreStrategy": "bind-target-native-listener",
+              "artifactRequirements": [
+                "listener-manifest",
+                "port-policy",
+                "request-response-verifier"
+              ],
+              "proofGate": "network-listener-reconstruction-proof"
+            },
+            {
+              "id": "vm/sqlite-clean-db",
+              "component": "database",
+              "sourceRef": "sqlite-clean-db",
+              "disposition": "product-supported",
+              "restoreStrategy": "restore-clean-db-with-target-native-tooling",
+              "artifactRequirements": [
+                "clean-db-export-or-snapshot",
+                "target-native-sqlite-tooling",
+                "query-verifier"
+              ],
+              "proofGate": "clean-db-product-gate"
+            },
+            {
+              "id": "vm/postgres-dirty-wal",
+              "component": "database",
+              "sourceRef": "postgres-dirty-wal",
+              "disposition": "refused",
+              "restoreStrategy": "stop-before-restore",
+              "refusalCode": "portable-vm-active-db-state-unsupported",
+              "artifactRequirements": ["dirty-wal-detector-transcript", "stable-refusal-code"],
+              "proofGate": "dirty-db-refusal-proof"
+            },
+            {
+              "id": "vm/active-tcp-streams",
+              "component": "network",
+              "sourceRef": "active-tcp-streams",
+              "disposition": "refused",
+              "restoreStrategy": "stop-before-restore",
+              "refusalCode": "portable-vm-active-network-stream-unsupported",
+              "artifactRequirements": ["active-stream-detector-transcript", "stable-refusal-code"],
+              "proofGate": "active-network-refusal-proof"
+            },
+            {
+              "id": "vm/passthrough-gpu",
+              "component": "device",
+              "sourceRef": "passthrough-gpu",
+              "disposition": "refused",
+              "restoreStrategy": "stop-before-restore",
+              "refusalCode": "portable-vm-opaque-device-state-unsupported",
+              "artifactRequirements": ["device-inventory", "stable-refusal-code"],
+              "proofGate": "opaque-device-refusal-proof"
+            },
+            {
+              "id": "vm/active-syscalls",
+              "component": "kernel-state",
+              "sourceRef": "active-syscalls",
+              "disposition": "refused",
+              "restoreStrategy": "stop-before-restore",
+              "refusalCode": "portable-vm-active-syscall-unsupported",
+              "artifactRequirements": ["syscall-detector-transcript", "stable-refusal-code"],
+              "proofGate": "active-syscall-refusal-proof"
+            }
+          ]
+        },
+        "summary": {
+          "manifestSections": 7,
+          "planRows": 8,
+          "portableRows": 1,
+          "reconstructableRows": 1,
+          "productSupportedRows": 2,
+          "refusedRows": 4,
+          "sameArchOnlyRows": 0,
+          "unknownRows": 0,
+          "publicClaimAllowed": false
+        },
+        "validationRules": [
+          "Every manifest item must have a disposition.",
+          "Every plan row with disposition=refused must have a stable refusalCode.",
+          "Every product-supported row must name a proofGate and artifactRequirements.",
+          "unknownStatePolicy=refuse-by-default must remain true for cross-architecture restore.",
+          "A manifest/plan alone must not raise a public arbitrary VM restore claim."
+        ]
+      }
+    </script>
+
+    <script>
+      const jsonPath = "./portable-vm-manifest-plan.json";
+      loadEmbedded();
+      if (globalThis.location?.protocol !== "file:") void loadRemote();
+
+      function loadEmbedded() {
+        const embedded = document.querySelector("#embedded-portable-vm-manifest-plan")?.textContent;
+        if (!embedded) return;
+        render(JSON.parse(embedded), "embedded portable VM manifest/plan");
+      }
+
+      async function loadRemote() {
+        try {
+          const response = await fetch(`${jsonPath}?t=${Date.now()}`);
+          if (!response.ok) throw new Error(`failed to load ${jsonPath}`);
+          render(await response.json(), jsonPath);
+        } catch {
+          loadEmbedded();
+        }
+      }
+
+      function render(data, sourceLabel) {
+        document.querySelector("#source").textContent =
+          `source: ${sourceLabel} · version: ${data.version} · ${data.scope}`;
+        document.querySelector("#overview").innerHTML = overview(data);
+        document.querySelector("#claim-guard").innerHTML = claimGuard(data.claimGuard);
+        document.querySelector("#plan-rows").innerHTML = planRows(data.plan.rows);
+        document.querySelector("#manifest").innerHTML = manifest(data.manifest);
+        document.querySelector("#legend").innerHTML = legend(data.dispositionLegend);
+        document.querySelector("#rules").innerHTML = list(data.validationRules);
+      }
+
+      function overview(data) {
+        const summary = data.summary;
+        return `<div class="grid">
+          ${metric("Status", pill(data.status))}
+          ${metric("Plan rows", summary.planRows)}
+          ${metric("Product-supported", summary.productSupportedRows)}
+          ${metric("Reconstructable", summary.reconstructableRows)}
+          ${metric("Refused", summary.refusedRows)}
+          ${metric("Public claim allowed", pill(String(summary.publicClaimAllowed)))}
+        </div>`;
+      }
+
+      function claimGuard(guard) {
+        return table(
+          ["Guard", "Value"],
+          Object.entries(guard).map(([key, value]) => [key, pill(String(value))]),
+        );
+      }
+
+      function planRows(rows) {
+        return table(
+          ["ID", "Component", "Disposition", "Restore strategy", "Artifacts", "Proof/refusal"],
+          rows.map((row) => [
+            code(row.id),
+            row.component,
+            pill(row.disposition),
+            row.restoreStrategy,
+            list(row.artifactRequirements),
+            row.refusalCode
+              ? `${code(row.refusalCode)}<br />${code(row.proofGate)}`
+              : code(row.proofGate),
+          ]),
+        );
+      }
+
+      function manifest(manifest) {
+        return Object.entries(manifest)
+          .map(
+            ([section, rows]) =>
+              `<h3>${escapeHtml(section)}</h3>${table(
+                ["ID", "Disposition", "State / policy", "Refusal"],
+                rows.map((row) => [
+                  code(row.id),
+                  pill(row.disposition),
+                  summarizeManifestRow(row),
+                  row.refusalCode ? code(row.refusalCode) : "—",
+                ]),
+              )}`,
+          )
+          .join("");
+      }
+
+      function summarizeManifestRow(row) {
+        return Object.entries(row)
+          .filter(([key]) => !["id", "disposition", "refusalCode"].includes(key))
+          .map(
+            ([key, value]) =>
+              `${escapeHtml(key)}=${escapeHtml(Array.isArray(value) ? value.join(", ") : String(value))}`,
+          )
+          .join(" · ");
+      }
+
+      function legend(rows) {
+        return table(
+          ["Disposition", "Meaning"],
+          rows.map((row) => [pill(row.disposition), row.meaning]),
+        );
+      }
+
+      function metric(label, value) {
+        return `<article class="metric"><span class="muted">${escapeHtml(label)}</span><strong>${formatCell(value)}</strong></article>`;
+      }
+
+      function table(headers, rows) {
+        return `<table><thead><tr>${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join("")}</tr></thead><tbody>${rows
+          .map((row) => `<tr>${row.map((cell) => `<td>${formatCell(cell)}</td>`).join("")}</tr>`)
+          .join("")}</tbody></table>`;
+      }
+
+      function list(items = []) {
+        return `<ul>${items.map((item) => `<li>${formatCell(item)}</li>`).join("")}</ul>`;
+      }
+
+      function pill(value) {
+        return `<span class="pill ${escapeHtml(String(value))}">${escapeHtml(String(value))}</span>`;
+      }
+
+      function code(value) {
+        return `<code>${escapeHtml(String(value))}</code>`;
+      }
+
+      function formatCell(value) {
+        if (value === null || value === undefined || value === "") return "—";
+        if (typeof value === "string" && value.includes("<")) return value;
+        return escapeHtml(String(value));
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;");
+      }
+    </script>
+  </body>
+</html>

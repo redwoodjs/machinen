@@ -22,6 +22,7 @@ Snapshot docs:
 - [vmstate specification](./snapshot/vmstate-specification.md) — whole-VM snapshot file format and saved state
 - [vmstate portability policy](./snapshot/vmstate-portability.md) — restore invariants and cross-HVF/KVM policy
 - [portable machine snapshot boundary](./snapshot/portable-machine-snapshot.md) — why raw cross-ISA vmstate replay refuses and what the target-ISA restore path requires
+- [portable VM manifest / plan draft](./snapshot/portable-vm-manifest-plan.html) — JSON structure and renderer for paused-VM inventory plus restore/refusal planning
 - [opposite-ISA VM execution proof](./snapshot/opposite-isa-vm-execution.md) — host/guest route matrix, acceleration labels, and guest-side verifier contract
 - [stateful database portable restore](./snapshot/stateful-database-portable-restore.md) — PostgreSQL logical and SQLite journal/WAL Level 2 restore contracts
 - [guest checkpoint substrate proof](./snapshot/guest-checkpoint-substrate.md) — same-guest checkpoint checks, C restore proof, and JVM refusal boundary

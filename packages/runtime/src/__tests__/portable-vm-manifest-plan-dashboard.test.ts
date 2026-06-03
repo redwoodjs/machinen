@@ -1,0 +1,69 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
+import { describe, expect, it } from "vitest";
+
+type PortableVmManifestPlan = {
+  kind: "machinen.portable-vm-manifest-plan";
+  version: 1;
+  status: "draft-for-validation";
+  scope: "cross-architecture-portable-whole-vm-restore-v1";
+  claimGuard: Record<string, boolean>;
+  targetPolicy: { unknownStatePolicy: "refuse-by-default" };
+  manifest: Record<string, Array<Record<string, unknown>>>;
+  plan: { rows: Array<Record<string, unknown>> };
+  summary: Record<string, unknown>;
+  validationRules: string[];
+};
+
+describe("portable VM manifest/plan dashboard", () => {
+  it("keeps the draft JSON structure aligned with the standalone HTML renderer", () => {
+    const manifestPlan = JSON.parse(
+      readFileSync(resolve("docs/snapshot/portable-vm-manifest-plan.json"), "utf8"),
+    ) as PortableVmManifestPlan;
+    const html = readFileSync(resolve("docs/snapshot/portable-vm-manifest-plan.html"), "utf8");
+    const embeddedJson =
+      /<script id="embedded-portable-vm-manifest-plan" type="application\/json">\n([\s\S]*?)\n    <\/script>/u.exec(
+        html,
+      )?.[1];
+
+    expect(manifestPlan).toMatchObject({
+      kind: "machinen.portable-vm-manifest-plan",
+      version: 1,
+      status: "draft-for-validation",
+      scope: "cross-architecture-portable-whole-vm-restore-v1",
+    });
+    expect(JSON.parse(embeddedJson ?? "{}")).toEqual(manifestPlan);
+    expect(manifestPlan.claimGuard).toMatchObject({
+      publicClaimAllowed: false,
+      arbitraryVmRestoreClaimed: false,
+      arbitraryLinuxProcessRestoreClaimed: false,
+      rawVmStateReplayAllowed: false,
+      crossIsaVcpuReplayAllowed: false,
+      sourceIsaEmulationAllowed: false,
+      metadataOnlySuccessAllowed: false,
+    });
+    expect(manifestPlan.targetPolicy.unknownStatePolicy).toBe("refuse-by-default");
+    expect(manifestPlan.plan.rows).toHaveLength(8);
+    expect(manifestPlan.plan.rows.filter((row) => row.disposition === "refused")).toHaveLength(4);
+    for (const row of manifestPlan.plan.rows.filter(
+      (candidate) => candidate.disposition === "refused",
+    )) {
+      expect(row.refusalCode).toEqual(expect.stringMatching(/^portable-vm-/u));
+    }
+    for (const rows of Object.values(manifestPlan.manifest)) {
+      for (const row of rows) {
+        expect(row.disposition).toEqual(expect.any(String));
+      }
+    }
+    expect(html).toContain("Portable VM Manifest / VM Portability Plan");
+    expect(html).toContain("Claim guard");
+    expect(html).toContain("Plan rows");
+    expect(html).toContain("Manifest inventory");
+    expect(html).toContain("target-native-reconstruction");
+    expect(html).toContain("portable-vm-active-db-state-unsupported");
+    expect(html).toContain(
+      "A manifest/plan alone must not raise a public arbitrary VM restore claim.",
+    );
+  });
+});
