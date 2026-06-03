@@ -1,0 +1,45 @@
+{
+  "id": "036-memory-capture-classifier",
+  "slug": "memory-capture-classifier",
+  "runtime": "nodejs",
+  "description": "Real guest /proc memory capture classifier for Node/V8 memory categories",
+  "disposition": "product-supported",
+  "claimUse": "portable Node memory capture/classification substrate only; no arbitrary process or raw V8 heap restore claim",
+  "architecturePolicy": "run real guest memory capture on available Node target architecture and classify retained categories",
+  "startCommand": "node app.mjs",
+  "healthPath": "/state",
+  "expectedBody": "ok",
+  "dependencies": [],
+  "refusalCode": null,
+  "capability": {
+    "category": "memory-state",
+    "detects": [
+      "readable process memory mappings",
+      "Node/V8 marker strings",
+      "plain object anchors",
+      "array anchors",
+      "closure anchors",
+      "Buffer anchors",
+      "typed array anchors",
+      "pending Promise refusal anchor"
+    ],
+    "captures": ["/proc/<pid>/maps", "/proc/<pid>/mem sampled fragments and hashes"],
+    "restores": [],
+    "verifies": ["memory classifier observes every seeded category in real source process memory"],
+    "blocks": [
+      "raw V8 heap restore",
+      "same PID continuation",
+      "active request/socket continuation",
+      "worker/native-addon/child-process live-state transfer"
+    ]
+  },
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "arbitraryLinuxProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "samePidContinuationClaimed": false,
+    "activeRequestOrSocketContinuationClaimed": false
+  }
+}

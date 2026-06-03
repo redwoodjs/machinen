@@ -1,0 +1,289 @@
+{
+  "kind": "machinen.nodejs-portability-memory-capture-classifier-smoke-report",
+  "version": 1,
+  "accepted": true,
+  "corpus": "portability/nodejs/036-memory-capture-classifier",
+  "portabilityRow": "036-memory-capture-classifier",
+  "architectures": ["amd64"],
+  "executeVm": true,
+  "memoryCapture": "real-guest-proc-maps-and-proc-mem",
+  "summary": {
+    "verifiedVmRows": 1,
+    "memoryClassifierRows": 1,
+    "refusedRows": 0
+  },
+  "results": [
+    {
+      "id": "036-memory-capture-classifier",
+      "architecture": "amd64",
+      "state": "verified"
+    }
+  ],
+  "capture": {
+    "accepted": true,
+    "pid": 99,
+    "nodeArch": "amd64",
+    "mapsSha256": "7eec1720dd59008176d60bdd0f375dfb73ba9a642f93998b64812a2f84df860d",
+    "mappingCount": 130,
+    "readableMappings": 110,
+    "readableBytesScanned": 29249536,
+    "categories": {
+      "scalar": {
+        "anchor": "machinen-memory-category-scalar-v1",
+        "found": true,
+        "hits": [
+          {
+            "address": "0x760dbd4cc1b",
+            "mapping": "0x760dbd40000-0x760dbd80000",
+            "perms": "rw-p"
+          },
+          {
+            "address": "0x1a1391b8c0d0",
+            "mapping": "0x1a1391b80000-0x1a1391bc0000",
+            "perms": "rw-p"
+          },
+          {
+            "address": "0x2b00a38d6663",
+            "mapping": "0x2b00a38c0000-0x2b00a3900000",
+            "perms": "rw-p"
+          }
+        ]
+      },
+      "string": {
+        "anchor": "machinen-memory-category-string-v1",
+        "found": true,
+        "hits": [
+          {
+            "address": "0x760dbd4cc4b",
+            "mapping": "0x760dbd40000-0x760dbd80000",
+            "perms": "rw-p"
+          },
+          {
+            "address": "0x1a1391b8c108",
+            "mapping": "0x1a1391b80000-0x1a1391bc0000",
+            "perms": "rw-p"
+          },
+          {
+            "address": "0x2b00a38d6693",
+            "mapping": "0x2b00a38c0000-0x2b00a3900000",
+            "perms": "rw-p"
+          }
+        ]
+      },
+      "object": {
+        "anchor": "machinen-memory-category-object-v1",
+        "found": true,
+        "hits": [
+          {
+            "address": "0x760dbd4cc7b",
+            "mapping": "0x760dbd40000-0x760dbd80000",
+            "perms": "rw-p"
+          },
+          {
+            "address": "0x1a1391b8c140",
+            "mapping": "0x1a1391b80000-0x1a1391bc0000",
+            "perms": "rw-p"
+          },
+          {
+            "address": "0x2b00a38d66c3",
+            "mapping": "0x2b00a38c0000-0x2b00a3900000",
+            "perms": "rw-p"
+          }
+        ]
+      },
+      "array": {
+        "anchor": "machinen-memory-category-array-v1",
+        "found": true,
+        "hits": [
+          {
+            "address": "0x760dbd4ccaa",
+            "mapping": "0x760dbd40000-0x760dbd80000",
+            "perms": "rw-p"
+          },
+          {
+            "address": "0x1a1391b8c178",
+            "mapping": "0x1a1391b80000-0x1a1391bc0000",
+            "perms": "rw-p"
+          },
+          {
+            "address": "0x2b00a38d66f2",
+            "mapping": "0x2b00a38c0000-0x2b00a3900000",
+            "perms": "rw-p"
+          }
+        ]
+      },
+      "closure": {
+        "anchor": "machinen-memory-category-closure-v1",
+        "found": true,
+        "hits": [
+          {
+            "address": "0x760dbd4ccda",
+            "mapping": "0x760dbd40000-0x760dbd80000",
+            "perms": "rw-p"
+          },
+          {
+            "address": "0x1a1391b8c1c8",
+            "mapping": "0x1a1391b80000-0x1a1391bc0000",
+            "perms": "rw-p"
+          },
+          {
+            "address": "0x2b00a38d6722",
+            "mapping": "0x2b00a38c0000-0x2b00a3900000",
+            "perms": "rw-p"
+          }
+        ]
+      },
+      "buffer": {
+        "anchor": "machinen-memory-category-buffer-v1",
+        "found": true,
+        "hits": [
+          {
+            "address": "0x38a67988",
+            "mapping": "0x38939000-0x38ba3000",
+            "perms": "rw-p"
+          },
+          {
+            "address": "0x760dbd4cd0b",
+            "mapping": "0x760dbd40000-0x760dbd80000",
+            "perms": "rw-p"
+          },
+          {
+            "address": "0x1a1391b8c200",
+            "mapping": "0x1a1391b80000-0x1a1391bc0000",
+            "perms": "rw-p"
+          },
+          {
+            "address": "0x2b00a38d6753",
+            "mapping": "0x2b00a38c0000-0x2b00a3900000",
+            "perms": "rw-p"
+          }
+        ]
+      },
+      "typedArray": {
+        "anchor": "machinen-memory-category-typed-array-v1",
+        "found": true,
+        "hits": [
+          {
+            "address": "0x760dbd4cd3f",
+            "mapping": "0x760dbd40000-0x760dbd80000",
+            "perms": "rw-p"
+          },
+          {
+            "address": "0x1a1391b8c258",
+            "mapping": "0x1a1391b80000-0x1a1391bc0000",
+            "perms": "rw-p"
+          },
+          {
+            "address": "0x2b00a38d6787",
+            "mapping": "0x2b00a38c0000-0x2b00a3900000",
+            "perms": "rw-p"
+          }
+        ]
+      },
+      "pendingPromise": {
+        "anchor": "machinen-memory-category-pending-promise-v1",
+        "found": true,
+        "hits": [
+          {
+            "address": "0x760dbd4cd7c",
+            "mapping": "0x760dbd40000-0x760dbd80000",
+            "perms": "rw-p"
+          },
+          {
+            "address": "0x1a1391b8c2b0",
+            "mapping": "0x1a1391b80000-0x1a1391bc0000",
+            "perms": "rw-p"
+          },
+          {
+            "address": "0x2b00a38d67c4",
+            "mapping": "0x2b00a38c0000-0x2b00a3900000",
+            "perms": "rw-p"
+          }
+        ]
+      }
+    },
+    "fragmentHashes": [
+      {
+        "mapping": "0x400000-0xe29000",
+        "readable": true,
+        "bytesRead": 4096,
+        "sha256": "9a6d0dc7a42d1b7e217025850fa37ad9f835c7f8f089566d3e0d61583bc4bef0"
+      },
+      {
+        "mapping": "0xe29000-0x307f000",
+        "readable": true,
+        "bytesRead": 4096,
+        "sha256": "8158f3c684737c675c71007cc47f8e32c1dd25c2fc7e49ce8df615f685f9299f"
+      },
+      {
+        "mapping": "0x3200000-0x3201000",
+        "readable": true,
+        "bytesRead": 4096,
+        "sha256": "f9b96a209bdfac1bc00c63def86180eca8a3b7313650b8062fcc9f265f93fa54"
+      },
+      {
+        "mapping": "0x3201000-0x66de000",
+        "readable": true,
+        "bytesRead": 4096,
+        "sha256": "87bf53adeeb5104f7441edffdb285527cbd5f557763213db2ee1e50f703a48aa"
+      },
+      {
+        "mapping": "0x66de000-0x66e2000",
+        "readable": true,
+        "bytesRead": 4096,
+        "sha256": "648c0aa4333ecd3f874f0594c61a10c9a8cafad33f2b9cc898437dece53953d5"
+      },
+      {
+        "mapping": "0x66e2000-0x670c000",
+        "readable": true,
+        "bytesRead": 4096,
+        "sha256": "ed00a4041957fc7930e83e412a5e4944948e7f370e9ed80457f6b31cdc283169"
+      },
+      {
+        "mapping": "0x670c000-0x6742000",
+        "readable": true,
+        "bytesRead": 4096,
+        "sha256": "01d15b5a23b62d0afe81ce32655839a7ee9130d6c6c77c435f6947d3b7fb9991"
+      },
+      {
+        "mapping": "0x38939000-0x38ba3000",
+        "readable": true,
+        "bytesRead": 4096,
+        "sha256": "9fdae06b9e82a9642e63d25c52ba8afae61eb549b31fb939802b2fa2407e05cf"
+      }
+    ],
+    "captureMethod": "guest-proc-maps-and-proc-mem-anchor-classifier",
+    "appHookUsedForCapture": false,
+    "rawV8HeapRestored": false,
+    "samePidRestored": false
+  },
+  "evidence": {
+    "appPath": "portability/nodejs/036-memory-capture-classifier/app.mjs",
+    "appSha256": "4acbaf6874d816737ed2d447b7e739773f443401509152a882816c2e67414c64",
+    "smokePath": "portability/nodejs/036-memory-capture-classifier/smoke.ts"
+  },
+  "claimBoundary": {
+    "claims": [
+      "real Node guest process memory is captured and classified for seeded V8/Node memory categories"
+    ],
+    "notClaimed": [
+      "arbitrary Node process restore",
+      "raw V8 heap restore",
+      "same PID continuation",
+      "active request/socket continuation",
+      "worker/native-addon/child-process live-state transfer",
+      "source ISA emulation",
+      "arbitrary Linux process restore"
+    ]
+  },
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "arbitraryLinuxProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "samePidContinuationClaimed": false,
+    "activeRequestOrSocketContinuationClaimed": false
+  },
+  "elapsedMs": 23093
+}

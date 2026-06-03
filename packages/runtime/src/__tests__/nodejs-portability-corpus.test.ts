@@ -111,7 +111,7 @@ describe("Node.js portability corpus", () => {
     expect(html).toContain("nodejs-portability-memory-unsupported-boundaries-report.json");
   });
 
-  it("contains the requested 35 numbered workload rows", () => {
+  it("contains the requested 36 numbered workload rows", () => {
     expect(rowDirs()).toEqual([
       "001-plain-http-create-server",
       "002-express",
@@ -148,12 +148,13 @@ describe("Node.js portability corpus", () => {
       "033-memory-buffer",
       "034-memory-typed-array",
       "035-memory-pending-promise-refusal",
+      "036-memory-capture-classifier",
     ]);
   });
 
   it("keeps arbitrary raw Node process restore out of the corpus claim", () => {
     const rows = rowDirs().map(readRow);
-    expect(rows).toHaveLength(35);
+    expect(rows).toHaveLength(36);
     for (const row of rows) {
       expect(row.runtime).toBe("nodejs");
       expect(row.claimGuard).toMatchObject({
@@ -193,11 +194,11 @@ describe("Node.js portability corpus", () => {
       version: 1,
       runtime: "nodejs",
       summary: {
-        rowCount: 35,
-        byStatus: { verified: 27, refused: 8 },
-        byProductClaim: { candidate: 27, refusal: 8 },
+        rowCount: 36,
+        byStatus: { verified: 28, refused: 8 },
+        byProductClaim: { candidate: 28, refusal: 8 },
         architectures: ["arm64", "amd64"],
-        verifiedBothArchitectures: 27,
+        verifiedBothArchitectures: 28,
         refusedRows: 8,
         conditionalRows: 0,
         failedClassifiedRows: 0,
@@ -265,11 +266,11 @@ describe("Node.js portability corpus", () => {
     };
     expect(report).toMatchObject({
       accepted: true,
-      rowCount: 35,
+      rowCount: 36,
       architectures: ["arm64", "amd64"],
       executeVm: false,
       summary: {
-        productSupportedRows: 22,
+        productSupportedRows: 23,
         declaredConfigRows: 5,
         refusedFirstRows: 8,
         refusedRows: 16,
@@ -372,6 +373,39 @@ describe("Node.js portability corpus", () => {
         arbitraryNodeProcessRestoreClaimed: false,
         rawV8HeapRestoreUsed: false,
         rawCpuStateReplayUsed: false,
+        sourceIsaEmulationUsed: false,
+      });
+    }
+  });
+
+  it("retains real guest /proc memory classifier smoke reports", () => {
+    for (const [file, arch] of [
+      ["nodejs-portability-memory-capture-classifier-report.json", "arm64"],
+      ["nodejs-portability-memory-capture-classifier-amd64-report.json", "amd64"],
+    ] as const) {
+      const report = JSON.parse(readFileSync(resolve(corpusRoot, "retained", file), "utf8")) as {
+        accepted: boolean;
+        portabilityRow: string;
+        architectures: string[];
+        executeVm: boolean;
+        memoryCapture: string;
+        capture: { categories: Record<string, { found: boolean }>; captureMethod: string };
+        claimGuard: Record<string, false>;
+      };
+      expect(report).toMatchObject({
+        accepted: true,
+        portabilityRow: "036-memory-capture-classifier",
+        architectures: [arch],
+        executeVm: true,
+        memoryCapture: "real-guest-proc-maps-and-proc-mem",
+      });
+      expect(report.capture.captureMethod).toBe("guest-proc-maps-and-proc-mem-anchor-classifier");
+      expect(Object.values(report.capture.categories).every((category) => category.found)).toBe(
+        true,
+      );
+      expect(report.claimGuard).toMatchObject({
+        arbitraryNodeProcessRestoreClaimed: false,
+        rawV8HeapRestoreUsed: false,
         sourceIsaEmulationUsed: false,
       });
     }

@@ -43,6 +43,8 @@ This corpus does **not** claim raw Node process continuation. It shows that arbi
 
 Rows `022` through `035` move existing V8/Node memory-state coverage into portability smokes for selected plain objects, packed arrays, closure contexts, strings, nested/shared/cyclic object graphs, Map/Set, class instances, HTTP handler closure state, Buffer, typed arrays, and fail-closed unsupported async/runtime boundaries.
 
+Row `036-memory-capture-classifier` starts a real Node process inside a guest and captures `/proc/<pid>/maps` plus `/proc/<pid>/mem` to classify seeded Node/V8 memory categories on both `arm64` and `amd64`.
+
 These rows do not lift the broad arbitrary Node heap/process claim; they add scoped compatibility dimensions. Run the local decoder smokes with:
 
 ```bash

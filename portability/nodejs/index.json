@@ -23,17 +23,17 @@
     }
   },
   "summary": {
-    "rowCount": 35,
+    "rowCount": 36,
     "byStatus": {
-      "verified": 27,
+      "verified": 28,
       "refused": 8
     },
     "byProductClaim": {
-      "candidate": 27,
+      "candidate": 28,
       "refusal": 8
     },
     "architectures": ["arm64", "amd64"],
-    "verifiedBothArchitectures": 27,
+    "verifiedBothArchitectures": 28,
     "refusedRows": 8,
     "conditionalRows": 0,
     "failedClassifiedRows": 0
@@ -42,7 +42,7 @@
     {
       "kind": "classification-report",
       "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-      "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+      "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
       "summary": "nodejs-portability-corpus-report.json"
     },
     {
@@ -108,61 +108,73 @@
     {
       "kind": "memory-state-smoke-report",
       "path": "portability/nodejs/retained/nodejs-portability-memory-buffer-report.json",
-      "sha256": "564ebd07b745cdf4d85ac97dee76d22ceb4496adfdecf336c692e39135e867f9",
+      "sha256": "b81e93b791a1c93201a292207c8e1788e9fbe53287b681a0d9a1c0778f6ad3d9",
       "summary": "nodejs-portability-memory-buffer-report.json"
     },
     {
       "kind": "memory-state-smoke-report",
+      "path": "portability/nodejs/retained/nodejs-portability-memory-capture-classifier-amd64-report.json",
+      "sha256": "9d620b830e04d61e949321e5e6d31efeeb178a432b01c2a862560d049bee66e9",
+      "summary": "nodejs-portability-memory-capture-classifier-amd64-report.json"
+    },
+    {
+      "kind": "memory-state-smoke-report",
+      "path": "portability/nodejs/retained/nodejs-portability-memory-capture-classifier-report.json",
+      "sha256": "08d9f8d1628e62c53d5dfe6fe10c8ba3d74c743892d9b6daba75dae421f503aa",
+      "summary": "nodejs-portability-memory-capture-classifier-report.json"
+    },
+    {
+      "kind": "memory-state-smoke-report",
       "path": "portability/nodejs/retained/nodejs-portability-memory-class-instance-report.json",
-      "sha256": "ddee811c9ba983c7b92401d036841ec96cd548617661465a2674d353e8a3f94e",
+      "sha256": "2ad74fab582573220b368e8cbc5f0e36e899b95bf8b2c19f90ff9e375666b68b",
       "summary": "nodejs-portability-memory-class-instance-report.json"
     },
     {
       "kind": "memory-state-smoke-report",
       "path": "portability/nodejs/retained/nodejs-portability-memory-cycle-report.json",
-      "sha256": "406d128aeeb033bed8da62a2cb09fd0acf2c639d16ecfc29ab0d9be24fbfc72d",
+      "sha256": "cd10ab005efc5a497ea142a9db98728797f50391d220995a15a6974e81aadec5",
       "summary": "nodejs-portability-memory-cycle-report.json"
     },
     {
       "kind": "memory-state-smoke-report",
       "path": "portability/nodejs/retained/nodejs-portability-memory-http-handler-closure-state-report.json",
-      "sha256": "8f459fcb314a3d6867a9af4b137d1da6dfd8499b0704a1d881eabedde5182257",
+      "sha256": "2b86c5838ace3899370be050bcbd6e375c3e9d3615702f87442a2bca2d038dd5",
       "summary": "nodejs-portability-memory-http-handler-closure-state-report.json"
     },
     {
       "kind": "memory-state-smoke-report",
       "path": "portability/nodejs/retained/nodejs-portability-memory-map-set-report.json",
-      "sha256": "7852d5072f5f5bf1a451664a3643bc37365fb67af1a798f34272418c0b7abb44",
+      "sha256": "76d02fe0a63e4001618064d328b0d1a45f5a345809d13fe6a881c4a701383f0b",
       "summary": "nodejs-portability-memory-map-set-report.json"
     },
     {
       "kind": "memory-state-smoke-report",
       "path": "portability/nodejs/retained/nodejs-portability-memory-nested-object-graph-report.json",
-      "sha256": "5eb08860927a4eacbe6a942dcb7813ef6682a8281d66d4f933166a2e1b85177c",
+      "sha256": "33820266d67ebab18b990c3048aea9c0586a07030e03ae9daa212b2ffcb8d8d5",
       "summary": "nodejs-portability-memory-nested-object-graph-report.json"
     },
     {
       "kind": "memory-state-smoke-report",
       "path": "portability/nodejs/retained/nodejs-portability-memory-pending-promise-refusal-report.json",
-      "sha256": "4d1713df66b6f9c9ccee01fd2e3d20a6a65f92cf41f00345b36bf6f8576f6d42",
+      "sha256": "876b0d4a5b1db264e385156af21454a4caad6f2c8f7773001ee60088a40c7f2e",
       "summary": "nodejs-portability-memory-pending-promise-refusal-report.json"
     },
     {
       "kind": "memory-state-smoke-report",
       "path": "portability/nodejs/retained/nodejs-portability-memory-shared-references-report.json",
-      "sha256": "371c3ce4dcf7f107b80c4ddcfd3baf44b640cb2b7dbb4067a1660798439e724a",
+      "sha256": "2a39034653c75915cfcb4cd2ff3b12a90cefe4e6cfdee41d4b852bb97379eb66",
       "summary": "nodejs-portability-memory-shared-references-report.json"
     },
     {
       "kind": "memory-state-smoke-report",
       "path": "portability/nodejs/retained/nodejs-portability-memory-string-report.json",
-      "sha256": "3e02203e4af658b997fc9ed4eba42c6b9f6abee8785d40f73f84f62744e44257",
+      "sha256": "c23789ae25a50a5c2ed29c655e7ca77c8aa98dd8e3169ab977b60a9ddf62ea57",
       "summary": "nodejs-portability-memory-string-report.json"
     },
     {
       "kind": "memory-state-smoke-report",
       "path": "portability/nodejs/retained/nodejs-portability-memory-typed-array-report.json",
-      "sha256": "08490729f2b6159d848db7282cf867b92167fbc998568957369a0a9654e8d11c",
+      "sha256": "1a05c4ba2a2d3ed958f6850978bc6b8c9eec0178be64d0d6732987f0224b0c43",
       "summary": "nodejs-portability-memory-typed-array-report.json"
     }
   ],
@@ -183,7 +195,7 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "arm64 classification row retained"
             },
             {
@@ -202,7 +214,7 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "amd64 classification row retained"
             },
             {
@@ -232,7 +244,7 @@
         {
           "kind": "classification-report",
           "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-          "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+          "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
           "summary": "arm64 classification row retained"
         },
         {
@@ -271,7 +283,7 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "arm64 classification row retained"
             },
             {
@@ -290,7 +302,7 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "amd64 classification row retained"
             },
             {
@@ -320,7 +332,7 @@
         {
           "kind": "classification-report",
           "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-          "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+          "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
           "summary": "arm64 classification row retained"
         },
         {
@@ -359,7 +371,7 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "arm64 classification row retained"
             },
             {
@@ -378,7 +390,7 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "amd64 classification row retained"
             },
             {
@@ -408,7 +420,7 @@
         {
           "kind": "classification-report",
           "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-          "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+          "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
           "summary": "arm64 classification row retained"
         },
         {
@@ -447,7 +459,7 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "arm64 classification row retained"
             },
             {
@@ -466,7 +478,7 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "amd64 classification row retained"
             },
             {
@@ -496,7 +508,7 @@
         {
           "kind": "classification-report",
           "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-          "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+          "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
           "summary": "arm64 classification row retained"
         },
         {
@@ -535,7 +547,7 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "arm64 classification row retained"
             },
             {
@@ -554,7 +566,7 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "amd64 classification row retained"
             },
             {
@@ -584,7 +596,7 @@
         {
           "kind": "classification-report",
           "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-          "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+          "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
           "summary": "arm64 classification row retained"
         },
         {
@@ -623,7 +635,7 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "arm64 classification row retained"
             },
             {
@@ -642,7 +654,7 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "amd64 classification row retained"
             },
             {
@@ -679,7 +691,7 @@
         {
           "kind": "classification-report",
           "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-          "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+          "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
           "summary": "arm64 classification row retained"
         },
         {
@@ -718,7 +730,7 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "arm64 classification row retained"
             },
             {
@@ -737,7 +749,7 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "amd64 classification row retained"
             },
             {
@@ -774,7 +786,7 @@
         {
           "kind": "classification-report",
           "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-          "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+          "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
           "summary": "arm64 classification row retained"
         },
         {
@@ -813,7 +825,7 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "arm64 classification row retained"
             },
             {
@@ -832,7 +844,7 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "amd64 classification row retained"
             },
             {
@@ -869,7 +881,7 @@
         {
           "kind": "classification-report",
           "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-          "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+          "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
           "summary": "arm64 classification row retained"
         },
         {
@@ -908,7 +920,7 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "arm64 classification row retained"
             },
             {
@@ -927,7 +939,7 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "amd64 classification row retained"
             },
             {
@@ -964,7 +976,7 @@
         {
           "kind": "classification-report",
           "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-          "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+          "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
           "summary": "arm64 classification row retained"
         },
         {
@@ -1003,13 +1015,13 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "arm64 classification row retained"
             },
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "arm64 retained refusal smoke"
             }
           ],
@@ -1022,13 +1034,13 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "amd64 classification row retained"
             },
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "amd64 retained refusal smoke"
             }
           ],
@@ -1059,7 +1071,7 @@
         {
           "kind": "classification-report",
           "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-          "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+          "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
           "summary": "arm64 classification row retained"
         }
       ],
@@ -1086,7 +1098,7 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "arm64 classification row retained"
             },
             {
@@ -1105,7 +1117,7 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "amd64 classification row retained"
             },
             {
@@ -1135,7 +1147,7 @@
         {
           "kind": "classification-report",
           "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-          "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+          "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
           "summary": "arm64 classification row retained"
         },
         {
@@ -1174,7 +1186,7 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "arm64 classification row retained"
             },
             {
@@ -1193,7 +1205,7 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "amd64 classification row retained"
             },
             {
@@ -1230,7 +1242,7 @@
         {
           "kind": "classification-report",
           "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-          "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+          "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
           "summary": "arm64 classification row retained"
         },
         {
@@ -1269,7 +1281,7 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "arm64 classification row retained"
             },
             {
@@ -1288,7 +1300,7 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "amd64 classification row retained"
             },
             {
@@ -1318,7 +1330,7 @@
         {
           "kind": "classification-report",
           "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-          "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+          "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
           "summary": "arm64 classification row retained"
         },
         {
@@ -1357,7 +1369,7 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "arm64 classification row retained"
             },
             {
@@ -1376,7 +1388,7 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "amd64 classification row retained"
             },
             {
@@ -1406,7 +1418,7 @@
         {
           "kind": "classification-report",
           "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-          "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+          "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
           "summary": "arm64 classification row retained"
         },
         {
@@ -1445,7 +1457,7 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "arm64 classification row retained"
             },
             {
@@ -1464,7 +1476,7 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "amd64 classification row retained"
             },
             {
@@ -1494,7 +1506,7 @@
         {
           "kind": "classification-report",
           "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-          "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+          "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
           "summary": "arm64 classification row retained"
         },
         {
@@ -1533,13 +1545,13 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "arm64 classification row retained"
             },
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "arm64 retained refusal smoke"
             }
           ],
@@ -1552,13 +1564,13 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "amd64 classification row retained"
             },
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "amd64 retained refusal smoke"
             }
           ],
@@ -1589,7 +1601,7 @@
         {
           "kind": "classification-report",
           "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-          "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+          "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
           "summary": "arm64 classification row retained"
         }
       ],
@@ -1616,13 +1628,13 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "arm64 classification row retained"
             },
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "arm64 retained refusal smoke"
             }
           ],
@@ -1635,13 +1647,13 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "amd64 classification row retained"
             },
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "amd64 retained refusal smoke"
             }
           ],
@@ -1672,7 +1684,7 @@
         {
           "kind": "classification-report",
           "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-          "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+          "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
           "summary": "arm64 classification row retained"
         }
       ],
@@ -1699,13 +1711,13 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "arm64 classification row retained"
             },
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "arm64 retained refusal smoke"
             }
           ],
@@ -1718,13 +1730,13 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "amd64 classification row retained"
             },
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "amd64 retained refusal smoke"
             }
           ],
@@ -1755,7 +1767,7 @@
         {
           "kind": "classification-report",
           "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-          "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+          "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
           "summary": "arm64 classification row retained"
         }
       ],
@@ -1782,13 +1794,13 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "arm64 classification row retained"
             },
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "arm64 retained refusal smoke"
             }
           ],
@@ -1801,13 +1813,13 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "amd64 classification row retained"
             },
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "amd64 retained refusal smoke"
             }
           ],
@@ -1838,7 +1850,7 @@
         {
           "kind": "classification-report",
           "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-          "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+          "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
           "summary": "arm64 classification row retained"
         }
       ],
@@ -1865,13 +1877,13 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "arm64 classification row retained"
             },
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "arm64 retained refusal smoke"
             }
           ],
@@ -1884,13 +1896,13 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "amd64 classification row retained"
             },
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "amd64 retained refusal smoke"
             }
           ],
@@ -1921,7 +1933,7 @@
         {
           "kind": "classification-report",
           "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-          "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+          "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
           "summary": "arm64 classification row retained"
         }
       ],
@@ -2024,7 +2036,7 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "arm64 classification row retained"
             },
             {
@@ -2043,7 +2055,7 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "amd64 classification row retained"
             },
             {
@@ -2073,7 +2085,7 @@
         {
           "kind": "classification-report",
           "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-          "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+          "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
           "summary": "arm64 classification row retained"
         },
         {
@@ -2106,7 +2118,7 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "arm64 classification row retained"
             },
             {
@@ -2125,7 +2137,7 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "amd64 classification row retained"
             },
             {
@@ -2155,7 +2167,7 @@
         {
           "kind": "classification-report",
           "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-          "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+          "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
           "summary": "arm64 classification row retained"
         },
         {
@@ -2188,7 +2200,7 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "arm64 classification row retained"
             },
             {
@@ -2207,7 +2219,7 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "amd64 classification row retained"
             },
             {
@@ -2237,7 +2249,7 @@
         {
           "kind": "classification-report",
           "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-          "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+          "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
           "summary": "arm64 classification row retained"
         },
         {
@@ -2270,13 +2282,13 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "arm64 classification row retained"
             },
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "arm64 retained refusal smoke"
             }
           ],
@@ -2289,13 +2301,13 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "amd64 classification row retained"
             },
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "amd64 retained refusal smoke"
             }
           ],
@@ -2326,7 +2338,7 @@
         {
           "kind": "classification-report",
           "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-          "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+          "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
           "summary": "arm64 classification row retained"
         }
       ],
@@ -2353,13 +2365,13 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "arm64 classification row retained"
             },
             {
               "kind": "memory-state-smoke-report",
               "path": "portability/nodejs/retained/nodejs-portability-memory-string-report.json",
-              "sha256": "3e02203e4af658b997fc9ed4eba42c6b9f6abee8785d40f73f84f62744e44257",
+              "sha256": "c23789ae25a50a5c2ed29c655e7ca77c8aa98dd8e3169ab977b60a9ddf62ea57",
               "summary": "arm64 Machinen runtime verifier passed"
             }
           ],
@@ -2372,13 +2384,13 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "amd64 classification row retained"
             },
             {
               "kind": "memory-state-smoke-report",
               "path": "portability/nodejs/retained/nodejs-portability-memory-string-report.json",
-              "sha256": "3e02203e4af658b997fc9ed4eba42c6b9f6abee8785d40f73f84f62744e44257",
+              "sha256": "c23789ae25a50a5c2ed29c655e7ca77c8aa98dd8e3169ab977b60a9ddf62ea57",
               "summary": "amd64 Machinen runtime verifier passed"
             }
           ],
@@ -2396,19 +2408,19 @@
         {
           "kind": "row-manifest",
           "path": "portability/nodejs/026-memory-string/portability.json",
-          "sha256": "df4f119cfd02e3ca0462ae58d6f1996936b8078cff4a100d821b1f318bdabe07",
+          "sha256": "37d97787d41b0589de64886cab9bcb88830b963ad674d8c31fa7f2915b60d77c",
           "summary": "row metadata"
         },
         {
           "kind": "classification-report",
           "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-          "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+          "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
           "summary": "arm64 classification row retained"
         },
         {
           "kind": "memory-state-smoke-report",
           "path": "portability/nodejs/retained/nodejs-portability-memory-string-report.json",
-          "sha256": "3e02203e4af658b997fc9ed4eba42c6b9f6abee8785d40f73f84f62744e44257",
+          "sha256": "c23789ae25a50a5c2ed29c655e7ca77c8aa98dd8e3169ab977b60a9ddf62ea57",
           "summary": "arm64 Machinen runtime verifier passed"
         }
       ],
@@ -2435,13 +2447,13 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "arm64 classification row retained"
             },
             {
               "kind": "memory-state-smoke-report",
               "path": "portability/nodejs/retained/nodejs-portability-memory-nested-object-graph-report.json",
-              "sha256": "5eb08860927a4eacbe6a942dcb7813ef6682a8281d66d4f933166a2e1b85177c",
+              "sha256": "33820266d67ebab18b990c3048aea9c0586a07030e03ae9daa212b2ffcb8d8d5",
               "summary": "arm64 Machinen runtime verifier passed"
             }
           ],
@@ -2454,13 +2466,13 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "amd64 classification row retained"
             },
             {
               "kind": "memory-state-smoke-report",
               "path": "portability/nodejs/retained/nodejs-portability-memory-nested-object-graph-report.json",
-              "sha256": "5eb08860927a4eacbe6a942dcb7813ef6682a8281d66d4f933166a2e1b85177c",
+              "sha256": "33820266d67ebab18b990c3048aea9c0586a07030e03ae9daa212b2ffcb8d8d5",
               "summary": "amd64 Machinen runtime verifier passed"
             }
           ],
@@ -2478,19 +2490,19 @@
         {
           "kind": "row-manifest",
           "path": "portability/nodejs/027-memory-nested-object-graph/portability.json",
-          "sha256": "7ff6dc2b6acbc61e99c245ed4141bae755403602dc26cf9972cc0c1af1276a31",
+          "sha256": "c328558b2c4b94e0aa9757916f6a10e5c6e98ba9ef8083ac7dfa923856ed25dd",
           "summary": "row metadata"
         },
         {
           "kind": "classification-report",
           "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-          "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+          "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
           "summary": "arm64 classification row retained"
         },
         {
           "kind": "memory-state-smoke-report",
           "path": "portability/nodejs/retained/nodejs-portability-memory-nested-object-graph-report.json",
-          "sha256": "5eb08860927a4eacbe6a942dcb7813ef6682a8281d66d4f933166a2e1b85177c",
+          "sha256": "33820266d67ebab18b990c3048aea9c0586a07030e03ae9daa212b2ffcb8d8d5",
           "summary": "arm64 Machinen runtime verifier passed"
         }
       ],
@@ -2517,13 +2529,13 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "arm64 classification row retained"
             },
             {
               "kind": "memory-state-smoke-report",
               "path": "portability/nodejs/retained/nodejs-portability-memory-shared-references-report.json",
-              "sha256": "371c3ce4dcf7f107b80c4ddcfd3baf44b640cb2b7dbb4067a1660798439e724a",
+              "sha256": "2a39034653c75915cfcb4cd2ff3b12a90cefe4e6cfdee41d4b852bb97379eb66",
               "summary": "arm64 Machinen runtime verifier passed"
             }
           ],
@@ -2536,13 +2548,13 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "amd64 classification row retained"
             },
             {
               "kind": "memory-state-smoke-report",
               "path": "portability/nodejs/retained/nodejs-portability-memory-shared-references-report.json",
-              "sha256": "371c3ce4dcf7f107b80c4ddcfd3baf44b640cb2b7dbb4067a1660798439e724a",
+              "sha256": "2a39034653c75915cfcb4cd2ff3b12a90cefe4e6cfdee41d4b852bb97379eb66",
               "summary": "amd64 Machinen runtime verifier passed"
             }
           ],
@@ -2560,19 +2572,19 @@
         {
           "kind": "row-manifest",
           "path": "portability/nodejs/028-memory-shared-references/portability.json",
-          "sha256": "6d6f41be9376a1937b06ee9bc48029d7c79198f143a95bf11073f612cb7a5bbc",
+          "sha256": "c937daacd3fca28492275b61bed98298499d8e6305c5bc139e350e4c0ade062b",
           "summary": "row metadata"
         },
         {
           "kind": "classification-report",
           "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-          "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+          "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
           "summary": "arm64 classification row retained"
         },
         {
           "kind": "memory-state-smoke-report",
           "path": "portability/nodejs/retained/nodejs-portability-memory-shared-references-report.json",
-          "sha256": "371c3ce4dcf7f107b80c4ddcfd3baf44b640cb2b7dbb4067a1660798439e724a",
+          "sha256": "2a39034653c75915cfcb4cd2ff3b12a90cefe4e6cfdee41d4b852bb97379eb66",
           "summary": "arm64 Machinen runtime verifier passed"
         }
       ],
@@ -2599,13 +2611,13 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "arm64 classification row retained"
             },
             {
               "kind": "memory-state-smoke-report",
               "path": "portability/nodejs/retained/nodejs-portability-memory-cycle-report.json",
-              "sha256": "406d128aeeb033bed8da62a2cb09fd0acf2c639d16ecfc29ab0d9be24fbfc72d",
+              "sha256": "cd10ab005efc5a497ea142a9db98728797f50391d220995a15a6974e81aadec5",
               "summary": "arm64 Machinen runtime verifier passed"
             }
           ],
@@ -2618,13 +2630,13 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "amd64 classification row retained"
             },
             {
               "kind": "memory-state-smoke-report",
               "path": "portability/nodejs/retained/nodejs-portability-memory-cycle-report.json",
-              "sha256": "406d128aeeb033bed8da62a2cb09fd0acf2c639d16ecfc29ab0d9be24fbfc72d",
+              "sha256": "cd10ab005efc5a497ea142a9db98728797f50391d220995a15a6974e81aadec5",
               "summary": "amd64 Machinen runtime verifier passed"
             }
           ],
@@ -2642,19 +2654,19 @@
         {
           "kind": "row-manifest",
           "path": "portability/nodejs/029-memory-cycle/portability.json",
-          "sha256": "3de3e01678f363769bea41072c2907cb7403e99b17392e05ce75cc3371fe8b97",
+          "sha256": "a07ce27c2d1bf5011b6df2c09177a1088abdc2b7d59d4d377f0c237788b1bb7d",
           "summary": "row metadata"
         },
         {
           "kind": "classification-report",
           "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-          "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+          "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
           "summary": "arm64 classification row retained"
         },
         {
           "kind": "memory-state-smoke-report",
           "path": "portability/nodejs/retained/nodejs-portability-memory-cycle-report.json",
-          "sha256": "406d128aeeb033bed8da62a2cb09fd0acf2c639d16ecfc29ab0d9be24fbfc72d",
+          "sha256": "cd10ab005efc5a497ea142a9db98728797f50391d220995a15a6974e81aadec5",
           "summary": "arm64 Machinen runtime verifier passed"
         }
       ],
@@ -2681,13 +2693,13 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "arm64 classification row retained"
             },
             {
               "kind": "memory-state-smoke-report",
               "path": "portability/nodejs/retained/nodejs-portability-memory-map-set-report.json",
-              "sha256": "7852d5072f5f5bf1a451664a3643bc37365fb67af1a798f34272418c0b7abb44",
+              "sha256": "76d02fe0a63e4001618064d328b0d1a45f5a345809d13fe6a881c4a701383f0b",
               "summary": "arm64 Machinen runtime verifier passed"
             }
           ],
@@ -2700,13 +2712,13 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "amd64 classification row retained"
             },
             {
               "kind": "memory-state-smoke-report",
               "path": "portability/nodejs/retained/nodejs-portability-memory-map-set-report.json",
-              "sha256": "7852d5072f5f5bf1a451664a3643bc37365fb67af1a798f34272418c0b7abb44",
+              "sha256": "76d02fe0a63e4001618064d328b0d1a45f5a345809d13fe6a881c4a701383f0b",
               "summary": "amd64 Machinen runtime verifier passed"
             }
           ],
@@ -2724,19 +2736,19 @@
         {
           "kind": "row-manifest",
           "path": "portability/nodejs/030-memory-map-set/portability.json",
-          "sha256": "f60198b879ada2397be630f6166f3b52ca7ae0f9b4bd4b1a4bc9317c9cb67784",
+          "sha256": "bc61f23018b4ea9a716309bed36b4471544a8a0d7a8fb880aeed41f9eb8f4b9e",
           "summary": "row metadata"
         },
         {
           "kind": "classification-report",
           "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-          "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+          "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
           "summary": "arm64 classification row retained"
         },
         {
           "kind": "memory-state-smoke-report",
           "path": "portability/nodejs/retained/nodejs-portability-memory-map-set-report.json",
-          "sha256": "7852d5072f5f5bf1a451664a3643bc37365fb67af1a798f34272418c0b7abb44",
+          "sha256": "76d02fe0a63e4001618064d328b0d1a45f5a345809d13fe6a881c4a701383f0b",
           "summary": "arm64 Machinen runtime verifier passed"
         }
       ],
@@ -2763,13 +2775,13 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "arm64 classification row retained"
             },
             {
               "kind": "memory-state-smoke-report",
               "path": "portability/nodejs/retained/nodejs-portability-memory-class-instance-report.json",
-              "sha256": "ddee811c9ba983c7b92401d036841ec96cd548617661465a2674d353e8a3f94e",
+              "sha256": "2ad74fab582573220b368e8cbc5f0e36e899b95bf8b2c19f90ff9e375666b68b",
               "summary": "arm64 Machinen runtime verifier passed"
             }
           ],
@@ -2782,13 +2794,13 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "amd64 classification row retained"
             },
             {
               "kind": "memory-state-smoke-report",
               "path": "portability/nodejs/retained/nodejs-portability-memory-class-instance-report.json",
-              "sha256": "ddee811c9ba983c7b92401d036841ec96cd548617661465a2674d353e8a3f94e",
+              "sha256": "2ad74fab582573220b368e8cbc5f0e36e899b95bf8b2c19f90ff9e375666b68b",
               "summary": "amd64 Machinen runtime verifier passed"
             }
           ],
@@ -2806,19 +2818,19 @@
         {
           "kind": "row-manifest",
           "path": "portability/nodejs/031-memory-class-instance/portability.json",
-          "sha256": "576e313b71d20daa5593e4266f63bf71210d0281535ffa24f113e01a373316ed",
+          "sha256": "41284150e72c363b7c03010c45f41bf523701a3b14cf224b472ac29eec80dd23",
           "summary": "row metadata"
         },
         {
           "kind": "classification-report",
           "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-          "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+          "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
           "summary": "arm64 classification row retained"
         },
         {
           "kind": "memory-state-smoke-report",
           "path": "portability/nodejs/retained/nodejs-portability-memory-class-instance-report.json",
-          "sha256": "ddee811c9ba983c7b92401d036841ec96cd548617661465a2674d353e8a3f94e",
+          "sha256": "2ad74fab582573220b368e8cbc5f0e36e899b95bf8b2c19f90ff9e375666b68b",
           "summary": "arm64 Machinen runtime verifier passed"
         }
       ],
@@ -2845,13 +2857,13 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "arm64 classification row retained"
             },
             {
               "kind": "memory-state-smoke-report",
               "path": "portability/nodejs/retained/nodejs-portability-memory-http-handler-closure-state-report.json",
-              "sha256": "8f459fcb314a3d6867a9af4b137d1da6dfd8499b0704a1d881eabedde5182257",
+              "sha256": "2b86c5838ace3899370be050bcbd6e375c3e9d3615702f87442a2bca2d038dd5",
               "summary": "arm64 Machinen runtime verifier passed"
             }
           ],
@@ -2864,13 +2876,13 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "amd64 classification row retained"
             },
             {
               "kind": "memory-state-smoke-report",
               "path": "portability/nodejs/retained/nodejs-portability-memory-http-handler-closure-state-report.json",
-              "sha256": "8f459fcb314a3d6867a9af4b137d1da6dfd8499b0704a1d881eabedde5182257",
+              "sha256": "2b86c5838ace3899370be050bcbd6e375c3e9d3615702f87442a2bca2d038dd5",
               "summary": "amd64 Machinen runtime verifier passed"
             }
           ],
@@ -2888,19 +2900,19 @@
         {
           "kind": "row-manifest",
           "path": "portability/nodejs/032-memory-http-handler-closure-state/portability.json",
-          "sha256": "176a033c17a5a92f1ef121eebbbcc2d6d9fe9da32f860fe501accf50ae288e49",
+          "sha256": "8eab9aa6e24a8ac437ee87864add3c0fc0f3060b529808f84121e96e3f2d7d6a",
           "summary": "row metadata"
         },
         {
           "kind": "classification-report",
           "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-          "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+          "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
           "summary": "arm64 classification row retained"
         },
         {
           "kind": "memory-state-smoke-report",
           "path": "portability/nodejs/retained/nodejs-portability-memory-http-handler-closure-state-report.json",
-          "sha256": "8f459fcb314a3d6867a9af4b137d1da6dfd8499b0704a1d881eabedde5182257",
+          "sha256": "2b86c5838ace3899370be050bcbd6e375c3e9d3615702f87442a2bca2d038dd5",
           "summary": "arm64 Machinen runtime verifier passed"
         }
       ],
@@ -2927,13 +2939,13 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "arm64 classification row retained"
             },
             {
               "kind": "memory-state-smoke-report",
               "path": "portability/nodejs/retained/nodejs-portability-memory-buffer-report.json",
-              "sha256": "564ebd07b745cdf4d85ac97dee76d22ceb4496adfdecf336c692e39135e867f9",
+              "sha256": "b81e93b791a1c93201a292207c8e1788e9fbe53287b681a0d9a1c0778f6ad3d9",
               "summary": "arm64 Machinen runtime verifier passed"
             }
           ],
@@ -2946,13 +2958,13 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "amd64 classification row retained"
             },
             {
               "kind": "memory-state-smoke-report",
               "path": "portability/nodejs/retained/nodejs-portability-memory-buffer-report.json",
-              "sha256": "564ebd07b745cdf4d85ac97dee76d22ceb4496adfdecf336c692e39135e867f9",
+              "sha256": "b81e93b791a1c93201a292207c8e1788e9fbe53287b681a0d9a1c0778f6ad3d9",
               "summary": "amd64 Machinen runtime verifier passed"
             }
           ],
@@ -2970,19 +2982,19 @@
         {
           "kind": "row-manifest",
           "path": "portability/nodejs/033-memory-buffer/portability.json",
-          "sha256": "c0e57a664f5eb434e05b414c10d60f780df325844159930a039271144cd2f6c2",
+          "sha256": "3ccbcf0b234f198cabff121ec8ecc913d68d47099a354772d7593b2a8b4db066",
           "summary": "row metadata"
         },
         {
           "kind": "classification-report",
           "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-          "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+          "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
           "summary": "arm64 classification row retained"
         },
         {
           "kind": "memory-state-smoke-report",
           "path": "portability/nodejs/retained/nodejs-portability-memory-buffer-report.json",
-          "sha256": "564ebd07b745cdf4d85ac97dee76d22ceb4496adfdecf336c692e39135e867f9",
+          "sha256": "b81e93b791a1c93201a292207c8e1788e9fbe53287b681a0d9a1c0778f6ad3d9",
           "summary": "arm64 Machinen runtime verifier passed"
         }
       ],
@@ -3009,13 +3021,13 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "arm64 classification row retained"
             },
             {
               "kind": "memory-state-smoke-report",
               "path": "portability/nodejs/retained/nodejs-portability-memory-typed-array-report.json",
-              "sha256": "08490729f2b6159d848db7282cf867b92167fbc998568957369a0a9654e8d11c",
+              "sha256": "1a05c4ba2a2d3ed958f6850978bc6b8c9eec0178be64d0d6732987f0224b0c43",
               "summary": "arm64 Machinen runtime verifier passed"
             }
           ],
@@ -3028,13 +3040,13 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "amd64 classification row retained"
             },
             {
               "kind": "memory-state-smoke-report",
               "path": "portability/nodejs/retained/nodejs-portability-memory-typed-array-report.json",
-              "sha256": "08490729f2b6159d848db7282cf867b92167fbc998568957369a0a9654e8d11c",
+              "sha256": "1a05c4ba2a2d3ed958f6850978bc6b8c9eec0178be64d0d6732987f0224b0c43",
               "summary": "amd64 Machinen runtime verifier passed"
             }
           ],
@@ -3052,19 +3064,19 @@
         {
           "kind": "row-manifest",
           "path": "portability/nodejs/034-memory-typed-array/portability.json",
-          "sha256": "ad5606cfc6a55f34ebc613b9aef5f5b58db51e61b55a9418a8227d59186b5b60",
+          "sha256": "8617b694815e18d0368e7a9a7c5b9a9270833d58ab86a35237c2c9a3fa1cfbf3",
           "summary": "row metadata"
         },
         {
           "kind": "classification-report",
           "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-          "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+          "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
           "summary": "arm64 classification row retained"
         },
         {
           "kind": "memory-state-smoke-report",
           "path": "portability/nodejs/retained/nodejs-portability-memory-typed-array-report.json",
-          "sha256": "08490729f2b6159d848db7282cf867b92167fbc998568957369a0a9654e8d11c",
+          "sha256": "1a05c4ba2a2d3ed958f6850978bc6b8c9eec0178be64d0d6732987f0224b0c43",
           "summary": "arm64 Machinen runtime verifier passed"
         }
       ],
@@ -3091,13 +3103,13 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "arm64 classification row retained"
             },
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "arm64 retained refusal smoke"
             }
           ],
@@ -3110,13 +3122,13 @@
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "amd64 classification row retained"
             },
             {
               "kind": "classification-report",
               "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
               "summary": "amd64 retained refusal smoke"
             }
           ],
@@ -3141,14 +3153,102 @@
         {
           "kind": "row-manifest",
           "path": "portability/nodejs/035-memory-pending-promise-refusal/portability.json",
-          "sha256": "8266f9a0cec4c15c6477ea3c6b9424bee2c7448c261ba8e87f6c1b3cae06de59",
+          "sha256": "194b9031cfa7a26d73d9c75774fcec7322a574514c6788f67d7b9b3a0542045a",
           "summary": "row metadata"
         },
         {
           "kind": "classification-report",
           "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-          "sha256": "4d1c3028aa13765b966a9800d58f61cb2fc492a91d7f787f2bb3a3d41eb2ad56",
+          "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
           "summary": "arm64 classification row retained"
+        }
+      ],
+      "claimGuard": {
+        "arbitraryNodeProcessRestoreClaimed": false,
+        "rawV8HeapRestoreUsed": false,
+        "rawCpuStateReplayUsed": false,
+        "sourceIsaEmulationUsed": false
+      }
+    },
+    {
+      "id": "036-memory-capture-classifier",
+      "slug": "memory-capture-classifier",
+      "capability": "Real guest /proc memory capture classifier for Node/V8 categories",
+      "category": "memory-state",
+      "description": "Real guest /proc memory capture classifier for Node/V8 memory categories",
+      "attemptPolicy": "try-first",
+      "status": "verified",
+      "architectures": {
+        "arm64": {
+          "status": "verified",
+          "lastRun": null,
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
+              "summary": "arm64 classification row retained"
+            },
+            {
+              "kind": "memory-state-smoke-report",
+              "path": "portability/nodejs/retained/nodejs-portability-memory-capture-classifier-report.json",
+              "sha256": "08d9f8d1628e62c53d5dfe6fe10c8ba3d74c743892d9b6daba75dae421f503aa",
+              "summary": "arm64 Machinen runtime verifier passed"
+            }
+          ],
+          "notes": "Machinen runtime-controlled VM execution verified this capability."
+        },
+        "amd64": {
+          "status": "verified",
+          "lastRun": null,
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+              "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
+              "summary": "amd64 classification row retained"
+            },
+            {
+              "kind": "memory-state-smoke-report",
+              "path": "portability/nodejs/retained/nodejs-portability-memory-capture-classifier-amd64-report.json",
+              "sha256": "9d620b830e04d61e949321e5e6d31efeeb178a432b01c2a862560d049bee66e9",
+              "summary": "amd64 Machinen runtime verifier passed"
+            }
+          ],
+          "notes": "Machinen runtime-controlled VM execution verified this capability."
+        }
+      },
+      "blockers": [],
+      "workaround": null,
+      "productClaim": {
+        "status": "candidate",
+        "scope": "node-portability-corpus-proof",
+        "notes": "VM-verified capability evidence; does not claim arbitrary raw Node process continuation."
+      },
+      "evidence": [
+        {
+          "kind": "row-manifest",
+          "path": "portability/nodejs/036-memory-capture-classifier/portability.json",
+          "sha256": "bd2dcc586d893232d74f44b39e357d56032dedf8d17ab9b5150744e7e82c22fe",
+          "summary": "row metadata"
+        },
+        {
+          "kind": "classification-report",
+          "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
+          "sha256": "362897a503e0703b9a448232cf84d4b37cf3a56ddae25a2b76cfa7e7db9d3fb7",
+          "summary": "arm64 classification row retained"
+        },
+        {
+          "kind": "memory-state-smoke-report",
+          "path": "portability/nodejs/retained/nodejs-portability-memory-capture-classifier-report.json",
+          "sha256": "08d9f8d1628e62c53d5dfe6fe10c8ba3d74c743892d9b6daba75dae421f503aa",
+          "summary": "arm64 Machinen runtime verifier passed"
+        },
+        {
+          "kind": "memory-state-smoke-report",
+          "path": "portability/nodejs/retained/nodejs-portability-memory-capture-classifier-amd64-report.json",
+          "sha256": "9d620b830e04d61e949321e5e6d31efeeb178a432b01c2a862560d049bee66e9",
+          "summary": "amd64 Machinen runtime verifier passed"
         }
       ],
       "claimGuard": {
