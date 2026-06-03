@@ -1,6 +1,6 @@
 {
   "kind": "machinen.claim-progress-dashboard",
-  "version": 134,
+  "version": 135,
   "updatedFrom": [
     "docs/snapshot/node-level5-product-support-claim-registry.json",
     "docs/snapshot/node-level5-product-support-100.json",
@@ -3169,7 +3169,7 @@
       "family": "vm-workload",
       "runtime": "linux-vm",
       "status": "verified",
-      "stage": "whole-VM corpus product/refusal gates and DB tooling path retained; arbitrary VM restore unclaimed",
+      "stage": "portable VM inventory workflow proof retained; arbitrary VM restore unclaimed",
       "scope": "selected-whole-vm-workload-v1 only",
       "currentClaim": {
         "productSupport": 100,
@@ -3187,7 +3187,7 @@
         "refusalArtifactsCovered": 0,
         "refusalArtifactsRequiredBeforeClaimLift": 52
       },
-      "summary": "The broader whole-VM corpus now has product gates for supported rows, product-quality refusals for refused rows, a claim-scope decision card that keeps current public scope, and clean SQLite/PostgreSQL tooling support-path artifacts. Arbitrary VM restore remains unclaimed.",
+      "summary": "The whole-VM track now includes the first proof-first portable VM workflow slice: controlled pause/quiesce transcript, raw inventory, generated portable VM manifest/plan, and retained classifier report. Arbitrary VM restore remains unclaimed.",
       "claimGate": "selected-whole-vm-workload-support-matrix",
       "claimChangeAllowed": false,
       "evidence": [
@@ -3200,7 +3200,8 @@
         "whole-vm-workload-corpus-product-gate",
         "whole-vm-workload-corpus-refusal-product-gate",
         "whole-vm-workload-claim-scope-decision-card",
-        "whole-vm-db-tooling-support-path"
+        "whole-vm-db-tooling-support-path",
+        "portable-vm-inventory-plan-proof"
       ],
       "evidenceRows": [
         {
@@ -3610,6 +3611,18 @@
           "artifact": "proofs/linux-vm-workload/db-tooling-support-path/retained/whole-vm-db-tooling-support-path-report.json",
           "claimUse": "clean DB tooling support path only; no arbitrary VM restore claim",
           "next": "Keep public scope explicit; arbitrary VM restore remains unclaimed."
+        },
+        {
+          "id": "portable-vm-inventory-plan-proof",
+          "area": "portable VM workflow",
+          "kind": "controlled inventory and plan generator",
+          "status": "verified",
+          "disposition": "workflow-proof",
+          "evidence": "Controlled raw inventory generated 12 items and 12 plan rows with 5 stable refusals.",
+          "gate": "portable-vm-inventory-plan-proof",
+          "artifact": "proofs/linux-vm-workload/portable-vm-inventory-plan/retained/portable-vm-inventory-plan-report.json",
+          "claimUse": "workflow proof only; arbitrary VM restore remains unclaimed",
+          "next": "Replace controlled inventory fixture with an in-guest inventory agent and product command wiring."
         }
       ],
       "refusals": [
@@ -3941,7 +3954,13 @@
         "wholeVmDbToolingSupportPathReport": "proofs/linux-vm-workload/db-tooling-support-path/retained/whole-vm-db-tooling-support-path-report.json",
         "wholeVmRefusalProductGateScope": "whole-vm-refused-corpus-product-refusals-v1",
         "wholeVmClaimScopeDecisionScope": "whole-vm-corpus-claim-scope-decision-v1",
-        "wholeVmDbToolingSupportPathScope": "whole-vm-clean-db-tooling-support-path-v1"
+        "wholeVmDbToolingSupportPathScope": "whole-vm-clean-db-tooling-support-path-v1",
+        "portableVmInventoryPlanRows": 12,
+        "portableVmRawInventoryItems": 12,
+        "portableVmInventoryRefusedRows": 5,
+        "portableVmInventoryUnknownRowsAccepted": 0,
+        "portableVmInventoryPlanReport": "proofs/linux-vm-workload/portable-vm-inventory-plan/retained/portable-vm-inventory-plan-report.json",
+        "portableVmInventoryPlanScope": "controlled-portable-vm-inventory-plan-v1"
       }
     }
   ],
@@ -7286,6 +7305,29 @@
           "proves": "Dirty/active DB state remains refused with whole-vm-active-db-state-unsupported.",
           "claimUse": "dirty/active DB refusal only; no arbitrary VM restore claim",
           "next": "Reduce only with retained transactional/dirty-state product proof artifacts.",
+          "claimImpact": {
+            "productSupportDelta": 0,
+            "broadSupportDelta": 0,
+            "arbitraryProcessCrossArchRestoreDelta": 0,
+            "resultingClaim": {
+              "productSupport": 100,
+              "broadSupport": 100,
+              "arbitraryProcessCrossArchRestore": 0
+            },
+            "claimChangeAllowed": false
+          }
+        },
+        {
+          "id": "portable-vm-inventory-plan-proof",
+          "proofNumber": "vm/028",
+          "type": "workflow",
+          "category": "portable VM inventory plan",
+          "status": "verified",
+          "disposition": "workflow-proof",
+          "artifact": "proofs/linux-vm-workload/portable-vm-inventory-plan/retained/portable-vm-inventory-plan-report.json",
+          "proves": "Generated 12 raw inventory items into 12 classified plan rows with 0 unknown accepted rows.",
+          "claimUse": "workflow proof only; arbitrary VM restore remains unclaimed",
+          "next": "Replace controlled inventory fixture with in-guest inventory agent and product command wiring.",
           "claimImpact": {
             "productSupportDelta": 0,
             "broadSupportDelta": 0,

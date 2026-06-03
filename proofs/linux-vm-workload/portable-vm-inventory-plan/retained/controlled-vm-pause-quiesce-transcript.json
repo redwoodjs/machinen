@@ -1,0 +1,35 @@
+{
+  "kind": "machinen.controlled-vm-pause-quiesce-transcript",
+  "version": 1,
+  "accepted": true,
+  "pauseMode": "controlled-idle-quiesce-proof",
+  "checks": [
+    {
+      "name": "filesystem-frozen",
+      "passed": true
+    },
+    {
+      "name": "selected-services-idle",
+      "passed": true
+    },
+    {
+      "name": "active-network-streams-detected-for-refusal",
+      "passed": true
+    },
+    {
+      "name": "dirty-db-state-detected-for-refusal",
+      "passed": true
+    },
+    {
+      "name": "unknown-state-policy-refuse-by-default",
+      "passed": true
+    }
+  ],
+  "inventoryItemCount": 12,
+  "claimGuard": {
+    "publicClaimAllowed": false,
+    "arbitraryVmRestoreClaimed": false,
+    "rawVmStateReplayAllowed": false,
+    "sourceIsaEmulationAllowed": false
+  }
+}

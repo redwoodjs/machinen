@@ -27,7 +27,7 @@ type ClaimProgressProofGroup = {
 
 type ClaimProgressDashboard = {
   kind: "machinen.claim-progress-dashboard";
-  version: 134;
+  version: 135;
   tracks: ClaimProgressTrack[];
   proofGroups: ClaimProgressProofGroup[];
 };
@@ -41,7 +41,7 @@ describe("claim progress dashboard", () => {
 
     expect(dashboard).toMatchObject({
       kind: "machinen.claim-progress-dashboard",
-      version: 134,
+      version: 135,
     });
     expect(dashboard.tracks.map((track) => track.id)).toEqual([
       "node-service",
@@ -410,6 +410,11 @@ describe("claim progress dashboard", () => {
     expect(html).toContain("whole-vm-postgresql-active-transaction-dirty-wal-refusal");
     expect(html).toContain("vm/019");
     expect(html).toContain("vm/027");
+    expect(html).toContain("vm/028");
+    expect(html).toContain("portable-vm-inventory-plan-report.json");
+    expect(html).toContain("controlled-portable-vm-inventory-plan-v1");
+    expect(html).toContain("portableVmInventoryPlanRows");
+    expect(html).toContain("portableVmInventoryUnknownRowsAccepted");
     expect(html).toContain("database workload refusal");
     expect(html).toContain("service workload refusal");
     expect(html).toContain("corpusProductSupportRowsAdded");

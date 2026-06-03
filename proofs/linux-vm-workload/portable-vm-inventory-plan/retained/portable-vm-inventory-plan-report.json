@@ -1,0 +1,45 @@
+{
+  "kind": "machinen.portable-vm-inventory-plan-proof",
+  "version": 1,
+  "accepted": true,
+  "proofStatus": "verified",
+  "scope": "controlled-portable-vm-inventory-plan-v1",
+  "publicClaimAllowed": false,
+  "claimChangeAllowed": false,
+  "arbitraryVmRestoreClaimed": false,
+  "generatedManifestPlan": "portable-vm-manifest-plan.generated.json",
+  "summary": {
+    "manifestSections": 7,
+    "rawInventoryItems": 12,
+    "planRows": 12,
+    "portableRows": 1,
+    "reconstructableRows": 4,
+    "productSupportedRows": 2,
+    "refusedRows": 5,
+    "sameArchOnlyRows": 0,
+    "unknownRows": 0,
+    "publicClaimAllowed": false,
+    "refusedRowsHaveCodes": true,
+    "productRowsHaveProofGates": true,
+    "unknownRowsAccepted": 0,
+    "productSupportRowsAdded": 0,
+    "arbitraryVmRestoreRowsAdded": 0
+  },
+  "artifacts": [
+    {
+      "name": "controlled-vm-raw-inventory.json",
+      "path": "controlled-vm-raw-inventory.json",
+      "sha256": "a3adcec57c9dbdaa35087d0089ac778b8c7d8706fbb59c0e3531ed75df972f64"
+    },
+    {
+      "name": "controlled-vm-pause-quiesce-transcript.json",
+      "path": "controlled-vm-pause-quiesce-transcript.json",
+      "sha256": "bd8869629d5a4a5b3ee0555aba2cf98892b22e6d776699a944001087161431c5"
+    },
+    {
+      "name": "portable-vm-manifest-plan.generated.json",
+      "path": "portable-vm-manifest-plan.generated.json",
+      "sha256": "9bacb099651e78f28d64913c3c62f527a163ccf386ff9c2a92f9fd7de9fb5480"
+    }
+  ]
+}
