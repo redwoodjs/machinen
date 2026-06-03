@@ -76,6 +76,8 @@ function readRow(dir: string): NodePortabilityRow {
 
 function selectedProductNodeMemoryRowIds(): string[] {
   return [
+    "037-memory-real-plain-object",
+    "039-memory-real-closure-context",
     "040-memory-real-string",
     "041-memory-real-nested-object-graph",
     "042-memory-real-shared-references",
@@ -84,6 +86,21 @@ function selectedProductNodeMemoryRowIds(): string[] {
     "045-memory-real-class-instance",
     "046-memory-real-buffer",
     "047-memory-real-typed-array",
+    "048-memory-real-http-handler-closure-state",
+  ];
+}
+
+function selectedProductNodeMemoryRefusalCodes(): string[] {
+  return [
+    "node-portability-memory-pending-promise-unsupported",
+    "node-portability-memory-pending-microtask-unsupported",
+    "node-portability-memory-active-socket-unsupported",
+    "node-portability-memory-active-request-unsupported",
+    "node-portability-memory-worker-unsupported",
+    "node-portability-memory-native-addon-unsupported",
+    "node-portability-memory-child-process-unsupported",
+    "node-portability-memory-opaque-native-state-unsupported",
+    "node-portability-memory-raw-v8-state-unsupported",
   ];
 }
 
@@ -584,6 +601,7 @@ describe("Node.js portability corpus", () => {
         memoryIrKind: string;
       };
       refusalPath: { restoreRefused: boolean; refusalCode: string };
+      refusalMatrix: Array<{ restoreRefused: boolean; refusalCode: string }>;
       claimGuard: Record<string, false>;
     };
     const plan = JSON.parse(
@@ -617,7 +635,7 @@ describe("Node.js portability corpus", () => {
       };
     };
     const refusalRestore = JSON.parse(
-      readFileSync(resolve(proofRoot, "refusal-restore.json"), "utf8"),
+      readFileSync(resolve(proofRoot, "refusal-pending-promise-restore.json"), "utf8"),
     ) as { accepted: boolean; refusal: { code: string } };
     expect(report).toMatchObject({
       accepted: true,
@@ -672,6 +690,12 @@ describe("Node.js portability corpus", () => {
         nodejs: { memoryVerified: true, memoryMaterializedRows: expectedMemoryRowIds.length },
       },
     });
+    expect(report.refusalMatrix.map((row) => row.refusalCode)).toEqual(
+      selectedProductNodeMemoryRefusalCodes(),
+    );
+    for (const row of report.refusalMatrix) {
+      expect(row.restoreRefused).toBe(true);
+    }
     expect(refusalRestore).toMatchObject({
       accepted: false,
       refusal: { code: "node-portability-memory-pending-promise-unsupported" },

@@ -13,8 +13,10 @@
       "targetArch": "amd64",
       "nodejsMemoryRows": 1,
       "memoryVerified": true,
-      "memoryMaterializedRows": 8,
+      "memoryMaterializedRows": 11,
       "supportedSemanticRows": [
+        "037-memory-real-plain-object",
+        "039-memory-real-closure-context",
         "040-memory-real-string",
         "041-memory-real-nested-object-graph",
         "042-memory-real-shared-references",
@@ -22,9 +24,59 @@
         "044-memory-real-map-set",
         "045-memory-real-class-instance",
         "046-memory-real-buffer",
-        "047-memory-real-typed-array"
+        "047-memory-real-typed-array",
+        "048-memory-real-http-handler-closure-state"
       ],
       "rowEvidence": [
+        {
+          "rowId": "037-memory-real-plain-object",
+          "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-plain-object-report.json",
+          "stages": {
+            "detect": true,
+            "capture": true,
+            "decode": true,
+            "classify": true,
+            "materialize": true,
+            "verify": true,
+            "retain": true
+          },
+          "shape": "plain-object",
+          "semanticState": {
+            "anchor": "machinen-real-plain-object-anchor-v1",
+            "kind": "machinen-real-plain-object-kind-v1",
+            "message": "machinen-real-plain-object-message-v1",
+            "countLabel": "count:7",
+            "nestedLabel": "nested:portable",
+            "count": 7,
+            "nested": {
+              "label": "portable"
+            }
+          },
+          "captureMethod": "guest-proc-maps-and-proc-mem-anchor-object-decoder",
+          "mapsSha256": "18197767367df80a331e11cf878137672e055c000667bb239d508888f53f5597"
+        },
+        {
+          "rowId": "039-memory-real-closure-context",
+          "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-closure-context-report.json",
+          "stages": {
+            "detect": true,
+            "capture": true,
+            "decode": true,
+            "classify": true,
+            "materialize": true,
+            "verify": true,
+            "retain": true
+          },
+          "shape": "closure-context",
+          "semanticState": {
+            "kind": "closure-context",
+            "anchor": "machinen-real-closure-anchor-v1",
+            "count": 12,
+            "next": 13
+          },
+          "captureMethod": "guest-proc-maps-and-proc-mem-anchor-semantic-decoder",
+          "mapsSha256": "e940c73ae2087717da671f73c370adb76bd48026093c7aebbedb55420f7639cf"
+        },
         {
           "rowId": "040-memory-real-string",
           "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-string-report.json",
@@ -209,6 +261,28 @@
           },
           "captureMethod": "guest-proc-maps-and-proc-mem-anchor-semantic-decoder",
           "mapsSha256": "ff475365ac87cda98c171fa91f002516cdb946880a1872adc640aff78da773c1"
+        },
+        {
+          "rowId": "048-memory-real-http-handler-closure-state",
+          "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-http-handler-closure-state-report.json",
+          "stages": {
+            "detect": true,
+            "capture": true,
+            "decode": true,
+            "classify": true,
+            "materialize": true,
+            "verify": true,
+            "retain": true
+          },
+          "shape": "http-handler-closure-state",
+          "semanticState": {
+            "kind": "http-handler-closure-state",
+            "anchor": "machinen-real-http-closure-anchor-v1",
+            "hits": 5,
+            "nextHit": 6
+          },
+          "captureMethod": "guest-proc-maps-and-proc-mem-anchor-semantic-decoder",
+          "mapsSha256": "d8355ef88f5977ccbe69956eacd2a849aeb7fde3bcde18b29f493016f08b63d6"
         }
       ],
       "memoryIrKind": "machinen.nodejs.memory-ir",
@@ -221,8 +295,10 @@
       "targetArch": "arm64",
       "nodejsMemoryRows": 1,
       "memoryVerified": true,
-      "memoryMaterializedRows": 8,
+      "memoryMaterializedRows": 11,
       "supportedSemanticRows": [
+        "037-memory-real-plain-object",
+        "039-memory-real-closure-context",
         "040-memory-real-string",
         "041-memory-real-nested-object-graph",
         "042-memory-real-shared-references",
@@ -230,9 +306,59 @@
         "044-memory-real-map-set",
         "045-memory-real-class-instance",
         "046-memory-real-buffer",
-        "047-memory-real-typed-array"
+        "047-memory-real-typed-array",
+        "048-memory-real-http-handler-closure-state"
       ],
       "rowEvidence": [
+        {
+          "rowId": "037-memory-real-plain-object",
+          "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-plain-object-amd64-to-arm64-report.json",
+          "stages": {
+            "detect": true,
+            "capture": true,
+            "decode": true,
+            "classify": true,
+            "materialize": true,
+            "verify": true,
+            "retain": true
+          },
+          "shape": "plain-object",
+          "semanticState": {
+            "anchor": "machinen-real-plain-object-anchor-v1",
+            "kind": "machinen-real-plain-object-kind-v1",
+            "message": "machinen-real-plain-object-message-v1",
+            "countLabel": "count:7",
+            "nestedLabel": "nested:portable",
+            "count": 7,
+            "nested": {
+              "label": "portable"
+            }
+          },
+          "captureMethod": "guest-proc-maps-and-proc-mem-anchor-object-decoder",
+          "mapsSha256": "1928d634a250d2907acf5a30fe0edba6745267723d35c92c612e5fb2727e0116"
+        },
+        {
+          "rowId": "039-memory-real-closure-context",
+          "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-closure-context-amd64-to-arm64-report.json",
+          "stages": {
+            "detect": true,
+            "capture": true,
+            "decode": true,
+            "classify": true,
+            "materialize": true,
+            "verify": true,
+            "retain": true
+          },
+          "shape": "closure-context",
+          "semanticState": {
+            "kind": "closure-context",
+            "anchor": "machinen-real-closure-anchor-v1",
+            "count": 12,
+            "next": 13
+          },
+          "captureMethod": "guest-proc-maps-and-proc-mem-anchor-semantic-decoder",
+          "mapsSha256": "2b715b43ee120adc277d0327085bac230b9c4089f64dce5c78cde134dfb87df7"
+        },
         {
           "rowId": "040-memory-real-string",
           "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-string-amd64-to-arm64-report.json",
@@ -417,6 +543,28 @@
           },
           "captureMethod": "guest-proc-maps-and-proc-mem-anchor-semantic-decoder",
           "mapsSha256": "44596e773e6b15c8400f8137cb2f2c3e0b9488099636d2d1e284c39c17100935"
+        },
+        {
+          "rowId": "048-memory-real-http-handler-closure-state",
+          "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-http-handler-closure-state-amd64-to-arm64-report.json",
+          "stages": {
+            "detect": true,
+            "capture": true,
+            "decode": true,
+            "classify": true,
+            "materialize": true,
+            "verify": true,
+            "retain": true
+          },
+          "shape": "http-handler-closure-state",
+          "semanticState": {
+            "kind": "http-handler-closure-state",
+            "anchor": "machinen-real-http-closure-anchor-v1",
+            "hits": 5,
+            "nextHit": 6
+          },
+          "captureMethod": "guest-proc-maps-and-proc-mem-anchor-semantic-decoder",
+          "mapsSha256": "cccbce85f05ccef91b98325316aff9ed119c6c0dad75c43ab6330923700a403c"
         }
       ],
       "memoryIrKind": "machinen.nodejs.memory-ir",
@@ -441,11 +589,11 @@
   "artifacts": [
     {
       "path": "arm64-to-amd64-snapshot.json",
-      "sha256": "c3a0bc285af376265aff12a84f078ffcf8ecbd0d8a7dad16d383136d944bce26"
+      "sha256": "7bccbffc0fae0067b022eb2c035c828daed4886bdeab084e02bf08298acf7d05"
     },
     {
       "path": "arm64-to-amd64-restore.json",
-      "sha256": "455ef13545e474eb3c74d2b8b54b41007c535159a25fb25a2b0f0fbaddf51c79"
+      "sha256": "20394959fcc7e19e2fc2705d5de361a0d51703bb070aaea8f0008c47845b3151"
     },
     {
       "path": "arm64-to-amd64/node-memory.snap/portable-vm-manifest-plan.json",
@@ -457,15 +605,15 @@
     },
     {
       "path": "arm64-to-amd64/node-memory.snap/nodejs-memory-product-row-evidence.json",
-      "sha256": "299fe5273ab5e3b18192cea6249a554c654eeac07683336972b547ca8dff22a3"
+      "sha256": "9261f57994fae53d43d20447ed6a43a352f87f208fda127cc9e17a574cbc73fc"
     },
     {
       "path": "amd64-to-arm64-snapshot.json",
-      "sha256": "587c614892a32fecb3f7f097977df58d60a8186a821fbaae611d76bdcf080009"
+      "sha256": "4c020b081c1e6593cf001db05cbccd035dc200ae0869f43bcbdc830eecf7b6c7"
     },
     {
       "path": "amd64-to-arm64-restore.json",
-      "sha256": "98ac615852f53428b63438264d82cac795c9b80f5d8cb2e4598061bd280e5cff"
+      "sha256": "8e841fb6e15d83de20f7513170e449f0cb1de1a560d849c4d5ed4909f42269dc"
     },
     {
       "path": "amd64-to-arm64/node-memory.snap/portable-vm-manifest-plan.json",
@@ -477,7 +625,7 @@
     },
     {
       "path": "amd64-to-arm64/node-memory.snap/nodejs-memory-product-row-evidence.json",
-      "sha256": "1eb9e74b68805bc64d53cdc91672731ba15c864a20e17d4b80a1444c95ca8c0b"
+      "sha256": "abfb84f054e8575ae82b5a237c3af7101ee9bdea460dffb19869e5490bbf292f"
     }
   ]
 }

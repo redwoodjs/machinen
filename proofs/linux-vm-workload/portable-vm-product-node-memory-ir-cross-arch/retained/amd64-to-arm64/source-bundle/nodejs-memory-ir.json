@@ -8,6 +8,40 @@
   },
   "rows": [
     {
+      "id": "037-memory-real-plain-object",
+      "shape": "plain-object",
+      "semanticState": {
+        "anchor": "machinen-real-plain-object-anchor-v1",
+        "kind": "machinen-real-plain-object-kind-v1",
+        "message": "machinen-real-plain-object-message-v1",
+        "countLabel": "count:7",
+        "nestedLabel": "nested:portable",
+        "count": 7,
+        "nested": {
+          "label": "portable"
+        }
+      },
+      "anchors": {
+        "anchor": "machinen-real-plain-object-anchor-v1",
+        "kind": "machinen-real-plain-object-kind-v1",
+        "message": "machinen-real-plain-object-message-v1"
+      }
+    },
+    {
+      "id": "039-memory-real-closure-context",
+      "shape": "closure-context",
+      "semanticState": {
+        "kind": "closure-context",
+        "anchor": "machinen-real-closure-anchor-v1",
+        "count": 12,
+        "next": 13
+      },
+      "anchors": {
+        "anchor": "machinen-real-closure-anchor-v1",
+        "count": "closure-count:12"
+      }
+    },
+    {
       "id": "040-memory-real-string",
       "shape": "string",
       "semanticState": {
@@ -129,6 +163,20 @@
       "anchors": {
         "anchor": "machinen-real-typed-array-anchor-v1",
         "values": "typed-array-values:7,11,13"
+      }
+    },
+    {
+      "id": "048-memory-real-http-handler-closure-state",
+      "shape": "http-handler-closure-state",
+      "semanticState": {
+        "kind": "http-handler-closure-state",
+        "anchor": "machinen-real-http-closure-anchor-v1",
+        "hits": 5,
+        "nextHit": 6
+      },
+      "anchors": {
+        "anchor": "machinen-real-http-closure-anchor-v1",
+        "hits": "http-hits:5"
       }
     }
   ],

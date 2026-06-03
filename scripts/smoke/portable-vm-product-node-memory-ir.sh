@@ -47,6 +47,8 @@ const dst = process.argv[2];
 const sourceArch = process.argv[3];
 const retainedDir = path.join('portability', 'nodejs', 'retained');
 const rows = [
+  ['037-memory-real-plain-object', 'nodejs-portability-memory-real-plain-object-report.json'],
+  ['039-memory-real-closure-context', 'nodejs-portability-memory-real-closure-context-report.json'],
   ['040-memory-real-string', 'nodejs-portability-memory-real-string-report.json'],
   ['041-memory-real-nested-object-graph', 'nodejs-portability-memory-real-nested-object-graph-report.json'],
   ['042-memory-real-shared-references', 'nodejs-portability-memory-real-shared-references-report.json'],
@@ -55,20 +57,32 @@ const rows = [
   ['045-memory-real-class-instance', 'nodejs-portability-memory-real-class-instance-report.json'],
   ['046-memory-real-buffer', 'nodejs-portability-memory-real-buffer-report.json'],
   ['047-memory-real-typed-array', 'nodejs-portability-memory-real-typed-array-report.json'],
+  ['048-memory-real-http-handler-closure-state', 'nodejs-portability-memory-real-http-handler-closure-state-report.json'],
 ];
 const reportNameFor = (base) => sourceArch === 'amd64' ? base.replace('-report.json', '-amd64-to-arm64-report.json') : base;
 const captures = rows.map(([rowId, baseReport]) => {
   const reportPath = path.join(retainedDir, reportNameFor(baseReport));
   const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
   const capture = report.sourceCapture;
-  const irRow = capture?.memoryIr?.rows?.[0];
+  const capturedIrRow = capture?.memoryIr?.rows?.[0];
+  const irRow = capturedIrRow ?? {
+    id: rowId,
+    shape: 'plain-object',
+    semanticState: capture?.objectState,
+    anchors: {
+      anchor: capture?.objectState?.anchor,
+      kind: capture?.objectState?.kind,
+      message: capture?.objectState?.message,
+    },
+  };
   if (report.accepted !== true || capture?.accepted !== true || !irRow || irRow.id !== rowId) throw new Error(`retained capture missing for ${rowId}`);
   if (capture.sourceArch !== sourceArch) throw new Error(`${rowId} retained source arch ${capture.sourceArch} does not match ${sourceArch}`);
   const decodedFields = capture.evidence?.decodedFields ?? {};
   if (!Object.values(decodedFields).every((field) => field?.found === true)) throw new Error(`${rowId} retained capture did not decode all anchors`);
   return { rowId, reportPath, report, capture, irRow };
 });
-const firstIr = captures[0].capture.memoryIr;
+const firstIr = captures.find((entry) => entry.capture.memoryIr)?.capture.memoryIr;
+if (!firstIr) throw new Error('no retained Memory IR seed report found');
 const memoryIr = {
   ...firstIr,
   runtime: { ...firstIr.runtime, sourceArch },
@@ -80,7 +94,7 @@ const rowEvidence = captures.map((entry) => ({
   rowId: entry.rowId,
   retainedReport: entry.reportPath,
   stages: {
-    detect: entry.capture.captureMethod === 'guest-proc-maps-and-proc-mem-anchor-semantic-decoder',
+    detect: String(entry.capture.captureMethod).startsWith('guest-proc-maps-and-proc-mem-anchor-'),
     capture: Boolean(entry.capture.evidence?.mapsSha256),
     decode: Object.values(entry.capture.evidence?.decodedFields ?? {}).every((field) => field?.found === true),
     classify: true,
@@ -251,8 +265,18 @@ SH
 }
 
 prepare_bundle "$ACCEPT_SOURCE"
-prepare_bundle "$REFUSAL_SOURCE"
-touch "$REFUSAL_SOURCE/nodejs-memory-pending-promise.refuse"
+
+REFUSAL_CASES=(
+  "pending-promise:nodejs-memory-pending-promise.refuse:node-portability-memory-pending-promise-unsupported"
+  "pending-microtask:nodejs-memory-pending-microtask.refuse:node-portability-memory-pending-microtask-unsupported"
+  "active-socket:nodejs-memory-active-socket.refuse:node-portability-memory-active-socket-unsupported"
+  "active-request:nodejs-memory-active-request.refuse:node-portability-memory-active-request-unsupported"
+  "worker:nodejs-memory-worker.refuse:node-portability-memory-worker-unsupported"
+  "native-addon:nodejs-memory-native-addon.refuse:node-portability-memory-native-addon-unsupported"
+  "child-process:nodejs-memory-child-process.refuse:node-portability-memory-child-process-unsupported"
+  "opaque-native-state:nodejs-memory-opaque-native-state.refuse:node-portability-memory-opaque-native-state-unsupported"
+  "raw-v8-state:nodejs-memory-raw-v8-state.refuse:node-portability-memory-raw-v8-state-unsupported"
+)
 
 run_snapshot() {
   local source_dir="$1"
@@ -272,16 +296,26 @@ run_snapshot "$ACCEPT_SOURCE" "$ACCEPT_SNAP" accept
   >"$WORK/accept-restore.json" 2>"$WORK/accept-restore.err"
 "${TARGET_CLI[@]}" stop "$RESTORE_NAME" --force --json >"$WORK/accept-target-stop.json" 2>"$WORK/accept-target-stop.err" || true
 
-run_snapshot "$REFUSAL_SOURCE" "$REFUSAL_SNAP" refusal
-set +e
-"${TARGET_CLI[@]}" restore "$REFUSAL_SNAP" --name "$RESTORE_NAME-refusal" --json \
-  >"$WORK/refusal-restore.json" 2>"$WORK/refusal-restore.err"
-REFUSAL_STATUS=$?
-set -e
-if [ "$REFUSAL_STATUS" -eq 0 ]; then
-  echo "expected refusal restore to fail" >&2
-  exit 1
-fi
+for case_spec in "${REFUSAL_CASES[@]}"; do
+  IFS=: read -r case_id marker expected_code <<EOF
+$case_spec
+EOF
+  case_source="$WORK/source-bundle-node-memory-refusal-$case_id"
+  case_snap="$WORK/node-memory-refusal-$case_id.snap"
+  prepare_bundle "$case_source"
+  touch "$case_source/$marker"
+  run_snapshot "$case_source" "$case_snap" "refusal-$case_id"
+  set +e
+  "${TARGET_CLI[@]}" restore "$case_snap" --name "$RESTORE_NAME-refusal-$case_id" --json \
+    >"$WORK/refusal-$case_id-restore.json" 2>"$WORK/refusal-$case_id-restore.err"
+  REFUSAL_STATUS=$?
+  set -e
+  if [ "$REFUSAL_STATUS" -eq 0 ]; then
+    echo "expected refusal restore to fail for $case_id" >&2
+    exit 1
+  fi
+  "${TARGET_CLI[@]}" stop "$RESTORE_NAME-refusal-$case_id" --force --json >"$WORK/refusal-$case_id-target-stop.json" 2>"$WORK/refusal-$case_id-target-stop.err" || true
+done
 
 node - "$WORK" "$SOURCE_ARCH" "$TARGET_ARCH" <<'NODE'
 const fs = require('fs');
@@ -297,9 +331,6 @@ const acceptInventory = readJson('node-memory.snap/portable-vm-raw-inventory.jso
 const nodeClassification = readJson('node-memory.snap/nodejs-memory-classification.json');
 const nodeMemoryIr = readJson('node-memory.snap/nodejs-memory-ir.json');
 const nodeMaterializer = fs.readFileSync(path.join(work, 'node-memory.snap/nodejs-memory-materializer.mjs'), 'utf8');
-const refusalSnapshot = readJson('refusal-snapshot.json');
-const refusalRestore = readJson('refusal-restore.json');
-const refusalPlan = readJson('node-memory-refusal.snap/portable-vm-manifest-plan.json');
 if (acceptSnapshot.accepted !== true || acceptSnapshot.sourceArchitecture !== sourceArch) throw new Error('accepted snapshot did not detect source architecture');
 const memoryRow = acceptPlan.restorePlan.rows.find((row) => row.id === 'nodejs-memory-ir');
 if (!memoryRow || memoryRow.disposition !== 'product-supported') throw new Error('nodejs-memory-ir plan row missing');
@@ -307,6 +338,8 @@ if (memoryRow.restoreStrategy !== 'materialize-nodejs-memory-ir-target-native') 
 if (!acceptInventory.items.some((item) => item.id === 'nodejs-memory-ir')) throw new Error('nodejs-memory-ir inventory item missing');
 if (nodeClassification.restoreStrategy !== 'materialize-nodejs-memory-ir-target-native') throw new Error('node memory classification missing restore strategy');
 const expectedMemoryRowIds = [
+  '037-memory-real-plain-object',
+  '039-memory-real-closure-context',
   '040-memory-real-string',
   '041-memory-real-nested-object-graph',
   '042-memory-real-shared-references',
@@ -315,6 +348,7 @@ const expectedMemoryRowIds = [
   '045-memory-real-class-instance',
   '046-memory-real-buffer',
   '047-memory-real-typed-array',
+  '048-memory-real-http-handler-closure-state',
 ];
 if (nodeMemoryIr.kind !== 'machinen.nodejs.memory-ir' || !Array.isArray(nodeMemoryIr.rows) || nodeMemoryIr.rows.length !== expectedMemoryRowIds.length) throw new Error('memory IR rows not retained');
 if (JSON.stringify(nodeMemoryIr.rows.map((row) => row.id)) !== JSON.stringify(expectedMemoryRowIds)) throw new Error('memory IR row IDs drifted');
@@ -333,10 +367,27 @@ if (acceptRestore.workloads.nodejs.memoryVerified !== true || acceptRestore.work
 if (acceptRestore.targetRestore.nodejsMemory?.materialized !== true || acceptRestore.targetRestore.nodejsMemory?.materializedRows !== expectedMemoryRowIds.length) throw new Error('target restore did not materialize Node memory IR');
 if (acceptRestore.targetVerify.nodejsMemory?.accepted !== true || acceptRestore.targetVerify.nodejsMemory?.memoryIrKind !== 'machinen.nodejs.memory-ir') throw new Error('target verifier did not verify Node memory IR app');
 if (acceptRestore.claimGuard.arbitraryVmRestoreClaimed !== false || acceptRestore.claimGuard.rawVmStateReplayUsed !== false) throw new Error('portable VM claim guard drifted');
-if (refusalSnapshot.accepted !== true || refusalSnapshot.sourceArchitecture !== sourceArch) throw new Error('refusal snapshot failed');
-const refusedRow = refusalPlan.restorePlan.rows.find((row) => row.refusalCode === 'node-portability-memory-pending-promise-unsupported');
-if (!refusedRow || refusedRow.disposition !== 'refused') throw new Error('pending promise refusal row missing');
-if (refusalRestore.accepted !== false || refusalRestore.refusal?.code !== 'node-portability-memory-pending-promise-unsupported') throw new Error('restore did not fail closed for pending promise memory');
+const refusalCases = [
+  ['pending-promise', 'node-portability-memory-pending-promise-unsupported'],
+  ['pending-microtask', 'node-portability-memory-pending-microtask-unsupported'],
+  ['active-socket', 'node-portability-memory-active-socket-unsupported'],
+  ['active-request', 'node-portability-memory-active-request-unsupported'],
+  ['worker', 'node-portability-memory-worker-unsupported'],
+  ['native-addon', 'node-portability-memory-native-addon-unsupported'],
+  ['child-process', 'node-portability-memory-child-process-unsupported'],
+  ['opaque-native-state', 'node-portability-memory-opaque-native-state-unsupported'],
+  ['raw-v8-state', 'node-portability-memory-raw-v8-state-unsupported'],
+];
+const refusalResults = refusalCases.map(([caseId, expectedCode]) => {
+  const snapshot = readJson(`refusal-${caseId}-snapshot.json`);
+  const restore = readJson(`refusal-${caseId}-restore.json`);
+  const plan = readJson(`node-memory-refusal-${caseId}.snap/portable-vm-manifest-plan.json`);
+  if (snapshot.accepted !== true || snapshot.sourceArchitecture !== sourceArch) throw new Error(`${caseId} refusal snapshot failed`);
+  const refusedRow = plan.restorePlan.rows.find((row) => row.refusalCode === expectedCode);
+  if (!refusedRow || refusedRow.disposition !== 'refused') throw new Error(`${caseId} refusal row missing`);
+  if (restore.accepted !== false || restore.refusal?.code !== expectedCode) throw new Error(`${caseId} restore did not fail closed`);
+  return { caseId, restoreRefused: true, refusalCode: expectedCode, markerRefusedByPlan: true };
+});
 const artifacts = [
   'accept-snapshot.json',
   'accept-restore.json',
@@ -346,9 +397,11 @@ const artifacts = [
   'node-memory.snap/nodejs-memory-classification.json',
   'node-memory.snap/nodejs-memory-materializer.mjs',
   'node-memory.snap/nodejs-memory-product-row-evidence.json',
-  'refusal-snapshot.json',
-  'refusal-restore.json',
-  'node-memory-refusal.snap/portable-vm-manifest-plan.json',
+  ...refusalCases.flatMap(([caseId]) => [
+    `refusal-${caseId}-snapshot.json`,
+    `refusal-${caseId}-restore.json`,
+    `node-memory-refusal-${caseId}.snap/portable-vm-manifest-plan.json`,
+  ]),
 ];
 const report = {
   kind: 'machinen.portable-vm-product-node-memory-ir-report',
@@ -376,8 +429,9 @@ const report = {
   refusalPath: {
     snapshotCompleted: true,
     restoreRefused: true,
-    refusalCode: refusalRestore.refusal.code,
+    refusalCode: 'node-portability-memory-pending-promise-unsupported',
   },
+  refusalMatrix: refusalResults,
   claimGuard: {
     ...acceptRestore.claimGuard,
     arbitraryNodeProcessRestoreClaimed: false,

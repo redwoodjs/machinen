@@ -1,0 +1,69 @@
+{
+  "kind": "machinen.portable-vm-manifest-plan",
+  "version": 1,
+  "status": "product-generated",
+  "scope": "portable-vm-all3-product-snapshot-restore-v1",
+  "sourceArchitecture": "arm64",
+  "sourceArchitectureDetected": true,
+  "targetPolicy": {
+    "restoreMode": "target-native-reconstruction",
+    "allowedTargetArchitectures": ["arm64", "amd64"],
+    "unknownStatePolicy": "refuse-by-default",
+    "architectureDetection": "detect-target-architecture-at-restore-time"
+  },
+  "restorePlan": {
+    "rows": [
+      {
+        "id": "filesystem-root",
+        "category": "filesystem",
+        "disposition": "product-supported",
+        "restoreStrategy": "copy-content-addressed-file-tree",
+        "artifact": "filesystem-manifest.json"
+      },
+      {
+        "id": "selected-service",
+        "category": "service",
+        "disposition": "product-supported",
+        "restoreStrategy": "start-target-native-selected-service",
+        "artifact": "service-manifest.json"
+      },
+      {
+        "id": "clean-sqlite",
+        "category": "sqlite",
+        "disposition": "product-supported",
+        "restoreStrategy": "restore-clean-logical-sqlite-dump",
+        "artifact": "sqlite-logical.json"
+      },
+      {
+        "id": "nodejs-package-json",
+        "category": "nodejs",
+        "disposition": "classified",
+        "restoreStrategy": "classify-against-node-portability-compatibility-index",
+        "artifact": "nodejs-portability-inventory.json",
+        "compatibilityIndex": "portability/nodejs/index.json"
+      },
+      {
+        "id": "nodejs-memory-ir",
+        "category": "nodejs",
+        "disposition": "product-supported",
+        "restoreStrategy": "materialize-nodejs-memory-ir-target-native",
+        "artifact": "nodejs-memory-ir.json",
+        "classification": "nodejs-memory-classification.json",
+        "compatibilityIndex": "portability/nodejs/index.json"
+      },
+      {
+        "id": "nodejs-memory-pending-promise",
+        "category": "nodejs",
+        "disposition": "refused",
+        "refusalCode": "node-portability-memory-pending-promise-unsupported",
+        "message": "pending Promise state is refused by default"
+      }
+    ]
+  },
+  "claimGuard": {
+    "arbitraryVmRestoreClaimed": false,
+    "rawVmStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlyShortcutAccepted": false
+  }
+}

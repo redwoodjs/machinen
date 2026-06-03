@@ -30,7 +30,7 @@
       "goal": "portable-vm-node-memory-ir",
       "claim": "Selected semantic Node Memory IR materialization through portable VM product snapshot/restore",
       "supportLevel": "implemented-product-support",
-      "notes": "Scoped caniuse-style matrix support for selected semantic Node Memory IR rows (string, nested object graph, shared references, cycle, Map/Set, class instance, Buffer, TypedArray) through machinen snapshot <vm> --portable --out <bundle> and machinen restore <bundle> --json. Evidence is retained for detect -> capture -> decode -> classify -> materialize -> verify -> retain and for arm64<->amd64 target-native materialization. This does not claim arbitrary Node process restore, raw V8 heap restore, same-PID continuation, arbitrary Linux process restore, or raw VM/vCPU/device replay.",
+      "notes": "Scoped caniuse-style matrix support for selected semantic Node Memory IR rows (plain object, closure context, string, nested object graph, shared references, cycle, Map/Set, class instance, Buffer, TypedArray, HTTP handler closure state) through machinen snapshot <vm> --portable --out <bundle> and machinen restore <bundle> --json. Evidence is retained for detect -> capture -> decode -> classify -> materialize -> verify -> retain and for arm64<->amd64 target-native materialization. This does not claim arbitrary Node process restore, raw V8 heap restore, same-PID continuation, arbitrary Linux process restore, or raw VM/vCPU/device replay.",
       "subset": "nodejs-memory-ir-selected-semantic-v1"
     },
     {

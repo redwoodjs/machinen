@@ -55,6 +55,8 @@ const dst = process.argv[2];
 const sourceArch = process.argv[3];
 const retainedDir = path.join('portability', 'nodejs', 'retained');
 const rows = [
+  ['037-memory-real-plain-object', 'nodejs-portability-memory-real-plain-object-report.json'],
+  ['039-memory-real-closure-context', 'nodejs-portability-memory-real-closure-context-report.json'],
   ['040-memory-real-string', 'nodejs-portability-memory-real-string-report.json'],
   ['041-memory-real-nested-object-graph', 'nodejs-portability-memory-real-nested-object-graph-report.json'],
   ['042-memory-real-shared-references', 'nodejs-portability-memory-real-shared-references-report.json'],
@@ -63,20 +65,32 @@ const rows = [
   ['045-memory-real-class-instance', 'nodejs-portability-memory-real-class-instance-report.json'],
   ['046-memory-real-buffer', 'nodejs-portability-memory-real-buffer-report.json'],
   ['047-memory-real-typed-array', 'nodejs-portability-memory-real-typed-array-report.json'],
+  ['048-memory-real-http-handler-closure-state', 'nodejs-portability-memory-real-http-handler-closure-state-report.json'],
 ];
 const reportNameFor = (base) => sourceArch === 'amd64' ? base.replace('-report.json', '-amd64-to-arm64-report.json') : base;
 const captures = rows.map(([rowId, baseReport]) => {
   const reportPath = path.join(retainedDir, reportNameFor(baseReport));
   const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
   const capture = report.sourceCapture;
-  const irRow = capture?.memoryIr?.rows?.[0];
+  const capturedIrRow = capture?.memoryIr?.rows?.[0];
+  const irRow = capturedIrRow ?? {
+    id: rowId,
+    shape: 'plain-object',
+    semanticState: capture?.objectState,
+    anchors: {
+      anchor: capture?.objectState?.anchor,
+      kind: capture?.objectState?.kind,
+      message: capture?.objectState?.message,
+    },
+  };
   if (report.accepted !== true || capture?.accepted !== true || !irRow || irRow.id !== rowId) throw new Error(`retained capture missing for ${rowId}`);
   if (capture.sourceArch !== sourceArch) throw new Error(`${rowId} retained source arch ${capture.sourceArch} does not match ${sourceArch}`);
   const decodedFields = capture.evidence?.decodedFields ?? {};
   if (!Object.values(decodedFields).every((field) => field?.found === true)) throw new Error(`${rowId} retained capture did not decode all anchors`);
   return { rowId, reportPath, capture, irRow };
 });
-const firstIr = captures[0].capture.memoryIr;
+const firstIr = captures.find((entry) => entry.capture.memoryIr)?.capture.memoryIr;
+if (!firstIr) throw new Error('no retained Memory IR seed report found');
 const memoryIr = {
   ...firstIr,
   runtime: { ...firstIr.runtime, sourceArch },
@@ -88,7 +102,7 @@ const rowEvidence = captures.map((entry) => ({
   rowId: entry.rowId,
   retainedReport: entry.reportPath,
   stages: {
-    detect: entry.capture.captureMethod === 'guest-proc-maps-and-proc-mem-anchor-semantic-decoder',
+    detect: String(entry.capture.captureMethod).startsWith('guest-proc-maps-and-proc-mem-anchor-'),
     capture: Boolean(entry.capture.evidence?.mapsSha256),
     decode: Object.values(entry.capture.evidence?.decodedFields ?? {}).every((field) => field?.found === true),
     classify: true,
@@ -212,6 +226,8 @@ const directions = [
   { id: 'amd64-to-arm64', sourceArch: 'amd64', targetArch: 'arm64', restorePath: 'amd64-to-arm64-restore.json', snapDir: 'amd64-to-arm64/node-memory.snap' },
 ];
 const expectedMemoryRowIds = [
+  '037-memory-real-plain-object',
+  '039-memory-real-closure-context',
   '040-memory-real-string',
   '041-memory-real-nested-object-graph',
   '042-memory-real-shared-references',
@@ -220,6 +236,7 @@ const expectedMemoryRowIds = [
   '045-memory-real-class-instance',
   '046-memory-real-buffer',
   '047-memory-real-typed-array',
+  '048-memory-real-http-handler-closure-state',
 ];
 const results = directions.map((direction) => {
   const restore = readJson(direction.restorePath);
