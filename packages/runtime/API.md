@@ -64,6 +64,17 @@
 - [`NODE_PROPER_LEVEL5_LIBUV_TIMER_RECOVERY_KIND`](#node_proper_level5_libuv_timer_recovery_kind)
 - [`NODE_PROPER_LEVEL5_V8_OBJECT_RECOVERY_KIND`](#node_proper_level5_v8_object_recovery_kind)
 - [`NODE_PROPER_LEVEL5_HTTP_STATE_POLICY_KIND`](#node_proper_level5_http_state_policy_kind)
+- [`NodejsMemoryIrRow`](#nodejsmemoryirrow)
+- [`NodejsMemoryIrDocument`](#nodejsmemoryirdocument)
+- [`NodejsMemoryIrValidationResult`](#nodejsmemoryirvalidationresult)
+- [`NODEJS_MEMORY_IR_KIND`](#nodejs_memory_ir_kind)
+- [`NODEJS_MEMORY_IR_VERSION`](#nodejs_memory_ir_version)
+- [`NODEJS_MEMORY_IR_RESTORE_STRATEGY`](#nodejs_memory_ir_restore_strategy)
+- [`NODEJS_MEMORY_IR_MATERIALIZER_FILENAME`](#nodejs_memory_ir_materializer_filename)
+- [`NODEJS_MEMORY_IR_INVALID_REFUSAL_CODE`](#nodejs_memory_ir_invalid_refusal_code)
+- [`NODEJS_MEMORY_IR_UNSUPPORTED_REFUSAL_CODE`](#nodejs_memory_ir_unsupported_refusal_code)
+- [`validateNodejsMemoryIrDocument`](#validatenodejsmemoryirdocument)
+- [`createNodejsMemoryIrMaterializerModule`](#createnodejsmemoryirmaterializermodule)
 - [`parseNodeProperLevel5ProcMaps`](#parsenodeproperlevel5procmaps)
 - [`recoverNodeProperLevel5RawV8ContextSmiCounter`](#recovernodeproperlevel5rawv8contextsmicounter)
 - [`recoverNodeProperLevel5V8ClosureCounterCell`](#recovernodeproperlevel5v8closurecountercell)
@@ -13729,6 +13740,88 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ***
 
+### NodejsMemoryIrRow
+
+#### Properties
+
+##### id
+
+> **id**: `string`
+
+##### shape
+
+> **shape**: `string`
+
+##### semanticState
+
+> **semanticState**: `Record`\<`string`, `unknown`\>
+
+##### anchors?
+
+> `optional` **anchors?**: `Record`\<`string`, `string`\>
+
+***
+
+### NodejsMemoryIrDocument
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.nodejs.memory-ir"`
+
+##### version
+
+> **version**: `1`
+
+##### runtime?
+
+> `optional` **runtime?**: `Record`\<`string`, `unknown`\>
+
+##### rows
+
+> **rows**: [`NodejsMemoryIrRow`](#nodejsmemoryirrow)[]
+
+##### unsupported?
+
+> `optional` **unsupported?**: `object`[]
+
+###### code?
+
+> `optional` **code?**: `string`
+
+###### reason?
+
+> `optional` **reason?**: `string`
+
+##### claimGuard?
+
+> `optional` **claimGuard?**: `Record`\<`string`, `unknown`\>
+
+***
+
+### NodejsMemoryIrValidationResult
+
+#### Properties
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### refusalCode
+
+> **refusalCode**: `string`
+
+##### errors
+
+> **errors**: `string`[]
+
+##### rowCount
+
+> **rowCount**: `number`
+
+***
+
 ### OppositeIsaVmExecutionProviderRoute
 
 #### Properties
@@ -14788,7 +14881,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`refusalCode`](#refusalcode-11)
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`refusalCode`](#refusalcode-12)
 
 ##### remediation?
 
@@ -19224,7 +19317,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`runtime`](#runtime-24)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`runtime`](#runtime-25)
 
 ##### profile
 
@@ -19296,7 +19389,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`refusalCode`](#refusalcode-16)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`refusalCode`](#refusalcode-17)
 
 ##### remediation?
 
@@ -31678,6 +31771,42 @@ loops; anything looser stops being a meaningful gate.
 
 ***
 
+### NODEJS\_MEMORY\_IR\_KIND
+
+> `const` **NODEJS\_MEMORY\_IR\_KIND**: `"machinen.nodejs.memory-ir"` = `"machinen.nodejs.memory-ir"`
+
+***
+
+### NODEJS\_MEMORY\_IR\_VERSION
+
+> `const` **NODEJS\_MEMORY\_IR\_VERSION**: `1` = `1`
+
+***
+
+### NODEJS\_MEMORY\_IR\_RESTORE\_STRATEGY
+
+> `const` **NODEJS\_MEMORY\_IR\_RESTORE\_STRATEGY**: `"materialize-nodejs-memory-ir-target-native"` = `"materialize-nodejs-memory-ir-target-native"`
+
+***
+
+### NODEJS\_MEMORY\_IR\_MATERIALIZER\_FILENAME
+
+> `const` **NODEJS\_MEMORY\_IR\_MATERIALIZER\_FILENAME**: `"nodejs-memory-materializer.mjs"` = `"nodejs-memory-materializer.mjs"`
+
+***
+
+### NODEJS\_MEMORY\_IR\_INVALID\_REFUSAL\_CODE
+
+> `const` **NODEJS\_MEMORY\_IR\_INVALID\_REFUSAL\_CODE**: `"node-portability-memory-ir-invalid"` = `"node-portability-memory-ir-invalid"`
+
+***
+
+### NODEJS\_MEMORY\_IR\_UNSUPPORTED\_REFUSAL\_CODE
+
+> `const` **NODEJS\_MEMORY\_IR\_UNSUPPORTED\_REFUSAL\_CODE**: `"node-portability-memory-ir-unsupported"` = `"node-portability-memory-ir-unsupported"`
+
+***
+
 ### OPPOSITE\_ISA\_VM\_EXECUTION\_KIND
 
 > `const` **OPPOSITE\_ISA\_VM\_EXECUTION\_KIND**: `"machinen.architecture-portable-snapshot.opposite-isa-vm-execution"`
@@ -36207,6 +36336,32 @@ available.
 #### Returns
 
 [`NodeProperLevel5V8ObjectRecoveryResult`](#nodeproperlevel5v8objectrecoveryresult)
+
+***
+
+### validateNodejsMemoryIrDocument()
+
+> **validateNodejsMemoryIrDocument**(`value`): [`NodejsMemoryIrValidationResult`](#nodejsmemoryirvalidationresult)
+
+#### Parameters
+
+##### value
+
+`unknown`
+
+#### Returns
+
+[`NodejsMemoryIrValidationResult`](#nodejsmemoryirvalidationresult)
+
+***
+
+### createNodejsMemoryIrMaterializerModule()
+
+> **createNodejsMemoryIrMaterializerModule**(): `string`
+
+#### Returns
+
+`string`
 
 ***
 

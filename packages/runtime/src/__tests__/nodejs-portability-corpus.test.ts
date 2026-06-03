@@ -566,6 +566,10 @@ describe("Node.js portability corpus", () => {
         "utf8",
       ),
     ) as { restoreStrategy: string };
+    const materializer = readFileSync(
+      resolve(proofRoot, "node-memory.snap/nodejs-memory-materializer.mjs"),
+      "utf8",
+    );
     const acceptRestore = JSON.parse(
       readFileSync(resolve(proofRoot, "accept-restore.json"), "utf8"),
     ) as {
@@ -614,6 +618,8 @@ describe("Node.js portability corpus", () => {
     expect(memoryIr.kind).toBe("machinen.nodejs.memory-ir");
     expect(memoryIr.rows).toHaveLength(1);
     expect(classification.restoreStrategy).toBe("materialize-nodejs-memory-ir-target-native");
+    expect(materializer).toContain("machinen.nodejs.memory-ir");
+    expect(materializer).toContain("rawV8HeapRestoreUsed");
     expect(acceptRestore).toMatchObject({
       targetRestore: { nodejsMemory: { materialized: true, materializedRows: 1 } },
       targetVerify: {

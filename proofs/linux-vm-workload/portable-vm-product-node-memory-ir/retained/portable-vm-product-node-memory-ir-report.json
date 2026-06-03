@@ -43,11 +43,11 @@
   "artifacts": [
     {
       "path": "accept-snapshot.json",
-      "sha256": "f86efb3017bfa70ab6e8ddb28a84c23b6a7e9c9240d46b46c455a932ac2682f1"
+      "sha256": "247914060490dfdf63c940bdf0fe6ae569c22fefca0ecd531603a09c08376d8d"
     },
     {
       "path": "accept-restore.json",
-      "sha256": "42a55fc00bddf0ccffba1c5db79e0b9d1626021ffd05ad65d07ea1bb77e9265d"
+      "sha256": "e6b77f4966b737f7c37e5b876fa1f06c3bd2627a0ab5e0f7e9b2ea21a7d979e8"
     },
     {
       "path": "node-memory.snap/portable-vm-raw-inventory.json",
@@ -66,8 +66,12 @@
       "sha256": "19cc9525c97f64963c6fc062d1d118ace867b8b89f952bd2ac855f3da43b85c5"
     },
     {
+      "path": "node-memory.snap/nodejs-memory-materializer.mjs",
+      "sha256": "be047bceea07f0250b3c25886153ee029baee5561ae3e946e5b3f9df0bc024ef"
+    },
+    {
       "path": "refusal-snapshot.json",
-      "sha256": "f672d08fbc67881d0f09e2ac157e18db4044caddc5a3b6f683ea2a5e8c198594"
+      "sha256": "96cd49fb9cfe89d09ead9d904e9fee1350afe52b2ebce01a1ecfb89effa94a7f"
     },
     {
       "path": "refusal-restore.json",

@@ -38,6 +38,10 @@ import { pipeline } from "node:stream/promises";
 import {
   attach,
   boot,
+  NODEJS_MEMORY_IR_INVALID_REFUSAL_CODE,
+  NODEJS_MEMORY_IR_MATERIALIZER_FILENAME,
+  createNodejsMemoryIrMaterializerModule,
+  validateNodejsMemoryIrDocument,
   PRODUCT_PORTABLE_POSTGRES_DUMP,
   ProductLevel4EventfdError,
   ProductLevel4PingSocketError,
@@ -3274,10 +3278,11 @@ async function cmdRestorePortableVmProductBundle(
   const sourceArch = readPortableVmSourceArchitecture(snapDir);
   const targetArch = guestCpu();
   const planRefusal = evaluatePortableVmRestorePlan(snapDir, sourceArch, targetArch);
-  if (planRefusal) {
+  const materializerRefusal = planRefusal ?? preparePortableVmNodeMemoryMaterializer(snapDir);
+  if (materializerRefusal) {
     const refusal = portableVmRestoreRefusal(
-      planRefusal.code,
-      planRefusal.message,
+      materializerRefusal.code,
+      materializerRefusal.message,
       sourceArch,
       targetArch,
     );
@@ -3449,6 +3454,36 @@ function portableVmPlanRows(plan: Record<string, unknown>): Array<Record<string,
   return Array.isArray(restorePlan?.rows)
     ? (restorePlan.rows as Array<Record<string, unknown>>)
     : [];
+}
+
+function preparePortableVmNodeMemoryMaterializer(
+  snapDir: string,
+): { code: string; message: string } | null {
+  const irPath = join(snapDir, "nodejs-memory-ir.json");
+  if (!existsSync(irPath)) {
+    return null;
+  }
+  const parsed = parsePortableVmNodeMemoryIr(irPath);
+  const validation = validateNodejsMemoryIrDocument(parsed);
+  if (!validation.accepted) {
+    return {
+      code: validation.refusalCode ?? NODEJS_MEMORY_IR_INVALID_REFUSAL_CODE,
+      message: `Node memory IR is not materializable: ${validation.errors.join("; ")}`,
+    };
+  }
+  writeFileSync(
+    join(snapDir, NODEJS_MEMORY_IR_MATERIALIZER_FILENAME),
+    createNodejsMemoryIrMaterializerModule(),
+  );
+  return null;
+}
+
+function parsePortableVmNodeMemoryIr(path: string): unknown {
+  try {
+    return JSON.parse(readFileSync(path, "utf8")) as unknown;
+  } catch (error) {
+    return { kind: "invalid-json", error: describeError(error) };
+  }
 }
 
 function summarizePortableVmRestorePlan(snapDir: string): Record<string, unknown> {

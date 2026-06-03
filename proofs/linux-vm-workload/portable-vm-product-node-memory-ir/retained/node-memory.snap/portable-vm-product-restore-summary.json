@@ -10,8 +10,8 @@
   "sourceArchitectureDetected": true,
   "targetArchitectureDetected": true,
   "targetVmStarted": true,
-  "restoredName": "portable-vm-node-memory-target-arm64-1780519785-18166",
-  "restoredPid": 18712,
+  "restoredName": "portable-vm-node-memory-target-arm64-1780520502-55037",
+  "restoredPid": 56078,
   "targetRestore": {
     "kind": "machinen.real-cross-arch-portable-vm-all3-target-restore",
     "accepted": true,
@@ -29,7 +29,7 @@
     "nodejsMemory": {
       "materialized": true,
       "materializedRows": 1,
-      "pid": 761
+      "pid": 766
     }
   },
   "targetVerify": {
@@ -89,5 +89,5 @@
     "sourceIsaEmulationUsed": false,
     "metadataOnlyShortcutAccepted": false
   },
-  "elapsedMs": 15000
+  "elapsedMs": 13264
 }

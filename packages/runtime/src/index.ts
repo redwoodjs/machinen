@@ -146,6 +146,21 @@ export {
   nodeLevel5HttpProfileRefusalRows,
 } from "./node-level5-http-profile.ts";
 export {
+  NODEJS_MEMORY_IR_INVALID_REFUSAL_CODE,
+  NODEJS_MEMORY_IR_KIND,
+  NODEJS_MEMORY_IR_MATERIALIZER_FILENAME,
+  NODEJS_MEMORY_IR_RESTORE_STRATEGY,
+  NODEJS_MEMORY_IR_UNSUPPORTED_REFUSAL_CODE,
+  NODEJS_MEMORY_IR_VERSION,
+  createNodejsMemoryIrMaterializerModule,
+  validateNodejsMemoryIrDocument,
+} from "./nodejs-memory-ir.ts";
+export type {
+  NodejsMemoryIrDocument,
+  NodejsMemoryIrRow,
+  NodejsMemoryIrValidationResult,
+} from "./nodejs-memory-ir.ts";
+export {
   NODE_PROPER_LEVEL5_SOURCE_INSPECTION_KIND,
   parseNodeProperLevel5ProcMaps,
   summarizeNodeProperLevel5SourceInspection,

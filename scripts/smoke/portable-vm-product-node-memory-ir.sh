@@ -104,14 +104,7 @@ NODEENV
     apt-get update >/tmp/machinen-node-apt-update.log 2>&1
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends nodejs >/tmp/machinen-node-apt-install.log 2>&1
   fi
-  node <<'NODEAPP'
-const fs = require('fs');
-const ir = JSON.parse(fs.readFileSync('/mnt/capture/nodejs-memory-ir.json', 'utf8'));
-const state = ir.rows[0]?.semanticState ?? {};
-fs.writeFileSync('/opt/machinen-all3/node-memory-state.json', `${JSON.stringify(state, null, 2)}\n`);
-fs.writeFileSync('/opt/machinen-all3/node-memory-app.mjs', `import http from "node:http";\nconst state = ${JSON.stringify(state)};\nglobalThis.__machinenMaterializedNodeMemoryState = state;\nhttp.createServer((req, res) => {\n  if (req.url === "/state") { res.setHeader("content-type", "application/json"); res.end(JSON.stringify(state)); return; }\n  if (req.url === "/value") { res.end("memory-ready"); return; }\n  res.writeHead(404); res.end("not found");\n}).listen(18182, "127.0.0.1");\n`);
-fs.writeFileSync('/opt/machinen-all3/node-memory-ir-summary.json', JSON.stringify({ kind: ir.kind, materializedRows: ir.rows.length }, null, 2) + '\n');
-NODEAPP
+  node /mnt/capture/nodejs-memory-materializer.mjs --ir /mnt/capture/nodejs-memory-ir.json --target-dir "$TARGET" --port 18182 >/tmp/machinen-node-memory-materializer.json
   rm -f /tmp/machinen-node-memory.log /tmp/machinen-node-memory.pid
   node "$TARGET/node-memory-app.mjs" >/tmp/machinen-node-memory.log 2>&1 &
   NODE_MEMORY_PID=$!
@@ -251,6 +244,7 @@ const acceptPlan = readJson('node-memory.snap/portable-vm-manifest-plan.json');
 const acceptInventory = readJson('node-memory.snap/portable-vm-raw-inventory.json');
 const nodeClassification = readJson('node-memory.snap/nodejs-memory-classification.json');
 const nodeMemoryIr = readJson('node-memory.snap/nodejs-memory-ir.json');
+const nodeMaterializer = fs.readFileSync(path.join(work, 'node-memory.snap/nodejs-memory-materializer.mjs'), 'utf8');
 const refusalSnapshot = readJson('refusal-snapshot.json');
 const refusalRestore = readJson('refusal-restore.json');
 const refusalPlan = readJson('node-memory-refusal.snap/portable-vm-manifest-plan.json');
@@ -261,6 +255,7 @@ if (memoryRow.restoreStrategy !== 'materialize-nodejs-memory-ir-target-native') 
 if (!acceptInventory.items.some((item) => item.id === 'nodejs-memory-ir')) throw new Error('nodejs-memory-ir inventory item missing');
 if (nodeClassification.restoreStrategy !== 'materialize-nodejs-memory-ir-target-native') throw new Error('node memory classification missing restore strategy');
 if (nodeMemoryIr.kind !== 'machinen.nodejs.memory-ir' || !Array.isArray(nodeMemoryIr.rows) || nodeMemoryIr.rows.length !== 1) throw new Error('memory IR not retained');
+if (!nodeMaterializer.includes('machinen.nodejs.memory-ir') || !nodeMaterializer.includes('rawV8HeapRestoreUsed')) throw new Error('product-owned Node memory materializer was not injected');
 if (acceptRestore.accepted !== true || acceptRestore.sourceArch !== sourceArch || acceptRestore.targetArch !== targetArch) throw new Error('accepted restore failed');
 if (acceptRestore.portableVmPlan.nodejsMemoryRows !== 1) throw new Error('restore summary missing nodejsMemoryRows');
 if (acceptRestore.workloads.nodejs.memoryRows !== 1 || acceptRestore.workloads.nodejs.memoryMaterializationRows !== 1) throw new Error('restore workload summary missing memory materialization row');
@@ -279,6 +274,7 @@ const artifacts = [
   'node-memory.snap/portable-vm-manifest-plan.json',
   'node-memory.snap/nodejs-memory-ir.json',
   'node-memory.snap/nodejs-memory-classification.json',
+  'node-memory.snap/nodejs-memory-materializer.mjs',
   'refusal-snapshot.json',
   'refusal-restore.json',
   'node-memory-refusal.snap/portable-vm-manifest-plan.json',
