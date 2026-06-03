@@ -4,12 +4,12 @@
   "accepted": true,
   "proofStatus": "verified",
   "corpus": "portability/nodejs",
-  "rowCount": 36,
+  "rowCount": 37,
   "architectures": ["arm64", "amd64"],
   "executeVm": false,
   "installDeps": false,
   "summary": {
-    "productSupportedRows": 23,
+    "productSupportedRows": 24,
     "declaredConfigRows": 5,
     "refusedFirstRows": 8,
     "verifiedVmRows": 0,
@@ -793,6 +793,29 @@
       }
     },
     {
+      "id": "037-memory-real-plain-object",
+      "slug": "memory-real-plain-object",
+      "disposition": "product-supported",
+      "architecture": "arm64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "arbitraryLinuxProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false,
+          "samePidContinuationClaimed": false,
+          "activeRequestOrSocketContinuationClaimed": false
+        }
+      }
+    },
+    {
       "id": "001-plain-http-create-server",
       "slug": "plain-http-create-server",
       "disposition": "product-supported",
@@ -1540,6 +1563,29 @@
     {
       "id": "036-memory-capture-classifier",
       "slug": "memory-capture-classifier",
+      "disposition": "product-supported",
+      "architecture": "amd64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "arbitraryLinuxProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false,
+          "samePidContinuationClaimed": false,
+          "activeRequestOrSocketContinuationClaimed": false
+        }
+      }
+    },
+    {
+      "id": "037-memory-real-plain-object",
+      "slug": "memory-real-plain-object",
       "disposition": "product-supported",
       "architecture": "amd64",
       "accepted": true,

@@ -45,6 +45,8 @@ Rows `022` through `035` move existing V8/Node memory-state coverage into portab
 
 Row `036-memory-capture-classifier` starts a real Node process inside a guest and captures `/proc/<pid>/maps` plus `/proc/<pid>/mem` to classify seeded Node/V8 memory categories on both `arm64` and `amd64`.
 
+Row `037-memory-real-plain-object` retains an `arm64 -> amd64` source-memory capture and target-native materialization proof for one selected plain-object state. It is semantic state portability, not raw V8 heap restore, raw VM replay, or arbitrary process continuation.
+
 These rows do not lift the broad arbitrary Node heap/process claim; they add scoped compatibility dimensions. Run the local decoder smokes with:
 
 ```bash

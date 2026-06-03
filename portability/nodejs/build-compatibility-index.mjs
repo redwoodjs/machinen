@@ -84,6 +84,7 @@ const categoryBySlug = {
   "memory-typed-array": "memory-state",
   "memory-pending-promise-refusal": "memory-blocker",
   "memory-capture-classifier": "memory-state",
+  "memory-real-plain-object": "memory-state",
 };
 const capabilityBySlug = {
   "plain-http-create-server":
@@ -127,6 +128,8 @@ const capabilityBySlug = {
   "memory-typed-array": "Selected typed array contents materialized target-native",
   "memory-pending-promise-refusal": "Pending Promise and microtask state refuses fail-closed",
   "memory-capture-classifier": "Real guest /proc memory capture classifier for Node/V8 categories",
+  "memory-real-plain-object":
+    "Selected plain-object state captured from source /proc memory and materialized target-native across architectures",
 };
 
 function hashFile(path) {
