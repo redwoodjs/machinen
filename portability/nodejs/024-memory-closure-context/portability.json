@@ -1,0 +1,31 @@
+{
+  "id": "024-memory-closure-context",
+  "slug": "memory-closure-context",
+  "runtime": "nodejs",
+  "description": "Selected V8 closure context counter cell detected and raw Smi slot decoded from memory evidence",
+  "disposition": "product-supported",
+  "claimUse": "portable Node memory-state compatibility dimension only; no arbitrary process or raw V8 heap restore claim",
+  "architecturePolicy": "memory decoder smoke retained for arm64 and amd64 target-native materialization",
+  "startCommand": "node app.mjs",
+  "healthPath": "/inc",
+  "expectedBody": "2",
+  "dependencies": [],
+  "refusalCode": null,
+  "capability": {
+    "category": "memory-state",
+    "detects": ["closure -> context -> count cell", "raw V8 context Smi slot near anchor"],
+    "captures": ["closure context variable name and decoded Smi value"],
+    "restores": ["fresh target-native closure-like counter initialized from decoded value"],
+    "verifies": ["counter increments from 2 to 3 in smoke materializer"],
+    "blocks": ["ambiguous cells", "malformed heap snapshots", "native/external closure resources"]
+  },
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "arbitraryLinuxProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "samePidContinuationClaimed": false,
+    "activeRequestOrSocketContinuationClaimed": false
+  }
+}

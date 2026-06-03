@@ -1,0 +1,77 @@
+{
+  "kind": "machinen.nodejs-portability-memory-state-smoke-report",
+  "version": 1,
+  "accepted": true,
+  "corpus": "portability/nodejs/024-memory-closure-context",
+  "portabilityRow": "024-memory-closure-context",
+  "architectures": ["arm64", "amd64"],
+  "executeVm": false,
+  "memoryCapture": "retained-decoder-smoke-from-captured-memory-evidence",
+  "summary": {
+    "verifiedVmRows": 0,
+    "memoryStateRows": 1,
+    "refusedRows": 0
+  },
+  "results": [
+    {
+      "id": "024-memory-closure-context",
+      "architecture": "arm64",
+      "state": "verified"
+    },
+    {
+      "id": "024-memory-closure-context",
+      "architecture": "amd64",
+      "state": "verified"
+    }
+  ],
+  "closureRecovery": {
+    "kind": "machinen.node-proper-level5-v8-closure-recovery",
+    "accepted": true,
+    "variableName": "count",
+    "candidates": [
+      {
+        "closureNode": 0,
+        "closureName": "machinenCounterHandler",
+        "contextNode": 6,
+        "variableName": "count",
+        "cellNode": 12,
+        "cellType": "object",
+        "cellName": "Object",
+        "evidence": [
+          "closure:machinenCounterHandler",
+          "internal-context:6",
+          "context-slot:count",
+          "cell:object:Object"
+        ]
+      }
+    ],
+    "refusals": []
+  },
+  "rawContextRecovery": {
+    "accepted": true,
+    "value": 2,
+    "anchorTaggedAddress": "0x1001",
+    "anchorBytesPath": "memory/closure-anchor.bin",
+    "contextBytesPath": "memory/closure-context.bin",
+    "contextSlotOffset": 48,
+    "smiEncoding": "v8-pointer-compressed-smi32",
+    "refusals": []
+  },
+  "materializedState": {
+    "initial": 2,
+    "incremented": 3
+  },
+  "claimBoundary": {
+    "claims": ["selected V8 closure context count cell is found and its raw Smi slot is decoded"],
+    "notClaimed": ["arbitrary Node process restore", "raw V8 heap restore", "same PID continuation"]
+  },
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "arbitraryLinuxProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "samePidContinuationClaimed": false,
+    "activeRequestOrSocketContinuationClaimed": false
+  }
+}

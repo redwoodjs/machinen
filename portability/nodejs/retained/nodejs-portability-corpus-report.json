@@ -4,16 +4,16 @@
   "accepted": true,
   "proofStatus": "verified",
   "corpus": "portability/nodejs",
-  "rowCount": 21,
+  "rowCount": 25,
   "architectures": ["arm64", "amd64"],
   "executeVm": false,
   "installDeps": false,
   "summary": {
-    "productSupportedRows": 10,
+    "productSupportedRows": 13,
     "declaredConfigRows": 5,
-    "refusedFirstRows": 6,
+    "refusedFirstRows": 7,
     "verifiedVmRows": 0,
-    "refusedRows": 12,
+    "refusedRows": 14,
     "failedClassifiedRows": 0,
     "environmentUnavailableRows": 0
   },
@@ -448,6 +448,98 @@
       }
     },
     {
+      "id": "022-memory-plain-object",
+      "slug": "memory-plain-object",
+      "disposition": "product-supported",
+      "architecture": "arm64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "arbitraryLinuxProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false,
+          "samePidContinuationClaimed": false,
+          "activeRequestOrSocketContinuationClaimed": false
+        }
+      }
+    },
+    {
+      "id": "023-memory-array",
+      "slug": "memory-array",
+      "disposition": "product-supported",
+      "architecture": "arm64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "arbitraryLinuxProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false,
+          "samePidContinuationClaimed": false,
+          "activeRequestOrSocketContinuationClaimed": false
+        }
+      }
+    },
+    {
+      "id": "024-memory-closure-context",
+      "slug": "memory-closure-context",
+      "disposition": "product-supported",
+      "architecture": "arm64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "arbitraryLinuxProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false,
+          "samePidContinuationClaimed": false,
+          "activeRequestOrSocketContinuationClaimed": false
+        }
+      }
+    },
+    {
+      "id": "025-memory-unsupported-boundaries",
+      "slug": "memory-unsupported-boundaries",
+      "disposition": "refused-first",
+      "architecture": "arm64",
+      "accepted": false,
+      "executedInVm": false,
+      "state": "refused",
+      "refusalCode": "node-portability-memory-unsupported-boundaries-unsupported",
+      "details": {
+        "reason": "refused by first corpus policy",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "arbitraryLinuxProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false,
+          "samePidContinuationClaimed": false,
+          "activeRequestOrSocketContinuationClaimed": false
+        }
+      }
+    },
+    {
       "id": "001-plain-http-create-server",
       "slug": "plain-http-create-server",
       "disposition": "product-supported",
@@ -858,6 +950,98 @@
       "refusalCode": null,
       "details": {
         "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "arbitraryLinuxProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false,
+          "samePidContinuationClaimed": false,
+          "activeRequestOrSocketContinuationClaimed": false
+        }
+      }
+    },
+    {
+      "id": "022-memory-plain-object",
+      "slug": "memory-plain-object",
+      "disposition": "product-supported",
+      "architecture": "amd64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "arbitraryLinuxProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false,
+          "samePidContinuationClaimed": false,
+          "activeRequestOrSocketContinuationClaimed": false
+        }
+      }
+    },
+    {
+      "id": "023-memory-array",
+      "slug": "memory-array",
+      "disposition": "product-supported",
+      "architecture": "amd64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "arbitraryLinuxProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false,
+          "samePidContinuationClaimed": false,
+          "activeRequestOrSocketContinuationClaimed": false
+        }
+      }
+    },
+    {
+      "id": "024-memory-closure-context",
+      "slug": "memory-closure-context",
+      "disposition": "product-supported",
+      "architecture": "amd64",
+      "accepted": true,
+      "executedInVm": false,
+      "state": "classified",
+      "refusalCode": null,
+      "details": {
+        "reason": "classified; pass --execute-vm to run in Machinen runtime",
+        "dependencies": [],
+        "claimGuard": {
+          "arbitraryNodeProcessRestoreClaimed": false,
+          "arbitraryLinuxProcessRestoreClaimed": false,
+          "rawV8HeapRestoreUsed": false,
+          "rawCpuStateReplayUsed": false,
+          "sourceIsaEmulationUsed": false,
+          "samePidContinuationClaimed": false,
+          "activeRequestOrSocketContinuationClaimed": false
+        }
+      }
+    },
+    {
+      "id": "025-memory-unsupported-boundaries",
+      "slug": "memory-unsupported-boundaries",
+      "disposition": "refused-first",
+      "architecture": "amd64",
+      "accepted": false,
+      "executedInVm": false,
+      "state": "refused",
+      "refusalCode": "node-portability-memory-unsupported-boundaries-unsupported",
+      "details": {
+        "reason": "refused by first corpus policy",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,

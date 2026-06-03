@@ -105,9 +105,13 @@ describe("Node.js portability corpus", () => {
     expect(html).toContain("active socket stream transfer");
     expect(html).toContain("nodejs-portability-deps-amd64-runtime-report.json");
     expect(html).toContain("nodejs-portability-memory-scalar-arm64-to-amd64-report.json");
+    expect(html).toContain("nodejs-portability-memory-plain-object-report.json");
+    expect(html).toContain("nodejs-portability-memory-array-report.json");
+    expect(html).toContain("nodejs-portability-memory-closure-context-report.json");
+    expect(html).toContain("nodejs-portability-memory-unsupported-boundaries-report.json");
   });
 
-  it("contains the requested 21 numbered workload rows", () => {
+  it("contains the requested 25 numbered workload rows", () => {
     expect(rowDirs()).toEqual([
       "001-plain-http-create-server",
       "002-express",
@@ -130,12 +134,16 @@ describe("Node.js portability corpus", () => {
       "019-active-request-app",
       "020-outbound-connection-app",
       "021-memory-scalar-counter",
+      "022-memory-plain-object",
+      "023-memory-array",
+      "024-memory-closure-context",
+      "025-memory-unsupported-boundaries",
     ]);
   });
 
   it("keeps arbitrary raw Node process restore out of the corpus claim", () => {
     const rows = rowDirs().map(readRow);
-    expect(rows).toHaveLength(21);
+    expect(rows).toHaveLength(25);
     for (const row of rows) {
       expect(row.runtime).toBe("nodejs");
       expect(row.claimGuard).toMatchObject({
@@ -158,6 +166,7 @@ describe("Node.js portability corpus", () => {
       "018-child-process-app",
       "019-active-request-app",
       "020-outbound-connection-app",
+      "025-memory-unsupported-boundaries",
     ]);
     for (const row of refused) {
       expect(row.refusalCode).toMatch(/^node-portability-.+-unsupported$/u);
@@ -173,12 +182,12 @@ describe("Node.js portability corpus", () => {
       version: 1,
       runtime: "nodejs",
       summary: {
-        rowCount: 21,
-        byStatus: { verified: 15, refused: 6 },
-        byProductClaim: { candidate: 15, refusal: 6 },
+        rowCount: 25,
+        byStatus: { verified: 18, refused: 7 },
+        byProductClaim: { candidate: 18, refusal: 7 },
         architectures: ["arm64", "amd64"],
-        verifiedBothArchitectures: 15,
-        refusedRows: 6,
+        verifiedBothArchitectures: 18,
+        refusedRows: 7,
         conditionalRows: 0,
         failedClassifiedRows: 0,
       },
@@ -245,14 +254,14 @@ describe("Node.js portability corpus", () => {
     };
     expect(report).toMatchObject({
       accepted: true,
-      rowCount: 21,
+      rowCount: 25,
       architectures: ["arm64", "amd64"],
       executeVm: false,
       summary: {
-        productSupportedRows: 10,
+        productSupportedRows: 13,
         declaredConfigRows: 5,
-        refusedFirstRows: 6,
-        refusedRows: 12,
+        refusedFirstRows: 7,
+        refusedRows: 14,
       },
       claimGuard: {
         arbitraryNodeProcessRestoreClaimed: false,
@@ -285,6 +294,44 @@ describe("Node.js portability corpus", () => {
           verifiedVmRows: 5,
           environmentUnavailableRows: 0,
         },
+      });
+    }
+  });
+
+  it("retains memory-state portability smoke reports", () => {
+    for (const [file, rowId, expectedState] of [
+      ["nodejs-portability-memory-plain-object-report.json", "022-memory-plain-object", "verified"],
+      ["nodejs-portability-memory-array-report.json", "023-memory-array", "verified"],
+      [
+        "nodejs-portability-memory-closure-context-report.json",
+        "024-memory-closure-context",
+        "verified",
+      ],
+      [
+        "nodejs-portability-memory-unsupported-boundaries-report.json",
+        "025-memory-unsupported-boundaries",
+        "refused",
+      ],
+    ] as const) {
+      const report = JSON.parse(readFileSync(resolve(corpusRoot, "retained", file), "utf8")) as {
+        accepted: boolean;
+        portabilityRow: string;
+        architectures: string[];
+        results: Array<{ id: string; state: string }>;
+        claimGuard: Record<string, false>;
+      };
+      expect(report.accepted).toBe(true);
+      expect(report.portabilityRow).toBe(rowId);
+      expect(report.architectures).toEqual(["arm64", "amd64"]);
+      expect(report.results).toEqual([
+        expect.objectContaining({ id: rowId, architecture: "arm64", state: expectedState }),
+        expect.objectContaining({ id: rowId, architecture: "amd64", state: expectedState }),
+      ]);
+      expect(report.claimGuard).toMatchObject({
+        arbitraryNodeProcessRestoreClaimed: false,
+        rawV8HeapRestoreUsed: false,
+        rawCpuStateReplayUsed: false,
+        sourceIsaEmulationUsed: false,
       });
     }
   });

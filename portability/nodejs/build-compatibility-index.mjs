@@ -30,6 +30,22 @@ const evidenceInputs = [
     "memory-scalar-smoke-report",
     "portability/nodejs/retained/nodejs-portability-memory-scalar-arm64-to-amd64-report.json",
   ],
+  [
+    "memory-state-smoke-report",
+    "portability/nodejs/retained/nodejs-portability-memory-plain-object-report.json",
+  ],
+  [
+    "memory-state-smoke-report",
+    "portability/nodejs/retained/nodejs-portability-memory-array-report.json",
+  ],
+  [
+    "memory-state-smoke-report",
+    "portability/nodejs/retained/nodejs-portability-memory-closure-context-report.json",
+  ],
+  [
+    "memory-state-refusal-smoke-report",
+    "portability/nodejs/retained/nodejs-portability-memory-unsupported-boundaries-report.json",
+  ],
 ];
 const categoryBySlug = {
   "plain-http-create-server": "http",
@@ -53,6 +69,10 @@ const categoryBySlug = {
   "active-request-app": "live-state-blocker",
   "outbound-connection-app": "network-blocker",
   "memory-scalar-counter": "memory-state",
+  "memory-plain-object": "memory-state",
+  "memory-array": "memory-state",
+  "memory-closure-context": "memory-state",
+  "memory-unsupported-boundaries": "memory-blocker",
 };
 const capabilityBySlug = {
   "plain-http-create-server":
@@ -78,6 +98,11 @@ const capabilityBySlug = {
   "outbound-connection-app": "Outbound connection/reconnect policy blocker",
   "memory-scalar-counter":
     "Memory-only Node scalar captured from source process memory and reconstructed target-native",
+  "memory-plain-object": "Selected V8 plain object state decoded and materialized target-native",
+  "memory-array": "Selected packed V8 Smi array state decoded and materialized target-native",
+  "memory-closure-context":
+    "Selected V8 closure context counter cell decoded and materialized target-native",
+  "memory-unsupported-boundaries": "Unsupported V8 memory shapes refuse fail-closed",
 };
 
 function hashFile(path) {
@@ -155,7 +180,16 @@ function archCell(row, arch, reports) {
       notes: "Attempted and retained with classified failure evidence.",
     };
   }
+  const refused = reports.find(
+    ({ report }) =>
+      Array.isArray(report.architectures) &&
+      report.architectures.includes(arch) &&
+      report.results?.some((result) => result.id === row.id && result.state === "refused"),
+  );
   if (row.disposition === "refused-first") {
+    if (refused) {
+      ev.push(evidence(refused.kind, refused.path, `${arch} retained refusal smoke`));
+    }
     return { status: "refused", lastRun: null, evidence: ev, notes: row.refusalCode };
   }
   if (row.disposition === "supported-with-declared-config") {

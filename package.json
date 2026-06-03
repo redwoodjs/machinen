@@ -146,7 +146,8 @@
     "level4-graduation-matrix": "pnpm exec tsx proofs/network-resources/scripts/level4-graduation-matrix.ts",
     "level4-ping-socket-graduation": "pnpm exec tsx proofs/network-resources/scripts/level4-ping-socket-graduation.ts",
     "level4-ping-socket-product": "pnpm exec tsx proofs/network-resources/scripts/level4-ping-socket-product.ts",
-    "level4-ping-machine-workload": "pnpm exec tsx proofs/network-resources/scripts/level4-ping-machine-workload.ts"
+    "level4-ping-machine-workload": "pnpm exec tsx proofs/network-resources/scripts/level4-ping-machine-workload.ts",
+    "node-portability-memory-state-smokes": "node --import tsx portability/nodejs/022-memory-plain-object/smoke.ts && node --import tsx portability/nodejs/023-memory-array/smoke.ts && node --import tsx portability/nodejs/024-memory-closure-context/smoke.ts && node --import tsx portability/nodejs/025-memory-unsupported-boundaries/smoke.ts"
   },
   "devDependencies": {
     "@changesets/cli": "^2.30.0",

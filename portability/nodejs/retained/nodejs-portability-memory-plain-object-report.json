@@ -1,0 +1,62 @@
+{
+  "kind": "machinen.nodejs-portability-memory-state-smoke-report",
+  "version": 1,
+  "accepted": true,
+  "corpus": "portability/nodejs/022-memory-plain-object",
+  "portabilityRow": "022-memory-plain-object",
+  "architectures": ["arm64", "amd64"],
+  "executeVm": false,
+  "memoryCapture": "retained-decoder-smoke-from-captured-memory-evidence",
+  "summary": {
+    "verifiedVmRows": 0,
+    "memoryStateRows": 1,
+    "refusedRows": 0
+  },
+  "results": [
+    {
+      "id": "022-memory-plain-object",
+      "architecture": "arm64",
+      "state": "verified"
+    },
+    {
+      "id": "022-memory-plain-object",
+      "architecture": "amd64",
+      "state": "verified"
+    }
+  ],
+  "recovery": {
+    "kind": "machinen.node-proper-level5-v8-object-recovery",
+    "accepted": true,
+    "candidates": [
+      {
+        "anchor": "machinen-level5-v8-object-state-anchor-v1",
+        "bytesPath": "memory/object.bin",
+        "offset": 0,
+        "total": 2,
+        "history": [1, 2],
+        "evidence": [
+          "object anchor string found in accepted source memory",
+          "object total property decoded from raw V8 Smi memory",
+          "packed Smi array length/elements decoded from raw V8 memory"
+        ]
+      }
+    ],
+    "refusals": []
+  },
+  "materializedState": {
+    "total": 2
+  },
+  "claimBoundary": {
+    "claims": ["selected V8 plain object numeric state is decoded and semantically materialized"],
+    "notClaimed": ["arbitrary Node process restore", "raw V8 heap restore", "same PID continuation"]
+  },
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "arbitraryLinuxProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "samePidContinuationClaimed": false,
+    "activeRequestOrSocketContinuationClaimed": false
+  }
+}

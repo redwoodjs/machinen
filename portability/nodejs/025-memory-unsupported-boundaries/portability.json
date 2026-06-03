@@ -1,0 +1,39 @@
+{
+  "id": "025-memory-unsupported-boundaries",
+  "slug": "memory-unsupported-boundaries",
+  "runtime": "nodejs",
+  "description": "Memory decoder fail-closed boundaries for unsupported V8 object and closure shapes",
+  "disposition": "refused-first",
+  "claimUse": "portable Node memory-state refusal dimension only; no arbitrary process or raw V8 heap restore claim",
+  "architecturePolicy": "refusal smoke retained for arm64 and amd64 classification",
+  "startCommand": "node app.mjs",
+  "healthPath": "/refusal",
+  "expectedBody": "refused",
+  "dependencies": [],
+  "refusalCode": "node-portability-memory-unsupported-boundaries-unsupported",
+  "capability": {
+    "category": "memory-blocker",
+    "detects": ["unsupported V8 shape categories"],
+    "captures": ["stable refusal code and reason"],
+    "restores": [],
+    "verifies": ["unsupported shapes refuse fail-closed"],
+    "blocks": [
+      "hidden classes",
+      "sparse arrays",
+      "accessors",
+      "proxies",
+      "symbol keys",
+      "external strings",
+      "ambiguous closure cells"
+    ]
+  },
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "arbitraryLinuxProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "samePidContinuationClaimed": false,
+    "activeRequestOrSocketContinuationClaimed": false
+  }
+}
