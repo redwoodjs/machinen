@@ -1,0 +1,7 @@
+{
+  "kind": "machinen.real-cross-arch-portable-vm-all3-target-verifier",
+  "accepted": true,
+  "filesystem": { "accepted": true, "files": 2 },
+  "sqlite": { "accepted": true, "count": 3, "qtySum": 41 },
+  "service": { "accepted": true, "status": 200, "body": "machinen-portable-service-v1" }
+}

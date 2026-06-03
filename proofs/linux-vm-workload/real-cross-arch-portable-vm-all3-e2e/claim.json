@@ -1,0 +1,83 @@
+{
+  "id": "real-cross-arch-portable-vm-all3-e2e",
+  "claim": "Real cross-architecture filesystem, service, and SQLite portable VM E2E",
+  "trackId": "whole-linux-vm-workload",
+  "status": "verified",
+  "scope": "real-cross-arch-portable-vm-filesystem-service-sqlite-v1",
+  "claimNumbers": {
+    "productSupport": 100,
+    "broadSupport": 100,
+    "arbitraryProcessCrossArchRestore": 0,
+    "arbitraryVmRestoreRowsAdded": 0
+  },
+  "promotionEffect": "Adds retained target-native cross-architecture E2E artifacts for filesystem, service, and clean SQLite rows. It does not raise arbitrary VM restore claims.",
+  "proofDirectory": "proofs/linux-vm-workload/real-cross-arch-portable-vm-all3-e2e",
+  "proofs": [
+    {
+      "id": "real-cross-arch-filesystem-product-e2e",
+      "proofNumber": "vm/031",
+      "category": "real cross-arch filesystem product E2E",
+      "status": "verified",
+      "disposition": "product-e2e",
+      "artifact": "proofs/linux-vm-workload/real-cross-arch-portable-vm-all3-e2e/retained/real-cross-arch-portable-vm-all3-e2e-report.json",
+      "proves": "amd64->arm64: Restored 2 files into the target VM and verified retained SHA-256 hashes.",
+      "claimUse": "selected filesystem workload product evidence only; arbitrary VM restore remains unclaimed",
+      "next": "Compose these rows through machinen restore consuming the Portable VM Manifest/Plan.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 100,
+          "broadSupport": 100,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    },
+    {
+      "id": "real-cross-arch-service-product-e2e",
+      "proofNumber": "vm/032",
+      "category": "real cross-arch service product E2E",
+      "status": "verified",
+      "disposition": "product-e2e",
+      "artifact": "proofs/linux-vm-workload/real-cross-arch-portable-vm-all3-e2e/retained/real-cross-arch-portable-vm-all3-e2e-report.json",
+      "proves": "amd64->arm64: Started target-native service and verified response \"machinen-portable-service-v1\".",
+      "claimUse": "selected service workload product evidence only; arbitrary VM restore remains unclaimed",
+      "next": "Compose these rows through machinen restore consuming the Portable VM Manifest/Plan.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 100,
+          "broadSupport": 100,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    },
+    {
+      "id": "real-cross-arch-sqlite-product-e2e",
+      "proofNumber": "vm/033",
+      "category": "real cross-arch sqlite product E2E",
+      "status": "verified",
+      "disposition": "product-e2e",
+      "artifact": "proofs/linux-vm-workload/real-cross-arch-portable-vm-all3-e2e/retained/real-cross-arch-portable-vm-all3-e2e-report.json",
+      "proves": "amd64->arm64: Restored clean SQLite DB and verified count=3, qtySum=41.",
+      "claimUse": "selected sqlite workload product evidence only; arbitrary VM restore remains unclaimed",
+      "next": "Compose these rows through machinen restore consuming the Portable VM Manifest/Plan.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 100,
+          "broadSupport": 100,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    }
+  ]
+}

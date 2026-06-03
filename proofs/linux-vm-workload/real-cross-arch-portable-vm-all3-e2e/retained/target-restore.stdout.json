@@ -1,0 +1,9 @@
+{
+  "kind": "machinen.real-cross-arch-portable-vm-all3-target-restore",
+  "accepted": true,
+  "filesystemRestored": true,
+  "sqliteRestored": { "count": 3, "qtySum": 41 },
+  "sqliteExpected": { "count": 3, "qtySum": 41 },
+  "serviceStarted": true,
+  "servicePid": 574
+}
