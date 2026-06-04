@@ -1028,6 +1028,201 @@
       }
     },
     {
+      "id": "nodejs-resource-transfer-list-descriptor",
+      "kind": "transfer-list-descriptor-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "transferOwnershipPolicy": "semantic-ownership-descriptor",
+        "detachedSourcePolicy": "materialize-target-owned-value"
+      }
+    },
+    {
+      "id": "nodejs-resource-symbol-iterator-position",
+      "kind": "symbol-iterator-position-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "iteratorProtocol": "Symbol.iterator",
+        "positionPolicy": "semantic-index-position"
+      }
+    },
+    {
+      "id": "nodejs-resource-numeric-overflow-policy",
+      "kind": "numeric-overflow-policy-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "numericPolicy": "preserve-js-number-and-bigint-semantics",
+        "overflowPolicy": "target-native-js-semantics"
+      }
+    },
+    {
+      "id": "nodejs-resource-temporal-object-descriptor",
+      "kind": "temporal-object-descriptor-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "temporalPolicy": "semantic-temporal-fields",
+        "timezonePolicy": "target-native-iana-data"
+      }
+    },
+    {
+      "id": "nodejs-resource-vm-context-template",
+      "kind": "vm-context-template-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "activeExecution": false,
+        "sandboxPolicy": "declared-context-template-target-native"
+      }
+    },
+    {
+      "id": "nodejs-resource-vm-sandbox-global-descriptor",
+      "kind": "vm-sandbox-global-descriptor-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "activeExecution": false,
+        "globalPolicy": "semantic-global-property-descriptors"
+      }
+    },
+    {
+      "id": "nodejs-resource-wasm-instance-target-native",
+      "kind": "wasm-instance-target-native-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "activeExecution": false,
+        "instantiatePolicy": "target-native-from-module-and-import-descriptors"
+      }
+    },
+    {
+      "id": "nodejs-resource-wasm-memory-linear-bytes",
+      "kind": "wasm-memory-linear-bytes-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "activeExecution": false,
+        "memoryPolicy": "semantic-linear-memory-bytes"
+      }
+    },
+    {
+      "id": "nodejs-resource-wasm-table-descriptor",
+      "kind": "wasm-table-descriptor-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "activeExecution": false,
+        "tablePolicy": "semantic-table-descriptors"
+      }
+    },
+    {
+      "id": "nodejs-resource-readline-interface-config",
+      "kind": "readline-interface-config-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "activeInput": false,
+        "configPolicy": "recreate-target-native-readline-interface"
+      }
+    },
+    {
+      "id": "nodejs-resource-tty-mode-config",
+      "kind": "tty-mode-config-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "activeInput": false,
+        "modePolicy": "apply-declared-target-tty-mode"
+      }
+    },
+    {
+      "id": "nodejs-resource-parser-token-checkpoint",
+      "kind": "parser-token-checkpoint-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "activeNativeFrame": false,
+        "checkpointPolicy": "semantic-token-buffer-and-position"
+      }
+    },
+    {
+      "id": "nodejs-resource-incremental-parser-checkpoint",
+      "kind": "incremental-parser-checkpoint-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "activeNativeFrame": false,
+        "checkpointPolicy": "semantic-parser-state-node"
+      }
+    },
+    {
       "id": "nodejs-resource-http-request-template",
       "kind": "http-request-template-spec",
       "reconstructable": true,
