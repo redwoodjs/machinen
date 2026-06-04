@@ -71,6 +71,11 @@ const rows = [
   ['052-memory-real-url-searchparams', 'nodejs-portability-memory-real-url-searchparams-report.json'],
   ['053-memory-real-bigint-rich-graph', 'nodejs-portability-memory-real-bigint-rich-graph-report.json'],
   ['054-memory-real-module-singleton-state', 'nodejs-portability-memory-real-module-singleton-state-report.json'],
+  ['055-memory-real-arraybuffer-dataview', 'nodejs-portability-memory-real-arraybuffer-dataview-report.json'],
+  ['056-memory-real-symbol-keyed-object', 'nodejs-portability-memory-real-symbol-keyed-object-report.json'],
+  ['057-memory-real-eventemitter-listeners', 'nodejs-portability-memory-real-eventemitter-listeners-report.json'],
+  ['058-memory-real-in-memory-lru-cache', 'nodejs-portability-memory-real-in-memory-lru-cache-report.json'],
+  ['059-memory-real-queue-state', 'nodejs-portability-memory-real-queue-state-report.json'],
 ];
 const reportNameFor = (base) => sourceArch === 'amd64' ? base.replace('-report.json', '-amd64-to-arm64-report.json') : base;
 const captures = rows.map(([rowId, baseReport]) => {
@@ -248,6 +253,11 @@ const expectedMemoryRowIds = [
   '052-memory-real-url-searchparams',
   '053-memory-real-bigint-rich-graph',
   '054-memory-real-module-singleton-state',
+  '055-memory-real-arraybuffer-dataview',
+  '056-memory-real-symbol-keyed-object',
+  '057-memory-real-eventemitter-listeners',
+  '058-memory-real-in-memory-lru-cache',
+  '059-memory-real-queue-state',
 ];
 const results = directions.map((direction) => {
   const restore = readJson(direction.restorePath);

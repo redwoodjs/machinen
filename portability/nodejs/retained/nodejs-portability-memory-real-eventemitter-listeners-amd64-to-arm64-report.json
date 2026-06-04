@@ -1,0 +1,158 @@
+{
+  "kind": "machinen.nodejs-portability-memory-real-eventemitter-listeners-smoke-report",
+  "version": 1,
+  "accepted": true,
+  "portabilityRow": "057-memory-real-eventemitter-listeners",
+  "architectures": ["amd64", "arm64"],
+  "sourceArch": "amd64",
+  "targetArch": "arm64",
+  "executeVm": true,
+  "memoryCapture": "real-guest-proc-maps-and-proc-mem",
+  "migrationCompleted": true,
+  "summary": {
+    "verifiedVmRows": 1,
+    "memoryStateRows": 1,
+    "refusedRows": 0
+  },
+  "results": [
+    {
+      "id": "057-memory-real-eventemitter-listeners",
+      "architecture": "amd64",
+      "state": "verified"
+    },
+    {
+      "id": "057-memory-real-eventemitter-listeners",
+      "architecture": "arm64",
+      "state": "verified"
+    }
+  ],
+  "sourceCapture": {
+    "kind": "machinen.nodejs-portability-memory-real-eventemitter-listeners-smoke-report.source-capture",
+    "accepted": true,
+    "portabilityRow": "057-memory-real-eventemitter-listeners",
+    "sourceArch": "amd64",
+    "captureMethod": "guest-proc-maps-and-proc-mem-anchor-semantic-decoder",
+    "appHookUsedForCapture": false,
+    "rawV8HeapRestored": false,
+    "samePidRestored": false,
+    "memoryIr": {
+      "kind": "machinen.nodejs.memory-ir",
+      "version": 1,
+      "runtime": {
+        "name": "node",
+        "sourceArch": "amd64",
+        "v8": "12.4.254.21-node.22"
+      },
+      "rows": [
+        {
+          "id": "057-memory-real-eventemitter-listeners",
+          "shape": "eventemitter-listeners",
+          "semanticState": {
+            "kind": "eventemitter-listeners",
+            "anchor": "machinen-real-eventemitter-listeners-anchor-v1",
+            "eventName": "portable-event",
+            "listenerCount": 2,
+            "listenerLabels": ["audit-listener", "metrics-listener"]
+          },
+          "anchors": {
+            "anchor": "machinen-real-eventemitter-listeners-anchor-v1",
+            "event": "eventemitter-event:portable-event",
+            "listeners": "eventemitter-listeners:2",
+            "listenerLabel": "eventemitter-listener-label:audit-listener"
+          }
+        }
+      ],
+      "unsupported": [],
+      "claimGuard": {
+        "arbitraryNodeProcessRestoreClaimed": false,
+        "arbitraryLinuxProcessRestoreClaimed": false,
+        "rawV8HeapRestoreUsed": false,
+        "rawCpuStateReplayUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "samePidContinuationClaimed": false,
+        "activeRequestOrSocketContinuationClaimed": false
+      }
+    },
+    "evidence": {
+      "pid": 385,
+      "mapsSha256": "732a5462e2cc8fb76390677420ba572ed38e345dc0a2e18bb2ce8f7213d6f509",
+      "readableMappings": 110,
+      "decodedFields": {
+        "anchor": {
+          "found": true,
+          "hits": ["0xe707eecc2a5", "0xe707eecc3c4", "0x27b0e5e96ced", "0x27b0e5e96e0c"]
+        },
+        "event": {
+          "found": true,
+          "hits": ["0xe707eecc407", "0x27b0e5e96e4f", "0x3fb0a15cc270"]
+        },
+        "listeners": {
+          "found": true,
+          "hits": ["0xe707eecc441", "0x27b0e5e96e89", "0x3fb0a15cc2a8"]
+        },
+        "listenerLabel": {
+          "found": true,
+          "hits": ["0xe707eecc476", "0x27b0e5e96ebe", "0x3fb0a15cc2f0"]
+        }
+      }
+    }
+  },
+  "targetResult": {
+    "kind": "machinen.nodejs-portability-memory-real-eventemitter-listeners-smoke-report.target-result",
+    "accepted": true,
+    "portabilityRow": "057-memory-real-eventemitter-listeners",
+    "sourceArch": "amd64",
+    "targetArch": "arm64",
+    "materialization": "target-native-node-semantic-memory-ir",
+    "targetNativeNode": true,
+    "appHookUsedForCapture": false,
+    "rawV8HeapRestored": false,
+    "samePidRestored": false,
+    "verifier": {
+      "accepted": true,
+      "actual": {
+        "kind": "eventemitter-listeners",
+        "anchor": "machinen-real-eventemitter-listeners-anchor-v1",
+        "eventName": "portable-event",
+        "listenerCount": 2,
+        "listenerLabels": ["audit-listener", "metrics-listener"]
+      },
+      "expected": {
+        "kind": "eventemitter-listeners",
+        "anchor": "machinen-real-eventemitter-listeners-anchor-v1",
+        "eventName": "portable-event",
+        "listenerCount": 2,
+        "listenerLabels": ["audit-listener", "metrics-listener"]
+      }
+    }
+  },
+  "evidence": {
+    "appPath": "portability/nodejs/057-memory-real-eventemitter-listeners/app.mjs",
+    "appSha256": "e99ebe4684e7d2aa7025cb518bfd434ee98014c922662ab1e2a4c18fc06cc2a3",
+    "smokePath": "portability/nodejs/057-memory-real-eventemitter-listeners/smoke.ts"
+  },
+  "claimBoundary": {
+    "claims": [
+      "057-memory-real-eventemitter-listeners captures selected Node eventemitter-listeners state from /proc memory and materializes it target-native across architectures"
+    ],
+    "notClaimed": [
+      "arbitrary Node process restore",
+      "raw V8 heap restore",
+      "same PID continuation",
+      "active request/socket continuation",
+      "worker/native-addon/child-process live-state transfer",
+      "source ISA emulation",
+      "arbitrary Linux process restore",
+      "raw VM/vCPU/device replay"
+    ]
+  },
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "arbitraryLinuxProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "samePidContinuationClaimed": false,
+    "activeRequestOrSocketContinuationClaimed": false
+  }
+}

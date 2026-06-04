@@ -1,0 +1,200 @@
+{
+  "kind": "machinen.nodejs-portability-memory-real-queue-state-smoke-report",
+  "version": 1,
+  "accepted": true,
+  "portabilityRow": "059-memory-real-queue-state",
+  "architectures": ["arm64", "amd64"],
+  "sourceArch": "arm64",
+  "targetArch": "amd64",
+  "executeVm": true,
+  "memoryCapture": "real-guest-proc-maps-and-proc-mem",
+  "migrationCompleted": true,
+  "summary": {
+    "verifiedVmRows": 1,
+    "memoryStateRows": 1,
+    "refusedRows": 0
+  },
+  "results": [
+    {
+      "id": "059-memory-real-queue-state",
+      "architecture": "arm64",
+      "state": "verified"
+    },
+    {
+      "id": "059-memory-real-queue-state",
+      "architecture": "amd64",
+      "state": "verified"
+    }
+  ],
+  "sourceCapture": {
+    "kind": "machinen.nodejs-portability-memory-real-queue-state-smoke-report.source-capture",
+    "accepted": true,
+    "portabilityRow": "059-memory-real-queue-state",
+    "sourceArch": "arm64",
+    "captureMethod": "guest-proc-maps-and-proc-mem-anchor-semantic-decoder",
+    "appHookUsedForCapture": false,
+    "rawV8HeapRestored": false,
+    "samePidRestored": false,
+    "memoryIr": {
+      "kind": "machinen.nodejs.memory-ir",
+      "version": 1,
+      "runtime": {
+        "name": "node",
+        "sourceArch": "arm64",
+        "v8": "12.4.254.21-node.22"
+      },
+      "rows": [
+        {
+          "id": "059-memory-real-queue-state",
+          "shape": "queue-state",
+          "semanticState": {
+            "kind": "queue-state",
+            "anchor": "machinen-real-queue-state-anchor-v1",
+            "headIndex": 1,
+            "tailIndex": 3,
+            "pending": [
+              {
+                "id": "job-002",
+                "priority": 5
+              },
+              {
+                "id": "job-003",
+                "priority": 3
+              },
+              {
+                "id": "job-004",
+                "priority": 1
+              }
+            ],
+            "processed": ["job-001"]
+          },
+          "anchors": {
+            "anchor": "machinen-real-queue-state-anchor-v1",
+            "head": "queue-head:job-002",
+            "tail": "queue-tail:job-004",
+            "items": "queue-items:job-002,job-003,job-004"
+          }
+        }
+      ],
+      "unsupported": [],
+      "claimGuard": {
+        "arbitraryNodeProcessRestoreClaimed": false,
+        "arbitraryLinuxProcessRestoreClaimed": false,
+        "rawV8HeapRestoreUsed": false,
+        "rawCpuStateReplayUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "samePidContinuationClaimed": false,
+        "activeRequestOrSocketContinuationClaimed": false
+      }
+    },
+    "evidence": {
+      "pid": 357,
+      "mapsSha256": "485b0b59b2a4a212b27847ef12809df1797b595e9c75d31092c4344728527370",
+      "readableMappings": 92,
+      "decodedFields": {
+        "anchor": {
+          "found": true,
+          "hits": ["0x1729d11167f7", "0x1729d11168b7", "0x1990a230c160", "0x31b78b90ca97"]
+        },
+        "head": {
+          "found": true,
+          "hits": ["0x1729d11168ee", "0x1990a230c238", "0x31b78b90cb8e"]
+        },
+        "tail": {
+          "found": true,
+          "hits": ["0x1729d1116914", "0x1990a230c260", "0x31b78b90cbb4"]
+        },
+        "items": {
+          "found": true,
+          "hits": ["0x1729d111693b", "0x1990a230c2a0", "0x31b78b90cbdb"]
+        }
+      }
+    }
+  },
+  "targetResult": {
+    "kind": "machinen.nodejs-portability-memory-real-queue-state-smoke-report.target-result",
+    "accepted": true,
+    "portabilityRow": "059-memory-real-queue-state",
+    "sourceArch": "arm64",
+    "targetArch": "amd64",
+    "materialization": "target-native-node-semantic-memory-ir",
+    "targetNativeNode": true,
+    "appHookUsedForCapture": false,
+    "rawV8HeapRestored": false,
+    "samePidRestored": false,
+    "verifier": {
+      "accepted": true,
+      "actual": {
+        "kind": "queue-state",
+        "anchor": "machinen-real-queue-state-anchor-v1",
+        "headIndex": 1,
+        "tailIndex": 3,
+        "pending": [
+          {
+            "id": "job-002",
+            "priority": 5
+          },
+          {
+            "id": "job-003",
+            "priority": 3
+          },
+          {
+            "id": "job-004",
+            "priority": 1
+          }
+        ],
+        "processed": ["job-001"]
+      },
+      "expected": {
+        "kind": "queue-state",
+        "anchor": "machinen-real-queue-state-anchor-v1",
+        "headIndex": 1,
+        "tailIndex": 3,
+        "pending": [
+          {
+            "id": "job-002",
+            "priority": 5
+          },
+          {
+            "id": "job-003",
+            "priority": 3
+          },
+          {
+            "id": "job-004",
+            "priority": 1
+          }
+        ],
+        "processed": ["job-001"]
+      }
+    }
+  },
+  "evidence": {
+    "appPath": "portability/nodejs/059-memory-real-queue-state/app.mjs",
+    "appSha256": "d8fb033ffa048277c3d76015577655a4f24eee6bb499a563139173c20d937a8a",
+    "smokePath": "portability/nodejs/059-memory-real-queue-state/smoke.ts"
+  },
+  "claimBoundary": {
+    "claims": [
+      "059-memory-real-queue-state captures selected Node queue-state state from /proc memory and materializes it target-native across architectures"
+    ],
+    "notClaimed": [
+      "arbitrary Node process restore",
+      "raw V8 heap restore",
+      "same PID continuation",
+      "active request/socket continuation",
+      "worker/native-addon/child-process live-state transfer",
+      "source ISA emulation",
+      "arbitrary Linux process restore",
+      "raw VM/vCPU/device replay"
+    ]
+  },
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "arbitraryLinuxProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "samePidContinuationClaimed": false,
+    "activeRequestOrSocketContinuationClaimed": false
+  }
+}

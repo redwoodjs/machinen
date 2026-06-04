@@ -101,6 +101,14 @@ const categoryBySlug = {
   "memory-real-url-searchparams": "memory-state",
   "memory-real-bigint-rich-graph": "memory-state",
   "memory-real-module-singleton-state": "memory-state",
+  "memory-real-arraybuffer-dataview": "memory-state",
+  "memory-real-symbol-keyed-object": "memory-state",
+  "memory-real-eventemitter-listeners": "memory-state",
+  "memory-real-in-memory-lru-cache": "memory-state",
+  "memory-real-queue-state": "memory-state",
+  "memory-real-weakmap-refusal": "memory-blocker",
+  "memory-real-timer-refusal": "memory-blocker",
+  "memory-real-stream-refusal": "memory-blocker",
   "memory-real-promise-refusal": "memory-blocker",
 };
 const capabilityBySlug = {
@@ -179,6 +187,19 @@ const capabilityBySlug = {
     "Selected BigInt-rich graph state captured from source /proc memory as tagged semantic values and materialized target-native across architectures",
   "memory-real-module-singleton-state":
     "Selected module-level singleton state captured from source /proc memory and materialized target-native across architectures",
+  "memory-real-arraybuffer-dataview":
+    "Selected ArrayBuffer and DataView state captured from source /proc memory and materialized target-native across architectures",
+  "memory-real-symbol-keyed-object":
+    "Selected Symbol-keyed object state captured from source /proc memory as semantic descriptors and materialized target-native across architectures",
+  "memory-real-eventemitter-listeners":
+    "Selected EventEmitter listener registry state captured from source /proc memory and materialized target-native across architectures",
+  "memory-real-in-memory-lru-cache":
+    "Selected in-memory LRU cache state captured from source /proc memory and materialized target-native across architectures",
+  "memory-real-queue-state":
+    "Selected queue state captured from source /proc memory and materialized target-native across architectures",
+  "memory-real-weakmap-refusal": "WeakMap key reachability and entries refuse fail-closed",
+  "memory-real-timer-refusal": "Active timer queue state refuses fail-closed",
+  "memory-real-stream-refusal": "Node stream buffered/native state refuses fail-closed",
   "memory-real-promise-refusal": "Pending Promise and microtask memory state refuses fail-closed",
 };
 

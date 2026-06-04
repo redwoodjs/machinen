@@ -406,5 +406,164 @@
     },
     "captureMethod": "guest-proc-maps-and-proc-mem-anchor-semantic-decoder",
     "mapsSha256": "cfd24535f402554428e12913d9dd29da314636a15d4d925b1eb968337680570f"
+  },
+  {
+    "rowId": "055-memory-real-arraybuffer-dataview",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-arraybuffer-dataview-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "arraybuffer-dataview",
+    "semanticState": {
+      "kind": "arraybuffer-dataview",
+      "anchor": "machinen-real-arraybuffer-dataview-anchor-v1",
+      "byteLength": 8,
+      "bytes": [3, 1, 4, 1, 5, 9, 2, 6],
+      "uint16beAt0": 769,
+      "float32leAt0": 3.5
+    },
+    "captureMethod": "guest-proc-maps-and-proc-mem-anchor-semantic-decoder",
+    "mapsSha256": "e68a4cde3f22e977b52b3efa7dcc2d3a00cf067c976a71811142ac7d12f8915b"
+  },
+  {
+    "rowId": "056-memory-real-symbol-keyed-object",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-symbol-keyed-object-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "symbol-keyed-object",
+    "semanticState": {
+      "kind": "symbol-keyed-object",
+      "anchor": "machinen-real-symbol-keyed-object-anchor-v1",
+      "stringKeys": ["visible"],
+      "symbolProperties": [
+        {
+          "registry": "local",
+          "description": "machinen.secret",
+          "value": "portable-symbol-value"
+        },
+        {
+          "registry": "global",
+          "description": "machinen.global",
+          "value": 56
+        }
+      ]
+    },
+    "captureMethod": "guest-proc-maps-and-proc-mem-anchor-semantic-decoder",
+    "mapsSha256": "e26956c20ce412dec585b3512dfc669fd28dafcd1dd719c04cbe735167bd2a1e"
+  },
+  {
+    "rowId": "057-memory-real-eventemitter-listeners",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-eventemitter-listeners-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "eventemitter-listeners",
+    "semanticState": {
+      "kind": "eventemitter-listeners",
+      "anchor": "machinen-real-eventemitter-listeners-anchor-v1",
+      "eventName": "portable-event",
+      "listenerCount": 2,
+      "listenerLabels": ["audit-listener", "metrics-listener"]
+    },
+    "captureMethod": "guest-proc-maps-and-proc-mem-anchor-semantic-decoder",
+    "mapsSha256": "63cf24b0b14192d55c2603446ae7963ea325bae027deb6bdd9fd9c0a2e3f3e8a"
+  },
+  {
+    "rowId": "058-memory-real-in-memory-lru-cache",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-in-memory-lru-cache-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "in-memory-lru-cache",
+    "semanticState": {
+      "kind": "in-memory-lru-cache",
+      "anchor": "machinen-real-lru-cache-anchor-v1",
+      "capacity": 3,
+      "entriesLeastToMostRecent": [
+        [
+          "beta",
+          {
+            "hits": 2
+          }
+        ],
+        [
+          "gamma",
+          {
+            "hits": 3
+          }
+        ],
+        [
+          "delta",
+          {
+            "hits": 4
+          }
+        ]
+      ],
+      "evictedKeys": ["alpha"]
+    },
+    "captureMethod": "guest-proc-maps-and-proc-mem-anchor-semantic-decoder",
+    "mapsSha256": "71d20eb931a64093b8667ea1f779326f9c4455d552e781caa16f10b64d71f09e"
+  },
+  {
+    "rowId": "059-memory-real-queue-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-queue-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "queue-state",
+    "semanticState": {
+      "kind": "queue-state",
+      "anchor": "machinen-real-queue-state-anchor-v1",
+      "headIndex": 1,
+      "tailIndex": 3,
+      "pending": [
+        {
+          "id": "job-002",
+          "priority": 5
+        },
+        {
+          "id": "job-003",
+          "priority": 3
+        },
+        {
+          "id": "job-004",
+          "priority": 1
+        }
+      ],
+      "processed": ["job-001"]
+    },
+    "captureMethod": "guest-proc-maps-and-proc-mem-anchor-semantic-decoder",
+    "mapsSha256": "485b0b59b2a4a212b27847ef12809df1797b595e9c75d31092c4344728527370"
   }
 ]

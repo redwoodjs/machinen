@@ -301,6 +301,135 @@
         "counter": "module-singleton-counter:19",
         "token": "module-singleton-token:machinen-singleton-token-v1"
       }
+    },
+    {
+      "id": "055-memory-real-arraybuffer-dataview",
+      "shape": "arraybuffer-dataview",
+      "semanticState": {
+        "kind": "arraybuffer-dataview",
+        "anchor": "machinen-real-arraybuffer-dataview-anchor-v1",
+        "byteLength": 8,
+        "bytes": [3, 1, 4, 1, 5, 9, 2, 6],
+        "uint16beAt0": 769,
+        "float32leAt0": 3.5
+      },
+      "anchors": {
+        "anchor": "machinen-real-arraybuffer-dataview-anchor-v1",
+        "bytes": "arraybuffer-bytes:3,1,4,1,5,9,2,6",
+        "uint16": "dataview-uint16be:769",
+        "float32": "dataview-float32:3.5"
+      }
+    },
+    {
+      "id": "056-memory-real-symbol-keyed-object",
+      "shape": "symbol-keyed-object",
+      "semanticState": {
+        "kind": "symbol-keyed-object",
+        "anchor": "machinen-real-symbol-keyed-object-anchor-v1",
+        "stringKeys": ["visible"],
+        "symbolProperties": [
+          {
+            "registry": "local",
+            "description": "machinen.secret",
+            "value": "portable-symbol-value"
+          },
+          {
+            "registry": "global",
+            "description": "machinen.global",
+            "value": 56
+          }
+        ]
+      },
+      "anchors": {
+        "anchor": "machinen-real-symbol-keyed-object-anchor-v1",
+        "symbol": "symbol-description:machinen.secret",
+        "value": "symbol-value:portable-symbol-value",
+        "globalSymbol": "global-symbol:machinen.global"
+      }
+    },
+    {
+      "id": "057-memory-real-eventemitter-listeners",
+      "shape": "eventemitter-listeners",
+      "semanticState": {
+        "kind": "eventemitter-listeners",
+        "anchor": "machinen-real-eventemitter-listeners-anchor-v1",
+        "eventName": "portable-event",
+        "listenerCount": 2,
+        "listenerLabels": ["audit-listener", "metrics-listener"]
+      },
+      "anchors": {
+        "anchor": "machinen-real-eventemitter-listeners-anchor-v1",
+        "event": "eventemitter-event:portable-event",
+        "listeners": "eventemitter-listeners:2",
+        "listenerLabel": "eventemitter-listener-label:audit-listener"
+      }
+    },
+    {
+      "id": "058-memory-real-in-memory-lru-cache",
+      "shape": "in-memory-lru-cache",
+      "semanticState": {
+        "kind": "in-memory-lru-cache",
+        "anchor": "machinen-real-lru-cache-anchor-v1",
+        "capacity": 3,
+        "entriesLeastToMostRecent": [
+          [
+            "beta",
+            {
+              "hits": 2
+            }
+          ],
+          [
+            "gamma",
+            {
+              "hits": 3
+            }
+          ],
+          [
+            "delta",
+            {
+              "hits": 4
+            }
+          ]
+        ],
+        "evictedKeys": ["alpha"]
+      },
+      "anchors": {
+        "anchor": "machinen-real-lru-cache-anchor-v1",
+        "keys": "lru-cache-keys:beta,gamma,delta",
+        "evicted": "lru-cache-evicted:alpha",
+        "capacity": "lru-cache-capacity:3"
+      }
+    },
+    {
+      "id": "059-memory-real-queue-state",
+      "shape": "queue-state",
+      "semanticState": {
+        "kind": "queue-state",
+        "anchor": "machinen-real-queue-state-anchor-v1",
+        "headIndex": 1,
+        "tailIndex": 3,
+        "pending": [
+          {
+            "id": "job-002",
+            "priority": 5
+          },
+          {
+            "id": "job-003",
+            "priority": 3
+          },
+          {
+            "id": "job-004",
+            "priority": 1
+          }
+        ],
+        "processed": ["job-001"]
+      },
+      "anchors": {
+        "anchor": "machinen-real-queue-state-anchor-v1",
+        "head": "queue-head:job-002",
+        "tail": "queue-tail:job-004",
+        "items": "queue-items:job-002,job-003,job-004"
+      }
     }
   ],
   "unsupported": [],

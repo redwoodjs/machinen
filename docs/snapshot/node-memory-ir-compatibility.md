@@ -32,6 +32,11 @@ Each retained product row records `detect -> capture -> decode -> classify -> ma
 | `052-memory-real-url-searchparams`           | supported |
 | `053-memory-real-bigint-rich-graph`          | supported |
 | `054-memory-real-module-singleton-state`     | supported |
+| `055-memory-real-arraybuffer-dataview`       | supported |
+| `056-memory-real-symbol-keyed-object`        | supported |
+| `057-memory-real-eventemitter-listeners`     | supported |
+| `058-memory-real-in-memory-lru-cache`        | supported |
+| `059-memory-real-queue-state`                | supported |
 
 ## Refused live/opaque rows
 
@@ -48,6 +53,9 @@ These states are refused fail-closed by the portable VM product plan.
 | Child process       | `node-portability-memory-child-process-unsupported`       |
 | Opaque native state | `node-portability-memory-opaque-native-state-unsupported` |
 | Raw V8 state        | `node-portability-memory-raw-v8-state-unsupported`        |
+| WeakMap             | `node-portability-memory-weakmap-unsupported`             |
+| Active timer        | `node-portability-memory-timer-unsupported`               |
+| Stream state        | `node-portability-memory-stream-unsupported`              |
 
 Restore JSON groups Node refusals under `workloads.nodejs.refusals[]` and memory-specific codes under `workloads.nodejs.memoryRefusals[]`.
 

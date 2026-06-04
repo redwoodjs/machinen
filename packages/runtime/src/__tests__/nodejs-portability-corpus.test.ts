@@ -92,6 +92,11 @@ function selectedProductNodeMemoryRowIds(): string[] {
     "052-memory-real-url-searchparams",
     "053-memory-real-bigint-rich-graph",
     "054-memory-real-module-singleton-state",
+    "055-memory-real-arraybuffer-dataview",
+    "056-memory-real-symbol-keyed-object",
+    "057-memory-real-eventemitter-listeners",
+    "058-memory-real-in-memory-lru-cache",
+    "059-memory-real-queue-state",
   ];
 }
 
@@ -106,6 +111,9 @@ function selectedProductNodeMemoryRefusalCodes(): string[] {
     "node-portability-memory-child-process-unsupported",
     "node-portability-memory-opaque-native-state-unsupported",
     "node-portability-memory-raw-v8-state-unsupported",
+    "node-portability-memory-weakmap-unsupported",
+    "node-portability-memory-timer-unsupported",
+    "node-portability-memory-stream-unsupported",
   ];
 }
 
@@ -168,7 +176,7 @@ describe("Node.js portability corpus", () => {
     expect(html).toContain("nodejs-portability-memory-real-array-report.json");
   });
 
-  it("contains the requested 54 numbered workload rows", () => {
+  it("contains the requested 62 numbered workload rows", () => {
     expect(rowDirs()).toEqual([
       "001-plain-http-create-server",
       "002-express",
@@ -224,12 +232,20 @@ describe("Node.js portability corpus", () => {
       "052-memory-real-url-searchparams",
       "053-memory-real-bigint-rich-graph",
       "054-memory-real-module-singleton-state",
+      "055-memory-real-arraybuffer-dataview",
+      "056-memory-real-symbol-keyed-object",
+      "057-memory-real-eventemitter-listeners",
+      "058-memory-real-in-memory-lru-cache",
+      "059-memory-real-queue-state",
+      "060-memory-real-weakmap-refusal",
+      "061-memory-real-timer-refusal",
+      "062-memory-real-stream-refusal",
     ]);
   });
 
   it("keeps arbitrary raw Node process restore out of the corpus claim", () => {
     const rows = rowDirs().map(readRow);
-    expect(rows).toHaveLength(54);
+    expect(rows).toHaveLength(62);
     for (const row of rows) {
       expect(row.runtime).toBe("nodejs");
       expect(row.claimGuard).toMatchObject({
@@ -255,6 +271,9 @@ describe("Node.js portability corpus", () => {
       "025-memory-unsupported-boundaries",
       "035-memory-pending-promise-refusal",
       "049-memory-real-promise-refusal",
+      "060-memory-real-weakmap-refusal",
+      "061-memory-real-timer-refusal",
+      "062-memory-real-stream-refusal",
     ]);
     for (const row of refused) {
       expect(row.refusalCode).toMatch(/^node-portability-.+-unsupported$/u);
@@ -270,12 +289,12 @@ describe("Node.js portability corpus", () => {
       version: 1,
       runtime: "nodejs",
       summary: {
-        rowCount: 54,
-        byStatus: { verified: 45, refused: 9 },
-        byProductClaim: { candidate: 45, refusal: 9 },
+        rowCount: 62,
+        byStatus: { verified: 50, refused: 12 },
+        byProductClaim: { candidate: 50, refusal: 12 },
         architectures: ["arm64", "amd64"],
-        verifiedBothArchitectures: 45,
-        refusedRows: 9,
+        verifiedBothArchitectures: 50,
+        refusedRows: 12,
         conditionalRows: 0,
         failedClassifiedRows: 0,
       },
@@ -329,6 +348,9 @@ describe("Node.js portability corpus", () => {
     expect(cli).toContain("nodejs-memory-classification.json");
     expect(cli).toContain("materialize-nodejs-memory-ir-target-native");
     expect(cli).toContain("node-portability-memory-pending-promise-unsupported");
+    expect(cli).toContain("node-portability-memory-weakmap-unsupported");
+    expect(cli).toContain("node-portability-memory-timer-unsupported");
+    expect(cli).toContain("node-portability-memory-stream-unsupported");
     expect(cli).toContain('arbitraryNodeProcessRestoreClaimed": false');
     expect(cli).toContain('rawV8HeapRestoreUsed": false');
   });
@@ -346,14 +368,14 @@ describe("Node.js portability corpus", () => {
     };
     expect(report).toMatchObject({
       accepted: true,
-      rowCount: 54,
+      rowCount: 62,
       architectures: ["arm64", "amd64"],
       executeVm: false,
       summary: {
-        productSupportedRows: 40,
+        productSupportedRows: 45,
         declaredConfigRows: 5,
-        refusedFirstRows: 9,
-        refusedRows: 18,
+        refusedFirstRows: 12,
+        refusedRows: 24,
       },
       claimGuard: {
         arbitraryNodeProcessRestoreClaimed: false,
@@ -482,6 +504,11 @@ describe("Node.js portability corpus", () => {
       "url-searchparams",
       "bigint-rich-graph",
       "module-singleton-state",
+      "arraybuffer-dataview",
+      "symbol-keyed-object",
+      "eventemitter-listeners",
+      "in-memory-lru-cache",
+      "queue-state",
     ];
     for (const shape of shapes) {
       const forward = JSON.parse(

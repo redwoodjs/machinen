@@ -61,6 +61,11 @@ const rows = [
   ['052-memory-real-url-searchparams', 'nodejs-portability-memory-real-url-searchparams-report.json'],
   ['053-memory-real-bigint-rich-graph', 'nodejs-portability-memory-real-bigint-rich-graph-report.json'],
   ['054-memory-real-module-singleton-state', 'nodejs-portability-memory-real-module-singleton-state-report.json'],
+  ['055-memory-real-arraybuffer-dataview', 'nodejs-portability-memory-real-arraybuffer-dataview-report.json'],
+  ['056-memory-real-symbol-keyed-object', 'nodejs-portability-memory-real-symbol-keyed-object-report.json'],
+  ['057-memory-real-eventemitter-listeners', 'nodejs-portability-memory-real-eventemitter-listeners-report.json'],
+  ['058-memory-real-in-memory-lru-cache', 'nodejs-portability-memory-real-in-memory-lru-cache-report.json'],
+  ['059-memory-real-queue-state', 'nodejs-portability-memory-real-queue-state-report.json'],
 ];
 const reportNameFor = (base) => sourceArch === 'amd64' ? base.replace('-report.json', '-amd64-to-arm64-report.json') : base;
 const captures = rows.map(([rowId, baseReport]) => {
@@ -279,6 +284,9 @@ REFUSAL_CASES=(
   "child-process:nodejs-memory-child-process.refuse:node-portability-memory-child-process-unsupported"
   "opaque-native-state:nodejs-memory-opaque-native-state.refuse:node-portability-memory-opaque-native-state-unsupported"
   "raw-v8-state:nodejs-memory-raw-v8-state.refuse:node-portability-memory-raw-v8-state-unsupported"
+  "weakmap:nodejs-memory-weakmap.refuse:node-portability-memory-weakmap-unsupported"
+  "timer:nodejs-memory-timer.refuse:node-portability-memory-timer-unsupported"
+  "stream:nodejs-memory-stream.refuse:node-portability-memory-stream-unsupported"
 )
 
 run_snapshot() {
@@ -357,6 +365,11 @@ const expectedMemoryRowIds = [
   '052-memory-real-url-searchparams',
   '053-memory-real-bigint-rich-graph',
   '054-memory-real-module-singleton-state',
+  '055-memory-real-arraybuffer-dataview',
+  '056-memory-real-symbol-keyed-object',
+  '057-memory-real-eventemitter-listeners',
+  '058-memory-real-in-memory-lru-cache',
+  '059-memory-real-queue-state',
 ];
 if (nodeMemoryIr.kind !== 'machinen.nodejs.memory-ir' || !Array.isArray(nodeMemoryIr.rows) || nodeMemoryIr.rows.length !== expectedMemoryRowIds.length) throw new Error('memory IR rows not retained');
 if (JSON.stringify(nodeMemoryIr.rows.map((row) => row.id)) !== JSON.stringify(expectedMemoryRowIds)) throw new Error('memory IR row IDs drifted');
@@ -385,6 +398,9 @@ const refusalCases = [
   ['child-process', 'node-portability-memory-child-process-unsupported'],
   ['opaque-native-state', 'node-portability-memory-opaque-native-state-unsupported'],
   ['raw-v8-state', 'node-portability-memory-raw-v8-state-unsupported'],
+  ['weakmap', 'node-portability-memory-weakmap-unsupported'],
+  ['timer', 'node-portability-memory-timer-unsupported'],
+  ['stream', 'node-portability-memory-stream-unsupported'],
 ];
 const refusalResults = refusalCases.map(([caseId, expectedCode]) => {
   const snapshot = readJson(`refusal-${caseId}-snapshot.json`);

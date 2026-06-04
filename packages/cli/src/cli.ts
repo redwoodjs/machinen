@@ -6864,6 +6864,9 @@ add_refusal() {
 [ ! -f "$src/nodejs-memory-child-process.refuse" ] || add_refusal nodejs-memory-child-process nodejs node-portability-memory-child-process-unsupported 'child process memory state is refused by default'
 [ ! -f "$src/nodejs-memory-opaque-native-state.refuse" ] || add_refusal nodejs-memory-opaque-native-state nodejs node-portability-memory-opaque-native-state-unsupported 'opaque native state is refused by default'
 [ ! -f "$src/nodejs-memory-raw-v8-state.refuse" ] || add_refusal nodejs-memory-raw-v8-state nodejs node-portability-memory-raw-v8-state-unsupported 'raw V8 state is refused by default'
+[ ! -f "$src/nodejs-memory-weakmap.refuse" ] || add_refusal nodejs-memory-weakmap nodejs node-portability-memory-weakmap-unsupported 'WeakMap memory state is refused by default'
+[ ! -f "$src/nodejs-memory-timer.refuse" ] || add_refusal nodejs-memory-timer nodejs node-portability-memory-timer-unsupported 'active timer memory state is refused by default'
+[ ! -f "$src/nodejs-memory-stream.refuse" ] || add_refusal nodejs-memory-stream nodejs node-portability-memory-stream-unsupported 'stream memory state is refused by default'
 
 node_inventory_items=''
 node_plan_rows=''

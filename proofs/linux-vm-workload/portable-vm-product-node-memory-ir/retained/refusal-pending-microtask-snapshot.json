@@ -14,6 +14,6 @@
   "arbitraryVmRestoreClaimed": false,
   "rawVmStateReplayUsed": false,
   "snapshotDir": "/Users/peterp/gh/redwoodjs/machinen/proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/node-memory-refusal-pending-microtask.snap",
-  "elapsedMs": 43,
+  "elapsedMs": 39,
   "dryRun": false
 }

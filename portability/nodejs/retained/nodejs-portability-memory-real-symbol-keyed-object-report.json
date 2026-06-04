@@ -1,0 +1,188 @@
+{
+  "kind": "machinen.nodejs-portability-memory-real-symbol-keyed-object-smoke-report",
+  "version": 1,
+  "accepted": true,
+  "portabilityRow": "056-memory-real-symbol-keyed-object",
+  "architectures": ["arm64", "amd64"],
+  "sourceArch": "arm64",
+  "targetArch": "amd64",
+  "executeVm": true,
+  "memoryCapture": "real-guest-proc-maps-and-proc-mem",
+  "migrationCompleted": true,
+  "summary": {
+    "verifiedVmRows": 1,
+    "memoryStateRows": 1,
+    "refusedRows": 0
+  },
+  "results": [
+    {
+      "id": "056-memory-real-symbol-keyed-object",
+      "architecture": "arm64",
+      "state": "verified"
+    },
+    {
+      "id": "056-memory-real-symbol-keyed-object",
+      "architecture": "amd64",
+      "state": "verified"
+    }
+  ],
+  "sourceCapture": {
+    "kind": "machinen.nodejs-portability-memory-real-symbol-keyed-object-smoke-report.source-capture",
+    "accepted": true,
+    "portabilityRow": "056-memory-real-symbol-keyed-object",
+    "sourceArch": "arm64",
+    "captureMethod": "guest-proc-maps-and-proc-mem-anchor-semantic-decoder",
+    "appHookUsedForCapture": false,
+    "rawV8HeapRestored": false,
+    "samePidRestored": false,
+    "memoryIr": {
+      "kind": "machinen.nodejs.memory-ir",
+      "version": 1,
+      "runtime": {
+        "name": "node",
+        "sourceArch": "arm64",
+        "v8": "12.4.254.21-node.22"
+      },
+      "rows": [
+        {
+          "id": "056-memory-real-symbol-keyed-object",
+          "shape": "symbol-keyed-object",
+          "semanticState": {
+            "kind": "symbol-keyed-object",
+            "anchor": "machinen-real-symbol-keyed-object-anchor-v1",
+            "stringKeys": ["visible"],
+            "symbolProperties": [
+              {
+                "registry": "local",
+                "description": "machinen.secret",
+                "value": "portable-symbol-value"
+              },
+              {
+                "registry": "global",
+                "description": "machinen.global",
+                "value": 56
+              }
+            ]
+          },
+          "anchors": {
+            "anchor": "machinen-real-symbol-keyed-object-anchor-v1",
+            "symbol": "symbol-description:machinen.secret",
+            "value": "symbol-value:portable-symbol-value",
+            "globalSymbol": "global-symbol:machinen.global"
+          }
+        }
+      ],
+      "unsupported": [],
+      "claimGuard": {
+        "arbitraryNodeProcessRestoreClaimed": false,
+        "arbitraryLinuxProcessRestoreClaimed": false,
+        "rawV8HeapRestoreUsed": false,
+        "rawCpuStateReplayUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "samePidContinuationClaimed": false,
+        "activeRequestOrSocketContinuationClaimed": false
+      }
+    },
+    "evidence": {
+      "pid": 363,
+      "mapsSha256": "e26956c20ce412dec585b3512dfc669fd28dafcd1dd719c04cbe735167bd2a1e",
+      "readableMappings": 92,
+      "decodedFields": {
+        "anchor": {
+          "found": true,
+          "hits": ["0x6c5a20cc1e0", "0xa5b0dbd6744", "0xa5b0dbd68bd", "0x179d10ccca8c"]
+        },
+        "symbol": {
+          "found": true,
+          "hits": ["0x6c5a20cc2c0", "0xa5b0dbd68fe", "0x179d10cccc46"]
+        },
+        "value": {
+          "found": true,
+          "hits": ["0x6c5a20cc2f8", "0xa5b0dbd6935", "0x179d10cccc7d"]
+        },
+        "globalSymbol": {
+          "found": true,
+          "hits": ["0x6c5a20cc330", "0xa5b0dbd6973", "0x179d10ccccbb"]
+        }
+      }
+    }
+  },
+  "targetResult": {
+    "kind": "machinen.nodejs-portability-memory-real-symbol-keyed-object-smoke-report.target-result",
+    "accepted": true,
+    "portabilityRow": "056-memory-real-symbol-keyed-object",
+    "sourceArch": "arm64",
+    "targetArch": "amd64",
+    "materialization": "target-native-node-semantic-memory-ir",
+    "targetNativeNode": true,
+    "appHookUsedForCapture": false,
+    "rawV8HeapRestored": false,
+    "samePidRestored": false,
+    "verifier": {
+      "accepted": true,
+      "actual": {
+        "kind": "symbol-keyed-object",
+        "anchor": "machinen-real-symbol-keyed-object-anchor-v1",
+        "stringKeys": ["visible"],
+        "symbolProperties": [
+          {
+            "registry": "local",
+            "description": "machinen.secret",
+            "value": "portable-symbol-value"
+          },
+          {
+            "registry": "global",
+            "description": "machinen.global",
+            "value": 56
+          }
+        ]
+      },
+      "expected": {
+        "kind": "symbol-keyed-object",
+        "anchor": "machinen-real-symbol-keyed-object-anchor-v1",
+        "stringKeys": ["visible"],
+        "symbolProperties": [
+          {
+            "registry": "local",
+            "description": "machinen.secret",
+            "value": "portable-symbol-value"
+          },
+          {
+            "registry": "global",
+            "description": "machinen.global",
+            "value": 56
+          }
+        ]
+      }
+    }
+  },
+  "evidence": {
+    "appPath": "portability/nodejs/056-memory-real-symbol-keyed-object/app.mjs",
+    "appSha256": "19658f8a6641ae5fbfa06598f93776abd1fa844febf792866035c2742f8f593c",
+    "smokePath": "portability/nodejs/056-memory-real-symbol-keyed-object/smoke.ts"
+  },
+  "claimBoundary": {
+    "claims": [
+      "056-memory-real-symbol-keyed-object captures selected Node symbol-keyed-object state from /proc memory and materializes it target-native across architectures"
+    ],
+    "notClaimed": [
+      "arbitrary Node process restore",
+      "raw V8 heap restore",
+      "same PID continuation",
+      "active request/socket continuation",
+      "worker/native-addon/child-process live-state transfer",
+      "source ISA emulation",
+      "arbitrary Linux process restore",
+      "raw VM/vCPU/device replay"
+    ]
+  },
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "arbitraryLinuxProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "samePidContinuationClaimed": false,
+    "activeRequestOrSocketContinuationClaimed": false
+  }
+}

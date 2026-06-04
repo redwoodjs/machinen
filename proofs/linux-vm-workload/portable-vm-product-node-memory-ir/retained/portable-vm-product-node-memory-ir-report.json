@@ -15,7 +15,7 @@
     "nodejsMemoryRows": 1,
     "memoryMaterializationRows": 1,
     "memoryVerified": true,
-    "materializedRows": 16,
+    "materializedRows": 21,
     "supportedSemanticRows": [
       "037-memory-real-plain-object",
       "039-memory-real-closure-context",
@@ -32,7 +32,12 @@
       "051-memory-real-error-object",
       "052-memory-real-url-searchparams",
       "053-memory-real-bigint-rich-graph",
-      "054-memory-real-module-singleton-state"
+      "054-memory-real-module-singleton-state",
+      "055-memory-real-arraybuffer-dataview",
+      "056-memory-real-symbol-keyed-object",
+      "057-memory-real-eventemitter-listeners",
+      "058-memory-real-in-memory-lru-cache",
+      "059-memory-real-queue-state"
     ],
     "rowEvidence": [
       {
@@ -442,6 +447,165 @@
         },
         "captureMethod": "guest-proc-maps-and-proc-mem-anchor-semantic-decoder",
         "mapsSha256": "cfd24535f402554428e12913d9dd29da314636a15d4d925b1eb968337680570f"
+      },
+      {
+        "rowId": "055-memory-real-arraybuffer-dataview",
+        "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-arraybuffer-dataview-report.json",
+        "stages": {
+          "detect": true,
+          "capture": true,
+          "decode": true,
+          "classify": true,
+          "materialize": true,
+          "verify": true,
+          "retain": true
+        },
+        "shape": "arraybuffer-dataview",
+        "semanticState": {
+          "kind": "arraybuffer-dataview",
+          "anchor": "machinen-real-arraybuffer-dataview-anchor-v1",
+          "byteLength": 8,
+          "bytes": [3, 1, 4, 1, 5, 9, 2, 6],
+          "uint16beAt0": 769,
+          "float32leAt0": 3.5
+        },
+        "captureMethod": "guest-proc-maps-and-proc-mem-anchor-semantic-decoder",
+        "mapsSha256": "e68a4cde3f22e977b52b3efa7dcc2d3a00cf067c976a71811142ac7d12f8915b"
+      },
+      {
+        "rowId": "056-memory-real-symbol-keyed-object",
+        "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-symbol-keyed-object-report.json",
+        "stages": {
+          "detect": true,
+          "capture": true,
+          "decode": true,
+          "classify": true,
+          "materialize": true,
+          "verify": true,
+          "retain": true
+        },
+        "shape": "symbol-keyed-object",
+        "semanticState": {
+          "kind": "symbol-keyed-object",
+          "anchor": "machinen-real-symbol-keyed-object-anchor-v1",
+          "stringKeys": ["visible"],
+          "symbolProperties": [
+            {
+              "registry": "local",
+              "description": "machinen.secret",
+              "value": "portable-symbol-value"
+            },
+            {
+              "registry": "global",
+              "description": "machinen.global",
+              "value": 56
+            }
+          ]
+        },
+        "captureMethod": "guest-proc-maps-and-proc-mem-anchor-semantic-decoder",
+        "mapsSha256": "e26956c20ce412dec585b3512dfc669fd28dafcd1dd719c04cbe735167bd2a1e"
+      },
+      {
+        "rowId": "057-memory-real-eventemitter-listeners",
+        "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-eventemitter-listeners-report.json",
+        "stages": {
+          "detect": true,
+          "capture": true,
+          "decode": true,
+          "classify": true,
+          "materialize": true,
+          "verify": true,
+          "retain": true
+        },
+        "shape": "eventemitter-listeners",
+        "semanticState": {
+          "kind": "eventemitter-listeners",
+          "anchor": "machinen-real-eventemitter-listeners-anchor-v1",
+          "eventName": "portable-event",
+          "listenerCount": 2,
+          "listenerLabels": ["audit-listener", "metrics-listener"]
+        },
+        "captureMethod": "guest-proc-maps-and-proc-mem-anchor-semantic-decoder",
+        "mapsSha256": "63cf24b0b14192d55c2603446ae7963ea325bae027deb6bdd9fd9c0a2e3f3e8a"
+      },
+      {
+        "rowId": "058-memory-real-in-memory-lru-cache",
+        "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-in-memory-lru-cache-report.json",
+        "stages": {
+          "detect": true,
+          "capture": true,
+          "decode": true,
+          "classify": true,
+          "materialize": true,
+          "verify": true,
+          "retain": true
+        },
+        "shape": "in-memory-lru-cache",
+        "semanticState": {
+          "kind": "in-memory-lru-cache",
+          "anchor": "machinen-real-lru-cache-anchor-v1",
+          "capacity": 3,
+          "entriesLeastToMostRecent": [
+            [
+              "beta",
+              {
+                "hits": 2
+              }
+            ],
+            [
+              "gamma",
+              {
+                "hits": 3
+              }
+            ],
+            [
+              "delta",
+              {
+                "hits": 4
+              }
+            ]
+          ],
+          "evictedKeys": ["alpha"]
+        },
+        "captureMethod": "guest-proc-maps-and-proc-mem-anchor-semantic-decoder",
+        "mapsSha256": "71d20eb931a64093b8667ea1f779326f9c4455d552e781caa16f10b64d71f09e"
+      },
+      {
+        "rowId": "059-memory-real-queue-state",
+        "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-queue-state-report.json",
+        "stages": {
+          "detect": true,
+          "capture": true,
+          "decode": true,
+          "classify": true,
+          "materialize": true,
+          "verify": true,
+          "retain": true
+        },
+        "shape": "queue-state",
+        "semanticState": {
+          "kind": "queue-state",
+          "anchor": "machinen-real-queue-state-anchor-v1",
+          "headIndex": 1,
+          "tailIndex": 3,
+          "pending": [
+            {
+              "id": "job-002",
+              "priority": 5
+            },
+            {
+              "id": "job-003",
+              "priority": 3
+            },
+            {
+              "id": "job-004",
+              "priority": 1
+            }
+          ],
+          "processed": ["job-001"]
+        },
+        "captureMethod": "guest-proc-maps-and-proc-mem-anchor-semantic-decoder",
+        "mapsSha256": "485b0b59b2a4a212b27847ef12809df1797b595e9c75d31092c4344728527370"
       }
     ],
     "restoreStrategy": "materialize-nodejs-memory-ir-target-native",
@@ -506,6 +670,24 @@
       "restoreRefused": true,
       "refusalCode": "node-portability-memory-raw-v8-state-unsupported",
       "markerRefusedByPlan": true
+    },
+    {
+      "caseId": "weakmap",
+      "restoreRefused": true,
+      "refusalCode": "node-portability-memory-weakmap-unsupported",
+      "markerRefusedByPlan": true
+    },
+    {
+      "caseId": "timer",
+      "restoreRefused": true,
+      "refusalCode": "node-portability-memory-timer-unsupported",
+      "markerRefusedByPlan": true
+    },
+    {
+      "caseId": "stream",
+      "restoreRefused": true,
+      "refusalCode": "node-portability-memory-stream-unsupported",
+      "markerRefusedByPlan": true
     }
   ],
   "claimGuard": {
@@ -527,11 +709,11 @@
   "artifacts": [
     {
       "path": "accept-snapshot.json",
-      "sha256": "39932c195523a1a86d1f0a127b6eddd078064fec92448e85158416b0577ac178"
+      "sha256": "6fe952b5bff79e5c9121b52c4535be5c6a96a90c5a251a09627e62c2929ea7f4"
     },
     {
       "path": "accept-restore.json",
-      "sha256": "33e7798184f1ba93d08a0884970af2c8942c624a494a7d119c46d623657608c1"
+      "sha256": "178209386aa7ff60b6d90431c8521e504c799ccdabfd173ba63491dae54a5312"
     },
     {
       "path": "node-memory.snap/portable-vm-raw-inventory.json",
@@ -543,11 +725,11 @@
     },
     {
       "path": "node-memory.snap/portable-vm-product-restore-summary.json",
-      "sha256": "39895a629ab3e060b3a3815e2c4cc5306ceb902cc37e23fc6386f09387f3c58c"
+      "sha256": "f30eef38007ecf4ca9398d5c4447a76018f76a356678c77c775d600509f2c0d0"
     },
     {
       "path": "node-memory.snap/nodejs-memory-ir.json",
-      "sha256": "d31e9dc6d5c636a97ce3e57ef7c94987d018efa26cd215929bc8539b6886d3c0"
+      "sha256": "664440b88a3393e3fcc6b66cfeae202fc0022c1095c6033ee3d8c76c6fd7afa7"
     },
     {
       "path": "node-memory.snap/nodejs-memory-classification.json",
@@ -559,11 +741,11 @@
     },
     {
       "path": "node-memory.snap/nodejs-memory-product-row-evidence.json",
-      "sha256": "a2d27802aeb4cf7e10074f8722498c10b097805e766954a4173ed1e24c2aa58a"
+      "sha256": "d9f208f06fb249ce5de097556c54327004a5b7c51aa9963f18998dfddd171176"
     },
     {
       "path": "refusal-pending-promise-snapshot.json",
-      "sha256": "3359d351898abf188aeba820715d2435b30360a185410f42986134eca2135ab3"
+      "sha256": "84d7d8c0c735489b57e587e61a80eb89dc07e618976e5b74170e6f4799ae88ea"
     },
     {
       "path": "refusal-pending-promise-restore.json",
@@ -579,7 +761,7 @@
     },
     {
       "path": "refusal-pending-microtask-snapshot.json",
-      "sha256": "33296a56ce73537cb23da66565f5a4774bb14f195187f91752021a3367c89724"
+      "sha256": "726c79a066bc857d8b78396c4834cfc66b5a49187e5ac896d5b72b3de8fb28e7"
     },
     {
       "path": "refusal-pending-microtask-restore.json",
@@ -595,7 +777,7 @@
     },
     {
       "path": "refusal-active-socket-snapshot.json",
-      "sha256": "ab88f3a26ec49e6ead07442895c2ab198872ee29fde4402ae2cd6b3cccc981b0"
+      "sha256": "d7b2f426f6e2c46aadaa842db263ace433ba25d56f9a1636d13a1fca362cb1e1"
     },
     {
       "path": "refusal-active-socket-restore.json",
@@ -627,7 +809,7 @@
     },
     {
       "path": "refusal-worker-snapshot.json",
-      "sha256": "37d817d30f9f877b8762e4e1e341fef2cd70f4ad0bcf49ebff9e538e716b2cd6"
+      "sha256": "0121f086ab5b36311436f3d64780d81ed8e874f3a9a6a2c4d4605d64c932be1e"
     },
     {
       "path": "refusal-worker-restore.json",
@@ -659,7 +841,7 @@
     },
     {
       "path": "refusal-child-process-snapshot.json",
-      "sha256": "8a9d82b9f4d81d3a66d189f5a0c94bc8669f4bd9564dcaa5ca168bcf0e77ea57"
+      "sha256": "d879f5ce61e88d316539db9fc16e35350dae398bef4c240b4c0a9275cde1adff"
     },
     {
       "path": "refusal-child-process-restore.json",
@@ -675,7 +857,7 @@
     },
     {
       "path": "refusal-opaque-native-state-snapshot.json",
-      "sha256": "41cefbb177333ab41dce018f87a13153f0a1b3b86f1fac3dd81026c51fcf7fcb"
+      "sha256": "b3f98329c5441527d376bd38dea8bf00bc4cc07406326a411f01815ecc61ed13"
     },
     {
       "path": "refusal-opaque-native-state-restore.json",
@@ -704,6 +886,54 @@
     {
       "path": "node-memory-refusal-raw-v8-state.snap/portable-vm-product-restore-summary.json",
       "sha256": "9e741cc00b5ca1d5bd779d4f5dabda967523c14f903593cd623c80ffb7c217f4"
+    },
+    {
+      "path": "refusal-weakmap-snapshot.json",
+      "sha256": "0fe81ab1f2638ec9f30b8518efb22153f059d134452c1d0d1d7d8cd8101da53b"
+    },
+    {
+      "path": "refusal-weakmap-restore.json",
+      "sha256": "a4deb2bcdb89fac02a18e949c035b6803bdfd36d5162c06bd3f9d28009c0df3c"
+    },
+    {
+      "path": "node-memory-refusal-weakmap.snap/portable-vm-manifest-plan.json",
+      "sha256": "f909755a0c196d87aed93ee7dc6cf0c60496ee35628f1d16382af82d491d535d"
+    },
+    {
+      "path": "node-memory-refusal-weakmap.snap/portable-vm-product-restore-summary.json",
+      "sha256": "1736987b13a7198d62de0198aa0c452c0caa7e818ed9bf39ca3b28622910a8da"
+    },
+    {
+      "path": "refusal-timer-snapshot.json",
+      "sha256": "30d9784c4512b8611303bf7f2aa4452b3670205c7924d2640269394cfa8c6205"
+    },
+    {
+      "path": "refusal-timer-restore.json",
+      "sha256": "abc0865cd3ab0348ab30156a116b1714671722fa2f1c8156b65ba5954e9e9183"
+    },
+    {
+      "path": "node-memory-refusal-timer.snap/portable-vm-manifest-plan.json",
+      "sha256": "23cbd82100cd9684ce5affe0c36a350ff5896a867f664c182fb18369839bb173"
+    },
+    {
+      "path": "node-memory-refusal-timer.snap/portable-vm-product-restore-summary.json",
+      "sha256": "b52d293d67aa683413e833e14b5e4b6a2240c12028b344b0553b32ae0da7b488"
+    },
+    {
+      "path": "refusal-stream-snapshot.json",
+      "sha256": "f1bd03e291ae6007df891f664f9fe68682af430ebb27c9f445d98f21e69eb739"
+    },
+    {
+      "path": "refusal-stream-restore.json",
+      "sha256": "a34f030e469fee9637aa28d76e0654eeb7e9339256784c0133e0f5e183a56143"
+    },
+    {
+      "path": "node-memory-refusal-stream.snap/portable-vm-manifest-plan.json",
+      "sha256": "78c533dfee731039fd3f4429b8f23559cdaca4379c7e42ff09cdbe7d5235084c"
+    },
+    {
+      "path": "node-memory-refusal-stream.snap/portable-vm-product-restore-summary.json",
+      "sha256": "86c90806ea879a7e6db3e2432d7b655a087a56eee7e7eef1434eeed9ec2b9c60"
     }
   ]
 }
