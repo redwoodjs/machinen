@@ -252,6 +252,8 @@ const resourceIr = {
     resourceRow('nodejs-resource-atomics-no-waiters', 'atomics-no-waiters-spec', { quiescenceReport: 'nodejs-quiescence-report.json', waiters: 0, futexStatePolicy: 'none-to-transfer' }),
     resourceRow('nodejs-resource-worker-shared-buffer-quiesced', 'worker-shared-buffer-quiesced-spec', { quiescenceReport: 'nodejs-quiescence-report.json', liveWorkers: 0, waiters: 0, copyPolicy: 'semantic-byte-copy-after-worker-stop' }),
     resourceRow('nodejs-resource-quiesced-async-context-resource', 'quiesced-async-context-resource-spec', { quiescenceReport: 'nodejs-quiescence-report.json', activeRuntimeResources: 0, contextPolicy: 'semantic-context-snapshot' }),
+    resourceRow('nodejs-resource-declared-ffi-adapter', 'declared-ffi-adapter-spec', { nativeAdapterReport: 'nodejs-native-adapter-report.json', adapterId: 'ffi-semantic-counter-v1', exportPolicy: 'semantic-json-state-only', importPolicy: 'target-native-adapter-import', rawPointerTransfer: false, rawHandleBytesRetained: false }),
+    resourceRow('nodejs-resource-declared-native-resource-adapter', 'declared-native-resource-adapter-spec', { nativeAdapterReport: 'nodejs-native-adapter-report.json', adapterId: 'native-resource-semantic-wrapper-v1', exportPolicy: 'semantic-json-state-only', importPolicy: 'target-native-adapter-import', rawPointerTransfer: false, rawHandleBytesRetained: false }),
     resourceRow('nodejs-resource-http-request-template', 'http-request-template-spec', { activeTransfer: false, shapePolicy: 'recreate-request-template-target-native' }),
     resourceRow('nodejs-resource-http-response-template', 'http-response-template-spec', { activeTransfer: false, shapePolicy: 'recreate-response-template-target-native' }),
     resourceRow('nodejs-resource-request-body-drained', 'request-body-drained-spec', { bufferedBytes: 0, activeTransfer: false, resumePolicy: 'materialize-drained-body' }),
@@ -310,6 +312,44 @@ const quiescenceReport = {
   },
 };
 fs.writeFileSync(path.join(dst, 'nodejs-quiescence-report.json'), `${JSON.stringify(quiescenceReport, null, 2)}\n`);
+const nativeAdapterRowIds = resourceIr.rows
+  .filter((row) => row.semanticState?.nativeAdapterReport === 'nodejs-native-adapter-report.json')
+  .map((row) => row.id);
+const nativeAdapterReport = {
+  kind: 'machinen.nodejs-native-adapter-report',
+  version: 1,
+  accepted: true,
+  sourceArch,
+  captureBoundaryRequired: 'source-vm-paused',
+  adapterRows: nativeAdapterRowIds,
+  adapters: [
+    {
+      adapterId: 'ffi-semantic-counter-v1',
+      rowId: 'nodejs-resource-declared-ffi-adapter',
+      exportedStateFormat: 'json-semantic-state-v1',
+      importedTargetNative: true,
+      rawPointerTransfer: false,
+      rawHandleBytesRetained: false,
+    },
+    {
+      adapterId: 'native-resource-semantic-wrapper-v1',
+      rowId: 'nodejs-resource-declared-native-resource-adapter',
+      exportedStateFormat: 'json-semantic-state-v1',
+      importedTargetNative: true,
+      rawPointerTransfer: false,
+      rawHandleBytesRetained: false,
+    },
+  ],
+  remainingNativePolicy: 'verified-refusal-without-declared-semantic-adapter',
+  claimGuard: {
+    arbitraryNodeProcessRestoreClaimed: false,
+    rawNativeHandleRestoreUsed: false,
+    rawPointerTransferUsed: false,
+    sourceIsaEmulationUsed: false,
+    samePidContinuationClaimed: false,
+  },
+};
+fs.writeFileSync(path.join(dst, 'nodejs-native-adapter-report.json'), `${JSON.stringify(nativeAdapterReport, null, 2)}\n`);
 NODE
   cp proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/source-bundle-node-memory/target-restore.sh "$dst/target-restore.sh"
   cp proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/source-bundle-node-memory/target-verify.sh "$dst/target-verify.sh"
@@ -548,6 +588,8 @@ const expectedResourceRowIds = [
   'nodejs-resource-atomics-no-waiters',
   'nodejs-resource-worker-shared-buffer-quiesced',
   'nodejs-resource-quiesced-async-context-resource',
+  'nodejs-resource-declared-ffi-adapter',
+  'nodejs-resource-declared-native-resource-adapter',
   'nodejs-resource-http-request-template',
   'nodejs-resource-http-response-template',
   'nodejs-resource-request-body-drained',
@@ -588,6 +630,7 @@ const results = directions.map((direction) => {
   const memoryIr = readJson(path.join(direction.snapDir, 'nodejs-memory-ir.json'));
   const resourceIr = readJson(path.join(direction.snapDir, 'nodejs-resource-ir.json'));
   const quiescenceReport = readJson(path.join(direction.snapDir, 'nodejs-quiescence-report.json'));
+  const nativeAdapterReport = readJson(path.join(direction.snapDir, 'nodejs-native-adapter-report.json'));
   const resourceInventory = readJson(path.join(direction.snapDir, 'nodejs-resource-inventory.json'));
   const rowEvidence = readJson(path.join(direction.snapDir, 'nodejs-memory-product-row-evidence.json'));
   if (JSON.stringify(memoryIr.rows?.map((row) => row.id)) !== JSON.stringify(expectedMemoryRowIds)) throw new Error(`${direction.id} memory IR row IDs drifted`);
@@ -595,6 +638,10 @@ const results = directions.map((direction) => {
   const quiescedRows = resourceIr.rows.filter((row) => row.semanticState?.quiescenceReport === 'nodejs-quiescence-report.json').map((row) => row.id);
   if (quiescenceReport.accepted !== true || quiescenceReport.captureBoundaryRequired !== 'source-vm-paused') throw new Error(`${direction.id} quiescence report missing paused boundary proof`);
   if (JSON.stringify(quiescenceReport.quiescedRows) !== JSON.stringify(quiescedRows)) throw new Error(`${direction.id} quiescence report row IDs drifted`);
+  const nativeAdapterRows = resourceIr.rows.filter((row) => row.semanticState?.nativeAdapterReport === 'nodejs-native-adapter-report.json').map((row) => row.id);
+  if (nativeAdapterReport.accepted !== true || nativeAdapterReport.captureBoundaryRequired !== 'source-vm-paused') throw new Error(`${direction.id} native adapter report missing paused boundary proof`);
+  if (JSON.stringify(nativeAdapterReport.adapterRows) !== JSON.stringify(nativeAdapterRows)) throw new Error(`${direction.id} native adapter row IDs drifted`);
+  if (nativeAdapterReport.claimGuard?.rawNativeHandleRestoreUsed !== false || nativeAdapterReport.claimGuard?.rawPointerTransferUsed !== false) throw new Error(`${direction.id} native adapter report overclaims raw native restore`);
   if (resourceIr.rows.some((row) => JSON.stringify(row).match(/rawFd|nativeHandle|uvHandle|rawV8Heap|pid/))) throw new Error(`${direction.id} resource IR contains raw/native process state`);
   if (resourceIr.rows.some((row) => row.captureBoundaryId !== 'portable-vm-pause-boundary.json' || row.pausedEvidence?.sourceVmPaused !== true)) throw new Error(`${direction.id} resource IR row-level pause evidence missing`);
   if (!Array.isArray(resourceInventory.checkedResourceClasses) || !resourceInventory.checkedResourceClasses.includes('native-handles')) throw new Error(`${direction.id} resource inventory did not classify native handles`);
@@ -638,6 +685,7 @@ const artifacts = [
   'arm64-to-amd64/node-memory.snap/nodejs-memory-product-row-evidence.json',
   'arm64-to-amd64/node-memory.snap/nodejs-resource-ir.json',
   'arm64-to-amd64/node-memory.snap/nodejs-quiescence-report.json',
+  'arm64-to-amd64/node-memory.snap/nodejs-native-adapter-report.json',
   'arm64-to-amd64/node-memory.snap/nodejs-resource-inventory.json',
   'arm64-to-amd64/node-memory.snap/nodejs-resource-materializer.mjs',
   'amd64-to-arm64-snapshot.json',
@@ -650,6 +698,7 @@ const artifacts = [
   'amd64-to-arm64/node-memory.snap/nodejs-memory-product-row-evidence.json',
   'amd64-to-arm64/node-memory.snap/nodejs-resource-ir.json',
   'amd64-to-arm64/node-memory.snap/nodejs-quiescence-report.json',
+  'amd64-to-arm64/node-memory.snap/nodejs-native-adapter-report.json',
   'amd64-to-arm64/node-memory.snap/nodejs-resource-inventory.json',
   'amd64-to-arm64/node-memory.snap/nodejs-resource-materializer.mjs',
 ];
@@ -687,7 +736,7 @@ if [ -n "${WORK_DIR:-}" ]; then
   find "$WORK" -type f | while IFS= read -r file; do
     rel="${file#$WORK/}"
     case "$rel" in
-      portable-vm-product-node-memory-ir-cross-arch-report.json|arm64-to-amd64-snapshot.json|arm64-to-amd64-restore.json|arm64-to-amd64/node-memory.snap/portable-vm-manifest-plan.json|arm64-to-amd64/node-memory.snap/portable-vm-product-restore-summary.json|arm64-to-amd64/node-memory.snap/portable-vm-pause-boundary.json|arm64-to-amd64/node-memory.snap/nodejs-memory-ir.json|arm64-to-amd64/node-memory.snap/nodejs-memory-materializer.mjs|arm64-to-amd64/node-memory.snap/nodejs-memory-product-row-evidence.json|arm64-to-amd64/node-memory.snap/nodejs-quiescence-report.json|arm64-to-amd64/node-memory.snap/nodejs-resource-ir.json|arm64-to-amd64/node-memory.snap/nodejs-resource-inventory.json|arm64-to-amd64/node-memory.snap/nodejs-resource-materializer.mjs|amd64-to-arm64-snapshot.json|amd64-to-arm64-restore.json|amd64-to-arm64/node-memory.snap/portable-vm-manifest-plan.json|amd64-to-arm64/node-memory.snap/portable-vm-product-restore-summary.json|amd64-to-arm64/node-memory.snap/portable-vm-pause-boundary.json|amd64-to-arm64/node-memory.snap/nodejs-memory-ir.json|amd64-to-arm64/node-memory.snap/nodejs-memory-materializer.mjs|amd64-to-arm64/node-memory.snap/nodejs-memory-product-row-evidence.json|amd64-to-arm64/node-memory.snap/nodejs-quiescence-report.json|amd64-to-arm64/node-memory.snap/nodejs-resource-ir.json|amd64-to-arm64/node-memory.snap/nodejs-resource-inventory.json|amd64-to-arm64/node-memory.snap/nodejs-resource-materializer.mjs) ;;
+      portable-vm-product-node-memory-ir-cross-arch-report.json|arm64-to-amd64-snapshot.json|arm64-to-amd64-restore.json|arm64-to-amd64/node-memory.snap/portable-vm-manifest-plan.json|arm64-to-amd64/node-memory.snap/portable-vm-product-restore-summary.json|arm64-to-amd64/node-memory.snap/portable-vm-pause-boundary.json|arm64-to-amd64/node-memory.snap/nodejs-memory-ir.json|arm64-to-amd64/node-memory.snap/nodejs-memory-materializer.mjs|arm64-to-amd64/node-memory.snap/nodejs-memory-product-row-evidence.json|arm64-to-amd64/node-memory.snap/nodejs-quiescence-report.json|arm64-to-amd64/node-memory.snap/nodejs-native-adapter-report.json|arm64-to-amd64/node-memory.snap/nodejs-resource-ir.json|arm64-to-amd64/node-memory.snap/nodejs-resource-inventory.json|arm64-to-amd64/node-memory.snap/nodejs-resource-materializer.mjs|amd64-to-arm64-snapshot.json|amd64-to-arm64-restore.json|amd64-to-arm64/node-memory.snap/portable-vm-manifest-plan.json|amd64-to-arm64/node-memory.snap/portable-vm-product-restore-summary.json|amd64-to-arm64/node-memory.snap/portable-vm-pause-boundary.json|amd64-to-arm64/node-memory.snap/nodejs-memory-ir.json|amd64-to-arm64/node-memory.snap/nodejs-memory-materializer.mjs|amd64-to-arm64/node-memory.snap/nodejs-memory-product-row-evidence.json|amd64-to-arm64/node-memory.snap/nodejs-quiescence-report.json|amd64-to-arm64/node-memory.snap/nodejs-native-adapter-report.json|amd64-to-arm64/node-memory.snap/nodejs-resource-ir.json|amd64-to-arm64/node-memory.snap/nodejs-resource-inventory.json|amd64-to-arm64/node-memory.snap/nodejs-resource-materializer.mjs) ;;
       *) rm -f "$file" ;;
     esac
   done

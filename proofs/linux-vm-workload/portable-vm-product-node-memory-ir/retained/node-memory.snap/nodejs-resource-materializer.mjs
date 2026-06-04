@@ -141,6 +141,8 @@ const supportedResourceKinds = new Set([
   "atomics-no-waiters-spec",
   "worker-shared-buffer-quiesced-spec",
   "quiesced-async-context-resource-spec",
+  "declared-ffi-adapter-spec",
+  "declared-native-resource-adapter-spec",
 ]);
 const forbiddenRawFields = new Set([
   "rawFd",
@@ -154,6 +156,11 @@ const forbiddenRawFields = new Set([
   "rawV8Heap",
   "rawCpuState",
   "sourceIsaEmulation",
+  "rawPointer",
+  "sourcePointer",
+  "nativePointer",
+  "ffiHandle",
+  "uvHandleBytes",
 ]);
 const args = parseArgs(process.argv.slice(2));
 const ir = JSON.parse(readFileSync(args.ir, "utf8"));

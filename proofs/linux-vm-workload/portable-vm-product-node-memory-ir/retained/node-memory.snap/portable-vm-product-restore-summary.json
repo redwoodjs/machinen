@@ -10,8 +10,8 @@
   "sourceArchitectureDetected": true,
   "targetArchitectureDetected": true,
   "targetVmStarted": true,
-  "restoredName": "portable-vm-node-memory-target-arm64-1780600340-50875",
-  "restoredPid": 51297,
+  "restoredName": "portable-vm-node-memory-target-arm64-1780602146-71356",
+  "restoredPid": 71795,
   "targetRestore": {
     "kind": "machinen.real-cross-arch-portable-vm-all3-target-restore",
     "accepted": true,
@@ -33,7 +33,7 @@
     },
     "nodejsResource": {
       "materialized": true,
-      "materializedRows": 135,
+      "materializedRows": 137,
       "pid": 799
     }
   },
@@ -62,7 +62,7 @@
     "nodejsResource": {
       "accepted": true,
       "resourceIrKind": "machinen.nodejs.resource-ir",
-      "materializedRows": 135
+      "materializedRows": 137
     }
   },
   "workloads": {
@@ -71,7 +71,7 @@
     "sqlite": true,
     "nodejs": {
       "classified": true,
-      "rowCount": 5,
+      "rowCount": 6,
       "refusedRows": 0,
       "memoryRows": 1,
       "memoryMaterializationRows": 1,
@@ -80,7 +80,7 @@
       "memoryVerified": true,
       "memoryMaterializedRows": 130,
       "resourceVerified": true,
-      "resourceMaterializedRows": 135,
+      "resourceMaterializedRows": 137,
       "arbitraryNodeProcessRestoreClaimed": false,
       "rawV8HeapRestoreUsed": false
     }
@@ -89,11 +89,11 @@
     "kind": "machinen.portable-vm-manifest-plan",
     "scope": "portable-vm-all3-product-snapshot-restore-v1",
     "sourceArchitecture": "arm64",
-    "rowCount": 8,
+    "rowCount": 9,
     "productSupportedRows": 5,
     "refusedRows": 0,
-    "nodejsRows": 5,
-    "nodejsClassifiedRows": 3,
+    "nodejsRows": 6,
+    "nodejsClassifiedRows": 4,
     "nodejsMemoryRows": 1,
     "nodejsResourceRows": 1,
     "unknownStatePolicy": "refuse-by-default"
@@ -104,5 +104,5 @@
     "sourceIsaEmulationUsed": false,
     "metadataOnlyShortcutAccepted": false
   },
-  "elapsedMs": 13696
+  "elapsedMs": 13799
 }

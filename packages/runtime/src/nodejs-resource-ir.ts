@@ -176,6 +176,8 @@ const supportedResourceKinds = new Set([
   "atomics-no-waiters-spec",
   "worker-shared-buffer-quiesced-spec",
   "quiesced-async-context-resource-spec",
+  "declared-ffi-adapter-spec",
+  "declared-native-resource-adapter-spec",
 ]);
 
 const forbiddenRawFields = new Set([
@@ -190,6 +192,11 @@ const forbiddenRawFields = new Set([
   "rawV8Heap",
   "rawCpuState",
   "sourceIsaEmulation",
+  "rawPointer",
+  "sourcePointer",
+  "nativePointer",
+  "ffiHandle",
+  "uvHandleBytes",
 ]);
 
 export function validateNodejsResourceIrDocument(value: unknown): NodejsResourceIrValidationResult {

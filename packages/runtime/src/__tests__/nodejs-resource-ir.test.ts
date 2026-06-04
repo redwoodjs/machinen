@@ -50,6 +50,25 @@ function validIr() {
         materializationPolicy: "target-native-reconstruct",
         semanticState: { host: "127.0.0.1", portPolicy: "target-assigned", routes: ["/value"] },
       },
+      {
+        id: "nodejs-resource-declared-ffi-adapter",
+        kind: "declared-ffi-adapter-spec",
+        reconstructable: true,
+        captureBoundaryId: "portable-vm-pause-boundary.json",
+        pausedEvidence: {
+          sourceVmPaused: true,
+          evidenceArtifact: "portable-vm-pause-boundary.json",
+        },
+        materializationPolicy: "target-native-reconstruct",
+        semanticState: {
+          nativeAdapterReport: "nodejs-native-adapter-report.json",
+          adapterId: "ffi-semantic-counter-v1",
+          exportPolicy: "semantic-json-state-only",
+          importPolicy: "target-native-adapter-import",
+          rawPointerTransfer: false,
+          rawHandleBytesRetained: false,
+        },
+      },
     ],
     unsupported: [],
     claimGuard: {
@@ -65,7 +84,7 @@ describe("Node.js Resource IR product materializer", () => {
     expect(validateNodejsResourceIrDocument(validIr())).toMatchObject({
       accepted: true,
       refusalCode: null,
-      rowCount: 2,
+      rowCount: 3,
     });
     expect(NODEJS_RESOURCE_IR_RESTORE_STRATEGY).toBe(
       "materialize-nodejs-resource-ir-target-native",
@@ -87,6 +106,15 @@ describe("Node.js Resource IR product materializer", () => {
       validateNodejsResourceIrDocument({
         ...validIr(),
         rows: [{ ...validIr().rows[0], semanticState: { rawFd: 7 } }],
+      }),
+    ).toMatchObject({
+      accepted: false,
+      refusalCode: NODEJS_RESOURCE_IR_INVALID_REFUSAL_CODE,
+    });
+    expect(
+      validateNodejsResourceIrDocument({
+        ...validIr(),
+        rows: [{ ...validIr().rows[2], semanticState: { rawPointer: "0x1234" } }],
       }),
     ).toMatchObject({
       accepted: false,
@@ -121,7 +149,7 @@ describe("Node.js Resource IR product materializer", () => {
 
     expect(JSON.parse(out)).toMatchObject({
       accepted: true,
-      materializedRows: 2,
+      materializedRows: 3,
       claimGuard: { rawNativeHandleRestoreUsed: false, samePidContinuationClaimed: false },
     });
     expect(JSON.parse(readFileSync(join(targetDir, "node-resource-rows.json"), "utf8"))).toEqual(

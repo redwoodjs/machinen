@@ -258,6 +258,9 @@ const productResourceCompatibilityRows = {
   "187-memory-real-worker-shared-buffer-refusal": "nodejs-resource-worker-shared-buffer-quiesced",
   "067-memory-real-async-context-native-resource-refusal":
     "nodejs-resource-quiesced-async-context-resource",
+  "180-memory-real-ffi-handle-refusal": "nodejs-resource-declared-ffi-adapter",
+  "308-memory-real-opaque-native-handles-refusal":
+    "nodejs-resource-declared-native-resource-adapter",
 };
 const productResourceEvidencePaths = [
   "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",

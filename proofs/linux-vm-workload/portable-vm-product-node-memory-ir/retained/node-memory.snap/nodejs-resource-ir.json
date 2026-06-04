@@ -1855,6 +1855,44 @@
       }
     },
     {
+      "id": "nodejs-resource-declared-ffi-adapter",
+      "kind": "declared-ffi-adapter-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "nativeAdapterReport": "nodejs-native-adapter-report.json",
+        "adapterId": "ffi-semantic-counter-v1",
+        "exportPolicy": "semantic-json-state-only",
+        "importPolicy": "target-native-adapter-import",
+        "rawPointerTransfer": false,
+        "rawHandleBytesRetained": false
+      }
+    },
+    {
+      "id": "nodejs-resource-declared-native-resource-adapter",
+      "kind": "declared-native-resource-adapter-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "nativeAdapterReport": "nodejs-native-adapter-report.json",
+        "adapterId": "native-resource-semantic-wrapper-v1",
+        "exportPolicy": "semantic-json-state-only",
+        "importPolicy": "target-native-adapter-import",
+        "rawPointerTransfer": false,
+        "rawHandleBytesRetained": false
+      }
+    },
+    {
       "id": "nodejs-resource-http-request-template",
       "kind": "http-request-template-spec",
       "reconstructable": true,

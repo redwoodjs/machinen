@@ -61,6 +61,15 @@
         "unsupportedLiveStatePolicy": "refuse"
       },
       {
+        "id": "nodejs-native-adapter-report",
+        "category": "nodejs",
+        "disposition": "classified",
+        "restoreStrategy": "verify-declared-nodejs-native-adapters",
+        "artifact": "nodejs-native-adapter-report.json",
+        "captureBoundary": "source-vm-paused",
+        "rawNativeHandlePolicy": "refuse"
+      },
+      {
         "id": "nodejs-resource-inventory",
         "category": "nodejs",
         "disposition": "classified",

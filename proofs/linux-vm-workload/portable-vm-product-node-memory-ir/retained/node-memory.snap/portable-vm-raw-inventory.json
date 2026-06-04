@@ -46,6 +46,12 @@
       "disposition": "classified"
     },
     {
+      "id": "nodejs-native-adapter-report",
+      "category": "nodejs",
+      "path": "nodejs-native-adapter-report.json",
+      "disposition": "classified"
+    },
+    {
       "id": "nodejs-resource-inventory",
       "category": "nodejs",
       "path": "nodejs-resource-inventory.json",
@@ -68,7 +74,7 @@
     "pauseMechanism": "vmm-native-sigusr1-sigusr2",
     "pauseSignal": "SIGUSR1",
     "resumeSignal": "SIGUSR2",
-    "sourceVmPid": 51125,
+    "sourceVmPid": 71608,
     "stoppedStateObserved": true,
     "unsupportedPausedLiveStatePolicy": "refuse",
     "vmmNativeMarker": {
@@ -78,9 +84,9 @@
       "vcpusStopped": true,
       "resumeSignalRequired": "SIGUSR2"
     },
-    "startedAt": "2026-06-04T19:12:24.354Z",
-    "pausedObservedAt": "2026-06-04T19:12:24.375Z",
-    "resumedAt": "2026-06-04T19:12:24.375Z",
+    "startedAt": "2026-06-04T19:42:30.529Z",
+    "pausedObservedAt": "2026-06-04T19:42:30.550Z",
+    "resumedAt": "2026-06-04T19:42:30.550Z",
     "elapsedMs": 21
   }
 }

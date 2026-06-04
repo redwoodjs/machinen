@@ -234,6 +234,8 @@ function selectedProductNodeResourceRowIds(): string[] {
     "nodejs-resource-atomics-no-waiters",
     "nodejs-resource-worker-shared-buffer-quiesced",
     "nodejs-resource-quiesced-async-context-resource",
+    "nodejs-resource-declared-ffi-adapter",
+    "nodejs-resource-declared-native-resource-adapter",
     "nodejs-resource-http-request-template",
     "nodejs-resource-http-response-template",
     "nodejs-resource-request-body-drained",
@@ -403,11 +405,11 @@ describe("Node.js portability corpus", () => {
       runtime: "nodejs",
       summary: {
         rowCount: 312,
-        byStatus: { verified: 298, "verified-refusal": 14 },
-        byProductClaim: { candidate: 298, "verified-refusal": 14 },
+        byStatus: { verified: 300, "verified-refusal": 12 },
+        byProductClaim: { candidate: 300, "verified-refusal": 12 },
         architectures: ["arm64", "amd64"],
-        verifiedBothArchitectures: 298,
-        verifiedRefusalRows: 14,
+        verifiedBothArchitectures: 300,
+        verifiedRefusalRows: 12,
         refusedRows: 0,
         unsupportedUnverifiedRows: 0,
         coveredRows: 312,
@@ -517,12 +519,12 @@ describe("Node.js portability corpus", () => {
     expect(report).toMatchObject({
       accepted: true,
       rowCount: 312,
-      supportedRows: 298,
-      verifiedRefusalRows: 14,
+      supportedRows: 300,
+      verifiedRefusalRows: 12,
       unsupportedUnverifiedRows: 0,
       allRowsAccountedFor: true,
     });
-    expect(report.verifiedRefusals).toHaveLength(14);
+    expect(report.verifiedRefusals).toHaveLength(12);
     expect(
       report.verifiedRefusals.every(
         (row) =>
