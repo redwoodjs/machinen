@@ -21,7 +21,7 @@
         "pauseMechanism": "vmm-native-sigusr1-sigusr2",
         "pauseSignal": "SIGUSR1",
         "resumeSignal": "SIGUSR2",
-        "sourceVmPid": 76002,
+        "sourceVmPid": 97718,
         "stoppedStateObserved": true,
         "unsupportedPausedLiveStatePolicy": "refuse",
         "vmmNativeMarker": {
@@ -31,15 +31,15 @@
           "vcpusStopped": true,
           "resumeSignalRequired": "SIGUSR2"
         },
-        "startedAt": "2026-06-04T19:43:11.680Z",
-        "pausedObservedAt": "2026-06-04T19:43:11.701Z",
-        "resumedAt": "2026-06-04T19:43:11.701Z",
+        "startedAt": "2026-06-04T19:56:07.502Z",
+        "pausedObservedAt": "2026-06-04T19:56:07.523Z",
+        "resumedAt": "2026-06-04T19:56:07.523Z",
         "elapsedMs": 21
       },
       "memoryVerified": true,
       "resourceVerified": true,
       "memoryMaterializedRows": 130,
-      "resourceMaterializedRows": 137,
+      "resourceMaterializedRows": 143,
       "supportedSemanticRows": [
         "037-memory-real-plain-object",
         "038-memory-real-array",
@@ -295,6 +295,12 @@
         "nodejs-resource-quiesced-async-context-resource",
         "nodejs-resource-declared-ffi-adapter",
         "nodejs-resource-declared-native-resource-adapter",
+        "nodejs-resource-weakmap-semantic-entries",
+        "nodejs-resource-weakset-semantic-members",
+        "nodejs-resource-finalization-registry-drop-policy",
+        "nodejs-resource-weakref-semantic-reference",
+        "nodejs-resource-gc-sensitive-cache-rebuild-policy",
+        "nodejs-resource-ephemeron-table-semantic-descriptor",
         "nodejs-resource-http-request-template",
         "nodejs-resource-http-response-template",
         "nodejs-resource-request-body-drained",
@@ -3109,7 +3115,7 @@
         "pauseMechanism": "vmm-native-sigusr1-sigusr2",
         "pauseSignal": "SIGUSR1",
         "resumeSignal": "SIGUSR2",
-        "sourceVmPid": 2640865,
+        "sourceVmPid": 2647655,
         "stoppedStateObserved": true,
         "unsupportedPausedLiveStatePolicy": "refuse",
         "vmmNativeMarker": {
@@ -3119,15 +3125,15 @@
           "vcpusStopped": true,
           "resumeSignalRequired": "SIGUSR2"
         },
-        "startedAt": "2026-06-04T19:43:31.209Z",
-        "pausedObservedAt": "2026-06-04T19:43:31.229Z",
-        "resumedAt": "2026-06-04T19:43:31.229Z",
+        "startedAt": "2026-06-04T19:56:27.306Z",
+        "pausedObservedAt": "2026-06-04T19:56:27.326Z",
+        "resumedAt": "2026-06-04T19:56:27.326Z",
         "elapsedMs": 20
       },
       "memoryVerified": true,
       "resourceVerified": true,
       "memoryMaterializedRows": 130,
-      "resourceMaterializedRows": 137,
+      "resourceMaterializedRows": 143,
       "supportedSemanticRows": [
         "037-memory-real-plain-object",
         "038-memory-real-array",
@@ -3383,6 +3389,12 @@
         "nodejs-resource-quiesced-async-context-resource",
         "nodejs-resource-declared-ffi-adapter",
         "nodejs-resource-declared-native-resource-adapter",
+        "nodejs-resource-weakmap-semantic-entries",
+        "nodejs-resource-weakset-semantic-members",
+        "nodejs-resource-finalization-registry-drop-policy",
+        "nodejs-resource-weakref-semantic-reference",
+        "nodejs-resource-gc-sensitive-cache-rebuild-policy",
+        "nodejs-resource-ephemeron-table-semantic-descriptor",
         "nodejs-resource-http-request-template",
         "nodejs-resource-http-response-template",
         "nodejs-resource-request-body-drained",
@@ -6202,23 +6214,23 @@
   "artifacts": [
     {
       "path": "arm64-to-amd64-snapshot.json",
-      "sha256": "b2a70933f9e5f24659a33795768522da285773ceda38a336a1285914ec169a36"
+      "sha256": "3ab3df38fac607e0b40d611022ffbb5036a630bbcd7e0a0c6c95292f607aff51"
     },
     {
       "path": "arm64-to-amd64-restore.json",
-      "sha256": "47f30737eb01ce748080fd765725414801e7778d9b1c77e02ce52f4959307324"
+      "sha256": "b5c5af48c482cf5eb40f8f634f6fa22f661cb6d1e354a64fb44fa48af8572841"
     },
     {
       "path": "arm64-to-amd64/node-memory.snap/portable-vm-manifest-plan.json",
-      "sha256": "5fa618538db0007e52f66009e3b016db14f77a83bc92844cffedfe66185efaa6"
+      "sha256": "6fae58c80499978fba17b016085f2ab5877fbeefe2ffb940b864df09d6ca4f6c"
     },
     {
       "path": "arm64-to-amd64/node-memory.snap/portable-vm-product-restore-summary.json",
-      "sha256": "e72404b21b9f172e0e8c95788beb86b0efc290b1219539e980219daa7fbeef00"
+      "sha256": "a151e1fecb8bfdc0d9ddb0eccb6f46aa501feb0773d7734d4598a6e36c993671"
     },
     {
       "path": "arm64-to-amd64/node-memory.snap/portable-vm-pause-boundary.json",
-      "sha256": "ce4016cc1bfa8b812fb015f567fdaae5c1387510b283f6021a8f324dbce6e323"
+      "sha256": "24e578b561df2ab837cdb1cb9e921734e2b0eccb4a2e2ac2a9d60e42b6bc897d"
     },
     {
       "path": "arm64-to-amd64/node-memory.snap/nodejs-memory-ir.json",
@@ -6234,7 +6246,7 @@
     },
     {
       "path": "arm64-to-amd64/node-memory.snap/nodejs-resource-ir.json",
-      "sha256": "37666acc933b7d4715a188b9d7905995af45b2fc7c37bebccb39e7e5d1291805"
+      "sha256": "06206d289e18a806692150935131e43dfab854f335d77b4f8cbad80a101ee331"
     },
     {
       "path": "arm64-to-amd64/node-memory.snap/nodejs-quiescence-report.json",
@@ -6245,32 +6257,36 @@
       "sha256": "a60fa6d598e21eff33bd21b9eb65dd6375b282e930b934f5d2b6793b85d061ac"
     },
     {
+      "path": "arm64-to-amd64/node-memory.snap/nodejs-gc-stable-weak-report.json",
+      "sha256": "4a2cd1ee43ce107ed718ecaef9f8b5b5da901a64d560ed4c21a672d2af2e1e68"
+    },
+    {
       "path": "arm64-to-amd64/node-memory.snap/nodejs-resource-inventory.json",
       "sha256": "01a4d310f4c11d30e04cf08d7d8ed47a3345bb77d06446162cf6880d6eb5e5de"
     },
     {
       "path": "arm64-to-amd64/node-memory.snap/nodejs-resource-materializer.mjs",
-      "sha256": "dbab5cff8285041d9e074c4bd2712feb8ced9bc4953109c4a6d94f6c6a6c7431"
+      "sha256": "b9e2ceac08bca70de8aae33f3952abe2f7247fe190f79a784e734938e6aecec3"
     },
     {
       "path": "amd64-to-arm64-snapshot.json",
-      "sha256": "f96dfc87fca0fb40e94ce80ff7cdffb1fd5f10527231fd5bec2968cadebe2517"
+      "sha256": "1e12af78e08779f4f370928159782fcb27037fdad6b87ac0f65e03c062237709"
     },
     {
       "path": "amd64-to-arm64-restore.json",
-      "sha256": "af0a358583bd6d16cc4d22eb3509f9662ce4f4b748896b634fb00628d9ac9281"
+      "sha256": "6aa4d8430cf27e8f1e54771d01ca0259e505a37b1bb758af9ae933b26a8b4c1e"
     },
     {
       "path": "amd64-to-arm64/node-memory.snap/portable-vm-manifest-plan.json",
-      "sha256": "d46aefe6a292a495cd49b61fb28d530e9c5720196b55b1e120c28451470e25d9"
+      "sha256": "66218c60305d89e063395e907e13064bc75c1461fb04624bb4465ef223c98bb5"
     },
     {
       "path": "amd64-to-arm64/node-memory.snap/portable-vm-product-restore-summary.json",
-      "sha256": "6b7cd59965c893d30a0ec0da9acc6b1bf23660fe68745ff66115055d6fcee239"
+      "sha256": "3cd5c11ec0a998541e190cb32effe7041940488ec1c6a90d47ccd3536d3a35a3"
     },
     {
       "path": "amd64-to-arm64/node-memory.snap/portable-vm-pause-boundary.json",
-      "sha256": "99df0789cb07f4a6169d263457150fae65ce77b8b35f248bb144368d73968d07"
+      "sha256": "53c2b647e3ebcd99b35fbc31174de354087ecc79a6f3a02ea636ca90ea27ab45"
     },
     {
       "path": "amd64-to-arm64/node-memory.snap/nodejs-memory-ir.json",
@@ -6286,7 +6302,7 @@
     },
     {
       "path": "amd64-to-arm64/node-memory.snap/nodejs-resource-ir.json",
-      "sha256": "8212914278240b943344c64086e1dabf34f0c9cce9716d5443df8842eab8e8ca"
+      "sha256": "54a9938b9c8b1588a80278613dedd10223aca8433c75a440c2ffdecd539e512b"
     },
     {
       "path": "amd64-to-arm64/node-memory.snap/nodejs-quiescence-report.json",
@@ -6297,12 +6313,16 @@
       "sha256": "3b1487596a8a0ec711f019ae982c9de9d862470d5ff949b0aeba09b4ba6bfbd1"
     },
     {
+      "path": "amd64-to-arm64/node-memory.snap/nodejs-gc-stable-weak-report.json",
+      "sha256": "d3361600e480b9831b31d94b31988ee7fa499dc5968fa70125d39673871f2a70"
+    },
+    {
       "path": "amd64-to-arm64/node-memory.snap/nodejs-resource-inventory.json",
       "sha256": "e9f8aa645f137f483c8baad03b4983ab6ff288912353b431590deb2791bfae11"
     },
     {
       "path": "amd64-to-arm64/node-memory.snap/nodejs-resource-materializer.mjs",
-      "sha256": "dbab5cff8285041d9e074c4bd2712feb8ced9bc4953109c4a6d94f6c6a6c7431"
+      "sha256": "b9e2ceac08bca70de8aae33f3952abe2f7247fe190f79a784e734938e6aecec3"
     }
   ]
 }

@@ -112,6 +112,17 @@ function selectedProductNodeMemoryRefusalCodes(): string[] {
   ];
 }
 
+function selectedProductNodeHardBoundaryRefusalCodes(): string[] {
+  return [
+    "node-portability-memory-unsupported-boundaries-unsupported",
+    "node-portability-memory-pid-continuation-unsupported",
+    "node-portability-memory-unknown-v8-object-unsupported",
+    "node-portability-memory-unclassified-unsupported",
+    "node-portability-memory-metadata-only-success-unsupported",
+    "node-portability-memory-source-isa-emulation-unsupported",
+  ];
+}
+
 function selectedProductNodeResourceRowIds(): string[] {
   return [
     "nodejs-resource-timer-schedule",
@@ -236,6 +247,12 @@ function selectedProductNodeResourceRowIds(): string[] {
     "nodejs-resource-quiesced-async-context-resource",
     "nodejs-resource-declared-ffi-adapter",
     "nodejs-resource-declared-native-resource-adapter",
+    "nodejs-resource-weakmap-semantic-entries",
+    "nodejs-resource-weakset-semantic-members",
+    "nodejs-resource-finalization-registry-drop-policy",
+    "nodejs-resource-weakref-semantic-reference",
+    "nodejs-resource-gc-sensitive-cache-rebuild-policy",
+    "nodejs-resource-ephemeron-table-semantic-descriptor",
     "nodejs-resource-http-request-template",
     "nodejs-resource-http-response-template",
     "nodejs-resource-request-body-drained",
@@ -405,11 +422,11 @@ describe("Node.js portability corpus", () => {
       runtime: "nodejs",
       summary: {
         rowCount: 312,
-        byStatus: { verified: 300, "verified-refusal": 12 },
-        byProductClaim: { candidate: 300, "verified-refusal": 12 },
+        byStatus: { verified: 306, "verified-refusal": 6 },
+        byProductClaim: { candidate: 306, "verified-refusal": 6 },
         architectures: ["arm64", "amd64"],
-        verifiedBothArchitectures: 300,
-        verifiedRefusalRows: 12,
+        verifiedBothArchitectures: 306,
+        verifiedRefusalRows: 6,
         refusedRows: 0,
         unsupportedUnverifiedRows: 0,
         coveredRows: 312,
@@ -519,12 +536,12 @@ describe("Node.js portability corpus", () => {
     expect(report).toMatchObject({
       accepted: true,
       rowCount: 312,
-      supportedRows: 300,
-      verifiedRefusalRows: 12,
+      supportedRows: 306,
+      verifiedRefusalRows: 6,
       unsupportedUnverifiedRows: 0,
       allRowsAccountedFor: true,
     });
-    expect(report.verifiedRefusals).toHaveLength(12);
+    expect(report.verifiedRefusals).toHaveLength(6);
     expect(
       report.verifiedRefusals.every(
         (row) =>
@@ -1032,6 +1049,7 @@ describe("Node.js portability corpus", () => {
     expect(report.refusalMatrix.map((row) => row.refusalCode)).toEqual([
       ...selectedProductNodeMemoryRefusalCodes(),
       ...selectedProductNodeResourceRefusalCodes(),
+      ...selectedProductNodeHardBoundaryRefusalCodes(),
     ]);
     for (const row of report.refusalMatrix) {
       expect(row.restoreRefused).toBe(true);

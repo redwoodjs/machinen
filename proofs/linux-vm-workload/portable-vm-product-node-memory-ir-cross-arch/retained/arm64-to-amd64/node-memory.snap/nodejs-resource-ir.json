@@ -1893,6 +1893,110 @@
       }
     },
     {
+      "id": "nodejs-resource-weakmap-semantic-entries",
+      "kind": "weakmap-semantic-entries-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "gcStableWeakReport": "nodejs-gc-stable-weak-report.json",
+        "keyPolicy": "declared-strong-key-descriptors",
+        "valuePolicy": "semantic-json-values",
+        "rawGcReachabilityRestore": false,
+        "dropUnreachablePolicy": "drop-at-capture-boundary"
+      }
+    },
+    {
+      "id": "nodejs-resource-weakset-semantic-members",
+      "kind": "weakset-semantic-members-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "gcStableWeakReport": "nodejs-gc-stable-weak-report.json",
+        "memberPolicy": "declared-strong-member-descriptors",
+        "rawGcReachabilityRestore": false,
+        "dropUnreachablePolicy": "drop-at-capture-boundary"
+      }
+    },
+    {
+      "id": "nodejs-resource-finalization-registry-drop-policy",
+      "kind": "finalization-registry-drop-policy-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "gcStableWeakReport": "nodejs-gc-stable-weak-report.json",
+        "pendingFinalizers": 0,
+        "finalizerPolicy": "do-not-transfer-finalizer-queue",
+        "cleanupPolicy": "target-native-empty-registry"
+      }
+    },
+    {
+      "id": "nodejs-resource-weakref-semantic-reference",
+      "kind": "weakref-semantic-reference-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "gcStableWeakReport": "nodejs-gc-stable-weak-report.json",
+        "referencePolicy": "resolve-declared-target-or-drop",
+        "rawGcReachabilityRestore": false,
+        "derefPolicy": "semantic-optional-reference"
+      }
+    },
+    {
+      "id": "nodejs-resource-gc-sensitive-cache-rebuild-policy",
+      "kind": "gc-sensitive-cache-rebuild-policy-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "gcStableWeakReport": "nodejs-gc-stable-weak-report.json",
+        "cachePolicy": "drop-and-lazy-rebuild-target-native",
+        "rawGcReachabilityRestore": false,
+        "retainedEntries": 0
+      }
+    },
+    {
+      "id": "nodejs-resource-ephemeron-table-semantic-descriptor",
+      "kind": "ephemeron-table-semantic-descriptor-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "gcStableWeakReport": "nodejs-gc-stable-weak-report.json",
+        "keyPolicy": "declared-strong-key-descriptors",
+        "valuePolicy": "semantic-json-values",
+        "rawEphemeronTableBytes": false,
+        "rawGcReachabilityRestore": false
+      }
+    },
+    {
       "id": "nodejs-resource-http-request-template",
       "kind": "http-request-template-spec",
       "reconstructable": true,

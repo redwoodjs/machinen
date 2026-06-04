@@ -10,8 +10,8 @@
   "sourceArchitectureDetected": true,
   "targetArchitectureDetected": true,
   "targetVmStarted": true,
-  "restoredName": "portable-vm-node-memory-amd-target-1780602191-75835",
-  "restoredPid": 2640627,
+  "restoredName": "portable-vm-node-memory-amd-target-1780602966-97547",
+  "restoredPid": 2647437,
   "targetRestore": {
     "kind": "machinen.real-cross-arch-portable-vm-all3-target-restore",
     "accepted": true,
@@ -25,16 +25,16 @@
       "qtySum": 41
     },
     "serviceStarted": true,
-    "servicePid": 343,
+    "servicePid": 346,
     "nodejsMemory": {
       "materialized": true,
       "materializedRows": 130,
-      "pid": 756
+      "pid": 759
     },
     "nodejsResource": {
       "materialized": true,
-      "materializedRows": 137,
-      "pid": 790
+      "materializedRows": 143,
+      "pid": 793
     }
   },
   "targetVerify": {
@@ -62,7 +62,7 @@
     "nodejsResource": {
       "accepted": true,
       "resourceIrKind": "machinen.nodejs.resource-ir",
-      "materializedRows": 137
+      "materializedRows": 143
     }
   },
   "workloads": {
@@ -71,7 +71,7 @@
     "sqlite": true,
     "nodejs": {
       "classified": true,
-      "rowCount": 6,
+      "rowCount": 7,
       "refusedRows": 0,
       "memoryRows": 1,
       "memoryMaterializationRows": 1,
@@ -80,7 +80,7 @@
       "memoryVerified": true,
       "memoryMaterializedRows": 130,
       "resourceVerified": true,
-      "resourceMaterializedRows": 137,
+      "resourceMaterializedRows": 143,
       "arbitraryNodeProcessRestoreClaimed": false,
       "rawV8HeapRestoreUsed": false
     }
@@ -89,11 +89,11 @@
     "kind": "machinen.portable-vm-manifest-plan",
     "scope": "portable-vm-all3-product-snapshot-restore-v1",
     "sourceArchitecture": "arm64",
-    "rowCount": 9,
+    "rowCount": 10,
     "productSupportedRows": 5,
     "refusedRows": 0,
-    "nodejsRows": 6,
-    "nodejsClassifiedRows": 4,
+    "nodejsRows": 7,
+    "nodejsClassifiedRows": 5,
     "nodejsMemoryRows": 1,
     "nodejsResourceRows": 1,
     "unknownStatePolicy": "refuse-by-default"
@@ -104,5 +104,5 @@
     "sourceIsaEmulationUsed": false,
     "metadataOnlyShortcutAccepted": false
   },
-  "elapsedMs": 15265
+  "elapsedMs": 15540
 }

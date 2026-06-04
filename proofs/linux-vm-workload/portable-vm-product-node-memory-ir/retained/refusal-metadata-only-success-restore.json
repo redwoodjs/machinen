@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "kind": "machinen.portable-vm-product-restore-summary",
+  "version": 1,
+  "accepted": false,
+  "scope": "portable-vm-all3-product-snapshot-restore-v1",
+  "state": "refused",
+  "migrationCompleted": false,
+  "sourceArch": "arm64",
+  "targetArch": "arm64",
+  "sourceArchitectureDetected": true,
+  "targetArchitectureDetected": true,
+  "refusal": {
+    "code": "node-portability-memory-metadata-only-success-unsupported",
+    "message": "metadata-only success is refused by default"
+  },
+  "workloads": {
+    "nodejs": {
+      "classified": true,
+      "rowCount": 8,
+      "refusedRows": 1,
+      "memoryRows": 1,
+      "memoryMaterializationRows": 1,
+      "resourceRows": 1,
+      "resourceMaterializationRows": 1,
+      "refusals": [
+        {
+          "id": "nodejs-memory-metadata-only-success",
+          "refusalCode": "node-portability-memory-metadata-only-success-unsupported",
+          "message": "metadata-only success is refused by default"
+        }
+      ],
+      "memoryRefusals": ["node-portability-memory-metadata-only-success-unsupported"],
+      "resourceRefusals": []
+    }
+  },
+  "claimGuard": {
+    "arbitraryVmRestoreClaimed": false,
+    "rawVmStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlyShortcutAccepted": false
+  }
+}

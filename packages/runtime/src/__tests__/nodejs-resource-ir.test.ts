@@ -121,6 +121,15 @@ describe("Node.js Resource IR product materializer", () => {
       refusalCode: NODEJS_RESOURCE_IR_INVALID_REFUSAL_CODE,
     });
     expect(
+      validateNodejsResourceIrDocument({
+        ...validIr(),
+        rows: [{ ...validIr().rows[0], semanticState: { rawGcReachability: true } }],
+      }),
+    ).toMatchObject({
+      accepted: false,
+      refusalCode: NODEJS_RESOURCE_IR_INVALID_REFUSAL_CODE,
+    });
+    expect(
       validateNodejsResourceIrDocument({ ...validIr(), captureBoundary: undefined }),
     ).toMatchObject({
       accepted: false,

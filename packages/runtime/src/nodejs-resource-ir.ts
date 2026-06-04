@@ -178,6 +178,12 @@ const supportedResourceKinds = new Set([
   "quiesced-async-context-resource-spec",
   "declared-ffi-adapter-spec",
   "declared-native-resource-adapter-spec",
+  "weakmap-semantic-entries-spec",
+  "weakset-semantic-members-spec",
+  "finalization-registry-drop-policy-spec",
+  "weakref-semantic-reference-spec",
+  "gc-sensitive-cache-rebuild-policy-spec",
+  "ephemeron-table-semantic-descriptor-spec",
 ]);
 
 const forbiddenRawFields = new Set([
@@ -197,6 +203,11 @@ const forbiddenRawFields = new Set([
   "nativePointer",
   "ffiHandle",
   "uvHandleBytes",
+  "rawGcReachability",
+  "gcReachabilityGraph",
+  "weakCellPointer",
+  "finalizerQueue",
+  "ephemeronTableBytes",
 ]);
 
 export function validateNodejsResourceIrDocument(value: unknown): NodejsResourceIrValidationResult {

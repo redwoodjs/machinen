@@ -245,6 +245,12 @@ const resourceIr = {
     resourceRow('nodejs-resource-quiesced-async-context-resource', 'quiesced-async-context-resource-spec', { quiescenceReport: 'nodejs-quiescence-report.json', activeRuntimeResources: 0, contextPolicy: 'semantic-context-snapshot' }),
     resourceRow('nodejs-resource-declared-ffi-adapter', 'declared-ffi-adapter-spec', { nativeAdapterReport: 'nodejs-native-adapter-report.json', adapterId: 'ffi-semantic-counter-v1', exportPolicy: 'semantic-json-state-only', importPolicy: 'target-native-adapter-import', rawPointerTransfer: false, rawHandleBytesRetained: false }),
     resourceRow('nodejs-resource-declared-native-resource-adapter', 'declared-native-resource-adapter-spec', { nativeAdapterReport: 'nodejs-native-adapter-report.json', adapterId: 'native-resource-semantic-wrapper-v1', exportPolicy: 'semantic-json-state-only', importPolicy: 'target-native-adapter-import', rawPointerTransfer: false, rawHandleBytesRetained: false }),
+    resourceRow('nodejs-resource-weakmap-semantic-entries', 'weakmap-semantic-entries-spec', { gcStableWeakReport: 'nodejs-gc-stable-weak-report.json', keyPolicy: 'declared-strong-key-descriptors', valuePolicy: 'semantic-json-values', rawGcReachabilityRestore: false, dropUnreachablePolicy: 'drop-at-capture-boundary' }),
+    resourceRow('nodejs-resource-weakset-semantic-members', 'weakset-semantic-members-spec', { gcStableWeakReport: 'nodejs-gc-stable-weak-report.json', memberPolicy: 'declared-strong-member-descriptors', rawGcReachabilityRestore: false, dropUnreachablePolicy: 'drop-at-capture-boundary' }),
+    resourceRow('nodejs-resource-finalization-registry-drop-policy', 'finalization-registry-drop-policy-spec', { gcStableWeakReport: 'nodejs-gc-stable-weak-report.json', pendingFinalizers: 0, finalizerPolicy: 'do-not-transfer-finalizer-queue', cleanupPolicy: 'target-native-empty-registry' }),
+    resourceRow('nodejs-resource-weakref-semantic-reference', 'weakref-semantic-reference-spec', { gcStableWeakReport: 'nodejs-gc-stable-weak-report.json', referencePolicy: 'resolve-declared-target-or-drop', rawGcReachabilityRestore: false, derefPolicy: 'semantic-optional-reference' }),
+    resourceRow('nodejs-resource-gc-sensitive-cache-rebuild-policy', 'gc-sensitive-cache-rebuild-policy-spec', { gcStableWeakReport: 'nodejs-gc-stable-weak-report.json', cachePolicy: 'drop-and-lazy-rebuild-target-native', rawGcReachabilityRestore: false, retainedEntries: 0 }),
+    resourceRow('nodejs-resource-ephemeron-table-semantic-descriptor', 'ephemeron-table-semantic-descriptor-spec', { gcStableWeakReport: 'nodejs-gc-stable-weak-report.json', keyPolicy: 'declared-strong-key-descriptors', valuePolicy: 'semantic-json-values', rawEphemeronTableBytes: false, rawGcReachabilityRestore: false }),
     resourceRow('nodejs-resource-http-request-template', 'http-request-template-spec', { activeTransfer: false, shapePolicy: 'recreate-request-template-target-native' }),
     resourceRow('nodejs-resource-http-response-template', 'http-response-template-spec', { activeTransfer: false, shapePolicy: 'recreate-response-template-target-native' }),
     resourceRow('nodejs-resource-request-body-drained', 'request-body-drained-spec', { bufferedBytes: 0, activeTransfer: false, resumePolicy: 'materialize-drained-body' }),
@@ -341,6 +347,38 @@ const nativeAdapterReport = {
   },
 };
 fs.writeFileSync(path.join(dst, 'nodejs-native-adapter-report.json'), `${JSON.stringify(nativeAdapterReport, null, 2)}\n`);
+const gcStableWeakRowIds = resourceIr.rows
+  .filter((row) => row.semanticState?.gcStableWeakReport === 'nodejs-gc-stable-weak-report.json')
+  .map((row) => row.id);
+const gcStableWeakReport = {
+  kind: 'machinen.nodejs-gc-stable-weak-report',
+  version: 1,
+  accepted: true,
+  sourceArch,
+  captureBoundaryRequired: 'source-vm-paused',
+  weakResourceRows: gcStableWeakRowIds,
+  strategy: 'semantic-weak-policy-no-raw-gc-reachability',
+  policies: [
+    'declared-strong-key-descriptors',
+    'drop-unreachable-at-capture-boundary',
+    'drop-finalizer-queue',
+    'lazy-target-native-cache-rebuild',
+  ],
+  evidence: {
+    rawGcReachabilityTransferred: false,
+    finalizerQueueTransferred: false,
+    ephemeronTableBytesTransferred: false,
+    retainedWeakCellPointers: 0,
+  },
+  remainingGcPolicy: 'verified-refusal-without-declared-semantic-policy',
+  claimGuard: {
+    arbitraryNodeProcessRestoreClaimed: false,
+    rawV8HeapRestoreUsed: false,
+    rawGcReachabilityRestoreUsed: false,
+    sourceIsaEmulationUsed: false,
+  },
+};
+fs.writeFileSync(path.join(dst, 'nodejs-gc-stable-weak-report.json'), `${JSON.stringify(gcStableWeakReport, null, 2)}\n`);
 NODE
   cat >"$dst/target-restore.sh" <<'SH'
 #!/usr/bin/env sh
@@ -570,6 +608,12 @@ REFUSAL_CASES=(
   "resource-native-handle:nodejs-resource-native-handle.refuse:node-portability-resource-native-handle-unsupported"
   "resource-active-tls:nodejs-resource-active-tls.refuse:node-portability-resource-active-tls-unsupported"
   "resource-worker-live-state:nodejs-resource-worker-live-state.refuse:node-portability-resource-worker-live-state-unsupported"
+  "unsupported-boundaries:nodejs-memory-unsupported-boundaries.refuse:node-portability-memory-unsupported-boundaries-unsupported"
+  "pid-continuation:nodejs-memory-pid-continuation.refuse:node-portability-memory-pid-continuation-unsupported"
+  "unknown-v8-object:nodejs-memory-unknown-v8-object.refuse:node-portability-memory-unknown-v8-object-unsupported"
+  "unclassified-state:nodejs-memory-unclassified-state.refuse:node-portability-memory-unclassified-unsupported"
+  "metadata-only-success:nodejs-memory-metadata-only-success.refuse:node-portability-memory-metadata-only-success-unsupported"
+  "source-isa-emulation:nodejs-memory-source-isa-emulation.refuse:node-portability-memory-source-isa-emulation-unsupported"
 )
 
 run_snapshot() {
@@ -643,6 +687,7 @@ const nodeMemoryIr = readJson('node-memory.snap/nodejs-memory-ir.json');
 const nodeResourceIr = readJson('node-memory.snap/nodejs-resource-ir.json');
 const nodeQuiescenceReport = readJson('node-memory.snap/nodejs-quiescence-report.json');
 const nodeNativeAdapterReport = readJson('node-memory.snap/nodejs-native-adapter-report.json');
+const nodeGcStableWeakReport = readJson('node-memory.snap/nodejs-gc-stable-weak-report.json');
 const nodeMaterializer = fs.readFileSync(path.join(work, 'node-memory.snap/nodejs-memory-materializer.mjs'), 'utf8');
 const nodeResourceMaterializer = fs.readFileSync(path.join(work, 'node-memory.snap/nodejs-resource-materializer.mjs'), 'utf8');
 if (acceptSnapshot.accepted !== true || acceptSnapshot.sourceArchitecture !== sourceArch) throw new Error('accepted snapshot did not detect source architecture');
@@ -662,8 +707,10 @@ if (!acceptInventory.items.some((item) => item.id === 'nodejs-memory-ir')) throw
 if (!acceptInventory.items.some((item) => item.id === 'nodejs-resource-inventory')) throw new Error('nodejs-resource-inventory item missing');
 if (!acceptInventory.items.some((item) => item.id === 'nodejs-quiescence-report')) throw new Error('nodejs-quiescence-report inventory item missing');
 if (!acceptInventory.items.some((item) => item.id === 'nodejs-native-adapter-report')) throw new Error('nodejs-native-adapter-report inventory item missing');
+if (!acceptInventory.items.some((item) => item.id === 'nodejs-gc-stable-weak-report')) throw new Error('nodejs-gc-stable-weak-report inventory item missing');
 if (!acceptPlan.restorePlan.rows.some((row) => row.id === 'nodejs-quiescence-report' && row.restoreStrategy === 'prove-nodejs-quiesced-before-resource-capture')) throw new Error('nodejs-quiescence-report plan row missing');
 if (!acceptPlan.restorePlan.rows.some((row) => row.id === 'nodejs-native-adapter-report' && row.restoreStrategy === 'verify-declared-nodejs-native-adapters')) throw new Error('nodejs-native-adapter-report plan row missing');
+if (!acceptPlan.restorePlan.rows.some((row) => row.id === 'nodejs-gc-stable-weak-report' && row.restoreStrategy === 'verify-nodejs-gc-stable-weak-semantics')) throw new Error('nodejs-gc-stable-weak-report plan row missing');
 if (!acceptInventory.items.some((item) => item.id === 'nodejs-resource-ir')) throw new Error('nodejs-resource-ir inventory item missing');
 if (!Array.isArray(nodeResourceInventory.checkedResourceClasses) || !nodeResourceInventory.checkedResourceClasses.includes('native-handles')) throw new Error('nodejs resource inventory did not classify native handles');
 if (nodeClassification.restoreStrategy !== 'materialize-nodejs-memory-ir-target-native') throw new Error('node memory classification missing restore strategy');
@@ -808,6 +855,12 @@ const expectedResourceRowIds = [
   'nodejs-resource-quiesced-async-context-resource',
   'nodejs-resource-declared-ffi-adapter',
   'nodejs-resource-declared-native-resource-adapter',
+  'nodejs-resource-weakmap-semantic-entries',
+  'nodejs-resource-weakset-semantic-members',
+  'nodejs-resource-finalization-registry-drop-policy',
+  'nodejs-resource-weakref-semantic-reference',
+  'nodejs-resource-gc-sensitive-cache-rebuild-policy',
+  'nodejs-resource-ephemeron-table-semantic-descriptor',
   'nodejs-resource-http-request-template',
   'nodejs-resource-http-response-template',
   'nodejs-resource-request-body-drained',
@@ -837,6 +890,10 @@ if (nodeNativeAdapterReport.claimGuard?.rawNativeHandleRestoreUsed !== false || 
 for (const adapter of nodeNativeAdapterReport.adapters ?? []) {
   if (adapter.rawPointerTransfer !== false || adapter.rawHandleBytesRetained !== false || adapter.importedTargetNative !== true) throw new Error(`native adapter ${adapter.adapterId} is not semantic target-native only`);
 }
+const gcStableWeakRows = nodeResourceIr.rows.filter((row) => row.semanticState?.gcStableWeakReport === 'nodejs-gc-stable-weak-report.json').map((row) => row.id);
+if (nodeGcStableWeakReport.accepted !== true || nodeGcStableWeakReport.captureBoundaryRequired !== 'source-vm-paused') throw new Error('node gc-stable weak report missing paused boundary proof');
+if (JSON.stringify(nodeGcStableWeakReport.weakResourceRows) !== JSON.stringify(gcStableWeakRows)) throw new Error('node gc-stable weak row IDs drifted');
+if (nodeGcStableWeakReport.evidence?.rawGcReachabilityTransferred !== false || nodeGcStableWeakReport.evidence?.finalizerQueueTransferred !== false || nodeGcStableWeakReport.evidence?.ephemeronTableBytesTransferred !== false) throw new Error('node gc-stable weak report overclaims raw GC reachability');
 if (nodeResourceIr.rows.some((row) => JSON.stringify(row).match(/rawFd|nativeHandle|uvHandle|rawV8Heap|pid/))) throw new Error('resource IR contains raw/native process state');
 if (nodeResourceIr.rows.some((row) => row.captureBoundaryId !== 'portable-vm-pause-boundary.json' || row.pausedEvidence?.sourceVmPaused !== true)) throw new Error('resource IR row-level pause evidence missing');
 if (acceptRestore.accepted !== true || acceptRestore.sourceArch !== sourceArch || acceptRestore.targetArch !== targetArch) throw new Error('accepted restore failed');
@@ -868,6 +925,12 @@ const refusalCases = [
   ['resource-native-handle', 'node-portability-resource-native-handle-unsupported'],
   ['resource-active-tls', 'node-portability-resource-active-tls-unsupported'],
   ['resource-worker-live-state', 'node-portability-resource-worker-live-state-unsupported'],
+  ['unsupported-boundaries', 'node-portability-memory-unsupported-boundaries-unsupported'],
+  ['pid-continuation', 'node-portability-memory-pid-continuation-unsupported'],
+  ['unknown-v8-object', 'node-portability-memory-unknown-v8-object-unsupported'],
+  ['unclassified-state', 'node-portability-memory-unclassified-unsupported'],
+  ['metadata-only-success', 'node-portability-memory-metadata-only-success-unsupported'],
+  ['source-isa-emulation', 'node-portability-memory-source-isa-emulation-unsupported'],
 ];
 const noPauseRestore = readJson('no-pause-boundary-restore.json');
 if (noPauseRestore.accepted !== false || noPauseRestore.refusal?.code !== 'node-portability-resource-pause-boundary-missing') throw new Error('missing pause boundary restore did not fail closed');
@@ -903,6 +966,7 @@ const artifacts = [
   'node-memory.snap/nodejs-resource-inventory.json',
   'node-memory.snap/nodejs-quiescence-report.json',
   'node-memory.snap/nodejs-native-adapter-report.json',
+  'node-memory.snap/nodejs-gc-stable-weak-report.json',
   'node-memory.snap/nodejs-resource-classification.json',
   'node-memory.snap/nodejs-resource-materializer.mjs',
   'no-pause-boundary-restore.json',
@@ -982,7 +1046,7 @@ if [ -n "${WORK_DIR:-}" ]; then
   find "$WORK" -type f | while IFS= read -r file; do
     rel="${file#$WORK/}"
     case "$rel" in
-      portable-vm-product-node-memory-ir-report.json|accept-snapshot.json|accept-restore.json|node-memory.snap/portable-vm-raw-inventory.json|node-memory.snap/portable-vm-manifest-plan.json|node-memory.snap/portable-vm-product-restore-summary.json|node-memory.snap/portable-vm-pause-boundary.json|node-memory.snap/nodejs-quiescence-report.json|node-memory.snap/nodejs-native-adapter-report.json|node-memory.snap/nodejs-memory-ir.json|node-memory.snap/nodejs-memory-classification.json|node-memory.snap/nodejs-memory-materializer.mjs|node-memory.snap/nodejs-memory-product-row-evidence.json|node-memory.snap/nodejs-resource-ir.json|node-memory.snap/nodejs-resource-inventory.json|node-memory.snap/nodejs-resource-classification.json|node-memory.snap/nodejs-resource-materializer.mjs|no-pause-boundary-restore.json|node-memory-no-pause-boundary.snap/portable-vm-manifest-plan.json|node-memory-no-pause-boundary.snap/portable-vm-product-restore-summary.json|source-bundle-node-memory/target-restore.sh|source-bundle-node-memory/target-verify.sh|refusal-*-snapshot.json|refusal-*-restore.json|node-memory-refusal-*.snap/portable-vm-manifest-plan.json|node-memory-refusal-*.snap/portable-vm-product-restore-summary.json) ;;
+      portable-vm-product-node-memory-ir-report.json|accept-snapshot.json|accept-restore.json|node-memory.snap/portable-vm-raw-inventory.json|node-memory.snap/portable-vm-manifest-plan.json|node-memory.snap/portable-vm-product-restore-summary.json|node-memory.snap/portable-vm-pause-boundary.json|node-memory.snap/nodejs-quiescence-report.json|node-memory.snap/nodejs-native-adapter-report.json|node-memory.snap/nodejs-gc-stable-weak-report.json|node-memory.snap/nodejs-memory-ir.json|node-memory.snap/nodejs-memory-classification.json|node-memory.snap/nodejs-memory-materializer.mjs|node-memory.snap/nodejs-memory-product-row-evidence.json|node-memory.snap/nodejs-resource-ir.json|node-memory.snap/nodejs-resource-inventory.json|node-memory.snap/nodejs-resource-classification.json|node-memory.snap/nodejs-resource-materializer.mjs|no-pause-boundary-restore.json|node-memory-no-pause-boundary.snap/portable-vm-manifest-plan.json|node-memory-no-pause-boundary.snap/portable-vm-product-restore-summary.json|source-bundle-node-memory/target-restore.sh|source-bundle-node-memory/target-verify.sh|refusal-*-snapshot.json|refusal-*-restore.json|node-memory-refusal-*.snap/portable-vm-manifest-plan.json|node-memory-refusal-*.snap/portable-vm-product-restore-summary.json) ;;
       *) rm -f "$file" ;;
     esac
   done

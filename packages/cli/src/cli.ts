@@ -7185,6 +7185,12 @@ add_refusal() {
 [ ! -f "$src/nodejs-memory-child-process.refuse" ] || add_refusal nodejs-memory-child-process nodejs node-portability-memory-child-process-unsupported 'child process memory state is refused by default'
 [ ! -f "$src/nodejs-memory-opaque-native-state.refuse" ] || add_refusal nodejs-memory-opaque-native-state nodejs node-portability-memory-opaque-native-state-unsupported 'opaque native state is refused by default'
 [ ! -f "$src/nodejs-memory-raw-v8-state.refuse" ] || add_refusal nodejs-memory-raw-v8-state nodejs node-portability-memory-raw-v8-state-unsupported 'raw V8 state is refused by default'
+[ ! -f "$src/nodejs-memory-unsupported-boundaries.refuse" ] || add_refusal nodejs-memory-unsupported-boundaries nodejs node-portability-memory-unsupported-boundaries-unsupported 'unsupported V8 object and closure boundaries are refused by default'
+[ ! -f "$src/nodejs-memory-pid-continuation.refuse" ] || add_refusal nodejs-memory-pid-continuation nodejs node-portability-memory-pid-continuation-unsupported 'same PID continuation is refused by default'
+[ ! -f "$src/nodejs-memory-unknown-v8-object.refuse" ] || add_refusal nodejs-memory-unknown-v8-object nodejs node-portability-memory-unknown-v8-object-unsupported 'unknown V8 object state is refused by default'
+[ ! -f "$src/nodejs-memory-unclassified-state.refuse" ] || add_refusal nodejs-memory-unclassified-state nodejs node-portability-memory-unclassified-unsupported 'unclassified state is refused by default'
+[ ! -f "$src/nodejs-memory-metadata-only-success.refuse" ] || add_refusal nodejs-memory-metadata-only-success nodejs node-portability-memory-metadata-only-success-unsupported 'metadata-only success is refused by default'
+[ ! -f "$src/nodejs-memory-source-isa-emulation.refuse" ] || add_refusal nodejs-memory-source-isa-emulation nodejs node-portability-memory-source-isa-emulation-unsupported 'source-ISA emulation is refused by default'
 [ ! -f "$src/nodejs-memory-weakmap.refuse" ] || add_refusal nodejs-memory-weakmap nodejs node-portability-memory-weakmap-unsupported 'WeakMap memory state is refused by default'
 [ ! -f "$src/nodejs-memory-timer.refuse" ] || add_refusal nodejs-memory-timer nodejs node-portability-memory-timer-unsupported 'active timer memory state is refused by default'
 [ ! -f "$src/nodejs-memory-stream.refuse" ] || add_refusal nodejs-memory-stream nodejs node-portability-memory-stream-unsupported 'stream memory state is refused by default'
@@ -7203,6 +7209,8 @@ node_quiescence_items=''
 node_quiescence_plan_rows=''
 node_native_adapter_items=''
 node_native_adapter_plan_rows=''
+node_gc_weak_items=''
+node_gc_weak_plan_rows=''
 node_package_json=''
 if [ -d "$src/filesystem/root" ]; then
   node_package_json=$(find "$src/filesystem/root" -maxdepth 6 -name package.json -type f 2>/dev/null | head -n 1 || true)
@@ -7236,6 +7244,13 @@ if [ -f "$src/nodejs-quiescence-report.json" ]; then
     { "id": "nodejs-quiescence-report", "category": "nodejs", "path": "nodejs-quiescence-report.json", "disposition": "classified" }'
   node_quiescence_plan_rows=',
       { "id": "nodejs-quiescence-report", "category": "nodejs", "disposition": "classified", "restoreStrategy": "prove-nodejs-quiesced-before-resource-capture", "artifact": "nodejs-quiescence-report.json", "captureBoundary": "source-vm-paused", "unsupportedLiveStatePolicy": "refuse" }'
+fi
+
+if [ -f "$src/nodejs-gc-stable-weak-report.json" ]; then
+  node_gc_weak_items=',
+    { "id": "nodejs-gc-stable-weak-report", "category": "nodejs", "path": "nodejs-gc-stable-weak-report.json", "disposition": "classified" }'
+  node_gc_weak_plan_rows=',
+      { "id": "nodejs-gc-stable-weak-report", "category": "nodejs", "disposition": "classified", "restoreStrategy": "verify-nodejs-gc-stable-weak-semantics", "artifact": "nodejs-gc-stable-weak-report.json", "captureBoundary": "source-vm-paused", "rawGcReachabilityPolicy": "refuse" }'
 fi
 
 if [ -f "$src/nodejs-native-adapter-report.json" ]; then
@@ -7345,7 +7360,7 @@ cat >"$work/portable-vm-raw-inventory.json" <<JSON
   "items": [
     { "id": "filesystem-root", "category": "filesystem", "path": "filesystem/root", "disposition": "product-supported" },
     { "id": "selected-service", "category": "service", "path": "service-manifest.json", "disposition": "product-supported" },
-    { "id": "clean-sqlite", "category": "sqlite", "path": "sqlite-dump.sql", "disposition": "product-supported" }$node_inventory_items$node_memory_items$node_quiescence_items$node_native_adapter_items$node_resource_items
+    { "id": "clean-sqlite", "category": "sqlite", "path": "sqlite-dump.sql", "disposition": "product-supported" }$node_inventory_items$node_memory_items$node_quiescence_items$node_native_adapter_items$node_gc_weak_items$node_resource_items
   ]
 }
 JSON
@@ -7368,7 +7383,7 @@ cat >"$work/portable-vm-manifest-plan.json" <<JSON
     "rows": [
       { "id": "filesystem-root", "category": "filesystem", "disposition": "product-supported", "restoreStrategy": "copy-content-addressed-file-tree", "artifact": "filesystem-manifest.json" },
       { "id": "selected-service", "category": "service", "disposition": "product-supported", "restoreStrategy": "start-target-native-selected-service", "artifact": "service-manifest.json" },
-      { "id": "clean-sqlite", "category": "sqlite", "disposition": "product-supported", "restoreStrategy": "restore-clean-logical-sqlite-dump", "artifact": "sqlite-logical.json" }$node_plan_rows$node_memory_plan_rows$node_quiescence_plan_rows$node_native_adapter_plan_rows$node_resource_plan_rows$refusal_rows
+      { "id": "clean-sqlite", "category": "sqlite", "disposition": "product-supported", "restoreStrategy": "restore-clean-logical-sqlite-dump", "artifact": "sqlite-logical.json" }$node_plan_rows$node_memory_plan_rows$node_quiescence_plan_rows$node_native_adapter_plan_rows$node_gc_weak_plan_rows$node_resource_plan_rows$refusal_rows
     ]
   },
   "claimGuard": {

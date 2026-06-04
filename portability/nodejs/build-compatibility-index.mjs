@@ -261,6 +261,13 @@ const productResourceCompatibilityRows = {
   "180-memory-real-ffi-handle-refusal": "nodejs-resource-declared-ffi-adapter",
   "308-memory-real-opaque-native-handles-refusal":
     "nodejs-resource-declared-native-resource-adapter",
+  "060-memory-real-weakmap-refusal": "nodejs-resource-weakmap-semantic-entries",
+  "073-memory-real-weakset-refusal": "nodejs-resource-weakset-semantic-members",
+  "074-memory-real-finalization-registry-refusal":
+    "nodejs-resource-finalization-registry-drop-policy",
+  "075-memory-real-weakref-refusal": "nodejs-resource-weakref-semantic-reference",
+  "076-memory-real-gc-sensitive-cache-refusal": "nodejs-resource-gc-sensitive-cache-rebuild-policy",
+  "077-memory-real-ephemeron-table-refusal": "nodejs-resource-ephemeron-table-semantic-descriptor",
 };
 const productResourceEvidencePaths = [
   "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",

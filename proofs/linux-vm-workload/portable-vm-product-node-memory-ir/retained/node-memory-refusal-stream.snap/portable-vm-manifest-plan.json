@@ -70,6 +70,15 @@
         "rawNativeHandlePolicy": "refuse"
       },
       {
+        "id": "nodejs-gc-stable-weak-report",
+        "category": "nodejs",
+        "disposition": "classified",
+        "restoreStrategy": "verify-nodejs-gc-stable-weak-semantics",
+        "artifact": "nodejs-gc-stable-weak-report.json",
+        "captureBoundary": "source-vm-paused",
+        "rawGcReachabilityPolicy": "refuse"
+      },
+      {
         "id": "nodejs-resource-inventory",
         "category": "nodejs",
         "disposition": "classified",

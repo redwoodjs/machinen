@@ -21,7 +21,7 @@
     "pauseMechanism": "vmm-native-sigusr1-sigusr2",
     "pauseSignal": "SIGUSR1",
     "resumeSignal": "SIGUSR2",
-    "sourceVmPid": 73016,
+    "sourceVmPid": 93229,
     "stoppedStateObserved": true,
     "unsupportedPausedLiveStatePolicy": "refuse",
     "vmmNativeMarker": {
@@ -31,12 +31,12 @@
       "vcpusStopped": true,
       "resumeSignalRequired": "SIGUSR2"
     },
-    "startedAt": "2026-06-04T19:42:50.076Z",
-    "pausedObservedAt": "2026-06-04T19:42:50.097Z",
-    "resumedAt": "2026-06-04T19:42:50.097Z",
+    "startedAt": "2026-06-04T19:55:39.419Z",
+    "pausedObservedAt": "2026-06-04T19:55:39.440Z",
+    "resumedAt": "2026-06-04T19:55:39.440Z",
     "elapsedMs": 21
   },
-  "snapshotDir": "/tmp/machinen-native-adapter-product/node-memory-refusal-child-process.snap",
-  "elapsedMs": 60,
+  "snapshotDir": "/tmp/machinen-weak-gc-product/node-memory-refusal-child-process.snap",
+  "elapsedMs": 65,
   "dryRun": false
 }
