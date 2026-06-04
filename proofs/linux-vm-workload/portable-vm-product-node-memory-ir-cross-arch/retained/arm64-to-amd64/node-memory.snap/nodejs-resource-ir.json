@@ -1662,6 +1662,199 @@
       }
     },
     {
+      "id": "nodejs-resource-quiesced-active-request",
+      "kind": "quiesced-active-request-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "quiescenceReport": "nodejs-quiescence-report.json",
+        "activeRequests": 0,
+        "replayPolicy": "retry-or-complete-from-semantic-boundary"
+      }
+    },
+    {
+      "id": "nodejs-resource-settled-promise-value",
+      "kind": "settled-promise-value-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "quiescenceReport": "nodejs-quiescence-report.json",
+        "pendingPromises": 0,
+        "valuePolicy": "settled-semantic-value"
+      }
+    },
+    {
+      "id": "nodejs-resource-drained-promise-reaction",
+      "kind": "drained-promise-reaction-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "quiescenceReport": "nodejs-quiescence-report.json",
+        "pendingReactions": 0,
+        "reactionPolicy": "already-drained-before-capture"
+      }
+    },
+    {
+      "id": "nodejs-resource-drained-microtask-queue",
+      "kind": "drained-microtask-queue-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "quiescenceReport": "nodejs-quiescence-report.json",
+        "pendingMicrotasks": 0,
+        "queuePolicy": "empty-at-capture"
+      }
+    },
+    {
+      "id": "nodejs-resource-settled-async-function-frame",
+      "kind": "settled-async-function-frame-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "quiescenceReport": "nodejs-quiescence-report.json",
+        "suspendedFrames": 0,
+        "resultPolicy": "settled-semantic-result"
+      }
+    },
+    {
+      "id": "nodejs-resource-drained-stdin",
+      "kind": "drained-stdin-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "quiescenceReport": "nodejs-quiescence-report.json",
+        "activeInput": false,
+        "bufferedBytes": 0
+      }
+    },
+    {
+      "id": "nodejs-resource-drained-messageport",
+      "kind": "drained-messageport-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "quiescenceReport": "nodejs-quiescence-report.json",
+        "queuedMessages": 0,
+        "portPolicy": "recreate-closed-or-empty-port"
+      }
+    },
+    {
+      "id": "nodejs-resource-drained-broadcastchannel",
+      "kind": "drained-broadcastchannel-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "quiescenceReport": "nodejs-quiescence-report.json",
+        "queuedMessages": 0,
+        "channelPolicy": "recreate-empty-channel"
+      }
+    },
+    {
+      "id": "nodejs-resource-sharedarraybuffer-quiesced-copy",
+      "kind": "sharedarraybuffer-quiesced-copy-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "quiescenceReport": "nodejs-quiescence-report.json",
+        "waiters": 0,
+        "copyPolicy": "semantic-byte-copy-after-quiescence"
+      }
+    },
+    {
+      "id": "nodejs-resource-atomics-no-waiters",
+      "kind": "atomics-no-waiters-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "quiescenceReport": "nodejs-quiescence-report.json",
+        "waiters": 0,
+        "futexStatePolicy": "none-to-transfer"
+      }
+    },
+    {
+      "id": "nodejs-resource-worker-shared-buffer-quiesced",
+      "kind": "worker-shared-buffer-quiesced-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "quiescenceReport": "nodejs-quiescence-report.json",
+        "liveWorkers": 0,
+        "waiters": 0,
+        "copyPolicy": "semantic-byte-copy-after-worker-stop"
+      }
+    },
+    {
+      "id": "nodejs-resource-quiesced-async-context-resource",
+      "kind": "quiesced-async-context-resource-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "quiescenceReport": "nodejs-quiescence-report.json",
+        "activeRuntimeResources": 0,
+        "contextPolicy": "semantic-context-snapshot"
+      }
+    },
+    {
       "id": "nodejs-resource-http-request-template",
       "kind": "http-request-template-spec",
       "reconstructable": true,

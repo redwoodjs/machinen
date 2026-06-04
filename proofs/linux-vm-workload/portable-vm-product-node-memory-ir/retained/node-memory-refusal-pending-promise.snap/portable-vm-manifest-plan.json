@@ -52,6 +52,15 @@
         "compatibilityIndex": "portability/nodejs/index.json"
       },
       {
+        "id": "nodejs-quiescence-report",
+        "category": "nodejs",
+        "disposition": "classified",
+        "restoreStrategy": "prove-nodejs-quiesced-before-resource-capture",
+        "artifact": "nodejs-quiescence-report.json",
+        "captureBoundary": "source-vm-paused",
+        "unsupportedLiveStatePolicy": "refuse"
+      },
+      {
         "id": "nodejs-resource-inventory",
         "category": "nodejs",
         "disposition": "classified",

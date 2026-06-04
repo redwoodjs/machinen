@@ -222,6 +222,18 @@ function selectedProductNodeResourceRowIds(): string[] {
     "nodejs-resource-sensitive-buffer-redaction",
     "nodejs-resource-job-retry-policy",
     "nodejs-resource-job-lock-release-policy",
+    "nodejs-resource-quiesced-active-request",
+    "nodejs-resource-settled-promise-value",
+    "nodejs-resource-drained-promise-reaction",
+    "nodejs-resource-drained-microtask-queue",
+    "nodejs-resource-settled-async-function-frame",
+    "nodejs-resource-drained-stdin",
+    "nodejs-resource-drained-messageport",
+    "nodejs-resource-drained-broadcastchannel",
+    "nodejs-resource-sharedarraybuffer-quiesced-copy",
+    "nodejs-resource-atomics-no-waiters",
+    "nodejs-resource-worker-shared-buffer-quiesced",
+    "nodejs-resource-quiesced-async-context-resource",
     "nodejs-resource-http-request-template",
     "nodejs-resource-http-response-template",
     "nodejs-resource-request-body-drained",
@@ -391,11 +403,11 @@ describe("Node.js portability corpus", () => {
       runtime: "nodejs",
       summary: {
         rowCount: 312,
-        byStatus: { verified: 285, "verified-refusal": 27 },
-        byProductClaim: { candidate: 285, "verified-refusal": 27 },
+        byStatus: { verified: 298, "verified-refusal": 14 },
+        byProductClaim: { candidate: 298, "verified-refusal": 14 },
         architectures: ["arm64", "amd64"],
-        verifiedBothArchitectures: 285,
-        verifiedRefusalRows: 27,
+        verifiedBothArchitectures: 298,
+        verifiedRefusalRows: 14,
         refusedRows: 0,
         unsupportedUnverifiedRows: 0,
         coveredRows: 312,
@@ -505,12 +517,12 @@ describe("Node.js portability corpus", () => {
     expect(report).toMatchObject({
       accepted: true,
       rowCount: 312,
-      supportedRows: 285,
-      verifiedRefusalRows: 27,
+      supportedRows: 298,
+      verifiedRefusalRows: 14,
       unsupportedUnverifiedRows: 0,
       allRowsAccountedFor: true,
     });
-    expect(report.verifiedRefusals).toHaveLength(27);
+    expect(report.verifiedRefusals).toHaveLength(14);
     expect(
       report.verifiedRefusals.every(
         (row) =>

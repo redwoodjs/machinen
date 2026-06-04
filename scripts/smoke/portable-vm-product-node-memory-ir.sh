@@ -231,6 +231,18 @@ const resourceIr = {
     resourceRow('nodejs-resource-sensitive-buffer-redaction', 'sensitive-buffer-redaction-spec', { bufferPolicy: 'redacted-zeroized-target-native', sensitiveBytesRetained: false }),
     resourceRow('nodejs-resource-job-retry-policy', 'job-retry-policy-spec', { activeExecution: false, retryPolicy: 'restart-from-semantic-job-checkpoint' }),
     resourceRow('nodejs-resource-job-lock-release-policy', 'job-lock-release-policy-spec', { lockPolicy: 'release-or-reacquire-target-native', activeLockTransfer: false }),
+    resourceRow('nodejs-resource-quiesced-active-request', 'quiesced-active-request-spec', { quiescenceReport: 'nodejs-quiescence-report.json', activeRequests: 0, replayPolicy: 'retry-or-complete-from-semantic-boundary' }),
+    resourceRow('nodejs-resource-settled-promise-value', 'settled-promise-value-spec', { quiescenceReport: 'nodejs-quiescence-report.json', pendingPromises: 0, valuePolicy: 'settled-semantic-value' }),
+    resourceRow('nodejs-resource-drained-promise-reaction', 'drained-promise-reaction-spec', { quiescenceReport: 'nodejs-quiescence-report.json', pendingReactions: 0, reactionPolicy: 'already-drained-before-capture' }),
+    resourceRow('nodejs-resource-drained-microtask-queue', 'drained-microtask-queue-spec', { quiescenceReport: 'nodejs-quiescence-report.json', pendingMicrotasks: 0, queuePolicy: 'empty-at-capture' }),
+    resourceRow('nodejs-resource-settled-async-function-frame', 'settled-async-function-frame-spec', { quiescenceReport: 'nodejs-quiescence-report.json', suspendedFrames: 0, resultPolicy: 'settled-semantic-result' }),
+    resourceRow('nodejs-resource-drained-stdin', 'drained-stdin-spec', { quiescenceReport: 'nodejs-quiescence-report.json', activeInput: false, bufferedBytes: 0 }),
+    resourceRow('nodejs-resource-drained-messageport', 'drained-messageport-spec', { quiescenceReport: 'nodejs-quiescence-report.json', queuedMessages: 0, portPolicy: 'recreate-closed-or-empty-port' }),
+    resourceRow('nodejs-resource-drained-broadcastchannel', 'drained-broadcastchannel-spec', { quiescenceReport: 'nodejs-quiescence-report.json', queuedMessages: 0, channelPolicy: 'recreate-empty-channel' }),
+    resourceRow('nodejs-resource-sharedarraybuffer-quiesced-copy', 'sharedarraybuffer-quiesced-copy-spec', { quiescenceReport: 'nodejs-quiescence-report.json', waiters: 0, copyPolicy: 'semantic-byte-copy-after-quiescence' }),
+    resourceRow('nodejs-resource-atomics-no-waiters', 'atomics-no-waiters-spec', { quiescenceReport: 'nodejs-quiescence-report.json', waiters: 0, futexStatePolicy: 'none-to-transfer' }),
+    resourceRow('nodejs-resource-worker-shared-buffer-quiesced', 'worker-shared-buffer-quiesced-spec', { quiescenceReport: 'nodejs-quiescence-report.json', liveWorkers: 0, waiters: 0, copyPolicy: 'semantic-byte-copy-after-worker-stop' }),
+    resourceRow('nodejs-resource-quiesced-async-context-resource', 'quiesced-async-context-resource-spec', { quiescenceReport: 'nodejs-quiescence-report.json', activeRuntimeResources: 0, contextPolicy: 'semantic-context-snapshot' }),
     resourceRow('nodejs-resource-http-request-template', 'http-request-template-spec', { activeTransfer: false, shapePolicy: 'recreate-request-template-target-native' }),
     resourceRow('nodejs-resource-http-response-template', 'http-response-template-spec', { activeTransfer: false, shapePolicy: 'recreate-response-template-target-native' }),
     resourceRow('nodejs-resource-request-body-drained', 'request-body-drained-spec', { bufferedBytes: 0, activeTransfer: false, resumePolicy: 'materialize-drained-body' }),
@@ -258,6 +270,37 @@ const resourceIr = {
   },
 };
 fs.writeFileSync(path.join(dst, 'nodejs-resource-ir.json'), `${JSON.stringify(resourceIr, null, 2)}\n`);
+const quiescedRowIds = resourceIr.rows
+  .filter((row) => row.semanticState?.quiescenceReport === 'nodejs-quiescence-report.json')
+  .map((row) => row.id);
+const quiescenceReport = {
+  kind: 'machinen.nodejs-quiescence-report',
+  version: 1,
+  accepted: true,
+  sourceArch,
+  captureBoundaryRequired: 'source-vm-paused',
+  strategy: 'drain-async-io-concurrency-before-resource-capture',
+  quiescedRows: quiescedRowIds,
+  unsafeRowsRemainingPolicy: 'verified-refusal',
+  evidence: {
+    activeRequests: 0,
+    pendingPromises: 0,
+    pendingMicrotasks: 0,
+    queuedMessages: 0,
+    sharedMemoryWaiters: 0,
+    liveWorkers: 0,
+  },
+  claimGuard: {
+    arbitraryNodeProcessRestoreClaimed: false,
+    rawV8HeapRestoreUsed: false,
+    rawNativeHandleRestoreUsed: false,
+    rawCpuStateReplayUsed: false,
+    sourceIsaEmulationUsed: false,
+    samePidContinuationClaimed: false,
+    activeRequestOrSocketContinuationClaimed: false,
+  },
+};
+fs.writeFileSync(path.join(dst, 'nodejs-quiescence-report.json'), `${JSON.stringify(quiescenceReport, null, 2)}\n`);
 NODE
   cat >"$dst/target-restore.sh" <<'SH'
 #!/usr/bin/env sh
@@ -558,6 +601,7 @@ const nodeResourceInventory = readJson('node-memory.snap/nodejs-resource-invento
 const pauseBoundary = readJson('node-memory.snap/portable-vm-pause-boundary.json');
 const nodeMemoryIr = readJson('node-memory.snap/nodejs-memory-ir.json');
 const nodeResourceIr = readJson('node-memory.snap/nodejs-resource-ir.json');
+const nodeQuiescenceReport = readJson('node-memory.snap/nodejs-quiescence-report.json');
 const nodeMaterializer = fs.readFileSync(path.join(work, 'node-memory.snap/nodejs-memory-materializer.mjs'), 'utf8');
 const nodeResourceMaterializer = fs.readFileSync(path.join(work, 'node-memory.snap/nodejs-resource-materializer.mjs'), 'utf8');
 if (acceptSnapshot.accepted !== true || acceptSnapshot.sourceArchitecture !== sourceArch) throw new Error('accepted snapshot did not detect source architecture');
@@ -575,6 +619,8 @@ if (!resourceRow || resourceRow.disposition !== 'product-supported') throw new E
 if (resourceRow.restoreStrategy !== 'materialize-nodejs-resource-ir-target-native') throw new Error('nodejs resource restore strategy missing');
 if (!acceptInventory.items.some((item) => item.id === 'nodejs-memory-ir')) throw new Error('nodejs-memory-ir inventory item missing');
 if (!acceptInventory.items.some((item) => item.id === 'nodejs-resource-inventory')) throw new Error('nodejs-resource-inventory item missing');
+if (!acceptInventory.items.some((item) => item.id === 'nodejs-quiescence-report')) throw new Error('nodejs-quiescence-report inventory item missing');
+if (!acceptPlan.restorePlan.rows.some((row) => row.id === 'nodejs-quiescence-report' && row.restoreStrategy === 'prove-nodejs-quiesced-before-resource-capture')) throw new Error('nodejs-quiescence-report plan row missing');
 if (!acceptInventory.items.some((item) => item.id === 'nodejs-resource-ir')) throw new Error('nodejs-resource-ir inventory item missing');
 if (!Array.isArray(nodeResourceInventory.checkedResourceClasses) || !nodeResourceInventory.checkedResourceClasses.includes('native-handles')) throw new Error('nodejs resource inventory did not classify native handles');
 if (nodeClassification.restoreStrategy !== 'materialize-nodejs-memory-ir-target-native') throw new Error('node memory classification missing restore strategy');
@@ -705,6 +751,18 @@ const expectedResourceRowIds = [
   'nodejs-resource-sensitive-buffer-redaction',
   'nodejs-resource-job-retry-policy',
   'nodejs-resource-job-lock-release-policy',
+  'nodejs-resource-quiesced-active-request',
+  'nodejs-resource-settled-promise-value',
+  'nodejs-resource-drained-promise-reaction',
+  'nodejs-resource-drained-microtask-queue',
+  'nodejs-resource-settled-async-function-frame',
+  'nodejs-resource-drained-stdin',
+  'nodejs-resource-drained-messageport',
+  'nodejs-resource-drained-broadcastchannel',
+  'nodejs-resource-sharedarraybuffer-quiesced-copy',
+  'nodejs-resource-atomics-no-waiters',
+  'nodejs-resource-worker-shared-buffer-quiesced',
+  'nodejs-resource-quiesced-async-context-resource',
   'nodejs-resource-http-request-template',
   'nodejs-resource-http-response-template',
   'nodejs-resource-request-body-drained',
@@ -723,6 +781,10 @@ const expectedResourceRowIds = [
 ];
 if (nodeResourceIr.kind !== 'machinen.nodejs.resource-ir' || !Array.isArray(nodeResourceIr.rows) || nodeResourceIr.rows.length !== expectedResourceRowIds.length) throw new Error('resource IR rows not retained');
 if (JSON.stringify(nodeResourceIr.rows.map((row) => row.id)) !== JSON.stringify(expectedResourceRowIds)) throw new Error('resource IR row IDs drifted');
+const quiescedRows = nodeResourceIr.rows.filter((row) => row.semanticState?.quiescenceReport === 'nodejs-quiescence-report.json').map((row) => row.id);
+if (nodeQuiescenceReport.accepted !== true || nodeQuiescenceReport.captureBoundaryRequired !== 'source-vm-paused') throw new Error('node quiescence report missing paused boundary proof');
+if (JSON.stringify(nodeQuiescenceReport.quiescedRows) !== JSON.stringify(quiescedRows)) throw new Error('node quiescence report row IDs drifted');
+if (nodeQuiescenceReport.evidence?.activeRequests !== 0 || nodeQuiescenceReport.evidence?.pendingPromises !== 0 || nodeQuiescenceReport.evidence?.pendingMicrotasks !== 0) throw new Error('node quiescence report did not prove drained async/I/O');
 if (nodeResourceIr.rows.some((row) => JSON.stringify(row).match(/rawFd|nativeHandle|uvHandle|rawV8Heap|pid/))) throw new Error('resource IR contains raw/native process state');
 if (nodeResourceIr.rows.some((row) => row.captureBoundaryId !== 'portable-vm-pause-boundary.json' || row.pausedEvidence?.sourceVmPaused !== true)) throw new Error('resource IR row-level pause evidence missing');
 if (acceptRestore.accepted !== true || acceptRestore.sourceArch !== sourceArch || acceptRestore.targetArch !== targetArch) throw new Error('accepted restore failed');
@@ -787,6 +849,7 @@ const artifacts = [
   'node-memory.snap/nodejs-memory-product-row-evidence.json',
   'node-memory.snap/nodejs-resource-ir.json',
   'node-memory.snap/nodejs-resource-inventory.json',
+  'node-memory.snap/nodejs-quiescence-report.json',
   'node-memory.snap/nodejs-resource-classification.json',
   'node-memory.snap/nodejs-resource-materializer.mjs',
   'no-pause-boundary-restore.json',
@@ -866,7 +929,7 @@ if [ -n "${WORK_DIR:-}" ]; then
   find "$WORK" -type f | while IFS= read -r file; do
     rel="${file#$WORK/}"
     case "$rel" in
-      portable-vm-product-node-memory-ir-report.json|accept-snapshot.json|accept-restore.json|node-memory.snap/portable-vm-raw-inventory.json|node-memory.snap/portable-vm-manifest-plan.json|node-memory.snap/portable-vm-product-restore-summary.json|node-memory.snap/portable-vm-pause-boundary.json|node-memory.snap/nodejs-memory-ir.json|node-memory.snap/nodejs-memory-classification.json|node-memory.snap/nodejs-memory-materializer.mjs|node-memory.snap/nodejs-memory-product-row-evidence.json|node-memory.snap/nodejs-resource-ir.json|node-memory.snap/nodejs-resource-inventory.json|node-memory.snap/nodejs-resource-classification.json|node-memory.snap/nodejs-resource-materializer.mjs|no-pause-boundary-restore.json|node-memory-no-pause-boundary.snap/portable-vm-manifest-plan.json|node-memory-no-pause-boundary.snap/portable-vm-product-restore-summary.json|source-bundle-node-memory/target-restore.sh|source-bundle-node-memory/target-verify.sh|refusal-*-snapshot.json|refusal-*-restore.json|node-memory-refusal-*.snap/portable-vm-manifest-plan.json|node-memory-refusal-*.snap/portable-vm-product-restore-summary.json) ;;
+      portable-vm-product-node-memory-ir-report.json|accept-snapshot.json|accept-restore.json|node-memory.snap/portable-vm-raw-inventory.json|node-memory.snap/portable-vm-manifest-plan.json|node-memory.snap/portable-vm-product-restore-summary.json|node-memory.snap/portable-vm-pause-boundary.json|node-memory.snap/nodejs-quiescence-report.json|node-memory.snap/nodejs-memory-ir.json|node-memory.snap/nodejs-memory-classification.json|node-memory.snap/nodejs-memory-materializer.mjs|node-memory.snap/nodejs-memory-product-row-evidence.json|node-memory.snap/nodejs-resource-ir.json|node-memory.snap/nodejs-resource-inventory.json|node-memory.snap/nodejs-resource-classification.json|node-memory.snap/nodejs-resource-materializer.mjs|no-pause-boundary-restore.json|node-memory-no-pause-boundary.snap/portable-vm-manifest-plan.json|node-memory-no-pause-boundary.snap/portable-vm-product-restore-summary.json|source-bundle-node-memory/target-restore.sh|source-bundle-node-memory/target-verify.sh|refusal-*-snapshot.json|refusal-*-restore.json|node-memory-refusal-*.snap/portable-vm-manifest-plan.json|node-memory-refusal-*.snap/portable-vm-product-restore-summary.json) ;;
       *) rm -f "$file" ;;
     esac
   done

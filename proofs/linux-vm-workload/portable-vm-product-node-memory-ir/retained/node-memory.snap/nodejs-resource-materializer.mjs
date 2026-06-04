@@ -129,6 +129,18 @@ const supportedResourceKinds = new Set([
   "sensitive-buffer-redaction-spec",
   "job-retry-policy-spec",
   "job-lock-release-policy-spec",
+  "quiesced-active-request-spec",
+  "settled-promise-value-spec",
+  "drained-promise-reaction-spec",
+  "drained-microtask-queue-spec",
+  "settled-async-function-frame-spec",
+  "drained-stdin-spec",
+  "drained-messageport-spec",
+  "drained-broadcastchannel-spec",
+  "sharedarraybuffer-quiesced-copy-spec",
+  "atomics-no-waiters-spec",
+  "worker-shared-buffer-quiesced-spec",
+  "quiesced-async-context-resource-spec",
 ]);
 const forbiddenRawFields = new Set([
   "rawFd",

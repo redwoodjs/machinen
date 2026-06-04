@@ -244,6 +244,20 @@ const productResourceCompatibilityRows = {
   "307-memory-real-sensitive-buffer-refusal": "nodejs-resource-sensitive-buffer-redaction",
   "264-memory-real-active-running-job-refusal": "nodejs-resource-job-retry-policy",
   "266-memory-real-job-lock-refusal": "nodejs-resource-job-lock-release-policy",
+  "019-active-request-app": "nodejs-resource-quiesced-active-request",
+  "035-memory-pending-promise-refusal": "nodejs-resource-settled-promise-value",
+  "049-memory-real-promise-refusal": "nodejs-resource-settled-promise-value",
+  "195-memory-real-promise-reaction-refusal": "nodejs-resource-drained-promise-reaction",
+  "196-memory-real-microtask-queue-refusal": "nodejs-resource-drained-microtask-queue",
+  "197-memory-real-async-function-frame-refusal": "nodejs-resource-settled-async-function-frame",
+  "260-memory-real-active-stdin-refusal": "nodejs-resource-drained-stdin",
+  "184-memory-real-messageport-refusal": "nodejs-resource-drained-messageport",
+  "185-memory-real-broadcastchannel-refusal": "nodejs-resource-drained-broadcastchannel",
+  "130-memory-real-sharedarraybuffer-refusal": "nodejs-resource-sharedarraybuffer-quiesced-copy",
+  "186-memory-real-atomics-wait-refusal": "nodejs-resource-atomics-no-waiters",
+  "187-memory-real-worker-shared-buffer-refusal": "nodejs-resource-worker-shared-buffer-quiesced",
+  "067-memory-real-async-context-native-resource-refusal":
+    "nodejs-resource-quiesced-async-context-resource",
 };
 const productResourceEvidencePaths = [
   "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",

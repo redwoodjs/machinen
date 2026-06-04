@@ -22,7 +22,7 @@
       "pauseMechanism": "vmm-native-sigusr1-sigusr2",
       "pauseSignal": "SIGUSR1",
       "resumeSignal": "SIGUSR2",
-      "sourceVmPid": 34108,
+      "sourceVmPid": 51125,
       "stoppedStateObserved": true,
       "unsupportedPausedLiveStatePolicy": "refuse",
       "vmmNativeMarker": {
@@ -32,17 +32,17 @@
         "vcpusStopped": true,
         "resumeSignalRequired": "SIGUSR2"
       },
-      "startedAt": "2026-06-04T18:52:16.443Z",
-      "pausedObservedAt": "2026-06-04T18:52:16.465Z",
-      "resumedAt": "2026-06-04T18:52:16.465Z",
-      "elapsedMs": 22
+      "startedAt": "2026-06-04T19:12:24.354Z",
+      "pausedObservedAt": "2026-06-04T19:12:24.375Z",
+      "resumedAt": "2026-06-04T19:12:24.375Z",
+      "elapsedMs": 21
     },
     "memoryMaterializationRows": 1,
     "resourceMaterializationRows": 1,
     "memoryVerified": true,
     "resourceVerified": true,
     "materializedRows": 130,
-    "resourceMaterializedRows": 123,
+    "resourceMaterializedRows": 135,
     "supportedSemanticRows": [
       "037-memory-real-plain-object",
       "038-memory-real-array",
@@ -284,6 +284,18 @@
       "nodejs-resource-sensitive-buffer-redaction",
       "nodejs-resource-job-retry-policy",
       "nodejs-resource-job-lock-release-policy",
+      "nodejs-resource-quiesced-active-request",
+      "nodejs-resource-settled-promise-value",
+      "nodejs-resource-drained-promise-reaction",
+      "nodejs-resource-drained-microtask-queue",
+      "nodejs-resource-settled-async-function-frame",
+      "nodejs-resource-drained-stdin",
+      "nodejs-resource-drained-messageport",
+      "nodejs-resource-drained-broadcastchannel",
+      "nodejs-resource-sharedarraybuffer-quiesced-copy",
+      "nodejs-resource-atomics-no-waiters",
+      "nodejs-resource-worker-shared-buffer-quiesced",
+      "nodejs-resource-quiesced-async-context-resource",
       "nodejs-resource-http-request-template",
       "nodejs-resource-http-response-template",
       "nodejs-resource-request-body-drained",
@@ -3210,27 +3222,27 @@
   "artifacts": [
     {
       "path": "accept-snapshot.json",
-      "sha256": "cda6b660448cdc9f722654429753de35807a2c6352a15dd4cfc8350c0afd66a3"
+      "sha256": "d27cfaeabce72acdf6e5b2b398c8fc86b42f1255dc52a2fc9ba21afeca6f5e19"
     },
     {
       "path": "accept-restore.json",
-      "sha256": "6c9ab2be28bdd2dcfbe2a4396b6d669c43bfd2c0fc789091435d2eee9a3b841f"
+      "sha256": "39ca1e7629e693851230f87e67fc85af272e2e6e55fe324544ad40defa968eec"
     },
     {
       "path": "node-memory.snap/portable-vm-raw-inventory.json",
-      "sha256": "4d7c7375135ebe0e79737f10368e6ed756be81aaa54b589a37b262c229c7d4e3"
+      "sha256": "9732356dd4131937a20ed21a2c568227740b66dded16cb16037921a6fbf18b92"
     },
     {
       "path": "node-memory.snap/portable-vm-manifest-plan.json",
-      "sha256": "4984244c94e21b81723d8b541b95c4c6011e2128bad2992019d6a2ff9b0883ad"
+      "sha256": "b9a5dba26ba2b960812282d3ba7e15693c2487d282972de51269da9cbeaf9682"
     },
     {
       "path": "node-memory.snap/portable-vm-product-restore-summary.json",
-      "sha256": "7456582b367ba98c0633f07aa163581198035d292fc8e82877c70b655070ebc2"
+      "sha256": "cce28f2a9c8cfb679db7b85728ce2cd13c0e27c8768f4863971232be6ecfbffd"
     },
     {
       "path": "node-memory.snap/portable-vm-pause-boundary.json",
-      "sha256": "dd03c1f9089fb678291c35242c4563ef338940d430ddeab51f4143f5b41cd4b2"
+      "sha256": "64648a8f524bce456dba0c47dc0df3c14e156d9d98a546bc74eb4b9ef50e9d96"
     },
     {
       "path": "node-memory.snap/nodejs-memory-ir.json",
@@ -3250,11 +3262,15 @@
     },
     {
       "path": "node-memory.snap/nodejs-resource-ir.json",
-      "sha256": "7f7c794cf87b43498e8cc115523876ba86e77ddc75f24cbf686b5a573aa1d581"
+      "sha256": "be7f42f786a3deaf545bf6cce4cd8e428e35a1ed22e27eb6cf2637f1143c8d8c"
     },
     {
       "path": "node-memory.snap/nodejs-resource-inventory.json",
       "sha256": "01a4d310f4c11d30e04cf08d7d8ed47a3345bb77d06446162cf6880d6eb5e5de"
+    },
+    {
+      "path": "node-memory.snap/nodejs-quiescence-report.json",
+      "sha256": "f712d62f42a0a4538b28bb1109707d7b0b5b3a2c1bb5581216f97f3f9a38d8e6"
     },
     {
       "path": "node-memory.snap/nodejs-resource-classification.json",
@@ -3262,275 +3278,275 @@
     },
     {
       "path": "node-memory.snap/nodejs-resource-materializer.mjs",
-      "sha256": "8f06fccc5249d10d07e2959e577dbf98210007fc9858478e18a792c2cac2f542"
+      "sha256": "d3f226aedafa79d411b53461dd0f8858ee60912e101e4a66e2bf434f74cdd7b6"
     },
     {
       "path": "no-pause-boundary-restore.json",
-      "sha256": "cf2d6705016bee51a1405741177721b28a22aca78f27c460a2bf0743156a9b19"
+      "sha256": "e1b3f3d05de38671dbc938f911ef63569e6bcf89cc516868f17858310814cce2"
     },
     {
       "path": "node-memory-no-pause-boundary.snap/portable-vm-manifest-plan.json",
-      "sha256": "4984244c94e21b81723d8b541b95c4c6011e2128bad2992019d6a2ff9b0883ad"
+      "sha256": "b9a5dba26ba2b960812282d3ba7e15693c2487d282972de51269da9cbeaf9682"
     },
     {
       "path": "node-memory-no-pause-boundary.snap/portable-vm-product-restore-summary.json",
-      "sha256": "4a572608ba0f99ddc19b357b9eba4e899be090eecffd1641d398d39cdd4b2205"
+      "sha256": "b5100b07e27ded658b8e1d29ced601b8ad0b434325479da336fc425c249460f1"
     },
     {
       "path": "refusal-pending-promise-snapshot.json",
-      "sha256": "6babf7a8e6ccbfc10233bebd2a5b20143e4c27a1c9f2371dc4d370a5d5535d86"
+      "sha256": "9247517a636d35cc110f2386a555b42a137731142ff65f93e4f56fc5725135f9"
     },
     {
       "path": "refusal-pending-promise-restore.json",
-      "sha256": "1955aff291c67e47319db83fdac39a49c9f375131961587f13a631d0badccb05"
+      "sha256": "8807fd47c6ceae67dd7b48809045afc3c5e0a394b384e64ac39d039d281cc545"
     },
     {
       "path": "node-memory-refusal-pending-promise.snap/portable-vm-manifest-plan.json",
-      "sha256": "0f7193dd0410abd2344aa578aa6ccd8b41dcc77fd0472c49573663ea0769eae8"
+      "sha256": "6d6b3049b13ffe01a4160d32d48e3d945754a3e5c0383a85333a376b292d51c3"
     },
     {
       "path": "node-memory-refusal-pending-promise.snap/portable-vm-product-restore-summary.json",
-      "sha256": "7f7d6f35ee5f799344f901fa2f660e6b62450fa5668ae6a91f0b57bd2e65d12f"
+      "sha256": "485c052341d9d87ad3c2eae07ead407b54047a060f826cf78956bc518a7d0031"
     },
     {
       "path": "refusal-pending-microtask-snapshot.json",
-      "sha256": "9d02f395637cd65217c8108349648120b592d16dca8b0d04f75948d507fd40f9"
+      "sha256": "33c1bbe1c60fe709f30b1ff754c806239977842e5b272c4544f7d3a005df6121"
     },
     {
       "path": "refusal-pending-microtask-restore.json",
-      "sha256": "38556536d267b9c82965c4f97728d79ae57037eea1973ad8ef89f2f2a68f2803"
+      "sha256": "38e10aa0490279bab5511ce44bb2f4593230a4567f97a22fbd0184c88bc36f20"
     },
     {
       "path": "node-memory-refusal-pending-microtask.snap/portable-vm-manifest-plan.json",
-      "sha256": "186a7763e93009414ab2acc6113be75625c62003fb54cbcb922b79819e40a5df"
+      "sha256": "3b3427a2d3d6c2ba75ba65443f3bef003062d78f26e0910e83c431a9c58f0ac6"
     },
     {
       "path": "node-memory-refusal-pending-microtask.snap/portable-vm-product-restore-summary.json",
-      "sha256": "580f11d742eef92a599e2c4025c862ed2839cbf4bb382452d24ce1e4c9c90695"
+      "sha256": "0263ea3f97bf65666862f7b127dc35370b57a3f55182c19561fa4f0c4241ac00"
     },
     {
       "path": "refusal-active-socket-snapshot.json",
-      "sha256": "2766553d7d047076746e08aff48668c7bab60da27e03c6037939c10c030b48b2"
+      "sha256": "c54d5ad4486b87dcc18d4853d1f7f2610dff099f26141cfb5b7912a1b7b86bdd"
     },
     {
       "path": "refusal-active-socket-restore.json",
-      "sha256": "dd17e133d1ebd7b8d1837440b4512363072ce8b9bedd8bcbcdbc5adc7f3b4c51"
+      "sha256": "1e12fe36a51e43b5d6cb05b9c28ef655e7c16b99941b801917bc60de58a79889"
     },
     {
       "path": "node-memory-refusal-active-socket.snap/portable-vm-manifest-plan.json",
-      "sha256": "5161713a0478a6731419d9949f4c6b8e48dec4cd4434987055f2b5be74a42171"
+      "sha256": "38d8ecff700cceec31f206d2c882aafdf733143df2f97c3a52e7b8343e47740c"
     },
     {
       "path": "node-memory-refusal-active-socket.snap/portable-vm-product-restore-summary.json",
-      "sha256": "68a4df97faf199dd0643d398e8b60fcfccb8e5fca55a233da8e14b1bc8e61f65"
+      "sha256": "78c3f53bc1d537d2ee6154447bd8d872d733e87f631286d257bbc36e5ac7d228"
     },
     {
       "path": "refusal-active-request-snapshot.json",
-      "sha256": "98beaa8b013a511a6bb041285589a8f373bf6edbf323a3cd8c4ca9cddfd26af5"
+      "sha256": "cce9ed80acbe02a4a2459aee0bc8092e40a3970a8f426dd9c61fdf69cf2bdcc8"
     },
     {
       "path": "refusal-active-request-restore.json",
-      "sha256": "fb7740237069660065249e04bda3e877544a906c5492f90ab22ef2013118344e"
+      "sha256": "d2f3939b9d9c33032756837d9162f6429600dd045478f9adeedada8ab83af57c"
     },
     {
       "path": "node-memory-refusal-active-request.snap/portable-vm-manifest-plan.json",
-      "sha256": "3a5e61895cc71ae7236af1351244ce0d236c3f264afd33b0dd81a602b744dd77"
+      "sha256": "eace73ce5438a2ecb5d63e09514223b8b7828da3fad8980fca623b62499d6e53"
     },
     {
       "path": "node-memory-refusal-active-request.snap/portable-vm-product-restore-summary.json",
-      "sha256": "cbd84dc5a9883440c54f1e008b98c5de08a5b8694ce36e0f9e19ee143d4753a4"
+      "sha256": "cc7e49db144342aef384fc33192492a2188ec730cdcfd6510f0c67542910fd3c"
     },
     {
       "path": "refusal-worker-snapshot.json",
-      "sha256": "583b722264f47051d4e252552f1c8fad6c4094711daf7583ba75049bc51ef124"
+      "sha256": "28d8ac9ad5976765d4a241422759bf28371b84f36a9dfd3d941aba1f17d568bb"
     },
     {
       "path": "refusal-worker-restore.json",
-      "sha256": "f5c4c512308a30bb25c02244c8990338e6ba8ebad8aee35fa5b4f5301f87b1f5"
+      "sha256": "429461cf7d7e635870863b23d1721f559f55f3ea2c54000b520c678dd66cb474"
     },
     {
       "path": "node-memory-refusal-worker.snap/portable-vm-manifest-plan.json",
-      "sha256": "5b24e593e33a65508aacbd712d470e8fe88f9f47396566ea8bb573d1c9dcda00"
+      "sha256": "5f325656eb3b2a90812e076b6017b271b599243f09e94af3e0b526b4e1c41f3e"
     },
     {
       "path": "node-memory-refusal-worker.snap/portable-vm-product-restore-summary.json",
-      "sha256": "26a16052659b499f0737ef9f9e135db1679a71d8dc2b6eaa30dd7e370b71fd0f"
+      "sha256": "a51a28e33ad9e63078f007506b837c782dbed75462b05c7df849c7f87904f2d6"
     },
     {
       "path": "refusal-native-addon-snapshot.json",
-      "sha256": "ce946616d55b102494f71f56b8a02ab46584fedab67493b1a46c1b0721adb1a6"
+      "sha256": "3d6dd044509abbd1e94987d3ec0c56fbdb69c0440e46cbc0d2b8b07b6877db7b"
     },
     {
       "path": "refusal-native-addon-restore.json",
-      "sha256": "3363dd434fbe842d82d577144ec32b0b83cf8507fd1557479dd2d39ed3458ac5"
+      "sha256": "b1c0c7754ed08bca5dafe5851d80b3f0b7a8f2002ea09454eed680a95a2fec8c"
     },
     {
       "path": "node-memory-refusal-native-addon.snap/portable-vm-manifest-plan.json",
-      "sha256": "ef5e9bb47622f12b0eaa17af844a2d42a8a294309a22f5ff7eb2f90af078c5b5"
+      "sha256": "aba404396ae75ec6af4929441796c167fc618c3463872ff3e9381095dd975157"
     },
     {
       "path": "node-memory-refusal-native-addon.snap/portable-vm-product-restore-summary.json",
-      "sha256": "6e488b1b81e354c0927c48a5bd1704749c7205cd93cacd4e2e0ca3f776a568f7"
+      "sha256": "e99784057ba2caa47e20c0371803d52b4b4271507fc04aa173bc32da6e307259"
     },
     {
       "path": "refusal-child-process-snapshot.json",
-      "sha256": "cc2a0960a26665f191076fcfc6a72a4d5622b723d2ba19b734fc1aa00fcc20b1"
+      "sha256": "2f7876382deab12d1990341c67143dc3786c22bd972e6cf4e5c1f55c41697323"
     },
     {
       "path": "refusal-child-process-restore.json",
-      "sha256": "566c56ee7bf16de8c90673d287f0c3748b0c1305f8062e7959926657a16da6d0"
+      "sha256": "20ee147ba462020d3418f3544609b272bab11315be5e72da49bfc05168f2f445"
     },
     {
       "path": "node-memory-refusal-child-process.snap/portable-vm-manifest-plan.json",
-      "sha256": "b71429ad67a060d13bd04a31d24aa351d439bb9e373855e050af1b10f89b4659"
+      "sha256": "c79335f0a7179ace173d9d54492e68d04a808c8e58783b9592ed72e917fbd48a"
     },
     {
       "path": "node-memory-refusal-child-process.snap/portable-vm-product-restore-summary.json",
-      "sha256": "89f91746730635d0f0b3774a862acca6be0e30a60854f8dcde3f02d2bd84341a"
+      "sha256": "19024c4ef24699db5993f4de6f03e04369a296b9d036cd902c5b6f28d9cdc920"
     },
     {
       "path": "refusal-opaque-native-state-snapshot.json",
-      "sha256": "312a4e3d8ee0c81848699b385ce53d69902931254085e6f5c4f3052d47e9527f"
+      "sha256": "2b81e24bd35754605c1ffa1dda52954a95d085fefa8e9bd804b9bbe794ec9668"
     },
     {
       "path": "refusal-opaque-native-state-restore.json",
-      "sha256": "1e55bfb25652d39a53538987a032d57272e95dad5f3c1b320c928c75be41a50c"
+      "sha256": "7fb001554241b3f2d3b51fb389f49dbf0d604b5d43e753ca8d4b9d1a1d85e5e3"
     },
     {
       "path": "node-memory-refusal-opaque-native-state.snap/portable-vm-manifest-plan.json",
-      "sha256": "5fa481eeafa7be5e3d33e0c70881709596e7bd49e1474c3dfa89458646795c0f"
+      "sha256": "f80a74e5f00ee41161ed5a15a0298f4c0b4bb3b47bf2d5d6d69022ae2ae92e74"
     },
     {
       "path": "node-memory-refusal-opaque-native-state.snap/portable-vm-product-restore-summary.json",
-      "sha256": "3b52bc8480fd6d96764aaac97f28ea086d82dc42d02d21ef6b6c9dda1e4ce7e8"
+      "sha256": "23433275b96471e9278dfd92e5ccfc9e978a81734bacc61bbf5f6f7af2212bc8"
     },
     {
       "path": "refusal-raw-v8-state-snapshot.json",
-      "sha256": "30f158972d645606b3230e7b70076cb8ee7214c4b6cffbb35e96a2fe93577733"
+      "sha256": "0d746251f8db3081ce4749b32a157890b5d4612f04f1cea2be0b55a9b7cca830"
     },
     {
       "path": "refusal-raw-v8-state-restore.json",
-      "sha256": "49b2ecdd0aa2d4e6ccbb97738505f0355e5f98cd510bb8fc69af043fbab9494f"
+      "sha256": "1c4a49f53b0c147b37c086505a1e35d8f5508801dd05da1e696d338fcf961b23"
     },
     {
       "path": "node-memory-refusal-raw-v8-state.snap/portable-vm-manifest-plan.json",
-      "sha256": "20282124a1ccfd81b64b2cdfe9fc54abda52823965d9f816fca28444ee845fd0"
+      "sha256": "f69a82104aa742f92a997ce5e86670e5f5db354a3484952bbbf74e85411ba89a"
     },
     {
       "path": "node-memory-refusal-raw-v8-state.snap/portable-vm-product-restore-summary.json",
-      "sha256": "8a69259f69ead120165bb754fa29f3413f96ec8f07beaaecb9d47ac5c290e770"
+      "sha256": "d17f4b7a4eb1a4a574611604580b217a5c930fc66b07f5842d5e229c1497b593"
     },
     {
       "path": "refusal-weakmap-snapshot.json",
-      "sha256": "93aff45c1c3c571b9ada597e32cccfb34687977e8b05f758c613778f7ed76039"
+      "sha256": "2aa637399119dbe4c10689500e742421a26dfe1fe0f175eab5a2093f59e14250"
     },
     {
       "path": "refusal-weakmap-restore.json",
-      "sha256": "70668b5b16ba5cbf2c30c03fa46707bdb6885e7b447c4761cb32f930256a040e"
+      "sha256": "49435f2d9a5af49dd78e117afc46e2cef3d3584b10903b199d87c6390e4e9038"
     },
     {
       "path": "node-memory-refusal-weakmap.snap/portable-vm-manifest-plan.json",
-      "sha256": "cd2b83cbb231ee45ba2895cb66aa1689fbdb6e3cea1fab42119ef8eeb27fef88"
+      "sha256": "fd48986f24ea4409af85314828a3b39c8a1e8351a5b9f2fd54f4262a79e73ae6"
     },
     {
       "path": "node-memory-refusal-weakmap.snap/portable-vm-product-restore-summary.json",
-      "sha256": "ff73918656f6cefc240cd52d6bcf5109ae2aea3a675e8daa7d14fc153e33d236"
+      "sha256": "d4c46afe0b593dd857c18323cdfaf9de1e3d4e05905f89bf3778841fa9c35113"
     },
     {
       "path": "refusal-timer-snapshot.json",
-      "sha256": "29192f327f1d22c101b517e94c362c0fb2352d05458639b4a6bda59ab69e6672"
+      "sha256": "46c75ea9eeb02d610aefa8b9aa7a6e11642679fb7aded62acbc4e2be6f58d921"
     },
     {
       "path": "refusal-timer-restore.json",
-      "sha256": "4edad55cbf4a79c0e16cf209f1be4882cf9b4a99108d099928ca042232d63988"
+      "sha256": "22336c5e9cf6b88ed1979d4967c18f4b7a69d5031273029efa96ab95e4fc6ca5"
     },
     {
       "path": "node-memory-refusal-timer.snap/portable-vm-manifest-plan.json",
-      "sha256": "83748a9867922288308f7eba08407c79337a1089a44ec3066612e5862a98b2cd"
+      "sha256": "2c18f9f6a3f29b26a99c2a8a0bab1450d6e7df4d9e105bd1117f601b9fb31748"
     },
     {
       "path": "node-memory-refusal-timer.snap/portable-vm-product-restore-summary.json",
-      "sha256": "3c40745389bbc4a9258de91ba43c96e0c1f2df5922670f5b2a4c703d226232eb"
+      "sha256": "b143ea57dec690a8d369358514f29944a884506c4b574928719364096ada544c"
     },
     {
       "path": "refusal-stream-snapshot.json",
-      "sha256": "48503c33fbcb177c5b03dc738ab0685417b889d38a89f3ecbf1216b24c4e7983"
+      "sha256": "6d0da6dd892dc4ddaa7e320386bddb64f905af9276fe1df9e731390dd6060989"
     },
     {
       "path": "refusal-stream-restore.json",
-      "sha256": "72cddf8632d1ce047be45d515a4027fd6974d6357b05e0f71c17eae0cebd3346"
+      "sha256": "b9d5e067fac7d45b79fddb957825c75afc23d4c13f25b038e9b946397ee8de2b"
     },
     {
       "path": "node-memory-refusal-stream.snap/portable-vm-manifest-plan.json",
-      "sha256": "51a6923737cce6afd812a9f655947424e18800169ffa7b890186171a1f489b4c"
+      "sha256": "17b2ed80a76ad7dec7c50a8f93d146640da57180662fe50ef80172ac4bebaf04"
     },
     {
       "path": "node-memory-refusal-stream.snap/portable-vm-product-restore-summary.json",
-      "sha256": "bb7879b9b30c47f20d38dbdd0b661be145e390831ed7374be9d468bbaedf692a"
+      "sha256": "c824c88d2a6a280033af0acde018dc5f9ec29f346ea5f670279dd00b3cea3ad7"
     },
     {
       "path": "refusal-resource-active-timer-snapshot.json",
-      "sha256": "e9fecbe86b7dd6b7f9b8b7d35c39efed2116099606fb40199467b2565aa2cebe"
+      "sha256": "a56b57338b4a22cfd551442b9187d8ab86ad5b55fa3cb1f4c5600364c378a7a8"
     },
     {
       "path": "refusal-resource-active-timer-restore.json",
-      "sha256": "3b38863338fc1383cfb519a75f8749bf9dd5a92b2b07c192882138f974f2f5e5"
+      "sha256": "9d14b6c30b78bf7706dcc14dbe8b6bbb80c3e72cab75be13181a0bcde568de80"
     },
     {
       "path": "node-memory-refusal-resource-active-timer.snap/portable-vm-manifest-plan.json",
-      "sha256": "e4a0c29c0b1294cc653193c3cf0f81ddefe815319cf1dbd53b5e1de87f578444"
+      "sha256": "dd392c2172044c8c5263bce3fa93ec8561b287a33c2c96b0e107c3c685005aa7"
     },
     {
       "path": "node-memory-refusal-resource-active-timer.snap/portable-vm-product-restore-summary.json",
-      "sha256": "d4362a2fa8f9455d7f98212b698d4afae3adb12f492b40cd97c5a1c06e270c02"
+      "sha256": "a85b2b9e7a85191795258a1da60d6f521c38f5a4fdbbda7a22813c4c07cfc836"
     },
     {
       "path": "refusal-resource-native-handle-snapshot.json",
-      "sha256": "553ffdfc16c46f4cc4f49f2fc010a73267193df2657fd521f829b06f9c01acbf"
+      "sha256": "06fece92c7f6f6ad0b7e610880ad1339a439dc433f40b49cc139a6c25d415dc9"
     },
     {
       "path": "refusal-resource-native-handle-restore.json",
-      "sha256": "1fe27c67616ce522421572bc208cee19da79c5d6730a9d3cd159bc20a536ab46"
+      "sha256": "135cc0c1cad8e108ca1254ac45404f045be7cf3553c20be504f7114c527f2311"
     },
     {
       "path": "node-memory-refusal-resource-native-handle.snap/portable-vm-manifest-plan.json",
-      "sha256": "6e56372de536a838f4287ca24fb109258e81becc082fa463035e5f50b38799c4"
+      "sha256": "bf9eb38eaae726167ebd74caff5bbe57df3629045b6f53d611f78b5faf533170"
     },
     {
       "path": "node-memory-refusal-resource-native-handle.snap/portable-vm-product-restore-summary.json",
-      "sha256": "07581242e37ad3ba2a7425130cbd84c5a10ad9dbc74581e87e41dbc48498ea96"
+      "sha256": "c09ce181c467d701de09744f72a826bbac60e74eb441ae210765b9149a037a8c"
     },
     {
       "path": "refusal-resource-active-tls-snapshot.json",
-      "sha256": "365c65708c27700dc8f5680d48c195861a34ef1830e6780361c06f7519b0dccc"
+      "sha256": "c023893b9fdcffa65db535bc949590c6d9d2442f9b7fbf195556d3f74ca718ad"
     },
     {
       "path": "refusal-resource-active-tls-restore.json",
-      "sha256": "9ea738fb4ef1235e2d8a4bda0d794c1142a830c1b4530a425da9d5e61401813e"
+      "sha256": "50b31755f0258ee4e05e2e811f5d4145b4d9633831c5209cae8c0ad35377262d"
     },
     {
       "path": "node-memory-refusal-resource-active-tls.snap/portable-vm-manifest-plan.json",
-      "sha256": "596c0ee9991c5b7fa230b04a85522a84c62ecf5c52bdb9dfdac456207967e648"
+      "sha256": "43c7bec0170783e9a42f53d23fcec51c99fa6ab61c1ad8242c21db59ee9a0525"
     },
     {
       "path": "node-memory-refusal-resource-active-tls.snap/portable-vm-product-restore-summary.json",
-      "sha256": "e4fff2ba075d74fd9748d265dbe6e2fbcdf3a416f2c586bd842c15d48637ac1e"
+      "sha256": "87ab15a072a03f36976f0791cf8817d689fadb67109a411414c0f8d46954418b"
     },
     {
       "path": "refusal-resource-worker-live-state-snapshot.json",
-      "sha256": "74f1a1923eeb5b648ea9d4caac777d28332fb3588da87bf3794428a2b2e61a80"
+      "sha256": "7dbc81e428e167af842abea9ce512634e6d5637edf7fd0706b2442e9b5de01b7"
     },
     {
       "path": "refusal-resource-worker-live-state-restore.json",
-      "sha256": "f500e80c5120d5ab2565ca07650a09a28a531d9d4470ad663b106348c4677fc7"
+      "sha256": "e5b6ebeb6647114954c55f17a8d3412a9a111d211fb2c9690a8b3e051fe2f810"
     },
     {
       "path": "node-memory-refusal-resource-worker-live-state.snap/portable-vm-manifest-plan.json",
-      "sha256": "70d916357336e8e6fc9ba29c9b343f57dd2a409bf6918b769f7c5fa44e772c5b"
+      "sha256": "d3150da099661b7eb99ad48c980b2fb0349d6a2638095110d5e6ae399ec8022c"
     },
     {
       "path": "node-memory-refusal-resource-worker-live-state.snap/portable-vm-product-restore-summary.json",
-      "sha256": "c4d1b7443a35104321b6ba3f1dc2c1229f55e620c892e8e52dd013a9c50c6848"
+      "sha256": "8a232b910060179cfb38a0ba473e5da6ed378afafa9a3d1aafd7701f3ad22b92"
     }
   ]
 }

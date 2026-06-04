@@ -17,7 +17,7 @@
   "workloads": {
     "nodejs": {
       "classified": true,
-      "rowCount": 4,
+      "rowCount": 5,
       "refusedRows": 0,
       "memoryRows": 1,
       "memoryMaterializationRows": 1,

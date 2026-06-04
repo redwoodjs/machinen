@@ -40,6 +40,12 @@
       "disposition": "product-supported"
     },
     {
+      "id": "nodejs-quiescence-report",
+      "category": "nodejs",
+      "path": "nodejs-quiescence-report.json",
+      "disposition": "classified"
+    },
+    {
       "id": "nodejs-resource-inventory",
       "category": "nodejs",
       "path": "nodejs-resource-inventory.json",
@@ -62,7 +68,7 @@
     "pauseMechanism": "vmm-native-sigusr1-sigusr2",
     "pauseSignal": "SIGUSR1",
     "resumeSignal": "SIGUSR2",
-    "sourceVmPid": 34108,
+    "sourceVmPid": 51125,
     "stoppedStateObserved": true,
     "unsupportedPausedLiveStatePolicy": "refuse",
     "vmmNativeMarker": {
@@ -72,9 +78,9 @@
       "vcpusStopped": true,
       "resumeSignalRequired": "SIGUSR2"
     },
-    "startedAt": "2026-06-04T18:52:16.443Z",
-    "pausedObservedAt": "2026-06-04T18:52:16.465Z",
-    "resumedAt": "2026-06-04T18:52:16.465Z",
-    "elapsedMs": 22
+    "startedAt": "2026-06-04T19:12:24.354Z",
+    "pausedObservedAt": "2026-06-04T19:12:24.375Z",
+    "resumedAt": "2026-06-04T19:12:24.375Z",
+    "elapsedMs": 21
   }
 }

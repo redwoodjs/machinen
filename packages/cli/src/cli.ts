@@ -7199,6 +7199,8 @@ node_memory_items=''
 node_memory_plan_rows=''
 node_resource_items=''
 node_resource_plan_rows=''
+node_quiescence_items=''
+node_quiescence_plan_rows=''
 node_package_json=''
 if [ -d "$src/filesystem/root" ]; then
   node_package_json=$(find "$src/filesystem/root" -maxdepth 6 -name package.json -type f 2>/dev/null | head -n 1 || true)
@@ -7225,6 +7227,13 @@ NODEMEMJSON
     { "id": "nodejs-memory-ir", "category": "nodejs", "path": "nodejs-memory-ir.json", "classification": "nodejs-memory-classification.json", "disposition": "product-supported" }'
   node_memory_plan_rows=',
       { "id": "nodejs-memory-ir", "category": "nodejs", "disposition": "product-supported", "restoreStrategy": "materialize-nodejs-memory-ir-target-native", "artifact": "nodejs-memory-ir.json", "classification": "nodejs-memory-classification.json", "compatibilityIndex": "portability/nodejs/index.json" }'
+fi
+
+if [ -f "$src/nodejs-quiescence-report.json" ]; then
+  node_quiescence_items=',
+    { "id": "nodejs-quiescence-report", "category": "nodejs", "path": "nodejs-quiescence-report.json", "disposition": "classified" }'
+  node_quiescence_plan_rows=',
+      { "id": "nodejs-quiescence-report", "category": "nodejs", "disposition": "classified", "restoreStrategy": "prove-nodejs-quiesced-before-resource-capture", "artifact": "nodejs-quiescence-report.json", "captureBoundary": "source-vm-paused", "unsupportedLiveStatePolicy": "refuse" }'
 fi
 
 if [ -f "$src/nodejs-resource-ir.json" ]; then
@@ -7327,7 +7336,7 @@ cat >"$work/portable-vm-raw-inventory.json" <<JSON
   "items": [
     { "id": "filesystem-root", "category": "filesystem", "path": "filesystem/root", "disposition": "product-supported" },
     { "id": "selected-service", "category": "service", "path": "service-manifest.json", "disposition": "product-supported" },
-    { "id": "clean-sqlite", "category": "sqlite", "path": "sqlite-dump.sql", "disposition": "product-supported" }$node_inventory_items$node_memory_items$node_resource_items
+    { "id": "clean-sqlite", "category": "sqlite", "path": "sqlite-dump.sql", "disposition": "product-supported" }$node_inventory_items$node_memory_items$node_quiescence_items$node_resource_items
   ]
 }
 JSON
@@ -7350,7 +7359,7 @@ cat >"$work/portable-vm-manifest-plan.json" <<JSON
     "rows": [
       { "id": "filesystem-root", "category": "filesystem", "disposition": "product-supported", "restoreStrategy": "copy-content-addressed-file-tree", "artifact": "filesystem-manifest.json" },
       { "id": "selected-service", "category": "service", "disposition": "product-supported", "restoreStrategy": "start-target-native-selected-service", "artifact": "service-manifest.json" },
-      { "id": "clean-sqlite", "category": "sqlite", "disposition": "product-supported", "restoreStrategy": "restore-clean-logical-sqlite-dump", "artifact": "sqlite-logical.json" }$node_plan_rows$node_memory_plan_rows$node_resource_plan_rows$refusal_rows
+      { "id": "clean-sqlite", "category": "sqlite", "disposition": "product-supported", "restoreStrategy": "restore-clean-logical-sqlite-dump", "artifact": "sqlite-logical.json" }$node_plan_rows$node_memory_plan_rows$node_quiescence_plan_rows$node_resource_plan_rows$refusal_rows
     ]
   },
   "claimGuard": {
