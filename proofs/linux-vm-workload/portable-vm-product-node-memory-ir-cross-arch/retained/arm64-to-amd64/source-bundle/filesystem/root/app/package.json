@@ -1,7 +1,0 @@
-{
-  "type": "module",
-  "scripts": {
-    "start": "node app.mjs"
-  },
-  "dependencies": {}
-}

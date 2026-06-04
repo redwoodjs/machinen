@@ -636,7 +636,11 @@ describe("Node.js portability corpus", () => {
     };
     const refusalRestore = JSON.parse(
       readFileSync(resolve(proofRoot, "refusal-pending-promise-restore.json"), "utf8"),
-    ) as { accepted: boolean; refusal: { code: string } };
+    ) as {
+      accepted: boolean;
+      refusal: { code: string };
+      workloads: { nodejs: { refusals: Array<{ refusalCode: string }>; memoryRefusals: string[] } };
+    };
     expect(report).toMatchObject({
       accepted: true,
       productCommandPath:
@@ -699,6 +703,16 @@ describe("Node.js portability corpus", () => {
     expect(refusalRestore).toMatchObject({
       accepted: false,
       refusal: { code: "node-portability-memory-pending-promise-unsupported" },
+      workloads: {
+        nodejs: {
+          refusals: [
+            expect.objectContaining({
+              refusalCode: "node-portability-memory-pending-promise-unsupported",
+            }),
+          ],
+          memoryRefusals: ["node-portability-memory-pending-promise-unsupported"],
+        },
+      },
     });
     expect(report.claimGuard).toMatchObject({
       arbitraryVmRestoreClaimed: false,

@@ -13,6 +13,23 @@
     "code": "node-portability-memory-active-socket-unsupported",
     "message": "active socket state is refused by default"
   },
+  "workloads": {
+    "nodejs": {
+      "classified": true,
+      "rowCount": 3,
+      "refusedRows": 1,
+      "memoryRows": 1,
+      "memoryMaterializationRows": 1,
+      "refusals": [
+        {
+          "id": "nodejs-memory-active-socket",
+          "refusalCode": "node-portability-memory-active-socket-unsupported",
+          "message": "active socket state is refused by default"
+        }
+      ],
+      "memoryRefusals": ["node-portability-memory-active-socket-unsupported"]
+    }
+  },
   "claimGuard": {
     "arbitraryVmRestoreClaimed": false,
     "rawVmStateReplayUsed": false,

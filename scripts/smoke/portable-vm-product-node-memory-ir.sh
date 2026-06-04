@@ -12,9 +12,7 @@ TARGET_ARCH="${TARGET_ARCH:-$SOURCE_ARCH}"
 SOURCE_NAME="portable-vm-node-memory-source-${SOURCE_ARCH}-$(date +%s)-$$"
 RESTORE_NAME="portable-vm-node-memory-target-${TARGET_ARCH}-$(date +%s)-$$"
 ACCEPT_SOURCE="$WORK/source-bundle-node-memory"
-REFUSAL_SOURCE="$WORK/source-bundle-node-memory-refusal"
 ACCEPT_SNAP="$WORK/node-memory.snap"
-REFUSAL_SNAP="$WORK/node-memory-refusal.snap"
 SOURCE_CLI=(env "MACHINEN_ASSETS_DIR=${MACHINEN_ASSETS_DIR:-$ROOT/release-assets}" "MACHINEN_GUEST_ARCH=$SOURCE_ARCH" node packages/cli/dist/cli.js)
 TARGET_CLI=(env "MACHINEN_GUEST_ARCH=$TARGET_ARCH" node packages/cli/dist/cli.js)
 cleanup() {
@@ -386,6 +384,9 @@ const refusalResults = refusalCases.map(([caseId, expectedCode]) => {
   const refusedRow = plan.restorePlan.rows.find((row) => row.refusalCode === expectedCode);
   if (!refusedRow || refusedRow.disposition !== 'refused') throw new Error(`${caseId} refusal row missing`);
   if (restore.accepted !== false || restore.refusal?.code !== expectedCode) throw new Error(`${caseId} restore did not fail closed`);
+  const nodejs = restore.workloads?.nodejs;
+  if (!Array.isArray(nodejs?.refusals) || !nodejs.refusals.some((row) => row.refusalCode === expectedCode)) throw new Error(`${caseId} restore summary missing grouped Node refusal`);
+  if (!Array.isArray(nodejs?.memoryRefusals) || !nodejs.memoryRefusals.includes(expectedCode)) throw new Error(`${caseId} restore summary missing memoryRefusals entry`);
   return { caseId, restoreRefused: true, refusalCode: expectedCode, markerRefusedByPlan: true };
 });
 const artifacts = [
@@ -393,6 +394,7 @@ const artifacts = [
   'accept-restore.json',
   'node-memory.snap/portable-vm-raw-inventory.json',
   'node-memory.snap/portable-vm-manifest-plan.json',
+  'node-memory.snap/portable-vm-product-restore-summary.json',
   'node-memory.snap/nodejs-memory-ir.json',
   'node-memory.snap/nodejs-memory-classification.json',
   'node-memory.snap/nodejs-memory-materializer.mjs',
@@ -401,6 +403,7 @@ const artifacts = [
     `refusal-${caseId}-snapshot.json`,
     `refusal-${caseId}-restore.json`,
     `node-memory-refusal-${caseId}.snap/portable-vm-manifest-plan.json`,
+    `node-memory-refusal-${caseId}.snap/portable-vm-product-restore-summary.json`,
   ]),
 ];
 const report = {
@@ -450,5 +453,16 @@ const report = {
 fs.writeFileSync(path.join(work, 'portable-vm-product-node-memory-ir-report.json'), `${JSON.stringify(report, null, 2)}\n`);
 console.log(JSON.stringify(report, null, 2));
 NODE
+
+if [ -n "${WORK_DIR:-}" ]; then
+  find "$WORK" -type f | while IFS= read -r file; do
+    rel="${file#$WORK/}"
+    case "$rel" in
+      portable-vm-product-node-memory-ir-report.json|accept-snapshot.json|accept-restore.json|node-memory.snap/portable-vm-raw-inventory.json|node-memory.snap/portable-vm-manifest-plan.json|node-memory.snap/portable-vm-product-restore-summary.json|node-memory.snap/nodejs-memory-ir.json|node-memory.snap/nodejs-memory-classification.json|node-memory.snap/nodejs-memory-materializer.mjs|node-memory.snap/nodejs-memory-product-row-evidence.json|source-bundle-node-memory/target-restore.sh|source-bundle-node-memory/target-verify.sh|refusal-*-snapshot.json|refusal-*-restore.json|node-memory-refusal-*.snap/portable-vm-manifest-plan.json|node-memory-refusal-*.snap/portable-vm-product-restore-summary.json) ;;
+      *) rm -f "$file" ;;
+    esac
+  done
+  find "$WORK" -type d -empty -delete
+fi
 
 echo "portable VM product Node memory IR smoke passed: $WORK"

@@ -14,6 +14,23 @@
     "code": "node-portability-memory-pending-promise-unsupported",
     "message": "pending Promise state is refused by default"
   },
+  "workloads": {
+    "nodejs": {
+      "classified": true,
+      "rowCount": 3,
+      "refusedRows": 1,
+      "memoryRows": 1,
+      "memoryMaterializationRows": 1,
+      "refusals": [
+        {
+          "id": "nodejs-memory-pending-promise",
+          "refusalCode": "node-portability-memory-pending-promise-unsupported",
+          "message": "pending Promise state is refused by default"
+        }
+      ],
+      "memoryRefusals": ["node-portability-memory-pending-promise-unsupported"]
+    }
+  },
   "claimGuard": {
     "arbitraryVmRestoreClaimed": false,
     "rawVmStateReplayUsed": false,

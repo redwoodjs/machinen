@@ -6,12 +6,12 @@
   "state": "completed",
   "migrationCompleted": true,
   "sourceArch": "arm64",
-  "targetArch": "arm64",
+  "targetArch": "amd64",
   "sourceArchitectureDetected": true,
   "targetArchitectureDetected": true,
   "targetVmStarted": true,
-  "restoredName": "portable-vm-node-memory-target-arm64-1780536200-75963",
-  "restoredPid": 76540,
+  "restoredName": "portable-vm-node-memory-amd-target-1780536231-82297",
+  "restoredPid": 2090496,
   "targetRestore": {
     "kind": "machinen.real-cross-arch-portable-vm-all3-target-restore",
     "accepted": true,
@@ -25,11 +25,11 @@
       "qtySum": 41
     },
     "serviceStarted": true,
-    "servicePid": 350,
+    "servicePid": 346,
     "nodejsMemory": {
       "materialized": true,
       "materializedRows": 11,
-      "pid": 764
+      "pid": 759
     }
   },
   "targetVerify": {
@@ -89,5 +89,5 @@
     "sourceIsaEmulationUsed": false,
     "metadataOnlyShortcutAccepted": false
   },
-  "elapsedMs": 13292
+  "elapsedMs": 14780
 }

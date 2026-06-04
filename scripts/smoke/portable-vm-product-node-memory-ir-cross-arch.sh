@@ -201,6 +201,7 @@ ssh "$REMOTE_HOST" "mkdir -p '$REMOTE_WORK/arm64-to-amd64/node-memory.snap'"
 rsync -az --delete "$ARM_TO_AMD/node-memory.snap/" "$REMOTE_HOST:$REMOTE_WORK/arm64-to-amd64/node-memory.snap/"
 run_remote_restore "$REMOTE_WORK/arm64-to-amd64/node-memory.snap" "arm64-to-amd64" "$AMD_TARGET_NAME"
 rsync -az "$REMOTE_HOST:$REMOTE_WORK/arm64-to-amd64/node-memory.snap/portable-vm-product-restore-summary.json" "$ARM_TO_AMD/remote-restore-summary.json"
+cp "$ARM_TO_AMD/remote-restore-summary.json" "$ARM_TO_AMD/node-memory.snap/portable-vm-product-restore-summary.json"
 rsync -az "$REMOTE_HOST:$REMOTE_WORK/arm64-to-amd64/node-memory.snap/nodejs-memory-materializer.mjs" "$ARM_TO_AMD/nodejs-memory-materializer.mjs"
 cp "$ARM_TO_AMD/nodejs-memory-materializer.mjs" "$ARM_TO_AMD/node-memory.snap/nodejs-memory-materializer.mjs"
 
@@ -276,11 +277,15 @@ const artifacts = [
   'arm64-to-amd64-snapshot.json',
   'arm64-to-amd64-restore.json',
   'arm64-to-amd64/node-memory.snap/portable-vm-manifest-plan.json',
+  'arm64-to-amd64/node-memory.snap/portable-vm-product-restore-summary.json',
+  'arm64-to-amd64/node-memory.snap/nodejs-memory-ir.json',
   'arm64-to-amd64/node-memory.snap/nodejs-memory-materializer.mjs',
   'arm64-to-amd64/node-memory.snap/nodejs-memory-product-row-evidence.json',
   'amd64-to-arm64-snapshot.json',
   'amd64-to-arm64-restore.json',
   'amd64-to-arm64/node-memory.snap/portable-vm-manifest-plan.json',
+  'amd64-to-arm64/node-memory.snap/portable-vm-product-restore-summary.json',
+  'amd64-to-arm64/node-memory.snap/nodejs-memory-ir.json',
   'amd64-to-arm64/node-memory.snap/nodejs-memory-materializer.mjs',
   'amd64-to-arm64/node-memory.snap/nodejs-memory-product-row-evidence.json',
 ];
@@ -312,5 +317,16 @@ const report = {
 fs.writeFileSync(path.join(work, 'portable-vm-product-node-memory-ir-cross-arch-report.json'), `${JSON.stringify(report, null, 2)}\n`);
 console.log(JSON.stringify(report, null, 2));
 NODE
+
+if [ -n "${WORK_DIR:-}" ]; then
+  find "$WORK" -type f | while IFS= read -r file; do
+    rel="${file#$WORK/}"
+    case "$rel" in
+      portable-vm-product-node-memory-ir-cross-arch-report.json|arm64-to-amd64-snapshot.json|arm64-to-amd64-restore.json|arm64-to-amd64/node-memory.snap/portable-vm-manifest-plan.json|arm64-to-amd64/node-memory.snap/portable-vm-product-restore-summary.json|arm64-to-amd64/node-memory.snap/nodejs-memory-ir.json|arm64-to-amd64/node-memory.snap/nodejs-memory-materializer.mjs|arm64-to-amd64/node-memory.snap/nodejs-memory-product-row-evidence.json|amd64-to-arm64-snapshot.json|amd64-to-arm64-restore.json|amd64-to-arm64/node-memory.snap/portable-vm-manifest-plan.json|amd64-to-arm64/node-memory.snap/portable-vm-product-restore-summary.json|amd64-to-arm64/node-memory.snap/nodejs-memory-ir.json|amd64-to-arm64/node-memory.snap/nodejs-memory-materializer.mjs|amd64-to-arm64/node-memory.snap/nodejs-memory-product-row-evidence.json) ;;
+      *) rm -f "$file" ;;
+    esac
+  done
+  find "$WORK" -type d -empty -delete
+fi
 
 echo "portable VM product Node memory IR cross-arch smoke passed: $WORK"

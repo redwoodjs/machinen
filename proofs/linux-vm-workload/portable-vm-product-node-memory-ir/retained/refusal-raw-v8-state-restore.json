@@ -14,6 +14,23 @@
     "code": "node-portability-memory-raw-v8-state-unsupported",
     "message": "raw V8 state is refused by default"
   },
+  "workloads": {
+    "nodejs": {
+      "classified": true,
+      "rowCount": 3,
+      "refusedRows": 1,
+      "memoryRows": 1,
+      "memoryMaterializationRows": 1,
+      "refusals": [
+        {
+          "id": "nodejs-memory-raw-v8-state",
+          "refusalCode": "node-portability-memory-raw-v8-state-unsupported",
+          "message": "raw V8 state is refused by default"
+        }
+      ],
+      "memoryRefusals": ["node-portability-memory-raw-v8-state-unsupported"]
+    }
+  },
   "claimGuard": {
     "arbitraryVmRestoreClaimed": false,
     "rawVmStateReplayUsed": false,

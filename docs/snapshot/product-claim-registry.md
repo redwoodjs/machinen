@@ -33,7 +33,8 @@ There is currently no arbitrary Level 5 Node/Linux process continuation product
 support entry. The selected Node Memory IR entry is a compatibility-matrix subset
 for semantic IR materialization only; it refuses unsafe/opaque state and does not
 claim raw V8 heap restore, same-PID continuation, raw CPU state replay, or
-arbitrary process restore. Historical Node/runtime profile and live-app proof
+arbitrary process restore. See `node-memory-ir-compatibility.md` for the scoped
+supported/refused row table. Historical Node/runtime profile and live-app proof
 suites remain proof-only or archived until a captured source process state
 implementation is routed through the public product surface and advertised by
 this registry.

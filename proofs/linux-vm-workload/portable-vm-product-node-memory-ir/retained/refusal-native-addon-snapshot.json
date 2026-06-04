@@ -14,6 +14,6 @@
   "arbitraryVmRestoreClaimed": false,
   "rawVmStateReplayUsed": false,
   "snapshotDir": "/Users/peterp/gh/redwoodjs/machinen/proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/node-memory-refusal-native-addon.snap",
-  "elapsedMs": 38,
+  "elapsedMs": 37,
   "dryRun": false
 }

@@ -589,15 +589,23 @@
   "artifacts": [
     {
       "path": "arm64-to-amd64-snapshot.json",
-      "sha256": "7bccbffc0fae0067b022eb2c035c828daed4886bdeab084e02bf08298acf7d05"
+      "sha256": "c3a0bc285af376265aff12a84f078ffcf8ecbd0d8a7dad16d383136d944bce26"
     },
     {
       "path": "arm64-to-amd64-restore.json",
-      "sha256": "20394959fcc7e19e2fc2705d5de361a0d51703bb070aaea8f0008c47845b3151"
+      "sha256": "5ea2b62c5c33cca2b0a6f5f0921062fa769a7f2cfdcce9ab588278f65355e28f"
     },
     {
       "path": "arm64-to-amd64/node-memory.snap/portable-vm-manifest-plan.json",
       "sha256": "ca6e15e9f1b39c1edb69662e0db952980b5d7a635ef206201544f81d8d689f88"
+    },
+    {
+      "path": "arm64-to-amd64/node-memory.snap/portable-vm-product-restore-summary.json",
+      "sha256": "c485d6ea23d526cea9925aad2f75921aa70fd8a6e6dc8786193a1e728c244dcf"
+    },
+    {
+      "path": "arm64-to-amd64/node-memory.snap/nodejs-memory-ir.json",
+      "sha256": "1ef4ed421d9e68bd616b88498defefe0d14c268e551843e03b24d5f0c4266efa"
     },
     {
       "path": "arm64-to-amd64/node-memory.snap/nodejs-memory-materializer.mjs",
@@ -609,15 +617,23 @@
     },
     {
       "path": "amd64-to-arm64-snapshot.json",
-      "sha256": "4c020b081c1e6593cf001db05cbccd035dc200ae0869f43bcbdc830eecf7b6c7"
+      "sha256": "841689b5ad9ae261e92076dfc1b946ea40471f9e1328aa6fb3b65f930c4d28d2"
     },
     {
       "path": "amd64-to-arm64-restore.json",
-      "sha256": "8e841fb6e15d83de20f7513170e449f0cb1de1a560d849c4d5ed4909f42269dc"
+      "sha256": "2d6f9606caefcfaa1d20c1e26199305453c69fe259642073bd38536cc538c840"
     },
     {
       "path": "amd64-to-arm64/node-memory.snap/portable-vm-manifest-plan.json",
       "sha256": "f25ef15bbe564a31d75e60f0421a5b76f37050babb68997988524b839a89e047"
+    },
+    {
+      "path": "amd64-to-arm64/node-memory.snap/portable-vm-product-restore-summary.json",
+      "sha256": "602070d85c14997825822612d00dff84b66f755018b2f16aeffaff38b3e1c076"
+    },
+    {
+      "path": "amd64-to-arm64/node-memory.snap/nodejs-memory-ir.json",
+      "sha256": "3f0279f84211a4773e1b0edae07d03eb4c1adbfff3c847e03d6bc51c79ec4b3d"
     },
     {
       "path": "amd64-to-arm64/node-memory.snap/nodejs-memory-materializer.mjs",

@@ -3285,6 +3285,7 @@ async function cmdRestorePortableVmProductBundle(
       materializerRefusal.message,
       sourceArch,
       targetArch,
+      materializerRefusal.workloads,
     );
     writeFileSync(
       join(snapDir, "portable-vm-product-restore-summary.json"),
@@ -3383,31 +3384,63 @@ async function cmdRestorePortableVmProductBundle(
 }
 
 // fallow-ignore-next-line complexity
+interface PortableVmRestoreRefusalReason {
+  code: string;
+  message: string;
+  workloads?: Record<string, unknown>;
+}
+
 function evaluatePortableVmRestorePlan(
   snapDir: string,
   sourceArch: GuestCpu,
   targetArch: GuestCpu,
-): { code: string; message: string } | null {
+): PortableVmRestoreRefusalReason | null {
+  const loaded = loadPortableVmRestorePlan(snapDir);
+  if (loaded.refusal) {
+    return loaded.refusal;
+  }
+  const plan = loaded.plan;
+  const metadataRefusal = portableVmPlanMetadataRefusal(plan, sourceArch, targetArch);
+  if (metadataRefusal) {
+    return metadataRefusal;
+  }
+  const rows = portableVmPlanRows(plan);
+  const refused = rows.find((row) => row.disposition === "refused");
+  if (refused) {
+    return portableVmPlanRowRefusal(refused, rows);
+  }
+  return portableVmRequiredRowsRefusal(rows);
+}
+
+function loadPortableVmRestorePlan(
+  snapDir: string,
+):
+  | { plan: Record<string, unknown>; refusal: null }
+  | { plan: Record<string, never>; refusal: PortableVmRestoreRefusalReason } {
   const planPath = join(snapDir, "portable-vm-manifest-plan.json");
   if (!existsSync(planPath)) {
     return {
-      code: "portable-vm-portability-plan-missing",
-      message:
-        "portable VM restore requires a generated Portable VM Manifest / VM Portability Plan",
+      plan: {},
+      refusal: {
+        code: "portable-vm-portability-plan-missing",
+        message:
+          "portable VM restore requires a generated Portable VM Manifest / VM Portability Plan",
+      },
     };
   }
-  const plan = JSON.parse(readFileSync(planPath, "utf8")) as Record<string, unknown>;
-  if (plan.kind !== PORTABLE_VM_PLAN_KIND) {
-    return {
-      code: "portable-vm-portability-plan-invalid",
-      message: "portable VM plan kind is invalid",
-    };
-  }
-  if (plan.scope !== PORTABLE_VM_PRODUCT_SCOPE) {
-    return {
-      code: "portable-vm-portability-plan-invalid",
-      message: "portable VM plan scope is invalid",
-    };
+  return {
+    plan: JSON.parse(readFileSync(planPath, "utf8")) as Record<string, unknown>,
+    refusal: null,
+  };
+}
+
+function portableVmPlanMetadataRefusal(
+  plan: Record<string, unknown>,
+  sourceArch: GuestCpu,
+  targetArch: GuestCpu,
+): PortableVmRestoreRefusalReason | null {
+  if (plan.kind !== PORTABLE_VM_PLAN_KIND || plan.scope !== PORTABLE_VM_PRODUCT_SCOPE) {
+    return { code: "portable-vm-portability-plan-invalid", message: "portable VM plan is invalid" };
   }
   if (plan.sourceArchitecture !== sourceArch) {
     return {
@@ -3415,6 +3448,13 @@ function evaluatePortableVmRestorePlan(
       message: `portable VM plan source architecture ${String(plan.sourceArchitecture)} does not match bundle source architecture ${sourceArch}`,
     };
   }
+  return portableVmTargetPolicyRefusal(plan, targetArch);
+}
+
+function portableVmTargetPolicyRefusal(
+  plan: Record<string, unknown>,
+  targetArch: GuestCpu,
+): PortableVmRestoreRefusalReason | null {
   const allowedTargets = (plan.targetPolicy as Record<string, unknown> | undefined)
     ?.allowedTargetArchitectures;
   if (Array.isArray(allowedTargets) && !allowedTargets.includes(targetArch)) {
@@ -3423,20 +3463,12 @@ function evaluatePortableVmRestorePlan(
       message: `portable VM plan does not allow target architecture ${targetArch}`,
     };
   }
-  const rows = portableVmPlanRows(plan);
-  const refused = rows.find((row) => row.disposition === "refused");
-  if (refused) {
-    return {
-      code:
-        typeof refused.refusalCode === "string"
-          ? refused.refusalCode
-          : "portable-vm-plan-row-refused",
-      message:
-        typeof refused.message === "string"
-          ? refused.message
-          : `portable VM plan refused ${String(refused.id ?? refused.category ?? "unknown row")}`,
-    };
-  }
+  return null;
+}
+
+function portableVmRequiredRowsRefusal(
+  rows: Array<Record<string, unknown>>,
+): PortableVmRestoreRefusalReason | null {
   for (const required of ["filesystem", "service", "sqlite"] as const) {
     const row = rows.find((candidate) => candidate.category === required);
     if (!row || row.disposition !== "product-supported") {
@@ -3449,6 +3481,28 @@ function evaluatePortableVmRestorePlan(
   return null;
 }
 
+function portableVmPlanRowRefusal(
+  refused: Record<string, unknown>,
+  rows: Array<Record<string, unknown>>,
+): PortableVmRestoreRefusalReason {
+  return {
+    code: portableVmRefusalCode(refused),
+    message: portableVmRefusalMessage(refused),
+    workloads: summarizePortableVmRefusalWorkloads(rows),
+  };
+}
+
+function portableVmRefusalCode(row: Record<string, unknown>): string {
+  return typeof row.refusalCode === "string" ? row.refusalCode : "portable-vm-plan-row-refused";
+}
+
+function portableVmRefusalMessage(row: Record<string, unknown>): string {
+  if (typeof row.message === "string") {
+    return row.message;
+  }
+  return `portable VM plan refused ${String(row.id ?? row.category ?? "unknown row")}`;
+}
+
 function portableVmPlanRows(plan: Record<string, unknown>): Array<Record<string, unknown>> {
   const restorePlan = plan.restorePlan as Record<string, unknown> | undefined;
   return Array.isArray(restorePlan?.rows)
@@ -3458,7 +3512,7 @@ function portableVmPlanRows(plan: Record<string, unknown>): Array<Record<string,
 
 function preparePortableVmNodeMemoryMaterializer(
   snapDir: string,
-): { code: string; message: string } | null {
+): PortableVmRestoreRefusalReason | null {
   const irPath = join(snapDir, "nodejs-memory-ir.json");
   if (!existsSync(irPath)) {
     return null;
@@ -3507,6 +3561,29 @@ function summarizePortableVmRestorePlan(snapDir: string): Record<string, unknown
     ).length,
     unknownStatePolicy: (plan.targetPolicy as Record<string, unknown> | undefined)
       ?.unknownStatePolicy,
+  };
+}
+
+function summarizePortableVmRefusalWorkloads(
+  rows: Array<Record<string, unknown>>,
+): Record<string, unknown> | undefined {
+  const nodejsRows = rows.filter((row) => row.category === "nodejs");
+  if (nodejsRows.length === 0) {
+    return undefined;
+  }
+  const refusedRows = nodejsRows.filter((row) => row.disposition === "refused");
+  return {
+    nodejs: {
+      ...summarizePortableVmNodeRows(nodejsRows),
+      refusals: refusedRows.map((row) => ({
+        id: portableVmStringValue(row.id),
+        refusalCode: portableVmStringValue(row.refusalCode),
+        message: portableVmStringValue(row.message),
+      })),
+      memoryRefusals: refusedRows
+        .filter((row) => portableVmStringValue(row.id).startsWith("nodejs-memory-"))
+        .map((row) => portableVmStringValue(row.refusalCode)),
+    },
   };
 }
 
@@ -3565,6 +3642,10 @@ function portableVmNodeMemoryMaterializedRows(nodejsMemory: Record<string, unkno
   return rows;
 }
 
+function portableVmStringValue(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
 function portableVmRecordValue(value: unknown): Record<string, unknown> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     return {};
@@ -3581,6 +3662,7 @@ function portableVmRestoreRefusal(
   message: string,
   sourceArch: GuestCpu,
   targetArch: GuestCpu,
+  workloads?: Record<string, unknown>,
 ): Record<string, unknown> {
   return {
     kind: "machinen.portable-vm-product-restore-summary",
@@ -3594,6 +3676,7 @@ function portableVmRestoreRefusal(
     sourceArchitectureDetected: true,
     targetArchitectureDetected: true,
     refusal: { code, message },
+    ...(workloads ? { workloads } : {}),
     claimGuard: portableVmClaimGuard(),
   };
 }
