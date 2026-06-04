@@ -8,16 +8,13 @@ const spec = {
   shape: "sliding-window-state",
   anchors: {
     anchor: "machinen-real-sliding-window-state-anchor-v1",
-    marker: "rate-limiting:sliding-window-state:unsupported",
+    marker: "sliding-window-state:semantic-state",
   },
   semanticState: {
     kind: "sliding-window-state",
     anchor: "machinen-real-sliding-window-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-sliding-window-unsupported",
-  refusalReason:
-    "sliding window state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

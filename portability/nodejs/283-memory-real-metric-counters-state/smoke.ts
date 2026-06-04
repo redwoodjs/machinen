@@ -8,16 +8,13 @@ const spec = {
   shape: "metric-counters-state",
   anchors: {
     anchor: "machinen-real-metric-counters-state-anchor-v1",
-    marker: "observability:metric-counters-state:unsupported",
+    marker: "metric-counters-state:semantic-state",
   },
   semanticState: {
     kind: "metric-counters-state",
     anchor: "machinen-real-metric-counters-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-metric-counters-unsupported",
-  refusalReason:
-    "metric counters state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

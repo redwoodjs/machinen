@@ -8,16 +8,13 @@ const spec = {
   shape: "sticky-global-regexp-state",
   anchors: {
     anchor: "machinen-real-sticky-global-regexp-state-anchor-v1",
-    marker: "regexp-detail:sticky-global-regexp-state:unsupported",
+    marker: "sticky-global-regexp-state:semantic-state",
   },
   semanticState: {
     kind: "sticky-global-regexp-state",
     anchor: "machinen-real-sticky-global-regexp-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-sticky-global-regexp-unsupported",
-  refusalReason:
-    "sticky global regexp state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

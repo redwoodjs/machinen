@@ -8,16 +8,13 @@ const spec = {
   shape: "middleware-order-state",
   anchors: {
     anchor: "machinen-real-middleware-order-state-anchor-v1",
-    marker: "http-app-state:middleware-order-state:unsupported",
+    marker: "middleware-order-state:semantic-state",
   },
   semanticState: {
     kind: "middleware-order-state",
     anchor: "machinen-real-middleware-order-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-middleware-order-unsupported",
-  refusalReason:
-    "middleware order state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

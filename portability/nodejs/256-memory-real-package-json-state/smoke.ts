@@ -8,16 +8,13 @@ const spec = {
   shape: "package-json-state",
   anchors: {
     anchor: "machinen-real-package-json-state-anchor-v1",
-    marker: "package-runtime-metadata:package-json-state:unsupported",
+    marker: "package-json-state:semantic-state",
   },
   semanticState: {
     kind: "package-json-state",
     anchor: "machinen-real-package-json-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-package-json-unsupported",
-  refusalReason:
-    "package json state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

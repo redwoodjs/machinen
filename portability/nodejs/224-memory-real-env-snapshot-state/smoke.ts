@@ -8,16 +8,13 @@ const spec = {
   shape: "env-snapshot-state",
   anchors: {
     anchor: "machinen-real-env-snapshot-state-anchor-v1",
-    marker: "process-object:env-snapshot-state:unsupported",
+    marker: "env-snapshot-state:semantic-state",
   },
   semanticState: {
     kind: "env-snapshot-state",
     anchor: "machinen-real-env-snapshot-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-env-snapshot-unsupported",
-  refusalReason:
-    "env snapshot state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

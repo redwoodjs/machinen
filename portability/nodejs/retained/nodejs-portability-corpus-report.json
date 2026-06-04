@@ -9,13 +9,14 @@
   "executeVm": false,
   "installDeps": false,
   "summary": {
-    "productSupportedRows": 45,
+    "productSupportedRows": 153,
     "declaredConfigRows": 5,
-    "refusedFirstRows": 262,
+    "refusedFirstRows": 154,
     "verifiedVmRows": 0,
-    "refusedRows": 524,
+    "refusedRows": 308,
     "failedClassifiedRows": 0,
-    "environmentUnavailableRows": 0
+    "environmentUnavailableRows": 0,
+    "semanticMaterializedRows": 108
   },
   "claimGuard": {
     "arbitraryNodeProcessRestoreClaimed": false,
@@ -1393,14 +1394,14 @@
     {
       "id": "063-memory-real-abort-controller-state",
       "slug": "memory-real-abort-controller-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-abort-controller-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -1416,14 +1417,14 @@
     {
       "id": "064-memory-real-abort-signal-listeners",
       "slug": "memory-real-abort-signal-listeners",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-abort-signal-listeners-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -1531,14 +1532,14 @@
     {
       "id": "069-memory-real-reflect-metadata-state",
       "slug": "memory-real-reflect-metadata-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-reflect-metadata-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -1554,14 +1555,14 @@
     {
       "id": "070-memory-real-property-descriptors-state",
       "slug": "memory-real-property-descriptors-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-property-descriptors-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -1577,14 +1578,14 @@
     {
       "id": "071-memory-real-frozen-object-state",
       "slug": "memory-real-frozen-object-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-frozen-object-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -1600,14 +1601,14 @@
     {
       "id": "072-memory-real-sealed-object-state",
       "slug": "memory-real-sealed-object-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-sealed-object-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -1761,14 +1762,14 @@
     {
       "id": "079-memory-real-commonjs-cache-state",
       "slug": "memory-real-commonjs-cache-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-commonjs-cache-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -1830,14 +1831,14 @@
     {
       "id": "082-memory-real-import-meta-state",
       "slug": "memory-real-import-meta-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-import-meta-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -2198,14 +2199,14 @@
     {
       "id": "098-memory-real-textencoder-state",
       "slug": "memory-real-textencoder-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-textencoder-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -2221,14 +2222,14 @@
     {
       "id": "099-memory-real-textdecoder-state",
       "slug": "memory-real-textdecoder-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-textdecoder-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -2244,14 +2245,14 @@
     {
       "id": "100-memory-real-blob-state",
       "slug": "memory-real-blob-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-blob-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -2267,14 +2268,14 @@
     {
       "id": "101-memory-real-filelike-buffer-state",
       "slug": "memory-real-filelike-buffer-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-filelike-buffer-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -2313,14 +2314,14 @@
     {
       "id": "103-memory-real-headers-state",
       "slug": "memory-real-headers-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-headers-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -2382,14 +2383,14 @@
     {
       "id": "106-memory-real-formdata-state",
       "slug": "memory-real-formdata-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-formdata-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -2428,14 +2429,14 @@
     {
       "id": "108-memory-real-intl-datetimeformat-state",
       "slug": "memory-real-intl-datetimeformat-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-intl-datetimeformat-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -2451,14 +2452,14 @@
     {
       "id": "109-memory-real-intl-numberformat-state",
       "slug": "memory-real-intl-numberformat-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-intl-numberformat-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -2474,14 +2475,14 @@
     {
       "id": "110-memory-real-intl-collator-state",
       "slug": "memory-real-intl-collator-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-intl-collator-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -2497,14 +2498,14 @@
     {
       "id": "111-memory-real-intl-locale-state",
       "slug": "memory-real-intl-locale-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-intl-locale-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -2520,14 +2521,14 @@
     {
       "id": "112-memory-real-intl-segmenter-state",
       "slug": "memory-real-intl-segmenter-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-intl-segmenter-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -2543,14 +2544,14 @@
     {
       "id": "113-memory-real-nested-map-set-state",
       "slug": "memory-real-nested-map-set-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-nested-map-set-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -2589,14 +2590,14 @@
     {
       "id": "115-memory-real-ordered-set-graph-state",
       "slug": "memory-real-ordered-set-graph-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-ordered-set-graph-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -2658,14 +2659,14 @@
     {
       "id": "118-memory-real-aggregate-error-state",
       "slug": "memory-real-aggregate-error-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-aggregate-error-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -2681,14 +2682,14 @@
     {
       "id": "119-memory-real-custom-error-subclass-state",
       "slug": "memory-real-custom-error-subclass-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-custom-error-subclass-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -2704,14 +2705,14 @@
     {
       "id": "120-memory-real-error-cause-chain-state",
       "slug": "memory-real-error-cause-chain-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-error-cause-chain-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -2773,14 +2774,14 @@
     {
       "id": "123-memory-real-sliced-buffer-state",
       "slug": "memory-real-sliced-buffer-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-sliced-buffer-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -2796,14 +2797,14 @@
     {
       "id": "124-memory-real-shared-backing-store-state",
       "slug": "memory-real-shared-backing-store-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-shared-backing-store-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -2888,14 +2889,14 @@
     {
       "id": "128-memory-real-bigint64array-state",
       "slug": "memory-real-bigint64array-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-bigint64array-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -2911,14 +2912,14 @@
     {
       "id": "129-memory-real-float64array-state",
       "slug": "memory-real-float64array-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-float64array-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -2957,14 +2958,14 @@
     {
       "id": "131-memory-real-dataview-offset-state",
       "slug": "memory-real-dataview-offset-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-dataview-offset-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -2980,14 +2981,14 @@
     {
       "id": "132-memory-real-typedarray-subarray-state",
       "slug": "memory-real-typedarray-subarray-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-typedarray-subarray-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -3003,14 +3004,14 @@
     {
       "id": "133-memory-real-getter-setter-descriptor-state",
       "slug": "memory-real-getter-setter-descriptor-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-getter-setter-descriptor-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -3049,14 +3050,14 @@
     {
       "id": "135-memory-real-static-fields-state",
       "slug": "memory-real-static-fields-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-static-fields-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -3072,14 +3073,14 @@
     {
       "id": "136-memory-real-prototype-chain-state",
       "slug": "memory-real-prototype-chain-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-prototype-chain-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -3118,14 +3119,14 @@
     {
       "id": "138-memory-real-once-listeners-state",
       "slug": "memory-real-once-listeners-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-once-listeners-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -3141,14 +3142,14 @@
     {
       "id": "139-memory-real-symbol-event-name-state",
       "slug": "memory-real-symbol-event-name-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-symbol-event-name-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -3164,14 +3165,14 @@
     {
       "id": "140-memory-real-max-listeners-state",
       "slug": "memory-real-max-listeners-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-max-listeners-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -3187,14 +3188,14 @@
     {
       "id": "141-memory-real-error-listener-state",
       "slug": "memory-real-error-listener-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-error-listener-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -3256,14 +3257,14 @@
     {
       "id": "144-memory-real-nested-cache-state",
       "slug": "memory-real-nested-cache-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-nested-cache-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -3279,14 +3280,14 @@
     {
       "id": "145-memory-real-memoized-pure-values-state",
       "slug": "memory-real-memoized-pure-values-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-memoized-pure-values-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -3348,14 +3349,14 @@
     {
       "id": "148-memory-real-priority-queue-state",
       "slug": "memory-real-priority-queue-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-priority-queue-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -3371,14 +3372,14 @@
     {
       "id": "149-memory-real-deque-state",
       "slug": "memory-real-deque-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-deque-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -3394,14 +3395,14 @@
     {
       "id": "150-memory-real-retry-queue-state",
       "slug": "memory-real-retry-queue-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-retry-queue-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -3463,14 +3464,14 @@
     {
       "id": "153-memory-real-enum-state-machine-state",
       "slug": "memory-real-enum-state-machine-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-enum-state-machine-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -3486,14 +3487,14 @@
     {
       "id": "154-memory-real-transition-table-state",
       "slug": "memory-real-transition-table-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-transition-table-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -3532,14 +3533,14 @@
     {
       "id": "156-memory-real-state-machine-history-state",
       "slug": "memory-real-state-machine-history-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-state-machine-history-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -3578,14 +3579,14 @@
     {
       "id": "158-memory-real-env-derived-config-state",
       "slug": "memory-real-env-derived-config-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-env-derived-config-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -3601,14 +3602,14 @@
     {
       "id": "159-memory-real-feature-flags-state",
       "slug": "memory-real-feature-flags-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-feature-flags-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -3624,14 +3625,14 @@
     {
       "id": "160-memory-real-immutable-config-object-state",
       "slug": "memory-real-immutable-config-object-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-immutable-config-object-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -3693,14 +3694,14 @@
     {
       "id": "163-memory-real-route-table-state",
       "slug": "memory-real-route-table-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-route-table-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -3716,14 +3717,14 @@
     {
       "id": "164-memory-real-middleware-order-state",
       "slug": "memory-real-middleware-order-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-middleware-order-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -3808,14 +3809,14 @@
     {
       "id": "168-memory-real-router-params-cache-state",
       "slug": "memory-real-router-params-cache-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-router-params-cache-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -3831,14 +3832,14 @@
     {
       "id": "169-memory-real-handler-registry-state",
       "slug": "memory-real-handler-registry-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-handler-registry-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -3854,14 +3855,14 @@
     {
       "id": "170-memory-real-di-container-singleton-state",
       "slug": "memory-real-di-container-singleton-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-di-container-singleton-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -4383,14 +4384,14 @@
     {
       "id": "193-memory-real-settled-promise-value-state",
       "slug": "memory-real-settled-promise-value-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-settled-promise-value-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -4406,14 +4407,14 @@
     {
       "id": "194-memory-real-rejected-promise-state",
       "slug": "memory-real-rejected-promise-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-rejected-promise-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -4498,14 +4499,14 @@
     {
       "id": "198-memory-real-json-graph-state",
       "slug": "memory-real-json-graph-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-json-graph-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -4521,14 +4522,14 @@
     {
       "id": "199-memory-real-structuredclone-compatible-graph-state",
       "slug": "memory-real-structuredclone-compatible-graph-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-structuredclone-compatible-graph-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -4613,14 +4614,14 @@
     {
       "id": "203-memory-real-global-symbol-registry-state",
       "slug": "memory-real-global-symbol-registry-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-global-symbol-registry-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -4636,14 +4637,14 @@
     {
       "id": "204-memory-real-local-symbol-descriptor-state",
       "slug": "memory-real-local-symbol-descriptor-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-local-symbol-descriptor-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -4659,14 +4660,14 @@
     {
       "id": "205-memory-real-well-known-symbol-behavior-state",
       "slug": "memory-real-well-known-symbol-behavior-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-well-known-symbol-behavior-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -4705,14 +4706,14 @@
     {
       "id": "207-memory-real-symbol-toStringTag-state",
       "slug": "memory-real-symbol-toStringTag-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-symbol-toStringTag-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -4728,14 +4729,14 @@
     {
       "id": "208-memory-real-large-numeric-graph-state",
       "slug": "memory-real-large-numeric-graph-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-large-numeric-graph-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -4751,14 +4752,14 @@
     {
       "id": "209-memory-real-bigint-typed-array-state",
       "slug": "memory-real-bigint-typed-array-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-bigint-typed-array-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -4774,14 +4775,14 @@
     {
       "id": "210-memory-real-precision-invariant-state",
       "slug": "memory-real-precision-invariant-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-precision-invariant-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -4820,14 +4821,14 @@
     {
       "id": "212-memory-real-decimal-string-state",
       "slug": "memory-real-decimal-string-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-decimal-string-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -4843,14 +4844,14 @@
     {
       "id": "213-memory-real-regexp-lastindex-state",
       "slug": "memory-real-regexp-lastindex-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-regexp-lastindex-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -4866,14 +4867,14 @@
     {
       "id": "214-memory-real-sticky-global-regexp-state",
       "slug": "memory-real-sticky-global-regexp-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-sticky-global-regexp-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -4889,14 +4890,14 @@
     {
       "id": "215-memory-real-unicode-regexp-state",
       "slug": "memory-real-unicode-regexp-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-unicode-regexp-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -4958,14 +4959,14 @@
     {
       "id": "218-memory-real-date-graph-state",
       "slug": "memory-real-date-graph-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-date-graph-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -4981,14 +4982,14 @@
     {
       "id": "219-memory-real-timezone-independent-state",
       "slug": "memory-real-timezone-independent-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-timezone-independent-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -5073,14 +5074,14 @@
     {
       "id": "223-memory-real-argv-snapshot-state",
       "slug": "memory-real-argv-snapshot-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-argv-snapshot-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -5096,14 +5097,14 @@
     {
       "id": "224-memory-real-env-snapshot-state",
       "slug": "memory-real-env-snapshot-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-env-snapshot-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -5119,14 +5120,14 @@
     {
       "id": "225-memory-real-cwd-policy-state",
       "slug": "memory-real-cwd-policy-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-cwd-policy-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -5165,14 +5166,14 @@
     {
       "id": "227-memory-real-process-title-state",
       "slug": "memory-real-process-title-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-process-title-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -5188,14 +5189,14 @@
     {
       "id": "228-memory-real-buffered-logger-state",
       "slug": "memory-real-buffered-logger-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-buffered-logger-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -5234,14 +5235,14 @@
     {
       "id": "230-memory-real-console-timer-state",
       "slug": "memory-real-console-timer-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-console-timer-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -5303,14 +5304,14 @@
     {
       "id": "233-memory-real-counter-state",
       "slug": "memory-real-counter-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-counter-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -5326,14 +5327,14 @@
     {
       "id": "234-memory-real-histogram-state",
       "slug": "memory-real-histogram-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-histogram-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -5441,14 +5442,14 @@
     {
       "id": "239-memory-real-completed-compressed-buffer-state",
       "slug": "memory-real-completed-compressed-buffer-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-completed-compressed-buffer-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -5671,14 +5672,14 @@
     {
       "id": "249-memory-real-wasm-module-bytes-state",
       "slug": "memory-real-wasm-module-bytes-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-wasm-module-bytes-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -5763,14 +5764,14 @@
     {
       "id": "253-memory-real-package-config-cache-state",
       "slug": "memory-real-package-config-cache-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-package-config-cache-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -5786,14 +5787,14 @@
     {
       "id": "254-memory-real-require-resolve-cache-state",
       "slug": "memory-real-require-resolve-cache-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-require-resolve-cache-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -5809,14 +5810,14 @@
     {
       "id": "255-memory-real-module-path-cache-state",
       "slug": "memory-real-module-path-cache-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-module-path-cache-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -5832,14 +5833,14 @@
     {
       "id": "256-memory-real-package-json-state",
       "slug": "memory-real-package-json-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-package-json-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -5855,14 +5856,14 @@
     {
       "id": "257-memory-real-conditional-exports-state",
       "slug": "memory-real-conditional-exports-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-conditional-exports-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -5878,14 +5879,14 @@
     {
       "id": "258-memory-real-parsed-args-state",
       "slug": "memory-real-parsed-args-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-parsed-args-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -5901,14 +5902,14 @@
     {
       "id": "259-memory-real-command-registry-state",
       "slug": "memory-real-command-registry-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-command-registry-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -5993,14 +5994,14 @@
     {
       "id": "263-memory-real-persisted-schedule-spec-state",
       "slug": "memory-real-persisted-schedule-spec-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-persisted-schedule-spec-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -6039,14 +6040,14 @@
     {
       "id": "265-memory-real-cron-expression-state",
       "slug": "memory-real-cron-expression-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-cron-expression-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -6108,14 +6109,14 @@
     {
       "id": "268-memory-real-simple-table-map-state",
       "slug": "memory-real-simple-table-map-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-simple-table-map-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -6131,14 +6132,14 @@
     {
       "id": "269-memory-real-index-map-state",
       "slug": "memory-real-index-map-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-index-map-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -6223,14 +6224,14 @@
     {
       "id": "273-memory-real-token-cache-state",
       "slug": "memory-real-token-cache-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-token-cache-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -6246,14 +6247,14 @@
     {
       "id": "274-memory-real-session-map-state",
       "slug": "memory-real-session-map-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-session-map-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -6338,14 +6339,14 @@
     {
       "id": "278-memory-real-token-bucket-state",
       "slug": "memory-real-token-bucket-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-token-bucket-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -6361,14 +6362,14 @@
     {
       "id": "279-memory-real-sliding-window-state",
       "slug": "memory-real-sliding-window-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-sliding-window-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -6407,14 +6408,14 @@
     {
       "id": "281-memory-real-leaky-bucket-state",
       "slug": "memory-real-leaky-bucket-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-leaky-bucket-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -6453,14 +6454,14 @@
     {
       "id": "283-memory-real-metric-counters-state",
       "slug": "memory-real-metric-counters-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-metric-counters-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -6499,14 +6500,14 @@
     {
       "id": "285-memory-real-trace-context-state",
       "slug": "memory-real-trace-context-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-trace-context-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -6522,14 +6523,14 @@
     {
       "id": "286-memory-real-log-correlation-state",
       "slug": "memory-real-log-correlation-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-log-correlation-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -6568,14 +6569,14 @@
     {
       "id": "288-memory-real-singleton-registry-state",
       "slug": "memory-real-singleton-registry-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-singleton-registry-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -6637,14 +6638,14 @@
     {
       "id": "291-memory-real-container-metadata-state",
       "slug": "memory-real-container-metadata-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-container-metadata-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -6683,14 +6684,14 @@
     {
       "id": "293-memory-real-compiled-template-cache-state",
       "slug": "memory-real-compiled-template-cache-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-compiled-template-cache-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -6729,14 +6730,14 @@
     {
       "id": "295-memory-real-template-helper-registry-state",
       "slug": "memory-real-template-helper-registry-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-template-helper-registry-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -6775,14 +6776,14 @@
     {
       "id": "297-memory-real-partial-cache-state",
       "slug": "memory-real-partial-cache-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-partial-cache-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -6798,14 +6799,14 @@
     {
       "id": "298-memory-real-completed-ast-cache-state",
       "slug": "memory-real-completed-ast-cache-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-completed-ast-cache-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -6844,14 +6845,14 @@
     {
       "id": "300-memory-real-token-buffer-state",
       "slug": "memory-real-token-buffer-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-token-buffer-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -6867,14 +6868,14 @@
     {
       "id": "301-memory-real-source-map-cache-state",
       "slug": "memory-real-source-map-cache-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-source-map-cache-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -6936,14 +6937,14 @@
     {
       "id": "304-memory-real-redaction-policy-state",
       "slug": "memory-real-redaction-policy-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "arm64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-redaction-policy-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -8509,14 +8510,14 @@
     {
       "id": "063-memory-real-abort-controller-state",
       "slug": "memory-real-abort-controller-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-abort-controller-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -8532,14 +8533,14 @@
     {
       "id": "064-memory-real-abort-signal-listeners",
       "slug": "memory-real-abort-signal-listeners",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-abort-signal-listeners-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -8647,14 +8648,14 @@
     {
       "id": "069-memory-real-reflect-metadata-state",
       "slug": "memory-real-reflect-metadata-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-reflect-metadata-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -8670,14 +8671,14 @@
     {
       "id": "070-memory-real-property-descriptors-state",
       "slug": "memory-real-property-descriptors-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-property-descriptors-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -8693,14 +8694,14 @@
     {
       "id": "071-memory-real-frozen-object-state",
       "slug": "memory-real-frozen-object-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-frozen-object-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -8716,14 +8717,14 @@
     {
       "id": "072-memory-real-sealed-object-state",
       "slug": "memory-real-sealed-object-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-sealed-object-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -8877,14 +8878,14 @@
     {
       "id": "079-memory-real-commonjs-cache-state",
       "slug": "memory-real-commonjs-cache-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-commonjs-cache-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -8946,14 +8947,14 @@
     {
       "id": "082-memory-real-import-meta-state",
       "slug": "memory-real-import-meta-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-import-meta-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -9314,14 +9315,14 @@
     {
       "id": "098-memory-real-textencoder-state",
       "slug": "memory-real-textencoder-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-textencoder-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -9337,14 +9338,14 @@
     {
       "id": "099-memory-real-textdecoder-state",
       "slug": "memory-real-textdecoder-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-textdecoder-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -9360,14 +9361,14 @@
     {
       "id": "100-memory-real-blob-state",
       "slug": "memory-real-blob-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-blob-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -9383,14 +9384,14 @@
     {
       "id": "101-memory-real-filelike-buffer-state",
       "slug": "memory-real-filelike-buffer-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-filelike-buffer-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -9429,14 +9430,14 @@
     {
       "id": "103-memory-real-headers-state",
       "slug": "memory-real-headers-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-headers-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -9498,14 +9499,14 @@
     {
       "id": "106-memory-real-formdata-state",
       "slug": "memory-real-formdata-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-formdata-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -9544,14 +9545,14 @@
     {
       "id": "108-memory-real-intl-datetimeformat-state",
       "slug": "memory-real-intl-datetimeformat-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-intl-datetimeformat-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -9567,14 +9568,14 @@
     {
       "id": "109-memory-real-intl-numberformat-state",
       "slug": "memory-real-intl-numberformat-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-intl-numberformat-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -9590,14 +9591,14 @@
     {
       "id": "110-memory-real-intl-collator-state",
       "slug": "memory-real-intl-collator-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-intl-collator-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -9613,14 +9614,14 @@
     {
       "id": "111-memory-real-intl-locale-state",
       "slug": "memory-real-intl-locale-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-intl-locale-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -9636,14 +9637,14 @@
     {
       "id": "112-memory-real-intl-segmenter-state",
       "slug": "memory-real-intl-segmenter-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-intl-segmenter-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -9659,14 +9660,14 @@
     {
       "id": "113-memory-real-nested-map-set-state",
       "slug": "memory-real-nested-map-set-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-nested-map-set-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -9705,14 +9706,14 @@
     {
       "id": "115-memory-real-ordered-set-graph-state",
       "slug": "memory-real-ordered-set-graph-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-ordered-set-graph-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -9774,14 +9775,14 @@
     {
       "id": "118-memory-real-aggregate-error-state",
       "slug": "memory-real-aggregate-error-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-aggregate-error-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -9797,14 +9798,14 @@
     {
       "id": "119-memory-real-custom-error-subclass-state",
       "slug": "memory-real-custom-error-subclass-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-custom-error-subclass-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -9820,14 +9821,14 @@
     {
       "id": "120-memory-real-error-cause-chain-state",
       "slug": "memory-real-error-cause-chain-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-error-cause-chain-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -9889,14 +9890,14 @@
     {
       "id": "123-memory-real-sliced-buffer-state",
       "slug": "memory-real-sliced-buffer-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-sliced-buffer-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -9912,14 +9913,14 @@
     {
       "id": "124-memory-real-shared-backing-store-state",
       "slug": "memory-real-shared-backing-store-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-shared-backing-store-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -10004,14 +10005,14 @@
     {
       "id": "128-memory-real-bigint64array-state",
       "slug": "memory-real-bigint64array-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-bigint64array-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -10027,14 +10028,14 @@
     {
       "id": "129-memory-real-float64array-state",
       "slug": "memory-real-float64array-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-float64array-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -10073,14 +10074,14 @@
     {
       "id": "131-memory-real-dataview-offset-state",
       "slug": "memory-real-dataview-offset-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-dataview-offset-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -10096,14 +10097,14 @@
     {
       "id": "132-memory-real-typedarray-subarray-state",
       "slug": "memory-real-typedarray-subarray-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-typedarray-subarray-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -10119,14 +10120,14 @@
     {
       "id": "133-memory-real-getter-setter-descriptor-state",
       "slug": "memory-real-getter-setter-descriptor-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-getter-setter-descriptor-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -10165,14 +10166,14 @@
     {
       "id": "135-memory-real-static-fields-state",
       "slug": "memory-real-static-fields-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-static-fields-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -10188,14 +10189,14 @@
     {
       "id": "136-memory-real-prototype-chain-state",
       "slug": "memory-real-prototype-chain-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-prototype-chain-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -10234,14 +10235,14 @@
     {
       "id": "138-memory-real-once-listeners-state",
       "slug": "memory-real-once-listeners-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-once-listeners-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -10257,14 +10258,14 @@
     {
       "id": "139-memory-real-symbol-event-name-state",
       "slug": "memory-real-symbol-event-name-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-symbol-event-name-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -10280,14 +10281,14 @@
     {
       "id": "140-memory-real-max-listeners-state",
       "slug": "memory-real-max-listeners-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-max-listeners-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -10303,14 +10304,14 @@
     {
       "id": "141-memory-real-error-listener-state",
       "slug": "memory-real-error-listener-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-error-listener-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -10372,14 +10373,14 @@
     {
       "id": "144-memory-real-nested-cache-state",
       "slug": "memory-real-nested-cache-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-nested-cache-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -10395,14 +10396,14 @@
     {
       "id": "145-memory-real-memoized-pure-values-state",
       "slug": "memory-real-memoized-pure-values-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-memoized-pure-values-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -10464,14 +10465,14 @@
     {
       "id": "148-memory-real-priority-queue-state",
       "slug": "memory-real-priority-queue-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-priority-queue-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -10487,14 +10488,14 @@
     {
       "id": "149-memory-real-deque-state",
       "slug": "memory-real-deque-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-deque-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -10510,14 +10511,14 @@
     {
       "id": "150-memory-real-retry-queue-state",
       "slug": "memory-real-retry-queue-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-retry-queue-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -10579,14 +10580,14 @@
     {
       "id": "153-memory-real-enum-state-machine-state",
       "slug": "memory-real-enum-state-machine-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-enum-state-machine-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -10602,14 +10603,14 @@
     {
       "id": "154-memory-real-transition-table-state",
       "slug": "memory-real-transition-table-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-transition-table-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -10648,14 +10649,14 @@
     {
       "id": "156-memory-real-state-machine-history-state",
       "slug": "memory-real-state-machine-history-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-state-machine-history-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -10694,14 +10695,14 @@
     {
       "id": "158-memory-real-env-derived-config-state",
       "slug": "memory-real-env-derived-config-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-env-derived-config-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -10717,14 +10718,14 @@
     {
       "id": "159-memory-real-feature-flags-state",
       "slug": "memory-real-feature-flags-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-feature-flags-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -10740,14 +10741,14 @@
     {
       "id": "160-memory-real-immutable-config-object-state",
       "slug": "memory-real-immutable-config-object-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-immutable-config-object-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -10809,14 +10810,14 @@
     {
       "id": "163-memory-real-route-table-state",
       "slug": "memory-real-route-table-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-route-table-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -10832,14 +10833,14 @@
     {
       "id": "164-memory-real-middleware-order-state",
       "slug": "memory-real-middleware-order-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-middleware-order-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -10924,14 +10925,14 @@
     {
       "id": "168-memory-real-router-params-cache-state",
       "slug": "memory-real-router-params-cache-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-router-params-cache-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -10947,14 +10948,14 @@
     {
       "id": "169-memory-real-handler-registry-state",
       "slug": "memory-real-handler-registry-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-handler-registry-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -10970,14 +10971,14 @@
     {
       "id": "170-memory-real-di-container-singleton-state",
       "slug": "memory-real-di-container-singleton-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-di-container-singleton-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -11499,14 +11500,14 @@
     {
       "id": "193-memory-real-settled-promise-value-state",
       "slug": "memory-real-settled-promise-value-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-settled-promise-value-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -11522,14 +11523,14 @@
     {
       "id": "194-memory-real-rejected-promise-state",
       "slug": "memory-real-rejected-promise-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-rejected-promise-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -11614,14 +11615,14 @@
     {
       "id": "198-memory-real-json-graph-state",
       "slug": "memory-real-json-graph-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-json-graph-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -11637,14 +11638,14 @@
     {
       "id": "199-memory-real-structuredclone-compatible-graph-state",
       "slug": "memory-real-structuredclone-compatible-graph-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-structuredclone-compatible-graph-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -11729,14 +11730,14 @@
     {
       "id": "203-memory-real-global-symbol-registry-state",
       "slug": "memory-real-global-symbol-registry-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-global-symbol-registry-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -11752,14 +11753,14 @@
     {
       "id": "204-memory-real-local-symbol-descriptor-state",
       "slug": "memory-real-local-symbol-descriptor-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-local-symbol-descriptor-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -11775,14 +11776,14 @@
     {
       "id": "205-memory-real-well-known-symbol-behavior-state",
       "slug": "memory-real-well-known-symbol-behavior-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-well-known-symbol-behavior-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -11821,14 +11822,14 @@
     {
       "id": "207-memory-real-symbol-toStringTag-state",
       "slug": "memory-real-symbol-toStringTag-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-symbol-toStringTag-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -11844,14 +11845,14 @@
     {
       "id": "208-memory-real-large-numeric-graph-state",
       "slug": "memory-real-large-numeric-graph-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-large-numeric-graph-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -11867,14 +11868,14 @@
     {
       "id": "209-memory-real-bigint-typed-array-state",
       "slug": "memory-real-bigint-typed-array-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-bigint-typed-array-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -11890,14 +11891,14 @@
     {
       "id": "210-memory-real-precision-invariant-state",
       "slug": "memory-real-precision-invariant-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-precision-invariant-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -11936,14 +11937,14 @@
     {
       "id": "212-memory-real-decimal-string-state",
       "slug": "memory-real-decimal-string-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-decimal-string-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -11959,14 +11960,14 @@
     {
       "id": "213-memory-real-regexp-lastindex-state",
       "slug": "memory-real-regexp-lastindex-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-regexp-lastindex-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -11982,14 +11983,14 @@
     {
       "id": "214-memory-real-sticky-global-regexp-state",
       "slug": "memory-real-sticky-global-regexp-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-sticky-global-regexp-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -12005,14 +12006,14 @@
     {
       "id": "215-memory-real-unicode-regexp-state",
       "slug": "memory-real-unicode-regexp-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-unicode-regexp-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -12074,14 +12075,14 @@
     {
       "id": "218-memory-real-date-graph-state",
       "slug": "memory-real-date-graph-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-date-graph-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -12097,14 +12098,14 @@
     {
       "id": "219-memory-real-timezone-independent-state",
       "slug": "memory-real-timezone-independent-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-timezone-independent-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -12189,14 +12190,14 @@
     {
       "id": "223-memory-real-argv-snapshot-state",
       "slug": "memory-real-argv-snapshot-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-argv-snapshot-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -12212,14 +12213,14 @@
     {
       "id": "224-memory-real-env-snapshot-state",
       "slug": "memory-real-env-snapshot-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-env-snapshot-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -12235,14 +12236,14 @@
     {
       "id": "225-memory-real-cwd-policy-state",
       "slug": "memory-real-cwd-policy-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-cwd-policy-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -12281,14 +12282,14 @@
     {
       "id": "227-memory-real-process-title-state",
       "slug": "memory-real-process-title-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-process-title-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -12304,14 +12305,14 @@
     {
       "id": "228-memory-real-buffered-logger-state",
       "slug": "memory-real-buffered-logger-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-buffered-logger-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -12350,14 +12351,14 @@
     {
       "id": "230-memory-real-console-timer-state",
       "slug": "memory-real-console-timer-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-console-timer-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -12419,14 +12420,14 @@
     {
       "id": "233-memory-real-counter-state",
       "slug": "memory-real-counter-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-counter-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -12442,14 +12443,14 @@
     {
       "id": "234-memory-real-histogram-state",
       "slug": "memory-real-histogram-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-histogram-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -12557,14 +12558,14 @@
     {
       "id": "239-memory-real-completed-compressed-buffer-state",
       "slug": "memory-real-completed-compressed-buffer-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-completed-compressed-buffer-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -12787,14 +12788,14 @@
     {
       "id": "249-memory-real-wasm-module-bytes-state",
       "slug": "memory-real-wasm-module-bytes-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-wasm-module-bytes-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -12879,14 +12880,14 @@
     {
       "id": "253-memory-real-package-config-cache-state",
       "slug": "memory-real-package-config-cache-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-package-config-cache-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -12902,14 +12903,14 @@
     {
       "id": "254-memory-real-require-resolve-cache-state",
       "slug": "memory-real-require-resolve-cache-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-require-resolve-cache-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -12925,14 +12926,14 @@
     {
       "id": "255-memory-real-module-path-cache-state",
       "slug": "memory-real-module-path-cache-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-module-path-cache-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -12948,14 +12949,14 @@
     {
       "id": "256-memory-real-package-json-state",
       "slug": "memory-real-package-json-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-package-json-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -12971,14 +12972,14 @@
     {
       "id": "257-memory-real-conditional-exports-state",
       "slug": "memory-real-conditional-exports-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-conditional-exports-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -12994,14 +12995,14 @@
     {
       "id": "258-memory-real-parsed-args-state",
       "slug": "memory-real-parsed-args-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-parsed-args-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -13017,14 +13018,14 @@
     {
       "id": "259-memory-real-command-registry-state",
       "slug": "memory-real-command-registry-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-command-registry-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -13109,14 +13110,14 @@
     {
       "id": "263-memory-real-persisted-schedule-spec-state",
       "slug": "memory-real-persisted-schedule-spec-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-persisted-schedule-spec-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -13155,14 +13156,14 @@
     {
       "id": "265-memory-real-cron-expression-state",
       "slug": "memory-real-cron-expression-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-cron-expression-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -13224,14 +13225,14 @@
     {
       "id": "268-memory-real-simple-table-map-state",
       "slug": "memory-real-simple-table-map-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-simple-table-map-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -13247,14 +13248,14 @@
     {
       "id": "269-memory-real-index-map-state",
       "slug": "memory-real-index-map-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-index-map-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -13339,14 +13340,14 @@
     {
       "id": "273-memory-real-token-cache-state",
       "slug": "memory-real-token-cache-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-token-cache-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -13362,14 +13363,14 @@
     {
       "id": "274-memory-real-session-map-state",
       "slug": "memory-real-session-map-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-session-map-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -13454,14 +13455,14 @@
     {
       "id": "278-memory-real-token-bucket-state",
       "slug": "memory-real-token-bucket-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-token-bucket-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -13477,14 +13478,14 @@
     {
       "id": "279-memory-real-sliding-window-state",
       "slug": "memory-real-sliding-window-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-sliding-window-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -13523,14 +13524,14 @@
     {
       "id": "281-memory-real-leaky-bucket-state",
       "slug": "memory-real-leaky-bucket-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-leaky-bucket-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -13569,14 +13570,14 @@
     {
       "id": "283-memory-real-metric-counters-state",
       "slug": "memory-real-metric-counters-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-metric-counters-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -13615,14 +13616,14 @@
     {
       "id": "285-memory-real-trace-context-state",
       "slug": "memory-real-trace-context-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-trace-context-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -13638,14 +13639,14 @@
     {
       "id": "286-memory-real-log-correlation-state",
       "slug": "memory-real-log-correlation-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-log-correlation-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -13684,14 +13685,14 @@
     {
       "id": "288-memory-real-singleton-registry-state",
       "slug": "memory-real-singleton-registry-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-singleton-registry-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -13753,14 +13754,14 @@
     {
       "id": "291-memory-real-container-metadata-state",
       "slug": "memory-real-container-metadata-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-container-metadata-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -13799,14 +13800,14 @@
     {
       "id": "293-memory-real-compiled-template-cache-state",
       "slug": "memory-real-compiled-template-cache-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-compiled-template-cache-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -13845,14 +13846,14 @@
     {
       "id": "295-memory-real-template-helper-registry-state",
       "slug": "memory-real-template-helper-registry-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-template-helper-registry-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -13891,14 +13892,14 @@
     {
       "id": "297-memory-real-partial-cache-state",
       "slug": "memory-real-partial-cache-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-partial-cache-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -13914,14 +13915,14 @@
     {
       "id": "298-memory-real-completed-ast-cache-state",
       "slug": "memory-real-completed-ast-cache-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-completed-ast-cache-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -13960,14 +13961,14 @@
     {
       "id": "300-memory-real-token-buffer-state",
       "slug": "memory-real-token-buffer-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-token-buffer-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -13983,14 +13984,14 @@
     {
       "id": "301-memory-real-source-map-cache-state",
       "slug": "memory-real-source-map-cache-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-source-map-cache-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,
@@ -14052,14 +14053,14 @@
     {
       "id": "304-memory-real-redaction-policy-state",
       "slug": "memory-real-redaction-policy-state",
-      "disposition": "refused-first",
+      "disposition": "product-supported",
       "architecture": "amd64",
-      "accepted": false,
+      "accepted": true,
       "executedInVm": false,
-      "state": "refused",
-      "refusalCode": "node-portability-memory-redaction-policy-unsupported",
+      "state": "verified",
+      "refusalCode": null,
       "details": {
-        "reason": "refused by first corpus policy",
+        "reason": "verified by product-owned semantic Node Memory IR validation/materialization proof",
         "dependencies": [],
         "claimGuard": {
           "arbitraryNodeProcessRestoreClaimed": false,

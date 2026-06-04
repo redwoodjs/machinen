@@ -4,54 +4,119 @@
   "accepted": true,
   "portabilityRow": "249-memory-real-wasm-module-bytes-state",
   "architectures": ["arm64", "amd64"],
+  "sourceArch": "arm64",
+  "targetArch": "amd64",
   "executeVm": false,
-  "migrationCompleted": false,
+  "memoryCapture": "product-owned-nodejs-memory-ir-validation-materialization",
+  "migrationCompleted": true,
   "summary": {
     "verifiedVmRows": 0,
-    "memoryStateRows": 0,
-    "refusedRows": 1
+    "memoryStateRows": 1,
+    "refusedRows": 0,
+    "semanticMaterializedRows": 1
   },
   "results": [
     {
       "id": "249-memory-real-wasm-module-bytes-state",
       "architecture": "arm64",
-      "state": "refused",
-      "refusalCode": "node-portability-memory-wasm-module-bytes-unsupported"
+      "state": "verified"
     },
     {
       "id": "249-memory-real-wasm-module-bytes-state",
       "architecture": "amd64",
-      "state": "refused",
-      "refusalCode": "node-portability-memory-wasm-module-bytes-unsupported"
+      "state": "verified"
     }
   ],
-  "refusal": {
-    "code": "node-portability-memory-wasm-module-bytes-unsupported",
-    "reason": "wasm module bytes state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed"
-  },
-  "memoryIr": {
-    "kind": "machinen.nodejs.memory-ir",
-    "version": 1,
-    "rows": [],
-    "unsupported": [
-      {
-        "code": "node-portability-memory-wasm-module-bytes-unsupported",
-        "reason": "wasm module bytes state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed"
+  "sourceCapture": {
+    "kind": "machinen.nodejs-portability-memory-real-wasm-module-bytes-state-smoke-report.source-capture",
+    "accepted": true,
+    "portabilityRow": "249-memory-real-wasm-module-bytes-state",
+    "sourceArch": "arm64",
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization",
+    "appHookUsedForCapture": false,
+    "rawV8HeapRestored": false,
+    "samePidRestored": false,
+    "memoryIr": {
+      "kind": "machinen.nodejs.memory-ir",
+      "version": 1,
+      "runtime": {
+        "name": "node",
+        "sourceArch": "arm64",
+        "v8": "semantic-ir-product-validation"
+      },
+      "rows": [
+        {
+          "id": "249-memory-real-wasm-module-bytes-state",
+          "shape": "wasm-module-bytes-state",
+          "semanticState": {
+            "kind": "wasm-module-bytes-state",
+            "anchor": "machinen-real-wasm-module-bytes-state-anchor-v1",
+            "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+          },
+          "anchors": {
+            "anchor": "machinen-real-wasm-module-bytes-state-anchor-v1",
+            "marker": "wasm-module-bytes-state:semantic-state"
+          }
+        }
+      ],
+      "unsupported": [],
+      "claimGuard": {
+        "arbitraryNodeProcessRestoreClaimed": false,
+        "arbitraryLinuxProcessRestoreClaimed": false,
+        "rawV8HeapRestoreUsed": false,
+        "rawCpuStateReplayUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "samePidContinuationClaimed": false,
+        "activeRequestOrSocketContinuationClaimed": false
       }
-    ],
-    "claimGuard": {
-      "arbitraryNodeProcessRestoreClaimed": false,
-      "arbitraryLinuxProcessRestoreClaimed": false,
-      "rawV8HeapRestoreUsed": false,
-      "rawCpuStateReplayUsed": false,
-      "sourceIsaEmulationUsed": false,
-      "samePidContinuationClaimed": false,
-      "activeRequestOrSocketContinuationClaimed": false
+    },
+    "evidence": {
+      "decodedFields": {
+        "anchor": {
+          "found": true,
+          "hits": ["semantic-ir:249-memory-real-wasm-module-bytes-state:0"]
+        },
+        "marker": {
+          "found": true,
+          "hits": ["semantic-ir:249-memory-real-wasm-module-bytes-state:1"]
+        }
+      },
+      "validation": "product Node Memory IR accepts this semantic row and rejects raw/opaque fields"
     }
+  },
+  "targetResult": {
+    "kind": "machinen.nodejs-portability-memory-real-wasm-module-bytes-state-smoke-report.target-result",
+    "accepted": true,
+    "portabilityRow": "249-memory-real-wasm-module-bytes-state",
+    "sourceArch": "arm64",
+    "targetArch": "amd64",
+    "materialization": "target-native-node-semantic-memory-ir",
+    "targetNativeNode": true,
+    "appHookUsedForCapture": false,
+    "rawV8HeapRestored": false,
+    "samePidRestored": false,
+    "verifier": {
+      "accepted": true,
+      "actual": {
+        "kind": "wasm-module-bytes-state",
+        "anchor": "machinen-real-wasm-module-bytes-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "expected": {
+        "kind": "wasm-module-bytes-state",
+        "anchor": "machinen-real-wasm-module-bytes-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      }
+    }
+  },
+  "evidence": {
+    "appPath": "portability/nodejs/249-memory-real-wasm-module-bytes-state/app.mjs",
+    "smokePath": "portability/nodejs/249-memory-real-wasm-module-bytes-state/smoke.ts",
+    "materializer": "packages/runtime/src/nodejs-memory-ir.ts"
   },
   "claimBoundary": {
     "claims": [
-      "249-memory-real-wasm-module-bytes-state refuses unsupported Node memory state fail-closed"
+      "249-memory-real-wasm-module-bytes-state materializes selected semantic Node Memory IR state target-native across architectures"
     ],
     "notClaimed": [
       "arbitrary Node process restore",

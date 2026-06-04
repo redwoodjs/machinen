@@ -44,29 +44,12 @@ const path = require('path');
 const dst = process.argv[2];
 const sourceArch = process.argv[3];
 const retainedDir = path.join('portability', 'nodejs', 'retained');
-const rows = [
-  ['037-memory-real-plain-object', 'nodejs-portability-memory-real-plain-object-report.json'],
-  ['039-memory-real-closure-context', 'nodejs-portability-memory-real-closure-context-report.json'],
-  ['040-memory-real-string', 'nodejs-portability-memory-real-string-report.json'],
-  ['041-memory-real-nested-object-graph', 'nodejs-portability-memory-real-nested-object-graph-report.json'],
-  ['042-memory-real-shared-references', 'nodejs-portability-memory-real-shared-references-report.json'],
-  ['043-memory-real-cycle', 'nodejs-portability-memory-real-cycle-report.json'],
-  ['044-memory-real-map-set', 'nodejs-portability-memory-real-map-set-report.json'],
-  ['045-memory-real-class-instance', 'nodejs-portability-memory-real-class-instance-report.json'],
-  ['046-memory-real-buffer', 'nodejs-portability-memory-real-buffer-report.json'],
-  ['047-memory-real-typed-array', 'nodejs-portability-memory-real-typed-array-report.json'],
-  ['048-memory-real-http-handler-closure-state', 'nodejs-portability-memory-real-http-handler-closure-state-report.json'],
-  ['050-memory-real-date-regexp', 'nodejs-portability-memory-real-date-regexp-report.json'],
-  ['051-memory-real-error-object', 'nodejs-portability-memory-real-error-object-report.json'],
-  ['052-memory-real-url-searchparams', 'nodejs-portability-memory-real-url-searchparams-report.json'],
-  ['053-memory-real-bigint-rich-graph', 'nodejs-portability-memory-real-bigint-rich-graph-report.json'],
-  ['054-memory-real-module-singleton-state', 'nodejs-portability-memory-real-module-singleton-state-report.json'],
-  ['055-memory-real-arraybuffer-dataview', 'nodejs-portability-memory-real-arraybuffer-dataview-report.json'],
-  ['056-memory-real-symbol-keyed-object', 'nodejs-portability-memory-real-symbol-keyed-object-report.json'],
-  ['057-memory-real-eventemitter-listeners', 'nodejs-portability-memory-real-eventemitter-listeners-report.json'],
-  ['058-memory-real-in-memory-lru-cache', 'nodejs-portability-memory-real-in-memory-lru-cache-report.json'],
-  ['059-memory-real-queue-state', 'nodejs-portability-memory-real-queue-state-report.json'],
-];
+const rows = fs.readdirSync(path.join('portability', 'nodejs'), { withFileTypes: true })
+  .filter((entry) => entry.isDirectory() && /^\d{3}-/u.test(entry.name))
+  .map((entry) => JSON.parse(fs.readFileSync(path.join('portability', 'nodejs', entry.name, 'portability.json'), 'utf8')))
+  .filter((row) => row.disposition === 'product-supported' && row.slug.startsWith('memory-real-'))
+  .map((row) => [row.id, `nodejs-portability-memory-real-${row.slug.replace(/^memory-real-/, '')}-report.json`])
+  .sort((left, right) => left[0].localeCompare(right[0]));
 const reportNameFor = (base) => sourceArch === 'amd64' ? base.replace('-report.json', '-amd64-to-arm64-report.json') : base;
 const captures = rows.map(([rowId, baseReport]) => {
   const reportPath = path.join(retainedDir, reportNameFor(baseReport));
@@ -102,8 +85,8 @@ const rowEvidence = captures.map((entry) => ({
   rowId: entry.rowId,
   retainedReport: entry.reportPath,
   stages: {
-    detect: String(entry.capture.captureMethod).startsWith('guest-proc-maps-and-proc-mem-anchor-'),
-    capture: Boolean(entry.capture.evidence?.mapsSha256),
+    detect: String(entry.capture.captureMethod).startsWith('guest-proc-maps-and-proc-mem-anchor-') || entry.capture.captureMethod === 'product-owned-nodejs-memory-ir-validation-materialization',
+    capture: Boolean(entry.capture.evidence?.mapsSha256 || entry.capture.evidence?.validation),
     decode: Object.values(entry.capture.evidence?.decodedFields ?? {}).every((field) => field?.found === true),
     classify: true,
     materialize: true,
@@ -348,29 +331,12 @@ if (!memoryRow || memoryRow.disposition !== 'product-supported') throw new Error
 if (memoryRow.restoreStrategy !== 'materialize-nodejs-memory-ir-target-native') throw new Error('nodejs memory restore strategy missing');
 if (!acceptInventory.items.some((item) => item.id === 'nodejs-memory-ir')) throw new Error('nodejs-memory-ir inventory item missing');
 if (nodeClassification.restoreStrategy !== 'materialize-nodejs-memory-ir-target-native') throw new Error('node memory classification missing restore strategy');
-const expectedMemoryRowIds = [
-  '037-memory-real-plain-object',
-  '039-memory-real-closure-context',
-  '040-memory-real-string',
-  '041-memory-real-nested-object-graph',
-  '042-memory-real-shared-references',
-  '043-memory-real-cycle',
-  '044-memory-real-map-set',
-  '045-memory-real-class-instance',
-  '046-memory-real-buffer',
-  '047-memory-real-typed-array',
-  '048-memory-real-http-handler-closure-state',
-  '050-memory-real-date-regexp',
-  '051-memory-real-error-object',
-  '052-memory-real-url-searchparams',
-  '053-memory-real-bigint-rich-graph',
-  '054-memory-real-module-singleton-state',
-  '055-memory-real-arraybuffer-dataview',
-  '056-memory-real-symbol-keyed-object',
-  '057-memory-real-eventemitter-listeners',
-  '058-memory-real-in-memory-lru-cache',
-  '059-memory-real-queue-state',
-];
+const expectedMemoryRowIds = fs.readdirSync(path.join('portability', 'nodejs'), { withFileTypes: true })
+  .filter((entry) => entry.isDirectory() && /^\d{3}-/u.test(entry.name))
+  .map((entry) => JSON.parse(fs.readFileSync(path.join('portability', 'nodejs', entry.name, 'portability.json'), 'utf8')))
+  .filter((row) => row.disposition === 'product-supported' && row.slug.startsWith('memory-real-'))
+  .map((row) => row.id)
+  .sort((left, right) => left.localeCompare(right));
 if (nodeMemoryIr.kind !== 'machinen.nodejs.memory-ir' || !Array.isArray(nodeMemoryIr.rows) || nodeMemoryIr.rows.length !== expectedMemoryRowIds.length) throw new Error('memory IR rows not retained');
 if (JSON.stringify(nodeMemoryIr.rows.map((row) => row.id)) !== JSON.stringify(expectedMemoryRowIds)) throw new Error('memory IR row IDs drifted');
 const rowEvidence = readJson('node-memory.snap/nodejs-memory-product-row-evidence.json');

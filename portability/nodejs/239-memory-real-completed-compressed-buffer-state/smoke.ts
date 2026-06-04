@@ -8,16 +8,13 @@ const spec = {
   shape: "completed-compressed-buffer-state",
   anchors: {
     anchor: "machinen-real-completed-compressed-buffer-state-anchor-v1",
-    marker: "compression:completed-compressed-buffer-state:unsupported",
+    marker: "completed-compressed-buffer-state:semantic-state",
   },
   semanticState: {
     kind: "completed-compressed-buffer-state",
     anchor: "machinen-real-completed-compressed-buffer-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-completed-compressed-buffer-unsupported",
-  refusalReason:
-    "completed compressed buffer state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

@@ -8,16 +8,13 @@ const spec = {
   shape: "filelike-buffer-state",
   anchors: {
     anchor: "machinen-real-filelike-buffer-state-anchor-v1",
-    marker: "text-data:filelike-buffer-state:unsupported",
+    marker: "filelike-buffer-state:semantic-state",
   },
   semanticState: {
     kind: "filelike-buffer-state",
     anchor: "machinen-real-filelike-buffer-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-filelike-buffer-unsupported",
-  refusalReason:
-    "filelike buffer state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

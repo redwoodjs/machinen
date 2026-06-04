@@ -8,16 +8,13 @@ const spec = {
   shape: "nested-cache-state",
   anchors: {
     anchor: "machinen-real-nested-cache-state-anchor-v1",
-    marker: "cache-policy:nested-cache-state:unsupported",
+    marker: "nested-cache-state:semantic-state",
   },
   semanticState: {
     kind: "nested-cache-state",
     anchor: "machinen-real-nested-cache-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-nested-cache-unsupported",
-  refusalReason:
-    "nested cache state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

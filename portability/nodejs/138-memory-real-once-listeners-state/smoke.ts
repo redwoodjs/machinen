@@ -8,16 +8,13 @@ const spec = {
   shape: "once-listeners-state",
   anchors: {
     anchor: "machinen-real-once-listeners-state-anchor-v1",
-    marker: "eventemitter-advanced:once-listeners-state:unsupported",
+    marker: "once-listeners-state:semantic-state",
   },
   semanticState: {
     kind: "once-listeners-state",
     anchor: "machinen-real-once-listeners-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-once-listeners-unsupported",
-  refusalReason:
-    "once listeners state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

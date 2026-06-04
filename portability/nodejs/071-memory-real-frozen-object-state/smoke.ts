@@ -8,16 +8,13 @@ const spec = {
   shape: "frozen-object-state",
   anchors: {
     anchor: "machinen-real-frozen-object-state-anchor-v1",
-    marker: "object-mechanics:frozen-object-state:unsupported",
+    marker: "frozen-object-state:semantic-state",
   },
   semanticState: {
     kind: "frozen-object-state",
     anchor: "machinen-real-frozen-object-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-frozen-object-unsupported",
-  refusalReason:
-    "frozen object state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

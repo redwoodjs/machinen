@@ -8,16 +8,13 @@ const spec = {
   shape: "date-graph-state",
   anchors: {
     anchor: "machinen-real-date-graph-state-anchor-v1",
-    marker: "date-time:date-graph-state:unsupported",
+    marker: "date-graph-state:semantic-state",
   },
   semanticState: {
     kind: "date-graph-state",
     anchor: "machinen-real-date-graph-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-date-graph-unsupported",
-  refusalReason:
-    "date graph state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

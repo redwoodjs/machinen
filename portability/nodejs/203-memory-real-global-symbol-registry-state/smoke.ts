@@ -8,16 +8,13 @@ const spec = {
   shape: "global-symbol-registry-state",
   anchors: {
     anchor: "machinen-real-global-symbol-registry-state-anchor-v1",
-    marker: "symbol-detail:global-symbol-registry-state:unsupported",
+    marker: "global-symbol-registry-state:semantic-state",
   },
   semanticState: {
     kind: "global-symbol-registry-state",
     anchor: "machinen-real-global-symbol-registry-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-global-symbol-registry-unsupported",
-  refusalReason:
-    "global symbol registry state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

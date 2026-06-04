@@ -8,16 +8,13 @@ const spec = {
   shape: "process-title-state",
   anchors: {
     anchor: "machinen-real-process-title-state-anchor-v1",
-    marker: "process-object:process-title-state:unsupported",
+    marker: "process-title-state:semantic-state",
   },
   semanticState: {
     kind: "process-title-state",
     anchor: "machinen-real-process-title-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-process-title-unsupported",
-  refusalReason:
-    "process title state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

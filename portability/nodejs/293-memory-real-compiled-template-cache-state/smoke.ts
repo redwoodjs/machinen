@@ -8,16 +8,13 @@ const spec = {
   shape: "compiled-template-cache-state",
   anchors: {
     anchor: "machinen-real-compiled-template-cache-state-anchor-v1",
-    marker: "template-render:compiled-template-cache-state:unsupported",
+    marker: "compiled-template-cache-state:semantic-state",
   },
   semanticState: {
     kind: "compiled-template-cache-state",
     anchor: "machinen-real-compiled-template-cache-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-compiled-template-cache-unsupported",
-  refusalReason:
-    "compiled template cache state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

@@ -8,16 +8,13 @@ const spec = {
   shape: "container-metadata-state",
   anchors: {
     anchor: "machinen-real-container-metadata-state-anchor-v1",
-    marker: "dependency-injection:container-metadata-state:unsupported",
+    marker: "container-metadata-state:semantic-state",
   },
   semanticState: {
     kind: "container-metadata-state",
     anchor: "machinen-real-container-metadata-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-container-metadata-unsupported",
-  refusalReason:
-    "container metadata state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

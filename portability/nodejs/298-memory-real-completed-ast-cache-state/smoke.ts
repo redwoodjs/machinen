@@ -8,16 +8,13 @@ const spec = {
   shape: "completed-ast-cache-state",
   anchors: {
     anchor: "machinen-real-completed-ast-cache-state-anchor-v1",
-    marker: "parser-state:completed-ast-cache-state:unsupported",
+    marker: "completed-ast-cache-state:semantic-state",
   },
   semanticState: {
     kind: "completed-ast-cache-state",
     anchor: "machinen-real-completed-ast-cache-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-completed-ast-cache-unsupported",
-  refusalReason:
-    "completed ast cache state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

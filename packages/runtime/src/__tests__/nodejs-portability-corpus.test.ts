@@ -79,29 +79,11 @@ function rowNumber(dir: string): number {
 }
 
 function selectedProductNodeMemoryRowIds(): string[] {
-  return [
-    "037-memory-real-plain-object",
-    "039-memory-real-closure-context",
-    "040-memory-real-string",
-    "041-memory-real-nested-object-graph",
-    "042-memory-real-shared-references",
-    "043-memory-real-cycle",
-    "044-memory-real-map-set",
-    "045-memory-real-class-instance",
-    "046-memory-real-buffer",
-    "047-memory-real-typed-array",
-    "048-memory-real-http-handler-closure-state",
-    "050-memory-real-date-regexp",
-    "051-memory-real-error-object",
-    "052-memory-real-url-searchparams",
-    "053-memory-real-bigint-rich-graph",
-    "054-memory-real-module-singleton-state",
-    "055-memory-real-arraybuffer-dataview",
-    "056-memory-real-symbol-keyed-object",
-    "057-memory-real-eventemitter-listeners",
-    "058-memory-real-in-memory-lru-cache",
-    "059-memory-real-queue-state",
-  ];
+  return rowDirs()
+    .map(readRow)
+    .filter((row) => row.disposition === "product-supported" && row.slug.startsWith("memory-real-"))
+    .map((row) => row.id)
+    .sort();
 }
 
 function selectedProductNodeMemoryRefusalCodes(): string[] {
@@ -226,7 +208,7 @@ describe("Node.js portability corpus", () => {
     const refused = rowDirs()
       .map(readRow)
       .filter((row) => row.disposition === "refused-first");
-    expect(refused).toHaveLength(262);
+    expect(refused).toHaveLength(154);
     expect(refused.map((row) => row.id).slice(0, 12)).toEqual([
       "010-websocket-server",
       "016-worker-thread-app",
@@ -263,11 +245,11 @@ describe("Node.js portability corpus", () => {
       runtime: "nodejs",
       summary: {
         rowCount: 312,
-        byStatus: { verified: 50, refused: 262 },
-        byProductClaim: { candidate: 50, refusal: 262 },
+        byStatus: { verified: 158, refused: 154 },
+        byProductClaim: { candidate: 158, refusal: 154 },
         architectures: ["arm64", "amd64"],
-        verifiedBothArchitectures: 50,
-        refusedRows: 262,
+        verifiedBothArchitectures: 158,
+        refusedRows: 154,
         conditionalRows: 0,
         failedClassifiedRows: 0,
       },
@@ -345,10 +327,10 @@ describe("Node.js portability corpus", () => {
       architectures: ["arm64", "amd64"],
       executeVm: false,
       summary: {
-        productSupportedRows: 45,
+        productSupportedRows: 153,
         declaredConfigRows: 5,
-        refusedFirstRows: 262,
-        refusedRows: 524,
+        refusedFirstRows: 154,
+        refusedRows: 308,
       },
       claimGuard: {
         arbitraryNodeProcessRestoreClaimed: false,

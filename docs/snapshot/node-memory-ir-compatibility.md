@@ -40,7 +40,7 @@ Each retained product row records `detect -> capture -> decode -> classify -> ma
 
 ## Refused live/opaque rows
 
-These states are refused fail-closed by the portable VM product plan or by the broader compatibility matrix until separately proven. Rows `063` through `312` intentionally expand coverage as refusal rows, not support rows.
+These states are refused fail-closed by the portable VM product plan or by the broader compatibility matrix until separately proven. Rows `063` through `312` add 108 supported semantic Memory IR rows and 142 additional fail-closed rows; the unsafe rows stay refused rather than being overclaimed.
 
 | State               | Refusal code                                              |
 | ------------------- | --------------------------------------------------------- |
@@ -57,7 +57,7 @@ These states are refused fail-closed by the portable VM product plan or by the b
 | Active timer        | `node-portability-memory-timer-unsupported`               |
 | Stream state        | `node-portability-memory-stream-unsupported`              |
 
-The compatibility dashboard now includes 250 additional fail-closed rows covering async context, object mechanics, GC/weak references, module state, timers, streams, crypto/native state, web APIs, Intl objects, advanced collections, process handles, workers, network handles, Promise/microtask state, serialization, symbols, RegExp/Date/time, diagnostics, compression, VM/WASM, CLI/job/session/rate-limit/observability state, and unknown/opaque hardening. Each row has a stable `node-portability-memory-*-unsupported` code and retained refusal evidence.
+The compatibility dashboard now includes 250 additional rows covering async context, object mechanics, GC/weak references, module state, timers, streams, crypto/native state, web APIs, Intl objects, advanced collections, process handles, workers, network handles, Promise/microtask state, serialization, symbols, RegExp/Date/time, diagnostics, compression, VM/WASM, CLI/job/session/rate-limit/observability state, and unknown/opaque hardening. Reconstructable semantic rows materialize through product-owned Node Memory IR in both `arm64 -> amd64` and `amd64 -> arm64` product smokes; unsafe live/native/opaque rows retain stable `node-portability-memory-*-unsupported` refusal evidence.
 
 Restore JSON groups Node refusals under `workloads.nodejs.refusals[]` and memory-specific codes under `workloads.nodejs.memoryRefusals[]`.
 

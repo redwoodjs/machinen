@@ -8,16 +8,13 @@ const spec = {
   shape: "parsed-args-state",
   anchors: {
     anchor: "machinen-real-parsed-args-state-anchor-v1",
-    marker: "cli-app-state:parsed-args-state:unsupported",
+    marker: "parsed-args-state:semantic-state",
   },
   semanticState: {
     kind: "parsed-args-state",
     anchor: "machinen-real-parsed-args-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-parsed-args-unsupported",
-  refusalReason:
-    "parsed args state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

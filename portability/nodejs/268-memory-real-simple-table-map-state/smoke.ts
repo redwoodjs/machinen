@@ -8,16 +8,13 @@ const spec = {
   shape: "simple-table-map-state",
   anchors: {
     anchor: "machinen-real-simple-table-map-state-anchor-v1",
-    marker: "in-memory-db:simple-table-map-state:unsupported",
+    marker: "simple-table-map-state:semantic-state",
   },
   semanticState: {
     kind: "simple-table-map-state",
     anchor: "machinen-real-simple-table-map-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-simple-table-map-unsupported",
-  refusalReason:
-    "simple table map state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

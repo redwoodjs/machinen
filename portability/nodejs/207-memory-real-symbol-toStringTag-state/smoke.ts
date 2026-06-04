@@ -8,16 +8,13 @@ const spec = {
   shape: "symbol-toStringTag-state",
   anchors: {
     anchor: "machinen-real-symbol-toStringTag-state-anchor-v1",
-    marker: "symbol-detail:symbol-toStringTag-state:unsupported",
+    marker: "symbol-toStringTag-state:semantic-state",
   },
   semanticState: {
     kind: "symbol-toStringTag-state",
     anchor: "machinen-real-symbol-toStringTag-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-symbol-toStringTag-unsupported",
-  refusalReason:
-    "symbol toStringTag state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

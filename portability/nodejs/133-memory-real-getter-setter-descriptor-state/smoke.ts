@@ -8,16 +8,13 @@ const spec = {
   shape: "getter-setter-descriptor-state",
   anchors: {
     anchor: "machinen-real-getter-setter-descriptor-state-anchor-v1",
-    marker: "class-prototype:getter-setter-descriptor-state:unsupported",
+    marker: "getter-setter-descriptor-state:semantic-state",
   },
   semanticState: {
     kind: "getter-setter-descriptor-state",
     anchor: "machinen-real-getter-setter-descriptor-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-getter-setter-descriptor-unsupported",
-  refusalReason:
-    "getter setter descriptor state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

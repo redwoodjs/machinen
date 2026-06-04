@@ -8,16 +8,13 @@ const spec = {
   shape: "regexp-lastindex-state",
   anchors: {
     anchor: "machinen-real-regexp-lastindex-state-anchor-v1",
-    marker: "regexp-detail:regexp-lastindex-state:unsupported",
+    marker: "regexp-lastindex-state:semantic-state",
   },
   semanticState: {
     kind: "regexp-lastindex-state",
     anchor: "machinen-real-regexp-lastindex-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-regexp-lastindex-unsupported",
-  refusalReason:
-    "regexp lastindex state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

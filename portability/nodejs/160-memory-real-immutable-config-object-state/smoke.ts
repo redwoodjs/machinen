@@ -8,16 +8,13 @@ const spec = {
   shape: "immutable-config-object-state",
   anchors: {
     anchor: "machinen-real-immutable-config-object-state-anchor-v1",
-    marker: "config-state:immutable-config-object-state:unsupported",
+    marker: "immutable-config-object-state:semantic-state",
   },
   semanticState: {
     kind: "immutable-config-object-state",
     anchor: "machinen-real-immutable-config-object-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-immutable-config-object-unsupported",
-  refusalReason:
-    "immutable config object state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

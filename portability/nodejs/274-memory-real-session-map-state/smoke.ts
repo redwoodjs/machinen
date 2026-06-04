@@ -8,16 +8,13 @@ const spec = {
   shape: "session-map-state",
   anchors: {
     anchor: "machinen-real-session-map-state-anchor-v1",
-    marker: "auth-session:session-map-state:unsupported",
+    marker: "session-map-state:semantic-state",
   },
   semanticState: {
     kind: "session-map-state",
     anchor: "machinen-real-session-map-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-session-map-unsupported",
-  refusalReason:
-    "session map state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

@@ -8,16 +8,13 @@ const spec = {
   shape: "cron-expression-state",
   anchors: {
     anchor: "machinen-real-cron-expression-state-anchor-v1",
-    marker: "job-schedulers:cron-expression-state:unsupported",
+    marker: "cron-expression-state:semantic-state",
   },
   semanticState: {
     kind: "cron-expression-state",
     anchor: "machinen-real-cron-expression-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-cron-expression-unsupported",
-  refusalReason:
-    "cron expression state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

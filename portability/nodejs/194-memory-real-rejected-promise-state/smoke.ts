@@ -8,16 +8,13 @@ const spec = {
   shape: "rejected-promise-state",
   anchors: {
     anchor: "machinen-real-rejected-promise-state-anchor-v1",
-    marker: "promise-detail:rejected-promise-state:unsupported",
+    marker: "rejected-promise-state:semantic-state",
   },
   semanticState: {
     kind: "rejected-promise-state",
     anchor: "machinen-real-rejected-promise-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-rejected-promise-unsupported",
-  refusalReason:
-    "rejected promise state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

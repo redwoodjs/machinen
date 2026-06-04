@@ -8,16 +8,13 @@ const spec = {
   shape: "priority-queue-state",
   anchors: {
     anchor: "machinen-real-priority-queue-state-anchor-v1",
-    marker: "queue-policy:priority-queue-state:unsupported",
+    marker: "priority-queue-state:semantic-state",
   },
   semanticState: {
     kind: "priority-queue-state",
     anchor: "machinen-real-priority-queue-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-priority-queue-unsupported",
-  refusalReason:
-    "priority queue state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

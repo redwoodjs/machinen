@@ -8,16 +8,13 @@ const spec = {
   shape: "abort-signal-listeners",
   anchors: {
     anchor: "machinen-real-abort-signal-listeners-anchor-v1",
-    marker: "async-context:abort-signal-listeners:unsupported",
+    marker: "abort-signal-listeners:semantic-state",
   },
   semanticState: {
     kind: "abort-signal-listeners",
     anchor: "machinen-real-abort-signal-listeners-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-abort-signal-listeners-unsupported",
-  refusalReason:
-    "abort signal listeners is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

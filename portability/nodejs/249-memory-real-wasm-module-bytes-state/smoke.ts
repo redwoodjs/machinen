@@ -8,16 +8,13 @@ const spec = {
   shape: "wasm-module-bytes-state",
   anchors: {
     anchor: "machinen-real-wasm-module-bytes-state-anchor-v1",
-    marker: "wasm:wasm-module-bytes-state:unsupported",
+    marker: "wasm-module-bytes-state:semantic-state",
   },
   semanticState: {
     kind: "wasm-module-bytes-state",
     anchor: "machinen-real-wasm-module-bytes-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-wasm-module-bytes-unsupported",
-  refusalReason:
-    "wasm module bytes state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

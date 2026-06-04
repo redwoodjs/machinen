@@ -8,16 +8,13 @@ const spec = {
   shape: "conditional-exports-state",
   anchors: {
     anchor: "machinen-real-conditional-exports-state-anchor-v1",
-    marker: "package-runtime-metadata:conditional-exports-state:unsupported",
+    marker: "conditional-exports-state:semantic-state",
   },
   semanticState: {
     kind: "conditional-exports-state",
     anchor: "machinen-real-conditional-exports-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-conditional-exports-unsupported",
-  refusalReason:
-    "conditional exports state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

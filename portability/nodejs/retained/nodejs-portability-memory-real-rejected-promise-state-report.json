@@ -4,54 +4,119 @@
   "accepted": true,
   "portabilityRow": "194-memory-real-rejected-promise-state",
   "architectures": ["arm64", "amd64"],
+  "sourceArch": "arm64",
+  "targetArch": "amd64",
   "executeVm": false,
-  "migrationCompleted": false,
+  "memoryCapture": "product-owned-nodejs-memory-ir-validation-materialization",
+  "migrationCompleted": true,
   "summary": {
     "verifiedVmRows": 0,
-    "memoryStateRows": 0,
-    "refusedRows": 1
+    "memoryStateRows": 1,
+    "refusedRows": 0,
+    "semanticMaterializedRows": 1
   },
   "results": [
     {
       "id": "194-memory-real-rejected-promise-state",
       "architecture": "arm64",
-      "state": "refused",
-      "refusalCode": "node-portability-memory-rejected-promise-unsupported"
+      "state": "verified"
     },
     {
       "id": "194-memory-real-rejected-promise-state",
       "architecture": "amd64",
-      "state": "refused",
-      "refusalCode": "node-portability-memory-rejected-promise-unsupported"
+      "state": "verified"
     }
   ],
-  "refusal": {
-    "code": "node-portability-memory-rejected-promise-unsupported",
-    "reason": "rejected promise state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed"
-  },
-  "memoryIr": {
-    "kind": "machinen.nodejs.memory-ir",
-    "version": 1,
-    "rows": [],
-    "unsupported": [
-      {
-        "code": "node-portability-memory-rejected-promise-unsupported",
-        "reason": "rejected promise state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed"
+  "sourceCapture": {
+    "kind": "machinen.nodejs-portability-memory-real-rejected-promise-state-smoke-report.source-capture",
+    "accepted": true,
+    "portabilityRow": "194-memory-real-rejected-promise-state",
+    "sourceArch": "arm64",
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization",
+    "appHookUsedForCapture": false,
+    "rawV8HeapRestored": false,
+    "samePidRestored": false,
+    "memoryIr": {
+      "kind": "machinen.nodejs.memory-ir",
+      "version": 1,
+      "runtime": {
+        "name": "node",
+        "sourceArch": "arm64",
+        "v8": "semantic-ir-product-validation"
+      },
+      "rows": [
+        {
+          "id": "194-memory-real-rejected-promise-state",
+          "shape": "rejected-promise-state",
+          "semanticState": {
+            "kind": "rejected-promise-state",
+            "anchor": "machinen-real-rejected-promise-state-anchor-v1",
+            "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+          },
+          "anchors": {
+            "anchor": "machinen-real-rejected-promise-state-anchor-v1",
+            "marker": "rejected-promise-state:semantic-state"
+          }
+        }
+      ],
+      "unsupported": [],
+      "claimGuard": {
+        "arbitraryNodeProcessRestoreClaimed": false,
+        "arbitraryLinuxProcessRestoreClaimed": false,
+        "rawV8HeapRestoreUsed": false,
+        "rawCpuStateReplayUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "samePidContinuationClaimed": false,
+        "activeRequestOrSocketContinuationClaimed": false
       }
-    ],
-    "claimGuard": {
-      "arbitraryNodeProcessRestoreClaimed": false,
-      "arbitraryLinuxProcessRestoreClaimed": false,
-      "rawV8HeapRestoreUsed": false,
-      "rawCpuStateReplayUsed": false,
-      "sourceIsaEmulationUsed": false,
-      "samePidContinuationClaimed": false,
-      "activeRequestOrSocketContinuationClaimed": false
+    },
+    "evidence": {
+      "decodedFields": {
+        "anchor": {
+          "found": true,
+          "hits": ["semantic-ir:194-memory-real-rejected-promise-state:0"]
+        },
+        "marker": {
+          "found": true,
+          "hits": ["semantic-ir:194-memory-real-rejected-promise-state:1"]
+        }
+      },
+      "validation": "product Node Memory IR accepts this semantic row and rejects raw/opaque fields"
     }
+  },
+  "targetResult": {
+    "kind": "machinen.nodejs-portability-memory-real-rejected-promise-state-smoke-report.target-result",
+    "accepted": true,
+    "portabilityRow": "194-memory-real-rejected-promise-state",
+    "sourceArch": "arm64",
+    "targetArch": "amd64",
+    "materialization": "target-native-node-semantic-memory-ir",
+    "targetNativeNode": true,
+    "appHookUsedForCapture": false,
+    "rawV8HeapRestored": false,
+    "samePidRestored": false,
+    "verifier": {
+      "accepted": true,
+      "actual": {
+        "kind": "rejected-promise-state",
+        "anchor": "machinen-real-rejected-promise-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "expected": {
+        "kind": "rejected-promise-state",
+        "anchor": "machinen-real-rejected-promise-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      }
+    }
+  },
+  "evidence": {
+    "appPath": "portability/nodejs/194-memory-real-rejected-promise-state/app.mjs",
+    "smokePath": "portability/nodejs/194-memory-real-rejected-promise-state/smoke.ts",
+    "materializer": "packages/runtime/src/nodejs-memory-ir.ts"
   },
   "claimBoundary": {
     "claims": [
-      "194-memory-real-rejected-promise-state refuses unsupported Node memory state fail-closed"
+      "194-memory-real-rejected-promise-state materializes selected semantic Node Memory IR state target-native across architectures"
     ],
     "notClaimed": [
       "arbitrary Node process restore",

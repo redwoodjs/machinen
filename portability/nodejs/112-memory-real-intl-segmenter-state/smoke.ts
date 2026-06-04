@@ -8,16 +8,13 @@ const spec = {
   shape: "intl-segmenter-state",
   anchors: {
     anchor: "machinen-real-intl-segmenter-state-anchor-v1",
-    marker: "intl-objects:intl-segmenter-state:unsupported",
+    marker: "intl-segmenter-state:semantic-state",
   },
   semanticState: {
     kind: "intl-segmenter-state",
     anchor: "machinen-real-intl-segmenter-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-intl-segmenter-unsupported",
-  refusalReason:
-    "intl segmenter state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

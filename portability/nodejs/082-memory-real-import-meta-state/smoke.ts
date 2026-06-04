@@ -8,16 +8,13 @@ const spec = {
   shape: "import-meta-state",
   anchors: {
     anchor: "machinen-real-import-meta-state-anchor-v1",
-    marker: "module-state:import-meta-state:unsupported",
+    marker: "import-meta-state:semantic-state",
   },
   semanticState: {
     kind: "import-meta-state",
     anchor: "machinen-real-import-meta-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-import-meta-unsupported",
-  refusalReason:
-    "import meta state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

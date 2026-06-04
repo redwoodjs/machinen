@@ -8,16 +8,13 @@ const spec = {
   shape: "abort-controller-state",
   anchors: {
     anchor: "machinen-real-abort-controller-state-anchor-v1",
-    marker: "async-context:abort-controller-state:unsupported",
+    marker: "abort-controller-state:semantic-state",
   },
   semanticState: {
     kind: "abort-controller-state",
     anchor: "machinen-real-abort-controller-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-abort-controller-unsupported",
-  refusalReason:
-    "abort controller state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

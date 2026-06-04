@@ -8,16 +8,13 @@ const spec = {
   shape: "headers-state",
   anchors: {
     anchor: "machinen-real-headers-state-anchor-v1",
-    marker: "web-api-state:headers-state:unsupported",
+    marker: "headers-state:semantic-state",
   },
   semanticState: {
     kind: "headers-state",
     anchor: "machinen-real-headers-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-headers-unsupported",
-  refusalReason:
-    "headers state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

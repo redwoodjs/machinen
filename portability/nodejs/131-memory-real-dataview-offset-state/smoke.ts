@@ -8,16 +8,13 @@ const spec = {
   shape: "dataview-offset-state",
   anchors: {
     anchor: "machinen-real-dataview-offset-state-anchor-v1",
-    marker: "typed-array-advanced:dataview-offset-state:unsupported",
+    marker: "dataview-offset-state:semantic-state",
   },
   semanticState: {
     kind: "dataview-offset-state",
     anchor: "machinen-real-dataview-offset-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-dataview-offset-unsupported",
-  refusalReason:
-    "dataview offset state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

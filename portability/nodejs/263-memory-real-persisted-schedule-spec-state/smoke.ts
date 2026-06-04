@@ -8,16 +8,13 @@ const spec = {
   shape: "persisted-schedule-spec-state",
   anchors: {
     anchor: "machinen-real-persisted-schedule-spec-state-anchor-v1",
-    marker: "job-schedulers:persisted-schedule-spec-state:unsupported",
+    marker: "persisted-schedule-spec-state:semantic-state",
   },
   semanticState: {
     kind: "persisted-schedule-spec-state",
     anchor: "machinen-real-persisted-schedule-spec-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-persisted-schedule-spec-unsupported",
-  refusalReason:
-    "persisted schedule spec state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

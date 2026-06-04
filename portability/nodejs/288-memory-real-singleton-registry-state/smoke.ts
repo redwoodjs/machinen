@@ -8,16 +8,13 @@ const spec = {
   shape: "singleton-registry-state",
   anchors: {
     anchor: "machinen-real-singleton-registry-state-anchor-v1",
-    marker: "dependency-injection:singleton-registry-state:unsupported",
+    marker: "singleton-registry-state:semantic-state",
   },
   semanticState: {
     kind: "singleton-registry-state",
     anchor: "machinen-real-singleton-registry-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-singleton-registry-unsupported",
-  refusalReason:
-    "singleton registry state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

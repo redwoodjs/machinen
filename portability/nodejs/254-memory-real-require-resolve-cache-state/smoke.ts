@@ -8,16 +8,13 @@ const spec = {
   shape: "require-resolve-cache-state",
   anchors: {
     anchor: "machinen-real-require-resolve-cache-state-anchor-v1",
-    marker: "package-runtime-metadata:require-resolve-cache-state:unsupported",
+    marker: "require-resolve-cache-state:semantic-state",
   },
   semanticState: {
     kind: "require-resolve-cache-state",
     anchor: "machinen-real-require-resolve-cache-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-require-resolve-cache-unsupported",
-  refusalReason:
-    "require resolve cache state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

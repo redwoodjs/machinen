@@ -8,16 +8,13 @@ const spec = {
   shape: "timezone-independent-state",
   anchors: {
     anchor: "machinen-real-timezone-independent-state-anchor-v1",
-    marker: "date-time:timezone-independent-state:unsupported",
+    marker: "timezone-independent-state:semantic-state",
   },
   semanticState: {
     kind: "timezone-independent-state",
     anchor: "machinen-real-timezone-independent-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-timezone-independent-unsupported",
-  refusalReason:
-    "timezone independent state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

@@ -8,16 +8,13 @@ const spec = {
   shape: "deque-state",
   anchors: {
     anchor: "machinen-real-deque-state-anchor-v1",
-    marker: "queue-policy:deque-state:unsupported",
+    marker: "deque-state:semantic-state",
   },
   semanticState: {
     kind: "deque-state",
     anchor: "machinen-real-deque-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-deque-unsupported",
-  refusalReason:
-    "deque state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

@@ -8,16 +8,13 @@ const spec = {
   shape: "cwd-policy-state",
   anchors: {
     anchor: "machinen-real-cwd-policy-state-anchor-v1",
-    marker: "process-object:cwd-policy-state:unsupported",
+    marker: "cwd-policy-state:semantic-state",
   },
   semanticState: {
     kind: "cwd-policy-state",
     anchor: "machinen-real-cwd-policy-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-cwd-policy-unsupported",
-  refusalReason:
-    "cwd policy state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

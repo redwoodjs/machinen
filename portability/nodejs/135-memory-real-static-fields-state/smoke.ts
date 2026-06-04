@@ -8,16 +8,13 @@ const spec = {
   shape: "static-fields-state",
   anchors: {
     anchor: "machinen-real-static-fields-state-anchor-v1",
-    marker: "class-prototype:static-fields-state:unsupported",
+    marker: "static-fields-state:semantic-state",
   },
   semanticState: {
     kind: "static-fields-state",
     anchor: "machinen-real-static-fields-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-static-fields-unsupported",
-  refusalReason:
-    "static fields state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

@@ -8,16 +8,13 @@ const spec = {
   shape: "local-symbol-descriptor-state",
   anchors: {
     anchor: "machinen-real-local-symbol-descriptor-state-anchor-v1",
-    marker: "symbol-detail:local-symbol-descriptor-state:unsupported",
+    marker: "local-symbol-descriptor-state:semantic-state",
   },
   semanticState: {
     kind: "local-symbol-descriptor-state",
     anchor: "machinen-real-local-symbol-descriptor-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-local-symbol-descriptor-unsupported",
-  refusalReason:
-    "local symbol descriptor state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

@@ -8,16 +8,13 @@ const spec = {
   shape: "float64array-state",
   anchors: {
     anchor: "machinen-real-float64array-state-anchor-v1",
-    marker: "typed-array-advanced:float64array-state:unsupported",
+    marker: "float64array-state:semantic-state",
   },
   semanticState: {
     kind: "float64array-state",
     anchor: "machinen-real-float64array-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-float64array-unsupported",
-  refusalReason:
-    "float64array state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

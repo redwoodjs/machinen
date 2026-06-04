@@ -8,16 +8,13 @@ const spec = {
   shape: "ordered-set-graph-state",
   anchors: {
     anchor: "machinen-real-ordered-set-graph-state-anchor-v1",
-    marker: "collections-advanced:ordered-set-graph-state:unsupported",
+    marker: "ordered-set-graph-state:semantic-state",
   },
   semanticState: {
     kind: "ordered-set-graph-state",
     anchor: "machinen-real-ordered-set-graph-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-ordered-set-graph-unsupported",
-  refusalReason:
-    "ordered set graph state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

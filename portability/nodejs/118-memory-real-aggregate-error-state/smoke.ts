@@ -8,16 +8,13 @@ const spec = {
   shape: "aggregate-error-state",
   anchors: {
     anchor: "machinen-real-aggregate-error-state-anchor-v1",
-    marker: "error-advanced:aggregate-error-state:unsupported",
+    marker: "aggregate-error-state:semantic-state",
   },
   semanticState: {
     kind: "aggregate-error-state",
     anchor: "machinen-real-aggregate-error-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-aggregate-error-unsupported",
-  refusalReason:
-    "aggregate error state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

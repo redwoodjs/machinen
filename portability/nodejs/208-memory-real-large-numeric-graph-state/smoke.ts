@@ -8,16 +8,13 @@ const spec = {
   shape: "large-numeric-graph-state",
   anchors: {
     anchor: "machinen-real-large-numeric-graph-state-anchor-v1",
-    marker: "bigint-math:large-numeric-graph-state:unsupported",
+    marker: "large-numeric-graph-state:semantic-state",
   },
   semanticState: {
     kind: "large-numeric-graph-state",
     anchor: "machinen-real-large-numeric-graph-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-large-numeric-graph-unsupported",
-  refusalReason:
-    "large numeric graph state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

@@ -8,16 +8,13 @@ const spec = {
   shape: "log-correlation-state",
   anchors: {
     anchor: "machinen-real-log-correlation-state-anchor-v1",
-    marker: "observability:log-correlation-state:unsupported",
+    marker: "log-correlation-state:semantic-state",
   },
   semanticState: {
     kind: "log-correlation-state",
     anchor: "machinen-real-log-correlation-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-log-correlation-unsupported",
-  refusalReason:
-    "log correlation state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

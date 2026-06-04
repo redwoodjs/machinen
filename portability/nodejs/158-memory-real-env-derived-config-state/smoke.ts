@@ -8,16 +8,13 @@ const spec = {
   shape: "env-derived-config-state",
   anchors: {
     anchor: "machinen-real-env-derived-config-state-anchor-v1",
-    marker: "config-state:env-derived-config-state:unsupported",
+    marker: "env-derived-config-state:semantic-state",
   },
   semanticState: {
     kind: "env-derived-config-state",
     anchor: "machinen-real-env-derived-config-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-env-derived-config-unsupported",
-  refusalReason:
-    "env derived config state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

@@ -8,16 +8,13 @@ const spec = {
   shape: "intl-locale-state",
   anchors: {
     anchor: "machinen-real-intl-locale-state-anchor-v1",
-    marker: "intl-objects:intl-locale-state:unsupported",
+    marker: "intl-locale-state:semantic-state",
   },
   semanticState: {
     kind: "intl-locale-state",
     anchor: "machinen-real-intl-locale-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-intl-locale-unsupported",
-  refusalReason:
-    "intl locale state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

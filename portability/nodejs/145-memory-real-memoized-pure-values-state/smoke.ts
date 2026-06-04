@@ -8,16 +8,13 @@ const spec = {
   shape: "memoized-pure-values-state",
   anchors: {
     anchor: "machinen-real-memoized-pure-values-state-anchor-v1",
-    marker: "cache-policy:memoized-pure-values-state:unsupported",
+    marker: "memoized-pure-values-state:semantic-state",
   },
   semanticState: {
     kind: "memoized-pure-values-state",
     anchor: "machinen-real-memoized-pure-values-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-memoized-pure-values-unsupported",
-  refusalReason:
-    "memoized pure values state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

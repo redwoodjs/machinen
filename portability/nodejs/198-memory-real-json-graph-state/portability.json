@@ -2,27 +2,22 @@
   "id": "198-memory-real-json-graph-state",
   "slug": "memory-real-json-graph-state",
   "runtime": "nodejs",
-  "description": "json graph state refuses fail-closed until separately proven",
-  "disposition": "refused-first",
-  "claimUse": "stable fail-closed Node memory compatibility-matrix refusal; no support claim",
-  "architecturePolicy": "refuse on all source/target architectures until separately proven",
+  "description": "json graph state is supported as selected semantic Node Memory IR state",
+  "disposition": "product-supported",
+  "claimUse": "selected semantic Node Memory IR materialization; no arbitrary process or raw V8 heap restore claim",
+  "architecturePolicy": "semantic IR validates on source and materializes target-native across arm64 and amd64",
   "startCommand": "node app.mjs",
   "healthPath": "/value",
   "expectedBody": "memory-ready",
   "dependencies": [],
-  "refusalCode": "node-portability-memory-json-graph-unsupported",
+  "refusalCode": null,
   "capability": {
-    "category": "memory-blocker",
-    "detects": ["anchor:anchor", "anchor:marker"],
-    "captures": ["/proc/<pid>/maps", "/proc/<pid>/mem", "machinen.nodejs.memory-ir"],
-    "restores": [],
-    "verifies": ["fail-closed refusal code is retained"],
-    "blocks": [
-      "raw V8 heap restore",
-      "same PID continuation",
-      "active request/socket continuation",
-      "arbitrary Node process continuation"
-    ]
+    "category": "memory-state",
+    "detects": ["semantic Memory IR row", "raw/opaque field absence"],
+    "captures": ["machinen.nodejs.memory-ir semantic row"],
+    "restores": ["target-native Node materialization through product-owned materializer"],
+    "verifies": ["semantic state deep-equality", "claim guard rejects raw process/V8 fields"],
+    "blocks": ["raw V8 heap restore", "same PID continuation", "active native/runtime resources"]
   },
   "claimGuard": {
     "arbitraryNodeProcessRestoreClaimed": false,

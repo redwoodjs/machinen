@@ -8,16 +8,13 @@ const spec = {
   shape: "error-cause-chain-state",
   anchors: {
     anchor: "machinen-real-error-cause-chain-state-anchor-v1",
-    marker: "error-advanced:error-cause-chain-state:unsupported",
+    marker: "error-cause-chain-state:semantic-state",
   },
   semanticState: {
     kind: "error-cause-chain-state",
     anchor: "machinen-real-error-cause-chain-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-error-cause-chain-unsupported",
-  refusalReason:
-    "error cause chain state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

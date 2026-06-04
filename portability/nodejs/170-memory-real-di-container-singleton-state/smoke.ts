@@ -8,16 +8,13 @@ const spec = {
   shape: "di-container-singleton-state",
   anchors: {
     anchor: "machinen-real-di-container-singleton-state-anchor-v1",
-    marker: "framework-state:di-container-singleton-state:unsupported",
+    marker: "di-container-singleton-state:semantic-state",
   },
   semanticState: {
     kind: "di-container-singleton-state",
     anchor: "machinen-real-di-container-singleton-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-di-container-singleton-unsupported",
-  refusalReason:
-    "di container singleton state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

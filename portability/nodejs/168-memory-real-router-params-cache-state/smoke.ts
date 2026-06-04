@@ -8,16 +8,13 @@ const spec = {
   shape: "router-params-cache-state",
   anchors: {
     anchor: "machinen-real-router-params-cache-state-anchor-v1",
-    marker: "framework-state:router-params-cache-state:unsupported",
+    marker: "router-params-cache-state:semantic-state",
   },
   semanticState: {
     kind: "router-params-cache-state",
     anchor: "machinen-real-router-params-cache-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-router-params-cache-unsupported",
-  refusalReason:
-    "router params cache state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

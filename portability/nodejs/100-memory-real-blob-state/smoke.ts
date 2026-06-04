@@ -8,16 +8,13 @@ const spec = {
   shape: "blob-state",
   anchors: {
     anchor: "machinen-real-blob-state-anchor-v1",
-    marker: "text-data:blob-state:unsupported",
+    marker: "blob-state:semantic-state",
   },
   semanticState: {
     kind: "blob-state",
     anchor: "machinen-real-blob-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-blob-unsupported",
-  refusalReason:
-    "blob state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

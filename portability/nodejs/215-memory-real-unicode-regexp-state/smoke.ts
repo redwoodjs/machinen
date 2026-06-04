@@ -8,16 +8,13 @@ const spec = {
   shape: "unicode-regexp-state",
   anchors: {
     anchor: "machinen-real-unicode-regexp-state-anchor-v1",
-    marker: "regexp-detail:unicode-regexp-state:unsupported",
+    marker: "unicode-regexp-state:semantic-state",
   },
   semanticState: {
     kind: "unicode-regexp-state",
     anchor: "machinen-real-unicode-regexp-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-unicode-regexp-unsupported",
-  refusalReason:
-    "unicode regexp state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

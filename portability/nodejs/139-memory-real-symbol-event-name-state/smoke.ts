@@ -8,16 +8,13 @@ const spec = {
   shape: "symbol-event-name-state",
   anchors: {
     anchor: "machinen-real-symbol-event-name-state-anchor-v1",
-    marker: "eventemitter-advanced:symbol-event-name-state:unsupported",
+    marker: "symbol-event-name-state:semantic-state",
   },
   semanticState: {
     kind: "symbol-event-name-state",
     anchor: "machinen-real-symbol-event-name-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-symbol-event-name-unsupported",
-  refusalReason:
-    "symbol event name state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

@@ -8,16 +8,13 @@ const spec = {
   shape: "bigint-typed-array-state",
   anchors: {
     anchor: "machinen-real-bigint-typed-array-state-anchor-v1",
-    marker: "bigint-math:bigint-typed-array-state:unsupported",
+    marker: "bigint-typed-array-state:semantic-state",
   },
   semanticState: {
     kind: "bigint-typed-array-state",
     anchor: "machinen-real-bigint-typed-array-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-bigint-typed-array-unsupported",
-  refusalReason:
-    "bigint typed array state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

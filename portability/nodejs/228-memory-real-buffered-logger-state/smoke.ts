@@ -8,16 +8,13 @@ const spec = {
   shape: "buffered-logger-state",
   anchors: {
     anchor: "machinen-real-buffered-logger-state-anchor-v1",
-    marker: "console-logging:buffered-logger-state:unsupported",
+    marker: "buffered-logger-state:semantic-state",
   },
   semanticState: {
     kind: "buffered-logger-state",
     anchor: "machinen-real-buffered-logger-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-buffered-logger-unsupported",
-  refusalReason:
-    "buffered logger state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

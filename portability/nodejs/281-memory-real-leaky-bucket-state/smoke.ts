@@ -8,16 +8,13 @@ const spec = {
   shape: "leaky-bucket-state",
   anchors: {
     anchor: "machinen-real-leaky-bucket-state-anchor-v1",
-    marker: "rate-limiting:leaky-bucket-state:unsupported",
+    marker: "leaky-bucket-state:semantic-state",
   },
   semanticState: {
     kind: "leaky-bucket-state",
     anchor: "machinen-real-leaky-bucket-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-leaky-bucket-unsupported",
-  refusalReason:
-    "leaky bucket state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

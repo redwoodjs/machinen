@@ -8,16 +8,13 @@ const spec = {
   shape: "custom-error-subclass-state",
   anchors: {
     anchor: "machinen-real-custom-error-subclass-state-anchor-v1",
-    marker: "error-advanced:custom-error-subclass-state:unsupported",
+    marker: "custom-error-subclass-state:semantic-state",
   },
   semanticState: {
     kind: "custom-error-subclass-state",
     anchor: "machinen-real-custom-error-subclass-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-custom-error-subclass-unsupported",
-  refusalReason:
-    "custom error subclass state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

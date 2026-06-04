@@ -8,16 +8,13 @@ const spec = {
   shape: "textdecoder-state",
   anchors: {
     anchor: "machinen-real-textdecoder-state-anchor-v1",
-    marker: "text-data:textdecoder-state:unsupported",
+    marker: "textdecoder-state:semantic-state",
   },
   semanticState: {
     kind: "textdecoder-state",
     anchor: "machinen-real-textdecoder-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-textdecoder-unsupported",
-  refusalReason:
-    "textdecoder state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

@@ -8,16 +8,13 @@ const spec = {
   shape: "precision-invariant-state",
   anchors: {
     anchor: "machinen-real-precision-invariant-state-anchor-v1",
-    marker: "bigint-math:precision-invariant-state:unsupported",
+    marker: "precision-invariant-state:semantic-state",
   },
   semanticState: {
     kind: "precision-invariant-state",
     anchor: "machinen-real-precision-invariant-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-precision-invariant-unsupported",
-  refusalReason:
-    "precision invariant state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

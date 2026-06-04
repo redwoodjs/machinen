@@ -8,16 +8,13 @@ const spec = {
   shape: "reflect-metadata-state",
   anchors: {
     anchor: "machinen-real-reflect-metadata-state-anchor-v1",
-    marker: "object-mechanics:reflect-metadata-state:unsupported",
+    marker: "reflect-metadata-state:semantic-state",
   },
   semanticState: {
     kind: "reflect-metadata-state",
     anchor: "machinen-real-reflect-metadata-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-reflect-metadata-unsupported",
-  refusalReason:
-    "reflect metadata state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

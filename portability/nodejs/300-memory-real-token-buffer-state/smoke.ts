@@ -8,16 +8,13 @@ const spec = {
   shape: "token-buffer-state",
   anchors: {
     anchor: "machinen-real-token-buffer-state-anchor-v1",
-    marker: "parser-state:token-buffer-state:unsupported",
+    marker: "token-buffer-state:semantic-state",
   },
   semanticState: {
     kind: "token-buffer-state",
     anchor: "machinen-real-token-buffer-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-token-buffer-unsupported",
-  refusalReason:
-    "token buffer state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

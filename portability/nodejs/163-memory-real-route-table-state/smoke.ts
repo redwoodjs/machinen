@@ -8,16 +8,13 @@ const spec = {
   shape: "route-table-state",
   anchors: {
     anchor: "machinen-real-route-table-state-anchor-v1",
-    marker: "http-app-state:route-table-state:unsupported",
+    marker: "route-table-state:semantic-state",
   },
   semanticState: {
     kind: "route-table-state",
     anchor: "machinen-real-route-table-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-route-table-unsupported",
-  refusalReason:
-    "route table state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

@@ -8,16 +8,13 @@ const spec = {
   shape: "trace-context-state",
   anchors: {
     anchor: "machinen-real-trace-context-state-anchor-v1",
-    marker: "observability:trace-context-state:unsupported",
+    marker: "trace-context-state:semantic-state",
   },
   semanticState: {
     kind: "trace-context-state",
     anchor: "machinen-real-trace-context-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-trace-context-unsupported",
-  refusalReason:
-    "trace context state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

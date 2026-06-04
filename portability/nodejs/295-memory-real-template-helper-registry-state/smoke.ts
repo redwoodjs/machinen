@@ -8,16 +8,13 @@ const spec = {
   shape: "template-helper-registry-state",
   anchors: {
     anchor: "machinen-real-template-helper-registry-state-anchor-v1",
-    marker: "template-render:template-helper-registry-state:unsupported",
+    marker: "template-helper-registry-state:semantic-state",
   },
   semanticState: {
     kind: "template-helper-registry-state",
     anchor: "machinen-real-template-helper-registry-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-template-helper-registry-unsupported",
-  refusalReason:
-    "template helper registry state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

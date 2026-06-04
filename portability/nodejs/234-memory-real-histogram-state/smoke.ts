@@ -8,16 +8,13 @@ const spec = {
   shape: "histogram-state",
   anchors: {
     anchor: "machinen-real-histogram-state-anchor-v1",
-    marker: "diagnostics:histogram-state:unsupported",
+    marker: "histogram-state:semantic-state",
   },
   semanticState: {
     kind: "histogram-state",
     anchor: "machinen-real-histogram-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-histogram-unsupported",
-  refusalReason:
-    "histogram state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

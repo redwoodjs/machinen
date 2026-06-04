@@ -8,16 +8,13 @@ const spec = {
   shape: "state-machine-history-state",
   anchors: {
     anchor: "machinen-real-state-machine-history-state-anchor-v1",
-    marker: "state-machine:state-machine-history-state:unsupported",
+    marker: "state-machine-history-state:semantic-state",
   },
   semanticState: {
     kind: "state-machine-history-state",
     anchor: "machinen-real-state-machine-history-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-state-machine-history-unsupported",
-  refusalReason:
-    "state machine history state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

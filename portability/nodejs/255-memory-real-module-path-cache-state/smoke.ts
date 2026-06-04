@@ -8,16 +8,13 @@ const spec = {
   shape: "module-path-cache-state",
   anchors: {
     anchor: "machinen-real-module-path-cache-state-anchor-v1",
-    marker: "package-runtime-metadata:module-path-cache-state:unsupported",
+    marker: "module-path-cache-state:semantic-state",
   },
   semanticState: {
     kind: "module-path-cache-state",
     anchor: "machinen-real-module-path-cache-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-module-path-cache-unsupported",
-  refusalReason:
-    "module path cache state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

@@ -8,16 +8,13 @@ const spec = {
   shape: "intl-collator-state",
   anchors: {
     anchor: "machinen-real-intl-collator-state-anchor-v1",
-    marker: "intl-objects:intl-collator-state:unsupported",
+    marker: "intl-collator-state:semantic-state",
   },
   semanticState: {
     kind: "intl-collator-state",
     anchor: "machinen-real-intl-collator-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-intl-collator-unsupported",
-  refusalReason:
-    "intl collator state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

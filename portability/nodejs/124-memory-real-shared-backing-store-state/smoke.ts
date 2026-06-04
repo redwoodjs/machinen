@@ -8,16 +8,13 @@ const spec = {
   shape: "shared-backing-store-state",
   anchors: {
     anchor: "machinen-real-shared-backing-store-state-anchor-v1",
-    marker: "buffer-advanced:shared-backing-store-state:unsupported",
+    marker: "shared-backing-store-state:semantic-state",
   },
   semanticState: {
     kind: "shared-backing-store-state",
     anchor: "machinen-real-shared-backing-store-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-shared-backing-store-unsupported",
-  refusalReason:
-    "shared backing store state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

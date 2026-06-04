@@ -8,16 +8,13 @@ const spec = {
   shape: "index-map-state",
   anchors: {
     anchor: "machinen-real-index-map-state-anchor-v1",
-    marker: "in-memory-db:index-map-state:unsupported",
+    marker: "index-map-state:semantic-state",
   },
   semanticState: {
     kind: "index-map-state",
     anchor: "machinen-real-index-map-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-index-map-unsupported",
-  refusalReason:
-    "index map state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

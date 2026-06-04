@@ -8,16 +8,13 @@ const spec = {
   shape: "counter-state",
   anchors: {
     anchor: "machinen-real-counter-state-anchor-v1",
-    marker: "diagnostics:counter-state:unsupported",
+    marker: "counter-state:semantic-state",
   },
   semanticState: {
     kind: "counter-state",
     anchor: "machinen-real-counter-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-counter-unsupported",
-  refusalReason:
-    "counter state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

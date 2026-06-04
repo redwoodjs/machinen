@@ -8,16 +8,13 @@ const spec = {
   shape: "console-timer-state",
   anchors: {
     anchor: "machinen-real-console-timer-state-anchor-v1",
-    marker: "console-logging:console-timer-state:unsupported",
+    marker: "console-timer-state:semantic-state",
   },
   semanticState: {
     kind: "console-timer-state",
     anchor: "machinen-real-console-timer-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-console-timer-unsupported",
-  refusalReason:
-    "console timer state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

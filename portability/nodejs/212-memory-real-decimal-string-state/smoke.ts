@@ -8,16 +8,13 @@ const spec = {
   shape: "decimal-string-state",
   anchors: {
     anchor: "machinen-real-decimal-string-state-anchor-v1",
-    marker: "bigint-math:decimal-string-state:unsupported",
+    marker: "decimal-string-state:semantic-state",
   },
   semanticState: {
     kind: "decimal-string-state",
     anchor: "machinen-real-decimal-string-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-decimal-string-unsupported",
-  refusalReason:
-    "decimal string state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

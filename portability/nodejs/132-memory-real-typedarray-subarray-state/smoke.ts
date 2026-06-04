@@ -8,16 +8,13 @@ const spec = {
   shape: "typedarray-subarray-state",
   anchors: {
     anchor: "machinen-real-typedarray-subarray-state-anchor-v1",
-    marker: "typed-array-advanced:typedarray-subarray-state:unsupported",
+    marker: "typedarray-subarray-state:semantic-state",
   },
   semanticState: {
     kind: "typedarray-subarray-state",
     anchor: "machinen-real-typedarray-subarray-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-typedarray-subarray-unsupported",
-  refusalReason:
-    "typedarray subarray state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

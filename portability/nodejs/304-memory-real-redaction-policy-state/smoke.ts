@@ -8,16 +8,13 @@ const spec = {
   shape: "redaction-policy-state",
   anchors: {
     anchor: "machinen-real-redaction-policy-state-anchor-v1",
-    marker: "security-sensitive:redaction-policy-state:unsupported",
+    marker: "redaction-policy-state:semantic-state",
   },
   semanticState: {
     kind: "redaction-policy-state",
     anchor: "machinen-real-redaction-policy-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-redaction-policy-unsupported",
-  refusalReason:
-    "redaction policy state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

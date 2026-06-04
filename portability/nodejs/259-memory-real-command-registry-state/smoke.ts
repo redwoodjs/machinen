@@ -8,16 +8,13 @@ const spec = {
   shape: "command-registry-state",
   anchors: {
     anchor: "machinen-real-command-registry-state-anchor-v1",
-    marker: "cli-app-state:command-registry-state:unsupported",
+    marker: "command-registry-state:semantic-state",
   },
   semanticState: {
     kind: "command-registry-state",
     anchor: "machinen-real-command-registry-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-command-registry-unsupported",
-  refusalReason:
-    "command registry state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

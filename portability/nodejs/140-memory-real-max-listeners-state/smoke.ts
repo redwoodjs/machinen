@@ -8,16 +8,13 @@ const spec = {
   shape: "max-listeners-state",
   anchors: {
     anchor: "machinen-real-max-listeners-state-anchor-v1",
-    marker: "eventemitter-advanced:max-listeners-state:unsupported",
+    marker: "max-listeners-state:semantic-state",
   },
   semanticState: {
     kind: "max-listeners-state",
     anchor: "machinen-real-max-listeners-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-max-listeners-unsupported",
-  refusalReason:
-    "max listeners state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

@@ -8,16 +8,13 @@ const spec = {
   shape: "partial-cache-state",
   anchors: {
     anchor: "machinen-real-partial-cache-state-anchor-v1",
-    marker: "template-render:partial-cache-state:unsupported",
+    marker: "partial-cache-state:semantic-state",
   },
   semanticState: {
     kind: "partial-cache-state",
     anchor: "machinen-real-partial-cache-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-partial-cache-unsupported",
-  refusalReason:
-    "partial cache state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

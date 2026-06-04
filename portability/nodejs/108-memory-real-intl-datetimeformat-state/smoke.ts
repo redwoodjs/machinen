@@ -8,16 +8,13 @@ const spec = {
   shape: "intl-datetimeformat-state",
   anchors: {
     anchor: "machinen-real-intl-datetimeformat-state-anchor-v1",
-    marker: "intl-objects:intl-datetimeformat-state:unsupported",
+    marker: "intl-datetimeformat-state:semantic-state",
   },
   semanticState: {
     kind: "intl-datetimeformat-state",
     anchor: "machinen-real-intl-datetimeformat-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-intl-datetimeformat-unsupported",
-  refusalReason:
-    "intl datetimeformat state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

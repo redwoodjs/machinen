@@ -4,54 +4,119 @@
   "accepted": true,
   "portabilityRow": "119-memory-real-custom-error-subclass-state",
   "architectures": ["arm64", "amd64"],
+  "sourceArch": "arm64",
+  "targetArch": "amd64",
   "executeVm": false,
-  "migrationCompleted": false,
+  "memoryCapture": "product-owned-nodejs-memory-ir-validation-materialization",
+  "migrationCompleted": true,
   "summary": {
     "verifiedVmRows": 0,
-    "memoryStateRows": 0,
-    "refusedRows": 1
+    "memoryStateRows": 1,
+    "refusedRows": 0,
+    "semanticMaterializedRows": 1
   },
   "results": [
     {
       "id": "119-memory-real-custom-error-subclass-state",
       "architecture": "arm64",
-      "state": "refused",
-      "refusalCode": "node-portability-memory-custom-error-subclass-unsupported"
+      "state": "verified"
     },
     {
       "id": "119-memory-real-custom-error-subclass-state",
       "architecture": "amd64",
-      "state": "refused",
-      "refusalCode": "node-portability-memory-custom-error-subclass-unsupported"
+      "state": "verified"
     }
   ],
-  "refusal": {
-    "code": "node-portability-memory-custom-error-subclass-unsupported",
-    "reason": "custom error subclass state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed"
-  },
-  "memoryIr": {
-    "kind": "machinen.nodejs.memory-ir",
-    "version": 1,
-    "rows": [],
-    "unsupported": [
-      {
-        "code": "node-portability-memory-custom-error-subclass-unsupported",
-        "reason": "custom error subclass state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed"
+  "sourceCapture": {
+    "kind": "machinen.nodejs-portability-memory-real-custom-error-subclass-state-smoke-report.source-capture",
+    "accepted": true,
+    "portabilityRow": "119-memory-real-custom-error-subclass-state",
+    "sourceArch": "arm64",
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization",
+    "appHookUsedForCapture": false,
+    "rawV8HeapRestored": false,
+    "samePidRestored": false,
+    "memoryIr": {
+      "kind": "machinen.nodejs.memory-ir",
+      "version": 1,
+      "runtime": {
+        "name": "node",
+        "sourceArch": "arm64",
+        "v8": "semantic-ir-product-validation"
+      },
+      "rows": [
+        {
+          "id": "119-memory-real-custom-error-subclass-state",
+          "shape": "custom-error-subclass-state",
+          "semanticState": {
+            "kind": "custom-error-subclass-state",
+            "anchor": "machinen-real-custom-error-subclass-state-anchor-v1",
+            "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+          },
+          "anchors": {
+            "anchor": "machinen-real-custom-error-subclass-state-anchor-v1",
+            "marker": "custom-error-subclass-state:semantic-state"
+          }
+        }
+      ],
+      "unsupported": [],
+      "claimGuard": {
+        "arbitraryNodeProcessRestoreClaimed": false,
+        "arbitraryLinuxProcessRestoreClaimed": false,
+        "rawV8HeapRestoreUsed": false,
+        "rawCpuStateReplayUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "samePidContinuationClaimed": false,
+        "activeRequestOrSocketContinuationClaimed": false
       }
-    ],
-    "claimGuard": {
-      "arbitraryNodeProcessRestoreClaimed": false,
-      "arbitraryLinuxProcessRestoreClaimed": false,
-      "rawV8HeapRestoreUsed": false,
-      "rawCpuStateReplayUsed": false,
-      "sourceIsaEmulationUsed": false,
-      "samePidContinuationClaimed": false,
-      "activeRequestOrSocketContinuationClaimed": false
+    },
+    "evidence": {
+      "decodedFields": {
+        "anchor": {
+          "found": true,
+          "hits": ["semantic-ir:119-memory-real-custom-error-subclass-state:0"]
+        },
+        "marker": {
+          "found": true,
+          "hits": ["semantic-ir:119-memory-real-custom-error-subclass-state:1"]
+        }
+      },
+      "validation": "product Node Memory IR accepts this semantic row and rejects raw/opaque fields"
     }
+  },
+  "targetResult": {
+    "kind": "machinen.nodejs-portability-memory-real-custom-error-subclass-state-smoke-report.target-result",
+    "accepted": true,
+    "portabilityRow": "119-memory-real-custom-error-subclass-state",
+    "sourceArch": "arm64",
+    "targetArch": "amd64",
+    "materialization": "target-native-node-semantic-memory-ir",
+    "targetNativeNode": true,
+    "appHookUsedForCapture": false,
+    "rawV8HeapRestored": false,
+    "samePidRestored": false,
+    "verifier": {
+      "accepted": true,
+      "actual": {
+        "kind": "custom-error-subclass-state",
+        "anchor": "machinen-real-custom-error-subclass-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "expected": {
+        "kind": "custom-error-subclass-state",
+        "anchor": "machinen-real-custom-error-subclass-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      }
+    }
+  },
+  "evidence": {
+    "appPath": "portability/nodejs/119-memory-real-custom-error-subclass-state/app.mjs",
+    "smokePath": "portability/nodejs/119-memory-real-custom-error-subclass-state/smoke.ts",
+    "materializer": "packages/runtime/src/nodejs-memory-ir.ts"
   },
   "claimBoundary": {
     "claims": [
-      "119-memory-real-custom-error-subclass-state refuses unsupported Node memory state fail-closed"
+      "119-memory-real-custom-error-subclass-state materializes selected semantic Node Memory IR state target-native across architectures"
     ],
     "notClaimed": [
       "arbitrary Node process restore",

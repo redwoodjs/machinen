@@ -8,16 +8,13 @@ const spec = {
   shape: "argv-snapshot-state",
   anchors: {
     anchor: "machinen-real-argv-snapshot-state-anchor-v1",
-    marker: "process-object:argv-snapshot-state:unsupported",
+    marker: "argv-snapshot-state:semantic-state",
   },
   semanticState: {
     kind: "argv-snapshot-state",
     anchor: "machinen-real-argv-snapshot-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-argv-snapshot-unsupported",
-  refusalReason:
-    "argv snapshot state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {

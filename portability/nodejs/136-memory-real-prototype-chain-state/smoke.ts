@@ -8,16 +8,13 @@ const spec = {
   shape: "prototype-chain-state",
   anchors: {
     anchor: "machinen-real-prototype-chain-state-anchor-v1",
-    marker: "class-prototype:prototype-chain-state:unsupported",
+    marker: "prototype-chain-state:semantic-state",
   },
   semanticState: {
     kind: "prototype-chain-state",
     anchor: "machinen-real-prototype-chain-state-anchor-v1",
+    supportMode: "product-owned-nodejs-memory-ir-validation-materialization",
   },
-  refused: true,
-  refusalCode: "node-portability-memory-prototype-chain-unsupported",
-  refusalReason:
-    "prototype chain state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed",
 } satisfies RealMemorySpec;
 
 runRealMemorySmoke(spec).catch((error) => {
