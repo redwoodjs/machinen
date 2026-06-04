@@ -40,7 +40,7 @@ Each retained product row records `detect -> capture -> decode -> classify -> ma
 
 ## Refused live/opaque rows
 
-These states are refused fail-closed by the portable VM product plan or by the broader compatibility matrix until separately proven. Rows `063` through `312` add 108 supported semantic Memory IR rows and 142 additional fail-closed rows. Ninety-four formerly refused rows are now verified only through retained semantic Node Resource IR product proof (timer/scheduler specs, drained streams/pipelines, reopenable file/stream specs, app registries, reconnectable outbound-client configs, idle/drained observability specs, declarative runtime descriptors, transfer/iterator descriptors, VM/WASM target-native specs, and parser checkpoints). The remaining unsafe rows are `verified-refusal`: they have retained fail-closed proof and still are not supported as raw/live/native continuation.
+These states are refused fail-closed by the portable VM product plan or by the broader compatibility matrix until separately proven. Rows `063` through `312` add 108 supported semantic Memory IR rows and 142 additional fail-closed rows. One hundred two formerly refused rows are now verified only through retained semantic Node Resource IR product proof (timer/scheduler specs, drained streams/pipelines, reopenable file/stream specs, app registries, reconnectable outbound-client configs, idle/drained observability specs, declarative runtime descriptors, transfer/iterator descriptors, VM/WASM target-native specs, parser checkpoints, and declared restart/rebuild specs). The remaining unsafe rows are `verified-refusal`: they have retained fail-closed proof and still are not supported as raw/live/native continuation.
 
 | State               | Refusal code                                              |
 | ------------------- | --------------------------------------------------------- |
@@ -65,15 +65,15 @@ Resource/runtime state is not treated as Memory IR. Product portable VM snapshot
 
 Current supported Resource IR rows are proven in both `arm64 -> amd64` and `amd64 -> arm64` product smokes. The retained reports list the exact row IDs under `supportedResourceRows`; the public compatibility index maps those rows to `verified` compatibility entries. The supported groups are:
 
-| Resource group      | Strategy                                                                                                                                                                            |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Timers/schedulers   | Recreate declared target-native timer, queue, clock, refresh, and refill specs                                                                                                      |
-| Files/streams       | Reopen declared files/directories and materialize drained stream/pipeline/compression state                                                                                         |
-| HTTP/app registries | Re-register routes, middleware, plugin/provider/lifecycle registries, and drained request/response templates                                                                        |
-| Outbound clients    | Recreate config-only reconnect policies with no active socket/TLS/session bytes                                                                                                     |
-| Observability/state | Recreate idle/drained diagnostics, profiler/inspector-disabled configs, rate-limit config, span context, and exporter config                                                        |
-| Runtime descriptors | Recreate semantic async context, loader/module registries, iterator positions, error/handler descriptors, transfer descriptors, VM/WASM target-native specs, and parser checkpoints |
-| Signal handlers     | Reinstall declared target-native signal handlers                                                                                                                                    |
+| Resource group      | Strategy                                                                                                                                                                                                            |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Timers/schedulers   | Recreate declared target-native timer, queue, clock, refresh, and refill specs                                                                                                                                      |
+| Files/streams       | Reopen declared files/directories and materialize drained stream/pipeline/compression state                                                                                                                         |
+| HTTP/app registries | Re-register routes, middleware, plugin/provider/lifecycle registries, and drained request/response templates                                                                                                        |
+| Outbound clients    | Recreate config-only reconnect policies with no active socket/TLS/session bytes                                                                                                                                     |
+| Observability/state | Recreate idle/drained diagnostics, profiler/inspector-disabled configs, rate-limit config, span context, and exporter config                                                                                        |
+| Runtime descriptors | Recreate semantic async context, loader/module registries, iterator positions, error/handler descriptors, transfer descriptors, VM/WASM target-native specs, parser checkpoints, and declared restart/rebuild specs |
+| Signal handlers     | Reinstall declared target-native signal handlers                                                                                                                                                                    |
 
 Pausing freezes live/native state; it does not make that state portable. Unsupported live/native resource state observed at a paused boundary stays fail-closed with resource-specific codes:
 

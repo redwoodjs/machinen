@@ -35,7 +35,7 @@ Dependency-heavy rows are classified by default. Pass `--install-deps` to attemp
 
 ## Claim boundary
 
-This corpus does **not** claim raw Node process continuation. It shows that arbitrary Node rows can be inventoried, classified, run/refused through Machinen runtime, and guarded by stable claim language. Refused-first rows stay product-refusal evidence until their target-native reconstruction path has retained portability smokes. The current generated matrix is 252 verified / 60 verified-refusal / 0 unverified-refused. Rows move out of verified-refusal only when retained Node Resource IR product smokes prove semantic target-native reconstruction with a VMM-native pause marker; unsafe raw/live/native continuation remains verified-refusal, not supported.
+This corpus does **not** claim raw Node process continuation. It shows that arbitrary Node rows can be inventoried, classified, run/refused through Machinen runtime, and guarded by stable claim language. Refused-first rows stay product-refusal evidence until their target-native reconstruction path has retained portability smokes. The current generated matrix is 260 verified / 52 verified-refusal / 0 unverified-refused. Rows move out of verified-refusal only when retained Node Resource IR product smokes prove semantic target-native reconstruction with a VMM-native pause marker; unsafe raw/live/native continuation remains verified-refusal, not supported.
 
 ## Memory-only scalar smoke
 

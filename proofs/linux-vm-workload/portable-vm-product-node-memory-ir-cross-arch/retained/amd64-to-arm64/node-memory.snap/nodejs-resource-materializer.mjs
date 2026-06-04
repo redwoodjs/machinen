@@ -100,6 +100,11 @@ const supportedResourceKinds = new Set([
   "tty-mode-config-spec",
   "parser-token-checkpoint-spec",
   "incremental-parser-checkpoint-spec",
+  "websocket-listener-registry-spec",
+  "worker-thread-restart-spec",
+  "native-addon-target-rebuild-spec",
+  "child-process-restart-spec",
+  "native-compiled-artifact-rebuild-spec",
 ]);
 const forbiddenRawFields = new Set([
   "rawFd",

@@ -207,6 +207,15 @@ const productResourceCompatibilityRows = {
   "262-memory-real-tty-state-refusal": "nodejs-resource-tty-mode-config",
   "299-memory-real-parser-mid-token-refusal": "nodejs-resource-parser-token-checkpoint",
   "302-memory-real-incremental-parser-refusal": "nodejs-resource-incremental-parser-checkpoint",
+  "010-websocket-server": "nodejs-resource-websocket-listener-registry",
+  "016-worker-thread-app": "nodejs-resource-worker-thread-restart",
+  "183-memory-real-worker-expanded-refusal": "nodejs-resource-worker-thread-restart",
+  "017-native-addon-app": "nodejs-resource-native-addon-target-rebuild",
+  "179-memory-real-native-addon-expanded-refusal": "nodejs-resource-native-addon-target-rebuild",
+  "018-child-process-app": "nodejs-resource-child-process-restart",
+  "178-memory-real-child-process-expanded-refusal": "nodejs-resource-child-process-restart",
+  "294-memory-real-native-compiled-artifact-refusal":
+    "nodejs-resource-native-compiled-artifact-rebuild",
 };
 const productResourceEvidencePaths = [
   "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",

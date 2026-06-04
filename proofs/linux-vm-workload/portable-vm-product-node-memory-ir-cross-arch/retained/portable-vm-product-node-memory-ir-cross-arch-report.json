@@ -21,7 +21,7 @@
         "pauseMechanism": "vmm-native-sigusr1-sigusr2",
         "pauseSignal": "SIGUSR1",
         "resumeSignal": "SIGUSR2",
-        "sourceVmPid": 82871,
+        "sourceVmPid": 4839,
         "stoppedStateObserved": true,
         "unsupportedPausedLiveStatePolicy": "refuse",
         "vmmNativeMarker": {
@@ -31,15 +31,15 @@
           "vcpusStopped": true,
           "resumeSignalRequired": "SIGUSR2"
         },
-        "startedAt": "2026-06-04T18:31:48.873Z",
-        "pausedObservedAt": "2026-06-04T18:31:48.894Z",
-        "resumedAt": "2026-06-04T18:31:48.894Z",
-        "elapsedMs": 21
+        "startedAt": "2026-06-04T18:39:35.842Z",
+        "pausedObservedAt": "2026-06-04T18:39:35.864Z",
+        "resumedAt": "2026-06-04T18:39:35.864Z",
+        "elapsedMs": 22
       },
       "memoryVerified": true,
       "resourceVerified": true,
       "memoryMaterializedRows": 130,
-      "resourceMaterializedRows": 94,
+      "resourceMaterializedRows": 99,
       "supportedSemanticRows": [
         "037-memory-real-plain-object",
         "038-memory-real-array",
@@ -252,6 +252,11 @@
         "nodejs-resource-tty-mode-config",
         "nodejs-resource-parser-token-checkpoint",
         "nodejs-resource-incremental-parser-checkpoint",
+        "nodejs-resource-websocket-listener-registry",
+        "nodejs-resource-worker-thread-restart",
+        "nodejs-resource-native-addon-target-rebuild",
+        "nodejs-resource-child-process-restart",
+        "nodejs-resource-native-compiled-artifact-rebuild",
         "nodejs-resource-http-request-template",
         "nodejs-resource-http-response-template",
         "nodejs-resource-request-body-drained",
@@ -3066,7 +3071,7 @@
         "pauseMechanism": "vmm-native-sigusr1-sigusr2",
         "pauseSignal": "SIGUSR1",
         "resumeSignal": "SIGUSR2",
-        "sourceVmPid": 2603855,
+        "sourceVmPid": 2608105,
         "stoppedStateObserved": true,
         "unsupportedPausedLiveStatePolicy": "refuse",
         "vmmNativeMarker": {
@@ -3076,15 +3081,15 @@
           "vcpusStopped": true,
           "resumeSignalRequired": "SIGUSR2"
         },
-        "startedAt": "2026-06-04T18:32:08.592Z",
-        "pausedObservedAt": "2026-06-04T18:32:08.612Z",
-        "resumedAt": "2026-06-04T18:32:08.612Z",
+        "startedAt": "2026-06-04T18:39:55.523Z",
+        "pausedObservedAt": "2026-06-04T18:39:55.543Z",
+        "resumedAt": "2026-06-04T18:39:55.543Z",
         "elapsedMs": 20
       },
       "memoryVerified": true,
       "resourceVerified": true,
       "memoryMaterializedRows": 130,
-      "resourceMaterializedRows": 94,
+      "resourceMaterializedRows": 99,
       "supportedSemanticRows": [
         "037-memory-real-plain-object",
         "038-memory-real-array",
@@ -3297,6 +3302,11 @@
         "nodejs-resource-tty-mode-config",
         "nodejs-resource-parser-token-checkpoint",
         "nodejs-resource-incremental-parser-checkpoint",
+        "nodejs-resource-websocket-listener-registry",
+        "nodejs-resource-worker-thread-restart",
+        "nodejs-resource-native-addon-target-rebuild",
+        "nodejs-resource-child-process-restart",
+        "nodejs-resource-native-compiled-artifact-rebuild",
         "nodejs-resource-http-request-template",
         "nodejs-resource-http-response-template",
         "nodejs-resource-request-body-drained",
@@ -6116,11 +6126,11 @@
   "artifacts": [
     {
       "path": "arm64-to-amd64-snapshot.json",
-      "sha256": "739a4b23f332214263a996f4a6df5abdb5131b45721a90a7736b7919a3ef9da2"
+      "sha256": "fa2f21ecefde49b207135300d268f25f1640395a037309c56b6c3f5948faf4a6"
     },
     {
       "path": "arm64-to-amd64-restore.json",
-      "sha256": "8fd8f44a7d0f51b447c5df07b05b9b9ea1451affd087b94c80c8402addde79d3"
+      "sha256": "e3050a958136fe806514913b11aedf551d4d1b303c385b7940bb82a59a4165b8"
     },
     {
       "path": "arm64-to-amd64/node-memory.snap/portable-vm-manifest-plan.json",
@@ -6128,11 +6138,11 @@
     },
     {
       "path": "arm64-to-amd64/node-memory.snap/portable-vm-product-restore-summary.json",
-      "sha256": "c77cf8d99db8ec20e9d7011acb73b2197bf4baf4332ee5e48937f0cae4d420dc"
+      "sha256": "9c23b643f6055445dcc28aa3959c99c0ac530b271924329d2dd9f1e2a017b261"
     },
     {
       "path": "arm64-to-amd64/node-memory.snap/portable-vm-pause-boundary.json",
-      "sha256": "736efc8a39366dc3670ed543ef6d52ede45d5b95e8ce8d57d90e8aac0da132ee"
+      "sha256": "c008adc16c32e0c95e14dc2c0291a7c86dcc37b51397e7a98f72024ccdb180c1"
     },
     {
       "path": "arm64-to-amd64/node-memory.snap/nodejs-memory-ir.json",
@@ -6148,7 +6158,7 @@
     },
     {
       "path": "arm64-to-amd64/node-memory.snap/nodejs-resource-ir.json",
-      "sha256": "f3bc871f6bd5dac61bc5997da5a4d2fda1634af12620210d49773e2049676f2e"
+      "sha256": "f33778fbc68da5c50ad065b17a2ef3e1065ecee5b49d5c606b2672498498dcf3"
     },
     {
       "path": "arm64-to-amd64/node-memory.snap/nodejs-resource-inventory.json",
@@ -6156,15 +6166,15 @@
     },
     {
       "path": "arm64-to-amd64/node-memory.snap/nodejs-resource-materializer.mjs",
-      "sha256": "77d564ac84e28b7e694d8a8ac491887baea43b70241b582789f045cd9fbcbe7c"
+      "sha256": "19ef8889b9ad9681106b17dd95af6ff651c49fe45e6a4a862ce0d3c94fd68648"
     },
     {
       "path": "amd64-to-arm64-snapshot.json",
-      "sha256": "dff9c3d339bbc62fcc6aad89838b1dd6d6ee8c14adcf10a1d96683b847312731"
+      "sha256": "855085b5ac269044822fc4d83b348d5a458539e31ba66f999a5fc8fb704f0e3c"
     },
     {
       "path": "amd64-to-arm64-restore.json",
-      "sha256": "6ba9cbe4c8185597941c29e3a879a505587ea43b78a79d4d3e2f74e5866da62b"
+      "sha256": "5849dbc71d952f9b919716cbc8cf847e733baa5ae606c11b2d9489f08da8b760"
     },
     {
       "path": "amd64-to-arm64/node-memory.snap/portable-vm-manifest-plan.json",
@@ -6172,11 +6182,11 @@
     },
     {
       "path": "amd64-to-arm64/node-memory.snap/portable-vm-product-restore-summary.json",
-      "sha256": "c4caa76f08094d9e210c655d9234277fbd3b026d6c453c0aedbc5bc4790912a5"
+      "sha256": "052655e644884b4490ccec681b17590fb1e1e858847c350ece7a972d83a8fddf"
     },
     {
       "path": "amd64-to-arm64/node-memory.snap/portable-vm-pause-boundary.json",
-      "sha256": "06e78199f188102393a5f974991292cca1bd669c69a8fff904af058f197a5621"
+      "sha256": "f8c60038a4ca25ed0276e31769c308d41059cdd1c4c4fada6ff5b0cf3b1e7369"
     },
     {
       "path": "amd64-to-arm64/node-memory.snap/nodejs-memory-ir.json",
@@ -6192,7 +6202,7 @@
     },
     {
       "path": "amd64-to-arm64/node-memory.snap/nodejs-resource-ir.json",
-      "sha256": "915539c3631f2716a5b1842cd114c2ba05ba616adb27539d7a38e53229415dea"
+      "sha256": "ba704c3e8ab648c624cf94a87e697fe6a38eb1d6b02a6b1c29a2a9d5ced30577"
     },
     {
       "path": "amd64-to-arm64/node-memory.snap/nodejs-resource-inventory.json",
@@ -6200,7 +6210,7 @@
     },
     {
       "path": "amd64-to-arm64/node-memory.snap/nodejs-resource-materializer.mjs",
-      "sha256": "77d564ac84e28b7e694d8a8ac491887baea43b70241b582789f045cd9fbcbe7c"
+      "sha256": "19ef8889b9ad9681106b17dd95af6ff651c49fe45e6a4a862ce0d3c94fd68648"
     }
   ]
 }
