@@ -143,6 +143,16 @@ function selectedProductNodeResourceRowIds(): string[] {
     "nodejs-resource-backpressure-buffer-drained",
     "nodejs-resource-stream-backed-logger-sink",
     "nodejs-resource-log-transport-drained",
+    "nodejs-resource-http-request-template",
+    "nodejs-resource-http-response-template",
+    "nodejs-resource-request-body-drained",
+    "nodejs-resource-response-writer-drained",
+    "nodejs-resource-request-scope-registry",
+    "nodejs-resource-framework-plugin-registry",
+    "nodejs-resource-scoped-provider-registry",
+    "nodejs-resource-provider-factory-registry",
+    "nodejs-resource-lifecycle-hook-registry",
+    "nodejs-resource-render-context-template",
     "nodejs-resource-zlib-stream-drained-state",
     "nodejs-resource-brotli-stream-drained-state",
     "nodejs-resource-inflate-stream-drained-state",
@@ -302,11 +312,11 @@ describe("Node.js portability corpus", () => {
       runtime: "nodejs",
       summary: {
         rowCount: 312,
-        byStatus: { verified: 190, "verified-refusal": 122 },
-        byProductClaim: { candidate: 190, "verified-refusal": 122 },
+        byStatus: { verified: 200, "verified-refusal": 112 },
+        byProductClaim: { candidate: 200, "verified-refusal": 112 },
         architectures: ["arm64", "amd64"],
-        verifiedBothArchitectures: 190,
-        verifiedRefusalRows: 122,
+        verifiedBothArchitectures: 200,
+        verifiedRefusalRows: 112,
         refusedRows: 0,
         unsupportedUnverifiedRows: 0,
         coveredRows: 312,
@@ -416,12 +426,12 @@ describe("Node.js portability corpus", () => {
     expect(report).toMatchObject({
       accepted: true,
       rowCount: 312,
-      supportedRows: 190,
-      verifiedRefusalRows: 122,
+      supportedRows: 200,
+      verifiedRefusalRows: 112,
       unsupportedUnverifiedRows: 0,
       allRowsAccountedFor: true,
     });
-    expect(report.verifiedRefusals).toHaveLength(122);
+    expect(report.verifiedRefusals).toHaveLength(112);
     expect(
       report.verifiedRefusals.every(
         (row) =>

@@ -75,6 +75,16 @@ const supportedResourceKinds = new Set([
   "inflate-stream-drained-state-spec",
   "deflate-stream-drained-state-spec",
   "write-ahead-buffer-flushed-spec",
+  "http-request-template-spec",
+  "http-response-template-spec",
+  "request-body-drained-spec",
+  "response-writer-drained-spec",
+  "request-scope-registry-spec",
+  "framework-plugin-registry-spec",
+  "scoped-provider-registry-spec",
+  "provider-factory-registry-spec",
+  "lifecycle-hook-registry-spec",
+  "render-context-template-spec",
 ]);
 
 const forbiddenRawFields = new Set([

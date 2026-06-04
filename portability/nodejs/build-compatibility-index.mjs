@@ -144,6 +144,16 @@ const productResourceCompatibilityRows = {
   "241-memory-real-inflate-state-refusal": "nodejs-resource-inflate-stream-drained-state",
   "242-memory-real-deflate-state-refusal": "nodejs-resource-deflate-stream-drained-state",
   "272-memory-real-write-ahead-buffer-refusal": "nodejs-resource-write-ahead-buffer-flushed",
+  "104-memory-real-request-refusal": "nodejs-resource-http-request-template",
+  "105-memory-real-response-refusal": "nodejs-resource-http-response-template",
+  "165-memory-real-active-request-body-refusal": "nodejs-resource-request-body-drained",
+  "166-memory-real-response-writer-refusal": "nodejs-resource-response-writer-drained",
+  "171-memory-real-request-scope-refusal": "nodejs-resource-request-scope-registry",
+  "172-memory-real-framework-plugin-refusal": "nodejs-resource-framework-plugin-registry",
+  "289-memory-real-scoped-provider-refusal": "nodejs-resource-scoped-provider-registry",
+  "290-memory-real-provider-factory-refusal": "nodejs-resource-provider-factory-registry",
+  "292-memory-real-lifecycle-hook-refusal": "nodejs-resource-lifecycle-hook-registry",
+  "296-memory-real-render-context-refusal": "nodejs-resource-render-context-template",
 };
 const productResourceEvidencePaths = [
   "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",

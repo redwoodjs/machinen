@@ -25,16 +25,16 @@
   "summary": {
     "rowCount": 312,
     "byStatus": {
-      "verified": 190,
-      "verified-refusal": 122
+      "verified": 200,
+      "verified-refusal": 112
     },
     "byProductClaim": {
-      "candidate": 190,
-      "verified-refusal": 122
+      "candidate": 200,
+      "verified-refusal": 112
     },
     "architectures": ["arm64", "amd64"],
-    "verifiedBothArchitectures": 190,
-    "verifiedRefusalRows": 122,
+    "verifiedBothArchitectures": 200,
+    "verifiedRefusalRows": 112,
     "refusedRows": 0,
     "unsupportedUnverifiedRows": 0,
     "coveredRows": 312,
@@ -7613,13 +7613,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-timer-schedule product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-timer-schedule verified with arm64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -7632,13 +7632,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-timer-schedule product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-timer-schedule verified with amd64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -7662,13 +7662,13 @@
         {
           "kind": "product-resource-ir-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-          "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+          "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
           "summary": "nodejs-resource-timer-schedule product Resource IR materialized"
         },
         {
           "kind": "product-resource-ir-cross-arch-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-          "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+          "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
           "summary": "nodejs-resource-timer-schedule verified with arm64 participating in arm64<->amd64 product smoke"
         }
       ],
@@ -9291,13 +9291,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-timer-schedule product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-timer-schedule verified with arm64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -9310,13 +9310,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-timer-schedule product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-timer-schedule verified with amd64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -9340,13 +9340,13 @@
         {
           "kind": "product-resource-ir-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-          "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+          "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
           "summary": "nodejs-resource-timer-schedule product Resource IR materialized"
         },
         {
           "kind": "product-resource-ir-cross-arch-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-          "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+          "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
           "summary": "nodejs-resource-timer-schedule verified with arm64 participating in arm64<->amd64 product smoke"
         }
       ],
@@ -9373,13 +9373,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-immediate-schedule product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-immediate-schedule verified with arm64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -9392,13 +9392,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-immediate-schedule product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-immediate-schedule verified with amd64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -9422,13 +9422,13 @@
         {
           "kind": "product-resource-ir-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-          "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+          "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
           "summary": "nodejs-resource-immediate-schedule product Resource IR materialized"
         },
         {
           "kind": "product-resource-ir-cross-arch-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-          "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+          "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
           "summary": "nodejs-resource-immediate-schedule verified with arm64 participating in arm64<->amd64 product smoke"
         }
       ],
@@ -9455,13 +9455,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-unref-timer-schedule product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-unref-timer-schedule verified with arm64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -9474,13 +9474,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-unref-timer-schedule product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-unref-timer-schedule verified with amd64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -9504,13 +9504,13 @@
         {
           "kind": "product-resource-ir-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-          "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+          "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
           "summary": "nodejs-resource-unref-timer-schedule product Resource IR materialized"
         },
         {
           "kind": "product-resource-ir-cross-arch-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-          "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+          "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
           "summary": "nodejs-resource-unref-timer-schedule verified with arm64 participating in arm64<->amd64 product smoke"
         }
       ],
@@ -9537,13 +9537,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-timer-wheel-state product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-timer-wheel-state verified with arm64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -9556,13 +9556,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-timer-wheel-state product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-timer-wheel-state verified with amd64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -9586,13 +9586,13 @@
         {
           "kind": "product-resource-ir-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-          "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+          "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
           "summary": "nodejs-resource-timer-wheel-state product Resource IR materialized"
         },
         {
           "kind": "product-resource-ir-cross-arch-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-          "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+          "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
           "summary": "nodejs-resource-timer-wheel-state verified with arm64 participating in arm64<->amd64 product smoke"
         }
       ],
@@ -9619,13 +9619,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-timer-schedule product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-timer-schedule verified with arm64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -9638,13 +9638,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-timer-schedule product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-timer-schedule verified with amd64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -9668,13 +9668,13 @@
         {
           "kind": "product-resource-ir-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-          "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+          "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
           "summary": "nodejs-resource-timer-schedule product Resource IR materialized"
         },
         {
           "kind": "product-resource-ir-cross-arch-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-          "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+          "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
           "summary": "nodejs-resource-timer-schedule verified with arm64 participating in arm64<->amd64 product smoke"
         }
       ],
@@ -9701,13 +9701,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-drained-readable-stream product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-drained-readable-stream verified with arm64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -9720,13 +9720,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-drained-readable-stream product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-drained-readable-stream verified with amd64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -9750,13 +9750,13 @@
         {
           "kind": "product-resource-ir-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-          "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+          "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
           "summary": "nodejs-resource-drained-readable-stream product Resource IR materialized"
         },
         {
           "kind": "product-resource-ir-cross-arch-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-          "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+          "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
           "summary": "nodejs-resource-drained-readable-stream verified with arm64 participating in arm64<->amd64 product smoke"
         }
       ],
@@ -9783,13 +9783,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-drained-writable-stream product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-drained-writable-stream verified with arm64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -9802,13 +9802,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-drained-writable-stream product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-drained-writable-stream verified with amd64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -9832,13 +9832,13 @@
         {
           "kind": "product-resource-ir-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-          "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+          "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
           "summary": "nodejs-resource-drained-writable-stream product Resource IR materialized"
         },
         {
           "kind": "product-resource-ir-cross-arch-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-          "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+          "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
           "summary": "nodejs-resource-drained-writable-stream verified with arm64 participating in arm64<->amd64 product smoke"
         }
       ],
@@ -9865,13 +9865,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-transform-stream-drained-state product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-transform-stream-drained-state verified with arm64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -9884,13 +9884,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-transform-stream-drained-state product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-transform-stream-drained-state verified with amd64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -9914,13 +9914,13 @@
         {
           "kind": "product-resource-ir-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-          "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+          "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
           "summary": "nodejs-resource-transform-stream-drained-state product Resource IR materialized"
         },
         {
           "kind": "product-resource-ir-cross-arch-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-          "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+          "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
           "summary": "nodejs-resource-transform-stream-drained-state verified with arm64 participating in arm64<->amd64 product smoke"
         }
       ],
@@ -9947,13 +9947,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-pipeline-drained-state product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-pipeline-drained-state verified with arm64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -9966,13 +9966,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-pipeline-drained-state product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-pipeline-drained-state verified with amd64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -9996,13 +9996,13 @@
         {
           "kind": "product-resource-ir-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-          "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+          "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
           "summary": "nodejs-resource-pipeline-drained-state product Resource IR materialized"
         },
         {
           "kind": "product-resource-ir-cross-arch-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-          "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+          "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
           "summary": "nodejs-resource-pipeline-drained-state verified with arm64 participating in arm64<->amd64 product smoke"
         }
       ],
@@ -10029,13 +10029,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-backpressure-buffer-drained product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-backpressure-buffer-drained verified with arm64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -10048,13 +10048,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-backpressure-buffer-drained product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-backpressure-buffer-drained verified with amd64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -10078,13 +10078,13 @@
         {
           "kind": "product-resource-ir-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-          "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+          "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
           "summary": "nodejs-resource-backpressure-buffer-drained product Resource IR materialized"
         },
         {
           "kind": "product-resource-ir-cross-arch-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-          "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+          "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
           "summary": "nodejs-resource-backpressure-buffer-drained verified with arm64 participating in arm64<->amd64 product smoke"
         }
       ],
@@ -10937,54 +10937,54 @@
       "capability": "request refusal refuses fail-closed until separately proven",
       "category": "memory-blocker",
       "description": "request refusal refuses fail-closed until separately proven",
-      "attemptPolicy": "refuse-live-state",
-      "status": "verified-refusal",
+      "attemptPolicy": "try-first",
+      "status": "verified",
       "architectures": {
         "arm64": {
-          "status": "verified-refusal",
+          "status": "verified",
           "lastRun": null,
           "evidence": [
             {
-              "kind": "classification-report",
-              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "40266a2cbb9bc78eab97f8ad3d30123daa1f69f5bee77f14f53275bbc334c175",
-              "summary": "arm64 classification row retained"
+              "kind": "product-resource-ir-report",
+              "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
+              "summary": "nodejs-resource-http-request-template product Resource IR materialized"
             },
             {
-              "kind": "classification-report",
-              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "40266a2cbb9bc78eab97f8ad3d30123daa1f69f5bee77f14f53275bbc334c175",
-              "summary": "arm64 retained refusal smoke"
+              "kind": "product-resource-ir-cross-arch-report",
+              "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
+              "summary": "nodejs-resource-http-request-template verified with arm64 participating in arm64<->amd64 product smoke"
             }
           ],
-          "notes": "Retained fail-closed proof: node-portability-memory-request-unsupported"
+          "notes": "Semantic Resource IR row nodejs-resource-http-request-template materialized target-native with retained VMM-native pause proof; raw/live/native continuation remains refused."
         },
         "amd64": {
-          "status": "verified-refusal",
+          "status": "verified",
           "lastRun": null,
           "evidence": [
             {
-              "kind": "classification-report",
-              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "40266a2cbb9bc78eab97f8ad3d30123daa1f69f5bee77f14f53275bbc334c175",
-              "summary": "amd64 classification row retained"
+              "kind": "product-resource-ir-report",
+              "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
+              "summary": "nodejs-resource-http-request-template product Resource IR materialized"
             },
             {
-              "kind": "classification-report",
-              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "40266a2cbb9bc78eab97f8ad3d30123daa1f69f5bee77f14f53275bbc334c175",
-              "summary": "amd64 retained refusal smoke"
+              "kind": "product-resource-ir-cross-arch-report",
+              "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
+              "summary": "nodejs-resource-http-request-template verified with amd64 participating in arm64<->amd64 product smoke"
             }
           ],
-          "notes": "Retained fail-closed proof: node-portability-memory-request-unsupported"
+          "notes": "Semantic Resource IR row nodejs-resource-http-request-template materialized target-native with retained VMM-native pause proof; raw/live/native continuation remains refused."
         }
       },
       "blockers": [],
       "workaround": null,
       "productClaim": {
-        "status": "verified-refusal",
-        "scope": "node-portability-fail-closed-proof",
-        "notes": "Retained fail-closed proof covers this unsafe row; live/opaque state is not portable."
+        "status": "candidate",
+        "scope": "node-resource-ir-product-proof",
+        "notes": "Supported only as decoded semantic Resource IR with retained VMM-native pause proof; raw/live/native continuation remains refused."
       },
       "evidence": [
         {
@@ -10994,10 +10994,16 @@
           "summary": "row metadata"
         },
         {
-          "kind": "classification-report",
-          "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-          "sha256": "40266a2cbb9bc78eab97f8ad3d30123daa1f69f5bee77f14f53275bbc334c175",
-          "summary": "arm64 classification row retained"
+          "kind": "product-resource-ir-report",
+          "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
+          "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
+          "summary": "nodejs-resource-http-request-template product Resource IR materialized"
+        },
+        {
+          "kind": "product-resource-ir-cross-arch-report",
+          "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
+          "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
+          "summary": "nodejs-resource-http-request-template verified with arm64 participating in arm64<->amd64 product smoke"
         }
       ],
       "claimGuard": {
@@ -11013,54 +11019,54 @@
       "capability": "response refusal refuses fail-closed until separately proven",
       "category": "memory-blocker",
       "description": "response refusal refuses fail-closed until separately proven",
-      "attemptPolicy": "refuse-live-state",
-      "status": "verified-refusal",
+      "attemptPolicy": "try-first",
+      "status": "verified",
       "architectures": {
         "arm64": {
-          "status": "verified-refusal",
+          "status": "verified",
           "lastRun": null,
           "evidence": [
             {
-              "kind": "classification-report",
-              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "40266a2cbb9bc78eab97f8ad3d30123daa1f69f5bee77f14f53275bbc334c175",
-              "summary": "arm64 classification row retained"
+              "kind": "product-resource-ir-report",
+              "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
+              "summary": "nodejs-resource-http-response-template product Resource IR materialized"
             },
             {
-              "kind": "classification-report",
-              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "40266a2cbb9bc78eab97f8ad3d30123daa1f69f5bee77f14f53275bbc334c175",
-              "summary": "arm64 retained refusal smoke"
+              "kind": "product-resource-ir-cross-arch-report",
+              "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
+              "summary": "nodejs-resource-http-response-template verified with arm64 participating in arm64<->amd64 product smoke"
             }
           ],
-          "notes": "Retained fail-closed proof: node-portability-memory-response-unsupported"
+          "notes": "Semantic Resource IR row nodejs-resource-http-response-template materialized target-native with retained VMM-native pause proof; raw/live/native continuation remains refused."
         },
         "amd64": {
-          "status": "verified-refusal",
+          "status": "verified",
           "lastRun": null,
           "evidence": [
             {
-              "kind": "classification-report",
-              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "40266a2cbb9bc78eab97f8ad3d30123daa1f69f5bee77f14f53275bbc334c175",
-              "summary": "amd64 classification row retained"
+              "kind": "product-resource-ir-report",
+              "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
+              "summary": "nodejs-resource-http-response-template product Resource IR materialized"
             },
             {
-              "kind": "classification-report",
-              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "40266a2cbb9bc78eab97f8ad3d30123daa1f69f5bee77f14f53275bbc334c175",
-              "summary": "amd64 retained refusal smoke"
+              "kind": "product-resource-ir-cross-arch-report",
+              "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
+              "summary": "nodejs-resource-http-response-template verified with amd64 participating in arm64<->amd64 product smoke"
             }
           ],
-          "notes": "Retained fail-closed proof: node-portability-memory-response-unsupported"
+          "notes": "Semantic Resource IR row nodejs-resource-http-response-template materialized target-native with retained VMM-native pause proof; raw/live/native continuation remains refused."
         }
       },
       "blockers": [],
       "workaround": null,
       "productClaim": {
-        "status": "verified-refusal",
-        "scope": "node-portability-fail-closed-proof",
-        "notes": "Retained fail-closed proof covers this unsafe row; live/opaque state is not portable."
+        "status": "candidate",
+        "scope": "node-resource-ir-product-proof",
+        "notes": "Supported only as decoded semantic Resource IR with retained VMM-native pause proof; raw/live/native continuation remains refused."
       },
       "evidence": [
         {
@@ -11070,10 +11076,16 @@
           "summary": "row metadata"
         },
         {
-          "kind": "classification-report",
-          "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-          "sha256": "40266a2cbb9bc78eab97f8ad3d30123daa1f69f5bee77f14f53275bbc334c175",
-          "summary": "arm64 classification row retained"
+          "kind": "product-resource-ir-report",
+          "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
+          "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
+          "summary": "nodejs-resource-http-response-template product Resource IR materialized"
+        },
+        {
+          "kind": "product-resource-ir-cross-arch-report",
+          "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
+          "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
+          "summary": "nodejs-resource-http-response-template verified with arm64 participating in arm64<->amd64 product smoke"
         }
       ],
       "claimGuard": {
@@ -13911,13 +13923,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-ttl-cache-expiration product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-ttl-cache-expiration verified with arm64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -13930,13 +13942,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-ttl-cache-expiration product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-ttl-cache-expiration verified with amd64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -13960,13 +13972,13 @@
         {
           "kind": "product-resource-ir-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-          "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+          "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
           "summary": "nodejs-resource-ttl-cache-expiration product Resource IR materialized"
         },
         {
           "kind": "product-resource-ir-cross-arch-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-          "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+          "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
           "summary": "nodejs-resource-ttl-cache-expiration verified with arm64 participating in arm64<->amd64 product smoke"
         }
       ],
@@ -14145,13 +14157,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-cache-expiration-timer product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-cache-expiration-timer verified with arm64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -14164,13 +14176,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-cache-expiration-timer product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-cache-expiration-timer verified with amd64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -14194,13 +14206,13 @@
         {
           "kind": "product-resource-ir-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-          "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+          "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
           "summary": "nodejs-resource-cache-expiration-timer product Resource IR materialized"
         },
         {
           "kind": "product-resource-ir-cross-arch-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-          "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+          "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
           "summary": "nodejs-resource-cache-expiration-timer verified with arm64 participating in arm64<->amd64 product smoke"
         }
       ],
@@ -14531,13 +14543,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-delayed-queue-schedule product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-delayed-queue-schedule verified with arm64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -14550,13 +14562,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-delayed-queue-schedule product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-delayed-queue-schedule verified with amd64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -14580,13 +14592,13 @@
         {
           "kind": "product-resource-ir-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-          "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+          "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
           "summary": "nodejs-resource-delayed-queue-schedule product Resource IR materialized"
         },
         {
           "kind": "product-resource-ir-cross-arch-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-          "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+          "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
           "summary": "nodejs-resource-delayed-queue-schedule verified with arm64 participating in arm64<->amd64 product smoke"
         }
       ],
@@ -15591,54 +15603,54 @@
       "capability": "active request body refusal refuses fail-closed until separately proven",
       "category": "memory-blocker",
       "description": "active request body refusal refuses fail-closed until separately proven",
-      "attemptPolicy": "refuse-live-state",
-      "status": "verified-refusal",
+      "attemptPolicy": "try-first",
+      "status": "verified",
       "architectures": {
         "arm64": {
-          "status": "verified-refusal",
+          "status": "verified",
           "lastRun": null,
           "evidence": [
             {
-              "kind": "classification-report",
-              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "40266a2cbb9bc78eab97f8ad3d30123daa1f69f5bee77f14f53275bbc334c175",
-              "summary": "arm64 classification row retained"
+              "kind": "product-resource-ir-report",
+              "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
+              "summary": "nodejs-resource-request-body-drained product Resource IR materialized"
             },
             {
-              "kind": "classification-report",
-              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "40266a2cbb9bc78eab97f8ad3d30123daa1f69f5bee77f14f53275bbc334c175",
-              "summary": "arm64 retained refusal smoke"
+              "kind": "product-resource-ir-cross-arch-report",
+              "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
+              "summary": "nodejs-resource-request-body-drained verified with arm64 participating in arm64<->amd64 product smoke"
             }
           ],
-          "notes": "Retained fail-closed proof: node-portability-memory-active-request-body-unsupported"
+          "notes": "Semantic Resource IR row nodejs-resource-request-body-drained materialized target-native with retained VMM-native pause proof; raw/live/native continuation remains refused."
         },
         "amd64": {
-          "status": "verified-refusal",
+          "status": "verified",
           "lastRun": null,
           "evidence": [
             {
-              "kind": "classification-report",
-              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "40266a2cbb9bc78eab97f8ad3d30123daa1f69f5bee77f14f53275bbc334c175",
-              "summary": "amd64 classification row retained"
+              "kind": "product-resource-ir-report",
+              "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
+              "summary": "nodejs-resource-request-body-drained product Resource IR materialized"
             },
             {
-              "kind": "classification-report",
-              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "40266a2cbb9bc78eab97f8ad3d30123daa1f69f5bee77f14f53275bbc334c175",
-              "summary": "amd64 retained refusal smoke"
+              "kind": "product-resource-ir-cross-arch-report",
+              "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
+              "summary": "nodejs-resource-request-body-drained verified with amd64 participating in arm64<->amd64 product smoke"
             }
           ],
-          "notes": "Retained fail-closed proof: node-portability-memory-active-request-body-unsupported"
+          "notes": "Semantic Resource IR row nodejs-resource-request-body-drained materialized target-native with retained VMM-native pause proof; raw/live/native continuation remains refused."
         }
       },
       "blockers": [],
       "workaround": null,
       "productClaim": {
-        "status": "verified-refusal",
-        "scope": "node-portability-fail-closed-proof",
-        "notes": "Retained fail-closed proof covers this unsafe row; live/opaque state is not portable."
+        "status": "candidate",
+        "scope": "node-resource-ir-product-proof",
+        "notes": "Supported only as decoded semantic Resource IR with retained VMM-native pause proof; raw/live/native continuation remains refused."
       },
       "evidence": [
         {
@@ -15648,10 +15660,16 @@
           "summary": "row metadata"
         },
         {
-          "kind": "classification-report",
-          "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-          "sha256": "40266a2cbb9bc78eab97f8ad3d30123daa1f69f5bee77f14f53275bbc334c175",
-          "summary": "arm64 classification row retained"
+          "kind": "product-resource-ir-report",
+          "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
+          "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
+          "summary": "nodejs-resource-request-body-drained product Resource IR materialized"
+        },
+        {
+          "kind": "product-resource-ir-cross-arch-report",
+          "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
+          "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
+          "summary": "nodejs-resource-request-body-drained verified with arm64 participating in arm64<->amd64 product smoke"
         }
       ],
       "claimGuard": {
@@ -15667,54 +15685,54 @@
       "capability": "response writer refusal refuses fail-closed until separately proven",
       "category": "memory-blocker",
       "description": "response writer refusal refuses fail-closed until separately proven",
-      "attemptPolicy": "refuse-live-state",
-      "status": "verified-refusal",
+      "attemptPolicy": "try-first",
+      "status": "verified",
       "architectures": {
         "arm64": {
-          "status": "verified-refusal",
+          "status": "verified",
           "lastRun": null,
           "evidence": [
             {
-              "kind": "classification-report",
-              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "40266a2cbb9bc78eab97f8ad3d30123daa1f69f5bee77f14f53275bbc334c175",
-              "summary": "arm64 classification row retained"
+              "kind": "product-resource-ir-report",
+              "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
+              "summary": "nodejs-resource-response-writer-drained product Resource IR materialized"
             },
             {
-              "kind": "classification-report",
-              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "40266a2cbb9bc78eab97f8ad3d30123daa1f69f5bee77f14f53275bbc334c175",
-              "summary": "arm64 retained refusal smoke"
+              "kind": "product-resource-ir-cross-arch-report",
+              "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
+              "summary": "nodejs-resource-response-writer-drained verified with arm64 participating in arm64<->amd64 product smoke"
             }
           ],
-          "notes": "Retained fail-closed proof: node-portability-memory-response-writer-unsupported"
+          "notes": "Semantic Resource IR row nodejs-resource-response-writer-drained materialized target-native with retained VMM-native pause proof; raw/live/native continuation remains refused."
         },
         "amd64": {
-          "status": "verified-refusal",
+          "status": "verified",
           "lastRun": null,
           "evidence": [
             {
-              "kind": "classification-report",
-              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "40266a2cbb9bc78eab97f8ad3d30123daa1f69f5bee77f14f53275bbc334c175",
-              "summary": "amd64 classification row retained"
+              "kind": "product-resource-ir-report",
+              "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
+              "summary": "nodejs-resource-response-writer-drained product Resource IR materialized"
             },
             {
-              "kind": "classification-report",
-              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "40266a2cbb9bc78eab97f8ad3d30123daa1f69f5bee77f14f53275bbc334c175",
-              "summary": "amd64 retained refusal smoke"
+              "kind": "product-resource-ir-cross-arch-report",
+              "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
+              "summary": "nodejs-resource-response-writer-drained verified with amd64 participating in arm64<->amd64 product smoke"
             }
           ],
-          "notes": "Retained fail-closed proof: node-portability-memory-response-writer-unsupported"
+          "notes": "Semantic Resource IR row nodejs-resource-response-writer-drained materialized target-native with retained VMM-native pause proof; raw/live/native continuation remains refused."
         }
       },
       "blockers": [],
       "workaround": null,
       "productClaim": {
-        "status": "verified-refusal",
-        "scope": "node-portability-fail-closed-proof",
-        "notes": "Retained fail-closed proof covers this unsafe row; live/opaque state is not portable."
+        "status": "candidate",
+        "scope": "node-resource-ir-product-proof",
+        "notes": "Supported only as decoded semantic Resource IR with retained VMM-native pause proof; raw/live/native continuation remains refused."
       },
       "evidence": [
         {
@@ -15724,10 +15742,16 @@
           "summary": "row metadata"
         },
         {
-          "kind": "classification-report",
-          "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-          "sha256": "40266a2cbb9bc78eab97f8ad3d30123daa1f69f5bee77f14f53275bbc334c175",
-          "summary": "arm64 classification row retained"
+          "kind": "product-resource-ir-report",
+          "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
+          "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
+          "summary": "nodejs-resource-response-writer-drained product Resource IR materialized"
+        },
+        {
+          "kind": "product-resource-ir-cross-arch-report",
+          "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
+          "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
+          "summary": "nodejs-resource-response-writer-drained verified with arm64 participating in arm64<->amd64 product smoke"
         }
       ],
       "claimGuard": {
@@ -16047,54 +16071,54 @@
       "capability": "request scope refusal refuses fail-closed until separately proven",
       "category": "memory-blocker",
       "description": "request scope refusal refuses fail-closed until separately proven",
-      "attemptPolicy": "refuse-live-state",
-      "status": "verified-refusal",
+      "attemptPolicy": "try-first",
+      "status": "verified",
       "architectures": {
         "arm64": {
-          "status": "verified-refusal",
+          "status": "verified",
           "lastRun": null,
           "evidence": [
             {
-              "kind": "classification-report",
-              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "40266a2cbb9bc78eab97f8ad3d30123daa1f69f5bee77f14f53275bbc334c175",
-              "summary": "arm64 classification row retained"
+              "kind": "product-resource-ir-report",
+              "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
+              "summary": "nodejs-resource-request-scope-registry product Resource IR materialized"
             },
             {
-              "kind": "classification-report",
-              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "40266a2cbb9bc78eab97f8ad3d30123daa1f69f5bee77f14f53275bbc334c175",
-              "summary": "arm64 retained refusal smoke"
+              "kind": "product-resource-ir-cross-arch-report",
+              "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
+              "summary": "nodejs-resource-request-scope-registry verified with arm64 participating in arm64<->amd64 product smoke"
             }
           ],
-          "notes": "Retained fail-closed proof: node-portability-memory-request-scope-unsupported"
+          "notes": "Semantic Resource IR row nodejs-resource-request-scope-registry materialized target-native with retained VMM-native pause proof; raw/live/native continuation remains refused."
         },
         "amd64": {
-          "status": "verified-refusal",
+          "status": "verified",
           "lastRun": null,
           "evidence": [
             {
-              "kind": "classification-report",
-              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "40266a2cbb9bc78eab97f8ad3d30123daa1f69f5bee77f14f53275bbc334c175",
-              "summary": "amd64 classification row retained"
+              "kind": "product-resource-ir-report",
+              "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
+              "summary": "nodejs-resource-request-scope-registry product Resource IR materialized"
             },
             {
-              "kind": "classification-report",
-              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "40266a2cbb9bc78eab97f8ad3d30123daa1f69f5bee77f14f53275bbc334c175",
-              "summary": "amd64 retained refusal smoke"
+              "kind": "product-resource-ir-cross-arch-report",
+              "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
+              "summary": "nodejs-resource-request-scope-registry verified with amd64 participating in arm64<->amd64 product smoke"
             }
           ],
-          "notes": "Retained fail-closed proof: node-portability-memory-request-scope-unsupported"
+          "notes": "Semantic Resource IR row nodejs-resource-request-scope-registry materialized target-native with retained VMM-native pause proof; raw/live/native continuation remains refused."
         }
       },
       "blockers": [],
       "workaround": null,
       "productClaim": {
-        "status": "verified-refusal",
-        "scope": "node-portability-fail-closed-proof",
-        "notes": "Retained fail-closed proof covers this unsafe row; live/opaque state is not portable."
+        "status": "candidate",
+        "scope": "node-resource-ir-product-proof",
+        "notes": "Supported only as decoded semantic Resource IR with retained VMM-native pause proof; raw/live/native continuation remains refused."
       },
       "evidence": [
         {
@@ -16104,10 +16128,16 @@
           "summary": "row metadata"
         },
         {
-          "kind": "classification-report",
-          "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-          "sha256": "40266a2cbb9bc78eab97f8ad3d30123daa1f69f5bee77f14f53275bbc334c175",
-          "summary": "arm64 classification row retained"
+          "kind": "product-resource-ir-report",
+          "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
+          "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
+          "summary": "nodejs-resource-request-scope-registry product Resource IR materialized"
+        },
+        {
+          "kind": "product-resource-ir-cross-arch-report",
+          "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
+          "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
+          "summary": "nodejs-resource-request-scope-registry verified with arm64 participating in arm64<->amd64 product smoke"
         }
       ],
       "claimGuard": {
@@ -16123,54 +16153,54 @@
       "capability": "framework plugin refusal refuses fail-closed until separately proven",
       "category": "memory-blocker",
       "description": "framework plugin refusal refuses fail-closed until separately proven",
-      "attemptPolicy": "refuse-live-state",
-      "status": "verified-refusal",
+      "attemptPolicy": "try-first",
+      "status": "verified",
       "architectures": {
         "arm64": {
-          "status": "verified-refusal",
+          "status": "verified",
           "lastRun": null,
           "evidence": [
             {
-              "kind": "classification-report",
-              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "40266a2cbb9bc78eab97f8ad3d30123daa1f69f5bee77f14f53275bbc334c175",
-              "summary": "arm64 classification row retained"
+              "kind": "product-resource-ir-report",
+              "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
+              "summary": "nodejs-resource-framework-plugin-registry product Resource IR materialized"
             },
             {
-              "kind": "classification-report",
-              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "40266a2cbb9bc78eab97f8ad3d30123daa1f69f5bee77f14f53275bbc334c175",
-              "summary": "arm64 retained refusal smoke"
+              "kind": "product-resource-ir-cross-arch-report",
+              "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
+              "summary": "nodejs-resource-framework-plugin-registry verified with arm64 participating in arm64<->amd64 product smoke"
             }
           ],
-          "notes": "Retained fail-closed proof: node-portability-memory-framework-plugin-unsupported"
+          "notes": "Semantic Resource IR row nodejs-resource-framework-plugin-registry materialized target-native with retained VMM-native pause proof; raw/live/native continuation remains refused."
         },
         "amd64": {
-          "status": "verified-refusal",
+          "status": "verified",
           "lastRun": null,
           "evidence": [
             {
-              "kind": "classification-report",
-              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "40266a2cbb9bc78eab97f8ad3d30123daa1f69f5bee77f14f53275bbc334c175",
-              "summary": "amd64 classification row retained"
+              "kind": "product-resource-ir-report",
+              "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
+              "summary": "nodejs-resource-framework-plugin-registry product Resource IR materialized"
             },
             {
-              "kind": "classification-report",
-              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "40266a2cbb9bc78eab97f8ad3d30123daa1f69f5bee77f14f53275bbc334c175",
-              "summary": "amd64 retained refusal smoke"
+              "kind": "product-resource-ir-cross-arch-report",
+              "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
+              "summary": "nodejs-resource-framework-plugin-registry verified with amd64 participating in arm64<->amd64 product smoke"
             }
           ],
-          "notes": "Retained fail-closed proof: node-portability-memory-framework-plugin-unsupported"
+          "notes": "Semantic Resource IR row nodejs-resource-framework-plugin-registry materialized target-native with retained VMM-native pause proof; raw/live/native continuation remains refused."
         }
       },
       "blockers": [],
       "workaround": null,
       "productClaim": {
-        "status": "verified-refusal",
-        "scope": "node-portability-fail-closed-proof",
-        "notes": "Retained fail-closed proof covers this unsafe row; live/opaque state is not portable."
+        "status": "candidate",
+        "scope": "node-resource-ir-product-proof",
+        "notes": "Supported only as decoded semantic Resource IR with retained VMM-native pause proof; raw/live/native continuation remains refused."
       },
       "evidence": [
         {
@@ -16180,10 +16210,16 @@
           "summary": "row metadata"
         },
         {
-          "kind": "classification-report",
-          "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-          "sha256": "40266a2cbb9bc78eab97f8ad3d30123daa1f69f5bee77f14f53275bbc334c175",
-          "summary": "arm64 classification row retained"
+          "kind": "product-resource-ir-report",
+          "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
+          "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
+          "summary": "nodejs-resource-framework-plugin-registry product Resource IR materialized"
+        },
+        {
+          "kind": "product-resource-ir-cross-arch-report",
+          "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
+          "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
+          "summary": "nodejs-resource-framework-plugin-registry verified with arm64 participating in arm64<->amd64 product smoke"
         }
       ],
       "claimGuard": {
@@ -16209,13 +16245,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-reopenable-file product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-reopenable-file verified with arm64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -16228,13 +16264,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-reopenable-file product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-reopenable-file verified with amd64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -16258,13 +16294,13 @@
         {
           "kind": "product-resource-ir-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-          "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+          "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
           "summary": "nodejs-resource-reopenable-file product Resource IR materialized"
         },
         {
           "kind": "product-resource-ir-cross-arch-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-          "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+          "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
           "summary": "nodejs-resource-reopenable-file verified with arm64 participating in arm64<->amd64 product smoke"
         }
       ],
@@ -16291,13 +16327,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-reopenable-dir-handle product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-reopenable-dir-handle verified with arm64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -16310,13 +16346,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-reopenable-dir-handle product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-reopenable-dir-handle verified with amd64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -16340,13 +16376,13 @@
         {
           "kind": "product-resource-ir-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-          "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+          "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
           "summary": "nodejs-resource-reopenable-dir-handle product Resource IR materialized"
         },
         {
           "kind": "product-resource-ir-cross-arch-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-          "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+          "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
           "summary": "nodejs-resource-reopenable-dir-handle verified with arm64 participating in arm64<->amd64 product smoke"
         }
       ],
@@ -16373,13 +16409,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-fs-watcher-subscription product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-fs-watcher-subscription verified with arm64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -16392,13 +16428,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-fs-watcher-subscription product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-fs-watcher-subscription verified with amd64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -16422,13 +16458,13 @@
         {
           "kind": "product-resource-ir-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-          "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+          "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
           "summary": "nodejs-resource-fs-watcher-subscription product Resource IR materialized"
         },
         {
           "kind": "product-resource-ir-cross-arch-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-          "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+          "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
           "summary": "nodejs-resource-fs-watcher-subscription verified with arm64 participating in arm64<->amd64 product smoke"
         }
       ],
@@ -16455,13 +16491,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-reopenable-read-stream product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-reopenable-read-stream verified with arm64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -16474,13 +16510,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-reopenable-read-stream product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-reopenable-read-stream verified with amd64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -16504,13 +16540,13 @@
         {
           "kind": "product-resource-ir-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-          "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+          "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
           "summary": "nodejs-resource-reopenable-read-stream product Resource IR materialized"
         },
         {
           "kind": "product-resource-ir-cross-arch-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-          "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+          "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
           "summary": "nodejs-resource-reopenable-read-stream verified with arm64 participating in arm64<->amd64 product smoke"
         }
       ],
@@ -16537,13 +16573,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-reopenable-write-stream product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-reopenable-write-stream verified with arm64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -16556,13 +16592,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-reopenable-write-stream product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-reopenable-write-stream verified with amd64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -16586,13 +16622,13 @@
         {
           "kind": "product-resource-ir-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-          "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+          "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
           "summary": "nodejs-resource-reopenable-write-stream product Resource IR materialized"
         },
         {
           "kind": "product-resource-ir-cross-arch-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-          "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+          "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
           "summary": "nodejs-resource-reopenable-write-stream verified with arm64 participating in arm64<->amd64 product smoke"
         }
       ],
@@ -16847,13 +16883,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-signal-handler-registry product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-signal-handler-registry verified with arm64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -16866,13 +16902,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-signal-handler-registry product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-signal-handler-registry verified with amd64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -16896,13 +16932,13 @@
         {
           "kind": "product-resource-ir-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-          "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+          "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
           "summary": "nodejs-resource-signal-handler-registry product Resource IR materialized"
         },
         {
           "kind": "product-resource-ir-cross-arch-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-          "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+          "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
           "summary": "nodejs-resource-signal-handler-registry verified with arm64 participating in arm64<->amd64 product smoke"
         }
       ],
@@ -19893,13 +19929,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-monotonic-clock-baseline product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-monotonic-clock-baseline verified with arm64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -19912,13 +19948,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-monotonic-clock-baseline product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-monotonic-clock-baseline verified with amd64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -19942,13 +19978,13 @@
         {
           "kind": "product-resource-ir-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-          "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+          "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
           "summary": "nodejs-resource-monotonic-clock-baseline product Resource IR materialized"
         },
         {
           "kind": "product-resource-ir-cross-arch-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-          "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+          "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
           "summary": "nodejs-resource-monotonic-clock-baseline verified with arm64 participating in arm64<->amd64 product smoke"
         }
       ],
@@ -19975,13 +20011,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-performance-timing-baseline product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-performance-timing-baseline verified with arm64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -19994,13 +20030,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-performance-timing-baseline product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-performance-timing-baseline verified with amd64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -20024,13 +20060,13 @@
         {
           "kind": "product-resource-ir-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-          "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+          "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
           "summary": "nodejs-resource-performance-timing-baseline product Resource IR materialized"
         },
         {
           "kind": "product-resource-ir-cross-arch-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-          "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+          "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
           "summary": "nodejs-resource-performance-timing-baseline verified with arm64 participating in arm64<->amd64 product smoke"
         }
       ],
@@ -20513,13 +20549,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-stream-backed-logger-sink product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-stream-backed-logger-sink verified with arm64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -20532,13 +20568,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-stream-backed-logger-sink product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-stream-backed-logger-sink verified with amd64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -20562,13 +20598,13 @@
         {
           "kind": "product-resource-ir-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-          "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+          "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
           "summary": "nodejs-resource-stream-backed-logger-sink product Resource IR materialized"
         },
         {
           "kind": "product-resource-ir-cross-arch-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-          "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+          "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
           "summary": "nodejs-resource-stream-backed-logger-sink verified with arm64 participating in arm64<->amd64 product smoke"
         }
       ],
@@ -20671,13 +20707,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-log-transport-drained product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-log-transport-drained verified with arm64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -20690,13 +20726,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-log-transport-drained product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-log-transport-drained verified with amd64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -20720,13 +20756,13 @@
         {
           "kind": "product-resource-ir-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-          "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+          "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
           "summary": "nodejs-resource-log-transport-drained product Resource IR materialized"
         },
         {
           "kind": "product-resource-ir-cross-arch-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-          "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+          "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
           "summary": "nodejs-resource-log-transport-drained verified with arm64 participating in arm64<->amd64 product smoke"
         }
       ],
@@ -21209,13 +21245,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-zlib-stream-drained-state product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-zlib-stream-drained-state verified with arm64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -21228,13 +21264,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-zlib-stream-drained-state product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-zlib-stream-drained-state verified with amd64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -21258,13 +21294,13 @@
         {
           "kind": "product-resource-ir-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-          "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+          "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
           "summary": "nodejs-resource-zlib-stream-drained-state product Resource IR materialized"
         },
         {
           "kind": "product-resource-ir-cross-arch-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-          "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+          "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
           "summary": "nodejs-resource-zlib-stream-drained-state verified with arm64 participating in arm64<->amd64 product smoke"
         }
       ],
@@ -21367,13 +21403,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-brotli-stream-drained-state product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-brotli-stream-drained-state verified with arm64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -21386,13 +21422,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-brotli-stream-drained-state product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-brotli-stream-drained-state verified with amd64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -21416,13 +21452,13 @@
         {
           "kind": "product-resource-ir-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-          "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+          "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
           "summary": "nodejs-resource-brotli-stream-drained-state product Resource IR materialized"
         },
         {
           "kind": "product-resource-ir-cross-arch-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-          "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+          "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
           "summary": "nodejs-resource-brotli-stream-drained-state verified with arm64 participating in arm64<->amd64 product smoke"
         }
       ],
@@ -21449,13 +21485,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-inflate-stream-drained-state product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-inflate-stream-drained-state verified with arm64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -21468,13 +21504,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-inflate-stream-drained-state product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-inflate-stream-drained-state verified with amd64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -21498,13 +21534,13 @@
         {
           "kind": "product-resource-ir-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-          "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+          "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
           "summary": "nodejs-resource-inflate-stream-drained-state product Resource IR materialized"
         },
         {
           "kind": "product-resource-ir-cross-arch-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-          "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+          "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
           "summary": "nodejs-resource-inflate-stream-drained-state verified with arm64 participating in arm64<->amd64 product smoke"
         }
       ],
@@ -21531,13 +21567,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-deflate-stream-drained-state product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-deflate-stream-drained-state verified with arm64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -21550,13 +21586,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-deflate-stream-drained-state product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-deflate-stream-drained-state verified with amd64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -21580,13 +21616,13 @@
         {
           "kind": "product-resource-ir-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-          "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+          "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
           "summary": "nodejs-resource-deflate-stream-drained-state product Resource IR materialized"
         },
         {
           "kind": "product-resource-ir-cross-arch-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-          "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+          "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
           "summary": "nodejs-resource-deflate-stream-drained-state verified with arm64 participating in arm64<->amd64 product smoke"
         }
       ],
@@ -23437,13 +23473,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-timer-schedule product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-timer-schedule verified with arm64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -23456,13 +23492,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-timer-schedule product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-timer-schedule verified with amd64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -23486,13 +23522,13 @@
         {
           "kind": "product-resource-ir-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-          "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+          "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
           "summary": "nodejs-resource-timer-schedule product Resource IR materialized"
         },
         {
           "kind": "product-resource-ir-cross-arch-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-          "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+          "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
           "summary": "nodejs-resource-timer-schedule verified with arm64 participating in arm64<->amd64 product smoke"
         }
       ],
@@ -23823,13 +23859,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-write-ahead-buffer-flushed product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-write-ahead-buffer-flushed verified with arm64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -23842,13 +23878,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-write-ahead-buffer-flushed product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-write-ahead-buffer-flushed verified with amd64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -23872,13 +23908,13 @@
         {
           "kind": "product-resource-ir-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-          "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+          "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
           "summary": "nodejs-resource-write-ahead-buffer-flushed product Resource IR materialized"
         },
         {
           "kind": "product-resource-ir-cross-arch-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-          "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+          "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
           "summary": "nodejs-resource-write-ahead-buffer-flushed verified with arm64 participating in arm64<->amd64 product smoke"
         }
       ],
@@ -24057,13 +24093,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-active-refresh-schedule product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-active-refresh-schedule verified with arm64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -24076,13 +24112,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-active-refresh-schedule product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-active-refresh-schedule verified with amd64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -24106,13 +24142,13 @@
         {
           "kind": "product-resource-ir-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-          "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+          "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
           "summary": "nodejs-resource-active-refresh-schedule product Resource IR materialized"
         },
         {
           "kind": "product-resource-ir-cross-arch-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-          "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+          "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
           "summary": "nodejs-resource-active-refresh-schedule verified with arm64 participating in arm64<->amd64 product smoke"
         }
       ],
@@ -24443,13 +24479,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-timer-backed-refill product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-timer-backed-refill verified with arm64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -24462,13 +24498,13 @@
             {
               "kind": "product-resource-ir-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-              "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
               "summary": "nodejs-resource-timer-backed-refill product Resource IR materialized"
             },
             {
               "kind": "product-resource-ir-cross-arch-report",
               "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-              "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
               "summary": "nodejs-resource-timer-backed-refill verified with amd64 participating in arm64<->amd64 product smoke"
             }
           ],
@@ -24492,13 +24528,13 @@
         {
           "kind": "product-resource-ir-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
-          "sha256": "6d0608957a6f25fa0143cc21a0267fcb1bb0a1f0ee23847ccceb46343ee83b52",
+          "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
           "summary": "nodejs-resource-timer-backed-refill product Resource IR materialized"
         },
         {
           "kind": "product-resource-ir-cross-arch-report",
           "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
-          "sha256": "0c007409ca7bc83f10ad4a3c713a3c4d7acb102b73f81034559312887f4d5638",
+          "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
           "summary": "nodejs-resource-timer-backed-refill verified with arm64 participating in arm64<->amd64 product smoke"
         }
       ],
@@ -25123,54 +25159,54 @@
       "capability": "scoped provider refusal refuses fail-closed until separately proven",
       "category": "memory-blocker",
       "description": "scoped provider refusal refuses fail-closed until separately proven",
-      "attemptPolicy": "refuse-live-state",
-      "status": "verified-refusal",
+      "attemptPolicy": "try-first",
+      "status": "verified",
       "architectures": {
         "arm64": {
-          "status": "verified-refusal",
+          "status": "verified",
           "lastRun": null,
           "evidence": [
             {
-              "kind": "classification-report",
-              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "40266a2cbb9bc78eab97f8ad3d30123daa1f69f5bee77f14f53275bbc334c175",
-              "summary": "arm64 classification row retained"
+              "kind": "product-resource-ir-report",
+              "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
+              "summary": "nodejs-resource-scoped-provider-registry product Resource IR materialized"
             },
             {
-              "kind": "classification-report",
-              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "40266a2cbb9bc78eab97f8ad3d30123daa1f69f5bee77f14f53275bbc334c175",
-              "summary": "arm64 retained refusal smoke"
+              "kind": "product-resource-ir-cross-arch-report",
+              "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
+              "summary": "nodejs-resource-scoped-provider-registry verified with arm64 participating in arm64<->amd64 product smoke"
             }
           ],
-          "notes": "Retained fail-closed proof: node-portability-memory-scoped-provider-unsupported"
+          "notes": "Semantic Resource IR row nodejs-resource-scoped-provider-registry materialized target-native with retained VMM-native pause proof; raw/live/native continuation remains refused."
         },
         "amd64": {
-          "status": "verified-refusal",
+          "status": "verified",
           "lastRun": null,
           "evidence": [
             {
-              "kind": "classification-report",
-              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "40266a2cbb9bc78eab97f8ad3d30123daa1f69f5bee77f14f53275bbc334c175",
-              "summary": "amd64 classification row retained"
+              "kind": "product-resource-ir-report",
+              "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
+              "summary": "nodejs-resource-scoped-provider-registry product Resource IR materialized"
             },
             {
-              "kind": "classification-report",
-              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "40266a2cbb9bc78eab97f8ad3d30123daa1f69f5bee77f14f53275bbc334c175",
-              "summary": "amd64 retained refusal smoke"
+              "kind": "product-resource-ir-cross-arch-report",
+              "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
+              "summary": "nodejs-resource-scoped-provider-registry verified with amd64 participating in arm64<->amd64 product smoke"
             }
           ],
-          "notes": "Retained fail-closed proof: node-portability-memory-scoped-provider-unsupported"
+          "notes": "Semantic Resource IR row nodejs-resource-scoped-provider-registry materialized target-native with retained VMM-native pause proof; raw/live/native continuation remains refused."
         }
       },
       "blockers": [],
       "workaround": null,
       "productClaim": {
-        "status": "verified-refusal",
-        "scope": "node-portability-fail-closed-proof",
-        "notes": "Retained fail-closed proof covers this unsafe row; live/opaque state is not portable."
+        "status": "candidate",
+        "scope": "node-resource-ir-product-proof",
+        "notes": "Supported only as decoded semantic Resource IR with retained VMM-native pause proof; raw/live/native continuation remains refused."
       },
       "evidence": [
         {
@@ -25180,10 +25216,16 @@
           "summary": "row metadata"
         },
         {
-          "kind": "classification-report",
-          "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-          "sha256": "40266a2cbb9bc78eab97f8ad3d30123daa1f69f5bee77f14f53275bbc334c175",
-          "summary": "arm64 classification row retained"
+          "kind": "product-resource-ir-report",
+          "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
+          "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
+          "summary": "nodejs-resource-scoped-provider-registry product Resource IR materialized"
+        },
+        {
+          "kind": "product-resource-ir-cross-arch-report",
+          "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
+          "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
+          "summary": "nodejs-resource-scoped-provider-registry verified with arm64 participating in arm64<->amd64 product smoke"
         }
       ],
       "claimGuard": {
@@ -25199,54 +25241,54 @@
       "capability": "provider factory refusal refuses fail-closed until separately proven",
       "category": "memory-blocker",
       "description": "provider factory refusal refuses fail-closed until separately proven",
-      "attemptPolicy": "refuse-live-state",
-      "status": "verified-refusal",
+      "attemptPolicy": "try-first",
+      "status": "verified",
       "architectures": {
         "arm64": {
-          "status": "verified-refusal",
+          "status": "verified",
           "lastRun": null,
           "evidence": [
             {
-              "kind": "classification-report",
-              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "40266a2cbb9bc78eab97f8ad3d30123daa1f69f5bee77f14f53275bbc334c175",
-              "summary": "arm64 classification row retained"
+              "kind": "product-resource-ir-report",
+              "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
+              "summary": "nodejs-resource-provider-factory-registry product Resource IR materialized"
             },
             {
-              "kind": "classification-report",
-              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "40266a2cbb9bc78eab97f8ad3d30123daa1f69f5bee77f14f53275bbc334c175",
-              "summary": "arm64 retained refusal smoke"
+              "kind": "product-resource-ir-cross-arch-report",
+              "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
+              "summary": "nodejs-resource-provider-factory-registry verified with arm64 participating in arm64<->amd64 product smoke"
             }
           ],
-          "notes": "Retained fail-closed proof: node-portability-memory-provider-factory-unsupported"
+          "notes": "Semantic Resource IR row nodejs-resource-provider-factory-registry materialized target-native with retained VMM-native pause proof; raw/live/native continuation remains refused."
         },
         "amd64": {
-          "status": "verified-refusal",
+          "status": "verified",
           "lastRun": null,
           "evidence": [
             {
-              "kind": "classification-report",
-              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "40266a2cbb9bc78eab97f8ad3d30123daa1f69f5bee77f14f53275bbc334c175",
-              "summary": "amd64 classification row retained"
+              "kind": "product-resource-ir-report",
+              "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
+              "summary": "nodejs-resource-provider-factory-registry product Resource IR materialized"
             },
             {
-              "kind": "classification-report",
-              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "40266a2cbb9bc78eab97f8ad3d30123daa1f69f5bee77f14f53275bbc334c175",
-              "summary": "amd64 retained refusal smoke"
+              "kind": "product-resource-ir-cross-arch-report",
+              "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
+              "summary": "nodejs-resource-provider-factory-registry verified with amd64 participating in arm64<->amd64 product smoke"
             }
           ],
-          "notes": "Retained fail-closed proof: node-portability-memory-provider-factory-unsupported"
+          "notes": "Semantic Resource IR row nodejs-resource-provider-factory-registry materialized target-native with retained VMM-native pause proof; raw/live/native continuation remains refused."
         }
       },
       "blockers": [],
       "workaround": null,
       "productClaim": {
-        "status": "verified-refusal",
-        "scope": "node-portability-fail-closed-proof",
-        "notes": "Retained fail-closed proof covers this unsafe row; live/opaque state is not portable."
+        "status": "candidate",
+        "scope": "node-resource-ir-product-proof",
+        "notes": "Supported only as decoded semantic Resource IR with retained VMM-native pause proof; raw/live/native continuation remains refused."
       },
       "evidence": [
         {
@@ -25256,10 +25298,16 @@
           "summary": "row metadata"
         },
         {
-          "kind": "classification-report",
-          "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-          "sha256": "40266a2cbb9bc78eab97f8ad3d30123daa1f69f5bee77f14f53275bbc334c175",
-          "summary": "arm64 classification row retained"
+          "kind": "product-resource-ir-report",
+          "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
+          "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
+          "summary": "nodejs-resource-provider-factory-registry product Resource IR materialized"
+        },
+        {
+          "kind": "product-resource-ir-cross-arch-report",
+          "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
+          "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
+          "summary": "nodejs-resource-provider-factory-registry verified with arm64 participating in arm64<->amd64 product smoke"
         }
       ],
       "claimGuard": {
@@ -25351,54 +25399,54 @@
       "capability": "lifecycle hook refusal refuses fail-closed until separately proven",
       "category": "memory-blocker",
       "description": "lifecycle hook refusal refuses fail-closed until separately proven",
-      "attemptPolicy": "refuse-live-state",
-      "status": "verified-refusal",
+      "attemptPolicy": "try-first",
+      "status": "verified",
       "architectures": {
         "arm64": {
-          "status": "verified-refusal",
+          "status": "verified",
           "lastRun": null,
           "evidence": [
             {
-              "kind": "classification-report",
-              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "40266a2cbb9bc78eab97f8ad3d30123daa1f69f5bee77f14f53275bbc334c175",
-              "summary": "arm64 classification row retained"
+              "kind": "product-resource-ir-report",
+              "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
+              "summary": "nodejs-resource-lifecycle-hook-registry product Resource IR materialized"
             },
             {
-              "kind": "classification-report",
-              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "40266a2cbb9bc78eab97f8ad3d30123daa1f69f5bee77f14f53275bbc334c175",
-              "summary": "arm64 retained refusal smoke"
+              "kind": "product-resource-ir-cross-arch-report",
+              "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
+              "summary": "nodejs-resource-lifecycle-hook-registry verified with arm64 participating in arm64<->amd64 product smoke"
             }
           ],
-          "notes": "Retained fail-closed proof: node-portability-memory-lifecycle-hook-unsupported"
+          "notes": "Semantic Resource IR row nodejs-resource-lifecycle-hook-registry materialized target-native with retained VMM-native pause proof; raw/live/native continuation remains refused."
         },
         "amd64": {
-          "status": "verified-refusal",
+          "status": "verified",
           "lastRun": null,
           "evidence": [
             {
-              "kind": "classification-report",
-              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "40266a2cbb9bc78eab97f8ad3d30123daa1f69f5bee77f14f53275bbc334c175",
-              "summary": "amd64 classification row retained"
+              "kind": "product-resource-ir-report",
+              "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
+              "summary": "nodejs-resource-lifecycle-hook-registry product Resource IR materialized"
             },
             {
-              "kind": "classification-report",
-              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "40266a2cbb9bc78eab97f8ad3d30123daa1f69f5bee77f14f53275bbc334c175",
-              "summary": "amd64 retained refusal smoke"
+              "kind": "product-resource-ir-cross-arch-report",
+              "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
+              "summary": "nodejs-resource-lifecycle-hook-registry verified with amd64 participating in arm64<->amd64 product smoke"
             }
           ],
-          "notes": "Retained fail-closed proof: node-portability-memory-lifecycle-hook-unsupported"
+          "notes": "Semantic Resource IR row nodejs-resource-lifecycle-hook-registry materialized target-native with retained VMM-native pause proof; raw/live/native continuation remains refused."
         }
       },
       "blockers": [],
       "workaround": null,
       "productClaim": {
-        "status": "verified-refusal",
-        "scope": "node-portability-fail-closed-proof",
-        "notes": "Retained fail-closed proof covers this unsafe row; live/opaque state is not portable."
+        "status": "candidate",
+        "scope": "node-resource-ir-product-proof",
+        "notes": "Supported only as decoded semantic Resource IR with retained VMM-native pause proof; raw/live/native continuation remains refused."
       },
       "evidence": [
         {
@@ -25408,10 +25456,16 @@
           "summary": "row metadata"
         },
         {
-          "kind": "classification-report",
-          "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-          "sha256": "40266a2cbb9bc78eab97f8ad3d30123daa1f69f5bee77f14f53275bbc334c175",
-          "summary": "arm64 classification row retained"
+          "kind": "product-resource-ir-report",
+          "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
+          "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
+          "summary": "nodejs-resource-lifecycle-hook-registry product Resource IR materialized"
+        },
+        {
+          "kind": "product-resource-ir-cross-arch-report",
+          "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
+          "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
+          "summary": "nodejs-resource-lifecycle-hook-registry verified with arm64 participating in arm64<->amd64 product smoke"
         }
       ],
       "claimGuard": {
@@ -25655,54 +25709,54 @@
       "capability": "render context refusal refuses fail-closed until separately proven",
       "category": "memory-blocker",
       "description": "render context refusal refuses fail-closed until separately proven",
-      "attemptPolicy": "refuse-live-state",
-      "status": "verified-refusal",
+      "attemptPolicy": "try-first",
+      "status": "verified",
       "architectures": {
         "arm64": {
-          "status": "verified-refusal",
+          "status": "verified",
           "lastRun": null,
           "evidence": [
             {
-              "kind": "classification-report",
-              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "40266a2cbb9bc78eab97f8ad3d30123daa1f69f5bee77f14f53275bbc334c175",
-              "summary": "arm64 classification row retained"
+              "kind": "product-resource-ir-report",
+              "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
+              "summary": "nodejs-resource-render-context-template product Resource IR materialized"
             },
             {
-              "kind": "classification-report",
-              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "40266a2cbb9bc78eab97f8ad3d30123daa1f69f5bee77f14f53275bbc334c175",
-              "summary": "arm64 retained refusal smoke"
+              "kind": "product-resource-ir-cross-arch-report",
+              "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
+              "summary": "nodejs-resource-render-context-template verified with arm64 participating in arm64<->amd64 product smoke"
             }
           ],
-          "notes": "Retained fail-closed proof: node-portability-memory-render-context-unsupported"
+          "notes": "Semantic Resource IR row nodejs-resource-render-context-template materialized target-native with retained VMM-native pause proof; raw/live/native continuation remains refused."
         },
         "amd64": {
-          "status": "verified-refusal",
+          "status": "verified",
           "lastRun": null,
           "evidence": [
             {
-              "kind": "classification-report",
-              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "40266a2cbb9bc78eab97f8ad3d30123daa1f69f5bee77f14f53275bbc334c175",
-              "summary": "amd64 classification row retained"
+              "kind": "product-resource-ir-report",
+              "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
+              "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
+              "summary": "nodejs-resource-render-context-template product Resource IR materialized"
             },
             {
-              "kind": "classification-report",
-              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-              "sha256": "40266a2cbb9bc78eab97f8ad3d30123daa1f69f5bee77f14f53275bbc334c175",
-              "summary": "amd64 retained refusal smoke"
+              "kind": "product-resource-ir-cross-arch-report",
+              "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
+              "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
+              "summary": "nodejs-resource-render-context-template verified with amd64 participating in arm64<->amd64 product smoke"
             }
           ],
-          "notes": "Retained fail-closed proof: node-portability-memory-render-context-unsupported"
+          "notes": "Semantic Resource IR row nodejs-resource-render-context-template materialized target-native with retained VMM-native pause proof; raw/live/native continuation remains refused."
         }
       },
       "blockers": [],
       "workaround": null,
       "productClaim": {
-        "status": "verified-refusal",
-        "scope": "node-portability-fail-closed-proof",
-        "notes": "Retained fail-closed proof covers this unsafe row; live/opaque state is not portable."
+        "status": "candidate",
+        "scope": "node-resource-ir-product-proof",
+        "notes": "Supported only as decoded semantic Resource IR with retained VMM-native pause proof; raw/live/native continuation remains refused."
       },
       "evidence": [
         {
@@ -25712,10 +25766,16 @@
           "summary": "row metadata"
         },
         {
-          "kind": "classification-report",
-          "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json",
-          "sha256": "40266a2cbb9bc78eab97f8ad3d30123daa1f69f5bee77f14f53275bbc334c175",
-          "summary": "arm64 classification row retained"
+          "kind": "product-resource-ir-report",
+          "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
+          "sha256": "bb92eb2d75ad732471f5a40408fc8c58f3cc4f8c6441f2583fa8f1ecbb05461b",
+          "summary": "nodejs-resource-render-context-template product Resource IR materialized"
+        },
+        {
+          "kind": "product-resource-ir-cross-arch-report",
+          "path": "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
+          "sha256": "b610b1793f5d7eed32a9dbab2cb7091ba019d68c317076e27bde2da78dc29d7b",
+          "summary": "nodejs-resource-render-context-template verified with arm64 participating in arm64<->amd64 product smoke"
         }
       ],
       "claimGuard": {
