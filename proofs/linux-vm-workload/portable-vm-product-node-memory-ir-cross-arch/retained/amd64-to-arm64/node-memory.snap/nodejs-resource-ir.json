@@ -123,6 +123,115 @@
       }
     },
     {
+      "id": "nodejs-resource-outbound-client-reconnect-policy",
+      "kind": "outbound-client-reconnect-policy-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "activeSession": false,
+        "reconnectPolicy": "lazy-target-native",
+        "endpointPolicy": "declared-config-only"
+      }
+    },
+    {
+      "id": "nodejs-resource-idle-http-agent-config",
+      "kind": "idle-http-agent-config-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "activeSockets": 0,
+        "keepAlivePolicy": "target-native-agent",
+        "maxSocketsPolicy": "declared"
+      }
+    },
+    {
+      "id": "nodejs-resource-dns-resolver-config",
+      "kind": "dns-resolver-config-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "pendingQueries": 0,
+        "resolverPolicy": "target-native-resolver-config"
+      }
+    },
+    {
+      "id": "nodejs-resource-tcp-client-reconnect-config",
+      "kind": "tcp-client-reconnect-config-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "activeSocket": false,
+        "reconnectPolicy": "target-native-open-on-demand"
+      }
+    },
+    {
+      "id": "nodejs-resource-tls-client-reconnect-config",
+      "kind": "tls-client-reconnect-config-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "activeTlsSession": false,
+        "hasSourceTlsSessionBytes": false,
+        "reconnectPolicy": "target-native-handshake-on-demand"
+      }
+    },
+    {
+      "id": "nodejs-resource-udp-client-reconnect-config",
+      "kind": "udp-client-reconnect-config-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "activeSocket": false,
+        "reconnectPolicy": "target-native-open-on-demand"
+      }
+    },
+    {
+      "id": "nodejs-resource-http2-client-session-config",
+      "kind": "http2-client-session-config-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "activeStreams": 0,
+        "activeSession": false,
+        "reconnectPolicy": "target-native-session-on-demand"
+      }
+    },
+    {
       "id": "nodejs-resource-signal-handler-registry",
       "kind": "signal-handler-registry-spec",
       "reconstructable": true,

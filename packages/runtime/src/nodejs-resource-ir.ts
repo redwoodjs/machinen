@@ -85,6 +85,13 @@ const supportedResourceKinds = new Set([
   "provider-factory-registry-spec",
   "lifecycle-hook-registry-spec",
   "render-context-template-spec",
+  "outbound-client-reconnect-policy-spec",
+  "idle-http-agent-config-spec",
+  "dns-resolver-config-spec",
+  "tcp-client-reconnect-config-spec",
+  "tls-client-reconnect-config-spec",
+  "udp-client-reconnect-config-spec",
+  "http2-client-session-config-spec",
 ]);
 
 const forbiddenRawFields = new Set([

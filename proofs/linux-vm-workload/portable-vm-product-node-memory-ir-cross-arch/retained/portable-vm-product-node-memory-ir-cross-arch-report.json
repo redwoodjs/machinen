@@ -21,7 +21,7 @@
         "pauseMechanism": "vmm-native-sigusr1-sigusr2",
         "pauseSignal": "SIGUSR1",
         "resumeSignal": "SIGUSR2",
-        "sourceVmPid": 15539,
+        "sourceVmPid": 21004,
         "stoppedStateObserved": true,
         "unsupportedPausedLiveStatePolicy": "refuse",
         "vmmNativeMarker": {
@@ -31,15 +31,15 @@
           "vcpusStopped": true,
           "resumeSignalRequired": "SIGUSR2"
         },
-        "startedAt": "2026-06-04T16:57:21.776Z",
-        "pausedObservedAt": "2026-06-04T16:57:21.798Z",
-        "resumedAt": "2026-06-04T16:57:21.798Z",
+        "startedAt": "2026-06-04T17:17:56.772Z",
+        "pausedObservedAt": "2026-06-04T17:17:56.794Z",
+        "resumedAt": "2026-06-04T17:17:56.794Z",
         "elapsedMs": 22
       },
       "memoryVerified": true,
       "resourceVerified": true,
       "memoryMaterializedRows": 130,
-      "resourceMaterializedRows": 44,
+      "resourceMaterializedRows": 51,
       "supportedSemanticRows": [
         "037-memory-real-plain-object",
         "038-memory-real-array",
@@ -180,6 +180,13 @@
         "nodejs-resource-route-registry",
         "nodejs-resource-middleware-registry",
         "nodejs-resource-configured-outbound-client",
+        "nodejs-resource-outbound-client-reconnect-policy",
+        "nodejs-resource-idle-http-agent-config",
+        "nodejs-resource-dns-resolver-config",
+        "nodejs-resource-tcp-client-reconnect-config",
+        "nodejs-resource-tls-client-reconnect-config",
+        "nodejs-resource-udp-client-reconnect-config",
+        "nodejs-resource-http2-client-session-config",
         "nodejs-resource-signal-handler-registry",
         "nodejs-resource-immediate-schedule",
         "nodejs-resource-unref-timer-schedule",
@@ -3016,7 +3023,7 @@
         "pauseMechanism": "vmm-native-sigusr1-sigusr2",
         "pauseSignal": "SIGUSR1",
         "resumeSignal": "SIGUSR2",
-        "sourceVmPid": 2555824,
+        "sourceVmPid": 2566281,
         "stoppedStateObserved": true,
         "unsupportedPausedLiveStatePolicy": "refuse",
         "vmmNativeMarker": {
@@ -3026,15 +3033,15 @@
           "vcpusStopped": true,
           "resumeSignalRequired": "SIGUSR2"
         },
-        "startedAt": "2026-06-04T16:57:41.113Z",
-        "pausedObservedAt": "2026-06-04T16:57:41.134Z",
-        "resumedAt": "2026-06-04T16:57:41.134Z",
-        "elapsedMs": 21
+        "startedAt": "2026-06-04T17:18:25.679Z",
+        "pausedObservedAt": "2026-06-04T17:18:25.699Z",
+        "resumedAt": "2026-06-04T17:18:25.699Z",
+        "elapsedMs": 20
       },
       "memoryVerified": true,
       "resourceVerified": true,
       "memoryMaterializedRows": 130,
-      "resourceMaterializedRows": 44,
+      "resourceMaterializedRows": 51,
       "supportedSemanticRows": [
         "037-memory-real-plain-object",
         "038-memory-real-array",
@@ -3175,6 +3182,13 @@
         "nodejs-resource-route-registry",
         "nodejs-resource-middleware-registry",
         "nodejs-resource-configured-outbound-client",
+        "nodejs-resource-outbound-client-reconnect-policy",
+        "nodejs-resource-idle-http-agent-config",
+        "nodejs-resource-dns-resolver-config",
+        "nodejs-resource-tcp-client-reconnect-config",
+        "nodejs-resource-tls-client-reconnect-config",
+        "nodejs-resource-udp-client-reconnect-config",
+        "nodejs-resource-http2-client-session-config",
         "nodejs-resource-signal-handler-registry",
         "nodejs-resource-immediate-schedule",
         "nodejs-resource-unref-timer-schedule",
@@ -6016,11 +6030,11 @@
   "artifacts": [
     {
       "path": "arm64-to-amd64-snapshot.json",
-      "sha256": "a72da63b67fa0950e4ffcd0080bdc86181339392d08584224984adb7c2746d18"
+      "sha256": "9204fd4b05ebc68c7289d13528d4c1f9f25ce5e75a8b31ff50140f6cb40ceaea"
     },
     {
       "path": "arm64-to-amd64-restore.json",
-      "sha256": "a0196a5daca7670de67ce3b42352d2ec89164983181c49577cfd229a8269e4b5"
+      "sha256": "da817fc337fbddb5de29238e11e6d7f8243ddd68038b76c265a72582bc9bc0e7"
     },
     {
       "path": "arm64-to-amd64/node-memory.snap/portable-vm-manifest-plan.json",
@@ -6028,11 +6042,11 @@
     },
     {
       "path": "arm64-to-amd64/node-memory.snap/portable-vm-product-restore-summary.json",
-      "sha256": "33f79c6865c72c47215a992033a01baf363d79b55884ebf1ebc0c5666d82e4a4"
+      "sha256": "848197ae42c76d8ec9a9df0202d7a9fe66f80abfbd787cb3bebd691da33afda2"
     },
     {
       "path": "arm64-to-amd64/node-memory.snap/portable-vm-pause-boundary.json",
-      "sha256": "072cb07d04fb7fae6399bc9d5e5d99da12a3201d43bc567d5e10cb816958e7a5"
+      "sha256": "88747273e30d5277cefdfa3ad31a7bc389dcb44482c03553705e3de7a768290f"
     },
     {
       "path": "arm64-to-amd64/node-memory.snap/nodejs-memory-ir.json",
@@ -6048,7 +6062,7 @@
     },
     {
       "path": "arm64-to-amd64/node-memory.snap/nodejs-resource-ir.json",
-      "sha256": "42741cba641652ae5bc0ef75a253475ee1c4e45a065c78360c6ee370b9f4450a"
+      "sha256": "57655f9db98d45e7deffed72ac4c8a395be4b25b01d413522e8073119afec650"
     },
     {
       "path": "arm64-to-amd64/node-memory.snap/nodejs-resource-inventory.json",
@@ -6056,15 +6070,15 @@
     },
     {
       "path": "arm64-to-amd64/node-memory.snap/nodejs-resource-materializer.mjs",
-      "sha256": "66b02622d4c48e032452bee7d4da0f04c56117426635735b40418e91c1e4f528"
+      "sha256": "f4392416ae8e69d1186592843bde882cf4be924f20a8e2983fbee3cefd25efe2"
     },
     {
       "path": "amd64-to-arm64-snapshot.json",
-      "sha256": "0dfa0f79af242af8a8533a178163f5c0861b18cc9db889b9d3489e364bb28bb1"
+      "sha256": "205a6123661eba50bd5ba99f09309f90b794b435ab178f8e3d14ee9f00a259d2"
     },
     {
       "path": "amd64-to-arm64-restore.json",
-      "sha256": "26998f8a61555b968d9c0dae42c69aa47c3d7e4d10290601405b92247e13bbe7"
+      "sha256": "986b0bb7b2152a273e6b3d6bdfd0aeb37122036fcf0a80df14d8d2adef532074"
     },
     {
       "path": "amd64-to-arm64/node-memory.snap/portable-vm-manifest-plan.json",
@@ -6072,11 +6086,11 @@
     },
     {
       "path": "amd64-to-arm64/node-memory.snap/portable-vm-product-restore-summary.json",
-      "sha256": "0cd249324adb3ddb69e1a09a75100d5b8409e1242dd6f34910863c6b4f335526"
+      "sha256": "7460b9cc1df934bf334d6eec3221b94babc39b71b241fd180a92d3f57157ca65"
     },
     {
       "path": "amd64-to-arm64/node-memory.snap/portable-vm-pause-boundary.json",
-      "sha256": "c6fa86c59daf231bb27a13a70c97adf7c70316482caaa99ac96e788ec4b0295a"
+      "sha256": "534ffbde7cdbbf971753a209105eb1f00efa3b4e448342602ff1ffa5dafba55e"
     },
     {
       "path": "amd64-to-arm64/node-memory.snap/nodejs-memory-ir.json",
@@ -6092,7 +6106,7 @@
     },
     {
       "path": "amd64-to-arm64/node-memory.snap/nodejs-resource-ir.json",
-      "sha256": "b18d74f06a2f890d91d04578c5d6b845a0f2954afb89381e974fc54f4a83635e"
+      "sha256": "658fda04c04ad36998bead5d95b12f1731c5bf24e9aa1a77ce16f3f943296193"
     },
     {
       "path": "amd64-to-arm64/node-memory.snap/nodejs-resource-inventory.json",
@@ -6100,7 +6114,7 @@
     },
     {
       "path": "amd64-to-arm64/node-memory.snap/nodejs-resource-materializer.mjs",
-      "sha256": "66b02622d4c48e032452bee7d4da0f04c56117426635735b40418e91c1e4f528"
+      "sha256": "f4392416ae8e69d1186592843bde882cf4be924f20a8e2983fbee3cefd25efe2"
     }
   ]
 }

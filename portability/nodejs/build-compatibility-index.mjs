@@ -154,6 +154,13 @@ const productResourceCompatibilityRows = {
   "290-memory-real-provider-factory-refusal": "nodejs-resource-provider-factory-registry",
   "292-memory-real-lifecycle-hook-refusal": "nodejs-resource-lifecycle-hook-registry",
   "296-memory-real-render-context-refusal": "nodejs-resource-render-context-template",
+  "020-outbound-connection-app": "nodejs-resource-outbound-client-reconnect-policy",
+  "167-memory-real-http-agent-state-refusal": "nodejs-resource-idle-http-agent-config",
+  "190-memory-real-dns-pending-refusal": "nodejs-resource-dns-resolver-config",
+  "188-memory-real-tcp-socket-refusal": "nodejs-resource-tcp-client-reconnect-config",
+  "189-memory-real-tls-socket-refusal": "nodejs-resource-tls-client-reconnect-config",
+  "191-memory-real-udp-socket-refusal": "nodejs-resource-udp-client-reconnect-config",
+  "192-memory-real-http2-session-refusal": "nodejs-resource-http2-client-session-config",
 };
 const productResourceEvidencePaths = [
   "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
