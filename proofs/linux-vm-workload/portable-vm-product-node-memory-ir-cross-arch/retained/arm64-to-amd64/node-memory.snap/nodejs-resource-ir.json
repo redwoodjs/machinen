@@ -372,6 +372,177 @@
         "mode": "append",
         "bufferedBytes": 0
       }
+    },
+    {
+      "id": "nodejs-resource-reopenable-dir-handle",
+      "kind": "reopenable-dir-handle-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "path": "/opt/machinen-all3/filesystem-root",
+        "readPositionPolicy": "restart-directory-iteration"
+      }
+    },
+    {
+      "id": "nodejs-resource-fs-watcher-subscription",
+      "kind": "fs-watcher-subscription-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "path": "/opt/machinen-all3/filesystem-root",
+        "recursive": false,
+        "eventBacklogPolicy": "drop-unobserved-at-pause"
+      }
+    },
+    {
+      "id": "nodejs-resource-transform-stream-drained-state",
+      "kind": "transform-stream-drained-state-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "bufferedBytes": 0,
+        "inFlightChunks": 0,
+        "transformPolicy": "recreate-declared-transform"
+      }
+    },
+    {
+      "id": "nodejs-resource-backpressure-buffer-drained",
+      "kind": "backpressure-buffer-drained-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "bufferedBytes": 0,
+        "highWaterMarkPolicy": "target-native-default"
+      }
+    },
+    {
+      "id": "nodejs-resource-stream-backed-logger-sink",
+      "kind": "stream-backed-logger-sink-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "sinkPolicy": "reopen-target-log-sink",
+        "bufferedBytes": 0
+      }
+    },
+    {
+      "id": "nodejs-resource-log-transport-drained",
+      "kind": "log-transport-drained-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "transportPolicy": "recreate-declared-transport",
+        "bufferedMessages": 0
+      }
+    },
+    {
+      "id": "nodejs-resource-zlib-stream-drained-state",
+      "kind": "zlib-stream-drained-state-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "bufferedBytes": 0,
+        "codec": "zlib",
+        "resumePolicy": "recreate-idle-codec"
+      }
+    },
+    {
+      "id": "nodejs-resource-brotli-stream-drained-state",
+      "kind": "brotli-stream-drained-state-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "bufferedBytes": 0,
+        "codec": "brotli",
+        "resumePolicy": "recreate-idle-codec"
+      }
+    },
+    {
+      "id": "nodejs-resource-inflate-stream-drained-state",
+      "kind": "inflate-stream-drained-state-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "bufferedBytes": 0,
+        "codec": "inflate",
+        "resumePolicy": "recreate-idle-codec"
+      }
+    },
+    {
+      "id": "nodejs-resource-deflate-stream-drained-state",
+      "kind": "deflate-stream-drained-state-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "bufferedBytes": 0,
+        "codec": "deflate",
+        "resumePolicy": "recreate-idle-codec"
+      }
+    },
+    {
+      "id": "nodejs-resource-write-ahead-buffer-flushed",
+      "kind": "write-ahead-buffer-flushed-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "bufferedBytes": 0,
+        "flushPolicy": "already-flushed-at-pause"
+      }
     }
   ],
   "unsupported": [],

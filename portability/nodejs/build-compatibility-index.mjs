@@ -133,6 +133,17 @@ const productResourceCompatibilityRows = {
   "221-memory-real-monotonic-clock-refusal": "nodejs-resource-monotonic-clock-baseline",
   "222-memory-real-performance-timing-refusal": "nodejs-resource-performance-timing-baseline",
   "275-memory-real-active-refresh-refusal": "nodejs-resource-active-refresh-schedule",
+  "174-memory-real-dir-handle-refusal": "nodejs-resource-reopenable-dir-handle",
+  "175-memory-real-fs-watcher-refusal": "nodejs-resource-fs-watcher-subscription",
+  "090-memory-real-transform-stream-refusal": "nodejs-resource-transform-stream-drained-state",
+  "092-memory-real-backpressure-buffer-refusal": "nodejs-resource-backpressure-buffer-drained",
+  "229-memory-real-stream-backed-logger-refusal": "nodejs-resource-stream-backed-logger-sink",
+  "231-memory-real-log-transport-refusal": "nodejs-resource-log-transport-drained",
+  "238-memory-real-zlib-stream-refusal": "nodejs-resource-zlib-stream-drained-state",
+  "240-memory-real-brotli-stream-refusal": "nodejs-resource-brotli-stream-drained-state",
+  "241-memory-real-inflate-state-refusal": "nodejs-resource-inflate-stream-drained-state",
+  "242-memory-real-deflate-state-refusal": "nodejs-resource-deflate-stream-drained-state",
+  "272-memory-real-write-ahead-buffer-refusal": "nodejs-resource-write-ahead-buffer-flushed",
 };
 const productResourceEvidencePaths = [
   "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",

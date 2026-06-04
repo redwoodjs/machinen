@@ -64,6 +64,17 @@ const supportedResourceKinds = new Set([
   "monotonic-clock-baseline-spec",
   "performance-timing-baseline-spec",
   "active-refresh-schedule-spec",
+  "reopenable-dir-handle-spec",
+  "fs-watcher-subscription-spec",
+  "transform-stream-drained-state-spec",
+  "backpressure-buffer-drained-spec",
+  "stream-backed-logger-sink-spec",
+  "log-transport-drained-spec",
+  "zlib-stream-drained-state-spec",
+  "brotli-stream-drained-state-spec",
+  "inflate-stream-drained-state-spec",
+  "deflate-stream-drained-state-spec",
+  "write-ahead-buffer-flushed-spec",
 ]);
 
 const forbiddenRawFields = new Set([
