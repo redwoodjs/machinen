@@ -1,0 +1,22 @@
+{
+  "kind": "machinen.arbitrary-process-level5-seed-artifact",
+  "row": {
+    "id": "native-jit-code-refused",
+    "status": "refused",
+    "evidenceKind": "refusal-boundary",
+    "processShape": "refuse jit-code before arbitrary-process claim",
+    "proofPath": "retained proof-only seed artifact",
+    "productPathArtifactsRequired": false,
+    "productSupportClaimAllowed": false,
+    "translatedProcessStateRequired": true,
+    "targetNativeReconstructionRequired": true,
+    "rawCpuRestoreUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "metadataOnlySuccessAccepted": false,
+    "arbitraryProcessClaimed": false,
+    "arbitraryProcessCrossArchRestoreClaimed": 0,
+    "boundaries": [],
+    "refusalMarker": "jit-code"
+  }
+}

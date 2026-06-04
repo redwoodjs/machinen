@@ -1,0 +1,37 @@
+{
+  "id": "022-memory-plain-object",
+  "slug": "memory-plain-object",
+  "runtime": "nodejs",
+  "description": "Selected V8 plain object state decoded from captured memory evidence and materialized semantically",
+  "disposition": "product-supported",
+  "claimUse": "portable Node memory-state compatibility dimension only; no arbitrary process or raw V8 heap restore claim",
+  "architecturePolicy": "memory decoder smoke retained for arm64 and amd64 target-native materialization",
+  "startCommand": "node app.mjs",
+  "healthPath": "/state",
+  "expectedBody": "{\"total\":2}",
+  "dependencies": [],
+  "refusalCode": null,
+  "capability": {
+    "category": "memory-state",
+    "detects": ["anchored V8 object-state memory evidence"],
+    "captures": ["plain object numeric property evidence"],
+    "restores": ["fresh target-native JS object with decoded total"],
+    "verifies": ["object total remains 2"],
+    "blocks": [
+      "unknown hidden class",
+      "accessors",
+      "proxy objects",
+      "symbol keys",
+      "external strings"
+    ]
+  },
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "arbitraryLinuxProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "samePidContinuationClaimed": false,
+    "activeRequestOrSocketContinuationClaimed": false
+  }
+}

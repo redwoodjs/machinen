@@ -1,0 +1,55 @@
+{
+  "kind": "machinen.portable-vm-product-plan-refusal-report",
+  "version": 1,
+  "accepted": true,
+  "proofStatus": "verified",
+  "scope": "portable-vm-all3-product-snapshot-restore-v1",
+  "productCommandPath": "machinen restore <portable-vm-bundle> --json",
+  "refusal": {
+    "code": "portable-vm-active-network-stream-unsupported",
+    "message": "active network streams are refused; only listener reconstruction is supported"
+  },
+  "targetVmStarted": false,
+  "planConsumed": true,
+  "refusedBeforeTargetBoot": true,
+  "claimGuard": {
+    "arbitraryVmRestoreClaimed": false,
+    "rawVmStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlyShortcutAccepted": false
+  },
+  "artifacts": [
+    {
+      "path": "restore.json",
+      "sha256": "efc3358fa4fc2c7878d43e051f61a8e04b5b4fe73a9064b7382adab59ed152ee"
+    },
+    {
+      "path": "restore.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "run.stdout.txt",
+      "sha256": "47640ce09c90af3d28de00f704109c03ddf299432bc8a8903e11668e2d134090"
+    },
+    {
+      "path": "run.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "refused-portable-vm.snap/portable-vm-manifest-plan.json",
+      "sha256": "6be427bb61d3c19773c8c41e421d3f6e6ee24c979da49b5df9c9b404b0bbba53"
+    },
+    {
+      "path": "refused-portable-vm.snap/portable-vm-product-restore-summary.json",
+      "sha256": "92da7af537f7a9da0b32a764a68159e9a13a1b987bfed2fc658862114244cfa5"
+    },
+    {
+      "path": "refused-portable-vm.snap/source-architecture.txt",
+      "sha256": "c1669e1d8edca98769c37d494b76442a1d6e5ffffd7b4da1fb63aef8ebaf6f01"
+    },
+    {
+      "path": "refused-portable-vm.snap/portable-vm-all3-manifest.json",
+      "sha256": "006954b2ccb6af6f9143cbf1aeee1c3648872ec3ec8a55b75384f439412973dc"
+    }
+  ]
+}

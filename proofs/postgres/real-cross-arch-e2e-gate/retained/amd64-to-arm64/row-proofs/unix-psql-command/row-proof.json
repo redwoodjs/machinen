@@ -1,0 +1,15 @@
+{
+  "kind": "machinen.postgres-row-proof",
+  "rowId": "postgresql-unix-psql-command",
+  "direction": "amd64-to-arm64",
+  "accepted": true,
+  "sourceArch": "amd64",
+  "targetArch": "arm64",
+  "noUserSuppliedDump": true,
+  "targetNativeExecution": true,
+  "proof": {
+    "sourceTranscript": "4|105",
+    "targetTranscript": "4|105",
+    "accepted": true
+  }
+}

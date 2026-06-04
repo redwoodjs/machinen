@@ -1,0 +1,197 @@
+{
+  "kind": "machinen.node-claim-evidence-index-report",
+  "version": 1,
+  "generatedAt": "2026-06-02T17:47:25.995Z",
+  "accepted": true,
+  "publicClaimAllowed": true,
+  "publicClaim": {
+    "productSupport": 100,
+    "broadSupport": 100,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "summary": "Consolidated Node proof index. Historical numbered proofs remain sharded; the retained-artifact gate now links every supported/refused row to validated E2E or refusal evidence, so the selected Node service claim may be 100 / 100 / 0.",
+  "numberedBuckets": [
+    {
+      "id": "proper-level5-numbered",
+      "path": "proofs/nodejs/proper-level5-numbered",
+      "classification": "proper Level 5 low-level/runtime/state proof corpus",
+      "claimUse": "historical-proof",
+      "numberedProofCount": 146,
+      "checkedSummaryCount": 71,
+      "smokeCount": 71,
+      "ranges": ["25-170"],
+      "claimBearingWithoutRetainedE2eLink": false
+    },
+    {
+      "id": "misc-numbered",
+      "path": "proofs/nodejs/misc-numbered",
+      "classification": "miscellaneous historical Node proof corpus",
+      "claimUse": "historical-proof",
+      "numberedProofCount": 31,
+      "checkedSummaryCount": 31,
+      "smokeCount": 31,
+      "ranges": ["171-179", "441-460", "477", "581"],
+      "claimBearingWithoutRetainedE2eLink": false
+    },
+    {
+      "id": "product-path-numbered",
+      "path": "proofs/nodejs/product-path-numbered",
+      "classification": "product-path and product-surface proof corpus",
+      "claimUse": "proof-substrate",
+      "numberedProofCount": 210,
+      "checkedSummaryCount": 210,
+      "smokeCount": 210,
+      "ranges": ["180-211", "341-440", "461-476", "478-500", "561-580", "582-600"],
+      "claimBearingWithoutRetainedE2eLink": false
+    },
+    {
+      "id": "product-support-numbered",
+      "path": "proofs/nodejs/product-support-numbered",
+      "classification": "Node product support ladder substrate",
+      "claimUse": "proof-substrate",
+      "numberedProofCount": 115,
+      "checkedSummaryCount": 115,
+      "smokeCount": 115,
+      "ranges": ["226-340"],
+      "claimBearingWithoutRetainedE2eLink": false
+    },
+    {
+      "id": "app-corpus-numbered",
+      "path": "proofs/nodejs/app-corpus-numbered",
+      "classification": "Node app corpus, real-app, and refusal corpus substrate",
+      "claimUse": "proof-substrate",
+      "numberedProofCount": 499,
+      "checkedSummaryCount": 499,
+      "smokeCount": 499,
+      "ranges": ["501-560", "641-656", "658-1080"],
+      "claimBearingWithoutRetainedE2eLink": false
+    },
+    {
+      "id": "http-behavior-numbered",
+      "path": "proofs/nodejs/http-behavior-numbered",
+      "classification": "HTTP/framework behavior proof corpus",
+      "claimUse": "proof-substrate",
+      "numberedProofCount": 321,
+      "checkedSummaryCount": 321,
+      "smokeCount": 321,
+      "ranges": ["601-640", "657", "1121-1400"],
+      "claimBearingWithoutRetainedE2eLink": false
+    },
+    {
+      "id": "release-gates-numbered",
+      "path": "proofs/nodejs/release-gates-numbered",
+      "classification": "release-gate proof corpus",
+      "claimUse": "release-gate-substrate",
+      "numberedProofCount": 60,
+      "checkedSummaryCount": 60,
+      "smokeCount": 60,
+      "ranges": ["1081-1120", "1401-1420"],
+      "claimBearingWithoutRetainedE2eLink": false
+    }
+  ],
+  "claimFolders": [
+    {
+      "id": "100-100-0",
+      "path": "proofs/nodejs/100-100-0",
+      "classification": "unverified previous public claim shell",
+      "status": "partial-proof",
+      "claimBearing": false,
+      "reason": "This folder is retained as history, but it is not claim-bearing until the consolidated retained E2E gate links all rows and refusals."
+    }
+  ],
+  "retainedGates": [
+    {
+      "id": "real-cross-arch-e2e-gate",
+      "path": "proofs/nodejs/real-cross-arch-e2e-gate",
+      "classification": "retained-real-product-e2e-seed",
+      "accepted": true,
+      "rowCount": 2,
+      "verifiedDirections": ["arm64-to-amd64", "amd64-to-arm64"],
+      "claimUse": "seed-evidence-only",
+      "claimBearingFor100": false,
+      "stillRequired": [
+        "row-by-row retained E2E artifact coverage for every supported Node support-matrix row",
+        "retained refusal artifacts for unsupported workers, native addons, Wasm/external memory, TLS active state, active async work, and child process live state",
+        "claim-level audit proving no raw CPU restore, source-ISA emulation, app hooks, sidecars, or metadata-only success"
+      ]
+    }
+  ],
+  "retainedHardeningReports": [
+    {
+      "id": "node-claim-boundary-guard",
+      "path": "proofs/nodejs/claim-evidence-index/retained/node-claim-boundary-guard-report.json",
+      "role": "boundary-guard",
+      "accepted": true
+    },
+    {
+      "id": "node-row-verifier-integrity",
+      "path": "proofs/nodejs/claim-evidence-index/retained/node-row-verifier-integrity-report.json",
+      "role": "verifier-integrity",
+      "accepted": true
+    },
+    {
+      "id": "node-artifact-integrity-manifest",
+      "path": "proofs/nodejs/claim-evidence-index/retained/node-artifact-integrity-manifest.json",
+      "role": "artifact-integrity",
+      "accepted": true
+    }
+  ],
+  "refusalDefinitions": {
+    "realAppRefusalMarkers": [
+      "activeRequests",
+      "workerThreads",
+      "nativeAddons",
+      "wasmExternalMemory",
+      "tlsActiveState",
+      "childProcesses",
+      "filesystemWatchers",
+      "websockets",
+      "dbConnections",
+      "redisQueueConnections",
+      "outboundHttpSockets",
+      "http2Sessions",
+      "serverSentEvents",
+      "openWritableFiles",
+      "timersIntervals",
+      "clusterMode"
+    ],
+    "realAppRefusalMarkerCount": 16,
+    "realAppExpectedRows": 64,
+    "genericVmRefusalMarkers": [
+      "activeRequests",
+      "workerThreads",
+      "nativeAddons",
+      "tlsActiveState",
+      "childProcesses"
+    ],
+    "genericVmRefusalMarkerCount": 5,
+    "genericVmExpectedRows": 20,
+    "supportMatrixRefusedRows": 42,
+    "supportMatrixNotProvenRows": 0,
+    "retainedReports": [
+      {
+        "id": "real-app-refusal-corpus",
+        "path": "proofs/nodejs/claim-evidence-index/retained/refusals/real-app-summary.json",
+        "accepted": true,
+        "rowCount": 64
+      },
+      {
+        "id": "generic-vm-refusal-artifacts",
+        "path": "proofs/nodejs/claim-evidence-index/retained/refusals/generic-vm-refusal-artifacts-summary.json",
+        "accepted": true,
+        "rowCount": 20
+      }
+    ],
+    "status": "claim-ready-retained"
+  },
+  "consolidationPolicy": {
+    "singleGate": true,
+    "keepShardedProofs": true,
+    "reason": "Keep the numbered proofs as granular regression shards, but use one claim-facing evidence index/gate to prevent stale summaries or facade-only reports from raising public claims."
+  },
+  "nextRequiredForClaimRaise": [
+    "Keep every supported row linked to retained source command, target command, manifest, restore summary, verifier output, and hashes.",
+    "Keep refused row coverage complete and fail closed for unsupported live state.",
+    "Keep arbitrary process cross-architecture restore at 0; this claim is selected Node service support only."
+  ]
+}

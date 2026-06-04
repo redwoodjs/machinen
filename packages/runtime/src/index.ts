@@ -146,6 +146,21 @@ export {
   nodeLevel5HttpProfileRefusalRows,
 } from "./node-level5-http-profile.ts";
 export {
+  NODEJS_MEMORY_IR_INVALID_REFUSAL_CODE,
+  NODEJS_MEMORY_IR_KIND,
+  NODEJS_MEMORY_IR_MATERIALIZER_FILENAME,
+  NODEJS_MEMORY_IR_RESTORE_STRATEGY,
+  NODEJS_MEMORY_IR_UNSUPPORTED_REFUSAL_CODE,
+  NODEJS_MEMORY_IR_VERSION,
+  createNodejsMemoryIrMaterializerModule,
+  validateNodejsMemoryIrDocument,
+} from "./nodejs-memory-ir.ts";
+export type {
+  NodejsMemoryIrDocument,
+  NodejsMemoryIrRow,
+  NodejsMemoryIrValidationResult,
+} from "./nodejs-memory-ir.ts";
+export {
   NODE_PROPER_LEVEL5_SOURCE_INSPECTION_KIND,
   parseNodeProperLevel5ProcMaps,
   summarizeNodeProperLevel5SourceInspection,
@@ -1070,6 +1085,30 @@ export {
   restoreProductPortablePostgresSnapshot,
 } from "./product-portable-postgres.ts";
 export {
+  PRODUCT_SELECTED_NATIVE_FORMAT_VERSION,
+  PRODUCT_SELECTED_NATIVE_MANIFEST,
+  PRODUCT_SELECTED_NATIVE_REFUSAL,
+  PRODUCT_SELECTED_NATIVE_RESTORE_SUMMARY,
+  PRODUCT_SELECTED_NATIVE_SOURCE_CAPTURE,
+  PRODUCT_SELECTED_NATIVE_SOURCE_VERIFIER,
+  PRODUCT_SELECTED_NATIVE_TARGET_PLAN,
+  ProductSelectedNativeError,
+  type ProductSelectedNativeArchitecture,
+  type ProductSelectedNativeCaptureInput,
+  type ProductSelectedNativeCaptureResult,
+  type ProductSelectedNativeDescriptor,
+  type ProductSelectedNativeRefusal,
+  type ProductSelectedNativeRefusalCode,
+  type ProductSelectedNativeRestoreInput,
+  type ProductSelectedNativeRestoreSummary,
+  type ProductSelectedNativeVerifierEvidence,
+  createProductSelectedNativeSnapshot,
+  isProductSelectedNativeBundle,
+  productSelectedNativeArchitectures,
+  productSelectedNativeRefusalCodes,
+  restoreProductSelectedNativeSnapshot,
+} from "./product-selected-native.ts";
+export {
   PRODUCT_PORTABLE_POSTGRES_CLAIM_LADDER_KIND,
   PRODUCT_PORTABLE_POSTGRES_CLAIM_LADDER_REPORT,
   PRODUCT_PORTABLE_POSTGRES_CLAIM_LADDER_VERSION,
@@ -1077,20 +1116,6 @@ export {
   loadProductPortablePostgresClaimLadderReport,
   verifyProductPortablePostgresClaimLadderReport,
 } from "./product-portable-postgres-claim-ladder.ts";
-export {
-  PRODUCT_PORTABLE_POSTGRES_CLAIM_READY_KIND,
-  PRODUCT_PORTABLE_POSTGRES_CLAIM_READY_REPORT,
-  PRODUCT_PORTABLE_POSTGRES_CLAIM_READY_VERSION,
-  createProductPortablePostgresClaimReadyReport,
-  loadProductPortablePostgresClaimReadyReport,
-  verifyProductPortablePostgresClaimReadyReport,
-  type ProductPortablePostgresClaimReadyArtifact,
-  type ProductPortablePostgresClaimReadyFixtureRow,
-  type ProductPortablePostgresClaimReadyGate,
-  type ProductPortablePostgresClaimReadyProofRow,
-  type ProductPortablePostgresClaimReadyReport,
-  type ProductPortablePostgresClaimReadyRowKind,
-} from "./product-portable-postgres-claim-ready.ts";
 export {
   PRODUCT_LEVEL4_TCP_LISTENER_FORMAT_VERSION,
   PRODUCT_LEVEL4_TCP_LISTENER_MANIFEST,

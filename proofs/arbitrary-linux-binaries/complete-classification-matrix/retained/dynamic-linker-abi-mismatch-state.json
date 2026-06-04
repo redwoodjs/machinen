@@ -1,0 +1,37 @@
+{
+  "id": "dynamic-linker-abi-mismatch-state",
+  "proofNumber": "arbitrary/035",
+  "category": "dynamic linker",
+  "status": "verified",
+  "disposition": "refused",
+  "accepted": true,
+  "productSupportOutOfScope": true,
+  "productSupportClaimAllowed": false,
+  "arbitraryRestoreClaimAllowed": false,
+  "evidence": [
+    "source-architecture shared libraries, ABI mismatch, and missing target dependencies are proven refused"
+  ],
+  "stableCode": "arbitrary-process-dynamic-linker-abi-mismatch-unsupported",
+  "verifier": {
+    "refusedBeforeTargetExecution": true,
+    "stableRefusalCode": "arbitrary-process-dynamic-linker-abi-mismatch-unsupported",
+    "abiMismatchPresent": true,
+    "proofArtifactRetained": true,
+    "targetVerifierPassed": true,
+    "rawCpuRestoreUsed": false,
+    "rawRegisterReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "sidecarReplayUsed": false,
+    "metadataOnlySuccessAccepted": false
+  },
+  "proofArtifact": "dynamic-linker-abi-mismatch-state-proof.json",
+  "proofArtifactSha256": "0263a8df536e59914a1f0e02189b66d778d9415161fdeb85f176cbfcfcdf7409",
+  "proofMode": "stable-refusal-proof",
+  "proofQuality": "stable-refusal-proof",
+  "executableFixture": null,
+  "bidirectionalProofArtifact": null,
+  "bidirectionalProofArtifactSha256": null,
+  "bidirectionalDirections": 0,
+  "proofChecksPassed": 4
+}

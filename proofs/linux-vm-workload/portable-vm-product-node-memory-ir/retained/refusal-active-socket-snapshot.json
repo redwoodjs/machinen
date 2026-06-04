@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "kind": "machinen.portable-vm-product-snapshot-summary",
+  "version": 1,
+  "accepted": true,
+  "scope": "portable-vm-all3-product-snapshot-restore-v1",
+  "sourceArchitecture": "arm64",
+  "sourceArchitectureDetected": true,
+  "sourceArchitectureDetection": "uname -m inside source VM",
+  "sourcePathDetection": "guest portable VM inventory agent",
+  "sourcePath": "/run/machinen/portable-vm/source-bundle",
+  "portableVmManifest": "portable-vm-raw-inventory.json",
+  "portableVmPlan": "portable-vm-manifest-plan.json",
+  "arbitraryVmRestoreClaimed": false,
+  "rawVmStateReplayUsed": false,
+  "snapshotDir": "/Users/peterp/gh/redwoodjs/machinen/proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/node-memory-refusal-active-socket.snap",
+  "elapsedMs": 37,
+  "dryRun": false
+}

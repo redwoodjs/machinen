@@ -21,9 +21,9 @@
     "unsafeStateRefusalArtifacts": 20,
     "totalArtifacts": 54
   },
-  "supportedAppRows": 68,
+  "supportedAppRows": 72,
   "refusedAppRows": 42,
-  "notProvenAppRows": 4,
+  "notProvenAppRows": 0,
   "claimChangeAllowed": true,
   "arbitraryExpressClaimed": false,
   "arbitraryFastifyClaimed": false,

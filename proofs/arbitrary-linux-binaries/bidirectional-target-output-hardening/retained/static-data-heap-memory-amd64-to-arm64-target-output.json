@@ -1,0 +1,28 @@
+{
+  "kind": "machinen.arbitrary-process-bidirectional-target-output",
+  "version": 1,
+  "rowId": "static-data-heap-memory",
+  "proofNumber": "arbitrary/021",
+  "direction": "amd64-to-arm64",
+  "accepted": true,
+  "status": "verified",
+  "executableFixture": "static-data-heap-node-fixture",
+  "targetOutputObserved": true,
+  "targetVerifierPassed": true,
+  "output": {
+    "rowId": "static-data-heap-memory",
+    "direction": "amd64-to-arm64",
+    "fixture": "static-data-heap-node-fixture",
+    "targetNativeVerifier": true,
+    "behaviorMatchedSourceFixture": true
+  },
+  "claimGuard": {
+    "productSupportOutOfScope": true,
+    "arbitraryProcessRestoreClaimed": 0,
+    "publicClaimAllowed": false,
+    "sourceIsaEmulationUsed": false,
+    "rawCpuRestoreUsed": false,
+    "rawRegisterReplayUsed": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

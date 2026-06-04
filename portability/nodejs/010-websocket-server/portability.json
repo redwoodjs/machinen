@@ -1,0 +1,20 @@
+{
+  "id": "010-websocket-server",
+  "slug": "websocket-server",
+  "runtime": "nodejs",
+  "description": "Active WebSocket connection state is not portable yet",
+  "disposition": "refused-first",
+  "claimUse": "classification/refusal only; no product support claim",
+  "architecturePolicy": "run-on-each-target-architecture-with-machinen-runtime",
+  "startCommand": "node app.mjs",
+  "healthPath": "/health",
+  "expectedBody": "machinen-node-portability:websocket-server",
+  "dependencies": ["ws"],
+  "refusalCode": "node-portability-websocket-unsupported",
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false
+  }
+}

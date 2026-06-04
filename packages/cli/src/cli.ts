@@ -25,6 +25,7 @@ import {
   mkdtempSync,
   readFileSync,
   renameSync,
+  rmSync,
   symlinkSync,
   unlinkSync,
   writeFileSync,
@@ -37,12 +38,18 @@ import { pipeline } from "node:stream/promises";
 import {
   attach,
   boot,
+  NODEJS_MEMORY_IR_INVALID_REFUSAL_CODE,
+  NODEJS_MEMORY_IR_MATERIALIZER_FILENAME,
+  createNodejsMemoryIrMaterializerModule,
+  validateNodejsMemoryIrDocument,
+  PRODUCT_PORTABLE_POSTGRES_DUMP,
   ProductLevel4EventfdError,
   ProductLevel4PingSocketError,
   ProductLevel4PipeError,
   ProductLevel4TcpListenerError,
   ProductLevel4TimerfdError,
   ProductPortablePostgresError,
+  ProductSelectedNativeError,
   buildArbitraryProcessLevel5SeedMatrix,
   buildNodeLevel5AppSupportMatrix,
   buildNodeLevel5FrameworkCapabilityMatrix,
@@ -58,6 +65,7 @@ import {
   createNodeLevel5ProductSnapshot,
   createNodeLevel5ProductSupport80ArtifactBundle,
   createProductPortablePostgresSnapshot,
+  createProductSelectedNativeSnapshot,
   filterProductClaimRegistry,
   formatMachinenError,
   isMachinenError,
@@ -68,6 +76,7 @@ import {
   isProductLevel4TimerfdBundle,
   isNodeLevel5ProductSnapshotBundle,
   isProductPortablePostgresBundle,
+  isProductSelectedNativeBundle,
   createArbitraryProcessLevel5SeedReport,
   loadNodeLevel5FrameworkIntrospectionCorpusReport,
   loadNodeLevel5FrameworkProductEvidenceReport,
@@ -110,6 +119,7 @@ import {
   restoreProductLevel4TcpListenerSnapshot,
   restoreProductLevel4TimerfdSnapshot,
   restoreProductPortablePostgresSnapshot,
+  restoreProductSelectedNativeSnapshot,
   runGc,
   validatePid,
 } from "@machinen/runtime";
@@ -267,6 +277,50 @@ function validateAssetsDir(dir: string): void {
         `  Produce them with ./scripts/build-base-assets.sh (outputs to ./release-assets/).`,
     );
   }
+  validateOptionalGuestAssetArchitecture(abs, spec.cpu);
+}
+
+// fallow-ignore-next-line complexity
+function validateOptionalGuestAssetArchitecture(dir: string, cpu: GuestCpu): void {
+  for (const name of ["init", "exec-agent"]) {
+    const path = join(dir, name);
+    if (!existsSync(path)) {
+      continue;
+    }
+    const actual = readElfGuestCpu(path);
+    if (!actual) {
+      die(`MACHINEN_ASSETS_DIR=${dir} contains ${name}, but it is not a recognized Linux ELF`);
+    }
+    if (actual !== cpu) {
+      die(
+        `MACHINEN_ASSETS_DIR=${dir} contains ${name} for ${actual}, but this host will boot ${cpu} guests.\n` +
+          `  Rebuild assets with MACHINEN_GUEST_ARCH=${cpu} ./scripts/build-base-assets.sh, or remove stale ${name}.`,
+      );
+    }
+  }
+}
+
+// fallow-ignore-next-line complexity
+function readElfGuestCpu(path: string): GuestCpu | null {
+  const bytes = readFileSync(path);
+  if (
+    bytes.length < 20 ||
+    bytes[0] !== 0x7f ||
+    bytes[1] !== 0x45 ||
+    bytes[2] !== 0x4c ||
+    bytes[3] !== 0x46
+  ) {
+    return null;
+  }
+  const littleEndian = bytes[5] === 1;
+  const machine = littleEndian ? bytes.readUInt16LE(18) : bytes.readUInt16BE(18);
+  if (machine === 0x3e) {
+    return "amd64";
+  }
+  if (machine === 0xb7) {
+    return "arm64";
+  }
+  return null;
 }
 
 async function ensureBaseAssets(tag: string): Promise<string> {
@@ -1072,6 +1126,9 @@ type CapturePostgresOptions = {
   dirtyWal?: boolean;
   hostMountedDataDir?: boolean;
   physicalDataDirCopy?: boolean;
+  postgresDockerHost?: string;
+  postgresContainer?: string;
+  postgresDatabase?: string;
 };
 
 type CaptureTcpListenerOptions = {
@@ -1163,6 +1220,19 @@ type CapturePingSocketOptions = {
   unsupportedRawSocketOption?: boolean;
 };
 
+type CaptureNativeOptions = {
+  json: boolean;
+  dryRun: boolean;
+  out?: string;
+  sourceArch?: "arm64" | "amd64";
+  targetArch?: "arm64" | "amd64";
+  sourceVerifierOutput?: string;
+  sourceCapture?: string;
+  targetPlan?: string;
+  activeSyscall?: boolean;
+  unsupportedResourceState?: boolean;
+};
+
 // fallow-ignore-next-line complexity
 function cmdCapture(args: string[]): number {
   const { json, rest: withoutJson } = consumeJsonFlag(args);
@@ -1184,6 +1254,9 @@ function cmdCapture(args: string[]): number {
   }
   if (rest[0] === "ping-socket") {
     return cmdCapturePingSocket({ json, dryRun, rest });
+  }
+  if (rest[0] === "native") {
+    return cmdCaptureNative({ json, dryRun, rest });
   }
   if (rest[0] === "node-level5") {
     return cmdCaptureNodeLevel5DeclaredSubset({ json, dryRun, rest });
@@ -1226,19 +1299,32 @@ function cmdCapturePostgres(input: { json: boolean; dryRun: boolean; rest: strin
     ["--out", options.out],
     ["--source-arch", options.sourceArch],
     ["--target-arch", options.targetArch],
-    ["--dump", options.dump],
-    ["--source-verifier-output", options.sourceVerifierOutput],
     ["--postgres-version", options.postgresVersion],
     ["--checkpoint-lsn", options.checkpointLsn],
   ] as const;
   assertCaptureRequired(required);
+  const noDumpProductCapture = options.dump === undefined;
+  if (noDumpProductCapture) {
+    assertCaptureRequired([
+      ["--postgres-container", options.postgresContainer],
+      ["--database", options.postgresDatabase],
+      ["--verifier-sql", options.verifierSql],
+    ] as const);
+  } else {
+    assertCaptureRequired([["--source-verifier-output", options.sourceVerifierOutput]] as const);
+  }
   try {
+    const postgresEvidence = noDumpProductCapture
+      ? capturePostgresDockerEvidence(options)
+      : undefined;
     const result = createProductPortablePostgresSnapshot({
       outDir: options.out!,
       sourceArch: options.sourceArch!,
       targetArch: options.targetArch!,
-      logicalDumpPath: options.dump!,
-      sourceVerifierOutput: readFileSync(resolve(options.sourceVerifierOutput!), "utf8").trim(),
+      logicalDumpPath: postgresEvidence?.dumpPath ?? options.dump!,
+      sourceVerifierOutput:
+        postgresEvidence?.sourceVerifierOutput ??
+        readFileSync(resolve(options.sourceVerifierOutput!), "utf8").trim(),
       postgresVersion: options.postgresVersion!,
       checkpointLsn: options.checkpointLsn!,
       initSqlSha256: optionalFileSha256(options.initSql),
@@ -1434,6 +1520,33 @@ function cmdCapturePingSocket(input: { json: boolean; dryRun: boolean; rest: str
   }
 }
 
+function cmdCaptureNative(input: { json: boolean; dryRun: boolean; rest: string[] }): number {
+  const options = parseCaptureNativeArgs(input);
+  const required = [
+    ["--out", options.out],
+    ["--source-arch", options.sourceArch],
+    ["--target-arch", options.targetArch],
+    ["--source-verifier-output", options.sourceVerifierOutput],
+  ] as const;
+  assertCaptureRequired(required);
+  try {
+    const result = createProductSelectedNativeSnapshot({
+      outDir: options.out!,
+      sourceArch: options.sourceArch!,
+      targetArch: options.targetArch!,
+      sourceVerifierOutput: readFileSync(resolve(options.sourceVerifierOutput!), "utf8").trim(),
+      sourceCapturePath: options.sourceCapture,
+      targetPlanPath: options.targetPlan,
+      activeSyscall: options.activeSyscall,
+      unsupportedResourceState: options.unsupportedResourceState,
+      dryRun: options.dryRun,
+    });
+    return reportProductCaptureResult(options.json, result, "selected native");
+  } catch (err) {
+    handleProductSelectedNativeError(err, options.json);
+  }
+}
+
 function assertCaptureRequired(required: ReadonlyArray<readonly [string, unknown]>): void {
   for (const [flag, value] of required) {
     if (value === undefined || value === "") {
@@ -1532,6 +1645,14 @@ function parseCapturePingSocketArgs(input: {
   rest: string[];
 }): CapturePingSocketOptions {
   return parseProductCaptureArgs(input, consumePingCaptureOption);
+}
+
+function parseCaptureNativeArgs(input: {
+  json: boolean;
+  dryRun: boolean;
+  rest: string[];
+}): CaptureNativeOptions {
+  return parseProductCaptureArgs(input, consumeNativeCaptureOption);
 }
 
 function parseCapturePostgresArgs(input: {
@@ -1776,6 +1897,30 @@ function consumePingCaptureOption(
 }
 
 // fallow-ignore-next-line complexity
+function consumeNativeCaptureOption(
+  options: CaptureNativeOptions,
+  rest: string[],
+  index: number,
+  arg: string,
+): number | undefined {
+  switch (arg) {
+    case "--source-capture":
+      options.sourceCapture = takeCaptureValue(rest, index + 1, arg);
+      return index + 1;
+    case "--target-plan":
+      options.targetPlan = takeCaptureValue(rest, index + 1, arg);
+      return index + 1;
+    case "--active-syscall":
+      options.activeSyscall = true;
+      return index;
+    case "--unsupported-resource-state":
+      options.unsupportedResourceState = true;
+      return index;
+    default:
+      return undefined;
+  }
+}
+
 function consumePostgresCaptureOption(
   options: CapturePostgresOptions,
   rest: string[],
@@ -1803,6 +1948,15 @@ function consumePostgresCaptureOption(
       return index + 1;
     case "--data-manifest":
       options.dataManifest = takeCaptureValue(rest, index + 1, arg);
+      return index + 1;
+    case "--postgres-docker-host":
+      options.postgresDockerHost = takeCaptureValue(rest, index + 1, arg);
+      return index + 1;
+    case "--postgres-container":
+      options.postgresContainer = takeCaptureValue(rest, index + 1, arg);
+      return index + 1;
+    case "--database":
+      options.postgresDatabase = takeCaptureValue(rest, index + 1, arg);
       return index + 1;
     case "--active-transactions":
       options.activeTransactions = parseNonNegativeInteger(
@@ -2165,8 +2319,8 @@ function cmdNodeLevel5ReleaseGate(args: string[], json: boolean): number {
   return reportNodeLevel5ProductCommand(json, {
     accepted,
     kind: "machinen.node-level5-release-gate-summary",
-    nodeProductSupportClaimed: 100,
-    broadNodeProductSupportClaimed: 100,
+    nodeProductSupportClaimed: 0,
+    broadNodeProductSupportClaimed: 0,
     arbitraryProcessCrossArchRestoreClaimed: 0,
     retainedArtifact: artifact,
     realAppCorpus: corpus,
@@ -2722,6 +2876,10 @@ function captureUsage(): string {
     "usage: machinen capture postgres --out <dir> --source-arch <arm64|amd64> " +
     "--target-arch <arm64|amd64> --dump <file> --source-verifier-output <file> " +
     "--postgres-version <version> --checkpoint-lsn <lsn> [--json] [--dry-run]\n" +
+    "       machinen capture postgres --out <dir> --source-arch <arm64|amd64> " +
+    "--target-arch <arm64|amd64> --postgres-container <name> --database <db> " +
+    "--verifier-sql <file> --postgres-version <version> --checkpoint-lsn <lsn> " +
+    "[--postgres-docker-host local|user@host] [--json] [--dry-run]\n" +
     "       machinen capture eventfd --out <dir> --source-arch <arm64|amd64> " +
     "--target-arch <arm64|amd64> --source-verifier-output <file> --counter <n> " +
     "[--json] [--dry-run]\n" +
@@ -2737,6 +2895,9 @@ function captureUsage(): string {
     "       machinen capture ping-socket --out <dir> --source-arch <arm64|amd64> " +
     "--target-arch <arm64|amd64> --socket-kind <ping-dgram-icmp|raw-icmp> " +
     "--source-verifier-output <file> --echo-id <n> --echo-seq <n> [--json] [--dry-run]\n" +
+    "       machinen capture native --out <dir> --source-arch <arm64|amd64> " +
+    "--target-arch <arm64|amd64> --source-verifier-output <file> " +
+    "[--source-capture <file>] [--target-plan <file>] [--json] [--dry-run]\n" +
     "       machinen capture node-level5 --experimental-node-level5 --out <dir> " +
     "[--source-arch <arm64|amd64>] [--target-arch <arm64|amd64>] [--json] [--dry-run]"
   );
@@ -3049,6 +3210,9 @@ async function cmdRestore(args: string[]): Promise<number> {
   const parsed = parseRestoreCommandArgs(rest);
   validateRestoreCommandArgs(parsed);
   const snapDir = resolve(parsed.positional[0]!);
+  if (isPortableVmProductBundle(snapDir)) {
+    return await cmdRestorePortableVmProductBundle(parsed, snapDir, json);
+  }
   const portableAdapter = detectPortableRestoreAdapter(snapDir);
   if (portableAdapter) {
     return cmdRestorePortableAdapter(portableAdapter, parsed, snapDir, json);
@@ -3058,6 +3222,9 @@ async function cmdRestore(args: string[]): Promise<number> {
   }
   if (isProductPortablePostgresBundle(snapDir)) {
     return cmdRestoreProductPortablePostgres(parsed, snapDir, json);
+  }
+  if (isProductSelectedNativeBundle(snapDir)) {
+    return cmdRestoreProductSelectedNative(parsed, snapDir, json);
   }
   if (!shouldPreferVmstateRestore(snapDir)) {
     if (isNodeLevel5ProofCompositionBundle(snapDir)) {
@@ -3087,6 +3254,454 @@ async function cmdRestore(args: string[]): Promise<number> {
   const vm = await startRestoreVm(parsed, snapDir, paths, quiet);
   reportRestoreSuccess(vm, quiet);
   return runRestoreAttachedSession(vm, quiet);
+}
+
+const PORTABLE_VM_PRODUCT_SCOPE = "portable-vm-all3-product-snapshot-restore-v1";
+const PORTABLE_VM_PLAN_KIND = "machinen.portable-vm-manifest-plan";
+
+function isPortableVmProductBundle(snapDir: string): boolean {
+  return (
+    existsSync(join(snapDir, "portable-vm-all3-manifest.json")) &&
+    existsSync(join(snapDir, "source-architecture.txt")) &&
+    existsSync(join(snapDir, "target-restore.sh")) &&
+    existsSync(join(snapDir, "target-verify.sh"))
+  );
+}
+
+// fallow-ignore-next-line complexity
+async function cmdRestorePortableVmProductBundle(
+  parsed: ParsedRestoreCommandArgs,
+  snapDir: string,
+  json: boolean,
+): Promise<number> {
+  const started = Date.now();
+  const sourceArch = readPortableVmSourceArchitecture(snapDir);
+  const targetArch = guestCpu();
+  const planRefusal = evaluatePortableVmRestorePlan(snapDir, sourceArch, targetArch);
+  const materializerRefusal = planRefusal ?? preparePortableVmNodeMemoryMaterializer(snapDir);
+  if (materializerRefusal) {
+    const refusal = portableVmRestoreRefusal(
+      materializerRefusal.code,
+      materializerRefusal.message,
+      sourceArch,
+      targetArch,
+      materializerRefusal.workloads,
+    );
+    writeFileSync(
+      join(snapDir, "portable-vm-product-restore-summary.json"),
+      `${JSON.stringify(refusal, null, 2)}\n`,
+    );
+    reportPortableVmRestoreSummary(json, refusal);
+    return 1;
+  }
+  const name = parsed.name ?? deriveBootName(snapDir);
+  const paths = await resolveCliBaseAssets();
+  const vm = await boot({
+    image: paths.defaultImagePath,
+    kernel: paths.kernelPath,
+    dtb: paths.dtbPath,
+    name,
+    detached: true,
+    cmd: ["sleep", "100000"],
+    liveMounts: [{ host: snapDir, guest: "/mnt/capture", mode: "ro" }],
+    timeoutMs: undefined,
+  });
+  let continuationStarted = false;
+  try {
+    const restoreResult = await vm.execRaw("/mnt/capture/target-restore.sh", {
+      connectTimeoutMs: 180_000,
+      execTimeoutMs: 180_000,
+    });
+    if (restoreResult.exitCode !== 0) {
+      throw new Error(
+        restoreResult.stderr || restoreResult.stdout || "portable VM target restore failed",
+      );
+    }
+    const verifyResult = await vm.execRaw("/mnt/capture/target-verify.sh", {
+      connectTimeoutMs: 180_000,
+      execTimeoutMs: 90_000,
+    });
+    if (verifyResult.exitCode !== 0) {
+      throw new Error(
+        verifyResult.stderr || verifyResult.stdout || "portable VM target verifier failed",
+      );
+    }
+    const targetRestore = JSON.parse(restoreResult.stdout) as Record<string, unknown>;
+    const targetVerify = JSON.parse(verifyResult.stdout) as Record<string, unknown>;
+    const summary = {
+      kind: "machinen.portable-vm-product-restore-summary",
+      version: 1,
+      accepted: true,
+      scope: PORTABLE_VM_PRODUCT_SCOPE,
+      state: "completed",
+      migrationCompleted: true,
+      sourceArch,
+      targetArch,
+      sourceArchitectureDetected: true,
+      targetArchitectureDetected: true,
+      targetVmStarted: true,
+      restoredName: vm.name ?? name,
+      restoredPid: vm.pid,
+      targetRestore,
+      targetVerify,
+      workloads: {
+        filesystem: (targetVerify.filesystem as Record<string, unknown>)?.accepted === true,
+        service: (targetVerify.service as Record<string, unknown>)?.accepted === true,
+        sqlite: (targetVerify.sqlite as Record<string, unknown>)?.accepted === true,
+        nodejs: summarizePortableVmNodePlan(snapDir, targetVerify),
+      },
+      portableVmPlan: summarizePortableVmRestorePlan(snapDir),
+      claimGuard: portableVmClaimGuard(),
+      elapsedMs: Date.now() - started,
+    };
+    writeFileSync(
+      join(snapDir, "portable-vm-product-restore-summary.json"),
+      `${JSON.stringify(summary, null, 2)}\n`,
+    );
+    continuationStarted = true;
+    reportPortableVmRestoreSummary(json, summary);
+    return 0;
+  } catch (error) {
+    const refusal = portableVmRestoreRefusal(
+      "portable-vm-target-restore-failed",
+      describeError(error),
+      sourceArch,
+      targetArch,
+    );
+    writeFileSync(
+      join(snapDir, "portable-vm-product-restore-summary.json"),
+      `${JSON.stringify(refusal, null, 2)}\n`,
+    );
+    reportPortableVmRestoreSummary(json, refusal);
+    return 1;
+  } finally {
+    if (continuationStarted) {
+      await vm.detach();
+    } else {
+      await vm.kill().catch(() => undefined);
+    }
+  }
+}
+
+// fallow-ignore-next-line complexity
+interface PortableVmRestoreRefusalReason {
+  code: string;
+  message: string;
+  workloads?: Record<string, unknown>;
+}
+
+function evaluatePortableVmRestorePlan(
+  snapDir: string,
+  sourceArch: GuestCpu,
+  targetArch: GuestCpu,
+): PortableVmRestoreRefusalReason | null {
+  const loaded = loadPortableVmRestorePlan(snapDir);
+  if (loaded.refusal) {
+    return loaded.refusal;
+  }
+  const plan = loaded.plan;
+  const metadataRefusal = portableVmPlanMetadataRefusal(plan, sourceArch, targetArch);
+  if (metadataRefusal) {
+    return metadataRefusal;
+  }
+  const rows = portableVmPlanRows(plan);
+  const refused = rows.find((row) => row.disposition === "refused");
+  if (refused) {
+    return portableVmPlanRowRefusal(refused, rows);
+  }
+  return portableVmRequiredRowsRefusal(rows);
+}
+
+function loadPortableVmRestorePlan(
+  snapDir: string,
+):
+  | { plan: Record<string, unknown>; refusal: null }
+  | { plan: Record<string, never>; refusal: PortableVmRestoreRefusalReason } {
+  const planPath = join(snapDir, "portable-vm-manifest-plan.json");
+  if (!existsSync(planPath)) {
+    return {
+      plan: {},
+      refusal: {
+        code: "portable-vm-portability-plan-missing",
+        message:
+          "portable VM restore requires a generated Portable VM Manifest / VM Portability Plan",
+      },
+    };
+  }
+  return {
+    plan: JSON.parse(readFileSync(planPath, "utf8")) as Record<string, unknown>,
+    refusal: null,
+  };
+}
+
+function portableVmPlanMetadataRefusal(
+  plan: Record<string, unknown>,
+  sourceArch: GuestCpu,
+  targetArch: GuestCpu,
+): PortableVmRestoreRefusalReason | null {
+  if (plan.kind !== PORTABLE_VM_PLAN_KIND || plan.scope !== PORTABLE_VM_PRODUCT_SCOPE) {
+    return { code: "portable-vm-portability-plan-invalid", message: "portable VM plan is invalid" };
+  }
+  if (plan.sourceArchitecture !== sourceArch) {
+    return {
+      code: "portable-vm-source-architecture-mismatch",
+      message: `portable VM plan source architecture ${String(plan.sourceArchitecture)} does not match bundle source architecture ${sourceArch}`,
+    };
+  }
+  return portableVmTargetPolicyRefusal(plan, targetArch);
+}
+
+function portableVmTargetPolicyRefusal(
+  plan: Record<string, unknown>,
+  targetArch: GuestCpu,
+): PortableVmRestoreRefusalReason | null {
+  const allowedTargets = (plan.targetPolicy as Record<string, unknown> | undefined)
+    ?.allowedTargetArchitectures;
+  if (Array.isArray(allowedTargets) && !allowedTargets.includes(targetArch)) {
+    return {
+      code: "portable-vm-target-architecture-unsupported",
+      message: `portable VM plan does not allow target architecture ${targetArch}`,
+    };
+  }
+  return null;
+}
+
+function portableVmRequiredRowsRefusal(
+  rows: Array<Record<string, unknown>>,
+): PortableVmRestoreRefusalReason | null {
+  for (const required of ["filesystem", "service", "sqlite"] as const) {
+    const row = rows.find((candidate) => candidate.category === required);
+    if (!row || row.disposition !== "product-supported") {
+      return {
+        code: "portable-vm-required-plan-row-missing",
+        message: `portable VM plan is missing required product-supported ${required} row`,
+      };
+    }
+  }
+  return null;
+}
+
+function portableVmPlanRowRefusal(
+  refused: Record<string, unknown>,
+  rows: Array<Record<string, unknown>>,
+): PortableVmRestoreRefusalReason {
+  return {
+    code: portableVmRefusalCode(refused),
+    message: portableVmRefusalMessage(refused),
+    workloads: summarizePortableVmRefusalWorkloads(rows),
+  };
+}
+
+function portableVmRefusalCode(row: Record<string, unknown>): string {
+  return typeof row.refusalCode === "string" ? row.refusalCode : "portable-vm-plan-row-refused";
+}
+
+function portableVmRefusalMessage(row: Record<string, unknown>): string {
+  if (typeof row.message === "string") {
+    return row.message;
+  }
+  return `portable VM plan refused ${String(row.id ?? row.category ?? "unknown row")}`;
+}
+
+function portableVmPlanRows(plan: Record<string, unknown>): Array<Record<string, unknown>> {
+  const restorePlan = plan.restorePlan as Record<string, unknown> | undefined;
+  return Array.isArray(restorePlan?.rows)
+    ? (restorePlan.rows as Array<Record<string, unknown>>)
+    : [];
+}
+
+function preparePortableVmNodeMemoryMaterializer(
+  snapDir: string,
+): PortableVmRestoreRefusalReason | null {
+  const irPath = join(snapDir, "nodejs-memory-ir.json");
+  if (!existsSync(irPath)) {
+    return null;
+  }
+  const parsed = parsePortableVmNodeMemoryIr(irPath);
+  const validation = validateNodejsMemoryIrDocument(parsed);
+  if (!validation.accepted) {
+    return {
+      code: validation.refusalCode ?? NODEJS_MEMORY_IR_INVALID_REFUSAL_CODE,
+      message: `Node memory IR is not materializable: ${validation.errors.join("; ")}`,
+    };
+  }
+  writeFileSync(
+    join(snapDir, NODEJS_MEMORY_IR_MATERIALIZER_FILENAME),
+    createNodejsMemoryIrMaterializerModule(),
+  );
+  return null;
+}
+
+function parsePortableVmNodeMemoryIr(path: string): unknown {
+  try {
+    return JSON.parse(readFileSync(path, "utf8")) as unknown;
+  } catch (error) {
+    return { kind: "invalid-json", error: describeError(error) };
+  }
+}
+
+function summarizePortableVmRestorePlan(snapDir: string): Record<string, unknown> {
+  const plan = JSON.parse(
+    readFileSync(join(snapDir, "portable-vm-manifest-plan.json"), "utf8"),
+  ) as Record<string, unknown>;
+  const rows = portableVmPlanRows(plan);
+  return {
+    kind: PORTABLE_VM_PLAN_KIND,
+    scope: plan.scope,
+    sourceArchitecture: plan.sourceArchitecture,
+    rowCount: rows.length,
+    productSupportedRows: rows.filter((row) => row.disposition === "product-supported").length,
+    refusedRows: rows.filter((row) => row.disposition === "refused").length,
+    nodejsRows: rows.filter((row) => row.category === "nodejs").length,
+    nodejsClassifiedRows: rows.filter(
+      (row) => row.category === "nodejs" && row.disposition === "classified",
+    ).length,
+    nodejsMemoryRows: rows.filter(
+      (row) => row.category === "nodejs" && row.id === "nodejs-memory-ir",
+    ).length,
+    unknownStatePolicy: (plan.targetPolicy as Record<string, unknown> | undefined)
+      ?.unknownStatePolicy,
+  };
+}
+
+function summarizePortableVmRefusalWorkloads(
+  rows: Array<Record<string, unknown>>,
+): Record<string, unknown> | undefined {
+  const nodejsRows = rows.filter((row) => row.category === "nodejs");
+  if (nodejsRows.length === 0) {
+    return undefined;
+  }
+  const refusedRows = nodejsRows.filter((row) => row.disposition === "refused");
+  return {
+    nodejs: {
+      ...summarizePortableVmNodeRows(nodejsRows),
+      refusals: refusedRows.map((row) => ({
+        id: portableVmStringValue(row.id),
+        refusalCode: portableVmStringValue(row.refusalCode),
+        message: portableVmStringValue(row.message),
+      })),
+      memoryRefusals: refusedRows
+        .filter((row) => portableVmStringValue(row.id).startsWith("nodejs-memory-"))
+        .map((row) => portableVmStringValue(row.refusalCode)),
+    },
+  };
+}
+
+function summarizePortableVmNodePlan(
+  snapDir: string,
+  targetVerify?: Record<string, unknown>,
+): Record<string, unknown> {
+  const plan = JSON.parse(
+    readFileSync(join(snapDir, "portable-vm-manifest-plan.json"), "utf8"),
+  ) as Record<string, unknown>;
+  const rows = portableVmPlanRows(plan).filter((row) => row.category === "nodejs");
+  return {
+    ...summarizePortableVmNodeRows(rows),
+    ...summarizePortableVmNodeMemoryVerifier(targetVerify),
+    arbitraryNodeProcessRestoreClaimed: false,
+    rawV8HeapRestoreUsed: false,
+  };
+}
+
+function summarizePortableVmNodeRows(
+  rows: Array<Record<string, unknown>>,
+): Record<string, unknown> {
+  return {
+    classified: rows.some((row) => row.disposition === "classified"),
+    rowCount: rows.length,
+    refusedRows: rows.filter((row) => row.disposition === "refused").length,
+    memoryRows: rows.filter((row) => row.id === "nodejs-memory-ir").length,
+    memoryMaterializationRows: rows.filter(isPortableVmNodeMemoryMaterializationRow).length,
+  };
+}
+
+function summarizePortableVmNodeMemoryVerifier(
+  targetVerify?: Record<string, unknown>,
+): Record<string, unknown> {
+  const nodejsMemory = portableVmNodeMemoryVerifierRecord(targetVerify);
+  return {
+    memoryVerified: nodejsMemory.accepted === true,
+    memoryMaterializedRows: portableVmNodeMemoryMaterializedRows(nodejsMemory),
+  };
+}
+
+function portableVmNodeMemoryVerifierRecord(
+  targetVerify?: Record<string, unknown>,
+): Record<string, unknown> {
+  if (!targetVerify) {
+    return {};
+  }
+  return portableVmRecordValue(targetVerify.nodejsMemory);
+}
+
+function portableVmNodeMemoryMaterializedRows(nodejsMemory: Record<string, unknown>): number {
+  const rows = nodejsMemory.materializedRows;
+  if (typeof rows !== "number") {
+    return 0;
+  }
+  return rows;
+}
+
+function portableVmStringValue(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+function portableVmRecordValue(value: unknown): Record<string, unknown> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return {};
+  }
+  return value as Record<string, unknown>;
+}
+
+function isPortableVmNodeMemoryMaterializationRow(row: Record<string, unknown>): boolean {
+  return row.restoreStrategy === "materialize-nodejs-memory-ir-target-native";
+}
+
+function portableVmRestoreRefusal(
+  code: string,
+  message: string,
+  sourceArch: GuestCpu,
+  targetArch: GuestCpu,
+  workloads?: Record<string, unknown>,
+): Record<string, unknown> {
+  return {
+    kind: "machinen.portable-vm-product-restore-summary",
+    version: 1,
+    accepted: false,
+    scope: PORTABLE_VM_PRODUCT_SCOPE,
+    state: "refused",
+    migrationCompleted: false,
+    sourceArch,
+    targetArch,
+    sourceArchitectureDetected: true,
+    targetArchitectureDetected: true,
+    refusal: { code, message },
+    ...(workloads ? { workloads } : {}),
+    claimGuard: portableVmClaimGuard(),
+  };
+}
+
+function portableVmClaimGuard(): Record<string, false> {
+  return {
+    arbitraryVmRestoreClaimed: false,
+    rawVmStateReplayUsed: false,
+    sourceIsaEmulationUsed: false,
+    metadataOnlyShortcutAccepted: false,
+  };
+}
+
+// fallow-ignore-next-line complexity
+function reportPortableVmRestoreSummary(json: boolean, summary: Record<string, unknown>): void {
+  if (json) {
+    emitJson({ schema_version: 1, ...summary });
+    return;
+  }
+  if (summary.accepted === true) {
+    process.stdout.write("portable VM restore completed\n");
+    return;
+  }
+  const refusal = summary.refusal as { code?: string; message?: string } | undefined;
+  process.stderr.write(`portable VM restore refused: ${refusal?.code ?? "unknown"}\n`);
 }
 
 function cmdRestoreNodeLevel5ProductSnapshot(snapDir: string, json: boolean): number {
@@ -3143,6 +3758,9 @@ function restoreUsage(): string {
     "[--mount-live <host>:<guest>[:<mode>]]\n" +
     "       machinen restore <portable-postgres-bundle> --target-arch <arm64|amd64> " +
     "--target-verifier-output <file> [--json]\n" +
+    "       machinen restore <portable-postgres-bundle> --target-arch <arm64|amd64> " +
+    "--postgres-container <name> --database <db> --target-verifier-sql <file> " +
+    "[--postgres-docker-host local|user@host] [--json]\n" +
     "       machinen restore <portable-eventfd-bundle> --target-arch <arm64|amd64> " +
     "[--target-verifier-output <file>] [--json]\n" +
     "       machinen restore <portable-pipe-bundle> --target-arch <arm64|amd64> " +
@@ -3153,6 +3771,8 @@ function restoreUsage(): string {
     "[--target-verifier-output <file>] [--json]\n" +
     "       machinen restore <portable-ping-socket-bundle> --target-arch <arm64|amd64> " +
     "[--target-verifier-output <file>] [--json]\n" +
+    "       machinen restore <selected-native-bundle> --target-arch <arm64|amd64> " +
+    "--target-verifier-output <file> [--json]\n" +
     "       machinen restore <node-level5-proof-bundle> " +
     "[--allow-proof-only-success] [--json]\n" +
     "       machinen restore node-level5 --experimental-node-level5 <manifest> [--json]"
@@ -3165,28 +3785,82 @@ function cmdRestoreProductPortablePostgres(
   snapDir: string,
   json: boolean,
 ): number {
+  if (!parsed.targetArch) {
+    die(restoreUsage());
+  }
+  const dockerRestore = parsed.targetVerifierOutput === undefined;
+  if (dockerRestore) {
+    if (
+      !parsed.postgresContainer ||
+      !parsed.postgresDatabase ||
+      !parsed.postgresTargetVerifierSql
+    ) {
+      die(restoreUsage());
+    }
+  }
+  try {
+    const postgresEvidence = dockerRestore
+      ? restorePostgresDockerBundle(snapDir, parsed)
+      : undefined;
+    const summary = restoreProductPortablePostgresSnapshot({
+      bundleDir: snapDir,
+      targetArch: parsed.targetArch,
+      targetVerifierOutput:
+        postgresEvidence?.targetVerifierOutput ??
+        readFileSync(resolve(parsed.targetVerifierOutput!), "utf8").trim(),
+    });
+    return reportProductRestoreResult(json, summary, {
+      restored: `restored portable postgres bundle: ${snapDir}\n`,
+      refusedPrefix: "refused portable postgres restore",
+    });
+  } catch (err) {
+    handleProductPortablePostgresError(err, json);
+  }
+}
+
+// fallow-ignore-next-line complexity
+function cmdRestoreProductSelectedNative(
+  parsed: ParsedRestoreCommandArgs,
+  snapDir: string,
+  json: boolean,
+): number {
   if (!parsed.targetArch || !parsed.targetVerifierOutput) {
     die(restoreUsage());
   }
   try {
-    const summary = restoreProductPortablePostgresSnapshot({
+    const summary = restoreProductSelectedNativeSnapshot({
       bundleDir: snapDir,
       targetArch: parsed.targetArch,
       targetVerifierOutput: readFileSync(resolve(parsed.targetVerifierOutput), "utf8").trim(),
     });
-    if (json) {
-      emitJson({ schema_version: 1, ...summary });
-    } else if (summary.migrationCompleted) {
-      process.stderr.write(`restored portable postgres bundle: ${snapDir}\n`);
-    } else {
-      process.stderr.write(
-        `refused portable postgres restore: ${summary.refusal?.expectedRefusalCode ?? "unknown"}\n`,
-      );
-    }
-    return summary.migrationCompleted ? 0 : 1;
+    return reportProductRestoreResult(json, summary, {
+      restored: `restored selected native bundle: ${snapDir}\n`,
+      refusedPrefix: "refused selected native restore",
+    });
   } catch (err) {
-    handleProductPortablePostgresError(err, json);
+    handleProductSelectedNativeError(err, json);
   }
+}
+
+// fallow-ignore-next-line complexity
+function reportProductRestoreResult(
+  json: boolean,
+  summary: {
+    migrationCompleted: boolean;
+    refusal?: { expectedRefusalCode?: string };
+  },
+  messages: { restored: string; refusedPrefix: string },
+): number {
+  if (json) {
+    emitJson({ schema_version: 1, ...summary });
+  } else if (summary.migrationCompleted) {
+    process.stderr.write(messages.restored);
+  } else {
+    process.stderr.write(
+      `${messages.refusedPrefix}: ${summary.refusal?.expectedRefusalCode ?? "unknown"}\n`,
+    );
+  }
+  return summary.migrationCompleted ? 0 : 1;
 }
 
 type TcpListenerPortableRestoreValidation =
@@ -4592,6 +5266,13 @@ function handleProductPortablePostgresError(err: unknown, json: boolean): never 
   handleError(err);
 }
 
+function handleProductSelectedNativeError(err: unknown, json: boolean): never {
+  if (err instanceof ProductSelectedNativeError) {
+    reportKnownProductError(err, json);
+  }
+  handleError(err);
+}
+
 function handleProductLevel4TcpListenerError(err: unknown, json: boolean): never {
   if (err instanceof ProductLevel4TcpListenerError) {
     reportKnownProductError(err, json);
@@ -4859,6 +5540,164 @@ function perlStringLiteral(value: string): string {
 
 function shellQuote(value: string): string {
   return `'${value.replaceAll("'", `'\\''`)}'`;
+}
+
+type PostgresDockerTarget = {
+  host: string;
+  container: string;
+  database: string;
+};
+
+type PostgresDockerEvidence = {
+  dumpPath: string;
+  sourceVerifierOutput: string;
+};
+
+function capturePostgresDockerEvidence(options: CapturePostgresOptions): PostgresDockerEvidence {
+  const target = postgresDockerTargetFromCapture(options);
+  const temp = mkdtempSync(join(tmpdir(), "machinen-postgres-capture-"));
+  const dumpPath = join(temp, PRODUCT_PORTABLE_POSTGRES_DUMP);
+  const rolePrelude = postgresDockerRolePrelude(target);
+  const dump = postgresDockerPgDump(target);
+  writeFileSync(dumpPath, Buffer.concat([Buffer.from(rolePrelude, "utf8"), dump]));
+  return {
+    dumpPath,
+    sourceVerifierOutput: postgresDockerPsql(
+      target,
+      readFileSync(resolve(options.verifierSql!), "utf8"),
+      {
+        tuplesOnly: true,
+      },
+    ).trim(),
+  };
+}
+
+function restorePostgresDockerBundle(
+  snapDir: string,
+  parsed: ParsedRestoreCommandArgs,
+): { targetVerifierOutput: string } {
+  const target = postgresDockerTargetFromRestore(parsed);
+  const dump = readFileSync(join(snapDir, PRODUCT_PORTABLE_POSTGRES_DUMP));
+  postgresDockerPsql(
+    { ...target, database: "postgres" },
+    `DROP DATABASE IF EXISTS ${postgresIdentifier(target.database)};\nCREATE DATABASE ${postgresIdentifier(target.database)};\n`,
+    { tuplesOnly: false },
+  );
+  postgresDockerPsql(target, dump, { tuplesOnly: false });
+  return {
+    targetVerifierOutput: postgresDockerPsql(
+      target,
+      readFileSync(resolve(parsed.postgresTargetVerifierSql!), "utf8"),
+      { tuplesOnly: true },
+    ).trim(),
+  };
+}
+
+function postgresDockerTargetFromCapture(options: CapturePostgresOptions): PostgresDockerTarget {
+  return {
+    host: options.postgresDockerHost ?? "local",
+    container: options.postgresContainer!,
+    database: options.postgresDatabase!,
+  };
+}
+
+function postgresDockerTargetFromRestore(parsed: ParsedRestoreCommandArgs): PostgresDockerTarget {
+  return {
+    host: parsed.postgresDockerHost ?? "local",
+    container: parsed.postgresContainer!,
+    database: parsed.postgresDatabase!,
+  };
+}
+
+function postgresDockerRolePrelude(target: PostgresDockerTarget): string {
+  const roles = postgresDockerPsql(
+    { ...target, database: "postgres" },
+    "SELECT rolname FROM pg_roles WHERE rolname !~ '^pg_' AND rolname <> 'postgres' ORDER BY rolname;",
+    { tuplesOnly: true },
+  )
+    .trim()
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (roles.length === 0) {
+    return "";
+  }
+  return `${roles
+    .map(
+      (role) =>
+        `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = ${postgresStringLiteral(role)}) THEN CREATE ROLE ${postgresIdentifier(role)}; END IF; END $$;`,
+    )
+    .join("\n")}\n`;
+}
+
+function postgresDockerPgDump(target: PostgresDockerTarget): Buffer {
+  const args = [
+    "exec",
+    target.container,
+    "pg_dump",
+    "-U",
+    "postgres",
+    "--no-owner",
+    "--format=plain",
+    "--dbname",
+    target.database,
+  ];
+  return postgresDockerExec(target.host, args);
+}
+
+function postgresDockerPsql(
+  target: PostgresDockerTarget,
+  input: string | Buffer,
+  options: { tuplesOnly: boolean },
+): string {
+  const args = [
+    "exec",
+    "-i",
+    target.container,
+    "psql",
+    "-U",
+    "postgres",
+    "-d",
+    target.database,
+    "-v",
+    "ON_ERROR_STOP=1",
+    ...(options.tuplesOnly ? ["-At"] : []),
+  ];
+  return postgresDockerExec(target.host, args, input).toString("utf8");
+}
+
+function postgresDockerExec(host: string, dockerArgs: string[], input?: string | Buffer): Buffer {
+  if (host === "local") {
+    return execFileSync("docker", dockerArgs, {
+      input,
+      maxBuffer: 128 * 1024 * 1024,
+      stdio: [input === undefined ? "ignore" : "pipe", "pipe", "pipe"],
+    });
+  }
+  return execFileSync(
+    "ssh",
+    ["-o", "BatchMode=yes", "-o", "ConnectTimeout=10", host, dockerShellCommand(dockerArgs)],
+    {
+      input,
+      maxBuffer: 128 * 1024 * 1024,
+      stdio: [input === undefined ? "ignore" : "pipe", "pipe", "pipe"],
+    },
+  );
+}
+
+function dockerShellCommand(args: string[]): string {
+  return `docker ${args.map(shellQuote).join(" ")}`;
+}
+
+function postgresIdentifier(value: string): string {
+  if (!/^[A-Za-z_][A-Za-z0-9_]*$/u.test(value)) {
+    die(`invalid PostgreSQL identifier: ${value}`);
+  }
+  return value;
+}
+
+function postgresStringLiteral(value: string): string {
+  return `'${value.replaceAll("'", "''")}'`;
 }
 
 function createRestoreQuietState(parsed: ParsedRestoreCommandArgs, snapDir: string): QuietRunState {
@@ -5780,6 +6619,7 @@ interface SnapshotOptionsCli {
   json: boolean;
   dryRun: boolean;
   keepAlive: boolean;
+  portable: boolean;
   target: Target;
   outDir: string;
   resolvedOutDir: string;
@@ -5792,10 +6632,24 @@ function parseSnapshotOptions(args: string[]): SnapshotOptionsCli {
   const { json, rest: afterJson } = consumeJsonFlag(args);
   const { dryRun, rest: afterDry } = consumeDryRunFlag(afterJson);
   const { keepAlive, rest: afterKeepAlive } = consumeKeepAliveFlag(afterDry);
-  const { outDir: flaggedOutDir, rest } = consumeSnapshotOutFlag(afterKeepAlive);
+  const { portable, rest: afterPortable } = consumePortableSnapshotFlag(afterKeepAlive);
+  const { outDir: flaggedOutDir, rest } = consumeSnapshotOutFlag(afterPortable);
   const { target, rest: afterTarget } = resolveTarget(rest, "snapshot");
   const outDir = parseSnapshotOutDir(afterTarget, flaggedOutDir);
-  return { json, dryRun, keepAlive, target, outDir, resolvedOutDir: resolve(outDir) };
+  return { json, dryRun, keepAlive, portable, target, outDir, resolvedOutDir: resolve(outDir) };
+}
+
+function consumePortableSnapshotFlag(args: string[]): { portable: boolean; rest: string[] } {
+  const rest: string[] = [];
+  let portable = false;
+  for (const arg of args) {
+    if (arg === "--portable") {
+      portable = true;
+    } else {
+      rest.push(arg);
+    }
+  }
+  return { portable, rest };
 }
 
 function consumeKeepAliveFlag(args: string[]): { keepAlive: boolean; rest: string[] } {
@@ -5846,8 +6700,8 @@ function parsePositionalSnapshotOutDir(args: string[]): string {
 
 function snapshotUsage(): string {
   return (
-    "usage: machinen snapshot <name|pid> <out-dir> [--keep-alive] [--dry-run] [--json]\n" +
-    "       machinen snapshot <name|pid> --out <dir> [--keep-alive] [--dry-run] [--json]"
+    "usage: machinen snapshot <name|pid> <out-dir> [--portable] [--keep-alive] [--dry-run] [--json]\n" +
+    "       machinen snapshot <name|pid> --out <dir> [--portable] [--keep-alive] [--dry-run] [--json]"
   );
 }
 
@@ -5887,6 +6741,9 @@ async function runSnapshot(opts: SnapshotOptionsCli): Promise<number> {
   const vm = await attach(opts.target).catch(handleError);
   const quiet = createSnapshotQuietState(vm, opts);
   try {
+    if (opts.portable) {
+      return await runPortableVmSnapshot(vm, opts);
+    }
     const adapterOpts = { guestCpu, sha256Bytes };
     const portableNode = await inspectPortableNodeVm(vm, entry, adapterOpts);
     const cleanService = portableNode
@@ -5914,6 +6771,264 @@ async function runSnapshot(opts: SnapshotOptionsCli): Promise<number> {
   } finally {
     await vm.detach();
   }
+}
+
+async function runPortableVmSnapshot(vm: VmHandle, opts: SnapshotOptionsCli): Promise<number> {
+  const started = Date.now();
+  const exportCommand = portableVmSnapshotExportCommand();
+  const exported = await vm.execRaw(exportCommand, { execTimeoutMs: 60_000 });
+  if (exported.exitCode !== 0) {
+    reportPortableVmSnapshotRefusal(
+      opts,
+      exported.stderr || exported.stdout || "portable VM source layout missing",
+    );
+    return 1;
+  }
+  const archive = Buffer.from(exported.stdout.trim(), "base64");
+  const tempDir = mkdtempSync(join(tmpdir(), "machinen-portable-vm-snapshot-"));
+  const archivePath = join(tempDir, "portable-vm.tar");
+  rmSync(opts.resolvedOutDir, { recursive: true, force: true });
+  mkdirSync(opts.resolvedOutDir, { recursive: true });
+  writeFileSync(archivePath, archive);
+  execFileSync("tar", ["-xf", archivePath, "-C", opts.resolvedOutDir]);
+  rmSync(tempDir, { recursive: true, force: true });
+  const summary = readPortableVmSnapshotSummary(opts.resolvedOutDir);
+  reportPortableVmSnapshotSuccess(opts, summary, Date.now() - started);
+  return 0;
+}
+
+function portableVmSnapshotExportCommand(): string {
+  return `sh -eu -c ${shellQuote(portableVmSnapshotGuestAgentScript())}`;
+}
+
+function portableVmSnapshotGuestAgentScript(): string {
+  return String.raw`
+resolve_source() {
+  configured_source=$(printenv MACHINEN_PORTABLE_VM_SOURCE || true)
+  if [ -n "$configured_source" ] && [ -d "$configured_source" ]; then
+    printf '%s\n' "$configured_source"
+    return 0
+  fi
+  for candidate in /run/machinen/portable-vm/source-bundle /mnt/portable-vm-source /opt/machinen-portable-vm-source/bundle; do
+    if [ -d "$candidate" ]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+src=$(resolve_source) || { echo 'portable VM guest inventory agent could not find a source bundle' >&2; exit 41; }
+[ -f "$src/portable-vm-all3-manifest.json" ] || { echo 'portable VM manifest missing' >&2; exit 42; }
+[ -d "$src/filesystem/root" ] || { echo 'portable VM filesystem root missing' >&2; exit 43; }
+[ -f "$src/service-manifest.json" ] || { echo 'portable VM service manifest missing' >&2; exit 44; }
+[ -f "$src/sqlite-dump.sql" ] || { echo 'portable VM sqlite dump missing' >&2; exit 45; }
+
+machine=$(uname -m)
+case "$machine" in
+  x86_64) source_arch=amd64 ;;
+  aarch64|arm64) source_arch=arm64 ;;
+  *) echo "unsupported source architecture: $machine" >&2; exit 46 ;;
+esac
+
+work=$(mktemp -d)
+cp -a "$src/." "$work/"
+printf '%s\n' "$source_arch" >"$work/source-architecture.txt"
+
+refusal_rows=''
+add_refusal() {
+  id="$1"
+  category="$2"
+  code="$3"
+  message="$4"
+  refusal_rows="$refusal_rows,
+      { \"id\": \"$id\", \"category\": \"$category\", \"disposition\": \"refused\", \"refusalCode\": \"$code\", \"message\": \"$message\" }"
+}
+[ ! -f "$src/portable-vm-active-db-state.refuse" ] || add_refusal active-db-state database portable-vm-active-db-state-unsupported 'dirty or active database state must be quiesced before portable VM restore'
+[ ! -f "$src/portable-vm-active-network-stream.refuse" ] || add_refusal active-network-stream network portable-vm-active-network-stream-unsupported 'active network streams are refused; only listener reconstruction is supported'
+[ ! -f "$src/portable-vm-unknown-live-process.refuse" ] || add_refusal unknown-live-process process portable-vm-unknown-live-process-unsupported 'unknown live processes are refused by default'
+[ ! -f "$src/portable-vm-opaque-device-state.refuse" ] || add_refusal opaque-device-state device portable-vm-opaque-device-state-unsupported 'opaque device state is refused by default'
+[ ! -f "$src/portable-vm-active-syscall.refuse" ] || add_refusal active-syscall process portable-vm-active-syscall-unsupported 'active syscall state is refused by default'
+[ ! -f "$src/node-portability-active-websocket.refuse" ] || add_refusal nodejs-active-websocket nodejs node-portability-active-websocket-unsupported 'active WebSocket sessions are refused by default'
+[ ! -f "$src/node-portability-worker-thread.refuse" ] || add_refusal nodejs-worker-thread nodejs node-portability-worker-thread-unsupported 'worker thread live state is refused by default'
+[ ! -f "$src/node-portability-native-addon.refuse" ] || add_refusal nodejs-native-addon nodejs node-portability-native-addon-unsupported 'native addon live/ABI state is refused by default'
+[ ! -f "$src/node-portability-child-process.refuse" ] || add_refusal nodejs-child-process nodejs node-portability-child-process-unsupported 'child process trees are refused by default'
+[ ! -f "$src/node-portability-active-request.refuse" ] || add_refusal nodejs-active-request nodejs node-portability-active-request-unsupported 'in-flight Node HTTP requests are refused by default'
+[ ! -f "$src/node-portability-outbound-connection.refuse" ] || add_refusal nodejs-outbound-connection nodejs node-portability-outbound-connection-unsupported 'outbound connection state is refused by default'
+[ ! -f "$src/nodejs-memory-pending-promise.refuse" ] || add_refusal nodejs-memory-pending-promise nodejs node-portability-memory-pending-promise-unsupported 'pending Promise state is refused by default'
+[ ! -f "$src/nodejs-memory-pending-microtask.refuse" ] || add_refusal nodejs-memory-pending-microtask nodejs node-portability-memory-pending-microtask-unsupported 'pending microtask state is refused by default'
+[ ! -f "$src/nodejs-memory-active-socket.refuse" ] || add_refusal nodejs-memory-active-socket nodejs node-portability-memory-active-socket-unsupported 'active socket state is refused by default'
+[ ! -f "$src/nodejs-memory-active-request.refuse" ] || add_refusal nodejs-memory-active-request nodejs node-portability-memory-active-request-unsupported 'active request state is refused by default'
+[ ! -f "$src/nodejs-memory-worker.refuse" ] || add_refusal nodejs-memory-worker nodejs node-portability-memory-worker-unsupported 'worker live state is refused by default'
+[ ! -f "$src/nodejs-memory-native-addon.refuse" ] || add_refusal nodejs-memory-native-addon nodejs node-portability-memory-native-addon-unsupported 'native addon memory state is refused by default'
+[ ! -f "$src/nodejs-memory-child-process.refuse" ] || add_refusal nodejs-memory-child-process nodejs node-portability-memory-child-process-unsupported 'child process memory state is refused by default'
+[ ! -f "$src/nodejs-memory-opaque-native-state.refuse" ] || add_refusal nodejs-memory-opaque-native-state nodejs node-portability-memory-opaque-native-state-unsupported 'opaque native state is refused by default'
+[ ! -f "$src/nodejs-memory-raw-v8-state.refuse" ] || add_refusal nodejs-memory-raw-v8-state nodejs node-portability-memory-raw-v8-state-unsupported 'raw V8 state is refused by default'
+
+node_inventory_items=''
+node_plan_rows=''
+node_memory_items=''
+node_memory_plan_rows=''
+node_package_json=''
+if [ -d "$src/filesystem/root" ]; then
+  node_package_json=$(find "$src/filesystem/root" -maxdepth 6 -name package.json -type f 2>/dev/null | head -n 1 || true)
+fi
+if [ -f "$src/nodejs-memory-ir.json" ]; then
+  cat >"$work/nodejs-memory-classification.json" <<NODEMEMJSON
+{
+  "kind": "machinen.nodejs-memory-classification",
+  "version": 1,
+  "status": "classified",
+  "sourceArchitecture": "$source_arch",
+  "memoryIr": "nodejs-memory-ir.json",
+  "restoreStrategy": "materialize-nodejs-memory-ir-target-native",
+  "compatibilityIndex": "portability/nodejs/index.json",
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false
+  }
+}
+NODEMEMJSON
+  node_memory_items=',
+    { "id": "nodejs-memory-ir", "category": "nodejs", "path": "nodejs-memory-ir.json", "classification": "nodejs-memory-classification.json", "disposition": "product-supported" }'
+  node_memory_plan_rows=',
+      { "id": "nodejs-memory-ir", "category": "nodejs", "disposition": "product-supported", "restoreStrategy": "materialize-nodejs-memory-ir-target-native", "artifact": "nodejs-memory-ir.json", "classification": "nodejs-memory-classification.json", "compatibilityIndex": "portability/nodejs/index.json" }'
+fi
+
+if [ -n "$node_package_json" ]; then
+  node_package_rel=$(printf '%s\n' "$node_package_json" | sed "s|^$src/||")
+  node_app_dir=$(dirname "$node_package_json")
+  node_app_rel=$(printf '%s\n' "$node_app_dir" | sed "s|^$src/||")
+  node_package_manager="npm"
+  [ ! -f "$node_app_dir/pnpm-lock.yaml" ] || node_package_manager="pnpm"
+  [ ! -f "$node_app_dir/yarn.lock" ] || node_package_manager="yarn"
+  cat >"$work/nodejs-portability-inventory.json" <<NODEJSON
+{
+  "kind": "machinen.nodejs-portability-inventory",
+  "version": 1,
+  "status": "classified",
+  "sourceArchitecture": "$source_arch",
+  "packageJson": "$node_package_rel",
+  "appDir": "$node_app_rel",
+  "packageManager": "$node_package_manager",
+  "compatibilityIndex": "portability/nodejs/index.json",
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false
+  }
+}
+NODEJSON
+  node_inventory_items=',
+    { "id": "nodejs-package-json", "category": "nodejs", "path": "nodejs-portability-inventory.json", "disposition": "classified" }'
+  node_plan_rows=',
+      { "id": "nodejs-package-json", "category": "nodejs", "disposition": "classified", "restoreStrategy": "classify-against-node-portability-compatibility-index", "artifact": "nodejs-portability-inventory.json", "compatibilityIndex": "portability/nodejs/index.json" }'
+fi
+
+cat >"$work/portable-vm-raw-inventory.json" <<JSON
+{
+  "kind": "machinen.portable-vm-raw-inventory",
+  "version": 1,
+  "scope": "${PORTABLE_VM_PRODUCT_SCOPE}",
+  "sourceArchitecture": "$source_arch",
+  "sourceArchitectureDetected": true,
+  "sourceArchitectureDetection": "uname -m inside source VM",
+  "sourcePathDetection": "guest portable VM inventory agent resolved source bundle",
+  "sourcePath": "$src",
+  "items": [
+    { "id": "filesystem-root", "category": "filesystem", "path": "filesystem/root", "disposition": "product-supported" },
+    { "id": "selected-service", "category": "service", "path": "service-manifest.json", "disposition": "product-supported" },
+    { "id": "clean-sqlite", "category": "sqlite", "path": "sqlite-dump.sql", "disposition": "product-supported" }$node_inventory_items$node_memory_items
+  ]
+}
+JSON
+
+cat >"$work/portable-vm-manifest-plan.json" <<JSON
+{
+  "kind": "${PORTABLE_VM_PLAN_KIND}",
+  "version": 1,
+  "status": "product-generated",
+  "scope": "${PORTABLE_VM_PRODUCT_SCOPE}",
+  "sourceArchitecture": "$source_arch",
+  "sourceArchitectureDetected": true,
+  "targetPolicy": {
+    "restoreMode": "target-native-reconstruction",
+    "allowedTargetArchitectures": ["arm64", "amd64"],
+    "unknownStatePolicy": "refuse-by-default",
+    "architectureDetection": "detect-target-architecture-at-restore-time"
+  },
+  "restorePlan": {
+    "rows": [
+      { "id": "filesystem-root", "category": "filesystem", "disposition": "product-supported", "restoreStrategy": "copy-content-addressed-file-tree", "artifact": "filesystem-manifest.json" },
+      { "id": "selected-service", "category": "service", "disposition": "product-supported", "restoreStrategy": "start-target-native-selected-service", "artifact": "service-manifest.json" },
+      { "id": "clean-sqlite", "category": "sqlite", "disposition": "product-supported", "restoreStrategy": "restore-clean-logical-sqlite-dump", "artifact": "sqlite-logical.json" }$node_plan_rows$node_memory_plan_rows$refusal_rows
+    ]
+  },
+  "claimGuard": {
+    "arbitraryVmRestoreClaimed": false,
+    "rawVmStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlyShortcutAccepted": false
+  }
+}
+JSON
+
+printf '{"kind":"machinen.portable-vm-product-snapshot-summary","version":1,"accepted":true,"scope":"${PORTABLE_VM_PRODUCT_SCOPE}","sourceArchitecture":"%s","sourceArchitectureDetected":true,"sourceArchitectureDetection":"uname -m inside source VM","sourcePathDetection":"guest portable VM inventory agent","sourcePath":"%s","portableVmManifest":"portable-vm-raw-inventory.json","portableVmPlan":"portable-vm-manifest-plan.json","arbitraryVmRestoreClaimed":false,"rawVmStateReplayUsed":false}\n' "$source_arch" "$src" >"$work/portable-vm-snapshot-summary.json"
+
+tar -C "$work" -cf - . | base64 -w0
+rm -rf "$work"
+`;
+}
+
+function readPortableVmSnapshotSummary(bundleDir: string): Record<string, unknown> {
+  const summaryPath = join(bundleDir, "portable-vm-snapshot-summary.json");
+  if (!existsSync(summaryPath)) {
+    return { accepted: true, sourceArchitecture: readPortableVmSourceArchitecture(bundleDir) };
+  }
+  return JSON.parse(readFileSync(summaryPath, "utf8")) as Record<string, unknown>;
+}
+
+function readPortableVmSourceArchitecture(bundleDir: string): GuestCpu {
+  const value = readFileSync(join(bundleDir, "source-architecture.txt"), "utf8").trim();
+  if (value === "arm64" || value === "amd64") {
+    return value;
+  }
+  throw new Error(`portable VM source architecture is invalid: ${value}`);
+}
+
+function reportPortableVmSnapshotRefusal(opts: SnapshotOptionsCli, message: string): void {
+  if (opts.json) {
+    emitJson({
+      schema_version: 1,
+      kind: "machinen.portable-vm-product-snapshot-summary",
+      accepted: false,
+      migrationCompleted: false,
+      refusal: { code: "portable-vm-source-layout-unsupported", message: message.trim() },
+    });
+    return;
+  }
+  process.stderr.write(`machinen snapshot --portable: ${message.trim()}\n`);
+}
+
+function reportPortableVmSnapshotSuccess(
+  opts: SnapshotOptionsCli,
+  summary: Record<string, unknown>,
+  elapsedMs: number,
+): void {
+  if (opts.json) {
+    emitJson({
+      schema_version: 1,
+      ...summary,
+      snapshotDir: opts.resolvedOutDir,
+      elapsedMs,
+      dryRun: false,
+    });
+    return;
+  }
+  process.stdout.write(`portable VM snapshot: ${opts.resolvedOutDir} (${elapsedMs}ms)\n`);
 }
 
 function createSnapshotQuietState(vm: VmHandle, opts: SnapshotOptionsCli): QuietRunState {
@@ -6954,8 +8069,8 @@ function printHelp(): void {
       `                                                 pipes (good for one-shot commands).\n` +
       `                                                 Example:\n` +
       `                                                   machinen exec <name|pid> --tty -- bash -i\n` +
-      `  machinen snapshot <name|pid> <out-dir> [--keep-alive]\n` +
-      `  machinen snapshot <name|pid> --out <dir> [--keep-alive]\n` +
+      `  machinen snapshot <name|pid> <out-dir> [--portable] [--keep-alive]\n` +
+      `  machinen snapshot <name|pid> --out <dir> [--portable] [--keep-alive]\n` +
       `                                                 Checkpoint a running VM into <d>.\n` +
       `                                                 Node workloads are detected inside the VM;\n` +
       `                                                 no Node-only snapshot selector is needed.\n` +

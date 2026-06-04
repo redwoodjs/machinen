@@ -1,0 +1,38 @@
+{
+  "kind": "machinen.whole-vm-workload-product-refusal-artifact",
+  "version": 1,
+  "rowId": "whole-vm-dirty-active-opaque-state-refusals",
+  "accepted": true,
+  "status": "verified",
+  "disposition": "refusal-defined",
+  "refusalCode": "whole-vm-dirty-active-opaque-state-unsupported",
+  "directions": [
+    {
+      "direction": "arm64-to-amd64",
+      "accepted": true,
+      "refusedBeforeProductClaim": true,
+      "stableRefusalCode": "whole-vm-dirty-active-opaque-state-unsupported",
+      "evidence": [
+        "arm64:dirty-db-active-session-opaque-kernel-device-runtime-private-state-require-explicit-refusal"
+      ]
+    },
+    {
+      "direction": "amd64-to-arm64",
+      "accepted": true,
+      "refusedBeforeProductClaim": true,
+      "stableRefusalCode": "whole-vm-dirty-active-opaque-state-unsupported",
+      "evidence": [
+        "amd64:dirty-db-active-session-opaque-kernel-device-runtime-private-state-require-explicit-refusal"
+      ]
+    }
+  ],
+  "claimGuard": {
+    "publicClaimAllowed": false,
+    "claimChangeAllowed": false,
+    "arbitraryVmRestoreClaimed": false,
+    "arbitraryLinuxProcessRestoreClaimed": false,
+    "rawVmStateRestoreUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

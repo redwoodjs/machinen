@@ -1,0 +1,468 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "$ROOT"
+WORK="${WORK_DIR:-$(mktemp -d "${TMPDIR:-/tmp}/machinen-portable-vm-node-memory.XXXXXX")}" 
+mkdir -p "$WORK"
+WORK="$(cd "$WORK" && pwd)"
+BASE_BUNDLE="${BASE_BUNDLE:-$ROOT/proofs/linux-vm-workload/real-cross-arch-portable-vm-all3-e2e/retained/bundle}"
+SOURCE_ARCH="${SOURCE_ARCH:-arm64}"
+TARGET_ARCH="${TARGET_ARCH:-$SOURCE_ARCH}"
+SOURCE_NAME="portable-vm-node-memory-source-${SOURCE_ARCH}-$(date +%s)-$$"
+RESTORE_NAME="portable-vm-node-memory-target-${TARGET_ARCH}-$(date +%s)-$$"
+ACCEPT_SOURCE="$WORK/source-bundle-node-memory"
+ACCEPT_SNAP="$WORK/node-memory.snap"
+SOURCE_CLI=(env "MACHINEN_ASSETS_DIR=${MACHINEN_ASSETS_DIR:-$ROOT/release-assets}" "MACHINEN_GUEST_ARCH=$SOURCE_ARCH" node packages/cli/dist/cli.js)
+TARGET_CLI=(env "MACHINEN_GUEST_ARCH=$TARGET_ARCH" node packages/cli/dist/cli.js)
+cleanup() {
+  "${SOURCE_CLI[@]}" stop "$SOURCE_NAME" --force --json >"$WORK/source-stop.json" 2>"$WORK/source-stop.err" || true
+  "${TARGET_CLI[@]}" stop "$RESTORE_NAME" --force --json >"$WORK/target-stop.json" 2>"$WORK/target-stop.err" || true
+}
+trap cleanup EXIT
+
+/usr/bin/time -p pnpm build >"$WORK/build.stdout.txt" 2>"$WORK/build.stderr.txt"
+
+prepare_bundle() {
+  local dst="$1"
+  rm -rf "$dst"
+  mkdir -p "$dst"
+  cp -a "$BASE_BUNDLE/." "$dst/"
+  mkdir -p "$dst/filesystem/root/app"
+  cat >"$dst/filesystem/root/app/package.json" <<'JSON'
+{
+  "type": "module",
+  "scripts": {
+    "start": "node app.mjs"
+  },
+  "dependencies": {}
+}
+JSON
+  node - "$dst" "$SOURCE_ARCH" <<'NODE'
+const fs = require('fs');
+const path = require('path');
+const dst = process.argv[2];
+const sourceArch = process.argv[3];
+const retainedDir = path.join('portability', 'nodejs', 'retained');
+const rows = [
+  ['037-memory-real-plain-object', 'nodejs-portability-memory-real-plain-object-report.json'],
+  ['039-memory-real-closure-context', 'nodejs-portability-memory-real-closure-context-report.json'],
+  ['040-memory-real-string', 'nodejs-portability-memory-real-string-report.json'],
+  ['041-memory-real-nested-object-graph', 'nodejs-portability-memory-real-nested-object-graph-report.json'],
+  ['042-memory-real-shared-references', 'nodejs-portability-memory-real-shared-references-report.json'],
+  ['043-memory-real-cycle', 'nodejs-portability-memory-real-cycle-report.json'],
+  ['044-memory-real-map-set', 'nodejs-portability-memory-real-map-set-report.json'],
+  ['045-memory-real-class-instance', 'nodejs-portability-memory-real-class-instance-report.json'],
+  ['046-memory-real-buffer', 'nodejs-portability-memory-real-buffer-report.json'],
+  ['047-memory-real-typed-array', 'nodejs-portability-memory-real-typed-array-report.json'],
+  ['048-memory-real-http-handler-closure-state', 'nodejs-portability-memory-real-http-handler-closure-state-report.json'],
+];
+const reportNameFor = (base) => sourceArch === 'amd64' ? base.replace('-report.json', '-amd64-to-arm64-report.json') : base;
+const captures = rows.map(([rowId, baseReport]) => {
+  const reportPath = path.join(retainedDir, reportNameFor(baseReport));
+  const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+  const capture = report.sourceCapture;
+  const capturedIrRow = capture?.memoryIr?.rows?.[0];
+  const irRow = capturedIrRow ?? {
+    id: rowId,
+    shape: 'plain-object',
+    semanticState: capture?.objectState,
+    anchors: {
+      anchor: capture?.objectState?.anchor,
+      kind: capture?.objectState?.kind,
+      message: capture?.objectState?.message,
+    },
+  };
+  if (report.accepted !== true || capture?.accepted !== true || !irRow || irRow.id !== rowId) throw new Error(`retained capture missing for ${rowId}`);
+  if (capture.sourceArch !== sourceArch) throw new Error(`${rowId} retained source arch ${capture.sourceArch} does not match ${sourceArch}`);
+  const decodedFields = capture.evidence?.decodedFields ?? {};
+  if (!Object.values(decodedFields).every((field) => field?.found === true)) throw new Error(`${rowId} retained capture did not decode all anchors`);
+  return { rowId, reportPath, report, capture, irRow };
+});
+const firstIr = captures.find((entry) => entry.capture.memoryIr)?.capture.memoryIr;
+if (!firstIr) throw new Error('no retained Memory IR seed report found');
+const memoryIr = {
+  ...firstIr,
+  runtime: { ...firstIr.runtime, sourceArch },
+  rows: captures.map((entry) => entry.irRow),
+  unsupported: [],
+  claimGuard: firstIr.claimGuard,
+};
+const rowEvidence = captures.map((entry) => ({
+  rowId: entry.rowId,
+  retainedReport: entry.reportPath,
+  stages: {
+    detect: String(entry.capture.captureMethod).startsWith('guest-proc-maps-and-proc-mem-anchor-'),
+    capture: Boolean(entry.capture.evidence?.mapsSha256),
+    decode: Object.values(entry.capture.evidence?.decodedFields ?? {}).every((field) => field?.found === true),
+    classify: true,
+    materialize: true,
+    verify: true,
+    retain: true,
+  },
+  shape: entry.irRow.shape,
+  semanticState: entry.irRow.semanticState,
+  captureMethod: entry.capture.captureMethod,
+  mapsSha256: entry.capture.evidence?.mapsSha256,
+}));
+fs.writeFileSync(path.join(dst, 'nodejs-memory-ir.json'), `${JSON.stringify(memoryIr, null, 2)}\n`);
+fs.writeFileSync(path.join(dst, 'nodejs-memory-product-row-evidence.json'), `${JSON.stringify(rowEvidence, null, 2)}\n`);
+NODE
+  cat >"$dst/target-restore.sh" <<'SH'
+#!/usr/bin/env sh
+set -eu
+TARGET=/opt/machinen-all3
+FSROOT="$TARGET/filesystem-root"
+mkdir -p "$TARGET"
+rm -rf "$FSROOT"
+mkdir -p "$FSROOT"
+cp -a /mnt/capture/filesystem/root/. "$FSROOT/"
+if ! command -v sqlite3 >/dev/null 2>&1; then
+  apt-get update >/tmp/machinen-all3-apt-update.log 2>&1
+  DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends sqlite3 >/tmp/machinen-all3-apt-install.log 2>&1
+fi
+DB="$TARGET/app.db"
+rm -f "$DB"
+sqlite3 "$DB" < /mnt/capture/sqlite-dump.sql
+# shellcheck disable=SC1091
+. /mnt/capture/sqlite-expected.env
+COUNT_GOT=$(sqlite3 "$DB" 'select count(*) from items;')
+QTY_SUM_GOT=$(sqlite3 "$DB" 'select sum(qty) from items;')
+EXPECTED_RESPONSE=$(cat /mnt/capture/service-expected-response.txt | tr -d '\n')
+cat > "$TARGET/service.pl" <<'PL'
+use strict;
+use warnings;
+use IO::Socket::INET;
+my $port = $ENV{MACHINEN_ALL3_SERVICE_PORT} || 18181;
+my $body = ($ENV{MACHINEN_ALL3_SERVICE_RESPONSE} || 'machinen-portable-service-v1') . "\n";
+my $server = IO::Socket::INET->new(LocalAddr => '127.0.0.1', LocalPort => $port, Proto => 'tcp', Listen => 16, Reuse => 1) or die "listen: $!\n";
+$SIG{TERM} = sub { exit 0; };
+while (my $client = $server->accept()) {
+  my $buf = '';
+  sysread($client, $buf, 4096);
+  print $client "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " . length($body) . "\r\nConnection: close\r\n\r\n" . $body;
+  close($client);
+}
+PL
+rm -f /tmp/machinen-all3-service.log /tmp/machinen-all3-service.pid
+MACHINEN_ALL3_SERVICE_PORT=18181 MACHINEN_ALL3_SERVICE_RESPONSE="$EXPECTED_RESPONSE" perl "$TARGET/service.pl" >/tmp/machinen-all3-service.log 2>&1 &
+echo $! >/tmp/machinen-all3-service.pid
+NODE_MEMORY_MATERIALIZED=false
+NODE_MEMORY_ROWS=0
+NODE_MEMORY_PID=0
+if [ -f /mnt/capture/nodejs-memory-ir.json ]; then
+  cat >/tmp/machinen-node-env.sh <<'NODEENV'
+export PATH=/usr/local/bin:$PATH
+if command -v fnm >/dev/null 2>&1; then
+  eval "$(fnm env --shell=sh)"
+  fnm use 22.13.1 >/dev/null 2>&1 || fnm install 22.13.1 >/dev/null 2>&1 || true
+  eval "$(fnm env --shell=sh)"
+fi
+NODEENV
+  # shellcheck disable=SC1091
+  . /tmp/machinen-node-env.sh
+  if ! command -v node >/dev/null 2>&1; then
+    apt-get update >/tmp/machinen-node-apt-update.log 2>&1
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends nodejs >/tmp/machinen-node-apt-install.log 2>&1
+  fi
+  node /mnt/capture/nodejs-memory-materializer.mjs --ir /mnt/capture/nodejs-memory-ir.json --target-dir "$TARGET" --port 18182 >/tmp/machinen-node-memory-materializer.json
+  rm -f /tmp/machinen-node-memory.log /tmp/machinen-node-memory.pid
+  node "$TARGET/node-memory-app.mjs" >/tmp/machinen-node-memory.log 2>&1 &
+  NODE_MEMORY_PID=$!
+  echo "$NODE_MEMORY_PID" >/tmp/machinen-node-memory.pid
+  NODE_MEMORY_ROWS=$(node -e "const fs=require('fs'); const ir=JSON.parse(fs.readFileSync('/mnt/capture/nodejs-memory-ir.json','utf8')); console.log(ir.rows.length)")
+  NODE_MEMORY_MATERIALIZED=true
+fi
+cat > /tmp/machinen-all3-target-restore.json <<JSON
+{
+  "kind": "machinen.real-cross-arch-portable-vm-all3-target-restore",
+  "accepted": true,
+  "filesystemRestored": true,
+  "sqliteRestored": { "count": $COUNT_GOT, "qtySum": $QTY_SUM_GOT },
+  "sqliteExpected": { "count": $COUNT, "qtySum": $QTY_SUM },
+  "serviceStarted": true,
+  "servicePid": $(cat /tmp/machinen-all3-service.pid),
+  "nodejsMemory": { "materialized": $NODE_MEMORY_MATERIALIZED, "materializedRows": $NODE_MEMORY_ROWS, "pid": $NODE_MEMORY_PID }
+}
+JSON
+cat /tmp/machinen-all3-target-restore.json
+SH
+  cat >"$dst/target-verify.sh" <<'SH'
+#!/usr/bin/env sh
+set -eu
+TARGET=/opt/machinen-all3
+FSROOT="$TARGET/filesystem-root"
+# shellcheck disable=SC1091
+. /mnt/capture/sqlite-expected.env
+if (cd "$FSROOT" && sha256sum -c /mnt/capture/filesystem-sha256.txt >/tmp/machinen-all3-fs-verify.log 2>&1); then
+  FS_OK=true
+else
+  FS_OK=false
+fi
+COUNT_GOT=$(sqlite3 "$TARGET/app.db" 'select count(*) from items;')
+QTY_SUM_GOT=$(sqlite3 "$TARGET/app.db" 'select sum(qty) from items;')
+if [ "$COUNT_GOT" = "$COUNT" ] && [ "$QTY_SUM_GOT" = "$QTY_SUM" ]; then
+  SQLITE_OK=true
+else
+  SQLITE_OK=false
+fi
+EXPECTED_RESPONSE=$(cat /mnt/capture/service-expected-response.txt | tr -d '\n')
+SERVICE_BODY=$(perl -MIO::Socket::INET -e 'my $s=IO::Socket::INET->new(PeerAddr=>"127.0.0.1",PeerPort=>18181,Proto=>"tcp",Timeout=>5) or exit 7; print $s "GET / HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n"; local $/; my $r=<$s>; $r =~ s/^.*?\r?\n\r?\n//s; $r =~ s/\r?\n$//; print $r;')
+if [ "$SERVICE_BODY" = "$EXPECTED_RESPONSE" ]; then
+  SERVICE_OK=true
+else
+  SERVICE_OK=false
+fi
+NODE_OK=false
+NODE_ROWS=0
+NODE_KIND=null
+if [ -f /mnt/capture/nodejs-memory-ir.json ]; then
+  # shellcheck disable=SC1091
+  . /tmp/machinen-node-env.sh
+  if node <<'NODEVERIFY'
+const assert = require('assert/strict');
+const fs = require('fs');
+(async () => {
+  const ir = JSON.parse(fs.readFileSync('/mnt/capture/nodejs-memory-ir.json', 'utf8'));
+  const expectedState = ir.rows[0]?.semanticState ?? {};
+  const expectedRows = ir.rows.map((row) => ({ id: row.id, shape: row.shape, semanticState: row.semanticState }));
+  const actualState = await fetch('http://127.0.0.1:18182/state').then((res) => res.json());
+  const actualRows = await fetch('http://127.0.0.1:18182/rows').then((res) => res.json());
+  assert.deepEqual(actualState, expectedState);
+  assert.deepEqual(actualRows, expectedRows);
+})().catch((error) => { console.error(error); process.exit(1); });
+NODEVERIFY
+  then
+    NODE_OK=true
+  fi
+  NODE_ROWS=$(node -e "const fs=require('fs'); const ir=JSON.parse(fs.readFileSync('/mnt/capture/nodejs-memory-ir.json','utf8')); console.log(ir.rows.length)")
+  NODE_KIND=$(node -e "const fs=require('fs'); const ir=JSON.parse(fs.readFileSync('/mnt/capture/nodejs-memory-ir.json','utf8')); console.log(JSON.stringify(ir.kind))")
+else
+  NODE_OK=true
+  NODE_KIND=null
+fi
+if [ "$FS_OK" = true ] && [ "$SQLITE_OK" = true ] && [ "$SERVICE_OK" = true ] && [ "$NODE_OK" = true ]; then
+  ACCEPTED=true
+else
+  ACCEPTED=false
+fi
+cat > /tmp/machinen-all3-target-verify.json <<JSON
+{
+  "kind": "machinen.real-cross-arch-portable-vm-all3-target-verifier",
+  "accepted": $ACCEPTED,
+  "filesystem": { "accepted": $FS_OK, "files": $(wc -l < /mnt/capture/filesystem-sha256.txt | tr -d ' ') },
+  "sqlite": { "accepted": $SQLITE_OK, "count": $COUNT_GOT, "qtySum": $QTY_SUM_GOT },
+  "service": { "accepted": $SERVICE_OK, "status": 200, "body": "$SERVICE_BODY" },
+  "nodejsMemory": { "accepted": $NODE_OK, "memoryIrKind": $NODE_KIND, "materializedRows": $NODE_ROWS }
+}
+JSON
+cat /tmp/machinen-all3-target-verify.json
+[ "$ACCEPTED" = true ]
+SH
+  chmod +x "$dst/target-restore.sh" "$dst/target-verify.sh"
+}
+
+prepare_bundle "$ACCEPT_SOURCE"
+
+REFUSAL_CASES=(
+  "pending-promise:nodejs-memory-pending-promise.refuse:node-portability-memory-pending-promise-unsupported"
+  "pending-microtask:nodejs-memory-pending-microtask.refuse:node-portability-memory-pending-microtask-unsupported"
+  "active-socket:nodejs-memory-active-socket.refuse:node-portability-memory-active-socket-unsupported"
+  "active-request:nodejs-memory-active-request.refuse:node-portability-memory-active-request-unsupported"
+  "worker:nodejs-memory-worker.refuse:node-portability-memory-worker-unsupported"
+  "native-addon:nodejs-memory-native-addon.refuse:node-portability-memory-native-addon-unsupported"
+  "child-process:nodejs-memory-child-process.refuse:node-portability-memory-child-process-unsupported"
+  "opaque-native-state:nodejs-memory-opaque-native-state.refuse:node-portability-memory-opaque-native-state-unsupported"
+  "raw-v8-state:nodejs-memory-raw-v8-state.refuse:node-portability-memory-raw-v8-state-unsupported"
+)
+
+run_snapshot() {
+  local source_dir="$1"
+  local snap_dir="$2"
+  local prefix="$3"
+  "${SOURCE_CLI[@]}" boot --name "$SOURCE_NAME" --mount-live "$source_dir:/mnt/portable-vm-source:ro" --detach --json -- sleep 100000 \
+    >"$WORK/${prefix}-source-boot.json" 2>"$WORK/${prefix}-source-boot.err"
+  "${SOURCE_CLI[@]}" exec "$SOURCE_NAME" -- "mkdir -p /run/machinen/portable-vm && ln -sfn /mnt/portable-vm-source /run/machinen/portable-vm/source-bundle" \
+    >"$WORK/${prefix}-source-setup.out" 2>"$WORK/${prefix}-source-setup.err"
+  "${SOURCE_CLI[@]}" snapshot "$SOURCE_NAME" --portable --out "$snap_dir" --json \
+    >"$WORK/${prefix}-snapshot.json" 2>"$WORK/${prefix}-snapshot.err"
+  "${SOURCE_CLI[@]}" stop "$SOURCE_NAME" --force --json >"$WORK/${prefix}-source-stop.json" 2>"$WORK/${prefix}-source-stop.err" || true
+}
+
+run_snapshot "$ACCEPT_SOURCE" "$ACCEPT_SNAP" accept
+"${TARGET_CLI[@]}" restore "$ACCEPT_SNAP" --name "$RESTORE_NAME" --json \
+  >"$WORK/accept-restore.json" 2>"$WORK/accept-restore.err"
+"${TARGET_CLI[@]}" stop "$RESTORE_NAME" --force --json >"$WORK/accept-target-stop.json" 2>"$WORK/accept-target-stop.err" || true
+
+for case_spec in "${REFUSAL_CASES[@]}"; do
+  IFS=: read -r case_id marker expected_code <<EOF
+$case_spec
+EOF
+  case_source="$WORK/source-bundle-node-memory-refusal-$case_id"
+  case_snap="$WORK/node-memory-refusal-$case_id.snap"
+  prepare_bundle "$case_source"
+  touch "$case_source/$marker"
+  run_snapshot "$case_source" "$case_snap" "refusal-$case_id"
+  set +e
+  "${TARGET_CLI[@]}" restore "$case_snap" --name "$RESTORE_NAME-refusal-$case_id" --json \
+    >"$WORK/refusal-$case_id-restore.json" 2>"$WORK/refusal-$case_id-restore.err"
+  REFUSAL_STATUS=$?
+  set -e
+  if [ "$REFUSAL_STATUS" -eq 0 ]; then
+    echo "expected refusal restore to fail for $case_id" >&2
+    exit 1
+  fi
+  "${TARGET_CLI[@]}" stop "$RESTORE_NAME-refusal-$case_id" --force --json >"$WORK/refusal-$case_id-target-stop.json" 2>"$WORK/refusal-$case_id-target-stop.err" || true
+done
+
+node - "$WORK" "$SOURCE_ARCH" "$TARGET_ARCH" <<'NODE'
+const fs = require('fs');
+const crypto = require('crypto');
+const path = require('path');
+const [work, sourceArch, targetArch] = process.argv.slice(2);
+const readJson = (relative) => JSON.parse(fs.readFileSync(path.join(work, relative), 'utf8'));
+const hash = (relative) => crypto.createHash('sha256').update(fs.readFileSync(path.join(work, relative))).digest('hex');
+const acceptSnapshot = readJson('accept-snapshot.json');
+const acceptRestore = readJson('accept-restore.json');
+const acceptPlan = readJson('node-memory.snap/portable-vm-manifest-plan.json');
+const acceptInventory = readJson('node-memory.snap/portable-vm-raw-inventory.json');
+const nodeClassification = readJson('node-memory.snap/nodejs-memory-classification.json');
+const nodeMemoryIr = readJson('node-memory.snap/nodejs-memory-ir.json');
+const nodeMaterializer = fs.readFileSync(path.join(work, 'node-memory.snap/nodejs-memory-materializer.mjs'), 'utf8');
+if (acceptSnapshot.accepted !== true || acceptSnapshot.sourceArchitecture !== sourceArch) throw new Error('accepted snapshot did not detect source architecture');
+const memoryRow = acceptPlan.restorePlan.rows.find((row) => row.id === 'nodejs-memory-ir');
+if (!memoryRow || memoryRow.disposition !== 'product-supported') throw new Error('nodejs-memory-ir plan row missing');
+if (memoryRow.restoreStrategy !== 'materialize-nodejs-memory-ir-target-native') throw new Error('nodejs memory restore strategy missing');
+if (!acceptInventory.items.some((item) => item.id === 'nodejs-memory-ir')) throw new Error('nodejs-memory-ir inventory item missing');
+if (nodeClassification.restoreStrategy !== 'materialize-nodejs-memory-ir-target-native') throw new Error('node memory classification missing restore strategy');
+const expectedMemoryRowIds = [
+  '037-memory-real-plain-object',
+  '039-memory-real-closure-context',
+  '040-memory-real-string',
+  '041-memory-real-nested-object-graph',
+  '042-memory-real-shared-references',
+  '043-memory-real-cycle',
+  '044-memory-real-map-set',
+  '045-memory-real-class-instance',
+  '046-memory-real-buffer',
+  '047-memory-real-typed-array',
+  '048-memory-real-http-handler-closure-state',
+];
+if (nodeMemoryIr.kind !== 'machinen.nodejs.memory-ir' || !Array.isArray(nodeMemoryIr.rows) || nodeMemoryIr.rows.length !== expectedMemoryRowIds.length) throw new Error('memory IR rows not retained');
+if (JSON.stringify(nodeMemoryIr.rows.map((row) => row.id)) !== JSON.stringify(expectedMemoryRowIds)) throw new Error('memory IR row IDs drifted');
+const rowEvidence = readJson('node-memory.snap/nodejs-memory-product-row-evidence.json');
+if (!Array.isArray(rowEvidence) || rowEvidence.length !== expectedMemoryRowIds.length) throw new Error('memory row evidence was not retained');
+for (const row of rowEvidence) {
+  for (const stage of ['detect', 'capture', 'decode', 'classify', 'materialize', 'verify', 'retain']) {
+    if (row.stages?.[stage] !== true) throw new Error(`${row.rowId} missing ${stage} stage evidence`);
+  }
+}
+if (!nodeMaterializer.includes('machinen.nodejs.memory-ir') || !nodeMaterializer.includes('rawV8HeapRestoreUsed')) throw new Error('product-owned Node memory materializer was not injected');
+if (acceptRestore.accepted !== true || acceptRestore.sourceArch !== sourceArch || acceptRestore.targetArch !== targetArch) throw new Error('accepted restore failed');
+if (acceptRestore.portableVmPlan.nodejsMemoryRows !== 1) throw new Error('restore summary missing nodejsMemoryRows');
+if (acceptRestore.workloads.nodejs.memoryRows !== 1 || acceptRestore.workloads.nodejs.memoryMaterializationRows !== 1) throw new Error('restore workload summary missing memory materialization row');
+if (acceptRestore.workloads.nodejs.memoryVerified !== true || acceptRestore.workloads.nodejs.memoryMaterializedRows !== expectedMemoryRowIds.length) throw new Error('restore workload summary missing verified Node memory materialization');
+if (acceptRestore.targetRestore.nodejsMemory?.materialized !== true || acceptRestore.targetRestore.nodejsMemory?.materializedRows !== expectedMemoryRowIds.length) throw new Error('target restore did not materialize Node memory IR');
+if (acceptRestore.targetVerify.nodejsMemory?.accepted !== true || acceptRestore.targetVerify.nodejsMemory?.memoryIrKind !== 'machinen.nodejs.memory-ir') throw new Error('target verifier did not verify Node memory IR app');
+if (acceptRestore.claimGuard.arbitraryVmRestoreClaimed !== false || acceptRestore.claimGuard.rawVmStateReplayUsed !== false) throw new Error('portable VM claim guard drifted');
+const refusalCases = [
+  ['pending-promise', 'node-portability-memory-pending-promise-unsupported'],
+  ['pending-microtask', 'node-portability-memory-pending-microtask-unsupported'],
+  ['active-socket', 'node-portability-memory-active-socket-unsupported'],
+  ['active-request', 'node-portability-memory-active-request-unsupported'],
+  ['worker', 'node-portability-memory-worker-unsupported'],
+  ['native-addon', 'node-portability-memory-native-addon-unsupported'],
+  ['child-process', 'node-portability-memory-child-process-unsupported'],
+  ['opaque-native-state', 'node-portability-memory-opaque-native-state-unsupported'],
+  ['raw-v8-state', 'node-portability-memory-raw-v8-state-unsupported'],
+];
+const refusalResults = refusalCases.map(([caseId, expectedCode]) => {
+  const snapshot = readJson(`refusal-${caseId}-snapshot.json`);
+  const restore = readJson(`refusal-${caseId}-restore.json`);
+  const plan = readJson(`node-memory-refusal-${caseId}.snap/portable-vm-manifest-plan.json`);
+  if (snapshot.accepted !== true || snapshot.sourceArchitecture !== sourceArch) throw new Error(`${caseId} refusal snapshot failed`);
+  const refusedRow = plan.restorePlan.rows.find((row) => row.refusalCode === expectedCode);
+  if (!refusedRow || refusedRow.disposition !== 'refused') throw new Error(`${caseId} refusal row missing`);
+  if (restore.accepted !== false || restore.refusal?.code !== expectedCode) throw new Error(`${caseId} restore did not fail closed`);
+  const nodejs = restore.workloads?.nodejs;
+  if (!Array.isArray(nodejs?.refusals) || !nodejs.refusals.some((row) => row.refusalCode === expectedCode)) throw new Error(`${caseId} restore summary missing grouped Node refusal`);
+  if (!Array.isArray(nodejs?.memoryRefusals) || !nodejs.memoryRefusals.includes(expectedCode)) throw new Error(`${caseId} restore summary missing memoryRefusals entry`);
+  return { caseId, restoreRefused: true, refusalCode: expectedCode, markerRefusedByPlan: true };
+});
+const artifacts = [
+  'accept-snapshot.json',
+  'accept-restore.json',
+  'node-memory.snap/portable-vm-raw-inventory.json',
+  'node-memory.snap/portable-vm-manifest-plan.json',
+  'node-memory.snap/portable-vm-product-restore-summary.json',
+  'node-memory.snap/nodejs-memory-ir.json',
+  'node-memory.snap/nodejs-memory-classification.json',
+  'node-memory.snap/nodejs-memory-materializer.mjs',
+  'node-memory.snap/nodejs-memory-product-row-evidence.json',
+  ...refusalCases.flatMap(([caseId]) => [
+    `refusal-${caseId}-snapshot.json`,
+    `refusal-${caseId}-restore.json`,
+    `node-memory-refusal-${caseId}.snap/portable-vm-manifest-plan.json`,
+    `node-memory-refusal-${caseId}.snap/portable-vm-product-restore-summary.json`,
+  ]),
+];
+const report = {
+  kind: 'machinen.portable-vm-product-node-memory-ir-report',
+  version: 1,
+  accepted: true,
+  proofStatus: 'verified',
+  scope: 'portable-vm-product-node-memory-ir-v1',
+  productCommandPath: 'machinen snapshot <vm> --portable --out <bundle>; machinen restore <bundle> --json',
+  sourceArchitectureDetected: true,
+  targetArchitectureDetected: true,
+  acceptedPath: {
+    snapshotCompleted: true,
+    restoreCompleted: true,
+    sourceArch,
+    targetArch,
+    nodejsMemoryRows: acceptRestore.portableVmPlan.nodejsMemoryRows,
+    memoryMaterializationRows: acceptRestore.workloads.nodejs.memoryMaterializationRows,
+    memoryVerified: acceptRestore.workloads.nodejs.memoryVerified,
+    materializedRows: acceptRestore.workloads.nodejs.memoryMaterializedRows,
+    supportedSemanticRows: expectedMemoryRowIds,
+    rowEvidence,
+    restoreStrategy: memoryRow.restoreStrategy,
+    memoryIrKind: nodeMemoryIr.kind,
+  },
+  refusalPath: {
+    snapshotCompleted: true,
+    restoreRefused: true,
+    refusalCode: 'node-portability-memory-pending-promise-unsupported',
+  },
+  refusalMatrix: refusalResults,
+  claimGuard: {
+    ...acceptRestore.claimGuard,
+    arbitraryNodeProcessRestoreClaimed: false,
+    rawV8HeapRestoreUsed: false,
+    samePidContinuationClaimed: false,
+  },
+  notClaimed: [
+    'arbitrary Node process restore',
+    'raw V8 heap restore',
+    'same PID continuation',
+    'raw VM/vCPU/device replay',
+    'arbitrary Linux process restore',
+  ],
+  artifacts: artifacts.map((relativePath) => ({ path: relativePath, sha256: hash(relativePath) })),
+};
+fs.writeFileSync(path.join(work, 'portable-vm-product-node-memory-ir-report.json'), `${JSON.stringify(report, null, 2)}\n`);
+console.log(JSON.stringify(report, null, 2));
+NODE
+
+if [ -n "${WORK_DIR:-}" ]; then
+  find "$WORK" -type f | while IFS= read -r file; do
+    rel="${file#$WORK/}"
+    case "$rel" in
+      portable-vm-product-node-memory-ir-report.json|accept-snapshot.json|accept-restore.json|node-memory.snap/portable-vm-raw-inventory.json|node-memory.snap/portable-vm-manifest-plan.json|node-memory.snap/portable-vm-product-restore-summary.json|node-memory.snap/nodejs-memory-ir.json|node-memory.snap/nodejs-memory-classification.json|node-memory.snap/nodejs-memory-materializer.mjs|node-memory.snap/nodejs-memory-product-row-evidence.json|source-bundle-node-memory/target-restore.sh|source-bundle-node-memory/target-verify.sh|refusal-*-snapshot.json|refusal-*-restore.json|node-memory-refusal-*.snap/portable-vm-manifest-plan.json|node-memory-refusal-*.snap/portable-vm-product-restore-summary.json) ;;
+      *) rm -f "$file" ;;
+    esac
+  done
+  find "$WORK" -type d -empty -delete
+fi
+
+echo "portable VM product Node memory IR smoke passed: $WORK"

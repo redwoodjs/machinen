@@ -1,0 +1,16 @@
+{
+  "items": [
+    {
+      "name": "alpha",
+      "qty": 11
+    },
+    {
+      "name": "beta",
+      "qty": 13
+    },
+    {
+      "name": "gamma",
+      "qty": 17
+    }
+  ]
+}

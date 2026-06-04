@@ -1,0 +1,1 @@
+fastify-installed-post-json-body-ok

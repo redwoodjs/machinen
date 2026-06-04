@@ -1,0 +1,93 @@
+{
+  "kind": "machinen.portable-vm-product-restore-summary",
+  "version": 1,
+  "accepted": true,
+  "scope": "portable-vm-all3-product-snapshot-restore-v1",
+  "state": "completed",
+  "migrationCompleted": true,
+  "sourceArch": "amd64",
+  "targetArch": "arm64",
+  "sourceArchitectureDetected": true,
+  "targetArchitectureDetected": true,
+  "targetVmStarted": true,
+  "restoredName": "portable-vm-node-memory-arm-target-1780536231-82297",
+  "restoredPid": 82892,
+  "targetRestore": {
+    "kind": "machinen.real-cross-arch-portable-vm-all3-target-restore",
+    "accepted": true,
+    "filesystemRestored": true,
+    "sqliteRestored": {
+      "count": 3,
+      "qtySum": 41
+    },
+    "sqliteExpected": {
+      "count": 3,
+      "qtySum": 41
+    },
+    "serviceStarted": true,
+    "servicePid": 351,
+    "nodejsMemory": {
+      "materialized": true,
+      "materializedRows": 11,
+      "pid": 765
+    }
+  },
+  "targetVerify": {
+    "kind": "machinen.real-cross-arch-portable-vm-all3-target-verifier",
+    "accepted": true,
+    "filesystem": {
+      "accepted": true,
+      "files": 2
+    },
+    "sqlite": {
+      "accepted": true,
+      "count": 3,
+      "qtySum": 41
+    },
+    "service": {
+      "accepted": true,
+      "status": 200,
+      "body": "machinen-portable-service-v1"
+    },
+    "nodejsMemory": {
+      "accepted": true,
+      "memoryIrKind": "machinen.nodejs.memory-ir",
+      "materializedRows": 11
+    }
+  },
+  "workloads": {
+    "filesystem": true,
+    "service": true,
+    "sqlite": true,
+    "nodejs": {
+      "classified": true,
+      "rowCount": 2,
+      "refusedRows": 0,
+      "memoryRows": 1,
+      "memoryMaterializationRows": 1,
+      "memoryVerified": true,
+      "memoryMaterializedRows": 11,
+      "arbitraryNodeProcessRestoreClaimed": false,
+      "rawV8HeapRestoreUsed": false
+    }
+  },
+  "portableVmPlan": {
+    "kind": "machinen.portable-vm-manifest-plan",
+    "scope": "portable-vm-all3-product-snapshot-restore-v1",
+    "sourceArchitecture": "amd64",
+    "rowCount": 5,
+    "productSupportedRows": 4,
+    "refusedRows": 0,
+    "nodejsRows": 2,
+    "nodejsClassifiedRows": 1,
+    "nodejsMemoryRows": 1,
+    "unknownStatePolicy": "refuse-by-default"
+  },
+  "claimGuard": {
+    "arbitraryVmRestoreClaimed": false,
+    "rawVmStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlyShortcutAccepted": false
+  },
+  "elapsedMs": 13283
+}

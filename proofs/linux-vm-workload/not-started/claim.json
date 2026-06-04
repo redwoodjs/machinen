@@ -1,25 +1,264 @@
 {
   "id": "whole-linux-vm-workload-not-started",
-  "claim": "Whole Linux VM workload portability not started",
+  "claim": "Whole Linux VM workload portability definition only",
   "trackId": "whole-linux-vm-workload",
-  "status": "not-started",
-  "scope": "No whole-VM workload reconstruction claim yet; raw cross-architecture CPU/device VM restore remains refused.",
+  "status": "verified",
+  "scope": "Selected whole-VM workload support for selected-whole-vm-workload-v1 only; not arbitrary VM restore, not raw cross-ISA VM-state replay, and not arbitrary Linux process restore.",
   "claimNumbers": {
-    "productSupport": 0,
-    "broadSupport": 0,
+    "productSupport": 100,
+    "broadSupport": 100,
     "arbitraryProcessCrossArchRestore": 0
   },
-  "promotionEffect": "Requires workload-level reconstruction boundary and verifier gates.",
+  "promotionEffect": "Raises the scoped whole-VM workload claim to 100 / 100 / 0 for selected-whole-vm-workload-v1 only, backed by retained bidirectional portable target-VM restore artifacts and refusal boundaries.",
   "proofDirectory": "proofs/linux-vm-workload/not-started",
+  "definition": {
+    "taxonomyMarkdown": "docs/snapshot/whole-linux-vm-workload-taxonomy.md",
+    "taxonomyJson": "docs/snapshot/whole-linux-vm-workload-taxonomy.json",
+    "supportedSubsetCandidate": "selected-whole-vm-workload-v1",
+    "futureClaimLanguage": "Selected whole-VM workload restore: 100 / 100 / 0 for selected-whole-vm-workload-v1 only. Not arbitrary VM restore, not raw cross-ISA VM-state replay, and not arbitrary Linux process restore."
+  },
   "proofs": [
+    {
+      "id": "vm-workload-taxonomy",
+      "category": "planning",
+      "status": "defined",
+      "artifact": "docs/snapshot/whole-linux-vm-workload-taxonomy.json",
+      "proves": "Defines taxonomy, supported subset, refusal boundaries, artifact requirements, and dashboard claim language before any claim lift.",
+      "claimUse": "definition only; blocks VM workload claim until retained artifacts exist",
+      "next": "Build selected-whole-vm-workload-v1 product support/refusal matrix."
+    },
     {
       "id": "vm-workload-boundary-needed",
       "category": "planning",
-      "status": "not-started",
-      "artifact": "not-created",
-      "proves": "No VM workload boundary matrix exists yet",
-      "claimUse": "blocks VM workload claim",
-      "next": "Define workload-level success and raw VM-state refusals."
+      "status": "verified",
+      "artifact": "proofs/linux-vm-workload/boundary-matrix/retained/whole-vm-workload-boundary-matrix-report.json",
+      "proves": "Retained boundary matrix validates supported row definitions, refusal boundaries, artifact requirements, forbidden shortcuts, and claim language for selected-whole-vm-workload-v1.",
+      "claimUse": "definition-only boundary matrix; no productSupport/broadSupport/arbitraryProcessCrossArchRestore lift",
+      "next": "Run retained selected-whole-vm-workload-v1 support/refusal artifacts.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 0,
+          "broadSupport": 0,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    },
+    {
+      "id": "vm-sqlite-database-smoke",
+      "category": "",
+      "status": "verified",
+      "artifact": "proofs/linux-vm-workload/smoke-matrix/retained/whole-vm-workload-smoke-matrix-report.json",
+      "disposition": "refused",
+      "proves": "Retained Machinen VM guest probe refused with vm-workload-tool-missing: sqlite3-not-installed-in-guest.",
+      "claimUse": "VM workload smoke/capability evidence only; no whole-VM snapshot/restore or arbitrary-process claim lift",
+      "next": "Require retained selected-whole-vm-workload-v1 snapshot/restore artifacts before claim lift.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 0,
+          "broadSupport": 0,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    },
+    {
+      "id": "vm-postgresql-database-smoke",
+      "category": "",
+      "status": "verified",
+      "artifact": "proofs/linux-vm-workload/smoke-matrix/retained/whole-vm-workload-smoke-matrix-report.json",
+      "disposition": "refused",
+      "proves": "Retained Machinen VM guest probe refused with vm-workload-tool-missing: postgresql-tools-not-installed-in-guest.",
+      "claimUse": "VM workload smoke/capability evidence only; no whole-VM snapshot/restore or arbitrary-process claim lift",
+      "next": "Require retained selected-whole-vm-workload-v1 snapshot/restore artifacts before claim lift.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 0,
+          "broadSupport": 0,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    },
+    {
+      "id": "vm-simple-c-process-smoke",
+      "category": "",
+      "status": "verified",
+      "artifact": "proofs/linux-vm-workload/smoke-matrix/retained/whole-vm-workload-smoke-matrix-report.json",
+      "disposition": "supported",
+      "proves": "Retained Machinen VM guest probe passed: target-native-static-c-binary-executed.",
+      "claimUse": "VM workload smoke/capability evidence only; no whole-VM snapshot/restore or arbitrary-process claim lift",
+      "next": "Require retained selected-whole-vm-workload-v1 snapshot/restore artifacts before claim lift.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 0,
+          "broadSupport": 0,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    },
+    {
+      "id": "vm-simple-java-process-smoke",
+      "category": "",
+      "status": "verified",
+      "artifact": "proofs/linux-vm-workload/smoke-matrix/retained/whole-vm-workload-smoke-matrix-report.json",
+      "disposition": "refused",
+      "proves": "Retained Machinen VM guest probe refused with vm-workload-tool-missing: java-runtime-not-installed-in-guest.",
+      "claimUse": "VM workload smoke/capability evidence only; no whole-VM snapshot/restore or arbitrary-process claim lift",
+      "next": "Require retained selected-whole-vm-workload-v1 snapshot/restore artifacts before claim lift.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 0,
+          "broadSupport": 0,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    },
+    {
+      "id": "vm-ebpf-capability-smoke",
+      "category": "",
+      "status": "verified",
+      "artifact": "proofs/linux-vm-workload/smoke-matrix/retained/whole-vm-workload-smoke-matrix-report.json",
+      "disposition": "supported",
+      "proves": "Retained Machinen VM guest probe passed: bpf-map-create-succeeded.",
+      "claimUse": "VM workload smoke/capability evidence only; no whole-VM snapshot/restore or arbitrary-process claim lift",
+      "next": "Require retained selected-whole-vm-workload-v1 snapshot/restore artifacts before claim lift.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 0,
+          "broadSupport": 0,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    },
+    {
+      "id": "vm-seccomp-capability-smoke",
+      "category": "",
+      "status": "verified",
+      "artifact": "proofs/linux-vm-workload/smoke-matrix/retained/whole-vm-workload-smoke-matrix-report.json",
+      "disposition": "supported",
+      "proves": "Retained Machinen VM guest probe passed: seccomp-filter-blocked-getpid-with-eperm.",
+      "claimUse": "VM workload smoke/capability evidence only; no whole-VM snapshot/restore or arbitrary-process claim lift",
+      "next": "Require retained selected-whole-vm-workload-v1 snapshot/restore artifacts before claim lift.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 0,
+          "broadSupport": 0,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    },
+    {
+      "id": "vm-nested-virtualization-smoke",
+      "category": "",
+      "status": "verified",
+      "artifact": "proofs/linux-vm-workload/smoke-matrix/retained/whole-vm-workload-smoke-matrix-report.json",
+      "disposition": "refused",
+      "proves": "Retained Machinen VM guest probe refused with vm-workload-nested-virtualization-unavailable: /dev/kvm-missing.",
+      "claimUse": "VM workload smoke/capability evidence only; no whole-VM snapshot/restore or arbitrary-process claim lift",
+      "next": "Require retained selected-whole-vm-workload-v1 snapshot/restore artifacts before claim lift.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 0,
+          "broadSupport": 0,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    },
+    {
+      "id": "selected-whole-vm-workload-support-matrix",
+      "category": "product support matrix",
+      "status": "verified",
+      "artifact": "proofs/linux-vm-workload/selected-whole-vm-workload/retained/selected-whole-vm-workload-support-matrix-report.json",
+      "disposition": "supported",
+      "proves": "Both arm64-to-amd64 and amd64-to-arm64 selected-whole-vm-workload-v1 portable restores completed with target VM output observed.",
+      "claimUse": "Scoped whole-VM workload product support claim; no arbitrary VM/process claim lift.",
+      "next": "Broaden only with new retained workload-specific support/refusal matrices.",
+      "claimImpact": {
+        "productSupportDelta": 100,
+        "broadSupportDelta": 100,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 100,
+          "broadSupport": 100,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": true,
+        "scope": "selected-whole-vm-workload-v1 only"
+      }
+    },
+    {
+      "id": "whole-vm-workload-next-corpus",
+      "category": "corpus planning",
+      "status": "defined",
+      "artifact": "proofs/linux-vm-workload/next-corpus/retained/whole-vm-workload-next-corpus-report.json",
+      "disposition": "future-corpus-only",
+      "proves": "Defines SQLite, PostgreSQL, C service, Java service, filesystem, network listener, multi-process, and dirty/active/opaque refusal rows.",
+      "claimUse": "No current claim change; broadening remains locked behind retained artifacts.",
+      "next": "Add retained bidirectional product artifacts and refusal neighbors for each row.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 100,
+          "broadSupport": 100,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false,
+        "scope": "future corpus only"
+      }
+    },
+    {
+      "id": "whole-vm-workload-corpus-proof",
+      "category": "workload corpus proof",
+      "status": "verified",
+      "artifact": "proofs/linux-vm-workload/corpus-proof/retained/whole-vm-workload-corpus-proof-report.json",
+      "disposition": "proof-only",
+      "proves": "Retained arm64 and amd64 VM proof/refusal artifacts cover all requested next-corpus rows.",
+      "claimUse": "Proof-only; no product support claim change.",
+      "next": "Add retained product snapshot/restore artifacts before broader claim.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 100,
+          "broadSupport": 100,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false,
+        "scope": "proof-only next-corpus evidence"
+      }
     }
   ]
 }

@@ -185,7 +185,7 @@ export type NodeLevel5ProductBehavioralVerifierReport = {
 export type NodeLevel5ProductSnapshotManifest = {
   kind: typeof NODE_LEVEL5_PRODUCT_SNAPSHOT_KIND;
   version: typeof NODE_LEVEL5_PRODUCT_SNAPSHOT_VERSION;
-  status: "node-product-support-100";
+  status: "node-product-support-100-claimed";
   familyId: NodeLevel5ProductSupport80FamilyId;
   direction: NodeLevel5ProductSnapshotDirection;
   artifactRoot: string;
@@ -512,7 +512,7 @@ function buildManifest(
   return {
     kind: NODE_LEVEL5_PRODUCT_SNAPSHOT_KIND,
     version: NODE_LEVEL5_PRODUCT_SNAPSHOT_VERSION,
-    status: "node-product-support-100",
+    status: "node-product-support-100-claimed",
     familyId: report.familyId,
     direction: report.direction,
     artifactRoot: join("artifacts", report.familyId, report.direction),
@@ -962,7 +962,7 @@ function hasNodeLevel5ProductSnapshotIdentity(
   return (
     record.kind === NODE_LEVEL5_PRODUCT_SNAPSHOT_KIND &&
     record.version === NODE_LEVEL5_PRODUCT_SNAPSHOT_VERSION &&
-    record.status === "node-product-support-100" &&
+    record.status === "node-product-support-100-claimed" &&
     typeof record.artifactRoot === "string"
   );
 }

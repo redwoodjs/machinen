@@ -1,0 +1,37 @@
+{
+  "id": "021-memory-scalar-counter",
+  "slug": "memory-scalar-counter",
+  "runtime": "nodejs",
+  "description": "Memory-only Node count scalar captured from source process memory and reconstructed target-native",
+  "disposition": "product-supported",
+  "claimUse": "portable Node memory-state compatibility dimension only; no arbitrary process or raw V8 heap restore claim",
+  "architecturePolicy": "run-source-memory-capture-and-target-native-reconstruction-across-architectures",
+  "startCommand": "node app.mjs",
+  "healthPath": "/value",
+  "expectedBody": "41",
+  "dependencies": [],
+  "refusalCode": null,
+  "capability": {
+    "category": "memory-state",
+    "detects": ["anchored V8 context Smi scalar in source process memory"],
+    "captures": ["readable source process memory via /proc/<pid>/mem"],
+    "restores": ["fresh target-native Node scalar initialized from captured value"],
+    "verifies": ["/value returns 41", "/inc returns 42"],
+    "blocks": [
+      "arbitrary object graphs",
+      "raw V8 heap restore",
+      "same PID continuation",
+      "active request/socket continuation",
+      "workers/native addons/child processes"
+    ]
+  },
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "arbitraryLinuxProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "samePidContinuationClaimed": false,
+    "activeRequestOrSocketContinuationClaimed": false
+  }
+}

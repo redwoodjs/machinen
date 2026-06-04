@@ -1,0 +1,28 @@
+{
+  "kind": "machinen.selected-arbitrary-linux-process-source-capture",
+  "scope": "selected-arbitrary-linux-process-seed-v1",
+  "process": {
+    "threads": 1,
+    "safePoint": "idle",
+    "activeSyscall": false,
+    "jitCodePresent": false,
+    "appCheckpointHooksRequired": false
+  },
+  "argv": ["selected-arbitrary-process-seed", "--mode=behavior-e2e"],
+  "env": {
+    "MACHINEN_SELECTED_ARBITRARY_PROCESS_SEED": "behavior-e2e",
+    "MACHINEN_SELECTED_ARBITRARY_PROCESS_SCOPE": "selected-arbitrary-linux-process-seed-v1"
+  },
+  "cwd": "/Users/peterp/gh/redwoodjs/machinen",
+  "staticDataHeap": {
+    "staticCounter": 42,
+    "dataMessage": "target-native-selected-seed-behavior",
+    "heapBytes": "heap-materialized-without-raw-cpu-restore"
+  },
+  "hashes": {
+    "argvSha256": "2373ef52a67417187dc9a3acd8df4db71e2d0d6f9a4e9729b491c5030f977aac",
+    "envSha256": "a30eca7713566a95051c39dfc55ffadfccb167cd41a6b6d386c4ee7851715586",
+    "cwdSha256": "96e93d2de959396d49547a159198cea68a01f2d39a3104c226063cff0f8f4f5a",
+    "staticDataHeapSha256": "e4e4607c146818570e1718319eea271efe1d79736ec053db8ea0d3eecf61ad09"
+  }
+}

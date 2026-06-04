@@ -1,0 +1,1 @@
+node packages/cli/dist/cli.js snapshot node-row-express-fixture-product-run-src-unused --out /tmp/machinen-node-row-express-fixture-product-run-arm64-to-amd64-bundle/snap --json

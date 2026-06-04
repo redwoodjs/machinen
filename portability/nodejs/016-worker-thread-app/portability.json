@@ -1,0 +1,20 @@
+{
+  "id": "016-worker-thread-app",
+  "slug": "worker-thread-app",
+  "runtime": "nodejs",
+  "description": "Worker thread live state refused until target-native worker reconstruction is proven",
+  "disposition": "refused-first",
+  "claimUse": "classification/refusal only; no product support claim",
+  "architecturePolicy": "run-on-each-target-architecture-with-machinen-runtime",
+  "startCommand": "node app.mjs",
+  "healthPath": "/health",
+  "expectedBody": "machinen-node-portability:worker-thread-app",
+  "dependencies": [],
+  "refusalCode": "node-portability-worker-thread-unsupported",
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false
+  }
+}

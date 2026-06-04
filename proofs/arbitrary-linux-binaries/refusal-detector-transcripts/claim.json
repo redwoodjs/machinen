@@ -1,0 +1,311 @@
+{
+  "id": "arbitrary-process-refusal-detector-transcripts",
+  "claim": "Arbitrary-process stable refusal detector transcripts",
+  "trackId": "arbitrary-process",
+  "status": "verified",
+  "scope": "arbitrary-process-refusal-detector-transcripts-v1",
+  "claimNumbers": {
+    "productSupport": null,
+    "broadSupport": null,
+    "arbitraryProcessCrossArchRestore": 0,
+    "detectorTranscriptsVerified": 14
+  },
+  "promotionEffect": "Proof/classification coverage only. Product support is out of scope and public arbitrary process restore remains 0.",
+  "proofDirectory": "proofs/arbitrary-linux-binaries/refusal-detector-transcripts",
+  "proofs": [
+    {
+      "id": "pending-signal-frame-state",
+      "proofNumber": "arbitrary-refusal/001",
+      "category": "refusal detector transcript",
+      "status": "verified",
+      "disposition": "detected-refusal",
+      "artifact": "proofs/arbitrary-linux-binaries/refusal-detector-transcripts/retained/pending-signal-frame-state-detector-transcript.json",
+      "proves": "Stable refusal detector emitted arbitrary-process-signal-frame-unsupported.",
+      "claimUse": "detector transcript only; arbitrary process restore remains 0",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": null,
+          "broadSupport": null,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    },
+    {
+      "id": "active-syscall-state",
+      "proofNumber": "arbitrary-refusal/002",
+      "category": "refusal detector transcript",
+      "status": "verified",
+      "disposition": "detected-refusal",
+      "artifact": "proofs/arbitrary-linux-binaries/refusal-detector-transcripts/retained/active-syscall-state-detector-transcript.json",
+      "proves": "Stable refusal detector emitted arbitrary-process-active-syscall-unsupported.",
+      "claimUse": "detector transcript only; arbitrary process restore remains 0",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": null,
+          "broadSupport": null,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    },
+    {
+      "id": "multi-thread-scheduler-state",
+      "proofNumber": "arbitrary-refusal/003",
+      "category": "refusal detector transcript",
+      "status": "verified",
+      "disposition": "detected-refusal",
+      "artifact": "proofs/arbitrary-linux-binaries/refusal-detector-transcripts/retained/multi-thread-scheduler-state-detector-transcript.json",
+      "proves": "Stable refusal detector emitted arbitrary-process-multithread-unsupported.",
+      "claimUse": "detector transcript only; arbitrary process restore remains 0",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": null,
+          "broadSupport": null,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    },
+    {
+      "id": "futex-owner-waiter-state",
+      "proofNumber": "arbitrary-refusal/004",
+      "category": "refusal detector transcript",
+      "status": "verified",
+      "disposition": "detected-refusal",
+      "artifact": "proofs/arbitrary-linux-binaries/refusal-detector-transcripts/retained/futex-owner-waiter-state-detector-transcript.json",
+      "proves": "Stable refusal detector emitted arbitrary-process-futex-owner-waiter-unsupported.",
+      "claimUse": "detector transcript only; arbitrary process restore remains 0",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": null,
+          "broadSupport": null,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    },
+    {
+      "id": "jit-executable-anonymous-mapping",
+      "proofNumber": "arbitrary-refusal/005",
+      "category": "refusal detector transcript",
+      "status": "verified",
+      "disposition": "detected-refusal",
+      "artifact": "proofs/arbitrary-linux-binaries/refusal-detector-transcripts/retained/jit-executable-anonymous-mapping-detector-transcript.json",
+      "proves": "Stable refusal detector emitted arbitrary-process-jit-executable-mapping-unsupported.",
+      "claimUse": "detector transcript only; arbitrary process restore remains 0",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": null,
+          "broadSupport": null,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    },
+    {
+      "id": "device-mmap-opaque-resource",
+      "proofNumber": "arbitrary-refusal/006",
+      "category": "refusal detector transcript",
+      "status": "verified",
+      "disposition": "detected-refusal",
+      "artifact": "proofs/arbitrary-linux-binaries/refusal-detector-transcripts/retained/device-mmap-opaque-resource-detector-transcript.json",
+      "proves": "Stable refusal detector emitted arbitrary-process-device-mmap-unsupported.",
+      "claimUse": "detector transcript only; arbitrary process restore remains 0",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": null,
+          "broadSupport": null,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    },
+    {
+      "id": "shared-memory-opaque-mapping",
+      "proofNumber": "arbitrary-refusal/007",
+      "category": "refusal detector transcript",
+      "status": "verified",
+      "disposition": "detected-refusal",
+      "artifact": "proofs/arbitrary-linux-binaries/refusal-detector-transcripts/retained/shared-memory-opaque-mapping-detector-transcript.json",
+      "proves": "Stable refusal detector emitted arbitrary-process-shared-memory-opaque-unsupported.",
+      "claimUse": "detector transcript only; arbitrary process restore remains 0",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": null,
+          "broadSupport": null,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    },
+    {
+      "id": "active-unix-domain-socket-state",
+      "proofNumber": "arbitrary-refusal/008",
+      "category": "refusal detector transcript",
+      "status": "verified",
+      "disposition": "detected-refusal",
+      "artifact": "proofs/arbitrary-linux-binaries/refusal-detector-transcripts/retained/active-unix-domain-socket-state-detector-transcript.json",
+      "proves": "Stable refusal detector emitted arbitrary-process-active-unix-socket-unsupported.",
+      "claimUse": "detector transcript only; arbitrary process restore remains 0",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": null,
+          "broadSupport": null,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    },
+    {
+      "id": "process-tree-parent-child-state",
+      "proofNumber": "arbitrary-refusal/009",
+      "category": "refusal detector transcript",
+      "status": "verified",
+      "disposition": "detected-refusal",
+      "artifact": "proofs/arbitrary-linux-binaries/refusal-detector-transcripts/retained/process-tree-parent-child-state-detector-transcript.json",
+      "proves": "Stable refusal detector emitted arbitrary-process-tree-unsupported.",
+      "claimUse": "detector transcript only; arbitrary process restore remains 0",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": null,
+          "broadSupport": null,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    },
+    {
+      "id": "dynamic-linker-abi-mismatch-state",
+      "proofNumber": "arbitrary-refusal/010",
+      "category": "refusal detector transcript",
+      "status": "verified",
+      "disposition": "detected-refusal",
+      "artifact": "proofs/arbitrary-linux-binaries/refusal-detector-transcripts/retained/dynamic-linker-abi-mismatch-state-detector-transcript.json",
+      "proves": "Stable refusal detector emitted arbitrary-process-dynamic-linker-abi-mismatch-unsupported.",
+      "claimUse": "detector transcript only; arbitrary process restore remains 0",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": null,
+          "broadSupport": null,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    },
+    {
+      "id": "credentials-namespace-cgroup-state",
+      "proofNumber": "arbitrary-refusal/011",
+      "category": "refusal detector transcript",
+      "status": "verified",
+      "disposition": "detected-refusal",
+      "artifact": "proofs/arbitrary-linux-binaries/refusal-detector-transcripts/retained/credentials-namespace-cgroup-state-detector-transcript.json",
+      "proves": "Stable refusal detector emitted arbitrary-process-credentials-namespace-cgroup-unsupported.",
+      "claimUse": "detector transcript only; arbitrary process restore remains 0",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": null,
+          "broadSupport": null,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    },
+    {
+      "id": "seccomp-filter-policy-state",
+      "proofNumber": "arbitrary-refusal/012",
+      "category": "refusal detector transcript",
+      "status": "verified",
+      "disposition": "detected-refusal",
+      "artifact": "proofs/arbitrary-linux-binaries/refusal-detector-transcripts/retained/seccomp-filter-policy-state-detector-transcript.json",
+      "proves": "Stable refusal detector emitted arbitrary-process-seccomp-policy-unsupported.",
+      "claimUse": "detector transcript only; arbitrary process restore remains 0",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": null,
+          "broadSupport": null,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    },
+    {
+      "id": "ptrace-debugger-traced-state",
+      "proofNumber": "arbitrary-refusal/013",
+      "category": "refusal detector transcript",
+      "status": "verified",
+      "disposition": "detected-refusal",
+      "artifact": "proofs/arbitrary-linux-binaries/refusal-detector-transcripts/retained/ptrace-debugger-traced-state-detector-transcript.json",
+      "proves": "Stable refusal detector emitted arbitrary-process-ptrace-debug-state-unsupported.",
+      "claimUse": "detector transcript only; arbitrary process restore remains 0",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": null,
+          "broadSupport": null,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    },
+    {
+      "id": "arbitrary-unknown-process-state",
+      "proofNumber": "arbitrary-refusal/014",
+      "category": "refusal detector transcript",
+      "status": "verified",
+      "disposition": "detected-refusal",
+      "artifact": "proofs/arbitrary-linux-binaries/refusal-detector-transcripts/retained/arbitrary-unknown-process-state-detector-transcript.json",
+      "proves": "Stable refusal detector emitted arbitrary-process-unknown-state-unsupported.",
+      "claimUse": "detector transcript only; arbitrary process restore remains 0",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": null,
+          "broadSupport": null,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "proofNumber": "005",
+  "id": "native-argv-env-auxv-reconstruction",
+  "type": "substrate",
+  "subcategory": "process bootstrap",
+  "status": "verified",
+  "accepted": true,
+  "artifact": "proofs/native-process-substrate/retained/row-proofs/005/row-proof.json",
+  "evidence": "Controlled native process image retained argv/env/cwd bootstrap manifest and an argv resource recipe for target-native process startup. Raw verifier: proofs/native-process-substrate/retained/raw/native-controlled-restore.json.",
+  "checks": [
+    {
+      "id": "native-manifest-retained",
+      "passed": true,
+      "message": "native manifest retained"
+    },
+    {
+      "id": "resource-recipe",
+      "passed": true,
+      "message": "bootstrap/resource recipe retained"
+    },
+    {
+      "id": "translation-retained",
+      "passed": true,
+      "message": "translation plan retained"
+    }
+  ],
+  "claimUse": "proof-only-native-substrate"
+}

@@ -1,0 +1,21 @@
+{
+  "id": "controlled-static-data-heap-mutation-binary",
+  "category": "memory",
+  "status": "verified",
+  "disposition": "supported-proof",
+  "accepted": true,
+  "proofOnly": true,
+  "productSupportClaimAllowed": false,
+  "productPathRequired": false,
+  "evidence": ["static/data/heap payload hash matched", "mutation transition verified"],
+  "verifier": {
+    "staticDataHeapSha256": "a450bcc42490321f2959395e42f830b593464e583cbd068a47570aac3c7e771b",
+    "mutationBeforeAfterMatched": true,
+    "writableHeapMaterialized": true,
+    "rawCpuRestoreUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "sidecarReplayUsed": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

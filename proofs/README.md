@@ -9,6 +9,7 @@ Top-level product claim folders include:
 - `bun/`
 - `generic-linux-service/`
 - `arbitrary-linux-binaries/`
+- `native-process-substrate/`
 - `linux-vm-workload/`
 - `network-resources/`
 
@@ -27,10 +28,43 @@ New claim-facing proof summaries should live under the product claim folders abo
 The dashboard source of truth is `docs/snapshot/claim-progress.json`; each
 claim group here has a `claim.json` copy plus a readable `README.md`.
 
-- [Node service 100 / 100 / 0](./nodejs/100-100-0/README.md) — `claimed`
-- [Postgres clean logical 20 / 0 / 0](./postgres/20-0-0/README.md) — `claimed`
+- [Node claim evidence index](./nodejs/claim-evidence-index/README.md) — `claim-facing-index-verified`
+- [Node service 100 / 100 / 0 selected service claim](./nodejs/100-100-0/README.md) — `verified`
+- [Node real cross-architecture E2E gate](./nodejs/real-cross-arch-e2e-gate/README.md) — `partial-proof`
+- [Postgres clean logical descriptor fixture](./postgres/20-0-0/README.md) — `partial-proof`
+- [Postgres / psql VM-state snapshot/restore](./postgres/vmstate-snapshot-restore/README.md) — `verified`
+- [Postgres / psql bidirectional cross-arch logical restore](./postgres/cross-arch-logical-psql-restore/README.md) — `verified`
+- [Postgres real cross-architecture no-dump product E2E gate](./postgres/real-cross-arch-e2e-gate/README.md) — `verified`
 - [Bun service support not started](./bun/not-started/README.md) — `not-started`
 - [Generic Linux service support not started](./generic-linux-service/not-started/README.md) — `not-started`
 - [Level 4 ping resource continuation](./network-resources/level4-ping-resource-continuation/README.md) — `proven-resource`
+- [Native process substrate proof gate](./native-process-substrate/README.md) — `verified`
+- [Native regular-file FD bidirectional proof](./native-process-substrate/regular-file-fd-bidirectional/README.md) — `verified`
+- [Native resource coverage matrix](./native-process-substrate/resource-coverage/README.md) — `verified`
+- [Selected native workload E2E harness](./native-process-substrate/selected-workload-e2e/README.md) — `verified`
+- [Selected native product-path E2E gate](./native-process-substrate/product-e2e-gate/README.md) — `verified`
+- [Selected native support matrix](./native-process-substrate/selected-native-support-matrix/README.md) — `verified`
 - [Arbitrary process 0% / candidate 1% locked](./arbitrary-linux-binaries/0-seed-1-locked/README.md) — `partial-proof`
-- [Whole Linux VM workload portability not started](./linux-vm-workload/not-started/README.md) — `not-started`
+- [Selected arbitrary Linux process seed gate](./arbitrary-linux-binaries/selected-process-seed/README.md) — `verified`
+- [Selected arbitrary Linux process behavior E2E](./arbitrary-linux-binaries/selected-process-behavior-e2e/README.md) — `verified`
+- [Selected arbitrary Linux process next proof matrix](./arbitrary-linux-binaries/selected-process-next-proof-matrix/README.md) — `verified`
+- [Arbitrary process proof/classification phase ladder](./arbitrary-linux-binaries/100-phase-ladder/README.md) — `verified`
+- [Controlled process proof corpus matrix](./arbitrary-linux-binaries/controlled-process-corpus/README.md) — `verified`
+- [Complete arbitrary-process state classification proof matrix](./arbitrary-linux-binaries/complete-classification-matrix/README.md) — `verified`
+- [Arbitrary-process refusal detector transcripts](./arbitrary-linux-binaries/refusal-detector-transcripts/README.md) — `verified`
+- [Arbitrary-process bidirectional target output hardening](./arbitrary-linux-binaries/bidirectional-target-output-hardening/README.md) — `verified`
+- [Whole Linux VM workload portability taxonomy](./linux-vm-workload/not-started/README.md) — `defined`
+- [Whole VM workload boundary matrix](./linux-vm-workload/boundary-matrix/README.md) — `verified`
+- [Whole VM workload smoke matrix](./linux-vm-workload/smoke-matrix/README.md) — `verified`
+- [Selected whole VM workload support matrix](./linux-vm-workload/selected-whole-vm-workload/README.md) — `verified`
+- [Whole VM workload next corpus](./linux-vm-workload/next-corpus/README.md) — `defined`
+- [Whole VM workload corpus proof](./linux-vm-workload/corpus-proof/README.md) — `verified`
+- [Whole VM workload corpus product gate](./linux-vm-workload/corpus-product-gate/README.md) — `verified`
+- [Whole VM workload corpus refusal product gate](./linux-vm-workload/corpus-refusal-product-gate/README.md) — `verified`
+- [Whole VM workload claim-scope decision card](./linux-vm-workload/claim-scope-decision-card/README.md) — `verified`
+- [Portable VM inventory plan proof](./linux-vm-workload/portable-vm-inventory-plan/README.md) — `verified`
+- [Portable VM guest inventory plan proof](./linux-vm-workload/portable-vm-guest-inventory-plan/README.md) — `verified`
+- [Real cross-arch TCP listener product E2E](./linux-vm-workload/real-cross-arch-tcp-listener-product-e2e/README.md) — `verified`
+- [Real cross-arch portable VM all-3 E2E](./linux-vm-workload/real-cross-arch-portable-vm-all3-e2e/README.md) — `verified`
+- [Portable VM product snapshot/restore E2E](./linux-vm-workload/portable-vm-product-snapshot-restore/README.md) — `verified`
+- [Whole VM clean DB tooling support path](./linux-vm-workload/db-tooling-support-path/README.md) — `verified`

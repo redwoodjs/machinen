@@ -1,0 +1,67 @@
+{
+  "kind": "machinen.arbitrary-process-row-proof",
+  "version": 1,
+  "rowId": "dynamic-linker-abi-mismatch-state",
+  "proofNumber": "arbitrary/035",
+  "proofMode": "stable-refusal-proof",
+  "proofQuality": "stable-refusal-proof",
+  "accepted": true,
+  "disposition": "refused",
+  "fixture": {
+    "id": "dynamic-linker-abi-mismatch-state-fixture",
+    "portableState": [],
+    "refusedState": [
+      "source-arch shared object",
+      "ABI mismatch",
+      "missing target runtime dependency"
+    ],
+    "fixtureHash": "047a2e0a1b807c59f66c64c39f7d2011bef74caab9067851567ae48075b8a10b",
+    "execution": null
+  },
+  "verifier": {
+    "targetNativeReconstructionAttempted": false,
+    "targetVerifierPassed": true,
+    "refusedBeforeTargetExecution": true,
+    "stableRefusalCode": "arbitrary-process-dynamic-linker-abi-mismatch-unsupported",
+    "checks": [
+      {
+        "name": "refused-state-manifest-present",
+        "passed": true,
+        "detail": "3 refused state fields retained for dynamic-linker-abi-mismatch-state"
+      },
+      {
+        "name": "stable-refusal-code-emitted",
+        "passed": true,
+        "detail": "arbitrary-process-dynamic-linker-abi-mismatch-unsupported emitted for fixture 047a2e0a1b807c59f66c64c39f7d2011bef74caab9067851567ae48075b8a10b"
+      },
+      {
+        "name": "target-execution-blocked",
+        "passed": true,
+        "detail": "refusal happens before target execution or target-native reconstruction attempt"
+      },
+      {
+        "name": "claim-guard-held",
+        "passed": true,
+        "detail": "refusal does not raise product support or arbitrary process restore claim"
+      }
+    ]
+  },
+  "transcript": [
+    "loaded refused fixture dynamic-linker-abi-mismatch-state-fixture",
+    "detected refused state class arbitrary-process-dynamic-linker-abi-mismatch-unsupported",
+    "stopped before target execution",
+    "recorded stable refusal proof without product claim lift"
+  ],
+  "claimGuard": {
+    "productSupportOutOfScope": true,
+    "productSupportRowsAdded": 0,
+    "arbitraryProcessRestoreClaimed": 0,
+    "publicClaimAllowed": false,
+    "rawCpuRestoreUsed": false,
+    "rawRegisterReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "sidecarReplayUsed": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

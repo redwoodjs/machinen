@@ -1,0 +1,199 @@
+{
+  "kind": "machinen.real-cross-arch-portable-vm-all3-e2e-report",
+  "version": 1,
+  "accepted": true,
+  "proofStatus": "verified",
+  "scope": "real-cross-arch-portable-vm-filesystem-service-sqlite-v1",
+  "productCommandPath": "future product path: machinen snapshot --portable <vm> --out <bundle>; machinen restore <bundle> (source arch detected at snapshot time, target arch detected at restore time)",
+  "source": {
+    "architecture": "amd64",
+    "platform": "linux/amd64",
+    "transcript": {
+      "kind": "machinen.real-cross-arch-portable-vm-all3-source-transcript",
+      "version": 1,
+      "accepted": true,
+      "sourceArch": "amd64",
+      "targetArch": "arm64",
+      "filesystemFiles": 2,
+      "sqliteExpected": {
+        "count": 3,
+        "qtySum": 41
+      },
+      "serviceExpectedResponse": "machinen-portable-service-v1"
+    }
+  },
+  "target": {
+    "architecture": "arm64",
+    "restoredName": "real-xarch-all3-amd64-to-arm64-1780482315-27602",
+    "targetVmStarted": true,
+    "restore": {
+      "kind": "machinen.real-cross-arch-portable-vm-all3-target-restore",
+      "accepted": true,
+      "filesystemRestored": true,
+      "sqliteRestored": {
+        "count": 3,
+        "qtySum": 41
+      },
+      "sqliteExpected": {
+        "count": 3,
+        "qtySum": 41
+      },
+      "serviceStarted": true,
+      "servicePid": 574
+    },
+    "verify": {
+      "kind": "machinen.real-cross-arch-portable-vm-all3-target-verifier",
+      "accepted": true,
+      "filesystem": {
+        "accepted": true,
+        "files": 2
+      },
+      "sqlite": {
+        "accepted": true,
+        "count": 3,
+        "qtySum": 41
+      },
+      "service": {
+        "accepted": true,
+        "status": 200,
+        "body": "machinen-portable-service-v1"
+      }
+    }
+  },
+  "workloads": {
+    "filesystem": {
+      "accepted": true,
+      "files": 2
+    },
+    "service": {
+      "accepted": true,
+      "body": "machinen-portable-service-v1"
+    },
+    "sqlite": {
+      "accepted": true,
+      "count": 3,
+      "qtySum": 41
+    }
+  },
+  "result": {
+    "captureCompleted": true,
+    "restoreCompleted": true,
+    "migrationCompleted": true,
+    "sourceArch": "amd64",
+    "targetArch": "arm64",
+    "crossArchitecture": true,
+    "targetNativeVmBooted": true,
+    "targetVerifierPassed": true,
+    "allThreeWorkloadsVerified": true,
+    "snapshotCompleted": true
+  },
+  "claimGuard": {
+    "arbitraryVmRestoreClaimed": false,
+    "rawVmStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlyShortcutAccepted": false
+  },
+  "artifacts": [
+    {
+      "path": "boot.stderr.txt",
+      "sha256": "68952e9db40273bf78efdd2640fef6273efb2b3d8d38077538f5642649d0e15c"
+    },
+    {
+      "path": "boot.stdout.json",
+      "sha256": "9a54d78c9becdfd16181ed257176cd15de90e97744c4ea231382248a09b95a21"
+    },
+    {
+      "path": "build.stderr.txt",
+      "sha256": "19d13d6dc7c08dbe4309940b43ced77bd7e7e42c748254acbc9c8fc36e2bab1b"
+    },
+    {
+      "path": "build.stdout.txt",
+      "sha256": "7543bbe6c733928b7f63d52ccdfe42ff26dee21354c45ba9010f53742edd5553"
+    },
+    {
+      "path": "bundle/filesystem-manifest.json",
+      "sha256": "1646aa21bb7f2ad82a9d100b6ac85d425b16bbb527c568b067027252819f68e9"
+    },
+    {
+      "path": "bundle/filesystem-sha256.txt",
+      "sha256": "150a5c402c749e7b6282da918188fb9ded4557ba5c031ccbb331631a612ebeb8"
+    },
+    {
+      "path": "bundle/filesystem/root/etc/machinen/message.txt",
+      "sha256": "b900bf35ef6de78d9df4b0c112f575dfd4c8dfdcaf385d01fa229a741b06a165"
+    },
+    {
+      "path": "bundle/filesystem/root/var/lib/machinen/data/numbers.txt",
+      "sha256": "14c5e74c4b96ccef41cd94db73a9ec3348038ac094feca4fd897cecffa07cdae"
+    },
+    {
+      "path": "bundle/portable-vm-all3-manifest.json",
+      "sha256": "006954b2ccb6af6f9143cbf1aeee1c3648872ec3ec8a55b75384f439412973dc"
+    },
+    {
+      "path": "bundle/service-expected-response.txt",
+      "sha256": "ab7c502f8c2af0fbc60b1df7b70c52c9fa0a89faed1da854ce616b831f320aef"
+    },
+    {
+      "path": "bundle/service-manifest.json",
+      "sha256": "af4a0522d3bf49b9283611bcca84857d006c24d3f9fd02c64688d921caa74ccd"
+    },
+    {
+      "path": "bundle/sqlite-dump.sql",
+      "sha256": "a290c0c4eb9b6c3252d5f3c37441a4a1b4e9e1499dee0e6a9adbce1b896bac55"
+    },
+    {
+      "path": "bundle/sqlite-expected.env",
+      "sha256": "d63c993846d0c79c00fe0e27ed15b312928baa6b9bfd255f04f112304b263f35"
+    },
+    {
+      "path": "bundle/sqlite-logical.json",
+      "sha256": "098e3d26e830b972ddc0d0da6a0d457dc4b04bb06b7ca2d6179d7101651ae86f"
+    },
+    {
+      "path": "bundle/target-restore.sh",
+      "sha256": "e00546e7e7ba58947a9951c4beedfec58bf7c93cf3a3b5d462070a624f84a515"
+    },
+    {
+      "path": "bundle/target-verify.sh",
+      "sha256": "0520353f586a446443f0c678ec6b0c79bb5055f961c52b38261635644c2cf025"
+    },
+    {
+      "path": "docker-source.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "docker-source.stdout.txt",
+      "sha256": "6e44265ffd1f9f26120f3204d3b9f5feb2bfde37d992b5568acdeaa8c1457a34"
+    },
+    {
+      "path": "source-capture-transcript.json",
+      "sha256": "6e44265ffd1f9f26120f3204d3b9f5feb2bfde37d992b5568acdeaa8c1457a34"
+    },
+    {
+      "path": "source-capture.py",
+      "sha256": "5d9b35ac6c0fc1c87832586326487e6ff73fe9c1e4b91fb81a4fa7fa1bb84d42"
+    },
+    {
+      "path": "target-restore.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "target-restore.stdout.json",
+      "sha256": "1c1eb42c90405fb23cac38ad3a6907fd79a579cf933a0068daf869d076b49853"
+    },
+    {
+      "path": "target-verify.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "target-verify.stdout.json",
+      "sha256": "63a82d7624e660d2452b6e3498d80aea83e8a8511ebdc4d70fc6780210f67413"
+    }
+  ],
+  "architectureDetection": {
+    "source": "detected from source Linux inventory during snapshot/proof source phase",
+    "target": "detected from target Machinen VM/host at restore time",
+    "userSuppliedArchPolicy": "normal VM product workflow should not require --source-arch or --target-arch"
+  }
+}

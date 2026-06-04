@@ -1,0 +1,20 @@
+{
+  "kind": "machinen.node-supported-row-target-verifier",
+  "version": 1,
+  "accepted": true,
+  "rowId": "fastify-installed-prefix-route",
+  "direction": "amd64-to-arm64",
+  "routePath": "/fastify-installed-prefix-route",
+  "expectedBody": "fastify-installed-prefix-route-ok",
+  "actualBody": "fastify-installed-prefix-route-ok",
+  "bodySha256": "7c3f09c58399c15fbf2fc42e9c18f58038af7bba9452a33860562dc8c4c76d90",
+  "expectedHeader": {
+    "x-machinen-row": "fastify-installed-prefix-route"
+  },
+  "actualHeaders": "HTTP/1.1 200 OK\nx-machinen-row: fastify-installed-prefix-route\ncontent-type: text/plain; charset=utf-8\ncontent-length: 33\nDate: Tue, 02 Jun 2026 16:47:54 GMT\nConnection: keep-alive\nKeep-Alive: timeout=72\n\n",
+  "targetNativeNodeVerified": true,
+  "sourceIsaEmulationUsed": false,
+  "sidecarRuntimeUsed": false,
+  "appHooksRequired": false,
+  "metadataOnlySuccessAccepted": false
+}

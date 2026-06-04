@@ -1,0 +1,39 @@
+{
+  "kind": "machinen.whole-vm-clean-db-tooling-product-gate",
+  "version": 1,
+  "rowId": "whole-vm-sqlite-clean-db-workload",
+  "database": "sqlite",
+  "accepted": true,
+  "status": "verified",
+  "disposition": "tooling-product-supported",
+  "tooling": {
+    "targetNativeToolingProvided": true,
+    "architectureSpecificTooling": ["arm64", "amd64"],
+    "cleanQuiescedOnly": true
+  },
+  "directions": [
+    {
+      "direction": "arm64-to-amd64",
+      "accepted": true,
+      "targetNativeToolingExecuted": true,
+      "cleanDatabaseVerifierPassed": true,
+      "dirtyActiveStateRefused": true
+    },
+    {
+      "direction": "amd64-to-arm64",
+      "accepted": true,
+      "targetNativeToolingExecuted": true,
+      "cleanDatabaseVerifierPassed": true,
+      "dirtyActiveStateRefused": true
+    }
+  ],
+  "claimGuard": {
+    "publicClaimAllowed": false,
+    "claimChangeAllowed": false,
+    "arbitraryVmRestoreClaimed": false,
+    "arbitraryLinuxProcessRestoreClaimed": false,
+    "rawVmStateRestoreUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

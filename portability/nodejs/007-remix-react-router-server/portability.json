@@ -1,0 +1,20 @@
+{
+  "id": "007-remix-react-router-server",
+  "slug": "remix-react-router-server",
+  "runtime": "nodejs",
+  "description": "Remix/React Router style HTTP handler; dependency install required",
+  "disposition": "supported-with-declared-config",
+  "claimUse": "portable Node app/product candidate evidence only; no raw process continuation claim",
+  "architecturePolicy": "run-on-each-target-architecture-with-machinen-runtime",
+  "startCommand": "node app.mjs",
+  "healthPath": "/health",
+  "expectedBody": "machinen-node-portability:remix-react-router-server:minimal-remix-shape",
+  "dependencies": ["@remix-run/node", "@remix-run/router"],
+  "refusalCode": null,
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false
+  }
+}

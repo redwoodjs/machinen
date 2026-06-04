@@ -1,0 +1,193 @@
+{
+  "kind": "machinen.nodejs.memory-ir",
+  "version": 1,
+  "runtime": {
+    "name": "node",
+    "sourceArch": "arm64",
+    "v8": "12.4.254.21-node.22"
+  },
+  "rows": [
+    {
+      "id": "037-memory-real-plain-object",
+      "shape": "plain-object",
+      "semanticState": {
+        "anchor": "machinen-real-plain-object-anchor-v1",
+        "kind": "machinen-real-plain-object-kind-v1",
+        "message": "machinen-real-plain-object-message-v1",
+        "countLabel": "count:7",
+        "nestedLabel": "nested:portable",
+        "count": 7,
+        "nested": {
+          "label": "portable"
+        }
+      },
+      "anchors": {
+        "anchor": "machinen-real-plain-object-anchor-v1",
+        "kind": "machinen-real-plain-object-kind-v1",
+        "message": "machinen-real-plain-object-message-v1"
+      }
+    },
+    {
+      "id": "039-memory-real-closure-context",
+      "shape": "closure-context",
+      "semanticState": {
+        "kind": "closure-context",
+        "anchor": "machinen-real-closure-anchor-v1",
+        "count": 12,
+        "next": 13
+      },
+      "anchors": {
+        "anchor": "machinen-real-closure-anchor-v1",
+        "count": "closure-count:12"
+      }
+    },
+    {
+      "id": "040-memory-real-string",
+      "shape": "string",
+      "semanticState": {
+        "kind": "string",
+        "anchor": "machinen-real-string-anchor-v1",
+        "value": "portable"
+      },
+      "anchors": {
+        "anchor": "machinen-real-string-anchor-v1",
+        "value": "real-string-value:portable"
+      }
+    },
+    {
+      "id": "041-memory-real-nested-object-graph",
+      "shape": "nested-object-graph",
+      "semanticState": {
+        "kind": "nested-object-graph",
+        "anchor": "machinen-real-nested-anchor-v1",
+        "child": {
+          "label": "leaf",
+          "count": 3
+        }
+      },
+      "anchors": {
+        "anchor": "machinen-real-nested-anchor-v1",
+        "child": "nested-child:leaf",
+        "count": "nested-count:3"
+      }
+    },
+    {
+      "id": "042-memory-real-shared-references",
+      "shape": "shared-references",
+      "semanticState": {
+        "kind": "shared-references",
+        "anchor": "machinen-real-shared-anchor-v1",
+        "left": {
+          "ref": "alpha"
+        },
+        "right": {
+          "ref": "alpha"
+        },
+        "sharedIdentity": true
+      },
+      "anchors": {
+        "anchor": "machinen-real-shared-anchor-v1",
+        "shared": "shared-node:alpha"
+      }
+    },
+    {
+      "id": "043-memory-real-cycle",
+      "shape": "cycle",
+      "semanticState": {
+        "kind": "cycle",
+        "anchor": "machinen-real-cycle-anchor-v1",
+        "node": {
+          "name": "self"
+        },
+        "cyclePreserved": true
+      },
+      "anchors": {
+        "anchor": "machinen-real-cycle-anchor-v1",
+        "cycle": "cycle-node:self"
+      }
+    },
+    {
+      "id": "044-memory-real-map-set",
+      "shape": "map-set",
+      "semanticState": {
+        "kind": "map-set",
+        "anchor": "machinen-real-map-set-anchor-v1",
+        "mapEntries": [["answer", 42]],
+        "setEntries": ["portable"]
+      },
+      "anchors": {
+        "anchor": "machinen-real-map-set-anchor-v1",
+        "map": "map-entry:answer=42",
+        "set": "set-entry:portable"
+      }
+    },
+    {
+      "id": "045-memory-real-class-instance",
+      "shape": "class-instance",
+      "semanticState": {
+        "kind": "class-instance",
+        "anchor": "machinen-real-class-anchor-v1",
+        "className": "Counter",
+        "count": 9,
+        "methodResult": 10
+      },
+      "anchors": {
+        "anchor": "machinen-real-class-anchor-v1",
+        "name": "class-name:Counter",
+        "count": "class-count:9"
+      }
+    },
+    {
+      "id": "046-memory-real-buffer",
+      "shape": "buffer",
+      "semanticState": {
+        "kind": "buffer",
+        "anchor": "machinen-real-buffer-anchor-v1",
+        "utf8": "machinen",
+        "hex": "6d616368696e656e"
+      },
+      "anchors": {
+        "anchor": "machinen-real-buffer-anchor-v1",
+        "bytes": "buffer-bytes:6d616368696e656e"
+      }
+    },
+    {
+      "id": "047-memory-real-typed-array",
+      "shape": "typed-array",
+      "semanticState": {
+        "kind": "typed-array",
+        "anchor": "machinen-real-typed-array-anchor-v1",
+        "constructor": "Uint32Array",
+        "values": [7, 11, 13]
+      },
+      "anchors": {
+        "anchor": "machinen-real-typed-array-anchor-v1",
+        "values": "typed-array-values:7,11,13"
+      }
+    },
+    {
+      "id": "048-memory-real-http-handler-closure-state",
+      "shape": "http-handler-closure-state",
+      "semanticState": {
+        "kind": "http-handler-closure-state",
+        "anchor": "machinen-real-http-closure-anchor-v1",
+        "hits": 5,
+        "nextHit": 6
+      },
+      "anchors": {
+        "anchor": "machinen-real-http-closure-anchor-v1",
+        "hits": "http-hits:5"
+      }
+    }
+  ],
+  "unsupported": [],
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "arbitraryLinuxProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "samePidContinuationClaimed": false,
+    "activeRequestOrSocketContinuationClaimed": false
+  }
+}

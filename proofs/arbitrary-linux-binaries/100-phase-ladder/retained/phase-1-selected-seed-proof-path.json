@@ -1,0 +1,47 @@
+{
+  "kind": "machinen.arbitrary-process-100-phase-row",
+  "row": {
+    "id": "phase-1-selected-seed-proof-path",
+    "proofNumber": "arbitrary-phase/001",
+    "title": "1 / 1 selected seed proof path",
+    "targetClaim": {
+      "productSupport": null,
+      "broadSupport": 1,
+      "arbitraryProcessCrossArchRestore": 1
+    },
+    "status": "proof-only",
+    "claimChangeAllowed": false,
+    "productPathRequired": false,
+    "productPathCovered": false,
+    "retainedEvidence": [
+      "arbitrary/007 selected seed gate",
+      "arbitrary/008 selected behavior E2E",
+      "arbitrary/009-arbitrary/018 proof/refusal matrix"
+    ],
+    "missingGates": ["none for proof-only phase 1; product support is out of scope"],
+    "blockers": [],
+    "claimUse": "phase definition/evidence only; public arbitrary Linux process restore remains 0",
+    "next": "Keep as proof-backed selected seed evidence; do not require product-path artifacts."
+  },
+  "currentClaim": {
+    "productSupport": null,
+    "broadSupport": null,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "targetClaim": {
+    "productSupport": null,
+    "broadSupport": 1,
+    "arbitraryProcessCrossArchRestore": 1
+  },
+  "publicClaimAllowed": false,
+  "claimChangeAllowed": false,
+  "productSupportRowsAdded": 0,
+  "forbiddenShortcuts": [
+    "raw-cpu-restore",
+    "raw-register-replay",
+    "source-isa-emulation",
+    "app-checkpoint-hooks-as-source-of-truth",
+    "sidecar-replay",
+    "metadata-only-success"
+  ]
+}

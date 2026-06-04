@@ -1,0 +1,38 @@
+{
+  "id": "idle-epoll-tcp-listener-state",
+  "proofNumber": "arbitrary/025",
+  "category": "idle network resource",
+  "status": "verified",
+  "disposition": "supported-proof",
+  "accepted": true,
+  "productSupportOutOfScope": true,
+  "productSupportClaimAllowed": false,
+  "arbitraryRestoreClaimAllowed": false,
+  "evidence": [
+    "idle epoll and idle TCP listener with no ready events/streams are proven as selected reconstructable state"
+  ],
+  "stableCode": "supported-idle-epoll-tcp-listener-state",
+  "verifier": {
+    "idleEpollClassified": true,
+    "idleTcpListenerClassified": true,
+    "activeStreams": 0,
+    "proofArtifactRetained": true,
+    "targetVerifierPassed": true,
+    "stableRefusalCode": "supported-idle-epoll-tcp-listener-state",
+    "rawCpuRestoreUsed": false,
+    "rawRegisterReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "sidecarReplayUsed": false,
+    "metadataOnlySuccessAccepted": false
+  },
+  "proofArtifact": "idle-epoll-tcp-listener-state-proof.json",
+  "proofArtifactSha256": "3da5194e5f2c1c15a2f00d029861c015bae41ce5ef5e57d925ebe8b194b5c465",
+  "proofMode": "target-native-reconstruction-proof",
+  "proofQuality": "bidirectional-target-proof",
+  "executableFixture": "idle-epoll-tcp-listener-node-fixture",
+  "bidirectionalProofArtifact": "idle-epoll-tcp-listener-state-bidirectional-proof.json",
+  "bidirectionalProofArtifactSha256": "85aa0a51c18ec38d02e501bfe1a9935191891d844543c6142db66b4535fe9f3d",
+  "bidirectionalDirections": 2,
+  "proofChecksPassed": 5
+}

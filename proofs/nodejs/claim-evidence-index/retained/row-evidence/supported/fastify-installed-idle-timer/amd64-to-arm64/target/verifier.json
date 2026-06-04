@@ -1,0 +1,20 @@
+{
+  "kind": "machinen.node-supported-row-target-verifier",
+  "version": 1,
+  "accepted": true,
+  "rowId": "fastify-installed-idle-timer",
+  "direction": "amd64-to-arm64",
+  "routePath": "/fastify-installed-idle-timer",
+  "expectedBody": "fastify-installed-idle-timer-ok",
+  "actualBody": "fastify-installed-idle-timer-ok",
+  "bodySha256": "d56ee87b45b56fe37848bbe80f69fb3dad8d7c64a5c463cc0cd20b18b6c2bc5b",
+  "expectedHeader": {
+    "x-machinen-row": "fastify-installed-idle-timer"
+  },
+  "actualHeaders": "HTTP/1.1 200 OK\nx-machinen-row: fastify-installed-idle-timer\ncontent-type: text/plain; charset=utf-8\ncontent-length: 31\nDate: Tue, 02 Jun 2026 16:32:09 GMT\nConnection: keep-alive\nKeep-Alive: timeout=72\n\n",
+  "targetNativeNodeVerified": true,
+  "sourceIsaEmulationUsed": false,
+  "sidecarRuntimeUsed": false,
+  "appHooksRequired": false,
+  "metadataOnlySuccessAccepted": false
+}

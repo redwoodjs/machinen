@@ -1,0 +1,103 @@
+{
+  "id": "node-real-cross-arch-e2e-gate",
+  "claim": "Node real cross-architecture E2E gate required",
+  "trackId": "node-service",
+  "status": "partial-proof",
+  "scope": "Public Node product/broad claims require retained real VM machinen snapshot/restore artifacts in both directions with target behavior verification and refusal artifacts.",
+  "claimNumbers": {
+    "productSupport": 0,
+    "broadSupport": 0,
+    "arbitraryProcessCrossArchRestore": 0,
+    "candidateProductSupport": 20,
+    "candidateBroadSupport": 0
+  },
+  "promotionEffect": "Adds validated bidirectional clean Node HTTP seed evidence. It does not restore 100 / 100 / 0 until full row coverage and refusal artifacts are retained.",
+  "proofDirectory": "proofs/nodejs/real-cross-arch-e2e-gate",
+  "proofs": [
+    {
+      "id": "node-e2e-artifact-audit",
+      "category": "artifact audit",
+      "status": "partial-proof",
+      "artifact": "proofs/nodejs/real-cross-arch-e2e-gate/retained/node-real-cross-arch-e2e-gate-report.json",
+      "proves": "The retained seed artifacts are validated; full row-by-row artifact coverage is still missing.",
+      "claimUse": "required before public Node product/broad claim",
+      "next": "Attach retained E2E bundles to every supported Node support-matrix row.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 0,
+          "broadSupport": 0,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    },
+    {
+      "id": "node-e2e-amd64-to-arm64",
+      "category": "real E2E",
+      "status": "verified",
+      "artifact": "proofs/nodejs/real-cross-arch-e2e-gate/retained/amd64-to-arm64/target/restore.json",
+      "proves": "machinen snapshot <vm-name> on amd64 and machinen restore <dir> on arm64 restores selected Node service behavior with target-native verification.",
+      "claimUse": "required before amd64->arm64 public Node claim",
+      "next": "Expand from this clean HTTP seed to every supported Node row.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 0,
+          "broadSupport": 0,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    },
+    {
+      "id": "node-e2e-arm64-to-amd64",
+      "category": "real E2E",
+      "status": "verified",
+      "artifact": "proofs/nodejs/real-cross-arch-e2e-gate/retained/arm64-to-amd64/target/restore.json",
+      "proves": "machinen snapshot <vm-name> on arm64 and machinen restore <dir> on amd64 restores selected Node service behavior with target-native verification.",
+      "claimUse": "required before bidirectional public Node claim",
+      "next": "Expand from this clean HTTP seed to every supported Node row.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 0,
+          "broadSupport": 0,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    },
+    {
+      "id": "node-e2e-refusal-audit",
+      "category": "refusals",
+      "status": "verified",
+      "artifact": "proofs/nodejs/claim-evidence-index/retained/refusals/real-app-summary.json",
+      "proves": "Retained Node refusal artifacts verify unsupported live/runtime states fail closed before snapshot/restore: real-app refusals cover active requests, workers, native addons, wasm external memory, TLS active state, DB/Redis/HTTP/socket/watch states, and generic-VM refusals cover active requests, child processes, native addons, TLS active state, and worker threads.",
+      "claimUse": "retained boundary evidence for the selected Node service claim; prevents broadening to unsupported live/runtime states",
+      "next": "Keep refusal artifacts accepted through the consolidated Node claim evidence index before any future Node claim change.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 0,
+          "broadSupport": 0,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      },
+      "supportingArtifacts": [
+        "proofs/nodejs/claim-evidence-index/retained/refusals/real-app-summary.json",
+        "proofs/nodejs/claim-evidence-index/retained/refusals/generic-vm-refusal-artifacts-summary.json",
+        "proofs/nodejs/claim-evidence-index/retained/node-claim-boundary-guard-report.json"
+      ]
+    }
+  ]
+}

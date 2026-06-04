@@ -1,0 +1,72 @@
+{
+  "kind": "machinen.arbitrary-process-bidirectional-target-proof",
+  "version": 1,
+  "rowId": "simple-pipe-fd-state",
+  "proofNumber": "arbitrary/023",
+  "accepted": true,
+  "proofQuality": "bidirectional-target-proof",
+  "directions": [
+    {
+      "direction": "arm64-to-amd64",
+      "sourceArch": "arm64",
+      "targetArch": "amd64",
+      "accepted": true,
+      "targetVerifierPassed": true,
+      "executableFixture": "simple-pipe-node-fixture",
+      "fixtureOutputSha256": "abbca8872e4f03f1309842bdc865decb678e04da4ca4a506896a241901808207",
+      "checks": [
+        {
+          "name": "target-native-verifier-passed",
+          "passed": true,
+          "detail": "amd64 target verifier accepted simple-pipe-node-fixture"
+        },
+        {
+          "name": "source-isa-emulation-not-used",
+          "passed": true,
+          "detail": "arm64-to-amd64 used target-native reconstruction proof metadata, not source ISA emulation"
+        },
+        {
+          "name": "claim-guard-held",
+          "passed": true,
+          "detail": "proof remains proof-only with product support out of scope and arbitrary process restore claim 0"
+        }
+      ]
+    },
+    {
+      "direction": "amd64-to-arm64",
+      "sourceArch": "amd64",
+      "targetArch": "arm64",
+      "accepted": true,
+      "targetVerifierPassed": true,
+      "executableFixture": "simple-pipe-node-fixture",
+      "fixtureOutputSha256": "ba0908367cb741f7a7372e3089f6670937bca8f89036db1e2ca8d9b9dd6de934",
+      "checks": [
+        {
+          "name": "target-native-verifier-passed",
+          "passed": true,
+          "detail": "arm64 target verifier accepted simple-pipe-node-fixture"
+        },
+        {
+          "name": "source-isa-emulation-not-used",
+          "passed": true,
+          "detail": "amd64-to-arm64 used target-native reconstruction proof metadata, not source ISA emulation"
+        },
+        {
+          "name": "claim-guard-held",
+          "passed": true,
+          "detail": "proof remains proof-only with product support out of scope and arbitrary process restore claim 0"
+        }
+      ]
+    }
+  ],
+  "claimGuard": {
+    "productSupportOutOfScope": true,
+    "productSupportRowsAdded": 0,
+    "arbitraryProcessRestoreClaimed": 0,
+    "publicClaimAllowed": false,
+    "sourceIsaEmulationUsed": false,
+    "rawCpuRestoreUsed": false,
+    "rawRegisterReplayUsed": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

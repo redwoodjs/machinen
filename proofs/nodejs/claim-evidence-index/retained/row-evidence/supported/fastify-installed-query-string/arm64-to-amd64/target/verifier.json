@@ -1,0 +1,20 @@
+{
+  "kind": "machinen.node-supported-row-target-verifier",
+  "version": 1,
+  "accepted": true,
+  "rowId": "fastify-installed-query-string",
+  "direction": "arm64-to-amd64",
+  "routePath": "/fastify-installed-query-string",
+  "expectedBody": "fastify-installed-query-string-ok",
+  "actualBody": "fastify-installed-query-string-ok",
+  "bodySha256": "1b10dcd355d90ea582abf2cbffc59e0655b0395830e321ecc290ecff5d12ed4f",
+  "expectedHeader": {
+    "x-machinen-row": "fastify-installed-query-string"
+  },
+  "actualHeaders": "HTTP/1.1 200 OK\nx-machinen-row: fastify-installed-query-string\ncontent-type: text/plain; charset=utf-8\ncontent-length: 33\nDate: Tue, 02 Jun 2026 16:29:30 GMT\nConnection: keep-alive\nKeep-Alive: timeout=72\n\n",
+  "targetNativeNodeVerified": true,
+  "sourceIsaEmulationUsed": false,
+  "sidecarRuntimeUsed": false,
+  "appHooksRequired": false,
+  "metadataOnlySuccessAccepted": false
+}

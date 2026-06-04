@@ -1,0 +1,20 @@
+{
+  "id": "020-outbound-connection-app",
+  "slug": "outbound-connection-app",
+  "runtime": "nodejs",
+  "description": "Outbound connection refused unless reconnect policy is declared and verified",
+  "disposition": "refused-first",
+  "claimUse": "classification/refusal only; no product support claim",
+  "architecturePolicy": "run-on-each-target-architecture-with-machinen-runtime",
+  "startCommand": "node app.mjs",
+  "healthPath": "/health",
+  "expectedBody": "machinen-node-portability:outbound-connection-app",
+  "dependencies": [],
+  "refusalCode": "node-portability-outbound-connection-unsupported",
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "kind": "machinen.whole-vm-workload-product-refusal-artifact",
+  "version": 1,
+  "rowId": "whole-vm-sqlite-clean-db-workload",
+  "accepted": true,
+  "status": "verified",
+  "disposition": "refused",
+  "refusalCode": "whole-vm-workload-tool-missing",
+  "directions": [
+    {
+      "direction": "arm64-to-amd64",
+      "accepted": true,
+      "refusedBeforeProductClaim": true,
+      "stableRefusalCode": "whole-vm-workload-tool-missing",
+      "evidence": ["arm64:sqlite3-not-installed-in-guest"]
+    },
+    {
+      "direction": "amd64-to-arm64",
+      "accepted": true,
+      "refusedBeforeProductClaim": true,
+      "stableRefusalCode": "whole-vm-workload-tool-missing",
+      "evidence": ["amd64:sqlite3-not-installed-in-guest"]
+    }
+  ],
+  "claimGuard": {
+    "publicClaimAllowed": false,
+    "claimChangeAllowed": false,
+    "arbitraryVmRestoreClaimed": false,
+    "arbitraryLinuxProcessRestoreClaimed": false,
+    "rawVmStateRestoreUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

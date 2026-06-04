@@ -1,0 +1,43 @@
+booting vm…
+guest ready
+ready in 1.66s
+[    0.000000] Linux version 6.12.20 (root@p4p8-server) (gcc (Debian 12.2.0-14+deb12u1) 12.2.0, GNU ld (GNU Binutils for Debian) 2.40) #1 SMP PREEMPT_DYNAMIC Tue May 26 12:35:14 SAST 2026
+[    0.000000] Command line: earlycon=uart8250,io,0x3f8,115200n8 console=ttyS0 panic=1 loglevel=3 quiet reboot=k noapic acpi=force pci=off virtio_mmio.device=512@0x0a000000:5 virtio_mmio.device=512@0x0a000200:6 virtio_mmio.device=512@0x0a000400:7 virtio_mmio.device=512@0x0a000600:8 virtio_mmio.device=512@0x0a000800:9 virtio_mmio.device=512@0x0a000a00:10 virtio_mmio.device=512@0x0a000c00:11 virtio_mmio.device=512@0x0a000e00:12 virtio_mmio.device=512@0x0a001000:13 virtio_mmio.device=512@0x0a001200:14 virtio_mmio.device=512@0x0a001400:15 virtio_mmio.device=512@0x0a001600:16
+[    0.000000] [Firmware Bug]: TSC doesn't count with P0 frequency!
+[    0.000000] BIOS-provided physical RAM map:
+[    0.000000] BIOS-e820: [mem 0x0000000000000000-0x000000000009fbff] usable
+[    0.000000] BIOS-e820: [mem 0x000000000009fc00-0x00000000000effff] reserved
+[    0.000000] BIOS-e820: [mem 0x00000000000f0000-0x00000000000fffff] ACPI data
+[    0.000000] BIOS-e820: [mem 0x0000000000100000-0x0000000009ffffff] usable
+[    0.000000] BIOS-e820: [mem 0x000000000a000000-0x000000000a00ffff] reserved
+[    0.000000] BIOS-e820: [mem 0x000000000a010000-0x00000000ffffffff] usable
+[    0.000000] earlycon: uart8250 at I/O port 0x3f8 (options '115200n8')
+[    0.000000] printk: legacy bootconsole [uart8250] enabled
+[    0.020911] Cannot find an available gap in the 32-bit address range
+[    0.021093] PCI devices with unassigned 32-bit BARs may not work!
+vsock: REQUEST inject failed (guest not ready?) — closing
+[    0.156472] PCI: Fatal: No config space access function found
+[    0.158519] ACPI Error: Could not enable GlobalLock event (20240827/evxfevnt-182)
+[    0.158734] ACPI Error: No response from Global Lock hardware, disabling lock (20240827/evglock-59)
+[    0.200385] ACPI Error: Could not enable PowerButton event (20240827/evxfevnt-182)
+[    0.200679] ACPI Error: Could not enable SleepButton event (20240827/evxfevnt-182)
+[    0.220744] init: === machinen /init: reading /machinen-config.json ===
+[    0.221608] init: init: rootdisk grew to 524288 4K blocks (2147483648 bytes)
+[    0.221924] init: checkpoint: post-tryRootDiskPivot pivoted=true
+[    0.222098] init: checkpoint: post-setBootClock
+[    0.222473] init: checkpoint: post-bringUpNetwork
+[    0.222628] init: checkpoint: post-loadConfig
+[    0.222753] init: checkpoint: mountdisk: guest path read
+[    0.222950] init: checkpoint: mountdisk: devices identified
+[    0.223505] init: checkpoint: mountdisk: lower mounted
+[    0.224039] init: checkpoint: mountdisk: upper mounted
+[    0.431040] supervisor: starting cmd=/usr/bin/env /bin/sh /mnt/proof/run-corpus.sh amd64
+[    0.432217] MACHINEN_WHOLE_VM_CORPUS_ROW arch=amd64 id=whole-vm-sqlite-clean-db-workload disposition=refused accepted=true refusalCode=whole-vm-workload-tool-missing tool=sqlite3 evidence=sqlite3-not-installed-in-guest
+[    0.433171] MACHINEN_WHOLE_VM_CORPUS_ROW arch=amd64 id=whole-vm-postgresql-clean-workload disposition=refused accepted=true refusalCode=whole-vm-workload-tool-missing tool=postgresql evidence=postgresql-tools-not-installed-in-guest
+[    0.434870] MACHINEN_WHOLE_VM_CORPUS_ROW arch=amd64 id=whole-vm-c-service-workload disposition=supported accepted=true evidence=target-native-c-service-verifier-passed
+[    0.436025] MACHINEN_WHOLE_VM_CORPUS_ROW arch=amd64 id=whole-vm-java-service-workload disposition=refused accepted=true refusalCode=whole-vm-workload-tool-missing tool=java evidence=java-runtime-not-installed-in-guest
+[    0.437147] MACHINEN_WHOLE_VM_CORPUS_ROW arch=amd64 id=whole-vm-filesystem-workload disposition=supported accepted=true evidence=file-tree-create-copy-read-verifier-passed
+[    0.438851] MACHINEN_WHOLE_VM_CORPUS_ROW arch=amd64 id=whole-vm-network-listener-workload disposition=supported accepted=true evidence=loopback-listener-request-response-verifier-passed
+[    0.440399] MACHINEN_WHOLE_VM_CORPUS_ROW arch=amd64 id=whole-vm-multi-process-workload disposition=supported accepted=true evidence=fork-pipe-child-verifier-passed
+[    0.440838] MACHINEN_WHOLE_VM_CORPUS_ROW arch=amd64 id=whole-vm-dirty-active-opaque-state-refusals disposition=refusal-defined accepted=true refusalCode=whole-vm-dirty-active-opaque-state-unsupported evidence=dirty-db-active-session-opaque-kernel-device-runtime-private-state-require-explicit-refusal
+[    0.442206] reboot: Power down

@@ -1,0 +1,38 @@
+{
+  "id": "postgres-vmstate-snapshot-restore",
+  "claim": "PostgreSQL / psql VM-state snapshot/restore verified",
+  "trackId": "postgres",
+  "status": "verified",
+  "scope": "Clean quiesced PostgreSQL 15 database inside an arm64 Machinen VM restored through vmstate snapshot/restore and verified with psql.",
+  "claimNumbers": {
+    "productSupport": 0,
+    "broadSupport": 0,
+    "arbitraryProcessCrossArchRestore": 0,
+    "candidateProductSupport": 0,
+    "candidateBroadSupport": 0
+  },
+  "promotionEffect": "Adds a verified PostgreSQL/psql VM-state snapshot/restore proof, but does not raise the public portable PostgreSQL cross-architecture claim.",
+  "proofDirectory": "proofs/postgres/vmstate-snapshot-restore",
+  "proofs": [
+    {
+      "id": "postgres-vmstate-snapshot-restore-psql",
+      "category": "real VM E2E",
+      "status": "verified",
+      "artifact": "proofs/postgres/vmstate-snapshot-restore/retained/postgres-vmstate-snapshot-restore-gate-report.json",
+      "proves": "A real PostgreSQL 15 service in an arm64 Machinen VM was snapshotted and restored with vmstate, and target psql verification matched the source workload output.",
+      "claimUse": "narrow PostgreSQL/psql VM-state proof only; not a cross-architecture public PostgreSQL claim",
+      "next": "Run retained native amd64<->arm64 PostgreSQL product E2E before raising portable PostgreSQL support.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 0,
+          "broadSupport": 0,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    }
+  ]
+}

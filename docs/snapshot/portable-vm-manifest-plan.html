@@ -1,0 +1,837 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Portable VM Manifest / Plan</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #0f172a;
+        --card: #111827;
+        --card-2: #0b1220;
+        --line: #334155;
+        --muted: #94a3b8;
+        --text: #e5e7eb;
+        --good: #22c55e;
+        --warn: #f59e0b;
+        --bad: #ef4444;
+        --info: #38bdf8;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family:
+          Inter,
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+      }
+      main {
+        max-width: 1480px;
+        margin: 0 auto;
+        padding: 28px 18px 56px;
+      }
+      header {
+        display: grid;
+        gap: 10px;
+        margin-bottom: 18px;
+      }
+      h1,
+      p {
+        margin: 0;
+      }
+      h1 {
+        font-size: clamp(28px, 5vw, 44px);
+        line-height: 1;
+      }
+      .muted {
+        color: var(--muted);
+      }
+      .table-card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        overflow-x: auto;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        min-width: 1180px;
+      }
+      th,
+      td {
+        border-bottom: 1px solid var(--line);
+        padding: 10px 12px;
+        text-align: left;
+        vertical-align: top;
+      }
+      th {
+        background: var(--card-2);
+        color: var(--muted);
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        position: sticky;
+        text-transform: uppercase;
+        top: 0;
+        z-index: 1;
+      }
+      tr.subheading td {
+        background: color-mix(in srgb, var(--info) 15%, var(--card-2));
+        color: #e0f2fe;
+        font-size: 13px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        padding-top: 14px;
+        text-transform: uppercase;
+      }
+      tr:hover:not(.subheading) td {
+        background: color-mix(in srgb, var(--card-2) 70%, transparent);
+      }
+      code {
+        background: var(--card-2);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 2px 6px;
+      }
+      .pill {
+        border-radius: 999px;
+        display: inline-block;
+        font-size: 12px;
+        font-weight: 800;
+        padding: 4px 8px;
+        white-space: nowrap;
+      }
+      .portable,
+      .reconstructable,
+      .product-supported {
+        background: color-mix(in srgb, var(--good) 22%, transparent);
+        color: #bbf7d0;
+      }
+      .refused {
+        background: color-mix(in srgb, var(--bad) 24%, transparent);
+        color: #fecaca;
+      }
+      .same-arch-only,
+      .unknown,
+      .draft-for-validation {
+        background: color-mix(in srgb, var(--warn) 26%, transparent);
+        color: #fde68a;
+      }
+      .false {
+        background: color-mix(in srgb, var(--info) 22%, transparent);
+        color: #bae6fd;
+      }
+      .true {
+        background: color-mix(in srgb, var(--good) 22%, transparent);
+        color: #bbf7d0;
+      }
+      ul {
+        margin: 0;
+        padding-left: 18px;
+      }
+      .nowrap {
+        white-space: nowrap;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="muted" id="source">loading…</p>
+        <h1>Portable VM Manifest / VM Portability Plan</h1>
+        <p class="muted">
+          Single-table draft for a paused VM inventory plus restore/refusal plan. This is a design
+          artifact, not a public arbitrary-VM restore claim.
+        </p>
+      </header>
+
+      <section class="table-card" aria-label="Portable VM manifest plan tracking table">
+        <table id="tracking-table">
+          <thead>
+            <tr>
+              <th>Section</th>
+              <th>Row / item</th>
+              <th>Disposition / value</th>
+              <th>Restore strategy / meaning</th>
+              <th>Artifacts / proof gate</th>
+              <th>Refusal / guard</th>
+            </tr>
+          </thead>
+          <tbody id="single-tracking-table"></tbody>
+        </table>
+      </section>
+    </main>
+
+    <script id="embedded-portable-vm-manifest-plan" type="application/json">
+      {
+        "kind": "machinen.portable-vm-manifest-plan",
+        "version": 1,
+        "status": "draft-for-validation",
+        "scope": "cross-architecture-portable-whole-vm-restore-v1",
+        "purpose": "Describe a paused VM as portable inventory plus a restore/refusal plan before any cross-architecture whole-VM restore claim is made.",
+        "productIntent": {
+          "problem": "A VM contains mixed state: some portable, some target-native reconstructable, some unsafe across CPU architectures, and some unknown.",
+          "goal": "Pause a VM, inventory its contents, classify every row, restore what is safe, and refuse unsafe state with stable codes.",
+          "notGoal": "Do not claim exact arbitrary cross-architecture VM resume, raw vCPU replay, source ISA emulation, or metadata-only success.",
+          "why": "This makes mostly-whole-VM cross-architecture restore inspectable and honest instead of a vague any-VM promise.",
+          "nextImplementationStep": "Promote the retained real cross-arch filesystem, service, SQLite, and TCP-listener E2Es into machinen snapshot --portable and machinen restore consuming the Portable VM Manifest/Plan directly, with source and target architecture detected automatically."
+        },
+        "workflow": [
+          {
+            "step": 1,
+            "name": "snapshot VM",
+            "does": "machinen snapshot --portable pauses/quiesces the source VM and detects the source architecture from the VM/inventory",
+            "why": "avoid copying dirty or changing state"
+          },
+          {
+            "step": 2,
+            "name": "inventory VM",
+            "does": "discover filesystems, services, processes, DBs, listeners, devices, and kernel state",
+            "why": "know what is actually inside the VM"
+          },
+          {
+            "step": 3,
+            "name": "classify rows",
+            "does": "mark each item portable, reconstructable, product-supported, refused, same-arch-only, or unknown",
+            "why": "prevent hidden unsupported state from becoming a false success"
+          },
+          {
+            "step": 4,
+            "name": "plan restore",
+            "does": "convert supported rows into target-native restore actions and refused rows into stable errors",
+            "why": "make restore deterministic and auditable"
+          },
+          {
+            "step": 5,
+            "name": "restore target-native VM",
+            "does": "machinen restore detects the target architecture from the target VM/host, boots target-native VM, materializes portable data, installs/recreates target-native services, and runs verifiers",
+            "why": "cross architectures without raw CPU/vCPU replay"
+          },
+          {
+            "step": 6,
+            "name": "retain proof artifacts",
+            "does": "keep manifest, plan, transcripts, refusal codes, and verifier output",
+            "why": "public claims must be backed by artifacts"
+          }
+        ],
+        "claimGuard": {
+          "publicClaimAllowed": false,
+          "arbitraryVmRestoreClaimed": false,
+          "arbitraryLinuxProcessRestoreClaimed": false,
+          "rawVmStateReplayAllowed": false,
+          "crossIsaVcpuReplayAllowed": false,
+          "sourceIsaEmulationAllowed": false,
+          "metadataOnlySuccessAllowed": false
+        },
+        "sourceVm": {
+          "id": "example-source-vm",
+          "sourceArchitecture": "detected-from-source-vm",
+          "targetArchitecture": "detected-at-restore-time",
+          "guestOs": "linux",
+          "kernel": "example-kernel-version",
+          "vmm": "machinen-vm",
+          "pauseMode": "guest-quiesced",
+          "quiesce": {
+            "filesystemFrozen": true,
+            "servicesStoppedOrCheckpointed": "selected-services-only",
+            "databasesClean": "selected-clean-databases-only",
+            "networkDrained": "listeners-only-active-streams-refused"
+          },
+          "architectureDetection": {
+            "source": "machinen snapshot --portable reads the running source VM/inventory architecture",
+            "target": "machinen restore detects the target VM/host architecture before planning restore actions",
+            "userSuppliedArchPolicy": "normal VM workflow does not require --source-arch or --target-arch; overrides are for proof harnesses and refusal tests only"
+          }
+        },
+        "targetPolicy": {
+          "restoreMode": "target-native-reconstruction",
+          "allowedTargetArchitectures": ["arm64", "amd64"],
+          "dependencyPolicy": "target-native-dependencies-required",
+          "unknownStatePolicy": "refuse-by-default",
+          "architectureDetection": "detect-target-architecture-at-restore-time",
+          "userArchOverridePolicy": "proof-and-refusal-tests-only"
+        },
+        "dispositionLegend": [
+          {
+            "disposition": "portable",
+            "meaning": "Can be copied or materialized without architecture-specific interpretation."
+          },
+          {
+            "disposition": "reconstructable",
+            "meaning": "Can be recreated target-native from portable metadata."
+          },
+          {
+            "disposition": "product-supported",
+            "meaning": "A retained product path exists for this row and scope."
+          },
+          {
+            "disposition": "refused",
+            "meaning": "Known unsafe or unsupported; restore must stop with a stable refusal code."
+          },
+          {
+            "disposition": "same-arch-only",
+            "meaning": "May be restorable only without crossing CPU architecture."
+          },
+          {
+            "disposition": "unknown",
+            "meaning": "Not classified; refused by default."
+          }
+        ],
+        "manifest": {
+          "filesystems": [
+            {
+              "id": "rootfs-file-tree",
+              "mountPoint": "/",
+              "state": "clean-file-tree",
+              "contentAddressed": true,
+              "disposition": "portable"
+            }
+          ],
+          "services": [
+            {
+              "id": "example-c-service",
+              "manager": "systemd-or-supervisor",
+              "binaryPolicy": "target-native-binary-required",
+              "disposition": "product-supported"
+            }
+          ],
+          "processes": [
+            {
+              "id": "selected-service-process",
+              "argvCaptured": true,
+              "envCaptured": true,
+              "cwdCaptured": true,
+              "memoryPolicy": "portable-data-only",
+              "disposition": "reconstructable"
+            },
+            {
+              "id": "unknown-live-process",
+              "state": "unclassified-live-process-state",
+              "disposition": "refused",
+              "refusalCode": "portable-vm-unknown-process-state-unsupported"
+            }
+          ],
+          "network": [
+            {
+              "id": "http-listener-8080",
+              "protocol": "tcp",
+              "state": "listening-no-active-streams",
+              "disposition": "reconstructable"
+            },
+            {
+              "id": "active-tcp-streams",
+              "state": "connected-streams-or-in-flight-packets",
+              "disposition": "refused",
+              "refusalCode": "portable-vm-active-network-stream-unsupported"
+            }
+          ],
+          "databases": [
+            {
+              "id": "sqlite-clean-db",
+              "engine": "sqlite",
+              "state": "clean-quiesced",
+              "disposition": "product-supported"
+            },
+            {
+              "id": "postgres-dirty-wal",
+              "engine": "postgresql",
+              "state": "active-transaction-or-dirty-wal",
+              "disposition": "refused",
+              "refusalCode": "portable-vm-active-db-state-unsupported"
+            }
+          ],
+          "devices": [
+            {
+              "id": "virtio-net",
+              "state": "configuration-only",
+              "disposition": "reconstructable"
+            },
+            {
+              "id": "passthrough-gpu",
+              "state": "opaque-device-state",
+              "disposition": "refused",
+              "refusalCode": "portable-vm-opaque-device-state-unsupported"
+            }
+          ],
+          "kernelState": [
+            {
+              "id": "mount-namespace",
+              "state": "declared-mount-table",
+              "disposition": "reconstructable"
+            },
+            {
+              "id": "active-syscalls",
+              "state": "in-kernel-continuation",
+              "disposition": "refused",
+              "refusalCode": "portable-vm-active-syscall-unsupported"
+            }
+          ]
+        },
+        "plan": {
+          "rows": [
+            {
+              "id": "vm/rootfs-file-tree",
+              "component": "filesystem",
+              "sourceRef": "rootfs-file-tree",
+              "disposition": "portable",
+              "restoreStrategy": "copy-content-addressed-file-tree",
+              "artifactRequirements": ["file-tree-manifest", "content-hashes"],
+              "proofGate": "file-tree-materialization-proof"
+            },
+            {
+              "id": "vm/example-c-service",
+              "component": "service",
+              "sourceRef": "example-c-service",
+              "disposition": "product-supported",
+              "restoreStrategy": "install-target-native-binary-and-start-service",
+              "artifactRequirements": [
+                "service-manifest",
+                "target-native-binary",
+                "start-verifier"
+              ],
+              "proofGate": "service-product-gate"
+            },
+            {
+              "id": "vm/http-listener-8080",
+              "component": "network",
+              "sourceRef": "http-listener-8080",
+              "disposition": "reconstructable",
+              "restoreStrategy": "bind-target-native-listener",
+              "artifactRequirements": [
+                "listener-manifest",
+                "port-policy",
+                "request-response-verifier"
+              ],
+              "proofGate": "network-listener-reconstruction-proof"
+            },
+            {
+              "id": "vm/sqlite-clean-db",
+              "component": "database",
+              "sourceRef": "sqlite-clean-db",
+              "disposition": "product-supported",
+              "restoreStrategy": "restore-clean-db-with-target-native-tooling",
+              "artifactRequirements": [
+                "clean-db-export-or-snapshot",
+                "target-native-sqlite-tooling",
+                "query-verifier"
+              ],
+              "proofGate": "clean-db-product-gate"
+            },
+            {
+              "id": "vm/postgres-dirty-wal",
+              "component": "database",
+              "sourceRef": "postgres-dirty-wal",
+              "disposition": "refused",
+              "restoreStrategy": "stop-before-restore",
+              "refusalCode": "portable-vm-active-db-state-unsupported",
+              "artifactRequirements": ["dirty-wal-detector-transcript", "stable-refusal-code"],
+              "proofGate": "dirty-db-refusal-proof"
+            },
+            {
+              "id": "vm/active-tcp-streams",
+              "component": "network",
+              "sourceRef": "active-tcp-streams",
+              "disposition": "refused",
+              "restoreStrategy": "stop-before-restore",
+              "refusalCode": "portable-vm-active-network-stream-unsupported",
+              "artifactRequirements": ["active-stream-detector-transcript", "stable-refusal-code"],
+              "proofGate": "active-network-refusal-proof"
+            },
+            {
+              "id": "vm/passthrough-gpu",
+              "component": "device",
+              "sourceRef": "passthrough-gpu",
+              "disposition": "refused",
+              "restoreStrategy": "stop-before-restore",
+              "refusalCode": "portable-vm-opaque-device-state-unsupported",
+              "artifactRequirements": ["device-inventory", "stable-refusal-code"],
+              "proofGate": "opaque-device-refusal-proof"
+            },
+            {
+              "id": "vm/active-syscalls",
+              "component": "kernel-state",
+              "sourceRef": "active-syscalls",
+              "disposition": "refused",
+              "restoreStrategy": "stop-before-restore",
+              "refusalCode": "portable-vm-active-syscall-unsupported",
+              "artifactRequirements": ["syscall-detector-transcript", "stable-refusal-code"],
+              "proofGate": "active-syscall-refusal-proof"
+            }
+          ]
+        },
+        "summary": {
+          "manifestSections": 7,
+          "planRows": 8,
+          "portableRows": 1,
+          "reconstructableRows": 1,
+          "productSupportedRows": 2,
+          "refusedRows": 4,
+          "sameArchOnlyRows": 0,
+          "unknownRows": 0,
+          "publicClaimAllowed": false,
+          "implementationEvidenceRows": 7,
+          "realCrossArchE2eRows": 4,
+          "arbitraryVmRestoreClaimed": false,
+          "sourceArchitectureDetection": "snapshot-time",
+          "targetArchitectureDetection": "restore-time",
+          "productCommandEvidenceRows": 1
+        },
+        "validationRules": [
+          "Every manifest item must have a disposition.",
+          "Every plan row with disposition=refused must have a stable refusalCode.",
+          "Every product-supported row must name a proofGate and artifactRequirements.",
+          "unknownStatePolicy=refuse-by-default must remain true for cross-architecture restore.",
+          "A manifest/plan alone must not raise a public arbitrary VM restore claim."
+        ],
+        "implementationEvidence": [
+          {
+            "id": "vm/028",
+            "row": "portable-vm-inventory-plan-proof",
+            "status": "verified",
+            "scope": "controlled-portable-vm-inventory-plan-v1",
+            "proves": "Controlled VM inventory rows classify into a generated Portable VM Manifest/Plan with stable refusals.",
+            "artifact": "proofs/linux-vm-workload/portable-vm-inventory-plan/retained/portable-vm-inventory-plan-report.json",
+            "claimUse": "workflow proof only; arbitrary VM restore remains unclaimed"
+          },
+          {
+            "id": "vm/029",
+            "row": "portable-vm-guest-inventory-plan-proof",
+            "status": "verified",
+            "scope": "fixture-guest-inventory-portable-vm-plan-v1",
+            "proves": "Fixture guest inventory input is collected into raw inventory and classified into a Portable VM Manifest/Plan.",
+            "artifact": "proofs/linux-vm-workload/portable-vm-guest-inventory-plan/retained/portable-vm-guest-inventory-plan-report.json",
+            "claimUse": "workflow proof only; arbitrary VM restore remains unclaimed"
+          },
+          {
+            "id": "vm/030",
+            "row": "real-cross-arch-tcp-listener-product-e2e",
+            "status": "verified",
+            "scope": "real-cross-arch-tcp-listener-product-e2e-v1",
+            "proves": "Actual amd64→arm64 product resource snapshot/restore evidence boots a target-native VM and verifies a selected TCP listener; VM product path should detect source/target arch automatically.",
+            "artifact": "proofs/linux-vm-workload/real-cross-arch-tcp-listener-product-e2e/retained/real-cross-arch-tcp-listener-product-e2e-report.json",
+            "claimUse": "selected TCP listener workload evidence only; source/target arch detection is the product direction; arbitrary VM restore remains unclaimed"
+          },
+          {
+            "id": "vm/031",
+            "row": "real-cross-arch-filesystem-product-e2e",
+            "status": "verified",
+            "scope": "real-cross-arch-portable-vm-filesystem-service-sqlite-v1",
+            "proves": "Actual amd64→arm64 target VM materializes retained filesystem rows and verifies SHA-256 hashes. Product VM workflow should detect source/target arch automatically.",
+            "artifact": "proofs/linux-vm-workload/real-cross-arch-portable-vm-all3-e2e/retained/real-cross-arch-portable-vm-all3-e2e-report.json",
+            "claimUse": "selected filesystem workload evidence only; source/target arch detection is the product direction; arbitrary VM restore remains unclaimed"
+          },
+          {
+            "id": "vm/032",
+            "row": "real-cross-arch-service-product-e2e",
+            "status": "verified",
+            "scope": "real-cross-arch-portable-vm-filesystem-service-sqlite-v1",
+            "proves": "Actual amd64→arm64 target VM starts a target-native selected service and verifies request/response behavior. Product VM workflow should detect source/target arch automatically.",
+            "artifact": "proofs/linux-vm-workload/real-cross-arch-portable-vm-all3-e2e/retained/real-cross-arch-portable-vm-all3-e2e-report.json",
+            "claimUse": "selected service workload evidence only; source/target arch detection is the product direction; arbitrary VM restore remains unclaimed"
+          },
+          {
+            "id": "vm/033",
+            "row": "real-cross-arch-sqlite-product-e2e",
+            "status": "verified",
+            "scope": "real-cross-arch-portable-vm-filesystem-service-sqlite-v1",
+            "proves": "Actual amd64→arm64 target VM restores a clean SQLite database with target-native tooling and verifies query results. Product VM workflow should detect source/target arch automatically.",
+            "artifact": "proofs/linux-vm-workload/real-cross-arch-portable-vm-all3-e2e/retained/real-cross-arch-portable-vm-all3-e2e-report.json",
+            "claimUse": "selected clean SQLite workload evidence only; source/target arch detection is the product direction; arbitrary VM restore remains unclaimed"
+          },
+          {
+            "id": "vm/034",
+            "row": "portable-vm-product-snapshot-restore-e2e",
+            "status": "verified",
+            "scope": "portable-vm-all3-product-snapshot-restore-v1",
+            "proves": "machinen snapshot --portable now emits raw inventory and a VM Portability Plan from the guest inventory agent, and machinen restore consumes the selected portable VM plan before target restore; retained evidence also includes real arm64→amd64 restore with filesystem/service/SQLite verifiers passing.",
+            "artifact": "proofs/linux-vm-workload/portable-vm-product-snapshot-restore/retained/portable-vm-product-snapshot-restore-e2e-report.json",
+            "claimUse": "product command path evidence for the selected all-three portable VM workload and plan consumption; arbitrary VM restore remains unclaimed"
+          },
+          {
+            "id": "vm/035",
+            "row": "portable-vm-product-plan-refusal",
+            "status": "verified",
+            "scope": "portable-vm-all3-product-snapshot-restore-v1",
+            "proves": "machinen restore consumes a VM Portability Plan and refuses an active-network-stream row before target VM boot with stable refusal code portable-vm-active-network-stream-unsupported.",
+            "artifact": "proofs/linux-vm-workload/portable-vm-product-plan-refusal/retained/portable-vm-product-plan-refusal-report.json",
+            "claimUse": "product refusal evidence only; unsafe plan rows are fail-closed and arbitrary VM restore remains unclaimed"
+          }
+        ]
+      }
+    </script>
+
+    <script>
+      const jsonPath = "./portable-vm-manifest-plan.json";
+      loadEmbedded();
+      if (globalThis.location?.protocol !== "file:") void loadRemote();
+
+      function loadEmbedded() {
+        const embedded = document.querySelector("#embedded-portable-vm-manifest-plan")?.textContent;
+        if (!embedded) return;
+        render(JSON.parse(embedded), "embedded portable VM manifest/plan");
+      }
+
+      async function loadRemote() {
+        try {
+          const response = await fetch(`${jsonPath}?t=${Date.now()}`);
+          if (!response.ok) throw new Error(`failed to load ${jsonPath}`);
+          render(await response.json(), jsonPath);
+        } catch {
+          loadEmbedded();
+        }
+      }
+
+      function render(data, sourceLabel) {
+        document.querySelector("#source").textContent =
+          `source: ${sourceLabel} · version: ${data.version} · ${data.scope}`;
+        document.querySelector("#single-tracking-table").innerHTML = trackingRows(data);
+      }
+
+      function trackingRows(data) {
+        const rows = [];
+        rows.push(subheading("What are we doing, and why?"));
+        rows.push(row("Intent", "Problem", "mixed VM state", data.productIntent.problem, "—", "—"));
+        rows.push(
+          row("Intent", "Goal", "mostly whole-VM restore", data.productIntent.goal, "—", "—"),
+        );
+        rows.push(
+          row(
+            "Intent",
+            "Not goal",
+            pill("not arbitrary VM resume"),
+            data.productIntent.notGoal,
+            "—",
+            "claim stays scoped",
+          ),
+        );
+        rows.push(row("Intent", "Why", "safe + inspectable", data.productIntent.why, "—", "—"));
+        rows.push(
+          row(
+            "Intent",
+            "Next implementation",
+            "build",
+            data.productIntent.nextImplementationStep,
+            "—",
+            "—",
+          ),
+        );
+
+        rows.push(subheading("Workflow"));
+        for (const step of data.workflow) {
+          rows.push(
+            row(
+              "Workflow",
+              `${step.step}. ${step.name}`,
+              "implementation step",
+              step.does,
+              "—",
+              step.why,
+            ),
+          );
+        }
+
+        if (Array.isArray(data.implementationEvidence) && data.implementationEvidence.length > 0) {
+          rows.push(subheading("Implementation evidence"));
+          for (const evidence of data.implementationEvidence) {
+            rows.push(
+              row(
+                "Implementation evidence",
+                `${code(evidence.id)} ${evidence.row}`,
+                pill(evidence.status),
+                evidence.proves,
+                `${code(evidence.scope)}${code(evidence.artifact)}`,
+                evidence.claimUse,
+              ),
+            );
+          }
+        }
+
+        rows.push(subheading("Overview"));
+        rows.push(
+          row("Overview", "Status", pill(data.status), data.purpose, code(data.scope), "—"),
+        );
+        for (const [key, value] of Object.entries(data.summary)) {
+          rows.push(row("Overview", key, value, "summary metric", "—", "—"));
+        }
+
+        rows.push(subheading("Claim guard"));
+        for (const [key, value] of Object.entries(data.claimGuard)) {
+          rows.push(
+            row(
+              "Claim guard",
+              key,
+              pill(String(value)),
+              "must hold before public claims",
+              "—",
+              guardText(key, value),
+            ),
+          );
+        }
+
+        rows.push(subheading("Source VM and target policy"));
+        rows.push(
+          row(
+            "Source VM",
+            data.sourceVm.id,
+            `${data.sourceVm.sourceArchitecture} → ${data.sourceVm.targetArchitecture}`,
+            `guest=${data.sourceVm.guestOs} · kernel=${data.sourceVm.kernel} · vmm=${data.sourceVm.vmm}`,
+            code(data.sourceVm.pauseMode),
+            keyValueList(data.sourceVm.quiesce),
+          ),
+        );
+        if (data.sourceVm.architectureDetection) {
+          rows.push(
+            row(
+              "Architecture detection",
+              "source architecture",
+              code(data.sourceVm.sourceArchitecture),
+              data.sourceVm.architectureDetection.source,
+              "machinen snapshot --portable",
+              data.sourceVm.architectureDetection.userSuppliedArchPolicy,
+            ),
+          );
+          rows.push(
+            row(
+              "Architecture detection",
+              "target architecture",
+              code(data.sourceVm.targetArchitecture),
+              data.sourceVm.architectureDetection.target,
+              "machinen restore",
+              data.targetPolicy.userArchOverridePolicy,
+            ),
+          );
+        }
+        rows.push(
+          row(
+            "Target policy",
+            "restore policy",
+            code(data.targetPolicy.restoreMode),
+            `dependencyPolicy=${data.targetPolicy.dependencyPolicy}`,
+            keyValueList({
+              allowedTargetArchitectures: data.targetPolicy.allowedTargetArchitectures,
+              architectureDetection: data.targetPolicy.architectureDetection,
+            }),
+            `unknownStatePolicy=${data.targetPolicy.unknownStatePolicy}`,
+          ),
+        );
+
+        rows.push(subheading("Plan rows"));
+        for (const planRow of data.plan.rows) {
+          rows.push(
+            row(
+              "Plan rows",
+              code(planRow.id),
+              pill(planRow.disposition),
+              planRow.restoreStrategy,
+              `${list(planRow.artifactRequirements)}${code(planRow.proofGate)}`,
+              planRow.refusalCode ? code(planRow.refusalCode) : "—",
+            ),
+          );
+        }
+
+        rows.push(subheading("Manifest inventory"));
+        for (const [section, items] of Object.entries(data.manifest)) {
+          rows.push(subheading(`Manifest inventory · ${section}`));
+          for (const item of items) {
+            rows.push(
+              row(
+                section,
+                code(item.id),
+                pill(item.disposition),
+                summarizeManifestRow(item),
+                "—",
+                item.refusalCode ? code(item.refusalCode) : "—",
+              ),
+            );
+          }
+        }
+
+        rows.push(subheading("Disposition legend"));
+        for (const item of data.dispositionLegend) {
+          rows.push(
+            row(
+              "Disposition legend",
+              pill(item.disposition),
+              item.disposition,
+              item.meaning,
+              "—",
+              "—",
+            ),
+          );
+        }
+
+        rows.push(subheading("Validation rules"));
+        data.validationRules.forEach((rule, index) => {
+          rows.push(row("Validation rules", `rule ${index + 1}`, "required", rule, "—", "—"));
+        });
+
+        return rows.join("");
+      }
+
+      function subheading(label) {
+        return `<tr class="subheading"><td colspan="6">${escapeHtml(label)}</td></tr>`;
+      }
+
+      function row(section, item, disposition, strategy, artifacts, refusal) {
+        return `<tr><td class="nowrap">${formatCell(section)}</td><td>${formatCell(item)}</td><td>${formatCell(disposition)}</td><td>${formatCell(strategy)}</td><td>${formatCell(artifacts)}</td><td>${formatCell(refusal)}</td></tr>`;
+      }
+
+      function summarizeManifestRow(item) {
+        return Object.entries(item)
+          .filter(([key]) => !["id", "disposition", "refusalCode"].includes(key))
+          .map(
+            ([key, value]) =>
+              `${escapeHtml(key)}=${escapeHtml(Array.isArray(value) ? value.join(", ") : String(value))}`,
+          )
+          .join(" · ");
+      }
+
+      function guardText(key, value) {
+        if (value === false) return `${key} remains false`;
+        return `${key}=${String(value)}`;
+      }
+
+      function keyValueList(value) {
+        return list(
+          Object.entries(value).map(
+            ([key, item]) => `${key}: ${Array.isArray(item) ? item.join(", ") : String(item)}`,
+          ),
+        );
+      }
+
+      function list(items = []) {
+        return `<ul>${items.map((item) => `<li>${formatCell(item)}</li>`).join("")}</ul>`;
+      }
+
+      function pill(value) {
+        return `<span class="pill ${escapeHtml(String(value))}">${escapeHtml(String(value))}</span>`;
+      }
+
+      function code(value) {
+        return `<code>${escapeHtml(String(value))}</code>`;
+      }
+
+      function formatCell(value) {
+        if (value === null || value === undefined || value === "") return "—";
+        if (typeof value === "string" && value.includes("<")) return value;
+        return escapeHtml(String(value));
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;");
+      }
+    </script>
+  </body>
+</html>

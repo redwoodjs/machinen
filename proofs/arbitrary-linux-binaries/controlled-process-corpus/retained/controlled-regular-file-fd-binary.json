@@ -1,0 +1,22 @@
+{
+  "id": "controlled-regular-file-fd-binary",
+  "category": "file descriptor",
+  "status": "verified",
+  "disposition": "supported-proof",
+  "accepted": true,
+  "proofOnly": true,
+  "productSupportClaimAllowed": false,
+  "productPathRequired": false,
+  "evidence": ["regular-file FD offset preserved", "target read continuation matched"],
+  "verifier": {
+    "fd": 3,
+    "offsetPreserved": true,
+    "readContinuationMatched": true,
+    "targetOffsetAdvanced": true,
+    "rawCpuRestoreUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "sidecarReplayUsed": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

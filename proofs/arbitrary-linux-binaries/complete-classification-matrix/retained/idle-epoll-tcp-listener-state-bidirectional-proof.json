@@ -1,0 +1,72 @@
+{
+  "kind": "machinen.arbitrary-process-bidirectional-target-proof",
+  "version": 1,
+  "rowId": "idle-epoll-tcp-listener-state",
+  "proofNumber": "arbitrary/025",
+  "accepted": true,
+  "proofQuality": "bidirectional-target-proof",
+  "directions": [
+    {
+      "direction": "arm64-to-amd64",
+      "sourceArch": "arm64",
+      "targetArch": "amd64",
+      "accepted": true,
+      "targetVerifierPassed": true,
+      "executableFixture": "idle-epoll-tcp-listener-node-fixture",
+      "fixtureOutputSha256": "a94af00405fcb2c6c1560784487b403cf28db137dc7f33fd0be914931f67f3a8",
+      "checks": [
+        {
+          "name": "target-native-verifier-passed",
+          "passed": true,
+          "detail": "amd64 target verifier accepted idle-epoll-tcp-listener-node-fixture"
+        },
+        {
+          "name": "source-isa-emulation-not-used",
+          "passed": true,
+          "detail": "arm64-to-amd64 used target-native reconstruction proof metadata, not source ISA emulation"
+        },
+        {
+          "name": "claim-guard-held",
+          "passed": true,
+          "detail": "proof remains proof-only with product support out of scope and arbitrary process restore claim 0"
+        }
+      ]
+    },
+    {
+      "direction": "amd64-to-arm64",
+      "sourceArch": "amd64",
+      "targetArch": "arm64",
+      "accepted": true,
+      "targetVerifierPassed": true,
+      "executableFixture": "idle-epoll-tcp-listener-node-fixture",
+      "fixtureOutputSha256": "000c3093cc38d0622d3c0c4ad493c7d5045c425149f884c5b673a4d8048e7ece",
+      "checks": [
+        {
+          "name": "target-native-verifier-passed",
+          "passed": true,
+          "detail": "arm64 target verifier accepted idle-epoll-tcp-listener-node-fixture"
+        },
+        {
+          "name": "source-isa-emulation-not-used",
+          "passed": true,
+          "detail": "amd64-to-arm64 used target-native reconstruction proof metadata, not source ISA emulation"
+        },
+        {
+          "name": "claim-guard-held",
+          "passed": true,
+          "detail": "proof remains proof-only with product support out of scope and arbitrary process restore claim 0"
+        }
+      ]
+    }
+  ],
+  "claimGuard": {
+    "productSupportOutOfScope": true,
+    "productSupportRowsAdded": 0,
+    "arbitraryProcessRestoreClaimed": 0,
+    "publicClaimAllowed": false,
+    "sourceIsaEmulationUsed": false,
+    "rawCpuRestoreUsed": false,
+    "rawRegisterReplayUsed": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

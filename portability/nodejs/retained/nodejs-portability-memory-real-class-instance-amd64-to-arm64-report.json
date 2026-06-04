@@ -1,0 +1,153 @@
+{
+  "kind": "machinen.nodejs-portability-memory-real-class-instance-smoke-report",
+  "version": 1,
+  "accepted": true,
+  "portabilityRow": "045-memory-real-class-instance",
+  "architectures": ["amd64", "arm64"],
+  "sourceArch": "amd64",
+  "targetArch": "arm64",
+  "executeVm": true,
+  "memoryCapture": "real-guest-proc-maps-and-proc-mem",
+  "migrationCompleted": true,
+  "summary": {
+    "verifiedVmRows": 1,
+    "memoryStateRows": 1,
+    "refusedRows": 0
+  },
+  "results": [
+    {
+      "id": "045-memory-real-class-instance",
+      "architecture": "amd64",
+      "state": "verified"
+    },
+    {
+      "id": "045-memory-real-class-instance",
+      "architecture": "arm64",
+      "state": "verified"
+    }
+  ],
+  "sourceCapture": {
+    "kind": "machinen.nodejs-portability-memory-real-class-instance-smoke-report.source-capture",
+    "accepted": true,
+    "portabilityRow": "045-memory-real-class-instance",
+    "sourceArch": "amd64",
+    "captureMethod": "guest-proc-maps-and-proc-mem-anchor-semantic-decoder",
+    "appHookUsedForCapture": false,
+    "rawV8HeapRestored": false,
+    "samePidRestored": false,
+    "memoryIr": {
+      "kind": "machinen.nodejs.memory-ir",
+      "version": 1,
+      "runtime": {
+        "name": "node",
+        "sourceArch": "amd64",
+        "v8": "12.4.254.21-node.22"
+      },
+      "rows": [
+        {
+          "id": "045-memory-real-class-instance",
+          "shape": "class-instance",
+          "semanticState": {
+            "kind": "class-instance",
+            "anchor": "machinen-real-class-anchor-v1",
+            "className": "Counter",
+            "count": 9,
+            "methodResult": 10
+          },
+          "anchors": {
+            "anchor": "machinen-real-class-anchor-v1",
+            "name": "class-name:Counter",
+            "count": "class-count:9"
+          }
+        }
+      ],
+      "unsupported": [],
+      "claimGuard": {
+        "arbitraryNodeProcessRestoreClaimed": false,
+        "arbitraryLinuxProcessRestoreClaimed": false,
+        "rawV8HeapRestoreUsed": false,
+        "rawCpuStateReplayUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "samePidContinuationClaimed": false,
+        "activeRequestOrSocketContinuationClaimed": false
+      }
+    },
+    "evidence": {
+      "pid": 385,
+      "mapsSha256": "4f69016349a339982e06b5df28f018db4ca0d88c4976a0adf48939fb6cd1003a",
+      "readableMappings": 110,
+      "decodedFields": {
+        "anchor": {
+          "found": true,
+          "hits": ["0x372f89b9", "0x372f8a66", "0x1a29c9e96609", "0x1a29c9e966b6"]
+        },
+        "name": {
+          "found": true,
+          "hits": ["0x372f8a91", "0x1a29c9e966e1", "0x1b5f1b68c1b0", "0x231c27d8ca71"]
+        },
+        "count": {
+          "found": true,
+          "hits": ["0x372f8ab2", "0x1a29c9e96702", "0x1b5f1b68c1d8", "0x231c27d8ca92"]
+        }
+      }
+    }
+  },
+  "targetResult": {
+    "kind": "machinen.nodejs-portability-memory-real-class-instance-smoke-report.target-result",
+    "accepted": true,
+    "portabilityRow": "045-memory-real-class-instance",
+    "sourceArch": "amd64",
+    "targetArch": "arm64",
+    "materialization": "target-native-node-semantic-memory-ir",
+    "targetNativeNode": true,
+    "appHookUsedForCapture": false,
+    "rawV8HeapRestored": false,
+    "samePidRestored": false,
+    "verifier": {
+      "accepted": true,
+      "actual": {
+        "kind": "class-instance",
+        "anchor": "machinen-real-class-anchor-v1",
+        "className": "Counter",
+        "count": 9,
+        "methodResult": 10
+      },
+      "expected": {
+        "kind": "class-instance",
+        "anchor": "machinen-real-class-anchor-v1",
+        "className": "Counter",
+        "count": 9,
+        "methodResult": 10
+      }
+    }
+  },
+  "evidence": {
+    "appPath": "portability/nodejs/045-memory-real-class-instance/app.mjs",
+    "appSha256": "171490989f387f0bbab709e5461d9a7c36aaf641b8758e0afc79b824abb2b44e",
+    "smokePath": "portability/nodejs/045-memory-real-class-instance/smoke.ts"
+  },
+  "claimBoundary": {
+    "claims": [
+      "045-memory-real-class-instance captures selected Node class-instance state from /proc memory and materializes it target-native across architectures"
+    ],
+    "notClaimed": [
+      "arbitrary Node process restore",
+      "raw V8 heap restore",
+      "same PID continuation",
+      "active request/socket continuation",
+      "worker/native-addon/child-process live-state transfer",
+      "source ISA emulation",
+      "arbitrary Linux process restore",
+      "raw VM/vCPU/device replay"
+    ]
+  },
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "arbitraryLinuxProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "samePidContinuationClaimed": false,
+    "activeRequestOrSocketContinuationClaimed": false
+  }
+}

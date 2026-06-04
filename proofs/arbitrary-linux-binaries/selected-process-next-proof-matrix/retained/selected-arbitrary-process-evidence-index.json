@@ -1,0 +1,43 @@
+{
+  "kind": "machinen.selected-arbitrary-process-next-proof-row",
+  "scope": "selected-arbitrary-linux-process-seed-v1",
+  "row": {
+    "id": "selected-arbitrary-process-evidence-index",
+    "proofNumber": "arbitrary/017",
+    "category": "selected seed evidence index",
+    "status": "verified",
+    "disposition": "proof-only",
+    "proves": "Retained evidence index ties arbitrary/007 through arbitrary/016 to SHA-addressed artifacts, behavior checks, refusal boundaries, and no-shortcut policy.",
+    "claimUse": "coverage index only; no public arbitrary-process claim lift"
+  },
+  "currentClaim": {
+    "productSupport": null,
+    "broadSupport": null,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "claimChangeAllowed": false,
+  "publicClaimAllowed": false,
+  "productSupportRowsAdded": 0,
+  "productSupportClaimAllowed": false,
+  "noShortcutPolicy": {
+    "rawCpuRestoreAccepted": false,
+    "rawRegisterReplayAccepted": false,
+    "sourceIsaEmulationAccepted": false,
+    "appCheckpointHooksAccepted": false,
+    "sidecarReplayAccepted": false,
+    "metadataOnlySuccessAccepted": false,
+    "arbitraryUnknownProcessAccepted": false
+  },
+  "indexedProofs": [
+    "arbitrary/007",
+    "arbitrary/008",
+    "arbitrary/009",
+    "arbitrary/010",
+    "arbitrary/011",
+    "arbitrary/012",
+    "arbitrary/013",
+    "arbitrary/014",
+    "arbitrary/015",
+    "arbitrary/016"
+  ]
+}

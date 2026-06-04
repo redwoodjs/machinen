@@ -1,0 +1,47 @@
+{
+  "kind": "machinen.portable-vm-guest-inventory-collector-transcript",
+  "version": 1,
+  "accepted": true,
+  "scope": "fixture-guest-inventory-portable-vm-plan-v1",
+  "contract": "fixture-guest-inventory-portable-vm-plan-v1",
+  "sourceVm": "fixture-linux-vm-from-guest-inventory",
+  "inputRows": 12,
+  "rawInventoryRows": 12,
+  "refusedCandidates": [
+    "unknown-live-process",
+    "active-tcp-streams",
+    "postgres-dirty-wal",
+    "passthrough-gpu",
+    "active-syscalls"
+  ],
+  "checks": [
+    {
+      "name": "contract-loaded",
+      "passed": true
+    },
+    {
+      "name": "required-fields-present",
+      "passed": true
+    },
+    {
+      "name": "one-raw-row-per-guest-input-row",
+      "passed": true
+    },
+    {
+      "name": "unknown-state-policy-refuse-by-default",
+      "passed": true
+    },
+    {
+      "name": "claim-guard-public-claim-disabled",
+      "passed": true
+    }
+  ],
+  "claimGuard": {
+    "publicClaimAllowed": false,
+    "arbitraryVmRestoreClaimed": false,
+    "rawVmStateReplayAllowed": false,
+    "crossIsaVcpuReplayAllowed": false,
+    "sourceIsaEmulationAllowed": false,
+    "metadataOnlySuccessAllowed": false
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "id": "controlled-simple-pipe-binary",
+  "category": "pipe descriptor",
+  "status": "verified",
+  "disposition": "supported-proof",
+  "accepted": true,
+  "proofOnly": true,
+  "productSupportClaimAllowed": false,
+  "productPathRequired": false,
+  "evidence": ["simple pipe buffered bytes matched", "EOF observed after buffered bytes"],
+  "verifier": {
+    "readFd": 3,
+    "writeFd": 4,
+    "endpointDirectionPreserved": true,
+    "bufferedBytesMatched": true,
+    "eofAfterBufferedBytes": true,
+    "rawCpuRestoreUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "sidecarReplayUsed": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

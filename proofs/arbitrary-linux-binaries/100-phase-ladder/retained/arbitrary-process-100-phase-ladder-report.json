@@ -1,0 +1,248 @@
+{
+  "kind": "machinen.arbitrary-process-100-phase-ladder",
+  "version": 1,
+  "accepted": true,
+  "publicClaimAllowed": false,
+  "claimChangeAllowed": false,
+  "currentClaim": {
+    "productSupport": null,
+    "broadSupport": null,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "targetClaim": {
+    "productSupport": null,
+    "broadSupport": 100,
+    "arbitraryProcessCrossArchRestore": 100
+  },
+  "summary": {
+    "phaseRows": 7,
+    "completedClaimRows": 0,
+    "proofOnlyRows": 3,
+    "blockedRows": 1,
+    "notStartedRows": 2,
+    "productSupportRowsAdded": 0,
+    "publicArbitraryProcessClaim": 0
+  },
+  "phases": [
+    {
+      "id": "phase-1-selected-seed-proof-path",
+      "proofNumber": "arbitrary-phase/001",
+      "title": "1 / 1 selected seed proof path",
+      "targetClaim": {
+        "productSupport": null,
+        "broadSupport": 1,
+        "arbitraryProcessCrossArchRestore": 1
+      },
+      "status": "proof-only",
+      "claimChangeAllowed": false,
+      "productPathRequired": false,
+      "productPathCovered": false,
+      "retainedEvidence": [
+        "arbitrary/007 selected seed gate",
+        "arbitrary/008 selected behavior E2E",
+        "arbitrary/009-arbitrary/018 proof/refusal matrix"
+      ],
+      "missingGates": ["none for proof-only phase 1; product support is out of scope"],
+      "blockers": [],
+      "claimUse": "phase definition/evidence only; public arbitrary Linux process restore remains 0",
+      "next": "Keep as proof-backed selected seed evidence; do not require product-path artifacts."
+    },
+    {
+      "id": "phase-2-controlled-process-corpus",
+      "proofNumber": "arbitrary-phase/002",
+      "title": "5 / 1 controlled process proof corpus",
+      "targetClaim": {
+        "productSupport": null,
+        "broadSupport": 5,
+        "arbitraryProcessCrossArchRestore": 1
+      },
+      "status": "proof-only",
+      "claimChangeAllowed": false,
+      "productPathRequired": false,
+      "productPathCovered": false,
+      "retainedEvidence": [
+        "argv/env/cwd proof",
+        "regular-file FD proof",
+        "simple-pipe FD proof",
+        "idle epoll/TCP proof"
+      ],
+      "missingGates": [
+        "retained proof matrix for multiple controlled binaries",
+        "bidirectional target verifiers for each row",
+        "row coverage manifest with no unknown rows"
+      ],
+      "blockers": ["controlled process corpus rows beyond the selected seed are not complete"],
+      "claimUse": "phase definition/evidence only; public arbitrary Linux process restore remains 0",
+      "next": "Build controlled-binary proof corpus without product-path requirements."
+    },
+    {
+      "id": "phase-3-memory-dynamic-linker-signals",
+      "proofNumber": "arbitrary-phase/003",
+      "title": "20 / 5 memory, linker, and signal proof coverage",
+      "targetClaim": {
+        "productSupport": null,
+        "broadSupport": 20,
+        "arbitraryProcessCrossArchRestore": 5
+      },
+      "status": "proof-only",
+      "claimChangeAllowed": false,
+      "productPathRequired": false,
+      "productPathCovered": false,
+      "retainedEvidence": [
+        "arbitrary/012 memory map materialization proof",
+        "arbitrary/014 active syscall/signal refusals",
+        "arbitrary/015 dynamic linker boundary"
+      ],
+      "missingGates": [
+        "real mapping manifests from captured processes",
+        "target dependency manifests",
+        "stable signal/active-syscall refusal artifacts"
+      ],
+      "blockers": ["JIT/device/shared-opaque mappings remain refused"],
+      "claimUse": "phase definition/evidence only; public arbitrary Linux process restore remains 0",
+      "next": "Attach real process capture artifacts and target verifier transcripts for memory/linker rows."
+    },
+    {
+      "id": "phase-4-process-tree-ipc-resource-classes",
+      "proofNumber": "arbitrary-phase/004",
+      "title": "40 / 10 process tree, IPC, and resource proof classes",
+      "targetClaim": {
+        "productSupport": null,
+        "broadSupport": 40,
+        "arbitraryProcessCrossArchRestore": 10
+      },
+      "status": "defined",
+      "claimChangeAllowed": false,
+      "productPathRequired": false,
+      "productPathCovered": false,
+      "retainedEvidence": ["arbitrary/016 process tree refusal proof"],
+      "missingGates": [
+        "retained process-tree capture/reconstruction proof artifacts",
+        "IPC matrix for Unix sockets, pipes, eventfd, timerfd, shared memory",
+        "namespace/cgroup/credential boundary matrix"
+      ],
+      "blockers": ["process trees and cross-process IPC remain refused"],
+      "claimUse": "phase definition/evidence only; public arbitrary Linux process restore remains 0",
+      "next": "Define and retain IPC/resource corpus rows before reducing process-tree refusal."
+    },
+    {
+      "id": "phase-5-threads-futex-safe-subset",
+      "proofNumber": "arbitrary-phase/005",
+      "title": "60 / 20 threads/futex proof subset or hard refusals",
+      "targetClaim": {
+        "productSupport": null,
+        "broadSupport": 60,
+        "arbitraryProcessCrossArchRestore": 20
+      },
+      "status": "blocked",
+      "claimChangeAllowed": false,
+      "productPathRequired": false,
+      "productPathCovered": false,
+      "retainedEvidence": ["thread/futex refusal rows"],
+      "missingGates": [
+        "captured thread register/stack ownership model",
+        "target-native scheduler/bootstrap verifier",
+        "futex owner/waiter translation or stable refusal codes"
+      ],
+      "blockers": ["multiple live threads and futex-owned locks remain refused"],
+      "claimUse": "phase definition/evidence only; public arbitrary Linux process restore remains 0",
+      "next": "Do not reduce thread/futex boundaries without retained target-native thread behavior verifiers."
+    },
+    {
+      "id": "phase-6-broad-linux-binary-corpus",
+      "proofNumber": "arbitrary-phase/006",
+      "title": "80 / 50 broad Linux binary proof corpus under strict gates",
+      "targetClaim": {
+        "productSupport": null,
+        "broadSupport": 80,
+        "arbitraryProcessCrossArchRestore": 50
+      },
+      "status": "not-started",
+      "claimChangeAllowed": false,
+      "productPathRequired": false,
+      "productPathCovered": false,
+      "retainedEvidence": [],
+      "missingGates": [
+        "coreutils/shell/server/interpreter corpus",
+        "per-row source captures and target verifiers",
+        "unsupported runtime/private-state refusal matrix",
+        "artifact integrity manifest for every row"
+      ],
+      "blockers": ["no broad uncontrolled binary corpus exists"],
+      "claimUse": "phase definition/evidence only; public arbitrary Linux process restore remains 0",
+      "next": "Start only after controlled process and resource proof matrices are retained."
+    },
+    {
+      "id": "phase-7-arbitrary-process-proof-100-gate",
+      "proofNumber": "arbitrary-phase/007",
+      "title": "100 / 100 arbitrary process proof/classification gate",
+      "targetClaim": {
+        "productSupport": null,
+        "broadSupport": 100,
+        "arbitraryProcessCrossArchRestore": 100
+      },
+      "status": "not-started",
+      "claimChangeAllowed": false,
+      "productPathRequired": false,
+      "productPathCovered": false,
+      "retainedEvidence": [],
+      "missingGates": [
+        "complete support/refusal matrix for every declared process-state class",
+        "zero unknown rows",
+        "bidirectional proof artifacts for every supported row",
+        "stable refusal artifacts for every refused row",
+        "external shortcut audit showing no raw CPU restore/source ISA emulation/metadata-only success"
+      ],
+      "blockers": ["arbitrary unknown Linux process state remains unsupported"],
+      "claimUse": "phase definition/evidence only; public arbitrary Linux process restore remains 0",
+      "next": "Only this gate may authorize proof/classification 100 / 100; product support remains out of scope."
+    }
+  ],
+  "noShortcutPolicy": {
+    "rawCpuRestoreAccepted": false,
+    "rawRegisterReplayAccepted": false,
+    "sourceIsaEmulationAccepted": false,
+    "appCheckpointHooksAccepted": false,
+    "sidecarReplayAccepted": false,
+    "metadataOnlySuccessAccepted": false,
+    "arbitraryUnknownProcessAccepted": false
+  },
+  "artifacts": [
+    {
+      "name": "phase-1-selected-seed-proof-path.json",
+      "path": "phase-1-selected-seed-proof-path.json",
+      "sha256": "e11fc3f713a57cd85cd899535b91d0f897fe5e01421487799acc37faa79bc0b4"
+    },
+    {
+      "name": "phase-2-controlled-process-corpus.json",
+      "path": "phase-2-controlled-process-corpus.json",
+      "sha256": "f93d650b284b9bb92790389bb18dad148e85a6895d106cf03cc691d42e91b190"
+    },
+    {
+      "name": "phase-3-memory-dynamic-linker-signals.json",
+      "path": "phase-3-memory-dynamic-linker-signals.json",
+      "sha256": "8f596942eaa4f42feb9ec5340f1dc8f6fda3f2bea18e19b8db5d638cc33f7ad5"
+    },
+    {
+      "name": "phase-4-process-tree-ipc-resource-classes.json",
+      "path": "phase-4-process-tree-ipc-resource-classes.json",
+      "sha256": "8b79dde711bbc5137d3da2a4598291a97be9d72b9985e467912282404aace99b"
+    },
+    {
+      "name": "phase-5-threads-futex-safe-subset.json",
+      "path": "phase-5-threads-futex-safe-subset.json",
+      "sha256": "0c46848af35364a69993b8d999c7e5529ddfb749b460dbc05b44608073f76d98"
+    },
+    {
+      "name": "phase-6-broad-linux-binary-corpus.json",
+      "path": "phase-6-broad-linux-binary-corpus.json",
+      "sha256": "370e0006218d35f8ae1152f86d459ed715d60f58024a3d76f28e1bdd804d01ba"
+    },
+    {
+      "name": "phase-7-arbitrary-process-proof-100-gate.json",
+      "path": "phase-7-arbitrary-process-proof-100-gate.json",
+      "sha256": "55ea5931e27a156145367bd253c17ddd0a22aa016146dbb166ef50986251aab9"
+    }
+  ],
+  "artifactsSha256": "237ac502d0f6f2012cc772ce83bb63183de19b361bc3af0828f37f85915979ed"
+}

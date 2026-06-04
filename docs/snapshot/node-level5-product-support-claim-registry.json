@@ -19,5 +19,7 @@
   "artifactRetentionDays": 30,
   "flakeBudgetPercent": 0,
   "arbitraryNodeClaimed": false,
-  "arbitraryProcessClaimed": false
+  "arbitraryProcessClaimed": false,
+  "verifiedReason": "consolidated retained row coverage links every supported Node support-matrix row to bidirectional product E2E artifacts and every refused row to retained refusal artifacts",
+  "requiredGate": "proofs/nodejs/claim-evidence-index/retained/node-claim-row-coverage-report.json"
 }

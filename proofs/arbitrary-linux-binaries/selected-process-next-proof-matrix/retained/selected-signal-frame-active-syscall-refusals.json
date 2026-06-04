@@ -1,0 +1,37 @@
+{
+  "kind": "machinen.selected-arbitrary-process-next-proof-row",
+  "scope": "selected-arbitrary-linux-process-seed-v1",
+  "row": {
+    "id": "selected-signal-frame-active-syscall-refusals",
+    "proofNumber": "arbitrary/014",
+    "category": "signal and active syscall refusals",
+    "status": "verified",
+    "disposition": "refused",
+    "proves": "Retained refusal row keeps signal frames, pending handlers, active syscalls, and interrupted kernel state outside selected-arbitrary-linux-process-seed-v1.",
+    "claimUse": "refusal evidence; prevents arbitrary-process overclaiming"
+  },
+  "currentClaim": {
+    "productSupport": null,
+    "broadSupport": null,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "claimChangeAllowed": false,
+  "publicClaimAllowed": false,
+  "productSupportRowsAdded": 0,
+  "productSupportClaimAllowed": false,
+  "noShortcutPolicy": {
+    "rawCpuRestoreAccepted": false,
+    "rawRegisterReplayAccepted": false,
+    "sourceIsaEmulationAccepted": false,
+    "appCheckpointHooksAccepted": false,
+    "sidecarReplayAccepted": false,
+    "metadataOnlySuccessAccepted": false,
+    "arbitraryUnknownProcessAccepted": false
+  },
+  "refusals": [
+    "signal-frame",
+    "pending-signal-handler",
+    "active-syscall",
+    "interrupted-kernel-state"
+  ]
+}

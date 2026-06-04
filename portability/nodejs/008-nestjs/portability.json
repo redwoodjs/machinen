@@ -1,0 +1,20 @@
+{
+  "id": "008-nestjs",
+  "slug": "nestjs",
+  "runtime": "nodejs",
+  "description": "NestJS HTTP service; dependency install/build required",
+  "disposition": "supported-with-declared-config",
+  "claimUse": "portable Node app/product candidate evidence only; no raw process continuation claim",
+  "architecturePolicy": "run-on-each-target-architecture-with-machinen-runtime",
+  "startCommand": "node app.mjs",
+  "healthPath": "/health",
+  "expectedBody": "machinen-node-portability:nestjs:minimal-nest-shape",
+  "dependencies": ["@nestjs/core", "@nestjs/common", "reflect-metadata", "rxjs"],
+  "refusalCode": null,
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false
+  }
+}

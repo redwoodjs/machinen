@@ -1,1 +1,0 @@
-postgres:amd64-to-arm64:rows=2:checksum=86f7c6

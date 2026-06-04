@@ -1,0 +1,23 @@
+{
+  "proofNumber": "007",
+  "id": "native-single-thread-boundary-proof",
+  "type": "boundary",
+  "subcategory": "thread boundary",
+  "status": "verified",
+  "accepted": true,
+  "artifact": "proofs/native-process-substrate/retained/row-proofs/007/row-proof.json",
+  "evidence": "Thread restore boundary accepts exactly one safe stopped thread and refuses multi-thread state. Raw verifier: proofs/native-process-substrate/retained/raw/native-thread-refusal-matrix.json.",
+  "checks": [
+    {
+      "id": "single-thread-accepted",
+      "passed": true,
+      "message": "single safe thread accepted"
+    },
+    {
+      "id": "multi-thread-refused",
+      "passed": true,
+      "message": "multi-thread refused"
+    }
+  ],
+  "claimUse": "boundary-refusal"
+}

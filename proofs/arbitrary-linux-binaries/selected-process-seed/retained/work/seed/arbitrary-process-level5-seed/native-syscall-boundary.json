@@ -1,0 +1,21 @@
+{
+  "kind": "machinen.arbitrary-process-level5-seed-artifact",
+  "row": {
+    "id": "native-syscall-boundary",
+    "status": "seed-candidate",
+    "evidenceKind": "target-native-reconstruction-seed",
+    "processShape": "selected syscall/resource boundary descriptor",
+    "proofPath": "retained proof-only seed artifact",
+    "productPathArtifactsRequired": false,
+    "productSupportClaimAllowed": false,
+    "translatedProcessStateRequired": true,
+    "targetNativeReconstructionRequired": true,
+    "rawCpuRestoreUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "metadataOnlySuccessAccepted": false,
+    "arbitraryProcessClaimed": false,
+    "arbitraryProcessCrossArchRestoreClaimed": 0,
+    "boundaries": ["no-live-sockets", "no-device-mmap", "no-futex-owned-locks"]
+  }
+}

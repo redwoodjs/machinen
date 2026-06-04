@@ -1,0 +1,22 @@
+{
+  "kind": "machinen.product-selected-native-refusal",
+  "formatVersion": 1,
+  "runtime": "native-linux-process",
+  "supportLevel": "explicit-refusal",
+  "state": "refused",
+  "migrationCompleted": false,
+  "expectedRefusalCode": "native-source-state-unsupported",
+  "message": "unsupported resource state is outside the selected native product-path subset",
+  "evidence": {
+    "unsupportedResourceState": true,
+    "boundary": "selected-resource-subset-only"
+  },
+  "arbitraryLinuxProcessSupportClaimed": false,
+  "rawCpuRestoreUsed": false,
+  "sourceIsaEmulationUsed": false,
+  "runtimeProfileRestoreUsed": false,
+  "sourceTextReusedAsTargetCode": false,
+  "sidecarRuntimeUsed": false,
+  "appHooksRequired": false,
+  "metadataOnlyShortcutAccepted": false
+}

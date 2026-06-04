@@ -1,0 +1,68 @@
+{
+  "kind": "machinen.arbitrary-process-row-proof",
+  "version": 1,
+  "rowId": "active-unix-domain-socket-state",
+  "proofNumber": "arbitrary/033",
+  "proofMode": "stable-refusal-proof",
+  "proofQuality": "stable-refusal-proof",
+  "accepted": true,
+  "disposition": "refused",
+  "fixture": {
+    "id": "active-unix-domain-socket-state-fixture",
+    "portableState": [],
+    "refusedState": [
+      "connected Unix socket",
+      "queued credentials",
+      "SCM_RIGHTS payload",
+      "peer process dependency"
+    ],
+    "fixtureHash": "f5ce0e40fbfe84ccd044740e81567ca400168f5663ced85437411ad73ee72ff7",
+    "execution": null
+  },
+  "verifier": {
+    "targetNativeReconstructionAttempted": false,
+    "targetVerifierPassed": true,
+    "refusedBeforeTargetExecution": true,
+    "stableRefusalCode": "arbitrary-process-active-unix-socket-unsupported",
+    "checks": [
+      {
+        "name": "refused-state-manifest-present",
+        "passed": true,
+        "detail": "4 refused state fields retained for active-unix-domain-socket-state"
+      },
+      {
+        "name": "stable-refusal-code-emitted",
+        "passed": true,
+        "detail": "arbitrary-process-active-unix-socket-unsupported emitted for fixture f5ce0e40fbfe84ccd044740e81567ca400168f5663ced85437411ad73ee72ff7"
+      },
+      {
+        "name": "target-execution-blocked",
+        "passed": true,
+        "detail": "refusal happens before target execution or target-native reconstruction attempt"
+      },
+      {
+        "name": "claim-guard-held",
+        "passed": true,
+        "detail": "refusal does not raise product support or arbitrary process restore claim"
+      }
+    ]
+  },
+  "transcript": [
+    "loaded refused fixture active-unix-domain-socket-state-fixture",
+    "detected refused state class arbitrary-process-active-unix-socket-unsupported",
+    "stopped before target execution",
+    "recorded stable refusal proof without product claim lift"
+  ],
+  "claimGuard": {
+    "productSupportOutOfScope": true,
+    "productSupportRowsAdded": 0,
+    "arbitraryProcessRestoreClaimed": 0,
+    "publicClaimAllowed": false,
+    "rawCpuRestoreUsed": false,
+    "rawRegisterReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "sidecarReplayUsed": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

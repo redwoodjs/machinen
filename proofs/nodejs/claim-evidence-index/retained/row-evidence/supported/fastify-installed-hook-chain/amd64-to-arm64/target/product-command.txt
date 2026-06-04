@@ -1,0 +1,1 @@
+machinen restore <dir> for fastify-installed-hook-chain amd64-to-arm64

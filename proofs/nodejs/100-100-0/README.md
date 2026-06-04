@@ -1,29 +1,36 @@
-# Node service 100 / 100 / 0
+# Node service 100 / 100 / 0 unverified
 
-Status: `claimed`
+Status: `partial-proof`
 
 Track: `node-service`
 
 Proof directory: `proofs/nodejs/100-100-0`
 
-Scope: Selected safe Node services through VM-first snapshot/restore.
+The previous `100 / 100 / 0` Node service claim is not accepted as a public claim until retained real cross-architecture VM E2E artifacts are audited or produced.
 
-Promotion effect: Public Node service claim is already raised; does not affect arbitrary-process claim.
-
-## Claim numbers
+## Current public claim numbers
 
 ```json
 {
-  "productSupport": 100,
-  "broadSupport": 100,
+  "productSupport": 0,
+  "broadSupport": 0,
   "arbitraryProcessCrossArchRestore": 0
 }
 ```
 
-## Proofs
+## Why this is downgraded
 
-| Proof                         | Category           | Status   | Artifact                                     | Proves                                                 | Claim use                                  | Next                                                            |
-| ----------------------------- | ------------------ | -------- | -------------------------------------------- | ------------------------------------------------------ | ------------------------------------------ | --------------------------------------------------------------- |
-| `node-service-claim-ladder`   | claim ladder       | `passed` | `node-level5-product-support-100.json`       | 100 / 100 / 0 selected Node service claim ladder       | backs current Node service claim           | Keep no-regression gates green.                                 |
-| `node-framework-capabilities` | framework evidence | `passed` | `node-level5-framework-capability-matrix.md` | Express/Fastify capability rows with exact diagnostics | supports framework capability portion only | Do not expand to arbitrary framework apps without new evidence. |
-| `node-vm-product-path`        | product UX         | `passed` | `node-level5-product-snapshot-restore.md`    | machinen snapshot / restore product path and metadata  | backs VM-first UX requirement              | Preserve the product path for future runtimes.                  |
+The repository contains extensive Node matrices, release gates, product snapshot facade tests, and refusal rows. During this audit, those were not enough to prove the top-level `100 / 100 / 0` claim because the claim row did not point to retained real VM E2E bundles for every claimed supported row and both architecture directions.
+
+## Required gate
+
+See `../real-cross-arch-e2e-gate/`.
+
+A future Node claim must retain:
+
+- real `machinen snapshot <vm-name>` / `machinen restore <dir>` artifacts;
+- amd64 -> arm64 and arm64 -> amd64 runs;
+- source and target behavior transcripts;
+- restore summaries and target-native verifier output;
+- refusal artifacts for unsupported live/runtime states;
+- no raw CPU restore, source-ISA emulation, app hooks, sidecars, or metadata-only success.

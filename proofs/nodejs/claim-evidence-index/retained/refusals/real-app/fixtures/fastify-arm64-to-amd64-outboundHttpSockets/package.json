@@ -1,0 +1,6 @@
+{
+  "name": "fastify-refusal-fixture",
+  "dependencies": {
+    "fastify": "^4.0.0"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "kind": "machinen.postgres-row-proof",
+  "rowId": "postgresql-role-permission-e2e",
+  "direction": "arm64-to-amd64",
+  "accepted": true,
+  "sourceArch": "arm64",
+  "targetArch": "amd64",
+  "noUserSuppliedDump": true,
+  "targetNativeExecution": true,
+  "proof": {
+    "sourceApplyTranscript": "DO\nGRANT\nGRANT",
+    "sourceVerifierTranscript": "{\"roleExists\" : true, \"readerCanSelectEvents\" : true, \"readerCanUseSequence\" : true, \"readerCanSelectSequence\" : true}",
+    "targetVerifierTranscript": "{\"roleExists\" : true, \"readerCanSelectEvents\" : true, \"readerCanUseSequence\" : true, \"readerCanSelectSequence\" : true}",
+    "accepted": true
+  }
+}

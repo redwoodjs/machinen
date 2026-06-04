@@ -1,0 +1,150 @@
+{
+  "kind": "machinen.nodejs-portability-memory-real-map-set-smoke-report",
+  "version": 1,
+  "accepted": true,
+  "portabilityRow": "044-memory-real-map-set",
+  "architectures": ["arm64", "amd64"],
+  "sourceArch": "arm64",
+  "targetArch": "amd64",
+  "executeVm": true,
+  "memoryCapture": "real-guest-proc-maps-and-proc-mem",
+  "migrationCompleted": true,
+  "summary": {
+    "verifiedVmRows": 1,
+    "memoryStateRows": 1,
+    "refusedRows": 0
+  },
+  "results": [
+    {
+      "id": "044-memory-real-map-set",
+      "architecture": "arm64",
+      "state": "verified"
+    },
+    {
+      "id": "044-memory-real-map-set",
+      "architecture": "amd64",
+      "state": "verified"
+    }
+  ],
+  "sourceCapture": {
+    "kind": "machinen.nodejs-portability-memory-real-map-set-smoke-report.source-capture",
+    "accepted": true,
+    "portabilityRow": "044-memory-real-map-set",
+    "sourceArch": "arm64",
+    "captureMethod": "guest-proc-maps-and-proc-mem-anchor-semantic-decoder",
+    "appHookUsedForCapture": false,
+    "rawV8HeapRestored": false,
+    "samePidRestored": false,
+    "memoryIr": {
+      "kind": "machinen.nodejs.memory-ir",
+      "version": 1,
+      "runtime": {
+        "name": "node",
+        "sourceArch": "arm64",
+        "v8": "12.4.254.21-node.22"
+      },
+      "rows": [
+        {
+          "id": "044-memory-real-map-set",
+          "shape": "map-set",
+          "semanticState": {
+            "kind": "map-set",
+            "anchor": "machinen-real-map-set-anchor-v1",
+            "mapEntries": [["answer", 42]],
+            "setEntries": ["portable"]
+          },
+          "anchors": {
+            "anchor": "machinen-real-map-set-anchor-v1",
+            "map": "map-entry:answer=42",
+            "set": "set-entry:portable"
+          }
+        }
+      ],
+      "unsupported": [],
+      "claimGuard": {
+        "arbitraryNodeProcessRestoreClaimed": false,
+        "arbitraryLinuxProcessRestoreClaimed": false,
+        "rawV8HeapRestoreUsed": false,
+        "rawCpuStateReplayUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "samePidContinuationClaimed": false,
+        "activeRequestOrSocketContinuationClaimed": false
+      }
+    },
+    "evidence": {
+      "pid": 366,
+      "mapsSha256": "24c9479b6032db217a3c0d70875789872b68d5591f0ac7efeb89f8a07f4cd6a5",
+      "readableMappings": 92,
+      "decodedFields": {
+        "anchor": {
+          "found": true,
+          "hits": ["0xaf59b62", "0xaf59c8d", "0x6b1a048ca8a", "0x6b1a048cbb5"]
+        },
+        "map": {
+          "found": true,
+          "hits": ["0xaf59cb9", "0x6b1a048cbe1", "0x176731c8c200", "0x2369f90966c9"]
+        },
+        "set": {
+          "found": true,
+          "hits": ["0xaf59cd9", "0x6b1a048cc01", "0x176731c8c228", "0x2369f90966e9"]
+        }
+      }
+    }
+  },
+  "targetResult": {
+    "kind": "machinen.nodejs-portability-memory-real-map-set-smoke-report.target-result",
+    "accepted": true,
+    "portabilityRow": "044-memory-real-map-set",
+    "sourceArch": "arm64",
+    "targetArch": "amd64",
+    "materialization": "target-native-node-semantic-memory-ir",
+    "targetNativeNode": true,
+    "appHookUsedForCapture": false,
+    "rawV8HeapRestored": false,
+    "samePidRestored": false,
+    "verifier": {
+      "accepted": true,
+      "actual": {
+        "kind": "map-set",
+        "anchor": "machinen-real-map-set-anchor-v1",
+        "mapEntries": [["answer", 42]],
+        "setEntries": ["portable"]
+      },
+      "expected": {
+        "kind": "map-set",
+        "anchor": "machinen-real-map-set-anchor-v1",
+        "mapEntries": [["answer", 42]],
+        "setEntries": ["portable"]
+      }
+    }
+  },
+  "evidence": {
+    "appPath": "portability/nodejs/044-memory-real-map-set/app.mjs",
+    "appSha256": "6a4224ea6ada64eb45bad038cc195eaf8ff5f87127dfa4075f88d6d68b3fd132",
+    "smokePath": "portability/nodejs/044-memory-real-map-set/smoke.ts"
+  },
+  "claimBoundary": {
+    "claims": [
+      "044-memory-real-map-set captures selected Node map-set state from /proc memory and materializes it target-native across architectures"
+    ],
+    "notClaimed": [
+      "arbitrary Node process restore",
+      "raw V8 heap restore",
+      "same PID continuation",
+      "active request/socket continuation",
+      "worker/native-addon/child-process live-state transfer",
+      "source ISA emulation",
+      "arbitrary Linux process restore",
+      "raw VM/vCPU/device replay"
+    ]
+  },
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "arbitraryLinuxProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "samePidContinuationClaimed": false,
+    "activeRequestOrSocketContinuationClaimed": false
+  }
+}

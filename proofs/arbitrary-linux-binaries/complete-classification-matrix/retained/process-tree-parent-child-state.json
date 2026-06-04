@@ -1,0 +1,37 @@
+{
+  "id": "process-tree-parent-child-state",
+  "proofNumber": "arbitrary/034",
+  "category": "process tree",
+  "status": "verified",
+  "disposition": "refused",
+  "accepted": true,
+  "productSupportOutOfScope": true,
+  "productSupportClaimAllowed": false,
+  "arbitraryRestoreClaimAllowed": false,
+  "evidence": [
+    "forked children, process groups, and parent/child relationships are proven refused"
+  ],
+  "stableCode": "arbitrary-process-tree-unsupported",
+  "verifier": {
+    "refusedBeforeTargetExecution": true,
+    "stableRefusalCode": "arbitrary-process-tree-unsupported",
+    "processTreePresent": true,
+    "proofArtifactRetained": true,
+    "targetVerifierPassed": true,
+    "rawCpuRestoreUsed": false,
+    "rawRegisterReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "sidecarReplayUsed": false,
+    "metadataOnlySuccessAccepted": false
+  },
+  "proofArtifact": "process-tree-parent-child-state-proof.json",
+  "proofArtifactSha256": "23bdf307d764d88b2501dbb1348a0a376f031888c1be468a5d807f10861a3949",
+  "proofMode": "stable-refusal-proof",
+  "proofQuality": "stable-refusal-proof",
+  "executableFixture": null,
+  "bidirectionalProofArtifact": null,
+  "bidirectionalProofArtifactSha256": null,
+  "bidirectionalDirections": 0,
+  "proofChecksPassed": 4
+}

@@ -1,0 +1,27 @@
+{
+  "kind": "machinen.node-level5-generic-vm-refusal-artifacts-summary",
+  "accepted": true,
+  "outDir": "proofs/nodejs/claim-evidence-index/retained/refusals/generic-vm",
+  "corpusReportPath": "proofs/nodejs/claim-evidence-index/retained/refusals/generic-vm/node-level5-generic-vm-corpus-report.json",
+  "refusalArtifactsReportPath": "proofs/nodejs/claim-evidence-index/retained/refusals/generic-vm/node-level5-generic-vm-refusal-artifacts-report.json",
+  "refusalArtifactFileCount": 20,
+  "markersCovered": [
+    "activeRequests",
+    "childProcesses",
+    "nativeAddons",
+    "tlsActiveState",
+    "workerThreads"
+  ],
+  "releaseGateCommand": [
+    "machinen",
+    "node-level5",
+    "release-gate",
+    "--include-generic-vm-refusal-artifacts",
+    "--generic-vm-refusal-artifacts-report",
+    "proofs/nodejs/claim-evidence-index/retained/refusals/generic-vm/node-level5-generic-vm-refusal-artifacts-report.json"
+  ],
+  "claimChangeAllowed": false,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0
+}

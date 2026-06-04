@@ -1,0 +1,90 @@
+{
+  "kind": "machinen.arbitrary-process-row-proof",
+  "version": 1,
+  "rowId": "process-metadata-argv-env-cwd",
+  "proofNumber": "arbitrary/020",
+  "proofMode": "target-native-reconstruction-proof",
+  "proofQuality": "executable-fixture-proof",
+  "accepted": true,
+  "disposition": "supported-proof",
+  "fixture": {
+    "id": "process-metadata-argv-env-cwd-fixture",
+    "portableState": [
+      "argv hash",
+      "environment hash",
+      "cwd path policy",
+      "target-native process launch manifest"
+    ],
+    "refusedState": [],
+    "fixtureHash": "5fa27d5d69105118cb7d9a46108f1d776228d6e84da5096957f265e3ce39615f",
+    "execution": {
+      "name": "argv-env-cwd-node-fixture",
+      "executed": true,
+      "passed": true,
+      "output": {
+        "argvMatched": true,
+        "envMatched": true,
+        "cwdMatched": true,
+        "argvSha256": "f62b312d2282723bf5e9426777cc473181f35a1097186ac4955c9d877e8f6379",
+        "cwdSha256": "eeb356062de8ff812e672a3e3d5a8c453c02e577225b703ea436991a10b4d6d5"
+      },
+      "transcript": [
+        "executed argv-env-cwd-node-fixture",
+        "verified argvMatched, argvSha256, cwdMatched, cwdSha256, envMatched"
+      ]
+    }
+  },
+  "verifier": {
+    "targetNativeReconstructionAttempted": true,
+    "targetVerifierPassed": true,
+    "refusedBeforeTargetExecution": false,
+    "stableRefusalCode": null,
+    "checks": [
+      {
+        "name": "portable-state-manifest-present",
+        "passed": true,
+        "detail": "4 portable state fields retained for process-metadata-argv-env-cwd"
+      },
+      {
+        "name": "executable-fixture-verifier-passed",
+        "passed": true,
+        "detail": "argv-env-cwd-node-fixture executed and passed for process-metadata-argv-env-cwd"
+      },
+      {
+        "name": "target-native-verifier-passed",
+        "passed": true,
+        "detail": "deterministic verifier accepted fixture 5fa27d5d69105118cb7d9a46108f1d776228d6e84da5096957f265e3ce39615f"
+      },
+      {
+        "name": "no-forbidden-shortcuts",
+        "passed": true,
+        "detail": "raw CPU/register replay, source ISA emulation, hooks, sidecars, and metadata-only success are false"
+      },
+      {
+        "name": "claim-guard-held",
+        "passed": true,
+        "detail": "product support remains out of scope and arbitrary process restore claim remains 0"
+      }
+    ]
+  },
+  "transcript": [
+    "loaded portable fixture process-metadata-argv-env-cwd-fixture",
+    "validated target-native reconstruction manifest",
+    "executed argv-env-cwd-node-fixture",
+    "verified argvMatched, argvSha256, cwdMatched, cwdSha256, envMatched",
+    "ran deterministic executable fixture verifier checks",
+    "recorded proof without product claim lift"
+  ],
+  "claimGuard": {
+    "productSupportOutOfScope": true,
+    "productSupportRowsAdded": 0,
+    "arbitraryProcessRestoreClaimed": 0,
+    "publicClaimAllowed": false,
+    "rawCpuRestoreUsed": false,
+    "rawRegisterReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "sidecarReplayUsed": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

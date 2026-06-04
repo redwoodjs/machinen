@@ -1,0 +1,16 @@
+{
+  "command": [
+    "node",
+    "packages/cli/dist/cli.js",
+    "restore",
+    "/Users/peterp/gh/redwoodjs/machinen/proofs/native-process-substrate/product-e2e-gate/retained/arm64-to-amd64/selected-native.bundle",
+    "--target-arch",
+    "amd64",
+    "--target-verifier-output",
+    "/Users/peterp/gh/redwoodjs/machinen/proofs/native-process-substrate/product-e2e-gate/retained/arm64-to-amd64/target/target-verifier.json",
+    "--json"
+  ],
+  "status": 0,
+  "stdout": "{\"schema_version\":1,\"kind\":\"machinen.product-selected-native-restore-summary\",\"formatVersion\":1,\"runtime\":\"native-linux-process\",\"subset\":\"selected-single-thread-native-workload-v1\",\"supportLevel\":\"proof-only-product-path\",\"implementationLevel\":\"native-product-path-e2e-gate\",\"targetArch\":\"amd64\",\"publicClaimAllowed\":false,\"publicClaim\":{\"productSupport\":null,\"broadSupport\":null,\"arbitraryProcessCrossArchRestore\":0},\"shortcutInspection\":{\"rawCpuRestoreUsed\":false,\"sourceIsaEmulationUsed\":false,\"runtimeProfileRestoreUsed\":false,\"sourceTextReusedAsTargetCode\":false,\"sidecarRuntimeUsed\":false,\"appHooksRequired\":false,\"metadataOnlyShortcutAccepted\":false},\"state\":\"completed\",\"migrationCompleted\":true,\"sourceArch\":\"arm64\",\"targetVerifierResult\":\"passed\",\"descriptorSha256\":\"fc72b8cedc1974b96278b91f95c5772c01b2317ab1a3b7eba38be9c4e19a8335\",\"targetVerifierOutputSha256\":\"89d30848fc05e8ff5921409010e49789be2e2616301a355f96fd8de9d94e7cb8\"}\n",
+  "stderr": ""
+}

@@ -1,0 +1,111 @@
+[
+  {
+    "id": "vm-sqlite-database-smoke",
+    "proofNumber": "vm/003",
+    "disposition": "refused",
+    "status": "verified",
+    "accepted": true,
+    "verifier": {
+      "id": "vm-sqlite-database-smoke",
+      "disposition": "refused",
+      "accepted": "true",
+      "refusalCode": "vm-workload-tool-missing",
+      "tool": "sqlite3",
+      "evidence": "sqlite3-not-installed-in-guest"
+    },
+    "refusalCode": "vm-workload-tool-missing",
+    "evidence": "sqlite3-not-installed-in-guest"
+  },
+  {
+    "id": "vm-postgresql-database-smoke",
+    "proofNumber": "vm/004",
+    "disposition": "refused",
+    "status": "verified",
+    "accepted": true,
+    "verifier": {
+      "id": "vm-postgresql-database-smoke",
+      "disposition": "refused",
+      "accepted": "true",
+      "refusalCode": "vm-workload-tool-missing",
+      "tool": "postgresql",
+      "evidence": "postgresql-tools-not-installed-in-guest"
+    },
+    "refusalCode": "vm-workload-tool-missing",
+    "evidence": "postgresql-tools-not-installed-in-guest"
+  },
+  {
+    "id": "vm-simple-c-process-smoke",
+    "proofNumber": "vm/005",
+    "disposition": "supported",
+    "status": "verified",
+    "accepted": true,
+    "verifier": {
+      "id": "vm-simple-c-process-smoke",
+      "disposition": "supported",
+      "accepted": "true",
+      "evidence": "target-native-static-c-binary-executed"
+    },
+    "evidence": "target-native-static-c-binary-executed"
+  },
+  {
+    "id": "vm-simple-java-process-smoke",
+    "proofNumber": "vm/006",
+    "disposition": "refused",
+    "status": "verified",
+    "accepted": true,
+    "verifier": {
+      "id": "vm-simple-java-process-smoke",
+      "disposition": "refused",
+      "accepted": "true",
+      "refusalCode": "vm-workload-tool-missing",
+      "tool": "java",
+      "evidence": "java-runtime-not-installed-in-guest"
+    },
+    "refusalCode": "vm-workload-tool-missing",
+    "evidence": "java-runtime-not-installed-in-guest"
+  },
+  {
+    "id": "vm-ebpf-capability-smoke",
+    "proofNumber": "vm/007",
+    "disposition": "supported",
+    "status": "verified",
+    "accepted": true,
+    "verifier": {
+      "id": "vm-ebpf-capability-smoke",
+      "disposition": "supported",
+      "accepted": "true",
+      "evidence": "bpf-map-create-succeeded"
+    },
+    "evidence": "bpf-map-create-succeeded"
+  },
+  {
+    "id": "vm-seccomp-capability-smoke",
+    "proofNumber": "vm/008",
+    "disposition": "supported",
+    "status": "verified",
+    "accepted": true,
+    "verifier": {
+      "id": "vm-seccomp-capability-smoke",
+      "disposition": "supported",
+      "accepted": "true",
+      "evidence": "seccomp-filter-blocked-getpid-with-eperm"
+    },
+    "evidence": "seccomp-filter-blocked-getpid-with-eperm"
+  },
+  {
+    "id": "vm-nested-virtualization-smoke",
+    "proofNumber": "vm/009",
+    "disposition": "refused",
+    "status": "verified",
+    "accepted": true,
+    "verifier": {
+      "id": "vm-nested-virtualization-smoke",
+      "disposition": "refused",
+      "accepted": "true",
+      "refusalCode": "vm-workload-nested-virtualization-unavailable",
+      "evidence": "/dev/kvm-missing"
+    },
+    "refusalCode": "vm-workload-nested-virtualization-unavailable",
+    "evidence": "/dev/kvm-missing"
+  }
+]

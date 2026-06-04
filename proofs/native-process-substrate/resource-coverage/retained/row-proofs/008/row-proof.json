@@ -1,0 +1,104 @@
+{
+  "proofNumber": "008",
+  "id": "native-tcp-listener-loopback",
+  "category": "tcp",
+  "status": "verified",
+  "disposition": "supported-selected-subset",
+  "accepted": true,
+  "artifact": "proofs/native-process-substrate/resource-coverage/retained/row-proofs/008/row-proof.json",
+  "evidence": "Idle loopback TCP listener with empty accept queue is represented as target-native synthetic listener recipe.",
+  "checks": [
+    {
+      "id": "expected-target-kinds",
+      "passed": true,
+      "message": "target kinds include "
+    },
+    {
+      "id": "expected-guest-kinds",
+      "passed": true,
+      "message": "guest kinds include synthetic-tcp-listener"
+    },
+    {
+      "id": "expected-refusals",
+      "passed": true,
+      "message": "refusals match "
+    },
+    {
+      "id": "no-raw-cpu-or-emulation",
+      "passed": true,
+      "message": "resource translation does not use raw CPU restore or source ISA emulation"
+    }
+  ],
+  "targetPlan": {
+    "entries": [
+      {
+        "targetFd": 20,
+        "capturedFd": 20,
+        "resourceId": "fd:20:tcp-listener",
+        "resourceKind": "socket",
+        "kind": "synthetic-tcp-listener",
+        "closeOnExec": false,
+        "action": "materialize",
+        "source": "captured-resource",
+        "recipe": {
+          "tcpListenerModel": "loopback-listener-v1",
+          "family": "inet4",
+          "socketType": "stream",
+          "protocol": "tcp",
+          "bindAddress": "127.0.0.1",
+          "port": 54321,
+          "backlog": 16,
+          "reuseAddr": true
+        },
+        "targetGuestRecipe": {
+          "kind": "synthetic-tcp-listener",
+          "fd": 20,
+          "port": 54321,
+          "backlog": 16,
+          "reuseAddr": true,
+          "closeOnExec": false
+        },
+        "provenance": {
+          "resourceId": "fd:20:tcp-listener",
+          "capturedFd": 20,
+          "targetFd": 20,
+          "flags": ["octal:2"],
+          "reason": "translated-resource-recipe"
+        }
+      }
+    ],
+    "resources": [
+      {
+        "id": "fd:20:tcp-listener",
+        "kind": "socket",
+        "state": "recipe",
+        "fd": 20,
+        "path": "socket:[tcp-listen]",
+        "flags": ["octal:2"],
+        "recipe": {
+          "tcpListenerModel": "loopback-listener-v1",
+          "family": "inet4",
+          "socketType": "stream",
+          "protocol": "tcp",
+          "bindAddress": "127.0.0.1",
+          "port": 54321,
+          "backlog": 16,
+          "reuseAddr": true
+        }
+      }
+    ],
+    "targetGuestResources": [
+      {
+        "kind": "synthetic-tcp-listener",
+        "fd": 20,
+        "port": 54321,
+        "backlog": 16,
+        "reuseAddr": true,
+        "closeOnExec": false
+      }
+    ],
+    "refusals": []
+  },
+  "refusals": [],
+  "claimUse": "resource-seed-only"
+}

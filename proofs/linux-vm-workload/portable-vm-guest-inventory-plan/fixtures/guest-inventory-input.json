@@ -1,0 +1,161 @@
+{
+  "kind": "machinen.portable-vm-guest-inventory",
+  "version": 1,
+  "scope": "fixture-guest-inventory-portable-vm-plan-v1",
+  "sourceVm": {
+    "id": "fixture-linux-vm-from-guest-inventory",
+    "sourceArchitecture": "arm64",
+    "targetArchitecture": "amd64",
+    "guestOs": "linux",
+    "kernel": "fixture-guest-kernel",
+    "vmm": "machinen-vm",
+    "pauseMode": "fixture-guest-inventory-quiesce"
+  },
+  "pause": {
+    "filesystemFrozen": true,
+    "selectedServicesIdle": true,
+    "databaseCleanPolicy": "selected-clean-databases-only",
+    "networkPolicy": "listeners-only-active-streams-refused",
+    "unknownStatePolicy": "refuse-by-default"
+  },
+  "filesystems": [
+    {
+      "id": "rootfs-file-tree",
+      "component": "filesystem",
+      "observedState": "clean-file-tree",
+      "attributes": {
+        "mountPoint": "/",
+        "contentAddressed": true,
+        "fsFrozen": true,
+        "source": "guest-mount-table-fixture"
+      }
+    }
+  ],
+  "services": [
+    {
+      "id": "example-c-service",
+      "component": "service",
+      "observedState": "selected-target-native-service",
+      "attributes": {
+        "manager": "systemd-or-supervisor",
+        "targetNativeBinaryRequired": true,
+        "startVerifierAvailable": true,
+        "source": "guest-service-manifest-fixture"
+      }
+    }
+  ],
+  "processes": [
+    {
+      "id": "selected-service-process",
+      "component": "process",
+      "observedState": "selected-process-metadata",
+      "attributes": {
+        "pid": 101,
+        "argvCaptured": true,
+        "envCaptured": true,
+        "cwdCaptured": true,
+        "memoryPolicy": "portable-data-only",
+        "source": "guest-proc-fixture"
+      }
+    },
+    {
+      "id": "unknown-live-process",
+      "component": "process",
+      "observedState": "unclassified-live-process-state",
+      "attributes": {
+        "pid": 222,
+        "unknownState": true,
+        "source": "guest-proc-fixture"
+      }
+    }
+  ],
+  "network": [
+    {
+      "id": "http-listener-8080",
+      "component": "network",
+      "observedState": "listening-no-active-streams",
+      "attributes": {
+        "protocol": "tcp",
+        "port": 8080,
+        "activeStreams": 0,
+        "source": "guest-ss-fixture"
+      }
+    },
+    {
+      "id": "active-tcp-streams",
+      "component": "network",
+      "observedState": "connected-streams-or-in-flight-packets",
+      "attributes": {
+        "protocol": "tcp",
+        "activeStreams": 2,
+        "source": "guest-ss-fixture"
+      }
+    }
+  ],
+  "databases": [
+    {
+      "id": "sqlite-clean-db",
+      "component": "database",
+      "observedState": "clean-quiesced",
+      "attributes": {
+        "engine": "sqlite",
+        "path": "/var/lib/example/app.db",
+        "clean": true,
+        "targetNativeTooling": true,
+        "source": "guest-db-fixture"
+      }
+    },
+    {
+      "id": "postgres-dirty-wal",
+      "component": "database",
+      "observedState": "active-transaction-or-dirty-wal",
+      "attributes": {
+        "engine": "postgresql",
+        "dirtyWal": true,
+        "source": "guest-db-fixture"
+      }
+    }
+  ],
+  "devices": [
+    {
+      "id": "virtio-net",
+      "component": "device",
+      "observedState": "configuration-only",
+      "attributes": {
+        "deviceKind": "virtio-net",
+        "opaqueState": false,
+        "source": "guest-device-fixture"
+      }
+    },
+    {
+      "id": "passthrough-gpu",
+      "component": "device",
+      "observedState": "opaque-device-state",
+      "attributes": {
+        "deviceKind": "passthrough-gpu",
+        "opaqueState": true,
+        "source": "guest-device-fixture"
+      }
+    }
+  ],
+  "kernelState": [
+    {
+      "id": "mount-namespace",
+      "component": "kernel-state",
+      "observedState": "declared-mount-table",
+      "attributes": {
+        "mountTableCaptured": true,
+        "source": "guest-proc-mounts-fixture"
+      }
+    },
+    {
+      "id": "active-syscalls",
+      "component": "kernel-state",
+      "observedState": "in-kernel-continuation",
+      "attributes": {
+        "activeSyscallPresent": true,
+        "source": "guest-task-stack-fixture"
+      }
+    }
+  ]
+}

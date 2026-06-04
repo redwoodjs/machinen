@@ -1,0 +1,39 @@
+{
+  "id": "real-cross-arch-tcp-listener-product-e2e",
+  "claim": "Real cross-architecture TCP listener product snapshot/restore E2E",
+  "trackId": "whole-linux-vm-workload",
+  "status": "verified",
+  "scope": "real-cross-arch-tcp-listener-product-e2e-v1",
+  "claimNumbers": {
+    "productSupport": 100,
+    "broadSupport": 100,
+    "arbitraryProcessCrossArchRestore": 0,
+    "arbitraryVmRestoreRowsAdded": 0
+  },
+  "promotionEffect": "Adds a retained product-command E2E for a selected TCP listener workload: actual opposite-architecture source socket capture and target-native VM restore verification. It does not raise arbitrary VM restore claims.",
+  "proofDirectory": "proofs/linux-vm-workload/real-cross-arch-tcp-listener-product-e2e",
+  "proofs": [
+    {
+      "id": "real-cross-arch-tcp-listener-product-e2e",
+      "proofNumber": "vm/030",
+      "category": "real cross-arch product E2E",
+      "status": "verified",
+      "disposition": "product-e2e",
+      "artifact": "proofs/linux-vm-workload/real-cross-arch-tcp-listener-product-e2e/retained/real-cross-arch-tcp-listener-product-e2e-report.json",
+      "proves": "amd64->arm64 product capture/restore completed with target-native VM boot and verifier passed for selected TCP listener workload.",
+      "claimUse": "selected TCP listener workload product evidence only; arbitrary VM restore remains unclaimed",
+      "next": "Extend the same real product-command E2E pattern to filesystem/service/SQLite rows, then compose through the Portable VM Manifest/Plan.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 100,
+          "broadSupport": 100,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    }
+  ]
+}

@@ -1,0 +1,240 @@
+{
+  "kind": "machinen.selected-native-support-matrix",
+  "version": 1,
+  "generatedAt": "2026-06-02T20:26:33.898Z",
+  "accepted": true,
+  "proofStatus": "verified",
+  "publicClaimAllowed": true,
+  "publicClaim": {
+    "productSupport": 100,
+    "broadSupport": 100,
+    "arbitraryProcessCrossArchRestore": 0,
+    "scope": "selected-single-thread-native-workload-v1"
+  },
+  "scope": "Claim-bearing matrix for the selected single-thread native workload only. It requires retained machinen capture native / machinen restore artifacts for both directions and retained product refusals for neighboring unsupported source/target states. It does not claim arbitrary Linux process restore.",
+  "supportedRows": [
+    {
+      "id": "selected-single-thread-native-workload-v1",
+      "status": "verified",
+      "directions": [
+        {
+          "direction": "arm64-to-amd64",
+          "sourceArch": "arm64",
+          "targetArch": "amd64",
+          "accepted": true,
+          "captureArtifact": "proofs/native-process-substrate/product-e2e-gate/retained/arm64-to-amd64/capture-transcript.json",
+          "restoreArtifact": "proofs/native-process-substrate/product-e2e-gate/retained/arm64-to-amd64/restore-transcript.json",
+          "targetVerifierArtifact": "proofs/native-process-substrate/product-e2e-gate/retained/arm64-to-amd64/target/target-verifier.json"
+        },
+        {
+          "direction": "amd64-to-arm64",
+          "sourceArch": "amd64",
+          "targetArch": "arm64",
+          "accepted": true,
+          "captureArtifact": "proofs/native-process-substrate/product-e2e-gate/retained/amd64-to-arm64/capture-transcript.json",
+          "restoreArtifact": "proofs/native-process-substrate/product-e2e-gate/retained/amd64-to-arm64/restore-transcript.json",
+          "targetVerifierArtifact": "proofs/native-process-substrate/product-e2e-gate/retained/amd64-to-arm64/target/target-verifier.json"
+        }
+      ]
+    }
+  ],
+  "refusalRows": [
+    {
+      "id": "selected-native-active-syscall-arm64-to-amd64",
+      "kind": "active-syscall",
+      "direction": "arm64-to-amd64",
+      "sourceArch": "arm64",
+      "targetArch": "amd64",
+      "accepted": true,
+      "expectedRefusalCode": "native-source-state-unsupported",
+      "actualRefusalCode": "native-source-state-unsupported",
+      "transcript": {
+        "name": "proofs/native-process-substrate/selected-native-support-matrix/retained/refusals/active-syscall/arm64-to-amd64/capture-transcript.json",
+        "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/native-process-substrate/selected-native-support-matrix/retained/refusals/active-syscall/arm64-to-amd64/capture-transcript.json",
+        "sha256": "6858923abdb60f28fef10a07c8e92e9c6987325f7b89a74fd8cc9a72725303e5"
+      },
+      "retainedArtifacts": [
+        {
+          "name": "proofs/native-process-substrate/selected-native-support-matrix/retained/refusals/active-syscall/arm64-to-amd64/selected-native.refused/portable-selected-native-refusal.json",
+          "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/native-process-substrate/selected-native-support-matrix/retained/refusals/active-syscall/arm64-to-amd64/selected-native.refused/portable-selected-native-refusal.json",
+          "sha256": "fe8666ace93ad5476e128d563d611d3e9600636fa8136344bd7f40bead55791a"
+        }
+      ]
+    },
+    {
+      "id": "selected-native-active-syscall-amd64-to-arm64",
+      "kind": "active-syscall",
+      "direction": "amd64-to-arm64",
+      "sourceArch": "amd64",
+      "targetArch": "arm64",
+      "accepted": true,
+      "expectedRefusalCode": "native-source-state-unsupported",
+      "actualRefusalCode": "native-source-state-unsupported",
+      "transcript": {
+        "name": "proofs/native-process-substrate/selected-native-support-matrix/retained/refusals/active-syscall/amd64-to-arm64/capture-transcript.json",
+        "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/native-process-substrate/selected-native-support-matrix/retained/refusals/active-syscall/amd64-to-arm64/capture-transcript.json",
+        "sha256": "3f4baeb004ac82b0ba656d4fed6d0f1773463e4c41ec8922051be84b88a5e00e"
+      },
+      "retainedArtifacts": [
+        {
+          "name": "proofs/native-process-substrate/selected-native-support-matrix/retained/refusals/active-syscall/amd64-to-arm64/selected-native.refused/portable-selected-native-refusal.json",
+          "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/native-process-substrate/selected-native-support-matrix/retained/refusals/active-syscall/amd64-to-arm64/selected-native.refused/portable-selected-native-refusal.json",
+          "sha256": "fe8666ace93ad5476e128d563d611d3e9600636fa8136344bd7f40bead55791a"
+        }
+      ]
+    },
+    {
+      "id": "selected-native-unsupported-resource-state-arm64-to-amd64",
+      "kind": "unsupported-resource-state",
+      "direction": "arm64-to-amd64",
+      "sourceArch": "arm64",
+      "targetArch": "amd64",
+      "accepted": true,
+      "expectedRefusalCode": "native-source-state-unsupported",
+      "actualRefusalCode": "native-source-state-unsupported",
+      "transcript": {
+        "name": "proofs/native-process-substrate/selected-native-support-matrix/retained/refusals/unsupported-resource-state/arm64-to-amd64/capture-transcript.json",
+        "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/native-process-substrate/selected-native-support-matrix/retained/refusals/unsupported-resource-state/arm64-to-amd64/capture-transcript.json",
+        "sha256": "9023b0036eba2c9e3ba471a1eed66a30649b2e77bf7764a34a4c8b7561ad0d2e"
+      },
+      "retainedArtifacts": [
+        {
+          "name": "proofs/native-process-substrate/selected-native-support-matrix/retained/refusals/unsupported-resource-state/arm64-to-amd64/selected-native.refused/portable-selected-native-refusal.json",
+          "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/native-process-substrate/selected-native-support-matrix/retained/refusals/unsupported-resource-state/arm64-to-amd64/selected-native.refused/portable-selected-native-refusal.json",
+          "sha256": "467f570f3010046b53572b2362afaa1ce80efc698ea013753d047761dd832186"
+        }
+      ]
+    },
+    {
+      "id": "selected-native-unsupported-resource-state-amd64-to-arm64",
+      "kind": "unsupported-resource-state",
+      "direction": "amd64-to-arm64",
+      "sourceArch": "amd64",
+      "targetArch": "arm64",
+      "accepted": true,
+      "expectedRefusalCode": "native-source-state-unsupported",
+      "actualRefusalCode": "native-source-state-unsupported",
+      "transcript": {
+        "name": "proofs/native-process-substrate/selected-native-support-matrix/retained/refusals/unsupported-resource-state/amd64-to-arm64/capture-transcript.json",
+        "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/native-process-substrate/selected-native-support-matrix/retained/refusals/unsupported-resource-state/amd64-to-arm64/capture-transcript.json",
+        "sha256": "d3e067292d3237a0f33860e7594b94a6ba4c097bcff15350ec745add9b3fbe59"
+      },
+      "retainedArtifacts": [
+        {
+          "name": "proofs/native-process-substrate/selected-native-support-matrix/retained/refusals/unsupported-resource-state/amd64-to-arm64/selected-native.refused/portable-selected-native-refusal.json",
+          "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/native-process-substrate/selected-native-support-matrix/retained/refusals/unsupported-resource-state/amd64-to-arm64/selected-native.refused/portable-selected-native-refusal.json",
+          "sha256": "467f570f3010046b53572b2362afaa1ce80efc698ea013753d047761dd832186"
+        }
+      ]
+    },
+    {
+      "id": "selected-native-target-shortcut-arm64-to-amd64",
+      "kind": "target-shortcut",
+      "direction": "arm64-to-amd64",
+      "sourceArch": "arm64",
+      "targetArch": "amd64",
+      "accepted": true,
+      "expectedRefusalCode": "native-target-shortcut-detected",
+      "actualRefusalCode": "native-target-shortcut-detected",
+      "transcript": {
+        "name": "proofs/native-process-substrate/selected-native-support-matrix/retained/refusals/target-shortcut/arm64-to-amd64/restore-transcript.json",
+        "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/native-process-substrate/selected-native-support-matrix/retained/refusals/target-shortcut/arm64-to-amd64/restore-transcript.json",
+        "sha256": "d780b862962e611122265e4f437d1d227464e59e0f72a64bb338094aa332a4b2"
+      },
+      "retainedArtifacts": [
+        {
+          "name": "proofs/native-process-substrate/selected-native-support-matrix/retained/refusals/target-shortcut/arm64-to-amd64/target-verifier-shortcut.json",
+          "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/native-process-substrate/selected-native-support-matrix/retained/refusals/target-shortcut/arm64-to-amd64/target-verifier-shortcut.json",
+          "sha256": "99b5d7f4b9d8404d5c4f9cc561e9a54378a7a657e14d11159a772bee127335fa"
+        },
+        {
+          "name": "proofs/native-process-substrate/selected-native-support-matrix/retained/refusals/target-shortcut/arm64-to-amd64/selected-native.bundle/portable-selected-native.json",
+          "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/native-process-substrate/selected-native-support-matrix/retained/refusals/target-shortcut/arm64-to-amd64/selected-native.bundle/portable-selected-native.json",
+          "sha256": "5c80067278dbc5cbf4c3fa6fd30d55cdedc85fe379e4d7ea171d5f686195d4a8"
+        },
+        {
+          "name": "proofs/native-process-substrate/selected-native-support-matrix/retained/refusals/target-shortcut/arm64-to-amd64/selected-native.bundle/portable-selected-native-restore-summary.json",
+          "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/native-process-substrate/selected-native-support-matrix/retained/refusals/target-shortcut/arm64-to-amd64/selected-native.bundle/portable-selected-native-restore-summary.json",
+          "sha256": "df3cc24c8a9b07d607d8d268b9be224462a4d4bc216efa1001ed58fac6dc423a"
+        },
+        {
+          "name": "proofs/native-process-substrate/selected-native-support-matrix/retained/refusals/target-shortcut/arm64-to-amd64/selected-native.bundle/source-verifier.json",
+          "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/native-process-substrate/selected-native-support-matrix/retained/refusals/target-shortcut/arm64-to-amd64/selected-native.bundle/source-verifier.json",
+          "sha256": "f9d4e520e6356875ce685bdb90945804d841d8e4bb8f2f68c45cadf8adaa45f9"
+        },
+        {
+          "name": "proofs/native-process-substrate/selected-native-support-matrix/retained/refusals/target-shortcut/arm64-to-amd64/selected-native.bundle/source-capture.json",
+          "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/native-process-substrate/selected-native-support-matrix/retained/refusals/target-shortcut/arm64-to-amd64/selected-native.bundle/source-capture.json",
+          "sha256": "36c417674f47860af9fe8aa6c3fe2fd04edcb6741c4cda4f6abf7ba1b28900fb"
+        },
+        {
+          "name": "proofs/native-process-substrate/selected-native-support-matrix/retained/refusals/target-shortcut/arm64-to-amd64/selected-native.bundle/target-plan.json",
+          "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/native-process-substrate/selected-native-support-matrix/retained/refusals/target-shortcut/arm64-to-amd64/selected-native.bundle/target-plan.json",
+          "sha256": "47f0e85fd856ce7c9acedb27a8aa7bc64d05fd6b35cb70d941a64603b6d7e0be"
+        }
+      ]
+    },
+    {
+      "id": "selected-native-target-shortcut-amd64-to-arm64",
+      "kind": "target-shortcut",
+      "direction": "amd64-to-arm64",
+      "sourceArch": "amd64",
+      "targetArch": "arm64",
+      "accepted": true,
+      "expectedRefusalCode": "native-target-shortcut-detected",
+      "actualRefusalCode": "native-target-shortcut-detected",
+      "transcript": {
+        "name": "proofs/native-process-substrate/selected-native-support-matrix/retained/refusals/target-shortcut/amd64-to-arm64/restore-transcript.json",
+        "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/native-process-substrate/selected-native-support-matrix/retained/refusals/target-shortcut/amd64-to-arm64/restore-transcript.json",
+        "sha256": "7171e214cf8f21d0c00fdcae3d295d208e5db26070d2bf5a3e9e863832ae6901"
+      },
+      "retainedArtifacts": [
+        {
+          "name": "proofs/native-process-substrate/selected-native-support-matrix/retained/refusals/target-shortcut/amd64-to-arm64/target-verifier-shortcut.json",
+          "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/native-process-substrate/selected-native-support-matrix/retained/refusals/target-shortcut/amd64-to-arm64/target-verifier-shortcut.json",
+          "sha256": "6774846fb843fafec8916d86fd823db675a1469a9013f33629c5199fb885239c"
+        },
+        {
+          "name": "proofs/native-process-substrate/selected-native-support-matrix/retained/refusals/target-shortcut/amd64-to-arm64/selected-native.bundle/portable-selected-native.json",
+          "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/native-process-substrate/selected-native-support-matrix/retained/refusals/target-shortcut/amd64-to-arm64/selected-native.bundle/portable-selected-native.json",
+          "sha256": "cea31818747d1734cb461c66201c3be3f9715678ec54bc0ae3f889e7a25ea94b"
+        },
+        {
+          "name": "proofs/native-process-substrate/selected-native-support-matrix/retained/refusals/target-shortcut/amd64-to-arm64/selected-native.bundle/portable-selected-native-restore-summary.json",
+          "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/native-process-substrate/selected-native-support-matrix/retained/refusals/target-shortcut/amd64-to-arm64/selected-native.bundle/portable-selected-native-restore-summary.json",
+          "sha256": "fccf3d3b79357aa06a7be81a243829c443c8154831481712d820f62881394de0"
+        },
+        {
+          "name": "proofs/native-process-substrate/selected-native-support-matrix/retained/refusals/target-shortcut/amd64-to-arm64/selected-native.bundle/source-verifier.json",
+          "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/native-process-substrate/selected-native-support-matrix/retained/refusals/target-shortcut/amd64-to-arm64/selected-native.bundle/source-verifier.json",
+          "sha256": "3f6bd64624e949cdd78ee11c7f1a7d410febcb4078cec3109c774a9b122ca530"
+        },
+        {
+          "name": "proofs/native-process-substrate/selected-native-support-matrix/retained/refusals/target-shortcut/amd64-to-arm64/selected-native.bundle/source-capture.json",
+          "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/native-process-substrate/selected-native-support-matrix/retained/refusals/target-shortcut/amd64-to-arm64/selected-native.bundle/source-capture.json",
+          "sha256": "9a83680def7a234a2b1e7cdcb205a301cecfc2b4aeecbd0f048553e9f4f44f04"
+        },
+        {
+          "name": "proofs/native-process-substrate/selected-native-support-matrix/retained/refusals/target-shortcut/amd64-to-arm64/selected-native.bundle/target-plan.json",
+          "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/native-process-substrate/selected-native-support-matrix/retained/refusals/target-shortcut/amd64-to-arm64/selected-native.bundle/target-plan.json",
+          "sha256": "611e42bfad20031b17ad0ee0e96f6ca585f7e6740f5acd895fdf9e9a4248245e"
+        }
+      ]
+    }
+  ],
+  "rowCoverage": {
+    "supportedDirectionBundlesRequired": 2,
+    "supportedDirectionBundlesCovered": 2,
+    "refusedDirectionArtifactsRequired": 6,
+    "refusedDirectionArtifactsCovered": 6,
+    "notProvenRows": 0
+  },
+  "noShortcutPolicy": {
+    "rawCpuRestoreAccepted": false,
+    "sourceIsaEmulationAccepted": false,
+    "runtimeProfileRestoreAccepted": false,
+    "sidecarRuntimeAccepted": false,
+    "appHooksAccepted": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

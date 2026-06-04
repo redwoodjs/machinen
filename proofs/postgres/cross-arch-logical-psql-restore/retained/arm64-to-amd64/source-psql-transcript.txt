@@ -1,0 +1,1 @@
+{"database" : "machinen_pg", "rowCount" : 4, "valueSum" : 105, "payloads" : ["alpha","beta","gamma","delta"], "values" : [10,25,30,40]}

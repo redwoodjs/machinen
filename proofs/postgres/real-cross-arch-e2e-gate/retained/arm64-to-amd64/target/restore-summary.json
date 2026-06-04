@@ -1,0 +1,22 @@
+{
+  "kind": "machinen.product-portable-restore-summary",
+  "formatVersion": 1,
+  "runtime": "postgresql",
+  "subset": "postgres-clean-quiesced-logical-v1",
+  "supportLevel": "implemented-product-support",
+  "state": "completed",
+  "migrationCompleted": true,
+  "sourceArch": "arm64",
+  "targetArch": "amd64",
+  "targetState": "completed",
+  "targetVerifierResult": "passed",
+  "descriptorSha256": "8ea58eca42007b11caf1e557c1163423649e7424fd9fa4ea3ae560bbfc8a8416",
+  "targetVerifierOutputSha256": "60d5f365bdbfc07dde53a881f693aa7451ac555c5fd6fe041c83c0b48af6b4c2",
+  "shortcutInspection": {
+    "sourceIsaEmulationUsed": false,
+    "sourceTextReusedAsTargetCode": false,
+    "sidecarRuntimeUsed": false,
+    "appHooksRequired": false,
+    "metadataOnlyShortcutAccepted": false
+  }
+}

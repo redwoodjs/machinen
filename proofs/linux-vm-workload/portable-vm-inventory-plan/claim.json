@@ -1,0 +1,39 @@
+{
+  "id": "portable-vm-inventory-plan-proof",
+  "claim": "Controlled portable VM inventory and plan generator",
+  "trackId": "whole-linux-vm-workload",
+  "status": "verified",
+  "scope": "controlled-portable-vm-inventory-plan-v1",
+  "claimNumbers": {
+    "productSupport": 100,
+    "broadSupport": 100,
+    "arbitraryProcessCrossArchRestore": 0,
+    "arbitraryVmRestoreRowsAdded": 0
+  },
+  "promotionEffect": "Implements the first proof-first portable VM workflow slice: pause/quiesce transcript, raw inventory, classified manifest/plan, and retained report. It does not raise public arbitrary VM restore claims.",
+  "proofDirectory": "proofs/linux-vm-workload/portable-vm-inventory-plan",
+  "proofs": [
+    {
+      "id": "portable-vm-inventory-plan-proof",
+      "proofNumber": "vm/028",
+      "category": "portable VM inventory plan",
+      "status": "verified",
+      "disposition": "workflow-proof",
+      "artifact": "proofs/linux-vm-workload/portable-vm-inventory-plan/retained/portable-vm-inventory-plan-report.json",
+      "proves": "Generated 12 raw inventory items into 12 plan rows with 5 stable refusals and 0 unknown accepted rows.",
+      "claimUse": "workflow proof only; arbitrary VM restore remains unclaimed",
+      "next": "Replace controlled inventory fixture with in-guest inventory agent and product command wiring.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 100,
+          "broadSupport": 100,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    }
+  ]
+}

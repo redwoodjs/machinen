@@ -1,0 +1,37 @@
+{
+  "id": "arbitrary-unknown-process-state",
+  "proofNumber": "arbitrary/039",
+  "category": "unknown state",
+  "status": "verified",
+  "disposition": "refused",
+  "accepted": true,
+  "productSupportOutOfScope": true,
+  "productSupportClaimAllowed": false,
+  "arbitraryRestoreClaimAllowed": false,
+  "evidence": [
+    "any unclassified process-state class is proven refused by default; matrix has zero unknown accepted rows"
+  ],
+  "stableCode": "arbitrary-process-unknown-state-unsupported",
+  "verifier": {
+    "refusedBeforeTargetExecution": true,
+    "stableRefusalCode": "arbitrary-process-unknown-state-unsupported",
+    "defaultUnknownStatePolicy": "refuse",
+    "proofArtifactRetained": true,
+    "targetVerifierPassed": true,
+    "rawCpuRestoreUsed": false,
+    "rawRegisterReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "sidecarReplayUsed": false,
+    "metadataOnlySuccessAccepted": false
+  },
+  "proofArtifact": "arbitrary-unknown-process-state-proof.json",
+  "proofArtifactSha256": "a6bb6a478128763de259603eb00f9884fb28ef901456d2ef02eb042d89e605a0",
+  "proofMode": "stable-refusal-proof",
+  "proofQuality": "stable-refusal-proof",
+  "executableFixture": null,
+  "bidirectionalProofArtifact": null,
+  "bidirectionalProofArtifactSha256": null,
+  "bidirectionalDirections": 0,
+  "proofChecksPassed": 4
+}

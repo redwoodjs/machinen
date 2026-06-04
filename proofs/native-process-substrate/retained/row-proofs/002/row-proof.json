@@ -1,0 +1,28 @@
+{
+  "proofNumber": "002",
+  "id": "native-memory-map-inventory",
+  "type": "substrate",
+  "subcategory": "memory map inventory",
+  "status": "verified",
+  "accepted": true,
+  "artifact": "proofs/native-process-substrate/retained/row-proofs/002/row-proof.json",
+  "evidence": "Retained native process image bundle contains manifest, mappings, threads, resources, translation, and native-memory.bin inventory files. Raw verifier: proofs/native-process-substrate/retained/raw/native-controlled-restore.json.",
+  "checks": [
+    {
+      "id": "bundle-has-manifest",
+      "passed": true,
+      "message": "manifest retained"
+    },
+    {
+      "id": "bundle-has-mappings",
+      "passed": true,
+      "message": "mappings retained"
+    },
+    {
+      "id": "bundle-has-memory",
+      "passed": true,
+      "message": "captured memory file retained"
+    }
+  ],
+  "claimUse": "proof-only-native-substrate"
+}

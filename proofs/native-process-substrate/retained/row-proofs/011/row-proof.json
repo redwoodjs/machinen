@@ -1,0 +1,23 @@
+{
+  "proofNumber": "011",
+  "id": "native-futex-thread-refusal-proof",
+  "type": "boundary",
+  "subcategory": "thread/futex refusal",
+  "status": "verified",
+  "accepted": true,
+  "artifact": "proofs/native-process-substrate/retained/row-proofs/011/row-proof.json",
+  "evidence": "Thread/futex boundary refuses captured futex resources and active futex syscalls. Raw verifier: proofs/native-process-substrate/retained/raw/native-thread-refusal-matrix.json.",
+  "checks": [
+    {
+      "id": "futex-resource-refused",
+      "passed": true,
+      "message": "futex resource refused"
+    },
+    {
+      "id": "active-futex-refused",
+      "passed": true,
+      "message": "active futex syscall refused"
+    }
+  ],
+  "claimUse": "boundary-refusal"
+}

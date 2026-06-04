@@ -1,0 +1,21 @@
+{
+  "kind": "machinen.selected-arbitrary-linux-process-target-plan",
+  "scope": "selected-arbitrary-linux-process-seed-v1",
+  "action": "target-native-proof-only-reconstruction",
+  "argv": ["selected-arbitrary-process-seed", "--mode=behavior-e2e"],
+  "env": {
+    "MACHINEN_SELECTED_ARBITRARY_PROCESS_SEED": "behavior-e2e",
+    "MACHINEN_SELECTED_ARBITRARY_PROCESS_SCOPE": "selected-arbitrary-linux-process-seed-v1"
+  },
+  "cwd": "/Users/peterp/gh/redwoodjs/machinen",
+  "staticDataHeap": {
+    "staticCounter": 42,
+    "dataMessage": "target-native-selected-seed-behavior",
+    "heapBytes": "heap-materialized-without-raw-cpu-restore"
+  },
+  "rawCpuRestoreUsed": false,
+  "sourceIsaEmulationUsed": false,
+  "appCheckpointHooksRequired": false,
+  "sidecarReplayUsed": false,
+  "metadataOnlySuccessAccepted": false
+}

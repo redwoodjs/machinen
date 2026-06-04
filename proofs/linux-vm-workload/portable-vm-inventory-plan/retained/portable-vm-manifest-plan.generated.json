@@ -1,0 +1,361 @@
+{
+  "kind": "machinen.portable-vm-manifest-plan",
+  "version": 1,
+  "status": "generated-proof",
+  "scope": "controlled-portable-vm-inventory-plan-v1",
+  "purpose": "Generated proof artifact for a controlled paused VM inventory plus restore/refusal plan.",
+  "productIntent": {
+    "problem": "A VM contains mixed state: some portable, some target-native reconstructable, some unsafe across CPU architectures, and some unknown.",
+    "goal": "Pause a VM, inventory its contents, classify every row, restore what is safe, and refuse unsafe state with stable codes.",
+    "notGoal": "Do not claim exact arbitrary cross-architecture VM resume, raw vCPU replay, source ISA emulation, or metadata-only success.",
+    "why": "This makes mostly-whole-VM cross-architecture restore inspectable and honest instead of a vague any-VM promise.",
+    "nextImplementationStep": "Replace the controlled inventory fixture with an in-guest inventory agent and product command wiring."
+  },
+  "workflow": [
+    {
+      "step": 1,
+      "name": "pause/quiesce VM",
+      "does": "freeze selected VM state into a controlled idle point",
+      "why": "avoid copying dirty or changing state",
+      "status": "verified"
+    },
+    {
+      "step": 2,
+      "name": "inventory VM",
+      "does": "discover filesystems, services, processes, DBs, network, devices, and kernel state",
+      "why": "know what is actually inside the VM",
+      "status": "verified"
+    },
+    {
+      "step": 3,
+      "name": "classify rows",
+      "does": "assign every discovered item a disposition and refusal code if needed",
+      "why": "prevent hidden unsupported state from becoming a false success",
+      "status": "verified"
+    },
+    {
+      "step": 4,
+      "name": "plan restore",
+      "does": "convert classifications into restore actions or stable refusals",
+      "why": "make restore deterministic and auditable",
+      "status": "verified"
+    },
+    {
+      "step": 5,
+      "name": "restore target-native VM",
+      "does": "not executed in this proof; planned rows name target-native strategies",
+      "why": "cross architectures without raw CPU/vCPU replay",
+      "status": "verified"
+    },
+    {
+      "step": 6,
+      "name": "retain proof artifacts",
+      "does": "write raw inventory, pause transcript, generated manifest/plan, and report",
+      "why": "public claims must be backed by artifacts",
+      "status": "verified"
+    }
+  ],
+  "claimGuard": {
+    "publicClaimAllowed": false,
+    "arbitraryVmRestoreClaimed": false,
+    "arbitraryLinuxProcessRestoreClaimed": false,
+    "rawVmStateReplayAllowed": false,
+    "crossIsaVcpuReplayAllowed": false,
+    "sourceIsaEmulationAllowed": false,
+    "metadataOnlySuccessAllowed": false
+  },
+  "sourceVm": {
+    "id": "controlled-linux-vm-inventory-fixture",
+    "sourceArchitecture": "arm64",
+    "targetArchitecture": "amd64",
+    "guestOs": "linux",
+    "kernel": "controlled-fixture-kernel",
+    "vmm": "machinen-vm",
+    "pauseMode": "controlled-idle-quiesce-proof",
+    "quiesce": {
+      "filesystemFrozen": true,
+      "servicesStoppedOrCheckpointed": "selected-services-only",
+      "databasesClean": "selected-clean-databases-only",
+      "networkDrained": "listeners-only-active-streams-refused"
+    }
+  },
+  "targetPolicy": {
+    "restoreMode": "target-native-reconstruction",
+    "allowedTargetArchitectures": ["arm64", "amd64"],
+    "dependencyPolicy": "target-native-dependencies-required",
+    "unknownStatePolicy": "refuse-by-default"
+  },
+  "dispositionLegend": [
+    {
+      "disposition": "portable",
+      "meaning": "Can be copied or materialized without architecture-specific interpretation."
+    },
+    {
+      "disposition": "reconstructable",
+      "meaning": "Can be recreated target-native from portable metadata."
+    },
+    {
+      "disposition": "product-supported",
+      "meaning": "A retained product path exists for this row and scope."
+    },
+    {
+      "disposition": "refused",
+      "meaning": "Known unsafe or unsupported; restore must stop with a stable refusal code."
+    },
+    {
+      "disposition": "same-arch-only",
+      "meaning": "May be restorable only without crossing CPU architecture."
+    },
+    {
+      "disposition": "unknown",
+      "meaning": "Not classified; refused by default."
+    }
+  ],
+  "manifest": {
+    "filesystems": [
+      {
+        "id": "rootfs-file-tree",
+        "state": "clean-file-tree",
+        "mountPoint": "/",
+        "contentAddressed": true,
+        "fsFrozen": true,
+        "disposition": "portable"
+      }
+    ],
+    "services": [
+      {
+        "id": "example-c-service",
+        "state": "selected-target-native-service",
+        "manager": "systemd-or-supervisor",
+        "targetNativeBinaryRequired": true,
+        "startVerifierAvailable": true,
+        "disposition": "product-supported"
+      }
+    ],
+    "processes": [
+      {
+        "id": "selected-service-process",
+        "state": "selected-process-metadata",
+        "argvCaptured": true,
+        "envCaptured": true,
+        "cwdCaptured": true,
+        "memoryPolicy": "portable-data-only",
+        "disposition": "reconstructable"
+      },
+      {
+        "id": "unknown-live-process",
+        "state": "unclassified-live-process-state",
+        "unknownState": true,
+        "disposition": "refused",
+        "refusalCode": "portable-vm-unknown-process-state-unsupported"
+      }
+    ],
+    "network": [
+      {
+        "id": "http-listener-8080",
+        "state": "listening-no-active-streams",
+        "protocol": "tcp",
+        "port": 8080,
+        "activeStreams": 0,
+        "disposition": "reconstructable"
+      },
+      {
+        "id": "active-tcp-streams",
+        "state": "connected-streams-or-in-flight-packets",
+        "activeStreams": 2,
+        "disposition": "refused",
+        "refusalCode": "portable-vm-active-network-stream-unsupported"
+      }
+    ],
+    "databases": [
+      {
+        "id": "sqlite-clean-db",
+        "state": "clean-quiesced",
+        "engine": "sqlite",
+        "clean": true,
+        "targetNativeTooling": true,
+        "disposition": "product-supported"
+      },
+      {
+        "id": "postgres-dirty-wal",
+        "state": "active-transaction-or-dirty-wal",
+        "engine": "postgresql",
+        "dirtyWal": true,
+        "disposition": "refused",
+        "refusalCode": "portable-vm-active-db-state-unsupported"
+      }
+    ],
+    "devices": [
+      {
+        "id": "virtio-net",
+        "state": "configuration-only",
+        "deviceKind": "virtio-net",
+        "opaqueState": false,
+        "disposition": "reconstructable"
+      },
+      {
+        "id": "passthrough-gpu",
+        "state": "opaque-device-state",
+        "deviceKind": "passthrough-gpu",
+        "opaqueState": true,
+        "disposition": "refused",
+        "refusalCode": "portable-vm-opaque-device-state-unsupported"
+      }
+    ],
+    "kernelState": [
+      {
+        "id": "mount-namespace",
+        "state": "declared-mount-table",
+        "mountTableCaptured": true,
+        "disposition": "reconstructable"
+      },
+      {
+        "id": "active-syscalls",
+        "state": "in-kernel-continuation",
+        "activeSyscallPresent": true,
+        "disposition": "refused",
+        "refusalCode": "portable-vm-active-syscall-unsupported"
+      }
+    ]
+  },
+  "plan": {
+    "rows": [
+      {
+        "id": "vm/rootfs-file-tree",
+        "component": "filesystem",
+        "sourceRef": "rootfs-file-tree",
+        "disposition": "portable",
+        "restoreStrategy": "copy-content-addressed-file-tree",
+        "artifactRequirements": ["file-tree-manifest", "content-hashes"],
+        "proofGate": "file-tree-materialization-proof"
+      },
+      {
+        "id": "vm/example-c-service",
+        "component": "service",
+        "sourceRef": "example-c-service",
+        "disposition": "product-supported",
+        "restoreStrategy": "install-target-native-binary-and-start-service",
+        "artifactRequirements": ["service-manifest", "target-native-binary", "start-verifier"],
+        "proofGate": "service-product-gate"
+      },
+      {
+        "id": "vm/selected-service-process",
+        "component": "process",
+        "sourceRef": "selected-service-process",
+        "disposition": "reconstructable",
+        "restoreStrategy": "reconstruct-target-native-process-metadata",
+        "artifactRequirements": ["argv-manifest", "env-manifest", "cwd-policy"],
+        "proofGate": "selected-process-metadata-proof"
+      },
+      {
+        "id": "vm/unknown-live-process",
+        "component": "process",
+        "sourceRef": "unknown-live-process",
+        "disposition": "refused",
+        "restoreStrategy": "stop-before-restore",
+        "refusalCode": "portable-vm-unknown-process-state-unsupported",
+        "artifactRequirements": ["unknown-process-detector-transcript", "stable-refusal-code"],
+        "proofGate": "unknown-process-refusal-proof"
+      },
+      {
+        "id": "vm/http-listener-8080",
+        "component": "network",
+        "sourceRef": "http-listener-8080",
+        "disposition": "reconstructable",
+        "restoreStrategy": "bind-target-native-listener",
+        "artifactRequirements": ["listener-manifest", "port-policy", "request-response-verifier"],
+        "proofGate": "network-listener-reconstruction-proof"
+      },
+      {
+        "id": "vm/active-tcp-streams",
+        "component": "network",
+        "sourceRef": "active-tcp-streams",
+        "disposition": "refused",
+        "restoreStrategy": "stop-before-restore",
+        "refusalCode": "portable-vm-active-network-stream-unsupported",
+        "artifactRequirements": ["active-stream-detector-transcript", "stable-refusal-code"],
+        "proofGate": "active-network-refusal-proof"
+      },
+      {
+        "id": "vm/sqlite-clean-db",
+        "component": "database",
+        "sourceRef": "sqlite-clean-db",
+        "disposition": "product-supported",
+        "restoreStrategy": "restore-clean-db-with-target-native-tooling",
+        "artifactRequirements": [
+          "clean-db-export-or-snapshot",
+          "target-native-sqlite-tooling",
+          "query-verifier"
+        ],
+        "proofGate": "clean-db-product-gate"
+      },
+      {
+        "id": "vm/postgres-dirty-wal",
+        "component": "database",
+        "sourceRef": "postgres-dirty-wal",
+        "disposition": "refused",
+        "restoreStrategy": "stop-before-restore",
+        "refusalCode": "portable-vm-active-db-state-unsupported",
+        "artifactRequirements": ["dirty-wal-detector-transcript", "stable-refusal-code"],
+        "proofGate": "dirty-db-refusal-proof"
+      },
+      {
+        "id": "vm/virtio-net",
+        "component": "device",
+        "sourceRef": "virtio-net",
+        "disposition": "reconstructable",
+        "restoreStrategy": "recreate-target-virtio-net-configuration",
+        "artifactRequirements": ["virtio-net-config-manifest"],
+        "proofGate": "virtio-net-config-proof"
+      },
+      {
+        "id": "vm/passthrough-gpu",
+        "component": "device",
+        "sourceRef": "passthrough-gpu",
+        "disposition": "refused",
+        "restoreStrategy": "stop-before-restore",
+        "refusalCode": "portable-vm-opaque-device-state-unsupported",
+        "artifactRequirements": ["device-inventory", "stable-refusal-code"],
+        "proofGate": "opaque-device-refusal-proof"
+      },
+      {
+        "id": "vm/mount-namespace",
+        "component": "kernel-state",
+        "sourceRef": "mount-namespace",
+        "disposition": "reconstructable",
+        "restoreStrategy": "recreate-declared-mount-table",
+        "artifactRequirements": ["mount-table-manifest"],
+        "proofGate": "mount-namespace-proof"
+      },
+      {
+        "id": "vm/active-syscalls",
+        "component": "kernel-state",
+        "sourceRef": "active-syscalls",
+        "disposition": "refused",
+        "restoreStrategy": "stop-before-restore",
+        "refusalCode": "portable-vm-active-syscall-unsupported",
+        "artifactRequirements": ["syscall-detector-transcript", "stable-refusal-code"],
+        "proofGate": "active-syscall-refusal-proof"
+      }
+    ]
+  },
+  "summary": {
+    "manifestSections": 7,
+    "rawInventoryItems": 12,
+    "planRows": 12,
+    "portableRows": 1,
+    "reconstructableRows": 4,
+    "productSupportedRows": 2,
+    "refusedRows": 5,
+    "sameArchOnlyRows": 0,
+    "unknownRows": 0,
+    "publicClaimAllowed": false
+  },
+  "validationRules": [
+    "Every manifest item must have a disposition.",
+    "Every plan row with disposition=refused must have a stable refusalCode.",
+    "Every product-supported row must name a proofGate and artifactRequirements.",
+    "unknownStatePolicy=refuse-by-default must remain true for cross-architecture restore.",
+    "A manifest/plan alone must not raise a public arbitrary VM restore claim."
+  ]
+}

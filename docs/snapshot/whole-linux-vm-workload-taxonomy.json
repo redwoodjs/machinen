@@ -1,0 +1,118 @@
+{
+  "kind": "machinen.whole-linux-vm-workload-taxonomy",
+  "version": 1,
+  "status": "definition-only",
+  "claimChangeAllowed": false,
+  "currentClaim": {
+    "productSupport": 0,
+    "broadSupport": 0,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "taxonomy": {
+    "wholeLinuxVmWorkloadSupport": "Target-native reconstruction of a declared Linux VM workload context from retained portable artifacts and verifiers.",
+    "notRawVmRestore": true,
+    "notArbitraryVmRestore": true,
+    "notArbitraryLinuxProcessRestore": true,
+    "notCrossIsaCpuReplay": true
+  },
+  "supportedSubsetCandidate": {
+    "id": "selected-whole-vm-workload-v1",
+    "description": "A tiny declared VM workload whose rootfs/app files, workload command, input data, expected outputs, and target verifier are all represented by portable retained artifacts.",
+    "requiredSupportedRows": [
+      {
+        "id": "vm-boot-target-native-linux",
+        "requirement": "Target VM boots target-native Linux without source kernel/CPU replay."
+      },
+      {
+        "id": "vm-rootfs-app-files-portable",
+        "requirement": "Rootfs/app files are reconstructed from portable artifacts with hashes."
+      },
+      {
+        "id": "vm-workload-command-reconstructs",
+        "requirement": "Workload command restarts/reconstructs from declared state, not raw process memory."
+      },
+      {
+        "id": "vm-source-target-verifier-match",
+        "requirement": "Source and target verifier outputs prove equivalent workload behavior."
+      },
+      {
+        "id": "vm-bidirectional-retained-artifacts",
+        "requirement": "Both arm64-to-amd64 and amd64-to-arm64 directions retain capture, restore, transcript, manifest, and verifier artifacts."
+      }
+    ]
+  },
+  "refusalBoundaries": [
+    {
+      "id": "raw-vcpu-state-cross-isa",
+      "expectedDisposition": "forbidden",
+      "reason": "Source vCPU/register state cannot be replayed across ISA boundaries."
+    },
+    {
+      "id": "guest-kernel-device-state",
+      "expectedDisposition": "refused",
+      "reason": "Opaque guest kernel/device state is not a portable workload artifact."
+    },
+    {
+      "id": "arbitrary-process-memory-continuation",
+      "expectedDisposition": "refused",
+      "reason": "Arbitrary process memory/register continuation remains separate and currently 0."
+    },
+    {
+      "id": "active-network-connection-migration",
+      "expectedDisposition": "refused",
+      "reason": "Active connections require protocol-aware reconstruction or reconnect policy."
+    },
+    {
+      "id": "unmodeled-live-mount-fuse-state",
+      "expectedDisposition": "refused",
+      "reason": "Live mount/FUSE state must be represented by explicit portable mount artifacts or refused."
+    },
+    {
+      "id": "dirty-block-device-without-manifest",
+      "expectedDisposition": "refused",
+      "reason": "Dirty block-device state without a portable manifest cannot be treated as restored."
+    },
+    {
+      "id": "architecture-specific-kernel-module",
+      "expectedDisposition": "refused",
+      "reason": "Source-architecture kernel modules or ABI-specific dependencies are not portable across target architectures."
+    },
+    {
+      "id": "privileged-kernel-feature-surface",
+      "expectedDisposition": "refused-or-capability-gated",
+      "reason": "eBPF, seccomp, KVM/nested virtualization, and similar features need retained capability probes and explicit refusal rows."
+    }
+  ],
+  "artifactRequirements": {
+    "supportedDirection": [
+      "source workload manifest",
+      "source verifier output",
+      "portable rootfs/app/data manifest with hashes",
+      "capture transcript",
+      "restore plan",
+      "target verifier output",
+      "target boot/workload transcript",
+      "shortcut inspection record",
+      "artifact integrity manifest"
+    ],
+    "refusalDirection": [
+      "refusal input manifest",
+      "product command transcript",
+      "stable expected refusal code",
+      "evidence for boundary condition",
+      "shortcut inspection record when relevant"
+    ],
+    "forbiddenShortcuts": [
+      "raw vCPU replay",
+      "source ISA emulation",
+      "opaque VM/device metadata-only success",
+      "app checkpoint hooks as the source of truth",
+      "sidecar replay"
+    ]
+  },
+  "dashboardClaimLanguage": {
+    "notStarted": "Whole Linux VM workload portability is definition-only. Current claim remains 0 / 0 / 0.",
+    "futureIfProven": "Selected whole-VM workload restore: 100 / 100 / 0 for selected-whole-vm-workload-v1 only.",
+    "requiredBoundaryText": "Not arbitrary VM restore, not raw cross-ISA VM-state replay, and not arbitrary Linux process restore."
+  }
+}

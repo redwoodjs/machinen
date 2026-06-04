@@ -1,0 +1,37 @@
+{
+  "id": "jit-executable-anonymous-mapping",
+  "proofNumber": "arbitrary/030",
+  "category": "executable memory",
+  "status": "verified",
+  "disposition": "refused",
+  "accepted": true,
+  "productSupportOutOfScope": true,
+  "productSupportClaimAllowed": false,
+  "arbitraryRestoreClaimAllowed": false,
+  "evidence": [
+    "JIT/generated executable anonymous mappings are proven refused; raw executable page replay is forbidden"
+  ],
+  "stableCode": "arbitrary-process-jit-executable-mapping-unsupported",
+  "verifier": {
+    "refusedBeforeTargetExecution": true,
+    "stableRefusalCode": "arbitrary-process-jit-executable-mapping-unsupported",
+    "executableAnonymousMappingPresent": true,
+    "proofArtifactRetained": true,
+    "targetVerifierPassed": true,
+    "rawCpuRestoreUsed": false,
+    "rawRegisterReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "sidecarReplayUsed": false,
+    "metadataOnlySuccessAccepted": false
+  },
+  "proofArtifact": "jit-executable-anonymous-mapping-proof.json",
+  "proofArtifactSha256": "810999b1d20bb3edfd1755e3655b4c110ba1cc3435c638913da5707d114b5826",
+  "proofMode": "stable-refusal-proof",
+  "proofQuality": "stable-refusal-proof",
+  "executableFixture": null,
+  "bidirectionalProofArtifact": null,
+  "bidirectionalProofArtifactSha256": null,
+  "bidirectionalDirections": 0,
+  "proofChecksPassed": 4
+}

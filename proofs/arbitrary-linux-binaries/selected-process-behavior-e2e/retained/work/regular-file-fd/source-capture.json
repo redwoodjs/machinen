@@ -1,0 +1,17 @@
+{
+  "kind": "machinen.arbitrary-process-level5-regular-file-fd-source-capture",
+  "sourceArch": "arm64",
+  "process": {
+    "threads": 1,
+    "idle": true,
+    "jitCodePresent": false,
+    "appCheckpointHooksRequired": false
+  },
+  "fd": {
+    "number": 3,
+    "kind": "file",
+    "path": "/Users/peterp/gh/redwoodjs/machinen/proofs/arbitrary-linux-binaries/selected-process-behavior-e2e/retained/work/regular-file-fd/regular-file-fd-fixture.txt",
+    "offset": 27,
+    "expectedNextBytesSha256": "d2d950ac463a2f712a4365edab47adf8eafcfdabf71956960cf443bd45f37964"
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "kind": "machinen.arbitrary-process-level5-simple-pipe-fd-proof",
+  "version": 1,
+  "accepted": true,
+  "rowId": "native-simple-pipe-fd",
+  "proofStatus": "verified-seed",
+  "capturedState": {
+    "readFd": 3,
+    "writeFd": 4,
+    "bufferedBytesSha256": "9f861f641f380ab1a9367ae8eb382a38876b3ebcf378d266cd009c3f849aab33",
+    "writerClosed": true,
+    "readerIdle": true
+  },
+  "targetReconstruction": {
+    "planKind": "create-pipe-and-materialize-buffer",
+    "readFd": 3,
+    "writeFd": 4,
+    "endpointDirectionPreserved": true,
+    "sidecarReplayUsed": false,
+    "rawCpuRestoreUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "metadataOnlySuccessAccepted": false
+  },
+  "verifier": {
+    "targetReadBytesSha256Matched": true,
+    "eofAfterBufferedBytes": true,
+    "targetNativeReconstructionRequired": true,
+    "translatedProcessStateRequired": true
+  },
+  "claimChangeAllowed": false,
+  "currentArbitraryProcessCrossArchRestoreClaimed": 0,
+  "candidateArbitraryProcessCrossArchRestoreClaimed": 1,
+  "arbitraryProcessClaimed": false,
+  "artifacts": [
+    {
+      "name": "source-capture.json",
+      "path": "source-capture.json",
+      "sha256": "94850ddcbdf8f8033606f86652c1a486dc866568cb922b101344288281b7e0fb"
+    },
+    {
+      "name": "target-reconstruction-plan.json",
+      "path": "target-reconstruction-plan.json",
+      "sha256": "fe5d8a22c5d7c87537654e77be2ea68322102e16633ce48670c377088cea1ac2"
+    },
+    {
+      "name": "target-verifier.json",
+      "path": "target-verifier.json",
+      "sha256": "c32654e636c20e9e278b631044a82341673211cb30ebbb928e164268f0921139"
+    }
+  ],
+  "artifactsSha256": "c73efa00d97f1eff6f04c46c4c56a4cabf3b8f3036e3e475242283cc13faf40a"
+}

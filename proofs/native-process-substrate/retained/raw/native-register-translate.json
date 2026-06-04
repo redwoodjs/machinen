@@ -1,0 +1,52 @@
+{
+  "formatVersion": 1,
+  "result": {
+    "sourceArch": "arm64",
+    "targetArch": "amd64",
+    "threads": [
+      {
+        "sourceThreadId": "thread:safe",
+        "state": "translated",
+        "targetRegisters": {
+          "arch": "amd64",
+          "rip": "0x14000120",
+          "rsp": "0x7fffffffe000",
+          "rflags": "0x202",
+          "rax": "0x1",
+          "rbx": "0x14",
+          "rcx": "0x4",
+          "rdx": "0x3",
+          "rsi": "0x2",
+          "rdi": "0x1",
+          "rbp": "0x1e",
+          "r8": "0x5",
+          "r9": "0x6",
+          "r10": "0x7",
+          "r11": "0x8",
+          "r12": "0x15",
+          "r13": "0x16",
+          "r14": "0x17",
+          "r15": "0x18",
+          "fsBase": "0x7ffff7d00000",
+          "gsBase": "0x0"
+        }
+      },
+      {
+        "sourceThreadId": "thread:syscall",
+        "state": "refused",
+        "refusal": {
+          "code": "active-syscall",
+          "message": "thread thread:syscall is inside-syscall"
+        }
+      }
+    ],
+    "refusals": [
+      {
+        "code": "active-syscall",
+        "message": "thread thread:syscall is inside-syscall"
+      }
+    ]
+  },
+  "translated": 1,
+  "refused": 1
+}

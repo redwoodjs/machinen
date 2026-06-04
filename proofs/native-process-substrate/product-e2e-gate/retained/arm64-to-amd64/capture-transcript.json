@@ -1,0 +1,24 @@
+{
+  "command": [
+    "node",
+    "packages/cli/dist/cli.js",
+    "capture",
+    "native",
+    "--out",
+    "/Users/peterp/gh/redwoodjs/machinen/proofs/native-process-substrate/product-e2e-gate/retained/arm64-to-amd64/selected-native.bundle",
+    "--source-arch",
+    "arm64",
+    "--target-arch",
+    "amd64",
+    "--source-verifier-output",
+    "/Users/peterp/gh/redwoodjs/machinen/proofs/native-process-substrate/product-e2e-gate/retained/arm64-to-amd64/source/source-verifier.json",
+    "--source-capture",
+    "/Users/peterp/gh/redwoodjs/machinen/proofs/native-process-substrate/product-e2e-gate/retained/arm64-to-amd64/source/source-capture.json",
+    "--target-plan",
+    "/Users/peterp/gh/redwoodjs/machinen/proofs/native-process-substrate/product-e2e-gate/retained/arm64-to-amd64/source/target-plan.json",
+    "--json"
+  ],
+  "status": 0,
+  "stdout": "{\"schema_version\":1,\"state\":\"completed\",\"migrationCompleted\":true,\"bundleDir\":\"/Users/peterp/gh/redwoodjs/machinen/proofs/native-process-substrate/product-e2e-gate/retained/arm64-to-amd64/selected-native.bundle\",\"descriptor\":{\"kind\":\"machinen.product-selected-native\",\"formatVersion\":1,\"supportLevel\":\"proof-only-product-path\",\"subset\":\"selected-single-thread-native-workload-v1\",\"implementationLevel\":\"native-product-path-e2e-gate\",\"runtime\":\"native-linux-process\",\"captureSurface\":\"machinen capture native\",\"restoreSurface\":\"machinen restore <bundle> --target-arch <arch> --target-verifier-output <file>\",\"source\":{\"architecture\":\"arm64\",\"host\":{\"arch\":\"arm64\",\"platform\":\"darwin\",\"release\":\"24.6.0\"}},\"target\":{\"architecture\":\"amd64\"},\"artifacts\":{\"sourceVerifierOutput\":{\"path\":\"source-verifier.json\",\"sha256\":\"e9e8a46c4e9cdf69559d5f9afb742f39564c32f69a36ebc32b812af01e36edf0\"},\"sourceCapture\":{\"path\":\"source-capture.json\",\"sha256\":\"36c417674f47860af9fe8aa6c3fe2fd04edcb6741c4cda4f6abf7ba1b28900fb\"},\"targetPlan\":{\"path\":\"target-plan.json\",\"sha256\":\"47f0e85fd856ce7c9acedb27a8aa7bc64d05fd6b35cb70d941a64603b6d7e0be\"}},\"selectedWorkload\":{\"threadState\":\"single-stopped-outside-syscall\",\"memory\":\"private-rw-page\",\"stack\":\"target-ucontext-stack-with-guard\",\"bootstrap\":\"argv-env-cwd\",\"resources\":[\"closed-fd\",\"inherit-stdio\",\"reopen-file\",\"pipe-buffered-bytes\",\"eventfd-counter\",\"timerfd-one-shot\",\"epoll-interest-list\",\"tcp-listener-loopback\"]},\"gates\":{\"selectedSingleThreadOnly\":true,\"stoppedOutsideActiveSyscallRequired\":true,\"selectedResourceSubsetOnly\":true,\"targetNativeVerificationRequired\":true,\"arbitraryLinuxProcessSupportClaimed\":false,\"sourceIsaEmulationAllowed\":false,\"rawCpuRestoreAllowed\":false,\"runtimeProfileRestoreAllowed\":false,\"sidecarRuntimeAllowed\":false,\"appHooksAllowed\":false,\"metadataOnlyContinuationAllowed\":false},\"sourceVerifierEvidence\":{\"targetArch\":\"arm64\",\"targetNativeExecution\":true,\"rawCpuRestoreUsed\":false,\"sourceIsaEmulationUsed\":false,\"runtimeProfileRestoreUsed\":false,\"appHooksUsed\":false,\"metadataOnlySuccessAccepted\":false,\"checks\":{\"memory\":true,\"stack\":true,\"bootstrap\":true,\"targetFunctionReturned\":true},\"resources\":{\"closedFd\":true,\"stdio\":true,\"reopenFile\":true,\"pipe\":true,\"eventfd\":true,\"timerfd\":true,\"epoll\":true,\"tcpListener\":true}}},\"dryRun\":false}\n",
+  "stderr": ""
+}

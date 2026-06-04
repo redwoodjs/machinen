@@ -1,0 +1,39 @@
+{
+  "id": "portable-vm-guest-inventory-plan-proof",
+  "claim": "Fixture guest inventory to portable VM plan generator",
+  "trackId": "whole-linux-vm-workload",
+  "status": "verified",
+  "scope": "fixture-guest-inventory-portable-vm-plan-v1",
+  "claimNumbers": {
+    "productSupport": 100,
+    "broadSupport": 100,
+    "arbitraryProcessCrossArchRestore": 0,
+    "arbitraryVmRestoreRowsAdded": 0
+  },
+  "promotionEffect": "Moves the portable VM workflow from hardcoded controlled rows to a guest-inventory input/contract boundary. It does not raise public arbitrary VM restore claims.",
+  "proofDirectory": "proofs/linux-vm-workload/portable-vm-guest-inventory-plan",
+  "proofs": [
+    {
+      "id": "portable-vm-guest-inventory-plan-proof",
+      "proofNumber": "vm/029",
+      "category": "portable VM guest inventory plan",
+      "status": "verified",
+      "disposition": "workflow-proof",
+      "artifact": "proofs/linux-vm-workload/portable-vm-guest-inventory-plan/retained/portable-vm-guest-inventory-plan-report.json",
+      "proves": "Consumed 12 fixture guest inventory rows and generated 12 plan rows with 5 stable refusals and 0 unknown accepted rows.",
+      "claimUse": "workflow proof only; arbitrary VM restore remains unclaimed",
+      "next": "Replace fixture guest inventory input with an in-guest collector and product command wiring.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 100,
+          "broadSupport": 100,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    }
+  ]
+}

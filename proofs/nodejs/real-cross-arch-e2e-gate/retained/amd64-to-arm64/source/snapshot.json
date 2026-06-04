@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "command": "machinen snapshot <vm-name> <out-dir>",
+  "snap_dir": "/tmp/machinen-node-e2e-amd64-source-current/snap",
+  "elapsed_ms": 4397,
+  "dry_run": false
+}

@@ -1,0 +1,43 @@
+{
+  "proofNumber": "017",
+  "id": "native-mmap-backed-file-resource",
+  "category": "mmap/resource",
+  "status": "verified",
+  "disposition": "refused-boundary",
+  "accepted": true,
+  "artifact": "proofs/native-process-substrate/resource-coverage/retained/row-proofs/017/row-proof.json",
+  "evidence": "mmap-backed file/resource coupling is refused until memory mapping and resource identity compose in an E2E proof.",
+  "checks": [
+    {
+      "id": "has-refusal",
+      "passed": true,
+      "message": "at least one refusal retained"
+    },
+    {
+      "id": "all-refusals-have-codes",
+      "passed": true,
+      "message": "every refusal has a code"
+    },
+    {
+      "id": "no-target-materialization",
+      "passed": true,
+      "message": "unsupported resource row is not materialized"
+    }
+  ],
+  "refusals": [
+    {
+      "code": "mapping-shared-unsupported",
+      "message": "mmap-backed file resources require composed mapping/resource reconstruction",
+      "detail": {
+        "boundary": "mmap-backed-file-resource",
+        "requiredModel": [
+          "mapping permissions",
+          "file offset",
+          "dirty page ledger",
+          "shared/private semantics"
+        ]
+      }
+    }
+  ],
+  "claimUse": "boundary-refusal-only"
+}

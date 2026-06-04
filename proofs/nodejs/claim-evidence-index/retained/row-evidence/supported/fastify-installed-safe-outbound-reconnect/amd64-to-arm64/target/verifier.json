@@ -1,0 +1,20 @@
+{
+  "kind": "machinen.node-supported-row-target-verifier",
+  "version": 1,
+  "accepted": true,
+  "rowId": "fastify-installed-safe-outbound-reconnect",
+  "direction": "amd64-to-arm64",
+  "routePath": "/fastify-installed-safe-outbound-reconnect",
+  "expectedBody": "fastify-installed-safe-outbound-reconnect-ok",
+  "actualBody": "fastify-installed-safe-outbound-reconnect-ok",
+  "bodySha256": "3533ca264859266ab947bffe3d9184026d6e561ba3cd88449a1b4170ecbb503f",
+  "expectedHeader": {
+    "x-machinen-row": "fastify-installed-safe-outbound-reconnect"
+  },
+  "actualHeaders": "HTTP/1.1 200 OK\nx-machinen-row: fastify-installed-safe-outbound-reconnect\ncontent-type: text/plain; charset=utf-8\ncontent-length: 44\nDate: Tue, 02 Jun 2026 16:33:15 GMT\nConnection: keep-alive\nKeep-Alive: timeout=72\n\n",
+  "targetNativeNodeVerified": true,
+  "sourceIsaEmulationUsed": false,
+  "sidecarRuntimeUsed": false,
+  "appHooksRequired": false,
+  "metadataOnlySuccessAccepted": false
+}

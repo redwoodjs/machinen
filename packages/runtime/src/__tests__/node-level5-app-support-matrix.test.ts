@@ -15,8 +15,8 @@ describe("Node Level 5 app support matrix", () => {
       accepted: true,
       kind: "machinen.node-level5-app-support-matrix",
       version: 2,
-      nodeProductSupportClaimed: 100,
-      broadNodeProductSupportClaimed: 100,
+      nodeProductSupportClaimed: 0,
+      broadNodeProductSupportClaimed: 0,
       arbitraryProcessCrossArchRestoreClaimed: 0,
     });
     expect(matrix.rowCount).toBe(114);
@@ -29,7 +29,7 @@ describe("Node Level 5 app support matrix", () => {
         "express-websockets",
         "fastify-native-addons",
         "express-installed-json-response",
-        "fastify-background-tasks-not-proven",
+        "fastify-background-tasks-safe-heartbeat",
         "express-db-connections",
         "fastify-cluster-mode",
         "express-installed-idle-timer",
@@ -54,7 +54,7 @@ describe("Node Level 5 app support matrix", () => {
   it("marks positive app rows supported only for the declared idle HTTP subset", () => {
     const rows = supportedNodeLevel5AppSupportRows();
 
-    expect(rows).toHaveLength(68);
+    expect(rows).toHaveLength(72);
     expect(rows.every((row) => row.status === "supported")).toBe(true);
     expect(rows.every((row) => row.supportScope === "declared-subset-idle-http")).toBe(true);
     expect(rows.every((row) => row.directions.includes("arm64-to-amd64"))).toBe(true);
@@ -65,6 +65,7 @@ describe("Node Level 5 app support matrix", () => {
         "template-corpus",
         "installed-package-corpus",
         "generic-vm-detected-corpus",
+        "resolved-gap-retained-e2e",
       ]),
     );
   });
@@ -118,19 +119,21 @@ describe("Node Level 5 app support matrix", () => {
     ).toBe("refused");
   });
 
-  it("keeps unproven feature dimensions visible without turning them into claims", () => {
+  it("resolves prior unproven feature gaps into retained E2E-supported rows", () => {
     const rows = notProvenNodeLevel5AppSupportRows();
+    const supportedRows = supportedNodeLevel5AppSupportRows();
 
-    expect(rows).toHaveLength(4);
-    expect(rows.every((row) => row.status === "not-proven")).toBe(true);
-    expect(rows.every((row) => row.productBehavior === "not-proven")).toBe(true);
-    expect(rows.every((row) => row.evidence.kind === "matrix-gap")).toBe(true);
-    expect(rows.map((row) => row.id)).toEqual(
-      expect.arrayContaining([
-        "express-external-network-not-proven",
-        "fastify-background-tasks-not-proven",
-      ]),
-    );
+    expect(rows).toHaveLength(0);
+    expect(
+      supportedRows
+        .filter((row) => row.evidence.kind === "resolved-gap-retained-e2e")
+        .map((row) => row.id),
+    ).toEqual([
+      "express-external-network-safe-reconnect",
+      "fastify-external-network-safe-reconnect",
+      "express-background-tasks-safe-heartbeat",
+      "fastify-background-tasks-safe-heartbeat",
+    ]);
   });
 
   it("keeps broad arbitrary support out of the app matrix claim", () => {

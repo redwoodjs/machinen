@@ -1,0 +1,31 @@
+{
+  "id": "033-memory-buffer",
+  "slug": "memory-buffer",
+  "runtime": "nodejs",
+  "description": "Selected internal Buffer bytes materialized target-native",
+  "disposition": "product-supported",
+  "claimUse": "portable Node memory-state compatibility dimension only; no arbitrary process or raw V8 heap restore claim",
+  "architecturePolicy": "memory semantic IR portability smoke retained for arm64 and amd64",
+  "startCommand": "node app.mjs",
+  "healthPath": "/state",
+  "expectedBody": "ok",
+  "dependencies": [],
+  "refusalCode": null,
+  "capability": {
+    "category": "memory-state",
+    "detects": ["selected memory buffer semantic memory category"],
+    "captures": ["portable memory semantic IR smoke record"],
+    "restores": ["fresh target-native JavaScript state from semantic IR"],
+    "verifies": ["Buffer bytes preserved"],
+    "blocks": ["raw V8 heap restore", "same PID continuation", "active native/runtime resources"]
+  },
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "arbitraryLinuxProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "samePidContinuationClaimed": false,
+    "activeRequestOrSocketContinuationClaimed": false
+  }
+}

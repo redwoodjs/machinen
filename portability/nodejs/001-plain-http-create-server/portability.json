@@ -1,0 +1,20 @@
+{
+  "id": "001-plain-http-create-server",
+  "slug": "plain-http-create-server",
+  "runtime": "nodejs",
+  "description": "node:http selected HTTP service",
+  "disposition": "product-supported",
+  "claimUse": "portable Node app/product candidate evidence only; no raw process continuation claim",
+  "architecturePolicy": "run-on-each-target-architecture-with-machinen-runtime",
+  "startCommand": "node app.mjs",
+  "healthPath": "/health",
+  "expectedBody": "machinen-node-portability:plain-http-create-server",
+  "dependencies": [],
+  "refusalCode": null,
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false
+  }
+}

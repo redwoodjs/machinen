@@ -1,0 +1,36 @@
+{
+  "id": "simple-pipe-fd-state",
+  "proofNumber": "arbitrary/023",
+  "category": "pipe descriptor",
+  "status": "verified",
+  "disposition": "supported-proof",
+  "accepted": true,
+  "productSupportOutOfScope": true,
+  "productSupportClaimAllowed": false,
+  "arbitraryRestoreClaimAllowed": false,
+  "evidence": [
+    "simple pipe buffered bytes and endpoint direction are proven as selected reconstructable resource state"
+  ],
+  "stableCode": "supported-simple-pipe-fd-state",
+  "verifier": {
+    "simplePipeFdClassified": true,
+    "proofArtifactRetained": true,
+    "targetVerifierPassed": true,
+    "stableRefusalCode": "supported-simple-pipe-fd-state",
+    "rawCpuRestoreUsed": false,
+    "rawRegisterReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "sidecarReplayUsed": false,
+    "metadataOnlySuccessAccepted": false
+  },
+  "proofArtifact": "simple-pipe-fd-state-proof.json",
+  "proofArtifactSha256": "564538ce124b5a5759b43456eeb8a7759dccdafeaeba089120a18c63dea9cac0",
+  "proofMode": "target-native-reconstruction-proof",
+  "proofQuality": "bidirectional-target-proof",
+  "executableFixture": "simple-pipe-node-fixture",
+  "bidirectionalProofArtifact": "simple-pipe-fd-state-bidirectional-proof.json",
+  "bidirectionalProofArtifactSha256": "8f72c416cef12fcbfef8836f2b984cc59e44f8262ee367af1d425c88042ddaee",
+  "bidirectionalDirections": 2,
+  "proofChecksPassed": 5
+}

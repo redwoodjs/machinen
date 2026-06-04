@@ -1,0 +1,20 @@
+{
+  "kind": "machinen.node-supported-row-target-verifier",
+  "version": 1,
+  "accepted": true,
+  "rowId": "express-official-hello-world",
+  "direction": "amd64-to-arm64",
+  "routePath": "/express-official-hello-world",
+  "expectedBody": "express-official-hello-world-ok",
+  "actualBody": "express-official-hello-world-ok",
+  "bodySha256": "38303a596263cb701ea6b654bca53f3499f6825f0053315c8538962515524d6f",
+  "expectedHeader": {
+    "x-machinen-row": "express-official-hello-world"
+  },
+  "actualHeaders": "HTTP/1.1 200 OK\nX-Powered-By: Express\nx-machinen-row: express-official-hello-world\nContent-Type: text/html; charset=utf-8\nContent-Length: 31\nETag: W/\"1f-FnwR9buHjO0NCynNPBKPPpFMybA\"\nDate: Tue, 02 Jun 2026 15:34:04 GMT\nConnection: keep-alive\nKeep-Alive: timeout=5\n\n",
+  "targetNativeNodeVerified": true,
+  "sourceIsaEmulationUsed": false,
+  "sidecarRuntimeUsed": false,
+  "appHooksRequired": false,
+  "metadataOnlySuccessAccepted": false
+}

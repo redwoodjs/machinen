@@ -1,0 +1,29 @@
+{
+  "id": "controlled-mixed-selected-resource-binary",
+  "category": "mixed selected resources",
+  "status": "verified",
+  "disposition": "supported-proof",
+  "accepted": true,
+  "proofOnly": true,
+  "productSupportClaimAllowed": false,
+  "productPathRequired": false,
+  "evidence": [
+    "argv/env/cwd matched",
+    "heap payload matched",
+    "regular file FD matched",
+    "simple pipe matched",
+    "idle epoll/TCP matched"
+  ],
+  "verifier": {
+    "metadataMatched": true,
+    "staticDataHeapMatched": true,
+    "regularFileFdVerified": true,
+    "simplePipeFdVerified": true,
+    "idleTcpEpollVerified": true,
+    "rawCpuRestoreUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "sidecarReplayUsed": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

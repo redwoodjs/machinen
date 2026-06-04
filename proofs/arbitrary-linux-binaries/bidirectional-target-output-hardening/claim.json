@@ -1,0 +1,167 @@
+{
+  "id": "arbitrary-process-bidirectional-target-output-hardening",
+  "claim": "Arbitrary-process per-direction target output hardening",
+  "trackId": "arbitrary-process",
+  "status": "verified",
+  "scope": "arbitrary-process-bidirectional-target-output-hardening-v1",
+  "claimNumbers": {
+    "productSupport": null,
+    "broadSupport": null,
+    "arbitraryProcessCrossArchRestore": 0,
+    "targetOutputArtifactsRetained": 12
+  },
+  "promotionEffect": "Proof-only bidirectional target output hardening. Product support is out of scope and public arbitrary process restore remains 0.",
+  "proofDirectory": "proofs/arbitrary-linux-binaries/bidirectional-target-output-hardening",
+  "proofs": [
+    {
+      "id": "process-metadata-argv-env-cwd",
+      "proofNumber": "arbitrary-output/001",
+      "category": "bidirectional target output",
+      "status": "verified",
+      "disposition": "proof-only",
+      "artifact": "proofs/arbitrary-linux-binaries/bidirectional-target-output-hardening/retained/process-metadata-argv-env-cwd-arm64-to-amd64-target-output.json",
+      "artifacts": [
+        "proofs/arbitrary-linux-binaries/bidirectional-target-output-hardening/retained/process-metadata-argv-env-cwd-arm64-to-amd64-target-output.json",
+        "proofs/arbitrary-linux-binaries/bidirectional-target-output-hardening/retained/process-metadata-argv-env-cwd-amd64-to-arm64-target-output.json"
+      ],
+      "proves": "Retained per-direction target outputs for arm64-to-amd64 and amd64-to-arm64.",
+      "claimUse": "per-direction target output proof only; arbitrary process restore remains 0",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": null,
+          "broadSupport": null,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    },
+    {
+      "id": "static-data-heap-memory",
+      "proofNumber": "arbitrary-output/002",
+      "category": "bidirectional target output",
+      "status": "verified",
+      "disposition": "proof-only",
+      "artifact": "proofs/arbitrary-linux-binaries/bidirectional-target-output-hardening/retained/static-data-heap-memory-arm64-to-amd64-target-output.json",
+      "artifacts": [
+        "proofs/arbitrary-linux-binaries/bidirectional-target-output-hardening/retained/static-data-heap-memory-arm64-to-amd64-target-output.json",
+        "proofs/arbitrary-linux-binaries/bidirectional-target-output-hardening/retained/static-data-heap-memory-amd64-to-arm64-target-output.json"
+      ],
+      "proves": "Retained per-direction target outputs for arm64-to-amd64 and amd64-to-arm64.",
+      "claimUse": "per-direction target output proof only; arbitrary process restore remains 0",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": null,
+          "broadSupport": null,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    },
+    {
+      "id": "regular-file-fd-state",
+      "proofNumber": "arbitrary-output/003",
+      "category": "bidirectional target output",
+      "status": "verified",
+      "disposition": "proof-only",
+      "artifact": "proofs/arbitrary-linux-binaries/bidirectional-target-output-hardening/retained/regular-file-fd-state-arm64-to-amd64-target-output.json",
+      "artifacts": [
+        "proofs/arbitrary-linux-binaries/bidirectional-target-output-hardening/retained/regular-file-fd-state-arm64-to-amd64-target-output.json",
+        "proofs/arbitrary-linux-binaries/bidirectional-target-output-hardening/retained/regular-file-fd-state-amd64-to-arm64-target-output.json"
+      ],
+      "proves": "Retained per-direction target outputs for arm64-to-amd64 and amd64-to-arm64.",
+      "claimUse": "per-direction target output proof only; arbitrary process restore remains 0",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": null,
+          "broadSupport": null,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    },
+    {
+      "id": "simple-pipe-fd-state",
+      "proofNumber": "arbitrary-output/004",
+      "category": "bidirectional target output",
+      "status": "verified",
+      "disposition": "proof-only",
+      "artifact": "proofs/arbitrary-linux-binaries/bidirectional-target-output-hardening/retained/simple-pipe-fd-state-arm64-to-amd64-target-output.json",
+      "artifacts": [
+        "proofs/arbitrary-linux-binaries/bidirectional-target-output-hardening/retained/simple-pipe-fd-state-arm64-to-amd64-target-output.json",
+        "proofs/arbitrary-linux-binaries/bidirectional-target-output-hardening/retained/simple-pipe-fd-state-amd64-to-arm64-target-output.json"
+      ],
+      "proves": "Retained per-direction target outputs for arm64-to-amd64 and amd64-to-arm64.",
+      "claimUse": "per-direction target output proof only; arbitrary process restore remains 0",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": null,
+          "broadSupport": null,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    },
+    {
+      "id": "idle-eventfd-timerfd-state",
+      "proofNumber": "arbitrary-output/005",
+      "category": "bidirectional target output",
+      "status": "verified",
+      "disposition": "proof-only",
+      "artifact": "proofs/arbitrary-linux-binaries/bidirectional-target-output-hardening/retained/idle-eventfd-timerfd-state-arm64-to-amd64-target-output.json",
+      "artifacts": [
+        "proofs/arbitrary-linux-binaries/bidirectional-target-output-hardening/retained/idle-eventfd-timerfd-state-arm64-to-amd64-target-output.json",
+        "proofs/arbitrary-linux-binaries/bidirectional-target-output-hardening/retained/idle-eventfd-timerfd-state-amd64-to-arm64-target-output.json"
+      ],
+      "proves": "Retained per-direction target outputs for arm64-to-amd64 and amd64-to-arm64.",
+      "claimUse": "per-direction target output proof only; arbitrary process restore remains 0",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": null,
+          "broadSupport": null,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    },
+    {
+      "id": "idle-epoll-tcp-listener-state",
+      "proofNumber": "arbitrary-output/006",
+      "category": "bidirectional target output",
+      "status": "verified",
+      "disposition": "proof-only",
+      "artifact": "proofs/arbitrary-linux-binaries/bidirectional-target-output-hardening/retained/idle-epoll-tcp-listener-state-arm64-to-amd64-target-output.json",
+      "artifacts": [
+        "proofs/arbitrary-linux-binaries/bidirectional-target-output-hardening/retained/idle-epoll-tcp-listener-state-arm64-to-amd64-target-output.json",
+        "proofs/arbitrary-linux-binaries/bidirectional-target-output-hardening/retained/idle-epoll-tcp-listener-state-amd64-to-arm64-target-output.json"
+      ],
+      "proves": "Retained per-direction target outputs for arm64-to-amd64 and amd64-to-arm64.",
+      "claimUse": "per-direction target output proof only; arbitrary process restore remains 0",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": null,
+          "broadSupport": null,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    }
+  ]
+}

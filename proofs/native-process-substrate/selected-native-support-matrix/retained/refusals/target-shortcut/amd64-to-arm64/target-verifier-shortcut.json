@@ -1,0 +1,33 @@
+{
+  "kind": "machinen.native-selected-workload-target-verifier",
+  "direction": "amd64-to-arm64",
+  "targetArch": "arm64",
+  "accepted": true,
+  "verifier": {
+    "status": "passed",
+    "direction": "amd64-to-arm64",
+    "targetArch": "arm64",
+    "targetNativeExecution": true,
+    "rawCpuRestoreUsed": false,
+    "sourceIsaEmulationUsed": true,
+    "runtimeProfileRestoreUsed": false,
+    "appHooksUsed": false,
+    "metadataOnlySuccessAccepted": false,
+    "checks": {
+      "memory": true,
+      "stack": true,
+      "bootstrap": true,
+      "targetFunctionReturned": true
+    },
+    "resources": {
+      "closedFd": true,
+      "stdio": true,
+      "reopenFile": true,
+      "pipe": true,
+      "eventfd": true,
+      "timerfd": true,
+      "epoll": true,
+      "tcpListener": true
+    }
+  }
+}

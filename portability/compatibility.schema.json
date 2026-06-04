@@ -1,0 +1,159 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://machinen.dev/schemas/portability-compatibility.schema.json",
+  "title": "Machinen portability compatibility index",
+  "type": "object",
+  "required": ["kind", "version", "runtime", "claimBoundary", "summary", "rows"],
+  "properties": {
+    "kind": { "const": "machinen.portability-compatibility-index" },
+    "version": { "type": "integer", "minimum": 1 },
+    "runtime": { "type": "string" },
+    "updatedAt": { "type": "string" },
+    "claimBoundary": {
+      "type": "object",
+      "required": ["model", "notClaimed", "proofMode", "productMode", "claimGuard"],
+      "properties": {
+        "model": { "type": "string" },
+        "notClaimed": { "type": "array", "items": { "type": "string" } },
+        "proofMode": { "type": "string" },
+        "productMode": { "type": "string" },
+        "claimGuard": { "$ref": "#/$defs/claimGuard" }
+      },
+      "additionalProperties": true
+    },
+    "summary": {
+      "type": "object",
+      "required": ["rowCount", "byStatus", "byProductClaim", "architectures"],
+      "properties": {
+        "rowCount": { "type": "integer", "minimum": 0 },
+        "byStatus": { "type": "object", "additionalProperties": { "type": "integer" } },
+        "byProductClaim": { "type": "object", "additionalProperties": { "type": "integer" } },
+        "architectures": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": true
+    },
+    "evidenceReports": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/evidence" }
+    },
+    "rows": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/row" }
+    }
+  },
+  "$defs": {
+    "row": {
+      "type": "object",
+      "required": [
+        "id",
+        "capability",
+        "category",
+        "attemptPolicy",
+        "status",
+        "architectures",
+        "productClaim",
+        "claimGuard",
+        "evidence"
+      ],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[0-9]{3}-[a-z0-9-]+$" },
+        "slug": { "type": "string" },
+        "capability": { "type": "string" },
+        "category": { "type": "string" },
+        "description": { "type": "string" },
+        "attemptPolicy": {
+          "enum": ["try-first", "config-required", "refuse-live-state"]
+        },
+        "status": {
+          "enum": ["verified", "classified", "conditional", "failed-classified", "refused"]
+        },
+        "architectures": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/architectureStatus" }
+        },
+        "blockers": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/blocker" }
+        },
+        "workaround": {
+          "type": ["string", "null"]
+        },
+        "productClaim": { "$ref": "#/$defs/productClaim" },
+        "evidence": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/evidence" }
+        },
+        "claimGuard": { "$ref": "#/$defs/claimGuard" }
+      },
+      "additionalProperties": true
+    },
+    "architectureStatus": {
+      "type": "object",
+      "required": ["status", "evidence"],
+      "properties": {
+        "status": {
+          "enum": [
+            "verified",
+            "classified",
+            "conditional",
+            "failed-classified",
+            "refused",
+            "not-run"
+          ]
+        },
+        "lastRun": { "type": ["string", "null"] },
+        "evidence": { "type": "array", "items": { "$ref": "#/$defs/evidence" } },
+        "notes": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "blocker": {
+      "type": "object",
+      "required": ["id", "severity", "description"],
+      "properties": {
+        "id": { "type": "string" },
+        "severity": { "enum": ["info", "minor", "major", "hard-blocker"] },
+        "description": { "type": "string" },
+        "refusalCode": { "type": ["string", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "productClaim": {
+      "type": "object",
+      "required": ["status", "scope"],
+      "properties": {
+        "status": { "enum": ["claimed", "candidate", "conditional", "refusal", "none"] },
+        "scope": { "type": "string" },
+        "notes": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "evidence": {
+      "type": "object",
+      "required": ["kind", "path"],
+      "properties": {
+        "kind": { "type": "string" },
+        "path": { "type": "string" },
+        "sha256": { "type": "string" },
+        "summary": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "claimGuard": {
+      "type": "object",
+      "required": [
+        "arbitraryNodeProcessRestoreClaimed",
+        "rawV8HeapRestoreUsed",
+        "rawCpuStateReplayUsed",
+        "sourceIsaEmulationUsed"
+      ],
+      "properties": {
+        "arbitraryNodeProcessRestoreClaimed": { "const": false },
+        "rawV8HeapRestoreUsed": { "const": false },
+        "rawCpuStateReplayUsed": { "const": false },
+        "sourceIsaEmulationUsed": { "const": false }
+      },
+      "additionalProperties": true
+    }
+  }
+}

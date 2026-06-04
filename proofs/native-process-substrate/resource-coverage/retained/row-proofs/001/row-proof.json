@@ -1,0 +1,18 @@
+{
+  "proofNumber": "001",
+  "id": "native-regular-file-fd-bidirectional",
+  "category": "regular file fd",
+  "status": "verified",
+  "disposition": "supported-selected-subset",
+  "accepted": true,
+  "artifact": "proofs/native-process-substrate/regular-file-fd-bidirectional/retained/native-regular-file-fd-bidirectional-proof-report.json",
+  "evidence": "Bidirectional retained proof verifies regular-file fd offset, read/write behavior, flags, path/inode identity policy, and no shortcut use.",
+  "checks": [
+    {
+      "id": "external-proof-accepted",
+      "passed": true,
+      "message": "regular-file FD bidirectional proof accepted"
+    }
+  ],
+  "claimUse": "resource-seed-only"
+}

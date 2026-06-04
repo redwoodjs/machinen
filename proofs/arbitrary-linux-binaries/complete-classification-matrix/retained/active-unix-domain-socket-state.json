@@ -1,0 +1,37 @@
+{
+  "id": "active-unix-domain-socket-state",
+  "proofNumber": "arbitrary/033",
+  "category": "Unix socket",
+  "status": "verified",
+  "disposition": "refused",
+  "accepted": true,
+  "productSupportOutOfScope": true,
+  "productSupportClaimAllowed": false,
+  "arbitraryRestoreClaimAllowed": false,
+  "evidence": [
+    "active Unix domain sockets, queued credentials, and peer coupling are proven refused"
+  ],
+  "stableCode": "arbitrary-process-active-unix-socket-unsupported",
+  "verifier": {
+    "refusedBeforeTargetExecution": true,
+    "stableRefusalCode": "arbitrary-process-active-unix-socket-unsupported",
+    "activeUnixSocketPresent": true,
+    "proofArtifactRetained": true,
+    "targetVerifierPassed": true,
+    "rawCpuRestoreUsed": false,
+    "rawRegisterReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "sidecarReplayUsed": false,
+    "metadataOnlySuccessAccepted": false
+  },
+  "proofArtifact": "active-unix-domain-socket-state-proof.json",
+  "proofArtifactSha256": "2bf3285c28bb2863b1ae81dcfb2e7425ae450d7ef17e34a8c4264b194c1f6d4c",
+  "proofMode": "stable-refusal-proof",
+  "proofQuality": "stable-refusal-proof",
+  "executableFixture": null,
+  "bidirectionalProofArtifact": null,
+  "bidirectionalProofArtifactSha256": null,
+  "bidirectionalDirections": 0,
+  "proofChecksPassed": 4
+}

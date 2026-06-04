@@ -64,6 +64,17 @@
 - [`NODE_PROPER_LEVEL5_LIBUV_TIMER_RECOVERY_KIND`](#node_proper_level5_libuv_timer_recovery_kind)
 - [`NODE_PROPER_LEVEL5_V8_OBJECT_RECOVERY_KIND`](#node_proper_level5_v8_object_recovery_kind)
 - [`NODE_PROPER_LEVEL5_HTTP_STATE_POLICY_KIND`](#node_proper_level5_http_state_policy_kind)
+- [`NodejsMemoryIrRow`](#nodejsmemoryirrow)
+- [`NodejsMemoryIrDocument`](#nodejsmemoryirdocument)
+- [`NodejsMemoryIrValidationResult`](#nodejsmemoryirvalidationresult)
+- [`NODEJS_MEMORY_IR_KIND`](#nodejs_memory_ir_kind)
+- [`NODEJS_MEMORY_IR_VERSION`](#nodejs_memory_ir_version)
+- [`NODEJS_MEMORY_IR_RESTORE_STRATEGY`](#nodejs_memory_ir_restore_strategy)
+- [`NODEJS_MEMORY_IR_MATERIALIZER_FILENAME`](#nodejs_memory_ir_materializer_filename)
+- [`NODEJS_MEMORY_IR_INVALID_REFUSAL_CODE`](#nodejs_memory_ir_invalid_refusal_code)
+- [`NODEJS_MEMORY_IR_UNSUPPORTED_REFUSAL_CODE`](#nodejs_memory_ir_unsupported_refusal_code)
+- [`validateNodejsMemoryIrDocument`](#validatenodejsmemoryirdocument)
+- [`createNodejsMemoryIrMaterializerModule`](#createnodejsmemoryirmaterializermodule)
 - [`parseNodeProperLevel5ProcMaps`](#parsenodeproperlevel5procmaps)
 - [`recoverNodeProperLevel5RawV8ContextSmiCounter`](#recovernodeproperlevel5rawv8contextsmicounter)
 - [`recoverNodeProperLevel5V8ClosureCounterCell`](#recovernodeproperlevel5v8closurecountercell)
@@ -683,12 +694,6 @@
 - [`ProductPortablePostgresClaimLadderRefusal`](#productportablepostgresclaimladderrefusal)
 - [`ProductPortablePostgresClaimLadderReport`](#productportablepostgresclaimladderreport)
 - [`ProductPortablePostgresClaimNumbers`](#productportablepostgresclaimnumbers)
-- [`ProductPortablePostgresClaimReadyArtifact`](#productportablepostgresclaimreadyartifact)
-- [`ProductPortablePostgresClaimReadyFixtureRow`](#productportablepostgresclaimreadyfixturerow)
-- [`ProductPortablePostgresClaimReadyGate`](#productportablepostgresclaimreadygate)
-- [`ProductPortablePostgresClaimReadyProofRow`](#productportablepostgresclaimreadyproofrow)
-- [`ProductPortablePostgresClaimReadyReport`](#productportablepostgresclaimreadyreport)
-- [`ProductPortablePostgresClaimReadyRowKind`](#productportablepostgresclaimreadyrowkind)
 - [`ProductPortablePostgresClaimProofRow`](#productportablepostgresclaimproofrow)
 - [`ProductPortablePostgresCaptureInput`](#productportablepostgrescaptureinput)
 - [`ProductPortablePostgresDescriptor`](#productportablepostgresdescriptor)
@@ -703,9 +708,6 @@
 - [`PRODUCT_PORTABLE_POSTGRES_CLAIM_LADDER_KIND`](#product_portable_postgres_claim_ladder_kind)
 - [`PRODUCT_PORTABLE_POSTGRES_CLAIM_LADDER_REPORT`](#product_portable_postgres_claim_ladder_report)
 - [`PRODUCT_PORTABLE_POSTGRES_CLAIM_LADDER_VERSION`](#product_portable_postgres_claim_ladder_version)
-- [`PRODUCT_PORTABLE_POSTGRES_CLAIM_READY_KIND`](#product_portable_postgres_claim_ready_kind)
-- [`PRODUCT_PORTABLE_POSTGRES_CLAIM_READY_REPORT`](#product_portable_postgres_claim_ready_report)
-- [`PRODUCT_PORTABLE_POSTGRES_CLAIM_READY_VERSION`](#product_portable_postgres_claim_ready_version)
 - [`PRODUCT_PORTABLE_POSTGRES_FORMAT_VERSION`](#product_portable_postgres_format_version)
 - [`PRODUCT_PORTABLE_POSTGRES_MANIFEST`](#product_portable_postgres_manifest)
 - [`PRODUCT_PORTABLE_POSTGRES_REFUSAL`](#product_portable_postgres_refusal)
@@ -717,9 +719,6 @@
 - [`createProductPortablePostgresClaimLadderReport`](#createproductportablepostgresclaimladderreport)
 - [`loadProductPortablePostgresClaimLadderReport`](#loadproductportablepostgresclaimladderreport)
 - [`verifyProductPortablePostgresClaimLadderReport`](#verifyproductportablepostgresclaimladderreport)
-- [`createProductPortablePostgresClaimReadyReport`](#createproductportablepostgresclaimreadyreport)
-- [`loadProductPortablePostgresClaimReadyReport`](#loadproductportablepostgresclaimreadyreport)
-- [`verifyProductPortablePostgresClaimReadyReport`](#verifyproductportablepostgresclaimreadyreport)
 - [`createProductPortablePostgresSnapshot`](#createproductportablepostgressnapshot)
 - [`restoreProductPortablePostgresSnapshot`](#restoreproductportablepostgressnapshot)
 - [`isProductPortablePostgresBundle`](#isproductportablepostgresbundle)
@@ -831,6 +830,31 @@
 - [`createProductLevel4PingSocketSnapshot`](#createproductlevel4pingsocketsnapshot)
 - [`isProductLevel4PingSocketBundle`](#isproductlevel4pingsocketbundle)
 - [`restoreProductLevel4PingSocketSnapshot`](#restoreproductlevel4pingsocketsnapshot)
+
+### Product selected native process gate
+
+- [`ProductSelectedNativeError`](#productselectednativeerror)
+- [`ProductSelectedNativeArchitecture`](#productselectednativearchitecture)
+- [`ProductSelectedNativeRefusalCode`](#productselectednativerefusalcode)
+- [`ProductSelectedNativeCaptureInput`](#productselectednativecaptureinput)
+- [`ProductSelectedNativeDescriptor`](#productselectednativedescriptor)
+- [`ProductSelectedNativeVerifierEvidence`](#productselectednativeverifierevidence)
+- [`ProductSelectedNativeRefusal`](#productselectednativerefusal)
+- [`ProductSelectedNativeRestoreInput`](#productselectednativerestoreinput)
+- [`ProductSelectedNativeRestoreSummary`](#productselectednativerestoresummary)
+- [`ProductSelectedNativeCaptureResult`](#productselectednativecaptureresult)
+- [`PRODUCT_SELECTED_NATIVE_FORMAT_VERSION`](#product_selected_native_format_version)
+- [`PRODUCT_SELECTED_NATIVE_MANIFEST`](#product_selected_native_manifest)
+- [`PRODUCT_SELECTED_NATIVE_REFUSAL`](#product_selected_native_refusal)
+- [`PRODUCT_SELECTED_NATIVE_RESTORE_SUMMARY`](#product_selected_native_restore_summary)
+- [`PRODUCT_SELECTED_NATIVE_SOURCE_VERIFIER`](#product_selected_native_source_verifier)
+- [`PRODUCT_SELECTED_NATIVE_SOURCE_CAPTURE`](#product_selected_native_source_capture)
+- [`PRODUCT_SELECTED_NATIVE_TARGET_PLAN`](#product_selected_native_target_plan)
+- [`productSelectedNativeArchitectures`](#productselectednativearchitectures)
+- [`productSelectedNativeRefusalCodes`](#productselectednativerefusalcodes)
+- [`createProductSelectedNativeSnapshot`](#createproductselectednativesnapshot)
+- [`restoreProductSelectedNativeSnapshot`](#restoreproductselectednativesnapshot)
+- [`isProductSelectedNativeBundle`](#isproductselectednativebundle)
 
 ### Native process images
 
@@ -2797,6 +2821,44 @@ Attach to `id`. Throws if id doesn't exist.
 ###### Returns
 
 [`ProductPortablePostgresError`](#productportablepostgreserror)
+
+###### Overrides
+
+`Error.constructor`
+
+#### Properties
+
+##### code
+
+> `readonly` **code**: `string`
+
+***
+
+### ProductSelectedNativeError
+
+#### Extends
+
+- `Error`
+
+#### Constructors
+
+##### Constructor
+
+> **new ProductSelectedNativeError**(`code`, `message`): [`ProductSelectedNativeError`](#productselectednativeerror)
+
+###### Parameters
+
+###### code
+
+`string`
+
+###### message
+
+`string`
+
+###### Returns
+
+[`ProductSelectedNativeError`](#productselectednativeerror)
 
 ###### Overrides
 
@@ -13678,6 +13740,88 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ***
 
+### NodejsMemoryIrRow
+
+#### Properties
+
+##### id
+
+> **id**: `string`
+
+##### shape
+
+> **shape**: `string`
+
+##### semanticState
+
+> **semanticState**: `Record`\<`string`, `unknown`\>
+
+##### anchors?
+
+> `optional` **anchors?**: `Record`\<`string`, `string`\>
+
+***
+
+### NodejsMemoryIrDocument
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.nodejs.memory-ir"`
+
+##### version
+
+> **version**: `1`
+
+##### runtime?
+
+> `optional` **runtime?**: `Record`\<`string`, `unknown`\>
+
+##### rows
+
+> **rows**: [`NodejsMemoryIrRow`](#nodejsmemoryirrow)[]
+
+##### unsupported?
+
+> `optional` **unsupported?**: `object`[]
+
+###### code?
+
+> `optional` **code?**: `string`
+
+###### reason?
+
+> `optional` **reason?**: `string`
+
+##### claimGuard?
+
+> `optional` **claimGuard?**: `Record`\<`string`, `unknown`\>
+
+***
+
+### NodejsMemoryIrValidationResult
+
+#### Properties
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### refusalCode
+
+> **refusalCode**: `string`
+
+##### errors
+
+> **errors**: `string`[]
+
+##### rowCount
+
+> **rowCount**: `number`
+
+***
+
 ### OppositeIsaVmExecutionProviderRoute
 
 #### Properties
@@ -14737,7 +14881,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`refusalCode`](#refusalcode-11)
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`refusalCode`](#refusalcode-12)
 
 ##### remediation?
 
@@ -17626,6 +17770,534 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ***
 
+### ProductSelectedNativeCaptureInput
+
+#### Properties
+
+##### outDir
+
+> **outDir**: `string`
+
+##### sourceArch
+
+> **sourceArch**: `"arm64"` \| `"amd64"`
+
+##### targetArch
+
+> **targetArch**: `"arm64"` \| `"amd64"`
+
+##### sourceVerifierOutput
+
+> **sourceVerifierOutput**: `string`
+
+##### sourceCapturePath?
+
+> `optional` **sourceCapturePath?**: `string`
+
+##### targetPlanPath?
+
+> `optional` **targetPlanPath?**: `string`
+
+##### activeSyscall?
+
+> `optional` **activeSyscall?**: `boolean`
+
+##### unsupportedResourceState?
+
+> `optional` **unsupportedResourceState?**: `boolean`
+
+##### dryRun?
+
+> `optional` **dryRun?**: `boolean`
+
+***
+
+### ProductSelectedNativeDescriptor
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.product-selected-native"`
+
+##### formatVersion
+
+> **formatVersion**: `1`
+
+##### supportLevel
+
+> **supportLevel**: `"proof-only-product-path"`
+
+##### subset
+
+> **subset**: `"selected-single-thread-native-workload-v1"`
+
+##### implementationLevel
+
+> **implementationLevel**: `"native-product-path-e2e-gate"`
+
+##### runtime
+
+> **runtime**: `"native-linux-process"`
+
+##### captureSurface
+
+> **captureSurface**: `"machinen capture native"`
+
+##### restoreSurface
+
+> **restoreSurface**: `"machinen restore <bundle> --target-arch <arch> --target-verifier-output <file>"`
+
+##### source
+
+> **source**: `object`
+
+###### architecture
+
+> **architecture**: `"arm64"` \| `"amd64"`
+
+###### host
+
+> **host**: `object`
+
+###### host.arch
+
+> **arch**: `string`
+
+###### host.platform
+
+> **platform**: `string`
+
+###### host.release
+
+> **release**: `string`
+
+##### target
+
+> **target**: `object`
+
+###### architecture
+
+> **architecture**: `"arm64"` \| `"amd64"`
+
+##### artifacts
+
+> **artifacts**: `object`
+
+###### sourceVerifierOutput
+
+> **sourceVerifierOutput**: `object`
+
+###### sourceVerifierOutput.path
+
+> **path**: `"source-verifier.json"`
+
+###### sourceVerifierOutput.sha256
+
+> **sha256**: `string`
+
+###### sourceCapture?
+
+> `optional` **sourceCapture?**: `object`
+
+###### sourceCapture.path
+
+> **path**: `"source-capture.json"`
+
+###### sourceCapture.sha256
+
+> **sha256**: `string`
+
+###### targetPlan?
+
+> `optional` **targetPlan?**: `object`
+
+###### targetPlan.path
+
+> **path**: `"target-plan.json"`
+
+###### targetPlan.sha256
+
+> **sha256**: `string`
+
+##### selectedWorkload
+
+> **selectedWorkload**: `object`
+
+###### threadState
+
+> **threadState**: `"single-stopped-outside-syscall"`
+
+###### memory
+
+> **memory**: `"private-rw-page"`
+
+###### stack
+
+> **stack**: `"target-ucontext-stack-with-guard"`
+
+###### bootstrap
+
+> **bootstrap**: `"argv-env-cwd"`
+
+###### resources
+
+> **resources**: \[`"closed-fd"`, `"inherit-stdio"`, `"reopen-file"`, `"pipe-buffered-bytes"`, `"eventfd-counter"`, `"timerfd-one-shot"`, `"epoll-interest-list"`, `"tcp-listener-loopback"`\]
+
+##### gates
+
+> **gates**: `object`
+
+###### selectedSingleThreadOnly
+
+> **selectedSingleThreadOnly**: `true`
+
+###### stoppedOutsideActiveSyscallRequired
+
+> **stoppedOutsideActiveSyscallRequired**: `true`
+
+###### selectedResourceSubsetOnly
+
+> **selectedResourceSubsetOnly**: `true`
+
+###### targetNativeVerificationRequired
+
+> **targetNativeVerificationRequired**: `true`
+
+###### arbitraryLinuxProcessSupportClaimed
+
+> **arbitraryLinuxProcessSupportClaimed**: `false`
+
+###### sourceIsaEmulationAllowed
+
+> **sourceIsaEmulationAllowed**: `false`
+
+###### rawCpuRestoreAllowed
+
+> **rawCpuRestoreAllowed**: `false`
+
+###### runtimeProfileRestoreAllowed
+
+> **runtimeProfileRestoreAllowed**: `false`
+
+###### sidecarRuntimeAllowed
+
+> **sidecarRuntimeAllowed**: `false`
+
+###### appHooksAllowed
+
+> **appHooksAllowed**: `false`
+
+###### metadataOnlyContinuationAllowed
+
+> **metadataOnlyContinuationAllowed**: `false`
+
+##### sourceVerifierEvidence
+
+> **sourceVerifierEvidence**: [`ProductSelectedNativeVerifierEvidence`](#productselectednativeverifierevidence)
+
+***
+
+### ProductSelectedNativeVerifierEvidence
+
+#### Properties
+
+##### targetArch
+
+> **targetArch**: `"arm64"` \| `"amd64"`
+
+##### targetNativeExecution
+
+> **targetNativeExecution**: `true`
+
+##### rawCpuRestoreUsed
+
+> **rawCpuRestoreUsed**: `false`
+
+##### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+##### runtimeProfileRestoreUsed
+
+> **runtimeProfileRestoreUsed**: `false`
+
+##### appHooksUsed
+
+> **appHooksUsed**: `false`
+
+##### metadataOnlySuccessAccepted
+
+> **metadataOnlySuccessAccepted**: `false`
+
+##### checks
+
+> **checks**: `object`
+
+###### memory
+
+> **memory**: `true`
+
+###### stack
+
+> **stack**: `true`
+
+###### bootstrap
+
+> **bootstrap**: `true`
+
+###### targetFunctionReturned
+
+> **targetFunctionReturned**: `true`
+
+##### resources
+
+> **resources**: `object`
+
+###### closedFd
+
+> **closedFd**: `true`
+
+###### stdio
+
+> **stdio**: `true`
+
+###### reopenFile
+
+> **reopenFile**: `true`
+
+###### pipe
+
+> **pipe**: `true`
+
+###### eventfd
+
+> **eventfd**: `true`
+
+###### timerfd
+
+> **timerfd**: `true`
+
+###### epoll
+
+> **epoll**: `true`
+
+###### tcpListener
+
+> **tcpListener**: `true`
+
+***
+
+### ProductSelectedNativeRefusal
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.product-selected-native-refusal"`
+
+##### formatVersion
+
+> **formatVersion**: `1`
+
+##### runtime
+
+> **runtime**: `"native-linux-process"`
+
+##### supportLevel
+
+> **supportLevel**: `"explicit-refusal"`
+
+##### state
+
+> **state**: `"refused"`
+
+##### migrationCompleted
+
+> **migrationCompleted**: `false`
+
+##### expectedRefusalCode
+
+> **expectedRefusalCode**: `"native-source-target-arch-match"` \| `"native-source-verifier-invalid"` \| `"native-source-state-unsupported"` \| `"native-target-arch-mismatch"` \| `"native-target-verifier-invalid"` \| `"native-target-verifier-mismatch"` \| `"native-target-shortcut-detected"`
+
+##### message
+
+> **message**: `string`
+
+##### evidence
+
+> **evidence**: `Record`\<`string`, `unknown`\>
+
+##### arbitraryLinuxProcessSupportClaimed
+
+> **arbitraryLinuxProcessSupportClaimed**: `false`
+
+##### rawCpuRestoreUsed
+
+> **rawCpuRestoreUsed**: `false`
+
+##### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+##### runtimeProfileRestoreUsed
+
+> **runtimeProfileRestoreUsed**: `false`
+
+##### sourceTextReusedAsTargetCode
+
+> **sourceTextReusedAsTargetCode**: `false`
+
+##### sidecarRuntimeUsed
+
+> **sidecarRuntimeUsed**: `false`
+
+##### appHooksRequired
+
+> **appHooksRequired**: `false`
+
+##### metadataOnlyShortcutAccepted
+
+> **metadataOnlyShortcutAccepted**: `false`
+
+***
+
+### ProductSelectedNativeRestoreInput
+
+#### Properties
+
+##### bundleDir
+
+> **bundleDir**: `string`
+
+##### targetArch
+
+> **targetArch**: `"arm64"` \| `"amd64"`
+
+##### targetVerifierOutput
+
+> **targetVerifierOutput**: `string`
+
+##### dryRun?
+
+> `optional` **dryRun?**: `boolean`
+
+***
+
+### ProductSelectedNativeRestoreSummary
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.product-selected-native-restore-summary"`
+
+##### formatVersion
+
+> **formatVersion**: `1`
+
+##### runtime
+
+> **runtime**: `"native-linux-process"`
+
+##### subset
+
+> **subset**: `"selected-single-thread-native-workload-v1"`
+
+##### supportLevel
+
+> **supportLevel**: `"proof-only-product-path"`
+
+##### implementationLevel
+
+> **implementationLevel**: `"native-product-path-e2e-gate"`
+
+##### state
+
+> **state**: `"refused"` \| `"completed"`
+
+##### migrationCompleted
+
+> **migrationCompleted**: `boolean`
+
+##### sourceArch?
+
+> `optional` **sourceArch?**: `"arm64"` \| `"amd64"`
+
+##### targetArch
+
+> **targetArch**: `"arm64"` \| `"amd64"`
+
+##### targetVerifierResult
+
+> **targetVerifierResult**: `"failed"` \| `"passed"` \| `"not-run"`
+
+##### descriptorSha256?
+
+> `optional` **descriptorSha256?**: `string`
+
+##### targetVerifierOutputSha256?
+
+> `optional` **targetVerifierOutputSha256?**: `string`
+
+##### refusal?
+
+> `optional` **refusal?**: [`ProductSelectedNativeRefusal`](#productselectednativerefusal)
+
+##### publicClaimAllowed
+
+> **publicClaimAllowed**: `false`
+
+##### publicClaim
+
+> **publicClaim**: `object`
+
+###### productSupport
+
+> **productSupport**: `null`
+
+###### broadSupport
+
+> **broadSupport**: `null`
+
+###### arbitraryProcessCrossArchRestore
+
+> **arbitraryProcessCrossArchRestore**: `0`
+
+##### shortcutInspection
+
+> **shortcutInspection**: `object`
+
+###### rawCpuRestoreUsed
+
+> **rawCpuRestoreUsed**: `false`
+
+###### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+###### runtimeProfileRestoreUsed
+
+> **runtimeProfileRestoreUsed**: `false`
+
+###### sourceTextReusedAsTargetCode
+
+> **sourceTextReusedAsTargetCode**: `false`
+
+###### sidecarRuntimeUsed
+
+> **sidecarRuntimeUsed**: `false`
+
+###### appHooksRequired
+
+> **appHooksRequired**: `false`
+
+###### metadataOnlyShortcutAccepted
+
+> **metadataOnlyShortcutAccepted**: `false`
+
+***
+
 ### ProductSemanticPingObservableStateDecision
 
 #### Properties
@@ -18645,7 +19317,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`runtime`](#runtime-21)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`runtime`](#runtime-25)
 
 ##### profile
 
@@ -18669,7 +19341,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`sourceArch`](#sourcearch-35)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`sourceArch`](#sourcearch-36)
 
 ##### targetArch
 
@@ -18677,7 +19349,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`targetArch`](#targetarch-50)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`targetArch`](#targetarch-53)
 
 ##### stateModel
 
@@ -18717,7 +19389,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`refusalCode`](#refusalcode-16)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`refusalCode`](#refusalcode-17)
 
 ##### remediation?
 
@@ -18745,7 +19417,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Overrides
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`migrationCompleted`](#migrationcompleted-37)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`migrationCompleted`](#migrationcompleted-39)
 
 ##### scope
 
@@ -20354,7 +21026,7 @@ kicks in: `<sourceName>/<fork.pid>`.
 
 ###### Overrides
 
-[`RestoreOptions`](#restoreoptions).[`name`](#name-23)
+[`RestoreOptions`](#restoreoptions).[`name`](#name-22)
 
 ##### portForward?
 
@@ -22209,9 +22881,17 @@ Poll interval in ms while retrying. Default 250.
 
 > **processShape**: `string`
 
-##### productPath
+##### proofPath
 
-> **productPath**: `"machinen snapshot <vm-name> --out <dir>; machinen restore <dir>"`
+> **proofPath**: `"retained proof-only seed artifact"`
+
+##### productPathArtifactsRequired
+
+> **productPathArtifactsRequired**: `false`
+
+##### productSupportClaimAllowed
+
+> **productSupportClaimAllowed**: `false`
 
 ##### translatedProcessStateRequired
 
@@ -23189,7 +23869,7 @@ Poll interval in ms while retrying. Default 250.
 
 ### NodeLevel5AppSupportEvidenceKind
 
-> **NodeLevel5AppSupportEvidenceKind** = `"fixture-product-run-corpus"` \| `"template-corpus"` \| `"installed-package-corpus"` \| `"generic-vm-detected-corpus"` \| `"refusal-corpus"` \| `"matrix-gap"`
+> **NodeLevel5AppSupportEvidenceKind** = `"fixture-product-run-corpus"` \| `"template-corpus"` \| `"installed-package-corpus"` \| `"generic-vm-detected-corpus"` \| `"resolved-gap-retained-e2e"` \| `"refusal-corpus"` \| `"matrix-gap"`
 
 ***
 
@@ -23413,11 +24093,11 @@ Poll interval in ms while retrying. Default 250.
 
 ##### nodeProductSupportClaimed
 
-> **nodeProductSupportClaimed**: `100`
+> **nodeProductSupportClaimed**: `0`
 
 ##### broadNodeProductSupportClaimed
 
-> **broadNodeProductSupportClaimed**: `100`
+> **broadNodeProductSupportClaimed**: `0`
 
 ##### arbitraryProcessCrossArchRestoreClaimed
 
@@ -26039,7 +26719,7 @@ Poll interval in ms while retrying. Default 250.
 
 ##### status
 
-> **status**: `"node-product-support-100"`
+> **status**: `"node-product-support-100-claimed"`
 
 ##### familyId
 
@@ -26287,7 +26967,7 @@ Poll interval in ms while retrying. Default 250.
 
 ##### declaredSubsetExperimentalProductSupportClaimed
 
-> **declaredSubsetExperimentalProductSupportClaimed**: `100`
+> **declaredSubsetExperimentalProductSupportClaimed**: `0`
 
 ##### nodeProductSupportTiers
 
@@ -27417,7 +28097,7 @@ Poll interval in ms while retrying. Default 250.
 
 ###### supported
 
-> **supported**: `68`
+> **supported**: `72`
 
 ###### refused
 
@@ -27425,7 +28105,7 @@ Poll interval in ms while retrying. Default 250.
 
 ###### notProven
 
-> **notProven**: `4`
+> **notProven**: `0`
 
 ##### gates
 
@@ -27601,7 +28281,7 @@ Poll interval in ms while retrying. Default 250.
 
 ##### supportedAppRows
 
-> **supportedAppRows**: `68`
+> **supportedAppRows**: `72`
 
 ##### refusedAppRows
 
@@ -27609,7 +28289,7 @@ Poll interval in ms while retrying. Default 250.
 
 ##### notProvenAppRows
 
-> **notProvenAppRows**: `4`
+> **notProvenAppRows**: `0`
 
 ##### unsupportedDetectorCount
 
@@ -27697,7 +28377,7 @@ Poll interval in ms while retrying. Default 250.
 
 ##### supportedAppRows
 
-> **supportedAppRows**: `68`
+> **supportedAppRows**: `72`
 
 ##### refusedAppRows
 
@@ -27705,7 +28385,7 @@ Poll interval in ms while retrying. Default 250.
 
 ##### notProvenAppRows
 
-> **notProvenAppRows**: `4`
+> **notProvenAppRows**: `0`
 
 ##### frameworkGraphArtifactCount
 
@@ -28849,288 +29529,6 @@ Result of `validatePid` — easy to switch on at the call site.
 
 ***
 
-### ProductPortablePostgresClaimReadyArtifact
-
-> **ProductPortablePostgresClaimReadyArtifact** = `object`
-
-#### Properties
-
-##### name
-
-> **name**: `string`
-
-##### path
-
-> **path**: `string`
-
-##### sha256
-
-> **sha256**: `string`
-
-***
-
-### ProductPortablePostgresClaimReadyRowKind
-
-> **ProductPortablePostgresClaimReadyRowKind** = `"schema-shape"` \| `"postgres-version"` \| `"workload-mix"`
-
-***
-
-### ProductPortablePostgresClaimReadyFixtureRow
-
-> **ProductPortablePostgresClaimReadyFixtureRow** = `object`
-
-#### Properties
-
-##### id
-
-> **id**: `string`
-
-##### kind
-
-> **kind**: [`ProductPortablePostgresClaimReadyRowKind`](#productportablepostgresclaimreadyrowkind)
-
-##### postgresVersion
-
-> **postgresVersion**: `string`
-
-##### description
-
-> **description**: `string`
-
-##### sourceArch
-
-> **sourceArch**: [`ProductPortablePostgresArchitecture`](#productportablepostgresarchitecture)
-
-##### targetArch
-
-> **targetArch**: [`ProductPortablePostgresArchitecture`](#productportablepostgresarchitecture)
-
-##### captureCompleted
-
-> **captureCompleted**: `boolean`
-
-##### restoreCompleted
-
-> **restoreCompleted**: `boolean`
-
-##### targetVerifierResult
-
-> **targetVerifierResult**: `"passed"` \| `"failed"` \| `"not-run"`
-
-##### artifacts
-
-> **artifacts**: [`ProductPortablePostgresClaimReadyArtifact`](#productportablepostgresclaimreadyartifact)[]
-
-***
-
-### ProductPortablePostgresClaimReadyGate
-
-> **ProductPortablePostgresClaimReadyGate** = `object`
-
-#### Properties
-
-##### id
-
-> **id**: `"base-20-claim-ladder-accepted"` \| `"schema-shape-rows-retained"` \| `"postgres-version-rows-retained"` \| `"workload-mix-rows-retained"` \| `"bidirectional-target-verifiers-retained"` \| `"refusal-boundaries-unchanged"` \| `"no-forbidden-shortcuts"` \| `"public-claim-still-20"`
-
-##### passed
-
-> **passed**: `boolean`
-
-##### evidence
-
-> **evidence**: `string`
-
-***
-
-### ProductPortablePostgresClaimReadyProofRow
-
-> **ProductPortablePostgresClaimReadyProofRow** = `object`
-
-#### Properties
-
-##### id
-
-> **id**: `"postgres-40-schema-shape-rows"` \| `"postgres-40-version-rows"` \| `"postgres-40-workload-mix-rows"` \| `"postgres-40-retained-verifier-artifacts"`
-
-##### category
-
-> **category**: `string`
-
-##### status
-
-> **status**: `"passed"`
-
-##### artifact
-
-> **artifact**: `string`
-
-##### proves
-
-> **proves**: `string`
-
-##### claimUse
-
-> **claimUse**: `string`
-
-##### next
-
-> **next**: `string`
-
-##### claimImpact
-
-> **claimImpact**: `object`
-
-###### productSupportDelta
-
-> **productSupportDelta**: `number`
-
-###### broadSupportDelta
-
-> **broadSupportDelta**: `0`
-
-###### arbitraryProcessCrossArchRestoreDelta
-
-> **arbitraryProcessCrossArchRestoreDelta**: `0`
-
-###### resultingClaim
-
-> **resultingClaim**: [`ProductPortablePostgresClaimNumbers`](#productportablepostgresclaimnumbers)
-
-###### claimChangeAllowed
-
-> **claimChangeAllowed**: `boolean`
-
-***
-
-### ProductPortablePostgresClaimReadyReport
-
-> **ProductPortablePostgresClaimReadyReport** = `object`
-
-#### Properties
-
-##### kind
-
-> **kind**: *typeof* [`PRODUCT_PORTABLE_POSTGRES_CLAIM_READY_KIND`](#product_portable_postgres_claim_ready_kind)
-
-##### version
-
-> **version**: *typeof* [`PRODUCT_PORTABLE_POSTGRES_CLAIM_READY_VERSION`](#product_portable_postgres_claim_ready_version)
-
-##### accepted
-
-> **accepted**: `boolean`
-
-##### trackId
-
-> **trackId**: `"postgres"`
-
-##### gate
-
-> **gate**: `"postgres-clean-logical-20-claim-ready"`
-
-##### subset
-
-> **subset**: `"postgres-clean-quiesced-logical-v1"`
-
-##### scope
-
-> **scope**: `"Clean, idle logical Postgres reconstruction only"`
-
-##### currentClaim
-
-> **currentClaim**: [`ProductPortablePostgresClaimNumbers`](#productportablepostgresclaimnumbers)
-
-##### candidateClaim
-
-> **candidateClaim**: [`ProductPortablePostgresClaimNumbers`](#productportablepostgresclaimnumbers)
-
-##### claimChangeAllowed
-
-> **claimChangeAllowed**: `boolean`
-
-##### publicClaimRaised
-
-> **publicClaimRaised**: `false`
-
-##### requiredRows
-
-> **requiredRows**: `object`
-
-###### schemaShapes
-
-> **schemaShapes**: `3`
-
-###### postgresVersions
-
-> **postgresVersions**: `3`
-
-###### workloadMixes
-
-> **workloadMixes**: `3`
-
-###### bidirectionalDirections
-
-> **bidirectionalDirections**: \[`"arm64-to-amd64"`, `"amd64-to-arm64"`\]
-
-##### rows
-
-> **rows**: [`ProductPortablePostgresClaimReadyFixtureRow`](#productportablepostgresclaimreadyfixturerow)[]
-
-##### gates
-
-> **gates**: [`ProductPortablePostgresClaimReadyGate`](#productportablepostgresclaimreadygate)[]
-
-##### proofs
-
-> **proofs**: [`ProductPortablePostgresClaimReadyProofRow`](#productportablepostgresclaimreadyproofrow)[]
-
-##### refusalBoundariesRetained
-
-> **refusalBoundariesRetained**: \[`"active transactions / sessions"`, `"dirty WAL boundary"`, `"physical data-dir cross-ISA copy"`\]
-
-##### shortcuts
-
-> **shortcuts**: `object`
-
-###### rawCpuRestoreUsed
-
-> **rawCpuRestoreUsed**: `false`
-
-###### sourceIsaEmulationUsed
-
-> **sourceIsaEmulationUsed**: `false`
-
-###### sourceTextReplayUsed
-
-> **sourceTextReplayUsed**: `false`
-
-###### sidecarRuntimeUsed
-
-> **sidecarRuntimeUsed**: `false`
-
-###### appHooksRequired
-
-> **appHooksRequired**: `false`
-
-###### metadataOnlySuccessAccepted
-
-> **metadataOnlySuccessAccepted**: `false`
-
-##### baseClaimLadderArtifact
-
-> **baseClaimLadderArtifact**: [`ProductPortablePostgresClaimReadyArtifact`](#productportablepostgresclaimreadyartifact)
-
-##### artifacts
-
-> **artifacts**: [`ProductPortablePostgresClaimReadyArtifact`](#productportablepostgresclaimreadyartifact)[]
-
-##### artifactsSha256
-
-> **artifactsSha256**: `string`
-
-***
-
 ### ProductPortablePostgresArchitecture
 
 > **ProductPortablePostgresArchitecture** = *typeof* [`productPortablePostgresArchitectures`](#productportablepostgresarchitectures)\[`number`\]
@@ -29152,6 +29550,24 @@ Result of `validatePid` — easy to switch on at the call site.
 ### ProductPortablePostgresCaptureResult
 
 > **ProductPortablePostgresCaptureResult** = \{ `state`: `"completed"`; `migrationCompleted`: `true`; `bundleDir`: `string`; `descriptor`: [`ProductPortablePostgresDescriptor`](#productportablepostgresdescriptor); `dryRun`: `boolean`; \} \| \{ `state`: `"refused"`; `migrationCompleted`: `false`; `bundleDir`: `string`; `refusal`: [`ProductPortablePostgresRefusal`](#productportablepostgresrefusal); `dryRun`: `boolean`; \}
+
+***
+
+### ProductSelectedNativeArchitecture
+
+> **ProductSelectedNativeArchitecture** = *typeof* [`productSelectedNativeArchitectures`](#productselectednativearchitectures)\[`number`\]
+
+***
+
+### ProductSelectedNativeRefusalCode
+
+> **ProductSelectedNativeRefusalCode** = *typeof* [`productSelectedNativeRefusalCodes`](#productselectednativerefusalcodes)\[`number`\]
+
+***
+
+### ProductSelectedNativeCaptureResult
+
+> **ProductSelectedNativeCaptureResult** = \{ `state`: `"completed"`; `migrationCompleted`: `true`; `bundleDir`: `string`; `descriptor`: [`ProductSelectedNativeDescriptor`](#productselectednativedescriptor); `dryRun`: `boolean`; \} \| \{ `state`: `"refused"`; `migrationCompleted`: `false`; `bundleDir`: `string`; `refusal`: [`ProductSelectedNativeRefusal`](#productselectednativerefusal); `dryRun`: `boolean`; \}
 
 ***
 
@@ -31355,6 +31771,42 @@ loops; anything looser stops being a meaningful gate.
 
 ***
 
+### NODEJS\_MEMORY\_IR\_KIND
+
+> `const` **NODEJS\_MEMORY\_IR\_KIND**: `"machinen.nodejs.memory-ir"` = `"machinen.nodejs.memory-ir"`
+
+***
+
+### NODEJS\_MEMORY\_IR\_VERSION
+
+> `const` **NODEJS\_MEMORY\_IR\_VERSION**: `1` = `1`
+
+***
+
+### NODEJS\_MEMORY\_IR\_RESTORE\_STRATEGY
+
+> `const` **NODEJS\_MEMORY\_IR\_RESTORE\_STRATEGY**: `"materialize-nodejs-memory-ir-target-native"` = `"materialize-nodejs-memory-ir-target-native"`
+
+***
+
+### NODEJS\_MEMORY\_IR\_MATERIALIZER\_FILENAME
+
+> `const` **NODEJS\_MEMORY\_IR\_MATERIALIZER\_FILENAME**: `"nodejs-memory-materializer.mjs"` = `"nodejs-memory-materializer.mjs"`
+
+***
+
+### NODEJS\_MEMORY\_IR\_INVALID\_REFUSAL\_CODE
+
+> `const` **NODEJS\_MEMORY\_IR\_INVALID\_REFUSAL\_CODE**: `"node-portability-memory-ir-invalid"` = `"node-portability-memory-ir-invalid"`
+
+***
+
+### NODEJS\_MEMORY\_IR\_UNSUPPORTED\_REFUSAL\_CODE
+
+> `const` **NODEJS\_MEMORY\_IR\_UNSUPPORTED\_REFUSAL\_CODE**: `"node-portability-memory-ir-unsupported"` = `"node-portability-memory-ir-unsupported"`
+
+***
+
 ### OPPOSITE\_ISA\_VM\_EXECUTION\_KIND
 
 > `const` **OPPOSITE\_ISA\_VM\_EXECUTION\_KIND**: `"machinen.architecture-portable-snapshot.opposite-isa-vm-execution"`
@@ -31987,24 +32439,6 @@ loops; anything looser stops being a meaningful gate.
 
 ***
 
-### PRODUCT\_PORTABLE\_POSTGRES\_CLAIM\_READY\_KIND
-
-> `const` **PRODUCT\_PORTABLE\_POSTGRES\_CLAIM\_READY\_KIND**: `"machinen.product-portable-postgres-clean-logical-20-claim-ready"`
-
-***
-
-### PRODUCT\_PORTABLE\_POSTGRES\_CLAIM\_READY\_VERSION
-
-> `const` **PRODUCT\_PORTABLE\_POSTGRES\_CLAIM\_READY\_VERSION**: `1`
-
-***
-
-### PRODUCT\_PORTABLE\_POSTGRES\_CLAIM\_READY\_REPORT
-
-> `const` **PRODUCT\_PORTABLE\_POSTGRES\_CLAIM\_READY\_REPORT**: `"postgres-clean-logical-20-claim-ready-report.json"`
-
-***
-
 ### PRODUCT\_PORTABLE\_POSTGRES\_FORMAT\_VERSION
 
 > `const` **PRODUCT\_PORTABLE\_POSTGRES\_FORMAT\_VERSION**: `1`
@@ -32050,6 +32484,60 @@ loops; anything looser stops being a meaningful gate.
 ### productPortablePostgresRefusalCodes
 
 > `const` **productPortablePostgresRefusalCodes**: readonly \[`"postgres-active-transaction-unsupported"`, `"postgres-active-session-unsupported"`, `"postgres-dirty-wal-boundary-unsupported"`, `"postgres-host-mounted-data-dir-ambiguous"`, `"postgres-physical-data-dir-cross-isa-unsupported"`, `"postgres-target-arch-mismatch"`, `"postgres-logical-dump-integrity-mismatch"`, `"postgres-target-verifier-mismatch"`, `"postgres-refused-source-state"`\]
+
+***
+
+### PRODUCT\_SELECTED\_NATIVE\_FORMAT\_VERSION
+
+> `const` **PRODUCT\_SELECTED\_NATIVE\_FORMAT\_VERSION**: `1`
+
+***
+
+### PRODUCT\_SELECTED\_NATIVE\_MANIFEST
+
+> `const` **PRODUCT\_SELECTED\_NATIVE\_MANIFEST**: `"portable-selected-native.json"`
+
+***
+
+### PRODUCT\_SELECTED\_NATIVE\_REFUSAL
+
+> `const` **PRODUCT\_SELECTED\_NATIVE\_REFUSAL**: `"portable-selected-native-refusal.json"`
+
+***
+
+### PRODUCT\_SELECTED\_NATIVE\_RESTORE\_SUMMARY
+
+> `const` **PRODUCT\_SELECTED\_NATIVE\_RESTORE\_SUMMARY**: `"portable-selected-native-restore-summary.json"`
+
+***
+
+### PRODUCT\_SELECTED\_NATIVE\_SOURCE\_VERIFIER
+
+> `const` **PRODUCT\_SELECTED\_NATIVE\_SOURCE\_VERIFIER**: `"source-verifier.json"`
+
+***
+
+### PRODUCT\_SELECTED\_NATIVE\_SOURCE\_CAPTURE
+
+> `const` **PRODUCT\_SELECTED\_NATIVE\_SOURCE\_CAPTURE**: `"source-capture.json"`
+
+***
+
+### PRODUCT\_SELECTED\_NATIVE\_TARGET\_PLAN
+
+> `const` **PRODUCT\_SELECTED\_NATIVE\_TARGET\_PLAN**: `"target-plan.json"`
+
+***
+
+### productSelectedNativeArchitectures
+
+> `const` **productSelectedNativeArchitectures**: readonly \[`"arm64"`, `"amd64"`\]
+
+***
+
+### productSelectedNativeRefusalCodes
+
+> `const` **productSelectedNativeRefusalCodes**: readonly \[`"native-source-target-arch-match"`, `"native-source-verifier-invalid"`, `"native-source-state-unsupported"`, `"native-target-arch-mismatch"`, `"native-target-verifier-invalid"`, `"native-target-verifier-mismatch"`, `"native-target-shortcut-detected"`\]
 
 ***
 
@@ -35851,6 +36339,32 @@ available.
 
 ***
 
+### validateNodejsMemoryIrDocument()
+
+> **validateNodejsMemoryIrDocument**(`value`): [`NodejsMemoryIrValidationResult`](#nodejsmemoryirvalidationresult)
+
+#### Parameters
+
+##### value
+
+`unknown`
+
+#### Returns
+
+[`NodejsMemoryIrValidationResult`](#nodejsmemoryirvalidationresult)
+
+***
+
+### createNodejsMemoryIrMaterializerModule()
+
+> **createNodejsMemoryIrMaterializerModule**(): `string`
+
+#### Returns
+
+`string`
+
+***
+
 ### hostArchitectureFromNode()
 
 > **hostArchitectureFromNode**(`arch?`): [`OppositeIsaVmExecutionArch`](#oppositeisavmexecutionarch)
@@ -36617,56 +37131,6 @@ readonly (`number` \| [`RssTarget`](#rsstarget))[]
 
 ***
 
-### createProductPortablePostgresClaimReadyReport()
-
-> **createProductPortablePostgresClaimReadyReport**(`input`): [`ProductPortablePostgresClaimReadyReport`](#productportablepostgresclaimreadyreport)
-
-#### Parameters
-
-##### input
-
-###### outDir
-
-`string`
-
-#### Returns
-
-[`ProductPortablePostgresClaimReadyReport`](#productportablepostgresclaimreadyreport)
-
-***
-
-### loadProductPortablePostgresClaimReadyReport()
-
-> **loadProductPortablePostgresClaimReadyReport**(`path`): [`ProductPortablePostgresClaimReadyReport`](#productportablepostgresclaimreadyreport)
-
-#### Parameters
-
-##### path
-
-`string`
-
-#### Returns
-
-[`ProductPortablePostgresClaimReadyReport`](#productportablepostgresclaimreadyreport)
-
-***
-
-### verifyProductPortablePostgresClaimReadyReport()
-
-> **verifyProductPortablePostgresClaimReadyReport**(`report`): [`ProductPortablePostgresClaimReadyReport`](#productportablepostgresclaimreadyreport)
-
-#### Parameters
-
-##### report
-
-[`ProductPortablePostgresClaimReadyReport`](#productportablepostgresclaimreadyreport)
-
-#### Returns
-
-[`ProductPortablePostgresClaimReadyReport`](#productportablepostgresclaimreadyreport)
-
-***
-
 ### createProductPortablePostgresSnapshot()
 
 > **createProductPortablePostgresSnapshot**(`input`): [`ProductPortablePostgresCaptureResult`](#productportablepostgrescaptureresult)
@@ -36728,6 +37192,54 @@ readonly (`number` \| [`RssTarget`](#rsstarget))[]
 #### Returns
 
 `string`
+
+***
+
+### createProductSelectedNativeSnapshot()
+
+> **createProductSelectedNativeSnapshot**(`input`): [`ProductSelectedNativeCaptureResult`](#productselectednativecaptureresult)
+
+#### Parameters
+
+##### input
+
+[`ProductSelectedNativeCaptureInput`](#productselectednativecaptureinput)
+
+#### Returns
+
+[`ProductSelectedNativeCaptureResult`](#productselectednativecaptureresult)
+
+***
+
+### restoreProductSelectedNativeSnapshot()
+
+> **restoreProductSelectedNativeSnapshot**(`input`): [`ProductSelectedNativeRestoreSummary`](#productselectednativerestoresummary)
+
+#### Parameters
+
+##### input
+
+[`ProductSelectedNativeRestoreInput`](#productselectednativerestoreinput)
+
+#### Returns
+
+[`ProductSelectedNativeRestoreSummary`](#productselectednativerestoresummary)
+
+***
+
+### isProductSelectedNativeBundle()
+
+> **isProductSelectedNativeBundle**(`bundleDir`): `boolean`
+
+#### Parameters
+
+##### bundleDir
+
+`string`
+
+#### Returns
+
+`boolean`
 
 ***
 

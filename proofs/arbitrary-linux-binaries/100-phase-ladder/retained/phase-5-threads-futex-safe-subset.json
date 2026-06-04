@@ -1,0 +1,47 @@
+{
+  "kind": "machinen.arbitrary-process-100-phase-row",
+  "row": {
+    "id": "phase-5-threads-futex-safe-subset",
+    "proofNumber": "arbitrary-phase/005",
+    "title": "60 / 20 threads/futex proof subset or hard refusals",
+    "targetClaim": {
+      "productSupport": null,
+      "broadSupport": 60,
+      "arbitraryProcessCrossArchRestore": 20
+    },
+    "status": "blocked",
+    "claimChangeAllowed": false,
+    "productPathRequired": false,
+    "productPathCovered": false,
+    "retainedEvidence": ["thread/futex refusal rows"],
+    "missingGates": [
+      "captured thread register/stack ownership model",
+      "target-native scheduler/bootstrap verifier",
+      "futex owner/waiter translation or stable refusal codes"
+    ],
+    "blockers": ["multiple live threads and futex-owned locks remain refused"],
+    "claimUse": "phase definition/evidence only; public arbitrary Linux process restore remains 0",
+    "next": "Do not reduce thread/futex boundaries without retained target-native thread behavior verifiers."
+  },
+  "currentClaim": {
+    "productSupport": null,
+    "broadSupport": null,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "targetClaim": {
+    "productSupport": null,
+    "broadSupport": 60,
+    "arbitraryProcessCrossArchRestore": 20
+  },
+  "publicClaimAllowed": false,
+  "claimChangeAllowed": false,
+  "productSupportRowsAdded": 0,
+  "forbiddenShortcuts": [
+    "raw-cpu-restore",
+    "raw-register-replay",
+    "source-isa-emulation",
+    "app-checkpoint-hooks-as-source-of-truth",
+    "sidecar-replay",
+    "metadata-only-success"
+  ]
+}

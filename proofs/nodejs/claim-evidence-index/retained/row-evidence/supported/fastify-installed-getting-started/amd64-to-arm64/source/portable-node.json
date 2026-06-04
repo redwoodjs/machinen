@@ -1,0 +1,23 @@
+{
+  "kind": "machinen.portable-node-snapshot",
+  "formatVersion": 1,
+  "sourceArch": "amd64",
+  "runtime": "node",
+  "subset": "node-http-clean-root-v1",
+  "sourceCwd": "/opt/app",
+  "argv": ["node", "server.js"],
+  "nodeVersion": "v18.20.4",
+  "guestPort": 3000,
+  "verifier": {
+    "kind": "http-get",
+    "path": "/",
+    "sha256": "87dc7b821d4e8fb85f8de44bdfe375ad1851e669f1ad8d8a61408fc965e7bb40",
+    "bytes": 36
+  },
+  "appTar": {
+    "path": "portable-node-app.tar.gz",
+    "sha256": "ee88e0f80dba472b68832239b713746029c304ad213d5181dbc45bebd2ff33c5",
+    "bytes": 231059
+  },
+  "refusals": []
+}

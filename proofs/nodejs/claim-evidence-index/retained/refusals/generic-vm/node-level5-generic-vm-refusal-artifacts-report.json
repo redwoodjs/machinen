@@ -1,0 +1,223 @@
+{
+  "kind": "machinen.node-level5-generic-vm-refusal-artifacts-report",
+  "version": 1,
+  "accepted": true,
+  "refusalRowCount": 20,
+  "refusalArtifactFiles": [
+    {
+      "rowId": "express-generic-vm-active-requests-arm64-to-amd64",
+      "framework": "express",
+      "marker": "activeRequests",
+      "direction": "arm64-to-amd64",
+      "expectedRefusalCode": "node-level5-active-request-refused",
+      "path": "generic-vm-refusal-artifacts/express-generic-vm-active-requests-arm64-to-amd64.json",
+      "sha256": "824329c9b4a80ef16ce4e1dac2704853571a401c4a4d12c0fa501c778d6a04a4",
+      "required": true
+    },
+    {
+      "rowId": "express-generic-vm-active-requests-amd64-to-arm64",
+      "framework": "express",
+      "marker": "activeRequests",
+      "direction": "amd64-to-arm64",
+      "expectedRefusalCode": "node-level5-active-request-refused",
+      "path": "generic-vm-refusal-artifacts/express-generic-vm-active-requests-amd64-to-arm64.json",
+      "sha256": "8a616d9a5c3a681ec7a516b667326aac4e3b31b79e7276371c574d96e45a75e2",
+      "required": true
+    },
+    {
+      "rowId": "express-generic-vm-worker-threads-arm64-to-amd64",
+      "framework": "express",
+      "marker": "workerThreads",
+      "direction": "arm64-to-amd64",
+      "expectedRefusalCode": "node-level5-worker-thread-refused",
+      "path": "generic-vm-refusal-artifacts/express-generic-vm-worker-threads-arm64-to-amd64.json",
+      "sha256": "f0be7484c4f40f0c9332519f144530c872e3bb2b9f8fa46f764bb06c4f6f8dad",
+      "required": true
+    },
+    {
+      "rowId": "express-generic-vm-worker-threads-amd64-to-arm64",
+      "framework": "express",
+      "marker": "workerThreads",
+      "direction": "amd64-to-arm64",
+      "expectedRefusalCode": "node-level5-worker-thread-refused",
+      "path": "generic-vm-refusal-artifacts/express-generic-vm-worker-threads-amd64-to-arm64.json",
+      "sha256": "78314f23f0718e54e0fde6f05416231c4371b632ca6cced207ce5ed0a4c23d4f",
+      "required": true
+    },
+    {
+      "rowId": "express-generic-vm-native-addons-arm64-to-amd64",
+      "framework": "express",
+      "marker": "nativeAddons",
+      "direction": "arm64-to-amd64",
+      "expectedRefusalCode": "node-level5-native-addon-refused",
+      "path": "generic-vm-refusal-artifacts/express-generic-vm-native-addons-arm64-to-amd64.json",
+      "sha256": "be08303e549f30383550f6f4382a21e206c88d15310d7e511c8d8ef24c7bd5dd",
+      "required": true
+    },
+    {
+      "rowId": "express-generic-vm-native-addons-amd64-to-arm64",
+      "framework": "express",
+      "marker": "nativeAddons",
+      "direction": "amd64-to-arm64",
+      "expectedRefusalCode": "node-level5-native-addon-refused",
+      "path": "generic-vm-refusal-artifacts/express-generic-vm-native-addons-amd64-to-arm64.json",
+      "sha256": "5e5fd4422a4ff9410b11e1880ae5175682b47a32e3007bd5010819eb9d237678",
+      "required": true
+    },
+    {
+      "rowId": "express-generic-vm-tls-active-state-arm64-to-amd64",
+      "framework": "express",
+      "marker": "tlsActiveState",
+      "direction": "arm64-to-amd64",
+      "expectedRefusalCode": "node-level5-tls-active-state-refused",
+      "path": "generic-vm-refusal-artifacts/express-generic-vm-tls-active-state-arm64-to-amd64.json",
+      "sha256": "4dd89012c3402436317821c3b9a60cbfc572fe6d2499c71e08afa5b36604b6b2",
+      "required": true
+    },
+    {
+      "rowId": "express-generic-vm-tls-active-state-amd64-to-arm64",
+      "framework": "express",
+      "marker": "tlsActiveState",
+      "direction": "amd64-to-arm64",
+      "expectedRefusalCode": "node-level5-tls-active-state-refused",
+      "path": "generic-vm-refusal-artifacts/express-generic-vm-tls-active-state-amd64-to-arm64.json",
+      "sha256": "6fc3f47888224cc897f69f26e076e91da8735f4e02dadf3f24c2d8896602fde9",
+      "required": true
+    },
+    {
+      "rowId": "express-generic-vm-child-processes-arm64-to-amd64",
+      "framework": "express",
+      "marker": "childProcesses",
+      "direction": "arm64-to-amd64",
+      "expectedRefusalCode": "node-level5-child-process-live-state-refused",
+      "path": "generic-vm-refusal-artifacts/express-generic-vm-child-processes-arm64-to-amd64.json",
+      "sha256": "62ba15c6d809d75ce3a76a8814023b45c28c82f980687612e177cea72bb5df01",
+      "required": true
+    },
+    {
+      "rowId": "express-generic-vm-child-processes-amd64-to-arm64",
+      "framework": "express",
+      "marker": "childProcesses",
+      "direction": "amd64-to-arm64",
+      "expectedRefusalCode": "node-level5-child-process-live-state-refused",
+      "path": "generic-vm-refusal-artifacts/express-generic-vm-child-processes-amd64-to-arm64.json",
+      "sha256": "c4b61036a2448f6ada513ffb2f6ed7de52b8d8f94912d682d8c589a07fc3fec7",
+      "required": true
+    },
+    {
+      "rowId": "fastify-generic-vm-active-requests-arm64-to-amd64",
+      "framework": "fastify",
+      "marker": "activeRequests",
+      "direction": "arm64-to-amd64",
+      "expectedRefusalCode": "node-level5-active-request-refused",
+      "path": "generic-vm-refusal-artifacts/fastify-generic-vm-active-requests-arm64-to-amd64.json",
+      "sha256": "f55a9a588d84a9b9c8ba687e538d4d5444ca7ebacbb387a60f4ea94cde1e7b43",
+      "required": true
+    },
+    {
+      "rowId": "fastify-generic-vm-active-requests-amd64-to-arm64",
+      "framework": "fastify",
+      "marker": "activeRequests",
+      "direction": "amd64-to-arm64",
+      "expectedRefusalCode": "node-level5-active-request-refused",
+      "path": "generic-vm-refusal-artifacts/fastify-generic-vm-active-requests-amd64-to-arm64.json",
+      "sha256": "03a773763a418515752cca2710362ad16439aa10747e072185ec9b80e9bcb8c3",
+      "required": true
+    },
+    {
+      "rowId": "fastify-generic-vm-worker-threads-arm64-to-amd64",
+      "framework": "fastify",
+      "marker": "workerThreads",
+      "direction": "arm64-to-amd64",
+      "expectedRefusalCode": "node-level5-worker-thread-refused",
+      "path": "generic-vm-refusal-artifacts/fastify-generic-vm-worker-threads-arm64-to-amd64.json",
+      "sha256": "379f7a2109f8ca0a6db394a7072867a3cae87bc22afa57f19c5b594892f70916",
+      "required": true
+    },
+    {
+      "rowId": "fastify-generic-vm-worker-threads-amd64-to-arm64",
+      "framework": "fastify",
+      "marker": "workerThreads",
+      "direction": "amd64-to-arm64",
+      "expectedRefusalCode": "node-level5-worker-thread-refused",
+      "path": "generic-vm-refusal-artifacts/fastify-generic-vm-worker-threads-amd64-to-arm64.json",
+      "sha256": "a03e83fe9ca5ab023b5c2a6c059c22c938a6ede6eac4242f34a9caafc609c203",
+      "required": true
+    },
+    {
+      "rowId": "fastify-generic-vm-native-addons-arm64-to-amd64",
+      "framework": "fastify",
+      "marker": "nativeAddons",
+      "direction": "arm64-to-amd64",
+      "expectedRefusalCode": "node-level5-native-addon-refused",
+      "path": "generic-vm-refusal-artifacts/fastify-generic-vm-native-addons-arm64-to-amd64.json",
+      "sha256": "623a60e519f3cb4a6d07a342d41ed7baf175549a5ff4cf7671a60c58fe2af6d0",
+      "required": true
+    },
+    {
+      "rowId": "fastify-generic-vm-native-addons-amd64-to-arm64",
+      "framework": "fastify",
+      "marker": "nativeAddons",
+      "direction": "amd64-to-arm64",
+      "expectedRefusalCode": "node-level5-native-addon-refused",
+      "path": "generic-vm-refusal-artifacts/fastify-generic-vm-native-addons-amd64-to-arm64.json",
+      "sha256": "2ab17a5d5cac2a450577371097bad25142bc1476f697e7485cb739dd7f7d7229",
+      "required": true
+    },
+    {
+      "rowId": "fastify-generic-vm-tls-active-state-arm64-to-amd64",
+      "framework": "fastify",
+      "marker": "tlsActiveState",
+      "direction": "arm64-to-amd64",
+      "expectedRefusalCode": "node-level5-tls-active-state-refused",
+      "path": "generic-vm-refusal-artifacts/fastify-generic-vm-tls-active-state-arm64-to-amd64.json",
+      "sha256": "eaac22dc3f71f988eeb79b71a49ff2a624dd272664fa034e177b3db112351c0b",
+      "required": true
+    },
+    {
+      "rowId": "fastify-generic-vm-tls-active-state-amd64-to-arm64",
+      "framework": "fastify",
+      "marker": "tlsActiveState",
+      "direction": "amd64-to-arm64",
+      "expectedRefusalCode": "node-level5-tls-active-state-refused",
+      "path": "generic-vm-refusal-artifacts/fastify-generic-vm-tls-active-state-amd64-to-arm64.json",
+      "sha256": "7c33ad31a4c0ba52784bc6948d5824a60eb4f483b12364f5efc45774cf0d1223",
+      "required": true
+    },
+    {
+      "rowId": "fastify-generic-vm-child-processes-arm64-to-amd64",
+      "framework": "fastify",
+      "marker": "childProcesses",
+      "direction": "arm64-to-amd64",
+      "expectedRefusalCode": "node-level5-child-process-live-state-refused",
+      "path": "generic-vm-refusal-artifacts/fastify-generic-vm-child-processes-arm64-to-amd64.json",
+      "sha256": "6c94d62696e299a590963a063b2b5af51c1e62b35ea5a0daa640acf72eaa9517",
+      "required": true
+    },
+    {
+      "rowId": "fastify-generic-vm-child-processes-amd64-to-arm64",
+      "framework": "fastify",
+      "marker": "childProcesses",
+      "direction": "amd64-to-arm64",
+      "expectedRefusalCode": "node-level5-child-process-live-state-refused",
+      "path": "generic-vm-refusal-artifacts/fastify-generic-vm-child-processes-amd64-to-arm64.json",
+      "sha256": "6d2967dfecdcb00759ff24e09449824404cc7724ab23d14d305631f605539cd8",
+      "required": true
+    }
+  ],
+  "refusalArtifactFileCount": 20,
+  "refusalArtifactFilesSha256": "0936054842aefdc6618c0bfcc51def3fc8f1abd838ecbe808c3f43528be93ace",
+  "markersCovered": [
+    "activeRequests",
+    "childProcesses",
+    "nativeAddons",
+    "tlsActiveState",
+    "workerThreads"
+  ],
+  "claimChangeAllowed": false,
+  "candidateNodeProductSupportClaimed": 85,
+  "candidateBroadNodeProductSupportClaimed": 25,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0
+}

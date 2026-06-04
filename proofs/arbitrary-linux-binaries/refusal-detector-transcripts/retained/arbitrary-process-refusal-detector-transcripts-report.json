@@ -1,0 +1,135 @@
+{
+  "kind": "machinen.arbitrary-process-refusal-detector-transcripts",
+  "version": 1,
+  "accepted": true,
+  "proofStatus": "verified",
+  "scope": "arbitrary-process-refusal-detector-transcripts-v1",
+  "publicClaimAllowed": false,
+  "productSupportOutOfScope": true,
+  "currentClaim": {
+    "productSupport": null,
+    "broadSupport": null,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "summary": {
+    "refusedRowsRequired": 14,
+    "detectorTranscriptsVerified": 14,
+    "stableRefusalCodesVerified": 14,
+    "productSupportRowsAdded": 0,
+    "publicArbitraryProcessClaim": 0
+  },
+  "rows": [
+    {
+      "id": "pending-signal-frame-state",
+      "status": "verified",
+      "artifact": "pending-signal-frame-state-detector-transcript.json",
+      "artifactSha256": "8d56885f15462e8034274bd9bd09e0775e1622c26250594f6dcf008eca60affb",
+      "stableRefusalCode": "arbitrary-process-signal-frame-unsupported",
+      "claimUse": "detector transcript only; arbitrary process restore remains 0"
+    },
+    {
+      "id": "active-syscall-state",
+      "status": "verified",
+      "artifact": "active-syscall-state-detector-transcript.json",
+      "artifactSha256": "5beb96958ba5d70f0a0b1e3ae9ed80218bd2a8ca1a5e6860ac945bff16a2980f",
+      "stableRefusalCode": "arbitrary-process-active-syscall-unsupported",
+      "claimUse": "detector transcript only; arbitrary process restore remains 0"
+    },
+    {
+      "id": "multi-thread-scheduler-state",
+      "status": "verified",
+      "artifact": "multi-thread-scheduler-state-detector-transcript.json",
+      "artifactSha256": "eabb8e73465279b16c55263b8ee964d0c8d60416efc769928af77a2f8f4ff43d",
+      "stableRefusalCode": "arbitrary-process-multithread-unsupported",
+      "claimUse": "detector transcript only; arbitrary process restore remains 0"
+    },
+    {
+      "id": "futex-owner-waiter-state",
+      "status": "verified",
+      "artifact": "futex-owner-waiter-state-detector-transcript.json",
+      "artifactSha256": "53c8e0538ee8b955ed9ab119b0186b522968ed4e2449166dabc798e487ef428d",
+      "stableRefusalCode": "arbitrary-process-futex-owner-waiter-unsupported",
+      "claimUse": "detector transcript only; arbitrary process restore remains 0"
+    },
+    {
+      "id": "jit-executable-anonymous-mapping",
+      "status": "verified",
+      "artifact": "jit-executable-anonymous-mapping-detector-transcript.json",
+      "artifactSha256": "af38b3b9390ba536ecb4ca0fd5fd72f9321b24aeb8060895c8ee86be37389add",
+      "stableRefusalCode": "arbitrary-process-jit-executable-mapping-unsupported",
+      "claimUse": "detector transcript only; arbitrary process restore remains 0"
+    },
+    {
+      "id": "device-mmap-opaque-resource",
+      "status": "verified",
+      "artifact": "device-mmap-opaque-resource-detector-transcript.json",
+      "artifactSha256": "1dcc92a94d457a58a63481658e2d50aae2c18062e72c77f8531106013a396a4a",
+      "stableRefusalCode": "arbitrary-process-device-mmap-unsupported",
+      "claimUse": "detector transcript only; arbitrary process restore remains 0"
+    },
+    {
+      "id": "shared-memory-opaque-mapping",
+      "status": "verified",
+      "artifact": "shared-memory-opaque-mapping-detector-transcript.json",
+      "artifactSha256": "97b41fc4aadb9ffcd5e6fc118add60730bdbfb2dc682b701827c22b90870e0f0",
+      "stableRefusalCode": "arbitrary-process-shared-memory-opaque-unsupported",
+      "claimUse": "detector transcript only; arbitrary process restore remains 0"
+    },
+    {
+      "id": "active-unix-domain-socket-state",
+      "status": "verified",
+      "artifact": "active-unix-domain-socket-state-detector-transcript.json",
+      "artifactSha256": "c5dc1ef67bebb72d3edf07ec4363a3d166d5ee943b31b7204dbda442e696d8b0",
+      "stableRefusalCode": "arbitrary-process-active-unix-socket-unsupported",
+      "claimUse": "detector transcript only; arbitrary process restore remains 0"
+    },
+    {
+      "id": "process-tree-parent-child-state",
+      "status": "verified",
+      "artifact": "process-tree-parent-child-state-detector-transcript.json",
+      "artifactSha256": "9be3d24b0595439ebaaa0204f5312c7e836951c988f8e911b06a6db2489b21b7",
+      "stableRefusalCode": "arbitrary-process-tree-unsupported",
+      "claimUse": "detector transcript only; arbitrary process restore remains 0"
+    },
+    {
+      "id": "dynamic-linker-abi-mismatch-state",
+      "status": "verified",
+      "artifact": "dynamic-linker-abi-mismatch-state-detector-transcript.json",
+      "artifactSha256": "13f36e4a69c56c42edbb4a921e7091f99542da7bd50ba48203d06c3a9a286442",
+      "stableRefusalCode": "arbitrary-process-dynamic-linker-abi-mismatch-unsupported",
+      "claimUse": "detector transcript only; arbitrary process restore remains 0"
+    },
+    {
+      "id": "credentials-namespace-cgroup-state",
+      "status": "verified",
+      "artifact": "credentials-namespace-cgroup-state-detector-transcript.json",
+      "artifactSha256": "40ab28ee32733a38cacc56332ac08e4909c792194f984c5e16a9949b467b42ae",
+      "stableRefusalCode": "arbitrary-process-credentials-namespace-cgroup-unsupported",
+      "claimUse": "detector transcript only; arbitrary process restore remains 0"
+    },
+    {
+      "id": "seccomp-filter-policy-state",
+      "status": "verified",
+      "artifact": "seccomp-filter-policy-state-detector-transcript.json",
+      "artifactSha256": "62dd028465a668b958a2102ddaec3938afaa4998f15574b7b1f7837342fbde66",
+      "stableRefusalCode": "arbitrary-process-seccomp-policy-unsupported",
+      "claimUse": "detector transcript only; arbitrary process restore remains 0"
+    },
+    {
+      "id": "ptrace-debugger-traced-state",
+      "status": "verified",
+      "artifact": "ptrace-debugger-traced-state-detector-transcript.json",
+      "artifactSha256": "5e1588cd64764e7de79fa4399c4ada72f6924bdb47581206db15b8349a0155c4",
+      "stableRefusalCode": "arbitrary-process-ptrace-debug-state-unsupported",
+      "claimUse": "detector transcript only; arbitrary process restore remains 0"
+    },
+    {
+      "id": "arbitrary-unknown-process-state",
+      "status": "verified",
+      "artifact": "arbitrary-unknown-process-state-detector-transcript.json",
+      "artifactSha256": "a5cde8b2820f56bb78959be071b9afe8cf864fdf06b0abccb8bb7dce1be11f7c",
+      "stableRefusalCode": "arbitrary-process-unknown-state-unsupported",
+      "claimUse": "detector transcript only; arbitrary process restore remains 0"
+    }
+  ]
+}

@@ -1,0 +1,145 @@
+{
+  "kind": "machinen.portable-vm-product-snapshot-restore-e2e-report",
+  "version": 1,
+  "accepted": true,
+  "proofStatus": "verified",
+  "scope": "portable-vm-all3-product-snapshot-restore-v1",
+  "productCommandPath": "machinen snapshot <vm> --portable --out <bundle>; machinen restore <bundle> --json",
+  "sourceArchitectureDetected": true,
+  "targetArchitectureDetected": true,
+  "result": {
+    "snapshotCompleted": true,
+    "restoreCompleted": true,
+    "migrationCompleted": true,
+    "sourceArch": "arm64",
+    "targetArch": "amd64",
+    "crossArchitecture": true,
+    "crossArchitectureProductHostAvailable": true,
+    "targetNativeVmBooted": true,
+    "targetVerifierPassed": true,
+    "filesystemVerified": true,
+    "serviceVerified": true,
+    "sqliteVerified": true
+  },
+  "localPlanConsumingProductRun": {
+    "accepted": true,
+    "sourceArch": "arm64",
+    "targetArch": "arm64",
+    "sourcePathDetection": "guest portable VM inventory agent",
+    "planGenerated": true,
+    "rawInventoryGenerated": true,
+    "planConsumed": true,
+    "planRows": 3,
+    "productSupportedRows": 3,
+    "refusedRows": 0,
+    "workloads": {
+      "filesystem": true,
+      "service": true,
+      "sqlite": true
+    }
+  },
+  "remoteProductRun": {
+    "direction": "arm64-to-amd64",
+    "accepted": true,
+    "state": "completed",
+    "migrationCompleted": true,
+    "sourceArchitectureDetected": true,
+    "targetArchitectureDetected": true,
+    "restoredName": "portable-vm-remote-amd64-fixed-1780488120",
+    "targetRestore": {
+      "kind": "machinen.real-cross-arch-portable-vm-all3-target-restore",
+      "accepted": true,
+      "filesystemRestored": true,
+      "sqliteRestored": {
+        "count": 3,
+        "qtySum": 41
+      },
+      "sqliteExpected": {
+        "count": 3,
+        "qtySum": 41
+      },
+      "serviceStarted": true,
+      "servicePid": 343
+    },
+    "targetVerify": {
+      "kind": "machinen.real-cross-arch-portable-vm-all3-target-verifier",
+      "accepted": true,
+      "filesystem": {
+        "accepted": true,
+        "files": 2
+      },
+      "sqlite": {
+        "accepted": true,
+        "count": 3,
+        "qtySum": 41
+      },
+      "service": {
+        "accepted": true,
+        "status": 200,
+        "body": "machinen-portable-service-v1"
+      }
+    },
+    "workloads": {
+      "filesystem": true,
+      "service": true,
+      "sqlite": true
+    },
+    "elapsedMs": 5002
+  },
+  "claimGuard": {
+    "arbitraryVmRestoreClaimed": false,
+    "rawVmStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlyShortcutAccepted": false
+  },
+  "artifacts": [
+    {
+      "path": "snapshot.json",
+      "sha256": "854b8621d9ac111b0cb50cd7ce298a24b2ad19149231b547c6f54d7f4c712cae"
+    },
+    {
+      "path": "restore.json",
+      "sha256": "399282ef1d1e7e0cf7e484728130422f0c4c9f621c247597b374359745b61cff"
+    },
+    {
+      "path": "portable-vm.snap/portable-vm-snapshot-summary.json",
+      "sha256": "2f6b67a80a6ce435e596828c2d1093f1559afb379bfb4007be3b92740cd59159"
+    },
+    {
+      "path": "portable-vm.snap/portable-vm-product-restore-summary.json",
+      "sha256": "d63d79c283e5fbde99049f522f4a2bc86c7ead8a7c8198945ea26aa0b972ee0e"
+    },
+    {
+      "path": "portable-vm.snap/source-architecture.txt",
+      "sha256": "c1669e1d8edca98769c37d494b76442a1d6e5ffffd7b4da1fb63aef8ebaf6f01"
+    },
+    {
+      "path": "portable-vm.snap/portable-vm-all3-manifest.json",
+      "sha256": "006954b2ccb6af6f9143cbf1aeee1c3648872ec3ec8a55b75384f439412973dc"
+    },
+    {
+      "path": "portable-vm.snap/portable-vm-raw-inventory.json",
+      "sha256": "4e7a66df25d07549880d91383135092079d41dca222ba1699f63a496313587d9"
+    },
+    {
+      "path": "portable-vm.snap/portable-vm-manifest-plan.json",
+      "sha256": "3abcd14079ea47095a31063759cbe569375970dbcdd3ed9fa6939c6c9f982dcb"
+    },
+    {
+      "path": "arm64-to-amd64/restore.json",
+      "sha256": "298571b35cc45408158517f3cea16b4170174bb2630293fd13beee88049fd453"
+    },
+    {
+      "path": "arm64-to-amd64/restore.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "arm64-to-amd64/build-kernel-x86_64.log",
+      "sha256": "91095953e4e239dcfc10f4bd1c713a4f11ba264f5899387dc876ad0b0a96c944"
+    },
+    {
+      "path": "arm64-to-amd64/remote-asset-audit.txt",
+      "sha256": "605a5d1ad7dfacc6679c44fd93037eb9802f1c8af6c5a3ba69fbe41c6910574b"
+    }
+  ]
+}

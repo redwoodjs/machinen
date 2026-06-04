@@ -1,0 +1,11 @@
+{
+  "type": "module",
+  "scripts": {
+    "start": "node app.mjs"
+  },
+  "dependencies": {
+    "next": "*",
+    "react": "*",
+    "react-dom": "*"
+  }
+}

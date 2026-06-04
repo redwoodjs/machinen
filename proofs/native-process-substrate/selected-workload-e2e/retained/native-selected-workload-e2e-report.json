@@ -1,0 +1,226 @@
+{
+  "kind": "machinen.native-selected-workload-e2e",
+  "version": 1,
+  "generatedAt": "2026-06-02T19:55:34.873Z",
+  "accepted": true,
+  "publicClaimAllowed": false,
+  "publicClaim": {
+    "productSupport": null,
+    "broadSupport": null,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "scope": "Retained harness proof for a selected single-thread native workload. It composes substrate/resource plans into target-native post-restore behavior in both directions, but is not machinen capture native/restore product support and does not claim arbitrary Linux process restore.",
+  "proofStatus": "verified",
+  "directions": [
+    {
+      "direction": "arm64-to-amd64",
+      "sourceArch": "arm64",
+      "targetArch": "amd64",
+      "runner": "root@192.168.0.8",
+      "accepted": true,
+      "sourceCapture": {
+        "threadState": "single-stopped-outside-syscall",
+        "memory": "private-rw-page",
+        "stack": "target-ucontext-stack-with-guard",
+        "bootstrap": "argv-env-cwd",
+        "resources": [
+          "closed-fd",
+          "inherit-stdio",
+          "reopen-file",
+          "pipe-buffered-bytes",
+          "eventfd-counter",
+          "timerfd-one-shot",
+          "epoll-interest-list",
+          "tcp-listener-loopback"
+        ]
+      },
+      "targetPlan": {
+        "targetNativeExecution": true,
+        "entry": "selected_native_target",
+        "stack": "materialized-target-stack",
+        "memory": "materialized-private-page",
+        "bootstrap": "target-visible-env-cwd",
+        "resources": [
+          "closed-fd",
+          "inherit-stdio",
+          "reopen-file",
+          "pipe-buffered-bytes",
+          "eventfd-counter",
+          "timerfd-one-shot",
+          "epoll-interest-list",
+          "tcp-listener-loopback"
+        ],
+        "rawCpuRestoreUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "runtimeProfileRestoreUsed": false,
+        "appHooksUsed": false,
+        "metadataOnlySuccessAccepted": false
+      },
+      "verifier": {
+        "status": "passed",
+        "direction": "arm64-to-amd64",
+        "targetArch": "amd64",
+        "targetNativeExecution": true,
+        "rawCpuRestoreUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "runtimeProfileRestoreUsed": false,
+        "appHooksUsed": false,
+        "metadataOnlySuccessAccepted": false,
+        "checks": {
+          "memory": true,
+          "stack": true,
+          "bootstrap": true,
+          "targetFunctionReturned": true
+        },
+        "resources": {
+          "closedFd": true,
+          "stdio": true,
+          "reopenFile": true,
+          "pipe": true,
+          "eventfd": true,
+          "timerfd": true,
+          "epoll": true,
+          "tcpListener": true
+        }
+      },
+      "artifacts": [
+        {
+          "name": "source-capture.json",
+          "path": "source-capture.json",
+          "sha256": "36c417674f47860af9fe8aa6c3fe2fd04edcb6741c4cda4f6abf7ba1b28900fb"
+        },
+        {
+          "name": "target-plan.json",
+          "path": "target-plan.json",
+          "sha256": "47f0e85fd856ce7c9acedb27a8aa7bc64d05fd6b35cb70d941a64603b6d7e0be"
+        },
+        {
+          "name": "target-verifier.json",
+          "path": "target-verifier.json",
+          "sha256": "3f6bd64624e949cdd78ee11c7f1a7d410febcb4078cec3109c774a9b122ca530"
+        },
+        {
+          "name": "run-transcript-artifact.json",
+          "path": "run-transcript-artifact.json",
+          "sha256": "30b15429e755922c9bbb9c84f03f107bd31ac959bc255b948865d34c63021f25"
+        }
+      ]
+    },
+    {
+      "direction": "amd64-to-arm64",
+      "sourceArch": "amd64",
+      "targetArch": "arm64",
+      "runner": "friend@100.126.46.90",
+      "accepted": true,
+      "sourceCapture": {
+        "threadState": "single-stopped-outside-syscall",
+        "memory": "private-rw-page",
+        "stack": "target-ucontext-stack-with-guard",
+        "bootstrap": "argv-env-cwd",
+        "resources": [
+          "closed-fd",
+          "inherit-stdio",
+          "reopen-file",
+          "pipe-buffered-bytes",
+          "eventfd-counter",
+          "timerfd-one-shot",
+          "epoll-interest-list",
+          "tcp-listener-loopback"
+        ]
+      },
+      "targetPlan": {
+        "targetNativeExecution": true,
+        "entry": "selected_native_target",
+        "stack": "materialized-target-stack",
+        "memory": "materialized-private-page",
+        "bootstrap": "target-visible-env-cwd",
+        "resources": [
+          "closed-fd",
+          "inherit-stdio",
+          "reopen-file",
+          "pipe-buffered-bytes",
+          "eventfd-counter",
+          "timerfd-one-shot",
+          "epoll-interest-list",
+          "tcp-listener-loopback"
+        ],
+        "rawCpuRestoreUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "runtimeProfileRestoreUsed": false,
+        "appHooksUsed": false,
+        "metadataOnlySuccessAccepted": false
+      },
+      "verifier": {
+        "status": "passed",
+        "direction": "amd64-to-arm64",
+        "targetArch": "arm64",
+        "targetNativeExecution": true,
+        "rawCpuRestoreUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "runtimeProfileRestoreUsed": false,
+        "appHooksUsed": false,
+        "metadataOnlySuccessAccepted": false,
+        "checks": {
+          "memory": true,
+          "stack": true,
+          "bootstrap": true,
+          "targetFunctionReturned": true
+        },
+        "resources": {
+          "closedFd": true,
+          "stdio": true,
+          "reopenFile": true,
+          "pipe": true,
+          "eventfd": true,
+          "timerfd": true,
+          "epoll": true,
+          "tcpListener": true
+        }
+      },
+      "artifacts": [
+        {
+          "name": "source-capture.json",
+          "path": "source-capture.json",
+          "sha256": "9a83680def7a234a2b1e7cdcb205a301cecfc2b4aeecbd0f048553e9f4f44f04"
+        },
+        {
+          "name": "target-plan.json",
+          "path": "target-plan.json",
+          "sha256": "611e42bfad20031b17ad0ee0e96f6ca585f7e6740f5acd895fdf9e9a4248245e"
+        },
+        {
+          "name": "target-verifier.json",
+          "path": "target-verifier.json",
+          "sha256": "f9d4e520e6356875ce685bdb90945804d841d8e4bb8f2f68c45cadf8adaa45f9"
+        },
+        {
+          "name": "run-transcript-artifact.json",
+          "path": "run-transcript-artifact.json",
+          "sha256": "d110aaf08ab8446f7936ec24be3bc159a86afa74cfad705cdb39f1c46cd047f1"
+        }
+      ]
+    }
+  ],
+  "acceptedDirections": 2,
+  "requiredDirections": 2,
+  "requiredPriorGates": [
+    {
+      "id": "native-substrate-gate",
+      "accepted": true,
+      "artifact": "proofs/native-process-substrate/retained/native-substrate-gate-report.json"
+    },
+    {
+      "id": "native-resource-coverage-matrix",
+      "accepted": true,
+      "artifact": "proofs/native-process-substrate/resource-coverage/retained/native-resource-coverage-matrix-report.json"
+    }
+  ],
+  "noShortcutPolicy": {
+    "rawCpuRestoreAccepted": false,
+    "sourceIsaEmulationAccepted": false,
+    "runtimeProfileRestoreAccepted": false,
+    "sidecarRuntimeAccepted": false,
+    "appHooksAccepted": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

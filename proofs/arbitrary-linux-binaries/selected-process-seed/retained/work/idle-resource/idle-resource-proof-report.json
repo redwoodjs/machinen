@@ -1,0 +1,54 @@
+{
+  "kind": "machinen.arbitrary-process-level5-idle-resource-proof",
+  "version": 1,
+  "accepted": true,
+  "rowId": "native-idle-epoll-or-tcp",
+  "proofStatus": "verified-seed",
+  "capturedState": {
+    "epollFd": 5,
+    "tcpListenerFd": 6,
+    "epollReadyEvents": 0,
+    "acceptedStreams": 0,
+    "listenerBacklogEmpty": true
+  },
+  "targetReconstruction": {
+    "planKind": "create-idle-epoll-and-idle-tcp-listener",
+    "epollFd": 5,
+    "tcpListenerFd": 6,
+    "idleOnly": true,
+    "activeSocketStreamsRestored": false,
+    "sidecarReplayUsed": false,
+    "rawCpuRestoreUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "metadataOnlySuccessAccepted": false
+  },
+  "verifier": {
+    "epollWaitReturnedNoEvents": true,
+    "listenerAcceptedNoStreams": true,
+    "targetNativeReconstructionRequired": true,
+    "translatedProcessStateRequired": true
+  },
+  "claimChangeAllowed": false,
+  "currentArbitraryProcessCrossArchRestoreClaimed": 0,
+  "candidateArbitraryProcessCrossArchRestoreClaimed": 1,
+  "arbitraryProcessClaimed": false,
+  "artifacts": [
+    {
+      "name": "source-capture.json",
+      "path": "source-capture.json",
+      "sha256": "20a1a39dda37474992db062c1dd58ead1f6aef7dce7a7994bf7a4d4f601ea298"
+    },
+    {
+      "name": "target-reconstruction-plan.json",
+      "path": "target-reconstruction-plan.json",
+      "sha256": "94b9730321a2239e4ceaf3695a28fcce801f7472506ebc65ca9ac443c147e6ea"
+    },
+    {
+      "name": "target-verifier.json",
+      "path": "target-verifier.json",
+      "sha256": "498b85b64144e876a967d757eb4c2d18efa7fb4afa054addadac72ec210c5a92"
+    }
+  ],
+  "artifactsSha256": "1c7463b7e27a407424d11ebec7608cd71fbd88da0d9136be51abc3f3684e8b23"
+}

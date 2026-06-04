@@ -176,14 +176,17 @@ describe("flag conventions", () => {
     }
   });
 
-  it("snapshot/restore product portability does not require runtime-specific workflow flags", () => {
-    for (const name of ["snapshot", "restore"]) {
-      const cmd = COMMANDS.find((candidate) => candidate.name === name);
-      expect(cmd, `${name} command missing`).toBeDefined();
-      const flags = new Set(cmd?.flags.map((flag) => flag.name));
-      expect(flags.has("--portable"), `${name}: must not expose --portable`).toBe(false);
-      expect(flags.has("--runtime"), `${name}: must not expose --runtime`).toBe(false);
-    }
+  it("snapshot/restore product portability keeps runtime-specific workflow flags out", () => {
+    const snapshot = COMMANDS.find((candidate) => candidate.name === "snapshot");
+    const restore = COMMANDS.find((candidate) => candidate.name === "restore");
+    expect(snapshot, "snapshot command missing").toBeDefined();
+    expect(restore, "restore command missing").toBeDefined();
+    const snapshotFlags = new Set(snapshot?.flags.map((flag) => flag.name));
+    const restoreFlags = new Set(restore?.flags.map((flag) => flag.name));
+    expect(snapshotFlags.has("--portable"), "snapshot should expose --portable").toBe(true);
+    expect(snapshotFlags.has("--runtime"), "snapshot must not expose --runtime").toBe(false);
+    expect(restoreFlags.has("--portable"), "restore must not expose --portable").toBe(false);
+    expect(restoreFlags.has("--runtime"), "restore must not expose --runtime").toBe(false);
   });
 
   it("flags with type=enum carry a values list", () => {

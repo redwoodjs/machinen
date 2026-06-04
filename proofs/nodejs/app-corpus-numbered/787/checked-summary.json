@@ -5,8 +5,8 @@
   "result": "The release gate accepts verified refusal reports and rejects bad reports.",
   "status": "node-product-support-80-real-app-refusal-corpus",
   "harnessProof": true,
-  "nodeProductSupportClaimed": 80,
-  "broadNodeProductSupportClaimed": 20,
+  "nodeProductSupportClaimed": 0,
+  "broadNodeProductSupportClaimed": 0,
   "arbitraryProcessCrossArchRestoreClaimed": 0,
   "productSurface": ["machinen snapshot <vm-name> --out <dir>"]
 }

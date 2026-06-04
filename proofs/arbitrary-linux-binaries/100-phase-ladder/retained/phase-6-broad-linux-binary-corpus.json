@@ -1,0 +1,48 @@
+{
+  "kind": "machinen.arbitrary-process-100-phase-row",
+  "row": {
+    "id": "phase-6-broad-linux-binary-corpus",
+    "proofNumber": "arbitrary-phase/006",
+    "title": "80 / 50 broad Linux binary proof corpus under strict gates",
+    "targetClaim": {
+      "productSupport": null,
+      "broadSupport": 80,
+      "arbitraryProcessCrossArchRestore": 50
+    },
+    "status": "not-started",
+    "claimChangeAllowed": false,
+    "productPathRequired": false,
+    "productPathCovered": false,
+    "retainedEvidence": [],
+    "missingGates": [
+      "coreutils/shell/server/interpreter corpus",
+      "per-row source captures and target verifiers",
+      "unsupported runtime/private-state refusal matrix",
+      "artifact integrity manifest for every row"
+    ],
+    "blockers": ["no broad uncontrolled binary corpus exists"],
+    "claimUse": "phase definition/evidence only; public arbitrary Linux process restore remains 0",
+    "next": "Start only after controlled process and resource proof matrices are retained."
+  },
+  "currentClaim": {
+    "productSupport": null,
+    "broadSupport": null,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "targetClaim": {
+    "productSupport": null,
+    "broadSupport": 80,
+    "arbitraryProcessCrossArchRestore": 50
+  },
+  "publicClaimAllowed": false,
+  "claimChangeAllowed": false,
+  "productSupportRowsAdded": 0,
+  "forbiddenShortcuts": [
+    "raw-cpu-restore",
+    "raw-register-replay",
+    "source-isa-emulation",
+    "app-checkpoint-hooks-as-source-of-truth",
+    "sidecar-replay",
+    "metadata-only-success"
+  ]
+}

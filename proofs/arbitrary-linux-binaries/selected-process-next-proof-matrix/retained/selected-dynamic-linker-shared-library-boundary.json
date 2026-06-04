@@ -1,0 +1,39 @@
+{
+  "kind": "machinen.selected-arbitrary-process-next-proof-row",
+  "scope": "selected-arbitrary-linux-process-seed-v1",
+  "row": {
+    "id": "selected-dynamic-linker-shared-library-boundary",
+    "proofNumber": "arbitrary/015",
+    "category": "dynamic linker boundary",
+    "status": "verified",
+    "disposition": "proof-only",
+    "proves": "Retained dependency boundary supports only target-native dependency availability and refuses source-architecture shared library/ABI mismatch and missing target runtime dependencies.",
+    "claimUse": "proof-only dependency boundary evidence; no arbitrary-process claim lift"
+  },
+  "currentClaim": {
+    "productSupport": null,
+    "broadSupport": null,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "claimChangeAllowed": false,
+  "publicClaimAllowed": false,
+  "productSupportRowsAdded": 0,
+  "productSupportClaimAllowed": false,
+  "noShortcutPolicy": {
+    "rawCpuRestoreAccepted": false,
+    "rawRegisterReplayAccepted": false,
+    "sourceIsaEmulationAccepted": false,
+    "appCheckpointHooksAccepted": false,
+    "sidecarReplayAccepted": false,
+    "metadataOnlySuccessAccepted": false,
+    "arbitraryUnknownProcessAccepted": false
+  },
+  "dependencyBoundary": {
+    "accepted": ["target-native-dependency-available"],
+    "refused": [
+      "source-architecture-shared-library",
+      "abi-mismatch",
+      "missing-target-runtime-dependency"
+    ]
+  }
+}

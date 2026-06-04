@@ -1,0 +1,36 @@
+{
+  "id": "037-memory-real-plain-object",
+  "slug": "memory-real-plain-object",
+  "runtime": "nodejs",
+  "description": "Real source process memory capture and cross-arch materialization for a selected Node plain object",
+  "disposition": "product-supported",
+  "claimUse": "selected Node plain-object memory-state portability only; semantic decode/materialize, not raw V8 heap restore",
+  "architecturePolicy": "capture selected object state from source process /proc memory and materialize target-native across architectures",
+  "startCommand": "node app.mjs",
+  "healthPath": "/value",
+  "expectedBody": "plain-object-ready",
+  "dependencies": [],
+  "refusalCode": null,
+  "capability": {
+    "category": "memory-state",
+    "detects": ["selected plain object field anchors in real Node process memory"],
+    "captures": ["/proc/<pid>/maps", "/proc/<pid>/mem", "semantic object-state IR"],
+    "restores": ["target-native Node plain object materialization"],
+    "verifies": ["target object fields and behavior match decoded source state"],
+    "blocks": [
+      "raw V8 heap restore",
+      "same PID continuation",
+      "active request/socket continuation",
+      "arbitrary Node process continuation"
+    ]
+  },
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "arbitraryLinuxProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "samePidContinuationClaimed": false,
+    "activeRequestOrSocketContinuationClaimed": false
+  }
+}

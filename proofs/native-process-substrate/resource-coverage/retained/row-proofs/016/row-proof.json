@@ -1,0 +1,43 @@
+{
+  "proofNumber": "016",
+  "id": "native-file-locks-leases",
+  "category": "file descriptor",
+  "status": "verified",
+  "disposition": "refused-boundary",
+  "accepted": true,
+  "artifact": "proofs/native-process-substrate/resource-coverage/retained/row-proofs/016/row-proof.json",
+  "evidence": "File locks and leases are refused until owner/waiter and lock lifetime reconstruction is proven.",
+  "checks": [
+    {
+      "id": "has-refusal",
+      "passed": true,
+      "message": "at least one refusal retained"
+    },
+    {
+      "id": "all-refusals-have-codes",
+      "passed": true,
+      "message": "every refusal has a code"
+    },
+    {
+      "id": "no-target-materialization",
+      "passed": true,
+      "message": "unsupported resource row is not materialized"
+    }
+  ],
+  "refusals": [
+    {
+      "code": "kernel-state-unsupported",
+      "message": "file locks and leases are kernel-owned state outside the selected resource seed",
+      "detail": {
+        "boundary": "file-locks-leases",
+        "requiredModel": [
+          "lock owner",
+          "blocked waiters",
+          "lease break state",
+          "target lock acquisition policy"
+        ]
+      }
+    }
+  ],
+  "claimUse": "boundary-refusal-only"
+}

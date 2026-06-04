@@ -1,0 +1,67 @@
+{
+  "kind": "machinen.arbitrary-process-row-proof",
+  "version": 1,
+  "rowId": "shared-memory-opaque-mapping",
+  "proofNumber": "arbitrary/032",
+  "proofMode": "stable-refusal-proof",
+  "proofQuality": "stable-refusal-proof",
+  "accepted": true,
+  "disposition": "refused",
+  "fixture": {
+    "id": "shared-memory-opaque-mapping-fixture",
+    "portableState": [],
+    "refusedState": [
+      "shared memory peer ownership",
+      "unmanifested shared bytes",
+      "cross-process mutation race"
+    ],
+    "fixtureHash": "e2248643dd8a2baee8c161381daec361bce2f2996562ffdadeac49c398e9ebfe",
+    "execution": null
+  },
+  "verifier": {
+    "targetNativeReconstructionAttempted": false,
+    "targetVerifierPassed": true,
+    "refusedBeforeTargetExecution": true,
+    "stableRefusalCode": "arbitrary-process-shared-memory-opaque-unsupported",
+    "checks": [
+      {
+        "name": "refused-state-manifest-present",
+        "passed": true,
+        "detail": "3 refused state fields retained for shared-memory-opaque-mapping"
+      },
+      {
+        "name": "stable-refusal-code-emitted",
+        "passed": true,
+        "detail": "arbitrary-process-shared-memory-opaque-unsupported emitted for fixture e2248643dd8a2baee8c161381daec361bce2f2996562ffdadeac49c398e9ebfe"
+      },
+      {
+        "name": "target-execution-blocked",
+        "passed": true,
+        "detail": "refusal happens before target execution or target-native reconstruction attempt"
+      },
+      {
+        "name": "claim-guard-held",
+        "passed": true,
+        "detail": "refusal does not raise product support or arbitrary process restore claim"
+      }
+    ]
+  },
+  "transcript": [
+    "loaded refused fixture shared-memory-opaque-mapping-fixture",
+    "detected refused state class arbitrary-process-shared-memory-opaque-unsupported",
+    "stopped before target execution",
+    "recorded stable refusal proof without product claim lift"
+  ],
+  "claimGuard": {
+    "productSupportOutOfScope": true,
+    "productSupportRowsAdded": 0,
+    "arbitraryProcessRestoreClaimed": 0,
+    "publicClaimAllowed": false,
+    "rawCpuRestoreUsed": false,
+    "rawRegisterReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "sidecarReplayUsed": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

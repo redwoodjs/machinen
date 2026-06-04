@@ -1,0 +1,20 @@
+{
+  "kind": "machinen.node-supported-row-target-verifier",
+  "version": 1,
+  "accepted": true,
+  "rowId": "fastify-fixture-product-run",
+  "direction": "arm64-to-amd64",
+  "routePath": "/fastify/health",
+  "expectedBody": "fastify-fixture-product-run-ok",
+  "actualBody": "fastify-fixture-product-run-ok",
+  "bodySha256": "410d8391d7f2469bcd5f19150502201172d1b6d81db93afb6f000bd6e2b80c0b",
+  "expectedHeader": {
+    "x-machinen-row": "fastify-fixture-product-run"
+  },
+  "actualHeaders": "HTTP/1.1 200 OK\nx-machinen-row: fastify-fixture-product-run\ncontent-type: text/plain; charset=utf-8\ncontent-length: 30\nDate: Mon, 01 Jun 2026 17:08:02 GMT\nConnection: keep-alive\nKeep-Alive: timeout=72\n\n",
+  "targetNativeNodeVerified": true,
+  "sourceIsaEmulationUsed": false,
+  "sidecarRuntimeUsed": false,
+  "appHooksRequired": false,
+  "metadataOnlySuccessAccepted": false
+}

@@ -1,0 +1,47 @@
+{
+  "kind": "machinen.arbitrary-process-100-phase-row",
+  "row": {
+    "id": "phase-4-process-tree-ipc-resource-classes",
+    "proofNumber": "arbitrary-phase/004",
+    "title": "40 / 10 process tree, IPC, and resource proof classes",
+    "targetClaim": {
+      "productSupport": null,
+      "broadSupport": 40,
+      "arbitraryProcessCrossArchRestore": 10
+    },
+    "status": "defined",
+    "claimChangeAllowed": false,
+    "productPathRequired": false,
+    "productPathCovered": false,
+    "retainedEvidence": ["arbitrary/016 process tree refusal proof"],
+    "missingGates": [
+      "retained process-tree capture/reconstruction proof artifacts",
+      "IPC matrix for Unix sockets, pipes, eventfd, timerfd, shared memory",
+      "namespace/cgroup/credential boundary matrix"
+    ],
+    "blockers": ["process trees and cross-process IPC remain refused"],
+    "claimUse": "phase definition/evidence only; public arbitrary Linux process restore remains 0",
+    "next": "Define and retain IPC/resource corpus rows before reducing process-tree refusal."
+  },
+  "currentClaim": {
+    "productSupport": null,
+    "broadSupport": null,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "targetClaim": {
+    "productSupport": null,
+    "broadSupport": 40,
+    "arbitraryProcessCrossArchRestore": 10
+  },
+  "publicClaimAllowed": false,
+  "claimChangeAllowed": false,
+  "productSupportRowsAdded": 0,
+  "forbiddenShortcuts": [
+    "raw-cpu-restore",
+    "raw-register-replay",
+    "source-isa-emulation",
+    "app-checkpoint-hooks-as-source-of-truth",
+    "sidecar-replay",
+    "metadata-only-success"
+  ]
+}

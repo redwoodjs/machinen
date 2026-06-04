@@ -1,0 +1,52 @@
+{
+  "formatVersion": 1,
+  "sourceGuestArch": "amd64",
+  "allowedTargetGuestArchs": ["arm64"],
+  "program": {
+    "name": "ping-level4-machine-workload",
+    "executable": "/bin/ping",
+    "identity": "ping-level4-socket-reconstruction-v1"
+  },
+  "sourceBuild": {
+    "buildId": "0123456789abcdef",
+    "version": "ping-level4-machine-v1"
+  },
+  "targetBuild": {
+    "version": "target-native-ping"
+  },
+  "checkpointAbi": {
+    "version": 1,
+    "checkpointFunction": {
+      "name": "machinen_checkpoint"
+    },
+    "rootsType": "machinen_checkpoint_roots",
+    "restoreBundleType": "machinen_restore_bundle",
+    "safePoint": {
+      "outsideSignalHandlers": true,
+      "outsideSyscalls": true
+    }
+  },
+  "checkpointContinuation": {
+    "name": "machinen_level4_ping_checkpoint"
+  },
+  "restoreEntrypoint": {
+    "name": "machinen_level4_ping_restore"
+  },
+  "process": {
+    "argv": ["/bin/ping", "127.0.0.1"],
+    "env": {
+      "MACHINEN_PORTABLE_MACHINE_PROFILE": "ping-level4-socket-reconstruction-v1"
+    },
+    "cwd": "/"
+  },
+  "features": [
+    "portable-machine-transport",
+    "level4-kernel-resource-reconstruction",
+    "network-ping-socket",
+    "target-vm-continuation"
+  ],
+  "unsupported": {
+    "vocabularyVersion": 1,
+    "refusals": []
+  }
+}

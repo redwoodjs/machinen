@@ -1,0 +1,27 @@
+{
+  "kind": "machinen.node-supported-row-target-verifier",
+  "version": 1,
+  "accepted": true,
+  "rowId": "express-external-network-safe-reconnect",
+  "direction": "amd64-to-arm64",
+  "routePath": "/express-external-network-safe-reconnect",
+  "scenario": "external-network",
+  "scenarioVerifier": {
+    "externalNetworkSafeReconnectVerified": true,
+    "backgroundTaskHeartbeatVerified": false,
+    "backgroundTicksObserved": null
+  },
+  "expectedBody": "express-external-network-safe-reconnect-ok",
+  "actualBody": "express-external-network-safe-reconnect-ok",
+  "bodySha256": "af5b34157f5b84dd290beb635a510cf9d4546ee1964e3a5acf212c3736bf2e12",
+  "expectedHeader": {
+    "x-machinen-row": "express-external-network-safe-reconnect",
+    "x-machinen-scenario": "safe-outbound-reconnect"
+  },
+  "actualHeaders": "HTTP/1.1 200 OK\nX-Powered-By: Express\nx-machinen-row: express-external-network-safe-reconnect\nx-machinen-scenario: safe-outbound-reconnect\nContent-Type: text/html; charset=utf-8\nContent-Length: 42\nETag: W/\"2a-I7XdXSkCj9u6ovVMHqISSv9oAj8\"\nDate: Tue, 02 Jun 2026 17:12:05 GMT\nConnection: keep-alive\nKeep-Alive: timeout=5\n\n",
+  "targetNativeNodeVerified": true,
+  "sourceIsaEmulationUsed": false,
+  "sidecarRuntimeUsed": false,
+  "appHooksRequired": false,
+  "metadataOnlySuccessAccepted": false
+}

@@ -1,0 +1,51 @@
+{
+  "kind": "machinen.arbitrary-process-100-phase-row",
+  "row": {
+    "id": "phase-3-memory-dynamic-linker-signals",
+    "proofNumber": "arbitrary-phase/003",
+    "title": "20 / 5 memory, linker, and signal proof coverage",
+    "targetClaim": {
+      "productSupport": null,
+      "broadSupport": 20,
+      "arbitraryProcessCrossArchRestore": 5
+    },
+    "status": "proof-only",
+    "claimChangeAllowed": false,
+    "productPathRequired": false,
+    "productPathCovered": false,
+    "retainedEvidence": [
+      "arbitrary/012 memory map materialization proof",
+      "arbitrary/014 active syscall/signal refusals",
+      "arbitrary/015 dynamic linker boundary"
+    ],
+    "missingGates": [
+      "real mapping manifests from captured processes",
+      "target dependency manifests",
+      "stable signal/active-syscall refusal artifacts"
+    ],
+    "blockers": ["JIT/device/shared-opaque mappings remain refused"],
+    "claimUse": "phase definition/evidence only; public arbitrary Linux process restore remains 0",
+    "next": "Attach real process capture artifacts and target verifier transcripts for memory/linker rows."
+  },
+  "currentClaim": {
+    "productSupport": null,
+    "broadSupport": null,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "targetClaim": {
+    "productSupport": null,
+    "broadSupport": 20,
+    "arbitraryProcessCrossArchRestore": 5
+  },
+  "publicClaimAllowed": false,
+  "claimChangeAllowed": false,
+  "productSupportRowsAdded": 0,
+  "forbiddenShortcuts": [
+    "raw-cpu-restore",
+    "raw-register-replay",
+    "source-isa-emulation",
+    "app-checkpoint-hooks-as-source-of-truth",
+    "sidecar-replay",
+    "metadata-only-success"
+  ]
+}

@@ -1,0 +1,1 @@
+fastify-installed-status-code-ok

@@ -1,0 +1,84 @@
+{
+  "kind": "machinen.node-real-cross-arch-e2e-gate-report",
+  "version": 1,
+  "accepted": true,
+  "root": "proofs/nodejs/real-cross-arch-e2e-gate/retained",
+  "generatedAt": "2026-06-01T16:35:26.499Z",
+  "rowCount": 2,
+  "rows": [
+    {
+      "id": "node-e2e-arm64-to-amd64",
+      "direction": "arm64-to-amd64",
+      "accepted": true,
+      "sourceArch": "arm64",
+      "targetArch": "amd64",
+      "files": {
+        "snapshotSummary": "proofs/nodejs/real-cross-arch-e2e-gate/retained/arm64-to-amd64/source/snapshot.json",
+        "sourceProductCommand": "proofs/nodejs/real-cross-arch-e2e-gate/retained/arm64-to-amd64/source/product-command.txt",
+        "portableNodeManifest": "proofs/nodejs/real-cross-arch-e2e-gate/retained/arm64-to-amd64/source/portable-node.json",
+        "portableNodeAppTar": "proofs/nodejs/real-cross-arch-e2e-gate/retained/arm64-to-amd64/source/portable-node-app.tar.gz",
+        "restoreSummary": "proofs/nodejs/real-cross-arch-e2e-gate/retained/arm64-to-amd64/target/restore.json",
+        "targetProductCommand": "proofs/nodejs/real-cross-arch-e2e-gate/retained/arm64-to-amd64/target/product-command.txt",
+        "targetHttpBody": "proofs/nodejs/real-cross-arch-e2e-gate/retained/arm64-to-amd64/target/target-http-body.txt"
+      },
+      "verifier": {
+        "expectedSha256": "556122a72b9d33875251a9eb2b9a4931c858ceda64d2b5835fd46250eb3e8b60",
+        "actualSha256": "556122a72b9d33875251a9eb2b9a4931c858ceda64d2b5835fd46250eb3e8b60",
+        "expectedBytes": 32,
+        "actualBytes": 32,
+        "passed": true
+      },
+      "productCommands": ["machinen snapshot <vm-name> --out <dir>", "machinen restore <dir>"],
+      "prohibitedMechanisms": {
+        "sourceIsaEmulationUsed": false,
+        "sourceTextReplayAcceptedAsRestore": false,
+        "sidecarRuntimeUsed": false,
+        "appHooksRequired": false
+      },
+      "errors": []
+    },
+    {
+      "id": "node-e2e-amd64-to-arm64",
+      "direction": "amd64-to-arm64",
+      "accepted": true,
+      "sourceArch": "amd64",
+      "targetArch": "arm64",
+      "files": {
+        "snapshotSummary": "proofs/nodejs/real-cross-arch-e2e-gate/retained/amd64-to-arm64/source/snapshot.json",
+        "sourceProductCommand": "proofs/nodejs/real-cross-arch-e2e-gate/retained/amd64-to-arm64/source/product-command.txt",
+        "portableNodeManifest": "proofs/nodejs/real-cross-arch-e2e-gate/retained/amd64-to-arm64/source/portable-node.json",
+        "portableNodeAppTar": "proofs/nodejs/real-cross-arch-e2e-gate/retained/amd64-to-arm64/source/portable-node-app.tar.gz",
+        "restoreSummary": "proofs/nodejs/real-cross-arch-e2e-gate/retained/amd64-to-arm64/target/restore.json",
+        "targetProductCommand": "proofs/nodejs/real-cross-arch-e2e-gate/retained/amd64-to-arm64/target/product-command.txt",
+        "targetHttpBody": "proofs/nodejs/real-cross-arch-e2e-gate/retained/amd64-to-arm64/target/target-http-body.txt"
+      },
+      "verifier": {
+        "expectedSha256": "cd89d67145b66957f8751cd47ee0d2571d98b36d2bee4064ec5c1a33bf1635de",
+        "actualSha256": "cd89d67145b66957f8751cd47ee0d2571d98b36d2bee4064ec5c1a33bf1635de",
+        "expectedBytes": 26,
+        "actualBytes": 26,
+        "passed": true
+      },
+      "productCommands": ["machinen snapshot <vm-name> --out <dir>", "machinen restore <dir>"],
+      "prohibitedMechanisms": {
+        "sourceIsaEmulationUsed": false,
+        "sourceTextReplayAcceptedAsRestore": false,
+        "sidecarRuntimeUsed": false,
+        "appHooksRequired": false
+      },
+      "errors": []
+    }
+  ],
+  "claimUse": "seed-evidence-only",
+  "nodeProductSupportClaimed": 0,
+  "broadNodeProductSupportClaimed": 0,
+  "arbitraryProcessCrossArchRestoreClaimed": 0,
+  "unblocks": [
+    "bidirectional clean Node HTTP service VM-first product snapshot/restore seed evidence"
+  ],
+  "stillRequiredBefore100": [
+    "row-by-row retained E2E artifact coverage for every supported Node support-matrix row",
+    "retained refusal artifacts for unsupported workers, native addons, Wasm/external memory, TLS active state, active async work, and child process live state",
+    "claim-level audit proving no raw CPU restore, source-ISA emulation, app hooks, sidecars, or metadata-only success"
+  ]
+}

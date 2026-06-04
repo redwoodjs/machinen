@@ -1,0 +1,64 @@
+{
+  "kind": "machinen.postgres-no-dump-product-target-verifier",
+  "accepted": true,
+  "direction": "arm64-to-amd64",
+  "sourceArch": "arm64",
+  "targetArch": "amd64",
+  "runtime": "postgresql",
+  "interface": "psql",
+  "subset": "postgres-clean-quiesced-no-dump-product-capture-restore",
+  "sourceVerifierOutputSha256": "5d1062188f302d75521800edc29b0a44e218e88699e27b98793afcefb28c3051",
+  "targetVerifierOutputSha256": "5d1062188f302d75521800edc29b0a44e218e88699e27b98793afcefb28c3051",
+  "sourceTargetVerifierMatch": true,
+  "migrationCompleted": true,
+  "noUserSuppliedDump": true,
+  "targetVerifierOutputFileNotUsed": true,
+  "activeTransactionsAtCapture": 0,
+  "targetNativeExecution": true,
+  "internalDumpSha256": "5eb04a431d50c4faf794e74417c1f6795673f124db8479800553c510cbb2fb04",
+  "bundleManifestSha256": "8ea58eca42007b11caf1e557c1163423649e7424fd9fa4ea3ae560bbfc8a8416",
+  "restoreSummarySha256": "839c70859cb321d965a716ee5acfd7e8eefb2bfbf764e3887cb11dba34c1c609",
+  "sourceIsaEmulationUsed": false,
+  "sourceTextReusedAsTargetCode": false,
+  "sidecarRuntimeUsed": false,
+  "appHooksRequired": false,
+  "metadataOnlyShortcutAccepted": false,
+  "rowProofs": [
+    {
+      "rowId": "postgresql-psql-query-workload-e2e",
+      "slug": "psql-query-workload",
+      "accepted": true,
+      "path": "proofs/postgres/real-cross-arch-e2e-gate/retained/arm64-to-amd64/row-proofs/psql-query-workload"
+    },
+    {
+      "rowId": "postgresql-schema-data-query-e2e",
+      "slug": "schema-data-query",
+      "accepted": true,
+      "path": "proofs/postgres/real-cross-arch-e2e-gate/retained/arm64-to-amd64/row-proofs/schema-data-query"
+    },
+    {
+      "rowId": "postgresql-role-permission-e2e",
+      "slug": "role-permission",
+      "accepted": true,
+      "path": "proofs/postgres/real-cross-arch-e2e-gate/retained/arm64-to-amd64/row-proofs/role-permission"
+    },
+    {
+      "rowId": "postgresql-unix-pg-isready-command",
+      "slug": "unix-pg-isready-command",
+      "accepted": true,
+      "path": "proofs/postgres/real-cross-arch-e2e-gate/retained/arm64-to-amd64/row-proofs/unix-pg-isready-command"
+    },
+    {
+      "rowId": "postgresql-unix-psql-command",
+      "slug": "unix-psql-command",
+      "accepted": true,
+      "path": "proofs/postgres/real-cross-arch-e2e-gate/retained/arm64-to-amd64/row-proofs/unix-psql-command"
+    },
+    {
+      "rowId": "postgresql-unix-createdb-dropdb-command",
+      "slug": "unix-createdb-dropdb-command",
+      "accepted": true,
+      "path": "proofs/postgres/real-cross-arch-e2e-gate/retained/arm64-to-amd64/row-proofs/unix-createdb-dropdb-command"
+    }
+  ]
+}

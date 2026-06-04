@@ -1,0 +1,20 @@
+{
+  "kind": "machinen.node-supported-row-target-verifier",
+  "version": 1,
+  "accepted": true,
+  "rowId": "fastify-installed-delete-route",
+  "direction": "amd64-to-arm64",
+  "routePath": "/fastify-installed-delete-route",
+  "expectedBody": "fastify-installed-delete-route-ok",
+  "actualBody": "fastify-installed-delete-route-ok",
+  "bodySha256": "01225ac5f7ca99409347bfa78f3e291ff3bf1e6d728a0435b66e896f081dda24",
+  "expectedHeader": {
+    "x-machinen-row": "fastify-installed-delete-route"
+  },
+  "actualHeaders": "HTTP/1.1 200 OK\nx-machinen-row: fastify-installed-delete-route\ncontent-type: text/plain; charset=utf-8\ncontent-length: 33\nDate: Tue, 02 Jun 2026 16:37:18 GMT\nConnection: keep-alive\nKeep-Alive: timeout=72\n\n",
+  "targetNativeNodeVerified": true,
+  "sourceIsaEmulationUsed": false,
+  "sidecarRuntimeUsed": false,
+  "appHooksRequired": false,
+  "metadataOnlySuccessAccepted": false
+}

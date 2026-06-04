@@ -1,0 +1,12 @@
+booting vm…
+guest ready
+ready in 0.72s
+MACHINEN_WHOLE_VM_CORPUS_ROW arch=arm64 id=whole-vm-sqlite-clean-db-workload disposition=refused accepted=true refusalCode=whole-vm-workload-tool-missing tool=sqlite3 evidence=sqlite3-not-installed-in-guest
+MACHINEN_WHOLE_VM_CORPUS_ROW arch=arm64 id=whole-vm-postgresql-clean-workload disposition=refused accepted=true refusalCode=whole-vm-workload-tool-missing tool=postgresql evidence=postgresql-tools-not-installed-in-guest
+MACHINEN_WHOLE_VM_CORPUS_ROW arch=arm64 id=whole-vm-c-service-workload disposition=supported accepted=true evidence=target-native-c-service-verifier-passed
+MACHINEN_WHOLE_VM_CORPUS_ROW arch=arm64 id=whole-vm-java-service-workload disposition=refused accepted=true refusalCode=whole-vm-workload-tool-missing tool=java evidence=java-runtime-not-installed-in-guest
+MACHINEN_WHOLE_VM_CORPUS_ROW arch=arm64 id=whole-vm-filesystem-workload disposition=supported accepted=true evidence=file-tree-create-copy-read-verifier-passed
+MACHINEN_WHOLE_VM_CORPUS_ROW arch=arm64 id=whole-vm-network-listener-workload disposition=supported accepted=true evidence=loopback-listener-request-response-verifier-passed
+MACHINEN_WHOLE_VM_CORPUS_ROW arch=arm64 id=whole-vm-multi-process-workload disposition=supported accepted=true evidence=fork-pipe-child-verifier-passed
+MACHINEN_WHOLE_VM_CORPUS_ROW arch=arm64 id=whole-vm-dirty-active-opaque-state-refusals disposition=refusal-defined accepted=true refusalCode=whole-vm-dirty-active-opaque-state-unsupported evidence=dirty-db-active-session-opaque-kernel-device-runtime-private-state-require-explicit-refusal
+[    0.289403] reboot: Power down

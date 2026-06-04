@@ -1,0 +1,323 @@
+{
+  "kind": "machinen.postgres-no-dump-product-e2e-proof",
+  "profile": "postgres-no-dump-product-capture-restore",
+  "state": "completed",
+  "runtime": "postgresql",
+  "localHostArch": "arm64",
+  "image": "postgres:15-bookworm",
+  "hosts": {
+    "arm64": {
+      "label": "arm64",
+      "host": "local-macbook",
+      "kind": "local",
+      "machine": "arm64",
+      "arch": "arm64",
+      "docker": "aarch64 linux"
+    },
+    "amd64": {
+      "label": "amd64",
+      "host": "root@192.168.0.8",
+      "kind": "ssh",
+      "machine": "x86_64",
+      "arch": "amd64",
+      "docker": "x86_64 linux"
+    }
+  },
+  "postgres": {
+    "initSqlSha256": "36bd62cf169e1eb041ee1e7a791f177a2b4e6809e2240b9ad17297a72f88ea7a",
+    "workloadSqlSha256": "cee4f9dee7f03744b3c13e8d6536ff7a1220904aa24cd01410daf9d5833acef9",
+    "verifierSqlSha256": "1d4799aaf94829c9a6cfa11502992b916b111a620909dd6d0d337fbb1bf2171d",
+    "routes": [
+      {
+        "route": "arm64-to-amd64",
+        "sourceHost": "local-macbook",
+        "targetHost": "root@192.168.0.8",
+        "sourceDockerHost": "local",
+        "targetDockerHost": "root@192.168.0.8",
+        "sourceArch": "arm64",
+        "targetArch": "amd64",
+        "sourcePostgresVersion": "15.18 (Debian 15.18-1.pgdg12+1)",
+        "targetPostgresVersion": "15.18 (Debian 15.18-1.pgdg12+1)",
+        "sourceVerifierOutput": "{\"database\" : \"machinen_pg\", \"rowCount\" : 4, \"valueSum\" : 105, \"payloads\" : [\"alpha\",\"beta\",\"gamma\",\"delta\"], \"values\" : [10,25,30,40]}",
+        "targetVerifierOutput": "{\"database\" : \"machinen_pg\", \"rowCount\" : 4, \"valueSum\" : 105, \"payloads\" : [\"alpha\",\"beta\",\"gamma\",\"delta\"], \"values\" : [10,25,30,40]}",
+        "logicalFingerprint": "19c61ac217b9bdf7dae88e5a515643d3b49c21a2a0d920096bf3017b36195166",
+        "rowProofs": {
+          "psqlQueryWorkload": {
+            "sourceTranscript": "{\"database\" : \"machinen_pg\", \"rowCount\" : 4, \"valueSum\" : 105, \"payloads\" : [\"alpha\",\"beta\",\"gamma\",\"delta\"], \"values\" : [10,25,30,40]}",
+            "targetTranscript": "{\"database\" : \"machinen_pg\", \"rowCount\" : 4, \"valueSum\" : 105, \"payloads\" : [\"alpha\",\"beta\",\"gamma\",\"delta\"], \"values\" : [10,25,30,40]}",
+            "accepted": true
+          },
+          "schemaDataQuery": {
+            "sourceTranscript": "4|105",
+            "targetTranscript": "4|105",
+            "accepted": true
+          },
+          "rolePermission": {
+            "sourceApplyTranscript": "DO\nGRANT\nGRANT",
+            "sourceVerifierTranscript": "{\"roleExists\" : true, \"readerCanSelectEvents\" : true, \"readerCanUseSequence\" : true, \"readerCanSelectSequence\" : true}",
+            "targetVerifierTranscript": "{\"roleExists\" : true, \"readerCanSelectEvents\" : true, \"readerCanUseSequence\" : true, \"readerCanSelectSequence\" : true}",
+            "accepted": true
+          },
+          "pgIsReadyCommand": {
+            "sourceTranscript": "/var/run/postgresql:5432 - accepting connections\n/Users/peterp/.profile: line 1: /bin/brew: No such file or directory",
+            "targetTranscript": "/var/run/postgresql:5432 - accepting connections",
+            "accepted": true
+          },
+          "psqlCommand": {
+            "sourceTranscript": "4|105",
+            "targetTranscript": "4|105",
+            "accepted": true
+          },
+          "createdbDropdbCommand": {
+            "sourceTranscript": "machinen_lifecycle_088668",
+            "targetTranscript": "machinen_lifecycle_1bc445",
+            "accepted": true
+          }
+        },
+        "targetVerifierOutputSha256": "5d1062188f302d75521800edc29b0a44e218e88699e27b98793afcefb28c3051",
+        "internalDumpSha256": "5eb04a431d50c4faf794e74417c1f6795673f124db8479800553c510cbb2fb04",
+        "internalDumpBytes": 2543,
+        "bundleManifestSha256": "8ea58eca42007b11caf1e557c1163423649e7424fd9fa4ea3ae560bbfc8a8416",
+        "restoreSummarySha256": "839c70859cb321d965a716ee5acfd7e8eefb2bfbf764e3887cb11dba34c1c609",
+        "checkpointLsn": "0/2421288",
+        "activeTransactionsAtCapture": 0,
+        "migrationCompleted": true,
+        "noUserSuppliedDump": true,
+        "restoreUsedTargetVerifierOutputFile": false,
+        "targetNativeExecution": true,
+        "sourceIsaEmulationUsed": false,
+        "sourceTextReusedAsTargetCode": false,
+        "sidecarRuntimeUsed": false,
+        "appHooksRequired": false,
+        "bundleDir": "/tmp/machinen-postgres-rowproofs-run/work/arm64-to-amd64/bundle",
+        "captureCommand": "'node' '/Users/peterp/gh/redwoodjs/machinen/packages/cli/dist/cli.js' 'capture' 'postgres' '--json' '--out' '/tmp/machinen-postgres-rowproofs-run/work/arm64-to-amd64/bundle' '--source-arch' 'arm64' '--target-arch' 'amd64' '--postgres-docker-host' 'local' '--postgres-container' 'pg-product-src-arm64-55233-fb3a98b4' '--database' 'machinen_pg' '--verifier-sql' '/Users/peterp/gh/redwoodjs/machinen/scripts/fixtures/postgres-machinen/verify.sql' '--postgres-version' '15.18 (Debian 15.18-1.pgdg12+1)' '--checkpoint-lsn' '0/2421288' '--init-sql' '/Users/peterp/gh/redwoodjs/machinen/scripts/fixtures/postgres-machinen/init.sql' '--workload-sql' '/Users/peterp/gh/redwoodjs/machinen/scripts/fixtures/postgres-machinen/workload.sql'",
+        "restoreCommand": "'node' '/Users/peterp/gh/redwoodjs/machinen/packages/cli/dist/cli.js' 'restore' '/tmp/machinen-postgres-rowproofs-run/work/arm64-to-amd64/bundle' '--json' '--target-arch' 'amd64' '--postgres-docker-host' 'root@192.168.0.8' '--postgres-container' 'pg-product-tgt-amd64-55233-e63df644' '--database' 'machinen_pg' '--target-verifier-sql' '/Users/peterp/gh/redwoodjs/machinen/scripts/fixtures/postgres-machinen/verify.sql'"
+      },
+      {
+        "route": "amd64-to-arm64",
+        "sourceHost": "root@192.168.0.8",
+        "targetHost": "local-macbook",
+        "sourceDockerHost": "root@192.168.0.8",
+        "targetDockerHost": "local",
+        "sourceArch": "amd64",
+        "targetArch": "arm64",
+        "sourcePostgresVersion": "15.18 (Debian 15.18-1.pgdg12+1)",
+        "targetPostgresVersion": "15.18 (Debian 15.18-1.pgdg12+1)",
+        "sourceVerifierOutput": "{\"database\" : \"machinen_pg\", \"rowCount\" : 4, \"valueSum\" : 105, \"payloads\" : [\"alpha\",\"beta\",\"gamma\",\"delta\"], \"values\" : [10,25,30,40]}",
+        "targetVerifierOutput": "{\"database\" : \"machinen_pg\", \"rowCount\" : 4, \"valueSum\" : 105, \"payloads\" : [\"alpha\",\"beta\",\"gamma\",\"delta\"], \"values\" : [10,25,30,40]}",
+        "logicalFingerprint": "19c61ac217b9bdf7dae88e5a515643d3b49c21a2a0d920096bf3017b36195166",
+        "rowProofs": {
+          "psqlQueryWorkload": {
+            "sourceTranscript": "{\"database\" : \"machinen_pg\", \"rowCount\" : 4, \"valueSum\" : 105, \"payloads\" : [\"alpha\",\"beta\",\"gamma\",\"delta\"], \"values\" : [10,25,30,40]}",
+            "targetTranscript": "{\"database\" : \"machinen_pg\", \"rowCount\" : 4, \"valueSum\" : 105, \"payloads\" : [\"alpha\",\"beta\",\"gamma\",\"delta\"], \"values\" : [10,25,30,40]}",
+            "accepted": true
+          },
+          "schemaDataQuery": {
+            "sourceTranscript": "4|105",
+            "targetTranscript": "4|105",
+            "accepted": true
+          },
+          "rolePermission": {
+            "sourceApplyTranscript": "DO\nGRANT\nGRANT",
+            "sourceVerifierTranscript": "{\"roleExists\" : true, \"readerCanSelectEvents\" : true, \"readerCanUseSequence\" : true, \"readerCanSelectSequence\" : true}",
+            "targetVerifierTranscript": "{\"roleExists\" : true, \"readerCanSelectEvents\" : true, \"readerCanUseSequence\" : true, \"readerCanSelectSequence\" : true}",
+            "accepted": true
+          },
+          "pgIsReadyCommand": {
+            "sourceTranscript": "/var/run/postgresql:5432 - accepting connections",
+            "targetTranscript": "/var/run/postgresql:5432 - accepting connections\n/Users/peterp/.profile: line 1: /bin/brew: No such file or directory",
+            "accepted": true
+          },
+          "psqlCommand": {
+            "sourceTranscript": "4|105",
+            "targetTranscript": "4|105",
+            "accepted": true
+          },
+          "createdbDropdbCommand": {
+            "sourceTranscript": "machinen_lifecycle_ef5243",
+            "targetTranscript": "machinen_lifecycle_833017",
+            "accepted": true
+          }
+        },
+        "targetVerifierOutputSha256": "5d1062188f302d75521800edc29b0a44e218e88699e27b98793afcefb28c3051",
+        "internalDumpSha256": "870857e8d56f4276a16323e3ae9d55fe469b1ee8ffb0697cb2f377c59bf5783d",
+        "internalDumpBytes": 2544,
+        "bundleManifestSha256": "3bfb1113d7b8b9357dde1f564b45def8ca732ca71e78ef8404ad473143b1cd5f",
+        "restoreSummarySha256": "01535cbdf54f231bce740f4a5b5907b6c5204cc0cb26e456df3b01147a2039f5",
+        "checkpointLsn": "0/24212A0",
+        "activeTransactionsAtCapture": 0,
+        "migrationCompleted": true,
+        "noUserSuppliedDump": true,
+        "restoreUsedTargetVerifierOutputFile": false,
+        "targetNativeExecution": true,
+        "sourceIsaEmulationUsed": false,
+        "sourceTextReusedAsTargetCode": false,
+        "sidecarRuntimeUsed": false,
+        "appHooksRequired": false,
+        "bundleDir": "/tmp/machinen-postgres-rowproofs-run/work/amd64-to-arm64/bundle",
+        "captureCommand": "'node' '/Users/peterp/gh/redwoodjs/machinen/packages/cli/dist/cli.js' 'capture' 'postgres' '--json' '--out' '/tmp/machinen-postgres-rowproofs-run/work/amd64-to-arm64/bundle' '--source-arch' 'amd64' '--target-arch' 'arm64' '--postgres-docker-host' 'root@192.168.0.8' '--postgres-container' 'pg-product-src-amd64-55233-57775a90' '--database' 'machinen_pg' '--verifier-sql' '/Users/peterp/gh/redwoodjs/machinen/scripts/fixtures/postgres-machinen/verify.sql' '--postgres-version' '15.18 (Debian 15.18-1.pgdg12+1)' '--checkpoint-lsn' '0/24212A0' '--init-sql' '/Users/peterp/gh/redwoodjs/machinen/scripts/fixtures/postgres-machinen/init.sql' '--workload-sql' '/Users/peterp/gh/redwoodjs/machinen/scripts/fixtures/postgres-machinen/workload.sql'",
+        "restoreCommand": "'node' '/Users/peterp/gh/redwoodjs/machinen/packages/cli/dist/cli.js' 'restore' '/tmp/machinen-postgres-rowproofs-run/work/amd64-to-arm64/bundle' '--json' '--target-arch' 'arm64' '--postgres-docker-host' 'local' '--postgres-container' 'pg-product-tgt-arm64-55233-f0812589' '--database' 'machinen_pg' '--target-verifier-sql' '/Users/peterp/gh/redwoodjs/machinen/scripts/fixtures/postgres-machinen/verify.sql'"
+      }
+    ],
+    "logicalFingerprint": "19c61ac217b9bdf7dae88e5a515643d3b49c21a2a0d920096bf3017b36195166",
+    "routeCount": 2
+  },
+  "supportedSubset": {
+    "name": "postgres-clean-quiesced-no-dump-product-capture-restore",
+    "migrationCompleted": true,
+    "capturePolicy": "machinen capture postgres generated internal logical dump from clean checkpointed PostgreSQL container",
+    "restorePolicy": "machinen restore restored internal dump into target-native PostgreSQL and ran psql verifier",
+    "noUserSuppliedDump": true,
+    "targetVerifierOutputFileNotUsed": true,
+    "noActiveClientTransaction": true,
+    "walCheckpointedBeforeCapture": true,
+    "physicalDataDirectoryPortable": false,
+    "bidirectionalArm64Amd64": true
+  },
+  "refusals": [
+    {
+      "name": "active-client-transaction",
+      "state": "refused",
+      "expectedRefusalCode": "postgres-active-transaction-unsupported",
+      "migrationCompleted": false,
+      "descriptorGateCompleted": false,
+      "evidence": {},
+      "sourceIsaEmulationUsed": false,
+      "sourceTextReusedAsTargetCode": false,
+      "sidecarRuntimeUsed": false,
+      "appHooksRequired": false
+    },
+    {
+      "name": "active-client-session",
+      "state": "refused",
+      "expectedRefusalCode": "postgres-active-session-unsupported",
+      "migrationCompleted": false,
+      "descriptorGateCompleted": false,
+      "evidence": {},
+      "sourceIsaEmulationUsed": false,
+      "sourceTextReusedAsTargetCode": false,
+      "sidecarRuntimeUsed": false,
+      "appHooksRequired": false
+    },
+    {
+      "name": "dirty-uncheckpointed-wal",
+      "state": "refused",
+      "expectedRefusalCode": "postgres-dirty-wal-boundary-unsupported",
+      "migrationCompleted": false,
+      "descriptorGateCompleted": false,
+      "evidence": {},
+      "sourceIsaEmulationUsed": false,
+      "sourceTextReusedAsTargetCode": false,
+      "sidecarRuntimeUsed": false,
+      "appHooksRequired": false
+    },
+    {
+      "name": "torn-data-directory",
+      "state": "refused",
+      "expectedRefusalCode": "postgres-unsynced-data-directory-unsupported",
+      "migrationCompleted": false,
+      "descriptorGateCompleted": false,
+      "evidence": {},
+      "sourceIsaEmulationUsed": false,
+      "sourceTextReusedAsTargetCode": false,
+      "sidecarRuntimeUsed": false,
+      "appHooksRequired": false
+    },
+    {
+      "name": "replication-slot",
+      "state": "refused",
+      "expectedRefusalCode": "postgres-replication-slot-state-unsupported",
+      "migrationCompleted": false,
+      "descriptorGateCompleted": false,
+      "evidence": {},
+      "sourceIsaEmulationUsed": false,
+      "sourceTextReusedAsTargetCode": false,
+      "sidecarRuntimeUsed": false,
+      "appHooksRequired": false
+    },
+    {
+      "name": "streaming-replication",
+      "state": "refused",
+      "expectedRefusalCode": "postgres-streaming-replication-unsupported",
+      "migrationCompleted": false,
+      "descriptorGateCompleted": false,
+      "evidence": {},
+      "sourceIsaEmulationUsed": false,
+      "sourceTextReusedAsTargetCode": false,
+      "sidecarRuntimeUsed": false,
+      "appHooksRequired": false
+    },
+    {
+      "name": "external-extension",
+      "state": "refused",
+      "expectedRefusalCode": "postgres-extension-native-state-unsupported",
+      "migrationCompleted": false,
+      "descriptorGateCompleted": false,
+      "evidence": {},
+      "sourceIsaEmulationUsed": false,
+      "sourceTextReusedAsTargetCode": false,
+      "sidecarRuntimeUsed": false,
+      "appHooksRequired": false
+    },
+    {
+      "name": "host-mounted-data-dir",
+      "state": "refused",
+      "expectedRefusalCode": "postgres-host-mounted-data-dir-ambiguous",
+      "migrationCompleted": false,
+      "descriptorGateCompleted": false,
+      "evidence": {},
+      "sourceIsaEmulationUsed": false,
+      "sourceTextReusedAsTargetCode": false,
+      "sidecarRuntimeUsed": false,
+      "appHooksRequired": false
+    },
+    {
+      "name": "physical-data-directory-cross-arch",
+      "state": "refused",
+      "expectedRefusalCode": "postgres-physical-data-dir-cross-arch-unsupported",
+      "migrationCompleted": false,
+      "descriptorGateCompleted": false,
+      "evidence": {
+        "reason": "PostgreSQL physical data directories and WAL are not the portable unit for arm64<->amd64 restore; use internal logical product capture/restore."
+      },
+      "sourceIsaEmulationUsed": false,
+      "sourceTextReusedAsTargetCode": false,
+      "sidecarRuntimeUsed": false,
+      "appHooksRequired": false
+    }
+  ],
+  "targetRestore": {
+    "state": "completed",
+    "migrationCompleted": true,
+    "descriptorGateCompleted": true,
+    "targetVerifierResult": "passed",
+    "targetResourceStatuses": [
+      {
+        "kind": "postgres-clean-quiesced-no-dump-product-capture-restore",
+        "status": "passed"
+      },
+      {
+        "kind": "postgres-arm64-to-amd64-no-dump-product-restore",
+        "status": "passed"
+      },
+      {
+        "kind": "postgres-amd64-to-arm64-no-dump-product-restore",
+        "status": "passed"
+      }
+    ],
+    "sourceTextReusedAsTargetCode": false,
+    "sourceIsaEmulationUsed": false,
+    "sidecarRuntimeUsed": false,
+    "appHooksRequired": false
+  },
+  "securityInspection": {
+    "sourceIsaEmulationArtifactFound": false,
+    "sourceTextReplayArtifactFound": false,
+    "sidecarRuntimeArtifactFound": false,
+    "appHookArtifactFound": false,
+    "metadataOnlyShortcutAccepted": false,
+    "targetNativeExecutionRequired": true,
+    "passed": true
+  },
+  "timings": []
+}

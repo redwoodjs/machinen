@@ -1,0 +1,37 @@
+{
+  "id": "active-syscall-state",
+  "proofNumber": "arbitrary/027",
+  "category": "active syscall state",
+  "status": "verified",
+  "disposition": "refused",
+  "accepted": true,
+  "productSupportOutOfScope": true,
+  "productSupportClaimAllowed": false,
+  "arbitraryRestoreClaimAllowed": false,
+  "evidence": [
+    "interrupted active syscalls and in-kernel state are proven refused before target execution"
+  ],
+  "stableCode": "arbitrary-process-active-syscall-unsupported",
+  "verifier": {
+    "refusedBeforeTargetExecution": true,
+    "stableRefusalCode": "arbitrary-process-active-syscall-unsupported",
+    "activeSyscallPresent": true,
+    "proofArtifactRetained": true,
+    "targetVerifierPassed": true,
+    "rawCpuRestoreUsed": false,
+    "rawRegisterReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "sidecarReplayUsed": false,
+    "metadataOnlySuccessAccepted": false
+  },
+  "proofArtifact": "active-syscall-state-proof.json",
+  "proofArtifactSha256": "12ea3aa1e92c0cb7f1c2f32af6aa78c0d816d49df898c8bc056afa9adb26ffa9",
+  "proofMode": "stable-refusal-proof",
+  "proofQuality": "stable-refusal-proof",
+  "executableFixture": null,
+  "bidirectionalProofArtifact": null,
+  "bidirectionalProofArtifactSha256": null,
+  "bidirectionalDirections": 0,
+  "proofChecksPassed": 4
+}

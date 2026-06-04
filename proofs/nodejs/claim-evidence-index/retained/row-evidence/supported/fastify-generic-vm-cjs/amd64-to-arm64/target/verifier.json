@@ -1,0 +1,20 @@
+{
+  "kind": "machinen.node-supported-row-target-verifier",
+  "version": 1,
+  "accepted": true,
+  "rowId": "fastify-generic-vm-cjs",
+  "direction": "amd64-to-arm64",
+  "routePath": "/fastify-generic-vm-cjs",
+  "expectedBody": "fastify-generic-vm-cjs-ok",
+  "actualBody": "fastify-generic-vm-cjs-ok",
+  "bodySha256": "8d57032bc031ca1f9c03c17b89ce206ac5ce549a37e4bf0208d1f5db839c097f",
+  "expectedHeader": {
+    "x-machinen-row": "fastify-generic-vm-cjs"
+  },
+  "actualHeaders": "HTTP/1.1 200 OK\nx-machinen-row: fastify-generic-vm-cjs\ncontent-type: text/plain; charset=utf-8\ncontent-length: 25\nDate: Tue, 02 Jun 2026 17:00:49 GMT\nConnection: keep-alive\nKeep-Alive: timeout=72\n\n",
+  "targetNativeNodeVerified": true,
+  "sourceIsaEmulationUsed": false,
+  "sidecarRuntimeUsed": false,
+  "appHooksRequired": false,
+  "metadataOnlySuccessAccepted": false
+}

@@ -1,0 +1,31 @@
+{
+  "id": "035-memory-pending-promise-refusal",
+  "slug": "memory-pending-promise-refusal",
+  "runtime": "nodejs",
+  "description": "Pending Promise and microtask state refuses fail-closed",
+  "disposition": "refused-first",
+  "claimUse": "portable Node memory-state compatibility dimension only; no arbitrary process or raw V8 heap restore claim",
+  "architecturePolicy": "memory semantic IR portability smoke retained for arm64 and amd64",
+  "startCommand": "node app.mjs",
+  "healthPath": "/refusal",
+  "expectedBody": "refused",
+  "dependencies": [],
+  "refusalCode": "node-portability-memory-pending-promise-unsupported",
+  "capability": {
+    "category": "memory-blocker",
+    "detects": ["selected memory pending promise refusal semantic memory category"],
+    "captures": ["portable memory semantic IR smoke record"],
+    "restores": [],
+    "verifies": ["pending Promise state refused"],
+    "blocks": ["pending promises", "microtask queue continuation", "async stack continuation"]
+  },
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "arbitraryLinuxProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "samePidContinuationClaimed": false,
+    "activeRequestOrSocketContinuationClaimed": false
+  }
+}

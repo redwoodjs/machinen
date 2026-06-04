@@ -1,0 +1,36 @@
+{
+  "id": "049-memory-real-promise-refusal",
+  "slug": "memory-real-promise-refusal",
+  "runtime": "nodejs",
+  "description": "Pending Promise/microtask state refuses fail-closed",
+  "disposition": "refused-first",
+  "claimUse": "stable fail-closed Node memory live-state refusal",
+  "architecturePolicy": "refuse on all source/target architectures until separately proven",
+  "startCommand": "node app.mjs",
+  "healthPath": "/value",
+  "expectedBody": "memory-ready",
+  "dependencies": [],
+  "refusalCode": "node-portability-memory-pending-promise-unsupported",
+  "capability": {
+    "category": "memory-blocker",
+    "detects": ["anchor:anchor", "anchor:promise"],
+    "captures": ["/proc/<pid>/maps", "/proc/<pid>/mem", "machinen.nodejs.memory-ir"],
+    "restores": [],
+    "verifies": ["fail-closed refusal code is retained"],
+    "blocks": [
+      "raw V8 heap restore",
+      "same PID continuation",
+      "active request/socket continuation",
+      "arbitrary Node process continuation"
+    ]
+  },
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "arbitraryLinuxProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "samePidContinuationClaimed": false,
+    "activeRequestOrSocketContinuationClaimed": false
+  }
+}

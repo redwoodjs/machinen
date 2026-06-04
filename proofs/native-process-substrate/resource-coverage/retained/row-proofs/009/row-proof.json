@@ -1,0 +1,47 @@
+{
+  "proofNumber": "009",
+  "id": "native-tcp-active-connection-unbrokered",
+  "category": "tcp",
+  "status": "verified",
+  "disposition": "refused-boundary",
+  "accepted": true,
+  "artifact": "proofs/native-process-substrate/resource-coverage/retained/row-proofs/009/row-proof.json",
+  "evidence": "Active TCP connection without explicit broker is refused fail-closed.",
+  "checks": [
+    {
+      "id": "has-refusal",
+      "passed": true,
+      "message": "at least one refusal retained"
+    },
+    {
+      "id": "all-refusals-have-codes",
+      "passed": true,
+      "message": "every refusal has a code"
+    },
+    {
+      "id": "no-target-materialization",
+      "passed": true,
+      "message": "unsupported resource row is not materialized"
+    }
+  ],
+  "refusals": [
+    {
+      "code": "kernel-state-unsupported",
+      "message": "resource fd:21:tcp-active (socket) needs a host broker recipe before native restore",
+      "detail": {
+        "id": "fd:21:tcp-active",
+        "kind": "socket",
+        "fd": 21,
+        "path": "socket:[tcp-active]",
+        "boundary": "kernel-state",
+        "requiredModel": [
+          "accept/connect/listen queue state",
+          "peer endpoint identity",
+          "credentials and namespaces",
+          "socket options, shutdown state, readiness, and partial transfer state"
+        ]
+      }
+    }
+  ],
+  "claimUse": "boundary-refusal-only"
+}

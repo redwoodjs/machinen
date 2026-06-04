@@ -1,0 +1,20 @@
+{
+  "kind": "machinen.node-supported-row-target-verifier",
+  "version": 1,
+  "accepted": true,
+  "rowId": "express-installed-safe-outbound-reconnect",
+  "direction": "amd64-to-arm64",
+  "routePath": "/express-installed-safe-outbound-reconnect",
+  "expectedBody": "express-installed-safe-outbound-reconnect-ok",
+  "actualBody": "express-installed-safe-outbound-reconnect-ok",
+  "bodySha256": "6ae921233e671fdd8355a0e3ec00e6e5abbb51046d2ed8e90214ea8c73db0bed",
+  "expectedHeader": {
+    "x-machinen-row": "express-installed-safe-outbound-reconnect"
+  },
+  "actualHeaders": "HTTP/1.1 200 OK\nX-Powered-By: Express\nx-machinen-row: express-installed-safe-outbound-reconnect\nContent-Type: text/html; charset=utf-8\nContent-Length: 44\nETag: W/\"2c-BqOHEl3hSidbIYIVIXZOQfTiAl4\"\nDate: Tue, 02 Jun 2026 15:52:45 GMT\nConnection: keep-alive\nKeep-Alive: timeout=5\n\n",
+  "targetNativeNodeVerified": true,
+  "sourceIsaEmulationUsed": false,
+  "sidecarRuntimeUsed": false,
+  "appHooksRequired": false,
+  "metadataOnlySuccessAccepted": false
+}

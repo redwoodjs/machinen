@@ -1,0 +1,143 @@
+{
+  "kind": "machinen.nodejs-portability-memory-real-plain-object-smoke-report",
+  "version": 1,
+  "accepted": true,
+  "portabilityRow": "037-memory-real-plain-object",
+  "architectures": ["amd64", "arm64"],
+  "sourceArch": "amd64",
+  "targetArch": "arm64",
+  "executeVm": true,
+  "memoryCapture": "real-guest-proc-maps-and-proc-mem",
+  "migrationCompleted": true,
+  "summary": {
+    "verifiedVmRows": 1,
+    "memoryStateRows": 1,
+    "refusedRows": 0
+  },
+  "results": [
+    {
+      "id": "037-memory-real-plain-object",
+      "architecture": "amd64",
+      "state": "verified"
+    },
+    {
+      "id": "037-memory-real-plain-object",
+      "architecture": "arm64",
+      "state": "verified"
+    }
+  ],
+  "sourceCapture": {
+    "kind": "machinen.nodejs-portability-memory-real-plain-object-smoke-report.source-capture",
+    "accepted": true,
+    "portabilityRow": "037-memory-real-plain-object",
+    "sourceArch": "amd64",
+    "captureMethod": "guest-proc-maps-and-proc-mem-anchor-object-decoder",
+    "appHookUsedForCapture": false,
+    "rawV8HeapRestored": false,
+    "samePidRestored": false,
+    "objectState": {
+      "anchor": "machinen-real-plain-object-anchor-v1",
+      "kind": "machinen-real-plain-object-kind-v1",
+      "message": "machinen-real-plain-object-message-v1",
+      "countLabel": "count:7",
+      "nestedLabel": "nested:portable",
+      "count": 7,
+      "nested": {
+        "label": "portable"
+      }
+    },
+    "evidence": {
+      "pid": 100,
+      "mapsSha256": "1928d634a250d2907acf5a30fe0edba6745267723d35c92c612e5fb2727e0116",
+      "readableMappings": 108,
+      "decodedFields": {
+        "anchor": {
+          "found": true,
+          "hits": ["0x2fa605f0", "0xed9f894c0c0", "0x33a4950565f0", "0x3a07ff30c980"]
+        },
+        "kind": {
+          "found": true,
+          "hits": ["0x2fa60620", "0xed9f894c0f8", "0x33a495056620", "0x3a07ff30c9b0"]
+        },
+        "message": {
+          "found": true,
+          "hits": ["0x2fa60651", "0xed9f894c130", "0x33a495056651", "0x3a07ff30c9e1"]
+        },
+        "countLabel": {
+          "found": true,
+          "hits": ["0x2fa60688", "0xed9f894c188", "0x33a495056688", "0x3a07ff30ca18"]
+        },
+        "nestedLabel": {
+          "found": true,
+          "hits": ["0x2fa606a2", "0xed9f894c1c0", "0x33a4950566a2", "0x3a07ff30ca32"]
+        }
+      }
+    }
+  },
+  "targetResult": {
+    "kind": "machinen.nodejs-portability-memory-real-plain-object-smoke-report.target-result",
+    "accepted": true,
+    "portabilityRow": "037-memory-real-plain-object",
+    "sourceArch": "amd64",
+    "targetArch": "arm64",
+    "materialization": "target-native-node-semantic-object-ir",
+    "targetNativeNode": true,
+    "appHookUsedForCapture": false,
+    "rawV8HeapRestored": false,
+    "samePidRestored": false,
+    "verifier": {
+      "accepted": true,
+      "actual": {
+        "anchor": "machinen-real-plain-object-anchor-v1",
+        "kind": "machinen-real-plain-object-kind-v1",
+        "message": "machinen-real-plain-object-message-v1",
+        "countLabel": "count:7",
+        "nestedLabel": "nested:portable",
+        "count": 7,
+        "nested": {
+          "label": "portable"
+        }
+      },
+      "expected": {
+        "anchor": "machinen-real-plain-object-anchor-v1",
+        "kind": "machinen-real-plain-object-kind-v1",
+        "message": "machinen-real-plain-object-message-v1",
+        "countLabel": "count:7",
+        "nestedLabel": "nested:portable",
+        "count": 7,
+        "nested": {
+          "label": "portable"
+        }
+      }
+    }
+  },
+  "evidence": {
+    "appPath": "portability/nodejs/037-memory-real-plain-object/app.mjs",
+    "appSha256": "c9537016fea81e2ed62f1af599d9cf3af29bb1196714f0cc99af812cdb3304bd",
+    "smokePath": "portability/nodejs/037-memory-real-plain-object/smoke.ts"
+  },
+  "claimBoundary": {
+    "claims": [
+      "selected Node plain-object memory state is captured from source /proc memory and materialized target-native across architectures"
+    ],
+    "notClaimed": [
+      "arbitrary Node process restore",
+      "raw V8 heap restore",
+      "same PID continuation",
+      "active request/socket continuation",
+      "worker/native-addon/child-process live-state transfer",
+      "source ISA emulation",
+      "arbitrary Linux process restore",
+      "raw VM/vCPU/device replay"
+    ]
+  },
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "arbitraryLinuxProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "samePidContinuationClaimed": false,
+    "activeRequestOrSocketContinuationClaimed": false
+  }
+}

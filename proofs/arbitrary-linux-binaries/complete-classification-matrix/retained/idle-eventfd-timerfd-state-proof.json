@@ -1,0 +1,87 @@
+{
+  "kind": "machinen.arbitrary-process-row-proof",
+  "version": 1,
+  "rowId": "idle-eventfd-timerfd-state",
+  "proofNumber": "arbitrary/024",
+  "proofMode": "target-native-reconstruction-proof",
+  "proofQuality": "executable-fixture-proof",
+  "accepted": true,
+  "disposition": "supported-proof",
+  "fixture": {
+    "id": "idle-eventfd-timerfd-state-fixture",
+    "portableState": [
+      "eventfd counter",
+      "timerfd disarmed/idle settings",
+      "no pending expirations"
+    ],
+    "refusedState": [],
+    "fixtureHash": "4fed17381915497f3bf2888b1ff898d35c72d7f730fd681834e3a7884252a9a6",
+    "execution": {
+      "name": "idle-eventfd-timerfd-manifest-fixture",
+      "executed": true,
+      "passed": true,
+      "output": {
+        "eventCounterZero": true,
+        "timerCleared": true,
+        "pendingExpirations": 0
+      },
+      "transcript": [
+        "executed idle-eventfd-timerfd-manifest-fixture",
+        "verified eventCounterZero, pendingExpirations, timerCleared"
+      ]
+    }
+  },
+  "verifier": {
+    "targetNativeReconstructionAttempted": true,
+    "targetVerifierPassed": true,
+    "refusedBeforeTargetExecution": false,
+    "stableRefusalCode": null,
+    "checks": [
+      {
+        "name": "portable-state-manifest-present",
+        "passed": true,
+        "detail": "3 portable state fields retained for idle-eventfd-timerfd-state"
+      },
+      {
+        "name": "executable-fixture-verifier-passed",
+        "passed": true,
+        "detail": "idle-eventfd-timerfd-manifest-fixture executed and passed for idle-eventfd-timerfd-state"
+      },
+      {
+        "name": "target-native-verifier-passed",
+        "passed": true,
+        "detail": "deterministic verifier accepted fixture 4fed17381915497f3bf2888b1ff898d35c72d7f730fd681834e3a7884252a9a6"
+      },
+      {
+        "name": "no-forbidden-shortcuts",
+        "passed": true,
+        "detail": "raw CPU/register replay, source ISA emulation, hooks, sidecars, and metadata-only success are false"
+      },
+      {
+        "name": "claim-guard-held",
+        "passed": true,
+        "detail": "product support remains out of scope and arbitrary process restore claim remains 0"
+      }
+    ]
+  },
+  "transcript": [
+    "loaded portable fixture idle-eventfd-timerfd-state-fixture",
+    "validated target-native reconstruction manifest",
+    "executed idle-eventfd-timerfd-manifest-fixture",
+    "verified eventCounterZero, pendingExpirations, timerCleared",
+    "ran deterministic executable fixture verifier checks",
+    "recorded proof without product claim lift"
+  ],
+  "claimGuard": {
+    "productSupportOutOfScope": true,
+    "productSupportRowsAdded": 0,
+    "arbitraryProcessRestoreClaimed": 0,
+    "publicClaimAllowed": false,
+    "rawCpuRestoreUsed": false,
+    "rawRegisterReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "sidecarReplayUsed": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

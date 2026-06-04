@@ -1,0 +1,12 @@
+{
+  "kind": "machinen.arbitrary-process-level5-simple-pipe-target-plan",
+  "action": "create-pipe-and-materialize-buffer",
+  "fd": {
+    "read": 3,
+    "write": 4
+  },
+  "endpointDirectionPreserved": true,
+  "sidecarReplayUsed": false,
+  "rawCpuRestoreUsed": false,
+  "sourceIsaEmulationUsed": false
+}

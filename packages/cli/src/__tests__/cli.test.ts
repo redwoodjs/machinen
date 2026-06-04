@@ -536,6 +536,27 @@ describe("parseRestoreArgs", () => {
     expect(parsed.targetVerifierOutput).toBe("./verify.txt");
   });
 
+  it("captures PostgreSQL no-dump product restore flags", () => {
+    const parsed = parseRestoreArgs([
+      "./pg.portable",
+      "--target-arch",
+      "arm64",
+      "--postgres-docker-host",
+      "root@192.168.0.8",
+      "--postgres-container",
+      "pg-target",
+      "--database",
+      "machinen_pg",
+      "--target-verifier-sql",
+      "./verify.sql",
+    ]);
+    expect(parsed.targetArch).toBe("arm64");
+    expect(parsed.postgresDockerHost).toBe("root@192.168.0.8");
+    expect(parsed.postgresContainer).toBe("pg-target");
+    expect(parsed.postgresDatabase).toBe("machinen_pg");
+    expect(parsed.postgresTargetVerifierSql).toBe("./verify.sql");
+  });
+
   it("captures Node Level 5 proof-only restore flags", () => {
     const parsed = parseRestoreArgs([
       "./node-proof",

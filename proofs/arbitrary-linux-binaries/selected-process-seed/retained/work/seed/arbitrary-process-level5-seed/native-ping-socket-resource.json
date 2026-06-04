@@ -1,0 +1,21 @@
+{
+  "kind": "machinen.arbitrary-process-level5-seed-artifact",
+  "row": {
+    "id": "native-ping-socket-resource",
+    "status": "seed-candidate",
+    "evidenceKind": "network-resource-translation-seed",
+    "processShape": "ping/ICMP socket resource reconstruction using proven Level 4 ping evidence",
+    "proofPath": "retained proof-only seed artifact",
+    "productPathArtifactsRequired": false,
+    "productSupportClaimAllowed": false,
+    "translatedProcessStateRequired": true,
+    "targetNativeReconstructionRequired": true,
+    "rawCpuRestoreUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "metadataOnlySuccessAccepted": false,
+    "arbitraryProcessClaimed": false,
+    "arbitraryProcessCrossArchRestoreClaimed": 0,
+    "boundaries": ["no-threads", "idle-only", "no-live-sockets"]
+  }
+}

@@ -7,8 +7,8 @@
     "arbitraryProcessCrossArchRestoreClaimed": 0
   },
   "current": {
-    "nodeProductSupportClaimed": 100,
-    "broadNodeProductSupportClaimed": 100,
+    "nodeProductSupportClaimed": 0,
+    "broadNodeProductSupportClaimed": 0,
     "arbitraryProcessCrossArchRestoreClaimed": 0
   },
   "productCommandPath": "machinen snapshot <vm-name> --out <dir>; machinen restore <dir>",

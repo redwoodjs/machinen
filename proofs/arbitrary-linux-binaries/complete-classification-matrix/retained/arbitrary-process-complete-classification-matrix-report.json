@@ -1,0 +1,1015 @@
+{
+  "kind": "machinen.arbitrary-process-complete-classification-matrix",
+  "version": 2,
+  "accepted": true,
+  "scope": "declared-arbitrary-process-state-classification-v1",
+  "proofStatus": "verified",
+  "publicClaimAllowed": false,
+  "claimChangeAllowed": false,
+  "productSupportOutOfScope": true,
+  "currentClaim": {
+    "productSupport": null,
+    "broadSupport": null,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "classificationClaim": {
+    "declaredStateClassesClassified": 100,
+    "arbitraryProcessRestoreClaimed": 0,
+    "productSupportClaimed": null
+  },
+  "proofClaim": {
+    "declaredStateClassProofRows": 20,
+    "rowProofArtifactsRetained": 20,
+    "supportedTargetVerifierProofs": 6,
+    "stableRefusalProofs": 14,
+    "unknownProofRows": 0,
+    "executableFixtureProofs": 6,
+    "bidirectionalTargetProofs": 6,
+    "bidirectionalTargetDirections": 12
+  },
+  "summary": {
+    "requiredRows": 20,
+    "verifiedRows": 20,
+    "supportedProofRows": 6,
+    "refusedRows": 14,
+    "unknownRows": 0,
+    "rowProofArtifacts": 20,
+    "targetVerifierProofs": 6,
+    "stableRefusalProofs": 14,
+    "executableFixtureProofs": 6,
+    "bidirectionalTargetProofs": 6,
+    "bidirectionalTargetDirections": 12,
+    "productSupportRowsAdded": 0,
+    "publicArbitraryProcessClaim": 0
+  },
+  "rows": [
+    {
+      "id": "process-metadata-argv-env-cwd",
+      "proofNumber": "arbitrary/020",
+      "category": "process metadata",
+      "status": "verified",
+      "disposition": "supported-proof",
+      "accepted": true,
+      "productSupportOutOfScope": true,
+      "productSupportClaimAllowed": false,
+      "arbitraryRestoreClaimAllowed": false,
+      "evidence": ["argv/env/cwd hashes are proven as target-native reconstructable proof state"],
+      "stableCode": "supported-process-metadata-argv-env-cwd",
+      "verifier": {
+        "argvEnvCwdClassified": true,
+        "proofArtifactRetained": true,
+        "targetVerifierPassed": true,
+        "stableRefusalCode": "supported-process-metadata-argv-env-cwd",
+        "rawCpuRestoreUsed": false,
+        "rawRegisterReplayUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "appCheckpointHooksRequired": false,
+        "sidecarReplayUsed": false,
+        "metadataOnlySuccessAccepted": false
+      },
+      "proofArtifact": "process-metadata-argv-env-cwd-proof.json",
+      "proofArtifactSha256": "88c7f590b05c7f78291ca6b1c5555922d75f53ee8a64ce883e38de643396d204",
+      "proofMode": "target-native-reconstruction-proof",
+      "proofQuality": "bidirectional-target-proof",
+      "executableFixture": "argv-env-cwd-node-fixture",
+      "bidirectionalProofArtifact": "process-metadata-argv-env-cwd-bidirectional-proof.json",
+      "bidirectionalProofArtifactSha256": "f62080197f09d7b5e1653182bab8f879c2d656dec7e2e5d7d0c04e18d7858a79",
+      "bidirectionalDirections": 2,
+      "proofChecksPassed": 5
+    },
+    {
+      "id": "static-data-heap-memory",
+      "proofNumber": "arbitrary/021",
+      "category": "memory",
+      "status": "verified",
+      "disposition": "supported-proof",
+      "accepted": true,
+      "productSupportOutOfScope": true,
+      "productSupportClaimAllowed": false,
+      "arbitraryRestoreClaimAllowed": false,
+      "evidence": [
+        "static/data/heap byte payload is proven as target-native materializable proof state"
+      ],
+      "stableCode": "supported-static-data-heap-memory",
+      "verifier": {
+        "staticDataHeapClassified": true,
+        "proofArtifactRetained": true,
+        "targetVerifierPassed": true,
+        "stableRefusalCode": "supported-static-data-heap-memory",
+        "rawCpuRestoreUsed": false,
+        "rawRegisterReplayUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "appCheckpointHooksRequired": false,
+        "sidecarReplayUsed": false,
+        "metadataOnlySuccessAccepted": false
+      },
+      "proofArtifact": "static-data-heap-memory-proof.json",
+      "proofArtifactSha256": "91b67259f3a70038b4e3a60bc362d7dbf385c94ac673509244d8f8da3e4e16d2",
+      "proofMode": "target-native-reconstruction-proof",
+      "proofQuality": "bidirectional-target-proof",
+      "executableFixture": "static-data-heap-node-fixture",
+      "bidirectionalProofArtifact": "static-data-heap-memory-bidirectional-proof.json",
+      "bidirectionalProofArtifactSha256": "d2153b16745ae62f130d5f7c67d2fdba1cbb128a2c4f4cced12d06a941ba1f64",
+      "bidirectionalDirections": 2,
+      "proofChecksPassed": 5
+    },
+    {
+      "id": "regular-file-fd-state",
+      "proofNumber": "arbitrary/022",
+      "category": "file descriptor",
+      "status": "verified",
+      "disposition": "supported-proof",
+      "accepted": true,
+      "productSupportOutOfScope": true,
+      "productSupportClaimAllowed": false,
+      "arbitraryRestoreClaimAllowed": false,
+      "evidence": [
+        "regular-file FD path/offset/flags are proven as selected reconstructable resource state"
+      ],
+      "stableCode": "supported-regular-file-fd-state",
+      "verifier": {
+        "regularFileFdClassified": true,
+        "proofArtifactRetained": true,
+        "targetVerifierPassed": true,
+        "stableRefusalCode": "supported-regular-file-fd-state",
+        "rawCpuRestoreUsed": false,
+        "rawRegisterReplayUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "appCheckpointHooksRequired": false,
+        "sidecarReplayUsed": false,
+        "metadataOnlySuccessAccepted": false
+      },
+      "proofArtifact": "regular-file-fd-state-proof.json",
+      "proofArtifactSha256": "94b377a107e211a1ce3ff8b2f3ccbd632ebe06e237ab4cb405d109afca1bbdf9",
+      "proofMode": "target-native-reconstruction-proof",
+      "proofQuality": "bidirectional-target-proof",
+      "executableFixture": "regular-file-fd-node-fixture",
+      "bidirectionalProofArtifact": "regular-file-fd-state-bidirectional-proof.json",
+      "bidirectionalProofArtifactSha256": "0c6c0bbed0df7dae104d967c120fd3ef7283b4bced33cb701315cd9aafc3ddbe",
+      "bidirectionalDirections": 2,
+      "proofChecksPassed": 5
+    },
+    {
+      "id": "simple-pipe-fd-state",
+      "proofNumber": "arbitrary/023",
+      "category": "pipe descriptor",
+      "status": "verified",
+      "disposition": "supported-proof",
+      "accepted": true,
+      "productSupportOutOfScope": true,
+      "productSupportClaimAllowed": false,
+      "arbitraryRestoreClaimAllowed": false,
+      "evidence": [
+        "simple pipe buffered bytes and endpoint direction are proven as selected reconstructable resource state"
+      ],
+      "stableCode": "supported-simple-pipe-fd-state",
+      "verifier": {
+        "simplePipeFdClassified": true,
+        "proofArtifactRetained": true,
+        "targetVerifierPassed": true,
+        "stableRefusalCode": "supported-simple-pipe-fd-state",
+        "rawCpuRestoreUsed": false,
+        "rawRegisterReplayUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "appCheckpointHooksRequired": false,
+        "sidecarReplayUsed": false,
+        "metadataOnlySuccessAccepted": false
+      },
+      "proofArtifact": "simple-pipe-fd-state-proof.json",
+      "proofArtifactSha256": "564538ce124b5a5759b43456eeb8a7759dccdafeaeba089120a18c63dea9cac0",
+      "proofMode": "target-native-reconstruction-proof",
+      "proofQuality": "bidirectional-target-proof",
+      "executableFixture": "simple-pipe-node-fixture",
+      "bidirectionalProofArtifact": "simple-pipe-fd-state-bidirectional-proof.json",
+      "bidirectionalProofArtifactSha256": "8f72c416cef12fcbfef8836f2b984cc59e44f8262ee367af1d425c88042ddaee",
+      "bidirectionalDirections": 2,
+      "proofChecksPassed": 5
+    },
+    {
+      "id": "idle-eventfd-timerfd-state",
+      "proofNumber": "arbitrary/024",
+      "category": "idle kernel resource",
+      "status": "verified",
+      "disposition": "supported-proof",
+      "accepted": true,
+      "productSupportOutOfScope": true,
+      "productSupportClaimAllowed": false,
+      "arbitraryRestoreClaimAllowed": false,
+      "evidence": [
+        "idle eventfd/timerfd descriptors are proven as selected idle reconstructable resource state"
+      ],
+      "stableCode": "supported-idle-eventfd-timerfd-state",
+      "verifier": {
+        "eventfdClassified": true,
+        "timerfdClassified": true,
+        "idleOnly": true,
+        "proofArtifactRetained": true,
+        "targetVerifierPassed": true,
+        "stableRefusalCode": "supported-idle-eventfd-timerfd-state",
+        "rawCpuRestoreUsed": false,
+        "rawRegisterReplayUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "appCheckpointHooksRequired": false,
+        "sidecarReplayUsed": false,
+        "metadataOnlySuccessAccepted": false
+      },
+      "proofArtifact": "idle-eventfd-timerfd-state-proof.json",
+      "proofArtifactSha256": "b58d25076b8c7c62cd3f38260071c21f8cf9f00d6e3fa188660d452ecaf8071d",
+      "proofMode": "target-native-reconstruction-proof",
+      "proofQuality": "bidirectional-target-proof",
+      "executableFixture": "idle-eventfd-timerfd-manifest-fixture",
+      "bidirectionalProofArtifact": "idle-eventfd-timerfd-state-bidirectional-proof.json",
+      "bidirectionalProofArtifactSha256": "0bfcde0de7fd03e4100d1adcde715f03ed36918f1b7bcd6d91a2725ca2ddb06c",
+      "bidirectionalDirections": 2,
+      "proofChecksPassed": 5
+    },
+    {
+      "id": "idle-epoll-tcp-listener-state",
+      "proofNumber": "arbitrary/025",
+      "category": "idle network resource",
+      "status": "verified",
+      "disposition": "supported-proof",
+      "accepted": true,
+      "productSupportOutOfScope": true,
+      "productSupportClaimAllowed": false,
+      "arbitraryRestoreClaimAllowed": false,
+      "evidence": [
+        "idle epoll and idle TCP listener with no ready events/streams are proven as selected reconstructable state"
+      ],
+      "stableCode": "supported-idle-epoll-tcp-listener-state",
+      "verifier": {
+        "idleEpollClassified": true,
+        "idleTcpListenerClassified": true,
+        "activeStreams": 0,
+        "proofArtifactRetained": true,
+        "targetVerifierPassed": true,
+        "stableRefusalCode": "supported-idle-epoll-tcp-listener-state",
+        "rawCpuRestoreUsed": false,
+        "rawRegisterReplayUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "appCheckpointHooksRequired": false,
+        "sidecarReplayUsed": false,
+        "metadataOnlySuccessAccepted": false
+      },
+      "proofArtifact": "idle-epoll-tcp-listener-state-proof.json",
+      "proofArtifactSha256": "3da5194e5f2c1c15a2f00d029861c015bae41ce5ef5e57d925ebe8b194b5c465",
+      "proofMode": "target-native-reconstruction-proof",
+      "proofQuality": "bidirectional-target-proof",
+      "executableFixture": "idle-epoll-tcp-listener-node-fixture",
+      "bidirectionalProofArtifact": "idle-epoll-tcp-listener-state-bidirectional-proof.json",
+      "bidirectionalProofArtifactSha256": "85aa0a51c18ec38d02e501bfe1a9935191891d844543c6142db66b4535fe9f3d",
+      "bidirectionalDirections": 2,
+      "proofChecksPassed": 5
+    },
+    {
+      "id": "pending-signal-frame-state",
+      "proofNumber": "arbitrary/026",
+      "category": "signal state",
+      "status": "verified",
+      "disposition": "refused",
+      "accepted": true,
+      "productSupportOutOfScope": true,
+      "productSupportClaimAllowed": false,
+      "arbitraryRestoreClaimAllowed": false,
+      "evidence": [
+        "pending signal frames and handler continuation are proven refused by stable classifier"
+      ],
+      "stableCode": "arbitrary-process-signal-frame-unsupported",
+      "verifier": {
+        "refusedBeforeTargetExecution": true,
+        "stableRefusalCode": "arbitrary-process-signal-frame-unsupported",
+        "signalFramePresent": true,
+        "proofArtifactRetained": true,
+        "targetVerifierPassed": true,
+        "rawCpuRestoreUsed": false,
+        "rawRegisterReplayUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "appCheckpointHooksRequired": false,
+        "sidecarReplayUsed": false,
+        "metadataOnlySuccessAccepted": false
+      },
+      "proofArtifact": "pending-signal-frame-state-proof.json",
+      "proofArtifactSha256": "dd84f55556a03f7715624d79f947524c6334a8d6a0b010b49b65855c2ea73e46",
+      "proofMode": "stable-refusal-proof",
+      "proofQuality": "stable-refusal-proof",
+      "executableFixture": null,
+      "bidirectionalProofArtifact": null,
+      "bidirectionalProofArtifactSha256": null,
+      "bidirectionalDirections": 0,
+      "proofChecksPassed": 4
+    },
+    {
+      "id": "active-syscall-state",
+      "proofNumber": "arbitrary/027",
+      "category": "active syscall state",
+      "status": "verified",
+      "disposition": "refused",
+      "accepted": true,
+      "productSupportOutOfScope": true,
+      "productSupportClaimAllowed": false,
+      "arbitraryRestoreClaimAllowed": false,
+      "evidence": [
+        "interrupted active syscalls and in-kernel state are proven refused before target execution"
+      ],
+      "stableCode": "arbitrary-process-active-syscall-unsupported",
+      "verifier": {
+        "refusedBeforeTargetExecution": true,
+        "stableRefusalCode": "arbitrary-process-active-syscall-unsupported",
+        "activeSyscallPresent": true,
+        "proofArtifactRetained": true,
+        "targetVerifierPassed": true,
+        "rawCpuRestoreUsed": false,
+        "rawRegisterReplayUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "appCheckpointHooksRequired": false,
+        "sidecarReplayUsed": false,
+        "metadataOnlySuccessAccepted": false
+      },
+      "proofArtifact": "active-syscall-state-proof.json",
+      "proofArtifactSha256": "12ea3aa1e92c0cb7f1c2f32af6aa78c0d816d49df898c8bc056afa9adb26ffa9",
+      "proofMode": "stable-refusal-proof",
+      "proofQuality": "stable-refusal-proof",
+      "executableFixture": null,
+      "bidirectionalProofArtifact": null,
+      "bidirectionalProofArtifactSha256": null,
+      "bidirectionalDirections": 0,
+      "proofChecksPassed": 4
+    },
+    {
+      "id": "multi-thread-scheduler-state",
+      "proofNumber": "arbitrary/028",
+      "category": "thread state",
+      "status": "verified",
+      "disposition": "refused",
+      "accepted": true,
+      "productSupportOutOfScope": true,
+      "productSupportClaimAllowed": false,
+      "arbitraryRestoreClaimAllowed": false,
+      "evidence": [
+        "multiple live threads are proven refused by retained scheduler-state classifier"
+      ],
+      "stableCode": "arbitrary-process-multithread-unsupported",
+      "verifier": {
+        "refusedBeforeTargetExecution": true,
+        "stableRefusalCode": "arbitrary-process-multithread-unsupported",
+        "liveThreadsGreaterThanOne": true,
+        "proofArtifactRetained": true,
+        "targetVerifierPassed": true,
+        "rawCpuRestoreUsed": false,
+        "rawRegisterReplayUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "appCheckpointHooksRequired": false,
+        "sidecarReplayUsed": false,
+        "metadataOnlySuccessAccepted": false
+      },
+      "proofArtifact": "multi-thread-scheduler-state-proof.json",
+      "proofArtifactSha256": "7bb02d1dbdb9ca85620890eaf2ffdfa5c75e2be77e971893898438d4fcfd2e8d",
+      "proofMode": "stable-refusal-proof",
+      "proofQuality": "stable-refusal-proof",
+      "executableFixture": null,
+      "bidirectionalProofArtifact": null,
+      "bidirectionalProofArtifactSha256": null,
+      "bidirectionalDirections": 0,
+      "proofChecksPassed": 4
+    },
+    {
+      "id": "futex-owner-waiter-state",
+      "proofNumber": "arbitrary/029",
+      "category": "futex state",
+      "status": "verified",
+      "disposition": "refused",
+      "accepted": true,
+      "productSupportOutOfScope": true,
+      "productSupportClaimAllowed": false,
+      "arbitraryRestoreClaimAllowed": false,
+      "evidence": ["futex owners/waiters and wait queues are proven refused by stable classifier"],
+      "stableCode": "arbitrary-process-futex-owner-waiter-unsupported",
+      "verifier": {
+        "refusedBeforeTargetExecution": true,
+        "stableRefusalCode": "arbitrary-process-futex-owner-waiter-unsupported",
+        "futexOwnerOrWaiterPresent": true,
+        "proofArtifactRetained": true,
+        "targetVerifierPassed": true,
+        "rawCpuRestoreUsed": false,
+        "rawRegisterReplayUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "appCheckpointHooksRequired": false,
+        "sidecarReplayUsed": false,
+        "metadataOnlySuccessAccepted": false
+      },
+      "proofArtifact": "futex-owner-waiter-state-proof.json",
+      "proofArtifactSha256": "d9cb673fe42d0e61fd31fabe99c6da921c220d897122e1543d17be48e9b4a50c",
+      "proofMode": "stable-refusal-proof",
+      "proofQuality": "stable-refusal-proof",
+      "executableFixture": null,
+      "bidirectionalProofArtifact": null,
+      "bidirectionalProofArtifactSha256": null,
+      "bidirectionalDirections": 0,
+      "proofChecksPassed": 4
+    },
+    {
+      "id": "jit-executable-anonymous-mapping",
+      "proofNumber": "arbitrary/030",
+      "category": "executable memory",
+      "status": "verified",
+      "disposition": "refused",
+      "accepted": true,
+      "productSupportOutOfScope": true,
+      "productSupportClaimAllowed": false,
+      "arbitraryRestoreClaimAllowed": false,
+      "evidence": [
+        "JIT/generated executable anonymous mappings are proven refused; raw executable page replay is forbidden"
+      ],
+      "stableCode": "arbitrary-process-jit-executable-mapping-unsupported",
+      "verifier": {
+        "refusedBeforeTargetExecution": true,
+        "stableRefusalCode": "arbitrary-process-jit-executable-mapping-unsupported",
+        "executableAnonymousMappingPresent": true,
+        "proofArtifactRetained": true,
+        "targetVerifierPassed": true,
+        "rawCpuRestoreUsed": false,
+        "rawRegisterReplayUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "appCheckpointHooksRequired": false,
+        "sidecarReplayUsed": false,
+        "metadataOnlySuccessAccepted": false
+      },
+      "proofArtifact": "jit-executable-anonymous-mapping-proof.json",
+      "proofArtifactSha256": "810999b1d20bb3edfd1755e3655b4c110ba1cc3435c638913da5707d114b5826",
+      "proofMode": "stable-refusal-proof",
+      "proofQuality": "stable-refusal-proof",
+      "executableFixture": null,
+      "bidirectionalProofArtifact": null,
+      "bidirectionalProofArtifactSha256": null,
+      "bidirectionalDirections": 0,
+      "proofChecksPassed": 4
+    },
+    {
+      "id": "device-mmap-opaque-resource",
+      "proofNumber": "arbitrary/031",
+      "category": "device mmap",
+      "status": "verified",
+      "disposition": "refused",
+      "accepted": true,
+      "productSupportOutOfScope": true,
+      "productSupportClaimAllowed": false,
+      "arbitraryRestoreClaimAllowed": false,
+      "evidence": ["device mmap and opaque device state are proven refused by stable classifier"],
+      "stableCode": "arbitrary-process-device-mmap-unsupported",
+      "verifier": {
+        "refusedBeforeTargetExecution": true,
+        "stableRefusalCode": "arbitrary-process-device-mmap-unsupported",
+        "deviceMmapPresent": true,
+        "proofArtifactRetained": true,
+        "targetVerifierPassed": true,
+        "rawCpuRestoreUsed": false,
+        "rawRegisterReplayUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "appCheckpointHooksRequired": false,
+        "sidecarReplayUsed": false,
+        "metadataOnlySuccessAccepted": false
+      },
+      "proofArtifact": "device-mmap-opaque-resource-proof.json",
+      "proofArtifactSha256": "d05568205479266248f57a28d8689bfb213ca8c3c55de0a873cc968bcaded6aa",
+      "proofMode": "stable-refusal-proof",
+      "proofQuality": "stable-refusal-proof",
+      "executableFixture": null,
+      "bidirectionalProofArtifact": null,
+      "bidirectionalProofArtifactSha256": null,
+      "bidirectionalDirections": 0,
+      "proofChecksPassed": 4
+    },
+    {
+      "id": "shared-memory-opaque-mapping",
+      "proofNumber": "arbitrary/032",
+      "category": "shared memory",
+      "status": "verified",
+      "disposition": "refused",
+      "accepted": true,
+      "productSupportOutOfScope": true,
+      "productSupportClaimAllowed": false,
+      "arbitraryRestoreClaimAllowed": false,
+      "evidence": ["opaque shared memory without a portable manifest is proven refused"],
+      "stableCode": "arbitrary-process-shared-memory-opaque-unsupported",
+      "verifier": {
+        "refusedBeforeTargetExecution": true,
+        "stableRefusalCode": "arbitrary-process-shared-memory-opaque-unsupported",
+        "sharedOpaqueMappingPresent": true,
+        "proofArtifactRetained": true,
+        "targetVerifierPassed": true,
+        "rawCpuRestoreUsed": false,
+        "rawRegisterReplayUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "appCheckpointHooksRequired": false,
+        "sidecarReplayUsed": false,
+        "metadataOnlySuccessAccepted": false
+      },
+      "proofArtifact": "shared-memory-opaque-mapping-proof.json",
+      "proofArtifactSha256": "e38bd226161aeabd292534a6189b8454e5a1be1e0b0ef652f08b1644dc89800d",
+      "proofMode": "stable-refusal-proof",
+      "proofQuality": "stable-refusal-proof",
+      "executableFixture": null,
+      "bidirectionalProofArtifact": null,
+      "bidirectionalProofArtifactSha256": null,
+      "bidirectionalDirections": 0,
+      "proofChecksPassed": 4
+    },
+    {
+      "id": "active-unix-domain-socket-state",
+      "proofNumber": "arbitrary/033",
+      "category": "Unix socket",
+      "status": "verified",
+      "disposition": "refused",
+      "accepted": true,
+      "productSupportOutOfScope": true,
+      "productSupportClaimAllowed": false,
+      "arbitraryRestoreClaimAllowed": false,
+      "evidence": [
+        "active Unix domain sockets, queued credentials, and peer coupling are proven refused"
+      ],
+      "stableCode": "arbitrary-process-active-unix-socket-unsupported",
+      "verifier": {
+        "refusedBeforeTargetExecution": true,
+        "stableRefusalCode": "arbitrary-process-active-unix-socket-unsupported",
+        "activeUnixSocketPresent": true,
+        "proofArtifactRetained": true,
+        "targetVerifierPassed": true,
+        "rawCpuRestoreUsed": false,
+        "rawRegisterReplayUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "appCheckpointHooksRequired": false,
+        "sidecarReplayUsed": false,
+        "metadataOnlySuccessAccepted": false
+      },
+      "proofArtifact": "active-unix-domain-socket-state-proof.json",
+      "proofArtifactSha256": "2bf3285c28bb2863b1ae81dcfb2e7425ae450d7ef17e34a8c4264b194c1f6d4c",
+      "proofMode": "stable-refusal-proof",
+      "proofQuality": "stable-refusal-proof",
+      "executableFixture": null,
+      "bidirectionalProofArtifact": null,
+      "bidirectionalProofArtifactSha256": null,
+      "bidirectionalDirections": 0,
+      "proofChecksPassed": 4
+    },
+    {
+      "id": "process-tree-parent-child-state",
+      "proofNumber": "arbitrary/034",
+      "category": "process tree",
+      "status": "verified",
+      "disposition": "refused",
+      "accepted": true,
+      "productSupportOutOfScope": true,
+      "productSupportClaimAllowed": false,
+      "arbitraryRestoreClaimAllowed": false,
+      "evidence": [
+        "forked children, process groups, and parent/child relationships are proven refused"
+      ],
+      "stableCode": "arbitrary-process-tree-unsupported",
+      "verifier": {
+        "refusedBeforeTargetExecution": true,
+        "stableRefusalCode": "arbitrary-process-tree-unsupported",
+        "processTreePresent": true,
+        "proofArtifactRetained": true,
+        "targetVerifierPassed": true,
+        "rawCpuRestoreUsed": false,
+        "rawRegisterReplayUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "appCheckpointHooksRequired": false,
+        "sidecarReplayUsed": false,
+        "metadataOnlySuccessAccepted": false
+      },
+      "proofArtifact": "process-tree-parent-child-state-proof.json",
+      "proofArtifactSha256": "23bdf307d764d88b2501dbb1348a0a376f031888c1be468a5d807f10861a3949",
+      "proofMode": "stable-refusal-proof",
+      "proofQuality": "stable-refusal-proof",
+      "executableFixture": null,
+      "bidirectionalProofArtifact": null,
+      "bidirectionalProofArtifactSha256": null,
+      "bidirectionalDirections": 0,
+      "proofChecksPassed": 4
+    },
+    {
+      "id": "dynamic-linker-abi-mismatch-state",
+      "proofNumber": "arbitrary/035",
+      "category": "dynamic linker",
+      "status": "verified",
+      "disposition": "refused",
+      "accepted": true,
+      "productSupportOutOfScope": true,
+      "productSupportClaimAllowed": false,
+      "arbitraryRestoreClaimAllowed": false,
+      "evidence": [
+        "source-architecture shared libraries, ABI mismatch, and missing target dependencies are proven refused"
+      ],
+      "stableCode": "arbitrary-process-dynamic-linker-abi-mismatch-unsupported",
+      "verifier": {
+        "refusedBeforeTargetExecution": true,
+        "stableRefusalCode": "arbitrary-process-dynamic-linker-abi-mismatch-unsupported",
+        "abiMismatchPresent": true,
+        "proofArtifactRetained": true,
+        "targetVerifierPassed": true,
+        "rawCpuRestoreUsed": false,
+        "rawRegisterReplayUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "appCheckpointHooksRequired": false,
+        "sidecarReplayUsed": false,
+        "metadataOnlySuccessAccepted": false
+      },
+      "proofArtifact": "dynamic-linker-abi-mismatch-state-proof.json",
+      "proofArtifactSha256": "0263a8df536e59914a1f0e02189b66d778d9415161fdeb85f176cbfcfcdf7409",
+      "proofMode": "stable-refusal-proof",
+      "proofQuality": "stable-refusal-proof",
+      "executableFixture": null,
+      "bidirectionalProofArtifact": null,
+      "bidirectionalProofArtifactSha256": null,
+      "bidirectionalDirections": 0,
+      "proofChecksPassed": 4
+    },
+    {
+      "id": "credentials-namespace-cgroup-state",
+      "proofNumber": "arbitrary/036",
+      "category": "credentials and namespaces",
+      "status": "verified",
+      "disposition": "refused",
+      "accepted": true,
+      "productSupportOutOfScope": true,
+      "productSupportClaimAllowed": false,
+      "arbitraryRestoreClaimAllowed": false,
+      "evidence": [
+        "credential, namespace, and cgroup state are proven refused without host/target policy reconstruction"
+      ],
+      "stableCode": "arbitrary-process-credentials-namespace-cgroup-unsupported",
+      "verifier": {
+        "refusedBeforeTargetExecution": true,
+        "stableRefusalCode": "arbitrary-process-credentials-namespace-cgroup-unsupported",
+        "namespaceOrCgroupStatePresent": true,
+        "proofArtifactRetained": true,
+        "targetVerifierPassed": true,
+        "rawCpuRestoreUsed": false,
+        "rawRegisterReplayUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "appCheckpointHooksRequired": false,
+        "sidecarReplayUsed": false,
+        "metadataOnlySuccessAccepted": false
+      },
+      "proofArtifact": "credentials-namespace-cgroup-state-proof.json",
+      "proofArtifactSha256": "1533160fc4d78aedeeceddaae8ea91367b70496af88946a7bbc263672f659919",
+      "proofMode": "stable-refusal-proof",
+      "proofQuality": "stable-refusal-proof",
+      "executableFixture": null,
+      "bidirectionalProofArtifact": null,
+      "bidirectionalProofArtifactSha256": null,
+      "bidirectionalDirections": 0,
+      "proofChecksPassed": 4
+    },
+    {
+      "id": "seccomp-filter-policy-state",
+      "proofNumber": "arbitrary/037",
+      "category": "seccomp",
+      "status": "verified",
+      "disposition": "refused",
+      "accepted": true,
+      "productSupportOutOfScope": true,
+      "productSupportClaimAllowed": false,
+      "arbitraryRestoreClaimAllowed": false,
+      "evidence": ["seccomp filters are proven refused without a retained policy verifier"],
+      "stableCode": "arbitrary-process-seccomp-policy-unsupported",
+      "verifier": {
+        "refusedBeforeTargetExecution": true,
+        "stableRefusalCode": "arbitrary-process-seccomp-policy-unsupported",
+        "seccompFilterPresent": true,
+        "proofArtifactRetained": true,
+        "targetVerifierPassed": true,
+        "rawCpuRestoreUsed": false,
+        "rawRegisterReplayUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "appCheckpointHooksRequired": false,
+        "sidecarReplayUsed": false,
+        "metadataOnlySuccessAccepted": false
+      },
+      "proofArtifact": "seccomp-filter-policy-state-proof.json",
+      "proofArtifactSha256": "723a3a2d0fdb132a4a7a0f52e0f2769afd9ea6c815eb9eb2734a85e0fae4ed6c",
+      "proofMode": "stable-refusal-proof",
+      "proofQuality": "stable-refusal-proof",
+      "executableFixture": null,
+      "bidirectionalProofArtifact": null,
+      "bidirectionalProofArtifactSha256": null,
+      "bidirectionalDirections": 0,
+      "proofChecksPassed": 4
+    },
+    {
+      "id": "ptrace-debugger-traced-state",
+      "proofNumber": "arbitrary/038",
+      "category": "ptrace/debugger",
+      "status": "verified",
+      "disposition": "refused",
+      "accepted": true,
+      "productSupportOutOfScope": true,
+      "productSupportClaimAllowed": false,
+      "arbitraryRestoreClaimAllowed": false,
+      "evidence": ["ptrace/debugger relationships and traced stop state are proven refused"],
+      "stableCode": "arbitrary-process-ptrace-debug-state-unsupported",
+      "verifier": {
+        "refusedBeforeTargetExecution": true,
+        "stableRefusalCode": "arbitrary-process-ptrace-debug-state-unsupported",
+        "ptraceStatePresent": true,
+        "proofArtifactRetained": true,
+        "targetVerifierPassed": true,
+        "rawCpuRestoreUsed": false,
+        "rawRegisterReplayUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "appCheckpointHooksRequired": false,
+        "sidecarReplayUsed": false,
+        "metadataOnlySuccessAccepted": false
+      },
+      "proofArtifact": "ptrace-debugger-traced-state-proof.json",
+      "proofArtifactSha256": "29598b5f423573fdbd8db9ea83d31f7c587b822ba06a4f8614003e46d131886d",
+      "proofMode": "stable-refusal-proof",
+      "proofQuality": "stable-refusal-proof",
+      "executableFixture": null,
+      "bidirectionalProofArtifact": null,
+      "bidirectionalProofArtifactSha256": null,
+      "bidirectionalDirections": 0,
+      "proofChecksPassed": 4
+    },
+    {
+      "id": "arbitrary-unknown-process-state",
+      "proofNumber": "arbitrary/039",
+      "category": "unknown state",
+      "status": "verified",
+      "disposition": "refused",
+      "accepted": true,
+      "productSupportOutOfScope": true,
+      "productSupportClaimAllowed": false,
+      "arbitraryRestoreClaimAllowed": false,
+      "evidence": [
+        "any unclassified process-state class is proven refused by default; matrix has zero unknown accepted rows"
+      ],
+      "stableCode": "arbitrary-process-unknown-state-unsupported",
+      "verifier": {
+        "refusedBeforeTargetExecution": true,
+        "stableRefusalCode": "arbitrary-process-unknown-state-unsupported",
+        "defaultUnknownStatePolicy": "refuse",
+        "proofArtifactRetained": true,
+        "targetVerifierPassed": true,
+        "rawCpuRestoreUsed": false,
+        "rawRegisterReplayUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "appCheckpointHooksRequired": false,
+        "sidecarReplayUsed": false,
+        "metadataOnlySuccessAccepted": false
+      },
+      "proofArtifact": "arbitrary-unknown-process-state-proof.json",
+      "proofArtifactSha256": "a6bb6a478128763de259603eb00f9884fb28ef901456d2ef02eb042d89e605a0",
+      "proofMode": "stable-refusal-proof",
+      "proofQuality": "stable-refusal-proof",
+      "executableFixture": null,
+      "bidirectionalProofArtifact": null,
+      "bidirectionalProofArtifactSha256": null,
+      "bidirectionalDirections": 0,
+      "proofChecksPassed": 4
+    }
+  ],
+  "noShortcutPolicy": {
+    "rawCpuRestoreAccepted": false,
+    "rawRegisterReplayAccepted": false,
+    "sourceIsaEmulationAccepted": false,
+    "appCheckpointHooksAccepted": false,
+    "sidecarReplayAccepted": false,
+    "metadataOnlySuccessAccepted": false,
+    "arbitraryUnknownProcessAccepted": false
+  },
+  "artifacts": [
+    {
+      "name": "process-metadata-argv-env-cwd-proof.json",
+      "path": "process-metadata-argv-env-cwd-proof.json",
+      "sha256": "88c7f590b05c7f78291ca6b1c5555922d75f53ee8a64ce883e38de643396d204"
+    },
+    {
+      "name": "static-data-heap-memory-proof.json",
+      "path": "static-data-heap-memory-proof.json",
+      "sha256": "91b67259f3a70038b4e3a60bc362d7dbf385c94ac673509244d8f8da3e4e16d2"
+    },
+    {
+      "name": "regular-file-fd-state-proof.json",
+      "path": "regular-file-fd-state-proof.json",
+      "sha256": "94b377a107e211a1ce3ff8b2f3ccbd632ebe06e237ab4cb405d109afca1bbdf9"
+    },
+    {
+      "name": "simple-pipe-fd-state-proof.json",
+      "path": "simple-pipe-fd-state-proof.json",
+      "sha256": "564538ce124b5a5759b43456eeb8a7759dccdafeaeba089120a18c63dea9cac0"
+    },
+    {
+      "name": "idle-eventfd-timerfd-state-proof.json",
+      "path": "idle-eventfd-timerfd-state-proof.json",
+      "sha256": "b58d25076b8c7c62cd3f38260071c21f8cf9f00d6e3fa188660d452ecaf8071d"
+    },
+    {
+      "name": "idle-epoll-tcp-listener-state-proof.json",
+      "path": "idle-epoll-tcp-listener-state-proof.json",
+      "sha256": "3da5194e5f2c1c15a2f00d029861c015bae41ce5ef5e57d925ebe8b194b5c465"
+    },
+    {
+      "name": "pending-signal-frame-state-proof.json",
+      "path": "pending-signal-frame-state-proof.json",
+      "sha256": "dd84f55556a03f7715624d79f947524c6334a8d6a0b010b49b65855c2ea73e46"
+    },
+    {
+      "name": "active-syscall-state-proof.json",
+      "path": "active-syscall-state-proof.json",
+      "sha256": "12ea3aa1e92c0cb7f1c2f32af6aa78c0d816d49df898c8bc056afa9adb26ffa9"
+    },
+    {
+      "name": "multi-thread-scheduler-state-proof.json",
+      "path": "multi-thread-scheduler-state-proof.json",
+      "sha256": "7bb02d1dbdb9ca85620890eaf2ffdfa5c75e2be77e971893898438d4fcfd2e8d"
+    },
+    {
+      "name": "futex-owner-waiter-state-proof.json",
+      "path": "futex-owner-waiter-state-proof.json",
+      "sha256": "d9cb673fe42d0e61fd31fabe99c6da921c220d897122e1543d17be48e9b4a50c"
+    },
+    {
+      "name": "jit-executable-anonymous-mapping-proof.json",
+      "path": "jit-executable-anonymous-mapping-proof.json",
+      "sha256": "810999b1d20bb3edfd1755e3655b4c110ba1cc3435c638913da5707d114b5826"
+    },
+    {
+      "name": "device-mmap-opaque-resource-proof.json",
+      "path": "device-mmap-opaque-resource-proof.json",
+      "sha256": "d05568205479266248f57a28d8689bfb213ca8c3c55de0a873cc968bcaded6aa"
+    },
+    {
+      "name": "shared-memory-opaque-mapping-proof.json",
+      "path": "shared-memory-opaque-mapping-proof.json",
+      "sha256": "e38bd226161aeabd292534a6189b8454e5a1be1e0b0ef652f08b1644dc89800d"
+    },
+    {
+      "name": "active-unix-domain-socket-state-proof.json",
+      "path": "active-unix-domain-socket-state-proof.json",
+      "sha256": "2bf3285c28bb2863b1ae81dcfb2e7425ae450d7ef17e34a8c4264b194c1f6d4c"
+    },
+    {
+      "name": "process-tree-parent-child-state-proof.json",
+      "path": "process-tree-parent-child-state-proof.json",
+      "sha256": "23bdf307d764d88b2501dbb1348a0a376f031888c1be468a5d807f10861a3949"
+    },
+    {
+      "name": "dynamic-linker-abi-mismatch-state-proof.json",
+      "path": "dynamic-linker-abi-mismatch-state-proof.json",
+      "sha256": "0263a8df536e59914a1f0e02189b66d778d9415161fdeb85f176cbfcfcdf7409"
+    },
+    {
+      "name": "credentials-namespace-cgroup-state-proof.json",
+      "path": "credentials-namespace-cgroup-state-proof.json",
+      "sha256": "1533160fc4d78aedeeceddaae8ea91367b70496af88946a7bbc263672f659919"
+    },
+    {
+      "name": "seccomp-filter-policy-state-proof.json",
+      "path": "seccomp-filter-policy-state-proof.json",
+      "sha256": "723a3a2d0fdb132a4a7a0f52e0f2769afd9ea6c815eb9eb2734a85e0fae4ed6c"
+    },
+    {
+      "name": "ptrace-debugger-traced-state-proof.json",
+      "path": "ptrace-debugger-traced-state-proof.json",
+      "sha256": "29598b5f423573fdbd8db9ea83d31f7c587b822ba06a4f8614003e46d131886d"
+    },
+    {
+      "name": "arbitrary-unknown-process-state-proof.json",
+      "path": "arbitrary-unknown-process-state-proof.json",
+      "sha256": "a6bb6a478128763de259603eb00f9884fb28ef901456d2ef02eb042d89e605a0"
+    },
+    {
+      "name": "process-metadata-argv-env-cwd-bidirectional-proof.json",
+      "path": "process-metadata-argv-env-cwd-bidirectional-proof.json",
+      "sha256": "f62080197f09d7b5e1653182bab8f879c2d656dec7e2e5d7d0c04e18d7858a79"
+    },
+    {
+      "name": "static-data-heap-memory-bidirectional-proof.json",
+      "path": "static-data-heap-memory-bidirectional-proof.json",
+      "sha256": "d2153b16745ae62f130d5f7c67d2fdba1cbb128a2c4f4cced12d06a941ba1f64"
+    },
+    {
+      "name": "regular-file-fd-state-bidirectional-proof.json",
+      "path": "regular-file-fd-state-bidirectional-proof.json",
+      "sha256": "0c6c0bbed0df7dae104d967c120fd3ef7283b4bced33cb701315cd9aafc3ddbe"
+    },
+    {
+      "name": "simple-pipe-fd-state-bidirectional-proof.json",
+      "path": "simple-pipe-fd-state-bidirectional-proof.json",
+      "sha256": "8f72c416cef12fcbfef8836f2b984cc59e44f8262ee367af1d425c88042ddaee"
+    },
+    {
+      "name": "idle-eventfd-timerfd-state-bidirectional-proof.json",
+      "path": "idle-eventfd-timerfd-state-bidirectional-proof.json",
+      "sha256": "0bfcde0de7fd03e4100d1adcde715f03ed36918f1b7bcd6d91a2725ca2ddb06c"
+    },
+    {
+      "name": "idle-epoll-tcp-listener-state-bidirectional-proof.json",
+      "path": "idle-epoll-tcp-listener-state-bidirectional-proof.json",
+      "sha256": "85aa0a51c18ec38d02e501bfe1a9935191891d844543c6142db66b4535fe9f3d"
+    },
+    {
+      "name": "process-metadata-argv-env-cwd.json",
+      "path": "process-metadata-argv-env-cwd.json",
+      "sha256": "2ab0b4651cba9aa7e81d09521484fad6fb0cfd67b5f6f2deb7748e2f47a8dcec"
+    },
+    {
+      "name": "static-data-heap-memory.json",
+      "path": "static-data-heap-memory.json",
+      "sha256": "5474bce141d0cf5d0b59c1095ccf31c39ef3635ede9e9ea78ebb5f2fadd5ab2f"
+    },
+    {
+      "name": "regular-file-fd-state.json",
+      "path": "regular-file-fd-state.json",
+      "sha256": "ebfa4bde50ec747d3177cdff574c2354788881199f061c5839d0829c61f6dfc4"
+    },
+    {
+      "name": "simple-pipe-fd-state.json",
+      "path": "simple-pipe-fd-state.json",
+      "sha256": "9e992c90f2ed069d403f7f35f1c011205dcd5d15a2db59f2a52d7c20408a3110"
+    },
+    {
+      "name": "idle-eventfd-timerfd-state.json",
+      "path": "idle-eventfd-timerfd-state.json",
+      "sha256": "9cf9426139b43ad0541a24f964edafa3480a1f6c9d0222dc148e1fdec022b0be"
+    },
+    {
+      "name": "idle-epoll-tcp-listener-state.json",
+      "path": "idle-epoll-tcp-listener-state.json",
+      "sha256": "5d437f9db039cadbdfc8d5d67f0ba5a145c9281ddcc2358d0dd87464a23c2776"
+    },
+    {
+      "name": "pending-signal-frame-state.json",
+      "path": "pending-signal-frame-state.json",
+      "sha256": "816e2ced5c2087f36f66023a5d59a20cf63a1020880c40c65d4fc83dd2c04854"
+    },
+    {
+      "name": "active-syscall-state.json",
+      "path": "active-syscall-state.json",
+      "sha256": "d43a7084f13b99a368695745dda4fdc70f3bddaf9e9fb5dd12e15acc164becd6"
+    },
+    {
+      "name": "multi-thread-scheduler-state.json",
+      "path": "multi-thread-scheduler-state.json",
+      "sha256": "d445878457c8c25579f5bb95479dfda44bedcf31616205c5070a9932011f118a"
+    },
+    {
+      "name": "futex-owner-waiter-state.json",
+      "path": "futex-owner-waiter-state.json",
+      "sha256": "ab4eb71284781387db606d05a8f180898917e1eca9f4652f29368df0add5e469"
+    },
+    {
+      "name": "jit-executable-anonymous-mapping.json",
+      "path": "jit-executable-anonymous-mapping.json",
+      "sha256": "74bfedd853c7e995c2a639c66d5d891742871170b7115f78d8b8dd861dfcc143"
+    },
+    {
+      "name": "device-mmap-opaque-resource.json",
+      "path": "device-mmap-opaque-resource.json",
+      "sha256": "da53914b708d19c930be5af78cdf94efca04af23b535e7d652998fc6e53fcbc5"
+    },
+    {
+      "name": "shared-memory-opaque-mapping.json",
+      "path": "shared-memory-opaque-mapping.json",
+      "sha256": "64e8584baea51fc3f3ab001f54b64c34391e8ac690cddaf4d89dfacb704b62e7"
+    },
+    {
+      "name": "active-unix-domain-socket-state.json",
+      "path": "active-unix-domain-socket-state.json",
+      "sha256": "4b137f041770a3fe0c57e9e2f86c3274f66d31a5c3777911fa08fb41330f15eb"
+    },
+    {
+      "name": "process-tree-parent-child-state.json",
+      "path": "process-tree-parent-child-state.json",
+      "sha256": "267ef3543182ebcc7a6cdbaf318f7845b0b0c31500c19efdc9fdc003c68fe619"
+    },
+    {
+      "name": "dynamic-linker-abi-mismatch-state.json",
+      "path": "dynamic-linker-abi-mismatch-state.json",
+      "sha256": "bc0f4ec6ae384cb14e9a2c90084c85cfa1a01b67b2e0c91e047316eb6bde4e7e"
+    },
+    {
+      "name": "credentials-namespace-cgroup-state.json",
+      "path": "credentials-namespace-cgroup-state.json",
+      "sha256": "402f81d2f10563f1bdf2ea33a88d8a106349929a78e820f0b0d882916a10d979"
+    },
+    {
+      "name": "seccomp-filter-policy-state.json",
+      "path": "seccomp-filter-policy-state.json",
+      "sha256": "82c076048430d3898a9f51acfe1b3e22401c2400bce351645e65c0f2571448e8"
+    },
+    {
+      "name": "ptrace-debugger-traced-state.json",
+      "path": "ptrace-debugger-traced-state.json",
+      "sha256": "15e55c30f77b1e51e4694f178367435dc61763d83a9dbe3764c77b29df5dbdea"
+    },
+    {
+      "name": "arbitrary-unknown-process-state.json",
+      "path": "arbitrary-unknown-process-state.json",
+      "sha256": "cc275f3e73a2a10a0183b23173f8844b8664e2a7fe37ae065038aa2df0fda6dd"
+    }
+  ],
+  "artifactsSha256": "af223a00799ac24ecb448efba16bc196275d57bfd05ef5982e648769d0cd9544"
+}

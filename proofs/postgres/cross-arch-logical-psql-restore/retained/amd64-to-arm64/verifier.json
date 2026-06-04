@@ -1,0 +1,71 @@
+{
+  "kind": "machinen.postgres-cross-arch-logical-psql-route-verifier",
+  "accepted": true,
+  "direction": "amd64-to-arm64",
+  "sourceArch": "amd64",
+  "targetArch": "arm64",
+  "crossArchitecture": true,
+  "restoreMechanism": "target-native-logical-sql-restore",
+  "machinenNoDumpSnapshotRestore": false,
+  "sourceVerifierOutputSha256": "5d1062188f302d75521800edc29b0a44e218e88699e27b98793afcefb28c3051",
+  "targetVerifierOutputSha256": "5d1062188f302d75521800edc29b0a44e218e88699e27b98793afcefb28c3051",
+  "sourceTargetVerifierMatch": true,
+  "dumpSha256": "5bd70238925d56f6040ae1a97f75e6a2b5231e6c67f87334d9907f0b61ddedb0",
+  "retainedDumpSha256": "5bd70238925d56f6040ae1a97f75e6a2b5231e6c67f87334d9907f0b61ddedb0",
+  "forbiddenShortcuts": {
+    "physicalDataDirectoryPortable": false,
+    "sourceIsaEmulationUsed": false,
+    "sourceTextReplayAcceptedAsMachinenProductProof": false,
+    "sidecarRuntimeUsed": false,
+    "appHooksRequired": false,
+    "metadataOnlyShortcutAccepted": false,
+    "targetNativeExecutionRequired": true
+  },
+  "checks": [
+    {
+      "id": "route-present",
+      "passed": true,
+      "message": "amd64-to-arm64 route exists in summary"
+    },
+    {
+      "id": "cross-arch",
+      "passed": true,
+      "message": "amd64-to-arm64 is cross-architecture"
+    },
+    {
+      "id": "migration-completed",
+      "passed": true,
+      "message": "amd64-to-arm64 migration completed"
+    },
+    {
+      "id": "target-native",
+      "passed": true,
+      "message": "amd64-to-arm64 target-native execution"
+    },
+    {
+      "id": "source-target-verifier-match",
+      "passed": true,
+      "message": "amd64-to-arm64 source and target psql verifier output match"
+    },
+    {
+      "id": "expected-database-shape",
+      "passed": true,
+      "message": "amd64-to-arm64 target psql verifier has expected rows and aggregate"
+    },
+    {
+      "id": "retained-dump-hash-match",
+      "passed": true,
+      "message": "amd64-to-arm64 retained SQL dump hash matches summary"
+    },
+    {
+      "id": "no-active-transactions",
+      "passed": true,
+      "message": "amd64-to-arm64 captured with no active PostgreSQL transactions"
+    },
+    {
+      "id": "no-route-shortcuts",
+      "passed": true,
+      "message": "amd64-to-arm64 did not use source ISA emulation, source-text code replay, sidecar, or app hooks"
+    }
+  ]
+}

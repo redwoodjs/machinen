@@ -1,0 +1,1 @@
+machinen snapshot <vm-name> --out <dir> / positional equivalent for fastify-installed-error-handler amd64-to-arm64

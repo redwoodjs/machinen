@@ -1,0 +1,216 @@
+{
+  "formatVersion": 1,
+  "phase": "native-active-syscall-policy",
+  "classifications": [
+    {
+      "threadId": "thread:outside",
+      "state": "outside-syscall",
+      "class": "outside-syscall",
+      "resumable": false
+    },
+    {
+      "threadId": "thread:sleep",
+      "state": "inside-syscall",
+      "syscallNumber": 115,
+      "syscallName": "clock_nanosleep",
+      "class": "sleep-timer",
+      "resumable": false,
+      "refusal": {
+        "code": "blocking-syscall-state-unsupported",
+        "message": "thread thread:sleep is blocked in sleep/timer syscall clock_nanosleep",
+        "detail": {
+          "threadId": "thread:sleep",
+          "syscallClass": "sleep-timer",
+          "syscall": {
+            "state": "inside-syscall",
+            "number": 115,
+            "name": "clock_nanosleep"
+          },
+          "requiredModel": [
+            "remaining time",
+            "restart/result contract",
+            "target timer rearm policy"
+          ]
+        }
+      }
+    },
+    {
+      "threadId": "thread:fd",
+      "state": "inside-syscall",
+      "syscallNumber": 63,
+      "syscallName": "read",
+      "class": "fd-blocking",
+      "resumable": false,
+      "refusal": {
+        "code": "blocking-syscall-state-unsupported",
+        "message": "thread thread:fd is blocked in fd syscall read",
+        "detail": {
+          "threadId": "thread:fd",
+          "syscallClass": "fd-blocking",
+          "syscall": {
+            "state": "inside-syscall",
+            "number": 63,
+            "name": "read"
+          },
+          "requiredModel": ["fd readiness", "partial transfer state", "target fd resource mapping"]
+        }
+      }
+    },
+    {
+      "threadId": "thread:restart",
+      "state": "restart-block",
+      "syscallNumber": 128,
+      "syscallName": "restart_syscall",
+      "class": "restart",
+      "resumable": false,
+      "refusal": {
+        "code": "syscall-restart-unsupported",
+        "message": "thread thread:restart is in restartable syscall state",
+        "detail": {
+          "threadId": "thread:restart",
+          "syscallClass": "restart",
+          "syscall": {
+            "state": "restart-block",
+            "number": 128,
+            "name": "restart_syscall"
+          },
+          "requiredModel": [
+            "remaining time accounting",
+            "restart/result contract",
+            "signal mask delivery",
+            "target syscall rearm policy"
+          ]
+        }
+      }
+    },
+    {
+      "threadId": "thread:unknown",
+      "state": "inside-syscall",
+      "syscallNumber": 9999,
+      "syscallName": "unknown",
+      "class": "unknown-active",
+      "resumable": false,
+      "refusal": {
+        "code": "active-syscall",
+        "message": "thread thread:unknown is in unclassified active syscall state",
+        "detail": {
+          "threadId": "thread:unknown",
+          "syscallClass": "unknown-active",
+          "syscall": {
+            "state": "inside-syscall",
+            "number": 9999,
+            "name": "unknown"
+          }
+        }
+      }
+    }
+  ],
+  "refusals": [
+    {
+      "code": "blocking-syscall-state-unsupported",
+      "message": "thread thread:sleep is blocked in sleep/timer syscall clock_nanosleep",
+      "detail": {
+        "threadId": "thread:sleep",
+        "syscallClass": "sleep-timer",
+        "syscall": {
+          "state": "inside-syscall",
+          "number": 115,
+          "name": "clock_nanosleep"
+        },
+        "requiredModel": ["remaining time", "restart/result contract", "target timer rearm policy"]
+      }
+    },
+    {
+      "code": "blocking-syscall-state-unsupported",
+      "message": "thread thread:fd is blocked in fd syscall read",
+      "detail": {
+        "threadId": "thread:fd",
+        "syscallClass": "fd-blocking",
+        "syscall": {
+          "state": "inside-syscall",
+          "number": 63,
+          "name": "read"
+        },
+        "requiredModel": ["fd readiness", "partial transfer state", "target fd resource mapping"]
+      }
+    },
+    {
+      "code": "syscall-restart-unsupported",
+      "message": "thread thread:restart is in restartable syscall state",
+      "detail": {
+        "threadId": "thread:restart",
+        "syscallClass": "restart",
+        "syscall": {
+          "state": "restart-block",
+          "number": 128,
+          "name": "restart_syscall"
+        },
+        "requiredModel": [
+          "remaining time accounting",
+          "restart/result contract",
+          "signal mask delivery",
+          "target syscall rearm policy"
+        ]
+      }
+    },
+    {
+      "code": "active-syscall",
+      "message": "thread thread:unknown is in unclassified active syscall state",
+      "detail": {
+        "threadId": "thread:unknown",
+        "syscallClass": "unknown-active",
+        "syscall": {
+          "state": "inside-syscall",
+          "number": 9999,
+          "name": "unknown"
+        }
+      }
+    }
+  ],
+  "deferredSleepTimer": {
+    "classifications": [
+      {
+        "threadId": "thread:sleep",
+        "state": "inside-syscall",
+        "syscallNumber": 115,
+        "syscallName": "clock_nanosleep",
+        "class": "sleep-timer",
+        "resumable": false,
+        "refusal": {
+          "code": "target-sleep-remaining-time-missing",
+          "message": "thread thread:sleep sleep/timer syscall remaining time is not modeled",
+          "detail": {
+            "threadId": "thread:sleep",
+            "syscallClass": "sleep-timer",
+            "syscall": {
+              "state": "inside-syscall",
+              "number": 115,
+              "name": "clock_nanosleep"
+            },
+            "reason": "syscall arguments were not captured",
+            "requiredModel": ["relative sleep request timespec", "target timer rearm duration"]
+          }
+        }
+      }
+    ],
+    "refusals": [
+      {
+        "code": "target-sleep-remaining-time-missing",
+        "message": "thread thread:sleep sleep/timer syscall remaining time is not modeled",
+        "detail": {
+          "threadId": "thread:sleep",
+          "syscallClass": "sleep-timer",
+          "syscall": {
+            "state": "inside-syscall",
+            "number": 115,
+            "name": "clock_nanosleep"
+          },
+          "reason": "syscall arguments were not captured",
+          "requiredModel": ["relative sleep request timespec", "target timer rearm duration"]
+        }
+      }
+    ],
+    "continuations": []
+  },
+  "execution": "active-native-syscall-blockers-classified-fail-closed"
+}

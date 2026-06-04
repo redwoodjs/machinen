@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "kind": "machinen.portable-node-restore-summary",
+  "formatVersion": 1,
+  "runtime": "node",
+  "subset": "node-http-clean-root-v1",
+  "state": "completed",
+  "sourceArch": "amd64",
+  "targetArch": "arm64",
+  "elapsedMs": 8976,
+  "sourceIsaEmulationUsed": false,
+  "sourceTextReplayAcceptedAsRestore": false,
+  "sidecarRuntimeUsed": false,
+  "appHooksRequired": false,
+  "migrationCompleted": true,
+  "targetVerifierResult": "passed",
+  "restoredName": "node-row-fastify-official-getting-started-arm-restored-69871"
+}

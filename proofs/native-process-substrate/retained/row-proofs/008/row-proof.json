@@ -1,0 +1,28 @@
+{
+  "proofNumber": "008",
+  "id": "native-syscall-abi-boundary-proof",
+  "type": "boundary",
+  "subcategory": "syscall ABI boundary",
+  "status": "verified",
+  "accepted": true,
+  "artifact": "proofs/native-process-substrate/retained/row-proofs/008/row-proof.json",
+  "evidence": "Active syscall policy classifies syscall states fail-closed and refuses blocking/restart/unknown active syscall continuations. Raw verifier: proofs/native-process-substrate/retained/raw/native-active-syscall-policy.json.",
+  "checks": [
+    {
+      "id": "execution-fail-closed",
+      "passed": true,
+      "message": "syscalls classified fail-closed"
+    },
+    {
+      "id": "restart-refused",
+      "passed": true,
+      "message": "restart syscall refused"
+    },
+    {
+      "id": "active-refused",
+      "passed": true,
+      "message": "unknown active syscall refused"
+    }
+  ],
+  "claimUse": "boundary-refusal"
+}

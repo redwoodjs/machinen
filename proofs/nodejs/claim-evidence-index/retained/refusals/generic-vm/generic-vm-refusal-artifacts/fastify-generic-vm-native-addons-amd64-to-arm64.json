@@ -1,0 +1,15 @@
+{
+  "kind": "machinen.node-level5-generic-vm-refusal-artifact",
+  "rowId": "fastify-generic-vm-native-addons-amd64-to-arm64",
+  "framework": "fastify",
+  "marker": "nativeAddons",
+  "direction": "amd64-to-arm64",
+  "expectedRefusalCode": "node-level5-native-addon-refused",
+  "actualRefusalCode": "node-level5-native-addon-refused",
+  "refusedBeforeSnapshot": true,
+  "restoreAttempted": false,
+  "claimChangeAllowed": false,
+  "nodeProductSupportClaimed": 80,
+  "broadNodeProductSupportClaimed": 20,
+  "arbitraryProcessCrossArchRestoreClaimed": 0
+}

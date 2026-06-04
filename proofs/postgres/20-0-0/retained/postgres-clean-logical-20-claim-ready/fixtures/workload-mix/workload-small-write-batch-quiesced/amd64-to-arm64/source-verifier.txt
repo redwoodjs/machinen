@@ -1,1 +1,0 @@
-workload-small-write-batch-quiesced:ledger=3:sum=31:transactions=0

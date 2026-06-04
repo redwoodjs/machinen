@@ -1,0 +1,25 @@
+{
+  "kind": "machinen.native-selected-workload-target-plan",
+  "direction": "amd64-to-arm64",
+  "targetArch": "arm64",
+  "targetNativeExecution": true,
+  "entry": "selected_native_target",
+  "stack": "materialized-target-stack",
+  "memory": "materialized-private-page",
+  "bootstrap": "target-visible-env-cwd",
+  "resources": [
+    "closed-fd",
+    "inherit-stdio",
+    "reopen-file",
+    "pipe-buffered-bytes",
+    "eventfd-counter",
+    "timerfd-one-shot",
+    "epoll-interest-list",
+    "tcp-listener-loopback"
+  ],
+  "rawCpuRestoreUsed": false,
+  "sourceIsaEmulationUsed": false,
+  "runtimeProfileRestoreUsed": false,
+  "appHooksUsed": false,
+  "metadataOnlySuccessAccepted": false
+}

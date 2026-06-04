@@ -1,0 +1,13 @@
+{
+  "kind": "machinen.real-cross-arch-portable-vm-all3-source-transcript",
+  "version": 1,
+  "accepted": true,
+  "sourceArch": "amd64",
+  "targetArch": "arm64",
+  "filesystemFiles": 2,
+  "sqliteExpected": {
+    "count": 3,
+    "qtySum": 41
+  },
+  "serviceExpectedResponse": "machinen-portable-service-v1"
+}

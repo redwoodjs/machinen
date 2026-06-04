@@ -1,0 +1,20 @@
+{
+  "kind": "machinen.node-supported-row-target-verifier",
+  "version": 1,
+  "accepted": true,
+  "rowId": "express-installed-delete-route",
+  "direction": "arm64-to-amd64",
+  "routePath": "/express-installed-delete-route",
+  "expectedBody": "express-installed-delete-route-ok",
+  "actualBody": "express-installed-delete-route-ok",
+  "bodySha256": "56e839f6bc8df082aa7aa4a3610301635f78cda9b2a6ad7afcf558fce8c69d7e",
+  "expectedHeader": {
+    "x-machinen-row": "express-installed-delete-route"
+  },
+  "actualHeaders": "HTTP/1.1 200 OK\nX-Powered-By: Express\nx-machinen-row: express-installed-delete-route\nContent-Type: text/html; charset=utf-8\nContent-Length: 33\nETag: W/\"21-agodXysd+ldY00uQO7JlMJ+lLAY\"\nDate: Tue, 02 Jun 2026 15:57:46 GMT\nConnection: keep-alive\nKeep-Alive: timeout=5\n\n",
+  "targetNativeNodeVerified": true,
+  "sourceIsaEmulationUsed": false,
+  "sidecarRuntimeUsed": false,
+  "appHooksRequired": false,
+  "metadataOnlySuccessAccepted": false
+}

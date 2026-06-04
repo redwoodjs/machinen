@@ -1,0 +1,110 @@
+{
+  "id": "whole-vm-workload-corpus-product-gate",
+  "claim": "Whole-VM supported corpus product-gate artifacts",
+  "trackId": "whole-linux-vm-workload",
+  "status": "verified",
+  "scope": "whole-vm-supported-corpus-product-artifacts-v1",
+  "claimNumbers": {
+    "productSupport": 100,
+    "broadSupport": 100,
+    "arbitraryProcessCrossArchRestore": 0,
+    "corpusProductSupportRowsAdded": 4,
+    "arbitraryVmRestoreRowsAdded": 0
+  },
+  "promotionEffect": "Adds retained product-gate artifacts for supported whole-VM corpus rows only. It does not claim arbitrary VM restore and does not broaden the selected-whole-vm-workload-v1 public claim.",
+  "proofDirectory": "proofs/linux-vm-workload/corpus-product-gate",
+  "proofs": [
+    {
+      "id": "whole-vm-c-service-workload",
+      "proofNumber": "vm/015",
+      "category": "corpus product gate",
+      "status": "verified",
+      "disposition": "product-supported",
+      "artifact": "proofs/linux-vm-workload/corpus-product-gate/retained/whole-vm-c-service-workload-product-gate.json",
+      "proves": "Retained product-gate artifact covers whole-vm-c-service-workload in arm64-to-amd64 and amd64-to-arm64 without arbitrary VM restore.",
+      "claimUse": "scoped corpus product artifact only; no arbitrary VM restore claim",
+      "next": "Broaden public claims only with explicit scoped claim language and retained refusal neighbors; arbitrary VM restore remains unclaimed.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 100,
+          "broadSupport": 100,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false,
+        "scope": "supported whole-VM corpus product artifacts only"
+      }
+    },
+    {
+      "id": "whole-vm-filesystem-workload",
+      "proofNumber": "vm/016",
+      "category": "corpus product gate",
+      "status": "verified",
+      "disposition": "product-supported",
+      "artifact": "proofs/linux-vm-workload/corpus-product-gate/retained/whole-vm-filesystem-workload-product-gate.json",
+      "proves": "Retained product-gate artifact covers whole-vm-filesystem-workload in arm64-to-amd64 and amd64-to-arm64 without arbitrary VM restore.",
+      "claimUse": "scoped corpus product artifact only; no arbitrary VM restore claim",
+      "next": "Broaden public claims only with explicit scoped claim language and retained refusal neighbors; arbitrary VM restore remains unclaimed.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 100,
+          "broadSupport": 100,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false,
+        "scope": "supported whole-VM corpus product artifacts only"
+      }
+    },
+    {
+      "id": "whole-vm-network-listener-workload",
+      "proofNumber": "vm/017",
+      "category": "corpus product gate",
+      "status": "verified",
+      "disposition": "product-supported",
+      "artifact": "proofs/linux-vm-workload/corpus-product-gate/retained/whole-vm-network-listener-workload-product-gate.json",
+      "proves": "Retained product-gate artifact covers whole-vm-network-listener-workload in arm64-to-amd64 and amd64-to-arm64 without arbitrary VM restore.",
+      "claimUse": "scoped corpus product artifact only; no arbitrary VM restore claim",
+      "next": "Broaden public claims only with explicit scoped claim language and retained refusal neighbors; arbitrary VM restore remains unclaimed.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 100,
+          "broadSupport": 100,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false,
+        "scope": "supported whole-VM corpus product artifacts only"
+      }
+    },
+    {
+      "id": "whole-vm-multi-process-workload",
+      "proofNumber": "vm/018",
+      "category": "corpus product gate",
+      "status": "verified",
+      "disposition": "product-supported",
+      "artifact": "proofs/linux-vm-workload/corpus-product-gate/retained/whole-vm-multi-process-workload-product-gate.json",
+      "proves": "Retained product-gate artifact covers whole-vm-multi-process-workload in arm64-to-amd64 and amd64-to-arm64 without arbitrary VM restore.",
+      "claimUse": "scoped corpus product artifact only; no arbitrary VM restore claim",
+      "next": "Broaden public claims only with explicit scoped claim language and retained refusal neighbors; arbitrary VM restore remains unclaimed.",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 100,
+          "broadSupport": 100,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false,
+        "scope": "supported whole-VM corpus product artifacts only"
+      }
+    }
+  ]
+}

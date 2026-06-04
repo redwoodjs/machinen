@@ -1,0 +1,396 @@
+{
+  "kind": "machinen.whole-vm-workload-next-corpus",
+  "version": 1,
+  "generatedAt": "2026-06-02T21:23:58.039Z",
+  "accepted": true,
+  "proofStatus": "defined",
+  "publicClaimAllowed": false,
+  "currentClaim": {
+    "productSupport": 100,
+    "broadSupport": 100,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "currentClaimScope": "selected-whole-vm-workload-v1 only",
+  "nextCorpusClaimAllowed": false,
+  "nextCorpusRows": [
+    {
+      "id": "whole-vm-sqlite-clean-db-workload",
+      "label": "SQLite clean DB workload",
+      "category": "database workload",
+      "disposition": "not-started",
+      "claimUse": "future-corpus-only",
+      "supportRequires": [
+        "source workload manifest",
+        "source verifier output",
+        "portable rootfs/app/data manifest with hashes",
+        "capture transcript",
+        "restore plan",
+        "target verifier output",
+        "target boot/workload transcript",
+        "shortcut inspection record",
+        "artifact integrity manifest",
+        "arm64-to-amd64 retained product restore",
+        "amd64-to-arm64 retained product restore",
+        "sqlite3 create/insert/select source verifier",
+        "clean shutdown or explicit checkpoint before capture",
+        "target-native sqlite3 verifier after restore",
+        "dirty WAL/hot journal refusal neighbors"
+      ],
+      "refusalRequires": [
+        "refusal input manifest",
+        "product command transcript",
+        "stable expected refusal code",
+        "evidence for boundary condition",
+        "shortcut inspection record",
+        "dashboard claim-impact record with zero deltas"
+      ],
+      "forbiddenShortcuts": [
+        "raw vCPU replay",
+        "source ISA emulation",
+        "opaque VM/device metadata-only success",
+        "app checkpoint hooks as the source of truth",
+        "sidecar replay"
+      ],
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "claimChangeAllowed": false
+      }
+    },
+    {
+      "id": "whole-vm-postgresql-clean-workload",
+      "label": "PostgreSQL clean workload",
+      "category": "database workload",
+      "disposition": "not-started",
+      "claimUse": "future-corpus-only",
+      "supportRequires": [
+        "source workload manifest",
+        "source verifier output",
+        "portable rootfs/app/data manifest with hashes",
+        "capture transcript",
+        "restore plan",
+        "target verifier output",
+        "target boot/workload transcript",
+        "shortcut inspection record",
+        "artifact integrity manifest",
+        "arm64-to-amd64 retained product restore",
+        "amd64-to-arm64 retained product restore",
+        "PostgreSQL start/readiness/query source verifier",
+        "clean logical or filesystem-safe checkpoint boundary",
+        "target-native PostgreSQL verifier after restore",
+        "active transaction/dirty WAL/prepared session refusal neighbors"
+      ],
+      "refusalRequires": [
+        "refusal input manifest",
+        "product command transcript",
+        "stable expected refusal code",
+        "evidence for boundary condition",
+        "shortcut inspection record",
+        "dashboard claim-impact record with zero deltas"
+      ],
+      "forbiddenShortcuts": [
+        "raw vCPU replay",
+        "source ISA emulation",
+        "opaque VM/device metadata-only success",
+        "app checkpoint hooks as the source of truth",
+        "sidecar replay"
+      ],
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "claimChangeAllowed": false
+      }
+    },
+    {
+      "id": "whole-vm-c-service-workload",
+      "label": "C service workload",
+      "category": "service workload",
+      "disposition": "not-started",
+      "claimUse": "future-corpus-only",
+      "supportRequires": [
+        "source workload manifest",
+        "source verifier output",
+        "portable rootfs/app/data manifest with hashes",
+        "capture transcript",
+        "restore plan",
+        "target verifier output",
+        "target boot/workload transcript",
+        "shortcut inspection record",
+        "artifact integrity manifest",
+        "arm64-to-amd64 retained product restore",
+        "amd64-to-arm64 retained product restore",
+        "portable C source or target-native build manifest",
+        "source service request/response verifier",
+        "target-native service request/response verifier",
+        "native shared library/kernel ABI mismatch refusals"
+      ],
+      "refusalRequires": [
+        "refusal input manifest",
+        "product command transcript",
+        "stable expected refusal code",
+        "evidence for boundary condition",
+        "shortcut inspection record",
+        "dashboard claim-impact record with zero deltas"
+      ],
+      "forbiddenShortcuts": [
+        "raw vCPU replay",
+        "source ISA emulation",
+        "opaque VM/device metadata-only success",
+        "app checkpoint hooks as the source of truth",
+        "sidecar replay"
+      ],
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "claimChangeAllowed": false
+      }
+    },
+    {
+      "id": "whole-vm-java-service-workload",
+      "label": "Java service workload",
+      "category": "service workload",
+      "disposition": "not-started",
+      "claimUse": "future-corpus-only",
+      "supportRequires": [
+        "source workload manifest",
+        "source verifier output",
+        "portable rootfs/app/data manifest with hashes",
+        "capture transcript",
+        "restore plan",
+        "target verifier output",
+        "target boot/workload transcript",
+        "shortcut inspection record",
+        "artifact integrity manifest",
+        "arm64-to-amd64 retained product restore",
+        "amd64-to-arm64 retained product restore",
+        "portable Java source/JAR manifest",
+        "JVM version/runtime manifest",
+        "source service verifier",
+        "target-native JVM service verifier",
+        "JIT/runtime-private-state refusal neighbors"
+      ],
+      "refusalRequires": [
+        "refusal input manifest",
+        "product command transcript",
+        "stable expected refusal code",
+        "evidence for boundary condition",
+        "shortcut inspection record",
+        "dashboard claim-impact record with zero deltas"
+      ],
+      "forbiddenShortcuts": [
+        "raw vCPU replay",
+        "source ISA emulation",
+        "opaque VM/device metadata-only success",
+        "app checkpoint hooks as the source of truth",
+        "sidecar replay"
+      ],
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "claimChangeAllowed": false
+      }
+    },
+    {
+      "id": "whole-vm-filesystem-workload",
+      "label": "Filesystem workload",
+      "category": "filesystem workload",
+      "disposition": "not-started",
+      "claimUse": "future-corpus-only",
+      "supportRequires": [
+        "source workload manifest",
+        "source verifier output",
+        "portable rootfs/app/data manifest with hashes",
+        "capture transcript",
+        "restore plan",
+        "target verifier output",
+        "target boot/workload transcript",
+        "shortcut inspection record",
+        "artifact integrity manifest",
+        "arm64-to-amd64 retained product restore",
+        "amd64-to-arm64 retained product restore",
+        "portable file tree manifest with hashes and modes",
+        "source fs operation verifier",
+        "target fs operation verifier",
+        "unsynced append/partial rename/lock/watch refusal neighbors"
+      ],
+      "refusalRequires": [
+        "refusal input manifest",
+        "product command transcript",
+        "stable expected refusal code",
+        "evidence for boundary condition",
+        "shortcut inspection record",
+        "dashboard claim-impact record with zero deltas"
+      ],
+      "forbiddenShortcuts": [
+        "raw vCPU replay",
+        "source ISA emulation",
+        "opaque VM/device metadata-only success",
+        "app checkpoint hooks as the source of truth",
+        "sidecar replay"
+      ],
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "claimChangeAllowed": false
+      }
+    },
+    {
+      "id": "whole-vm-network-listener-workload",
+      "label": "Network listener workload",
+      "category": "network workload",
+      "disposition": "not-started",
+      "claimUse": "future-corpus-only",
+      "supportRequires": [
+        "source workload manifest",
+        "source verifier output",
+        "portable rootfs/app/data manifest with hashes",
+        "capture transcript",
+        "restore plan",
+        "target verifier output",
+        "target boot/workload transcript",
+        "shortcut inspection record",
+        "artifact integrity manifest",
+        "arm64-to-amd64 retained product restore",
+        "amd64-to-arm64 retained product restore",
+        "declared listener protocol and port manifest",
+        "source request/response verifier",
+        "target-native listener verifier",
+        "active connection/TLS/session/in-flight packet refusal neighbors"
+      ],
+      "refusalRequires": [
+        "refusal input manifest",
+        "product command transcript",
+        "stable expected refusal code",
+        "evidence for boundary condition",
+        "shortcut inspection record",
+        "dashboard claim-impact record with zero deltas"
+      ],
+      "forbiddenShortcuts": [
+        "raw vCPU replay",
+        "source ISA emulation",
+        "opaque VM/device metadata-only success",
+        "app checkpoint hooks as the source of truth",
+        "sidecar replay"
+      ],
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "claimChangeAllowed": false
+      }
+    },
+    {
+      "id": "whole-vm-multi-process-workload",
+      "label": "Multi-process workload",
+      "category": "process topology workload",
+      "disposition": "not-started",
+      "claimUse": "future-corpus-only",
+      "supportRequires": [
+        "source workload manifest",
+        "source verifier output",
+        "portable rootfs/app/data manifest with hashes",
+        "capture transcript",
+        "restore plan",
+        "target verifier output",
+        "target boot/workload transcript",
+        "shortcut inspection record",
+        "artifact integrity manifest",
+        "arm64-to-amd64 retained product restore",
+        "amd64-to-arm64 retained product restore",
+        "declared process topology manifest",
+        "source IPC/order verifier",
+        "target process topology and IPC verifier",
+        "unmodeled scheduler/futex/shared-memory refusal neighbors"
+      ],
+      "refusalRequires": [
+        "refusal input manifest",
+        "product command transcript",
+        "stable expected refusal code",
+        "evidence for boundary condition",
+        "shortcut inspection record",
+        "dashboard claim-impact record with zero deltas"
+      ],
+      "forbiddenShortcuts": [
+        "raw vCPU replay",
+        "source ISA emulation",
+        "opaque VM/device metadata-only success",
+        "app checkpoint hooks as the source of truth",
+        "sidecar replay"
+      ],
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "claimChangeAllowed": false
+      }
+    },
+    {
+      "id": "whole-vm-dirty-active-opaque-state-refusals",
+      "label": "Dirty/active/opaque state refusals",
+      "category": "refusal boundary",
+      "disposition": "refusal-defined",
+      "claimUse": "refusal-boundary-only",
+      "supportRequires": [],
+      "refusalRequires": [
+        "refusal input manifest",
+        "product command transcript",
+        "stable expected refusal code",
+        "evidence for boundary condition",
+        "shortcut inspection record",
+        "dashboard claim-impact record with zero deltas",
+        "dirty database state refusal",
+        "active network/session refusal",
+        "opaque guest kernel/device state refusal",
+        "runtime-private/JIT/native extension state refusal"
+      ],
+      "forbiddenShortcuts": [
+        "raw vCPU replay",
+        "source ISA emulation",
+        "opaque VM/device metadata-only success",
+        "app checkpoint hooks as the source of truth",
+        "sidecar replay"
+      ],
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "claimChangeAllowed": false
+      }
+    }
+  ],
+  "requiredRows": 8,
+  "definedRows": 8,
+  "supportArtifactsCovered": 0,
+  "supportArtifactsRequiredBeforeClaimLift": 77,
+  "refusalArtifactsCovered": 0,
+  "refusalArtifactsRequiredBeforeClaimLift": 52,
+  "gates": {
+    "priorSelectedMatrixAccepted": true,
+    "rowsEnumerated": true,
+    "supportRowsDoNotClaim": true,
+    "dirtyActiveOpaqueRefusalPresent": true,
+    "forbiddenShortcutsPreserved": true
+  },
+  "priorArtifacts": [
+    {
+      "name": "whole-linux-vm-workload-taxonomy.json",
+      "path": "docs/snapshot/whole-linux-vm-workload-taxonomy.json",
+      "sha256": "23d9b665806e70e98d0d061736378b023cc49bedca4649df2a0ccfb846de2f05"
+    },
+    {
+      "name": "selected-whole-vm-workload-support-matrix-report.json",
+      "path": "proofs/linux-vm-workload/selected-whole-vm-workload/retained/selected-whole-vm-workload-support-matrix-report.json",
+      "sha256": "a71937bfc97b2681367fabcd2f51b6e531910abf2b3b96a9378aa05303777eab"
+    },
+    {
+      "name": "whole-vm-workload-smoke-matrix-report.json",
+      "path": "proofs/linux-vm-workload/smoke-matrix/retained/whole-vm-workload-smoke-matrix-report.json",
+      "sha256": "41230272f3c9200b085ae8810f11a2c084bfe2508d3c642f0ec8ecf9d28818cd"
+    }
+  ]
+}

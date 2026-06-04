@@ -1,0 +1,37 @@
+{
+  "id": "pending-signal-frame-state",
+  "proofNumber": "arbitrary/026",
+  "category": "signal state",
+  "status": "verified",
+  "disposition": "refused",
+  "accepted": true,
+  "productSupportOutOfScope": true,
+  "productSupportClaimAllowed": false,
+  "arbitraryRestoreClaimAllowed": false,
+  "evidence": [
+    "pending signal frames and handler continuation are proven refused by stable classifier"
+  ],
+  "stableCode": "arbitrary-process-signal-frame-unsupported",
+  "verifier": {
+    "refusedBeforeTargetExecution": true,
+    "stableRefusalCode": "arbitrary-process-signal-frame-unsupported",
+    "signalFramePresent": true,
+    "proofArtifactRetained": true,
+    "targetVerifierPassed": true,
+    "rawCpuRestoreUsed": false,
+    "rawRegisterReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "sidecarReplayUsed": false,
+    "metadataOnlySuccessAccepted": false
+  },
+  "proofArtifact": "pending-signal-frame-state-proof.json",
+  "proofArtifactSha256": "dd84f55556a03f7715624d79f947524c6334a8d6a0b010b49b65855c2ea73e46",
+  "proofMode": "stable-refusal-proof",
+  "proofQuality": "stable-refusal-proof",
+  "executableFixture": null,
+  "bidirectionalProofArtifact": null,
+  "bidirectionalProofArtifactSha256": null,
+  "bidirectionalDirections": 0,
+  "proofChecksPassed": 4
+}

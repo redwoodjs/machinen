@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "kind": "machinen.portable-node-restore-summary",
+  "formatVersion": 1,
+  "runtime": "node",
+  "subset": "node-http-clean-root-v1",
+  "state": "completed",
+  "sourceArch": "arm64",
+  "targetArch": "amd64",
+  "elapsedMs": 14983,
+  "sourceIsaEmulationUsed": false,
+  "sourceTextReplayAcceptedAsRestore": false,
+  "sidecarRuntimeUsed": false,
+  "appHooksRequired": false,
+  "migrationCompleted": true,
+  "targetVerifierResult": "passed",
+  "restoredName": "node-row-fastify-installed-feature-flag-env-restored-1084676"
+}

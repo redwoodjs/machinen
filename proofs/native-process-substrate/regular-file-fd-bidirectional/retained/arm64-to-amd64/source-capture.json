@@ -1,0 +1,21 @@
+{
+  "kind": "machinen.native-regular-file-fd-source-capture",
+  "direction": "arm64-to-amd64",
+  "sourceArch": "arm64",
+  "fd": 3,
+  "path": "proofs/native-process-substrate/regular-file-fd-bidirectional/retained/arm64-to-amd64/regular-file-fd-fixture.txt",
+  "pathPolicy": "same-host-path-reopen-proof",
+  "inodePolicy": "record-and-verify-same-file-identity",
+  "sourceIdentity": {
+    "dev": 16777230,
+    "ino": 321595504,
+    "size": 98
+  },
+  "offset": 29,
+  "flags": {
+    "captured": ["octal:2000002", "cloexec"],
+    "expectedAccess": "read-write",
+    "closeOnExec": true
+  },
+  "expectedNextReadSha256": "93e60289a3246c2c4c6f143e67b04ae244e32ce37d27bf792b01d253cb047c86"
+}

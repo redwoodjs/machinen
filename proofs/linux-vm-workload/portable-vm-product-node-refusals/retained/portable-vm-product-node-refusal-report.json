@@ -1,0 +1,48 @@
+{
+  "kind": "machinen.portable-vm-product-node-refusal-report",
+  "version": 1,
+  "accepted": true,
+  "productPath": "machinen snapshot <vm> --portable -> portable-vm-manifest-plan.json -> machinen restore <bundle> --json",
+  "scope": "portable-vm-all3-product-snapshot-restore-v1",
+  "source": "packages/cli/src/cli.ts portable VM guest inventory agent",
+  "rows": [
+    {
+      "id": "nodejs-active-websocket",
+      "marker": "node-portability-active-websocket.refuse",
+      "refusalCode": "node-portability-active-websocket-unsupported"
+    },
+    {
+      "id": "nodejs-worker-thread",
+      "marker": "node-portability-worker-thread.refuse",
+      "refusalCode": "node-portability-worker-thread-unsupported"
+    },
+    {
+      "id": "nodejs-native-addon",
+      "marker": "node-portability-native-addon.refuse",
+      "refusalCode": "node-portability-native-addon-unsupported"
+    },
+    {
+      "id": "nodejs-child-process",
+      "marker": "node-portability-child-process.refuse",
+      "refusalCode": "node-portability-child-process-unsupported"
+    },
+    {
+      "id": "nodejs-active-request",
+      "marker": "node-portability-active-request.refuse",
+      "refusalCode": "node-portability-active-request-unsupported"
+    },
+    {
+      "id": "nodejs-outbound-connection",
+      "marker": "node-portability-outbound-connection.refuse",
+      "refusalCode": "node-portability-outbound-connection-unsupported"
+    }
+  ],
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "arbitraryVmRestoreClaimed": false,
+    "rawVmStateReplayUsed": false
+  }
+}

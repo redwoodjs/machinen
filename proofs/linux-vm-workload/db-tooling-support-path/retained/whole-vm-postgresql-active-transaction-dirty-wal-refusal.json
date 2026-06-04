@@ -1,0 +1,16 @@
+{
+  "kind": "machinen.whole-vm-db-tooling-dirty-active-refusal",
+  "version": 1,
+  "rowId": "whole-vm-postgresql-active-transaction-dirty-wal-refusal",
+  "accepted": true,
+  "status": "verified",
+  "disposition": "product-refused",
+  "refusalCode": "whole-vm-active-db-state-unsupported",
+  "claimGuard": {
+    "dirtyActiveStateRefused": true,
+    "arbitraryVmRestoreClaimed": false,
+    "publicClaimAllowed": false,
+    "rawVmStateRestoreUsed": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

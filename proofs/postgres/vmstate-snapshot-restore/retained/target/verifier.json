@@ -1,0 +1,22 @@
+{
+  "kind": "machinen.postgres-vmstate-target-verifier",
+  "accepted": true,
+  "runtime": "postgresql",
+  "interface": "psql",
+  "subset": "postgres-clean-quiesced-checkpointed-vmstate",
+  "crossArchitecture": false,
+  "sourceGuestArch": "arm64",
+  "targetGuestArch": "arm64",
+  "targetNativeExecutionRequired": true,
+  "sourceTargetVerifierMatch": true,
+  "sourceVerifierOutputSha256": "5d1062188f302d75521800edc29b0a44e218e88699e27b98793afcefb28c3051",
+  "targetVerifierOutputSha256": "5d1062188f302d75521800edc29b0a44e218e88699e27b98793afcefb28c3051",
+  "forbiddenShortcuts": {
+    "sourceIsaEmulationUsed": false,
+    "sourceTextReplayAccepted": false,
+    "sidecarRuntimeUsed": false,
+    "appHooksRequired": false,
+    "metadataOnlyShortcutAccepted": false,
+    "targetNativeExecutionRequired": true
+  }
+}

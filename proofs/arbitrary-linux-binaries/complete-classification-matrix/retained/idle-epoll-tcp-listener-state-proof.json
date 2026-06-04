@@ -1,0 +1,88 @@
+{
+  "kind": "machinen.arbitrary-process-row-proof",
+  "version": 1,
+  "rowId": "idle-epoll-tcp-listener-state",
+  "proofNumber": "arbitrary/025",
+  "proofMode": "target-native-reconstruction-proof",
+  "proofQuality": "executable-fixture-proof",
+  "accepted": true,
+  "disposition": "supported-proof",
+  "fixture": {
+    "id": "idle-epoll-tcp-listener-state-fixture",
+    "portableState": [
+      "epoll interest list",
+      "tcp listener bind policy",
+      "no accepted streams",
+      "no ready events"
+    ],
+    "refusedState": [],
+    "fixtureHash": "417f129f947beaf0cf4ff50cc9dfe241ffac987c17322bd51e53c7bb46ee5e00",
+    "execution": {
+      "name": "idle-epoll-tcp-listener-node-fixture",
+      "executed": true,
+      "passed": true,
+      "output": {
+        "listenerStarted": true,
+        "acceptedStreams": 0,
+        "readyEvents": 0
+      },
+      "transcript": [
+        "executed idle-epoll-tcp-listener-node-fixture",
+        "verified acceptedStreams, listenerStarted, readyEvents"
+      ]
+    }
+  },
+  "verifier": {
+    "targetNativeReconstructionAttempted": true,
+    "targetVerifierPassed": true,
+    "refusedBeforeTargetExecution": false,
+    "stableRefusalCode": null,
+    "checks": [
+      {
+        "name": "portable-state-manifest-present",
+        "passed": true,
+        "detail": "4 portable state fields retained for idle-epoll-tcp-listener-state"
+      },
+      {
+        "name": "executable-fixture-verifier-passed",
+        "passed": true,
+        "detail": "idle-epoll-tcp-listener-node-fixture executed and passed for idle-epoll-tcp-listener-state"
+      },
+      {
+        "name": "target-native-verifier-passed",
+        "passed": true,
+        "detail": "deterministic verifier accepted fixture 417f129f947beaf0cf4ff50cc9dfe241ffac987c17322bd51e53c7bb46ee5e00"
+      },
+      {
+        "name": "no-forbidden-shortcuts",
+        "passed": true,
+        "detail": "raw CPU/register replay, source ISA emulation, hooks, sidecars, and metadata-only success are false"
+      },
+      {
+        "name": "claim-guard-held",
+        "passed": true,
+        "detail": "product support remains out of scope and arbitrary process restore claim remains 0"
+      }
+    ]
+  },
+  "transcript": [
+    "loaded portable fixture idle-epoll-tcp-listener-state-fixture",
+    "validated target-native reconstruction manifest",
+    "executed idle-epoll-tcp-listener-node-fixture",
+    "verified acceptedStreams, listenerStarted, readyEvents",
+    "ran deterministic executable fixture verifier checks",
+    "recorded proof without product claim lift"
+  ],
+  "claimGuard": {
+    "productSupportOutOfScope": true,
+    "productSupportRowsAdded": 0,
+    "arbitraryProcessRestoreClaimed": 0,
+    "publicClaimAllowed": false,
+    "rawCpuRestoreUsed": false,
+    "rawRegisterReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "sidecarReplayUsed": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

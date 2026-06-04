@@ -1,0 +1,35 @@
+{
+  "kind": "machinen.selected-arbitrary-process-next-proof-row",
+  "scope": "selected-arbitrary-linux-process-seed-v1",
+  "row": {
+    "id": "selected-register-stack-bootstrap-boundary",
+    "proofNumber": "arbitrary/013",
+    "category": "register stack bootstrap boundary",
+    "status": "verified",
+    "disposition": "proof-only",
+    "proves": "Retained bootstrap boundary records translated entry/stack descriptors and explicitly forbids raw register replay or raw stack continuation as success.",
+    "claimUse": "proof-only bootstrap boundary evidence; no arbitrary-process claim lift"
+  },
+  "currentClaim": {
+    "productSupport": null,
+    "broadSupport": null,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "claimChangeAllowed": false,
+  "publicClaimAllowed": false,
+  "productSupportRowsAdded": 0,
+  "productSupportClaimAllowed": false,
+  "noShortcutPolicy": {
+    "rawCpuRestoreAccepted": false,
+    "rawRegisterReplayAccepted": false,
+    "sourceIsaEmulationAccepted": false,
+    "appCheckpointHooksAccepted": false,
+    "sidecarReplayAccepted": false,
+    "metadataOnlySuccessAccepted": false,
+    "arbitraryUnknownProcessAccepted": false
+  },
+  "bootstrapBoundary": {
+    "translatedDescriptors": ["entrypoint", "argv", "env", "cwd", "selected-stack-frame"],
+    "refused": ["raw-register-image", "raw-stack-continuation", "source-vdso-entry"]
+  }
+}

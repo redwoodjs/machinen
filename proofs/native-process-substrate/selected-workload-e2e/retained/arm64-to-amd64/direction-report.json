@@ -1,0 +1,94 @@
+{
+  "direction": "arm64-to-amd64",
+  "sourceArch": "arm64",
+  "targetArch": "amd64",
+  "runner": "root@192.168.0.8",
+  "accepted": true,
+  "sourceCapture": {
+    "threadState": "single-stopped-outside-syscall",
+    "memory": "private-rw-page",
+    "stack": "target-ucontext-stack-with-guard",
+    "bootstrap": "argv-env-cwd",
+    "resources": [
+      "closed-fd",
+      "inherit-stdio",
+      "reopen-file",
+      "pipe-buffered-bytes",
+      "eventfd-counter",
+      "timerfd-one-shot",
+      "epoll-interest-list",
+      "tcp-listener-loopback"
+    ]
+  },
+  "targetPlan": {
+    "targetNativeExecution": true,
+    "entry": "selected_native_target",
+    "stack": "materialized-target-stack",
+    "memory": "materialized-private-page",
+    "bootstrap": "target-visible-env-cwd",
+    "resources": [
+      "closed-fd",
+      "inherit-stdio",
+      "reopen-file",
+      "pipe-buffered-bytes",
+      "eventfd-counter",
+      "timerfd-one-shot",
+      "epoll-interest-list",
+      "tcp-listener-loopback"
+    ],
+    "rawCpuRestoreUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "runtimeProfileRestoreUsed": false,
+    "appHooksUsed": false,
+    "metadataOnlySuccessAccepted": false
+  },
+  "verifier": {
+    "status": "passed",
+    "direction": "arm64-to-amd64",
+    "targetArch": "amd64",
+    "targetNativeExecution": true,
+    "rawCpuRestoreUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "runtimeProfileRestoreUsed": false,
+    "appHooksUsed": false,
+    "metadataOnlySuccessAccepted": false,
+    "checks": {
+      "memory": true,
+      "stack": true,
+      "bootstrap": true,
+      "targetFunctionReturned": true
+    },
+    "resources": {
+      "closedFd": true,
+      "stdio": true,
+      "reopenFile": true,
+      "pipe": true,
+      "eventfd": true,
+      "timerfd": true,
+      "epoll": true,
+      "tcpListener": true
+    }
+  },
+  "artifacts": [
+    {
+      "name": "source-capture.json",
+      "path": "source-capture.json",
+      "sha256": "36c417674f47860af9fe8aa6c3fe2fd04edcb6741c4cda4f6abf7ba1b28900fb"
+    },
+    {
+      "name": "target-plan.json",
+      "path": "target-plan.json",
+      "sha256": "47f0e85fd856ce7c9acedb27a8aa7bc64d05fd6b35cb70d941a64603b6d7e0be"
+    },
+    {
+      "name": "target-verifier.json",
+      "path": "target-verifier.json",
+      "sha256": "3f6bd64624e949cdd78ee11c7f1a7d410febcb4078cec3109c774a9b122ca530"
+    },
+    {
+      "name": "run-transcript-artifact.json",
+      "path": "run-transcript-artifact.json",
+      "sha256": "30b15429e755922c9bbb9c84f03f107bd31ac959bc255b948865d34c63021f25"
+    }
+  ]
+}

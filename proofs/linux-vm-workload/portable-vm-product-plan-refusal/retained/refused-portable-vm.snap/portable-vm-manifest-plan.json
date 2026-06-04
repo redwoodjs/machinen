@@ -1,0 +1,52 @@
+{
+  "kind": "machinen.portable-vm-manifest-plan",
+  "version": 1,
+  "status": "product-generated",
+  "scope": "portable-vm-all3-product-snapshot-restore-v1",
+  "sourceArchitecture": "arm64",
+  "sourceArchitectureDetected": true,
+  "targetPolicy": {
+    "restoreMode": "target-native-reconstruction",
+    "allowedTargetArchitectures": ["arm64", "amd64"],
+    "unknownStatePolicy": "refuse-by-default",
+    "architectureDetection": "detect-target-architecture-at-restore-time"
+  },
+  "restorePlan": {
+    "rows": [
+      {
+        "id": "filesystem-root",
+        "category": "filesystem",
+        "disposition": "product-supported",
+        "restoreStrategy": "copy-content-addressed-file-tree",
+        "artifact": "filesystem-manifest.json"
+      },
+      {
+        "id": "selected-service",
+        "category": "service",
+        "disposition": "product-supported",
+        "restoreStrategy": "start-target-native-selected-service",
+        "artifact": "service-manifest.json"
+      },
+      {
+        "id": "clean-sqlite",
+        "category": "sqlite",
+        "disposition": "product-supported",
+        "restoreStrategy": "restore-clean-logical-sqlite-dump",
+        "artifact": "sqlite-logical.json"
+      },
+      {
+        "id": "active-network-stream",
+        "category": "network",
+        "disposition": "refused",
+        "refusalCode": "portable-vm-active-network-stream-unsupported",
+        "message": "active network streams are refused; only listener reconstruction is supported"
+      }
+    ]
+  },
+  "claimGuard": {
+    "arbitraryVmRestoreClaimed": false,
+    "rawVmStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlyShortcutAccepted": false
+  }
+}

@@ -1,0 +1,305 @@
+{
+  "proofNumber": "002",
+  "id": "native-stdio-inherit-output-policy",
+  "category": "stdio",
+  "status": "verified",
+  "disposition": "supported-selected-subset",
+  "accepted": true,
+  "artifact": "proofs/native-process-substrate/resource-coverage/retained/row-proofs/002/row-proof.json",
+  "evidence": "Explicit stdio policy inherits stdout/stderr, refuses non-file stdin buffer state, and refuses non-stdio kernel buffers.",
+  "checks": [
+    {
+      "id": "expected-target-kinds",
+      "passed": true,
+      "message": "target kinds include inherit-stdio,inherit-stdio"
+    },
+    {
+      "id": "expected-guest-kinds",
+      "passed": true,
+      "message": "guest kinds include "
+    },
+    {
+      "id": "expected-refusals",
+      "passed": true,
+      "message": "refusals match stdin-buffer-state-unsupported,non-stdio-kernel-state-unsupported"
+    },
+    {
+      "id": "no-raw-cpu-or-emulation",
+      "passed": true,
+      "message": "resource translation does not use raw CPU restore or source ISA emulation"
+    }
+  ],
+  "targetPlan": {
+    "entries": [
+      {
+        "targetFd": 0,
+        "capturedFd": 0,
+        "resourceId": "fd:0:stdin",
+        "resourceKind": "pipe",
+        "kind": "refused",
+        "closeOnExec": false,
+        "action": "refuse",
+        "source": "captured-resource",
+        "refusal": {
+          "code": "stdin-buffer-state-unsupported",
+          "message": "resource fd:0:stdin (pipe) needs a host broker recipe before native restore",
+          "detail": {
+            "id": "fd:0:stdin",
+            "kind": "pipe",
+            "fd": 0,
+            "path": "pipe:[stdin]",
+            "boundary": "stdio-policy",
+            "requiredModel": [
+              "pipe buffer contents",
+              "peer fd ownership",
+              "readiness and wakeup ordering"
+            ]
+          }
+        },
+        "provenance": {
+          "resourceId": "fd:0:stdin",
+          "capturedFd": 0,
+          "targetFd": 0,
+          "reason": "resource-refused-before-target-execution"
+        }
+      },
+      {
+        "targetFd": 1,
+        "capturedFd": 1,
+        "resourceId": "fd:1:stdout",
+        "resourceKind": "pipe",
+        "kind": "inherit-stdio",
+        "closeOnExec": false,
+        "action": "materialize",
+        "source": "captured-resource",
+        "recipe": {
+          "inherit": "stdout",
+          "fd": 1
+        },
+        "targetGuestRecipe": {
+          "kind": "inherit-stdio",
+          "fd": 1,
+          "stream": "stdout",
+          "closeOnExec": false
+        },
+        "provenance": {
+          "resourceId": "fd:1:stdout",
+          "capturedFd": 1,
+          "targetFd": 1,
+          "reason": "translated-resource-recipe"
+        }
+      },
+      {
+        "targetFd": 2,
+        "capturedFd": 2,
+        "resourceId": "fd:2:stderr",
+        "resourceKind": "socket",
+        "kind": "inherit-stdio",
+        "closeOnExec": false,
+        "action": "materialize",
+        "source": "captured-resource",
+        "recipe": {
+          "inherit": "stderr",
+          "fd": 2
+        },
+        "targetGuestRecipe": {
+          "kind": "inherit-stdio",
+          "fd": 2,
+          "stream": "stderr",
+          "closeOnExec": false
+        },
+        "provenance": {
+          "resourceId": "fd:2:stderr",
+          "capturedFd": 2,
+          "targetFd": 2,
+          "reason": "translated-resource-recipe"
+        }
+      },
+      {
+        "targetFd": 3,
+        "capturedFd": 3,
+        "resourceId": "fd:3:nonstdio",
+        "resourceKind": "pipe",
+        "kind": "refused",
+        "closeOnExec": false,
+        "action": "refuse",
+        "source": "captured-resource",
+        "refusal": {
+          "code": "non-stdio-kernel-state-unsupported",
+          "message": "resource fd:3:nonstdio (pipe) needs a host broker recipe before native restore",
+          "detail": {
+            "id": "fd:3:nonstdio",
+            "kind": "pipe",
+            "fd": 3,
+            "path": "pipe:[nonstdio]",
+            "boundary": "kernel-state",
+            "requiredModel": [
+              "pipe buffer contents",
+              "peer fd ownership",
+              "readiness and wakeup ordering"
+            ]
+          }
+        },
+        "provenance": {
+          "resourceId": "fd:3:nonstdio",
+          "capturedFd": 3,
+          "targetFd": 3,
+          "reason": "resource-refused-before-target-execution"
+        }
+      }
+    ],
+    "resources": [
+      {
+        "id": "fd:0:stdin",
+        "kind": "pipe",
+        "state": "refused",
+        "fd": 0,
+        "path": "pipe:[stdin]",
+        "refusal": {
+          "code": "stdin-buffer-state-unsupported",
+          "message": "resource fd:0:stdin (pipe) needs a host broker recipe before native restore",
+          "detail": {
+            "id": "fd:0:stdin",
+            "kind": "pipe",
+            "fd": 0,
+            "path": "pipe:[stdin]",
+            "boundary": "stdio-policy",
+            "requiredModel": [
+              "pipe buffer contents",
+              "peer fd ownership",
+              "readiness and wakeup ordering"
+            ]
+          }
+        }
+      },
+      {
+        "id": "fd:1:stdout",
+        "kind": "pipe",
+        "state": "recipe",
+        "fd": 1,
+        "path": "pipe:[stdout]",
+        "recipe": {
+          "inherit": "stdout",
+          "fd": 1
+        }
+      },
+      {
+        "id": "fd:2:stderr",
+        "kind": "socket",
+        "state": "recipe",
+        "fd": 2,
+        "path": "socket:[stderr]",
+        "recipe": {
+          "inherit": "stderr",
+          "fd": 2
+        }
+      },
+      {
+        "id": "fd:3:nonstdio",
+        "kind": "pipe",
+        "state": "refused",
+        "fd": 3,
+        "path": "pipe:[nonstdio]",
+        "refusal": {
+          "code": "non-stdio-kernel-state-unsupported",
+          "message": "resource fd:3:nonstdio (pipe) needs a host broker recipe before native restore",
+          "detail": {
+            "id": "fd:3:nonstdio",
+            "kind": "pipe",
+            "fd": 3,
+            "path": "pipe:[nonstdio]",
+            "boundary": "kernel-state",
+            "requiredModel": [
+              "pipe buffer contents",
+              "peer fd ownership",
+              "readiness and wakeup ordering"
+            ]
+          }
+        }
+      }
+    ],
+    "targetGuestResources": [
+      {
+        "kind": "inherit-stdio",
+        "fd": 1,
+        "stream": "stdout",
+        "closeOnExec": false
+      },
+      {
+        "kind": "inherit-stdio",
+        "fd": 2,
+        "stream": "stderr",
+        "closeOnExec": false
+      }
+    ],
+    "refusals": [
+      {
+        "code": "stdin-buffer-state-unsupported",
+        "message": "resource fd:0:stdin (pipe) needs a host broker recipe before native restore",
+        "detail": {
+          "id": "fd:0:stdin",
+          "kind": "pipe",
+          "fd": 0,
+          "path": "pipe:[stdin]",
+          "boundary": "stdio-policy",
+          "requiredModel": [
+            "pipe buffer contents",
+            "peer fd ownership",
+            "readiness and wakeup ordering"
+          ]
+        }
+      },
+      {
+        "code": "non-stdio-kernel-state-unsupported",
+        "message": "resource fd:3:nonstdio (pipe) needs a host broker recipe before native restore",
+        "detail": {
+          "id": "fd:3:nonstdio",
+          "kind": "pipe",
+          "fd": 3,
+          "path": "pipe:[nonstdio]",
+          "boundary": "kernel-state",
+          "requiredModel": [
+            "pipe buffer contents",
+            "peer fd ownership",
+            "readiness and wakeup ordering"
+          ]
+        }
+      }
+    ]
+  },
+  "refusals": [
+    {
+      "code": "stdin-buffer-state-unsupported",
+      "message": "resource fd:0:stdin (pipe) needs a host broker recipe before native restore",
+      "detail": {
+        "id": "fd:0:stdin",
+        "kind": "pipe",
+        "fd": 0,
+        "path": "pipe:[stdin]",
+        "boundary": "stdio-policy",
+        "requiredModel": [
+          "pipe buffer contents",
+          "peer fd ownership",
+          "readiness and wakeup ordering"
+        ]
+      }
+    },
+    {
+      "code": "non-stdio-kernel-state-unsupported",
+      "message": "resource fd:3:nonstdio (pipe) needs a host broker recipe before native restore",
+      "detail": {
+        "id": "fd:3:nonstdio",
+        "kind": "pipe",
+        "fd": 3,
+        "path": "pipe:[nonstdio]",
+        "boundary": "kernel-state",
+        "requiredModel": [
+          "pipe buffer contents",
+          "peer fd ownership",
+          "readiness and wakeup ordering"
+        ]
+      }
+    }
+  ],
+  "claimUse": "resource-seed-only"
+}

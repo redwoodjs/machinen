@@ -1,0 +1,26 @@
+{
+  "id": "controlled-process-corpus-matrix",
+  "claim": "Controlled process proof corpus matrix",
+  "trackId": "arbitrary-process",
+  "status": "verified",
+  "scope": "controlled-process-proof-corpus-v1",
+  "claimNumbers": {
+    "productSupport": null,
+    "broadSupport": null,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "promotionEffect": "No public claim change. Product support is out of scope and arbitrary Linux process restore remains 0.",
+  "proofDirectory": "proofs/arbitrary-linux-binaries/controlled-process-corpus",
+  "proofs": [
+    {
+      "id": "controlled-process-corpus-matrix",
+      "proofNumber": "arbitrary/019",
+      "category": "controlled process corpus",
+      "status": "verified",
+      "artifact": "proofs/arbitrary-linux-binaries/controlled-process-corpus/retained/controlled-process-corpus-matrix-report.json",
+      "proves": "controlled-process-proof-corpus-v1 has 10/10 verified rows: 6 supported-proof rows, 4 refused rows, 0 unknown rows, and no product support claim.",
+      "claimUse": "proof corpus evidence only; arbitrary Linux process restore remains 0",
+      "next": "Use this matrix as Phase 2 input before expanding memory, linker, signal, IPC, and thread/futex coverage."
+    }
+  ]
+}

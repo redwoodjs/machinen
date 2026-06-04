@@ -1,0 +1,1 @@
+node /root/machinen-node-e2e/packages/cli/dist/cli.js restore <portable-only> --name node-row-express-fixture-product-run-restored --json

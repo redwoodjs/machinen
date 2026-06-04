@@ -1,0 +1,21 @@
+{
+  "id": "controlled-active-syscall-refusal",
+  "category": "active syscall refusal",
+  "status": "verified",
+  "disposition": "refused",
+  "accepted": true,
+  "proofOnly": true,
+  "productSupportClaimAllowed": false,
+  "productPathRequired": false,
+  "evidence": ["active syscall/interrupted kernel state is refused before target execution"],
+  "refusalCode": "controlled-process-active-syscall-unsupported",
+  "verifier": {
+    "stableRefusalCode": "controlled-process-active-syscall-unsupported",
+    "refusedBeforeTargetExecution": true,
+    "rawCpuRestoreUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "appCheckpointHooksRequired": false,
+    "sidecarReplayUsed": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

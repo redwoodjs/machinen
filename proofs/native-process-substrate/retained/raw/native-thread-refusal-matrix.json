@@ -1,0 +1,160 @@
+{
+  "formatVersion": 1,
+  "translated": {
+    "sourceThreadId": "thread:safe",
+    "state": "translated",
+    "targetRegisters": {
+      "arch": "amd64",
+      "rip": "0x14000120",
+      "rsp": "0x7fffffffe000",
+      "rflags": "0x202",
+      "rax": "0x1",
+      "rbx": "0x14",
+      "rcx": "0x4",
+      "rdx": "0x3",
+      "rsi": "0x2",
+      "rdi": "0x1",
+      "rbp": "0x1e",
+      "r8": "0x5",
+      "r9": "0x6",
+      "r10": "0x7",
+      "r11": "0x8",
+      "r12": "0x15",
+      "r13": "0x16",
+      "r14": "0x17",
+      "r15": "0x18",
+      "fsBase": "0x0",
+      "gsBase": "0x0"
+    }
+  },
+  "refusalCases": [
+    {
+      "id": "inside-syscall",
+      "refusalCode": "active-syscall",
+      "message": "thread thread:inside-syscall is inside-syscall"
+    },
+    {
+      "id": "restart-block",
+      "refusalCode": "active-syscall",
+      "message": "thread thread:restart-block is restart-block"
+    },
+    {
+      "id": "signal-frame",
+      "refusalCode": "signal-frame-active",
+      "message": "thread thread:signal-frame is inside a signal frame"
+    },
+    {
+      "id": "pending-signal-mask",
+      "refusalCode": "signal-state-unsupported",
+      "message": "thread thread:pending-signal-mask has pending signal state"
+    },
+    {
+      "id": "blocked-signal-mask",
+      "refusalCode": "signal-state-unsupported",
+      "message": "thread thread:blocked-signal-mask has blocked signal state"
+    },
+    {
+      "id": "alt-stack",
+      "refusalCode": "signal-state-unsupported",
+      "message": "thread thread:alt-stack has active alt-stack state"
+    },
+    {
+      "id": "rseq-captured",
+      "refusalCode": "rseq-state-unsupported",
+      "message": "thread thread:rseq-captured has rseq state"
+    },
+    {
+      "id": "rseq-unsupported",
+      "refusalCode": "rseq-state-unsupported",
+      "message": "thread thread:rseq-unsupported has rseq state"
+    }
+  ],
+  "restoreBoundary": {
+    "accepted": {
+      "state": "accepted",
+      "threadId": "thread:restore-safe",
+      "targetThreadCount": 1,
+      "activeSyscallContinuations": [],
+      "signalRestore": {
+        "blockedMasks": ["0x0"]
+      },
+      "refusals": []
+    },
+    "refusalCases": [
+      {
+        "id": "multi-thread",
+        "refusalCode": "thread-state-unsupported",
+        "message": "portable restore currently accepts exactly one thread"
+      },
+      {
+        "id": "futex-wait",
+        "refusalCode": "futex-state-unsupported",
+        "message": "resource resource:futex has futex wait state"
+      },
+      {
+        "id": "active-futex-syscall",
+        "refusalCode": "futex-state-unsupported",
+        "message": "thread thread:active-futex-syscall is blocked in futex syscall futex"
+      },
+      {
+        "id": "signal-delivery-stop",
+        "refusalCode": "signal-state-unsupported",
+        "message": "thread thread:signal-delivery-stop is in signal delivery stop"
+      },
+      {
+        "id": "ptrace-debug",
+        "refusalCode": "thread-state-unsupported",
+        "message": "ptrace/debug state"
+      },
+      {
+        "id": "shared-stack",
+        "refusalCode": "mapping-shared-unsupported",
+        "message": "thread thread:shared-stack stack mapping is shared"
+      },
+      {
+        "id": "unknown-tls",
+        "refusalCode": "tls-state-unsupported",
+        "message": "thread thread:unknown-tls has unknown arm64 TPIDR_EL0"
+      },
+      {
+        "id": "wrong-tls-source-register",
+        "refusalCode": "tls-state-unsupported",
+        "message": "thread thread:wrong-tls-source-register TLS source register amd64-fs-base cannot be used as arm64 TPIDR_EL0"
+      },
+      {
+        "id": "unsupported-target-segment-bases",
+        "refusalCode": "tls-state-unsupported",
+        "message": "thread thread:unsupported-target-segment-bases has unsupported amd64 TLS segment bases"
+      },
+      {
+        "id": "ambiguous-registers",
+        "refusalCode": "thread-state-unsupported",
+        "message": "thread thread:ambiguous-registers register state is ambiguous"
+      },
+      {
+        "id": "missing-simd-fpu-state",
+        "refusalCode": "simd-fpu-state-unsupported",
+        "message": "thread thread:missing-simd-fpu-state: SIMD/FPU state was not captured"
+      },
+      {
+        "id": "live-simd-fpu-state",
+        "refusalCode": "simd-fpu-state-unsupported",
+        "message": "thread thread:live-simd-fpu-state: SIMD/FPU state is requires-restore"
+      },
+      {
+        "id": "partial-simd-fpu-subset",
+        "refusalCode": "simd-fpu-state-unsupported",
+        "message": "thread thread:partial-simd-fpu-subset: SIMD/FPU state is requires-restore (caller-saved-vector-registers)"
+      },
+      {
+        "id": "unsupported-simd-fpu-state",
+        "refusalCode": "simd-fpu-state-unsupported",
+        "message": "thread thread:unsupported-simd-fpu-state: SIMD/FPU state is unsupported"
+      }
+    ]
+  },
+  "architectureRefusal": {
+    "code": "architecture-pair-unsupported",
+    "message": "native register translation only supports arm64 -> amd64 in this proof (got amd64 -> arm64)"
+  }
+}

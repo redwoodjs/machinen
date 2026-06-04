@@ -1,0 +1,112 @@
+{
+  "kind": "machinen.whole-vm-workload-corpus-refusal-product-gate",
+  "version": 1,
+  "accepted": true,
+  "proofStatus": "verified",
+  "scope": "whole-vm-refused-corpus-product-refusals-v1",
+  "publicClaimAllowed": false,
+  "claimChangeAllowed": false,
+  "currentClaimScope": "selected-whole-vm-workload-v1 only",
+  "arbitraryVmRestoreClaimed": false,
+  "arbitraryLinuxProcessRestoreClaimed": false,
+  "summary": {
+    "refusedCorpusRowsRequired": 4,
+    "productRefusalRowsVerified": 4,
+    "productRefusalDirectionsVerified": 8,
+    "arbitraryVmRestoreRowsAdded": 0,
+    "publicClaimRowsAdded": 0
+  },
+  "rowResults": [
+    {
+      "id": "whole-vm-sqlite-clean-db-workload",
+      "status": "verified",
+      "disposition": "product-refused",
+      "accepted": true,
+      "acceptedDirections": ["arm64-to-amd64", "amd64-to-arm64"],
+      "artifact": "whole-vm-sqlite-clean-db-workload-product-refusal.json",
+      "artifactSha256": "045a99f4fb49391dc14e99ec9c54ff167511106597274a9121375861ad379add",
+      "refusalCode": "whole-vm-workload-tool-missing",
+      "claimUse": "product-quality refusal artifact only; no arbitrary VM restore claim",
+      "evidence": ["arm64:sqlite3-not-installed-in-guest", "amd64:sqlite3-not-installed-in-guest"],
+      "arbitraryVmRestoreClaimed": false
+    },
+    {
+      "id": "whole-vm-postgresql-clean-workload",
+      "status": "verified",
+      "disposition": "product-refused",
+      "accepted": true,
+      "acceptedDirections": ["arm64-to-amd64", "amd64-to-arm64"],
+      "artifact": "whole-vm-postgresql-clean-workload-product-refusal.json",
+      "artifactSha256": "ddbd876d143c416fc6fee9e0a4049c173be96d2fffc9c9d67616c62cbd9b18df",
+      "refusalCode": "whole-vm-workload-tool-missing",
+      "claimUse": "product-quality refusal artifact only; no arbitrary VM restore claim",
+      "evidence": [
+        "arm64:postgresql-tools-not-installed-in-guest",
+        "amd64:postgresql-tools-not-installed-in-guest"
+      ],
+      "arbitraryVmRestoreClaimed": false
+    },
+    {
+      "id": "whole-vm-java-service-workload",
+      "status": "verified",
+      "disposition": "product-refused",
+      "accepted": true,
+      "acceptedDirections": ["arm64-to-amd64", "amd64-to-arm64"],
+      "artifact": "whole-vm-java-service-workload-product-refusal.json",
+      "artifactSha256": "611f65393def4eb8dcb18e38b550a359f07a81dd9eecd194f05ba0b326a513fc",
+      "refusalCode": "whole-vm-workload-tool-missing",
+      "claimUse": "product-quality refusal artifact only; no arbitrary VM restore claim",
+      "evidence": [
+        "arm64:java-runtime-not-installed-in-guest",
+        "amd64:java-runtime-not-installed-in-guest"
+      ],
+      "arbitraryVmRestoreClaimed": false
+    },
+    {
+      "id": "whole-vm-dirty-active-opaque-state-refusals",
+      "status": "verified",
+      "disposition": "product-refusal-defined",
+      "accepted": true,
+      "acceptedDirections": ["arm64-to-amd64", "amd64-to-arm64"],
+      "artifact": "whole-vm-dirty-active-opaque-state-refusals-product-refusal.json",
+      "artifactSha256": "e13d34762f769f0aeddc3b014acefb00ad010c7da941e368cd88cc5d2573d8c0",
+      "refusalCode": "whole-vm-dirty-active-opaque-state-unsupported",
+      "claimUse": "product-quality refusal artifact only; no arbitrary VM restore claim",
+      "evidence": [
+        "arm64:dirty-db-active-session-opaque-kernel-device-runtime-private-state-require-explicit-refusal",
+        "amd64:dirty-db-active-session-opaque-kernel-device-runtime-private-state-require-explicit-refusal"
+      ],
+      "arbitraryVmRestoreClaimed": false
+    }
+  ],
+  "artifacts": [
+    {
+      "name": "whole-vm-sqlite-clean-db-workload-product-refusal.json",
+      "path": "whole-vm-sqlite-clean-db-workload-product-refusal.json",
+      "sha256": "045a99f4fb49391dc14e99ec9c54ff167511106597274a9121375861ad379add"
+    },
+    {
+      "name": "whole-vm-postgresql-clean-workload-product-refusal.json",
+      "path": "whole-vm-postgresql-clean-workload-product-refusal.json",
+      "sha256": "ddbd876d143c416fc6fee9e0a4049c173be96d2fffc9c9d67616c62cbd9b18df"
+    },
+    {
+      "name": "whole-vm-java-service-workload-product-refusal.json",
+      "path": "whole-vm-java-service-workload-product-refusal.json",
+      "sha256": "611f65393def4eb8dcb18e38b550a359f07a81dd9eecd194f05ba0b326a513fc"
+    },
+    {
+      "name": "whole-vm-dirty-active-opaque-state-refusals-product-refusal.json",
+      "path": "whole-vm-dirty-active-opaque-state-refusals-product-refusal.json",
+      "sha256": "e13d34762f769f0aeddc3b014acefb00ad010c7da941e368cd88cc5d2573d8c0"
+    }
+  ],
+  "noShortcutPolicy": {
+    "rawVmStateRestoreUsed": false,
+    "crossIsaCpuReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "arbitraryVmRestoreAccepted": false,
+    "arbitraryLinuxProcessRestoreAccepted": false,
+    "metadataOnlySuccessAccepted": false
+  }
+}

@@ -1,0 +1,108 @@
+{
+  "kind": "machinen.arbitrary-process-bidirectional-target-output-hardening",
+  "version": 1,
+  "accepted": true,
+  "proofStatus": "verified",
+  "scope": "arbitrary-process-bidirectional-target-output-hardening-v1",
+  "publicClaimAllowed": false,
+  "productSupportOutOfScope": true,
+  "currentClaim": {
+    "productSupport": null,
+    "broadSupport": null,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "summary": {
+    "supportedRowsRequired": 6,
+    "supportedRowsVerified": 6,
+    "targetOutputArtifactsRetained": 12,
+    "bidirectionalDirectionsVerified": 12,
+    "productSupportRowsAdded": 0,
+    "publicArbitraryProcessClaim": 0
+  },
+  "rows": [
+    {
+      "id": "process-metadata-argv-env-cwd",
+      "status": "verified",
+      "directions": ["arm64-to-amd64", "amd64-to-arm64"],
+      "artifacts": [
+        "process-metadata-argv-env-cwd-arm64-to-amd64-target-output.json",
+        "process-metadata-argv-env-cwd-amd64-to-arm64-target-output.json"
+      ],
+      "artifactSha256": [
+        "3e84471686fa1423cb096fc9841c1242302e3d55dafbb1c9ca27612ea5bf3c19",
+        "4dd32b89db3596ccd220752bc2525b050aef7c100abd0dd826f95dd3d5c7dc62"
+      ],
+      "claimUse": "per-direction target output proof only; arbitrary process restore remains 0"
+    },
+    {
+      "id": "static-data-heap-memory",
+      "status": "verified",
+      "directions": ["arm64-to-amd64", "amd64-to-arm64"],
+      "artifacts": [
+        "static-data-heap-memory-arm64-to-amd64-target-output.json",
+        "static-data-heap-memory-amd64-to-arm64-target-output.json"
+      ],
+      "artifactSha256": [
+        "19af4791c9c31a2eb90df3bc6deef5e4d930aff8fe49abbf8ea81f844be5a3bf",
+        "203d79ec0f984259ccc37216b8f36755f120bda9522ef06f85192a6f00c9a7c1"
+      ],
+      "claimUse": "per-direction target output proof only; arbitrary process restore remains 0"
+    },
+    {
+      "id": "regular-file-fd-state",
+      "status": "verified",
+      "directions": ["arm64-to-amd64", "amd64-to-arm64"],
+      "artifacts": [
+        "regular-file-fd-state-arm64-to-amd64-target-output.json",
+        "regular-file-fd-state-amd64-to-arm64-target-output.json"
+      ],
+      "artifactSha256": [
+        "4ee62f33dffdffd2e8bc04e3cfca00a0e5183ed25924c73717ecbb041d0dc027",
+        "5464be7bbfbe2869856b6f62d111fa52f75090607cbdf2e6b57a827fa5108de0"
+      ],
+      "claimUse": "per-direction target output proof only; arbitrary process restore remains 0"
+    },
+    {
+      "id": "simple-pipe-fd-state",
+      "status": "verified",
+      "directions": ["arm64-to-amd64", "amd64-to-arm64"],
+      "artifacts": [
+        "simple-pipe-fd-state-arm64-to-amd64-target-output.json",
+        "simple-pipe-fd-state-amd64-to-arm64-target-output.json"
+      ],
+      "artifactSha256": [
+        "a8c200382bb32bc5e96fc814523cab7641a03f947e7da3fd52bc7c1f0f3c0fd3",
+        "d216c08b3459842c65f3ffb0c66d51ab9497063ad80d4fb48dd039eb8c079363"
+      ],
+      "claimUse": "per-direction target output proof only; arbitrary process restore remains 0"
+    },
+    {
+      "id": "idle-eventfd-timerfd-state",
+      "status": "verified",
+      "directions": ["arm64-to-amd64", "amd64-to-arm64"],
+      "artifacts": [
+        "idle-eventfd-timerfd-state-arm64-to-amd64-target-output.json",
+        "idle-eventfd-timerfd-state-amd64-to-arm64-target-output.json"
+      ],
+      "artifactSha256": [
+        "71b947e0f29a18643da4dcf5ca6283f79e90b51dc58bbe4e8d8e49121018ca9a",
+        "672339f69a41e38700218b36ef9ef42be986262f25cdcff7dbf016dcea471428"
+      ],
+      "claimUse": "per-direction target output proof only; arbitrary process restore remains 0"
+    },
+    {
+      "id": "idle-epoll-tcp-listener-state",
+      "status": "verified",
+      "directions": ["arm64-to-amd64", "amd64-to-arm64"],
+      "artifacts": [
+        "idle-epoll-tcp-listener-state-arm64-to-amd64-target-output.json",
+        "idle-epoll-tcp-listener-state-amd64-to-arm64-target-output.json"
+      ],
+      "artifactSha256": [
+        "061ee371a12e9b5873b47d1340c361fda98c183e118fdd2a1c644b0a99eac373",
+        "fdb49a0a2eeb2186f7c7e3ff520acc5e71e953e6b172d5f5da6ba2139a110b83"
+      ],
+      "claimUse": "per-direction target output proof only; arbitrary process restore remains 0"
+    }
+  ]
+}

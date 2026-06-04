@@ -1,0 +1,20 @@
+{
+  "kind": "machinen.node-supported-row-target-verifier",
+  "version": 1,
+  "accepted": true,
+  "rowId": "express-installed-multi-route",
+  "direction": "arm64-to-amd64",
+  "routePath": "/express-installed-multi-route",
+  "expectedBody": "express-installed-multi-route-ok",
+  "actualBody": "express-installed-multi-route-ok",
+  "bodySha256": "f01eb98b8f301ab3b6f57f7c31953785c649d662b9e6ecdad76a69675f33307c",
+  "expectedHeader": {
+    "x-machinen-row": "express-installed-multi-route"
+  },
+  "actualHeaders": "HTTP/1.1 200 OK\nX-Powered-By: Express\nx-machinen-row: express-installed-multi-route\nContent-Type: text/html; charset=utf-8\nContent-Length: 32\nETag: W/\"20-JYNipQX5L/PWa4Mqh8ZViX46iIo\"\nDate: Tue, 02 Jun 2026 16:17:28 GMT\nConnection: keep-alive\nKeep-Alive: timeout=5\n\n",
+  "targetNativeNodeVerified": true,
+  "sourceIsaEmulationUsed": false,
+  "sidecarRuntimeUsed": false,
+  "appHooksRequired": false,
+  "metadataOnlySuccessAccepted": false
+}

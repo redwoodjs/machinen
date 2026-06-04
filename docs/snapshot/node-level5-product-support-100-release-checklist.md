@@ -1,20 +1,21 @@
-# Node Level 5 100 / 100 / 0 release checklist
+# Node Level 5 100 / 100 / 0 release checklist — blocked
 
-Before publishing the 100 / 100 / 0 claim, run:
+Do not publish the Node 100 / 100 / 0 claim unless `proofs/nodejs/real-cross-arch-e2e-gate/` passes for every supported row and refusal boundary. The current retained gate is only a bidirectional clean HTTP seed.
+
+Required retained evidence:
+
+- real `machinen snapshot <vm-name> --out <dir>` and `machinen restore <dir>` runs;
+- amd64 -> arm64 and arm64 -> amd64 directions;
+- source and target behavior transcripts;
+- target-native verifier output;
+- restore summaries and logs;
+- refusal artifacts for unsupported live/runtime states;
+- no raw CPU restore, source-ISA emulation, app hooks, sidecars, or metadata-only success.
+
+Validate the retained seed with:
 
 ```sh
-pnpm run format:check
-pnpm run lint
-pnpm run build:docs
-pnpm run typecheck
-NPM_CONFIG_USERCONFIG=/dev/null npx vitest run
-bash scripts/smoke/node-level5-product-support-100-claim.sh
-pnpm exec fallow audit --changed-since origin/main
-git diff --check origin/main...HEAD
+bash scripts/smoke/node-real-cross-arch-e2e-gate.sh
 ```
 
-Run full VM smoke tests when product snapshot metadata or VM-facing behavior changes.
-
-## Required evidence
-
-The Node service claim ladder must verify all intermediate targets from 95 / 40 / 0 through 100 / 100 / 0, while keeping arbitrary process cross-architecture restore at 0.
+Until full row coverage exists, Node remains `0 / 0 / 0` in the public claim dashboard.

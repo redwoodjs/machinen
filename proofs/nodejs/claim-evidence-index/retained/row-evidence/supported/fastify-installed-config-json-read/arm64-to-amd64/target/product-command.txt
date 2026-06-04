@@ -1,0 +1,1 @@
+machinen restore <dir> for fastify-installed-config-json-read arm64-to-amd64

@@ -31,6 +31,11 @@ describe("arbitrary process Level 5 seed matrix", () => {
     expect(matrix.rows.every((row) => row.rawCpuRestoreUsed === false)).toBe(true);
     expect(matrix.rows.every((row) => row.sourceIsaEmulationUsed === false)).toBe(true);
     expect(matrix.rows.every((row) => row.appCheckpointHooksRequired === false)).toBe(true);
+    expect(matrix.rows.every((row) => row.proofPath === "retained proof-only seed artifact")).toBe(
+      true,
+    );
+    expect(matrix.rows.every((row) => row.productPathArtifactsRequired === false)).toBe(true);
+    expect(matrix.rows.every((row) => row.productSupportClaimAllowed === false)).toBe(true);
     expect(matrix.rows.find((row) => row.id === "native-ping-socket-resource")).toMatchObject({
       status: "seed-candidate",
       evidenceKind: "network-resource-translation-seed",

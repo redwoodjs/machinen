@@ -1,0 +1,31 @@
+{
+  "id": "023-memory-array",
+  "slug": "memory-array",
+  "runtime": "nodejs",
+  "description": "Selected packed V8 Smi array state decoded from captured memory evidence and materialized semantically",
+  "disposition": "product-supported",
+  "claimUse": "portable Node memory-state compatibility dimension only; no arbitrary process or raw V8 heap restore claim",
+  "architecturePolicy": "memory decoder smoke retained for arm64 and amd64 target-native materialization",
+  "startCommand": "node app.mjs",
+  "healthPath": "/state",
+  "expectedBody": "[1,2]",
+  "dependencies": [],
+  "refusalCode": null,
+  "capability": {
+    "category": "memory-state",
+    "detects": ["anchored V8 packed Smi memory evidence"],
+    "captures": ["array length/elements evidence"],
+    "restores": ["fresh target-native JS array with decoded elements"],
+    "verifies": ["array elements remain [1,2]"],
+    "blocks": ["sparse arrays", "unsupported elements kinds", "external/native elements"]
+  },
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "arbitraryLinuxProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "samePidContinuationClaimed": false,
+    "activeRequestOrSocketContinuationClaimed": false
+  }
+}

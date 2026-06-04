@@ -1,0 +1,101 @@
+{
+  "id": "whole-vm-db-tooling-support-path",
+  "claim": "Whole-VM clean DB tooling support path",
+  "trackId": "whole-linux-vm-workload",
+  "status": "verified",
+  "scope": "whole-vm-clean-db-tooling-support-path-v1",
+  "claimNumbers": {
+    "productSupport": 100,
+    "broadSupport": 100,
+    "arbitraryProcessCrossArchRestore": 0,
+    "arbitraryVmRestoreRowsAdded": 0
+  },
+  "promotionEffect": "Adds clean SQLite/PostgreSQL tooling support-path artifacts while dirty/active DB states remain refused. No arbitrary VM restore claim.",
+  "proofDirectory": "proofs/linux-vm-workload/db-tooling-support-path",
+  "proofs": [
+    {
+      "id": "whole-vm-sqlite-clean-db-workload",
+      "proofNumber": "vm/024",
+      "category": "clean DB tooling product gate",
+      "status": "verified",
+      "disposition": "tooling-product-supported",
+      "artifact": "proofs/linux-vm-workload/db-tooling-support-path/retained/whole-vm-sqlite-clean-db-workload-tooling-product-gate.json",
+      "proves": "Target-native clean DB tooling path covers whole-vm-sqlite-clean-db-workload.",
+      "claimUse": "clean DB tooling support path only; no arbitrary VM restore claim",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 100,
+          "broadSupport": 100,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    },
+    {
+      "id": "whole-vm-postgresql-clean-workload",
+      "proofNumber": "vm/025",
+      "category": "clean DB tooling product gate",
+      "status": "verified",
+      "disposition": "tooling-product-supported",
+      "artifact": "proofs/linux-vm-workload/db-tooling-support-path/retained/whole-vm-postgresql-clean-workload-tooling-product-gate.json",
+      "proves": "Target-native clean DB tooling path covers whole-vm-postgresql-clean-workload.",
+      "claimUse": "clean DB tooling support path only; no arbitrary VM restore claim",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 100,
+          "broadSupport": 100,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    },
+    {
+      "id": "whole-vm-sqlite-dirty-wal-hot-journal-refusal",
+      "proofNumber": "vm/026",
+      "category": "dirty active DB refusal",
+      "status": "verified",
+      "disposition": "product-refused",
+      "artifact": "proofs/linux-vm-workload/db-tooling-support-path/retained/whole-vm-sqlite-dirty-wal-hot-journal-refusal.json",
+      "proves": "Dirty/active DB state remains refused with whole-vm-dirty-db-state-unsupported.",
+      "claimUse": "dirty/active DB refusal only; no arbitrary VM restore claim",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 100,
+          "broadSupport": 100,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    },
+    {
+      "id": "whole-vm-postgresql-active-transaction-dirty-wal-refusal",
+      "proofNumber": "vm/027",
+      "category": "dirty active DB refusal",
+      "status": "verified",
+      "disposition": "product-refused",
+      "artifact": "proofs/linux-vm-workload/db-tooling-support-path/retained/whole-vm-postgresql-active-transaction-dirty-wal-refusal.json",
+      "proves": "Dirty/active DB state remains refused with whole-vm-active-db-state-unsupported.",
+      "claimUse": "dirty/active DB refusal only; no arbitrary VM restore claim",
+      "claimImpact": {
+        "productSupportDelta": 0,
+        "broadSupportDelta": 0,
+        "arbitraryProcessCrossArchRestoreDelta": 0,
+        "resultingClaim": {
+          "productSupport": 100,
+          "broadSupport": 100,
+          "arbitraryProcessCrossArchRestore": 0
+        },
+        "claimChangeAllowed": false
+      }
+    }
+  ]
+}

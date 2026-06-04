@@ -1,0 +1,160 @@
+{
+  "kind": "machinen.selected-arbitrary-linux-process-behavior-e2e",
+  "version": 1,
+  "accepted": true,
+  "scope": "selected-arbitrary-linux-process-seed-v1",
+  "proofStatus": "verified",
+  "publicClaimAllowed": false,
+  "claimChangeAllowed": false,
+  "currentClaim": {
+    "productSupport": null,
+    "broadSupport": null,
+    "arbitraryProcessCrossArchRestore": 0
+  },
+  "candidateOnly": {
+    "arbitraryProcessCrossArchRestore": 1,
+    "reason": "Behavior E2E is scoped proof-only evidence for selected-arbitrary-linux-process-seed-v1; it does not raise the public arbitrary-process claim."
+  },
+  "productPathArtifactsRequired": false,
+  "productSupportRowsAdded": 0,
+  "sourceCapture": {
+    "artifact": "source-capture.json",
+    "threads": 1,
+    "safePoint": "idle",
+    "argvSha256": "2373ef52a67417187dc9a3acd8df4db71e2d0d6f9a4e9729b491c5030f977aac",
+    "envSha256": "a30eca7713566a95051c39dfc55ffadfccb167cd41a6b6d386c4ee7851715586",
+    "cwdSha256": "96e93d2de959396d49547a159198cea68a01f2d39a3104c226063cff0f8f4f5a",
+    "staticDataHeapSha256": "e4e4607c146818570e1718319eea271efe1d79736ec053db8ea0d3eecf61ad09"
+  },
+  "targetVerifier": {
+    "artifact": "target-verifier.json",
+    "argvMatched": true,
+    "envMatched": true,
+    "cwdMatched": true,
+    "staticDataHeapMatched": true,
+    "regularFileFdVerified": true,
+    "simplePipeFdVerified": true,
+    "idleEpollTcpVerified": true
+  },
+  "behaviorChecks": [
+    {
+      "id": "argv-env-cwd",
+      "status": "verified",
+      "evidence": "target verifier matched captured argv, env, and cwd hashes"
+    },
+    {
+      "id": "static-data-heap",
+      "status": "verified",
+      "evidence": "target verifier matched captured static/data/heap payload hash"
+    },
+    {
+      "id": "regular-file-fd",
+      "status": "verified",
+      "evidence": "regular-file FD proof verified captured offset, read continuation, and target offset advance"
+    },
+    {
+      "id": "simple-pipe-fd",
+      "status": "verified",
+      "evidence": "simple pipe proof verified buffered bytes, endpoint direction, and EOF"
+    },
+    {
+      "id": "idle-epoll-tcp",
+      "status": "verified",
+      "evidence": "idle epoll/TCP proof verified no ready events and no accepted streams"
+    }
+  ],
+  "refusalRows": [
+    {
+      "id": "threads",
+      "status": "refused",
+      "reason": "multiple live threads remain outside this selected seed"
+    },
+    {
+      "id": "active-syscalls",
+      "status": "refused",
+      "reason": "active syscall continuation is not reconstructed"
+    },
+    {
+      "id": "jit-code",
+      "status": "refused",
+      "reason": "JIT/generated executable pages remain refused"
+    },
+    {
+      "id": "futex-owned-locks",
+      "status": "refused",
+      "reason": "futex owners/waiters remain refused"
+    },
+    {
+      "id": "active-sockets-epoll",
+      "status": "refused",
+      "reason": "active sockets and active epoll readiness remain refused"
+    },
+    {
+      "id": "device-mmap",
+      "status": "refused",
+      "reason": "device mmap and opaque device state remain refused"
+    },
+    {
+      "id": "process-trees",
+      "status": "refused",
+      "reason": "multi-process/process-tree restore remains outside this selected seed"
+    },
+    {
+      "id": "arbitrary-unknown-linux-process",
+      "status": "refused",
+      "reason": "uncontrolled arbitrary process state remains unsupported"
+    }
+  ],
+  "componentReports": [
+    {
+      "id": "regular-file-fd",
+      "artifact": "work/regular-file-fd/regular-file-fd-proof-report.json",
+      "accepted": true,
+      "rowId": "native-regular-file-fd",
+      "proofStatus": "verified-seed",
+      "sha256": "9e263b72b3c5d134c06b3826c585f20dddcd56c3c16eafec1ac0dff645bc5fdb"
+    },
+    {
+      "id": "simple-pipe-fd",
+      "artifact": "work/simple-pipe-fd/simple-pipe-fd-proof-report.json",
+      "accepted": true,
+      "rowId": "native-simple-pipe-fd",
+      "proofStatus": "verified-seed",
+      "sha256": "c73efa00d97f1eff6f04c46c4c56a4cabf3b8f3036e3e475242283cc13faf40a"
+    },
+    {
+      "id": "idle-epoll-tcp",
+      "artifact": "work/idle-resource/idle-resource-proof-report.json",
+      "accepted": true,
+      "rowId": "native-idle-epoll-or-tcp",
+      "proofStatus": "verified-seed",
+      "sha256": "1c7463b7e27a407424d11ebec7608cd71fbd88da0d9136be51abc3f3684e8b23"
+    }
+  ],
+  "noShortcutPolicy": {
+    "rawCpuRestoreAccepted": false,
+    "sourceIsaEmulationAccepted": false,
+    "appCheckpointHooksAccepted": false,
+    "sidecarReplayAccepted": false,
+    "metadataOnlySuccessAccepted": false,
+    "arbitraryUnknownProcessAccepted": false
+  },
+  "artifacts": [
+    {
+      "name": "source-capture.json",
+      "path": "source-capture.json",
+      "sha256": "020115e4df2af5869128e756b5e90100857f3d0d67a8f4e2ba3d47918a34721f"
+    },
+    {
+      "name": "target-reconstruction-plan.json",
+      "path": "target-reconstruction-plan.json",
+      "sha256": "fc74d072b762fed0198e84960119d9f6ed2cb4ac4e02d851e42c11538e1f62b4"
+    },
+    {
+      "name": "target-verifier.json",
+      "path": "target-verifier.json",
+      "sha256": "4e86f749ae8950e3806751a410128aed44dd97ab7fc1d8c7b75a77c634945b15"
+    }
+  ],
+  "artifactsSha256": "a0d25de1f450416e01d164a450c0604ebea5196cfd1808d99016a3588200af1b"
+}

@@ -1,0 +1,23 @@
+{
+  "proofNumber": "012",
+  "id": "native-jit-code-page-refusal-proof",
+  "type": "boundary",
+  "subcategory": "jit/code-page refusal",
+  "status": "verified",
+  "accepted": true,
+  "artifact": "proofs/native-process-substrate/retained/row-proofs/012/row-proof.json",
+  "evidence": "Boundary checklist refuses JIT/self-modifying code pages unless code locations are proven target-native. Raw verifier: proofs/native-process-substrate/retained/raw/native-boundary-check.json.",
+  "checks": [
+    {
+      "id": "jit-boundary",
+      "passed": true,
+      "message": "JIT/self-modifying code boundary present"
+    },
+    {
+      "id": "code-location-refusal",
+      "passed": true,
+      "message": "code-location-unknown refusal retained"
+    }
+  ],
+  "claimUse": "boundary-refusal"
+}
