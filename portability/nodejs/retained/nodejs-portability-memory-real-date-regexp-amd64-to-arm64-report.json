@@ -1,0 +1,161 @@
+{
+  "kind": "machinen.nodejs-portability-memory-real-date-regexp-smoke-report",
+  "version": 1,
+  "accepted": true,
+  "portabilityRow": "050-memory-real-date-regexp",
+  "architectures": ["amd64", "arm64"],
+  "sourceArch": "amd64",
+  "targetArch": "arm64",
+  "executeVm": true,
+  "memoryCapture": "real-guest-proc-maps-and-proc-mem",
+  "migrationCompleted": true,
+  "summary": {
+    "verifiedVmRows": 1,
+    "memoryStateRows": 1,
+    "refusedRows": 0
+  },
+  "results": [
+    {
+      "id": "050-memory-real-date-regexp",
+      "architecture": "amd64",
+      "state": "verified"
+    },
+    {
+      "id": "050-memory-real-date-regexp",
+      "architecture": "arm64",
+      "state": "verified"
+    }
+  ],
+  "sourceCapture": {
+    "kind": "machinen.nodejs-portability-memory-real-date-regexp-smoke-report.source-capture",
+    "accepted": true,
+    "portabilityRow": "050-memory-real-date-regexp",
+    "sourceArch": "amd64",
+    "captureMethod": "guest-proc-maps-and-proc-mem-anchor-semantic-decoder",
+    "appHookUsedForCapture": false,
+    "rawV8HeapRestored": false,
+    "samePidRestored": false,
+    "memoryIr": {
+      "kind": "machinen.nodejs.memory-ir",
+      "version": 1,
+      "runtime": {
+        "name": "node",
+        "sourceArch": "amd64",
+        "v8": "12.4.254.21-node.22"
+      },
+      "rows": [
+        {
+          "id": "050-memory-real-date-regexp",
+          "shape": "date-regexp",
+          "semanticState": {
+            "kind": "date-regexp",
+            "anchor": "machinen-real-date-regexp-anchor-v1",
+            "dateIso": "2026-06-04T05:55:16.123Z",
+            "dateEpochMs": 1780552516123,
+            "regexpSource": "machinen-(portable)-(date-regexp)",
+            "regexpFlags": "giu"
+          },
+          "anchors": {
+            "anchor": "machinen-real-date-regexp-anchor-v1",
+            "dateIso": "date-iso:2026-06-04T05:55:16.123Z",
+            "regexpSource": "regexp-source:machinen-(portable)-(date-regexp)",
+            "regexpFlags": "regexp-flags:giu"
+          }
+        }
+      ],
+      "unsupported": [],
+      "claimGuard": {
+        "arbitraryNodeProcessRestoreClaimed": false,
+        "arbitraryLinuxProcessRestoreClaimed": false,
+        "rawV8HeapRestoreUsed": false,
+        "rawCpuStateReplayUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "samePidContinuationClaimed": false,
+        "activeRequestOrSocketContinuationClaimed": false
+      }
+    },
+    "evidence": {
+      "pid": 385,
+      "mapsSha256": "bad2b6ac44d1746aff7fc00f934125858aa4e7cb802c76893f52a1ff38578782",
+      "readableMappings": 109,
+      "decodedFields": {
+        "anchor": {
+          "found": true,
+          "hits": ["0xcd6cf0c889", "0xcd6cf0c990", "0x51397e16761", "0x51397e16868"]
+        },
+        "dateIso": {
+          "found": true,
+          "hits": ["0xcd6cf0c9c4", "0x51397e1689c", "0x33a12314c250"]
+        },
+        "regexpSource": {
+          "found": true,
+          "hits": ["0xcd6cf0c9fb", "0x51397e168d3", "0x33a12314c288"]
+        },
+        "regexpFlags": {
+          "found": true,
+          "hits": ["0xcd6cf0ca3f", "0x51397e16917", "0x33a12314c2c8"]
+        }
+      }
+    }
+  },
+  "targetResult": {
+    "kind": "machinen.nodejs-portability-memory-real-date-regexp-smoke-report.target-result",
+    "accepted": true,
+    "portabilityRow": "050-memory-real-date-regexp",
+    "sourceArch": "amd64",
+    "targetArch": "arm64",
+    "materialization": "target-native-node-semantic-memory-ir",
+    "targetNativeNode": true,
+    "appHookUsedForCapture": false,
+    "rawV8HeapRestored": false,
+    "samePidRestored": false,
+    "verifier": {
+      "accepted": true,
+      "actual": {
+        "kind": "date-regexp",
+        "anchor": "machinen-real-date-regexp-anchor-v1",
+        "dateIso": "2026-06-04T05:55:16.123Z",
+        "dateEpochMs": 1780552516123,
+        "regexpSource": "machinen-(portable)-(date-regexp)",
+        "regexpFlags": "giu"
+      },
+      "expected": {
+        "kind": "date-regexp",
+        "anchor": "machinen-real-date-regexp-anchor-v1",
+        "dateIso": "2026-06-04T05:55:16.123Z",
+        "dateEpochMs": 1780552516123,
+        "regexpSource": "machinen-(portable)-(date-regexp)",
+        "regexpFlags": "giu"
+      }
+    }
+  },
+  "evidence": {
+    "appPath": "portability/nodejs/050-memory-real-date-regexp/app.mjs",
+    "appSha256": "3c53d4b80fcd8399721662c9846808079de3cc3e1f53a24d89b5d24ad4f53ab8",
+    "smokePath": "portability/nodejs/050-memory-real-date-regexp/smoke.ts"
+  },
+  "claimBoundary": {
+    "claims": [
+      "050-memory-real-date-regexp captures selected Node date-regexp state from /proc memory and materializes it target-native across architectures"
+    ],
+    "notClaimed": [
+      "arbitrary Node process restore",
+      "raw V8 heap restore",
+      "same PID continuation",
+      "active request/socket continuation",
+      "worker/native-addon/child-process live-state transfer",
+      "source ISA emulation",
+      "arbitrary Linux process restore",
+      "raw VM/vCPU/device replay"
+    ]
+  },
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "arbitraryLinuxProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "samePidContinuationClaimed": false,
+    "activeRequestOrSocketContinuationClaimed": false
+  }
+}

@@ -45,7 +45,7 @@ Rows `022` through `035` move existing V8/Node memory-state coverage into portab
 
 Row `036-memory-capture-classifier` starts a real Node process inside a guest and captures `/proc/<pid>/maps` plus `/proc/<pid>/mem` to classify seeded Node/V8 memory categories on both `arm64` and `amd64`.
 
-Rows `037` through `048` retain bidirectional real-memory evidence (`arm64 -> amd64` and `amd64 -> arm64`) for selected plain object, array, closure context, string, nested/shared/cyclic graphs, Map/Set, class instance, Buffer, typed array, and HTTP handler closure state. Each supported row captures `/proc/<pid>/maps` and `/proc/<pid>/mem`, emits `machinen.nodejs.memory-ir`, materializes that semantic IR in target-native Node, and verifies behavior.
+Rows `037` through `048` retain bidirectional real-memory evidence (`arm64 -> amd64` and `amd64 -> arm64`) for selected plain object, array, closure context, string, nested/shared/cyclic graphs, Map/Set, class instance, Buffer, typed array, and HTTP handler closure state. Rows `050` through `054` extend that matrix to Date/RegExp, Error objects, URL/URLSearchParams, BigInt-rich graphs represented as tagged semantic values, and module-level singleton state. Each supported row captures `/proc/<pid>/maps` and `/proc/<pid>/mem`, emits `machinen.nodejs.memory-ir`, materializes that semantic IR in target-native Node, and verifies behavior.
 
 Row `049-memory-real-promise-refusal` keeps pending Promise / microtask state fail-closed with `node-portability-memory-pending-promise-unsupported`.
 

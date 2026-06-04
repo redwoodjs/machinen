@@ -1,0 +1,179 @@
+{
+  "kind": "machinen.nodejs-portability-memory-real-url-searchparams-smoke-report",
+  "version": 1,
+  "accepted": true,
+  "portabilityRow": "052-memory-real-url-searchparams",
+  "architectures": ["amd64", "arm64"],
+  "sourceArch": "amd64",
+  "targetArch": "arm64",
+  "executeVm": true,
+  "memoryCapture": "real-guest-proc-maps-and-proc-mem",
+  "migrationCompleted": true,
+  "summary": {
+    "verifiedVmRows": 1,
+    "memoryStateRows": 1,
+    "refusedRows": 0
+  },
+  "results": [
+    {
+      "id": "052-memory-real-url-searchparams",
+      "architecture": "amd64",
+      "state": "verified"
+    },
+    {
+      "id": "052-memory-real-url-searchparams",
+      "architecture": "arm64",
+      "state": "verified"
+    }
+  ],
+  "sourceCapture": {
+    "kind": "machinen.nodejs-portability-memory-real-url-searchparams-smoke-report.source-capture",
+    "accepted": true,
+    "portabilityRow": "052-memory-real-url-searchparams",
+    "sourceArch": "amd64",
+    "captureMethod": "guest-proc-maps-and-proc-mem-anchor-semantic-decoder",
+    "appHookUsedForCapture": false,
+    "rawV8HeapRestored": false,
+    "samePidRestored": false,
+    "memoryIr": {
+      "kind": "machinen.nodejs.memory-ir",
+      "version": 1,
+      "runtime": {
+        "name": "node",
+        "sourceArch": "amd64",
+        "v8": "12.4.254.21-node.22"
+      },
+      "rows": [
+        {
+          "id": "052-memory-real-url-searchparams",
+          "shape": "url-searchparams",
+          "semanticState": {
+            "kind": "url-searchparams",
+            "anchor": "machinen-real-url-searchparams-anchor-v1",
+            "href": "https://example.test:8443/portable/path?alpha=1&beta=two&beta=three&gamma=machinen#frag",
+            "origin": "https://example.test:8443",
+            "pathname": "/portable/path",
+            "search": "?alpha=1&beta=two&beta=three&gamma=machinen",
+            "params": [
+              ["alpha", "1"],
+              ["beta", "two"],
+              ["beta", "three"],
+              ["gamma", "machinen"]
+            ]
+          },
+          "anchors": {
+            "anchor": "machinen-real-url-searchparams-anchor-v1",
+            "href": "url-href:https://example.test:8443/portable/path?alpha=1&beta=two&beta=three&gamma=machinen#frag",
+            "search": "url-search:?alpha=1&beta=two&beta=three&gamma=machinen",
+            "params": "url-params:alpha=1,beta=two,beta=three,gamma=machinen"
+          }
+        }
+      ],
+      "unsupported": [],
+      "claimGuard": {
+        "arbitraryNodeProcessRestoreClaimed": false,
+        "arbitraryLinuxProcessRestoreClaimed": false,
+        "rawV8HeapRestoreUsed": false,
+        "rawCpuStateReplayUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "samePidContinuationClaimed": false,
+        "activeRequestOrSocketContinuationClaimed": false
+      }
+    },
+    "evidence": {
+      "pid": 385,
+      "mapsSha256": "aae4e2ff3bc81744eba4615d6823a8115df4eb14642a2142ebee301c4365d786",
+      "readableMappings": 111,
+      "decodedFields": {
+        "anchor": {
+          "found": true,
+          "hits": ["0xcc7c3c0c8b0", "0xcc7c3c0c9ba", "0xf39c9756740", "0xf39c975684a"]
+        },
+        "href": {
+          "found": true,
+          "hits": ["0xcc7c3c0c9f0", "0xf39c9756880", "0x163883d0c1e8"]
+        },
+        "search": {
+          "found": true,
+          "hits": ["0xcc7c3c0ca60", "0xf39c97568f0", "0x163883d0c258"]
+        },
+        "params": {
+          "found": true,
+          "hits": ["0xcc7c3c0caa6", "0xf39c9756936", "0x163883d0c2a0"]
+        }
+      }
+    }
+  },
+  "targetResult": {
+    "kind": "machinen.nodejs-portability-memory-real-url-searchparams-smoke-report.target-result",
+    "accepted": true,
+    "portabilityRow": "052-memory-real-url-searchparams",
+    "sourceArch": "amd64",
+    "targetArch": "arm64",
+    "materialization": "target-native-node-semantic-memory-ir",
+    "targetNativeNode": true,
+    "appHookUsedForCapture": false,
+    "rawV8HeapRestored": false,
+    "samePidRestored": false,
+    "verifier": {
+      "accepted": true,
+      "actual": {
+        "kind": "url-searchparams",
+        "anchor": "machinen-real-url-searchparams-anchor-v1",
+        "href": "https://example.test:8443/portable/path?alpha=1&beta=two&beta=three&gamma=machinen#frag",
+        "origin": "https://example.test:8443",
+        "pathname": "/portable/path",
+        "search": "?alpha=1&beta=two&beta=three&gamma=machinen",
+        "params": [
+          ["alpha", "1"],
+          ["beta", "two"],
+          ["beta", "three"],
+          ["gamma", "machinen"]
+        ]
+      },
+      "expected": {
+        "kind": "url-searchparams",
+        "anchor": "machinen-real-url-searchparams-anchor-v1",
+        "href": "https://example.test:8443/portable/path?alpha=1&beta=two&beta=three&gamma=machinen#frag",
+        "origin": "https://example.test:8443",
+        "pathname": "/portable/path",
+        "search": "?alpha=1&beta=two&beta=three&gamma=machinen",
+        "params": [
+          ["alpha", "1"],
+          ["beta", "two"],
+          ["beta", "three"],
+          ["gamma", "machinen"]
+        ]
+      }
+    }
+  },
+  "evidence": {
+    "appPath": "portability/nodejs/052-memory-real-url-searchparams/app.mjs",
+    "appSha256": "9c4cfcb43231955ba0dea26e6db67d0ff75cbf583d0a913f9b0b2b5e5ec5f704",
+    "smokePath": "portability/nodejs/052-memory-real-url-searchparams/smoke.ts"
+  },
+  "claimBoundary": {
+    "claims": [
+      "052-memory-real-url-searchparams captures selected Node url-searchparams state from /proc memory and materializes it target-native across architectures"
+    ],
+    "notClaimed": [
+      "arbitrary Node process restore",
+      "raw V8 heap restore",
+      "same PID continuation",
+      "active request/socket continuation",
+      "worker/native-addon/child-process live-state transfer",
+      "source ISA emulation",
+      "arbitrary Linux process restore",
+      "raw VM/vCPU/device replay"
+    ]
+  },
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "arbitraryLinuxProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "samePidContinuationClaimed": false,
+    "activeRequestOrSocketContinuationClaimed": false
+  }
+}

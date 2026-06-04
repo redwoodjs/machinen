@@ -56,6 +56,11 @@ const rows = [
   ['046-memory-real-buffer', 'nodejs-portability-memory-real-buffer-report.json'],
   ['047-memory-real-typed-array', 'nodejs-portability-memory-real-typed-array-report.json'],
   ['048-memory-real-http-handler-closure-state', 'nodejs-portability-memory-real-http-handler-closure-state-report.json'],
+  ['050-memory-real-date-regexp', 'nodejs-portability-memory-real-date-regexp-report.json'],
+  ['051-memory-real-error-object', 'nodejs-portability-memory-real-error-object-report.json'],
+  ['052-memory-real-url-searchparams', 'nodejs-portability-memory-real-url-searchparams-report.json'],
+  ['053-memory-real-bigint-rich-graph', 'nodejs-portability-memory-real-bigint-rich-graph-report.json'],
+  ['054-memory-real-module-singleton-state', 'nodejs-portability-memory-real-module-singleton-state-report.json'],
 ];
 const reportNameFor = (base) => sourceArch === 'amd64' ? base.replace('-report.json', '-amd64-to-arm64-report.json') : base;
 const captures = rows.map(([rowId, baseReport]) => {
@@ -347,6 +352,11 @@ const expectedMemoryRowIds = [
   '046-memory-real-buffer',
   '047-memory-real-typed-array',
   '048-memory-real-http-handler-closure-state',
+  '050-memory-real-date-regexp',
+  '051-memory-real-error-object',
+  '052-memory-real-url-searchparams',
+  '053-memory-real-bigint-rich-graph',
+  '054-memory-real-module-singleton-state',
 ];
 if (nodeMemoryIr.kind !== 'machinen.nodejs.memory-ir' || !Array.isArray(nodeMemoryIr.rows) || nodeMemoryIr.rows.length !== expectedMemoryRowIds.length) throw new Error('memory IR rows not retained');
 if (JSON.stringify(nodeMemoryIr.rows.map((row) => row.id)) !== JSON.stringify(expectedMemoryRowIds)) throw new Error('memory IR row IDs drifted');

@@ -178,6 +178,129 @@
         "anchor": "machinen-real-http-closure-anchor-v1",
         "hits": "http-hits:5"
       }
+    },
+    {
+      "id": "050-memory-real-date-regexp",
+      "shape": "date-regexp",
+      "semanticState": {
+        "kind": "date-regexp",
+        "anchor": "machinen-real-date-regexp-anchor-v1",
+        "dateIso": "2026-06-04T05:55:16.123Z",
+        "dateEpochMs": 1780552516123,
+        "regexpSource": "machinen-(portable)-(date-regexp)",
+        "regexpFlags": "giu"
+      },
+      "anchors": {
+        "anchor": "machinen-real-date-regexp-anchor-v1",
+        "dateIso": "date-iso:2026-06-04T05:55:16.123Z",
+        "regexpSource": "regexp-source:machinen-(portable)-(date-regexp)",
+        "regexpFlags": "regexp-flags:giu"
+      }
+    },
+    {
+      "id": "051-memory-real-error-object",
+      "shape": "error-object",
+      "semanticState": {
+        "kind": "error-object",
+        "anchor": "machinen-real-error-object-anchor-v1",
+        "name": "MachinenPortableError",
+        "message": "machinen-error-message-v1",
+        "code": "MACHINEN_PORTABLE_ERROR",
+        "causeName": "TypeError",
+        "causeMessage": "machinen-error-cause-message-v1"
+      },
+      "anchors": {
+        "anchor": "machinen-real-error-object-anchor-v1",
+        "name": "error-name:MachinenPortableError",
+        "message": "error-message:machinen-error-message-v1",
+        "code": "error-code:MACHINEN_PORTABLE_ERROR",
+        "cause": "error-cause:machinen-error-cause-message-v1"
+      }
+    },
+    {
+      "id": "052-memory-real-url-searchparams",
+      "shape": "url-searchparams",
+      "semanticState": {
+        "kind": "url-searchparams",
+        "anchor": "machinen-real-url-searchparams-anchor-v1",
+        "href": "https://example.test:8443/portable/path?alpha=1&beta=two&beta=three&gamma=machinen#frag",
+        "origin": "https://example.test:8443",
+        "pathname": "/portable/path",
+        "search": "?alpha=1&beta=two&beta=three&gamma=machinen",
+        "params": [
+          ["alpha", "1"],
+          ["beta", "two"],
+          ["beta", "three"],
+          ["gamma", "machinen"]
+        ]
+      },
+      "anchors": {
+        "anchor": "machinen-real-url-searchparams-anchor-v1",
+        "href": "url-href:https://example.test:8443/portable/path?alpha=1&beta=two&beta=three&gamma=machinen#frag",
+        "search": "url-search:?alpha=1&beta=two&beta=three&gamma=machinen",
+        "params": "url-params:alpha=1,beta=two,beta=three,gamma=machinen"
+      }
+    },
+    {
+      "id": "053-memory-real-bigint-rich-graph",
+      "shape": "bigint-rich-graph",
+      "semanticState": {
+        "kind": "bigint-rich-graph",
+        "anchor": "machinen-real-bigint-rich-graph-anchor-v1",
+        "label": "machinen-bigint-rich-graph-label-v1",
+        "primary": {
+          "type": "BigInt",
+          "decimal": "900719925474099312345"
+        },
+        "nested": {
+          "amount": {
+            "type": "BigInt",
+            "decimal": "18446744073709551615"
+          }
+        },
+        "values": [
+          {
+            "type": "BigInt",
+            "decimal": "1"
+          },
+          {
+            "type": "BigInt",
+            "decimal": "2"
+          },
+          {
+            "type": "BigInt",
+            "decimal": "340282366920938463463374607431768211455"
+          }
+        ]
+      },
+      "anchors": {
+        "anchor": "machinen-real-bigint-rich-graph-anchor-v1",
+        "primary": "bigint-primary:900719925474099312345",
+        "nested": "bigint-nested:18446744073709551615",
+        "array": "bigint-array:1,2,340282366920938463463374607431768211455"
+      }
+    },
+    {
+      "id": "054-memory-real-module-singleton-state",
+      "shape": "module-singleton-state",
+      "semanticState": {
+        "kind": "module-singleton-state",
+        "anchor": "machinen-real-module-singleton-anchor-v1",
+        "moduleName": "machinen-portable-singleton-module-v1",
+        "counter": 19,
+        "token": "machinen-singleton-token-v1",
+        "nested": {
+          "warmed": true,
+          "label": "machinen-singleton-nested-label-v1"
+        },
+        "lastTouch": "machinen-singleton-last-touch-v1"
+      },
+      "anchors": {
+        "anchor": "machinen-real-module-singleton-anchor-v1",
+        "module": "module-singleton-name:machinen-portable-singleton-module-v1",
+        "counter": "module-singleton-counter:19",
+        "token": "module-singleton-token:machinen-singleton-token-v1"
+      }
     }
   ],
   "unsupported": [],

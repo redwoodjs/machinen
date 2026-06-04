@@ -27,6 +27,11 @@ Each retained product row records `detect -> capture -> decode -> classify -> ma
 | `046-memory-real-buffer`                     | supported |
 | `047-memory-real-typed-array`                | supported |
 | `048-memory-real-http-handler-closure-state` | supported |
+| `050-memory-real-date-regexp`                | supported |
+| `051-memory-real-error-object`               | supported |
+| `052-memory-real-url-searchparams`           | supported |
+| `053-memory-real-bigint-rich-graph`          | supported |
+| `054-memory-real-module-singleton-state`     | supported |
 
 ## Refused live/opaque rows
 

@@ -254,5 +254,157 @@
     },
     "captureMethod": "guest-proc-maps-and-proc-mem-anchor-semantic-decoder",
     "mapsSha256": "d8355ef88f5977ccbe69956eacd2a849aeb7fde3bcde18b29f493016f08b63d6"
+  },
+  {
+    "rowId": "050-memory-real-date-regexp",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-date-regexp-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "date-regexp",
+    "semanticState": {
+      "kind": "date-regexp",
+      "anchor": "machinen-real-date-regexp-anchor-v1",
+      "dateIso": "2026-06-04T05:55:16.123Z",
+      "dateEpochMs": 1780552516123,
+      "regexpSource": "machinen-(portable)-(date-regexp)",
+      "regexpFlags": "giu"
+    },
+    "captureMethod": "guest-proc-maps-and-proc-mem-anchor-semantic-decoder",
+    "mapsSha256": "23952e4642a8008c489ce24ca566240c69286fc8e0d602ecad9acf44c8083856"
+  },
+  {
+    "rowId": "051-memory-real-error-object",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-error-object-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "error-object",
+    "semanticState": {
+      "kind": "error-object",
+      "anchor": "machinen-real-error-object-anchor-v1",
+      "name": "MachinenPortableError",
+      "message": "machinen-error-message-v1",
+      "code": "MACHINEN_PORTABLE_ERROR",
+      "causeName": "TypeError",
+      "causeMessage": "machinen-error-cause-message-v1"
+    },
+    "captureMethod": "guest-proc-maps-and-proc-mem-anchor-semantic-decoder",
+    "mapsSha256": "bbe41930494039e9ebd3647d6780267d534ac26a6530ac5df95ef3463f6ce9c6"
+  },
+  {
+    "rowId": "052-memory-real-url-searchparams",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-url-searchparams-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "url-searchparams",
+    "semanticState": {
+      "kind": "url-searchparams",
+      "anchor": "machinen-real-url-searchparams-anchor-v1",
+      "href": "https://example.test:8443/portable/path?alpha=1&beta=two&beta=three&gamma=machinen#frag",
+      "origin": "https://example.test:8443",
+      "pathname": "/portable/path",
+      "search": "?alpha=1&beta=two&beta=three&gamma=machinen",
+      "params": [
+        ["alpha", "1"],
+        ["beta", "two"],
+        ["beta", "three"],
+        ["gamma", "machinen"]
+      ]
+    },
+    "captureMethod": "guest-proc-maps-and-proc-mem-anchor-semantic-decoder",
+    "mapsSha256": "b4e284b9c580ccc433a08e93cb7e5cdecea81a627eec41c6cab8ef7fb9b0347b"
+  },
+  {
+    "rowId": "053-memory-real-bigint-rich-graph",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-bigint-rich-graph-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "bigint-rich-graph",
+    "semanticState": {
+      "kind": "bigint-rich-graph",
+      "anchor": "machinen-real-bigint-rich-graph-anchor-v1",
+      "label": "machinen-bigint-rich-graph-label-v1",
+      "primary": {
+        "type": "BigInt",
+        "decimal": "900719925474099312345"
+      },
+      "nested": {
+        "amount": {
+          "type": "BigInt",
+          "decimal": "18446744073709551615"
+        }
+      },
+      "values": [
+        {
+          "type": "BigInt",
+          "decimal": "1"
+        },
+        {
+          "type": "BigInt",
+          "decimal": "2"
+        },
+        {
+          "type": "BigInt",
+          "decimal": "340282366920938463463374607431768211455"
+        }
+      ]
+    },
+    "captureMethod": "guest-proc-maps-and-proc-mem-anchor-semantic-decoder",
+    "mapsSha256": "b2f6d7821107b22d186e4f2d681ea82d0dd73277bfd55eeb3ad8dea72f508d71"
+  },
+  {
+    "rowId": "054-memory-real-module-singleton-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-module-singleton-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "module-singleton-state",
+    "semanticState": {
+      "kind": "module-singleton-state",
+      "anchor": "machinen-real-module-singleton-anchor-v1",
+      "moduleName": "machinen-portable-singleton-module-v1",
+      "counter": 19,
+      "token": "machinen-singleton-token-v1",
+      "nested": {
+        "warmed": true,
+        "label": "machinen-singleton-nested-label-v1"
+      },
+      "lastTouch": "machinen-singleton-last-touch-v1"
+    },
+    "captureMethod": "guest-proc-maps-and-proc-mem-anchor-semantic-decoder",
+    "mapsSha256": "cfd24535f402554428e12913d9dd29da314636a15d4d925b1eb968337680570f"
   }
 ]

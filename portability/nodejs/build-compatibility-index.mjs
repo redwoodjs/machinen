@@ -96,6 +96,11 @@ const categoryBySlug = {
   "memory-real-buffer": "memory-state",
   "memory-real-typed-array": "memory-state",
   "memory-real-http-handler-closure-state": "memory-state",
+  "memory-real-date-regexp": "memory-state",
+  "memory-real-error-object": "memory-state",
+  "memory-real-url-searchparams": "memory-state",
+  "memory-real-bigint-rich-graph": "memory-state",
+  "memory-real-module-singleton-state": "memory-state",
   "memory-real-promise-refusal": "memory-blocker",
 };
 const capabilityBySlug = {
@@ -164,6 +169,16 @@ const capabilityBySlug = {
     "Selected typed-array state captured from source /proc memory and materialized target-native across architectures",
   "memory-real-http-handler-closure-state":
     "Selected HTTP handler closure state captured from source /proc memory and materialized target-native across architectures",
+  "memory-real-date-regexp":
+    "Selected Date and RegExp semantic state captured from source /proc memory and materialized target-native across architectures",
+  "memory-real-error-object":
+    "Selected Error object semantic state captured from source /proc memory and materialized target-native across architectures",
+  "memory-real-url-searchparams":
+    "Selected URL and URLSearchParams semantic state captured from source /proc memory and materialized target-native across architectures",
+  "memory-real-bigint-rich-graph":
+    "Selected BigInt-rich graph state captured from source /proc memory as tagged semantic values and materialized target-native across architectures",
+  "memory-real-module-singleton-state":
+    "Selected module-level singleton state captured from source /proc memory and materialized target-native across architectures",
   "memory-real-promise-refusal": "Pending Promise and microtask memory state refuses fail-closed",
 };
 

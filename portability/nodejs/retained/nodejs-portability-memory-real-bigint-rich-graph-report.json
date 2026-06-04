@@ -1,0 +1,224 @@
+{
+  "kind": "machinen.nodejs-portability-memory-real-bigint-rich-graph-smoke-report",
+  "version": 1,
+  "accepted": true,
+  "portabilityRow": "053-memory-real-bigint-rich-graph",
+  "architectures": ["arm64", "amd64"],
+  "sourceArch": "arm64",
+  "targetArch": "amd64",
+  "executeVm": true,
+  "memoryCapture": "real-guest-proc-maps-and-proc-mem",
+  "migrationCompleted": true,
+  "summary": {
+    "verifiedVmRows": 1,
+    "memoryStateRows": 1,
+    "refusedRows": 0
+  },
+  "results": [
+    {
+      "id": "053-memory-real-bigint-rich-graph",
+      "architecture": "arm64",
+      "state": "verified"
+    },
+    {
+      "id": "053-memory-real-bigint-rich-graph",
+      "architecture": "amd64",
+      "state": "verified"
+    }
+  ],
+  "sourceCapture": {
+    "kind": "machinen.nodejs-portability-memory-real-bigint-rich-graph-smoke-report.source-capture",
+    "accepted": true,
+    "portabilityRow": "053-memory-real-bigint-rich-graph",
+    "sourceArch": "arm64",
+    "captureMethod": "guest-proc-maps-and-proc-mem-anchor-semantic-decoder",
+    "appHookUsedForCapture": false,
+    "rawV8HeapRestored": false,
+    "samePidRestored": false,
+    "memoryIr": {
+      "kind": "machinen.nodejs.memory-ir",
+      "version": 1,
+      "runtime": {
+        "name": "node",
+        "sourceArch": "arm64",
+        "v8": "12.4.254.21-node.22"
+      },
+      "rows": [
+        {
+          "id": "053-memory-real-bigint-rich-graph",
+          "shape": "bigint-rich-graph",
+          "semanticState": {
+            "kind": "bigint-rich-graph",
+            "anchor": "machinen-real-bigint-rich-graph-anchor-v1",
+            "label": "machinen-bigint-rich-graph-label-v1",
+            "primary": {
+              "type": "BigInt",
+              "decimal": "900719925474099312345"
+            },
+            "nested": {
+              "amount": {
+                "type": "BigInt",
+                "decimal": "18446744073709551615"
+              }
+            },
+            "values": [
+              {
+                "type": "BigInt",
+                "decimal": "1"
+              },
+              {
+                "type": "BigInt",
+                "decimal": "2"
+              },
+              {
+                "type": "BigInt",
+                "decimal": "340282366920938463463374607431768211455"
+              }
+            ]
+          },
+          "anchors": {
+            "anchor": "machinen-real-bigint-rich-graph-anchor-v1",
+            "primary": "bigint-primary:900719925474099312345",
+            "nested": "bigint-nested:18446744073709551615",
+            "array": "bigint-array:1,2,340282366920938463463374607431768211455"
+          }
+        }
+      ],
+      "unsupported": [],
+      "claimGuard": {
+        "arbitraryNodeProcessRestoreClaimed": false,
+        "arbitraryLinuxProcessRestoreClaimed": false,
+        "rawV8HeapRestoreUsed": false,
+        "rawCpuStateReplayUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "samePidContinuationClaimed": false,
+        "activeRequestOrSocketContinuationClaimed": false
+      }
+    },
+    "evidence": {
+      "pid": 388,
+      "mapsSha256": "b2f6d7821107b22d186e4f2d681ea82d0dd73277bfd55eeb3ad8dea72f508d71",
+      "readableMappings": 92,
+      "decodedFields": {
+        "anchor": {
+          "found": true,
+          "hits": ["0x2672df4c198", "0x371d16d697c", "0x371d16d6af0", "0x106af6f0cb9c"]
+        },
+        "primary": {
+          "found": true,
+          "hits": ["0x2672df4c220", "0x371d16d6b2a", "0x106af6f0cd4a"]
+        },
+        "nested": {
+          "found": true,
+          "hits": ["0x2672df4c258", "0x371d16d6b5e", "0x106af6f0cd7e"]
+        },
+        "array": {
+          "found": true,
+          "hits": ["0x2672df4c290", "0x371d16d6b8f", "0x106af6f0cdaf"]
+        }
+      }
+    }
+  },
+  "targetResult": {
+    "kind": "machinen.nodejs-portability-memory-real-bigint-rich-graph-smoke-report.target-result",
+    "accepted": true,
+    "portabilityRow": "053-memory-real-bigint-rich-graph",
+    "sourceArch": "arm64",
+    "targetArch": "amd64",
+    "materialization": "target-native-node-semantic-memory-ir",
+    "targetNativeNode": true,
+    "appHookUsedForCapture": false,
+    "rawV8HeapRestored": false,
+    "samePidRestored": false,
+    "verifier": {
+      "accepted": true,
+      "actual": {
+        "kind": "bigint-rich-graph",
+        "anchor": "machinen-real-bigint-rich-graph-anchor-v1",
+        "label": "machinen-bigint-rich-graph-label-v1",
+        "primary": {
+          "type": "BigInt",
+          "decimal": "900719925474099312345"
+        },
+        "nested": {
+          "amount": {
+            "type": "BigInt",
+            "decimal": "18446744073709551615"
+          }
+        },
+        "values": [
+          {
+            "type": "BigInt",
+            "decimal": "1"
+          },
+          {
+            "type": "BigInt",
+            "decimal": "2"
+          },
+          {
+            "type": "BigInt",
+            "decimal": "340282366920938463463374607431768211455"
+          }
+        ]
+      },
+      "expected": {
+        "kind": "bigint-rich-graph",
+        "anchor": "machinen-real-bigint-rich-graph-anchor-v1",
+        "label": "machinen-bigint-rich-graph-label-v1",
+        "primary": {
+          "type": "BigInt",
+          "decimal": "900719925474099312345"
+        },
+        "nested": {
+          "amount": {
+            "type": "BigInt",
+            "decimal": "18446744073709551615"
+          }
+        },
+        "values": [
+          {
+            "type": "BigInt",
+            "decimal": "1"
+          },
+          {
+            "type": "BigInt",
+            "decimal": "2"
+          },
+          {
+            "type": "BigInt",
+            "decimal": "340282366920938463463374607431768211455"
+          }
+        ]
+      }
+    }
+  },
+  "evidence": {
+    "appPath": "portability/nodejs/053-memory-real-bigint-rich-graph/app.mjs",
+    "appSha256": "abc01bc51165f058621fd6d34174a820b54d83e730df3e50fa3edbb06326f822",
+    "smokePath": "portability/nodejs/053-memory-real-bigint-rich-graph/smoke.ts"
+  },
+  "claimBoundary": {
+    "claims": [
+      "053-memory-real-bigint-rich-graph captures selected Node bigint-rich-graph state from /proc memory and materializes it target-native across architectures"
+    ],
+    "notClaimed": [
+      "arbitrary Node process restore",
+      "raw V8 heap restore",
+      "same PID continuation",
+      "active request/socket continuation",
+      "worker/native-addon/child-process live-state transfer",
+      "source ISA emulation",
+      "arbitrary Linux process restore",
+      "raw VM/vCPU/device replay"
+    ]
+  },
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "arbitraryLinuxProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "samePidContinuationClaimed": false,
+    "activeRequestOrSocketContinuationClaimed": false
+  }
+}
