@@ -216,6 +216,84 @@
       }
     },
     {
+      "id": "nodejs-resource-timer-wheel-state",
+      "kind": "timer-wheel-state-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "wheelSlots": 64,
+        "pendingCallbacksPolicy": "reschedule-target-native",
+        "clock": "monotonic-target-native"
+      }
+    },
+    {
+      "id": "nodejs-resource-delayed-queue-schedule",
+      "kind": "delayed-queue-schedule-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "queueDepth": 0,
+        "delayPolicy": "restart-empty-target-native",
+        "ordering": "fifo-declared"
+      }
+    },
+    {
+      "id": "nodejs-resource-monotonic-clock-baseline",
+      "kind": "monotonic-clock-baseline-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "baselinePolicy": "rebase-to-target-monotonic-now",
+        "rawClockContinuation": false
+      }
+    },
+    {
+      "id": "nodejs-resource-performance-timing-baseline",
+      "kind": "performance-timing-baseline-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "originPolicy": "target-native-performance-origin",
+        "preserveDurationsOnly": true
+      }
+    },
+    {
+      "id": "nodejs-resource-active-refresh-schedule",
+      "kind": "active-refresh-schedule-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "refreshEveryMs": 60000,
+        "activeRequestPolicy": "none-at-capture",
+        "restartPolicy": "target-native-schedule"
+      }
+    },
+    {
       "id": "nodejs-resource-drained-readable-stream",
       "kind": "drained-readable-stream-spec",
       "reconstructable": true,

@@ -59,6 +59,11 @@ const supportedResourceKinds = new Set([
   "pipeline-drained-state-spec",
   "reopenable-read-stream-spec",
   "reopenable-write-stream-spec",
+  "timer-wheel-state-spec",
+  "delayed-queue-schedule-spec",
+  "monotonic-clock-baseline-spec",
+  "performance-timing-baseline-spec",
+  "active-refresh-schedule-spec",
 ]);
 
 const forbiddenRawFields = new Set([

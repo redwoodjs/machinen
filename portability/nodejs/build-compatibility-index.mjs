@@ -128,6 +128,11 @@ const productResourceCompatibilityRows = {
   "181-memory-real-process-signal-handler-refusal": "nodejs-resource-signal-handler-registry",
   "267-memory-real-scheduler-timer-refusal": "nodejs-resource-timer-schedule",
   "280-memory-real-timer-backed-refill-refusal": "nodejs-resource-timer-backed-refill",
+  "086-memory-real-timer-wheel-refusal": "nodejs-resource-timer-wheel-state",
+  "151-memory-real-delayed-queue-refusal": "nodejs-resource-delayed-queue-schedule",
+  "221-memory-real-monotonic-clock-refusal": "nodejs-resource-monotonic-clock-baseline",
+  "222-memory-real-performance-timing-refusal": "nodejs-resource-performance-timing-baseline",
+  "275-memory-real-active-refresh-refusal": "nodejs-resource-active-refresh-schedule",
 };
 const productResourceEvidencePaths = [
   "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",

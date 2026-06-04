@@ -62,7 +62,7 @@
     "pauseMechanism": "vmm-native-sigusr1-sigusr2",
     "pauseSignal": "SIGUSR1",
     "resumeSignal": "SIGUSR2",
-    "sourceVmPid": 71836,
+    "sourceVmPid": 458,
     "stoppedStateObserved": true,
     "unsupportedPausedLiveStatePolicy": "refuse",
     "vmmNativeMarker": {
@@ -72,9 +72,9 @@
       "vcpusStopped": true,
       "resumeSignalRequired": "SIGUSR2"
     },
-    "startedAt": "2026-06-04T16:26:07.110Z",
-    "pausedObservedAt": "2026-06-04T16:26:07.132Z",
-    "resumedAt": "2026-06-04T16:26:07.132Z",
-    "elapsedMs": 22
+    "startedAt": "2026-06-04T16:50:13.657Z",
+    "pausedObservedAt": "2026-06-04T16:50:13.678Z",
+    "resumedAt": "2026-06-04T16:50:13.678Z",
+    "elapsedMs": 21
   }
 }

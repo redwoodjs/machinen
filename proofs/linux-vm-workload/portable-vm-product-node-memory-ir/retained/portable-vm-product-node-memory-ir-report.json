@@ -22,7 +22,7 @@
       "pauseMechanism": "vmm-native-sigusr1-sigusr2",
       "pauseSignal": "SIGUSR1",
       "resumeSignal": "SIGUSR2",
-      "sourceVmPid": 71836,
+      "sourceVmPid": 458,
       "stoppedStateObserved": true,
       "unsupportedPausedLiveStatePolicy": "refuse",
       "vmmNativeMarker": {
@@ -32,17 +32,17 @@
         "vcpusStopped": true,
         "resumeSignalRequired": "SIGUSR2"
       },
-      "startedAt": "2026-06-04T16:26:07.110Z",
-      "pausedObservedAt": "2026-06-04T16:26:07.132Z",
-      "resumedAt": "2026-06-04T16:26:07.132Z",
-      "elapsedMs": 22
+      "startedAt": "2026-06-04T16:50:13.657Z",
+      "pausedObservedAt": "2026-06-04T16:50:13.678Z",
+      "resumedAt": "2026-06-04T16:50:13.678Z",
+      "elapsedMs": 21
     },
     "memoryMaterializationRows": 1,
     "resourceMaterializationRows": 1,
     "memoryVerified": true,
     "resourceVerified": true,
     "materializedRows": 130,
-    "resourceMaterializedRows": 18,
+    "resourceMaterializedRows": 23,
     "supportedSemanticRows": [
       "037-memory-real-plain-object",
       "038-memory-real-array",
@@ -189,6 +189,11 @@
       "nodejs-resource-ttl-cache-expiration",
       "nodejs-resource-cache-expiration-timer",
       "nodejs-resource-timer-backed-refill",
+      "nodejs-resource-timer-wheel-state",
+      "nodejs-resource-delayed-queue-schedule",
+      "nodejs-resource-monotonic-clock-baseline",
+      "nodejs-resource-performance-timing-baseline",
+      "nodejs-resource-active-refresh-schedule",
       "nodejs-resource-drained-readable-stream",
       "nodejs-resource-drained-writable-stream",
       "nodejs-resource-pipeline-drained-state",
@@ -3105,15 +3110,15 @@
   "artifacts": [
     {
       "path": "accept-snapshot.json",
-      "sha256": "7ffff1a2416928d7892581234d9f3e563174f6589980d3980d143975e8196970"
+      "sha256": "caa087fbb28e9b0120688ddf047161157abecf20858847a00f757a127f7dd10e"
     },
     {
       "path": "accept-restore.json",
-      "sha256": "a4dd98dd973c555ad48394e85ad370cc45f393881b97ad87fc8cc58c7f345319"
+      "sha256": "8b8f949bb80fe8e305307508ba23d278ec9546f5b88f2efe4279b503f1283e75"
     },
     {
       "path": "node-memory.snap/portable-vm-raw-inventory.json",
-      "sha256": "a1f4f4fcba434d9c9f9fe9eb68ffbb3f7baf096d1105cd8b0ac5df8467a8e4cd"
+      "sha256": "f6185456aa946dc0593d309c25ec5f70bac77ae04194e9bc6c21fa46082e38d1"
     },
     {
       "path": "node-memory.snap/portable-vm-manifest-plan.json",
@@ -3121,11 +3126,11 @@
     },
     {
       "path": "node-memory.snap/portable-vm-product-restore-summary.json",
-      "sha256": "e42c49de9cf995943e7d30b916b8ecebd7f2f3c5ec6b685d195ab8f196a78f8f"
+      "sha256": "1d781b3bf22cf8a1b24886f27443943e97f02d50042e82a8ce8ec584d29dd8a5"
     },
     {
       "path": "node-memory.snap/portable-vm-pause-boundary.json",
-      "sha256": "df09a8031149ab3448609192d4340df540fbd6879859757330aaceb416a8da4a"
+      "sha256": "b0f522731dee3429eda38388202a2fc74c5ecab8a2dd6763d3e597dd1d0d039a"
     },
     {
       "path": "node-memory.snap/nodejs-memory-ir.json",
@@ -3145,7 +3150,7 @@
     },
     {
       "path": "node-memory.snap/nodejs-resource-ir.json",
-      "sha256": "902d104b526c17eaf5569261eb97b0fbbcdccdb36800575e04e032218ceef10c"
+      "sha256": "4a77f41c7145bce6aeb7c60441e83de69309051b3b218cc57b9348744cf77735"
     },
     {
       "path": "node-memory.snap/nodejs-resource-inventory.json",
@@ -3157,7 +3162,7 @@
     },
     {
       "path": "node-memory.snap/nodejs-resource-materializer.mjs",
-      "sha256": "c8e792395dc7844bfa92bdff82a3ae1e44cf0446dd343d683e89966270607f97"
+      "sha256": "600abdf7f33f88fe070857ba58d951ea8411a95c78f71f63590941774fd103a8"
     },
     {
       "path": "no-pause-boundary-restore.json",
@@ -3173,7 +3178,7 @@
     },
     {
       "path": "refusal-pending-promise-snapshot.json",
-      "sha256": "171da8099d694779b0e44cea126fc28fe2034321c0629206ab101df77f05930b"
+      "sha256": "ffa4d4309602dd4a848ac90140591544e79ec9e28def2400afaf2f7225703ba6"
     },
     {
       "path": "refusal-pending-promise-restore.json",
@@ -3189,7 +3194,7 @@
     },
     {
       "path": "refusal-pending-microtask-snapshot.json",
-      "sha256": "e975ecbccad8647ab22f44cd76199a1ff3898601a37d27445bb4088f31b2c18b"
+      "sha256": "dea12086783515e5bd6eaaf3b5499b684f0101db3ba4b37223bf37350ee4d9c7"
     },
     {
       "path": "refusal-pending-microtask-restore.json",
@@ -3205,7 +3210,7 @@
     },
     {
       "path": "refusal-active-socket-snapshot.json",
-      "sha256": "16ac0800a90b0fe9a3f84c645fe825eabf587478e3780dbb37f5f89c6b5e4375"
+      "sha256": "ba3a63678a9a870cb894f31d0f0ef61ac31175fbd51b048b04124c2343add0f8"
     },
     {
       "path": "refusal-active-socket-restore.json",
@@ -3221,7 +3226,7 @@
     },
     {
       "path": "refusal-active-request-snapshot.json",
-      "sha256": "18cdd6e42733a264e0a6bdfe4346112d50a8c2df7d4ccdb2bc0399a7983537e7"
+      "sha256": "005f476a1b20253dce50d9f0820dab6faef635c70300c03ee878fed27ad51cb4"
     },
     {
       "path": "refusal-active-request-restore.json",
@@ -3237,7 +3242,7 @@
     },
     {
       "path": "refusal-worker-snapshot.json",
-      "sha256": "a4f10a3140912680ccaae4ca7b92a75598405acce6295b5d84a1f71cb6a0aa40"
+      "sha256": "a794c8cb26cfec6a7256bfab9b9a77656ca12eabdabeba5c22886dc083206b60"
     },
     {
       "path": "refusal-worker-restore.json",
@@ -3253,7 +3258,7 @@
     },
     {
       "path": "refusal-native-addon-snapshot.json",
-      "sha256": "94ed2f6d76fb67deed119b868a56555849e5ca2510a38b53c7939e2635aac8e8"
+      "sha256": "6dc7f538075e69094e7587f013ff66caee96e82c666680d4f5b7d219f605cac5"
     },
     {
       "path": "refusal-native-addon-restore.json",
@@ -3269,7 +3274,7 @@
     },
     {
       "path": "refusal-child-process-snapshot.json",
-      "sha256": "e8a725fe5ee0130de4ef33acc9d29938aa1b49c7f7bb305a7cb1c37270a1f01f"
+      "sha256": "fcd481b70b2fa708862fabb461b5064cd7f49a6a3f9e299e0383343c60580b3f"
     },
     {
       "path": "refusal-child-process-restore.json",
@@ -3285,7 +3290,7 @@
     },
     {
       "path": "refusal-opaque-native-state-snapshot.json",
-      "sha256": "bd406d201aaff700a4a2ae8543896e7b31a3f45fbab6d73be0220246684ed7f9"
+      "sha256": "85953d9cc186427bdce106a49f6863ebc4413488e9b0bf5785ff5e3632b99e44"
     },
     {
       "path": "refusal-opaque-native-state-restore.json",
@@ -3301,7 +3306,7 @@
     },
     {
       "path": "refusal-raw-v8-state-snapshot.json",
-      "sha256": "32cc4f74385e0e33369e1520f0b10152050beb504ae562d45d77211962b1b36b"
+      "sha256": "2869c47d519b00df803198005f158765a1914989b031ee4bec1ea877971c50d8"
     },
     {
       "path": "refusal-raw-v8-state-restore.json",
@@ -3317,7 +3322,7 @@
     },
     {
       "path": "refusal-weakmap-snapshot.json",
-      "sha256": "ebc2934876b05777135610ea01461387b3278df580a8376e84d119c14b3480b7"
+      "sha256": "435ce6bb348d62b0a8fc80efdd4605c622525bd4259645553393145159570fb4"
     },
     {
       "path": "refusal-weakmap-restore.json",
@@ -3333,7 +3338,7 @@
     },
     {
       "path": "refusal-timer-snapshot.json",
-      "sha256": "b091b173bf3e17d9cf2144c03f7efc3f4bf28f5db69ac6a151620bdc9e0b1ff2"
+      "sha256": "6b088cddad4a709689938114f096d5069e74da237f775421fb069aecae955117"
     },
     {
       "path": "refusal-timer-restore.json",
@@ -3349,7 +3354,7 @@
     },
     {
       "path": "refusal-stream-snapshot.json",
-      "sha256": "0a41b709690926f06750d5ba63aa29fa6bf20e5adec45e56f5a8b7d2ddb4181b"
+      "sha256": "754c149f603a00db39d8c5fa5a27b3953d96034f6f6e832d15367934ec209065"
     },
     {
       "path": "refusal-stream-restore.json",
@@ -3365,7 +3370,7 @@
     },
     {
       "path": "refusal-resource-active-timer-snapshot.json",
-      "sha256": "2c0e17e140d19f126557ceb439e1a834a674526b87d1085801752dc869fff86b"
+      "sha256": "f6590b2d911d7d7a1a01174b0a225b0eb91c8dcc77a949cf939d06ed391e3b02"
     },
     {
       "path": "refusal-resource-active-timer-restore.json",
@@ -3381,7 +3386,7 @@
     },
     {
       "path": "refusal-resource-native-handle-snapshot.json",
-      "sha256": "5008b94ae2116fab115a1f2ca292e1ee4249b30a3ee43d88a758bc0ea9f475e6"
+      "sha256": "72ad2bab7e7b397f4a1252fd92dbaa9ee53079e17cddbd3ac58fa84d07096588"
     },
     {
       "path": "refusal-resource-native-handle-restore.json",
@@ -3397,7 +3402,7 @@
     },
     {
       "path": "refusal-resource-active-tls-snapshot.json",
-      "sha256": "088ad8bec5872125a3c1ad9d1e49d8f66cd816da7aa6d81c670d92df49c14ed6"
+      "sha256": "967d6d8ce11477e40d524d3d80bf00b958d79da18fad10dc3630e317bf43c18b"
     },
     {
       "path": "refusal-resource-active-tls-restore.json",
@@ -3413,7 +3418,7 @@
     },
     {
       "path": "refusal-resource-worker-live-state-snapshot.json",
-      "sha256": "5cd8597b8546dd4b7ee6fe7767247f76e76ee6841d5b0a086849c24dfe30e0f0"
+      "sha256": "32206802e1695f83be3e20bb69fb4909ab106177ab08dd6debee965a3dff820a"
     },
     {
       "path": "refusal-resource-worker-live-state-restore.json",
