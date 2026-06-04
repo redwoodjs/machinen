@@ -232,6 +232,18 @@ const productResourceCompatibilityRows = {
   "277-memory-real-oauth-device-flow-refusal": "nodejs-resource-oauth-device-flow-restart",
   "200-memory-real-noncloneable-object-refusal":
     "nodejs-resource-noncloneable-reconstruction-factory",
+  "094-memory-real-hmac-state-refusal": "nodejs-resource-hmac-key-reference",
+  "095-memory-real-keyobject-refusal": "nodejs-resource-keyobject-reference",
+  "096-memory-real-cipher-state-refusal": "nodejs-resource-cipher-key-reference",
+  "107-memory-real-webcrypto-subtle-refusal": "nodejs-resource-webcrypto-algorithm-registry",
+  "162-memory-real-secret-config-refusal": "nodejs-resource-secret-config-reference",
+  "276-memory-real-crypto-secret-refusal": "nodejs-resource-crypto-secret-reference",
+  "303-memory-real-crypto-secrets-refusal": "nodejs-resource-crypto-secret-reference",
+  "305-memory-real-credential-cache-refusal": "nodejs-resource-credential-cache-reference",
+  "306-memory-real-keyring-handle-refusal": "nodejs-resource-keyring-reference",
+  "307-memory-real-sensitive-buffer-refusal": "nodejs-resource-sensitive-buffer-redaction",
+  "264-memory-real-active-running-job-refusal": "nodejs-resource-job-retry-policy",
+  "266-memory-real-job-lock-refusal": "nodejs-resource-job-lock-release-policy",
 };
 const productResourceEvidencePaths = [
   "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",

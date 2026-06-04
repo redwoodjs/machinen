@@ -153,6 +153,17 @@ const supportedResourceKinds = new Set([
   "cursor-query-descriptor-spec",
   "oauth-device-flow-restart-spec",
   "noncloneable-reconstruction-factory-spec",
+  "hmac-key-reference-spec",
+  "keyobject-reference-spec",
+  "cipher-key-reference-spec",
+  "webcrypto-algorithm-registry-spec",
+  "secret-config-reference-spec",
+  "crypto-secret-reference-spec",
+  "credential-cache-reference-spec",
+  "keyring-reference-spec",
+  "sensitive-buffer-redaction-spec",
+  "job-retry-policy-spec",
+  "job-lock-release-policy-spec",
 ]);
 
 const forbiddenRawFields = new Set([

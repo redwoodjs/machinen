@@ -211,6 +211,17 @@ function selectedProductNodeResourceRowIds(): string[] {
     "nodejs-resource-cursor-query-descriptor",
     "nodejs-resource-oauth-device-flow-restart",
     "nodejs-resource-noncloneable-reconstruction-factory",
+    "nodejs-resource-hmac-key-reference",
+    "nodejs-resource-keyobject-reference",
+    "nodejs-resource-cipher-key-reference",
+    "nodejs-resource-webcrypto-algorithm-registry",
+    "nodejs-resource-secret-config-reference",
+    "nodejs-resource-crypto-secret-reference",
+    "nodejs-resource-credential-cache-reference",
+    "nodejs-resource-keyring-reference",
+    "nodejs-resource-sensitive-buffer-redaction",
+    "nodejs-resource-job-retry-policy",
+    "nodejs-resource-job-lock-release-policy",
     "nodejs-resource-http-request-template",
     "nodejs-resource-http-response-template",
     "nodejs-resource-request-body-drained",
@@ -380,11 +391,11 @@ describe("Node.js portability corpus", () => {
       runtime: "nodejs",
       summary: {
         rowCount: 312,
-        byStatus: { verified: 273, "verified-refusal": 39 },
-        byProductClaim: { candidate: 273, "verified-refusal": 39 },
+        byStatus: { verified: 285, "verified-refusal": 27 },
+        byProductClaim: { candidate: 285, "verified-refusal": 27 },
         architectures: ["arm64", "amd64"],
-        verifiedBothArchitectures: 273,
-        verifiedRefusalRows: 39,
+        verifiedBothArchitectures: 285,
+        verifiedRefusalRows: 27,
         refusedRows: 0,
         unsupportedUnverifiedRows: 0,
         coveredRows: 312,
@@ -494,12 +505,12 @@ describe("Node.js portability corpus", () => {
     expect(report).toMatchObject({
       accepted: true,
       rowCount: 312,
-      supportedRows: 273,
-      verifiedRefusalRows: 39,
+      supportedRows: 285,
+      verifiedRefusalRows: 27,
       unsupportedUnverifiedRows: 0,
       allRowsAccountedFor: true,
     });
-    expect(report.verifiedRefusals).toHaveLength(39);
+    expect(report.verifiedRefusals).toHaveLength(27);
     expect(
       report.verifiedRefusals.every(
         (row) =>

@@ -1495,6 +1495,173 @@
       }
     },
     {
+      "id": "nodejs-resource-hmac-key-reference",
+      "kind": "hmac-key-reference-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "algorithm": "sha256",
+        "keyPolicy": "external-secret-reference",
+        "secretBytesRetained": false
+      }
+    },
+    {
+      "id": "nodejs-resource-keyobject-reference",
+      "kind": "keyobject-reference-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "keyPolicy": "external-key-reference",
+        "keyBytesRetained": false
+      }
+    },
+    {
+      "id": "nodejs-resource-cipher-key-reference",
+      "kind": "cipher-key-reference-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "algorithmPolicy": "declared-cipher-suite",
+        "keyPolicy": "external-secret-reference",
+        "secretBytesRetained": false
+      }
+    },
+    {
+      "id": "nodejs-resource-webcrypto-algorithm-registry",
+      "kind": "webcrypto-algorithm-registry-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "algorithmPolicy": "declared-webcrypto-algorithms",
+        "keyBytesRetained": false
+      }
+    },
+    {
+      "id": "nodejs-resource-secret-config-reference",
+      "kind": "secret-config-reference-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "configPolicy": "external-secret-reference-only",
+        "secretBytesRetained": false
+      }
+    },
+    {
+      "id": "nodejs-resource-crypto-secret-reference",
+      "kind": "crypto-secret-reference-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "secretPolicy": "external-secret-reference-only",
+        "secretBytesRetained": false
+      }
+    },
+    {
+      "id": "nodejs-resource-credential-cache-reference",
+      "kind": "credential-cache-reference-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "cachePolicy": "drop-cached-credentials",
+        "credentialBytesRetained": false
+      }
+    },
+    {
+      "id": "nodejs-resource-keyring-reference",
+      "kind": "keyring-reference-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "keyringPolicy": "target-native-keyring-reference",
+        "keyBytesRetained": false
+      }
+    },
+    {
+      "id": "nodejs-resource-sensitive-buffer-redaction",
+      "kind": "sensitive-buffer-redaction-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "bufferPolicy": "redacted-zeroized-target-native",
+        "sensitiveBytesRetained": false
+      }
+    },
+    {
+      "id": "nodejs-resource-job-retry-policy",
+      "kind": "job-retry-policy-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "activeExecution": false,
+        "retryPolicy": "restart-from-semantic-job-checkpoint"
+      }
+    },
+    {
+      "id": "nodejs-resource-job-lock-release-policy",
+      "kind": "job-lock-release-policy-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "lockPolicy": "release-or-reacquire-target-native",
+        "activeLockTransfer": false
+      }
+    },
+    {
       "id": "nodejs-resource-http-request-template",
       "kind": "http-request-template-spec",
       "reconstructable": true,
