@@ -216,6 +216,22 @@ const productResourceCompatibilityRows = {
   "178-memory-real-child-process-expanded-refusal": "nodejs-resource-child-process-restart",
   "294-memory-real-native-compiled-artifact-refusal":
     "nodejs-resource-native-compiled-artifact-rebuild",
+  "093-memory-real-hash-state-refusal": "nodejs-resource-hash-public-input-digest",
+  "097-memory-real-random-generator-state-refusal": "nodejs-resource-deterministic-prng-seed",
+  "125-memory-real-buffer-pool-refusal": "nodejs-resource-buffer-pool-policy",
+  "126-memory-real-unsafe-buffer-refusal": "nodejs-resource-zero-fill-buffer-policy",
+  "127-memory-real-external-arraybuffer-refusal":
+    "nodejs-resource-external-arraybuffer-declared-bytes",
+  "147-memory-real-cache-weak-values-refusal": "nodejs-resource-weak-cache-drop-policy",
+  "152-memory-real-queue-consumer-inflight-refusal":
+    "nodejs-resource-queue-consumer-retry-checkpoint",
+  "155-memory-real-pending-transition-refusal": "nodejs-resource-pending-transition-checkpoint",
+  "182-memory-real-stdio-handle-refusal": "nodejs-resource-stdio-config",
+  "270-memory-real-transaction-inflight-refusal": "nodejs-resource-transaction-retry-checkpoint",
+  "271-memory-real-cursor-refusal": "nodejs-resource-cursor-query-descriptor",
+  "277-memory-real-oauth-device-flow-refusal": "nodejs-resource-oauth-device-flow-restart",
+  "200-memory-real-noncloneable-object-refusal":
+    "nodejs-resource-noncloneable-reconstruction-factory",
 };
 const productResourceEvidencePaths = [
   "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",

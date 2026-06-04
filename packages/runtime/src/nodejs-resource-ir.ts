@@ -140,6 +140,19 @@ const supportedResourceKinds = new Set([
   "native-addon-target-rebuild-spec",
   "child-process-restart-spec",
   "native-compiled-artifact-rebuild-spec",
+  "hash-public-input-digest-spec",
+  "deterministic-prng-seed-spec",
+  "buffer-pool-policy-spec",
+  "zero-fill-buffer-policy-spec",
+  "external-arraybuffer-declared-bytes-spec",
+  "weak-cache-drop-policy-spec",
+  "queue-consumer-retry-checkpoint-spec",
+  "pending-transition-checkpoint-spec",
+  "stdio-config-spec",
+  "transaction-retry-checkpoint-spec",
+  "cursor-query-descriptor-spec",
+  "oauth-device-flow-restart-spec",
+  "noncloneable-reconstruction-factory-spec",
 ]);
 
 const forbiddenRawFields = new Set([

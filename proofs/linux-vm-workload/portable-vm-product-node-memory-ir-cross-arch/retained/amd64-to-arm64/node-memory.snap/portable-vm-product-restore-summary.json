@@ -10,8 +10,8 @@
   "sourceArchitectureDetected": true,
   "targetArchitectureDetected": true,
   "targetVmStarted": true,
-  "restoredName": "portable-vm-node-memory-arm-target-1780598375-4668",
-  "restoredPid": 5044,
+  "restoredName": "portable-vm-node-memory-arm-target-1780598817-21510",
+  "restoredPid": 21884,
   "targetRestore": {
     "kind": "machinen.real-cross-arch-portable-vm-all3-target-restore",
     "accepted": true,
@@ -33,7 +33,7 @@
     },
     "nodejsResource": {
       "materialized": true,
-      "materializedRows": 99,
+      "materializedRows": 112,
       "pid": 799
     }
   },
@@ -62,7 +62,7 @@
     "nodejsResource": {
       "accepted": true,
       "resourceIrKind": "machinen.nodejs.resource-ir",
-      "materializedRows": 99
+      "materializedRows": 112
     }
   },
   "workloads": {
@@ -80,7 +80,7 @@
       "memoryVerified": true,
       "memoryMaterializedRows": 130,
       "resourceVerified": true,
-      "resourceMaterializedRows": 99,
+      "resourceMaterializedRows": 112,
       "arbitraryNodeProcessRestoreClaimed": false,
       "rawV8HeapRestoreUsed": false
     }
@@ -104,5 +104,5 @@
     "sourceIsaEmulationUsed": false,
     "metadataOnlyShortcutAccepted": false
   },
-  "elapsedMs": 13702
+  "elapsedMs": 13751
 }

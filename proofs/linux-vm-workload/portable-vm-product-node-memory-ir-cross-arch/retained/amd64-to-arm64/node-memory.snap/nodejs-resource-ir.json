@@ -1299,6 +1299,202 @@
       }
     },
     {
+      "id": "nodejs-resource-hash-public-input-digest",
+      "kind": "hash-public-input-digest-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "algorithm": "sha256",
+        "inputPolicy": "retained-public-bytes",
+        "digestPolicy": "target-native-recompute"
+      }
+    },
+    {
+      "id": "nodejs-resource-deterministic-prng-seed",
+      "kind": "deterministic-prng-seed-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "generatorPolicy": "declared-deterministic-seed",
+        "cryptoRandomState": false
+      }
+    },
+    {
+      "id": "nodejs-resource-buffer-pool-policy",
+      "kind": "buffer-pool-policy-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "poolPolicy": "target-native-allocator-pool",
+        "retainedBytes": 0
+      }
+    },
+    {
+      "id": "nodejs-resource-zero-fill-buffer-policy",
+      "kind": "zero-fill-buffer-policy-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "bytePolicy": "zero-fill-target-native",
+        "preserveUninitializedBytes": false
+      }
+    },
+    {
+      "id": "nodejs-resource-external-arraybuffer-declared-bytes",
+      "kind": "external-arraybuffer-declared-bytes-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "pointerPolicy": "no-source-pointer",
+        "bytePolicy": "retained-declared-bytes"
+      }
+    },
+    {
+      "id": "nodejs-resource-weak-cache-drop-policy",
+      "kind": "weak-cache-drop-policy-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "reachabilityPolicy": "drop-gc-dependent-cache-values",
+        "rebuildPolicy": "lazy-target-native-cache"
+      }
+    },
+    {
+      "id": "nodejs-resource-queue-consumer-retry-checkpoint",
+      "kind": "queue-consumer-retry-checkpoint-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "inFlightPolicy": "retry-from-semantic-message-checkpoint",
+        "activeFrame": false
+      }
+    },
+    {
+      "id": "nodejs-resource-pending-transition-checkpoint",
+      "kind": "pending-transition-checkpoint-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "transitionPolicy": "resume-from-semantic-state-node",
+        "activeFrame": false
+      }
+    },
+    {
+      "id": "nodejs-resource-stdio-config",
+      "kind": "stdio-config-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "descriptorPolicy": "target-native-standard-streams",
+        "sourceDescriptorContinuation": false
+      }
+    },
+    {
+      "id": "nodejs-resource-transaction-retry-checkpoint",
+      "kind": "transaction-retry-checkpoint-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "transactionPolicy": "rollback-or-retry-from-semantic-boundary",
+        "activeConnection": false
+      }
+    },
+    {
+      "id": "nodejs-resource-cursor-query-descriptor",
+      "kind": "cursor-query-descriptor-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "cursorPolicy": "recreate-from-query-and-offset-descriptor",
+        "activeConnection": false
+      }
+    },
+    {
+      "id": "nodejs-resource-oauth-device-flow-restart",
+      "kind": "oauth-device-flow-restart-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "tokenPolicy": "no-token-bytes",
+        "restartPolicy": "restart-provider-flow-target-native"
+      }
+    },
+    {
+      "id": "nodejs-resource-noncloneable-reconstruction-factory",
+      "kind": "noncloneable-reconstruction-factory-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "factoryPolicy": "declared-target-native-factory",
+        "sourceIdentityPolicy": "semantic-object-descriptor"
+      }
+    },
+    {
       "id": "nodejs-resource-http-request-template",
       "kind": "http-request-template-spec",
       "reconstructable": true,
