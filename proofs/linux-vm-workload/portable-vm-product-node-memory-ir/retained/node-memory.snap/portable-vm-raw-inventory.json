@@ -38,6 +38,43 @@
       "path": "nodejs-memory-ir.json",
       "classification": "nodejs-memory-classification.json",
       "disposition": "product-supported"
+    },
+    {
+      "id": "nodejs-resource-inventory",
+      "category": "nodejs",
+      "path": "nodejs-resource-inventory.json",
+      "disposition": "classified"
+    },
+    {
+      "id": "nodejs-resource-ir",
+      "category": "nodejs",
+      "path": "nodejs-resource-ir.json",
+      "classification": "nodejs-resource-classification.json",
+      "inventory": "nodejs-resource-inventory.json",
+      "disposition": "product-supported"
     }
-  ]
+  ],
+  "pauseBoundary": {
+    "kind": "machinen.portable-vm-pause-boundary",
+    "version": 1,
+    "accepted": true,
+    "sourceVmPauseRequired": true,
+    "pauseMechanism": "vmm-native-sigusr1-sigusr2",
+    "pauseSignal": "SIGUSR1",
+    "resumeSignal": "SIGUSR2",
+    "sourceVmPid": 71836,
+    "stoppedStateObserved": true,
+    "unsupportedPausedLiveStatePolicy": "refuse",
+    "vmmNativeMarker": {
+      "kind": "machinen.vmm-pause-marker",
+      "version": 1,
+      "backend": "hvf",
+      "vcpusStopped": true,
+      "resumeSignalRequired": "SIGUSR2"
+    },
+    "startedAt": "2026-06-04T16:26:07.110Z",
+    "pausedObservedAt": "2026-06-04T16:26:07.132Z",
+    "resumedAt": "2026-06-04T16:26:07.132Z",
+    "elapsedMs": 22
+  }
 }

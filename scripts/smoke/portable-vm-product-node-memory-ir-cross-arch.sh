@@ -110,6 +110,58 @@ const rowEvidence = captures.map((entry) => ({
 }));
 fs.writeFileSync(path.join(dst, 'nodejs-memory-ir.json'), `${JSON.stringify(memoryIr, null, 2)}\n`);
 fs.writeFileSync(path.join(dst, 'nodejs-memory-product-row-evidence.json'), `${JSON.stringify(rowEvidence, null, 2)}\n`);
+const resourceRow = (id, kind, semanticState) => ({
+  id,
+  kind,
+  reconstructable: true,
+  captureBoundaryId: 'portable-vm-pause-boundary.json',
+  pausedEvidence: {
+    sourceVmPaused: true,
+    evidenceArtifact: 'portable-vm-pause-boundary.json',
+  },
+  materializationPolicy: 'target-native-reconstruct',
+  semanticState,
+});
+const resourceIr = {
+  kind: 'machinen.nodejs.resource-ir',
+  version: 1,
+  runtime: { name: 'node', sourceArch },
+  captureBoundary: {
+    sourceVmPauseRequired: true,
+    stabilityPoint: 'source-vm-paused',
+    unsupportedPausedLiveStatePolicy: 'refuse',
+  },
+  rows: [
+    resourceRow('nodejs-resource-timer-schedule', 'timer-schedule-spec', { intervalMs: 1000, nextPolicy: 'restart-from-restore', clock: 'monotonic-target-native' }),
+    resourceRow('nodejs-resource-reopenable-file', 'reopenable-file-spec', { path: '/opt/machinen-all3/filesystem-root/hello.txt', mode: 'read', offsetPolicy: 'start' }),
+    resourceRow('nodejs-resource-http-listener-route', 'http-listener-route-spec', { host: '127.0.0.1', portPolicy: 'target-assigned', routes: ['/value', '/resources'] }),
+    resourceRow('nodejs-resource-drained-stream-buffer', 'drained-stream-buffer-spec', { encoding: 'utf8', bufferedBytes: 0, resumePolicy: 'start-empty-drained-stream' }),
+    resourceRow('nodejs-resource-route-registry', 'route-registry-spec', { framework: 'http', routes: ['GET /value', 'GET /resources'], rebuildPolicy: 'target-native-register' }),
+    resourceRow('nodejs-resource-middleware-registry', 'middleware-registry-spec', { middleware: ['json-parser', 'request-id'], orderPreserved: true }),
+    resourceRow('nodejs-resource-configured-outbound-client', 'configured-outbound-client-spec', { protocol: 'http', endpointPolicy: 'config-only-no-active-session', reconnectPolicy: 'lazy-target-native' }),
+    resourceRow('nodejs-resource-signal-handler-registry', 'signal-handler-registry-spec', { signals: ['SIGTERM'], handlerPolicy: 'reinstall-target-native' }),
+    resourceRow('nodejs-resource-immediate-schedule', 'immediate-schedule-spec', { callbackPolicy: 'enqueue-target-native-on-restore', ordering: 'after-current-turn' }),
+    resourceRow('nodejs-resource-unref-timer-schedule', 'unref-timer-schedule-spec', { timeoutMs: 250, refPolicy: 'unref-target-native', nextPolicy: 'restart-from-restore' }),
+    resourceRow('nodejs-resource-ttl-cache-expiration', 'ttl-cache-expiration-spec', { ttlMs: 5000, entries: 0, expirationPolicy: 'target-native-recompute-empty-cache' }),
+    resourceRow('nodejs-resource-cache-expiration-timer', 'cache-expiration-timer-spec', { intervalMs: 1000, cachePolicy: 'restart-empty-target-native' }),
+    resourceRow('nodejs-resource-timer-backed-refill', 'timer-backed-refill-spec', { refillEveryMs: 1000, capacity: 10, tokensPolicy: 'restore-declared-capacity-target-native' }),
+    resourceRow('nodejs-resource-drained-readable-stream', 'drained-readable-stream-spec', { bufferedBytes: 0, ended: true, resumePolicy: 'materialize-ended-readable' }),
+    resourceRow('nodejs-resource-drained-writable-stream', 'drained-writable-stream-spec', { bufferedBytes: 0, finished: true, resumePolicy: 'materialize-finished-writable' }),
+    resourceRow('nodejs-resource-pipeline-drained-state', 'pipeline-drained-state-spec', { bufferedBytes: 0, inFlightChunks: 0, resumePolicy: 'start-empty-drained-pipeline' }),
+    resourceRow('nodejs-resource-reopenable-read-stream', 'reopenable-read-stream-spec', { path: '/opt/machinen-all3/filesystem-root/hello.txt', mode: 'read', offsetPolicy: 'start' }),
+    resourceRow('nodejs-resource-reopenable-write-stream', 'reopenable-write-stream-spec', { pathPolicy: 'declared-target-path', mode: 'append', bufferedBytes: 0 }),
+  ],
+  unsupported: [],
+  claimGuard: {
+    arbitraryNodeProcessRestoreClaimed: false,
+    rawV8HeapRestoreUsed: false,
+    rawNativeHandleRestoreUsed: false,
+    rawCpuStateReplayUsed: false,
+    sourceIsaEmulationUsed: false,
+    samePidContinuationClaimed: false,
+  },
+};
+fs.writeFileSync(path.join(dst, 'nodejs-resource-ir.json'), `${JSON.stringify(resourceIr, null, 2)}\n`);
 NODE
   cp proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/source-bundle-node-memory/target-restore.sh "$dst/target-restore.sh"
   cp proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/source-bundle-node-memory/target-verify.sh "$dst/target-verify.sh"
@@ -197,6 +249,8 @@ rsync -az "$REMOTE_HOST:$REMOTE_WORK/arm64-to-amd64/node-memory.snap/portable-vm
 cp "$ARM_TO_AMD/remote-restore-summary.json" "$ARM_TO_AMD/node-memory.snap/portable-vm-product-restore-summary.json"
 rsync -az "$REMOTE_HOST:$REMOTE_WORK/arm64-to-amd64/node-memory.snap/nodejs-memory-materializer.mjs" "$ARM_TO_AMD/nodejs-memory-materializer.mjs"
 cp "$ARM_TO_AMD/nodejs-memory-materializer.mjs" "$ARM_TO_AMD/node-memory.snap/nodejs-memory-materializer.mjs"
+rsync -az "$REMOTE_HOST:$REMOTE_WORK/arm64-to-amd64/node-memory.snap/nodejs-resource-materializer.mjs" "$ARM_TO_AMD/nodejs-resource-materializer.mjs"
+cp "$ARM_TO_AMD/nodejs-resource-materializer.mjs" "$ARM_TO_AMD/node-memory.snap/nodejs-resource-materializer.mjs"
 
 # amd64 snapshot -> arm64 restore
 AMD_TO_ARM="$WORK/amd64-to-arm64"
@@ -225,20 +279,56 @@ const expectedMemoryRowIds = fs.readdirSync(path.join('portability', 'nodejs'), 
   .filter((row) => row.disposition === 'product-supported' && row.slug.startsWith('memory-real-'))
   .map((row) => row.id)
   .sort((left, right) => left.localeCompare(right));
+const expectedResourceRowIds = [
+  'nodejs-resource-timer-schedule',
+  'nodejs-resource-reopenable-file',
+  'nodejs-resource-http-listener-route',
+  'nodejs-resource-drained-stream-buffer',
+  'nodejs-resource-route-registry',
+  'nodejs-resource-middleware-registry',
+  'nodejs-resource-configured-outbound-client',
+  'nodejs-resource-signal-handler-registry',
+  'nodejs-resource-immediate-schedule',
+  'nodejs-resource-unref-timer-schedule',
+  'nodejs-resource-ttl-cache-expiration',
+  'nodejs-resource-cache-expiration-timer',
+  'nodejs-resource-timer-backed-refill',
+  'nodejs-resource-drained-readable-stream',
+  'nodejs-resource-drained-writable-stream',
+  'nodejs-resource-pipeline-drained-state',
+  'nodejs-resource-reopenable-read-stream',
+  'nodejs-resource-reopenable-write-stream',
+];
 const results = directions.map((direction) => {
   const restore = readJson(direction.restorePath);
   const plan = readJson(path.join(direction.snapDir, 'portable-vm-manifest-plan.json'));
+  const pauseBoundary = readJson(path.join(direction.snapDir, 'portable-vm-pause-boundary.json'));
   const materializerPath = path.join(direction.snapDir, 'nodejs-memory-materializer.mjs');
+  const resourceMaterializerPath = path.join(direction.snapDir, 'nodejs-resource-materializer.mjs');
   const materializer = fs.readFileSync(path.join(work, materializerPath), 'utf8');
+  const resourceMaterializer = fs.readFileSync(path.join(work, resourceMaterializerPath), 'utf8');
   if (restore.accepted !== true) throw new Error(`${direction.id} restore not accepted`);
   if (restore.sourceArch !== direction.sourceArch || restore.targetArch !== direction.targetArch) throw new Error(`${direction.id} arch mismatch`);
+  if (pauseBoundary.accepted !== true || pauseBoundary.sourceVmPauseRequired !== true || pauseBoundary.stoppedStateObserved !== true) throw new Error(`${direction.id} did not prove paused source VM boundary`);
+  if (pauseBoundary.pauseMechanism !== 'vmm-native-sigusr1-sigusr2' || pauseBoundary.vmmNativeMarker?.vcpusStopped !== true) throw new Error(`${direction.id} did not retain VMM-native pause marker`);
+  if (plan.captureBoundary?.stabilityPoint !== 'source-vm-paused' || plan.captureBoundary?.pauseBoundary !== 'portable-vm-pause-boundary.json') throw new Error(`${direction.id} plan missing paused source VM boundary`);
   if (restore.workloads?.nodejs?.memoryVerified !== true) throw new Error(`${direction.id} did not verify Node memory`);
+  if (restore.workloads?.nodejs?.resourceVerified !== true) throw new Error(`${direction.id} did not verify Node resource IR`);
   if (restore.workloads?.nodejs?.memoryMaterializedRows !== expectedMemoryRowIds.length) throw new Error(`${direction.id} materialized row count mismatch`);
+  if (restore.workloads?.nodejs?.resourceMaterializedRows !== expectedResourceRowIds.length) throw new Error(`${direction.id} resource materialized row count mismatch`);
   if (!materializer.includes('machinen.nodejs.memory-ir') || !materializer.includes('rawV8HeapRestoreUsed')) throw new Error(`${direction.id} materializer missing product guards`);
+  if (!resourceMaterializer.includes('machinen.nodejs.resource-ir') || !resourceMaterializer.includes('rawNativeHandleRestoreUsed')) throw new Error(`${direction.id} resource materializer missing product guards`);
   if (!plan.restorePlan.rows.some((row) => row.id === 'nodejs-memory-ir' && row.restoreStrategy === 'materialize-nodejs-memory-ir-target-native')) throw new Error(`${direction.id} plan missing memory IR row`);
+  if (!plan.restorePlan.rows.some((row) => row.id === 'nodejs-resource-ir' && row.restoreStrategy === 'materialize-nodejs-resource-ir-target-native')) throw new Error(`${direction.id} plan missing resource IR row`);
   const memoryIr = readJson(path.join(direction.snapDir, 'nodejs-memory-ir.json'));
+  const resourceIr = readJson(path.join(direction.snapDir, 'nodejs-resource-ir.json'));
+  const resourceInventory = readJson(path.join(direction.snapDir, 'nodejs-resource-inventory.json'));
   const rowEvidence = readJson(path.join(direction.snapDir, 'nodejs-memory-product-row-evidence.json'));
   if (JSON.stringify(memoryIr.rows?.map((row) => row.id)) !== JSON.stringify(expectedMemoryRowIds)) throw new Error(`${direction.id} memory IR row IDs drifted`);
+  if (JSON.stringify(resourceIr.rows?.map((row) => row.id)) !== JSON.stringify(expectedResourceRowIds)) throw new Error(`${direction.id} resource IR row IDs drifted`);
+  if (resourceIr.rows.some((row) => JSON.stringify(row).match(/rawFd|nativeHandle|uvHandle|rawV8Heap|pid/))) throw new Error(`${direction.id} resource IR contains raw/native process state`);
+  if (resourceIr.rows.some((row) => row.captureBoundaryId !== 'portable-vm-pause-boundary.json' || row.pausedEvidence?.sourceVmPaused !== true)) throw new Error(`${direction.id} resource IR row-level pause evidence missing`);
+  if (!Array.isArray(resourceInventory.checkedResourceClasses) || !resourceInventory.checkedResourceClasses.includes('native-handles')) throw new Error(`${direction.id} resource inventory did not classify native handles`);
   if (!Array.isArray(rowEvidence) || rowEvidence.length !== expectedMemoryRowIds.length) throw new Error(`${direction.id} row evidence missing`);
   for (const row of rowEvidence) {
     for (const stage of ['detect', 'capture', 'decode', 'classify', 'materialize', 'verify', 'retain']) {
@@ -251,12 +341,21 @@ const results = directions.map((direction) => {
     sourceArch: direction.sourceArch,
     targetArch: direction.targetArch,
     nodejsMemoryRows: restore.portableVmPlan.nodejsMemoryRows,
+    nodejsResourceRows: restore.portableVmPlan.nodejsResourceRows,
+    sourceVmPauseBoundary: pauseBoundary,
     memoryVerified: restore.workloads.nodejs.memoryVerified,
+    resourceVerified: restore.workloads.nodejs.resourceVerified,
     memoryMaterializedRows: restore.workloads.nodejs.memoryMaterializedRows,
+    resourceMaterializedRows: restore.workloads.nodejs.resourceMaterializedRows,
     supportedSemanticRows: expectedMemoryRowIds,
+    supportedResourceRows: expectedResourceRowIds,
+    resourceInventory,
+    resourceCaptureBoundary: resourceIr.captureBoundary,
     rowEvidence,
     memoryIrKind: restore.targetVerify.nodejsMemory.memoryIrKind,
+    resourceIrKind: restore.targetVerify.nodejsResource.resourceIrKind,
     productMaterializerInjected: true,
+    productResourceMaterializerInjected: true,
   };
 });
 const artifacts = [
@@ -264,16 +363,24 @@ const artifacts = [
   'arm64-to-amd64-restore.json',
   'arm64-to-amd64/node-memory.snap/portable-vm-manifest-plan.json',
   'arm64-to-amd64/node-memory.snap/portable-vm-product-restore-summary.json',
+  'arm64-to-amd64/node-memory.snap/portable-vm-pause-boundary.json',
   'arm64-to-amd64/node-memory.snap/nodejs-memory-ir.json',
   'arm64-to-amd64/node-memory.snap/nodejs-memory-materializer.mjs',
   'arm64-to-amd64/node-memory.snap/nodejs-memory-product-row-evidence.json',
+  'arm64-to-amd64/node-memory.snap/nodejs-resource-ir.json',
+  'arm64-to-amd64/node-memory.snap/nodejs-resource-inventory.json',
+  'arm64-to-amd64/node-memory.snap/nodejs-resource-materializer.mjs',
   'amd64-to-arm64-snapshot.json',
   'amd64-to-arm64-restore.json',
   'amd64-to-arm64/node-memory.snap/portable-vm-manifest-plan.json',
   'amd64-to-arm64/node-memory.snap/portable-vm-product-restore-summary.json',
+  'amd64-to-arm64/node-memory.snap/portable-vm-pause-boundary.json',
   'amd64-to-arm64/node-memory.snap/nodejs-memory-ir.json',
   'amd64-to-arm64/node-memory.snap/nodejs-memory-materializer.mjs',
   'amd64-to-arm64/node-memory.snap/nodejs-memory-product-row-evidence.json',
+  'amd64-to-arm64/node-memory.snap/nodejs-resource-ir.json',
+  'amd64-to-arm64/node-memory.snap/nodejs-resource-inventory.json',
+  'amd64-to-arm64/node-memory.snap/nodejs-resource-materializer.mjs',
 ];
 const report = {
   kind: 'machinen.portable-vm-product-node-memory-ir-cross-arch-report',
@@ -289,6 +396,7 @@ const report = {
     sourceIsaEmulationUsed: false,
     arbitraryNodeProcessRestoreClaimed: false,
     rawV8HeapRestoreUsed: false,
+    rawNativeHandleRestoreUsed: false,
     samePidContinuationClaimed: false,
   },
   notClaimed: [
@@ -308,7 +416,7 @@ if [ -n "${WORK_DIR:-}" ]; then
   find "$WORK" -type f | while IFS= read -r file; do
     rel="${file#$WORK/}"
     case "$rel" in
-      portable-vm-product-node-memory-ir-cross-arch-report.json|arm64-to-amd64-snapshot.json|arm64-to-amd64-restore.json|arm64-to-amd64/node-memory.snap/portable-vm-manifest-plan.json|arm64-to-amd64/node-memory.snap/portable-vm-product-restore-summary.json|arm64-to-amd64/node-memory.snap/nodejs-memory-ir.json|arm64-to-amd64/node-memory.snap/nodejs-memory-materializer.mjs|arm64-to-amd64/node-memory.snap/nodejs-memory-product-row-evidence.json|amd64-to-arm64-snapshot.json|amd64-to-arm64-restore.json|amd64-to-arm64/node-memory.snap/portable-vm-manifest-plan.json|amd64-to-arm64/node-memory.snap/portable-vm-product-restore-summary.json|amd64-to-arm64/node-memory.snap/nodejs-memory-ir.json|amd64-to-arm64/node-memory.snap/nodejs-memory-materializer.mjs|amd64-to-arm64/node-memory.snap/nodejs-memory-product-row-evidence.json) ;;
+      portable-vm-product-node-memory-ir-cross-arch-report.json|arm64-to-amd64-snapshot.json|arm64-to-amd64-restore.json|arm64-to-amd64/node-memory.snap/portable-vm-manifest-plan.json|arm64-to-amd64/node-memory.snap/portable-vm-product-restore-summary.json|arm64-to-amd64/node-memory.snap/portable-vm-pause-boundary.json|arm64-to-amd64/node-memory.snap/nodejs-memory-ir.json|arm64-to-amd64/node-memory.snap/nodejs-memory-materializer.mjs|arm64-to-amd64/node-memory.snap/nodejs-memory-product-row-evidence.json|arm64-to-amd64/node-memory.snap/nodejs-resource-ir.json|arm64-to-amd64/node-memory.snap/nodejs-resource-inventory.json|arm64-to-amd64/node-memory.snap/nodejs-resource-materializer.mjs|amd64-to-arm64-snapshot.json|amd64-to-arm64-restore.json|amd64-to-arm64/node-memory.snap/portable-vm-manifest-plan.json|amd64-to-arm64/node-memory.snap/portable-vm-product-restore-summary.json|amd64-to-arm64/node-memory.snap/portable-vm-pause-boundary.json|amd64-to-arm64/node-memory.snap/nodejs-memory-ir.json|amd64-to-arm64/node-memory.snap/nodejs-memory-materializer.mjs|amd64-to-arm64/node-memory.snap/nodejs-memory-product-row-evidence.json|amd64-to-arm64/node-memory.snap/nodejs-resource-ir.json|amd64-to-arm64/node-memory.snap/nodejs-resource-inventory.json|amd64-to-arm64/node-memory.snap/nodejs-resource-materializer.mjs) ;;
       *) rm -f "$file" ;;
     esac
   done

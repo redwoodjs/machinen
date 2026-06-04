@@ -52,6 +52,27 @@
         "compatibilityIndex": "portability/nodejs/index.json"
       },
       {
+        "id": "nodejs-resource-inventory",
+        "category": "nodejs",
+        "disposition": "classified",
+        "restoreStrategy": "classify-nodejs-runtime-resources",
+        "artifact": "nodejs-resource-inventory.json",
+        "captureBoundary": "source-vm-paused",
+        "unsupportedPausedLiveStatePolicy": "refuse"
+      },
+      {
+        "id": "nodejs-resource-ir",
+        "category": "nodejs",
+        "disposition": "product-supported",
+        "restoreStrategy": "materialize-nodejs-resource-ir-target-native",
+        "artifact": "nodejs-resource-ir.json",
+        "classification": "nodejs-resource-classification.json",
+        "inventory": "nodejs-resource-inventory.json",
+        "compatibilityIndex": "portability/nodejs/index.json",
+        "captureBoundary": "source-vm-paused",
+        "unsupportedPausedLiveStatePolicy": "refuse"
+      },
+      {
         "id": "nodejs-memory-active-socket",
         "category": "nodejs",
         "disposition": "refused",
@@ -65,5 +86,11 @@
     "rawVmStateReplayUsed": false,
     "sourceIsaEmulationUsed": false,
     "metadataOnlyShortcutAccepted": false
+  },
+  "captureBoundary": {
+    "sourceVmPauseRequired": true,
+    "stabilityPoint": "source-vm-paused",
+    "pauseBoundary": "portable-vm-pause-boundary.json",
+    "unsupportedPausedLiveStatePolicy": "refuse"
   }
 }

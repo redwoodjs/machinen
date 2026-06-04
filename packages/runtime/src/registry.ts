@@ -70,6 +70,12 @@ export interface RegistryEntry {
    * booted without the vmstate engine.
    */
   vmstatePath?: string;
+  /**
+   * Host-side marker file the VMM writes after SIGUSR1 reaches the run
+   * loop with vCPUs stopped. Used by portable semantic snapshots to
+   * prove a VMM-native pause boundary without claiming raw VM replay.
+   */
+  pauseMarkerPath?: string;
   /** Per-VM incremental checkpoint chain id. New on every fresh boot/restore. */
   vmstateChainId?: string;
   /** Absolute bundle path the next vmstate checkpoint should parent to. */

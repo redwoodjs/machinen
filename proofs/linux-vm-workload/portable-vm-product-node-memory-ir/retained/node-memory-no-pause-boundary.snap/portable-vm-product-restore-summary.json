@@ -1,0 +1,36 @@
+{
+  "kind": "machinen.portable-vm-product-restore-summary",
+  "version": 1,
+  "accepted": false,
+  "scope": "portable-vm-all3-product-snapshot-restore-v1",
+  "state": "refused",
+  "migrationCompleted": false,
+  "sourceArch": "arm64",
+  "targetArch": "arm64",
+  "sourceArchitectureDetected": true,
+  "targetArchitectureDetected": true,
+  "refusal": {
+    "code": "node-portability-resource-pause-boundary-missing",
+    "message": "Node Resource IR restore requires a retained source VM pause boundary artifact before materialization"
+  },
+  "workloads": {
+    "nodejs": {
+      "classified": true,
+      "rowCount": 4,
+      "refusedRows": 0,
+      "memoryRows": 1,
+      "memoryMaterializationRows": 1,
+      "resourceRows": 1,
+      "resourceMaterializationRows": 1,
+      "refusals": [],
+      "memoryRefusals": [],
+      "resourceRefusals": []
+    }
+  },
+  "claimGuard": {
+    "arbitraryVmRestoreClaimed": false,
+    "rawVmStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlyShortcutAccepted": false
+  }
+}

@@ -38,20 +38,29 @@ interface CompatibilityIndex {
     refusedRows: number;
     conditionalRows: number;
     failedClassifiedRows: number;
+    verifiedRefusalRows: number;
+    unsupportedUnverifiedRows: number;
+    coveredRows: number;
   };
   rows: Array<{
     id: string;
     capability: string;
     category: string;
     attemptPolicy: "try-first" | "config-required" | "refuse-live-state";
-    status: "verified" | "classified" | "conditional" | "failed-classified" | "refused";
+    status:
+      | "verified"
+      | "verified-refusal"
+      | "classified"
+      | "conditional"
+      | "failed-classified"
+      | "refused";
     architectures: Record<
       string,
       { status: string; evidence: Array<{ kind: string; path: string }> }
     >;
     blockers: Array<{ id: string; severity: string; refusalCode: string | null }>;
     productClaim: {
-      status: "claimed" | "candidate" | "conditional" | "refusal" | "none";
+      status: "claimed" | "candidate" | "conditional" | "verified-refusal" | "refusal" | "none";
       scope: string;
     };
     evidence: Array<{ kind: string; path: string }>;
@@ -100,6 +109,38 @@ function selectedProductNodeMemoryRefusalCodes(): string[] {
     "node-portability-memory-weakmap-unsupported",
     "node-portability-memory-timer-unsupported",
     "node-portability-memory-stream-unsupported",
+  ];
+}
+
+function selectedProductNodeResourceRowIds(): string[] {
+  return [
+    "nodejs-resource-timer-schedule",
+    "nodejs-resource-reopenable-file",
+    "nodejs-resource-http-listener-route",
+    "nodejs-resource-drained-stream-buffer",
+    "nodejs-resource-route-registry",
+    "nodejs-resource-middleware-registry",
+    "nodejs-resource-configured-outbound-client",
+    "nodejs-resource-signal-handler-registry",
+    "nodejs-resource-immediate-schedule",
+    "nodejs-resource-unref-timer-schedule",
+    "nodejs-resource-ttl-cache-expiration",
+    "nodejs-resource-cache-expiration-timer",
+    "nodejs-resource-timer-backed-refill",
+    "nodejs-resource-drained-readable-stream",
+    "nodejs-resource-drained-writable-stream",
+    "nodejs-resource-pipeline-drained-state",
+    "nodejs-resource-reopenable-read-stream",
+    "nodejs-resource-reopenable-write-stream",
+  ];
+}
+
+function selectedProductNodeResourceRefusalCodes(): string[] {
+  return [
+    "node-portability-resource-active-timer-unsupported",
+    "node-portability-resource-native-handle-unsupported",
+    "node-portability-resource-active-tls-unsupported",
+    "node-portability-resource-worker-live-state-unsupported",
   ];
 }
 
@@ -245,11 +286,14 @@ describe("Node.js portability corpus", () => {
       runtime: "nodejs",
       summary: {
         rowCount: 312,
-        byStatus: { verified: 158, refused: 154 },
-        byProductClaim: { candidate: 158, refusal: 154 },
+        byStatus: { verified: 174, "verified-refusal": 138 },
+        byProductClaim: { candidate: 174, "verified-refusal": 138 },
         architectures: ["arm64", "amd64"],
-        verifiedBothArchitectures: 158,
-        refusedRows: 154,
+        verifiedBothArchitectures: 174,
+        verifiedRefusalRows: 138,
+        refusedRows: 0,
+        unsupportedUnverifiedRows: 0,
+        coveredRows: 312,
         conditionalRows: 0,
         failedClassifiedRows: 0,
       },
@@ -260,6 +304,31 @@ describe("Node.js portability corpus", () => {
     expect(index.claimBoundary.notClaimed).toEqual(
       expect.arrayContaining(["raw V8 heap restore", "raw CPU/process continuation"]),
     );
+    const resourceIrRows = index.rows.filter((row) =>
+      [
+        "061-memory-real-timer-refusal",
+        "083-memory-real-interval-refusal",
+        "084-memory-real-immediate-refusal",
+        "085-memory-real-unref-timer-refusal",
+        "087-memory-real-scheduled-callback-refusal",
+        "088-memory-real-readable-stream-refusal",
+        "089-memory-real-writable-stream-refusal",
+        "091-memory-real-pipeline-refusal",
+        "143-memory-real-ttl-cache-refusal",
+        "146-memory-real-cache-expiration-timer-refusal",
+        "173-memory-real-filehandle-refusal",
+        "176-memory-real-open-read-stream-refusal",
+        "177-memory-real-open-write-stream-refusal",
+        "181-memory-real-process-signal-handler-refusal",
+        "267-memory-real-scheduler-timer-refusal",
+        "280-memory-real-timer-backed-refill-refusal",
+      ].includes(row.id),
+    );
+    expect(resourceIrRows).toHaveLength(16);
+    expect(resourceIrRows.every((row) => row.status === "verified")).toBe(true);
+    expect(
+      resourceIrRows.every((row) => row.productClaim.scope === "node-resource-ir-product-proof"),
+    ).toBe(true);
     for (const row of index.rows) {
       expect(row.capability.length).toBeGreaterThan(10);
       expect(row.architectures).toHaveProperty("arm64");
@@ -308,6 +377,43 @@ describe("Node.js portability corpus", () => {
     expect(cli).toContain("node-portability-memory-stream-unsupported");
     expect(cli).toContain('arbitraryNodeProcessRestoreClaimed": false');
     expect(cli).toContain('rawV8HeapRestoreUsed": false');
+  });
+
+  it("retains all-row fail-closed coverage for unsupported rows", () => {
+    const report = JSON.parse(
+      readFileSync(
+        resolve(corpusRoot, "retained/nodejs-portability-refusal-coverage-report.json"),
+        "utf8",
+      ),
+    ) as {
+      accepted: boolean;
+      rowCount: number;
+      supportedRows: number;
+      verifiedRefusalRows: number;
+      unsupportedUnverifiedRows: number;
+      allRowsAccountedFor: boolean;
+      verifiedRefusals: Array<{
+        status: string;
+        architectures: Record<string, { status: string }>;
+      }>;
+    };
+    expect(report).toMatchObject({
+      accepted: true,
+      rowCount: 312,
+      supportedRows: 174,
+      verifiedRefusalRows: 138,
+      unsupportedUnverifiedRows: 0,
+      allRowsAccountedFor: true,
+    });
+    expect(report.verifiedRefusals).toHaveLength(138);
+    expect(
+      report.verifiedRefusals.every(
+        (row) =>
+          row.status === "verified-refusal" &&
+          row.architectures.arm64?.status === "verified-refusal" &&
+          row.architectures.amd64?.status === "verified-refusal",
+      ),
+    ).toBe(true);
   });
 
   it("retains a bidirectional classification report for arm64 and amd64", () => {
@@ -603,12 +709,21 @@ describe("Node.js portability corpus", () => {
     };
     const plan = JSON.parse(
       readFileSync(resolve(proofRoot, "node-memory.snap/portable-vm-manifest-plan.json"), "utf8"),
-    ) as { restorePlan: { rows: Array<Record<string, unknown>> } };
+    ) as {
+      captureBoundary: Record<string, unknown>;
+      restorePlan: { rows: Array<Record<string, unknown>> };
+    };
     const inventory = JSON.parse(
       readFileSync(resolve(proofRoot, "node-memory.snap/portable-vm-raw-inventory.json"), "utf8"),
-    ) as { items: Array<Record<string, unknown>> };
+    ) as { items: Array<Record<string, unknown>>; pauseBoundary: Record<string, unknown> };
+    const pauseBoundary = JSON.parse(
+      readFileSync(resolve(proofRoot, "node-memory.snap/portable-vm-pause-boundary.json"), "utf8"),
+    ) as Record<string, unknown>;
     const memoryIr = JSON.parse(
       readFileSync(resolve(proofRoot, "node-memory.snap/nodejs-memory-ir.json"), "utf8"),
+    ) as { kind: string; rows: Array<{ id: string }> };
+    const resourceIr = JSON.parse(
+      readFileSync(resolve(proofRoot, "node-memory.snap/nodejs-resource-ir.json"), "utf8"),
     ) as { kind: string; rows: Array<{ id: string }> };
     const classification = JSON.parse(
       readFileSync(
@@ -616,19 +731,41 @@ describe("Node.js portability corpus", () => {
         "utf8",
       ),
     ) as { restoreStrategy: string };
+    const resourceClassification = JSON.parse(
+      readFileSync(
+        resolve(proofRoot, "node-memory.snap/nodejs-resource-classification.json"),
+        "utf8",
+      ),
+    ) as { restoreStrategy: string };
+    const resourceInventory = JSON.parse(
+      readFileSync(resolve(proofRoot, "node-memory.snap/nodejs-resource-inventory.json"), "utf8"),
+    ) as { checkedResourceClasses: string[] };
     const materializer = readFileSync(
       resolve(proofRoot, "node-memory.snap/nodejs-memory-materializer.mjs"),
+      "utf8",
+    );
+    const resourceMaterializer = readFileSync(
+      resolve(proofRoot, "node-memory.snap/nodejs-resource-materializer.mjs"),
       "utf8",
     );
     const acceptRestore = JSON.parse(
       readFileSync(resolve(proofRoot, "accept-restore.json"), "utf8"),
     ) as {
-      targetRestore: { nodejsMemory: { materialized: boolean; materializedRows: number } };
+      targetRestore: {
+        nodejsMemory: { materialized: boolean; materializedRows: number };
+        nodejsResource: { materialized: boolean; materializedRows: number };
+      };
       targetVerify: {
         nodejsMemory: { accepted: boolean; memoryIrKind: string; materializedRows: number };
+        nodejsResource: { accepted: boolean; resourceIrKind: string; materializedRows: number };
       };
       workloads: {
-        nodejs: { memoryVerified: boolean; memoryMaterializedRows: number };
+        nodejs: {
+          memoryVerified: boolean;
+          resourceVerified: boolean;
+          memoryMaterializedRows: number;
+          resourceMaterializedRows: number;
+        };
       };
     };
     const refusalRestore = JSON.parse(
@@ -638,24 +775,64 @@ describe("Node.js portability corpus", () => {
       refusal: { code: string };
       workloads: { nodejs: { refusals: Array<{ refusalCode: string }>; memoryRefusals: string[] } };
     };
+    const noPauseRestore = JSON.parse(
+      readFileSync(resolve(proofRoot, "no-pause-boundary-restore.json"), "utf8"),
+    ) as { accepted: boolean; refusal: { code: string } };
     expect(report).toMatchObject({
       accepted: true,
       productCommandPath:
         "machinen snapshot <vm> --portable --out <bundle>; machinen restore <bundle> --json",
       acceptedPath: {
         nodejsMemoryRows: 1,
+        nodejsResourceRows: 1,
+        sourceVmPauseBoundary: {
+          accepted: true,
+          sourceVmPauseRequired: true,
+          stoppedStateObserved: true,
+          pauseMechanism: "vmm-native-sigusr1-sigusr2",
+          unsupportedPausedLiveStatePolicy: "refuse",
+        },
         memoryMaterializationRows: 1,
+        resourceMaterializationRows: 1,
         memoryVerified: true,
+        resourceVerified: true,
         materializedRows: expectedMemoryRowIds.length,
+        resourceMaterializedRows: selectedProductNodeResourceRowIds().length,
         supportedSemanticRows: expectedMemoryRowIds,
+        supportedResourceRows: selectedProductNodeResourceRowIds(),
+        resourceCaptureBoundary: {
+          sourceVmPauseRequired: true,
+          stabilityPoint: "source-vm-paused",
+          unsupportedPausedLiveStatePolicy: "refuse",
+        },
         restoreStrategy: "materialize-nodejs-memory-ir-target-native",
+        resourceRestoreStrategy: "materialize-nodejs-resource-ir-target-native",
         memoryIrKind: "machinen.nodejs.memory-ir",
+        resourceIrKind: "machinen.nodejs.resource-ir",
       },
       refusalPath: {
         restoreRefused: true,
         refusalCode: "node-portability-memory-pending-promise-unsupported",
       },
+      pauseBoundaryRefusal: {
+        restoreRefused: true,
+        refusalCode: "node-portability-resource-pause-boundary-missing",
+      },
     });
+    expect(pauseBoundary).toMatchObject({
+      accepted: true,
+      sourceVmPauseRequired: true,
+      stoppedStateObserved: true,
+      pauseMechanism: "vmm-native-sigusr1-sigusr2",
+      unsupportedPausedLiveStatePolicy: "refuse",
+    });
+    expect(plan.captureBoundary).toMatchObject({
+      sourceVmPauseRequired: true,
+      stabilityPoint: "source-vm-paused",
+      pauseBoundary: "portable-vm-pause-boundary.json",
+      unsupportedPausedLiveStatePolicy: "refuse",
+    });
+    expect(inventory.pauseBoundary).toMatchObject({ stoppedStateObserved: true });
     expect(plan.restorePlan.rows).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -665,20 +842,52 @@ describe("Node.js portability corpus", () => {
           restoreStrategy: "materialize-nodejs-memory-ir-target-native",
           artifact: "nodejs-memory-ir.json",
         }),
+        expect.objectContaining({
+          id: "nodejs-resource-ir",
+          category: "nodejs",
+          disposition: "product-supported",
+          restoreStrategy: "materialize-nodejs-resource-ir-target-native",
+          artifact: "nodejs-resource-ir.json",
+        }),
       ]),
     );
     expect(inventory.items).toEqual(
-      expect.arrayContaining([expect.objectContaining({ id: "nodejs-memory-ir" })]),
+      expect.arrayContaining([
+        expect.objectContaining({ id: "nodejs-memory-ir" }),
+        expect.objectContaining({ id: "nodejs-resource-inventory" }),
+        expect.objectContaining({ id: "nodejs-resource-ir" }),
+      ]),
     );
     expect(memoryIr.kind).toBe("machinen.nodejs.memory-ir");
     expect(memoryIr.rows.map((row) => row.id)).toEqual(expectedMemoryRowIds);
+    expect(resourceInventory.checkedResourceClasses).toEqual(
+      expect.arrayContaining(["timers", "file-handles", "native-handles"]),
+    );
+    expect(resourceIr.kind).toBe("machinen.nodejs.resource-ir");
+    expect(resourceIr).toMatchObject({
+      captureBoundary: {
+        sourceVmPauseRequired: true,
+        stabilityPoint: "source-vm-paused",
+        unsupportedPausedLiveStatePolicy: "refuse",
+      },
+    });
+    expect(resourceIr.rows.map((row) => row.id)).toEqual(selectedProductNodeResourceRowIds());
     expectSelectedProductNodeMemoryRowEvidence(report.acceptedPath.rowEvidence);
     expect(classification.restoreStrategy).toBe("materialize-nodejs-memory-ir-target-native");
+    expect(resourceClassification.restoreStrategy).toBe(
+      "materialize-nodejs-resource-ir-target-native",
+    );
     expect(materializer).toContain("machinen.nodejs.memory-ir");
     expect(materializer).toContain("rawV8HeapRestoreUsed");
+    expect(resourceMaterializer).toContain("machinen.nodejs.resource-ir");
+    expect(resourceMaterializer).toContain("rawNativeHandleRestoreUsed");
     expect(acceptRestore).toMatchObject({
       targetRestore: {
         nodejsMemory: { materialized: true, materializedRows: expectedMemoryRowIds.length },
+        nodejsResource: {
+          materialized: true,
+          materializedRows: selectedProductNodeResourceRowIds().length,
+        },
       },
       targetVerify: {
         nodejsMemory: {
@@ -686,17 +895,32 @@ describe("Node.js portability corpus", () => {
           memoryIrKind: "machinen.nodejs.memory-ir",
           materializedRows: expectedMemoryRowIds.length,
         },
+        nodejsResource: {
+          accepted: true,
+          resourceIrKind: "machinen.nodejs.resource-ir",
+          materializedRows: selectedProductNodeResourceRowIds().length,
+        },
       },
       workloads: {
-        nodejs: { memoryVerified: true, memoryMaterializedRows: expectedMemoryRowIds.length },
+        nodejs: {
+          memoryVerified: true,
+          resourceVerified: true,
+          memoryMaterializedRows: expectedMemoryRowIds.length,
+          resourceMaterializedRows: selectedProductNodeResourceRowIds().length,
+        },
       },
     });
-    expect(report.refusalMatrix.map((row) => row.refusalCode)).toEqual(
-      selectedProductNodeMemoryRefusalCodes(),
-    );
+    expect(report.refusalMatrix.map((row) => row.refusalCode)).toEqual([
+      ...selectedProductNodeMemoryRefusalCodes(),
+      ...selectedProductNodeResourceRefusalCodes(),
+    ]);
     for (const row of report.refusalMatrix) {
       expect(row.restoreRefused).toBe(true);
     }
+    expect(noPauseRestore).toMatchObject({
+      accepted: false,
+      refusal: { code: "node-portability-resource-pause-boundary-missing" },
+    });
     expect(refusalRestore).toMatchObject({
       accepted: false,
       refusal: { code: "node-portability-memory-pending-promise-unsupported" },
@@ -716,6 +940,7 @@ describe("Node.js portability corpus", () => {
       rawVmStateReplayUsed: false,
       arbitraryNodeProcessRestoreClaimed: false,
       rawV8HeapRestoreUsed: false,
+      rawNativeHandleRestoreUsed: false,
     });
   });
 
@@ -736,10 +961,16 @@ describe("Node.js portability corpus", () => {
         sourceArch: string;
         targetArch: string;
         memoryVerified: boolean;
+        resourceVerified: boolean;
         memoryMaterializedRows: number;
+        resourceMaterializedRows: number;
         supportedSemanticRows: string[];
+        supportedResourceRows: string[];
+        sourceVmPauseBoundary: Record<string, unknown>;
+        resourceCaptureBoundary: Record<string, unknown>;
         rowEvidence: Array<{ rowId: string; stages: Record<string, boolean> }>;
         productMaterializerInjected: boolean;
+        productResourceMaterializerInjected: boolean;
       }>;
       claimGuard: Record<string, false>;
     };
@@ -750,18 +981,50 @@ describe("Node.js portability corpus", () => {
         sourceArch: "arm64",
         targetArch: "amd64",
         memoryVerified: true,
+        resourceVerified: true,
         memoryMaterializedRows: expectedMemoryRowIds.length,
+        resourceMaterializedRows: selectedProductNodeResourceRowIds().length,
         supportedSemanticRows: expectedMemoryRowIds,
+        supportedResourceRows: selectedProductNodeResourceRowIds(),
+        sourceVmPauseBoundary: expect.objectContaining({
+          accepted: true,
+          sourceVmPauseRequired: true,
+          stoppedStateObserved: true,
+          pauseMechanism: "vmm-native-sigusr1-sigusr2",
+          unsupportedPausedLiveStatePolicy: "refuse",
+        }),
+        resourceCaptureBoundary: {
+          sourceVmPauseRequired: true,
+          stabilityPoint: "source-vm-paused",
+          unsupportedPausedLiveStatePolicy: "refuse",
+        },
         productMaterializerInjected: true,
+        productResourceMaterializerInjected: true,
       }),
       expect.objectContaining({
         id: "amd64-to-arm64",
         sourceArch: "amd64",
         targetArch: "arm64",
         memoryVerified: true,
+        resourceVerified: true,
         memoryMaterializedRows: expectedMemoryRowIds.length,
+        resourceMaterializedRows: selectedProductNodeResourceRowIds().length,
         supportedSemanticRows: expectedMemoryRowIds,
+        supportedResourceRows: selectedProductNodeResourceRowIds(),
+        sourceVmPauseBoundary: expect.objectContaining({
+          accepted: true,
+          sourceVmPauseRequired: true,
+          stoppedStateObserved: true,
+          pauseMechanism: "vmm-native-sigusr1-sigusr2",
+          unsupportedPausedLiveStatePolicy: "refuse",
+        }),
+        resourceCaptureBoundary: {
+          sourceVmPauseRequired: true,
+          stabilityPoint: "source-vm-paused",
+          unsupportedPausedLiveStatePolicy: "refuse",
+        },
         productMaterializerInjected: true,
+        productResourceMaterializerInjected: true,
       }),
     ]);
     for (const direction of ["arm64-to-amd64", "amd64-to-arm64"] as const) {
@@ -769,13 +1032,45 @@ describe("Node.js portability corpus", () => {
         readFileSync(resolve(proofRoot, `${direction}-restore.json`), "utf8"),
       ) as {
         accepted: boolean;
-        workloads: { nodejs: { memoryVerified: boolean; memoryMaterializedRows: number } };
-        targetVerify: { nodejsMemory: { accepted: boolean; memoryIrKind: string } };
+        workloads: {
+          nodejs: {
+            memoryVerified: boolean;
+            resourceVerified: boolean;
+            memoryMaterializedRows: number;
+            resourceMaterializedRows: number;
+          };
+        };
+        targetVerify: {
+          nodejsMemory: { accepted: boolean; memoryIrKind: string };
+          nodejsResource: { accepted: boolean; resourceIrKind: string };
+        };
       };
       const materializer = readFileSync(
         resolve(proofRoot, `${direction}/node-memory.snap/nodejs-memory-materializer.mjs`),
         "utf8",
       );
+      const resourceMaterializer = readFileSync(
+        resolve(proofRoot, `${direction}/node-memory.snap/nodejs-resource-materializer.mjs`),
+        "utf8",
+      );
+      const resourceIr = JSON.parse(
+        readFileSync(
+          resolve(proofRoot, `${direction}/node-memory.snap/nodejs-resource-ir.json`),
+          "utf8",
+        ),
+      ) as { kind: string; rows: Array<{ id: string }> };
+      const pauseBoundary = JSON.parse(
+        readFileSync(
+          resolve(proofRoot, `${direction}/node-memory.snap/portable-vm-pause-boundary.json`),
+          "utf8",
+        ),
+      ) as Record<string, unknown>;
+      const resourceInventory = JSON.parse(
+        readFileSync(
+          resolve(proofRoot, `${direction}/node-memory.snap/nodejs-resource-inventory.json`),
+          "utf8",
+        ),
+      ) as { checkedResourceClasses: string[] };
       const rowEvidence = JSON.parse(
         readFileSync(
           resolve(
@@ -786,17 +1081,44 @@ describe("Node.js portability corpus", () => {
         ),
       ) as Array<{ rowId: string; stages: Record<string, boolean> }>;
       expectSelectedProductNodeMemoryRowEvidence(rowEvidence);
+      expect(pauseBoundary).toMatchObject({
+        accepted: true,
+        sourceVmPauseRequired: true,
+        stoppedStateObserved: true,
+        pauseMechanism: "vmm-native-sigusr1-sigusr2",
+        unsupportedPausedLiveStatePolicy: "refuse",
+      });
+      expect(resourceInventory.checkedResourceClasses).toEqual(
+        expect.arrayContaining(["timers", "file-handles", "native-handles"]),
+      );
+      expect(resourceIr.kind).toBe("machinen.nodejs.resource-ir");
+      expect(resourceIr).toMatchObject({
+        captureBoundary: {
+          sourceVmPauseRequired: true,
+          stabilityPoint: "source-vm-paused",
+          unsupportedPausedLiveStatePolicy: "refuse",
+        },
+      });
+      expect(resourceIr.rows.map((row) => row.id)).toEqual(selectedProductNodeResourceRowIds());
       expect(restore).toMatchObject({
         accepted: true,
         workloads: {
-          nodejs: { memoryVerified: true, memoryMaterializedRows: expectedMemoryRowIds.length },
+          nodejs: {
+            memoryVerified: true,
+            resourceVerified: true,
+            memoryMaterializedRows: expectedMemoryRowIds.length,
+            resourceMaterializedRows: selectedProductNodeResourceRowIds().length,
+          },
         },
         targetVerify: {
           nodejsMemory: { accepted: true, memoryIrKind: "machinen.nodejs.memory-ir" },
+          nodejsResource: { accepted: true, resourceIrKind: "machinen.nodejs.resource-ir" },
         },
       });
       expect(materializer).toContain("machinen.nodejs.memory-ir");
       expect(materializer).toContain("rawV8HeapRestoreUsed");
+      expect(resourceMaterializer).toContain("machinen.nodejs.resource-ir");
+      expect(resourceMaterializer).toContain("rawNativeHandleRestoreUsed");
     }
     for (const direction of report.directions) {
       expectSelectedProductNodeMemoryRowEvidence(direction.rowEvidence);
@@ -806,6 +1128,7 @@ describe("Node.js portability corpus", () => {
       rawVmStateReplayUsed: false,
       arbitraryNodeProcessRestoreClaimed: false,
       rawV8HeapRestoreUsed: false,
+      rawNativeHandleRestoreUsed: false,
     });
   });
 

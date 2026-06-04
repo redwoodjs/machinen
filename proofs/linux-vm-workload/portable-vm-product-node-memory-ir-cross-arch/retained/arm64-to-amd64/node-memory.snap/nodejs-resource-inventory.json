@@ -1,0 +1,22 @@
+{
+  "kind": "machinen.nodejs-resource-inventory",
+  "version": 1,
+  "status": "classified",
+  "sourceArchitecture": "arm64",
+  "resourceIr": "nodejs-resource-ir.json",
+  "captureBoundaryRequired": "source-vm-paused",
+  "checkedResourceClasses": [
+    "timers",
+    "file-handles",
+    "http-listeners",
+    "streams",
+    "route-registries",
+    "middleware-registries",
+    "configured-outbound-clients",
+    "signal-handlers",
+    "workers",
+    "tls-sessions",
+    "native-handles"
+  ],
+  "unsupportedPausedLiveStatePolicy": "refuse"
+}

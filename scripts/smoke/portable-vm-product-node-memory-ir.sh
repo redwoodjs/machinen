@@ -22,6 +22,7 @@ cleanup() {
 trap cleanup EXIT
 
 /usr/bin/time -p pnpm build >"$WORK/build.stdout.txt" 2>"$WORK/build.stderr.txt"
+bash scripts/build-vmm.sh >"$WORK/build-vmm.stdout.txt" 2>"$WORK/build-vmm.stderr.txt"
 
 prepare_bundle() {
   local dst="$1"
@@ -100,6 +101,58 @@ const rowEvidence = captures.map((entry) => ({
 }));
 fs.writeFileSync(path.join(dst, 'nodejs-memory-ir.json'), `${JSON.stringify(memoryIr, null, 2)}\n`);
 fs.writeFileSync(path.join(dst, 'nodejs-memory-product-row-evidence.json'), `${JSON.stringify(rowEvidence, null, 2)}\n`);
+const resourceRow = (id, kind, semanticState) => ({
+  id,
+  kind,
+  reconstructable: true,
+  captureBoundaryId: 'portable-vm-pause-boundary.json',
+  pausedEvidence: {
+    sourceVmPaused: true,
+    evidenceArtifact: 'portable-vm-pause-boundary.json',
+  },
+  materializationPolicy: 'target-native-reconstruct',
+  semanticState,
+});
+const resourceIr = {
+  kind: 'machinen.nodejs.resource-ir',
+  version: 1,
+  runtime: { name: 'node', sourceArch },
+  captureBoundary: {
+    sourceVmPauseRequired: true,
+    stabilityPoint: 'source-vm-paused',
+    unsupportedPausedLiveStatePolicy: 'refuse',
+  },
+  rows: [
+    resourceRow('nodejs-resource-timer-schedule', 'timer-schedule-spec', { intervalMs: 1000, nextPolicy: 'restart-from-restore', clock: 'monotonic-target-native' }),
+    resourceRow('nodejs-resource-reopenable-file', 'reopenable-file-spec', { path: '/opt/machinen-all3/filesystem-root/hello.txt', mode: 'read', offsetPolicy: 'start' }),
+    resourceRow('nodejs-resource-http-listener-route', 'http-listener-route-spec', { host: '127.0.0.1', portPolicy: 'target-assigned', routes: ['/value', '/resources'] }),
+    resourceRow('nodejs-resource-drained-stream-buffer', 'drained-stream-buffer-spec', { encoding: 'utf8', bufferedBytes: 0, resumePolicy: 'start-empty-drained-stream' }),
+    resourceRow('nodejs-resource-route-registry', 'route-registry-spec', { framework: 'http', routes: ['GET /value', 'GET /resources'], rebuildPolicy: 'target-native-register' }),
+    resourceRow('nodejs-resource-middleware-registry', 'middleware-registry-spec', { middleware: ['json-parser', 'request-id'], orderPreserved: true }),
+    resourceRow('nodejs-resource-configured-outbound-client', 'configured-outbound-client-spec', { protocol: 'http', endpointPolicy: 'config-only-no-active-session', reconnectPolicy: 'lazy-target-native' }),
+    resourceRow('nodejs-resource-signal-handler-registry', 'signal-handler-registry-spec', { signals: ['SIGTERM'], handlerPolicy: 'reinstall-target-native' }),
+    resourceRow('nodejs-resource-immediate-schedule', 'immediate-schedule-spec', { callbackPolicy: 'enqueue-target-native-on-restore', ordering: 'after-current-turn' }),
+    resourceRow('nodejs-resource-unref-timer-schedule', 'unref-timer-schedule-spec', { timeoutMs: 250, refPolicy: 'unref-target-native', nextPolicy: 'restart-from-restore' }),
+    resourceRow('nodejs-resource-ttl-cache-expiration', 'ttl-cache-expiration-spec', { ttlMs: 5000, entries: 0, expirationPolicy: 'target-native-recompute-empty-cache' }),
+    resourceRow('nodejs-resource-cache-expiration-timer', 'cache-expiration-timer-spec', { intervalMs: 1000, cachePolicy: 'restart-empty-target-native' }),
+    resourceRow('nodejs-resource-timer-backed-refill', 'timer-backed-refill-spec', { refillEveryMs: 1000, capacity: 10, tokensPolicy: 'restore-declared-capacity-target-native' }),
+    resourceRow('nodejs-resource-drained-readable-stream', 'drained-readable-stream-spec', { bufferedBytes: 0, ended: true, resumePolicy: 'materialize-ended-readable' }),
+    resourceRow('nodejs-resource-drained-writable-stream', 'drained-writable-stream-spec', { bufferedBytes: 0, finished: true, resumePolicy: 'materialize-finished-writable' }),
+    resourceRow('nodejs-resource-pipeline-drained-state', 'pipeline-drained-state-spec', { bufferedBytes: 0, inFlightChunks: 0, resumePolicy: 'start-empty-drained-pipeline' }),
+    resourceRow('nodejs-resource-reopenable-read-stream', 'reopenable-read-stream-spec', { path: '/opt/machinen-all3/filesystem-root/hello.txt', mode: 'read', offsetPolicy: 'start' }),
+    resourceRow('nodejs-resource-reopenable-write-stream', 'reopenable-write-stream-spec', { pathPolicy: 'declared-target-path', mode: 'append', bufferedBytes: 0 }),
+  ],
+  unsupported: [],
+  claimGuard: {
+    arbitraryNodeProcessRestoreClaimed: false,
+    rawV8HeapRestoreUsed: false,
+    rawNativeHandleRestoreUsed: false,
+    rawCpuStateReplayUsed: false,
+    sourceIsaEmulationUsed: false,
+    samePidContinuationClaimed: false,
+  },
+};
+fs.writeFileSync(path.join(dst, 'nodejs-resource-ir.json'), `${JSON.stringify(resourceIr, null, 2)}\n`);
 NODE
   cat >"$dst/target-restore.sh" <<'SH'
 #!/usr/bin/env sh
@@ -143,6 +196,9 @@ echo $! >/tmp/machinen-all3-service.pid
 NODE_MEMORY_MATERIALIZED=false
 NODE_MEMORY_ROWS=0
 NODE_MEMORY_PID=0
+NODE_RESOURCE_MATERIALIZED=false
+NODE_RESOURCE_ROWS=0
+NODE_RESOURCE_PID=0
 if [ -f /mnt/capture/nodejs-memory-ir.json ]; then
   cat >/tmp/machinen-node-env.sh <<'NODEENV'
 export PATH=/usr/local/bin:$PATH
@@ -166,6 +222,31 @@ NODEENV
   NODE_MEMORY_ROWS=$(node -e "const fs=require('fs'); const ir=JSON.parse(fs.readFileSync('/mnt/capture/nodejs-memory-ir.json','utf8')); console.log(ir.rows.length)")
   NODE_MEMORY_MATERIALIZED=true
 fi
+if [ -f /mnt/capture/nodejs-resource-ir.json ]; then
+  if [ ! -f /tmp/machinen-node-env.sh ]; then
+    cat >/tmp/machinen-node-env.sh <<'NODEENV'
+export PATH=/usr/local/bin:$PATH
+if command -v fnm >/dev/null 2>&1; then
+  eval "$(fnm env --shell=sh)"
+  fnm use 22.13.1 >/dev/null 2>&1 || fnm install 22.13.1 >/dev/null 2>&1 || true
+  eval "$(fnm env --shell=sh)"
+fi
+NODEENV
+  fi
+  # shellcheck disable=SC1091
+  . /tmp/machinen-node-env.sh
+  if ! command -v node >/dev/null 2>&1; then
+    apt-get update >/tmp/machinen-node-resource-apt-update.log 2>&1
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends nodejs >/tmp/machinen-node-resource-apt-install.log 2>&1
+  fi
+  node /mnt/capture/nodejs-resource-materializer.mjs --ir /mnt/capture/nodejs-resource-ir.json --target-dir "$TARGET" --port 18183 >/tmp/machinen-node-resource-materializer.json
+  rm -f /tmp/machinen-node-resource.log /tmp/machinen-node-resource.pid
+  node "$TARGET/node-resource-app.mjs" >/tmp/machinen-node-resource.log 2>&1 &
+  NODE_RESOURCE_PID=$!
+  echo "$NODE_RESOURCE_PID" >/tmp/machinen-node-resource.pid
+  NODE_RESOURCE_ROWS=$(node -e "const fs=require('fs'); const ir=JSON.parse(fs.readFileSync('/mnt/capture/nodejs-resource-ir.json','utf8')); console.log(ir.rows.length)")
+  NODE_RESOURCE_MATERIALIZED=true
+fi
 cat > /tmp/machinen-all3-target-restore.json <<JSON
 {
   "kind": "machinen.real-cross-arch-portable-vm-all3-target-restore",
@@ -175,7 +256,8 @@ cat > /tmp/machinen-all3-target-restore.json <<JSON
   "sqliteExpected": { "count": $COUNT, "qtySum": $QTY_SUM },
   "serviceStarted": true,
   "servicePid": $(cat /tmp/machinen-all3-service.pid),
-  "nodejsMemory": { "materialized": $NODE_MEMORY_MATERIALIZED, "materializedRows": $NODE_MEMORY_ROWS, "pid": $NODE_MEMORY_PID }
+  "nodejsMemory": { "materialized": $NODE_MEMORY_MATERIALIZED, "materializedRows": $NODE_MEMORY_ROWS, "pid": $NODE_MEMORY_PID },
+  "nodejsResource": { "materialized": $NODE_RESOURCE_MATERIALIZED, "materializedRows": $NODE_RESOURCE_ROWS, "pid": $NODE_RESOURCE_PID }
 }
 JSON
 cat /tmp/machinen-all3-target-restore.json
@@ -209,6 +291,9 @@ fi
 NODE_OK=false
 NODE_ROWS=0
 NODE_KIND=null
+NODE_RESOURCE_OK=false
+NODE_RESOURCE_ROWS=0
+NODE_RESOURCE_KIND=null
 if [ -f /mnt/capture/nodejs-memory-ir.json ]; then
   # shellcheck disable=SC1091
   . /tmp/machinen-node-env.sh
@@ -234,7 +319,29 @@ else
   NODE_OK=true
   NODE_KIND=null
 fi
-if [ "$FS_OK" = true ] && [ "$SQLITE_OK" = true ] && [ "$SERVICE_OK" = true ] && [ "$NODE_OK" = true ]; then
+if [ -f /mnt/capture/nodejs-resource-ir.json ]; then
+  # shellcheck disable=SC1091
+  . /tmp/machinen-node-env.sh
+  if node <<'NODERESVERIFY'
+const assert = require('assert/strict');
+const fs = require('fs');
+(async () => {
+  const ir = JSON.parse(fs.readFileSync('/mnt/capture/nodejs-resource-ir.json', 'utf8'));
+  const expectedRows = ir.rows.map((row) => ({ id: row.id, kind: row.kind, semanticState: row.semanticState }));
+  const actualRows = await fetch('http://127.0.0.1:18183/resources').then((res) => res.json());
+  assert.deepEqual(actualRows, expectedRows);
+})().catch((error) => { console.error(error); process.exit(1); });
+NODERESVERIFY
+  then
+    NODE_RESOURCE_OK=true
+  fi
+  NODE_RESOURCE_ROWS=$(node -e "const fs=require('fs'); const ir=JSON.parse(fs.readFileSync('/mnt/capture/nodejs-resource-ir.json','utf8')); console.log(ir.rows.length)")
+  NODE_RESOURCE_KIND=$(node -e "const fs=require('fs'); const ir=JSON.parse(fs.readFileSync('/mnt/capture/nodejs-resource-ir.json','utf8')); console.log(JSON.stringify(ir.kind))")
+else
+  NODE_RESOURCE_OK=true
+  NODE_RESOURCE_KIND=null
+fi
+if [ "$FS_OK" = true ] && [ "$SQLITE_OK" = true ] && [ "$SERVICE_OK" = true ] && [ "$NODE_OK" = true ] && [ "$NODE_RESOURCE_OK" = true ]; then
   ACCEPTED=true
 else
   ACCEPTED=false
@@ -246,7 +353,8 @@ cat > /tmp/machinen-all3-target-verify.json <<JSON
   "filesystem": { "accepted": $FS_OK, "files": $(wc -l < /mnt/capture/filesystem-sha256.txt | tr -d ' ') },
   "sqlite": { "accepted": $SQLITE_OK, "count": $COUNT_GOT, "qtySum": $QTY_SUM_GOT },
   "service": { "accepted": $SERVICE_OK, "status": 200, "body": "$SERVICE_BODY" },
-  "nodejsMemory": { "accepted": $NODE_OK, "memoryIrKind": $NODE_KIND, "materializedRows": $NODE_ROWS }
+  "nodejsMemory": { "accepted": $NODE_OK, "memoryIrKind": $NODE_KIND, "materializedRows": $NODE_ROWS },
+  "nodejsResource": { "accepted": $NODE_RESOURCE_OK, "resourceIrKind": $NODE_RESOURCE_KIND, "materializedRows": $NODE_RESOURCE_ROWS }
 }
 JSON
 cat /tmp/machinen-all3-target-verify.json
@@ -270,6 +378,10 @@ REFUSAL_CASES=(
   "weakmap:nodejs-memory-weakmap.refuse:node-portability-memory-weakmap-unsupported"
   "timer:nodejs-memory-timer.refuse:node-portability-memory-timer-unsupported"
   "stream:nodejs-memory-stream.refuse:node-portability-memory-stream-unsupported"
+  "resource-active-timer:nodejs-resource-active-timer.refuse:node-portability-resource-active-timer-unsupported"
+  "resource-native-handle:nodejs-resource-native-handle.refuse:node-portability-resource-native-handle-unsupported"
+  "resource-active-tls:nodejs-resource-active-tls.refuse:node-portability-resource-active-tls-unsupported"
+  "resource-worker-live-state:nodejs-resource-worker-live-state.refuse:node-portability-resource-worker-live-state-unsupported"
 )
 
 run_snapshot() {
@@ -289,6 +401,19 @@ run_snapshot "$ACCEPT_SOURCE" "$ACCEPT_SNAP" accept
 "${TARGET_CLI[@]}" restore "$ACCEPT_SNAP" --name "$RESTORE_NAME" --json \
   >"$WORK/accept-restore.json" 2>"$WORK/accept-restore.err"
 "${TARGET_CLI[@]}" stop "$RESTORE_NAME" --force --json >"$WORK/accept-target-stop.json" 2>"$WORK/accept-target-stop.err" || true
+
+NO_PAUSE_SNAP="$WORK/node-memory-no-pause-boundary.snap"
+cp -a "$ACCEPT_SNAP" "$NO_PAUSE_SNAP"
+rm -f "$NO_PAUSE_SNAP/portable-vm-pause-boundary.json"
+set +e
+"${TARGET_CLI[@]}" restore "$NO_PAUSE_SNAP" --name "$RESTORE_NAME-no-pause" --json \
+  >"$WORK/no-pause-boundary-restore.json" 2>"$WORK/no-pause-boundary-restore.err"
+NO_PAUSE_STATUS=$?
+set -e
+if [ "$NO_PAUSE_STATUS" -eq 0 ]; then
+  echo "expected missing pause boundary restore to fail" >&2
+  exit 1
+fi
 
 for case_spec in "${REFUSAL_CASES[@]}"; do
   IFS=: read -r case_id marker expected_code <<EOF
@@ -323,14 +448,32 @@ const acceptRestore = readJson('accept-restore.json');
 const acceptPlan = readJson('node-memory.snap/portable-vm-manifest-plan.json');
 const acceptInventory = readJson('node-memory.snap/portable-vm-raw-inventory.json');
 const nodeClassification = readJson('node-memory.snap/nodejs-memory-classification.json');
+const nodeResourceClassification = readJson('node-memory.snap/nodejs-resource-classification.json');
+const nodeResourceInventory = readJson('node-memory.snap/nodejs-resource-inventory.json');
+const pauseBoundary = readJson('node-memory.snap/portable-vm-pause-boundary.json');
 const nodeMemoryIr = readJson('node-memory.snap/nodejs-memory-ir.json');
+const nodeResourceIr = readJson('node-memory.snap/nodejs-resource-ir.json');
 const nodeMaterializer = fs.readFileSync(path.join(work, 'node-memory.snap/nodejs-memory-materializer.mjs'), 'utf8');
+const nodeResourceMaterializer = fs.readFileSync(path.join(work, 'node-memory.snap/nodejs-resource-materializer.mjs'), 'utf8');
 if (acceptSnapshot.accepted !== true || acceptSnapshot.sourceArchitecture !== sourceArch) throw new Error('accepted snapshot did not detect source architecture');
+if (acceptSnapshot.pauseBoundary?.stoppedStateObserved !== true || acceptSnapshot.pauseBoundary?.pauseMechanism !== 'vmm-native-sigusr1-sigusr2') throw new Error('accepted snapshot did not prove VMM-native paused source VM boundary');
+if (acceptSnapshot.pauseBoundary?.vmmNativeMarker?.vcpusStopped !== true) throw new Error('accepted snapshot missing VMM-native pause marker');
+if (pauseBoundary.accepted !== true || pauseBoundary.sourceVmPauseRequired !== true || pauseBoundary.stoppedStateObserved !== true) throw new Error('pause boundary artifact did not prove stopped VM state');
+if (pauseBoundary.pauseMechanism !== 'vmm-native-sigusr1-sigusr2' || pauseBoundary.vmmNativeMarker?.vcpusStopped !== true) throw new Error('pause boundary artifact did not retain VMM-native marker');
+if (acceptPlan.captureBoundary?.stabilityPoint !== 'source-vm-paused' || acceptPlan.captureBoundary?.pauseBoundary !== 'portable-vm-pause-boundary.json') throw new Error('restore plan missing paused capture boundary');
+if (acceptInventory.pauseBoundary?.stoppedStateObserved !== true) throw new Error('inventory missing paused source VM boundary');
 const memoryRow = acceptPlan.restorePlan.rows.find((row) => row.id === 'nodejs-memory-ir');
 if (!memoryRow || memoryRow.disposition !== 'product-supported') throw new Error('nodejs-memory-ir plan row missing');
 if (memoryRow.restoreStrategy !== 'materialize-nodejs-memory-ir-target-native') throw new Error('nodejs memory restore strategy missing');
+const resourceRow = acceptPlan.restorePlan.rows.find((row) => row.id === 'nodejs-resource-ir');
+if (!resourceRow || resourceRow.disposition !== 'product-supported') throw new Error('nodejs-resource-ir plan row missing');
+if (resourceRow.restoreStrategy !== 'materialize-nodejs-resource-ir-target-native') throw new Error('nodejs resource restore strategy missing');
 if (!acceptInventory.items.some((item) => item.id === 'nodejs-memory-ir')) throw new Error('nodejs-memory-ir inventory item missing');
+if (!acceptInventory.items.some((item) => item.id === 'nodejs-resource-inventory')) throw new Error('nodejs-resource-inventory item missing');
+if (!acceptInventory.items.some((item) => item.id === 'nodejs-resource-ir')) throw new Error('nodejs-resource-ir inventory item missing');
+if (!Array.isArray(nodeResourceInventory.checkedResourceClasses) || !nodeResourceInventory.checkedResourceClasses.includes('native-handles')) throw new Error('nodejs resource inventory did not classify native handles');
 if (nodeClassification.restoreStrategy !== 'materialize-nodejs-memory-ir-target-native') throw new Error('node memory classification missing restore strategy');
+if (nodeResourceClassification.restoreStrategy !== 'materialize-nodejs-resource-ir-target-native') throw new Error('node resource classification missing restore strategy');
 const expectedMemoryRowIds = fs.readdirSync(path.join('portability', 'nodejs'), { withFileTypes: true })
   .filter((entry) => entry.isDirectory() && /^\d{3}-/u.test(entry.name))
   .map((entry) => JSON.parse(fs.readFileSync(path.join('portability', 'nodejs', entry.name, 'portability.json'), 'utf8')))
@@ -347,12 +490,42 @@ for (const row of rowEvidence) {
   }
 }
 if (!nodeMaterializer.includes('machinen.nodejs.memory-ir') || !nodeMaterializer.includes('rawV8HeapRestoreUsed')) throw new Error('product-owned Node memory materializer was not injected');
+if (!nodeResourceMaterializer.includes('machinen.nodejs.resource-ir') || !nodeResourceMaterializer.includes('rawNativeHandleRestoreUsed')) throw new Error('product-owned Node resource materializer was not injected');
+const expectedResourceRowIds = [
+  'nodejs-resource-timer-schedule',
+  'nodejs-resource-reopenable-file',
+  'nodejs-resource-http-listener-route',
+  'nodejs-resource-drained-stream-buffer',
+  'nodejs-resource-route-registry',
+  'nodejs-resource-middleware-registry',
+  'nodejs-resource-configured-outbound-client',
+  'nodejs-resource-signal-handler-registry',
+  'nodejs-resource-immediate-schedule',
+  'nodejs-resource-unref-timer-schedule',
+  'nodejs-resource-ttl-cache-expiration',
+  'nodejs-resource-cache-expiration-timer',
+  'nodejs-resource-timer-backed-refill',
+  'nodejs-resource-drained-readable-stream',
+  'nodejs-resource-drained-writable-stream',
+  'nodejs-resource-pipeline-drained-state',
+  'nodejs-resource-reopenable-read-stream',
+  'nodejs-resource-reopenable-write-stream',
+];
+if (nodeResourceIr.kind !== 'machinen.nodejs.resource-ir' || !Array.isArray(nodeResourceIr.rows) || nodeResourceIr.rows.length !== expectedResourceRowIds.length) throw new Error('resource IR rows not retained');
+if (JSON.stringify(nodeResourceIr.rows.map((row) => row.id)) !== JSON.stringify(expectedResourceRowIds)) throw new Error('resource IR row IDs drifted');
+if (nodeResourceIr.rows.some((row) => JSON.stringify(row).match(/rawFd|nativeHandle|uvHandle|rawV8Heap|pid/))) throw new Error('resource IR contains raw/native process state');
+if (nodeResourceIr.rows.some((row) => row.captureBoundaryId !== 'portable-vm-pause-boundary.json' || row.pausedEvidence?.sourceVmPaused !== true)) throw new Error('resource IR row-level pause evidence missing');
 if (acceptRestore.accepted !== true || acceptRestore.sourceArch !== sourceArch || acceptRestore.targetArch !== targetArch) throw new Error('accepted restore failed');
 if (acceptRestore.portableVmPlan.nodejsMemoryRows !== 1) throw new Error('restore summary missing nodejsMemoryRows');
+if (acceptRestore.portableVmPlan.nodejsResourceRows !== 1) throw new Error('restore summary missing nodejsResourceRows');
 if (acceptRestore.workloads.nodejs.memoryRows !== 1 || acceptRestore.workloads.nodejs.memoryMaterializationRows !== 1) throw new Error('restore workload summary missing memory materialization row');
+if (acceptRestore.workloads.nodejs.resourceRows !== 1 || acceptRestore.workloads.nodejs.resourceMaterializationRows !== 1) throw new Error('restore workload summary missing resource materialization row');
 if (acceptRestore.workloads.nodejs.memoryVerified !== true || acceptRestore.workloads.nodejs.memoryMaterializedRows !== expectedMemoryRowIds.length) throw new Error('restore workload summary missing verified Node memory materialization');
+if (acceptRestore.workloads.nodejs.resourceVerified !== true || acceptRestore.workloads.nodejs.resourceMaterializedRows !== expectedResourceRowIds.length) throw new Error('restore workload summary missing verified Node resource materialization');
 if (acceptRestore.targetRestore.nodejsMemory?.materialized !== true || acceptRestore.targetRestore.nodejsMemory?.materializedRows !== expectedMemoryRowIds.length) throw new Error('target restore did not materialize Node memory IR');
+if (acceptRestore.targetRestore.nodejsResource?.materialized !== true || acceptRestore.targetRestore.nodejsResource?.materializedRows !== expectedResourceRowIds.length) throw new Error('target restore did not materialize Node resource IR');
 if (acceptRestore.targetVerify.nodejsMemory?.accepted !== true || acceptRestore.targetVerify.nodejsMemory?.memoryIrKind !== 'machinen.nodejs.memory-ir') throw new Error('target verifier did not verify Node memory IR app');
+if (acceptRestore.targetVerify.nodejsResource?.accepted !== true || acceptRestore.targetVerify.nodejsResource?.resourceIrKind !== 'machinen.nodejs.resource-ir') throw new Error('target verifier did not verify Node resource IR app');
 if (acceptRestore.claimGuard.arbitraryVmRestoreClaimed !== false || acceptRestore.claimGuard.rawVmStateReplayUsed !== false) throw new Error('portable VM claim guard drifted');
 const refusalCases = [
   ['pending-promise', 'node-portability-memory-pending-promise-unsupported'],
@@ -367,7 +540,13 @@ const refusalCases = [
   ['weakmap', 'node-portability-memory-weakmap-unsupported'],
   ['timer', 'node-portability-memory-timer-unsupported'],
   ['stream', 'node-portability-memory-stream-unsupported'],
+  ['resource-active-timer', 'node-portability-resource-active-timer-unsupported'],
+  ['resource-native-handle', 'node-portability-resource-native-handle-unsupported'],
+  ['resource-active-tls', 'node-portability-resource-active-tls-unsupported'],
+  ['resource-worker-live-state', 'node-portability-resource-worker-live-state-unsupported'],
 ];
+const noPauseRestore = readJson('no-pause-boundary-restore.json');
+if (noPauseRestore.accepted !== false || noPauseRestore.refusal?.code !== 'node-portability-resource-pause-boundary-missing') throw new Error('missing pause boundary restore did not fail closed');
 const refusalResults = refusalCases.map(([caseId, expectedCode]) => {
   const snapshot = readJson(`refusal-${caseId}-snapshot.json`);
   const restore = readJson(`refusal-${caseId}-restore.json`);
@@ -378,7 +557,11 @@ const refusalResults = refusalCases.map(([caseId, expectedCode]) => {
   if (restore.accepted !== false || restore.refusal?.code !== expectedCode) throw new Error(`${caseId} restore did not fail closed`);
   const nodejs = restore.workloads?.nodejs;
   if (!Array.isArray(nodejs?.refusals) || !nodejs.refusals.some((row) => row.refusalCode === expectedCode)) throw new Error(`${caseId} restore summary missing grouped Node refusal`);
-  if (!Array.isArray(nodejs?.memoryRefusals) || !nodejs.memoryRefusals.includes(expectedCode)) throw new Error(`${caseId} restore summary missing memoryRefusals entry`);
+  if (expectedCode.startsWith('node-portability-memory-')) {
+    if (!Array.isArray(nodejs?.memoryRefusals) || !nodejs.memoryRefusals.includes(expectedCode)) throw new Error(`${caseId} restore summary missing memoryRefusals entry`);
+  } else {
+    if (!Array.isArray(nodejs?.resourceRefusals) || !nodejs.resourceRefusals.includes(expectedCode)) throw new Error(`${caseId} restore summary missing resourceRefusals entry`);
+  }
   return { caseId, restoreRefused: true, refusalCode: expectedCode, markerRefusedByPlan: true };
 });
 const artifacts = [
@@ -387,10 +570,18 @@ const artifacts = [
   'node-memory.snap/portable-vm-raw-inventory.json',
   'node-memory.snap/portable-vm-manifest-plan.json',
   'node-memory.snap/portable-vm-product-restore-summary.json',
+  'node-memory.snap/portable-vm-pause-boundary.json',
   'node-memory.snap/nodejs-memory-ir.json',
   'node-memory.snap/nodejs-memory-classification.json',
   'node-memory.snap/nodejs-memory-materializer.mjs',
   'node-memory.snap/nodejs-memory-product-row-evidence.json',
+  'node-memory.snap/nodejs-resource-ir.json',
+  'node-memory.snap/nodejs-resource-inventory.json',
+  'node-memory.snap/nodejs-resource-classification.json',
+  'node-memory.snap/nodejs-resource-materializer.mjs',
+  'no-pause-boundary-restore.json',
+  'node-memory-no-pause-boundary.snap/portable-vm-manifest-plan.json',
+  'node-memory-no-pause-boundary.snap/portable-vm-product-restore-summary.json',
   ...refusalCases.flatMap(([caseId]) => [
     `refusal-${caseId}-snapshot.json`,
     `refusal-${caseId}-restore.json`,
@@ -413,24 +604,39 @@ const report = {
     sourceArch,
     targetArch,
     nodejsMemoryRows: acceptRestore.portableVmPlan.nodejsMemoryRows,
+    nodejsResourceRows: acceptRestore.portableVmPlan.nodejsResourceRows,
+    sourceVmPauseBoundary: pauseBoundary,
     memoryMaterializationRows: acceptRestore.workloads.nodejs.memoryMaterializationRows,
+    resourceMaterializationRows: acceptRestore.workloads.nodejs.resourceMaterializationRows,
     memoryVerified: acceptRestore.workloads.nodejs.memoryVerified,
+    resourceVerified: acceptRestore.workloads.nodejs.resourceVerified,
     materializedRows: acceptRestore.workloads.nodejs.memoryMaterializedRows,
+    resourceMaterializedRows: acceptRestore.workloads.nodejs.resourceMaterializedRows,
     supportedSemanticRows: expectedMemoryRowIds,
+    supportedResourceRows: expectedResourceRowIds,
+    resourceInventory: nodeResourceInventory,
+    resourceCaptureBoundary: nodeResourceIr.captureBoundary,
     rowEvidence,
     restoreStrategy: memoryRow.restoreStrategy,
+    resourceRestoreStrategy: resourceRow.restoreStrategy,
     memoryIrKind: nodeMemoryIr.kind,
+    resourceIrKind: nodeResourceIr.kind,
   },
   refusalPath: {
     snapshotCompleted: true,
     restoreRefused: true,
     refusalCode: 'node-portability-memory-pending-promise-unsupported',
   },
+  pauseBoundaryRefusal: {
+    restoreRefused: true,
+    refusalCode: 'node-portability-resource-pause-boundary-missing',
+  },
   refusalMatrix: refusalResults,
   claimGuard: {
     ...acceptRestore.claimGuard,
     arbitraryNodeProcessRestoreClaimed: false,
     rawV8HeapRestoreUsed: false,
+    rawNativeHandleRestoreUsed: false,
     samePidContinuationClaimed: false,
   },
   notClaimed: [
@@ -450,7 +656,7 @@ if [ -n "${WORK_DIR:-}" ]; then
   find "$WORK" -type f | while IFS= read -r file; do
     rel="${file#$WORK/}"
     case "$rel" in
-      portable-vm-product-node-memory-ir-report.json|accept-snapshot.json|accept-restore.json|node-memory.snap/portable-vm-raw-inventory.json|node-memory.snap/portable-vm-manifest-plan.json|node-memory.snap/portable-vm-product-restore-summary.json|node-memory.snap/nodejs-memory-ir.json|node-memory.snap/nodejs-memory-classification.json|node-memory.snap/nodejs-memory-materializer.mjs|node-memory.snap/nodejs-memory-product-row-evidence.json|source-bundle-node-memory/target-restore.sh|source-bundle-node-memory/target-verify.sh|refusal-*-snapshot.json|refusal-*-restore.json|node-memory-refusal-*.snap/portable-vm-manifest-plan.json|node-memory-refusal-*.snap/portable-vm-product-restore-summary.json) ;;
+      portable-vm-product-node-memory-ir-report.json|accept-snapshot.json|accept-restore.json|node-memory.snap/portable-vm-raw-inventory.json|node-memory.snap/portable-vm-manifest-plan.json|node-memory.snap/portable-vm-product-restore-summary.json|node-memory.snap/portable-vm-pause-boundary.json|node-memory.snap/nodejs-memory-ir.json|node-memory.snap/nodejs-memory-classification.json|node-memory.snap/nodejs-memory-materializer.mjs|node-memory.snap/nodejs-memory-product-row-evidence.json|node-memory.snap/nodejs-resource-ir.json|node-memory.snap/nodejs-resource-inventory.json|node-memory.snap/nodejs-resource-classification.json|node-memory.snap/nodejs-resource-materializer.mjs|no-pause-boundary-restore.json|node-memory-no-pause-boundary.snap/portable-vm-manifest-plan.json|node-memory-no-pause-boundary.snap/portable-vm-product-restore-summary.json|source-bundle-node-memory/target-restore.sh|source-bundle-node-memory/target-verify.sh|refusal-*-snapshot.json|refusal-*-restore.json|node-memory-refusal-*.snap/portable-vm-manifest-plan.json|node-memory-refusal-*.snap/portable-vm-product-restore-summary.json) ;;
       *) rm -f "$file" ;;
     esac
   done

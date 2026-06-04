@@ -76,6 +76,7 @@ pub fn main(init: std.process.Init) !void {
     // MACHINEN_SNAPSHOT_PATH: capture on SIGUSR1, write .vmstate, then resume after SIGUSR2.
     const restore_path = env_optional("MACHINEN_RESTORE_PATH");
     const snapshot_path = env_optional("MACHINEN_SNAPSHOT_PATH");
+    const pause_marker_path = env_optional("MACHINEN_PAUSE_MARKER_PATH");
 
     if (builtin.os.tag == .macos) {
         const disk_path = env_optional("MACHINEN_DISK");
@@ -93,6 +94,7 @@ pub fn main(init: std.process.Init) !void {
             .max_exits = std.math.maxInt(usize),
             .restore_path = restore_path,
             .snapshot_path = snapshot_path,
+            .pause_marker_path = pause_marker_path,
             .nested = nested,
         };
         if (ram_size_override) |bytes| cfg.ram_size = bytes;
@@ -120,6 +122,7 @@ pub fn main(init: std.process.Init) !void {
                 .max_exits = std.math.maxInt(usize),
                 .restore_path = restore_path,
                 .snapshot_path = snapshot_path,
+                .pause_marker_path = pause_marker_path,
             };
             if (ram_size_override) |bytes| cfg.ram_size = bytes;
             const result = try microvm.boot_kvm_x86_64.boot(gpa, cfg);
@@ -139,6 +142,7 @@ pub fn main(init: std.process.Init) !void {
                 .max_exits = std.math.maxInt(usize),
                 .restore_path = restore_path,
                 .snapshot_path = snapshot_path,
+                .pause_marker_path = pause_marker_path,
                 .nested = nested,
             };
             if (ram_size_override) |bytes| cfg.ram_size = bytes;

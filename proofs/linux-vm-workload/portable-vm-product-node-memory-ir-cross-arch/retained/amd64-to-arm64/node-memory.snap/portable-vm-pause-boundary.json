@@ -1,0 +1,23 @@
+{
+  "kind": "machinen.portable-vm-pause-boundary",
+  "version": 1,
+  "accepted": true,
+  "sourceVmPauseRequired": true,
+  "pauseMechanism": "vmm-native-sigusr1-sigusr2",
+  "pauseSignal": "SIGUSR1",
+  "resumeSignal": "SIGUSR2",
+  "sourceVmPid": 2539702,
+  "stoppedStateObserved": true,
+  "unsupportedPausedLiveStatePolicy": "refuse",
+  "vmmNativeMarker": {
+    "kind": "machinen.vmm-pause-marker",
+    "version": 1,
+    "backend": "kvm-x86_64",
+    "vcpusStopped": true,
+    "resumeSignalRequired": "SIGUSR2"
+  },
+  "startedAt": "2026-06-04T16:27:09.794Z",
+  "pausedObservedAt": "2026-06-04T16:27:09.814Z",
+  "resumedAt": "2026-06-04T16:27:09.814Z",
+  "elapsedMs": 20
+}

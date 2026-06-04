@@ -13,7 +13,30 @@
   "portableVmPlan": "portable-vm-manifest-plan.json",
   "arbitraryVmRestoreClaimed": false,
   "rawVmStateReplayUsed": false,
-  "snapshotDir": "/Users/peterp/gh/redwoodjs/machinen/proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/node-memory-refusal-timer.snap",
-  "elapsedMs": 39,
+  "pauseBoundary": {
+    "kind": "machinen.portable-vm-pause-boundary",
+    "version": 1,
+    "accepted": true,
+    "sourceVmPauseRequired": true,
+    "pauseMechanism": "vmm-native-sigusr1-sigusr2",
+    "pauseSignal": "SIGUSR1",
+    "resumeSignal": "SIGUSR2",
+    "sourceVmPid": 73968,
+    "stoppedStateObserved": true,
+    "unsupportedPausedLiveStatePolicy": "refuse",
+    "vmmNativeMarker": {
+      "kind": "machinen.vmm-pause-marker",
+      "version": 1,
+      "backend": "hvf",
+      "vcpusStopped": true,
+      "resumeSignalRequired": "SIGUSR2"
+    },
+    "startedAt": "2026-06-04T16:26:30.030Z",
+    "pausedObservedAt": "2026-06-04T16:26:30.051Z",
+    "resumedAt": "2026-06-04T16:26:30.051Z",
+    "elapsedMs": 21
+  },
+  "snapshotDir": "/var/folders/jj/brzmsc2562zbwgzwbnjdnqp80000gn/T/machinen-portable-vm-node-memory.OMlkeM/node-memory-refusal-timer.snap",
+  "elapsedMs": 60,
   "dryRun": false
 }

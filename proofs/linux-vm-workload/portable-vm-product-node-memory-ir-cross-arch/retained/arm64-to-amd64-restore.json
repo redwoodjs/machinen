@@ -11,8 +11,8 @@
   "sourceArchitectureDetected": true,
   "targetArchitectureDetected": true,
   "targetVmStarted": true,
-  "restoredName": "portable-vm-node-memory-amd-target-1780557514-82245",
-  "restoredPid": 2268072,
+  "restoredName": "portable-vm-node-memory-amd-target-1780590409-75072",
+  "restoredPid": 2539514,
   "targetRestore": {
     "kind": "machinen.real-cross-arch-portable-vm-all3-target-restore",
     "accepted": true,
@@ -20,8 +20,9 @@
     "sqliteRestored": { "count": 3, "qtySum": 41 },
     "sqliteExpected": { "count": 3, "qtySum": 41 },
     "serviceStarted": true,
-    "servicePid": 344,
-    "nodejsMemory": { "materialized": true, "materializedRows": 130, "pid": 757 }
+    "servicePid": 343,
+    "nodejsMemory": { "materialized": true, "materializedRows": 130, "pid": 756 },
+    "nodejsResource": { "materialized": true, "materializedRows": 18, "pid": 790 }
   },
   "targetVerify": {
     "kind": "machinen.real-cross-arch-portable-vm-all3-target-verifier",
@@ -33,6 +34,11 @@
       "accepted": true,
       "memoryIrKind": "machinen.nodejs.memory-ir",
       "materializedRows": 130
+    },
+    "nodejsResource": {
+      "accepted": true,
+      "resourceIrKind": "machinen.nodejs.resource-ir",
+      "materializedRows": 18
     }
   },
   "workloads": {
@@ -41,12 +47,16 @@
     "sqlite": true,
     "nodejs": {
       "classified": true,
-      "rowCount": 2,
+      "rowCount": 4,
       "refusedRows": 0,
       "memoryRows": 1,
       "memoryMaterializationRows": 1,
+      "resourceRows": 1,
+      "resourceMaterializationRows": 1,
       "memoryVerified": true,
       "memoryMaterializedRows": 130,
+      "resourceVerified": true,
+      "resourceMaterializedRows": 18,
       "arbitraryNodeProcessRestoreClaimed": false,
       "rawV8HeapRestoreUsed": false
     }
@@ -55,12 +65,13 @@
     "kind": "machinen.portable-vm-manifest-plan",
     "scope": "portable-vm-all3-product-snapshot-restore-v1",
     "sourceArchitecture": "arm64",
-    "rowCount": 5,
-    "productSupportedRows": 4,
+    "rowCount": 7,
+    "productSupportedRows": 5,
     "refusedRows": 0,
-    "nodejsRows": 2,
-    "nodejsClassifiedRows": 1,
+    "nodejsRows": 4,
+    "nodejsClassifiedRows": 2,
     "nodejsMemoryRows": 1,
+    "nodejsResourceRows": 1,
     "unknownStatePolicy": "refuse-by-default"
   },
   "claimGuard": {
@@ -69,5 +80,5 @@
     "sourceIsaEmulationUsed": false,
     "metadataOnlyShortcutAccepted": false
   },
-  "elapsedMs": 15378
+  "elapsedMs": 15331
 }

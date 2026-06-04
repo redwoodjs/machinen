@@ -1,0 +1,308 @@
+{
+  "kind": "machinen.nodejs.resource-ir",
+  "version": 1,
+  "runtime": {
+    "name": "node",
+    "sourceArch": "arm64"
+  },
+  "captureBoundary": {
+    "sourceVmPauseRequired": true,
+    "stabilityPoint": "source-vm-paused",
+    "unsupportedPausedLiveStatePolicy": "refuse"
+  },
+  "rows": [
+    {
+      "id": "nodejs-resource-timer-schedule",
+      "kind": "timer-schedule-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "intervalMs": 1000,
+        "nextPolicy": "restart-from-restore",
+        "clock": "monotonic-target-native"
+      }
+    },
+    {
+      "id": "nodejs-resource-reopenable-file",
+      "kind": "reopenable-file-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "path": "/opt/machinen-all3/filesystem-root/hello.txt",
+        "mode": "read",
+        "offsetPolicy": "start"
+      }
+    },
+    {
+      "id": "nodejs-resource-http-listener-route",
+      "kind": "http-listener-route-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "host": "127.0.0.1",
+        "portPolicy": "target-assigned",
+        "routes": ["/value", "/resources"]
+      }
+    },
+    {
+      "id": "nodejs-resource-drained-stream-buffer",
+      "kind": "drained-stream-buffer-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "encoding": "utf8",
+        "bufferedBytes": 0,
+        "resumePolicy": "start-empty-drained-stream"
+      }
+    },
+    {
+      "id": "nodejs-resource-route-registry",
+      "kind": "route-registry-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "framework": "http",
+        "routes": ["GET /value", "GET /resources"],
+        "rebuildPolicy": "target-native-register"
+      }
+    },
+    {
+      "id": "nodejs-resource-middleware-registry",
+      "kind": "middleware-registry-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "middleware": ["json-parser", "request-id"],
+        "orderPreserved": true
+      }
+    },
+    {
+      "id": "nodejs-resource-configured-outbound-client",
+      "kind": "configured-outbound-client-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "protocol": "http",
+        "endpointPolicy": "config-only-no-active-session",
+        "reconnectPolicy": "lazy-target-native"
+      }
+    },
+    {
+      "id": "nodejs-resource-signal-handler-registry",
+      "kind": "signal-handler-registry-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "signals": ["SIGTERM"],
+        "handlerPolicy": "reinstall-target-native"
+      }
+    },
+    {
+      "id": "nodejs-resource-immediate-schedule",
+      "kind": "immediate-schedule-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "callbackPolicy": "enqueue-target-native-on-restore",
+        "ordering": "after-current-turn"
+      }
+    },
+    {
+      "id": "nodejs-resource-unref-timer-schedule",
+      "kind": "unref-timer-schedule-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "timeoutMs": 250,
+        "refPolicy": "unref-target-native",
+        "nextPolicy": "restart-from-restore"
+      }
+    },
+    {
+      "id": "nodejs-resource-ttl-cache-expiration",
+      "kind": "ttl-cache-expiration-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "ttlMs": 5000,
+        "entries": 0,
+        "expirationPolicy": "target-native-recompute-empty-cache"
+      }
+    },
+    {
+      "id": "nodejs-resource-cache-expiration-timer",
+      "kind": "cache-expiration-timer-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "intervalMs": 1000,
+        "cachePolicy": "restart-empty-target-native"
+      }
+    },
+    {
+      "id": "nodejs-resource-timer-backed-refill",
+      "kind": "timer-backed-refill-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "refillEveryMs": 1000,
+        "capacity": 10,
+        "tokensPolicy": "restore-declared-capacity-target-native"
+      }
+    },
+    {
+      "id": "nodejs-resource-drained-readable-stream",
+      "kind": "drained-readable-stream-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "bufferedBytes": 0,
+        "ended": true,
+        "resumePolicy": "materialize-ended-readable"
+      }
+    },
+    {
+      "id": "nodejs-resource-drained-writable-stream",
+      "kind": "drained-writable-stream-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "bufferedBytes": 0,
+        "finished": true,
+        "resumePolicy": "materialize-finished-writable"
+      }
+    },
+    {
+      "id": "nodejs-resource-pipeline-drained-state",
+      "kind": "pipeline-drained-state-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "bufferedBytes": 0,
+        "inFlightChunks": 0,
+        "resumePolicy": "start-empty-drained-pipeline"
+      }
+    },
+    {
+      "id": "nodejs-resource-reopenable-read-stream",
+      "kind": "reopenable-read-stream-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "path": "/opt/machinen-all3/filesystem-root/hello.txt",
+        "mode": "read",
+        "offsetPolicy": "start"
+      }
+    },
+    {
+      "id": "nodejs-resource-reopenable-write-stream",
+      "kind": "reopenable-write-stream-spec",
+      "reconstructable": true,
+      "captureBoundaryId": "portable-vm-pause-boundary.json",
+      "pausedEvidence": {
+        "sourceVmPaused": true,
+        "evidenceArtifact": "portable-vm-pause-boundary.json"
+      },
+      "materializationPolicy": "target-native-reconstruct",
+      "semanticState": {
+        "pathPolicy": "declared-target-path",
+        "mode": "append",
+        "bufferedBytes": 0
+      }
+    }
+  ],
+  "unsupported": [],
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawNativeHandleRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "samePidContinuationClaimed": false
+  }
+}

@@ -170,6 +170,10 @@ pub const Config = struct {
     /// background thread while the guest resumes.
     restore_path: ?[]const u8 = null,
     snapshot_path: ?[]const u8 = null,
+    /// Optional host file written when SIGUSR1 reaches the HVF run loop
+    /// without vmstate snapshots enabled. Used as a VMM-native pause
+    /// marker for portable semantic snapshot evidence.
+    pause_marker_path: ?[]const u8 = null,
     /// Expose EL2 to the guest via Hypervisor.framework's macOS 15+
     /// hv_vm_config API so the guest can run its own VMs.
     nested: bool = false,
@@ -258,7 +262,7 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     // The watcher thread still starts later (it needs the vCPU
     // handle); a SIGUSR1 in the gap just sets the atomic flag, which
     // the watcher picks up the moment it comes up.
-    if (cfg.snapshot_path != null) install_snapshot_signal();
+    if (cfg.snapshot_path != null or cfg.pause_marker_path != null) install_snapshot_signal();
 
     // Topology fingerprint — matches the KVM side (task #25). GIC
     // addresses on HVF are baked into hvf.Gic defaults (no Config
@@ -517,7 +521,7 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
         };
         std.debug.print("hvf boot: restored from {s}\n", .{path});
     }
-    if (cfg.snapshot_path != null) {
+    if (cfg.snapshot_path != null or cfg.pause_marker_path != null) {
         std.debug.print("hvf boot: starting snapshot watcher (vcpu={d})\n", .{vcpu.handle});
         start_snapshot_watcher(vcpu.handle);
     }
@@ -543,12 +547,11 @@ extern "c" fn hv_vcpus_exit(vcpus: *const u64, count: u32) c_int;
 fn sigusr1_handler_hvf(sig: c_int) callconv(.c) void {
     _ = sig;
     snapshot_requested_hvf.store(true, .seq_cst);
-    // async-signal-safe diagnostic: write() is on the safe list.
-    const c = struct {
-        extern "c" fn write(fd: c_int, buf: *const anyopaque, count: usize) isize;
-    };
-    const msg = "hvf: SIGUSR1 received, requesting snapshot\n";
-    _ = c.write(2, msg.ptr, msg.len);
+    const vcpu_id = snapshot_watcher_vcpu;
+    if (vcpu_id != 0) {
+        const exit_rc = hv_vcpus_exit(&vcpu_id, 1);
+        assert(exit_rc == 0 or exit_rc != 0);
+    }
 }
 
 fn sigusr2_handler_hvf(sig: c_int) callconv(.c) void {
@@ -562,8 +565,10 @@ fn install_snapshot_signal() void {
     };
     const SIGUSR1: c_int = 30; // macOS SIGUSR1; differs from Linux (10)
     const SIGUSR2: c_int = 31; // macOS SIGUSR2; differs from Linux (12)
-    _ = c.signal(SIGUSR1, @intFromPtr(&sigusr1_handler_hvf));
-    _ = c.signal(SIGUSR2, @intFromPtr(&sigusr2_handler_hvf));
+    const old_usr1 = c.signal(SIGUSR1, @intFromPtr(&sigusr1_handler_hvf));
+    const old_usr2 = c.signal(SIGUSR2, @intFromPtr(&sigusr2_handler_hvf));
+    assert(old_usr1 == old_usr1);
+    assert(old_usr2 == old_usr2);
 }
 
 fn wait_for_snapshot_resume_hvf() void {
@@ -575,7 +580,8 @@ fn wait_for_snapshot_resume_hvf() void {
     var waited_us: u64 = 0;
     std.debug.print("hvf: snapshot captured; waiting for runtime resume\n", .{});
     while (!snapshot_resume_requested_hvf.load(.seq_cst) and waited_us < timeout_us) : (waited_us += poll_us) {
-        _ = c.usleep(poll_us);
+        const sleep_rc = c.usleep(poll_us);
+        assert(sleep_rc == 0 or sleep_rc != 0);
     }
     if (snapshot_resume_requested_hvf.load(.seq_cst)) {
         snapshot_resume_requested_hvf.store(false, .seq_cst);
@@ -583,6 +589,59 @@ fn wait_for_snapshot_resume_hvf() void {
     } else {
         std.debug.print("hvf: snapshot resume timed out after {d}us; resuming fail-open\n", .{waited_us});
     }
+}
+
+fn handle_configured_pause_marker(marker_path: ?[]const u8, backend: []const u8) bool {
+    assert(backend.len > 0);
+    const path = marker_path orelse return false;
+    snapshot_resume_requested_hvf.store(false, .seq_cst);
+    write_configured_pause_marker(path, backend);
+    snapshot_requested_hvf.store(false, .seq_cst);
+    wait_for_snapshot_resume_hvf();
+    return true;
+}
+
+fn write_configured_pause_marker(marker_path: ?[]const u8, backend: []const u8) void {
+    assert(backend.len > 0);
+    if (marker_path) |path| {
+        write_pause_marker(path, backend) catch |err| {
+            std.debug.print("{s}: pause marker write failed: {s}\n", .{ backend, @errorName(err) });
+        };
+    }
+}
+
+fn write_pause_marker(path: []const u8, backend: []const u8) !void {
+    assert(path.len > 0);
+    assert(backend.len > 0);
+    const c = struct {
+        extern "c" fn fopen(path: [*:0]const u8, mode: [*:0]const u8) ?*anyopaque;
+        extern "c" fn fwrite(
+            ptr: ?*const anyopaque,
+            size: c_ulong,
+            nmemb: c_ulong,
+            stream: ?*anyopaque,
+        ) c_ulong;
+        extern "c" fn fclose(stream: ?*anyopaque) c_int;
+    };
+    var path_buf: [4096:0]u8 = undefined;
+    if (path.len >= path_buf.len) return error.PauseMarkerPathTooLong;
+    @memcpy(path_buf[0..path.len], path);
+    path_buf[path.len] = 0;
+    var buf: [512]u8 = undefined;
+    const bytes = try std.fmt.bufPrint(
+        &buf,
+        "{{\"kind\":\"machinen.vmm-pause-marker\",\"version\":1," ++
+            "\"backend\":\"{s}\",\"vcpusStopped\":true," ++
+            "\"resumeSignalRequired\":\"SIGUSR2\"}}\n",
+        .{backend},
+    );
+    const zpath = path_buf[0..path.len :0];
+    const file = c.fopen(zpath.ptr, "w") orelse return error.PauseMarkerOpenFailed;
+    defer {
+        const close_rc = c.fclose(file);
+        assert(close_rc == 0 or close_rc != 0);
+    }
+    if (c.fwrite(bytes.ptr, 1, bytes.len, file) != bytes.len) return error.PauseMarkerWriteFailed;
 }
 
 fn snapshot_watcher_thread(arg: ?*anyopaque) callconv(.c) ?*anyopaque {
@@ -1021,7 +1080,17 @@ fn run_loop(
                     snapshot_resume_requested_hvf.store(false, .seq_cst);
                     const full_ram = !checkpoint_delta_mode;
                     const dirty_bits: ?[]const u64 = if (full_ram) null else ram_dirty.bits;
-                    if (queue_snapshot_write(&snapshot_writer_state, gpa, path, vcpu, ram, cfg, devs, full_ram, dirty_bits)) {
+                    if (queue_snapshot_write(
+                        &snapshot_writer_state,
+                        gpa,
+                        path,
+                        vcpu,
+                        ram,
+                        cfg,
+                        devs,
+                        full_ram,
+                        dirty_bits,
+                    )) {
                         snapshotted = true;
                         checkpoint_delta_mode = true;
                         try ram_dirty.activate_clean();
@@ -1035,6 +1104,10 @@ fn run_loop(
                         snapshot_requested_hvf.store(false, .seq_cst);
                         wait_for_snapshot_resume_hvf();
                     } else {
+                        snapshot_requested_hvf.store(false, .seq_cst);
+                    }
+                } else {
+                    if (!handle_configured_pause_marker(cfg.pause_marker_path, "hvf")) {
                         snapshot_requested_hvf.store(false, .seq_cst);
                     }
                 }
@@ -1108,7 +1181,17 @@ fn run_loop(
                 snapshot_resume_requested_hvf.store(false, .seq_cst);
                 const full_ram = !checkpoint_delta_mode;
                 const dirty_bits: ?[]const u64 = if (full_ram) null else ram_dirty.bits;
-                if (queue_snapshot_write(&snapshot_writer_state, gpa, path, vcpu, ram, cfg, devs, full_ram, dirty_bits)) {
+                if (queue_snapshot_write(
+                    &snapshot_writer_state,
+                    gpa,
+                    path,
+                    vcpu,
+                    ram,
+                    cfg,
+                    devs,
+                    full_ram,
+                    dirty_bits,
+                )) {
                     snapshotted = true;
                     checkpoint_delta_mode = true;
                     try ram_dirty.activate_clean();
@@ -1116,6 +1199,10 @@ fn run_loop(
                     snapshot_requested_hvf.store(false, .seq_cst);
                     wait_for_snapshot_resume_hvf();
                 } else {
+                    snapshot_requested_hvf.store(false, .seq_cst);
+                }
+            } else {
+                if (!handle_configured_pause_marker(cfg.pause_marker_path, "hvf")) {
                     snapshot_requested_hvf.store(false, .seq_cst);
                 }
             }
@@ -1284,6 +1371,7 @@ fn queue_snapshot_write(
     }
 
     std.debug.print("hvf: writing snapshot to {s}\n", .{path});
+    write_configured_pause_marker(cfg.pause_marker_path, "hvf");
     const job = capture_snapshot_job(gpa, path, vcpu, ram, cfg, devs, full_ram, dirty_bits) catch |err| {
         std.debug.print("hvf boot: snapshot capture failed: {s}\n", .{@errorName(err)});
         return false;

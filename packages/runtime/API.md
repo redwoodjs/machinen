@@ -75,6 +75,17 @@
 - [`NODEJS_MEMORY_IR_UNSUPPORTED_REFUSAL_CODE`](#nodejs_memory_ir_unsupported_refusal_code)
 - [`validateNodejsMemoryIrDocument`](#validatenodejsmemoryirdocument)
 - [`createNodejsMemoryIrMaterializerModule`](#createnodejsmemoryirmaterializermodule)
+- [`NodejsResourceIrRow`](#nodejsresourceirrow)
+- [`NodejsResourceIrDocument`](#nodejsresourceirdocument)
+- [`NodejsResourceIrValidationResult`](#nodejsresourceirvalidationresult)
+- [`NODEJS_RESOURCE_IR_KIND`](#nodejs_resource_ir_kind)
+- [`NODEJS_RESOURCE_IR_VERSION`](#nodejs_resource_ir_version)
+- [`NODEJS_RESOURCE_IR_RESTORE_STRATEGY`](#nodejs_resource_ir_restore_strategy)
+- [`NODEJS_RESOURCE_IR_MATERIALIZER_FILENAME`](#nodejs_resource_ir_materializer_filename)
+- [`NODEJS_RESOURCE_IR_INVALID_REFUSAL_CODE`](#nodejs_resource_ir_invalid_refusal_code)
+- [`NODEJS_RESOURCE_IR_UNSUPPORTED_REFUSAL_CODE`](#nodejs_resource_ir_unsupported_refusal_code)
+- [`validateNodejsResourceIrDocument`](#validatenodejsresourceirdocument)
+- [`createNodejsResourceIrMaterializerModule`](#createnodejsresourceirmaterializermodule)
 - [`parseNodeProperLevel5ProcMaps`](#parsenodeproperlevel5procmaps)
 - [`recoverNodeProperLevel5RawV8ContextSmiCounter`](#recovernodeproperlevel5rawv8contextsmicounter)
 - [`recoverNodeProperLevel5V8ClosureCounterCell`](#recovernodeproperlevel5v8closurecountercell)
@@ -13822,6 +13833,124 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ***
 
+### NodejsResourceIrRow
+
+#### Properties
+
+##### id
+
+> **id**: `string`
+
+##### kind
+
+> **kind**: `string`
+
+##### semanticState
+
+> **semanticState**: `Record`\<`string`, `unknown`\>
+
+##### reconstructable
+
+> **reconstructable**: `true`
+
+##### captureBoundaryId
+
+> **captureBoundaryId**: `"portable-vm-pause-boundary.json"`
+
+##### pausedEvidence
+
+> **pausedEvidence**: `object`
+
+###### sourceVmPaused
+
+> **sourceVmPaused**: `true`
+
+###### evidenceArtifact
+
+> **evidenceArtifact**: `"portable-vm-pause-boundary.json"`
+
+##### materializationPolicy
+
+> **materializationPolicy**: `"target-native-reconstruct"`
+
+***
+
+### NodejsResourceIrDocument
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.nodejs.resource-ir"`
+
+##### version
+
+> **version**: `1`
+
+##### runtime?
+
+> `optional` **runtime?**: `Record`\<`string`, `unknown`\>
+
+##### captureBoundary
+
+> **captureBoundary**: `object`
+
+###### sourceVmPauseRequired
+
+> **sourceVmPauseRequired**: `true`
+
+###### stabilityPoint
+
+> **stabilityPoint**: `"source-vm-paused"`
+
+###### unsupportedPausedLiveStatePolicy
+
+> **unsupportedPausedLiveStatePolicy**: `"refuse"`
+
+##### rows
+
+> **rows**: [`NodejsResourceIrRow`](#nodejsresourceirrow)[]
+
+##### unsupported?
+
+> `optional` **unsupported?**: `object`[]
+
+###### code?
+
+> `optional` **code?**: `string`
+
+###### reason?
+
+> `optional` **reason?**: `string`
+
+##### claimGuard?
+
+> `optional` **claimGuard?**: `Record`\<`string`, `unknown`\>
+
+***
+
+### NodejsResourceIrValidationResult
+
+#### Properties
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### refusalCode
+
+> **refusalCode**: `string`
+
+##### errors
+
+> **errors**: `string`[]
+
+##### rowCount
+
+> **rowCount**: `number`
+
+***
+
 ### OppositeIsaVmExecutionProviderRoute
 
 #### Properties
@@ -14881,7 +15010,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`refusalCode`](#refusalcode-12)
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`refusalCode`](#refusalcode-13)
 
 ##### remediation?
 
@@ -18971,6 +19100,14 @@ with). Persisted so an attach-owned `vm.snapshot()` / `vm.fork()`
 can SIGUSR1 the VMM and pick the state file up. Undefined for VMs
 booted without the vmstate engine.
 
+##### pauseMarkerPath?
+
+> `optional` **pauseMarkerPath?**: `string`
+
+Host-side marker file the VMM writes after SIGUSR1 reaches the run
+loop with vCPUs stopped. Used by portable semantic snapshots to
+prove a VMM-native pause boundary without claiming raw VM replay.
+
 ##### vmstateChainId?
 
 > `optional` **vmstateChainId?**: `string`
@@ -19317,7 +19454,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`runtime`](#runtime-25)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`runtime`](#runtime-26)
 
 ##### profile
 
@@ -19389,7 +19526,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`refusalCode`](#refusalcode-17)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`refusalCode`](#refusalcode-18)
 
 ##### remediation?
 
@@ -31807,6 +31944,42 @@ loops; anything looser stops being a meaningful gate.
 
 ***
 
+### NODEJS\_RESOURCE\_IR\_KIND
+
+> `const` **NODEJS\_RESOURCE\_IR\_KIND**: `"machinen.nodejs.resource-ir"` = `"machinen.nodejs.resource-ir"`
+
+***
+
+### NODEJS\_RESOURCE\_IR\_VERSION
+
+> `const` **NODEJS\_RESOURCE\_IR\_VERSION**: `1` = `1`
+
+***
+
+### NODEJS\_RESOURCE\_IR\_RESTORE\_STRATEGY
+
+> `const` **NODEJS\_RESOURCE\_IR\_RESTORE\_STRATEGY**: `"materialize-nodejs-resource-ir-target-native"` = `"materialize-nodejs-resource-ir-target-native"`
+
+***
+
+### NODEJS\_RESOURCE\_IR\_MATERIALIZER\_FILENAME
+
+> `const` **NODEJS\_RESOURCE\_IR\_MATERIALIZER\_FILENAME**: `"nodejs-resource-materializer.mjs"` = `"nodejs-resource-materializer.mjs"`
+
+***
+
+### NODEJS\_RESOURCE\_IR\_INVALID\_REFUSAL\_CODE
+
+> `const` **NODEJS\_RESOURCE\_IR\_INVALID\_REFUSAL\_CODE**: `"node-portability-resource-ir-invalid"` = `"node-portability-resource-ir-invalid"`
+
+***
+
+### NODEJS\_RESOURCE\_IR\_UNSUPPORTED\_REFUSAL\_CODE
+
+> `const` **NODEJS\_RESOURCE\_IR\_UNSUPPORTED\_REFUSAL\_CODE**: `"node-portability-resource-ir-unsupported"` = `"node-portability-resource-ir-unsupported"`
+
+***
+
 ### OPPOSITE\_ISA\_VM\_EXECUTION\_KIND
 
 > `const` **OPPOSITE\_ISA\_VM\_EXECUTION\_KIND**: `"machinen.architecture-portable-snapshot.opposite-isa-vm-execution"`
@@ -36358,6 +36531,32 @@ available.
 ### createNodejsMemoryIrMaterializerModule()
 
 > **createNodejsMemoryIrMaterializerModule**(): `string`
+
+#### Returns
+
+`string`
+
+***
+
+### validateNodejsResourceIrDocument()
+
+> **validateNodejsResourceIrDocument**(`value`): [`NodejsResourceIrValidationResult`](#nodejsresourceirvalidationresult)
+
+#### Parameters
+
+##### value
+
+`unknown`
+
+#### Returns
+
+[`NodejsResourceIrValidationResult`](#nodejsresourceirvalidationresult)
+
+***
+
+### createNodejsResourceIrMaterializerModule()
+
+> **createNodejsResourceIrMaterializerModule**(): `string`
 
 #### Returns
 

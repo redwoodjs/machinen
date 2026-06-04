@@ -17,10 +17,12 @@
   "workloads": {
     "nodejs": {
       "classified": true,
-      "rowCount": 3,
+      "rowCount": 5,
       "refusedRows": 1,
       "memoryRows": 1,
       "memoryMaterializationRows": 1,
+      "resourceRows": 1,
+      "resourceMaterializationRows": 1,
       "refusals": [
         {
           "id": "nodejs-memory-child-process",
@@ -28,7 +30,8 @@
           "message": "child process memory state is refused by default"
         }
       ],
-      "memoryRefusals": ["node-portability-memory-child-process-unsupported"]
+      "memoryRefusals": ["node-portability-memory-child-process-unsupported"],
+      "resourceRefusals": []
     }
   },
   "claimGuard": {

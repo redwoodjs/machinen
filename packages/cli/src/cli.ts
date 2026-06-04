@@ -40,8 +40,12 @@ import {
   boot,
   NODEJS_MEMORY_IR_INVALID_REFUSAL_CODE,
   NODEJS_MEMORY_IR_MATERIALIZER_FILENAME,
+  NODEJS_RESOURCE_IR_INVALID_REFUSAL_CODE,
+  NODEJS_RESOURCE_IR_MATERIALIZER_FILENAME,
   createNodejsMemoryIrMaterializerModule,
+  createNodejsResourceIrMaterializerModule,
   validateNodejsMemoryIrDocument,
+  validateNodejsResourceIrDocument,
   PRODUCT_PORTABLE_POSTGRES_DUMP,
   ProductLevel4EventfdError,
   ProductLevel4PingSocketError,
@@ -3278,7 +3282,10 @@ async function cmdRestorePortableVmProductBundle(
   const sourceArch = readPortableVmSourceArchitecture(snapDir);
   const targetArch = guestCpu();
   const planRefusal = evaluatePortableVmRestorePlan(snapDir, sourceArch, targetArch);
-  const materializerRefusal = planRefusal ?? preparePortableVmNodeMemoryMaterializer(snapDir);
+  const materializerRefusal =
+    planRefusal ??
+    preparePortableVmNodeMemoryMaterializer(snapDir) ??
+    preparePortableVmNodeResourceMaterializer(snapDir);
   if (materializerRefusal) {
     const refusal = portableVmRestoreRefusal(
       materializerRefusal.code,
@@ -3383,13 +3390,13 @@ async function cmdRestorePortableVmProductBundle(
   }
 }
 
-// fallow-ignore-next-line complexity
 interface PortableVmRestoreRefusalReason {
   code: string;
   message: string;
   workloads?: Record<string, unknown>;
 }
 
+// fallow-ignore-next-line complexity
 function evaluatePortableVmRestorePlan(
   snapDir: string,
   sourceArch: GuestCpu,
@@ -3405,6 +3412,10 @@ function evaluatePortableVmRestorePlan(
     return metadataRefusal;
   }
   const rows = portableVmPlanRows(plan);
+  const pauseBoundaryRefusal = portableVmPauseBoundaryRefusal(snapDir, plan, rows);
+  if (pauseBoundaryRefusal) {
+    return pauseBoundaryRefusal;
+  }
   const refused = rows.find((row) => row.disposition === "refused");
   if (refused) {
     return portableVmPlanRowRefusal(refused, rows);
@@ -3466,6 +3477,51 @@ function portableVmTargetPolicyRefusal(
   return null;
 }
 
+// fallow-ignore-next-line complexity
+function portableVmPauseBoundaryRefusal(
+  snapDir: string,
+  plan: Record<string, unknown>,
+  rows: Array<Record<string, unknown>>,
+): PortableVmRestoreRefusalReason | null {
+  if (!rows.some(isPortableVmNodeResourceMaterializationRow)) {
+    return null;
+  }
+  const captureBoundary = portableVmRecordValue(plan.captureBoundary);
+  if (
+    captureBoundary.sourceVmPauseRequired !== true ||
+    captureBoundary.stabilityPoint !== "source-vm-paused" ||
+    captureBoundary.pauseBoundary !== "portable-vm-pause-boundary.json" ||
+    captureBoundary.unsupportedPausedLiveStatePolicy !== "refuse"
+  ) {
+    return portableVmNodeResourcePauseBoundaryRefusal(rows);
+  }
+  const boundaryPath = join(snapDir, "portable-vm-pause-boundary.json");
+  if (!existsSync(boundaryPath)) {
+    return portableVmNodeResourcePauseBoundaryRefusal(rows);
+  }
+  const boundary = portableVmRecordValue(parsePortableVmJsonArtifact(boundaryPath));
+  if (
+    boundary.accepted !== true ||
+    boundary.sourceVmPauseRequired !== true ||
+    boundary.stoppedStateObserved !== true ||
+    boundary.unsupportedPausedLiveStatePolicy !== "refuse"
+  ) {
+    return portableVmNodeResourcePauseBoundaryRefusal(rows);
+  }
+  return null;
+}
+
+function portableVmNodeResourcePauseBoundaryRefusal(
+  rows: Array<Record<string, unknown>>,
+): PortableVmRestoreRefusalReason {
+  return {
+    code: "node-portability-resource-pause-boundary-missing",
+    message:
+      "Node Resource IR restore requires a retained source VM pause boundary artifact before materialization",
+    workloads: summarizePortableVmRefusalWorkloads(rows),
+  };
+}
+
 function portableVmRequiredRowsRefusal(
   rows: Array<Record<string, unknown>>,
 ): PortableVmRestoreRefusalReason | null {
@@ -3517,7 +3573,7 @@ function preparePortableVmNodeMemoryMaterializer(
   if (!existsSync(irPath)) {
     return null;
   }
-  const parsed = parsePortableVmNodeMemoryIr(irPath);
+  const parsed = parsePortableVmJsonArtifact(irPath);
   const validation = validateNodejsMemoryIrDocument(parsed);
   if (!validation.accepted) {
     return {
@@ -3532,7 +3588,29 @@ function preparePortableVmNodeMemoryMaterializer(
   return null;
 }
 
-function parsePortableVmNodeMemoryIr(path: string): unknown {
+function preparePortableVmNodeResourceMaterializer(
+  snapDir: string,
+): PortableVmRestoreRefusalReason | null {
+  const irPath = join(snapDir, "nodejs-resource-ir.json");
+  if (!existsSync(irPath)) {
+    return null;
+  }
+  const parsed = parsePortableVmJsonArtifact(irPath);
+  const validation = validateNodejsResourceIrDocument(parsed);
+  if (!validation.accepted) {
+    return {
+      code: validation.refusalCode ?? NODEJS_RESOURCE_IR_INVALID_REFUSAL_CODE,
+      message: `Node resource IR is not materializable: ${validation.errors.join("; ")}`,
+    };
+  }
+  writeFileSync(
+    join(snapDir, NODEJS_RESOURCE_IR_MATERIALIZER_FILENAME),
+    createNodejsResourceIrMaterializerModule(),
+  );
+  return null;
+}
+
+function parsePortableVmJsonArtifact(path: string): unknown {
   try {
     return JSON.parse(readFileSync(path, "utf8")) as unknown;
   } catch (error) {
@@ -3559,6 +3637,9 @@ function summarizePortableVmRestorePlan(snapDir: string): Record<string, unknown
     nodejsMemoryRows: rows.filter(
       (row) => row.category === "nodejs" && row.id === "nodejs-memory-ir",
     ).length,
+    nodejsResourceRows: rows.filter(
+      (row) => row.category === "nodejs" && row.id === "nodejs-resource-ir",
+    ).length,
     unknownStatePolicy: (plan.targetPolicy as Record<string, unknown> | undefined)
       ?.unknownStatePolicy,
   };
@@ -3583,6 +3664,9 @@ function summarizePortableVmRefusalWorkloads(
       memoryRefusals: refusedRows
         .filter((row) => portableVmStringValue(row.id).startsWith("nodejs-memory-"))
         .map((row) => portableVmStringValue(row.refusalCode)),
+      resourceRefusals: refusedRows
+        .filter((row) => portableVmStringValue(row.id).startsWith("nodejs-resource-"))
+        .map((row) => portableVmStringValue(row.refusalCode)),
     },
   };
 }
@@ -3598,6 +3682,7 @@ function summarizePortableVmNodePlan(
   return {
     ...summarizePortableVmNodeRows(rows),
     ...summarizePortableVmNodeMemoryVerifier(targetVerify),
+    ...summarizePortableVmNodeResourceVerifier(targetVerify),
     arbitraryNodeProcessRestoreClaimed: false,
     rawV8HeapRestoreUsed: false,
   };
@@ -3612,6 +3697,8 @@ function summarizePortableVmNodeRows(
     refusedRows: rows.filter((row) => row.disposition === "refused").length,
     memoryRows: rows.filter((row) => row.id === "nodejs-memory-ir").length,
     memoryMaterializationRows: rows.filter(isPortableVmNodeMemoryMaterializationRow).length,
+    resourceRows: rows.filter((row) => row.id === "nodejs-resource-ir").length,
+    resourceMaterializationRows: rows.filter(isPortableVmNodeResourceMaterializationRow).length,
   };
 }
 
@@ -3642,6 +3729,33 @@ function portableVmNodeMemoryMaterializedRows(nodejsMemory: Record<string, unkno
   return rows;
 }
 
+function summarizePortableVmNodeResourceVerifier(
+  targetVerify?: Record<string, unknown>,
+): Record<string, unknown> {
+  const nodejsResource = portableVmNodeResourceVerifierRecord(targetVerify);
+  return {
+    resourceVerified: nodejsResource.accepted === true,
+    resourceMaterializedRows: portableVmNodeResourceMaterializedRows(nodejsResource),
+  };
+}
+
+function portableVmNodeResourceVerifierRecord(
+  targetVerify?: Record<string, unknown>,
+): Record<string, unknown> {
+  if (!targetVerify) {
+    return {};
+  }
+  return portableVmRecordValue(targetVerify.nodejsResource);
+}
+
+function portableVmNodeResourceMaterializedRows(nodejsResource: Record<string, unknown>): number {
+  const rows = nodejsResource.materializedRows;
+  if (typeof rows !== "number") {
+    return 0;
+  }
+  return rows;
+}
+
 function portableVmStringValue(value: unknown): string {
   return typeof value === "string" ? value : "";
 }
@@ -3655,6 +3769,10 @@ function portableVmRecordValue(value: unknown): Record<string, unknown> {
 
 function isPortableVmNodeMemoryMaterializationRow(row: Record<string, unknown>): boolean {
   return row.restoreStrategy === "materialize-nodejs-memory-ir-target-native";
+}
+
+function isPortableVmNodeResourceMaterializationRow(row: Record<string, unknown>): boolean {
+  return row.restoreStrategy === "materialize-nodejs-resource-ir-target-native";
 }
 
 function portableVmRestoreRefusal(
@@ -6742,7 +6860,7 @@ async function runSnapshot(opts: SnapshotOptionsCli): Promise<number> {
   const quiet = createSnapshotQuietState(vm, opts);
   try {
     if (opts.portable) {
-      return await runPortableVmSnapshot(vm, opts);
+      return await runPortableVmSnapshot(vm, opts, entry);
     }
     const adapterOpts = { guestCpu, sha256Bytes };
     const portableNode = await inspectPortableNodeVm(vm, entry, adapterOpts);
@@ -6773,7 +6891,12 @@ async function runSnapshot(opts: SnapshotOptionsCli): Promise<number> {
   }
 }
 
-async function runPortableVmSnapshot(vm: VmHandle, opts: SnapshotOptionsCli): Promise<number> {
+// fallow-ignore-next-line complexity
+async function runPortableVmSnapshot(
+  vm: VmHandle,
+  opts: SnapshotOptionsCli,
+  entry: RegistryEntry | undefined,
+): Promise<number> {
   const started = Date.now();
   const exportCommand = portableVmSnapshotExportCommand();
   const exported = await vm.execRaw(exportCommand, { execTimeoutMs: 60_000 });
@@ -6792,13 +6915,211 @@ async function runPortableVmSnapshot(vm: VmHandle, opts: SnapshotOptionsCli): Pr
   writeFileSync(archivePath, archive);
   execFileSync("tar", ["-xf", archivePath, "-C", opts.resolvedOutDir]);
   rmSync(tempDir, { recursive: true, force: true });
+  const pauseBoundary = await capturePortableVmPauseBoundary(vm.pid, entry?.pauseMarkerPath).catch(
+    (error) => {
+      reportPortableVmSnapshotRefusal(opts, describeError(error));
+      return null;
+    },
+  );
+  if (!pauseBoundary) {
+    return 1;
+  }
+  writePortableVmPauseBoundary(opts.resolvedOutDir, pauseBoundary);
   const summary = readPortableVmSnapshotSummary(opts.resolvedOutDir);
   reportPortableVmSnapshotSuccess(opts, summary, Date.now() - started);
   return 0;
 }
 
+interface PortableVmPauseBoundary {
+  kind: "machinen.portable-vm-pause-boundary";
+  version: 1;
+  accepted: true;
+  sourceVmPauseRequired: true;
+  pauseMechanism: "vmm-native-sigusr1-sigusr2" | "host-vmm-sigstop-sigcont";
+  pauseSignal: "SIGUSR1" | "SIGSTOP";
+  resumeSignal: "SIGUSR2" | "SIGCONT";
+  vmmNativeMarker?: Record<string, unknown>;
+  sourceVmPid: number;
+  stoppedStateObserved: true;
+  unsupportedPausedLiveStatePolicy: "refuse";
+  startedAt: string;
+  pausedObservedAt: string;
+  resumedAt: string;
+  elapsedMs: number;
+}
+
 function portableVmSnapshotExportCommand(): string {
   return `sh -eu -c ${shellQuote(portableVmSnapshotGuestAgentScript())}`;
+}
+
+async function capturePortableVmPauseBoundary(
+  pid: number,
+  markerPath: string | undefined,
+): Promise<PortableVmPauseBoundary> {
+  if (markerPath) {
+    return capturePortableVmNativePauseBoundary(pid, markerPath);
+  }
+  return capturePortableVmHostStopPauseBoundary(pid);
+}
+
+async function capturePortableVmNativePauseBoundary(
+  pid: number,
+  markerPath: string,
+): Promise<PortableVmPauseBoundary> {
+  const started = Date.now();
+  const startedAt = new Date(started).toISOString();
+  rmSync(markerPath, { force: true });
+  process.kill(pid, "SIGUSR1");
+  const marker = await waitForPortableVmPauseMarker(markerPath, 2_000);
+  process.kill(pid, "SIGUSR2");
+  return {
+    kind: "machinen.portable-vm-pause-boundary",
+    version: 1,
+    accepted: true,
+    sourceVmPauseRequired: true,
+    pauseMechanism: "vmm-native-sigusr1-sigusr2",
+    pauseSignal: "SIGUSR1",
+    resumeSignal: "SIGUSR2",
+    sourceVmPid: pid,
+    stoppedStateObserved: true,
+    unsupportedPausedLiveStatePolicy: "refuse",
+    vmmNativeMarker: marker,
+    startedAt,
+    pausedObservedAt: new Date().toISOString(),
+    resumedAt: new Date().toISOString(),
+    elapsedMs: Date.now() - started,
+  };
+}
+
+async function capturePortableVmHostStopPauseBoundary(
+  pid: number,
+): Promise<PortableVmPauseBoundary> {
+  const started = Date.now();
+  const startedAt = new Date(started).toISOString();
+  let pauseObservedAt: string | null = null;
+  let signaledStop = false;
+  try {
+    process.kill(pid, "SIGSTOP");
+    signaledStop = true;
+    await waitForPortableVmStopped(pid, 2_000);
+    pauseObservedAt = new Date().toISOString();
+  } finally {
+    if (signaledStop) {
+      process.kill(pid, "SIGCONT");
+    }
+  }
+  if (!pauseObservedAt) {
+    throw new Error("portable VM pause boundary was not observed");
+  }
+  return {
+    kind: "machinen.portable-vm-pause-boundary",
+    version: 1,
+    accepted: true,
+    sourceVmPauseRequired: true,
+    pauseMechanism: "host-vmm-sigstop-sigcont",
+    pauseSignal: "SIGSTOP",
+    resumeSignal: "SIGCONT",
+    sourceVmPid: pid,
+    stoppedStateObserved: true,
+    unsupportedPausedLiveStatePolicy: "refuse",
+    startedAt,
+    pausedObservedAt: pauseObservedAt,
+    resumedAt: new Date().toISOString(),
+    elapsedMs: Date.now() - started,
+  };
+}
+
+async function waitForPortableVmStopped(pid: number, timeoutMs: number): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (portableVmProcessState(pid).includes("T")) {
+      return;
+    }
+    await portableVmPauseSleep(20);
+  }
+  throw new Error(`portable VM pause boundary was not observed for pid ${pid}`);
+}
+
+async function waitForPortableVmPauseMarker(
+  markerPath: string,
+  timeoutMs: number,
+): Promise<Record<string, unknown>> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const marker = readPortableVmPauseMarker(markerPath);
+    if (isPortableVmPauseMarker(marker)) {
+      return marker;
+    }
+    await portableVmPauseSleep(20);
+  }
+  throw new Error(`portable VM VMM-native pause marker was not observed at ${markerPath}`);
+}
+
+function readPortableVmPauseMarker(markerPath: string): Record<string, unknown> | undefined {
+  if (!existsSync(markerPath)) {
+    return undefined;
+  }
+  return portableVmRecordValue(parsePortableVmJsonArtifact(markerPath));
+}
+
+function isPortableVmPauseMarker(
+  marker: Record<string, unknown> | undefined,
+): marker is Record<string, unknown> {
+  return marker?.kind === "machinen.vmm-pause-marker" && marker.vcpusStopped === true;
+}
+
+function portableVmProcessState(pid: number): string {
+  for (const field of ["state=", "stat="] as const) {
+    try {
+      return execFileSync("ps", ["-p", String(pid), "-o", field], {
+        encoding: "utf8",
+      }).trim();
+    } catch {
+      // Try the next platform spelling.
+    }
+  }
+  return "";
+}
+
+function portableVmPauseSleep(ms: number): Promise<void> {
+  return new Promise((resolveSleep) => setTimeout(resolveSleep, ms));
+}
+
+function writePortableVmPauseBoundary(
+  bundleDir: string,
+  pauseBoundary: PortableVmPauseBoundary,
+): void {
+  writeFileSync(
+    join(bundleDir, "portable-vm-pause-boundary.json"),
+    `${JSON.stringify(pauseBoundary, null, 2)}\n`,
+  );
+  patchPortableVmJsonArtifact(bundleDir, "portable-vm-snapshot-summary.json", {
+    pauseBoundary,
+  });
+  patchPortableVmJsonArtifact(bundleDir, "portable-vm-raw-inventory.json", {
+    pauseBoundary,
+  });
+  patchPortableVmJsonArtifact(bundleDir, "portable-vm-manifest-plan.json", {
+    captureBoundary: {
+      sourceVmPauseRequired: true,
+      stabilityPoint: "source-vm-paused",
+      pauseBoundary: "portable-vm-pause-boundary.json",
+      unsupportedPausedLiveStatePolicy: "refuse",
+    },
+  });
+}
+
+function patchPortableVmJsonArtifact(
+  bundleDir: string,
+  relativePath: string,
+  patch: Record<string, unknown>,
+): void {
+  const artifactPath = join(bundleDir, relativePath);
+  if (!existsSync(artifactPath)) {
+    return;
+  }
+  const artifact = JSON.parse(readFileSync(artifactPath, "utf8")) as Record<string, unknown>;
+  writeFileSync(artifactPath, `${JSON.stringify({ ...artifact, ...patch }, null, 2)}\n`);
 }
 
 function portableVmSnapshotGuestAgentScript(): string {
@@ -6867,11 +7188,17 @@ add_refusal() {
 [ ! -f "$src/nodejs-memory-weakmap.refuse" ] || add_refusal nodejs-memory-weakmap nodejs node-portability-memory-weakmap-unsupported 'WeakMap memory state is refused by default'
 [ ! -f "$src/nodejs-memory-timer.refuse" ] || add_refusal nodejs-memory-timer nodejs node-portability-memory-timer-unsupported 'active timer memory state is refused by default'
 [ ! -f "$src/nodejs-memory-stream.refuse" ] || add_refusal nodejs-memory-stream nodejs node-portability-memory-stream-unsupported 'stream memory state is refused by default'
+[ ! -f "$src/nodejs-resource-active-timer.refuse" ] || add_refusal nodejs-resource-active-timer nodejs node-portability-resource-active-timer-unsupported 'active timer runtime state is refused unless captured as a timer-schedule-spec resource IR row'
+[ ! -f "$src/nodejs-resource-native-handle.refuse" ] || add_refusal nodejs-resource-native-handle nodejs node-portability-resource-native-handle-unsupported 'raw native/libuv handles are refused by Node resource IR'
+[ ! -f "$src/nodejs-resource-active-tls.refuse" ] || add_refusal nodejs-resource-active-tls nodejs node-portability-resource-active-tls-unsupported 'active TLS/session internals are refused by Node resource IR'
+[ ! -f "$src/nodejs-resource-worker-live-state.refuse" ] || add_refusal nodejs-resource-worker-live-state nodejs node-portability-resource-worker-live-state-unsupported 'worker live runtime state is refused by Node resource IR'
 
 node_inventory_items=''
 node_plan_rows=''
 node_memory_items=''
 node_memory_plan_rows=''
+node_resource_items=''
+node_resource_plan_rows=''
 node_package_json=''
 if [ -d "$src/filesystem/root" ]; then
   node_package_json=$(find "$src/filesystem/root" -maxdepth 6 -name package.json -type f 2>/dev/null | head -n 1 || true)
@@ -6898,6 +7225,62 @@ NODEMEMJSON
     { "id": "nodejs-memory-ir", "category": "nodejs", "path": "nodejs-memory-ir.json", "classification": "nodejs-memory-classification.json", "disposition": "product-supported" }'
   node_memory_plan_rows=',
       { "id": "nodejs-memory-ir", "category": "nodejs", "disposition": "product-supported", "restoreStrategy": "materialize-nodejs-memory-ir-target-native", "artifact": "nodejs-memory-ir.json", "classification": "nodejs-memory-classification.json", "compatibilityIndex": "portability/nodejs/index.json" }'
+fi
+
+if [ -f "$src/nodejs-resource-ir.json" ]; then
+  cat >"$work/nodejs-resource-inventory.json" <<NODERESINVJSON
+{
+  "kind": "machinen.nodejs-resource-inventory",
+  "version": 1,
+  "status": "classified",
+  "sourceArchitecture": "$source_arch",
+  "resourceIr": "nodejs-resource-ir.json",
+  "captureBoundaryRequired": "source-vm-paused",
+  "checkedResourceClasses": [
+    "timers",
+    "file-handles",
+    "http-listeners",
+    "streams",
+    "route-registries",
+    "middleware-registries",
+    "configured-outbound-clients",
+    "signal-handlers",
+    "workers",
+    "tls-sessions",
+    "native-handles"
+  ],
+  "unsupportedPausedLiveStatePolicy": "refuse"
+}
+NODERESINVJSON
+  cat >"$work/nodejs-resource-classification.json" <<NODERESJSON
+{
+  "kind": "machinen.nodejs-resource-classification",
+  "version": 1,
+  "status": "classified",
+  "sourceArchitecture": "$source_arch",
+  "resourceIr": "nodejs-resource-ir.json",
+  "restoreStrategy": "materialize-nodejs-resource-ir-target-native",
+  "compatibilityIndex": "portability/nodejs/index.json",
+  "captureBoundary": {
+    "sourceVmPauseRequired": true,
+    "stabilityPoint": "source-vm-paused",
+    "unsupportedPausedLiveStatePolicy": "refuse"
+  },
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawNativeHandleRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false
+  }
+}
+NODERESJSON
+  node_resource_items=',
+    { "id": "nodejs-resource-inventory", "category": "nodejs", "path": "nodejs-resource-inventory.json", "disposition": "classified" },
+    { "id": "nodejs-resource-ir", "category": "nodejs", "path": "nodejs-resource-ir.json", "classification": "nodejs-resource-classification.json", "inventory": "nodejs-resource-inventory.json", "disposition": "product-supported" }'
+  node_resource_plan_rows=',
+      { "id": "nodejs-resource-inventory", "category": "nodejs", "disposition": "classified", "restoreStrategy": "classify-nodejs-runtime-resources", "artifact": "nodejs-resource-inventory.json", "captureBoundary": "source-vm-paused", "unsupportedPausedLiveStatePolicy": "refuse" },
+      { "id": "nodejs-resource-ir", "category": "nodejs", "disposition": "product-supported", "restoreStrategy": "materialize-nodejs-resource-ir-target-native", "artifact": "nodejs-resource-ir.json", "classification": "nodejs-resource-classification.json", "inventory": "nodejs-resource-inventory.json", "compatibilityIndex": "portability/nodejs/index.json", "captureBoundary": "source-vm-paused", "unsupportedPausedLiveStatePolicy": "refuse" }'
 fi
 
 if [ -n "$node_package_json" ]; then
@@ -6944,7 +7327,7 @@ cat >"$work/portable-vm-raw-inventory.json" <<JSON
   "items": [
     { "id": "filesystem-root", "category": "filesystem", "path": "filesystem/root", "disposition": "product-supported" },
     { "id": "selected-service", "category": "service", "path": "service-manifest.json", "disposition": "product-supported" },
-    { "id": "clean-sqlite", "category": "sqlite", "path": "sqlite-dump.sql", "disposition": "product-supported" }$node_inventory_items$node_memory_items
+    { "id": "clean-sqlite", "category": "sqlite", "path": "sqlite-dump.sql", "disposition": "product-supported" }$node_inventory_items$node_memory_items$node_resource_items
   ]
 }
 JSON
@@ -6967,7 +7350,7 @@ cat >"$work/portable-vm-manifest-plan.json" <<JSON
     "rows": [
       { "id": "filesystem-root", "category": "filesystem", "disposition": "product-supported", "restoreStrategy": "copy-content-addressed-file-tree", "artifact": "filesystem-manifest.json" },
       { "id": "selected-service", "category": "service", "disposition": "product-supported", "restoreStrategy": "start-target-native-selected-service", "artifact": "service-manifest.json" },
-      { "id": "clean-sqlite", "category": "sqlite", "disposition": "product-supported", "restoreStrategy": "restore-clean-logical-sqlite-dump", "artifact": "sqlite-logical.json" }$node_plan_rows$node_memory_plan_rows$refusal_rows
+      { "id": "clean-sqlite", "category": "sqlite", "disposition": "product-supported", "restoreStrategy": "restore-clean-logical-sqlite-dump", "artifact": "sqlite-logical.json" }$node_plan_rows$node_memory_plan_rows$node_resource_plan_rows$refusal_rows
     ]
   },
   "claimGuard": {

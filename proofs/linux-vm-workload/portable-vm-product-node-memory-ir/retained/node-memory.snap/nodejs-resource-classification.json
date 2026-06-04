@@ -1,0 +1,21 @@
+{
+  "kind": "machinen.nodejs-resource-classification",
+  "version": 1,
+  "status": "classified",
+  "sourceArchitecture": "arm64",
+  "resourceIr": "nodejs-resource-ir.json",
+  "restoreStrategy": "materialize-nodejs-resource-ir-target-native",
+  "compatibilityIndex": "portability/nodejs/index.json",
+  "captureBoundary": {
+    "sourceVmPauseRequired": true,
+    "stabilityPoint": "source-vm-paused",
+    "unsupportedPausedLiveStatePolicy": "refuse"
+  },
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawNativeHandleRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false
+  }
+}

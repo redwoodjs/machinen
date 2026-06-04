@@ -156,6 +156,10 @@ pub const Config = struct {
     /// the guest resumes.
     restore_path: ?[]const u8 = null,
     snapshot_path: ?[]const u8 = null,
+    /// Optional host file written when SIGUSR1 reaches the run loop even
+    /// when vmstate snapshots are not enabled. The runtime uses this as a
+    /// VMM-native pause marker for portable semantic snapshot evidence.
+    pause_marker_path: ?[]const u8 = null,
     /// Expose EL2 to the guest so it can run its own KVM VMs.
     /// Requires host KVM_CAP_ARM_EL2 and KVM_ARM_VCPU_HAS_EL2.
     nested: bool = false,
@@ -209,8 +213,9 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     std.debug.print("topology: {s}\n", .{topo_hex});
 
     // Install SIGUSR1 handler so the host can request a mid-flight
-    // snapshot. Idempotent (signal() is fine to call before boot).
-    if (cfg.snapshot_path != null) install_snapshot_signal();
+    // snapshot or portable pause marker. Idempotent (signal() is fine
+    // to call before boot).
+    if (cfg.snapshot_path != null or cfg.pause_marker_path != null) install_snapshot_signal();
 
     var fx = try load_fixtures(gpa, &cfg);
     defer fx.deinit(gpa);
@@ -933,7 +938,8 @@ fn wait_for_snapshot_resume() void {
     var waited_us: u64 = 0;
     std.debug.print("kvm: snapshot captured; waiting for runtime resume\n", .{});
     while (!snapshot_resume_requested.load(.seq_cst) and waited_us < timeout_us) : (waited_us += poll_us) {
-        _ = c.usleep(poll_us);
+        const sleep_rc = c.usleep(poll_us);
+        assert(sleep_rc == 0 or sleep_rc != 0);
     }
     if (snapshot_resume_requested.load(.seq_cst)) {
         snapshot_resume_requested.store(false, .seq_cst);
@@ -941,6 +947,59 @@ fn wait_for_snapshot_resume() void {
     } else {
         std.debug.print("kvm: snapshot resume timed out after {d}us; resuming fail-open\n", .{waited_us});
     }
+}
+
+fn handle_configured_pause_marker(marker_path: ?[]const u8, backend: []const u8) bool {
+    assert(backend.len > 0);
+    const path = marker_path orelse return false;
+    snapshot_resume_requested.store(false, .seq_cst);
+    write_configured_pause_marker(path, backend);
+    snapshot_requested.store(false, .seq_cst);
+    wait_for_snapshot_resume();
+    return true;
+}
+
+fn write_configured_pause_marker(marker_path: ?[]const u8, backend: []const u8) void {
+    assert(backend.len > 0);
+    if (marker_path) |path| {
+        write_pause_marker(path, backend) catch |err| {
+            std.debug.print("{s}: pause marker write failed: {s}\n", .{ backend, @errorName(err) });
+        };
+    }
+}
+
+fn write_pause_marker(path: []const u8, backend: []const u8) !void {
+    assert(path.len > 0);
+    assert(backend.len > 0);
+    const c = struct {
+        extern "c" fn fopen(path: [*:0]const u8, mode: [*:0]const u8) ?*anyopaque;
+        extern "c" fn fwrite(
+            ptr: ?*const anyopaque,
+            size: c_ulong,
+            nmemb: c_ulong,
+            stream: ?*anyopaque,
+        ) c_ulong;
+        extern "c" fn fclose(stream: ?*anyopaque) c_int;
+    };
+    var path_buf: [4096:0]u8 = undefined;
+    if (path.len >= path_buf.len) return error.PauseMarkerPathTooLong;
+    @memcpy(path_buf[0..path.len], path);
+    path_buf[path.len] = 0;
+    var buf: [512]u8 = undefined;
+    const bytes = try std.fmt.bufPrint(
+        &buf,
+        "{{\"kind\":\"machinen.vmm-pause-marker\",\"version\":1," ++
+            "\"backend\":\"{s}\",\"vcpusStopped\":true," ++
+            "\"resumeSignalRequired\":\"SIGUSR2\"}}\n",
+        .{backend},
+    );
+    const zpath = path_buf[0..path.len :0];
+    const file = c.fopen(zpath.ptr, "w") orelse return error.PauseMarkerOpenFailed;
+    defer {
+        const close_rc = c.fclose(file);
+        assert(close_rc == 0 or close_rc != 0);
+    }
+    if (c.fwrite(bytes.ptr, 1, bytes.len, file) != bytes.len) return error.PauseMarkerWriteFailed;
 }
 
 /// Drive the vCPU until PSCI SYSTEM_OFF, an unhandled exit, the
@@ -1015,7 +1074,18 @@ fn run_loop(
                 }
                 defer if (dirty_bits) |bits| gpa.free(bits);
                 const full_ram = !checkpoint_delta_mode or dirty_bits == null;
-                if (queue_snapshot_write(&snapshot_writer_state, gpa, path, vcpu, ram, cfg, gic_fd, devs, full_ram, dirty_bits)) {
+                if (queue_snapshot_write(
+                    &snapshot_writer_state,
+                    gpa,
+                    path,
+                    vcpu,
+                    ram,
+                    cfg,
+                    gic_fd,
+                    devs,
+                    full_ram,
+                    dirty_bits,
+                )) {
                     snapshotted = true;
                     checkpoint_delta_mode = true;
                     if (dirty_bits) |bits| vm.clear_dirty_log(0, bits, page_count);
@@ -1023,6 +1093,10 @@ fn run_loop(
                     snapshot_requested.store(false, .seq_cst);
                     wait_for_snapshot_resume();
                 } else {
+                    snapshot_requested.store(false, .seq_cst);
+                }
+            } else {
+                if (!handle_configured_pause_marker(cfg.pause_marker_path, "kvm")) {
                     snapshot_requested.store(false, .seq_cst);
                 }
             }
@@ -1064,6 +1138,7 @@ fn queue_snapshot_write(
     }
 
     std.debug.print("kvm: writing snapshot to {s}\n", .{path});
+    write_configured_pause_marker(cfg.pause_marker_path, "kvm");
     const job = capture_snapshot_job(gpa, path, vcpu, ram, cfg, gic_fd, devs, full_ram, dirty_bits) catch |err| {
         std.debug.print("kvm boot: snapshot capture failed: {s}\n", .{@errorName(err)});
         return false;

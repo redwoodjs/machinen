@@ -16,10 +16,12 @@
   "workloads": {
     "nodejs": {
       "classified": true,
-      "rowCount": 3,
+      "rowCount": 5,
       "refusedRows": 1,
       "memoryRows": 1,
       "memoryMaterializationRows": 1,
+      "resourceRows": 1,
+      "resourceMaterializationRows": 1,
       "refusals": [
         {
           "id": "nodejs-memory-active-request",
@@ -27,7 +29,8 @@
           "message": "active request state is refused by default"
         }
       ],
-      "memoryRefusals": ["node-portability-memory-active-request-unsupported"]
+      "memoryRefusals": ["node-portability-memory-active-request-unsupported"],
+      "resourceRefusals": []
     }
   },
   "claimGuard": {

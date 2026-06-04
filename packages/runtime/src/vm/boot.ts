@@ -516,6 +516,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     memoryCeilingMib,
     diskAbs,
     vmstateStatePath: vmstate.statePath,
+    pauseMarkerPath: vmstate.pauseMarkerPath,
     snapshot: {
       child,
       childPid,
@@ -860,6 +861,7 @@ function buildRegisterArgs(
     mountDiskPaths: args.resources.mountDiskPaths,
     liveMountsResolved: args.plan.liveMountsResolved,
     vmstateStatePath: args.plan.vmstate.statePath,
+    pauseMarkerPath: args.plan.vmstate.pauseMarkerPath,
     vmstateChainId: vmstateValue(args.plan.vmstate, args.plan.vmstate.chainId),
     vmstateCheckpointParent: vmstateValue(args.plan.vmstate, args.plan.vmstate.checkpointParent),
     vmstateCheckpointSequence: vmstateValue(
@@ -1011,14 +1013,16 @@ function setupVmstateBoot(
   inputVsockTempDir: string | undefined,
 ): { vmstate: BootVmstateRuntime; vsockTempDir: string | undefined } {
   let vsockTempDir = inputVsockTempDir;
+  vsockTempDir = ensureVsockTempDir(vsockTempDir);
   const vmstate: BootVmstateRuntime = {
     statePath: undefined,
+    pauseMarkerPath: join(vsockTempDir, "portable-pause-marker.json"),
     chainId: randomBytes(16).toString("hex"),
     checkpointParent: opts._vmstateRestorePath ? opts.forkedFrom : undefined,
     checkpointSequence: 0,
   };
+  env.MACHINEN_PAUSE_MARKER_PATH = vmstate.pauseMarkerPath;
   if (resolveSnapshotEngine() === "vmstate" && opts.snapshot !== false) {
-    vsockTempDir = ensureVsockTempDir(vsockTempDir);
     vmstate.statePath = join(vsockTempDir, VMSTATE_FILE);
     env.MACHINEN_SNAPSHOT_PATH = vmstate.statePath;
   }
@@ -1633,6 +1637,7 @@ interface RegisterArgs {
   mountDiskPaths: MountDiskPaths | undefined;
   liveMountsResolved: ResolvedLiveMount[];
   vmstateStatePath: string | undefined;
+  pauseMarkerPath: string | undefined;
   vmstateChainId: string | undefined;
   vmstateCheckpointParent: string | undefined;
   vmstateCheckpointSequence: number | undefined;
@@ -1675,6 +1680,7 @@ function buildRegistryEntry(args: RegisterArgs) {
     memoryCeilingMib: args.memoryCeilingMib,
     statsPath: args.statsFilePath,
     vmstatePath: args.vmstateStatePath,
+    pauseMarkerPath: args.pauseMarkerPath,
     vmstateChainId: args.vmstateChainId,
     vmstateCheckpointParent: args.vmstateCheckpointParent,
     vmstateCheckpointSequence: args.vmstateCheckpointSequence,
@@ -1856,6 +1862,7 @@ interface BootHandleArgs {
   memoryCeilingMib: number | undefined;
   diskAbs: string | undefined;
   vmstateStatePath: string | undefined;
+  pauseMarkerPath: string | undefined;
   snapshot: BootSnapshotContextArgs;
 }
 
@@ -1877,6 +1884,7 @@ interface BootSnapshotContextArgs {
 
 interface BootVmstateRuntime {
   statePath: string | undefined;
+  pauseMarkerPath: string | undefined;
   chainId: string;
   checkpointParent: string | undefined;
   checkpointSequence: number;

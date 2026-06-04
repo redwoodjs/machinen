@@ -111,6 +111,29 @@ const categoryBySlug = {
   "memory-real-stream-refusal": "memory-blocker",
   "memory-real-promise-refusal": "memory-blocker",
 };
+const productResourceCompatibilityRows = {
+  "061-memory-real-timer-refusal": "nodejs-resource-timer-schedule",
+  "083-memory-real-interval-refusal": "nodejs-resource-timer-schedule",
+  "084-memory-real-immediate-refusal": "nodejs-resource-immediate-schedule",
+  "085-memory-real-unref-timer-refusal": "nodejs-resource-unref-timer-schedule",
+  "087-memory-real-scheduled-callback-refusal": "nodejs-resource-timer-schedule",
+  "088-memory-real-readable-stream-refusal": "nodejs-resource-drained-readable-stream",
+  "089-memory-real-writable-stream-refusal": "nodejs-resource-drained-writable-stream",
+  "091-memory-real-pipeline-refusal": "nodejs-resource-pipeline-drained-state",
+  "143-memory-real-ttl-cache-refusal": "nodejs-resource-ttl-cache-expiration",
+  "146-memory-real-cache-expiration-timer-refusal": "nodejs-resource-cache-expiration-timer",
+  "173-memory-real-filehandle-refusal": "nodejs-resource-reopenable-file",
+  "176-memory-real-open-read-stream-refusal": "nodejs-resource-reopenable-read-stream",
+  "177-memory-real-open-write-stream-refusal": "nodejs-resource-reopenable-write-stream",
+  "181-memory-real-process-signal-handler-refusal": "nodejs-resource-signal-handler-registry",
+  "267-memory-real-scheduler-timer-refusal": "nodejs-resource-timer-schedule",
+  "280-memory-real-timer-backed-refill-refusal": "nodejs-resource-timer-backed-refill",
+};
+const productResourceEvidencePaths = [
+  "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
+  "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
+];
+
 const capabilityBySlug = {
   "plain-http-create-server":
     "Plain node:http listener can restart target-native and verify response",
@@ -211,6 +234,64 @@ function evidence(kind, path, summary) {
   return { kind, path, sha256: hashFile(path), summary };
 }
 
+function readProductResourceEvidence(rowId) {
+  const resourceRowId = productResourceCompatibilityRows[rowId];
+  if (!resourceRowId) {
+    return undefined;
+  }
+  const reports = productResourceEvidencePaths
+    .filter((path) => existsSync(path))
+    .map((path) => ({ path, report: JSON.parse(readFileSync(path, "utf8")) }));
+  const single = reports.find(
+    ({ report }) =>
+      report.accepted === true &&
+      report.acceptedPath?.supportedResourceRows?.includes(resourceRowId),
+  );
+  const cross = reports.find(
+    ({ report }) =>
+      report.accepted === true &&
+      Array.isArray(report.directions) &&
+      report.directions.every(
+        (direction) =>
+          direction.resourceVerified === true &&
+          direction.supportedResourceRows?.includes(resourceRowId) &&
+          direction.sourceVmPauseBoundary?.pauseMechanism === "vmm-native-sigusr1-sigusr2",
+      ),
+  );
+  if (!single || !cross) {
+    return undefined;
+  }
+  return { resourceRowId, single, cross };
+}
+
+function productResourceCell(row, arch) {
+  const proof = readProductResourceEvidence(row.id);
+  if (!proof) {
+    return undefined;
+  }
+  return {
+    status: "verified",
+    lastRun: null,
+    evidence: [
+      evidence(
+        "product-resource-ir-report",
+        proof.single.path,
+        `${proof.resourceRowId} product Resource IR materialized`,
+      ),
+      evidence(
+        "product-resource-ir-cross-arch-report",
+        proof.cross.path,
+        `${proof.resourceRowId} verified with ${arch} participating in arm64<->amd64 product smoke`,
+      ),
+    ],
+    notes: `Semantic Resource IR row ${proof.resourceRowId} materialized target-native with retained VMM-native pause proof; raw/live/native continuation remains refused.`,
+  };
+}
+
+function hasProductResourceSupport(row) {
+  return readProductResourceEvidence(row.id) !== undefined;
+}
+
 function readReports() {
   const retainedMemoryReports = readdirSync(join(root, "retained"))
     .filter((name) => /^nodejs-portability-memory-.*-report\.json$/u.test(name))
@@ -231,6 +312,9 @@ function rowDirs() {
 }
 
 function attemptPolicy(row) {
+  if (hasProductResourceSupport(row)) {
+    return "try-first";
+  }
   if (row.disposition === "refused-first") {
     return "refuse-live-state";
   }
@@ -241,6 +325,10 @@ function attemptPolicy(row) {
 }
 
 function archCell(row, arch, reports) {
+  const productResource = productResourceCell(row, arch);
+  if (productResource) {
+    return productResource;
+  }
   const memoryScalar = memoryScalarCell(row, arch, reports);
   if (memoryScalar) {
     return memoryScalar;
@@ -294,7 +382,14 @@ function archCell(row, arch, reports) {
     if (refused) {
       ev.push(evidence(refused.kind, refused.path, `${arch} retained refusal smoke`));
     }
-    return { status: "refused", lastRun: null, evidence: ev, notes: row.refusalCode };
+    return {
+      status: refused ? "verified-refusal" : "refused",
+      lastRun: null,
+      evidence: ev,
+      notes: refused
+        ? `Retained fail-closed proof: ${row.refusalCode}`
+        : `Untested fail-closed gap: ${row.refusalCode}`,
+    };
   }
   if (row.disposition === "supported-with-declared-config") {
     return {
@@ -353,6 +448,9 @@ function rowStatus(row, architectures) {
   if (cells.every((status) => status === "verified")) {
     return "verified";
   }
+  if (cells.every((status) => status === "verified-refusal")) {
+    return "verified-refusal";
+  }
   if (cells.some((status) => status === "failed-classified")) {
     return "failed-classified";
   }
@@ -366,7 +464,10 @@ function rowStatus(row, architectures) {
 }
 
 function blockers(row, status) {
-  if (row.disposition === "refused-first") {
+  if (status === "verified-refusal") {
+    return [];
+  }
+  if (row.disposition === "refused-first" && !hasProductResourceSupport(row)) {
     return [
       {
         id: row.slug,
@@ -412,12 +513,28 @@ function blockers(row, status) {
 }
 
 function productClaim(row, status) {
+  if (hasProductResourceSupport(row)) {
+    return {
+      status: "candidate",
+      scope: "node-resource-ir-product-proof",
+      notes:
+        "Supported only as decoded semantic Resource IR with retained VMM-native pause proof; raw/live/native continuation remains refused.",
+    };
+  }
   if (status === "verified") {
     return {
       status: "candidate",
       scope: "node-portability-corpus-proof",
       notes:
         "VM-verified capability evidence; does not claim arbitrary raw Node process continuation.",
+    };
+  }
+  if (status === "verified-refusal") {
+    return {
+      status: "verified-refusal",
+      scope: "node-portability-fail-closed-proof",
+      notes:
+        "Retained fail-closed proof covers this unsafe row; live/opaque state is not portable.",
     };
   }
   if (row.disposition === "refused-first") {
@@ -485,8 +602,8 @@ function buildIndex() {
       workaround:
         row.disposition === "supported-with-declared-config" && status !== "verified"
           ? "Declare dependencies/config/artifacts and rerun with --install-deps or matching product adapter."
-          : row.disposition === "refused-first"
-            ? "Remove or declare a reconstruction policy for this live/opaque state before claiming portability."
+          : status === "refused"
+            ? "Add retained fail-closed proof or declare a reconstruction policy before claiming coverage."
             : null,
       productClaim: productClaim(row, status),
       evidence: uniqueEvidence([
@@ -530,7 +647,12 @@ function buildIndex() {
       byProductClaim,
       architectures: ["arm64", "amd64"],
       verifiedBothArchitectures: rows.filter((row) => row.status === "verified").length,
+      verifiedRefusalRows: rows.filter((row) => row.status === "verified-refusal").length,
       refusedRows: rows.filter((row) => row.status === "refused").length,
+      unsupportedUnverifiedRows: rows.filter((row) => row.status === "refused").length,
+      coveredRows: rows.filter(
+        (row) => row.status === "verified" || row.status === "verified-refusal",
+      ).length,
       conditionalRows: rows.filter((row) => row.status === "conditional").length,
       failedClassifiedRows: rows.filter((row) => row.status === "failed-classified").length,
     },
@@ -545,6 +667,44 @@ function escapeHtml(value) {
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
+}
+
+function buildRefusalCoverageReport(index) {
+  const verifiedRefusals = index.rows.filter((row) => row.status === "verified-refusal");
+  const unverifiedRefusals = index.rows.filter((row) => row.status === "refused");
+  return {
+    kind: "machinen.nodejs-portability-refusal-coverage-report",
+    version: 1,
+    accepted: unverifiedRefusals.length === 0,
+    runtime: "nodejs",
+    rowCount: index.rows.length,
+    supportedRows: index.rows.filter((row) => row.status === "verified").length,
+    verifiedRefusalRows: verifiedRefusals.length,
+    unsupportedUnverifiedRows: unverifiedRefusals.length,
+    allRowsAccountedFor: index.rows.every(
+      (row) => row.status === "verified" || row.status === "verified-refusal",
+    ),
+    claimGuard,
+    notClaimed: index.claimBoundary.notClaimed,
+    verifiedRefusals: verifiedRefusals.map((row) => ({
+      id: row.id,
+      status: row.status,
+      refusalCode:
+        row.architectures.arm64.notes?.match(/node-portability-[a-z0-9-]+-unsupported/u)?.[0] ??
+        null,
+      architectures: Object.fromEntries(
+        Object.entries(row.architectures).map(([arch, cell]) => [
+          arch,
+          {
+            status: cell.status,
+            evidence: cell.evidence.map((item) => ({ kind: item.kind, path: item.path })),
+          },
+        ]),
+      ),
+      productClaim: row.productClaim,
+    })),
+    unverifiedRefusals: unverifiedRefusals.map((row) => ({ id: row.id, status: row.status })),
+  };
 }
 
 function buildDashboard(index) {
@@ -578,6 +738,7 @@ function buildDashboard(index) {
     .pill { border-radius: 999px; padding: 0.18rem 0.5rem; font-weight: 700; display: inline-block; }
     .verified { background: #dff7e8; color: #0c6830; }
     .classified, .conditional { background: #fff2c6; color: #785a00; }
+    .verified-refusal { background: #e8f0ff; color: #234b8f; }
     .failed-classified, .refused { background: #ffe0e0; color: #8a1f1f; }
     code { background: #f4f7fb; padding: 0.12rem 0.25rem; border-radius: 0.25rem; }
   </style>
@@ -588,7 +749,8 @@ function buildDashboard(index) {
   <div class="cards">
     <div class="card"><strong>${index.summary.rowCount}</strong><div class="muted">rows</div></div>
     <div class="card"><strong>${index.summary.verifiedBothArchitectures}</strong><div class="muted">verified on arm64 + amd64</div></div>
-    <div class="card"><strong>${index.summary.refusedRows}</strong><div class="muted">stable refusal rows</div></div>
+    <div class="card"><strong>${index.summary.verifiedRefusalRows}</strong><div class="muted">verified fail-closed rows</div></div>
+    <div class="card"><strong>${index.summary.unsupportedUnverifiedRows}</strong><div class="muted">untested refused rows</div></div>
     <div class="card"><strong>${index.summary.failedClassifiedRows}</strong><div class="muted">failed-classified rows</div></div>
   </div>
   <h2>Claim guard</h2>
@@ -615,6 +777,11 @@ function archCellHtml(row, arch) {
 }
 
 const index = buildIndex();
+const refusalCoverage = buildRefusalCoverageReport(index);
 writeFileSync(join(root, "index.json"), `${JSON.stringify(index, null, 2)}\n`);
+writeFileSync(
+  join(root, "retained", "nodejs-portability-refusal-coverage-report.json"),
+  `${JSON.stringify(refusalCoverage, null, 2)}\n`,
+);
 writeFileSync(join(root, "index.html"), buildDashboard(index));
 console.log(JSON.stringify(index.summary, null, 2));
