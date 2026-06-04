@@ -74,6 +74,10 @@ function readRow(dir: string): NodePortabilityRow {
   ) as NodePortabilityRow;
 }
 
+function rowNumber(dir: string): number {
+  return Number(dir.slice(0, 3));
+}
+
 function selectedProductNodeMemoryRowIds(): string[] {
   return [
     "037-memory-real-plain-object",
@@ -176,62 +180,15 @@ describe("Node.js portability corpus", () => {
     expect(html).toContain("nodejs-portability-memory-real-array-report.json");
   });
 
-  it("contains the requested 62 numbered workload rows", () => {
-    expect(rowDirs()).toEqual([
+  it("contains the requested 312 numbered workload rows", () => {
+    const dirs = rowDirs();
+    expect(dirs).toHaveLength(312);
+    expect(dirs.slice(0, 3)).toEqual([
       "001-plain-http-create-server",
       "002-express",
       "003-fastify",
-      "004-koa",
-      "005-hono",
-      "006-next-minimal-server",
-      "007-remix-react-router-server",
-      "008-nestjs",
-      "009-graphql-apollo",
-      "010-websocket-server",
-      "011-sqlite-app",
-      "012-postgres-app",
-      "013-static-file-server",
-      "014-file-upload-app",
-      "015-cron-timer-app",
-      "016-worker-thread-app",
-      "017-native-addon-app",
-      "018-child-process-app",
-      "019-active-request-app",
-      "020-outbound-connection-app",
-      "021-memory-scalar-counter",
-      "022-memory-plain-object",
-      "023-memory-array",
-      "024-memory-closure-context",
-      "025-memory-unsupported-boundaries",
-      "026-memory-string",
-      "027-memory-nested-object-graph",
-      "028-memory-shared-references",
-      "029-memory-cycle",
-      "030-memory-map-set",
-      "031-memory-class-instance",
-      "032-memory-http-handler-closure-state",
-      "033-memory-buffer",
-      "034-memory-typed-array",
-      "035-memory-pending-promise-refusal",
-      "036-memory-capture-classifier",
-      "037-memory-real-plain-object",
-      "038-memory-real-array",
-      "039-memory-real-closure-context",
-      "040-memory-real-string",
-      "041-memory-real-nested-object-graph",
-      "042-memory-real-shared-references",
-      "043-memory-real-cycle",
-      "044-memory-real-map-set",
-      "045-memory-real-class-instance",
-      "046-memory-real-buffer",
-      "047-memory-real-typed-array",
-      "048-memory-real-http-handler-closure-state",
-      "049-memory-real-promise-refusal",
-      "050-memory-real-date-regexp",
-      "051-memory-real-error-object",
-      "052-memory-real-url-searchparams",
-      "053-memory-real-bigint-rich-graph",
-      "054-memory-real-module-singleton-state",
+    ]);
+    expect(dirs.slice(54, 62)).toEqual([
       "055-memory-real-arraybuffer-dataview",
       "056-memory-real-symbol-keyed-object",
       "057-memory-real-eventemitter-listeners",
@@ -241,11 +198,19 @@ describe("Node.js portability corpus", () => {
       "061-memory-real-timer-refusal",
       "062-memory-real-stream-refusal",
     ]);
+    expect(dirs.slice(-5)).toEqual([
+      "308-memory-real-opaque-native-handles-refusal",
+      "309-memory-real-unknown-v8-object-refusal",
+      "310-memory-real-unclassified-state-refusal",
+      "311-memory-real-metadata-only-success-refusal",
+      "312-memory-real-source-isa-emulation-refusal",
+    ]);
+    expect(dirs.map(rowNumber)).toEqual(Array.from({ length: 312 }, (_, index) => index + 1));
   });
 
   it("keeps arbitrary raw Node process restore out of the corpus claim", () => {
     const rows = rowDirs().map(readRow);
-    expect(rows).toHaveLength(62);
+    expect(rows).toHaveLength(312);
     for (const row of rows) {
       expect(row.runtime).toBe("nodejs");
       expect(row.claimGuard).toMatchObject({
@@ -261,7 +226,8 @@ describe("Node.js portability corpus", () => {
     const refused = rowDirs()
       .map(readRow)
       .filter((row) => row.disposition === "refused-first");
-    expect(refused.map((row) => row.id)).toEqual([
+    expect(refused).toHaveLength(262);
+    expect(refused.map((row) => row.id).slice(0, 12)).toEqual([
       "010-websocket-server",
       "016-worker-thread-app",
       "017-native-addon-app",
@@ -274,6 +240,13 @@ describe("Node.js portability corpus", () => {
       "060-memory-real-weakmap-refusal",
       "061-memory-real-timer-refusal",
       "062-memory-real-stream-refusal",
+    ]);
+    expect(refused.map((row) => row.id).slice(-5)).toEqual([
+      "308-memory-real-opaque-native-handles-refusal",
+      "309-memory-real-unknown-v8-object-refusal",
+      "310-memory-real-unclassified-state-refusal",
+      "311-memory-real-metadata-only-success-refusal",
+      "312-memory-real-source-isa-emulation-refusal",
     ]);
     for (const row of refused) {
       expect(row.refusalCode).toMatch(/^node-portability-.+-unsupported$/u);
@@ -289,12 +262,12 @@ describe("Node.js portability corpus", () => {
       version: 1,
       runtime: "nodejs",
       summary: {
-        rowCount: 62,
-        byStatus: { verified: 50, refused: 12 },
-        byProductClaim: { candidate: 50, refusal: 12 },
+        rowCount: 312,
+        byStatus: { verified: 50, refused: 262 },
+        byProductClaim: { candidate: 50, refusal: 262 },
         architectures: ["arm64", "amd64"],
         verifiedBothArchitectures: 50,
-        refusedRows: 12,
+        refusedRows: 262,
         conditionalRows: 0,
         failedClassifiedRows: 0,
       },
@@ -368,14 +341,14 @@ describe("Node.js portability corpus", () => {
     };
     expect(report).toMatchObject({
       accepted: true,
-      rowCount: 62,
+      rowCount: 312,
       architectures: ["arm64", "amd64"],
       executeVm: false,
       summary: {
         productSupportedRows: 45,
         declaredConfigRows: 5,
-        refusedFirstRows: 12,
-        refusedRows: 24,
+        refusedFirstRows: 262,
+        refusedRows: 524,
       },
       claimGuard: {
         arbitraryNodeProcessRestoreClaimed: false,

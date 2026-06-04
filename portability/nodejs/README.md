@@ -47,7 +47,7 @@ Row `036-memory-capture-classifier` starts a real Node process inside a guest an
 
 Rows `037` through `048` retain bidirectional real-memory evidence (`arm64 -> amd64` and `amd64 -> arm64`) for selected plain object, array, closure context, string, nested/shared/cyclic graphs, Map/Set, class instance, Buffer, typed array, and HTTP handler closure state. Rows `050` through `059` extend that matrix to Date/RegExp, Error objects, URL/URLSearchParams, BigInt-rich graphs represented as tagged semantic values, module-level singleton state, ArrayBuffer/DataView, Symbol-keyed object descriptors, EventEmitter listener registry metadata, in-memory LRU cache state, and queue state. Each supported row captures `/proc/<pid>/maps` and `/proc/<pid>/mem`, emits `machinen.nodejs.memory-ir`, materializes that semantic IR in target-native Node, and verifies behavior.
 
-Rows `049` and `060` through `062` keep pending Promise/microtask, WeakMap, active timer, and stream/native-buffered state fail-closed with stable refusal codes.
+Rows `049` and `060` through `312` keep pending Promise/microtask, WeakMap, active timer, stream/native-buffered state, and the next 50 declared compatibility batches fail-closed with stable refusal codes until each row has separate target-native reconstruction proof.
 
 Product portable VM snapshots can carry `nodejs-memory-ir.json` and `nodejs-memory-classification.json`; restore plans classify supported memory IR rows with `materialize-nodejs-memory-ir-target-native` and refuse unsafe Promise rows before restore.
 

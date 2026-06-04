@@ -1,0 +1,76 @@
+{
+  "kind": "machinen.nodejs-portability-memory-real-immutable-config-object-state-smoke-report",
+  "version": 1,
+  "accepted": true,
+  "portabilityRow": "160-memory-real-immutable-config-object-state",
+  "architectures": ["arm64", "amd64"],
+  "executeVm": false,
+  "migrationCompleted": false,
+  "summary": {
+    "verifiedVmRows": 0,
+    "memoryStateRows": 0,
+    "refusedRows": 1
+  },
+  "results": [
+    {
+      "id": "160-memory-real-immutable-config-object-state",
+      "architecture": "arm64",
+      "state": "refused",
+      "refusalCode": "node-portability-memory-immutable-config-object-unsupported"
+    },
+    {
+      "id": "160-memory-real-immutable-config-object-state",
+      "architecture": "amd64",
+      "state": "refused",
+      "refusalCode": "node-portability-memory-immutable-config-object-unsupported"
+    }
+  ],
+  "refusal": {
+    "code": "node-portability-memory-immutable-config-object-unsupported",
+    "reason": "immutable config object state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed"
+  },
+  "memoryIr": {
+    "kind": "machinen.nodejs.memory-ir",
+    "version": 1,
+    "rows": [],
+    "unsupported": [
+      {
+        "code": "node-portability-memory-immutable-config-object-unsupported",
+        "reason": "immutable config object state is not yet proven as portable Node Memory IR semantic state and is refused fail-closed"
+      }
+    ],
+    "claimGuard": {
+      "arbitraryNodeProcessRestoreClaimed": false,
+      "arbitraryLinuxProcessRestoreClaimed": false,
+      "rawV8HeapRestoreUsed": false,
+      "rawCpuStateReplayUsed": false,
+      "sourceIsaEmulationUsed": false,
+      "samePidContinuationClaimed": false,
+      "activeRequestOrSocketContinuationClaimed": false
+    }
+  },
+  "claimBoundary": {
+    "claims": [
+      "160-memory-real-immutable-config-object-state refuses unsupported Node memory state fail-closed"
+    ],
+    "notClaimed": [
+      "arbitrary Node process restore",
+      "raw V8 heap restore",
+      "same PID continuation",
+      "active request/socket continuation",
+      "worker/native-addon/child-process live-state transfer",
+      "source ISA emulation",
+      "arbitrary Linux process restore",
+      "raw VM/vCPU/device replay"
+    ]
+  },
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "arbitraryLinuxProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "samePidContinuationClaimed": false,
+    "activeRequestOrSocketContinuationClaimed": false
+  }
+}

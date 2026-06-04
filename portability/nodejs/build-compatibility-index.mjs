@@ -450,6 +450,19 @@ function uniqueEvidence(items) {
   );
 }
 
+function categoryFor(row) {
+  if (categoryBySlug[row.slug]) {
+    return categoryBySlug[row.slug];
+  }
+  if (row.disposition === "refused-first" && row.slug.startsWith("memory-real-")) {
+    return "memory-blocker";
+  }
+  if (row.slug.startsWith("memory-real-")) {
+    return "memory-state";
+  }
+  return "unknown";
+}
+
 function buildIndex() {
   const reports = readReports();
   const rows = rowDirs().map((dir) => {
@@ -463,7 +476,7 @@ function buildIndex() {
       id: row.id,
       slug: row.slug,
       capability: capabilityBySlug[row.slug] ?? row.description,
-      category: categoryBySlug[row.slug] ?? "unknown",
+      category: categoryFor(row),
       description: row.description,
       attemptPolicy: attemptPolicy(row),
       status,
