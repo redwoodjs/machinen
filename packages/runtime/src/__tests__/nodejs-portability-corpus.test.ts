@@ -150,6 +150,13 @@ function selectedProductNodeResourceRowIds(): string[] {
     "nodejs-resource-backpressure-buffer-drained",
     "nodejs-resource-stream-backed-logger-sink",
     "nodejs-resource-log-transport-drained",
+    "nodejs-resource-diagnostic-channel-subscription",
+    "nodejs-resource-diagnostic-report-config",
+    "nodejs-resource-profiler-session-disabled-config",
+    "nodejs-resource-inspector-disabled-config",
+    "nodejs-resource-distributed-rate-limit-config",
+    "nodejs-resource-span-context-drained",
+    "nodejs-resource-otel-exporter-config",
     "nodejs-resource-http-request-template",
     "nodejs-resource-http-response-template",
     "nodejs-resource-request-body-drained",
@@ -319,11 +326,11 @@ describe("Node.js portability corpus", () => {
       runtime: "nodejs",
       summary: {
         rowCount: 312,
-        byStatus: { verified: 207, "verified-refusal": 105 },
-        byProductClaim: { candidate: 207, "verified-refusal": 105 },
+        byStatus: { verified: 214, "verified-refusal": 98 },
+        byProductClaim: { candidate: 214, "verified-refusal": 98 },
         architectures: ["arm64", "amd64"],
-        verifiedBothArchitectures: 207,
-        verifiedRefusalRows: 105,
+        verifiedBothArchitectures: 214,
+        verifiedRefusalRows: 98,
         refusedRows: 0,
         unsupportedUnverifiedRows: 0,
         coveredRows: 312,
@@ -433,12 +440,12 @@ describe("Node.js portability corpus", () => {
     expect(report).toMatchObject({
       accepted: true,
       rowCount: 312,
-      supportedRows: 207,
-      verifiedRefusalRows: 105,
+      supportedRows: 214,
+      verifiedRefusalRows: 98,
       unsupportedUnverifiedRows: 0,
       allRowsAccountedFor: true,
     });
-    expect(report.verifiedRefusals).toHaveLength(105);
+    expect(report.verifiedRefusals).toHaveLength(98);
     expect(
       report.verifiedRefusals.every(
         (row) =>

@@ -57,6 +57,13 @@ const supportedResourceKinds = new Set([
   "tls-client-reconnect-config-spec",
   "udp-client-reconnect-config-spec",
   "http2-client-session-config-spec",
+  "diagnostic-channel-subscription-spec",
+  "diagnostic-report-config-spec",
+  "profiler-session-disabled-config-spec",
+  "inspector-disabled-config-spec",
+  "distributed-rate-limit-config-spec",
+  "span-context-drained-spec",
+  "otel-exporter-config-spec",
 ]);
 const forbiddenRawFields = new Set([
   "rawFd",

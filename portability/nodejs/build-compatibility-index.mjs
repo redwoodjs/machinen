@@ -161,6 +161,13 @@ const productResourceCompatibilityRows = {
   "189-memory-real-tls-socket-refusal": "nodejs-resource-tls-client-reconnect-config",
   "191-memory-real-udp-socket-refusal": "nodejs-resource-udp-client-reconnect-config",
   "192-memory-real-http2-session-refusal": "nodejs-resource-http2-client-session-config",
+  "232-memory-real-diagnostic-channel-refusal": "nodejs-resource-diagnostic-channel-subscription",
+  "236-memory-real-diagnostic-report-refusal": "nodejs-resource-diagnostic-report-config",
+  "237-memory-real-profiler-session-refusal": "nodejs-resource-profiler-session-disabled-config",
+  "235-memory-real-active-inspector-refusal": "nodejs-resource-inspector-disabled-config",
+  "282-memory-real-distributed-rate-limit-refusal": "nodejs-resource-distributed-rate-limit-config",
+  "284-memory-real-span-inflight-refusal": "nodejs-resource-span-context-drained",
+  "287-memory-real-otel-exporter-refusal": "nodejs-resource-otel-exporter-config",
 };
 const productResourceEvidencePaths = [
   "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",

@@ -21,7 +21,7 @@
         "pauseMechanism": "vmm-native-sigusr1-sigusr2",
         "pauseSignal": "SIGUSR1",
         "resumeSignal": "SIGUSR2",
-        "sourceVmPid": 21004,
+        "sourceVmPid": 26436,
         "stoppedStateObserved": true,
         "unsupportedPausedLiveStatePolicy": "refuse",
         "vmmNativeMarker": {
@@ -31,15 +31,15 @@
           "vcpusStopped": true,
           "resumeSignalRequired": "SIGUSR2"
         },
-        "startedAt": "2026-06-04T17:17:56.772Z",
-        "pausedObservedAt": "2026-06-04T17:17:56.794Z",
-        "resumedAt": "2026-06-04T17:17:56.794Z",
-        "elapsedMs": 22
+        "startedAt": "2026-06-04T17:21:21.551Z",
+        "pausedObservedAt": "2026-06-04T17:21:21.572Z",
+        "resumedAt": "2026-06-04T17:21:21.572Z",
+        "elapsedMs": 21
       },
       "memoryVerified": true,
       "resourceVerified": true,
       "memoryMaterializedRows": 130,
-      "resourceMaterializedRows": 51,
+      "resourceMaterializedRows": 58,
       "supportedSemanticRows": [
         "037-memory-real-plain-object",
         "038-memory-real-array",
@@ -209,6 +209,13 @@
         "nodejs-resource-backpressure-buffer-drained",
         "nodejs-resource-stream-backed-logger-sink",
         "nodejs-resource-log-transport-drained",
+        "nodejs-resource-diagnostic-channel-subscription",
+        "nodejs-resource-diagnostic-report-config",
+        "nodejs-resource-profiler-session-disabled-config",
+        "nodejs-resource-inspector-disabled-config",
+        "nodejs-resource-distributed-rate-limit-config",
+        "nodejs-resource-span-context-drained",
+        "nodejs-resource-otel-exporter-config",
         "nodejs-resource-http-request-template",
         "nodejs-resource-http-response-template",
         "nodejs-resource-request-body-drained",
@@ -3023,7 +3030,7 @@
         "pauseMechanism": "vmm-native-sigusr1-sigusr2",
         "pauseSignal": "SIGUSR1",
         "resumeSignal": "SIGUSR2",
-        "sourceVmPid": 2566281,
+        "sourceVmPid": 2568243,
         "stoppedStateObserved": true,
         "unsupportedPausedLiveStatePolicy": "refuse",
         "vmmNativeMarker": {
@@ -3033,15 +3040,15 @@
           "vcpusStopped": true,
           "resumeSignalRequired": "SIGUSR2"
         },
-        "startedAt": "2026-06-04T17:18:25.679Z",
-        "pausedObservedAt": "2026-06-04T17:18:25.699Z",
-        "resumedAt": "2026-06-04T17:18:25.699Z",
-        "elapsedMs": 20
+        "startedAt": "2026-06-04T17:21:40.401Z",
+        "pausedObservedAt": "2026-06-04T17:21:40.422Z",
+        "resumedAt": "2026-06-04T17:21:40.422Z",
+        "elapsedMs": 21
       },
       "memoryVerified": true,
       "resourceVerified": true,
       "memoryMaterializedRows": 130,
-      "resourceMaterializedRows": 51,
+      "resourceMaterializedRows": 58,
       "supportedSemanticRows": [
         "037-memory-real-plain-object",
         "038-memory-real-array",
@@ -3211,6 +3218,13 @@
         "nodejs-resource-backpressure-buffer-drained",
         "nodejs-resource-stream-backed-logger-sink",
         "nodejs-resource-log-transport-drained",
+        "nodejs-resource-diagnostic-channel-subscription",
+        "nodejs-resource-diagnostic-report-config",
+        "nodejs-resource-profiler-session-disabled-config",
+        "nodejs-resource-inspector-disabled-config",
+        "nodejs-resource-distributed-rate-limit-config",
+        "nodejs-resource-span-context-drained",
+        "nodejs-resource-otel-exporter-config",
         "nodejs-resource-http-request-template",
         "nodejs-resource-http-response-template",
         "nodejs-resource-request-body-drained",
@@ -6030,11 +6044,11 @@
   "artifacts": [
     {
       "path": "arm64-to-amd64-snapshot.json",
-      "sha256": "9204fd4b05ebc68c7289d13528d4c1f9f25ce5e75a8b31ff50140f6cb40ceaea"
+      "sha256": "853acf1e6b926ab02285068c7366ad4097b00e5e99b58bd1b41223daa624fc3e"
     },
     {
       "path": "arm64-to-amd64-restore.json",
-      "sha256": "da817fc337fbddb5de29238e11e6d7f8243ddd68038b76c265a72582bc9bc0e7"
+      "sha256": "fe8b8c864b6b785049f90ff3defa92d3c5f18e0ce701f3ead20483f337595236"
     },
     {
       "path": "arm64-to-amd64/node-memory.snap/portable-vm-manifest-plan.json",
@@ -6042,11 +6056,11 @@
     },
     {
       "path": "arm64-to-amd64/node-memory.snap/portable-vm-product-restore-summary.json",
-      "sha256": "848197ae42c76d8ec9a9df0202d7a9fe66f80abfbd787cb3bebd691da33afda2"
+      "sha256": "e91fae127ae294d9ed95324d64091307e47dc204c8d4bae28fbe7855d0ec0a8a"
     },
     {
       "path": "arm64-to-amd64/node-memory.snap/portable-vm-pause-boundary.json",
-      "sha256": "88747273e30d5277cefdfa3ad31a7bc389dcb44482c03553705e3de7a768290f"
+      "sha256": "6781f742b8160907bebe8daf7f5facdb8ef8e9d6c8f39f4317b4c6c57085940b"
     },
     {
       "path": "arm64-to-amd64/node-memory.snap/nodejs-memory-ir.json",
@@ -6062,7 +6076,7 @@
     },
     {
       "path": "arm64-to-amd64/node-memory.snap/nodejs-resource-ir.json",
-      "sha256": "57655f9db98d45e7deffed72ac4c8a395be4b25b01d413522e8073119afec650"
+      "sha256": "1966c571af8294bde47414d4aea1167eb9a28d3bd63bba1639b714545056d8cd"
     },
     {
       "path": "arm64-to-amd64/node-memory.snap/nodejs-resource-inventory.json",
@@ -6070,15 +6084,15 @@
     },
     {
       "path": "arm64-to-amd64/node-memory.snap/nodejs-resource-materializer.mjs",
-      "sha256": "f4392416ae8e69d1186592843bde882cf4be924f20a8e2983fbee3cefd25efe2"
+      "sha256": "ac9507db692542d043cf00f80ccbb1950766a00c2cc11aead4a11ae979199654"
     },
     {
       "path": "amd64-to-arm64-snapshot.json",
-      "sha256": "205a6123661eba50bd5ba99f09309f90b794b435ab178f8e3d14ee9f00a259d2"
+      "sha256": "a166a24a95cc87856eba2e41327df699a73da852f8e21aaf6fdfaadeeb8c8200"
     },
     {
       "path": "amd64-to-arm64-restore.json",
-      "sha256": "986b0bb7b2152a273e6b3d6bdfd0aeb37122036fcf0a80df14d8d2adef532074"
+      "sha256": "0095121e094716a07f8c0bc70f9fbcbbeae1e3330ef0fe7e2b6d87fe4664f0ba"
     },
     {
       "path": "amd64-to-arm64/node-memory.snap/portable-vm-manifest-plan.json",
@@ -6086,11 +6100,11 @@
     },
     {
       "path": "amd64-to-arm64/node-memory.snap/portable-vm-product-restore-summary.json",
-      "sha256": "7460b9cc1df934bf334d6eec3221b94babc39b71b241fd180a92d3f57157ca65"
+      "sha256": "071bb5f1c3ba832967c1c680d7709a849c7b1cb8f57befafcf1d78ba9a9bc02e"
     },
     {
       "path": "amd64-to-arm64/node-memory.snap/portable-vm-pause-boundary.json",
-      "sha256": "534ffbde7cdbbf971753a209105eb1f00efa3b4e448342602ff1ffa5dafba55e"
+      "sha256": "fbc13881591ab4b586622f6c275d285cde1339235eda1d325bc3eddaa4c93db9"
     },
     {
       "path": "amd64-to-arm64/node-memory.snap/nodejs-memory-ir.json",
@@ -6106,7 +6120,7 @@
     },
     {
       "path": "amd64-to-arm64/node-memory.snap/nodejs-resource-ir.json",
-      "sha256": "658fda04c04ad36998bead5d95b12f1731c5bf24e9aa1a77ce16f3f943296193"
+      "sha256": "a139258727a21786732754a48b714076536e74f74a1a1353cf8cfae8019e0d1c"
     },
     {
       "path": "amd64-to-arm64/node-memory.snap/nodejs-resource-inventory.json",
@@ -6114,7 +6128,7 @@
     },
     {
       "path": "amd64-to-arm64/node-memory.snap/nodejs-resource-materializer.mjs",
-      "sha256": "f4392416ae8e69d1186592843bde882cf4be924f20a8e2983fbee3cefd25efe2"
+      "sha256": "ac9507db692542d043cf00f80ccbb1950766a00c2cc11aead4a11ae979199654"
     }
   ]
 }

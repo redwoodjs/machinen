@@ -92,6 +92,13 @@ const supportedResourceKinds = new Set([
   "tls-client-reconnect-config-spec",
   "udp-client-reconnect-config-spec",
   "http2-client-session-config-spec",
+  "diagnostic-channel-subscription-spec",
+  "diagnostic-report-config-spec",
+  "profiler-session-disabled-config-spec",
+  "inspector-disabled-config-spec",
+  "distributed-rate-limit-config-spec",
+  "span-context-drained-spec",
+  "otel-exporter-config-spec",
 ]);
 
 const forbiddenRawFields = new Set([
@@ -341,26 +348,42 @@ function validateNodejsResourceIrRow(value: unknown, index: number, errors: stri
     errors.push(`rows[${index}] must be an object`);
     return;
   }
+  validateNodejsResourceIrRowIdentity(row, index, errors);
+  validateNodejsResourceIrRowPolicy(row, index, errors);
+  validateNodejsResourceIrPausedEvidence(row.pausedEvidence, index, errors);
+  if (!recordOrNull(row.semanticState)) {
+    errors.push(`rows[${index}].semanticState must be an object`);
+  }
+  rejectForbiddenRawFields(row, `rows[${index}]`, errors);
+}
+
+function validateNodejsResourceIrRowIdentity(
+  row: Record<string, unknown>,
+  index: number,
+  errors: string[],
+): void {
   if (typeof row.id !== "string" || row.id.length === 0) {
     errors.push(`rows[${index}].id must be a non-empty string`);
   }
   if (typeof row.kind !== "string" || !supportedResourceKinds.has(row.kind)) {
     errors.push(`rows[${index}].kind must be a supported resource kind`);
   }
+}
+
+function validateNodejsResourceIrRowPolicy(
+  row: Record<string, unknown>,
+  index: number,
+  errors: string[],
+): void {
   if (row.reconstructable !== true) {
     errors.push(`rows[${index}].reconstructable must be true`);
   }
   if (row.captureBoundaryId !== "portable-vm-pause-boundary.json") {
     errors.push(`rows[${index}].captureBoundaryId must reference portable-vm-pause-boundary.json`);
   }
-  validateNodejsResourceIrPausedEvidence(row.pausedEvidence, index, errors);
   if (row.materializationPolicy !== "target-native-reconstruct") {
     errors.push(`rows[${index}].materializationPolicy must be target-native-reconstruct`);
   }
-  if (!recordOrNull(row.semanticState)) {
-    errors.push(`rows[${index}].semanticState must be an object`);
-  }
-  rejectForbiddenRawFields(row, `rows[${index}]`, errors);
 }
 
 // fallow-ignore-next-line code-duplication
