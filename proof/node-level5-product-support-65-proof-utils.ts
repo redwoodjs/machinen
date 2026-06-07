@@ -230,11 +230,11 @@ function runGuardedCliLane(familyId: string, sourceArch: string, targetArch: str
 
 function docsAndVersionsPayload(): Record<string, unknown> {
   const docs = readFileSync(
-    join(repoRoot, "docs/snapshot/node-level5-product-support-65.md"),
+    join(repoRoot, "research/snapshot/node-level5-product-support-65.md"),
     "utf8",
   );
   const matrix = JSON.parse(
-    readFileSync(join(repoRoot, "docs/snapshot/node-level5-product-support-65.json"), "utf8"),
+    readFileSync(join(repoRoot, "research/snapshot/node-level5-product-support-65.json"), "utf8"),
   );
   return {
     docsMention65Percent: docs.includes("65% Node product support"),
@@ -248,7 +248,7 @@ function docsAndVersionsPayload(): Record<string, unknown> {
 
 function securityRunbookPayload(): Record<string, unknown> {
   const runbook = readFileSync(
-    join(repoRoot, "docs/snapshot/node-level5-product-support-runbook.md"),
+    join(repoRoot, "research/snapshot/node-level5-product-support-runbook.md"),
     "utf8",
   );
   return {
@@ -260,7 +260,7 @@ function securityRunbookPayload(): Record<string, unknown> {
 
 function broadBoundaryPayload(): Record<string, unknown> {
   const compatibility = readFileSync(
-    join(repoRoot, "docs/snapshot/node-level5-product-support-65-compatibility.md"),
+    join(repoRoot, "research/snapshot/node-level5-product-support-65-compatibility.md"),
     "utf8",
   );
   return {

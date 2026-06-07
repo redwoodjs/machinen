@@ -262,11 +262,11 @@ function runGuardedCliLane(
 
 function docsPayload(): Record<string, unknown> {
   const docs = readFileSync(
-    join(repoRoot, "docs/snapshot/node-level5-product-support-20.md"),
+    join(repoRoot, "research/snapshot/node-level5-product-support-20.md"),
     "utf8",
   );
   const matrix = JSON.parse(
-    readFileSync(join(repoRoot, "docs/snapshot/node-level5-product-support-20.json"), "utf8"),
+    readFileSync(join(repoRoot, "research/snapshot/node-level5-product-support-20.json"), "utf8"),
   );
   return {
     docsMentionTwentyPercent: docs.includes("20% Node product support"),
@@ -277,7 +277,7 @@ function docsPayload(): Record<string, unknown> {
 
 function runbookPayload(): Record<string, unknown> {
   const runbook = readFileSync(
-    join(repoRoot, "docs/snapshot/node-level5-product-support-runbook.md"),
+    join(repoRoot, "research/snapshot/node-level5-product-support-runbook.md"),
     "utf8",
   );
   return {

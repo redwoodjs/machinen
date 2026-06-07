@@ -117,7 +117,7 @@ export interface VmHandle {
    * `opts.leaveRunning: true` keeps the source alive, and the default
    * destructive CRIU snapshot powers the source off after the dump.
    * With `MACHINEN_SNAPSHOT_ENGINE=portable`, snapshot writes a
-   * Level 4 portable machine bundle for the supported ping socket
+   * legacy portable machine bundle for the removed ping socket route
    * workload subset and refuses other/unsafe states fail-closed.
    *
    * `mount-lower.sqfs` and `mount-upper.img` are reflinked from the

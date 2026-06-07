@@ -252,7 +252,7 @@ function payload(kind: string): Record<string, unknown> {
   }
   if (kind === "runbook") {
     return {
-      operatorRunbook: "docs/snapshot/node-level5-product-support-80-hardening.md",
+      operatorRunbook: "research/snapshot/node-level5-product-support-80-hardening.md",
       evidenceBundleRequired: true,
     };
   }
@@ -302,12 +302,12 @@ function sampleBundleFields(): readonly string[] {
 
 function docsPayload(): Record<string, unknown> {
   const hardening = readFileSync(
-    join(repoRoot, "docs/snapshot/node-level5-product-support-80-hardening.md"),
+    join(repoRoot, "research/snapshot/node-level5-product-support-80-hardening.md"),
     "utf8",
   );
   const registry = JSON.parse(
     readFileSync(
-      join(repoRoot, "docs/snapshot/node-level5-product-support-claim-registry.json"),
+      join(repoRoot, "research/snapshot/node-level5-product-support-claim-registry.json"),
       "utf8",
     ),
   );

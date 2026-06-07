@@ -197,7 +197,7 @@ function payload(kind: string): Record<string, unknown> {
   }
   if (kind === "docs") {
     const docs = readFileSync(
-      join(repoRoot, "docs/snapshot/node-level5-product-commands.md"),
+      join(repoRoot, "research/snapshot/node-level5-product-commands.md"),
       "utf8",
     );
     return {

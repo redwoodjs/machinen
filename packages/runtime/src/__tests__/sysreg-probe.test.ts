@@ -3,7 +3,7 @@
 // asserts byte-for-byte equality with sysregs-<hvf|kvm>.txt.
 //
 // Drift fails the test loudly. To accept new state, update the
-// fixture deliberately (see docs/snapshot/sysreg-parity.md).
+// fixture deliberately (see research/snapshot/sysreg-parity.md).
 //
 // Skips on hosts where the probe binary isn't built, isn't entitled
 // (HVF), or where the backend isn't reachable (no /dev/kvm on Linux).
@@ -32,11 +32,11 @@ describe.skipIf(!READY)(`sysreg-probe (${platformBackend ?? "n/a"})`, () => {
       // On macOS without the HVF entitlement the binary boots but
       // hv_vm_create returns Denied. Surface that as a skip rather
       // than a hard failure — the codesign step is documented in
-      // docs/snapshot/sysreg-parity.md.
+      // research/snapshot/sysreg-parity.md.
       if (r.stderr.includes("Denied")) {
         console.warn(
           "sysreg-probe: hv_vm_create returned Denied — re-run codesign " +
-            "on zig-out/bin/sysreg-probe (see docs/snapshot/sysreg-parity.md)",
+            "on zig-out/bin/sysreg-probe (see research/snapshot/sysreg-parity.md)",
         );
         return;
       }

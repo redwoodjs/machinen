@@ -10,7 +10,6 @@
 //   machinen snapshot <name|pid> <out-dir>
 //   machinen attach <name|pid> [--shell <cmd>]   # PTY shell
 //   machinen repl   <name|pid>                   # per-line exec
-//   machinen capture postgres --out <dir> --dump <file> ...
 //   machinen support [--json] [--family <family>] [--level <support-level>]
 //   machinen completion <bash|zsh|fish>
 //   machinen --version | -h | --help
@@ -37,33 +36,15 @@ import { pipeline } from "node:stream/promises";
 import {
   attach,
   boot,
-  ProductLevel4EventfdError,
-  ProductLevel4PingSocketError,
-  ProductLevel4PipeError,
-  ProductLevel4TcpListenerError,
-  ProductLevel4TimerfdError,
-  ProductPortablePostgresError,
   buildNodeLevel5AppSupportMatrix,
   buildProductClaimRegistry,
-  createProductLevel4EventfdSnapshot,
-  createProductLevel4PingSocketSnapshot,
-  createProductLevel4PipeSnapshot,
-  createProductLevel4TcpListenerSnapshot,
-  createProductLevel4TimerfdSnapshot,
   createNodeLevel5DeclaredSubsetCapture,
   createNodeLevel5ProductSnapshot,
   createNodeLevel5ProductSupport80ArtifactBundle,
-  createProductPortablePostgresSnapshot,
   filterProductClaimRegistry,
   formatMachinenError,
   isMachinenError,
-  isProductLevel4EventfdBundle,
-  isProductLevel4PingSocketBundle,
-  isProductLevel4PipeBundle,
-  isProductLevel4TcpListenerBundle,
-  isProductLevel4TimerfdBundle,
   isNodeLevel5ProductSnapshotBundle,
-  isProductPortablePostgresBundle,
   loadNodeLevel5ProductSupport80ArtifactBundle,
   loadNodeLevel5RealAppCorpusReport,
   loadNodeLevel5RealAppRefusalCorpusReport,
@@ -75,7 +56,6 @@ import {
   loadNodeLevel5ProductSupport85ReadinessReport,
   loadNodeLevel5ThirdPartyAppCorpusReport,
   list,
-  productPortablePostgresFileSha256,
   productClaimFamilies,
   productClaimStatuses,
   nodeLevel5ProductSupport80UnsupportedDetectors,
@@ -85,6 +65,9 @@ import {
   restore,
   restoreNodeLevel5DeclaredSubset,
   restoreNodeLevel5ProductSnapshot,
+  loadMoveDescriptor,
+  saveMoveDescriptor,
+  scanMovePidGraph,
   evaluateNodeLevel5ProductSupport85ClaimReady,
   evaluateNodeLevel5ProductSupport85Readiness,
   verifyNodeLevel5ProductSupport80ArtifactBundle,
@@ -96,12 +79,6 @@ import {
   verifyNodeLevel5GenericVmRowArtifactsReport,
   verifyNodeLevel5InstalledThirdPartyAppCorpusReport,
   verifyNodeLevel5ThirdPartyAppCorpusReport,
-  restoreProductLevel4EventfdSnapshot,
-  restoreProductLevel4PingSocketSnapshot,
-  restoreProductLevel4PipeSnapshot,
-  restoreProductLevel4TcpListenerSnapshot,
-  restoreProductLevel4TimerfdSnapshot,
-  restoreProductPortablePostgresSnapshot,
   runGc,
   validatePid,
 } from "@machinen/runtime";
@@ -109,16 +86,6 @@ import type {
   LogEvent,
   ProductClaimFamily,
   ProductClaimStatus,
-  ProductLevel4EventfdDescriptor,
-  ProductLevel4EventfdRestoreSummary,
-  ProductLevel4PingSocketDescriptor,
-  ProductLevel4PingSocketRestoreSummary,
-  ProductLevel4PipeDescriptor,
-  ProductLevel4PipeRestoreSummary,
-  ProductLevel4TcpListenerDescriptor,
-  ProductLevel4TcpListenerRestoreSummary,
-  ProductLevel4TimerfdDescriptor,
-  ProductLevel4TimerfdRestoreSummary,
   ProductSupportLevel,
   NodeLevel5ProductSnapshotDirection,
   NodeLevel5ProductSupport80FamilyId,
@@ -156,14 +123,6 @@ import {
   writeNodeLevel5RuntimeProfileSnapshot,
 } from "./level5-runtime-adapters.ts";
 import { parseForkArgs } from "./parse-fork-args.ts";
-import type {
-  PortableRestoreAdapter,
-  PortableRestoreExecutionInput,
-  PortableRestorePlanInput,
-  PortableRestoreRefusalInput,
-  PortableRestoreValidationInput,
-  PortableRestoreVerifyInput,
-} from "./portable-restore-adapter.ts";
 import { parseRestoreArgs } from "./parse-restore-args.ts";
 import { parseRunArgs } from "./parse-run-args.ts";
 import { extractTarget, type Target } from "./parse-target.ts";
@@ -1045,138 +1004,88 @@ function printInstallReady(result: InstallResult): void {
 
 type ParsedRestoreCommandArgs = ReturnType<typeof parseRestoreArgs>;
 
-type CapturePostgresOptions = {
-  json: boolean;
-  dryRun: boolean;
-  out?: string;
-  sourceArch?: "arm64" | "amd64";
-  targetArch?: "arm64" | "amd64";
-  dump?: string;
-  sourceVerifierOutput?: string;
-  postgresVersion?: string;
-  checkpointLsn?: string;
-  initSql?: string;
-  workloadSql?: string;
-  verifierSql?: string;
-  dataManifest?: string;
-  activeTransactions?: number;
-  activeSessions?: number;
-  dirtyWal?: boolean;
-  hostMountedDataDir?: boolean;
-  physicalDataDirCopy?: boolean;
-};
+// fallow-ignore-next-line complexity
+function cmdMove(args: string[]): number {
+  const { json, rest } = consumeJsonFlag(args);
+  const subcommand = rest[0];
+  if (subcommand === "scan") {
+    const graph = scanMovePidGraph();
+    if (json) {
+      emitJson({ schema_version: 1, ...graph });
+    } else {
+      process.stdout.write(
+        `move scan: ${graph.nodes.length} processes; refused=${graph.refusedStateClasses.length}\n`,
+      );
+    }
+    return graph.refusedStateClasses.length === 0 ? 0 : 1;
+  }
+  if (subcommand === "save") {
+    return cmdMoveSave(rest.slice(1), json);
+  }
+  if (subcommand === "load") {
+    return cmdMoveLoad(rest.slice(1), json);
+  }
+  die(moveUsage());
+}
 
-type CaptureTcpListenerOptions = {
-  json: boolean;
-  dryRun: boolean;
-  out?: string;
-  sourceArch?: "arm64" | "amd64";
-  targetArch?: "arm64" | "amd64";
-  sourceVerifierOutput?: string;
-  bindAddress?: string;
-  port?: number;
-  backlog?: number;
-  noReuseaddr?: boolean;
-  acceptQueue?: "empty" | "non-empty" | "unknown";
-  activeConnections?: boolean;
-  unsupportedOptions?: boolean;
-  partialIo?: boolean;
-  activeSyscall?: boolean;
-};
+// fallow-ignore-next-line complexity
+function cmdMoveSave(args: string[], json: boolean): number {
+  if (args.length < 2) {
+    die(moveUsage());
+  }
+  const pid = parsePositiveInteger(args[0]!, "pid");
+  const outPath = args[1]!;
+  const issue = args.includes("--issue");
+  const issueRepoIndex = args.indexOf("--issue-repo");
+  const issueRepo = issueRepoIndex >= 0 ? args[issueRepoIndex + 1] : undefined;
+  if (issueRepoIndex >= 0 && !issueRepo) {
+    die("move save --issue-repo requires <owner/repo>");
+  }
+  const result = saveMoveDescriptor({ pid, outPath, issue, issueRepo });
+  if (json) {
+    emitJson({ schema_version: 1, ...result });
+  } else {
+    process.stdout.write(
+      `${result.accepted ? "saved" : "refused"} move descriptor: ${result.descriptorPath}\n`,
+    );
+    if (result.issueReport) {
+      process.stdout.write(
+        `issue report: ${result.issueReport.repository}\n${result.issueReport.body}\n`,
+      );
+    }
+  }
+  return result.accepted ? 0 : 1;
+}
 
-type CaptureTimerfdOptions = {
-  json: boolean;
-  dryRun: boolean;
-  out?: string;
-  sourceArch?: "arm64" | "amd64";
-  targetArch?: "arm64" | "amd64";
-  sourceVerifierOutput?: string;
-  remainingMs?: number;
-  clock?: "monotonic" | "realtime";
-  intervalMs?: number;
-  absolute?: boolean;
-  cancelOnSet?: boolean;
-  unreadExpirations?: number;
-  noCloexec?: boolean;
-  nonblocking?: boolean;
-  activeRead?: boolean;
-};
+// fallow-ignore-next-line complexity
+function cmdMoveLoad(args: string[], json: boolean): number {
+  if (args.length !== 1) {
+    die(moveUsage());
+  }
+  const descriptor = loadMoveDescriptor(args[0]!);
+  const accepted = descriptor.refusedStateClasses.length === 0;
+  if (json) {
+    emitJson({ schema_version: 1, accepted, descriptor });
+  } else if (accepted) {
+    process.stdout.write(`move load accepted descriptor for PID ${descriptor.rootPid}\n`);
+  } else {
+    process.stderr.write(
+      `move load refused descriptor for PID ${descriptor.rootPid}: ${descriptor.refusedStateClasses
+        .map((item) => item.stateClass)
+        .join(", ")}\n`,
+    );
+  }
+  return accepted ? 0 : 1;
+}
 
-type CapturePipeOptions = {
-  json: boolean;
-  dryRun: boolean;
-  out?: string;
-  sourceArch?: "arm64" | "amd64";
-  targetArch?: "arm64" | "amd64";
-  sourceVerifierOutput?: string;
-  readFd?: number;
-  writeFd?: number;
-  buffer?: "empty" | "bytes" | "unknown";
-  bufferedBytesHex?: string;
-  peerLifetime?: "open" | "closed" | "unknown";
-  waiters?: "none" | "unknown";
-  readiness?: "not-readable" | "readable" | "unknown";
-  noCloexec?: boolean;
-  nonblocking?: boolean;
-  activeSyscall?: boolean;
-};
-
-type CaptureEventfdOptions = {
-  json: boolean;
-  dryRun: boolean;
-  out?: string;
-  sourceArch?: "arm64" | "amd64";
-  targetArch?: "arm64" | "amd64";
-  sourceVerifierOutput?: string;
-  counter?: string;
-  semaphore?: boolean;
-  waiters?: "none" | "unknown";
-  aliases?: "none" | "present" | "unknown";
-  noCloexec?: boolean;
-  nonblocking?: boolean;
-  activeSyscall?: boolean;
-};
-
-type CapturePingSocketOptions = {
-  json: boolean;
-  dryRun: boolean;
-  out?: string;
-  sourceArch?: "arm64" | "amd64";
-  targetArch?: "arm64" | "amd64";
-  socketKind?: "ping-dgram-icmp" | "raw-icmp";
-  sourceVerifierOutput?: string;
-  echoIdentifier?: number;
-  echoSequence?: number;
-  activeRecvmsg?: boolean;
-  unreadReceiveQueue?: boolean;
-  inflightPackets?: boolean;
-  ambiguousRouteOrNamespace?: boolean;
-  missingCredentialOrCapability?: boolean;
-  unsupportedRawSocketOption?: boolean;
-};
+function moveUsage(): string {
+  return "usage: machinen move scan [--json] | machinen move save <pid> <out> [--issue] [--issue-repo <owner/repo>] [--json] | machinen move load <descriptor> [--json]";
+}
 
 // fallow-ignore-next-line complexity
 function cmdCapture(args: string[]): number {
   const { json, rest: withoutJson } = consumeJsonFlag(args);
   const { dryRun, rest } = consumeDryRunFlag(withoutJson);
-  if (rest[0] === "postgres") {
-    return cmdCapturePostgres({ json, dryRun, rest });
-  }
-  if (rest[0] === "eventfd") {
-    return cmdCaptureEventfd({ json, dryRun, rest });
-  }
-  if (rest[0] === "pipe") {
-    return cmdCapturePipe({ json, dryRun, rest });
-  }
-  if (rest[0] === "timerfd") {
-    return cmdCaptureTimerfd({ json, dryRun, rest });
-  }
-  if (rest[0] === "tcp-listener") {
-    return cmdCaptureTcpListener({ json, dryRun, rest });
-  }
-  if (rest[0] === "ping-socket") {
-    return cmdCapturePingSocket({ json, dryRun, rest });
-  }
   if (rest[0] === "node-level5") {
     return cmdCaptureNodeLevel5DeclaredSubset({ json, dryRun, rest });
   }
@@ -1209,614 +1118,6 @@ function cmdCaptureNodeLevel5DeclaredSubset(input: {
     accepted: (value) => `captured experimental node-level5 manifest: ${value.manifestPath}\n`,
     refused: (value) => `refused experimental node-level5 capture: ${value.refusal?.code}\n`,
   });
-}
-
-// fallow-ignore-next-line complexity
-function cmdCapturePostgres(input: { json: boolean; dryRun: boolean; rest: string[] }): number {
-  const options = parseCapturePostgresArgs(input);
-  const required = [
-    ["--out", options.out],
-    ["--source-arch", options.sourceArch],
-    ["--target-arch", options.targetArch],
-    ["--dump", options.dump],
-    ["--source-verifier-output", options.sourceVerifierOutput],
-    ["--postgres-version", options.postgresVersion],
-    ["--checkpoint-lsn", options.checkpointLsn],
-  ] as const;
-  assertCaptureRequired(required);
-  try {
-    const result = createProductPortablePostgresSnapshot({
-      outDir: options.out!,
-      sourceArch: options.sourceArch!,
-      targetArch: options.targetArch!,
-      logicalDumpPath: options.dump!,
-      sourceVerifierOutput: readFileSync(resolve(options.sourceVerifierOutput!), "utf8").trim(),
-      postgresVersion: options.postgresVersion!,
-      checkpointLsn: options.checkpointLsn!,
-      initSqlSha256: optionalFileSha256(options.initSql),
-      workloadSqlSha256: optionalFileSha256(options.workloadSql),
-      verifierSqlSha256: optionalFileSha256(options.verifierSql),
-      dataManifestSha256: optionalFileSha256(options.dataManifest),
-      activeTransactions: options.activeTransactions,
-      activeSessions: options.activeSessions,
-      dirtyWal: options.dirtyWal,
-      hostMountedDataDir: options.hostMountedDataDir,
-      physicalDataDirCopy: options.physicalDataDirCopy,
-      dryRun: options.dryRun,
-    });
-    return reportProductCaptureResult(options.json, result, "postgres");
-  } catch (err) {
-    handleProductPortablePostgresError(err, options.json);
-  }
-}
-
-// fallow-ignore-next-line complexity
-function cmdCaptureTcpListener(input: { json: boolean; dryRun: boolean; rest: string[] }): number {
-  const options = parseCaptureTcpListenerArgs(input);
-  const required = [
-    ["--out", options.out],
-    ["--source-arch", options.sourceArch],
-    ["--target-arch", options.targetArch],
-    ["--source-verifier-output", options.sourceVerifierOutput],
-    ["--bind-address", options.bindAddress],
-    ["--port", options.port],
-    ["--backlog", options.backlog],
-  ] as const;
-  assertCaptureRequired(required);
-  try {
-    const result = createProductLevel4TcpListenerSnapshot({
-      outDir: options.out!,
-      sourceArch: options.sourceArch!,
-      targetArch: options.targetArch!,
-      sourceVerifierOutput: readFileSync(resolve(options.sourceVerifierOutput!), "utf8").trim(),
-      bindAddress: options.bindAddress!,
-      port: options.port!,
-      backlog: options.backlog!,
-      reuseAddr: options.noReuseaddr ? false : true,
-      acceptQueue: options.acceptQueue,
-      activeConnections: options.activeConnections,
-      unsupportedOptions: options.unsupportedOptions,
-      partialIo: options.partialIo,
-      activeSyscall: options.activeSyscall,
-      dryRun: options.dryRun,
-    });
-    return reportProductCaptureResult(options.json, result, "tcp-listener");
-  } catch (err) {
-    handleProductLevel4TcpListenerError(err, options.json);
-  }
-}
-
-// fallow-ignore-next-line complexity
-function cmdCaptureTimerfd(input: { json: boolean; dryRun: boolean; rest: string[] }): number {
-  const options = parseCaptureTimerfdArgs(input);
-  const required = [
-    ["--out", options.out],
-    ["--source-arch", options.sourceArch],
-    ["--target-arch", options.targetArch],
-    ["--source-verifier-output", options.sourceVerifierOutput],
-    ["--remaining-ms", options.remainingMs],
-  ] as const;
-  assertCaptureRequired(required);
-  try {
-    const result = createProductLevel4TimerfdSnapshot({
-      outDir: options.out!,
-      sourceArch: options.sourceArch!,
-      targetArch: options.targetArch!,
-      sourceVerifierOutput: readFileSync(resolve(options.sourceVerifierOutput!), "utf8").trim(),
-      remainingMs: options.remainingMs!,
-      clock: options.clock,
-      intervalMs: options.intervalMs,
-      absolute: options.absolute,
-      cancelOnSet: options.cancelOnSet,
-      unreadExpirations: options.unreadExpirations,
-      closeOnExec: options.noCloexec ? false : true,
-      nonblocking: options.nonblocking,
-      activeRead: options.activeRead,
-      dryRun: options.dryRun,
-    });
-    return reportProductCaptureResult(options.json, result, "timerfd");
-  } catch (err) {
-    handleProductLevel4TimerfdError(err, options.json);
-  }
-}
-
-// fallow-ignore-next-line complexity
-function cmdCapturePipe(input: { json: boolean; dryRun: boolean; rest: string[] }): number {
-  const options = parseCapturePipeArgs(input);
-  const required = [
-    ["--out", options.out],
-    ["--source-arch", options.sourceArch],
-    ["--target-arch", options.targetArch],
-    ["--source-verifier-output", options.sourceVerifierOutput],
-    ["--read-fd", options.readFd],
-    ["--write-fd", options.writeFd],
-  ] as const;
-  assertCaptureRequired(required);
-  try {
-    const result = createProductLevel4PipeSnapshot({
-      outDir: options.out!,
-      sourceArch: options.sourceArch!,
-      targetArch: options.targetArch!,
-      sourceVerifierOutput: readFileSync(resolve(options.sourceVerifierOutput!), "utf8").trim(),
-      readFd: options.readFd!,
-      writeFd: options.writeFd!,
-      buffer: options.buffer,
-      bufferedBytesHex: options.bufferedBytesHex,
-      peerLifetime: options.peerLifetime,
-      waiters: options.waiters,
-      readiness: options.readiness,
-      closeOnExec: options.noCloexec ? false : true,
-      nonblocking: options.nonblocking,
-      activeSyscall: options.activeSyscall,
-      dryRun: options.dryRun,
-    });
-    return reportProductCaptureResult(options.json, result, "pipe");
-  } catch (err) {
-    handleProductLevel4PipeError(err, options.json);
-  }
-}
-
-// fallow-ignore-next-line complexity
-function cmdCaptureEventfd(input: { json: boolean; dryRun: boolean; rest: string[] }): number {
-  const options = parseCaptureEventfdArgs(input);
-  const required = [
-    ["--out", options.out],
-    ["--source-arch", options.sourceArch],
-    ["--target-arch", options.targetArch],
-    ["--source-verifier-output", options.sourceVerifierOutput],
-    ["--counter", options.counter],
-  ] as const;
-  assertCaptureRequired(required);
-  try {
-    const result = createProductLevel4EventfdSnapshot({
-      outDir: options.out!,
-      sourceArch: options.sourceArch!,
-      targetArch: options.targetArch!,
-      sourceVerifierOutput: readFileSync(resolve(options.sourceVerifierOutput!), "utf8").trim(),
-      counter: options.counter!,
-      semaphore: options.semaphore,
-      waiters: options.waiters,
-      aliases: options.aliases,
-      closeOnExec: options.noCloexec ? false : true,
-      nonblocking: options.nonblocking,
-      activeSyscall: options.activeSyscall,
-      dryRun: options.dryRun,
-    });
-    return reportProductCaptureResult(options.json, result, "eventfd");
-  } catch (err) {
-    handleProductLevel4EventfdError(err, options.json);
-  }
-}
-
-// fallow-ignore-next-line complexity
-function cmdCapturePingSocket(input: { json: boolean; dryRun: boolean; rest: string[] }): number {
-  const options = parseCapturePingSocketArgs(input);
-  const required = [
-    ["--out", options.out],
-    ["--source-arch", options.sourceArch],
-    ["--target-arch", options.targetArch],
-    ["--socket-kind", options.socketKind],
-    ["--source-verifier-output", options.sourceVerifierOutput],
-    ["--echo-id", options.echoIdentifier],
-    ["--echo-seq", options.echoSequence],
-  ] as const;
-  assertCaptureRequired(required);
-  try {
-    const result = createProductLevel4PingSocketSnapshot({
-      outDir: options.out!,
-      sourceArch: options.sourceArch!,
-      targetArch: options.targetArch!,
-      socketKind: options.socketKind!,
-      sourceVerifierOutput: readFileSync(resolve(options.sourceVerifierOutput!), "utf8").trim(),
-      echoIdentifier: options.echoIdentifier!,
-      echoSequence: options.echoSequence!,
-      route: "loopback",
-      namespace: "target-loopback",
-      activeRecvmsg: options.activeRecvmsg,
-      unreadReceiveQueue: options.unreadReceiveQueue,
-      inflightPackets: options.inflightPackets,
-      ambiguousRouteOrNamespace: options.ambiguousRouteOrNamespace,
-      missingCredentialOrCapability: options.missingCredentialOrCapability,
-      unsupportedRawSocketOption: options.unsupportedRawSocketOption,
-      dryRun: options.dryRun,
-    });
-    return reportProductCaptureResult(options.json, result, "ping socket");
-  } catch (err) {
-    handleProductLevel4PingSocketError(err, options.json);
-  }
-}
-
-function assertCaptureRequired(required: ReadonlyArray<readonly [string, unknown]>): void {
-  for (const [flag, value] of required) {
-    if (value === undefined || value === "") {
-      die(`${captureUsage()}\nmissing required ${flag}`);
-    }
-  }
-}
-
-// fallow-ignore-next-line complexity
-function reportProductCaptureResult(
-  json: boolean,
-  result: {
-    state: "completed" | "refused";
-    bundleDir: string;
-    refusal?: { expectedRefusalCode: string };
-  },
-  label: string,
-): number {
-  if (json) {
-    emitJson({ schema_version: 1, ...result });
-  } else if (result.state === "completed") {
-    process.stderr.write(`captured portable ${label} bundle: ${result.bundleDir}\n`);
-  } else {
-    process.stderr.write(
-      `refused portable ${label} capture: ${result.refusal?.expectedRefusalCode ?? "unknown"}\n`,
-    );
-  }
-  return result.state === "completed" ? 0 : 1;
-}
-
-// fallow-ignore-next-line complexity
-function consumeCommonProductCaptureOption(
-  options: {
-    out?: string;
-    sourceArch?: "arm64" | "amd64";
-    targetArch?: "arm64" | "amd64";
-    sourceVerifierOutput?: string;
-  },
-  rest: string[],
-  index: number,
-  arg: string,
-): number | undefined {
-  switch (arg) {
-    case "--out":
-      options.out = takeCaptureValue(rest, index + 1, arg);
-      return index + 1;
-    case "--source-arch":
-      options.sourceArch = parseProductArch(takeCaptureValue(rest, index + 1, arg), arg);
-      return index + 1;
-    case "--target-arch":
-      options.targetArch = parseProductArch(takeCaptureValue(rest, index + 1, arg), arg);
-      return index + 1;
-    case "--source-verifier-output":
-      options.sourceVerifierOutput = takeCaptureValue(rest, index + 1, arg);
-      return index + 1;
-    default:
-      return undefined;
-  }
-}
-
-function parseCaptureTcpListenerArgs(input: {
-  json: boolean;
-  dryRun: boolean;
-  rest: string[];
-}): CaptureTcpListenerOptions {
-  return parseProductCaptureArgs(input, consumeTcpListenerCaptureOption);
-}
-
-function parseCaptureTimerfdArgs(input: {
-  json: boolean;
-  dryRun: boolean;
-  rest: string[];
-}): CaptureTimerfdOptions {
-  return parseProductCaptureArgs(input, consumeTimerfdCaptureOption);
-}
-
-function parseCapturePipeArgs(input: {
-  json: boolean;
-  dryRun: boolean;
-  rest: string[];
-}): CapturePipeOptions {
-  return parseProductCaptureArgs(input, consumePipeCaptureOption);
-}
-
-function parseCaptureEventfdArgs(input: {
-  json: boolean;
-  dryRun: boolean;
-  rest: string[];
-}): CaptureEventfdOptions {
-  return parseProductCaptureArgs(input, consumeEventfdCaptureOption);
-}
-
-function parseCapturePingSocketArgs(input: {
-  json: boolean;
-  dryRun: boolean;
-  rest: string[];
-}): CapturePingSocketOptions {
-  return parseProductCaptureArgs(input, consumePingCaptureOption);
-}
-
-function parseCapturePostgresArgs(input: {
-  json: boolean;
-  dryRun: boolean;
-  rest: string[];
-}): CapturePostgresOptions {
-  return parseProductCaptureArgs(input, consumePostgresCaptureOption);
-}
-
-function parseProductCaptureArgs<
-  T extends {
-    json: boolean;
-    dryRun: boolean;
-    out?: string;
-    sourceArch?: "arm64" | "amd64";
-    targetArch?: "arm64" | "amd64";
-    sourceVerifierOutput?: string;
-  },
->(
-  input: { json: boolean; dryRun: boolean; rest: string[] },
-  consumeSpecificOption: (
-    options: T,
-    rest: string[],
-    index: number,
-    arg: string,
-  ) => number | undefined,
-): T {
-  const { json, dryRun, rest } = input;
-  const options = { json, dryRun } as T;
-  for (let index = 1; index < rest.length; index += 1) {
-    const arg = rest[index]!;
-    const nextIndex =
-      consumeCommonProductCaptureOption(options, rest, index, arg) ??
-      consumeSpecificOption(options, rest, index, arg);
-    if (nextIndex === undefined) {
-      die(`${captureUsage()}\nunknown argument: ${arg}`);
-    }
-    index = nextIndex;
-  }
-  return options;
-}
-
-// fallow-ignore-next-line complexity
-function consumeTcpListenerCaptureOption(
-  options: CaptureTcpListenerOptions,
-  rest: string[],
-  index: number,
-  arg: string,
-): number | undefined {
-  switch (arg) {
-    case "--bind-address":
-      options.bindAddress = takeCaptureValue(rest, index + 1, arg);
-      return index + 1;
-    case "--port":
-      options.port = parseTcpPort(takeCaptureValue(rest, index + 1, arg), arg);
-      return index + 1;
-    case "--backlog":
-      options.backlog = parseTcpBacklog(takeCaptureValue(rest, index + 1, arg), arg);
-      return index + 1;
-    case "--accept-queue":
-      options.acceptQueue = parseTcpAcceptQueue(takeCaptureValue(rest, index + 1, arg), arg);
-      return index + 1;
-    case "--no-reuseaddr":
-      options.noReuseaddr = true;
-      return index;
-    case "--active-connections":
-      options.activeConnections = true;
-      return index;
-    case "--unsupported-options":
-      options.unsupportedOptions = true;
-      return index;
-    case "--partial-io":
-      options.partialIo = true;
-      return index;
-    case "--active-syscall":
-      options.activeSyscall = true;
-      return index;
-    default:
-      return undefined;
-  }
-}
-
-// fallow-ignore-next-line complexity
-function consumeTimerfdCaptureOption(
-  options: CaptureTimerfdOptions,
-  rest: string[],
-  index: number,
-  arg: string,
-): number | undefined {
-  switch (arg) {
-    case "--remaining-ms":
-      options.remainingMs = parsePositiveInteger(takeCaptureValue(rest, index + 1, arg), arg);
-      return index + 1;
-    case "--clock":
-      options.clock = parseTimerfdClock(takeCaptureValue(rest, index + 1, arg), arg);
-      return index + 1;
-    case "--interval-ms":
-      options.intervalMs = parseNonNegativeInteger(takeCaptureValue(rest, index + 1, arg), arg);
-      return index + 1;
-    case "--unread-expirations":
-      options.unreadExpirations = parseNonNegativeInteger(
-        takeCaptureValue(rest, index + 1, arg),
-        arg,
-      );
-      return index + 1;
-    case "--absolute":
-      options.absolute = true;
-      return index;
-    case "--cancel-on-set":
-      options.cancelOnSet = true;
-      return index;
-    case "--no-cloexec":
-      options.noCloexec = true;
-      return index;
-    case "--nonblocking":
-      options.nonblocking = true;
-      return index;
-    case "--active-read":
-      options.activeRead = true;
-      return index;
-    default:
-      return undefined;
-  }
-}
-
-// fallow-ignore-next-line complexity
-function consumePipeCaptureOption(
-  options: CapturePipeOptions,
-  rest: string[],
-  index: number,
-  arg: string,
-): number | undefined {
-  switch (arg) {
-    case "--read-fd":
-      options.readFd = parsePipeFd(takeCaptureValue(rest, index + 1, arg), arg);
-      return index + 1;
-    case "--write-fd":
-      options.writeFd = parsePipeFd(takeCaptureValue(rest, index + 1, arg), arg);
-      return index + 1;
-    case "--buffer":
-      options.buffer = parsePipeBuffer(takeCaptureValue(rest, index + 1, arg), arg);
-      return index + 1;
-    case "--buffered-bytes-hex":
-      options.bufferedBytesHex = takeCaptureValue(rest, index + 1, arg);
-      return index + 1;
-    case "--peer-lifetime":
-      options.peerLifetime = parsePipePeerLifetime(takeCaptureValue(rest, index + 1, arg), arg);
-      return index + 1;
-    case "--waiters":
-      options.waiters = parseEventfdWaiters(takeCaptureValue(rest, index + 1, arg), arg);
-      return index + 1;
-    case "--readiness":
-      options.readiness = parsePipeReadiness(takeCaptureValue(rest, index + 1, arg), arg);
-      return index + 1;
-    case "--no-cloexec":
-      options.noCloexec = true;
-      return index;
-    case "--nonblocking":
-      options.nonblocking = true;
-      return index;
-    case "--active-syscall":
-      options.activeSyscall = true;
-      return index;
-    default:
-      return undefined;
-  }
-}
-
-// fallow-ignore-next-line complexity
-function consumeEventfdCaptureOption(
-  options: CaptureEventfdOptions,
-  rest: string[],
-  index: number,
-  arg: string,
-): number | undefined {
-  switch (arg) {
-    case "--counter":
-      options.counter = takeCaptureValue(rest, index + 1, arg);
-      return index + 1;
-    case "--semaphore":
-      options.semaphore = true;
-      return index;
-    case "--waiters":
-      options.waiters = parseEventfdWaiters(takeCaptureValue(rest, index + 1, arg), arg);
-      return index + 1;
-    case "--aliases":
-      options.aliases = parseEventfdAliases(takeCaptureValue(rest, index + 1, arg), arg);
-      return index + 1;
-    case "--no-cloexec":
-      options.noCloexec = true;
-      return index;
-    case "--nonblocking":
-      options.nonblocking = true;
-      return index;
-    case "--active-syscall":
-      options.activeSyscall = true;
-      return index;
-    default:
-      return undefined;
-  }
-}
-
-// fallow-ignore-next-line complexity
-function consumePingCaptureOption(
-  options: CapturePingSocketOptions,
-  rest: string[],
-  index: number,
-  arg: string,
-): number | undefined {
-  switch (arg) {
-    case "--socket-kind":
-      options.socketKind = parsePingSocketKind(takeCaptureValue(rest, index + 1, arg), arg);
-      return index + 1;
-    case "--echo-id":
-      options.echoIdentifier = parseUint16(takeCaptureValue(rest, index + 1, arg), arg);
-      return index + 1;
-    case "--echo-seq":
-      options.echoSequence = parseUint16(takeCaptureValue(rest, index + 1, arg), arg);
-      return index + 1;
-    case "--active-recvmsg":
-      options.activeRecvmsg = true;
-      return index;
-    case "--unread-receive-queue":
-      options.unreadReceiveQueue = true;
-      return index;
-    case "--inflight-packets":
-      options.inflightPackets = true;
-      return index;
-    case "--ambiguous-route-or-namespace":
-      options.ambiguousRouteOrNamespace = true;
-      return index;
-    case "--missing-credential-or-capability":
-      options.missingCredentialOrCapability = true;
-      return index;
-    case "--unsupported-raw-socket-option":
-      options.unsupportedRawSocketOption = true;
-      return index;
-    default:
-      return undefined;
-  }
-}
-
-// fallow-ignore-next-line complexity
-function consumePostgresCaptureOption(
-  options: CapturePostgresOptions,
-  rest: string[],
-  index: number,
-  arg: string,
-): number | undefined {
-  switch (arg) {
-    case "--dump":
-      options.dump = takeCaptureValue(rest, index + 1, arg);
-      return index + 1;
-    case "--postgres-version":
-      options.postgresVersion = takeCaptureValue(rest, index + 1, arg);
-      return index + 1;
-    case "--checkpoint-lsn":
-      options.checkpointLsn = takeCaptureValue(rest, index + 1, arg);
-      return index + 1;
-    case "--init-sql":
-      options.initSql = takeCaptureValue(rest, index + 1, arg);
-      return index + 1;
-    case "--workload-sql":
-      options.workloadSql = takeCaptureValue(rest, index + 1, arg);
-      return index + 1;
-    case "--verifier-sql":
-      options.verifierSql = takeCaptureValue(rest, index + 1, arg);
-      return index + 1;
-    case "--data-manifest":
-      options.dataManifest = takeCaptureValue(rest, index + 1, arg);
-      return index + 1;
-    case "--active-transactions":
-      options.activeTransactions = parseNonNegativeInteger(
-        takeCaptureValue(rest, index + 1, arg),
-        arg,
-      );
-      return index + 1;
-    case "--active-sessions":
-      options.activeSessions = parseNonNegativeInteger(takeCaptureValue(rest, index + 1, arg), arg);
-      return index + 1;
-    case "--dirty-wal":
-      options.dirtyWal = true;
-      return index;
-    case "--host-mounted-data-dir":
-      options.hostMountedDataDir = true;
-      return index;
-    case "--physical-data-dir-copy":
-      options.physicalDataDirCopy = true;
-      return index;
-    default:
-      return undefined;
-  }
 }
 
 type NodeLevel5DeclaredSubsetCliOptions = {
@@ -2589,29 +1890,11 @@ function nodeLevel5Usage(): string {
 
 function captureUsage(): string {
   return (
-    "usage: machinen capture postgres --out <dir> --source-arch <arm64|amd64> " +
-    "--target-arch <arm64|amd64> --dump <file> --source-verifier-output <file> " +
-    "--postgres-version <version> --checkpoint-lsn <lsn> [--json] [--dry-run]\n" +
-    "       machinen capture eventfd --out <dir> --source-arch <arm64|amd64> " +
-    "--target-arch <arm64|amd64> --source-verifier-output <file> --counter <n> " +
-    "[--json] [--dry-run]\n" +
-    "       machinen capture pipe --out <dir> --source-arch <arm64|amd64> " +
-    "--target-arch <arm64|amd64> --source-verifier-output <file> " +
-    "--read-fd <n> --write-fd <n> [--json] [--dry-run]\n" +
-    "       machinen capture timerfd --out <dir> --source-arch <arm64|amd64> " +
-    "--target-arch <arm64|amd64> --source-verifier-output <file> " +
-    "--remaining-ms <n> [--json] [--dry-run]\n" +
-    "       machinen capture tcp-listener --out <dir> --source-arch <arm64|amd64> " +
-    "--target-arch <arm64|amd64> --source-verifier-output <file> " +
-    "--bind-address 127.0.0.1 --port <n> --backlog <n> [--json] [--dry-run]\n" +
-    "       machinen capture ping-socket --out <dir> --source-arch <arm64|amd64> " +
-    "--target-arch <arm64|amd64> --socket-kind <ping-dgram-icmp|raw-icmp> " +
-    "--source-verifier-output <file> --echo-id <n> --echo-seq <n> [--json] [--dry-run]\n" +
-    "       machinen capture node-level5 --experimental-node-level5 --out <dir> " +
-    "[--source-arch <arm64|amd64>] [--target-arch <arm64|amd64>] [--json] [--dry-run]"
+    "usage: machinen capture node-level5 --out <dir> " +
+    "[--source-arch <arm64|amd64>] [--target-arch <arm64|amd64>] " +
+    "[--experimental-node-level5] [--claim-product-support] [--json] [--dry-run]"
   );
 }
-
 function takeCaptureValue(args: string[], index: number, flag: string): string {
   const value = args[index];
   if (!value || value.startsWith("-")) {
@@ -2627,112 +1910,12 @@ function parseProductArch(value: string, flag: string): "arm64" | "amd64" {
   die(`${flag} must be arm64 or amd64`);
 }
 
-function parseTimerfdClock(value: string, flag: string): "monotonic" | "realtime" {
-  if (value === "monotonic" || value === "realtime") {
-    return value;
-  }
-  die(`${flag} must be monotonic or realtime`);
-}
-
-function parseTcpPort(value: string, flag: string): number {
-  const parsed = Number(value);
-  if (!Number.isSafeInteger(parsed) || parsed <= 0 || parsed > 65_535) {
-    die(`${flag} must be an integer between 1 and 65535`);
-  }
-  return parsed;
-}
-
-function parseTcpBacklog(value: string, flag: string): number {
-  const parsed = Number(value);
-  if (!Number.isSafeInteger(parsed) || parsed <= 0 || parsed > 128) {
-    die(`${flag} must be an integer between 1 and 128`);
-  }
-  return parsed;
-}
-
-function parseTcpAcceptQueue(value: string, flag: string): "empty" | "non-empty" | "unknown" {
-  if (value === "empty" || value === "non-empty" || value === "unknown") {
-    return value;
-  }
-  die(`${flag} must be empty, non-empty, or unknown`);
-}
-
 function parsePositiveInteger(value: string, flag: string): number {
   const parsed = Number(value);
   if (!Number.isSafeInteger(parsed) || parsed <= 0) {
     die(`${flag} must be a positive integer`);
   }
   return parsed;
-}
-
-function parsePipeFd(value: string, flag: string): number {
-  const parsed = Number(value);
-  if (!Number.isSafeInteger(parsed) || parsed < 0 || parsed > 1024) {
-    die(`${flag} must be an integer between 0 and 1024`);
-  }
-  return parsed;
-}
-
-function parsePipeBuffer(value: string, flag: string): "empty" | "bytes" | "unknown" {
-  if (value === "empty" || value === "bytes" || value === "unknown") {
-    return value;
-  }
-  die(`${flag} must be empty, bytes, or unknown`);
-}
-
-function parsePipePeerLifetime(value: string, flag: string): "open" | "closed" | "unknown" {
-  if (value === "open" || value === "closed" || value === "unknown") {
-    return value;
-  }
-  die(`${flag} must be open, closed, or unknown`);
-}
-
-function parsePipeReadiness(value: string, flag: string): "not-readable" | "readable" | "unknown" {
-  if (value === "not-readable" || value === "readable" || value === "unknown") {
-    return value;
-  }
-  die(`${flag} must be not-readable, readable, or unknown`);
-}
-
-function parseEventfdWaiters(value: string, flag: string): "none" | "unknown" {
-  if (value === "none" || value === "unknown") {
-    return value;
-  }
-  die(`${flag} must be none or unknown`);
-}
-
-function parseEventfdAliases(value: string, flag: string): "none" | "present" | "unknown" {
-  if (value === "none" || value === "present" || value === "unknown") {
-    return value;
-  }
-  die(`${flag} must be none, present, or unknown`);
-}
-
-function parsePingSocketKind(value: string, flag: string): "ping-dgram-icmp" | "raw-icmp" {
-  if (value === "ping-dgram-icmp" || value === "raw-icmp") {
-    return value;
-  }
-  die(`${flag} must be ping-dgram-icmp or raw-icmp`);
-}
-
-function parseUint16(value: string, flag: string): number {
-  const parsed = Number(value);
-  if (!Number.isSafeInteger(parsed) || parsed < 0 || parsed > 65535) {
-    die(`${flag} must be an integer between 0 and 65535`);
-  }
-  return parsed;
-}
-
-function parseNonNegativeInteger(value: string, flag: string): number {
-  const parsed = Number(value);
-  if (!Number.isSafeInteger(parsed) || parsed < 0) {
-    die(`${flag} must be a non-negative integer`);
-  }
-  return parsed;
-}
-
-function optionalFileSha256(path: string | undefined): string | undefined {
-  return path ? productPortablePostgresFileSha256(resolve(path)) : undefined;
 }
 
 type SupportOptions = {
@@ -2919,15 +2102,8 @@ async function cmdRestore(args: string[]): Promise<number> {
   const parsed = parseRestoreCommandArgs(rest);
   validateRestoreCommandArgs(parsed);
   const snapDir = resolve(parsed.positional[0]!);
-  const portableAdapter = detectPortableRestoreAdapter(snapDir);
-  if (portableAdapter) {
-    return cmdRestorePortableAdapter(portableAdapter, parsed, snapDir, json);
-  }
   if (isNodeLevel5ProductSnapshotBundle(snapDir)) {
     return cmdRestoreNodeLevel5ProductSnapshot(snapDir, json);
-  }
-  if (isProductPortablePostgresBundle(snapDir)) {
-    return cmdRestoreProductPortablePostgres(parsed, snapDir, json);
   }
   if (!shouldPreferVmstateRestore(snapDir)) {
     if (isNodeLevel5ProofCompositionBundle(snapDir)) {
@@ -2950,7 +2126,7 @@ async function cmdRestore(args: string[]): Promise<number> {
     }
   }
   if (json) {
-    die("restore --json is only supported for product portable bundles");
+    die("restore --json is only supported for supported descriptor restore paths");
   }
   const paths = await resolveCliBaseAssets();
   const quiet = createRestoreQuietState(parsed, snapDir);
@@ -3011,1498 +2187,10 @@ function restoreUsage(): string {
     "usage: machinen restore <snap-dir> [--image <tarball>] [--name <name>] " +
     "[--lazy] [-p <hostPort>:<guestPort>] " +
     "[--mount-live <host>:<guest>[:<mode>]]\n" +
-    "       machinen restore <portable-postgres-bundle> --target-arch <arm64|amd64> " +
-    "--target-verifier-output <file> [--json]\n" +
-    "       machinen restore <portable-eventfd-bundle> --target-arch <arm64|amd64> " +
-    "[--target-verifier-output <file>] [--json]\n" +
-    "       machinen restore <portable-pipe-bundle> --target-arch <arm64|amd64> " +
-    "[--target-verifier-output <file>] [--json]\n" +
-    "       machinen restore <portable-timerfd-bundle> --target-arch <arm64|amd64> " +
-    "[--target-verifier-output <file>] [--json]\n" +
-    "       machinen restore <portable-tcp-listener-bundle> --target-arch <arm64|amd64> " +
-    "[--target-verifier-output <file>] [--json]\n" +
-    "       machinen restore <portable-ping-socket-bundle> --target-arch <arm64|amd64> " +
-    "[--target-verifier-output <file>] [--json]\n" +
     "       machinen restore <node-level5-proof-bundle> " +
     "[--allow-proof-only-success] [--json]\n" +
     "       machinen restore node-level5 --experimental-node-level5 <manifest> [--json]"
   );
-}
-
-// fallow-ignore-next-line complexity
-function cmdRestoreProductPortablePostgres(
-  parsed: ParsedRestoreCommandArgs,
-  snapDir: string,
-  json: boolean,
-): number {
-  if (!parsed.targetArch || !parsed.targetVerifierOutput) {
-    die(restoreUsage());
-  }
-  try {
-    const summary = restoreProductPortablePostgresSnapshot({
-      bundleDir: snapDir,
-      targetArch: parsed.targetArch,
-      targetVerifierOutput: readFileSync(resolve(parsed.targetVerifierOutput), "utf8").trim(),
-    });
-    if (json) {
-      emitJson({ schema_version: 1, ...summary });
-    } else if (summary.migrationCompleted) {
-      process.stderr.write(`restored portable postgres bundle: ${snapDir}\n`);
-    } else {
-      process.stderr.write(
-        `refused portable postgres restore: ${summary.refusal?.expectedRefusalCode ?? "unknown"}\n`,
-      );
-    }
-    return summary.migrationCompleted ? 0 : 1;
-  } catch (err) {
-    handleProductPortablePostgresError(err, json);
-  }
-}
-
-type TcpListenerPortableRestoreValidation =
-  | {
-      ok: true;
-      descriptor: ProductLevel4TcpListenerDescriptor;
-      summary: ProductLevel4TcpListenerRestoreSummary;
-    }
-  | {
-      ok: false;
-      descriptor?: ProductLevel4TcpListenerDescriptor;
-      summary: ProductLevel4TcpListenerRestoreSummary;
-    };
-
-type TcpListenerPortableRestorePlan = PortableRestoreWorkloadPlan & {
-  descriptor: ProductLevel4TcpListenerDescriptor;
-  summary: ProductLevel4TcpListenerRestoreSummary;
-};
-
-type TimerfdPortableRestoreValidation =
-  | {
-      ok: true;
-      descriptor: ProductLevel4TimerfdDescriptor;
-      summary: ProductLevel4TimerfdRestoreSummary;
-    }
-  | {
-      ok: false;
-      descriptor?: ProductLevel4TimerfdDescriptor;
-      summary: ProductLevel4TimerfdRestoreSummary;
-    };
-
-type TimerfdPortableRestorePlan = PortableRestoreWorkloadPlan & {
-  descriptor: ProductLevel4TimerfdDescriptor;
-  summary: ProductLevel4TimerfdRestoreSummary;
-};
-
-type PipePortableRestoreValidation =
-  | {
-      ok: true;
-      descriptor: ProductLevel4PipeDescriptor;
-      summary: ProductLevel4PipeRestoreSummary;
-    }
-  | {
-      ok: false;
-      descriptor?: ProductLevel4PipeDescriptor;
-      summary: ProductLevel4PipeRestoreSummary;
-    };
-
-type PipePortableRestorePlan = PortableRestoreWorkloadPlan & {
-  descriptor: ProductLevel4PipeDescriptor;
-  summary: ProductLevel4PipeRestoreSummary;
-};
-
-type EventfdPortableRestoreValidation =
-  | {
-      ok: true;
-      descriptor: ProductLevel4EventfdDescriptor;
-      summary: ProductLevel4EventfdRestoreSummary;
-    }
-  | {
-      ok: false;
-      descriptor?: ProductLevel4EventfdDescriptor;
-      summary: ProductLevel4EventfdRestoreSummary;
-    };
-
-type EventfdPortableRestorePlan = PortableRestoreWorkloadPlan & {
-  descriptor: ProductLevel4EventfdDescriptor;
-  summary: ProductLevel4EventfdRestoreSummary;
-};
-
-type PingPortableRestoreValidation =
-  | {
-      ok: true;
-      descriptor: ProductLevel4PingSocketDescriptor;
-      summary: ProductLevel4PingSocketRestoreSummary;
-    }
-  | {
-      ok: false;
-      descriptor?: ProductLevel4PingSocketDescriptor;
-      summary: ProductLevel4PingSocketRestoreSummary;
-    };
-
-type PingPortableRestorePlan = PortableRestoreWorkloadPlan & {
-  descriptor: ProductLevel4PingSocketDescriptor;
-  summary: ProductLevel4PingSocketRestoreSummary;
-};
-
-type RegisteredPortableRestoreAdapter = PortableRestoreAdapter<any, any, Record<string, unknown>>;
-
-type PortableRestoreWorkloadPlan = {
-  name: string;
-  descriptorGuestPath: string;
-  descriptorText: string;
-  workloadLabel: string;
-  foregroundCommand: string;
-  detachedCommand: string;
-  verifyCommand: string;
-  summaryPath: string;
-  buildDetachedSummary: (input: { vm: VmHandle; elapsedMs: number }) => Record<string, unknown>;
-};
-
-const tcpListenerPortableRestoreAdapter = {
-  profile: "tcp-listener-v1-loopback-empty-accept-queue",
-  detect: isProductLevel4TcpListenerBundle,
-  validate: validateTcpListenerPortableRestore,
-  plan: planTcpListenerPortableRestore,
-  foregroundRestore: foregroundTcpListenerPortableRestore,
-  detachedRestore: detachedTcpListenerPortableRestore,
-  verify: verifyTcpListenerPortableRestore,
-  refuse: refuseTcpListenerPortableRestore,
-} satisfies PortableRestoreAdapter<
-  TcpListenerPortableRestoreValidation,
-  TcpListenerPortableRestorePlan,
-  Record<string, unknown>
->;
-
-const timerfdPortableRestoreAdapter = {
-  profile: "timerfd-relative-oneshot-v1-monotonic",
-  detect: isProductLevel4TimerfdBundle,
-  validate: validateTimerfdPortableRestore,
-  plan: planTimerfdPortableRestore,
-  foregroundRestore: foregroundTimerfdPortableRestore,
-  detachedRestore: detachedTimerfdPortableRestore,
-  verify: verifyTimerfdPortableRestore,
-  refuse: refuseTimerfdPortableRestore,
-} satisfies PortableRestoreAdapter<
-  TimerfdPortableRestoreValidation,
-  TimerfdPortableRestorePlan,
-  Record<string, unknown>
->;
-
-const pipePortableRestoreAdapter = {
-  profile: "pipe-pair-v1-empty-no-waiters",
-  detect: isProductLevel4PipeBundle,
-  validate: validatePipePortableRestore,
-  plan: planPipePortableRestore,
-  foregroundRestore: foregroundPipePortableRestore,
-  detachedRestore: detachedPipePortableRestore,
-  verify: verifyPipePortableRestore,
-  refuse: refusePipePortableRestore,
-} satisfies PortableRestoreAdapter<
-  PipePortableRestoreValidation,
-  PipePortableRestorePlan,
-  Record<string, unknown>
->;
-
-const eventfdPortableRestoreAdapter = {
-  profile: "eventfd-counter-v1-nonsemaphore-no-waiters",
-  detect: isProductLevel4EventfdBundle,
-  validate: validateEventfdPortableRestore,
-  plan: planEventfdPortableRestore,
-  foregroundRestore: foregroundEventfdPortableRestore,
-  detachedRestore: detachedEventfdPortableRestore,
-  verify: verifyEventfdPortableRestore,
-  refuse: refuseEventfdPortableRestore,
-} satisfies PortableRestoreAdapter<
-  EventfdPortableRestoreValidation,
-  EventfdPortableRestorePlan,
-  Record<string, unknown>
->;
-
-const pingPortableRestoreAdapter = {
-  profile: "ping-level4-socket-reconstruction-v1",
-  detect: isProductLevel4PingSocketBundle,
-  validate: validatePingPortableRestore,
-  plan: planPingPortableRestore,
-  foregroundRestore: foregroundPingPortableRestore,
-  detachedRestore: detachedPingPortableRestore,
-  verify: verifyPingPortableRestore,
-  refuse: refusePingPortableRestore,
-} satisfies PortableRestoreAdapter<
-  PingPortableRestoreValidation,
-  PingPortableRestorePlan,
-  Record<string, unknown>
->;
-
-const portableRestoreAdapters = [
-  pingPortableRestoreAdapter,
-  eventfdPortableRestoreAdapter,
-  pipePortableRestoreAdapter,
-  timerfdPortableRestoreAdapter,
-  tcpListenerPortableRestoreAdapter,
-] as const satisfies readonly RegisteredPortableRestoreAdapter[];
-
-function detectPortableRestoreAdapter(
-  snapDir: string,
-): RegisteredPortableRestoreAdapter | undefined {
-  return portableRestoreAdapters.find((adapter) => adapter.detect(snapDir));
-}
-
-// fallow-ignore-next-line complexity
-async function cmdRestorePortableAdapter(
-  adapter: RegisteredPortableRestoreAdapter,
-  parsed: ParsedRestoreCommandArgs,
-  snapDir: string,
-  json: boolean,
-): Promise<number> {
-  if (!parsed.targetArch) {
-    die(restoreUsage());
-  }
-  try {
-    const validation = adapter.validate({ parsed, snapDir, json });
-    if (!validation.ok) {
-      return adapter.refuse({ parsed, snapDir, json, validation });
-    }
-    const plan = adapter.plan({ parsed, snapDir, json, validation });
-    if (!json) {
-      return await adapter.foregroundRestore({ parsed, snapDir, json, plan });
-    }
-    const summary = await adapter.detachedRestore({ parsed, snapDir, json, plan });
-    emitJson({ schema_version: 1, ...summary });
-    return 0;
-  } catch (err) {
-    handlePortableRestoreAdapterError(err, json);
-  }
-}
-
-function validateTcpListenerPortableRestore({
-  parsed,
-  snapDir,
-}: PortableRestoreValidationInput): TcpListenerPortableRestoreValidation {
-  if (!parsed.targetArch) {
-    die(restoreUsage());
-  }
-  const descriptor = readProductLevel4TcpListenerDescriptor(snapDir);
-  const verifierOutput = parsed.targetVerifierOutput
-    ? readFileSync(resolve(parsed.targetVerifierOutput), "utf8").trim()
-    : descriptor.sourceVerifierOutput;
-  const summary = restoreProductLevel4TcpListenerSnapshot({
-    bundleDir: snapDir,
-    targetArch: parsed.targetArch,
-    targetVerifierOutput: verifierOutput,
-  });
-  if (!summary.migrationCompleted) {
-    return { ok: false, descriptor, summary };
-  }
-  return { ok: true, descriptor, summary };
-}
-
-function planTcpListenerPortableRestore({
-  parsed,
-  snapDir,
-  validation,
-}: PortableRestorePlanInput<TcpListenerPortableRestoreValidation>): TcpListenerPortableRestorePlan {
-  if (!validation.ok) {
-    throw new ProductLevel4TcpListenerError(
-      "TCP_LISTENER_RESTORE_PLAN_REFUSED",
-      "cannot plan a refused TCP listener portable restore",
-    );
-  }
-  assertLocalTcpListenerRestoreTargetArch(parsed.targetArch);
-  const descriptor = validation.descriptor;
-  const name = parsed.name ?? deriveBootName(snapDir);
-  return {
-    descriptor,
-    summary: validation.summary,
-    name,
-    descriptorGuestPath: "/tmp/machinen-restored-tcp-listener-descriptor.json",
-    descriptorText: JSON.stringify(descriptor, null, 2),
-    workloadLabel: "restored TCP listener",
-    foregroundCommand: foregroundRestoredTcpListenerCommand(descriptor),
-    detachedCommand: startRestoredTcpListenerCommand(descriptor),
-    verifyCommand: verifyRestoredTcpListenerCommand(descriptor),
-    summaryPath: join(snapDir, "portable-tcp-listener-target-vm-restore-summary.json"),
-    buildDetachedSummary: ({ vm, elapsedMs }) =>
-      buildTcpListenerDetachedRestoreSummary({
-        descriptor,
-        summary: validation.summary,
-        vm,
-        name,
-        elapsedMs,
-      }),
-  };
-}
-
-function foregroundTcpListenerPortableRestore({
-  plan,
-}: PortableRestoreExecutionInput<TcpListenerPortableRestorePlan>): Promise<number> {
-  return runPortableForegroundRestore(plan);
-}
-
-function detachedTcpListenerPortableRestore({
-  plan,
-}: PortableRestoreExecutionInput<TcpListenerPortableRestorePlan>): Promise<
-  Record<string, unknown>
-> {
-  return runPortableDetachedRestore(plan, tcpListenerPortableRestoreAdapter);
-}
-
-async function verifyTcpListenerPortableRestore({
-  vm,
-  plan,
-}: PortableRestoreVerifyInput<TcpListenerPortableRestorePlan>): Promise<void> {
-  const verify = await vm.execRaw(plan.verifyCommand, { execTimeoutMs: 20_000 });
-  if (verify.exitCode !== 0) {
-    throw new ProductLevel4TcpListenerError(
-      "TCP_LISTENER_TARGET_VM_VERIFIER_FAILED",
-      verify.stderr || verify.stdout || "target VM TCP listener verifier failed",
-    );
-  }
-}
-
-function refuseTcpListenerPortableRestore({
-  json,
-  snapDir,
-  validation,
-}: PortableRestoreRefusalInput<TcpListenerPortableRestoreValidation>): number {
-  reportProductLevel4TcpListenerRestoreSummary(snapDir, json, validation.summary);
-  return 1;
-}
-
-function validateTimerfdPortableRestore({
-  parsed,
-  snapDir,
-}: PortableRestoreValidationInput): TimerfdPortableRestoreValidation {
-  if (!parsed.targetArch) {
-    die(restoreUsage());
-  }
-  const descriptor = readProductLevel4TimerfdDescriptor(snapDir);
-  const verifierOutput = parsed.targetVerifierOutput
-    ? readFileSync(resolve(parsed.targetVerifierOutput), "utf8").trim()
-    : descriptor.sourceVerifierOutput;
-  const summary = restoreProductLevel4TimerfdSnapshot({
-    bundleDir: snapDir,
-    targetArch: parsed.targetArch,
-    targetVerifierOutput: verifierOutput,
-  });
-  if (!summary.migrationCompleted) {
-    return { ok: false, descriptor, summary };
-  }
-  return { ok: true, descriptor, summary };
-}
-
-function planTimerfdPortableRestore({
-  parsed,
-  snapDir,
-  validation,
-}: PortableRestorePlanInput<TimerfdPortableRestoreValidation>): TimerfdPortableRestorePlan {
-  if (!validation.ok) {
-    throw new ProductLevel4TimerfdError(
-      "TIMERFD_RESTORE_PLAN_REFUSED",
-      "cannot plan a refused timerfd portable restore",
-    );
-  }
-  assertLocalTimerfdRestoreTargetArch(parsed.targetArch);
-  const descriptor = validation.descriptor;
-  const name = parsed.name ?? deriveBootName(snapDir);
-  return {
-    descriptor,
-    summary: validation.summary,
-    name,
-    descriptorGuestPath: "/tmp/machinen-restored-timerfd-descriptor.json",
-    descriptorText: JSON.stringify(descriptor, null, 2),
-    workloadLabel: "restored timerfd",
-    foregroundCommand: foregroundRestoredTimerfdCommand(descriptor),
-    detachedCommand: startRestoredTimerfdCommand(descriptor),
-    verifyCommand: verifyRestoredTimerfdCommand(descriptor),
-    summaryPath: join(snapDir, "portable-timerfd-target-vm-restore-summary.json"),
-    buildDetachedSummary: ({ vm, elapsedMs }) =>
-      buildTimerfdDetachedRestoreSummary({
-        descriptor,
-        summary: validation.summary,
-        vm,
-        name,
-        elapsedMs,
-      }),
-  };
-}
-
-function foregroundTimerfdPortableRestore({
-  plan,
-}: PortableRestoreExecutionInput<TimerfdPortableRestorePlan>): Promise<number> {
-  return runPortableForegroundRestore(plan);
-}
-
-function detachedTimerfdPortableRestore({
-  plan,
-}: PortableRestoreExecutionInput<TimerfdPortableRestorePlan>): Promise<Record<string, unknown>> {
-  return runPortableDetachedRestore(plan, timerfdPortableRestoreAdapter);
-}
-
-async function verifyTimerfdPortableRestore({
-  vm,
-  plan,
-}: PortableRestoreVerifyInput<TimerfdPortableRestorePlan>): Promise<void> {
-  const verify = await vm.execRaw(plan.verifyCommand, { execTimeoutMs: 20_000 });
-  if (verify.exitCode !== 0) {
-    throw new ProductLevel4TimerfdError(
-      "TIMERFD_TARGET_VM_VERIFIER_FAILED",
-      verify.stderr || verify.stdout || "target VM timerfd verifier failed",
-    );
-  }
-}
-
-function refuseTimerfdPortableRestore({
-  json,
-  snapDir,
-  validation,
-}: PortableRestoreRefusalInput<TimerfdPortableRestoreValidation>): number {
-  reportProductLevel4TimerfdRestoreSummary(snapDir, json, validation.summary);
-  return 1;
-}
-
-function validatePipePortableRestore({
-  parsed,
-  snapDir,
-}: PortableRestoreValidationInput): PipePortableRestoreValidation {
-  if (!parsed.targetArch) {
-    die(restoreUsage());
-  }
-  const descriptor = readProductLevel4PipeDescriptor(snapDir);
-  const verifierOutput = parsed.targetVerifierOutput
-    ? readFileSync(resolve(parsed.targetVerifierOutput), "utf8").trim()
-    : descriptor.sourceVerifierOutput;
-  const summary = restoreProductLevel4PipeSnapshot({
-    bundleDir: snapDir,
-    targetArch: parsed.targetArch,
-    targetVerifierOutput: verifierOutput,
-  });
-  if (!summary.migrationCompleted) {
-    return { ok: false, descriptor, summary };
-  }
-  return { ok: true, descriptor, summary };
-}
-
-function planPipePortableRestore({
-  parsed,
-  snapDir,
-  validation,
-}: PortableRestorePlanInput<PipePortableRestoreValidation>): PipePortableRestorePlan {
-  if (!validation.ok) {
-    throw new ProductLevel4PipeError(
-      "PIPE_RESTORE_PLAN_REFUSED",
-      "cannot plan a refused pipe portable restore",
-    );
-  }
-  assertLocalPipeRestoreTargetArch(parsed.targetArch);
-  const descriptor = validation.descriptor;
-  const name = parsed.name ?? deriveBootName(snapDir);
-  return {
-    descriptor,
-    summary: validation.summary,
-    name,
-    descriptorGuestPath: "/tmp/machinen-restored-pipe-descriptor.json",
-    descriptorText: JSON.stringify(descriptor, null, 2),
-    workloadLabel: "restored pipe",
-    foregroundCommand: foregroundRestoredPipeCommand(descriptor),
-    detachedCommand: startRestoredPipeCommand(descriptor),
-    verifyCommand: verifyRestoredPipeCommand(descriptor),
-    summaryPath: join(snapDir, "portable-pipe-target-vm-restore-summary.json"),
-    buildDetachedSummary: ({ vm, elapsedMs }) =>
-      buildPipeDetachedRestoreSummary({
-        descriptor,
-        summary: validation.summary,
-        vm,
-        name,
-        elapsedMs,
-      }),
-  };
-}
-
-function foregroundPipePortableRestore({
-  plan,
-}: PortableRestoreExecutionInput<PipePortableRestorePlan>): Promise<number> {
-  return runPortableForegroundRestore(plan);
-}
-
-function detachedPipePortableRestore({
-  plan,
-}: PortableRestoreExecutionInput<PipePortableRestorePlan>): Promise<Record<string, unknown>> {
-  return runPortableDetachedRestore(plan, pipePortableRestoreAdapter);
-}
-
-async function verifyPipePortableRestore({
-  vm,
-  plan,
-}: PortableRestoreVerifyInput<PipePortableRestorePlan>): Promise<void> {
-  const verify = await vm.execRaw(plan.verifyCommand, { execTimeoutMs: 20_000 });
-  if (verify.exitCode !== 0) {
-    throw new ProductLevel4PipeError(
-      "PIPE_TARGET_VM_VERIFIER_FAILED",
-      verify.stderr || verify.stdout || "target VM pipe verifier failed",
-    );
-  }
-}
-
-function refusePipePortableRestore({
-  json,
-  snapDir,
-  validation,
-}: PortableRestoreRefusalInput<PipePortableRestoreValidation>): number {
-  reportProductLevel4PipeRestoreSummary(snapDir, json, validation.summary);
-  return 1;
-}
-
-function validateEventfdPortableRestore({
-  parsed,
-  snapDir,
-}: PortableRestoreValidationInput): EventfdPortableRestoreValidation {
-  if (!parsed.targetArch) {
-    die(restoreUsage());
-  }
-  const descriptor = readProductLevel4EventfdDescriptor(snapDir);
-  const verifierOutput = parsed.targetVerifierOutput
-    ? readFileSync(resolve(parsed.targetVerifierOutput), "utf8").trim()
-    : descriptor.sourceVerifierOutput;
-  const summary = restoreProductLevel4EventfdSnapshot({
-    bundleDir: snapDir,
-    targetArch: parsed.targetArch,
-    targetVerifierOutput: verifierOutput,
-  });
-  if (!summary.migrationCompleted) {
-    return { ok: false, descriptor, summary };
-  }
-  return { ok: true, descriptor, summary };
-}
-
-function planEventfdPortableRestore({
-  parsed,
-  snapDir,
-  validation,
-}: PortableRestorePlanInput<EventfdPortableRestoreValidation>): EventfdPortableRestorePlan {
-  if (!validation.ok) {
-    throw new ProductLevel4EventfdError(
-      "EVENTFD_RESTORE_PLAN_REFUSED",
-      "cannot plan a refused eventfd portable restore",
-    );
-  }
-  assertLocalEventfdRestoreTargetArch(parsed.targetArch);
-  const descriptor = validation.descriptor;
-  const name = parsed.name ?? deriveBootName(snapDir);
-  return {
-    descriptor,
-    summary: validation.summary,
-    name,
-    descriptorGuestPath: "/tmp/machinen-restored-eventfd-descriptor.json",
-    descriptorText: JSON.stringify(descriptor, null, 2),
-    workloadLabel: "restored eventfd",
-    foregroundCommand: foregroundRestoredEventfdCommand(descriptor),
-    detachedCommand: startRestoredEventfdCommand(descriptor),
-    verifyCommand: verifyRestoredEventfdCommand(descriptor),
-    summaryPath: join(snapDir, "portable-eventfd-target-vm-restore-summary.json"),
-    buildDetachedSummary: ({ vm, elapsedMs }) =>
-      buildEventfdDetachedRestoreSummary({
-        descriptor,
-        summary: validation.summary,
-        vm,
-        name,
-        elapsedMs,
-      }),
-  };
-}
-
-function foregroundEventfdPortableRestore({
-  plan,
-}: PortableRestoreExecutionInput<EventfdPortableRestorePlan>): Promise<number> {
-  return runPortableForegroundRestore(plan);
-}
-
-function detachedEventfdPortableRestore({
-  plan,
-}: PortableRestoreExecutionInput<EventfdPortableRestorePlan>): Promise<Record<string, unknown>> {
-  return runPortableDetachedRestore(plan, eventfdPortableRestoreAdapter);
-}
-
-async function verifyEventfdPortableRestore({
-  vm,
-  plan,
-}: PortableRestoreVerifyInput<EventfdPortableRestorePlan>): Promise<void> {
-  const verify = await vm.execRaw(plan.verifyCommand, { execTimeoutMs: 20_000 });
-  if (verify.exitCode !== 0) {
-    throw new ProductLevel4EventfdError(
-      "EVENTFD_TARGET_VM_VERIFIER_FAILED",
-      verify.stderr || verify.stdout || "target VM eventfd verifier failed",
-    );
-  }
-}
-
-function refuseEventfdPortableRestore({
-  json,
-  snapDir,
-  validation,
-}: PortableRestoreRefusalInput<EventfdPortableRestoreValidation>): number {
-  reportProductLevel4EventfdRestoreSummary(snapDir, json, validation.summary);
-  return 1;
-}
-
-function validatePingPortableRestore({
-  parsed,
-  snapDir,
-}: PortableRestoreValidationInput): PingPortableRestoreValidation {
-  if (!parsed.targetArch) {
-    die(restoreUsage());
-  }
-  const descriptor = readProductLevel4PingSocketDescriptor(snapDir);
-  const verifierOutput = parsed.targetVerifierOutput
-    ? readFileSync(resolve(parsed.targetVerifierOutput), "utf8").trim()
-    : descriptor.sourceVerifierOutput;
-  const summary = restoreProductLevel4PingSocketSnapshot({
-    bundleDir: snapDir,
-    targetArch: parsed.targetArch,
-    targetVerifierOutput: verifierOutput,
-  });
-  if (!summary.migrationCompleted) {
-    return { ok: false, descriptor, summary };
-  }
-  return { ok: true, descriptor, summary };
-}
-
-function planPingPortableRestore({
-  parsed,
-  snapDir,
-  validation,
-}: PortableRestorePlanInput<PingPortableRestoreValidation>): PingPortableRestorePlan {
-  if (!validation.ok) {
-    throw new ProductLevel4PingSocketError(
-      "PING_SOCKET_RESTORE_PLAN_REFUSED",
-      "cannot plan a refused ping portable restore",
-    );
-  }
-  assertLocalPingRestoreTargetArch(parsed.targetArch);
-  const descriptor = validation.descriptor;
-  const name = parsed.name ?? deriveBootName(snapDir);
-  return {
-    descriptor,
-    summary: validation.summary,
-    name,
-    descriptorGuestPath: "/tmp/machinen-restored-ping-descriptor.json",
-    descriptorText: JSON.stringify(descriptor, null, 2),
-    workloadLabel: "restored ping",
-    foregroundCommand: foregroundRestoredPingCommand(descriptor),
-    detachedCommand: startRestoredPingCommand(descriptor),
-    verifyCommand: verifyRestoredPingCommand(descriptor),
-    summaryPath: join(snapDir, "portable-ping-socket-target-vm-restore-summary.json"),
-    buildDetachedSummary: ({ vm, elapsedMs }) =>
-      buildPingDetachedRestoreSummary({
-        descriptor,
-        summary: validation.summary,
-        vm,
-        name,
-        elapsedMs,
-      }),
-  };
-}
-
-function foregroundPingPortableRestore({
-  plan,
-}: PortableRestoreExecutionInput<PingPortableRestorePlan>): Promise<number> {
-  return runPortableForegroundRestore(plan);
-}
-
-function detachedPingPortableRestore({
-  plan,
-}: PortableRestoreExecutionInput<PingPortableRestorePlan>): Promise<Record<string, unknown>> {
-  return runPortableDetachedRestore(plan, pingPortableRestoreAdapter);
-}
-
-async function verifyPingPortableRestore({
-  vm,
-  plan,
-}: PortableRestoreVerifyInput<PingPortableRestorePlan>): Promise<void> {
-  const verify = await vm.execRaw(plan.verifyCommand, { execTimeoutMs: 20_000 });
-  if (verify.exitCode !== 0) {
-    throw new ProductLevel4PingSocketError(
-      "PING_SOCKET_TARGET_VM_VERIFIER_FAILED",
-      verify.stderr || verify.stdout || "target VM ping verifier failed",
-    );
-  }
-}
-
-function refusePingPortableRestore({
-  json,
-  snapDir,
-  validation,
-}: PortableRestoreRefusalInput<PingPortableRestoreValidation>): number {
-  reportProductLevel4PingSocketRestoreSummary(snapDir, json, validation.summary);
-  return 1;
-}
-
-function readProductLevel4TcpListenerDescriptor(
-  snapDir: string,
-): ProductLevel4TcpListenerDescriptor {
-  return JSON.parse(
-    readFileSync(join(snapDir, "portable-tcp-listener.json"), "utf8"),
-  ) as ProductLevel4TcpListenerDescriptor;
-}
-
-function reportProductLevel4TcpListenerRestoreSummary(
-  snapDir: string,
-  json: boolean,
-  summary: ProductLevel4TcpListenerRestoreSummary,
-): void {
-  if (json) {
-    emitJson({ schema_version: 1, ...summary });
-  } else {
-    process.stderr.write(
-      `refused portable TCP listener restore: ${summary.refusal?.expectedRefusalCode ?? "unknown"}\n`,
-    );
-  }
-}
-
-function readProductLevel4TimerfdDescriptor(snapDir: string): ProductLevel4TimerfdDescriptor {
-  return JSON.parse(
-    readFileSync(join(snapDir, "portable-timerfd.json"), "utf8"),
-  ) as ProductLevel4TimerfdDescriptor;
-}
-
-function reportProductLevel4TimerfdRestoreSummary(
-  snapDir: string,
-  json: boolean,
-  summary: ProductLevel4TimerfdRestoreSummary,
-): void {
-  if (json) {
-    emitJson({ schema_version: 1, ...summary });
-  } else {
-    process.stderr.write(
-      `refused portable timerfd restore: ${summary.refusal?.expectedRefusalCode ?? "unknown"}\n`,
-    );
-  }
-}
-
-function readProductLevel4PipeDescriptor(snapDir: string): ProductLevel4PipeDescriptor {
-  return JSON.parse(
-    readFileSync(join(snapDir, "portable-pipe.json"), "utf8"),
-  ) as ProductLevel4PipeDescriptor;
-}
-
-function reportProductLevel4PipeRestoreSummary(
-  snapDir: string,
-  json: boolean,
-  summary: ProductLevel4PipeRestoreSummary,
-): void {
-  if (json) {
-    emitJson({ schema_version: 1, ...summary });
-  } else {
-    process.stderr.write(
-      `refused portable pipe restore: ${summary.refusal?.expectedRefusalCode ?? "unknown"}\n`,
-    );
-  }
-}
-
-function readProductLevel4EventfdDescriptor(snapDir: string): ProductLevel4EventfdDescriptor {
-  return JSON.parse(
-    readFileSync(join(snapDir, "portable-eventfd.json"), "utf8"),
-  ) as ProductLevel4EventfdDescriptor;
-}
-
-function reportProductLevel4EventfdRestoreSummary(
-  snapDir: string,
-  json: boolean,
-  summary: ProductLevel4EventfdRestoreSummary,
-): void {
-  if (json) {
-    emitJson({ schema_version: 1, ...summary });
-  } else {
-    process.stderr.write(
-      `refused portable eventfd restore: ${summary.refusal?.expectedRefusalCode ?? "unknown"}\n`,
-    );
-  }
-}
-
-function readProductLevel4PingSocketDescriptor(snapDir: string): ProductLevel4PingSocketDescriptor {
-  return JSON.parse(
-    readFileSync(join(snapDir, "portable-ping-socket.json"), "utf8"),
-  ) as ProductLevel4PingSocketDescriptor;
-}
-
-function reportProductLevel4PingSocketRestoreSummary(
-  snapDir: string,
-  json: boolean,
-  summary: ProductLevel4PingSocketRestoreSummary,
-): void {
-  if (json) {
-    emitJson({ schema_version: 1, ...summary });
-  } else {
-    process.stderr.write(
-      `refused portable ping socket restore: ${summary.refusal?.expectedRefusalCode ?? "unknown"}\n`,
-    );
-  }
-}
-
-async function runPortableForegroundRestore(input: PortableRestoreWorkloadPlan): Promise<number> {
-  const paths = await resolveCliBaseAssets();
-  process.stderr.write(`restoring portable workload as foreground VM: ${input.name}\n`);
-  process.stderr.write("booting target VM...\n");
-  const vm = await boot({
-    image: paths.defaultImagePath,
-    kernel: paths.kernelPath,
-    dtb: paths.dtbPath,
-    name: input.name,
-    detached: true,
-    cmd: ["sleep", "100000"],
-    timeoutMs: undefined,
-  });
-  let interrupted = false;
-  const onSigint = () => {
-    interrupted = true;
-    process.stderr.write("\nportable restore interrupted; stopping target VM...\n");
-    void vm
-      .kill()
-      .catch(() => undefined)
-      .finally(() => process.exit(130));
-  };
-  process.on("SIGINT", onSigint);
-  try {
-    process.stderr.write(`target VM ready; attaching ${input.workloadLabel}...\n`);
-    await vm.writeFile(input.descriptorGuestPath, input.descriptorText);
-    const result = await vm
-      .execRaw(input.foregroundCommand, {
-        onStdout: (chunk) => process.stdout.write(chunk),
-        onStderr: (chunk) => process.stderr.write(chunk),
-        execTimeoutMs: null,
-      })
-      .catch((err: unknown) => {
-        if (interrupted) {
-          return { exitCode: 130 };
-        }
-        throw err;
-      });
-    return interrupted ? 130 : result.exitCode;
-  } finally {
-    process.off("SIGINT", onSigint);
-    await vm.kill().catch(() => undefined);
-  }
-}
-
-async function runPortableDetachedRestore(
-  plan: PortableRestoreWorkloadPlan,
-  adapter: Pick<
-    PortableRestoreAdapter<any, PortableRestoreWorkloadPlan, Record<string, unknown>>,
-    "verify"
-  >,
-): Promise<Record<string, unknown>> {
-  const started = Date.now();
-  const paths = await resolveCliBaseAssets();
-  const vm = await boot({
-    image: paths.defaultImagePath,
-    kernel: paths.kernelPath,
-    dtb: paths.dtbPath,
-    name: plan.name,
-    detached: true,
-    cmd: ["sleep", "100000"],
-    timeoutMs: undefined,
-  });
-  let continuationStarted = false;
-  try {
-    await vm.writeFile(plan.descriptorGuestPath, plan.descriptorText);
-    await vm.execRaw(plan.detachedCommand, { execTimeoutMs: 15_000 });
-    await adapter.verify({ vm, plan });
-    const summary = plan.buildDetachedSummary({ vm, elapsedMs: Date.now() - started });
-    writeFileSync(plan.summaryPath, `${JSON.stringify(summary, null, 2)}\n`);
-    continuationStarted = true;
-    return summary;
-  } finally {
-    if (continuationStarted) {
-      await vm.detach();
-    } else {
-      await vm.kill().catch(() => undefined);
-    }
-  }
-}
-
-function buildDetachedRestoreTargetVmFields(input: { vm: VmHandle; name: string }) {
-  return {
-    targetVerifierResult: "passed",
-    targetVmStarted: true,
-    restoredName: input.vm.name ?? input.name,
-    restoredPid: input.vm.pid,
-    targetOutputObserved: true,
-  };
-}
-
-function buildDetachedRestoreSummaryBase(input: {
-  summary: object;
-  vm: VmHandle;
-  name: string;
-  outputLogPath: string;
-  processField: string;
-  elapsedMs: number;
-}): Record<string, unknown> {
-  return {
-    ...input.summary,
-    ...buildDetachedRestoreTargetVmFields({ vm: input.vm, name: input.name }),
-    outputLogPath: input.outputLogPath,
-    [input.processField]: "running",
-    elapsedMs: input.elapsedMs,
-  };
-}
-
-function buildDetachedRestoreSummaryWithSemantics(input: {
-  summary: object;
-  vm: VmHandle;
-  name: string;
-  outputLogPath: string;
-  processField: string;
-  elapsedMs: number;
-  continuationSemantics: Record<string, unknown>;
-}): Record<string, unknown> {
-  return {
-    ...buildDetachedRestoreSummaryBase(input),
-    continuationSemantics: input.continuationSemantics,
-  };
-}
-
-function buildDescriptorDetachedRestoreSummary<TDescriptor, TSummary extends object>(
-  input: {
-    descriptor: TDescriptor;
-    summary: TSummary;
-    vm: VmHandle;
-    name: string;
-    elapsedMs: number;
-  },
-  details: (descriptor: TDescriptor) => {
-    outputLogPath: string;
-    processField: string;
-    continuationSemantics: Record<string, unknown>;
-  },
-): Record<string, unknown> {
-  return buildDetachedRestoreSummaryWithSemantics({
-    summary: input.summary,
-    vm: input.vm,
-    name: input.name,
-    elapsedMs: input.elapsedMs,
-    ...details(input.descriptor),
-  });
-}
-
-function buildTcpListenerDetachedRestoreSummary(input: {
-  descriptor: ProductLevel4TcpListenerDescriptor;
-  summary: ProductLevel4TcpListenerRestoreSummary;
-  vm: VmHandle;
-  name: string;
-  elapsedMs: number;
-}): Record<string, unknown> {
-  return buildDescriptorDetachedRestoreSummary(input, (descriptor) => ({
-    outputLogPath: descriptor.continuation.outputLogPath,
-    processField: "targetTcpListenerProcess",
-    continuationSemantics: {
-      family: descriptor.listener.family,
-      protocol: descriptor.listener.protocol,
-      bindAddress: descriptor.listener.bindAddress,
-      port: descriptor.listener.port,
-      backlog: descriptor.listener.backlog,
-      reuseAddr: descriptor.listener.reuseAddr,
-      acceptQueue: descriptor.listener.acceptQueue,
-      listenerPolicy: descriptor.continuation.listenerPolicy,
-      acceptQueuePolicy: descriptor.continuation.acceptQueuePolicy,
-    },
-  }));
-}
-
-function buildTimerfdDetachedRestoreSummary(input: {
-  descriptor: ProductLevel4TimerfdDescriptor;
-  summary: ProductLevel4TimerfdRestoreSummary;
-  vm: VmHandle;
-  name: string;
-  elapsedMs: number;
-}): Record<string, unknown> {
-  return buildDescriptorDetachedRestoreSummary(input, (descriptor) => ({
-    outputLogPath: descriptor.continuation.outputLogPath,
-    processField: "targetTimerfdProcess",
-    continuationSemantics: {
-      clock: descriptor.timerfd.clock,
-      mode: descriptor.timerfd.mode,
-      remainingMs: descriptor.timerfd.remainingMs,
-      intervalMs: descriptor.timerfd.intervalMs,
-      unreadExpirations: descriptor.timerfd.unreadExpirations,
-      closeOnExec: descriptor.timerfd.closeOnExec,
-      timerPolicy: descriptor.continuation.timerPolicy,
-      expirationPolicy: descriptor.continuation.expirationPolicy,
-    },
-  }));
-}
-
-function buildPipeDetachedRestoreSummary(input: {
-  descriptor: ProductLevel4PipeDescriptor;
-  summary: ProductLevel4PipeRestoreSummary;
-  vm: VmHandle;
-  name: string;
-  elapsedMs: number;
-}): Record<string, unknown> {
-  return buildDescriptorDetachedRestoreSummary(input, (descriptor) => ({
-    outputLogPath: descriptor.continuation.outputLogPath,
-    processField: "targetPipeProcess",
-    continuationSemantics: {
-      readFd: descriptor.pipe.readFd,
-      writeFd: descriptor.pipe.writeFd,
-      buffer: descriptor.pipe.buffer,
-      peerLifetime: descriptor.pipe.peerLifetime,
-      waiters: descriptor.pipe.waiters,
-      readiness: descriptor.pipe.readiness,
-      closeOnExec: descriptor.pipe.closeOnExec,
-      pipePolicy: descriptor.continuation.pipePolicy,
-      readinessPolicy: descriptor.continuation.readinessPolicy,
-    },
-  }));
-}
-
-function buildEventfdDetachedRestoreSummary(input: {
-  descriptor: ProductLevel4EventfdDescriptor;
-  summary: ProductLevel4EventfdRestoreSummary;
-  vm: VmHandle;
-  name: string;
-  elapsedMs: number;
-}): Record<string, unknown> {
-  return buildDescriptorDetachedRestoreSummary(input, (descriptor) => ({
-    outputLogPath: descriptor.continuation.outputLogPath,
-    processField: "targetEventfdProcess",
-    continuationSemantics: {
-      counter: descriptor.eventfd.counter,
-      semaphore: descriptor.eventfd.semaphore,
-      waiters: descriptor.eventfd.waiters,
-      aliases: descriptor.eventfd.aliases,
-      readiness: descriptor.eventfd.readiness,
-      closeOnExec: descriptor.eventfd.closeOnExec,
-      counterPolicy: descriptor.continuation.counterPolicy,
-      readinessPolicy: descriptor.continuation.readinessPolicy,
-    },
-  }));
-}
-
-// fallow-ignore-next-line complexity
-function buildPingDetachedRestoreSummary(input: {
-  descriptor: ProductLevel4PingSocketDescriptor;
-  summary: ProductLevel4PingSocketRestoreSummary;
-  vm: VmHandle;
-  name: string;
-  elapsedMs: number;
-}): Record<string, unknown> {
-  const { descriptor, summary, vm, name, elapsedMs } = input;
-  return buildDetachedRestoreSummaryWithSemantics({
-    summary,
-    vm,
-    name,
-    elapsedMs,
-    outputLogPath: descriptor.continuation?.outputLogPath ?? "/tmp/machinen-restored-ping.log",
-    processField: "targetPingProcess",
-    continuationSemantics: {
-      destination: descriptor.continuation?.destination ?? "127.0.0.1",
-      intervalMs: descriptor.continuation?.intervalMs ?? 1000,
-      echoIdentifier: descriptor.socket.echoIdentifier,
-      nextSequence: descriptor.socket.echoSequence,
-      sequencePolicy:
-        descriptor.continuation?.sequencePolicy ?? "continue-at-next-supported-boundary",
-      idPolicy:
-        descriptor.continuation?.idPolicy ?? "descriptor-preserved-when-target-ping-supports-it",
-      textOutputSequencePolicy:
-        descriptor.continuation?.textOutputSequencePolicy ??
-        "machinen-helper-renders-descriptor-sequence",
-    },
-  });
-}
-
-function assertLocalTcpListenerRestoreTargetArch(targetArch: string | undefined): void {
-  if (targetArch !== guestCpu()) {
-    throw new ProductLevel4TcpListenerError(
-      "TCP_LISTENER_TARGET_GUEST_ARCH_MISMATCH",
-      `target arch ${targetArch} requires restoring on a ${targetArch} Machinen guest host; current guest arch is ${guestCpu()}`,
-    );
-  }
-}
-
-function foregroundRestoredTcpListenerCommand(
-  descriptor: ProductLevel4TcpListenerDescriptor,
-): string {
-  return (
-    "echo $$ >/tmp/machinen-restored-tcp-listener.pid; exec " +
-    restoredTcpListenerPerlCommand(descriptor)
-  );
-}
-
-function startRestoredTcpListenerCommand(descriptor: ProductLevel4TcpListenerDescriptor): string {
-  const logPath = descriptor.continuation.outputLogPath;
-  return (
-    `rm -f ${shellQuote(logPath)} /tmp/machinen-restored-tcp-listener.pid; ` +
-    `( exec ${restoredTcpListenerPerlCommand(descriptor)} ) >${shellQuote(logPath)} 2>&1 & ` +
-    "echo $! >/tmp/machinen-restored-tcp-listener.pid"
-  );
-}
-
-function restoredTcpListenerPerlCommand(descriptor: ProductLevel4TcpListenerDescriptor): string {
-  return `perl -e ${shellQuote(restoredTcpListenerPerlProgram(descriptor))}`;
-}
-
-function restoredTcpListenerPerlProgram(descriptor: ProductLevel4TcpListenerDescriptor): string {
-  return [
-    "use strict; use warnings; $|=1; use Socket qw(AF_INET SOCK_STREAM SOL_SOCKET SO_REUSEADDR inet_aton sockaddr_in);",
-    'socket(my $srv, AF_INET, SOCK_STREAM, 0) or die "socket: $!\\n";',
-    'setsockopt($srv, SOL_SOCKET, SO_REUSEADDR, pack("i", 1)) or die "setsockopt reuseaddr: $!\\n";',
-    `my $addr = ${perlStringLiteral(descriptor.listener.bindAddress)}; my $port = ${descriptor.listener.port}; my $backlog = ${descriptor.listener.backlog};`,
-    'bind($srv, sockaddr_in($port, inet_aton($addr))) or die "bind: $!\\n";',
-    'listen($srv, $backlog) or die "listen: $!\\n";',
-    'print "MACHINEN_TCP_LISTENER_RESTORED family=inet protocol=tcp bind=$addr:$port backlog=$backlog acceptQueue=empty reuseaddr=true fd=" . fileno($srv) . "\\n";',
-    "my $alive = 0;",
-    "$SIG{TERM} = sub { exit 0; };",
-    'while (1) { sleep 1; $alive++; print "MACHINEN_TCP_LISTENER_ALIVE bind=$addr:$port tick=$alive\\n"; }',
-  ].join(" ");
-}
-
-function verifyRestoredTcpListenerCommand(descriptor: ProductLevel4TcpListenerDescriptor): string {
-  const logPath = descriptor.continuation.outputLogPath;
-  return [
-    "pid=$(cat /tmp/machinen-restored-tcp-listener.pid 2>/dev/null || true)",
-    '[ -n "$pid" ] && [ -d "/proc/$pid" ] || exit 2',
-    `for i in $(seq 1 20); do grep -q 'MACHINEN_TCP_LISTENER_RESTORED family=inet protocol=tcp bind=${descriptor.listener.bindAddress}:${descriptor.listener.port} backlog=${descriptor.listener.backlog}' ${shellQuote(logPath)} && exit 0; sleep 0.5; done`,
-    `cat ${shellQuote(logPath)} 2>/dev/null`,
-    "exit 3",
-  ].join("; ");
-}
-
-function assertLocalTimerfdRestoreTargetArch(targetArch: string | undefined): void {
-  if (targetArch !== guestCpu()) {
-    throw new ProductLevel4TimerfdError(
-      "TIMERFD_TARGET_GUEST_ARCH_MISMATCH",
-      `target arch ${targetArch} requires restoring on a ${targetArch} Machinen guest host; current guest arch is ${guestCpu()}`,
-    );
-  }
-}
-
-function foregroundRestoredTimerfdCommand(descriptor: ProductLevel4TimerfdDescriptor): string {
-  return (
-    "echo $$ >/tmp/machinen-restored-timerfd.pid; exec " + restoredTimerfdPerlCommand(descriptor)
-  );
-}
-
-function startRestoredTimerfdCommand(descriptor: ProductLevel4TimerfdDescriptor): string {
-  const logPath = descriptor.continuation.outputLogPath;
-  return (
-    `rm -f ${shellQuote(logPath)} /tmp/machinen-restored-timerfd.pid; ` +
-    `( exec ${restoredTimerfdPerlCommand(descriptor)} ) >${shellQuote(logPath)} 2>&1 & ` +
-    "echo $! >/tmp/machinen-restored-timerfd.pid"
-  );
-}
-
-function restoredTimerfdPerlCommand(descriptor: ProductLevel4TimerfdDescriptor): string {
-  return `perl -e ${shellQuote(restoredTimerfdPerlProgram(descriptor))}`;
-}
-
-function restoredTimerfdPerlProgram(descriptor: ProductLevel4TimerfdDescriptor): string {
-  const seconds = Math.floor(descriptor.timerfd.remainingMs / 1000);
-  const nanoseconds = (descriptor.timerfd.remainingMs % 1000) * 1_000_000;
-  return [
-    "use strict; use warnings; $|=1;",
-    "my $arch = qx(uname -m); chomp $arch;",
-    'my $create = $arch eq "x86_64" ? 283 : 85;',
-    'my $settime = $arch eq "x86_64" ? 286 : 86;',
-    "my $CLOCK_MONOTONIC = 1; my $TFD_CLOEXEC = 02000000;",
-    "my $fd = syscall($create, $CLOCK_MONOTONIC, $TFD_CLOEXEC);",
-    'die "timerfd_create: $!\\n" if $fd < 0;',
-    `my $seconds = ${seconds}; my $nanoseconds = ${nanoseconds};`,
-    'my $spec = pack("q<q<q<q<", 0, 0, $seconds, $nanoseconds);',
-    'syscall($settime, $fd, 0, $spec, 0) == 0 or die "timerfd_settime: $!\\n";',
-    `my $remaining_ms = ${descriptor.timerfd.remainingMs};`,
-    'print "MACHINEN_TIMERFD_RESTORED clock=monotonic mode=relative remainingMs=$remaining_ms intervalMs=0 expirations=0 flags=cloexec fd=$fd\\n";',
-    "my $alive = 0;",
-    "$SIG{TERM} = sub { exit 0; };",
-    'while (1) { sleep 1; $alive++; print "MACHINEN_TIMERFD_ALIVE remainingMs=$remaining_ms tick=$alive\\n"; }',
-  ].join(" ");
-}
-
-function verifyRestoredTimerfdCommand(descriptor: ProductLevel4TimerfdDescriptor): string {
-  const logPath = descriptor.continuation.outputLogPath;
-  return [
-    "pid=$(cat /tmp/machinen-restored-timerfd.pid 2>/dev/null || true)",
-    '[ -n "$pid" ] && [ -d "/proc/$pid" ] || exit 2',
-    `for i in $(seq 1 20); do grep -q 'MACHINEN_TIMERFD_RESTORED clock=monotonic mode=relative remainingMs=${descriptor.timerfd.remainingMs}' ${shellQuote(logPath)} && exit 0; sleep 0.5; done`,
-    `cat ${shellQuote(logPath)} 2>/dev/null`,
-    "exit 3",
-  ].join("; ");
-}
-
-function assertLocalPipeRestoreTargetArch(targetArch: string | undefined): void {
-  if (targetArch !== guestCpu()) {
-    throw new ProductLevel4PipeError(
-      "PIPE_TARGET_GUEST_ARCH_MISMATCH",
-      `target arch ${targetArch} requires restoring on a ${targetArch} Machinen guest host; current guest arch is ${guestCpu()}`,
-    );
-  }
-}
-
-function foregroundRestoredPipeCommand(descriptor: ProductLevel4PipeDescriptor): string {
-  return "echo $$ >/tmp/machinen-restored-pipe.pid; exec " + restoredPipePerlCommand(descriptor);
-}
-
-function startRestoredPipeCommand(descriptor: ProductLevel4PipeDescriptor): string {
-  const logPath = descriptor.continuation.outputLogPath;
-  return (
-    `rm -f ${shellQuote(logPath)} /tmp/machinen-restored-pipe.pid; ` +
-    `( exec ${restoredPipePerlCommand(descriptor)} ) >${shellQuote(logPath)} 2>&1 & ` +
-    "echo $! >/tmp/machinen-restored-pipe.pid"
-  );
-}
-
-function restoredPipePerlCommand(descriptor: ProductLevel4PipeDescriptor): string {
-  return `perl -e ${shellQuote(restoredPipePerlProgram(descriptor))}`;
-}
-
-function restoredPipePerlProgram(descriptor: ProductLevel4PipeDescriptor): string {
-  return [
-    "use strict; use warnings; $|=1; use Fcntl qw(F_GETFD F_SETFD FD_CLOEXEC);",
-    'pipe(my $read, my $write) or die "pipe: $!\\n";',
-    'fcntl($read, F_SETFD, FD_CLOEXEC) or die "pipe read cloexec: $!\\n";',
-    'fcntl($write, F_SETFD, FD_CLOEXEC) or die "pipe write cloexec: $!\\n";',
-    'my $rin = ""; vec($rin, fileno($read), 1) = 1;',
-    "my $ready = select(my $rout = $rin, undef, undef, 0);",
-    'die "pipe read end unexpectedly readable\\n" if $ready != 0;',
-    `my $source_read_fd = ${descriptor.pipe.readFd};`,
-    `my $source_write_fd = ${descriptor.pipe.writeFd};`,
-    'print "MACHINEN_PIPE_RESTORED readFd=$source_read_fd writeFd=$source_write_fd targetReadFd=" . fileno($read) . " targetWriteFd=" . fileno($write) . " buffer=empty peer=open waiters=none readiness=not-readable flags=cloexec\\n";',
-    "my $alive = 0;",
-    "$SIG{TERM} = sub { exit 0; };",
-    'while (1) { sleep 1; $alive++; print "MACHINEN_PIPE_ALIVE buffer=empty tick=$alive\\n"; }',
-  ].join(" ");
-}
-
-function verifyRestoredPipeCommand(descriptor: ProductLevel4PipeDescriptor): string {
-  const logPath = descriptor.continuation.outputLogPath;
-  return [
-    "pid=$(cat /tmp/machinen-restored-pipe.pid 2>/dev/null || true)",
-    '[ -n "$pid" ] && [ -d "/proc/$pid" ] || exit 2',
-    `for i in $(seq 1 20); do grep -q 'MACHINEN_PIPE_RESTORED readFd=${descriptor.pipe.readFd} writeFd=${descriptor.pipe.writeFd}' ${shellQuote(logPath)} && exit 0; sleep 0.5; done`,
-    `cat ${shellQuote(logPath)} 2>/dev/null`,
-    "exit 3",
-  ].join("; ");
-}
-
-function assertLocalEventfdRestoreTargetArch(targetArch: string | undefined): void {
-  if (targetArch !== guestCpu()) {
-    throw new ProductLevel4EventfdError(
-      "EVENTFD_TARGET_GUEST_ARCH_MISMATCH",
-      `target arch ${targetArch} requires restoring on a ${targetArch} Machinen guest host; current guest arch is ${guestCpu()}`,
-    );
-  }
-}
-
-function foregroundRestoredEventfdCommand(descriptor: ProductLevel4EventfdDescriptor): string {
-  return (
-    "echo $$ >/tmp/machinen-restored-eventfd.pid; exec " + restoredEventfdPerlCommand(descriptor)
-  );
-}
-
-function startRestoredEventfdCommand(descriptor: ProductLevel4EventfdDescriptor): string {
-  const logPath = descriptor.continuation.outputLogPath;
-  return (
-    `rm -f ${shellQuote(logPath)} /tmp/machinen-restored-eventfd.pid; ` +
-    `( exec ${restoredEventfdPerlCommand(descriptor)} ) >${shellQuote(logPath)} 2>&1 & ` +
-    "echo $! >/tmp/machinen-restored-eventfd.pid"
-  );
-}
-
-function restoredEventfdPerlCommand(descriptor: ProductLevel4EventfdDescriptor): string {
-  return `perl -e ${shellQuote(restoredEventfdPerlProgram(descriptor))}`;
-}
-
-function restoredEventfdPerlProgram(descriptor: ProductLevel4EventfdDescriptor): string {
-  const counter = descriptor.eventfd.counter;
-  return [
-    "use strict; use warnings; $|=1;",
-    `my $counter = ${counter};`,
-    "my $arch = qx(uname -m); chomp $arch;",
-    'my $nr = $arch eq "x86_64" ? 290 : 19;',
-    "my $EFD_CLOEXEC = 02000000;",
-    "my $fd = syscall($nr, 0, $EFD_CLOEXEC);",
-    'die "eventfd: $!\\n" if $fd < 0;',
-    'open(my $efh, "+<&=", $fd) or die "eventfd fdopen: $!\\n";',
-    'syswrite($efh, pack("Q<", $counter), 8) == 8 or die "eventfd write: $!\\n";',
-    'sysread($efh, my $buf, 8) == 8 or die "eventfd read: $!\\n";',
-    'my $observed = unpack("Q<", $buf);',
-    'print "MACHINEN_EVENTFD_RESTORED counter=$observed semaphore=0 waiters=none aliases=none readiness=readable flags=cloexec fd=$fd\\n";',
-    'syswrite($efh, pack("Q<", $observed), 8) == 8 or die "eventfd restore: $!\\n";',
-    "my $alive = 0;",
-    "$SIG{TERM} = sub { exit 0; };",
-    'while (1) { sleep 1; $alive++; print "MACHINEN_EVENTFD_ALIVE counter=$observed tick=$alive\\n"; }',
-  ].join(" ");
-}
-
-function verifyRestoredEventfdCommand(descriptor: ProductLevel4EventfdDescriptor): string {
-  const logPath = descriptor.continuation.outputLogPath;
-  return [
-    "pid=$(cat /tmp/machinen-restored-eventfd.pid 2>/dev/null || true)",
-    '[ -n "$pid" ] && [ -d "/proc/$pid" ] || exit 2',
-    `for i in $(seq 1 20); do grep -q 'MACHINEN_EVENTFD_RESTORED counter=${descriptor.eventfd.counter}' ${shellQuote(logPath)} && exit 0; sleep 0.5; done`,
-    `cat ${shellQuote(logPath)} 2>/dev/null`,
-    "exit 3",
-  ].join("; ");
-}
-
-function assertLocalPingRestoreTargetArch(targetArch: string | undefined): void {
-  if (targetArch !== guestCpu()) {
-    throw new ProductLevel4PingSocketError(
-      "PING_SOCKET_TARGET_GUEST_ARCH_MISMATCH",
-      `target arch ${targetArch} requires restoring on a ${targetArch} Machinen guest host; current guest arch is ${guestCpu()}`,
-    );
-  }
-}
-
-function foregroundRestoredPingCommand(descriptor: ProductLevel4PingSocketDescriptor): string {
-  return "echo $$ >/tmp/machinen-restored-ping.pid; " + restoredPingLoopCommand(descriptor);
-}
-
-function startRestoredPingCommand(descriptor: ProductLevel4PingSocketDescriptor): string {
-  const logPath = descriptor.continuation?.outputLogPath ?? "/tmp/machinen-restored-ping.log";
-  return (
-    `rm -f ${shellQuote(logPath)} /tmp/machinen-restored-ping.pid; ` +
-    `( ${restoredPingLoopCommand(descriptor)} ) >${shellQuote(logPath)} 2>&1 & ` +
-    "echo $! >/tmp/machinen-restored-ping.pid"
-  );
-}
-
-// fallow-ignore-next-line complexity
-function restoredPingLoopCommand(descriptor: ProductLevel4PingSocketDescriptor): string {
-  const destination = descriptor.continuation?.destination ?? "127.0.0.1";
-  const intervalSeconds = formatPingIntervalSeconds(descriptor.continuation?.intervalMs ?? 1000);
-  const startSequence = descriptor.socket.echoSequence;
-  const rewriteHeaderAndReply =
-    `sed -n -e '/^PING /p' ` +
-    `-e '/bytes from/ { s/icmp_seq=[0-9][0-9]*/icmp_seq='"$seq"'/; p; }'`;
-  const rewriteReply = `sed -n -e '/bytes from/ { s/icmp_seq=[0-9][0-9]*/icmp_seq='"$seq"'/; p; }'`;
-  return (
-    `seq=${startSequence}; printed_header=0; ` +
-    "while :; do " +
-    'if [ "$printed_header" = 0 ]; then ' +
-    `/usr/bin/ping -n -c 1 -W 1 ${shellQuote(destination)} | ${rewriteHeaderAndReply}; ` +
-    "printed_header=1; " +
-    "else " +
-    `/usr/bin/ping -n -c 1 -W 1 ${shellQuote(destination)} | ${rewriteReply}; ` +
-    "fi; " +
-    "seq=$((seq + 1)); " +
-    `sleep ${intervalSeconds}; ` +
-    "done"
-  );
-}
-
-function formatPingIntervalSeconds(intervalMs: number): string {
-  const seconds = Math.max(1, intervalMs) / 1000;
-  return seconds
-    .toFixed(3)
-    .replace(/\.0+$/, "")
-    .replace(/(\.\d*?)0+$/, "$1");
-}
-
-function verifyRestoredPingCommand(descriptor: ProductLevel4PingSocketDescriptor): string {
-  const logPath = descriptor.continuation?.outputLogPath ?? "/tmp/machinen-restored-ping.log";
-  return [
-    "pid=$(cat /tmp/machinen-restored-ping.pid 2>/dev/null || true)",
-    '[ -n "$pid" ] && [ -d "/proc/$pid" ] || exit 2',
-    `for i in $(seq 1 20); do grep -q '64 bytes from' ${shellQuote(logPath)} && exit 0; sleep 0.5; done`,
-    `cat ${shellQuote(logPath)} 2>/dev/null`,
-    "exit 3",
-  ].join("; ");
-}
-
-function handlePortableRestoreAdapterError(err: unknown, json: boolean): never {
-  const known = portableRestoreAdapterError(err);
-  if (known) {
-    reportKnownProductError(known, json);
-  }
-  handleError(err);
-}
-
-function portableRestoreAdapterError(err: unknown): { code: string; message: string } | undefined {
-  if (isPortableRestoreProductError(err)) {
-    return { code: err.code, message: err.message };
-  }
-  return undefined;
-}
-
-function isPortableRestoreProductError(
-  err: unknown,
-): err is
-  | ProductLevel4EventfdError
-  | ProductLevel4PingSocketError
-  | ProductLevel4PipeError
-  | ProductLevel4TcpListenerError
-  | ProductLevel4TimerfdError {
-  const constructors = [
-    ProductLevel4EventfdError,
-    ProductLevel4PingSocketError,
-    ProductLevel4PipeError,
-    ProductLevel4TcpListenerError,
-    ProductLevel4TimerfdError,
-  ];
-  return constructors.some((errorConstructor) => err instanceof errorConstructor);
-}
-
-function reportKnownProductError(error: { code: string; message: string }, json: boolean): never {
-  if (json) {
-    emitJsonError(error.code, error.message);
-    process.exit(1);
-  }
-  die(error.message);
-}
-
-// fallow-ignore-next-line code-duplication
-function handleProductPortablePostgresError(err: unknown, json: boolean): never {
-  if (err instanceof ProductPortablePostgresError) {
-    if (json) {
-      emitJsonError(err.code, err.message);
-      process.exit(1);
-    }
-    die(err.message);
-  }
-  handleError(err);
-}
-
-function handleProductLevel4TcpListenerError(err: unknown, json: boolean): never {
-  if (err instanceof ProductLevel4TcpListenerError) {
-    reportKnownProductError(err, json);
-  }
-  handleError(err);
-}
-
-function handleProductLevel4TimerfdError(err: unknown, json: boolean): never {
-  if (err instanceof ProductLevel4TimerfdError) {
-    reportKnownProductError(err, json);
-  }
-  handleError(err);
-}
-
-function handleProductLevel4PipeError(err: unknown, json: boolean): never {
-  if (err instanceof ProductLevel4PipeError) {
-    reportKnownProductError(err, json);
-  }
-  handleError(err);
-}
-
-function handleProductLevel4EventfdError(err: unknown, json: boolean): never {
-  if (err instanceof ProductLevel4EventfdError) {
-    if (json) {
-      emitJsonError(err.code, err.message);
-      process.exit(1);
-    }
-    die(err.message);
-  }
-  handleError(err);
-}
-
-function handleProductLevel4PingSocketError(err: unknown, json: boolean): never {
-  if (err instanceof ProductLevel4PingSocketError) {
-    if (json) {
-      emitJsonError(err.code, err.message);
-      process.exit(1);
-    }
-    die(err.message);
-  }
-  handleError(err);
 }
 
 function isNodeLevel5ProofCompositionBundle(snapDir: string): boolean {
@@ -4721,10 +2409,6 @@ function portableNodeRestoreSummary(
     appHooksRequired: false,
     ...extra,
   };
-}
-
-function perlStringLiteral(value: string): string {
-  return `q(${value.replaceAll(")", "\\)")})`;
 }
 
 function shellQuote(value: string): string {
@@ -6552,7 +4236,7 @@ const BASH_COMPLETION = `# machinen bash completion — source this from ~/.bash
 _machinen_completion() {
   local cur prev words cword
   _init_completion || return
-  local cmds="boot capture support restore install list ls ps exec snapshot fork attach repl gc stop feedback agent-context completion --version --help -h -v"
+  local cmds="boot capture move support restore install list ls ps exec snapshot fork attach repl gc stop feedback agent-context completion --version --help -h -v"
   if [[ \${cword} -eq 1 ]]; then
     COMPREPLY=( $(compgen -W "\${cmds}" -- "\${cur}") )
     return
@@ -6580,7 +4264,7 @@ const ZSH_COMPLETION = `# machinen zsh completion — source this from ~/.zshrc,
 #   eval "$(machinen completion zsh)"
 _machinen() {
   local -a cmds
-  cmds=(boot capture support restore install list ls ps exec snapshot fork attach repl gc stop feedback agent-context completion)
+  cmds=(boot capture move support restore install list ls ps exec snapshot fork attach repl gc stop feedback agent-context completion)
   if (( CURRENT == 2 )); then
     _describe 'command' cmds
     return
@@ -6606,7 +4290,7 @@ compdef _machinen machinen mn
 
 const FISH_COMPLETION = `# machinen fish completion — source this from your config.fish, or:
 #   machinen completion fish | source
-set -l cmds boot capture support restore install list ls ps exec snapshot fork attach repl gc stop feedback agent-context completion
+set -l cmds boot capture move support restore install list ls ps exec snapshot fork attach repl gc stop feedback agent-context completion
 for bin in machinen mn
   complete -c $bin -f -n 'not __fish_seen_subcommand_from $cmds' -a "$cmds"
   for sub in exec snapshot fork attach repl stop
@@ -6720,48 +4404,9 @@ function printHelp(): void {
       `                                                 when the host supports it.\n` +
       `    -p <hostPort>:<guestPort>                    Forward host:hostPort → guest:guestPort.\n` +
       `\n` +
-      `  machinen capture postgres --out <dir> --source-arch <arm64|amd64>\n` +
-      `                    --target-arch <arm64|amd64> --dump <file>\n` +
-      `                    --source-verifier-output <file> --postgres-version <v>\n` +
-      `                    --checkpoint-lsn <lsn> [--json] [--dry-run]\n` +
-      `                                                 Capture the implemented portable\n` +
-      `                                                 PostgreSQL logical-state product\n` +
-      `                                                 bundle. Inputs are produced from a\n` +
-      `                                                 real Machinen source VM with pg_dump,\n` +
-      `                                                 CHECKPOINT, and verifier SQL.\n` +
-      `  machinen capture eventfd --out <dir> --source-arch <arm64|amd64>\n` +
-      `                    --target-arch <arm64|amd64> --source-verifier-output <file>\n` +
-      `                    --counter <n> [--json]\n` +
-      `                                                 Capture the implemented narrow Level 4\n` +
-      `                                                 eventfd counter descriptor. Unsafe\n` +
-      `                                                 waiters, aliases, semaphore mode, and\n` +
-      `                                                 active syscalls refuse fail-closed.\n` +
-      `  machinen capture pipe --out <dir> --source-arch <arm64|amd64>\n` +
-      `                    --target-arch <arm64|amd64> --source-verifier-output <file>\n` +
-      `                    --read-fd <n> --write-fd <n> [--json]\n` +
-      `                                                 Capture the implemented narrow Level 4\n` +
-      `                                                 empty pipe pair descriptor. Buffered\n` +
-      `                                                 bytes, waiters, closed peers, and\n` +
-      `                                                 active syscalls refuse fail-closed.\n` +
-      `  machinen capture timerfd --out <dir> --source-arch <arm64|amd64>\n` +
-      `                    --target-arch <arm64|amd64> --source-verifier-output <file>\n` +
-      `                    --remaining-ms <n> [--json]\n` +
-      `                                                 Capture the implemented narrow Level 4\n` +
-      `                                                 relative one-shot timerfd descriptor.\n` +
-      `                                                 Unread expirations, periodic timers,\n` +
-      `                                                 absolute timers, and active reads refuse.\n` +
-      `  machinen capture tcp-listener --out <dir> --source-arch <arm64|amd64>\n` +
-      `                    --target-arch <arm64|amd64> --source-verifier-output <file>\n` +
-      `                    --bind-address 127.0.0.1 --port <n> --backlog <n> [--json]\n` +
-      `                                                 Capture the implemented narrow Level 4\n` +
-      `                                                 loopback TCP listener descriptor.\n` +
-      `                                                 Active connections, accept queues,\n` +
-      `                                                 partial IO, and active syscalls refuse.\n` +
-      `  machinen capture ping-socket --out <dir> --source-arch <arm64|amd64>\n` +
-      `                    --target-arch <arm64|amd64> --socket-kind <ping-dgram-icmp|raw-icmp>\n` +
-      `                    --source-verifier-output <file> --echo-id <n> --echo-seq <n> [--json]\n` +
-      `                                                 Capture the implemented narrow Level 4\n` +
-      `                                                 ping/raw ICMP socket descriptor.\n` +
+      `  machinen move scan [--json]                  Scan host PID graph state classes.\n` +
+      `  machinen move save <pid> <out> [--issue]     Write a move descriptor or refusal evidence.\n` +
+      `  machinen move load <descriptor> [--json]     Validate a move descriptor fail-closed.\n` +
       `\n` +
       `  machinen support [--family <family>] [--status <status>] [--level <level>] [--json]\n` +
       `                                                 Discover product support/refusal level\n` +
@@ -6780,33 +4425,6 @@ function printHelp(): void {
       `                                                 NOT inherited from the source (host ports\n` +
       `                                                 are global), so pick host ports nothing\n` +
       `                                                 else is binding.\n` +
-      `  machinen restore <portable-postgres-bundle> --target-arch <arm64|amd64>\n` +
-      `                    --target-verifier-output <file> [--json]\n` +
-      `                                                 Complete the portable PostgreSQL\n` +
-      `                                                 product restore after importing the\n` +
-      `                                                 descriptor dump into target-native\n` +
-      `                                                 PostgreSQL and running verifier SQL.\n` +
-      `  machinen restore <portable-eventfd-bundle> --target-arch <arm64|amd64>\n` +
-      `                    [--target-verifier-output <file>] [--json]\n` +
-      `                                                 Boot a target VM and recreate the narrow\n` +
-      `                                                 Level 4 eventfd counter target-natively.\n` +
-      `  machinen restore <portable-pipe-bundle> --target-arch <arm64|amd64>\n` +
-      `                    [--target-verifier-output <file>] [--json]\n` +
-      `                                                 Boot a target VM and recreate the narrow\n` +
-      `                                                 Level 4 pipe pair target-natively.\n` +
-      `  machinen restore <portable-timerfd-bundle> --target-arch <arm64|amd64>\n` +
-      `                    [--target-verifier-output <file>] [--json]\n` +
-      `                                                 Boot a target VM and recreate the narrow\n` +
-      `                                                 Level 4 timerfd target-natively.\n` +
-      `  machinen restore <portable-tcp-listener-bundle> --target-arch <arm64|amd64>\n` +
-      `                    [--target-verifier-output <file>] [--json]\n` +
-      `                                                 Boot a target VM and recreate the narrow\n` +
-      `                                                 Level 4 TCP listener target-natively.\n` +
-      `  machinen restore <portable-ping-socket-bundle> --target-arch <arm64|amd64>\n` +
-      `                    [--target-verifier-output <file>] [--json]\n` +
-      `                                                 Boot a target VM and continue the narrow\n` +
-      `                                                 Level 4 ping workload target-natively.\n` +
-      `\n` +
       `  machinen list  (alias: ls, ps)                 List running VMs (PID, NAME, UP,\n` +
       `                                                 PORTS, FORKED-FROM). Pass --json for\n` +
       `                                                 a structured payload on stdout.\n` +
@@ -6881,7 +4499,7 @@ function printHelp(): void {
       `  --json                                         Emit machine-readable JSON to stdout.\n` +
       `                                                 Supported on: list, gc, install,\n` +
       `                                                 snapshot, stop, fork --detach,\n` +
-      `                                                 boot --detach, support, feedback,\n` +
+      `                                                 boot --detach, support, move, feedback,\n` +
       `                                                 agent-context.\n` +
       `  --dry-run                                      Preview a mutating command without\n` +
       `                                                 side effects. Supported on: gc, stop,\n` +
@@ -6895,25 +4513,9 @@ function printHelp(): void {
       `  machinen exec worker --tty -- vim /etc/passwd        # full-screen TUI in a PTY\n` +
       `  machinen snapshot worker ./warm                      # CRIU snapshot bundle\n` +
       `  machinen restore ./warm\n` +
-      `  machinen capture postgres --out ./pg.portable --source-arch arm64 --target-arch amd64 \\\n` +
-      `    --dump ./pg.dump --source-verifier-output ./verify.txt --postgres-version 15 \\\n` +
-      `    --checkpoint-lsn 0/16B6C50\n` +
-      `  machinen restore ./pg.portable --target-arch amd64 --target-verifier-output ./verify.txt\n` +
-      `  machinen capture eventfd --out ./eventfd.portable --source-arch arm64 --target-arch amd64 \\\n` +
-      `    --source-verifier-output ./eventfd.verify --counter 42\n` +
-      `  machinen restore ./eventfd.portable --target-arch amd64 --json\n` +
-      `  machinen capture pipe --out ./pipe.portable --source-arch arm64 --target-arch amd64 \\\n` +
-      `    --source-verifier-output ./pipe.verify --read-fd 10 --write-fd 12\n` +
-      `  machinen restore ./pipe.portable --target-arch amd64 --json\n` +
-      `  machinen capture timerfd --out ./timerfd.portable --source-arch arm64 --target-arch amd64 \\\n` +
-      `    --source-verifier-output ./timerfd.verify --remaining-ms 60000\n` +
-      `  machinen restore ./timerfd.portable --target-arch amd64 --json\n` +
-      `  machinen capture tcp-listener --out ./tcp.portable --source-arch arm64 --target-arch amd64 \\\n` +
-      `    --source-verifier-output ./tcp.verify --bind-address 127.0.0.1 --port 18080 --backlog 16\n` +
-      `  machinen restore ./tcp.portable --target-arch amd64 --json\n` +
-      `  machinen capture ping-socket --out ./ping.portable --source-arch arm64 --target-arch amd64 \\\n` +
-      `    --socket-kind ping-dgram-icmp --source-verifier-output ./ping.verify --echo-id 7 --echo-seq 1\n` +
-      `  machinen restore ./ping.portable --target-arch amd64 --json\n` +
+      `  machinen move scan --json\n` +
+      `  machinen move save 1234 ./move.json --issue\n` +
+      `  machinen move load ./move.json --json\n` +
       `  machinen support --family network-ping-socket --json\n` +
       `\n` +
       `Environment:\n` +
@@ -6922,9 +4524,8 @@ function printHelp(): void {
       `                                           instead of the cache / GH Releases\n` +
       `  MACHINEN_GUEST_ARCH                      Guest asset arch: arm64 or amd64\n` +
       `  MACHINEN_SNAPSHOT_ENGINE                Snapshot engine: vmstate (default),\n` +
-      `                                           criu, or portable (Level 4 ping\n` +
-      `                                           machine subset; experimental for others)\n` +
-      `  MACHINEN_PORTABLE_TARGET_ARCH           Optional portable ping target arch override\n` +
+      `                                           criu, or portable (legacy portable routes\n` +
+      `                                           refuse; use machinen move for cross-ISA)\n` +
       `  MACHINEN_REGISTRY_DIR                    Override registry location (default\n` +
       `                                           ~/.machinen/vms)\n` +
       `\n` +
@@ -6942,6 +4543,7 @@ type CommandHandler = (args: string[]) => number | Promise<number>;
 const COMMAND_HANDLERS = new Map<string, CommandHandler>([
   ["boot", cmdBoot],
   ["capture", cmdCapture],
+  ["move", cmdMove],
   ["node-level5", cmdNodeLevel5],
   ["support", cmdSupport],
   ["restore", cmdRestore],

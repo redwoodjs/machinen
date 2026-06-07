@@ -342,11 +342,11 @@ function runGuardedCliLane(familyId: string, sourceArch: string, targetArch: str
 
 function docsPayload(): Record<string, unknown> {
   const docs = readFileSync(
-    join(repoRoot, "docs/snapshot/node-level5-product-support-50.md"),
+    join(repoRoot, "research/snapshot/node-level5-product-support-50.md"),
     "utf8",
   );
   const matrix = JSON.parse(
-    readFileSync(join(repoRoot, "docs/snapshot/node-level5-product-support-50.json"), "utf8"),
+    readFileSync(join(repoRoot, "research/snapshot/node-level5-product-support-50.json"), "utf8"),
   );
   return {
     docsMention50Percent: docs.includes("50% Node product support"),
@@ -357,7 +357,7 @@ function docsPayload(): Record<string, unknown> {
 
 function runbookPayload(): Record<string, unknown> {
   const runbook = readFileSync(
-    join(repoRoot, "docs/snapshot/node-level5-product-support-runbook.md"),
+    join(repoRoot, "research/snapshot/node-level5-product-support-runbook.md"),
     "utf8",
   );
   return {
@@ -369,7 +369,7 @@ function runbookPayload(): Record<string, unknown> {
 
 function compatibilityPayload(): Record<string, unknown> {
   const compatibility = readFileSync(
-    join(repoRoot, "docs/snapshot/node-level5-product-support-50-compatibility.md"),
+    join(repoRoot, "research/snapshot/node-level5-product-support-50-compatibility.md"),
     "utf8",
   );
   return {
@@ -380,7 +380,7 @@ function compatibilityPayload(): Record<string, unknown> {
 
 function claimRegistryPayload(): Record<string, unknown> {
   return {
-    productClaimRegistry: "docs/snapshot/node-level5-product-support-50.json",
+    productClaimRegistry: "research/snapshot/node-level5-product-support-50.json",
     nodeProductSupportClaimed: 50,
     broadNodeProductSupportClaimed: 0,
   };
@@ -388,7 +388,7 @@ function claimRegistryPayload(): Record<string, unknown> {
 
 function releaseChecklistPayload(): Record<string, unknown> {
   const checklist = readFileSync(
-    join(repoRoot, "docs/snapshot/node-level5-product-support-50-release-checklist.md"),
+    join(repoRoot, "research/snapshot/node-level5-product-support-50-release-checklist.md"),
     "utf8",
   );
   return {

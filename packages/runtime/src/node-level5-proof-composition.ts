@@ -207,19 +207,19 @@ function nodeLevel5ProofRefusalMatrixRow(
 function defaultCheckedSummary(name: NodeLevel5ProofIngredientName): string {
   switch (name) {
     case "register-translation":
-      return "docs/snapshot/checked-summaries/architecture-portable-snapshot/final-gauntlet.json";
+      return "research/snapshot/checked-summaries/architecture-portable-snapshot/final-gauntlet.json";
     case "stack-return-chain-translation":
-      return "docs/snapshot/native-process-continuation-audit.md";
+      return "research/snapshot/native-process-continuation-audit.md";
     case "private-memory-materialization":
-      return "docs/snapshot/architecture-portable-snapshot-gauntlet.md";
+      return "research/snapshot/architecture-portable-snapshot-gauntlet.md";
     case "executable-target-module-materialization":
-      return "docs/snapshot/architecture-portable-snapshot-gauntlet.md";
+      return "research/snapshot/architecture-portable-snapshot-gauntlet.md";
     case "target-restore-loader":
       return "scripts/native-restore-loader.mjs";
     case "level4-event-loop-resource-map":
-      return "docs/snapshot/checked-summaries/level4-graduation/goal-008-node-event-loop-resource-map.json";
+      return "research/snapshot/checked-summaries/node-level5/goal-008-node-event-loop-resource-map.json";
     case "target-native-verifier":
-      return "docs/snapshot/checked-summaries/level4-graduation/goal-008-node-event-loop-resource-map.json";
+      return "research/snapshot/checked-summaries/node-level5/goal-008-node-event-loop-resource-map.json";
   }
 }
 

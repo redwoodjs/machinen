@@ -69360,7 +69360,7 @@
           "profile": "node-app-cli-script-recreate"
         },
         "realFixture": "scripts/fixtures/node-apps/cli-script/app.mjs",
-        "appHarness": "docs/snapshot/app-harnesses/node-cli-script.json",
+        "appHarness": "research/snapshot/app-harnesses/node-cli-script.json",
         "targetOutputVerifier": {
           "kind": "node-real-app-output",
           "expectedOutput": "node-cli-ok",
@@ -69378,13 +69378,13 @@
       },
       "descriptorSha256": "f6e0837ff6321ae871f81a04a1085b622f45a7e5599dafdad8466af644a25034",
       "realFixture": "scripts/fixtures/node-apps/cli-script/app.mjs",
-      "appHarness": "docs/snapshot/app-harnesses/node-cli-script.json",
+      "appHarness": "research/snapshot/app-harnesses/node-cli-script.json",
       "targetOutputVerifier": {
         "kind": "node-real-app-output",
         "expectedOutput": "node-cli-ok",
         "mode": "stdout-contains"
       },
-      "checkedSummary": "docs/snapshot/checked-summaries/node-apps/node-app-cli-script-recreate.json"
+      "checkedSummary": "research/snapshot/checked-summaries/node-apps/node-app-cli-script-recreate.json"
     },
     "node-app-commonjs-package-recreate": {
       "profile": "node-app-commonjs-package-recreate",
@@ -69521,7 +69521,7 @@
           "profile": "node-app-commonjs-package-recreate"
         },
         "realFixture": "scripts/fixtures/node-apps/commonjs-package/app.mjs",
-        "appHarness": "docs/snapshot/app-harnesses/node-commonjs-package.json",
+        "appHarness": "research/snapshot/app-harnesses/node-commonjs-package.json",
         "targetOutputVerifier": {
           "kind": "node-real-app-output",
           "expectedOutput": "node-cjs-ok",
@@ -69539,13 +69539,13 @@
       },
       "descriptorSha256": "6812e08ef76df5731ef113c1ac109033854446af4cf1f9c9bb1fbe8e90a74c0d",
       "realFixture": "scripts/fixtures/node-apps/commonjs-package/app.mjs",
-      "appHarness": "docs/snapshot/app-harnesses/node-commonjs-package.json",
+      "appHarness": "research/snapshot/app-harnesses/node-commonjs-package.json",
       "targetOutputVerifier": {
         "kind": "node-real-app-output",
         "expectedOutput": "node-cjs-ok",
         "mode": "stdout-contains"
       },
-      "checkedSummary": "docs/snapshot/checked-summaries/node-apps/node-app-commonjs-package-recreate.json"
+      "checkedSummary": "research/snapshot/checked-summaries/node-apps/node-app-commonjs-package-recreate.json"
     },
     "node-app-esm-package-recreate": {
       "profile": "node-app-esm-package-recreate",
@@ -69682,7 +69682,7 @@
           "profile": "node-app-esm-package-recreate"
         },
         "realFixture": "scripts/fixtures/node-apps/esm-package/app.mjs",
-        "appHarness": "docs/snapshot/app-harnesses/node-esm-package.json",
+        "appHarness": "research/snapshot/app-harnesses/node-esm-package.json",
         "targetOutputVerifier": {
           "kind": "node-real-app-output",
           "expectedOutput": "node-esm-ok",
@@ -69700,13 +69700,13 @@
       },
       "descriptorSha256": "67b4da13c456f35497ace8da6a5750ccb27d3e2fcd5116795630276a8aea67ec",
       "realFixture": "scripts/fixtures/node-apps/esm-package/app.mjs",
-      "appHarness": "docs/snapshot/app-harnesses/node-esm-package.json",
+      "appHarness": "research/snapshot/app-harnesses/node-esm-package.json",
       "targetOutputVerifier": {
         "kind": "node-real-app-output",
         "expectedOutput": "node-esm-ok",
         "mode": "stdout-contains"
       },
-      "checkedSummary": "docs/snapshot/checked-summaries/node-apps/node-app-esm-package-recreate.json"
+      "checkedSummary": "research/snapshot/checked-summaries/node-apps/node-app-esm-package-recreate.json"
     },
     "node-app-timers-async-recreate": {
       "profile": "node-app-timers-async-recreate",
@@ -69845,7 +69845,7 @@
           "profile": "node-app-timers-async-recreate"
         },
         "realFixture": "scripts/fixtures/node-apps/timers-async/app.mjs",
-        "appHarness": "docs/snapshot/app-harnesses/node-timers-async.json",
+        "appHarness": "research/snapshot/app-harnesses/node-timers-async.json",
         "targetOutputVerifier": {
           "kind": "node-real-app-output",
           "expectedOutput": "node-timers-async-ok",
@@ -69863,13 +69863,13 @@
       },
       "descriptorSha256": "e8f9a801aaa6c68dbf361b6e53f35e11aec5416de62d3b01f8738f291b94b537",
       "realFixture": "scripts/fixtures/node-apps/timers-async/app.mjs",
-      "appHarness": "docs/snapshot/app-harnesses/node-timers-async.json",
+      "appHarness": "research/snapshot/app-harnesses/node-timers-async.json",
       "targetOutputVerifier": {
         "kind": "node-real-app-output",
         "expectedOutput": "node-timers-async-ok",
         "mode": "stdout-contains"
       },
-      "checkedSummary": "docs/snapshot/checked-summaries/node-apps/node-app-timers-async-recreate.json"
+      "checkedSummary": "research/snapshot/checked-summaries/node-apps/node-app-timers-async-recreate.json"
     },
     "node-app-fs-stdio-recreate": {
       "profile": "node-app-fs-stdio-recreate",
@@ -70008,7 +70008,7 @@
           "profile": "node-app-fs-stdio-recreate"
         },
         "realFixture": "scripts/fixtures/node-apps/fs-stdio/app.mjs",
-        "appHarness": "docs/snapshot/app-harnesses/node-fs-stdio.json",
+        "appHarness": "research/snapshot/app-harnesses/node-fs-stdio.json",
         "targetOutputVerifier": {
           "kind": "node-real-app-output",
           "expectedOutput": "node-fs-stdio-ok",
@@ -70026,13 +70026,13 @@
       },
       "descriptorSha256": "1e23496d93e03fe4859e8099004763844fc89041a1d2e93f17d76bd983e077a4",
       "realFixture": "scripts/fixtures/node-apps/fs-stdio/app.mjs",
-      "appHarness": "docs/snapshot/app-harnesses/node-fs-stdio.json",
+      "appHarness": "research/snapshot/app-harnesses/node-fs-stdio.json",
       "targetOutputVerifier": {
         "kind": "node-real-app-output",
         "expectedOutput": "node-fs-stdio-ok",
         "mode": "stdout-contains"
       },
-      "checkedSummary": "docs/snapshot/checked-summaries/node-apps/node-app-fs-stdio-recreate.json"
+      "checkedSummary": "research/snapshot/checked-summaries/node-apps/node-app-fs-stdio-recreate.json"
     },
     "node-app-http-server-recreate": {
       "profile": "node-app-http-server-recreate",
@@ -70171,7 +70171,7 @@
           "profile": "node-app-http-server-recreate"
         },
         "realFixture": "scripts/fixtures/node-apps/http-server/app.mjs",
-        "appHarness": "docs/snapshot/app-harnesses/node-http-server.json",
+        "appHarness": "research/snapshot/app-harnesses/node-http-server.json",
         "targetOutputVerifier": {
           "kind": "node-real-app-output",
           "expectedOutput": "node-http-ok",
@@ -70189,13 +70189,13 @@
       },
       "descriptorSha256": "aea4281803a322ddcfea0f189ca22f1aa4946c4ef5e8563d9c2c550afdec2fbf",
       "realFixture": "scripts/fixtures/node-apps/http-server/app.mjs",
-      "appHarness": "docs/snapshot/app-harnesses/node-http-server.json",
+      "appHarness": "research/snapshot/app-harnesses/node-http-server.json",
       "targetOutputVerifier": {
         "kind": "node-real-app-output",
         "expectedOutput": "node-http-ok",
         "mode": "stdout-contains"
       },
-      "checkedSummary": "docs/snapshot/checked-summaries/node-apps/node-app-http-server-recreate.json"
+      "checkedSummary": "research/snapshot/checked-summaries/node-apps/node-app-http-server-recreate.json"
     },
     "node-app-udp-dns-recreate": {
       "profile": "node-app-udp-dns-recreate",
@@ -70334,7 +70334,7 @@
           "profile": "node-app-udp-dns-recreate"
         },
         "realFixture": "scripts/fixtures/node-apps/udp-dns/app.mjs",
-        "appHarness": "docs/snapshot/app-harnesses/node-udp-dns.json",
+        "appHarness": "research/snapshot/app-harnesses/node-udp-dns.json",
         "targetOutputVerifier": {
           "kind": "node-real-app-output",
           "expectedOutput": "node-udp-dns-ok",
@@ -70352,13 +70352,13 @@
       },
       "descriptorSha256": "89e8af842a7d87880837355501551d8dcd4f8125bc9e233dcc9d94fc7908823a",
       "realFixture": "scripts/fixtures/node-apps/udp-dns/app.mjs",
-      "appHarness": "docs/snapshot/app-harnesses/node-udp-dns.json",
+      "appHarness": "research/snapshot/app-harnesses/node-udp-dns.json",
       "targetOutputVerifier": {
         "kind": "node-real-app-output",
         "expectedOutput": "node-udp-dns-ok",
         "mode": "stdout-contains"
       },
-      "checkedSummary": "docs/snapshot/checked-summaries/node-apps/node-app-udp-dns-recreate.json"
+      "checkedSummary": "research/snapshot/checked-summaries/node-apps/node-app-udp-dns-recreate.json"
     },
     "node-app-worker-thread-recreate": {
       "profile": "node-app-worker-thread-recreate",
@@ -70495,7 +70495,7 @@
           "profile": "node-app-worker-thread-recreate"
         },
         "realFixture": "scripts/fixtures/node-apps/worker-thread/app.mjs",
-        "appHarness": "docs/snapshot/app-harnesses/node-worker-thread.json",
+        "appHarness": "research/snapshot/app-harnesses/node-worker-thread.json",
         "targetOutputVerifier": {
           "kind": "node-real-app-output",
           "expectedOutput": "node-worker-ok",
@@ -70513,13 +70513,13 @@
       },
       "descriptorSha256": "ea63a90b1a6ce25c079d6e0a2aebda85101f7914dbfb13dc49afb6dbce7a2a22",
       "realFixture": "scripts/fixtures/node-apps/worker-thread/app.mjs",
-      "appHarness": "docs/snapshot/app-harnesses/node-worker-thread.json",
+      "appHarness": "research/snapshot/app-harnesses/node-worker-thread.json",
       "targetOutputVerifier": {
         "kind": "node-real-app-output",
         "expectedOutput": "node-worker-ok",
         "mode": "stdout-contains"
       },
-      "checkedSummary": "docs/snapshot/checked-summaries/node-apps/node-app-worker-thread-recreate.json"
+      "checkedSummary": "research/snapshot/checked-summaries/node-apps/node-app-worker-thread-recreate.json"
     },
     "node-app-native-addon-recreate": {
       "profile": "node-app-native-addon-recreate",
@@ -70656,7 +70656,7 @@
           "profile": "node-app-native-addon-recreate"
         },
         "realFixture": "scripts/fixtures/node-apps/native-addon/app.mjs",
-        "appHarness": "docs/snapshot/app-harnesses/node-native-addon.json",
+        "appHarness": "research/snapshot/app-harnesses/node-native-addon.json",
         "targetOutputVerifier": {
           "kind": "node-real-app-output",
           "expectedOutput": "node-addon-ok",
@@ -70674,13 +70674,13 @@
       },
       "descriptorSha256": "8fd5557068e57c9bc8012224226bc124ed50ac85a630ef27a509f07b60e45930",
       "realFixture": "scripts/fixtures/node-apps/native-addon/app.mjs",
-      "appHarness": "docs/snapshot/app-harnesses/node-native-addon.json",
+      "appHarness": "research/snapshot/app-harnesses/node-native-addon.json",
       "targetOutputVerifier": {
         "kind": "node-real-app-output",
         "expectedOutput": "node-addon-ok",
         "mode": "stdout-contains"
       },
-      "checkedSummary": "docs/snapshot/checked-summaries/node-apps/node-app-native-addon-recreate.json"
+      "checkedSummary": "research/snapshot/checked-summaries/node-apps/node-app-native-addon-recreate.json"
     },
     "node-app-crypto-tls-recreate": {
       "profile": "node-app-crypto-tls-recreate",
@@ -70817,7 +70817,7 @@
           "profile": "node-app-crypto-tls-recreate"
         },
         "realFixture": "scripts/fixtures/node-apps/crypto-tls/app.mjs",
-        "appHarness": "docs/snapshot/app-harnesses/node-crypto-tls.json",
+        "appHarness": "research/snapshot/app-harnesses/node-crypto-tls.json",
         "targetOutputVerifier": {
           "kind": "node-real-app-output",
           "expectedOutput": "node-crypto-tls-ok",
@@ -70835,13 +70835,13 @@
       },
       "descriptorSha256": "444aa9c7d0e664c6bae2a3ae4c3047b1733e07d682afad4395a27b7df838084c",
       "realFixture": "scripts/fixtures/node-apps/crypto-tls/app.mjs",
-      "appHarness": "docs/snapshot/app-harnesses/node-crypto-tls.json",
+      "appHarness": "research/snapshot/app-harnesses/node-crypto-tls.json",
       "targetOutputVerifier": {
         "kind": "node-real-app-output",
         "expectedOutput": "node-crypto-tls-ok",
         "mode": "stdout-contains"
       },
-      "checkedSummary": "docs/snapshot/checked-summaries/node-apps/node-app-crypto-tls-recreate.json"
+      "checkedSummary": "research/snapshot/checked-summaries/node-apps/node-app-crypto-tls-recreate.json"
     },
     "node-empty-event-loop-pending-timers-refusal": {
       "profile": "node-empty-event-loop-pending-timers-refusal",

@@ -941,6 +941,15 @@ export {
   validatePortableMachineSnapshotManifest,
 } from "./portable-machine-snapshot.ts";
 export {
+  MOVE_DESCRIPTOR_FORMAT_VERSION,
+  MOVE_REFUSAL_CODE,
+  buildMoveIssueReport,
+  createMoveDescriptor,
+  loadMoveDescriptor,
+  saveMoveDescriptor,
+  scanMovePidGraph,
+} from "./move-pid-graph.ts";
+export {
   PRODUCT_CLAIM_PROOF_ONLY_REFUSAL_CODE,
   PRODUCT_CLAIM_REGISTRY_FORMAT_VERSION,
   buildProductClaimRegistry,
@@ -952,89 +961,6 @@ export {
   productSupportLevels,
   summarizeProductClaimRegistry,
 } from "./product-claim-registry.ts";
-export {
-  PRODUCT_SEMANTIC_PING_FORMAT_VERSION,
-  ProductSemanticPingError,
-  createProductSemanticPingContinuation,
-  productSemanticPingRefusalCodes,
-  verifyProductSemanticPingContinuation,
-} from "./product-semantic-ping.ts";
-export {
-  PRODUCT_PORTABLE_POSTGRES_DUMP,
-  PRODUCT_PORTABLE_POSTGRES_FORMAT_VERSION,
-  PRODUCT_PORTABLE_POSTGRES_MANIFEST,
-  PRODUCT_PORTABLE_POSTGRES_REFUSAL,
-  PRODUCT_PORTABLE_POSTGRES_RESTORE_SUMMARY,
-  ProductPortablePostgresError,
-  createProductPortablePostgresSnapshot,
-  isProductPortablePostgresBundle,
-  productPortablePostgresArchitectures,
-  productPortablePostgresFileSha256,
-  productPortablePostgresRefusalCodes,
-  productPortablePostgresSupportLevels,
-  restoreProductPortablePostgresSnapshot,
-} from "./product-portable-postgres.ts";
-export {
-  PRODUCT_LEVEL4_TCP_LISTENER_FORMAT_VERSION,
-  PRODUCT_LEVEL4_TCP_LISTENER_MANIFEST,
-  PRODUCT_LEVEL4_TCP_LISTENER_REFUSAL,
-  PRODUCT_LEVEL4_TCP_LISTENER_RESTORE_SUMMARY,
-  ProductLevel4TcpListenerError,
-  createProductLevel4TcpListenerSnapshot,
-  isProductLevel4TcpListenerBundle,
-  productLevel4TcpListenerArchitectures,
-  productLevel4TcpListenerRefusalCodes,
-  restoreProductLevel4TcpListenerSnapshot,
-} from "./product-level4-tcp-listener.ts";
-export {
-  PRODUCT_LEVEL4_TIMERFD_FORMAT_VERSION,
-  PRODUCT_LEVEL4_TIMERFD_MANIFEST,
-  PRODUCT_LEVEL4_TIMERFD_REFUSAL,
-  PRODUCT_LEVEL4_TIMERFD_RESTORE_SUMMARY,
-  ProductLevel4TimerfdError,
-  createProductLevel4TimerfdSnapshot,
-  isProductLevel4TimerfdBundle,
-  productLevel4TimerfdArchitectures,
-  productLevel4TimerfdRefusalCodes,
-  restoreProductLevel4TimerfdSnapshot,
-} from "./product-level4-timerfd.ts";
-export {
-  PRODUCT_LEVEL4_PIPE_FORMAT_VERSION,
-  PRODUCT_LEVEL4_PIPE_MANIFEST,
-  PRODUCT_LEVEL4_PIPE_REFUSAL,
-  PRODUCT_LEVEL4_PIPE_RESTORE_SUMMARY,
-  ProductLevel4PipeError,
-  createProductLevel4PipeSnapshot,
-  isProductLevel4PipeBundle,
-  productLevel4PipeArchitectures,
-  productLevel4PipeRefusalCodes,
-  restoreProductLevel4PipeSnapshot,
-} from "./product-level4-pipe.ts";
-export {
-  PRODUCT_LEVEL4_EVENTFD_FORMAT_VERSION,
-  PRODUCT_LEVEL4_EVENTFD_MANIFEST,
-  PRODUCT_LEVEL4_EVENTFD_REFUSAL,
-  PRODUCT_LEVEL4_EVENTFD_RESTORE_SUMMARY,
-  ProductLevel4EventfdError,
-  createProductLevel4EventfdSnapshot,
-  isProductLevel4EventfdBundle,
-  productLevel4EventfdArchitectures,
-  productLevel4EventfdRefusalCodes,
-  restoreProductLevel4EventfdSnapshot,
-} from "./product-level4-eventfd.ts";
-export {
-  PRODUCT_LEVEL4_PING_SOCKET_FORMAT_VERSION,
-  PRODUCT_LEVEL4_PING_SOCKET_MANIFEST,
-  PRODUCT_LEVEL4_PING_SOCKET_REFUSAL,
-  PRODUCT_LEVEL4_PING_SOCKET_RESTORE_SUMMARY,
-  ProductLevel4PingSocketError,
-  createProductLevel4PingSocketSnapshot,
-  isProductLevel4PingSocketBundle,
-  productLevel4PingSocketArchitectures,
-  productLevel4PingSocketKinds,
-  productLevel4PingSocketRefusalCodes,
-  restoreProductLevel4PingSocketSnapshot,
-} from "./product-level4-ping-socket.ts";
 export {
   TARGET_GUEST_RESTORE_DESCRIPTOR_KIND,
   TargetGuestRestoreLoaderValidationError,
@@ -1139,6 +1065,16 @@ export type {
   PortableMachineSnapshotRefusals,
 } from "./portable-machine-snapshot.ts";
 export type {
+  MoveDescriptor,
+  MoveIssueReport,
+  MovePidGraph,
+  MovePidGraphEdge,
+  MovePidGraphNode,
+  MoveProcessStateClass,
+  MoveRefusalEvidence,
+  MoveSaveResult,
+} from "./move-pid-graph.ts";
+export type {
   ProductClaimEntry,
   ProductClaimFamily,
   ProductClaimObservableStateDecision,
@@ -1149,80 +1085,6 @@ export type {
   ProductClaimStatus,
   ProductSupportLevel,
 } from "./product-claim-registry.ts";
-export type {
-  ProductSemanticPingArchitecture,
-  ProductSemanticPingContinuationResult,
-  ProductSemanticPingDescriptor,
-  ProductSemanticPingDescriptorInput,
-  ProductSemanticPingObservableStateDecision,
-  ProductSemanticPingRefusal,
-  ProductSemanticPingRefusalCode,
-  ProductSemanticPingRestoreSummary,
-  ProductSemanticPingStateDecision,
-} from "./product-semantic-ping.ts";
-export type {
-  ProductPortablePostgresArchitecture,
-  ProductPortablePostgresCaptureInput,
-  ProductPortablePostgresCaptureResult,
-  ProductPortablePostgresClaimClassification,
-  ProductPortablePostgresDescriptor,
-  ProductPortablePostgresRefusal,
-  ProductPortablePostgresRefusalCode,
-  ProductPortablePostgresRestoreInput,
-  ProductPortablePostgresRestoreSummary,
-  ProductPortableSupportLevel,
-} from "./product-portable-postgres.ts";
-export type {
-  ProductLevel4TcpListenerArchitecture,
-  ProductLevel4TcpListenerCaptureInput,
-  ProductLevel4TcpListenerCaptureResult,
-  ProductLevel4TcpListenerDescriptor,
-  ProductLevel4TcpListenerRefusal,
-  ProductLevel4TcpListenerRefusalCode,
-  ProductLevel4TcpListenerRestoreInput,
-  ProductLevel4TcpListenerRestoreSummary,
-} from "./product-level4-tcp-listener.ts";
-export type {
-  ProductLevel4TimerfdArchitecture,
-  ProductLevel4TimerfdCaptureInput,
-  ProductLevel4TimerfdCaptureResult,
-  ProductLevel4TimerfdDescriptor,
-  ProductLevel4TimerfdRefusal,
-  ProductLevel4TimerfdRefusalCode,
-  ProductLevel4TimerfdRestoreInput,
-  ProductLevel4TimerfdRestoreSummary,
-} from "./product-level4-timerfd.ts";
-export type {
-  ProductLevel4PipeArchitecture,
-  ProductLevel4PipeCaptureInput,
-  ProductLevel4PipeCaptureResult,
-  ProductLevel4PipeDescriptor,
-  ProductLevel4PipeRefusal,
-  ProductLevel4PipeRefusalCode,
-  ProductLevel4PipeRestoreInput,
-  ProductLevel4PipeRestoreSummary,
-} from "./product-level4-pipe.ts";
-export type {
-  ProductLevel4EventfdArchitecture,
-  ProductLevel4EventfdCaptureInput,
-  ProductLevel4EventfdCaptureResult,
-  ProductLevel4EventfdDescriptor,
-  ProductLevel4EventfdRefusal,
-  ProductLevel4EventfdRefusalCode,
-  ProductLevel4EventfdRestoreInput,
-  ProductLevel4EventfdRestoreSummary,
-} from "./product-level4-eventfd.ts";
-export type {
-  ProductLevel4PingSocketArchitecture,
-  ProductLevel4PingSocketCaptureInput,
-  ProductLevel4PingSocketCaptureResult,
-  ProductLevel4PingSocketDescriptor,
-  ProductLevel4PingSocketKind,
-  ProductLevel4PingSocketRefusal,
-  ProductLevel4PingSocketRefusalCode,
-  ProductLevel4PingSocketRestoreInput,
-  ProductLevel4PingSocketRestoreSummary,
-} from "./product-level4-ping-socket.ts";
 export type {
   TargetGuestEpollWatchRecipe,
   TargetGuestNativeRestoreStep,

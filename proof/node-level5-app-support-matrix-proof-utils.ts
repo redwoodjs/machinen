@@ -286,7 +286,7 @@ function auditPayload(kind: string): Record<string, unknown> {
   }
   if (kind === "audit-docs-linked") {
     return {
-      docsExist: existsSync(join(repoRoot, "docs/snapshot/node-level5-app-support-matrix.md")),
+      docsExist: existsSync(join(repoRoot, "research/snapshot/node-level5-app-support-matrix.md")),
     };
   }
   if (kind === "audit-cli-surface") {

@@ -9,7 +9,7 @@ import { buildNodeLevel5HttpProfileCapture } from "@machinen/runtime";
 
 const CLI = resolve("packages/cli/src/cli.ts");
 const PROOF_RUN = resolve(
-  "docs/snapshot/checked-summaries/level4-graduation/goal-009-proof-run.json",
+  "research/snapshot/checked-summaries/node-level5/goal-009-proof-run.json",
 );
 
 describe("Node Level 5 default public restore proof", () => {

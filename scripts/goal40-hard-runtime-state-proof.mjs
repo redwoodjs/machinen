@@ -293,7 +293,7 @@ function proveGoScheduler(workDir) {
           source: "Goal 39 go-cross-arch-runtime-policy",
           routes: ["arm64-to-amd64", "amd64-to-arm64"],
           checkedSummary:
-            "docs/snapshot/checked-summaries/non-node-cross-arch/go-cross-arch-runtime-policy.json",
+            "research/snapshot/checked-summaries/non-node-cross-arch/go-cross-arch-runtime-policy.json",
           semanticSubset: "goroutine-channel-timer-no-cgo",
         }
       : null,

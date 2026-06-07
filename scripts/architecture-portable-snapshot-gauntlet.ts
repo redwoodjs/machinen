@@ -20,7 +20,7 @@ interface Args {
 type Json = Record<string, any>;
 
 const DEFAULT_OUT =
-  "docs/snapshot/checked-summaries/architecture-portable-snapshot/final-gauntlet.json";
+  "research/snapshot/checked-summaries/architecture-portable-snapshot/final-gauntlet.json";
 
 function parseArgs(): Args {
   const args: Args = { out: DEFAULT_OUT, fixture: false };

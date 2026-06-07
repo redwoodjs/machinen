@@ -2,7 +2,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-const DEFAULT_FIXTURE = "docs/snapshot/runtime-adapter-noop-fixture.json";
+const DEFAULT_FIXTURE = "research/snapshot/runtime-adapter-noop-fixture.json";
 const REQUIRED_REFUSALS = [
   "runtime-native-extension-opaque",
   "runtime-opaque-vm-frame",

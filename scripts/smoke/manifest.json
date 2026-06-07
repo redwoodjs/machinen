@@ -8,13 +8,6 @@
   },
   "entries": [
     {
-      "path": "scripts/smoke-tests.sh",
-      "classification": "product-smoke",
-      "packageScripts": ["smoke-tests"],
-      "reason": "core local VM CLI boot, mount, live-mount, memory, balloon, and rootfs contract coverage",
-      "requires": ["local-hvf-or-kvm", "release-assets"]
-    },
-    {
       "path": "scripts/smoke-test-snapshot-restore-fork.sh",
       "classification": "product-smoke",
       "packageScripts": ["smoke-test-snapshot-restore-fork"],
@@ -22,101 +15,31 @@
       "requires": ["local-hvf-or-kvm", "release-assets"]
     },
     {
-      "path": "scripts/smoke/vmstate/all.sh",
+      "path": "scripts/smoke-tests.sh",
       "classification": "product-smoke",
-      "packageScripts": ["smoke-vmstate"],
-      "reason": "aggregate for focused whole-VM vmstate regressions",
+      "packageScripts": ["smoke-tests"],
+      "reason": "core local VM CLI boot, mount, live-mount, memory, balloon, and rootfs contract coverage",
       "requires": ["local-hvf-or-kvm", "release-assets"]
     },
     {
-      "path": "scripts/smoke/vmstate/timers.sh",
-      "classification": "product-smoke",
-      "packageScripts": ["smoke-vmstate-timers"],
-      "reason": "whole-VM vmstate timer and clock regressions",
-      "requires": ["local-hvf-or-kvm", "release-assets"]
+      "path": "scripts/smoke/advanced-linux-facility-probe.sh",
+      "classification": "proof-audit",
+      "packageScripts": ["proof-advanced-linux-facility-probe"],
+      "reason": "advanced Linux facility proof/refusal probe",
+      "requires": ["linux-capabilities-optional"]
     },
     {
-      "path": "scripts/smoke/vmstate/entropy.sh",
-      "classification": "product-smoke",
-      "packageScripts": ["smoke-vmstate-entropy"],
-      "reason": "whole-VM vmstate entropy reseed regressions",
-      "requires": ["local-hvf-or-kvm", "release-assets"]
-    },
-    {
-      "path": "scripts/smoke/vmstate/sockets.sh",
-      "classification": "product-smoke",
-      "packageScripts": ["smoke-vmstate-sockets"],
-      "reason": "whole-VM vmstate socket and port-forward regressions",
-      "requires": ["local-hvf-or-kvm", "release-assets"]
-    },
-    {
-      "path": "scripts/smoke/product-portable-postgres.sh",
-      "classification": "product-smoke",
-      "packageScripts": ["smoke-product-portable-postgres"],
-      "reason": "implemented product portable PostgreSQL descriptor/refusal boundary",
-      "requires": ["built-cli"]
-    },
-    {
-      "path": "scripts/smoke/product-support-discovery.sh",
-      "classification": "product-smoke",
-      "packageScripts": ["smoke-product-support-discovery"],
-      "reason": "public product support registry and proof-only/refusal boundaries",
-      "requires": ["built-cli"]
-    },
-    {
-      "path": "scripts/smoke/semantic-ping-continuation.sh",
-      "classification": "product-smoke",
-      "packageScripts": ["smoke-semantic-ping-continuation"],
-      "reason": "Level 2 semantic ping product continuation and stable refusals",
+      "path": "scripts/smoke/architecture-portable-snapshot-gauntlet.sh",
+      "classification": "proof-audit",
+      "packageScripts": ["proof-architecture-portable-snapshot-gauntlet"],
+      "reason": "architecture gauntlet guarding no source-ISA, sidecar, or metadata-only shortcuts",
       "requires": ["built-runtime"]
     },
     {
-      "path": "scripts/smoke/portable-ping-machine.sh",
+      "path": "scripts/smoke/clean-service-cross-arch.sh",
       "classification": "product-smoke",
-      "packageScripts": ["smoke-portable-ping-machine"],
-      "reason": "Level 4 ping socket machine snapshot/restore product path",
-      "requires": ["local-hvf-or-kvm", "built-cli"]
-    },
-    {
-      "path": "scripts/smoke/portable-eventfd.sh",
-      "classification": "product-smoke",
-      "packageScripts": ["smoke-portable-eventfd"],
-      "reason": "Level 4 eventfd reconstruction product path",
-      "requires": ["built-cli"]
-    },
-    {
-      "path": "scripts/smoke/portable-pipe.sh",
-      "classification": "product-smoke",
-      "packageScripts": ["smoke-portable-pipe"],
-      "reason": "Level 4 pipe pair reconstruction product path",
-      "requires": ["built-cli"]
-    },
-    {
-      "path": "scripts/smoke/portable-timerfd.sh",
-      "classification": "product-smoke",
-      "packageScripts": ["smoke-portable-timerfd"],
-      "reason": "Level 4 timerfd reconstruction product path",
-      "requires": ["built-cli"]
-    },
-    {
-      "path": "scripts/smoke/portable-tcp-listener.sh",
-      "classification": "product-smoke",
-      "packageScripts": ["smoke-portable-tcp-listener"],
-      "reason": "Level 4 TCP listener reconstruction product path",
-      "requires": ["built-cli"]
-    },
-    {
-      "path": "scripts/smoke/node-product-snapshot-restore.sh",
-      "classification": "product-smoke",
-      "packageScripts": ["smoke-node-product-snapshot-restore"],
-      "reason": "clean Node service product snapshot/restore boundary and refusals",
-      "requires": ["local-hvf-or-kvm", "release-assets"]
-    },
-    {
-      "path": "scripts/smoke/clean-service-python-product-snapshot-restore.sh",
-      "classification": "product-smoke",
-      "packageScripts": ["smoke-clean-service-python-product-snapshot-restore"],
-      "reason": "clean Python service product snapshot/restore boundary and refusals",
+      "packageScripts": ["smoke-clean-service-cross-arch"],
+      "reason": "matrix wrapper for clean Node/Python service product routes",
       "requires": ["local-hvf-or-kvm", "release-assets"]
     },
     {
@@ -127,13 +50,6 @@
       "requires": ["local-hvf-or-kvm", "release-assets"]
     },
     {
-      "path": "scripts/smoke/clean-service-cross-arch.sh",
-      "classification": "product-smoke",
-      "packageScripts": ["smoke-clean-service-cross-arch"],
-      "reason": "matrix wrapper for clean Node/Python service product routes",
-      "requires": ["local-hvf-or-kvm", "release-assets"]
-    },
-    {
       "path": "scripts/smoke/clean-service-kernel-state.sh",
       "classification": "product-smoke",
       "packageScripts": ["smoke-clean-service-kernel-state"],
@@ -141,25 +57,18 @@
       "requires": ["local-hvf-or-kvm", "release-assets"]
     },
     {
-      "path": "scripts/smoke/opposite-isa-vm-execution.sh",
-      "classification": "proof-audit",
-      "packageScripts": ["proof-opposite-isa-vm-execution"],
-      "reason": "architecture route/proof guardrail; not a product support claim",
-      "requires": ["optional-live-vm"]
+      "path": "scripts/smoke/clean-service-python-product-snapshot-restore.sh",
+      "classification": "product-smoke",
+      "packageScripts": ["smoke-clean-service-python-product-snapshot-restore"],
+      "reason": "clean Python service product snapshot/restore boundary and refusals",
+      "requires": ["local-hvf-or-kvm", "release-assets"]
     },
     {
-      "path": "scripts/smoke/portable-machine-restore.sh",
-      "classification": "proof-audit",
-      "packageScripts": ["proof-portable-machine-restore"],
-      "reason": "native portable-machine proof runner and target-native verifier; not broad product support",
-      "requires": ["built-runtime", "optional-remote-amd64"]
-    },
-    {
-      "path": "scripts/smoke/non-node-runtime-proof.sh",
-      "classification": "proof-audit",
-      "packageScripts": ["proof-non-node-runtime"],
-      "reason": "runtime support/refusal proof matrix for non-Node runtimes",
-      "requires": ["local-runtime-toolchains"]
+      "path": "scripts/smoke/go-quiescent-runtime.sh",
+      "classification": "archived",
+      "packageScripts": ["archive-go-quiescent-runtime"],
+      "reason": "Go quiescent runtime-profile success claims require rewrite as proof-only/refusal evidence",
+      "requires": ["remote-arm64", "remote-amd64"]
     },
     {
       "path": "scripts/smoke/goal40-hard-runtime-state.sh",
@@ -167,27 +76,6 @@
       "packageScripts": ["proof-goal40-hard-runtime-state"],
       "reason": "hard runtime state refusal/support policy audit",
       "requires": ["local-node"]
-    },
-    {
-      "path": "scripts/smoke/hard-runtime-refusal-contract.sh",
-      "classification": "proof-audit",
-      "packageScripts": ["proof-hard-runtime-refusal-contract"],
-      "reason": "stable refusal contract audit for hard runtime state",
-      "requires": ["local-node"]
-    },
-    {
-      "path": "scripts/smoke/stateful-services-proof.sh",
-      "classification": "proof-audit",
-      "packageScripts": ["proof-stateful-services"],
-      "reason": "stateful service proof/refusal evidence; not a generic product smoke",
-      "requires": ["local-node"]
-    },
-    {
-      "path": "scripts/smoke/stateful-database-portable-restore.sh",
-      "classification": "proof-audit",
-      "packageScripts": ["proof-stateful-database-portable-restore"],
-      "reason": "stateful database portable restore proof/refusal matrix",
-      "requires": ["built-runtime"]
     },
     {
       "path": "scripts/smoke/guest-checkpoint-substrate.sh",
@@ -201,25 +89,11 @@
       "requires": ["built-runtime"]
     },
     {
-      "path": "scripts/smoke/portable-snapshot-guest-checkpoint-composition.sh",
+      "path": "scripts/smoke/hard-runtime-refusal-contract.sh",
       "classification": "proof-audit",
-      "packageScripts": ["proof-portable-snapshot-guest-checkpoint-composition"],
-      "reason": "composition proof between portable snapshot and guest checkpoint",
-      "requires": ["built-runtime"]
-    },
-    {
-      "path": "scripts/smoke/runtime-confidence-profile-matrix.sh",
-      "classification": "proof-audit",
-      "packageScripts": ["proof-runtime-confidence-profile-matrix"],
-      "reason": "runtime confidence proof/refusal matrix",
-      "requires": ["built-runtime"]
-    },
-    {
-      "path": "scripts/smoke/advanced-linux-facility-probe.sh",
-      "classification": "proof-audit",
-      "packageScripts": ["proof-advanced-linux-facility-probe"],
-      "reason": "advanced Linux facility proof/refusal probe",
-      "requires": ["linux-capabilities-optional"]
+      "packageScripts": ["proof-hard-runtime-refusal-contract"],
+      "reason": "stable refusal contract audit for hard runtime state",
+      "requires": ["local-node"]
     },
     {
       "path": "scripts/smoke/nested-virtualization-stretch-proof.sh",
@@ -229,10 +103,398 @@
       "requires": ["optional-nested-virt"]
     },
     {
-      "path": "scripts/smoke/architecture-portable-snapshot-gauntlet.sh",
+      "path": "scripts/smoke/node-complex-restore.sh",
+      "classification": "archived",
+      "packageScripts": ["archive-node-complex-restore"],
+      "reason": "complex Node ecosystem runtime-profile success claims are not an acceptable product path",
+      "requires": ["remote-arm64", "remote-amd64"]
+    },
+    {
+      "path": "scripts/smoke/node-ecosystem-restore.sh",
+      "classification": "archived",
+      "packageScripts": ["archive-node-ecosystem-restore"],
+      "reason": "ecosystem Node runtime-profile success claims are stale/non-product",
+      "requires": ["remote-arm64", "remote-amd64"]
+    },
+    {
+      "path": "scripts/smoke/node-expanded-restore.sh",
+      "classification": "archived",
+      "packageScripts": ["archive-node-expanded-restore"],
+      "reason": "broad Node runtime-profile success claims are not an acceptable product path",
+      "requires": ["remote-arm64", "remote-amd64"]
+    },
+    {
+      "path": "scripts/smoke/node-level5-app-support-matrix-dimensions.sh",
       "classification": "proof-audit",
-      "packageScripts": ["proof-architecture-portable-snapshot-gauntlet"],
-      "reason": "architecture gauntlet guarding no source-ISA, sidecar, or metadata-only shortcuts",
+      "packageScripts": [],
+      "reason": "existing proof smoke script retained outside product smoke surface",
+      "requires": ["proof-environment"]
+    },
+    {
+      "path": "scripts/smoke/node-level5-app-support-matrix.sh",
+      "classification": "proof-audit",
+      "packageScripts": [],
+      "reason": "existing proof smoke script retained outside product smoke surface",
+      "requires": ["proof-environment"]
+    },
+    {
+      "path": "scripts/smoke/node-level5-behavioral-verifier.sh",
+      "classification": "proof-audit",
+      "packageScripts": [],
+      "reason": "existing proof smoke script retained outside product smoke surface",
+      "requires": ["proof-environment"]
+    },
+    {
+      "path": "scripts/smoke/node-level5-cross-arch-release-corpus.sh",
+      "classification": "proof-audit",
+      "packageScripts": [],
+      "reason": "existing proof smoke script retained outside product smoke surface",
+      "requires": ["proof-environment"]
+    },
+    {
+      "path": "scripts/smoke/node-level5-declared-subset-readiness.sh",
+      "classification": "proof-audit",
+      "packageScripts": ["proof-node-level5-declared-subset-readiness"],
+      "reason": "existing proof smoke script retained outside product smoke surface",
+      "requires": ["proof-environment"]
+    },
+    {
+      "path": "scripts/smoke/node-level5-final-health-check.sh",
+      "classification": "proof-audit",
+      "packageScripts": [],
+      "reason": "existing proof smoke script retained outside product smoke surface",
+      "requires": ["proof-environment"]
+    },
+    {
+      "path": "scripts/smoke/node-level5-generic-vm-corpus.sh",
+      "classification": "proof-audit",
+      "packageScripts": [],
+      "reason": "existing proof smoke script retained outside product smoke surface",
+      "requires": ["proof-environment"]
+    },
+    {
+      "path": "scripts/smoke/node-level5-generic-vm-refusal-artifacts.sh",
+      "classification": "proof-audit",
+      "packageScripts": [],
+      "reason": "existing proof smoke script retained outside product smoke surface",
+      "requires": ["proof-environment"]
+    },
+    {
+      "path": "scripts/smoke/node-level5-generic-vm-row-artifacts.sh",
+      "classification": "proof-audit",
+      "packageScripts": [],
+      "reason": "existing proof smoke script retained outside product smoke surface",
+      "requires": ["proof-environment"]
+    },
+    {
+      "path": "scripts/smoke/node-level5-http-harness-proof.sh",
+      "classification": "proof-audit",
+      "packageScripts": ["proof-node-level5-http-harness-proof"],
+      "reason": "selected-state Node HTTP harness proof; not Level 5 product support",
+      "requires": ["local-hvf-or-kvm", "release-assets"]
+    },
+    {
+      "path": "scripts/smoke/node-level5-http-request-shape.sh",
+      "classification": "proof-audit",
+      "packageScripts": [],
+      "reason": "existing proof smoke script retained outside product smoke surface",
+      "requires": ["proof-environment"]
+    },
+    {
+      "path": "scripts/smoke/node-level5-http-response-shape.sh",
+      "classification": "proof-audit",
+      "packageScripts": [],
+      "reason": "existing proof smoke script retained outside product smoke surface",
+      "requires": ["proof-environment"]
+    },
+    {
+      "path": "scripts/smoke/node-level5-idle-timer-continuation.sh",
+      "classification": "proof-audit",
+      "packageScripts": [],
+      "reason": "existing proof smoke script retained outside product smoke surface",
+      "requires": ["proof-environment"]
+    },
+    {
+      "path": "scripts/smoke/node-level5-installed-feature-corpus.sh",
+      "classification": "proof-audit",
+      "packageScripts": [],
+      "reason": "existing proof smoke script retained outside product smoke surface",
+      "requires": ["proof-environment"]
+    },
+    {
+      "path": "scripts/smoke/node-level5-installed-third-party-app-corpus.sh",
+      "classification": "proof-audit",
+      "packageScripts": [],
+      "reason": "existing proof smoke script retained outside product smoke surface",
+      "requires": ["proof-environment"]
+    },
+    {
+      "path": "scripts/smoke/node-level5-middleware-error-handling.sh",
+      "classification": "proof-audit",
+      "packageScripts": [],
+      "reason": "existing proof smoke script retained outside product smoke surface",
+      "requires": ["proof-environment"]
+    },
+    {
+      "path": "scripts/smoke/node-level5-product-capture-materialization.sh",
+      "classification": "proof-audit",
+      "packageScripts": [],
+      "reason": "existing proof smoke script retained outside product smoke surface",
+      "requires": ["proof-environment"]
+    },
+    {
+      "path": "scripts/smoke/node-level5-product-commands.sh",
+      "classification": "proof-audit",
+      "packageScripts": [],
+      "reason": "existing proof smoke script retained outside product smoke surface",
+      "requires": ["proof-environment"]
+    },
+    {
+      "path": "scripts/smoke/node-level5-product-snapshot-detection.sh",
+      "classification": "proof-audit",
+      "packageScripts": [],
+      "reason": "existing proof smoke script retained outside product smoke surface",
+      "requires": ["proof-environment"]
+    },
+    {
+      "path": "scripts/smoke/node-level5-product-snapshot-restore.sh",
+      "classification": "proof-audit",
+      "packageScripts": [],
+      "reason": "existing proof smoke script retained outside product smoke surface",
+      "requires": ["proof-environment"]
+    },
+    {
+      "path": "scripts/smoke/node-level5-product-support-20.sh",
+      "classification": "proof-audit",
+      "packageScripts": [],
+      "reason": "existing proof smoke script retained outside product smoke surface",
+      "requires": ["proof-environment"]
+    },
+    {
+      "path": "scripts/smoke/node-level5-product-support-50.sh",
+      "classification": "proof-audit",
+      "packageScripts": [],
+      "reason": "existing proof smoke script retained outside product smoke surface",
+      "requires": ["proof-environment"]
+    },
+    {
+      "path": "scripts/smoke/node-level5-product-support-65.sh",
+      "classification": "proof-audit",
+      "packageScripts": [],
+      "reason": "existing proof smoke script retained outside product smoke surface",
+      "requires": ["proof-environment"]
+    },
+    {
+      "path": "scripts/smoke/node-level5-product-support-80-hardening.sh",
+      "classification": "proof-audit",
+      "packageScripts": [],
+      "reason": "existing proof smoke script retained outside product smoke surface",
+      "requires": ["proof-environment"]
+    },
+    {
+      "path": "scripts/smoke/node-level5-product-support-80.sh",
+      "classification": "proof-audit",
+      "packageScripts": [],
+      "reason": "existing proof smoke script retained outside product smoke surface",
+      "requires": ["proof-environment"]
+    },
+    {
+      "path": "scripts/smoke/node-level5-product-support-85-claim-ready.sh",
+      "classification": "proof-audit",
+      "packageScripts": [],
+      "reason": "existing proof smoke script retained outside product smoke surface",
+      "requires": ["proof-environment"]
+    },
+    {
+      "path": "scripts/smoke/node-level5-product-support-85-readiness.sh",
+      "classification": "proof-audit",
+      "packageScripts": [],
+      "reason": "existing proof smoke script retained outside product smoke surface",
+      "requires": ["proof-environment"]
+    },
+    {
+      "path": "scripts/smoke/node-level5-real-app-behavioral-corpus.sh",
+      "classification": "proof-audit",
+      "packageScripts": [],
+      "reason": "existing proof smoke script retained outside product smoke surface",
+      "requires": ["proof-environment"]
+    },
+    {
+      "path": "scripts/smoke/node-level5-real-app-corpus-release-gate.sh",
+      "classification": "proof-audit",
+      "packageScripts": [],
+      "reason": "existing proof smoke script retained outside product smoke surface",
+      "requires": ["proof-environment"]
+    },
+    {
+      "path": "scripts/smoke/node-level5-real-app-product-run-corpus.sh",
+      "classification": "proof-audit",
+      "packageScripts": [],
+      "reason": "existing proof smoke script retained outside product smoke surface",
+      "requires": ["proof-environment"]
+    },
+    {
+      "path": "scripts/smoke/node-level5-real-app-refusal-corpus.sh",
+      "classification": "proof-audit",
+      "packageScripts": [],
+      "reason": "existing proof smoke script retained outside product smoke surface",
+      "requires": ["proof-environment"]
+    },
+    {
+      "path": "scripts/smoke/node-level5-real-introspection.sh",
+      "classification": "proof-audit",
+      "packageScripts": [],
+      "reason": "existing proof smoke script retained outside product smoke surface",
+      "requires": ["proof-environment"]
+    },
+    {
+      "path": "scripts/smoke/node-level5-refusal-expansion.sh",
+      "classification": "proof-audit",
+      "packageScripts": [],
+      "reason": "existing proof smoke script retained outside product smoke surface",
+      "requires": ["proof-environment"]
+    },
+    {
+      "path": "scripts/smoke/node-level5-restore-launcher.sh",
+      "classification": "proof-audit",
+      "packageScripts": [],
+      "reason": "existing proof smoke script retained outside product smoke surface",
+      "requires": ["proof-environment"]
+    },
+    {
+      "path": "scripts/smoke/node-level5-retained-artifact-ingestion.sh",
+      "classification": "proof-audit",
+      "packageScripts": [],
+      "reason": "existing proof smoke script retained outside product smoke surface",
+      "requires": ["proof-environment"]
+    },
+    {
+      "path": "scripts/smoke/node-level5-safe-config.sh",
+      "classification": "proof-audit",
+      "packageScripts": [],
+      "reason": "existing proof smoke script retained outside product smoke surface",
+      "requires": ["proof-environment"]
+    },
+    {
+      "path": "scripts/smoke/node-level5-safe-outbound-reconnect.sh",
+      "classification": "proof-audit",
+      "packageScripts": [],
+      "reason": "existing proof smoke script retained outside product smoke surface",
+      "requires": ["proof-environment"]
+    },
+    {
+      "path": "scripts/smoke/node-level5-static-routing-variant.sh",
+      "classification": "proof-audit",
+      "packageScripts": [],
+      "reason": "existing proof smoke script retained outside product smoke surface",
+      "requires": ["proof-environment"]
+    },
+    {
+      "path": "scripts/smoke/node-level5-target-bound-snapshot.sh",
+      "classification": "proof-audit",
+      "packageScripts": [],
+      "reason": "existing proof smoke script retained outside product smoke surface",
+      "requires": ["proof-environment"]
+    },
+    {
+      "path": "scripts/smoke/node-level5-third-party-app-corpus.sh",
+      "classification": "proof-audit",
+      "packageScripts": [],
+      "reason": "existing proof smoke script retained outside product smoke surface",
+      "requires": ["proof-environment"]
+    },
+    {
+      "path": "scripts/smoke/node-level5-vm-detected-product-snapshot.sh",
+      "classification": "proof-audit",
+      "packageScripts": [],
+      "reason": "existing proof smoke script retained outside product smoke surface",
+      "requires": ["proof-environment"]
+    },
+    {
+      "path": "scripts/smoke/node-live-restore.sh",
+      "classification": "archived",
+      "packageScripts": ["archive-node-live-restore"],
+      "reason": "runtime-profile live Node restore proof is stale and conflicts with current product boundary if treated as support",
+      "requires": ["remote-arm64", "remote-amd64"]
+    },
+    {
+      "path": "scripts/smoke/node-product-snapshot-restore.sh",
+      "classification": "product-smoke",
+      "packageScripts": ["smoke-node-product-snapshot-restore"],
+      "reason": "clean Node service product snapshot/restore boundary and refusals",
+      "requires": ["local-hvf-or-kvm", "release-assets"]
+    },
+    {
+      "path": "scripts/smoke/node-production-repeatability.sh",
+      "classification": "archived",
+      "packageScripts": ["archive-node-production-repeatability"],
+      "reason": "repeatability wrapper around archived production-shaped Node proof",
+      "requires": ["remote-arm64", "remote-amd64"]
+    },
+    {
+      "path": "scripts/smoke/node-production-restore.sh",
+      "classification": "archived",
+      "packageScripts": ["archive-node-production-restore"],
+      "reason": "production-shaped Node runtime-profile proof is stale and not product support",
+      "requires": ["remote-arm64", "remote-amd64"]
+    },
+    {
+      "path": "scripts/smoke/node-proper-level5-source-capture.sh",
+      "classification": "proof-audit",
+      "packageScripts": [
+        "proof-node-proper-level5-source-capture",
+        "proof-node-proper-level5-proof"
+      ],
+      "reason": "proper Node Level 5 source-state capture/materialization proof; product support remains unclaimed until registry-backed public route exists",
+      "requires": ["local-hvf-or-kvm", "release-assets"]
+    },
+    {
+      "path": "scripts/smoke/node-real-app-cross-arch.sh",
+      "classification": "archived",
+      "packageScripts": ["archive-node-real-app-cross-arch"],
+      "reason": "runtime/app-level reconstruction proof is stale and must not be used as product restore evidence",
+      "requires": ["remote-arm64", "remote-amd64"]
+    },
+    {
+      "path": "scripts/smoke/non-node-cross-arch.sh",
+      "classification": "archived",
+      "packageScripts": ["archive-non-node-cross-arch"],
+      "reason": "non-Node runtime-profile cross-arch success claims require rewrite as proof-only/refusal evidence",
+      "requires": ["remote-arm64", "remote-amd64"]
+    },
+    {
+      "path": "scripts/smoke/non-node-runtime-proof.sh",
+      "classification": "proof-audit",
+      "packageScripts": ["proof-non-node-runtime"],
+      "reason": "runtime support/refusal proof matrix for non-Node runtimes",
+      "requires": ["local-runtime-toolchains"]
+    },
+    {
+      "path": "scripts/smoke/opposite-isa-vm-execution.sh",
+      "classification": "proof-audit",
+      "packageScripts": ["proof-opposite-isa-vm-execution"],
+      "reason": "architecture route/proof guardrail; not a product support claim",
+      "requires": ["optional-live-vm"]
+    },
+    {
+      "path": "scripts/smoke/portable-cross-isa.sh",
+      "classification": "archived",
+      "packageScripts": ["archive-portable-cross-isa"],
+      "reason": "older C proof harness retained outside the current move product surface",
+      "requires": ["remote-proxmox"]
+    },
+    {
+      "path": "scripts/smoke/portable-machine-restore.sh",
+      "classification": "proof-audit",
+      "packageScripts": ["proof-portable-machine-restore"],
+      "reason": "native portable-machine proof runner and target-native verifier; not broad product support",
+      "requires": ["built-runtime", "optional-remote-amd64"]
+    },
+    {
+      "path": "scripts/smoke/portable-snapshot-guest-checkpoint-composition.sh",
+      "classification": "proof-audit",
+      "packageScripts": ["proof-portable-snapshot-guest-checkpoint-composition"],
+      "reason": "composition proof between portable snapshot and guest checkpoint",
       "requires": ["built-runtime"]
     },
     {
@@ -250,74 +512,39 @@
       "requires": ["docker", "built-cli"]
     },
     {
-      "path": "scripts/smoke/portable-cross-isa.sh",
-      "classification": "archived",
-      "packageScripts": ["archive-portable-cross-isa"],
-      "reason": "older C proof harness superseded by portable-machine and Level 4 product resource smokes",
-      "requires": ["remote-proxmox"]
+      "path": "scripts/smoke/product-support-discovery.sh",
+      "classification": "product-smoke",
+      "packageScripts": ["smoke-product-support-discovery"],
+      "reason": "public product support registry and proof-only/refusal boundaries",
+      "requires": ["built-cli"]
     },
     {
-      "path": "scripts/smoke/node-real-app-cross-arch.sh",
-      "classification": "archived",
-      "packageScripts": ["archive-node-real-app-cross-arch"],
-      "reason": "runtime/app-level reconstruction proof is stale and must not be used as product restore evidence",
-      "requires": ["remote-arm64", "remote-amd64"]
+      "path": "scripts/smoke/runtime-confidence-profile-matrix.sh",
+      "classification": "proof-audit",
+      "packageScripts": ["proof-runtime-confidence-profile-matrix"],
+      "reason": "runtime confidence proof/refusal matrix",
+      "requires": ["built-runtime"]
     },
     {
-      "path": "scripts/smoke/node-live-restore.sh",
-      "classification": "archived",
-      "packageScripts": ["archive-node-live-restore"],
-      "reason": "runtime-profile live Node restore proof is stale and conflicts with current product boundary if treated as support",
-      "requires": ["remote-arm64", "remote-amd64"]
+      "path": "scripts/smoke/stateful-database-portable-restore.sh",
+      "classification": "proof-audit",
+      "packageScripts": ["proof-stateful-database-portable-restore"],
+      "reason": "stateful database portable restore proof/refusal matrix",
+      "requires": ["built-runtime"]
     },
     {
-      "path": "scripts/smoke/node-production-restore.sh",
-      "classification": "archived",
-      "packageScripts": ["archive-node-production-restore"],
-      "reason": "production-shaped Node runtime-profile proof is stale and not product support",
-      "requires": ["remote-arm64", "remote-amd64"]
+      "path": "scripts/smoke/stateful-services-proof.sh",
+      "classification": "proof-audit",
+      "packageScripts": ["proof-stateful-services"],
+      "reason": "stateful service proof/refusal evidence; not a generic product smoke",
+      "requires": ["local-node"]
     },
     {
-      "path": "scripts/smoke/node-production-repeatability.sh",
-      "classification": "archived",
-      "packageScripts": ["archive-node-production-repeatability"],
-      "reason": "repeatability wrapper around archived production-shaped Node proof",
-      "requires": ["remote-arm64", "remote-amd64"]
-    },
-    {
-      "path": "scripts/smoke/node-expanded-restore.sh",
-      "classification": "archived",
-      "packageScripts": ["archive-node-expanded-restore"],
-      "reason": "broad Node runtime-profile success claims are not an acceptable product path",
-      "requires": ["remote-arm64", "remote-amd64"]
-    },
-    {
-      "path": "scripts/smoke/node-complex-restore.sh",
-      "classification": "archived",
-      "packageScripts": ["archive-node-complex-restore"],
-      "reason": "complex Node ecosystem runtime-profile success claims are not an acceptable product path",
-      "requires": ["remote-arm64", "remote-amd64"]
-    },
-    {
-      "path": "scripts/smoke/node-ecosystem-restore.sh",
-      "classification": "archived",
-      "packageScripts": ["archive-node-ecosystem-restore"],
-      "reason": "ecosystem Node runtime-profile success claims are stale/non-product",
-      "requires": ["remote-arm64", "remote-amd64"]
-    },
-    {
-      "path": "scripts/smoke/non-node-cross-arch.sh",
-      "classification": "archived",
-      "packageScripts": ["archive-non-node-cross-arch"],
-      "reason": "non-Node runtime-profile cross-arch success claims require rewrite as proof-only/refusal evidence",
-      "requires": ["remote-arm64", "remote-amd64"]
-    },
-    {
-      "path": "scripts/smoke/go-quiescent-runtime.sh",
-      "classification": "archived",
-      "packageScripts": ["archive-go-quiescent-runtime"],
-      "reason": "Go quiescent runtime-profile success claims require rewrite as proof-only/refusal evidence",
-      "requires": ["remote-arm64", "remote-amd64"]
+      "path": "scripts/smoke/vmstate/all.sh",
+      "classification": "product-smoke",
+      "packageScripts": ["smoke-vmstate"],
+      "reason": "aggregate for focused whole-VM vmstate regressions",
+      "requires": ["local-hvf-or-kvm", "release-assets"]
     },
     {
       "path": "scripts/smoke/vmstate/common.sh",
@@ -327,20 +554,24 @@
       "requires": []
     },
     {
-      "path": "scripts/smoke/node-level5-http-harness-proof.sh",
-      "classification": "proof-audit",
-      "packageScripts": ["proof-node-level5-http-harness-proof"],
-      "reason": "selected-state Node HTTP harness proof; not Level 5 product support",
+      "path": "scripts/smoke/vmstate/entropy.sh",
+      "classification": "product-smoke",
+      "packageScripts": ["smoke-vmstate-entropy"],
+      "reason": "whole-VM vmstate entropy reseed regressions",
       "requires": ["local-hvf-or-kvm", "release-assets"]
     },
     {
-      "path": "scripts/smoke/node-proper-level5-source-capture.sh",
-      "classification": "proof-audit",
-      "packageScripts": [
-        "proof-node-proper-level5-source-capture",
-        "proof-node-proper-level5-proof"
-      ],
-      "reason": "proper Node Level 5 source-state capture/materialization proof; product support remains unclaimed until registry-backed public route exists",
+      "path": "scripts/smoke/vmstate/sockets.sh",
+      "classification": "product-smoke",
+      "packageScripts": ["smoke-vmstate-sockets"],
+      "reason": "whole-VM vmstate socket and port-forward regressions",
+      "requires": ["local-hvf-or-kvm", "release-assets"]
+    },
+    {
+      "path": "scripts/smoke/vmstate/timers.sh",
+      "classification": "product-smoke",
+      "packageScripts": ["smoke-vmstate-timers"],
+      "reason": "whole-VM vmstate timer and clock regressions",
       "requires": ["local-hvf-or-kvm", "release-assets"]
     }
   ]

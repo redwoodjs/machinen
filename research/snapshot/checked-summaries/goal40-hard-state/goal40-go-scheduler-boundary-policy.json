@@ -1,0 +1,216 @@
+{
+  "profile": "portable-machine-restore",
+  "state": "completed",
+  "remoteSourceTarget": "goal40-go-scheduler-boundary-policy",
+  "targetRestore": {
+    "state": "completed",
+    "migrationCompleted": true,
+    "descriptorGateCompleted": true,
+    "targetVerifierResult": "passed",
+    "targetResourceStatuses": [
+      {
+        "kind": "goal40-go-scheduler",
+        "status": "passed"
+      }
+    ],
+    "sourceTextReusedAsTargetCode": false,
+    "sourceIsaEmulationUsed": false,
+    "sidecarRuntimeUsed": false,
+    "appHooksRequired": false
+  },
+  "goal40HardRuntimeStateProof": {
+    "sourceSummaryKind": "machinen.goal40-hard-runtime-state-proof",
+    "subgoal": "go-scheduler",
+    "detail": {
+      "go-scheduler": {
+        "subgoal": "go-scheduler",
+        "state": "completed",
+        "supportClaimed": true,
+        "supportedSubset": {
+          "name": "bounded-quiescent-goroutine-channel-timer",
+          "migrationCompleted": true,
+          "targetVerifierResult": "passed",
+          "outputSha256": "504bff2bf446f27bc299f83a8ab3ef89c90b80b32be9a52e48de28ed97a7aa02",
+          "goToolchain": "go version go1.26.2 darwin/arm64"
+        },
+        "auditedFixtures": [
+          {
+            "path": "/tmp/goal40-smoke/work/go-scheduler/go_scheduler_boundary.go",
+            "sha256": "901ddf8cd34daf46f8a8f1725a3e8ddbe83631bd977d280462a9932818d8a048",
+            "output": {
+              "arbitraryScheduler": "refused",
+              "arch": "arm64",
+              "bounded": "quiescent-goroutine-ok",
+              "go": "go1.26.2",
+              "ok": true,
+              "timer": "timer-ok"
+            }
+          }
+        ],
+        "refusals": [
+          {
+            "name": "arbitrary-scheduler",
+            "state": "refused",
+            "expectedRefusalCode": "runtime-go-arbitrary-goroutine-scheduler-unsupported",
+            "migrationCompleted": false,
+            "descriptorGateCompleted": false,
+            "evidence": {},
+            "sourceIsaEmulationUsed": false,
+            "sourceTextReusedAsTargetCode": false,
+            "sidecarRuntimeUsed": false,
+            "appHooksRequired": false
+          },
+          {
+            "name": "runnable-queue",
+            "state": "refused",
+            "expectedRefusalCode": "runtime-go-runnable-queue-ambiguous",
+            "migrationCompleted": false,
+            "descriptorGateCompleted": false,
+            "evidence": {},
+            "sourceIsaEmulationUsed": false,
+            "sourceTextReusedAsTargetCode": false,
+            "sidecarRuntimeUsed": false,
+            "appHooksRequired": false
+          },
+          {
+            "name": "parked-goroutine",
+            "state": "refused",
+            "expectedRefusalCode": "runtime-go-parked-goroutine-ambiguous",
+            "migrationCompleted": false,
+            "descriptorGateCompleted": false,
+            "evidence": {},
+            "sourceIsaEmulationUsed": false,
+            "sourceTextReusedAsTargetCode": false,
+            "sidecarRuntimeUsed": false,
+            "appHooksRequired": false
+          },
+          {
+            "name": "channel-waiter",
+            "state": "refused",
+            "expectedRefusalCode": "runtime-go-channel-waiter-ambiguous",
+            "migrationCompleted": false,
+            "descriptorGateCompleted": false,
+            "evidence": {},
+            "sourceIsaEmulationUsed": false,
+            "sourceTextReusedAsTargetCode": false,
+            "sidecarRuntimeUsed": false,
+            "appHooksRequired": false
+          },
+          {
+            "name": "select-race",
+            "state": "refused",
+            "expectedRefusalCode": "runtime-go-select-race-ambiguous",
+            "migrationCompleted": false,
+            "descriptorGateCompleted": false,
+            "evidence": {},
+            "sourceIsaEmulationUsed": false,
+            "sourceTextReusedAsTargetCode": false,
+            "sidecarRuntimeUsed": false,
+            "appHooksRequired": false
+          },
+          {
+            "name": "netpoll-waiter",
+            "state": "refused",
+            "expectedRefusalCode": "runtime-go-netpoll-waiter-unsupported",
+            "migrationCompleted": false,
+            "descriptorGateCompleted": false,
+            "evidence": {},
+            "sourceIsaEmulationUsed": false,
+            "sourceTextReusedAsTargetCode": false,
+            "sidecarRuntimeUsed": false,
+            "appHooksRequired": false
+          },
+          {
+            "name": "runtime-private-frame",
+            "state": "refused",
+            "expectedRefusalCode": "runtime-go-runtime-private-frame-unsupported",
+            "migrationCompleted": false,
+            "descriptorGateCompleted": false,
+            "evidence": {},
+            "sourceIsaEmulationUsed": false,
+            "sourceTextReusedAsTargetCode": false,
+            "sidecarRuntimeUsed": false,
+            "appHooksRequired": false
+          },
+          {
+            "name": "cgo-goroutine",
+            "state": "refused",
+            "expectedRefusalCode": "runtime-go-cgo-goroutine-unsupported",
+            "migrationCompleted": false,
+            "descriptorGateCompleted": false,
+            "evidence": {},
+            "sourceIsaEmulationUsed": false,
+            "sourceTextReusedAsTargetCode": false,
+            "sidecarRuntimeUsed": false,
+            "appHooksRequired": false
+          }
+        ],
+        "crossArchitectureProof": {
+          "source": "Goal 39 go-cross-arch-runtime-policy",
+          "routes": ["arm64-to-amd64", "amd64-to-arm64"],
+          "checkedSummary": "research/snapshot/checked-summaries/non-node-cross-arch/go-cross-arch-runtime-policy.json",
+          "semanticSubset": "goroutine-channel-timer-no-cgo"
+        },
+        "targetRestore": {
+          "state": "completed",
+          "migrationCompleted": true,
+          "descriptorGateCompleted": true,
+          "targetVerifierResult": "passed",
+          "targetResourceStatuses": [
+            {
+              "kind": "go-bounded-scheduler-policy",
+              "status": "passed"
+            }
+          ],
+          "sourceTextReusedAsTargetCode": false,
+          "sourceIsaEmulationUsed": false,
+          "sidecarRuntimeUsed": false,
+          "appHooksRequired": false
+        },
+        "securityInspection": {
+          "sourceIsaEmulationArtifactFound": false,
+          "sourceTextReplayArtifactFound": false,
+          "sidecarRuntimeArtifactFound": false,
+          "appHookArtifactFound": false,
+          "metadataOnlyShortcutAccepted": false,
+          "targetNativeExecutionRequired": true,
+          "passed": true
+        }
+      }
+    },
+    "refusalCodes": [
+      "runtime-network-active-socket-queue-ambiguous",
+      "runtime-network-peer-state-unavailable",
+      "runtime-network-websocket-frame-boundary-ambiguous",
+      "runtime-network-tls-session-key-opaque",
+      "runtime-network-bytes-in-flight-unsupported",
+      "runtime-native-extension-opaque-state",
+      "runtime-native-extension-managed-callback-ambiguous",
+      "runtime-native-extension-opaque-state",
+      "runtime-native-extension-opaque-state",
+      "runtime-native-extension-abi-drift",
+      "runtime-native-extension-owned-fd-unsupported",
+      "runtime-native-extension-background-thread-unsupported",
+      "runtime-native-extension-contract-missing",
+      "runtime-go-arbitrary-goroutine-scheduler-unsupported",
+      "runtime-go-runnable-queue-ambiguous",
+      "runtime-go-parked-goroutine-ambiguous",
+      "runtime-go-channel-waiter-ambiguous",
+      "runtime-go-select-race-ambiguous",
+      "runtime-go-netpoll-waiter-unsupported",
+      "runtime-go-runtime-private-frame-unsupported",
+      "runtime-go-cgo-goroutine-unsupported"
+    ],
+    "securityInspection": {
+      "sourceIsaEmulationArtifactFound": false,
+      "sourceTextReplayArtifactFound": false,
+      "sidecarRuntimeArtifactFound": false,
+      "appHookArtifactFound": false,
+      "metadataOnlyShortcutAccepted": false,
+      "targetNativeExecutionRequired": true,
+      "passed": true
+    },
+    "recommendation": "Keep hard runtime states refused except explicit reconnect and bounded-quiescent scheduler subsets; native extensions need explicit external-state contracts before support."
+  },
+  "timings": []
+}

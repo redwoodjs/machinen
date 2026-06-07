@@ -238,11 +238,11 @@ function buildNarrowEvidence(gateId: string): Record<string, unknown> {
   }
   if (gateId === "docs-public-boundary") {
     const docs = readFileSync(
-      join(repoRoot, "docs/snapshot/node-level5-declared-subset.md"),
+      join(repoRoot, "research/snapshot/node-level5-declared-subset.md"),
       "utf8",
     );
     const matrix = JSON.parse(
-      readFileSync(join(repoRoot, "docs/snapshot/node-level5-readiness-matrix.json"), "utf8"),
+      readFileSync(join(repoRoot, "research/snapshot/node-level5-readiness-matrix.json"), "utf8"),
     );
     return {
       guardedCliPathCovered: true,

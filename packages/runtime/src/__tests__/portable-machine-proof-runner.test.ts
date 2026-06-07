@@ -390,9 +390,11 @@ describe("portable machine proof runner", () => {
       expect(profile.expectedResult).toBe("success");
       expect(profile.expectedGates).toContain("node-app-output");
       expect(profile.targetOutputVerifier?.expectedOutput).toEqual(expect.any(String));
-      expect(profile.appHarness).toEqual(expect.stringMatching(/^docs\/snapshot\/app-harnesses\//));
+      expect(profile.appHarness).toEqual(
+        expect.stringMatching(/^research\/snapshot\/app-harnesses\//),
+      );
       expect(profile.checkedSummary).toEqual(
-        expect.stringMatching(/^docs\/snapshot\/checked-summaries\/node-apps\//),
+        expect.stringMatching(/^research\/snapshot\/checked-summaries\/node-apps\//),
       );
       expect(
         existsSync(join(REPO_ROOT, profile.sourceFixture.replace(/^real-node-app:/, ""))),
@@ -485,7 +487,7 @@ describe("portable machine proof runner", () => {
         "--preset",
         "non-node-runtimes",
         "--check-summary-dir",
-        join(REPO_ROOT, "docs/snapshot/checked-summaries/non-node-runtimes"),
+        join(REPO_ROOT, "research/snapshot/checked-summaries/non-node-runtimes"),
         "--json",
         "--summary",
         join(tempDir(), "non-node-runtime-matrix.json"),
@@ -506,7 +508,7 @@ describe("portable machine proof runner", () => {
         "--preset",
         "postgres-machinen",
         "--check-summary-dir",
-        join(REPO_ROOT, "docs/snapshot/checked-summaries/postgres-machinen"),
+        join(REPO_ROOT, "research/snapshot/checked-summaries/postgres-machinen"),
         "--json",
         "--summary",
         join(tempDir(), "postgres-machinen-matrix.json"),
@@ -527,7 +529,7 @@ describe("portable machine proof runner", () => {
         "--preset",
         "go-quiescent-runtime",
         "--check-summary-dir",
-        join(REPO_ROOT, "docs/snapshot/checked-summaries/go-quiescent-runtime"),
+        join(REPO_ROOT, "research/snapshot/checked-summaries/go-quiescent-runtime"),
         "--json",
         "--summary",
         join(tempDir(), "go-quiescent-runtime-matrix.json"),
@@ -548,7 +550,7 @@ describe("portable machine proof runner", () => {
         "--preset",
         "goal40-hard-state",
         "--check-summary-dir",
-        join(REPO_ROOT, "docs/snapshot/checked-summaries/goal40-hard-state"),
+        join(REPO_ROOT, "research/snapshot/checked-summaries/goal40-hard-state"),
         "--json",
         "--summary",
         join(tempDir(), "goal40-hard-state-matrix.json"),
@@ -570,7 +572,7 @@ describe("portable machine proof runner", () => {
         "--preset",
         "goal41-refusal",
         "--check-summary-dir",
-        join(REPO_ROOT, "docs/snapshot/checked-summaries/goal41-refusals"),
+        join(REPO_ROOT, "research/snapshot/checked-summaries/goal41-refusals"),
         "--summary",
         summaryFile,
       ],
@@ -591,7 +593,7 @@ describe("portable machine proof runner", () => {
         "--preset",
         "stateful-services",
         "--check-summary-dir",
-        join(REPO_ROOT, "docs/snapshot/checked-summaries/stateful-services"),
+        join(REPO_ROOT, "research/snapshot/checked-summaries/stateful-services"),
         "--summary",
         summaryFile,
       ],
@@ -604,7 +606,7 @@ describe("portable machine proof runner", () => {
   });
 
   it("records Goal 41 refusal UX metadata for every hard-runtime code", () => {
-    const dir = join(REPO_ROOT, "docs/snapshot/checked-summaries/goal41-refusals");
+    const dir = join(REPO_ROOT, "research/snapshot/checked-summaries/goal41-refusals");
     const summaries = readdirSync(dir)
       .filter((file) => file.endsWith(".json"))
       .map((file) => JSON.parse(readFileSync(join(dir, file), "utf8")));
@@ -627,7 +629,7 @@ describe("portable machine proof runner", () => {
   });
 
   it("records Goal 44 stateful service provenance and refusal gates", () => {
-    const dir = join(REPO_ROOT, "docs/snapshot/checked-summaries/stateful-services");
+    const dir = join(REPO_ROOT, "research/snapshot/checked-summaries/stateful-services");
     const summaries = readdirSync(dir)
       .filter((file) => file.endsWith(".json"))
       .map((file) => JSON.parse(readFileSync(join(dir, file), "utf8")));
@@ -670,7 +672,7 @@ describe("portable machine proof runner", () => {
         "--preset",
         "non-node-cross-arch",
         "--check-summary-dir",
-        join(REPO_ROOT, "docs/snapshot/checked-summaries/non-node-cross-arch"),
+        join(REPO_ROOT, "research/snapshot/checked-summaries/non-node-cross-arch"),
         "--json",
         "--summary",
         join(tempDir(), "non-node-cross-arch-matrix.json"),
@@ -759,7 +761,7 @@ describe("portable machine proof runner", () => {
         "--preset",
         "node-ecosystem",
         "--check-summary-dir",
-        join(REPO_ROOT, "docs/snapshot/checked-summaries/node-ecosystem"),
+        join(REPO_ROOT, "research/snapshot/checked-summaries/node-ecosystem"),
         "--json",
         "--summary",
         join(tempDir(), "node-ecosystem-matrix.json"),
@@ -843,7 +845,7 @@ describe("portable machine proof runner", () => {
         "--preset",
         "node-complex",
         "--check-summary-dir",
-        join(REPO_ROOT, "docs/snapshot/checked-summaries/node-complex"),
+        join(REPO_ROOT, "research/snapshot/checked-summaries/node-complex"),
         "--json",
         "--summary",
         join(tempDir(), "node-complex-matrix.json"),
@@ -939,7 +941,7 @@ describe("portable machine proof runner", () => {
         "--preset",
         "node-expanded",
         "--check-summary-dir",
-        join(REPO_ROOT, "docs/snapshot/checked-summaries/node-expanded"),
+        join(REPO_ROOT, "research/snapshot/checked-summaries/node-expanded"),
         "--json",
         "--summary",
         join(tempDir(), "node-expanded-matrix.json"),
