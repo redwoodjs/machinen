@@ -262,10 +262,7 @@ function nodeLevel5GenericVmCorpusReportPath(args: string[]): string | undefined
   );
 }
 
-export function requiredNodeLevel5GenericVmCorpusReportPath(
-  args: string[],
-  command: string,
-): string {
+function requiredNodeLevel5GenericVmCorpusReportPath(args: string[], command: string): string {
   const reportFlag = args.indexOf("--generic-vm-corpus-report");
   const path = reportFlag === -1 ? undefined : args[reportFlag + 1];
   if (!path) {
@@ -297,9 +294,7 @@ export function readOptionalNodeLevel5GenericVmRetainedEvidence(
   return verifyNodeLevel5GenericVmRetainedEvidencePath(path);
 }
 
-export function optionalNodeLevel5GenericVmRetainedEvidenceReportPath(
-  args: string[],
-): string | undefined {
+function optionalNodeLevel5GenericVmRetainedEvidenceReportPath(args: string[]): string | undefined {
   const reportFlag = args.indexOf("--generic-vm-retained-evidence-report");
   return reportFlag === -1 ? undefined : args[reportFlag + 1];
 }
@@ -341,9 +336,7 @@ export function readOptionalNodeLevel5GenericVmRowArtifacts(
   return verifyNodeLevel5GenericVmRowArtifactsPath(path);
 }
 
-export function optionalNodeLevel5GenericVmRowArtifactsReportPath(
-  args: string[],
-): string | undefined {
+function optionalNodeLevel5GenericVmRowArtifactsReportPath(args: string[]): string | undefined {
   const reportFlag = args.indexOf("--generic-vm-row-artifacts-report");
   return reportFlag === -1 ? undefined : args[reportFlag + 1];
 }
@@ -382,9 +375,7 @@ export function readOptionalNodeLevel5GenericVmRefusalArtifacts(
   return verifyNodeLevel5GenericVmRefusalArtifactsPath(path);
 }
 
-export function optionalNodeLevel5GenericVmRefusalArtifactsReportPath(
-  args: string[],
-): string | undefined {
+function optionalNodeLevel5GenericVmRefusalArtifactsReportPath(args: string[]): string | undefined {
   const reportFlag = args.indexOf("--generic-vm-refusal-artifacts-report");
   return reportFlag === -1 ? undefined : args[reportFlag + 1];
 }
