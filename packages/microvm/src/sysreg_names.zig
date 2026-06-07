@@ -6,7 +6,7 @@
 //! KVM stores it in the bottom 16 bits of a KVM_REG_ARM64 ID.
 //!
 //! Regenerate (when bumping macOS SDK) with the perl in
-//! docs/snapshot/sysreg-parity.md.
+//! research/snapshot/sysreg-parity.md.
 
 pub const Entry = struct {
     encoding: u16,

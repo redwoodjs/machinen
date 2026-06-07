@@ -8,7 +8,7 @@ describe("Goal 020 Level 5 runtime adapter substrate artifact", () => {
   it("keeps the substrate proof-only and records the adapter/refusal contract", () => {
     const artifact = JSON.parse(
       readFileSync(
-        "docs/snapshot/checked-summaries/node-level5/goal-020-level5-runtime-adapter-substrate.json",
+        "research/snapshot/checked-summaries/node-level5/goal-020-level5-runtime-adapter-substrate.json",
         "utf8",
       ),
     );

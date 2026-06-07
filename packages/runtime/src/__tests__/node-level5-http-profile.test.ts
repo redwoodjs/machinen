@@ -115,7 +115,7 @@ describe("Node Level 5 single-thread HTTP profile", () => {
   it("records the Goal 022 quickstart fixture as selected-state harness evidence", () => {
     const artifact = JSON.parse(
       readFileSync(
-        "docs/snapshot/checked-summaries/node-level5/goal-022-real-cross-arch-quickstart-fixture.json",
+        "research/snapshot/checked-summaries/node-level5/goal-022-real-cross-arch-quickstart-fixture.json",
         "utf8",
       ),
     );

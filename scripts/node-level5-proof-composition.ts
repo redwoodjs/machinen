@@ -18,7 +18,7 @@ interface Args {
   targetProof?: string;
 }
 
-const DEFAULT_OUT = "docs/snapshot/checked-summaries/node-level5/goal-009-proof-run.json";
+const DEFAULT_OUT = "research/snapshot/checked-summaries/node-level5/goal-009-proof-run.json";
 
 const evidenceRequirements: Array<{
   name: NodeLevel5ProofIngredientName;
@@ -27,12 +27,12 @@ const evidenceRequirements: Array<{
 }> = [
   {
     name: "register-translation",
-    path: "docs/snapshot/checked-summaries/architecture-portable-snapshot/final-gauntlet.json",
+    path: "research/snapshot/checked-summaries/architecture-portable-snapshot/final-gauntlet.json",
     requiredFragments: ["native-register-translation", "target-registers-translated"],
   },
   {
     name: "stack-return-chain-translation",
-    path: "docs/snapshot/checked-summaries/architecture-portable-snapshot/final-gauntlet.json",
+    path: "research/snapshot/checked-summaries/architecture-portable-snapshot/final-gauntlet.json",
     requiredFragments: [
       "native-stack-return-chain-translation",
       "stack-window-materialized",
@@ -41,22 +41,22 @@ const evidenceRequirements: Array<{
   },
   {
     name: "private-memory-materialization",
-    path: "docs/snapshot/checked-summaries/architecture-portable-snapshot/final-gauntlet.json",
+    path: "research/snapshot/checked-summaries/architecture-portable-snapshot/final-gauntlet.json",
     requiredFragments: ["native-private-memory-materialization", "target-memory-materialized"],
   },
   {
     name: "executable-target-module-materialization",
-    path: "docs/snapshot/native-process-continuation-audit.md",
+    path: "research/snapshot/native-process-continuation-audit.md",
     requiredFragments: ["Memory/executable materialization", "native-target-module-bytes"],
   },
   {
     name: "target-restore-loader",
-    path: "docs/snapshot/checked-summaries/architecture-portable-snapshot/final-gauntlet.json",
+    path: "research/snapshot/checked-summaries/architecture-portable-snapshot/final-gauntlet.json",
     requiredFragments: ["native-target-restore-loader", "node scripts/native-restore-loader.mjs"],
   },
   {
     name: "level4-event-loop-resource-map",
-    path: "docs/snapshot/checked-summaries/node-level5/goal-008-node-event-loop-resource-map.json",
+    path: "research/snapshot/checked-summaries/node-level5/goal-008-node-event-loop-resource-map.json",
     requiredFragments: [
       "machinen.node-event-loop-level4-resource-map-summary",
       "tcp-listener-v1-loopback-empty-accept-queue",
@@ -65,7 +65,7 @@ const evidenceRequirements: Array<{
   },
   {
     name: "target-native-verifier",
-    path: "docs/snapshot/checked-summaries/node-level5/goal-009-node-level5-proof-composition.json",
+    path: "research/snapshot/checked-summaries/node-level5/goal-009-node-level5-proof-composition.json",
     requiredFragments: ["target-native-verifier", "sourceIsaEmulationAllowed"],
   },
 ];
@@ -134,7 +134,9 @@ async function main(): Promise<void> {
 async function resolveTargetProof(args: Args): Promise<NodeLevel5TargetProofEvidence> {
   const proofPath = args.targetProof
     ? resolve(args.targetProof)
-    : resolve("docs/snapshot/checked-summaries/node-level5/goal-009-target-side-continuation.json");
+    : resolve(
+        "research/snapshot/checked-summaries/node-level5/goal-009-target-side-continuation.json",
+      );
   if (!args.targetProof || !existsSync(proofPath)) {
     await runNodeLevel5TargetSideProof({ outPath: proofPath });
   }

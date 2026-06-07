@@ -340,9 +340,9 @@ const nodeLevel5ProofRuntimeAdapter: Level5RuntimeAdapter<
       targetNativeVerifierPresent: false,
       checkedSummaries: {
         "level4-event-loop-resource-map":
-          "docs/snapshot/checked-summaries/node-level5/goal-008-node-event-loop-resource-map.json",
+          "research/snapshot/checked-summaries/node-level5/goal-008-node-event-loop-resource-map.json",
         "target-native-verifier":
-          "docs/snapshot/checked-summaries/node-level5/goal-009-proof-run.json",
+          "research/snapshot/checked-summaries/node-level5/goal-009-proof-run.json",
       },
     });
   },

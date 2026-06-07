@@ -8,7 +8,9 @@ import { describe, expect, it } from "vitest";
 import { buildNodeLevel5HttpProfileCapture } from "@machinen/runtime";
 
 const CLI = resolve("packages/cli/src/cli.ts");
-const PROOF_RUN = resolve("docs/snapshot/checked-summaries/node-level5/goal-009-proof-run.json");
+const PROOF_RUN = resolve(
+  "research/snapshot/checked-summaries/node-level5/goal-009-proof-run.json",
+);
 
 describe("Node Level 5 default public restore proof", () => {
   it("routes selected Node HTTP profile bundles through the Level 5 runtime adapter", () => {

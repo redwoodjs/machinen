@@ -8,8 +8,8 @@ import { fileURLToPath } from "node:url";
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(SCRIPT_DIR, "..");
 const PROFILE_FILE = join(SCRIPT_DIR, "portable-machine-proof-profiles.json");
-const DEFAULT_MANIFEST_DIR = join(REPO_ROOT, "docs/snapshot/runtime-manifests");
-const DEFAULT_HARNESS_DIR = join(REPO_ROOT, "docs/snapshot/app-harnesses");
+const DEFAULT_MANIFEST_DIR = join(REPO_ROOT, "research/snapshot/runtime-manifests");
+const DEFAULT_HARNESS_DIR = join(REPO_ROOT, "research/snapshot/app-harnesses");
 
 const MANDATORY_RUNTIME_REFUSALS = [
   "runtime-native-extension-opaque",

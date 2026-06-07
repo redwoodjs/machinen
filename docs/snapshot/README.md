@@ -1,26 +1,43 @@
-# Snapshot documentation
+# Snapshot, restore, and move
 
-This page documents the current product state only.
+This page describes the current product surfaces only.
 
-## Current product surfaces
+## VM snapshot and restore
 
-- `machinen snapshot <vm> <out-dir>` / `machinen restore <snap-dir>`: VM snapshot and restore.
-- `machinen move scan`: scan PID graph state classes for cross-ISA movement.
-- `machinen move save <pid> <out>`: write a move descriptor or a fail-closed refusal descriptor.
-- `machinen move save <pid> <out> --issue [--issue-repo <owner/repo>]`: include redacted refusal evidence for filing an improvement issue.
-- `machinen move load <descriptor>`: validate a move descriptor and refuse unproven state classes.
-- `machinen support --json`: inspect the product claim registry.
+```sh
+machinen snapshot <vm> <out-dir>
+machinen restore <snap-dir>
+```
 
-## Current cross-ISA rule
+Use these commands to save and restore a Machinen VM snapshot. See:
 
-`machinen move` is the only cross-ISA product entrypoint. It owns the PID graph,
-records translated state classes, and refuses unproven state classes with
-actionable evidence.
+- [vmstate specification](./vmstate-specification.md)
+- [vmstate portability policy](./vmstate-portability.md)
 
-Legacy Level 0-4 cross-ISA product routes are not current product support.
+## Cross-ISA movement
 
-## Current references
+`machinen move` is the only cross-ISA product entrypoint.
 
-- [Product claim registry](./product-claim-registry.md)
-- [Clean service product snapshot/restore](./clean-service-product-snapshot-restore.md)
-- [Node product snapshot/restore](./node-product-snapshot-restore.md)
+```sh
+machinen move scan
+machinen move save <pid> <out>
+machinen move save <pid> <out> --issue [--issue-repo <owner/repo>]
+machinen move load <descriptor>
+```
+
+`move` records the PID graph and refuses state classes that do not have a target-native reconstruction path.
+
+## Product support discovery
+
+```sh
+machinen support --json
+```
+
+Use this as the source of truth for supported, refused, deprecated, and proof-only rows. See [Product claim registry](./product-claim-registry.md).
+
+## Product subsets
+
+- [Clean service snapshot/restore](./clean-service-product-snapshot-restore.md)
+- [Node snapshot/restore](./node-product-snapshot-restore.md)
+
+Proofs, checked summaries, and historical design notes are kept in [`../../research/snapshot/`](../../research/snapshot/) so this directory stays product-focused.

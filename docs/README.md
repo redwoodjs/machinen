@@ -14,11 +14,13 @@ Then dive deeper:
 - [Nested virtualization](./guides/nested-virtualization.md) — opt-in `/dev/kvm` inside a VM
 - [Run Firecracker inside machinen](./guides/firecracker.md) — boot an aarch64 L2 microVM with nested KVM
 
-Snapshot docs:
+Product docs:
 
-- [Snapshot documentation](./snapshot/README.md) — current snapshot, restore, move, and support surfaces
+- [Snapshot, restore, and move](./snapshot/README.md) — current product surfaces
 - [Product claim registry](./snapshot/product-claim-registry.md) — current support and refusal statuses
-- [Clean service product snapshot/restore](./snapshot/clean-service-product-snapshot-restore.md)
-- [Node product snapshot/restore](./snapshot/node-product-snapshot-restore.md)
+- [Clean service snapshot/restore](./snapshot/clean-service-product-snapshot-restore.md)
+- [Node snapshot/restore](./snapshot/node-product-snapshot-restore.md)
 - [vmstate specification](./snapshot/vmstate-specification.md) — whole-VM snapshot file format and saved state
 - [vmstate portability policy](./snapshot/vmstate-portability.md) — restore invariants and cross-HVF/KVM policy
+
+Proofs, checked summaries, and historical design notes live in [`../research/`](../research/), not in the product docs.

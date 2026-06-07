@@ -88,7 +88,7 @@ export const nodeLevel5NarrowProductReadinessGates: readonly NodeLevel5Readiness
     family: "narrow-product",
     title: "public docs boundary for the declared experimental subset",
     status: "documented",
-    artifact: "docs/snapshot/node-level5-declared-subset.md",
+    artifact: "research/snapshot/node-level5-declared-subset.md",
   },
   {
     ...gateBase,

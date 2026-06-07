@@ -310,7 +310,7 @@ function payload(definition: ProofDefinition): Record<string, unknown> {
       return { safety: nodeLevel5ProductSupport80Matrix.safety };
     case "claim-registry":
       return {
-        productClaimRegistry: "docs/snapshot/node-level5-product-support-80.json",
+        productClaimRegistry: "research/snapshot/node-level5-product-support-80.json",
         nodeProductSupportClaimed: 80,
         broadNodeProductSupportClaimed: 20,
       };
@@ -391,11 +391,11 @@ function runGuardedCliLane(familyId: string, sourceArch: string, targetArch: str
 
 function docsPayload(): Record<string, unknown> {
   const docs = readFileSync(
-    join(repoRoot, "docs/snapshot/node-level5-product-support-80.md"),
+    join(repoRoot, "research/snapshot/node-level5-product-support-80.md"),
     "utf8",
   );
   const matrix = JSON.parse(
-    readFileSync(join(repoRoot, "docs/snapshot/node-level5-product-support-80.json"), "utf8"),
+    readFileSync(join(repoRoot, "research/snapshot/node-level5-product-support-80.json"), "utf8"),
   );
   return {
     docsMention80Percent: docs.includes("80% Node product support"),
@@ -405,7 +405,7 @@ function docsPayload(): Record<string, unknown> {
 
 function compatibilityPayload(): Record<string, unknown> {
   const compatibility = readFileSync(
-    join(repoRoot, "docs/snapshot/node-level5-product-support-80-compatibility.md"),
+    join(repoRoot, "research/snapshot/node-level5-product-support-80-compatibility.md"),
     "utf8",
   );
   return {
@@ -416,7 +416,7 @@ function compatibilityPayload(): Record<string, unknown> {
 
 function releaseChecklistPayload(): Record<string, unknown> {
   const checklist = readFileSync(
-    join(repoRoot, "docs/snapshot/node-level5-product-support-80-release-checklist.md"),
+    join(repoRoot, "research/snapshot/node-level5-product-support-80-release-checklist.md"),
     "utf8",
   );
   return {

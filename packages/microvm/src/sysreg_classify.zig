@@ -1,5 +1,5 @@
 //! Classification of every reg the vCPU dump+load handles.
-//! Source of truth is docs/snapshot/sysreg-parity.md.
+//! Source of truth is research/snapshot/sysreg-parity.md.
 //!
 //! The dump path uses this to decide whether to write a reg at all.
 //! The diff tool uses it to decide whether to enforce equality.

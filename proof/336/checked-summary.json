@@ -7,6 +7,6 @@
   "nodeProductSupportClaimed": 80,
   "broadNodeProductSupportClaimed": 20,
   "arbitraryProcessCrossArchRestoreClaimed": 0,
-  "operatorRunbook": "docs/snapshot/node-level5-product-support-80-hardening.md",
+  "operatorRunbook": "research/snapshot/node-level5-product-support-80-hardening.md",
   "evidenceBundleRequired": true
 }
