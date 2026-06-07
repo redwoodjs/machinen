@@ -3,7 +3,7 @@ import debugLib from "debug";
 import { resolve } from "node:path";
 
 import { emitJson } from "../args.ts";
-import { resolveCliBaseAssets, type CliBaseAssetPaths } from "../base-assets.ts";
+import { deriveBootName, resolveCliBaseAssets, type CliBaseAssetPaths } from "../base-assets.ts";
 import { describeError, die, failQuiet, handleError } from "../errors.ts";
 import { parseRunArgs } from "../parse-run-args.ts";
 import { isQuiet, printHeadline, RingBuffer } from "../quiet.ts";
@@ -15,18 +15,6 @@ import {
 } from "../session.ts";
 
 const debug = debugLib("machinen:cli");
-
-function deriveBootName(imageOverride: string | undefined): string {
-  if (!imageOverride) {
-    return "vm";
-  }
-  const base = imageOverride.split("/").pop() ?? imageOverride;
-  return base
-    .replace(/\.tar\.gz$/i, "")
-    .replace(/\.tgz$/i, "")
-    .replace(/\.tar$/i, "")
-    .replace(/\.gz$/i, "");
-}
 
 type ParsedBootArgs = ReturnType<typeof parseRunArgs>;
 

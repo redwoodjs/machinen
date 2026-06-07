@@ -1,7 +1,7 @@
 import { emitJson, emitJsonError } from "../args.ts";
 import { die } from "../errors.ts";
 
-export type NodeLevel5DeclaredSubsetCliOptions = {
+type NodeLevel5DeclaredSubsetCliOptions = {
   out: string;
   manifest: string;
   sourceArch: "arm64" | "amd64";
@@ -91,7 +91,7 @@ export function reportNodeLevel5DeclaredSubsetCliRefusal(
   process.exit(1);
 }
 
-export type NodeLevel5DeclaredSubsetCliSummary = {
+type NodeLevel5DeclaredSubsetCliSummary = {
   accepted: boolean;
   manifestPath?: string;
   refusal?: { code: string };
@@ -123,7 +123,7 @@ export function takeCaptureValue(args: string[], index: number, flag: string): s
   return value;
 }
 
-export function parseProductArch(value: string, flag: string): "arm64" | "amd64" {
+function parseProductArch(value: string, flag: string): "arm64" | "amd64" {
   if (value === "arm64" || value === "amd64") {
     return value;
   }

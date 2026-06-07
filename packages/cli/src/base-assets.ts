@@ -27,7 +27,7 @@ export function cacheDirFor(tag: string): string {
   return join(CACHE_ROOT, tag);
 }
 
-export type GuestCpu = "arm64" | "amd64";
+type GuestCpu = "arm64" | "amd64";
 
 type BaseAssetSpec = {
   cpu: GuestCpu;
@@ -266,6 +266,18 @@ function cliRootfsPath(
   spec: BaseAssetSpec,
 ): string {
   return join(baseDir, assetsOverride ? spec.rootfsAsset : "rootfs.tar.gz");
+}
+
+export function deriveBootName(imageOverride: string | undefined): string {
+  if (!imageOverride) {
+    return "vm";
+  }
+  const base = imageOverride.split("/").pop() ?? imageOverride;
+  return base
+    .replace(/\.tar\.gz$/i, "")
+    .replace(/\.tgz$/i, "")
+    .replace(/\.tar$/i, "")
+    .replace(/\.gz$/i, "");
 }
 
 export function resolveOptionalImageOverride(
