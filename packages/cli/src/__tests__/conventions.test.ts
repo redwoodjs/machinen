@@ -41,6 +41,7 @@ const ALLOWED_VERBS = new Set([
   "boot",
   "restore",
   "capture",
+  "move",
   "exec",
   "snapshot",
   "fork",
@@ -161,7 +162,7 @@ describe("flag conventions", () => {
     // `fork` is a multi-step submit-and-attach where dry-run would
     //   need to short-circuit before the snapshot, which is the same
     //   thing as not running the command. Skipped intentionally.
-    const exceptions = new Set(["feedback", "fork"]);
+    const exceptions = new Set(["feedback", "fork", "move"]);
     for (const cmd of COMMANDS) {
       if (!cmd.mutating) {
         continue;
@@ -201,28 +202,15 @@ describe("flag conventions", () => {
   });
 });
 
-describe("portable restore adapter convention", () => {
-  it("defines the reusable adapter hooks and registers ping/eventfd/pipe/timerfd/TCP listener adapters", () => {
-    for (const hook of [
-      "detect",
-      "validate",
-      "plan",
-      "foregroundRestore",
-      "detachedRestore",
-      "verify",
-      "refuse",
-    ]) {
-      expect(PORTABLE_RESTORE_ADAPTER_SRC).toContain(`${hook}(`);
-    }
-    expect(CLI_SRC).toContain("const pingPortableRestoreAdapter");
-    expect(CLI_SRC).toContain("const eventfdPortableRestoreAdapter");
-    expect(CLI_SRC).toContain("const pipePortableRestoreAdapter");
-    expect(CLI_SRC).toContain("const timerfdPortableRestoreAdapter");
-    expect(CLI_SRC).toContain("const tcpListenerPortableRestoreAdapter");
-    expect(CLI_SRC).toMatch(
-      /const portableRestoreAdapters = \[\s*pingPortableRestoreAdapter,\s*eventfdPortableRestoreAdapter,\s*pipePortableRestoreAdapter,\s*timerfdPortableRestoreAdapter,\s*tcpListenerPortableRestoreAdapter,/,
-    );
-    expect(CLI_SRC).toContain("detectPortableRestoreAdapter(snapDir)");
+describe("move-only cross-ISA product route convention", () => {
+  it("removes legacy portable restore adapter dispatch and exposes move", () => {
+    expect(CLI_SRC).not.toContain("const pingPortableRestoreAdapter");
+    expect(CLI_SRC).not.toContain("detectPortableRestoreAdapter(snapDir)");
+    expect(CLI_SRC).toContain("function cmdMove(");
+    expect(CLI_SRC).toContain("saveMoveDescriptor");
+    expect(CLI_SRC).toContain("loadMoveDescriptor");
+    expect(CLI_SRC).toContain('["move", cmdMove]');
+    expect(PORTABLE_RESTORE_ADAPTER_SRC).toContain("PortableRestoreAdapter");
   });
 });
 

@@ -1,12 +1,8 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { restore } from "../index.ts";
-import {
-  PRODUCT_LEVEL4_PING_SOCKET_MANIFEST,
-  PRODUCT_LEVEL4_PING_SOCKET_REFUSAL,
-} from "../product-level4-ping-socket.ts";
 import {
   portableSnapshotSchemas,
   validatePortableSnapshotBundle,
@@ -171,19 +167,6 @@ function fakeSnapshotContext(stdout = "") {
   } as never;
 }
 
-function pingDescriptor(overrides: Record<string, unknown> = {}): string {
-  return JSON.stringify({
-    profile: "ping-level4-socket-reconstruction-v1",
-    sourceArch: "arm64",
-    targetArch: "amd64",
-    socketKind: "ping-dgram-icmp",
-    sourceVerifierOutput: "ping-dgram-icmp id=7 seq=1 loopback target-loopback",
-    echoIdentifier: 7,
-    echoSequence: 1,
-    ...overrides,
-  });
-}
-
 describe("portable snapshot schemas", () => {
   it("exports JSON schemas for each portable bundle document", () => {
     expect(portableSnapshotSchemas.manifest.$id).toMatch(/manifest\.schema\.json$/);
@@ -312,51 +295,13 @@ describe("portable snapshot schemas", () => {
 });
 
 describe("portable snapshot engine selector", () => {
-  it("snapshot routes the supported ping workload through the portable machine path", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "portable-ping-machine-"));
-    TMP.push(dir);
-    await withSnapshotEngine("portable", async () => {
-      const result = await performSnapshot(fakeSnapshotContext(pingDescriptor()), { outDir: dir });
-      expect(result.engine).toBe("portable");
-      expect(validatePortableSnapshotBundle(dir).manifest.program.name).toBe(
-        "ping-level4-machine-workload",
-      );
-      const product = JSON.parse(
-        readFileSync(join(dir, PRODUCT_LEVEL4_PING_SOCKET_MANIFEST), "utf8"),
-      );
-      expect(product.subset).toBe("ping-level4-socket-reconstruction-v1");
-      expect(product.implementationLevel).toBe("level-4-kernel-resource-reconstruction");
-    });
-  });
-
-  it("snapshot refuses unsupported ping neighboring state through the portable machine path", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "portable-ping-machine-refusal-"));
-    TMP.push(dir);
-    await withSnapshotEngine("portable", async () => {
-      await expect(
-        performSnapshot(fakeSnapshotContext(pingDescriptor({ activeRecvmsg: true })), {
-          outDir: dir,
-        }),
-      ).rejects.toMatchObject({
-        code: "SNAPSHOT_PORTABLE_REFUSED",
-        message: expect.stringMatching(/ping-socket-active-recvmsg-unsupported/),
-      });
-      expect(existsSync(join(dir, PRODUCT_LEVEL4_PING_SOCKET_REFUSAL))).toBe(true);
-      const resources = JSON.parse(readFileSync(join(dir, "resources.json"), "utf8"));
-      expect(resources.resources[2].state).toBe("refused");
-      expect(resources.resources[2].refusal.detail.expectedRefusalCode).toBe(
-        "ping-socket-active-recvmsg-unsupported",
-      );
-    });
-  });
-
-  it("snapshot refuses the portable engine when no supported machine subset is recognized", async () => {
+  it("snapshot refuses the removed portable Level 0-4 machine path", async () => {
     await withSnapshotEngine("portable", async () => {
       await expect(
         performSnapshot(fakeSnapshotContext(), { outDir: "/tmp/no-write" }),
       ).rejects.toMatchObject({
         code: "SNAPSHOT_PORTABLE_REFUSED",
-        message: expect.stringMatching(/supports only the ping Level 4 workload subset/),
+        message: expect.stringMatching(/legacy portable Level 0-4 snapshot routes were removed/),
       });
     });
   });

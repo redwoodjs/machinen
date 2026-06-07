@@ -540,155 +540,23 @@
 - [`filterProductClaimRegistry`](#filterproductclaimregistry)
 - [`productClaimRefusalSummary`](#productclaimrefusalsummary)
 
-### Product semantic ping
+### Move PID translation
 
-- [`ProductSemanticPingError`](#productsemanticpingerror)
-- [`ProductSemanticPingObservableStateDecision`](#productsemanticpingobservablestatedecision)
-- [`ProductSemanticPingDescriptorInput`](#productsemanticpingdescriptorinput)
-- [`ProductSemanticPingDescriptor`](#productsemanticpingdescriptor)
-- [`ProductSemanticPingRestoreSummary`](#productsemanticpingrestoresummary)
-- [`ProductSemanticPingRefusal`](#productsemanticpingrefusal)
-- [`ProductSemanticPingArchitecture`](#productsemanticpingarchitecture)
-- [`ProductSemanticPingStateDecision`](#productsemanticpingstatedecision)
-- [`ProductSemanticPingRefusalCode`](#productsemanticpingrefusalcode)
-- [`ProductSemanticPingContinuationResult`](#productsemanticpingcontinuationresult)
-- [`PRODUCT_SEMANTIC_PING_FORMAT_VERSION`](#product_semantic_ping_format_version)
-- [`productSemanticPingRefusalCodes`](#productsemanticpingrefusalcodes)
-- [`createProductSemanticPingContinuation`](#createproductsemanticpingcontinuation)
-- [`verifyProductSemanticPingContinuation`](#verifyproductsemanticpingcontinuation)
-
-### Product portable PostgreSQL
-
-- [`ProductPortablePostgresError`](#productportablepostgreserror)
-- [`ProductPortablePostgresClaimClassification`](#productportablepostgresclaimclassification)
-- [`ProductPortablePostgresCaptureInput`](#productportablepostgrescaptureinput)
-- [`ProductPortablePostgresDescriptor`](#productportablepostgresdescriptor)
-- [`ProductPortablePostgresRefusal`](#productportablepostgresrefusal)
-- [`ProductPortablePostgresRestoreInput`](#productportablepostgresrestoreinput)
-- [`ProductPortablePostgresRestoreSummary`](#productportablepostgresrestoresummary)
-- [`ProductPortablePostgresArchitecture`](#productportablepostgresarchitecture)
-- [`ProductPortableSupportLevel`](#productportablesupportlevel)
-- [`ProductPortablePostgresRefusalCode`](#productportablepostgresrefusalcode)
-- [`ProductPortablePostgresCaptureResult`](#productportablepostgrescaptureresult)
-- [`PRODUCT_PORTABLE_POSTGRES_FORMAT_VERSION`](#product_portable_postgres_format_version)
-- [`PRODUCT_PORTABLE_POSTGRES_MANIFEST`](#product_portable_postgres_manifest)
-- [`PRODUCT_PORTABLE_POSTGRES_REFUSAL`](#product_portable_postgres_refusal)
-- [`PRODUCT_PORTABLE_POSTGRES_RESTORE_SUMMARY`](#product_portable_postgres_restore_summary)
-- [`PRODUCT_PORTABLE_POSTGRES_DUMP`](#product_portable_postgres_dump)
-- [`productPortablePostgresArchitectures`](#productportablepostgresarchitectures)
-- [`productPortablePostgresSupportLevels`](#productportablepostgressupportlevels)
-- [`productPortablePostgresRefusalCodes`](#productportablepostgresrefusalcodes)
-- [`createProductPortablePostgresSnapshot`](#createproductportablepostgressnapshot)
-- [`restoreProductPortablePostgresSnapshot`](#restoreproductportablepostgressnapshot)
-- [`isProductPortablePostgresBundle`](#isproductportablepostgresbundle)
-- [`productPortablePostgresFileSha256`](#productportablepostgresfilesha256)
-
-### Product Level 4 TCP listener
-
-- [`ProductLevel4TcpListenerError`](#productlevel4tcplistenererror)
-- [`ProductLevel4TcpListenerCaptureInput`](#productlevel4tcplistenercaptureinput)
-- [`ProductLevel4TcpListenerDescriptor`](#productlevel4tcplistenerdescriptor)
-- [`ProductLevel4TcpListenerRefusal`](#productlevel4tcplistenerrefusal)
-- [`ProductLevel4TcpListenerRestoreInput`](#productlevel4tcplistenerrestoreinput)
-- [`ProductLevel4TcpListenerRestoreSummary`](#productlevel4tcplistenerrestoresummary)
-- [`ProductLevel4TcpListenerArchitecture`](#productlevel4tcplistenerarchitecture)
-- [`ProductLevel4TcpListenerRefusalCode`](#productlevel4tcplistenerrefusalcode)
-- [`ProductLevel4TcpListenerCaptureResult`](#productlevel4tcplistenercaptureresult)
-- [`PRODUCT_LEVEL4_TCP_LISTENER_FORMAT_VERSION`](#product_level4_tcp_listener_format_version)
-- [`PRODUCT_LEVEL4_TCP_LISTENER_MANIFEST`](#product_level4_tcp_listener_manifest)
-- [`PRODUCT_LEVEL4_TCP_LISTENER_REFUSAL`](#product_level4_tcp_listener_refusal)
-- [`PRODUCT_LEVEL4_TCP_LISTENER_RESTORE_SUMMARY`](#product_level4_tcp_listener_restore_summary)
-- [`productLevel4TcpListenerArchitectures`](#productlevel4tcplistenerarchitectures)
-- [`productLevel4TcpListenerRefusalCodes`](#productlevel4tcplistenerrefusalcodes)
-- [`createProductLevel4TcpListenerSnapshot`](#createproductlevel4tcplistenersnapshot)
-- [`isProductLevel4TcpListenerBundle`](#isproductlevel4tcplistenerbundle)
-- [`restoreProductLevel4TcpListenerSnapshot`](#restoreproductlevel4tcplistenersnapshot)
-
-### Product Level 4 timerfd
-
-- [`ProductLevel4TimerfdError`](#productlevel4timerfderror)
-- [`ProductLevel4TimerfdCaptureInput`](#productlevel4timerfdcaptureinput)
-- [`ProductLevel4TimerfdDescriptor`](#productlevel4timerfddescriptor)
-- [`ProductLevel4TimerfdRefusal`](#productlevel4timerfdrefusal)
-- [`ProductLevel4TimerfdRestoreInput`](#productlevel4timerfdrestoreinput)
-- [`ProductLevel4TimerfdRestoreSummary`](#productlevel4timerfdrestoresummary)
-- [`ProductLevel4TimerfdArchitecture`](#productlevel4timerfdarchitecture)
-- [`ProductLevel4TimerfdRefusalCode`](#productlevel4timerfdrefusalcode)
-- [`ProductLevel4TimerfdCaptureResult`](#productlevel4timerfdcaptureresult)
-- [`PRODUCT_LEVEL4_TIMERFD_FORMAT_VERSION`](#product_level4_timerfd_format_version)
-- [`PRODUCT_LEVEL4_TIMERFD_MANIFEST`](#product_level4_timerfd_manifest)
-- [`PRODUCT_LEVEL4_TIMERFD_REFUSAL`](#product_level4_timerfd_refusal)
-- [`PRODUCT_LEVEL4_TIMERFD_RESTORE_SUMMARY`](#product_level4_timerfd_restore_summary)
-- [`productLevel4TimerfdArchitectures`](#productlevel4timerfdarchitectures)
-- [`productLevel4TimerfdRefusalCodes`](#productlevel4timerfdrefusalcodes)
-- [`createProductLevel4TimerfdSnapshot`](#createproductlevel4timerfdsnapshot)
-- [`isProductLevel4TimerfdBundle`](#isproductlevel4timerfdbundle)
-- [`restoreProductLevel4TimerfdSnapshot`](#restoreproductlevel4timerfdsnapshot)
-
-### Product Level 4 pipe
-
-- [`ProductLevel4PipeError`](#productlevel4pipeerror)
-- [`ProductLevel4PipeCaptureInput`](#productlevel4pipecaptureinput)
-- [`ProductLevel4PipeDescriptor`](#productlevel4pipedescriptor)
-- [`ProductLevel4PipeRefusal`](#productlevel4piperefusal)
-- [`ProductLevel4PipeRestoreInput`](#productlevel4piperestoreinput)
-- [`ProductLevel4PipeRestoreSummary`](#productlevel4piperestoresummary)
-- [`ProductLevel4PipeArchitecture`](#productlevel4pipearchitecture)
-- [`ProductLevel4PipeRefusalCode`](#productlevel4piperefusalcode)
-- [`ProductLevel4PipeCaptureResult`](#productlevel4pipecaptureresult)
-- [`PRODUCT_LEVEL4_PIPE_FORMAT_VERSION`](#product_level4_pipe_format_version)
-- [`PRODUCT_LEVEL4_PIPE_MANIFEST`](#product_level4_pipe_manifest)
-- [`PRODUCT_LEVEL4_PIPE_REFUSAL`](#product_level4_pipe_refusal)
-- [`PRODUCT_LEVEL4_PIPE_RESTORE_SUMMARY`](#product_level4_pipe_restore_summary)
-- [`productLevel4PipeArchitectures`](#productlevel4pipearchitectures)
-- [`productLevel4PipeRefusalCodes`](#productlevel4piperefusalcodes)
-- [`createProductLevel4PipeSnapshot`](#createproductlevel4pipesnapshot)
-- [`isProductLevel4PipeBundle`](#isproductlevel4pipebundle)
-- [`restoreProductLevel4PipeSnapshot`](#restoreproductlevel4pipesnapshot)
-
-### Product Level 4 eventfd
-
-- [`ProductLevel4EventfdError`](#productlevel4eventfderror)
-- [`ProductLevel4EventfdCaptureInput`](#productlevel4eventfdcaptureinput)
-- [`ProductLevel4EventfdDescriptor`](#productlevel4eventfddescriptor)
-- [`ProductLevel4EventfdRefusal`](#productlevel4eventfdrefusal)
-- [`ProductLevel4EventfdRestoreInput`](#productlevel4eventfdrestoreinput)
-- [`ProductLevel4EventfdRestoreSummary`](#productlevel4eventfdrestoresummary)
-- [`ProductLevel4EventfdArchitecture`](#productlevel4eventfdarchitecture)
-- [`ProductLevel4EventfdRefusalCode`](#productlevel4eventfdrefusalcode)
-- [`ProductLevel4EventfdCaptureResult`](#productlevel4eventfdcaptureresult)
-- [`PRODUCT_LEVEL4_EVENTFD_FORMAT_VERSION`](#product_level4_eventfd_format_version)
-- [`PRODUCT_LEVEL4_EVENTFD_MANIFEST`](#product_level4_eventfd_manifest)
-- [`PRODUCT_LEVEL4_EVENTFD_REFUSAL`](#product_level4_eventfd_refusal)
-- [`PRODUCT_LEVEL4_EVENTFD_RESTORE_SUMMARY`](#product_level4_eventfd_restore_summary)
-- [`productLevel4EventfdArchitectures`](#productlevel4eventfdarchitectures)
-- [`productLevel4EventfdRefusalCodes`](#productlevel4eventfdrefusalcodes)
-- [`createProductLevel4EventfdSnapshot`](#createproductlevel4eventfdsnapshot)
-- [`isProductLevel4EventfdBundle`](#isproductlevel4eventfdbundle)
-- [`restoreProductLevel4EventfdSnapshot`](#restoreproductlevel4eventfdsnapshot)
-
-### Product Level 4 ping socket
-
-- [`ProductLevel4PingSocketError`](#productlevel4pingsocketerror)
-- [`ProductLevel4PingSocketCaptureInput`](#productlevel4pingsocketcaptureinput)
-- [`ProductLevel4PingSocketDescriptor`](#productlevel4pingsocketdescriptor)
-- [`ProductLevel4PingSocketRefusal`](#productlevel4pingsocketrefusal)
-- [`ProductLevel4PingSocketRestoreInput`](#productlevel4pingsocketrestoreinput)
-- [`ProductLevel4PingSocketRestoreSummary`](#productlevel4pingsocketrestoresummary)
-- [`ProductLevel4PingSocketArchitecture`](#productlevel4pingsocketarchitecture)
-- [`ProductLevel4PingSocketKind`](#productlevel4pingsocketkind)
-- [`ProductLevel4PingSocketRefusalCode`](#productlevel4pingsocketrefusalcode)
-- [`ProductLevel4PingSocketCaptureResult`](#productlevel4pingsocketcaptureresult)
-- [`PRODUCT_LEVEL4_PING_SOCKET_FORMAT_VERSION`](#product_level4_ping_socket_format_version)
-- [`PRODUCT_LEVEL4_PING_SOCKET_MANIFEST`](#product_level4_ping_socket_manifest)
-- [`PRODUCT_LEVEL4_PING_SOCKET_REFUSAL`](#product_level4_ping_socket_refusal)
-- [`PRODUCT_LEVEL4_PING_SOCKET_RESTORE_SUMMARY`](#product_level4_ping_socket_restore_summary)
-- [`productLevel4PingSocketArchitectures`](#productlevel4pingsocketarchitectures)
-- [`productLevel4PingSocketKinds`](#productlevel4pingsocketkinds)
-- [`productLevel4PingSocketRefusalCodes`](#productlevel4pingsocketrefusalcodes)
-- [`createProductLevel4PingSocketSnapshot`](#createproductlevel4pingsocketsnapshot)
-- [`isProductLevel4PingSocketBundle`](#isproductlevel4pingsocketbundle)
-- [`restoreProductLevel4PingSocketSnapshot`](#restoreproductlevel4pingsocketsnapshot)
+- [`MoveDescriptor`](#movedescriptor)
+- [`MoveIssueReport`](#moveissuereport)
+- [`MovePidGraph`](#movepidgraph)
+- [`MovePidGraphEdge`](#movepidgraphedge)
+- [`MovePidGraphNode`](#movepidgraphnode)
+- [`MoveProcessStateClass`](#moveprocessstateclass)
+- [`MoveRefusalEvidence`](#moverefusalevidence)
+- [`MoveSaveResult`](#movesaveresult)
+- [`MOVE_DESCRIPTOR_FORMAT_VERSION`](#move_descriptor_format_version)
+- [`MOVE_REFUSAL_CODE`](#move_refusal_code)
+- [`buildMoveIssueReport`](#buildmoveissuereport)
+- [`createMoveDescriptor`](#createmovedescriptor)
+- [`loadMoveDescriptor`](#loadmovedescriptor)
+- [`saveMoveDescriptor`](#savemovedescriptor)
+- [`scanMovePidGraph`](#scanmovepidgraph)
 
 ### Native process images
 
@@ -2437,272 +2305,6 @@ Attach to `id`. Throws if id doesn't exist.
 ###### Overrides
 
 `Error.constructor`
-
-***
-
-### ProductLevel4EventfdError
-
-#### Extends
-
-- `Error`
-
-#### Constructors
-
-##### Constructor
-
-> **new ProductLevel4EventfdError**(`code`, `message`): [`ProductLevel4EventfdError`](#productlevel4eventfderror)
-
-###### Parameters
-
-###### code
-
-`string`
-
-###### message
-
-`string`
-
-###### Returns
-
-[`ProductLevel4EventfdError`](#productlevel4eventfderror)
-
-###### Overrides
-
-`Error.constructor`
-
-#### Properties
-
-##### code
-
-> `readonly` **code**: `string`
-
-***
-
-### ProductLevel4PingSocketError
-
-#### Extends
-
-- `Error`
-
-#### Constructors
-
-##### Constructor
-
-> **new ProductLevel4PingSocketError**(`code`, `message`): [`ProductLevel4PingSocketError`](#productlevel4pingsocketerror)
-
-###### Parameters
-
-###### code
-
-`string`
-
-###### message
-
-`string`
-
-###### Returns
-
-[`ProductLevel4PingSocketError`](#productlevel4pingsocketerror)
-
-###### Overrides
-
-`Error.constructor`
-
-#### Properties
-
-##### code
-
-> `readonly` **code**: `string`
-
-***
-
-### ProductLevel4PipeError
-
-#### Extends
-
-- `Error`
-
-#### Constructors
-
-##### Constructor
-
-> **new ProductLevel4PipeError**(`code`, `message`): [`ProductLevel4PipeError`](#productlevel4pipeerror)
-
-###### Parameters
-
-###### code
-
-`string`
-
-###### message
-
-`string`
-
-###### Returns
-
-[`ProductLevel4PipeError`](#productlevel4pipeerror)
-
-###### Overrides
-
-`Error.constructor`
-
-#### Properties
-
-##### code
-
-> `readonly` **code**: `string`
-
-***
-
-### ProductLevel4TcpListenerError
-
-#### Extends
-
-- `Error`
-
-#### Constructors
-
-##### Constructor
-
-> **new ProductLevel4TcpListenerError**(`code`, `message`): [`ProductLevel4TcpListenerError`](#productlevel4tcplistenererror)
-
-###### Parameters
-
-###### code
-
-`string`
-
-###### message
-
-`string`
-
-###### Returns
-
-[`ProductLevel4TcpListenerError`](#productlevel4tcplistenererror)
-
-###### Overrides
-
-`Error.constructor`
-
-#### Properties
-
-##### code
-
-> `readonly` **code**: `string`
-
-***
-
-### ProductLevel4TimerfdError
-
-#### Extends
-
-- `Error`
-
-#### Constructors
-
-##### Constructor
-
-> **new ProductLevel4TimerfdError**(`code`, `message`): [`ProductLevel4TimerfdError`](#productlevel4timerfderror)
-
-###### Parameters
-
-###### code
-
-`string`
-
-###### message
-
-`string`
-
-###### Returns
-
-[`ProductLevel4TimerfdError`](#productlevel4timerfderror)
-
-###### Overrides
-
-`Error.constructor`
-
-#### Properties
-
-##### code
-
-> `readonly` **code**: `string`
-
-***
-
-### ProductPortablePostgresError
-
-#### Extends
-
-- `Error`
-
-#### Constructors
-
-##### Constructor
-
-> **new ProductPortablePostgresError**(`code`, `message`): [`ProductPortablePostgresError`](#productportablepostgreserror)
-
-###### Parameters
-
-###### code
-
-`string`
-
-###### message
-
-`string`
-
-###### Returns
-
-[`ProductPortablePostgresError`](#productportablepostgreserror)
-
-###### Overrides
-
-`Error.constructor`
-
-#### Properties
-
-##### code
-
-> `readonly` **code**: `string`
-
-***
-
-### ProductSemanticPingError
-
-#### Extends
-
-- `Error`
-
-#### Constructors
-
-##### Constructor
-
-> **new ProductSemanticPingError**(`code`, `message`): [`ProductSemanticPingError`](#productsemanticpingerror)
-
-###### Parameters
-
-###### code
-
-`string`
-
-###### message
-
-`string`
-
-###### Returns
-
-[`ProductSemanticPingError`](#productsemanticpingerror)
-
-###### Overrides
-
-`Error.constructor`
-
-#### Properties
-
-##### code
-
-> `readonly` **code**: `string`
 
 ***
 
@@ -5012,6 +4614,232 @@ Size in bytes the file was allocated at.
 
 ***
 
+### MovePidGraphNode
+
+#### Properties
+
+##### pid
+
+> **pid**: `number`
+
+##### ppid
+
+> **ppid**: `number`
+
+##### command
+
+> **command**: `string`
+
+##### argv
+
+> **argv**: `string`[]
+
+##### cwd
+
+> **cwd**: `string`
+
+***
+
+### MovePidGraphEdge
+
+#### Properties
+
+##### fromPid
+
+> **fromPid**: `number`
+
+##### toPid
+
+> **toPid**: `number`
+
+##### kind
+
+> **kind**: `"parent-child"`
+
+***
+
+### MoveRefusalEvidence
+
+#### Properties
+
+##### stateClass
+
+> **stateClass**: [`MoveProcessStateClass`](#moveprocessstateclass)
+
+##### reason
+
+> **reason**: `string`
+
+##### evidence
+
+> **evidence**: `string`
+
+##### nextAction
+
+> **nextAction**: `string`
+
+***
+
+### MovePidGraph
+
+#### Properties
+
+##### formatVersion
+
+> **formatVersion**: `1`
+
+##### kind
+
+> **kind**: `"machinen.move.pid-graph"`
+
+##### rootPid
+
+> **rootPid**: `number`
+
+##### scannedAt
+
+> **scannedAt**: `string`
+
+##### nodes
+
+> **nodes**: [`MovePidGraphNode`](#movepidgraphnode)[]
+
+##### edges
+
+> **edges**: [`MovePidGraphEdge`](#movepidgraphedge)[]
+
+##### translatedStateClasses
+
+> **translatedStateClasses**: [`MoveProcessStateClass`](#moveprocessstateclass)[]
+
+##### refusedStateClasses
+
+> **refusedStateClasses**: [`MoveRefusalEvidence`](#moverefusalevidence)[]
+
+***
+
+### MoveDescriptor
+
+#### Extends
+
+- `Omit`\<[`MovePidGraph`](#movepidgraph), `"kind"`\>
+
+#### Properties
+
+##### formatVersion
+
+> **formatVersion**: `1`
+
+###### Inherited from
+
+[`MovePidGraph`](#movepidgraph).[`formatVersion`](#formatversion-3)
+
+##### rootPid
+
+> **rootPid**: `number`
+
+###### Inherited from
+
+[`MovePidGraph`](#movepidgraph).[`rootPid`](#rootpid)
+
+##### scannedAt
+
+> **scannedAt**: `string`
+
+###### Inherited from
+
+[`MovePidGraph`](#movepidgraph).[`scannedAt`](#scannedat)
+
+##### nodes
+
+> **nodes**: [`MovePidGraphNode`](#movepidgraphnode)[]
+
+###### Inherited from
+
+[`MovePidGraph`](#movepidgraph).[`nodes`](#nodes)
+
+##### edges
+
+> **edges**: [`MovePidGraphEdge`](#movepidgraphedge)[]
+
+###### Inherited from
+
+[`MovePidGraph`](#movepidgraph).[`edges`](#edges)
+
+##### translatedStateClasses
+
+> **translatedStateClasses**: [`MoveProcessStateClass`](#moveprocessstateclass)[]
+
+###### Inherited from
+
+[`MovePidGraph`](#movepidgraph).[`translatedStateClasses`](#translatedstateclasses)
+
+##### refusedStateClasses
+
+> **refusedStateClasses**: [`MoveRefusalEvidence`](#moverefusalevidence)[]
+
+###### Inherited from
+
+[`MovePidGraph`](#movepidgraph).[`refusedStateClasses`](#refusedstateclasses)
+
+##### kind
+
+> **kind**: `"machinen.move.descriptor"`
+
+##### target
+
+> **target**: `"cross-isa-target-native-pid-translation"`
+
+##### productSurface
+
+> **productSurface**: `"machinen move"`
+
+***
+
+### MoveSaveResult
+
+#### Properties
+
+##### accepted
+
+> **accepted**: `boolean`
+
+##### descriptorPath
+
+> **descriptorPath**: `string`
+
+##### descriptor
+
+> **descriptor**: [`MoveDescriptor`](#movedescriptor)
+
+##### refusalCode?
+
+> `optional` **refusalCode?**: `"move-unproven-state-class"`
+
+##### issueReport?
+
+> `optional` **issueReport?**: [`MoveIssueReport`](#moveissuereport)
+
+***
+
+### MoveIssueReport
+
+#### Properties
+
+##### title
+
+> **title**: `string`
+
+##### body
+
+> **body**: `string`
+
+##### repository
+
+> **repository**: `string`
+
+***
+
 ### SandboxEntry
 
 #### Properties
@@ -7239,7 +7067,7 @@ by default when `output` is a TTY.
 
 ###### rseq.state
 
-> **state**: `"unsupported"` \| `"captured"` \| `"absent"`
+> **state**: `"unsupported"` \| `"absent"` \| `"captured"`
 
 ###### rseq.refusal?
 
@@ -7577,7 +7405,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-20)
+[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-23)
 
 ##### buildId
 
@@ -7685,7 +7513,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-20)
+[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-23)
 
 ##### buildId
 
@@ -9480,7 +9308,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-35)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-38)
 
 ##### targetArch
 
@@ -10068,7 +9896,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-35)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-38)
 
 ##### targetArch
 
@@ -12040,7 +11868,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`refusalCode`](#refusalcode-7)
+[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`refusalCode`](#refusalcode-8)
 
 ##### remediation?
 
@@ -12072,7 +11900,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`evidence`](#evidence-4)
+[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`evidence`](#evidence-5)
 
 ##### kind
 
@@ -14595,7 +14423,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`refusalCode`](#refusalcode-11)
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`refusalCode`](#refusalcode-12)
 
 ##### remediation?
 
@@ -14611,7 +14439,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`evidence`](#evidence-11)
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`evidence`](#evidence-12)
 
 ##### kind
 
@@ -14778,7 +14606,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### productSupportLevel?
 
-> `optional` **productSupportLevel?**: `"level-4-kernel-resource-reconstruction"` \| `"level-0-fail-closed-discovery"` \| `"level-5-cross-arch-process-continuation"` \| `"level-1-semantic-restart"` \| `"level-2-semantic-continuation"` \| `"level-3-runtime-aware-continuation"`
+> `optional` **productSupportLevel?**: `"level-5-cross-arch-process-continuation"` \| `"deprecated-cross-isa-level"`
 
 ##### observableStateDecisions?
 
@@ -14796,7 +14624,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### family
 
-> **family**: `"network-ping-socket"` \| `"unknown"` \| `"go"` \| `"postgresql"` \| `"nodejs"` \| `"python-ruby-jvm"` \| `"stateful-services"` \| `"foundation-native"` \| `"native-linux-resource"`
+> **family**: `"unknown"` \| `"go"` \| `"postgresql"` \| `"nodejs"` \| `"python-ruby-jvm"` \| `"stateful-services"` \| `"foundation-native"` \| `"native-linux-resource"` \| `"network-ping-socket"`
 
 ##### runtime?
 
@@ -14812,11 +14640,11 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### productStatus
 
-> **productStatus**: `"implemented-product-support"` \| `"stable-product-refusal"` \| `"proof-only-fixture"` \| `"obsolete-invalid-claim"`
+> **productStatus**: `"implemented-product-support"` \| `"deprecated-legacy-support"` \| `"stable-product-refusal"` \| `"proof-only-fixture"` \| `"obsolete-invalid-claim"`
 
 ##### supportLevel
 
-> **supportLevel**: `"level-4-kernel-resource-reconstruction"` \| `"level-0-fail-closed-discovery"` \| `"level-5-cross-arch-process-continuation"` \| `"level-1-semantic-restart"` \| `"level-2-semantic-continuation"` \| `"level-3-runtime-aware-continuation"`
+> **supportLevel**: `"level-5-cross-arch-process-continuation"` \| `"deprecated-cross-isa-level"`
 
 ##### supportLevelName
 
@@ -14926,6 +14754,10 @@ pids that aren't machinen-managed; those fall back to ps.
 
 > **implementedProductSupport**: `number`
 
+##### deprecatedLegacySupport
+
+> **deprecatedLegacySupport**: `number`
+
 ##### stableProductRefusals
 
 > **stableProductRefusals**: `number`
@@ -14946,11 +14778,11 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### status?
 
-> `optional` **status?**: `"implemented-product-support"` \| `"stable-product-refusal"` \| `"proof-only-fixture"` \| `"obsolete-invalid-claim"`
+> `optional` **status?**: `"implemented-product-support"` \| `"deprecated-legacy-support"` \| `"stable-product-refusal"` \| `"proof-only-fixture"` \| `"obsolete-invalid-claim"`
 
 ##### family?
 
-> `optional` **family?**: `"network-ping-socket"` \| `"unknown"` \| `"go"` \| `"postgresql"` \| `"nodejs"` \| `"python-ruby-jvm"` \| `"stateful-services"` \| `"foundation-native"` \| `"native-linux-resource"`
+> `optional` **family?**: `"unknown"` \| `"go"` \| `"postgresql"` \| `"nodejs"` \| `"python-ruby-jvm"` \| `"stateful-services"` \| `"foundation-native"` \| `"native-linux-resource"` \| `"network-ping-socket"`
 
 ##### runtime?
 
@@ -14970,2863 +14802,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### supportLevel?
 
-> `optional` **supportLevel?**: `"level-4-kernel-resource-reconstruction"` \| `"level-0-fail-closed-discovery"` \| `"level-5-cross-arch-process-continuation"` \| `"level-1-semantic-restart"` \| `"level-2-semantic-continuation"` \| `"level-3-runtime-aware-continuation"`
-
-***
-
-### ProductLevel4EventfdCaptureInput
-
-#### Properties
-
-##### outDir
-
-> **outDir**: `string`
-
-##### sourceArch
-
-> **sourceArch**: `"amd64"` \| `"arm64"`
-
-##### targetArch
-
-> **targetArch**: `"amd64"` \| `"arm64"`
-
-##### sourceVerifierOutput
-
-> **sourceVerifierOutput**: `string`
-
-##### counter
-
-> **counter**: `string` \| `number`
-
-##### closeOnExec?
-
-> `optional` **closeOnExec?**: `boolean`
-
-##### nonblocking?
-
-> `optional` **nonblocking?**: `boolean`
-
-##### semaphore?
-
-> `optional` **semaphore?**: `boolean`
-
-##### waiters?
-
-> `optional` **waiters?**: `"none"` \| `"unknown"`
-
-##### aliases?
-
-> `optional` **aliases?**: `"none"` \| `"unknown"` \| `"present"`
-
-##### activeSyscall?
-
-> `optional` **activeSyscall?**: `boolean`
-
-##### outputLogPath?
-
-> `optional` **outputLogPath?**: `"/tmp/machinen-restored-eventfd.log"`
-
-##### dryRun?
-
-> `optional` **dryRun?**: `boolean`
-
-***
-
-### ProductLevel4EventfdDescriptor
-
-#### Properties
-
-##### kind
-
-> **kind**: `"machinen.product-level4-eventfd"`
-
-##### formatVersion
-
-> **formatVersion**: `1`
-
-##### supportLevel
-
-> **supportLevel**: `"implemented-product-support"`
-
-##### subset
-
-> **subset**: `"eventfd-counter-v1-nonsemaphore-no-waiters"`
-
-##### implementationLevel
-
-> **implementationLevel**: `"level-4-kernel-resource-reconstruction"`
-
-##### runtime
-
-> **runtime**: `"native-linux-resource"`
-
-##### captureSurface
-
-> **captureSurface**: `"machinen capture eventfd"`
-
-##### restoreSurface
-
-> **restoreSurface**: `"machinen restore <bundle> --target-arch <arch> [--target-verifier-output <file>]"`
-
-##### source
-
-> **source**: `object`
-
-###### architecture
-
-> **architecture**: `"amd64"` \| `"arm64"`
-
-###### host
-
-> **host**: `object`
-
-###### host.arch
-
-> **arch**: `string`
-
-###### host.platform
-
-> **platform**: `string`
-
-###### host.release
-
-> **release**: `string`
-
-##### target
-
-> **target**: `object`
-
-###### architecture
-
-> **architecture**: `"amd64"` \| `"arm64"`
-
-##### eventfd
-
-> **eventfd**: `object`
-
-###### counter
-
-> **counter**: `string`
-
-###### semaphore
-
-> **semaphore**: `false`
-
-###### waiters
-
-> **waiters**: `"none"`
-
-###### aliases
-
-> **aliases**: `"none"`
-
-###### closeOnExec
-
-> **closeOnExec**: `true`
-
-###### nonblocking
-
-> **nonblocking**: `false`
-
-###### readiness
-
-> **readiness**: `"readable"`
-
-##### continuation
-
-> **continuation**: `object`
-
-###### outputLogPath
-
-> **outputLogPath**: `"/tmp/machinen-restored-eventfd.log"`
-
-###### counterPolicy
-
-> **counterPolicy**: `"target-native-eventfd-counter-recreated"`
-
-###### readinessPolicy
-
-> **readinessPolicy**: `"counter-nonzero-pollin"`
-
-##### gates
-
-> **gates**: `object`
-
-###### boundedNonzeroCounterRequired
-
-> **boundedNonzeroCounterRequired**: `true`
-
-###### noSemaphoreModeRequired
-
-> **noSemaphoreModeRequired**: `true`
-
-###### noWaitersRequired
-
-> **noWaitersRequired**: `true`
-
-###### noAliasesRequired
-
-> **noAliasesRequired**: `true`
-
-###### onlyCloseOnExecFlagSupported
-
-> **onlyCloseOnExecFlagSupported**: `true`
-
-###### noActiveEventfdSyscallRequired
-
-> **noActiveEventfdSyscallRequired**: `true`
-
-###### targetNativeVerificationRequired
-
-> **targetNativeVerificationRequired**: `true`
-
-###### sourceIsaEmulationAllowed
-
-> **sourceIsaEmulationAllowed**: `false`
-
-###### sourceTextReplayAllowed
-
-> **sourceTextReplayAllowed**: `false`
-
-###### sidecarRuntimeAllowed
-
-> **sidecarRuntimeAllowed**: `false`
-
-###### metadataOnlyContinuationAllowed
-
-> **metadataOnlyContinuationAllowed**: `false`
-
-##### sourceVerifierOutput
-
-> **sourceVerifierOutput**: `string`
-
-##### sourceVerifierOutputSha256
-
-> **sourceVerifierOutputSha256**: `string`
-
-***
-
-### ProductLevel4EventfdRefusal
-
-#### Properties
-
-##### kind
-
-> **kind**: `"machinen.product-level4-eventfd-refusal"`
-
-##### formatVersion
-
-> **formatVersion**: `1`
-
-##### runtime
-
-> **runtime**: `"native-linux-resource"`
-
-##### supportLevel
-
-> **supportLevel**: `"explicit-refusal"`
-
-##### state
-
-> **state**: `"refused"`
-
-##### migrationCompleted
-
-> **migrationCompleted**: `false`
-
-##### expectedRefusalCode
-
-> **expectedRefusalCode**: `"eventfd-waiters-unsupported"` \| `"eventfd-source-target-arch-match"` \| `"eventfd-target-arch-mismatch"` \| `"eventfd-target-verifier-mismatch"` \| `"eventfd-counter-out-of-range"` \| `"eventfd-semaphore-unsupported"` \| `"eventfd-alias-unsupported"` \| `"eventfd-unsupported-flags"` \| `"eventfd-active-syscall-unsupported"`
-
-##### message
-
-> **message**: `string`
-
-##### evidence
-
-> **evidence**: `Record`\<`string`, `unknown`\>
-
-##### sourceIsaEmulationUsed
-
-> **sourceIsaEmulationUsed**: `false`
-
-##### sourceTextReusedAsTargetCode
-
-> **sourceTextReusedAsTargetCode**: `false`
-
-##### sidecarRuntimeUsed
-
-> **sidecarRuntimeUsed**: `false`
-
-##### metadataOnlyShortcutAccepted
-
-> **metadataOnlyShortcutAccepted**: `false`
-
-***
-
-### ProductLevel4EventfdRestoreInput
-
-#### Properties
-
-##### bundleDir
-
-> **bundleDir**: `string`
-
-##### targetArch
-
-> **targetArch**: `"amd64"` \| `"arm64"`
-
-##### targetVerifierOutput
-
-> **targetVerifierOutput**: `string`
-
-##### dryRun?
-
-> `optional` **dryRun?**: `boolean`
-
-***
-
-### ProductLevel4EventfdRestoreSummary
-
-#### Properties
-
-##### kind
-
-> **kind**: `"machinen.product-level4-eventfd-restore-summary"`
-
-##### formatVersion
-
-> **formatVersion**: `1`
-
-##### runtime
-
-> **runtime**: `"native-linux-resource"`
-
-##### subset
-
-> **subset**: `"eventfd-counter-v1-nonsemaphore-no-waiters"`
-
-##### supportLevel
-
-> **supportLevel**: `"implemented-product-support"`
-
-##### implementationLevel
-
-> **implementationLevel**: `"level-4-kernel-resource-reconstruction"`
-
-##### state
-
-> **state**: `"refused"` \| `"completed"`
-
-##### migrationCompleted
-
-> **migrationCompleted**: `boolean`
-
-##### sourceArch?
-
-> `optional` **sourceArch?**: `"amd64"` \| `"arm64"`
-
-##### targetArch
-
-> **targetArch**: `"amd64"` \| `"arm64"`
-
-##### targetVerifierResult
-
-> **targetVerifierResult**: `"failed"` \| `"passed"` \| `"not-run"`
-
-##### descriptorSha256?
-
-> `optional` **descriptorSha256?**: `string`
-
-##### targetVerifierOutputSha256?
-
-> `optional` **targetVerifierOutputSha256?**: `string`
-
-##### refusal?
-
-> `optional` **refusal?**: [`ProductLevel4EventfdRefusal`](#productlevel4eventfdrefusal)
-
-##### shortcutInspection
-
-> **shortcutInspection**: `object`
-
-###### sourceIsaEmulationUsed
-
-> **sourceIsaEmulationUsed**: `false`
-
-###### sourceTextReusedAsTargetCode
-
-> **sourceTextReusedAsTargetCode**: `false`
-
-###### sidecarRuntimeUsed
-
-> **sidecarRuntimeUsed**: `false`
-
-###### metadataOnlyShortcutAccepted
-
-> **metadataOnlyShortcutAccepted**: `false`
-
-***
-
-### ProductLevel4PingSocketCaptureInput
-
-#### Properties
-
-##### outDir
-
-> **outDir**: `string`
-
-##### sourceArch
-
-> **sourceArch**: `"amd64"` \| `"arm64"`
-
-##### targetArch
-
-> **targetArch**: `"amd64"` \| `"arm64"`
-
-##### socketKind
-
-> **socketKind**: `"ping-dgram-icmp"` \| `"raw-icmp"`
-
-##### sourceVerifierOutput
-
-> **sourceVerifierOutput**: `string`
-
-##### echoIdentifier
-
-> **echoIdentifier**: `number`
-
-##### echoSequence
-
-> **echoSequence**: `number`
-
-##### destination?
-
-> `optional` **destination?**: `"127.0.0.1"`
-
-##### intervalMs?
-
-> `optional` **intervalMs?**: `number`
-
-##### outputLogPath?
-
-> `optional` **outputLogPath?**: `"/tmp/machinen-restored-ping.log"`
-
-##### sequencePolicy?
-
-> `optional` **sequencePolicy?**: `"continue-at-next-supported-boundary"`
-
-##### route
-
-> **route**: `"loopback"`
-
-##### namespace
-
-> **namespace**: `"target-loopback"`
-
-##### credential?
-
-> `optional` **credential?**: `"ping-group-range"` \| `"cap-net-raw"`
-
-##### activeRecvmsg?
-
-> `optional` **activeRecvmsg?**: `boolean`
-
-##### unreadReceiveQueue?
-
-> `optional` **unreadReceiveQueue?**: `boolean`
-
-##### inflightPackets?
-
-> `optional` **inflightPackets?**: `boolean`
-
-##### ambiguousRouteOrNamespace?
-
-> `optional` **ambiguousRouteOrNamespace?**: `boolean`
-
-##### missingCredentialOrCapability?
-
-> `optional` **missingCredentialOrCapability?**: `boolean`
-
-##### unsupportedRawSocketOption?
-
-> `optional` **unsupportedRawSocketOption?**: `boolean`
-
-##### dryRun?
-
-> `optional` **dryRun?**: `boolean`
-
-***
-
-### ProductLevel4PingSocketDescriptor
-
-#### Properties
-
-##### kind
-
-> **kind**: `"machinen.product-level4-ping-socket"`
-
-##### formatVersion
-
-> **formatVersion**: `1`
-
-##### supportLevel
-
-> **supportLevel**: `"implemented-product-support"`
-
-##### subset
-
-> **subset**: `"ping-level4-socket-reconstruction-v1"`
-
-##### implementationLevel
-
-> **implementationLevel**: `"level-4-kernel-resource-reconstruction"`
-
-##### runtime
-
-> **runtime**: `"network-ping-socket"`
-
-##### captureSurface
-
-> **captureSurface**: `"machinen capture ping-socket"`
-
-##### restoreSurface
-
-> **restoreSurface**: `"machinen restore <bundle> --target-arch <arch> [--target-verifier-output <file>]"`
-
-##### source
-
-> **source**: `object`
-
-###### architecture
-
-> **architecture**: `"amd64"` \| `"arm64"`
-
-###### host
-
-> **host**: `object`
-
-###### host.arch
-
-> **arch**: `string`
-
-###### host.platform
-
-> **platform**: `string`
-
-###### host.release
-
-> **release**: `string`
-
-##### target
-
-> **target**: `object`
-
-###### architecture
-
-> **architecture**: `"amd64"` \| `"arm64"`
-
-##### socket
-
-> **socket**: `object`
-
-###### kind
-
-> **kind**: `"ping-dgram-icmp"` \| `"raw-icmp"`
-
-###### route
-
-> **route**: `"loopback"`
-
-###### namespace
-
-> **namespace**: `"target-loopback"`
-
-###### credential
-
-> **credential**: `"ping-group-range"` \| `"cap-net-raw"`
-
-###### echoIdentifier
-
-> **echoIdentifier**: `number`
-
-###### echoSequence
-
-> **echoSequence**: `number`
-
-##### continuation
-
-> **continuation**: `object`
-
-###### destination
-
-> **destination**: `"127.0.0.1"`
-
-###### intervalMs
-
-> **intervalMs**: `number`
-
-###### outputLogPath
-
-> **outputLogPath**: `"/tmp/machinen-restored-ping.log"`
-
-###### sequencePolicy
-
-> **sequencePolicy**: `"continue-at-next-supported-boundary"`
-
-###### idPolicy
-
-> **idPolicy**: `"descriptor-preserved-when-target-ping-supports-it"`
-
-###### textOutputSequencePolicy
-
-> **textOutputSequencePolicy**: `"machinen-helper-renders-descriptor-sequence"`
-
-##### gates
-
-> **gates**: `object`
-
-###### emptyReceiveQueueRequired
-
-> **emptyReceiveQueueRequired**: `true`
-
-###### noInflightPacketsRequired
-
-> **noInflightPacketsRequired**: `true`
-
-###### noActiveRecvmsgRequired
-
-> **noActiveRecvmsgRequired**: `true`
-
-###### unambiguousRouteAndNamespaceRequired
-
-> **unambiguousRouteAndNamespaceRequired**: `true`
-
-###### credentialOrCapabilityMappingRequired
-
-> **credentialOrCapabilityMappingRequired**: `true`
-
-###### unsupportedRawSocketOptionsRefused
-
-> **unsupportedRawSocketOptionsRefused**: `true`
-
-###### targetNativeVerificationRequired
-
-> **targetNativeVerificationRequired**: `true`
-
-###### sourceIsaEmulationAllowed
-
-> **sourceIsaEmulationAllowed**: `false`
-
-###### sourceTextReplayAllowed
-
-> **sourceTextReplayAllowed**: `false`
-
-###### sidecarRuntimeAllowed
-
-> **sidecarRuntimeAllowed**: `false`
-
-###### metadataOnlyContinuationAllowed
-
-> **metadataOnlyContinuationAllowed**: `false`
-
-##### sourceVerifierOutput
-
-> **sourceVerifierOutput**: `string`
-
-##### sourceVerifierOutputSha256
-
-> **sourceVerifierOutputSha256**: `string`
-
-***
-
-### ProductLevel4PingSocketRefusal
-
-#### Properties
-
-##### kind
-
-> **kind**: `"machinen.product-level4-ping-socket-refusal"`
-
-##### formatVersion
-
-> **formatVersion**: `1`
-
-##### runtime
-
-> **runtime**: `"network-ping-socket"`
-
-##### supportLevel
-
-> **supportLevel**: `"explicit-refusal"`
-
-##### state
-
-> **state**: `"refused"`
-
-##### migrationCompleted
-
-> **migrationCompleted**: `false`
-
-##### expectedRefusalCode
-
-> **expectedRefusalCode**: `"ping-socket-active-recvmsg-unsupported"` \| `"ping-socket-unread-receive-queue-unsupported"` \| `"ping-socket-inflight-packets-unsupported"` \| `"ping-socket-ambiguous-route-or-namespace"` \| `"ping-socket-missing-credential-or-capability"` \| `"ping-socket-unsupported-raw-socket-option"` \| `"ping-socket-source-target-arch-match"` \| `"ping-socket-target-arch-mismatch"` \| `"ping-socket-target-verifier-mismatch"`
-
-##### message
-
-> **message**: `string`
-
-##### evidence
-
-> **evidence**: `Record`\<`string`, `unknown`\>
-
-##### sourceIsaEmulationUsed
-
-> **sourceIsaEmulationUsed**: `false`
-
-##### sourceTextReusedAsTargetCode
-
-> **sourceTextReusedAsTargetCode**: `false`
-
-##### sidecarRuntimeUsed
-
-> **sidecarRuntimeUsed**: `false`
-
-##### metadataOnlyShortcutAccepted
-
-> **metadataOnlyShortcutAccepted**: `false`
-
-***
-
-### ProductLevel4PingSocketRestoreInput
-
-#### Properties
-
-##### bundleDir
-
-> **bundleDir**: `string`
-
-##### targetArch
-
-> **targetArch**: `"amd64"` \| `"arm64"`
-
-##### targetVerifierOutput
-
-> **targetVerifierOutput**: `string`
-
-##### dryRun?
-
-> `optional` **dryRun?**: `boolean`
-
-***
-
-### ProductLevel4PingSocketRestoreSummary
-
-#### Properties
-
-##### kind
-
-> **kind**: `"machinen.product-level4-ping-socket-restore-summary"`
-
-##### formatVersion
-
-> **formatVersion**: `1`
-
-##### runtime
-
-> **runtime**: `"network-ping-socket"`
-
-##### subset
-
-> **subset**: `"ping-level4-socket-reconstruction-v1"`
-
-##### supportLevel
-
-> **supportLevel**: `"implemented-product-support"`
-
-##### implementationLevel
-
-> **implementationLevel**: `"level-4-kernel-resource-reconstruction"`
-
-##### state
-
-> **state**: `"refused"` \| `"completed"`
-
-##### migrationCompleted
-
-> **migrationCompleted**: `boolean`
-
-##### sourceArch?
-
-> `optional` **sourceArch?**: `"amd64"` \| `"arm64"`
-
-##### targetArch
-
-> **targetArch**: `"amd64"` \| `"arm64"`
-
-##### targetVerifierResult
-
-> **targetVerifierResult**: `"failed"` \| `"passed"` \| `"not-run"`
-
-##### descriptorSha256?
-
-> `optional` **descriptorSha256?**: `string`
-
-##### targetVerifierOutputSha256?
-
-> `optional` **targetVerifierOutputSha256?**: `string`
-
-##### refusal?
-
-> `optional` **refusal?**: [`ProductLevel4PingSocketRefusal`](#productlevel4pingsocketrefusal)
-
-##### shortcutInspection
-
-> **shortcutInspection**: `object`
-
-###### sourceIsaEmulationUsed
-
-> **sourceIsaEmulationUsed**: `false`
-
-###### sourceTextReusedAsTargetCode
-
-> **sourceTextReusedAsTargetCode**: `false`
-
-###### sidecarRuntimeUsed
-
-> **sidecarRuntimeUsed**: `false`
-
-###### metadataOnlyShortcutAccepted
-
-> **metadataOnlyShortcutAccepted**: `false`
-
-***
-
-### ProductLevel4PipeCaptureInput
-
-#### Properties
-
-##### outDir
-
-> **outDir**: `string`
-
-##### sourceArch
-
-> **sourceArch**: `"amd64"` \| `"arm64"`
-
-##### targetArch
-
-> **targetArch**: `"amd64"` \| `"arm64"`
-
-##### sourceVerifierOutput
-
-> **sourceVerifierOutput**: `string`
-
-##### readFd
-
-> **readFd**: `number`
-
-##### writeFd
-
-> **writeFd**: `number`
-
-##### buffer?
-
-> `optional` **buffer?**: `"bytes"` \| `"unknown"` \| `"empty"`
-
-##### bufferedBytesHex?
-
-> `optional` **bufferedBytesHex?**: `string`
-
-##### peerLifetime?
-
-> `optional` **peerLifetime?**: `"unknown"` \| `"open"` \| `"closed"`
-
-##### waiters?
-
-> `optional` **waiters?**: `"none"` \| `"unknown"`
-
-##### readiness?
-
-> `optional` **readiness?**: `"readable"` \| `"unknown"` \| `"not-readable"`
-
-##### closeOnExec?
-
-> `optional` **closeOnExec?**: `boolean`
-
-##### nonblocking?
-
-> `optional` **nonblocking?**: `boolean`
-
-##### activeSyscall?
-
-> `optional` **activeSyscall?**: `boolean`
-
-##### outputLogPath?
-
-> `optional` **outputLogPath?**: `"/tmp/machinen-restored-pipe.log"`
-
-##### dryRun?
-
-> `optional` **dryRun?**: `boolean`
-
-***
-
-### ProductLevel4PipeDescriptor
-
-#### Properties
-
-##### kind
-
-> **kind**: `"machinen.product-level4-pipe"`
-
-##### formatVersion
-
-> **formatVersion**: `1`
-
-##### supportLevel
-
-> **supportLevel**: `"implemented-product-support"`
-
-##### subset
-
-> **subset**: `"pipe-pair-v1-empty-no-waiters"`
-
-##### implementationLevel
-
-> **implementationLevel**: `"level-4-kernel-resource-reconstruction"`
-
-##### runtime
-
-> **runtime**: `"native-linux-resource"`
-
-##### captureSurface
-
-> **captureSurface**: `"machinen capture pipe"`
-
-##### restoreSurface
-
-> **restoreSurface**: `"machinen restore <bundle> --target-arch <arch> [--target-verifier-output <file>]"`
-
-##### source
-
-> **source**: `object`
-
-###### architecture
-
-> **architecture**: `"amd64"` \| `"arm64"`
-
-###### host
-
-> **host**: `object`
-
-###### host.arch
-
-> **arch**: `string`
-
-###### host.platform
-
-> **platform**: `string`
-
-###### host.release
-
-> **release**: `string`
-
-##### target
-
-> **target**: `object`
-
-###### architecture
-
-> **architecture**: `"amd64"` \| `"arm64"`
-
-##### pipe
-
-> **pipe**: `object`
-
-###### readFd
-
-> **readFd**: `number`
-
-###### writeFd
-
-> **writeFd**: `number`
-
-###### buffer
-
-> **buffer**: `"empty"`
-
-###### peerLifetime
-
-> **peerLifetime**: `"open"`
-
-###### waiters
-
-> **waiters**: `"none"`
-
-###### readiness
-
-> **readiness**: `"not-readable"`
-
-###### closeOnExec
-
-> **closeOnExec**: `true`
-
-###### nonblocking
-
-> **nonblocking**: `false`
-
-##### continuation
-
-> **continuation**: `object`
-
-###### outputLogPath
-
-> **outputLogPath**: `"/tmp/machinen-restored-pipe.log"`
-
-###### pipePolicy
-
-> **pipePolicy**: `"target-native-empty-pipe-pair-recreated"`
-
-###### readinessPolicy
-
-> **readinessPolicy**: `"empty-pipe-read-end-not-readable"`
-
-##### gates
-
-> **gates**: `object`
-
-###### exactlyOneReadAndWriteEndRequired
-
-> **exactlyOneReadAndWriteEndRequired**: `true`
-
-###### emptyBufferRequired
-
-> **emptyBufferRequired**: `true`
-
-###### peerLifetimeOpenRequired
-
-> **peerLifetimeOpenRequired**: `true`
-
-###### noWaitersRequired
-
-> **noWaitersRequired**: `true`
-
-###### notReadableReadinessRequired
-
-> **notReadableReadinessRequired**: `true`
-
-###### onlyCloseOnExecFlagSupported
-
-> **onlyCloseOnExecFlagSupported**: `true`
-
-###### noActivePipeSyscallRequired
-
-> **noActivePipeSyscallRequired**: `true`
-
-###### targetNativeVerificationRequired
-
-> **targetNativeVerificationRequired**: `true`
-
-###### sourceIsaEmulationAllowed
-
-> **sourceIsaEmulationAllowed**: `false`
-
-###### sourceTextReplayAllowed
-
-> **sourceTextReplayAllowed**: `false`
-
-###### sidecarRuntimeAllowed
-
-> **sidecarRuntimeAllowed**: `false`
-
-###### metadataOnlyContinuationAllowed
-
-> **metadataOnlyContinuationAllowed**: `false`
-
-##### sourceVerifierOutput
-
-> **sourceVerifierOutput**: `string`
-
-##### sourceVerifierOutputSha256
-
-> **sourceVerifierOutputSha256**: `string`
-
-***
-
-### ProductLevel4PipeRefusal
-
-#### Properties
-
-##### kind
-
-> **kind**: `"machinen.product-level4-pipe-refusal"`
-
-##### formatVersion
-
-> **formatVersion**: `1`
-
-##### runtime
-
-> **runtime**: `"native-linux-resource"`
-
-##### supportLevel
-
-> **supportLevel**: `"explicit-refusal"`
-
-##### state
-
-> **state**: `"refused"`
-
-##### migrationCompleted
-
-> **migrationCompleted**: `false`
-
-##### expectedRefusalCode
-
-> **expectedRefusalCode**: `"pipe-waiters-unsupported"` \| `"pipe-source-target-arch-match"` \| `"pipe-target-arch-mismatch"` \| `"pipe-target-verifier-mismatch"` \| `"pipe-fd-pair-invalid"` \| `"pipe-buffered-data-unsupported"` \| `"pipe-peer-lifetime-unsupported"` \| `"pipe-readiness-unsupported"` \| `"pipe-unsupported-flags"` \| `"pipe-active-syscall-unsupported"`
-
-##### message
-
-> **message**: `string`
-
-##### evidence
-
-> **evidence**: `Record`\<`string`, `unknown`\>
-
-##### sourceIsaEmulationUsed
-
-> **sourceIsaEmulationUsed**: `false`
-
-##### sourceTextReusedAsTargetCode
-
-> **sourceTextReusedAsTargetCode**: `false`
-
-##### sidecarRuntimeUsed
-
-> **sidecarRuntimeUsed**: `false`
-
-##### metadataOnlyShortcutAccepted
-
-> **metadataOnlyShortcutAccepted**: `false`
-
-***
-
-### ProductLevel4PipeRestoreInput
-
-#### Properties
-
-##### bundleDir
-
-> **bundleDir**: `string`
-
-##### targetArch
-
-> **targetArch**: `"amd64"` \| `"arm64"`
-
-##### targetVerifierOutput
-
-> **targetVerifierOutput**: `string`
-
-##### dryRun?
-
-> `optional` **dryRun?**: `boolean`
-
-***
-
-### ProductLevel4PipeRestoreSummary
-
-#### Properties
-
-##### kind
-
-> **kind**: `"machinen.product-level4-pipe-restore-summary"`
-
-##### formatVersion
-
-> **formatVersion**: `1`
-
-##### runtime
-
-> **runtime**: `"native-linux-resource"`
-
-##### subset
-
-> **subset**: `"pipe-pair-v1-empty-no-waiters"`
-
-##### supportLevel
-
-> **supportLevel**: `"implemented-product-support"`
-
-##### implementationLevel
-
-> **implementationLevel**: `"level-4-kernel-resource-reconstruction"`
-
-##### state
-
-> **state**: `"refused"` \| `"completed"`
-
-##### migrationCompleted
-
-> **migrationCompleted**: `boolean`
-
-##### sourceArch?
-
-> `optional` **sourceArch?**: `"amd64"` \| `"arm64"`
-
-##### targetArch
-
-> **targetArch**: `"amd64"` \| `"arm64"`
-
-##### targetVerifierResult
-
-> **targetVerifierResult**: `"failed"` \| `"passed"` \| `"not-run"`
-
-##### descriptorSha256?
-
-> `optional` **descriptorSha256?**: `string`
-
-##### targetVerifierOutputSha256?
-
-> `optional` **targetVerifierOutputSha256?**: `string`
-
-##### refusal?
-
-> `optional` **refusal?**: [`ProductLevel4PipeRefusal`](#productlevel4piperefusal)
-
-##### shortcutInspection
-
-> **shortcutInspection**: `object`
-
-###### sourceIsaEmulationUsed
-
-> **sourceIsaEmulationUsed**: `false`
-
-###### sourceTextReusedAsTargetCode
-
-> **sourceTextReusedAsTargetCode**: `false`
-
-###### sidecarRuntimeUsed
-
-> **sidecarRuntimeUsed**: `false`
-
-###### metadataOnlyShortcutAccepted
-
-> **metadataOnlyShortcutAccepted**: `false`
-
-***
-
-### ProductLevel4TcpListenerCaptureInput
-
-#### Properties
-
-##### outDir
-
-> **outDir**: `string`
-
-##### sourceArch
-
-> **sourceArch**: `"amd64"` \| `"arm64"`
-
-##### targetArch
-
-> **targetArch**: `"amd64"` \| `"arm64"`
-
-##### sourceVerifierOutput
-
-> **sourceVerifierOutput**: `string`
-
-##### bindAddress
-
-> **bindAddress**: `string`
-
-##### port
-
-> **port**: `number`
-
-##### backlog
-
-> **backlog**: `number`
-
-##### reuseAddr?
-
-> `optional` **reuseAddr?**: `boolean`
-
-##### acceptQueue?
-
-> `optional` **acceptQueue?**: `"unknown"` \| `"empty"` \| `"non-empty"`
-
-##### activeConnections?
-
-> `optional` **activeConnections?**: `boolean`
-
-##### unsupportedOptions?
-
-> `optional` **unsupportedOptions?**: `boolean`
-
-##### partialIo?
-
-> `optional` **partialIo?**: `boolean`
-
-##### activeSyscall?
-
-> `optional` **activeSyscall?**: `boolean`
-
-##### outputLogPath?
-
-> `optional` **outputLogPath?**: `"/tmp/machinen-restored-tcp-listener.log"`
-
-##### dryRun?
-
-> `optional` **dryRun?**: `boolean`
-
-***
-
-### ProductLevel4TcpListenerDescriptor
-
-#### Properties
-
-##### kind
-
-> **kind**: `"machinen.product-level4-tcp-listener"`
-
-##### formatVersion
-
-> **formatVersion**: `1`
-
-##### supportLevel
-
-> **supportLevel**: `"implemented-product-support"`
-
-##### subset
-
-> **subset**: `"tcp-listener-v1-loopback-empty-accept-queue"`
-
-##### implementationLevel
-
-> **implementationLevel**: `"level-4-kernel-resource-reconstruction"`
-
-##### runtime
-
-> **runtime**: `"native-linux-resource"`
-
-##### captureSurface
-
-> **captureSurface**: `"machinen capture tcp-listener"`
-
-##### restoreSurface
-
-> **restoreSurface**: `"machinen restore <bundle> --target-arch <arch> [--target-verifier-output <file>]"`
-
-##### source
-
-> **source**: `object`
-
-###### architecture
-
-> **architecture**: `"amd64"` \| `"arm64"`
-
-###### host
-
-> **host**: `object`
-
-###### host.arch
-
-> **arch**: `string`
-
-###### host.platform
-
-> **platform**: `string`
-
-###### host.release
-
-> **release**: `string`
-
-##### target
-
-> **target**: `object`
-
-###### architecture
-
-> **architecture**: `"amd64"` \| `"arm64"`
-
-##### listener
-
-> **listener**: `object`
-
-###### family
-
-> **family**: `"inet"`
-
-###### socketType
-
-> **socketType**: `"stream"`
-
-###### protocol
-
-> **protocol**: `"tcp"`
-
-###### bindAddress
-
-> **bindAddress**: `"127.0.0.1"`
-
-###### port
-
-> **port**: `number`
-
-###### backlog
-
-> **backlog**: `number`
-
-###### reuseAddr
-
-> **reuseAddr**: `true`
-
-###### acceptQueue
-
-> **acceptQueue**: `"empty"`
-
-###### activeConnections
-
-> **activeConnections**: `false`
-
-###### partialIo
-
-> **partialIo**: `false`
-
-##### continuation
-
-> **continuation**: `object`
-
-###### outputLogPath
-
-> **outputLogPath**: `"/tmp/machinen-restored-tcp-listener.log"`
-
-###### listenerPolicy
-
-> **listenerPolicy**: `"target-native-loopback-tcp-listener-recreated"`
-
-###### acceptQueuePolicy
-
-> **acceptQueuePolicy**: `"empty-accept-queue-only"`
-
-##### gates
-
-> **gates**: `object`
-
-###### loopbackBindRequired
-
-> **loopbackBindRequired**: `true`
-
-###### staticPortRequired
-
-> **staticPortRequired**: `true`
-
-###### explicitBacklogRequired
-
-> **explicitBacklogRequired**: `true`
-
-###### emptyAcceptQueueRequired
-
-> **emptyAcceptQueueRequired**: `true`
-
-###### noActiveConnectionsRequired
-
-> **noActiveConnectionsRequired**: `true`
-
-###### supportedSocketOptionsRequired
-
-> **supportedSocketOptionsRequired**: `true`
-
-###### noPartialIoRequired
-
-> **noPartialIoRequired**: `true`
-
-###### noActiveSyscallRequired
-
-> **noActiveSyscallRequired**: `true`
-
-###### targetNativeVerificationRequired
-
-> **targetNativeVerificationRequired**: `true`
-
-###### sourceIsaEmulationAllowed
-
-> **sourceIsaEmulationAllowed**: `false`
-
-###### sourceTextReplayAllowed
-
-> **sourceTextReplayAllowed**: `false`
-
-###### sidecarRuntimeAllowed
-
-> **sidecarRuntimeAllowed**: `false`
-
-###### metadataOnlyContinuationAllowed
-
-> **metadataOnlyContinuationAllowed**: `false`
-
-##### sourceVerifierOutput
-
-> **sourceVerifierOutput**: `string`
-
-##### sourceVerifierOutputSha256
-
-> **sourceVerifierOutputSha256**: `string`
-
-***
-
-### ProductLevel4TcpListenerRefusal
-
-#### Properties
-
-##### kind
-
-> **kind**: `"machinen.product-level4-tcp-listener-refusal"`
-
-##### formatVersion
-
-> **formatVersion**: `1`
-
-##### runtime
-
-> **runtime**: `"native-linux-resource"`
-
-##### supportLevel
-
-> **supportLevel**: `"explicit-refusal"`
-
-##### state
-
-> **state**: `"refused"`
-
-##### migrationCompleted
-
-> **migrationCompleted**: `false`
-
-##### expectedRefusalCode
-
-> **expectedRefusalCode**: `"tcp-listener-active-connections-unsupported"` \| `"tcp-listener-source-target-arch-match"` \| `"tcp-listener-target-arch-mismatch"` \| `"tcp-listener-target-verifier-mismatch"` \| `"tcp-listener-address-unsupported"` \| `"tcp-listener-port-invalid"` \| `"tcp-listener-backlog-out-of-range"` \| `"tcp-listener-accept-queue-unsupported"` \| `"tcp-listener-unsupported-options"` \| `"tcp-listener-partial-io-unsupported"` \| `"tcp-listener-active-syscall-unsupported"`
-
-##### message
-
-> **message**: `string`
-
-##### evidence
-
-> **evidence**: `Record`\<`string`, `unknown`\>
-
-##### sourceIsaEmulationUsed
-
-> **sourceIsaEmulationUsed**: `false`
-
-##### sourceTextReusedAsTargetCode
-
-> **sourceTextReusedAsTargetCode**: `false`
-
-##### sidecarRuntimeUsed
-
-> **sidecarRuntimeUsed**: `false`
-
-##### metadataOnlyShortcutAccepted
-
-> **metadataOnlyShortcutAccepted**: `false`
-
-***
-
-### ProductLevel4TcpListenerRestoreInput
-
-#### Properties
-
-##### bundleDir
-
-> **bundleDir**: `string`
-
-##### targetArch
-
-> **targetArch**: `"amd64"` \| `"arm64"`
-
-##### targetVerifierOutput
-
-> **targetVerifierOutput**: `string`
-
-##### dryRun?
-
-> `optional` **dryRun?**: `boolean`
-
-***
-
-### ProductLevel4TcpListenerRestoreSummary
-
-#### Properties
-
-##### kind
-
-> **kind**: `"machinen.product-level4-tcp-listener-restore-summary"`
-
-##### formatVersion
-
-> **formatVersion**: `1`
-
-##### runtime
-
-> **runtime**: `"native-linux-resource"`
-
-##### subset
-
-> **subset**: `"tcp-listener-v1-loopback-empty-accept-queue"`
-
-##### supportLevel
-
-> **supportLevel**: `"implemented-product-support"`
-
-##### implementationLevel
-
-> **implementationLevel**: `"level-4-kernel-resource-reconstruction"`
-
-##### state
-
-> **state**: `"refused"` \| `"completed"`
-
-##### migrationCompleted
-
-> **migrationCompleted**: `boolean`
-
-##### sourceArch?
-
-> `optional` **sourceArch?**: `"amd64"` \| `"arm64"`
-
-##### targetArch
-
-> **targetArch**: `"amd64"` \| `"arm64"`
-
-##### targetVerifierResult
-
-> **targetVerifierResult**: `"failed"` \| `"passed"` \| `"not-run"`
-
-##### descriptorSha256?
-
-> `optional` **descriptorSha256?**: `string`
-
-##### targetVerifierOutputSha256?
-
-> `optional` **targetVerifierOutputSha256?**: `string`
-
-##### refusal?
-
-> `optional` **refusal?**: [`ProductLevel4TcpListenerRefusal`](#productlevel4tcplistenerrefusal)
-
-##### shortcutInspection
-
-> **shortcutInspection**: `object`
-
-###### sourceIsaEmulationUsed
-
-> **sourceIsaEmulationUsed**: `false`
-
-###### sourceTextReusedAsTargetCode
-
-> **sourceTextReusedAsTargetCode**: `false`
-
-###### sidecarRuntimeUsed
-
-> **sidecarRuntimeUsed**: `false`
-
-###### metadataOnlyShortcutAccepted
-
-> **metadataOnlyShortcutAccepted**: `false`
-
-***
-
-### ProductLevel4TimerfdCaptureInput
-
-#### Properties
-
-##### outDir
-
-> **outDir**: `string`
-
-##### sourceArch
-
-> **sourceArch**: `"amd64"` \| `"arm64"`
-
-##### targetArch
-
-> **targetArch**: `"amd64"` \| `"arm64"`
-
-##### sourceVerifierOutput
-
-> **sourceVerifierOutput**: `string`
-
-##### remainingMs
-
-> **remainingMs**: `number`
-
-##### clock?
-
-> `optional` **clock?**: `"monotonic"` \| `"realtime"`
-
-##### intervalMs?
-
-> `optional` **intervalMs?**: `number`
-
-##### absolute?
-
-> `optional` **absolute?**: `boolean`
-
-##### cancelOnSet?
-
-> `optional` **cancelOnSet?**: `boolean`
-
-##### unreadExpirations?
-
-> `optional` **unreadExpirations?**: `number`
-
-##### closeOnExec?
-
-> `optional` **closeOnExec?**: `boolean`
-
-##### nonblocking?
-
-> `optional` **nonblocking?**: `boolean`
-
-##### activeRead?
-
-> `optional` **activeRead?**: `boolean`
-
-##### outputLogPath?
-
-> `optional` **outputLogPath?**: `"/tmp/machinen-restored-timerfd.log"`
-
-##### dryRun?
-
-> `optional` **dryRun?**: `boolean`
-
-***
-
-### ProductLevel4TimerfdDescriptor
-
-#### Properties
-
-##### kind
-
-> **kind**: `"machinen.product-level4-timerfd"`
-
-##### formatVersion
-
-> **formatVersion**: `1`
-
-##### supportLevel
-
-> **supportLevel**: `"implemented-product-support"`
-
-##### subset
-
-> **subset**: `"timerfd-relative-oneshot-v1-monotonic"`
-
-##### implementationLevel
-
-> **implementationLevel**: `"level-4-kernel-resource-reconstruction"`
-
-##### runtime
-
-> **runtime**: `"native-linux-resource"`
-
-##### captureSurface
-
-> **captureSurface**: `"machinen capture timerfd"`
-
-##### restoreSurface
-
-> **restoreSurface**: `"machinen restore <bundle> --target-arch <arch> [--target-verifier-output <file>]"`
-
-##### source
-
-> **source**: `object`
-
-###### architecture
-
-> **architecture**: `"amd64"` \| `"arm64"`
-
-###### host
-
-> **host**: `object`
-
-###### host.arch
-
-> **arch**: `string`
-
-###### host.platform
-
-> **platform**: `string`
-
-###### host.release
-
-> **release**: `string`
-
-##### target
-
-> **target**: `object`
-
-###### architecture
-
-> **architecture**: `"amd64"` \| `"arm64"`
-
-##### timerfd
-
-> **timerfd**: `object`
-
-###### clock
-
-> **clock**: `"monotonic"`
-
-###### mode
-
-> **mode**: `"relative"`
-
-###### remainingMs
-
-> **remainingMs**: `number`
-
-###### intervalMs
-
-> **intervalMs**: `0`
-
-###### unreadExpirations
-
-> **unreadExpirations**: `0`
-
-###### closeOnExec
-
-> **closeOnExec**: `true`
-
-###### nonblocking
-
-> **nonblocking**: `false`
-
-###### cancelOnSet
-
-> **cancelOnSet**: `false`
-
-##### continuation
-
-> **continuation**: `object`
-
-###### outputLogPath
-
-> **outputLogPath**: `"/tmp/machinen-restored-timerfd.log"`
-
-###### timerPolicy
-
-> **timerPolicy**: `"target-native-relative-oneshot-timerfd-recreated"`
-
-###### expirationPolicy
-
-> **expirationPolicy**: `"no-unread-expirations-preserved"`
-
-##### gates
-
-> **gates**: `object`
-
-###### monotonicClockRequired
-
-> **monotonicClockRequired**: `true`
-
-###### relativeOneShotRequired
-
-> **relativeOneShotRequired**: `true`
-
-###### boundedRemainingTimeRequired
-
-> **boundedRemainingTimeRequired**: `true`
-
-###### noUnreadExpirationsRequired
-
-> **noUnreadExpirationsRequired**: `true`
-
-###### onlyCloseOnExecFlagSupported
-
-> **onlyCloseOnExecFlagSupported**: `true`
-
-###### noActiveTimerfdReadRequired
-
-> **noActiveTimerfdReadRequired**: `true`
-
-###### targetNativeVerificationRequired
-
-> **targetNativeVerificationRequired**: `true`
-
-###### sourceIsaEmulationAllowed
-
-> **sourceIsaEmulationAllowed**: `false`
-
-###### sourceTextReplayAllowed
-
-> **sourceTextReplayAllowed**: `false`
-
-###### sidecarRuntimeAllowed
-
-> **sidecarRuntimeAllowed**: `false`
-
-###### metadataOnlyContinuationAllowed
-
-> **metadataOnlyContinuationAllowed**: `false`
-
-##### sourceVerifierOutput
-
-> **sourceVerifierOutput**: `string`
-
-##### sourceVerifierOutputSha256
-
-> **sourceVerifierOutputSha256**: `string`
-
-***
-
-### ProductLevel4TimerfdRefusal
-
-#### Properties
-
-##### kind
-
-> **kind**: `"machinen.product-level4-timerfd-refusal"`
-
-##### formatVersion
-
-> **formatVersion**: `1`
-
-##### runtime
-
-> **runtime**: `"native-linux-resource"`
-
-##### supportLevel
-
-> **supportLevel**: `"explicit-refusal"`
-
-##### state
-
-> **state**: `"refused"`
-
-##### migrationCompleted
-
-> **migrationCompleted**: `false`
-
-##### expectedRefusalCode
-
-> **expectedRefusalCode**: `"timerfd-unread-expirations-unsupported"` \| `"timerfd-source-target-arch-match"` \| `"timerfd-target-arch-mismatch"` \| `"timerfd-target-verifier-mismatch"` \| `"timerfd-remaining-time-out-of-range"` \| `"timerfd-periodic-unsupported"` \| `"timerfd-absolute-unsupported"` \| `"timerfd-cancel-on-set-unsupported"` \| `"timerfd-clock-unsupported"` \| `"timerfd-unsupported-flags"` \| `"timerfd-active-read-unsupported"`
-
-##### message
-
-> **message**: `string`
-
-##### evidence
-
-> **evidence**: `Record`\<`string`, `unknown`\>
-
-##### sourceIsaEmulationUsed
-
-> **sourceIsaEmulationUsed**: `false`
-
-##### sourceTextReusedAsTargetCode
-
-> **sourceTextReusedAsTargetCode**: `false`
-
-##### sidecarRuntimeUsed
-
-> **sidecarRuntimeUsed**: `false`
-
-##### metadataOnlyShortcutAccepted
-
-> **metadataOnlyShortcutAccepted**: `false`
-
-***
-
-### ProductLevel4TimerfdRestoreInput
-
-#### Properties
-
-##### bundleDir
-
-> **bundleDir**: `string`
-
-##### targetArch
-
-> **targetArch**: `"amd64"` \| `"arm64"`
-
-##### targetVerifierOutput
-
-> **targetVerifierOutput**: `string`
-
-##### dryRun?
-
-> `optional` **dryRun?**: `boolean`
-
-***
-
-### ProductLevel4TimerfdRestoreSummary
-
-#### Properties
-
-##### kind
-
-> **kind**: `"machinen.product-level4-timerfd-restore-summary"`
-
-##### formatVersion
-
-> **formatVersion**: `1`
-
-##### runtime
-
-> **runtime**: `"native-linux-resource"`
-
-##### subset
-
-> **subset**: `"timerfd-relative-oneshot-v1-monotonic"`
-
-##### supportLevel
-
-> **supportLevel**: `"implemented-product-support"`
-
-##### implementationLevel
-
-> **implementationLevel**: `"level-4-kernel-resource-reconstruction"`
-
-##### state
-
-> **state**: `"refused"` \| `"completed"`
-
-##### migrationCompleted
-
-> **migrationCompleted**: `boolean`
-
-##### sourceArch?
-
-> `optional` **sourceArch?**: `"amd64"` \| `"arm64"`
-
-##### targetArch
-
-> **targetArch**: `"amd64"` \| `"arm64"`
-
-##### targetVerifierResult
-
-> **targetVerifierResult**: `"failed"` \| `"passed"` \| `"not-run"`
-
-##### descriptorSha256?
-
-> `optional` **descriptorSha256?**: `string`
-
-##### targetVerifierOutputSha256?
-
-> `optional` **targetVerifierOutputSha256?**: `string`
-
-##### refusal?
-
-> `optional` **refusal?**: [`ProductLevel4TimerfdRefusal`](#productlevel4timerfdrefusal)
-
-##### shortcutInspection
-
-> **shortcutInspection**: `object`
-
-###### sourceIsaEmulationUsed
-
-> **sourceIsaEmulationUsed**: `false`
-
-###### sourceTextReusedAsTargetCode
-
-> **sourceTextReusedAsTargetCode**: `false`
-
-###### sidecarRuntimeUsed
-
-> **sidecarRuntimeUsed**: `false`
-
-###### metadataOnlyShortcutAccepted
-
-> **metadataOnlyShortcutAccepted**: `false`
-
-***
-
-### ProductPortablePostgresClaimClassification
-
-#### Properties
-
-##### goal
-
-> **goal**: `string`
-
-##### claim
-
-> **claim**: `string`
-
-##### supportLevel
-
-> **supportLevel**: `"implemented-product-support"` \| `"explicit-refusal"` \| `"proof-only-fixture"` \| `"obsolete-invalid-claim"`
-
-##### subset?
-
-> `optional` **subset?**: `string`
-
-##### refusalCode?
-
-> `optional` **refusalCode?**: `string`
-
-##### notes
-
-> **notes**: `string`
-
-***
-
-### ProductPortablePostgresCaptureInput
-
-#### Properties
-
-##### outDir
-
-> **outDir**: `string`
-
-##### sourceArch
-
-> **sourceArch**: `"amd64"` \| `"arm64"`
-
-##### targetArch
-
-> **targetArch**: `"amd64"` \| `"arm64"`
-
-##### logicalDumpPath
-
-> **logicalDumpPath**: `string`
-
-##### sourceVerifierOutput
-
-> **sourceVerifierOutput**: `string`
-
-##### postgresVersion
-
-> **postgresVersion**: `string`
-
-##### checkpointLsn
-
-> **checkpointLsn**: `string`
-
-##### initSqlSha256?
-
-> `optional` **initSqlSha256?**: `string`
-
-##### workloadSqlSha256?
-
-> `optional` **workloadSqlSha256?**: `string`
-
-##### verifierSqlSha256?
-
-> `optional` **verifierSqlSha256?**: `string`
-
-##### dataManifestSha256?
-
-> `optional` **dataManifestSha256?**: `string`
-
-##### activeTransactions?
-
-> `optional` **activeTransactions?**: `number`
-
-##### activeSessions?
-
-> `optional` **activeSessions?**: `number`
-
-##### dirtyWal?
-
-> `optional` **dirtyWal?**: `boolean`
-
-##### hostMountedDataDir?
-
-> `optional` **hostMountedDataDir?**: `boolean`
-
-##### physicalDataDirCopy?
-
-> `optional` **physicalDataDirCopy?**: `boolean`
-
-##### dryRun?
-
-> `optional` **dryRun?**: `boolean`
-
-***
-
-### ProductPortablePostgresDescriptor
-
-#### Properties
-
-##### kind
-
-> **kind**: `"machinen.product-portable-snapshot"`
-
-##### formatVersion
-
-> **formatVersion**: `1`
-
-##### supportLevel
-
-> **supportLevel**: `"implemented-product-support"`
-
-##### subset
-
-> **subset**: `"postgres-clean-quiesced-logical-v1"`
-
-##### runtime
-
-> **runtime**: `"postgresql"`
-
-##### captureSurface
-
-> **captureSurface**: `"machinen capture postgres"`
-
-##### restoreSurface
-
-> **restoreSurface**: `"machinen restore <bundle> --target-arch <arch> --target-verifier-output <file>"`
-
-##### source
-
-> **source**: `object`
-
-###### architecture
-
-> **architecture**: `"amd64"` \| `"arm64"`
-
-###### postgresVersion
-
-> **postgresVersion**: `string`
-
-###### host
-
-> **host**: `object`
-
-###### host.arch
-
-> **arch**: `string`
-
-###### host.platform
-
-> **platform**: `string`
-
-###### host.release
-
-> **release**: `string`
-
-##### target
-
-> **target**: `object`
-
-###### architecture
-
-> **architecture**: `"amd64"` \| `"arm64"`
-
-##### artifacts
-
-> **artifacts**: `object`
-
-###### logicalDump
-
-> **logicalDump**: `object`
-
-###### logicalDump.path
-
-> **path**: `"postgres.logical.dump"`
-
-###### logicalDump.sha256
-
-> **sha256**: `string`
-
-###### logicalDump.bytes
-
-> **bytes**: `number`
-
-##### provenance
-
-> **provenance**: `object`
-
-###### checkpointLsn
-
-> **checkpointLsn**: `string`
-
-###### initSqlSha256?
-
-> `optional` **initSqlSha256?**: `string`
-
-###### workloadSqlSha256?
-
-> `optional` **workloadSqlSha256?**: `string`
-
-###### verifierSqlSha256?
-
-> `optional` **verifierSqlSha256?**: `string`
-
-###### dataManifestSha256?
-
-> `optional` **dataManifestSha256?**: `string`
-
-###### sourceVerifierOutputSha256
-
-> **sourceVerifierOutputSha256**: `string`
-
-##### gates
-
-> **gates**: `object`
-
-###### noActiveClientTransaction
-
-> **noActiveClientTransaction**: `true`
-
-###### noActiveClientSession
-
-> **noActiveClientSession**: `true`
-
-###### walCheckpointed
-
-> **walCheckpointed**: `true`
-
-###### logicalDumpIsPortableUnit
-
-> **logicalDumpIsPortableUnit**: `true`
-
-###### targetNativeVerificationRequired
-
-> **targetNativeVerificationRequired**: `true`
-
-###### sourceIsaEmulationAllowed
-
-> **sourceIsaEmulationAllowed**: `false`
-
-###### sourceTextReplayAllowed
-
-> **sourceTextReplayAllowed**: `false`
-
-###### sidecarRuntimeAllowed
-
-> **sidecarRuntimeAllowed**: `false`
-
-###### appHooksAllowed
-
-> **appHooksAllowed**: `false`
-
-###### metadataOnlyContinuationAllowed
-
-> **metadataOnlyContinuationAllowed**: `false`
-
-##### sourceVerifierOutput
-
-> **sourceVerifierOutput**: `string`
-
-***
-
-### ProductPortablePostgresRefusal
-
-#### Properties
-
-##### kind
-
-> **kind**: `"machinen.product-portable-snapshot-refusal"`
-
-##### formatVersion
-
-> **formatVersion**: `1`
-
-##### runtime
-
-> **runtime**: `"postgresql"`
-
-##### supportLevel
-
-> **supportLevel**: `"explicit-refusal"`
-
-##### state
-
-> **state**: `"refused"`
-
-##### migrationCompleted
-
-> **migrationCompleted**: `false`
-
-##### expectedRefusalCode
-
-> **expectedRefusalCode**: `"postgres-active-transaction-unsupported"` \| `"postgres-active-session-unsupported"` \| `"postgres-dirty-wal-boundary-unsupported"` \| `"postgres-host-mounted-data-dir-ambiguous"` \| `"postgres-physical-data-dir-cross-isa-unsupported"` \| `"postgres-target-verifier-mismatch"` \| `"postgres-target-arch-mismatch"` \| `"postgres-logical-dump-integrity-mismatch"` \| `"postgres-refused-source-state"`
-
-##### message
-
-> **message**: `string`
-
-##### evidence
-
-> **evidence**: `Record`\<`string`, `unknown`\>
-
-##### sourceIsaEmulationUsed
-
-> **sourceIsaEmulationUsed**: `false`
-
-##### sourceTextReusedAsTargetCode
-
-> **sourceTextReusedAsTargetCode**: `false`
-
-##### sidecarRuntimeUsed
-
-> **sidecarRuntimeUsed**: `false`
-
-##### appHooksRequired
-
-> **appHooksRequired**: `false`
-
-##### metadataOnlyShortcutAccepted
-
-> **metadataOnlyShortcutAccepted**: `false`
-
-***
-
-### ProductPortablePostgresRestoreInput
-
-#### Properties
-
-##### bundleDir
-
-> **bundleDir**: `string`
-
-##### targetArch
-
-> **targetArch**: `"amd64"` \| `"arm64"`
-
-##### targetVerifierOutput
-
-> **targetVerifierOutput**: `string`
-
-##### dryRun?
-
-> `optional` **dryRun?**: `boolean`
-
-***
-
-### ProductPortablePostgresRestoreSummary
-
-#### Properties
-
-##### kind
-
-> **kind**: `"machinen.product-portable-restore-summary"`
-
-##### formatVersion
-
-> **formatVersion**: `1`
-
-##### runtime
-
-> **runtime**: `"postgresql"`
-
-##### subset
-
-> **subset**: `"postgres-clean-quiesced-logical-v1"`
-
-##### supportLevel
-
-> **supportLevel**: `"implemented-product-support"`
-
-##### state
-
-> **state**: `"refused"` \| `"completed"`
-
-##### migrationCompleted
-
-> **migrationCompleted**: `boolean`
-
-##### sourceArch?
-
-> `optional` **sourceArch?**: `"amd64"` \| `"arm64"`
-
-##### targetArch
-
-> **targetArch**: `"amd64"` \| `"arm64"`
-
-##### targetState
-
-> **targetState**: `"refused"` \| `"completed"`
-
-##### targetVerifierResult
-
-> **targetVerifierResult**: `"failed"` \| `"passed"` \| `"not-run"`
-
-##### descriptorSha256?
-
-> `optional` **descriptorSha256?**: `string`
-
-##### targetVerifierOutputSha256?
-
-> `optional` **targetVerifierOutputSha256?**: `string`
-
-##### refusal?
-
-> `optional` **refusal?**: [`ProductPortablePostgresRefusal`](#productportablepostgresrefusal)
-
-##### shortcutInspection
-
-> **shortcutInspection**: `object`
-
-###### sourceIsaEmulationUsed
-
-> **sourceIsaEmulationUsed**: `false`
-
-###### sourceTextReusedAsTargetCode
-
-> **sourceTextReusedAsTargetCode**: `false`
-
-###### sidecarRuntimeUsed
-
-> **sidecarRuntimeUsed**: `false`
-
-###### appHooksRequired
-
-> **appHooksRequired**: `false`
-
-###### metadataOnlyShortcutAccepted
-
-> **metadataOnlyShortcutAccepted**: `false`
-
-***
-
-### ProductSemanticPingObservableStateDecision
-
-#### Properties
-
-##### name
-
-> **name**: `string`
-
-##### decision
-
-> **decision**: [`ProductSemanticPingStateDecision`](#productsemanticpingstatedecision)
-
-##### rationale
-
-> **rationale**: `string`
-
-***
-
-### ProductSemanticPingDescriptorInput
-
-#### Properties
-
-##### sourceArch
-
-> **sourceArch**: [`ProductSemanticPingArchitecture`](#productsemanticpingarchitecture)
-
-##### targetArch
-
-> **targetArch**: [`ProductSemanticPingArchitecture`](#productsemanticpingarchitecture)
-
-##### destination
-
-> **destination**: `string`
-
-##### intervalMs
-
-> **intervalMs**: `number`
-
-##### identifier
-
-> **identifier**: `number`
-
-##### nextSequence
-
-> **nextSequence**: `number`
-
-##### sent
-
-> **sent**: `number`
-
-##### received
-
-> **received**: `number`
-
-##### lost
-
-> **lost**: `number`
-
-##### receiveQueue
-
-> **receiveQueue**: `"empty"` \| `"unread-replies"`
-
-##### activeRecvmsg
-
-> **activeRecvmsg**: `boolean`
-
-##### rawSocketState?
-
-> `optional` **rawSocketState?**: `"none"` \| `"present"`
-
-##### verifierEchoReplies
-
-> **verifierEchoReplies**: `number`
-
-***
-
-### ProductSemanticPingDescriptor
-
-#### Properties
-
-##### kind
-
-> **kind**: `"machinen.product-semantic-ping-continuation"`
-
-##### formatVersion
-
-> **formatVersion**: `1`
-
-##### supportLevel
-
-> **supportLevel**: `"level-2-semantic-continuation"`
-
-##### profile
-
-> **profile**: `"ping-sequence-counter-semantic-continuation-v1"`
-
-##### source
-
-> **source**: `object`
-
-###### architecture
-
-> **architecture**: [`ProductSemanticPingArchitecture`](#productsemanticpingarchitecture)
-
-##### target
-
-> **target**: `object`
-
-###### architecture
-
-> **architecture**: [`ProductSemanticPingArchitecture`](#productsemanticpingarchitecture)
-
-##### workload
-
-> **workload**: `object`
-
-###### command
-
-> **command**: `"ping"`
-
-###### destination
-
-> **destination**: `string`
-
-###### intervalMs
-
-> **intervalMs**: `number`
-
-##### logicalState
-
-> **logicalState**: `object`
-
-###### identifier
-
-> **identifier**: `number`
-
-###### nextSequence
-
-> **nextSequence**: `number`
-
-###### sent
-
-> **sent**: `number`
-
-###### received
-
-> **received**: `number`
-
-###### lost
-
-> **lost**: `number`
-
-###### inFlightPacketPolicy
-
-> **inFlightPacketPolicy**: `"drop-and-count-lost"`
-
-##### observableStateDecisions
-
-> **observableStateDecisions**: [`ProductSemanticPingObservableStateDecision`](#productsemanticpingobservablestatedecision)[]
-
-##### gates
-
-> **gates**: `object`
-
-###### receiveQueueEmpty
-
-> **receiveQueueEmpty**: `true`
-
-###### activeRecvmsgAbsent
-
-> **activeRecvmsgAbsent**: `true`
-
-###### rawSocketKernelStateAbsent
-
-> **rawSocketKernelStateAbsent**: `true`
-
-###### targetNativeVerifierRequired
-
-> **targetNativeVerifierRequired**: `true`
-
-###### sourceIsaEmulationAllowed
-
-> **sourceIsaEmulationAllowed**: `false`
-
-###### sourceTextReplayAllowed
-
-> **sourceTextReplayAllowed**: `false`
-
-###### sidecarRuntimeAllowed
-
-> **sidecarRuntimeAllowed**: `false`
-
-###### metadataOnlyContinuationAllowed
-
-> **metadataOnlyContinuationAllowed**: `false`
-
-***
-
-### ProductSemanticPingRestoreSummary
-
-#### Properties
-
-##### kind
-
-> **kind**: `"machinen.product-semantic-ping-restore-summary"`
-
-##### formatVersion
-
-> **formatVersion**: `1`
-
-##### supportLevel
-
-> **supportLevel**: `"level-2-semantic-continuation"`
-
-##### profile
-
-> **profile**: `"ping-sequence-counter-semantic-continuation-v1"`
-
-##### state
-
-> **state**: `"completed"`
-
-##### migrationCompleted
-
-> **migrationCompleted**: `true`
-
-##### targetVerifierResult
-
-> **targetVerifierResult**: `"passed"`
-
-##### sourceArch
-
-> **sourceArch**: [`ProductSemanticPingArchitecture`](#productsemanticpingarchitecture)
-
-##### targetArch
-
-> **targetArch**: [`ProductSemanticPingArchitecture`](#productsemanticpingarchitecture)
-
-##### continuedState
-
-> **continuedState**: `object`
-
-###### identifier
-
-> **identifier**: `number`
-
-###### firstTargetSequence
-
-> **firstTargetSequence**: `number`
-
-###### sentBeforeRestore
-
-> **sentBeforeRestore**: `number`
-
-###### receivedBeforeRestore
-
-> **receivedBeforeRestore**: `number`
-
-###### lostBeforeRestore
-
-> **lostBeforeRestore**: `number`
-
-###### sentAfterVerifier
-
-> **sentAfterVerifier**: `number`
-
-###### receivedAfterVerifier
-
-> **receivedAfterVerifier**: `number`
-
-###### lostAfterVerifier
-
-> **lostAfterVerifier**: `number`
-
-##### observableStateDecisions
-
-> **observableStateDecisions**: [`ProductSemanticPingObservableStateDecision`](#productsemanticpingobservablestatedecision)[]
-
-##### shortcutInspection
-
-> **shortcutInspection**: `object`
-
-###### sourceIsaEmulationUsed
-
-> **sourceIsaEmulationUsed**: `false`
-
-###### sourceTextReusedAsTargetCode
-
-> **sourceTextReusedAsTargetCode**: `false`
-
-###### sidecarRuntimeUsed
-
-> **sidecarRuntimeUsed**: `false`
-
-###### metadataOnlyShortcutAccepted
-
-> **metadataOnlyShortcutAccepted**: `false`
-
-***
-
-### ProductSemanticPingRefusal
-
-#### Properties
-
-##### kind
-
-> **kind**: `"machinen.product-semantic-ping-refusal"`
-
-##### formatVersion
-
-> **formatVersion**: `1`
-
-##### supportLevel
-
-> **supportLevel**: `"level-2-semantic-continuation"`
-
-##### profile
-
-> **profile**: `"ping-sequence-counter-semantic-continuation-v1"`
-
-##### state
-
-> **state**: `"refused"`
-
-##### migrationCompleted
-
-> **migrationCompleted**: `false`
-
-##### expectedRefusalCode
-
-> **expectedRefusalCode**: `"semantic-ping-source-target-arch-match"` \| `"semantic-ping-invalid-counter-state"` \| `"semantic-ping-unread-receive-queue-unsupported"` \| `"semantic-ping-active-recvmsg-unsupported"` \| `"semantic-ping-raw-socket-state-unsupported"` \| `"semantic-ping-target-verifier-failed"`
-
-##### message
-
-> **message**: `string`
-
-##### observableStateDecisions
-
-> **observableStateDecisions**: [`ProductSemanticPingObservableStateDecision`](#productsemanticpingobservablestatedecision)[]
-
-##### evidence
-
-> **evidence**: `Record`\<`string`, `unknown`\>
+> `optional` **supportLevel?**: `"level-5-cross-arch-process-continuation"` \| `"deprecated-cross-isa-level"`
 
 ***
 
@@ -18503,7 +15479,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`runtime`](#runtime-21)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`runtime`](#runtime-3)
 
 ##### profile
 
@@ -18511,7 +15487,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`profile`](#profile-12)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`profile`](#profile-9)
 
 ##### classification
 
@@ -18527,7 +15503,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`sourceArch`](#sourcearch-32)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`sourceArch`](#sourcearch-18)
 
 ##### targetArch
 
@@ -18535,7 +15511,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`targetArch`](#targetarch-47)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`targetArch`](#targetarch-27)
 
 ##### stateModel
 
@@ -18591,7 +15567,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`evidence`](#evidence-20)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`evidence`](#evidence-14)
 
 ##### kind
 
@@ -18603,7 +15579,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Overrides
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`migrationCompleted`](#migrationcompleted-36)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`migrationCompleted`](#migrationcompleted-22)
 
 ##### scope
 
@@ -20212,7 +17188,7 @@ kicks in: `<sourceName>/<fork.pid>`.
 
 ###### Overrides
 
-[`RestoreOptions`](#restoreoptions).[`name`](#name-18)
+[`RestoreOptions`](#restoreoptions).[`name`](#name-17)
 
 ##### portForward?
 
@@ -20531,7 +17507,7 @@ Working directory for the VMM (for finding fixture files).
 
 ###### Inherited from
 
-[`BootOptions`](#bootoptions).[`cwd`](#cwd-3)
+[`BootOptions`](#bootoptions).[`cwd`](#cwd-4)
 
 ##### args?
 
@@ -21349,7 +18325,7 @@ Working directory for the VMM (for finding fixture files).
 
 ###### Inherited from
 
-[`BootOptions`](#bootoptions).[`cwd`](#cwd-3)
+[`BootOptions`](#bootoptions).[`cwd`](#cwd-4)
 
 ##### args?
 
@@ -21698,6 +18674,12 @@ Poll interval in ms while retrying. Default 250.
 #### Returns
 
 `void`
+
+***
+
+### MoveProcessStateClass
+
+> **MoveProcessStateClass** = `"process-identity"` \| `"argv-env-cwd"` \| `"open-files"` \| `"sockets"` \| `"threads"` \| `"unknown"`
 
 ***
 
@@ -26235,150 +23217,6 @@ Result of `validatePid` — easy to switch on at the call site.
 
 ***
 
-### ProductLevel4EventfdArchitecture
-
-> **ProductLevel4EventfdArchitecture** = *typeof* [`productLevel4EventfdArchitectures`](#productlevel4eventfdarchitectures)\[`number`\]
-
-***
-
-### ProductLevel4EventfdRefusalCode
-
-> **ProductLevel4EventfdRefusalCode** = *typeof* [`productLevel4EventfdRefusalCodes`](#productlevel4eventfdrefusalcodes)\[`number`\]
-
-***
-
-### ProductLevel4EventfdCaptureResult
-
-> **ProductLevel4EventfdCaptureResult** = \{ `state`: `"completed"`; `migrationCompleted`: `true`; `bundleDir`: `string`; `descriptor`: [`ProductLevel4EventfdDescriptor`](#productlevel4eventfddescriptor); `dryRun`: `boolean`; \} \| \{ `state`: `"refused"`; `migrationCompleted`: `false`; `bundleDir`: `string`; `refusal`: [`ProductLevel4EventfdRefusal`](#productlevel4eventfdrefusal); `dryRun`: `boolean`; \}
-
-***
-
-### ProductLevel4PingSocketArchitecture
-
-> **ProductLevel4PingSocketArchitecture** = *typeof* [`productLevel4PingSocketArchitectures`](#productlevel4pingsocketarchitectures)\[`number`\]
-
-***
-
-### ProductLevel4PingSocketKind
-
-> **ProductLevel4PingSocketKind** = *typeof* [`productLevel4PingSocketKinds`](#productlevel4pingsocketkinds)\[`number`\]
-
-***
-
-### ProductLevel4PingSocketRefusalCode
-
-> **ProductLevel4PingSocketRefusalCode** = *typeof* [`productLevel4PingSocketRefusalCodes`](#productlevel4pingsocketrefusalcodes)\[`number`\]
-
-***
-
-### ProductLevel4PingSocketCaptureResult
-
-> **ProductLevel4PingSocketCaptureResult** = \{ `state`: `"completed"`; `migrationCompleted`: `true`; `bundleDir`: `string`; `descriptor`: [`ProductLevel4PingSocketDescriptor`](#productlevel4pingsocketdescriptor); `dryRun`: `boolean`; \} \| \{ `state`: `"refused"`; `migrationCompleted`: `false`; `bundleDir`: `string`; `refusal`: [`ProductLevel4PingSocketRefusal`](#productlevel4pingsocketrefusal); `dryRun`: `boolean`; \}
-
-***
-
-### ProductLevel4PipeArchitecture
-
-> **ProductLevel4PipeArchitecture** = *typeof* [`productLevel4PipeArchitectures`](#productlevel4pipearchitectures)\[`number`\]
-
-***
-
-### ProductLevel4PipeRefusalCode
-
-> **ProductLevel4PipeRefusalCode** = *typeof* [`productLevel4PipeRefusalCodes`](#productlevel4piperefusalcodes)\[`number`\]
-
-***
-
-### ProductLevel4PipeCaptureResult
-
-> **ProductLevel4PipeCaptureResult** = \{ `state`: `"completed"`; `migrationCompleted`: `true`; `bundleDir`: `string`; `descriptor`: [`ProductLevel4PipeDescriptor`](#productlevel4pipedescriptor); `dryRun`: `boolean`; \} \| \{ `state`: `"refused"`; `migrationCompleted`: `false`; `bundleDir`: `string`; `refusal`: [`ProductLevel4PipeRefusal`](#productlevel4piperefusal); `dryRun`: `boolean`; \}
-
-***
-
-### ProductLevel4TcpListenerArchitecture
-
-> **ProductLevel4TcpListenerArchitecture** = *typeof* [`productLevel4TcpListenerArchitectures`](#productlevel4tcplistenerarchitectures)\[`number`\]
-
-***
-
-### ProductLevel4TcpListenerRefusalCode
-
-> **ProductLevel4TcpListenerRefusalCode** = *typeof* [`productLevel4TcpListenerRefusalCodes`](#productlevel4tcplistenerrefusalcodes)\[`number`\]
-
-***
-
-### ProductLevel4TcpListenerCaptureResult
-
-> **ProductLevel4TcpListenerCaptureResult** = \{ `state`: `"completed"`; `migrationCompleted`: `true`; `bundleDir`: `string`; `descriptor`: [`ProductLevel4TcpListenerDescriptor`](#productlevel4tcplistenerdescriptor); `dryRun`: `boolean`; \} \| \{ `state`: `"refused"`; `migrationCompleted`: `false`; `bundleDir`: `string`; `refusal`: [`ProductLevel4TcpListenerRefusal`](#productlevel4tcplistenerrefusal); `dryRun`: `boolean`; \}
-
-***
-
-### ProductLevel4TimerfdArchitecture
-
-> **ProductLevel4TimerfdArchitecture** = *typeof* [`productLevel4TimerfdArchitectures`](#productlevel4timerfdarchitectures)\[`number`\]
-
-***
-
-### ProductLevel4TimerfdRefusalCode
-
-> **ProductLevel4TimerfdRefusalCode** = *typeof* [`productLevel4TimerfdRefusalCodes`](#productlevel4timerfdrefusalcodes)\[`number`\]
-
-***
-
-### ProductLevel4TimerfdCaptureResult
-
-> **ProductLevel4TimerfdCaptureResult** = \{ `state`: `"completed"`; `migrationCompleted`: `true`; `bundleDir`: `string`; `descriptor`: [`ProductLevel4TimerfdDescriptor`](#productlevel4timerfddescriptor); `dryRun`: `boolean`; \} \| \{ `state`: `"refused"`; `migrationCompleted`: `false`; `bundleDir`: `string`; `refusal`: [`ProductLevel4TimerfdRefusal`](#productlevel4timerfdrefusal); `dryRun`: `boolean`; \}
-
-***
-
-### ProductPortablePostgresArchitecture
-
-> **ProductPortablePostgresArchitecture** = *typeof* [`productPortablePostgresArchitectures`](#productportablepostgresarchitectures)\[`number`\]
-
-***
-
-### ProductPortableSupportLevel
-
-> **ProductPortableSupportLevel** = *typeof* [`productPortablePostgresSupportLevels`](#productportablepostgressupportlevels)\[`number`\]
-
-***
-
-### ProductPortablePostgresRefusalCode
-
-> **ProductPortablePostgresRefusalCode** = *typeof* [`productPortablePostgresRefusalCodes`](#productportablepostgresrefusalcodes)\[`number`\]
-
-***
-
-### ProductPortablePostgresCaptureResult
-
-> **ProductPortablePostgresCaptureResult** = \{ `state`: `"completed"`; `migrationCompleted`: `true`; `bundleDir`: `string`; `descriptor`: [`ProductPortablePostgresDescriptor`](#productportablepostgresdescriptor); `dryRun`: `boolean`; \} \| \{ `state`: `"refused"`; `migrationCompleted`: `false`; `bundleDir`: `string`; `refusal`: [`ProductPortablePostgresRefusal`](#productportablepostgresrefusal); `dryRun`: `boolean`; \}
-
-***
-
-### ProductSemanticPingRefusalCode
-
-> **ProductSemanticPingRefusalCode** = *typeof* [`productSemanticPingRefusalCodes`](#productsemanticpingrefusalcodes)\[`number`\]
-
-***
-
-### ProductSemanticPingArchitecture
-
-> **ProductSemanticPingArchitecture** = `"arm64"` \| `"amd64"`
-
-***
-
-### ProductSemanticPingStateDecision
-
-> **ProductSemanticPingStateDecision** = `"preserved"` \| `"recreated"` \| `"drained"` \| `"dropped-irrelevant"` \| `"logically-restored"` \| `"refused"`
-
-***
-
-### ProductSemanticPingContinuationResult
-
-> **ProductSemanticPingContinuationResult** = \{ `state`: `"completed"`; `migrationCompleted`: `true`; `descriptor`: [`ProductSemanticPingDescriptor`](#productsemanticpingdescriptor); `summary`: [`ProductSemanticPingRestoreSummary`](#productsemanticpingrestoresummary); \} \| \{ `state`: `"refused"`; `migrationCompleted`: `false`; `refusal`: [`ProductSemanticPingRefusal`](#productsemanticpingrefusal); \}
-
-***
-
 ### RuntimeConfidenceRuntime
 
 > **RuntimeConfidenceRuntime** = `"c"` \| `"java"`
@@ -27142,6 +23980,18 @@ loops; anything looser stops being a meaningful gate.
 ### level5SubstrateRefusalCodes
 
 > `const` **level5SubstrateRefusalCodes**: readonly \[`"level5-runtime-family-unsupported"`, `"level5-runtime-profile-unsupported"`, `"level5-target-native-runtime-missing"`, `"level5-source-target-arch-unsupported"`, `"level5-source-isa-emulation-forbidden"`, `"level5-sidecar-output-forbidden"`, `"level5-metadata-only-success-forbidden"`, `"level5-active-syscall-unsupported"`, `"level5-active-tcp-stream-unsupported"`, `"level5-thread-state-unsupported"`, `"level5-kernel-resource-unsupported"`, `"level5-runtime-heap-stack-unsupported"`\]
+
+***
+
+### MOVE\_DESCRIPTOR\_FORMAT\_VERSION
+
+> `const` **MOVE\_DESCRIPTOR\_FORMAT\_VERSION**: `1`
+
+***
+
+### MOVE\_REFUSAL\_CODE
+
+> `const` **MOVE\_REFUSAL\_CODE**: `"move-unproven-state-class"`
 
 ***
 
@@ -28763,13 +25613,13 @@ loops; anything looser stops being a meaningful gate.
 
 ### productSupportLevels
 
-> `const` **productSupportLevels**: readonly \[`"level-0-fail-closed-discovery"`, `"level-1-semantic-restart"`, `"level-2-semantic-continuation"`, `"level-3-runtime-aware-continuation"`, `"level-4-kernel-resource-reconstruction"`, `"level-5-cross-arch-process-continuation"`\]
+> `const` **productSupportLevels**: readonly \[`"deprecated-cross-isa-level"`, `"level-5-cross-arch-process-continuation"`\]
 
 ***
 
 ### productClaimStatuses
 
-> `const` **productClaimStatuses**: readonly \[`"implemented-product-support"`, `"stable-product-refusal"`, `"proof-only-fixture"`, `"obsolete-invalid-claim"`\]
+> `const` **productClaimStatuses**: readonly \[`"implemented-product-support"`, `"deprecated-legacy-support"`, `"stable-product-refusal"`, `"proof-only-fixture"`, `"obsolete-invalid-claim"`\]
 
 ***
 
@@ -28782,252 +25632,6 @@ loops; anything looser stops being a meaningful gate.
 ### PRODUCT\_CLAIM\_PROOF\_ONLY\_REFUSAL\_CODE
 
 > `const` **PRODUCT\_CLAIM\_PROOF\_ONLY\_REFUSAL\_CODE**: `"product-surface-not-implemented"`
-
-***
-
-### PRODUCT\_LEVEL4\_EVENTFD\_FORMAT\_VERSION
-
-> `const` **PRODUCT\_LEVEL4\_EVENTFD\_FORMAT\_VERSION**: `1`
-
-***
-
-### PRODUCT\_LEVEL4\_EVENTFD\_MANIFEST
-
-> `const` **PRODUCT\_LEVEL4\_EVENTFD\_MANIFEST**: `"portable-eventfd.json"`
-
-***
-
-### PRODUCT\_LEVEL4\_EVENTFD\_REFUSAL
-
-> `const` **PRODUCT\_LEVEL4\_EVENTFD\_REFUSAL**: `"portable-eventfd-refusal.json"`
-
-***
-
-### PRODUCT\_LEVEL4\_EVENTFD\_RESTORE\_SUMMARY
-
-> `const` **PRODUCT\_LEVEL4\_EVENTFD\_RESTORE\_SUMMARY**: `"portable-eventfd-restore-summary.json"`
-
-***
-
-### productLevel4EventfdArchitectures
-
-> `const` **productLevel4EventfdArchitectures**: readonly \[`"arm64"`, `"amd64"`\]
-
-***
-
-### productLevel4EventfdRefusalCodes
-
-> `const` **productLevel4EventfdRefusalCodes**: readonly \[`"eventfd-source-target-arch-match"`, `"eventfd-target-arch-mismatch"`, `"eventfd-target-verifier-mismatch"`, `"eventfd-counter-out-of-range"`, `"eventfd-semaphore-unsupported"`, `"eventfd-waiters-unsupported"`, `"eventfd-alias-unsupported"`, `"eventfd-unsupported-flags"`, `"eventfd-active-syscall-unsupported"`\]
-
-***
-
-### PRODUCT\_LEVEL4\_PING\_SOCKET\_FORMAT\_VERSION
-
-> `const` **PRODUCT\_LEVEL4\_PING\_SOCKET\_FORMAT\_VERSION**: `1`
-
-***
-
-### PRODUCT\_LEVEL4\_PING\_SOCKET\_MANIFEST
-
-> `const` **PRODUCT\_LEVEL4\_PING\_SOCKET\_MANIFEST**: `"portable-ping-socket.json"`
-
-***
-
-### PRODUCT\_LEVEL4\_PING\_SOCKET\_REFUSAL
-
-> `const` **PRODUCT\_LEVEL4\_PING\_SOCKET\_REFUSAL**: `"portable-ping-socket-refusal.json"`
-
-***
-
-### PRODUCT\_LEVEL4\_PING\_SOCKET\_RESTORE\_SUMMARY
-
-> `const` **PRODUCT\_LEVEL4\_PING\_SOCKET\_RESTORE\_SUMMARY**: `"portable-ping-socket-restore-summary.json"`
-
-***
-
-### productLevel4PingSocketArchitectures
-
-> `const` **productLevel4PingSocketArchitectures**: readonly \[`"arm64"`, `"amd64"`\]
-
-***
-
-### productLevel4PingSocketKinds
-
-> `const` **productLevel4PingSocketKinds**: readonly \[`"ping-dgram-icmp"`, `"raw-icmp"`\]
-
-***
-
-### productLevel4PingSocketRefusalCodes
-
-> `const` **productLevel4PingSocketRefusalCodes**: readonly \[`"ping-socket-active-recvmsg-unsupported"`, `"ping-socket-unread-receive-queue-unsupported"`, `"ping-socket-inflight-packets-unsupported"`, `"ping-socket-ambiguous-route-or-namespace"`, `"ping-socket-missing-credential-or-capability"`, `"ping-socket-unsupported-raw-socket-option"`, `"ping-socket-source-target-arch-match"`, `"ping-socket-target-arch-mismatch"`, `"ping-socket-target-verifier-mismatch"`\]
-
-***
-
-### PRODUCT\_LEVEL4\_PIPE\_FORMAT\_VERSION
-
-> `const` **PRODUCT\_LEVEL4\_PIPE\_FORMAT\_VERSION**: `1`
-
-***
-
-### PRODUCT\_LEVEL4\_PIPE\_MANIFEST
-
-> `const` **PRODUCT\_LEVEL4\_PIPE\_MANIFEST**: `"portable-pipe.json"`
-
-***
-
-### PRODUCT\_LEVEL4\_PIPE\_REFUSAL
-
-> `const` **PRODUCT\_LEVEL4\_PIPE\_REFUSAL**: `"portable-pipe-refusal.json"`
-
-***
-
-### PRODUCT\_LEVEL4\_PIPE\_RESTORE\_SUMMARY
-
-> `const` **PRODUCT\_LEVEL4\_PIPE\_RESTORE\_SUMMARY**: `"portable-pipe-restore-summary.json"`
-
-***
-
-### productLevel4PipeArchitectures
-
-> `const` **productLevel4PipeArchitectures**: readonly \[`"arm64"`, `"amd64"`\]
-
-***
-
-### productLevel4PipeRefusalCodes
-
-> `const` **productLevel4PipeRefusalCodes**: readonly \[`"pipe-source-target-arch-match"`, `"pipe-target-arch-mismatch"`, `"pipe-target-verifier-mismatch"`, `"pipe-fd-pair-invalid"`, `"pipe-buffered-data-unsupported"`, `"pipe-peer-lifetime-unsupported"`, `"pipe-waiters-unsupported"`, `"pipe-readiness-unsupported"`, `"pipe-unsupported-flags"`, `"pipe-active-syscall-unsupported"`\]
-
-***
-
-### PRODUCT\_LEVEL4\_TCP\_LISTENER\_FORMAT\_VERSION
-
-> `const` **PRODUCT\_LEVEL4\_TCP\_LISTENER\_FORMAT\_VERSION**: `1`
-
-***
-
-### PRODUCT\_LEVEL4\_TCP\_LISTENER\_MANIFEST
-
-> `const` **PRODUCT\_LEVEL4\_TCP\_LISTENER\_MANIFEST**: `"portable-tcp-listener.json"`
-
-***
-
-### PRODUCT\_LEVEL4\_TCP\_LISTENER\_REFUSAL
-
-> `const` **PRODUCT\_LEVEL4\_TCP\_LISTENER\_REFUSAL**: `"portable-tcp-listener-refusal.json"`
-
-***
-
-### PRODUCT\_LEVEL4\_TCP\_LISTENER\_RESTORE\_SUMMARY
-
-> `const` **PRODUCT\_LEVEL4\_TCP\_LISTENER\_RESTORE\_SUMMARY**: `"portable-tcp-listener-restore-summary.json"`
-
-***
-
-### productLevel4TcpListenerArchitectures
-
-> `const` **productLevel4TcpListenerArchitectures**: readonly \[`"arm64"`, `"amd64"`\]
-
-***
-
-### productLevel4TcpListenerRefusalCodes
-
-> `const` **productLevel4TcpListenerRefusalCodes**: readonly \[`"tcp-listener-source-target-arch-match"`, `"tcp-listener-target-arch-mismatch"`, `"tcp-listener-target-verifier-mismatch"`, `"tcp-listener-address-unsupported"`, `"tcp-listener-port-invalid"`, `"tcp-listener-backlog-out-of-range"`, `"tcp-listener-active-connections-unsupported"`, `"tcp-listener-accept-queue-unsupported"`, `"tcp-listener-unsupported-options"`, `"tcp-listener-partial-io-unsupported"`, `"tcp-listener-active-syscall-unsupported"`\]
-
-***
-
-### PRODUCT\_LEVEL4\_TIMERFD\_FORMAT\_VERSION
-
-> `const` **PRODUCT\_LEVEL4\_TIMERFD\_FORMAT\_VERSION**: `1`
-
-***
-
-### PRODUCT\_LEVEL4\_TIMERFD\_MANIFEST
-
-> `const` **PRODUCT\_LEVEL4\_TIMERFD\_MANIFEST**: `"portable-timerfd.json"`
-
-***
-
-### PRODUCT\_LEVEL4\_TIMERFD\_REFUSAL
-
-> `const` **PRODUCT\_LEVEL4\_TIMERFD\_REFUSAL**: `"portable-timerfd-refusal.json"`
-
-***
-
-### PRODUCT\_LEVEL4\_TIMERFD\_RESTORE\_SUMMARY
-
-> `const` **PRODUCT\_LEVEL4\_TIMERFD\_RESTORE\_SUMMARY**: `"portable-timerfd-restore-summary.json"`
-
-***
-
-### productLevel4TimerfdArchitectures
-
-> `const` **productLevel4TimerfdArchitectures**: readonly \[`"arm64"`, `"amd64"`\]
-
-***
-
-### productLevel4TimerfdRefusalCodes
-
-> `const` **productLevel4TimerfdRefusalCodes**: readonly \[`"timerfd-source-target-arch-match"`, `"timerfd-target-arch-mismatch"`, `"timerfd-target-verifier-mismatch"`, `"timerfd-remaining-time-out-of-range"`, `"timerfd-unread-expirations-unsupported"`, `"timerfd-periodic-unsupported"`, `"timerfd-absolute-unsupported"`, `"timerfd-cancel-on-set-unsupported"`, `"timerfd-clock-unsupported"`, `"timerfd-unsupported-flags"`, `"timerfd-active-read-unsupported"`\]
-
-***
-
-### PRODUCT\_PORTABLE\_POSTGRES\_FORMAT\_VERSION
-
-> `const` **PRODUCT\_PORTABLE\_POSTGRES\_FORMAT\_VERSION**: `1`
-
-***
-
-### PRODUCT\_PORTABLE\_POSTGRES\_MANIFEST
-
-> `const` **PRODUCT\_PORTABLE\_POSTGRES\_MANIFEST**: `"portable-product.json"`
-
-***
-
-### PRODUCT\_PORTABLE\_POSTGRES\_REFUSAL
-
-> `const` **PRODUCT\_PORTABLE\_POSTGRES\_REFUSAL**: `"portable-product-refusal.json"`
-
-***
-
-### PRODUCT\_PORTABLE\_POSTGRES\_RESTORE\_SUMMARY
-
-> `const` **PRODUCT\_PORTABLE\_POSTGRES\_RESTORE\_SUMMARY**: `"restore-summary.json"`
-
-***
-
-### PRODUCT\_PORTABLE\_POSTGRES\_DUMP
-
-> `const` **PRODUCT\_PORTABLE\_POSTGRES\_DUMP**: `"postgres.logical.dump"`
-
-***
-
-### productPortablePostgresArchitectures
-
-> `const` **productPortablePostgresArchitectures**: readonly \[`"arm64"`, `"amd64"`\]
-
-***
-
-### productPortablePostgresSupportLevels
-
-> `const` **productPortablePostgresSupportLevels**: readonly \[`"proof-only-fixture"`, `"implemented-product-support"`, `"explicit-refusal"`, `"obsolete-invalid-claim"`\]
-
-***
-
-### productPortablePostgresRefusalCodes
-
-> `const` **productPortablePostgresRefusalCodes**: readonly \[`"postgres-active-transaction-unsupported"`, `"postgres-active-session-unsupported"`, `"postgres-dirty-wal-boundary-unsupported"`, `"postgres-host-mounted-data-dir-ambiguous"`, `"postgres-physical-data-dir-cross-isa-unsupported"`, `"postgres-target-arch-mismatch"`, `"postgres-logical-dump-integrity-mismatch"`, `"postgres-target-verifier-mismatch"`, `"postgres-refused-source-state"`\]
-
-***
-
-### PRODUCT\_SEMANTIC\_PING\_FORMAT\_VERSION
-
-> `const` **PRODUCT\_SEMANTIC\_PING\_FORMAT\_VERSION**: `1`
-
-***
-
-### productSemanticPingRefusalCodes
-
-> `const` **productSemanticPingRefusalCodes**: readonly \[`"semantic-ping-source-target-arch-match"`, `"semantic-ping-invalid-counter-state"`, `"semantic-ping-unread-receive-queue-unsupported"`, `"semantic-ping-active-recvmsg-unsupported"`, `"semantic-ping-raw-socket-state-unsupported"`, `"semantic-ping-target-verifier-failed"`\]
 
 ***
 
@@ -29870,6 +26474,104 @@ available.
 #### Returns
 
 `string`
+
+***
+
+### scanMovePidGraph()
+
+> **scanMovePidGraph**(`rootPid?`): [`MovePidGraph`](#movepidgraph)
+
+#### Parameters
+
+##### rootPid?
+
+`number`
+
+#### Returns
+
+[`MovePidGraph`](#movepidgraph)
+
+***
+
+### createMoveDescriptor()
+
+> **createMoveDescriptor**(`pid`): [`MoveDescriptor`](#movedescriptor)
+
+#### Parameters
+
+##### pid
+
+`number`
+
+#### Returns
+
+[`MoveDescriptor`](#movedescriptor)
+
+***
+
+### saveMoveDescriptor()
+
+> **saveMoveDescriptor**(`input`): [`MoveSaveResult`](#movesaveresult)
+
+#### Parameters
+
+##### input
+
+###### pid
+
+`number`
+
+###### outPath
+
+`string`
+
+###### issue?
+
+`boolean`
+
+###### issueRepo?
+
+`string`
+
+#### Returns
+
+[`MoveSaveResult`](#movesaveresult)
+
+***
+
+### loadMoveDescriptor()
+
+> **loadMoveDescriptor**(`path`): [`MoveDescriptor`](#movedescriptor)
+
+#### Parameters
+
+##### path
+
+`string`
+
+#### Returns
+
+[`MoveDescriptor`](#movedescriptor)
+
+***
+
+### buildMoveIssueReport()
+
+> **buildMoveIssueReport**(`descriptor`, `repository?`): [`MoveIssueReport`](#moveissuereport)
+
+#### Parameters
+
+##### descriptor
+
+[`MoveDescriptor`](#movedescriptor)
+
+##### repository?
+
+`string` = `"redwoodjs/machinen"`
+
+#### Returns
+
+[`MoveIssueReport`](#moveissuereport)
 
 ***
 
@@ -32708,346 +29410,6 @@ readonly (`number` \| [`RssTarget`](#rsstarget))[]
 ##### graduationRequirements
 
 > **graduationRequirements**: `string`[]
-
-***
-
-### createProductLevel4EventfdSnapshot()
-
-> **createProductLevel4EventfdSnapshot**(`input`): [`ProductLevel4EventfdCaptureResult`](#productlevel4eventfdcaptureresult)
-
-#### Parameters
-
-##### input
-
-[`ProductLevel4EventfdCaptureInput`](#productlevel4eventfdcaptureinput)
-
-#### Returns
-
-[`ProductLevel4EventfdCaptureResult`](#productlevel4eventfdcaptureresult)
-
-***
-
-### isProductLevel4EventfdBundle()
-
-> **isProductLevel4EventfdBundle**(`bundleDir`): `boolean`
-
-#### Parameters
-
-##### bundleDir
-
-`string`
-
-#### Returns
-
-`boolean`
-
-***
-
-### restoreProductLevel4EventfdSnapshot()
-
-> **restoreProductLevel4EventfdSnapshot**(`input`): [`ProductLevel4EventfdRestoreSummary`](#productlevel4eventfdrestoresummary)
-
-#### Parameters
-
-##### input
-
-[`ProductLevel4EventfdRestoreInput`](#productlevel4eventfdrestoreinput)
-
-#### Returns
-
-[`ProductLevel4EventfdRestoreSummary`](#productlevel4eventfdrestoresummary)
-
-***
-
-### createProductLevel4PingSocketSnapshot()
-
-> **createProductLevel4PingSocketSnapshot**(`input`): [`ProductLevel4PingSocketCaptureResult`](#productlevel4pingsocketcaptureresult)
-
-#### Parameters
-
-##### input
-
-[`ProductLevel4PingSocketCaptureInput`](#productlevel4pingsocketcaptureinput)
-
-#### Returns
-
-[`ProductLevel4PingSocketCaptureResult`](#productlevel4pingsocketcaptureresult)
-
-***
-
-### isProductLevel4PingSocketBundle()
-
-> **isProductLevel4PingSocketBundle**(`bundleDir`): `boolean`
-
-#### Parameters
-
-##### bundleDir
-
-`string`
-
-#### Returns
-
-`boolean`
-
-***
-
-### restoreProductLevel4PingSocketSnapshot()
-
-> **restoreProductLevel4PingSocketSnapshot**(`input`): [`ProductLevel4PingSocketRestoreSummary`](#productlevel4pingsocketrestoresummary)
-
-#### Parameters
-
-##### input
-
-[`ProductLevel4PingSocketRestoreInput`](#productlevel4pingsocketrestoreinput)
-
-#### Returns
-
-[`ProductLevel4PingSocketRestoreSummary`](#productlevel4pingsocketrestoresummary)
-
-***
-
-### createProductLevel4PipeSnapshot()
-
-> **createProductLevel4PipeSnapshot**(`input`): [`ProductLevel4PipeCaptureResult`](#productlevel4pipecaptureresult)
-
-#### Parameters
-
-##### input
-
-[`ProductLevel4PipeCaptureInput`](#productlevel4pipecaptureinput)
-
-#### Returns
-
-[`ProductLevel4PipeCaptureResult`](#productlevel4pipecaptureresult)
-
-***
-
-### isProductLevel4PipeBundle()
-
-> **isProductLevel4PipeBundle**(`bundleDir`): `boolean`
-
-#### Parameters
-
-##### bundleDir
-
-`string`
-
-#### Returns
-
-`boolean`
-
-***
-
-### restoreProductLevel4PipeSnapshot()
-
-> **restoreProductLevel4PipeSnapshot**(`input`): [`ProductLevel4PipeRestoreSummary`](#productlevel4piperestoresummary)
-
-#### Parameters
-
-##### input
-
-[`ProductLevel4PipeRestoreInput`](#productlevel4piperestoreinput)
-
-#### Returns
-
-[`ProductLevel4PipeRestoreSummary`](#productlevel4piperestoresummary)
-
-***
-
-### createProductLevel4TcpListenerSnapshot()
-
-> **createProductLevel4TcpListenerSnapshot**(`input`): [`ProductLevel4TcpListenerCaptureResult`](#productlevel4tcplistenercaptureresult)
-
-#### Parameters
-
-##### input
-
-[`ProductLevel4TcpListenerCaptureInput`](#productlevel4tcplistenercaptureinput)
-
-#### Returns
-
-[`ProductLevel4TcpListenerCaptureResult`](#productlevel4tcplistenercaptureresult)
-
-***
-
-### isProductLevel4TcpListenerBundle()
-
-> **isProductLevel4TcpListenerBundle**(`bundleDir`): `boolean`
-
-#### Parameters
-
-##### bundleDir
-
-`string`
-
-#### Returns
-
-`boolean`
-
-***
-
-### restoreProductLevel4TcpListenerSnapshot()
-
-> **restoreProductLevel4TcpListenerSnapshot**(`input`): [`ProductLevel4TcpListenerRestoreSummary`](#productlevel4tcplistenerrestoresummary)
-
-#### Parameters
-
-##### input
-
-[`ProductLevel4TcpListenerRestoreInput`](#productlevel4tcplistenerrestoreinput)
-
-#### Returns
-
-[`ProductLevel4TcpListenerRestoreSummary`](#productlevel4tcplistenerrestoresummary)
-
-***
-
-### createProductLevel4TimerfdSnapshot()
-
-> **createProductLevel4TimerfdSnapshot**(`input`): [`ProductLevel4TimerfdCaptureResult`](#productlevel4timerfdcaptureresult)
-
-#### Parameters
-
-##### input
-
-[`ProductLevel4TimerfdCaptureInput`](#productlevel4timerfdcaptureinput)
-
-#### Returns
-
-[`ProductLevel4TimerfdCaptureResult`](#productlevel4timerfdcaptureresult)
-
-***
-
-### isProductLevel4TimerfdBundle()
-
-> **isProductLevel4TimerfdBundle**(`bundleDir`): `boolean`
-
-#### Parameters
-
-##### bundleDir
-
-`string`
-
-#### Returns
-
-`boolean`
-
-***
-
-### restoreProductLevel4TimerfdSnapshot()
-
-> **restoreProductLevel4TimerfdSnapshot**(`input`): [`ProductLevel4TimerfdRestoreSummary`](#productlevel4timerfdrestoresummary)
-
-#### Parameters
-
-##### input
-
-[`ProductLevel4TimerfdRestoreInput`](#productlevel4timerfdrestoreinput)
-
-#### Returns
-
-[`ProductLevel4TimerfdRestoreSummary`](#productlevel4timerfdrestoresummary)
-
-***
-
-### createProductPortablePostgresSnapshot()
-
-> **createProductPortablePostgresSnapshot**(`input`): [`ProductPortablePostgresCaptureResult`](#productportablepostgrescaptureresult)
-
-#### Parameters
-
-##### input
-
-[`ProductPortablePostgresCaptureInput`](#productportablepostgrescaptureinput)
-
-#### Returns
-
-[`ProductPortablePostgresCaptureResult`](#productportablepostgrescaptureresult)
-
-***
-
-### restoreProductPortablePostgresSnapshot()
-
-> **restoreProductPortablePostgresSnapshot**(`input`): [`ProductPortablePostgresRestoreSummary`](#productportablepostgresrestoresummary)
-
-#### Parameters
-
-##### input
-
-[`ProductPortablePostgresRestoreInput`](#productportablepostgresrestoreinput)
-
-#### Returns
-
-[`ProductPortablePostgresRestoreSummary`](#productportablepostgresrestoresummary)
-
-***
-
-### isProductPortablePostgresBundle()
-
-> **isProductPortablePostgresBundle**(`dir`): `boolean`
-
-#### Parameters
-
-##### dir
-
-`string`
-
-#### Returns
-
-`boolean`
-
-***
-
-### productPortablePostgresFileSha256()
-
-> **productPortablePostgresFileSha256**(`path`): `string`
-
-#### Parameters
-
-##### path
-
-`string`
-
-#### Returns
-
-`string`
-
-***
-
-### createProductSemanticPingContinuation()
-
-> **createProductSemanticPingContinuation**(`input`): [`ProductSemanticPingContinuationResult`](#productsemanticpingcontinuationresult)
-
-#### Parameters
-
-##### input
-
-[`ProductSemanticPingDescriptorInput`](#productsemanticpingdescriptorinput)
-
-#### Returns
-
-[`ProductSemanticPingContinuationResult`](#productsemanticpingcontinuationresult)
-
-***
-
-### verifyProductSemanticPingContinuation()
-
-> **verifyProductSemanticPingContinuation**(`descriptor`, `verifierEchoReplies`): [`ProductSemanticPingRestoreSummary`](#productsemanticpingrestoresummary)
-
-#### Parameters
-
-##### descriptor
-
-[`ProductSemanticPingDescriptor`](#productsemanticpingdescriptor)
-
-##### verifierEchoReplies
-
-`number`
-
-#### Returns
-
-[`ProductSemanticPingRestoreSummary`](#productsemanticpingrestoresummary)
 
 ***
 

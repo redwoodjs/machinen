@@ -27,7 +27,6 @@ import { SnapshotError } from "../errors.ts";
 import type { VsockExecOptions, VsockExecResult } from "../exec.ts";
 import type { OnLog } from "../log.ts";
 import { PhaseTimer } from "../phase-timer.ts";
-import { snapshotPortableMachinePingWorkload } from "../portable-machine-transport.ts";
 import { reflinkCopy } from "../reflink.ts";
 import type {
   SnapshotMeta,
@@ -200,10 +199,13 @@ export async function performSnapshot(
 }
 
 function performSnapshotPortable(
-  ctx: SnapshotContext,
-  opts: SnapshotOptions,
+  _ctx: SnapshotContext,
+  _opts: SnapshotOptions,
 ): Promise<SnapshotResult> {
-  return snapshotPortableMachinePingWorkload(ctx, opts.outDir);
+  throw new SnapshotError(
+    "SNAPSHOT_PORTABLE_REFUSED",
+    "vm.snapshot: legacy portable Level 0-4 snapshot routes were removed; use machinen move for PID translation, or vmstate snapshot/restore for same-ISA VM snapshots.",
+  );
 }
 
 async function performSnapshotCriu(
