@@ -120,50 +120,6 @@ export const COMMANDS: CommandSpec[] = [
     jsonEnvelope: '{"schema_version": 1, "pid": <int>, "name": <string|null>, "detached": <bool>}',
   },
   {
-    name: "capture",
-    summary: "Capture a declared Node Level 5 proof descriptor.",
-    jsonOutput: true,
-    mutating: true,
-    positionals: [
-      {
-        name: "runtime",
-        description: "Only 'node-level5' remains here; use 'move' for cross-ISA PID translation.",
-      },
-    ],
-    flags: [
-      { name: "--out", type: "string", description: "Directory to write the descriptor." },
-      {
-        name: "--source-arch",
-        type: "enum",
-        values: ["arm64", "amd64"],
-        description: "Source architecture metadata.",
-      },
-      {
-        name: "--target-arch",
-        type: "enum",
-        values: ["arm64", "amd64"],
-        description: "Target architecture metadata.",
-      },
-      {
-        name: "--experimental-node-level5",
-        type: "boolean",
-        description: "Allow proof harness descriptors.",
-      },
-      {
-        name: "--claim-product-support",
-        type: "boolean",
-        description: "Claim product support only when proof gates allow it.",
-      },
-      {
-        name: "--dry-run",
-        type: "boolean",
-        description: "Validate without writing the descriptor.",
-      },
-      { name: "--json", type: "boolean", description: "Emit the capture result as JSON." },
-    ],
-    jsonEnvelope: '{"schema_version": 1, "accepted": <bool>, "manifestPath": <path>}',
-  },
-  {
     name: "move",
     summary: "Cross-ISA PID translation entrypoint with fail-closed state-class evidence.",
     jsonOutput: true,
@@ -193,54 +149,9 @@ export const COMMANDS: CommandSpec[] = [
     jsonEnvelope: '{"schema_version": 1, "accepted": <bool>, "descriptor": {...}}',
   },
   {
-    name: "support",
-    summary: "Discover product support/refusal status for proof profiles.",
-    jsonOutput: true,
-    flags: [
-      {
-        name: "--family",
-        type: "enum",
-        values: [
-          "postgresql",
-          "nodejs",
-          "go",
-          "python-ruby-jvm",
-          "stateful-services",
-          "foundation-native",
-          "native-linux-resource",
-          "network-ping-socket",
-          "unknown",
-        ],
-        description: "Filter by product claim family.",
-      },
-      { name: "--runtime", type: "string", description: "Filter by runtime label." },
-      {
-        name: "--status",
-        type: "enum",
-        values: [
-          "implemented-product-support",
-          "stable-product-refusal",
-          "proof-only-fixture",
-          "obsolete-invalid-claim",
-        ],
-        description: "Filter by product status.",
-      },
-      { name: "--profile", type: "string", description: "Filter by exact proof profile name." },
-      {
-        name: "--resource-family",
-        type: "string",
-        description: "Filter by resource or unsafe-state family.",
-      },
-      { name: "--refusal-code", type: "string", description: "Filter by refusal code." },
-      { name: "--json", type: "boolean", description: "Emit the full registry result as JSON." },
-    ],
-    jsonEnvelope:
-      '{"schema_version": 1, "kind": "machinen.product-support-status", "summary": {...}, "entries": [...] }',
-  },
-  {
     name: "restore",
-    summary: "Restore a VM from a snapshot bundle or supported Level 5 descriptor path.",
-    jsonOutput: true,
+    summary: "Restore a VM from a snapshot bundle.",
+    jsonOutput: false,
     flags: [
       { name: "--name", type: "string", description: "Register the restored VM under this name." },
       {
@@ -268,37 +179,7 @@ export const COMMANDS: CommandSpec[] = [
         description:
           "Override a recorded live-share mount's host/mode (#273). Each entry's <guest> must match a guest path recorded in the bundle's meta.liveMounts.",
       },
-      {
-        name: "--target-arch",
-        type: "enum",
-        values: ["arm64", "amd64"],
-        description: "Target architecture for supported descriptor restore paths.",
-      },
-      {
-        name: "--target-verifier-output",
-        type: "string",
-        description: "Target-native verifier output for supported descriptor restore paths.",
-      },
-      {
-        name: "--verify-proof-only",
-        type: "boolean",
-        description:
-          "Compatibility flag for Node Level 5 proof bundles; the target-side proof verifier now runs by default.",
-      },
-      {
-        name: "--allow-proof-only-success",
-        type: "boolean",
-        description:
-          "Return exit code 0 when the Node Level 5 proof-only verifier passes, while still reporting not-yet-supported product status.",
-      },
-      {
-        name: "--json",
-        type: "boolean",
-        description: "Emit the supported descriptor restore result as JSON.",
-      },
     ],
-    jsonEnvelope:
-      '{"schema_version": 1, "state": "completed|refused", "migrationCompleted": <bool>, "targetVerifierResult": "passed|failed|not-run"}',
   },
   {
     name: "list",

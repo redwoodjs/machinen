@@ -525,25 +525,14 @@ describe("parseRestoreArgs", () => {
     expect(b.image).toBe("./rootfs.tar.gz");
   });
 
-  it("captures portable product restore verifier flags", () => {
-    const parsed = parseRestoreArgs([
-      "./pg.portable",
-      "--target-arch",
-      "amd64",
-      "--target-verifier-output=./verify.txt",
-    ]);
-    expect(parsed.targetArch).toBe("amd64");
-    expect(parsed.targetVerifierOutput).toBe("./verify.txt");
-  });
-
-  it("captures Node Level 5 proof-only restore flags", () => {
-    const parsed = parseRestoreArgs([
-      "./node-proof",
-      "--verify-proof-only",
-      "--allow-proof-only-success",
-    ]);
-    expect(parsed.verifyProofOnly).toBe(true);
-    expect(parsed.allowProofOnlySuccess).toBe(true);
+  it("rejects descriptor/proof restore flags", () => {
+    expect(() => parseRestoreArgs(["./pg.portable", "--target-arch", "amd64"])).toThrow(
+      /unknown flag: --target-arch/,
+    );
+    expect(() => parseRestoreArgs(["./node-proof", "--allow-proof-only-success"])).toThrow(
+      /unknown flag: --allow-proof-only-success/,
+    );
+    expect(() => parseRestoreArgs(["./node-proof", "--json"])).toThrow(/unknown flag: --json/);
   });
 
   it("collects -p / --publish into portForward", () => {

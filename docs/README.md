@@ -17,9 +17,6 @@ Then dive deeper:
 Product docs:
 
 - [Snapshot, restore, and move](./snapshot/README.md) — current product surfaces
-- [Product claim registry](./snapshot/product-claim-registry.md) — current support and refusal statuses
-- [Clean service snapshot/restore](./snapshot/clean-service-product-snapshot-restore.md)
-- [Node snapshot/restore](./snapshot/node-product-snapshot-restore.md)
 - [vmstate specification](./snapshot/vmstate-specification.md) — whole-VM snapshot file format and saved state
 - [vmstate portability policy](./snapshot/vmstate-portability.md) — restore invariants and cross-HVF/KVM policy
 

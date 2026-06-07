@@ -20,10 +20,6 @@ const PORTABLE_RESTORE_ADAPTER_SRC = readFileSync(
   join(SRC_DIR, "..", "portable-restore-adapter.ts"),
   "utf8",
 );
-const LEVEL5_RUNTIME_ADAPTER_SRC = readFileSync(
-  join(SRC_DIR, "..", "level5-runtime-adapters.ts"),
-  "utf8",
-);
 
 // Verbs that match Cloudflare's posted convention plus this CLI's
 // domain verbs. Anything outside this set has to be justified per
@@ -39,11 +35,9 @@ const ALLOWED_VERBS = new Set([
   "stop",
   "install",
   "completion",
-  "support",
   // domain
   "boot",
   "restore",
-  "capture",
   "move",
   "exec",
   "snapshot",
@@ -180,13 +174,20 @@ describe("flag conventions", () => {
     }
   });
 
-  it("snapshot/restore product portability does not require runtime-specific workflow flags", () => {
+  it("snapshot/restore stay VM-snapshot focused", () => {
     for (const name of ["snapshot", "restore"]) {
       const cmd = COMMANDS.find((candidate) => candidate.name === name);
       expect(cmd, `${name} command missing`).toBeDefined();
       const flags = new Set(cmd?.flags.map((flag) => flag.name));
       expect(flags.has("--portable"), `${name}: must not expose --portable`).toBe(false);
       expect(flags.has("--runtime"), `${name}: must not expose --runtime`).toBe(false);
+      expect(flags.has("--target-arch"), `${name}: must not expose descriptor restore flags`).toBe(
+        false,
+      );
+      expect(
+        flags.has("--allow-proof-only-success"),
+        `${name}: must not expose proof restore flags`,
+      ).toBe(false);
     }
   });
 
@@ -217,26 +218,20 @@ describe("move-only cross-ISA product route convention", () => {
   });
 });
 
-describe("Node Level 5 public proof routing", () => {
-  it("routes selected proof capture through snapshot and refuses restore as proof-only", () => {
-    expect(SNAPSHOT_COMMAND_SRC).toContain(
-      "writeNodeLevel5ProofCompositionSnapshot(res.snapDir, portableNode)",
-    );
-    expect(SNAPSHOT_COMMAND_SRC).toContain(
-      "writeNodeLevel5RuntimeProfileSnapshot(res.snapDir, portableNode)",
-    );
-    expect(LEVEL5_RUNTIME_ADAPTER_SRC).toContain("NODE_LEVEL5_PROOF_COMPOSITION_FILE");
-    expect(LEVEL5_RUNTIME_ADAPTER_SRC).toContain("NODE_LEVEL5_HTTP_PROFILE_FILE");
-    expect(RESTORE_COMMAND_SRC).toContain("isNodeLevel5ProofCompositionBundle(snapDir)");
-    expect(RESTORE_COMMAND_SRC).toContain("detectLevel5RestoreAdapter(snapDir)");
-    expect(LEVEL5_RUNTIME_ADAPTER_SRC).toContain("node-level5-proof-only-not-product");
-    expect(LEVEL5_RUNTIME_ADAPTER_SRC).toContain("restoreRoutedThroughPublicVerb: true");
-    expect(RESTORE_COMMAND_SRC).toContain("restoreLevel5RuntimeBundle");
-    expect(LEVEL5_RUNTIME_ADAPTER_SRC).toContain("level5AdapterRegistryRouted");
-    expect(LEVEL5_RUNTIME_ADAPTER_SRC).toContain("targetProofVerifierRanByDefault: true");
-    expect(LEVEL5_RUNTIME_ADAPTER_SRC).toContain("node-level5-http-runtime-adapter");
-    expect(LEVEL5_RUNTIME_ADAPTER_SRC).toContain("runNodeLevel5RestoreProofOnlyVerifier");
-    expect(RESTORE_COMMAND_SRC).toContain("--allow-proof-only-success");
+describe("proof routing stays off the public command surface", () => {
+  it("keeps snapshot/restore on VM snapshotting only", () => {
+    expect(CLI_SRC).not.toContain('["capture",');
+    expect(CLI_SRC).not.toContain('["node-level5",');
+    expect(COMMANDS.some((cmd) => cmd.name === "capture")).toBe(false);
+    expect(COMMANDS.some((cmd) => cmd.name === "node-level5")).toBe(false);
+    expect(SNAPSHOT_COMMAND_SRC).not.toContain("writeNodeLevel5ProofCompositionSnapshot");
+    expect(SNAPSHOT_COMMAND_SRC).not.toContain("writeNodeLevel5RuntimeProfileSnapshot");
+    expect(SNAPSHOT_COMMAND_SRC).not.toContain("inspectPortableNodeVm");
+    expect(RESTORE_COMMAND_SRC).not.toContain("restoreLevel5RuntimeBundle");
+    expect(RESTORE_COMMAND_SRC).not.toContain("detectLevel5RestoreAdapter");
+    expect(RESTORE_COMMAND_SRC).not.toContain("shouldRestorePortableNode");
+    expect(RESTORE_COMMAND_SRC).not.toContain("shouldRestoreCleanService");
+    expect(RESTORE_COMMAND_SRC).not.toContain("--allow-proof-only-success");
   });
 });
 

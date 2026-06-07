@@ -10,7 +10,6 @@
 //   machinen snapshot <name|pid> <out-dir>
 //   machinen attach <name|pid> [--shell <cmd>]   # PTY shell
 //   machinen repl   <name|pid>                   # per-line exec
-//   machinen support [--json] [--family <family>] [--level <support-level>]
 //   machinen completion <bash|zsh|fish>
 //   machinen --version | -h | --help
 
@@ -27,12 +26,10 @@ import { cmdFork } from "./commands/fork.ts";
 import { cmdInstall } from "./commands/install.ts";
 import { cmdAgentContext, cmdCompletion, cmdFeedback } from "./commands/misc.ts";
 import { cmdMove } from "./commands/move.ts";
-import { cmdCapture, cmdNodeLevel5 } from "./commands/node-level5.ts";
 import { cmdGc, cmdLs } from "./commands/registry.ts";
 import { cmdRestore } from "./commands/restore.ts";
 import { cmdSnapshot } from "./commands/snapshot.ts";
 import { cmdStop } from "./commands/stop.ts";
-import { cmdSupport } from "./commands/support.ts";
 
 const debug = debugLib("machinen:cli");
 
@@ -44,10 +41,7 @@ type CommandHandler = (args: string[]) => number | Promise<number>;
 
 const COMMAND_HANDLERS = new Map<string, CommandHandler>([
   ["boot", cmdBoot],
-  ["capture", cmdCapture],
   ["move", cmdMove],
-  ["node-level5", cmdNodeLevel5],
-  ["support", cmdSupport],
   ["restore", cmdRestore],
   ["install", cmdInstall],
   ["list", cmdLs],
@@ -102,7 +96,7 @@ function dispatchSubcommand(sub: string, rest: string[]): number | Promise<numbe
 function maybePrintTopLevelHelp(sub: string | undefined): number | undefined {
   if (!sub) {
     printHelp();
-    return 1;
+    return 0;
   }
   if (sub === "-h") {
     printHelp();
