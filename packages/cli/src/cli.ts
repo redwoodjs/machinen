@@ -61,10 +61,10 @@ import {
   nodeLevel5ProductSupport80UnsupportedDetectors,
   nodeLevel5ProductSupport85ClaimRegistry,
   productSupportLevels,
-  readHostRssBytesMulti,
   restore,
   restoreNodeLevel5DeclaredSubset,
   restoreNodeLevel5ProductSnapshot,
+  runGc,
   loadMoveDescriptor,
   saveMoveDescriptor,
   scanMovePidGraph,
@@ -79,7 +79,6 @@ import {
   verifyNodeLevel5GenericVmRowArtifactsReport,
   verifyNodeLevel5InstalledThirdPartyAppCorpusReport,
   verifyNodeLevel5ThirdPartyAppCorpusReport,
-  runGc,
   validatePid,
 } from "@machinen/runtime";
 import type {
@@ -95,7 +94,6 @@ import type {
 import debugLib from "debug";
 
 import pkg from "../package.json" with { type: "json" };
-import { buildAgentContext } from "./agent-context.ts";
 import {
   cleanServiceStableRefusalCodes,
   type CleanServiceCapture,
@@ -113,9 +111,6 @@ import {
   cmdRestoreCleanService as restoreCleanServiceBundle,
   shouldRestoreCleanService as shouldRestoreCleanServiceBundle,
 } from "./clean-service/restore.ts";
-import { appendFeedback, feedbackPath, postUpstream, readFeedback } from "./feedback.ts";
-import { formatMem } from "./format-mem.ts";
-import { formatPorts } from "./format-ports.ts";
 import {
   detectLevel5RestoreAdapter,
   restoreLevel5RuntimeBundle,
@@ -135,6 +130,8 @@ import {
   RingBuffer,
 } from "./quiet.ts";
 import { tailLines } from "./tail-lines.ts";
+import { cmdAgentContext, cmdCompletion, cmdFeedback } from "./commands/misc.ts";
+import { cmdGc, cmdLs } from "./commands/registry.ts";
 
 const debug = debugLib("machinen:cli");
 
@@ -2511,204 +2508,6 @@ function runRestoreAttachedSession(vm: VmHandle, quiet: QuietRunState): Promise<
   });
 }
 
-async function cmdLs(args: string[]): Promise<number> {
-  const { json, rest } = consumeJsonFlag(args);
-  if (rest.length > 0) {
-    die(`unknown argument: ${rest[0]}`);
-  }
-  const entries = list();
-  const rssByPid = rssByRegistryPid(entries);
-  if (json) {
-    emitLsJson(entries, rssByPid);
-  } else {
-    printLsTable(entries, rssByPid);
-  }
-  return 0;
-}
-
-function rssByRegistryPid(entries: RegistryEntry[]): Map<number, number> {
-  return readHostRssBytesMulti(
-    entries.map((entry) => ({ pid: entry.pid, statsPath: entry.statsPath })),
-  );
-}
-
-function emitLsJson(entries: RegistryEntry[], rssByPid: Map<number, number>): void {
-  emitJson({
-    schema_version: 1,
-    vms: entries.map((entry) => vmJson(entry, rssByPid)),
-  });
-}
-
-function vmJson(entry: RegistryEntry, rssByPid: Map<number, number>): unknown {
-  return {
-    pid: entry.pid,
-    name: nullable(entry.name),
-    started_at: entry.startedAt,
-    uptime_ms: Date.now() - entry.startedAt,
-    memory: vmMemoryJson(entry, rssByPid),
-    ports: portsJson(entry),
-    forked_from: nullable(entry.forkedFrom),
-  };
-}
-
-function portsJson(entry: RegistryEntry): NonNullable<RegistryEntry["portForward"]> {
-  if (entry.portForward === undefined) {
-    return [];
-  }
-  return entry.portForward;
-}
-
-function vmMemoryJson(entry: RegistryEntry, rssByPid: Map<number, number>): unknown {
-  return {
-    rss_bytes: nullable(rssByPid.get(entry.pid)),
-    ceiling_mib: nullable(entry.memoryCeilingMib),
-  };
-}
-
-function nullable<T>(value: T | undefined): T | null {
-  if (value === undefined) {
-    return null;
-  }
-  return value;
-}
-
-function printLsTable(entries: RegistryEntry[], rssByPid: Map<number, number>): void {
-  if (entries.length === 0) {
-    process.stdout.write("(no running VMs)\n");
-    return;
-  }
-  const header = ["PID", "NAME", "UP", "MEM", "PORTS", "FORKED-FROM"];
-  const rows = lsRows(entries, rssByPid);
-  const widths = tableWidths(header, rows);
-  const visible = visibleLsColumns(header, widths);
-  printTable(header, rows, widths, visible);
-}
-
-function lsRows(entries: RegistryEntry[], rssByPid: Map<number, number>): string[][] {
-  return entries.map((entry) => [
-    String(entry.pid),
-    entry.name ?? "-",
-    formatUptime(Date.now() - entry.startedAt),
-    formatMem(rssByPid.get(entry.pid) ?? null, entry.memoryCeilingMib),
-    formatPorts(entry.portForward),
-    entry.forkedFrom ?? "-",
-  ]);
-}
-
-function tableWidths(header: string[], rows: string[][]): number[] {
-  return header.map((heading, index) =>
-    Math.max(heading.length, ...rows.map((row) => row[index]!.length)),
-  );
-}
-
-function visibleLsColumns(header: string[], widths: number[]): number[] {
-  const gap = "  ";
-  const fullWidth =
-    widths.reduce((sum, width) => sum + width, 0) + gap.length * (widths.length - 1);
-  // Hide MEM (column index 3) on terminals that can't fit the full
-  // line. Pipes / non-TTY stdout report `process.stdout.columns`
-  // undefined — keep the column there so scripts get a stable shape.
-  const cols = process.stdout.columns;
-  const includeMem = cols === undefined || fullWidth <= cols;
-  return includeMem ? header.map((_, i) => i) : header.map((_, i) => i).filter((i) => i !== 3);
-}
-
-function printTable(header: string[], rows: string[][], widths: number[], visible: number[]): void {
-  process.stdout.write(formatTableLine(header, widths, visible) + "\n");
-  for (const row of rows) {
-    process.stdout.write(formatTableLine(row, widths, visible) + "\n");
-  }
-}
-
-function formatTableLine(cells: string[], widths: number[], visible: number[]): string {
-  return visible.map((index) => cells[index]!.padEnd(widths[index]!)).join("  ");
-}
-
-function formatUptime(ms: number): string {
-  const s = Math.floor(ms / 1000);
-  if (s < 60) {
-    return `${s}s`;
-  }
-  const m = Math.floor(s / 60);
-  if (m < 60) {
-    return `${m}m`;
-  }
-  const h = Math.floor(m / 60);
-  if (h < 24) {
-    return `${h}h`;
-  }
-  return `${Math.floor(h / 24)}d`;
-}
-
-// `machinen gc` — drop registry entries whose VMM is dead (or whose
-// pid was recycled to some other process) and remove their per-boot
-// artifacts. Backstop for `--detached` boots, where the in-process
-// exit hook can't run because the parent is gone (issue #150 phase 2
-// PR2).
-async function cmdGc(args: string[]): Promise<number> {
-  const { json, dryRun, rest } = parseGcOptions(args);
-  dieOnUnexpectedArgs(rest);
-  const results = runGc({ dryRun });
-  if (json) {
-    emitGcJson(dryRun, results);
-  } else {
-    printGcResults(results, dryRun);
-  }
-  return 0;
-}
-
-function parseGcOptions(args: string[]): { json: boolean; dryRun: boolean; rest: string[] } {
-  const { json, rest: afterJson } = consumeJsonFlag(args);
-  const { dryRun, rest } = consumeDryRunFlag(afterJson);
-  return { json, dryRun, rest };
-}
-
-function dieOnUnexpectedArgs(args: string[]): void {
-  for (const arg of args) {
-    die(`unknown flag: ${arg}`);
-  }
-}
-
-function emitGcJson(dryRun: boolean, results: ReturnType<typeof runGc>): void {
-  emitJson({
-    schema_version: 1,
-    dry_run: dryRun,
-    results: results.map((r) => ({
-      pid: r.pid,
-      name: r.name ?? null,
-      status: r.status,
-      removed_paths: r.removedPaths,
-      failed_paths: r.failedPaths,
-    })),
-  });
-}
-
-function printGcResults(results: ReturnType<typeof runGc>, dryRun: boolean): void {
-  if (results.length === 0) {
-    process.stdout.write("(nothing to clean up)\n");
-    return;
-  }
-  for (const result of results) {
-    printGcResult(result, dryRun);
-  }
-}
-
-function printGcResult(result: ReturnType<typeof runGc>[number], dryRun: boolean): void {
-  const label = result.name ? `${result.name} (pid ${result.pid})` : `pid ${result.pid}`;
-  const verb = dryRun ? "would clean" : "cleaned";
-  process.stdout.write(
-    `${verb} ${label} [${result.status}]: ${result.removedPaths.length} path(s)\n`,
-  );
-  printIndentedPaths(result.removedPaths, "");
-  printIndentedPaths(result.failedPaths, "failed: ");
-}
-
-function printIndentedPaths(paths: string[], prefix: string): void {
-  for (const path of paths) {
-    process.stdout.write(`  ${prefix}${path}\n`);
-  }
-}
-
 // `machinen stop <name|pid>` — SIGTERM the VMM, escalate to SIGKILL
 // after 2s, then gc its entry. Resolves `--detached` boots' Ctrl-C
 // problem: the CLI no longer holds the VMM, so a separate `stop`
@@ -4068,140 +3867,6 @@ async function runReplLine(vm: VmHandle, line: string): Promise<void> {
   });
 }
 
-async function cmdAgentContext(args: string[]): Promise<number> {
-  // The whole point of `agent-context` is structured output, so --json
-  // is implicit. Reject anything else so we don't quietly ignore typos
-  // that an agent might rely on.
-  for (const a of args) {
-    if (a !== "--json") {
-      die(`unknown argument: ${a}`);
-    }
-  }
-  emitJson(buildAgentContext());
-  return 0;
-}
-
-async function cmdFeedback(args: string[]): Promise<number> {
-  // Two shapes:
-  //   machinen feedback "<text>"        — append a JSONL entry
-  //   machinen feedback --list          — print recent entries
-  // --json on either form returns a structured envelope.
-  const opts = parseFeedbackOptions(args);
-  if (opts.listMode) {
-    return listFeedback(opts);
-  }
-  return recordFeedback(opts);
-}
-
-interface FeedbackOptions {
-  json: boolean;
-  listMode: boolean;
-  positional: string[];
-}
-
-function parseFeedbackOptions(args: string[]): FeedbackOptions {
-  const { json, rest } = consumeJsonFlag(args);
-  const opts: FeedbackOptions = { json, listMode: false, positional: [] };
-  for (const arg of rest) {
-    consumeFeedbackArg(opts, arg);
-  }
-  return opts;
-}
-
-function consumeFeedbackArg(opts: FeedbackOptions, arg: string): void {
-  if (arg === "--list") {
-    opts.listMode = true;
-    return;
-  }
-  if (arg.startsWith("--")) {
-    die(`unknown argument: ${arg}`);
-  }
-  opts.positional.push(arg);
-}
-
-function listFeedback(opts: FeedbackOptions): number {
-  if (opts.positional.length > 0) {
-    die("machinen feedback --list takes no positional arguments");
-  }
-  const entries = readFeedback();
-  if (opts.json) {
-    emitJson({ schema_version: 1, entries });
-    return 0;
-  }
-  printFeedbackEntries(entries);
-  return 0;
-}
-
-function printFeedbackEntries(entries: ReturnType<typeof readFeedback>): void {
-  if (entries.length === 0) {
-    process.stdout.write("(no feedback recorded)\n");
-    return;
-  }
-  for (const entry of entries) {
-    process.stdout.write(`${entry.timestamp}  ${entry.text}\n`);
-  }
-}
-
-async function recordFeedback(opts: FeedbackOptions): Promise<number> {
-  if (opts.positional.length === 0) {
-    die('usage: machinen feedback "<text>" | machinen feedback --list');
-  }
-  const path = feedbackPath();
-  const entry = newFeedbackEntry(opts.positional.join(" "));
-  appendFeedback(entry, path);
-  const upstream = await postUpstream(entry);
-  reportFeedbackRecorded(opts, path, upstream);
-  return 0;
-}
-
-function newFeedbackEntry(text: string): Parameters<typeof appendFeedback>[0] {
-  return {
-    timestamp: new Date().toISOString(),
-    cli_version: VERSION,
-    text,
-  };
-}
-
-function reportFeedbackRecorded(
-  opts: FeedbackOptions,
-  path: string,
-  upstream: Awaited<ReturnType<typeof postUpstream>>,
-): void {
-  if (opts.json) {
-    emitJson({ schema_version: 1, recorded: true, path, upstream_status: upstream.status });
-    return;
-  }
-  process.stdout.write(feedbackRecordedMessage(upstream));
-}
-
-function feedbackRecordedMessage(upstream: Awaited<ReturnType<typeof postUpstream>>): string {
-  if (upstream.attempted && upstream.status !== null) {
-    return `feedback recorded locally and sent upstream (status: ${upstream.status})\n`;
-  }
-  if (upstream.attempted) {
-    return `feedback recorded locally; upstream POST failed: ${upstream.error}\n`;
-  }
-  return "feedback recorded locally (1 entry)\n";
-}
-
-async function cmdCompletion(args: string[]): Promise<number> {
-  const shell = args[0] ?? "bash";
-  const completion = completionForShell(shell);
-  if (completion === undefined) {
-    die(`unsupported shell: ${shell} (expected bash | zsh | fish)`);
-  }
-  process.stdout.write(completion);
-  return 0;
-}
-
-function completionForShell(shell: string): string | undefined {
-  return new Map([
-    ["bash", BASH_COMPLETION],
-    ["zsh", ZSH_COMPLETION],
-    ["fish", FISH_COMPLETION],
-  ]).get(shell);
-}
-
 /**
  * Wrap the pure `extractTarget` parser with the CLI's error
  * formatting. Callers either use this directly (snapshot, which has a
@@ -4227,80 +3892,6 @@ function parseTargetFlags(args: string[], cmd: string): Target {
   }
   return target;
 }
-
-// Names live in column 2 of `machinen ls`; pids in column 1. Both
-// are completion candidates for the first positional on
-// exec/snapshot/fork/attach/repl/stop.
-const BASH_COMPLETION = `# machinen bash completion — source this from ~/.bashrc, or:
-#   eval "$(machinen completion bash)"
-_machinen_completion() {
-  local cur prev words cword
-  _init_completion || return
-  local cmds="boot capture move support restore install list ls ps exec snapshot fork attach repl gc stop feedback agent-context completion --version --help -h -v"
-  if [[ \${cword} -eq 1 ]]; then
-    COMPREPLY=( $(compgen -W "\${cmds}" -- "\${cur}") )
-    return
-  fi
-  case "\${words[1]}" in
-    exec|snapshot|fork|attach|repl|stop)
-      # First positional after the subcommand is the target.
-      if [[ \${cword} -eq 2 ]]; then
-        local targets
-        targets=$(machinen ls 2>/dev/null | awk 'NR>1{print $1; if ($2!="-") print $2}')
-        COMPREPLY=( $(compgen -W "\${targets}" -- "\${cur}") )
-        return
-      fi
-      ;;
-    gc)
-      COMPREPLY=( $(compgen -W "--dry-run" -- "\${cur}") )
-      return
-      ;;
-  esac
-}
-complete -F _machinen_completion machinen mn
-`;
-
-const ZSH_COMPLETION = `# machinen zsh completion — source this from ~/.zshrc, or:
-#   eval "$(machinen completion zsh)"
-_machinen() {
-  local -a cmds
-  cmds=(boot capture move support restore install list ls ps exec snapshot fork attach repl gc stop feedback agent-context completion)
-  if (( CURRENT == 2 )); then
-    _describe 'command' cmds
-    return
-  fi
-  case "\${words[2]}" in
-    exec|snapshot|fork|attach|repl|stop)
-      # First positional after the subcommand is the target.
-      if (( CURRENT == 3 )); then
-        local -a targets
-        targets=(\${(f)"$(machinen ls 2>/dev/null | awk 'NR>1{print $1; if ($2!="-") print $2}')"})
-        _describe 'target' targets
-        return
-      fi
-      ;;
-    gc)
-      _describe 'flag' '(--dry-run)'
-      return
-      ;;
-  esac
-}
-compdef _machinen machinen mn
-`;
-
-const FISH_COMPLETION = `# machinen fish completion — source this from your config.fish, or:
-#   machinen completion fish | source
-set -l cmds boot capture move support restore install list ls ps exec snapshot fork attach repl gc stop feedback agent-context completion
-for bin in machinen mn
-  complete -c $bin -f -n 'not __fish_seen_subcommand_from $cmds' -a "$cmds"
-  for sub in exec snapshot fork attach repl stop
-    # First positional after the subcommand: complete with VM names + pids.
-    complete -c $bin -f -n "__fish_seen_subcommand_from $sub" \\
-      -a '(machinen ls 2>/dev/null | awk \\'NR>1{print $1; if ($2!="-") print $2}\\')'
-  end
-  complete -c $bin -f -n "__fish_seen_subcommand_from gc" -l dry-run
-end
-`;
 
 // ------------------------------------------------------------
 // Arg helpers

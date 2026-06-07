@@ -16,7 +16,7 @@ if (changedFiles.size === 0) {
 }
 
 const health = runFallowHealth();
-const failures = healthFailures(health, changedFiles, options);
+const failures = healthFailures(health, changedFiles, options, baseRef);
 
 if (failures.length > 0) {
   console.error(
@@ -209,7 +209,7 @@ function fallowBin() {
   return process.platform === "win32" ? "node_modules/.bin/fallow.cmd" : "node_modules/.bin/fallow";
 }
 
-function healthFailures(health, changedFiles, options) {
+function healthFailures(health, changedFiles, options, baseRef) {
   return [
     ...complexityFailures(arrayValue(health.findings), changedFiles),
     ...largeFunctionFailures(
@@ -217,7 +217,12 @@ function healthFailures(health, changedFiles, options) {
       changedFiles,
       options.maxFunctionLines,
     ),
-    ...largeFileFailures(arrayValue(health.file_scores), changedFiles, options.maxFileLines),
+    ...largeFileFailures(
+      arrayValue(health.file_scores),
+      changedFiles,
+      options.maxFileLines,
+      baseRef,
+    ),
     ...targetFailures(arrayValue(health.targets), changedFiles),
   ];
 }
@@ -242,10 +247,21 @@ function largeFunctionFailures(functions, changedFiles, maxLines) {
     .map((fn) => `${fn.path}:${fn.line} ${fn.name} is ${fn.line_count} lines; max is ${maxLines}`);
 }
 
-function largeFileFailures(files, changedFiles, maxLines) {
+function largeFileFailures(files, changedFiles, maxLines, baseRef) {
   return files
     .filter((file) => changedFiles.has(file.path) && file.lines > maxLines)
+    .filter((file) => !shrinksLargeFile(file, baseRef))
     .map((file) => `${file.path} is ${file.lines} lines; max is ${maxLines}`);
+}
+
+function shrinksLargeFile(file, baseRef) {
+  const baseLines = lineCountAtRef(baseRef, file.path);
+  return baseLines !== undefined && file.lines < baseLines;
+}
+
+function lineCountAtRef(ref, path) {
+  const result = runGit(["show", `${ref}:${path}`], { allowFailure: true });
+  return result.status === 0 ? result.stdout.split(/\r?\n/u).length - 1 : undefined;
 }
 
 function targetFailures(targets, changedFiles) {
