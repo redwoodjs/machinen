@@ -217,9 +217,9 @@ function defaultCheckedSummary(name: NodeLevel5ProofIngredientName): string {
     case "target-restore-loader":
       return "scripts/native-restore-loader.mjs";
     case "level4-event-loop-resource-map":
-      return "docs/snapshot/checked-summaries/level4-graduation/goal-008-node-event-loop-resource-map.json";
+      return "docs/snapshot/checked-summaries/node-level5/goal-008-node-event-loop-resource-map.json";
     case "target-native-verifier":
-      return "docs/snapshot/checked-summaries/level4-graduation/goal-008-node-event-loop-resource-map.json";
+      return "docs/snapshot/checked-summaries/node-level5/goal-008-node-event-loop-resource-map.json";
   }
 }
 

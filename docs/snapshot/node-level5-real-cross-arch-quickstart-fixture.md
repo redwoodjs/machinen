@@ -91,4 +91,4 @@ The profile still refuses with `migrationCompleted=false`:
 - Runtime profile: `packages/runtime/src/node-level5-http-profile.ts`
 - CLI adapter: `packages/cli/src/level5-runtime-adapters.ts`
 - Harness smoke: `scripts/smoke/node-level5-http-harness-proof.sh`
-- Checked summary: `docs/snapshot/checked-summaries/level4-graduation/goal-022-real-cross-arch-quickstart-fixture.json`
+- Checked summary: `docs/snapshot/checked-summaries/node-level5/goal-022-real-cross-arch-quickstart-fixture.json`

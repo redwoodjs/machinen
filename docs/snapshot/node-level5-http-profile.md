@@ -74,7 +74,7 @@ Every refusal keeps `productSupport=unsupported` and `migrationCompleted=false`.
 
 - Runtime profile model: `packages/runtime/src/node-level5-http-profile.ts`
 - CLI adapter: `packages/cli/src/level5-runtime-adapters.ts`
-- Goal 021 checked summary: `docs/snapshot/checked-summaries/level4-graduation/goal-021-node-level5-http-profile.json`
-- Goal 022 selected-state harness checked summary: `docs/snapshot/checked-summaries/level4-graduation/goal-022-real-cross-arch-quickstart-fixture.json`
+- Goal 021 checked summary: `docs/snapshot/checked-summaries/node-level5/goal-021-node-level5-http-profile.json`
+- Goal 022 selected-state harness checked summary: `docs/snapshot/checked-summaries/node-level5/goal-022-real-cross-arch-quickstart-fixture.json`
 - Runtime tests: `packages/runtime/src/__tests__/node-level5-http-profile.test.ts`
 - CLI restore test: `packages/cli/src/__tests__/node-level5-default-proof-restore.test.ts`

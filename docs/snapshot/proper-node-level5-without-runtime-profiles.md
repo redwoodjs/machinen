@@ -75,4 +75,4 @@ It is useful regression evidence, not Level 5 product support.
 - Live source-state translation/materialization proof: `scripts/smoke/node-proper-level5-source-capture.sh`
 - Public proof command: `pnpm run proof-node-proper-level5-proof`
 - Harness proof: `docs/snapshot/node-level5-real-cross-arch-quickstart-fixture.md`
-- Checked start summary: `docs/snapshot/checked-summaries/level4-graduation/goal-023-proper-node-level5-track.json`
+- Checked start summary: `docs/snapshot/checked-summaries/node-level5/goal-023-proper-node-level5-track.json`

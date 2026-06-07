@@ -34,7 +34,7 @@ The proof is not ready unless the Level 4 event-loop map and target-native verif
 Run the checked proof runner with:
 
 ```sh
-pnpm node-level5-proof-composition -- --out docs/snapshot/checked-summaries/level4-graduation/goal-009-proof-run.json
+pnpm node-level5-proof-composition -- --out docs/snapshot/checked-summaries/node-level5/goal-009-proof-run.json
 ```
 
 The runner emits a real `machinen.node-level5-proof-composition` artifact. It reads the native register, stack/return-chain, memory materialization, restore-loader, Goal 008 event-loop map, and target-native verifier evidence before marking the proof ready.
@@ -43,14 +43,14 @@ Pass `--include-target-proof` to run or read the concrete target-side proof fixt
 
 ```sh
 pnpm node-level5-proof-composition -- \
-  --out docs/snapshot/checked-summaries/level4-graduation/goal-009-proof-run.json \
+  --out docs/snapshot/checked-summaries/node-level5/goal-009-proof-run.json \
   --include-target-proof \
-  --target-proof docs/snapshot/checked-summaries/level4-graduation/goal-009-target-side-continuation.json
+  --target-proof docs/snapshot/checked-summaries/node-level5/goal-009-target-side-continuation.json
 ```
 
 That fixture starts a small target-native Node HTTP app, captures a continuation token, asks the target-side harness to fetch `/continuation`, and records verifier output from the running Node process.
 
-The default public restore behavior is recorded in `docs/snapshot/checked-summaries/level4-graduation/goal-019-node-level5-default-public-restore.json`.
+The default public restore behavior is recorded in `docs/snapshot/checked-summaries/node-level5/goal-019-node-level5-default-public-restore.json`.
 
 ## Public verb routing
 

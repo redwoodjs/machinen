@@ -18,7 +18,7 @@ interface Args {
   targetProof?: string;
 }
 
-const DEFAULT_OUT = "docs/snapshot/checked-summaries/level4-graduation/goal-009-proof-run.json";
+const DEFAULT_OUT = "docs/snapshot/checked-summaries/node-level5/goal-009-proof-run.json";
 
 const evidenceRequirements: Array<{
   name: NodeLevel5ProofIngredientName;
@@ -56,7 +56,7 @@ const evidenceRequirements: Array<{
   },
   {
     name: "level4-event-loop-resource-map",
-    path: "docs/snapshot/checked-summaries/level4-graduation/goal-008-node-event-loop-resource-map.json",
+    path: "docs/snapshot/checked-summaries/node-level5/goal-008-node-event-loop-resource-map.json",
     requiredFragments: [
       "machinen.node-event-loop-level4-resource-map-summary",
       "tcp-listener-v1-loopback-empty-accept-queue",
@@ -65,7 +65,7 @@ const evidenceRequirements: Array<{
   },
   {
     name: "target-native-verifier",
-    path: "docs/snapshot/checked-summaries/level4-graduation/goal-009-node-level5-proof-composition.json",
+    path: "docs/snapshot/checked-summaries/node-level5/goal-009-node-level5-proof-composition.json",
     requiredFragments: ["target-native-verifier", "sourceIsaEmulationAllowed"],
   },
 ];
@@ -134,9 +134,7 @@ async function main(): Promise<void> {
 async function resolveTargetProof(args: Args): Promise<NodeLevel5TargetProofEvidence> {
   const proofPath = args.targetProof
     ? resolve(args.targetProof)
-    : resolve(
-        "docs/snapshot/checked-summaries/level4-graduation/goal-009-target-side-continuation.json",
-      );
+    : resolve("docs/snapshot/checked-summaries/node-level5/goal-009-target-side-continuation.json");
   if (!args.targetProof || !existsSync(proofPath)) {
     await runNodeLevel5TargetSideProof({ outPath: proofPath });
   }

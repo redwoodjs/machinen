@@ -480,7 +480,7 @@
       "path": "scripts/smoke/portable-cross-isa.sh",
       "classification": "archived",
       "packageScripts": ["archive-portable-cross-isa"],
-      "reason": "older C proof harness superseded by portable-machine and Level 4 product resource smokes",
+      "reason": "older C proof harness retained outside the current move product surface",
       "requires": ["remote-proxmox"]
     },
     {

@@ -184,20 +184,17 @@ const BUILTIN_PRODUCT_PROFILES: ProductClaimProofProfileInput[] = [
           "arbitrary V8 heap/native stack, native addons, workers, inspector/debug state, active requests, active TCP streams, active syscalls, and unsupported V8/libuv state remain outside the product boundary",
       },
     ],
-    checkedSummary:
-      "docs/snapshot/checked-summaries/level4-graduation/goal-022-real-cross-arch-quickstart-fixture.json",
   },
   {
     name: "tcp-listener-v1-loopback-empty-accept-queue",
     description:
-      "Goal 018 portable restore adapter product route: reconstruct a loopback TCP listener when bind address, port, backlog, and reuseaddr are explicit, the accept queue is empty, and there are no active TCP connections or socket syscalls.",
+      "Deprecated legacy TCP listener descriptor evidence. It is retained only so the registry can refuse the old route and point future work at machinen move.",
     sourceFixture: "portable-restore-adapter:tcp-listener-v1-loopback-empty-accept-queue",
     expectedResult: "success",
     supportStatus: "implemented-product-support",
     unsafeStateFamily: "tcp-listener",
     capabilities: [
       "goal018:portable-restore-adapter",
-      "goal018:level-4-kernel-resource-reconstruction",
       "fd:tcp-listener",
       "tcp:loopback-bind",
       "tcp:static-port",
@@ -229,7 +226,6 @@ const BUILTIN_PRODUCT_PROFILES: ProductClaimProofProfileInput[] = [
         rationale: "active TCP streams are not part of listener-only reconstruction",
       },
     ],
-    checkedSummary: "docs/snapshot/checked-summaries/level4-graduation/goal-018.json",
     refusalSupportContract: {
       currentRefusalCode: "tcp-listener-active-connections-unsupported",
       graduationRequires: [],
@@ -238,14 +234,13 @@ const BUILTIN_PRODUCT_PROFILES: ProductClaimProofProfileInput[] = [
   {
     name: "timerfd-relative-oneshot-v1-monotonic",
     description:
-      "Goal 017 portable restore adapter product route: reconstruct a CLOCK_MONOTONIC relative one-shot timerfd when remaining time is bounded, there are no unread expirations, no periodic interval, flags are limited to close-on-exec, and no timerfd read syscall is active.",
+      "Deprecated legacy timerfd descriptor evidence. It is retained only so the registry can refuse the old route and point future work at machinen move.",
     sourceFixture: "portable-restore-adapter:timerfd-relative-oneshot-v1-monotonic",
     expectedResult: "success",
     supportStatus: "implemented-product-support",
     unsafeStateFamily: "timerfd-relative-oneshot",
     capabilities: [
       "goal017:portable-restore-adapter",
-      "goal017:level-4-kernel-resource-reconstruction",
       "fd:timerfd",
       "timerfd:clock-monotonic",
       "timerfd:relative-oneshot",
@@ -277,7 +272,6 @@ const BUILTIN_PRODUCT_PROFILES: ProductClaimProofProfileInput[] = [
         rationale: "periodic timers are refused until interval semantics are modeled",
       },
     ],
-    checkedSummary: "docs/snapshot/checked-summaries/level4-graduation/goal-017.json",
     refusalSupportContract: {
       currentRefusalCode: "timerfd-unread-expirations-unsupported",
       graduationRequires: [],
@@ -286,14 +280,13 @@ const BUILTIN_PRODUCT_PROFILES: ProductClaimProofProfileInput[] = [
   {
     name: "pipe-pair-v1-empty-no-waiters",
     description:
-      "Goal 016 portable restore adapter product route: reconstruct an empty target-native pipe pair when there is exactly one read end and one write end, peer lifetime is known open, waiters are known empty, readiness is known not-readable, flags are limited to close-on-exec, and no pipe syscall is active.",
+      "Deprecated legacy pipe descriptor evidence. It is retained only so the registry can refuse the old route and point future work at machinen move.",
     sourceFixture: "portable-restore-adapter:pipe-pair-v1-empty-no-waiters",
     expectedResult: "success",
     supportStatus: "implemented-product-support",
     unsafeStateFamily: "pipe-pair",
     capabilities: [
       "goal016:portable-restore-adapter",
-      "goal016:level-4-kernel-resource-reconstruction",
       "fd:pipe-read-end",
       "fd:pipe-write-end",
       "pipe:empty-buffer",
@@ -326,7 +319,6 @@ const BUILTIN_PRODUCT_PROFILES: ProductClaimProofProfileInput[] = [
           "buffered bytes are refused until a later adapter models byte replay and ordering",
       },
     ],
-    checkedSummary: "docs/snapshot/checked-summaries/level4-graduation/goal-016.json",
     refusalSupportContract: {
       currentRefusalCode: "pipe-waiters-unsupported",
       graduationRequires: [],
@@ -335,14 +327,13 @@ const BUILTIN_PRODUCT_PROFILES: ProductClaimProofProfileInput[] = [
   {
     name: "eventfd-counter-v1-nonsemaphore-no-waiters",
     description:
-      "Goal 015 portable restore adapter product route: reconstruct a bounded nonzero eventfd counter target-natively when semaphore mode is off, waiters are known empty, aliases are absent, flags are limited to close-on-exec, and no eventfd syscall is active.",
+      "Deprecated legacy eventfd descriptor evidence. It is retained only so the registry can refuse the old route and point future work at machinen move.",
     sourceFixture: "portable-restore-adapter:eventfd-counter-v1-nonsemaphore-no-waiters",
     expectedResult: "success",
     supportStatus: "implemented-product-support",
     unsafeStateFamily: "eventfd-counter",
     capabilities: [
       "goal015:portable-restore-adapter",
-      "goal015:level-4-kernel-resource-reconstruction",
       "fd:eventfd",
       "eventfd:bounded-nonzero-counter",
       "eventfd:non-semaphore",
@@ -374,7 +365,6 @@ const BUILTIN_PRODUCT_PROFILES: ProductClaimProofProfileInput[] = [
         rationale: "aliases are refused until a later adapter models duplicate fd semantics",
       },
     ],
-    checkedSummary: "docs/snapshot/checked-summaries/level4-graduation/goal-015.json",
     refusalSupportContract: {
       currentRefusalCode: "eventfd-waiters-unsupported",
       graduationRequires: [],
@@ -383,14 +373,13 @@ const BUILTIN_PRODUCT_PROFILES: ProductClaimProofProfileInput[] = [
   {
     name: "ping-level4-socket-reconstruction-v1",
     description:
-      "Goal 011 portable machine Level 4 product route: reconstruct a target-native ping datagram or raw ICMP socket from machinen snapshot/restore only when the capture boundary has an empty receive queue, no in-flight packets, no active recvmsg, unambiguous loopback routing, and a credential/capability mapping.",
+      "Deprecated legacy ping socket descriptor evidence. It is retained only so the registry can refuse the old route and point future work at machinen move.",
     sourceFixture: "portable-machine-transport:ping-level4-socket-reconstruction-v1",
     expectedResult: "success",
     supportStatus: "implemented-product-support",
     unsafeStateFamily: "network-ping-socket",
     capabilities: [
       "goal011:portable-machine-transport",
-      "goal011:level-4-kernel-resource-reconstruction",
       "network:ping-socket-loopback",
       "network:raw-icmp-loopback",
       "fd:ping-socket",
@@ -430,10 +419,10 @@ const BUILTIN_PRODUCT_PROFILES: ProductClaimProofProfileInput[] = [
       {
         name: "active-recvmsg",
         decision: "refused",
-        rationale: "captures blocked in recvmsg are outside the Level 4 product boundary",
+        rationale:
+          "captures blocked in recvmsg are refused by the current move-only cross-ISA boundary",
       },
     ],
-    checkedSummary: "docs/snapshot/checked-summaries/level4-graduation/goal-011.json",
     refusalSupportContract: {
       currentRefusalCode: "ping-socket-active-recvmsg-unsupported",
       graduationRequires: [],

@@ -64,6 +64,6 @@ The substrate defines common fail-closed refusal codes for:
 
 - Interface and registry: `packages/runtime/src/level5-runtime-adapter.ts`
 - CLI registry path: `packages/cli/src/level5-runtime-adapters.ts`
-- Checked summary: `docs/snapshot/checked-summaries/level4-graduation/goal-020-level5-runtime-adapter-substrate.json`
+- Checked summary: `docs/snapshot/checked-summaries/node-level5/goal-020-level5-runtime-adapter-substrate.json`
 - Runtime tests: `packages/runtime/src/__tests__/level5-runtime-adapter.test.ts`
 - CLI tests: `packages/cli/src/__tests__/node-level5-default-proof-restore.test.ts`

@@ -18,8 +18,8 @@
   ],
   "proofRunner": "scripts/node-level5-proof-composition.ts",
   "proofRunnerMode": "--include-target-proof",
-  "proofRunArtifact": "docs/snapshot/checked-summaries/level4-graduation/goal-009-proof-run.json",
-  "targetSideContinuationArtifact": "docs/snapshot/checked-summaries/level4-graduation/goal-009-target-side-continuation.json",
+  "proofRunArtifact": "docs/snapshot/checked-summaries/node-level5/goal-009-proof-run.json",
+  "targetSideContinuationArtifact": "docs/snapshot/checked-summaries/node-level5/goal-009-target-side-continuation.json",
   "publicVerbRouting": {
     "snapshotWrites": "node-level5-proof-composition.json and node-level5-runtime-profile.json",
     "restoreSummary": "node-level5-proof-restore-summary.json or node-level5-runtime-profile-restore-summary.json",
@@ -30,7 +30,7 @@
     "migrationCompleted": false
   },
   "composesWith": [
-    "docs/snapshot/checked-summaries/level4-graduation/goal-008-node-event-loop-resource-map.json",
+    "docs/snapshot/checked-summaries/node-level5/goal-008-node-event-loop-resource-map.json",
     "docs/snapshot/checked-summaries/architecture-portable-snapshot/final-gauntlet.json",
     "docs/snapshot/native-process-continuation-audit.md",
     "scripts/native-restore-loader.mjs"
