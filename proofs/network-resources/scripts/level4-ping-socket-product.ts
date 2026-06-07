@@ -80,7 +80,7 @@ if (!entry) {
 if (entry.productStatus !== "deprecated-legacy-support") {
   throw new Error(`ping Level 4 registry entry is not deprecated: ${entry.productStatus}`);
 }
-if (entry.supportLevel !== "level-0-fail-closed-discovery") {
+if (entry.supportLevel !== "deprecated-cross-isa-level") {
   throw new Error(`deprecated ping Level 4 registry entry has wrong level: ${entry.supportLevel}`);
 }
 const refusalNames = [

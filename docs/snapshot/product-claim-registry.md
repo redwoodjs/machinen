@@ -22,13 +22,14 @@ is implemented and registered, the product registry reports:
 - `proof-only-fixture`: retained proofs that are not product support.
 
 Deprecated rows have `migrationCompleted=false`, `proofOnly=true`, and
-`supportLevel=level-0-fail-closed-discovery`. Their product refusal code is
+`supportLevel=deprecated-cross-isa-level`. Their product refusal code is also
 `deprecated-cross-isa-level`.
 
 ## Deprecated legacy rows
 
 These rows used to be advertised as product support under the old Level 1/4
-ladder. They are now retained only as legacy evidence and must be replaced by a
+ladder. Old Level 0 discovery is also deprecated as a support level. These rows
+are now retained only as legacy evidence and must be replaced by a
 `machinen move` PID graph translator before support can be reintroduced:
 
 - `node-app-http-server-recreate` — old `level-1-semantic-restart`

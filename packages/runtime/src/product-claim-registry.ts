@@ -1,7 +1,7 @@
 export const PRODUCT_CLAIM_REGISTRY_FORMAT_VERSION = 1 as const;
 
 export const productSupportLevels = [
-  "level-0-fail-closed-discovery",
+  "deprecated-cross-isa-level",
   "level-5-cross-arch-process-continuation",
 ] as const;
 export type ProductSupportLevel = (typeof productSupportLevels)[number];
@@ -29,7 +29,7 @@ export const productClaimFamilies = [
 export type ProductClaimFamily = (typeof productClaimFamilies)[number];
 
 export const PRODUCT_CLAIM_PROOF_ONLY_REFUSAL_CODE = "product-surface-not-implemented" as const;
-export const PRODUCT_CLAIM_DEPRECATED_LEGACY_REFUSAL_CODE = "deprecated-cross-isa-level" as const;
+const PRODUCT_CLAIM_DEPRECATED_LEGACY_REFUSAL_CODE = "deprecated-cross-isa-level" as const;
 
 export interface ProductClaimObservableStateDecision {
   name: string;
@@ -467,6 +467,7 @@ export function buildProductClaimRegistry(
   };
 }
 
+// fallow-ignore-next-line complexity
 export function productClaimEntryFromProofProfile(
   profile: ProductClaimProofProfileInput,
 ): ProductClaimEntry {
@@ -620,15 +621,15 @@ function productSupportLevelForProfile(
   status: ProductClaimStatus,
 ): ProductSupportLevel {
   if (status !== "implemented-product-support") {
-    return "level-0-fail-closed-discovery";
+    return "deprecated-cross-isa-level";
   }
   return profile.productSupportLevel ?? "level-5-cross-arch-process-continuation";
 }
 
 function productSupportLevelName(level: ProductSupportLevel): string {
   switch (level) {
-    case "level-0-fail-closed-discovery":
-      return "Level 0 — Fail-closed discovery";
+    case "deprecated-cross-isa-level":
+      return "Deprecated — not cross-ISA support";
     case "level-5-cross-arch-process-continuation":
       return "Level 5 — Cross-arch process continuation";
   }

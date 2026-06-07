@@ -15558,7 +15558,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### productSupportLevel?
 
-> `optional` **productSupportLevel?**: `"level-0-fail-closed-discovery"` \| `"level-5-cross-arch-process-continuation"`
+> `optional` **productSupportLevel?**: `"level-5-cross-arch-process-continuation"` \| `"deprecated-cross-isa-level"`
 
 ##### observableStateDecisions?
 
@@ -15596,7 +15596,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### supportLevel
 
-> **supportLevel**: `"level-0-fail-closed-discovery"` \| `"level-5-cross-arch-process-continuation"`
+> **supportLevel**: `"level-5-cross-arch-process-continuation"` \| `"deprecated-cross-isa-level"`
 
 ##### supportLevelName
 
@@ -15754,7 +15754,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### supportLevel?
 
-> `optional` **supportLevel?**: `"level-0-fail-closed-discovery"` \| `"level-5-cross-arch-process-continuation"`
+> `optional` **supportLevel?**: `"level-5-cross-arch-process-continuation"` \| `"deprecated-cross-isa-level"`
 
 ***
 
@@ -32773,7 +32773,7 @@ loops; anything looser stops being a meaningful gate.
 
 ### productSupportLevels
 
-> `const` **productSupportLevels**: readonly \[`"level-0-fail-closed-discovery"`, `"level-5-cross-arch-process-continuation"`\]
+> `const` **productSupportLevels**: readonly \[`"deprecated-cross-isa-level"`, `"level-5-cross-arch-process-continuation"`\]
 
 ***
 
