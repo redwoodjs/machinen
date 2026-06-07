@@ -1,54 +1,90 @@
 import { loadMoveDescriptor, saveMoveDescriptor, scanMovePidGraph } from "@machinen/runtime";
 
+import { consumeJsonFlag } from "../args.ts";
+import { die } from "../errors.ts";
+
+type MoveHandler = (args: string[], json: boolean) => number;
+
+const MOVE_HANDLERS = new Map<string, MoveHandler>([
+  ["scan", cmdMoveScan],
+  ["save", cmdMoveSave],
+  ["load", cmdMoveLoad],
+]);
+
 export function cmdMove(args: string[]): number {
   const { json, rest } = consumeJsonFlag(args);
-  const subcommand = rest[0];
-  if (subcommand === "scan") {
-    const graph = scanMovePidGraph();
-    if (json) {
-      emitJson({ schema_version: 1, ...graph });
-    } else {
-      process.stdout.write(
-        `move scan: ${graph.nodes.length} processes; refused=${graph.refusedStateClasses.length}\n`,
-      );
-    }
-    return graph.refusedStateClasses.length === 0 ? 0 : 1;
+  const handler = MOVE_HANDLERS.get(rest[0] ?? "");
+  if (!handler) {
+    die(moveUsage());
   }
-  if (subcommand === "save") {
-    return cmdMoveSave(rest.slice(1), json);
+  return handler(rest.slice(1), json);
+}
+
+function cmdMoveScan(_args: string[], json: boolean): number {
+  const graph = scanMovePidGraph();
+  if (json) {
+    emitJson({ schema_version: 1, ...graph });
+  } else {
+    process.stdout.write(
+      `move scan: ${graph.nodes.length} processes; refused=${graph.refusedStateClasses.length}\n`,
+    );
   }
-  if (subcommand === "load") {
-    return cmdMoveLoad(rest.slice(1), json);
-  }
-  die(moveUsage());
+  return graph.refusedStateClasses.length === 0 ? 0 : 1;
 }
 
 function cmdMoveSave(args: string[], json: boolean): number {
+  const options = parseMoveSaveArgs(args);
+  const result = saveMoveDescriptor(options);
+  reportMoveSaveResult(result, json);
+  return result.accepted ? 0 : 1;
+}
+
+type MoveSaveOptions = Parameters<typeof saveMoveDescriptor>[0];
+type MoveSaveResult = ReturnType<typeof saveMoveDescriptor>;
+
+function parseMoveSaveArgs(args: string[]): MoveSaveOptions {
   if (args.length < 2) {
     die(moveUsage());
   }
-  const pid = parsePositiveInteger(args[0]!, "pid");
-  const outPath = args[1]!;
-  const issue = args.includes("--issue");
+  const issueRepo = parseIssueRepo(args);
+  return {
+    pid: parsePositiveInteger(args[0]!, "pid"),
+    outPath: args[1]!,
+    issue: args.includes("--issue"),
+    issueRepo,
+  };
+}
+
+function parseIssueRepo(args: string[]): string | undefined {
   const issueRepoIndex = args.indexOf("--issue-repo");
-  const issueRepo = issueRepoIndex >= 0 ? args[issueRepoIndex + 1] : undefined;
-  if (issueRepoIndex >= 0 && !issueRepo) {
+  if (issueRepoIndex === -1) {
+    return undefined;
+  }
+  const issueRepo = args[issueRepoIndex + 1];
+  if (!issueRepo) {
     die("move save --issue-repo requires <owner/repo>");
   }
-  const result = saveMoveDescriptor({ pid, outPath, issue, issueRepo });
+  return issueRepo;
+}
+
+function reportMoveSaveResult(result: MoveSaveResult, json: boolean): void {
   if (json) {
     emitJson({ schema_version: 1, ...result });
-  } else {
-    process.stdout.write(
-      `${result.accepted ? "saved" : "refused"} move descriptor: ${result.descriptorPath}\n`,
-    );
-    if (result.issueReport) {
-      process.stdout.write(
-        `issue report: ${result.issueReport.repository}\n${result.issueReport.body}\n`,
-      );
-    }
+    return;
   }
-  return result.accepted ? 0 : 1;
+  process.stdout.write(
+    `${result.accepted ? "saved" : "refused"} move descriptor: ${result.descriptorPath}\n`,
+  );
+  printIssueReport(result);
+}
+
+function printIssueReport(result: MoveSaveResult): void {
+  if (!result.issueReport) {
+    return;
+  }
+  process.stdout.write(
+    `issue report: ${result.issueReport.repository}\n${result.issueReport.body}\n`,
+  );
 }
 
 function cmdMoveLoad(args: string[], json: boolean): number {
@@ -57,18 +93,28 @@ function cmdMoveLoad(args: string[], json: boolean): number {
   }
   const descriptor = loadMoveDescriptor(args[0]!);
   const accepted = descriptor.refusedStateClasses.length === 0;
+  reportMoveLoadResult(descriptor, accepted, json);
+  return accepted ? 0 : 1;
+}
+
+type MoveDescriptor = ReturnType<typeof loadMoveDescriptor>;
+
+function reportMoveLoadResult(descriptor: MoveDescriptor, accepted: boolean, json: boolean): void {
   if (json) {
     emitJson({ schema_version: 1, accepted, descriptor });
-  } else if (accepted) {
-    process.stdout.write(`move load accepted descriptor for PID ${descriptor.rootPid}\n`);
-  } else {
-    process.stderr.write(
-      `move load refused descriptor for PID ${descriptor.rootPid}: ${descriptor.refusedStateClasses
-        .map((item) => item.stateClass)
-        .join(", ")}\n`,
-    );
+    return;
   }
-  return accepted ? 0 : 1;
+  if (accepted) {
+    process.stdout.write(`move load accepted descriptor for PID ${descriptor.rootPid}\n`);
+    return;
+  }
+  process.stderr.write(
+    `move load refused descriptor for PID ${descriptor.rootPid}: ${refusedStateClasses(descriptor)}\n`,
+  );
+}
+
+function refusedStateClasses(descriptor: MoveDescriptor): string {
+  return descriptor.refusedStateClasses.map((item) => item.stateClass).join(", ");
 }
 
 function moveUsage(): string {
@@ -83,24 +129,6 @@ function parsePositiveInteger(value: string, flag: string): number {
   return parsed;
 }
 
-function consumeJsonFlag(args: string[]): { json: boolean; rest: string[] } {
-  const rest: string[] = [];
-  let json = false;
-  for (const arg of args) {
-    if (arg === "--json") {
-      json = true;
-    } else {
-      rest.push(arg);
-    }
-  }
-  return { json, rest };
-}
-
 function emitJson(value: unknown): void {
   process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
-}
-
-function die(msg: string): never {
-  process.stderr.write(`machinen: ${msg}\n`);
-  process.exit(1);
 }

@@ -12,7 +12,7 @@ import {
   type ProductSupportLevel,
 } from "@machinen/runtime";
 
-export type SupportOptions = {
+type SupportOptions = {
   json: boolean;
   family?: ProductClaimFamily;
   runtime?: string;

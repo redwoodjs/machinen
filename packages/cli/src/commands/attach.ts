@@ -1,15 +1,11 @@
-import {
-  attach,
-  formatMachinenError,
-  isMachinenError,
-  list,
-  type RegistryEntry,
-  type VmHandle,
-} from "@machinen/runtime";
+import { attach, type RegistryEntry, type VmHandle } from "@machinen/runtime";
 import { readFileSync } from "node:fs";
 
-import { extractTarget, type Target } from "../parse-target.ts";
+import { die, handleError } from "../errors.ts";
+import type { Target } from "../parse-target.ts";
 import { tailLines } from "../tail-lines.ts";
+import { runPtyExec } from "./pty.ts";
+import { describeTarget, lookupEntry, parseTargetFlags } from "./target.ts";
 
 export async function cmdAttach(args: string[]): Promise<number> {
   const opts = parseAttachOptions(args);
@@ -217,87 +213,4 @@ async function runReplLine(vm: VmHandle, line: string): Promise<void> {
     onStdout: (chunk) => process.stdout.write(chunk),
     onStderr: (chunk) => process.stderr.write(chunk),
   });
-}
-
-function parseTargetFlags(args: string[], cmd: string): Target {
-  try {
-    const { target, rest } = extractTarget(args, cmd);
-    if (rest.length > 0) {
-      die(`unknown argument: ${rest[0]}`);
-    }
-    return target;
-  } catch (err) {
-    handleError(err);
-  }
-}
-
-function lookupEntry(target: { name: string } | { pid: number }): RegistryEntry | undefined {
-  return list().find((entry) => entryMatchesTarget(entry, target));
-}
-
-function entryMatchesTarget(
-  entry: RegistryEntry,
-  target: { name: string } | { pid: number },
-): boolean {
-  if ("name" in target) {
-    return entry.name === target.name;
-  }
-  return entry.pid === target.pid;
-}
-
-function describeTarget(target: { name: string } | { pid: number }): string {
-  return "name" in target ? `name ${target.name}` : `pid ${target.pid}`;
-}
-
-async function runPtyExec(vm: VmHandle, cmd: string): Promise<number> {
-  const tty = enterPtyRawMode();
-  const handle = vm.execPty(cmd, {
-    cols: tty.cols,
-    rows: tty.rows,
-    stdin: process.stdin,
-    stdout: process.stdout,
-  });
-  const onResize = () =>
-    handle.resize(process.stdout.columns ?? tty.cols, process.stdout.rows ?? tty.rows);
-  process.stdout.on("resize", onResize);
-  try {
-    const { exitCode } = await handle.result;
-    return exitCode;
-  } finally {
-    process.stdout.removeListener("resize", onResize);
-    tty.restore();
-  }
-}
-
-function enterPtyRawMode(): { cols: number; rows: number; restore: () => void } {
-  const wasRaw = process.stdin.isRaw === true;
-  process.stdin.setRawMode(true);
-  process.stdin.resume();
-  return {
-    cols: process.stdout.columns ?? 80,
-    rows: process.stdout.rows ?? 24,
-    restore: () => restorePtyRawMode(wasRaw),
-  };
-}
-
-function restorePtyRawMode(wasRaw: boolean): void {
-  if (wasRaw) {
-    return;
-  }
-  try {
-    process.stdin.setRawMode(false);
-  } catch {}
-}
-
-function handleError(err: unknown): never {
-  if (isMachinenError(err)) {
-    process.stderr.write(`machinen: ${formatMachinenError(err)}\n`);
-    process.exit(1);
-  }
-  throw err;
-}
-
-function die(msg: string): never {
-  process.stderr.write(`machinen: ${msg}\n`);
-  process.exit(1);
 }

@@ -1,6 +1,7 @@
-import { list, runGc, validatePid, type RegistryEntry } from "@machinen/runtime";
+import { runGc, validatePid, type RegistryEntry } from "@machinen/runtime";
 
-import { extractTarget, type Target } from "../parse-target.ts";
+import type { Target } from "../parse-target.ts";
+import { describeTarget, lookupEntry, parseTargetFlags } from "./target.ts";
 
 // `machinen stop <name|pid>` — SIGTERM the VMM, escalate to SIGKILL
 // after 2s, then gc its entry. Resolves `--detached` boots' Ctrl-C
@@ -285,39 +286,6 @@ async function waitForExit(pid: number, timeoutMs: number): Promise<void> {
   }
 }
 
-function lookupEntry(target: { name: string } | { pid: number }): RegistryEntry | undefined {
-  return list().find((entry) => entryMatchesTarget(entry, target));
-}
-
-function entryMatchesTarget(
-  entry: RegistryEntry,
-  target: { name: string } | { pid: number },
-): boolean {
-  if ("name" in target) {
-    return entry.name === target.name;
-  }
-  return entry.pid === target.pid;
-}
-
-function describeTarget(target: { name: string } | { pid: number }): string {
-  return "name" in target ? `name ${target.name}` : `pid ${target.pid}`;
-}
-
-function parseTargetFlags(args: string[], cmd: string): Target {
-  try {
-    const { target, rest } = extractTarget(args, cmd);
-    if (rest.length > 0) {
-      die(`unknown argument: ${rest[0]}`);
-    }
-    return target;
-  } catch (err) {
-    if (err instanceof Error) {
-      die(err.message);
-    }
-    throw err;
-  }
-}
-
 function consumeJsonFlag(args: string[]): { json: boolean; rest: string[] } {
   const rest: string[] = [];
   let json = false;
@@ -354,9 +322,4 @@ function emitJsonError(code: string, message: string): void {
 
 function describeError(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
-}
-
-function die(msg: string): never {
-  process.stderr.write(`machinen: ${msg}\n`);
-  process.exit(1);
 }

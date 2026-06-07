@@ -14,6 +14,8 @@ import { COMMANDS, EXIT_CODES, SCHEMA_VERSION, buildAgentContext } from "../agen
 const SRC_DIR = dirname(fileURLToPath(import.meta.url));
 const CLI_SRC = readFileSync(join(SRC_DIR, "..", "cli.ts"), "utf8");
 const MOVE_COMMAND_SRC = readFileSync(join(SRC_DIR, "..", "commands", "move.ts"), "utf8");
+const RESTORE_COMMAND_SRC = readFileSync(join(SRC_DIR, "..", "commands", "restore.ts"), "utf8");
+const SNAPSHOT_COMMAND_SRC = readFileSync(join(SRC_DIR, "..", "commands", "snapshot.ts"), "utf8");
 const PORTABLE_RESTORE_ADAPTER_SRC = readFileSync(
   join(SRC_DIR, "..", "portable-restore-adapter.ts"),
   "utf8",
@@ -217,20 +219,24 @@ describe("move-only cross-ISA product route convention", () => {
 
 describe("Node Level 5 public proof routing", () => {
   it("routes selected proof capture through snapshot and refuses restore as proof-only", () => {
-    expect(CLI_SRC).toContain("writeNodeLevel5ProofCompositionSnapshot(res.snapDir, portableNode)");
-    expect(CLI_SRC).toContain("writeNodeLevel5RuntimeProfileSnapshot(res.snapDir, portableNode)");
+    expect(SNAPSHOT_COMMAND_SRC).toContain(
+      "writeNodeLevel5ProofCompositionSnapshot(res.snapDir, portableNode)",
+    );
+    expect(SNAPSHOT_COMMAND_SRC).toContain(
+      "writeNodeLevel5RuntimeProfileSnapshot(res.snapDir, portableNode)",
+    );
     expect(LEVEL5_RUNTIME_ADAPTER_SRC).toContain("NODE_LEVEL5_PROOF_COMPOSITION_FILE");
     expect(LEVEL5_RUNTIME_ADAPTER_SRC).toContain("NODE_LEVEL5_HTTP_PROFILE_FILE");
-    expect(CLI_SRC).toContain("isNodeLevel5ProofCompositionBundle(snapDir)");
-    expect(CLI_SRC).toContain("detectLevel5RestoreAdapter(snapDir)");
+    expect(RESTORE_COMMAND_SRC).toContain("isNodeLevel5ProofCompositionBundle(snapDir)");
+    expect(RESTORE_COMMAND_SRC).toContain("detectLevel5RestoreAdapter(snapDir)");
     expect(LEVEL5_RUNTIME_ADAPTER_SRC).toContain("node-level5-proof-only-not-product");
     expect(LEVEL5_RUNTIME_ADAPTER_SRC).toContain("restoreRoutedThroughPublicVerb: true");
-    expect(CLI_SRC).toContain("restoreLevel5RuntimeBundle");
+    expect(RESTORE_COMMAND_SRC).toContain("restoreLevel5RuntimeBundle");
     expect(LEVEL5_RUNTIME_ADAPTER_SRC).toContain("level5AdapterRegistryRouted");
     expect(LEVEL5_RUNTIME_ADAPTER_SRC).toContain("targetProofVerifierRanByDefault: true");
     expect(LEVEL5_RUNTIME_ADAPTER_SRC).toContain("node-level5-http-runtime-adapter");
     expect(LEVEL5_RUNTIME_ADAPTER_SRC).toContain("runNodeLevel5RestoreProofOnlyVerifier");
-    expect(CLI_SRC).toContain("--allow-proof-only-success");
+    expect(RESTORE_COMMAND_SRC).toContain("--allow-proof-only-success");
   });
 });
 
