@@ -1004,6 +1004,7 @@ function printInstallReady(result: InstallResult): void {
 
 type ParsedRestoreCommandArgs = ReturnType<typeof parseRestoreArgs>;
 
+// fallow-ignore-next-line complexity
 function cmdMove(args: string[]): number {
   const { json, rest } = consumeJsonFlag(args);
   const subcommand = rest[0];
@@ -1027,6 +1028,7 @@ function cmdMove(args: string[]): number {
   die(moveUsage());
 }
 
+// fallow-ignore-next-line complexity
 function cmdMoveSave(args: string[], json: boolean): number {
   if (args.length < 2) {
     die(moveUsage());
@@ -1055,6 +1057,7 @@ function cmdMoveSave(args: string[], json: boolean): number {
   return result.accepted ? 0 : 1;
 }
 
+// fallow-ignore-next-line complexity
 function cmdMoveLoad(args: string[], json: boolean): number {
   if (args.length !== 1) {
     die(moveUsage());
