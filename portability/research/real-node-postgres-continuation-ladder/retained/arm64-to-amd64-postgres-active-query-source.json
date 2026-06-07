@@ -1,0 +1,166 @@
+{
+  "kind": "machinen.research.real-node-postgres-continuation.proof-row",
+  "version": 1,
+  "case": "postgres-active-query",
+  "rowKind": "refusal",
+  "mode": "source",
+  "application": "postgresql",
+  "description": "real PostgreSQL backend is in an active query boundary, or is refused when the host cannot safely inspect that backend",
+  "hostArch": "aarch64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false,
+    "runtimeHeapRestoreClaimed": false,
+    "kernelSocketIdentityPreserved": false
+  },
+  "decision": "refused",
+  "spawned": {
+    "container": "machinen-rnp-e98025fb7b-postgres",
+    "pid": 73,
+    "logs": "/var/run/postgresql/.s.PGSQL.5432\"\n2026-06-06 20:34:13.679 UTC [45] LOG:  database system was shut down at 2026-06-06 20:34:13 UTC\n2026-06-06 20:34:13.681 UTC [42] LOG:  database system is ready to accept connections\n done\nserver started\n\n/usr/local/bin/docker-entrypoint.sh: ignoring /docker-entrypoint-initdb.d/*\n\nwaiting for server to shut down....2026-06-06 20:34:13.769 UTC [42] LOG:  received fast shutdown request\n2026-06-06 20:34:13.770 UTC [42] LOG:  aborting any active transactions\n2026-06-06 20:34:13.772 UTC [42] LOG:  background worker \"logical replication launcher\" (PID 48) exited with exit code 1\n2026-06-06 20:34:13.772 UTC [43] LOG:  shutting down\n2026-06-06 20:34:13.773 UTC [43] LOG:  checkpoint starting: shutdown immediate\n2026-06-06 20:34:13.775 UTC [43] LOG:  checkpoint complete: wrote 3 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.001 s, sync=0.001 s, total=0.004 s; sync files=2, longest=0.001 s, average=0.001 s; distance=0 kB, estimate=0 kB; lsn=0/14F2618, redo lsn=0/14F2618\n2026-06-06 20:34:13.779 UTC [42] LOG:  database system is shut down\n done\nserver stopped\n\nPostgreSQL init process complete; ready for start up.\n\nsh: locale: not found\n2026-06-06 20:34:13.437 UTC [36] WARNING:  no usable system locales were found\ninitdb: warning: enabling \"trust\" authentication for local connections\ninitdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run initdb.\n2026-06-06 20:34:13.887 UTC [1] LOG:  starting PostgreSQL 16.14 on aarch64-unknown-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit\n2026-06-06 20:34:13.887 UTC [1] LOG:  listening on IPv4 address \"127.0.0.1\", port 5432\n2026-06-06 20:34:13.888 UTC [1] LOG:  listening on Unix socket \"/var/run/postgresql/.s.PGSQL.5432\"\n2026-06-06 20:34:13.891 UTC [62] LOG:  database system was shut down at 2026-06-06 20:34:13 UTC\n2026-06-06 20:34:13.894 UTC [1] LOG:  database system is ready to accept connections\n",
+    "provisioning": {
+      "image": "postgres:16-alpine",
+      "alreadyPresent": true
+    },
+    "dataDir": "/tmp/machinen-real-node-postgres-arm64-20260606T202852Z-69273/machinen-rnp-e98025fb7b-postgres-data-bl0507p9",
+    "application": "postgresql"
+  },
+  "classifierResult": {
+    "kind": "machinen.research.native-continuation-classifier.result",
+    "version": 1,
+    "decision": "refused",
+    "shapeId": "refuse-unclassified-process-shape",
+    "reason": "no accepted CPU/memory/resource shape matched",
+    "claimGuard": {
+      "arbitraryProcessRestoreClaimed": false,
+      "rawVmReplayUsed": false,
+      "sourceIsaEmulationUsed": false,
+      "metadataOnlySuccess": false,
+      "rawHeapStackRegisterRestore": false
+    },
+    "observation": {
+      "pid": 73,
+      "hostArch": "aarch64",
+      "pausedVmObservation": false,
+      "observationConsistency": "live-procfs-best-effort",
+      "alive": true,
+      "exe": null,
+      "cmdline": [
+        "psql",
+        "-h",
+        "127.0.0.1",
+        "-U",
+        "postgres",
+        "-c",
+        "select count(*) from generate_series(1,1000000000);"
+      ],
+      "processTree": {
+        "ppid": 0,
+        "pgrp": 73,
+        "session": 73
+      },
+      "status": {
+        "state": "S (sleeping)",
+        "threads": 1,
+        "tracerPid": 0
+      },
+      "tasks": [
+        {
+          "tid": 73,
+          "state": "S",
+          "wchan": "0",
+          "syscall": {
+            "raw": null,
+            "wchan": "0",
+            "number": null,
+            "readLikeWait": false,
+            "pollLikeWait": false
+          }
+        }
+      ],
+      "fds": [],
+      "fdKinds": [],
+      "syscall": {
+        "raw": null,
+        "wchan": "0",
+        "number": null,
+        "readLikeWait": false,
+        "pollLikeWait": false
+      }
+    }
+  },
+  "applicationShapeResult": {
+    "kind": "machinen.research.native-continuation.app-adapter-result",
+    "version": 1,
+    "decision": "refused",
+    "case": "postgres-active-query",
+    "application": "postgresql",
+    "shapeId": "refuse-unclassified-process-shape",
+    "reason": "no accepted CPU/memory/resource shape matched",
+    "observation": {
+      "pid": 73,
+      "hostArch": "aarch64",
+      "pausedVmObservation": false,
+      "observationConsistency": "live-procfs-best-effort",
+      "alive": true,
+      "exe": null,
+      "cmdline": [
+        "psql",
+        "-h",
+        "127.0.0.1",
+        "-U",
+        "postgres",
+        "-c",
+        "select count(*) from generate_series(1,1000000000);"
+      ],
+      "processTree": {
+        "ppid": 0,
+        "pgrp": 73,
+        "session": 73
+      },
+      "status": {
+        "state": "S (sleeping)",
+        "threads": 1,
+        "tracerPid": 0
+      },
+      "tasks": [
+        {
+          "tid": 73,
+          "state": "S",
+          "wchan": "0",
+          "syscall": {
+            "raw": null,
+            "wchan": "0",
+            "number": null,
+            "readLikeWait": false,
+            "pollLikeWait": false
+          }
+        }
+      ],
+      "fds": [],
+      "fdKinds": [],
+      "syscall": {
+        "raw": null,
+        "wchan": "0",
+        "number": null,
+        "readLikeWait": false,
+        "pollLikeWait": false
+      }
+    },
+    "evidence": {},
+    "descriptor": null,
+    "claimGuard": {
+      "arbitraryProcessRestoreClaimed": false,
+      "rawVmReplayUsed": false,
+      "sourceIsaEmulationUsed": false,
+      "metadataOnlySuccess": false,
+      "rawHeapStackRegisterRestore": false,
+      "runtimeHeapRestoreClaimed": false,
+      "kernelSocketIdentityPreserved": false
+    }
+  },
+  "descriptor": null
+}

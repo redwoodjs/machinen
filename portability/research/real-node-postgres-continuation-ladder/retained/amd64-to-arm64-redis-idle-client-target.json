@@ -1,0 +1,157 @@
+{
+  "kind": "machinen.research.real-node-postgres-continuation.proof-row",
+  "version": 1,
+  "case": "redis-idle-client",
+  "rowKind": "support",
+  "mode": "target",
+  "application": "redis",
+  "description": "real Redis client connection idle with empty socket queues",
+  "hostArch": "aarch64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false,
+    "runtimeHeapRestoreClaimed": false,
+    "kernelSocketIdentityPreserved": false
+  },
+  "decision": "accepted",
+  "descriptor": {
+    "kind": "machinen.research.native-continuation.capture-descriptor",
+    "version": 1,
+    "shapeId": "shape-socket-connected-local-empty-queues",
+    "architectureNeutral": true,
+    "observationConsistency": "live-procfs-best-effort",
+    "cpu": {
+      "wait": "socket-local-connected-empty-queues",
+      "sourceArch": "x86_64",
+      "sourceSyscallNumber": null,
+      "sourceWchan": "pipe_read",
+      "targetNativeReconstruction": true,
+      "sourceIsaEmulationRequired": false
+    },
+    "memory": {
+      "mode": "semantic-resource-descriptor-only",
+      "rawHeapCaptured": false,
+      "rawStackCaptured": false,
+      "rawRegistersCaptured": false,
+      "rawHeapStackRegistersCaptured": false,
+      "threadStacksCaptured": false,
+      "runtimeHeapCaptured": false,
+      "runtimeHeapRestored": false
+    },
+    "resources": {
+      "process": {
+        "ppid": 22,
+        "pgrp": 22,
+        "session": 22
+      },
+      "fds": [
+        {
+          "fd": 0,
+          "target": "pipe:[67702569]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 1,
+          "target": "pipe:[67729733]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 2,
+          "target": "pipe:[67729734]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 3,
+          "target": "socket:[67716049]",
+          "kind": "socket",
+          "queueBytes": null,
+          "socketInode": "67716049",
+          "socket": {
+            "family": "tcp4",
+            "state": "ESTABLISHED",
+            "stateHex": "01",
+            "txQueue": 0,
+            "rxQueue": 0,
+            "localAddressHex": "0100007F",
+            "localPort": 53452,
+            "remoteAddressHex": "0100007F",
+            "remotePort": 6379
+          }
+        }
+      ],
+      "sockets": {
+        "fds": [
+          {
+            "fd": 3,
+            "target": "socket:[67716049]",
+            "kind": "socket",
+            "queueBytes": null,
+            "socketInode": "67716049",
+            "socket": {
+              "family": "tcp4",
+              "state": "ESTABLISHED",
+              "stateHex": "01",
+              "txQueue": 0,
+              "rxQueue": 0,
+              "localAddressHex": "0100007F",
+              "localPort": 53452,
+              "remoteAddressHex": "0100007F",
+              "remotePort": 6379
+            }
+          }
+        ],
+        "kernelSocketIdentityPreserved": false
+      },
+      "threads": {
+        "tasks": [
+          {
+            "tid": 29,
+            "state": "S",
+            "wchan": "pipe_read",
+            "syscall": {
+              "raw": null,
+              "wchan": "pipe_read",
+              "number": null,
+              "readLikeWait": true,
+              "pollLikeWait": false
+            }
+          }
+        ],
+        "threadStacksCaptured": false
+      },
+      "runtimeInternalPipes": {
+        "treatedAsExternalContinuationResources": false
+      }
+    },
+    "application": {
+      "name": "redis",
+      "case": "redis-idle-client",
+      "safePoint": "Redis connected client idle with empty socket queues",
+      "runtimeHeapCaptured": false,
+      "runtimeHeapRestored": false,
+      "databaseMemoryCaptured": false,
+      "databaseMemoryRestored": false
+    },
+    "materializer": {
+      "strategy": "target-native-application-reexec-at-accepted-resource-boundary",
+      "rawProcessMemoryMaterialization": false,
+      "sourceIsaEmulationRequired": false,
+      "kernelSocketIdentityPreserved": false
+    }
+  },
+  "inputDescriptorUnchanged": true,
+  "materialization": {
+    "container": "machinen-mat-1da3565e3e-redis",
+    "classifiedShapeId": "shape-socket-connected-local-empty-queues",
+    "decision": "accepted",
+    "ping": "PONG",
+    "logs": "ry overcommit must be enabled! Without it, a background save or replication may fail under low memory condition. Being disabled, it can also cause failures without low memory condition, see https://github.com/jemalloc/jemalloc/issues/1328. To fix this issue add 'vm.overcommit_memory = 1' to /etc/sysctl.conf and then reboot or run the command 'sysctl vm.overcommit_memory=1' for this to take effect.\n1:C 06 Jun 2026 20:33:04.578 * oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo\n1:C 06 Jun 2026 20:33:04.578 * Redis version=7.4.9, bits=64, commit=00000000, modified=0, pid=1, just started\n1:C 06 Jun 2026 20:33:04.578 * Configuration loaded\n1:M 06 Jun 2026 20:33:04.578 * Increased maximum number of open files to 10032 (it was originally set to 1024).\n1:M 06 Jun 2026 20:33:04.578 * monotonic clock: POSIX clock_gettime\n1:M 06 Jun 2026 20:33:04.579 * Running mode=standalone, port=6379.\n1:M 06 Jun 2026 20:33:04.579 * Server initialized\n1:M 06 Jun 2026 20:33:04.579 * Ready to accept connections tcp\n",
+    "continued": true
+  }
+}

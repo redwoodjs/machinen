@@ -78,7 +78,10 @@ function validateRegistry(registry, selected) {
   const implemented = registry.entries.filter(
     (entry) => entry.productStatus === "implemented-product-support",
   );
-  const implementedNames = new Set(implemented.map((entry) => entry.name));
+  const deprecated = registry.entries.filter(
+    (entry) => entry.productStatus === "deprecated-legacy-support",
+  );
+  const deprecatedNames = new Set(deprecated.map((entry) => entry.name));
   for (const required of [
     "node-app-http-server-recreate",
     "python-cross-arch-runtime-policy",
@@ -89,17 +92,20 @@ function validateRegistry(registry, selected) {
     "timerfd-relative-oneshot-v1-monotonic",
     "tcp-listener-v1-loopback-empty-accept-queue",
   ]) {
-    if (!implementedNames.has(required)) {
-      failures.push(`implemented product subset is missing: ${required}`);
+    if (!deprecatedNames.has(required)) {
+      failures.push(`deprecated legacy product subset is missing: ${required}`);
     }
   }
-  if (implemented.length !== 8) {
+  if (implemented.length !== 0) {
     failures.push(
-      "implemented product support must be exactly the clean-service Node, Python, Go routes and the portable-machine Level 4 ping, eventfd, pipe, timerfd, and TCP listener routes",
+      "implemented product support must be empty until Level 5 move-owned support lands",
     );
   }
-  if (implemented.some((entry) => entry.supportLevel === "level-2-semantic-continuation")) {
-    failures.push("Level 2 semantic ping must not be reported as implemented product support");
+  if (deprecated.length !== 8) {
+    failures.push("deprecated legacy support must contain the former Level 1 and Level 4 routes");
+  }
+  if (registry.entries.some((entry) => /level-[1-4]-/.test(entry.supportLevel))) {
+    failures.push("Level 1 through Level 4 must not be active product support levels");
   }
   if (
     registry.entries.some(
@@ -111,51 +117,6 @@ function validateRegistry(registry, selected) {
     failures.push(
       "selected-state Node HTTP counter harness must not be reported as product support",
     );
-  }
-  if (
-    !implemented.some(
-      (entry) =>
-        entry.name === "ping-level4-socket-reconstruction-v1" &&
-        entry.supportLevel === "level-4-kernel-resource-reconstruction",
-    )
-  ) {
-    failures.push("implemented ping socket profile is not reported as Level 4 support");
-  }
-  if (
-    !implemented.some(
-      (entry) =>
-        entry.name === "eventfd-counter-v1-nonsemaphore-no-waiters" &&
-        entry.supportLevel === "level-4-kernel-resource-reconstruction",
-    )
-  ) {
-    failures.push("implemented eventfd profile is not reported as Level 4 support");
-  }
-  if (
-    !implemented.some(
-      (entry) =>
-        entry.name === "pipe-pair-v1-empty-no-waiters" &&
-        entry.supportLevel === "level-4-kernel-resource-reconstruction",
-    )
-  ) {
-    failures.push("implemented pipe profile is not reported as Level 4 support");
-  }
-  if (
-    !implemented.some(
-      (entry) =>
-        entry.name === "timerfd-relative-oneshot-v1-monotonic" &&
-        entry.supportLevel === "level-4-kernel-resource-reconstruction",
-    )
-  ) {
-    failures.push("implemented timerfd profile is not reported as Level 4 support");
-  }
-  if (
-    !implemented.some(
-      (entry) =>
-        entry.name === "tcp-listener-v1-loopback-empty-accept-queue" &&
-        entry.supportLevel === "level-4-kernel-resource-reconstruction",
-    )
-  ) {
-    failures.push("implemented TCP listener profile is not reported as Level 4 support");
   }
   for (const entry of registry.entries) {
     if (

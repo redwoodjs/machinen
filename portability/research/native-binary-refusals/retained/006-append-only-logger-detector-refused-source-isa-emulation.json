@@ -1,0 +1,7 @@
+{
+  "shape": "006-append-only-logger",
+  "decision": "refused",
+  "supportStage": "1-refused",
+  "refusalCode": "native-shape-claim-guard-not-false",
+  "reason": "claim guard sourceIsaEmulationUsed must be false"
+}

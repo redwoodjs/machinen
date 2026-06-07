@@ -1,0 +1,23 @@
+{
+  "case": "curl-mid-transfer-refusal",
+  "kind": "refusal",
+  "description": "curl live TCP transfer with partial body is refused",
+  "mode": "source",
+  "role": "source",
+  "hostArch": "x86_64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false
+  },
+  "decision": "refused",
+  "refusal": {
+    "reason": "curl-live-tcp-transfer-with-partial-body",
+    "binary": "/usr/bin/curl",
+    "processAliveAtProbe": true,
+    "partialResponseBytes": 168,
+    "kernelTcpIdentityPreserved": false
+  }
+}

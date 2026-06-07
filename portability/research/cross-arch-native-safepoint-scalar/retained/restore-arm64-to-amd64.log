@@ -1,0 +1,2 @@
+hello:42
+RESTORE_OK source=arm64 target=amd64 entry=continue_from_safepoint result=42

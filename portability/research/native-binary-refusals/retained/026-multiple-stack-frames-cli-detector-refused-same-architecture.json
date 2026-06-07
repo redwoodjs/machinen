@@ -1,0 +1,7 @@
+{
+  "shape": "026-multiple-stack-frames-cli",
+  "decision": "refused",
+  "supportStage": "1-refused",
+  "refusalCode": "native-shape-not-cross-architecture",
+  "reason": "source and target architectures must differ"
+}

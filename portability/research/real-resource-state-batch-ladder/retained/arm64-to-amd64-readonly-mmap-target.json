@@ -1,0 +1,20 @@
+{
+  "case": "readonly-mmap",
+  "kind": "support",
+  "description": "read-only mmap descriptor",
+  "mode": "target",
+  "role": "target",
+  "hostArch": "x86_64",
+  "pid": 3809345,
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "kernelObjectIdentityPreserved": false
+  },
+  "decision": "accepted",
+  "evidence": {
+    "bytes": "mmap"
+  }
+}

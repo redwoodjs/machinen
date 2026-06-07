@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Machinen research native continuation capture descriptor",
+  "type": "object",
+  "required": [
+    "kind",
+    "version",
+    "shapeId",
+    "architectureNeutral",
+    "cpu",
+    "memory",
+    "resources",
+    "materializer"
+  ],
+  "properties": {
+    "kind": { "const": "machinen.research.native-continuation.capture-descriptor" },
+    "version": { "const": 1 },
+    "shapeId": { "type": "string" },
+    "architectureNeutral": { "const": true },
+    "cpu": {
+      "type": "object",
+      "required": ["targetNativeReconstruction", "sourceIsaEmulationRequired"],
+      "properties": {
+        "targetNativeReconstruction": { "const": true },
+        "sourceIsaEmulationRequired": { "const": false }
+      }
+    },
+    "memory": {
+      "type": "object",
+      "required": [
+        "rawHeapCaptured",
+        "rawStackCaptured",
+        "rawRegistersCaptured",
+        "rawHeapStackRegistersCaptured"
+      ],
+      "properties": {
+        "rawHeapCaptured": { "const": false },
+        "rawStackCaptured": { "const": false },
+        "rawRegistersCaptured": { "const": false },
+        "rawHeapStackRegistersCaptured": { "const": false }
+      }
+    },
+    "materializer": {
+      "type": "object",
+      "required": ["rawProcessMemoryMaterialization"],
+      "properties": {
+        "rawProcessMemoryMaterialization": { "const": false },
+        "sourceIsaEmulationRequired": { "const": false },
+        "kernelSocketIdentityPreserved": { "const": false }
+      }
+    }
+  }
+}

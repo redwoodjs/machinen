@@ -2,49 +2,54 @@
 
 Goal 46 adds a product-status registry for every profile in
 `scripts/portable-machine-proof-profiles.json`. The registry is the product-facing
-answer to: "is this cross-architecture state implemented, refused, or only a
-proof fixture?"
+answer to: "is this cross-architecture state implemented, refused, deprecated, or
+only a proof fixture?"
 
 The registry deliberately does **not** turn proof-only fixtures into product
-support. As of Goal 49, implemented clean-service product support means the
-no-extra-flag `machinen snapshot <vm> <bundle>` / `machinen restore <bundle>`
-workflow is wired for that profile. Goal 011 retires the earlier ping-specific
-Level 2 semantic-continuation claim as product support and makes ping's product
-route a portable machine Level 4 socket descriptor through `machinen snapshot`
-and `machinen restore`. Goal 015 adds eventfd as the second Level 4 portable
-restore adapter/resource. Goal 016 adds pipes as the third Level 4 portable
-restore adapter/resource. Goal 017 adds timerfd as the fourth Level 4 portable
-restore adapter/resource. Goal 018 adds TCP listener-only sockets as the fifth
-Level 4 portable restore adapter/resource. Goal 022 is explicitly only a
-selected-state harness proof and is not listed as product support. The implemented
-subsets are:
+support. See [Cross-ISA support levels](./cross-isa-support-levels.md) for the
+current taxonomy.
 
-- `node-app-http-server-recreate` — `node-http-clean-root-v1` — `level-1-semantic-restart`
-- `nodejs-memory-ir-selected-semantic-v1` — selected semantic Node Memory IR rows — target-native materialization from portable IR, not raw process/V8 continuation
-- `python-cross-arch-runtime-policy` — `python-http-clean-root-v1` — `level-1-semantic-restart`
-- `go-cross-arch-runtime-policy` — `go-http-clean-root-v1` — `level-1-semantic-restart`
-- `ping-level4-socket-reconstruction-v1` — `ping-level4-socket-reconstruction-v1` — `level-4-kernel-resource-reconstruction`
-- `eventfd-counter-v1-nonsemaphore-no-waiters` — `eventfd-counter-v1-nonsemaphore-no-waiters` — `level-4-kernel-resource-reconstruction`
-- `pipe-pair-v1-empty-no-waiters` — `pipe-pair-v1-empty-no-waiters` — `level-4-kernel-resource-reconstruction`
-- `timerfd-relative-oneshot-v1-monotonic` — `timerfd-relative-oneshot-v1-monotonic` — `level-4-kernel-resource-reconstruction`
-- `tcp-listener-v1-loopback-empty-accept-queue` — `tcp-listener-v1-loopback-empty-accept-queue` — `level-4-kernel-resource-reconstruction`
+## Current active support posture
 
-There is currently no arbitrary Level 5 Node/Linux process continuation product
-support entry. The selected Node Memory IR entry is a compatibility-matrix subset
-for semantic IR materialization only; it refuses unsafe/opaque state and does not
-claim raw V8 heap restore, same-PID continuation, raw CPU state replay, or
-arbitrary process restore. See `node-memory-ir-compatibility.md` for the scoped
-supported/refused row table. Historical Node/runtime profile and live-app proof
-suites remain proof-only or archived until a captured source process state
-implementation is routed through the public product surface and advertised by
-this registry.
+Active positive cross-ISA support now graduates only through Level 5-style
+`machinen move` translators that own the PID dependency graph. Until such a row
+is implemented and registered, the product registry reports:
 
-The earlier PostgreSQL logical proof/capture route is not advertised here as
-implemented snapshot/restore product support until it is routed through the same
-verbs. Other positive proof profiles are surfaced as `proof-only-fixture` with
-the product refusal code `product-surface-not-implemented` until a product
-capture/snapshot descriptor, restore contract, integrity contract, and target-native verifier are
-implemented.
+- `implemented-product-support`: no Level 1 through Level 4 rows;
+- `deprecated-legacy-support`: former Level 1 and Level 4 product rows;
+- `stable-product-refusal`: known unsafe or unsupported states with retained
+  refusal codes;
+- `proof-only-fixture`: retained proofs that are not product support.
+
+Deprecated rows have `migrationCompleted=false`, `proofOnly=true`, and
+`supportLevel=deprecated-cross-isa-level`. Their product refusal code is also
+`deprecated-cross-isa-level`.
+
+## Deprecated legacy rows
+
+These rows used to be advertised as product support under the old Level 1/4
+ladder. Old Level 0 discovery is also deprecated as a support level. These rows
+are now retained only as legacy evidence and must be replaced by a
+`machinen move` PID graph translator before support can be reintroduced:
+
+- `node-app-http-server-recreate` — old `level-1-semantic-restart`
+- `python-cross-arch-runtime-policy` — old `level-1-semantic-restart`
+- `go-cross-arch-runtime-policy` — old `level-1-semantic-restart`
+- `ping-level4-socket-reconstruction-v1` — old `level-4-kernel-resource-reconstruction`
+- `eventfd-counter-v1-nonsemaphore-no-waiters` — old `level-4-kernel-resource-reconstruction`
+- `pipe-pair-v1-empty-no-waiters` — old `level-4-kernel-resource-reconstruction`
+- `timerfd-relative-oneshot-v1-monotonic` — old `level-4-kernel-resource-reconstruction`
+- `tcp-listener-v1-loopback-empty-accept-queue` — old `level-4-kernel-resource-reconstruction`
+
+The selected Node Memory IR rows remain semantic IR materialization evidence, not
+raw process/V8 continuation. They do not claim raw V8 heap restore, same-PID
+continuation, raw CPU state replay, or arbitrary process restore. See
+`node-memory-ir-compatibility.md` for the scoped supported/refused row table.
+
+Historical Node/runtime profile, live-app, PostgreSQL logical, and resource-only
+proof suites remain proof-only, deprecated, or archived until captured source
+process state is routed through the public product surface and advertised by this
+registry as implemented support.
 
 Every proof/refusal profile is surfaced as `stable-product-refusal` with its
 existing refusal code where one exists, and always with `migrationCompleted=false`.
@@ -57,6 +62,7 @@ unsafe neighbors.
 ```sh
 machinen support --json
 machinen support --family network-ping-socket --json
+machinen support --status deprecated-legacy-support --json
 machinen support --profile ping-socket-known-unread-reply-v3-multiple-replies-refusal --json
 machinen support --status proof-only-fixture --json
 ```

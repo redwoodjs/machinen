@@ -1,0 +1,2 @@
+grep:2
+SHAPE_RESTORE_OK shape=059-grep-line-boundary-cli target=amd64 result=42

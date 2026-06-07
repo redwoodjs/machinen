@@ -1,0 +1,20 @@
+{
+  "case": "pipe-queued-bytes-owned",
+  "kind": "support",
+  "description": "owned pipe queued bytes reconstructed semantically",
+  "mode": "source",
+  "role": "source",
+  "hostArch": "x86_64",
+  "pid": 3807117,
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "kernelObjectIdentityPreserved": false
+  },
+  "decision": "captured",
+  "evidence": {
+    "capturedBytes": "queued"
+  }
+}

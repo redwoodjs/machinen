@@ -1,0 +1,23 @@
+{
+  "case": "nano-mid-edit-continuation",
+  "kind": "support",
+  "description": "nano reaches a live unsaved-buffer safe point and target-native nano continues by saving it",
+  "mode": "target",
+  "role": "target",
+  "hostArch": "x86_64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false
+  },
+  "decision": "accepted",
+  "evidence": {
+    "binary": "/usr/bin/nano",
+    "continuedFrom": "live-unsaved-nano-buffer",
+    "content": "less-level-nano-buffer\n",
+    "returncode": 0,
+    "savedAfterContinue": true
+  }
+}

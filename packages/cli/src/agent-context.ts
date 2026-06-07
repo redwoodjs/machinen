@@ -316,6 +316,41 @@ export const COMMANDS: CommandSpec[] = [
       '{"schema_version": 1, "state": "completed|refused", "migrationCompleted": <bool>, "bundleDir": <path>, "descriptor|refusal": {...}}',
   },
   {
+    name: "move",
+    summary: "Safe-point move descriptors for visible host processes.",
+    jsonOutput: true,
+    mutating: true,
+    positionals: [
+      { name: "command", description: "Move command: scan, save, or load." },
+      {
+        name: "value",
+        required: false,
+        description: "For save: <pid> <out>. For load: <descriptor>. Scan takes no positional.",
+      },
+    ],
+    flags: [
+      { name: "--all", type: "boolean", description: "Scan all visible /proc pids (scan)." },
+      {
+        name: "--dry-run",
+        type: "boolean",
+        description: "Preview save/load without writing, loading, or creating issues.",
+      },
+      {
+        name: "--issue",
+        type: "boolean",
+        description: "For refused save, create a GitHub issue with the redacted graph report.",
+      },
+      {
+        name: "--issue-repo",
+        type: "string",
+        description: "Repository for --issue. Defaults to redwoodjs/machinen.",
+      },
+      { name: "--json", type: "boolean", description: "Emit structured move output as JSON." },
+    ],
+    jsonEnvelope:
+      '{"kind": "machinen.move.*", "decision": "accepted|refused", "descriptor|null": {...}}',
+  },
+  {
     name: "support",
     summary: "Discover product support/refusal status for proof profiles.",
     jsonOutput: true,

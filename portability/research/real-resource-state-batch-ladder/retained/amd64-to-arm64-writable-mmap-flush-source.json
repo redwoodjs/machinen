@@ -1,0 +1,20 @@
+{
+  "case": "writable-mmap-flush",
+  "kind": "support",
+  "description": "writable mmap flush descriptor",
+  "mode": "source",
+  "role": "source",
+  "hostArch": "x86_64",
+  "pid": 3809446,
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "kernelObjectIdentityPreserved": false
+  },
+  "decision": "captured",
+  "evidence": {
+    "content": "XYZde"
+  }
+}

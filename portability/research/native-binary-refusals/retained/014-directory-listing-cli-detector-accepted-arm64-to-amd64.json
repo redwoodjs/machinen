@@ -1,0 +1,16 @@
+{
+  "shape": "014-directory-listing-cli",
+  "decision": "accepted",
+  "supportStage": "4-supported-subset",
+  "supportScope": "declared safe-point directory listing with path cursor descriptor",
+  "sourceArch": "arm64",
+  "targetArch": "amd64",
+  "facts": {
+    "entrySymbol": "continue_directory_listing",
+    "sourcePc": "0xbc6558231990",
+    "sourceSp": "0xffffeeea0e30",
+    "sourceArg0": "0x1000",
+    "targetArgumentRegister": "rdi",
+    "targetStackBytes": 65536
+  }
+}

@@ -1,0 +1,2 @@
+shared:9:1
+SHAPE_RESTORE_OK shape=021-graph-with-shared-node-cli target=amd64 result=42

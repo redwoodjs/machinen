@@ -1,0 +1,7 @@
+{
+  "shape": "024-global-variable-counter-cli",
+  "decision": "refused",
+  "supportStage": "1-refused",
+  "refusalCode": "native-shape-unsupported-entry-symbol",
+  "reason": "entry symbol is not the proven target-native continuation"
+}

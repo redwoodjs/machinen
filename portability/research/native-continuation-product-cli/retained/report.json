@@ -1,0 +1,25 @@
+{
+  "kind": "machinen.experimental.native.product-shaped-cli.report",
+  "version": 1,
+  "status": "passed",
+  "rows": [
+    {
+      "case": "generic-materialize",
+      "decision": "accepted",
+      "schema": "passed",
+      "inputDescriptorUnchanged": true
+    },
+    {
+      "case": "app-materialize",
+      "decision": "accepted",
+      "schema": "passed",
+      "inputDescriptorUnchanged": true
+    },
+    {
+      "case": "invalid-materialize",
+      "decision": "refused",
+      "reason": "invalid-descriptor",
+      "schema": "failed"
+    }
+  ]
+}

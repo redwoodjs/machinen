@@ -1,0 +1,16 @@
+{
+  "shape": "009-recursive-factorial-safepoint",
+  "decision": "accepted",
+  "supportStage": "4-supported-subset",
+  "supportScope": "declared safe-point recursive factorial frame descriptor subset",
+  "sourceArch": "arm64",
+  "targetArch": "amd64",
+  "facts": {
+    "entrySymbol": "continue_factorial",
+    "sourcePc": "0xc562ab851990",
+    "sourceSp": "0xfffffcc82820",
+    "sourceArg0": "0x1000",
+    "targetArgumentRegister": "rdi",
+    "targetStackBytes": 65536
+  }
+}

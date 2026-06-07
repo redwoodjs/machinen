@@ -1,0 +1,14 @@
+{
+  "kind": "machinen.research.real-less-detector.capture",
+  "version": 2,
+  "case": "refused-extra-thread",
+  "decision": "refused",
+  "stateKind": "synthetic-refusal",
+  "refusalCode": "real-less-extra-thread",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false
+  }
+}

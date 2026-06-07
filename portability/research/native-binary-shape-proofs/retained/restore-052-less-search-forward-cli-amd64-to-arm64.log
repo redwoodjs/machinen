@@ -1,0 +1,2 @@
+less-search:needle line
+SHAPE_RESTORE_OK shape=052-less-search-forward-cli target=arm64 result=42

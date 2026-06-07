@@ -1,0 +1,16 @@
+{
+  "shape": "023-struct-with-nested-pointers-cli",
+  "decision": "accepted",
+  "supportStage": "4-supported-subset",
+  "supportScope": "declared safe-point struct with nested in-region pointer",
+  "sourceArch": "amd64",
+  "targetArch": "arm64",
+  "facts": {
+    "entrySymbol": "continue_nested_pointers",
+    "sourcePc": "0x59fa1f105c12",
+    "sourceSp": "0x7ffed109d670",
+    "sourceArg0": "0x1000",
+    "targetArgumentRegister": "x0",
+    "targetStackBytes": 65536
+  }
+}

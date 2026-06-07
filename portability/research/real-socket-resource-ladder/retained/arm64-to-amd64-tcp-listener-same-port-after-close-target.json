@@ -1,0 +1,29 @@
+{
+  "case": "tcp-listener-same-port-after-close",
+  "description": "TCP listener is closed, then target-native listener binds the same local port",
+  "mode": "target",
+  "role": "target",
+  "hostArch": "x86_64",
+  "pid": 3799013,
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "markerSymbolsUsed": false,
+    "preservesKernelSocketIdentity": false
+  },
+  "decision": "accepted",
+  "capture": {
+    "family": "AF_INET",
+    "type": "SOCK_STREAM",
+    "localAddress": "127.0.0.1",
+    "localPort": 46683,
+    "queuedBytes": 0,
+    "pendingAcceptsCreatedByHarness": 0
+  },
+  "materialization": {
+    "samePortPreserved": true,
+    "clientConnected": true
+  }
+}

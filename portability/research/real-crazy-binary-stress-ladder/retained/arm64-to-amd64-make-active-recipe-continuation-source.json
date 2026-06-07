@@ -1,0 +1,29 @@
+{
+  "case": "make-active-recipe-continuation",
+  "kind": "support",
+  "description": "make reaches a live controlled recipe gate and target-native make continues remaining work",
+  "mode": "source",
+  "role": "source",
+  "hostArch": "aarch64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false
+  },
+  "decision": "captured",
+  "evidence": {
+    "binary": "/usr/bin/make",
+    "continuationDescriptor": {
+      "safePoint": "live-make-controlled-recipe-gate",
+      "makefile": "all: phase2\n\nphase1.stamp:\n\tprintf 'phase1\\n' > phase1.stamp\n\nphase2: phase1.stamp\n\twhile [ ! -f go ]; do sleep 1; done\n\tprintf 'make-live-ok\\n' > out.txt\n",
+      "phase1": "phase1.stamp",
+      "gate": "go",
+      "out": "out.txt",
+      "expect": "make-live-ok\n",
+      "phase1Content": "phase1\n",
+      "processAliveAtSafePoint": true
+    }
+  }
+}

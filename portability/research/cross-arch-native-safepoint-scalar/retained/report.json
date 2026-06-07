@@ -1,0 +1,41 @@
+{
+  "kind": "machinen.research.track-a.native-scalar.report",
+  "version": 1,
+  "runId": "20260604T204657Z-18119",
+  "arm64Host": "friend@100.126.46.90",
+  "amd64Host": "root@192.168.0.8",
+  "arm64Uname": "Linux dgx-01 6.17.0-1018-nvidia #18-Ubuntu SMP PREEMPT_DYNAMIC Tue May  5 21:28:33 UTC 2026 aarch64 aarch64 aarch64 GNU/Linux",
+  "amd64Uname": "Linux p4p8-server 6.8.12-17-pve #1 SMP PREEMPT_DYNAMIC PMX 6.8.12-17 (2025-11-21T11:16Z) x86_64 GNU/Linux",
+  "sharedResearchHost": "192.168.0.8",
+  "proofs": [
+    {
+      "direction": "arm64 -> amd64",
+      "sourceCapture": "retained/arm64-to-amd64.ir.json",
+      "targetRestoreLog": "retained/restore-arm64-to-amd64.log",
+      "result": "hello:42"
+    },
+    {
+      "direction": "amd64 -> arm64",
+      "sourceCapture": "retained/amd64-to-arm64.ir.json",
+      "targetRestoreLog": "retained/restore-amd64-to-arm64.log",
+      "result": "hello:42"
+    }
+  ],
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false
+  },
+  "refusalCases": [
+    "active syscall",
+    "threads",
+    "socket",
+    "source-ISA emulation",
+    "metadata-only success",
+    "unsupported stack frame",
+    "target architecture mismatch",
+    "missing declared safe point"
+  ],
+  "status": "passed"
+}

@@ -1,0 +1,2 @@
+copy:copy
+SHAPE_RESTORE_OK shape=011-two-file-copy-cli target=arm64 result=42

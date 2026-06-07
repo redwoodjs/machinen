@@ -1,0 +1,24 @@
+{
+  "case": "socketpair-empty-semantic-reconnect",
+  "description": "owned local socketpair with no queued bytes is reconstructed as a new socketpair",
+  "mode": "source",
+  "role": "source",
+  "hostArch": "x86_64",
+  "pid": 3799552,
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "markerSymbolsUsed": false,
+    "preservesKernelSocketIdentity": false
+  },
+  "decision": "captured",
+  "capture": {
+    "family": "AF_UNIX",
+    "type": "SOCK_STREAM",
+    "aQueuedBytes": 0,
+    "bQueuedBytes": 0,
+    "semanticReconnectOnly": true
+  }
+}

@@ -1,0 +1,199 @@
+{
+  "case": "man-quit",
+  "adapter": "man",
+  "description": "man wrapper renders through a pager child and q exits",
+  "mode": "source",
+  "role": "source",
+  "hostArch": "aarch64",
+  "binary": {
+    "path": "/usr/bin/man",
+    "versionLine": "man 2.12.0",
+    "packageEvidence": null
+  },
+  "processRoot": {
+    "pid": 1052823,
+    "argv": ["/usr/bin/man", "printf"]
+  },
+  "processTree": [
+    {
+      "pid": 1052823,
+      "state": {
+        "pid": 1052823,
+        "comm": "man",
+        "statusState": "S",
+        "threads": 1,
+        "signalPendingMask": "0000000000000000",
+        "statPpid": 1052822,
+        "statPgrp": 1052823,
+        "statSession": 1052823,
+        "statTtyNr": 34816,
+        "syscall": {
+          "raw": "260 0xffffffffffffffff 0xffffd9736074 0x0 0x0 0x1 0x2 0xffffd9736040 0xfa5d28597b30",
+          "parsed": true,
+          "number": 260,
+          "name": "syscall-260",
+          "args": [18446744073709551615, 281474329960564, 0, 0, 1, 2],
+          "fd": 18446744073709551615
+        }
+      },
+      "fds": [
+        {
+          "fd": 0,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 1,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 2,
+          "target": "/dev/pts/0"
+        }
+      ],
+      "stdioTargets": {
+        "0": "/dev/pts/0",
+        "1": "/dev/pts/0",
+        "2": "/dev/pts/0"
+      },
+      "syscallFdTarget": null,
+      "allStdioOnControlledPty": true,
+      "hasSignalfd": false,
+      "hasRegularAdapterFile": false
+    },
+    {
+      "pid": 1052831,
+      "state": {
+        "pid": 1052831,
+        "comm": "more",
+        "statusState": "S",
+        "threads": 1,
+        "signalPendingMask": "0000000000000000",
+        "statPpid": 1052823,
+        "statPgrp": 1052823,
+        "statSession": 1052823,
+        "statTtyNr": 34816,
+        "syscall": {
+          "raw": "63 0x2 0xffffcce2fe30 0x8 0x1 0x0 0x3 0xffffcce2fc90 0xe26afe0b1248",
+          "parsed": true,
+          "number": 63,
+          "name": "read",
+          "args": [2, 281474119171632, 8, 1, 0, 3],
+          "fd": 2
+        }
+      },
+      "fds": [
+        {
+          "fd": 0,
+          "target": "pipe:[27525897]"
+        },
+        {
+          "fd": 1,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 2,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 3,
+          "target": "anon_inode:[signalfd]"
+        }
+      ],
+      "stdioTargets": {
+        "0": "pipe:[27525897]",
+        "1": "/dev/pts/0",
+        "2": "/dev/pts/0"
+      },
+      "syscallFdTarget": "/dev/pts/0",
+      "allStdioOnControlledPty": false,
+      "hasSignalfd": true,
+      "hasRegularAdapterFile": false
+    }
+  ],
+  "candidateProcess": {
+    "pid": 1052831,
+    "state": {
+      "pid": 1052831,
+      "comm": "more",
+      "statusState": "S",
+      "threads": 1,
+      "signalPendingMask": "0000000000000000",
+      "statPpid": 1052823,
+      "statPgrp": 1052823,
+      "statSession": 1052823,
+      "statTtyNr": 34816,
+      "syscall": {
+        "raw": "63 0x2 0xffffcce2fe30 0x8 0x1 0x0 0x3 0xffffcce2fc90 0xe26afe0b1248",
+        "parsed": true,
+        "number": 63,
+        "name": "read",
+        "args": [2, 281474119171632, 8, 1, 0, 3],
+        "fd": 2
+      }
+    },
+    "fds": [
+      {
+        "fd": 0,
+        "target": "pipe:[27525897]"
+      },
+      {
+        "fd": 1,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 2,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 3,
+        "target": "anon_inode:[signalfd]"
+      }
+    ],
+    "stdioTargets": {
+      "0": "pipe:[27525897]",
+      "1": "/dev/pts/0",
+      "2": "/dev/pts/0"
+    },
+    "syscallFdTarget": "/dev/pts/0",
+    "allStdioOnControlledPty": false,
+    "hasSignalfd": true,
+    "hasRegularAdapterFile": false
+  },
+  "pty": {
+    "slavePath": "/dev/pts/0",
+    "rows": 24,
+    "cols": 80,
+    "inputQueueBytesOnMaster": 0,
+    "inputQueueBytesOnSlave": {
+      "available": true,
+      "bytes": 0
+    },
+    "foregroundPgrpFromMaster": 1052823
+  },
+  "candidateChecks": {
+    "expectedOutputRendered": true,
+    "modeledWait": true,
+    "controlledPtyIo": true,
+    "sessionPgrp": true,
+    "queuesEmpty": true,
+    "singleThreadCandidate": true,
+    "noPendingSignalCandidate": true
+  },
+  "screenAtCandidate": {
+    "containsExpectedOutput": true,
+    "sample": "\u001b[4mPRINTF\u001b[24m(1)                        User Commands                       \u001b[4mP\r\nRINTF\u001b[24m(1)\r\n\r\n\u001b[1mNAME\u001b[0m\r\n       printf - format and print data\r\n\r\n\u001b[1mSYNOPSIS\u001b[0m\r\n       \u001b[1mprintf \u001b[4m\u001b[22mFORMAT\u001b[24m [\u001b[4mARGUMENT\u001b[24m]...\r\n       \u001b[1mprintf \u001b[4m\u001b[22mOPTION\u001b[0m\r\n\r\n\u001b[1mDESCRIPTION\u001b[0m\r\n       Print ARGUMENT(s) according to FORMAT, or execute according to OPTION:\r\n\r\n       \u001b[1m--help \u001b[22mdisplay this help and exit\r\n\r\n       \u001b[1m--version\u001b[0m\r\n              output version information and exit\r\n\r\n       FORMAT controls the output as in C printf.  Interpreted sequences are:\r\n\r\n       \\\"     double quote\r\n\r\n       \\\\     backslash\r\n\u001b[7m--More--\u001b[27m"
+  },
+  "inputOrResource": {
+    "expect": "process-exit",
+    "file": "man:printf",
+    "base64": "cQ=="
+  },
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "markerSymbolsUsed": false
+  },
+  "decision": "captured"
+}

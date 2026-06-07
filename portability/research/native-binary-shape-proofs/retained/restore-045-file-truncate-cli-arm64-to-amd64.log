@@ -1,0 +1,2 @@
+truncate:2
+SHAPE_RESTORE_OK shape=045-file-truncate-cli target=amd64 result=42

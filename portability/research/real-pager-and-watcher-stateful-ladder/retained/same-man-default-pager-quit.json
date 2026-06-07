@@ -1,0 +1,204 @@
+{
+  "case": "man-default-pager-quit",
+  "adapter": "man-default",
+  "description": "man printf with default pager exits on q",
+  "mode": "same",
+  "role": "same",
+  "hostArch": "x86_64",
+  "binary": {
+    "path": "/usr/bin/man",
+    "versionLine": "man 2.11.2",
+    "packageEvidence": null
+  },
+  "processRoot": {
+    "pid": 3782561,
+    "argv": ["/usr/bin/man", "printf"]
+  },
+  "processTree": [
+    {
+      "pid": 3782561,
+      "state": {
+        "pid": 3782561,
+        "comm": "man",
+        "statusState": "S",
+        "threads": 1,
+        "signalPendingMask": "0000000000000000",
+        "statPpid": 3782560,
+        "statPgrp": 3782561,
+        "statSession": 3782561,
+        "statTtyNr": 34816,
+        "syscall": {
+          "raw": "61 0xffffffff 0x7ffe12e95f44 0x0 0x0 0x5e9ee6bd1910 0x3 0x7ffe12e95f38 0x75d49f879bd3",
+          "parsed": true,
+          "number": 61,
+          "name": "syscall-61",
+          "args": [4294967295, 140729215704900, 0, 0, 104036568996112, 3],
+          "fd": 4294967295
+        }
+      },
+      "fds": [
+        {
+          "fd": 0,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 1,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 2,
+          "target": "/dev/pts/0"
+        }
+      ],
+      "stdioTargets": {
+        "0": "/dev/pts/0",
+        "1": "/dev/pts/0",
+        "2": "/dev/pts/0"
+      },
+      "syscallFdTarget": null,
+      "allStdioOnControlledPty": true,
+      "hasSignalfd": false,
+      "hasRegularAdapterFile": false
+    },
+    {
+      "pid": 3782569,
+      "state": {
+        "pid": 3782569,
+        "comm": "pager",
+        "statusState": "S",
+        "threads": 1,
+        "signalPendingMask": "0000000000000000",
+        "statPpid": 3782561,
+        "statPgrp": 3782561,
+        "statSession": 3782561,
+        "statTtyNr": 34816,
+        "syscall": {
+          "raw": "0 0x3 0x7fff02cda907 0x1 0x24 0x61782cd04238 0x7fff02cda310 0x7fff02cda828 0x752ae3a962ad",
+          "parsed": true,
+          "number": 0,
+          "name": "read",
+          "args": [3, 140733240420615, 1, 36, 107168775815736, 140733240419088],
+          "fd": 3
+        }
+      },
+      "fds": [
+        {
+          "fd": 0,
+          "target": "pipe:[64635349]"
+        },
+        {
+          "fd": 1,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 2,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 3,
+          "target": "/dev/pts/0"
+        }
+      ],
+      "stdioTargets": {
+        "0": "pipe:[64635349]",
+        "1": "/dev/pts/0",
+        "2": "/dev/pts/0"
+      },
+      "syscallFdTarget": "/dev/pts/0",
+      "allStdioOnControlledPty": false,
+      "hasSignalfd": false,
+      "hasRegularAdapterFile": false
+    }
+  ],
+  "candidateProcess": {
+    "pid": 3782569,
+    "state": {
+      "pid": 3782569,
+      "comm": "pager",
+      "statusState": "S",
+      "threads": 1,
+      "signalPendingMask": "0000000000000000",
+      "statPpid": 3782561,
+      "statPgrp": 3782561,
+      "statSession": 3782561,
+      "statTtyNr": 34816,
+      "syscall": {
+        "raw": "0 0x3 0x7fff02cda907 0x1 0x24 0x61782cd04238 0x7fff02cda310 0x7fff02cda828 0x752ae3a962ad",
+        "parsed": true,
+        "number": 0,
+        "name": "read",
+        "args": [3, 140733240420615, 1, 36, 107168775815736, 140733240419088],
+        "fd": 3
+      }
+    },
+    "fds": [
+      {
+        "fd": 0,
+        "target": "pipe:[64635349]"
+      },
+      {
+        "fd": 1,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 2,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 3,
+        "target": "/dev/pts/0"
+      }
+    ],
+    "stdioTargets": {
+      "0": "pipe:[64635349]",
+      "1": "/dev/pts/0",
+      "2": "/dev/pts/0"
+    },
+    "syscallFdTarget": "/dev/pts/0",
+    "allStdioOnControlledPty": false,
+    "hasSignalfd": false,
+    "hasRegularAdapterFile": false
+  },
+  "pty": {
+    "slavePath": "/dev/pts/0",
+    "rows": 24,
+    "cols": 80,
+    "inputQueueBytesOnMaster": 0,
+    "inputQueueBytesOnSlave": {
+      "available": true,
+      "bytes": 0
+    },
+    "foregroundPgrpFromMaster": 3782561
+  },
+  "candidateChecks": {
+    "expectedOutputRendered": true,
+    "modeledWait": true,
+    "controlledPtyIo": true,
+    "sessionPgrp": true,
+    "queuesEmpty": true,
+    "singleThreadCandidate": true,
+    "noPendingSignalCandidate": true
+  },
+  "screenAtCandidate": {
+    "containsExpectedOutput": true,
+    "sample": "\u001b[?1049h\u001b[22;0;0t\u001b[?1h\u001b=\rPRINTF(1)                        User Commands                       PRINTF(1)\u001b[m\r\n\u001b[m\r\n\u001b[1mNAME\u001b[0m\u001b[m\r\n       printf - format and print data\u001b[m\r\n\u001b[m\r\n\u001b[1mSYNOPSIS\u001b[0m\u001b[m\r\n       \u001b[1mprintf\u001b[0m \u001b[4mFORMAT\u001b[24m [\u001b[4mARGUMENT\u001b[24m]...\u001b[m\r\n       \u001b[1mprintf\u001b[0m \u001b[4mOPTION\u001b[24m\u001b[m\r\n\u001b[m\r\n\u001b[1mDESCRIPTION\u001b[0m\u001b[m\r\n       Print ARGUMENT(s) according to FORMAT, or execute according to OPTION:\u001b[m\r\n\u001b[m\r\n       \u001b[1m--help\u001b[0m display this help and exit\u001b[m\r\n\u001b[m\r\n       \u001b[1m--version\u001b[0m\u001b[m\r\n              output version information and exit\u001b[m\r\n\u001b[m\r\n       FORMAT controls the output as in C printf.  Interpreted sequences are:\u001b[m\r\n\u001b[m\r\n       \\\"     double quote\u001b[m\r\n\u001b[m\r\n       \\\\     backslash\u001b[m\r\n\u001b[m\r\n\u001b[7m Manual page printf(1) line 1 (press h for help or q to quit)\u001b[27m\u001b[K"
+  },
+  "inputOrResource": {
+    "expect": "process-exit",
+    "file": "man:printf",
+    "base64": "cQ=="
+  },
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "markerSymbolsUsed": false
+  },
+  "behavior": {
+    "matchedExpectation": true,
+    "processExited": true,
+    "sample": "\r\u001b[K\u001b[?1l\u001b>\u001b[?1049l\u001b[23;0;0t"
+  },
+  "decision": "accepted"
+}

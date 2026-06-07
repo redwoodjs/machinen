@@ -1,0 +1,16 @@
+{
+  "shape": "021-graph-with-shared-node-cli",
+  "decision": "accepted",
+  "supportStage": "4-supported-subset",
+  "supportScope": "declared safe-point graph with shared node alias preservation",
+  "sourceArch": "arm64",
+  "targetArch": "amd64",
+  "facts": {
+    "entrySymbol": "continue_shared_node",
+    "sourcePc": "0xc50ad7ab1990",
+    "sourceSp": "0xfffff6cfab40",
+    "sourceArg0": "0x1000",
+    "targetArgumentRegister": "rdi",
+    "targetStackBytes": 65536
+  }
+}

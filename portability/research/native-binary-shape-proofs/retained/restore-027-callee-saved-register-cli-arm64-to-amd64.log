@@ -1,0 +1,2 @@
+callee:42
+SHAPE_RESTORE_OK shape=027-callee-saved-register-cli target=amd64 result=42

@@ -1,0 +1,21 @@
+{
+  "case": "orphan-child-refusal",
+  "kind": "refusal",
+  "description": "orphan child process refused",
+  "mode": "target",
+  "role": "target",
+  "hostArch": "x86_64",
+  "pid": 3810566,
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "kernelObjectIdentityPreserved": false
+  },
+  "decision": "refused",
+  "refusal": {
+    "reason": "orphan-child-risk",
+    "parentExited": true
+  }
+}

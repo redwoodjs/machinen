@@ -1,0 +1,317 @@
+{
+  "kind": "machinen.research.real-less-same-arch-resume.capture",
+  "version": 1,
+  "decision": "accepted",
+  "hostArch": "x86_64",
+  "knownLessBuild": {
+    "available": true,
+    "path": "/mnt/shared-500G/machinen-real-less-same-arch-resume-20260605T224925Z-63951/retained/known-less-build.json",
+    "report": {
+      "kind": "machinen.research.real-less-detector.known-less-build",
+      "version": 1,
+      "source": {
+        "url": "https://www.greenwoodsoftware.com/less/less-643.tar.gz",
+        "sha256": "2911b5432c836fa084c8a2e68f6cd6312372c026a58faaa98862731c8b6052e8",
+        "directory": "less-643"
+      },
+      "binary": {
+        "path": "/mnt/shared-500G/machinen-real-less-same-arch-resume-20260605T224925Z-63951/known-less/prefix/bin/less",
+        "sha256": "7ac432ea4c42a282d56aa85bcf07a35e59c5cf869dd83c8ab04d5b7d6efad449",
+        "versionLine": "less 643 (POSIX regular expressions)",
+        "buildId": {
+          "available": true,
+          "line": "Build ID: a68a8ce6c39eb3d2dd43bf16ced9dc5b20a95d11"
+        }
+      },
+      "build": {
+        "cflags": "-g -O0 -fno-omit-frame-pointer",
+        "ldflags": "-Wl,--build-id",
+        "debugSymbolsRequired": true,
+        "markerSymbolsRequired": [
+          "machinen_less_ready_before_input_marker",
+          "machinen_less_ready_before_input_gate"
+        ],
+        "dependencies": {
+          "localNcursesBuilt": false
+        }
+      },
+      "marker": {
+        "symbol": "machinen_less_ready_before_input_marker",
+        "gateSymbol": "machinen_less_ready_before_input_gate",
+        "environment": "MACHINEN_LESS_SPIN_AT_READY=1",
+        "location": "command loop after prompt rendering and before getcc/read input",
+        "behavior": "spins in target-native less code at a source-level safe point for detector evidence only",
+        "symbols": {
+          "available": true,
+          "lines": [
+            "000000000000d179 T machinen_less_ready_before_input_marker",
+            "000000000003b350 B machinen_less_ready_before_input_gate"
+          ]
+        }
+      },
+      "status": "passed"
+    }
+  },
+  "binary": {
+    "path": "/mnt/shared-500G/machinen-real-less-same-arch-resume-20260605T224925Z-63951/known-less/prefix/bin/less",
+    "versionLine": "less 643 (POSIX regular expressions)",
+    "buildId": {
+      "available": true,
+      "line": "Build ID: a68a8ce6c39eb3d2dd43bf16ced9dc5b20a95d11"
+    }
+  },
+  "process": {
+    "pid": 3479457,
+    "ptraceStop": {
+      "request": "PTRACE_ATTACH",
+      "waitStatus": {
+        "raw": 4991,
+        "stopped": true,
+        "stopSignal": 19
+      }
+    },
+    "registers": {
+      "r15": 133189355343904,
+      "r14": 105661504167368,
+      "r13": 140728848290128,
+      "r12": 0,
+      "rbp": 140728848289664,
+      "rbx": 140728848290104,
+      "r11": 514,
+      "r10": 36,
+      "r9": 0,
+      "r8": 105661504189688,
+      "rax": 0,
+      "rcx": 4261412864,
+      "rdx": 25,
+      "rsi": 105661504105938,
+      "rdi": 140728848293749,
+      "orig_rax": 18446744073709551615,
+      "rip": 105661504004504,
+      "cs": 51,
+      "eflags": 582,
+      "rsp": 140728848289664,
+      "ss": 43,
+      "fs_base": 133189352884032,
+      "gs_base": 0,
+      "ds": 0,
+      "es": 0,
+      "fs": 0,
+      "gs": 0
+    },
+    "pc": 105661504004504,
+    "sp": 140728848289664,
+    "fds": [
+      {
+        "fd": 0,
+        "target": "/dev/pts/1"
+      },
+      {
+        "fd": 1,
+        "target": "/dev/pts/1"
+      },
+      {
+        "fd": 2,
+        "target": "/dev/pts/1"
+      },
+      {
+        "fd": 3,
+        "target": "/dev/pts/1"
+      },
+      {
+        "fd": 4,
+        "target": "/tmp/machinen-real-less-resume-vt5i4qjp/less-input.txt"
+      }
+    ]
+  },
+  "symbols": {
+    "marker": {
+      "name": "machinen_less_ready_before_input_marker",
+      "linkAddress": 53625,
+      "runtimeStart": 105661504004473,
+      "runtimeEnd": 105661504004511
+    },
+    "gate": {
+      "name": "machinen_less_ready_before_input_gate",
+      "linkAddress": 242512,
+      "runtimeAddress": 105661504193360
+    },
+    "pcInMarkerRange": true
+  },
+  "mapsSummary": [
+    {
+      "start": 105661503950848,
+      "end": 105661503971328,
+      "perms": "r--p",
+      "offset": 0,
+      "dev": "fc:0f",
+      "inode": "27263151",
+      "path": "/mnt/shared-500G/machinen-real-less-same-arch-resume-20260605T224925Z-63951/known-less/prefix/bin/less"
+    },
+    {
+      "start": 105661503971328,
+      "end": 105661504102400,
+      "perms": "r-xp",
+      "offset": 20480,
+      "dev": "fc:0f",
+      "inode": "27263151",
+      "path": "/mnt/shared-500G/machinen-real-less-same-arch-resume-20260605T224925Z-63951/known-less/prefix/bin/less"
+    },
+    {
+      "start": 105661504102400,
+      "end": 105661504163840,
+      "perms": "r--p",
+      "offset": 151552,
+      "dev": "fc:0f",
+      "inode": "27263151",
+      "path": "/mnt/shared-500G/machinen-real-less-same-arch-resume-20260605T224925Z-63951/known-less/prefix/bin/less"
+    },
+    {
+      "start": 105661504163840,
+      "end": 105661504167936,
+      "perms": "r--p",
+      "offset": 208896,
+      "dev": "fc:0f",
+      "inode": "27263151",
+      "path": "/mnt/shared-500G/machinen-real-less-same-arch-resume-20260605T224925Z-63951/known-less/prefix/bin/less"
+    },
+    {
+      "start": 105661504167936,
+      "end": 105661504188416,
+      "perms": "rw-p",
+      "offset": 212992,
+      "dev": "fc:0f",
+      "inode": "27263151",
+      "path": "/mnt/shared-500G/machinen-real-less-same-arch-resume-20260605T224925Z-63951/known-less/prefix/bin/less"
+    },
+    {
+      "start": 133189352894464,
+      "end": 133189353050112,
+      "perms": "r--p",
+      "offset": 0,
+      "dev": "fc:01",
+      "inode": "3670097",
+      "path": "/usr/lib/x86_64-linux-gnu/libc.so.6"
+    },
+    {
+      "start": 133189353050112,
+      "end": 133189354450944,
+      "perms": "r-xp",
+      "offset": 155648,
+      "dev": "fc:01",
+      "inode": "3670097",
+      "path": "/usr/lib/x86_64-linux-gnu/libc.so.6"
+    },
+    {
+      "start": 133189354450944,
+      "end": 133189354790912,
+      "perms": "r--p",
+      "offset": 1556480,
+      "dev": "fc:01",
+      "inode": "3670097",
+      "path": "/usr/lib/x86_64-linux-gnu/libc.so.6"
+    },
+    {
+      "start": 133189354790912,
+      "end": 133189354807296,
+      "perms": "r--p",
+      "offset": 1896448,
+      "dev": "fc:01",
+      "inode": "3670097",
+      "path": "/usr/lib/x86_64-linux-gnu/libc.so.6"
+    },
+    {
+      "start": 133189354807296,
+      "end": 133189354815488,
+      "perms": "rw-p",
+      "offset": 1912832,
+      "dev": "fc:01",
+      "inode": "3670097",
+      "path": "/usr/lib/x86_64-linux-gnu/libc.so.6"
+    },
+    {
+      "start": 133189355134976,
+      "end": 133189355139072,
+      "perms": "r--p",
+      "offset": 0,
+      "dev": "fc:01",
+      "inode": "3670094",
+      "path": "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2"
+    },
+    {
+      "start": 133189355139072,
+      "end": 133189355294720,
+      "perms": "r-xp",
+      "offset": 4096,
+      "dev": "fc:01",
+      "inode": "3670094",
+      "path": "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2"
+    },
+    {
+      "start": 133189355294720,
+      "end": 133189355335680,
+      "perms": "r--p",
+      "offset": 159744,
+      "dev": "fc:01",
+      "inode": "3670094",
+      "path": "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2"
+    },
+    {
+      "start": 133189355335680,
+      "end": 133189355343872,
+      "perms": "r--p",
+      "offset": 200704,
+      "dev": "fc:01",
+      "inode": "3670094",
+      "path": "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2"
+    },
+    {
+      "start": 133189355343872,
+      "end": 133189355352064,
+      "perms": "rw-p",
+      "offset": 208896,
+      "dev": "fc:01",
+      "inode": "3670094",
+      "path": "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2"
+    }
+  ],
+  "regularFile": {
+    "path": "/tmp/machinen-real-less-resume-vt5i4qjp/less-input.txt",
+    "device": 64513,
+    "inode": 5811615,
+    "size": 1071,
+    "mtimeNs": 1780699769949466927,
+    "mode": "0o100644"
+  },
+  "pty": {
+    "slavePath": "/dev/pts/1",
+    "rows": 24,
+    "cols": 80,
+    "inputQueueBytesBeforeResume": 0
+  },
+  "screenBeforeResume": {
+    "containsFirstPage": true,
+    "sample": "\u001b[?1049h\u001b[22;0;0t\u001b[24;1H\u001b[?1h\u001b=\rline-001\r\nline-002\r\nline-003\r\nline-004\r\nline-005\r\nline-006\r\nline-007\r\nline-008\r\nline-009\r\nline-010\r\nline-011\r\nline-012\r\nline-013\r\nline-014\r\nline-015\r\nline-016\r\nline-017\r\nline-018\r\nline-019\r\nline-020\r\nline-021\r\nline-022\r\nline-023\r\n\u001b[7m/tmp/machinen-real-less-resume-vt5i4qjp/less-input.txt\u001b[27m\u001b[K"
+  },
+  "resume": {
+    "gateWrite": {
+      "alignedAddress": 105661504193360,
+      "oldWord": 0,
+      "newWord": 1,
+      "writtenGateValue": 1
+    },
+    "detach": "PTRACE_DETACH",
+    "injectedKey": "SPACE"
+  },
+  "screenAfterResume": {
+    "containsExpectedNextPage": true,
+    "sample": "\r\u001b[Kline-024\r\nline-025\r\nline-026\r\nline-027\r\nline-028\r\nline-029\r\nline-030\r\nline-031\r\nline-032\r\nline-033\r\nline-034\r\nline-035\r\nline-036\r\nline-037\r\nline-038\r\nline-039\r\nline-040\r\nline-041\r\nline-042\r\nline-043\r\nline-044\r\nline-045\r\nline-046\r\n:\u001b[K"
+  },
+  "successAssertion": "marker PC verified and SPACE advances to expected next page",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false
+  }
+}

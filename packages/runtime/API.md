@@ -842,6 +842,25 @@
 - [`isProductLevel4PingSocketBundle`](#isproductlevel4pingsocketbundle)
 - [`restoreProductLevel4PingSocketSnapshot`](#restoreproductlevel4pingsocketsnapshot)
 
+### Move PID dependency graph
+
+- [`MovePidGraphCaptureOptions`](#movepidgraphcaptureoptions)
+- [`MovePidGraphProcess`](#movepidgraphprocess)
+- [`MovePidGraphThread`](#movepidgraphthread)
+- [`MovePidGraphSyscall`](#movepidgraphsyscall)
+- [`MovePidGraphFd`](#movepidgraphfd)
+- [`MovePidGraphSocket`](#movepidgraphsocket)
+- [`MovePidGraphDependency`](#movepidgraphdependency)
+- [`MovePidGraphRefusal`](#movepidgraphrefusal)
+- [`MovePidGraphAdapterCandidate`](#movepidgraphadaptercandidate)
+- [`MovePidDependencyGraph`](#movepiddependencygraph)
+- [`MovePidGraphClassification`](#movepidgraphclassification)
+- [`MovePidGraphObservationConsistency`](#movepidgraphobservationconsistency)
+- [`MovePidGraphDecision`](#movepidgraphdecision)
+- [`MOVE_PID_GRAPH_KIND`](#move_pid_graph_kind)
+- [`captureMovePidDependencyGraph`](#capturemovepiddependencygraph)
+- [`classifyMovePidDependencyGraph`](#classifymovepiddependencygraph)
+
 ### Product selected native process gate
 
 - [`ProductSelectedNativeError`](#productselectednativeerror)
@@ -5227,6 +5246,352 @@ Size in bytes the file was allocated at.
 
 ***
 
+### MovePidGraphCaptureOptions
+
+#### Properties
+
+##### pid
+
+> **pid**: `number`
+
+##### procRoot?
+
+> `optional` **procRoot?**: `string`
+
+##### observationConsistency?
+
+> `optional` **observationConsistency?**: [`MovePidGraphObservationConsistency`](#movepidgraphobservationconsistency)
+
+***
+
+### MovePidGraphProcess
+
+#### Properties
+
+##### pid
+
+> **pid**: `number`
+
+##### ppid
+
+> **ppid**: `number`
+
+##### name
+
+> **name**: `string`
+
+##### state
+
+> **state**: `string`
+
+##### tracerPid
+
+> **tracerPid**: `number`
+
+##### threadsDeclared
+
+> **threadsDeclared**: `number`
+
+##### exe
+
+> **exe**: `string`
+
+##### cwd
+
+> **cwd**: `string`
+
+##### argv
+
+> **argv**: `string`[]
+
+##### envPolicy
+
+> **envPolicy**: `"names-only"`
+
+##### envNames
+
+> **envNames**: `string`[]
+
+##### namespaces
+
+> **namespaces**: `Record`\<`string`, `string`\>
+
+***
+
+### MovePidGraphThread
+
+#### Properties
+
+##### tid
+
+> **tid**: `number`
+
+##### name
+
+> **name**: `string`
+
+##### state
+
+> **state**: `string`
+
+##### syscall
+
+> **syscall**: [`MovePidGraphSyscall`](#movepidgraphsyscall)
+
+##### wchan
+
+> **wchan**: `string`
+
+***
+
+### MovePidGraphSyscall
+
+#### Properties
+
+##### raw
+
+> **raw**: `string`
+
+##### state
+
+> **state**: `"outside-syscall"` \| `"inside-syscall"` \| `"unknown"`
+
+##### number
+
+> **number**: `number`
+
+##### args
+
+> **args**: `string`[]
+
+***
+
+### MovePidGraphFd
+
+#### Properties
+
+##### fd
+
+> **fd**: `number`
+
+##### target
+
+> **target**: `string`
+
+##### kind
+
+> **kind**: `"file"` \| `"pipe"` \| `"socket"` \| `"pty"` \| `"unknown"` \| `"anon"`
+
+##### flags
+
+> **flags**: `string`
+
+##### pos
+
+> **pos**: `number`
+
+##### inode
+
+> **inode**: `string`
+
+##### anonKind
+
+> **anonKind**: `string`
+
+##### metadata
+
+> **metadata**: `Record`\<`string`, `string`\>
+
+##### dependencyId
+
+> **dependencyId**: `string`
+
+***
+
+### MovePidGraphSocket
+
+#### Properties
+
+##### inode
+
+> **inode**: `string`
+
+##### table
+
+> **table**: `"raw"` \| `"icmp"` \| `"tcp"` \| `"tcp6"` \| `"udp"` \| `"udp6"` \| `"raw6"` \| `"icmp6"` \| `"unix"`
+
+##### local
+
+> **local**: `string`
+
+##### remote
+
+> **remote**: `string`
+
+##### state
+
+> **state**: `string`
+
+##### txQueueBytes
+
+> **txQueueBytes**: `number`
+
+##### rxQueueBytes
+
+> **rxQueueBytes**: `number`
+
+##### protocol
+
+> **protocol**: `"unknown"` \| `"raw"` \| `"ping-dgram-icmp"` \| `"raw-icmp"` \| `"tcp"` \| `"udp"` \| `"unix"`
+
+***
+
+### MovePidGraphDependency
+
+#### Properties
+
+##### id
+
+> **id**: `string`
+
+##### kind
+
+> **kind**: `"namespace"` \| `"file"` \| `"fd"` \| `"pipe"` \| `"socket"` \| `"pty"` \| `"process"` \| `"thread"`
+
+##### ownedByPid
+
+> **ownedByPid**: `boolean`
+
+##### reason
+
+> **reason**: `string`
+
+***
+
+### MovePidGraphRefusal
+
+#### Properties
+
+##### code
+
+> **code**: `string`
+
+##### message
+
+> **message**: `string`
+
+##### evidence?
+
+> `optional` **evidence?**: `Record`\<`string`, `unknown`\>
+
+***
+
+### MovePidGraphAdapterCandidate
+
+#### Properties
+
+##### adapter
+
+> **adapter**: `string`
+
+##### confidence
+
+> **confidence**: `"candidate"` \| `"detected"`
+
+##### reason
+
+> **reason**: `string`
+
+***
+
+### MovePidDependencyGraph
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.move.guest-pid-dependency-graph"`
+
+##### version
+
+> **version**: `1`
+
+##### pid
+
+> **pid**: `number`
+
+##### observation
+
+> **observation**: `object`
+
+###### source
+
+> **source**: `"guest-agent-procfs"`
+
+###### consistency
+
+> **consistency**: [`MovePidGraphObservationConsistency`](#movepidgraphobservationconsistency)
+
+###### procRoot
+
+> **procRoot**: `string`
+
+##### process
+
+> **process**: [`MovePidGraphProcess`](#movepidgraphprocess)
+
+##### threads
+
+> **threads**: [`MovePidGraphThread`](#movepidgraphthread)[]
+
+##### fds
+
+> **fds**: [`MovePidGraphFd`](#movepidgraphfd)[]
+
+##### sockets
+
+> **sockets**: [`MovePidGraphSocket`](#movepidgraphsocket)[]
+
+##### dependencies
+
+> **dependencies**: [`MovePidGraphDependency`](#movepidgraphdependency)[]
+
+##### refusals
+
+> **refusals**: [`MovePidGraphRefusal`](#movepidgraphrefusal)[]
+
+##### adapterCandidates
+
+> **adapterCandidates**: [`MovePidGraphAdapterCandidate`](#movepidgraphadaptercandidate)[]
+
+##### decision
+
+> **decision**: [`MovePidGraphDecision`](#movepidgraphdecision)
+
+***
+
+### MovePidGraphClassification
+
+#### Properties
+
+##### decision
+
+> **decision**: [`MovePidGraphDecision`](#movepidgraphdecision)
+
+##### shapeId
+
+> **shapeId**: `string`
+
+##### reason
+
+> **reason**: `string`
+
+##### graph
+
+> **graph**: [`MovePidDependencyGraph`](#movepiddependencygraph)
+
+***
+
 ### SandboxEntry
 
 #### Properties
@@ -7760,7 +8125,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`id`](#id-4)
+[`NativeCodeModule`](#nativecodemodule).[`id`](#id-5)
 
 ##### logicalName
 
@@ -7792,7 +8157,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-27)
+[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-30)
 
 ##### buildId
 
@@ -7868,7 +8233,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`id`](#id-4)
+[`NativeCodeModule`](#nativecodemodule).[`id`](#id-5)
 
 ##### logicalName
 
@@ -7900,7 +8265,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-27)
+[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-30)
 
 ##### buildId
 
@@ -8682,7 +9047,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeReturnChainFrame`](#nativereturnchainframe).[`id`](#id-13)
+[`NativeReturnChainFrame`](#nativereturnchainframe).[`id`](#id-14)
 
 ##### unwindId
 
@@ -9695,7 +10060,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-42)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-45)
 
 ##### targetArch
 
@@ -9837,7 +10202,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Overrides
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`syscall`](#syscall-8)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`syscall`](#syscall-9)
 
 ##### embeddedData
 
@@ -10283,7 +10648,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-42)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-45)
 
 ##### targetArch
 
@@ -10425,7 +10790,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Overrides
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`syscall`](#syscall-8)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`syscall`](#syscall-9)
 
 ##### embeddedData
 
@@ -12287,7 +12652,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`evidence`](#evidence-5)
+[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`evidence`](#evidence-6)
 
 ##### kind
 
@@ -12861,7 +13226,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`code`](#code-20)
+[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`code`](#code-21)
 
 ##### message
 
@@ -12869,7 +13234,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`message`](#message-11)
+[`NodeLevel5ProofCompositionRefusal`](#nodelevel5proofcompositionrefusal).[`message`](#message-12)
 
 ##### migrationCompleted
 
@@ -15026,7 +15391,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`evidence`](#evidence-12)
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`evidence`](#evidence-13)
 
 ##### kind
 
@@ -15193,7 +15558,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### productSupportLevel?
 
-> `optional` **productSupportLevel?**: `"level-4-kernel-resource-reconstruction"` \| `"level-0-fail-closed-discovery"` \| `"level-5-cross-arch-process-continuation"` \| `"level-1-semantic-restart"` \| `"level-2-semantic-continuation"` \| `"level-3-runtime-aware-continuation"`
+> `optional` **productSupportLevel?**: `"level-5-cross-arch-process-continuation"` \| `"deprecated-cross-isa-level"`
 
 ##### observableStateDecisions?
 
@@ -15227,11 +15592,11 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### productStatus
 
-> **productStatus**: `"implemented-product-support"` \| `"stable-product-refusal"` \| `"proof-only-fixture"` \| `"obsolete-invalid-claim"`
+> **productStatus**: `"implemented-product-support"` \| `"deprecated-legacy-support"` \| `"stable-product-refusal"` \| `"proof-only-fixture"` \| `"obsolete-invalid-claim"`
 
 ##### supportLevel
 
-> **supportLevel**: `"level-4-kernel-resource-reconstruction"` \| `"level-0-fail-closed-discovery"` \| `"level-5-cross-arch-process-continuation"` \| `"level-1-semantic-restart"` \| `"level-2-semantic-continuation"` \| `"level-3-runtime-aware-continuation"`
+> **supportLevel**: `"level-5-cross-arch-process-continuation"` \| `"deprecated-cross-isa-level"`
 
 ##### supportLevelName
 
@@ -15341,6 +15706,10 @@ pids that aren't machinen-managed; those fall back to ps.
 
 > **implementedProductSupport**: `number`
 
+##### deprecatedLegacySupport
+
+> **deprecatedLegacySupport**: `number`
+
 ##### stableProductRefusals
 
 > **stableProductRefusals**: `number`
@@ -15361,7 +15730,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### status?
 
-> `optional` **status?**: `"implemented-product-support"` \| `"stable-product-refusal"` \| `"proof-only-fixture"` \| `"obsolete-invalid-claim"`
+> `optional` **status?**: `"implemented-product-support"` \| `"deprecated-legacy-support"` \| `"stable-product-refusal"` \| `"proof-only-fixture"` \| `"obsolete-invalid-claim"`
 
 ##### family?
 
@@ -15385,7 +15754,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### supportLevel?
 
-> `optional` **supportLevel?**: `"level-4-kernel-resource-reconstruction"` \| `"level-0-fail-closed-discovery"` \| `"level-5-cross-arch-process-continuation"` \| `"level-1-semantic-restart"` \| `"level-2-semantic-continuation"` \| `"level-3-runtime-aware-continuation"`
+> `optional` **supportLevel?**: `"level-5-cross-arch-process-continuation"` \| `"deprecated-cross-isa-level"`
 
 ***
 
@@ -19542,7 +19911,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`evidence`](#evidence-22)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`evidence`](#evidence-23)
 
 ##### kind
 
@@ -21163,7 +21532,7 @@ kicks in: `<sourceName>/<fork.pid>`.
 
 ###### Overrides
 
-[`RestoreOptions`](#restoreoptions).[`name`](#name-22)
+[`RestoreOptions`](#restoreoptions).[`name`](#name-24)
 
 ##### portForward?
 
@@ -21482,7 +21851,7 @@ Working directory for the VMM (for finding fixture files).
 
 ###### Inherited from
 
-[`BootOptions`](#bootoptions).[`cwd`](#cwd-3)
+[`BootOptions`](#bootoptions).[`cwd`](#cwd-4)
 
 ##### args?
 
@@ -21492,7 +21861,7 @@ Extra argv for the VMM.
 
 ###### Inherited from
 
-[`BootOptions`](#bootoptions).[`args`](#args-2)
+[`BootOptions`](#bootoptions).[`args`](#args-3)
 
 ##### kernel?
 
@@ -22300,7 +22669,7 @@ Working directory for the VMM (for finding fixture files).
 
 ###### Inherited from
 
-[`BootOptions`](#bootoptions).[`cwd`](#cwd-3)
+[`BootOptions`](#bootoptions).[`cwd`](#cwd-4)
 
 ##### args?
 
@@ -22310,7 +22679,7 @@ Extra argv for the VMM.
 
 ###### Inherited from
 
-[`BootOptions`](#bootoptions).[`args`](#args-2)
+[`BootOptions`](#bootoptions).[`args`](#args-3)
 
 ##### kernel?
 
@@ -23545,6 +23914,18 @@ Poll interval in ms while retrying. Default 250.
 #### Returns
 
 `void`
+
+***
+
+### MovePidGraphObservationConsistency
+
+> **MovePidGraphObservationConsistency** = `"live-procfs"` \| `"paused-vm-atomic"`
+
+***
+
+### MovePidGraphDecision
+
+> **MovePidGraphDecision** = `"accepted"` \| `"refused"` \| `"inaccessible"`
 
 ***
 
@@ -30588,6 +30969,12 @@ loops; anything looser stops being a meaningful gate.
 
 ***
 
+### MOVE\_PID\_GRAPH\_KIND
+
+> `const` **MOVE\_PID\_GRAPH\_KIND**: `"machinen.move.guest-pid-dependency-graph"`
+
+***
+
 ### NATIVE\_MACHINE\_RESTORE\_DESCRIPTOR\_FORMAT\_VERSION
 
 > `const` **NATIVE\_MACHINE\_RESTORE\_DESCRIPTOR\_FORMAT\_VERSION**: `1` = `1`
@@ -32386,13 +32773,13 @@ loops; anything looser stops being a meaningful gate.
 
 ### productSupportLevels
 
-> `const` **productSupportLevels**: readonly \[`"level-0-fail-closed-discovery"`, `"level-1-semantic-restart"`, `"level-2-semantic-continuation"`, `"level-3-runtime-aware-continuation"`, `"level-4-kernel-resource-reconstruction"`, `"level-5-cross-arch-process-continuation"`\]
+> `const` **productSupportLevels**: readonly \[`"deprecated-cross-isa-level"`, `"level-5-cross-arch-process-continuation"`\]
 
 ***
 
 ### productClaimStatuses
 
-> `const` **productClaimStatuses**: readonly \[`"implemented-product-support"`, `"stable-product-refusal"`, `"proof-only-fixture"`, `"obsolete-invalid-claim"`\]
+> `const` **productClaimStatuses**: readonly \[`"implemented-product-support"`, `"deprecated-legacy-support"`, `"stable-product-refusal"`, `"proof-only-fixture"`, `"obsolete-invalid-claim"`\]
 
 ***
 
@@ -33879,6 +34266,38 @@ available.
 #### Returns
 
 `string`
+
+***
+
+### captureMovePidDependencyGraph()
+
+> **captureMovePidDependencyGraph**(`options`): [`MovePidDependencyGraph`](#movepiddependencygraph)
+
+#### Parameters
+
+##### options
+
+[`MovePidGraphCaptureOptions`](#movepidgraphcaptureoptions)
+
+#### Returns
+
+[`MovePidDependencyGraph`](#movepiddependencygraph)
+
+***
+
+### classifyMovePidDependencyGraph()
+
+> **classifyMovePidDependencyGraph**(`graph`): [`MovePidGraphClassification`](#movepidgraphclassification)
+
+#### Parameters
+
+##### graph
+
+[`MovePidDependencyGraph`](#movepiddependencygraph)
+
+#### Returns
+
+[`MovePidGraphClassification`](#movepidgraphclassification)
 
 ***
 

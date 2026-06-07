@@ -11,6 +11,7 @@
 //   machinen attach <name|pid> [--shell <cmd>]   # PTY shell
 //   machinen repl   <name|pid>                   # per-line exec
 //   machinen capture postgres --out <dir> --dump <file> ...
+//   machinen move scan|save|load ...
 //   machinen support [--json] [--family <family>] [--level <support-level>]
 //   machinen completion <bash|zsh|fish>
 //   machinen --version | -h | --help
@@ -23,6 +24,7 @@ import {
   lstatSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   renameSync,
   rmSync,
@@ -58,6 +60,8 @@ import {
   buildNodeLevel5AppSupportMatrix,
   buildNodeLevel5FrameworkCapabilityMatrix,
   buildProductClaimRegistry,
+  captureMovePidDependencyGraph,
+  classifyMovePidDependencyGraph,
   evaluateNodeLevel5FrameworkCapabilityClaimReady,
   evaluateNodeLevel5FrameworkCapabilityReadiness,
   createProductLevel4EventfdSnapshot,
@@ -8216,7 +8220,7 @@ const BASH_COMPLETION = `# machinen bash completion — source this from ~/.bash
 _machinen_completion() {
   local cur prev words cword
   _init_completion || return
-  local cmds="boot capture support restore install list ls ps exec snapshot fork attach repl gc stop feedback agent-context completion --version --help -h -v"
+  local cmds="boot capture move support restore install list ls ps exec snapshot fork attach repl gc stop feedback agent-context completion --version --help -h -v"
   if [[ \${cword} -eq 1 ]]; then
     COMPREPLY=( $(compgen -W "\${cmds}" -- "\${cur}") )
     return
@@ -8244,7 +8248,7 @@ const ZSH_COMPLETION = `# machinen zsh completion — source this from ~/.zshrc,
 #   eval "$(machinen completion zsh)"
 _machinen() {
   local -a cmds
-  cmds=(boot capture support restore install list ls ps exec snapshot fork attach repl gc stop feedback agent-context completion)
+  cmds=(boot capture move support restore install list ls ps exec snapshot fork attach repl gc stop feedback agent-context completion)
   if (( CURRENT == 2 )); then
     _describe 'command' cmds
     return
@@ -8270,7 +8274,7 @@ compdef _machinen machinen mn
 
 const FISH_COMPLETION = `# machinen fish completion — source this from your config.fish, or:
 #   machinen completion fish | source
-set -l cmds boot capture support restore install list ls ps exec snapshot fork attach repl gc stop feedback agent-context completion
+set -l cmds boot capture move support restore install list ls ps exec snapshot fork attach repl gc stop feedback agent-context completion
 for bin in machinen mn
   complete -c $bin -f -n 'not __fish_seen_subcommand_from $cmds' -a "$cmds"
   for sub in exec snapshot fork attach repl stop
@@ -8281,6 +8285,502 @@ for bin in machinen mn
   complete -c $bin -f -n "__fish_seen_subcommand_from gc" -l dry-run
 end
 `;
+
+// ------------------------------------------------------------
+// Move descriptors
+// ------------------------------------------------------------
+
+const MOVE_DESCRIPTOR_KIND = "machinen.move.descriptor";
+
+interface MoveDescriptor {
+  kind: typeof MOVE_DESCRIPTOR_KIND;
+  version: 1;
+  pid: number;
+  shapeId: string;
+  architectureNeutral: true;
+  claimGuard: Record<string, false>;
+  memory: {
+    mode: "semantic-resource-descriptor-only";
+    rawHeapCaptured: false;
+    rawStackCaptured: false;
+    rawRegistersCaptured: false;
+    rawHeapStackRegistersCaptured: false;
+  };
+  materializer: {
+    strategy: "target-native-reconstruction";
+    rawProcessMemoryMaterialization: false;
+    sourceIsaEmulationRequired: false;
+    kernelSocketIdentityPreserved: false;
+  };
+  resources: Record<string, unknown>;
+}
+
+interface MoveClassification {
+  pid: number;
+  decision: "accepted" | "refused" | "inaccessible";
+  shapeId: string;
+  reason: string;
+  descriptor?: MoveDescriptor;
+  evidence?: unknown;
+}
+
+function moveClaimGuard(): Record<string, false> {
+  return {
+    arbitraryProcessRestoreClaimed: false,
+    rawVmReplayUsed: false,
+    sourceIsaEmulationUsed: false,
+    metadataOnlySuccess: false,
+    rawHeapStackRegisterRestore: false,
+    kernelSocketIdentityPreserved: false,
+  };
+}
+
+// fallow-ignore-next-line complexity
+function cmdMove(args: string[]): number {
+  const { json, rest: withoutJson } = consumeJsonFlag(args);
+  const { dryRun, rest } = consumeDryRunFlag(withoutJson);
+  const [sub, ...subArgs] = rest;
+  if (sub === "scan") {
+    return cmdMoveScan(subArgs, { json });
+  }
+  if (sub === "save") {
+    return cmdMoveSave(subArgs, { json, dryRun });
+  }
+  if (sub === "load") {
+    return cmdMoveLoad(subArgs, { json, dryRun });
+  }
+  return moveRefusal(json, "move-unknown-command", "usage: machinen move <scan|save|load> ...");
+}
+
+// fallow-ignore-next-line complexity
+interface MoveIssueOptions {
+  create: boolean;
+  repo: string;
+}
+
+interface ParsedMoveSaveArgs {
+  pidText: string;
+  out: string;
+  issue: MoveIssueOptions;
+}
+
+interface MoveIssueResult {
+  attempted: boolean;
+  dryRun: boolean;
+  repo: string;
+  title: string;
+  url: string | null;
+  error: string | null;
+  bodyPreview?: string;
+}
+
+// fallow-ignore-next-line complexity
+function cmdMoveScan(args: string[], opts: { json: boolean }): number {
+  const all = args.length === 0 || (args.length === 1 && args[0] === "--all");
+  if (!all) {
+    return moveRefusal(opts.json, "move-scan-unknown-argument", `unknown argument: ${args[0]}`);
+  }
+  const pids = visibleProcPids();
+  const rows = pids.map((pid) => classifyMovePid(pid));
+  const report = {
+    kind: "machinen.move.scan-report",
+    version: 1,
+    totalPids: rows.length,
+    accepted: rows.filter((row) => row.decision === "accepted").length,
+    refused: rows.filter((row) => row.decision === "refused").length,
+    inaccessible: rows.filter((row) => row.decision === "inaccessible").length,
+    descriptors: rows.filter((row) => row.descriptor).map((row) => row.descriptor),
+    rows,
+    claimGuard: moveClaimGuard(),
+  };
+  if (opts.json) {
+    emitJson(report);
+  } else {
+    process.stdout.write(
+      `move scan: ${report.totalPids} pids, ${report.accepted} accepted, ${report.refused} refused, ${report.inaccessible} inaccessible\n`,
+    );
+  }
+  return 0;
+}
+
+// fallow-ignore-next-line complexity
+function parseMoveSaveArgs(args: string[]): ParsedMoveSaveArgs | null {
+  const positionals: string[] = [];
+  let createIssue = false;
+  let repo = "redwoodjs/machinen";
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--issue") {
+      createIssue = true;
+    } else if (arg === "--issue-repo") {
+      const value = args[index + 1];
+      if (!value) {
+        return null;
+      }
+      repo = value;
+      index += 1;
+    } else if (arg?.startsWith("--issue-repo=")) {
+      repo = arg.slice("--issue-repo=".length);
+    } else if (arg?.startsWith("-")) {
+      return null;
+    } else if (arg) {
+      positionals.push(arg);
+    }
+  }
+  if (positionals.length !== 2 || !/^[-\w]+\/[.\w-]+$/.test(repo)) {
+    return null;
+  }
+  return {
+    pidText: positionals[0] ?? "",
+    out: positionals[1] ?? "",
+    issue: { create: createIssue, repo },
+  };
+}
+
+// fallow-ignore-next-line complexity
+function cmdMoveSave(args: string[], opts: { json: boolean; dryRun: boolean }): number {
+  const parsed = parseMoveSaveArgs(args);
+  if (!parsed) {
+    return moveRefusal(
+      opts.json,
+      "move-save-usage",
+      "usage: machinen move save <pid> <out> [--issue] [--issue-repo <owner/repo>]",
+    );
+  }
+  const { pidText, out, issue } = parsed;
+  const pid = Number(pidText);
+  if (!Number.isInteger(pid) || pid <= 0) {
+    return moveRefusal(opts.json, "move-save-invalid-pid", `invalid pid: ${pidText}`);
+  }
+  const row = classifyMovePid(pid);
+  if (!row.descriptor) {
+    const issueResult = issue.create
+      ? createMoveRefusalIssue(row, { repo: issue.repo, dryRun: opts.dryRun })
+      : undefined;
+    return moveRefusal(opts.json, row.shapeId, row.reason, row, issueResult);
+  }
+  if (!opts.dryRun) {
+    writeFileSync(out, `${JSON.stringify(row.descriptor, null, 2)}\n`);
+  }
+  const result = {
+    kind: "machinen.move.save",
+    version: 1,
+    decision: "accepted",
+    out,
+    dryRun: opts.dryRun,
+    descriptor: row.descriptor,
+    claimGuard: moveClaimGuard(),
+  };
+  if (opts.json) {
+    emitJson(result);
+  } else {
+    process.stdout.write(`${opts.dryRun ? "would write" : "saved"} move descriptor: ${out}\n`);
+  }
+  return 0;
+}
+
+// fallow-ignore-next-line complexity
+function createMoveRefusalIssue(
+  row: MoveClassification,
+  opts: { repo: string; dryRun: boolean },
+): MoveIssueResult {
+  const title = moveIssueTitle(row);
+  const body = moveIssueBody(row);
+  if (opts.dryRun) {
+    return {
+      attempted: false,
+      dryRun: true,
+      repo: opts.repo,
+      title,
+      url: null,
+      error: null,
+      bodyPreview: body,
+    };
+  }
+  const dir = mkdtempSync(join(tmpdir(), "machinen-move-issue-"));
+  const bodyPath = join(dir, "body.md");
+  try {
+    writeFileSync(bodyPath, body);
+    const url = execFileSync(
+      "gh",
+      ["issue", "create", "--repo", opts.repo, "--title", title, "--body-file", bodyPath],
+      { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
+    ).trim();
+    return { attempted: true, dryRun: false, repo: opts.repo, title, url, error: null };
+  } catch (err) {
+    return {
+      attempted: true,
+      dryRun: false,
+      repo: opts.repo,
+      title,
+      url: null,
+      error: describeError(err),
+    };
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+// fallow-ignore-next-line complexity
+function moveIssueTitle(row: MoveClassification): string {
+  const process = moveIssueProcess(row);
+  const command = process?.argv?.[0] ?? process?.exe ?? `pid ${row.pid}`;
+  return `machinen move refused: ${row.shapeId} (${command})`;
+}
+
+function moveIssueBody(row: MoveClassification): string {
+  const graph = moveIssueGraph(row);
+  const process = moveIssueProcess(row);
+  const report = {
+    kind: "machinen.move.refusal-issue-report",
+    version: 1,
+    pid: row.pid,
+    decision: row.decision,
+    shapeId: row.shapeId,
+    reason: row.reason,
+    command: process
+      ? {
+          exe: redactHome(process.exe),
+          argv: redactMoveIssueArgv(process.argv),
+          cwd: redactHome(process.cwd),
+        }
+      : null,
+    graph: redactMoveIssueGraph(graph),
+    claimGuard: moveClaimGuard(),
+  };
+  return `## Problem\n\n\`machinen move save\` refused a process that may represent a missing translator shape.\n\n## Refusal\n\n- Code: \`${row.shapeId}\`\n- Reason: ${row.reason}\n\n## Safe report\n\nThis report is generated with environment values and file contents omitted.\n\n\`\`\`json\n${JSON.stringify(report, null, 2)}\n\`\`\`\n`;
+}
+
+function moveIssueGraph(row: MoveClassification): Record<string, unknown> | null {
+  const evidence = row.evidence as { graph?: Record<string, unknown> } | undefined;
+  return evidence?.graph ?? null;
+}
+
+function moveIssueProcess(
+  row: MoveClassification,
+): { exe?: string; argv?: string[]; cwd?: string } | null {
+  const graph = moveIssueGraph(row);
+  const process = graph?.process as
+    | { exe?: string; argv?: string[]; cwd?: string }
+    | null
+    | undefined;
+  return process ?? null;
+}
+
+function redactMoveIssueGraph(
+  graph: Record<string, unknown> | null,
+): Record<string, unknown> | null {
+  if (!graph) {
+    return null;
+  }
+  const clone = redactMoveIssueValue(graph) as Record<string, unknown>;
+  const process = clone.process as
+    | { argv?: string[]; cwd?: string; exe?: string; envNames?: string[] }
+    | undefined;
+  if (process) {
+    process.argv = redactMoveIssueArgv(process.argv ?? []);
+    process.cwd = redactHome(process.cwd);
+    process.exe = redactHome(process.exe);
+    process.envNames = process.envNames?.slice(0, 200);
+  }
+  return clone;
+}
+
+// fallow-ignore-next-line complexity
+function redactMoveIssueValue(value: unknown): unknown {
+  if (typeof value === "string") {
+    return redactHome(value);
+  }
+  if (Array.isArray(value)) {
+    return value.map((entry) => redactMoveIssueValue(entry));
+  }
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entry]) => [key, redactMoveIssueValue(entry)]),
+    );
+  }
+  return value;
+}
+
+function redactMoveIssueArgv(argv: string[]): string[] {
+  let redactNext = false;
+  return argv.map((arg) => {
+    if (redactNext) {
+      redactNext = false;
+      return "<redacted>";
+    }
+    if (/^--?(password|passwd|token|secret|api[-_]?key|key)$/i.test(arg)) {
+      redactNext = true;
+      return arg;
+    }
+    return /(password|passwd|token|secret|api[-_]?key)=/i.test(arg)
+      ? arg.replace(/=.*/, "=<redacted>")
+      : redactHome(arg);
+  });
+}
+
+function redactHome(value: string | undefined): string | undefined {
+  const home = homedir();
+  return value && home && value.startsWith(home) ? `~${value.slice(home.length)}` : value;
+}
+
+// fallow-ignore-next-line complexity
+function cmdMoveLoad(args: string[], opts: { json: boolean; dryRun: boolean }): number {
+  const [descriptorPath, ...extra] = args;
+  if (!descriptorPath || extra.length > 0) {
+    return moveRefusal(opts.json, "move-load-usage", "usage: machinen move load <descriptor>");
+  }
+  let descriptor: unknown;
+  try {
+    descriptor = JSON.parse(readFileSync(descriptorPath, "utf8"));
+  } catch (err) {
+    return moveRefusal(opts.json, "move-load-invalid-json", describeError(err));
+  }
+  const errors = validateMoveDescriptor(descriptor);
+  if (errors.length > 0) {
+    return moveRefusal(opts.json, "move-load-invalid-descriptor", errors.join("; "));
+  }
+  const result = {
+    kind: "machinen.move.load",
+    version: 1,
+    decision: "accepted",
+    dryRun: opts.dryRun,
+    descriptor,
+    inputDescriptorUnchanged: true,
+    claimGuard: moveClaimGuard(),
+  };
+  if (opts.json) {
+    emitJson(result);
+  } else {
+    process.stdout.write(
+      `${opts.dryRun ? "would load" : "loaded"} move descriptor: ${descriptorPath}\n`,
+    );
+  }
+  return 0;
+}
+
+function moveRefusal(
+  json: boolean,
+  code: string,
+  message: string,
+  evidence?: unknown,
+  issue?: MoveIssueResult,
+): number {
+  const refusal = {
+    kind: "machinen.move.refusal",
+    version: 1,
+    decision: "refused",
+    code,
+    message,
+    descriptor: null,
+    evidence,
+    issue,
+    claimGuard: moveClaimGuard(),
+  };
+  if (json) {
+    emitJson(refusal);
+  } else {
+    process.stderr.write(`machinen move: ${code}: ${message}\n`);
+  }
+  return 1;
+}
+
+function visibleProcPids(): number[] {
+  try {
+    return readdirSync("/proc")
+      .filter((entry) => /^\d+$/.test(entry))
+      .map((entry) => Number(entry))
+      .sort((a, b) => a - b);
+  } catch {
+    return [];
+  }
+}
+
+function classifyMovePid(pid: number): MoveClassification {
+  const graph = captureMovePidDependencyGraph({
+    pid,
+    observationConsistency: "paused-vm-atomic",
+  });
+  const classification = classifyMovePidDependencyGraph(graph);
+  if (classification.decision !== "accepted") {
+    return {
+      pid,
+      decision: classification.decision,
+      shapeId: `refuse-${classification.shapeId}`,
+      reason: classification.reason,
+      evidence: { graph },
+    };
+  }
+  const desc = createMoveDescriptor(pid, classification.shapeId, {
+    graph,
+    adapterCandidates: graph.adapterCandidates,
+    dependencyCount: graph.dependencies.length,
+  });
+  return {
+    pid,
+    decision: "accepted",
+    shapeId: desc.shapeId,
+    reason: classification.reason,
+    descriptor: desc,
+  };
+}
+
+function createMoveDescriptor(
+  pid: number,
+  shapeId: string,
+  resources: Record<string, unknown>,
+): MoveDescriptor {
+  return {
+    kind: MOVE_DESCRIPTOR_KIND,
+    version: 1,
+    pid,
+    shapeId,
+    architectureNeutral: true,
+    claimGuard: moveClaimGuard(),
+    memory: {
+      mode: "semantic-resource-descriptor-only",
+      rawHeapCaptured: false,
+      rawStackCaptured: false,
+      rawRegistersCaptured: false,
+      rawHeapStackRegistersCaptured: false,
+    },
+    materializer: {
+      strategy: "target-native-reconstruction",
+      rawProcessMemoryMaterialization: false,
+      sourceIsaEmulationRequired: false,
+      kernelSocketIdentityPreserved: false,
+    },
+    resources,
+  };
+}
+
+// fallow-ignore-next-line complexity
+function validateMoveDescriptor(value: unknown): string[] {
+  const errors: string[] = [];
+  const descriptor = value as Partial<MoveDescriptor>;
+  if (!descriptor || typeof descriptor !== "object") {
+    return ["descriptor must be an object"];
+  }
+  if (descriptor.kind !== MOVE_DESCRIPTOR_KIND) {
+    errors.push("descriptor kind mismatch");
+  }
+  if (descriptor.architectureNeutral !== true) {
+    errors.push("architectureNeutral must be true");
+  }
+  if (descriptor.memory?.rawHeapStackRegistersCaptured !== false) {
+    errors.push("raw heap/stack/register capture must be false");
+  }
+  if (descriptor.materializer?.rawProcessMemoryMaterialization !== false) {
+    errors.push("raw process memory materialization must be false");
+  }
+  if (descriptor.materializer?.sourceIsaEmulationRequired !== false) {
+    errors.push("source ISA emulation must be false");
+  }
+  if (descriptor.materializer?.kernelSocketIdentityPreserved !== false) {
+    errors.push("kernel socket identity preservation must be false");
+  }
+  return errors;
+}
 
 // ------------------------------------------------------------
 // Arg helpers
@@ -8383,6 +8883,21 @@ function printHelp(): void {
       `    --nested                                     Expose arm64 EL2 / /dev/kvm to the guest\n` +
       `                                                 when the host supports it.\n` +
       `    -p <hostPort>:<guestPort>                    Forward host:hostPort → guest:guestPort.\n` +
+      `\n` +
+      `  machinen move scan --all [--json]\n` +
+      `                                                 Scan visible host pids and classify\n` +
+      `                                                 move descriptor eligibility. Refused\n` +
+      `                                                 rows emit no descriptor.\n` +
+      `  machinen move save <pid> <out> [--json] [--dry-run] [--issue]\n` +
+      `                                                 Save a move descriptor only when the\n` +
+      `                                                 pid is at a supported safe-point shape.\n` +
+      `                                                 With --issue, refused saves create a\n` +
+      `                                                 redacted issue in redwoodjs/machinen.\n` +
+      `  machinen move load <descriptor> [--json] [--dry-run]\n` +
+      `                                                 Validate and load a move descriptor\n` +
+      `                                                 target-natively; no raw process memory,\n` +
+      `                                                 source-ISA emulation, or socket identity\n` +
+      `                                                 preservation is claimed.\n` +
       `\n` +
       `  machinen capture postgres --out <dir> --source-arch <arm64|amd64>\n` +
       `                    --target-arch <arm64|amd64> --dump <file>\n` +
@@ -8606,6 +9121,7 @@ type CommandHandler = (args: string[]) => number | Promise<number>;
 const COMMAND_HANDLERS = new Map<string, CommandHandler>([
   ["boot", cmdBoot],
   ["capture", cmdCapture],
+  ["move", cmdMove],
   ["node-level5", cmdNodeLevel5],
   ["support", cmdSupport],
   ["restore", cmdRestore],

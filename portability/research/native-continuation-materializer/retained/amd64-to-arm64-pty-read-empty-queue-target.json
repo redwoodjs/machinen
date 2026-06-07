@@ -1,0 +1,48 @@
+{
+  "case": "pty-read-empty-queue",
+  "kind": "support",
+  "description": "materialize controlled pty read wait and continue with a byte",
+  "mode": "target",
+  "role": "target",
+  "hostArch": "aarch64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false
+  },
+  "decision": "accepted",
+  "descriptor": {
+    "kind": "machinen.research.native-continuation.capture-descriptor",
+    "version": 1,
+    "shapeId": "shape-controlled-pty-read-empty-queue",
+    "architectureNeutral": true,
+    "cpu": {
+      "wait": "pty-read",
+      "targetNativeReconstruction": true,
+      "sourceIsaEmulationRequired": false
+    },
+    "memory": {
+      "mode": "semantic-resource-descriptor-only",
+      "rawHeapCaptured": false,
+      "rawStackCaptured": false,
+      "rawRegistersCaptured": false,
+      "rawHeapStackRegistersCaptured": false
+    },
+    "resources": {
+      "pty": {
+        "queueBytesKnownEmpty": true
+      },
+      "continueInput": "Z\n"
+    },
+    "materializer": {
+      "strategy": "target-native-shape-materializer",
+      "rawProcessMemoryMaterialization": false
+    }
+  },
+  "evidence": {
+    "output": "Z\r\npty-continued-Z\r\n",
+    "continued": true
+  }
+}

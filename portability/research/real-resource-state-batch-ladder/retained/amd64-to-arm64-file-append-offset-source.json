@@ -1,0 +1,21 @@
+{
+  "case": "file-append-offset",
+  "kind": "support",
+  "description": "regular file append offset descriptor",
+  "mode": "source",
+  "role": "source",
+  "hostArch": "x86_64",
+  "pid": 3806571,
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "kernelObjectIdentityPreserved": false
+  },
+  "decision": "captured",
+  "evidence": {
+    "path": "/tmp/machinen-resource-state-batch-wd9nwke3/append.txt",
+    "appendOffset": 4
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "case": "file-append-offset",
+  "kind": "support",
+  "description": "regular file append offset descriptor",
+  "mode": "source",
+  "role": "source",
+  "hostArch": "aarch64",
+  "pid": 1125301,
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "kernelObjectIdentityPreserved": false
+  },
+  "decision": "captured",
+  "evidence": {
+    "path": "/tmp/machinen-resource-state-batch-nto2ebgp/append.txt",
+    "appendOffset": 4
+  }
+}

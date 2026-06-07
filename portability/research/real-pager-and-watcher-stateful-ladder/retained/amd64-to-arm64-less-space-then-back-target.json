@@ -1,0 +1,170 @@
+{
+  "case": "less-space-then-back",
+  "adapter": "less",
+  "description": "less captures after SPACE and b returns to the first page",
+  "mode": "target",
+  "role": "target",
+  "hostArch": "aarch64",
+  "binary": {
+    "path": "/usr/bin/less",
+    "versionLine": "less 590 (GNU regular expressions)",
+    "packageEvidence": {
+      "method": "installed"
+    }
+  },
+  "processRoot": {
+    "pid": 1066215,
+    "argv": ["/usr/bin/less", "/tmp/machinen-pager-watcher-ladder-zvaqfzk5/less-input.txt"]
+  },
+  "processTree": [
+    {
+      "pid": 1066215,
+      "state": {
+        "pid": 1066215,
+        "comm": "less",
+        "statusState": "S",
+        "threads": 1,
+        "signalPendingMask": "0000000000000000",
+        "statPpid": 1066214,
+        "statPgrp": 1066215,
+        "statSession": 1066215,
+        "statTtyNr": 34816,
+        "syscall": {
+          "raw": "63 0x3 0xffffedf35a87 0x1 0x1 0xffffedf35990 0x230bd66c0e89b7b6 0xffffedf35960 0xfb7f40c11248",
+          "parsed": true,
+          "number": 63,
+          "name": "read",
+          "args": [3, 281474673891975, 1, 1, 281474673891728, 2525347775660013494],
+          "fd": 3
+        }
+      },
+      "fds": [
+        {
+          "fd": 0,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 1,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 2,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 3,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 4,
+          "target": "/tmp/machinen-pager-watcher-ladder-zvaqfzk5/less-input.txt"
+        }
+      ],
+      "stdioTargets": {
+        "0": "/dev/pts/0",
+        "1": "/dev/pts/0",
+        "2": "/dev/pts/0"
+      },
+      "syscallFdTarget": "/dev/pts/0",
+      "allStdioOnControlledPty": true,
+      "hasSignalfd": false,
+      "hasRegularAdapterFile": true
+    }
+  ],
+  "candidateProcess": {
+    "pid": 1066215,
+    "state": {
+      "pid": 1066215,
+      "comm": "less",
+      "statusState": "S",
+      "threads": 1,
+      "signalPendingMask": "0000000000000000",
+      "statPpid": 1066214,
+      "statPgrp": 1066215,
+      "statSession": 1066215,
+      "statTtyNr": 34816,
+      "syscall": {
+        "raw": "63 0x3 0xffffedf35a87 0x1 0x1 0xffffedf35990 0x230bd66c0e89b7b6 0xffffedf35960 0xfb7f40c11248",
+        "parsed": true,
+        "number": 63,
+        "name": "read",
+        "args": [3, 281474673891975, 1, 1, 281474673891728, 2525347775660013494],
+        "fd": 3
+      }
+    },
+    "fds": [
+      {
+        "fd": 0,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 1,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 2,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 3,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 4,
+        "target": "/tmp/machinen-pager-watcher-ladder-zvaqfzk5/less-input.txt"
+      }
+    ],
+    "stdioTargets": {
+      "0": "/dev/pts/0",
+      "1": "/dev/pts/0",
+      "2": "/dev/pts/0"
+    },
+    "syscallFdTarget": "/dev/pts/0",
+    "allStdioOnControlledPty": true,
+    "hasSignalfd": false,
+    "hasRegularAdapterFile": true
+  },
+  "pty": {
+    "slavePath": "/dev/pts/0",
+    "rows": 24,
+    "cols": 80,
+    "inputQueueBytesOnMaster": 0,
+    "inputQueueBytesOnSlave": {
+      "available": true,
+      "bytes": 0
+    },
+    "foregroundPgrpFromMaster": 1066215
+  },
+  "candidateChecks": {
+    "expectedOutputRendered": true,
+    "modeledWait": true,
+    "controlledPtyIo": true,
+    "sessionPgrp": true,
+    "queuesEmpty": true,
+    "singleThreadCandidate": true,
+    "noPendingSignalCandidate": true,
+    "regularFilePresent": true
+  },
+  "screenAtCandidate": {
+    "containsExpectedOutput": true,
+    "sample": "\r\u001b[Kline-024\r\nline-025\r\nline-026\r\nline-027\r\nline-028\r\nline-029\r\nline-030\r\nline-031\r\nline-032\r\nline-033\r\nline-034\r\nline-035\r\nline-036\r\nline-037\r\nline-038\r\nline-039\r\nline-040\r\nline-041\r\nline-042\r\nline-043\r\nline-044\r\nline-045\r\nline-046\r\n:\u001b[K"
+  },
+  "inputOrResource": {
+    "expect": "line-001",
+    "file": "/tmp/machinen-pager-watcher-ladder-zvaqfzk5/less-input.txt",
+    "base64": "Yg=="
+  },
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "markerSymbolsUsed": false
+  },
+  "behavior": {
+    "matchedExpectation": true,
+    "processExited": false,
+    "sample": "\r\u001b[K\u001b[H\u001bMline-023\r\n\u001b[H\u001bMline-022\r\n\u001b[H\u001bMline-021\r\n\u001b[H\u001bMline-020\r\n\u001b[H\u001bMline-019\r\n\u001b[H\u001bMline-018\r\n\u001b[H\u001bMline-017\r\n\u001b[H\u001bMline-016\r\n\u001b[H\u001bMline-015\r\n\u001b[H\u001bMline-014\r\n\u001b[H\u001bMline-013\r\n\u001b[H\u001bMline-012\r\n\u001b[H\u001bMline-011\r\n\u001b[H\u001bMline-010\r\n\u001b[H\u001bMline-009\r\n\u001b[H\u001bMline-008\r\n\u001b[H\u001bMline-007\r\n\u001b[H\u001bMline-006\r\n\u001b[H\u001bMline-005\r\n\u001b[H\u001bMline-004\r\n\u001b[H\u001bMline-003\r\n\u001b[H\u001bMline-002\r\n\u001b[H\u001bMline-001\r\n\u001b[24;1H\r\u001b[K:\u001b[K"
+  },
+  "decision": "accepted"
+}

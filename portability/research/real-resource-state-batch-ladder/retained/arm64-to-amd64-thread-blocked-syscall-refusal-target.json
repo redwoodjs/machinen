@@ -1,0 +1,21 @@
+{
+  "case": "thread-blocked-syscall-refusal",
+  "kind": "refusal",
+  "description": "thread blocked syscall refused",
+  "mode": "target",
+  "role": "target",
+  "hostArch": "x86_64",
+  "pid": 3810045,
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "kernelObjectIdentityPreserved": false
+  },
+  "decision": "refused",
+  "refusal": {
+    "reason": "thread-blocked-syscall",
+    "threads": 2
+  }
+}

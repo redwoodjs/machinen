@@ -1,0 +1,2 @@
+graph:15
+SHAPE_RESTORE_OK shape=008-malloc-object-graph target=arm64 result=42

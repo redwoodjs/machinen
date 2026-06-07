@@ -1,0 +1,22 @@
+{
+  "case": "rsync-mid-copy-refusal",
+  "kind": "refusal",
+  "description": "rsync live partial copy state is refused",
+  "mode": "target",
+  "role": "target",
+  "hostArch": "aarch64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false
+  },
+  "decision": "refused",
+  "refusal": {
+    "reason": "rsync-live-partial-copy-state",
+    "binary": "/usr/bin/rsync",
+    "processAliveAtProbe": true,
+    "partialDestinationBytes": 0
+  }
+}

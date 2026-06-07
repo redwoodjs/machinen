@@ -1,0 +1,27 @@
+{
+  "case": "python-repl-prompt-continuation",
+  "kind": "support",
+  "description": "python3 -i reaches a live prompt safe point and target-native python continues the expression",
+  "mode": "source",
+  "role": "source",
+  "hostArch": "x86_64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false
+  },
+  "decision": "captured",
+  "evidence": {
+    "binary": "/usr/bin/python3",
+    "continuationDescriptor": {
+      "safePoint": "live-python-repl-primary-prompt",
+      "statements": ["x=41"],
+      "continue": "print(x+1)",
+      "expect": "42",
+      "processAliveAtSafePoint": true,
+      "ptySample": "Python 3.11.2 (main, Apr  8 2026, 01:58:00) [GCC 12.2.0] on linux\r\nType \"help\", \"copyright\", \"credits\" or \"license\" for more information.\r\n>>> x=41\r\n>>> "
+    }
+  }
+}

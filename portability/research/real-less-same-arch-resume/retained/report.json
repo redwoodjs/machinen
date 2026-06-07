@@ -1,0 +1,13 @@
+{
+  "kind": "machinen.research.real-less-same-arch-resume.report",
+  "version": 1,
+  "status": "passed",
+  "hostArch": "x86_64",
+  "accepted": ["marker-safe-point-ptrace-resume-space"],
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false
+  }
+}

@@ -1,0 +1,2 @@
+bitset:5
+SHAPE_RESTORE_OK shape=038-bitset-counter-cli target=arm64 result=42

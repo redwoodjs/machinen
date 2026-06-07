@@ -1,0 +1,21 @@
+{
+  "case": "terminal-alt-screen",
+  "kind": "support",
+  "description": "alternate screen terminal descriptor",
+  "mode": "target",
+  "role": "target",
+  "hostArch": "aarch64",
+  "pid": 1144922,
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "kernelObjectIdentityPreserved": false
+  },
+  "decision": "accepted",
+  "evidence": {
+    "alternateScreenEnter": true,
+    "alternateScreenExit": true
+  }
+}

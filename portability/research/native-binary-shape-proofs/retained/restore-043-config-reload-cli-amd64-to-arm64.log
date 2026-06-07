@@ -1,0 +1,2 @@
+config:42
+SHAPE_RESTORE_OK shape=043-config-reload-cli target=arm64 result=42

@@ -1,0 +1,45 @@
+{
+  "kind": "machinen.research.real-less-detector.known-less-build",
+  "version": 1,
+  "source": {
+    "url": "https://www.greenwoodsoftware.com/less/less-643.tar.gz",
+    "sha256": "2911b5432c836fa084c8a2e68f6cd6312372c026a58faaa98862731c8b6052e8",
+    "directory": "less-643"
+  },
+  "binary": {
+    "path": "/mnt/shared-500G/machinen-real-less-cross-arch-amd64-20260605T224806Z-63857/known-less/prefix/bin/less",
+    "sha256": "cc9fe7cb0cdf9b5703597cf9fb17c72059e769c65066d05e851d430699875b2b",
+    "versionLine": "less 643 (POSIX regular expressions)",
+    "buildId": {
+      "available": true,
+      "line": "Build ID: cec111d166aebe062c7eb1e066b7baa51881e7a3"
+    }
+  },
+  "build": {
+    "cflags": "-g -O0 -fno-omit-frame-pointer",
+    "ldflags": "-Wl,--build-id",
+    "debugSymbolsRequired": true,
+    "markerSymbolsRequired": [
+      "machinen_less_ready_before_input_marker",
+      "machinen_less_ready_before_input_gate"
+    ],
+    "dependencies": {
+      "localNcursesBuilt": false
+    }
+  },
+  "marker": {
+    "symbol": "machinen_less_ready_before_input_marker",
+    "gateSymbol": "machinen_less_ready_before_input_gate",
+    "environment": "MACHINEN_LESS_SPIN_AT_READY=1",
+    "location": "command loop after prompt rendering and before getcc/read input",
+    "behavior": "spins in target-native less code at a source-level safe point for detector evidence only",
+    "symbols": {
+      "available": true,
+      "lines": [
+        "000000000000d179 T machinen_less_ready_before_input_marker",
+        "000000000003b350 B machinen_less_ready_before_input_gate"
+      ]
+    }
+  },
+  "status": "passed"
+}

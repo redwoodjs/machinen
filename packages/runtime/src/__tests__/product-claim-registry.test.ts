@@ -20,60 +20,63 @@ describe("Goal 46 product claim registry", () => {
 
     expect(registry.entries).toHaveLength(PROFILES.length + 6);
     expect(registry.summary.total).toBe(PROFILES.length + 6);
-    expect(registry.summary.implementedProductSupport).toBe(8);
+    expect(registry.summary.implementedProductSupport).toBe(0);
+    expect(registry.summary.deprecatedLegacySupport).toBe(8);
     expect(
-      registry.entries.filter((entry) => entry.productStatus === "implemented-product-support"),
+      registry.entries.filter((entry) => entry.productStatus === "deprecated-legacy-support"),
     ).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           name: "node-app-http-server-recreate",
-          migrationCompleted: true,
-          proofOnly: false,
+          migrationCompleted: false,
+          proofOnly: true,
+          supportLevel: "deprecated-cross-isa-level",
         }),
         expect.objectContaining({
           name: "python-cross-arch-runtime-policy",
-          migrationCompleted: true,
-          proofOnly: false,
+          migrationCompleted: false,
+          proofOnly: true,
+          supportLevel: "deprecated-cross-isa-level",
         }),
         expect.objectContaining({
           name: "go-cross-arch-runtime-policy",
-          migrationCompleted: true,
-          proofOnly: false,
-          supportLevel: "level-1-semantic-restart",
+          migrationCompleted: false,
+          proofOnly: true,
+          supportLevel: "deprecated-cross-isa-level",
         }),
         expect.objectContaining({
           name: "ping-level4-socket-reconstruction-v1",
-          migrationCompleted: true,
-          proofOnly: false,
-          supportLevel: "level-4-kernel-resource-reconstruction",
+          migrationCompleted: false,
+          proofOnly: true,
+          supportLevel: "deprecated-cross-isa-level",
         }),
         expect.objectContaining({
           name: "eventfd-counter-v1-nonsemaphore-no-waiters",
           family: "native-linux-resource",
-          migrationCompleted: true,
-          proofOnly: false,
-          supportLevel: "level-4-kernel-resource-reconstruction",
+          migrationCompleted: false,
+          proofOnly: true,
+          supportLevel: "deprecated-cross-isa-level",
         }),
         expect.objectContaining({
           name: "pipe-pair-v1-empty-no-waiters",
           family: "native-linux-resource",
-          migrationCompleted: true,
-          proofOnly: false,
-          supportLevel: "level-4-kernel-resource-reconstruction",
+          migrationCompleted: false,
+          proofOnly: true,
+          supportLevel: "deprecated-cross-isa-level",
         }),
         expect.objectContaining({
           name: "timerfd-relative-oneshot-v1-monotonic",
           family: "native-linux-resource",
-          migrationCompleted: true,
-          proofOnly: false,
-          supportLevel: "level-4-kernel-resource-reconstruction",
+          migrationCompleted: false,
+          proofOnly: true,
+          supportLevel: "deprecated-cross-isa-level",
         }),
         expect.objectContaining({
           name: "tcp-listener-v1-loopback-empty-accept-queue",
           family: "network-ping-socket",
-          migrationCompleted: true,
-          proofOnly: false,
-          supportLevel: "level-4-kernel-resource-reconstruction",
+          migrationCompleted: false,
+          proofOnly: true,
+          supportLevel: "deprecated-cross-isa-level",
         }),
       ]),
     );
@@ -91,7 +94,7 @@ describe("Goal 46 product claim registry", () => {
       productStatus: "proof-only-fixture",
       migrationCompleted: false,
       proofOnly: true,
-      supportLevel: "level-0-fail-closed-discovery",
+      supportLevel: "deprecated-cross-isa-level",
       sourceFixture: "machinen-snapshot-restore:node-http-counter-selected-state-v1",
     });
     expect(registry.summary.stableProductRefusals).toBeGreaterThan(0);

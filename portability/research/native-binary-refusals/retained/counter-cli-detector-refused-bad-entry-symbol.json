@@ -1,0 +1,7 @@
+{
+  "shape": "001-counter-cli",
+  "decision": "refused",
+  "supportStage": "1-refused",
+  "refusalCode": "counter-cli-unsupported-entry-symbol",
+  "reason": "entry symbol is not the proven target-native counter continuation"
+}

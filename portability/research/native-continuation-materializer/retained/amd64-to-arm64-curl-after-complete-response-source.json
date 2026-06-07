@@ -1,0 +1,49 @@
+{
+  "case": "curl-after-complete-response",
+  "kind": "support",
+  "description": "materialize curl completed-response descriptor without replaying in-flight bytes",
+  "mode": "source",
+  "role": "source",
+  "hostArch": "x86_64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false
+  },
+  "decision": "captured",
+  "descriptor": {
+    "kind": "machinen.research.native-continuation.capture-descriptor",
+    "version": 1,
+    "shapeId": "shape-curl-after-complete-response",
+    "architectureNeutral": true,
+    "cpu": {
+      "wait": "after-http-response-complete",
+      "targetNativeReconstruction": true,
+      "sourceIsaEmulationRequired": false
+    },
+    "memory": {
+      "mode": "semantic-resource-descriptor-only",
+      "rawHeapCaptured": false,
+      "rawStackCaptured": false,
+      "rawRegistersCaptured": false,
+      "rawHeapStackRegistersCaptured": false
+    },
+    "resources": {
+      "network": {
+        "requestComplete": true,
+        "inFlightBytes": 0
+      },
+      "body": "curl-materialized-ok"
+    },
+    "materializer": {
+      "strategy": "target-native-shape-materializer",
+      "rawProcessMemoryMaterialization": false
+    }
+  },
+  "evidence": {
+    "body": "curl-materialized-ok",
+    "networkReplayed": false
+  }
+}

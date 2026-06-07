@@ -1,0 +1,16 @@
+{
+  "shape": "027-callee-saved-register-cli",
+  "decision": "accepted",
+  "supportStage": "4-supported-subset",
+  "supportScope": "declared safe-point callee-saved register descriptor subset",
+  "sourceArch": "arm64",
+  "targetArch": "amd64",
+  "facts": {
+    "entrySymbol": "continue_callee_saved_register",
+    "sourcePc": "0xbf24864e1990",
+    "sourceSp": "0xffffe75c1a50",
+    "sourceArg0": "0x1000",
+    "targetArgumentRegister": "rdi",
+    "targetStackBytes": 65536
+  }
+}

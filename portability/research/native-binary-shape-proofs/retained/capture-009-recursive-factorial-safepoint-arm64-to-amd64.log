@@ -1,0 +1,1 @@
+CAPTURE_OK shape=009-recursive-factorial-safepoint source=arm64 target=amd64

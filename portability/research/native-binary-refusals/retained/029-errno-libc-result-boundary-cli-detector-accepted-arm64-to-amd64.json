@@ -1,0 +1,16 @@
+{
+  "shape": "029-errno-libc-result-boundary-cli",
+  "decision": "accepted",
+  "supportStage": "4-supported-subset",
+  "supportScope": "declared safe-point target-native libc errno boundary descriptor",
+  "sourceArch": "arm64",
+  "targetArch": "amd64",
+  "facts": {
+    "entrySymbol": "continue_errno_boundary",
+    "sourcePc": "0xbc9d58081990",
+    "sourceSp": "0xffffd3c0a900",
+    "sourceArg0": "0x1000",
+    "targetArgumentRegister": "rdi",
+    "targetStackBytes": 65536
+  }
+}

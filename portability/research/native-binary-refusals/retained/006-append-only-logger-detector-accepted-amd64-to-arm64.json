@@ -1,0 +1,16 @@
+{
+  "shape": "006-append-only-logger",
+  "decision": "accepted",
+  "supportStage": "4-supported-subset",
+  "supportScope": "declared safe-point append-only regular file descriptor with pending user buffer and no duplicate-write state",
+  "sourceArch": "amd64",
+  "targetArch": "arm64",
+  "facts": {
+    "entrySymbol": "continue_append_logger",
+    "sourcePc": "0x6248aa0c8c12",
+    "sourceSp": "0x7fffc288e830",
+    "sourceArg0": "0x1000",
+    "targetArgumentRegister": "x0",
+    "targetStackBytes": 65536
+  }
+}

@@ -1,0 +1,205 @@
+{
+  "kind": "machinen.research.real-node-postgres-continuation.proof-row",
+  "version": 1,
+  "case": "postgres-idle-client-backend",
+  "rowKind": "support",
+  "mode": "target",
+  "application": "postgresql",
+  "description": "real PostgreSQL authenticated idle client backend with empty socket queues",
+  "hostArch": "x86_64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false,
+    "runtimeHeapRestoreClaimed": false,
+    "kernelSocketIdentityPreserved": false
+  },
+  "decision": "accepted",
+  "descriptor": {
+    "kind": "machinen.research.native-continuation.capture-descriptor",
+    "version": 1,
+    "shapeId": "shape-socket-connected-local-empty-queues",
+    "architectureNeutral": true,
+    "observationConsistency": "live-procfs-best-effort",
+    "cpu": {
+      "wait": "socket-local-connected-empty-queues",
+      "sourceArch": "x86_64",
+      "sourceSyscallNumber": null,
+      "sourceWchan": "do_epoll_wait",
+      "targetNativeReconstruction": true,
+      "sourceIsaEmulationRequired": false
+    },
+    "memory": {
+      "mode": "semantic-resource-descriptor-only",
+      "rawHeapCaptured": false,
+      "rawStackCaptured": false,
+      "rawRegistersCaptured": false,
+      "rawHeapStackRegistersCaptured": false,
+      "threadStacksCaptured": false,
+      "runtimeHeapCaptured": false,
+      "runtimeHeapRestored": false
+    },
+    "resources": {
+      "process": {
+        "ppid": 1,
+        "pgrp": 76,
+        "session": 76
+      },
+      "fds": [
+        {
+          "fd": 0,
+          "target": "/dev/null",
+          "kind": "file",
+          "queueBytes": null
+        },
+        {
+          "fd": 1,
+          "target": "pipe:[67697413]",
+          "kind": "pipe",
+          "queueBytes": null
+        },
+        {
+          "fd": 2,
+          "target": "pipe:[67697414]",
+          "kind": "pipe",
+          "queueBytes": null
+        },
+        {
+          "fd": 3,
+          "target": "anon_inode:[signalfd]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 4,
+          "target": "pipe:[67696515]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 5,
+          "target": "anon_inode:[eventpoll]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 6,
+          "target": "/pgdata/global/2676",
+          "kind": "file",
+          "queueBytes": null
+        },
+        {
+          "fd": 7,
+          "target": "/pgdata/global/2677",
+          "kind": "file",
+          "queueBytes": null
+        },
+        {
+          "fd": 8,
+          "target": "/pgdata/global/2671",
+          "kind": "file",
+          "queueBytes": null
+        },
+        {
+          "fd": 9,
+          "target": "socket:[67665871]",
+          "kind": "socket",
+          "queueBytes": null,
+          "socketInode": "67665871",
+          "socket": {
+            "family": "tcp4",
+            "state": "ESTABLISHED",
+            "stateHex": "01",
+            "txQueue": 0,
+            "rxQueue": 0,
+            "localAddressHex": "0100007F",
+            "localPort": 5432,
+            "remoteAddressHex": "0100007F",
+            "remotePort": 58290
+          }
+        },
+        {
+          "fd": 10,
+          "target": "anon_inode:[eventpoll]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 11,
+          "target": "/pgdata/base/5/2601",
+          "kind": "file",
+          "queueBytes": null
+        }
+      ],
+      "sockets": {
+        "fds": [
+          {
+            "fd": 9,
+            "target": "socket:[67665871]",
+            "kind": "socket",
+            "queueBytes": null,
+            "socketInode": "67665871",
+            "socket": {
+              "family": "tcp4",
+              "state": "ESTABLISHED",
+              "stateHex": "01",
+              "txQueue": 0,
+              "rxQueue": 0,
+              "localAddressHex": "0100007F",
+              "localPort": 5432,
+              "remoteAddressHex": "0100007F",
+              "remotePort": 58290
+            }
+          }
+        ],
+        "kernelSocketIdentityPreserved": false
+      },
+      "threads": {
+        "tasks": [
+          {
+            "tid": 76,
+            "state": "S",
+            "wchan": "do_epoll_wait",
+            "syscall": {
+              "raw": null,
+              "wchan": "do_epoll_wait",
+              "number": null,
+              "readLikeWait": false,
+              "pollLikeWait": true
+            }
+          }
+        ],
+        "threadStacksCaptured": false
+      },
+      "runtimeInternalPipes": {
+        "treatedAsExternalContinuationResources": false
+      }
+    },
+    "application": {
+      "name": "postgresql",
+      "case": "postgres-idle-client-backend",
+      "safePoint": "authenticated idle client backend with empty socket queues and no active transaction",
+      "runtimeHeapCaptured": false,
+      "runtimeHeapRestored": false,
+      "databaseMemoryCaptured": false,
+      "databaseMemoryRestored": false
+    },
+    "materializer": {
+      "strategy": "target-native-application-reexec-at-accepted-resource-boundary",
+      "rawProcessMemoryMaterialization": false,
+      "sourceIsaEmulationRequired": false,
+      "kernelSocketIdentityPreserved": false
+    }
+  },
+  "inputDescriptorUnchanged": true,
+  "materialization": {
+    "container": "machinen-mat-b6acdfa955-postgres",
+    "queryReturncode": 0,
+    "queryStdout": "1",
+    "queryStderr": "",
+    "logs": "; lsn=0/14F2630, redo lsn=0/14F2630\n2026-06-06 20:31:31.211 UTC [42] LOG:  database system is shut down\n done\nserver stopped\n\nPostgreSQL init process complete; ready for start up.\n\nsh: locale: not found\n2026-06-06 20:31:30.909 UTC [36] WARNING:  no usable system locales were found\ninitdb: warning: enabling \"trust\" authentication for local connections\ninitdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run initdb.\n2026-06-06 20:31:31.314 UTC [1] LOG:  starting PostgreSQL 16.14 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit\n2026-06-06 20:31:31.314 UTC [1] LOG:  listening on IPv4 address \"127.0.0.1\", port 5432\n2026-06-06 20:31:31.315 UTC [1] LOG:  listening on Unix socket \"/var/run/postgresql/.s.PGSQL.5432\"\n2026-06-06 20:31:31.316 UTC [62] LOG:  database system was shut down at 2026-06-06 20:31:31 UTC\n2026-06-06 20:31:31.318 UTC [1] LOG:  database system is ready to accept connections\n",
+    "continued": true
+  }
+}

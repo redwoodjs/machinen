@@ -1,0 +1,337 @@
+{
+  "kind": "machinen.research.real-node-postgres-continuation.proof-row",
+  "version": 1,
+  "case": "node-http-idle-listener",
+  "rowKind": "support",
+  "mode": "target",
+  "application": "nodejs",
+  "description": "real Node.js HTTP server idle with an empty listener socket",
+  "hostArch": "aarch64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false,
+    "runtimeHeapRestoreClaimed": false,
+    "kernelSocketIdentityPreserved": false
+  },
+  "decision": "accepted",
+  "descriptor": {
+    "kind": "machinen.research.native-continuation.capture-descriptor",
+    "version": 1,
+    "shapeId": "shape-socket-listener-empty-accept-queue",
+    "architectureNeutral": true,
+    "observationConsistency": "live-procfs-best-effort",
+    "cpu": {
+      "wait": "socket-accept-wait-or-idle-listener",
+      "sourceArch": "x86_64",
+      "sourceSyscallNumber": "281",
+      "sourceWchan": "do_epoll_wait",
+      "targetNativeReconstruction": true,
+      "sourceIsaEmulationRequired": false
+    },
+    "memory": {
+      "mode": "semantic-resource-descriptor-only",
+      "rawHeapCaptured": false,
+      "rawStackCaptured": false,
+      "rawRegistersCaptured": false,
+      "rawHeapStackRegistersCaptured": false,
+      "threadStacksCaptured": false,
+      "runtimeHeapCaptured": false,
+      "runtimeHeapRestored": false
+    },
+    "resources": {
+      "process": {
+        "ppid": 51451,
+        "pgrp": 51470,
+        "session": 51470
+      },
+      "fds": [
+        {
+          "fd": 0,
+          "target": "/dev/null",
+          "kind": "file",
+          "queueBytes": null
+        },
+        {
+          "fd": 1,
+          "target": "pipe:[67696843]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 2,
+          "target": "pipe:[67696844]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 3,
+          "target": "anon_inode:[eventpoll]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 4,
+          "target": "anon_inode:[io_uring]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 5,
+          "target": "pipe:[67698788]",
+          "kind": "pipe",
+          "queueBytes": 1
+        },
+        {
+          "fd": 6,
+          "target": "pipe:[67698788]",
+          "kind": "pipe",
+          "queueBytes": 1
+        },
+        {
+          "fd": 7,
+          "target": "pipe:[67698789]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 8,
+          "target": "pipe:[67698789]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 9,
+          "target": "anon_inode:[eventfd]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 10,
+          "target": "anon_inode:[eventpoll]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 11,
+          "target": "anon_inode:[io_uring]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 12,
+          "target": "pipe:[67684660]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 13,
+          "target": "pipe:[67684660]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 14,
+          "target": "anon_inode:[eventfd]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 15,
+          "target": "anon_inode:[eventpoll]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 16,
+          "target": "anon_inode:[io_uring]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 17,
+          "target": "pipe:[67698791]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 18,
+          "target": "pipe:[67698791]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 19,
+          "target": "anon_inode:[eventfd]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 20,
+          "target": "/dev/null",
+          "kind": "file",
+          "queueBytes": null
+        },
+        {
+          "fd": 21,
+          "target": "socket:[67676086]",
+          "kind": "socket",
+          "queueBytes": null,
+          "socketInode": "67676086",
+          "socket": {
+            "family": "tcp4",
+            "state": "LISTEN",
+            "stateHex": "0A",
+            "txQueue": 0,
+            "rxQueue": 0,
+            "localAddressHex": "0100007F",
+            "localPort": 46681,
+            "remoteAddressHex": "00000000",
+            "remotePort": 0
+          }
+        }
+      ],
+      "sockets": {
+        "fds": [
+          {
+            "fd": 21,
+            "target": "socket:[67676086]",
+            "kind": "socket",
+            "queueBytes": null,
+            "socketInode": "67676086",
+            "socket": {
+              "family": "tcp4",
+              "state": "LISTEN",
+              "stateHex": "0A",
+              "txQueue": 0,
+              "rxQueue": 0,
+              "localAddressHex": "0100007F",
+              "localPort": 46681,
+              "remoteAddressHex": "00000000",
+              "remotePort": 0
+            }
+          }
+        ],
+        "kernelSocketIdentityPreserved": false
+      },
+      "threads": {
+        "tasks": [
+          {
+            "tid": 51470,
+            "state": "S",
+            "wchan": "do_epoll_wait",
+            "syscall": {
+              "raw": "281 0xf 0x7ffc2da3add0 0x400 0x3e5 0x0 0x8 0x7ffc2da39ff8 0x787c39f1bdbb",
+              "wchan": "do_epoll_wait",
+              "number": "281",
+              "readLikeWait": false,
+              "pollLikeWait": true
+            }
+          },
+          {
+            "tid": 51522,
+            "state": "S",
+            "wchan": "do_epoll_wait",
+            "syscall": {
+              "raw": "281 0xa 0x787c39aff830 0x400 0xffffffffffffffff 0x0 0x8 0x787c39afea58 0x787c39f1bdbb",
+              "wchan": "do_epoll_wait",
+              "number": "281",
+              "readLikeWait": false,
+              "pollLikeWait": true
+            }
+          },
+          {
+            "tid": 51523,
+            "state": "S",
+            "wchan": "futex_wait_queue",
+            "syscall": {
+              "raw": "202 0x787c392f8864 0x80 0x2 0x0 0x0 0x0 0x787c392f87a8 0x787c39f1bdbb",
+              "wchan": "futex_wait_queue",
+              "number": "202",
+              "readLikeWait": false,
+              "pollLikeWait": false
+            }
+          },
+          {
+            "tid": 51524,
+            "state": "S",
+            "wchan": "futex_wait_queue",
+            "syscall": {
+              "raw": "202 0x787c38af5864 0x80 0x2 0x0 0x0 0x0 0x787c38af57a8 0x787c39f1bdbb",
+              "wchan": "futex_wait_queue",
+              "number": "202",
+              "readLikeWait": false,
+              "pollLikeWait": false
+            }
+          },
+          {
+            "tid": 51525,
+            "state": "S",
+            "wchan": "futex_wait_queue",
+            "syscall": {
+              "raw": "202 0x787c382f2864 0x80 0x2 0x0 0x0 0x0 0x787c382f27a8 0x787c39f1bdbb",
+              "wchan": "futex_wait_queue",
+              "number": "202",
+              "readLikeWait": false,
+              "pollLikeWait": false
+            }
+          },
+          {
+            "tid": 51526,
+            "state": "S",
+            "wchan": "futex_wait_queue",
+            "syscall": {
+              "raw": "202 0x787c37aef864 0x80 0x2 0x0 0x0 0x0 0x787c37aef7a8 0x787c39f1bdbb",
+              "wchan": "futex_wait_queue",
+              "number": "202",
+              "readLikeWait": false,
+              "pollLikeWait": false
+            }
+          },
+          {
+            "tid": 51542,
+            "state": "S",
+            "wchan": "futex_wait_queue",
+            "syscall": {
+              "raw": "202 0x575950681680 0x80 0xffffffff80000000 0x0 0x0 0x0 0x787c371a0838 0x787c39f1bdbb",
+              "wchan": "futex_wait_queue",
+              "number": "202",
+              "readLikeWait": false,
+              "pollLikeWait": false
+            }
+          }
+        ],
+        "threadStacksCaptured": false
+      },
+      "runtimeInternalPipes": {
+        "treatedAsExternalContinuationResources": false
+      }
+    },
+    "application": {
+      "name": "nodejs",
+      "case": "node-http-idle-listener",
+      "safePoint": "idle HTTP listener with empty accept/socket queues",
+      "runtimeHeapCaptured": false,
+      "runtimeHeapRestored": false,
+      "databaseMemoryCaptured": false,
+      "databaseMemoryRestored": false
+    },
+    "materializer": {
+      "strategy": "target-native-application-reexec-at-accepted-resource-boundary",
+      "rawProcessMemoryMaterialization": false,
+      "sourceIsaEmulationRequired": false,
+      "kernelSocketIdentityPreserved": false
+    }
+  },
+  "inputDescriptorUnchanged": true,
+  "materialization": {
+    "container": "machinen-mat-fe0f0ca8c4-node-http-idle",
+    "classifiedShapeId": "shape-socket-listener-empty-accept-queue",
+    "decision": "accepted",
+    "genericClassifierShapeId": "refuse-pipe-unread-bytes",
+    "logs": "READY 37885\n",
+    "continued": true
+  }
+}

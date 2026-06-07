@@ -1,0 +1,179 @@
+{
+  "case": "supervisor-one-sleep-term",
+  "adapter": "supervisor-one",
+  "description": "supervisor traps TERM and kills one sleep child",
+  "mode": "target",
+  "role": "target",
+  "hostArch": "aarch64",
+  "processRoot": {
+    "pid": 1078105,
+    "argv": ["/tmp/machinen-pipeline-supervisor-ladder-k2e8pz32/script.sh"]
+  },
+  "processTree": [
+    {
+      "pid": 1078105,
+      "state": {
+        "pid": 1078105,
+        "comm": "script.sh",
+        "state": "S",
+        "threads": 1,
+        "signalPendingMask": "0000000000000000",
+        "ppid": 1078104,
+        "pgrp": 1078105,
+        "session": 1078105,
+        "ttyNr": 34816,
+        "syscall": {
+          "raw": "133 0xffffd7fbc318 0x8 0x0 0x0 0xfffffffe7fffffff 0x6 0xffffd7fbc2f0 0xe6940afece14",
+          "parsed": true,
+          "number": 133,
+          "name": "syscall-133",
+          "args": [281474305344280, 8, 0, 0, 18446744067267100671, 6],
+          "fd": 281474305344280
+        }
+      },
+      "fds": [
+        {
+          "fd": 0,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 1,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 2,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 10,
+          "target": "/tmp/machinen-pipeline-supervisor-ladder-k2e8pz32/script.sh"
+        }
+      ],
+      "stdioTargets": {
+        "0": "/dev/pts/0",
+        "1": "/dev/pts/0",
+        "2": "/dev/pts/0"
+      },
+      "syscallFdTarget": null,
+      "allStdioOnControlledPty": true,
+      "hasPipeFd": false,
+      "hasSocketFd": false
+    },
+    {
+      "pid": 1078106,
+      "state": {
+        "pid": 1078106,
+        "comm": "sleep",
+        "state": "S",
+        "threads": 1,
+        "signalPendingMask": "0000000000000000",
+        "ppid": 1078105,
+        "pgrp": 1078105,
+        "session": 1078105,
+        "ttyNr": 34816,
+        "syscall": {
+          "raw": "115 0x0 0x0 0xfffff04e67f8 0xfffff04e67e8 0xfffaa3310b50 0x0 0xfffff04e6740 0xfffaa31abe50",
+          "parsed": true,
+          "number": 115,
+          "name": "syscall-115",
+          "args": [0, 0, 281474713413624, 281474713413608, 281451944807248, 0],
+          "fd": 0
+        }
+      },
+      "fds": [
+        {
+          "fd": 0,
+          "target": "/dev/null"
+        },
+        {
+          "fd": 1,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 2,
+          "target": "/dev/pts/0"
+        }
+      ],
+      "stdioTargets": {
+        "0": "/dev/null",
+        "1": "/dev/pts/0",
+        "2": "/dev/pts/0"
+      },
+      "syscallFdTarget": "/dev/null",
+      "allStdioOnControlledPty": false,
+      "hasPipeFd": false,
+      "hasSocketFd": false
+    }
+  ],
+  "candidateProcess": {
+    "pid": 1078106,
+    "state": {
+      "pid": 1078106,
+      "comm": "sleep",
+      "state": "S",
+      "threads": 1,
+      "signalPendingMask": "0000000000000000",
+      "ppid": 1078105,
+      "pgrp": 1078105,
+      "session": 1078105,
+      "ttyNr": 34816,
+      "syscall": {
+        "raw": "115 0x0 0x0 0xfffff04e67f8 0xfffff04e67e8 0xfffaa3310b50 0x0 0xfffff04e6740 0xfffaa31abe50",
+        "parsed": true,
+        "number": 115,
+        "name": "syscall-115",
+        "args": [0, 0, 281474713413624, 281474713413608, 281451944807248, 0],
+        "fd": 0
+      }
+    },
+    "fds": [
+      {
+        "fd": 0,
+        "target": "/dev/null"
+      },
+      {
+        "fd": 1,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 2,
+        "target": "/dev/pts/0"
+      }
+    ],
+    "stdioTargets": {
+      "0": "/dev/null",
+      "1": "/dev/pts/0",
+      "2": "/dev/pts/0"
+    },
+    "syscallFdTarget": "/dev/null",
+    "allStdioOnControlledPty": false,
+    "hasPipeFd": false,
+    "hasSocketFd": false
+  },
+  "pty": {
+    "slavePath": "/dev/pts/0",
+    "inputQueueBytesOnMaster": 0
+  },
+  "checks": {
+    "expectedRendered": true,
+    "modeledProcessTree": true,
+    "queuesEmpty": true,
+    "producerDrainedWhenRequired": true
+  },
+  "screenAtCandidate": {
+    "sample": ""
+  },
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "markerSymbolsUsed": false
+  },
+  "behavior": {
+    "matchedExpectation": true,
+    "processExited": true,
+    "remainingDescendants": []
+  },
+  "decision": "accepted"
+}

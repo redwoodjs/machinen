@@ -1,0 +1,247 @@
+{
+  "kind": "machinen.research.real-node-postgres-continuation.proof-row",
+  "version": 1,
+  "case": "redis-idle-listener",
+  "rowKind": "support",
+  "mode": "target",
+  "application": "redis",
+  "description": "real Redis server idle with an empty listener socket",
+  "hostArch": "aarch64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false,
+    "runtimeHeapRestoreClaimed": false,
+    "kernelSocketIdentityPreserved": false
+  },
+  "decision": "accepted",
+  "descriptor": {
+    "kind": "machinen.research.native-continuation.capture-descriptor",
+    "version": 1,
+    "shapeId": "shape-socket-listener-empty-accept-queue",
+    "architectureNeutral": true,
+    "observationConsistency": "live-procfs-best-effort",
+    "cpu": {
+      "wait": "socket-accept-wait-or-idle-listener",
+      "sourceArch": "x86_64",
+      "sourceSyscallNumber": null,
+      "sourceWchan": "do_epoll_wait",
+      "targetNativeReconstruction": true,
+      "sourceIsaEmulationRequired": false
+    },
+    "memory": {
+      "mode": "semantic-resource-descriptor-only",
+      "rawHeapCaptured": false,
+      "rawStackCaptured": false,
+      "rawRegistersCaptured": false,
+      "rawHeapStackRegistersCaptured": false,
+      "threadStacksCaptured": false,
+      "runtimeHeapCaptured": false,
+      "runtimeHeapRestored": false
+    },
+    "resources": {
+      "process": {
+        "ppid": 0,
+        "pgrp": 1,
+        "session": 1
+      },
+      "fds": [
+        {
+          "fd": 0,
+          "target": "/dev/null",
+          "kind": "file",
+          "queueBytes": null
+        },
+        {
+          "fd": 1,
+          "target": "pipe:[67726921]",
+          "kind": "pipe",
+          "queueBytes": null
+        },
+        {
+          "fd": 2,
+          "target": "pipe:[67726922]",
+          "kind": "pipe",
+          "queueBytes": null
+        },
+        {
+          "fd": 3,
+          "target": "pipe:[67698327]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 4,
+          "target": "pipe:[67698327]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 5,
+          "target": "anon_inode:[eventpoll]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 6,
+          "target": "socket:[67698330]",
+          "kind": "socket",
+          "queueBytes": null,
+          "socketInode": "67698330",
+          "socket": {
+            "family": "tcp4",
+            "state": "LISTEN",
+            "stateHex": "0A",
+            "txQueue": 0,
+            "rxQueue": 0,
+            "localAddressHex": "0100007F",
+            "localPort": 6379,
+            "remoteAddressHex": "00000000",
+            "remotePort": 0
+          }
+        },
+        {
+          "fd": 7,
+          "target": "pipe:[67698331]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 8,
+          "target": "pipe:[67698331]",
+          "kind": "pipe",
+          "queueBytes": 0
+        }
+      ],
+      "sockets": {
+        "fds": [
+          {
+            "fd": 6,
+            "target": "socket:[67698330]",
+            "kind": "socket",
+            "queueBytes": null,
+            "socketInode": "67698330",
+            "socket": {
+              "family": "tcp4",
+              "state": "LISTEN",
+              "stateHex": "0A",
+              "txQueue": 0,
+              "rxQueue": 0,
+              "localAddressHex": "0100007F",
+              "localPort": 6379,
+              "remoteAddressHex": "00000000",
+              "remotePort": 0
+            }
+          }
+        ],
+        "kernelSocketIdentityPreserved": false
+      },
+      "threads": {
+        "tasks": [
+          {
+            "tid": 1,
+            "state": "S",
+            "wchan": "do_epoll_wait",
+            "syscall": {
+              "raw": null,
+              "wchan": "do_epoll_wait",
+              "number": null,
+              "readLikeWait": false,
+              "pollLikeWait": true
+            }
+          },
+          {
+            "tid": 11,
+            "state": "S",
+            "wchan": "futex_wait_queue",
+            "syscall": {
+              "raw": null,
+              "wchan": "futex_wait_queue",
+              "number": null,
+              "readLikeWait": false,
+              "pollLikeWait": false
+            }
+          },
+          {
+            "tid": 12,
+            "state": "S",
+            "wchan": "futex_wait_queue",
+            "syscall": {
+              "raw": null,
+              "wchan": "futex_wait_queue",
+              "number": null,
+              "readLikeWait": false,
+              "pollLikeWait": false
+            }
+          },
+          {
+            "tid": 13,
+            "state": "S",
+            "wchan": "futex_wait_queue",
+            "syscall": {
+              "raw": null,
+              "wchan": "futex_wait_queue",
+              "number": null,
+              "readLikeWait": false,
+              "pollLikeWait": false
+            }
+          },
+          {
+            "tid": 14,
+            "state": "S",
+            "wchan": "futex_wait_queue",
+            "syscall": {
+              "raw": null,
+              "wchan": "futex_wait_queue",
+              "number": null,
+              "readLikeWait": false,
+              "pollLikeWait": false
+            }
+          },
+          {
+            "tid": 15,
+            "state": "S",
+            "wchan": "futex_wait_queue",
+            "syscall": {
+              "raw": null,
+              "wchan": "futex_wait_queue",
+              "number": null,
+              "readLikeWait": false,
+              "pollLikeWait": false
+            }
+          }
+        ],
+        "threadStacksCaptured": false
+      },
+      "runtimeInternalPipes": {
+        "treatedAsExternalContinuationResources": false
+      }
+    },
+    "application": {
+      "name": "redis",
+      "case": "redis-idle-listener",
+      "safePoint": "Redis server idle listener with empty accept/socket queues",
+      "runtimeHeapCaptured": false,
+      "runtimeHeapRestored": false,
+      "databaseMemoryCaptured": false,
+      "databaseMemoryRestored": false
+    },
+    "materializer": {
+      "strategy": "target-native-application-reexec-at-accepted-resource-boundary",
+      "rawProcessMemoryMaterialization": false,
+      "sourceIsaEmulationRequired": false,
+      "kernelSocketIdentityPreserved": false
+    }
+  },
+  "inputDescriptorUnchanged": true,
+  "materialization": {
+    "container": "machinen-mat-bc213dc853-redis",
+    "classifiedShapeId": "shape-socket-listener-empty-accept-queue",
+    "decision": "accepted",
+    "ping": "PONG",
+    "logs": "ry overcommit must be enabled! Without it, a background save or replication may fail under low memory condition. Being disabled, it can also cause failures without low memory condition, see https://github.com/jemalloc/jemalloc/issues/1328. To fix this issue add 'vm.overcommit_memory = 1' to /etc/sysctl.conf and then reboot or run the command 'sysctl vm.overcommit_memory=1' for this to take effect.\n1:C 06 Jun 2026 20:32:26.391 * oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo\n1:C 06 Jun 2026 20:32:26.391 * Redis version=7.4.9, bits=64, commit=00000000, modified=0, pid=1, just started\n1:C 06 Jun 2026 20:32:26.391 * Configuration loaded\n1:M 06 Jun 2026 20:32:26.392 * Increased maximum number of open files to 10032 (it was originally set to 1024).\n1:M 06 Jun 2026 20:32:26.392 * monotonic clock: POSIX clock_gettime\n1:M 06 Jun 2026 20:32:26.393 * Running mode=standalone, port=6379.\n1:M 06 Jun 2026 20:32:26.393 * Server initialized\n1:M 06 Jun 2026 20:32:26.393 * Ready to accept connections tcp\n",
+    "continued": true
+  }
+}

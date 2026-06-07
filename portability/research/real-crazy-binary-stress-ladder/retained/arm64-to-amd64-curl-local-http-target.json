@@ -1,0 +1,21 @@
+{
+  "case": "curl-local-http",
+  "kind": "support",
+  "description": "curl completes a request against a controlled local HTTP server",
+  "mode": "target",
+  "role": "target",
+  "hostArch": "x86_64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false
+  },
+  "decision": "accepted",
+  "evidence": {
+    "binary": "/usr/bin/curl",
+    "stdout": "curl-ok",
+    "localPort": 43775
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "shape": "024-global-variable-counter-cli",
+  "decision": "accepted",
+  "supportStage": "4-supported-subset",
+  "supportScope": "declared safe-point writable global counter descriptor",
+  "sourceArch": "amd64",
+  "targetArch": "arm64",
+  "facts": {
+    "entrySymbol": "continue_global_counter",
+    "sourcePc": "0x5a7f4e356c12",
+    "sourceSp": "0x7ffc7e8c86e0",
+    "sourceArg0": "0x1000",
+    "targetArgumentRegister": "x0",
+    "targetStackBytes": 65536
+  }
+}

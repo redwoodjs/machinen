@@ -1,0 +1,21 @@
+{
+  "case": "multi-thread-refusal",
+  "kind": "refusal",
+  "description": "multi-thread process refused",
+  "mode": "source",
+  "role": "source",
+  "hostArch": "aarch64",
+  "pid": 1140457,
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "kernelObjectIdentityPreserved": false
+  },
+  "decision": "refused",
+  "refusal": {
+    "reason": "multi-thread",
+    "threads": 2
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "shape": "001-counter-cli",
+  "decision": "refused",
+  "supportStage": "1-refused",
+  "refusalCode": "counter-cli-arg0-not-state-base",
+  "reason": "source argument register must point at the declared state region"
+}

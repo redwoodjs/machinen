@@ -1,0 +1,183 @@
+{
+  "case": "git-pipe-less-quit",
+  "adapter": "git-pipe-less",
+  "description": "git log explicit pipe into less, producer drained, then q",
+  "mode": "target",
+  "role": "target",
+  "hostArch": "aarch64",
+  "processRoot": {
+    "pid": 1077191,
+    "argv": ["/bin/sh", "-c", "git --no-optional-locks log --oneline --decorate=short | less"]
+  },
+  "processTree": [
+    {
+      "pid": 1077191,
+      "state": {
+        "pid": 1077191,
+        "comm": "sh",
+        "state": "S",
+        "threads": 1,
+        "signalPendingMask": "0000000000000000",
+        "ppid": 1076947,
+        "pgrp": 1077191,
+        "session": 1077191,
+        "ttyNr": 34816,
+        "syscall": {
+          "raw": "260 0xffffffffffffffff 0xffffd9f20014 0x0 0x0 0x1 0x0 0xffffd9f1ffe0 0xf0a839427b30",
+          "parsed": true,
+          "number": 260,
+          "name": "wait4",
+          "args": [18446744073709551615, 281474338258964, 0, 0, 1, 0],
+          "fd": 18446744073709551615
+        }
+      },
+      "fds": [
+        {
+          "fd": 0,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 1,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 2,
+          "target": "/dev/pts/0"
+        }
+      ],
+      "stdioTargets": {
+        "0": "/dev/pts/0",
+        "1": "/dev/pts/0",
+        "2": "/dev/pts/0"
+      },
+      "syscallFdTarget": null,
+      "allStdioOnControlledPty": true,
+      "hasPipeFd": false,
+      "hasSocketFd": false
+    },
+    {
+      "pid": 1077193,
+      "state": {
+        "pid": 1077193,
+        "comm": "less",
+        "state": "S",
+        "threads": 1,
+        "signalPendingMask": "0000000000000000",
+        "ppid": 1077191,
+        "pgrp": 1077191,
+        "session": 1077191,
+        "ttyNr": 34816,
+        "syscall": {
+          "raw": "63 0x3 0xffffd845dd47 0x1 0x1 0xffffd845dc50 0x77d7c90790b267db 0xffffd845dc20 0xeacb0a4e1248",
+          "parsed": true,
+          "number": 63,
+          "name": "read",
+          "args": [3, 281474310200647, 1, 1, 281474310200400, 8635591844835780571],
+          "fd": 3
+        }
+      },
+      "fds": [
+        {
+          "fd": 0,
+          "target": "pipe:[27562859]"
+        },
+        {
+          "fd": 1,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 2,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 3,
+          "target": "/dev/pts/0"
+        }
+      ],
+      "stdioTargets": {
+        "0": "pipe:[27562859]",
+        "1": "/dev/pts/0",
+        "2": "/dev/pts/0"
+      },
+      "syscallFdTarget": "/dev/pts/0",
+      "allStdioOnControlledPty": false,
+      "hasPipeFd": true,
+      "hasSocketFd": false
+    }
+  ],
+  "candidateProcess": {
+    "pid": 1077191,
+    "state": {
+      "pid": 1077191,
+      "comm": "sh",
+      "state": "S",
+      "threads": 1,
+      "signalPendingMask": "0000000000000000",
+      "ppid": 1076947,
+      "pgrp": 1077191,
+      "session": 1077191,
+      "ttyNr": 34816,
+      "syscall": {
+        "raw": "260 0xffffffffffffffff 0xffffd9f20014 0x0 0x0 0x1 0x0 0xffffd9f1ffe0 0xf0a839427b30",
+        "parsed": true,
+        "number": 260,
+        "name": "wait4",
+        "args": [18446744073709551615, 281474338258964, 0, 0, 1, 0],
+        "fd": 18446744073709551615
+      }
+    },
+    "fds": [
+      {
+        "fd": 0,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 1,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 2,
+        "target": "/dev/pts/0"
+      }
+    ],
+    "stdioTargets": {
+      "0": "/dev/pts/0",
+      "1": "/dev/pts/0",
+      "2": "/dev/pts/0"
+    },
+    "syscallFdTarget": null,
+    "allStdioOnControlledPty": true,
+    "hasPipeFd": false,
+    "hasSocketFd": false
+  },
+  "pty": {
+    "slavePath": "/dev/pts/0",
+    "inputQueueBytesOnMaster": 0
+  },
+  "checks": {
+    "expectedRendered": true,
+    "modeledProcessTree": true,
+    "queuesEmpty": true,
+    "producerDrainedWhenRequired": true
+  },
+  "screenAtCandidate": {
+    "sample": "\u001b[?1049h\u001b[22;0;0t\u001b[?1h\u001b=\rfa1b3de (HEAD -> master) commit-080\r\n43b69f5 commit-079\r\nc0a1d71 commit-078\r\n254a723 commit-077\r\n30a2747 commit-076\r\ne14e35b commit-075\r\n6e46c3f commit-074\r\n3a1f14a commit-073\r\n164f532 commit-072\r\n737781e commit-071\r\nb385c7a commit-070\r\n46d9b0c commit-069\r\n6d219fe commit-068\r\nc8e61c7 commit-067\r\n8780237 commit-066\r\ndbd8136 commit-065\r\n1c5e59d commit-064\r\ndf4b93c commit-063\r\n56ea40e commit-062\r\n3595021 commit-061\r\nc7a9126 commit-060\r\n6f0605d commit-059\r\n13ebe5a commit-058\r\n:\u001b[K"
+  },
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "markerSymbolsUsed": false
+  },
+  "input": {
+    "base64": "cQ==",
+    "expect": "process-exit"
+  },
+  "behavior": {
+    "matchedExpectation": true,
+    "processExited": true,
+    "sample": "\r\u001b[K\u001b[?1l\u001b>\u001b[?1049l\u001b[23;0;0t"
+  },
+  "decision": "accepted"
+}

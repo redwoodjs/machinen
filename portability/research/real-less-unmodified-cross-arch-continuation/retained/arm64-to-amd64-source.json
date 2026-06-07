@@ -1,0 +1,98 @@
+{
+  "role": "source",
+  "hostArch": "aarch64",
+  "decision": "captured",
+  "less": {
+    "path": "/usr/bin/less",
+    "versionLine": "less 590 (GNU regular expressions)"
+  },
+  "process": {
+    "pid": 929816,
+    "state": {
+      "statusState": "S",
+      "threads": 1,
+      "signalPendingMask": "0000000000000000",
+      "statPgrp": 929816,
+      "statSession": 929816,
+      "statTtyNr": 34816,
+      "syscall": {
+        "raw": "63 0x3 0xffffcb390607 0x1 0x1 0xffffcb390510 0x613dab54a5bf1cc4 0xffffcb3904e0 0xf61d96221248",
+        "parsed": true,
+        "number": 63,
+        "name": "read",
+        "args": [3, 281474091255303, 1, 1, 281474091255056, 7006944975304727748],
+        "fd": 3
+      }
+    },
+    "fds": [
+      {
+        "fd": 0,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 1,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 2,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 3,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 4,
+        "target": "/tmp/machinen-less-unmodified-cross-bj8fwoi3/less-input.txt"
+      }
+    ],
+    "stdioTargets": {
+      "0": "/dev/pts/0",
+      "1": "/dev/pts/0",
+      "2": "/dev/pts/0"
+    },
+    "syscallFdTarget": "/dev/pts/0",
+    "allStdioOnControlledPty": true
+  },
+  "regularFile": {
+    "path": "/tmp/machinen-less-unmodified-cross-bj8fwoi3/less-input.txt",
+    "size": 1071,
+    "mtimeNs": 1780728332358001935,
+    "sha256": "69a38d60e561adc47ac2424ac882479c2a62f576994d5e0f292441e6b580ca9b"
+  },
+  "pty": {
+    "slavePath": "/dev/pts/0",
+    "rows": 24,
+    "cols": 80,
+    "inputQueueBytesOnMaster": 0,
+    "inputQueueBytesOnSlave": {
+      "available": true,
+      "bytes": 0
+    },
+    "foregroundPgrpFromMaster": 929816
+  },
+  "pageDescriptor": {
+    "inputSha256": "69a38d60e561adc47ac2424ac882479c2a62f576994d5e0f292441e6b580ca9b",
+    "expectedFirstPageStart": "line-001",
+    "expectedAfterSpaceStart": "line-024"
+  },
+  "screenAtCandidate": {
+    "containsFirstPage": true,
+    "sample": "\u001b[?1049h\u001b[22;0;0t\u001b[?1h\u001b=\rline-001\r\nline-002\r\nline-003\r\nline-004\r\nline-005\r\nline-006\r\nline-007\r\nline-008\r\nline-009\r\nline-010\r\nline-011\r\nline-012\r\nline-013\r\nline-014\r\nline-015\r\nline-016\r\nline-017\r\nline-018\r\nline-019\r\nline-020\r\nline-021\r\nline-022\r\nline-023\r\n\u001b[7m/tmp/machinen-less-unmodified-cross-bj8fwoi3/less-input.txt\u001b[27m\u001b[K"
+  },
+  "candidateChecks": {
+    "firstPage": true,
+    "syscallRead": true,
+    "syscallFdPty": true,
+    "stdioPty": true,
+    "sessionPgrp": true,
+    "queuesEmpty": true
+  },
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "markerSymbolsUsed": false
+  }
+}

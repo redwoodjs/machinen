@@ -1,0 +1,14 @@
+{
+  "kind": "machinen.research.real-less-detector.capture",
+  "version": 2,
+  "case": "refused-pgrp-session-mismatch",
+  "decision": "refused",
+  "stateKind": "synthetic-refusal",
+  "refusalCode": "real-less-process-session-pgrp-mismatch",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false
+  }
+}

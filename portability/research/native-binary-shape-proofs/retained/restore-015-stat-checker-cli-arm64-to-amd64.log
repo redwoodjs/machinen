@@ -1,0 +1,2 @@
+stat:5
+SHAPE_RESTORE_OK shape=015-stat-checker-cli target=amd64 result=42

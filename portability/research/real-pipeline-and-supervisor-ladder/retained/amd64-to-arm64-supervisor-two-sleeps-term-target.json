@@ -1,0 +1,224 @@
+{
+  "case": "supervisor-two-sleeps-term",
+  "adapter": "supervisor-two",
+  "description": "supervisor traps TERM and kills two sleep children",
+  "mode": "target",
+  "role": "target",
+  "hostArch": "aarch64",
+  "processRoot": {
+    "pid": 1078766,
+    "argv": ["/tmp/machinen-pipeline-supervisor-ladder-19th7a4v/script.sh"]
+  },
+  "processTree": [
+    {
+      "pid": 1078766,
+      "state": {
+        "pid": 1078766,
+        "comm": "script.sh",
+        "state": "S",
+        "threads": 1,
+        "signalPendingMask": "0000000000000000",
+        "ppid": 1078765,
+        "pgrp": 1078766,
+        "session": 1078766,
+        "ttyNr": 34816,
+        "syscall": {
+          "raw": "133 0xffffec244338 0x8 0x0 0x0 0xfffffffe7fffffff 0x7 0xffffec244310 0xf6c9dd27ce14",
+          "parsed": true,
+          "number": 133,
+          "name": "syscall-133",
+          "args": [281474643542840, 8, 0, 0, 18446744067267100671, 7],
+          "fd": 281474643542840
+        }
+      },
+      "fds": [
+        {
+          "fd": 0,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 1,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 2,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 10,
+          "target": "/tmp/machinen-pipeline-supervisor-ladder-19th7a4v/script.sh"
+        }
+      ],
+      "stdioTargets": {
+        "0": "/dev/pts/0",
+        "1": "/dev/pts/0",
+        "2": "/dev/pts/0"
+      },
+      "syscallFdTarget": null,
+      "allStdioOnControlledPty": true,
+      "hasPipeFd": false,
+      "hasSocketFd": false
+    },
+    {
+      "pid": 1078767,
+      "state": {
+        "pid": 1078767,
+        "comm": "sleep",
+        "state": "S",
+        "threads": 1,
+        "signalPendingMask": "0000000000000000",
+        "ppid": 1078766,
+        "pgrp": 1078766,
+        "session": 1078766,
+        "ttyNr": 34816,
+        "syscall": {
+          "raw": "115 0x0 0x0 0xffffe5166b98 0xffffe5166b88 0xfdec6c3e6b50 0x0 0xffffe5166ae0 0xfdec6c28be50",
+          "parsed": true,
+          "number": 115,
+          "name": "syscall-115",
+          "args": [0, 0, 281474525195160, 281474525195144, 279191870139216, 0],
+          "fd": 0
+        }
+      },
+      "fds": [
+        {
+          "fd": 0,
+          "target": "/dev/null"
+        },
+        {
+          "fd": 1,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 2,
+          "target": "/dev/pts/0"
+        }
+      ],
+      "stdioTargets": {
+        "0": "/dev/null",
+        "1": "/dev/pts/0",
+        "2": "/dev/pts/0"
+      },
+      "syscallFdTarget": "/dev/null",
+      "allStdioOnControlledPty": false,
+      "hasPipeFd": false,
+      "hasSocketFd": false
+    },
+    {
+      "pid": 1078768,
+      "state": {
+        "pid": 1078768,
+        "comm": "sleep",
+        "state": "S",
+        "threads": 1,
+        "signalPendingMask": "0000000000000000",
+        "ppid": 1078766,
+        "pgrp": 1078766,
+        "session": 1078766,
+        "ttyNr": 34816,
+        "syscall": {
+          "raw": "115 0x0 0x0 0xffffeef0c868 0xffffeef0c858 0xeb4d60148b50 0x0 0xffffeef0c7b0 0xeb4d5ffebe50",
+          "parsed": true,
+          "number": 115,
+          "name": "syscall-115",
+          "args": [0, 0, 281474690500712, 281474690500696, 258717556968272, 0],
+          "fd": 0
+        }
+      },
+      "fds": [
+        {
+          "fd": 0,
+          "target": "/dev/null"
+        },
+        {
+          "fd": 1,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 2,
+          "target": "/dev/pts/0"
+        }
+      ],
+      "stdioTargets": {
+        "0": "/dev/null",
+        "1": "/dev/pts/0",
+        "2": "/dev/pts/0"
+      },
+      "syscallFdTarget": "/dev/null",
+      "allStdioOnControlledPty": false,
+      "hasPipeFd": false,
+      "hasSocketFd": false
+    }
+  ],
+  "candidateProcess": {
+    "pid": 1078767,
+    "state": {
+      "pid": 1078767,
+      "comm": "sleep",
+      "state": "S",
+      "threads": 1,
+      "signalPendingMask": "0000000000000000",
+      "ppid": 1078766,
+      "pgrp": 1078766,
+      "session": 1078766,
+      "ttyNr": 34816,
+      "syscall": {
+        "raw": "115 0x0 0x0 0xffffe5166b98 0xffffe5166b88 0xfdec6c3e6b50 0x0 0xffffe5166ae0 0xfdec6c28be50",
+        "parsed": true,
+        "number": 115,
+        "name": "syscall-115",
+        "args": [0, 0, 281474525195160, 281474525195144, 279191870139216, 0],
+        "fd": 0
+      }
+    },
+    "fds": [
+      {
+        "fd": 0,
+        "target": "/dev/null"
+      },
+      {
+        "fd": 1,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 2,
+        "target": "/dev/pts/0"
+      }
+    ],
+    "stdioTargets": {
+      "0": "/dev/null",
+      "1": "/dev/pts/0",
+      "2": "/dev/pts/0"
+    },
+    "syscallFdTarget": "/dev/null",
+    "allStdioOnControlledPty": false,
+    "hasPipeFd": false,
+    "hasSocketFd": false
+  },
+  "pty": {
+    "slavePath": "/dev/pts/0",
+    "inputQueueBytesOnMaster": 0
+  },
+  "checks": {
+    "expectedRendered": true,
+    "modeledProcessTree": true,
+    "queuesEmpty": true,
+    "producerDrainedWhenRequired": true
+  },
+  "screenAtCandidate": {
+    "sample": ""
+  },
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "markerSymbolsUsed": false
+  },
+  "behavior": {
+    "matchedExpectation": true,
+    "processExited": true,
+    "remainingDescendants": []
+  },
+  "decision": "accepted"
+}

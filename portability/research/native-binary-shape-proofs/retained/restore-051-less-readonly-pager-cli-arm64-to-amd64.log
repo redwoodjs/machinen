@@ -1,0 +1,2 @@
+less:line2|line3
+SHAPE_RESTORE_OK shape=051-less-readonly-pager-cli target=amd64 result=42

@@ -1,0 +1,206 @@
+{
+  "kind": "machinen.research.real-less-marker-unmodified-equivalence.report",
+  "version": 1,
+  "status": "passed",
+  "marker": {
+    "label": "marker-build-no-spin-blocked-read",
+    "binary": {
+      "path": "/mnt/shared-500G/machinen-real-less-marker-unmodified-equivalence-20260606T064519Z-89443/known-less/prefix/bin/less",
+      "versionLine": "less 643 (POSIX regular expressions)"
+    },
+    "process": {
+      "pid": 3713411,
+      "state": {
+        "statusState": "S",
+        "threads": 1,
+        "signalPendingMask": "0000000000000000",
+        "statPgrp": 3713411,
+        "statSession": 3713411,
+        "statTtyNr": 34816,
+        "syscall": {
+          "raw": "0 0x3 0x7ffc0a952767 0x1 0x24 0x57647031a4f8 0x7ffc0a952120 0x7ffc0a9526a8 0x764188c782ad",
+          "parsed": true,
+          "number": 0,
+          "name": "read",
+          "args": [3, 140720486033255, 1, 36, 96088890647800, 140720486031648],
+          "fd": 3
+        }
+      },
+      "fds": [
+        {
+          "fd": 0,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 1,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 2,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 3,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 4,
+          "target": "/tmp/machinen-less-equivalence-aedl9f4k/less-input.txt"
+        }
+      ],
+      "stdioTargets": {
+        "0": "/dev/pts/0",
+        "1": "/dev/pts/0",
+        "2": "/dev/pts/0"
+      },
+      "syscallFdTarget": "/dev/pts/0",
+      "allStdioOnControlledPty": true
+    },
+    "regularFile": {
+      "path": "/tmp/machinen-less-equivalence-aedl9f4k/less-input.txt",
+      "device": 64513,
+      "inode": 5811613,
+      "size": 1071,
+      "mtimeNs": 1780728324759423777,
+      "mode": "0o100644"
+    },
+    "pty": {
+      "identity": {
+        "path": "/dev/pts/0"
+      },
+      "rows": 24,
+      "cols": 80,
+      "inputQueueBytesOnMaster": 0,
+      "inputQueueBytesOnSlave": {
+        "available": true,
+        "bytes": 0
+      },
+      "foregroundPgrpFromMaster": 3713411
+    },
+    "screenBefore": {
+      "containsFirstPage": true,
+      "sample": "\u001b[?1049h\u001b[22;0;0t\u001b[24;1H\u001b[?1h\u001b=\rline-001\r\nline-002\r\nline-003\r\nline-004\r\nline-005\r\nline-006\r\nline-007\r\nline-008\r\nline-009\r\nline-010\r\nline-011\r\nline-012\r\nline-013\r\nline-014\r\nline-015\r\nline-016\r\nline-017\r\nline-018\r\nline-019\r\nline-020\r\nline-021\r\nline-022\r\nline-023\r\n\u001b[7m/tmp/machinen-less-equivalence-aedl9f4k/less-input.txt\u001b[27m\u001b[K"
+    },
+    "behavior": {
+      "injectedKey": "SPACE",
+      "containsNextPage": true,
+      "sample": "\r\u001b[Kline-024\r\nline-025\r\nline-026\r\nline-027\r\nline-028\r\nline-029\r\nline-030\r\nline-031\r\nline-032\r\nline-033\r\nline-034\r\nline-035\r\nline-036\r\nline-037\r\nline-038\r\nline-039\r\nline-040\r\nline-041\r\nline-042\r\nline-043\r\nline-044\r\nline-045\r\nline-046\r\n:\u001b[K"
+    },
+    "checks": {
+      "screenFirstPage": true,
+      "syscallIsRead": true,
+      "syscallFdPty": true,
+      "stdioPty": true,
+      "sessionPgrp": true,
+      "queuesEmpty": true
+    },
+    "decision": "accepted"
+  },
+  "unmodified": {
+    "label": "unmodified-system-less-blocked-read",
+    "binary": {
+      "path": "/usr/bin/less",
+      "versionLine": "less 590 (GNU regular expressions)"
+    },
+    "process": {
+      "pid": 3713417,
+      "state": {
+        "statusState": "S",
+        "threads": 1,
+        "signalPendingMask": "0000000000000000",
+        "statPgrp": 3713417,
+        "statSession": 3713417,
+        "statTtyNr": 34816,
+        "syscall": {
+          "raw": "0 0x3 0x7fff3786d227 0x1 0x24 0x62aa5da6d238 0x7fff3786cc30 0x7fff3786d148 0x76e041a632ad",
+          "parsed": true,
+          "number": 0,
+          "name": "read",
+          "args": [3, 140734124970535, 1, 36, 108483855176248, 140734124969008],
+          "fd": 3
+        }
+      },
+      "fds": [
+        {
+          "fd": 0,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 1,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 2,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 3,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 4,
+          "target": "/tmp/machinen-less-equivalence-h_4sf8v2/less-input.txt"
+        }
+      ],
+      "stdioTargets": {
+        "0": "/dev/pts/0",
+        "1": "/dev/pts/0",
+        "2": "/dev/pts/0"
+      },
+      "syscallFdTarget": "/dev/pts/0",
+      "allStdioOnControlledPty": true
+    },
+    "regularFile": {
+      "path": "/tmp/machinen-less-equivalence-h_4sf8v2/less-input.txt",
+      "device": 64513,
+      "inode": 5811613,
+      "size": 1071,
+      "mtimeNs": 1780728325967455345,
+      "mode": "0o100644"
+    },
+    "pty": {
+      "identity": {
+        "path": "/dev/pts/0"
+      },
+      "rows": 24,
+      "cols": 80,
+      "inputQueueBytesOnMaster": 0,
+      "inputQueueBytesOnSlave": {
+        "available": true,
+        "bytes": 0
+      },
+      "foregroundPgrpFromMaster": 3713417
+    },
+    "screenBefore": {
+      "containsFirstPage": true,
+      "sample": "\u001b[?1049h\u001b[22;0;0t\u001b[?1h\u001b=\rline-001\r\nline-002\r\nline-003\r\nline-004\r\nline-005\r\nline-006\r\nline-007\r\nline-008\r\nline-009\r\nline-010\r\nline-011\r\nline-012\r\nline-013\r\nline-014\r\nline-015\r\nline-016\r\nline-017\r\nline-018\r\nline-019\r\nline-020\r\nline-021\r\nline-022\r\nline-023\r\n\u001b[7m/tmp/machinen-less-equivalence-h_4sf8v2/less-input.txt\u001b[27m\u001b[K"
+    },
+    "behavior": {
+      "injectedKey": "SPACE",
+      "containsNextPage": true,
+      "sample": "\r\u001b[Kline-024\r\nline-025\r\nline-026\r\nline-027\r\nline-028\r\nline-029\r\nline-030\r\nline-031\r\nline-032\r\nline-033\r\nline-034\r\nline-035\r\nline-036\r\nline-037\r\nline-038\r\nline-039\r\nline-040\r\nline-041\r\nline-042\r\nline-043\r\nline-044\r\nline-045\r\nline-046\r\n:\u001b[K"
+    },
+    "checks": {
+      "screenFirstPage": true,
+      "syscallIsRead": true,
+      "syscallFdPty": true,
+      "stdioPty": true,
+      "sessionPgrp": true,
+      "queuesEmpty": true
+    },
+    "decision": "accepted"
+  },
+  "equivalence": {
+    "sameRowsCols": true,
+    "sameFirstPage": true,
+    "sameNextSpaceBehavior": true,
+    "sourceLevelSafePointClaimForUnmodified": false
+  },
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "supportClaimed": false
+  }
+}

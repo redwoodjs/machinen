@@ -1,0 +1,7 @@
+{
+  "shape": "021-graph-with-shared-node-cli",
+  "decision": "refused",
+  "supportStage": "1-refused",
+  "refusalCode": "native-shape-claim-guard-not-false",
+  "reason": "claim guard metadataOnlySuccess must be false"
+}

@@ -1,0 +1,20 @@
+{
+  "case": "find-tree-walk",
+  "kind": "support",
+  "description": "find walks a deterministic directory tree",
+  "mode": "source",
+  "role": "source",
+  "hostArch": "aarch64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false
+  },
+  "decision": "captured",
+  "evidence": {
+    "binary": "/usr/bin/find",
+    "stdout": "/tmp/machinen-crazy-binary-stress-91n96c6g/tree/sub/needle.txt\n"
+  }
+}

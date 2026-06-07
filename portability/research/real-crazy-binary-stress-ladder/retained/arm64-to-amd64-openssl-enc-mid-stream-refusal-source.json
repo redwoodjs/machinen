@@ -1,0 +1,23 @@
+{
+  "case": "openssl-enc-mid-stream-refusal",
+  "kind": "refusal",
+  "description": "openssl enc live cipher stream with partial input/output is refused",
+  "mode": "source",
+  "role": "source",
+  "hostArch": "aarch64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false
+  },
+  "decision": "refused",
+  "refusal": {
+    "reason": "openssl-enc-live-cipher-stream-state",
+    "binary": "/usr/bin/openssl",
+    "processAliveAtProbe": true,
+    "partialCiphertextBytes": 16384,
+    "rawCipherStatePreserved": false
+  }
+}

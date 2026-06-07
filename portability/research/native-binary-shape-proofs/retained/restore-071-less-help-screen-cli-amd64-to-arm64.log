@@ -1,0 +1,2 @@
+less-help:q quit
+SHAPE_RESTORE_OK shape=071-less-help-screen-cli target=arm64 result=42

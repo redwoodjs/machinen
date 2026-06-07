@@ -1,0 +1,109 @@
+{
+  "kind": "machinen.research.real-less-detector.capture",
+  "version": 2,
+  "case": "refused-nonempty-pty-input",
+  "decision": "refused",
+  "stateKind": "real-process-refusal",
+  "hostArch": "x86_64",
+  "binary": {
+    "path": "/mnt/shared-500G/machinen-real-less-detector-20260605T224925Z-63950/known-less/prefix/bin/less"
+  },
+  "process": {
+    "pid": 3479500,
+    "state": {
+      "statusState": "T",
+      "threads": 1,
+      "signalPendingMask": "0000000000000000",
+      "signalBlockedMask": "0000000000000000",
+      "signalIgnoredMask": "0000000000000004",
+      "signalCaughtMask": "0000000008084002",
+      "statPgrp": 3479500,
+      "statSession": 3479500,
+      "statTtyNr": 34816,
+      "syscall": {
+        "raw": "0 0x3 0x7ffc08c14ee7 0x1 0x24 0x57fcc70b94f8 0x7ffc08c148a0 0x7ffc08c14e28 0x7ed47f75c2ad",
+        "parsed": true,
+        "number": 0,
+        "name": "read",
+        "args": [3, 140720455372519, 1, 36, 96743182800120, 140720455370912],
+        "fd": 3
+      }
+    },
+    "fds": [
+      {
+        "fd": 0,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 1,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 2,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 3,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 4,
+        "target": "/tmp/machinen-real-less-detector-7iihmmmb/less-input.txt"
+      }
+    ],
+    "stdioTargets": {
+      "0": "/dev/pts/0",
+      "1": "/dev/pts/0",
+      "2": "/dev/pts/0"
+    },
+    "syscallFdTarget": "/dev/pts/0",
+    "allStdioOnControlledPty": true,
+    "socketFds": []
+  },
+  "pty": {
+    "rows": 24,
+    "cols": 80,
+    "identity": {
+      "path": "/dev/pts/0",
+      "device": 24,
+      "inode": 3,
+      "rdev": 34816,
+      "mode": "0o20620"
+    },
+    "inputQueueBytesOnMaster": 0,
+    "inputQueueBytesOnSlave": {
+      "available": true,
+      "bytes": 1
+    },
+    "foregroundPgrpFromMaster": 3479500,
+    "controlledPty": true,
+    "harnessPendingInputBytes": 1
+  },
+  "screenEvidence": {
+    "containsFirstLine": true,
+    "containsPipeFirstLine": false,
+    "sample": "\u001b[?1049h\u001b[22;0;0t\u001b[24;1H\u001b[?1h\u001b=\rline-001\r\nline-002\r\nline-003\r\nline-004\r\nline-005\r\nline-006\r\nline-007\r\nline-008\r\nline-009\r\nline-010\r\nline-011\r\nline-012\r\nline-013\r\nline-014\r\nline-015\r\nline-016\r\nline-017\r\nline-018\r\nline-019\r\nline-020\r\nline-021\r\nline-022\r\nline-023\r\n\u001b[7m/tmp/machinen-real-less-detector-7iihmmmb/less-input.txt\u001b[27m\u001b[K"
+  },
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false
+  },
+  "less": {
+    "path": "/mnt/shared-500G/machinen-real-less-detector-20260605T224925Z-63950/known-less/prefix/bin/less",
+    "versionLine": "less 643 (POSIX regular expressions)"
+  },
+  "regularFile": {
+    "path": "/tmp/machinen-real-less-detector-7iihmmmb/less-input.txt",
+    "device": 64513,
+    "inode": 5811613,
+    "size": 711,
+    "mtimeNs": 1780699772351529990,
+    "mode": "0o100644"
+  },
+  "refusalCode": "real-less-pty-input-queue-not-empty",
+  "detector": {
+    "refusedBecause": "harness queued a command byte while the less process was stopped"
+  }
+}

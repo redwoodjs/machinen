@@ -1,0 +1,48 @@
+{
+  "case": "openssl-after-final-block",
+  "kind": "support",
+  "description": "materialize openssl after-final-block descriptor by verifying completed output",
+  "mode": "source",
+  "role": "source",
+  "hostArch": "aarch64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false
+  },
+  "decision": "captured",
+  "descriptor": {
+    "kind": "machinen.research.native-continuation.capture-descriptor",
+    "version": 1,
+    "shapeId": "shape-openssl-after-final-block",
+    "architectureNeutral": true,
+    "cpu": {
+      "wait": "after-final-cipher-block",
+      "targetNativeReconstruction": true,
+      "sourceIsaEmulationRequired": false
+    },
+    "memory": {
+      "mode": "semantic-resource-descriptor-only",
+      "rawHeapCaptured": false,
+      "rawStackCaptured": false,
+      "rawRegistersCaptured": false,
+      "rawHeapStackRegistersCaptured": false
+    },
+    "resources": {
+      "crypto": {
+        "finalBlockWritten": true
+      },
+      "plaintextSha256": "0c1d27547a33eb0f04a9ee5c490a984085dafd08508da5c010557839e300fbaf"
+    },
+    "materializer": {
+      "strategy": "target-native-shape-materializer",
+      "rawProcessMemoryMaterialization": false
+    }
+  },
+  "evidence": {
+    "sha256": "0c1d27547a33eb0f04a9ee5c490a984085dafd08508da5c010557839e300fbaf",
+    "cipherReplayed": false
+  }
+}

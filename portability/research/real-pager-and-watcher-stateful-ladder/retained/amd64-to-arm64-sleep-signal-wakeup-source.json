@@ -1,0 +1,145 @@
+{
+  "case": "sleep-signal-wakeup",
+  "adapter": "sleep-signal",
+  "description": "sleep is captured in a timer wait and exits on a delivered signal",
+  "mode": "source",
+  "role": "source",
+  "hostArch": "x86_64",
+  "binary": {
+    "path": "/usr/bin/sleep",
+    "versionLine": "sleep (GNU coreutils) 9.1",
+    "packageEvidence": null
+  },
+  "processRoot": {
+    "pid": 3784623,
+    "argv": ["/usr/bin/sleep", "30"]
+  },
+  "processTree": [
+    {
+      "pid": 3784623,
+      "state": {
+        "pid": 3784623,
+        "comm": "sleep",
+        "statusState": "S",
+        "threads": 1,
+        "signalPendingMask": "0000000000000000",
+        "statPpid": 3784622,
+        "statPgrp": 3784623,
+        "statSession": 3784623,
+        "statTtyNr": 34816,
+        "syscall": {
+          "raw": "230 0x0 0x0 0x7fff986494e0 0x7fff98649520 0x0 0x0 0x7fff986494c8 0x7e2101e4b503",
+          "parsed": true,
+          "number": 230,
+          "name": "clock_nanosleep",
+          "args": [0, 0, 140735750116576, 140735750116640, 0, 0],
+          "fd": 0
+        }
+      },
+      "fds": [
+        {
+          "fd": 0,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 1,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 2,
+          "target": "/dev/pts/0"
+        }
+      ],
+      "stdioTargets": {
+        "0": "/dev/pts/0",
+        "1": "/dev/pts/0",
+        "2": "/dev/pts/0"
+      },
+      "syscallFdTarget": "/dev/pts/0",
+      "allStdioOnControlledPty": true,
+      "hasSignalfd": false,
+      "hasRegularAdapterFile": false
+    }
+  ],
+  "candidateProcess": {
+    "pid": 3784623,
+    "state": {
+      "pid": 3784623,
+      "comm": "sleep",
+      "statusState": "S",
+      "threads": 1,
+      "signalPendingMask": "0000000000000000",
+      "statPpid": 3784622,
+      "statPgrp": 3784623,
+      "statSession": 3784623,
+      "statTtyNr": 34816,
+      "syscall": {
+        "raw": "230 0x0 0x0 0x7fff986494e0 0x7fff98649520 0x0 0x0 0x7fff986494c8 0x7e2101e4b503",
+        "parsed": true,
+        "number": 230,
+        "name": "clock_nanosleep",
+        "args": [0, 0, 140735750116576, 140735750116640, 0, 0],
+        "fd": 0
+      }
+    },
+    "fds": [
+      {
+        "fd": 0,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 1,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 2,
+        "target": "/dev/pts/0"
+      }
+    ],
+    "stdioTargets": {
+      "0": "/dev/pts/0",
+      "1": "/dev/pts/0",
+      "2": "/dev/pts/0"
+    },
+    "syscallFdTarget": "/dev/pts/0",
+    "allStdioOnControlledPty": true,
+    "hasSignalfd": false,
+    "hasRegularAdapterFile": false
+  },
+  "pty": {
+    "slavePath": "/dev/pts/0",
+    "rows": 24,
+    "cols": 80,
+    "inputQueueBytesOnMaster": 0,
+    "inputQueueBytesOnSlave": {
+      "available": true,
+      "bytes": 0
+    },
+    "foregroundPgrpFromMaster": 3784623
+  },
+  "candidateChecks": {
+    "expectedOutputRendered": true,
+    "modeledWait": true,
+    "controlledPtyIo": true,
+    "sessionPgrp": true,
+    "queuesEmpty": true,
+    "singleThreadCandidate": true,
+    "noPendingSignalCandidate": true
+  },
+  "screenAtCandidate": {
+    "containsExpectedOutput": true,
+    "sample": ""
+  },
+  "inputOrResource": {
+    "expect": "process-exit",
+    "file": "sleep:timer"
+  },
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "markerSymbolsUsed": false
+  },
+  "decision": "captured"
+}

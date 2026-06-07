@@ -1,0 +1,2 @@
+array:10
+SHAPE_RESTORE_OK shape=003-array-sum-cli target=arm64 result=42

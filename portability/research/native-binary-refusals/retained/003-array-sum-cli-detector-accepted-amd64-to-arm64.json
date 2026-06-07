@@ -1,0 +1,16 @@
+{
+  "shape": "003-array-sum-cli",
+  "decision": "accepted",
+  "supportStage": "4-supported-subset",
+  "supportScope": "declared safe-point fixed array sum with target-native final jump and no live kernel resources",
+  "sourceArch": "amd64",
+  "targetArch": "arm64",
+  "facts": {
+    "entrySymbol": "continue_array",
+    "sourcePc": "0x61a1a5a6fc12",
+    "sourceSp": "0x7ffe938057f0",
+    "sourceArg0": "0x1000",
+    "targetArgumentRegister": "x0",
+    "targetStackBytes": 65536
+  }
+}

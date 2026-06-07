@@ -1,0 +1,2 @@
+float:42.0
+SHAPE_RESTORE_OK shape=028-float-simd-scalar-cli target=amd64 result=42

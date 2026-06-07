@@ -1,0 +1,69 @@
+{
+  "kind": "machinen.research.native-binary-refusal.libc-boundary-detector-report",
+  "version": 1,
+  "row": "010-libc-boundary-fixture",
+  "lifecycleStage": "4-supported-subset",
+  "supportDecision": "supported-subset",
+  "supportScope": "declared-safe-point fixture that reconstructs target CPU/heap/stack state and calls target-native continuation code that crosses only into target-native libc after restore",
+  "accepted": [
+    {
+      "label": "arm64-to-amd64",
+      "decision": "accepted",
+      "supportStage": "4-supported-subset"
+    },
+    {
+      "label": "amd64-to-arm64",
+      "decision": "accepted",
+      "supportStage": "4-supported-subset"
+    }
+  ],
+  "refused": [
+    {
+      "label": "missing-safe-point",
+      "decision": "refused",
+      "refusalCode": "libc-boundary-missing-safe-point"
+    },
+    {
+      "label": "bad-entry-symbol",
+      "decision": "refused",
+      "refusalCode": "libc-boundary-unsupported-entry-symbol"
+    },
+    {
+      "label": "same-architecture",
+      "decision": "refused",
+      "refusalCode": "libc-boundary-not-cross-architecture"
+    },
+    {
+      "label": "source-isa-emulation",
+      "decision": "refused",
+      "refusalCode": "libc-boundary-claim-guard-not-false"
+    },
+    {
+      "label": "metadata-only",
+      "decision": "refused",
+      "refusalCode": "libc-boundary-claim-guard-not-false"
+    },
+    {
+      "label": "active-syscall",
+      "decision": "refused",
+      "refusalCode": "libc-boundary-unsupported-live-state"
+    },
+    {
+      "label": "thread-state",
+      "decision": "refused",
+      "refusalCode": "libc-boundary-unsupported-live-state"
+    },
+    {
+      "label": "socket-state",
+      "decision": "refused",
+      "refusalCode": "libc-boundary-unsupported-live-state"
+    }
+  ],
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false
+  },
+  "status": "passed"
+}

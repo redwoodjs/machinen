@@ -1,0 +1,441 @@
+{
+  "kind": "machinen.research.real-node-postgres-continuation.proof-row",
+  "version": 1,
+  "case": "redis-queued-command",
+  "rowKind": "refusal",
+  "mode": "source",
+  "application": "redis",
+  "description": "real Redis connection has queued or partial command state",
+  "hostArch": "x86_64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false,
+    "runtimeHeapRestoreClaimed": false,
+    "kernelSocketIdentityPreserved": false
+  },
+  "decision": "refused",
+  "spawned": {
+    "container": "machinen-rnp-82f55d9ae7-redis",
+    "pid": 1,
+    "logs": "1:C 06 Jun 2026 20:35:08.847 # WARNING Memory overcommit must be enabled! Without it, a background save or replication may fail under low memory condition. Being disabled, it can also cause failures without low memory condition, see https://github.com/jemalloc/jemalloc/issues/1328. To fix this issue add 'vm.overcommit_memory = 1' to /etc/sysctl.conf and then reboot or run the command 'sysctl vm.overcommit_memory=1' for this to take effect.\n1:C 06 Jun 2026 20:35:08.847 * oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo\n1:C 06 Jun 2026 20:35:08.847 * Redis version=7.4.9, bits=64, commit=00000000, modified=0, pid=1, just started\n1:C 06 Jun 2026 20:35:08.847 * Configuration loaded\n1:M 06 Jun 2026 20:35:08.847 * monotonic clock: POSIX clock_gettime\n1:M 06 Jun 2026 20:35:08.847 * Running mode=standalone, port=6379.\n1:M 06 Jun 2026 20:35:08.847 * Server initialized\n1:M 06 Jun 2026 20:35:08.847 * Ready to accept connections tcp\n",
+    "provisioning": {
+      "image": "redis:7-alpine",
+      "alreadyPresent": true
+    },
+    "application": "redis"
+  },
+  "classifierResult": {
+    "kind": "machinen.research.native-continuation-classifier.result",
+    "version": 1,
+    "decision": "refused",
+    "shapeId": "refuse-socket-fd-present",
+    "reason": "socket fd requires a narrower accepted socket shape",
+    "claimGuard": {
+      "arbitraryProcessRestoreClaimed": false,
+      "rawVmReplayUsed": false,
+      "sourceIsaEmulationUsed": false,
+      "metadataOnlySuccess": false,
+      "rawHeapStackRegisterRestore": false
+    },
+    "observation": {
+      "pid": 1,
+      "hostArch": "x86_64",
+      "pausedVmObservation": false,
+      "observationConsistency": "live-procfs-best-effort",
+      "alive": true,
+      "exe": "/usr/local/bin/redis-server",
+      "cmdline": ["redis-server 127.0.0.1:6379"],
+      "processTree": {
+        "ppid": 0,
+        "pgrp": 1,
+        "session": 1
+      },
+      "status": {
+        "state": "S (sleeping)",
+        "threads": 6,
+        "tracerPid": 0
+      },
+      "tasks": [
+        {
+          "tid": 1,
+          "state": "S",
+          "wchan": "do_epoll_wait",
+          "syscall": {
+            "raw": null,
+            "wchan": "do_epoll_wait",
+            "number": null,
+            "readLikeWait": false,
+            "pollLikeWait": true
+          }
+        },
+        {
+          "tid": 11,
+          "state": "S",
+          "wchan": "futex_wait_queue",
+          "syscall": {
+            "raw": null,
+            "wchan": "futex_wait_queue",
+            "number": null,
+            "readLikeWait": false,
+            "pollLikeWait": false
+          }
+        },
+        {
+          "tid": 12,
+          "state": "S",
+          "wchan": "futex_wait_queue",
+          "syscall": {
+            "raw": null,
+            "wchan": "futex_wait_queue",
+            "number": null,
+            "readLikeWait": false,
+            "pollLikeWait": false
+          }
+        },
+        {
+          "tid": 13,
+          "state": "S",
+          "wchan": "futex_wait_queue",
+          "syscall": {
+            "raw": null,
+            "wchan": "futex_wait_queue",
+            "number": null,
+            "readLikeWait": false,
+            "pollLikeWait": false
+          }
+        },
+        {
+          "tid": 14,
+          "state": "S",
+          "wchan": "futex_wait_queue",
+          "syscall": {
+            "raw": null,
+            "wchan": "futex_wait_queue",
+            "number": null,
+            "readLikeWait": false,
+            "pollLikeWait": false
+          }
+        },
+        {
+          "tid": 15,
+          "state": "S",
+          "wchan": "futex_wait_queue",
+          "syscall": {
+            "raw": null,
+            "wchan": "futex_wait_queue",
+            "number": null,
+            "readLikeWait": false,
+            "pollLikeWait": false
+          }
+        }
+      ],
+      "fds": [
+        {
+          "fd": 0,
+          "target": "/dev/null",
+          "kind": "file",
+          "queueBytes": null
+        },
+        {
+          "fd": 1,
+          "target": "pipe:[67753748]",
+          "kind": "pipe",
+          "queueBytes": null
+        },
+        {
+          "fd": 2,
+          "target": "pipe:[67753749]",
+          "kind": "pipe",
+          "queueBytes": null
+        },
+        {
+          "fd": 3,
+          "target": "pipe:[67726285]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 4,
+          "target": "pipe:[67726285]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 5,
+          "target": "anon_inode:[eventpoll]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 6,
+          "target": "socket:[67726288]",
+          "kind": "socket",
+          "queueBytes": null,
+          "socketInode": "67726288",
+          "socket": {
+            "family": "tcp4",
+            "state": "LISTEN",
+            "stateHex": "0A",
+            "txQueue": 0,
+            "rxQueue": 0,
+            "localAddressHex": "0100007F",
+            "localPort": 6379,
+            "remoteAddressHex": "00000000",
+            "remotePort": 0
+          }
+        },
+        {
+          "fd": 7,
+          "target": "pipe:[67726289]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 8,
+          "target": "pipe:[67726289]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 9,
+          "target": "socket:[67751896]",
+          "kind": "socket",
+          "queueBytes": null,
+          "socketInode": "67751896",
+          "socket": {
+            "family": "tcp4",
+            "state": "ESTABLISHED",
+            "stateHex": "01",
+            "txQueue": 0,
+            "rxQueue": 0,
+            "localAddressHex": "0100007F",
+            "localPort": 6379,
+            "remoteAddressHex": "0100007F",
+            "remotePort": 46880
+          }
+        }
+      ],
+      "fdKinds": ["anon_inode", "file", "pipe", "socket"],
+      "syscall": {
+        "raw": null,
+        "wchan": "do_epoll_wait",
+        "number": null,
+        "readLikeWait": false,
+        "pollLikeWait": true
+      }
+    }
+  },
+  "applicationShapeResult": {
+    "kind": "machinen.research.native-continuation.app-adapter-result",
+    "version": 1,
+    "decision": "refused",
+    "case": "redis-queued-command",
+    "application": "redis",
+    "shapeId": "refuse-redis-queued-command",
+    "reason": "Redis has a queued or partial command boundary",
+    "observation": {
+      "pid": 1,
+      "hostArch": "x86_64",
+      "pausedVmObservation": false,
+      "observationConsistency": "live-procfs-best-effort",
+      "alive": true,
+      "exe": "/usr/local/bin/redis-server",
+      "cmdline": ["redis-server 127.0.0.1:6379"],
+      "processTree": {
+        "ppid": 0,
+        "pgrp": 1,
+        "session": 1
+      },
+      "status": {
+        "state": "S (sleeping)",
+        "threads": 6,
+        "tracerPid": 0
+      },
+      "tasks": [
+        {
+          "tid": 1,
+          "state": "S",
+          "wchan": "do_epoll_wait",
+          "syscall": {
+            "raw": null,
+            "wchan": "do_epoll_wait",
+            "number": null,
+            "readLikeWait": false,
+            "pollLikeWait": true
+          }
+        },
+        {
+          "tid": 11,
+          "state": "S",
+          "wchan": "futex_wait_queue",
+          "syscall": {
+            "raw": null,
+            "wchan": "futex_wait_queue",
+            "number": null,
+            "readLikeWait": false,
+            "pollLikeWait": false
+          }
+        },
+        {
+          "tid": 12,
+          "state": "S",
+          "wchan": "futex_wait_queue",
+          "syscall": {
+            "raw": null,
+            "wchan": "futex_wait_queue",
+            "number": null,
+            "readLikeWait": false,
+            "pollLikeWait": false
+          }
+        },
+        {
+          "tid": 13,
+          "state": "S",
+          "wchan": "futex_wait_queue",
+          "syscall": {
+            "raw": null,
+            "wchan": "futex_wait_queue",
+            "number": null,
+            "readLikeWait": false,
+            "pollLikeWait": false
+          }
+        },
+        {
+          "tid": 14,
+          "state": "S",
+          "wchan": "futex_wait_queue",
+          "syscall": {
+            "raw": null,
+            "wchan": "futex_wait_queue",
+            "number": null,
+            "readLikeWait": false,
+            "pollLikeWait": false
+          }
+        },
+        {
+          "tid": 15,
+          "state": "S",
+          "wchan": "futex_wait_queue",
+          "syscall": {
+            "raw": null,
+            "wchan": "futex_wait_queue",
+            "number": null,
+            "readLikeWait": false,
+            "pollLikeWait": false
+          }
+        }
+      ],
+      "fds": [
+        {
+          "fd": 0,
+          "target": "/dev/null",
+          "kind": "file",
+          "queueBytes": null
+        },
+        {
+          "fd": 1,
+          "target": "pipe:[67753748]",
+          "kind": "pipe",
+          "queueBytes": null
+        },
+        {
+          "fd": 2,
+          "target": "pipe:[67753749]",
+          "kind": "pipe",
+          "queueBytes": null
+        },
+        {
+          "fd": 3,
+          "target": "pipe:[67726285]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 4,
+          "target": "pipe:[67726285]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 5,
+          "target": "anon_inode:[eventpoll]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 6,
+          "target": "socket:[67726288]",
+          "kind": "socket",
+          "queueBytes": null,
+          "socketInode": "67726288",
+          "socket": {
+            "family": "tcp4",
+            "state": "LISTEN",
+            "stateHex": "0A",
+            "txQueue": 0,
+            "rxQueue": 0,
+            "localAddressHex": "0100007F",
+            "localPort": 6379,
+            "remoteAddressHex": "00000000",
+            "remotePort": 0
+          }
+        },
+        {
+          "fd": 7,
+          "target": "pipe:[67726289]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 8,
+          "target": "pipe:[67726289]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 9,
+          "target": "socket:[67751896]",
+          "kind": "socket",
+          "queueBytes": null,
+          "socketInode": "67751896",
+          "socket": {
+            "family": "tcp4",
+            "state": "ESTABLISHED",
+            "stateHex": "01",
+            "txQueue": 0,
+            "rxQueue": 0,
+            "localAddressHex": "0100007F",
+            "localPort": 6379,
+            "remoteAddressHex": "0100007F",
+            "remotePort": 46880
+          }
+        }
+      ],
+      "fdKinds": ["anon_inode", "file", "pipe", "socket"],
+      "syscall": {
+        "raw": null,
+        "wchan": "do_epoll_wait",
+        "number": null,
+        "readLikeWait": false,
+        "pollLikeWait": true
+      }
+    },
+    "evidence": {
+      "queuedCommand": true
+    },
+    "descriptor": null,
+    "claimGuard": {
+      "arbitraryProcessRestoreClaimed": false,
+      "rawVmReplayUsed": false,
+      "sourceIsaEmulationUsed": false,
+      "metadataOnlySuccess": false,
+      "rawHeapStackRegisterRestore": false,
+      "runtimeHeapRestoreClaimed": false,
+      "kernelSocketIdentityPreserved": false
+    }
+  },
+  "descriptor": null
+}

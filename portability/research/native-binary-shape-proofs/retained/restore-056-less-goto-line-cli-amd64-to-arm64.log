@@ -1,0 +1,2 @@
+less-goto:line3
+SHAPE_RESTORE_OK shape=056-less-goto-line-cli target=arm64 result=42
