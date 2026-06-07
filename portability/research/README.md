@@ -54,6 +54,8 @@ That is still not arbitrary Node process continuation.
 
 ## Product boundary
 
+The cross-ISA support ladder is documented in [`docs/snapshot/cross-isa-support-levels.md`](../../docs/snapshot/cross-isa-support-levels.md). Use those levels when labeling research rows, and do not graduate a row beyond the evidence it retains.
+
 This research track must not weaken product claims.
 
 The product matrix should continue to say:

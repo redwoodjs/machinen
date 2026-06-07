@@ -19,6 +19,7 @@ machinen support --json
 Current product-facing families are documented in:
 
 - [Product claim registry](./product-claim-registry.md)
+- [Cross-ISA support levels](./cross-isa-support-levels.md)
 - [Clean service product snapshot/restore](./clean-service-product-snapshot-restore.md)
 - [Node product snapshot/restore](./node-product-snapshot-restore.md)
 - [Level 4 ping machine workload](./level4-ping-machine-workload.md)

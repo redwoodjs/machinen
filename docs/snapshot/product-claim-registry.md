@@ -6,7 +6,11 @@ answer to: "is this cross-architecture state implemented, refused, or only a
 proof fixture?"
 
 The registry deliberately does **not** turn proof-only fixtures into product
-support. As of Goal 49, implemented clean-service product support means the
+support. See [Cross-ISA support levels](./cross-isa-support-levels.md) for the
+meaning of Level 0 through Level 5 and the evidence required to graduate between
+them.
+
+As of Goal 49, implemented clean-service product support means the
 no-extra-flag `machinen snapshot <vm> <bundle>` / `machinen restore <bundle>`
 workflow is wired for that profile. Goal 011 retires the earlier ping-specific
 Level 2 semantic-continuation claim as product support and makes ping's product
