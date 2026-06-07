@@ -1,0 +1,27 @@
+{
+  "kind": "machinen.research.native-binary-shape-ir",
+  "version": 1,
+  "shape": "031-csv-record-parser-cli",
+  "sourceArch": "arm64",
+  "targetArch": "amd64",
+  "safePoint": "declared_shape_ready",
+  "entrySymbol": "continue_csv_record_parser",
+  "sourceCpu": { "pc": "0xc2a051371990", "sp": "0xfffffb9cef20", "arg0": "0x1000" },
+  "targetCpuPlan": {
+    "pcSymbol": "continue_csv_record_parser",
+    "argumentRegister": "rdi",
+    "stackBytes": 65536
+  },
+  "shapeDescriptor": {
+    "threads": 1,
+    "activeSyscall": false,
+    "sockets": 0,
+    "usesSourceIsaEmulation": false
+  },
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false
+  }
+}

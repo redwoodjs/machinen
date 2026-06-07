@@ -1,0 +1,170 @@
+{
+  "case": "more-space-then-back",
+  "adapter": "more",
+  "description": "more captures after SPACE and b returns to the first page",
+  "mode": "target",
+  "role": "target",
+  "hostArch": "x86_64",
+  "binary": {
+    "path": "/usr/bin/more",
+    "versionLine": "more from util-linux 2.38.1",
+    "packageEvidence": {
+      "method": "installed"
+    }
+  },
+  "processRoot": {
+    "pid": 3781780,
+    "argv": ["/usr/bin/more", "/tmp/machinen-pager-watcher-ladder-nyztvuh5/more-input.txt"]
+  },
+  "processTree": [
+    {
+      "pid": 3781780,
+      "state": {
+        "pid": 3781780,
+        "comm": "more",
+        "statusState": "S",
+        "threads": 1,
+        "signalPendingMask": "0000000000000000",
+        "statPpid": 3781779,
+        "statPgrp": 3781780,
+        "statSession": 3781780,
+        "statTtyNr": 34816,
+        "syscall": {
+          "raw": "7 0x7fff961fb880 0x2 0xffffffff 0x0 0x0 0x25 0x7fff961fb868 0x7a76bf262230",
+          "parsed": true,
+          "number": 7,
+          "name": "poll",
+          "args": [140735712049280, 2, 4294967295, 0, 0, 37],
+          "fd": 140735712049280
+        }
+      },
+      "fds": [
+        {
+          "fd": 0,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 1,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 2,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 3,
+          "target": "anon_inode:[signalfd]"
+        },
+        {
+          "fd": 4,
+          "target": "/tmp/machinen-pager-watcher-ladder-nyztvuh5/more-input.txt"
+        }
+      ],
+      "stdioTargets": {
+        "0": "/dev/pts/0",
+        "1": "/dev/pts/0",
+        "2": "/dev/pts/0"
+      },
+      "syscallFdTarget": null,
+      "allStdioOnControlledPty": true,
+      "hasSignalfd": true,
+      "hasRegularAdapterFile": true
+    }
+  ],
+  "candidateProcess": {
+    "pid": 3781780,
+    "state": {
+      "pid": 3781780,
+      "comm": "more",
+      "statusState": "S",
+      "threads": 1,
+      "signalPendingMask": "0000000000000000",
+      "statPpid": 3781779,
+      "statPgrp": 3781780,
+      "statSession": 3781780,
+      "statTtyNr": 34816,
+      "syscall": {
+        "raw": "7 0x7fff961fb880 0x2 0xffffffff 0x0 0x0 0x25 0x7fff961fb868 0x7a76bf262230",
+        "parsed": true,
+        "number": 7,
+        "name": "poll",
+        "args": [140735712049280, 2, 4294967295, 0, 0, 37],
+        "fd": 140735712049280
+      }
+    },
+    "fds": [
+      {
+        "fd": 0,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 1,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 2,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 3,
+        "target": "anon_inode:[signalfd]"
+      },
+      {
+        "fd": 4,
+        "target": "/tmp/machinen-pager-watcher-ladder-nyztvuh5/more-input.txt"
+      }
+    ],
+    "stdioTargets": {
+      "0": "/dev/pts/0",
+      "1": "/dev/pts/0",
+      "2": "/dev/pts/0"
+    },
+    "syscallFdTarget": null,
+    "allStdioOnControlledPty": true,
+    "hasSignalfd": true,
+    "hasRegularAdapterFile": true
+  },
+  "pty": {
+    "slavePath": "/dev/pts/0",
+    "rows": 24,
+    "cols": 80,
+    "inputQueueBytesOnMaster": 0,
+    "inputQueueBytesOnSlave": {
+      "available": true,
+      "bytes": 0
+    },
+    "foregroundPgrpFromMaster": 3781780
+  },
+  "candidateChecks": {
+    "expectedOutputRendered": true,
+    "modeledWait": true,
+    "controlledPtyIo": true,
+    "sessionPgrp": true,
+    "queuesEmpty": true,
+    "singleThreadCandidate": true,
+    "noPendingSignalCandidate": true,
+    "regularFilePresent": true
+  },
+  "screenAtCandidate": {
+    "containsExpectedOutput": true,
+    "sample": "\rline-024\u001b[K\r\nline-025\r\nline-026\r\nline-027\r\nline-028\r\nline-029\r\nline-030\r\nline-031\r\nline-032\r\nline-033\r\nline-034\r\nline-035\r\nline-036\r\nline-037\r\nline-038\r\nline-039\r\nline-040\r\nline-041\r\nline-042\r\nline-043\r\nline-044\r\nline-045\r\nline-046\r\n\u001b[7m--More--(38%)\u001b[27m"
+  },
+  "inputOrResource": {
+    "expect": "line-001",
+    "file": "/tmp/machinen-pager-watcher-ladder-nyztvuh5/more-input.txt",
+    "base64": "Yg=="
+  },
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "markerSymbolsUsed": false
+  },
+  "behavior": {
+    "matchedExpectation": true,
+    "processExited": false,
+    "sample": "\r\u001b[K...back 1 page\r\n\rline-001\r\nline-002\r\nline-003\r\nline-004\r\nline-005\r\nline-006\r\nline-007\r\nline-008\r\nline-009\r\nline-010\r\nline-011\r\nline-012\r\nline-013\r\nline-014\r\nline-015\r\nline-016\r\nline-017\r\nline-018\r\nline-019\r\nline-020\r\nline-021\r\nline-022\r\nline-023\r\n\u001b[7m--More--(19%)\u001b[27m"
+  },
+  "decision": "accepted"
+}

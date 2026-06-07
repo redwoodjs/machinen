@@ -1,0 +1,27 @@
+{
+  "kind": "machinen.research.native-binary-shape-ir",
+  "version": 1,
+  "shape": "054-less-percent-position-cli",
+  "sourceArch": "amd64",
+  "targetArch": "arm64",
+  "safePoint": "declared_shape_ready",
+  "entrySymbol": "continue_less_percent_position",
+  "sourceCpu": { "pc": "0x638b19653c12", "sp": "0x7ffe94e558f0", "arg0": "0x1000" },
+  "targetCpuPlan": {
+    "pcSymbol": "continue_less_percent_position",
+    "argumentRegister": "x0",
+    "stackBytes": 65536
+  },
+  "shapeDescriptor": {
+    "threads": 1,
+    "activeSyscall": false,
+    "sockets": 0,
+    "usesSourceIsaEmulation": false
+  },
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false
+  }
+}

@@ -1,0 +1,659 @@
+{
+  "kind": "machinen.research.real-less-cross-arch-marker-continuation.direction",
+  "version": 1,
+  "direction": "arm64-to-amd64",
+  "decision": "accepted",
+  "source": {
+    "role": "source",
+    "hostArch": "aarch64",
+    "knownLessBuild": {
+      "available": true,
+      "path": "/tmp/machinen-real-less-cross-arch-arm64-20260605T224806Z-63857/retained/known-less-build.json",
+      "report": {
+        "kind": "machinen.research.real-less-detector.known-less-build",
+        "version": 1,
+        "source": {
+          "url": "https://www.greenwoodsoftware.com/less/less-643.tar.gz",
+          "sha256": "2911b5432c836fa084c8a2e68f6cd6312372c026a58faaa98862731c8b6052e8",
+          "directory": "less-643"
+        },
+        "binary": {
+          "path": "/tmp/machinen-real-less-cross-arch-arm64-20260605T224806Z-63857/known-less/prefix/bin/less",
+          "sha256": "1b311069bb14593f8a052cce5fd8730c5e13089aff0147ff6854f6cd40d597c4",
+          "versionLine": "less 643 (POSIX regular expressions)",
+          "buildId": {
+            "available": true,
+            "line": "Build ID: 8319a6ac3f573902692c69068445166840c11f11"
+          }
+        },
+        "build": {
+          "cflags": "-g -O0 -fno-omit-frame-pointer",
+          "ldflags": "-Wl,--build-id",
+          "debugSymbolsRequired": true,
+          "markerSymbolsRequired": [
+            "machinen_less_ready_before_input_marker",
+            "machinen_less_ready_before_input_gate"
+          ],
+          "dependencies": {
+            "localNcursesHeadersBuilt": true,
+            "localNcursesBuilt": false,
+            "source": {
+              "url": "https://ftp.gnu.org/gnu/ncurses/ncurses-6.4.tar.gz",
+              "sha256": "6931283d9ac87c5073f30b6290c4c75f21632bb4fc3603ac8100812bed248159",
+              "directory": "ncurses-6.4"
+            },
+            "prefix": "/tmp/machinen-real-less-cross-arch-arm64-20260605T224806Z-63857/known-less/deps/ncurses",
+            "dynamicSystemLibraries": [
+              "/lib/aarch64-linux-gnu/libncurses.so.6",
+              "/lib/aarch64-linux-gnu/libtinfo.so.6"
+            ]
+          }
+        },
+        "marker": {
+          "symbol": "machinen_less_ready_before_input_marker",
+          "gateSymbol": "machinen_less_ready_before_input_gate",
+          "environment": "MACHINEN_LESS_SPIN_AT_READY=1",
+          "location": "command loop after prompt rendering and before getcc/read input",
+          "behavior": "spins in target-native less code at a source-level safe point for detector evidence only",
+          "symbols": {
+            "available": true,
+            "lines": [
+              "0000000000012350 T machinen_less_ready_before_input_marker",
+              "0000000000065f78 B machinen_less_ready_before_input_gate"
+            ]
+          }
+        },
+        "status": "passed"
+      }
+    },
+    "binary": {
+      "path": "/tmp/machinen-real-less-cross-arch-arm64-20260605T224806Z-63857/known-less/prefix/bin/less",
+      "versionLine": "less 643 (POSIX regular expressions)",
+      "buildId": {
+        "available": true,
+        "line": "Build ID: 8319a6ac3f573902692c69068445166840c11f11"
+      }
+    },
+    "process": {
+      "pid": 680604,
+      "initialTraceStops": [
+        {
+          "raw": 1407,
+          "stopped": true,
+          "stopSignal": 5
+        }
+      ],
+      "ptraceStop": {
+        "request": "PTRACE_ATTACH",
+        "waitStatus": {
+          "raw": 4991,
+          "stopped": true,
+          "stopSignal": 19
+        }
+      },
+      "registers": {
+        "arch": "aarch64",
+        "pc": 196215851066224,
+        "sp": 281474367517008,
+        "values": {
+          "x0": 0,
+          "x1": 281474367520667,
+          "x2": 0,
+          "x3": 0,
+          "x4": 4409305713982046208,
+          "x5": 9259542123265392640,
+          "x6": 8371910443781849088,
+          "x7": 814726819828,
+          "x8": 8371910443787699200,
+          "x9": 7886980525305190724,
+          "x10": 18446744073709551615,
+          "x11": 72340172838076673,
+          "x12": 24,
+          "x13": 18446744073709551360,
+          "x14": 18446744073709551615,
+          "x15": 8,
+          "x16": 196215851383520,
+          "x17": 269638262127968,
+          "x18": 4,
+          "x19": 281474367517576,
+          "x20": 2,
+          "x21": 196215851382400,
+          "x22": 196215851017176,
+          "x23": 281474367517600,
+          "x24": 269638264359768,
+          "x25": 0,
+          "x26": 269638264360960,
+          "x27": 196215851382400,
+          "x28": 0,
+          "x29": 281474367517008,
+          "x30": 196215851066212,
+          "sp": 281474367517008,
+          "pc": 196215851066224,
+          "pstate": 1610616832
+        }
+      },
+      "pc": 196215851066224,
+      "sp": 281474367517008,
+      "fds": [
+        {
+          "fd": 0,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 1,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 2,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 3,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 4,
+          "target": "/tmp/machinen-real-less-cross-arch-7z5znw1k/less-input.txt"
+        }
+      ]
+    },
+    "symbols": {
+      "marker": {
+        "name": "machinen_less_ready_before_input_marker",
+        "linkAddress": 74576,
+        "runtimeStart": 196215851066192,
+        "runtimeEnd": 196215851066256
+      },
+      "gate": {
+        "name": "machinen_less_ready_before_input_gate",
+        "linkAddress": 417656,
+        "runtimeAddress": 196215851409272
+      },
+      "pcInMarkerRange": true
+    },
+    "mapsSummary": [
+      {
+        "start": 196215850991616,
+        "end": 196215851257856,
+        "perms": "r-xp",
+        "offset": 0,
+        "dev": "103:02",
+        "inode": "35804736",
+        "path": "/tmp/machinen-real-less-cross-arch-arm64-20260605T224806Z-63857/known-less/prefix/bin/less"
+      },
+      {
+        "start": 196215851380736,
+        "end": 196215851384832,
+        "perms": "r--p",
+        "offset": 323584,
+        "dev": "103:02",
+        "inode": "35804736",
+        "path": "/tmp/machinen-real-less-cross-arch-arm64-20260605T224806Z-63857/known-less/prefix/bin/less"
+      },
+      {
+        "start": 196215851384832,
+        "end": 196215851405312,
+        "perms": "rw-p",
+        "offset": 327680,
+        "dev": "103:02",
+        "inode": "35804736",
+        "path": "/tmp/machinen-real-less-cross-arch-arm64-20260605T224806Z-63857/known-less/prefix/bin/less"
+      },
+      {
+        "start": 269638261866496,
+        "end": 269638263545856,
+        "perms": "r-xp",
+        "offset": 0,
+        "dev": "103:02",
+        "inode": "105428691",
+        "path": "/usr/lib/aarch64-linux-gnu/libc.so.6"
+      },
+      {
+        "start": 269638263545856,
+        "end": 269638263623680,
+        "perms": "---p",
+        "offset": 1679360,
+        "dev": "103:02",
+        "inode": "105428691",
+        "path": "/usr/lib/aarch64-linux-gnu/libc.so.6"
+      },
+      {
+        "start": 269638263623680,
+        "end": 269638263635968,
+        "perms": "r--p",
+        "offset": 1691648,
+        "dev": "103:02",
+        "inode": "105428691",
+        "path": "/usr/lib/aarch64-linux-gnu/libc.so.6"
+      },
+      {
+        "start": 269638263635968,
+        "end": 269638263644160,
+        "perms": "rw-p",
+        "offset": 1703936,
+        "dev": "103:02",
+        "inode": "105428691",
+        "path": "/usr/lib/aarch64-linux-gnu/libc.so.6"
+      },
+      {
+        "start": 269638264098816,
+        "end": 269638264258560,
+        "perms": "r-xp",
+        "offset": 0,
+        "dev": "103:02",
+        "inode": "105428688",
+        "path": "/usr/lib/aarch64-linux-gnu/ld-linux-aarch64.so.1"
+      },
+      {
+        "start": 269638264352768,
+        "end": 269638264360960,
+        "perms": "r--p",
+        "offset": 188416,
+        "dev": "103:02",
+        "inode": "105428688",
+        "path": "/usr/lib/aarch64-linux-gnu/ld-linux-aarch64.so.1"
+      },
+      {
+        "start": 269638264360960,
+        "end": 269638264369152,
+        "perms": "rw-p",
+        "offset": 196608,
+        "dev": "103:02",
+        "inode": "105428688",
+        "path": "/usr/lib/aarch64-linux-gnu/ld-linux-aarch64.so.1"
+      }
+    ],
+    "regularFile": {
+      "path": "/tmp/machinen-real-less-cross-arch-7z5znw1k/less-input.txt",
+      "device": 66306,
+      "inode": 35804740,
+      "size": 1071,
+      "mtimeNs": 1780699728215194003,
+      "mode": "0o100664",
+      "sha256": "69a38d60e561adc47ac2424ac882479c2a62f576994d5e0f292441e6b580ca9b"
+    },
+    "pty": {
+      "slavePath": "/dev/pts/0",
+      "rows": 24,
+      "cols": 80,
+      "inputQueueBytesAtMarker": 0
+    },
+    "pageDescriptor": {
+      "inputSha256": "69a38d60e561adc47ac2424ac882479c2a62f576994d5e0f292441e6b580ca9b",
+      "expectedFirstPageStart": "line-001",
+      "expectedFirstPageEnd": "line-023",
+      "expectedAfterSpaceStart": "line-024"
+    },
+    "screenAtMarker": {
+      "containsFirstPage": true,
+      "sample": "\u001b[?1049h\u001b[22;0;0t\u001b[24;1H\u001b[?1h\u001b=\rline-001\r\nline-002\r\nline-003\r\nline-004\r\nline-005\r\nline-006\r\nline-007\r\nline-008\r\nline-009\r\nline-010\r\nline-011\r\nline-012\r\nline-013\r\nline-014\r\nline-015\r\nline-016\r\nline-017\r\nline-018\r\nline-019\r\nline-020\r\nline-021\r\nline-022\r\nline-023\r\n\u001b[7m/tmp/machinen-real-less-cross-arch-7z5znw1k/less-input.txt\u001b[27m\u001b[K"
+    },
+    "claimGuard": {
+      "arbitraryProcessRestoreClaimed": false,
+      "rawVmReplayUsed": false,
+      "sourceIsaEmulationUsed": false,
+      "metadataOnlySuccess": false
+    },
+    "decision": "captured"
+  },
+  "target": {
+    "role": "target",
+    "hostArch": "x86_64",
+    "knownLessBuild": {
+      "available": true,
+      "path": "/mnt/shared-500G/machinen-real-less-cross-arch-amd64-20260605T224806Z-63857/retained/known-less-build.json",
+      "report": {
+        "kind": "machinen.research.real-less-detector.known-less-build",
+        "version": 1,
+        "source": {
+          "url": "https://www.greenwoodsoftware.com/less/less-643.tar.gz",
+          "sha256": "2911b5432c836fa084c8a2e68f6cd6312372c026a58faaa98862731c8b6052e8",
+          "directory": "less-643"
+        },
+        "binary": {
+          "path": "/mnt/shared-500G/machinen-real-less-cross-arch-amd64-20260605T224806Z-63857/known-less/prefix/bin/less",
+          "sha256": "cc9fe7cb0cdf9b5703597cf9fb17c72059e769c65066d05e851d430699875b2b",
+          "versionLine": "less 643 (POSIX regular expressions)",
+          "buildId": {
+            "available": true,
+            "line": "Build ID: cec111d166aebe062c7eb1e066b7baa51881e7a3"
+          }
+        },
+        "build": {
+          "cflags": "-g -O0 -fno-omit-frame-pointer",
+          "ldflags": "-Wl,--build-id",
+          "debugSymbolsRequired": true,
+          "markerSymbolsRequired": [
+            "machinen_less_ready_before_input_marker",
+            "machinen_less_ready_before_input_gate"
+          ],
+          "dependencies": {
+            "localNcursesBuilt": false
+          }
+        },
+        "marker": {
+          "symbol": "machinen_less_ready_before_input_marker",
+          "gateSymbol": "machinen_less_ready_before_input_gate",
+          "environment": "MACHINEN_LESS_SPIN_AT_READY=1",
+          "location": "command loop after prompt rendering and before getcc/read input",
+          "behavior": "spins in target-native less code at a source-level safe point for detector evidence only",
+          "symbols": {
+            "available": true,
+            "lines": [
+              "000000000000d179 T machinen_less_ready_before_input_marker",
+              "000000000003b350 B machinen_less_ready_before_input_gate"
+            ]
+          }
+        },
+        "status": "passed"
+      }
+    },
+    "binary": {
+      "path": "/mnt/shared-500G/machinen-real-less-cross-arch-amd64-20260605T224806Z-63857/known-less/prefix/bin/less",
+      "versionLine": "less 643 (POSIX regular expressions)",
+      "buildId": {
+        "available": true,
+        "line": "Build ID: cec111d166aebe062c7eb1e066b7baa51881e7a3"
+      }
+    },
+    "process": {
+      "pid": 3476500,
+      "initialTraceStops": [
+        {
+          "raw": 1407,
+          "stopped": true,
+          "stopSignal": 5
+        }
+      ],
+      "ptraceStop": {
+        "request": "PTRACE_ATTACH",
+        "waitStatus": {
+          "raw": 4991,
+          "stopped": true,
+          "stopSignal": 19
+        }
+      },
+      "registers": {
+        "arch": "x86_64",
+        "pc": 108903575093656,
+        "sp": 140723014239472,
+        "values": {
+          "r15": 127986643406880,
+          "r14": 108903575256520,
+          "r13": 140723014239936,
+          "r12": 0,
+          "rbp": 140723014239472,
+          "rbx": 140723014239912,
+          "r11": 514,
+          "r10": 36,
+          "r9": 0,
+          "r8": 108903575278840,
+          "rax": 0,
+          "rcx": 4261412864,
+          "rdx": 25,
+          "rsi": 108903575195090,
+          "rdi": 140723014242165,
+          "orig_rax": 18446744073709551615,
+          "rip": 108903575093656,
+          "cs": 51,
+          "eflags": 582,
+          "rsp": 140723014239472,
+          "ss": 43,
+          "fs_base": 127986640947008,
+          "gs_base": 0,
+          "ds": 0,
+          "es": 0,
+          "fs": 0,
+          "gs": 0
+        }
+      },
+      "pc": 108903575093656,
+      "sp": 140723014239472,
+      "fds": [
+        {
+          "fd": 0,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 1,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 2,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 3,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 4,
+          "target": "/tmp/machinen-real-less-cross-arch-ly3v4nf3/less-input.txt"
+        }
+      ]
+    },
+    "symbols": {
+      "marker": {
+        "name": "machinen_less_ready_before_input_marker",
+        "linkAddress": 53625,
+        "runtimeStart": 108903575093625,
+        "runtimeEnd": 108903575093663
+      },
+      "gate": {
+        "name": "machinen_less_ready_before_input_gate",
+        "linkAddress": 242512,
+        "runtimeAddress": 108903575282512
+      },
+      "pcInMarkerRange": true
+    },
+    "mapsSummary": [
+      {
+        "start": 108903575040000,
+        "end": 108903575060480,
+        "perms": "r--p",
+        "offset": 0,
+        "dev": "fc:0f",
+        "inode": "655535",
+        "path": "/mnt/shared-500G/machinen-real-less-cross-arch-amd64-20260605T224806Z-63857/known-less/prefix/bin/less"
+      },
+      {
+        "start": 108903575060480,
+        "end": 108903575191552,
+        "perms": "r-xp",
+        "offset": 20480,
+        "dev": "fc:0f",
+        "inode": "655535",
+        "path": "/mnt/shared-500G/machinen-real-less-cross-arch-amd64-20260605T224806Z-63857/known-less/prefix/bin/less"
+      },
+      {
+        "start": 108903575191552,
+        "end": 108903575252992,
+        "perms": "r--p",
+        "offset": 151552,
+        "dev": "fc:0f",
+        "inode": "655535",
+        "path": "/mnt/shared-500G/machinen-real-less-cross-arch-amd64-20260605T224806Z-63857/known-less/prefix/bin/less"
+      },
+      {
+        "start": 108903575252992,
+        "end": 108903575257088,
+        "perms": "r--p",
+        "offset": 208896,
+        "dev": "fc:0f",
+        "inode": "655535",
+        "path": "/mnt/shared-500G/machinen-real-less-cross-arch-amd64-20260605T224806Z-63857/known-less/prefix/bin/less"
+      },
+      {
+        "start": 108903575257088,
+        "end": 108903575277568,
+        "perms": "rw-p",
+        "offset": 212992,
+        "dev": "fc:0f",
+        "inode": "655535",
+        "path": "/mnt/shared-500G/machinen-real-less-cross-arch-amd64-20260605T224806Z-63857/known-less/prefix/bin/less"
+      },
+      {
+        "start": 127986640957440,
+        "end": 127986641113088,
+        "perms": "r--p",
+        "offset": 0,
+        "dev": "fc:01",
+        "inode": "3670097",
+        "path": "/usr/lib/x86_64-linux-gnu/libc.so.6"
+      },
+      {
+        "start": 127986641113088,
+        "end": 127986642513920,
+        "perms": "r-xp",
+        "offset": 155648,
+        "dev": "fc:01",
+        "inode": "3670097",
+        "path": "/usr/lib/x86_64-linux-gnu/libc.so.6"
+      },
+      {
+        "start": 127986642513920,
+        "end": 127986642853888,
+        "perms": "r--p",
+        "offset": 1556480,
+        "dev": "fc:01",
+        "inode": "3670097",
+        "path": "/usr/lib/x86_64-linux-gnu/libc.so.6"
+      },
+      {
+        "start": 127986642853888,
+        "end": 127986642870272,
+        "perms": "r--p",
+        "offset": 1896448,
+        "dev": "fc:01",
+        "inode": "3670097",
+        "path": "/usr/lib/x86_64-linux-gnu/libc.so.6"
+      },
+      {
+        "start": 127986642870272,
+        "end": 127986642878464,
+        "perms": "rw-p",
+        "offset": 1912832,
+        "dev": "fc:01",
+        "inode": "3670097",
+        "path": "/usr/lib/x86_64-linux-gnu/libc.so.6"
+      },
+      {
+        "start": 127986643197952,
+        "end": 127986643202048,
+        "perms": "r--p",
+        "offset": 0,
+        "dev": "fc:01",
+        "inode": "3670094",
+        "path": "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2"
+      },
+      {
+        "start": 127986643202048,
+        "end": 127986643357696,
+        "perms": "r-xp",
+        "offset": 4096,
+        "dev": "fc:01",
+        "inode": "3670094",
+        "path": "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2"
+      },
+      {
+        "start": 127986643357696,
+        "end": 127986643398656,
+        "perms": "r--p",
+        "offset": 159744,
+        "dev": "fc:01",
+        "inode": "3670094",
+        "path": "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2"
+      },
+      {
+        "start": 127986643398656,
+        "end": 127986643406848,
+        "perms": "r--p",
+        "offset": 200704,
+        "dev": "fc:01",
+        "inode": "3670094",
+        "path": "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2"
+      },
+      {
+        "start": 127986643406848,
+        "end": 127986643415040,
+        "perms": "rw-p",
+        "offset": 208896,
+        "dev": "fc:01",
+        "inode": "3670094",
+        "path": "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2"
+      }
+    ],
+    "regularFile": {
+      "path": "/tmp/machinen-real-less-cross-arch-ly3v4nf3/less-input.txt",
+      "device": 64513,
+      "inode": 5811613,
+      "size": 1071,
+      "mtimeNs": 1780699731109447227,
+      "mode": "0o100644",
+      "sha256": "69a38d60e561adc47ac2424ac882479c2a62f576994d5e0f292441e6b580ca9b"
+    },
+    "pty": {
+      "slavePath": "/dev/pts/0",
+      "rows": 24,
+      "cols": 80,
+      "inputQueueBytesAtMarker": 0
+    },
+    "pageDescriptor": {
+      "inputSha256": "69a38d60e561adc47ac2424ac882479c2a62f576994d5e0f292441e6b580ca9b",
+      "expectedFirstPageStart": "line-001",
+      "expectedFirstPageEnd": "line-023",
+      "expectedAfterSpaceStart": "line-024"
+    },
+    "screenAtMarker": {
+      "containsFirstPage": true,
+      "sample": "\u001b[?1049h\u001b[22;0;0t\u001b[24;1H\u001b[?1h\u001b=\rline-001\r\nline-002\r\nline-003\r\nline-004\r\nline-005\r\nline-006\r\nline-007\r\nline-008\r\nline-009\r\nline-010\r\nline-011\r\nline-012\r\nline-013\r\nline-014\r\nline-015\r\nline-016\r\nline-017\r\nline-018\r\nline-019\r\nline-020\r\nline-021\r\nline-022\r\nline-023\r\n\u001b[7m/tmp/machinen-real-less-cross-arch-ly3v4nf3/less-input.txt\u001b[27m\u001b[K"
+    },
+    "claimGuard": {
+      "arbitraryProcessRestoreClaimed": false,
+      "rawVmReplayUsed": false,
+      "sourceIsaEmulationUsed": false,
+      "metadataOnlySuccess": false
+    },
+    "materialization": {
+      "method": "target-native marker less driven to same descriptor-defined page",
+      "sameFileContent": true,
+      "sameRowsCols": true,
+      "sameInitialPageExpectation": true,
+      "sourceRegisterWrites": false,
+      "sourceHeapWrites": false,
+      "sourceStackWrites": false
+    },
+    "resume": {
+      "gateWrite": {
+        "alignedAddress": 108903575282512,
+        "oldWord": 0,
+        "newWord": 1,
+        "writtenGateValue": 1
+      },
+      "detach": "PTRACE_DETACH",
+      "injectedKey": "SPACE"
+    },
+    "screenAfterResume": {
+      "containsExpectedNextPage": true,
+      "sample": "\r\u001b[Kline-024\r\nline-025\r\nline-026\r\nline-027\r\nline-028\r\nline-029\r\nline-030\r\nline-031\r\nline-032\r\nline-033\r\nline-034\r\nline-035\r\nline-036\r\nline-037\r\nline-038\r\nline-039\r\nline-040\r\nline-041\r\nline-042\r\nline-043\r\nline-044\r\nline-045\r\nline-046\r\n:\u001b[K"
+    },
+    "decision": "accepted"
+  },
+  "materializationSummary": {
+    "targetNativeLess": true,
+    "sameFileContent": true,
+    "sameRowsCols": true,
+    "sameInitialPageExpectation": true,
+    "sourceRegisterWrites": false,
+    "sourceHeapWrites": false,
+    "sourceStackWrites": false,
+    "sourceIsaEmulationUsed": false
+  },
+  "successAssertion": "source and target marker PCs verified; target-native less resumes after SPACE to expected next page",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false
+  }
+}

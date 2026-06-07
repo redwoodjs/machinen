@@ -1,0 +1,2 @@
+checksum:42
+SHAPE_RESTORE_OK shape=033-checksum-running-sum-cli target=arm64 result=42

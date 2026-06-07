@@ -1,0 +1,2 @@
+list:6
+SHAPE_RESTORE_OK shape=004-linked-list-cli target=arm64 result=42

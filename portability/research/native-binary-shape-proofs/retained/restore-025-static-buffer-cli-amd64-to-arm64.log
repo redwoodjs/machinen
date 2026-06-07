@@ -1,0 +1,2 @@
+static:buf!
+SHAPE_RESTORE_OK shape=025-static-buffer-cli target=arm64 result=42

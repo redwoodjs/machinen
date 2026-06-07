@@ -1,0 +1,96 @@
+{
+  "case": "back-page",
+  "description": "b from first page is a valid no-op/no-redraw top-of-file state when supported",
+  "mode": "source",
+  "role": "source",
+  "hostArch": "aarch64",
+  "more": {
+    "path": "/usr/bin/more",
+    "versionLine": "more from util-linux 2.39.3"
+  },
+  "process": {
+    "pid": 987775,
+    "state": {
+      "statusState": "S",
+      "threads": 1,
+      "signalPendingMask": "0000000000000000",
+      "statPgrp": 987775,
+      "statSession": 987775,
+      "statTtyNr": 34816,
+      "syscall": {
+        "raw": "73 0xffffeb7356e8 0x2 0x0 0x0 0x0 0x3 0xffffeb735690 0xe8ea71790bbc",
+        "parsed": true,
+        "number": 73,
+        "name": "ppoll",
+        "args": [281474631948008, 2, 0, 0, 0, 3],
+        "fd": 281474631948008
+      }
+    },
+    "fds": [
+      {
+        "fd": 0,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 1,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 2,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 3,
+        "target": "anon_inode:[signalfd]"
+      },
+      {
+        "fd": 4,
+        "target": "/tmp/machinen-more-cross-lzwkr7h8/more-input.txt"
+      }
+    ],
+    "stdioTargets": {
+      "0": "/dev/pts/0",
+      "1": "/dev/pts/0",
+      "2": "/dev/pts/0"
+    },
+    "syscallFdTarget": null,
+    "allStdioOnControlledPty": true
+  },
+  "pty": {
+    "slavePath": "/dev/pts/0",
+    "rows": 24,
+    "cols": 80,
+    "inputQueueBytesOnMaster": 0,
+    "inputQueueBytesOnSlave": {
+      "available": true,
+      "bytes": 0
+    },
+    "foregroundPgrpFromMaster": 987775
+  },
+  "candidateChecks": {
+    "firstPage": true,
+    "modeledInputWait": true,
+    "stdioPty": true,
+    "sessionPgrp": true,
+    "queuesEmpty": true,
+    "singleThread": true,
+    "noPendingSignal": true,
+    "regularInputFile": true
+  },
+  "screenAtCandidate": {
+    "containsFirstPage": true,
+    "sample": "line-001\r\nline-002\r\nline-003\r\nline-004\r\nline-005\r\nline-006\r\nline-007\r\nline-008\r\nline-009\r\nline-010\r\nline-011\r\nline-012\r\nline-013\r\nline-014\r\nline-015\r\nline-016\r\nline-017\r\nline-018\r\nline-019\r\nline-020\r\nline-021\r\nline-022\r\nline-023\r\n\u001b[7m--More--(19%)\u001b[27m"
+  },
+  "input": {
+    "base64": "Yg==",
+    "expect": "first-page-no-redraw"
+  },
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "markerSymbolsUsed": false
+  },
+  "decision": "captured"
+}

@@ -1,0 +1,215 @@
+{
+  "kind": "machinen.nodejs-portability-memory-real-in-memory-lru-cache-smoke-report",
+  "version": 1,
+  "accepted": true,
+  "portabilityRow": "058-memory-real-in-memory-lru-cache",
+  "architectures": ["amd64", "arm64"],
+  "sourceArch": "amd64",
+  "targetArch": "arm64",
+  "executeVm": true,
+  "memoryCapture": "real-guest-proc-maps-and-proc-mem",
+  "migrationCompleted": true,
+  "summary": {
+    "verifiedVmRows": 1,
+    "memoryStateRows": 1,
+    "refusedRows": 0
+  },
+  "results": [
+    {
+      "id": "058-memory-real-in-memory-lru-cache",
+      "architecture": "amd64",
+      "state": "verified"
+    },
+    {
+      "id": "058-memory-real-in-memory-lru-cache",
+      "architecture": "arm64",
+      "state": "verified"
+    }
+  ],
+  "sourceCapture": {
+    "kind": "machinen.nodejs-portability-memory-real-in-memory-lru-cache-smoke-report.source-capture",
+    "accepted": true,
+    "portabilityRow": "058-memory-real-in-memory-lru-cache",
+    "sourceArch": "amd64",
+    "captureMethod": "guest-proc-maps-and-proc-mem-anchor-semantic-decoder",
+    "appHookUsedForCapture": false,
+    "rawV8HeapRestored": false,
+    "samePidRestored": false,
+    "memoryIr": {
+      "kind": "machinen.nodejs.memory-ir",
+      "version": 1,
+      "runtime": {
+        "name": "node",
+        "sourceArch": "amd64",
+        "v8": "12.4.254.21-node.22"
+      },
+      "rows": [
+        {
+          "id": "058-memory-real-in-memory-lru-cache",
+          "shape": "in-memory-lru-cache",
+          "semanticState": {
+            "kind": "in-memory-lru-cache",
+            "anchor": "machinen-real-lru-cache-anchor-v1",
+            "capacity": 3,
+            "entriesLeastToMostRecent": [
+              [
+                "beta",
+                {
+                  "hits": 2
+                }
+              ],
+              [
+                "gamma",
+                {
+                  "hits": 3
+                }
+              ],
+              [
+                "delta",
+                {
+                  "hits": 4
+                }
+              ]
+            ],
+            "evictedKeys": ["alpha"]
+          },
+          "anchors": {
+            "anchor": "machinen-real-lru-cache-anchor-v1",
+            "keys": "lru-cache-keys:beta,gamma,delta",
+            "evicted": "lru-cache-evicted:alpha",
+            "capacity": "lru-cache-capacity:3"
+          }
+        }
+      ],
+      "unsupported": [],
+      "claimGuard": {
+        "arbitraryNodeProcessRestoreClaimed": false,
+        "arbitraryLinuxProcessRestoreClaimed": false,
+        "rawV8HeapRestoreUsed": false,
+        "rawCpuStateReplayUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "samePidContinuationClaimed": false,
+        "activeRequestOrSocketContinuationClaimed": false
+      }
+    },
+    "evidence": {
+      "pid": 385,
+      "mapsSha256": "2e46e988958565a8796b28e2696ffa5cfc29e46ce6e67fabaf57ba5d67498c27",
+      "readableMappings": 110,
+      "decodedFields": {
+        "anchor": {
+          "found": true,
+          "hits": ["0x6d43110c1c8", "0x10d208785496", "0x10d208785562", "0x2cd1a31d67ee"]
+        },
+        "keys": {
+          "found": true,
+          "hits": ["0x6d43110c270", "0x10d208785597", "0x2cd1a31d68ef"]
+        },
+        "evicted": {
+          "found": true,
+          "hits": ["0x6d43110c2b8", "0x10d2087855cd", "0x2cd1a31d6925"]
+        },
+        "capacity": {
+          "found": true,
+          "hits": ["0x6d43110c2e0", "0x10d2087855fc", "0x2cd1a31d6954"]
+        }
+      }
+    }
+  },
+  "targetResult": {
+    "kind": "machinen.nodejs-portability-memory-real-in-memory-lru-cache-smoke-report.target-result",
+    "accepted": true,
+    "portabilityRow": "058-memory-real-in-memory-lru-cache",
+    "sourceArch": "amd64",
+    "targetArch": "arm64",
+    "materialization": "target-native-node-semantic-memory-ir",
+    "targetNativeNode": true,
+    "appHookUsedForCapture": false,
+    "rawV8HeapRestored": false,
+    "samePidRestored": false,
+    "verifier": {
+      "accepted": true,
+      "actual": {
+        "kind": "in-memory-lru-cache",
+        "anchor": "machinen-real-lru-cache-anchor-v1",
+        "capacity": 3,
+        "entriesLeastToMostRecent": [
+          [
+            "beta",
+            {
+              "hits": 2
+            }
+          ],
+          [
+            "gamma",
+            {
+              "hits": 3
+            }
+          ],
+          [
+            "delta",
+            {
+              "hits": 4
+            }
+          ]
+        ],
+        "evictedKeys": ["alpha"]
+      },
+      "expected": {
+        "kind": "in-memory-lru-cache",
+        "anchor": "machinen-real-lru-cache-anchor-v1",
+        "capacity": 3,
+        "entriesLeastToMostRecent": [
+          [
+            "beta",
+            {
+              "hits": 2
+            }
+          ],
+          [
+            "gamma",
+            {
+              "hits": 3
+            }
+          ],
+          [
+            "delta",
+            {
+              "hits": 4
+            }
+          ]
+        ],
+        "evictedKeys": ["alpha"]
+      }
+    }
+  },
+  "evidence": {
+    "appPath": "portability/nodejs/058-memory-real-in-memory-lru-cache/app.mjs",
+    "appSha256": "17bc2809d3d6ab71f37df7d011b372808f2f663bbd49d450e08ad26257527de5",
+    "smokePath": "portability/nodejs/058-memory-real-in-memory-lru-cache/smoke.ts"
+  },
+  "claimBoundary": {
+    "claims": [
+      "058-memory-real-in-memory-lru-cache captures selected Node in-memory-lru-cache state from /proc memory and materializes it target-native across architectures"
+    ],
+    "notClaimed": [
+      "arbitrary Node process restore",
+      "raw V8 heap restore",
+      "same PID continuation",
+      "active request/socket continuation",
+      "worker/native-addon/child-process live-state transfer",
+      "source ISA emulation",
+      "arbitrary Linux process restore",
+      "raw VM/vCPU/device replay"
+    ]
+  },
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "arbitraryLinuxProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "samePidContinuationClaimed": false,
+    "activeRequestOrSocketContinuationClaimed": false
+  }
+}

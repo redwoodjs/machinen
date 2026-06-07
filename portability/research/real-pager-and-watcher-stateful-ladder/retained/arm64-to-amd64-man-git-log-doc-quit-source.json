@@ -1,0 +1,244 @@
+{
+  "case": "man-git-log-doc-quit",
+  "adapter": "man-git-log",
+  "description": "real git-log man page exits on q",
+  "mode": "source",
+  "role": "source",
+  "hostArch": "aarch64",
+  "binary": {
+    "path": "/usr/bin/man",
+    "versionLine": "man 2.12.0",
+    "packageEvidence": null
+  },
+  "processRoot": {
+    "pid": 1070924,
+    "argv": ["/usr/bin/man", "git-log"]
+  },
+  "processTree": [
+    {
+      "pid": 1070924,
+      "state": {
+        "pid": 1070924,
+        "comm": "man",
+        "statusState": "S",
+        "threads": 1,
+        "signalPendingMask": "0000000000000000",
+        "statPpid": 1070923,
+        "statPgrp": 1070924,
+        "statSession": 1070924,
+        "statTtyNr": 34816,
+        "syscall": {
+          "raw": "260 0xffffffffffffffff 0xffffd7b450b4 0x0 0x0 0x1 0xbd70a3db14e0 0xffffd7b45080 0xf64643de7b30",
+          "parsed": true,
+          "number": 260,
+          "name": "syscall-260",
+          "args": [18446744073709551615, 281474300661940, 0, 0, 1, 208291483030752],
+          "fd": 18446744073709551615
+        }
+      },
+      "fds": [
+        {
+          "fd": 0,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 1,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 2,
+          "target": "/dev/pts/0"
+        }
+      ],
+      "stdioTargets": {
+        "0": "/dev/pts/0",
+        "1": "/dev/pts/0",
+        "2": "/dev/pts/0"
+      },
+      "syscallFdTarget": null,
+      "allStdioOnControlledPty": true,
+      "hasSignalfd": false,
+      "hasRegularAdapterFile": false
+    },
+    {
+      "pid": 1070931,
+      "state": {
+        "pid": 1070931,
+        "comm": "man",
+        "statusState": "S",
+        "threads": 1,
+        "signalPendingMask": "0000000000000000",
+        "statPpid": 1070924,
+        "statPgrp": 1070924,
+        "statSession": 1070924,
+        "statTtyNr": 34816,
+        "syscall": {
+          "raw": "64 0x1 0xbd70a3db2550 0x1000 0x1 0xbd70a3d48213 0xbd70a3db3550 0xffffd7b449b0 0xf64643df1e48",
+          "parsed": true,
+          "number": 64,
+          "name": "syscall-64",
+          "args": [1, 208291483034960, 4096, 1, 208291482599955, 208291483039056],
+          "fd": 1
+        }
+      },
+      "fds": [
+        {
+          "fd": 0,
+          "target": "pipe:[27563700]"
+        },
+        {
+          "fd": 1,
+          "target": "pipe:[27563701]"
+        },
+        {
+          "fd": 2,
+          "target": "/dev/pts/0"
+        }
+      ],
+      "stdioTargets": {
+        "0": "pipe:[27563700]",
+        "1": "pipe:[27563701]",
+        "2": "/dev/pts/0"
+      },
+      "syscallFdTarget": "pipe:[27563701]",
+      "allStdioOnControlledPty": false,
+      "hasSignalfd": false,
+      "hasRegularAdapterFile": false
+    },
+    {
+      "pid": 1070932,
+      "state": {
+        "pid": 1070932,
+        "comm": "pager",
+        "statusState": "S",
+        "threads": 1,
+        "signalPendingMask": "0000000000000000",
+        "statPpid": 1070924,
+        "statPgrp": 1070924,
+        "statSession": 1070924,
+        "statTtyNr": 34816,
+        "syscall": {
+          "raw": "63 0x3 0xffffe96ec617 0x1 0x1 0xffffe96ec520 0x801d7ce01dab4c14 0xffffe96ec4f0 0xe534d1251248",
+          "parsed": true,
+          "number": 63,
+          "name": "read",
+          "args": [3, 281474598094359, 1, 1, 281474598094112, 9231672113191668756],
+          "fd": 3
+        }
+      },
+      "fds": [
+        {
+          "fd": 0,
+          "target": "pipe:[27563701]"
+        },
+        {
+          "fd": 1,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 2,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 3,
+          "target": "/dev/pts/0"
+        }
+      ],
+      "stdioTargets": {
+        "0": "pipe:[27563701]",
+        "1": "/dev/pts/0",
+        "2": "/dev/pts/0"
+      },
+      "syscallFdTarget": "/dev/pts/0",
+      "allStdioOnControlledPty": false,
+      "hasSignalfd": false,
+      "hasRegularAdapterFile": false
+    }
+  ],
+  "candidateProcess": {
+    "pid": 1070932,
+    "state": {
+      "pid": 1070932,
+      "comm": "pager",
+      "statusState": "S",
+      "threads": 1,
+      "signalPendingMask": "0000000000000000",
+      "statPpid": 1070924,
+      "statPgrp": 1070924,
+      "statSession": 1070924,
+      "statTtyNr": 34816,
+      "syscall": {
+        "raw": "63 0x3 0xffffe96ec617 0x1 0x1 0xffffe96ec520 0x801d7ce01dab4c14 0xffffe96ec4f0 0xe534d1251248",
+        "parsed": true,
+        "number": 63,
+        "name": "read",
+        "args": [3, 281474598094359, 1, 1, 281474598094112, 9231672113191668756],
+        "fd": 3
+      }
+    },
+    "fds": [
+      {
+        "fd": 0,
+        "target": "pipe:[27563701]"
+      },
+      {
+        "fd": 1,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 2,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 3,
+        "target": "/dev/pts/0"
+      }
+    ],
+    "stdioTargets": {
+      "0": "pipe:[27563701]",
+      "1": "/dev/pts/0",
+      "2": "/dev/pts/0"
+    },
+    "syscallFdTarget": "/dev/pts/0",
+    "allStdioOnControlledPty": false,
+    "hasSignalfd": false,
+    "hasRegularAdapterFile": false
+  },
+  "pty": {
+    "slavePath": "/dev/pts/0",
+    "rows": 24,
+    "cols": 80,
+    "inputQueueBytesOnMaster": 0,
+    "inputQueueBytesOnSlave": {
+      "available": true,
+      "bytes": 0
+    },
+    "foregroundPgrpFromMaster": 1070924
+  },
+  "candidateChecks": {
+    "expectedOutputRendered": true,
+    "modeledWait": true,
+    "controlledPtyIo": true,
+    "sessionPgrp": true,
+    "queuesEmpty": true,
+    "singleThreadCandidate": true,
+    "noPendingSignalCandidate": true
+  },
+  "screenAtCandidate": {
+    "containsExpectedOutput": true,
+    "sample": "\u001b[?1049h\u001b[22;0;0t\u001b[?1h\u001b=\r\u001b[4mGIT-LOG\u001b[24m(1)                        Git Manual                        \u001b[4mGIT-LOG\u001b[24m(1)\u001b[m\r\n\u001b[m\r\n\u001b[1mNAME\u001b[0m\u001b[m\r\n       git-log - Show commit logs\u001b[m\r\n\u001b[m\r\n\u001b[1mSYNOPSIS\u001b[0m\u001b[m\r\n       \u001b[4mgit\u001b[24m \u001b[4mlog\u001b[24m [<options>] [<revision-range>] [[--] <path>...]\u001b[m\r\n\u001b[m\r\n\u001b[1mDESCRIPTION\u001b[0m\u001b[m\r\n       Shows the commit logs.\u001b[m\r\n\u001b[m\r\n       List commits that are reachable by following the \u001b[1mparent \u001b[22mlinks from the\u001b[m\r\n       given commit(s), but exclude commits that are reachable from the one(s)\u001b[m\r\n       given with a \u001b[4m^\u001b[24m in front of them. The output is given in reverse\u001b[m\r\n       chronological order by default.\u001b[m\r\n\u001b[m\r\n       You can think of this as a set operation. Commits reachable from any of\u001b[m\r\n       the commits given on the command line form a set, and then commits\u001b[m\r\n       reachable from any of the ones given with \u001b[4m^\u001b[24m in front are subtracted\u001b[m\r\n       from that set. The remaining commits are what comes out in the\u001b[m\r\n       command\u2019s output. Various other options and paths parameters can be\u001b[m\r\n       used to further limit the result.\u001b[m\r\n\u001b[m\r\n\u001b[7m Manual page git-log(1) line 1 (press h for help or q to quit)\u001b[27m\u001b[K"
+  },
+  "inputOrResource": {
+    "expect": "process-exit",
+    "file": "man:git-log",
+    "base64": "cQ=="
+  },
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "markerSymbolsUsed": false
+  },
+  "decision": "captured"
+}

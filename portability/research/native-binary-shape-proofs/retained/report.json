@@ -1,0 +1,912 @@
+{
+  "kind": "machinen.research.native-binary-shape-proofs.aggregate-report",
+  "version": 1,
+  "sharedResearchHost": "192.168.0.8",
+  "shapeCount": 69,
+  "shapes": [
+    {
+      "id": "002-string-transform-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/002-string-transform-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-002-string-transform-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/002-string-transform-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-002-string-transform-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "003-array-sum-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/003-array-sum-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-003-array-sum-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/003-array-sum-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-003-array-sum-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "004-linked-list-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/004-linked-list-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-004-linked-list-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/004-linked-list-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-004-linked-list-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "005-regular-file-reader",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/005-regular-file-reader-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-005-regular-file-reader-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/005-regular-file-reader-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-005-regular-file-reader-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "006-append-only-logger",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/006-append-only-logger-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-006-append-only-logger-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/006-append-only-logger-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-006-append-only-logger-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "007-argv-env-printer",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/007-argv-env-printer-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-007-argv-env-printer-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/007-argv-env-printer-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-007-argv-env-printer-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "008-malloc-object-graph",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/008-malloc-object-graph-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-008-malloc-object-graph-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/008-malloc-object-graph-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-008-malloc-object-graph-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "009-recursive-factorial-safepoint",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/009-recursive-factorial-safepoint-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-009-recursive-factorial-safepoint-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/009-recursive-factorial-safepoint-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-009-recursive-factorial-safepoint-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "011-two-file-copy-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/011-two-file-copy-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-011-two-file-copy-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/011-two-file-copy-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-011-two-file-copy-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "012-seek-overwrite-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/012-seek-overwrite-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-012-seek-overwrite-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/012-seek-overwrite-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-012-seek-overwrite-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "013-line-reader-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/013-line-reader-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-013-line-reader-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/013-line-reader-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-013-line-reader-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "014-directory-listing-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/014-directory-listing-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-014-directory-listing-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/014-directory-listing-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-014-directory-listing-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "015-stat-checker-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/015-stat-checker-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-015-stat-checker-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/015-stat-checker-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-015-stat-checker-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "016-stdio-echo-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/016-stdio-echo-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-016-stdio-echo-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/016-stdio-echo-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-016-stdio-echo-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "017-fixed-ring-buffer-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/017-fixed-ring-buffer-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-017-fixed-ring-buffer-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/017-fixed-ring-buffer-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-017-fixed-ring-buffer-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "018-queue-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/018-queue-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-018-queue-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/018-queue-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-018-queue-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "019-binary-tree-traversal-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/019-binary-tree-traversal-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-019-binary-tree-traversal-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/019-binary-tree-traversal-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-019-binary-tree-traversal-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "020-hash-table-fixed-buckets-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/020-hash-table-fixed-buckets-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-020-hash-table-fixed-buckets-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/020-hash-table-fixed-buckets-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-020-hash-table-fixed-buckets-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "021-graph-with-shared-node-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/021-graph-with-shared-node-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-021-graph-with-shared-node-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/021-graph-with-shared-node-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-021-graph-with-shared-node-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "022-cycle-list-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/022-cycle-list-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-022-cycle-list-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/022-cycle-list-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-022-cycle-list-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "023-struct-with-nested-pointers-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/023-struct-with-nested-pointers-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-023-struct-with-nested-pointers-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/023-struct-with-nested-pointers-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-023-struct-with-nested-pointers-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "024-global-variable-counter-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/024-global-variable-counter-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-024-global-variable-counter-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/024-global-variable-counter-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-024-global-variable-counter-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "025-static-buffer-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/025-static-buffer-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-025-static-buffer-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/025-static-buffer-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-025-static-buffer-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "026-multiple-stack-frames-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/026-multiple-stack-frames-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-026-multiple-stack-frames-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/026-multiple-stack-frames-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-026-multiple-stack-frames-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "027-callee-saved-register-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/027-callee-saved-register-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-027-callee-saved-register-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/027-callee-saved-register-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-027-callee-saved-register-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "028-float-simd-scalar-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/028-float-simd-scalar-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-028-float-simd-scalar-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/028-float-simd-scalar-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-028-float-simd-scalar-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "029-errno-libc-result-boundary-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/029-errno-libc-result-boundary-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-029-errno-libc-result-boundary-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/029-errno-libc-result-boundary-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-029-errno-libc-result-boundary-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "030-malloc-free-boundary-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/030-malloc-free-boundary-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-030-malloc-free-boundary-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/030-malloc-free-boundary-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-030-malloc-free-boundary-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "031-csv-record-parser-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/031-csv-record-parser-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-031-csv-record-parser-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/031-csv-record-parser-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-031-csv-record-parser-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "032-json-token-parser-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/032-json-token-parser-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-032-json-token-parser-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/032-json-token-parser-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-032-json-token-parser-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "033-checksum-running-sum-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/033-checksum-running-sum-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-033-checksum-running-sum-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/033-checksum-running-sum-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-033-checksum-running-sum-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "034-rle-decoder-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/034-rle-decoder-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-034-rle-decoder-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/034-rle-decoder-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-034-rle-decoder-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "035-chunked-decoder-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/035-chunked-decoder-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-035-chunked-decoder-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/035-chunked-decoder-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-035-chunked-decoder-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "036-fixed-arena-allocator-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/036-fixed-arena-allocator-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-036-fixed-arena-allocator-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/036-fixed-arena-allocator-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-036-fixed-arena-allocator-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "037-bitmap-scanner-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/037-bitmap-scanner-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-037-bitmap-scanner-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/037-bitmap-scanner-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-037-bitmap-scanner-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "038-bitset-counter-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/038-bitset-counter-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-038-bitset-counter-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/038-bitset-counter-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-038-bitset-counter-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "039-priority-queue-fixed-heap-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/039-priority-queue-fixed-heap-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-039-priority-queue-fixed-heap-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/039-priority-queue-fixed-heap-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-039-priority-queue-fixed-heap-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "040-deque-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/040-deque-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-040-deque-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/040-deque-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-040-deque-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "041-trie-lookup-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/041-trie-lookup-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-041-trie-lookup-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/041-trie-lookup-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-041-trie-lookup-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "042-tokenizer-state-machine-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/042-tokenizer-state-machine-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-042-tokenizer-state-machine-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/042-tokenizer-state-machine-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-042-tokenizer-state-machine-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "043-config-reload-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/043-config-reload-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-043-config-reload-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/043-config-reload-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-043-config-reload-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "044-temp-file-rename-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/044-temp-file-rename-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-044-temp-file-rename-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/044-temp-file-rename-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-044-temp-file-rename-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "045-file-truncate-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/045-file-truncate-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-045-file-truncate-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/045-file-truncate-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-045-file-truncate-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "046-sparse-file-seek-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/046-sparse-file-seek-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-046-sparse-file-seek-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/046-sparse-file-seek-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-046-sparse-file-seek-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "047-commit-marker-file-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/047-commit-marker-file-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-047-commit-marker-file-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/047-commit-marker-file-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-047-commit-marker-file-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "048-lockfile-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/048-lockfile-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-048-lockfile-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/048-lockfile-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-048-lockfile-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "049-monotonic-counter-file-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/049-monotonic-counter-file-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-049-monotonic-counter-file-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/049-monotonic-counter-file-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-049-monotonic-counter-file-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "050-deterministic-prng-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/050-deterministic-prng-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-050-deterministic-prng-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/050-deterministic-prng-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-050-deterministic-prng-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "051-less-readonly-pager-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/051-less-readonly-pager-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-051-less-readonly-pager-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/051-less-readonly-pager-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-051-less-readonly-pager-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "052-less-search-forward-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/052-less-search-forward-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-052-less-search-forward-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/052-less-search-forward-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-052-less-search-forward-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "053-less-page-backward-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/053-less-page-backward-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-053-less-page-backward-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/053-less-page-backward-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-053-less-page-backward-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "054-less-percent-position-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/054-less-percent-position-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-054-less-percent-position-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/054-less-percent-position-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-054-less-percent-position-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "055-less-mark-jump-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/055-less-mark-jump-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-055-less-mark-jump-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/055-less-mark-jump-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-055-less-mark-jump-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "056-less-goto-line-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/056-less-goto-line-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-056-less-goto-line-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/056-less-goto-line-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-056-less-goto-line-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "057-less-horizontal-scroll-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/057-less-horizontal-scroll-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-057-less-horizontal-scroll-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/057-less-horizontal-scroll-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-057-less-horizontal-scroll-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "058-less-tail-snapshot-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/058-less-tail-snapshot-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-058-less-tail-snapshot-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/058-less-tail-snapshot-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-058-less-tail-snapshot-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "059-grep-line-boundary-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/059-grep-line-boundary-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-059-grep-line-boundary-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/059-grep-line-boundary-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-059-grep-line-boundary-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "060-wc-line-count-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/060-wc-line-count-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-060-wc-line-count-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/060-wc-line-count-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-060-wc-line-count-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "061-tail-readonly-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/061-tail-readonly-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-061-tail-readonly-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/061-tail-readonly-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-061-tail-readonly-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "062-less-screen-render-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/062-less-screen-render-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-062-less-screen-render-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/062-less-screen-render-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-062-less-screen-render-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "063-less-wrap-long-line-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/063-less-wrap-long-line-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-063-less-wrap-long-line-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/063-less-wrap-long-line-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-063-less-wrap-long-line-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "064-less-no-wrap-long-line-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/064-less-no-wrap-long-line-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-064-less-no-wrap-long-line-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/064-less-no-wrap-long-line-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-064-less-no-wrap-long-line-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "065-less-tab-expand-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/065-less-tab-expand-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-065-less-tab-expand-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/065-less-tab-expand-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-065-less-tab-expand-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "066-less-case-insensitive-search-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/066-less-case-insensitive-search-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-066-less-case-insensitive-search-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/066-less-case-insensitive-search-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-066-less-case-insensitive-search-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "067-less-highlight-match-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/067-less-highlight-match-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-067-less-highlight-match-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/067-less-highlight-match-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-067-less-highlight-match-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "068-less-status-prompt-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/068-less-status-prompt-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-068-less-status-prompt-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/068-less-status-prompt-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-068-less-status-prompt-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "069-less-multiple-file-index-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/069-less-multiple-file-index-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-069-less-multiple-file-index-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/069-less-multiple-file-index-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-069-less-multiple-file-index-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "070-less-quit-state-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/070-less-quit-state-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-070-less-quit-state-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/070-less-quit-state-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-070-less-quit-state-cli-amd64-to-arm64.log"
+        }
+      }
+    },
+    {
+      "id": "071-less-help-screen-cli",
+      "directions": {
+        "arm64-to-amd64": {
+          "sourceCapture": "retained/071-less-help-screen-cli-arm64-to-amd64.ir.json",
+          "targetRestoreLog": "retained/restore-071-less-help-screen-cli-arm64-to-amd64.log"
+        },
+        "amd64-to-arm64": {
+          "sourceCapture": "retained/071-less-help-screen-cli-amd64-to-arm64.ir.json",
+          "targetRestoreLog": "retained/restore-071-less-help-screen-cli-amd64-to-arm64.log"
+        }
+      }
+    }
+  ],
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false
+  },
+  "status": "passed"
+}

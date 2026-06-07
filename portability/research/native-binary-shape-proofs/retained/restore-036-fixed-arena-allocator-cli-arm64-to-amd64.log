@@ -1,0 +1,2 @@
+arena:24
+SHAPE_RESTORE_OK shape=036-fixed-arena-allocator-cli target=amd64 result=42

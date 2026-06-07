@@ -1,0 +1,163 @@
+{
+  "kind": "machinen.research.native-continuation-cli.proof-row",
+  "version": 1,
+  "case": "refuse-socket-queued-bytes",
+  "rowKind": "refusal",
+  "mode": "source",
+  "hostArch": "aarch64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false
+  },
+  "decision": "refused",
+  "command": {
+    "args": [
+      "python3",
+      "continuation_cli.py",
+      "capture",
+      "--pid",
+      "1616713",
+      "--allow-refused",
+      "--out",
+      "retained/arm64-to-amd64-refuse-socket-queued-bytes-source.json"
+    ],
+    "returncode": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  "capture": {
+    "kind": "machinen.research.native-continuation-cli.capture",
+    "version": 1,
+    "decision": "refused",
+    "shapeId": "refuse-socket-queued-or-inflight-bytes",
+    "reason": "socket has queued/in-flight bytes",
+    "claimGuard": {
+      "arbitraryProcessRestoreClaimed": false,
+      "rawVmReplayUsed": false,
+      "sourceIsaEmulationUsed": false,
+      "metadataOnlySuccess": false,
+      "rawHeapStackRegisterRestore": false
+    },
+    "descriptor": null,
+    "classifierResult": {
+      "kind": "machinen.research.native-continuation-classifier.result",
+      "version": 1,
+      "decision": "refused",
+      "shapeId": "refuse-socket-queued-or-inflight-bytes",
+      "reason": "socket has queued/in-flight bytes",
+      "claimGuard": {
+        "arbitraryProcessRestoreClaimed": false,
+        "rawVmReplayUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "metadataOnlySuccess": false,
+        "rawHeapStackRegisterRestore": false
+      },
+      "observation": {
+        "pid": 1616713,
+        "hostArch": "aarch64",
+        "pausedVmObservation": false,
+        "observationConsistency": "live-procfs-best-effort",
+        "alive": true,
+        "exe": "/usr/bin/python3.12",
+        "cmdline": [
+          "python3",
+          "-c",
+          "\nimport socket, time\nlistener=socket.socket(); listener.bind(('127.0.0.1',0)); listener.listen(1)\nclient=socket.socket(); client.connect(listener.getsockname())\nserver,_=listener.accept(); listener.close(); client.send(b'queued-socket-bytes')\ntime.sleep(30)\n"
+        ],
+        "processTree": {
+          "ppid": 1616712,
+          "pgrp": 1616713,
+          "session": 1616713
+        },
+        "status": {
+          "state": "S (sleeping)",
+          "threads": 1,
+          "tracerPid": 0
+        },
+        "tasks": [
+          {
+            "tid": 1616713,
+            "state": "S",
+            "wchan": "hrtimer_nanosleep",
+            "syscall": {
+              "raw": null,
+              "wchan": "hrtimer_nanosleep",
+              "number": null,
+              "readLikeWait": false,
+              "pollLikeWait": false
+            }
+          }
+        ],
+        "fds": [
+          {
+            "fd": 0,
+            "target": "pipe:[28835517]",
+            "kind": "pipe",
+            "queueBytes": 0
+          },
+          {
+            "fd": 1,
+            "target": "pipe:[28825248]",
+            "kind": "pipe",
+            "queueBytes": 0
+          },
+          {
+            "fd": 2,
+            "target": "pipe:[28825249]",
+            "kind": "pipe",
+            "queueBytes": 0
+          },
+          {
+            "fd": 4,
+            "target": "socket:[28838096]",
+            "kind": "socket",
+            "queueBytes": null,
+            "socketInode": "28838096",
+            "socket": {
+              "family": "tcp4",
+              "state": "ESTABLISHED",
+              "stateHex": "01",
+              "txQueue": 0,
+              "rxQueue": 0,
+              "localAddressHex": "0100007F",
+              "localPort": 33696,
+              "remoteAddressHex": "0100007F",
+              "remotePort": 45993
+            }
+          },
+          {
+            "fd": 5,
+            "target": "socket:[28838097]",
+            "kind": "socket",
+            "queueBytes": null,
+            "socketInode": "28838097",
+            "socket": {
+              "family": "tcp4",
+              "state": "ESTABLISHED",
+              "stateHex": "01",
+              "txQueue": 0,
+              "rxQueue": 19,
+              "localAddressHex": "0100007F",
+              "localPort": 45993,
+              "remoteAddressHex": "0100007F",
+              "remotePort": 33696
+            }
+          }
+        ],
+        "fdKinds": ["pipe", "socket"],
+        "syscall": {
+          "raw": null,
+          "wchan": "hrtimer_nanosleep",
+          "number": null,
+          "readLikeWait": false,
+          "pollLikeWait": false
+        }
+      }
+    },
+    "descriptorSource": "native-continuation-classifier/classify.py"
+  },
+  "descriptor": null
+}

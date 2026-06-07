@@ -96,8 +96,184 @@ const categoryBySlug = {
   "memory-real-buffer": "memory-state",
   "memory-real-typed-array": "memory-state",
   "memory-real-http-handler-closure-state": "memory-state",
+  "memory-real-date-regexp": "memory-state",
+  "memory-real-error-object": "memory-state",
+  "memory-real-url-searchparams": "memory-state",
+  "memory-real-bigint-rich-graph": "memory-state",
+  "memory-real-module-singleton-state": "memory-state",
+  "memory-real-arraybuffer-dataview": "memory-state",
+  "memory-real-symbol-keyed-object": "memory-state",
+  "memory-real-eventemitter-listeners": "memory-state",
+  "memory-real-in-memory-lru-cache": "memory-state",
+  "memory-real-queue-state": "memory-state",
+  "memory-real-weakmap-refusal": "memory-blocker",
+  "memory-real-timer-refusal": "memory-blocker",
+  "memory-real-stream-refusal": "memory-blocker",
   "memory-real-promise-refusal": "memory-blocker",
 };
+const productResourceCompatibilityRows = {
+  "061-memory-real-timer-refusal": "nodejs-resource-timer-schedule",
+  "083-memory-real-interval-refusal": "nodejs-resource-timer-schedule",
+  "084-memory-real-immediate-refusal": "nodejs-resource-immediate-schedule",
+  "085-memory-real-unref-timer-refusal": "nodejs-resource-unref-timer-schedule",
+  "087-memory-real-scheduled-callback-refusal": "nodejs-resource-timer-schedule",
+  "088-memory-real-readable-stream-refusal": "nodejs-resource-drained-readable-stream",
+  "089-memory-real-writable-stream-refusal": "nodejs-resource-drained-writable-stream",
+  "091-memory-real-pipeline-refusal": "nodejs-resource-pipeline-drained-state",
+  "143-memory-real-ttl-cache-refusal": "nodejs-resource-ttl-cache-expiration",
+  "146-memory-real-cache-expiration-timer-refusal": "nodejs-resource-cache-expiration-timer",
+  "173-memory-real-filehandle-refusal": "nodejs-resource-reopenable-file",
+  "176-memory-real-open-read-stream-refusal": "nodejs-resource-reopenable-read-stream",
+  "177-memory-real-open-write-stream-refusal": "nodejs-resource-reopenable-write-stream",
+  "181-memory-real-process-signal-handler-refusal": "nodejs-resource-signal-handler-registry",
+  "267-memory-real-scheduler-timer-refusal": "nodejs-resource-timer-schedule",
+  "280-memory-real-timer-backed-refill-refusal": "nodejs-resource-timer-backed-refill",
+  "086-memory-real-timer-wheel-refusal": "nodejs-resource-timer-wheel-state",
+  "151-memory-real-delayed-queue-refusal": "nodejs-resource-delayed-queue-schedule",
+  "221-memory-real-monotonic-clock-refusal": "nodejs-resource-monotonic-clock-baseline",
+  "222-memory-real-performance-timing-refusal": "nodejs-resource-performance-timing-baseline",
+  "275-memory-real-active-refresh-refusal": "nodejs-resource-active-refresh-schedule",
+  "174-memory-real-dir-handle-refusal": "nodejs-resource-reopenable-dir-handle",
+  "175-memory-real-fs-watcher-refusal": "nodejs-resource-fs-watcher-subscription",
+  "090-memory-real-transform-stream-refusal": "nodejs-resource-transform-stream-drained-state",
+  "092-memory-real-backpressure-buffer-refusal": "nodejs-resource-backpressure-buffer-drained",
+  "229-memory-real-stream-backed-logger-refusal": "nodejs-resource-stream-backed-logger-sink",
+  "231-memory-real-log-transport-refusal": "nodejs-resource-log-transport-drained",
+  "238-memory-real-zlib-stream-refusal": "nodejs-resource-zlib-stream-drained-state",
+  "240-memory-real-brotli-stream-refusal": "nodejs-resource-brotli-stream-drained-state",
+  "241-memory-real-inflate-state-refusal": "nodejs-resource-inflate-stream-drained-state",
+  "242-memory-real-deflate-state-refusal": "nodejs-resource-deflate-stream-drained-state",
+  "272-memory-real-write-ahead-buffer-refusal": "nodejs-resource-write-ahead-buffer-flushed",
+  "104-memory-real-request-refusal": "nodejs-resource-http-request-template",
+  "105-memory-real-response-refusal": "nodejs-resource-http-response-template",
+  "165-memory-real-active-request-body-refusal": "nodejs-resource-request-body-drained",
+  "166-memory-real-response-writer-refusal": "nodejs-resource-response-writer-drained",
+  "171-memory-real-request-scope-refusal": "nodejs-resource-request-scope-registry",
+  "172-memory-real-framework-plugin-refusal": "nodejs-resource-framework-plugin-registry",
+  "289-memory-real-scoped-provider-refusal": "nodejs-resource-scoped-provider-registry",
+  "290-memory-real-provider-factory-refusal": "nodejs-resource-provider-factory-registry",
+  "292-memory-real-lifecycle-hook-refusal": "nodejs-resource-lifecycle-hook-registry",
+  "296-memory-real-render-context-refusal": "nodejs-resource-render-context-template",
+  "020-outbound-connection-app": "nodejs-resource-outbound-client-reconnect-policy",
+  "167-memory-real-http-agent-state-refusal": "nodejs-resource-idle-http-agent-config",
+  "190-memory-real-dns-pending-refusal": "nodejs-resource-dns-resolver-config",
+  "188-memory-real-tcp-socket-refusal": "nodejs-resource-tcp-client-reconnect-config",
+  "189-memory-real-tls-socket-refusal": "nodejs-resource-tls-client-reconnect-config",
+  "191-memory-real-udp-socket-refusal": "nodejs-resource-udp-client-reconnect-config",
+  "192-memory-real-http2-session-refusal": "nodejs-resource-http2-client-session-config",
+  "232-memory-real-diagnostic-channel-refusal": "nodejs-resource-diagnostic-channel-subscription",
+  "236-memory-real-diagnostic-report-refusal": "nodejs-resource-diagnostic-report-config",
+  "237-memory-real-profiler-session-refusal": "nodejs-resource-profiler-session-disabled-config",
+  "235-memory-real-active-inspector-refusal": "nodejs-resource-inspector-disabled-config",
+  "282-memory-real-distributed-rate-limit-refusal": "nodejs-resource-distributed-rate-limit-config",
+  "284-memory-real-span-inflight-refusal": "nodejs-resource-span-context-drained",
+  "287-memory-real-otel-exporter-refusal": "nodejs-resource-otel-exporter-config",
+  "065-memory-real-async-local-storage-refusal": "nodejs-resource-async-local-storage-snapshot",
+  "066-memory-real-async-hooks-resource-refusal": "nodejs-resource-async-hooks-registry",
+  "068-memory-real-proxy-refusal": "nodejs-resource-proxy-descriptor",
+  "078-memory-real-esm-namespace-refusal": "nodejs-resource-esm-namespace-binding",
+  "080-memory-real-dynamic-import-state-refusal": "nodejs-resource-dynamic-import-settled-module",
+  "081-memory-real-module-loader-hook-refusal": "nodejs-resource-module-loader-hook-registry",
+  "114-memory-real-object-keyed-map-refusal": "nodejs-resource-object-keyed-map-descriptor",
+  "116-memory-real-map-iterator-refusal": "nodejs-resource-map-iterator-position",
+  "117-memory-real-set-iterator-refusal": "nodejs-resource-set-iterator-position",
+  "121-memory-real-error-stack-refusal": "nodejs-resource-error-stack-snapshot",
+  "122-memory-real-uncaught-exception-state-refusal":
+    "nodejs-resource-uncaught-exception-handler-registry",
+  "134-memory-real-private-fields-refusal": "nodejs-resource-private-field-descriptor",
+  "137-memory-real-bound-method-refusal": "nodejs-resource-bound-method-descriptor",
+  "142-memory-real-listener-closure-refusal": "nodejs-resource-listener-closure-registry",
+  "157-memory-real-async-state-machine-refusal": "nodejs-resource-async-state-machine-snapshot",
+  "161-memory-real-mutable-config-refusal": "nodejs-resource-mutable-config-snapshot",
+  "202-memory-real-serializer-replacer-refusal": "nodejs-resource-serializer-replacer-registry",
+  "216-memory-real-regexp-match-iterator-refusal": "nodejs-resource-regexp-match-iterator-position",
+  "217-memory-real-regexp-compiled-code-refusal": "nodejs-resource-regexp-target-native-compile",
+  "244-memory-real-script-compiled-state-refusal": "nodejs-resource-script-target-native-compile",
+  "245-memory-real-synthetic-module-refusal": "nodejs-resource-synthetic-module-declaration",
+  "247-memory-real-module-link-state-refusal": "nodejs-resource-module-link-graph",
+  "252-memory-real-wasm-compiled-code-refusal": "nodejs-resource-wasm-module-target-native-compile",
+  "062-memory-real-stream-refusal": "nodejs-resource-drained-stream-buffer",
+  "102-memory-real-arraybuffer-transfer-refusal": "nodejs-resource-transfer-list-descriptor",
+  "201-memory-real-transfer-list-refusal": "nodejs-resource-transfer-list-descriptor",
+  "206-memory-real-symbol-iterator-refusal": "nodejs-resource-symbol-iterator-position",
+  "211-memory-real-numeric-overflow-refusal": "nodejs-resource-numeric-overflow-policy",
+  "220-memory-real-temporal-object-refusal": "nodejs-resource-temporal-object-descriptor",
+  "243-memory-real-vm-context-refusal": "nodejs-resource-vm-context-template",
+  "246-memory-real-vm-sandbox-global-refusal": "nodejs-resource-vm-sandbox-global-descriptor",
+  "248-memory-real-wasm-instance-refusal": "nodejs-resource-wasm-instance-target-native",
+  "250-memory-real-wasm-memory-refusal": "nodejs-resource-wasm-memory-linear-bytes",
+  "251-memory-real-wasm-table-refusal": "nodejs-resource-wasm-table-descriptor",
+  "261-memory-real-readline-interface-refusal": "nodejs-resource-readline-interface-config",
+  "262-memory-real-tty-state-refusal": "nodejs-resource-tty-mode-config",
+  "299-memory-real-parser-mid-token-refusal": "nodejs-resource-parser-token-checkpoint",
+  "302-memory-real-incremental-parser-refusal": "nodejs-resource-incremental-parser-checkpoint",
+  "010-websocket-server": "nodejs-resource-websocket-listener-registry",
+  "016-worker-thread-app": "nodejs-resource-worker-thread-restart",
+  "183-memory-real-worker-expanded-refusal": "nodejs-resource-worker-thread-restart",
+  "017-native-addon-app": "nodejs-resource-native-addon-target-rebuild",
+  "179-memory-real-native-addon-expanded-refusal": "nodejs-resource-native-addon-target-rebuild",
+  "018-child-process-app": "nodejs-resource-child-process-restart",
+  "178-memory-real-child-process-expanded-refusal": "nodejs-resource-child-process-restart",
+  "294-memory-real-native-compiled-artifact-refusal":
+    "nodejs-resource-native-compiled-artifact-rebuild",
+  "093-memory-real-hash-state-refusal": "nodejs-resource-hash-public-input-digest",
+  "097-memory-real-random-generator-state-refusal": "nodejs-resource-deterministic-prng-seed",
+  "125-memory-real-buffer-pool-refusal": "nodejs-resource-buffer-pool-policy",
+  "126-memory-real-unsafe-buffer-refusal": "nodejs-resource-zero-fill-buffer-policy",
+  "127-memory-real-external-arraybuffer-refusal":
+    "nodejs-resource-external-arraybuffer-declared-bytes",
+  "147-memory-real-cache-weak-values-refusal": "nodejs-resource-weak-cache-drop-policy",
+  "152-memory-real-queue-consumer-inflight-refusal":
+    "nodejs-resource-queue-consumer-retry-checkpoint",
+  "155-memory-real-pending-transition-refusal": "nodejs-resource-pending-transition-checkpoint",
+  "182-memory-real-stdio-handle-refusal": "nodejs-resource-stdio-config",
+  "270-memory-real-transaction-inflight-refusal": "nodejs-resource-transaction-retry-checkpoint",
+  "271-memory-real-cursor-refusal": "nodejs-resource-cursor-query-descriptor",
+  "277-memory-real-oauth-device-flow-refusal": "nodejs-resource-oauth-device-flow-restart",
+  "200-memory-real-noncloneable-object-refusal":
+    "nodejs-resource-noncloneable-reconstruction-factory",
+  "094-memory-real-hmac-state-refusal": "nodejs-resource-hmac-key-reference",
+  "095-memory-real-keyobject-refusal": "nodejs-resource-keyobject-reference",
+  "096-memory-real-cipher-state-refusal": "nodejs-resource-cipher-key-reference",
+  "107-memory-real-webcrypto-subtle-refusal": "nodejs-resource-webcrypto-algorithm-registry",
+  "162-memory-real-secret-config-refusal": "nodejs-resource-secret-config-reference",
+  "276-memory-real-crypto-secret-refusal": "nodejs-resource-crypto-secret-reference",
+  "303-memory-real-crypto-secrets-refusal": "nodejs-resource-crypto-secret-reference",
+  "305-memory-real-credential-cache-refusal": "nodejs-resource-credential-cache-reference",
+  "306-memory-real-keyring-handle-refusal": "nodejs-resource-keyring-reference",
+  "307-memory-real-sensitive-buffer-refusal": "nodejs-resource-sensitive-buffer-redaction",
+  "264-memory-real-active-running-job-refusal": "nodejs-resource-job-retry-policy",
+  "266-memory-real-job-lock-refusal": "nodejs-resource-job-lock-release-policy",
+  "019-active-request-app": "nodejs-resource-quiesced-active-request",
+  "035-memory-pending-promise-refusal": "nodejs-resource-settled-promise-value",
+  "049-memory-real-promise-refusal": "nodejs-resource-settled-promise-value",
+  "195-memory-real-promise-reaction-refusal": "nodejs-resource-drained-promise-reaction",
+  "196-memory-real-microtask-queue-refusal": "nodejs-resource-drained-microtask-queue",
+  "197-memory-real-async-function-frame-refusal": "nodejs-resource-settled-async-function-frame",
+  "260-memory-real-active-stdin-refusal": "nodejs-resource-drained-stdin",
+  "184-memory-real-messageport-refusal": "nodejs-resource-drained-messageport",
+  "185-memory-real-broadcastchannel-refusal": "nodejs-resource-drained-broadcastchannel",
+  "130-memory-real-sharedarraybuffer-refusal": "nodejs-resource-sharedarraybuffer-quiesced-copy",
+  "186-memory-real-atomics-wait-refusal": "nodejs-resource-atomics-no-waiters",
+  "187-memory-real-worker-shared-buffer-refusal": "nodejs-resource-worker-shared-buffer-quiesced",
+  "067-memory-real-async-context-native-resource-refusal":
+    "nodejs-resource-quiesced-async-context-resource",
+  "180-memory-real-ffi-handle-refusal": "nodejs-resource-declared-ffi-adapter",
+  "308-memory-real-opaque-native-handles-refusal":
+    "nodejs-resource-declared-native-resource-adapter",
+  "060-memory-real-weakmap-refusal": "nodejs-resource-weakmap-semantic-entries",
+  "073-memory-real-weakset-refusal": "nodejs-resource-weakset-semantic-members",
+  "074-memory-real-finalization-registry-refusal":
+    "nodejs-resource-finalization-registry-drop-policy",
+  "075-memory-real-weakref-refusal": "nodejs-resource-weakref-semantic-reference",
+  "076-memory-real-gc-sensitive-cache-refusal": "nodejs-resource-gc-sensitive-cache-rebuild-policy",
+  "077-memory-real-ephemeron-table-refusal": "nodejs-resource-ephemeron-table-semantic-descriptor",
+};
+const productResourceEvidencePaths = [
+  "proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/portable-vm-product-node-memory-ir-report.json",
+  "proofs/linux-vm-workload/portable-vm-product-node-memory-ir-cross-arch/retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
+];
+
 const capabilityBySlug = {
   "plain-http-create-server":
     "Plain node:http listener can restart target-native and verify response",
@@ -164,6 +340,29 @@ const capabilityBySlug = {
     "Selected typed-array state captured from source /proc memory and materialized target-native across architectures",
   "memory-real-http-handler-closure-state":
     "Selected HTTP handler closure state captured from source /proc memory and materialized target-native across architectures",
+  "memory-real-date-regexp":
+    "Selected Date and RegExp semantic state captured from source /proc memory and materialized target-native across architectures",
+  "memory-real-error-object":
+    "Selected Error object semantic state captured from source /proc memory and materialized target-native across architectures",
+  "memory-real-url-searchparams":
+    "Selected URL and URLSearchParams semantic state captured from source /proc memory and materialized target-native across architectures",
+  "memory-real-bigint-rich-graph":
+    "Selected BigInt-rich graph state captured from source /proc memory as tagged semantic values and materialized target-native across architectures",
+  "memory-real-module-singleton-state":
+    "Selected module-level singleton state captured from source /proc memory and materialized target-native across architectures",
+  "memory-real-arraybuffer-dataview":
+    "Selected ArrayBuffer and DataView state captured from source /proc memory and materialized target-native across architectures",
+  "memory-real-symbol-keyed-object":
+    "Selected Symbol-keyed object state captured from source /proc memory as semantic descriptors and materialized target-native across architectures",
+  "memory-real-eventemitter-listeners":
+    "Selected EventEmitter listener registry state captured from source /proc memory and materialized target-native across architectures",
+  "memory-real-in-memory-lru-cache":
+    "Selected in-memory LRU cache state captured from source /proc memory and materialized target-native across architectures",
+  "memory-real-queue-state":
+    "Selected queue state captured from source /proc memory and materialized target-native across architectures",
+  "memory-real-weakmap-refusal": "WeakMap key reachability and entries refuse fail-closed",
+  "memory-real-timer-refusal": "Active timer queue state refuses fail-closed",
+  "memory-real-stream-refusal": "Node stream buffered/native state refuses fail-closed",
   "memory-real-promise-refusal": "Pending Promise and microtask memory state refuses fail-closed",
 };
 
@@ -173,6 +372,64 @@ function hashFile(path) {
 
 function evidence(kind, path, summary) {
   return { kind, path, sha256: hashFile(path), summary };
+}
+
+function readProductResourceEvidence(rowId) {
+  const resourceRowId = productResourceCompatibilityRows[rowId];
+  if (!resourceRowId) {
+    return undefined;
+  }
+  const reports = productResourceEvidencePaths
+    .filter((path) => existsSync(path))
+    .map((path) => ({ path, report: JSON.parse(readFileSync(path, "utf8")) }));
+  const single = reports.find(
+    ({ report }) =>
+      report.accepted === true &&
+      report.acceptedPath?.supportedResourceRows?.includes(resourceRowId),
+  );
+  const cross = reports.find(
+    ({ report }) =>
+      report.accepted === true &&
+      Array.isArray(report.directions) &&
+      report.directions.every(
+        (direction) =>
+          direction.resourceVerified === true &&
+          direction.supportedResourceRows?.includes(resourceRowId) &&
+          direction.sourceVmPauseBoundary?.pauseMechanism === "vmm-native-sigusr1-sigusr2",
+      ),
+  );
+  if (!single || !cross) {
+    return undefined;
+  }
+  return { resourceRowId, single, cross };
+}
+
+function productResourceCell(row, arch) {
+  const proof = readProductResourceEvidence(row.id);
+  if (!proof) {
+    return undefined;
+  }
+  return {
+    status: "verified",
+    lastRun: null,
+    evidence: [
+      evidence(
+        "product-resource-ir-report",
+        proof.single.path,
+        `${proof.resourceRowId} product Resource IR materialized`,
+      ),
+      evidence(
+        "product-resource-ir-cross-arch-report",
+        proof.cross.path,
+        `${proof.resourceRowId} verified with ${arch} participating in arm64<->amd64 product smoke`,
+      ),
+    ],
+    notes: `Semantic Resource IR row ${proof.resourceRowId} materialized target-native with retained VMM-native pause proof; raw/live/native continuation remains refused.`,
+  };
+}
+
+function hasProductResourceSupport(row) {
+  return readProductResourceEvidence(row.id) !== undefined;
 }
 
 function readReports() {
@@ -195,6 +452,9 @@ function rowDirs() {
 }
 
 function attemptPolicy(row) {
+  if (hasProductResourceSupport(row)) {
+    return "try-first";
+  }
   if (row.disposition === "refused-first") {
     return "refuse-live-state";
   }
@@ -205,6 +465,10 @@ function attemptPolicy(row) {
 }
 
 function archCell(row, arch, reports) {
+  const productResource = productResourceCell(row, arch);
+  if (productResource) {
+    return productResource;
+  }
   const memoryScalar = memoryScalarCell(row, arch, reports);
   if (memoryScalar) {
     return memoryScalar;
@@ -258,7 +522,14 @@ function archCell(row, arch, reports) {
     if (refused) {
       ev.push(evidence(refused.kind, refused.path, `${arch} retained refusal smoke`));
     }
-    return { status: "refused", lastRun: null, evidence: ev, notes: row.refusalCode };
+    return {
+      status: refused ? "verified-refusal" : "refused",
+      lastRun: null,
+      evidence: ev,
+      notes: refused
+        ? `Retained fail-closed proof: ${row.refusalCode}`
+        : `Untested fail-closed gap: ${row.refusalCode}`,
+    };
   }
   if (row.disposition === "supported-with-declared-config") {
     return {
@@ -317,6 +588,9 @@ function rowStatus(row, architectures) {
   if (cells.every((status) => status === "verified")) {
     return "verified";
   }
+  if (cells.every((status) => status === "verified-refusal")) {
+    return "verified-refusal";
+  }
   if (cells.some((status) => status === "failed-classified")) {
     return "failed-classified";
   }
@@ -330,7 +604,10 @@ function rowStatus(row, architectures) {
 }
 
 function blockers(row, status) {
-  if (row.disposition === "refused-first") {
+  if (status === "verified-refusal") {
+    return [];
+  }
+  if (row.disposition === "refused-first" && !hasProductResourceSupport(row)) {
     return [
       {
         id: row.slug,
@@ -376,12 +653,28 @@ function blockers(row, status) {
 }
 
 function productClaim(row, status) {
+  if (hasProductResourceSupport(row)) {
+    return {
+      status: "candidate",
+      scope: "node-resource-ir-product-proof",
+      notes:
+        "Supported only as decoded semantic Resource IR with retained VMM-native pause proof; raw/live/native continuation remains refused.",
+    };
+  }
   if (status === "verified") {
     return {
       status: "candidate",
       scope: "node-portability-corpus-proof",
       notes:
         "VM-verified capability evidence; does not claim arbitrary raw Node process continuation.",
+    };
+  }
+  if (status === "verified-refusal") {
+    return {
+      status: "verified-refusal",
+      scope: "node-portability-fail-closed-proof",
+      notes:
+        "Retained fail-closed proof covers this unsafe row; live/opaque state is not portable.",
     };
   }
   if (row.disposition === "refused-first") {
@@ -414,6 +707,19 @@ function uniqueEvidence(items) {
   );
 }
 
+function categoryFor(row) {
+  if (categoryBySlug[row.slug]) {
+    return categoryBySlug[row.slug];
+  }
+  if (row.disposition === "refused-first" && row.slug.startsWith("memory-real-")) {
+    return "memory-blocker";
+  }
+  if (row.slug.startsWith("memory-real-")) {
+    return "memory-state";
+  }
+  return "unknown";
+}
+
 function buildIndex() {
   const reports = readReports();
   const rows = rowDirs().map((dir) => {
@@ -427,7 +733,7 @@ function buildIndex() {
       id: row.id,
       slug: row.slug,
       capability: capabilityBySlug[row.slug] ?? row.description,
-      category: categoryBySlug[row.slug] ?? "unknown",
+      category: categoryFor(row),
       description: row.description,
       attemptPolicy: attemptPolicy(row),
       status,
@@ -436,8 +742,8 @@ function buildIndex() {
       workaround:
         row.disposition === "supported-with-declared-config" && status !== "verified"
           ? "Declare dependencies/config/artifacts and rerun with --install-deps or matching product adapter."
-          : row.disposition === "refused-first"
-            ? "Remove or declare a reconstruction policy for this live/opaque state before claiming portability."
+          : status === "refused"
+            ? "Add retained fail-closed proof or declare a reconstruction policy before claiming coverage."
             : null,
       productClaim: productClaim(row, status),
       evidence: uniqueEvidence([
@@ -481,7 +787,12 @@ function buildIndex() {
       byProductClaim,
       architectures: ["arm64", "amd64"],
       verifiedBothArchitectures: rows.filter((row) => row.status === "verified").length,
+      verifiedRefusalRows: rows.filter((row) => row.status === "verified-refusal").length,
       refusedRows: rows.filter((row) => row.status === "refused").length,
+      unsupportedUnverifiedRows: rows.filter((row) => row.status === "refused").length,
+      coveredRows: rows.filter(
+        (row) => row.status === "verified" || row.status === "verified-refusal",
+      ).length,
       conditionalRows: rows.filter((row) => row.status === "conditional").length,
       failedClassifiedRows: rows.filter((row) => row.status === "failed-classified").length,
     },
@@ -496,6 +807,44 @@ function escapeHtml(value) {
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
+}
+
+function buildRefusalCoverageReport(index) {
+  const verifiedRefusals = index.rows.filter((row) => row.status === "verified-refusal");
+  const unverifiedRefusals = index.rows.filter((row) => row.status === "refused");
+  return {
+    kind: "machinen.nodejs-portability-refusal-coverage-report",
+    version: 1,
+    accepted: unverifiedRefusals.length === 0,
+    runtime: "nodejs",
+    rowCount: index.rows.length,
+    supportedRows: index.rows.filter((row) => row.status === "verified").length,
+    verifiedRefusalRows: verifiedRefusals.length,
+    unsupportedUnverifiedRows: unverifiedRefusals.length,
+    allRowsAccountedFor: index.rows.every(
+      (row) => row.status === "verified" || row.status === "verified-refusal",
+    ),
+    claimGuard,
+    notClaimed: index.claimBoundary.notClaimed,
+    verifiedRefusals: verifiedRefusals.map((row) => ({
+      id: row.id,
+      status: row.status,
+      refusalCode:
+        row.architectures.arm64.notes?.match(/node-portability-[a-z0-9-]+-unsupported/u)?.[0] ??
+        null,
+      architectures: Object.fromEntries(
+        Object.entries(row.architectures).map(([arch, cell]) => [
+          arch,
+          {
+            status: cell.status,
+            evidence: cell.evidence.map((item) => ({ kind: item.kind, path: item.path })),
+          },
+        ]),
+      ),
+      productClaim: row.productClaim,
+    })),
+    unverifiedRefusals: unverifiedRefusals.map((row) => ({ id: row.id, status: row.status })),
+  };
 }
 
 function buildDashboard(index) {
@@ -529,6 +878,7 @@ function buildDashboard(index) {
     .pill { border-radius: 999px; padding: 0.18rem 0.5rem; font-weight: 700; display: inline-block; }
     .verified { background: #dff7e8; color: #0c6830; }
     .classified, .conditional { background: #fff2c6; color: #785a00; }
+    .verified-refusal { background: #e8f0ff; color: #234b8f; }
     .failed-classified, .refused { background: #ffe0e0; color: #8a1f1f; }
     code { background: #f4f7fb; padding: 0.12rem 0.25rem; border-radius: 0.25rem; }
   </style>
@@ -539,7 +889,8 @@ function buildDashboard(index) {
   <div class="cards">
     <div class="card"><strong>${index.summary.rowCount}</strong><div class="muted">rows</div></div>
     <div class="card"><strong>${index.summary.verifiedBothArchitectures}</strong><div class="muted">verified on arm64 + amd64</div></div>
-    <div class="card"><strong>${index.summary.refusedRows}</strong><div class="muted">stable refusal rows</div></div>
+    <div class="card"><strong>${index.summary.verifiedRefusalRows}</strong><div class="muted">verified fail-closed rows</div></div>
+    <div class="card"><strong>${index.summary.unsupportedUnverifiedRows}</strong><div class="muted">untested refused rows</div></div>
     <div class="card"><strong>${index.summary.failedClassifiedRows}</strong><div class="muted">failed-classified rows</div></div>
   </div>
   <h2>Claim guard</h2>
@@ -566,6 +917,11 @@ function archCellHtml(row, arch) {
 }
 
 const index = buildIndex();
+const refusalCoverage = buildRefusalCoverageReport(index);
 writeFileSync(join(root, "index.json"), `${JSON.stringify(index, null, 2)}\n`);
+writeFileSync(
+  join(root, "retained", "nodejs-portability-refusal-coverage-report.json"),
+  `${JSON.stringify(refusalCoverage, null, 2)}\n`,
+);
 writeFileSync(join(root, "index.html"), buildDashboard(index));
 console.log(JSON.stringify(index.summary, null, 2));

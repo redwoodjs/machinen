@@ -1,0 +1,171 @@
+{
+  "case": "tail-f-rotate",
+  "adapter": "tail-rotate",
+  "description": "tail -F observes deterministic log rotation",
+  "mode": "same",
+  "role": "same",
+  "hostArch": "x86_64",
+  "binary": {
+    "path": "/usr/bin/tail",
+    "versionLine": "tail (GNU coreutils) 9.1",
+    "packageEvidence": null
+  },
+  "processRoot": {
+    "pid": 3784164,
+    "argv": ["/usr/bin/tail", "-F", "/tmp/machinen-pager-watcher-ladder-g2l9huer/watched.txt"]
+  },
+  "processTree": [
+    {
+      "pid": 3784164,
+      "state": {
+        "pid": 3784164,
+        "comm": "tail",
+        "statusState": "S",
+        "threads": 1,
+        "signalPendingMask": "0000000000000000",
+        "statPpid": 3784163,
+        "statPgrp": 3784164,
+        "statSession": 3784164,
+        "statTtyNr": 34816,
+        "syscall": {
+          "raw": "7 0x7ffc3b16b7e0 0x1 0xffffffff 0x72212b6df8d0 0x72212b8a4c78 0xaaaaaaaaaaaaaaab 0x7ffc3b16b648 0x72212b7cd230",
+          "parsed": true,
+          "number": 7,
+          "name": "poll",
+          "args": [
+            140721299830752, 1, 4294967295, 125486788114640, 125486789971064, 12297829382473034411
+          ],
+          "fd": 140721299830752
+        }
+      },
+      "fds": [
+        {
+          "fd": 0,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 1,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 2,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 3,
+          "target": "/tmp/machinen-pager-watcher-ladder-g2l9huer/watched.txt"
+        },
+        {
+          "fd": 4,
+          "target": "anon_inode:inotify"
+        }
+      ],
+      "stdioTargets": {
+        "0": "/dev/pts/0",
+        "1": "/dev/pts/0",
+        "2": "/dev/pts/0"
+      },
+      "syscallFdTarget": null,
+      "allStdioOnControlledPty": true,
+      "hasSignalfd": false,
+      "hasRegularAdapterFile": true
+    }
+  ],
+  "candidateProcess": {
+    "pid": 3784164,
+    "state": {
+      "pid": 3784164,
+      "comm": "tail",
+      "statusState": "S",
+      "threads": 1,
+      "signalPendingMask": "0000000000000000",
+      "statPpid": 3784163,
+      "statPgrp": 3784164,
+      "statSession": 3784164,
+      "statTtyNr": 34816,
+      "syscall": {
+        "raw": "7 0x7ffc3b16b7e0 0x1 0xffffffff 0x72212b6df8d0 0x72212b8a4c78 0xaaaaaaaaaaaaaaab 0x7ffc3b16b648 0x72212b7cd230",
+        "parsed": true,
+        "number": 7,
+        "name": "poll",
+        "args": [
+          140721299830752, 1, 4294967295, 125486788114640, 125486789971064, 12297829382473034411
+        ],
+        "fd": 140721299830752
+      }
+    },
+    "fds": [
+      {
+        "fd": 0,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 1,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 2,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 3,
+        "target": "/tmp/machinen-pager-watcher-ladder-g2l9huer/watched.txt"
+      },
+      {
+        "fd": 4,
+        "target": "anon_inode:inotify"
+      }
+    ],
+    "stdioTargets": {
+      "0": "/dev/pts/0",
+      "1": "/dev/pts/0",
+      "2": "/dev/pts/0"
+    },
+    "syscallFdTarget": null,
+    "allStdioOnControlledPty": true,
+    "hasSignalfd": false,
+    "hasRegularAdapterFile": true
+  },
+  "pty": {
+    "slavePath": "/dev/pts/0",
+    "rows": 24,
+    "cols": 80,
+    "inputQueueBytesOnMaster": 0,
+    "inputQueueBytesOnSlave": {
+      "available": true,
+      "bytes": 0
+    },
+    "foregroundPgrpFromMaster": 3784164
+  },
+  "candidateChecks": {
+    "expectedOutputRendered": true,
+    "modeledWait": true,
+    "controlledPtyIo": true,
+    "sessionPgrp": true,
+    "queuesEmpty": true,
+    "singleThreadCandidate": true,
+    "noPendingSignalCandidate": true,
+    "regularFilePresent": true
+  },
+  "screenAtCandidate": {
+    "containsExpectedOutput": true,
+    "sample": "initial-001\r\n"
+  },
+  "inputOrResource": {
+    "expect": "rotated-001",
+    "file": "/tmp/machinen-pager-watcher-ladder-g2l9huer/watched.txt"
+  },
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "markerSymbolsUsed": false
+  },
+  "behavior": {
+    "matchedExpectation": true,
+    "processExited": false,
+    "sample": "/usr/bin/tail: '/tmp/machinen-pager-watcher-ladder-g2l9huer/watched.txt' has become inaccessible: No such file or directory\r\n/usr/bin/tail: '/tmp/machinen-pager-watcher-ladder-g2l9huer/watched.txt' has appeared;  following new file\r\nrotated-001\r\n"
+  },
+  "decision": "accepted"
+}

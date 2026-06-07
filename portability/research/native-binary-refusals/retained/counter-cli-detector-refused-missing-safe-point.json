@@ -1,0 +1,7 @@
+{
+  "shape": "001-counter-cli",
+  "decision": "refused",
+  "supportStage": "1-refused",
+  "refusalCode": "counter-cli-missing-safe-point",
+  "reason": "safe point is not the declared counter safe point"
+}

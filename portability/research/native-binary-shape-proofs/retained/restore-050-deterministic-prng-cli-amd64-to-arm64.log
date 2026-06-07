@@ -1,0 +1,2 @@
+prng:38
+SHAPE_RESTORE_OK shape=050-deterministic-prng-cli target=arm64 result=42

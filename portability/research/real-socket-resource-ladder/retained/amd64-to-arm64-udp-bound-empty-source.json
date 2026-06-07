@@ -1,0 +1,23 @@
+{
+  "case": "udp-bound-empty",
+  "description": "bound UDP socket with no queued datagrams is reconstructed and receives a new datagram",
+  "mode": "source",
+  "role": "source",
+  "hostArch": "x86_64",
+  "pid": 3799421,
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "markerSymbolsUsed": false,
+    "preservesKernelSocketIdentity": false
+  },
+  "decision": "captured",
+  "capture": {
+    "family": "AF_INET",
+    "type": "SOCK_DGRAM",
+    "localPort": 36735,
+    "queuedBytes": 0
+  }
+}

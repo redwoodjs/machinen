@@ -1,0 +1,40 @@
+{
+  "kind": "machinen.nodejs-quiescence-report",
+  "version": 1,
+  "accepted": true,
+  "sourceArch": "arm64",
+  "captureBoundaryRequired": "source-vm-paused",
+  "strategy": "drain-async-io-concurrency-before-resource-capture",
+  "quiescedRows": [
+    "nodejs-resource-quiesced-active-request",
+    "nodejs-resource-settled-promise-value",
+    "nodejs-resource-drained-promise-reaction",
+    "nodejs-resource-drained-microtask-queue",
+    "nodejs-resource-settled-async-function-frame",
+    "nodejs-resource-drained-stdin",
+    "nodejs-resource-drained-messageport",
+    "nodejs-resource-drained-broadcastchannel",
+    "nodejs-resource-sharedarraybuffer-quiesced-copy",
+    "nodejs-resource-atomics-no-waiters",
+    "nodejs-resource-worker-shared-buffer-quiesced",
+    "nodejs-resource-quiesced-async-context-resource"
+  ],
+  "unsafeRowsRemainingPolicy": "verified-refusal",
+  "evidence": {
+    "activeRequests": 0,
+    "pendingPromises": 0,
+    "pendingMicrotasks": 0,
+    "queuedMessages": 0,
+    "sharedMemoryWaiters": 0,
+    "liveWorkers": 0
+  },
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawNativeHandleRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "samePidContinuationClaimed": false,
+    "activeRequestOrSocketContinuationClaimed": false
+  }
+}

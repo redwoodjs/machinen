@@ -1,0 +1,28 @@
+{
+  "case": "unix-listener-rebind",
+  "description": "Unix domain listener path is unlinked and rebound target-natively",
+  "mode": "target",
+  "role": "target",
+  "hostArch": "x86_64",
+  "pid": 3799187,
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "markerSymbolsUsed": false,
+    "preservesKernelSocketIdentity": false
+  },
+  "decision": "accepted",
+  "capture": {
+    "family": "AF_UNIX",
+    "type": "SOCK_STREAM",
+    "path": "/tmp/machinen-socket-resource-ladder-9w2i09wq/listener.sock",
+    "queuedBytes": 0,
+    "pathExists": true
+  },
+  "materialization": {
+    "samePathRebound": true,
+    "clientConnected": true
+  }
+}

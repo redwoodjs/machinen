@@ -1,0 +1,21 @@
+{
+  "case": "python-repl-state",
+  "kind": "support",
+  "description": "python3 -i receives semantic REPL state and continues an expression",
+  "mode": "same",
+  "role": "same",
+  "hostArch": "x86_64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false
+  },
+  "decision": "accepted",
+  "evidence": {
+    "binary": "/usr/bin/python3",
+    "saw42": true,
+    "sample": "Python 3.11.2 (main, Apr  8 2026, 01:58:00) [GCC 12.2.0] on linux\r\nType \"help\", \"copyright\", \"credits\" or \"license\" for more information.\r\n>>> x=41\r\n>>> print(x+1)\r\n42\r\n>>> exit()\r\n"
+  }
+}

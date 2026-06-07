@@ -1,0 +1,2 @@
+tail:three
+SHAPE_RESTORE_OK shape=061-tail-readonly-cli target=amd64 result=42

@@ -1,0 +1,2 @@
+hash:30
+SHAPE_RESTORE_OK shape=020-hash-table-fixed-buckets-cli target=amd64 result=42

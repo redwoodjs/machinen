@@ -1,0 +1,27 @@
+{
+  "kind": "machinen.research.native-binary-shape-ir",
+  "version": 1,
+  "shape": "029-errno-libc-result-boundary-cli",
+  "sourceArch": "amd64",
+  "targetArch": "arm64",
+  "safePoint": "declared_shape_ready",
+  "entrySymbol": "continue_errno_boundary",
+  "sourceCpu": { "pc": "0x622b20963c12", "sp": "0x7ffe06bb27a0", "arg0": "0x1000" },
+  "targetCpuPlan": {
+    "pcSymbol": "continue_errno_boundary",
+    "argumentRegister": "x0",
+    "stackBytes": 65536
+  },
+  "shapeDescriptor": {
+    "threads": 1,
+    "activeSyscall": false,
+    "sockets": 0,
+    "usesSourceIsaEmulation": false
+  },
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "shape": "026-multiple-stack-frames-cli",
+  "decision": "accepted",
+  "supportStage": "4-supported-subset",
+  "supportScope": "declared safe-point multiple stack-frame descriptor subset",
+  "sourceArch": "arm64",
+  "targetArch": "amd64",
+  "facts": {
+    "entrySymbol": "continue_multiple_frames",
+    "sourcePc": "0xb31449ab1990",
+    "sourceSp": "0xfffffcb64910",
+    "sourceArg0": "0x1000",
+    "targetArgumentRegister": "rdi",
+    "targetStackBytes": 65536
+  }
+}

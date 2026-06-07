@@ -1,0 +1,16 @@
+{
+  "shape": "015-stat-checker-cli",
+  "decision": "accepted",
+  "supportStage": "4-supported-subset",
+  "supportScope": "declared safe-point stat checker with path and size guard",
+  "sourceArch": "arm64",
+  "targetArch": "amd64",
+  "facts": {
+    "entrySymbol": "continue_stat_checker",
+    "sourcePc": "0xb40480241990",
+    "sourceSp": "0xffffcf93a430",
+    "sourceArg0": "0x1000",
+    "targetArgumentRegister": "rdi",
+    "targetStackBytes": 65536
+  }
+}

@@ -1,0 +1,1 @@
+CAPTURE_OK source=arm64 target=amd64 pc=0xad44ff850e50 sp=0xffffdcda5960 arg0=0xad4500a082a0 heap=0xad4500a082a0

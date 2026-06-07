@@ -1,0 +1,2 @@
+lock:created
+SHAPE_RESTORE_OK shape=048-lockfile-cli target=amd64 result=42

@@ -1,0 +1,37 @@
+{
+  "kind": "machinen.nodejs-native-adapter-report",
+  "version": 1,
+  "accepted": true,
+  "sourceArch": "arm64",
+  "captureBoundaryRequired": "source-vm-paused",
+  "adapterRows": [
+    "nodejs-resource-declared-ffi-adapter",
+    "nodejs-resource-declared-native-resource-adapter"
+  ],
+  "adapters": [
+    {
+      "adapterId": "ffi-semantic-counter-v1",
+      "rowId": "nodejs-resource-declared-ffi-adapter",
+      "exportedStateFormat": "json-semantic-state-v1",
+      "importedTargetNative": true,
+      "rawPointerTransfer": false,
+      "rawHandleBytesRetained": false
+    },
+    {
+      "adapterId": "native-resource-semantic-wrapper-v1",
+      "rowId": "nodejs-resource-declared-native-resource-adapter",
+      "exportedStateFormat": "json-semantic-state-v1",
+      "importedTargetNative": true,
+      "rawPointerTransfer": false,
+      "rawHandleBytesRetained": false
+    }
+  ],
+  "remainingNativePolicy": "verified-refusal-without-declared-semantic-adapter",
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "rawNativeHandleRestoreUsed": false,
+    "rawPointerTransferUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "samePidContinuationClaimed": false
+  }
+}

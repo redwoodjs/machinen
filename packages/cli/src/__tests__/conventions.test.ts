@@ -41,6 +41,7 @@ const ALLOWED_VERBS = new Set([
   "boot",
   "restore",
   "capture",
+  "move",
   "exec",
   "snapshot",
   "fork",

@@ -1,0 +1,2 @@
+deque:7
+SHAPE_RESTORE_OK shape=040-deque-cli target=arm64 result=42

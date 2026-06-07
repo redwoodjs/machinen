@@ -1,0 +1,99 @@
+{
+  "case": "quit",
+  "description": "q exits",
+  "mode": "target",
+  "role": "target",
+  "hostArch": "x86_64",
+  "less": {
+    "path": "/usr/bin/less",
+    "versionLine": "less 590 (GNU regular expressions)"
+  },
+  "process": {
+    "pid": 3732272,
+    "state": {
+      "statusState": "S",
+      "threads": 1,
+      "signalPendingMask": "0000000000000000",
+      "statPgrp": 3732272,
+      "statSession": 3732272,
+      "statTtyNr": 34816,
+      "syscall": {
+        "raw": "0 0x3 0x7ffd45e5de47 0x1 0x24 0x55d78ba41238 0x7ffd45e5d850 0x7ffd45e5dd68 0x74ad481c22ad",
+        "parsed": true,
+        "number": 0,
+        "name": "read",
+        "args": [3, 140725776145991, 1, 36, 94384249115192, 140725776144464],
+        "fd": 3
+      }
+    },
+    "fds": [
+      {
+        "fd": 0,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 1,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 2,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 3,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 4,
+        "target": "/tmp/machinen-less-key-matrix-w132blpk/less-input.txt"
+      }
+    ],
+    "stdioTargets": {
+      "0": "/dev/pts/0",
+      "1": "/dev/pts/0",
+      "2": "/dev/pts/0"
+    },
+    "syscallFdTarget": "/dev/pts/0",
+    "allStdioOnControlledPty": true
+  },
+  "pty": {
+    "slavePath": "/dev/pts/0",
+    "rows": 24,
+    "cols": 80,
+    "inputQueueBytesOnMaster": 0,
+    "inputQueueBytesOnSlave": {
+      "available": true,
+      "bytes": 0
+    },
+    "foregroundPgrpFromMaster": 3732272
+  },
+  "candidateChecks": {
+    "firstPage": true,
+    "syscallRead": true,
+    "syscallFdPty": true,
+    "stdioPty": true,
+    "sessionPgrp": true,
+    "queuesEmpty": true
+  },
+  "screenAtCandidate": {
+    "containsFirstPage": true,
+    "sample": "\u001b[?1049h\u001b[22;0;0t\u001b[?1h\u001b=\rline-001\r\nline-002\r\nline-003\r\nline-004\r\nline-005\r\nline-006\r\nline-007\r\nline-008\r\nline-009\r\nline-010\r\nline-011\r\nline-012\r\nline-013\r\nline-014\r\nline-015\r\nline-016\r\nline-017\r\nline-018\r\nline-019\r\nline-020\r\nline-021\r\nline-022\r\nline-023\r\n\u001b[7m/tmp/machinen-less-key-matrix-w132blpk/less-input.txt\u001b[27m\u001b[K"
+  },
+  "input": {
+    "base64": "cQ==",
+    "expect": "process-exit"
+  },
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "markerSymbolsUsed": false
+  },
+  "behavior": {
+    "matchedExpectation": true,
+    "processExited": true,
+    "sample": "\r\u001b[K\u001b[?1l\u001b>\u001b[?1049l\u001b[23;0;0t"
+  },
+  "decision": "accepted"
+}

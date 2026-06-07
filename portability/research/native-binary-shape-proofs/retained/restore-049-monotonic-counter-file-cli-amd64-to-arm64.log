@@ -1,0 +1,2 @@
+filecounter:42
+SHAPE_RESTORE_OK shape=049-monotonic-counter-file-cli target=arm64 result=42

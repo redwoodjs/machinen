@@ -1,0 +1,2 @@
+sparse:1024
+SHAPE_RESTORE_OK shape=046-sparse-file-seek-cli target=arm64 result=42

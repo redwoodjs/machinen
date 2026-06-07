@@ -1,0 +1,277 @@
+{
+  "kind": "machinen.research.native-continuation-shape-probes.combined-report",
+  "version": 1,
+  "status": "passed",
+  "reports": [
+    {
+      "kind": "machinen.research.native-continuation-shape-probes.report",
+      "version": 1,
+      "status": "passed",
+      "hostArch": "x86_64",
+      "claimGuard": {
+        "arbitraryProcessRestoreClaimed": false,
+        "rawVmReplayUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "metadataOnlySuccess": false,
+        "rawHeapStackRegisterRestore": false
+      },
+      "probes": [
+        {
+          "name": "accepted-controlled-pty-read-empty-queue",
+          "expected": "accepted",
+          "ok": true,
+          "classification": {
+            "decision": "accepted",
+            "reason": "controlled-pty-read-wait-empty-queue"
+          },
+          "observation": {
+            "pid": 3972370,
+            "alive": true,
+            "fds": [
+              {
+                "fd": 0,
+                "target": "/dev/pts/0",
+                "kind": "pty"
+              },
+              {
+                "fd": 1,
+                "target": "/dev/pts/0",
+                "kind": "pty"
+              },
+              {
+                "fd": 2,
+                "target": "/dev/pts/0",
+                "kind": "pty"
+              }
+            ],
+            "fdKinds": ["pty"],
+            "syscall": {
+              "raw": "0 0x0 0x77cd4e7e19a0 0x1 0x77cd4e7810fa 0x0 0x0 0x7ffcd22a6598 0x77cd4ecaf2ad",
+              "wchan": "wait_woken",
+              "state": "S",
+              "syscallNumber": "0",
+              "readLikeWait": true
+            },
+            "ptyMasterReadableBytes": 0
+          }
+        },
+        {
+          "name": "refuse-process-with-socket-fd",
+          "expected": "refused",
+          "ok": true,
+          "classification": {
+            "decision": "refused",
+            "reason": "socket-fd-present"
+          },
+          "observation": {
+            "pid": 3972371,
+            "alive": true,
+            "fds": [
+              {
+                "fd": 0,
+                "target": "pipe:[66114400]",
+                "kind": "pipe"
+              },
+              {
+                "fd": 1,
+                "target": "pipe:[66114938]",
+                "kind": "pipe"
+              },
+              {
+                "fd": 2,
+                "target": "pipe:[66114939]",
+                "kind": "pipe"
+              },
+              {
+                "fd": 3,
+                "target": "socket:[66122889]",
+                "kind": "socket"
+              }
+            ],
+            "fdKinds": ["pipe", "socket"],
+            "syscall": {
+              "raw": "230 0x1 0x1 0x7ffec651ecd0 0x0 0x0 0x0 0x7ffec651ecb8 0x73c33a576503",
+              "wchan": "hrtimer_nanosleep",
+              "state": "S",
+              "syscallNumber": "230",
+              "readLikeWait": false
+            }
+          }
+        },
+        {
+          "name": "refuse-unclassified-sleep",
+          "expected": "refused",
+          "ok": true,
+          "classification": {
+            "decision": "refused",
+            "reason": "unclassified-or-unsafe-process-shape"
+          },
+          "observation": {
+            "pid": 3972378,
+            "alive": true,
+            "fds": [
+              {
+                "fd": 0,
+                "target": "pipe:[66114400]",
+                "kind": "pipe"
+              },
+              {
+                "fd": 1,
+                "target": "pipe:[66114962]",
+                "kind": "pipe"
+              },
+              {
+                "fd": 2,
+                "target": "pipe:[66114963]",
+                "kind": "pipe"
+              }
+            ],
+            "fdKinds": ["pipe"],
+            "syscall": {
+              "raw": "230 0x0 0x0 0x7ffff3304da0 0x7ffff3304de0 0x0 0x0 0x7ffff3304d88 0x7d4f5d37a503",
+              "wchan": "hrtimer_nanosleep",
+              "state": "S",
+              "syscallNumber": "230",
+              "readLikeWait": false
+            }
+          }
+        }
+      ]
+    },
+    {
+      "kind": "machinen.research.native-continuation-shape-probes.report",
+      "version": 1,
+      "status": "passed",
+      "hostArch": "aarch64",
+      "claimGuard": {
+        "arbitraryProcessRestoreClaimed": false,
+        "rawVmReplayUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "metadataOnlySuccess": false,
+        "rawHeapStackRegisterRestore": false
+      },
+      "probes": [
+        {
+          "name": "accepted-controlled-pty-read-empty-queue",
+          "expected": "accepted",
+          "ok": true,
+          "classification": {
+            "decision": "accepted",
+            "reason": "controlled-pty-read-wait-empty-queue"
+          },
+          "observation": {
+            "pid": 1469145,
+            "alive": true,
+            "fds": [
+              {
+                "fd": 0,
+                "target": "/dev/pts/0",
+                "kind": "pty"
+              },
+              {
+                "fd": 1,
+                "target": "/dev/pts/0",
+                "kind": "pty"
+              },
+              {
+                "fd": 2,
+                "target": "/dev/pts/0",
+                "kind": "pty"
+              }
+            ],
+            "fdKinds": ["pty"],
+            "syscall": {
+              "raw": "63 0x0 0xe284aefcd490 0x1 0x1 0x0 0xb2d378 0xffffcb19f950 0xe284af0b1248",
+              "wchan": "wait_woken",
+              "state": "S",
+              "syscallNumber": "63",
+              "readLikeWait": true
+            },
+            "ptyMasterReadableBytes": 0
+          }
+        },
+        {
+          "name": "refuse-process-with-socket-fd",
+          "expected": "refused",
+          "ok": true,
+          "classification": {
+            "decision": "refused",
+            "reason": "socket-fd-present"
+          },
+          "observation": {
+            "pid": 1469146,
+            "alive": true,
+            "fds": [
+              {
+                "fd": 0,
+                "target": "pipe:[28476061]",
+                "kind": "pipe"
+              },
+              {
+                "fd": 1,
+                "target": "pipe:[28485074]",
+                "kind": "pipe"
+              },
+              {
+                "fd": 2,
+                "target": "pipe:[28485075]",
+                "kind": "pipe"
+              },
+              {
+                "fd": 3,
+                "target": "socket:[28478149]",
+                "kind": "socket"
+              }
+            ],
+            "fdKinds": ["pipe", "socket"],
+            "syscall": {
+              "raw": "115 0x1 0x1 0xfffff21fe9f0 0x0 0xa1fda8 0x0 0xfffff21fe940 0xf791719cbe50",
+              "wchan": "hrtimer_nanosleep",
+              "state": "S",
+              "syscallNumber": "115",
+              "readLikeWait": false
+            }
+          }
+        },
+        {
+          "name": "refuse-unclassified-sleep",
+          "expected": "refused",
+          "ok": true,
+          "classification": {
+            "decision": "refused",
+            "reason": "unclassified-or-unsafe-process-shape"
+          },
+          "observation": {
+            "pid": 1469147,
+            "alive": true,
+            "fds": [
+              {
+                "fd": 0,
+                "target": "pipe:[28476061]",
+                "kind": "pipe"
+              },
+              {
+                "fd": 1,
+                "target": "pipe:[28485086]",
+                "kind": "pipe"
+              },
+              {
+                "fd": 2,
+                "target": "pipe:[28485087]",
+                "kind": "pipe"
+              }
+            ],
+            "fdKinds": ["pipe"],
+            "syscall": {
+              "raw": "115 0x0 0x0 0xffffc680dfd8 0xffffc680dfc8 0xfc9e5b63fb50 0x0 0xffffc680df20 0xfc9e5b4dbe50",
+              "wchan": "hrtimer_nanosleep",
+              "state": "S",
+              "syscallNumber": "115",
+              "readLikeWait": false
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

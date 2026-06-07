@@ -27,6 +27,28 @@
     "mapsSha256": "18197767367df80a331e11cf878137672e055c000667bb239d508888f53f5597"
   },
   {
+    "rowId": "038-memory-real-array",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-array-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "array",
+    "semanticState": {
+      "kind": "array",
+      "anchor": "machinen-real-array-anchor-v1",
+      "values": [1, 2, 3, 5, 8],
+      "sum": 19
+    },
+    "captureMethod": "guest-proc-maps-and-proc-mem-anchor-semantic-decoder",
+    "mapsSha256": "a62b021c658223a6fdce92f5a7e22e1e38176ee6294dac6b29d4c31807140ce4"
+  },
+  {
     "rowId": "039-memory-real-closure-context",
     "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-closure-context-report.json",
     "stages": {
@@ -254,5 +276,2476 @@
     },
     "captureMethod": "guest-proc-maps-and-proc-mem-anchor-semantic-decoder",
     "mapsSha256": "d8355ef88f5977ccbe69956eacd2a849aeb7fde3bcde18b29f493016f08b63d6"
+  },
+  {
+    "rowId": "050-memory-real-date-regexp",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-date-regexp-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "date-regexp",
+    "semanticState": {
+      "kind": "date-regexp",
+      "anchor": "machinen-real-date-regexp-anchor-v1",
+      "dateIso": "2026-06-04T05:55:16.123Z",
+      "dateEpochMs": 1780552516123,
+      "regexpSource": "machinen-(portable)-(date-regexp)",
+      "regexpFlags": "giu"
+    },
+    "captureMethod": "guest-proc-maps-and-proc-mem-anchor-semantic-decoder",
+    "mapsSha256": "23952e4642a8008c489ce24ca566240c69286fc8e0d602ecad9acf44c8083856"
+  },
+  {
+    "rowId": "051-memory-real-error-object",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-error-object-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "error-object",
+    "semanticState": {
+      "kind": "error-object",
+      "anchor": "machinen-real-error-object-anchor-v1",
+      "name": "MachinenPortableError",
+      "message": "machinen-error-message-v1",
+      "code": "MACHINEN_PORTABLE_ERROR",
+      "causeName": "TypeError",
+      "causeMessage": "machinen-error-cause-message-v1"
+    },
+    "captureMethod": "guest-proc-maps-and-proc-mem-anchor-semantic-decoder",
+    "mapsSha256": "bbe41930494039e9ebd3647d6780267d534ac26a6530ac5df95ef3463f6ce9c6"
+  },
+  {
+    "rowId": "052-memory-real-url-searchparams",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-url-searchparams-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "url-searchparams",
+    "semanticState": {
+      "kind": "url-searchparams",
+      "anchor": "machinen-real-url-searchparams-anchor-v1",
+      "href": "https://example.test:8443/portable/path?alpha=1&beta=two&beta=three&gamma=machinen#frag",
+      "origin": "https://example.test:8443",
+      "pathname": "/portable/path",
+      "search": "?alpha=1&beta=two&beta=three&gamma=machinen",
+      "params": [
+        ["alpha", "1"],
+        ["beta", "two"],
+        ["beta", "three"],
+        ["gamma", "machinen"]
+      ]
+    },
+    "captureMethod": "guest-proc-maps-and-proc-mem-anchor-semantic-decoder",
+    "mapsSha256": "b4e284b9c580ccc433a08e93cb7e5cdecea81a627eec41c6cab8ef7fb9b0347b"
+  },
+  {
+    "rowId": "053-memory-real-bigint-rich-graph",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-bigint-rich-graph-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "bigint-rich-graph",
+    "semanticState": {
+      "kind": "bigint-rich-graph",
+      "anchor": "machinen-real-bigint-rich-graph-anchor-v1",
+      "label": "machinen-bigint-rich-graph-label-v1",
+      "primary": {
+        "type": "BigInt",
+        "decimal": "900719925474099312345"
+      },
+      "nested": {
+        "amount": {
+          "type": "BigInt",
+          "decimal": "18446744073709551615"
+        }
+      },
+      "values": [
+        {
+          "type": "BigInt",
+          "decimal": "1"
+        },
+        {
+          "type": "BigInt",
+          "decimal": "2"
+        },
+        {
+          "type": "BigInt",
+          "decimal": "340282366920938463463374607431768211455"
+        }
+      ]
+    },
+    "captureMethod": "guest-proc-maps-and-proc-mem-anchor-semantic-decoder",
+    "mapsSha256": "b2f6d7821107b22d186e4f2d681ea82d0dd73277bfd55eeb3ad8dea72f508d71"
+  },
+  {
+    "rowId": "054-memory-real-module-singleton-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-module-singleton-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "module-singleton-state",
+    "semanticState": {
+      "kind": "module-singleton-state",
+      "anchor": "machinen-real-module-singleton-anchor-v1",
+      "moduleName": "machinen-portable-singleton-module-v1",
+      "counter": 19,
+      "token": "machinen-singleton-token-v1",
+      "nested": {
+        "warmed": true,
+        "label": "machinen-singleton-nested-label-v1"
+      },
+      "lastTouch": "machinen-singleton-last-touch-v1"
+    },
+    "captureMethod": "guest-proc-maps-and-proc-mem-anchor-semantic-decoder",
+    "mapsSha256": "cfd24535f402554428e12913d9dd29da314636a15d4d925b1eb968337680570f"
+  },
+  {
+    "rowId": "055-memory-real-arraybuffer-dataview",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-arraybuffer-dataview-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "arraybuffer-dataview",
+    "semanticState": {
+      "kind": "arraybuffer-dataview",
+      "anchor": "machinen-real-arraybuffer-dataview-anchor-v1",
+      "byteLength": 8,
+      "bytes": [3, 1, 4, 1, 5, 9, 2, 6],
+      "uint16beAt0": 769,
+      "float32leAt0": 3.5
+    },
+    "captureMethod": "guest-proc-maps-and-proc-mem-anchor-semantic-decoder",
+    "mapsSha256": "e68a4cde3f22e977b52b3efa7dcc2d3a00cf067c976a71811142ac7d12f8915b"
+  },
+  {
+    "rowId": "056-memory-real-symbol-keyed-object",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-symbol-keyed-object-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "symbol-keyed-object",
+    "semanticState": {
+      "kind": "symbol-keyed-object",
+      "anchor": "machinen-real-symbol-keyed-object-anchor-v1",
+      "stringKeys": ["visible"],
+      "symbolProperties": [
+        {
+          "registry": "local",
+          "description": "machinen.secret",
+          "value": "portable-symbol-value"
+        },
+        {
+          "registry": "global",
+          "description": "machinen.global",
+          "value": 56
+        }
+      ]
+    },
+    "captureMethod": "guest-proc-maps-and-proc-mem-anchor-semantic-decoder",
+    "mapsSha256": "e26956c20ce412dec585b3512dfc669fd28dafcd1dd719c04cbe735167bd2a1e"
+  },
+  {
+    "rowId": "057-memory-real-eventemitter-listeners",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-eventemitter-listeners-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "eventemitter-listeners",
+    "semanticState": {
+      "kind": "eventemitter-listeners",
+      "anchor": "machinen-real-eventemitter-listeners-anchor-v1",
+      "eventName": "portable-event",
+      "listenerCount": 2,
+      "listenerLabels": ["audit-listener", "metrics-listener"]
+    },
+    "captureMethod": "guest-proc-maps-and-proc-mem-anchor-semantic-decoder",
+    "mapsSha256": "63cf24b0b14192d55c2603446ae7963ea325bae027deb6bdd9fd9c0a2e3f3e8a"
+  },
+  {
+    "rowId": "058-memory-real-in-memory-lru-cache",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-in-memory-lru-cache-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "in-memory-lru-cache",
+    "semanticState": {
+      "kind": "in-memory-lru-cache",
+      "anchor": "machinen-real-lru-cache-anchor-v1",
+      "capacity": 3,
+      "entriesLeastToMostRecent": [
+        [
+          "beta",
+          {
+            "hits": 2
+          }
+        ],
+        [
+          "gamma",
+          {
+            "hits": 3
+          }
+        ],
+        [
+          "delta",
+          {
+            "hits": 4
+          }
+        ]
+      ],
+      "evictedKeys": ["alpha"]
+    },
+    "captureMethod": "guest-proc-maps-and-proc-mem-anchor-semantic-decoder",
+    "mapsSha256": "71d20eb931a64093b8667ea1f779326f9c4455d552e781caa16f10b64d71f09e"
+  },
+  {
+    "rowId": "059-memory-real-queue-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-queue-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "queue-state",
+    "semanticState": {
+      "kind": "queue-state",
+      "anchor": "machinen-real-queue-state-anchor-v1",
+      "headIndex": 1,
+      "tailIndex": 3,
+      "pending": [
+        {
+          "id": "job-002",
+          "priority": 5
+        },
+        {
+          "id": "job-003",
+          "priority": 3
+        },
+        {
+          "id": "job-004",
+          "priority": 1
+        }
+      ],
+      "processed": ["job-001"]
+    },
+    "captureMethod": "guest-proc-maps-and-proc-mem-anchor-semantic-decoder",
+    "mapsSha256": "485b0b59b2a4a212b27847ef12809df1797b595e9c75d31092c4344728527370"
+  },
+  {
+    "rowId": "063-memory-real-abort-controller-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-abort-controller-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "abort-controller-state",
+    "semanticState": {
+      "kind": "abort-controller-state",
+      "anchor": "machinen-real-abort-controller-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "064-memory-real-abort-signal-listeners",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-abort-signal-listeners-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "abort-signal-listeners",
+    "semanticState": {
+      "kind": "abort-signal-listeners",
+      "anchor": "machinen-real-abort-signal-listeners-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "069-memory-real-reflect-metadata-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-reflect-metadata-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "reflect-metadata-state",
+    "semanticState": {
+      "kind": "reflect-metadata-state",
+      "anchor": "machinen-real-reflect-metadata-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "070-memory-real-property-descriptors-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-property-descriptors-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "property-descriptors-state",
+    "semanticState": {
+      "kind": "property-descriptors-state",
+      "anchor": "machinen-real-property-descriptors-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "071-memory-real-frozen-object-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-frozen-object-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "frozen-object-state",
+    "semanticState": {
+      "kind": "frozen-object-state",
+      "anchor": "machinen-real-frozen-object-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "072-memory-real-sealed-object-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-sealed-object-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "sealed-object-state",
+    "semanticState": {
+      "kind": "sealed-object-state",
+      "anchor": "machinen-real-sealed-object-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "079-memory-real-commonjs-cache-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-commonjs-cache-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "commonjs-cache-state",
+    "semanticState": {
+      "kind": "commonjs-cache-state",
+      "anchor": "machinen-real-commonjs-cache-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "082-memory-real-import-meta-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-import-meta-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "import-meta-state",
+    "semanticState": {
+      "kind": "import-meta-state",
+      "anchor": "machinen-real-import-meta-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "098-memory-real-textencoder-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-textencoder-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "textencoder-state",
+    "semanticState": {
+      "kind": "textencoder-state",
+      "anchor": "machinen-real-textencoder-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "099-memory-real-textdecoder-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-textdecoder-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "textdecoder-state",
+    "semanticState": {
+      "kind": "textdecoder-state",
+      "anchor": "machinen-real-textdecoder-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "100-memory-real-blob-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-blob-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "blob-state",
+    "semanticState": {
+      "kind": "blob-state",
+      "anchor": "machinen-real-blob-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "101-memory-real-filelike-buffer-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-filelike-buffer-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "filelike-buffer-state",
+    "semanticState": {
+      "kind": "filelike-buffer-state",
+      "anchor": "machinen-real-filelike-buffer-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "103-memory-real-headers-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-headers-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "headers-state",
+    "semanticState": {
+      "kind": "headers-state",
+      "anchor": "machinen-real-headers-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "106-memory-real-formdata-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-formdata-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "formdata-state",
+    "semanticState": {
+      "kind": "formdata-state",
+      "anchor": "machinen-real-formdata-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "108-memory-real-intl-datetimeformat-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-intl-datetimeformat-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "intl-datetimeformat-state",
+    "semanticState": {
+      "kind": "intl-datetimeformat-state",
+      "anchor": "machinen-real-intl-datetimeformat-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "109-memory-real-intl-numberformat-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-intl-numberformat-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "intl-numberformat-state",
+    "semanticState": {
+      "kind": "intl-numberformat-state",
+      "anchor": "machinen-real-intl-numberformat-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "110-memory-real-intl-collator-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-intl-collator-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "intl-collator-state",
+    "semanticState": {
+      "kind": "intl-collator-state",
+      "anchor": "machinen-real-intl-collator-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "111-memory-real-intl-locale-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-intl-locale-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "intl-locale-state",
+    "semanticState": {
+      "kind": "intl-locale-state",
+      "anchor": "machinen-real-intl-locale-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "112-memory-real-intl-segmenter-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-intl-segmenter-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "intl-segmenter-state",
+    "semanticState": {
+      "kind": "intl-segmenter-state",
+      "anchor": "machinen-real-intl-segmenter-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "113-memory-real-nested-map-set-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-nested-map-set-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "nested-map-set-state",
+    "semanticState": {
+      "kind": "nested-map-set-state",
+      "anchor": "machinen-real-nested-map-set-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "115-memory-real-ordered-set-graph-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-ordered-set-graph-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "ordered-set-graph-state",
+    "semanticState": {
+      "kind": "ordered-set-graph-state",
+      "anchor": "machinen-real-ordered-set-graph-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "118-memory-real-aggregate-error-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-aggregate-error-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "aggregate-error-state",
+    "semanticState": {
+      "kind": "aggregate-error-state",
+      "anchor": "machinen-real-aggregate-error-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "119-memory-real-custom-error-subclass-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-custom-error-subclass-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "custom-error-subclass-state",
+    "semanticState": {
+      "kind": "custom-error-subclass-state",
+      "anchor": "machinen-real-custom-error-subclass-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "120-memory-real-error-cause-chain-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-error-cause-chain-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "error-cause-chain-state",
+    "semanticState": {
+      "kind": "error-cause-chain-state",
+      "anchor": "machinen-real-error-cause-chain-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "123-memory-real-sliced-buffer-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-sliced-buffer-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "sliced-buffer-state",
+    "semanticState": {
+      "kind": "sliced-buffer-state",
+      "anchor": "machinen-real-sliced-buffer-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "124-memory-real-shared-backing-store-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-shared-backing-store-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "shared-backing-store-state",
+    "semanticState": {
+      "kind": "shared-backing-store-state",
+      "anchor": "machinen-real-shared-backing-store-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "128-memory-real-bigint64array-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-bigint64array-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "bigint64array-state",
+    "semanticState": {
+      "kind": "bigint64array-state",
+      "anchor": "machinen-real-bigint64array-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "129-memory-real-float64array-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-float64array-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "float64array-state",
+    "semanticState": {
+      "kind": "float64array-state",
+      "anchor": "machinen-real-float64array-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "131-memory-real-dataview-offset-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-dataview-offset-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "dataview-offset-state",
+    "semanticState": {
+      "kind": "dataview-offset-state",
+      "anchor": "machinen-real-dataview-offset-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "132-memory-real-typedarray-subarray-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-typedarray-subarray-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "typedarray-subarray-state",
+    "semanticState": {
+      "kind": "typedarray-subarray-state",
+      "anchor": "machinen-real-typedarray-subarray-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "133-memory-real-getter-setter-descriptor-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-getter-setter-descriptor-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "getter-setter-descriptor-state",
+    "semanticState": {
+      "kind": "getter-setter-descriptor-state",
+      "anchor": "machinen-real-getter-setter-descriptor-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "135-memory-real-static-fields-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-static-fields-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "static-fields-state",
+    "semanticState": {
+      "kind": "static-fields-state",
+      "anchor": "machinen-real-static-fields-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "136-memory-real-prototype-chain-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-prototype-chain-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "prototype-chain-state",
+    "semanticState": {
+      "kind": "prototype-chain-state",
+      "anchor": "machinen-real-prototype-chain-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "138-memory-real-once-listeners-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-once-listeners-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "once-listeners-state",
+    "semanticState": {
+      "kind": "once-listeners-state",
+      "anchor": "machinen-real-once-listeners-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "139-memory-real-symbol-event-name-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-symbol-event-name-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "symbol-event-name-state",
+    "semanticState": {
+      "kind": "symbol-event-name-state",
+      "anchor": "machinen-real-symbol-event-name-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "140-memory-real-max-listeners-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-max-listeners-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "max-listeners-state",
+    "semanticState": {
+      "kind": "max-listeners-state",
+      "anchor": "machinen-real-max-listeners-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "141-memory-real-error-listener-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-error-listener-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "error-listener-state",
+    "semanticState": {
+      "kind": "error-listener-state",
+      "anchor": "machinen-real-error-listener-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "144-memory-real-nested-cache-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-nested-cache-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "nested-cache-state",
+    "semanticState": {
+      "kind": "nested-cache-state",
+      "anchor": "machinen-real-nested-cache-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "145-memory-real-memoized-pure-values-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-memoized-pure-values-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "memoized-pure-values-state",
+    "semanticState": {
+      "kind": "memoized-pure-values-state",
+      "anchor": "machinen-real-memoized-pure-values-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "148-memory-real-priority-queue-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-priority-queue-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "priority-queue-state",
+    "semanticState": {
+      "kind": "priority-queue-state",
+      "anchor": "machinen-real-priority-queue-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "149-memory-real-deque-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-deque-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "deque-state",
+    "semanticState": {
+      "kind": "deque-state",
+      "anchor": "machinen-real-deque-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "150-memory-real-retry-queue-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-retry-queue-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "retry-queue-state",
+    "semanticState": {
+      "kind": "retry-queue-state",
+      "anchor": "machinen-real-retry-queue-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "153-memory-real-enum-state-machine-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-enum-state-machine-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "enum-state-machine-state",
+    "semanticState": {
+      "kind": "enum-state-machine-state",
+      "anchor": "machinen-real-enum-state-machine-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "154-memory-real-transition-table-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-transition-table-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "transition-table-state",
+    "semanticState": {
+      "kind": "transition-table-state",
+      "anchor": "machinen-real-transition-table-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "156-memory-real-state-machine-history-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-state-machine-history-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "state-machine-history-state",
+    "semanticState": {
+      "kind": "state-machine-history-state",
+      "anchor": "machinen-real-state-machine-history-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "158-memory-real-env-derived-config-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-env-derived-config-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "env-derived-config-state",
+    "semanticState": {
+      "kind": "env-derived-config-state",
+      "anchor": "machinen-real-env-derived-config-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "159-memory-real-feature-flags-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-feature-flags-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "feature-flags-state",
+    "semanticState": {
+      "kind": "feature-flags-state",
+      "anchor": "machinen-real-feature-flags-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "160-memory-real-immutable-config-object-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-immutable-config-object-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "immutable-config-object-state",
+    "semanticState": {
+      "kind": "immutable-config-object-state",
+      "anchor": "machinen-real-immutable-config-object-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "163-memory-real-route-table-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-route-table-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "route-table-state",
+    "semanticState": {
+      "kind": "route-table-state",
+      "anchor": "machinen-real-route-table-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "164-memory-real-middleware-order-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-middleware-order-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "middleware-order-state",
+    "semanticState": {
+      "kind": "middleware-order-state",
+      "anchor": "machinen-real-middleware-order-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "168-memory-real-router-params-cache-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-router-params-cache-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "router-params-cache-state",
+    "semanticState": {
+      "kind": "router-params-cache-state",
+      "anchor": "machinen-real-router-params-cache-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "169-memory-real-handler-registry-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-handler-registry-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "handler-registry-state",
+    "semanticState": {
+      "kind": "handler-registry-state",
+      "anchor": "machinen-real-handler-registry-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "170-memory-real-di-container-singleton-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-di-container-singleton-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "di-container-singleton-state",
+    "semanticState": {
+      "kind": "di-container-singleton-state",
+      "anchor": "machinen-real-di-container-singleton-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "193-memory-real-settled-promise-value-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-settled-promise-value-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "settled-promise-value-state",
+    "semanticState": {
+      "kind": "settled-promise-value-state",
+      "anchor": "machinen-real-settled-promise-value-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "194-memory-real-rejected-promise-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-rejected-promise-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "rejected-promise-state",
+    "semanticState": {
+      "kind": "rejected-promise-state",
+      "anchor": "machinen-real-rejected-promise-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "198-memory-real-json-graph-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-json-graph-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "json-graph-state",
+    "semanticState": {
+      "kind": "json-graph-state",
+      "anchor": "machinen-real-json-graph-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "199-memory-real-structuredclone-compatible-graph-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-structuredclone-compatible-graph-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "structuredclone-compatible-graph-state",
+    "semanticState": {
+      "kind": "structuredclone-compatible-graph-state",
+      "anchor": "machinen-real-structuredclone-compatible-graph-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "203-memory-real-global-symbol-registry-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-global-symbol-registry-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "global-symbol-registry-state",
+    "semanticState": {
+      "kind": "global-symbol-registry-state",
+      "anchor": "machinen-real-global-symbol-registry-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "204-memory-real-local-symbol-descriptor-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-local-symbol-descriptor-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "local-symbol-descriptor-state",
+    "semanticState": {
+      "kind": "local-symbol-descriptor-state",
+      "anchor": "machinen-real-local-symbol-descriptor-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "205-memory-real-well-known-symbol-behavior-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-well-known-symbol-behavior-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "well-known-symbol-behavior-state",
+    "semanticState": {
+      "kind": "well-known-symbol-behavior-state",
+      "anchor": "machinen-real-well-known-symbol-behavior-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "207-memory-real-symbol-toStringTag-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-symbol-toStringTag-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "symbol-toStringTag-state",
+    "semanticState": {
+      "kind": "symbol-toStringTag-state",
+      "anchor": "machinen-real-symbol-toStringTag-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "208-memory-real-large-numeric-graph-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-large-numeric-graph-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "large-numeric-graph-state",
+    "semanticState": {
+      "kind": "large-numeric-graph-state",
+      "anchor": "machinen-real-large-numeric-graph-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "209-memory-real-bigint-typed-array-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-bigint-typed-array-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "bigint-typed-array-state",
+    "semanticState": {
+      "kind": "bigint-typed-array-state",
+      "anchor": "machinen-real-bigint-typed-array-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "210-memory-real-precision-invariant-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-precision-invariant-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "precision-invariant-state",
+    "semanticState": {
+      "kind": "precision-invariant-state",
+      "anchor": "machinen-real-precision-invariant-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "212-memory-real-decimal-string-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-decimal-string-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "decimal-string-state",
+    "semanticState": {
+      "kind": "decimal-string-state",
+      "anchor": "machinen-real-decimal-string-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "213-memory-real-regexp-lastindex-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-regexp-lastindex-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "regexp-lastindex-state",
+    "semanticState": {
+      "kind": "regexp-lastindex-state",
+      "anchor": "machinen-real-regexp-lastindex-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "214-memory-real-sticky-global-regexp-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-sticky-global-regexp-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "sticky-global-regexp-state",
+    "semanticState": {
+      "kind": "sticky-global-regexp-state",
+      "anchor": "machinen-real-sticky-global-regexp-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "215-memory-real-unicode-regexp-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-unicode-regexp-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "unicode-regexp-state",
+    "semanticState": {
+      "kind": "unicode-regexp-state",
+      "anchor": "machinen-real-unicode-regexp-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "218-memory-real-date-graph-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-date-graph-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "date-graph-state",
+    "semanticState": {
+      "kind": "date-graph-state",
+      "anchor": "machinen-real-date-graph-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "219-memory-real-timezone-independent-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-timezone-independent-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "timezone-independent-state",
+    "semanticState": {
+      "kind": "timezone-independent-state",
+      "anchor": "machinen-real-timezone-independent-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "223-memory-real-argv-snapshot-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-argv-snapshot-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "argv-snapshot-state",
+    "semanticState": {
+      "kind": "argv-snapshot-state",
+      "anchor": "machinen-real-argv-snapshot-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "224-memory-real-env-snapshot-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-env-snapshot-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "env-snapshot-state",
+    "semanticState": {
+      "kind": "env-snapshot-state",
+      "anchor": "machinen-real-env-snapshot-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "225-memory-real-cwd-policy-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-cwd-policy-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "cwd-policy-state",
+    "semanticState": {
+      "kind": "cwd-policy-state",
+      "anchor": "machinen-real-cwd-policy-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "227-memory-real-process-title-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-process-title-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "process-title-state",
+    "semanticState": {
+      "kind": "process-title-state",
+      "anchor": "machinen-real-process-title-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "228-memory-real-buffered-logger-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-buffered-logger-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "buffered-logger-state",
+    "semanticState": {
+      "kind": "buffered-logger-state",
+      "anchor": "machinen-real-buffered-logger-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "230-memory-real-console-timer-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-console-timer-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "console-timer-state",
+    "semanticState": {
+      "kind": "console-timer-state",
+      "anchor": "machinen-real-console-timer-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "233-memory-real-counter-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-counter-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "counter-state",
+    "semanticState": {
+      "kind": "counter-state",
+      "anchor": "machinen-real-counter-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "234-memory-real-histogram-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-histogram-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "histogram-state",
+    "semanticState": {
+      "kind": "histogram-state",
+      "anchor": "machinen-real-histogram-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "239-memory-real-completed-compressed-buffer-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-completed-compressed-buffer-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "completed-compressed-buffer-state",
+    "semanticState": {
+      "kind": "completed-compressed-buffer-state",
+      "anchor": "machinen-real-completed-compressed-buffer-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "249-memory-real-wasm-module-bytes-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-wasm-module-bytes-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "wasm-module-bytes-state",
+    "semanticState": {
+      "kind": "wasm-module-bytes-state",
+      "anchor": "machinen-real-wasm-module-bytes-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "253-memory-real-package-config-cache-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-package-config-cache-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "package-config-cache-state",
+    "semanticState": {
+      "kind": "package-config-cache-state",
+      "anchor": "machinen-real-package-config-cache-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "254-memory-real-require-resolve-cache-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-require-resolve-cache-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "require-resolve-cache-state",
+    "semanticState": {
+      "kind": "require-resolve-cache-state",
+      "anchor": "machinen-real-require-resolve-cache-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "255-memory-real-module-path-cache-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-module-path-cache-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "module-path-cache-state",
+    "semanticState": {
+      "kind": "module-path-cache-state",
+      "anchor": "machinen-real-module-path-cache-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "256-memory-real-package-json-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-package-json-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "package-json-state",
+    "semanticState": {
+      "kind": "package-json-state",
+      "anchor": "machinen-real-package-json-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "257-memory-real-conditional-exports-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-conditional-exports-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "conditional-exports-state",
+    "semanticState": {
+      "kind": "conditional-exports-state",
+      "anchor": "machinen-real-conditional-exports-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "258-memory-real-parsed-args-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-parsed-args-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "parsed-args-state",
+    "semanticState": {
+      "kind": "parsed-args-state",
+      "anchor": "machinen-real-parsed-args-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "259-memory-real-command-registry-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-command-registry-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "command-registry-state",
+    "semanticState": {
+      "kind": "command-registry-state",
+      "anchor": "machinen-real-command-registry-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "263-memory-real-persisted-schedule-spec-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-persisted-schedule-spec-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "persisted-schedule-spec-state",
+    "semanticState": {
+      "kind": "persisted-schedule-spec-state",
+      "anchor": "machinen-real-persisted-schedule-spec-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "265-memory-real-cron-expression-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-cron-expression-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "cron-expression-state",
+    "semanticState": {
+      "kind": "cron-expression-state",
+      "anchor": "machinen-real-cron-expression-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "268-memory-real-simple-table-map-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-simple-table-map-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "simple-table-map-state",
+    "semanticState": {
+      "kind": "simple-table-map-state",
+      "anchor": "machinen-real-simple-table-map-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "269-memory-real-index-map-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-index-map-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "index-map-state",
+    "semanticState": {
+      "kind": "index-map-state",
+      "anchor": "machinen-real-index-map-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "273-memory-real-token-cache-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-token-cache-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "token-cache-state",
+    "semanticState": {
+      "kind": "token-cache-state",
+      "anchor": "machinen-real-token-cache-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "274-memory-real-session-map-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-session-map-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "session-map-state",
+    "semanticState": {
+      "kind": "session-map-state",
+      "anchor": "machinen-real-session-map-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "278-memory-real-token-bucket-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-token-bucket-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "token-bucket-state",
+    "semanticState": {
+      "kind": "token-bucket-state",
+      "anchor": "machinen-real-token-bucket-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "279-memory-real-sliding-window-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-sliding-window-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "sliding-window-state",
+    "semanticState": {
+      "kind": "sliding-window-state",
+      "anchor": "machinen-real-sliding-window-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "281-memory-real-leaky-bucket-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-leaky-bucket-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "leaky-bucket-state",
+    "semanticState": {
+      "kind": "leaky-bucket-state",
+      "anchor": "machinen-real-leaky-bucket-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "283-memory-real-metric-counters-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-metric-counters-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "metric-counters-state",
+    "semanticState": {
+      "kind": "metric-counters-state",
+      "anchor": "machinen-real-metric-counters-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "285-memory-real-trace-context-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-trace-context-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "trace-context-state",
+    "semanticState": {
+      "kind": "trace-context-state",
+      "anchor": "machinen-real-trace-context-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "286-memory-real-log-correlation-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-log-correlation-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "log-correlation-state",
+    "semanticState": {
+      "kind": "log-correlation-state",
+      "anchor": "machinen-real-log-correlation-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "288-memory-real-singleton-registry-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-singleton-registry-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "singleton-registry-state",
+    "semanticState": {
+      "kind": "singleton-registry-state",
+      "anchor": "machinen-real-singleton-registry-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "291-memory-real-container-metadata-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-container-metadata-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "container-metadata-state",
+    "semanticState": {
+      "kind": "container-metadata-state",
+      "anchor": "machinen-real-container-metadata-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "293-memory-real-compiled-template-cache-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-compiled-template-cache-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "compiled-template-cache-state",
+    "semanticState": {
+      "kind": "compiled-template-cache-state",
+      "anchor": "machinen-real-compiled-template-cache-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "295-memory-real-template-helper-registry-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-template-helper-registry-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "template-helper-registry-state",
+    "semanticState": {
+      "kind": "template-helper-registry-state",
+      "anchor": "machinen-real-template-helper-registry-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "297-memory-real-partial-cache-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-partial-cache-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "partial-cache-state",
+    "semanticState": {
+      "kind": "partial-cache-state",
+      "anchor": "machinen-real-partial-cache-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "298-memory-real-completed-ast-cache-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-completed-ast-cache-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "completed-ast-cache-state",
+    "semanticState": {
+      "kind": "completed-ast-cache-state",
+      "anchor": "machinen-real-completed-ast-cache-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "300-memory-real-token-buffer-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-token-buffer-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "token-buffer-state",
+    "semanticState": {
+      "kind": "token-buffer-state",
+      "anchor": "machinen-real-token-buffer-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "301-memory-real-source-map-cache-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-source-map-cache-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "source-map-cache-state",
+    "semanticState": {
+      "kind": "source-map-cache-state",
+      "anchor": "machinen-real-source-map-cache-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
+  },
+  {
+    "rowId": "304-memory-real-redaction-policy-state",
+    "retainedReport": "portability/nodejs/retained/nodejs-portability-memory-real-redaction-policy-state-report.json",
+    "stages": {
+      "detect": true,
+      "capture": true,
+      "decode": true,
+      "classify": true,
+      "materialize": true,
+      "verify": true,
+      "retain": true
+    },
+    "shape": "redaction-policy-state",
+    "semanticState": {
+      "kind": "redaction-policy-state",
+      "anchor": "machinen-real-redaction-policy-state-anchor-v1",
+      "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+    },
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization"
   }
 ]

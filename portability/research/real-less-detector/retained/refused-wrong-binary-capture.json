@@ -1,0 +1,86 @@
+{
+  "kind": "machinen.research.real-less-detector.capture",
+  "version": 2,
+  "case": "refused-wrong-binary",
+  "decision": "refused",
+  "stateKind": "real-process-refusal",
+  "hostArch": "x86_64",
+  "binary": {
+    "path": "/usr/bin/cat"
+  },
+  "process": {
+    "pid": 3479497,
+    "state": {
+      "statusState": "S",
+      "threads": 1,
+      "signalPendingMask": "0000000000000000",
+      "signalBlockedMask": "0000000000000000",
+      "signalIgnoredMask": "0000000000000000",
+      "signalCaughtMask": "0000000000000000",
+      "statPgrp": 3479497,
+      "statSession": 3479497,
+      "statTtyNr": 34816,
+      "syscall": {
+        "raw": "0 0x0 0x7031b082e000 0x20000 0x7031b0861b60 0xffffffff 0x0 0x7ffe61930538 0x7031b094a2ad",
+        "parsed": true,
+        "number": 0,
+        "name": "read",
+        "args": [0, 123358717075456, 131072, 123358717287264, 4294967295, 0],
+        "fd": 0
+      }
+    },
+    "fds": [
+      {
+        "fd": 0,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 1,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 2,
+        "target": "/dev/pts/0"
+      }
+    ],
+    "stdioTargets": {
+      "0": "/dev/pts/0",
+      "1": "/dev/pts/0",
+      "2": "/dev/pts/0"
+    },
+    "syscallFdTarget": "/dev/pts/0",
+    "allStdioOnControlledPty": true,
+    "socketFds": []
+  },
+  "pty": {
+    "rows": 24,
+    "cols": 80,
+    "identity": {
+      "path": "/dev/pts/0",
+      "device": 24,
+      "inode": 3,
+      "rdev": 34816,
+      "mode": "0o20620"
+    },
+    "inputQueueBytesOnMaster": 0,
+    "inputQueueBytesOnSlave": {
+      "available": true,
+      "bytes": 0
+    },
+    "foregroundPgrpFromMaster": 3479497,
+    "controlledPty": true,
+    "harnessPendingInputBytes": 0
+  },
+  "screenEvidence": {
+    "containsFirstLine": false,
+    "containsPipeFirstLine": false,
+    "sample": ""
+  },
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false
+  },
+  "refusalCode": "real-less-wrong-binary"
+}

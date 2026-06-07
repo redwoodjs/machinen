@@ -1,0 +1,27 @@
+{
+  "kind": "machinen.research.native-binary-shape-ir",
+  "version": 1,
+  "shape": "023-struct-with-nested-pointers-cli",
+  "sourceArch": "arm64",
+  "targetArch": "amd64",
+  "safePoint": "declared_shape_ready",
+  "entrySymbol": "continue_nested_pointers",
+  "sourceCpu": { "pc": "0xc154a1e41990", "sp": "0xffffe4905bb0", "arg0": "0x1000" },
+  "targetCpuPlan": {
+    "pcSymbol": "continue_nested_pointers",
+    "argumentRegister": "rdi",
+    "stackBytes": 65536
+  },
+  "shapeDescriptor": {
+    "threads": 1,
+    "activeSyscall": false,
+    "sockets": 0,
+    "usesSourceIsaEmulation": false
+  },
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false
+  }
+}

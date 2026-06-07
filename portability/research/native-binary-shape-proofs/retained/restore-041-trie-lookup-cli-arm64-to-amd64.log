@@ -1,0 +1,2 @@
+trie:value
+SHAPE_RESTORE_OK shape=041-trie-lookup-cli target=amd64 result=42

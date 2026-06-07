@@ -3,12 +3,13 @@
   "version": 1,
   "id": "portable-vm-product-node-memory-ir",
   "status": "verified",
-  "claim": "Portable VM product snapshot/restore carries selected semantic Node Memory IR rows, injects a product-owned materializer, materializes them into a target-native Node app, verifies /state and /rows, and refuses pending Promise memory state fail-closed.",
+  "claim": "Portable VM product snapshot/restore carries selected semantic Node Memory IR rows plus selected semantic Node Resource IR rows, proves a paused source-VM boundary with a retained VMM-native pause marker artifact, injects product-owned target-native materializers, verifies materialized memory/resource endpoints, and refuses unsupported live/native/opaque memory/resource state fail-closed.",
   "scope": "portable-vm-product-node-memory-ir-v1",
   "retainedEvidence": "retained/portable-vm-product-node-memory-ir-report.json",
   "notClaimed": [
     "arbitrary Node process restore",
     "raw V8 heap restore",
+    "raw native/libuv handle restore",
     "same PID continuation",
     "arbitrary Linux process restore",
     "raw VM/vCPU/device replay"
@@ -18,6 +19,7 @@
     "rawVmStateReplayUsed": false,
     "sourceIsaEmulationUsed": false,
     "arbitraryNodeProcessRestoreClaimed": false,
-    "rawV8HeapRestoreUsed": false
+    "rawV8HeapRestoreUsed": false,
+    "rawNativeHandleRestoreUsed": false
   }
 }

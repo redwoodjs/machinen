@@ -1,0 +1,20 @@
+{
+  "case": "sleep-remaining-time",
+  "kind": "support",
+  "description": "sleep remaining-time descriptor reconstructed",
+  "mode": "target",
+  "role": "target",
+  "hostArch": "aarch64",
+  "pid": 1131724,
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "kernelObjectIdentityPreserved": false
+  },
+  "decision": "accepted",
+  "evidence": {
+    "targetSleepExited": true
+  }
+}

@@ -1,0 +1,2 @@
+argv=demo env=ok
+SHAPE_RESTORE_OK shape=007-argv-env-printer target=arm64 result=42

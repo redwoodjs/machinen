@@ -1,0 +1,161 @@
+{
+  "kind": "machinen.nodejs-portability-memory-real-arraybuffer-dataview-smoke-report",
+  "version": 1,
+  "accepted": true,
+  "portabilityRow": "055-memory-real-arraybuffer-dataview",
+  "architectures": ["arm64", "amd64"],
+  "sourceArch": "arm64",
+  "targetArch": "amd64",
+  "executeVm": true,
+  "memoryCapture": "real-guest-proc-maps-and-proc-mem",
+  "migrationCompleted": true,
+  "summary": {
+    "verifiedVmRows": 1,
+    "memoryStateRows": 1,
+    "refusedRows": 0
+  },
+  "results": [
+    {
+      "id": "055-memory-real-arraybuffer-dataview",
+      "architecture": "arm64",
+      "state": "verified"
+    },
+    {
+      "id": "055-memory-real-arraybuffer-dataview",
+      "architecture": "amd64",
+      "state": "verified"
+    }
+  ],
+  "sourceCapture": {
+    "kind": "machinen.nodejs-portability-memory-real-arraybuffer-dataview-smoke-report.source-capture",
+    "accepted": true,
+    "portabilityRow": "055-memory-real-arraybuffer-dataview",
+    "sourceArch": "arm64",
+    "captureMethod": "guest-proc-maps-and-proc-mem-anchor-semantic-decoder",
+    "appHookUsedForCapture": false,
+    "rawV8HeapRestored": false,
+    "samePidRestored": false,
+    "memoryIr": {
+      "kind": "machinen.nodejs.memory-ir",
+      "version": 1,
+      "runtime": {
+        "name": "node",
+        "sourceArch": "arm64",
+        "v8": "12.4.254.21-node.22"
+      },
+      "rows": [
+        {
+          "id": "055-memory-real-arraybuffer-dataview",
+          "shape": "arraybuffer-dataview",
+          "semanticState": {
+            "kind": "arraybuffer-dataview",
+            "anchor": "machinen-real-arraybuffer-dataview-anchor-v1",
+            "byteLength": 8,
+            "bytes": [3, 1, 4, 1, 5, 9, 2, 6],
+            "uint16beAt0": 769,
+            "float32leAt0": 3.5
+          },
+          "anchors": {
+            "anchor": "machinen-real-arraybuffer-dataview-anchor-v1",
+            "bytes": "arraybuffer-bytes:3,1,4,1,5,9,2,6",
+            "uint16": "dataview-uint16be:769",
+            "float32": "dataview-float32:3.5"
+          }
+        }
+      ],
+      "unsupported": [],
+      "claimGuard": {
+        "arbitraryNodeProcessRestoreClaimed": false,
+        "arbitraryLinuxProcessRestoreClaimed": false,
+        "rawV8HeapRestoreUsed": false,
+        "rawCpuStateReplayUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "samePidContinuationClaimed": false,
+        "activeRequestOrSocketContinuationClaimed": false
+      }
+    },
+    "evidence": {
+      "pid": 354,
+      "mapsSha256": "e68a4cde3f22e977b52b3efa7dcc2d3a00cf067c976a71811142ac7d12f8915b",
+      "readableMappings": 92,
+      "decodedFields": {
+        "anchor": {
+          "found": true,
+          "hits": ["0x30f288ccaad", "0x30f288ccbd7", "0x3e0c5f9d6795", "0x3e0c5f9d68bf"]
+        },
+        "bytes": {
+          "found": true,
+          "hits": ["0x30f288ccc18", "0x3e0c5f9d6900", "0x3ef5b9ecc1f0"]
+        },
+        "uint16": {
+          "found": true,
+          "hits": ["0x30f288ccc4f", "0x3e0c5f9d6937", "0x3ef5b9ecc240"]
+        },
+        "float32": {
+          "found": true,
+          "hits": ["0x30f288ccc7b", "0x3e0c5f9d6963", "0x3ef5b9ecc280"]
+        }
+      }
+    }
+  },
+  "targetResult": {
+    "kind": "machinen.nodejs-portability-memory-real-arraybuffer-dataview-smoke-report.target-result",
+    "accepted": true,
+    "portabilityRow": "055-memory-real-arraybuffer-dataview",
+    "sourceArch": "arm64",
+    "targetArch": "amd64",
+    "materialization": "target-native-node-semantic-memory-ir",
+    "targetNativeNode": true,
+    "appHookUsedForCapture": false,
+    "rawV8HeapRestored": false,
+    "samePidRestored": false,
+    "verifier": {
+      "accepted": true,
+      "actual": {
+        "kind": "arraybuffer-dataview",
+        "anchor": "machinen-real-arraybuffer-dataview-anchor-v1",
+        "byteLength": 8,
+        "bytes": [3, 1, 4, 1, 5, 9, 2, 6],
+        "uint16beAt0": 769,
+        "float32leAt0": 3.5
+      },
+      "expected": {
+        "kind": "arraybuffer-dataview",
+        "anchor": "machinen-real-arraybuffer-dataview-anchor-v1",
+        "byteLength": 8,
+        "bytes": [3, 1, 4, 1, 5, 9, 2, 6],
+        "uint16beAt0": 769,
+        "float32leAt0": 3.5
+      }
+    }
+  },
+  "evidence": {
+    "appPath": "portability/nodejs/055-memory-real-arraybuffer-dataview/app.mjs",
+    "appSha256": "906bf742da1c1a0fae89e51b40a50502ae78b20af94f03cc11689e7a585ee2d9",
+    "smokePath": "portability/nodejs/055-memory-real-arraybuffer-dataview/smoke.ts"
+  },
+  "claimBoundary": {
+    "claims": [
+      "055-memory-real-arraybuffer-dataview captures selected Node arraybuffer-dataview state from /proc memory and materializes it target-native across architectures"
+    ],
+    "notClaimed": [
+      "arbitrary Node process restore",
+      "raw V8 heap restore",
+      "same PID continuation",
+      "active request/socket continuation",
+      "worker/native-addon/child-process live-state transfer",
+      "source ISA emulation",
+      "arbitrary Linux process restore",
+      "raw VM/vCPU/device replay"
+    ]
+  },
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "arbitraryLinuxProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "samePidContinuationClaimed": false,
+    "activeRequestOrSocketContinuationClaimed": false
+  }
+}

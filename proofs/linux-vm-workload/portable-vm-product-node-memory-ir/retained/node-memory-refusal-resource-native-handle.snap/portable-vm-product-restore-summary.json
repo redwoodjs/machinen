@@ -1,0 +1,42 @@
+{
+  "kind": "machinen.portable-vm-product-restore-summary",
+  "version": 1,
+  "accepted": false,
+  "scope": "portable-vm-all3-product-snapshot-restore-v1",
+  "state": "refused",
+  "migrationCompleted": false,
+  "sourceArch": "arm64",
+  "targetArch": "arm64",
+  "sourceArchitectureDetected": true,
+  "targetArchitectureDetected": true,
+  "refusal": {
+    "code": "node-portability-resource-native-handle-unsupported",
+    "message": "raw native/libuv handles are refused by Node resource IR"
+  },
+  "workloads": {
+    "nodejs": {
+      "classified": true,
+      "rowCount": 8,
+      "refusedRows": 1,
+      "memoryRows": 1,
+      "memoryMaterializationRows": 1,
+      "resourceRows": 1,
+      "resourceMaterializationRows": 1,
+      "refusals": [
+        {
+          "id": "nodejs-resource-native-handle",
+          "refusalCode": "node-portability-resource-native-handle-unsupported",
+          "message": "raw native/libuv handles are refused by Node resource IR"
+        }
+      ],
+      "memoryRefusals": [],
+      "resourceRefusals": ["node-portability-resource-native-handle-unsupported"]
+    }
+  },
+  "claimGuard": {
+    "arbitraryVmRestoreClaimed": false,
+    "rawVmStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlyShortcutAccepted": false
+  }
+}

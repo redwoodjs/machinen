@@ -161,6 +161,21 @@ export type {
   NodejsMemoryIrValidationResult,
 } from "./nodejs-memory-ir.ts";
 export {
+  NODEJS_RESOURCE_IR_INVALID_REFUSAL_CODE,
+  NODEJS_RESOURCE_IR_KIND,
+  NODEJS_RESOURCE_IR_MATERIALIZER_FILENAME,
+  NODEJS_RESOURCE_IR_RESTORE_STRATEGY,
+  NODEJS_RESOURCE_IR_UNSUPPORTED_REFUSAL_CODE,
+  NODEJS_RESOURCE_IR_VERSION,
+  createNodejsResourceIrMaterializerModule,
+  validateNodejsResourceIrDocument,
+} from "./nodejs-resource-ir.ts";
+export type {
+  NodejsResourceIrDocument,
+  NodejsResourceIrRow,
+  NodejsResourceIrValidationResult,
+} from "./nodejs-resource-ir.ts";
+export {
   NODE_PROPER_LEVEL5_SOURCE_INSPECTION_KIND,
   parseNodeProperLevel5ProcMaps,
   summarizeNodeProperLevel5SourceInspection,
@@ -1177,6 +1192,26 @@ export {
   productLevel4PingSocketRefusalCodes,
   restoreProductLevel4PingSocketSnapshot,
 } from "./product-level4-ping-socket.ts";
+export {
+  MOVE_PID_GRAPH_KIND,
+  captureMovePidDependencyGraph,
+  classifyMovePidDependencyGraph,
+} from "./move-pid-graph.ts";
+export type {
+  MovePidDependencyGraph,
+  MovePidGraphAdapterCandidate,
+  MovePidGraphCaptureOptions,
+  MovePidGraphClassification,
+  MovePidGraphDecision,
+  MovePidGraphDependency,
+  MovePidGraphFd,
+  MovePidGraphObservationConsistency,
+  MovePidGraphProcess,
+  MovePidGraphRefusal,
+  MovePidGraphSocket,
+  MovePidGraphSyscall,
+  MovePidGraphThread,
+} from "./move-pid-graph.ts";
 export {
   TARGET_GUEST_RESTORE_DESCRIPTOR_KIND,
   TargetGuestRestoreLoaderValidationError,

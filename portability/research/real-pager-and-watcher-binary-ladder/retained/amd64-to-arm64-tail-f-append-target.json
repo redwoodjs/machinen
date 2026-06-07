@@ -1,0 +1,168 @@
+{
+  "case": "tail-f-append",
+  "adapter": "tail-f",
+  "description": "tail -f emits an appended line after descriptor materialization",
+  "mode": "target",
+  "role": "target",
+  "hostArch": "aarch64",
+  "binary": {
+    "path": "/usr/bin/tail",
+    "versionLine": "tail (GNU coreutils) 9.4",
+    "packageEvidence": null
+  },
+  "processRoot": {
+    "pid": 1055647,
+    "argv": ["/usr/bin/tail", "-f", "/tmp/machinen-pager-watcher-ladder-1pdod8z6/watched.txt"]
+  },
+  "processTree": [
+    {
+      "pid": 1055647,
+      "state": {
+        "pid": 1055647,
+        "comm": "tail",
+        "statusState": "S",
+        "threads": 1,
+        "signalPendingMask": "0000000000000000",
+        "statPpid": 1055646,
+        "statPgrp": 1055647,
+        "statSession": 1055647,
+        "statTtyNr": 34816,
+        "syscall": {
+          "raw": "73 0xffffdda2aa38 0x1 0x0 0x0 0x0 0x51 0xffffdda2a920 0xff13241d0bbc",
+          "parsed": true,
+          "number": 73,
+          "name": "ppoll",
+          "args": [281474400168504, 1, 0, 0, 0, 81],
+          "fd": 281474400168504
+        }
+      },
+      "fds": [
+        {
+          "fd": 0,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 1,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 2,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 3,
+          "target": "/tmp/machinen-pager-watcher-ladder-1pdod8z6/watched.txt"
+        },
+        {
+          "fd": 4,
+          "target": "anon_inode:inotify"
+        }
+      ],
+      "stdioTargets": {
+        "0": "/dev/pts/0",
+        "1": "/dev/pts/0",
+        "2": "/dev/pts/0"
+      },
+      "syscallFdTarget": null,
+      "allStdioOnControlledPty": true,
+      "hasSignalfd": false,
+      "hasRegularAdapterFile": true
+    }
+  ],
+  "candidateProcess": {
+    "pid": 1055647,
+    "state": {
+      "pid": 1055647,
+      "comm": "tail",
+      "statusState": "S",
+      "threads": 1,
+      "signalPendingMask": "0000000000000000",
+      "statPpid": 1055646,
+      "statPgrp": 1055647,
+      "statSession": 1055647,
+      "statTtyNr": 34816,
+      "syscall": {
+        "raw": "73 0xffffdda2aa38 0x1 0x0 0x0 0x0 0x51 0xffffdda2a920 0xff13241d0bbc",
+        "parsed": true,
+        "number": 73,
+        "name": "ppoll",
+        "args": [281474400168504, 1, 0, 0, 0, 81],
+        "fd": 281474400168504
+      }
+    },
+    "fds": [
+      {
+        "fd": 0,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 1,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 2,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 3,
+        "target": "/tmp/machinen-pager-watcher-ladder-1pdod8z6/watched.txt"
+      },
+      {
+        "fd": 4,
+        "target": "anon_inode:inotify"
+      }
+    ],
+    "stdioTargets": {
+      "0": "/dev/pts/0",
+      "1": "/dev/pts/0",
+      "2": "/dev/pts/0"
+    },
+    "syscallFdTarget": null,
+    "allStdioOnControlledPty": true,
+    "hasSignalfd": false,
+    "hasRegularAdapterFile": true
+  },
+  "pty": {
+    "slavePath": "/dev/pts/0",
+    "rows": 24,
+    "cols": 80,
+    "inputQueueBytesOnMaster": 0,
+    "inputQueueBytesOnSlave": {
+      "available": true,
+      "bytes": 0
+    },
+    "foregroundPgrpFromMaster": 1055647
+  },
+  "candidateChecks": {
+    "expectedOutputRendered": true,
+    "modeledWait": true,
+    "controlledPtyIo": true,
+    "sessionPgrp": true,
+    "queuesEmpty": true,
+    "singleThreadCandidate": true,
+    "noPendingSignalCandidate": true,
+    "regularFilePresent": true
+  },
+  "screenAtCandidate": {
+    "containsExpectedOutput": true,
+    "sample": "initial-001\r\n"
+  },
+  "inputOrResource": {
+    "expect": "continued-001",
+    "file": "/tmp/machinen-pager-watcher-ladder-1pdod8z6/watched.txt",
+    "appendBase64": "Y29udGludWVkLTAwMQo="
+  },
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "markerSymbolsUsed": false
+  },
+  "behavior": {
+    "matchedExpectation": true,
+    "processExited": false,
+    "sample": "/usr/bin/tail: /tmp/machinen-pager-watcher-ladder-1pdod8z6/watched.txt: file truncated\r\ninitial-001\r\ncontinued-001\r\n"
+  },
+  "decision": "accepted"
+}

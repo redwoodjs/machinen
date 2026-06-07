@@ -1,0 +1,141 @@
+{
+  "kind": "machinen.nodejs-portability-memory-real-router-params-cache-state-smoke-report",
+  "version": 1,
+  "accepted": true,
+  "portabilityRow": "168-memory-real-router-params-cache-state",
+  "architectures": ["amd64", "arm64"],
+  "sourceArch": "amd64",
+  "targetArch": "arm64",
+  "executeVm": false,
+  "memoryCapture": "product-owned-nodejs-memory-ir-validation-materialization",
+  "migrationCompleted": true,
+  "summary": {
+    "verifiedVmRows": 0,
+    "memoryStateRows": 1,
+    "refusedRows": 0,
+    "semanticMaterializedRows": 1
+  },
+  "results": [
+    {
+      "id": "168-memory-real-router-params-cache-state",
+      "architecture": "amd64",
+      "state": "verified"
+    },
+    {
+      "id": "168-memory-real-router-params-cache-state",
+      "architecture": "arm64",
+      "state": "verified"
+    }
+  ],
+  "sourceCapture": {
+    "kind": "machinen.nodejs-portability-memory-real-router-params-cache-state-smoke-report.source-capture",
+    "accepted": true,
+    "portabilityRow": "168-memory-real-router-params-cache-state",
+    "sourceArch": "amd64",
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization",
+    "appHookUsedForCapture": false,
+    "rawV8HeapRestored": false,
+    "samePidRestored": false,
+    "memoryIr": {
+      "kind": "machinen.nodejs.memory-ir",
+      "version": 1,
+      "runtime": {
+        "name": "node",
+        "sourceArch": "amd64",
+        "v8": "semantic-ir-product-validation"
+      },
+      "rows": [
+        {
+          "id": "168-memory-real-router-params-cache-state",
+          "shape": "router-params-cache-state",
+          "semanticState": {
+            "kind": "router-params-cache-state",
+            "anchor": "machinen-real-router-params-cache-state-anchor-v1",
+            "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+          },
+          "anchors": {
+            "anchor": "machinen-real-router-params-cache-state-anchor-v1",
+            "marker": "router-params-cache-state:semantic-state"
+          }
+        }
+      ],
+      "unsupported": [],
+      "claimGuard": {
+        "arbitraryNodeProcessRestoreClaimed": false,
+        "arbitraryLinuxProcessRestoreClaimed": false,
+        "rawV8HeapRestoreUsed": false,
+        "rawCpuStateReplayUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "samePidContinuationClaimed": false,
+        "activeRequestOrSocketContinuationClaimed": false
+      }
+    },
+    "evidence": {
+      "decodedFields": {
+        "anchor": {
+          "found": true,
+          "hits": ["semantic-ir:168-memory-real-router-params-cache-state:0"]
+        },
+        "marker": {
+          "found": true,
+          "hits": ["semantic-ir:168-memory-real-router-params-cache-state:1"]
+        }
+      },
+      "validation": "product Node Memory IR accepts this semantic row and rejects raw/opaque fields"
+    }
+  },
+  "targetResult": {
+    "kind": "machinen.nodejs-portability-memory-real-router-params-cache-state-smoke-report.target-result",
+    "accepted": true,
+    "portabilityRow": "168-memory-real-router-params-cache-state",
+    "sourceArch": "amd64",
+    "targetArch": "arm64",
+    "materialization": "target-native-node-semantic-memory-ir",
+    "targetNativeNode": true,
+    "appHookUsedForCapture": false,
+    "rawV8HeapRestored": false,
+    "samePidRestored": false,
+    "verifier": {
+      "accepted": true,
+      "actual": {
+        "kind": "router-params-cache-state",
+        "anchor": "machinen-real-router-params-cache-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "expected": {
+        "kind": "router-params-cache-state",
+        "anchor": "machinen-real-router-params-cache-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      }
+    }
+  },
+  "evidence": {
+    "appPath": "portability/nodejs/168-memory-real-router-params-cache-state/app.mjs",
+    "smokePath": "portability/nodejs/168-memory-real-router-params-cache-state/smoke.ts",
+    "materializer": "packages/runtime/src/nodejs-memory-ir.ts"
+  },
+  "claimBoundary": {
+    "claims": [
+      "168-memory-real-router-params-cache-state materializes selected semantic Node Memory IR state target-native across architectures"
+    ],
+    "notClaimed": [
+      "arbitrary Node process restore",
+      "raw V8 heap restore",
+      "same PID continuation",
+      "active request/socket continuation",
+      "worker/native-addon/child-process live-state transfer",
+      "source ISA emulation",
+      "arbitrary Linux process restore",
+      "raw VM/vCPU/device replay"
+    ]
+  },
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "arbitraryLinuxProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "samePidContinuationClaimed": false,
+    "activeRequestOrSocketContinuationClaimed": false
+  }
+}

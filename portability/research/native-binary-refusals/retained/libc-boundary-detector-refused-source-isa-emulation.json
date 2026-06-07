@@ -1,0 +1,7 @@
+{
+  "shape": "010-libc-boundary-fixture",
+  "decision": "refused",
+  "supportStage": "1-refused",
+  "refusalCode": "libc-boundary-claim-guard-not-false",
+  "reason": "claim guard sourceIsaEmulationUsed must be false"
+}

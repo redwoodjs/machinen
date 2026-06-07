@@ -1,0 +1,109 @@
+{
+  "case": "refuse-active-thread",
+  "kind": "refusal",
+  "description": "classifier refuses active thread and emits no descriptor",
+  "mode": "source",
+  "role": "source",
+  "hostArch": "x86_64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false
+  },
+  "decision": "refused",
+  "classifierResult": {
+    "kind": "machinen.research.native-continuation-classifier.result",
+    "version": 1,
+    "decision": "refused",
+    "shapeId": "refuse-active-or-unclassified-thread",
+    "reason": "at least one live thread is runnable or not in a known wait",
+    "claimGuard": {
+      "arbitraryProcessRestoreClaimed": false,
+      "rawVmReplayUsed": false,
+      "sourceIsaEmulationUsed": false,
+      "metadataOnlySuccess": false,
+      "rawHeapStackRegisterRestore": false
+    },
+    "observation": {
+      "pid": 3964673,
+      "hostArch": "x86_64",
+      "pausedVmObservation": false,
+      "observationConsistency": "live-procfs-best-effort",
+      "alive": true,
+      "exe": "/usr/bin/python3.11",
+      "cmdline": [
+        "python3",
+        "-c",
+        "\nimport threading, time\ndef burn():\n    x=0\n    while True:\n        x=(x+1)%1000003\nthreading.Thread(target=burn,daemon=True).start()\ntime.sleep(30)\n"
+      ],
+      "processTree": {
+        "ppid": 3964672,
+        "pgrp": 3964673,
+        "session": 3964673
+      },
+      "status": {
+        "state": "S (sleeping)",
+        "threads": 2,
+        "tracerPid": 0
+      },
+      "tasks": [
+        {
+          "tid": 3964673,
+          "state": "S",
+          "wchan": "hrtimer_nanosleep",
+          "syscall": {
+            "raw": "230 0x1 0x1 0x7ffe93c945e0 0x0 0x0 0xa5c368 0x7ffe93c945a0 0x74136874f545",
+            "wchan": "hrtimer_nanosleep",
+            "number": "230",
+            "readLikeWait": false,
+            "pollLikeWait": false
+          }
+        },
+        {
+          "tid": 3964674,
+          "state": "R",
+          "wchan": "0",
+          "syscall": {
+            "raw": "running",
+            "wchan": "0",
+            "number": "running",
+            "readLikeWait": false,
+            "pollLikeWait": false
+          }
+        }
+      ],
+      "fds": [
+        {
+          "fd": 0,
+          "target": "pipe:[66053957]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 1,
+          "target": "pipe:[66055657]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 2,
+          "target": "pipe:[66055658]",
+          "kind": "pipe",
+          "queueBytes": 0
+        }
+      ],
+      "fdKinds": ["pipe"],
+      "syscall": {
+        "raw": "230 0x1 0x1 0x7ffe93c945e0 0x0 0x0 0xa5c368 0x7ffe93c945a0 0x74136874f545",
+        "wchan": "hrtimer_nanosleep",
+        "number": "230",
+        "readLikeWait": false,
+        "pollLikeWait": false
+      }
+    }
+  },
+  "descriptor": null,
+  "materializerAvailable": false
+}

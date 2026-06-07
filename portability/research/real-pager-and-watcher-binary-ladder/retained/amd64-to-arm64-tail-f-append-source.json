@@ -1,0 +1,166 @@
+{
+  "case": "tail-f-append",
+  "adapter": "tail-f",
+  "description": "tail -f emits an appended line after descriptor materialization",
+  "mode": "source",
+  "role": "source",
+  "hostArch": "x86_64",
+  "binary": {
+    "path": "/usr/bin/tail",
+    "versionLine": "tail (GNU coreutils) 9.1",
+    "packageEvidence": null
+  },
+  "processRoot": {
+    "pid": 3771409,
+    "argv": ["/usr/bin/tail", "-f", "/tmp/machinen-pager-watcher-ladder-4_f83m89/watched.txt"]
+  },
+  "processTree": [
+    {
+      "pid": 3771409,
+      "state": {
+        "pid": 3771409,
+        "comm": "tail",
+        "statusState": "S",
+        "threads": 1,
+        "signalPendingMask": "0000000000000000",
+        "statPpid": 3771408,
+        "statPgrp": 3771409,
+        "statSession": 3771409,
+        "statTtyNr": 34816,
+        "syscall": {
+          "raw": "7 0x7fffa6838c30 0x1 0xffffffff 0x79df400718d0 0x79df40236c78 0xaaaaaaaaaaaaaaab 0x7fffa6838a98 0x79df4015f230",
+          "parsed": true,
+          "number": 7,
+          "name": "poll",
+          "args": [
+            140735987026992, 1, 4294967295, 133999758874832, 133999760731256, 12297829382473034411
+          ],
+          "fd": 140735987026992
+        }
+      },
+      "fds": [
+        {
+          "fd": 0,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 1,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 2,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 3,
+          "target": "/tmp/machinen-pager-watcher-ladder-4_f83m89/watched.txt"
+        },
+        {
+          "fd": 4,
+          "target": "anon_inode:inotify"
+        }
+      ],
+      "stdioTargets": {
+        "0": "/dev/pts/0",
+        "1": "/dev/pts/0",
+        "2": "/dev/pts/0"
+      },
+      "syscallFdTarget": null,
+      "allStdioOnControlledPty": true,
+      "hasSignalfd": false,
+      "hasRegularAdapterFile": true
+    }
+  ],
+  "candidateProcess": {
+    "pid": 3771409,
+    "state": {
+      "pid": 3771409,
+      "comm": "tail",
+      "statusState": "S",
+      "threads": 1,
+      "signalPendingMask": "0000000000000000",
+      "statPpid": 3771408,
+      "statPgrp": 3771409,
+      "statSession": 3771409,
+      "statTtyNr": 34816,
+      "syscall": {
+        "raw": "7 0x7fffa6838c30 0x1 0xffffffff 0x79df400718d0 0x79df40236c78 0xaaaaaaaaaaaaaaab 0x7fffa6838a98 0x79df4015f230",
+        "parsed": true,
+        "number": 7,
+        "name": "poll",
+        "args": [
+          140735987026992, 1, 4294967295, 133999758874832, 133999760731256, 12297829382473034411
+        ],
+        "fd": 140735987026992
+      }
+    },
+    "fds": [
+      {
+        "fd": 0,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 1,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 2,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 3,
+        "target": "/tmp/machinen-pager-watcher-ladder-4_f83m89/watched.txt"
+      },
+      {
+        "fd": 4,
+        "target": "anon_inode:inotify"
+      }
+    ],
+    "stdioTargets": {
+      "0": "/dev/pts/0",
+      "1": "/dev/pts/0",
+      "2": "/dev/pts/0"
+    },
+    "syscallFdTarget": null,
+    "allStdioOnControlledPty": true,
+    "hasSignalfd": false,
+    "hasRegularAdapterFile": true
+  },
+  "pty": {
+    "slavePath": "/dev/pts/0",
+    "rows": 24,
+    "cols": 80,
+    "inputQueueBytesOnMaster": 0,
+    "inputQueueBytesOnSlave": {
+      "available": true,
+      "bytes": 0
+    },
+    "foregroundPgrpFromMaster": 3771409
+  },
+  "candidateChecks": {
+    "expectedOutputRendered": true,
+    "modeledWait": true,
+    "controlledPtyIo": true,
+    "sessionPgrp": true,
+    "queuesEmpty": true,
+    "singleThreadCandidate": true,
+    "noPendingSignalCandidate": true,
+    "regularFilePresent": true
+  },
+  "screenAtCandidate": {
+    "containsExpectedOutput": true,
+    "sample": "initial-001\r\n"
+  },
+  "inputOrResource": {
+    "expect": "continued-001",
+    "file": "/tmp/machinen-pager-watcher-ladder-4_f83m89/watched.txt"
+  },
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "markerSymbolsUsed": false
+  },
+  "decision": "captured"
+}

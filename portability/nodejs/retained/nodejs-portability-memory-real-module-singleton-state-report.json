@@ -1,0 +1,173 @@
+{
+  "kind": "machinen.nodejs-portability-memory-real-module-singleton-state-smoke-report",
+  "version": 1,
+  "accepted": true,
+  "portabilityRow": "054-memory-real-module-singleton-state",
+  "architectures": ["arm64", "amd64"],
+  "sourceArch": "arm64",
+  "targetArch": "amd64",
+  "executeVm": true,
+  "memoryCapture": "real-guest-proc-maps-and-proc-mem",
+  "migrationCompleted": true,
+  "summary": {
+    "verifiedVmRows": 1,
+    "memoryStateRows": 1,
+    "refusedRows": 0
+  },
+  "results": [
+    {
+      "id": "054-memory-real-module-singleton-state",
+      "architecture": "arm64",
+      "state": "verified"
+    },
+    {
+      "id": "054-memory-real-module-singleton-state",
+      "architecture": "amd64",
+      "state": "verified"
+    }
+  ],
+  "sourceCapture": {
+    "kind": "machinen.nodejs-portability-memory-real-module-singleton-state-smoke-report.source-capture",
+    "accepted": true,
+    "portabilityRow": "054-memory-real-module-singleton-state",
+    "sourceArch": "arm64",
+    "captureMethod": "guest-proc-maps-and-proc-mem-anchor-semantic-decoder",
+    "appHookUsedForCapture": false,
+    "rawV8HeapRestored": false,
+    "samePidRestored": false,
+    "memoryIr": {
+      "kind": "machinen.nodejs.memory-ir",
+      "version": 1,
+      "runtime": {
+        "name": "node",
+        "sourceArch": "arm64",
+        "v8": "12.4.254.21-node.22"
+      },
+      "rows": [
+        {
+          "id": "054-memory-real-module-singleton-state",
+          "shape": "module-singleton-state",
+          "semanticState": {
+            "kind": "module-singleton-state",
+            "anchor": "machinen-real-module-singleton-anchor-v1",
+            "moduleName": "machinen-portable-singleton-module-v1",
+            "counter": 19,
+            "token": "machinen-singleton-token-v1",
+            "nested": {
+              "warmed": true,
+              "label": "machinen-singleton-nested-label-v1"
+            },
+            "lastTouch": "machinen-singleton-last-touch-v1"
+          },
+          "anchors": {
+            "anchor": "machinen-real-module-singleton-anchor-v1",
+            "module": "module-singleton-name:machinen-portable-singleton-module-v1",
+            "counter": "module-singleton-counter:19",
+            "token": "module-singleton-token:machinen-singleton-token-v1"
+          }
+        }
+      ],
+      "unsupported": [],
+      "claimGuard": {
+        "arbitraryNodeProcessRestoreClaimed": false,
+        "arbitraryLinuxProcessRestoreClaimed": false,
+        "rawV8HeapRestoreUsed": false,
+        "rawCpuStateReplayUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "samePidContinuationClaimed": false,
+        "activeRequestOrSocketContinuationClaimed": false
+      }
+    },
+    "evidence": {
+      "pid": 357,
+      "mapsSha256": "cfd24535f402554428e12913d9dd29da314636a15d4d925b1eb968337680570f",
+      "readableMappings": 92,
+      "decodedFields": {
+        "anchor": {
+          "found": true,
+          "hits": ["0x32d48e8cb76", "0x32d48e8cc9d", "0x22920fa969ce", "0x22920fa96af5"]
+        },
+        "module": {
+          "found": true,
+          "hits": ["0x32d48e8ccd5", "0x22920fa96b2d", "0x3247cd7cc300"]
+        },
+        "counter": {
+          "found": true,
+          "hits": ["0x32d48e8cd21", "0x22920fa96b79", "0x3247cd7cc350"]
+        },
+        "token": {
+          "found": true,
+          "hits": ["0x32d48e8cd4b", "0x22920fa96ba3", "0x3247cd7cc380"]
+        }
+      }
+    }
+  },
+  "targetResult": {
+    "kind": "machinen.nodejs-portability-memory-real-module-singleton-state-smoke-report.target-result",
+    "accepted": true,
+    "portabilityRow": "054-memory-real-module-singleton-state",
+    "sourceArch": "arm64",
+    "targetArch": "amd64",
+    "materialization": "target-native-node-semantic-memory-ir",
+    "targetNativeNode": true,
+    "appHookUsedForCapture": false,
+    "rawV8HeapRestored": false,
+    "samePidRestored": false,
+    "verifier": {
+      "accepted": true,
+      "actual": {
+        "kind": "module-singleton-state",
+        "anchor": "machinen-real-module-singleton-anchor-v1",
+        "moduleName": "machinen-portable-singleton-module-v1",
+        "counter": 19,
+        "token": "machinen-singleton-token-v1",
+        "nested": {
+          "warmed": true,
+          "label": "machinen-singleton-nested-label-v1"
+        },
+        "lastTouch": "machinen-singleton-last-touch-v1"
+      },
+      "expected": {
+        "kind": "module-singleton-state",
+        "anchor": "machinen-real-module-singleton-anchor-v1",
+        "moduleName": "machinen-portable-singleton-module-v1",
+        "counter": 19,
+        "token": "machinen-singleton-token-v1",
+        "nested": {
+          "warmed": true,
+          "label": "machinen-singleton-nested-label-v1"
+        },
+        "lastTouch": "machinen-singleton-last-touch-v1"
+      }
+    }
+  },
+  "evidence": {
+    "appPath": "portability/nodejs/054-memory-real-module-singleton-state/app.mjs",
+    "appSha256": "d830f0fe8d04441256abd514a2d79859aacc823ae6168fcdf8860a0fdd45175e",
+    "smokePath": "portability/nodejs/054-memory-real-module-singleton-state/smoke.ts"
+  },
+  "claimBoundary": {
+    "claims": [
+      "054-memory-real-module-singleton-state captures selected Node module-singleton-state state from /proc memory and materializes it target-native across architectures"
+    ],
+    "notClaimed": [
+      "arbitrary Node process restore",
+      "raw V8 heap restore",
+      "same PID continuation",
+      "active request/socket continuation",
+      "worker/native-addon/child-process live-state transfer",
+      "source ISA emulation",
+      "arbitrary Linux process restore",
+      "raw VM/vCPU/device replay"
+    ]
+  },
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "arbitraryLinuxProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "samePidContinuationClaimed": false,
+    "activeRequestOrSocketContinuationClaimed": false
+  }
+}

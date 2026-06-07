@@ -1,0 +1,22 @@
+{
+  "case": "rsync-mid-copy-refusal",
+  "kind": "refusal",
+  "description": "mid-copy rsync descriptor has no target-native materializer",
+  "mode": "source",
+  "role": "source",
+  "hostArch": "x86_64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false
+  },
+  "decision": "refused",
+  "refusal": {
+    "reason": "partial destination mutation is not accepted",
+    "descriptorAccepted": false,
+    "materializerStrategy": null
+  },
+  "materializerAvailable": false
+}

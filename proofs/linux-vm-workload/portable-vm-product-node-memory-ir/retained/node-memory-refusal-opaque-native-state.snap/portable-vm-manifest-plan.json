@@ -52,6 +52,54 @@
         "compatibilityIndex": "portability/nodejs/index.json"
       },
       {
+        "id": "nodejs-quiescence-report",
+        "category": "nodejs",
+        "disposition": "classified",
+        "restoreStrategy": "prove-nodejs-quiesced-before-resource-capture",
+        "artifact": "nodejs-quiescence-report.json",
+        "captureBoundary": "source-vm-paused",
+        "unsupportedLiveStatePolicy": "refuse"
+      },
+      {
+        "id": "nodejs-native-adapter-report",
+        "category": "nodejs",
+        "disposition": "classified",
+        "restoreStrategy": "verify-declared-nodejs-native-adapters",
+        "artifact": "nodejs-native-adapter-report.json",
+        "captureBoundary": "source-vm-paused",
+        "rawNativeHandlePolicy": "refuse"
+      },
+      {
+        "id": "nodejs-gc-stable-weak-report",
+        "category": "nodejs",
+        "disposition": "classified",
+        "restoreStrategy": "verify-nodejs-gc-stable-weak-semantics",
+        "artifact": "nodejs-gc-stable-weak-report.json",
+        "captureBoundary": "source-vm-paused",
+        "rawGcReachabilityPolicy": "refuse"
+      },
+      {
+        "id": "nodejs-resource-inventory",
+        "category": "nodejs",
+        "disposition": "classified",
+        "restoreStrategy": "classify-nodejs-runtime-resources",
+        "artifact": "nodejs-resource-inventory.json",
+        "captureBoundary": "source-vm-paused",
+        "unsupportedPausedLiveStatePolicy": "refuse"
+      },
+      {
+        "id": "nodejs-resource-ir",
+        "category": "nodejs",
+        "disposition": "product-supported",
+        "restoreStrategy": "materialize-nodejs-resource-ir-target-native",
+        "artifact": "nodejs-resource-ir.json",
+        "classification": "nodejs-resource-classification.json",
+        "inventory": "nodejs-resource-inventory.json",
+        "compatibilityIndex": "portability/nodejs/index.json",
+        "captureBoundary": "source-vm-paused",
+        "unsupportedPausedLiveStatePolicy": "refuse"
+      },
+      {
         "id": "nodejs-memory-opaque-native-state",
         "category": "nodejs",
         "disposition": "refused",
@@ -65,5 +113,11 @@
     "rawVmStateReplayUsed": false,
     "sourceIsaEmulationUsed": false,
     "metadataOnlyShortcutAccepted": false
+  },
+  "captureBoundary": {
+    "sourceVmPauseRequired": true,
+    "stabilityPoint": "source-vm-paused",
+    "pauseBoundary": "portable-vm-pause-boundary.json",
+    "unsupportedPausedLiveStatePolicy": "refuse"
   }
 }

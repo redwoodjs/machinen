@@ -1,0 +1,22 @@
+{
+  "case": "pid-not-preserved-proof",
+  "kind": "support",
+  "description": "PID is not preserved, only descriptor behavior",
+  "mode": "same",
+  "role": "same",
+  "hostArch": "x86_64",
+  "pid": 3810139,
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "kernelObjectIdentityPreserved": false
+  },
+  "decision": "accepted",
+  "evidence": {
+    "sourcePid": 3810139,
+    "targetPid": 3810140,
+    "pidPreserved": false
+  }
+}

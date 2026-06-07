@@ -1,0 +1,2 @@
+wc:3
+SHAPE_RESTORE_OK shape=060-wc-line-count-cli target=amd64 result=42

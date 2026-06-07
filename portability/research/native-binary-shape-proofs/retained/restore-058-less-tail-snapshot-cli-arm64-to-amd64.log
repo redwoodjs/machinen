@@ -1,0 +1,2 @@
+less-tail:last
+SHAPE_RESTORE_OK shape=058-less-tail-snapshot-cli target=amd64 result=42

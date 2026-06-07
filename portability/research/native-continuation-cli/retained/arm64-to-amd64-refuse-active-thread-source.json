@@ -1,0 +1,139 @@
+{
+  "kind": "machinen.research.native-continuation-cli.proof-row",
+  "version": 1,
+  "case": "refuse-active-thread",
+  "rowKind": "refusal",
+  "mode": "source",
+  "hostArch": "aarch64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false
+  },
+  "decision": "refused",
+  "command": {
+    "args": [
+      "python3",
+      "continuation_cli.py",
+      "capture",
+      "--pid",
+      "1617043",
+      "--allow-refused",
+      "--out",
+      "retained/arm64-to-amd64-refuse-active-thread-source.json"
+    ],
+    "returncode": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  "capture": {
+    "kind": "machinen.research.native-continuation-cli.capture",
+    "version": 1,
+    "decision": "refused",
+    "shapeId": "refuse-active-or-unclassified-thread",
+    "reason": "at least one live thread is runnable or not in a known wait",
+    "claimGuard": {
+      "arbitraryProcessRestoreClaimed": false,
+      "rawVmReplayUsed": false,
+      "sourceIsaEmulationUsed": false,
+      "metadataOnlySuccess": false,
+      "rawHeapStackRegisterRestore": false
+    },
+    "descriptor": null,
+    "classifierResult": {
+      "kind": "machinen.research.native-continuation-classifier.result",
+      "version": 1,
+      "decision": "refused",
+      "shapeId": "refuse-active-or-unclassified-thread",
+      "reason": "at least one live thread is runnable or not in a known wait",
+      "claimGuard": {
+        "arbitraryProcessRestoreClaimed": false,
+        "rawVmReplayUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "metadataOnlySuccess": false,
+        "rawHeapStackRegisterRestore": false
+      },
+      "observation": {
+        "pid": 1617043,
+        "hostArch": "aarch64",
+        "pausedVmObservation": false,
+        "observationConsistency": "live-procfs-best-effort",
+        "alive": true,
+        "exe": "/usr/bin/python3.12",
+        "cmdline": [
+          "python3",
+          "-c",
+          "\nimport threading, time\ndef burn():\n    x=0\n    while True:\n        x=(x+1)%1000003\nthreading.Thread(target=burn,daemon=True).start()\ntime.sleep(30)\n"
+        ],
+        "processTree": {
+          "ppid": 1617042,
+          "pgrp": 1617043,
+          "session": 1617043
+        },
+        "status": {
+          "state": "S (sleeping)",
+          "threads": 2,
+          "tracerPid": 0
+        },
+        "tasks": [
+          {
+            "tid": 1617043,
+            "state": "S",
+            "wchan": "hrtimer_nanosleep",
+            "syscall": {
+              "raw": null,
+              "wchan": "hrtimer_nanosleep",
+              "number": null,
+              "readLikeWait": false,
+              "pollLikeWait": false
+            }
+          },
+          {
+            "tid": 1617044,
+            "state": "R",
+            "wchan": "0",
+            "syscall": {
+              "raw": null,
+              "wchan": "0",
+              "number": null,
+              "readLikeWait": false,
+              "pollLikeWait": false
+            }
+          }
+        ],
+        "fds": [
+          {
+            "fd": 0,
+            "target": "pipe:[28839091]",
+            "kind": "pipe",
+            "queueBytes": 0
+          },
+          {
+            "fd": 1,
+            "target": "pipe:[28825276]",
+            "kind": "pipe",
+            "queueBytes": 0
+          },
+          {
+            "fd": 2,
+            "target": "pipe:[28825277]",
+            "kind": "pipe",
+            "queueBytes": 0
+          }
+        ],
+        "fdKinds": ["pipe"],
+        "syscall": {
+          "raw": null,
+          "wchan": "hrtimer_nanosleep",
+          "number": null,
+          "readLikeWait": false,
+          "pollLikeWait": false
+        }
+      }
+    },
+    "descriptorSource": "native-continuation-classifier/classify.py"
+  },
+  "descriptor": null
+}

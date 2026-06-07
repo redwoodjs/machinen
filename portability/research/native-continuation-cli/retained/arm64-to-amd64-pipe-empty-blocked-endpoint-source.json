@@ -1,0 +1,552 @@
+{
+  "kind": "machinen.research.native-continuation-cli.proof-row",
+  "version": 1,
+  "case": "pipe-empty-blocked-endpoint",
+  "rowKind": "support",
+  "mode": "source",
+  "hostArch": "aarch64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false
+  },
+  "decision": "captured",
+  "command": {
+    "args": [
+      "python3",
+      "continuation_cli.py",
+      "capture",
+      "--pid",
+      "1612740",
+      "--out",
+      "retained/arm64-to-amd64-pipe-empty-blocked-endpoint-source.json"
+    ],
+    "returncode": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  "capture": {
+    "kind": "machinen.research.native-continuation-cli.capture",
+    "version": 1,
+    "decision": "accepted",
+    "shapeId": "shape-pipe-empty-blocked-endpoint",
+    "reason": "pipe endpoint is blocked with no unread bytes",
+    "claimGuard": {
+      "arbitraryProcessRestoreClaimed": false,
+      "rawVmReplayUsed": false,
+      "sourceIsaEmulationUsed": false,
+      "metadataOnlySuccess": false,
+      "rawHeapStackRegisterRestore": false
+    },
+    "descriptor": {
+      "kind": "machinen.research.native-continuation.capture-descriptor",
+      "version": 1,
+      "shapeId": "shape-pipe-empty-blocked-endpoint",
+      "architectureNeutral": true,
+      "observationConsistency": "live-procfs-best-effort",
+      "cpu": {
+        "wait": "pipe-empty-wait",
+        "sourceArch": "aarch64",
+        "sourceSyscallNumber": null,
+        "sourceWchan": "anon_pipe_read",
+        "targetNativeReconstruction": true,
+        "sourceIsaEmulationRequired": false
+      },
+      "memory": {
+        "mode": "semantic-resource-descriptor-only",
+        "rawHeapCaptured": false,
+        "rawStackCaptured": false,
+        "rawRegistersCaptured": false,
+        "rawHeapStackRegistersCaptured": false,
+        "threadStacksCaptured": false
+      },
+      "resources": {
+        "process": {
+          "threads": 1,
+          "tracerPid": 0,
+          "ppid": 1612739,
+          "pgrp": 1612740,
+          "session": 1612740
+        },
+        "fds": [
+          {
+            "fd": 0,
+            "target": "pipe:[28834023]",
+            "kind": "pipe",
+            "queueBytes": 0
+          },
+          {
+            "fd": 1,
+            "target": "pipe:[28819440]",
+            "kind": "pipe",
+            "queueBytes": 0
+          },
+          {
+            "fd": 2,
+            "target": "pipe:[28819441]",
+            "kind": "pipe",
+            "queueBytes": 0
+          },
+          {
+            "fd": 3,
+            "target": "pipe:[28823973]",
+            "kind": "pipe",
+            "queueBytes": 0
+          },
+          {
+            "fd": 4,
+            "target": "pipe:[28823973]",
+            "kind": "pipe",
+            "queueBytes": 0
+          }
+        ],
+        "pty": {
+          "fdCount": 0,
+          "queueBytesKnownEmpty": true,
+          "fds": []
+        },
+        "pipes": {
+          "fdCount": 5,
+          "bufferBytesKnownEmpty": true,
+          "endpoints": [
+            {
+              "fd": 0,
+              "target": "pipe:[28834023]",
+              "kind": "pipe",
+              "queueBytes": 0
+            },
+            {
+              "fd": 1,
+              "target": "pipe:[28819440]",
+              "kind": "pipe",
+              "queueBytes": 0
+            },
+            {
+              "fd": 2,
+              "target": "pipe:[28819441]",
+              "kind": "pipe",
+              "queueBytes": 0
+            },
+            {
+              "fd": 3,
+              "target": "pipe:[28823973]",
+              "kind": "pipe",
+              "queueBytes": 0
+            },
+            {
+              "fd": 4,
+              "target": "pipe:[28823973]",
+              "kind": "pipe",
+              "queueBytes": 0
+            }
+          ],
+          "processTreeCaptured": true
+        },
+        "sockets": {
+          "fdCount": 0,
+          "fds": [],
+          "bindOrReconnectPolicy": null,
+          "kernelSocketIdentityPreserved": false
+        },
+        "threads": {
+          "tasks": [
+            {
+              "tid": 1612740,
+              "state": "S",
+              "wchan": "anon_pipe_read",
+              "syscall": {
+                "raw": null,
+                "wchan": "anon_pipe_read",
+                "number": null,
+                "readLikeWait": true,
+                "pollLikeWait": false
+              }
+            }
+          ],
+          "roles": "parked-wait-descriptors",
+          "threadStacksCaptured": false
+        }
+      },
+      "materializer": {
+        "strategy": "target-native-reexec-or-shape-adapter",
+        "requires": [
+          "single accepted shape",
+          "empty accepted queues",
+          "no ptrace owner",
+          "target-native resources"
+        ],
+        "rawProcessMemoryMaterialization": false
+      }
+    },
+    "classifierResult": {
+      "kind": "machinen.research.native-continuation-classifier.result",
+      "version": 1,
+      "decision": "accepted",
+      "shapeId": "shape-pipe-empty-blocked-endpoint",
+      "reason": "pipe endpoint is blocked with no unread bytes",
+      "claimGuard": {
+        "arbitraryProcessRestoreClaimed": false,
+        "rawVmReplayUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "metadataOnlySuccess": false,
+        "rawHeapStackRegisterRestore": false
+      },
+      "observation": {
+        "pid": 1612740,
+        "hostArch": "aarch64",
+        "pausedVmObservation": false,
+        "observationConsistency": "live-procfs-best-effort",
+        "alive": true,
+        "exe": "/usr/bin/python3.12",
+        "cmdline": ["python3", "-c", "import os; r,w=os.pipe(); os.read(r,1)"],
+        "processTree": {
+          "ppid": 1612739,
+          "pgrp": 1612740,
+          "session": 1612740
+        },
+        "status": {
+          "state": "S (sleeping)",
+          "threads": 1,
+          "tracerPid": 0
+        },
+        "tasks": [
+          {
+            "tid": 1612740,
+            "state": "S",
+            "wchan": "anon_pipe_read",
+            "syscall": {
+              "raw": null,
+              "wchan": "anon_pipe_read",
+              "number": null,
+              "readLikeWait": true,
+              "pollLikeWait": false
+            }
+          }
+        ],
+        "fds": [
+          {
+            "fd": 0,
+            "target": "pipe:[28834023]",
+            "kind": "pipe",
+            "queueBytes": 0
+          },
+          {
+            "fd": 1,
+            "target": "pipe:[28819440]",
+            "kind": "pipe",
+            "queueBytes": 0
+          },
+          {
+            "fd": 2,
+            "target": "pipe:[28819441]",
+            "kind": "pipe",
+            "queueBytes": 0
+          },
+          {
+            "fd": 3,
+            "target": "pipe:[28823973]",
+            "kind": "pipe",
+            "queueBytes": 0
+          },
+          {
+            "fd": 4,
+            "target": "pipe:[28823973]",
+            "kind": "pipe",
+            "queueBytes": 0
+          }
+        ],
+        "fdKinds": ["pipe"],
+        "syscall": {
+          "raw": null,
+          "wchan": "anon_pipe_read",
+          "number": null,
+          "readLikeWait": true,
+          "pollLikeWait": false
+        }
+      },
+      "descriptor": {
+        "kind": "machinen.research.native-continuation.capture-descriptor",
+        "version": 1,
+        "shapeId": "shape-pipe-empty-blocked-endpoint",
+        "architectureNeutral": true,
+        "observationConsistency": "live-procfs-best-effort",
+        "cpu": {
+          "wait": "pipe-empty-wait",
+          "sourceArch": "aarch64",
+          "sourceSyscallNumber": null,
+          "sourceWchan": "anon_pipe_read",
+          "targetNativeReconstruction": true,
+          "sourceIsaEmulationRequired": false
+        },
+        "memory": {
+          "mode": "semantic-resource-descriptor-only",
+          "rawHeapCaptured": false,
+          "rawStackCaptured": false,
+          "rawRegistersCaptured": false,
+          "rawHeapStackRegistersCaptured": false,
+          "threadStacksCaptured": false
+        },
+        "resources": {
+          "process": {
+            "threads": 1,
+            "tracerPid": 0,
+            "ppid": 1612739,
+            "pgrp": 1612740,
+            "session": 1612740
+          },
+          "fds": [
+            {
+              "fd": 0,
+              "target": "pipe:[28834023]",
+              "kind": "pipe",
+              "queueBytes": 0
+            },
+            {
+              "fd": 1,
+              "target": "pipe:[28819440]",
+              "kind": "pipe",
+              "queueBytes": 0
+            },
+            {
+              "fd": 2,
+              "target": "pipe:[28819441]",
+              "kind": "pipe",
+              "queueBytes": 0
+            },
+            {
+              "fd": 3,
+              "target": "pipe:[28823973]",
+              "kind": "pipe",
+              "queueBytes": 0
+            },
+            {
+              "fd": 4,
+              "target": "pipe:[28823973]",
+              "kind": "pipe",
+              "queueBytes": 0
+            }
+          ],
+          "pty": {
+            "fdCount": 0,
+            "queueBytesKnownEmpty": true,
+            "fds": []
+          },
+          "pipes": {
+            "fdCount": 5,
+            "bufferBytesKnownEmpty": true,
+            "endpoints": [
+              {
+                "fd": 0,
+                "target": "pipe:[28834023]",
+                "kind": "pipe",
+                "queueBytes": 0
+              },
+              {
+                "fd": 1,
+                "target": "pipe:[28819440]",
+                "kind": "pipe",
+                "queueBytes": 0
+              },
+              {
+                "fd": 2,
+                "target": "pipe:[28819441]",
+                "kind": "pipe",
+                "queueBytes": 0
+              },
+              {
+                "fd": 3,
+                "target": "pipe:[28823973]",
+                "kind": "pipe",
+                "queueBytes": 0
+              },
+              {
+                "fd": 4,
+                "target": "pipe:[28823973]",
+                "kind": "pipe",
+                "queueBytes": 0
+              }
+            ],
+            "processTreeCaptured": true
+          },
+          "sockets": {
+            "fdCount": 0,
+            "fds": [],
+            "bindOrReconnectPolicy": null,
+            "kernelSocketIdentityPreserved": false
+          },
+          "threads": {
+            "tasks": [
+              {
+                "tid": 1612740,
+                "state": "S",
+                "wchan": "anon_pipe_read",
+                "syscall": {
+                  "raw": null,
+                  "wchan": "anon_pipe_read",
+                  "number": null,
+                  "readLikeWait": true,
+                  "pollLikeWait": false
+                }
+              }
+            ],
+            "roles": "parked-wait-descriptors",
+            "threadStacksCaptured": false
+          }
+        },
+        "materializer": {
+          "strategy": "target-native-reexec-or-shape-adapter",
+          "requires": [
+            "single accepted shape",
+            "empty accepted queues",
+            "no ptrace owner",
+            "target-native resources"
+          ],
+          "rawProcessMemoryMaterialization": false
+        }
+      }
+    },
+    "descriptorSource": "native-continuation-classifier/classify.py"
+  },
+  "descriptor": {
+    "kind": "machinen.research.native-continuation.capture-descriptor",
+    "version": 1,
+    "shapeId": "shape-pipe-empty-blocked-endpoint",
+    "architectureNeutral": true,
+    "observationConsistency": "live-procfs-best-effort",
+    "cpu": {
+      "wait": "pipe-empty-wait",
+      "sourceArch": "aarch64",
+      "sourceSyscallNumber": null,
+      "sourceWchan": "anon_pipe_read",
+      "targetNativeReconstruction": true,
+      "sourceIsaEmulationRequired": false
+    },
+    "memory": {
+      "mode": "semantic-resource-descriptor-only",
+      "rawHeapCaptured": false,
+      "rawStackCaptured": false,
+      "rawRegistersCaptured": false,
+      "rawHeapStackRegistersCaptured": false,
+      "threadStacksCaptured": false
+    },
+    "resources": {
+      "process": {
+        "threads": 1,
+        "tracerPid": 0,
+        "ppid": 1612739,
+        "pgrp": 1612740,
+        "session": 1612740
+      },
+      "fds": [
+        {
+          "fd": 0,
+          "target": "pipe:[28834023]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 1,
+          "target": "pipe:[28819440]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 2,
+          "target": "pipe:[28819441]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 3,
+          "target": "pipe:[28823973]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 4,
+          "target": "pipe:[28823973]",
+          "kind": "pipe",
+          "queueBytes": 0
+        }
+      ],
+      "pty": {
+        "fdCount": 0,
+        "queueBytesKnownEmpty": true,
+        "fds": []
+      },
+      "pipes": {
+        "fdCount": 5,
+        "bufferBytesKnownEmpty": true,
+        "endpoints": [
+          {
+            "fd": 0,
+            "target": "pipe:[28834023]",
+            "kind": "pipe",
+            "queueBytes": 0
+          },
+          {
+            "fd": 1,
+            "target": "pipe:[28819440]",
+            "kind": "pipe",
+            "queueBytes": 0
+          },
+          {
+            "fd": 2,
+            "target": "pipe:[28819441]",
+            "kind": "pipe",
+            "queueBytes": 0
+          },
+          {
+            "fd": 3,
+            "target": "pipe:[28823973]",
+            "kind": "pipe",
+            "queueBytes": 0
+          },
+          {
+            "fd": 4,
+            "target": "pipe:[28823973]",
+            "kind": "pipe",
+            "queueBytes": 0
+          }
+        ],
+        "processTreeCaptured": true
+      },
+      "sockets": {
+        "fdCount": 0,
+        "fds": [],
+        "bindOrReconnectPolicy": null,
+        "kernelSocketIdentityPreserved": false
+      },
+      "threads": {
+        "tasks": [
+          {
+            "tid": 1612740,
+            "state": "S",
+            "wchan": "anon_pipe_read",
+            "syscall": {
+              "raw": null,
+              "wchan": "anon_pipe_read",
+              "number": null,
+              "readLikeWait": true,
+              "pollLikeWait": false
+            }
+          }
+        ],
+        "roles": "parked-wait-descriptors",
+        "threadStacksCaptured": false
+      }
+    },
+    "materializer": {
+      "strategy": "target-native-reexec-or-shape-adapter",
+      "requires": [
+        "single accepted shape",
+        "empty accepted queues",
+        "no ptrace owner",
+        "target-native resources"
+      ],
+      "rawProcessMemoryMaterialization": false
+    }
+  }
+}

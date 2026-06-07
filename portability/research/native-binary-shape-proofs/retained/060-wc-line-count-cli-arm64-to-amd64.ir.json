@@ -1,0 +1,27 @@
+{
+  "kind": "machinen.research.native-binary-shape-ir",
+  "version": 1,
+  "shape": "060-wc-line-count-cli",
+  "sourceArch": "arm64",
+  "targetArch": "amd64",
+  "safePoint": "declared_shape_ready",
+  "entrySymbol": "continue_wc_line_count",
+  "sourceCpu": { "pc": "0xb599ecb21990", "sp": "0xfffff9d18e20", "arg0": "0x1000" },
+  "targetCpuPlan": {
+    "pcSymbol": "continue_wc_line_count",
+    "argumentRegister": "rdi",
+    "stackBytes": 65536
+  },
+  "shapeDescriptor": {
+    "threads": 1,
+    "activeSyscall": false,
+    "sockets": 0,
+    "usesSourceIsaEmulation": false
+  },
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false
+  }
+}

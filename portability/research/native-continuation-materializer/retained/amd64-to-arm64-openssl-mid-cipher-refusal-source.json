@@ -1,0 +1,22 @@
+{
+  "case": "openssl-mid-cipher-refusal",
+  "kind": "refusal",
+  "description": "mid-cipher openssl descriptor has no target-native materializer",
+  "mode": "source",
+  "role": "source",
+  "hostArch": "x86_64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false
+  },
+  "decision": "refused",
+  "refusal": {
+    "reason": "live cipher stream requires crypto-state descriptor",
+    "descriptorAccepted": false,
+    "materializerStrategy": null
+  },
+  "materializerAvailable": false
+}

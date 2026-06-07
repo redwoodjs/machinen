@@ -1,0 +1,7 @@
+{
+  "shape": "030-malloc-free-boundary-cli",
+  "decision": "refused",
+  "supportStage": "1-refused",
+  "refusalCode": "native-shape-unsupported-live-state",
+  "reason": "active syscall, thread, or socket state is outside this supported subset"
+}

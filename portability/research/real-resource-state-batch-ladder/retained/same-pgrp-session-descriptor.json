@@ -1,0 +1,20 @@
+{
+  "case": "pgrp-session-descriptor",
+  "kind": "support",
+  "description": "process group/session descriptor",
+  "mode": "same",
+  "role": "same",
+  "hostArch": "x86_64",
+  "pid": 3810267,
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "kernelObjectIdentityPreserved": false
+  },
+  "decision": "accepted",
+  "evidence": {
+    "pidPgrpSession": "3810268 3810268 3810268"
+  }
+}

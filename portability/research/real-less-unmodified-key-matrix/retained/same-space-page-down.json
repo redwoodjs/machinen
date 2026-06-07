@@ -1,0 +1,99 @@
+{
+  "case": "space-page-down",
+  "description": "SPACE advances one page",
+  "mode": "same",
+  "role": "same",
+  "hostArch": "x86_64",
+  "less": {
+    "path": "/usr/bin/less",
+    "versionLine": "less 590 (GNU regular expressions)"
+  },
+  "process": {
+    "pid": 3730853,
+    "state": {
+      "statusState": "S",
+      "threads": 1,
+      "signalPendingMask": "0000000000000000",
+      "statPgrp": 3730853,
+      "statSession": 3730853,
+      "statTtyNr": 34816,
+      "syscall": {
+        "raw": "0 0x3 0x7ffdeda958c7 0x1 0x24 0x5cedf34ff238 0x7ffdeda952d0 0x7ffdeda957e8 0x7e007433b2ad",
+        "parsed": true,
+        "number": 0,
+        "name": "read",
+        "args": [3, 140728590751943, 1, 36, 102177059107384, 140728590750416],
+        "fd": 3
+      }
+    },
+    "fds": [
+      {
+        "fd": 0,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 1,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 2,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 3,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 4,
+        "target": "/tmp/machinen-less-key-matrix-65onwjtf/less-input.txt"
+      }
+    ],
+    "stdioTargets": {
+      "0": "/dev/pts/0",
+      "1": "/dev/pts/0",
+      "2": "/dev/pts/0"
+    },
+    "syscallFdTarget": "/dev/pts/0",
+    "allStdioOnControlledPty": true
+  },
+  "pty": {
+    "slavePath": "/dev/pts/0",
+    "rows": 24,
+    "cols": 80,
+    "inputQueueBytesOnMaster": 0,
+    "inputQueueBytesOnSlave": {
+      "available": true,
+      "bytes": 0
+    },
+    "foregroundPgrpFromMaster": 3730853
+  },
+  "candidateChecks": {
+    "firstPage": true,
+    "syscallRead": true,
+    "syscallFdPty": true,
+    "stdioPty": true,
+    "sessionPgrp": true,
+    "queuesEmpty": true
+  },
+  "screenAtCandidate": {
+    "containsFirstPage": true,
+    "sample": "\u001b[?1049h\u001b[22;0;0t\u001b[?1h\u001b=\rline-001\r\nline-002\r\nline-003\r\nline-004\r\nline-005\r\nline-006\r\nline-007\r\nline-008\r\nline-009\r\nline-010\r\nline-011\r\nline-012\r\nline-013\r\nline-014\r\nline-015\r\nline-016\r\nline-017\r\nline-018\r\nline-019\r\nline-020\r\nline-021\r\nline-022\r\nline-023\r\n\u001b[7m/tmp/machinen-less-key-matrix-65onwjtf/less-input.txt\u001b[27m\u001b[K"
+  },
+  "input": {
+    "base64": "IA==",
+    "expect": "line-024"
+  },
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "markerSymbolsUsed": false
+  },
+  "behavior": {
+    "matchedExpectation": true,
+    "processExited": false,
+    "sample": "\r\u001b[Kline-024\r\nline-025\r\nline-026\r\nline-027\r\nline-028\r\nline-029\r\nline-030\r\nline-031\r\nline-032\r\nline-033\r\nline-034\r\nline-035\r\nline-036\r\nline-037\r\nline-038\r\nline-039\r\nline-040\r\nline-041\r\nline-042\r\nline-043\r\nline-044\r\nline-045\r\nline-046\r\n:\u001b[K"
+  },
+  "decision": "accepted"
+}

@@ -1,0 +1,56 @@
+{
+  "kind": "machinen.research.real-less-detector.known-less-build",
+  "version": 1,
+  "source": {
+    "url": "https://www.greenwoodsoftware.com/less/less-643.tar.gz",
+    "sha256": "2911b5432c836fa084c8a2e68f6cd6312372c026a58faaa98862731c8b6052e8",
+    "directory": "less-643"
+  },
+  "binary": {
+    "path": "/tmp/machinen-real-less-cross-arch-arm64-20260605T224806Z-63857/known-less/prefix/bin/less",
+    "sha256": "1b311069bb14593f8a052cce5fd8730c5e13089aff0147ff6854f6cd40d597c4",
+    "versionLine": "less 643 (POSIX regular expressions)",
+    "buildId": {
+      "available": true,
+      "line": "Build ID: 8319a6ac3f573902692c69068445166840c11f11"
+    }
+  },
+  "build": {
+    "cflags": "-g -O0 -fno-omit-frame-pointer",
+    "ldflags": "-Wl,--build-id",
+    "debugSymbolsRequired": true,
+    "markerSymbolsRequired": [
+      "machinen_less_ready_before_input_marker",
+      "machinen_less_ready_before_input_gate"
+    ],
+    "dependencies": {
+      "localNcursesHeadersBuilt": true,
+      "localNcursesBuilt": false,
+      "source": {
+        "url": "https://ftp.gnu.org/gnu/ncurses/ncurses-6.4.tar.gz",
+        "sha256": "6931283d9ac87c5073f30b6290c4c75f21632bb4fc3603ac8100812bed248159",
+        "directory": "ncurses-6.4"
+      },
+      "prefix": "/tmp/machinen-real-less-cross-arch-arm64-20260605T224806Z-63857/known-less/deps/ncurses",
+      "dynamicSystemLibraries": [
+        "/lib/aarch64-linux-gnu/libncurses.so.6",
+        "/lib/aarch64-linux-gnu/libtinfo.so.6"
+      ]
+    }
+  },
+  "marker": {
+    "symbol": "machinen_less_ready_before_input_marker",
+    "gateSymbol": "machinen_less_ready_before_input_gate",
+    "environment": "MACHINEN_LESS_SPIN_AT_READY=1",
+    "location": "command loop after prompt rendering and before getcc/read input",
+    "behavior": "spins in target-native less code at a source-level safe point for detector evidence only",
+    "symbols": {
+      "available": true,
+      "lines": [
+        "0000000000012350 T machinen_less_ready_before_input_marker",
+        "0000000000065f78 B machinen_less_ready_before_input_gate"
+      ]
+    }
+  },
+  "status": "passed"
+}

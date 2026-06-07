@@ -1,0 +1,2 @@
+append:second
+SHAPE_RESTORE_OK shape=006-append-only-logger target=amd64 result=42

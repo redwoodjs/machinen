@@ -1,0 +1,25 @@
+{
+  "kind": "machinen.research.real-less-cross-arch-marker-continuation.report",
+  "version": 1,
+  "status": "passed",
+  "directions": [
+    {
+      "direction": "amd64-to-arm64",
+      "decision": "accepted",
+      "sourceArch": "x86_64",
+      "targetArch": "aarch64"
+    },
+    {
+      "direction": "arm64-to-amd64",
+      "decision": "accepted",
+      "sourceArch": "aarch64",
+      "targetArch": "x86_64"
+    }
+  ],
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false
+  }
+}

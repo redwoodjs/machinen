@@ -1,0 +1,27 @@
+{
+  "kind": "machinen.research.native-binary-shape-ir",
+  "version": 1,
+  "shape": "053-less-page-backward-cli",
+  "sourceArch": "arm64",
+  "targetArch": "amd64",
+  "safePoint": "declared_shape_ready",
+  "entrySymbol": "continue_less_page_backward",
+  "sourceCpu": { "pc": "0xca4be6dd1990", "sp": "0xffffc0642880", "arg0": "0x1000" },
+  "targetCpuPlan": {
+    "pcSymbol": "continue_less_page_backward",
+    "argumentRegister": "rdi",
+    "stackBytes": 65536
+  },
+  "shapeDescriptor": {
+    "threads": 1,
+    "activeSyscall": false,
+    "sockets": 0,
+    "usesSourceIsaEmulation": false
+  },
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false
+  }
+}

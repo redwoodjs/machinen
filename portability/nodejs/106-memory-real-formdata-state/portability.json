@@ -1,0 +1,31 @@
+{
+  "id": "106-memory-real-formdata-state",
+  "slug": "memory-real-formdata-state",
+  "runtime": "nodejs",
+  "description": "formdata state is supported as selected semantic Node Memory IR state",
+  "disposition": "product-supported",
+  "claimUse": "selected semantic Node Memory IR materialization; no arbitrary process or raw V8 heap restore claim",
+  "architecturePolicy": "semantic IR validates on source and materializes target-native across arm64 and amd64",
+  "startCommand": "node app.mjs",
+  "healthPath": "/value",
+  "expectedBody": "memory-ready",
+  "dependencies": [],
+  "refusalCode": null,
+  "capability": {
+    "category": "memory-state",
+    "detects": ["semantic Memory IR row", "raw/opaque field absence"],
+    "captures": ["machinen.nodejs.memory-ir semantic row"],
+    "restores": ["target-native Node materialization through product-owned materializer"],
+    "verifies": ["semantic state deep-equality", "claim guard rejects raw process/V8 fields"],
+    "blocks": ["raw V8 heap restore", "same PID continuation", "active native/runtime resources"]
+  },
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "arbitraryLinuxProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "samePidContinuationClaimed": false,
+    "activeRequestOrSocketContinuationClaimed": false
+  }
+}

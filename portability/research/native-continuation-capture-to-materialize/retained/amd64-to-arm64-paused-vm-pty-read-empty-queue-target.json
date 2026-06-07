@@ -1,0 +1,136 @@
+{
+  "case": "pty-read-empty-queue",
+  "kind": "support",
+  "description": "materialize controlled pty read wait and continue with a byte",
+  "mode": "target",
+  "role": "target",
+  "hostArch": "aarch64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false
+  },
+  "decision": "accepted",
+  "descriptor": {
+    "kind": "machinen.research.native-continuation.capture-descriptor",
+    "version": 1,
+    "shapeId": "shape-controlled-pty-read-empty-queue",
+    "architectureNeutral": true,
+    "observationConsistency": "paused-vm-atomic",
+    "cpu": {
+      "wait": "pty-read",
+      "sourceArch": "x86_64",
+      "sourceSyscallNumber": "0",
+      "sourceWchan": "wait_woken",
+      "targetNativeReconstruction": true,
+      "sourceIsaEmulationRequired": false
+    },
+    "memory": {
+      "mode": "semantic-resource-descriptor-only",
+      "rawHeapCaptured": false,
+      "rawStackCaptured": false,
+      "rawRegistersCaptured": false,
+      "rawHeapStackRegistersCaptured": false,
+      "threadStacksCaptured": false
+    },
+    "resources": {
+      "process": {
+        "threads": 1,
+        "tracerPid": 0,
+        "ppid": 3964287,
+        "pgrp": 3964288,
+        "session": 3964288
+      },
+      "fds": [
+        {
+          "fd": 0,
+          "target": "/dev/pts/0",
+          "kind": "pty",
+          "queueBytes": 0
+        },
+        {
+          "fd": 1,
+          "target": "/dev/pts/0",
+          "kind": "pty",
+          "queueBytes": 0
+        },
+        {
+          "fd": 2,
+          "target": "/dev/pts/0",
+          "kind": "pty",
+          "queueBytes": 0
+        }
+      ],
+      "pty": {
+        "fdCount": 3,
+        "queueBytesKnownEmpty": true,
+        "fds": [
+          {
+            "fd": 0,
+            "target": "/dev/pts/0",
+            "kind": "pty",
+            "queueBytes": 0
+          },
+          {
+            "fd": 1,
+            "target": "/dev/pts/0",
+            "kind": "pty",
+            "queueBytes": 0
+          },
+          {
+            "fd": 2,
+            "target": "/dev/pts/0",
+            "kind": "pty",
+            "queueBytes": 0
+          }
+        ]
+      },
+      "pipes": {
+        "fdCount": 0,
+        "bufferBytesKnownEmpty": true,
+        "endpoints": [],
+        "processTreeCaptured": true
+      },
+      "sockets": {
+        "fdCount": 0,
+        "fds": [],
+        "bindOrReconnectPolicy": null,
+        "kernelSocketIdentityPreserved": false
+      },
+      "threads": {
+        "tasks": [
+          {
+            "tid": 3964288,
+            "state": "S",
+            "wchan": "wait_woken",
+            "syscall": {
+              "raw": "0 0x0 0x7c7b2c4a99d0 0x1 0x7c7b2c4490fa 0x0 0x0 0x7fff5be4c1e8 0x7c7b2c5c02ad",
+              "wchan": "wait_woken",
+              "number": "0",
+              "readLikeWait": true,
+              "pollLikeWait": false
+            }
+          }
+        ],
+        "roles": "parked-wait-descriptors",
+        "threadStacksCaptured": false
+      }
+    },
+    "materializer": {
+      "strategy": "target-native-reexec-or-shape-adapter",
+      "requires": [
+        "single accepted shape",
+        "empty accepted queues",
+        "no ptrace owner",
+        "target-native resources"
+      ],
+      "rawProcessMemoryMaterialization": false
+    }
+  },
+  "evidence": {
+    "output": "Z\r\npty-continued-Z\r\n",
+    "continued": true
+  }
+}

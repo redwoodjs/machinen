@@ -38,6 +38,61 @@
       "path": "nodejs-memory-ir.json",
       "classification": "nodejs-memory-classification.json",
       "disposition": "product-supported"
+    },
+    {
+      "id": "nodejs-quiescence-report",
+      "category": "nodejs",
+      "path": "nodejs-quiescence-report.json",
+      "disposition": "classified"
+    },
+    {
+      "id": "nodejs-native-adapter-report",
+      "category": "nodejs",
+      "path": "nodejs-native-adapter-report.json",
+      "disposition": "classified"
+    },
+    {
+      "id": "nodejs-gc-stable-weak-report",
+      "category": "nodejs",
+      "path": "nodejs-gc-stable-weak-report.json",
+      "disposition": "classified"
+    },
+    {
+      "id": "nodejs-resource-inventory",
+      "category": "nodejs",
+      "path": "nodejs-resource-inventory.json",
+      "disposition": "classified"
+    },
+    {
+      "id": "nodejs-resource-ir",
+      "category": "nodejs",
+      "path": "nodejs-resource-ir.json",
+      "classification": "nodejs-resource-classification.json",
+      "inventory": "nodejs-resource-inventory.json",
+      "disposition": "product-supported"
     }
-  ]
+  ],
+  "pauseBoundary": {
+    "kind": "machinen.portable-vm-pause-boundary",
+    "version": 1,
+    "accepted": true,
+    "sourceVmPauseRequired": true,
+    "pauseMechanism": "vmm-native-sigusr1-sigusr2",
+    "pauseSignal": "SIGUSR1",
+    "resumeSignal": "SIGUSR2",
+    "sourceVmPid": 91821,
+    "stoppedStateObserved": true,
+    "unsupportedPausedLiveStatePolicy": "refuse",
+    "vmmNativeMarker": {
+      "kind": "machinen.vmm-pause-marker",
+      "version": 1,
+      "backend": "hvf",
+      "vcpusStopped": true,
+      "resumeSignalRequired": "SIGUSR2"
+    },
+    "startedAt": "2026-06-04T19:55:20.253Z",
+    "pausedObservedAt": "2026-06-04T19:55:20.275Z",
+    "resumedAt": "2026-06-04T19:55:20.275Z",
+    "elapsedMs": 22
+  }
 }

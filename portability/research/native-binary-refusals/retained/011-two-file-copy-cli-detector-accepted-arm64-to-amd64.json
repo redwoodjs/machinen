@@ -1,0 +1,16 @@
+{
+  "shape": "011-two-file-copy-cli",
+  "decision": "accepted",
+  "supportStage": "4-supported-subset",
+  "supportScope": "declared safe-point two-file copy with regular file source and target descriptors",
+  "sourceArch": "arm64",
+  "targetArch": "amd64",
+  "facts": {
+    "entrySymbol": "continue_two_file_copy",
+    "sourcePc": "0xad9042391990",
+    "sourceSp": "0xffffc02ddc40",
+    "sourceArg0": "0x1000",
+    "targetArgumentRegister": "rdi",
+    "targetStackBytes": 65536
+  }
+}

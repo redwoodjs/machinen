@@ -1,0 +1,210 @@
+{
+  "case": "socket-local-connected-empty",
+  "kind": "support",
+  "description": "materialize local connected socket pair by semantic reconnect",
+  "mode": "target",
+  "role": "target",
+  "hostArch": "aarch64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false
+  },
+  "decision": "accepted",
+  "descriptor": {
+    "kind": "machinen.research.native-continuation.capture-descriptor",
+    "version": 1,
+    "shapeId": "shape-socket-connected-local-empty-queues",
+    "architectureNeutral": true,
+    "observationConsistency": "live-procfs-best-effort",
+    "cpu": {
+      "wait": "socket-local-connected-empty-queues",
+      "sourceArch": "x86_64",
+      "sourceSyscallNumber": "230",
+      "sourceWchan": "hrtimer_nanosleep",
+      "targetNativeReconstruction": true,
+      "sourceIsaEmulationRequired": false
+    },
+    "memory": {
+      "mode": "semantic-resource-descriptor-only",
+      "rawHeapCaptured": false,
+      "rawStackCaptured": false,
+      "rawRegistersCaptured": false,
+      "rawHeapStackRegistersCaptured": false,
+      "threadStacksCaptured": false
+    },
+    "resources": {
+      "process": {
+        "threads": 1,
+        "tracerPid": 0,
+        "ppid": 3963863,
+        "pgrp": 3963864,
+        "session": 3963864
+      },
+      "fds": [
+        {
+          "fd": 0,
+          "target": "pipe:[66055257]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 1,
+          "target": "pipe:[66043718]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 2,
+          "target": "pipe:[66043719]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 4,
+          "target": "socket:[66054303]",
+          "kind": "socket",
+          "queueBytes": null,
+          "socketInode": "66054303",
+          "socket": {
+            "family": "tcp4",
+            "state": "ESTABLISHED",
+            "stateHex": "01",
+            "txQueue": 0,
+            "rxQueue": 0,
+            "localAddressHex": "0100007F",
+            "localPort": 33100,
+            "remoteAddressHex": "0100007F",
+            "remotePort": 49137
+          }
+        },
+        {
+          "fd": 5,
+          "target": "socket:[66054304]",
+          "kind": "socket",
+          "queueBytes": null,
+          "socketInode": "66054304",
+          "socket": {
+            "family": "tcp4",
+            "state": "ESTABLISHED",
+            "stateHex": "01",
+            "txQueue": 0,
+            "rxQueue": 0,
+            "localAddressHex": "0100007F",
+            "localPort": 49137,
+            "remoteAddressHex": "0100007F",
+            "remotePort": 33100
+          }
+        }
+      ],
+      "pty": {
+        "fdCount": 0,
+        "queueBytesKnownEmpty": true,
+        "fds": []
+      },
+      "pipes": {
+        "fdCount": 3,
+        "bufferBytesKnownEmpty": true,
+        "endpoints": [
+          {
+            "fd": 0,
+            "target": "pipe:[66055257]",
+            "kind": "pipe",
+            "queueBytes": 0
+          },
+          {
+            "fd": 1,
+            "target": "pipe:[66043718]",
+            "kind": "pipe",
+            "queueBytes": 0
+          },
+          {
+            "fd": 2,
+            "target": "pipe:[66043719]",
+            "kind": "pipe",
+            "queueBytes": 0
+          }
+        ],
+        "processTreeCaptured": true
+      },
+      "sockets": {
+        "fdCount": 2,
+        "fds": [
+          {
+            "fd": 4,
+            "target": "socket:[66054303]",
+            "kind": "socket",
+            "queueBytes": null,
+            "socketInode": "66054303",
+            "socket": {
+              "family": "tcp4",
+              "state": "ESTABLISHED",
+              "stateHex": "01",
+              "txQueue": 0,
+              "rxQueue": 0,
+              "localAddressHex": "0100007F",
+              "localPort": 33100,
+              "remoteAddressHex": "0100007F",
+              "remotePort": 49137
+            }
+          },
+          {
+            "fd": 5,
+            "target": "socket:[66054304]",
+            "kind": "socket",
+            "queueBytes": null,
+            "socketInode": "66054304",
+            "socket": {
+              "family": "tcp4",
+              "state": "ESTABLISHED",
+              "stateHex": "01",
+              "txQueue": 0,
+              "rxQueue": 0,
+              "localAddressHex": "0100007F",
+              "localPort": 49137,
+              "remoteAddressHex": "0100007F",
+              "remotePort": 33100
+            }
+          }
+        ],
+        "bindOrReconnectPolicy": "semantic-rebind-or-reconnect-not-kernel-identity",
+        "kernelSocketIdentityPreserved": false
+      },
+      "threads": {
+        "tasks": [
+          {
+            "tid": 3963864,
+            "state": "S",
+            "wchan": "hrtimer_nanosleep",
+            "syscall": {
+              "raw": "230 0x1 0x1 0x7ffc1cac4260 0x0 0x0 0x0 0x7ffc1cac4248 0x73538b62f503",
+              "wchan": "hrtimer_nanosleep",
+              "number": "230",
+              "readLikeWait": false,
+              "pollLikeWait": false
+            }
+          }
+        ],
+        "roles": "parked-wait-descriptors",
+        "threadStacksCaptured": false
+      }
+    },
+    "materializer": {
+      "strategy": "target-native-reexec-or-shape-adapter",
+      "requires": [
+        "single accepted shape",
+        "empty accepted queues",
+        "no ptrace owner",
+        "target-native resources"
+      ],
+      "rawProcessMemoryMaterialization": false
+    }
+  },
+  "evidence": {
+    "received": "reconnect-ok",
+    "echo": "echo-reconnect-ok",
+    "kernelSocketIdentityPreserved": false
+  }
+}

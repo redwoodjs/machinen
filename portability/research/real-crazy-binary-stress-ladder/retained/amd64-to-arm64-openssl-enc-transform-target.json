@@ -1,0 +1,22 @@
+{
+  "case": "openssl-enc-transform",
+  "kind": "support",
+  "description": "openssl enc transforms a file with a fixed passphrase",
+  "mode": "target",
+  "role": "target",
+  "hostArch": "aarch64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false
+  },
+  "decision": "accepted",
+  "evidence": {
+    "binary": "/usr/bin/openssl",
+    "roundTrip": "openssl-ok",
+    "encRc": 0,
+    "decRc": 0
+  }
+}

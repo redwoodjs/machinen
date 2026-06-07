@@ -1,0 +1,27 @@
+{
+  "case": "tcp-echo-semantic-reconnect",
+  "description": "local TCP echo pair with no in-flight bytes is semantically reconnected",
+  "mode": "target",
+  "role": "target",
+  "hostArch": "aarch64",
+  "pid": 1083296,
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "markerSymbolsUsed": false,
+    "preservesKernelSocketIdentity": false
+  },
+  "decision": "accepted",
+  "capture": {
+    "clientQueuedBytes": 0,
+    "serverQueuedBytes": 0,
+    "semanticReconnectOnly": true,
+    "kernelConnectionIdentityPreserved": false
+  },
+  "materialization": {
+    "semanticReconnectOnly": true,
+    "echoContinued": true
+  }
+}

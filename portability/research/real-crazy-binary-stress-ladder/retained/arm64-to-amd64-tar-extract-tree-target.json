@@ -1,0 +1,22 @@
+{
+  "case": "tar-extract-tree",
+  "kind": "support",
+  "description": "tar archives and extracts a deterministic file tree",
+  "mode": "target",
+  "role": "target",
+  "hostArch": "x86_64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false
+  },
+  "decision": "accepted",
+  "evidence": {
+    "binary": "/usr/bin/tar",
+    "content": "tar-ok",
+    "createRc": 0,
+    "extractRc": 0
+  }
+}

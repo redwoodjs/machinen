@@ -1,0 +1,34 @@
+{
+  "kind": "machinen.experimental.native.materialize",
+  "version": 1,
+  "decision": "refused",
+  "reason": "invalid-descriptor",
+  "schemaValidation": {
+    "status": "failed",
+    "errors": [
+      "descriptor kind mismatch",
+      "descriptor version must be 1",
+      "shapeId is required",
+      "architectureNeutral must be true",
+      "cpu.targetNativeReconstruction must be true",
+      "cpu.sourceIsaEmulationRequired must be false",
+      "memory.rawHeapCaptured must be false",
+      "memory.rawStackCaptured must be false",
+      "memory.rawRegistersCaptured must be false",
+      "memory.rawHeapStackRegistersCaptured must be false",
+      "materializer.rawProcessMemoryMaterialization must be false"
+    ]
+  },
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false,
+    "runtimeHeapRestoreClaimed": false,
+    "kernelSocketIdentityPreserved": false
+  },
+  "interface": "machinen.experimental.native",
+  "command": "native materialize",
+  "experimental": true
+}

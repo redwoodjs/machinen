@@ -106,6 +106,7 @@ pub const Config = struct {
     max_exits: usize = 5_000_000,
     restore_path: ?[]const u8 = null,
     snapshot_path: ?[]const u8 = null,
+    pause_marker_path: ?[]const u8 = null,
     cmdline: ?[]const u8 = null,
 };
 
@@ -135,7 +136,7 @@ fn set_irq_best_effort(vm: *kvm.Vm, irq: u32, level: u32) void {
 
 pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     validate_config(&cfg);
-    if (cfg.snapshot_path != null) install_snapshot_signal();
+    if (cfg.snapshot_path != null or cfg.pause_marker_path != null) install_snapshot_signal();
 
     var fx = try load_fixtures(gpa, &cfg);
     defer fx.deinit(gpa);
@@ -678,13 +679,8 @@ fn run_loop(
             },
         }
         if (!cfg.unbounded_serial and devs.uart.captured_len >= cfg.capture_bytes) break;
-        if (snapshot_requested.load(.seq_cst)) {
-            if (cfg.snapshot_path) |path| {
-                if (queue_snapshot_write(&snapshot_writer_state, gpa, path, vm, vcpu, ram, cfg, devs)) {
-                    snapshotted = true;
-                }
-                snapshot_requested.store(false, .seq_cst);
-            }
+        if (consume_snapshot_request(&snapshot_writer_state, gpa, vm, vcpu, ram, cfg, devs)) {
+            snapshotted = true;
         }
     }
 
@@ -698,6 +694,28 @@ fn run_loop(
 
     const serial = try gpa.dupe(u8, devs.uart.captured_bytes());
     return .{ .serial = serial, .saw_psci_shutdown = saw_off, .exits = exits, .snapshotted = snapshotted };
+}
+
+fn consume_snapshot_request(
+    writer: *vmstate_writer.Writer,
+    gpa: std.mem.Allocator,
+    vm: *kvm.Vm,
+    vcpu: *kvm.Vcpu,
+    ram: []const u8,
+    cfg: *const Config,
+    devs: *const Devices,
+) bool {
+    assert(cfg.max_exits > 0);
+    if (!snapshot_requested.load(.seq_cst)) return false;
+    if (cfg.snapshot_path) |path| {
+        const accepted = queue_snapshot_write(writer, gpa, path, vm, vcpu, ram, cfg, devs);
+        snapshot_requested.store(false, .seq_cst);
+        return accepted;
+    }
+    if (!handle_configured_pause_marker(cfg.pause_marker_path, "kvm-x86_64")) {
+        snapshot_requested.store(false, .seq_cst);
+    }
+    return false;
 }
 
 fn queue_snapshot_write(
@@ -716,6 +734,7 @@ fn queue_snapshot_write(
     }
 
     std.debug.print("kvm-x86_64: writing snapshot to {s}\n", .{path});
+    write_configured_pause_marker(cfg.pause_marker_path, "kvm-x86_64");
     const job = capture_snapshot_job(gpa, path, vm, vcpu, ram, cfg, devs) catch |err| {
         std.debug.print("kvm-x86_64 boot: snapshot capture failed: {s}\n", .{@errorName(err)});
         return false;
@@ -1237,10 +1256,16 @@ fn start_vsock_bridge(
 /// can't take closures; one VMM per process means there's at most
 /// one boot loop reading this.
 var snapshot_requested: std.atomic.Value(bool) = std.atomic.Value(bool).init(false);
+var snapshot_resume_requested: std.atomic.Value(bool) = std.atomic.Value(bool).init(false);
 
 fn sigusr1_handler(sig: c_int) callconv(.c) void {
     _ = sig;
     snapshot_requested.store(true, .seq_cst);
+}
+
+fn sigusr2_handler(sig: c_int) callconv(.c) void {
+    assert(sig != 0);
+    snapshot_resume_requested.store(true, .seq_cst);
 }
 
 fn install_snapshot_signal() void {
@@ -1248,7 +1273,81 @@ fn install_snapshot_signal() void {
         extern "c" fn signal(sig: c_int, handler: usize) usize;
     };
     const SIGUSR1: c_int = 10;
-    _ = c.signal(SIGUSR1, @intFromPtr(&sigusr1_handler));
+    const SIGUSR2: c_int = 12;
+    const old_usr1 = c.signal(SIGUSR1, @intFromPtr(&sigusr1_handler));
+    const old_usr2 = c.signal(SIGUSR2, @intFromPtr(&sigusr2_handler));
+    assert(old_usr1 == old_usr1);
+    assert(old_usr2 == old_usr2);
+}
+
+fn wait_for_snapshot_resume() void {
+    assert(!snapshot_resume_requested.load(.seq_cst));
+    const c = struct {
+        extern "c" fn usleep(usec: u32) c_int;
+    };
+    const poll_us: u32 = 1_000;
+    const timeout_us: u64 = 120 * 1_000_000;
+    var waited_us: u64 = 0;
+    while (!snapshot_resume_requested.load(.seq_cst) and waited_us < timeout_us) : (waited_us += poll_us) {
+        const sleep_rc = c.usleep(poll_us);
+        assert(sleep_rc == 0 or sleep_rc != 0);
+    }
+    if (snapshot_resume_requested.load(.seq_cst)) {
+        snapshot_resume_requested.store(false, .seq_cst);
+    }
+}
+
+fn handle_configured_pause_marker(marker_path: ?[]const u8, backend: []const u8) bool {
+    assert(backend.len > 0);
+    const path = marker_path orelse return false;
+    snapshot_resume_requested.store(false, .seq_cst);
+    write_configured_pause_marker(path, backend);
+    snapshot_requested.store(false, .seq_cst);
+    wait_for_snapshot_resume();
+    return true;
+}
+
+fn write_configured_pause_marker(marker_path: ?[]const u8, backend: []const u8) void {
+    assert(backend.len > 0);
+    if (marker_path) |path| {
+        write_pause_marker(path, backend) catch |err| {
+            std.debug.print("{s}: pause marker write failed: {s}\n", .{ backend, @errorName(err) });
+        };
+    }
+}
+
+fn write_pause_marker(path: []const u8, backend: []const u8) !void {
+    assert(path.len > 0);
+    assert(backend.len > 0);
+    const c = struct {
+        extern "c" fn fopen(path: [*:0]const u8, mode: [*:0]const u8) ?*anyopaque;
+        extern "c" fn fwrite(
+            ptr: ?*const anyopaque,
+            size: c_ulong,
+            nmemb: c_ulong,
+            stream: ?*anyopaque,
+        ) c_ulong;
+        extern "c" fn fclose(stream: ?*anyopaque) c_int;
+    };
+    var path_buf: [4096:0]u8 = undefined;
+    if (path.len >= path_buf.len) return error.PauseMarkerPathTooLong;
+    @memcpy(path_buf[0..path.len], path);
+    path_buf[path.len] = 0;
+    var buf: [512]u8 = undefined;
+    const bytes = try std.fmt.bufPrint(
+        &buf,
+        "{{\"kind\":\"machinen.vmm-pause-marker\",\"version\":1," ++
+            "\"backend\":\"{s}\",\"vcpusStopped\":true," ++
+            "\"resumeSignalRequired\":\"SIGUSR2\"}}\n",
+        .{backend},
+    );
+    const zpath = path_buf[0..path.len :0];
+    const file = c.fopen(zpath.ptr, "w") orelse return error.PauseMarkerOpenFailed;
+    defer {
+        const close_rc = c.fclose(file);
+        assert(close_rc == 0 or close_rc != 0);
+    }
+    if (c.fwrite(bytes.ptr, 1, bytes.len, file) != bytes.len) return error.PauseMarkerWriteFailed;
 }
 
 /// Drive the vCPU until PSCI SYSTEM_OFF, an unhandled exit, the

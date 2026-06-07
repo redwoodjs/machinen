@@ -1,0 +1,16 @@
+{
+  "shape": "020-hash-table-fixed-buckets-cli",
+  "decision": "accepted",
+  "supportStage": "4-supported-subset",
+  "supportScope": "declared safe-point fixed-bucket hash table with declared bucket pointers",
+  "sourceArch": "amd64",
+  "targetArch": "arm64",
+  "facts": {
+    "entrySymbol": "continue_hash_table",
+    "sourcePc": "0x5fd5bf186c12",
+    "sourceSp": "0x7ffdd5882ff0",
+    "sourceArg0": "0x1000",
+    "targetArgumentRegister": "x0",
+    "targetStackBytes": 65536
+  }
+}

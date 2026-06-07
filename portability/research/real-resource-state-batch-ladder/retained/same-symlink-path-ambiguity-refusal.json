@@ -1,0 +1,22 @@
+{
+  "case": "symlink-path-ambiguity-refusal",
+  "kind": "refusal",
+  "description": "symlink path ambiguity refused",
+  "mode": "same",
+  "role": "same",
+  "hostArch": "x86_64",
+  "pid": 3806876,
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "kernelObjectIdentityPreserved": false
+  },
+  "decision": "refused",
+  "refusal": {
+    "reason": "symlink-target-changed",
+    "before": "/tmp/machinen-resource-state-batch-w1uobz_v/a",
+    "after": "/tmp/machinen-resource-state-batch-w1uobz_v/b"
+  }
+}

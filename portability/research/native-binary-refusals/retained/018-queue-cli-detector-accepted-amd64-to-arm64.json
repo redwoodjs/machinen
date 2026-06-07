@@ -1,0 +1,16 @@
+{
+  "shape": "018-queue-cli",
+  "decision": "accepted",
+  "supportStage": "4-supported-subset",
+  "supportScope": "declared safe-point queue with head and tail pointers",
+  "sourceArch": "amd64",
+  "targetArch": "arm64",
+  "facts": {
+    "entrySymbol": "continue_queue",
+    "sourcePc": "0x579cd0619c12",
+    "sourceSp": "0x7ffe42c919f0",
+    "sourceArg0": "0x1000",
+    "targetArgumentRegister": "x0",
+    "targetStackBytes": 65536
+  }
+}

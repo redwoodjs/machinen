@@ -1,0 +1,2 @@
+less-wrap:abcde|fghij
+SHAPE_RESTORE_OK shape=063-less-wrap-long-line-cli target=amd64 result=42

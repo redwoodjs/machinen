@@ -1,0 +1,21 @@
+{
+  "case": "process-group-signal",
+  "kind": "support",
+  "description": "process group signal delivery descriptor",
+  "mode": "source",
+  "role": "source",
+  "hostArch": "aarch64",
+  "pid": 1131230,
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "kernelObjectIdentityPreserved": false
+  },
+  "decision": "captured",
+  "evidence": {
+    "childExited": true,
+    "returncode": -15
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "kind": "machinen.research.real-less-unmodified-safe-point-inference.report",
+  "version": 1,
+  "status": "passed",
+  "classified": ["classified-candidate"],
+  "refused": [],
+  "supportClaimed": false,
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "supportClaimed": false,
+    "markerSymbolsUsed": false
+  }
+}

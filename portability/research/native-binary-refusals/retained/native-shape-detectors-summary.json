@@ -1,0 +1,148 @@
+{
+  "kind": "machinen.research.native-binary-refusal.native-shape-detectors-summary",
+  "version": 1,
+  "supportedSubsetRows": 28,
+  "rows": [
+    {
+      "row": "002-string-transform-cli",
+      "status": "passed",
+      "supportScope": "declared safe-point string transform with target-native final jump and no live kernel resources"
+    },
+    {
+      "row": "003-array-sum-cli",
+      "status": "passed",
+      "supportScope": "declared safe-point fixed array sum with target-native final jump and no live kernel resources"
+    },
+    {
+      "row": "004-linked-list-cli",
+      "status": "passed",
+      "supportScope": "declared safe-point linked list with in-region next pointers and no live kernel resources"
+    },
+    {
+      "row": "005-regular-file-reader",
+      "status": "passed",
+      "supportScope": "declared safe-point regular file descriptor descriptor with target reopen/seek and no non-file fd"
+    },
+    {
+      "row": "006-append-only-logger",
+      "status": "passed",
+      "supportScope": "declared safe-point append-only regular file descriptor with pending user buffer and no duplicate-write state"
+    },
+    {
+      "row": "007-argv-env-printer",
+      "status": "passed",
+      "supportScope": "declared safe-point argv/env string descriptor with target-native pointer reconstruction"
+    },
+    {
+      "row": "008-malloc-object-graph",
+      "status": "passed",
+      "supportScope": "declared safe-point malloc object graph with declared inter-object pointers"
+    },
+    {
+      "row": "009-recursive-factorial-safepoint",
+      "status": "passed",
+      "supportScope": "declared safe-point recursive factorial frame descriptor subset"
+    },
+    {
+      "row": "011-two-file-copy-cli",
+      "status": "passed",
+      "supportScope": "declared safe-point two-file copy with regular file source and target descriptors"
+    },
+    {
+      "row": "012-seek-overwrite-cli",
+      "status": "passed",
+      "supportScope": "declared safe-point seek and overwrite regular file descriptor"
+    },
+    {
+      "row": "013-line-reader-cli",
+      "status": "passed",
+      "supportScope": "declared safe-point line reader with regular file offset descriptor"
+    },
+    {
+      "row": "014-directory-listing-cli",
+      "status": "passed",
+      "supportScope": "declared safe-point directory listing with path cursor descriptor"
+    },
+    {
+      "row": "015-stat-checker-cli",
+      "status": "passed",
+      "supportScope": "declared safe-point stat checker with path and size guard"
+    },
+    {
+      "row": "016-stdio-echo-cli",
+      "status": "passed",
+      "supportScope": "declared safe-point stdio echo descriptor with no live terminal state"
+    },
+    {
+      "row": "017-fixed-ring-buffer-cli",
+      "status": "passed",
+      "supportScope": "declared safe-point fixed ring buffer with head and tail indexes"
+    },
+    {
+      "row": "018-queue-cli",
+      "status": "passed",
+      "supportScope": "declared safe-point queue with head and tail pointers"
+    },
+    {
+      "row": "019-binary-tree-traversal-cli",
+      "status": "passed",
+      "supportScope": "declared safe-point binary tree traversal with declared child pointers"
+    },
+    {
+      "row": "020-hash-table-fixed-buckets-cli",
+      "status": "passed",
+      "supportScope": "declared safe-point fixed-bucket hash table with declared bucket pointers"
+    },
+    {
+      "row": "021-graph-with-shared-node-cli",
+      "status": "passed",
+      "supportScope": "declared safe-point graph with shared node alias preservation"
+    },
+    {
+      "row": "022-cycle-list-cli",
+      "status": "passed",
+      "supportScope": "declared safe-point cyclic list with bounded traversal descriptor"
+    },
+    {
+      "row": "023-struct-with-nested-pointers-cli",
+      "status": "passed",
+      "supportScope": "declared safe-point struct with nested in-region pointer"
+    },
+    {
+      "row": "024-global-variable-counter-cli",
+      "status": "passed",
+      "supportScope": "declared safe-point writable global counter descriptor"
+    },
+    {
+      "row": "025-static-buffer-cli",
+      "status": "passed",
+      "supportScope": "declared safe-point static buffer descriptor"
+    },
+    {
+      "row": "026-multiple-stack-frames-cli",
+      "status": "passed",
+      "supportScope": "declared safe-point multiple stack-frame descriptor subset"
+    },
+    {
+      "row": "027-callee-saved-register-cli",
+      "status": "passed",
+      "supportScope": "declared safe-point callee-saved register descriptor subset"
+    },
+    {
+      "row": "028-float-simd-scalar-cli",
+      "status": "passed",
+      "supportScope": "declared safe-point floating-point scalar descriptor subset"
+    },
+    {
+      "row": "029-errno-libc-result-boundary-cli",
+      "status": "passed",
+      "supportScope": "declared safe-point target-native libc errno boundary descriptor"
+    },
+    {
+      "row": "030-malloc-free-boundary-cli",
+      "status": "passed",
+      "supportScope": "declared safe-point malloc/free ownership boundary descriptor"
+    }
+  ],
+  "status": "passed"
+}

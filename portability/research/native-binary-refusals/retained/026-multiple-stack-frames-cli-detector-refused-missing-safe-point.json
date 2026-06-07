@@ -1,0 +1,7 @@
+{
+  "shape": "026-multiple-stack-frames-cli",
+  "decision": "refused",
+  "supportStage": "1-refused",
+  "refusalCode": "native-shape-missing-safe-point",
+  "reason": "safe point is not declared for this shape"
+}

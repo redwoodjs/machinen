@@ -1,0 +1,20 @@
+{
+  "case": "sleep-remaining-time",
+  "kind": "support",
+  "description": "sleep remaining-time descriptor reconstructed",
+  "mode": "source",
+  "role": "source",
+  "hostArch": "aarch64",
+  "pid": 1131891,
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "kernelObjectIdentityPreserved": false
+  },
+  "decision": "captured",
+  "evidence": {
+    "remainingMsDescriptor": 100
+  }
+}

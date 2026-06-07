@@ -28,6 +28,20 @@
       }
     },
     {
+      "id": "038-memory-real-array",
+      "shape": "array",
+      "semanticState": {
+        "kind": "array",
+        "anchor": "machinen-real-array-anchor-v1",
+        "values": [1, 2, 3, 5, 8],
+        "sum": 19
+      },
+      "anchors": {
+        "anchor": "machinen-real-array-anchor-v1",
+        "values": "array-values:1,2,3,5,8"
+      }
+    },
+    {
       "id": "039-memory-real-closure-context",
       "shape": "closure-context",
       "semanticState": {
@@ -177,6 +191,1662 @@
       "anchors": {
         "anchor": "machinen-real-http-closure-anchor-v1",
         "hits": "http-hits:5"
+      }
+    },
+    {
+      "id": "050-memory-real-date-regexp",
+      "shape": "date-regexp",
+      "semanticState": {
+        "kind": "date-regexp",
+        "anchor": "machinen-real-date-regexp-anchor-v1",
+        "dateIso": "2026-06-04T05:55:16.123Z",
+        "dateEpochMs": 1780552516123,
+        "regexpSource": "machinen-(portable)-(date-regexp)",
+        "regexpFlags": "giu"
+      },
+      "anchors": {
+        "anchor": "machinen-real-date-regexp-anchor-v1",
+        "dateIso": "date-iso:2026-06-04T05:55:16.123Z",
+        "regexpSource": "regexp-source:machinen-(portable)-(date-regexp)",
+        "regexpFlags": "regexp-flags:giu"
+      }
+    },
+    {
+      "id": "051-memory-real-error-object",
+      "shape": "error-object",
+      "semanticState": {
+        "kind": "error-object",
+        "anchor": "machinen-real-error-object-anchor-v1",
+        "name": "MachinenPortableError",
+        "message": "machinen-error-message-v1",
+        "code": "MACHINEN_PORTABLE_ERROR",
+        "causeName": "TypeError",
+        "causeMessage": "machinen-error-cause-message-v1"
+      },
+      "anchors": {
+        "anchor": "machinen-real-error-object-anchor-v1",
+        "name": "error-name:MachinenPortableError",
+        "message": "error-message:machinen-error-message-v1",
+        "code": "error-code:MACHINEN_PORTABLE_ERROR",
+        "cause": "error-cause:machinen-error-cause-message-v1"
+      }
+    },
+    {
+      "id": "052-memory-real-url-searchparams",
+      "shape": "url-searchparams",
+      "semanticState": {
+        "kind": "url-searchparams",
+        "anchor": "machinen-real-url-searchparams-anchor-v1",
+        "href": "https://example.test:8443/portable/path?alpha=1&beta=two&beta=three&gamma=machinen#frag",
+        "origin": "https://example.test:8443",
+        "pathname": "/portable/path",
+        "search": "?alpha=1&beta=two&beta=three&gamma=machinen",
+        "params": [
+          ["alpha", "1"],
+          ["beta", "two"],
+          ["beta", "three"],
+          ["gamma", "machinen"]
+        ]
+      },
+      "anchors": {
+        "anchor": "machinen-real-url-searchparams-anchor-v1",
+        "href": "url-href:https://example.test:8443/portable/path?alpha=1&beta=two&beta=three&gamma=machinen#frag",
+        "search": "url-search:?alpha=1&beta=two&beta=three&gamma=machinen",
+        "params": "url-params:alpha=1,beta=two,beta=three,gamma=machinen"
+      }
+    },
+    {
+      "id": "053-memory-real-bigint-rich-graph",
+      "shape": "bigint-rich-graph",
+      "semanticState": {
+        "kind": "bigint-rich-graph",
+        "anchor": "machinen-real-bigint-rich-graph-anchor-v1",
+        "label": "machinen-bigint-rich-graph-label-v1",
+        "primary": {
+          "type": "BigInt",
+          "decimal": "900719925474099312345"
+        },
+        "nested": {
+          "amount": {
+            "type": "BigInt",
+            "decimal": "18446744073709551615"
+          }
+        },
+        "values": [
+          {
+            "type": "BigInt",
+            "decimal": "1"
+          },
+          {
+            "type": "BigInt",
+            "decimal": "2"
+          },
+          {
+            "type": "BigInt",
+            "decimal": "340282366920938463463374607431768211455"
+          }
+        ]
+      },
+      "anchors": {
+        "anchor": "machinen-real-bigint-rich-graph-anchor-v1",
+        "primary": "bigint-primary:900719925474099312345",
+        "nested": "bigint-nested:18446744073709551615",
+        "array": "bigint-array:1,2,340282366920938463463374607431768211455"
+      }
+    },
+    {
+      "id": "054-memory-real-module-singleton-state",
+      "shape": "module-singleton-state",
+      "semanticState": {
+        "kind": "module-singleton-state",
+        "anchor": "machinen-real-module-singleton-anchor-v1",
+        "moduleName": "machinen-portable-singleton-module-v1",
+        "counter": 19,
+        "token": "machinen-singleton-token-v1",
+        "nested": {
+          "warmed": true,
+          "label": "machinen-singleton-nested-label-v1"
+        },
+        "lastTouch": "machinen-singleton-last-touch-v1"
+      },
+      "anchors": {
+        "anchor": "machinen-real-module-singleton-anchor-v1",
+        "module": "module-singleton-name:machinen-portable-singleton-module-v1",
+        "counter": "module-singleton-counter:19",
+        "token": "module-singleton-token:machinen-singleton-token-v1"
+      }
+    },
+    {
+      "id": "055-memory-real-arraybuffer-dataview",
+      "shape": "arraybuffer-dataview",
+      "semanticState": {
+        "kind": "arraybuffer-dataview",
+        "anchor": "machinen-real-arraybuffer-dataview-anchor-v1",
+        "byteLength": 8,
+        "bytes": [3, 1, 4, 1, 5, 9, 2, 6],
+        "uint16beAt0": 769,
+        "float32leAt0": 3.5
+      },
+      "anchors": {
+        "anchor": "machinen-real-arraybuffer-dataview-anchor-v1",
+        "bytes": "arraybuffer-bytes:3,1,4,1,5,9,2,6",
+        "uint16": "dataview-uint16be:769",
+        "float32": "dataview-float32:3.5"
+      }
+    },
+    {
+      "id": "056-memory-real-symbol-keyed-object",
+      "shape": "symbol-keyed-object",
+      "semanticState": {
+        "kind": "symbol-keyed-object",
+        "anchor": "machinen-real-symbol-keyed-object-anchor-v1",
+        "stringKeys": ["visible"],
+        "symbolProperties": [
+          {
+            "registry": "local",
+            "description": "machinen.secret",
+            "value": "portable-symbol-value"
+          },
+          {
+            "registry": "global",
+            "description": "machinen.global",
+            "value": 56
+          }
+        ]
+      },
+      "anchors": {
+        "anchor": "machinen-real-symbol-keyed-object-anchor-v1",
+        "symbol": "symbol-description:machinen.secret",
+        "value": "symbol-value:portable-symbol-value",
+        "globalSymbol": "global-symbol:machinen.global"
+      }
+    },
+    {
+      "id": "057-memory-real-eventemitter-listeners",
+      "shape": "eventemitter-listeners",
+      "semanticState": {
+        "kind": "eventemitter-listeners",
+        "anchor": "machinen-real-eventemitter-listeners-anchor-v1",
+        "eventName": "portable-event",
+        "listenerCount": 2,
+        "listenerLabels": ["audit-listener", "metrics-listener"]
+      },
+      "anchors": {
+        "anchor": "machinen-real-eventemitter-listeners-anchor-v1",
+        "event": "eventemitter-event:portable-event",
+        "listeners": "eventemitter-listeners:2",
+        "listenerLabel": "eventemitter-listener-label:audit-listener"
+      }
+    },
+    {
+      "id": "058-memory-real-in-memory-lru-cache",
+      "shape": "in-memory-lru-cache",
+      "semanticState": {
+        "kind": "in-memory-lru-cache",
+        "anchor": "machinen-real-lru-cache-anchor-v1",
+        "capacity": 3,
+        "entriesLeastToMostRecent": [
+          [
+            "beta",
+            {
+              "hits": 2
+            }
+          ],
+          [
+            "gamma",
+            {
+              "hits": 3
+            }
+          ],
+          [
+            "delta",
+            {
+              "hits": 4
+            }
+          ]
+        ],
+        "evictedKeys": ["alpha"]
+      },
+      "anchors": {
+        "anchor": "machinen-real-lru-cache-anchor-v1",
+        "keys": "lru-cache-keys:beta,gamma,delta",
+        "evicted": "lru-cache-evicted:alpha",
+        "capacity": "lru-cache-capacity:3"
+      }
+    },
+    {
+      "id": "059-memory-real-queue-state",
+      "shape": "queue-state",
+      "semanticState": {
+        "kind": "queue-state",
+        "anchor": "machinen-real-queue-state-anchor-v1",
+        "headIndex": 1,
+        "tailIndex": 3,
+        "pending": [
+          {
+            "id": "job-002",
+            "priority": 5
+          },
+          {
+            "id": "job-003",
+            "priority": 3
+          },
+          {
+            "id": "job-004",
+            "priority": 1
+          }
+        ],
+        "processed": ["job-001"]
+      },
+      "anchors": {
+        "anchor": "machinen-real-queue-state-anchor-v1",
+        "head": "queue-head:job-002",
+        "tail": "queue-tail:job-004",
+        "items": "queue-items:job-002,job-003,job-004"
+      }
+    },
+    {
+      "id": "063-memory-real-abort-controller-state",
+      "shape": "abort-controller-state",
+      "semanticState": {
+        "kind": "abort-controller-state",
+        "anchor": "machinen-real-abort-controller-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-abort-controller-state-anchor-v1",
+        "marker": "abort-controller-state:semantic-state"
+      }
+    },
+    {
+      "id": "064-memory-real-abort-signal-listeners",
+      "shape": "abort-signal-listeners",
+      "semanticState": {
+        "kind": "abort-signal-listeners",
+        "anchor": "machinen-real-abort-signal-listeners-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-abort-signal-listeners-anchor-v1",
+        "marker": "abort-signal-listeners:semantic-state"
+      }
+    },
+    {
+      "id": "069-memory-real-reflect-metadata-state",
+      "shape": "reflect-metadata-state",
+      "semanticState": {
+        "kind": "reflect-metadata-state",
+        "anchor": "machinen-real-reflect-metadata-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-reflect-metadata-state-anchor-v1",
+        "marker": "reflect-metadata-state:semantic-state"
+      }
+    },
+    {
+      "id": "070-memory-real-property-descriptors-state",
+      "shape": "property-descriptors-state",
+      "semanticState": {
+        "kind": "property-descriptors-state",
+        "anchor": "machinen-real-property-descriptors-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-property-descriptors-state-anchor-v1",
+        "marker": "property-descriptors-state:semantic-state"
+      }
+    },
+    {
+      "id": "071-memory-real-frozen-object-state",
+      "shape": "frozen-object-state",
+      "semanticState": {
+        "kind": "frozen-object-state",
+        "anchor": "machinen-real-frozen-object-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-frozen-object-state-anchor-v1",
+        "marker": "frozen-object-state:semantic-state"
+      }
+    },
+    {
+      "id": "072-memory-real-sealed-object-state",
+      "shape": "sealed-object-state",
+      "semanticState": {
+        "kind": "sealed-object-state",
+        "anchor": "machinen-real-sealed-object-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-sealed-object-state-anchor-v1",
+        "marker": "sealed-object-state:semantic-state"
+      }
+    },
+    {
+      "id": "079-memory-real-commonjs-cache-state",
+      "shape": "commonjs-cache-state",
+      "semanticState": {
+        "kind": "commonjs-cache-state",
+        "anchor": "machinen-real-commonjs-cache-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-commonjs-cache-state-anchor-v1",
+        "marker": "commonjs-cache-state:semantic-state"
+      }
+    },
+    {
+      "id": "082-memory-real-import-meta-state",
+      "shape": "import-meta-state",
+      "semanticState": {
+        "kind": "import-meta-state",
+        "anchor": "machinen-real-import-meta-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-import-meta-state-anchor-v1",
+        "marker": "import-meta-state:semantic-state"
+      }
+    },
+    {
+      "id": "098-memory-real-textencoder-state",
+      "shape": "textencoder-state",
+      "semanticState": {
+        "kind": "textencoder-state",
+        "anchor": "machinen-real-textencoder-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-textencoder-state-anchor-v1",
+        "marker": "textencoder-state:semantic-state"
+      }
+    },
+    {
+      "id": "099-memory-real-textdecoder-state",
+      "shape": "textdecoder-state",
+      "semanticState": {
+        "kind": "textdecoder-state",
+        "anchor": "machinen-real-textdecoder-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-textdecoder-state-anchor-v1",
+        "marker": "textdecoder-state:semantic-state"
+      }
+    },
+    {
+      "id": "100-memory-real-blob-state",
+      "shape": "blob-state",
+      "semanticState": {
+        "kind": "blob-state",
+        "anchor": "machinen-real-blob-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-blob-state-anchor-v1",
+        "marker": "blob-state:semantic-state"
+      }
+    },
+    {
+      "id": "101-memory-real-filelike-buffer-state",
+      "shape": "filelike-buffer-state",
+      "semanticState": {
+        "kind": "filelike-buffer-state",
+        "anchor": "machinen-real-filelike-buffer-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-filelike-buffer-state-anchor-v1",
+        "marker": "filelike-buffer-state:semantic-state"
+      }
+    },
+    {
+      "id": "103-memory-real-headers-state",
+      "shape": "headers-state",
+      "semanticState": {
+        "kind": "headers-state",
+        "anchor": "machinen-real-headers-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-headers-state-anchor-v1",
+        "marker": "headers-state:semantic-state"
+      }
+    },
+    {
+      "id": "106-memory-real-formdata-state",
+      "shape": "formdata-state",
+      "semanticState": {
+        "kind": "formdata-state",
+        "anchor": "machinen-real-formdata-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-formdata-state-anchor-v1",
+        "marker": "formdata-state:semantic-state"
+      }
+    },
+    {
+      "id": "108-memory-real-intl-datetimeformat-state",
+      "shape": "intl-datetimeformat-state",
+      "semanticState": {
+        "kind": "intl-datetimeformat-state",
+        "anchor": "machinen-real-intl-datetimeformat-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-intl-datetimeformat-state-anchor-v1",
+        "marker": "intl-datetimeformat-state:semantic-state"
+      }
+    },
+    {
+      "id": "109-memory-real-intl-numberformat-state",
+      "shape": "intl-numberformat-state",
+      "semanticState": {
+        "kind": "intl-numberformat-state",
+        "anchor": "machinen-real-intl-numberformat-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-intl-numberformat-state-anchor-v1",
+        "marker": "intl-numberformat-state:semantic-state"
+      }
+    },
+    {
+      "id": "110-memory-real-intl-collator-state",
+      "shape": "intl-collator-state",
+      "semanticState": {
+        "kind": "intl-collator-state",
+        "anchor": "machinen-real-intl-collator-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-intl-collator-state-anchor-v1",
+        "marker": "intl-collator-state:semantic-state"
+      }
+    },
+    {
+      "id": "111-memory-real-intl-locale-state",
+      "shape": "intl-locale-state",
+      "semanticState": {
+        "kind": "intl-locale-state",
+        "anchor": "machinen-real-intl-locale-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-intl-locale-state-anchor-v1",
+        "marker": "intl-locale-state:semantic-state"
+      }
+    },
+    {
+      "id": "112-memory-real-intl-segmenter-state",
+      "shape": "intl-segmenter-state",
+      "semanticState": {
+        "kind": "intl-segmenter-state",
+        "anchor": "machinen-real-intl-segmenter-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-intl-segmenter-state-anchor-v1",
+        "marker": "intl-segmenter-state:semantic-state"
+      }
+    },
+    {
+      "id": "113-memory-real-nested-map-set-state",
+      "shape": "nested-map-set-state",
+      "semanticState": {
+        "kind": "nested-map-set-state",
+        "anchor": "machinen-real-nested-map-set-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-nested-map-set-state-anchor-v1",
+        "marker": "nested-map-set-state:semantic-state"
+      }
+    },
+    {
+      "id": "115-memory-real-ordered-set-graph-state",
+      "shape": "ordered-set-graph-state",
+      "semanticState": {
+        "kind": "ordered-set-graph-state",
+        "anchor": "machinen-real-ordered-set-graph-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-ordered-set-graph-state-anchor-v1",
+        "marker": "ordered-set-graph-state:semantic-state"
+      }
+    },
+    {
+      "id": "118-memory-real-aggregate-error-state",
+      "shape": "aggregate-error-state",
+      "semanticState": {
+        "kind": "aggregate-error-state",
+        "anchor": "machinen-real-aggregate-error-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-aggregate-error-state-anchor-v1",
+        "marker": "aggregate-error-state:semantic-state"
+      }
+    },
+    {
+      "id": "119-memory-real-custom-error-subclass-state",
+      "shape": "custom-error-subclass-state",
+      "semanticState": {
+        "kind": "custom-error-subclass-state",
+        "anchor": "machinen-real-custom-error-subclass-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-custom-error-subclass-state-anchor-v1",
+        "marker": "custom-error-subclass-state:semantic-state"
+      }
+    },
+    {
+      "id": "120-memory-real-error-cause-chain-state",
+      "shape": "error-cause-chain-state",
+      "semanticState": {
+        "kind": "error-cause-chain-state",
+        "anchor": "machinen-real-error-cause-chain-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-error-cause-chain-state-anchor-v1",
+        "marker": "error-cause-chain-state:semantic-state"
+      }
+    },
+    {
+      "id": "123-memory-real-sliced-buffer-state",
+      "shape": "sliced-buffer-state",
+      "semanticState": {
+        "kind": "sliced-buffer-state",
+        "anchor": "machinen-real-sliced-buffer-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-sliced-buffer-state-anchor-v1",
+        "marker": "sliced-buffer-state:semantic-state"
+      }
+    },
+    {
+      "id": "124-memory-real-shared-backing-store-state",
+      "shape": "shared-backing-store-state",
+      "semanticState": {
+        "kind": "shared-backing-store-state",
+        "anchor": "machinen-real-shared-backing-store-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-shared-backing-store-state-anchor-v1",
+        "marker": "shared-backing-store-state:semantic-state"
+      }
+    },
+    {
+      "id": "128-memory-real-bigint64array-state",
+      "shape": "bigint64array-state",
+      "semanticState": {
+        "kind": "bigint64array-state",
+        "anchor": "machinen-real-bigint64array-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-bigint64array-state-anchor-v1",
+        "marker": "bigint64array-state:semantic-state"
+      }
+    },
+    {
+      "id": "129-memory-real-float64array-state",
+      "shape": "float64array-state",
+      "semanticState": {
+        "kind": "float64array-state",
+        "anchor": "machinen-real-float64array-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-float64array-state-anchor-v1",
+        "marker": "float64array-state:semantic-state"
+      }
+    },
+    {
+      "id": "131-memory-real-dataview-offset-state",
+      "shape": "dataview-offset-state",
+      "semanticState": {
+        "kind": "dataview-offset-state",
+        "anchor": "machinen-real-dataview-offset-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-dataview-offset-state-anchor-v1",
+        "marker": "dataview-offset-state:semantic-state"
+      }
+    },
+    {
+      "id": "132-memory-real-typedarray-subarray-state",
+      "shape": "typedarray-subarray-state",
+      "semanticState": {
+        "kind": "typedarray-subarray-state",
+        "anchor": "machinen-real-typedarray-subarray-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-typedarray-subarray-state-anchor-v1",
+        "marker": "typedarray-subarray-state:semantic-state"
+      }
+    },
+    {
+      "id": "133-memory-real-getter-setter-descriptor-state",
+      "shape": "getter-setter-descriptor-state",
+      "semanticState": {
+        "kind": "getter-setter-descriptor-state",
+        "anchor": "machinen-real-getter-setter-descriptor-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-getter-setter-descriptor-state-anchor-v1",
+        "marker": "getter-setter-descriptor-state:semantic-state"
+      }
+    },
+    {
+      "id": "135-memory-real-static-fields-state",
+      "shape": "static-fields-state",
+      "semanticState": {
+        "kind": "static-fields-state",
+        "anchor": "machinen-real-static-fields-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-static-fields-state-anchor-v1",
+        "marker": "static-fields-state:semantic-state"
+      }
+    },
+    {
+      "id": "136-memory-real-prototype-chain-state",
+      "shape": "prototype-chain-state",
+      "semanticState": {
+        "kind": "prototype-chain-state",
+        "anchor": "machinen-real-prototype-chain-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-prototype-chain-state-anchor-v1",
+        "marker": "prototype-chain-state:semantic-state"
+      }
+    },
+    {
+      "id": "138-memory-real-once-listeners-state",
+      "shape": "once-listeners-state",
+      "semanticState": {
+        "kind": "once-listeners-state",
+        "anchor": "machinen-real-once-listeners-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-once-listeners-state-anchor-v1",
+        "marker": "once-listeners-state:semantic-state"
+      }
+    },
+    {
+      "id": "139-memory-real-symbol-event-name-state",
+      "shape": "symbol-event-name-state",
+      "semanticState": {
+        "kind": "symbol-event-name-state",
+        "anchor": "machinen-real-symbol-event-name-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-symbol-event-name-state-anchor-v1",
+        "marker": "symbol-event-name-state:semantic-state"
+      }
+    },
+    {
+      "id": "140-memory-real-max-listeners-state",
+      "shape": "max-listeners-state",
+      "semanticState": {
+        "kind": "max-listeners-state",
+        "anchor": "machinen-real-max-listeners-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-max-listeners-state-anchor-v1",
+        "marker": "max-listeners-state:semantic-state"
+      }
+    },
+    {
+      "id": "141-memory-real-error-listener-state",
+      "shape": "error-listener-state",
+      "semanticState": {
+        "kind": "error-listener-state",
+        "anchor": "machinen-real-error-listener-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-error-listener-state-anchor-v1",
+        "marker": "error-listener-state:semantic-state"
+      }
+    },
+    {
+      "id": "144-memory-real-nested-cache-state",
+      "shape": "nested-cache-state",
+      "semanticState": {
+        "kind": "nested-cache-state",
+        "anchor": "machinen-real-nested-cache-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-nested-cache-state-anchor-v1",
+        "marker": "nested-cache-state:semantic-state"
+      }
+    },
+    {
+      "id": "145-memory-real-memoized-pure-values-state",
+      "shape": "memoized-pure-values-state",
+      "semanticState": {
+        "kind": "memoized-pure-values-state",
+        "anchor": "machinen-real-memoized-pure-values-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-memoized-pure-values-state-anchor-v1",
+        "marker": "memoized-pure-values-state:semantic-state"
+      }
+    },
+    {
+      "id": "148-memory-real-priority-queue-state",
+      "shape": "priority-queue-state",
+      "semanticState": {
+        "kind": "priority-queue-state",
+        "anchor": "machinen-real-priority-queue-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-priority-queue-state-anchor-v1",
+        "marker": "priority-queue-state:semantic-state"
+      }
+    },
+    {
+      "id": "149-memory-real-deque-state",
+      "shape": "deque-state",
+      "semanticState": {
+        "kind": "deque-state",
+        "anchor": "machinen-real-deque-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-deque-state-anchor-v1",
+        "marker": "deque-state:semantic-state"
+      }
+    },
+    {
+      "id": "150-memory-real-retry-queue-state",
+      "shape": "retry-queue-state",
+      "semanticState": {
+        "kind": "retry-queue-state",
+        "anchor": "machinen-real-retry-queue-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-retry-queue-state-anchor-v1",
+        "marker": "retry-queue-state:semantic-state"
+      }
+    },
+    {
+      "id": "153-memory-real-enum-state-machine-state",
+      "shape": "enum-state-machine-state",
+      "semanticState": {
+        "kind": "enum-state-machine-state",
+        "anchor": "machinen-real-enum-state-machine-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-enum-state-machine-state-anchor-v1",
+        "marker": "enum-state-machine-state:semantic-state"
+      }
+    },
+    {
+      "id": "154-memory-real-transition-table-state",
+      "shape": "transition-table-state",
+      "semanticState": {
+        "kind": "transition-table-state",
+        "anchor": "machinen-real-transition-table-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-transition-table-state-anchor-v1",
+        "marker": "transition-table-state:semantic-state"
+      }
+    },
+    {
+      "id": "156-memory-real-state-machine-history-state",
+      "shape": "state-machine-history-state",
+      "semanticState": {
+        "kind": "state-machine-history-state",
+        "anchor": "machinen-real-state-machine-history-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-state-machine-history-state-anchor-v1",
+        "marker": "state-machine-history-state:semantic-state"
+      }
+    },
+    {
+      "id": "158-memory-real-env-derived-config-state",
+      "shape": "env-derived-config-state",
+      "semanticState": {
+        "kind": "env-derived-config-state",
+        "anchor": "machinen-real-env-derived-config-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-env-derived-config-state-anchor-v1",
+        "marker": "env-derived-config-state:semantic-state"
+      }
+    },
+    {
+      "id": "159-memory-real-feature-flags-state",
+      "shape": "feature-flags-state",
+      "semanticState": {
+        "kind": "feature-flags-state",
+        "anchor": "machinen-real-feature-flags-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-feature-flags-state-anchor-v1",
+        "marker": "feature-flags-state:semantic-state"
+      }
+    },
+    {
+      "id": "160-memory-real-immutable-config-object-state",
+      "shape": "immutable-config-object-state",
+      "semanticState": {
+        "kind": "immutable-config-object-state",
+        "anchor": "machinen-real-immutable-config-object-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-immutable-config-object-state-anchor-v1",
+        "marker": "immutable-config-object-state:semantic-state"
+      }
+    },
+    {
+      "id": "163-memory-real-route-table-state",
+      "shape": "route-table-state",
+      "semanticState": {
+        "kind": "route-table-state",
+        "anchor": "machinen-real-route-table-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-route-table-state-anchor-v1",
+        "marker": "route-table-state:semantic-state"
+      }
+    },
+    {
+      "id": "164-memory-real-middleware-order-state",
+      "shape": "middleware-order-state",
+      "semanticState": {
+        "kind": "middleware-order-state",
+        "anchor": "machinen-real-middleware-order-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-middleware-order-state-anchor-v1",
+        "marker": "middleware-order-state:semantic-state"
+      }
+    },
+    {
+      "id": "168-memory-real-router-params-cache-state",
+      "shape": "router-params-cache-state",
+      "semanticState": {
+        "kind": "router-params-cache-state",
+        "anchor": "machinen-real-router-params-cache-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-router-params-cache-state-anchor-v1",
+        "marker": "router-params-cache-state:semantic-state"
+      }
+    },
+    {
+      "id": "169-memory-real-handler-registry-state",
+      "shape": "handler-registry-state",
+      "semanticState": {
+        "kind": "handler-registry-state",
+        "anchor": "machinen-real-handler-registry-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-handler-registry-state-anchor-v1",
+        "marker": "handler-registry-state:semantic-state"
+      }
+    },
+    {
+      "id": "170-memory-real-di-container-singleton-state",
+      "shape": "di-container-singleton-state",
+      "semanticState": {
+        "kind": "di-container-singleton-state",
+        "anchor": "machinen-real-di-container-singleton-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-di-container-singleton-state-anchor-v1",
+        "marker": "di-container-singleton-state:semantic-state"
+      }
+    },
+    {
+      "id": "193-memory-real-settled-promise-value-state",
+      "shape": "settled-promise-value-state",
+      "semanticState": {
+        "kind": "settled-promise-value-state",
+        "anchor": "machinen-real-settled-promise-value-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-settled-promise-value-state-anchor-v1",
+        "marker": "settled-promise-value-state:semantic-state"
+      }
+    },
+    {
+      "id": "194-memory-real-rejected-promise-state",
+      "shape": "rejected-promise-state",
+      "semanticState": {
+        "kind": "rejected-promise-state",
+        "anchor": "machinen-real-rejected-promise-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-rejected-promise-state-anchor-v1",
+        "marker": "rejected-promise-state:semantic-state"
+      }
+    },
+    {
+      "id": "198-memory-real-json-graph-state",
+      "shape": "json-graph-state",
+      "semanticState": {
+        "kind": "json-graph-state",
+        "anchor": "machinen-real-json-graph-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-json-graph-state-anchor-v1",
+        "marker": "json-graph-state:semantic-state"
+      }
+    },
+    {
+      "id": "199-memory-real-structuredclone-compatible-graph-state",
+      "shape": "structuredclone-compatible-graph-state",
+      "semanticState": {
+        "kind": "structuredclone-compatible-graph-state",
+        "anchor": "machinen-real-structuredclone-compatible-graph-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-structuredclone-compatible-graph-state-anchor-v1",
+        "marker": "structuredclone-compatible-graph-state:semantic-state"
+      }
+    },
+    {
+      "id": "203-memory-real-global-symbol-registry-state",
+      "shape": "global-symbol-registry-state",
+      "semanticState": {
+        "kind": "global-symbol-registry-state",
+        "anchor": "machinen-real-global-symbol-registry-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-global-symbol-registry-state-anchor-v1",
+        "marker": "global-symbol-registry-state:semantic-state"
+      }
+    },
+    {
+      "id": "204-memory-real-local-symbol-descriptor-state",
+      "shape": "local-symbol-descriptor-state",
+      "semanticState": {
+        "kind": "local-symbol-descriptor-state",
+        "anchor": "machinen-real-local-symbol-descriptor-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-local-symbol-descriptor-state-anchor-v1",
+        "marker": "local-symbol-descriptor-state:semantic-state"
+      }
+    },
+    {
+      "id": "205-memory-real-well-known-symbol-behavior-state",
+      "shape": "well-known-symbol-behavior-state",
+      "semanticState": {
+        "kind": "well-known-symbol-behavior-state",
+        "anchor": "machinen-real-well-known-symbol-behavior-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-well-known-symbol-behavior-state-anchor-v1",
+        "marker": "well-known-symbol-behavior-state:semantic-state"
+      }
+    },
+    {
+      "id": "207-memory-real-symbol-toStringTag-state",
+      "shape": "symbol-toStringTag-state",
+      "semanticState": {
+        "kind": "symbol-toStringTag-state",
+        "anchor": "machinen-real-symbol-toStringTag-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-symbol-toStringTag-state-anchor-v1",
+        "marker": "symbol-toStringTag-state:semantic-state"
+      }
+    },
+    {
+      "id": "208-memory-real-large-numeric-graph-state",
+      "shape": "large-numeric-graph-state",
+      "semanticState": {
+        "kind": "large-numeric-graph-state",
+        "anchor": "machinen-real-large-numeric-graph-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-large-numeric-graph-state-anchor-v1",
+        "marker": "large-numeric-graph-state:semantic-state"
+      }
+    },
+    {
+      "id": "209-memory-real-bigint-typed-array-state",
+      "shape": "bigint-typed-array-state",
+      "semanticState": {
+        "kind": "bigint-typed-array-state",
+        "anchor": "machinen-real-bigint-typed-array-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-bigint-typed-array-state-anchor-v1",
+        "marker": "bigint-typed-array-state:semantic-state"
+      }
+    },
+    {
+      "id": "210-memory-real-precision-invariant-state",
+      "shape": "precision-invariant-state",
+      "semanticState": {
+        "kind": "precision-invariant-state",
+        "anchor": "machinen-real-precision-invariant-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-precision-invariant-state-anchor-v1",
+        "marker": "precision-invariant-state:semantic-state"
+      }
+    },
+    {
+      "id": "212-memory-real-decimal-string-state",
+      "shape": "decimal-string-state",
+      "semanticState": {
+        "kind": "decimal-string-state",
+        "anchor": "machinen-real-decimal-string-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-decimal-string-state-anchor-v1",
+        "marker": "decimal-string-state:semantic-state"
+      }
+    },
+    {
+      "id": "213-memory-real-regexp-lastindex-state",
+      "shape": "regexp-lastindex-state",
+      "semanticState": {
+        "kind": "regexp-lastindex-state",
+        "anchor": "machinen-real-regexp-lastindex-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-regexp-lastindex-state-anchor-v1",
+        "marker": "regexp-lastindex-state:semantic-state"
+      }
+    },
+    {
+      "id": "214-memory-real-sticky-global-regexp-state",
+      "shape": "sticky-global-regexp-state",
+      "semanticState": {
+        "kind": "sticky-global-regexp-state",
+        "anchor": "machinen-real-sticky-global-regexp-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-sticky-global-regexp-state-anchor-v1",
+        "marker": "sticky-global-regexp-state:semantic-state"
+      }
+    },
+    {
+      "id": "215-memory-real-unicode-regexp-state",
+      "shape": "unicode-regexp-state",
+      "semanticState": {
+        "kind": "unicode-regexp-state",
+        "anchor": "machinen-real-unicode-regexp-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-unicode-regexp-state-anchor-v1",
+        "marker": "unicode-regexp-state:semantic-state"
+      }
+    },
+    {
+      "id": "218-memory-real-date-graph-state",
+      "shape": "date-graph-state",
+      "semanticState": {
+        "kind": "date-graph-state",
+        "anchor": "machinen-real-date-graph-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-date-graph-state-anchor-v1",
+        "marker": "date-graph-state:semantic-state"
+      }
+    },
+    {
+      "id": "219-memory-real-timezone-independent-state",
+      "shape": "timezone-independent-state",
+      "semanticState": {
+        "kind": "timezone-independent-state",
+        "anchor": "machinen-real-timezone-independent-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-timezone-independent-state-anchor-v1",
+        "marker": "timezone-independent-state:semantic-state"
+      }
+    },
+    {
+      "id": "223-memory-real-argv-snapshot-state",
+      "shape": "argv-snapshot-state",
+      "semanticState": {
+        "kind": "argv-snapshot-state",
+        "anchor": "machinen-real-argv-snapshot-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-argv-snapshot-state-anchor-v1",
+        "marker": "argv-snapshot-state:semantic-state"
+      }
+    },
+    {
+      "id": "224-memory-real-env-snapshot-state",
+      "shape": "env-snapshot-state",
+      "semanticState": {
+        "kind": "env-snapshot-state",
+        "anchor": "machinen-real-env-snapshot-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-env-snapshot-state-anchor-v1",
+        "marker": "env-snapshot-state:semantic-state"
+      }
+    },
+    {
+      "id": "225-memory-real-cwd-policy-state",
+      "shape": "cwd-policy-state",
+      "semanticState": {
+        "kind": "cwd-policy-state",
+        "anchor": "machinen-real-cwd-policy-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-cwd-policy-state-anchor-v1",
+        "marker": "cwd-policy-state:semantic-state"
+      }
+    },
+    {
+      "id": "227-memory-real-process-title-state",
+      "shape": "process-title-state",
+      "semanticState": {
+        "kind": "process-title-state",
+        "anchor": "machinen-real-process-title-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-process-title-state-anchor-v1",
+        "marker": "process-title-state:semantic-state"
+      }
+    },
+    {
+      "id": "228-memory-real-buffered-logger-state",
+      "shape": "buffered-logger-state",
+      "semanticState": {
+        "kind": "buffered-logger-state",
+        "anchor": "machinen-real-buffered-logger-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-buffered-logger-state-anchor-v1",
+        "marker": "buffered-logger-state:semantic-state"
+      }
+    },
+    {
+      "id": "230-memory-real-console-timer-state",
+      "shape": "console-timer-state",
+      "semanticState": {
+        "kind": "console-timer-state",
+        "anchor": "machinen-real-console-timer-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-console-timer-state-anchor-v1",
+        "marker": "console-timer-state:semantic-state"
+      }
+    },
+    {
+      "id": "233-memory-real-counter-state",
+      "shape": "counter-state",
+      "semanticState": {
+        "kind": "counter-state",
+        "anchor": "machinen-real-counter-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-counter-state-anchor-v1",
+        "marker": "counter-state:semantic-state"
+      }
+    },
+    {
+      "id": "234-memory-real-histogram-state",
+      "shape": "histogram-state",
+      "semanticState": {
+        "kind": "histogram-state",
+        "anchor": "machinen-real-histogram-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-histogram-state-anchor-v1",
+        "marker": "histogram-state:semantic-state"
+      }
+    },
+    {
+      "id": "239-memory-real-completed-compressed-buffer-state",
+      "shape": "completed-compressed-buffer-state",
+      "semanticState": {
+        "kind": "completed-compressed-buffer-state",
+        "anchor": "machinen-real-completed-compressed-buffer-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-completed-compressed-buffer-state-anchor-v1",
+        "marker": "completed-compressed-buffer-state:semantic-state"
+      }
+    },
+    {
+      "id": "249-memory-real-wasm-module-bytes-state",
+      "shape": "wasm-module-bytes-state",
+      "semanticState": {
+        "kind": "wasm-module-bytes-state",
+        "anchor": "machinen-real-wasm-module-bytes-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-wasm-module-bytes-state-anchor-v1",
+        "marker": "wasm-module-bytes-state:semantic-state"
+      }
+    },
+    {
+      "id": "253-memory-real-package-config-cache-state",
+      "shape": "package-config-cache-state",
+      "semanticState": {
+        "kind": "package-config-cache-state",
+        "anchor": "machinen-real-package-config-cache-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-package-config-cache-state-anchor-v1",
+        "marker": "package-config-cache-state:semantic-state"
+      }
+    },
+    {
+      "id": "254-memory-real-require-resolve-cache-state",
+      "shape": "require-resolve-cache-state",
+      "semanticState": {
+        "kind": "require-resolve-cache-state",
+        "anchor": "machinen-real-require-resolve-cache-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-require-resolve-cache-state-anchor-v1",
+        "marker": "require-resolve-cache-state:semantic-state"
+      }
+    },
+    {
+      "id": "255-memory-real-module-path-cache-state",
+      "shape": "module-path-cache-state",
+      "semanticState": {
+        "kind": "module-path-cache-state",
+        "anchor": "machinen-real-module-path-cache-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-module-path-cache-state-anchor-v1",
+        "marker": "module-path-cache-state:semantic-state"
+      }
+    },
+    {
+      "id": "256-memory-real-package-json-state",
+      "shape": "package-json-state",
+      "semanticState": {
+        "kind": "package-json-state",
+        "anchor": "machinen-real-package-json-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-package-json-state-anchor-v1",
+        "marker": "package-json-state:semantic-state"
+      }
+    },
+    {
+      "id": "257-memory-real-conditional-exports-state",
+      "shape": "conditional-exports-state",
+      "semanticState": {
+        "kind": "conditional-exports-state",
+        "anchor": "machinen-real-conditional-exports-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-conditional-exports-state-anchor-v1",
+        "marker": "conditional-exports-state:semantic-state"
+      }
+    },
+    {
+      "id": "258-memory-real-parsed-args-state",
+      "shape": "parsed-args-state",
+      "semanticState": {
+        "kind": "parsed-args-state",
+        "anchor": "machinen-real-parsed-args-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-parsed-args-state-anchor-v1",
+        "marker": "parsed-args-state:semantic-state"
+      }
+    },
+    {
+      "id": "259-memory-real-command-registry-state",
+      "shape": "command-registry-state",
+      "semanticState": {
+        "kind": "command-registry-state",
+        "anchor": "machinen-real-command-registry-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-command-registry-state-anchor-v1",
+        "marker": "command-registry-state:semantic-state"
+      }
+    },
+    {
+      "id": "263-memory-real-persisted-schedule-spec-state",
+      "shape": "persisted-schedule-spec-state",
+      "semanticState": {
+        "kind": "persisted-schedule-spec-state",
+        "anchor": "machinen-real-persisted-schedule-spec-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-persisted-schedule-spec-state-anchor-v1",
+        "marker": "persisted-schedule-spec-state:semantic-state"
+      }
+    },
+    {
+      "id": "265-memory-real-cron-expression-state",
+      "shape": "cron-expression-state",
+      "semanticState": {
+        "kind": "cron-expression-state",
+        "anchor": "machinen-real-cron-expression-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-cron-expression-state-anchor-v1",
+        "marker": "cron-expression-state:semantic-state"
+      }
+    },
+    {
+      "id": "268-memory-real-simple-table-map-state",
+      "shape": "simple-table-map-state",
+      "semanticState": {
+        "kind": "simple-table-map-state",
+        "anchor": "machinen-real-simple-table-map-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-simple-table-map-state-anchor-v1",
+        "marker": "simple-table-map-state:semantic-state"
+      }
+    },
+    {
+      "id": "269-memory-real-index-map-state",
+      "shape": "index-map-state",
+      "semanticState": {
+        "kind": "index-map-state",
+        "anchor": "machinen-real-index-map-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-index-map-state-anchor-v1",
+        "marker": "index-map-state:semantic-state"
+      }
+    },
+    {
+      "id": "273-memory-real-token-cache-state",
+      "shape": "token-cache-state",
+      "semanticState": {
+        "kind": "token-cache-state",
+        "anchor": "machinen-real-token-cache-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-token-cache-state-anchor-v1",
+        "marker": "token-cache-state:semantic-state"
+      }
+    },
+    {
+      "id": "274-memory-real-session-map-state",
+      "shape": "session-map-state",
+      "semanticState": {
+        "kind": "session-map-state",
+        "anchor": "machinen-real-session-map-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-session-map-state-anchor-v1",
+        "marker": "session-map-state:semantic-state"
+      }
+    },
+    {
+      "id": "278-memory-real-token-bucket-state",
+      "shape": "token-bucket-state",
+      "semanticState": {
+        "kind": "token-bucket-state",
+        "anchor": "machinen-real-token-bucket-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-token-bucket-state-anchor-v1",
+        "marker": "token-bucket-state:semantic-state"
+      }
+    },
+    {
+      "id": "279-memory-real-sliding-window-state",
+      "shape": "sliding-window-state",
+      "semanticState": {
+        "kind": "sliding-window-state",
+        "anchor": "machinen-real-sliding-window-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-sliding-window-state-anchor-v1",
+        "marker": "sliding-window-state:semantic-state"
+      }
+    },
+    {
+      "id": "281-memory-real-leaky-bucket-state",
+      "shape": "leaky-bucket-state",
+      "semanticState": {
+        "kind": "leaky-bucket-state",
+        "anchor": "machinen-real-leaky-bucket-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-leaky-bucket-state-anchor-v1",
+        "marker": "leaky-bucket-state:semantic-state"
+      }
+    },
+    {
+      "id": "283-memory-real-metric-counters-state",
+      "shape": "metric-counters-state",
+      "semanticState": {
+        "kind": "metric-counters-state",
+        "anchor": "machinen-real-metric-counters-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-metric-counters-state-anchor-v1",
+        "marker": "metric-counters-state:semantic-state"
+      }
+    },
+    {
+      "id": "285-memory-real-trace-context-state",
+      "shape": "trace-context-state",
+      "semanticState": {
+        "kind": "trace-context-state",
+        "anchor": "machinen-real-trace-context-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-trace-context-state-anchor-v1",
+        "marker": "trace-context-state:semantic-state"
+      }
+    },
+    {
+      "id": "286-memory-real-log-correlation-state",
+      "shape": "log-correlation-state",
+      "semanticState": {
+        "kind": "log-correlation-state",
+        "anchor": "machinen-real-log-correlation-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-log-correlation-state-anchor-v1",
+        "marker": "log-correlation-state:semantic-state"
+      }
+    },
+    {
+      "id": "288-memory-real-singleton-registry-state",
+      "shape": "singleton-registry-state",
+      "semanticState": {
+        "kind": "singleton-registry-state",
+        "anchor": "machinen-real-singleton-registry-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-singleton-registry-state-anchor-v1",
+        "marker": "singleton-registry-state:semantic-state"
+      }
+    },
+    {
+      "id": "291-memory-real-container-metadata-state",
+      "shape": "container-metadata-state",
+      "semanticState": {
+        "kind": "container-metadata-state",
+        "anchor": "machinen-real-container-metadata-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-container-metadata-state-anchor-v1",
+        "marker": "container-metadata-state:semantic-state"
+      }
+    },
+    {
+      "id": "293-memory-real-compiled-template-cache-state",
+      "shape": "compiled-template-cache-state",
+      "semanticState": {
+        "kind": "compiled-template-cache-state",
+        "anchor": "machinen-real-compiled-template-cache-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-compiled-template-cache-state-anchor-v1",
+        "marker": "compiled-template-cache-state:semantic-state"
+      }
+    },
+    {
+      "id": "295-memory-real-template-helper-registry-state",
+      "shape": "template-helper-registry-state",
+      "semanticState": {
+        "kind": "template-helper-registry-state",
+        "anchor": "machinen-real-template-helper-registry-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-template-helper-registry-state-anchor-v1",
+        "marker": "template-helper-registry-state:semantic-state"
+      }
+    },
+    {
+      "id": "297-memory-real-partial-cache-state",
+      "shape": "partial-cache-state",
+      "semanticState": {
+        "kind": "partial-cache-state",
+        "anchor": "machinen-real-partial-cache-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-partial-cache-state-anchor-v1",
+        "marker": "partial-cache-state:semantic-state"
+      }
+    },
+    {
+      "id": "298-memory-real-completed-ast-cache-state",
+      "shape": "completed-ast-cache-state",
+      "semanticState": {
+        "kind": "completed-ast-cache-state",
+        "anchor": "machinen-real-completed-ast-cache-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-completed-ast-cache-state-anchor-v1",
+        "marker": "completed-ast-cache-state:semantic-state"
+      }
+    },
+    {
+      "id": "300-memory-real-token-buffer-state",
+      "shape": "token-buffer-state",
+      "semanticState": {
+        "kind": "token-buffer-state",
+        "anchor": "machinen-real-token-buffer-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-token-buffer-state-anchor-v1",
+        "marker": "token-buffer-state:semantic-state"
+      }
+    },
+    {
+      "id": "301-memory-real-source-map-cache-state",
+      "shape": "source-map-cache-state",
+      "semanticState": {
+        "kind": "source-map-cache-state",
+        "anchor": "machinen-real-source-map-cache-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-source-map-cache-state-anchor-v1",
+        "marker": "source-map-cache-state:semantic-state"
+      }
+    },
+    {
+      "id": "304-memory-real-redaction-policy-state",
+      "shape": "redaction-policy-state",
+      "semanticState": {
+        "kind": "redaction-policy-state",
+        "anchor": "machinen-real-redaction-policy-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "anchors": {
+        "anchor": "machinen-real-redaction-policy-state-anchor-v1",
+        "marker": "redaction-policy-state:semantic-state"
       }
     }
   ],

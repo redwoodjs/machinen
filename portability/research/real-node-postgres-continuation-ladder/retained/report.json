@@ -1,0 +1,343 @@
+{
+  "kind": "machinen.research.real-node-postgres-continuation.report",
+  "version": 1,
+  "status": "proved-with-refusals",
+  "acceptedRows": 8,
+  "refusedRows": 7,
+  "failedRows": 0,
+  "rows": [
+    {
+      "case": "node-http-idle-listener",
+      "kind": "support",
+      "application": "nodejs",
+      "status": "accepted",
+      "sameArchDescriptorUnchanged": true,
+      "directions": [
+        {
+          "direction": "amd64-to-arm64",
+          "decision": "accepted",
+          "sourceArch": "x86_64",
+          "targetArch": "aarch64",
+          "descriptorUnchanged": true
+        },
+        {
+          "direction": "arm64-to-amd64",
+          "decision": "accepted",
+          "sourceArch": "aarch64",
+          "targetArch": "x86_64",
+          "descriptorUnchanged": true
+        }
+      ]
+    },
+    {
+      "case": "node-parked-workers",
+      "kind": "support",
+      "application": "nodejs",
+      "status": "accepted",
+      "sameArchDescriptorUnchanged": true,
+      "directions": [
+        {
+          "direction": "amd64-to-arm64",
+          "decision": "accepted",
+          "sourceArch": "x86_64",
+          "targetArch": "aarch64",
+          "descriptorUnchanged": true
+        },
+        {
+          "direction": "arm64-to-amd64",
+          "decision": "accepted",
+          "sourceArch": "aarch64",
+          "targetArch": "x86_64",
+          "descriptorUnchanged": true
+        }
+      ]
+    },
+    {
+      "case": "node-repl-prompt",
+      "kind": "support",
+      "application": "nodejs",
+      "status": "accepted",
+      "sameArchDescriptorUnchanged": true,
+      "directions": [
+        {
+          "direction": "amd64-to-arm64",
+          "decision": "accepted",
+          "sourceArch": "x86_64",
+          "targetArch": "aarch64",
+          "descriptorUnchanged": true
+        },
+        {
+          "direction": "arm64-to-amd64",
+          "decision": "accepted",
+          "sourceArch": "aarch64",
+          "targetArch": "x86_64",
+          "descriptorUnchanged": true
+        }
+      ]
+    },
+    {
+      "case": "node-http-keepalive-idle",
+      "kind": "support",
+      "application": "nodejs",
+      "status": "accepted",
+      "sameArchDescriptorUnchanged": true,
+      "directions": [
+        {
+          "direction": "amd64-to-arm64",
+          "decision": "accepted",
+          "sourceArch": "x86_64",
+          "targetArch": "aarch64",
+          "descriptorUnchanged": true
+        },
+        {
+          "direction": "arm64-to-amd64",
+          "decision": "accepted",
+          "sourceArch": "aarch64",
+          "targetArch": "x86_64",
+          "descriptorUnchanged": true
+        }
+      ]
+    },
+    {
+      "case": "postgres-idle-listener",
+      "kind": "support",
+      "application": "postgresql",
+      "status": "accepted",
+      "sameArchDescriptorUnchanged": true,
+      "directions": [
+        {
+          "direction": "amd64-to-arm64",
+          "decision": "accepted",
+          "sourceArch": "x86_64",
+          "targetArch": "aarch64",
+          "descriptorUnchanged": true
+        },
+        {
+          "direction": "arm64-to-amd64",
+          "decision": "accepted",
+          "sourceArch": "aarch64",
+          "targetArch": "x86_64",
+          "descriptorUnchanged": true
+        }
+      ]
+    },
+    {
+      "case": "postgres-idle-client-backend",
+      "kind": "support",
+      "application": "postgresql",
+      "status": "accepted",
+      "sameArchDescriptorUnchanged": true,
+      "directions": [
+        {
+          "direction": "amd64-to-arm64",
+          "decision": "accepted",
+          "sourceArch": "x86_64",
+          "targetArch": "aarch64",
+          "descriptorUnchanged": true
+        },
+        {
+          "direction": "arm64-to-amd64",
+          "decision": "accepted",
+          "sourceArch": "aarch64",
+          "targetArch": "x86_64",
+          "descriptorUnchanged": true
+        }
+      ]
+    },
+    {
+      "case": "redis-idle-listener",
+      "kind": "support",
+      "application": "redis",
+      "status": "accepted",
+      "sameArchDescriptorUnchanged": true,
+      "directions": [
+        {
+          "direction": "amd64-to-arm64",
+          "decision": "accepted",
+          "sourceArch": "x86_64",
+          "targetArch": "aarch64",
+          "descriptorUnchanged": true
+        },
+        {
+          "direction": "arm64-to-amd64",
+          "decision": "accepted",
+          "sourceArch": "aarch64",
+          "targetArch": "x86_64",
+          "descriptorUnchanged": true
+        }
+      ]
+    },
+    {
+      "case": "redis-idle-client",
+      "kind": "support",
+      "application": "redis",
+      "status": "accepted",
+      "sameArchDescriptorUnchanged": true,
+      "directions": [
+        {
+          "direction": "amd64-to-arm64",
+          "decision": "accepted",
+          "sourceArch": "x86_64",
+          "targetArch": "aarch64",
+          "descriptorUnchanged": true
+        },
+        {
+          "direction": "arm64-to-amd64",
+          "decision": "accepted",
+          "sourceArch": "aarch64",
+          "targetArch": "x86_64",
+          "descriptorUnchanged": true
+        }
+      ]
+    },
+    {
+      "case": "node-queued-http-body",
+      "kind": "refusal",
+      "application": "nodejs",
+      "status": "refused",
+      "directions": [
+        {
+          "direction": "amd64-to-arm64",
+          "decision": "refused",
+          "sourceArch": "x86_64",
+          "targetArch": null
+        },
+        {
+          "direction": "arm64-to-amd64",
+          "decision": "refused",
+          "sourceArch": "aarch64",
+          "targetArch": null
+        }
+      ]
+    },
+    {
+      "case": "node-active-worker",
+      "kind": "refusal",
+      "application": "nodejs",
+      "status": "refused",
+      "directions": [
+        {
+          "direction": "amd64-to-arm64",
+          "decision": "refused",
+          "sourceArch": "x86_64",
+          "targetArch": null
+        },
+        {
+          "direction": "arm64-to-amd64",
+          "decision": "refused",
+          "sourceArch": "aarch64",
+          "targetArch": null
+        }
+      ]
+    },
+    {
+      "case": "node-streaming-response-inflight",
+      "kind": "refusal",
+      "application": "nodejs",
+      "status": "refused",
+      "directions": [
+        {
+          "direction": "amd64-to-arm64",
+          "decision": "refused",
+          "sourceArch": "x86_64",
+          "targetArch": null
+        },
+        {
+          "direction": "arm64-to-amd64",
+          "decision": "refused",
+          "sourceArch": "aarch64",
+          "targetArch": null
+        }
+      ]
+    },
+    {
+      "case": "postgres-active-query",
+      "kind": "refusal",
+      "application": "postgresql",
+      "status": "refused",
+      "directions": [
+        {
+          "direction": "amd64-to-arm64",
+          "decision": "refused",
+          "sourceArch": "x86_64",
+          "targetArch": null
+        },
+        {
+          "direction": "arm64-to-amd64",
+          "decision": "refused",
+          "sourceArch": "aarch64",
+          "targetArch": null
+        }
+      ]
+    },
+    {
+      "case": "postgres-active-transaction",
+      "kind": "refusal",
+      "application": "postgresql",
+      "status": "refused",
+      "directions": [
+        {
+          "direction": "amd64-to-arm64",
+          "decision": "refused",
+          "sourceArch": "x86_64",
+          "targetArch": null
+        },
+        {
+          "direction": "arm64-to-amd64",
+          "decision": "refused",
+          "sourceArch": "aarch64",
+          "targetArch": null
+        }
+      ]
+    },
+    {
+      "case": "postgres-lock-wait",
+      "kind": "refusal",
+      "application": "postgresql",
+      "status": "refused",
+      "directions": [
+        {
+          "direction": "amd64-to-arm64",
+          "decision": "refused",
+          "sourceArch": "x86_64",
+          "targetArch": null
+        },
+        {
+          "direction": "arm64-to-amd64",
+          "decision": "refused",
+          "sourceArch": "aarch64",
+          "targetArch": null
+        }
+      ]
+    },
+    {
+      "case": "redis-queued-command",
+      "kind": "refusal",
+      "application": "redis",
+      "status": "refused",
+      "directions": [
+        {
+          "direction": "amd64-to-arm64",
+          "decision": "refused",
+          "sourceArch": "x86_64",
+          "targetArch": null
+        },
+        {
+          "direction": "arm64-to-amd64",
+          "decision": "refused",
+          "sourceArch": "aarch64",
+          "targetArch": null
+        }
+      ]
+    }
+  ],
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false,
+    "runtimeHeapRestoreClaimed": false,
+    "kernelSocketIdentityPreserved": false
+  }
+}

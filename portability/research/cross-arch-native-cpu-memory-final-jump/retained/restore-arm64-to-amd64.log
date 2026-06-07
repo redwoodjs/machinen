@@ -1,0 +1,2 @@
+hello:42
+FINAL_JUMP_OK source=arm64 target=amd64 sourcePc=0xad44ff850e50 sourceSp=0xffffdcda5960 targetEntry=0x62bc81d5f7d0 targetSp=0x62bc92e09880 relocatedPointer=0x62bc92df8490 result=42

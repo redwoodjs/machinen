@@ -1,0 +1,7 @@
+{
+  "shape": "010-libc-boundary-fixture",
+  "decision": "refused",
+  "supportStage": "1-refused",
+  "refusalCode": "libc-boundary-not-cross-architecture",
+  "reason": "source and target architectures must differ"
+}

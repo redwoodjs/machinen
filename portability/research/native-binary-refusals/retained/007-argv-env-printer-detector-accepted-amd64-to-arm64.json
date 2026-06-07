@@ -1,0 +1,16 @@
+{
+  "shape": "007-argv-env-printer",
+  "decision": "accepted",
+  "supportStage": "4-supported-subset",
+  "supportScope": "declared safe-point argv/env string descriptor with target-native pointer reconstruction",
+  "sourceArch": "amd64",
+  "targetArch": "arm64",
+  "facts": {
+    "entrySymbol": "continue_argv_env",
+    "sourcePc": "0x58217368fc12",
+    "sourceSp": "0x7ffdd6ae3300",
+    "sourceArg0": "0x1000",
+    "targetArgumentRegister": "x0",
+    "targetStackBytes": 65536
+  }
+}

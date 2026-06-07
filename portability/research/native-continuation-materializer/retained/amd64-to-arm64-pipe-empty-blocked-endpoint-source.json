@@ -1,0 +1,51 @@
+{
+  "case": "pipe-empty-blocked-endpoint",
+  "kind": "support",
+  "description": "materialize empty pipe blocked reader and continue with a byte",
+  "mode": "source",
+  "role": "source",
+  "hostArch": "x86_64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false
+  },
+  "decision": "captured",
+  "descriptor": {
+    "kind": "machinen.research.native-continuation.capture-descriptor",
+    "version": 1,
+    "shapeId": "shape-pipe-empty-blocked-endpoint",
+    "architectureNeutral": true,
+    "cpu": {
+      "wait": "pipe-empty-wait",
+      "targetNativeReconstruction": true,
+      "sourceIsaEmulationRequired": false
+    },
+    "memory": {
+      "mode": "semantic-resource-descriptor-only",
+      "rawHeapCaptured": false,
+      "rawStackCaptured": false,
+      "rawRegistersCaptured": false,
+      "rawHeapStackRegistersCaptured": false
+    },
+    "resources": {
+      "pipes": {
+        "bufferBytesKnownEmpty": true
+      },
+      "processTree": {
+        "reader": "child"
+      },
+      "continueByte": "P"
+    },
+    "materializer": {
+      "strategy": "target-native-shape-materializer",
+      "rawProcessMemoryMaterialization": false
+    }
+  },
+  "evidence": {
+    "output": "pipe-continued-P",
+    "continued": true
+  }
+}

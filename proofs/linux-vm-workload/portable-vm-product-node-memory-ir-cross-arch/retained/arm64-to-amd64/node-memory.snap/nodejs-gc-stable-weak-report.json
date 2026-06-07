@@ -1,0 +1,35 @@
+{
+  "kind": "machinen.nodejs-gc-stable-weak-report",
+  "version": 1,
+  "accepted": true,
+  "sourceArch": "arm64",
+  "captureBoundaryRequired": "source-vm-paused",
+  "weakResourceRows": [
+    "nodejs-resource-weakmap-semantic-entries",
+    "nodejs-resource-weakset-semantic-members",
+    "nodejs-resource-finalization-registry-drop-policy",
+    "nodejs-resource-weakref-semantic-reference",
+    "nodejs-resource-gc-sensitive-cache-rebuild-policy",
+    "nodejs-resource-ephemeron-table-semantic-descriptor"
+  ],
+  "strategy": "semantic-weak-policy-no-raw-gc-reachability",
+  "policies": [
+    "declared-strong-key-descriptors",
+    "drop-unreachable-at-capture-boundary",
+    "drop-finalizer-queue",
+    "lazy-target-native-cache-rebuild"
+  ],
+  "evidence": {
+    "rawGcReachabilityTransferred": false,
+    "finalizerQueueTransferred": false,
+    "ephemeronTableBytesTransferred": false,
+    "retainedWeakCellPointers": 0
+  },
+  "remainingGcPolicy": "verified-refusal-without-declared-semantic-policy",
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawGcReachabilityRestoreUsed": false,
+    "sourceIsaEmulationUsed": false
+  }
+}

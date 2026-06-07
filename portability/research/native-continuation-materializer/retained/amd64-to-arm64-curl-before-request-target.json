@@ -1,0 +1,48 @@
+{
+  "case": "curl-before-request",
+  "kind": "support",
+  "description": "materialize curl before-request descriptor by issuing target-native request",
+  "mode": "target",
+  "role": "target",
+  "hostArch": "aarch64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false
+  },
+  "decision": "accepted",
+  "descriptor": {
+    "kind": "machinen.research.native-continuation.capture-descriptor",
+    "version": 1,
+    "shapeId": "shape-curl-before-request",
+    "architectureNeutral": true,
+    "cpu": {
+      "wait": "before-http-request",
+      "targetNativeReconstruction": true,
+      "sourceIsaEmulationRequired": false
+    },
+    "memory": {
+      "mode": "semantic-resource-descriptor-only",
+      "rawHeapCaptured": false,
+      "rawStackCaptured": false,
+      "rawRegistersCaptured": false,
+      "rawHeapStackRegistersCaptured": false
+    },
+    "resources": {
+      "network": {
+        "requestStarted": false,
+        "inFlightBytes": 0
+      }
+    },
+    "materializer": {
+      "strategy": "target-native-shape-materializer",
+      "rawProcessMemoryMaterialization": false
+    }
+  },
+  "evidence": {
+    "stdout": "curl-materialized-ok",
+    "requestIssuedOnTarget": true
+  }
+}

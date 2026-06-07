@@ -1,0 +1,166 @@
+{
+  "case": "tail-f-truncate",
+  "adapter": "tail-truncate",
+  "description": "tail -f observes deterministic truncation/write",
+  "mode": "source",
+  "role": "source",
+  "hostArch": "x86_64",
+  "binary": {
+    "path": "/usr/bin/tail",
+    "versionLine": "tail (GNU coreutils) 9.1",
+    "packageEvidence": null
+  },
+  "processRoot": {
+    "pid": 3783977,
+    "argv": ["/usr/bin/tail", "-f", "/tmp/machinen-pager-watcher-ladder-ae6m1_6d/watched.txt"]
+  },
+  "processTree": [
+    {
+      "pid": 3783977,
+      "state": {
+        "pid": 3783977,
+        "comm": "tail",
+        "statusState": "S",
+        "threads": 1,
+        "signalPendingMask": "0000000000000000",
+        "statPpid": 3783976,
+        "statPgrp": 3783977,
+        "statSession": 3783977,
+        "statTtyNr": 34816,
+        "syscall": {
+          "raw": "7 0x7ffd343daeb0 0x1 0xffffffff 0x738c77f428d0 0x738c78107c78 0xaaaaaaaaaaaaaaab 0x7ffd343dad18 0x738c78030230",
+          "parsed": true,
+          "number": 7,
+          "name": "poll",
+          "args": [
+            140725479911088, 1, 4294967295, 127047145105616, 127047146962040, 12297829382473034411
+          ],
+          "fd": 140725479911088
+        }
+      },
+      "fds": [
+        {
+          "fd": 0,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 1,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 2,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 3,
+          "target": "/tmp/machinen-pager-watcher-ladder-ae6m1_6d/watched.txt"
+        },
+        {
+          "fd": 4,
+          "target": "anon_inode:inotify"
+        }
+      ],
+      "stdioTargets": {
+        "0": "/dev/pts/0",
+        "1": "/dev/pts/0",
+        "2": "/dev/pts/0"
+      },
+      "syscallFdTarget": null,
+      "allStdioOnControlledPty": true,
+      "hasSignalfd": false,
+      "hasRegularAdapterFile": true
+    }
+  ],
+  "candidateProcess": {
+    "pid": 3783977,
+    "state": {
+      "pid": 3783977,
+      "comm": "tail",
+      "statusState": "S",
+      "threads": 1,
+      "signalPendingMask": "0000000000000000",
+      "statPpid": 3783976,
+      "statPgrp": 3783977,
+      "statSession": 3783977,
+      "statTtyNr": 34816,
+      "syscall": {
+        "raw": "7 0x7ffd343daeb0 0x1 0xffffffff 0x738c77f428d0 0x738c78107c78 0xaaaaaaaaaaaaaaab 0x7ffd343dad18 0x738c78030230",
+        "parsed": true,
+        "number": 7,
+        "name": "poll",
+        "args": [
+          140725479911088, 1, 4294967295, 127047145105616, 127047146962040, 12297829382473034411
+        ],
+        "fd": 140725479911088
+      }
+    },
+    "fds": [
+      {
+        "fd": 0,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 1,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 2,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 3,
+        "target": "/tmp/machinen-pager-watcher-ladder-ae6m1_6d/watched.txt"
+      },
+      {
+        "fd": 4,
+        "target": "anon_inode:inotify"
+      }
+    ],
+    "stdioTargets": {
+      "0": "/dev/pts/0",
+      "1": "/dev/pts/0",
+      "2": "/dev/pts/0"
+    },
+    "syscallFdTarget": null,
+    "allStdioOnControlledPty": true,
+    "hasSignalfd": false,
+    "hasRegularAdapterFile": true
+  },
+  "pty": {
+    "slavePath": "/dev/pts/0",
+    "rows": 24,
+    "cols": 80,
+    "inputQueueBytesOnMaster": 0,
+    "inputQueueBytesOnSlave": {
+      "available": true,
+      "bytes": 0
+    },
+    "foregroundPgrpFromMaster": 3783977
+  },
+  "candidateChecks": {
+    "expectedOutputRendered": true,
+    "modeledWait": true,
+    "controlledPtyIo": true,
+    "sessionPgrp": true,
+    "queuesEmpty": true,
+    "singleThreadCandidate": true,
+    "noPendingSignalCandidate": true,
+    "regularFilePresent": true
+  },
+  "screenAtCandidate": {
+    "containsExpectedOutput": true,
+    "sample": "initial-001\r\n"
+  },
+  "inputOrResource": {
+    "expect": "truncated-001",
+    "file": "/tmp/machinen-pager-watcher-ladder-ae6m1_6d/watched.txt"
+  },
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "markerSymbolsUsed": false
+  },
+  "decision": "captured"
+}

@@ -1,0 +1,33 @@
+{
+  "kind": "machinen.research.track-a.cpu-memory-final-jump-ir",
+  "version": 1,
+  "sourceArch": "amd64",
+  "targetArch": "arm64",
+  "safePoint": "captured_state_ready",
+  "entrySymbol": "continue_from_safepoint",
+  "sourceCpu": {
+    "pc": "0x60de91c5324e",
+    "sp": "0x7ffd782fb1b0",
+    "arg0": "0x60dec2c6a2a0"
+  },
+  "targetCpuPlan": {
+    "pcSymbol": "continue_from_safepoint",
+    "argumentRegister": "x0",
+    "stackBytes": 65536
+  },
+  "memory": {
+    "regionId": "heap:captured-state",
+    "sourceBase": "0x60dec2c6a2a0",
+    "sizeBytes": 80,
+    "bytesHex": "2900000000000000b0a2c6c2de60000068656c6c6f0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "relocationOffset": 8,
+    "sourcePointer": "0x60dec2c6a2b0",
+    "targetOffset": 16
+  },
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false
+  }
+}

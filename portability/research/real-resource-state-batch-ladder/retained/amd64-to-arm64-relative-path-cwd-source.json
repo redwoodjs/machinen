@@ -1,0 +1,21 @@
+{
+  "case": "relative-path-cwd",
+  "kind": "support",
+  "description": "relative path reopen through cwd descriptor",
+  "mode": "source",
+  "role": "source",
+  "hostArch": "x86_64",
+  "pid": 3808726,
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "kernelObjectIdentityPreserved": false
+  },
+  "decision": "captured",
+  "evidence": {
+    "cwd": "/tmp/machinen-resource-state-batch-zahz1ozi/cwd",
+    "relativeRead": "cwd-ok"
+  }
+}

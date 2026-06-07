@@ -1,0 +1,199 @@
+{
+  "case": "man-quit",
+  "adapter": "man",
+  "description": "man wrapper renders through a pager child and q exits",
+  "mode": "source",
+  "role": "source",
+  "hostArch": "x86_64",
+  "binary": {
+    "path": "/usr/bin/man",
+    "versionLine": "man 2.11.2",
+    "packageEvidence": null
+  },
+  "processRoot": {
+    "pid": 3769098,
+    "argv": ["/usr/bin/man", "printf"]
+  },
+  "processTree": [
+    {
+      "pid": 3769098,
+      "state": {
+        "pid": 3769098,
+        "comm": "man",
+        "statusState": "S",
+        "threads": 1,
+        "signalPendingMask": "0000000000000000",
+        "statPpid": 3769097,
+        "statPgrp": 3769098,
+        "statSession": 3769098,
+        "statTtyNr": 34816,
+        "syscall": {
+          "raw": "61 0xffffffff 0x7ffcf2efc084 0x0 0x0 0x5fc98db468a0 0x3 0x7ffcf2efc078 0x7952bc01ebd3",
+          "parsed": true,
+          "number": 61,
+          "name": "syscall-61",
+          "args": [4294967295, 140724384284804, 0, 0, 105319270475936, 3],
+          "fd": 4294967295
+        }
+      },
+      "fds": [
+        {
+          "fd": 0,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 1,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 2,
+          "target": "/dev/pts/0"
+        }
+      ],
+      "stdioTargets": {
+        "0": "/dev/pts/0",
+        "1": "/dev/pts/0",
+        "2": "/dev/pts/0"
+      },
+      "syscallFdTarget": null,
+      "allStdioOnControlledPty": true,
+      "hasSignalfd": false,
+      "hasRegularAdapterFile": false
+    },
+    {
+      "pid": 3769106,
+      "state": {
+        "pid": 3769106,
+        "comm": "more",
+        "statusState": "S",
+        "threads": 1,
+        "signalPendingMask": "0000000000000000",
+        "statPpid": 3769098,
+        "statPgrp": 3769098,
+        "statSession": 3769098,
+        "statTtyNr": 34816,
+        "syscall": {
+          "raw": "0 0x2 0x7fffa35f83d0 0x8 0x0 0x70a65f06ea80 0x0 0x7fffa35f8338 0x70a65ef922ad",
+          "parsed": true,
+          "number": 0,
+          "name": "read",
+          "args": [2, 140735934333904, 8, 0, 123859861170816, 0],
+          "fd": 2
+        }
+      },
+      "fds": [
+        {
+          "fd": 0,
+          "target": "pipe:[64545334]"
+        },
+        {
+          "fd": 1,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 2,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 3,
+          "target": "anon_inode:[signalfd]"
+        }
+      ],
+      "stdioTargets": {
+        "0": "pipe:[64545334]",
+        "1": "/dev/pts/0",
+        "2": "/dev/pts/0"
+      },
+      "syscallFdTarget": "/dev/pts/0",
+      "allStdioOnControlledPty": false,
+      "hasSignalfd": true,
+      "hasRegularAdapterFile": false
+    }
+  ],
+  "candidateProcess": {
+    "pid": 3769106,
+    "state": {
+      "pid": 3769106,
+      "comm": "more",
+      "statusState": "S",
+      "threads": 1,
+      "signalPendingMask": "0000000000000000",
+      "statPpid": 3769098,
+      "statPgrp": 3769098,
+      "statSession": 3769098,
+      "statTtyNr": 34816,
+      "syscall": {
+        "raw": "0 0x2 0x7fffa35f83d0 0x8 0x0 0x70a65f06ea80 0x0 0x7fffa35f8338 0x70a65ef922ad",
+        "parsed": true,
+        "number": 0,
+        "name": "read",
+        "args": [2, 140735934333904, 8, 0, 123859861170816, 0],
+        "fd": 2
+      }
+    },
+    "fds": [
+      {
+        "fd": 0,
+        "target": "pipe:[64545334]"
+      },
+      {
+        "fd": 1,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 2,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 3,
+        "target": "anon_inode:[signalfd]"
+      }
+    ],
+    "stdioTargets": {
+      "0": "pipe:[64545334]",
+      "1": "/dev/pts/0",
+      "2": "/dev/pts/0"
+    },
+    "syscallFdTarget": "/dev/pts/0",
+    "allStdioOnControlledPty": false,
+    "hasSignalfd": true,
+    "hasRegularAdapterFile": false
+  },
+  "pty": {
+    "slavePath": "/dev/pts/0",
+    "rows": 24,
+    "cols": 80,
+    "inputQueueBytesOnMaster": 0,
+    "inputQueueBytesOnSlave": {
+      "available": true,
+      "bytes": 0
+    },
+    "foregroundPgrpFromMaster": 3769098
+  },
+  "candidateChecks": {
+    "expectedOutputRendered": true,
+    "modeledWait": true,
+    "controlledPtyIo": true,
+    "sessionPgrp": true,
+    "queuesEmpty": true,
+    "singleThreadCandidate": true,
+    "noPendingSignalCandidate": true
+  },
+  "screenAtCandidate": {
+    "containsExpectedOutput": true,
+    "sample": "PRINTF(1)                        User Commands                       PRINTF(1)\r\n\r\nN\bNA\bAM\bME\bE\r\n       printf - format and print data\r\n\r\nS\bSY\bYN\bNO\bOP\bPS\bSI\bIS\bS\r\n       p\bpr\bri\bin\bnt\btf\bf _\bF_\bO_\bR_\bM_\bA_\bT [_\bA_\bR_\bG_\bU_\bM_\bE_\bN_\bT]...\r\n       p\bpr\bri\bin\bnt\btf\bf _\bO_\bP_\bT_\bI_\bO_\bN\r\n\r\nD\bDE\bES\bSC\bCR\bRI\bIP\bPT\bTI\bIO\bON\bN\r\n       Print ARGUMENT(s) according to FORMAT, or execute according to OPTION:\r\n\r\n       -\b--\b-h\bhe\bel\blp\bp display this help and exit\r\n\r\n       -\b--\b-v\bve\ber\brs\bsi\bio\bon\bn\r\n              output version information and exit\r\n\r\n       FORMAT controls the output as in C printf.  Interpreted sequences are:\r\n\r\n       \\\"     double quote\r\n\r\n       \\\\     backslash\r\n\r\n\u001b[7m--More--\u001b[27m"
+  },
+  "inputOrResource": {
+    "expect": "process-exit",
+    "file": "man:printf",
+    "base64": "cQ=="
+  },
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "markerSymbolsUsed": false
+  },
+  "decision": "captured"
+}

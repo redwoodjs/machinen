@@ -1,0 +1,36 @@
+{
+  "id": "146-memory-real-cache-expiration-timer-refusal",
+  "slug": "memory-real-cache-expiration-timer-refusal",
+  "runtime": "nodejs",
+  "description": "cache expiration timer refusal refuses fail-closed until separately proven",
+  "disposition": "refused-first",
+  "claimUse": "stable fail-closed Node memory compatibility-matrix refusal; no support claim",
+  "architecturePolicy": "refuse on all source/target architectures until separately proven",
+  "startCommand": "node app.mjs",
+  "healthPath": "/value",
+  "expectedBody": "memory-ready",
+  "dependencies": [],
+  "refusalCode": "node-portability-memory-cache-expiration-timer-unsupported",
+  "capability": {
+    "category": "memory-blocker",
+    "detects": ["anchor:anchor", "anchor:marker"],
+    "captures": ["/proc/<pid>/maps", "/proc/<pid>/mem", "machinen.nodejs.memory-ir"],
+    "restores": [],
+    "verifies": ["fail-closed refusal code is retained"],
+    "blocks": [
+      "raw V8 heap restore",
+      "same PID continuation",
+      "active request/socket continuation",
+      "arbitrary Node process continuation"
+    ]
+  },
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "arbitraryLinuxProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "samePidContinuationClaimed": false,
+    "activeRequestOrSocketContinuationClaimed": false
+  }
+}

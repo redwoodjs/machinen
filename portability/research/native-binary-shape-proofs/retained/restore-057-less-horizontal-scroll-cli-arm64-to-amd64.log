@@ -1,0 +1,2 @@
+less-hscroll:cdef
+SHAPE_RESTORE_OK shape=057-less-horizontal-scroll-cli target=amd64 result=42

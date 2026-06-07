@@ -1,0 +1,7 @@
+{
+  "shape": "001-counter-cli",
+  "decision": "refused",
+  "supportStage": "1-refused",
+  "refusalCode": "counter-cli-unsupported-live-state",
+  "reason": "active syscall, thread, or socket state is outside this supported subset"
+}

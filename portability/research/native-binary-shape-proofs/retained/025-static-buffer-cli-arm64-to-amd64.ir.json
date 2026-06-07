@@ -1,0 +1,27 @@
+{
+  "kind": "machinen.research.native-binary-shape-ir",
+  "version": 1,
+  "shape": "025-static-buffer-cli",
+  "sourceArch": "arm64",
+  "targetArch": "amd64",
+  "safePoint": "declared_shape_ready",
+  "entrySymbol": "continue_static_buffer",
+  "sourceCpu": { "pc": "0xb9f1e9221990", "sp": "0xffffd80f80e0", "arg0": "0x1000" },
+  "targetCpuPlan": {
+    "pcSymbol": "continue_static_buffer",
+    "argumentRegister": "rdi",
+    "stackBytes": 65536
+  },
+  "shapeDescriptor": {
+    "threads": 1,
+    "activeSyscall": false,
+    "sockets": 0,
+    "usesSourceIsaEmulation": false
+  },
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false
+  }
+}

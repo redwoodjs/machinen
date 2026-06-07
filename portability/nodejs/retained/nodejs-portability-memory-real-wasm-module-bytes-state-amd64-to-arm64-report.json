@@ -1,0 +1,141 @@
+{
+  "kind": "machinen.nodejs-portability-memory-real-wasm-module-bytes-state-smoke-report",
+  "version": 1,
+  "accepted": true,
+  "portabilityRow": "249-memory-real-wasm-module-bytes-state",
+  "architectures": ["amd64", "arm64"],
+  "sourceArch": "amd64",
+  "targetArch": "arm64",
+  "executeVm": false,
+  "memoryCapture": "product-owned-nodejs-memory-ir-validation-materialization",
+  "migrationCompleted": true,
+  "summary": {
+    "verifiedVmRows": 0,
+    "memoryStateRows": 1,
+    "refusedRows": 0,
+    "semanticMaterializedRows": 1
+  },
+  "results": [
+    {
+      "id": "249-memory-real-wasm-module-bytes-state",
+      "architecture": "amd64",
+      "state": "verified"
+    },
+    {
+      "id": "249-memory-real-wasm-module-bytes-state",
+      "architecture": "arm64",
+      "state": "verified"
+    }
+  ],
+  "sourceCapture": {
+    "kind": "machinen.nodejs-portability-memory-real-wasm-module-bytes-state-smoke-report.source-capture",
+    "accepted": true,
+    "portabilityRow": "249-memory-real-wasm-module-bytes-state",
+    "sourceArch": "amd64",
+    "captureMethod": "product-owned-nodejs-memory-ir-validation-materialization",
+    "appHookUsedForCapture": false,
+    "rawV8HeapRestored": false,
+    "samePidRestored": false,
+    "memoryIr": {
+      "kind": "machinen.nodejs.memory-ir",
+      "version": 1,
+      "runtime": {
+        "name": "node",
+        "sourceArch": "amd64",
+        "v8": "semantic-ir-product-validation"
+      },
+      "rows": [
+        {
+          "id": "249-memory-real-wasm-module-bytes-state",
+          "shape": "wasm-module-bytes-state",
+          "semanticState": {
+            "kind": "wasm-module-bytes-state",
+            "anchor": "machinen-real-wasm-module-bytes-state-anchor-v1",
+            "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+          },
+          "anchors": {
+            "anchor": "machinen-real-wasm-module-bytes-state-anchor-v1",
+            "marker": "wasm-module-bytes-state:semantic-state"
+          }
+        }
+      ],
+      "unsupported": [],
+      "claimGuard": {
+        "arbitraryNodeProcessRestoreClaimed": false,
+        "arbitraryLinuxProcessRestoreClaimed": false,
+        "rawV8HeapRestoreUsed": false,
+        "rawCpuStateReplayUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "samePidContinuationClaimed": false,
+        "activeRequestOrSocketContinuationClaimed": false
+      }
+    },
+    "evidence": {
+      "decodedFields": {
+        "anchor": {
+          "found": true,
+          "hits": ["semantic-ir:249-memory-real-wasm-module-bytes-state:0"]
+        },
+        "marker": {
+          "found": true,
+          "hits": ["semantic-ir:249-memory-real-wasm-module-bytes-state:1"]
+        }
+      },
+      "validation": "product Node Memory IR accepts this semantic row and rejects raw/opaque fields"
+    }
+  },
+  "targetResult": {
+    "kind": "machinen.nodejs-portability-memory-real-wasm-module-bytes-state-smoke-report.target-result",
+    "accepted": true,
+    "portabilityRow": "249-memory-real-wasm-module-bytes-state",
+    "sourceArch": "amd64",
+    "targetArch": "arm64",
+    "materialization": "target-native-node-semantic-memory-ir",
+    "targetNativeNode": true,
+    "appHookUsedForCapture": false,
+    "rawV8HeapRestored": false,
+    "samePidRestored": false,
+    "verifier": {
+      "accepted": true,
+      "actual": {
+        "kind": "wasm-module-bytes-state",
+        "anchor": "machinen-real-wasm-module-bytes-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      },
+      "expected": {
+        "kind": "wasm-module-bytes-state",
+        "anchor": "machinen-real-wasm-module-bytes-state-anchor-v1",
+        "supportMode": "product-owned-nodejs-memory-ir-validation-materialization"
+      }
+    }
+  },
+  "evidence": {
+    "appPath": "portability/nodejs/249-memory-real-wasm-module-bytes-state/app.mjs",
+    "smokePath": "portability/nodejs/249-memory-real-wasm-module-bytes-state/smoke.ts",
+    "materializer": "packages/runtime/src/nodejs-memory-ir.ts"
+  },
+  "claimBoundary": {
+    "claims": [
+      "249-memory-real-wasm-module-bytes-state materializes selected semantic Node Memory IR state target-native across architectures"
+    ],
+    "notClaimed": [
+      "arbitrary Node process restore",
+      "raw V8 heap restore",
+      "same PID continuation",
+      "active request/socket continuation",
+      "worker/native-addon/child-process live-state transfer",
+      "source ISA emulation",
+      "arbitrary Linux process restore",
+      "raw VM/vCPU/device replay"
+    ]
+  },
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "arbitraryLinuxProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "samePidContinuationClaimed": false,
+    "activeRequestOrSocketContinuationClaimed": false
+  }
+}

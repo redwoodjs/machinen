@@ -1,0 +1,27 @@
+{
+  "kind": "machinen.research.native-binary-shape-ir",
+  "version": 1,
+  "shape": "032-json-token-parser-cli",
+  "sourceArch": "amd64",
+  "targetArch": "arm64",
+  "safePoint": "declared_shape_ready",
+  "entrySymbol": "continue_json_token_parser",
+  "sourceCpu": { "pc": "0x59ac68972c12", "sp": "0x7ffe08ac0230", "arg0": "0x1000" },
+  "targetCpuPlan": {
+    "pcSymbol": "continue_json_token_parser",
+    "argumentRegister": "x0",
+    "stackBytes": 65536
+  },
+  "shapeDescriptor": {
+    "threads": 1,
+    "activeSyscall": false,
+    "sockets": 0,
+    "usesSourceIsaEmulation": false
+  },
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false
+  }
+}

@@ -17,10 +17,12 @@
   "workloads": {
     "nodejs": {
       "classified": true,
-      "rowCount": 3,
+      "rowCount": 8,
       "refusedRows": 1,
       "memoryRows": 1,
       "memoryMaterializationRows": 1,
+      "resourceRows": 1,
+      "resourceMaterializationRows": 1,
       "refusals": [
         {
           "id": "nodejs-memory-pending-microtask",
@@ -28,7 +30,8 @@
           "message": "pending microtask state is refused by default"
         }
       ],
-      "memoryRefusals": ["node-portability-memory-pending-microtask-unsupported"]
+      "memoryRefusals": ["node-portability-memory-pending-microtask-unsupported"],
+      "resourceRefusals": []
     }
   },
   "claimGuard": {

@@ -1,0 +1,16 @@
+{
+  "shape": "017-fixed-ring-buffer-cli",
+  "decision": "accepted",
+  "supportStage": "4-supported-subset",
+  "supportScope": "declared safe-point fixed ring buffer with head and tail indexes",
+  "sourceArch": "amd64",
+  "targetArch": "arm64",
+  "facts": {
+    "entrySymbol": "continue_ring_buffer",
+    "sourcePc": "0x6380e6d66c12",
+    "sourceSp": "0x7fff8c40ae40",
+    "sourceArg0": "0x1000",
+    "targetArgumentRegister": "x0",
+    "targetStackBytes": 65536
+  }
+}

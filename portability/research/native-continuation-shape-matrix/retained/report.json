@@ -1,0 +1,431 @@
+{
+  "kind": "machinen.research.native-continuation-shape-matrix.report",
+  "version": 1,
+  "status": "passed",
+  "rowCount": 13,
+  "supportedRows": 9,
+  "refusedRows": 4,
+  "failedRows": 0,
+  "axis": "cpu-memory-resource-shape-not-proof-binary",
+  "classifier": {
+    "valid": true,
+    "errors": [],
+    "report": "portability/research/native-continuation-classifier/retained/report.json",
+    "hosts": ["x86_64", "aarch64"],
+    "requiredShapeIds": [
+      "shape-controlled-pty-read-empty-queue",
+      "shape-pipe-empty-blocked-endpoint",
+      "shape-socket-listener-empty-accept-queue",
+      "shape-socket-connected-local-empty-queues",
+      "shape-threads-all-parked-known-waits",
+      "refuse-socket-queued-or-inflight-bytes",
+      "refuse-active-or-unclassified-thread",
+      "refuse-unclassified-process-shape"
+    ]
+  },
+  "rows": [
+    {
+      "id": "shape-pty-pager-blocked-input-empty-queue",
+      "proofBinary": "less",
+      "proofCase": "space-page-down",
+      "decision": "supported-subset",
+      "shape": {
+        "cpu": "blocked in terminal input wait; no source ISA execution on target",
+        "memory": "screen/file position represented as semantic descriptor, not raw stack/heap",
+        "resources": ["controlled pty", "regular input file", "empty pty input queue"],
+        "acceptedSafePoint": "after first render, before next key"
+      },
+      "proofReport": "portability/research/real-less-unmodified-key-matrix/retained/report.json",
+      "evidenceStatus": "accepted",
+      "sameArch": "accepted",
+      "directions": [
+        {
+          "direction": "amd64-to-arm64",
+          "decision": "accepted",
+          "sourceArch": "x86_64",
+          "targetArch": "aarch64"
+        },
+        {
+          "direction": "arm64-to-amd64",
+          "decision": "accepted",
+          "sourceArch": "aarch64",
+          "targetArch": "x86_64"
+        }
+      ],
+      "valid": true,
+      "errors": []
+    },
+    {
+      "id": "shape-editor-unsaved-buffer-command-mode",
+      "proofBinary": "vi",
+      "proofCase": "vi-mid-edit-continuation",
+      "decision": "supported-subset",
+      "shape": {
+        "cpu": "live editor waiting for pty command/input; target restarts native editor action",
+        "memory": "unsaved buffer captured as semantic text descriptor",
+        "resources": ["controlled pty", "target file path", "empty host file before save"],
+        "acceptedSafePoint": "live unsaved buffer before save"
+      },
+      "proofReport": "portability/research/real-crazy-binary-stress-ladder/retained/report.json",
+      "evidenceStatus": "accepted",
+      "sameArch": "accepted",
+      "directions": [
+        {
+          "direction": "amd64-to-arm64",
+          "decision": "accepted",
+          "sourceArch": "x86_64",
+          "targetArch": "aarch64"
+        },
+        {
+          "direction": "arm64-to-amd64",
+          "decision": "accepted",
+          "sourceArch": "aarch64",
+          "targetArch": "x86_64"
+        }
+      ],
+      "valid": true,
+      "errors": []
+    },
+    {
+      "id": "shape-editor-unsaved-buffer-control-key",
+      "proofBinary": "nano",
+      "proofCase": "nano-mid-edit-continuation",
+      "decision": "supported-subset",
+      "shape": {
+        "cpu": "live editor waiting for pty control command; target restarts native save sequence",
+        "memory": "unsaved buffer captured as semantic text descriptor",
+        "resources": ["controlled pty", "target file path", "empty host file before save"],
+        "acceptedSafePoint": "live unsaved buffer before writeout"
+      },
+      "proofReport": "portability/research/real-crazy-binary-stress-ladder/retained/report.json",
+      "evidenceStatus": "accepted",
+      "sameArch": "accepted",
+      "directions": [
+        {
+          "direction": "amd64-to-arm64",
+          "decision": "accepted",
+          "sourceArch": "x86_64",
+          "targetArch": "aarch64"
+        },
+        {
+          "direction": "arm64-to-amd64",
+          "decision": "accepted",
+          "sourceArch": "aarch64",
+          "targetArch": "x86_64"
+        }
+      ],
+      "valid": true,
+      "errors": []
+    },
+    {
+      "id": "shape-repl-primary-prompt-semantic-state",
+      "proofBinary": "python3 -i",
+      "proofCase": "python-repl-prompt-continuation",
+      "decision": "supported-subset",
+      "shape": {
+        "cpu": "interpreter at prompt; target-native interpreter evaluates next expression",
+        "memory": "accepted variables/statements captured as semantic descriptor, not raw interpreter heap",
+        "resources": ["controlled pty", "prompt transcript"],
+        "acceptedSafePoint": "live primary prompt after accepted statements"
+      },
+      "proofReport": "portability/research/real-crazy-binary-stress-ladder/retained/report.json",
+      "evidenceStatus": "accepted",
+      "sameArch": "accepted",
+      "directions": [
+        {
+          "direction": "amd64-to-arm64",
+          "decision": "accepted",
+          "sourceArch": "x86_64",
+          "targetArch": "aarch64"
+        },
+        {
+          "direction": "arm64-to-amd64",
+          "decision": "accepted",
+          "sourceArch": "aarch64",
+          "targetArch": "x86_64"
+        }
+      ],
+      "valid": true,
+      "errors": []
+    },
+    {
+      "id": "shape-database-cli-durable-prompt",
+      "proofBinary": "sqlite3",
+      "proofCase": "sqlite-prompt-continuation",
+      "decision": "supported-subset",
+      "shape": {
+        "cpu": "database CLI at prompt; target-native CLI continues query",
+        "memory": "durable database file plus SQL transcript, not raw process heap",
+        "resources": ["controlled pty", "database file", "no active transaction claimed"],
+        "acceptedSafePoint": "live prompt after durable writes"
+      },
+      "proofReport": "portability/research/real-crazy-binary-stress-ladder/retained/report.json",
+      "evidenceStatus": "accepted",
+      "sameArch": "accepted",
+      "directions": [
+        {
+          "direction": "amd64-to-arm64",
+          "decision": "accepted",
+          "sourceArch": "x86_64",
+          "targetArch": "aarch64"
+        },
+        {
+          "direction": "arm64-to-amd64",
+          "decision": "accepted",
+          "sourceArch": "aarch64",
+          "targetArch": "x86_64"
+        }
+      ],
+      "valid": true,
+      "errors": []
+    },
+    {
+      "id": "shape-build-controlled-recipe-gate",
+      "proofBinary": "make",
+      "proofCase": "make-active-recipe-continuation",
+      "decision": "supported-subset",
+      "shape": {
+        "cpu": "build driver blocked at controlled recipe gate; target-native make runs remaining work",
+        "memory": "makefile, prerequisites, and completed phase captured as files/descriptors",
+        "resources": ["working directory", "makefile", "completed prerequisite stamp", "gate file"],
+        "acceptedSafePoint": "live recipe gate before final output mutation"
+      },
+      "proofReport": "portability/research/real-crazy-binary-stress-ladder/retained/report.json",
+      "evidenceStatus": "accepted",
+      "sameArch": "accepted",
+      "directions": [
+        {
+          "direction": "amd64-to-arm64",
+          "decision": "accepted",
+          "sourceArch": "x86_64",
+          "targetArch": "aarch64"
+        },
+        {
+          "direction": "arm64-to-amd64",
+          "decision": "accepted",
+          "sourceArch": "aarch64",
+          "targetArch": "x86_64"
+        }
+      ],
+      "valid": true,
+      "errors": []
+    },
+    {
+      "id": "shape-tui-rendered-frame-quit",
+      "proofBinary": "top",
+      "proofCase": "top-live-refresh-continuation",
+      "decision": "supported-subset",
+      "shape": {
+        "cpu": "TUI rendered and waiting for pty input; target-native TUI accepts next key",
+        "memory": "rendered-frame proof only; no arbitrary process table heap restored",
+        "resources": ["controlled pty", "terminal size", "empty input queue"],
+        "acceptedSafePoint": "live rendered frame"
+      },
+      "proofReport": "portability/research/real-crazy-binary-stress-ladder/retained/report.json",
+      "evidenceStatus": "accepted",
+      "sameArch": "accepted",
+      "directions": [
+        {
+          "direction": "amd64-to-arm64",
+          "decision": "accepted",
+          "sourceArch": "x86_64",
+          "targetArch": "aarch64"
+        },
+        {
+          "direction": "arm64-to-amd64",
+          "decision": "accepted",
+          "sourceArch": "aarch64",
+          "targetArch": "x86_64"
+        }
+      ],
+      "valid": true,
+      "errors": []
+    },
+    {
+      "id": "shape-periodic-tui-rendered-frame-quit",
+      "proofBinary": "watch",
+      "proofCase": "watch-live-refresh-continuation",
+      "decision": "supported-subset",
+      "shape": {
+        "cpu": "periodic TUI rendered and waiting for pty input; target-native TUI accepts next key",
+        "memory": "command descriptor and rendered-frame proof only",
+        "resources": ["controlled pty", "terminal size", "empty input queue"],
+        "acceptedSafePoint": "live rendered frame"
+      },
+      "proofReport": "portability/research/real-crazy-binary-stress-ladder/retained/report.json",
+      "evidenceStatus": "accepted",
+      "sameArch": "accepted",
+      "directions": [
+        {
+          "direction": "amd64-to-arm64",
+          "decision": "accepted",
+          "sourceArch": "x86_64",
+          "targetArch": "aarch64"
+        },
+        {
+          "direction": "arm64-to-amd64",
+          "decision": "accepted",
+          "sourceArch": "aarch64",
+          "targetArch": "x86_64"
+        }
+      ],
+      "valid": true,
+      "errors": []
+    },
+    {
+      "id": "shape-filesystem-walk-controlled-gate",
+      "proofBinary": "find",
+      "proofCase": "find-live-walk-continuation",
+      "decision": "supported-subset",
+      "shape": {
+        "cpu": "walker paused at controlled exec gate; target-native walk restarts stable traversal",
+        "memory": "stable directory tree descriptor, not raw traversal stack",
+        "resources": ["directory tree", "stable file set", "no concurrent mutation"],
+        "acceptedSafePoint": "live controlled walk gate"
+      },
+      "proofReport": "portability/research/real-crazy-binary-stress-ladder/retained/report.json",
+      "evidenceStatus": "accepted",
+      "sameArch": "accepted",
+      "directions": [
+        {
+          "direction": "amd64-to-arm64",
+          "decision": "accepted",
+          "sourceArch": "x86_64",
+          "targetArch": "aarch64"
+        },
+        {
+          "direction": "arm64-to-amd64",
+          "decision": "accepted",
+          "sourceArch": "aarch64",
+          "targetArch": "x86_64"
+        }
+      ],
+      "valid": true,
+      "errors": []
+    },
+    {
+      "id": "refuse-live-tcp-partial-body",
+      "proofBinary": "curl",
+      "proofCase": "curl-mid-transfer-refusal",
+      "decision": "refused",
+      "shape": {
+        "cpu": "native client mid-transfer",
+        "memory": "partial protocol/body state exists outside an accepted descriptor",
+        "resources": ["TCP socket", "partial response bytes"],
+        "refusalBoundary": "kernel TCP identity and in-flight body are not preserved"
+      },
+      "proofReport": "portability/research/real-crazy-binary-stress-ladder/retained/report.json",
+      "evidenceStatus": "refused",
+      "sameArch": "refused",
+      "directions": [
+        {
+          "direction": "amd64-to-arm64",
+          "decision": "refused",
+          "sourceArch": "x86_64",
+          "targetArch": "aarch64"
+        },
+        {
+          "direction": "arm64-to-amd64",
+          "decision": "refused",
+          "sourceArch": "aarch64",
+          "targetArch": "x86_64"
+        }
+      ],
+      "valid": true,
+      "errors": []
+    },
+    {
+      "id": "refuse-live-archive-stream",
+      "proofBinary": "tar",
+      "proofCase": "tar-mid-stream-refusal",
+      "decision": "refused",
+      "shape": {
+        "cpu": "archiver mid-stream",
+        "memory": "partial stream/checkpoint state exists outside an accepted descriptor",
+        "resources": ["partial archive stream"],
+        "refusalBoundary": "partial output stream identity is not continued"
+      },
+      "proofReport": "portability/research/real-crazy-binary-stress-ladder/retained/report.json",
+      "evidenceStatus": "refused",
+      "sameArch": "refused",
+      "directions": [
+        {
+          "direction": "amd64-to-arm64",
+          "decision": "refused",
+          "sourceArch": "x86_64",
+          "targetArch": "aarch64"
+        },
+        {
+          "direction": "arm64-to-amd64",
+          "decision": "refused",
+          "sourceArch": "aarch64",
+          "targetArch": "x86_64"
+        }
+      ],
+      "valid": true,
+      "errors": []
+    },
+    {
+      "id": "refuse-live-copy-partial-destination",
+      "proofBinary": "rsync",
+      "proofCase": "rsync-mid-copy-refusal",
+      "decision": "refused",
+      "shape": {
+        "cpu": "sync tool mid-copy",
+        "memory": "delta/checksum/copy cursor not captured as accepted descriptor",
+        "resources": ["partial destination file"],
+        "refusalBoundary": "partial destination mutation is refused"
+      },
+      "proofReport": "portability/research/real-crazy-binary-stress-ladder/retained/report.json",
+      "evidenceStatus": "refused",
+      "sameArch": "refused",
+      "directions": [
+        {
+          "direction": "amd64-to-arm64",
+          "decision": "refused",
+          "sourceArch": "x86_64",
+          "targetArch": "aarch64"
+        },
+        {
+          "direction": "arm64-to-amd64",
+          "decision": "refused",
+          "sourceArch": "aarch64",
+          "targetArch": "x86_64"
+        }
+      ],
+      "valid": true,
+      "errors": []
+    },
+    {
+      "id": "refuse-live-cipher-stream",
+      "proofBinary": "openssl enc",
+      "proofCase": "openssl-enc-mid-stream-refusal",
+      "decision": "refused",
+      "shape": {
+        "cpu": "cipher process mid-stream",
+        "memory": "cipher chaining/PBKDF/input cursor state is not reconstructed from raw process memory",
+        "resources": ["partial input/output stream"],
+        "refusalBoundary": "live cipher state is refused"
+      },
+      "proofReport": "portability/research/real-crazy-binary-stress-ladder/retained/report.json",
+      "evidenceStatus": "refused",
+      "sameArch": "refused",
+      "directions": [
+        {
+          "direction": "amd64-to-arm64",
+          "decision": "refused",
+          "sourceArch": "x86_64",
+          "targetArch": "aarch64"
+        },
+        {
+          "direction": "arm64-to-amd64",
+          "decision": "refused",
+          "sourceArch": "aarch64",
+          "targetArch": "x86_64"
+        }
+      ],
+      "valid": true,
+      "errors": []
+    }
+  ]
+}

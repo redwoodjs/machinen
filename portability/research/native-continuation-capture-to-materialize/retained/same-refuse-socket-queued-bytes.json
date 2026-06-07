@@ -1,0 +1,133 @@
+{
+  "case": "refuse-socket-queued-bytes",
+  "kind": "refusal",
+  "description": "classifier refuses queued socket bytes and emits no descriptor",
+  "mode": "source",
+  "role": "source",
+  "hostArch": "x86_64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false
+  },
+  "decision": "refused",
+  "classifierResult": {
+    "kind": "machinen.research.native-continuation-classifier.result",
+    "version": 1,
+    "decision": "refused",
+    "shapeId": "refuse-socket-queued-or-inflight-bytes",
+    "reason": "socket has queued/in-flight bytes",
+    "claimGuard": {
+      "arbitraryProcessRestoreClaimed": false,
+      "rawVmReplayUsed": false,
+      "sourceIsaEmulationUsed": false,
+      "metadataOnlySuccess": false,
+      "rawHeapStackRegisterRestore": false
+    },
+    "observation": {
+      "pid": 3964574,
+      "hostArch": "x86_64",
+      "pausedVmObservation": false,
+      "observationConsistency": "live-procfs-best-effort",
+      "alive": true,
+      "exe": "/usr/bin/python3.11",
+      "cmdline": [
+        "python3",
+        "-c",
+        "\nimport socket, time\nlistener=socket.socket(); listener.bind(('127.0.0.1',0)); listener.listen(1)\nclient=socket.socket(); client.connect(listener.getsockname())\nserver,_=listener.accept(); listener.close(); client.send(b'queued-socket-bytes')\ntime.sleep(30)\n"
+      ],
+      "processTree": {
+        "ppid": 3964573,
+        "pgrp": 3964574,
+        "session": 3964574
+      },
+      "status": {
+        "state": "S (sleeping)",
+        "threads": 1,
+        "tracerPid": 0
+      },
+      "tasks": [
+        {
+          "tid": 3964574,
+          "state": "S",
+          "wchan": "hrtimer_nanosleep",
+          "syscall": {
+            "raw": "230 0x1 0x1 0x7ffe69492150 0x0 0x0 0x0 0x7ffe69492138 0x76b9daff5503",
+            "wchan": "hrtimer_nanosleep",
+            "number": "230",
+            "readLikeWait": false,
+            "pollLikeWait": false
+          }
+        }
+      ],
+      "fds": [
+        {
+          "fd": 0,
+          "target": "pipe:[66054835]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 1,
+          "target": "pipe:[66060396]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 2,
+          "target": "pipe:[66060397]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 4,
+          "target": "socket:[66054839]",
+          "kind": "socket",
+          "queueBytes": null,
+          "socketInode": "66054839",
+          "socket": {
+            "family": "tcp4",
+            "state": "ESTABLISHED",
+            "stateHex": "01",
+            "txQueue": 0,
+            "rxQueue": 0,
+            "localAddressHex": "0100007F",
+            "localPort": 44230,
+            "remoteAddressHex": "0100007F",
+            "remotePort": 50701
+          }
+        },
+        {
+          "fd": 5,
+          "target": "socket:[66054840]",
+          "kind": "socket",
+          "queueBytes": null,
+          "socketInode": "66054840",
+          "socket": {
+            "family": "tcp4",
+            "state": "ESTABLISHED",
+            "stateHex": "01",
+            "txQueue": 0,
+            "rxQueue": 19,
+            "localAddressHex": "0100007F",
+            "localPort": 50701,
+            "remoteAddressHex": "0100007F",
+            "remotePort": 44230
+          }
+        }
+      ],
+      "fdKinds": ["pipe", "socket"],
+      "syscall": {
+        "raw": "230 0x1 0x1 0x7ffe69492150 0x0 0x0 0x0 0x7ffe69492138 0x76b9daff5503",
+        "wchan": "hrtimer_nanosleep",
+        "number": "230",
+        "readLikeWait": false,
+        "pollLikeWait": false
+      }
+    }
+  },
+  "descriptor": null,
+  "materializerAvailable": false
+}

@@ -1,0 +1,2 @@
+frames:6
+SHAPE_RESTORE_OK shape=026-multiple-stack-frames-cli target=arm64 result=42

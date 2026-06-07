@@ -13,7 +13,30 @@
   "portableVmPlan": "portable-vm-manifest-plan.json",
   "arbitraryVmRestoreClaimed": false,
   "rawVmStateReplayUsed": false,
-  "snapshotDir": "/Users/peterp/gh/redwoodjs/machinen/proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/node-memory-refusal-active-request.snap",
-  "elapsedMs": 37,
+  "pauseBoundary": {
+    "kind": "machinen.portable-vm-pause-boundary",
+    "version": 1,
+    "accepted": true,
+    "sourceVmPauseRequired": true,
+    "pauseMechanism": "vmm-native-sigusr1-sigusr2",
+    "pauseSignal": "SIGUSR1",
+    "resumeSignal": "SIGUSR2",
+    "sourceVmPid": 92670,
+    "stoppedStateObserved": true,
+    "unsupportedPausedLiveStatePolicy": "refuse",
+    "vmmNativeMarker": {
+      "kind": "machinen.vmm-pause-marker",
+      "version": 1,
+      "backend": "hvf",
+      "vcpusStopped": true,
+      "resumeSignalRequired": "SIGUSR2"
+    },
+    "startedAt": "2026-06-04T19:55:37.058Z",
+    "pausedObservedAt": "2026-06-04T19:55:37.079Z",
+    "resumedAt": "2026-06-04T19:55:37.079Z",
+    "elapsedMs": 21
+  },
+  "snapshotDir": "/tmp/machinen-weak-gc-product/node-memory-refusal-active-request.snap",
+  "elapsedMs": 62,
   "dryRun": false
 }

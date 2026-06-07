@@ -1,0 +1,36 @@
+{
+  "id": "061-memory-real-timer-refusal",
+  "slug": "memory-real-timer-refusal",
+  "runtime": "nodejs",
+  "description": "Active timer queue state refuses fail-closed until a target-native timer reconstruction policy is proven",
+  "disposition": "refused-first",
+  "claimUse": "stable fail-closed Node memory live/opaque-state refusal",
+  "architecturePolicy": "refuse on all source/target architectures until separately proven",
+  "startCommand": "node app.mjs",
+  "healthPath": "/value",
+  "expectedBody": "memory-ready",
+  "dependencies": [],
+  "refusalCode": "node-portability-memory-timer-unsupported",
+  "capability": {
+    "category": "memory-blocker",
+    "detects": ["anchor:anchor", "anchor:timer"],
+    "captures": ["/proc/<pid>/maps", "/proc/<pid>/mem", "machinen.nodejs.memory-ir"],
+    "restores": [],
+    "verifies": ["fail-closed refusal code is retained"],
+    "blocks": [
+      "raw V8 heap restore",
+      "same PID continuation",
+      "active request/socket continuation",
+      "arbitrary Node process continuation"
+    ]
+  },
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "arbitraryLinuxProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "samePidContinuationClaimed": false,
+    "activeRequestOrSocketContinuationClaimed": false
+  }
+}

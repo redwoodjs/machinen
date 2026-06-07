@@ -1,0 +1,27 @@
+{
+  "kind": "machinen.research.native-binary-shape-ir",
+  "version": 1,
+  "shape": "062-less-screen-render-cli",
+  "sourceArch": "amd64",
+  "targetArch": "arm64",
+  "safePoint": "declared_shape_ready",
+  "entrySymbol": "continue_less_screen_render",
+  "sourceCpu": { "pc": "0x608e1e642c12", "sp": "0x7ffe443381d0", "arg0": "0x1000" },
+  "targetCpuPlan": {
+    "pcSymbol": "continue_less_screen_render",
+    "argumentRegister": "x0",
+    "stackBytes": 65536
+  },
+  "shapeDescriptor": {
+    "threads": 1,
+    "activeSyscall": false,
+    "sockets": 0,
+    "usesSourceIsaEmulation": false
+  },
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false
+  }
+}

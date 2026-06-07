@@ -1,0 +1,76 @@
+{
+  "kind": "machinen.nodejs-portability-memory-real-stream-refusal-smoke-report",
+  "version": 1,
+  "accepted": true,
+  "portabilityRow": "062-memory-real-stream-refusal",
+  "architectures": ["arm64", "amd64"],
+  "executeVm": false,
+  "migrationCompleted": false,
+  "summary": {
+    "verifiedVmRows": 0,
+    "memoryStateRows": 0,
+    "refusedRows": 1
+  },
+  "results": [
+    {
+      "id": "062-memory-real-stream-refusal",
+      "architecture": "arm64",
+      "state": "refused",
+      "refusalCode": "node-portability-memory-stream-unsupported"
+    },
+    {
+      "id": "062-memory-real-stream-refusal",
+      "architecture": "amd64",
+      "state": "refused",
+      "refusalCode": "node-portability-memory-stream-unsupported"
+    }
+  ],
+  "refusal": {
+    "code": "node-portability-memory-stream-unsupported",
+    "reason": "stream buffers and native backpressure state are refused until separately proven"
+  },
+  "memoryIr": {
+    "kind": "machinen.nodejs.memory-ir",
+    "version": 1,
+    "rows": [],
+    "unsupported": [
+      {
+        "code": "node-portability-memory-stream-unsupported",
+        "reason": "stream buffers and native backpressure state are refused until separately proven"
+      }
+    ],
+    "claimGuard": {
+      "arbitraryNodeProcessRestoreClaimed": false,
+      "arbitraryLinuxProcessRestoreClaimed": false,
+      "rawV8HeapRestoreUsed": false,
+      "rawCpuStateReplayUsed": false,
+      "sourceIsaEmulationUsed": false,
+      "samePidContinuationClaimed": false,
+      "activeRequestOrSocketContinuationClaimed": false
+    }
+  },
+  "claimBoundary": {
+    "claims": [
+      "062-memory-real-stream-refusal refuses unsupported Node memory live state fail-closed"
+    ],
+    "notClaimed": [
+      "arbitrary Node process restore",
+      "raw V8 heap restore",
+      "same PID continuation",
+      "active request/socket continuation",
+      "worker/native-addon/child-process live-state transfer",
+      "source ISA emulation",
+      "arbitrary Linux process restore",
+      "raw VM/vCPU/device replay"
+    ]
+  },
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "arbitraryLinuxProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "samePidContinuationClaimed": false,
+    "activeRequestOrSocketContinuationClaimed": false
+  }
+}

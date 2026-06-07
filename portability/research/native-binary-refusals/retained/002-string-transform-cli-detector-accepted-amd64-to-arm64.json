@@ -1,0 +1,16 @@
+{
+  "shape": "002-string-transform-cli",
+  "decision": "accepted",
+  "supportStage": "4-supported-subset",
+  "supportScope": "declared safe-point string transform with target-native final jump and no live kernel resources",
+  "sourceArch": "amd64",
+  "targetArch": "arm64",
+  "facts": {
+    "entrySymbol": "continue_string",
+    "sourcePc": "0x5d178e0cec12",
+    "sourceSp": "0x7fff43d2f480",
+    "sourceArg0": "0x1000",
+    "targetArgumentRegister": "x0",
+    "targetStackBytes": 65536
+  }
+}

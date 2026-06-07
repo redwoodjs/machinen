@@ -1,0 +1,383 @@
+#!/usr/bin/env node
+import assert from "node:assert/strict";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join, resolve } from "node:path";
+
+const KIND = "machinen.nodejs.resource-ir";
+const VERSION = 1;
+const supportedResourceKinds = new Set([
+  "timer-schedule-spec",
+  "reopenable-file-spec",
+  "http-listener-route-spec",
+  "drained-stream-buffer-spec",
+  "route-registry-spec",
+  "middleware-registry-spec",
+  "configured-outbound-client-spec",
+  "signal-handler-registry-spec",
+  "immediate-schedule-spec",
+  "unref-timer-schedule-spec",
+  "ttl-cache-expiration-spec",
+  "cache-expiration-timer-spec",
+  "timer-backed-refill-spec",
+  "drained-readable-stream-spec",
+  "drained-writable-stream-spec",
+  "pipeline-drained-state-spec",
+  "reopenable-read-stream-spec",
+  "reopenable-write-stream-spec",
+  "timer-wheel-state-spec",
+  "delayed-queue-schedule-spec",
+  "monotonic-clock-baseline-spec",
+  "performance-timing-baseline-spec",
+  "active-refresh-schedule-spec",
+  "reopenable-dir-handle-spec",
+  "fs-watcher-subscription-spec",
+  "transform-stream-drained-state-spec",
+  "backpressure-buffer-drained-spec",
+  "stream-backed-logger-sink-spec",
+  "log-transport-drained-spec",
+  "zlib-stream-drained-state-spec",
+  "brotli-stream-drained-state-spec",
+  "inflate-stream-drained-state-spec",
+  "deflate-stream-drained-state-spec",
+  "write-ahead-buffer-flushed-spec",
+  "http-request-template-spec",
+  "http-response-template-spec",
+  "request-body-drained-spec",
+  "response-writer-drained-spec",
+  "request-scope-registry-spec",
+  "framework-plugin-registry-spec",
+  "scoped-provider-registry-spec",
+  "provider-factory-registry-spec",
+  "lifecycle-hook-registry-spec",
+  "render-context-template-spec",
+  "outbound-client-reconnect-policy-spec",
+  "idle-http-agent-config-spec",
+  "dns-resolver-config-spec",
+  "tcp-client-reconnect-config-spec",
+  "tls-client-reconnect-config-spec",
+  "udp-client-reconnect-config-spec",
+  "http2-client-session-config-spec",
+  "diagnostic-channel-subscription-spec",
+  "diagnostic-report-config-spec",
+  "profiler-session-disabled-config-spec",
+  "inspector-disabled-config-spec",
+  "distributed-rate-limit-config-spec",
+  "span-context-drained-spec",
+  "otel-exporter-config-spec",
+  "async-local-storage-snapshot-spec",
+  "async-hooks-registry-spec",
+  "proxy-descriptor-spec",
+  "esm-namespace-binding-spec",
+  "dynamic-import-settled-module-spec",
+  "module-loader-hook-registry-spec",
+  "object-keyed-map-descriptor-spec",
+  "map-iterator-position-spec",
+  "set-iterator-position-spec",
+  "error-stack-snapshot-spec",
+  "uncaught-exception-handler-registry-spec",
+  "private-field-descriptor-spec",
+  "bound-method-descriptor-spec",
+  "listener-closure-registry-spec",
+  "async-state-machine-snapshot-spec",
+  "mutable-config-snapshot-spec",
+  "serializer-replacer-registry-spec",
+  "regexp-match-iterator-position-spec",
+  "regexp-target-native-compile-spec",
+  "script-target-native-compile-spec",
+  "synthetic-module-declaration-spec",
+  "module-link-graph-spec",
+  "wasm-module-target-native-compile-spec",
+  "transfer-list-descriptor-spec",
+  "symbol-iterator-position-spec",
+  "numeric-overflow-policy-spec",
+  "temporal-object-descriptor-spec",
+  "vm-context-template-spec",
+  "vm-sandbox-global-descriptor-spec",
+  "wasm-instance-target-native-spec",
+  "wasm-memory-linear-bytes-spec",
+  "wasm-table-descriptor-spec",
+  "readline-interface-config-spec",
+  "tty-mode-config-spec",
+  "parser-token-checkpoint-spec",
+  "incremental-parser-checkpoint-spec",
+  "websocket-listener-registry-spec",
+  "worker-thread-restart-spec",
+  "native-addon-target-rebuild-spec",
+  "child-process-restart-spec",
+  "native-compiled-artifact-rebuild-spec",
+  "hash-public-input-digest-spec",
+  "deterministic-prng-seed-spec",
+  "buffer-pool-policy-spec",
+  "zero-fill-buffer-policy-spec",
+  "external-arraybuffer-declared-bytes-spec",
+  "weak-cache-drop-policy-spec",
+  "queue-consumer-retry-checkpoint-spec",
+  "pending-transition-checkpoint-spec",
+  "stdio-config-spec",
+  "transaction-retry-checkpoint-spec",
+  "cursor-query-descriptor-spec",
+  "oauth-device-flow-restart-spec",
+  "noncloneable-reconstruction-factory-spec",
+  "hmac-key-reference-spec",
+  "keyobject-reference-spec",
+  "cipher-key-reference-spec",
+  "webcrypto-algorithm-registry-spec",
+  "secret-config-reference-spec",
+  "crypto-secret-reference-spec",
+  "credential-cache-reference-spec",
+  "keyring-reference-spec",
+  "sensitive-buffer-redaction-spec",
+  "job-retry-policy-spec",
+  "job-lock-release-policy-spec",
+  "quiesced-active-request-spec",
+  "settled-promise-value-spec",
+  "drained-promise-reaction-spec",
+  "drained-microtask-queue-spec",
+  "settled-async-function-frame-spec",
+  "drained-stdin-spec",
+  "drained-messageport-spec",
+  "drained-broadcastchannel-spec",
+  "sharedarraybuffer-quiesced-copy-spec",
+  "atomics-no-waiters-spec",
+  "worker-shared-buffer-quiesced-spec",
+  "quiesced-async-context-resource-spec",
+  "declared-ffi-adapter-spec",
+  "declared-native-resource-adapter-spec",
+  "weakmap-semantic-entries-spec",
+  "weakset-semantic-members-spec",
+  "finalization-registry-drop-policy-spec",
+  "weakref-semantic-reference-spec",
+  "gc-sensitive-cache-rebuild-policy-spec",
+  "ephemeron-table-semantic-descriptor-spec",
+]);
+const forbiddenRawFields = new Set([
+  "rawFd",
+  "fd",
+  "pid",
+  "samePid",
+  "nativeHandle",
+  "uvHandle",
+  "socketHandle",
+  "tlsSessionBytes",
+  "rawV8Heap",
+  "rawCpuState",
+  "sourceIsaEmulation",
+  "rawPointer",
+  "sourcePointer",
+  "nativePointer",
+  "ffiHandle",
+  "uvHandleBytes",
+  "rawGcReachability",
+  "gcReachabilityGraph",
+  "weakCellPointer",
+  "finalizerQueue",
+  "ephemeronTableBytes",
+]);
+const args = parseArgs(process.argv.slice(2));
+const ir = JSON.parse(readFileSync(args.ir, "utf8"));
+const validation = validate(ir);
+if (!validation.accepted) {
+  console.error(
+    JSON.stringify({
+      accepted: false,
+      refusalCode: validation.refusalCode,
+      errors: validation.errors,
+    }),
+  );
+  process.exit(2);
+}
+const rows = ir.rows.map((row) => ({
+  id: row.id,
+  kind: row.kind,
+  semanticState: row.semanticState,
+}));
+mkdirSync(args.targetDir, { recursive: true });
+writeFileSync(
+  join(args.targetDir, "node-resource-rows.json"),
+  JSON.stringify(rows, null, 2) + "\n",
+);
+writeFileSync(
+  join(args.targetDir, "node-resource-ir-summary.json"),
+  JSON.stringify(
+    {
+      kind: ir.kind,
+      version: ir.version,
+      materializedRows: rows.length,
+      rowIds: rows.map((row) => row.id),
+    },
+    null,
+    2,
+  ) + "\n",
+);
+writeFileSync(join(args.targetDir, "node-resource-app.mjs"), targetAppSource(rows, args.port));
+console.log(
+  JSON.stringify({
+    accepted: true,
+    materializedRows: rows.length,
+    rowIds: rows.map((row) => row.id),
+    app: join(args.targetDir, "node-resource-app.mjs"),
+    rows: join(args.targetDir, "node-resource-rows.json"),
+    claimGuard: claimGuard(),
+  }),
+);
+
+function parseArgs(argv) {
+  let ir = "/mnt/capture/nodejs-resource-ir.json";
+  let targetDir = "/opt/machinen-all3";
+  let port = 18183;
+  for (let index = 0; index < argv.length; index++) {
+    const arg = argv[index];
+    if (arg === "--ir") {
+      ir = argv[++index] ?? ir;
+    } else if (arg === "--target-dir") {
+      targetDir = argv[++index] ?? targetDir;
+    } else if (arg === "--port") {
+      port = Number(argv[++index] ?? port);
+    } else {
+      throw new Error(`unknown argument ${arg}`);
+    }
+  }
+  assert(Number.isInteger(port) && port > 0, "--port must be a positive integer");
+  return { ir: resolve(ir), targetDir: resolve(targetDir), port };
+}
+
+function targetAppSource(rows, port) {
+  return `import http from "node:http";
+const rows = ${JSON.stringify(rows)};
+globalThis.__machinenMaterializedNodeResourceRows = rows;
+http.createServer((req, res) => {
+  if (req.url === "/resources") { res.setHeader("content-type", "application/json"); res.end(JSON.stringify(rows)); return; }
+  if (req.url === "/value") { res.end("resources-ready"); return; }
+  res.writeHead(404); res.end("not found");
+}).listen(${JSON.stringify(port)}, "127.0.0.1");
+`;
+}
+
+function validate(value) {
+  const errors = [];
+  if (!isRecord(value)) {
+    return {
+      accepted: false,
+      refusalCode: "node-portability-resource-ir-invalid",
+      errors: ["Node resource IR must be a JSON object"],
+    };
+  }
+  if (value.kind !== KIND) {
+    errors.push(`kind must be ${KIND}`);
+  }
+  if (value.version !== VERSION) {
+    errors.push(`version must be ${VERSION}`);
+  }
+  rejectForbiddenRawFields(value, "$", errors);
+  validateCaptureBoundary(value.captureBoundary, errors);
+  const unsupported = Array.isArray(value.unsupported) ? value.unsupported : [];
+  if (unsupported.length > 0) {
+    errors.push("unsupported Node resource IR entries must refuse before materialization");
+  }
+  if (!Array.isArray(value.rows)) {
+    errors.push("rows must be an array");
+  } else {
+    value.rows.forEach((row, index) => validateRow(row, index, errors));
+  }
+  return {
+    accepted: errors.length === 0,
+    refusalCode: refusalCodeFor(errors, unsupported.length),
+    errors,
+  };
+}
+
+function validateCaptureBoundary(value, errors) {
+  if (!isRecord(value)) {
+    errors.push("captureBoundary must be an object");
+    return;
+  }
+  if (value.sourceVmPauseRequired !== true) {
+    errors.push("captureBoundary.sourceVmPauseRequired must be true");
+  }
+  if (value.stabilityPoint !== "source-vm-paused") {
+    errors.push("captureBoundary.stabilityPoint must be source-vm-paused");
+  }
+  if (value.unsupportedPausedLiveStatePolicy !== "refuse") {
+    errors.push("captureBoundary.unsupportedPausedLiveStatePolicy must be refuse");
+  }
+}
+
+function validatePausedEvidence(value, index, errors) {
+  if (!isRecord(value)) {
+    errors.push(`rows[${index}].pausedEvidence must be an object`);
+    return;
+  }
+  if (value.sourceVmPaused !== true) {
+    errors.push(`rows[${index}].pausedEvidence.sourceVmPaused must be true`);
+  }
+  if (value.evidenceArtifact !== "portable-vm-pause-boundary.json") {
+    errors.push(
+      `rows[${index}].pausedEvidence.evidenceArtifact must reference portable-vm-pause-boundary.json`,
+    );
+  }
+}
+
+function validateRow(row, index, errors) {
+  if (!isRecord(row)) {
+    errors.push(`rows[${index}] must be an object`);
+    return;
+  }
+  if (typeof row.id !== "string" || row.id.length === 0) {
+    errors.push(`rows[${index}].id must be a non-empty string`);
+  }
+  if (typeof row.kind !== "string" || !supportedResourceKinds.has(row.kind)) {
+    errors.push(`rows[${index}].kind must be a supported resource kind`);
+  }
+  if (row.reconstructable !== true) {
+    errors.push(`rows[${index}].reconstructable must be true`);
+  }
+  if (row.captureBoundaryId !== "portable-vm-pause-boundary.json") {
+    errors.push(`rows[${index}].captureBoundaryId must reference portable-vm-pause-boundary.json`);
+  }
+  validatePausedEvidence(row.pausedEvidence, index, errors);
+  if (row.materializationPolicy !== "target-native-reconstruct") {
+    errors.push(`rows[${index}].materializationPolicy must be target-native-reconstruct`);
+  }
+  if (!isRecord(row.semanticState)) {
+    errors.push(`rows[${index}].semanticState must be an object`);
+  }
+  rejectForbiddenRawFields(row, `rows[${index}]`, errors);
+}
+
+function rejectForbiddenRawFields(value, path, errors) {
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => rejectForbiddenRawFields(item, `${path}[${index}]`, errors));
+    return;
+  }
+  if (!isRecord(value)) {
+    return;
+  }
+  for (const [key, nested] of Object.entries(value)) {
+    if (forbiddenRawFields.has(key)) {
+      errors.push(`${path}.${key} is not allowed in semantic Node resource IR`);
+    }
+    rejectForbiddenRawFields(nested, `${path}.${key}`, errors);
+  }
+}
+
+function refusalCodeFor(errors, unsupportedCount) {
+  if (errors.length === 0) {
+    return null;
+  }
+  return unsupportedCount > 0
+    ? "node-portability-resource-ir-unsupported"
+    : "node-portability-resource-ir-invalid";
+}
+function isRecord(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function claimGuard() {
+  return {
+    arbitraryNodeProcessRestoreClaimed: false,
+    rawV8HeapRestoreUsed: false,
+    samePidContinuationClaimed: false,
+    rawCpuStateReplayUsed: false,
+    sourceIsaEmulationUsed: false,
+    rawNativeHandleRestoreUsed: false,
+  };
+}

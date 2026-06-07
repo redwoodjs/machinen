@@ -1,0 +1,22 @@
+{
+  "case": "terminal-window-size-refusal",
+  "kind": "refusal",
+  "description": "terminal window size mismatch refused",
+  "mode": "source",
+  "role": "source",
+  "hostArch": "aarch64",
+  "pid": 1144430,
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "kernelObjectIdentityPreserved": false
+  },
+  "decision": "refused",
+  "refusal": {
+    "reason": "terminal-window-size-mismatch",
+    "before": [24, 80],
+    "after": [40, 100]
+  }
+}

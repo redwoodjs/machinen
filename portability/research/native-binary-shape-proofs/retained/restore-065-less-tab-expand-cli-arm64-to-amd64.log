@@ -1,0 +1,2 @@
+less-tab:a   b
+SHAPE_RESTORE_OK shape=065-less-tab-expand-cli target=amd64 result=42

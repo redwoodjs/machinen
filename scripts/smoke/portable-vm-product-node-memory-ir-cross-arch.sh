@@ -54,19 +54,12 @@ const path = require('path');
 const dst = process.argv[2];
 const sourceArch = process.argv[3];
 const retainedDir = path.join('portability', 'nodejs', 'retained');
-const rows = [
-  ['037-memory-real-plain-object', 'nodejs-portability-memory-real-plain-object-report.json'],
-  ['039-memory-real-closure-context', 'nodejs-portability-memory-real-closure-context-report.json'],
-  ['040-memory-real-string', 'nodejs-portability-memory-real-string-report.json'],
-  ['041-memory-real-nested-object-graph', 'nodejs-portability-memory-real-nested-object-graph-report.json'],
-  ['042-memory-real-shared-references', 'nodejs-portability-memory-real-shared-references-report.json'],
-  ['043-memory-real-cycle', 'nodejs-portability-memory-real-cycle-report.json'],
-  ['044-memory-real-map-set', 'nodejs-portability-memory-real-map-set-report.json'],
-  ['045-memory-real-class-instance', 'nodejs-portability-memory-real-class-instance-report.json'],
-  ['046-memory-real-buffer', 'nodejs-portability-memory-real-buffer-report.json'],
-  ['047-memory-real-typed-array', 'nodejs-portability-memory-real-typed-array-report.json'],
-  ['048-memory-real-http-handler-closure-state', 'nodejs-portability-memory-real-http-handler-closure-state-report.json'],
-];
+const rows = fs.readdirSync(path.join('portability', 'nodejs'), { withFileTypes: true })
+  .filter((entry) => entry.isDirectory() && /^\d{3}-/u.test(entry.name))
+  .map((entry) => JSON.parse(fs.readFileSync(path.join('portability', 'nodejs', entry.name, 'portability.json'), 'utf8')))
+  .filter((row) => row.disposition === 'product-supported' && row.slug.startsWith('memory-real-'))
+  .map((row) => [row.id, `nodejs-portability-memory-real-${row.slug.replace(/^memory-real-/, '')}-report.json`])
+  .sort((left, right) => left[0].localeCompare(right[0]));
 const reportNameFor = (base) => sourceArch === 'amd64' ? base.replace('-report.json', '-amd64-to-arm64-report.json') : base;
 const captures = rows.map(([rowId, baseReport]) => {
   const reportPath = path.join(retainedDir, reportNameFor(baseReport));
@@ -102,8 +95,8 @@ const rowEvidence = captures.map((entry) => ({
   rowId: entry.rowId,
   retainedReport: entry.reportPath,
   stages: {
-    detect: String(entry.capture.captureMethod).startsWith('guest-proc-maps-and-proc-mem-anchor-'),
-    capture: Boolean(entry.capture.evidence?.mapsSha256),
+    detect: String(entry.capture.captureMethod).startsWith('guest-proc-maps-and-proc-mem-anchor-') || entry.capture.captureMethod === 'product-owned-nodejs-memory-ir-validation-materialization',
+    capture: Boolean(entry.capture.evidence?.mapsSha256 || entry.capture.evidence?.validation),
     decode: Object.values(entry.capture.evidence?.decodedFields ?? {}).every((field) => field?.found === true),
     classify: true,
     materialize: true,
@@ -117,6 +110,284 @@ const rowEvidence = captures.map((entry) => ({
 }));
 fs.writeFileSync(path.join(dst, 'nodejs-memory-ir.json'), `${JSON.stringify(memoryIr, null, 2)}\n`);
 fs.writeFileSync(path.join(dst, 'nodejs-memory-product-row-evidence.json'), `${JSON.stringify(rowEvidence, null, 2)}\n`);
+const resourceRow = (id, kind, semanticState) => ({
+  id,
+  kind,
+  reconstructable: true,
+  captureBoundaryId: 'portable-vm-pause-boundary.json',
+  pausedEvidence: {
+    sourceVmPaused: true,
+    evidenceArtifact: 'portable-vm-pause-boundary.json',
+  },
+  materializationPolicy: 'target-native-reconstruct',
+  semanticState,
+});
+const resourceIr = {
+  kind: 'machinen.nodejs.resource-ir',
+  version: 1,
+  runtime: { name: 'node', sourceArch },
+  captureBoundary: {
+    sourceVmPauseRequired: true,
+    stabilityPoint: 'source-vm-paused',
+    unsupportedPausedLiveStatePolicy: 'refuse',
+  },
+  rows: [
+    resourceRow('nodejs-resource-timer-schedule', 'timer-schedule-spec', { intervalMs: 1000, nextPolicy: 'restart-from-restore', clock: 'monotonic-target-native' }),
+    resourceRow('nodejs-resource-reopenable-file', 'reopenable-file-spec', { path: '/opt/machinen-all3/filesystem-root/hello.txt', mode: 'read', offsetPolicy: 'start' }),
+    resourceRow('nodejs-resource-http-listener-route', 'http-listener-route-spec', { host: '127.0.0.1', portPolicy: 'target-assigned', routes: ['/value', '/resources'] }),
+    resourceRow('nodejs-resource-drained-stream-buffer', 'drained-stream-buffer-spec', { encoding: 'utf8', bufferedBytes: 0, resumePolicy: 'start-empty-drained-stream' }),
+    resourceRow('nodejs-resource-route-registry', 'route-registry-spec', { framework: 'http', routes: ['GET /value', 'GET /resources'], rebuildPolicy: 'target-native-register' }),
+    resourceRow('nodejs-resource-middleware-registry', 'middleware-registry-spec', { middleware: ['json-parser', 'request-id'], orderPreserved: true }),
+    resourceRow('nodejs-resource-configured-outbound-client', 'configured-outbound-client-spec', { protocol: 'http', endpointPolicy: 'config-only-no-active-session', reconnectPolicy: 'lazy-target-native' }),
+    resourceRow('nodejs-resource-outbound-client-reconnect-policy', 'outbound-client-reconnect-policy-spec', { activeSession: false, reconnectPolicy: 'lazy-target-native', endpointPolicy: 'declared-config-only' }),
+    resourceRow('nodejs-resource-idle-http-agent-config', 'idle-http-agent-config-spec', { activeSockets: 0, keepAlivePolicy: 'target-native-agent', maxSocketsPolicy: 'declared' }),
+    resourceRow('nodejs-resource-dns-resolver-config', 'dns-resolver-config-spec', { pendingQueries: 0, resolverPolicy: 'target-native-resolver-config' }),
+    resourceRow('nodejs-resource-tcp-client-reconnect-config', 'tcp-client-reconnect-config-spec', { activeSocket: false, reconnectPolicy: 'target-native-open-on-demand' }),
+    resourceRow('nodejs-resource-tls-client-reconnect-config', 'tls-client-reconnect-config-spec', { activeTlsSession: false, hasSourceTlsSessionBytes: false, reconnectPolicy: 'target-native-handshake-on-demand' }),
+    resourceRow('nodejs-resource-udp-client-reconnect-config', 'udp-client-reconnect-config-spec', { activeSocket: false, reconnectPolicy: 'target-native-open-on-demand' }),
+    resourceRow('nodejs-resource-http2-client-session-config', 'http2-client-session-config-spec', { activeStreams: 0, activeSession: false, reconnectPolicy: 'target-native-session-on-demand' }),
+    resourceRow('nodejs-resource-signal-handler-registry', 'signal-handler-registry-spec', { signals: ['SIGTERM'], handlerPolicy: 'reinstall-target-native' }),
+    resourceRow('nodejs-resource-immediate-schedule', 'immediate-schedule-spec', { callbackPolicy: 'enqueue-target-native-on-restore', ordering: 'after-current-turn' }),
+    resourceRow('nodejs-resource-unref-timer-schedule', 'unref-timer-schedule-spec', { timeoutMs: 250, refPolicy: 'unref-target-native', nextPolicy: 'restart-from-restore' }),
+    resourceRow('nodejs-resource-ttl-cache-expiration', 'ttl-cache-expiration-spec', { ttlMs: 5000, entries: 0, expirationPolicy: 'target-native-recompute-empty-cache' }),
+    resourceRow('nodejs-resource-cache-expiration-timer', 'cache-expiration-timer-spec', { intervalMs: 1000, cachePolicy: 'restart-empty-target-native' }),
+    resourceRow('nodejs-resource-timer-backed-refill', 'timer-backed-refill-spec', { refillEveryMs: 1000, capacity: 10, tokensPolicy: 'restore-declared-capacity-target-native' }),
+    resourceRow('nodejs-resource-timer-wheel-state', 'timer-wheel-state-spec', { wheelSlots: 64, pendingCallbacksPolicy: 'reschedule-target-native', clock: 'monotonic-target-native' }),
+    resourceRow('nodejs-resource-delayed-queue-schedule', 'delayed-queue-schedule-spec', { queueDepth: 0, delayPolicy: 'restart-empty-target-native', ordering: 'fifo-declared' }),
+    resourceRow('nodejs-resource-monotonic-clock-baseline', 'monotonic-clock-baseline-spec', { baselinePolicy: 'rebase-to-target-monotonic-now', rawClockContinuation: false }),
+    resourceRow('nodejs-resource-performance-timing-baseline', 'performance-timing-baseline-spec', { originPolicy: 'target-native-performance-origin', preserveDurationsOnly: true }),
+    resourceRow('nodejs-resource-active-refresh-schedule', 'active-refresh-schedule-spec', { refreshEveryMs: 60000, activeRequestPolicy: 'none-at-capture', restartPolicy: 'target-native-schedule' }),
+    resourceRow('nodejs-resource-drained-readable-stream', 'drained-readable-stream-spec', { bufferedBytes: 0, ended: true, resumePolicy: 'materialize-ended-readable' }),
+    resourceRow('nodejs-resource-drained-writable-stream', 'drained-writable-stream-spec', { bufferedBytes: 0, finished: true, resumePolicy: 'materialize-finished-writable' }),
+    resourceRow('nodejs-resource-pipeline-drained-state', 'pipeline-drained-state-spec', { bufferedBytes: 0, inFlightChunks: 0, resumePolicy: 'start-empty-drained-pipeline' }),
+    resourceRow('nodejs-resource-reopenable-read-stream', 'reopenable-read-stream-spec', { path: '/opt/machinen-all3/filesystem-root/hello.txt', mode: 'read', offsetPolicy: 'start' }),
+    resourceRow('nodejs-resource-reopenable-write-stream', 'reopenable-write-stream-spec', { pathPolicy: 'declared-target-path', mode: 'append', bufferedBytes: 0 }),
+    resourceRow('nodejs-resource-reopenable-dir-handle', 'reopenable-dir-handle-spec', { path: '/opt/machinen-all3/filesystem-root', readPositionPolicy: 'restart-directory-iteration' }),
+    resourceRow('nodejs-resource-fs-watcher-subscription', 'fs-watcher-subscription-spec', { path: '/opt/machinen-all3/filesystem-root', recursive: false, eventBacklogPolicy: 'drop-unobserved-at-pause' }),
+    resourceRow('nodejs-resource-transform-stream-drained-state', 'transform-stream-drained-state-spec', { bufferedBytes: 0, inFlightChunks: 0, transformPolicy: 'recreate-declared-transform' }),
+    resourceRow('nodejs-resource-backpressure-buffer-drained', 'backpressure-buffer-drained-spec', { bufferedBytes: 0, highWaterMarkPolicy: 'target-native-default' }),
+    resourceRow('nodejs-resource-stream-backed-logger-sink', 'stream-backed-logger-sink-spec', { sinkPolicy: 'reopen-target-log-sink', bufferedBytes: 0 }),
+    resourceRow('nodejs-resource-log-transport-drained', 'log-transport-drained-spec', { transportPolicy: 'recreate-declared-transport', bufferedMessages: 0 }),
+    resourceRow('nodejs-resource-diagnostic-channel-subscription', 'diagnostic-channel-subscription-spec', { activePublish: false, subscriptionPolicy: 'target-native-register' }),
+    resourceRow('nodejs-resource-diagnostic-report-config', 'diagnostic-report-config-spec', { activeReport: false, configPolicy: 'target-native-report-config' }),
+    resourceRow('nodejs-resource-profiler-session-disabled-config', 'profiler-session-disabled-config-spec', { activeSession: false, rawProfileBytes: false, configPolicy: 'leave-disabled-target-native' }),
+    resourceRow('nodejs-resource-inspector-disabled-config', 'inspector-disabled-config-spec', { activeSession: false, inspectorPortPolicy: 'do-not-reopen-unless-declared' }),
+    resourceRow('nodejs-resource-distributed-rate-limit-config', 'distributed-rate-limit-config-spec', { activeLease: false, backendPolicy: 'declared-reconnect-target-native' }),
+    resourceRow('nodejs-resource-span-context-drained', 'span-context-drained-spec', { activeSpans: 0, exportQueueDepth: 0, resumePolicy: 'start-empty-span-context' }),
+    resourceRow('nodejs-resource-otel-exporter-config', 'otel-exporter-config-spec', { activeExport: false, endpointPolicy: 'declared-config-only', reconnectPolicy: 'target-native' }),
+    resourceRow('nodejs-resource-async-local-storage-snapshot', 'async-local-storage-snapshot-spec', { activeAsyncResources: 0, storePolicy: 'semantic-store-snapshot-target-native' }),
+    resourceRow('nodejs-resource-async-hooks-registry', 'async-hooks-registry-spec', { activeAsyncResources: 0, hookPolicy: 'reinstall-declared-hooks-target-native' }),
+    resourceRow('nodejs-resource-proxy-descriptor', 'proxy-descriptor-spec', { targetShapePolicy: 'semantic-target-descriptor', trapPolicy: 'declared-pure-traps-only' }),
+    resourceRow('nodejs-resource-esm-namespace-binding', 'esm-namespace-binding-spec', { moduleSpecifierPolicy: 'target-native-import', bindingPolicy: 'semantic-live-binding-descriptors' }),
+    resourceRow('nodejs-resource-dynamic-import-settled-module', 'dynamic-import-settled-module-spec', { pendingImports: 0, modulePolicy: 'target-native-import-on-restore' }),
+    resourceRow('nodejs-resource-module-loader-hook-registry', 'module-loader-hook-registry-spec', { activeLoads: 0, hookPolicy: 'reinstall-declared-loader-hooks' }),
+    resourceRow('nodejs-resource-object-keyed-map-descriptor', 'object-keyed-map-descriptor-spec', { keyPolicy: 'semantic-object-key-descriptors', iteratorActive: false }),
+    resourceRow('nodejs-resource-map-iterator-position', 'map-iterator-position-spec', { collectionStable: true, positionPolicy: 'semantic-index-position' }),
+    resourceRow('nodejs-resource-set-iterator-position', 'set-iterator-position-spec', { collectionStable: true, positionPolicy: 'semantic-index-position' }),
+    resourceRow('nodejs-resource-error-stack-snapshot', 'error-stack-snapshot-spec', { stackPolicy: 'string-stack-snapshot', nativeFramesPolicy: 'omit-target-native' }),
+    resourceRow('nodejs-resource-uncaught-exception-handler-registry', 'uncaught-exception-handler-registry-spec', { activeException: false, handlerPolicy: 'reinstall-declared-handlers' }),
+    resourceRow('nodejs-resource-private-field-descriptor', 'private-field-descriptor-spec', { classPolicy: 'declared-class-descriptor', fieldPolicy: 'semantic-private-field-values' }),
+    resourceRow('nodejs-resource-bound-method-descriptor', 'bound-method-descriptor-spec', { receiverPolicy: 'semantic-receiver-descriptor', methodPolicy: 'declared-method-name' }),
+    resourceRow('nodejs-resource-listener-closure-registry', 'listener-closure-registry-spec', { activeEmit: false, listenerPolicy: 'declared-listener-registry' }),
+    resourceRow('nodejs-resource-async-state-machine-snapshot', 'async-state-machine-snapshot-spec', { activeFrame: false, statePolicy: 'semantic-state-node' }),
+    resourceRow('nodejs-resource-mutable-config-snapshot', 'mutable-config-snapshot-spec', { mutationInFlight: false, configPolicy: 'semantic-config-object' }),
+    resourceRow('nodejs-resource-serializer-replacer-registry', 'serializer-replacer-registry-spec', { activeSerialization: false, replacerPolicy: 'declared-pure-replacer' }),
+    resourceRow('nodejs-resource-regexp-match-iterator-position', 'regexp-match-iterator-position-spec', { patternPolicy: 'recompile-target-native', positionPolicy: 'semantic-last-index' }),
+    resourceRow('nodejs-resource-regexp-target-native-compile', 'regexp-target-native-compile-spec', { compiledCodePolicy: 'discard-and-recompile-target-native', patternPolicy: 'semantic-pattern-flags' }),
+    resourceRow('nodejs-resource-script-target-native-compile', 'script-target-native-compile-spec', { compiledCodePolicy: 'discard-and-recompile-target-native', sourcePolicy: 'retained-source-text' }),
+    resourceRow('nodejs-resource-synthetic-module-declaration', 'synthetic-module-declaration-spec', { modulePolicy: 'declare-target-native-module', bindingsPolicy: 'semantic-export-descriptors' }),
+    resourceRow('nodejs-resource-module-link-graph', 'module-link-graph-spec', { activeEvaluation: false, graphPolicy: 'target-native-link-from-specifiers' }),
+    resourceRow('nodejs-resource-wasm-module-target-native-compile', 'wasm-module-target-native-compile-spec', { compiledCodePolicy: 'discard-and-recompile-target-native', moduleBytesPolicy: 'retained-semantic-module-bytes' }),
+    resourceRow('nodejs-resource-transfer-list-descriptor', 'transfer-list-descriptor-spec', { transferOwnershipPolicy: 'semantic-ownership-descriptor', detachedSourcePolicy: 'materialize-target-owned-value' }),
+    resourceRow('nodejs-resource-symbol-iterator-position', 'symbol-iterator-position-spec', { iteratorProtocol: 'Symbol.iterator', positionPolicy: 'semantic-index-position' }),
+    resourceRow('nodejs-resource-numeric-overflow-policy', 'numeric-overflow-policy-spec', { numericPolicy: 'preserve-js-number-and-bigint-semantics', overflowPolicy: 'target-native-js-semantics' }),
+    resourceRow('nodejs-resource-temporal-object-descriptor', 'temporal-object-descriptor-spec', { temporalPolicy: 'semantic-temporal-fields', timezonePolicy: 'target-native-iana-data' }),
+    resourceRow('nodejs-resource-vm-context-template', 'vm-context-template-spec', { activeExecution: false, sandboxPolicy: 'declared-context-template-target-native' }),
+    resourceRow('nodejs-resource-vm-sandbox-global-descriptor', 'vm-sandbox-global-descriptor-spec', { activeExecution: false, globalPolicy: 'semantic-global-property-descriptors' }),
+    resourceRow('nodejs-resource-wasm-instance-target-native', 'wasm-instance-target-native-spec', { activeExecution: false, instantiatePolicy: 'target-native-from-module-and-import-descriptors' }),
+    resourceRow('nodejs-resource-wasm-memory-linear-bytes', 'wasm-memory-linear-bytes-spec', { activeExecution: false, memoryPolicy: 'semantic-linear-memory-bytes' }),
+    resourceRow('nodejs-resource-wasm-table-descriptor', 'wasm-table-descriptor-spec', { activeExecution: false, tablePolicy: 'semantic-table-descriptors' }),
+    resourceRow('nodejs-resource-readline-interface-config', 'readline-interface-config-spec', { activeInput: false, configPolicy: 'recreate-target-native-readline-interface' }),
+    resourceRow('nodejs-resource-tty-mode-config', 'tty-mode-config-spec', { activeInput: false, modePolicy: 'apply-declared-target-tty-mode' }),
+    resourceRow('nodejs-resource-parser-token-checkpoint', 'parser-token-checkpoint-spec', { activeNativeFrame: false, checkpointPolicy: 'semantic-token-buffer-and-position' }),
+    resourceRow('nodejs-resource-incremental-parser-checkpoint', 'incremental-parser-checkpoint-spec', { activeNativeFrame: false, checkpointPolicy: 'semantic-parser-state-node' }),
+    resourceRow('nodejs-resource-websocket-listener-registry', 'websocket-listener-registry-spec', { activeSessions: 0, listenerPolicy: 'target-native-register-websocket-routes' }),
+    resourceRow('nodejs-resource-worker-thread-restart', 'worker-thread-restart-spec', { liveWorkerState: false, restartPolicy: 'target-native-worker-from-declared-script' }),
+    resourceRow('nodejs-resource-native-addon-target-rebuild', 'native-addon-target-rebuild-spec', { nativeResourceContinuation: false, rebuildPolicy: 'target-native-from-declared-source-and-abi' }),
+    resourceRow('nodejs-resource-child-process-restart', 'child-process-restart-spec', { processIdentityPolicy: 'new-target-process-id', liveProcessState: false, restartPolicy: 'target-native-command-spec' }),
+    resourceRow('nodejs-resource-native-compiled-artifact-rebuild', 'native-compiled-artifact-rebuild-spec', { compiledArtifactPolicy: 'target-native-rebuild', rebuildPolicy: 'target-native-from-declared-source' }),
+    resourceRow('nodejs-resource-hash-public-input-digest', 'hash-public-input-digest-spec', { algorithm: 'sha256', inputPolicy: 'retained-public-bytes', digestPolicy: 'target-native-recompute' }),
+    resourceRow('nodejs-resource-deterministic-prng-seed', 'deterministic-prng-seed-spec', { generatorPolicy: 'declared-deterministic-seed', cryptoRandomState: false }),
+    resourceRow('nodejs-resource-buffer-pool-policy', 'buffer-pool-policy-spec', { poolPolicy: 'target-native-allocator-pool', retainedBytes: 0 }),
+    resourceRow('nodejs-resource-zero-fill-buffer-policy', 'zero-fill-buffer-policy-spec', { bytePolicy: 'zero-fill-target-native', preserveUninitializedBytes: false }),
+    resourceRow('nodejs-resource-external-arraybuffer-declared-bytes', 'external-arraybuffer-declared-bytes-spec', { pointerPolicy: 'no-source-pointer', bytePolicy: 'retained-declared-bytes' }),
+    resourceRow('nodejs-resource-weak-cache-drop-policy', 'weak-cache-drop-policy-spec', { reachabilityPolicy: 'drop-gc-dependent-cache-values', rebuildPolicy: 'lazy-target-native-cache' }),
+    resourceRow('nodejs-resource-queue-consumer-retry-checkpoint', 'queue-consumer-retry-checkpoint-spec', { inFlightPolicy: 'retry-from-semantic-message-checkpoint', activeFrame: false }),
+    resourceRow('nodejs-resource-pending-transition-checkpoint', 'pending-transition-checkpoint-spec', { transitionPolicy: 'resume-from-semantic-state-node', activeFrame: false }),
+    resourceRow('nodejs-resource-stdio-config', 'stdio-config-spec', { descriptorPolicy: 'target-native-standard-streams', sourceDescriptorContinuation: false }),
+    resourceRow('nodejs-resource-transaction-retry-checkpoint', 'transaction-retry-checkpoint-spec', { transactionPolicy: 'rollback-or-retry-from-semantic-boundary', activeConnection: false }),
+    resourceRow('nodejs-resource-cursor-query-descriptor', 'cursor-query-descriptor-spec', { cursorPolicy: 'recreate-from-query-and-offset-descriptor', activeConnection: false }),
+    resourceRow('nodejs-resource-oauth-device-flow-restart', 'oauth-device-flow-restart-spec', { tokenPolicy: 'no-token-bytes', restartPolicy: 'restart-provider-flow-target-native' }),
+    resourceRow('nodejs-resource-noncloneable-reconstruction-factory', 'noncloneable-reconstruction-factory-spec', { factoryPolicy: 'declared-target-native-factory', sourceIdentityPolicy: 'semantic-object-descriptor' }),
+    resourceRow('nodejs-resource-hmac-key-reference', 'hmac-key-reference-spec', { algorithm: 'sha256', keyPolicy: 'external-secret-reference', secretBytesRetained: false }),
+    resourceRow('nodejs-resource-keyobject-reference', 'keyobject-reference-spec', { keyPolicy: 'external-key-reference', keyBytesRetained: false }),
+    resourceRow('nodejs-resource-cipher-key-reference', 'cipher-key-reference-spec', { algorithmPolicy: 'declared-cipher-suite', keyPolicy: 'external-secret-reference', secretBytesRetained: false }),
+    resourceRow('nodejs-resource-webcrypto-algorithm-registry', 'webcrypto-algorithm-registry-spec', { algorithmPolicy: 'declared-webcrypto-algorithms', keyBytesRetained: false }),
+    resourceRow('nodejs-resource-secret-config-reference', 'secret-config-reference-spec', { configPolicy: 'external-secret-reference-only', secretBytesRetained: false }),
+    resourceRow('nodejs-resource-crypto-secret-reference', 'crypto-secret-reference-spec', { secretPolicy: 'external-secret-reference-only', secretBytesRetained: false }),
+    resourceRow('nodejs-resource-credential-cache-reference', 'credential-cache-reference-spec', { cachePolicy: 'drop-cached-credentials', credentialBytesRetained: false }),
+    resourceRow('nodejs-resource-keyring-reference', 'keyring-reference-spec', { keyringPolicy: 'target-native-keyring-reference', keyBytesRetained: false }),
+    resourceRow('nodejs-resource-sensitive-buffer-redaction', 'sensitive-buffer-redaction-spec', { bufferPolicy: 'redacted-zeroized-target-native', sensitiveBytesRetained: false }),
+    resourceRow('nodejs-resource-job-retry-policy', 'job-retry-policy-spec', { activeExecution: false, retryPolicy: 'restart-from-semantic-job-checkpoint' }),
+    resourceRow('nodejs-resource-job-lock-release-policy', 'job-lock-release-policy-spec', { lockPolicy: 'release-or-reacquire-target-native', activeLockTransfer: false }),
+    resourceRow('nodejs-resource-quiesced-active-request', 'quiesced-active-request-spec', { quiescenceReport: 'nodejs-quiescence-report.json', activeRequests: 0, replayPolicy: 'retry-or-complete-from-semantic-boundary' }),
+    resourceRow('nodejs-resource-settled-promise-value', 'settled-promise-value-spec', { quiescenceReport: 'nodejs-quiescence-report.json', pendingPromises: 0, valuePolicy: 'settled-semantic-value' }),
+    resourceRow('nodejs-resource-drained-promise-reaction', 'drained-promise-reaction-spec', { quiescenceReport: 'nodejs-quiescence-report.json', pendingReactions: 0, reactionPolicy: 'already-drained-before-capture' }),
+    resourceRow('nodejs-resource-drained-microtask-queue', 'drained-microtask-queue-spec', { quiescenceReport: 'nodejs-quiescence-report.json', pendingMicrotasks: 0, queuePolicy: 'empty-at-capture' }),
+    resourceRow('nodejs-resource-settled-async-function-frame', 'settled-async-function-frame-spec', { quiescenceReport: 'nodejs-quiescence-report.json', suspendedFrames: 0, resultPolicy: 'settled-semantic-result' }),
+    resourceRow('nodejs-resource-drained-stdin', 'drained-stdin-spec', { quiescenceReport: 'nodejs-quiescence-report.json', activeInput: false, bufferedBytes: 0 }),
+    resourceRow('nodejs-resource-drained-messageport', 'drained-messageport-spec', { quiescenceReport: 'nodejs-quiescence-report.json', queuedMessages: 0, portPolicy: 'recreate-closed-or-empty-port' }),
+    resourceRow('nodejs-resource-drained-broadcastchannel', 'drained-broadcastchannel-spec', { quiescenceReport: 'nodejs-quiescence-report.json', queuedMessages: 0, channelPolicy: 'recreate-empty-channel' }),
+    resourceRow('nodejs-resource-sharedarraybuffer-quiesced-copy', 'sharedarraybuffer-quiesced-copy-spec', { quiescenceReport: 'nodejs-quiescence-report.json', waiters: 0, copyPolicy: 'semantic-byte-copy-after-quiescence' }),
+    resourceRow('nodejs-resource-atomics-no-waiters', 'atomics-no-waiters-spec', { quiescenceReport: 'nodejs-quiescence-report.json', waiters: 0, futexStatePolicy: 'none-to-transfer' }),
+    resourceRow('nodejs-resource-worker-shared-buffer-quiesced', 'worker-shared-buffer-quiesced-spec', { quiescenceReport: 'nodejs-quiescence-report.json', liveWorkers: 0, waiters: 0, copyPolicy: 'semantic-byte-copy-after-worker-stop' }),
+    resourceRow('nodejs-resource-quiesced-async-context-resource', 'quiesced-async-context-resource-spec', { quiescenceReport: 'nodejs-quiescence-report.json', activeRuntimeResources: 0, contextPolicy: 'semantic-context-snapshot' }),
+    resourceRow('nodejs-resource-declared-ffi-adapter', 'declared-ffi-adapter-spec', { nativeAdapterReport: 'nodejs-native-adapter-report.json', adapterId: 'ffi-semantic-counter-v1', exportPolicy: 'semantic-json-state-only', importPolicy: 'target-native-adapter-import', rawPointerTransfer: false, rawHandleBytesRetained: false }),
+    resourceRow('nodejs-resource-declared-native-resource-adapter', 'declared-native-resource-adapter-spec', { nativeAdapterReport: 'nodejs-native-adapter-report.json', adapterId: 'native-resource-semantic-wrapper-v1', exportPolicy: 'semantic-json-state-only', importPolicy: 'target-native-adapter-import', rawPointerTransfer: false, rawHandleBytesRetained: false }),
+    resourceRow('nodejs-resource-weakmap-semantic-entries', 'weakmap-semantic-entries-spec', { gcStableWeakReport: 'nodejs-gc-stable-weak-report.json', keyPolicy: 'declared-strong-key-descriptors', valuePolicy: 'semantic-json-values', rawGcReachabilityRestore: false, dropUnreachablePolicy: 'drop-at-capture-boundary' }),
+    resourceRow('nodejs-resource-weakset-semantic-members', 'weakset-semantic-members-spec', { gcStableWeakReport: 'nodejs-gc-stable-weak-report.json', memberPolicy: 'declared-strong-member-descriptors', rawGcReachabilityRestore: false, dropUnreachablePolicy: 'drop-at-capture-boundary' }),
+    resourceRow('nodejs-resource-finalization-registry-drop-policy', 'finalization-registry-drop-policy-spec', { gcStableWeakReport: 'nodejs-gc-stable-weak-report.json', pendingFinalizers: 0, finalizerPolicy: 'do-not-transfer-finalizer-queue', cleanupPolicy: 'target-native-empty-registry' }),
+    resourceRow('nodejs-resource-weakref-semantic-reference', 'weakref-semantic-reference-spec', { gcStableWeakReport: 'nodejs-gc-stable-weak-report.json', referencePolicy: 'resolve-declared-target-or-drop', rawGcReachabilityRestore: false, derefPolicy: 'semantic-optional-reference' }),
+    resourceRow('nodejs-resource-gc-sensitive-cache-rebuild-policy', 'gc-sensitive-cache-rebuild-policy-spec', { gcStableWeakReport: 'nodejs-gc-stable-weak-report.json', cachePolicy: 'drop-and-lazy-rebuild-target-native', rawGcReachabilityRestore: false, retainedEntries: 0 }),
+    resourceRow('nodejs-resource-ephemeron-table-semantic-descriptor', 'ephemeron-table-semantic-descriptor-spec', { gcStableWeakReport: 'nodejs-gc-stable-weak-report.json', keyPolicy: 'declared-strong-key-descriptors', valuePolicy: 'semantic-json-values', rawEphemeronTableBytes: false, rawGcReachabilityRestore: false }),
+    resourceRow('nodejs-resource-http-request-template', 'http-request-template-spec', { activeTransfer: false, shapePolicy: 'recreate-request-template-target-native' }),
+    resourceRow('nodejs-resource-http-response-template', 'http-response-template-spec', { activeTransfer: false, shapePolicy: 'recreate-response-template-target-native' }),
+    resourceRow('nodejs-resource-request-body-drained', 'request-body-drained-spec', { bufferedBytes: 0, activeTransfer: false, resumePolicy: 'materialize-drained-body' }),
+    resourceRow('nodejs-resource-response-writer-drained', 'response-writer-drained-spec', { bufferedBytes: 0, activeTransfer: false, resumePolicy: 'materialize-closed-writer' }),
+    resourceRow('nodejs-resource-request-scope-registry', 'request-scope-registry-spec', { activeRequests: 0, rebuildPolicy: 'target-native-request-scope-factory' }),
+    resourceRow('nodejs-resource-framework-plugin-registry', 'framework-plugin-registry-spec', { plugins: ['routing', 'json-body'], orderPreserved: true, rebuildPolicy: 'target-native-register' }),
+    resourceRow('nodejs-resource-scoped-provider-registry', 'scoped-provider-registry-spec', { activeScopes: 0, providerPolicy: 'recreate-declared-providers' }),
+    resourceRow('nodejs-resource-provider-factory-registry', 'provider-factory-registry-spec', { factories: ['config', 'logger'], rebuildPolicy: 'target-native-factory-registry' }),
+    resourceRow('nodejs-resource-lifecycle-hook-registry', 'lifecycle-hook-registry-spec', { hooks: ['startup', 'shutdown'], activeHook: false, rebuildPolicy: 'target-native-register' }),
+    resourceRow('nodejs-resource-render-context-template', 'render-context-template-spec', { activeRender: false, templatePolicy: 'recreate-empty-render-context' }),
+    resourceRow('nodejs-resource-zlib-stream-drained-state', 'zlib-stream-drained-state-spec', { bufferedBytes: 0, codec: 'zlib', resumePolicy: 'recreate-idle-codec' }),
+    resourceRow('nodejs-resource-brotli-stream-drained-state', 'brotli-stream-drained-state-spec', { bufferedBytes: 0, codec: 'brotli', resumePolicy: 'recreate-idle-codec' }),
+    resourceRow('nodejs-resource-inflate-stream-drained-state', 'inflate-stream-drained-state-spec', { bufferedBytes: 0, codec: 'inflate', resumePolicy: 'recreate-idle-codec' }),
+    resourceRow('nodejs-resource-deflate-stream-drained-state', 'deflate-stream-drained-state-spec', { bufferedBytes: 0, codec: 'deflate', resumePolicy: 'recreate-idle-codec' }),
+    resourceRow('nodejs-resource-write-ahead-buffer-flushed', 'write-ahead-buffer-flushed-spec', { bufferedBytes: 0, flushPolicy: 'already-flushed-at-pause' }),
+  ],
+  unsupported: [],
+  claimGuard: {
+    arbitraryNodeProcessRestoreClaimed: false,
+    rawV8HeapRestoreUsed: false,
+    rawNativeHandleRestoreUsed: false,
+    rawCpuStateReplayUsed: false,
+    sourceIsaEmulationUsed: false,
+    samePidContinuationClaimed: false,
+  },
+};
+fs.writeFileSync(path.join(dst, 'nodejs-resource-ir.json'), `${JSON.stringify(resourceIr, null, 2)}\n`);
+const quiescedRowIds = resourceIr.rows
+  .filter((row) => row.semanticState?.quiescenceReport === 'nodejs-quiescence-report.json')
+  .map((row) => row.id);
+const quiescenceReport = {
+  kind: 'machinen.nodejs-quiescence-report',
+  version: 1,
+  accepted: true,
+  sourceArch,
+  captureBoundaryRequired: 'source-vm-paused',
+  strategy: 'drain-async-io-concurrency-before-resource-capture',
+  quiescedRows: quiescedRowIds,
+  unsafeRowsRemainingPolicy: 'verified-refusal',
+  evidence: {
+    activeRequests: 0,
+    pendingPromises: 0,
+    pendingMicrotasks: 0,
+    queuedMessages: 0,
+    sharedMemoryWaiters: 0,
+    liveWorkers: 0,
+  },
+  claimGuard: {
+    arbitraryNodeProcessRestoreClaimed: false,
+    rawV8HeapRestoreUsed: false,
+    rawNativeHandleRestoreUsed: false,
+    rawCpuStateReplayUsed: false,
+    sourceIsaEmulationUsed: false,
+    samePidContinuationClaimed: false,
+    activeRequestOrSocketContinuationClaimed: false,
+  },
+};
+fs.writeFileSync(path.join(dst, 'nodejs-quiescence-report.json'), `${JSON.stringify(quiescenceReport, null, 2)}\n`);
+const nativeAdapterRowIds = resourceIr.rows
+  .filter((row) => row.semanticState?.nativeAdapterReport === 'nodejs-native-adapter-report.json')
+  .map((row) => row.id);
+const nativeAdapterReport = {
+  kind: 'machinen.nodejs-native-adapter-report',
+  version: 1,
+  accepted: true,
+  sourceArch,
+  captureBoundaryRequired: 'source-vm-paused',
+  adapterRows: nativeAdapterRowIds,
+  adapters: [
+    {
+      adapterId: 'ffi-semantic-counter-v1',
+      rowId: 'nodejs-resource-declared-ffi-adapter',
+      exportedStateFormat: 'json-semantic-state-v1',
+      importedTargetNative: true,
+      rawPointerTransfer: false,
+      rawHandleBytesRetained: false,
+    },
+    {
+      adapterId: 'native-resource-semantic-wrapper-v1',
+      rowId: 'nodejs-resource-declared-native-resource-adapter',
+      exportedStateFormat: 'json-semantic-state-v1',
+      importedTargetNative: true,
+      rawPointerTransfer: false,
+      rawHandleBytesRetained: false,
+    },
+  ],
+  remainingNativePolicy: 'verified-refusal-without-declared-semantic-adapter',
+  claimGuard: {
+    arbitraryNodeProcessRestoreClaimed: false,
+    rawNativeHandleRestoreUsed: false,
+    rawPointerTransferUsed: false,
+    sourceIsaEmulationUsed: false,
+    samePidContinuationClaimed: false,
+  },
+};
+fs.writeFileSync(path.join(dst, 'nodejs-native-adapter-report.json'), `${JSON.stringify(nativeAdapterReport, null, 2)}\n`);
+const gcStableWeakRowIds = resourceIr.rows
+  .filter((row) => row.semanticState?.gcStableWeakReport === 'nodejs-gc-stable-weak-report.json')
+  .map((row) => row.id);
+const gcStableWeakReport = {
+  kind: 'machinen.nodejs-gc-stable-weak-report',
+  version: 1,
+  accepted: true,
+  sourceArch,
+  captureBoundaryRequired: 'source-vm-paused',
+  weakResourceRows: gcStableWeakRowIds,
+  strategy: 'semantic-weak-policy-no-raw-gc-reachability',
+  policies: [
+    'declared-strong-key-descriptors',
+    'drop-unreachable-at-capture-boundary',
+    'drop-finalizer-queue',
+    'lazy-target-native-cache-rebuild',
+  ],
+  evidence: {
+    rawGcReachabilityTransferred: false,
+    finalizerQueueTransferred: false,
+    ephemeronTableBytesTransferred: false,
+    retainedWeakCellPointers: 0,
+  },
+  remainingGcPolicy: 'verified-refusal-without-declared-semantic-policy',
+  claimGuard: {
+    arbitraryNodeProcessRestoreClaimed: false,
+    rawV8HeapRestoreUsed: false,
+    rawGcReachabilityRestoreUsed: false,
+    sourceIsaEmulationUsed: false,
+  },
+};
+fs.writeFileSync(path.join(dst, 'nodejs-gc-stable-weak-report.json'), `${JSON.stringify(gcStableWeakReport, null, 2)}\n`);
 NODE
   cp proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/source-bundle-node-memory/target-restore.sh "$dst/target-restore.sh"
   cp proofs/linux-vm-workload/portable-vm-product-node-memory-ir/retained/source-bundle-node-memory/target-verify.sh "$dst/target-verify.sh"
@@ -204,6 +475,8 @@ rsync -az "$REMOTE_HOST:$REMOTE_WORK/arm64-to-amd64/node-memory.snap/portable-vm
 cp "$ARM_TO_AMD/remote-restore-summary.json" "$ARM_TO_AMD/node-memory.snap/portable-vm-product-restore-summary.json"
 rsync -az "$REMOTE_HOST:$REMOTE_WORK/arm64-to-amd64/node-memory.snap/nodejs-memory-materializer.mjs" "$ARM_TO_AMD/nodejs-memory-materializer.mjs"
 cp "$ARM_TO_AMD/nodejs-memory-materializer.mjs" "$ARM_TO_AMD/node-memory.snap/nodejs-memory-materializer.mjs"
+rsync -az "$REMOTE_HOST:$REMOTE_WORK/arm64-to-amd64/node-memory.snap/nodejs-resource-materializer.mjs" "$ARM_TO_AMD/nodejs-resource-materializer.mjs"
+cp "$ARM_TO_AMD/nodejs-resource-materializer.mjs" "$ARM_TO_AMD/node-memory.snap/nodejs-resource-materializer.mjs"
 
 # amd64 snapshot -> arm64 restore
 AMD_TO_ARM="$WORK/amd64-to-arm64"
@@ -226,33 +499,201 @@ const directions = [
   { id: 'arm64-to-amd64', sourceArch: 'arm64', targetArch: 'amd64', restorePath: 'arm64-to-amd64-restore.json', snapDir: 'arm64-to-amd64/node-memory.snap' },
   { id: 'amd64-to-arm64', sourceArch: 'amd64', targetArch: 'arm64', restorePath: 'amd64-to-arm64-restore.json', snapDir: 'amd64-to-arm64/node-memory.snap' },
 ];
-const expectedMemoryRowIds = [
-  '037-memory-real-plain-object',
-  '039-memory-real-closure-context',
-  '040-memory-real-string',
-  '041-memory-real-nested-object-graph',
-  '042-memory-real-shared-references',
-  '043-memory-real-cycle',
-  '044-memory-real-map-set',
-  '045-memory-real-class-instance',
-  '046-memory-real-buffer',
-  '047-memory-real-typed-array',
-  '048-memory-real-http-handler-closure-state',
+const expectedMemoryRowIds = fs.readdirSync(path.join('portability', 'nodejs'), { withFileTypes: true })
+  .filter((entry) => entry.isDirectory() && /^\d{3}-/u.test(entry.name))
+  .map((entry) => JSON.parse(fs.readFileSync(path.join('portability', 'nodejs', entry.name, 'portability.json'), 'utf8')))
+  .filter((row) => row.disposition === 'product-supported' && row.slug.startsWith('memory-real-'))
+  .map((row) => row.id)
+  .sort((left, right) => left.localeCompare(right));
+const expectedResourceRowIds = [
+  'nodejs-resource-timer-schedule',
+  'nodejs-resource-reopenable-file',
+  'nodejs-resource-http-listener-route',
+  'nodejs-resource-drained-stream-buffer',
+  'nodejs-resource-route-registry',
+  'nodejs-resource-middleware-registry',
+  'nodejs-resource-configured-outbound-client',
+  'nodejs-resource-outbound-client-reconnect-policy',
+  'nodejs-resource-idle-http-agent-config',
+  'nodejs-resource-dns-resolver-config',
+  'nodejs-resource-tcp-client-reconnect-config',
+  'nodejs-resource-tls-client-reconnect-config',
+  'nodejs-resource-udp-client-reconnect-config',
+  'nodejs-resource-http2-client-session-config',
+  'nodejs-resource-signal-handler-registry',
+  'nodejs-resource-immediate-schedule',
+  'nodejs-resource-unref-timer-schedule',
+  'nodejs-resource-ttl-cache-expiration',
+  'nodejs-resource-cache-expiration-timer',
+  'nodejs-resource-timer-backed-refill',
+  'nodejs-resource-timer-wheel-state',
+  'nodejs-resource-delayed-queue-schedule',
+  'nodejs-resource-monotonic-clock-baseline',
+  'nodejs-resource-performance-timing-baseline',
+  'nodejs-resource-active-refresh-schedule',
+  'nodejs-resource-drained-readable-stream',
+  'nodejs-resource-drained-writable-stream',
+  'nodejs-resource-pipeline-drained-state',
+  'nodejs-resource-reopenable-read-stream',
+  'nodejs-resource-reopenable-write-stream',
+  'nodejs-resource-reopenable-dir-handle',
+  'nodejs-resource-fs-watcher-subscription',
+  'nodejs-resource-transform-stream-drained-state',
+  'nodejs-resource-backpressure-buffer-drained',
+  'nodejs-resource-stream-backed-logger-sink',
+  'nodejs-resource-log-transport-drained',
+  'nodejs-resource-diagnostic-channel-subscription',
+  'nodejs-resource-diagnostic-report-config',
+  'nodejs-resource-profiler-session-disabled-config',
+  'nodejs-resource-inspector-disabled-config',
+  'nodejs-resource-distributed-rate-limit-config',
+  'nodejs-resource-span-context-drained',
+  'nodejs-resource-otel-exporter-config',
+  'nodejs-resource-async-local-storage-snapshot',
+  'nodejs-resource-async-hooks-registry',
+  'nodejs-resource-proxy-descriptor',
+  'nodejs-resource-esm-namespace-binding',
+  'nodejs-resource-dynamic-import-settled-module',
+  'nodejs-resource-module-loader-hook-registry',
+  'nodejs-resource-object-keyed-map-descriptor',
+  'nodejs-resource-map-iterator-position',
+  'nodejs-resource-set-iterator-position',
+  'nodejs-resource-error-stack-snapshot',
+  'nodejs-resource-uncaught-exception-handler-registry',
+  'nodejs-resource-private-field-descriptor',
+  'nodejs-resource-bound-method-descriptor',
+  'nodejs-resource-listener-closure-registry',
+  'nodejs-resource-async-state-machine-snapshot',
+  'nodejs-resource-mutable-config-snapshot',
+  'nodejs-resource-serializer-replacer-registry',
+  'nodejs-resource-regexp-match-iterator-position',
+  'nodejs-resource-regexp-target-native-compile',
+  'nodejs-resource-script-target-native-compile',
+  'nodejs-resource-synthetic-module-declaration',
+  'nodejs-resource-module-link-graph',
+  'nodejs-resource-wasm-module-target-native-compile',
+  'nodejs-resource-transfer-list-descriptor',
+  'nodejs-resource-symbol-iterator-position',
+  'nodejs-resource-numeric-overflow-policy',
+  'nodejs-resource-temporal-object-descriptor',
+  'nodejs-resource-vm-context-template',
+  'nodejs-resource-vm-sandbox-global-descriptor',
+  'nodejs-resource-wasm-instance-target-native',
+  'nodejs-resource-wasm-memory-linear-bytes',
+  'nodejs-resource-wasm-table-descriptor',
+  'nodejs-resource-readline-interface-config',
+  'nodejs-resource-tty-mode-config',
+  'nodejs-resource-parser-token-checkpoint',
+  'nodejs-resource-incremental-parser-checkpoint',
+  'nodejs-resource-websocket-listener-registry',
+  'nodejs-resource-worker-thread-restart',
+  'nodejs-resource-native-addon-target-rebuild',
+  'nodejs-resource-child-process-restart',
+  'nodejs-resource-native-compiled-artifact-rebuild',
+  'nodejs-resource-hash-public-input-digest',
+  'nodejs-resource-deterministic-prng-seed',
+  'nodejs-resource-buffer-pool-policy',
+  'nodejs-resource-zero-fill-buffer-policy',
+  'nodejs-resource-external-arraybuffer-declared-bytes',
+  'nodejs-resource-weak-cache-drop-policy',
+  'nodejs-resource-queue-consumer-retry-checkpoint',
+  'nodejs-resource-pending-transition-checkpoint',
+  'nodejs-resource-stdio-config',
+  'nodejs-resource-transaction-retry-checkpoint',
+  'nodejs-resource-cursor-query-descriptor',
+  'nodejs-resource-oauth-device-flow-restart',
+  'nodejs-resource-noncloneable-reconstruction-factory',
+  'nodejs-resource-hmac-key-reference',
+  'nodejs-resource-keyobject-reference',
+  'nodejs-resource-cipher-key-reference',
+  'nodejs-resource-webcrypto-algorithm-registry',
+  'nodejs-resource-secret-config-reference',
+  'nodejs-resource-crypto-secret-reference',
+  'nodejs-resource-credential-cache-reference',
+  'nodejs-resource-keyring-reference',
+  'nodejs-resource-sensitive-buffer-redaction',
+  'nodejs-resource-job-retry-policy',
+  'nodejs-resource-job-lock-release-policy',
+  'nodejs-resource-quiesced-active-request',
+  'nodejs-resource-settled-promise-value',
+  'nodejs-resource-drained-promise-reaction',
+  'nodejs-resource-drained-microtask-queue',
+  'nodejs-resource-settled-async-function-frame',
+  'nodejs-resource-drained-stdin',
+  'nodejs-resource-drained-messageport',
+  'nodejs-resource-drained-broadcastchannel',
+  'nodejs-resource-sharedarraybuffer-quiesced-copy',
+  'nodejs-resource-atomics-no-waiters',
+  'nodejs-resource-worker-shared-buffer-quiesced',
+  'nodejs-resource-quiesced-async-context-resource',
+  'nodejs-resource-declared-ffi-adapter',
+  'nodejs-resource-declared-native-resource-adapter',
+  'nodejs-resource-weakmap-semantic-entries',
+  'nodejs-resource-weakset-semantic-members',
+  'nodejs-resource-finalization-registry-drop-policy',
+  'nodejs-resource-weakref-semantic-reference',
+  'nodejs-resource-gc-sensitive-cache-rebuild-policy',
+  'nodejs-resource-ephemeron-table-semantic-descriptor',
+  'nodejs-resource-http-request-template',
+  'nodejs-resource-http-response-template',
+  'nodejs-resource-request-body-drained',
+  'nodejs-resource-response-writer-drained',
+  'nodejs-resource-request-scope-registry',
+  'nodejs-resource-framework-plugin-registry',
+  'nodejs-resource-scoped-provider-registry',
+  'nodejs-resource-provider-factory-registry',
+  'nodejs-resource-lifecycle-hook-registry',
+  'nodejs-resource-render-context-template',
+  'nodejs-resource-zlib-stream-drained-state',
+  'nodejs-resource-brotli-stream-drained-state',
+  'nodejs-resource-inflate-stream-drained-state',
+  'nodejs-resource-deflate-stream-drained-state',
+  'nodejs-resource-write-ahead-buffer-flushed',
 ];
 const results = directions.map((direction) => {
   const restore = readJson(direction.restorePath);
   const plan = readJson(path.join(direction.snapDir, 'portable-vm-manifest-plan.json'));
+  const pauseBoundary = readJson(path.join(direction.snapDir, 'portable-vm-pause-boundary.json'));
   const materializerPath = path.join(direction.snapDir, 'nodejs-memory-materializer.mjs');
+  const resourceMaterializerPath = path.join(direction.snapDir, 'nodejs-resource-materializer.mjs');
   const materializer = fs.readFileSync(path.join(work, materializerPath), 'utf8');
+  const resourceMaterializer = fs.readFileSync(path.join(work, resourceMaterializerPath), 'utf8');
   if (restore.accepted !== true) throw new Error(`${direction.id} restore not accepted`);
   if (restore.sourceArch !== direction.sourceArch || restore.targetArch !== direction.targetArch) throw new Error(`${direction.id} arch mismatch`);
+  if (pauseBoundary.accepted !== true || pauseBoundary.sourceVmPauseRequired !== true || pauseBoundary.stoppedStateObserved !== true) throw new Error(`${direction.id} did not prove paused source VM boundary`);
+  if (pauseBoundary.pauseMechanism !== 'vmm-native-sigusr1-sigusr2' || pauseBoundary.vmmNativeMarker?.vcpusStopped !== true) throw new Error(`${direction.id} did not retain VMM-native pause marker`);
+  if (plan.captureBoundary?.stabilityPoint !== 'source-vm-paused' || plan.captureBoundary?.pauseBoundary !== 'portable-vm-pause-boundary.json') throw new Error(`${direction.id} plan missing paused source VM boundary`);
   if (restore.workloads?.nodejs?.memoryVerified !== true) throw new Error(`${direction.id} did not verify Node memory`);
+  if (restore.workloads?.nodejs?.resourceVerified !== true) throw new Error(`${direction.id} did not verify Node resource IR`);
   if (restore.workloads?.nodejs?.memoryMaterializedRows !== expectedMemoryRowIds.length) throw new Error(`${direction.id} materialized row count mismatch`);
+  if (restore.workloads?.nodejs?.resourceMaterializedRows !== expectedResourceRowIds.length) throw new Error(`${direction.id} resource materialized row count mismatch`);
   if (!materializer.includes('machinen.nodejs.memory-ir') || !materializer.includes('rawV8HeapRestoreUsed')) throw new Error(`${direction.id} materializer missing product guards`);
+  if (!resourceMaterializer.includes('machinen.nodejs.resource-ir') || !resourceMaterializer.includes('rawNativeHandleRestoreUsed')) throw new Error(`${direction.id} resource materializer missing product guards`);
   if (!plan.restorePlan.rows.some((row) => row.id === 'nodejs-memory-ir' && row.restoreStrategy === 'materialize-nodejs-memory-ir-target-native')) throw new Error(`${direction.id} plan missing memory IR row`);
+  if (!plan.restorePlan.rows.some((row) => row.id === 'nodejs-resource-ir' && row.restoreStrategy === 'materialize-nodejs-resource-ir-target-native')) throw new Error(`${direction.id} plan missing resource IR row`);
   const memoryIr = readJson(path.join(direction.snapDir, 'nodejs-memory-ir.json'));
+  const resourceIr = readJson(path.join(direction.snapDir, 'nodejs-resource-ir.json'));
+  const quiescenceReport = readJson(path.join(direction.snapDir, 'nodejs-quiescence-report.json'));
+  const nativeAdapterReport = readJson(path.join(direction.snapDir, 'nodejs-native-adapter-report.json'));
+  const gcStableWeakReport = readJson(path.join(direction.snapDir, 'nodejs-gc-stable-weak-report.json'));
+  const resourceInventory = readJson(path.join(direction.snapDir, 'nodejs-resource-inventory.json'));
   const rowEvidence = readJson(path.join(direction.snapDir, 'nodejs-memory-product-row-evidence.json'));
   if (JSON.stringify(memoryIr.rows?.map((row) => row.id)) !== JSON.stringify(expectedMemoryRowIds)) throw new Error(`${direction.id} memory IR row IDs drifted`);
+  if (JSON.stringify(resourceIr.rows?.map((row) => row.id)) !== JSON.stringify(expectedResourceRowIds)) throw new Error(`${direction.id} resource IR row IDs drifted`);
+  const quiescedRows = resourceIr.rows.filter((row) => row.semanticState?.quiescenceReport === 'nodejs-quiescence-report.json').map((row) => row.id);
+  if (quiescenceReport.accepted !== true || quiescenceReport.captureBoundaryRequired !== 'source-vm-paused') throw new Error(`${direction.id} quiescence report missing paused boundary proof`);
+  if (JSON.stringify(quiescenceReport.quiescedRows) !== JSON.stringify(quiescedRows)) throw new Error(`${direction.id} quiescence report row IDs drifted`);
+  const nativeAdapterRows = resourceIr.rows.filter((row) => row.semanticState?.nativeAdapterReport === 'nodejs-native-adapter-report.json').map((row) => row.id);
+  if (nativeAdapterReport.accepted !== true || nativeAdapterReport.captureBoundaryRequired !== 'source-vm-paused') throw new Error(`${direction.id} native adapter report missing paused boundary proof`);
+  if (JSON.stringify(nativeAdapterReport.adapterRows) !== JSON.stringify(nativeAdapterRows)) throw new Error(`${direction.id} native adapter row IDs drifted`);
+  if (nativeAdapterReport.claimGuard?.rawNativeHandleRestoreUsed !== false || nativeAdapterReport.claimGuard?.rawPointerTransferUsed !== false) throw new Error(`${direction.id} native adapter report overclaims raw native restore`);
+  const gcStableWeakRows = resourceIr.rows.filter((row) => row.semanticState?.gcStableWeakReport === 'nodejs-gc-stable-weak-report.json').map((row) => row.id);
+  if (gcStableWeakReport.accepted !== true || gcStableWeakReport.captureBoundaryRequired !== 'source-vm-paused') throw new Error(`${direction.id} gc-stable weak report missing paused boundary proof`);
+  if (JSON.stringify(gcStableWeakReport.weakResourceRows) !== JSON.stringify(gcStableWeakRows)) throw new Error(`${direction.id} gc-stable weak row IDs drifted`);
+  if (gcStableWeakReport.evidence?.rawGcReachabilityTransferred !== false || gcStableWeakReport.evidence?.finalizerQueueTransferred !== false || gcStableWeakReport.evidence?.ephemeronTableBytesTransferred !== false) throw new Error(`${direction.id} gc-stable weak report overclaims raw GC reachability`);
+  if (resourceIr.rows.some((row) => JSON.stringify(row).match(/rawFd|nativeHandle|uvHandle|rawV8Heap|pid/))) throw new Error(`${direction.id} resource IR contains raw/native process state`);
+  if (resourceIr.rows.some((row) => row.captureBoundaryId !== 'portable-vm-pause-boundary.json' || row.pausedEvidence?.sourceVmPaused !== true)) throw new Error(`${direction.id} resource IR row-level pause evidence missing`);
+  if (!Array.isArray(resourceInventory.checkedResourceClasses) || !resourceInventory.checkedResourceClasses.includes('native-handles')) throw new Error(`${direction.id} resource inventory did not classify native handles`);
   if (!Array.isArray(rowEvidence) || rowEvidence.length !== expectedMemoryRowIds.length) throw new Error(`${direction.id} row evidence missing`);
   for (const row of rowEvidence) {
     for (const stage of ['detect', 'capture', 'decode', 'classify', 'materialize', 'verify', 'retain']) {
@@ -265,12 +706,21 @@ const results = directions.map((direction) => {
     sourceArch: direction.sourceArch,
     targetArch: direction.targetArch,
     nodejsMemoryRows: restore.portableVmPlan.nodejsMemoryRows,
+    nodejsResourceRows: restore.portableVmPlan.nodejsResourceRows,
+    sourceVmPauseBoundary: pauseBoundary,
     memoryVerified: restore.workloads.nodejs.memoryVerified,
+    resourceVerified: restore.workloads.nodejs.resourceVerified,
     memoryMaterializedRows: restore.workloads.nodejs.memoryMaterializedRows,
+    resourceMaterializedRows: restore.workloads.nodejs.resourceMaterializedRows,
     supportedSemanticRows: expectedMemoryRowIds,
+    supportedResourceRows: expectedResourceRowIds,
+    resourceInventory,
+    resourceCaptureBoundary: resourceIr.captureBoundary,
     rowEvidence,
     memoryIrKind: restore.targetVerify.nodejsMemory.memoryIrKind,
+    resourceIrKind: restore.targetVerify.nodejsResource.resourceIrKind,
     productMaterializerInjected: true,
+    productResourceMaterializerInjected: true,
   };
 });
 const artifacts = [
@@ -278,16 +728,30 @@ const artifacts = [
   'arm64-to-amd64-restore.json',
   'arm64-to-amd64/node-memory.snap/portable-vm-manifest-plan.json',
   'arm64-to-amd64/node-memory.snap/portable-vm-product-restore-summary.json',
+  'arm64-to-amd64/node-memory.snap/portable-vm-pause-boundary.json',
   'arm64-to-amd64/node-memory.snap/nodejs-memory-ir.json',
   'arm64-to-amd64/node-memory.snap/nodejs-memory-materializer.mjs',
   'arm64-to-amd64/node-memory.snap/nodejs-memory-product-row-evidence.json',
+  'arm64-to-amd64/node-memory.snap/nodejs-resource-ir.json',
+  'arm64-to-amd64/node-memory.snap/nodejs-quiescence-report.json',
+  'arm64-to-amd64/node-memory.snap/nodejs-native-adapter-report.json',
+  'arm64-to-amd64/node-memory.snap/nodejs-gc-stable-weak-report.json',
+  'arm64-to-amd64/node-memory.snap/nodejs-resource-inventory.json',
+  'arm64-to-amd64/node-memory.snap/nodejs-resource-materializer.mjs',
   'amd64-to-arm64-snapshot.json',
   'amd64-to-arm64-restore.json',
   'amd64-to-arm64/node-memory.snap/portable-vm-manifest-plan.json',
   'amd64-to-arm64/node-memory.snap/portable-vm-product-restore-summary.json',
+  'amd64-to-arm64/node-memory.snap/portable-vm-pause-boundary.json',
   'amd64-to-arm64/node-memory.snap/nodejs-memory-ir.json',
   'amd64-to-arm64/node-memory.snap/nodejs-memory-materializer.mjs',
   'amd64-to-arm64/node-memory.snap/nodejs-memory-product-row-evidence.json',
+  'amd64-to-arm64/node-memory.snap/nodejs-resource-ir.json',
+  'amd64-to-arm64/node-memory.snap/nodejs-quiescence-report.json',
+  'amd64-to-arm64/node-memory.snap/nodejs-native-adapter-report.json',
+  'amd64-to-arm64/node-memory.snap/nodejs-gc-stable-weak-report.json',
+  'amd64-to-arm64/node-memory.snap/nodejs-resource-inventory.json',
+  'amd64-to-arm64/node-memory.snap/nodejs-resource-materializer.mjs',
 ];
 const report = {
   kind: 'machinen.portable-vm-product-node-memory-ir-cross-arch-report',
@@ -303,6 +767,7 @@ const report = {
     sourceIsaEmulationUsed: false,
     arbitraryNodeProcessRestoreClaimed: false,
     rawV8HeapRestoreUsed: false,
+    rawNativeHandleRestoreUsed: false,
     samePidContinuationClaimed: false,
   },
   notClaimed: [
@@ -322,7 +787,7 @@ if [ -n "${WORK_DIR:-}" ]; then
   find "$WORK" -type f | while IFS= read -r file; do
     rel="${file#$WORK/}"
     case "$rel" in
-      portable-vm-product-node-memory-ir-cross-arch-report.json|arm64-to-amd64-snapshot.json|arm64-to-amd64-restore.json|arm64-to-amd64/node-memory.snap/portable-vm-manifest-plan.json|arm64-to-amd64/node-memory.snap/portable-vm-product-restore-summary.json|arm64-to-amd64/node-memory.snap/nodejs-memory-ir.json|arm64-to-amd64/node-memory.snap/nodejs-memory-materializer.mjs|arm64-to-amd64/node-memory.snap/nodejs-memory-product-row-evidence.json|amd64-to-arm64-snapshot.json|amd64-to-arm64-restore.json|amd64-to-arm64/node-memory.snap/portable-vm-manifest-plan.json|amd64-to-arm64/node-memory.snap/portable-vm-product-restore-summary.json|amd64-to-arm64/node-memory.snap/nodejs-memory-ir.json|amd64-to-arm64/node-memory.snap/nodejs-memory-materializer.mjs|amd64-to-arm64/node-memory.snap/nodejs-memory-product-row-evidence.json) ;;
+      portable-vm-product-node-memory-ir-cross-arch-report.json|arm64-to-amd64-snapshot.json|arm64-to-amd64-restore.json|arm64-to-amd64/node-memory.snap/portable-vm-manifest-plan.json|arm64-to-amd64/node-memory.snap/portable-vm-product-restore-summary.json|arm64-to-amd64/node-memory.snap/portable-vm-pause-boundary.json|arm64-to-amd64/node-memory.snap/nodejs-memory-ir.json|arm64-to-amd64/node-memory.snap/nodejs-memory-materializer.mjs|arm64-to-amd64/node-memory.snap/nodejs-memory-product-row-evidence.json|arm64-to-amd64/node-memory.snap/nodejs-quiescence-report.json|arm64-to-amd64/node-memory.snap/nodejs-native-adapter-report.json|arm64-to-amd64/node-memory.snap/nodejs-gc-stable-weak-report.json|arm64-to-amd64/node-memory.snap/nodejs-resource-ir.json|arm64-to-amd64/node-memory.snap/nodejs-resource-inventory.json|arm64-to-amd64/node-memory.snap/nodejs-resource-materializer.mjs|amd64-to-arm64-snapshot.json|amd64-to-arm64-restore.json|amd64-to-arm64/node-memory.snap/portable-vm-manifest-plan.json|amd64-to-arm64/node-memory.snap/portable-vm-product-restore-summary.json|amd64-to-arm64/node-memory.snap/portable-vm-pause-boundary.json|amd64-to-arm64/node-memory.snap/nodejs-memory-ir.json|amd64-to-arm64/node-memory.snap/nodejs-memory-materializer.mjs|amd64-to-arm64/node-memory.snap/nodejs-memory-product-row-evidence.json|amd64-to-arm64/node-memory.snap/nodejs-quiescence-report.json|amd64-to-arm64/node-memory.snap/nodejs-native-adapter-report.json|amd64-to-arm64/node-memory.snap/nodejs-gc-stable-weak-report.json|amd64-to-arm64/node-memory.snap/nodejs-resource-ir.json|amd64-to-arm64/node-memory.snap/nodejs-resource-inventory.json|amd64-to-arm64/node-memory.snap/nodejs-resource-materializer.mjs) ;;
       *) rm -f "$file" ;;
     esac
   done

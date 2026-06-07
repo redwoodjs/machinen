@@ -1,0 +1,2 @@
+mallocfree:6
+SHAPE_RESTORE_OK shape=030-malloc-free-boundary-cli target=amd64 result=42

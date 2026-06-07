@@ -1,0 +1,26 @@
+{
+  "case": "external-socket-fd-refusal",
+  "description": "socket fd outside an accepted owned shape is refused",
+  "mode": "target",
+  "role": "target",
+  "hostArch": "x86_64",
+  "pid": 3800013,
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "markerSymbolsUsed": false,
+    "preservesKernelSocketIdentity": false
+  },
+  "decision": "refused",
+  "refusal": {
+    "reason": "unclassified-external-socket-fd",
+    "socketFds": [
+      {
+        "fd": 3,
+        "target": "socket:[64759465]"
+      }
+    ]
+  }
+}

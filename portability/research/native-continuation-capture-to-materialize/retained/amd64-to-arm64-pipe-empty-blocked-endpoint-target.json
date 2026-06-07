@@ -1,0 +1,160 @@
+{
+  "case": "pipe-empty-blocked-endpoint",
+  "kind": "support",
+  "description": "materialize empty pipe blocked reader and continue with a byte",
+  "mode": "target",
+  "role": "target",
+  "hostArch": "aarch64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false
+  },
+  "decision": "accepted",
+  "descriptor": {
+    "kind": "machinen.research.native-continuation.capture-descriptor",
+    "version": 1,
+    "shapeId": "shape-pipe-empty-blocked-endpoint",
+    "architectureNeutral": true,
+    "observationConsistency": "live-procfs-best-effort",
+    "cpu": {
+      "wait": "pipe-empty-wait",
+      "sourceArch": "x86_64",
+      "sourceSyscallNumber": "0",
+      "sourceWchan": "pipe_read",
+      "targetNativeReconstruction": true,
+      "sourceIsaEmulationRequired": false
+    },
+    "memory": {
+      "mode": "semantic-resource-descriptor-only",
+      "rawHeapCaptured": false,
+      "rawStackCaptured": false,
+      "rawRegistersCaptured": false,
+      "rawHeapStackRegistersCaptured": false,
+      "threadStacksCaptured": false
+    },
+    "resources": {
+      "process": {
+        "threads": 1,
+        "tracerPid": 0,
+        "ppid": 3963440,
+        "pgrp": 3963441,
+        "session": 3963441
+      },
+      "fds": [
+        {
+          "fd": 0,
+          "target": "pipe:[66038466]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 1,
+          "target": "pipe:[66043560]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 2,
+          "target": "pipe:[66043561]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 3,
+          "target": "pipe:[66035905]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 4,
+          "target": "pipe:[66035905]",
+          "kind": "pipe",
+          "queueBytes": 0
+        }
+      ],
+      "pty": {
+        "fdCount": 0,
+        "queueBytesKnownEmpty": true,
+        "fds": []
+      },
+      "pipes": {
+        "fdCount": 5,
+        "bufferBytesKnownEmpty": true,
+        "endpoints": [
+          {
+            "fd": 0,
+            "target": "pipe:[66038466]",
+            "kind": "pipe",
+            "queueBytes": 0
+          },
+          {
+            "fd": 1,
+            "target": "pipe:[66043560]",
+            "kind": "pipe",
+            "queueBytes": 0
+          },
+          {
+            "fd": 2,
+            "target": "pipe:[66043561]",
+            "kind": "pipe",
+            "queueBytes": 0
+          },
+          {
+            "fd": 3,
+            "target": "pipe:[66035905]",
+            "kind": "pipe",
+            "queueBytes": 0
+          },
+          {
+            "fd": 4,
+            "target": "pipe:[66035905]",
+            "kind": "pipe",
+            "queueBytes": 0
+          }
+        ],
+        "processTreeCaptured": true
+      },
+      "sockets": {
+        "fdCount": 0,
+        "fds": [],
+        "bindOrReconnectPolicy": null,
+        "kernelSocketIdentityPreserved": false
+      },
+      "threads": {
+        "tasks": [
+          {
+            "tid": 3963441,
+            "state": "S",
+            "wchan": "pipe_read",
+            "syscall": {
+              "raw": "0 0x3 0x7f7a88fe1670 0x1 0x7f7a88f7188e 0x0 0x0 0x7ffe587b52c8 0x7f7a894122ad",
+              "wchan": "pipe_read",
+              "number": "0",
+              "readLikeWait": true,
+              "pollLikeWait": false
+            }
+          }
+        ],
+        "roles": "parked-wait-descriptors",
+        "threadStacksCaptured": false
+      }
+    },
+    "materializer": {
+      "strategy": "target-native-reexec-or-shape-adapter",
+      "requires": [
+        "single accepted shape",
+        "empty accepted queues",
+        "no ptrace owner",
+        "target-native resources"
+      ],
+      "rawProcessMemoryMaterialization": false
+    }
+  },
+  "evidence": {
+    "output": "pipe-continued-P",
+    "continued": true
+  }
+}

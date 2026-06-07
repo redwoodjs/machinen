@@ -1,0 +1,21 @@
+{
+  "case": "ssh-live-session-refusal",
+  "kind": "refusal",
+  "description": "ssh live crypto/socket/session state is refused",
+  "mode": "same",
+  "role": "same",
+  "hostArch": "x86_64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false
+  },
+  "decision": "refused",
+  "refusal": {
+    "reason": "ssh-live-crypto-socket-session",
+    "binary": "/usr/bin/ssh",
+    "socketBoundaryProbe": "socket-bound:38739"
+  }
+}

@@ -11,6 +11,7 @@
 //   machinen attach <name|pid> [--shell <cmd>]   # PTY shell
 //   machinen repl   <name|pid>                   # per-line exec
 //   machinen capture postgres --out <dir> --dump <file> ...
+//   machinen move scan|save|load ...
 //   machinen support [--json] [--family <family>] [--level <support-level>]
 //   machinen completion <bash|zsh|fish>
 //   machinen --version | -h | --help
@@ -23,6 +24,7 @@ import {
   lstatSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   renameSync,
   rmSync,
@@ -40,8 +42,12 @@ import {
   boot,
   NODEJS_MEMORY_IR_INVALID_REFUSAL_CODE,
   NODEJS_MEMORY_IR_MATERIALIZER_FILENAME,
+  NODEJS_RESOURCE_IR_INVALID_REFUSAL_CODE,
+  NODEJS_RESOURCE_IR_MATERIALIZER_FILENAME,
   createNodejsMemoryIrMaterializerModule,
+  createNodejsResourceIrMaterializerModule,
   validateNodejsMemoryIrDocument,
+  validateNodejsResourceIrDocument,
   PRODUCT_PORTABLE_POSTGRES_DUMP,
   ProductLevel4EventfdError,
   ProductLevel4PingSocketError,
@@ -54,6 +60,8 @@ import {
   buildNodeLevel5AppSupportMatrix,
   buildNodeLevel5FrameworkCapabilityMatrix,
   buildProductClaimRegistry,
+  captureMovePidDependencyGraph,
+  classifyMovePidDependencyGraph,
   evaluateNodeLevel5FrameworkCapabilityClaimReady,
   evaluateNodeLevel5FrameworkCapabilityReadiness,
   createProductLevel4EventfdSnapshot,
@@ -3278,7 +3286,10 @@ async function cmdRestorePortableVmProductBundle(
   const sourceArch = readPortableVmSourceArchitecture(snapDir);
   const targetArch = guestCpu();
   const planRefusal = evaluatePortableVmRestorePlan(snapDir, sourceArch, targetArch);
-  const materializerRefusal = planRefusal ?? preparePortableVmNodeMemoryMaterializer(snapDir);
+  const materializerRefusal =
+    planRefusal ??
+    preparePortableVmNodeMemoryMaterializer(snapDir) ??
+    preparePortableVmNodeResourceMaterializer(snapDir);
   if (materializerRefusal) {
     const refusal = portableVmRestoreRefusal(
       materializerRefusal.code,
@@ -3383,13 +3394,13 @@ async function cmdRestorePortableVmProductBundle(
   }
 }
 
-// fallow-ignore-next-line complexity
 interface PortableVmRestoreRefusalReason {
   code: string;
   message: string;
   workloads?: Record<string, unknown>;
 }
 
+// fallow-ignore-next-line complexity
 function evaluatePortableVmRestorePlan(
   snapDir: string,
   sourceArch: GuestCpu,
@@ -3405,6 +3416,10 @@ function evaluatePortableVmRestorePlan(
     return metadataRefusal;
   }
   const rows = portableVmPlanRows(plan);
+  const pauseBoundaryRefusal = portableVmPauseBoundaryRefusal(snapDir, plan, rows);
+  if (pauseBoundaryRefusal) {
+    return pauseBoundaryRefusal;
+  }
   const refused = rows.find((row) => row.disposition === "refused");
   if (refused) {
     return portableVmPlanRowRefusal(refused, rows);
@@ -3466,6 +3481,51 @@ function portableVmTargetPolicyRefusal(
   return null;
 }
 
+// fallow-ignore-next-line complexity
+function portableVmPauseBoundaryRefusal(
+  snapDir: string,
+  plan: Record<string, unknown>,
+  rows: Array<Record<string, unknown>>,
+): PortableVmRestoreRefusalReason | null {
+  if (!rows.some(isPortableVmNodeResourceMaterializationRow)) {
+    return null;
+  }
+  const captureBoundary = portableVmRecordValue(plan.captureBoundary);
+  if (
+    captureBoundary.sourceVmPauseRequired !== true ||
+    captureBoundary.stabilityPoint !== "source-vm-paused" ||
+    captureBoundary.pauseBoundary !== "portable-vm-pause-boundary.json" ||
+    captureBoundary.unsupportedPausedLiveStatePolicy !== "refuse"
+  ) {
+    return portableVmNodeResourcePauseBoundaryRefusal(rows);
+  }
+  const boundaryPath = join(snapDir, "portable-vm-pause-boundary.json");
+  if (!existsSync(boundaryPath)) {
+    return portableVmNodeResourcePauseBoundaryRefusal(rows);
+  }
+  const boundary = portableVmRecordValue(parsePortableVmJsonArtifact(boundaryPath));
+  if (
+    boundary.accepted !== true ||
+    boundary.sourceVmPauseRequired !== true ||
+    boundary.stoppedStateObserved !== true ||
+    boundary.unsupportedPausedLiveStatePolicy !== "refuse"
+  ) {
+    return portableVmNodeResourcePauseBoundaryRefusal(rows);
+  }
+  return null;
+}
+
+function portableVmNodeResourcePauseBoundaryRefusal(
+  rows: Array<Record<string, unknown>>,
+): PortableVmRestoreRefusalReason {
+  return {
+    code: "node-portability-resource-pause-boundary-missing",
+    message:
+      "Node Resource IR restore requires a retained source VM pause boundary artifact before materialization",
+    workloads: summarizePortableVmRefusalWorkloads(rows),
+  };
+}
+
 function portableVmRequiredRowsRefusal(
   rows: Array<Record<string, unknown>>,
 ): PortableVmRestoreRefusalReason | null {
@@ -3517,7 +3577,7 @@ function preparePortableVmNodeMemoryMaterializer(
   if (!existsSync(irPath)) {
     return null;
   }
-  const parsed = parsePortableVmNodeMemoryIr(irPath);
+  const parsed = parsePortableVmJsonArtifact(irPath);
   const validation = validateNodejsMemoryIrDocument(parsed);
   if (!validation.accepted) {
     return {
@@ -3532,7 +3592,29 @@ function preparePortableVmNodeMemoryMaterializer(
   return null;
 }
 
-function parsePortableVmNodeMemoryIr(path: string): unknown {
+function preparePortableVmNodeResourceMaterializer(
+  snapDir: string,
+): PortableVmRestoreRefusalReason | null {
+  const irPath = join(snapDir, "nodejs-resource-ir.json");
+  if (!existsSync(irPath)) {
+    return null;
+  }
+  const parsed = parsePortableVmJsonArtifact(irPath);
+  const validation = validateNodejsResourceIrDocument(parsed);
+  if (!validation.accepted) {
+    return {
+      code: validation.refusalCode ?? NODEJS_RESOURCE_IR_INVALID_REFUSAL_CODE,
+      message: `Node resource IR is not materializable: ${validation.errors.join("; ")}`,
+    };
+  }
+  writeFileSync(
+    join(snapDir, NODEJS_RESOURCE_IR_MATERIALIZER_FILENAME),
+    createNodejsResourceIrMaterializerModule(),
+  );
+  return null;
+}
+
+function parsePortableVmJsonArtifact(path: string): unknown {
   try {
     return JSON.parse(readFileSync(path, "utf8")) as unknown;
   } catch (error) {
@@ -3559,6 +3641,9 @@ function summarizePortableVmRestorePlan(snapDir: string): Record<string, unknown
     nodejsMemoryRows: rows.filter(
       (row) => row.category === "nodejs" && row.id === "nodejs-memory-ir",
     ).length,
+    nodejsResourceRows: rows.filter(
+      (row) => row.category === "nodejs" && row.id === "nodejs-resource-ir",
+    ).length,
     unknownStatePolicy: (plan.targetPolicy as Record<string, unknown> | undefined)
       ?.unknownStatePolicy,
   };
@@ -3583,6 +3668,9 @@ function summarizePortableVmRefusalWorkloads(
       memoryRefusals: refusedRows
         .filter((row) => portableVmStringValue(row.id).startsWith("nodejs-memory-"))
         .map((row) => portableVmStringValue(row.refusalCode)),
+      resourceRefusals: refusedRows
+        .filter((row) => portableVmStringValue(row.id).startsWith("nodejs-resource-"))
+        .map((row) => portableVmStringValue(row.refusalCode)),
     },
   };
 }
@@ -3598,6 +3686,7 @@ function summarizePortableVmNodePlan(
   return {
     ...summarizePortableVmNodeRows(rows),
     ...summarizePortableVmNodeMemoryVerifier(targetVerify),
+    ...summarizePortableVmNodeResourceVerifier(targetVerify),
     arbitraryNodeProcessRestoreClaimed: false,
     rawV8HeapRestoreUsed: false,
   };
@@ -3612,6 +3701,8 @@ function summarizePortableVmNodeRows(
     refusedRows: rows.filter((row) => row.disposition === "refused").length,
     memoryRows: rows.filter((row) => row.id === "nodejs-memory-ir").length,
     memoryMaterializationRows: rows.filter(isPortableVmNodeMemoryMaterializationRow).length,
+    resourceRows: rows.filter((row) => row.id === "nodejs-resource-ir").length,
+    resourceMaterializationRows: rows.filter(isPortableVmNodeResourceMaterializationRow).length,
   };
 }
 
@@ -3642,6 +3733,33 @@ function portableVmNodeMemoryMaterializedRows(nodejsMemory: Record<string, unkno
   return rows;
 }
 
+function summarizePortableVmNodeResourceVerifier(
+  targetVerify?: Record<string, unknown>,
+): Record<string, unknown> {
+  const nodejsResource = portableVmNodeResourceVerifierRecord(targetVerify);
+  return {
+    resourceVerified: nodejsResource.accepted === true,
+    resourceMaterializedRows: portableVmNodeResourceMaterializedRows(nodejsResource),
+  };
+}
+
+function portableVmNodeResourceVerifierRecord(
+  targetVerify?: Record<string, unknown>,
+): Record<string, unknown> {
+  if (!targetVerify) {
+    return {};
+  }
+  return portableVmRecordValue(targetVerify.nodejsResource);
+}
+
+function portableVmNodeResourceMaterializedRows(nodejsResource: Record<string, unknown>): number {
+  const rows = nodejsResource.materializedRows;
+  if (typeof rows !== "number") {
+    return 0;
+  }
+  return rows;
+}
+
 function portableVmStringValue(value: unknown): string {
   return typeof value === "string" ? value : "";
 }
@@ -3655,6 +3773,10 @@ function portableVmRecordValue(value: unknown): Record<string, unknown> {
 
 function isPortableVmNodeMemoryMaterializationRow(row: Record<string, unknown>): boolean {
   return row.restoreStrategy === "materialize-nodejs-memory-ir-target-native";
+}
+
+function isPortableVmNodeResourceMaterializationRow(row: Record<string, unknown>): boolean {
+  return row.restoreStrategy === "materialize-nodejs-resource-ir-target-native";
 }
 
 function portableVmRestoreRefusal(
@@ -6742,7 +6864,7 @@ async function runSnapshot(opts: SnapshotOptionsCli): Promise<number> {
   const quiet = createSnapshotQuietState(vm, opts);
   try {
     if (opts.portable) {
-      return await runPortableVmSnapshot(vm, opts);
+      return await runPortableVmSnapshot(vm, opts, entry);
     }
     const adapterOpts = { guestCpu, sha256Bytes };
     const portableNode = await inspectPortableNodeVm(vm, entry, adapterOpts);
@@ -6773,7 +6895,12 @@ async function runSnapshot(opts: SnapshotOptionsCli): Promise<number> {
   }
 }
 
-async function runPortableVmSnapshot(vm: VmHandle, opts: SnapshotOptionsCli): Promise<number> {
+// fallow-ignore-next-line complexity
+async function runPortableVmSnapshot(
+  vm: VmHandle,
+  opts: SnapshotOptionsCli,
+  entry: RegistryEntry | undefined,
+): Promise<number> {
   const started = Date.now();
   const exportCommand = portableVmSnapshotExportCommand();
   const exported = await vm.execRaw(exportCommand, { execTimeoutMs: 60_000 });
@@ -6792,13 +6919,211 @@ async function runPortableVmSnapshot(vm: VmHandle, opts: SnapshotOptionsCli): Pr
   writeFileSync(archivePath, archive);
   execFileSync("tar", ["-xf", archivePath, "-C", opts.resolvedOutDir]);
   rmSync(tempDir, { recursive: true, force: true });
+  const pauseBoundary = await capturePortableVmPauseBoundary(vm.pid, entry?.pauseMarkerPath).catch(
+    (error) => {
+      reportPortableVmSnapshotRefusal(opts, describeError(error));
+      return null;
+    },
+  );
+  if (!pauseBoundary) {
+    return 1;
+  }
+  writePortableVmPauseBoundary(opts.resolvedOutDir, pauseBoundary);
   const summary = readPortableVmSnapshotSummary(opts.resolvedOutDir);
   reportPortableVmSnapshotSuccess(opts, summary, Date.now() - started);
   return 0;
 }
 
+interface PortableVmPauseBoundary {
+  kind: "machinen.portable-vm-pause-boundary";
+  version: 1;
+  accepted: true;
+  sourceVmPauseRequired: true;
+  pauseMechanism: "vmm-native-sigusr1-sigusr2" | "host-vmm-sigstop-sigcont";
+  pauseSignal: "SIGUSR1" | "SIGSTOP";
+  resumeSignal: "SIGUSR2" | "SIGCONT";
+  vmmNativeMarker?: Record<string, unknown>;
+  sourceVmPid: number;
+  stoppedStateObserved: true;
+  unsupportedPausedLiveStatePolicy: "refuse";
+  startedAt: string;
+  pausedObservedAt: string;
+  resumedAt: string;
+  elapsedMs: number;
+}
+
 function portableVmSnapshotExportCommand(): string {
   return `sh -eu -c ${shellQuote(portableVmSnapshotGuestAgentScript())}`;
+}
+
+async function capturePortableVmPauseBoundary(
+  pid: number,
+  markerPath: string | undefined,
+): Promise<PortableVmPauseBoundary> {
+  if (markerPath) {
+    return capturePortableVmNativePauseBoundary(pid, markerPath);
+  }
+  return capturePortableVmHostStopPauseBoundary(pid);
+}
+
+async function capturePortableVmNativePauseBoundary(
+  pid: number,
+  markerPath: string,
+): Promise<PortableVmPauseBoundary> {
+  const started = Date.now();
+  const startedAt = new Date(started).toISOString();
+  rmSync(markerPath, { force: true });
+  process.kill(pid, "SIGUSR1");
+  const marker = await waitForPortableVmPauseMarker(markerPath, 2_000);
+  process.kill(pid, "SIGUSR2");
+  return {
+    kind: "machinen.portable-vm-pause-boundary",
+    version: 1,
+    accepted: true,
+    sourceVmPauseRequired: true,
+    pauseMechanism: "vmm-native-sigusr1-sigusr2",
+    pauseSignal: "SIGUSR1",
+    resumeSignal: "SIGUSR2",
+    sourceVmPid: pid,
+    stoppedStateObserved: true,
+    unsupportedPausedLiveStatePolicy: "refuse",
+    vmmNativeMarker: marker,
+    startedAt,
+    pausedObservedAt: new Date().toISOString(),
+    resumedAt: new Date().toISOString(),
+    elapsedMs: Date.now() - started,
+  };
+}
+
+async function capturePortableVmHostStopPauseBoundary(
+  pid: number,
+): Promise<PortableVmPauseBoundary> {
+  const started = Date.now();
+  const startedAt = new Date(started).toISOString();
+  let pauseObservedAt: string | null = null;
+  let signaledStop = false;
+  try {
+    process.kill(pid, "SIGSTOP");
+    signaledStop = true;
+    await waitForPortableVmStopped(pid, 2_000);
+    pauseObservedAt = new Date().toISOString();
+  } finally {
+    if (signaledStop) {
+      process.kill(pid, "SIGCONT");
+    }
+  }
+  if (!pauseObservedAt) {
+    throw new Error("portable VM pause boundary was not observed");
+  }
+  return {
+    kind: "machinen.portable-vm-pause-boundary",
+    version: 1,
+    accepted: true,
+    sourceVmPauseRequired: true,
+    pauseMechanism: "host-vmm-sigstop-sigcont",
+    pauseSignal: "SIGSTOP",
+    resumeSignal: "SIGCONT",
+    sourceVmPid: pid,
+    stoppedStateObserved: true,
+    unsupportedPausedLiveStatePolicy: "refuse",
+    startedAt,
+    pausedObservedAt: pauseObservedAt,
+    resumedAt: new Date().toISOString(),
+    elapsedMs: Date.now() - started,
+  };
+}
+
+async function waitForPortableVmStopped(pid: number, timeoutMs: number): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (portableVmProcessState(pid).includes("T")) {
+      return;
+    }
+    await portableVmPauseSleep(20);
+  }
+  throw new Error(`portable VM pause boundary was not observed for pid ${pid}`);
+}
+
+async function waitForPortableVmPauseMarker(
+  markerPath: string,
+  timeoutMs: number,
+): Promise<Record<string, unknown>> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const marker = readPortableVmPauseMarker(markerPath);
+    if (isPortableVmPauseMarker(marker)) {
+      return marker;
+    }
+    await portableVmPauseSleep(20);
+  }
+  throw new Error(`portable VM VMM-native pause marker was not observed at ${markerPath}`);
+}
+
+function readPortableVmPauseMarker(markerPath: string): Record<string, unknown> | undefined {
+  if (!existsSync(markerPath)) {
+    return undefined;
+  }
+  return portableVmRecordValue(parsePortableVmJsonArtifact(markerPath));
+}
+
+function isPortableVmPauseMarker(
+  marker: Record<string, unknown> | undefined,
+): marker is Record<string, unknown> {
+  return marker?.kind === "machinen.vmm-pause-marker" && marker.vcpusStopped === true;
+}
+
+function portableVmProcessState(pid: number): string {
+  for (const field of ["state=", "stat="] as const) {
+    try {
+      return execFileSync("ps", ["-p", String(pid), "-o", field], {
+        encoding: "utf8",
+      }).trim();
+    } catch {
+      // Try the next platform spelling.
+    }
+  }
+  return "";
+}
+
+function portableVmPauseSleep(ms: number): Promise<void> {
+  return new Promise((resolveSleep) => setTimeout(resolveSleep, ms));
+}
+
+function writePortableVmPauseBoundary(
+  bundleDir: string,
+  pauseBoundary: PortableVmPauseBoundary,
+): void {
+  writeFileSync(
+    join(bundleDir, "portable-vm-pause-boundary.json"),
+    `${JSON.stringify(pauseBoundary, null, 2)}\n`,
+  );
+  patchPortableVmJsonArtifact(bundleDir, "portable-vm-snapshot-summary.json", {
+    pauseBoundary,
+  });
+  patchPortableVmJsonArtifact(bundleDir, "portable-vm-raw-inventory.json", {
+    pauseBoundary,
+  });
+  patchPortableVmJsonArtifact(bundleDir, "portable-vm-manifest-plan.json", {
+    captureBoundary: {
+      sourceVmPauseRequired: true,
+      stabilityPoint: "source-vm-paused",
+      pauseBoundary: "portable-vm-pause-boundary.json",
+      unsupportedPausedLiveStatePolicy: "refuse",
+    },
+  });
+}
+
+function patchPortableVmJsonArtifact(
+  bundleDir: string,
+  relativePath: string,
+  patch: Record<string, unknown>,
+): void {
+  const artifactPath = join(bundleDir, relativePath);
+  if (!existsSync(artifactPath)) {
+    return;
+  }
+  const artifact = JSON.parse(readFileSync(artifactPath, "utf8")) as Record<string, unknown>;
+  writeFileSync(artifactPath, `${JSON.stringify({ ...artifact, ...patch }, null, 2)}\n`);
 }
 
 function portableVmSnapshotGuestAgentScript(): string {
@@ -6864,11 +7189,32 @@ add_refusal() {
 [ ! -f "$src/nodejs-memory-child-process.refuse" ] || add_refusal nodejs-memory-child-process nodejs node-portability-memory-child-process-unsupported 'child process memory state is refused by default'
 [ ! -f "$src/nodejs-memory-opaque-native-state.refuse" ] || add_refusal nodejs-memory-opaque-native-state nodejs node-portability-memory-opaque-native-state-unsupported 'opaque native state is refused by default'
 [ ! -f "$src/nodejs-memory-raw-v8-state.refuse" ] || add_refusal nodejs-memory-raw-v8-state nodejs node-portability-memory-raw-v8-state-unsupported 'raw V8 state is refused by default'
+[ ! -f "$src/nodejs-memory-unsupported-boundaries.refuse" ] || add_refusal nodejs-memory-unsupported-boundaries nodejs node-portability-memory-unsupported-boundaries-unsupported 'unsupported V8 object and closure boundaries are refused by default'
+[ ! -f "$src/nodejs-memory-pid-continuation.refuse" ] || add_refusal nodejs-memory-pid-continuation nodejs node-portability-memory-pid-continuation-unsupported 'same PID continuation is refused by default'
+[ ! -f "$src/nodejs-memory-unknown-v8-object.refuse" ] || add_refusal nodejs-memory-unknown-v8-object nodejs node-portability-memory-unknown-v8-object-unsupported 'unknown V8 object state is refused by default'
+[ ! -f "$src/nodejs-memory-unclassified-state.refuse" ] || add_refusal nodejs-memory-unclassified-state nodejs node-portability-memory-unclassified-unsupported 'unclassified state is refused by default'
+[ ! -f "$src/nodejs-memory-metadata-only-success.refuse" ] || add_refusal nodejs-memory-metadata-only-success nodejs node-portability-memory-metadata-only-success-unsupported 'metadata-only success is refused by default'
+[ ! -f "$src/nodejs-memory-source-isa-emulation.refuse" ] || add_refusal nodejs-memory-source-isa-emulation nodejs node-portability-memory-source-isa-emulation-unsupported 'source-ISA emulation is refused by default'
+[ ! -f "$src/nodejs-memory-weakmap.refuse" ] || add_refusal nodejs-memory-weakmap nodejs node-portability-memory-weakmap-unsupported 'WeakMap memory state is refused by default'
+[ ! -f "$src/nodejs-memory-timer.refuse" ] || add_refusal nodejs-memory-timer nodejs node-portability-memory-timer-unsupported 'active timer memory state is refused by default'
+[ ! -f "$src/nodejs-memory-stream.refuse" ] || add_refusal nodejs-memory-stream nodejs node-portability-memory-stream-unsupported 'stream memory state is refused by default'
+[ ! -f "$src/nodejs-resource-active-timer.refuse" ] || add_refusal nodejs-resource-active-timer nodejs node-portability-resource-active-timer-unsupported 'active timer runtime state is refused unless captured as a timer-schedule-spec resource IR row'
+[ ! -f "$src/nodejs-resource-native-handle.refuse" ] || add_refusal nodejs-resource-native-handle nodejs node-portability-resource-native-handle-unsupported 'raw native/libuv handles are refused by Node resource IR'
+[ ! -f "$src/nodejs-resource-active-tls.refuse" ] || add_refusal nodejs-resource-active-tls nodejs node-portability-resource-active-tls-unsupported 'active TLS/session internals are refused by Node resource IR'
+[ ! -f "$src/nodejs-resource-worker-live-state.refuse" ] || add_refusal nodejs-resource-worker-live-state nodejs node-portability-resource-worker-live-state-unsupported 'worker live runtime state is refused by Node resource IR'
 
 node_inventory_items=''
 node_plan_rows=''
 node_memory_items=''
 node_memory_plan_rows=''
+node_resource_items=''
+node_resource_plan_rows=''
+node_quiescence_items=''
+node_quiescence_plan_rows=''
+node_native_adapter_items=''
+node_native_adapter_plan_rows=''
+node_gc_weak_items=''
+node_gc_weak_plan_rows=''
 node_package_json=''
 if [ -d "$src/filesystem/root" ]; then
   node_package_json=$(find "$src/filesystem/root" -maxdepth 6 -name package.json -type f 2>/dev/null | head -n 1 || true)
@@ -6895,6 +7241,83 @@ NODEMEMJSON
     { "id": "nodejs-memory-ir", "category": "nodejs", "path": "nodejs-memory-ir.json", "classification": "nodejs-memory-classification.json", "disposition": "product-supported" }'
   node_memory_plan_rows=',
       { "id": "nodejs-memory-ir", "category": "nodejs", "disposition": "product-supported", "restoreStrategy": "materialize-nodejs-memory-ir-target-native", "artifact": "nodejs-memory-ir.json", "classification": "nodejs-memory-classification.json", "compatibilityIndex": "portability/nodejs/index.json" }'
+fi
+
+if [ -f "$src/nodejs-quiescence-report.json" ]; then
+  node_quiescence_items=',
+    { "id": "nodejs-quiescence-report", "category": "nodejs", "path": "nodejs-quiescence-report.json", "disposition": "classified" }'
+  node_quiescence_plan_rows=',
+      { "id": "nodejs-quiescence-report", "category": "nodejs", "disposition": "classified", "restoreStrategy": "prove-nodejs-quiesced-before-resource-capture", "artifact": "nodejs-quiescence-report.json", "captureBoundary": "source-vm-paused", "unsupportedLiveStatePolicy": "refuse" }'
+fi
+
+if [ -f "$src/nodejs-gc-stable-weak-report.json" ]; then
+  node_gc_weak_items=',
+    { "id": "nodejs-gc-stable-weak-report", "category": "nodejs", "path": "nodejs-gc-stable-weak-report.json", "disposition": "classified" }'
+  node_gc_weak_plan_rows=',
+      { "id": "nodejs-gc-stable-weak-report", "category": "nodejs", "disposition": "classified", "restoreStrategy": "verify-nodejs-gc-stable-weak-semantics", "artifact": "nodejs-gc-stable-weak-report.json", "captureBoundary": "source-vm-paused", "rawGcReachabilityPolicy": "refuse" }'
+fi
+
+if [ -f "$src/nodejs-native-adapter-report.json" ]; then
+  node_native_adapter_items=',
+    { "id": "nodejs-native-adapter-report", "category": "nodejs", "path": "nodejs-native-adapter-report.json", "disposition": "classified" }'
+  node_native_adapter_plan_rows=',
+      { "id": "nodejs-native-adapter-report", "category": "nodejs", "disposition": "classified", "restoreStrategy": "verify-declared-nodejs-native-adapters", "artifact": "nodejs-native-adapter-report.json", "captureBoundary": "source-vm-paused", "rawNativeHandlePolicy": "refuse" }'
+fi
+
+if [ -f "$src/nodejs-resource-ir.json" ]; then
+  cat >"$work/nodejs-resource-inventory.json" <<NODERESINVJSON
+{
+  "kind": "machinen.nodejs-resource-inventory",
+  "version": 1,
+  "status": "classified",
+  "sourceArchitecture": "$source_arch",
+  "resourceIr": "nodejs-resource-ir.json",
+  "captureBoundaryRequired": "source-vm-paused",
+  "checkedResourceClasses": [
+    "timers",
+    "file-handles",
+    "http-listeners",
+    "streams",
+    "route-registries",
+    "middleware-registries",
+    "configured-outbound-clients",
+    "signal-handlers",
+    "workers",
+    "tls-sessions",
+    "native-handles"
+  ],
+  "unsupportedPausedLiveStatePolicy": "refuse"
+}
+NODERESINVJSON
+  cat >"$work/nodejs-resource-classification.json" <<NODERESJSON
+{
+  "kind": "machinen.nodejs-resource-classification",
+  "version": 1,
+  "status": "classified",
+  "sourceArchitecture": "$source_arch",
+  "resourceIr": "nodejs-resource-ir.json",
+  "restoreStrategy": "materialize-nodejs-resource-ir-target-native",
+  "compatibilityIndex": "portability/nodejs/index.json",
+  "captureBoundary": {
+    "sourceVmPauseRequired": true,
+    "stabilityPoint": "source-vm-paused",
+    "unsupportedPausedLiveStatePolicy": "refuse"
+  },
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawNativeHandleRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false
+  }
+}
+NODERESJSON
+  node_resource_items=',
+    { "id": "nodejs-resource-inventory", "category": "nodejs", "path": "nodejs-resource-inventory.json", "disposition": "classified" },
+    { "id": "nodejs-resource-ir", "category": "nodejs", "path": "nodejs-resource-ir.json", "classification": "nodejs-resource-classification.json", "inventory": "nodejs-resource-inventory.json", "disposition": "product-supported" }'
+  node_resource_plan_rows=',
+      { "id": "nodejs-resource-inventory", "category": "nodejs", "disposition": "classified", "restoreStrategy": "classify-nodejs-runtime-resources", "artifact": "nodejs-resource-inventory.json", "captureBoundary": "source-vm-paused", "unsupportedPausedLiveStatePolicy": "refuse" },
+      { "id": "nodejs-resource-ir", "category": "nodejs", "disposition": "product-supported", "restoreStrategy": "materialize-nodejs-resource-ir-target-native", "artifact": "nodejs-resource-ir.json", "classification": "nodejs-resource-classification.json", "inventory": "nodejs-resource-inventory.json", "compatibilityIndex": "portability/nodejs/index.json", "captureBoundary": "source-vm-paused", "unsupportedPausedLiveStatePolicy": "refuse" }'
 fi
 
 if [ -n "$node_package_json" ]; then
@@ -6941,7 +7364,7 @@ cat >"$work/portable-vm-raw-inventory.json" <<JSON
   "items": [
     { "id": "filesystem-root", "category": "filesystem", "path": "filesystem/root", "disposition": "product-supported" },
     { "id": "selected-service", "category": "service", "path": "service-manifest.json", "disposition": "product-supported" },
-    { "id": "clean-sqlite", "category": "sqlite", "path": "sqlite-dump.sql", "disposition": "product-supported" }$node_inventory_items$node_memory_items
+    { "id": "clean-sqlite", "category": "sqlite", "path": "sqlite-dump.sql", "disposition": "product-supported" }$node_inventory_items$node_memory_items$node_quiescence_items$node_native_adapter_items$node_gc_weak_items$node_resource_items
   ]
 }
 JSON
@@ -6964,7 +7387,7 @@ cat >"$work/portable-vm-manifest-plan.json" <<JSON
     "rows": [
       { "id": "filesystem-root", "category": "filesystem", "disposition": "product-supported", "restoreStrategy": "copy-content-addressed-file-tree", "artifact": "filesystem-manifest.json" },
       { "id": "selected-service", "category": "service", "disposition": "product-supported", "restoreStrategy": "start-target-native-selected-service", "artifact": "service-manifest.json" },
-      { "id": "clean-sqlite", "category": "sqlite", "disposition": "product-supported", "restoreStrategy": "restore-clean-logical-sqlite-dump", "artifact": "sqlite-logical.json" }$node_plan_rows$node_memory_plan_rows$refusal_rows
+      { "id": "clean-sqlite", "category": "sqlite", "disposition": "product-supported", "restoreStrategy": "restore-clean-logical-sqlite-dump", "artifact": "sqlite-logical.json" }$node_plan_rows$node_memory_plan_rows$node_quiescence_plan_rows$node_native_adapter_plan_rows$node_gc_weak_plan_rows$node_resource_plan_rows$refusal_rows
     ]
   },
   "claimGuard": {
@@ -7797,7 +8220,7 @@ const BASH_COMPLETION = `# machinen bash completion — source this from ~/.bash
 _machinen_completion() {
   local cur prev words cword
   _init_completion || return
-  local cmds="boot capture support restore install list ls ps exec snapshot fork attach repl gc stop feedback agent-context completion --version --help -h -v"
+  local cmds="boot capture move support restore install list ls ps exec snapshot fork attach repl gc stop feedback agent-context completion --version --help -h -v"
   if [[ \${cword} -eq 1 ]]; then
     COMPREPLY=( $(compgen -W "\${cmds}" -- "\${cur}") )
     return
@@ -7825,7 +8248,7 @@ const ZSH_COMPLETION = `# machinen zsh completion — source this from ~/.zshrc,
 #   eval "$(machinen completion zsh)"
 _machinen() {
   local -a cmds
-  cmds=(boot capture support restore install list ls ps exec snapshot fork attach repl gc stop feedback agent-context completion)
+  cmds=(boot capture move support restore install list ls ps exec snapshot fork attach repl gc stop feedback agent-context completion)
   if (( CURRENT == 2 )); then
     _describe 'command' cmds
     return
@@ -7851,7 +8274,7 @@ compdef _machinen machinen mn
 
 const FISH_COMPLETION = `# machinen fish completion — source this from your config.fish, or:
 #   machinen completion fish | source
-set -l cmds boot capture support restore install list ls ps exec snapshot fork attach repl gc stop feedback agent-context completion
+set -l cmds boot capture move support restore install list ls ps exec snapshot fork attach repl gc stop feedback agent-context completion
 for bin in machinen mn
   complete -c $bin -f -n 'not __fish_seen_subcommand_from $cmds' -a "$cmds"
   for sub in exec snapshot fork attach repl stop
@@ -7862,6 +8285,502 @@ for bin in machinen mn
   complete -c $bin -f -n "__fish_seen_subcommand_from gc" -l dry-run
 end
 `;
+
+// ------------------------------------------------------------
+// Move descriptors
+// ------------------------------------------------------------
+
+const MOVE_DESCRIPTOR_KIND = "machinen.move.descriptor";
+
+interface MoveDescriptor {
+  kind: typeof MOVE_DESCRIPTOR_KIND;
+  version: 1;
+  pid: number;
+  shapeId: string;
+  architectureNeutral: true;
+  claimGuard: Record<string, false>;
+  memory: {
+    mode: "semantic-resource-descriptor-only";
+    rawHeapCaptured: false;
+    rawStackCaptured: false;
+    rawRegistersCaptured: false;
+    rawHeapStackRegistersCaptured: false;
+  };
+  materializer: {
+    strategy: "target-native-reconstruction";
+    rawProcessMemoryMaterialization: false;
+    sourceIsaEmulationRequired: false;
+    kernelSocketIdentityPreserved: false;
+  };
+  resources: Record<string, unknown>;
+}
+
+interface MoveClassification {
+  pid: number;
+  decision: "accepted" | "refused" | "inaccessible";
+  shapeId: string;
+  reason: string;
+  descriptor?: MoveDescriptor;
+  evidence?: unknown;
+}
+
+function moveClaimGuard(): Record<string, false> {
+  return {
+    arbitraryProcessRestoreClaimed: false,
+    rawVmReplayUsed: false,
+    sourceIsaEmulationUsed: false,
+    metadataOnlySuccess: false,
+    rawHeapStackRegisterRestore: false,
+    kernelSocketIdentityPreserved: false,
+  };
+}
+
+// fallow-ignore-next-line complexity
+function cmdMove(args: string[]): number {
+  const { json, rest: withoutJson } = consumeJsonFlag(args);
+  const { dryRun, rest } = consumeDryRunFlag(withoutJson);
+  const [sub, ...subArgs] = rest;
+  if (sub === "scan") {
+    return cmdMoveScan(subArgs, { json });
+  }
+  if (sub === "save") {
+    return cmdMoveSave(subArgs, { json, dryRun });
+  }
+  if (sub === "load") {
+    return cmdMoveLoad(subArgs, { json, dryRun });
+  }
+  return moveRefusal(json, "move-unknown-command", "usage: machinen move <scan|save|load> ...");
+}
+
+// fallow-ignore-next-line complexity
+interface MoveIssueOptions {
+  create: boolean;
+  repo: string;
+}
+
+interface ParsedMoveSaveArgs {
+  pidText: string;
+  out: string;
+  issue: MoveIssueOptions;
+}
+
+interface MoveIssueResult {
+  attempted: boolean;
+  dryRun: boolean;
+  repo: string;
+  title: string;
+  url: string | null;
+  error: string | null;
+  bodyPreview?: string;
+}
+
+// fallow-ignore-next-line complexity
+function cmdMoveScan(args: string[], opts: { json: boolean }): number {
+  const all = args.length === 0 || (args.length === 1 && args[0] === "--all");
+  if (!all) {
+    return moveRefusal(opts.json, "move-scan-unknown-argument", `unknown argument: ${args[0]}`);
+  }
+  const pids = visibleProcPids();
+  const rows = pids.map((pid) => classifyMovePid(pid));
+  const report = {
+    kind: "machinen.move.scan-report",
+    version: 1,
+    totalPids: rows.length,
+    accepted: rows.filter((row) => row.decision === "accepted").length,
+    refused: rows.filter((row) => row.decision === "refused").length,
+    inaccessible: rows.filter((row) => row.decision === "inaccessible").length,
+    descriptors: rows.filter((row) => row.descriptor).map((row) => row.descriptor),
+    rows,
+    claimGuard: moveClaimGuard(),
+  };
+  if (opts.json) {
+    emitJson(report);
+  } else {
+    process.stdout.write(
+      `move scan: ${report.totalPids} pids, ${report.accepted} accepted, ${report.refused} refused, ${report.inaccessible} inaccessible\n`,
+    );
+  }
+  return 0;
+}
+
+// fallow-ignore-next-line complexity
+function parseMoveSaveArgs(args: string[]): ParsedMoveSaveArgs | null {
+  const positionals: string[] = [];
+  let createIssue = false;
+  let repo = "redwoodjs/machinen";
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--issue") {
+      createIssue = true;
+    } else if (arg === "--issue-repo") {
+      const value = args[index + 1];
+      if (!value) {
+        return null;
+      }
+      repo = value;
+      index += 1;
+    } else if (arg?.startsWith("--issue-repo=")) {
+      repo = arg.slice("--issue-repo=".length);
+    } else if (arg?.startsWith("-")) {
+      return null;
+    } else if (arg) {
+      positionals.push(arg);
+    }
+  }
+  if (positionals.length !== 2 || !/^[-\w]+\/[.\w-]+$/.test(repo)) {
+    return null;
+  }
+  return {
+    pidText: positionals[0] ?? "",
+    out: positionals[1] ?? "",
+    issue: { create: createIssue, repo },
+  };
+}
+
+// fallow-ignore-next-line complexity
+function cmdMoveSave(args: string[], opts: { json: boolean; dryRun: boolean }): number {
+  const parsed = parseMoveSaveArgs(args);
+  if (!parsed) {
+    return moveRefusal(
+      opts.json,
+      "move-save-usage",
+      "usage: machinen move save <pid> <out> [--issue] [--issue-repo <owner/repo>]",
+    );
+  }
+  const { pidText, out, issue } = parsed;
+  const pid = Number(pidText);
+  if (!Number.isInteger(pid) || pid <= 0) {
+    return moveRefusal(opts.json, "move-save-invalid-pid", `invalid pid: ${pidText}`);
+  }
+  const row = classifyMovePid(pid);
+  if (!row.descriptor) {
+    const issueResult = issue.create
+      ? createMoveRefusalIssue(row, { repo: issue.repo, dryRun: opts.dryRun })
+      : undefined;
+    return moveRefusal(opts.json, row.shapeId, row.reason, row, issueResult);
+  }
+  if (!opts.dryRun) {
+    writeFileSync(out, `${JSON.stringify(row.descriptor, null, 2)}\n`);
+  }
+  const result = {
+    kind: "machinen.move.save",
+    version: 1,
+    decision: "accepted",
+    out,
+    dryRun: opts.dryRun,
+    descriptor: row.descriptor,
+    claimGuard: moveClaimGuard(),
+  };
+  if (opts.json) {
+    emitJson(result);
+  } else {
+    process.stdout.write(`${opts.dryRun ? "would write" : "saved"} move descriptor: ${out}\n`);
+  }
+  return 0;
+}
+
+// fallow-ignore-next-line complexity
+function createMoveRefusalIssue(
+  row: MoveClassification,
+  opts: { repo: string; dryRun: boolean },
+): MoveIssueResult {
+  const title = moveIssueTitle(row);
+  const body = moveIssueBody(row);
+  if (opts.dryRun) {
+    return {
+      attempted: false,
+      dryRun: true,
+      repo: opts.repo,
+      title,
+      url: null,
+      error: null,
+      bodyPreview: body,
+    };
+  }
+  const dir = mkdtempSync(join(tmpdir(), "machinen-move-issue-"));
+  const bodyPath = join(dir, "body.md");
+  try {
+    writeFileSync(bodyPath, body);
+    const url = execFileSync(
+      "gh",
+      ["issue", "create", "--repo", opts.repo, "--title", title, "--body-file", bodyPath],
+      { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
+    ).trim();
+    return { attempted: true, dryRun: false, repo: opts.repo, title, url, error: null };
+  } catch (err) {
+    return {
+      attempted: true,
+      dryRun: false,
+      repo: opts.repo,
+      title,
+      url: null,
+      error: describeError(err),
+    };
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+// fallow-ignore-next-line complexity
+function moveIssueTitle(row: MoveClassification): string {
+  const process = moveIssueProcess(row);
+  const command = process?.argv?.[0] ?? process?.exe ?? `pid ${row.pid}`;
+  return `machinen move refused: ${row.shapeId} (${command})`;
+}
+
+function moveIssueBody(row: MoveClassification): string {
+  const graph = moveIssueGraph(row);
+  const process = moveIssueProcess(row);
+  const report = {
+    kind: "machinen.move.refusal-issue-report",
+    version: 1,
+    pid: row.pid,
+    decision: row.decision,
+    shapeId: row.shapeId,
+    reason: row.reason,
+    command: process
+      ? {
+          exe: redactHome(process.exe),
+          argv: redactMoveIssueArgv(process.argv),
+          cwd: redactHome(process.cwd),
+        }
+      : null,
+    graph: redactMoveIssueGraph(graph),
+    claimGuard: moveClaimGuard(),
+  };
+  return `## Problem\n\n\`machinen move save\` refused a process that may represent a missing translator shape.\n\n## Refusal\n\n- Code: \`${row.shapeId}\`\n- Reason: ${row.reason}\n\n## Safe report\n\nThis report is generated with environment values and file contents omitted.\n\n\`\`\`json\n${JSON.stringify(report, null, 2)}\n\`\`\`\n`;
+}
+
+function moveIssueGraph(row: MoveClassification): Record<string, unknown> | null {
+  const evidence = row.evidence as { graph?: Record<string, unknown> } | undefined;
+  return evidence?.graph ?? null;
+}
+
+function moveIssueProcess(
+  row: MoveClassification,
+): { exe?: string; argv?: string[]; cwd?: string } | null {
+  const graph = moveIssueGraph(row);
+  const process = graph?.process as
+    | { exe?: string; argv?: string[]; cwd?: string }
+    | null
+    | undefined;
+  return process ?? null;
+}
+
+function redactMoveIssueGraph(
+  graph: Record<string, unknown> | null,
+): Record<string, unknown> | null {
+  if (!graph) {
+    return null;
+  }
+  const clone = redactMoveIssueValue(graph) as Record<string, unknown>;
+  const process = clone.process as
+    | { argv?: string[]; cwd?: string; exe?: string; envNames?: string[] }
+    | undefined;
+  if (process) {
+    process.argv = redactMoveIssueArgv(process.argv ?? []);
+    process.cwd = redactHome(process.cwd);
+    process.exe = redactHome(process.exe);
+    process.envNames = process.envNames?.slice(0, 200);
+  }
+  return clone;
+}
+
+// fallow-ignore-next-line complexity
+function redactMoveIssueValue(value: unknown): unknown {
+  if (typeof value === "string") {
+    return redactHome(value);
+  }
+  if (Array.isArray(value)) {
+    return value.map((entry) => redactMoveIssueValue(entry));
+  }
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entry]) => [key, redactMoveIssueValue(entry)]),
+    );
+  }
+  return value;
+}
+
+function redactMoveIssueArgv(argv: string[]): string[] {
+  let redactNext = false;
+  return argv.map((arg) => {
+    if (redactNext) {
+      redactNext = false;
+      return "<redacted>";
+    }
+    if (/^--?(password|passwd|token|secret|api[-_]?key|key)$/i.test(arg)) {
+      redactNext = true;
+      return arg;
+    }
+    return /(password|passwd|token|secret|api[-_]?key)=/i.test(arg)
+      ? arg.replace(/=.*/, "=<redacted>")
+      : redactHome(arg);
+  });
+}
+
+function redactHome(value: string | undefined): string | undefined {
+  const home = homedir();
+  return value && home && value.startsWith(home) ? `~${value.slice(home.length)}` : value;
+}
+
+// fallow-ignore-next-line complexity
+function cmdMoveLoad(args: string[], opts: { json: boolean; dryRun: boolean }): number {
+  const [descriptorPath, ...extra] = args;
+  if (!descriptorPath || extra.length > 0) {
+    return moveRefusal(opts.json, "move-load-usage", "usage: machinen move load <descriptor>");
+  }
+  let descriptor: unknown;
+  try {
+    descriptor = JSON.parse(readFileSync(descriptorPath, "utf8"));
+  } catch (err) {
+    return moveRefusal(opts.json, "move-load-invalid-json", describeError(err));
+  }
+  const errors = validateMoveDescriptor(descriptor);
+  if (errors.length > 0) {
+    return moveRefusal(opts.json, "move-load-invalid-descriptor", errors.join("; "));
+  }
+  const result = {
+    kind: "machinen.move.load",
+    version: 1,
+    decision: "accepted",
+    dryRun: opts.dryRun,
+    descriptor,
+    inputDescriptorUnchanged: true,
+    claimGuard: moveClaimGuard(),
+  };
+  if (opts.json) {
+    emitJson(result);
+  } else {
+    process.stdout.write(
+      `${opts.dryRun ? "would load" : "loaded"} move descriptor: ${descriptorPath}\n`,
+    );
+  }
+  return 0;
+}
+
+function moveRefusal(
+  json: boolean,
+  code: string,
+  message: string,
+  evidence?: unknown,
+  issue?: MoveIssueResult,
+): number {
+  const refusal = {
+    kind: "machinen.move.refusal",
+    version: 1,
+    decision: "refused",
+    code,
+    message,
+    descriptor: null,
+    evidence,
+    issue,
+    claimGuard: moveClaimGuard(),
+  };
+  if (json) {
+    emitJson(refusal);
+  } else {
+    process.stderr.write(`machinen move: ${code}: ${message}\n`);
+  }
+  return 1;
+}
+
+function visibleProcPids(): number[] {
+  try {
+    return readdirSync("/proc")
+      .filter((entry) => /^\d+$/.test(entry))
+      .map((entry) => Number(entry))
+      .sort((a, b) => a - b);
+  } catch {
+    return [];
+  }
+}
+
+function classifyMovePid(pid: number): MoveClassification {
+  const graph = captureMovePidDependencyGraph({
+    pid,
+    observationConsistency: "paused-vm-atomic",
+  });
+  const classification = classifyMovePidDependencyGraph(graph);
+  if (classification.decision !== "accepted") {
+    return {
+      pid,
+      decision: classification.decision,
+      shapeId: `refuse-${classification.shapeId}`,
+      reason: classification.reason,
+      evidence: { graph },
+    };
+  }
+  const desc = createMoveDescriptor(pid, classification.shapeId, {
+    graph,
+    adapterCandidates: graph.adapterCandidates,
+    dependencyCount: graph.dependencies.length,
+  });
+  return {
+    pid,
+    decision: "accepted",
+    shapeId: desc.shapeId,
+    reason: classification.reason,
+    descriptor: desc,
+  };
+}
+
+function createMoveDescriptor(
+  pid: number,
+  shapeId: string,
+  resources: Record<string, unknown>,
+): MoveDescriptor {
+  return {
+    kind: MOVE_DESCRIPTOR_KIND,
+    version: 1,
+    pid,
+    shapeId,
+    architectureNeutral: true,
+    claimGuard: moveClaimGuard(),
+    memory: {
+      mode: "semantic-resource-descriptor-only",
+      rawHeapCaptured: false,
+      rawStackCaptured: false,
+      rawRegistersCaptured: false,
+      rawHeapStackRegistersCaptured: false,
+    },
+    materializer: {
+      strategy: "target-native-reconstruction",
+      rawProcessMemoryMaterialization: false,
+      sourceIsaEmulationRequired: false,
+      kernelSocketIdentityPreserved: false,
+    },
+    resources,
+  };
+}
+
+// fallow-ignore-next-line complexity
+function validateMoveDescriptor(value: unknown): string[] {
+  const errors: string[] = [];
+  const descriptor = value as Partial<MoveDescriptor>;
+  if (!descriptor || typeof descriptor !== "object") {
+    return ["descriptor must be an object"];
+  }
+  if (descriptor.kind !== MOVE_DESCRIPTOR_KIND) {
+    errors.push("descriptor kind mismatch");
+  }
+  if (descriptor.architectureNeutral !== true) {
+    errors.push("architectureNeutral must be true");
+  }
+  if (descriptor.memory?.rawHeapStackRegistersCaptured !== false) {
+    errors.push("raw heap/stack/register capture must be false");
+  }
+  if (descriptor.materializer?.rawProcessMemoryMaterialization !== false) {
+    errors.push("raw process memory materialization must be false");
+  }
+  if (descriptor.materializer?.sourceIsaEmulationRequired !== false) {
+    errors.push("source ISA emulation must be false");
+  }
+  if (descriptor.materializer?.kernelSocketIdentityPreserved !== false) {
+    errors.push("kernel socket identity preservation must be false");
+  }
+  return errors;
+}
 
 // ------------------------------------------------------------
 // Arg helpers
@@ -7964,6 +8883,21 @@ function printHelp(): void {
       `    --nested                                     Expose arm64 EL2 / /dev/kvm to the guest\n` +
       `                                                 when the host supports it.\n` +
       `    -p <hostPort>:<guestPort>                    Forward host:hostPort → guest:guestPort.\n` +
+      `\n` +
+      `  machinen move scan --all [--json]\n` +
+      `                                                 Scan visible host pids and classify\n` +
+      `                                                 move descriptor eligibility. Refused\n` +
+      `                                                 rows emit no descriptor.\n` +
+      `  machinen move save <pid> <out> [--json] [--dry-run] [--issue]\n` +
+      `                                                 Save a move descriptor only when the\n` +
+      `                                                 pid is at a supported safe-point shape.\n` +
+      `                                                 With --issue, refused saves create a\n` +
+      `                                                 redacted issue in redwoodjs/machinen.\n` +
+      `  machinen move load <descriptor> [--json] [--dry-run]\n` +
+      `                                                 Validate and load a move descriptor\n` +
+      `                                                 target-natively; no raw process memory,\n` +
+      `                                                 source-ISA emulation, or socket identity\n` +
+      `                                                 preservation is claimed.\n` +
       `\n` +
       `  machinen capture postgres --out <dir> --source-arch <arm64|amd64>\n` +
       `                    --target-arch <arm64|amd64> --dump <file>\n` +
@@ -8187,6 +9121,7 @@ type CommandHandler = (args: string[]) => number | Promise<number>;
 const COMMAND_HANDLERS = new Map<string, CommandHandler>([
   ["boot", cmdBoot],
   ["capture", cmdCapture],
+  ["move", cmdMove],
   ["node-level5", cmdNodeLevel5],
   ["support", cmdSupport],
   ["restore", cmdRestore],

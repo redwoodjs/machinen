@@ -1,0 +1,16 @@
+{
+  "shape": "028-float-simd-scalar-cli",
+  "decision": "accepted",
+  "supportStage": "4-supported-subset",
+  "supportScope": "declared safe-point floating-point scalar descriptor subset",
+  "sourceArch": "amd64",
+  "targetArch": "arm64",
+  "facts": {
+    "entrySymbol": "continue_float_scalar",
+    "sourcePc": "0x617a28b08c12",
+    "sourceSp": "0x7ffff014b220",
+    "sourceArg0": "0x1000",
+    "targetArgumentRegister": "x0",
+    "targetStackBytes": 65536
+  }
+}

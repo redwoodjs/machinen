@@ -1,0 +1,256 @@
+{
+  "kind": "machinen.nodejs-portability-refusal-coverage-report",
+  "version": 1,
+  "accepted": true,
+  "runtime": "nodejs",
+  "rowCount": 312,
+  "supportedRows": 306,
+  "verifiedRefusalRows": 6,
+  "unsupportedUnverifiedRows": 0,
+  "allRowsAccountedFor": true,
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false
+  },
+  "notClaimed": [
+    "raw V8 heap restore",
+    "raw CPU/process continuation",
+    "same PID continuation",
+    "active request transfer",
+    "active socket stream transfer",
+    "source ISA emulation"
+  ],
+  "verifiedRefusals": [
+    {
+      "id": "025-memory-unsupported-boundaries",
+      "status": "verified-refusal",
+      "refusalCode": "node-portability-memory-unsupported-boundaries-unsupported",
+      "architectures": {
+        "arm64": {
+          "status": "verified-refusal",
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json"
+            },
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json"
+            }
+          ]
+        },
+        "amd64": {
+          "status": "verified-refusal",
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json"
+            },
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json"
+            }
+          ]
+        }
+      },
+      "productClaim": {
+        "status": "verified-refusal",
+        "scope": "node-portability-fail-closed-proof",
+        "notes": "Retained fail-closed proof covers this unsafe row; live/opaque state is not portable."
+      }
+    },
+    {
+      "id": "226-memory-real-pid-continuation-refusal",
+      "status": "verified-refusal",
+      "refusalCode": "node-portability-memory-pid-continuation-unsupported",
+      "architectures": {
+        "arm64": {
+          "status": "verified-refusal",
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json"
+            },
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json"
+            }
+          ]
+        },
+        "amd64": {
+          "status": "verified-refusal",
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json"
+            },
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json"
+            }
+          ]
+        }
+      },
+      "productClaim": {
+        "status": "verified-refusal",
+        "scope": "node-portability-fail-closed-proof",
+        "notes": "Retained fail-closed proof covers this unsafe row; live/opaque state is not portable."
+      }
+    },
+    {
+      "id": "309-memory-real-unknown-v8-object-refusal",
+      "status": "verified-refusal",
+      "refusalCode": "node-portability-memory-unknown-v8-object-unsupported",
+      "architectures": {
+        "arm64": {
+          "status": "verified-refusal",
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json"
+            },
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json"
+            }
+          ]
+        },
+        "amd64": {
+          "status": "verified-refusal",
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json"
+            },
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json"
+            }
+          ]
+        }
+      },
+      "productClaim": {
+        "status": "verified-refusal",
+        "scope": "node-portability-fail-closed-proof",
+        "notes": "Retained fail-closed proof covers this unsafe row; live/opaque state is not portable."
+      }
+    },
+    {
+      "id": "310-memory-real-unclassified-state-refusal",
+      "status": "verified-refusal",
+      "refusalCode": "node-portability-memory-unclassified-unsupported",
+      "architectures": {
+        "arm64": {
+          "status": "verified-refusal",
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json"
+            },
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json"
+            }
+          ]
+        },
+        "amd64": {
+          "status": "verified-refusal",
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json"
+            },
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json"
+            }
+          ]
+        }
+      },
+      "productClaim": {
+        "status": "verified-refusal",
+        "scope": "node-portability-fail-closed-proof",
+        "notes": "Retained fail-closed proof covers this unsafe row; live/opaque state is not portable."
+      }
+    },
+    {
+      "id": "311-memory-real-metadata-only-success-refusal",
+      "status": "verified-refusal",
+      "refusalCode": "node-portability-memory-metadata-only-success-unsupported",
+      "architectures": {
+        "arm64": {
+          "status": "verified-refusal",
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json"
+            },
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json"
+            }
+          ]
+        },
+        "amd64": {
+          "status": "verified-refusal",
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json"
+            },
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json"
+            }
+          ]
+        }
+      },
+      "productClaim": {
+        "status": "verified-refusal",
+        "scope": "node-portability-fail-closed-proof",
+        "notes": "Retained fail-closed proof covers this unsafe row; live/opaque state is not portable."
+      }
+    },
+    {
+      "id": "312-memory-real-source-isa-emulation-refusal",
+      "status": "verified-refusal",
+      "refusalCode": "node-portability-memory-source-isa-emulation-unsupported",
+      "architectures": {
+        "arm64": {
+          "status": "verified-refusal",
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json"
+            },
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json"
+            }
+          ]
+        },
+        "amd64": {
+          "status": "verified-refusal",
+          "evidence": [
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json"
+            },
+            {
+              "kind": "classification-report",
+              "path": "portability/nodejs/retained/nodejs-portability-corpus-report.json"
+            }
+          ]
+        }
+      },
+      "productClaim": {
+        "status": "verified-refusal",
+        "scope": "node-portability-fail-closed-proof",
+        "notes": "Retained fail-closed proof covers this unsafe row; live/opaque state is not portable."
+      }
+    }
+  ],
+  "unverifiedRefusals": []
+}

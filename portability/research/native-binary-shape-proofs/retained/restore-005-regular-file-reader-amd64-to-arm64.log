@@ -1,0 +1,2 @@
+file:cross
+SHAPE_RESTORE_OK shape=005-regular-file-reader target=arm64 result=42

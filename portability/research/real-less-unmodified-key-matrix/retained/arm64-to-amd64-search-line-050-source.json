@@ -1,0 +1,94 @@
+{
+  "case": "search-line-050",
+  "description": "forward search for line-050",
+  "mode": "source",
+  "role": "source",
+  "hostArch": "aarch64",
+  "less": {
+    "path": "/usr/bin/less",
+    "versionLine": "less 590 (GNU regular expressions)"
+  },
+  "process": {
+    "pid": 979749,
+    "state": {
+      "statusState": "S",
+      "threads": 1,
+      "signalPendingMask": "0000000000000000",
+      "statPgrp": 979749,
+      "statSession": 979749,
+      "statTtyNr": 34816,
+      "syscall": {
+        "raw": "63 0x3 0xffffe9e90fc7 0x1 0x1 0xffffe9e90ed0 0x6631a4e655f3891b 0xffffe9e90ea0 0xe850d7101248",
+        "parsed": true,
+        "number": 63,
+        "name": "read",
+        "args": [3, 281474606108615, 1, 1, 281474606108368, 7363848174918928667],
+        "fd": 3
+      }
+    },
+    "fds": [
+      {
+        "fd": 0,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 1,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 2,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 3,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 4,
+        "target": "/tmp/machinen-less-key-matrix-epkr_6cx/less-input.txt"
+      }
+    ],
+    "stdioTargets": {
+      "0": "/dev/pts/0",
+      "1": "/dev/pts/0",
+      "2": "/dev/pts/0"
+    },
+    "syscallFdTarget": "/dev/pts/0",
+    "allStdioOnControlledPty": true
+  },
+  "pty": {
+    "slavePath": "/dev/pts/0",
+    "rows": 24,
+    "cols": 80,
+    "inputQueueBytesOnMaster": 0,
+    "inputQueueBytesOnSlave": {
+      "available": true,
+      "bytes": 0
+    },
+    "foregroundPgrpFromMaster": 979749
+  },
+  "candidateChecks": {
+    "firstPage": true,
+    "syscallRead": true,
+    "syscallFdPty": true,
+    "stdioPty": true,
+    "sessionPgrp": true,
+    "queuesEmpty": true
+  },
+  "screenAtCandidate": {
+    "containsFirstPage": true,
+    "sample": "\u001b[?1049h\u001b[22;0;0t\u001b[?1h\u001b=\rline-001\r\nline-002\r\nline-003\r\nline-004\r\nline-005\r\nline-006\r\nline-007\r\nline-008\r\nline-009\r\nline-010\r\nline-011\r\nline-012\r\nline-013\r\nline-014\r\nline-015\r\nline-016\r\nline-017\r\nline-018\r\nline-019\r\nline-020\r\nline-021\r\nline-022\r\nline-023\r\n\u001b[7m/tmp/machinen-less-key-matrix-epkr_6cx/less-input.txt\u001b[27m\u001b[K"
+  },
+  "input": {
+    "base64": "L2xpbmUtMDUwCg==",
+    "expect": "line-050"
+  },
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "markerSymbolsUsed": false
+  },
+  "decision": "captured"
+}

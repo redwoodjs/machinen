@@ -1,0 +1,2 @@
+rename:final
+SHAPE_RESTORE_OK shape=044-temp-file-rename-cli target=arm64 result=42

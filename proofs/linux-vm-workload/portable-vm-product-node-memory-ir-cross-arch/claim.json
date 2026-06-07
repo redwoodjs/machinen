@@ -3,12 +3,13 @@
   "version": 1,
   "id": "portable-vm-product-node-memory-ir-cross-arch",
   "status": "verified",
-  "claim": "Portable VM product snapshot/restore materializes selected semantic Node Memory IR rows with the product-owned materializer across arm64<->amd64.",
+  "claim": "Portable VM product snapshot/restore proves a VMM-native paused source-VM boundary and materializes selected semantic Node Memory IR rows plus selected semantic Node Resource IR rows with product-owned materializers across arm64<->amd64.",
   "scope": "portable-vm-product-node-memory-ir-cross-arch-v1",
   "retainedEvidence": "retained/portable-vm-product-node-memory-ir-cross-arch-report.json",
   "notClaimed": [
     "arbitrary Node process restore",
     "raw V8 heap restore",
+    "raw native/libuv handle restore",
     "same PID continuation",
     "arbitrary Linux process restore",
     "raw VM/vCPU/device replay"
@@ -18,6 +19,7 @@
     "rawVmStateReplayUsed": false,
     "sourceIsaEmulationUsed": false,
     "arbitraryNodeProcessRestoreClaimed": false,
-    "rawV8HeapRestoreUsed": false
+    "rawV8HeapRestoreUsed": false,
+    "rawNativeHandleRestoreUsed": false
   }
 }

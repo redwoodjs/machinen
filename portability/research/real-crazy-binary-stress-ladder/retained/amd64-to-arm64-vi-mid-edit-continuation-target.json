@@ -1,0 +1,23 @@
+{
+  "case": "vi-mid-edit-continuation",
+  "kind": "support",
+  "description": "vi reaches a live unsaved-buffer safe point and target-native vi continues by saving it",
+  "mode": "target",
+  "role": "target",
+  "hostArch": "aarch64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false
+  },
+  "decision": "accepted",
+  "evidence": {
+    "binary": "/usr/bin/vim",
+    "continuedFrom": "live-unsaved-command-mode-buffer",
+    "content": "less-level-vi-buffer\n",
+    "returncode": 0,
+    "savedAfterContinue": true
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "case": "nano-mid-edit-continuation",
+  "kind": "support",
+  "description": "nano reaches a live unsaved-buffer safe point and target-native nano continues by saving it",
+  "mode": "source",
+  "role": "source",
+  "hostArch": "aarch64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false
+  },
+  "decision": "captured",
+  "evidence": {
+    "binary": "/usr/bin/nano",
+    "continuationDescriptor": {
+      "safePoint": "live-unsaved-nano-buffer",
+      "buffer": "less-level-nano-buffer",
+      "targetName": "nano-mid.txt",
+      "sourceFileMaterializedBeforeContinue": false,
+      "processAliveAtSafePoint": true,
+      "ptySample": "\u001b[?2004h\u001b[?1049h\u001b[22;0;0t\u001b[1;24r\u001b(B\u001b[m\u001b[4l\u001b[?7h\u001b[39;49m\u001b[?1h\u001b=\u001b[?1h\u001b=\u001b[?25l\u001b[39;49m\u001b(B\u001b[m\u001b[H\u001b[2J\u001b[22;35H\u001b(B\u001b[0;7m[ New File ]\u001b(B\u001b[m\u001b[H\u001b(B\u001b[0;7m        /tmp/machinen-crazy-binary-stress-xpt3xjhv/nano-mid.txt                 \u001b[1;79H\u001b(B\u001b[m\r\u001b[23d\u001b(B\u001b[0;7m^G\u001b(B\u001b[m Help\u001b[14G\u001b(B\u001b[0;7m^O\u001b(B\u001b[m Write Out \u001b(B\u001b[0;7m^W\u001b(B\u001b[m Where Is  \u001b(B\u001b[0;7m^K\u001b(B\u001b[m Cut\u001b[53G\u001b(B\u001b[0;7m^T\u001b(B\u001b[m Execute   \u001b(B\u001b[0;7m^C\u001b(B\u001b[m Location\r\u001b[24d\u001b(B\u001b[0;7m^X\u001b(B\u001b[m Exit\u001b[14G\u001b(B\u001b[0;7m^R\u001b(B\u001b[m Read File \u001b(B\u001b[0;7m^\\\u001b(B\u001b[m Replace   \u001b(B\u001b[0;7m^U\u001b(B\u001b[m Paste     \u001b(B\u001b[0;7m^J\u001b(B\u001b[m Justify   \u001b(B\u001b[0;7m^/\u001b(B\u001b[m Go To Line\r\u001b[2d\u001b[?12l\u001b[?25h\u001b[?25l\u001b[1;71H\u001b(B\u001b[0;7mModified\r\u001b[22d\u001b(B\u001b[m\u001b[K\u001b[1;79H\u001b[?12l\u001b[?25h\r\u001b[2dless-level-nano-buffer"
+    }
+  }
+}

@@ -1,0 +1,169 @@
+{
+  "kind": "machinen.nodejs-portability-memory-real-error-object-smoke-report",
+  "version": 1,
+  "accepted": true,
+  "portabilityRow": "051-memory-real-error-object",
+  "architectures": ["arm64", "amd64"],
+  "sourceArch": "arm64",
+  "targetArch": "amd64",
+  "executeVm": true,
+  "memoryCapture": "real-guest-proc-maps-and-proc-mem",
+  "migrationCompleted": true,
+  "summary": {
+    "verifiedVmRows": 1,
+    "memoryStateRows": 1,
+    "refusedRows": 0
+  },
+  "results": [
+    {
+      "id": "051-memory-real-error-object",
+      "architecture": "arm64",
+      "state": "verified"
+    },
+    {
+      "id": "051-memory-real-error-object",
+      "architecture": "amd64",
+      "state": "verified"
+    }
+  ],
+  "sourceCapture": {
+    "kind": "machinen.nodejs-portability-memory-real-error-object-smoke-report.source-capture",
+    "accepted": true,
+    "portabilityRow": "051-memory-real-error-object",
+    "sourceArch": "arm64",
+    "captureMethod": "guest-proc-maps-and-proc-mem-anchor-semantic-decoder",
+    "appHookUsedForCapture": false,
+    "rawV8HeapRestored": false,
+    "samePidRestored": false,
+    "memoryIr": {
+      "kind": "machinen.nodejs.memory-ir",
+      "version": 1,
+      "runtime": {
+        "name": "node",
+        "sourceArch": "arm64",
+        "v8": "12.4.254.21-node.22"
+      },
+      "rows": [
+        {
+          "id": "051-memory-real-error-object",
+          "shape": "error-object",
+          "semanticState": {
+            "kind": "error-object",
+            "anchor": "machinen-real-error-object-anchor-v1",
+            "name": "MachinenPortableError",
+            "message": "machinen-error-message-v1",
+            "code": "MACHINEN_PORTABLE_ERROR",
+            "causeName": "TypeError",
+            "causeMessage": "machinen-error-cause-message-v1"
+          },
+          "anchors": {
+            "anchor": "machinen-real-error-object-anchor-v1",
+            "name": "error-name:MachinenPortableError",
+            "message": "error-message:machinen-error-message-v1",
+            "code": "error-code:MACHINEN_PORTABLE_ERROR",
+            "cause": "error-cause:machinen-error-cause-message-v1"
+          }
+        }
+      ],
+      "unsupported": [],
+      "claimGuard": {
+        "arbitraryNodeProcessRestoreClaimed": false,
+        "arbitraryLinuxProcessRestoreClaimed": false,
+        "rawV8HeapRestoreUsed": false,
+        "rawCpuStateReplayUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "samePidContinuationClaimed": false,
+        "activeRequestOrSocketContinuationClaimed": false
+      }
+    },
+    "evidence": {
+      "pid": 357,
+      "mapsSha256": "bbe41930494039e9ebd3647d6780267d534ac26a6530ac5df95ef3463f6ce9c6",
+      "readableMappings": 94,
+      "decodedFields": {
+        "anchor": {
+          "found": true,
+          "hits": ["0x17bd9050c190", "0x2ac4f8b9677f", "0x2ac4f8b9687e", "0x2e897898ca67"]
+        },
+        "name": {
+          "found": true,
+          "hits": ["0x17bd9050c250", "0x2ac4f8b968b0", "0x2e897898cb98"]
+        },
+        "message": {
+          "found": true,
+          "hits": ["0x17bd9050c280", "0x2ac4f8b968e1", "0x2e897898cbc9"]
+        },
+        "code": {
+          "found": true,
+          "hits": ["0x17bd9050c2b8", "0x2ac4f8b96916", "0x2e897898cbfe"]
+        },
+        "cause": {
+          "found": true,
+          "hits": ["0x17bd9050c2f0", "0x2ac4f8b96947", "0x2e897898cc2f"]
+        }
+      }
+    }
+  },
+  "targetResult": {
+    "kind": "machinen.nodejs-portability-memory-real-error-object-smoke-report.target-result",
+    "accepted": true,
+    "portabilityRow": "051-memory-real-error-object",
+    "sourceArch": "arm64",
+    "targetArch": "amd64",
+    "materialization": "target-native-node-semantic-memory-ir",
+    "targetNativeNode": true,
+    "appHookUsedForCapture": false,
+    "rawV8HeapRestored": false,
+    "samePidRestored": false,
+    "verifier": {
+      "accepted": true,
+      "actual": {
+        "kind": "error-object",
+        "anchor": "machinen-real-error-object-anchor-v1",
+        "name": "MachinenPortableError",
+        "message": "machinen-error-message-v1",
+        "code": "MACHINEN_PORTABLE_ERROR",
+        "causeName": "TypeError",
+        "causeMessage": "machinen-error-cause-message-v1"
+      },
+      "expected": {
+        "kind": "error-object",
+        "anchor": "machinen-real-error-object-anchor-v1",
+        "name": "MachinenPortableError",
+        "message": "machinen-error-message-v1",
+        "code": "MACHINEN_PORTABLE_ERROR",
+        "causeName": "TypeError",
+        "causeMessage": "machinen-error-cause-message-v1"
+      }
+    }
+  },
+  "evidence": {
+    "appPath": "portability/nodejs/051-memory-real-error-object/app.mjs",
+    "appSha256": "bd0fa0624ed6078e963106e9e1ae35b589948a48a47762e054f8aa809d13ef80",
+    "smokePath": "portability/nodejs/051-memory-real-error-object/smoke.ts"
+  },
+  "claimBoundary": {
+    "claims": [
+      "051-memory-real-error-object captures selected Node error-object state from /proc memory and materializes it target-native across architectures"
+    ],
+    "notClaimed": [
+      "arbitrary Node process restore",
+      "raw V8 heap restore",
+      "same PID continuation",
+      "active request/socket continuation",
+      "worker/native-addon/child-process live-state transfer",
+      "source ISA emulation",
+      "arbitrary Linux process restore",
+      "raw VM/vCPU/device replay"
+    ]
+  },
+  "claimGuard": {
+    "arbitraryNodeProcessRestoreClaimed": false,
+    "arbitraryLinuxProcessRestoreClaimed": false,
+    "rawV8HeapRestoreUsed": false,
+    "rawCpuStateReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "samePidContinuationClaimed": false,
+    "activeRequestOrSocketContinuationClaimed": false
+  }
+}

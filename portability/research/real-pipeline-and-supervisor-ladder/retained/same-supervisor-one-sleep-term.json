@@ -1,0 +1,179 @@
+{
+  "case": "supervisor-one-sleep-term",
+  "adapter": "supervisor-one",
+  "description": "supervisor traps TERM and kills one sleep child",
+  "mode": "same",
+  "role": "same",
+  "hostArch": "x86_64",
+  "processRoot": {
+    "pid": 3789971,
+    "argv": ["/tmp/machinen-pipeline-supervisor-ladder-o3nfzbn7/script.sh"]
+  },
+  "processTree": [
+    {
+      "pid": 3789971,
+      "state": {
+        "pid": 3789971,
+        "comm": "script.sh",
+        "state": "S",
+        "threads": 1,
+        "signalPendingMask": "0000000000000000",
+        "ppid": 3789970,
+        "pgrp": 3789971,
+        "session": 3789971,
+        "ttyNr": 34816,
+        "syscall": {
+          "raw": "130 0x7ffcf83ba9c0 0x8 0x0 0x8 0x1999999999999999 0x0 0x7ffcf83ba9a8 0x788675a1b2d5",
+          "parsed": true,
+          "number": 130,
+          "name": "syscall-130",
+          "args": [140724473145792, 8, 0, 8, 1844674407370955161, 0],
+          "fd": 140724473145792
+        }
+      },
+      "fds": [
+        {
+          "fd": 0,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 1,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 2,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 10,
+          "target": "/tmp/machinen-pipeline-supervisor-ladder-o3nfzbn7/script.sh"
+        }
+      ],
+      "stdioTargets": {
+        "0": "/dev/pts/0",
+        "1": "/dev/pts/0",
+        "2": "/dev/pts/0"
+      },
+      "syscallFdTarget": null,
+      "allStdioOnControlledPty": true,
+      "hasPipeFd": false,
+      "hasSocketFd": false
+    },
+    {
+      "pid": 3789972,
+      "state": {
+        "pid": 3789972,
+        "comm": "sleep",
+        "state": "S",
+        "threads": 1,
+        "signalPendingMask": "0000000000000000",
+        "ppid": 3789971,
+        "pgrp": 3789971,
+        "session": 3789971,
+        "ttyNr": 34816,
+        "syscall": {
+          "raw": "230 0x0 0x0 0x7ffd4ea9f390 0x7ffd4ea9f3d0 0x0 0x0 0x7ffd4ea9f378 0x7a7900cd8503",
+          "parsed": true,
+          "number": 230,
+          "name": "syscall-230",
+          "args": [0, 0, 140725923214224, 140725923214288, 0, 0],
+          "fd": 0
+        }
+      },
+      "fds": [
+        {
+          "fd": 0,
+          "target": "/dev/null"
+        },
+        {
+          "fd": 1,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 2,
+          "target": "/dev/pts/0"
+        }
+      ],
+      "stdioTargets": {
+        "0": "/dev/null",
+        "1": "/dev/pts/0",
+        "2": "/dev/pts/0"
+      },
+      "syscallFdTarget": "/dev/null",
+      "allStdioOnControlledPty": false,
+      "hasPipeFd": false,
+      "hasSocketFd": false
+    }
+  ],
+  "candidateProcess": {
+    "pid": 3789972,
+    "state": {
+      "pid": 3789972,
+      "comm": "sleep",
+      "state": "S",
+      "threads": 1,
+      "signalPendingMask": "0000000000000000",
+      "ppid": 3789971,
+      "pgrp": 3789971,
+      "session": 3789971,
+      "ttyNr": 34816,
+      "syscall": {
+        "raw": "230 0x0 0x0 0x7ffd4ea9f390 0x7ffd4ea9f3d0 0x0 0x0 0x7ffd4ea9f378 0x7a7900cd8503",
+        "parsed": true,
+        "number": 230,
+        "name": "syscall-230",
+        "args": [0, 0, 140725923214224, 140725923214288, 0, 0],
+        "fd": 0
+      }
+    },
+    "fds": [
+      {
+        "fd": 0,
+        "target": "/dev/null"
+      },
+      {
+        "fd": 1,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 2,
+        "target": "/dev/pts/0"
+      }
+    ],
+    "stdioTargets": {
+      "0": "/dev/null",
+      "1": "/dev/pts/0",
+      "2": "/dev/pts/0"
+    },
+    "syscallFdTarget": "/dev/null",
+    "allStdioOnControlledPty": false,
+    "hasPipeFd": false,
+    "hasSocketFd": false
+  },
+  "pty": {
+    "slavePath": "/dev/pts/0",
+    "inputQueueBytesOnMaster": 0
+  },
+  "checks": {
+    "expectedRendered": true,
+    "modeledProcessTree": true,
+    "queuesEmpty": true,
+    "producerDrainedWhenRequired": true
+  },
+  "screenAtCandidate": {
+    "sample": ""
+  },
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "markerSymbolsUsed": false
+  },
+  "behavior": {
+    "matchedExpectation": true,
+    "processExited": true,
+    "remainingDescendants": []
+  },
+  "decision": "accepted"
+}

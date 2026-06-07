@@ -1,0 +1,48 @@
+{
+  "case": "tar-before-first-output-block",
+  "kind": "support",
+  "description": "materialize tar before-output descriptor by creating archive",
+  "mode": "same",
+  "role": "same",
+  "hostArch": "x86_64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false
+  },
+  "decision": "accepted",
+  "descriptor": {
+    "kind": "machinen.research.native-continuation.capture-descriptor",
+    "version": 1,
+    "shapeId": "shape-tar-before-first-output-block",
+    "architectureNeutral": true,
+    "cpu": {
+      "wait": "before-archive-output",
+      "targetNativeReconstruction": true,
+      "sourceIsaEmulationRequired": false
+    },
+    "memory": {
+      "mode": "semantic-resource-descriptor-only",
+      "rawHeapCaptured": false,
+      "rawStackCaptured": false,
+      "rawRegistersCaptured": false,
+      "rawHeapStackRegistersCaptured": false
+    },
+    "resources": {
+      "archive": {
+        "outputBlocksWritten": 0
+      }
+    },
+    "materializer": {
+      "strategy": "target-native-shape-materializer",
+      "rawProcessMemoryMaterialization": false
+    }
+  },
+  "evidence": {
+    "createRc": 0,
+    "extractRc": 0,
+    "content": "a-boundary\nb-boundary\n"
+  }
+}

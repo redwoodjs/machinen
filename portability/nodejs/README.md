@@ -35,7 +35,7 @@ Dependency-heavy rows are classified by default. Pass `--install-deps` to attemp
 
 ## Claim boundary
 
-This corpus does **not** claim raw Node process continuation. It shows that arbitrary Node rows can be inventoried, classified, run/refused through Machinen runtime, and guarded by stable claim language. Refused-first rows stay product-refusal evidence until their target-native reconstruction path has retained portability smokes.
+This corpus does **not** claim raw Node process continuation. It shows that arbitrary Node rows can be inventoried, classified, run/refused through Machinen runtime, and guarded by stable claim language. Refused-first rows stay product-refusal evidence until their target-native reconstruction path has retained portability smokes. The current generated matrix is 306 verified / 6 verified-refusal / 0 unverified-refused. Rows move out of verified-refusal only when retained Node Resource IR product smokes prove semantic target-native reconstruction with a VMM-native pause marker; unsafe raw/live/native continuation remains verified-refusal, not supported.
 
 ## Memory-only scalar smoke
 
@@ -45,11 +45,11 @@ Rows `022` through `035` move existing V8/Node memory-state coverage into portab
 
 Row `036-memory-capture-classifier` starts a real Node process inside a guest and captures `/proc/<pid>/maps` plus `/proc/<pid>/mem` to classify seeded Node/V8 memory categories on both `arm64` and `amd64`.
 
-Rows `037` through `048` retain bidirectional real-memory evidence (`arm64 -> amd64` and `amd64 -> arm64`) for selected plain object, array, closure context, string, nested/shared/cyclic graphs, Map/Set, class instance, Buffer, typed array, and HTTP handler closure state. Each supported row captures `/proc/<pid>/maps` and `/proc/<pid>/mem`, emits `machinen.nodejs.memory-ir`, materializes that semantic IR in target-native Node, and verifies behavior.
+Rows `037` through `048` retain bidirectional real-memory evidence (`arm64 -> amd64` and `amd64 -> arm64`) for selected plain object, array, closure context, string, nested/shared/cyclic graphs, Map/Set, class instance, Buffer, typed array, and HTTP handler closure state. Rows `050` through `059` extend that matrix to Date/RegExp, Error objects, URL/URLSearchParams, BigInt-rich graphs represented as tagged semantic values, module-level singleton state, ArrayBuffer/DataView, Symbol-keyed object descriptors, EventEmitter listener registry metadata, in-memory LRU cache state, and queue state. Each supported row captures `/proc/<pid>/maps` and `/proc/<pid>/mem`, emits `machinen.nodejs.memory-ir`, materializes that semantic IR in target-native Node, and verifies behavior.
 
-Row `049-memory-real-promise-refusal` keeps pending Promise / microtask state fail-closed with `node-portability-memory-pending-promise-unsupported`.
+Rows `063` through `312` add the next 50 declared compatibility batches: 108 reconstructable semantic rows are now product-supported through Node Memory IR materialization in both `arm64 -> amd64` and `amd64 -> arm64` product smokes, while unsafe live/native/opaque rows stay fail-closed with stable refusal codes until they have a real reconstruction path.
 
-Product portable VM snapshots can carry `nodejs-memory-ir.json` and `nodejs-memory-classification.json`; restore plans classify supported memory IR rows with `materialize-nodejs-memory-ir-target-native` and refuse unsafe Promise rows before restore.
+Product portable VM snapshots can carry `nodejs-memory-ir.json` / `nodejs-memory-classification.json` for passive semantic memory rows and `nodejs-resource-ir.json` / `nodejs-resource-inventory.json` / `nodejs-resource-classification.json` for reconstructable runtime resource specs. Resource IR rows require a paused source-VM capture boundary; the product portable snapshot path retains `portable-vm-pause-boundary.json` after the VMM writes a native `SIGUSR1`/`SIGUSR2` pause marker, then restore plans use `materialize-nodejs-memory-ir-target-native` and `materialize-nodejs-resource-ir-target-native`; unsupported paused live/native/opaque resources fail closed under `workloads.nodejs.resourceRefusals[]` instead of being treated as Memory IR.
 
 These rows do not lift the broad arbitrary Node heap/process claim; they add scoped compatibility dimensions. Run the local decoder smokes with:
 

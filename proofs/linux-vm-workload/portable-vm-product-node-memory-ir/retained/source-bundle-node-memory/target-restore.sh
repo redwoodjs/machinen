@@ -39,6 +39,9 @@ echo $! >/tmp/machinen-all3-service.pid
 NODE_MEMORY_MATERIALIZED=false
 NODE_MEMORY_ROWS=0
 NODE_MEMORY_PID=0
+NODE_RESOURCE_MATERIALIZED=false
+NODE_RESOURCE_ROWS=0
+NODE_RESOURCE_PID=0
 if [ -f /mnt/capture/nodejs-memory-ir.json ]; then
   cat >/tmp/machinen-node-env.sh <<'NODEENV'
 export PATH=/usr/local/bin:$PATH
@@ -62,6 +65,31 @@ NODEENV
   NODE_MEMORY_ROWS=$(node -e "const fs=require('fs'); const ir=JSON.parse(fs.readFileSync('/mnt/capture/nodejs-memory-ir.json','utf8')); console.log(ir.rows.length)")
   NODE_MEMORY_MATERIALIZED=true
 fi
+if [ -f /mnt/capture/nodejs-resource-ir.json ]; then
+  if [ ! -f /tmp/machinen-node-env.sh ]; then
+    cat >/tmp/machinen-node-env.sh <<'NODEENV'
+export PATH=/usr/local/bin:$PATH
+if command -v fnm >/dev/null 2>&1; then
+  eval "$(fnm env --shell=sh)"
+  fnm use 22.13.1 >/dev/null 2>&1 || fnm install 22.13.1 >/dev/null 2>&1 || true
+  eval "$(fnm env --shell=sh)"
+fi
+NODEENV
+  fi
+  # shellcheck disable=SC1091
+  . /tmp/machinen-node-env.sh
+  if ! command -v node >/dev/null 2>&1; then
+    apt-get update >/tmp/machinen-node-resource-apt-update.log 2>&1
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends nodejs >/tmp/machinen-node-resource-apt-install.log 2>&1
+  fi
+  node /mnt/capture/nodejs-resource-materializer.mjs --ir /mnt/capture/nodejs-resource-ir.json --target-dir "$TARGET" --port 18183 >/tmp/machinen-node-resource-materializer.json
+  rm -f /tmp/machinen-node-resource.log /tmp/machinen-node-resource.pid
+  node "$TARGET/node-resource-app.mjs" >/tmp/machinen-node-resource.log 2>&1 &
+  NODE_RESOURCE_PID=$!
+  echo "$NODE_RESOURCE_PID" >/tmp/machinen-node-resource.pid
+  NODE_RESOURCE_ROWS=$(node -e "const fs=require('fs'); const ir=JSON.parse(fs.readFileSync('/mnt/capture/nodejs-resource-ir.json','utf8')); console.log(ir.rows.length)")
+  NODE_RESOURCE_MATERIALIZED=true
+fi
 cat > /tmp/machinen-all3-target-restore.json <<JSON
 {
   "kind": "machinen.real-cross-arch-portable-vm-all3-target-restore",
@@ -71,7 +99,8 @@ cat > /tmp/machinen-all3-target-restore.json <<JSON
   "sqliteExpected": { "count": $COUNT, "qtySum": $QTY_SUM },
   "serviceStarted": true,
   "servicePid": $(cat /tmp/machinen-all3-service.pid),
-  "nodejsMemory": { "materialized": $NODE_MEMORY_MATERIALIZED, "materializedRows": $NODE_MEMORY_ROWS, "pid": $NODE_MEMORY_PID }
+  "nodejsMemory": { "materialized": $NODE_MEMORY_MATERIALIZED, "materializedRows": $NODE_MEMORY_ROWS, "pid": $NODE_MEMORY_PID },
+  "nodejsResource": { "materialized": $NODE_RESOURCE_MATERIALIZED, "materializedRows": $NODE_RESOURCE_ROWS, "pid": $NODE_RESOURCE_PID }
 }
 JSON
 cat /tmp/machinen-all3-target-restore.json

@@ -1,0 +1,14 @@
+{
+  "kind": "machinen.research.real-less-detector.capture",
+  "version": 2,
+  "case": "refused-metadata-only-success",
+  "decision": "refused",
+  "stateKind": "synthetic-refusal",
+  "refusalCode": "real-less-metadata-only-success",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false
+  }
+}

@@ -1,0 +1,103 @@
+{
+  "kind": "machinen.research.native-continuation.app-adapters.report",
+  "version": 1,
+  "status": "passed",
+  "rows": [
+    {
+      "case": "node-http-idle-listener",
+      "expected": "accepted",
+      "decision": "accepted",
+      "descriptorEmitted": true,
+      "errors": [],
+      "status": "passed"
+    },
+    {
+      "case": "node-http-keepalive-idle",
+      "expected": "accepted",
+      "decision": "accepted",
+      "descriptorEmitted": true,
+      "errors": [],
+      "status": "passed"
+    },
+    {
+      "case": "node-repl-prompt",
+      "expected": "accepted",
+      "decision": "accepted",
+      "descriptorEmitted": true,
+      "errors": [],
+      "status": "passed"
+    },
+    {
+      "case": "postgres-idle-listener",
+      "expected": "accepted",
+      "decision": "accepted",
+      "descriptorEmitted": true,
+      "errors": [],
+      "status": "passed"
+    },
+    {
+      "case": "postgres-idle-client-backend",
+      "expected": "accepted",
+      "decision": "accepted",
+      "descriptorEmitted": true,
+      "errors": [],
+      "status": "passed"
+    },
+    {
+      "case": "redis-idle-listener",
+      "expected": "accepted",
+      "decision": "accepted",
+      "descriptorEmitted": true,
+      "errors": [],
+      "status": "passed"
+    },
+    {
+      "case": "redis-idle-client",
+      "expected": "accepted",
+      "decision": "accepted",
+      "descriptorEmitted": true,
+      "errors": [],
+      "status": "passed"
+    },
+    {
+      "case": "node-streaming-response-inflight",
+      "expected": "refused",
+      "decision": "refused",
+      "descriptorEmitted": false,
+      "errors": [],
+      "status": "passed"
+    },
+    {
+      "case": "node-active-worker",
+      "expected": "refused",
+      "decision": "refused",
+      "descriptorEmitted": false,
+      "errors": [],
+      "status": "passed"
+    },
+    {
+      "case": "postgres-active-transaction",
+      "expected": "refused",
+      "decision": "refused",
+      "descriptorEmitted": false,
+      "errors": [],
+      "status": "passed"
+    },
+    {
+      "case": "postgres-lock-wait",
+      "expected": "refused",
+      "decision": "refused",
+      "descriptorEmitted": false,
+      "errors": [],
+      "status": "passed"
+    },
+    {
+      "case": "redis-queued-command",
+      "expected": "refused",
+      "decision": "refused",
+      "descriptorEmitted": false,
+      "errors": [],
+      "status": "passed"
+    }
+  ]
+}

@@ -16,10 +16,12 @@
   "workloads": {
     "nodejs": {
       "classified": true,
-      "rowCount": 3,
+      "rowCount": 8,
       "refusedRows": 1,
       "memoryRows": 1,
       "memoryMaterializationRows": 1,
+      "resourceRows": 1,
+      "resourceMaterializationRows": 1,
       "refusals": [
         {
           "id": "nodejs-memory-raw-v8-state",
@@ -27,7 +29,8 @@
           "message": "raw V8 state is refused by default"
         }
       ],
-      "memoryRefusals": ["node-portability-memory-raw-v8-state-unsupported"]
+      "memoryRefusals": ["node-portability-memory-raw-v8-state-unsupported"],
+      "resourceRefusals": []
     }
   },
   "claimGuard": {

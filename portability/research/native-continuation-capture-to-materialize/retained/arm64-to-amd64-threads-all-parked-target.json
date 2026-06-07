@@ -1,0 +1,160 @@
+{
+  "case": "threads-all-parked",
+  "kind": "support",
+  "description": "materialize parked thread roles and wake one role",
+  "mode": "target",
+  "role": "target",
+  "hostArch": "x86_64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false
+  },
+  "decision": "accepted",
+  "descriptor": {
+    "kind": "machinen.research.native-continuation.capture-descriptor",
+    "version": 1,
+    "shapeId": "shape-threads-all-parked-known-waits",
+    "architectureNeutral": true,
+    "observationConsistency": "live-procfs-best-effort",
+    "cpu": {
+      "wait": "multi-thread-parked-waits",
+      "sourceArch": "aarch64",
+      "sourceSyscallNumber": "115",
+      "sourceWchan": "hrtimer_nanosleep",
+      "targetNativeReconstruction": true,
+      "sourceIsaEmulationRequired": false
+    },
+    "memory": {
+      "mode": "semantic-resource-descriptor-only",
+      "rawHeapCaptured": false,
+      "rawStackCaptured": false,
+      "rawRegistersCaptured": false,
+      "rawHeapStackRegistersCaptured": false,
+      "threadStacksCaptured": false
+    },
+    "resources": {
+      "process": {
+        "threads": 3,
+        "tracerPid": 0,
+        "ppid": 1455294,
+        "pgrp": 1455295,
+        "session": 1455295
+      },
+      "fds": [
+        {
+          "fd": 0,
+          "target": "pipe:[28453631]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 1,
+          "target": "pipe:[28455514]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 2,
+          "target": "pipe:[28455515]",
+          "kind": "pipe",
+          "queueBytes": 0
+        }
+      ],
+      "pty": {
+        "fdCount": 0,
+        "queueBytesKnownEmpty": true,
+        "fds": []
+      },
+      "pipes": {
+        "fdCount": 3,
+        "bufferBytesKnownEmpty": true,
+        "endpoints": [
+          {
+            "fd": 0,
+            "target": "pipe:[28453631]",
+            "kind": "pipe",
+            "queueBytes": 0
+          },
+          {
+            "fd": 1,
+            "target": "pipe:[28455514]",
+            "kind": "pipe",
+            "queueBytes": 0
+          },
+          {
+            "fd": 2,
+            "target": "pipe:[28455515]",
+            "kind": "pipe",
+            "queueBytes": 0
+          }
+        ],
+        "processTreeCaptured": true
+      },
+      "sockets": {
+        "fdCount": 0,
+        "fds": [],
+        "bindOrReconnectPolicy": null,
+        "kernelSocketIdentityPreserved": false
+      },
+      "threads": {
+        "tasks": [
+          {
+            "tid": 1455295,
+            "state": "S",
+            "wchan": "hrtimer_nanosleep",
+            "syscall": {
+              "raw": "115 0x1 0x1 0xffffdbdb8740 0x0 0x0 0x0 0xffffdbdb8690 0xe5dd7f6bbed4",
+              "wchan": "hrtimer_nanosleep",
+              "number": "115",
+              "readLikeWait": false,
+              "pollLikeWait": false
+            }
+          },
+          {
+            "tid": 1455296,
+            "state": "S",
+            "wchan": "hrtimer_nanosleep",
+            "syscall": {
+              "raw": "115 0x1 0x1 0xe5dd7e2fe650 0x0 0x0 0x0 0xe5dd7e2fe5a0 0xe5dd7f6bbed4",
+              "wchan": "hrtimer_nanosleep",
+              "number": "115",
+              "readLikeWait": false,
+              "pollLikeWait": false
+            }
+          },
+          {
+            "tid": 1455297,
+            "state": "S",
+            "wchan": "hrtimer_nanosleep",
+            "syscall": {
+              "raw": "115 0x1 0x1 0xe5dd7daee650 0x0 0x0 0x0 0xe5dd7daee5a0 0xe5dd7f6bbed4",
+              "wchan": "hrtimer_nanosleep",
+              "number": "115",
+              "readLikeWait": false,
+              "pollLikeWait": false
+            }
+          }
+        ],
+        "roles": "parked-wait-descriptors",
+        "threadStacksCaptured": false
+      }
+    },
+    "materializer": {
+      "strategy": "target-native-reexec-or-shape-adapter",
+      "requires": [
+        "single accepted shape",
+        "empty accepted queues",
+        "no ptrace owner",
+        "target-native resources"
+      ],
+      "rawProcessMemoryMaterialization": false
+    }
+  },
+  "evidence": {
+    "wokenRoles": ["worker-a", "worker-b"],
+    "threadStacksCaptured": false
+  }
+}
