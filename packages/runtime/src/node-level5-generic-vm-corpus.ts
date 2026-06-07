@@ -166,20 +166,28 @@ function isAcceptedGenericVmCorpusRow(row: NodeLevel5GenericVmCorpusRow): boolea
   return row.kind === "positive" ? isAcceptedPositiveRow(row) : isAcceptedRefusalRow(row);
 }
 
+const positiveRowTrueFields = [
+  "wholeVmSnapshot",
+  "nodeDetectedInsideVm",
+  "snapshotAccepted",
+  "restoreAccepted",
+  "behaviorVerified",
+  "targetNativeNodeVerified",
+] as const satisfies ReadonlyArray<keyof NodeLevel5GenericVmPositiveRow>;
+
+const positiveRowFalseFields = [
+  "hostPidProductTargetingUsed",
+  "nodeOnlyProductSelectorUsed",
+  "rawCpuRestoreUsed",
+  "sourceIsaEmulationUsed",
+  "metadataOnlySuccessAccepted",
+] as const satisfies ReadonlyArray<keyof NodeLevel5GenericVmPositiveRow>;
+
 function isAcceptedPositiveRow(row: NodeLevel5GenericVmPositiveRow): boolean {
   return (
     row.productCommandPath === "machinen snapshot <vm-name> --out <dir>; machinen restore <dir>" &&
-    row.wholeVmSnapshot === true &&
-    row.nodeDetectedInsideVm === true &&
-    row.hostPidProductTargetingUsed === false &&
-    row.nodeOnlyProductSelectorUsed === false &&
-    row.snapshotAccepted === true &&
-    row.restoreAccepted === true &&
-    row.behaviorVerified === true &&
-    row.targetNativeNodeVerified === true &&
-    row.rawCpuRestoreUsed === false &&
-    row.sourceIsaEmulationUsed === false &&
-    row.metadataOnlySuccessAccepted === false
+    positiveRowTrueFields.every((field) => row[field] === true) &&
+    positiveRowFalseFields.every((field) => row[field] === false)
   );
 }
 

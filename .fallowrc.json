@@ -10,14 +10,21 @@
     "examples/**/rootfs/**/*.{js,mjs,ts}",
     "examples/firecracker-nested/run.ts",
     "examples/live-mount/shared/server.mjs",
-    "examples/quickstart/counter.mjs"
+    "examples/quickstart/counter.mjs",
+    "packages/cli/src/portable-restore-adapter.ts",
+    "packages/microvm/test-fixtures/proof-assets/*.mjs",
+    "scripts/fixtures/node-ecosystem-registry/packages/*/src/*.cjs"
   ],
   "duplicates": {
     "ignore": [
       "**/__tests__/**",
       "**/*.{test,spec}.{js,jsx,ts,tsx,mjs,cjs}",
       "proof/**",
-      "scripts/native-dwarf-pointer-classification.ts"
+      "scripts/native-dwarf-pointer-classification.ts",
+      "scripts/*-proof.mjs",
+      "scripts/*-smoke.mjs",
+      "scripts/hard-runtime-refusal-contract.mjs",
+      "packages/microvm/test-fixtures/proof-assets/*.mjs"
     ]
   },
   "health": {
@@ -25,18 +32,27 @@
       "**/__tests__/**",
       "**/*.{test,spec}.{js,jsx,ts,tsx,mjs,cjs}",
       "proof/**",
-      "scripts/native-dwarf-pointer-classification.ts"
+      "scripts/native-dwarf-pointer-classification.ts",
+      "scripts/*-proof.mjs",
+      "scripts/*-smoke.mjs",
+      "scripts/hard-runtime-refusal-contract.mjs"
     ]
   },
   "ignoreDependencies": [
     "@homebridge/node-pty-prebuilt-multiarch",
     "@nkzw/oxlint-config",
     "@redwoodjs/agent-ci",
-    "typedoc-plugin-markdown"
+    "typedoc-plugin-markdown",
+    "audited-conditional-exports",
+    "audited-dual-package",
+    "audited-native-prebuild",
+    "audited-optional-consumer",
+    "audited-optional-missing",
+    "audited-optional-present",
+    "audited-peer-consumer",
+    "audited-peer-provider",
+    "audited-transitive-a",
+    "audited-transitive-b"
   ],
-  "audit": {
-    "healthBaseline": "fallow-baselines/audit-health.json",
-    "dupesBaseline": "fallow-baselines/audit-dupes.json",
-    "deadCodeBaseline": "fallow-baselines/audit-dead-code.json"
-  }
+  "dynamicallyLoaded": ["packages/microvm/test-fixtures/proof-assets/*.mjs"]
 }
