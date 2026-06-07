@@ -13,6 +13,7 @@ import { COMMANDS, EXIT_CODES, SCHEMA_VERSION, buildAgentContext } from "../agen
 
 const SRC_DIR = dirname(fileURLToPath(import.meta.url));
 const CLI_SRC = readFileSync(join(SRC_DIR, "..", "cli.ts"), "utf8");
+const MOVE_COMMAND_SRC = readFileSync(join(SRC_DIR, "..", "commands", "move.ts"), "utf8");
 const PORTABLE_RESTORE_ADAPTER_SRC = readFileSync(
   join(SRC_DIR, "..", "portable-restore-adapter.ts"),
   "utf8",
@@ -206,9 +207,9 @@ describe("move-only cross-ISA product route convention", () => {
   it("removes legacy portable restore adapter dispatch and exposes move", () => {
     expect(CLI_SRC).not.toContain("const pingPortableRestoreAdapter");
     expect(CLI_SRC).not.toContain("detectPortableRestoreAdapter(snapDir)");
-    expect(CLI_SRC).toContain("function cmdMove(");
-    expect(CLI_SRC).toContain("saveMoveDescriptor");
-    expect(CLI_SRC).toContain("loadMoveDescriptor");
+    expect(MOVE_COMMAND_SRC).toContain("function cmdMove(");
+    expect(MOVE_COMMAND_SRC).toContain("saveMoveDescriptor");
+    expect(MOVE_COMMAND_SRC).toContain("loadMoveDescriptor");
     expect(CLI_SRC).toContain('["move", cmdMove]');
     expect(PORTABLE_RESTORE_ADAPTER_SRC).toContain("PortableRestoreAdapter");
   });

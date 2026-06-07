@@ -37,11 +37,9 @@ import {
   attach,
   boot,
   buildNodeLevel5AppSupportMatrix,
-  buildProductClaimRegistry,
   createNodeLevel5DeclaredSubsetCapture,
   createNodeLevel5ProductSnapshot,
   createNodeLevel5ProductSupport80ArtifactBundle,
-  filterProductClaimRegistry,
   formatMachinenError,
   isMachinenError,
   isNodeLevel5ProductSnapshotBundle,
@@ -56,18 +54,11 @@ import {
   loadNodeLevel5ProductSupport85ReadinessReport,
   loadNodeLevel5ThirdPartyAppCorpusReport,
   list,
-  productClaimFamilies,
-  productClaimStatuses,
   nodeLevel5ProductSupport80UnsupportedDetectors,
   nodeLevel5ProductSupport85ClaimRegistry,
-  productSupportLevels,
   restore,
   restoreNodeLevel5DeclaredSubset,
   restoreNodeLevel5ProductSnapshot,
-  runGc,
-  loadMoveDescriptor,
-  saveMoveDescriptor,
-  scanMovePidGraph,
   evaluateNodeLevel5ProductSupport85ClaimReady,
   evaluateNodeLevel5ProductSupport85Readiness,
   verifyNodeLevel5ProductSupport80ArtifactBundle,
@@ -79,13 +70,9 @@ import {
   verifyNodeLevel5GenericVmRowArtifactsReport,
   verifyNodeLevel5InstalledThirdPartyAppCorpusReport,
   verifyNodeLevel5ThirdPartyAppCorpusReport,
-  validatePid,
 } from "@machinen/runtime";
 import type {
   LogEvent,
-  ProductClaimFamily,
-  ProductClaimStatus,
-  ProductSupportLevel,
   NodeLevel5ProductSnapshotDirection,
   NodeLevel5ProductSupport80FamilyId,
   RegistryEntry,
@@ -129,9 +116,13 @@ import {
   printHeadline,
   RingBuffer,
 } from "./quiet.ts";
-import { tailLines } from "./tail-lines.ts";
 import { cmdAgentContext, cmdCompletion, cmdFeedback } from "./commands/misc.ts";
 import { cmdGc, cmdLs } from "./commands/registry.ts";
+import { cmdMove } from "./commands/move.ts";
+import { cmdExec } from "./commands/exec.ts";
+import { cmdAttach, cmdRepl } from "./commands/attach.ts";
+import { cmdSupport } from "./commands/support.ts";
+import { cmdStop } from "./commands/stop.ts";
 
 const debug = debugLib("machinen:cli");
 
@@ -1002,84 +993,6 @@ function printInstallReady(result: InstallResult): void {
 type ParsedRestoreCommandArgs = ReturnType<typeof parseRestoreArgs>;
 
 // fallow-ignore-next-line complexity
-function cmdMove(args: string[]): number {
-  const { json, rest } = consumeJsonFlag(args);
-  const subcommand = rest[0];
-  if (subcommand === "scan") {
-    const graph = scanMovePidGraph();
-    if (json) {
-      emitJson({ schema_version: 1, ...graph });
-    } else {
-      process.stdout.write(
-        `move scan: ${graph.nodes.length} processes; refused=${graph.refusedStateClasses.length}\n`,
-      );
-    }
-    return graph.refusedStateClasses.length === 0 ? 0 : 1;
-  }
-  if (subcommand === "save") {
-    return cmdMoveSave(rest.slice(1), json);
-  }
-  if (subcommand === "load") {
-    return cmdMoveLoad(rest.slice(1), json);
-  }
-  die(moveUsage());
-}
-
-// fallow-ignore-next-line complexity
-function cmdMoveSave(args: string[], json: boolean): number {
-  if (args.length < 2) {
-    die(moveUsage());
-  }
-  const pid = parsePositiveInteger(args[0]!, "pid");
-  const outPath = args[1]!;
-  const issue = args.includes("--issue");
-  const issueRepoIndex = args.indexOf("--issue-repo");
-  const issueRepo = issueRepoIndex >= 0 ? args[issueRepoIndex + 1] : undefined;
-  if (issueRepoIndex >= 0 && !issueRepo) {
-    die("move save --issue-repo requires <owner/repo>");
-  }
-  const result = saveMoveDescriptor({ pid, outPath, issue, issueRepo });
-  if (json) {
-    emitJson({ schema_version: 1, ...result });
-  } else {
-    process.stdout.write(
-      `${result.accepted ? "saved" : "refused"} move descriptor: ${result.descriptorPath}\n`,
-    );
-    if (result.issueReport) {
-      process.stdout.write(
-        `issue report: ${result.issueReport.repository}\n${result.issueReport.body}\n`,
-      );
-    }
-  }
-  return result.accepted ? 0 : 1;
-}
-
-// fallow-ignore-next-line complexity
-function cmdMoveLoad(args: string[], json: boolean): number {
-  if (args.length !== 1) {
-    die(moveUsage());
-  }
-  const descriptor = loadMoveDescriptor(args[0]!);
-  const accepted = descriptor.refusedStateClasses.length === 0;
-  if (json) {
-    emitJson({ schema_version: 1, accepted, descriptor });
-  } else if (accepted) {
-    process.stdout.write(`move load accepted descriptor for PID ${descriptor.rootPid}\n`);
-  } else {
-    process.stderr.write(
-      `move load refused descriptor for PID ${descriptor.rootPid}: ${descriptor.refusedStateClasses
-        .map((item) => item.stateClass)
-        .join(", ")}\n`,
-    );
-  }
-  return accepted ? 0 : 1;
-}
-
-function moveUsage(): string {
-  return "usage: machinen move scan [--json] | machinen move save <pid> <out> [--issue] [--issue-repo <owner/repo>] [--json] | machinen move load <descriptor> [--json]";
-}
-
-// fallow-ignore-next-line complexity
 function cmdCapture(args: string[]): number {
   const { json, rest: withoutJson } = consumeJsonFlag(args);
   const { dryRun, rest } = consumeDryRunFlag(withoutJson);
@@ -1907,163 +1820,6 @@ function parseProductArch(value: string, flag: string): "arm64" | "amd64" {
   die(`${flag} must be arm64 or amd64`);
 }
 
-function parsePositiveInteger(value: string, flag: string): number {
-  const parsed = Number(value);
-  if (!Number.isSafeInteger(parsed) || parsed <= 0) {
-    die(`${flag} must be a positive integer`);
-  }
-  return parsed;
-}
-
-type SupportOptions = {
-  json: boolean;
-  family?: ProductClaimFamily;
-  runtime?: string;
-  status?: ProductClaimStatus;
-  profile?: string;
-  resourceFamily?: string;
-  refusalCode?: string;
-  level?: ProductSupportLevel;
-};
-
-function cmdSupport(args: string[]): number {
-  const options = parseSupportArgs(args);
-  const registry = buildProductClaimRegistry(readProductProofProfilesForCli());
-  const entries = filterProductClaimRegistry(registry.entries, {
-    family: options.family,
-    runtime: options.runtime,
-    status: options.status,
-    profile: options.profile,
-    resourceFamily: options.resourceFamily,
-    refusalCode: options.refusalCode,
-    supportLevel: options.level,
-  });
-  const payload = {
-    schema_version: 1,
-    kind: "machinen.product-support-status",
-    filters: {
-      family: options.family,
-      runtime: options.runtime,
-      status: options.status,
-      profile: options.profile,
-      resourceFamily: options.resourceFamily,
-      refusalCode: options.refusalCode,
-      level: options.level,
-    },
-    summary: registry.summary,
-    count: entries.length,
-    entries,
-  };
-  if (options.json) {
-    emitJson(payload);
-    return 0;
-  }
-  process.stdout.write(formatSupportText(payload));
-  return 0;
-}
-
-// fallow-ignore-next-line complexity
-function parseSupportArgs(args: string[]): SupportOptions {
-  const { json, rest } = consumeJsonFlag(args);
-  const options: SupportOptions = { json };
-  for (let index = 0; index < rest.length; index += 1) {
-    const arg = rest[index]!;
-    switch (arg) {
-      case "--family":
-        options.family = parseSupportFamily(takeCaptureValue(rest, ++index, arg));
-        break;
-      case "--runtime":
-        options.runtime = takeCaptureValue(rest, ++index, arg);
-        break;
-      case "--status":
-        options.status = parseSupportStatus(takeCaptureValue(rest, ++index, arg));
-        break;
-      case "--profile":
-        options.profile = takeCaptureValue(rest, ++index, arg);
-        break;
-      case "--resource-family":
-        options.resourceFamily = takeCaptureValue(rest, ++index, arg);
-        break;
-      case "--refusal-code":
-        options.refusalCode = takeCaptureValue(rest, ++index, arg);
-        break;
-      case "--level":
-        options.level = parseSupportLevel(takeCaptureValue(rest, ++index, arg));
-        break;
-      default:
-        die(`${supportUsage()}\nunknown argument: ${arg}`);
-    }
-  }
-  return options;
-}
-
-function supportUsage(): string {
-  return (
-    "usage: machinen support [--family <family>] [--runtime <runtime>] " +
-    "[--status <status>] [--profile <name>] [--resource-family <family>] " +
-    "[--refusal-code <code>] [--level <support-level>] [--json]"
-  );
-}
-
-function parseSupportFamily(value: string): ProductClaimFamily {
-  if ((productClaimFamilies as readonly string[]).includes(value)) {
-    return value as ProductClaimFamily;
-  }
-  die(`--family must be one of: ${productClaimFamilies.join(", ")}`);
-}
-
-function parseSupportStatus(value: string): ProductClaimStatus {
-  if ((productClaimStatuses as readonly string[]).includes(value)) {
-    return value as ProductClaimStatus;
-  }
-  die(`--status must be one of: ${productClaimStatuses.join(", ")}`);
-}
-
-function parseSupportLevel(value: string): ProductSupportLevel {
-  if ((productSupportLevels as readonly string[]).includes(value)) {
-    return value as ProductSupportLevel;
-  }
-  die(`--level must be one of: ${productSupportLevels.join(", ")}`);
-}
-
-function readProductProofProfilesForCli(): Array<Record<string, unknown> & { name: string }> {
-  const candidates = [
-    join(process.cwd(), "scripts/portable-machine-proof-profiles.json"),
-    join(
-      dirname(dirname(dirname(resolve(process.argv[1] ?? ".")))),
-      "scripts/portable-machine-proof-profiles.json",
-    ),
-  ];
-  const path = candidates.find((candidate) => existsSync(candidate));
-  if (!path) {
-    die("could not locate scripts/portable-machine-proof-profiles.json for support discovery");
-  }
-  const parsed = JSON.parse(readFileSync(path, "utf8")) as Array<
-    Record<string, unknown> & { name: string }
-  >;
-  return parsed;
-}
-
-function formatSupportText(payload: {
-  summary: ReturnType<typeof buildProductClaimRegistry>["summary"];
-  count: number;
-  entries: Array<ReturnType<typeof buildProductClaimRegistry>["entries"][number]>;
-}): string {
-  const lines = [
-    `product support claims: ${payload.count}/${payload.summary.total}`,
-    `implemented=${payload.summary.implementedProductSupport} refused=${payload.summary.stableProductRefusals} proof-only=${payload.summary.proofOnlyFixtures}`,
-  ];
-  for (const entry of payload.entries.slice(0, 25)) {
-    lines.push(
-      `${entry.name}\t${entry.family}\t${entry.supportLevel}\t${entry.productStatus}\t${entry.productRefusalCode ?? "-"}`,
-    );
-  }
-  if (payload.entries.length > 25) {
-    lines.push(`... ${payload.entries.length - 25} more; pass --json for the full registry`);
-  }
-  return `${lines.join("\n")}\n`;
-}
-
 // fallow-ignore-next-line complexity code-duplication
 function cmdRestoreNodeLevel5DeclaredSubset(input: { json: boolean; rest: string[] }): number {
   const options = parseNodeLevel5DeclaredSubsetRestoreArgs(input.rest);
@@ -2506,425 +2262,6 @@ function runRestoreAttachedSession(vm: VmHandle, quiet: QuietRunState): Promise<
     preReadyExitSummary: (code) =>
       `restore ${quiet.headlineName} exited ${code} before reaching ready`,
   });
-}
-
-// `machinen stop <name|pid>` — SIGTERM the VMM, escalate to SIGKILL
-// after 2s, then gc its entry. Resolves `--detached` boots' Ctrl-C
-// problem: the CLI no longer holds the VMM, so a separate `stop`
-// command is the only way to ask for a clean shutdown.
-async function cmdStop(args: string[]): Promise<number> {
-  const opts = parseStopOptions(args);
-  const entry = lookupEntry(opts.target);
-  if (!entry) {
-    reportStopMissingTarget(opts);
-    return 1;
-  }
-  return stopExistingEntry(entry, opts);
-}
-
-async function stopExistingEntry(entry: RegistryEntry, opts: StopOptions): Promise<number> {
-  const status = validateStopEntry(entry);
-  if (await handleInactiveStopEntry(entry, status, opts)) {
-    return 0;
-  }
-  if (opts.dryRun) {
-    reportStopDryRun(entry, opts);
-    return 0;
-  }
-  return stopLiveEntry(entry, opts);
-}
-
-async function stopLiveEntry(entry: RegistryEntry, opts: StopOptions): Promise<number> {
-  const sig = stopSignal(opts.force);
-  if (!signalStopProcess(entry.pid, sig, opts, "STOP_KILL_FAILED")) {
-    return 1;
-  }
-  await escalateIfNeeded(entry.pid, opts.force);
-  await stopGvproxy(entry, sig, opts.force);
-  finishStoppedEntry(entry, opts);
-  return 0;
-}
-
-type StopStatus = "stopped" | "would_stop" | "already_dead" | "recycled";
-
-interface StopOptions {
-  json: boolean;
-  dryRun: boolean;
-  force: boolean;
-  target: Target;
-}
-
-function parseStopOptions(args: string[]): StopOptions {
-  const { json, rest: afterJson } = consumeJsonFlag(args);
-  const { dryRun, rest: afterDry } = consumeDryRunFlag(afterJson);
-  const { force, rest } = consumeForceFlag(afterDry);
-  return { json, dryRun, force, target: parseTargetFlags(rest, "stop") };
-}
-
-function consumeForceFlag(args: string[]): { force: boolean; rest: string[] } {
-  const rest: string[] = [];
-  let force = false;
-  for (const arg of args) {
-    if (arg === "--force" || arg === "-9") {
-      force = true;
-    } else {
-      rest.push(arg);
-    }
-  }
-  return { force, rest };
-}
-
-function reportStopMissingTarget(opts: StopOptions): void {
-  const message = `no running VM matched ${describeTarget(opts.target)}`;
-  if (opts.json) {
-    emitJsonError("VM_NOT_FOUND", message);
-  } else {
-    process.stderr.write(`machinen stop: ${message}\n`);
-  }
-}
-
-function emitStop(entry: RegistryEntry, opts: StopOptions, status: StopStatus): void {
-  if (!opts.json) {
-    return;
-  }
-  emitJson({
-    schema_version: 1,
-    pid: entry.pid,
-    name: entry.name ?? null,
-    status,
-    dry_run: opts.dryRun,
-  });
-}
-
-function validateStopEntry(entry: RegistryEntry) {
-  // Pid-validate before signalling — refuses to kill a recycled pid.
-  return validatePid(entry.pid, {
-    vmmExe: entry.vmmExe,
-    startedAt: entry.startedAt,
-  });
-}
-
-async function handleInactiveStopEntry(
-  entry: RegistryEntry,
-  status: ReturnType<typeof validateStopEntry>,
-  opts: StopOptions,
-): Promise<boolean> {
-  if (status === "recycled") {
-    reportRecycledStopEntry(entry, opts);
-    gcStoppedEntry(entry, opts.dryRun);
-    emitStop(entry, opts, "recycled");
-    return true;
-  }
-  if (status === "dead") {
-    reportDeadStopEntry(entry, opts);
-    gcStoppedEntry(entry, opts.dryRun);
-    emitStop(entry, opts, "already_dead");
-    return true;
-  }
-  return false;
-}
-
-function reportRecycledStopEntry(entry: RegistryEntry, opts: StopOptions): void {
-  if (opts.json) {
-    return;
-  }
-  process.stderr.write(
-    `machinen stop: registry entry pid ${entry.pid} is now held by an unrelated process; ` +
-      (opts.dryRun ? "would skip kill and gc.\n" : "skipping kill and running gc.\n"),
-  );
-}
-
-function reportDeadStopEntry(entry: RegistryEntry, opts: StopOptions): void {
-  if (opts.json) {
-    return;
-  }
-  process.stderr.write(
-    `machinen stop: pid ${entry.pid} already gone; ` +
-      (opts.dryRun ? "would gc.\n" : "running gc.\n"),
-  );
-}
-
-function gcStoppedEntry(entry: RegistryEntry, dryRun: boolean): void {
-  if (!dryRun) {
-    runGc({ pid: entry.pid });
-  }
-}
-
-function reportStopDryRun(entry: RegistryEntry, opts: StopOptions): void {
-  if (!opts.json) {
-    const sigLabel = opts.force ? "SIGKILL" : "SIGTERM (escalates to SIGKILL after 2s)";
-    process.stdout.write(`would ${sigLabel} ${entryLabel(entry)}\n`);
-  }
-  emitStop(entry, opts, "would_stop");
-}
-
-function stopSignal(force: boolean): NodeJS.Signals {
-  return force ? "SIGKILL" : "SIGTERM";
-}
-
-function signalStopProcess(
-  pid: number,
-  signal: NodeJS.Signals,
-  opts: Pick<StopOptions, "json">,
-  errorCode: string,
-): boolean {
-  try {
-    process.kill(pid, signal);
-    return true;
-  } catch (err) {
-    reportStopSignalError(pid, err, opts, errorCode);
-    return false;
-  }
-}
-
-function reportStopSignalError(
-  pid: number,
-  err: unknown,
-  opts: Pick<StopOptions, "json">,
-  errorCode: string,
-): void {
-  const msg = `failed to signal pid ${pid}: ${describeError(err)}`;
-  if (opts.json) {
-    emitJsonError(errorCode, msg);
-  } else {
-    process.stderr.write(`machinen stop: ${msg}\n`);
-  }
-}
-
-async function escalateIfNeeded(pid: number, force: boolean): Promise<void> {
-  if (force) {
-    return;
-  }
-  await waitForExit(pid, 2_000);
-  if (pidIsAlive(pid)) {
-    tryKill(pid, "SIGKILL");
-  }
-}
-
-function pidIsAlive(pid: number): boolean {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function tryKill(pid: number, signal: NodeJS.Signals): void {
-  try {
-    process.kill(pid, signal);
-  } catch {}
-}
-
-async function stopGvproxy(
-  entry: RegistryEntry,
-  signal: NodeJS.Signals,
-  force: boolean,
-): Promise<void> {
-  // #150 phase 2 PR3: signal gvproxy too. Detached gvproxy survives
-  // the parent's exit on its own (no pdeathsig); without this it'd
-  // outlive every `machinen stop`, holding host ports and leaking
-  // the qemu/control sockets. Anti-recycling guard mirrors the VMM
-  // path — basename match against the recorded gvproxy binary.
-  if (!entry.gvproxyPid || !entry.gvproxyExe) {
-    return;
-  }
-  await handleGvproxyStatus(
-    entry.gvproxyPid,
-    validatePid(entry.gvproxyPid, { vmmExe: entry.gvproxyExe }),
-    signal,
-    force,
-  );
-}
-
-async function handleGvproxyStatus(
-  pid: number,
-  status: ReturnType<typeof validatePid>,
-  signal: NodeJS.Signals,
-  force: boolean,
-): Promise<void> {
-  if (status === "alive") {
-    await signalGvproxy(pid, signal, force);
-  } else if (status === "recycled") {
-    process.stderr.write(
-      `machinen stop: gvproxy pid ${pid} now held by an unrelated process; skipping.\n`,
-    );
-  }
-}
-
-async function signalGvproxy(pid: number, signal: NodeJS.Signals, force: boolean): Promise<void> {
-  if (!signalStopProcess(pid, signal, { json: false }, "STOP_GVPROXY_KILL_FAILED")) {
-    return;
-  }
-  await escalateIfNeeded(pid, force);
-}
-
-function finishStoppedEntry(entry: RegistryEntry, opts: StopOptions): void {
-  // Final gc to drop the registry entry + cleanupPaths (including the
-  // gvproxy socket dir that PR3 added to the cleanup list).
-  runGc({ pid: entry.pid });
-  if (opts.json) {
-    emitStop(entry, opts, "stopped");
-  } else {
-    process.stdout.write(`stopped ${entryLabel(entry)}\n`);
-  }
-}
-
-function entryLabel(entry: RegistryEntry): string {
-  return entry.name ? `${entry.name} (pid ${entry.pid})` : `pid ${entry.pid}`;
-}
-
-/**
- * Poll `kill(pid, 0)` until the process is gone or the deadline
- * passes. Polling beats kqueue/inotify here — the pid we're watching
- * is *not* our child, so there's no SIGCHLD to listen for.
- */
-async function waitForExit(pid: number, timeoutMs: number): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    try {
-      process.kill(pid, 0);
-    } catch {
-      return;
-    }
-    await new Promise((r) => setTimeout(r, 50));
-  }
-}
-
-function lookupEntry(target: { name: string } | { pid: number }): RegistryEntry | undefined {
-  return list().find((entry) => entryMatchesTarget(entry, target));
-}
-
-function entryMatchesTarget(
-  entry: RegistryEntry,
-  target: { name: string } | { pid: number },
-): boolean {
-  if ("name" in target) {
-    return entry.name === target.name;
-  }
-  return entry.pid === target.pid;
-}
-
-function describeTarget(target: { name: string } | { pid: number }): string {
-  return "name" in target ? `name ${target.name}` : `pid ${target.pid}`;
-}
-
-async function cmdExec(args: string[]): Promise<number> {
-  const parsed = parseExecArgs(args);
-  const vm = await attach(parsed.target).catch(handleError);
-  try {
-    return await runExecCommand(vm, parsed);
-  } finally {
-    await vm.detach();
-  }
-}
-
-interface ParsedExecArgs {
-  target: Target;
-  cmd: string;
-  usePty: boolean;
-}
-
-function parseExecArgs(args: string[]): ParsedExecArgs {
-  const { usePty, filtered } = consumeExecPtyFlag(args);
-  const dashIdx = filtered.indexOf("--");
-  if (dashIdx === -1 || dashIdx === filtered.length - 1) {
-    die("usage: machinen exec <name|pid> [--tty] -- <cmd>");
-  }
-  return {
-    usePty,
-    target: parseTargetFlags(filtered.slice(0, dashIdx), "exec"),
-    cmd: filtered.slice(dashIdx + 1).join(" "),
-  };
-}
-
-function consumeExecPtyFlag(args: string[]): { usePty: boolean; filtered: string[] } {
-  // Pull --tty out before the `--` boundary so it isn't passed to the
-  // workload. Caller opts into line-discipline translation explicitly.
-  const filtered: string[] = [];
-  let usePty = false;
-  for (const arg of args) {
-    if (arg === "--tty" || arg === "--pty") {
-      usePty = true;
-    } else {
-      filtered.push(arg);
-    }
-  }
-  return { usePty, filtered };
-}
-
-async function runExecCommand(vm: VmHandle, parsed: ParsedExecArgs): Promise<number> {
-  if (parsed.usePty) {
-    assertExecPtyTty();
-    return runPtyExec(vm, parsed.cmd);
-  }
-  return runRawExec(vm, parsed.cmd);
-}
-
-function assertExecPtyTty(): void {
-  if (!process.stdin.isTTY) {
-    die("machinen exec --tty: stdin is not a TTY; pass via terminal or drop --tty");
-  }
-}
-
-async function runRawExec(vm: VmHandle, cmd: string): Promise<number> {
-  // Shell out via `sh -c` on the guest so caller can pass piped
-  // commands naturally. Users who want raw exec of a single binary
-  // can quote it like `machinen exec foo -- /bin/ls`.
-  const res = await vm.execRaw(cmd, {
-    onStdout: (chunk) => process.stdout.write(chunk),
-    onStderr: (chunk) => process.stderr.write(chunk),
-  });
-  return res.exitCode;
-}
-
-async function runPtyExec(vm: VmHandle, cmd: string): Promise<number> {
-  // PTY mode (#133): bidirectional bytes between this terminal and a
-  // guest pseudoterminal. Flip stdin to raw so Ctrl-C, arrows, and
-  // function keys reach the guest as untranslated bytes; restore on
-  // every exit path so the user's shell isn't left in raw mode.
-  // Caller is responsible for asserting stdin is a TTY (the right
-  // error message depends on whether you got here via `attach` or
-  // `exec --tty`).
-  const tty = enterPtyRawMode();
-  const handle = vm.execPty(cmd, {
-    cols: tty.cols,
-    rows: tty.rows,
-    stdin: process.stdin,
-    stdout: process.stdout,
-  });
-  const onResize = () =>
-    handle.resize(process.stdout.columns ?? tty.cols, process.stdout.rows ?? tty.rows);
-  process.stdout.on("resize", onResize);
-  try {
-    const { exitCode } = await handle.result;
-    return exitCode;
-  } finally {
-    process.stdout.removeListener("resize", onResize);
-    tty.restore();
-  }
-}
-
-function enterPtyRawMode(): { cols: number; rows: number; restore: () => void } {
-  const wasRaw = process.stdin.isRaw === true;
-  process.stdin.setRawMode(true);
-  process.stdin.resume();
-  return {
-    cols: process.stdout.columns ?? 80,
-    rows: process.stdout.rows ?? 24,
-    restore: () => restorePtyRawMode(wasRaw),
-  };
-}
-
-function restorePtyRawMode(wasRaw: boolean): void {
-  if (wasRaw) {
-    return;
-  }
-  try {
-    process.stdin.setRawMode(false);
-  } catch {
-    // Already restored or stream destroyed; ignore.
-  }
 }
 
 async function cmdSnapshot(args: string[]): Promise<number> {
@@ -3659,214 +2996,6 @@ function tryWriteForkPromptNudge(fork: VmHandle): void {
   }
 }
 
-async function cmdAttach(args: string[]): Promise<number> {
-  const opts = parseAttachOptions(args);
-  printAttachTailIfRequested(opts);
-  // Resolve the target before the TTY check: a typo in --name should
-  // surface "no running VM found", not the TTY error. The TTY error
-  // is only useful once we know the VM exists.
-  const vm = await attach(opts.target).catch(handleError);
-  return runAttachedPty(vm, opts.shell);
-}
-
-interface AttachOptionsCli {
-  shell: string;
-  tail?: number | "all";
-  target: Target;
-}
-
-function parseAttachOptions(args: string[]): AttachOptionsCli {
-  const state = {
-    shell: "/bin/bash -i",
-    tail: undefined as number | "all" | undefined,
-    rest: [] as string[],
-  };
-  for (let i = 0; i < args.length; i++) {
-    i = consumeAttachArg(args, i, state);
-  }
-  return { shell: state.shell, tail: state.tail, target: parseTargetFlags(state.rest, "attach") };
-}
-
-type AttachArgHandler = (
-  args: string[],
-  index: number,
-  arg: string,
-  state: { shell: string; tail?: number | "all"; rest: string[] },
-) => number;
-
-function consumeAttachArg(
-  args: string[],
-  index: number,
-  state: { shell: string; tail?: number | "all"; rest: string[] },
-): number {
-  const arg = args[index]!;
-  const handler = attachArgHandler(arg);
-  if (handler) {
-    return handler(args, index, arg, state);
-  }
-  state.rest.push(arg);
-  return index;
-}
-
-const ATTACH_ARG_HANDLERS: Array<[(arg: string) => boolean, AttachArgHandler]> = [
-  [(arg) => arg === "--shell" || arg.startsWith("--shell="), consumeAttachShell],
-  [(arg) => arg === "--tail" || arg.startsWith("--tail="), consumeAttachTail],
-];
-
-function attachArgHandler(arg: string): AttachArgHandler | undefined {
-  return ATTACH_ARG_HANDLERS.find(([matches]) => matches(arg))?.[1];
-}
-
-function consumeAttachShell(
-  args: string[],
-  index: number,
-  arg: string,
-  state: { shell: string },
-): number {
-  const value = arg === "--shell" ? args[index + 1] : arg.slice("--shell=".length);
-  if (!value) {
-    die("--shell requires a value");
-  }
-  state.shell = value;
-  return arg === "--shell" ? index + 1 : index;
-}
-
-function consumeAttachTail(
-  args: string[],
-  index: number,
-  arg: string,
-  state: { tail?: number | "all" },
-): number {
-  const { value, nextIndex } = attachTailValue(args, index, arg);
-  state.tail = parseAttachTail(value);
-  return nextIndex;
-}
-
-function attachTailValue(
-  args: string[],
-  index: number,
-  arg: string,
-): { value: string | undefined; nextIndex: number } {
-  if (arg !== "--tail") {
-    return { value: arg.slice("--tail=".length), nextIndex: index };
-  }
-  const peek = args[index + 1];
-  if (peek && /^[0-9]+$/.test(peek)) {
-    return { value: peek, nextIndex: index + 1 };
-  }
-  return { value: undefined, nextIndex: index };
-}
-
-function parseAttachTail(value: string | undefined): number | "all" {
-  // `--tail` (no value) prints the whole snapshot. `--tail N`
-  // prints the last N lines. The snapshot is capped at ~1 MiB so
-  // even the no-value form is bounded.
-  if (value === undefined) {
-    return "all";
-  }
-  const n = Number(value);
-  if (!Number.isInteger(n) || n < 0) {
-    die(`--tail: expected a non-negative integer, got '${value}'`);
-  }
-  return n;
-}
-
-function printAttachTailIfRequested(opts: AttachOptionsCli): void {
-  // #150 phase 2 PR3: --tail dumps the boot-console snapshot before
-  // (or instead of) the interactive shell. Look up the registry entry
-  // directly — `attach()` only returns a VmHandle, not the registry row.
-  if (opts.tail === undefined) {
-    return;
-  }
-  const entry = lookupAttachTailEntry(opts.target);
-  printBootLogTail(entry.bootLogPath!, opts.tail);
-}
-
-function lookupAttachTailEntry(target: Target): RegistryEntry {
-  const entry = lookupEntry(target);
-  if (!entry) {
-    die(`machinen attach: no running VM matched ${describeTarget(target)}`);
-  }
-  if (!entry.bootLogPath) {
-    die(
-      `machinen attach --tail: VM was not booted with --detached, no snapshot exists. ` +
-        `Use 'machinen attach' (no --tail) for live console access.`,
-    );
-  }
-  return entry;
-}
-
-async function runAttachedPty(vm: VmHandle, shell: string): Promise<number> {
-  if (!process.stdin.isTTY) {
-    await vm.detach();
-    die("machinen attach: stdin is not a TTY (pipe scripts via `machinen repl` instead)");
-  }
-  process.stderr.write(`attached to ${vm.name ?? `pid ${vm.pid}`} — exit the shell to detach.\n`);
-  try {
-    return await runPtyExec(vm, shell);
-  } finally {
-    await vm.detach();
-  }
-}
-
-function printBootLogTail(path: string, tail: number | "all"): void {
-  let content: string;
-  try {
-    content = readFileSync(path, "utf8");
-  } catch (err) {
-    process.stderr.write(
-      `machinen attach --tail: couldn't read ${path}: ${err instanceof Error ? err.message : String(err)}\n`,
-    );
-    return;
-  }
-  process.stderr.write(tailLines(content, tail));
-}
-
-async function cmdRepl(args: string[]): Promise<number> {
-  // Per-line exec REPL — every line you type is a fresh one-shot
-  // command, so `cd`, env vars, and shell history do NOT carry over.
-  // This is the niche `attach` used to fill; kept around for piping
-  // a script of one-liners (e.g. `cat cmds.txt | machinen repl ...`).
-  // For an actual interactive shell, use `machinen attach`.
-  const target = parseTargetFlags(args, "repl");
-  const vm = await attach(target).catch(handleError);
-  printReplIntro(vm);
-  try {
-    await runReplLoop(vm);
-    return 0;
-  } finally {
-    await vm.detach();
-  }
-}
-
-function printReplIntro(vm: VmHandle): void {
-  process.stderr.write(`repl: ${vm.name ?? `pid ${vm.pid}`}\n`);
-  process.stderr.write(
-    `each line is a fresh one-shot exec — cd / env vars / history do NOT persist.\n` +
-      `for an interactive shell with job control + TUI support, use:\n` +
-      `  machinen attach ${vm.name ?? vm.pid}\n` +
-      `Ctrl-D to exit.\n`,
-  );
-}
-
-async function runReplLoop(vm: VmHandle): Promise<void> {
-  const { createInterface } = await import("node:readline");
-  const rl = createInterface({ input: process.stdin, output: process.stdout, terminal: false });
-  for await (const line of rl) {
-    await runReplLine(vm, line);
-  }
-}
-
-async function runReplLine(vm: VmHandle, line: string): Promise<void> {
-  if (line.length === 0) {
-    return;
-  }
-  await vm.execRaw(line, {
-    onStdout: (chunk) => process.stdout.write(chunk),
-    onStderr: (chunk) => process.stderr.write(chunk),
-  });
-}
-
 /**
  * Wrap the pure `extractTarget` parser with the CLI's error
  * formatting. Callers either use this directly (snapshot, which has a
@@ -3891,6 +3020,28 @@ function parseTargetFlags(args: string[], cmd: string): Target {
     die(`unknown argument: ${rest[0]}`);
   }
   return target;
+}
+
+function lookupEntry(target: { name: string } | { pid: number }): RegistryEntry | undefined {
+  return list().find((entry) => entryMatchesTarget(entry, target));
+}
+
+function entryMatchesTarget(
+  entry: RegistryEntry,
+  target: { name: string } | { pid: number },
+): boolean {
+  if ("name" in target) {
+    return entry.name === target.name;
+  }
+  return entry.pid === target.pid;
+}
+
+function describeTarget(target: { name: string } | { pid: number }): string {
+  return "name" in target ? `name ${target.name}` : `pid ${target.pid}`;
+}
+
+function entryLabel(entry: RegistryEntry): string {
+  return entry.name ? `${entry.name} (pid ${entry.pid})` : `pid ${entry.pid}`;
 }
 
 // ------------------------------------------------------------
